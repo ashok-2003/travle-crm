@@ -12,6 +12,13 @@ const softDeleteTables = softDeleteModels.map((model) =>
   model.replaceAll(/[A-Z]/g, (letter, index: number) => (index ? "_" : "") + letter.toLowerCase()),
 );
 
+/**
+ * Tables whose organization_id app_runtime may not update at all (column-level grants, migration
+ * runtime_column_grants), which is stronger than row-level security, each with a column it may update instead. Fixed,
+ * not read from the grants, so a mistaken REVOKE on another table still fails here.
+ */
+const organizationIdNotUpdatable: Record<string, string> = { role: "name" };
+
 const quoteIdentifier = (name: string): string => `"${name.replaceAll('"', '""')}"`;
 
 async function tablesWithOrganizationId(platform: PlatformClient): Promise<string[]> {
@@ -66,9 +73,8 @@ describe("organization isolation", () => {
     });
 
     it("cannot be updated by another organization", async () => {
-      expect(await db.forOrg(orgB, (tx) => tx.$executeRaw`UPDATE ${table} SET organization_id = organization_id`)).toBe(
-        0,
-      );
+      const column = Prisma.raw(quoteIdentifier(organizationIdNotUpdatable[tableName] ?? "organization_id"));
+      expect(await db.forOrg(orgB, (tx) => tx.$executeRaw`UPDATE ${table} SET ${column} = ${column}`)).toBe(0);
     });
 
     it("cannot be deleted by another organization", async () => {
@@ -86,7 +92,7 @@ describe("organization isolation", () => {
     it("cannot be moved into another organization", async () => {
       await expect(
         db.forOrg(orgA, (tx) => tx.$executeRaw`UPDATE ${table} SET organization_id = ${orgB}::uuid`),
-      ).rejects.toThrow(/row-level security/);
+      ).rejects.toThrow(tableName in organizationIdNotUpdatable ? /permission denied/ : /row-level security/);
     });
 
     it("is invisible when no organization is set", async () => {

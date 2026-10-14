@@ -1,8 +1,9 @@
 // Rules the identity tables enforce themselves: role key and scope formats, key reuse after a soft delete,
-// one organization per user, the sign-in table list, and which organization columns the api may change.
+// one organization per user, the sign-in table list, and which organization, role and member columns the api may change.
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { createPrismaClient } from "../src/client.js";
 import { createDatabase, type Database } from "../src/database.js";
+import { Prisma } from "../src/generated/prisma/client.js";
 import { createPlatformClient, type PlatformClient } from "../src/platform.js";
 import { createTestOrganization } from "./helpers.js";
 import { signInTables } from "./org-table-fixtures.js";
@@ -131,6 +132,53 @@ describe("identity tables", () => {
       ).rejects.toThrow(/permission denied/);
       await expect(
         runtime.organization.update({ where: { id: organizationId }, data: { code: "HIJACK1" } }),
+      ).rejects.toThrow(/permission denied/);
+    } finally {
+      await runtime.$disconnect();
+    }
+  });
+
+  it("lets the api rename, delete and restore a role, but never change its key or make it the Owner role", async () => {
+    const role = await db.forOrg(organizationId, (tx) =>
+      tx.role.create({ data: { key: "column-grants", name: "Column grants" } }),
+    );
+    const run = (statement: Prisma.Sql) => db.forOrg(organizationId, (tx) => tx.$executeRaw(statement));
+    const byId = Prisma.sql`WHERE id = ${role.id}::uuid`;
+    await expect(run(Prisma.sql`UPDATE role SET name = 'Renamed', updated_at = now() ${byId}`)).resolves.toBe(1);
+    await expect(
+      run(Prisma.sql`UPDATE role SET deleted_at = now(), deleted_by = ${role.id}::uuid ${byId}`),
+    ).resolves.toBe(1);
+    await expect(run(Prisma.sql`UPDATE role SET deleted_at = NULL, deleted_by = NULL ${byId}`)).resolves.toBe(1);
+    // member.role holds the key, so a changed key would free it for reuse; is_owner would grant everything.
+    await expect(run(Prisma.sql`UPDATE role SET key = 'stolen-key' ${byId}`)).rejects.toThrow(/permission denied/);
+    await expect(run(Prisma.sql`UPDATE role SET is_owner = true ${byId}`)).rejects.toThrow(/permission denied/);
+  });
+
+  it("lets the api change a member's role, remove and restore them, but never move them to another organization or user", async () => {
+    const otherOrganizationId = await createTestOrganization(platform, "Identity tables, member columns");
+    const runtime = createPrismaClient(urls.runtime, { max: 1 });
+    try {
+      const [user, otherUser] = await Promise.all(
+        ["kept", "other"].map((name) =>
+          runtime.user.create({ data: { name, email: `${name}-columns-${organizationId}@example.test` } }),
+        ),
+      );
+      if (!user || !otherUser) throw new Error("users not created");
+      const member = await runtime.member.create({ data: { userId: user.id, organizationId, role: "sales" } });
+      await expect(
+        runtime.$executeRaw`UPDATE member SET role = 'operations' WHERE id = ${member.id}::uuid`,
+      ).resolves.toBe(1);
+      await expect(
+        runtime.$executeRaw`UPDATE member SET deleted_at = now(), deleted_by = ${user.id}::uuid WHERE id = ${member.id}::uuid`,
+      ).resolves.toBe(1);
+      await expect(
+        runtime.$executeRaw`UPDATE member SET deleted_at = NULL, deleted_by = NULL WHERE id = ${member.id}::uuid`,
+      ).resolves.toBe(1);
+      await expect(
+        runtime.$executeRaw`UPDATE member SET organization_id = ${otherOrganizationId}::uuid WHERE id = ${member.id}::uuid`,
+      ).rejects.toThrow(/permission denied/);
+      await expect(
+        runtime.$executeRaw`UPDATE member SET user_id = ${otherUser.id}::uuid WHERE id = ${member.id}::uuid`,
       ).rejects.toThrow(/permission denied/);
     } finally {
       await runtime.$disconnect();
