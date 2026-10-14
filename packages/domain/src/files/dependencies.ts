@@ -17,6 +17,11 @@ export interface GeneratedFile {
   contentType: string;
   body: Uint8Array;
   sensitive?: boolean | undefined;
+  /**
+   * A UUID the caller chooses, so a retried job stores the file once: a file already stored under it for the same
+   * record is returned as it is.
+   */
+  attachmentId?: string | undefined;
 }
 
 /** A short-lived link that downloads a file. */

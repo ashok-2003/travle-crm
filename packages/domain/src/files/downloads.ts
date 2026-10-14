@@ -2,7 +2,8 @@
 import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
-import { findAttachment, storageKeyOf, type AttachmentRow } from "./attachment-row.js";
+import type { AttachmentRefInput } from "@travel-crm/contracts/files";
+import { findAttachment, findAttachmentById, storageKeyOf, type AttachmentRow } from "./attachment-row.js";
 import type { DownloadLink, FilesDependencies } from "./dependencies.js";
 
 /** Short: a link that leaks in a chat or a log stops working within minutes. */
@@ -11,9 +12,9 @@ const DOWNLOAD_URL_SECONDS = 5 * 60;
 export async function downloadLink(
   { db, storage }: FilesDependencies,
   actor: MemberAccess,
-  input: { attachmentId: string },
+  input: AttachmentRefInput,
 ): Promise<DownloadLink> {
-  const row = await db.forOrg(actor.organizationId, (tx) => findAttachment(tx, input.attachmentId));
+  const row = await db.forOrg(actor.organizationId, (tx) => findAttachment(tx, input));
   assertReady(row);
   if (row.sensitive && !actor.permissions.has("documents:view_sensitive")) {
     throw new DomainError("FORBIDDEN", "MISSING_PERMISSION", "Requires documents:view_sensitive");
@@ -30,7 +31,7 @@ export async function systemDownloadLink(
   organizationId: string,
   input: { attachmentId: string },
 ): Promise<DownloadLink> {
-  const row = await db.forOrg(organizationId, (tx) => findAttachment(tx, input.attachmentId));
+  const row = await db.forOrg(organizationId, (tx) => findAttachmentById(tx, input.attachmentId));
   assertReady(row);
   if (row.sensitive) {
     throw new DomainError("FORBIDDEN", "SENSITIVE_FILE", "Sensitive files are shown only to staff allowed to see them");

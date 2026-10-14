@@ -11,13 +11,17 @@ documents are marked sensitive (spec 5).
   - `requestUpload(actor, input)`: records a pending file and returns it with the presigned upload (10 minutes) the
     browser sends the file to, with the headers it must send unchanged. Refuses `LIMIT_REACHED`/`STORAGE_LIMIT_REACHED`
     past the storage limit;
-  - `confirmUpload(actor, { attachmentId })`: marks it ready once storage holds the promised size and type
-    (`NOT_FOUND`/`UPLOAD_NOT_FOUND`, `VALIDATION`/`UPLOAD_DOES_NOT_MATCH`); harmless to repeat;
-  - `downloadLink(member, { attachmentId })`: a 5-minute link that saves the file under its name; a sensitive file
+  - `confirmUpload(actor, { recordType, recordId, attachmentId })`: marks it ready once storage holds the promised size and type
+    (`NOT_FOUND`/`UPLOAD_NOT_FOUND`, `VALIDATION`/`UPLOAD_DOES_NOT_MATCH`); harmless to repeat, which is the answer to a retried PUT that storage refuses with 412 (the first arrived);
+  - `downloadLink(member, { recordType, recordId, attachmentId })`: a 5-minute link that saves the file under its name; a sensitive file
     needs `documents:view_sensitive` (`FORBIDDEN`/`MISSING_PERMISSION`);
-  - `list(actor, { recordType, recordId })`: the record's ready files, sensitive ones marked;
-  - `remove(actor, { attachmentId })`: a soft delete;
-  - `storeGeneratedFile(actor, file)`: stores a file the server made (a rendered PDF) and returns it ready;
+  - `list(actor, { recordType, recordId })`: the record's ready files, sensitive ones marked; a sensitive file's name
+    shows only to members with `documents:view_sensitive`, others (and the system) see "Sensitive file";
+  - `remove(actor, { recordType, recordId, attachmentId })`: a soft delete; a sensitive file needs
+    `documents:view_sensitive` (the system may);
+  - `storeGeneratedFile(actor, file)`: stores a file the server made (a rendered PDF) and returns it ready. With a
+    chosen `attachmentId` a retry stores it once (`CONFLICT`/`ATTACHMENT_ID_IN_USE` if the id belongs to another
+    record); the name must pass `attachmentFileName` (`VALIDATION`/`INVALID_FILE_NAME`);
   - `systemDownloadLink(organizationId, { attachmentId })`: for server code that has already decided the viewer may
     see the file (share links); refuses sensitive files (`FORBIDDEN`/`SENSITIVE_FILE`);
   - `storageUsedBytes(organizationId)`.
@@ -31,7 +35,8 @@ None yet.
 ## Rules worth knowing
 
 - The calling module checks that the actor may see or change the record; this module checks organization,
-  readiness and sensitivity. Another organization's file is always "not found".
+  record, readiness and sensitivity. Another organization's file, or another record's, is always "not found":
+  confirm, download and remove take the record along with the id.
 - A file's storage key is `organizations/<organization id>/attachments/<attachment id>`, made from the row and never
   stored, so a row can't point at another organization's file.
 - Pending files (uploads not yet confirmed) are never listed or downloadable.

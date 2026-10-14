@@ -1,12 +1,21 @@
 // A record's files: listing them, removing one (a soft delete), and the organization's storage used.
-import type { AttachmentSummary } from "@travel-crm/contracts/files";
+import type { AttachmentRefInput, AttachmentSummary } from "@travel-crm/contracts/files";
 import { softDeleted } from "@travel-crm/db";
-import type { Actor } from "../kernel/index.js";
-import { attachmentFields, findAttachment, toSummary } from "./attachment-row.js";
+import { DomainError, type Actor } from "../kernel/index.js";
+import {
+  attachmentFields,
+  canViewSensitive,
+  findAttachment,
+  SENSITIVE_FILE_NAME,
+  toSummary,
+} from "./attachment-row.js";
 import type { FilesDependencies } from "./dependencies.js";
 import { bytesStored } from "./uploads.js";
 
-/** The record's ready files, oldest first. Sensitive ones are listed, marked, so staff know they exist. */
+/**
+ * The record's ready files, oldest first. Sensitive ones are listed, marked, so staff know they exist; their names
+ * (a passport's holder) are shown only to members holding documents:view_sensitive, and the system sees none.
+ */
 export async function listAttachments(
   { db }: FilesDependencies,
   actor: Actor,
@@ -16,20 +25,27 @@ export async function listAttachments(
     const rows = await tx.attachment.findMany({
       where: { recordType: record.recordType, recordId: record.recordId, status: "ready" },
       select: attachmentFields,
-      orderBy: { createdAt: "asc" },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     });
-    return rows.map(toSummary);
+    const mayName = canViewSensitive(actor);
+    return rows.map((row) => toSummary(row.sensitive && !mayName ? { ...row, fileName: SENSITIVE_FILE_NAME } : row));
   });
 }
 
-/** Hides the file (ADR 0004). Its bytes stay in storage, and count, until the platform's purge. */
+/**
+ * Hides the file (ADR 0004). Its bytes stay in storage, and count, until the platform's purge. A sensitive file is
+ * removed only by a member holding documents:view_sensitive, or by the system.
+ */
 export async function removeAttachment(
   { db }: FilesDependencies,
   actor: Actor,
-  input: { attachmentId: string },
+  input: AttachmentRefInput,
 ): Promise<void> {
   await db.forOrg(actor.organizationId, async (tx) => {
-    await findAttachment(tx, input.attachmentId);
+    const row = await findAttachment(tx, input);
+    if (row.sensitive && actor.userId !== null && !canViewSensitive(actor)) {
+      throw new DomainError("FORBIDDEN", "MISSING_PERMISSION", "Requires documents:view_sensitive");
+    }
     await tx.attachment.update({
       where: { id: input.attachmentId },
       data: actor.userId === null ? { deletedAt: new Date(), deletedBy: null } : softDeleted(actor.userId),

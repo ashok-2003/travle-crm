@@ -76,3 +76,10 @@ export function passportUpload(overrides: Partial<RequestUploadInput> = {}): Req
 }
 
 export const bytes = (text: string) => new TextEncoder().encode(text);
+
+/** Names a file together with its record, as routers pass it to confirmUpload, downloadLink and remove. */
+export const ref = (file: { id: string; recordType: string; recordId: string }) => ({
+  recordType: file.recordType,
+  recordId: file.recordId,
+  attachmentId: file.id,
+});

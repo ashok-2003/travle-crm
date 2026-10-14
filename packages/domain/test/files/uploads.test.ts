@@ -2,7 +2,15 @@
 // organization's files count toward its storage limit, deleted ones included until a purge.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { systemActor } from "../../src/kernel/index.js";
-import { bytes, createOrganization, createTestFiles, memberOf, passportUpload, type TestFiles } from "./test-files.js";
+import {
+  bytes,
+  createOrganization,
+  createTestFiles,
+  memberOf,
+  passportUpload,
+  ref,
+  type TestFiles,
+} from "./test-files.js";
 
 describe("uploading files", () => {
   let test: TestFiles;
@@ -21,21 +29,26 @@ describe("uploading files", () => {
     const sales = memberOf(organizationId, "sales");
     const { attachment, upload } = await test.files.requestUpload(sales, passportUpload());
     expect(attachment).toMatchObject({ status: "pending", fileName: "Passport - Asha.pdf", sensitive: false });
-    expect(upload.headers).toEqual({ "content-type": "application/pdf", "content-length": "11" });
+    // "if-none-match: *" is what stops a second PUT from replacing the file after it has been confirmed.
+    expect(upload.headers).toEqual({
+      "content-type": "application/pdf",
+      "content-length": "11",
+      "if-none-match": "*",
+    });
     expect(upload.expiresAt.getTime() - Date.now()).toBeGreaterThan(9 * 60 * 1000);
 
     await test.storage.upload(upload, bytes("%PDF-passpt"), "application/pdf");
-    const confirmed = await test.files.confirmUpload(sales, { attachmentId: attachment.id });
+    const confirmed = await test.files.confirmUpload(sales, ref(attachment));
 
     expect(confirmed).toEqual({ ...attachment, status: "ready" });
     expect([...test.storage.objects.keys()]).toContain(`organizations/${organizationId}/attachments/${attachment.id}`);
-    expect(await test.files.confirmUpload(sales, { attachmentId: attachment.id })).toEqual(confirmed);
+    expect(await test.files.confirmUpload(sales, ref(attachment))).toEqual(confirmed);
   });
 
   it("refuses to confirm a file that never arrived, or arrived different", async () => {
     const sales = memberOf(organizationId, "sales");
     const { attachment } = await test.files.requestUpload(sales, passportUpload());
-    await expect(test.files.confirmUpload(sales, { attachmentId: attachment.id })).rejects.toMatchObject({
+    await expect(test.files.confirmUpload(sales, ref(attachment))).rejects.toMatchObject({
       code: "NOT_FOUND",
       reason: "UPLOAD_NOT_FOUND",
     });
@@ -44,13 +57,78 @@ describe("uploading files", () => {
       contentType: "text/html",
       body: bytes("<script>x()"),
     });
-    await expect(test.files.confirmUpload(sales, { attachmentId: attachment.id })).rejects.toMatchObject({
+    await expect(test.files.confirmUpload(sales, ref(attachment))).rejects.toMatchObject({
       code: "VALIDATION",
       reason: "UPLOAD_DOES_NOT_MATCH",
     });
     expect(
       await test.files.list(sales, { recordType: "lead", recordId: passportUpload().recordId }),
     ).not.toContainEqual(expect.objectContaining({ id: attachment.id }));
+  });
+
+  it("refuses a stored file of the right type but another size", async () => {
+    const sales = memberOf(organizationId, "sales");
+    const { attachment } = await test.files.requestUpload(sales, passportUpload());
+    await test.storage.put({
+      key: `organizations/${organizationId}/attachments/${attachment.id}`,
+      contentType: "application/pdf",
+      body: bytes("%PDF-longer-than-announced"),
+    });
+    await expect(test.files.confirmUpload(sales, ref(attachment))).rejects.toMatchObject({
+      code: "VALIDATION",
+      reason: "UPLOAD_DOES_NOT_MATCH",
+    });
+  });
+
+  it("stores a file the server made once, however often the render job retries", async () => {
+    const system = systemActor(organizationId);
+    const file = {
+      recordType: "issued_document",
+      recordId: "0199e7a0-0000-7000-8000-0000000000d2",
+      fileName: "DOC-2026-0002.pdf",
+      contentType: "application/pdf",
+      body: bytes("%PDF-1.3 once"),
+      attachmentId: "0199e7a0-0000-7000-8000-0000000000a1",
+    };
+    const first = await test.files.storeGeneratedFile(system, file);
+    const again = await test.files.storeGeneratedFile(system, { ...file, body: bytes("%PDF-1.3 other") });
+    expect(first.id).toBe(file.attachmentId);
+    expect(again).toEqual(first);
+    expect(await test.storage.get(`organizations/${organizationId}/attachments/${first.id}`)).toEqual(
+      bytes("%PDF-1.3 once"),
+    );
+    expect(await test.files.list(system, file)).toHaveLength(1);
+    // The same id for another record is not this record's file.
+    await expect(
+      test.files.storeGeneratedFile(system, { ...file, recordId: "0199e7a0-0000-7000-8000-0000000000d3" }),
+    ).rejects.toMatchObject({ code: "CONFLICT", reason: "ATTACHMENT_ID_IN_USE" });
+  });
+
+  it("refuses a generated file whose name hides a folder or a direction mark", async () => {
+    for (const fileName of ["../x.pdf", "invoice\u202Efdp.exe"]) {
+      await expect(
+        test.files.storeGeneratedFile(systemActor(organizationId), {
+          recordType: "issued_document",
+          recordId: "0199e7a0-0000-7000-8000-0000000000d1",
+          fileName,
+          contentType: "application/pdf",
+          body: bytes("%PDF"),
+        }),
+      ).rejects.toMatchObject({ code: "VALIDATION", reason: "INVALID_FILE_NAME" });
+    }
+  });
+
+  it("refuses to confirm, or link to, a file through another record", async () => {
+    const sales = memberOf(organizationId, "sales");
+    const { attachment } = await test.files.requestUpload(sales, passportUpload());
+    const otherRecord = { ...ref(attachment), recordId: "0199e7a0-0000-7000-8000-0000000000e9" };
+    const otherType = { ...ref(attachment), recordType: "booking" };
+    for (const wrong of [otherRecord, otherType]) {
+      await expect(test.files.confirmUpload(sales, wrong)).rejects.toMatchObject({
+        code: "NOT_FOUND",
+        reason: "ATTACHMENT_NOT_FOUND",
+      });
+    }
   });
 
   it("stores a file the server made, ready at once", async () => {
@@ -93,7 +171,7 @@ describe("the storage limit", () => {
   it("refuses an upload that would pass the limit, counting deleted files until they are purged", async () => {
     const owner = memberOf(organizationId, "org-owner");
     const { attachment } = await test.files.requestUpload(owner, passportUpload({ sizeBytes: 600 }));
-    await test.files.remove(owner, { attachmentId: attachment.id });
+    await test.files.remove(owner, ref(attachment));
 
     expect(await test.files.storageUsedBytes(organizationId)).toBe(600);
     await expect(test.files.requestUpload(owner, passportUpload({ sizeBytes: 401 }))).rejects.toMatchObject({

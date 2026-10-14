@@ -25,9 +25,14 @@ Date: 2026-10-15 · Status: accepted · Implements spec section 9.2 and the sens
   removes rows and their stored files together.
 - **Uploads allowed**: PDF, JPEG, PNG, WebP and HEIC, up to 25 MB, names without folders, control or bidi
   characters (`@travel-crm/contracts/files`). SVG and HTML are refused: they can carry scripts.
+- **Operations name their record.** `confirmUpload`, `downloadLink` and `remove` take `{ recordType, recordId,
+attachmentId }`; a file of another record is "not found", so a router that authorised one record can't be handed
+  another's file. Only `systemDownloadLink` (server code, ordinary files only) takes the id alone. Sensitive files
+  also hide their name from listings, and can be removed only, by members with `documents:view_sensitive`.
 - **Uploads can't overwrite.** The presigned `PUT` signs `If-None-Match: *`, so storage refuses (412) a second upload
   to a key that holds a file, after `confirmUpload` has checked it. Keys are validated in both adapters (no empty,
-  absolute, dotted or control-character keys).
+  absolute, dotted or control-character keys). A client whose retried PUT gets 412 knows the first one arrived and
+  calls `confirmUpload`, which is idempotent.
 - **A missing bucket is an error, not "no such key".** `get` answers null only for `NoSuchKey`; `head` only for
   `NotFound` (S3 sends no body on a HEAD 404, so a wrong bucket looks the same there). The S3 adapter's
   `checkBucket()` runs at start-up to catch a wrong bucket name.

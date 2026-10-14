@@ -1,6 +1,11 @@
 // Getting files into storage: a presigned upload the browser sends itself, the check that it arrived as promised,
 // and files the server makes (rendered PDFs).
-import type { AttachmentSummary, RequestUploadInput } from "@travel-crm/contracts/files";
+import {
+  attachmentFileName,
+  type AttachmentRefInput,
+  type AttachmentSummary,
+  type RequestUploadInput,
+} from "@travel-crm/contracts/files";
 import type { OrgTx } from "@travel-crm/db";
 import { withDeleted } from "@travel-crm/db";
 import type { PresignedUpload } from "@travel-crm/integrations/storage";
@@ -49,13 +54,16 @@ export async function requestUpload(
   return { attachment: toSummary(row), upload };
 }
 
-/** Marks an upload ready once storage holds the promised file. Confirming twice is harmless. */
+/**
+ * Marks an upload ready once storage holds the promised file. Confirming twice is harmless, which is what a client
+ * does when its retried PUT is answered 412: storage already holds the first upload.
+ */
 export async function confirmUpload(
   { db, storage }: FilesDependencies,
   actor: Actor,
-  input: { attachmentId: string },
+  input: AttachmentRefInput,
 ): Promise<AttachmentSummary> {
-  const row = await db.forOrg(actor.organizationId, (tx) => findAttachment(tx, input.attachmentId));
+  const row = await db.forOrg(actor.organizationId, (tx) => findAttachment(tx, input));
   if (row.status === "ready") return toSummary(row);
   const stored = await storage.head(storageKeyOf(row));
   if (!stored) throw new DomainError("NOT_FOUND", "UPLOAD_NOT_FOUND", "The file hasn't arrived in storage");
@@ -67,7 +75,7 @@ export async function confirmUpload(
       where: { id: row.id, status: "pending" },
       data: { status: "ready", confirmedAt: new Date() },
     });
-    return toSummary(await findAttachment(tx, row.id));
+    return toSummary(await findAttachment(tx, input));
   });
 }
 
@@ -75,27 +83,48 @@ export async function confirmUpload(
  * Stores a file the server made, such as a rendered PDF, ready at once. The row is written first and marked ready
  * after the upload, so storage never holds a file no row accounts for; a failed upload leaves only a pending row,
  * which nobody can list or download.
+ *
+ * Safe to retry: with a caller-chosen `attachmentId`, a file already stored under it for the same record is returned
+ * as it is, and a pending one is completed. The same id on another record is refused.
  */
 export async function storeGeneratedFile(
   { db, storage }: FilesDependencies,
   actor: Actor,
   file: GeneratedFile,
 ): Promise<AttachmentSummary> {
+  const name = attachmentFileName.safeParse(file.fileName);
+  if (!name.success) throw new DomainError("VALIDATION", "INVALID_FILE_NAME", "The file name can't be used");
   if (file.body.byteLength === 0) throw new DomainError("VALIDATION", "EMPTY_FILE", "The file is empty");
-  const row = await db.forOrg(actor.organizationId, (tx) =>
-    tx.attachment.create({
+  const row = await db.forOrg(actor.organizationId, async (tx) => {
+    if (file.attachmentId !== undefined) {
+      const existing = await withDeleted(() =>
+        tx.attachment.findUnique({
+          where: { id: file.attachmentId },
+          select: { ...attachmentFields, deletedAt: true },
+        }),
+      );
+      if (existing) {
+        if (existing.recordType !== file.recordType || existing.recordId !== file.recordId || existing.deletedAt) {
+          throw new DomainError("CONFLICT", "ATTACHMENT_ID_IN_USE", "That file id is already used");
+        }
+        return existing;
+      }
+    }
+    return tx.attachment.create({
       data: {
+        ...(file.attachmentId === undefined ? {} : { id: file.attachmentId }),
         recordType: file.recordType,
         recordId: file.recordId,
-        fileName: file.fileName,
+        fileName: name.data,
         contentType: file.contentType,
         sizeBytes: file.body.byteLength,
         sensitive: file.sensitive ?? false,
         createdBy: actor.userId,
       },
       select: attachmentFields,
-    }),
-  );
+    });
+  });
+  if (row.status === "ready") return toSummary(row);
   await storage.put({ key: storageKeyOf(row), contentType: row.contentType, body: file.body });
   return db.forOrg(actor.organizationId, async (tx) =>
     toSummary(
