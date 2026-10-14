@@ -47,12 +47,21 @@ Date: 2026-10-15 · Status: accepted · Implements spec sections 9.3 (share link
 - **The token carries its organization**: base64url of the organization's id (22 characters), then 32 random bytes
   (43 characters). Opening a link runs `db.forOrg()` for the organization the token names and looks the secret's
   sha256 up through `@@unique([organizationId, tokenHash])`. Only the hash is stored; the token is shown once.
-- **Every open is recorded** (`share_link_open`, append-only) with the visitor's network (IPv4 /24, IPv6 /48) and a
-  shortened User-Agent, and announced as `share-link.opened` in the same transaction.
+- **Every customer open is recorded** (`share_link_open`, append-only) with the visitor's network (IPv4 /24, IPv6
+  /48) and a shortened User-Agent, and announced as `share-link.opened` in the same transaction. The announcement goes
+  out at most once per link in 10 minutes, so a customer reloading doesn't flood staff.
+- **Previews are not opens.** WhatsApp and email scanners fetch a link when it is pasted or delivered. HEAD requests,
+  `Sec-Purpose`/`Purpose: prefetch`, and known preview User-Agents (WhatsApp, facebookexternalhit, Facebot, Slackbot,
+  TelegramBot, Twitterbot, LinkedInBot, Discordbot, SkypeUriPreview, Google-PageRenderer, Applebot) are checked like any
+  open but record nothing and announce nothing.
+- **An open is recorded after the record was shown**: the route finds the link, runs the record type's resolver, and
+  records the open only if the resolver answered with success (below 400). A 404, a 503 "being prepared" or a failure
+  doesn't count or notify.
 - **The route answers customers in a browser**: the resolver registered for the record type shows the record (for an
   issued document, a redirect to its PDF); a link that doesn't work gets a small HTML page, 404 for unknown and 410
   for expired or revoked, with `Cache-Control: no-store`, `Referrer-Policy: no-referrer` and `X-Robots-Tag: noindex`.
-- **Links are revoked, never edited or deleted**: the runtime role may update only `revoked_at` and `revoked_by`.
+- **Links are revoked, never edited or deleted**: the runtime role may update only `revoked_at` and `revoked_by`, and
+  a trigger makes revocation final: a revoked link can't be changed again. Concurrent revokes write once.
 
 ### The webhook intake
 
