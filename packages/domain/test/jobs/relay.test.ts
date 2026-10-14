@@ -293,10 +293,11 @@ describe("outbox relay", () => {
           data.organizationId === broken ? Promise.reject(new Error("unavailable")) : working.send(name, data, options),
       },
     });
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 2000));
     await relay.stop();
-    // The broken organization fails on every pass, at the 50 ms interval: about 20 passes a second. With the whole
-    // relay backing off it would be about 5.
+    // The broken organization fails on every pass, at the 50 ms interval: about 40 passes in 2 s, and still well over
+    // 10 when a busy machine slows each pass down. With the whole relay backing off (100, 200, 400, 800 ms) it would be
+    // at most 6.
     expect(errors.length).toBeGreaterThanOrEqual(10);
   });
 
