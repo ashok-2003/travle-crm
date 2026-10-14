@@ -51,6 +51,32 @@ module.exports = {
       },
     },
     {
+      name: "domain-modules-meet-at-their-index",
+      comment:
+        "Each domain module's public API is its index.ts (spec 8). Inside a module, import its own files freely; " +
+        "from another module, import only that module's index.ts.",
+      severity: "error",
+      from: { path: "^packages/domain/src/([^/]+)/" },
+      to: {
+        path: "^packages/domain/src/",
+        pathNot: ["^packages/domain/src/$1/", "^packages/domain/src/[^/]+/index\\.ts$"],
+      },
+    },
+    {
+      name: "domain-modules-from-outside-through-their-index",
+      comment: "Other packages import a domain module only through its index.ts, as @travel-crm/domain/<module>.",
+      severity: "error",
+      from: { path: "^(apps|packages)/", pathNot: "^packages/domain/" },
+      to: { path: "^packages/domain/src/", pathNot: "^packages/domain/src/[^/]+/index\\.ts$" },
+    },
+    {
+      name: "kernel-depends-on-no-module",
+      comment: "The shared kernel is the bottom layer (spec 8): modules use it, it uses no module.",
+      severity: "error",
+      from: { path: "^packages/domain/src/kernel/" },
+      to: { path: "^packages/domain/src/", pathNot: "^packages/domain/src/kernel/" },
+    },
+    {
       name: "no-circular",
       severity: "error",
       comment:
