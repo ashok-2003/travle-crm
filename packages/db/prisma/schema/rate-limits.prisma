@@ -1,0 +1,17 @@
+// Rate-limit counters for the public routes (spec 9.7): share links, webhooks and, later, public forms. They live in
+// Postgres so every api instance counts against the same limit (containers are stateless, spec 12.3).
+// No organization_id: a key names a limit and a client, so it belongs to no organization. Reached with db.withoutOrg().
+
+/// The requests one key made in one fixed window.
+model RateLimitCounter {
+  /// HMAC-SHA256 of "<limit name>:<client address>" under a server secret, in hex (CHECK rate_limit_counter_key_hash):
+  /// a keyed hash, so the address can't be recovered without the secret.
+  key         String
+  windowStart DateTime @map("window_start") @db.Timestamptz(6)
+  count       Int
+
+  @@id([key, windowStart])
+  /// The daily purge finds finished windows by their start.
+  @@index([windowStart])
+  @@map("rate_limit_counter")
+}

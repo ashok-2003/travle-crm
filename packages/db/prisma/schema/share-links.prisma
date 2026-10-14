@@ -1,0 +1,49 @@
+// Share links (spec 9.3): /p/<token> lets a customer open one record, such as an issued document, without signing in.
+// Organization-owned: row-level security applies (the migration calls app_enable_org_rls on both tables).
+
+/// One link to one record. The token is shown once, when the link is made; only a hash of its secret is kept.
+model ShareLink {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String          @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String          @id @default(uuid(7)) @db.Uuid
+  /// sha256 of the token's secret part, in hex (CHECK share_link_token_hash_format).
+  tokenHash      String          @map("token_hash")
+  /// What the link opens, e.g. "issued_document" (CHECK share_link_record_type_format).
+  recordType     String          @map("record_type")
+  recordId       String          @map("record_id") @db.Uuid
+  /// What was shared, as staff see it, e.g. "Quotation QT-2026-0042".
+  label          String
+  /// The user who made the link; null when the system made it.
+  createdBy      String?         @map("created_by") @db.Uuid
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// Null: the link never expires.
+  expiresAt      DateTime?       @map("expires_at") @db.Timestamptz(6)
+  /// Set once, when the link is turned off. The only columns the api and worker may change.
+  revokedAt      DateTime?       @map("revoked_at") @db.Timestamptz(6)
+  revokedBy      String?         @map("revoked_by") @db.Uuid
+  opens          ShareLinkOpen[]
+
+  /// Lets share_link_open point at (organization_id, id).
+  @@unique([organizationId, id])
+  /// Opening a link looks its secret's hash up within the organization the token names.
+  @@unique([organizationId, tokenHash])
+  @@index([organizationId, recordType, recordId])
+  @@map("share_link")
+}
+
+/// One time a share link was opened (spec 9.3: opening is recorded). Append-only.
+model ShareLinkOpen {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String    @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String    @id @default(uuid(7)) @db.Uuid
+  shareLinkId    String    @map("share_link_id") @db.Uuid
+  openedAt       DateTime  @default(now()) @map("opened_at") @db.Timestamptz(6)
+  /// The visitor's network, not their address: IPv4 cut to /24, IPv6 to /48.
+  ipAddress      String?   @map("ip_address")
+  /// The browser's User-Agent, at most 300 characters.
+  userAgent      String?   @map("user_agent")
+  shareLink      ShareLink @relation(fields: [organizationId, shareLinkId], references: [organizationId, id], onDelete: Restrict)
+
+  @@index([organizationId, shareLinkId, openedAt])
+  @@map("share_link_open")
+}
