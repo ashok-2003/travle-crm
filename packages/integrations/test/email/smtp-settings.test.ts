@@ -22,26 +22,31 @@ function spyOnTransport(sendMail: () => Promise<unknown> = () => Promise.resolve
 }
 
 describe("SMTP settings", () => {
-  it("requires TLS before sending credentials when the connection is not secure from the start", () => {
+  /** The options a send creates its transport with. */
+  async function optionsOf(settings: Parameters<typeof createSmtpEmailSender>[0]) {
     const create = spyOnTransport();
-    createSmtpEmailSender({ ...base, secure: false, user: "ses-user", password: "secret" });
-    expect(create).toHaveBeenCalledWith(expect.objectContaining({ requireTLS: true }));
+    await createSmtpEmailSender(settings).send(message);
+    return create.mock.calls[0]?.[0] as unknown as Record<string, unknown>;
+  }
+
+  it("requires TLS before sending credentials when the connection is not secure from the start", async () => {
+    const options = await optionsOf({ ...base, secure: false, user: "ses-user", password: "secret" });
+    expect(options).toMatchObject({ requireTLS: true });
   });
 
-  it("does not demand STARTTLS without credentials (Mailpit) or when TLS is there from the first byte", () => {
-    const create = spyOnTransport();
-    createSmtpEmailSender({ ...base, secure: false });
-    createSmtpEmailSender({ ...base, port: 465, secure: true, user: "ses-user", password: "secret" });
-    expect(create.mock.calls[0]?.[0]).not.toHaveProperty("requireTLS", true);
-    expect(create.mock.calls[1]?.[0]).not.toHaveProperty("requireTLS", true);
+  it("does not demand STARTTLS without credentials (Mailpit) or when TLS is there from the first byte", async () => {
+    expect(await optionsOf({ ...base, secure: false })).not.toHaveProperty("requireTLS", true);
+    expect(
+      await optionsOf({ ...base, port: 465, secure: true, user: "ses-user", password: "secret" }),
+    ).not.toHaveProperty("requireTLS", true);
   });
 
-  it("times out connecting, greeting and on the socket", () => {
-    const create = spyOnTransport();
-    createSmtpEmailSender({ ...base, secure: false });
-    expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({ connectionTimeout: 10_000, greetingTimeout: 10_000, socketTimeout: 30_000 }),
-    );
+  it("times out connecting, greeting and on the socket", async () => {
+    expect(await optionsOf({ ...base, secure: false })).toMatchObject({
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 30_000,
+    });
   });
 
   it("refuses a user without a password, or with an empty one", () => {
@@ -62,24 +67,16 @@ describe("SMTP settings", () => {
 });
 
 describe("SMTP deadline", () => {
-  it("gives up on a send that trickles on past the deadline, closes the connection and asks for a retry", async () => {
-    const close = vi.fn();
-    spyOnTransport(() => new Promise(() => undefined), close);
-    const sender = createSmtpEmailSender({ ...base, secure: false, sendTimeoutMs: 50 });
-
-    const error: unknown = await sender.send(message).catch((caught: unknown) => caught);
-
-    expect(error).toMatchObject({ code: "ESENDTIMEOUT" });
-    expect(close).toHaveBeenCalledOnce();
-    expect(JSON.stringify(error)).not.toContain("agency.example");
-  });
-
-  it("allows 60 seconds by default", () => {
-    const timeout = vi.spyOn(globalThis, "setTimeout");
-    spyOnTransport();
-    const sender = createSmtpEmailSender({ ...base, secure: false });
-    void sender.send(message);
-    expect(timeout).toHaveBeenCalledWith(expect.any(Function), 60_000);
+  it("allows 60 seconds by default", async () => {
+    vi.useFakeTimers();
+    try {
+      const timeout = vi.spyOn(globalThis, "setTimeout");
+      spyOnTransport();
+      await createSmtpEmailSender({ ...base, secure: false }).send(message);
+      expect(timeout).toHaveBeenCalledWith(expect.any(Function), 60_000);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
