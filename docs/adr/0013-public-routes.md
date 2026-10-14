@@ -8,17 +8,36 @@ Date: 2026-10-15 · Status: accepted · Implements spec sections 9.3 (share link
 
 - **Counted in Postgres**, in `rate_limit_counter` (`key`, `window_start`, `count`), with fixed windows. One
   `INSERT ... ON CONFLICT DO UPDATE ... RETURNING count` per hit, in `db.withoutOrg()`.
-- **Keys are hashed.** A key names the limit and the client (`share-links:203.0.113.7`); only its sha256 is stored, so
-  the table holds no IP addresses.
+- **Keys are keyed hashes.** A key names the limit and the client (`share-links:203.0.113.7`); only its HMAC-SHA256
+  under a server secret is stored, so the table holds no IP addresses and none can be recovered from it without the
+  secret (a plain hash of an IPv4 address can be reversed by trying all of them in minutes). The runtime role may
+  update only `count`; the platform role has no access.
+- **The secret** (`keySecret`, at least 32 bytes) is derived by the Integration task from `BETTER_AUTH_SECRET` with
+  `hkdfSync("sha256", secret, "", "rate-limit-keys", 32)`, so there is no new environment variable. Rotating it only
+  resets the counts.
 - **Hono middleware** `rateLimit({ limiter, name, limit, windowSeconds, clientAddress })` answers 429 with
-  `Retry-After` and `{ code: "RATE_LIMITED" }`, and sets `RateLimit-Remaining`. Requests without an address share one
-  bucket per limit: an unknown client is limited, not let through.
+  `Retry-After` and `{ code: "RATE_LIMITED" }`, and sets `RateLimit-Remaining`.
 - **The client's address is one it can't forge.** `clientAddressFrom({ headerNames, trustedProxies })` follows Better
   Auth's rule for sign-in (ADR 0006): in the first configured header present (`AUTH_IP_ADDRESS_HEADERS`), the first
   address from the right that isn't a trusted proxy (`AUTH_TRUSTED_PROXIES`); with no trusted proxies, only a header
-  holding exactly one address. Anything else is null. IPv4-mapped IPv6 counts as IPv4, and IPv6 as its /64, so one
-  host can't rotate addresses to dodge the limit (a token guesser would otherwise send a new fake leftmost
-  `x-forwarded-for` value with every try).
+  holding exactly one address. Anything else is null. It differs from Better Auth on purpose in one way: it never
+  falls through to the next header when the first present one is unusable, so a client can't choose which header is
+  read. IPv4-mapped IPv6 counts as IPv4, and IPv6 as its /64, so one host can't rotate addresses to dodge the limit (a
+  token guesser would otherwise send a new fake leftmost `x-forwarded-for` value with every try).
+- **Deployment rule (from ADR 0006).** With `AUTH_TRUSTED_PROXIES` empty, the api must be reachable only through an
+  edge that overwrites the address header, and every name in `AUTH_IP_ADDRESS_HEADERS` must be set or stripped by
+  that edge. For plan 5: believe these headers only when the TCP peer is a trusted proxy.
+- **Requests with no trusted address share one bucket per limit, and that is deliberate.** An unknown client is
+  limited, not let through. The cost: one client can exhaust that bucket for everyone in it, and a load balancer that
+  stops setting the header puts every visitor there. The middleware logs a warning once per process the first time a
+  request lands in it, so the misconfiguration is noticed.
+- **It fails closed.** If the counter can't be reached, the request gets a 500 and the route is not run: a public
+  route without a working limit is not served.
+- **Refused keys are cheap.** Each limiter remembers (10,000 keys at most, oldest forgotten first) the keys it refused
+  until their window ends and answers them without a database call. The stored count therefore stops growing once a
+  key is refused. The memo is per instance, so another instance may still count a few more hits.
+- **The purge keeps up.** `purgeExpiredRateLimits` deletes in batches of 10,000 rows, each in its own short
+  transaction, using an index on `window_start`.
 - Better Auth's sign-in rate limit (ADR 0006) is separate and unchanged.
 
 ### Share links
@@ -75,5 +94,5 @@ Date: 2026-10-15 · Status: accepted · Implements spec sections 9.3 (share link
   applies to them too.
 - Stored webhook payloads are kept; a retention purge for them comes with the first real provider (step 2, WhatsApp),
   which knows how long its data must live.
-- Old rate-limit windows are deleted when their key is hit again; `purgeExpired` (scheduled daily by the worker)
+- Old rate-limit windows are deleted when their key is hit again; `purgeExpiredRateLimits` (scheduled daily by the worker)
   clears the rest.
