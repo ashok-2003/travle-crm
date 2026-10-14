@@ -18,6 +18,9 @@ transaction to `orgId`'s rows; outside it, queries see nothing.
   wait for a connection). Work past the timeout is rolled back.
 - Never call `forOrg()` inside another `forOrg()`. It throws `NestedForOrgError`, because the inner transaction would run
   on a second connection that can't see the outer one's writes. Pass the outer `tx` down instead.
+- `db.withoutOrg(fn)` runs a transaction with no organization, for the few tables without `organization_id` (webhook
+  events, rate-limit counters) and database functions that look across organizations without revealing rows.
+  Organization tables show no rows and refuse writes in it. It can't be nested either.
 
 ## Entry points
 
@@ -42,7 +45,9 @@ dependency-cruiser enforces the "only" column. Another package's `vitest.config.
 2. Create the migration: `pnpm --filter @travel-crm/db exec prisma migrate dev --create-only --name <change>`
 3. Append to the new `migration.sql`: `SELECT app_enable_org_rls('<table_name>');`
 4. Apply and regenerate: `pnpm --filter @travel-crm/db exec prisma migrate dev && pnpm --filter @travel-crm/db generate`
-5. Add a row-creating entry for the table to `test/org-table-fixtures.ts`.
+5. Add a row-creating fixture for the table to your module's file in `test/org-table-fixtures/` (one file per module,
+   gathered by `test/org-table-fixtures.ts`). Mark it `appendOnly: true` when the runtime role can't update or delete
+   the table's rows (like `outbox_event`): the suite then expects those statements to be refused outright.
 6. `pnpm check`. The isolation suite now covers the new table.
 
 Steps 3 and 5 are enforced: the tests fail if either is missing. Keys are checked too:

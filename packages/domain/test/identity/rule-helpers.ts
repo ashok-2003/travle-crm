@@ -12,6 +12,8 @@ export function memberWithStarterRole(key: string, overrides: Partial<MemberAcce
     userId: `user-${key}`,
     memberId: `member-${key}`,
     organizationId: "organization-1",
+    source: "web",
+    impersonatedBy: null,
     role: { key: role.key, name: role.name, isOwner: role.isOwner },
     permissions: role.isOwner ? PermissionSet.everything() : PermissionSet.of(role.grants),
     mustChangePassword: false,

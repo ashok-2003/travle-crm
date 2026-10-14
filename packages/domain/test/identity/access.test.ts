@@ -57,6 +57,23 @@ describe("identity access", () => {
     expect(access?.permissions.missing([...permissions])).toEqual([]);
   });
 
+  it("says where the access comes from: the web app, or support impersonating the member", async () => {
+    expect(await test.identity.resolveAccess(agency.ownerUserId, agency.organizationId)).toMatchObject({
+      userId: agency.ownerUserId,
+      source: "web",
+      impersonatedBy: null,
+    });
+    const supportUserId = "0199c3a2-0000-7000-8000-00000000000a";
+    const impersonated = await test.identity.resolveAccess(agency.ownerUserId, agency.organizationId, {
+      impersonatedBy: supportUserId,
+    });
+    expect(impersonated).toMatchObject({
+      userId: agency.ownerUserId,
+      source: "impersonation",
+      impersonatedBy: supportUserId,
+    });
+  });
+
   it("gives other members exactly their role's permissions", async () => {
     const sales = await createStaffAccount(test.database, hashPassword, {
       organizationId: agency.organizationId,

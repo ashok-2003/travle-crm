@@ -1,8 +1,10 @@
 // Who is acting in an organization: their membership, role and permissions, read from the database on every request.
 import type { PendingStep } from "@travel-crm/contracts/identity";
+import type { Actor } from "../kernel/index.js";
 import type { PermissionSet } from "./permission-set.js";
 
-export interface MemberAccess {
+/** A member acting in their organization. As an Actor it says where the request came from, for the audit log. */
+export interface MemberAccess extends Actor {
   readonly userId: string;
   readonly memberId: string;
   readonly organizationId: string;

@@ -14,9 +14,21 @@ import type {
   UpdateStaffRoleInput,
 } from "@travel-crm/contracts/identity";
 import { createIdentityDatabase } from "@travel-crm/db/identity";
-import { describeSignedInPerson, isPlatformAdmin, resolveAccess, type SignedInSession } from "./access.js";
+import {
+  describeSignedInPerson,
+  isPlatformAdmin,
+  resolveAccess,
+  type AccessSession,
+  type SignedInSession,
+} from "./access.js";
 import { createAuth, type Auth, type AuthSettings } from "./auth/create-auth.js";
 import type { MemberAccess } from "./member-access.js";
+import {
+  memberContacts,
+  organizationProfile,
+  type MemberContact,
+  type OrganizationProfile,
+} from "./organization-profile.js";
 import { createRole, deleteRole, listRoles, updateRole } from "./roles.js";
 import { seedStarterRoles } from "./seed-starter-roles.js";
 import { setTwoFactorRequirement } from "./settings.js";
@@ -44,10 +56,17 @@ export interface NewOwner {
 export interface Identity {
   /** Better Auth. The api serves auth.handler at /api/auth/* and reads sessions with auth.api.getSession. */
   readonly auth: Auth;
-  /** The user's membership, role and permissions in the organization, or null when they are not an active member. */
-  resolveAccess(userId: string, organizationId: string): Promise<MemberAccess | null>;
+  /**
+   * The user's membership, role and permissions in the organization, or null when they are not an active member.
+   * Pass the session's impersonatedBy so actions during support's impersonation are recorded as such.
+   */
+  resolveAccess(userId: string, organizationId: string, session?: AccessSession): Promise<MemberAccess | null>;
   /** What me.get returns. */
   describeSignedInPerson(session: SignedInSession): Promise<MeOutput | null>;
+  /** The organization's name, code, time zone and contact email, for modules that can't read it themselves. */
+  organizationProfile(organizationId: string): Promise<OrganizationProfile | null>;
+  /** Names and real email addresses of the organization's active members among userIds, for notifications. */
+  memberContacts(organizationId: string, userIds: readonly string[]): Promise<MemberContact[]>;
   /** True for platform staff: user role "admin" (read from the database) and no membership. */
   isPlatformAdmin(user: { id: string; role?: string | null | undefined }): Promise<boolean>;
   /** The actor's organization's staff. The API checks staff:manage first. */
@@ -84,8 +103,10 @@ export function createIdentity(options: IdentityOptions): Identity {
 
   return {
     auth,
-    resolveAccess: (userId, organizationId) => resolveAccess(database, userId, organizationId),
+    resolveAccess: (userId, organizationId, session) => resolveAccess(database, userId, organizationId, session),
     describeSignedInPerson: (session) => describeSignedInPerson(database, session),
+    organizationProfile: (organizationId) => organizationProfile(database, organizationId),
+    memberContacts: (organizationId, userIds) => memberContacts(database, organizationId, userIds),
     isPlatformAdmin: (user) => isPlatformAdmin(database, user),
     staff: {
       list: (actor) => listStaff(database, actor),

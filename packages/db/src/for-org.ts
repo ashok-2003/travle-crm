@@ -43,6 +43,30 @@ export class InvalidOrganizationIdError extends Error {
   }
 }
 
+/**
+ * Runs fn in one transaction with no organization set, for the few tables without organization_id (webhook events,
+ * rate-limit counters) and the database functions that look across organizations without revealing their rows.
+ * Every organization table shows no rows and refuses writes, exactly as row-level security fails closed.
+ */
+export async function withoutOrg<T>(
+  client: DatabaseClient,
+  fn: (tx: IdentityTx) => Promise<T>,
+  options: ForOrgOptions = {},
+): Promise<T> {
+  if (insideForOrg.getStore()) {
+    throw new NestedForOrgError();
+  }
+  return insideForOrg.run(true, async () =>
+    client.$transaction(async (tx) => {
+      const [session] = await tx.$queryRaw<{ role: string }[]>`SELECT current_user AS role`;
+      if (session?.role !== "app_runtime") {
+        throw new WrongDatabaseRoleError(session?.role);
+      }
+      return fn(tx);
+    }, options),
+  );
+}
+
 /** Runs fn in one transaction that sees and changes only orgId's rows. Never call it inside another forOrg(). */
 export async function forOrg<T>(
   client: DatabaseClient,

@@ -14,11 +14,16 @@ model Organization {
   metadata         String?
   /// When true, every member must turn on two-factor sign-in before using the app (spec 6.2).
   requireTwoFactor Boolean          @default(false) @map("require_two_factor")
+  /// The IANA time zone the organization works in. Times are stored in UTC and shown in this zone (spec 9.6).
+  timeZone         String           @default("Asia/Kolkata") @map("time_zone")
+  /// Where replies to email the product sends for this organization go (spec 9.4). Set at onboarding (plan 4).
+  contactEmail     String?          @map("contact_email")
   counters         OrgCounter[]
   members          Member[]
   invitations      Invitation[]
   roles            Role[]
   rolePermissions  RolePermission[]
+  outboxEvents     OutboxEvent[]
 
   @@map("organization")
 }

@@ -39,9 +39,12 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - Organization data is read and written only inside `db.forOrg(orgId, tx => …)` from `@travel-crm/db`.
   Postgres row-level security then limits every query to that organization; with no organization set, queries see nothing.
 - Every table with an `organization_id` column needs, in the migration that creates it:
-  `SELECT app_enable_org_rls('<table_name>');`, plus a row-creating entry in `packages/db/test/org-table-fixtures.ts`.
+  `SELECT app_enable_org_rls('<table_name>');`, plus a row-creating fixture in your module's file in
+  `packages/db/test/org-table-fixtures/` (mark it `appendOnly` if the runtime role can't update or delete its rows).
   The test suite fails without both. See `packages/db/README.md` for the full recipe.
 - Never call `forOrg()` inside another `forOrg()` (it throws `NestedForOrgError`): pass the outer `tx` down.
+- Tables without `organization_id` (webhook events, rate-limit counters) are reached with `db.withoutOrg(tx => …)`,
+  where every organization table shows no rows.
 - A foreign key between two organization tables includes `organization_id`, and so does every unique constraint on an
   organization table (except a primary key on `id`). The test suite checks both.
 - Only the platform module uses `@travel-crm/db/platform` (it sees every organization).
@@ -62,6 +65,10 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   `@@unique([...], where: { deletedAt: null })`.
   `upsert()` is refused on soft-delete models, and `app_runtime` has no DELETE grant on their tables.
 - IDs are UUID v7 (`@default(uuid(7)) @db.Uuid`). Money is never a float.
+- Domain events (ADR 0009): `publishEvent(tx, { type, payload })` from `@travel-crm/domain/jobs`, in the same
+  transaction as the change. Types read `<entity>.<what happened>`; payloads hold ids, never personal data.
+  Listeners are built with `defineListener` and must be safe to run twice.
+- Other modules never read the sign-in tables: they ask identity (`organizationProfile`, `memberContacts`).
 
 ## API and permission rules
 
@@ -76,12 +83,15 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - Permissions are `module:action` in `packages/domain/src/identity/permissions.ts`. Add new ones there; the Owner role
   gets them automatically. List queries for scoped views filter with `scopeFilter()` (own or all records).
 - Domain modules are folders in `packages/domain/src`. Their public API is `index.ts`; other modules import only that.
-  Business rule failures throw `DomainError` from `@travel-crm/domain/kernel`, which the API turns into an HTTP status.
+  Business rule failures throw `DomainError` from `@travel-crm/domain/kernel`, which the API turns into an HTTP status
+  (`domainErrorResponse` from `@travel-crm/api` does the same for plain HTTP routes).
 - Over HTTP, tRPC requests and `/api/auth/sign-in/org`, other than GET/HEAD, must name a trusted origin and
   send JSON (`apps/api/src/trusted-origin.ts`); other `/api/auth/*` POSTs use Better Auth's own origin check. Better Auth's `/api/auth/organization/*` endpoints are closed (404):
   members and roles go through tRPC. Error responses carry no stack traces or internal messages.
 - The api's settings are checked at start-up (`apps/api/src/environment.ts`). `NODE_ENV` defaults to `production`, which
   needs https, rate limiting and a strong secret; local development sets `NODE_ENV=development` (`.env.example` does).
+- Whoever acts is an `Actor` (kernel): `MemberAccess` in requests, `systemActor(organizationId)` in the worker. Its
+  `source` and `impersonatedBy` say whether support is impersonating the member.
 
 ## Repo map
 

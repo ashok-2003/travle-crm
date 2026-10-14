@@ -12,13 +12,6 @@ const softDeleteTables = softDeleteModels.map((model) =>
   model.replaceAll(/[A-Z]/g, (letter, index: number) => (index ? "_" : "") + letter.toLowerCase()),
 );
 
-/**
- * Tables whose organization_id app_runtime may not update at all (column-level grants, migration
- * runtime_column_grants), which is stronger than row-level security, each with a column it may update instead. Fixed,
- * not read from the grants, so a mistaken REVOKE on another table still fails here.
- */
-const organizationIdNotUpdatable: Record<string, string> = { role: "name" };
-
 const quoteIdentifier = (name: string): string => `"${name.replaceAll('"', '""')}"`;
 
 async function tablesWithOrganizationId(platform: PlatformClient): Promise<string[]> {
@@ -62,10 +55,15 @@ describe("organization isolation", () => {
         async (tx) => (await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM ${table}`)[0]?.n,
       );
 
+    const fixture = orgTableFixtures[tableName];
+    const appendOnly = fixture?.appendOnly === true;
+    // organization_id itself can't be updated on these tables (column-level grants), which is stronger than row-level
+    // security: the update check then uses a column the runtime role may update.
+    const organizationIdLocked = appendOnly || fixture?.updatableColumn !== undefined;
+
     beforeAll(async () => {
-      const createRow = orgTableFixtures[tableName];
-      if (!createRow) throw new Error(`No fixture for ${tableName}`);
-      await db.forOrg(orgA, createRow);
+      if (!fixture) throw new Error(`No fixture for ${tableName}`);
+      await db.forOrg(orgA, fixture.create);
     });
 
     it("is invisible to another organization", async () => {
@@ -73,15 +71,25 @@ describe("organization isolation", () => {
     });
 
     it("cannot be updated by another organization", async () => {
-      const column = Prisma.raw(quoteIdentifier(organizationIdNotUpdatable[tableName] ?? "organization_id"));
-      expect(await db.forOrg(orgB, (tx) => tx.$executeRaw`UPDATE ${table} SET ${column} = ${column}`)).toBe(0);
+      const column = Prisma.raw(quoteIdentifier(fixture?.updatableColumn ?? "organization_id"));
+      const updateAsOtherOrganization = db.forOrg(
+        orgB,
+        (tx) => tx.$executeRaw`UPDATE ${table} SET ${column} = ${column}`,
+      );
+      // An append-only table with no updatable column named gives app_runtime no UPDATE on organization_id at all.
+      if (appendOnly && fixture.updatableColumn === undefined) {
+        await expect(updateAsOtherOrganization).rejects.toThrow(/permission denied/i);
+      } else {
+        expect(await updateAsOtherOrganization).toBe(0);
+      }
     });
 
     it("cannot be deleted by another organization", async () => {
-      // Soft-delete tables give app_runtime no DELETE grant at all (ADR 0004), which is stronger than row-level security.
-      // The list is fixed, not read from the grants, so a mistaken REVOKE on an ordinary table still fails here.
+      // Soft-delete and append-only tables give app_runtime no DELETE grant at all (ADR 0004), which is stronger than
+      // row-level security. The lists are fixed, not read from the grants, so a mistaken REVOKE on an ordinary table
+      // still fails here.
       const deleteAsOtherOrganization = db.forOrg(orgB, (tx) => tx.$executeRaw`DELETE FROM ${table}`);
-      if (softDeleteTables.includes(tableName)) {
+      if (softDeleteTables.includes(tableName) || appendOnly) {
         await expect(deleteAsOtherOrganization).rejects.toThrow(/permission denied/i);
       } else {
         expect(await deleteAsOtherOrganization).toBe(0);
@@ -92,7 +100,7 @@ describe("organization isolation", () => {
     it("cannot be moved into another organization", async () => {
       await expect(
         db.forOrg(orgA, (tx) => tx.$executeRaw`UPDATE ${table} SET organization_id = ${orgB}::uuid`),
-      ).rejects.toThrow(tableName in organizationIdNotUpdatable ? /permission denied/ : /row-level security/);
+      ).rejects.toThrow(organizationIdLocked ? /permission denied/i : /row-level security/);
     });
 
     it("is invisible when no organization is set", async () => {

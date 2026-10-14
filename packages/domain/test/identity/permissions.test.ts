@@ -6,7 +6,14 @@ import { isPermission, moduleOf, permissionCatalog, permissions } from "../../sr
 
 describe("permission catalog", () => {
   it("covers the Foundation and every Phase 1 module", () => {
-    for (const permission of ["staff:manage", "roles:manage", "settings:manage", "audit:view", "money:view_margin"]) {
+    for (const permission of [
+      "staff:manage",
+      "roles:manage",
+      "settings:manage",
+      "audit:view",
+      "money:view_margin",
+      "documents:view_sensitive",
+    ]) {
       expect(isPermission(permission)).toBe(true);
     }
     expect(new Set(permissions.map(moduleOf))).toEqual(
@@ -16,6 +23,7 @@ describe("permission catalog", () => {
         "settings",
         "audit",
         "money",
+        "documents",
         "leads",
         "quotes",
         "bookings",

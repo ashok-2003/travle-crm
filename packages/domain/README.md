@@ -6,8 +6,9 @@ Business rules, one folder per module (spec section 8). A module's public API is
 
 | Module     | What it holds                                                                         |
 | ---------- | ------------------------------------------------------------------------------------- |
-| `kernel`   | building blocks every module uses: `DomainError`                                      |
+| `kernel`   | building blocks every module uses: `Actor`, `DomainError`                             |
 | `identity` | Better Auth, members, roles and permissions, staff ([README](src/identity/README.md)) |
+| `jobs`     | domain events, the outbox and listeners ([README](src/jobs/README.md))                |
 
 Business rule failures throw `DomainError(code, reason, message)`; the API turns the code into an HTTP status and passes
 the reason to the web app.

@@ -48,7 +48,8 @@ export const starterRoles: readonly StarterRole[] = [
     ],
   },
   {
-    // Delivers confirmed trips: every booking, departures and suppliers. No leads, no margins.
+    // Delivers confirmed trips: every booking, departures and suppliers, and the travellers' ID documents they need.
+    // No leads, no margins.
     key: "operations",
     name: "Operations",
     isOwner: false,
@@ -62,6 +63,7 @@ export const starterRoles: readonly StarterRole[] = [
       allow("suppliers:view"),
       allow("suppliers:create"),
       allow("suppliers:edit"),
+      allow("documents:view_sensitive"),
     ],
   },
   {

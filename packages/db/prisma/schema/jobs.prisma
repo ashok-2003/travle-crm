@@ -1,0 +1,21 @@
+// Domain events (spec 9.1): written in the same transaction as the change they describe, then relayed to pg-boss by
+// the worker. Organization-owned: row-level security applies (the migration calls app_enable_org_rls).
+
+/// One domain event, such as "document.issued". The relay sets relayedAt once it has queued the event's listeners.
+model OutboxEvent {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  /// "<entity>.<what happened>", e.g. "document.issued" (CHECK outbox_event_type_format).
+  type           String
+  /// A JSON object of ids and small facts the listeners need (CHECK outbox_event_payload_object).
+  payload        Json
+  occurredAt     DateTime     @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  /// When the relay queued this event's listeners; null until then. The only column the api and worker may change.
+  relayedAt      DateTime?    @map("relayed_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  /// The relay's work list: each organization's events not yet relayed, oldest first (UUID v7 ids sort by time).
+  @@index([organizationId, id], map: "outbox_event_unrelayed", where: { relayedAt: null })
+  @@map("outbox_event")
+}

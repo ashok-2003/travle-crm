@@ -6,9 +6,12 @@ Who can sign in, to which organization, and what they may do (spec section 6).
 
 - `createIdentity(options)` builds the module once per process. The `Identity` it returns has:
   - `auth`: Better Auth (serve `auth.handler`, read sessions with `auth.api.getSession`);
-  - `resolveAccess(userId, organizationId)`: the member's role, permissions and pending steps, or null;
+  - `resolveAccess(userId, organizationId, session?)`: the member's role, permissions and pending steps, or null.
+    Pass the session's `impersonatedBy`: the access is an `Actor` whose `source` is then `impersonation`;
   - `describeSignedInPerson(session)`: what `me.get` returns;
   - `isPlatformAdmin(user)`;
+  - `organizationProfile(organizationId)` and `memberContacts(organizationId, userIds)`: what other modules may know
+    about an organization and its people (they can't read the sign-in tables);
   - `staff.list / create / updateRole / resetPassword / remove`;
   - `roles.list / create / update / delete`;
   - `settings.setTwoFactorRequirement`;

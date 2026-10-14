@@ -38,7 +38,7 @@ const freshlySignedIn = base.use(async ({ ctx, next }) => {
 
 interface SignedInContext {
   identity: Identity;
-  session: { activeOrganizationId?: string | null | undefined };
+  session: { activeOrganizationId?: string | null | undefined; impersonatedBy?: string | null | undefined };
   user: { id: string };
 }
 
@@ -46,10 +46,12 @@ interface SignedInContext {
  * The member's access in the session's organization, read from the database on every request, so a removal or role
  * change applies to the next request. Members with a password change or two-factor setup still to do are refused
  * here; the endpoints they need for it (Better Auth's /change-password and /two-factor/*, and me.get) stay open.
+ * The session's impersonatedBy goes with the access, so whatever support does while impersonating is recorded as such.
  */
 async function memberAccessFor(ctx: SignedInContext): Promise<MemberAccess> {
   const organizationId = ctx.session.activeOrganizationId;
-  const access = organizationId ? await ctx.identity.resolveAccess(ctx.user.id, organizationId) : null;
+  const session = { impersonatedBy: ctx.session.impersonatedBy ?? null };
+  const access = organizationId ? await ctx.identity.resolveAccess(ctx.user.id, organizationId, session) : null;
   if (!access) throw new DomainError("FORBIDDEN", "NOT_A_MEMBER", "You are not a member of an organization");
   const step = pendingStep(access);
   if (step === "CHANGE_PASSWORD") throw new DomainError("FORBIDDEN", step, "Choose a new password first");

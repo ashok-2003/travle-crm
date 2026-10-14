@@ -7,11 +7,21 @@ import { pendingStep, type MemberAccess } from "./member-access.js";
 import { PermissionSet } from "./permission-set.js";
 import { shownEmail } from "./sign-in-names.js";
 
-/** The user's active membership, role and permissions in an organization, or null when they have none there. */
+/** What the session says about who is really acting. */
+export interface AccessSession {
+  /** The platform admin's user id while support impersonates the user, else null. */
+  impersonatedBy: string | null;
+}
+
+/**
+ * The user's active membership, role and permissions in an organization, or null when they have none there. The
+ * session marks support's impersonation, so the audit log can record who was really acting.
+ */
 export async function resolveAccess(
   database: IdentityDatabase,
   userId: string,
   organizationId: string,
+  session: AccessSession = { impersonatedBy: null },
 ): Promise<MemberAccess | null> {
   return database.forOrg(organizationId, async (tx) => {
     const member = await tx.member.findUnique({
@@ -34,6 +44,8 @@ export async function resolveAccess(
       userId,
       memberId: member.id,
       organizationId,
+      source: session.impersonatedBy ? "impersonation" : "web",
+      impersonatedBy: session.impersonatedBy,
       role: { key: member.role, name: role?.name ?? member.role, isOwner: role?.isOwner ?? false },
       // A role that no longer exists grants nothing (deleting a role is refused while it has members).
       permissions: role?.isOwner ? PermissionSet.everything() : PermissionSet.fromStored(role?.permissions ?? []),

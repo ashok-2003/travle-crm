@@ -1,6 +1,6 @@
 // The application's handle on the database: organization data is reachable only through forOrg().
 import { createPrismaClient } from "./client.js";
-import { forOrg, type ForOrgOptions, type OrgTx } from "./for-org.js";
+import { forOrg, withoutOrg, type ForOrgOptions, type OrgTx } from "./for-org.js";
 
 export interface Database {
   /**
@@ -8,6 +8,11 @@ export interface Database {
    * Never call it inside another forOrg() (it throws NestedForOrgError): pass that transaction's tx down instead.
    */
   forOrg<T>(orgId: string, fn: (tx: OrgTx) => Promise<T>, options?: ForOrgOptions): Promise<T>;
+  /**
+   * Runs fn in one transaction with no organization: for tables without organization_id, such as webhook events and
+   * rate-limit counters. Organization tables show no rows and refuse writes. Like forOrg(), it can't be nested.
+   */
+  withoutOrg<T>(fn: (tx: OrgTx) => Promise<T>, options?: ForOrgOptions): Promise<T>;
   /** Closes the connection pool. */
   disconnect(): Promise<void>;
 }
@@ -22,6 +27,7 @@ export function createDatabase(url: string, options: DatabaseOptions = {}): Data
   const client = createPrismaClient(url, { max: options.maxConnections ?? 10 });
   return {
     forOrg: (orgId, fn, options) => forOrg(client, orgId, fn, options),
+    withoutOrg: (fn, options) => withoutOrg(client, fn, options),
     disconnect: () => client.$disconnect(),
   };
 }

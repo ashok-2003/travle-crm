@@ -6,10 +6,11 @@ export {
   permissionSetFromInput,
 } from "./access-rules.js";
 export type { RoleFacts } from "./access-rules.js";
-export type { SignedInSession } from "./access.js";
+export type { AccessSession, SignedInSession } from "./access.js";
 export type { Auth, AuthSettings } from "./auth/create-auth.js";
 export { createIdentity, type Identity, type IdentityOptions, type NewOwner } from "./identity.js";
 export { pendingStep, type MemberAccess } from "./member-access.js";
+export type { MemberContact, OrganizationProfile } from "./organization-profile.js";
 export { PermissionSet, type Grant } from "./permission-set.js";
 export {
   isPermission,
