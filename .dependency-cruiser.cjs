@@ -4,11 +4,39 @@ module.exports = {
     {
       name: "db-internals-stay-in-db",
       comment:
-        "Other packages reach @travel-crm/db only through its public entry points (index.ts, platform.ts), " +
-        "so the raw Prisma client and the generated code never leak out of the package.",
+        "Other packages reach @travel-crm/db only through its entry points (index, identity, platform, and the " +
+        "test-only testing files), so the raw Prisma client and the generated code never leak out of the package.",
       severity: "error",
       from: { path: "^(apps|packages)/", pathNot: "^packages/db/" },
-      to: { path: "^packages/db/src/", pathNot: "^packages/db/src/(index|platform)\\.ts$" },
+      to: {
+        path: "^packages/db/(src|test)/",
+        pathNot: "^packages/db/(src/(index|identity|platform)|test/(testing|global-setup))\\.ts$",
+      },
+    },
+    {
+      name: "identity-database-only-in-identity",
+      comment:
+        "@travel-crm/db/identity reaches Better Auth's sign-in tables, which have no row-level security. " +
+        "Only the identity module may use it (spec section 4).",
+      severity: "error",
+      from: { pathNot: ["^packages/db/", "^packages/domain/(src|test)/identity/"] },
+      to: { path: "^packages/db/src/identity\\.ts$" },
+    },
+    {
+      name: "platform-database-only-in-platform",
+      comment:
+        "@travel-crm/db/platform sees every organization. Only the platform module and tests may use it; " +
+        "the api and worker never get DATABASE_PLATFORM_URL.",
+      severity: "error",
+      from: { pathNot: ["^packages/db/", "^packages/domain/src/platform/", "(^|/)test/"] },
+      to: { path: "^packages/db/src/platform\\.ts$" },
+    },
+    {
+      name: "db-testing-only-in-tests",
+      comment: "@travel-crm/db/testing starts Postgres containers and creates organizations. Only tests may use it.",
+      severity: "error",
+      from: { pathNot: ["^packages/db/", "(^|/)test/"] },
+      to: { path: "^packages/db/test/" },
     },
     {
       name: "raw-database-drivers-stay-in-db",
@@ -21,6 +49,32 @@ module.exports = {
         dependencyTypes: ["npm", "npm-dev", "npm-peer", "npm-optional"],
         path: "(^|/)node_modules/(pg|@prisma/client|@prisma/adapter-pg)(/|$)",
       },
+    },
+    {
+      name: "domain-modules-meet-at-their-index",
+      comment:
+        "Each domain module's public API is its index.ts (spec 8). Inside a module, import its own files freely; " +
+        "from another module, import only that module's index.ts.",
+      severity: "error",
+      from: { path: "^packages/domain/src/([^/]+)/" },
+      to: {
+        path: "^packages/domain/src/",
+        pathNot: ["^packages/domain/src/$1/", "^packages/domain/src/[^/]+/index\\.ts$"],
+      },
+    },
+    {
+      name: "domain-modules-from-outside-through-their-index",
+      comment: "Other packages import a domain module only through its index.ts, as @travel-crm/domain/<module>.",
+      severity: "error",
+      from: { path: "^(apps|packages)/", pathNot: "^packages/domain/" },
+      to: { path: "^packages/domain/src/", pathNot: "^packages/domain/src/[^/]+/index\\.ts$" },
+    },
+    {
+      name: "kernel-depends-on-no-module",
+      comment: "The shared kernel is the bottom layer (spec 8): modules use it, it uses no module.",
+      severity: "error",
+      from: { path: "^packages/domain/src/kernel/" },
+      to: { path: "^packages/domain/src/", pathNot: "^packages/domain/src/kernel/" },
     },
     {
       name: "no-circular",
@@ -77,7 +131,7 @@ module.exports = {
           "^node-inspect/lib/_inspect$",
           "^node-inspect/lib/internal/inspect_client$",
           "^node-inspect/lib/internal/inspect_repl$",
-          "^async_hooks$",
+          // async_hooks is left out: its AsyncLocalStorage is stable (soft-delete.ts uses it); only createHook is not.
           "^punycode$",
           "^domain$",
           "^constants$",

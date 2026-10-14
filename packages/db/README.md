@@ -12,8 +12,26 @@ The database layer: Prisma schema, migrations, and the rules that keep each orga
     const number = await db.forOrg(orgId, (tx) => nextDocumentNumber(tx, { prefix: "BK", year: 2026 }));
 
 Organization data is reachable only inside `db.forOrg()`. Postgres row-level security limits every query in that
-transaction to `orgId`'s rows; outside it, queries see nothing. Only the platform console imports
-`@travel-crm/db/platform`, which sees every organization.
+transaction to `orgId`'s rows; outside it, queries see nothing.
+
+- `db.forOrg(orgId, fn, { timeout, maxWait })` passes Prisma's transaction limits through (defaults: 5 s to run, 2 s to
+  wait for a connection). Work past the timeout is rolled back.
+- Never call `forOrg()` inside another `forOrg()`. It throws `NestedForOrgError`, because the inner transaction would run
+  on a second connection that can't see the outer one's writes. Pass the outer `tx` down instead.
+
+## Entry points
+
+| Import                                | For                      | Gives                                                                         |
+| ------------------------------------- | ------------------------ | ----------------------------------------------------------------------------- |
+| `@travel-crm/db`                      | every module             | `createDatabase`, `OrgTx`, `nextDocumentNumber`, `softDeleted`, `withDeleted` |
+| `@travel-crm/db/identity`             | the identity module only | Better Auth's client, and `forOrg` transactions that reach the sign-in tables |
+| `@travel-crm/db/platform`             | the platform module only | a client that sees every organization                                         |
+| `@travel-crm/db/testing`              | tests only               | `createTestOrganization`, the `DbUrls` type                                   |
+| `@travel-crm/db/testing/global-setup` | other packages' Vitest   | the throwaway Postgres; `inject("dbUrls")` in tests                           |
+
+dependency-cruiser enforces the "only" column. Another package's `vitest.config.ts` uses the test database like this:
+
+    globalSetup: [createRequire(import.meta.url).resolve("@travel-crm/db/testing/global-setup")],
 
 ## Adding a table that belongs to an organization
 
@@ -27,7 +45,32 @@ transaction to `orgId`'s rows; outside it, queries see nothing. Only the platfor
 5. Add a row-creating entry for the table to `test/org-table-fixtures.ts`.
 6. `pnpm check`. The isolation suite now covers the new table.
 
-Steps 3 and 5 are enforced: the tests fail if either is missing.
+Steps 3 and 5 are enforced: the tests fail if either is missing. Keys are checked too:
+
+- A foreign key to another organization table includes `organization_id`:
+  `@relation(fields: [organizationId, otherId], references: [organizationId, id])`.
+- A unique constraint includes `organization_id`, e.g. `@@unique([organizationId, key])`, so one organization can't learn
+  that another uses a value. Only a primary key on `id` alone is exempt.
+
+## Soft delete
+
+Rows of soft-delete models are never removed by the app (ADR 0004). To make a model soft-deletable:
+
+1. Give it `deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)` and `deletedBy String? @map("deleted_by") @db.Uuid`.
+2. Add its model name to `softDeleteModels` in `src/soft-delete.ts`.
+3. Make unique values ignore deleted rows: `@@unique([organizationId, name], where: { deletedAt: null })`.
+
+`app_runtime` has no DELETE grant on these tables, and `upsert()` throws `SoftDeleteUpsertError`. Queries on
+organization-owned models throw `SignInRelationError` if they use a relation named in `signInRelations` (today only
+`organization`) at any depth of any argument (`where`, `data`, `include`, upsert's `create` and `update`...),
+because that path leads to the sign-in tables; only `@travel-crm/db/identity` code starts from those. A new relation
+from an organization table to a sign-in model must be added to `signInRelations` in `src/sign-in-guard.ts`;
+`test/sign-in-relations.test.ts` fails until it is.
+
+Delete with `tx.thing.update({ where: { id }, data: softDeleted(userId) })`. Reads and updates skip deleted rows;
+`delete()` throws `HardDeleteError`. `withDeleted(() => …)` shows deleted rows for Trash screens and restoring.
+Any module may call `withDeleted`: it is a view switch, not a permission, so who may see or restore deleted rows is
+checked by the caller, like any other permission.
 
 ## Roles
 

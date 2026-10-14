@@ -1,8 +1,10 @@
 // Prisma 7 generator: TypeScript output inside the package, ES modules.
 generator client {
-  provider     = "prisma-client"
-  output       = "../../src/generated/prisma"
-  moduleFormat = "esm"
+  provider        = "prisma-client"
+  output          = "../../src/generated/prisma"
+  moduleFormat    = "esm"
+  // Lets @@unique take a `where`, for unique values that ignore soft-deleted rows (ADR 0004).
+  previewFeatures = ["partialIndexes"]
 }
 
 // The URL comes from prisma.config.ts, never from this file.

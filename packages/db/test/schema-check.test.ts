@@ -3,6 +3,7 @@
 // (run in a rolled-back migrator transaction) proving the check itself fires.
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { createPrismaClient } from "../src/client.js";
+import type { IdentityTx } from "../src/for-org.js";
 import type { Prisma } from "../src/generated/prisma/client.js";
 import { createPlatformClient, type PlatformClient } from "../src/platform.js";
 import { signInTables } from "./org-table-fixtures.js";
@@ -66,7 +67,7 @@ async function securityDefinerFunctions(client: Queryable): Promise<string[]> {
 class Rollback extends Error {}
 
 /** Runs setup SQL then assertions inside a migrator transaction that is always rolled back. */
-async function probe(migratorUrl: string, run: (tx: Prisma.TransactionClient) => Promise<void>): Promise<void> {
+async function probe(migratorUrl: string, run: (tx: IdentityTx) => Promise<void>): Promise<void> {
   const migrator = createPrismaClient(migratorUrl, { max: 1 });
   try {
     await expect(
