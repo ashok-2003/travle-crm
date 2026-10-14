@@ -1,0 +1,9 @@
+// Contract tests are plain unit tests: no database.
+import { defineConfig } from "vitest/config";
+
+export default defineConfig({
+  test: {
+    name: "contracts",
+    include: ["test/**/*.test.ts"],
+  },
+});
