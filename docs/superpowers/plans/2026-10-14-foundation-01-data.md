@@ -1344,7 +1344,8 @@ describe("nextDocumentNumber", () => {
     const runtime = createPrismaClient(urls.runtime, { max: 1 });
     try {
       await expect(runtime.$transaction((tx) => nextDocumentNumber(tx, { prefix: "BK", year: 2026 }))).rejects.toThrow(
-        /null value|organization_id/,
+        // Postgres checks the RLS policy (organization_id = NULL is never true) before the NOT NULL constraint.
+        /row-level security|null value/,
       );
     } finally {
       await runtime.$disconnect();
