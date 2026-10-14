@@ -7,14 +7,15 @@ The design is in `docs/superpowers/specs/`, the build plans in `docs/superpowers
 
 Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 
-| Command                             | What it does                                             |
-| ----------------------------------- | -------------------------------------------------------- |
-| `pnpm install`                      | install dependencies                                     |
-| `pnpm db:up` / `pnpm db:down`       | start / stop local Postgres (Docker)                     |
-| `pnpm db:migrate`                   | apply migrations to local Postgres                       |
-| `pnpm format`                       | format every file with Prettier                          |
-| `pnpm check`                        | everything CI runs: typecheck, lint, tests, import rules |
-| `pnpm --filter @travel-crm/db test` | one package's tests (needs Docker running)               |
+| Command                                    | What it does                                             |
+| ------------------------------------------ | -------------------------------------------------------- |
+| `pnpm install`                             | install dependencies                                     |
+| `pnpm db:up` / `pnpm db:down`              | start / stop local Postgres (Docker)                     |
+| `pnpm db:migrate`                          | apply migrations to local Postgres                       |
+| `pnpm --filter @travel-crm/api-server dev` | run the api on http://localhost:3001 (reads `.env`)      |
+| `pnpm format`                              | format every file with Prettier                          |
+| `pnpm check`                               | everything CI runs: typecheck, lint, tests, import rules |
+| `pnpm --filter @travel-crm/<package> test` | one package's tests (most need Docker running)           |
 
 ## How we write code
 
@@ -34,10 +35,47 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - Every table with an `organization_id` column needs, in the migration that creates it:
   `SELECT app_enable_org_rls('<table_name>');`, plus a row-creating entry in `packages/db/test/org-table-fixtures.ts`.
   The test suite fails without both. See `packages/db/README.md` for the full recipe.
-- Only the platform console uses `@travel-crm/db/platform` (it sees every organization).
+- Never call `forOrg()` inside another `forOrg()` (it throws `NestedForOrgError`): pass the outer `tx` down.
+- A foreign key between two organization tables includes `organization_id`, and so does every unique constraint on an
+  organization table (except a primary key on `id`). The test suite checks both.
+- Only the platform module uses `@travel-crm/db/platform` (it sees every organization).
+- Better Auth's sign-in tables (user, session, account, verification, two_factor, organization, member, invitation) have no
+  row-level security. Only `packages/domain/src/identity` reaches them, through `@travel-crm/db/identity`; `OrgTx` hides them.
+  Queries on organization-owned models may not use the `organization` relation anywhere in `include`, `select`, `where`,
+  `data` or `orderBy` (it leads to those tables): they throw `SignInRelationError`.
+- Outside `packages/db`, never write SQL that sets `app.org_id` (`set_config`), changes the session (`SET`, `RESET`) or
+  creates temporary tables, and never use `$executeRawUnsafe`/`$queryRawUnsafe`: on a pooled connection they outlive the
+  transaction. ESLint catches `set_config`, `app.org_id`, `SET ROLE`, `SET SESSION AUTHORIZATION`, `RESET ALL`/`ROLE`,
+  `CREATE TEMP` and the `*Unsafe` methods.
+- Soft delete (ADR 0004): tables with `deleted_at`/`deleted_by` are listed in `softDeleteModels`. Delete by updating with
+  `softDeleted(userId)`; reads skip deleted rows; `withDeleted(() => …)` shows them. Unique values among live rows use
+  `@@unique([...], where: { deletedAt: null })`.
+  `upsert()` is refused on soft-delete models, and `app_runtime` has no DELETE grant on their tables.
 - IDs are UUID v7 (`@default(uuid(7)) @db.Uuid`). Money is never a float.
+
+## API and permission rules
+
+- Every tRPC procedure is built from `packages/api/src/procedures.ts`:
+  - `orgProcedure.requires("module:action")` for organization data;
+  - `freshProcedure` (reads the session from the database) for money, roles, exports and staff management;
+  - `platformProcedure` for platform staff;
+  - `protectedProcedure` only for things every signed-in person may see about themselves (`me.get`).
+- Inputs and outputs are Zod schemas from `@travel-crm/contracts`; every procedure has both.
+- Permissions are `module:action` in `packages/domain/src/identity/permissions.ts`. Add new ones there; the Owner role
+  gets them automatically. List queries for scoped views filter with `scopeFilter()` (own or all records).
+- Domain modules are folders in `packages/domain/src`. Their public API is `index.ts`; other modules import only that.
+  Business rule failures throw `DomainError` from `@travel-crm/domain/kernel`, which the API turns into an HTTP status.
+- Over HTTP, every request but GET and HEAD (tRPC mutations and `/api/auth/sign-in/org`) must name a trusted origin and
+  send JSON (`apps/api/src/trusted-origin.ts`). Better Auth's `/api/auth/organization/*` endpoints are closed (404):
+  members and roles go through tRPC. Error responses carry no stack traces or internal messages.
+- The api's settings are checked at start-up (`apps/api/src/environment.ts`). `NODE_ENV` defaults to `production`, which
+  needs https, rate limiting and a strong secret; local development sets `NODE_ENV=development` (`.env.example` does).
 
 ## Repo map
 
-- `packages/db`: Prisma schema, migrations, RLS, `forOrg`, document numbers.
-- `packages/tsconfig`, `packages/eslint-config`: shared settings.
+- `apps/api`: the Hono server. Health check, Better Auth at `/api/auth/*`, organization-code sign-in, tRPC at `/api/trpc`.
+- `packages/api`: tRPC routers and the procedure builders that run the request checks.
+- `packages/contracts`: Zod schemas for every API input and output.
+- `packages/domain`: business rules, one folder per module (`identity`, `kernel`).
+- `packages/db`: Prisma schema, migrations, RLS, `forOrg`, soft delete, document numbers.
+- `packages/tsconfig`, `packages/eslint-config`: shared settings (the ESLint config holds the raw-SQL guard).

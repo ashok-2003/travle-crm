@@ -20,11 +20,12 @@ The api: one Hono app on Node. Settings come from environment variables (`src/en
 | `BETTER_AUTH_SECRET`      | yes      |                   | at least 32 characters; `openssl rand -base64 32`           |
 | `BETTER_AUTH_URL`         | yes      |                   | where browsers reach the api; https in production           |
 | `TRUSTED_ORIGINS`         | no       | none              | other origins allowed to call with cookies, comma-separated |
-| `AUTH_RATE_LIMIT`         | no       | `true`            | sign-in rate limiting; cannot be off in production          |
+| `AUTH_RATE_LIMIT`         | no       | `true`            | sign-in rate limiting; off only in development and test     |
 | `AUTH_IP_ADDRESS_HEADERS` | no       | `x-forwarded-for` | header(s) the load balancer puts the client's IP in         |
+| `AUTH_TRUSTED_PROXIES`    | no       | none              | proxy IPs/CIDRs in front of the api; see `.env.example`     |
 | `DATABASE_POOL_SIZE`      | no       | `10`              | connections per instance                                    |
 | `PORT`                    | no       | `3001`            |                                                             |
-| `NODE_ENV`                | no       | `development`     | `production` turns on HTTPS and rate-limit requirements     |
+| `NODE_ENV`                | no       | `production`      | production needs https, rate limiting and a strong secret   |
 
 The api never reads `DATABASE_MIGRATOR_URL` or `DATABASE_PLATFORM_URL`: migrations run as a separate step, and only the
 platform module may connect as the role that sees every organization.
