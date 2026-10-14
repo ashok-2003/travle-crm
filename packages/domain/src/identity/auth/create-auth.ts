@@ -1,6 +1,7 @@
 // Better Auth, configured for this product (ADR 0006): sign-in by email or by organization code and username,
-// database sessions with a 5-minute cookie cache, two-factor, platform admins and impersonation. No self sign-up.
-import type { IdentityClient } from "@travel-crm/db/identity";
+// database sessions with a 5-minute cookie cache, two-factor, platform admins and impersonation, which the audit log
+// records. No self sign-up.
+import type { IdentityClient, IdentityDatabase } from "@travel-crm/db/identity";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { admin } from "better-auth/plugins/admin";
@@ -8,6 +9,7 @@ import { organization } from "better-auth/plugins/organization";
 import { twoFactor } from "better-auth/plugins/two-factor";
 import { username } from "better-auth/plugins/username";
 import { INTERNAL_USERNAME_PATTERN } from "../sign-in-names.js";
+import { impersonationAudit } from "./impersonation-audit.js";
 import { closeSideDoors } from "./side-doors.js";
 import { relabelTotpForStaffWithoutEmail } from "./totp-label.js";
 
@@ -35,7 +37,8 @@ export interface AuthSettings {
 
 const DAY = 60 * 60 * 24;
 
-export function createAuth(client: IdentityClient, settings: AuthSettings) {
+export function createAuth(database: IdentityDatabase, settings: AuthSettings) {
+  const client = database.client;
   return betterAuth({
     appName: settings.appName,
     secret: settings.secret,
@@ -106,6 +109,8 @@ export function createAuth(client: IdentityClient, settings: AuthSettings) {
       }),
       // Platform staff have user role "admin". Support may impersonate a user for at most an hour (spec 6.1).
       admin({ adminRoles: ["admin"], impersonationSessionDuration: 60 * 60 }),
+      // Writes "support.impersonation-started" and "-stopped" to the member's organization's audit log.
+      impersonationAudit(database),
       twoFactor({ issuer: settings.appName }),
     ],
   });

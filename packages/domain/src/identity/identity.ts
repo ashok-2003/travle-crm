@@ -98,7 +98,7 @@ export interface Identity {
 
 export function createIdentity(options: IdentityOptions): Identity {
   const database = createIdentityDatabase(options.databaseUrl, { maxConnections: options.maxConnections ?? 10 });
-  const auth = createAuth(database.client, options.auth);
+  const auth = createAuth(database, options.auth);
   const hashPassword: PasswordHasher = async (password) => (await auth.$context).password.hash(password);
 
   return {

@@ -2,6 +2,7 @@
 // The API checks settings:manage before calling setTwoFactorRequirement.
 import type { SecuritySettings, SetTwoFactorRequirementInput } from "@travel-crm/contracts/identity";
 import type { IdentityDatabase } from "@travel-crm/db/identity";
+import { recordAudit } from "../audit/index.js";
 import { DomainError } from "../kernel/index.js";
 import type { MemberAccess } from "./member-access.js";
 
@@ -18,8 +19,22 @@ export async function setTwoFactorRequirement(
   if (input.required && !actor.twoFactorEnabled) {
     throw new DomainError("FORBIDDEN", "ENABLE_TWO_FACTOR_FIRST", "Turn on two-factor sign-in for yourself first");
   }
-  const organization = await database.forOrg(actor.organizationId, (tx) =>
-    tx.organization.update({ where: { id: actor.organizationId }, data: { requireTwoFactor: input.required } }),
-  );
-  return { requireTwoFactor: organization.requireTwoFactor };
+  await database.forOrg(actor.organizationId, async (tx) => {
+    // Conditional on the other value, so of two members changing it at once only the write that really changes it
+    // counts and is recorded, and each entry starts where the one before it ended.
+    const { count } = await tx.organization.updateMany({
+      where: { id: actor.organizationId, requireTwoFactor: !input.required },
+      data: { requireTwoFactor: input.required },
+    });
+    if (count === 1) {
+      await recordAudit(tx, actor, {
+        action: "settings.two-factor-requirement-changed",
+        entityType: "organization",
+        entityId: actor.organizationId,
+        before: { requireTwoFactor: !input.required },
+        after: { requireTwoFactor: input.required },
+      });
+    }
+  });
+  return { requireTwoFactor: input.required };
 }

@@ -30,8 +30,8 @@ Date: 2026-10-14 · Status: accepted · Implements spec sections 6.1 to 6.4
   `settings:manage` and two-factor on the person doing it; turning it off needs an Owner (`OWNER_ONLY`), since spec 6.2
   makes requiring it an Owner's choice.
 - **Platform staff** have user role `admin` and no membership, ever (removed members count). They may impersonate a
-  user for up to an hour. Impersonation has no durable record until the audit log arrives (plans 3 and 4); today the
-  only marker is the session row.
+  user for up to an hour. Starting and stopping it is recorded in that member's organization's audit log, and
+  everything done meanwhile is recorded with `source: "impersonation"` and the admin's id (ADR 0015).
 - **Side doors closed** by a `hooks.before` middleware in `auth/side-doors.ts`: `/update-user` refuses `username` and
   `displayUsername` (only our staff API changes them), `/is-username-available` is closed, `/change-password` refuses
   a new password equal to the current one, and every `/admin/*` path re-checks the caller against our definition of

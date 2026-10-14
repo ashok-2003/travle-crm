@@ -3,6 +3,7 @@
 import type { CreateRoleInput, DeleteRoleInput, RoleSummary, UpdateRoleInput } from "@travel-crm/contracts/identity";
 import { softDeleted } from "@travel-crm/db";
 import { isUniqueViolation, type IdentityDatabase, type IdentityTx } from "@travel-crm/db/identity";
+import { recordAudit, type AuditSnapshot } from "../audit/index.js";
 import { DomainError } from "../kernel/index.js";
 import { assertMayHandleRole, assertRoleIsEditable, permissionSetFromInput } from "./access-rules.js";
 import type { MemberAccess } from "./member-access.js";
@@ -43,6 +44,12 @@ export async function createRole(
       await assertNameIsFree(tx, input.name);
       const role = await tx.role.create({ data: { key: roleKeyFor(input.name), name: input.name } });
       await replacePermissions(tx, role.id, permissions);
+      await recordAudit(tx, actor, {
+        action: "role.created",
+        entityType: "role",
+        entityId: role.id,
+        after: roleSnapshot(role.name, permissions),
+      });
       return summarise({ ...role, permissions }, 0);
     }),
   );
@@ -72,6 +79,11 @@ export async function updateRole(
         await assertNameIsFree(tx, input.name, role.id);
         name = (await tx.role.update({ where: { id: role.id }, data: { name: input.name } })).name;
       }
+      const before = roleSnapshot(role.name, role.permissions);
+      const after = roleSnapshot(name, permissions);
+      if (JSON.stringify(before) !== JSON.stringify(after)) {
+        await recordAudit(tx, actor, { action: "role.updated", entityType: "role", entityId: role.id, before, after });
+      }
       const memberCounts = await countMembersByRole(tx, actor.organizationId);
       return summarise({ ...role, name, permissions }, memberCounts.get(role.key) ?? 0);
     }),
@@ -97,6 +109,12 @@ export async function deleteRole(
       throw new DomainError("CONFLICT", "ROLE_IN_USE", "Move the staff who have this role to another role first");
     }
     await tx.role.update({ where: { id: role.id }, data: softDeleted(actor.userId) });
+    await recordAudit(tx, actor, {
+      action: "role.deleted",
+      entityType: "role",
+      entityId: role.id,
+      before: { key: role.key, ...roleSnapshot(role.name, role.permissions) },
+    });
   });
 }
 
@@ -144,6 +162,14 @@ async function replacePermissions(tx: IdentityTx, roleId: string, permissions: P
 async function countMembersByRole(tx: IdentityTx, organizationId: string): Promise<Map<string, number>> {
   const groups = await tx.member.groupBy({ by: ["role"], where: { organizationId }, _count: { _all: true } });
   return new Map(groups.map((group) => [group.role, group._count._all]));
+}
+
+/** What the audit log keeps of a role: its name and what it allows, in the catalog's order. */
+function roleSnapshot(name: string, permissions: PermissionSet): AuditSnapshot {
+  return {
+    name,
+    permissions: permissions.toGrants().map((grant) => ({ permission: grant.permission, scope: grant.scope })),
+  };
 }
 
 function summarise(
