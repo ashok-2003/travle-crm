@@ -5,6 +5,7 @@ import { createDatabase, type Database } from "@travel-crm/db";
 import type { DbUrls } from "@travel-crm/db/testing";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { createPgBossJobs, type PgBossJobs } from "../../src/jobs/index.js";
+import { describeJobAdapter } from "./job-adapter-contract.js";
 
 /** Waits until check passes or the time runs out. */
 async function eventually(check: () => Promise<boolean> | boolean, timeoutMs = 20_000): Promise<void> {
@@ -14,6 +15,26 @@ async function eventually(check: () => Promise<boolean> | boolean, timeoutMs = 2
     await new Promise((resolve) => setTimeout(resolve, 200));
   }
 }
+
+describeJobAdapter("pg-boss", async () => {
+  const jobs = createPgBossJobs({
+    connectionString: inject("dbUrls").runtime,
+    maxConnections: 2,
+    pollingIntervalSeconds: 0.5,
+    // The original errors of the contract's failing handler; the stored copies are what it checks.
+    onError: () => undefined,
+  });
+  await jobs.start();
+  return {
+    queue: jobs,
+    runner: jobs,
+    runUntil: (check) => eventually(check, 25_000),
+    failed: async () =>
+      (await jobs.failedJobs()).map(({ id, queue, attempts, error }) => ({ id, queue, attempts, error })),
+    schedules: () => jobs.schedules(),
+    stop: () => jobs.stop(),
+  };
+});
 
 describe("pg-boss jobs", () => {
   const urls: DbUrls = inject("dbUrls");

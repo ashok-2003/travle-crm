@@ -1,7 +1,7 @@
 // The jobs port on pg-boss (spec 9.1): queues in Postgres, no extra server. pg-boss runs as app_runtime with
 // migrate: false; its schema comes from our migrations (ADR 0010).
 import { PgBoss } from "pg-boss";
-import { assertQueueName, type JobData, type JobQueue } from "./job-queue.js";
+import { assertJobId, assertQueueName, type JobData, type JobQueue } from "./job-queue.js";
 import type { JobRunner } from "./job-runner.js";
 import { defaultRetryPolicy, type RetryPolicy } from "./retry-policy.js";
 import { sanitizeJobError, toError } from "./sanitize-job-error.js";
@@ -130,6 +130,7 @@ export function createPgBossJobs(settings: PgBossJobsSettings): PgBossJobs {
     stop: () => boss.stop({ graceful: true, timeout: 30_000 }),
 
     async send(queue, data, options = {}) {
+      if (options.id !== undefined) assertJobId(options.id);
       await ensureQueue(queue);
       return boss.send(queue, data, {
         ...(options.id === undefined ? {} : { id: options.id }),

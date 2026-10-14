@@ -2,6 +2,27 @@
 // are retried up to the job's limit and then recorded, and schedules are kept with their time zone.
 import { describe, expect, it } from "vitest";
 import { createMemoryJobQueue, createMemoryJobRunner } from "../../src/jobs/index.js";
+import { describeJobAdapter } from "./job-adapter-contract.js";
+
+describeJobAdapter("memory", () => {
+  const queue = createMemoryJobQueue();
+  const runner = createMemoryJobRunner(queue);
+  return Promise.resolve({
+    queue,
+    runner,
+    runUntil: async (check) => {
+      await runner.runQueued();
+      if (!(await check())) throw new Error("Every queued job ran, and the check still fails");
+    },
+    failed: () =>
+      Promise.resolve(
+        runner.failed.map(({ job, attempts, error }) => ({ id: job.id, queue: job.queue, attempts, error })),
+      ),
+    schedules: () =>
+      Promise.resolve(runner.schedules.map(({ queue: name, cron, timeZone }) => ({ queue: name, cron, timeZone }))),
+    stop: () => Promise.resolve(),
+  });
+});
 
 describe("memory job runner", () => {
   it("runs queued jobs that have a handler, including jobs the handlers queue", async () => {
@@ -33,7 +54,7 @@ describe("memory job runner", () => {
     await runner.runQueued();
     expect(attempts).toEqual([0, 1, 2]);
     expect(runner.failed).toMatchObject([
-      { attempts: 3, error: "mail server down", job: { queue: "notifications.deliver" } },
+      { attempts: 3, error: "Error: mail server down", job: { queue: "notifications.deliver" } },
     ]);
   });
 
