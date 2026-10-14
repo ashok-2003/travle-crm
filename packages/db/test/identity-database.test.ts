@@ -109,4 +109,43 @@ describe("identity database", () => {
       await wrongRole.disconnect();
     }
   });
+
+  it(
+    "does not hang on a direct client.$transaction as the first call on a pool of one",
+    { timeout: 10_000 },
+    async () => {
+      const single = createIdentityDatabase(urls.runtime, { maxConnections: 1 });
+      try {
+        expect(await single.client.$transaction(async (tx) => tx.user.count())).toBeGreaterThanOrEqual(0);
+      } finally {
+        await single.disconnect();
+      }
+    },
+  );
+
+  it("completes concurrent direct client.$transaction calls on a cold pool", { timeout: 10_000 }, async () => {
+    const cold = createIdentityDatabase(urls.runtime, { maxConnections: 2 });
+    try {
+      const counts = await Promise.all(
+        Array.from({ length: 5 }, () => cold.client.$transaction(async (tx) => tx.user.count())),
+      );
+      expect(counts).toHaveLength(5);
+    } finally {
+      await cold.disconnect();
+    }
+  });
+
+  it("refuses a direct client.$transaction as the wrong role, in callback and batch form", async () => {
+    const wrongRole = createIdentityDatabase(urls.platform, { maxConnections: 2 });
+    try {
+      await expect(wrongRole.client.$transaction(async (tx) => tx.user.count())).rejects.toBeInstanceOf(
+        WrongDatabaseRoleError,
+      );
+      await expect(wrongRole.client.$transaction([wrongRole.client.user.count()])).rejects.toBeInstanceOf(
+        WrongDatabaseRoleError,
+      );
+    } finally {
+      await wrongRole.disconnect();
+    }
+  });
 });

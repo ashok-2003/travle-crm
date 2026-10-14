@@ -56,8 +56,21 @@ export function createPrismaClient(connectionString: string, options: ClientOpti
   const client = base.$extends(signInGuard).$extends(softDelete);
   if (!options.requireRuntimeRole) return client;
   const checked = client.$extends(requireRuntimeRole);
-  runtimeRoleChecks.set(checked, checkRole);
-  return checked;
+  // The hook above would run inside a transaction on a second connection when the check isn't cached yet, and a small
+  // or cold pool can wait on itself. So $transaction (callback and batch forms) awaits the check before it starts.
+  const guarded = new Proxy(checked, {
+    get(target, property) {
+      if (property === "$transaction") {
+        return async (...transactionArguments: Parameters<typeof target.$transaction>) => {
+          await checkRole();
+          return (target.$transaction as (...parameters: unknown[]) => Promise<unknown>)(...transactionArguments);
+        };
+      }
+      return Reflect.get(target, property) as unknown;
+    },
+  });
+  runtimeRoleChecks.set(guarded, checkRole);
+  return guarded;
 }
 
 /** Prisma's client with the soft-delete extension applied. */
