@@ -4,6 +4,7 @@ import { PgBoss } from "pg-boss";
 import { assertQueueName, type JobData, type JobQueue } from "./job-queue.js";
 import type { JobRunner } from "./job-runner.js";
 import { defaultRetryPolicy, type RetryPolicy } from "./retry-policy.js";
+import { sanitizeJobError, toError } from "./sanitize-job-error.js";
 
 export interface PgBossJobsSettings {
   /** Postgres as the app_runtime role. */
@@ -14,7 +15,10 @@ export interface PgBossJobsSettings {
   pollingIntervalSeconds?: number;
   /** How the queues this instance creates retry failed jobs. Tests shorten it; production keeps the default. */
   retryPolicy?: RetryPolicy;
-  /** Where pg-boss's errors go: a failing maintenance query, a lost connection. */
+  /**
+   * Where pg-boss's errors go (a failing maintenance query, a lost connection), its warnings (prefixed "pg-boss
+   * warning:"), the original errors of failing handlers, and failed-job rows that couldn't be read.
+   */
   onError?: (error: Error) => void;
 }
 
@@ -25,7 +29,8 @@ export interface FailedJob {
   data: JobData;
   /** Every attempt, the first one included. */
   attempts: number;
-  failedAt: Date;
+  /** Null when pg-boss recorded no completion time. */
+  failedAt: Date | null;
   /** The last attempt's error message. */
   error: string;
 }
@@ -43,6 +48,8 @@ export interface PgBossJobs extends JobQueue, JobRunner {
 /** The schema our migrations create pg-boss in (migration 20261015100000_pgboss). */
 const SCHEMA = "pgboss";
 
+const MAX_FAILED_JOBS = 500;
+
 interface FailedJobRow {
   id: string;
   name: string;
@@ -52,9 +59,13 @@ interface FailedJobRow {
   output: unknown;
 }
 
-/** Job data is a flat object of strings, numbers, booleans and nulls (the port's JobData); anything else is refused. */
+/**
+ * Job data is a flat object of strings, numbers, booleans and nulls (the port's JobData); anything else is refused.
+ * A job sent without data has none (null), which is an empty object here.
+ */
 function toJobData(value: unknown): JobData {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return {};
+  if (value === null || value === undefined) return {};
+  if (typeof value !== "object" || Array.isArray(value)) throw new TypeError("Job data is not a plain object");
   for (const [key, field] of Object.entries(value)) {
     if (field !== null && !["string", "number", "boolean"].includes(typeof field)) {
       throw new TypeError(`Job data field ${key} is not a string, number, boolean or null`);
@@ -79,13 +90,20 @@ export function createPgBossJobs(settings: PgBossJobsSettings): PgBossJobs {
     migrate: false,
     createSchema: false,
   });
-  boss.on("error", (error) => {
+  function report(error: Error): void {
     if (settings.onError) settings.onError(error);
     else console.error("pg-boss error", error);
+  }
+  boss.on("error", (error) => {
+    report(toError(error));
+  });
+  boss.on("warning", (warning) => {
+    report(new Error(`pg-boss warning: ${toError(warning).message}`));
   });
 
-  // pg-boss 12 needs a queue to exist before jobs are sent to or worked from it. Creating one is idempotent, and an
-  // existing queue keeps the policy it was created with.
+  // pg-boss 12 needs a queue to exist before jobs are sent to or worked from it. Creating one is idempotent
+  // (ON CONFLICT DO NOTHING): an existing queue keeps the policy it was created with, so changing the default retry
+  // policy does not reach queues that already exist.
   const retryPolicy = settings.retryPolicy ?? defaultRetryPolicy;
   const queues = new Map<string, Promise<void>>();
   function ensureQueue(name: string): Promise<void> {
@@ -133,14 +151,21 @@ export function createPgBossJobs(settings: PgBossJobsSettings): PgBossJobs {
           pollingIntervalSeconds: settings.pollingIntervalSeconds ?? 2,
         },
         async ([job]) => {
-          if (job) await handler({ id: job.id, data: toJobData(job.data), retryCount: job.retryCount });
+          if (!job) return;
+          try {
+            await handler({ id: job.id, data: toJobData(job.data), retryCount: job.retryCount });
+          } catch (error) {
+            // pg-boss stores what we throw, in a table without row-level security: log the original, throw a cut-down copy.
+            report(toError(error));
+            throw sanitizeJobError(error);
+          }
         },
       );
     },
 
     async schedule(queue, cron, { timeZone, data }) {
       await ensureQueue(queue);
-      await boss.schedule(queue, cron, data ?? null, { tz: timeZone });
+      await boss.schedule(queue, cron, data ?? {}, { tz: timeZone });
     },
 
     async unschedule(queue) {
@@ -157,19 +182,31 @@ export function createPgBossJobs(settings: PgBossJobsSettings): PgBossJobs {
     },
 
     async failedJobs({ limit = 50 } = {}) {
+      if (!Number.isInteger(limit) || limit < 1 || limit > MAX_FAILED_JOBS) {
+        throw new RangeError(`limit must be a whole number from 1 to ${String(MAX_FAILED_JOBS)}`);
+      }
       const { rows } = await boss.getDb().executeSql(
         `SELECT id, name, data, retry_count, completed_on, output FROM ${SCHEMA}.job
          WHERE state = 'failed' ORDER BY completed_on DESC NULLS LAST LIMIT $1`,
         [limit],
       );
-      return (rows as FailedJobRow[]).map((row) => ({
-        id: row.id,
-        queue: row.name,
-        data: toJobData(row.data),
-        attempts: row.retry_count + 1,
-        failedAt: row.completed_on ?? new Date(0),
-        error: errorMessageOf(row.output),
-      }));
+      const failed: FailedJob[] = [];
+      for (const row of rows as FailedJobRow[]) {
+        try {
+          failed.push({
+            id: row.id,
+            queue: row.name,
+            data: toJobData(row.data),
+            attempts: row.retry_count + 1,
+            failedAt: row.completed_on,
+            error: errorMessageOf(row.output),
+          });
+        } catch (error) {
+          // One unreadable row must not hide the others from the console.
+          report(new Error(`Failed job ${row.id} on ${row.name} can't be listed: ${toError(error).message}`));
+        }
+      }
+      return failed;
     },
   };
 }

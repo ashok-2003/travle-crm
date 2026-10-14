@@ -9,7 +9,10 @@ export interface RetryPolicy {
   retryDelayMaxSeconds: number;
 }
 
-/** Five retries over about five minutes (10 s, 20 s, 40 s, 80 s, 160 s, with jitter), never more than an hour apart. */
+/**
+ * Five retries after 10 s, 20 s, 40 s, 80 s and 160 s, plus jitter: they take five to ten minutes in all, and no
+ * two attempts are more than an hour apart.
+ */
 export const defaultRetryPolicy: RetryPolicy = {
   retryLimit: 5,
   retryDelaySeconds: 10,
