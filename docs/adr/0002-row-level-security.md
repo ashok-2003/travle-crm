@@ -28,3 +28,7 @@ Date: 2026-10-14 · Status: accepted · Implements spec section 4
 - The test suite proves isolation for every table with `organization_id`, and fails if a table lacks the policies
   or an isolation fixture.
 - The organization table itself has no RLS: it is read during sign-in, before an organization is known.
+- Views must be `security_invoker`, materialized views are not allowed, and SECURITY DEFINER functions are banned
+  unless allow-listed: otherwise they run with the owner's rights and skip the policies. The schema check enforces this.
+- Each organization table has exactly the two standard policies (`org_isolation`, `platform_access`), nothing extra.
+- The runtime role has no TEMP rights, and `forOrg()` refuses to run as any role but `app_runtime`.
