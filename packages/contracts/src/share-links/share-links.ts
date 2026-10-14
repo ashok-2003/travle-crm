@@ -4,8 +4,12 @@ import { z } from "zod";
 /** What a link opens, as a record type such as "issued_document". The database checks the same pattern. */
 export const shareableRecordType = z.string().regex(/^[a-z][a-z_]{1,39}$/, "Use a record type like issued_document");
 
-/** No control characters or bidi overrides (they can disguise what was shared), and something visible. */
-const isVisibleText = (text: string) => !/[\p{Cc}‪-‮⁦-⁩]/u.test(text) && /[\p{L}\p{N}]/u.test(text);
+/**
+ * No control characters, line or paragraph separators, or bidi marks and overrides (they can disguise what was
+ * shared), and something visible. Joiners (U+200C, U+200D) stay allowed: Indic scripts need them.
+ */
+const isVisibleText = (text: string) =>
+  !/[\p{Cc}\u200E\u200F\u061C\u2028\u2029\u202A-\u202E\u2066-\u2069]/u.test(text) && /[\p{L}\p{N}]/u.test(text);
 
 /** What was shared, as staff see it, e.g. "Quotation QT-2026-0042". */
 export const shareLinkLabel = z

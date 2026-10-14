@@ -31,10 +31,27 @@ describe("share-link contracts", () => {
     const valid = { recordType: "issued_document", recordId, label: "Quote" };
     expect(createShareLinkInput.safeParse({ ...valid, recordType: "Issued-Document" }).success).toBe(false);
     expect(createShareLinkInput.safeParse({ ...valid, label: " " }).success).toBe(false);
-    expect(createShareLinkInput.safeParse({ ...valid, label: "a‮b" }).success).toBe(false);
+    for (const invisible of [
+      "\u202e",
+      "\u202a",
+      "\u2066",
+      "\u2069",
+      "\u200e",
+      "\u200f",
+      "\u061c",
+      "\u2028",
+      "\u2029",
+    ]) {
+      expect(createShareLinkInput.safeParse({ ...valid, label: `a${invisible}b` }).success).toBe(false);
+    }
     expect(createShareLinkInput.safeParse({ ...valid, label: "x".repeat(201) }).success).toBe(false);
     expect(createShareLinkInput.safeParse({ ...valid, organizationId: recordId }).success).toBe(false);
     expect(createShareLinkInput.safeParse({ ...valid, expiresAt: "next week" }).success).toBe(false);
+  });
+
+  it("allows the joiners that Indic scripts need in a label", () => {
+    const label = "\u0915\u094d\u200d\u0937 \u0915\u094d\u200c\u0937 Trip";
+    expect(createShareLinkInput.safeParse({ recordType: "issued_document", recordId, label }).success).toBe(true);
   });
 
   it("describes a made link, a listed link and the opened event", () => {
