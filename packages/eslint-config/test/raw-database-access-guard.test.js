@@ -40,6 +40,8 @@ describe("raw database access guard", () => {
   const switchingStatements = [
     "SELECT set_config ( 'app . org_id', 'x', true)",
     "SET app  .  org_id = 'x'",
+    "SET ROLE app_platform",
+    "SET LOCAL ROLE x",
     "SET ROLE postgres",
     "set local role postgres",
     "SET SESSION ROLE postgres",
@@ -55,11 +57,18 @@ describe("raw database access guard", () => {
   });
 
   it.each(switchingStatements)("reports %s in a tagged template", async (sql) => {
-    expect(await rulesReportedFor("await tx.$executeRaw`" + sql + "`;")).toContain("no-restricted-syntax");
+    expect(await rulesReportedFor("await tx.$executeRaw`" + sql + "`;")).toEqual(["no-restricted-syntax"]);
   });
 
   it("reports the organization setting split across lines in a template", async () => {
-    expect(await rulesReportedFor("await tx.$executeRaw`SET app\n  .org_id = 'x'`;")).toContain("no-restricted-syntax");
+    expect(await rulesReportedFor("await tx.$executeRaw`SET app\n  .org_id = 'x'`;")).toEqual(["no-restricted-syntax"]);
+  });
+
+  it("does not flag a column called role being assigned", async () => {
+    for (const sql of ["UPDATE member SET role = $1", "update member set role=$1"]) {
+      expect(await rulesReportedFor('const sql = "' + sql + '";')).toEqual([]);
+      expect(await rulesReportedFor("await tx.$executeRaw`" + sql + "`;")).toEqual([]);
+    }
   });
 
   it("does not flag ordinary SQL that merely contains SET or similar words", async () => {
@@ -71,9 +80,11 @@ describe("raw database access guard", () => {
     expect(await rulesReportedFor(`const sql = "UPDATE lead SET role_note = 'reset' WHERE id = $1";`)).toEqual([]);
   });
 
-  it("stays part of the composed base() config", () => {
-    const rules = base({ tsconfigRootDir: import.meta.dirname }).flatMap((config) => Object.keys(config.rules ?? {}));
-    expect(rules).toContain("no-restricted-syntax");
-    expect(rules).toContain("no-restricted-properties");
+  it("keeps the guard's entries in the composed base() config", () => {
+    const configs = base({ tsconfigRootDir: import.meta.dirname });
+    for (const rule of ["no-restricted-syntax", "no-restricted-properties"]) {
+      const composed = configs.map((config) => config.rules?.[rule]).filter(Boolean);
+      expect(composed.at(-1)).toEqual(rawDatabaseAccessGuard.rules[rule]);
+    }
   });
 });

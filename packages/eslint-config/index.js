@@ -4,14 +4,15 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import tseslint from "typescript-eslint";
 
 // Matches SQL that changes the organization setting or the session around it: set_config / app.org_id (whitespace
-// allowed around the dot), SET [LOCAL|SESSION] ROLE, SET SESSION AUTHORIZATION, RESET ALL / RESET ROLE, CREATE TEMP[ORARY].
+// allowed around the dot), SET [LOCAL|SESSION] ROLE (not "SET role = x", a column assignment), SET SESSION AUTHORIZATION, RESET ALL / RESET ROLE, CREATE TEMP[ORARY].
 const organizationSwitchPattern =
-  "set_config|app\\s*\\.\\s*org_id|\\bset\\s+(local\\s+|session\\s+)?(role|session\\s+authorization)\\b|" +
+  "set_config|app\\s*\\.\\s*org_id|\\bset\\s+(local\\s+|session\\s+)?(role\\b(?!\\s*=)|session\\s+authorization\\b)|" +
   "\\breset\\s+(all|role)\\b|\\bcreate\\s+temp(orary)?\\b";
 
 const organizationSwitchMessage =
   "Only packages/db may change the organization or database session state (set_config, app.org_id, SET ROLE, RESET, " +
-  "CREATE TEMP). Inside db.forOrg() the organization is meant to stay fixed for the transaction.";
+  "CREATE TEMP). Inside db.forOrg() the organization is meant to stay fixed for the transaction. This rule is a " +
+  "tripwire against accidental use; Postgres row-level security is the real boundary.";
 
 /**
  * A tripwire against accidental use, not a security boundary: it flags SQL text that would switch the organization
