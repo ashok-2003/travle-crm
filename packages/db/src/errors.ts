@@ -31,3 +31,18 @@ export class WrongDatabaseRoleError extends Error {
     this.name = "WrongDatabaseRoleError";
   }
 }
+
+/**
+ * Thrown when an organization transaction reaches for a table without organization_id (webhook_event,
+ * rate_limit_counter). Those tables have no row-level security, so only their own module reaches them, inside
+ * db.withoutOrg(), through its entry point (@travel-crm/db/webhooks or @travel-crm/db/rate-limits).
+ */
+export class UnscopedModelError extends Error {
+  constructor(model: string) {
+    super(
+      `${model} has no organization_id and no row-level security, so this transaction can't reach it. ` +
+        "Its own module reaches it inside db.withoutOrg(), through its @travel-crm/db entry point.",
+    );
+    this.name = "UnscopedModelError";
+  }
+}

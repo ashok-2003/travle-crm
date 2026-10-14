@@ -2,6 +2,7 @@
 // delivered: repeated deliveries and job retries are collapsed, but the handler and the mark-processed update are
 // separate transactions, so a crash between them runs the handler again. Handlers must be idempotent.
 import type { Database } from "@travel-crm/db";
+import { webhookEvents } from "@travel-crm/db/webhooks";
 import type { JobData } from "@travel-crm/integrations/jobs";
 import type { StoredWebhookEvent, WebhookProvider } from "./provider.js";
 
@@ -42,7 +43,7 @@ export async function processWebhookEvent(
   webhookEventId: string,
 ): Promise<WebhookProcessResult> {
   if (!UUID_PATTERN.test(webhookEventId)) return "event-not-found";
-  const row = await db.withoutOrg((tx) => tx.webhookEvent.findUnique({ where: { id: webhookEventId } }));
+  const row = await db.withoutOrg((tx) => webhookEvents(tx).findUnique({ where: { id: webhookEventId } }));
   if (!row) return "event-not-found";
   if (row.processedAt) return "already-processed";
   const provider = providers.find((candidate) => candidate.name === row.provider);
@@ -64,7 +65,7 @@ export async function processWebhookEvent(
   } catch (error) {
     try {
       await db.withoutOrg((tx) =>
-        tx.webhookEvent.update({
+        webhookEvents(tx).update({
           where: { id: row.id },
           data: { attempts: { increment: 1 }, lastError: errorLabel(error) },
         }),
@@ -78,7 +79,7 @@ export async function processWebhookEvent(
     throw error;
   }
   await db.withoutOrg((tx) =>
-    tx.webhookEvent.updateMany({
+    webhookEvents(tx).updateMany({
       where: { id: row.id, processedAt: null },
       data: { processedAt: new Date(), attempts: { increment: 1 }, lastError: null },
     }),

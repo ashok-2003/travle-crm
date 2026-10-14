@@ -1,6 +1,7 @@
 // Rate-limit counters for the public routes (spec 9.7): share links, webhooks and, later, public forms. They live in
 // Postgres so every api instance counts against the same limit (containers are stateless, spec 12.3).
-// No organization_id: a key names a limit and a client, so it belongs to no organization. Reached with db.withoutOrg().
+// No organization_id: a key names a limit and a client, so it belongs to no organization. OrgTx leaves the model out;
+// only the rate-limits module reaches it, in db.withoutOrg(), through @travel-crm/db/rate-limits.
 
 /// The requests one key made in one fixed window.
 model RateLimitCounter {

@@ -3,6 +3,7 @@
 import { createHash, createHmac } from "node:crypto";
 import { createDatabase, type Database } from "@travel-crm/db";
 import { createPlatformClient } from "@travel-crm/db/platform";
+import { rateLimitCounters } from "@travel-crm/db/rate-limits";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { createRateLimiter, purgeExpiredRateLimits } from "../../src/rate-limits/index.js";
 
@@ -57,7 +58,7 @@ describe("rate limiter", () => {
     for (const second of [0, 1, 2, 3]) await limiter.hit(key, rule, secondsLater(second));
     expect(await limiter.hit(key, rule, secondsLater(60))).toMatchObject({ allowed: true, remaining: 2 });
     const hashedKey = createHmac("sha256", keySecret).update(key).digest("hex");
-    const rows = await db.withoutOrg((tx) => tx.rateLimitCounter.findMany({ where: { key: hashedKey } }));
+    const rows = await db.withoutOrg((tx) => rateLimitCounters(tx).findMany({ where: { key: hashedKey } }));
     expect(rows).toEqual([{ key: hashedKey, windowStart: secondsLater(60), count: 1 }]);
   });
 
@@ -75,7 +76,7 @@ describe("rate limiter", () => {
     const address = `203.0.113.${String(Math.floor(Math.random() * 200))}`;
     const key = `share-links:${address}`;
     await createRateLimiter(db, { keySecret }).hit(key, rule, secondsLater(0));
-    const keys = await db.withoutOrg((tx) => tx.rateLimitCounter.findMany({ select: { key: true } }));
+    const keys = await db.withoutOrg((tx) => rateLimitCounters(tx).findMany({ select: { key: true } }));
     expect(keys.every((row) => /^[0-9a-f]{64}$/.test(row.key))).toBe(true);
     expect(keys.some((row) => row.key.includes(address))).toBe(false);
     const stored = keys.map((row) => row.key);
@@ -120,7 +121,7 @@ describe("rate limiter", () => {
     );
     expect(results.filter((result) => result.allowed).length).toBe(5);
     const hashedKey = createHmac("sha256", keySecret).update(key).digest("hex");
-    const rows = await db.withoutOrg((tx) => tx.rateLimitCounter.findMany({ where: { key: hashedKey } }));
+    const rows = await db.withoutOrg((tx) => rateLimitCounters(tx).findMany({ where: { key: hashedKey } }));
     expect(rows.map((row) => row.count)).toEqual([20]);
   });
 
@@ -163,7 +164,7 @@ describe("rate limiter", () => {
         SELECT md5(g::text) || md5((g + 1)::text), ${old}, 1 FROM generate_series(1, 25000) AS g`,
     );
     expect(await purgeExpiredRateLimits(db, new Date("2019-06-01T00:00:00Z"), 10_000)).toBe(25_000);
-    const left = await db.withoutOrg((tx) => tx.rateLimitCounter.count({ where: { windowStart: old } }));
+    const left = await db.withoutOrg((tx) => rateLimitCounters(tx).count({ where: { windowStart: old } }));
     expect(left).toBe(0);
   });
 

@@ -4,13 +4,14 @@ module.exports = {
     {
       name: "db-internals-stay-in-db",
       comment:
-        "Other packages reach @travel-crm/db only through its entry points (index, identity, platform, and the " +
-        "test-only testing files), so the raw Prisma client and the generated code never leak out of the package.",
+        "Other packages reach @travel-crm/db only through its entry points (index, identity, platform, webhooks, " +
+        "rate-limits, and the test-only testing files), so the raw Prisma client and the generated code never leak " +
+        "out of the package.",
       severity: "error",
       from: { path: "^(apps|packages)/", pathNot: "^packages/db/" },
       to: {
         path: "^packages/db/(src|test)/",
-        pathNot: "^packages/db/(src/(index|identity|platform)|test/(testing|global-setup))\\.ts$",
+        pathNot: "^packages/db/(src/(index|identity|platform|webhooks|rate-limits)|test/(testing|global-setup))\\.ts$",
       },
     },
     {
@@ -21,6 +22,24 @@ module.exports = {
       severity: "error",
       from: { pathNot: ["^packages/db/", "^packages/domain/(src|test)/identity/"] },
       to: { path: "^packages/db/src/identity\\.ts$" },
+    },
+    {
+      name: "webhook-events-only-in-webhooks",
+      comment:
+        "@travel-crm/db/webhooks reaches webhook_event, which has no organization_id and no row-level security: " +
+        "every organization's raw provider payloads. Only the webhooks module may use it (ADR 0013).",
+      severity: "error",
+      from: { pathNot: ["^packages/db/", "^packages/domain/(src|test)/webhooks/"] },
+      to: { path: "^packages/db/src/webhooks\\.ts$" },
+    },
+    {
+      name: "rate-limit-counters-only-in-rate-limits",
+      comment:
+        "@travel-crm/db/rate-limits reaches rate_limit_counter, which has no organization_id and no row-level " +
+        "security. Only the rate-limits module may use it (ADR 0013).",
+      severity: "error",
+      from: { pathNot: ["^packages/db/", "^packages/domain/(src|test)/rate-limits/"] },
+      to: { path: "^packages/db/src/rate-limits\\.ts$" },
     },
     {
       name: "platform-database-only-in-platform",

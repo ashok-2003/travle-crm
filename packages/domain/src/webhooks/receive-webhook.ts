@@ -1,6 +1,7 @@
 // Receives one delivery, in the spec's order (9.7): verify the signature, store the raw payload, queue a job, reply
 // 200. The provider's own work happens later, in the worker (process-webhook-event.ts).
 import type { Database } from "@travel-crm/db";
+import { webhookEvents } from "@travel-crm/db/webhooks";
 import type { JobQueue } from "@travel-crm/integrations/jobs";
 import type { WebhookProvider, WebhookRequest } from "./provider.js";
 
@@ -56,7 +57,7 @@ export async function receiveWebhook(
 
   const event = await db.withoutOrg(async (tx) => {
     // A repeated delivery of the same event is not stored again (spec 9.7: repeats are ignored by provider event id).
-    await tx.webhookEvent.createMany({
+    await webhookEvents(tx).createMany({
       data: [
         {
           provider: provider.name,
@@ -68,7 +69,7 @@ export async function receiveWebhook(
       ],
       skipDuplicates: true,
     });
-    return tx.webhookEvent.findUniqueOrThrow({
+    return webhookEvents(tx).findUniqueOrThrow({
       where: { provider_providerEventId: { provider: provider.name, providerEventId: identity.eventId } },
       select: { id: true, processedAt: true },
     });

@@ -3,7 +3,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { ITXClientDenyList } from "@prisma/client/runtime/client";
 import type { DatabaseClient } from "./client.js";
-import { NestedForOrgError, WrongDatabaseRoleError } from "./errors.js";
+import { NestedForOrgError, UnscopedModelError, WrongDatabaseRoleError } from "./errors.js";
 
 export { NestedForOrgError, WrongDatabaseRoleError } from "./errors.js";
 
@@ -17,8 +17,19 @@ type SignInModel =
 /** Prisma's methods that take SQL as a plain string. The tagged-template $queryRaw and $executeRaw remain. */
 type RawStringMethod = "$executeRawUnsafe" | "$queryRawUnsafe";
 
+/**
+ * The tables without organization_id, so without row-level security: webhook events and rate-limit counters. Every
+ * transaction hides them; only their own modules reach them, in db.withoutOrg(), through @travel-crm/db/webhooks and
+ * @travel-crm/db/rate-limits.
+ */
+type UnscopedModel = "webhookEvent" | "rateLimitCounter";
+const unscopedModels: readonly string[] = ["webhookEvent", "rateLimitCounter"] satisfies UnscopedModel[];
+
+/** A transaction with every model, which this package's entry points unwrap. */
+type TransactionClient = Omit<DatabaseClient, ITXClientDenyList | RawStringMethod>;
+
 /** A transaction bound to one organization that can also reach the sign-in tables. Only the identity module gets one. */
-export type IdentityTx = Omit<DatabaseClient, ITXClientDenyList | RawStringMethod>;
+export type IdentityTx = Omit<TransactionClient, UnscopedModel>;
 
 /** A transaction bound to one organization: every query sees and writes only that organization's rows. */
 export type OrgTx = Omit<IdentityTx, SignInModel>;
@@ -35,6 +46,22 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 
 /** Set while a forOrg() transaction runs, to catch a forOrg() inside it. */
 const insideForOrg = new AsyncLocalStorage<true>();
+
+/** The handles withoutOrg() gave out, each with the transaction behind it, which still has the unscoped models. */
+const withoutOrgTransactions = new WeakMap<object, TransactionClient>();
+
+/**
+ * The transaction as fn gets it: the types already leave the unscoped models out, and this refuses them at run time
+ * too, so a cast can't reach a table without row-level security.
+ */
+function hideUnscopedModels(tx: TransactionClient): IdentityTx {
+  return new Proxy(tx, {
+    get(target, property) {
+      if (typeof property === "string" && unscopedModels.includes(property)) throw new UnscopedModelError(property);
+      return Reflect.get(target, property) as unknown;
+    },
+  });
+}
 
 /** Thrown before any SQL runs when the organization id is not a UUID. */
 export class InvalidOrganizationIdError extends Error {
@@ -67,15 +94,19 @@ async function inOrgTransaction<T>(
       if (session?.role !== "app_runtime") {
         throw new WrongDatabaseRoleError(session?.role);
       }
-      return fn(tx);
+      const handle = hideUnscopedModels(tx);
+      // No organization: the unscoped tables' entry points may reach through this handle.
+      if (orgId === "") withoutOrgTransactions.set(handle, tx);
+      return fn(handle);
     }, options),
   );
 }
 
 /**
- * Runs fn in one transaction with no organization set, for the few tables without organization_id (webhook events,
- * rate-limit counters) and the database functions that look across organizations without revealing their rows.
- * Every organization table shows no rows and refuses writes, exactly as row-level security fails closed.
+ * Runs fn in one transaction with no organization set, for the database functions that look across organizations
+ * without revealing their rows, and for the tables without organization_id, which only their entry points
+ * (@travel-crm/db/webhooks, @travel-crm/db/rate-limits) reach through its transaction. Every organization table
+ * shows no rows and refuses writes, exactly as row-level security fails closed.
  */
 export async function withoutOrg<T>(
   client: DatabaseClient,
@@ -96,4 +127,14 @@ export async function forOrg<T>(
     throw new InvalidOrganizationIdError(orgId);
   }
   return inOrgTransaction(client, orgId, fn, options);
+}
+
+/**
+ * A table without organization_id, from a handle db.withoutOrg() gave out. For @travel-crm/db's entry points; any
+ * other transaction, forOrg()'s included, throws UnscopedModelError.
+ */
+export function unscopedModel<Model extends UnscopedModel>(tx: OrgTx, model: Model): TransactionClient[Model] {
+  const transaction = withoutOrgTransactions.get(tx);
+  if (transaction === undefined) throw new UnscopedModelError(model);
+  return transaction[model];
 }

@@ -36,7 +36,8 @@ organization yet.
 - Processing is at least once, not exactly once: the handler and the mark-processed update are separate
   transactions. A provider's `process` must do its work idempotently inside `db.forOrg()`, keyed by `event.id` or
   `event.providerEventId` (for example a unique key on the payment record).
-- `webhook_event` has no `organization_id` and no row-level security: only this module is meant to read it, through
-  `db.withoutOrg()`. That is not enforced yet: every `forOrg()` transaction can still reach the model until
-  Integration task I1 hides it from `OrgTx`. The runtime role may update only `processed_at`, `attempts` and
-  `last_error`. It keeps the raw payload and the headers the provider names, never cookies or authorization.
+- `webhook_event` has no `organization_id` and no row-level security: only this module reads it, as
+  `webhookEvents(tx)` from `@travel-crm/db/webhooks` inside `db.withoutOrg()`. `OrgTx` leaves the model out, a
+  transaction refuses it at run time (`UnscopedModelError`), and dependency-cruiser keeps the entry point to this
+  module. The runtime role may update only `processed_at`, `attempts` and `last_error`. It keeps the raw payload and
+  the headers the provider names, never cookies or authorization.

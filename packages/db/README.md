@@ -21,16 +21,21 @@ transaction to `orgId`'s rows; outside it, queries see nothing.
 - `db.withoutOrg(fn)` runs a transaction with no organization, for the few tables without `organization_id` (webhook
   events, rate-limit counters) and database functions that look across organizations without revealing rows.
   Organization tables show no rows and refuse writes in it. It can't be nested either.
+- The tables without `organization_id` have no row-level security, so `OrgTx` leaves their models out and every
+  transaction refuses them at run time (`UnscopedModelError`). Their own modules reach them inside `db.withoutOrg()`:
+  `webhookEvents(tx)` from `@travel-crm/db/webhooks`, `rateLimitCounters(tx)` from `@travel-crm/db/rate-limits`.
 
 ## Entry points
 
-| Import                                | For                      | Gives                                                                         |
-| ------------------------------------- | ------------------------ | ----------------------------------------------------------------------------- |
-| `@travel-crm/db`                      | every module             | `createDatabase`, `OrgTx`, `nextDocumentNumber`, `softDeleted`, `withDeleted` |
-| `@travel-crm/db/identity`             | the identity module only | Better Auth's client, and `forOrg` transactions that reach the sign-in tables |
-| `@travel-crm/db/platform`             | the platform module only | a client that sees every organization                                         |
-| `@travel-crm/db/testing`              | tests only               | `createTestOrganization`, the `DbUrls` type                                   |
-| `@travel-crm/db/testing/global-setup` | other packages' Vitest   | the throwaway Postgres; `inject("dbUrls")` in tests                           |
+| Import                                | For                         | Gives                                                                         |
+| ------------------------------------- | --------------------------- | ----------------------------------------------------------------------------- |
+| `@travel-crm/db`                      | every module                | `createDatabase`, `OrgTx`, `nextDocumentNumber`, `softDeleted`, `withDeleted` |
+| `@travel-crm/db/identity`             | the identity module only    | Better Auth's client, and `forOrg` transactions that reach the sign-in tables |
+| `@travel-crm/db/platform`             | the platform module only    | a client that sees every organization                                         |
+| `@travel-crm/db/webhooks`             | the webhooks module only    | `webhookEvents(tx)`: the `webhook_event` table, in `db.withoutOrg()`          |
+| `@travel-crm/db/rate-limits`          | the rate-limits module only | `rateLimitCounters(tx)`: the `rate_limit_counter` table, in `db.withoutOrg()` |
+| `@travel-crm/db/testing`              | tests only                  | `createTestOrganization`, the `DbUrls` type                                   |
+| `@travel-crm/db/testing/global-setup` | other packages' Vitest      | the throwaway Postgres; `inject("dbUrls")` in tests                           |
 
 dependency-cruiser enforces the "only" column. Another package's `vitest.config.ts` uses the test database like this:
 
@@ -61,6 +66,9 @@ Steps 3 and 5 are enforced: the tests fail if either is missing. Keys are checke
   `@relation(fields: [organizationId, otherId], references: [organizationId, id])`.
 - A unique constraint includes `organization_id`, e.g. `@@unique([organizationId, key])`, so one organization can't learn
   that another uses a value. Only a primary key on `id` alone is exempt.
+- `organization_id` refers to `organization`, and never cascades an organization's deletion:
+  `@relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)`. Postgres runs a
+  cascade as the table's owner, past row-level security and past grants such as `audit_entry`'s.
 
 ## Soft delete
 

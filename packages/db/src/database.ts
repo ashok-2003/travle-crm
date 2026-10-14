@@ -9,8 +9,9 @@ export interface Database {
    */
   forOrg<T>(orgId: string, fn: (tx: OrgTx) => Promise<T>, options?: ForOrgOptions): Promise<T>;
   /**
-   * Runs fn in one transaction with no organization: for tables without organization_id, such as webhook events and
-   * rate-limit counters. Organization tables show no rows and refuse writes. Like forOrg(), it can't be nested.
+   * Runs fn in one transaction with no organization: for tables without organization_id, which only their own modules
+   * reach through it (@travel-crm/db/webhooks, @travel-crm/db/rate-limits), and for database functions that look
+   * across organizations. Organization tables show no rows and refuse writes. Like forOrg(), it can't be nested.
    */
   withoutOrg<T>(fn: (tx: OrgTx) => Promise<T>, options?: ForOrgOptions): Promise<T>;
   /** Closes the connection pool. */

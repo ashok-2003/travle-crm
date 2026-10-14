@@ -2,6 +2,7 @@
 // each event once, however often the provider delivers it.
 import { createHmac } from "node:crypto";
 import { createDatabase, type Database } from "@travel-crm/db";
+import { webhookEvents } from "@travel-crm/db/webhooks";
 import { createMemoryJobQueue, type MemoryJobQueue } from "@travel-crm/integrations/jobs";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import {
@@ -58,7 +59,7 @@ describe("webhook intake", () => {
 
   const storedEvent = (providerEventId: string) =>
     db.withoutOrg((tx) =>
-      tx.webhookEvent.findUnique({ where: { provider_providerEventId: { provider: "example", providerEventId } } }),
+      webhookEvents(tx).findUnique({ where: { provider_providerEventId: { provider: "example", providerEventId } } }),
     );
 
   function setUp(fail = { times: 0 }) {
@@ -223,7 +224,7 @@ describe("webhook intake", () => {
       receiveWebhook(deps, "example", request),
     ]);
     expect(receipts).toEqual([{ status: 200 }, { status: 200 }]);
-    const rows = await db.withoutOrg((tx) => tx.webhookEvent.count({ where: { providerEventId: eventId } }));
+    const rows = await db.withoutOrg((tx) => webhookEvents(tx).count({ where: { providerEventId: eventId } }));
     expect(rows).toBe(1);
     expect(queue.sent).toHaveLength(1);
   });

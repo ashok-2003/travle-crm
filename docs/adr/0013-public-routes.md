@@ -87,10 +87,13 @@ Date: 2026-10-15 · Status: accepted · Implements spec sections 9.3 (share link
   and payloads hold personal data. The full error still reaches the logs and the job queue through the rethrow.
 - **Payloads are kept as delivered**: the runtime role may update only `processed_at`, `attempts` and `last_error`, and
   can't delete events.
-- **Not yet enforced: who can read `webhook_event`.** The rule is that only the webhooks module reads it (and the
-  rate-limit table likewise belongs to its module), but `OrgTx` still exposes both models to every `forOrg()`
-  transaction, so organization code could read every organization's raw payloads. Integration task I1 enforces it, by
-  omitting `webhookEvent` and `rateLimitCounter` from `OrgTx` and giving this module dedicated database entry points.
+- **Only the webhooks module reads `webhook_event`** (and only the rate-limits module `rate_limit_counter`). `OrgTx`
+  leaves out `webhookEvent` and `rateLimitCounter`, as it leaves out the sign-in models, and every transaction refuses
+  them at run time with `UnscopedModelError`, so a cast doesn't reach them either. Each module reaches its table inside
+  `db.withoutOrg()` through its own entry point, `webhookEvents(tx)` from `@travel-crm/db/webhooks` and
+  `rateLimitCounters(tx)` from `@travel-crm/db/rate-limits`, which refuse a `forOrg()` transaction; dependency-cruiser
+  lets only that module import each one. Raw SQL (`$queryRaw`) can still name the tables: unlike the sign-in tables,
+  no lint rule flags that yet.
 
 ## Context
 
@@ -106,7 +109,7 @@ Date: 2026-10-15 · Status: accepted · Implements spec sections 9.3 (share link
   one"), and knowing that a random 32-byte secret once existed tells an attacker nothing useful.
 - **Why webhook events have no organization and no row-level security.** The organization is known only once the
   provider's handler has read the payload (a WhatsApp number, a Razorpay account). The table holds raw provider data,
-  so only the webhooks module is meant to read it, through `db.withoutOrg()` (not yet enforced, see above); each
+  so only the webhooks module reads it, through `db.withoutOrg()` and its own entry point (see above); each
   provider's `process` moves what it needs into organization tables inside `db.forOrg()`.
 - **Why store before replying.** Providers retry until they get a 2xx. Storing first means a 200 is never sent for an
   event we could lose, and a crash after storing is recovered by the provider's own retry (the repeat queues the job).

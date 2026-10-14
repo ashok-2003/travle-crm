@@ -25,7 +25,9 @@ None.
   epoch.
 - Keys are stored as keyed hashes (HMAC-SHA256 under `keySecret`): `rate_limit_counter` never holds an IP address, and
   an address can't be recovered from the table without the secret. Changing the secret only resets the counts. The
-  table has no `organization_id` and is reached with `db.withoutOrg()`.
+  table has no `organization_id` and no row-level security: only this module reaches it, as `rateLimitCounters(tx)`
+  from `@travel-crm/db/rate-limits` inside `db.withoutOrg()`. `OrgTx` leaves the model out, a transaction refuses it
+  at run time (`UnscopedModelError`), and dependency-cruiser keeps the entry point to this module.
 - A key's finished windows are deleted when the key is hit again; `purgeExpiredRateLimits` clears keys that never come
   back.
 - Each limiter remembers (up to 10,000 keys, oldest forgotten first) which keys it refused until their window ends, and

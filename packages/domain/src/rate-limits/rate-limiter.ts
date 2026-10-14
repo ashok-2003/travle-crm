@@ -1,6 +1,7 @@
 // Fixed-window rate limits kept in Postgres (spec 9.7), so every api instance counts against the same limit.
 import { createHmac } from "node:crypto";
 import type { Database } from "@travel-crm/db";
+import { rateLimitCounters } from "@travel-crm/db/rate-limits";
 
 /** At most `limit` hits per key in each window of `windowSeconds`. */
 export interface RateLimitRule {
@@ -75,7 +76,7 @@ export function createRateLimiter(db: Pick<Database, "withoutOrg">, { keySecret 
       }
       const count = await db.withoutOrg(async (tx) => {
         // The key's finished windows are no longer needed; deleting them here keeps busy keys from piling up.
-        await tx.rateLimitCounter.deleteMany({ where: { key: hashedKey, windowStart: { lt: windowStart } } });
+        await rateLimitCounters(tx).deleteMany({ where: { key: hashedKey, windowStart: { lt: windowStart } } });
         const [row] = await tx.$queryRaw<{ count: number }[]>`
           INSERT INTO rate_limit_counter (key, window_start, count) VALUES (${hashedKey}, ${windowStart}, 1)
           ON CONFLICT (key, window_start) DO UPDATE SET count = rate_limit_counter.count + 1
