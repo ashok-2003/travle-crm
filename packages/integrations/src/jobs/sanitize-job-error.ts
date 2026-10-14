@@ -2,7 +2,8 @@
 // handler's error is cut down before pg-boss sees it. The original goes to the logs through onError.
 
 const EMAIL = /[^\s@<>()[\]",;:]+@[^\s@<>()[\]",;:]+\.[^\s@<>()[\]",;:]+/g;
-const LONG_NUMBER = /\d{7,}/g;
+// Seven or more digits, in one run or in groups split by spaces or hyphens: phone numbers, Aadhaar numbers.
+const LONG_NUMBER = /\+?\d[\d\s-]{5,}\d/g;
 const MAX_LENGTH = 200;
 
 /** Anything that was thrown, as an Error: pg-boss's warnings and some libraries' errors are plain objects. */
@@ -16,7 +17,8 @@ export function toError(value: unknown): Error {
 
 /**
  * A new Error for pg-boss to store: `Name: message` with email addresses and runs of 7 or more digits masked, at most
- * 200 characters, and no cause, extra properties or original stack. Keep personal data out of messages anyway.
+ * 200 characters, and no cause, extra properties or original stack. This is a safety net, not a filter: names,
+ * addresses, PAN numbers and emails without a domain pass through, so messages must stay ids-only.
  */
 export function sanitizeJobError(error: unknown): Error {
   const original = toError(error);

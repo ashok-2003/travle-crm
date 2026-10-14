@@ -49,11 +49,12 @@ and small facts.
 - A payload holds ids and small facts; listeners read the rest inside `forOrg`. Never put personal data in a job.
 - Listeners run AT LEAST once, not exactly once. The "already handled?" check, the listener's work and the record
   are separate transactions, so a crash after the work, or a second delivery (pg-boss re-dispatches a job that ran
-  past its expiry), runs the listener again, and two runs may overlap. Database writes may repeat as well as emails
+  past its expiry: 900 s by default in pg-boss 12, and each expiry uses up a retry), runs the listener again, and two runs may overlap. Database writes may repeat as well as emails
   and uploads: key them on `event.id`.
 - A failed job's error is stored in pg-boss and shown to platform staff: keep personal data out of error messages
-  (ids only). pg-boss stores a cut-down copy (`Name: message`, emails and long numbers masked, 200 characters); the
-  original goes to `onError`, the log. A job whose event isn't found is not retried but is reported to `onError`.
+  (ids only). pg-boss stores a cut-down copy (`Name: message`, emails and numbers of 7+ digits, also written with
+  spaces or hyphens, masked, 200 characters); the original goes to `onError`, the log. The masking is a safety net:
+  names, addresses, PAN numbers and emails without a domain are not masked. A job whose event isn't found is not retried but is reported to `onError`.
 - Removing a listener or schedule from the code leaves its pg-boss queue, jobs and schedule behind until they are
   reconciled (plan 4).
 - `outbox_event` is append-only for the api and worker: they may only set `relayed_at`.

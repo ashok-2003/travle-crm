@@ -147,6 +147,49 @@ describe("startWorker", () => {
     expect(runner.schedules).toEqual([]);
   });
 
+  it("registers schedules first, so a cron the runner refuses leaves no listener or relay running", async () => {
+    const queue = createMemoryJobQueue();
+    const memoryRunner = createMemoryJobRunner(queue);
+    const runner = {
+      work: (...args: Parameters<typeof memoryRunner.work>) => memoryRunner.work(...args),
+      unschedule: (name: string) => memoryRunner.unschedule(name),
+      schedule: (name: string, cron: string, options: Parameters<typeof memoryRunner.schedule>[2]) =>
+        cron.includes("99") ? Promise.reject(new Error("invalid cron")) : memoryRunner.schedule(name, cron, options),
+    };
+    const listener = recordingListener("documents.render-pdf", "document.issued");
+    const schedule = (name: string, cron: string) => ({
+      queue: name,
+      cron,
+      timeZone: "Asia/Kolkata",
+      handle: () => Promise.resolve(),
+    });
+    const eventId = await db.forOrg(organizationId, (tx) =>
+      publishEvent(tx, { type: "document.issued", payload: { documentId: "w9" } }),
+    );
+
+    await expect(
+      startWorker({
+        db,
+        runner,
+        queue,
+        listeners: [listener],
+        relay: { intervalMs: 20, organizationIds: [organizationId] },
+        schedules: [schedule("rate-limits.purge", "15 3 * * *"), schedule("rate-limits.bad", "99 99 * * *")],
+      }),
+    ).rejects.toThrow("invalid cron");
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    // No relay ran (the event is still waiting) and no listener took a job; the schedule before the bad one stays.
+    expect(queue.sent.filter((job) => job.data.eventId === eventId)).toEqual([]);
+    expect(memoryRunner.schedules.map((kept) => kept.queue)).toEqual(["rate-limits.purge"]);
+    await db.forOrg(organizationId, (tx) =>
+      tx.outboxEvent.updateMany({ where: { id: eventId }, data: { relayedAt: new Date() } }),
+    );
+
+    await queue.send("documents.render-pdf", { organizationId, eventId, eventType: "document.issued" });
+    expect(await memoryRunner.runQueued()).toBe(0);
+  });
+
   it("refuses two kinds of work on one queue, and a schedule in an unknown time zone", async () => {
     const queue = createMemoryJobQueue();
     const runner = createMemoryJobRunner(queue);

@@ -40,7 +40,7 @@ function eventPayload(value: unknown): EventPayload {
  * and the job is retried with backoff.
  *
  * At least once, not exactly once: the check, the listener's work and the record are separate transactions, so a crash
- * after the work, or a second delivery of the job (pg-boss may re-dispatch one that ran past its expiry), runs the
+ * after the work, or a second delivery of the job (pg-boss re-dispatches a job still running after its expiry, 15 minutes by default, and each expiry uses a retry), runs the
  * listener again, and two runs may overlap. Key the listener's database writes on event.id (unique constraints,
  * upserts) as well as anything outside the database.
  */

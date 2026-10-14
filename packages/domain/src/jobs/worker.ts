@@ -39,7 +39,10 @@ export interface WorkerDependencies {
     /** Relay only these organizations. Tests only: by default the relay finds every organization's events. */
     organizationIds?: readonly string[];
   };
-  /** Where the relay's errors go. Job failures go to the runner's retries and failed list instead. */
+  /**
+   * Where the relay's errors go, and reports of jobs whose event wasn't found (ids only). Job failures go to the
+   * runner's retries and failed list instead.
+   */
   onError?: (error: unknown) => void;
 }
 
@@ -83,6 +86,15 @@ export async function startWorker(dependencies: WorkerDependencies): Promise<Wor
     assertTimeZone(schedule.timeZone, schedule.queue);
   }
 
+  // Schedules first: the runner may refuse one (a cron it can't read), and then no listener or relay has started. The
+  // schedules registered before the refused one stay in the runner until the next start reconciles them.
+  for (const schedule of schedules) {
+    await runner.work(schedule.queue, (job) => schedule.handle(job.data));
+    await runner.schedule(schedule.queue, schedule.cron, {
+      timeZone: schedule.timeZone,
+      ...(schedule.data === undefined ? {} : { data: schedule.data }),
+    });
+  }
   for (const listener of listeners) {
     await runner.work(listener.name, async (job) => {
       const outcome = await runListenerJob({ db, listener, data: job.data });
@@ -98,13 +110,6 @@ export async function startWorker(dependencies: WorkerDependencies): Promise<Wor
   }
   for (const handler of handlers) {
     await runner.work(handler.queue, (job) => handler.handle(job.data));
-  }
-  for (const schedule of schedules) {
-    await runner.work(schedule.queue, (job) => schedule.handle(job.data));
-    await runner.schedule(schedule.queue, schedule.cron, {
-      timeZone: schedule.timeZone,
-      ...(schedule.data === undefined ? {} : { data: schedule.data }),
-    });
   }
 
   const relay = startOutboxRelay({

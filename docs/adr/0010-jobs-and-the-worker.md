@@ -32,7 +32,9 @@ Date: 2026-10-15 · Status: accepted · Implements spec section 9.1
 - **Errors are stored, so they are cut down.** pg-boss stores a failed job's error in `pgboss.job.output` (no
   row-level security), and the platform console shows it. The adapter reports the original error to `onError` (the
   log) and throws a new `Error` for pg-boss: `Name: message`, emails masked as `[email]`, runs of 7 or more digits as
-  `[number]`, 200 characters, no cause, stack or extra properties. Keep personal data out of error messages anyway.
+  `[number]` (also when written with spaces or hyphens, like a phone or Aadhaar number), 200 characters, no cause,
+  stack or extra properties. The masking is a safety net, not a filter: names, addresses, PAN numbers and emails
+  without a domain are not masked, so error messages must stay ids-only.
 - **Failures**: a rejected handler fails that attempt; pg-boss retries it 5 times with exponential backoff from
   10 seconds (at most an hour apart), then marks it failed. `PgBossJobs.failedJobs()` lists failed jobs, newest first,
   with their last error message: data access for the platform console (plan 4).
@@ -58,7 +60,7 @@ Date: 2026-10-15 · Status: accepted · Implements spec section 9.1
 ## Consequences
 
 - A listener runs AT LEAST once: a crash after its work and before its record, or a second delivery of the job
-  (pg-boss re-dispatches one that ran past its expiry), runs it again, and two runs may overlap. Its database writes
+  (pg-boss re-dispatches one still running after its expiry, 900 s by default in pg-boss 12; each expiry uses a retry), runs it again, and two runs may overlap. Its database writes
   may repeat too: key them on `event.id` (unique constraints, upserts). Emails and uploads may repeat.
 - A failed job's error is stored in pg-boss and shown to platform staff: keep personal data out of messages; ids only.
 - Removing a listener or schedule from the code leaves its pg-boss queue, jobs and schedule behind until reconciled

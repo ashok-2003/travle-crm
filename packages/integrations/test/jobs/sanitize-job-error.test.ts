@@ -9,6 +9,12 @@ describe("sanitizeJobError", () => {
     expect(error.message).toBe("TypeError: send to [email] failed, ref [number], code 123456");
   });
 
+  it("masks phone and Aadhaar style numbers written with spaces or hyphens", () => {
+    for (const written of ["98765 43210", "+91-98765-43210", "1234 5678 9012"]) {
+      expect(sanitizeJobError(new Error(`call ${written} now`)).message).toBe("Error: call [number] now");
+    }
+  });
+
   it("drops the cause, the stack's origin and extra properties", () => {
     const original = Object.assign(new Error("x", { cause: new Error("inner") }), { detail: "secret" });
     const error = sanitizeJobError(original);

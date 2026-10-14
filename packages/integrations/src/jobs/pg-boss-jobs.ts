@@ -156,7 +156,11 @@ export function createPgBossJobs(settings: PgBossJobsSettings): PgBossJobs {
             await handler({ id: job.id, data: toJobData(job.data), retryCount: job.retryCount });
           } catch (error) {
             // pg-boss stores what we throw, in a table without row-level security: log the original, throw a cut-down copy.
-            report(toError(error));
+            try {
+              report(toError(error));
+            } catch {
+              // A broken logger must not replace the sanitised error pg-boss stores.
+            }
             throw sanitizeJobError(error);
           }
         },

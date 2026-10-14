@@ -141,6 +141,26 @@ describe("pg-boss jobs", () => {
     }
   });
 
+  it("stores the sanitised error even when onError throws", async () => {
+    const throwing = createPgBossJobs({
+      connectionString: urls.runtime,
+      maxConnections: 2,
+      pollingIntervalSeconds: 0.5,
+      onError: () => {
+        throw new Error("the logger is broken");
+      },
+    });
+    await throwing.start();
+    try {
+      await throwing.work("probe.logger-broken", () => Promise.reject(new Error("boom for jane@example.com")));
+      const id = await throwing.send("probe.logger-broken", {}, { retryLimit: 0 });
+      await eventually(async () => (await throwing.failedJobs()).some((job) => job.id === id));
+      expect((await throwing.failedJobs()).find((job) => job.id === id)?.error).toBe("Error: boom for [email]");
+    } finally {
+      await throwing.stop();
+    }
+  });
+
   it("lists failed jobs without the one whose data is malformed, and reports it", async () => {
     const reported: Error[] = [];
     const listing = createPgBossJobs({
@@ -156,12 +176,22 @@ describe("pg-boss jobs", () => {
       const good = await listing.send("probe.malformed", { eventId: "e9" }, { retryLimit: 0 });
       await listing.work("probe.malformed-good", () => Promise.reject(new Error("boom")));
       const other = await listing.send("probe.malformed-good", { eventId: "e10" }, { retryLimit: 0 });
-      await eventually(async () => (await listing.failedJobs()).some((job) => job.id === other));
+      // Wait until pg-boss has failed both the malformed job and the healthy failing one.
+      await eventually(async () => {
+        const rows = await db.withoutOrg(
+          (tx) => tx.$queryRaw<{ id: string }[]>`
+            SELECT id FROM pgboss.job WHERE state = 'failed' AND id IN (${bad}::uuid, ${other}::uuid)`,
+        );
+        return rows.length === 2;
+      });
 
       const ids = (await listing.failedJobs()).map((job) => job.id);
+      expect(ids).toContain(other);
       expect(ids).not.toContain(bad);
       expect(ids).not.toContain(good);
-      expect(reported.map((error) => error.message).join("\n")).toMatch(/not a plain object|not a string/);
+      expect(reported.map((error) => error.message)).toContain(
+        `Failed job ${String(bad)} on probe.malformed can't be listed: Job data is not a plain object`,
+      );
     } finally {
       await listing.stop();
     }
