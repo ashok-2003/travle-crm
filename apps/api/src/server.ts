@@ -16,9 +16,19 @@ const server = serve({ fetch: createApp({ identity }).fetch, port: environment.P
 });
 
 // Container platforms send SIGTERM before stopping an instance: finish open requests, then close the pool.
+// Exit 0 only when that went well, so the platform can tell a clean stop from a failed one.
 function shutDown(): void {
-  server.close(() => {
-    void identity.disconnect().finally(() => process.exit(0));
+  server.close((closeError) => {
+    identity
+      .disconnect()
+      .then(() => {
+        if (closeError) throw closeError;
+        process.exit(0);
+      })
+      .catch((error: unknown) => {
+        console.error("api shutdown failed", error);
+        process.exit(1);
+      });
   });
 }
 process.on("SIGTERM", shutDown);

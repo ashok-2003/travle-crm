@@ -52,6 +52,19 @@ Date: 2026-10-14 · Status: accepted · Implements spec sections 6.1 to 6.4
 - **Rate limits are kept in memory**, per instance. With several instances behind a load balancer, move them to the
   database or a shared store (Better Auth `rateLimit.storage`) before launch. The client address comes from the
   header named in `AUTH_IP_ADDRESS_HEADERS`; the load balancer must set it, or all clients share one limit.
+- **The client address behind proxies.** Better Auth 1.7.7 trusts `x-forwarded-for` only when it holds a single value,
+  unless `advanced.ipAddress.trustedProxies` is set. Behind a proxy that appends to the header, every client would fall
+  into one shared bucket and three failed sign-ins would lock everyone out. So either the load balancer overwrites the
+  header with the single client address, or the deploy sets `AUTH_TRUSTED_PROXIES` (IPs or CIDRs of the proxies); the
+  client is then the first address from the right that isn't a trusted proxy. Plan 5's deploy checklist repeats this.
+- **`/api/auth/sign-in/org` is our own route**, so Better Auth's JSON-only gate doesn't cover it: it sits behind the
+  same trusted-origin and JSON check as tRPC mutations (403 for a foreign or missing `Origin`, 415 for other content
+  types) and an 8 KB body limit. Without that a cross-site form post could sign a visitor into an attacker's account.
+- **`closeSideDoors` also refuses**, over HTTP only: `/organization/*` (404, in case a path spelling slips past the Hono
+  route; server-side `auth.api.*` calls stay possible for later plans), `/sign-in/email` with a placeholder `.invalid`
+  address (answered exactly like a wrong password), and `/sign-in/username` from a cross-site browser request.
+- **Safe environment defaults.** `NODE_ENV` defaults to production. In production the api refuses an http base URL,
+  `AUTH_RATE_LIMIT=false`, http trusted origins, and a weak or example `BETTER_AUTH_SECRET`.
 
 ## Consequences
 

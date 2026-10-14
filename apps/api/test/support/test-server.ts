@@ -21,6 +21,7 @@ export const testAuthSettings: AuthSettings = {
   // Tests sign in many times from one address; rate-limit.test.ts turns it on.
   rateLimit: false,
   ipAddressHeaders: ["x-forwarded-for"],
+  trustedProxies: [],
 };
 
 export interface TestServer {

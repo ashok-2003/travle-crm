@@ -1,6 +1,10 @@
 // The api's settings, read from environment variables once at start-up and checked, so a bad deploy fails loudly.
+import { isIP } from "node:net";
 import type { AuthSettings } from "@travel-crm/domain/identity";
 import { z } from "zod";
+
+/** The secret in .env.example: fine on a laptop, never in production. */
+const EXAMPLE_SECRET = "dev-only-secret-not-for-any-real-deploy";
 
 /** A comma-separated list, e.g. "https://a.example,https://b.example". Empty items are dropped. */
 const commaSeparated = z
@@ -13,11 +17,32 @@ const commaSeparated = z
       .filter((item) => item !== ""),
   );
 
+/** An origin as browsers send it: scheme and host (and port) only, no wildcard, path, query or credentials. */
+const origin = z.string().superRefine((value, context) => {
+  const trimmed = value.replace(/\/$/, "");
+  const parsed = URL.parse(trimmed);
+  if (/[*?]/.test(value)) context.addIssue({ code: "custom", message: "must not contain wildcards" });
+  else if (parsed === null || !/^https?:$/.test(parsed.protocol) || parsed.origin !== trimmed) {
+    context.addIssue({ code: "custom", message: "must be http(s) origins: scheme and host only" });
+  }
+});
+
+/** An IPv4 or IPv6 address, or a CIDR range such as 10.0.0.0/8. */
+const addressOrRange = z.string().refine((value) => {
+  const [address = "", prefix, ...rest] = value.split("/");
+  const version = isIP(address);
+  if (version === 0 || rest.length > 0) return false;
+  if (prefix === undefined) return true;
+  return /^\d{1,3}$/.test(prefix) && Number(prefix) <= (version === 4 ? 32 : 128);
+}, "must be IP addresses or CIDR ranges");
+
+const developmentLike = (nodeEnv: string): boolean => nodeEnv === "development" || nodeEnv === "test";
+
 // DATABASE_MIGRATOR_URL and DATABASE_PLATFORM_URL are left out on purpose: the api never runs migrations, and it never
 // connects as the role that sees every organization.
 const environmentSchema = z
   .object({
-    NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+    NODE_ENV: z.enum(["development", "test", "production"]).default("production"),
     PORT: z.coerce.number().int().min(1).max(65535).default(3001),
     /** Postgres, connecting as the app_runtime role. */
     DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/, message: "must be a postgresql:// URL" }),
@@ -27,22 +52,31 @@ const environmentSchema = z
     /** Where browsers reach the api, e.g. https://app.example.in. */
     BETTER_AUTH_URL: z.url({ protocol: /^https?$/, message: "must be an http(s) URL" }),
     /** Other origins allowed to call the api with cookies, comma-separated, e.g. the web app in development. */
-    TRUSTED_ORIGINS: commaSeparated.pipe(z.array(z.url({ protocol: /^https?$/, message: "must be http(s) origins" }))),
-    /** Sign-in rate limiting. Only tests turn it off. */
+    TRUSTED_ORIGINS: commaSeparated.pipe(z.array(origin)),
+    /** Sign-in rate limiting. Only development and tests may turn it off. */
     AUTH_RATE_LIMIT: z.stringbool().default(true),
     /** Headers the load balancer puts the client's IP address in, comma-separated. */
     AUTH_IP_ADDRESS_HEADERS: commaSeparated.pipe(z.array(z.string()).min(1)).default(["x-forwarded-for"]),
+    /**
+     * Proxies in front of the api (IPs or CIDRs). Without them x-forwarded-for is trusted only when it holds one
+     * address, so the load balancer must overwrite it; with them, the client is the first address not in this list.
+     */
+    AUTH_TRUSTED_PROXIES: commaSeparated.pipe(z.array(addressOrRange)),
   })
-  .refine(
-    (environment) => environment.NODE_ENV !== "production" || environment.BETTER_AUTH_URL.startsWith("https://"),
-    {
-      path: ["BETTER_AUTH_URL"],
-      message: "must be https in production",
-    },
-  )
-  .refine((environment) => environment.NODE_ENV !== "production" || environment.AUTH_RATE_LIMIT, {
-    path: ["AUTH_RATE_LIMIT"],
-    message: "cannot be off in production",
+  .superRefine((environment, context) => {
+    if (developmentLike(environment.NODE_ENV)) return;
+    const problem = (path: string, message: string) => {
+      context.addIssue({ code: "custom", path: [path], message });
+    };
+    if (!environment.BETTER_AUTH_URL.startsWith("https://")) problem("BETTER_AUTH_URL", "must be https in production");
+    if (!environment.AUTH_RATE_LIMIT) problem("AUTH_RATE_LIMIT", "cannot be off in production");
+    if (environment.TRUSTED_ORIGINS.some((item) => !item.startsWith("https://"))) {
+      problem("TRUSTED_ORIGINS", "must be https origins in production");
+    }
+    const secret = environment.BETTER_AUTH_SECRET.trim();
+    if (secret === EXAMPLE_SECRET || secret.length < 32 || new Set(secret).size < 10) {
+      problem("BETTER_AUTH_SECRET", "is too weak for production: use `openssl rand -base64 32`");
+    }
   });
 
 export type Environment = z.infer<typeof environmentSchema>;
@@ -73,5 +107,6 @@ export function authSettingsFrom(environment: Environment): AuthSettings {
     secureCookies: environment.NODE_ENV === "production" || environment.BETTER_AUTH_URL.startsWith("https://"),
     rateLimit: environment.AUTH_RATE_LIMIT,
     ipAddressHeaders: environment.AUTH_IP_ADDRESS_HEADERS.map((header) => header.toLowerCase()),
+    trustedProxies: environment.AUTH_TRUSTED_PROXIES,
   };
 }
