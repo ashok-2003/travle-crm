@@ -45,10 +45,21 @@ function assertLimits({
   assertPositiveInteger("organizationsPerPass", organizationsPerPass);
 }
 
+/** A pass in which some organizations failed. `relayed` events were still relayed; `attempted` organizations were tried. */
+export class RelayPassError extends AggregateError {
+  constructor(
+    errors: Error[],
+    readonly relayed: number,
+    readonly attempted: number,
+  ) {
+    super(errors, `Relaying failed for ${String(errors.length)} of ${String(attempted)} organization(s)`);
+  }
+}
+
 /**
  * Relays one batch of waiting events. Returns how many events it relayed. One failing organization doesn't stop the
- * pass: the others are relayed, and an AggregateError of one error per failed organization (its id in the message, the
- * original as the cause) is thrown at the end. The optional signal ends the pass between organizations.
+ * pass: the others are relayed, and a RelayPassError (an AggregateError of one error per failed organization, its id in
+ * the message and the original as the cause) is thrown at the end. The optional signal ends the pass between organizations.
  */
 export async function relayOutbox(dependencies: RelayDependencies, signal?: AbortSignal): Promise<number> {
   assertLimits(dependencies);
@@ -57,16 +68,17 @@ export async function relayOutbox(dependencies: RelayDependencies, signal?: Abor
     (await organizationsWithEventsWaiting(dependencies.db, dependencies.organizationsPerPass ?? 50));
   let relayed = 0;
   const failures: Error[] = [];
+  let attempted = 0;
   for (const organizationId of organizationIds) {
     if (signal?.aborted) break;
+    attempted += 1;
     try {
       relayed += await relayOrganization(dependencies, organizationId);
     } catch (error) {
       failures.push(new Error(`Relaying organization ${organizationId} failed`, { cause: error }));
     }
   }
-  if (failures.length > 0)
-    throw new AggregateError(failures, `Relaying failed for ${String(failures.length)} organization(s)`);
+  if (failures.length > 0) throw new RelayPassError(failures, relayed, attempted);
   return relayed;
 }
 
@@ -121,7 +133,7 @@ const MAX_BACKOFF_MS = 60_000;
 
 /** How long the relay waits: intervalMs when all is well, doubling after each failed pass in a row, up to a minute. */
 export function relayBackoffMs(consecutiveFailures: number, intervalMs: number): number {
-  return Math.min(intervalMs * 2 ** consecutiveFailures, MAX_BACKOFF_MS);
+  return Math.max(intervalMs, Math.min(intervalMs * 2 ** consecutiveFailures, MAX_BACKOFF_MS));
 }
 
 /**
@@ -158,9 +170,16 @@ export function startOutboxRelay(
         relayed = await relayOutbox(dependencies, stopping.signal);
         failures = 0;
       } catch (error) {
-        failures += 1;
-        for (const reported of error instanceof AggregateError ? (error.errors as unknown[]) : [error])
-          report(reported);
+        if (error instanceof RelayPassError) {
+          // Some organizations failed: report each. Only a pass in which nothing worked counts towards the backoff, so
+          // one permanently failing organization doesn't slow the others down.
+          relayed = error.relayed;
+          failures = error.relayed === 0 && error.errors.length === error.attempted ? failures + 1 : 0;
+          for (const reported of error.errors as unknown[]) report(reported);
+        } else {
+          failures += 1;
+          report(error);
+        }
       }
       // stop() aborts the wait, so stopping never waits out the interval.
       if (relayed === 0) {

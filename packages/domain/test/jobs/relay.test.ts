@@ -252,7 +252,9 @@ describe("outbox relay", () => {
     expect(relayBackoffMs(0, 1000)).toBe(1000);
     expect([1, 2, 3, 4].map((failures) => relayBackoffMs(failures, 1000))).toEqual([2000, 4000, 8000, 16_000]);
     expect(relayBackoffMs(10, 1000)).toBe(60_000);
-    expect(relayBackoffMs(1, 100_000)).toBe(60_000);
+    // Never shorter than the poll interval itself.
+    expect(relayBackoffMs(1, 100_000)).toBe(100_000);
+    expect(relayBackoffMs(5, 100_000)).toBe(100_000);
   });
 
   it("backs off while the queue is down instead of retrying at the poll interval", async () => {
@@ -269,16 +271,40 @@ describe("outbox relay", () => {
     });
     await new Promise((resolve) => setTimeout(resolve, 1000));
     await relay.stop();
-    // Waits of 100, 200, 400, ... ms between attempts: at most about 5 in a second (20 without backoff).
+    // Every organization it tried failed, so it backs off. Waits of 100, 200, 400, ... ms between attempts: at most about 5 in a second (20 without backoff).
     expect(errors.length).toBeGreaterThanOrEqual(2);
     expect(errors.length).toBeLessThanOrEqual(6);
+  });
+
+  it("keeps the normal interval when only some organizations fail", async () => {
+    const { queue: working } = countingQueue();
+    const broken = await createTestOrganization(platform, "Relay partly broken");
+    const healthy = await createTestOrganization(platform, "Relay partly healthy");
+    await publish(broken, "notification.created", { notificationId: "pb1" });
+    const errors: unknown[] = [];
+    const relay = startOutboxRelay({
+      db,
+      listeners,
+      organizationIds: [broken, healthy],
+      intervalMs: 50,
+      onError: (error) => errors.push(error),
+      queue: {
+        send: (name, data, options) =>
+          data.organizationId === broken ? Promise.reject(new Error("unavailable")) : working.send(name, data, options),
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await relay.stop();
+    // The broken organization fails on every pass, at the 50 ms interval: about 20 passes a second. With the whole
+    // relay backing off it would be about 5.
+    expect(errors.length).toBeGreaterThanOrEqual(10);
   });
 
   it("stops between organizations", async () => {
     const { queue: working } = countingQueue();
     const first = await createTestOrganization(platform, "Relay stop first");
     const second = await createTestOrganization(platform, "Relay stop second");
-    await publish(first, "notification.created", { notificationId: "s1" });
+    const firstEvent = await publish(first, "notification.created", { notificationId: "s1" });
     const secondEvent = await publish(second, "notification.created", { notificationId: "s2" });
     let stopping: Promise<void> = Promise.resolve();
     const relay = startOutboxRelay({
@@ -294,6 +320,7 @@ describe("outbox relay", () => {
       },
     });
     await stopping.then(() => relay.stop());
+    expect(await relayedAt(first, firstEvent)).toBeInstanceOf(Date);
     expect(await relayedAt(second, secondEvent)).toBeNull();
     // Let go of the event so nothing else sees it as waiting.
     await platform.outboxEvent.update({ where: { id: secondEvent }, data: { relayedAt: new Date() } });

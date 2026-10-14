@@ -69,6 +69,22 @@ describe("app_organizations_with_unrelayed_events", () => {
     expect(none).toEqual([]);
   });
 
+  it("returns at most 1000 organizations, however many are asked for", async () => {
+    // Seeded for real (1005 organizations with one event each, in one statement each): fast enough, and it proves the
+    // clamp itself rather than its expression. They are marked relayed again afterwards.
+    await platform.$executeRaw`
+      INSERT INTO organization (id, name, code, updated_at)
+      SELECT gen_random_uuid(), 'Clamp ' || i, 'C' || lpad(i::text, 11, '0'), now() FROM generate_series(1, 1005) AS i`;
+    await platform.$executeRaw`
+      INSERT INTO outbox_event (organization_id, id, type, payload)
+      SELECT id, gen_random_uuid(), 'relay.clamped', '{}'::jsonb FROM organization WHERE name LIKE 'Clamp %'`;
+    try {
+      expect(await waiting(5000)).toHaveLength(1000);
+    } finally {
+      await platform.$executeRaw`UPDATE outbox_event SET relayed_at = now() WHERE type = 'relay.clamped'`;
+    }
+  });
+
   it("can be called only by the runtime role", async () => {
     await expect(platform.$queryRaw`SELECT * FROM app_organizations_with_unrelayed_events(10)`).rejects.toThrow(
       /permission denied/i,

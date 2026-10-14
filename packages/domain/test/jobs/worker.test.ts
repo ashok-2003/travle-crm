@@ -123,6 +123,30 @@ describe("startWorker", () => {
     expect(listener.handled).toEqual([]);
   });
 
+  it("doesn't retry a job whose event isn't found even if onError throws", async () => {
+    const queue = createMemoryJobQueue();
+    const runner = createMemoryJobRunner(queue);
+    const listener = recordingListener("documents.render-pdf", "document.issued");
+    const worker = await startWorker({
+      db,
+      runner,
+      queue,
+      listeners: [listener],
+      relay: { organizationIds: [] },
+      onError: () => {
+        throw new Error("the logger is broken");
+      },
+    });
+    await queue.send("documents.render-pdf", {
+      organizationId,
+      eventId: "0199e7a0-0000-7000-8000-0000000000cc",
+      eventType: "document.issued",
+    });
+    await runner.runQueued();
+    await worker.stop();
+    expect(runner.failed).toEqual([]);
+  });
+
   it("validates every schedule before registering any work", async () => {
     const queue = createMemoryJobQueue();
     const runner = createMemoryJobRunner(queue);

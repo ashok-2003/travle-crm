@@ -100,11 +100,15 @@ export async function startWorker(dependencies: WorkerDependencies): Promise<Wor
       const outcome = await runListenerJob({ db, listener, data: job.data });
       // Not retried (the event won't appear), but not silent either. Ids only: this may reach logs.
       if (outcome === "event-not-found") {
-        dependencies.onError?.(
-          new Error(
-            `${listener.name}: event ${String(job.data.eventId)} not found in organization ${String(job.data.organizationId)}`,
-          ),
-        );
+        try {
+          dependencies.onError?.(
+            new Error(
+              `${listener.name}: event ${String(job.data.eventId)} not found in organization ${String(job.data.organizationId)}`,
+            ),
+          );
+        } catch {
+          // A broken logger must not turn "not found, don't retry" into a retry.
+        }
       }
     });
   }

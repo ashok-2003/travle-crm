@@ -26,7 +26,7 @@ export interface JobRunner {
    *
    * A failed job's error is stored in pg-boss and shown to platform staff: keep personal data out of error messages
    * (ids only). pg-boss stores a shortened copy with emails and long numbers (phone, Aadhaar) masked; the original goes
-   * to the adapter's onError, which is the log. The masking is a safety net: names, addresses, PAN numbers and emails
+   * to the adapter's onError, which is the log. The masking is a safety net: names, addresses, PAN numbers, phone numbers written with dots or brackets (022) 2345.6789, and emails
    * without a domain are not masked.
    */
   work(queue: string, handler: JobHandlerFunction, options?: { concurrency?: number }): Promise<void>;

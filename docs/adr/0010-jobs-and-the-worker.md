@@ -33,7 +33,7 @@ Date: 2026-10-15 · Status: accepted · Implements spec section 9.1
   row-level security), and the platform console shows it. The adapter reports the original error to `onError` (the
   log) and throws a new `Error` for pg-boss: `Name: message`, emails masked as `[email]`, runs of 7 or more digits as
   `[number]` (also when written with spaces or hyphens, like a phone or Aadhaar number), 200 characters, no cause,
-  stack or extra properties. The masking is a safety net, not a filter: names, addresses, PAN numbers and emails
+  stack or extra properties. The masking is a safety net, not a filter: names, addresses, PAN numbers, phone numbers written with dots or brackets (`(022) 2345.6789`) and emails
   without a domain are not masked, so error messages must stay ids-only.
 - **Failures**: a rejected handler fails that attempt; pg-boss retries it 5 times with exponential backoff from
   10 seconds (at most an hour apart), then marks it failed. `PgBossJobs.failedJobs()` lists failed jobs, newest first,

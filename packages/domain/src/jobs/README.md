@@ -54,7 +54,8 @@ and small facts.
 - A failed job's error is stored in pg-boss and shown to platform staff: keep personal data out of error messages
   (ids only). pg-boss stores a cut-down copy (`Name: message`, emails and numbers of 7+ digits, also written with
   spaces or hyphens, masked, 200 characters); the original goes to `onError`, the log. The masking is a safety net:
-  names, addresses, PAN numbers and emails without a domain are not masked. A job whose event isn't found is not retried but is reported to `onError`.
+  names, addresses, PAN numbers, phone numbers written with dots or brackets (`(022) 2345.6789`) and emails
+  without a domain are not masked. A job whose event isn't found is not retried but is reported to `onError`.
 - Removing a listener or schedule from the code leaves its pg-boss queue, jobs and schedule behind until they are
   reconciled (plan 4).
 - `outbox_event` is append-only for the api and worker: they may only set `relayed_at`.

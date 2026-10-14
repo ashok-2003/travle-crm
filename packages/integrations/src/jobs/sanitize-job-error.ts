@@ -18,7 +18,8 @@ export function toError(value: unknown): Error {
 /**
  * A new Error for pg-boss to store: `Name: message` with email addresses and runs of 7 or more digits masked, at most
  * 200 characters, and no cause, extra properties or original stack. This is a safety net, not a filter: names,
- * addresses, PAN numbers and emails without a domain pass through, so messages must stay ids-only.
+ * addresses, PAN numbers, phone numbers written with dots or brackets, like (022) 2345.6789, and emails without a
+ * domain pass through, so messages must stay ids-only.
  */
 export function sanitizeJobError(error: unknown): Error {
   const original = toError(error);
