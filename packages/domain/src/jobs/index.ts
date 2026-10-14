@@ -13,6 +13,7 @@ export { listenerJobId } from "./listener-job-id.js";
 export { publishEvent } from "./publish-event.js";
 export {
   organizationsWithEventsWaiting,
+  relayBackoffMs,
   relayOutbox,
   startOutboxRelay,
   type ListenerJobData,

@@ -19,7 +19,11 @@ Date: 2026-10-15 · Status: accepted · Implements spec section 9.1
   copies share the work through `FOR UPDATE SKIP LOCKED`.
 - **One SECURITY DEFINER function**, `app_organizations_with_unrelayed_events(max)`: the relay's only look across
   organizations. It returns organization ids, oldest waiting first, and nothing else; `app_runtime` alone may call it.
-  The relay then reads each organization's events inside `db.forOrg()`. The schema check allows exactly this one.
+  The relay then reads each organization's events inside `db.forOrg()`. The schema check allows exactly this one, by
+  signature, requires it to set `search_path`, and also looks at the `pgboss` schema (no SECURITY DEFINER function, no
+  view without `security_invoker`, no CREATE for `app_runtime`). The function is `STRICT` and clamps its limit to
+  1..1000. Ordering by the oldest unrelayed event shows each organization's backlog age to `app_runtime` code, which
+  is acceptable for a server role.
 - **Listeners run at least once per event** (`runListenerJob`): `processed_event` records
   `(organization, listener, event)` after a run, and a run that finds its record skips. The check, the work and the
   record are separate transactions, so this is a best-effort skip, not exactly-once. The event is read inside `forOrg(job's organization)`, so a job

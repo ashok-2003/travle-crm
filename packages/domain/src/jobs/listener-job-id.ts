@@ -3,7 +3,9 @@ import { createHash } from "node:crypto";
 
 /**
  * A UUID (version 8, RFC 9562) derived from the listener's name and the event's id. pg-boss queues a job id once, so
- * a relay that crashes after sending and relays the event again sends nothing new.
+ * a relay that crashes after sending and relays the event again sends nothing new. pg-boss does this only while it
+ * still keeps the first job (completed jobs are deleted after a while); the per-event record in processed_event is the
+ * backstop for a late repeat.
  */
 export function listenerJobId(listenerName: string, eventId: string): string {
   const bytes = createHash("sha256").update(`${listenerName}\n${eventId}`).digest().subarray(0, 16);

@@ -12,7 +12,9 @@ Domain events and the work the worker does after a change commits (spec 9.1).
   relay. For each waiting event it queues a job on the queue of every listener of that event type, with data
   `{ organizationId, eventId, eventType }` and the id `listenerJobId(listener, event)`, then marks the event relayed.
   Returns how many events it relayed.
-- `startOutboxRelay({ ...those, intervalMs?, onError? })`: the relay in a loop, for the worker; `stop()` ends it.
+- `startOutboxRelay({ ...those, intervalMs?, onError? })`: the relay in a loop, for the worker; `stop()` ends it. One
+  failing organization doesn't stop a pass (each failure goes to `onError`); after failed passes it waits longer, up to
+  a minute. Defaults: 50 organizations per pass, 100 events per organization, 1 s between idle passes.
 - `listenerJobId(listenerName, eventId)`: the deterministic job id, so relaying an event twice queues it once.
 - `organizationsWithEventsWaiting(db, limit)`: the organizations with events waiting, oldest first (ids only).
 - `runListenerJob({ db, listener, data })`: runs one listener on the event a relayed job names, in that event's
