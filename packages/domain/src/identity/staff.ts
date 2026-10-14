@@ -1,0 +1,139 @@
+// An organization's staff (spec 6.3): list them, add them with or without email, change their role, reset their
+// password, remove them. The API checks staff:manage (request check 4) on a fresh session before calling these.
+import type {
+  CreateStaffInput,
+  RemoveStaffInput,
+  ResetStaffPasswordInput,
+  StaffMember,
+  UpdateStaffRoleInput,
+} from "@travel-crm/contracts/identity";
+import { softDeleted } from "@travel-crm/db";
+import type { IdentityDatabase, IdentityTx } from "@travel-crm/db/identity";
+import { DomainError } from "../kernel/index.js";
+import { assertMayHandleRole, assertMayManageMember } from "./access-rules.js";
+import type { MemberAccess } from "./member-access.js";
+import { findRole } from "./role-lookup.js";
+import { isPlaceholderEmail, removedPersonEmail, shownEmail } from "./sign-in-names.js";
+import { createStaffAccount, type PasswordHasher } from "./staff-accounts.js";
+
+/** The organization's active staff, oldest first. Placeholder emails are never shown. */
+export async function listStaff(database: IdentityDatabase, actor: MemberAccess): Promise<StaffMember[]> {
+  return database.forOrg(actor.organizationId, async (tx) => {
+    // The member table has no row-level security, so the organization is filtered here.
+    const members = await tx.member.findMany({
+      where: { organizationId: actor.organizationId },
+      include: { user: true },
+      orderBy: { createdAt: "asc" },
+    });
+    const roleNames = new Map((await tx.role.findMany()).map((role) => [role.key, role.name]));
+    return members.map((member) => ({
+      memberId: member.id,
+      userId: member.userId,
+      name: member.user.name,
+      email: shownEmail(member.user.email),
+      username: member.user.displayUsername,
+      role: { key: member.role, name: roleNames.get(member.role) ?? member.role },
+      twoFactorEnabled: member.user.twoFactorEnabled ?? false,
+      mustChangePassword: member.user.mustChangePassword,
+      joinedAt: member.createdAt.toISOString(),
+    }));
+  });
+}
+
+/** Adds a staff member with a temporary password they must change at first sign-in. */
+export async function createStaff(
+  database: IdentityDatabase,
+  hashPassword: PasswordHasher,
+  actor: MemberAccess,
+  input: CreateStaffInput,
+): Promise<StaffMember> {
+  const role = await database.forOrg(actor.organizationId, (tx) => findRole(tx, input.roleKey));
+  assertMayHandleRole(actor, role);
+  const created = await createStaffAccount(database, hashPassword, {
+    organizationId: actor.organizationId,
+    name: input.name,
+    email: input.email,
+    username: input.username,
+    roleKey: role.key,
+    password: input.temporaryPassword,
+    mustChangePassword: true,
+  });
+  return staffMember(database, actor, created.memberId);
+}
+
+export async function updateStaffRole(
+  database: IdentityDatabase,
+  actor: MemberAccess,
+  input: UpdateStaffRoleInput,
+): Promise<StaffMember> {
+  await database.forOrg(actor.organizationId, async (tx) => {
+    const target = await findMember(tx, actor, input.memberId);
+    assertMayManageMember(actor, { userId: target.userId, role: await findRole(tx, target.role) });
+    const newRole = await findRole(tx, input.roleKey);
+    assertMayHandleRole(actor, newRole);
+    await tx.member.update({ where: { id: target.id }, data: { role: newRole.key } });
+  });
+  return staffMember(database, actor, input.memberId);
+}
+
+/** Sets a temporary password, which must be changed at next sign-in, and signs the person out everywhere. */
+export async function resetStaffPassword(
+  database: IdentityDatabase,
+  hashPassword: PasswordHasher,
+  actor: MemberAccess,
+  input: ResetStaffPasswordInput,
+): Promise<void> {
+  const passwordHash = await hashPassword(input.temporaryPassword);
+  await database.forOrg(actor.organizationId, async (tx) => {
+    const target = await findMember(tx, actor, input.memberId);
+    assertMayManageMember(actor, { userId: target.userId, role: await findRole(tx, target.role) });
+    await tx.account.updateMany({
+      where: { userId: target.userId, providerId: "credential" },
+      data: { password: passwordHash },
+    });
+    await tx.user.update({ where: { id: target.userId }, data: { mustChangePassword: true } });
+    await tx.session.deleteMany({ where: { userId: target.userId } });
+  });
+}
+
+/**
+ * Removes a person from the organization (ADR 0007): their membership is soft-deleted, their sessions end, and their
+ * email and username are released so they can be used again, by this organization or another.
+ */
+export async function removeStaff(
+  database: IdentityDatabase,
+  actor: MemberAccess,
+  input: RemoveStaffInput,
+): Promise<void> {
+  await database.forOrg(actor.organizationId, async (tx) => {
+    const target = await findMember(tx, actor, input.memberId);
+    assertMayManageMember(actor, { userId: target.userId, role: await findRole(tx, target.role) });
+    await tx.member.update({ where: { id: target.id }, data: softDeleted(actor.userId) });
+    const user = await tx.user.findUniqueOrThrow({ where: { id: target.userId } });
+    await tx.user.update({
+      where: { id: user.id },
+      data: {
+        formerEmail: isPlaceholderEmail(user.email) ? null : user.email,
+        email: removedPersonEmail(user.id),
+        username: null,
+        // Belt and braces: Better Auth refuses to create a session for a banned user.
+        banned: true,
+        banReason: "Removed from their organization",
+      },
+    });
+    await tx.session.deleteMany({ where: { userId: user.id } });
+  });
+}
+
+/** An active member of the actor's organization. Members of other organizations are "not found". */
+async function findMember(tx: IdentityTx, actor: MemberAccess, memberId: string) {
+  const member = await tx.member.findFirst({ where: { id: memberId, organizationId: actor.organizationId } });
+  if (!member) throw new DomainError("NOT_FOUND", "MEMBER_NOT_FOUND", "No such staff member");
+  return member;
+}
+
+async function staffMember(database: IdentityDatabase, actor: MemberAccess, memberId: string): Promise<StaffMember> {
+  const member = (await listStaff(database, actor)).find((staff) => staff.memberId === memberId);
+  if (!member) throw new DomainError("NOT_FOUND", "MEMBER_NOT_FOUND", "No such staff member");
+  return member;
+}
