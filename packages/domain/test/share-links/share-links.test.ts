@@ -5,10 +5,22 @@ import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platfo
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import type { Actor } from "../../src/kernel/index.js";
-import { createShareLink, listShareLinks, openShareLink, revokeShareLink } from "../../src/share-links/index.js";
+import {
+  createShareLink,
+  findShareLink,
+  listShareLinks,
+  openShareLink,
+  recordShareLinkOpen,
+  revokeShareLink,
+} from "../../src/share-links/index.js";
 
 const DAY = 24 * 60 * 60 * 1000;
-const visitor = { ipAddress: "203.0.113.77", userAgent: "Mozilla/5.0 (Linux; Android 15) Chrome/140.0" };
+const visitor = {
+  ipAddress: "203.0.113.77",
+  userAgent: "Mozilla/5.0 (Linux; Android 15) Chrome/140.0",
+  preview: false,
+};
+const preview = { ...visitor, preview: true };
 
 describe("share links", () => {
   let platform: PlatformClient;
@@ -146,6 +158,81 @@ describe("share links", () => {
     await expect(make({ expiresAt: new Date(Date.now() - 1000) })).rejects.toMatchObject({
       reason: "EXPIRY_IN_THE_PAST",
     });
+  });
+
+  const opensOf = (link: { shareLinkId: string }) =>
+    db.forOrg(agent.organizationId, (tx) => tx.shareLinkOpen.findMany({ where: { shareLinkId: link.shareLinkId } }));
+  const openedEventsOf = async (link: { shareLinkId: string }) => {
+    const events = await db.forOrg(agent.organizationId, (tx) =>
+      tx.outboxEvent.findMany({ where: { type: "share-link.opened" } }),
+    );
+    return events.filter((event) => (event.payload as { shareLinkId?: string }).shareLinkId === link.shareLinkId);
+  };
+
+  it("checks a link and returns its record, in preview mode, without recording an open or publishing", async () => {
+    const link = await share();
+    expect(await openShareLink(db, link.token, preview)).toMatchObject({ shareLinkId: link.shareLinkId });
+    expect(await findShareLink(db, link.token)).toMatchObject({ shareLinkId: link.shareLinkId });
+    expect(await opensOf(link)).toEqual([]);
+    expect(await openedEventsOf(link)).toEqual([]);
+    await expect(findShareLink(db, "not-a-token")).rejects.toMatchObject({ reason: "LINK_NOT_FOUND" });
+  });
+
+  it("records every open but publishes share-link.opened at most once per link in 10 minutes", async () => {
+    const link = await share();
+    const opened = await findShareLink(db, link.token);
+    const start = new Date();
+    await recordShareLinkOpen(db, opened, visitor, start);
+    await recordShareLinkOpen(db, opened, visitor, new Date(start.getTime() + 60_000));
+    expect(await opensOf(link)).toHaveLength(2);
+    expect(await openedEventsOf(link)).toHaveLength(1);
+    await recordShareLinkOpen(db, opened, visitor, new Date(start.getTime() + 11 * 60_000));
+    expect(await opensOf(link)).toHaveLength(3);
+    expect(await openedEventsOf(link)).toHaveLength(2);
+  });
+
+  it("revoking is final: a second revoke changes nothing, and the database refuses to un-revoke", async () => {
+    const link = await share();
+    const first = new Date("2026-10-15T10:00:00Z");
+    await db.forOrg(agent.organizationId, (tx) => revokeShareLink(tx, agent, { shareLinkId: link.shareLinkId }, first));
+    await db.forOrg(agent.organizationId, (tx) =>
+      revokeShareLink(tx, otherAgentOfSameOrganization(), { shareLinkId: link.shareLinkId }, new Date()),
+    );
+    const stored = await db.forOrg(agent.organizationId, (tx) =>
+      tx.shareLink.findUniqueOrThrow({ where: { id: link.shareLinkId } }),
+    );
+    expect(stored).toMatchObject({ revokedAt: first, revokedBy: agent.userId });
+    await expect(
+      db.forOrg(
+        agent.organizationId,
+        (tx) => tx.$executeRaw`UPDATE share_link SET revoked_at = NULL WHERE id = ${link.shareLinkId}::uuid`,
+      ),
+    ).rejects.toThrow(/revoked/i);
+    await expect(
+      db.forOrg(
+        agent.organizationId,
+        (tx) => tx.$executeRaw`UPDATE share_link SET revoked_at = now() WHERE id = ${link.shareLinkId}::uuid`,
+      ),
+    ).rejects.toThrow(/revoked/i);
+  });
+
+  function otherAgentOfSameOrganization(): Actor {
+    return { ...agent, userId: "0199e7a0-0000-7000-8000-0000000000a2" };
+  }
+
+  it("finds nothing for a token naming no organization", async () => {
+    const link = await share();
+    const nilOrganization = "A".repeat(22);
+    await expect(openShareLink(db, `${nilOrganization}${link.token.slice(22)}`, visitor)).rejects.toMatchObject({
+      code: "NOT_FOUND",
+      reason: "LINK_NOT_FOUND",
+    });
+  });
+
+  it("refuses to list links for a record id that isn't a UUID", async () => {
+    await expect(
+      db.forOrg(agent.organizationId, (tx) => listShareLinks(tx, { recordType: "issued_document", recordId: "42" })),
+    ).rejects.toMatchObject({ reason: "INVALID_RECORD_ID" });
   });
 
   it("lets the api revoke a link but never edit or delete it", async () => {

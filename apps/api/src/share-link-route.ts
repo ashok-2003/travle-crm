@@ -10,15 +10,36 @@ import { Hono } from "hono";
 export type ShareLinkResolver = (opened: OpenedShareLink) => Promise<Response>;
 
 export interface ShareLinkRouteOptions {
-  /** openShareLink from @travel-crm/domain/share-links, bound to the database. */
-  open: (token: string, visitor: ShareLinkVisitor) => Promise<OpenedShareLink>;
+  /** findShareLink from @travel-crm/domain/share-links, bound to the database: checks the link, records nothing. */
+  find: (token: string) => Promise<OpenedShareLink>;
+  /** recordShareLinkOpen, bound to the database: called once the resolver has answered with success. */
+  recordOpen: (opened: OpenedShareLink, visitor: ShareLinkVisitor) => Promise<void>;
   /** One resolver per record type that can be shared. */
   resolvers: Readonly<Record<string, ShareLinkResolver>>;
   clientAddress: (request: Request) => string | null;
 }
 
 /** Shared records are private: never cached, never indexed, and the token never leaks in a Referer header. */
-const privacyHeaders = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer", "X-Robots-Tag": "noindex" };
+const privacyHeaders = {
+  "Cache-Control": "no-store",
+  "Referrer-Policy": "no-referrer",
+  "X-Robots-Tag": "noindex",
+  "X-Content-Type-Options": "nosniff",
+};
+
+/** Link-preview bots that fetch a link when it is pasted into a chat, not customers looking at the record. */
+const PREVIEW_USER_AGENTS =
+  /WhatsApp|facebookexternalhit|Facebot|Slackbot|TelegramBot|Twitterbot|LinkedInBot|Discordbot|SkypeUriPreview|Google-PageRenderer|Applebot/i;
+
+/** HEAD requests, browser prefetches and link-preview bots are not a customer opening the link. */
+function isPreview(request: Request, userAgent: string | null): boolean {
+  const purpose = `${request.headers.get("sec-purpose") ?? ""} ${request.headers.get("purpose") ?? ""}`;
+  return (
+    request.method === "HEAD" ||
+    /prefetch/i.test(purpose) ||
+    (userAgent !== null && PREVIEW_USER_AGENTS.test(userAgent))
+  );
+}
 
 const pages = {
   LINK_NOT_FOUND: {
@@ -79,10 +100,15 @@ export function shareLinkRoutes(options: ShareLinkRouteOptions): Hono {
   const app = new Hono();
 
   app.get("/:token", async (c) => {
-    const visitor = { ipAddress: options.clientAddress(c.req.raw), userAgent: c.req.header("user-agent") ?? null };
+    const userAgent = c.req.header("user-agent") ?? null;
+    const visitor = {
+      ipAddress: options.clientAddress(c.req.raw),
+      userAgent,
+      preview: isPreview(c.req.raw, userAgent),
+    };
     let opened: OpenedShareLink;
     try {
-      opened = await options.open(c.req.param("token"), visitor);
+      opened = await options.find(c.req.param("token"));
     } catch (error) {
       if (error instanceof DomainError && error.code === "NOT_FOUND") {
         return errorPage(isPageReason(error.reason) ? error.reason : "LINK_NOT_FOUND");
@@ -94,7 +120,10 @@ export function shareLinkRoutes(options: ShareLinkRouteOptions): Hono {
       ? options.resolvers[opened.recordType]
       : undefined;
     if (!resolve) return errorPage("LINK_NOT_FOUND");
-    return keptPrivate(await resolve(opened));
+    const response = await resolve(opened);
+    // Counted and announced only when the customer got the record: not for a 404, a 503 "being prepared" or a failure.
+    if (response.status < 400) await options.recordOpen(opened, visitor);
+    return keptPrivate(response);
   });
 
   return app;

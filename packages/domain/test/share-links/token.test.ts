@@ -1,7 +1,7 @@
 // Share-link tokens carry their organization in the clear and a random secret, of which only a hash is stored.
 import { describe, expect, it } from "vitest";
 import { newShareLinkToken, parseShareLinkToken } from "../../src/share-links/token.js";
-import { truncateIpAddress } from "../../src/share-links/visitor.js";
+import { shortenUserAgent, truncateIpAddress } from "../../src/share-links/visitor.js";
 
 const organizationId = "0199e7a0-1234-7abc-8def-0123456789ab";
 
@@ -50,5 +50,18 @@ describe("truncateIpAddress", () => {
     expect(truncateIpAddress(null)).toBeNull();
     expect(truncateIpAddress("unknown")).toBeNull();
     expect(truncateIpAddress("")).toBeNull();
+  });
+});
+
+describe("shortenUserAgent", () => {
+  it("keeps up to 300 characters, whole ones, and drops an empty one", () => {
+    expect(shortenUserAgent("Mozilla/5.0")).toBe("Mozilla/5.0");
+    expect(shortenUserAgent("a".repeat(400))).toBe("a".repeat(300));
+    // An emoji is two UTF-16 units: cutting at 300 characters must not split it.
+    const cut = shortenUserAgent(`${"a".repeat(299)}😀😀`);
+    expect(cut).toBe(`${"a".repeat(299)}😀`);
+    expect(Array.from(cut ?? "")).toHaveLength(300);
+    expect(shortenUserAgent("")).toBeNull();
+    expect(shortenUserAgent(null)).toBeNull();
   });
 });

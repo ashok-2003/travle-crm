@@ -11,6 +11,7 @@ export function hashSecret(secret: string): string {
   return createHash("sha256").update(secret).digest("hex");
 }
 
+/** A new token for an organization: its id in the clear, then a random secret. Only the secret's hash is stored. */
 export function newShareLinkToken(organizationId: string): { token: string; secretHash: string } {
   if (!UUID_PATTERN.test(organizationId)) {
     throw new RangeError(`Not an organization id: ${JSON.stringify(organizationId.slice(0, 64))}`);

@@ -34,7 +34,12 @@ export interface OpenedShareLink extends SharedRecord {
 export interface ShareLinkVisitor {
   ipAddress: string | null;
   userAgent: string | null;
+  /** A link preview, prefetch or HEAD request rather than a customer looking: nothing is recorded or announced. */
+  preview: boolean;
 }
+
+/** share-link.opened is published at most once per link in this long; every open is still recorded. */
+const EVENT_COALESCE_MILLISECONDS = 10 * 60 * 1000;
 
 const notFound = (reason: "LINK_NOT_FOUND" | "LINK_EXPIRED" | "LINK_REVOKED", message: string) =>
   new DomainError("NOT_FOUND", reason, message);
@@ -82,26 +87,31 @@ export async function createShareLink(
 }
 
 /** Turns a link off for good. Revoking a revoked link changes nothing. */
-export async function revokeShareLink(tx: OrgTx, actor: Actor, input: { shareLinkId: string }): Promise<void> {
+export async function revokeShareLink(
+  tx: OrgTx,
+  actor: Actor,
+  input: { shareLinkId: string },
+  now: Date = new Date(),
+): Promise<void> {
   const link = UUID_PATTERN.test(input.shareLinkId)
     ? await tx.shareLink.findUnique({ where: { id: input.shareLinkId }, select: { revokedAt: true } })
     : null;
   if (!link) throw notFound("LINK_NOT_FOUND", "No such link");
   if (link.revokedAt) return;
-  await tx.shareLink.update({
-    where: { id: input.shareLinkId },
-    data: { revokedAt: new Date(), revokedBy: actor.userId },
+  // Only an unrevoked link is written, so two concurrent revokes write once; the database refuses any other change.
+  await tx.shareLink.updateMany({
+    where: { id: input.shareLinkId, revokedAt: null },
+    data: { revokedAt: now, revokedBy: actor.userId },
   });
 }
 
 /**
- * Opens a link for a visitor: checks it, records the open and publishes share-link.opened in one transaction, and
- * says which record to show. Unknown, expired and revoked links are NOT_FOUND with a reason the page can explain.
+ * Checks a link and says which record to show, recording nothing. Unknown, expired and revoked links are NOT_FOUND
+ * with a reason the page can explain. Record the open with recordShareLinkOpen once the record has been shown.
  */
-export async function openShareLink(
+export async function findShareLink(
   db: Pick<Database, "forOrg">,
   token: string,
-  visitor: ShareLinkVisitor,
   now: Date = new Date(),
 ): Promise<OpenedShareLink> {
   const parsed = parseShareLinkToken(token);
@@ -114,16 +124,6 @@ export async function openShareLink(
     if (!link) throw notFound("LINK_NOT_FOUND", "This link doesn't work");
     if (link.revokedAt) throw notFound("LINK_REVOKED", "This link has been turned off");
     if (link.expiresAt && link.expiresAt <= now) throw notFound("LINK_EXPIRED", "This link has expired");
-    const open = await tx.shareLinkOpen.create({
-      data: {
-        shareLinkId: link.id,
-        openedAt: now,
-        ipAddress: truncateIpAddress(visitor.ipAddress),
-        userAgent: shortenUserAgent(visitor.userAgent),
-      },
-      select: { id: true },
-    });
-    await publishEvent(tx, { type: "share-link.opened", payload: { shareLinkId: link.id, openId: open.id } });
     return {
       organizationId,
       shareLinkId: link.id,
@@ -135,8 +135,60 @@ export async function openShareLink(
   });
 }
 
+/**
+ * Records that a customer opened a link and publishes share-link.opened, in one transaction. Every open is recorded,
+ * but the event goes out at most once per link in 10 minutes. A preview (link preview, prefetch, HEAD) records nothing.
+ */
+export async function recordShareLinkOpen(
+  db: Pick<Database, "forOrg">,
+  opened: OpenedShareLink,
+  visitor: ShareLinkVisitor,
+  now: Date = new Date(),
+): Promise<void> {
+  if (visitor.preview) return;
+  await db.forOrg(opened.organizationId, async (tx) => {
+    const latest = await tx.shareLinkOpen.findFirst({
+      where: {
+        shareLinkId: opened.shareLinkId,
+        openedAt: { gt: new Date(now.getTime() - EVENT_COALESCE_MILLISECONDS) },
+      },
+      select: { id: true },
+    });
+    const open = await tx.shareLinkOpen.create({
+      data: {
+        shareLinkId: opened.shareLinkId,
+        openedAt: now,
+        ipAddress: truncateIpAddress(visitor.ipAddress),
+        userAgent: shortenUserAgent(visitor.userAgent),
+      },
+      select: { id: true },
+    });
+    if (!latest) {
+      await publishEvent(tx, {
+        type: "share-link.opened",
+        payload: { shareLinkId: opened.shareLinkId, openId: open.id },
+      });
+    }
+  });
+}
+
+/** Checks a link and records the open (unless the visitor is a preview), in one call: findShareLink, then recordShareLinkOpen. */
+export async function openShareLink(
+  db: Pick<Database, "forOrg">,
+  token: string,
+  visitor: ShareLinkVisitor,
+  now: Date = new Date(),
+): Promise<OpenedShareLink> {
+  const opened = await findShareLink(db, token, now);
+  await recordShareLinkOpen(db, opened, visitor, now);
+  return opened;
+}
+
 /** A record's links, newest first, with how often and when they were last opened, for staff. */
 export async function listShareLinks(tx: OrgTx, record: SharedRecord): Promise<ShareLinkSummary[]> {
+  if (!UUID_PATTERN.test(record.recordId)) {
+    throw new DomainError("VALIDATION", "INVALID_RECORD_ID", "The record id must be a UUID");
+  }
   const links = await tx.shareLink.findMany({
     where: { recordType: record.recordType, recordId: record.recordId },
     include: {
