@@ -4,7 +4,7 @@ import { createDatabase, type Database } from "@travel-crm/db";
 import { createRateLimiter } from "@travel-crm/domain/rate-limits";
 import { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, inject, it, onTestFinished, vi } from "vitest";
-import { clientAddressFrom, rateLimit } from "../src/rate-limit.js";
+import { clientAddressFrom, rateLimit, resetMissingAddressWarning } from "../src/rate-limit.js";
 
 describe("public rate limit", () => {
   let db: Database;
@@ -67,6 +67,7 @@ describe("public rate limit", () => {
   });
 
   it("puts requests with no address in one shared bucket instead of letting them through, and warns once", async () => {
+    resetMissingAddressWarning();
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     onTestFinished(() => {
       warn.mockRestore();

@@ -33,6 +33,7 @@ const MIN_SECRET_BYTES = 32;
 /** Refused keys remembered per limiter; the oldest are forgotten first. */
 const MAX_REMEMBERED_KEYS = 10_000;
 const PURGE_BATCH_SIZE = 10_000;
+const MAX_PURGE_BATCH_SIZE = 100_000;
 
 function assertRule({ limit, windowSeconds }: RateLimitRule): void {
   if (!Number.isInteger(limit) || limit < 1 || !Number.isInteger(windowSeconds) || windowSeconds < 1) {
@@ -108,7 +109,12 @@ export async function purgeExpiredRateLimits(
   olderThan: Date,
   batchSize: number = PURGE_BATCH_SIZE,
 ): Promise<number> {
+  if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > MAX_PURGE_BATCH_SIZE) {
+    throw new RangeError(`The purge batch size must be a whole number from 1 to ${String(MAX_PURGE_BATCH_SIZE)}`);
+  }
   let purged = 0;
+  // A concurrent upsert can move a row's ctid, so a batch may delete fewer rows than it found and end the loop early.
+  // That is harmless: tomorrow's run finishes the job.
   for (;;) {
     const deleted = await db.withoutOrg(
       (tx) => tx.$executeRaw`

@@ -15,6 +15,11 @@ export interface RateLimitOptions {
 
 let warnedAboutMissingAddress = false;
 
+/** Lets a test see the once-per-process warning again. */
+export function resetMissingAddressWarning(): void {
+  warnedAboutMissingAddress = false;
+}
+
 /** Counts every request per limit name and client address; over the limit, answers 429 with Retry-After. */
 export function rateLimit(options: RateLimitOptions): MiddlewareHandler {
   const rule = { limit: options.limit, windowSeconds: options.windowSeconds };
@@ -24,7 +29,8 @@ export function rateLimit(options: RateLimitOptions): MiddlewareHandler {
     if (clientAddress === null && !warnedAboutMissingAddress) {
       warnedAboutMissingAddress = true;
       console.warn(
-        `Rate limit "${options.name}": a request has no trusted client address (the address header is missing or untrusted). Check the load balancer: every such request shares one bucket.`,
+        `Rate limit "${options.name}": a request has no trusted client address (the address header is missing or ` +
+          "untrusted). Check the load balancer: every such request shares one bucket.",
       );
     }
     const address = clientAddress ?? "no-address";
@@ -54,7 +60,10 @@ interface Hop {
   family: "ipv4" | "ipv6";
 }
 
-/** The eight groups of an IPv6 address. The URL parser gives its shortest form, refuses zone ids, and writes a dotted tail in hex. */
+/**
+ * The eight groups of an IPv6 address. The URL parser gives its shortest form, refuses zone ids, and writes a dotted
+ * tail in hex.
+ */
 function ipv6Groups(address: string): number[] | null {
   let host: string;
   try {
@@ -109,10 +118,11 @@ function trustedProxyList(entries: readonly string[]): BlockList {
 /**
  * Reads the client's address the way Better Auth does for sign-in (ADR 0006), so a client can't forge one: from the
  * first configured header that is present, split on commas. Unlike Better Auth it never falls through to the next
- * header when that one holds nothing usable (it gives null), so a client can't choose which header is read. With trusted proxies, the client is the first address
- * from the right that isn't one of them (the leftmost values are whatever the client sent). Without them, only a
- * header holding exactly one address is believed. A malformed address, or none left, gives null, which the rate
- * limit counts in one shared bucket. IPv6 addresses come back as their /64 network.
+ * header when that one holds nothing usable (it gives null), so a client can't choose which header is read. With
+ * trusted proxies, the client is the first address from the right that isn't one of them (the leftmost values are
+ * whatever the client sent). Without them, only a header holding exactly one address is believed. A malformed
+ * address, or none left, gives null, which the rate limit counts in one shared bucket. IPv6 addresses come back as
+ * their /64 network.
  */
 export function clientAddressFrom(settings: ClientAddressSettings): (request: Request) => string | null {
   const trusted = trustedProxyList(settings.trustedProxies);

@@ -8,8 +8,9 @@ every api instance counts against the same limit.
 - `createRateLimiter(db, { keySecret })` returns a `RateLimiter` (`keySecret`: a string or `Uint8Array` of at least 32
   bytes, else `RangeError`):
   - `hit(key, { limit, windowSeconds }, now?)`: counts one hit and returns `{ allowed, remaining, retryAfterSeconds }`.
-- `purgeExpiredRateLimits(db, olderThan)`: deletes windows that started before `olderThan`, in batches of 10,000 rows
-  each in its own transaction, for a daily clean-up job. It needs no secret.
+- `purgeExpiredRateLimits(db, olderThan, batchSize?)`: deletes windows that started before `olderThan`, in
+  batches of `batchSize` rows (a whole number from 1 to 100,000; default 10,000), each in its own transaction, for a
+  daily clean-up job. It needs no secret.
 - Types: `RateLimiter`, `RateLimiterOptions`, `RateLimitRule`, `RateLimitResult`.
 
 The api's Hono middleware is `rateLimit(...)` in `apps/api/src/rate-limit.ts`.

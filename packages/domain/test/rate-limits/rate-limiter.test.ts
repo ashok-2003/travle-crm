@@ -2,6 +2,7 @@
 // limit. Keys are stored hashed, never as the IP addresses they contain.
 import { createHash, createHmac } from "node:crypto";
 import { createDatabase, type Database } from "@travel-crm/db";
+import { createPlatformClient } from "@travel-crm/db/platform";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { createRateLimiter, purgeExpiredRateLimits } from "../../src/rate-limits/index.js";
 
@@ -164,6 +165,29 @@ describe("rate limiter", () => {
     expect(await purgeExpiredRateLimits(db, new Date("2019-06-01T00:00:00Z"), 10_000)).toBe(25_000);
     const left = await db.withoutOrg((tx) => tx.rateLimitCounter.count({ where: { windowStart: old } }));
     expect(left).toBe(0);
+  });
+
+  it("refuses a batch size that isn't a whole number from 1 to 100,000", async () => {
+    const olderThan = new Date("2000-01-01T00:00:00Z");
+    for (const batchSize of [0, -5, 1.5, 100_001, Number.NaN]) {
+      await expect(purgeExpiredRateLimits(db, olderThan, batchSize)).rejects.toThrow(RangeError);
+    }
+  });
+
+  it("lets the runtime role count hits but not change a key or window, and keeps the platform role out", async () => {
+    await createRateLimiter(db, { keySecret }).hit(`share-links:${crypto.randomUUID()}`, rule, secondsLater(0));
+    await expect(
+      db.withoutOrg((tx) => tx.$executeRaw`UPDATE rate_limit_counter SET key = repeat('a', 64)`),
+    ).rejects.toThrow(/permission denied/i);
+    await expect(
+      db.withoutOrg((tx) => tx.$executeRaw`UPDATE rate_limit_counter SET window_start = now()`),
+    ).rejects.toThrow(/permission denied/i);
+    const platform = createPlatformClient(inject("dbUrls").platform);
+    try {
+      await expect(platform.$queryRaw`SELECT count(*) FROM rate_limit_counter`).rejects.toThrow(/permission denied/i);
+    } finally {
+      await platform.$disconnect();
+    }
   });
 
   it("refuses a rule that isn't a positive whole limit and window", async () => {
