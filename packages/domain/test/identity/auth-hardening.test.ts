@@ -147,20 +147,29 @@ describe("Better Auth hardening", () => {
 
   it("lets a platform admin stop impersonating, and refuses stop-impersonating without impersonation", async () => {
     const adminHeaders = await platformAdminHeaders();
+    const adminUserId = (await test.identity.auth.api.getSession({ headers: adminHeaders }))?.user.id;
     const impersonation = await post("/admin/impersonate-user", adminHeaders, { userId: agency.ownerUserId });
     expect(impersonation.status).toBe(200);
-    // A small cookie jar where the later value wins, as in a browser.
+    // A small cookie jar where the later value wins, and an empty value or Max-Age=0 deletes, as in a browser.
     const jar = new Map<string, string>();
-    for (const pair of [adminHeaders.get("cookie") ?? "", ...impersonation.headers.getSetCookie()]
-      .flatMap((value) => value.split(";")[0]?.split("; ") ?? [])
-      .filter(Boolean)) {
-      const [name, ...value] = pair.split("=");
-      jar.set(name ?? "", value.join("="));
-    }
-    const impersonating = new Headers({ cookie: [...jar].map(([name, value]) => `${name}=${value}`).join("; ") });
-    const during = await test.identity.auth.api.getSession({ headers: impersonating });
+    const keep = (cookies: string[]) => {
+      for (const setCookie of cookies) {
+        const [pair = "", ...attributes] = setCookie.split(";").map((part) => part.trim());
+        const [name = "", ...value] = pair.split("=");
+        if (value.join("") === "" || attributes.includes("Max-Age=0")) jar.delete(name);
+        else jar.set(name, value.join("="));
+      }
+    };
+    keep((adminHeaders.get("cookie") ?? "").split("; "));
+    keep(impersonation.headers.getSetCookie());
+    const cookies = () => new Headers({ cookie: [...jar].map(([name, value]) => `${name}=${value}`).join("; ") });
+    const during = await test.identity.auth.api.getSession({ headers: cookies() });
     expect(during?.user.id).toBe(agency.ownerUserId);
-    expect((await post("/admin/stop-impersonating", impersonating, {})).status).toBe(200);
+    const stopped = await post("/admin/stop-impersonating", cookies(), {});
+    expect(stopped.status).toBe(200);
+    keep(stopped.headers.getSetCookie());
+    const after = await test.identity.auth.api.getSession({ headers: cookies() });
+    expect(after?.user.id).toBe(adminUserId);
 
     const member = await signInByEmail(test.identity, agency.ownerEmail, agency.ownerPassword);
     expect((await post("/admin/stop-impersonating", member, {})).status).toBe(403);
