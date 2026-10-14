@@ -14,10 +14,25 @@ const organizationSwitchMessage =
   "CREATE TEMP). Inside db.forOrg() the organization is meant to stay fixed for the transaction. This rule is a " +
   "tripwire against accidental use; Postgres row-level security is the real boundary.";
 
+// Matches a tagged $queryRaw/$executeRaw that reads or writes one of Better Auth's sign-in tables (FROM, JOIN, UPDATE
+// or INTO the table, quoted or not, optionally in "public"). OrgTx hides those models, but not the raw-SQL methods, and
+// the tables have no row-level security, so raw SQL is the remaining way in.
+const signInTableSelector =
+  "TaggedTemplateExpression[tag.property.name=/^\\$(queryRaw|executeRaw)$/] " +
+  'TemplateElement[value.raw=/\\b(from|join|update|into)\\s+("?public"?\\.)?"?' +
+  '(user|session|account|verification|two_factor|organization|member|invitation)"?\\b/i]';
+
+/** SQL that switches the organization or the session, in a template or a plain string. Every package but db keeps these. */
+export const organizationSwitchSelectors = [
+  { selector: `TemplateElement[value.raw=/${organizationSwitchPattern}/i]`, message: organizationSwitchMessage },
+  { selector: `Literal[value=/${organizationSwitchPattern}/i]`, message: organizationSwitchMessage },
+];
+
 /**
  * A tripwire against accidental use, not a security boundary: it flags SQL text that would switch the organization
- * inside db.forOrg() and Prisma's *Unsafe raw methods, which take SQL as a plain string. It cannot see SQL built at
- * runtime; Postgres row-level security is the real boundary. packages/db implements forOrg() and turns these rules off.
+ * inside db.forOrg(), raw SQL naming a sign-in table, and Prisma's *Unsafe raw methods, which take SQL as a plain
+ * string. It cannot see SQL built at runtime; Postgres row-level security is the real boundary. packages/db implements
+ * forOrg() and turns these rules off; the identity module keeps only organizationSwitchSelectors.
  *
  * A package must not redefine no-restricted-syntax or no-restricted-properties without re-including these entries:
  * flat config replaces rule options rather than merging them, so a redefinition silently drops the guard.
@@ -31,8 +46,8 @@ export const rawDatabaseAccessGuard = {
     ],
     "no-restricted-syntax": [
       "error",
-      { selector: `TemplateElement[value.raw=/${organizationSwitchPattern}/i]`, message: organizationSwitchMessage },
-      { selector: `Literal[value=/${organizationSwitchPattern}/i]`, message: organizationSwitchMessage },
+      ...organizationSwitchSelectors,
+      { selector: signInTableSelector, message: "Only the identity module queries the sign-in tables." },
     ],
   },
 };
