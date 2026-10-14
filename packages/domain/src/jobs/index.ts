@@ -1,4 +1,4 @@
-// Public API of the jobs module: publishing domain events and defining their listeners (spec 9.1).
+// Public API of the jobs module: domain events, their listeners, and the relay that queues them (spec 9.1).
 export {
   assertEventType,
   defineListener,
@@ -9,4 +9,13 @@ export {
   type ListenerContext,
   type PayloadSchema,
 } from "./events.js";
+export { listenerJobId } from "./listener-job-id.js";
 export { publishEvent } from "./publish-event.js";
+export {
+  organizationsWithEventsWaiting,
+  relayOutbox,
+  startOutboxRelay,
+  type ListenerJobData,
+  type OutboxRelay,
+  type RelayDependencies,
+} from "./relay.js";

@@ -51,8 +51,15 @@ async function unsafeViews(client: Queryable): Promise<string[]> {
   return rows.map((row) => row.name);
 }
 
-/** Functions allowed to run with their owner's rights. Empty: such a function skips row-level security. */
-const allowedSecurityDefinerFunctions: string[] = [];
+/**
+ * Functions allowed to run with their owner's rights, which skips row-level security. Each one is reviewed and has its
+ * own test proving what it reveals.
+ */
+const allowedSecurityDefinerFunctions: string[] = [
+  // The outbox relay's list of organizations with events waiting: organization ids only (ADR 0010,
+  // outbox-relay-function.test.ts).
+  "app_organizations_with_unrelayed_events",
+];
 
 async function securityDefinerFunctions(client: Queryable): Promise<string[]> {
   const rows = await client.$queryRaw<{ name: string }[]>`
