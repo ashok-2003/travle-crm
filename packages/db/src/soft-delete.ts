@@ -3,7 +3,11 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { Prisma } from "./generated/prisma/client.js";
 
 /** Models whose tables have deleted_at and deleted_by. Add a model here when you give its table those columns. */
-export const softDeleteModels: readonly string[] = [Prisma.ModelName.Role, Prisma.ModelName.Member];
+export const softDeleteModels: readonly string[] = [
+  Prisma.ModelName.Role,
+  Prisma.ModelName.Member,
+  Prisma.ModelName.Attachment,
+];
 
 /** Operations that must neither see nor change deleted rows. Creates are unaffected; deletes and upserts are refused. */
 const operationsThatSkipDeletedRows = new Set([
