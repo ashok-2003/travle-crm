@@ -1,10 +1,15 @@
 // The sign-in relation guard must know every relation from an organization-owned model to a sign-in model, which the
-// schema is read for here, and must let Json values through: an "organization" key inside one is data, not a relation.
+// schema is read for here, must let Json values through (an "organization" key inside one is data, not a relation),
+// and depends on the model description Prisma's client carries.
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { describe, expect, inject, it } from "vitest";
+import { PrismaClient } from "../src/generated/prisma/client.js";
 import {
+  modelDescriptionsOf,
   SignInRelationError,
+  signInGuard,
   signInModels,
   signInRelationCheck,
   signInRelations,
@@ -140,5 +145,29 @@ describe("the sign-in relation check", () => {
     expect(() => {
       check("Member", { include: { organization: true } });
     }).not.toThrow();
+  });
+});
+
+describe("Prisma's description of the models, which the guard reads", () => {
+  it("is on the client the guard extends, with each field's name, kind and type", async () => {
+    // The client createPrismaClient() hands to $extends(signInGuard). Nothing connects until a query runs.
+    const client = new PrismaClient({ adapter: new PrismaPg({ connectionString: inject("dbUrls").runtime }) });
+    try {
+      const fields = modelDescriptionsOf(client).Role?.fields;
+      expect(fields).toContainEqual(
+        expect.objectContaining({ name: "organization", kind: "object", type: "Organization" }),
+      );
+      expect(fields).toContainEqual(expect.objectContaining({ name: "key", kind: "scalar", type: "String" }));
+    } finally {
+      await client.$disconnect();
+    }
+  });
+
+  it("is required: without it the guard refuses to be set up, rather than run blind", () => {
+    const message = /no _runtimeDataModel, which the sign-in relation guard reads/;
+    expect(() => modelDescriptionsOf({})).toThrow(message);
+    expect(() => modelDescriptionsOf({ _runtimeDataModel: {} })).toThrow(message);
+    // The extension itself, handed a client without one, as an upgraded Prisma might be.
+    expect(() => signInGuard({})).toThrow(message);
   });
 });

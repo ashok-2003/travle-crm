@@ -115,7 +115,7 @@ export function signInRelationCheck(models: ModelDescriptions): (model: string, 
  * export. Prisma is pinned (7.10.0); if an upgrade moves it, creating a client fails here rather than the guard
  * running without knowing which fields are relations.
  */
-function modelDescriptionsOf(client: object): ModelDescriptions {
+export function modelDescriptionsOf(client: object): ModelDescriptions {
   const dataModel = Reflect.get(client, "_runtimeDataModel") as { models?: ModelDescriptions } | undefined;
   if (dataModel?.models === undefined) {
     throw new Error("The Prisma client has no _runtimeDataModel, which the sign-in relation guard reads");
