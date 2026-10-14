@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { printableCharacters, renderPdf, UnprintableTextError, unprintableCharacters } from "../../src/pdf/index.js";
 import { pdfText } from "./pdf-text.js";
 
+const issuedAt = new Date("2026-10-15T05:30:00Z");
 const minimal = { title: "T", number: "N", issuedOn: "D", recipient: { name: "R", lines: [] }, rows: [], totals: [] };
 
 describe("printable text", () => {
@@ -14,6 +15,7 @@ describe("printable text", () => {
     for (let start = 0; start < characters.length; start += 15) {
       const run = characters.slice(start, start + 15).join("");
       const pdf = await renderPdf("sample", {
+        issuedAt,
         data: {
           ...minimal,
           title: run,
@@ -35,8 +37,38 @@ describe("printable text", () => {
 
   it("refuses to render a document with text the fonts can't show, rather than print other letters", async () => {
     const hindi = { ...minimal, rows: [{ description: "होटल और नाश्ता", amount: "₹4,000.00" }] };
-    const attempt = renderPdf("sample", { data: hindi, branding: { organizationName: "Sharma Holidays" } });
+    const attempt = renderPdf("sample", { issuedAt, data: hindi, branding: { organizationName: "Sharma Holidays" } });
     await expect(attempt).rejects.toBeInstanceOf(UnprintableTextError);
-    await expect(attempt).rejects.toThrow(/can't show yet: ह, ो, ट, ल, औ, र, न, ा, श, ्, त/);
+    await expect(attempt).rejects.toThrow(/can't show yet: ह \(U\+0939\), ो \(U\+094B\), ट \(U\+091F\)/);
+  });
+});
+
+describe("printable text normalisation", () => {
+  const withName = (name: string) => ({
+    issuedAt,
+    data: { ...minimal, recipient: { name, lines: [] } },
+    branding: { organizationName: "Printable" },
+  });
+
+  it("accepts decomposed accents and renders them composed", async () => {
+    expect(unprintableCharacters("Ūdaipur".normalize("NFD"))).toEqual([]);
+    const { text } = await pdfText(await renderPdf("sample", withName("Café José")));
+    expect(text).toContain("Café José");
+  });
+
+  it("treats CRLF and lone CR as line breaks", async () => {
+    expect(unprintableCharacters("a\r\nb\rc")).toEqual([]);
+    const pdf = await renderPdf("sample", {
+      issuedAt,
+      data: { ...minimal, notes: "one\r\ntwo\rthree" },
+      branding: { organizationName: "Printable" },
+    });
+    expect((await pdfText(pdf)).text).toContain("one two three");
+  });
+
+  it("shows a refused character as its code point, and gives the error a stable code", async () => {
+    const attempt = renderPdf("sample", withName("Zero​width"));
+    await expect(attempt).rejects.toThrow(/U\+200B/);
+    await expect(attempt).rejects.toMatchObject({ code: "UNPRINTABLE_TEXT", characters: ["​"] });
   });
 });

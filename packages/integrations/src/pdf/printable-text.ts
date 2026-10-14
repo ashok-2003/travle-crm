@@ -41,6 +41,14 @@ const printableRanges: readonly (readonly [number, number])[] = [
 
 const LINE_BREAK = 0x0a;
 
+/** Text as it is checked and printed: composed accents (NFC), and every kind of line ending as "\n". */
+export function normalisedText(text: string): string {
+  return text.normalize("NFC").replaceAll(/\r\n?/g, "\n");
+}
+
+const codePointLabel = (character: string): string =>
+  `U+${(character.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, "0")}`;
+
 const isPrintable = (codePoint: number): boolean =>
   codePoint === LINE_BREAK || printableRanges.some(([from, to]) => codePoint >= from && codePoint <= to);
 
@@ -54,19 +62,25 @@ export function printableCharacters(): string[] {
 /** The characters in text that the PDF fonts can't show, each once, in the order they first appear. */
 export function unprintableCharacters(text: string): string[] {
   const found = new Set<string>();
-  for (const character of text) {
+  for (const character of normalisedText(text)) {
     const codePoint = character.codePointAt(0);
     if (codePoint !== undefined && !isPrintable(codePoint)) found.add(character);
   }
   return [...found];
 }
 
-/** Thrown, before rendering, for a document holding characters the fonts can't show. */
+/**
+ * Thrown, before rendering, for a document holding characters the fonts can't show. It is permanent: the same document
+ * fails every time, so a job that gets it should not retry. Match on `code`, which is stable.
+ */
 export class UnprintableTextError extends Error {
+  readonly code = "UNPRINTABLE_TEXT";
   readonly characters: readonly string[];
 
   constructor(characters: readonly string[]) {
-    super(`This document has characters its fonts can't show yet: ${characters.join(", ")}`);
+    super(
+      `This document has characters its fonts can't show yet: ${characters.map((character) => `${character} (${codePointLabel(character)})`).join(", ")}`,
+    );
     this.name = "UnprintableTextError";
     this.characters = characters;
   }

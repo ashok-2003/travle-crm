@@ -28,6 +28,8 @@ export interface SampleDocumentData {
 export type PdfTemplate = "sample";
 
 export interface PdfInput {
+  /** When the document was issued. Written into the file, so the same input always renders to the same bytes. */
+  issuedAt: Date;
   data: SampleDocumentData;
   branding: DocumentBranding;
 }

@@ -111,7 +111,7 @@ function section(style: Styles, label: string, text: string | undefined): ReactE
   );
 }
 
-export function sampleDocument({ data, branding }: PdfInput): ReactElement<DocumentProps> {
+export function sampleDocument({ data, branding, issuedAt }: PdfInput): ReactElement<DocumentProps> {
   const theme = pdfTheme(branding);
   const style = styles(theme);
   return createElement(
@@ -121,6 +121,8 @@ export function sampleDocument({ data, branding }: PdfInput): ReactElement<Docum
       author: branding.organizationName,
       creator: brand.productName,
       producer: brand.productName,
+      creationDate: issuedAt,
+      modificationDate: issuedAt,
     },
     createElement(
       Page,

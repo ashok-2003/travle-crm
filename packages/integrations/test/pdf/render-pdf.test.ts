@@ -11,6 +11,8 @@ const tinyPng = Uint8Array.from(
   (character) => character.charCodeAt(0),
 );
 
+const issuedAt = new Date("2026-10-15T05:30:00Z");
+
 const sample: SampleDocumentData = {
   title: "Quotation",
   number: "DOC-2026-0042",
@@ -35,7 +37,7 @@ const branding = {
 
 describe("renderPdf", () => {
   it("renders the sample with the organization's branding and every part of the document", async () => {
-    const pdf = await renderPdf("sample", { data: sample, branding });
+    const pdf = await renderPdf("sample", { issuedAt, data: sample, branding });
     expect(new TextDecoder().decode(pdf.subarray(0, 5))).toBe("%PDF-");
 
     const { pages, text } = await pdfText(pdf);
@@ -65,7 +67,7 @@ describe("renderPdf", () => {
       description: `Day ${String(index + 1)}: sightseeing`,
       amount: "₹2,500.00",
     }));
-    const { pages, text } = await pdfText(await renderPdf("sample", { data: { ...sample, rows }, branding }));
+    const { pages, text } = await pdfText(await renderPdf("sample", { issuedAt, data: { ...sample, rows }, branding }));
     expect(pages).toBeGreaterThan(1);
     expect(text).toContain(`Page 1 of ${String(pages)}`);
     expect(text).toContain(`Page ${String(pages)} of ${String(pages)}`);
@@ -77,7 +79,7 @@ describe("renderPdf", () => {
       "Six nights in a sea-view cottage at Havelock with breakfast and dinner, a private transfer from Port Blair " +
       "jetty, a guided snorkelling trip at Elephant beach and a sunset cruise on the last evening";
     const rows = [{ description, amount: "₹1,23,45,67,890.00" }];
-    const placed = await firstPageText(await renderPdf("sample", { data: { ...sample, rows }, branding }));
+    const placed = await firstPageText(await renderPdf("sample", { issuedAt, data: { ...sample, rows }, branding }));
 
     // ₹ comes from the latin-ext font, so it is its own run: it must sit just left of the digits, on their line.
     const digits = placed.find((item) => item.text.includes("1,23,45,67,890.00"));
@@ -94,19 +96,53 @@ describe("renderPdf", () => {
 
   it("renders a logo, and works without one or without terms", async () => {
     const withLogo = await renderPdf("sample", {
+      issuedAt,
       data: sample,
       branding: { ...branding, logo: { data: tinyPng, contentType: "image/png" } },
     });
     expect(new TextDecoder("latin1").decode(withLogo)).toContain("/Subtype /Image");
     const plain = await pdfText(
-      await renderPdf("sample", { data: sample, branding: { organizationName: "Goa Escapes" } }),
+      await renderPdf("sample", { issuedAt, data: sample, branding: { organizationName: "Goa Escapes" } }),
     );
     expect(plain.text).toContain("Goa Escapes");
   });
 
   it("refuses an accent colour that isn't #rrggbb", async () => {
     await expect(
-      renderPdf("sample", { data: sample, branding: { ...branding, accentColour: "red; font-size: 400" } }),
+      renderPdf("sample", { issuedAt, data: sample, branding: { ...branding, accentColour: "red; font-size: 400" } }),
     ).rejects.toThrow(/Accent colours look like/);
+  });
+});
+
+describe("renderPdf output", () => {
+  it("depends only on its input: the same document renders to the same bytes, a different issue time does not", async () => {
+    const first = await renderPdf("sample", { issuedAt, data: sample, branding });
+    const second = await renderPdf("sample", { issuedAt, data: sample, branding });
+    expect(Buffer.from(first).equals(Buffer.from(second))).toBe(true);
+
+    const later = await renderPdf("sample", { issuedAt: new Date("2026-10-16T05:30:00Z"), data: sample, branding });
+    expect(Buffer.from(first).equals(Buffer.from(later))).toBe(false);
+  });
+
+  it("embeds the three brand fonts rather than falling back to a standard one", async () => {
+    const raw = new TextDecoder("latin1").decode(await renderPdf("sample", { issuedAt, data: sample, branding }));
+    const baseFonts = [...raw.matchAll(/\/BaseFont \/[A-Z]{6}\+([A-Za-z0-9-]+)/g)].map((match) => match[1] ?? "");
+    for (const family of ["EBGaramond", "Figtree", "IBMPlexMono"]) {
+      expect(
+        baseFonts.some((name) => name.startsWith(family)),
+        family,
+      ).toBe(true);
+    }
+    expect(raw).not.toContain("/BaseFont /Helvetica");
+  });
+
+  it("refuses a logo that isn't a PNG or JPEG", async () => {
+    const logo = { data: tinyPng, contentType: "image/svg+xml" } as unknown as {
+      data: Uint8Array;
+      contentType: "image/png";
+    };
+    await expect(renderPdf("sample", { issuedAt, data: sample, branding: { ...branding, logo } })).rejects.toThrow(
+      RangeError,
+    );
   });
 });
