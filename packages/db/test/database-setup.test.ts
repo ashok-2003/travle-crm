@@ -1,4 +1,5 @@
 // The database roles and the organization table behave as the spec requires (spec section 4).
+import { randomUUID } from "node:crypto";
 import pg from "pg";
 import { describe, expect, inject, it } from "vitest";
 import { createPlatformClient } from "../src/platform.js";
@@ -38,11 +39,28 @@ describe("database setup", () => {
     await expect(queryAs(urls.runtime, "CREATE TABLE sneaky (id int)")).rejects.toThrow(/permission denied/);
   });
 
+  it("does not let the runtime role create temporary tables, which outlive a transaction on a pooled connection", async () => {
+    await expect(queryAs(urls.runtime, "CREATE TEMP TABLE sneaky_temp (id int)")).rejects.toThrow(/permission denied/);
+  });
+
+  it("does not let the runtime role create or delete organizations", async () => {
+    // Organizations are created and deleted only by the platform console.
+    await expect(
+      queryAs(
+        urls.runtime,
+        `INSERT INTO organization (id, name, code, updated_at) VALUES (gen_random_uuid(), 'Sneaky', 'SNEAKY1', now())`,
+      ),
+    ).rejects.toThrow(/permission denied/);
+    await expect(queryAs(urls.runtime, "DELETE FROM organization")).rejects.toThrow(/permission denied/);
+  });
+
   it("only accepts organization codes of 3-12 capital letters or digits", async () => {
     const platform = createPlatformClient(urls.platform);
+    // Random, so a rerun against the same database (watch mode) doesn't hit the unique index.
+    const validCode = `V${randomUUID().replaceAll("-", "").slice(0, 7).toUpperCase()}`;
     try {
-      await expect(platform.organization.create({ data: { name: "Valid", code: "SHARMA1" } })).resolves.toMatchObject({
-        code: "SHARMA1",
+      await expect(platform.organization.create({ data: { name: "Valid", code: validCode } })).resolves.toMatchObject({
+        code: validCode,
       });
       for (const badCode of ["SH", "sharma", "SHARMA-HOLIDAYS", "THIRTEENCHARS"]) {
         await expect(platform.organization.create({ data: { name: "Invalid", code: badCode } })).rejects.toThrow(

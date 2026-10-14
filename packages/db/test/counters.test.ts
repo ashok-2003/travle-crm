@@ -15,7 +15,7 @@ describe("nextDocumentNumber", () => {
 
   beforeAll(async () => {
     platform = createPlatformClient(urls.platform);
-    db = createDatabase(urls.runtime);
+    db = createDatabase(urls.runtime, { maxConnections: 3 });
     orgA = await createTestOrganization(platform);
     orgB = await createTestOrganization(platform);
   });

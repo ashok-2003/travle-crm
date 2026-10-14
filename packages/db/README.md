@@ -6,7 +6,9 @@ The database layer: Prisma schema, migrations, and the rules that keep each orga
 
     import { createDatabase, nextDocumentNumber } from "@travel-crm/db";
 
-    const db = createDatabase(process.env.DATABASE_URL);   // app_runtime role
+    const url = process.env.DATABASE_URL;
+    if (!url) throw new Error("DATABASE_URL is not set");
+    const db = createDatabase(url);   // must connect as the app_runtime role; forOrg() checks
     const number = await db.forOrg(orgId, (tx) => nextDocumentNumber(tx, { prefix: "BK", year: 2026 }));
 
 Organization data is reachable only inside `db.forOrg()`. Postgres row-level security limits every query in that

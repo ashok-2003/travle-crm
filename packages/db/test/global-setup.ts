@@ -32,6 +32,8 @@ export async function setup(project: TestProject): Promise<void> {
     .withDatabase("app")
     .withUsername("postgres")
     .withPassword("postgres")
+    // Every test file opens its own pools; the default 100 runs out as files are added.
+    .withCommand(["postgres", "-c", "max_connections=300"])
     .start();
 
   const host = container.getHost();
@@ -62,11 +64,15 @@ export async function setup(project: TestProject): Promise<void> {
       { cwd: packageRoot, env },
     );
   } catch (error) {
-    throw new Error(
-      "The Prisma schema and the migrations disagree. Create the missing migration with " +
-        "`pnpm --filter @travel-crm/db exec prisma migrate dev --create-only --name <change>`.",
-      { cause: error },
-    );
+    // `migrate diff --exit-code` exits with 2 for "differences found"; any other failure means the check didn't run.
+    if ((error as { code?: unknown }).code === 2) {
+      throw new Error(
+        "The Prisma schema and the migrations disagree. Create the missing migration with " +
+          "`pnpm --filter @travel-crm/db exec prisma migrate dev --create-only --name <change>`.",
+        { cause: error },
+      );
+    }
+    throw new Error("The drift check could not run (Prisma CLI or database connection error).", { cause: error });
   }
 
   project.provide("dbUrls", urls);
