@@ -5,7 +5,10 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./platform": "./src/platform.ts"
+    "./identity": "./src/identity.ts",
+    "./platform": "./src/platform.ts",
+    "./testing": "./test/testing.ts",
+    "./testing/global-setup": "./test/global-setup.ts"
   },
   "scripts": {
     "generate": "prisma generate",

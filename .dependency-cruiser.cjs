@@ -4,11 +4,39 @@ module.exports = {
     {
       name: "db-internals-stay-in-db",
       comment:
-        "Other packages reach @travel-crm/db only through its public entry points (index.ts, platform.ts), " +
-        "so the raw Prisma client and the generated code never leak out of the package.",
+        "Other packages reach @travel-crm/db only through its entry points (index, identity, platform, and the " +
+        "test-only testing files), so the raw Prisma client and the generated code never leak out of the package.",
       severity: "error",
       from: { path: "^(apps|packages)/", pathNot: "^packages/db/" },
-      to: { path: "^packages/db/src/", pathNot: "^packages/db/src/(index|platform)\\.ts$" },
+      to: {
+        path: "^packages/db/(src|test)/",
+        pathNot: "^packages/db/(src/(index|identity|platform)|test/(testing|global-setup))\\.ts$",
+      },
+    },
+    {
+      name: "identity-database-only-in-identity",
+      comment:
+        "@travel-crm/db/identity reaches Better Auth's sign-in tables, which have no row-level security. " +
+        "Only the identity module may use it (spec section 4).",
+      severity: "error",
+      from: { pathNot: ["^packages/db/", "^packages/domain/(src|test)/identity/"] },
+      to: { path: "^packages/db/src/identity\\.ts$" },
+    },
+    {
+      name: "platform-database-only-in-platform",
+      comment:
+        "@travel-crm/db/platform sees every organization. Only the platform module and tests may use it; " +
+        "the api and worker never get DATABASE_PLATFORM_URL.",
+      severity: "error",
+      from: { pathNot: ["^packages/db/", "^packages/domain/src/platform/", "(^|/)test/"] },
+      to: { path: "^packages/db/src/platform\\.ts$" },
+    },
+    {
+      name: "db-testing-only-in-tests",
+      comment: "@travel-crm/db/testing starts Postgres containers and creates organizations. Only tests may use it.",
+      severity: "error",
+      from: { pathNot: ["^packages/db/", "(^|/)test/"] },
+      to: { path: "^packages/db/test/" },
     },
     {
       name: "raw-database-drivers-stay-in-db",
@@ -77,7 +105,7 @@ module.exports = {
           "^node-inspect/lib/_inspect$",
           "^node-inspect/lib/internal/inspect_client$",
           "^node-inspect/lib/internal/inspect_repl$",
-          "^async_hooks$",
+          // async_hooks is left out: its AsyncLocalStorage is stable (soft-delete.ts uses it); only createHook is not.
           "^punycode$",
           "^domain$",
           "^constants$",

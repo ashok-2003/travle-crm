@@ -8,3 +8,4 @@ The first and largest set of decisions is the Foundation spec: `docs/superpowers
 | [0001](0001-toolchain.md)              | Toolchain versions: Node 24, pnpm 12, TypeScript 6.0.3, Prisma 7.10        |
 | [0002](0002-row-level-security.md)     | How organization isolation is implemented in Postgres                      |
 | [0003](0003-repository-conventions.md) | Repository conventions: Prettier, husky, lint-staged, commitlint, Renovate |
+| [0004](0004-soft-delete.md)            | Soft delete: hidden rows, refused hard deletes, partial unique indexes     |
