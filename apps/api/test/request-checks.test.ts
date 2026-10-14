@@ -1,7 +1,7 @@
 // The request checks of spec 6.5 through the HTTP app: signed in (1), role permission (4), membership read on every
 // request, fresh sessions for sensitive procedures (spec 6.4), and the steps a member must take before using the app.
 import type { MeOutput } from "@travel-crm/contracts/identity";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { CookieJar } from "./support/cookie-jar.js";
 import { addStaff, signedInOwner, signedInStaff } from "./support/people.js";
 import {
@@ -124,6 +124,14 @@ describe("request checks", () => {
       own = await createTestAgency(server);
       owner = await signedInOwner(server, own);
       await enableTwoFactor(server, owner, own.owner.password);
+    });
+
+    // A post that got through switches the requirement on; switch it back so each test starts from "off".
+    afterEach(async () => {
+      await server.platform.organization.update({
+        where: { id: own.organizationId },
+        data: { requireTwoFactor: false },
+      });
     });
 
     const post = (headers: Record<string, string>, body: string | FormData) =>
