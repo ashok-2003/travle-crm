@@ -66,15 +66,29 @@ Date: 2026-10-15 · Status: accepted · Implements spec sections 9.3 (share link
 ### The webhook intake
 
 - **`POST /webhooks/<provider>`**, in the spec's order: verify the signature, store the raw payload, queue a job,
-  reply 200; the job then processes the event, once. An unknown provider is 404, a bad signature 401 (nothing
-  stored), an event the provider can't identify 400, and a body over 1 MB 413 before it is read in full.
+  reply 200; the job then processes the event, at least once. An unknown provider is 404, a bad signature 401
+  (nothing stored), a signed body the provider can't identify 400 (not stored; a `verify` or `identify` that throws
+  is answered 400 too, but neither should throw), and a body over 1 MB 413 before it is read in full.
 - **Providers plug in** as `WebhookProvider` objects: `verify`, `identify` (the provider's event id and type) and
   `process` (in the worker). `hmacSha256Signature(...)` builds `verify` for the common HMAC-of-the-body scheme,
   compared in constant time.
 - **`webhook_event`** keeps every event: the raw body exactly as received, the headers the provider names (never
   cookies or authorization), attempts and the last error. `@@unique([provider, providerEventId])` ignores repeats; the
   `webhooks.process` job's id is the event's id, so a repeat queues nothing new, and a repeat of an event whose job was
-  never queued queues it then.
+  never queued queues it then. The send passes a generous retry policy (10 retries, 30 s delay, doubling). A later
+  sweep will re-queue old unprocessed rows.
+- **Processing is at least once, not exactly once.** `provider.process` and the mark-processed update are separate
+  transactions, so a crash between them, or a retry, runs `process` again. A provider's `process` must do its work
+  idempotently inside `db.forOrg()`, keyed by `event.id` or `event.providerEventId` (for example a unique key on the
+  payment record).
+- **`last_error` holds no raw message.** Only the error's name or code, at most 100 characters: messages quote payloads
+  and payloads hold personal data. The full error still reaches the logs and the job queue through the rethrow.
+- **Payloads are kept as delivered**: the runtime role may update only `processed_at`, `attempts` and `last_error`, and
+  can't delete events.
+- **Not yet enforced: who can read `webhook_event`.** The rule is that only the webhooks module reads it (and the
+  rate-limit table likewise belongs to its module), but `OrgTx` still exposes both models to every `forOrg()`
+  transaction, so organization code could read every organization's raw payloads. Integration task I1 enforces it, by
+  omitting `webhookEvent` and `rateLimitCounter` from `OrgTx` and giving this module dedicated database entry points.
 
 ## Context
 
@@ -91,7 +105,7 @@ Date: 2026-10-15 · Status: accepted · Implements spec sections 9.3 (share link
   one"), and knowing that a random 32-byte secret once existed tells an attacker nothing useful.
 - **Why webhook events have no organization and no row-level security.** The organization is known only once the
   provider's handler has read the payload (a WhatsApp number, a Razorpay account). The table holds raw provider data,
-  so only the webhooks module reads it, through `db.withoutOrg()`; each provider's `process` moves what it needs into
+  so only the webhooks module is meant to read it, through `db.withoutOrg()` (not yet enforced, see above); each provider's `process` moves what it needs into
   organization tables inside `db.forOrg()`.
 - **Why store before replying.** Providers retry until they get a 2xx. Storing first means a 200 is never sent for an
   event we could lose, and a crash after storing is recovered by the provider's own retry (the repeat queues the job).
@@ -101,7 +115,10 @@ Date: 2026-10-15 · Status: accepted · Implements spec sections 9.3 (share link
 
 - Public forms get Turnstile (spec 9.7) when the first form arrives with its screen (plan 5); the rate limit here
   applies to them too.
-- Stored webhook payloads are kept; a retention purge for them comes with the first real provider (step 2, WhatsApp),
-  which knows how long its data must live.
-- Old rate-limit windows are deleted when their key is hit again; `purgeExpiredRateLimits` (scheduled daily by the worker)
-  clears the rest.
+- Stored webhook payloads are kept for now. Step 2 (the first real provider, WhatsApp) must add retention under DPDP:
+  rows are kept a short fixed time after `processed_at`, then purged by blanking `payload` and `headers` while keeping
+  `(provider, provider_event_id)` as a tombstone, because providers without a signed timestamp (Razorpay, Meta) rely on
+  that unique key against replays. An organization or traveller purge must also reach these rows, so the processing
+  step should record the organization it resolved. A sweep that re-queues old unprocessed rows belongs there too.
+- Old rate-limit windows are deleted when their key is hit again; `purgeExpiredRateLimits` (scheduled daily by the
+  worker) clears the rest.
