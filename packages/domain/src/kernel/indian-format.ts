@@ -25,7 +25,7 @@ export function formatIndianNumber(value: number | bigint, options: { fractionDi
     const fraction = fractionDigits > 0 ? `.${"0".repeat(fractionDigits)}` : "";
     return `${value < 0n ? "-" : ""}${groupDigits((value < 0n ? -value : value).toString())}${fraction}`;
   }
-  // Scale to whole units of the last digit shown, so everything after this is integer text.
+  // Round the displayed value to whole units of the last digit shown, so everything after this is integer text.
   const scaled = Math.round(Math.abs(value) * 10 ** fractionDigits);
   if (!Number.isFinite(value) || !Number.isSafeInteger(scaled)) {
     throw new RangeError(`Can't show ${String(value)} exactly with ${String(fractionDigits)} fraction digits`);

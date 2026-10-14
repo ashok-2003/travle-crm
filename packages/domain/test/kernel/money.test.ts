@@ -189,7 +189,10 @@ describe("fixes after review", () => {
   });
 
   it("refuses long text before reading it", () => {
-    expect(() => parseRupees("1".repeat(41))).toThrow(RangeError);
+    // 41 characters, though trimmed it would be a valid amount.
+    expect(() => parseRupees("5" + " ".repeat(40))).toThrow(RangeError);
+    // 40 characters is the longest accepted text.
+    expect(parseRupees("0".repeat(37) + "5.5")).toEqual(money(550));
     expect(parseRupees("1".repeat(14))).toEqual(money(1_111_111_111_111_100));
   });
 });
@@ -198,5 +201,11 @@ describe("sum currency", () => {
   it("refuses an item in another currency than the one asked for", () => {
     const dollars = { amountPaise: 100, currency: "USD" } as unknown as ReturnType<typeof money>;
     expect(() => sum([dollars])).toThrow(/currencies/);
+  });
+});
+
+describe("allocating negative amounts", () => {
+  it("splits a negative amount the way it splits the positive one", () => {
+    expect(allocate(money(-10_000), [1, 1, 1])).toEqual([money(-3334), money(-3333), money(-3333)]);
   });
 });

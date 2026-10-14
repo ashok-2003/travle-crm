@@ -36,7 +36,7 @@ interface WallClock {
   second: number;
 }
 
-/** What a clock on the wall in timeZone shows at instant. */
+/** What a clock on the wall in timeZone shows at instant. An invalid Date makes Intl throw a RangeError. */
 function wallClock(instant: Date, timeZone: string): WallClock {
   const parts = formatter(`parts|${timeZone}`, "en-US", {
     timeZone,
@@ -80,7 +80,8 @@ function offsetAt(instantMs: number, timeZone: string): number {
 
 /**
  * The first instant of a day in timeZone. Usually midnight; where daylight saving skips midnight (Cuba in March),
- * the moment the clocks jump to.
+ * the moment the clocks jump to. A day that never happened (30 December 2011 in Samoa) starts when the next day
+ * that did, 31 December, starts. Where midnight happens twice, it is the first.
  */
 export function startOfDayIn(date: CalendarDate, timeZone: string): Date {
   assertTimeZone(timeZone);

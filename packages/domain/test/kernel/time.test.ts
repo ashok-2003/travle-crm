@@ -64,3 +64,55 @@ describe("formatDateTime", () => {
     expect(() => formatDateTime(evening, { timeZone: "EST", style: "date" })).toThrow(RangeError);
   });
 });
+
+describe("more time zone cases", () => {
+  it("counts New Year in a zone behind UTC", () => {
+    expect(yearIn(at("2027-01-01T04:59:59Z"), "America/New_York")).toBe(2026);
+    expect(yearIn(at("2027-01-01T05:00:00Z"), "America/New_York")).toBe(2027);
+    expect(calendarDateIn(at("2027-01-01T04:59:59Z"), "America/New_York")).toBe("2026-12-31");
+  });
+
+  it("is still last year in India one second before New Year there", () => {
+    expect(yearIn(at("2026-12-31T18:29:59Z"), "Asia/Kolkata")).toBe(2026);
+  });
+
+  it("starts a day with a repeated hour at its first midnight", () => {
+    // Cuba's clocks go back from 01:00 to 00:00 on 1 November 2026: midnight CDT (UTC-4) comes first.
+    expect(startOfDayIn(parseCalendarDate("2026-11-01"), "America/Havana")).toEqual(at("2026-11-01T04:00:00Z"));
+    expect(startOfDayIn(parseCalendarDate("2026-11-02"), "America/Havana")).toEqual(at("2026-11-02T05:00:00Z"));
+  });
+
+  it("gives the start of the next day that exists when a day was skipped", () => {
+    // Samoa jumped over 30 December 2011 when it crossed the date line.
+    expect(startOfDayIn(parseCalendarDate("2011-12-30"), "Pacific/Apia")).toEqual(at("2011-12-30T10:00:00Z"));
+    expect(startOfDayIn(parseCalendarDate("2011-12-31"), "Pacific/Apia")).toEqual(at("2011-12-30T10:00:00Z"));
+  });
+
+  it("does not depend on the host's time zone", () => {
+    const original = process.env.TZ;
+    try {
+      const results = ["Pacific/Auckland", "America/Los_Angeles"].map((hostZone) => {
+        process.env.TZ = hostZone;
+        const instant = at("2026-10-14T18:30:00Z");
+        return [
+          calendarDateIn(instant, "Asia/Kolkata"),
+          yearIn(at("2026-12-31T18:30:00Z"), "Asia/Kolkata"),
+          startOfDayIn(parseCalendarDate("2026-10-15"), "Asia/Kolkata").toISOString(),
+          formatDateTime(instant, { timeZone: "Asia/Kolkata", style: "date-time" }),
+        ];
+      });
+      expect(results[0]).toEqual(["2026-10-15", 2027, "2026-10-14T18:30:00.000Z", "15 Oct 2026, 12:00 am"]);
+      expect(results[1]).toEqual(results[0]);
+    } finally {
+      if (original === undefined) delete process.env.TZ;
+      else process.env.TZ = original;
+    }
+  });
+
+  it("refuses an invalid Date with a RangeError", () => {
+    const invalid = new Date(Number.NaN);
+    expect(() => calendarDateIn(invalid, "Asia/Kolkata")).toThrow(RangeError);
+    expect(() => yearIn(invalid, "Asia/Kolkata")).toThrow(RangeError);
+    expect(() => formatDateTime(invalid, { timeZone: "Asia/Kolkata", style: "date" })).toThrow(RangeError);
+  });
+});

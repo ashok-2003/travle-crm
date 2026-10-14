@@ -41,7 +41,7 @@ describe("Indian number format", () => {
 });
 
 describe("fraction digits", () => {
-  it("are formatted exactly, rounding half away from zero", () => {
+  it("round the displayed value half away from zero, without toFixed", () => {
     expect(formatIndianNumber(1234.5, { fractionDigits: 2 })).toBe("1,234.50");
     expect(formatIndianNumber(-12_345.678, { fractionDigits: 1 })).toBe("-12,345.7");
     expect(formatIndianNumber(0.5, { fractionDigits: 1 })).toBe("0.5");
