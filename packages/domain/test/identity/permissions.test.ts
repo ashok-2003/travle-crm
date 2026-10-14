@@ -1,4 +1,5 @@
 // The permission catalog and permission sets: what a role can allow, and how scopes compare.
+import { permissionKey } from "@travel-crm/contracts/identity";
 import { describe, expect, it } from "vitest";
 import { PermissionSet } from "../../src/identity/permission-set.js";
 import { isPermission, moduleOf, permissionCatalog, permissions } from "../../src/identity/permissions.js";
@@ -28,6 +29,10 @@ describe("permission catalog", () => {
   it("names every permission module:action, once", () => {
     expect(new Set(permissions).size).toBe(permissions.length);
     for (const permission of permissions) expect(permission).toMatch(/^[a-z]+:[a-z_]+$/);
+  });
+
+  it("only holds keys the API contract accepts", () => {
+    for (const permission of permissions) expect(permissionKey.safeParse(permission).success).toBe(true);
   });
 
   it("marks the views of assignable records as scoped", () => {

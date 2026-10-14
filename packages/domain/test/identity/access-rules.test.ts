@@ -41,6 +41,20 @@ describe("access rules", () => {
     expect(refusalOf(assertMayHandleRole, sales, allLeadsRole)).toBe("EXCEEDS_YOUR_PERMISSIONS");
   });
 
+  it("stop an Admin giving a role that allows changing roles, which Admin lacks", () => {
+    const rolesRole = {
+      isOwner: false,
+      permissions: PermissionSet.of([{ permission: "roles:manage", scope: null }]),
+    };
+    expect(refusalOf(assertMayHandleRole, admin, rolesRole)).toBe("EXCEEDS_YOUR_PERMISSIONS");
+  });
+
+  it("stop a Sales member managing someone whose role allows margins", () => {
+    const accounts = memberWithStarterRole("accounts");
+    const target = { userId: "someone-else", role: { isOwner: false, permissions: accounts.permissions } };
+    expect(refusalOf(assertMayManageMember, sales, target)).toBe("EXCEEDS_YOUR_PERMISSIONS");
+  });
+
   it("stop members changing their own access, Owners included", () => {
     expect(refusalOf(assertMayManageMember, owner, { userId: owner.userId, role: ownerRole })).toBe(
       "CANNOT_CHANGE_YOURSELF",
