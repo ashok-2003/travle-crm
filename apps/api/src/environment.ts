@@ -1,5 +1,6 @@
 // The api's settings, read from environment variables once at start-up and checked, so a bad deploy fails loudly.
 import { isIP } from "node:net";
+import { brand } from "@travel-crm/brand";
 import type { AuthSettings } from "@travel-crm/domain/identity";
 import { z } from "zod";
 
@@ -108,8 +109,8 @@ export function loadEnvironment(source: Record<string, string | undefined>): Env
 
 export function authSettingsFrom(environment: Environment): AuthSettings {
   return {
-    // The product's name moves to the brand package (spec section 10) when that package exists.
-    appName: "Travel CRM",
+    // Authenticator apps show the product's name next to the code.
+    appName: brand.productName,
     secret: environment.BETTER_AUTH_SECRET,
     baseUrl: environment.BETTER_AUTH_URL,
     trustedOrigins: environment.TRUSTED_ORIGINS.map((origin) => new URL(origin).origin),

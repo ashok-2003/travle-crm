@@ -1,4 +1,5 @@
 // The api refuses to start with settings that are missing, malformed or unsafe in production, and says which.
+import { brand } from "@travel-crm/brand";
 import { describe, expect, it } from "vitest";
 import { authSettingsFrom, EnvironmentError, loadEnvironment } from "../src/environment.js";
 
@@ -107,6 +108,10 @@ describe("environment", () => {
       loadEnvironment({ ...valid, NODE_ENV: "development", AUTH_TRUSTED_PROXIES: "fe80::1,2001:db8::/32,::1" })
         .AUTH_TRUSTED_PROXIES,
     ).toEqual(["fe80::1", "2001:db8::/32", "::1"]);
+  });
+
+  it("names the product to authenticator apps with the brand's name", () => {
+    expect(authSettingsFrom(loadEnvironment({ ...valid, NODE_ENV: "development" })).appName).toBe(brand.productName);
   });
 
   it("names every missing or malformed variable, without printing values", () => {
