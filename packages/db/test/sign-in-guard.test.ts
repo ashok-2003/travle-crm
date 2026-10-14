@@ -67,6 +67,15 @@ describe("sign-in relation guard", () => {
         }),
       ),
     ).rejects.toBeInstanceOf(SignInRelationError);
+    // Through another organization-owned model's relation: the guard follows relations, not just the top level.
+    await expect(
+      db.forOrg(organizationId, (tx) =>
+        tx.rolePermission.update({
+          where: { organizationId_roleId_permission: { organizationId, roleId, permission: "leads:view" } },
+          data: { role: { update: { organization: { update: { members: { deleteMany: {} } } } } } },
+        }),
+      ),
+    ).rejects.toBeInstanceOf(SignInRelationError);
     await expect(
       db.forOrg(organizationId, (tx) => tx.role.findMany({ orderBy: { organization: { name: "asc" } } })),
     ).rejects.toBeInstanceOf(SignInRelationError);
