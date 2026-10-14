@@ -1,0 +1,22 @@
+{
+  "name": "travel-crm",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.11.2",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "depcruise": "depcruise packages --config .dependency-cruiser.cjs",
+    "check": "turbo run typecheck lint test && pnpm run depcruise",
+    "db:up": "docker compose up -d --wait postgres",
+    "db:down": "docker compose down",
+    "db:migrate": "pnpm --filter @travel-crm/db db:migrate:deploy"
+  },
+  "devDependencies": {
+    "dependency-cruiser": "18.6.0",
+    "turbo": "2.11.8",
+    "typescript": "catalog:"
+  }
+}

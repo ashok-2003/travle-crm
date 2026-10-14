@@ -1,0 +1,22 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "ui": "stream",
+  "globalPassThroughEnv": ["PRISMA_HIDE_UPDATE_MESSAGE"],
+  "tasks": {
+    "generate": {
+      "dependsOn": ["^generate"],
+      "inputs": ["prisma/schema/**", "prisma.config.ts", "package.json"],
+      "outputs": ["src/generated/**"]
+    },
+    "build": { "dependsOn": ["^build", "generate", "^generate"], "outputs": [".next/**", "!.next/cache/**", "dist/**"] },
+    "typecheck": { "dependsOn": ["generate", "^generate"], "outputs": [] },
+    "lint": { "dependsOn": ["generate", "^generate"], "outputs": [] },
+    "test": {
+      "dependsOn": ["generate", "^generate"],
+      "outputs": [],
+      "passThroughEnv": ["DOCKER_HOST", "TESTCONTAINERS_*"]
+    },
+    "db:migrate:deploy": { "cache": false, "env": ["DATABASE_MIGRATOR_URL"] },
+    "dev": { "cache": false, "persistent": true }
+  }
+}
