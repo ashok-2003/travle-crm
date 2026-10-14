@@ -4,10 +4,18 @@ import type { Context } from "./context.js";
 import { errorDetails, publicMessage } from "./errors.js";
 
 export const t = initTRPC.context<Context>().create({
+  // tRPC adds the error's stack trace to responses unless NODE_ENV is "production"; the api defaults to development.
+  isDev: false,
+  // An allow-list, so a field tRPC adds later can't reach clients by being spread in.
   errorFormatter: ({ shape, error }) => ({
     ...shape,
     message: publicMessage(error),
-    data: { ...shape.data, ...errorDetails(error) },
+    data: {
+      code: shape.data.code,
+      httpStatus: shape.data.httpStatus,
+      ...(shape.data.path === undefined ? {} : { path: shape.data.path }),
+      ...errorDetails(error),
+    },
   }),
 });
 
