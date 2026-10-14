@@ -8,5 +8,7 @@ export const fixtures: OrgTableFixtures = {
         data: { template: "sample", number: "ISO-2000-0001", title: "Isolation", renderInput: {} },
       }),
     appendOnly: true,
+    // A column the runtime role may update: the suite checks row-level security on it, not just the grants.
+    updatableColumn: "render_failure",
   },
 };

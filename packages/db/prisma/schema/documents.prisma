@@ -21,8 +21,8 @@ model IssuedDocument {
   /// The id its PDF's attachment will have, chosen when the document is issued so a retried render stores the PDF
   /// into the same attachment however often it runs.
   pdfFileId       String    @default(uuid(7)) @map("pdf_file_id") @db.Uuid
-  /// The rendered PDF, an attachment of this document (always pdf_file_id). Set once, never replaced (CHECK
-  /// issued_document_rendered).
+  /// The rendered PDF, an attachment of this document: always pdf_file_id (CHECK issued_document_pdf_is_chosen_attachment),
+  /// set together with rendered_at (CHECK issued_document_rendered). The worker only sets it while it is null.
   pdfAttachmentId String?   @map("pdf_attachment_id") @db.Uuid
   renderedAt      DateTime? @map("rendered_at") @db.Timestamptz(6)
   /// Set when rendering can never succeed, e.g. "UNPRINTABLE_TEXT: U+0939"; the worker then stops trying. Codes and
