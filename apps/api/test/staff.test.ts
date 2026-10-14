@@ -88,23 +88,54 @@ describe("staff management", () => {
   });
 
   it("refuses a username already in use in the organization", async () => {
+    await dataOf(
+      await mutate(
+        server,
+        "staff.create",
+        { name: "Anil", username: "Anil", roleKey: "sales", temporaryPassword: "anil-temp-pass-1" },
+        owner,
+      ),
+    );
     const again = await mutate(
       server,
       "staff.create",
-      { name: "Another Ravi", username: "RAVI", roleKey: "sales", temporaryPassword: "ravi-temp-pass-2" },
+      { name: "Another Anil", username: "ANIL", roleKey: "sales", temporaryPassword: "anil-temp-pass-2" },
       owner,
     );
     expect(await refusalOf(again)).toEqual({ status: 409, reason: "EMAIL_OR_USERNAME_TAKEN" });
   });
 
   it("lists the organization's staff, without placeholder addresses, to staff:manage only", async () => {
-    const staff = await dataOf<StaffMember[]>(await query(server, "staff.list", owner));
+    const own = await createTestAgency(server);
+    const ownOwner = await signedInOwner(server, own);
+    await dataOf(
+      await mutate(
+        server,
+        "staff.create",
+        { name: "Ravi Kumar", username: "ravi", roleKey: "sales", temporaryPassword: "ravi-temp-pass-1" },
+        ownOwner,
+      ),
+    );
+    await dataOf(
+      await mutate(
+        server,
+        "staff.create",
+        {
+          name: "Meera",
+          email: `meera-${own.code.toLowerCase()}@example.test`,
+          roleKey: "operations",
+          temporaryPassword: "meera-temp-pass-1",
+        },
+        ownOwner,
+      ),
+    );
+    const staff = await dataOf<StaffMember[]>(await query(server, "staff.list", ownOwner));
     expect(staff.map((member) => member.name)).toEqual(["Asha Owner", "Ravi Kumar", "Meera"]);
     expect(staff.find((member) => member.name === "Ravi Kumar")?.email).toBeNull();
     const sales = await signedInStaff(
       server,
-      agency,
-      await addStaff(server, agency, { username: "sunil", roleKey: "sales" }),
+      own,
+      await addStaff(server, own, { username: "sunil", roleKey: "sales" }),
     );
     expect(await refusalOf(await query(server, "staff.list", sales))).toEqual({
       status: 403,
@@ -163,9 +194,32 @@ describe("staff management", () => {
   it("moves someone to another role, effective on their next request", async () => {
     const tara = await addStaff(server, agency, { username: "tara", roleKey: "sales" });
     const jar = await signedInStaff(server, agency, tara);
-    expect((await query(server, "staff.list", jar)).status).toBe(403);
+    expect(await refusalOf(await query(server, "staff.list", jar))).toEqual({
+      status: 403,
+      reason: "MISSING_PERMISSION",
+    });
     await dataOf(await mutate(server, "staff.updateRole", { memberId: tara.memberId, roleKey: "org-admin" }, owner));
     expect((await query(server, "staff.list", jar)).status).toBe(200);
+  });
+
+  it("takes access away from someone moved to a lesser role, on their next request", async () => {
+    const uma = await addStaff(server, agency, { username: "uma", roleKey: "org-admin" });
+    const jar = await signedInStaff(server, agency, uma);
+    expect((await query(server, "staff.list", jar)).status).toBe(200);
+    await dataOf(await mutate(server, "staff.updateRole", { memberId: uma.memberId, roleKey: "sales" }, owner));
+    expect(await refusalOf(await query(server, "staff.list", jar))).toEqual({
+      status: 403,
+      reason: "MISSING_PERMISSION",
+    });
+  });
+
+  it("stops a banned member who still holds a session, on their next request", async () => {
+    const vik = await addStaff(server, agency, { username: "vik", roleKey: "sales" });
+    const jar = await signedInStaff(server, agency, vik);
+    expect((await query(server, "settings.get", jar)).status).toBe(200);
+    await server.platform.user.update({ where: { id: vik.userId }, data: { banned: true } });
+    expect(await refusalOf(await query(server, "settings.get", jar))).toEqual({ status: 403, reason: "NOT_A_MEMBER" });
+    expect(await refusalOf(await query(server, "roles.list", jar))).toEqual({ status: 403, reason: "NOT_A_MEMBER" });
   });
 
   it("resets a password: the person is signed out everywhere and must choose a new one", async () => {
@@ -202,7 +256,8 @@ describe("staff management", () => {
       status: 403,
       reason: "CHANGE_PASSWORD",
     });
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining("Invalid password"));
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenNthCalledWith(1, expect.stringContaining("Invalid password"));
   });
 
   it("removes someone at once: no access on the next request, no sign-in, and their email is free again", async () => {
@@ -228,7 +283,19 @@ describe("staff management", () => {
     expect(await refusalOf(await query(server, "settings.get", jar))).toEqual({ status: 403, reason: "NOT_A_MEMBER" });
     expect((await query(server, "roles.list", jar)).status).toBe(401);
     expect((await signInByEmail(server, new CookieJar(), email, "dev-temp-pass-1")).status).toBe(401);
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining("User not found"));
+    // The released username signs nobody in either.
+    expect(
+      (
+        await signInWithCode(server, new CookieJar(), {
+          orgCode: agency.code,
+          username: "dev",
+          password: "dev-temp-pass-1",
+        })
+      ).status,
+    ).toBe(401);
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(warn).toHaveBeenNthCalledWith(1, expect.stringContaining("User not found"));
+    expect(warn).toHaveBeenNthCalledWith(2, expect.stringContaining("User not found"));
 
     const other = await createTestAgency(server);
     const otherOwner = await signedInOwner(server, other);
@@ -247,6 +314,25 @@ describe("staff management", () => {
       status: 404,
       reason: "MEMBER_NOT_FOUND",
     });
+  });
+
+  it("cannot reset the password or change the role of another organization's Owner", async () => {
+    const other = await createTestAgency(server);
+    const reset = await mutate(
+      server,
+      "staff.resetPassword",
+      { memberId: other.owner.memberId, temporaryPassword: "hijacked-pass-2" },
+      owner,
+    );
+    expect(await refusalOf(reset)).toEqual({ status: 404, reason: "MEMBER_NOT_FOUND" });
+    const demote = await mutate(
+      server,
+      "staff.updateRole",
+      { memberId: other.owner.memberId, roleKey: "sales" },
+      owner,
+    );
+    expect(await refusalOf(demote)).toEqual({ status: 404, reason: "MEMBER_NOT_FOUND" });
+    expect((await signInByEmail(server, new CookieJar(), other.owner.email, other.owner.password)).status).toBe(200);
   });
 
   it("stops a staff manager whose sessions were revoked, at once", async () => {

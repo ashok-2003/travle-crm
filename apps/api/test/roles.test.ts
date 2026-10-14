@@ -23,11 +23,8 @@ describe("roles", () => {
   });
 
   it("shows every member the roles and the permission catalog", async () => {
-    const sales = await signedInStaff(
-      server,
-      agency,
-      await addStaff(server, agency, { username: "ravi", roleKey: "sales" }),
-    );
+    const own = await createTestAgency(server);
+    const sales = await signedInStaff(server, own, await addStaff(server, own, { username: "ravi", roleKey: "sales" }));
     const roles = await dataOf<RoleSummary[]>(await query(server, "roles.list", sales));
     expect(roles.map((role) => role.name)).toEqual(["Owner", "Accounts", "Admin", "Operations", "Sales"]);
     const catalog = await dataOf<PermissionCatalogEntry[]>(await query(server, "roles.permissionCatalog", sales));
@@ -58,7 +55,10 @@ describe("roles", () => {
     expect(guides.key).toMatch(/^role-[0-9a-f]{6}$/);
     const guide = await addStaff(server, agency, { username: "guide", roleKey: guides.key });
     const jar = await signedInStaff(server, agency, guide);
-    expect((await query(server, "staff.list", jar)).status).toBe(403);
+    expect(await refusalOf(await query(server, "staff.list", jar))).toEqual({
+      status: 403,
+      reason: "MISSING_PERMISSION",
+    });
 
     const updated = await mutate(
       server,
@@ -71,6 +71,18 @@ describe("roles", () => {
       permissions: [{ permission: "staff:manage", scope: null }],
     });
     expect((await query(server, "staff.list", jar)).status).toBe(200);
+
+    const narrowed = await mutate(
+      server,
+      "roles.update",
+      { key: guides.key, permissions: [{ permission: "departures:view" }] },
+      owner,
+    );
+    expect(narrowed.status).toBe(200);
+    expect(await refusalOf(await query(server, "staff.list", jar))).toEqual({
+      status: 403,
+      reason: "MISSING_PERMISSION",
+    });
   });
 
   it("explains invalid permissions", async () => {
@@ -100,6 +112,7 @@ describe("roles", () => {
   });
 
   it("refuses to delete a role staff have, and deletes one they don't", async () => {
+    await addStaff(server, agency, { username: "seller", roleKey: "sales" });
     expect(await refusalOf(await mutate(server, "roles.delete", { key: "sales" }, owner))).toEqual({
       status: 409,
       reason: "ROLE_IN_USE",
