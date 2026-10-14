@@ -5,7 +5,7 @@ import { createTestOrganization } from "@travel-crm/db/testing";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { systemActor } from "../../src/kernel/index.js";
 import { listNotifications, markRead, notify, unreadCount, type Person } from "../../src/notifications/index.js";
-import { personIn } from "./test-support.js";
+import { impersonatedPerson, personIn } from "./test-support.js";
 
 describe("the bell", () => {
   let platform: PlatformClient;
@@ -89,5 +89,11 @@ describe("the bell", () => {
     await expect(
       db.forOrg(organizationId, (tx) => listNotifications(tx, { ...systemActor(organizationId) }, {})),
     ).rejects.toMatchObject({ code: "FORBIDDEN", reason: "NOT_A_PERSON" });
+  });
+
+  it("does not let an impersonating actor mark the person's notifications read", async () => {
+    await expect(
+      db.forOrg(organizationId, (tx) => markRead(tx, impersonatedPerson(organizationId), { all: true })),
+    ).rejects.toMatchObject({ code: "FORBIDDEN", reason: "IMPERSONATING" });
   });
 });

@@ -12,3 +12,18 @@ export function asPerson(actor: Actor): Person {
   }
   return { ...actor, userId };
 }
+
+/**
+ * The actor as the person themselves. Consent (opt-outs) and reading the bell are the person's own: support
+ * impersonating them may not change the one or mark the other read.
+ */
+export function asOwnPerson(actor: Actor): Person {
+  if (actor.impersonatedBy !== null) {
+    throw new DomainError(
+      "FORBIDDEN",
+      "IMPERSONATING",
+      "Only the person themselves can do this, not support acting as them",
+    );
+  }
+  return asPerson(actor);
+}

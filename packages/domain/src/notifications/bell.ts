@@ -10,7 +10,7 @@ import {
 import type { OrgTx } from "@travel-crm/db";
 import type { Actor } from "../kernel/index.js";
 import { parseInput } from "./parse-input.js";
-import { asPerson } from "./person.js";
+import { asOwnPerson, asPerson } from "./person.js";
 
 interface NotificationRow {
   id: string;
@@ -60,7 +60,7 @@ export async function unreadCount(tx: OrgTx, actor: Actor): Promise<number> {
 
 /** Marks some or all of the acting person's unread notifications read. Others' ids are ignored. Returns how many. */
 export async function markRead(tx: OrgTx, actor: Actor, input: MarkReadInput): Promise<number> {
-  const person = asPerson(actor);
+  const person = asOwnPerson(actor);
   const which = parseInput(markReadInput, input, "INVALID_MARK_READ");
   const marked = await tx.notification.updateMany({
     where: {

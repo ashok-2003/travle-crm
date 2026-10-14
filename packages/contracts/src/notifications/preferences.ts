@@ -31,6 +31,6 @@ export const pushSubscriptionInput = z.strictObject({
 export type PushSubscriptionInput = z.infer<typeof pushSubscriptionInput>;
 
 export const removePushSubscriptionInput = z.strictObject({
-  endpoint: z.string().max(2048),
+  endpoint: z.string().min(1).max(2048),
 });
 export type RemovePushSubscriptionInput = z.infer<typeof removePushSubscriptionInput>;

@@ -82,4 +82,20 @@ describe("notification contracts", () => {
     });
     expect(notificationCreatedEvent.safeParse({ notificationId: id, channels: [] }).success).toBe(false);
   });
+
+  it("takes the event a notification comes from, and people to leave out", () => {
+    const parsed = notifyInput.parse({ ...notification, sourceEventId: id, excludeUserIds: [id] });
+    expect(parsed).toMatchObject({ sourceEventId: id, excludeUserIds: [id] });
+    expect(notifyInput.safeParse({ ...notification, sourceEventId: "event-1" }).success).toBe(false);
+    expect(notifyInput.safeParse({ ...notification, excludeUserIds: ["nobody"] }).success).toBe(false);
+  });
+
+  it("keeps the title on one line, because it becomes an email subject", () => {
+    expect(notifyInput.safeParse({ ...notification, title: "Two\nlines" }).success).toBe(false);
+    expect(notifyInput.safeParse({ ...notification, title: "Two\rlines" }).success).toBe(false);
+  });
+
+  it("refuses an empty endpoint to remove", () => {
+    expect(removePushSubscriptionInput.safeParse({ endpoint: "" }).success).toBe(false);
+  });
 });

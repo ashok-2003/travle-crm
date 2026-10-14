@@ -16,11 +16,21 @@ model Notification {
   link            String?
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   readAt          DateTime? @map("read_at") @db.Timestamptz(6)
-  /// When the email went out, so a retried delivery doesn't send it again.
+  /// The event that caused this notification, when a listener sent it: a repeat of the event adds nothing. Null for
+  /// notifications made while serving a request. Nulls are distinct, so those are never deduplicated.
+  sourceEventId   String?   @map("source_event_id") @db.Uuid
+  /// When the email was sent, so a retried delivery doesn't send it again. Set only after the send succeeded.
   emailedAt       DateTime? @map("emailed_at") @db.Timestamptz(6)
-  /// When every push subscription was tried, for the same reason.
+  /// When a delivery took the email to send it. A claim older than the lease (5 minutes) with nothing sent is
+  /// taken over: its run crashed. It is cleared when the send fails.
+  emailClaimedAt  DateTime? @map("email_claimed_at") @db.Timestamptz(6)
+  /// When the push went out to at least one browser. Set only after a send succeeded.
   pushedAt        DateTime? @map("pushed_at") @db.Timestamptz(6)
+  /// As email_claimed_at, for the push.
+  pushClaimedAt   DateTime? @map("push_claimed_at") @db.Timestamptz(6)
 
+  /// One notification per (event, person): what keeps an at-least-once listener from notifying twice.
+  @@unique([organizationId, sourceEventId, recipientUserId])
   /// The bell: a person's notifications, newest first (UUID v7 ids sort by time).
   @@index([organizationId, recipientUserId, id(sort: Desc)])
   /// The bell's unread count.

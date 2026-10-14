@@ -5,8 +5,24 @@ import { notificationChannel, notificationKind, notificationLink } from "./field
 
 export const notifyInput = z.strictObject({
   recipientUserIds: z.array(recordId).min(1).max(500),
+  /**
+   * People to leave out, such as the person who acted when a listener (which has no acting person) notifies. A
+   * request-time caller is left out automatically as the actor.
+   */
+  excludeUserIds: z.array(recordId).max(500).optional(),
+  /**
+   * The event this notification answers, when a listener sends it. Listeners run at least once, so a repeat of the
+   * same event for the same person adds nothing: one notification per (event, person).
+   */
+  sourceEventId: recordId.optional(),
   kind: notificationKind,
-  title: z.string().trim().min(1).max(120),
+  /** One line: it is also the email's subject. */
+  title: z
+    .string()
+    .trim()
+    .min(1)
+    .max(120)
+    .regex(/^[^\r\n]+$/, "Use a single line"),
   body: z.string().trim().min(1).max(1000),
   link: notificationLink.optional(),
   /** Email and push as well as the bell. Each person's opt-outs still apply when it is delivered. */

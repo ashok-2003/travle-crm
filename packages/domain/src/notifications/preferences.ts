@@ -8,7 +8,7 @@ import {
 import type { OrgTx } from "@travel-crm/db";
 import type { Actor } from "../kernel/index.js";
 import { parseInput } from "./parse-input.js";
-import { asPerson } from "./person.js";
+import { asOwnPerson, asPerson } from "./person.js";
 
 /** Turns email or push off, or back on, for the acting person. */
 export async function setPreference(
@@ -16,7 +16,7 @@ export async function setPreference(
   actor: Actor,
   input: NotificationPreferenceInput,
 ): Promise<NotificationPreference> {
-  const person = asPerson(actor);
+  const person = asOwnPerson(actor);
   const { channel, kind, optedOut } = parseInput(notificationPreferenceInput, input, "INVALID_PREFERENCE");
   const saved = await tx.notificationPreference.upsert({
     where: {

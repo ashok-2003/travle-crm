@@ -3,6 +3,7 @@
 import { createDatabase, type Database } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { systemActor } from "../../src/kernel/index.js";
 import { notify } from "../../src/notifications/index.js";
@@ -108,5 +109,57 @@ describe("notify", () => {
       }),
     ).rejects.toThrow("the change failed");
     expect(await db.forOrg(organizationId, (tx) => tx.notification.count({ where: { id: { in: ids } } }))).toBe(0);
+  });
+
+  it("notifies once per person for one source event, however many times a listener runs it", async () => {
+    const sourceEventId = randomUUID();
+    const send = () =>
+      db.forOrg(organizationId, (tx) =>
+        notify(tx, systemActor(organizationId), {
+          recipientUserIds: [asha, ravi],
+          kind: "share-link.opened",
+          title: "Opened",
+          body: "Opened",
+          channels: ["email"],
+          sourceEventId,
+        }),
+      );
+
+    const first = await send();
+    const second = await send();
+
+    expect(first).toHaveLength(2);
+    expect(second).toEqual([]);
+    const rows = await db.forOrg(organizationId, (tx) => tx.notification.findMany({ where: { sourceEventId } }));
+    expect(rows).toHaveLength(2);
+    const events = await eventsOfType(db, organizationId, "notification.created");
+    expect(events.filter((event) => rows.some((row) => row.id === event.payload.notificationId))).toHaveLength(2);
+  });
+
+  it("does not deduplicate notifications made while serving a request", async () => {
+    const send = () =>
+      db.forOrg(organizationId, (tx) =>
+        notify(tx, systemActor(organizationId), {
+          recipientUserIds: [ravi],
+          kind: "staff.added",
+          title: "Welcome",
+          body: "Welcome",
+        }),
+      );
+    expect([...(await send()), ...(await send())]).toHaveLength(2);
+  });
+
+  it("leaves out the people it is told to, such as whoever acted in the event a listener answers", async () => {
+    const ids = await db.forOrg(organizationId, (tx) =>
+      notify(tx, systemActor(organizationId), {
+        recipientUserIds: [asha, ravi],
+        excludeUserIds: [asha],
+        kind: "role.updated",
+        title: "Roles changed",
+        body: "Sales can now edit departures",
+      }),
+    );
+    const rows = await db.forOrg(organizationId, (tx) => tx.notification.findMany({ where: { id: { in: ids } } }));
+    expect(rows.map((row) => row.recipientUserId)).toEqual([ravi]);
   });
 });

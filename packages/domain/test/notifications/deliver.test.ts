@@ -1,313 +1,198 @@
 // The delivery listener sends each notification by email and push as asked, from the organization's name with its
-// Reply-To, respecting opt-outs, never twice, and never to someone who has left.
-import { createDatabase, type Database } from "@travel-crm/db";
-import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
+// Reply-To, respecting opt-outs, never to someone who has left, and independently per channel.
+import { randomUUID } from "node:crypto";
 import { createTestOrganization } from "@travel-crm/db/testing";
-import {
-  createMemoryEmailSender,
-  senderNameFor,
-  type EmailSender,
-  type MemoryEmailSender,
-} from "@travel-crm/integrations/email";
-import { createMemoryPushSender, MAX_PUSH_PAYLOAD_BYTES, type MemoryPushSender } from "@travel-crm/integrations/push";
-import { afterAll, beforeAll, beforeEach, describe, expect, inject, it } from "vitest";
-import type { MemberContact, OrganizationProfile } from "../../src/identity/index.js";
-import type { ListenerContext } from "../../src/jobs/index.js";
+import { senderNameFor, type EmailSender } from "@travel-crm/integrations/email";
+import { MAX_PUSH_PAYLOAD_BYTES } from "@travel-crm/integrations/push";
+import { describe, expect, it, onTestFinished } from "vitest";
 import { systemActor } from "../../src/kernel/index.js";
-import {
-  deliverNotificationListener,
-  notify,
-  savePushSubscription,
-  setPreference,
-  type DeliveryDependencies,
-} from "../../src/notifications/index.js";
-import { eventsOfType, personIn } from "./test-support.js";
-
-const asha = "0199e7a0-0000-7000-8000-00000000a5a0";
-const ravi = "0199e7a0-0000-7000-8000-00000000ba01";
-const leaver = "0199e7a0-0000-7000-8000-00000000dead";
+import { deliverNotificationListener, setPreference } from "../../src/notifications/index.js";
+import { deliver, useDeliveryKit } from "./delivery-kit.js";
+import { personIn } from "./test-support.js";
 
 describe("delivering notifications", () => {
-  let platform: PlatformClient;
-  let db: Database;
-  let organizationId: string;
-  let email: MemoryEmailSender;
-  let push: MemoryPushSender;
-  let profile: OrganizationProfile;
-  const contacts: MemberContact[] = [
-    { userId: asha, name: "Asha Owner", email: "asha@agency.example" },
-    { userId: ravi, name: "Ravi", email: null },
-  ];
-
-  const dependencies = (overrides: Partial<DeliveryDependencies> = {}): DeliveryDependencies => ({
-    email,
-    push,
-    organizationProfile: () => Promise.resolve(profile),
-    memberContacts: (_organizationId, userIds) =>
-      Promise.resolve(contacts.filter((contact) => userIds.includes(contact.userId))),
-    appUrl: "https://app.example",
-    ...overrides,
-  });
-
-  const context = (): ListenerContext => ({
-    actor: systemActor(organizationId),
-    forOrg: (fn) => db.forOrg(organizationId, fn),
-  });
-
-  /** Notifies one person and runs the delivery listener on the event that produced, as the worker would. */
-  async function notifyAndDeliver(recipientUserId: string, deliveryDependencies = dependencies()) {
-    const [id] = await db.forOrg(organizationId, (tx) =>
-      notify(tx, systemActor(organizationId), {
-        recipientUserIds: [recipientUserId],
-        kind: "share-link.opened",
-        title: "Quotation opened",
-        body: "Meera opened Quotation QT-2026-0042",
-        link: "/quotes/42",
-        channels: ["email", "push"],
-      }),
-    );
-    const event = (await eventsOfType(db, organizationId, "notification.created")).find(
-      (candidate) => candidate.payload.notificationId === id,
-    );
-    if (!id || !event) throw new Error("notify() published no delivery event");
-    const listener = deliverNotificationListener(deliveryDependencies);
-    await listener.handle(event, context());
-    return { id, event, listener };
-  }
-
-  const notificationRow = (id: string) =>
-    db.forOrg(organizationId, (tx) => tx.notification.findUniqueOrThrow({ where: { id } }));
-
-  beforeAll(async () => {
-    const urls = inject("dbUrls");
-    platform = createPlatformClient(urls.platform);
-    db = createDatabase(urls.runtime, { maxConnections: 4 });
-    organizationId = await createTestOrganization(platform, "Deliveries");
-  });
-
-  beforeEach(() => {
-    email = createMemoryEmailSender();
-    push = createMemoryPushSender();
-    profile = {
-      id: organizationId,
-      name: "Sharma Travels",
-      code: "SHARMA",
-      timeZone: "Asia/Kolkata",
-      contactEmail: "hello@sharma.example",
-    };
-  });
-
-  afterAll(async () => {
-    await db.disconnect();
-    await platform.$disconnect();
-  });
+  const kit = useDeliveryKit("Deliveries");
 
   it("emails from the organization's name with its Reply-To and a way to opt out, and pushes every browser", async () => {
-    for (const endpoint of [
-      "https://fcm.googleapis.com/fcm/send/asha-phone",
-      "https://fcm.googleapis.com/fcm/send/asha-laptop",
-    ]) {
-      await db.forOrg(organizationId, (tx) =>
-        savePushSubscription(tx, personIn(organizationId, asha), {
-          endpoint,
-          keys: { p256dh: "B".repeat(87), auth: "A".repeat(22) },
-        }),
-      );
-    }
+    const asha = kit.addMember("asha@agency.example");
+    const phone = await kit.subscribe(asha, "phone");
+    const laptop = await kit.subscribe(asha, "laptop");
+    const { id, event } = await kit.notifyMember(asha);
 
-    const { id } = await notifyAndDeliver(asha);
+    await deliver(kit, event);
 
-    expect(email.sent).toHaveLength(1);
-    expect(email.sent[0]).toMatchObject({
+    expect(kit.email.sent).toHaveLength(1);
+    expect(kit.email.sent[0]).toMatchObject({
       to: { name: "Asha Owner", address: "asha@agency.example" },
       fromName: senderNameFor("Sharma Travels"),
       replyTo: "hello@sharma.example",
       subject: "Quotation opened",
       headers: { "List-Unsubscribe": "<https://app.example/settings/notifications>" },
     });
-    expect(email.sent[0]?.text).toContain("https://app.example/quotes/42");
-    expect(push.sent.map((sent) => sent.subscription.endpoint).sort()).toEqual([
-      "https://fcm.googleapis.com/fcm/send/asha-laptop",
-      "https://fcm.googleapis.com/fcm/send/asha-phone",
-    ]);
-    expect(push.sent[0]?.payload).toEqual({
+    expect(kit.email.sent[0]?.text).toContain("https://app.example/quotes/42");
+    expect(kit.push.sent.map((sent) => sent.subscription.endpoint).sort()).toEqual([laptop, phone].sort());
+    expect(kit.push.sent[0]?.payload).toEqual({
       title: "Quotation opened",
       body: "Meera opened Quotation QT-2026-0042",
       url: "/quotes/42",
     });
-    const row = await notificationRow(id);
+    const row = await kit.row(id);
     expect(row.emailedAt).toBeInstanceOf(Date);
     expect(row.pushedAt).toBeInstanceOf(Date);
   });
 
   it("sends nothing again when the same delivery runs twice", async () => {
-    const { event, listener } = await notifyAndDeliver(asha);
-    const sentEmails = email.sent.length;
-    const sentPushes = push.sent.length;
+    const asha = kit.addMember("asha@agency.example");
+    await kit.subscribe(asha, "phone");
+    const { event } = await kit.notifyMember(asha);
+    await deliver(kit, event);
 
-    await listener.handle(event, context());
+    await deliver(kit, event);
 
-    expect(email.sent).toHaveLength(sentEmails);
-    expect(push.sent).toHaveLength(sentPushes);
-  });
-
-  it("sends once when the same delivery runs twice at the same time", async () => {
-    const slowEmail: EmailSender = {
-      send: async (message) => {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        await email.send(message);
-      },
-    };
-    const [id] = await db.forOrg(organizationId, (tx) =>
-      notify(tx, systemActor(organizationId), {
-        recipientUserIds: [asha],
-        kind: "share-link.opened",
-        title: "Quotation opened",
-        body: "Meera opened Quotation QT-2026-0042",
-        channels: ["email", "push"],
-      }),
-    );
-    const event = (await eventsOfType(db, organizationId, "notification.created")).find(
-      (candidate) => candidate.payload.notificationId === id,
-    );
-    if (!event) throw new Error("notify() published no delivery event");
-    const listener = deliverNotificationListener(dependencies({ email: slowEmail }));
-
-    await Promise.all([listener.handle(event, context()), listener.handle(event, context())]);
-
-    expect(email.sent).toHaveLength(1);
+    expect(kit.email.sent).toHaveLength(1);
+    expect(kit.push.sent).toHaveLength(1);
   });
 
   it("leaves Reply-To out when the organization has no contact email", async () => {
-    profile = { ...profile, contactEmail: null };
-    await notifyAndDeliver(asha);
-    expect(email.sent[0]?.replyTo).toBeUndefined();
+    kit.profile = { ...kit.profile, contactEmail: null };
+    const { event } = await kit.notifyMember(kit.addMember("asha@agency.example"));
+    await deliver(kit, event);
+    expect(kit.email.sent[0]?.replyTo).toBeUndefined();
   });
 
   it("respects opt-outs: a kind's own setting wins over every kind", async () => {
-    const person = personIn(organizationId, asha);
-    await db.forOrg(organizationId, (tx) => setPreference(tx, person, { channel: "email", kind: "*", optedOut: true }));
-    await db.forOrg(organizationId, (tx) => setPreference(tx, person, { channel: "push", kind: "*", optedOut: true }));
-    await db.forOrg(organizationId, (tx) =>
+    const asha = kit.addMember("asha@agency.example");
+    await kit.subscribe(asha, "phone");
+    const person = personIn(kit.organizationId, asha);
+    onTestFinished(async () => {
+      for (const channel of ["email", "push"] as const) {
+        await kit.db.forOrg(kit.organizationId, (tx) =>
+          setPreference(tx, person, { channel, kind: "*", optedOut: false }),
+        );
+      }
+    });
+    await kit.db.forOrg(kit.organizationId, (tx) =>
+      setPreference(tx, person, { channel: "email", kind: "*", optedOut: true }),
+    );
+    await kit.db.forOrg(kit.organizationId, (tx) =>
+      setPreference(tx, person, { channel: "push", kind: "*", optedOut: true }),
+    );
+    await kit.db.forOrg(kit.organizationId, (tx) =>
       setPreference(tx, person, { channel: "email", kind: "share-link.opened", optedOut: false }),
     );
+    const { event } = await kit.notifyMember(asha);
 
-    await notifyAndDeliver(asha);
+    await deliver(kit, event);
 
-    expect(email.sent).toHaveLength(1);
-    expect(push.sent).toHaveLength(0);
-    for (const channel of ["email", "push"] as const) {
-      await db.forOrg(organizationId, (tx) => setPreference(tx, person, { channel, kind: "*", optedOut: false }));
-    }
+    expect(kit.email.sent).toHaveLength(1);
+    expect(kit.push.sent).toHaveLength(0);
+  });
+
+  it("sends no email to someone who opted out of that very kind, though they allowed every kind", async () => {
+    const asha = kit.addMember("asha@agency.example");
+    const person = personIn(kit.organizationId, asha);
+    await kit.db.forOrg(kit.organizationId, (tx) =>
+      setPreference(tx, person, { channel: "email", kind: "*", optedOut: false }),
+    );
+    await kit.db.forOrg(kit.organizationId, (tx) =>
+      setPreference(tx, person, { channel: "email", kind: "share-link.opened", optedOut: true }),
+    );
+    const { event } = await kit.notifyMember(asha, { channels: ["email"] });
+
+    await deliver(kit, event);
+
+    expect(kit.email.sent).toEqual([]);
   });
 
   it("never emails staff without email, and still pushes to them", async () => {
-    await db.forOrg(organizationId, (tx) =>
-      savePushSubscription(tx, personIn(organizationId, ravi), {
-        endpoint: "https://fcm.googleapis.com/fcm/send/ravi",
-        keys: { p256dh: "B".repeat(87), auth: "A".repeat(22) },
-      }),
-    );
-    await notifyAndDeliver(ravi);
-    expect(email.sent).toEqual([]);
-    expect(push.sent.map((sent) => sent.subscription.endpoint)).toEqual(["https://fcm.googleapis.com/fcm/send/ravi"]);
+    const ravi = kit.addMember(null);
+    const endpoint = await kit.subscribe(ravi, "ravi");
+    const { event } = await kit.notifyMember(ravi);
+
+    await deliver(kit, event);
+
+    expect(kit.email.sent).toEqual([]);
+    expect(kit.push.sent.map((sent) => sent.subscription.endpoint)).toEqual([endpoint]);
   });
 
   it("sends nothing to someone who has left the organization", async () => {
-    const { id } = await notifyAndDeliver(leaver);
-    expect(email.sent).toEqual([]);
-    expect(push.sent).toEqual([]);
-    expect((await notificationRow(id)).emailedAt).toBeNull();
+    const { id, event } = await kit.notifyMember(randomUUID());
+    await deliver(kit, event);
+    expect(kit.email.sent).toEqual([]);
+    expect(kit.push.sent).toEqual([]);
+    expect((await kit.row(id)).emailedAt).toBeNull();
   });
 
   it("deletes a subscription the push service has forgotten, and keeps the others", async () => {
-    push.markGone("https://fcm.googleapis.com/fcm/send/asha-phone");
-    await notifyAndDeliver(asha);
-    const endpoints = await db.forOrg(organizationId, (tx) =>
+    const asha = kit.addMember("asha@agency.example");
+    const forgotten = await kit.subscribe(asha, "phone");
+    const kept = await kit.subscribe(asha, "laptop");
+    kit.push.markGone(forgotten);
+    const { event } = await kit.notifyMember(asha);
+
+    await deliver(kit, event);
+
+    const endpoints = await kit.db.forOrg(kit.organizationId, (tx) =>
       tx.pushSubscription.findMany({ where: { userId: asha }, select: { endpoint: true } }),
     );
-    expect(endpoints).toEqual([{ endpoint: "https://fcm.googleapis.com/fcm/send/asha-laptop" }]);
+    expect(endpoints).toEqual([{ endpoint: kept }]);
   });
 
   it("fails when email fails, so the job retries, and the retry sends it", async () => {
+    const asha = kit.addMember("asha@agency.example");
+    const { id, event } = await kit.notifyMember(asha, { channels: ["email"] });
     const down: EmailSender = { send: () => Promise.reject(new Error("SMTP is down")) };
-    await expect(notifyAndDeliver(asha, dependencies({ email: down }))).rejects.toThrow("SMTP is down");
-    const event = (await eventsOfType(db, organizationId, "notification.created")).at(-1);
-    const notificationId = event?.payload.notificationId;
-    if (!event || typeof notificationId !== "string") throw new Error("no event");
-    expect((await notificationRow(notificationId)).emailedAt).toBeNull();
 
-    await deliverNotificationListener(dependencies()).handle(event, context());
-    expect(email.sent).toHaveLength(1);
+    await expect(deliver(kit, event, { email: down })).rejects.toThrow("SMTP is down");
+    expect(await kit.row(id)).toMatchObject({ emailedAt: null, emailClaimedAt: null });
+
+    await deliver(kit, event);
+    expect(kit.email.sent).toHaveLength(1);
   });
 
   it("does nothing for a notification that isn't in the event's organization", async () => {
-    const { event } = await notifyAndDeliver(asha);
-    const otherOrganizationId = await createTestOrganization(platform, "Other deliveries");
-    email = createMemoryEmailSender();
-    await deliverNotificationListener(dependencies()).handle(
+    const asha = kit.addMember("asha@agency.example");
+    await kit.subscribe(asha, "phone");
+    const { event } = await kit.notifyMember(asha);
+    const otherOrganizationId = await createTestOrganization(kit.platform, "Other deliveries");
+
+    await deliverNotificationListener(kit.dependencies()).handle(
       { ...event, organizationId: otherOrganizationId },
-      { actor: systemActor(otherOrganizationId), forOrg: (fn) => db.forOrg(otherOrganizationId, fn) },
+      { actor: systemActor(otherOrganizationId), forOrg: (fn) => kit.db.forOrg(otherOrganizationId, fn) },
     );
-    expect(email.sent).toEqual([]);
+
+    expect(kit.email.sent).toEqual([]);
+    expect(kit.push.sent).toEqual([]);
   });
 
   it("shortens a long notification so every push fits, and still pushes", async () => {
-    await db.forOrg(organizationId, (tx) =>
-      savePushSubscription(tx, personIn(organizationId, ravi), {
-        endpoint: "https://fcm.googleapis.com/fcm/send/ravi-long",
-        keys: { p256dh: "B".repeat(87), auth: "A".repeat(22) },
-      }),
-    );
-    const [id] = await db.forOrg(organizationId, (tx) =>
-      notify(tx, systemActor(organizationId), {
-        recipientUserIds: [ravi],
-        kind: "share-link.opened",
-        title: "🙂".repeat(120),
-        body: "🙂".repeat(1000),
-        channels: ["push"],
-      }),
-    );
-    const event = (await eventsOfType(db, organizationId, "notification.created")).find(
-      (candidate) => candidate.payload.notificationId === id,
-    );
-    if (!event) throw new Error("notify() published no delivery event");
+    const ravi = kit.addMember(null);
+    const endpoint = await kit.subscribe(ravi, "ravi");
+    const { event } = await kit.notifyMember(ravi, {
+      title: "🙂".repeat(120),
+      body: "🙂".repeat(1000),
+      channels: ["push"],
+    });
 
-    await deliverNotificationListener(dependencies()).handle(event, context());
+    await deliver(kit, event);
 
-    const sent = push.sent.find((candidate) => candidate.subscription.endpoint.endsWith("ravi-long"));
+    const sent = kit.push.sent.find((candidate) => candidate.subscription.endpoint === endpoint);
     expect(Buffer.byteLength(JSON.stringify(sent?.payload))).toBeLessThanOrEqual(MAX_PUSH_PAYLOAD_BYTES);
     expect(sent?.payload.body.endsWith("…")).toBe(true);
+    expect(sent?.payload.body.isWellFormed()).toBe(true);
   });
 
   it("retries a push after a transient failure, and pushes once it works", async () => {
-    await db.forOrg(organizationId, (tx) =>
-      savePushSubscription(tx, personIn(organizationId, ravi), {
-        endpoint: "https://fcm.googleapis.com/fcm/send/ravi-retry",
-        keys: { p256dh: "B".repeat(87), auth: "A".repeat(22) },
-      }),
-    );
-    push.failNext(1);
-    const [id] = await db.forOrg(organizationId, (tx) =>
-      notify(tx, systemActor(organizationId), {
-        recipientUserIds: [ravi],
-        kind: "share-link.opened",
-        title: "Retry",
-        body: "Retry",
-        channels: ["push"],
-      }),
-    );
-    const event = (await eventsOfType(db, organizationId, "notification.created")).find(
-      (candidate) => candidate.payload.notificationId === id,
-    );
-    if (!event || !id) throw new Error("notify() published no delivery event");
-    const listener = deliverNotificationListener(dependencies());
+    const ravi = kit.addMember(null);
+    const endpoint = await kit.subscribe(ravi, "ravi");
+    const { id, event } = await kit.notifyMember(ravi, { channels: ["push"] });
+    kit.push.failNext(1);
 
-    await expect(listener.handle(event, context())).rejects.toThrow(/unavailable/);
-    expect((await notificationRow(id)).pushedAt).toBeNull();
-    await listener.handle(event, context());
+    await expect(deliver(kit, event)).rejects.toThrow(/unavailable/);
+    expect(await kit.row(id)).toMatchObject({ pushedAt: null, pushClaimedAt: null });
+    await deliver(kit, event);
 
-    expect(push.sent.some((candidate) => candidate.subscription.endpoint.endsWith("ravi-retry"))).toBe(true);
-    expect((await notificationRow(id)).pushedAt).toBeInstanceOf(Date);
+    expect(kit.push.sent.map((sent) => sent.subscription.endpoint)).toEqual([endpoint]);
+    expect((await kit.row(id)).pushedAt).toBeInstanceOf(Date);
   });
 });

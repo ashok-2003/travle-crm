@@ -9,7 +9,7 @@ import {
   savePushSubscription,
   setPreference,
 } from "../../src/notifications/index.js";
-import { personIn } from "./test-support.js";
+import { impersonatedPerson, personIn } from "./test-support.js";
 
 const keys = { p256dh: "B".repeat(87), auth: "A".repeat(22) };
 
@@ -90,5 +90,13 @@ describe("notification preferences and push subscriptions", () => {
         endpoint,
       ).rejects.toMatchObject({ code: "VALIDATION", reason: "INVALID_PUSH_SUBSCRIPTION" });
     }
+  });
+
+  it("refuses an impersonating actor: consent is the person's own", async () => {
+    await expect(
+      db.forOrg(organizationId, (tx) =>
+        setPreference(tx, impersonatedPerson(organizationId), { channel: "email", kind: "*", optedOut: true }),
+      ),
+    ).rejects.toMatchObject({ code: "FORBIDDEN", reason: "IMPERSONATING" });
   });
 });

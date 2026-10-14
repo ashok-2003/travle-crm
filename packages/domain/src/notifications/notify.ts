@@ -9,25 +9,34 @@ import { parseInput } from "./parse-input.js";
 /**
  * Notifies people in the transaction's organization: one notification in each person's bell, and, when channels
  * name email or push, a "notification.created" event per notification for the delivery listener. Nobody is notified
- * about their own action: the actor is left out. Returns the new notifications' ids.
+ * about their own action: the actor is left out, and so is anyone in `excludeUserIds`. A listener passes the event's
+ * id as `sourceEventId`, so running it again adds nothing. Returns the ids of the notifications this call created.
  */
 export async function notify(tx: OrgTx, actor: Actor, input: NotifyInput): Promise<string[]> {
-  const { recipientUserIds, kind, title, body, link, channels } = parseInput(
+  const { recipientUserIds, excludeUserIds, sourceEventId, kind, title, body, link, channels } = parseInput(
     notifyInput,
     input,
     "INVALID_NOTIFICATION",
   );
-  const recipients = [...new Set(recipientUserIds)].filter((userId) => userId !== actor.userId);
-  const ids: string[] = [];
-  for (const recipientUserId of recipients) {
-    const created = await tx.notification.create({
-      data: { recipientUserId, kind, title, body, link: link ?? null },
-      select: { id: true },
-    });
-    if (channels.length > 0) {
-      await publishEvent(tx, { type: "notification.created", payload: { notificationId: created.id, channels } });
+  const left = new Set([actor.userId, ...(excludeUserIds ?? [])]);
+  const recipients = [...new Set(recipientUserIds)].filter((userId) => !left.has(userId));
+  // A repeat of the same source event for the same person is skipped by the unique key: only new rows come back.
+  const created = await tx.notification.createManyAndReturn({
+    data: recipients.map((recipientUserId) => ({
+      recipientUserId,
+      kind,
+      title,
+      body,
+      link: link ?? null,
+      sourceEventId: sourceEventId ?? null,
+    })),
+    skipDuplicates: true,
+    select: { id: true },
+  });
+  if (channels.length > 0) {
+    for (const { id } of created) {
+      await publishEvent(tx, { type: "notification.created", payload: { notificationId: id, channels } });
     }
-    ids.push(created.id);
   }
-  return ids;
+  return created.map(({ id }) => id);
 }

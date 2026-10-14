@@ -9,8 +9,11 @@ CREATE TABLE "notification" (
     "link" TEXT,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "read_at" TIMESTAMPTZ(6),
+    "source_event_id" UUID,
     "emailed_at" TIMESTAMPTZ(6),
+    "email_claimed_at" TIMESTAMPTZ(6),
     "pushed_at" TIMESTAMPTZ(6),
+    "push_claimed_at" TIMESTAMPTZ(6),
 
     CONSTRAINT "notification_pkey" PRIMARY KEY ("id")
 );
@@ -47,6 +50,9 @@ CREATE INDEX "notification_organization_id_recipient_user_id_id_idx" ON "notific
 CREATE INDEX "notification_unread" ON "notification"("organization_id", "recipient_user_id") WHERE ("read_at" IS NULL);
 
 -- CreateIndex
+CREATE UNIQUE INDEX "notification_organization_id_source_event_id_recipient_user_key" ON "notification"("organization_id", "source_event_id", "recipient_user_id");
+
+-- CreateIndex
 CREATE INDEX "push_subscription_organization_id_user_id_idx" ON "push_subscription"("organization_id", "user_id");
 
 -- CreateIndex
@@ -71,7 +77,7 @@ ALTER TABLE "notification_preference"
   ADD CONSTRAINT notification_preference_kind_format
     CHECK (kind = '*' OR kind ~ '^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$');
 
--- A notification is the record that something happened: the api and worker may mark it read and record its
--- delivery, and change or delete nothing else.
+-- A notification is the record that something happened: the api and worker may mark it read, claim its deliveries
+-- and record them, and change or delete nothing else.
 REVOKE UPDATE, DELETE ON TABLE "notification" FROM app_runtime;
-GRANT UPDATE (read_at, emailed_at, pushed_at) ON TABLE "notification" TO app_runtime;
+GRANT UPDATE (read_at, emailed_at, email_claimed_at, pushed_at, push_claimed_at) ON TABLE "notification" TO app_runtime;

@@ -18,11 +18,19 @@ Date: 2026-10-15 · Status: accepted · Implements spec section 9.4
   setting.
 - **Web push uses VAPID.** web-push encrypts the payload (aes128gcm) and signs the request; the adapter sends it with
   `fetch`. A subscription the push service has forgotten (404 or 410) is deleted.
-- **Delivery claims before it sends.** Listeners run at least once, and two deliveries of one event can overlap. Each
-  channel is claimed by an atomic update of `emailed_at` or `pushed_at` (only the delivery that finds it empty wins)
-  before anything is sent. A failed send releases the claim and throws, so the job retries and sends only what is
-  missing. A crash between the claim and the send loses that one email or push rather than repeating it: for a
-  notification, a missed message is better than a duplicate, and the bell still has it.
+- **Delivery claims with a lease, and "sent" means sent.** Listeners run at least once, and two deliveries of one
+  event can overlap. Each channel is claimed by an atomic update of `email_claimed_at` or `push_claimed_at` (only the
+  run that finds it unsent and unclaimed, or claimed more than 5 minutes ago, wins) before anything is sent, and
+  `emailed_at` / `pushed_at` are set only after a send worked. A failed send releases its claim and throws, so the job
+  retries. A run that crashed after claiming loses nothing: its claim expires and a retry takes it over (the lease is
+  above the longest bounded send and below the jobs' retry window). A run that lost the claim to a run still
+  sending asks to be retried instead of assuming the send happened. The cost is that a crash between the send and
+  recording it can still repeat one email or push, which is the at-least-once guarantee.
+- **Email and push are independent**, and so is each browser: one failing doesn't stop the rest, and the push is done
+  once one browser got it. A failure that can never succeed (a header that is refused, an oversized push, a 5xx from
+  the mail server) is logged with ids only and not retried.
+- **`notify()` is idempotent per source event.** A listener passes the event's id; `(organization, source event,
+person)` is unique, so a repeat adds no second notification. Requests pass none, and nulls stay distinct.
 - **Only active members are notified.** Delivery asks identity's `memberContacts`, which leaves out people who have
   left; staff without email get push and the bell, never an email to their placeholder address.
 - **Links are paths inside the web app**, checked by the contract and the table (`notification_link_path`), so a

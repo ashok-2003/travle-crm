@@ -22,3 +22,8 @@ export async function eventsOfType(db: Database, organizationId: string, type: s
     occurredAt: row.occurredAt,
   }));
 }
+
+/** A signed-in member acting on behalf of someone else: support impersonating them. */
+export function impersonatedPerson(organizationId: string): Person {
+  return { ...personIn(organizationId), source: "impersonation", impersonatedBy: randomUUID() };
+}
