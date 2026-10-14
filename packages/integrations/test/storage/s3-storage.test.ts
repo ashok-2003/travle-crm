@@ -110,6 +110,7 @@ describe("S3 storage refusals", () => {
       body: new TextEncoder().encode("hello"),
     });
     expect([400, 403]).toContain(response.status);
+    expect(await response.text()).toContain("<Code>AccessDenied</Code>");
     expect(await storage.head(key)).toBeNull();
   });
 
