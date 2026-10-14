@@ -75,4 +75,31 @@ describe("organization profile and member contacts", () => {
     ]);
     expect(await test.identity.memberContacts(agency.organizationId, [])).toEqual([]);
   });
+
+  it("leaves out banned members, unless the ban has expired", async () => {
+    const create = (name: string, email: string) =>
+      createStaffAccount(test.database, hashPassword, {
+        organizationId: agency.organizationId,
+        name,
+        email,
+        roleKey: "sales",
+        password: `${name}-password-1`,
+        mustChangePassword: false,
+      });
+    const banned = await create("Banned", "banned@agency.example");
+    const bannedForNow = await create("Banned for now", "banned-for-now@agency.example");
+    const banExpired = await create("Ban expired", "ban-expired@agency.example");
+    const ban = (userId: string, banExpires: Date | null) =>
+      test.database.client.user.update({ where: { id: userId }, data: { banned: true, banExpires } });
+    await ban(banned.userId, null);
+    await ban(bannedForNow.userId, new Date(Date.now() + 86_400_000));
+    await ban(banExpired.userId, new Date(Date.now() - 86_400_000));
+
+    const contacts = await test.identity.memberContacts(agency.organizationId, [
+      banned.userId,
+      bannedForNow.userId,
+      banExpired.userId,
+    ]);
+    expect(contacts.map((contact) => contact.userId)).toEqual([banExpired.userId]);
+  });
 });

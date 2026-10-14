@@ -58,6 +58,19 @@ describe("defineListener", () => {
     expect(ran).toBe(false);
   });
 
+  it("refuses a name that is not <module>.<what it does>, since it names the job queue", () => {
+    for (const name of ["render-pdf", "Documents.render", "documents.", "documents.render pdf"]) {
+      expect(() =>
+        defineListener({
+          name,
+          eventType: "document.issued",
+          payload: documentIssued,
+          handle: () => Promise.resolve(),
+        }),
+      ).toThrow(/Listener names look like/);
+    }
+  });
+
   it("refuses an event type that is not <entity>.<what happened>", () => {
     expect(() =>
       defineListener({ name: "x.y", eventType: "issued", payload: documentIssued, handle: () => Promise.resolve() }),

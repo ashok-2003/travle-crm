@@ -32,7 +32,7 @@ export async function organizationProfile(
 }
 
 /**
- * The organization's active members among userIds. Anyone else (removed, or in another organization) is left out,
+ * The organization's active members among userIds. Anyone else (removed, banned, or in another organization) is left out,
  * so nobody is notified about an organization they have left.
  */
 export async function memberContacts(
@@ -43,7 +43,12 @@ export async function memberContacts(
   if (userIds.length === 0) return [];
   // The member table has no row-level security, so the organization is filtered here; soft delete hides removals.
   const members = await database.client.member.findMany({
-    where: { organizationId, userId: { in: [...userIds] } },
+    where: {
+      organizationId,
+      userId: { in: [...userIds] },
+      // Banned like resolveAccess sees it: banned, and the ban has no end or hasn't ended yet.
+      NOT: { user: { banned: true, OR: [{ banExpires: null }, { banExpires: { gt: new Date() } }] } },
+    },
     select: { userId: true, user: { select: { name: true, email: true } } },
     orderBy: { createdAt: "asc" },
   });

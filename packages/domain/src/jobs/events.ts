@@ -55,6 +55,13 @@ export function assertEventType(type: string): void {
   }
 }
 
+/** "<module>.<what it does>", e.g. "documents.render-pdf": the listener's job queue name. */
+function assertListenerName(name: string): void {
+  if (!EVENT_TYPE_PATTERN.test(name)) {
+    throw new RangeError(`Listener names look like "documents.render-pdf", got ${JSON.stringify(name)}`);
+  }
+}
+
 /** A listener whose handler gets the payload checked and typed by `payload`, which throws on a malformed one. */
 export function defineListener<Payload>(definition: {
   name: string;
@@ -62,6 +69,7 @@ export function defineListener<Payload>(definition: {
   payload: PayloadSchema<Payload>;
   handle(event: DomainEvent<Payload>, context: ListenerContext): Promise<void>;
 }): EventListener {
+  assertListenerName(definition.name);
   assertEventType(definition.eventType);
   return {
     name: definition.name,
