@@ -256,11 +256,11 @@ describe("webhook intake", () => {
     await expect(processWebhookEvent({ db, providers: [] }, id)).rejects.toThrow(/No webhook provider named example/);
   });
 
-  it("keeps the provider's error as the cause when recording the failure fails too", async () => {
+  it("reports both errors when recording the failure fails too, naming neither message", async () => {
     const eventId = `evt_${crypto.randomUUID()}`;
     const failing: WebhookProvider = {
       ...exampleProvider([]),
-      process: () => Promise.reject(new Error("handler failed")),
+      process: () => Promise.reject(new Error("handler failed for asha@example.com")),
     };
     await receiveWebhook(
       { db, queue: createMemoryJobQueue(), providers: [failing] },
@@ -278,8 +278,13 @@ describe("webhook intake", () => {
     const error: unknown = await processWebhookEvent({ db: flaky, providers: [failing] }, id).catch(
       (caught: unknown) => caught,
     );
-    expect(error).toBeInstanceOf(Error);
-    expect((error as Error).cause).toMatchObject({ message: "handler failed" });
+    expect(error).toBeInstanceOf(AggregateError);
+    const { errors, message } = error as AggregateError;
+    expect(errors.map((inner) => (inner as Error).message)).toEqual([
+      "handler failed for asha@example.com",
+      "database down",
+    ]);
+    expect(message).not.toMatch(/asha|database down/);
   });
 
   it("lets the api record attempts but never change a payload or delete an event", async () => {

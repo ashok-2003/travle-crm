@@ -186,7 +186,7 @@ describe("share links", () => {
     await recordShareLinkOpen(db, opened, visitor, new Date(start.getTime() + 60_000));
     expect(await opensOf(link)).toHaveLength(2);
     expect(await openedEventsOf(link)).toHaveLength(1);
-    await recordShareLinkOpen(db, opened, visitor, new Date(start.getTime() + 11 * 60_000));
+    await recordShareLinkOpen(db, opened, visitor, new Date(start.getTime() + 12 * 60_000));
     expect(await opensOf(link)).toHaveLength(3);
     expect(await openedEventsOf(link)).toHaveLength(2);
   });
@@ -214,6 +214,53 @@ describe("share links", () => {
         (tx) => tx.$executeRaw`UPDATE share_link SET revoked_at = now() WHERE id = ${link.shareLinkId}::uuid`,
       ),
     ).rejects.toThrow(/revoked/i);
+  });
+
+  it("makes a concurrent revoke wait for the first and then change nothing", async () => {
+    const link = await share();
+    const waitingLocks = async () =>
+      Number((await platform.$queryRaw<{ n: bigint }[]>`SELECT count(*) AS n FROM pg_locks WHERE NOT granted`)[0]?.n);
+    const baseline = await waitingLocks();
+    let release: () => void = () => undefined;
+    const mayCommit = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let firstHasRevoked: () => void = () => undefined;
+    const firstRevoked = new Promise<void>((resolve) => {
+      firstHasRevoked = resolve;
+    });
+    const first = db.forOrg(agent.organizationId, async (tx) => {
+      await revokeShareLink(tx, agent, { shareLinkId: link.shareLinkId });
+      firstHasRevoked();
+      await mayCommit;
+    });
+    await firstRevoked;
+    let secondDone = false;
+    const second = db
+      .forOrg(agent.organizationId, (tx) =>
+        revokeShareLink(tx, otherAgentOfSameOrganization(), { shareLinkId: link.shareLinkId }),
+      )
+      .then(() => {
+        secondDone = true;
+      });
+    for (let attempt = 0; attempt < 200 && (await waitingLocks()) <= baseline; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    expect(await waitingLocks()).toBeGreaterThan(baseline);
+    expect(secondDone).toBe(false);
+    release();
+    await Promise.all([first, second]);
+    const stored = await db.forOrg(agent.organizationId, (tx) =>
+      tx.shareLink.findUniqueOrThrow({ where: { id: link.shareLinkId } }),
+    );
+    expect(stored.revokedBy).toBe(agent.userId);
+  });
+
+  it("refuses a label with hidden characters even when the caller skipped the contracts", async () => {
+    for (const label of ["Quote\u202eEVIL", "Quote\u200fx", "\u2028\u2029", "   ", "!!!"]) {
+      await expect(share({ label })).rejects.toMatchObject({ reason: "INVALID_LABEL" });
+    }
+    await expect(share({ label: "\u0915\u094d\u200d\u0937 Trip" })).resolves.toBeDefined();
   });
 
   function otherAgentOfSameOrganization(): Actor {

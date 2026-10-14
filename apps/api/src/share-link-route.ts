@@ -27,9 +27,13 @@ const privacyHeaders = {
   "X-Content-Type-Options": "nosniff",
 };
 
-/** Link-preview bots that fetch a link when it is pasted into a chat, not customers looking at the record. */
+/**
+ * Link-preview bots that fetch a link when it is pasted into a chat, not customers looking at the record. WhatsApp's
+ * fetcher has a documented shape ("WhatsApp/2.24.1 A"), anchored so that an in-app browser that merely mentions
+ * WhatsApp is still a customer. The other tokens are matched anywhere: iMessage's preview agent combines several.
+ */
 const PREVIEW_USER_AGENTS =
-  /WhatsApp|facebookexternalhit|Facebot|Slackbot|TelegramBot|Twitterbot|LinkedInBot|Discordbot|SkypeUriPreview|Google-PageRenderer|Applebot/i;
+  /^WhatsApp\/[\d.]+ [AIN]$|facebookexternalhit|Facebot|Slackbot|TelegramBot|Twitterbot|LinkedInBot|Discordbot|SkypeUriPreview|Google-PageRenderer|Applebot/i;
 
 /** HEAD requests, browser prefetches and link-preview bots are not a customer opening the link. */
 function isPreview(request: Request, userAgent: string | null): boolean {

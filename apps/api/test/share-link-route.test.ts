@@ -1,5 +1,5 @@
 // GET /p/<token>: opens the link, hands the record to its resolver, and answers customers with a small page when the
-// link doesn't work. Tested with a stand-in for openShareLink, then once against the database.
+// link doesn't work. Tested with stand-ins for findShareLink and recordShareLinkOpen, then once against the database.
 import { brand } from "@travel-crm/brand";
 import { createDatabase, type Database } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
@@ -89,7 +89,23 @@ describe("share-link route", () => {
     await app.request("/abc", { headers: { "user-agent": "WhatsApp/2.24.1 A" } });
     await app.request("/abc", { headers: { "user-agent": "facebookexternalhit/1.1" } });
     await app.request("/abc", { headers: { "user-agent": "Mozilla/5.0 (iPhone) Safari" } });
-    expect(recorded.map((entry) => entry.visitor.preview)).toEqual([true, true, true, true, true, false]);
+    // Tokens match in any case; WhatsApp's own fetcher has a fixed shape, so a browser that merely mentions it is a customer.
+    await app.request("/abc", { headers: { "user-agent": "SLACKBOT-LinkExpanding 1.0" } });
+    await app.request("/abc", { headers: { "user-agent": "whatsapp/2.24.1 i" } });
+    await app.request("/abc", {
+      headers: { "user-agent": "Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 Chrome/140 Mobile WhatsApp/2.24.1" },
+    });
+    expect(recorded.map((entry) => entry.visitor.preview)).toEqual([
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      true,
+      false,
+    ]);
   });
 
   it("records an open only once the resolver has answered with success", async () => {

@@ -8,7 +8,7 @@ export const shareableRecordType = z.string().regex(/^[a-z][a-z_]{1,39}$/, "Use 
  * No control characters, line or paragraph separators, or bidi marks and overrides (they can disguise what was
  * shared), and something visible. Joiners (U+200C, U+200D) stay allowed: Indic scripts need them.
  */
-const isVisibleText = (text: string) =>
+export const isVisibleShareLinkText = (text: string) =>
   !/[\p{Cc}\u200E\u200F\u061C\u2028\u2029\u202A-\u202E\u2066-\u2069]/u.test(text) && /[\p{L}\p{N}]/u.test(text);
 
 /** What was shared, as staff see it, e.g. "Quotation QT-2026-0042". */
@@ -17,7 +17,7 @@ export const shareLinkLabel = z
   .trim()
   .min(1)
   .max(200)
-  .refine(isVisibleText, "Use a visible label without control characters");
+  .refine(isVisibleShareLinkText, "Use a visible label without control characters");
 
 /** The 65-character token in /p/<token>. */
 export const shareLinkToken = z.string().regex(/^[A-Za-z0-9_-]{65}$/);

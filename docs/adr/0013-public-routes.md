@@ -54,6 +54,8 @@ Date: 2026-10-15 · Status: accepted · Implements spec sections 9.3 (share link
   `Sec-Purpose`/`Purpose: prefetch`, and known preview User-Agents (WhatsApp, facebookexternalhit, Facebot, Slackbot,
   TelegramBot, Twitterbot, LinkedInBot, Discordbot, SkypeUriPreview, Google-PageRenderer, Applebot) are checked like any
   open but record nothing and announce nothing.
+  Known limits: a scanner that fetches the link with an ordinary browser User-Agent still counts as an open, and a
+  prerendered page that the customer opens later makes no second request, so that open is not counted again.
 - **An open is recorded after the record was shown**: the route finds the link, runs the record type's resolver, and
   records the open only if the resolver answered with success (below 400). A 404, a 503 "being prepared" or a failure
   doesn't count or notify.
@@ -97,7 +99,6 @@ Date: 2026-10-15 · Status: accepted · Implements spec sections 9.3 (share link
   request is cheap at our scale. A shared cache (Redis) can replace it later behind the same `RateLimiter` interface.
 - **Why fixed windows.** Simple and exact to test. A client can double its rate across a window boundary, which is
   acceptable for abuse protection.
-
 - **Why the token names the organization.** Without it, opening a link would need a lookup across organizations: a
   table outside row-level security or a SECURITY DEFINER function. An organization id is not a secret (the token's
   32-byte secret is), so carrying it costs nothing and keeps every share-link query inside `db.forOrg()`.
@@ -105,8 +106,8 @@ Date: 2026-10-15 · Status: accepted · Implements spec sections 9.3 (share link
   one"), and knowing that a random 32-byte secret once existed tells an attacker nothing useful.
 - **Why webhook events have no organization and no row-level security.** The organization is known only once the
   provider's handler has read the payload (a WhatsApp number, a Razorpay account). The table holds raw provider data,
-  so only the webhooks module is meant to read it, through `db.withoutOrg()` (not yet enforced, see above); each provider's `process` moves what it needs into
-  organization tables inside `db.forOrg()`.
+  so only the webhooks module is meant to read it, through `db.withoutOrg()` (not yet enforced, see above); each
+  provider's `process` moves what it needs into organization tables inside `db.forOrg()`.
 - **Why store before replying.** Providers retry until they get a 2xx. Storing first means a 200 is never sent for an
   event we could lose, and a crash after storing is recovered by the provider's own retry (the repeat queues the job).
 - **The raw body is kept as text.** Providers send UTF-8 JSON, and the signature is checked over the same text.
@@ -118,7 +119,8 @@ Date: 2026-10-15 · Status: accepted · Implements spec sections 9.3 (share link
 - Stored webhook payloads are kept for now. Step 2 (the first real provider, WhatsApp) must add retention under DPDP:
   rows are kept a short fixed time after `processed_at`, then purged by blanking `payload` and `headers` while keeping
   `(provider, provider_event_id)` as a tombstone, because providers without a signed timestamp (Razorpay, Meta) rely on
-  that unique key against replays. An organization or traveller purge must also reach these rows, so the processing
+  that unique key against replays. Blanking needs the platform role (or a column grant), because `app_runtime` can't
+  update `payload` or `headers`. An organization or traveller purge must also reach these rows, so the processing
   step should record the organization it resolved. A sweep that re-queues old unprocessed rows belongs there too.
 - Old rate-limit windows are deleted when their key is hit again; `purgeExpiredRateLimits` (scheduled daily by the
   worker) clears the rest.

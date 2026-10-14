@@ -21,7 +21,8 @@ None.
 
 ## Rules worth knowing
 
-- Fixed windows: at most `limit` hits per key in each window of `windowSeconds`, the windows counted from the Unix epoch.
+- Fixed windows: at most `limit` hits per key in each window of `windowSeconds`, the windows counted from the Unix
+  epoch.
 - Keys are stored as keyed hashes (HMAC-SHA256 under `keySecret`): `rate_limit_counter` never holds an IP address, and
   an address can't be recovered from the table without the secret. Changing the secret only resets the counts. The
   table has no `organization_id` and is reached with `db.withoutOrg()`.

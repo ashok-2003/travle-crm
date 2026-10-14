@@ -69,9 +69,11 @@ export async function processWebhookEvent(
           data: { attempts: { increment: 1 }, lastError: errorLabel(error) },
         }),
       );
-    } catch {
-      // Recording failed too; the provider's error is the one worth seeing, so it travels as the cause.
-      throw new Error("A webhook event failed, and so did recording the failure", { cause: error });
+    } catch (recordingError) {
+      // Both errors are kept, in one AggregateError whose own message quotes neither (messages may quote payloads).
+      throw new AggregateError([error, recordingError], "A webhook event failed, and so did recording the failure", {
+        cause: recordingError,
+      });
     }
     throw error;
   }

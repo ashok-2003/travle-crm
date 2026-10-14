@@ -25,8 +25,8 @@ resolver there that shows the record.
 
 ## Events
 
-- `share-link.opened`, payload `{ shareLinkId, openId }` (`shareLinkOpenedEvent` in `@travel-crm/contracts/share-links`):
-  someone opened a link.
+- `share-link.opened`, payload `{ shareLinkId, openId }` (`shareLinkOpenedEvent` in
+  `@travel-crm/contracts/share-links`): someone opened a link.
 
 ## Rules worth knowing
 

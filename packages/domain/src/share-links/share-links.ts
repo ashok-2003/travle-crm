@@ -1,6 +1,7 @@
-// Share links (spec 9.3): /p/<token> opens one record for someone who isn't signed in. Links expire, can be revoked,
-// and every open is recorded and announced (share-link.opened), so staff can see a customer looked.
-import type { ShareLinkSummary } from "@travel-crm/contracts/share-links";
+// Share links (spec 9.3): /p/<token> opens one record for someone who isn't signed in. Links expire and can be
+// revoked. Each customer open is recorded and announced (share-link.opened, coalesced), so staff can see a customer
+// looked; previews and prefetches are checked like any open but record nothing.
+import { isVisibleShareLinkText, type ShareLinkSummary } from "@travel-crm/contracts/share-links";
 import type { Database, OrgTx } from "@travel-crm/db";
 import { publishEvent } from "../jobs/index.js";
 import { DomainError, type Actor } from "../kernel/index.js";
@@ -23,7 +24,7 @@ export interface NewShareLink extends SharedRecord {
   expiresAt?: Date | null | undefined;
 }
 
-/** What /p/<token> needs to show the record, once the link has been opened and the open recorded. */
+/** What /p/<token> needs to show the record, once the link has been checked (the open is recorded afterwards). */
 export interface OpenedShareLink extends SharedRecord {
   organizationId: string;
   shareLinkId: string;
@@ -61,8 +62,8 @@ export async function createShareLink(
     throw new DomainError("VALIDATION", "INVALID_RECORD_ID", "The record id must be a UUID");
   }
   const label = input.label.trim();
-  if (label.length === 0 || label.length > 200) {
-    throw new DomainError("VALIDATION", "INVALID_LABEL", "Give the link a label of 1 to 200 characters");
+  if (label.length === 0 || label.length > 200 || !isVisibleShareLinkText(label)) {
+    throw new DomainError("VALIDATION", "INVALID_LABEL", "Give the link a visible label of 1 to 200 characters");
   }
   const expiresAt =
     input.expiresAt === undefined ? new Date(now.getTime() + DEFAULT_LIFETIME_MILLISECONDS) : input.expiresAt;

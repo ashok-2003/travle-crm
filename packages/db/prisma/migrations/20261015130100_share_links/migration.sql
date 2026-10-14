@@ -64,7 +64,8 @@ REVOKE UPDATE, DELETE ON TABLE "share_link" FROM app_runtime;
 GRANT UPDATE (revoked_at, revoked_by) ON TABLE "share_link" TO app_runtime;
 
 -- Revoking is final: a revoked link can't be changed again (un-revoked, or revoked anew by someone else). A plain
--- SECURITY INVOKER function with a pinned search_path.
+-- SECURITY INVOKER function with a pinned search_path. It refuses every update that doesn't revoke an unrevoked link,
+-- for every role, so a future migration that backfills a column of share_link must drop or adjust it first.
 CREATE FUNCTION share_link_revocation_is_final() RETURNS trigger
 LANGUAGE plpgsql
 SET search_path = pg_catalog
