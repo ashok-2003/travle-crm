@@ -1,7 +1,8 @@
 // Fails when a key on an organization-owned table leaves out organization_id:
 // - a foreign key without it lets a row point at another organization's row, because Postgres checks foreign keys
 //   without row-level security;
-// - a unique constraint without it tells one organization that another already uses a value.
+// - a unique constraint without it tells one organization that another already uses a value;
+// - with no foreign key from organization_id to organization, a row could name an organization that doesn't exist.
 // The primary key on `id` alone is the exception: random UUIDs reveal nothing. Each check has a probe (run in a
 // rolled-back migrator transaction) proving it fires.
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
@@ -55,6 +56,37 @@ async function uniqueKeysWithoutOrganization(client: Queryable): Promise<string[
   return rows.filter((row) => !signInTables.includes(row.table_name)).map((row) => row.name);
 }
 
+/** Tables with organization_id that have no foreign key from that column to organization. */
+async function tablesWithoutOrganizationForeignKey(client: Queryable): Promise<string[]> {
+  const rows = await client.$queryRaw<{ table_name: string }[]>`
+    SELECT c.relname AS table_name
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = 'public'
+    JOIN pg_attribute a ON a.attrelid = c.oid AND a.attname = 'organization_id' AND NOT a.attisdropped
+    WHERE c.relkind IN ('r', 'p')
+      AND NOT EXISTS (
+        SELECT 1 FROM pg_constraint fk
+        WHERE fk.contype = 'f' AND fk.conrelid = c.oid AND fk.confrelid = 'organization'::regclass
+          AND fk.conkey = ARRAY[a.attnum])
+    ORDER BY c.relname`;
+  return rows.map((row) => row.table_name);
+}
+
+/**
+ * Foreign keys to organization that cascade, or set null or a default, when an organization is deleted. Postgres runs
+ * those actions as the table's owner, past row-level security and past a REVOKE such as audit_entry's.
+ */
+async function organizationForeignKeysThatDoNotRestrictDeletes(client: Queryable): Promise<string[]> {
+  const rows = await client.$queryRaw<{ name: string }[]>`
+    SELECT source.relname || '.' || fk.conname AS name
+    FROM pg_constraint fk
+    JOIN pg_class source ON source.oid = fk.conrelid
+    JOIN pg_namespace n ON n.oid = source.relnamespace AND n.nspname = 'public'
+    WHERE fk.contype = 'f' AND fk.confrelid = 'organization'::regclass AND fk.confdeltype <> 'r'
+    ORDER BY name`;
+  return rows.map((row) => row.name);
+}
+
 class Rollback extends Error {}
 
 /** Runs setup SQL then assertions inside a migrator transaction that is always rolled back. */
@@ -93,6 +125,36 @@ describe("keys on organization tables", () => {
 
   it("include organization_id in every unique constraint, except a primary key on id", async () => {
     expect(await uniqueKeysWithoutOrganization(platform)).toEqual([]);
+  });
+
+  it("refer to the organization from every organization table", async () => {
+    expect(await tablesWithoutOrganizationForeignKey(platform)).toEqual([]);
+  });
+
+  it("catches an organization table with no foreign key to organization", async () => {
+    await probe(urls.migrator, async (tx) => {
+      await tx.$executeRaw`CREATE TABLE orphan_probe (id uuid PRIMARY KEY, organization_id uuid NOT NULL)`;
+      expect(await tablesWithoutOrganizationForeignKey(tx)).toEqual(["orphan_probe"]);
+      await tx.$executeRaw`ALTER TABLE orphan_probe ADD FOREIGN KEY (organization_id) REFERENCES organization (id)`;
+      expect(await tablesWithoutOrganizationForeignKey(tx)).toEqual([]);
+    });
+  });
+
+  it("refuse to delete an organization that still has rows, rather than cascade", async () => {
+    expect(await organizationForeignKeysThatDoNotRestrictDeletes(platform)).toEqual([]);
+  });
+
+  it("catches a foreign key to organization that cascades a deletion", async () => {
+    await probe(urls.migrator, async (tx) => {
+      await tx.$executeRaw`CREATE TABLE cascade_probe (id uuid PRIMARY KEY, organization_id uuid NOT NULL
+                             CONSTRAINT cascade_probe_organization REFERENCES organization (id) ON DELETE CASCADE)`;
+      expect(await organizationForeignKeysThatDoNotRestrictDeletes(tx)).toEqual([
+        "cascade_probe.cascade_probe_organization",
+      ]);
+      await tx.$executeRaw`ALTER TABLE cascade_probe DROP CONSTRAINT cascade_probe_organization,
+                             ADD FOREIGN KEY (organization_id) REFERENCES organization (id) ON DELETE RESTRICT`;
+      expect(await organizationForeignKeysThatDoNotRestrictDeletes(tx)).toEqual([]);
+    });
   });
 
   it("catches a foreign key that leaves organization_id out", async () => {

@@ -1,28 +1,28 @@
 // The audit log (spec 9.5): who changed what, from where, and the state before and after, written in the same
 // transaction as the change. Organization-owned and append-only: the api and worker add entries and never change or
-// delete one (the migration revokes UPDATE and DELETE). No relation to Organization yet: plan 3's Integration task
-// adds it with the other tracks' tables.
+// delete one (the migration revokes UPDATE and DELETE).
 
 /// One recorded change, e.g. "staff.removed" of a member, by a user, from the web app.
 model AuditEntry {
   /// Filled from db.forOrg()'s organization when omitted.
-  organizationId String   @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
-  id             String   @id @default(uuid(7)) @db.Uuid
-  occurredAt     DateTime @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  occurredAt     DateTime     @default(now()) @map("occurred_at") @db.Timestamptz(6)
   /// The person acting, or null for the system (a job no person started).
-  actorUserId    String?  @map("actor_user_id") @db.Uuid
+  actorUserId    String?      @map("actor_user_id") @db.Uuid
   /// "web", "api", "job" or "impersonation" (CHECK audit_entry_source_value).
   source         String
   /// The platform admin's user id when support was impersonating; set exactly when source is "impersonation".
-  impersonatedBy String?  @map("impersonated_by") @db.Uuid
+  impersonatedBy String?      @map("impersonated_by") @db.Uuid
   /// "<entity>.<what happened>", e.g. "staff.removed" (CHECK audit_entry_action_format).
   action         String
   /// What changed, e.g. "member" or "role" (CHECK audit_entry_entity_type_format), and its id.
-  entityType     String   @map("entity_type")
-  entityId       String   @map("entity_id") @db.Uuid
+  entityType     String       @map("entity_type")
+  entityId       String       @map("entity_id") @db.Uuid
   /// The fields that changed, as JSON objects; null when there is no state on that side (nothing before a creation).
   before         Json?
   after          Json?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   /// The log, newest first.
   @@index([organizationId, occurredAt(sort: Desc), id(sort: Desc)], map: "audit_entry_newest")

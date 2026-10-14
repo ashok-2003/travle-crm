@@ -23,11 +23,12 @@ model OutboxEvent {
 /// Which listener has handled which event, so each listener runs once per event (spec 9.1). Append-only.
 model ProcessedEvent {
   /// Filled from db.forOrg()'s organization when omitted.
-  organizationId String   @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
   /// The listener's name, which is also its job queue, e.g. "documents.render-pdf".
   listener       String
-  eventId        String   @map("event_id") @db.Uuid
-  processedAt    DateTime @default(now()) @map("processed_at") @db.Timestamptz(6)
+  eventId        String       @map("event_id") @db.Uuid
+  processedAt    DateTime     @default(now()) @map("processed_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@id([organizationId, listener, eventId])
   @@map("processed_event")

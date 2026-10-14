@@ -51,9 +51,9 @@ issuedAt })` returns the PDF's bytes. Templates are plain functions that build R
 
 ## Consequences
 
-- The foreign key from `issued_document (organization_id, pdf_attachment_id)` to `attachment (organization_id, id)`
-  and the organization relation are added in plan 3's Integration task, with every plan 3 table's: the attachment
-  model's back-relation lives in the files module's schema file.
+- `issued_document (organization_id, pdf_attachment_id)` refers to `attachment (organization_id, id)`. The key came
+  in plan 3's Integration task, with every plan 3 table's organization key, because the attachment model's
+  back-relation lives in the files module's schema file.
 - The organization's logo joins the frozen branding when plan 4 stores branding settings; the renderer already draws
   one (PNG or JPEG).
 - The PDF attachment can be removed through the generic Files API, which would leave the document without its PDF:

@@ -22,6 +22,7 @@ model ShareLink {
   revokedAt      DateTime?       @map("revoked_at") @db.Timestamptz(6)
   revokedBy      String?         @map("revoked_by") @db.Uuid
   opens          ShareLinkOpen[]
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   /// Lets share_link_open point at (organization_id, id).
   @@unique([organizationId, id])
@@ -34,15 +35,16 @@ model ShareLink {
 /// One time a share link was opened (spec 9.3: opening is recorded). Append-only.
 model ShareLinkOpen {
   /// Filled from db.forOrg()'s organization when omitted.
-  organizationId String    @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
-  id             String    @id @default(uuid(7)) @db.Uuid
-  shareLinkId    String    @map("share_link_id") @db.Uuid
-  openedAt       DateTime  @default(now()) @map("opened_at") @db.Timestamptz(6)
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  shareLinkId    String       @map("share_link_id") @db.Uuid
+  openedAt       DateTime     @default(now()) @map("opened_at") @db.Timestamptz(6)
   /// The visitor's network, not their address: IPv4 cut to /24, IPv6 to /48.
-  ipAddress      String?   @map("ip_address")
+  ipAddress      String?      @map("ip_address")
   /// The browser's User-Agent, at most 300 characters.
-  userAgent      String?   @map("user_agent")
-  shareLink      ShareLink @relation(fields: [organizationId, shareLinkId], references: [organizationId, id], onDelete: Restrict)
+  userAgent      String?      @map("user_agent")
+  shareLink      ShareLink    @relation(fields: [organizationId, shareLinkId], references: [organizationId, id], onDelete: Restrict)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([organizationId, shareLinkId, openedAt])
   @@map("share_link_open")

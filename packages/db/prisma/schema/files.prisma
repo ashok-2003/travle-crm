@@ -1,32 +1,34 @@
 // Files attached to records (spec 9.2): one table links a stored file to any record. Organization-owned and
 // soft-deleted (ADR 0004). The bytes live in object storage under a key made from organization_id and id.
-// Its organization relation and foreign key are added with every plan 3 table's, in plan 3's Integration task.
 
 /// A stored file attached to one record: a lead's passport scan, an issued document's PDF.
 model Attachment {
   /// Filled from db.forOrg()'s organization when omitted.
-  organizationId String    @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
-  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId  String           @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id              String           @id @default(uuid(7)) @db.Uuid
   /// The kind of record, e.g. "issued_document" or "lead" (CHECK attachment_record_type_format).
-  recordType     String    @map("record_type")
-  recordId       String    @map("record_id") @db.Uuid
+  recordType      String           @map("record_type")
+  recordId        String           @map("record_id") @db.Uuid
   /// The name it downloads as, e.g. "Passport - Asha.pdf".
-  fileName       String    @map("file_name")
-  contentType    String    @map("content_type")
+  fileName        String           @map("file_name")
+  contentType     String           @map("content_type")
   /// Counts toward the organization's storage, deleted files included until a purge (CHECK attachment_size_positive).
-  sizeBytes      Int       @map("size_bytes")
+  sizeBytes       Int              @map("size_bytes")
   /// Traveller ID documents such as passports: viewing needs documents:view_sensitive (spec 5).
-  sensitive      Boolean   @default(false)
+  sensitive       Boolean          @default(false)
   /// "pending" until the uploaded file is confirmed in storage, then "ready" (CHECK attachment_status_value).
-  status         String    @default("pending")
+  status          String           @default("pending")
   /// Who uploaded it; null for files the system made, such as rendered PDFs.
-  createdBy      String?   @map("created_by") @db.Uuid
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy       String?          @map("created_by") @db.Uuid
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   /// When the file was confirmed in storage; set exactly when status is "ready".
-  confirmedAt    DateTime? @map("confirmed_at") @db.Timestamptz(6)
-  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+  confirmedAt     DateTime?        @map("confirmed_at") @db.Timestamptz(6)
+  deletedAt       DateTime?        @map("deleted_at") @db.Timestamptz(6)
   /// The user id of whoever deleted it; null when the system did.
-  deletedBy      String?   @map("deleted_by") @db.Uuid
+  deletedBy       String?          @map("deleted_by") @db.Uuid
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  /// Issued documents whose rendered PDF this is.
+  issuedDocuments IssuedDocument[]
 
   /// Lets other organization tables point at (organization_id, id), e.g. an issued document's PDF.
   @@unique([organizationId, id])
