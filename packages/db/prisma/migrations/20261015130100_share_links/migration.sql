@@ -63,5 +63,24 @@ ALTER TABLE "share_link_open"
 REVOKE UPDATE, DELETE ON TABLE "share_link" FROM app_runtime;
 GRANT UPDATE (revoked_at, revoked_by) ON TABLE "share_link" TO app_runtime;
 
+-- Revoking is final: a revoked link can't be changed again (un-revoked, or revoked anew by someone else). A plain
+-- SECURITY INVOKER function with a pinned search_path.
+CREATE FUNCTION share_link_revocation_is_final() RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = pg_catalog
+AS $$
+BEGIN
+  IF OLD.revoked_at IS NOT NULL OR NEW.revoked_at IS NULL THEN
+    RAISE EXCEPTION 'A share link can be revoked once, and a revoked link stays revoked'
+      USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER share_link_revocation_is_final
+  BEFORE UPDATE ON "share_link"
+  FOR EACH ROW EXECUTE FUNCTION share_link_revocation_is_final();
+
 -- Opens are a record of what happened.
 REVOKE UPDATE, DELETE ON TABLE "share_link_open" FROM app_runtime;
