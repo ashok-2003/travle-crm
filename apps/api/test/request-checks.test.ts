@@ -7,11 +7,13 @@ import { addStaff, signedInOwner, signedInStaff } from "./support/people.js";
 import {
   createTestAgency,
   createTestServer,
+  ORIGIN,
   postJson,
   type TestAgency,
   type TestServer,
 } from "./support/test-server.js";
 import { dataOf, mutate, query, refusalOf } from "./support/trpc.js";
+import { enableTwoFactor } from "./support/two-factor.js";
 
 describe("request checks", () => {
   let server: TestServer;
@@ -103,5 +105,97 @@ describe("request checks", () => {
     );
     expect(change.status).toBe(200);
     expect((await query(server, "settings.get", jar)).status).toBe(200);
+  });
+
+  describe("mutations from other websites", () => {
+    // An Owner with two-factor on, so a post that got through would really switch the requirement on.
+    let own: TestAgency;
+    let owner: CookieJar;
+
+    beforeAll(async () => {
+      own = await createTestAgency(server);
+      owner = await signedInOwner(server, own);
+      await enableTwoFactor(server, owner, own.owner.password);
+    });
+
+    const post = (headers: Record<string, string>, body: string | FormData) =>
+      server.app.request("/api/trpc/settings.setTwoFactorRequirement", {
+        method: "POST",
+        headers: { cookie: owner.header, ...headers },
+        body,
+      });
+    const requirement = () =>
+      server.platform.organization.findUniqueOrThrow({
+        where: { id: own.organizationId },
+        select: { requireTwoFactor: true },
+      });
+
+    it("refuses a JSON post from a foreign origin, and changes nothing", async () => {
+      const response = await post(
+        { "content-type": "application/json", origin: "https://evil.example" },
+        JSON.stringify({ required: true }),
+      );
+      expect(response.status).toBe(403);
+      expect(await requirement()).toEqual({ requireTwoFactor: false });
+    });
+
+    it("refuses a post with no origin", async () => {
+      const response = await post({ "content-type": "application/json" }, JSON.stringify({ required: true }));
+      expect(response.status).toBe(403);
+      expect(await requirement()).toEqual({ requireTwoFactor: false });
+    });
+
+    it("refuses a form post from the trusted origin, which would skip the browser's preflight", async () => {
+      const form = new FormData();
+      form.set("required", "true");
+      expect((await post({ origin: ORIGIN }, form)).status).toBe(415);
+      expect(await requirement()).toEqual({ requireTwoFactor: false });
+    });
+
+    it("still takes a same-origin JSON post, with a charset parameter too", async () => {
+      const response = await post(
+        { "content-type": "application/json; charset=utf-8", origin: ORIGIN },
+        JSON.stringify({ required: true }),
+      );
+      expect(response.status).toBe(200);
+      expect(await requirement()).toEqual({ requireTwoFactor: true });
+    });
+  });
+
+  it("refuses a member whose password was reset, though their session cookie is still cached", async () => {
+    const kiran = await addStaff(server, agency, { username: "kiran", roleKey: "sales" });
+    const jar = await signedInStaff(server, agency, kiran);
+    expect((await query(server, "settings.get", jar)).status).toBe(200);
+    const owner = await signedInOwner(server, agency);
+    const reset = await mutate(
+      server,
+      "staff.resetPassword",
+      { memberId: kiran.memberId, temporaryPassword: "kiran-new-temp-1" },
+      owner,
+    );
+    expect(reset.status).toBe(200);
+    // The pending password change is read from the database on every request, so the cached cookie doesn't help.
+    expect(await refusalOf(await query(server, "settings.get", jar))).toEqual({
+      status: 403,
+      reason: "CHANGE_PASSWORD",
+    });
+    expect((await mutate(server, "settings.setTwoFactorRequirement", { required: false }, jar)).status).toBe(401);
+  });
+
+  it("passes on the cookies Better Auth re-issues, so the session cache is refreshed", async () => {
+    const owner = await signedInOwner(server, agency);
+    const token = owner.header.split("; ").find((pair) => pair.startsWith("better-auth.session_token="));
+    if (token === undefined) throw new Error("the owner has no session cookie");
+    // A browser whose cache cookie expired still holds the session cookie: Better Auth reads the row and re-issues it.
+    const withoutCache = new CookieJar();
+    withoutCache.absorb(new Response(null, { headers: { "set-cookie": token } }));
+    expect(withoutCache.names()).toEqual(["better-auth.session_token"]);
+
+    const ordinary = await query(server, "me.get", withoutCache);
+    expect(ordinary.headers.getSetCookie().some((cookie) => cookie.startsWith("better-auth.session_data="))).toBe(true);
+    const sensitive = await mutate(server, "settings.setTwoFactorRequirement", { required: false }, withoutCache);
+    expect(sensitive.headers.getSetCookie().some((cookie) => cookie.startsWith("better-auth.session_data="))).toBe(
+      true,
+    );
   });
 });
