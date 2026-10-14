@@ -3,6 +3,7 @@
 import { describe, expect, it } from "vitest";
 import {
   attachmentIdInput,
+  attachmentRefInput,
   attachmentSummary,
   downloadLink,
   MAX_ATTACHMENT_BYTES,
@@ -30,10 +31,27 @@ describe("file inputs", () => {
   });
 
   it("refuses names with folders, control characters or text-direction tricks", () => {
-    for (const fileName of ["../passport.pdf", "a/b.pdf", "a\\b.pdf", "line\nbreak.pdf", "invoice‮fdp.exe", "   "]) {
+    for (const fileName of [
+      "../passport.pdf",
+      "a/b.pdf",
+      "a\\b.pdf",
+      "line\nbreak.pdf",
+      "invoice\u202Efdp.exe",
+      "   ",
+    ]) {
       expect(requestUploadInput.safeParse({ ...passport, fileName }).success, JSON.stringify(fileName)).toBe(false);
     }
     expect(requestUploadInput.safeParse({ ...passport, fileName: `${"a".repeat(197)}.pdf` }).success).toBe(false);
+  });
+
+  it("refuses direction marks and line separators, but keeps joiners that Indian scripts need", () => {
+    for (const mark of ["\u200E", "\u200F", "\u061C", "\u2028", "\u2029", "\u202A", "\u2066", "\u2069"]) {
+      expect(requestUploadInput.safeParse({ ...passport, fileName: `a${mark}b.pdf` }).success, mark).toBe(false);
+    }
+    // Devanagari "क्‍ष" with a zero-width joiner (U+200D) and "ने" with a zero-width non-joiner (U+200C).
+    for (const fileName of ["\u0915\u094D\u200D\u0937.pdf", "\u0928\u200C\u0947.pdf"]) {
+      expect(requestUploadInput.safeParse({ ...passport, fileName }).success, fileName).toBe(true);
+    }
   });
 
   it("takes PDFs and photos only", () => {
@@ -58,6 +76,10 @@ describe("file inputs", () => {
     expect(requestUploadInput.safeParse({ ...passport, recordId: "42" }).success).toBe(false);
     expect(requestUploadInput.safeParse({ ...passport, storageKey: "organizations/x" }).success).toBe(false);
     expect(attachmentIdInput.safeParse({ attachmentId: passport.recordId, sensitive: true }).success).toBe(false);
+    const ref = { recordType: "lead", recordId: passport.recordId, attachmentId: passport.recordId };
+    expect(attachmentRefInput.safeParse(ref).success).toBe(true);
+    expect(attachmentRefInput.safeParse({ attachmentId: passport.recordId }).success).toBe(false);
+    expect(attachmentRefInput.safeParse({ ...ref, recordType: "Lead" }).success).toBe(false);
   });
 });
 
