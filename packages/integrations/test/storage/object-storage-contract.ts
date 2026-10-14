@@ -44,14 +44,16 @@ export function describeObjectStorage(name: string, start: () => Promise<Storage
     it("refuses an upload of another size", async () => {
       const key = freshKey();
       const upload = await subject.storage.presignUpload({ key, contentType: "image/png", sizeBytes: 5 }, 60);
-      await expect(subject.upload(upload, bytes("hello, world"), "image/png")).rejects.toThrow();
+      await expect(subject.upload(upload, bytes("hello, world"), "image/png")).rejects.toThrow(
+        /403|not the signed one/,
+      );
       expect(await subject.storage.head(key)).toBeNull();
     });
 
     it("refuses an upload of another type", async () => {
       const key = freshKey();
       const upload = await subject.storage.presignUpload({ key, contentType: "image/png", sizeBytes: 5 }, 60);
-      await expect(subject.upload(upload, bytes("hello"), "text/html")).rejects.toThrow();
+      await expect(subject.upload(upload, bytes("hello"), "text/html")).rejects.toThrow(/403|not the signed one/);
       expect(await subject.storage.head(key)).toBeNull();
     });
 
@@ -72,7 +74,7 @@ export function describeObjectStorage(name: string, start: () => Promise<Storage
       const upload = await subject.storage.presignUpload({ key, contentType: "application/pdf", sizeBytes: 5 }, 60);
       expect(upload.headers).toMatchObject({ "if-none-match": "*" });
       await subject.upload(upload, bytes("hello"), "application/pdf");
-      await expect(subject.upload(upload, bytes("HELLO"), "application/pdf")).rejects.toThrow();
+      await expect(subject.upload(upload, bytes("HELLO"), "application/pdf")).rejects.toThrow(/412|already stored/);
       expect(text(await subject.storage.get(key))).toBe("hello");
     });
 

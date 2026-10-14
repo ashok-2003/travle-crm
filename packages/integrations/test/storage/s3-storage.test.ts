@@ -1,8 +1,12 @@
 // The S3 adapter against a real S3 server (MinIO in a container): the shared contract, and downloads that save
 // under the file's own name, whatever its script or punctuation.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { attachmentDisposition } from "../../src/storage/s3-storage.js";
-import { createS3Storage, type ObjectStorage, type PresignedUpload } from "../../src/storage/index.js";
+import {
+  attachmentDisposition,
+  createS3Storage,
+  type ObjectStorage,
+  type PresignedUpload,
+} from "../../src/storage/index.js";
 import { startMinio, type TestMinio } from "../support/minio.js";
 import { describeObjectStorage } from "./object-storage-contract.js";
 
@@ -95,6 +99,18 @@ describe("S3 storage refusals", () => {
 
   afterAll(async () => {
     await minio.stop();
+  });
+
+  it("refuses (MinIO answers 400, S3 403) an upload that leaves out the signed if-none-match header", async () => {
+    const key = "organizations/o1/attachments/r2";
+    const upload = await storage.presignUpload({ key, contentType: "image/png", sizeBytes: 5 }, 60);
+    const response = await fetch(upload.url, {
+      method: "PUT",
+      headers: { "content-type": "image/png" },
+      body: new TextEncoder().encode("hello"),
+    });
+    expect([400, 403]).toContain(response.status);
+    expect(await storage.head(key)).toBeNull();
   });
 
   it("answers 403 to an upload of another size or type, and 412 to a second upload", async () => {
