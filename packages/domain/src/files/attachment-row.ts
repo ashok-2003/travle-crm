@@ -62,6 +62,11 @@ export function canViewSensitive(actor: Actor): boolean {
   return "permissions" in actor && (actor as MemberAccess).permissions.has("documents:view_sensitive");
 }
 
+/** What the actor may see of the row: a sensitive file's real name only if they may open it. */
+export function summaryFor(actor: Actor, row: AttachmentRow): AttachmentSummary {
+  return toSummary(row.sensitive && !canViewSensitive(actor) ? { ...row, fileName: SENSITIVE_FILE_NAME } : row);
+}
+
 /**
  * One of this organization's live attachments, found through the record it belongs to: a file of another record is
  * "not found", so a caller that checked access to one record can't be handed another's file. Row-level security makes

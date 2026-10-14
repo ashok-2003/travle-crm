@@ -1,6 +1,7 @@
 // Uploading: the browser sends the file straight to storage, the api confirms it arrived as promised, and every
 // organization's files count toward its storage limit, deleted ones included until a purge.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createFiles } from "../../src/files/index.js";
 import { systemActor } from "../../src/kernel/index.js";
 import {
   bytes,
@@ -118,7 +119,7 @@ describe("uploading files", () => {
     }
   });
 
-  it("refuses to confirm, or link to, a file through another record", async () => {
+  it("refuses to confirm a file through another record", async () => {
     const sales = memberOf(organizationId, "sales");
     const { attachment } = await test.files.requestUpload(sales, passportUpload());
     const otherRecord = { ...ref(attachment), recordId: "0199e7a0-0000-7000-8000-0000000000e9" };
@@ -129,6 +130,68 @@ describe("uploading files", () => {
         reason: "ATTACHMENT_NOT_FOUND",
       });
     }
+  });
+
+  it("settles a chosen id that two first runs, a deleted file or another organization already hold", async () => {
+    const system = systemActor(organizationId);
+    const file = {
+      recordType: "issued_document",
+      recordId: "0199e7a0-0000-7000-8000-0000000000d4",
+      fileName: "DOC-2026-0004.pdf",
+      contentType: "application/pdf",
+      body: bytes("%PDF-1.3 race"),
+      attachmentId: "0199e7a0-0000-7000-8000-0000000000a2",
+    };
+    const [a, b] = await Promise.all([
+      test.files.storeGeneratedFile(system, file),
+      test.files.storeGeneratedFile(system, file),
+    ]);
+    expect(a).toEqual(b);
+    expect(a).toMatchObject({ id: file.attachmentId, status: "ready" });
+
+    const inUse = { code: "CONFLICT", reason: "ATTACHMENT_ID_IN_USE" };
+    const owner = memberOf(organizationId, "org-owner");
+    await test.files.remove(owner, { recordType: file.recordType, recordId: file.recordId, attachmentId: a.id });
+    await expect(test.files.storeGeneratedFile(system, file)).rejects.toMatchObject(inUse);
+
+    const otherOrganizationId = await createOrganization(test, "Another files agency");
+    await expect(test.files.storeGeneratedFile(systemActor(otherOrganizationId), file)).rejects.toMatchObject(inUse);
+  });
+
+  it("completes a generated file whose first upload failed, with the retry's size and type", async () => {
+    let puts = 0;
+    const flaky = {
+      ...test.storage,
+      put: (object: Parameters<typeof test.storage.put>[0]) => {
+        puts += 1;
+        return puts === 1 ? Promise.reject(new Error("storage is down")) : test.storage.put(object);
+      },
+    };
+    const files = createFiles({ db: test.db, storage: flaky });
+    const system = systemActor(organizationId);
+    const first = {
+      recordType: "issued_document",
+      recordId: "0199e7a0-0000-7000-8000-0000000000d5",
+      fileName: "DOC-2026-0005.pdf",
+      contentType: "application/pdf",
+      body: bytes("%PDF-1.3 first"),
+      attachmentId: "0199e7a0-0000-7000-8000-0000000000a3",
+    };
+    const before = await files.storageUsedBytes(organizationId);
+    await expect(files.storeGeneratedFile(system, first)).rejects.toThrow("storage is down");
+
+    const retried = await files.storeGeneratedFile(system, {
+      ...first,
+      contentType: "image/png",
+      body: bytes("a longer png body than before"),
+    });
+
+    expect(retried).toMatchObject({ status: "ready", contentType: "image/png", sizeBytes: 29 });
+    expect(await files.storageUsedBytes(organizationId)).toBe(before + 29);
+    expect(await test.storage.head(`organizations/${organizationId}/attachments/${retried.id}`)).toEqual({
+      sizeBytes: 29,
+      contentType: "image/png",
+    });
   });
 
   it("stores a file the server made, ready at once", async () => {

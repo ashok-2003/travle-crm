@@ -2,13 +2,7 @@
 import type { AttachmentRefInput, AttachmentSummary } from "@travel-crm/contracts/files";
 import { softDeleted } from "@travel-crm/db";
 import { DomainError, type Actor } from "../kernel/index.js";
-import {
-  attachmentFields,
-  canViewSensitive,
-  findAttachment,
-  SENSITIVE_FILE_NAME,
-  toSummary,
-} from "./attachment-row.js";
+import { attachmentFields, canViewSensitive, findAttachment, summaryFor } from "./attachment-row.js";
 import type { FilesDependencies } from "./dependencies.js";
 import { bytesStored } from "./uploads.js";
 
@@ -27,14 +21,13 @@ export async function listAttachments(
       select: attachmentFields,
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     });
-    const mayName = canViewSensitive(actor);
-    return rows.map((row) => toSummary(row.sensitive && !mayName ? { ...row, fileName: SENSITIVE_FILE_NAME } : row));
+    return rows.map((row) => summaryFor(actor, row));
   });
 }
 
 /**
  * Hides the file (ADR 0004). Its bytes stay in storage, and count, until the platform's purge. A sensitive file is
- * removed only by a member holding documents:view_sensitive, or by the system.
+ * removed only by a member holding documents:view_sensitive.
  */
 export async function removeAttachment(
   { db }: FilesDependencies,
@@ -43,7 +36,7 @@ export async function removeAttachment(
 ): Promise<void> {
   await db.forOrg(actor.organizationId, async (tx) => {
     const row = await findAttachment(tx, input);
-    if (row.sensitive && actor.userId !== null && !canViewSensitive(actor)) {
+    if (row.sensitive && !canViewSensitive(actor)) {
       throw new DomainError("FORBIDDEN", "MISSING_PERMISSION", "Requires documents:view_sensitive");
     }
     await tx.attachment.update({

@@ -2,7 +2,6 @@
 // that hide folders or disguise their extension.
 import { describe, expect, it } from "vitest";
 import {
-  attachmentIdInput,
   attachmentRefInput,
   attachmentSummary,
   downloadLink,
@@ -75,10 +74,10 @@ describe("file inputs", () => {
     expect(requestUploadInput.safeParse({ ...passport, recordType: "Issued-Document" }).success).toBe(false);
     expect(requestUploadInput.safeParse({ ...passport, recordId: "42" }).success).toBe(false);
     expect(requestUploadInput.safeParse({ ...passport, storageKey: "organizations/x" }).success).toBe(false);
-    expect(attachmentIdInput.safeParse({ attachmentId: passport.recordId, sensitive: true }).success).toBe(false);
     const ref = { recordType: "lead", recordId: passport.recordId, attachmentId: passport.recordId };
     expect(attachmentRefInput.safeParse(ref).success).toBe(true);
     expect(attachmentRefInput.safeParse({ attachmentId: passport.recordId }).success).toBe(false);
+    expect(attachmentRefInput.safeParse({ ...ref, sensitive: true }).success).toBe(false);
     expect(attachmentRefInput.safeParse({ ...ref, recordType: "Lead" }).success).toBe(false);
   });
 });

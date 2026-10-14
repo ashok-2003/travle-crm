@@ -43,9 +43,6 @@ export const requestUploadInput = z.strictObject({
 });
 export type RequestUploadInput = z.infer<typeof requestUploadInput>;
 
-export const attachmentIdInput = z.strictObject({ attachmentId: z.uuid() });
-export type AttachmentIdInput = z.infer<typeof attachmentIdInput>;
-
 /** A file named together with the record it belongs to, so a router that authorised one record can't be handed another's. */
 export const attachmentRefInput = z.strictObject({ recordType, recordId: z.uuid(), attachmentId: z.uuid() });
 export type AttachmentRefInput = z.infer<typeof attachmentRefInput>;

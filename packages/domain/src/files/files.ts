@@ -27,7 +27,7 @@ export interface Files {
   downloadLink(actor: MemberAccess, input: AttachmentRefInput): Promise<DownloadLink>;
   /** The record's ready files, sensitive ones marked; their names only for members with documents:view_sensitive. */
   list(actor: Actor, record: { recordType: string; recordId: string }): Promise<AttachmentSummary[]>;
-  /** Soft-deletes the file. A sensitive file needs documents:view_sensitive (the system may). */
+  /** Soft-deletes the file. Only members with documents:view_sensitive may remove a sensitive file. */
   remove(actor: Actor, input: AttachmentRefInput): Promise<void>;
   /** Stores a file the server made and returns it ready; with a chosen attachmentId, a retry stores it once. */
   storeGeneratedFile(actor: Actor, file: GeneratedFile): Promise<AttachmentSummary>;

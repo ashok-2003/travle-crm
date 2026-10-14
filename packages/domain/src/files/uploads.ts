@@ -7,10 +7,17 @@ import {
   type RequestUploadInput,
 } from "@travel-crm/contracts/files";
 import type { OrgTx } from "@travel-crm/db";
-import { withDeleted } from "@travel-crm/db";
+import { isUniqueViolation, withDeleted } from "@travel-crm/db";
 import type { PresignedUpload } from "@travel-crm/integrations/storage";
 import { DomainError, type Actor } from "../kernel/index.js";
-import { attachmentFields, findAttachment, storageKeyOf, toSummary } from "./attachment-row.js";
+import {
+  attachmentFields,
+  type AttachmentRow,
+  findAttachment,
+  storageKeyOf,
+  summaryFor,
+  toSummary,
+} from "./attachment-row.js";
 import type { FilesDependencies, GeneratedFile } from "./dependencies.js";
 
 /** Long enough for a slow phone connection to send 25 MB. */
@@ -64,7 +71,7 @@ export async function confirmUpload(
   input: AttachmentRefInput,
 ): Promise<AttachmentSummary> {
   const row = await db.forOrg(actor.organizationId, (tx) => findAttachment(tx, input));
-  if (row.status === "ready") return toSummary(row);
+  if (row.status === "ready") return summaryFor(actor, row);
   const stored = await storage.head(storageKeyOf(row));
   if (!stored) throw new DomainError("NOT_FOUND", "UPLOAD_NOT_FOUND", "The file hasn't arrived in storage");
   if (stored.sizeBytes !== row.sizeBytes || stored.contentType !== row.contentType) {
@@ -75,7 +82,7 @@ export async function confirmUpload(
       where: { id: row.id, status: "pending" },
       data: { status: "ready", confirmedAt: new Date() },
     });
-    return toSummary(await findAttachment(tx, input));
+    return summaryFor(actor, await findAttachment(tx, input));
   });
 }
 
@@ -95,42 +102,72 @@ export async function storeGeneratedFile(
   const name = attachmentFileName.safeParse(file.fileName);
   if (!name.success) throw new DomainError("VALIDATION", "INVALID_FILE_NAME", "The file name can't be used");
   if (file.body.byteLength === 0) throw new DomainError("VALIDATION", "EMPTY_FILE", "The file is empty");
-  const row = await db.forOrg(actor.organizationId, async (tx) => {
-    if (file.attachmentId !== undefined) {
+  const inUse = () => new DomainError("CONFLICT", "ATTACHMENT_ID_IN_USE", "That file id is already used");
+  /** A row already stored under the chosen id: ours to continue if it is this record's and not deleted. */
+  const existingRow = (): Promise<AttachmentRow | null> =>
+    db.forOrg(actor.organizationId, async (tx) => {
       const existing = await withDeleted(() =>
         tx.attachment.findUnique({
           where: { id: file.attachmentId },
           select: { ...attachmentFields, deletedAt: true },
         }),
       );
-      if (existing) {
-        if (existing.recordType !== file.recordType || existing.recordId !== file.recordId || existing.deletedAt) {
-          throw new DomainError("CONFLICT", "ATTACHMENT_ID_IN_USE", "That file id is already used");
-        }
-        return existing;
+      if (!existing) return null;
+      if (existing.recordType !== file.recordType || existing.recordId !== file.recordId || existing.deletedAt) {
+        throw inUse();
+      }
+      return existing;
+    });
+  const create = () =>
+    db.forOrg(actor.organizationId, (tx) =>
+      tx.attachment.create({
+        data: {
+          ...(file.attachmentId === undefined ? {} : { id: file.attachmentId }),
+          recordType: file.recordType,
+          recordId: file.recordId,
+          fileName: name.data,
+          contentType: file.contentType,
+          sizeBytes: file.body.byteLength,
+          sensitive: file.sensitive ?? false,
+          createdBy: actor.userId,
+        },
+        select: attachmentFields,
+      }),
+    );
+
+  let row: AttachmentRow;
+  if (file.attachmentId === undefined) {
+    row = await create();
+  } else {
+    const existing = await existingRow();
+    if (existing) {
+      row = existing;
+    } else {
+      try {
+        row = await create();
+      } catch (error) {
+        if (!isUniqueViolation(error)) throw error;
+        // Another run created it first, or the id is another organization's (which this one can't see).
+        const raced = await existingRow();
+        if (!raced) throw inUse();
+        row = raced;
       }
     }
-    return tx.attachment.create({
-      data: {
-        ...(file.attachmentId === undefined ? {} : { id: file.attachmentId }),
-        recordType: file.recordType,
-        recordId: file.recordId,
-        fileName: name.data,
-        contentType: file.contentType,
-        sizeBytes: file.body.byteLength,
-        sensitive: file.sensitive ?? false,
-        createdBy: actor.userId,
-      },
-      select: attachmentFields,
-    });
-  });
-  if (row.status === "ready") return toSummary(row);
-  await storage.put({ key: storageKeyOf(row), contentType: row.contentType, body: file.body });
+  }
+  // Someone else's earlier run already finished it: show what that caller may see, not what the retry sent.
+  if (row.status === "ready") return summaryFor(actor, row);
+  await storage.put({ key: storageKeyOf(row), contentType: file.contentType, body: file.body });
   return db.forOrg(actor.organizationId, async (tx) =>
     toSummary(
       await tx.attachment.update({
         where: { id: row.id },
-        data: { status: "ready", confirmedAt: new Date() },
+        // A retry may carry a different body than the failed first run left announced: keep the row true to storage.
+        data: {
+          status: "ready",
+          confirmedAt: new Date(),
+          sizeBytes: file.body.byteLength,
+          contentType: file.contentType,
+        },
         select: attachmentFields,
       }),
     ),

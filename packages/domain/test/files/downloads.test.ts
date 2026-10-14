@@ -1,6 +1,7 @@
 // Downloading: short-lived links, sensitive files only for those allowed to see them, and nothing across
 // organizations.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { systemActor } from "../../src/kernel/index.js";
 import type { MemberAccess } from "../../src/identity/index.js";
 import {
   bytes,
@@ -74,8 +75,10 @@ describe("downloading files", () => {
     const operations = memberOf(organizationId, "operations");
     const itinerary = await uploaded(operations, false, "Itinerary.pdf");
     const passport = await uploaded(operations, true);
-    expect((await test.files.systemDownloadLink(organizationId, ref(itinerary))).url).toContain(itinerary.id);
-    await expect(test.files.systemDownloadLink(organizationId, ref(passport))).rejects.toMatchObject({
+    expect((await test.files.systemDownloadLink(organizationId, { attachmentId: itinerary.id })).url).toContain(
+      itinerary.id,
+    );
+    await expect(test.files.systemDownloadLink(organizationId, { attachmentId: passport.id })).rejects.toMatchObject({
       code: "FORBIDDEN",
       reason: "SENSITIVE_FILE",
     });
@@ -98,15 +101,20 @@ describe("downloading files", () => {
       body: bytes("%PDF-it"),
     });
     const names = async (member: MemberAccess) =>
-      (await test.files.list(member, record)).map((file) => [file.fileName, file.sizeBytes, file.sensitive]);
+      (await test.files.list(member, record)).map((file) => [
+        file.fileName,
+        file.sizeBytes,
+        file.contentType,
+        file.sensitive,
+      ]);
 
     expect(await names(operations)).toEqual([
-      ["Passport - Asha.pdf", 7, true],
-      ["Itinerary.pdf", 7, false],
+      ["Passport - Asha.pdf", 7, "application/pdf", true],
+      ["Itinerary.pdf", 7, "application/pdf", false],
     ]);
     expect(await names(memberOf(organizationId, "sales"))).toEqual([
-      ["Sensitive file", 7, true],
-      ["Itinerary.pdf", 7, false],
+      ["Sensitive file", 7, "application/pdf", true],
+      ["Itinerary.pdf", 7, "application/pdf", false],
     ]);
   });
 
@@ -159,10 +167,27 @@ describe("downloading files", () => {
     expect((await test.files.downloadLink(operations, ref(file))).url).toContain(file.id);
   });
 
+  it("shows a sensitive file's real name on confirm only to those who may open it", async () => {
+    const operations = memberOf(organizationId, "operations");
+    const passport = await uploaded(operations, true);
+    const sales = memberOf(organizationId, "sales");
+    expect(passport.fileName).toBe("Passport - Asha.pdf");
+    expect(await test.files.confirmUpload(sales, ref(passport))).toMatchObject({
+      fileName: "Sensitive file",
+      sensitive: true,
+      sizeBytes: 11,
+    });
+    expect((await test.files.confirmUpload(operations, ref(passport))).fileName).toBe("Passport - Asha.pdf");
+  });
+
   it("lets only those who may open a sensitive file remove it", async () => {
     const operations = memberOf(organizationId, "operations");
     const passport = await uploaded(operations, true);
     await expect(test.files.remove(memberOf(organizationId, "sales"), ref(passport))).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      reason: "MISSING_PERMISSION",
+    });
+    await expect(test.files.remove(systemActor(organizationId), ref(passport))).rejects.toMatchObject({
       code: "FORBIDDEN",
       reason: "MISSING_PERMISSION",
     });
