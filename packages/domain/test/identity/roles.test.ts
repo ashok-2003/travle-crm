@@ -3,6 +3,7 @@
 import { softDeleted } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import { DomainError } from "../../src/kernel/index.js";
 import type { MemberAccess } from "../../src/identity/member-access.js";
 import { createStaffAccount } from "../../src/identity/staff-accounts.js";
 import { createTestAgency, createTestIdentity, type TestAgency, type TestIdentity } from "./test-identity.js";
@@ -17,16 +18,20 @@ describe("roles", () => {
   let admin: MemberAccess;
 
   /** The access of a new member with the given role. */
-  async function memberWithRole(roleKey: string, username: string): Promise<MemberAccess> {
+  async function memberWithRole(
+    roleKey: string,
+    username: string,
+    organizationId = agency.organizationId,
+  ): Promise<MemberAccess> {
     const created = await createStaffAccount(test.database, hashPassword, {
-      organizationId: agency.organizationId,
+      organizationId,
       name: username,
       username,
       roleKey,
       password: "member-password-1",
       mustChangePassword: false,
     });
-    const access = await test.identity.resolveAccess(created.userId, agency.organizationId);
+    const access = await test.identity.resolveAccess(created.userId, organizationId);
     if (!access) throw new Error("new member has no access");
     return access;
   }
@@ -47,7 +52,12 @@ describe("roles", () => {
   });
 
   it("lists the roles Owner first, with what each allows and how many staff have it", async () => {
-    const roles = await test.identity.roles.list(owner);
+    // Its own agency, so other tests' roles and staff don't change the list.
+    const fresh = await createTestAgency(test.identity, platform);
+    const freshOwner = await test.identity.resolveAccess(fresh.ownerUserId, fresh.organizationId);
+    if (!freshOwner) throw new Error("owner has no access");
+    await memberWithRole("org-admin", "listadmin", fresh.organizationId);
+    const roles = await test.identity.roles.list(freshOwner);
     expect(roles.map((role) => role.name)).toEqual(["Owner", "Accounts", "Admin", "Operations", "Sales"]);
     expect(roles.find((role) => role.isOwner)?.memberCount).toBe(1);
     expect(roles.find((role) => role.name === "Admin")?.memberCount).toBe(1);
@@ -171,5 +181,118 @@ describe("roles", () => {
       code: "NOT_FOUND",
       reason: "ROLE_NOT_FOUND",
     });
+  });
+
+  it("compares names literally, ignoring only letter case", async () => {
+    // Role names reach an ILIKE query; _, % and \ must not act as pattern characters.
+    await expect(test.identity.roles.create(owner, { name: "Sale_", permissions: [] })).resolves.toMatchObject({
+      name: "Sale_",
+    });
+    await expect(test.identity.roles.create(owner, { name: "S%", permissions: [] })).resolves.toMatchObject({
+      name: "S%",
+    });
+    await expect(test.identity.roles.create(owner, { name: "A\\", permissions: [] })).resolves.toMatchObject({
+      name: "A\\",
+    });
+    await expect(test.identity.roles.create(owner, { name: "Sales\\", permissions: [] })).resolves.toMatchObject({
+      name: "Sales\\",
+    });
+    await test.identity.roles.create(owner, { name: "A\\B", permissions: [] });
+    await expect(test.identity.roles.create(owner, { name: "a\\b", permissions: [] })).rejects.toMatchObject({
+      reason: "ROLE_NAME_TAKEN",
+    });
+    await expect(test.identity.roles.create(owner, { name: "sales", permissions: [] })).rejects.toMatchObject({
+      reason: "ROLE_NAME_TAKEN",
+    });
+  });
+
+  it("leaves the permissions of exactly one of two simultaneous replacements", async () => {
+    const racing = await test.identity.roles.create(owner, { name: "Racing", permissions: [] });
+    const setA = [{ permission: "departures:view" }, { permission: "money:view_margin" }] as const;
+    const setB = [{ permission: "leads:create" }, { permission: "roles:manage" }] as const;
+    const results = await Promise.allSettled([
+      test.identity.roles.update(owner, { key: racing.key, permissions: [...setA] }),
+      test.identity.roles.update(owner, { key: racing.key, permissions: [...setB] }),
+    ]);
+    for (const result of results) {
+      if (result.status === "rejected") expect(result.reason).toBeInstanceOf(DomainError);
+    }
+    const final = (await test.identity.roles.list(owner)).find((role) => role.key === racing.key);
+    const finalKeys = final?.permissions.map((grant) => grant.permission).sort();
+    const keysOf = (set: readonly { permission: string }[]) => set.map((grant) => grant.permission).sort();
+    expect([keysOf(setA), keysOf(setB)]).toContainEqual(finalKeys);
+  });
+
+  it("lets one of two simultaneous deletes succeed and reports the other as not found", async () => {
+    const doomed = await test.identity.roles.create(owner, { name: "Doomed", permissions: [] });
+    const results = await Promise.allSettled([
+      test.identity.roles.delete(owner, { key: doomed.key }),
+      test.identity.roles.delete(owner, { key: doomed.key }),
+    ]);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    const [refused] = results.filter((result) => result.status === "rejected");
+    expect(refused?.reason).toMatchObject({ code: "NOT_FOUND", reason: "ROLE_NOT_FOUND" });
+  });
+
+  it("stops a member deleting a role stronger than they hold", async () => {
+    const strong = await test.identity.roles.create(owner, {
+      name: "Strong",
+      permissions: [{ permission: "roles:manage" }],
+    });
+    await expect(test.identity.roles.delete(admin, { key: strong.key })).rejects.toMatchObject({
+      reason: "EXCEEDS_YOUR_PERMISSIONS",
+    });
+  });
+
+  it("stops a member adding a permission or widening a scope they can't grant", async () => {
+    const narrow = await test.identity.roles.create(owner, {
+      name: "Narrow",
+      permissions: [{ permission: "leads:view", scope: "own" }],
+    });
+    const limited = await test.identity.roles.create(owner, {
+      name: "Limited",
+      permissions: [{ permission: "leads:view", scope: "own" }],
+    });
+    const limitedMember = await memberWithRole(limited.key, "limited1");
+    await expect(
+      test.identity.roles.update(limitedMember, {
+        key: narrow.key,
+        permissions: [{ permission: "leads:view", scope: "own" }, { permission: "roles:manage" }],
+      }),
+    ).rejects.toMatchObject({ reason: "EXCEEDS_YOUR_PERMISSIONS" });
+    await expect(
+      test.identity.roles.update(limitedMember, {
+        key: narrow.key,
+        permissions: [{ permission: "leads:view", scope: "all" }],
+      }),
+    ).rejects.toMatchObject({ reason: "EXCEEDS_YOUR_PERMISSIONS" });
+  });
+
+  it("doesn't count removed staff, and lets their role be deleted", async () => {
+    const temps = await test.identity.roles.create(owner, { name: "Temps", permissions: [] });
+    const temp = await memberWithRole(temps.key, "temp1");
+    await test.identity.staff.remove(owner, { memberId: temp.memberId });
+    const listed = (await test.identity.roles.list(owner)).find((role) => role.key === temps.key);
+    expect(listed?.memberCount).toBe(0);
+    await expect(test.identity.roles.delete(owner, { key: temps.key })).resolves.toBeUndefined();
+  });
+
+  it("keeps one organization's roles out of another's reach", async () => {
+    const other = await createTestAgency(test.identity, platform);
+    const otherOwner = await test.identity.resolveAccess(other.ownerUserId, other.organizationId);
+    if (!otherOwner) throw new Error("owner has no access");
+    const mine = await test.identity.roles.create(owner, { name: "Mine only", permissions: [] });
+    const theirNames = (await test.identity.roles.list(otherOwner)).map((role) => role.name);
+    expect(theirNames).not.toContain("Mine only");
+    await expect(test.identity.roles.update(otherOwner, { key: mine.key, name: "Taken" })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+      reason: "ROLE_NOT_FOUND",
+    });
+    await expect(test.identity.roles.delete(otherOwner, { key: mine.key })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+      reason: "ROLE_NOT_FOUND",
+    });
+    const stillMine = (await test.identity.roles.list(owner)).find((role) => role.key === mine.key);
+    expect(stillMine?.name).toBe("Mine only");
   });
 });

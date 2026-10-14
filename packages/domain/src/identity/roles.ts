@@ -30,6 +30,7 @@ export async function listRoles(database: IdentityDatabase, actor: MemberAccess)
   });
 }
 
+/** Creates a role no more powerful than the actor, refusing a name another role has. */
 export async function createRole(
   database: IdentityDatabase,
   actor: MemberAccess,
@@ -47,6 +48,7 @@ export async function createRole(
   );
 }
 
+/** Renames a role or replaces its permissions, within what the actor holds. The Owner role is fixed. */
 export async function updateRole(
   database: IdentityDatabase,
   actor: MemberAccess,
@@ -54,6 +56,7 @@ export async function updateRole(
 ): Promise<RoleSummary> {
   return refusingDuplicateNames(
     database.forOrg(actor.organizationId, async (tx) => {
+      await lockRole(tx, input.key);
       const role = await findRole(tx, input.key);
       assertRoleIsEditable(role);
       // Nobody may edit a role that allows more than they hold, even to take permissions away.
@@ -85,6 +88,7 @@ export async function deleteRole(
   input: DeleteRoleInput,
 ): Promise<void> {
   await database.forOrg(actor.organizationId, async (tx) => {
+    await lockRole(tx, input.key);
     const role = await findRole(tx, input.key);
     assertRoleIsEditable(role);
     assertMayHandleRole(actor, role);
@@ -97,9 +101,9 @@ export async function deleteRole(
 }
 
 /**
- * Two people creating or renaming roles with one name at the same moment can both pass assertNameIsFree(); the
- * database's unique index then refuses the second, which is reported the same way. (So, about once in 16 million, is
- * a clash of a new key's random suffix.)
+ * Maps the role-name unique index's violation (two people creating or renaming roles to one name at the same moment,
+ * both passing assertNameIsFree) to ROLE_NAME_TAKEN, as it does the astronomically rare clash of a new key's random
+ * suffix. Permission replacements can't collide: updateRole holds the role's row lock.
  */
 async function refusingDuplicateNames<T>(work: Promise<T>): Promise<T> {
   try {
@@ -112,10 +116,19 @@ async function refusingDuplicateNames<T>(work: Promise<T>): Promise<T> {
   }
 }
 
+/** Holds the role's row until the transaction ends, so a simultaneous update or delete waits and then sees the result. */
+async function lockRole(tx: IdentityTx, key: string): Promise<void> {
+  await tx.$queryRaw`SELECT id FROM "role" WHERE key = ${key} AND deleted_at IS NULL FOR UPDATE`;
+}
+
 /** Role names are unique within an organization, ignoring case, among roles that are not deleted. */
 async function assertNameIsFree(tx: IdentityTx, name: string, exceptRoleId?: string): Promise<void> {
   const clash = await tx.role.findFirst({
-    where: { name: { equals: name, mode: "insensitive" }, ...(exceptRoleId ? { id: { not: exceptRoleId } } : {}) },
+    // "insensitive" compiles to ILIKE, so escape its pattern characters to compare the name literally.
+    where: {
+      name: { equals: name.replace(/[\\%_]/g, "\\$&"), mode: "insensitive" },
+      ...(exceptRoleId ? { id: { not: exceptRoleId } } : {}),
+    },
   });
   if (clash) throw new DomainError("CONFLICT", "ROLE_NAME_TAKEN", `There is already a role called ${clash.name}`);
 }
