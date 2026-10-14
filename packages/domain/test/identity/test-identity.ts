@@ -14,6 +14,7 @@ export const testAuthSettings: AuthSettings = {
   secureCookies: false,
   rateLimit: false,
   ipAddressHeaders: ["x-forwarded-for"],
+  trustedProxies: [],
 };
 
 /** The identity module, plus direct database access for setting up and checking rows. */

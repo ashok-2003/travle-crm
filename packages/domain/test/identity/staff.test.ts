@@ -323,15 +323,17 @@ describe("staff", () => {
     expect(await canSignInByUsername(agency.code, "kiran", "kiran-temp-pass-1")).toBe(false);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("User not found"));
 
-    // The retired address can be worked out from the user id, so the wiped password and the ban each refuse it.
+    // The retired address can be worked out from the user id. The hook refuses every ".invalid" address, and the wiped
+    // password and the ban would each refuse it too. (A server-side call throws the refusal instead of returning it.)
     const retired = `removed-${kiran.userId}@no-email.invalid`;
-    await expect(signInByEmail(test.identity, retired, "kiran-temp-pass-1")).rejects.toThrow(/Sign-in failed/);
+    const refused = /Invalid email or password/;
+    await expect(signInByEmail(test.identity, retired, "kiran-temp-pass-1")).rejects.toThrow(refused);
     expect(await test.database.client.account.findFirst({ where: { userId: kiran.userId } })).toMatchObject({
       password: null,
     });
     await test.database.client.user.update({ where: { id: kiran.userId }, data: { banned: false } });
     try {
-      await expect(signInByEmail(test.identity, retired, "kiran-temp-pass-1")).rejects.toThrow(/Sign-in failed/);
+      await expect(signInByEmail(test.identity, retired, "kiran-temp-pass-1")).rejects.toThrow(refused);
     } finally {
       await test.database.client.user.update({ where: { id: kiran.userId }, data: { banned: true } });
     }

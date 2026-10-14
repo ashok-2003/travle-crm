@@ -27,6 +27,11 @@ export interface AuthSettings {
   rateLimit: boolean;
   /** Headers the load balancer puts the client's IP address in. Rate limits are counted per IP. */
   ipAddressHeaders: readonly string[];
+  /**
+   * IPs or CIDR ranges of the proxies in front of the api. Better Auth reads the client address from the right of
+   * x-forwarded-for, skipping these. Empty: the header is trusted only when it holds a single address.
+   */
+  trustedProxies: readonly string[];
 }
 
 const DAY = 60 * 60 * 24;
@@ -42,7 +47,10 @@ export function createAuth(client: IdentityClient, settings: AuthSettings) {
       // Prisma makes the ids: uuid v7, from @default(uuid(7)) in the schema.
       database: { generateId: false },
       useSecureCookies: settings.secureCookies,
-      ipAddress: { ipAddressHeaders: [...settings.ipAddressHeaders] },
+      ipAddress: {
+        ipAddressHeaders: [...settings.ipAddressHeaders],
+        trustedProxies: [...settings.trustedProxies],
+      },
       // Better Auth skips its origin check when NODE_ENV is "test" or TEST is set. Pinned on, so tests prove the same
       // protection production gets and a stray environment variable can't switch it off.
       disableOriginCheck: false,
@@ -122,11 +130,27 @@ async function clearMustChangePassword(client: IdentityClient, userId: string): 
  *   and probing which usernames exist;
  * - /admin/* for anyone who isn't platform staff by our definition (Better Auth checks user.role alone), and
  *   making a person with a membership a platform admin;
+ * - Better Auth's organization endpoints over HTTP (members and roles go through our own API);
+ * - signing in by a placeholder ".invalid" email, which staff without an email (or removed staff) carry;
+ * - a cross-site browser request to the username sign-in, as Better Auth already does for email sign-in;
  * - a "password change" to the same password, which would clear must-change-password and keep the temporary one.
  */
 function closeSideDoors(client: IdentityClient) {
   return createAuthMiddleware(async (ctx) => {
     const body = (ctx.body ?? {}) as Record<string, unknown>;
+    // Over HTTP a request is present; server-side auth.api.* calls have none.
+    const overHttp = ctx.request !== undefined;
+    if (overHttp && ctx.path.startsWith("/organization/")) {
+      // The Hono route closes this first. Server-side calls stay possible, so later plans can use the plugin from code.
+      throw new APIError("NOT_FOUND", { code: "NOT_FOUND", message: "Not found" });
+    }
+    if (ctx.path === "/sign-in/username" && ctx.request?.headers.get("sec-fetch-site") === "cross-site") {
+      throw new APIError("FORBIDDEN", { code: "FORBIDDEN", message: "Cross-site sign-in is not allowed" });
+    }
+    if (ctx.path === "/sign-in/email" && typeof body.email === "string" && /\.invalid$/i.test(body.email.trim())) {
+      // Exactly Better Auth's answer to a wrong password, so nothing tells this case apart.
+      throw new APIError("UNAUTHORIZED", { code: "INVALID_EMAIL_OR_PASSWORD", message: "Invalid email or password" });
+    }
     if (ctx.path === "/update-user" && ("username" in body || "displayUsername" in body)) {
       throw new APIError("FORBIDDEN", {
         code: "USERNAME_CHANGES_NOT_ALLOWED",

@@ -2,7 +2,7 @@
 // sign-in name into another organization's namespace, or reach the platform-admin endpoints (ADR 0006).
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { softDeleted } from "@travel-crm/db";
-import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, inject, it, onTestFinished, vi } from "vitest";
 import { createStaffAccount } from "../../src/identity/staff-accounts.js";
 import {
   createTestAgency,
@@ -266,5 +266,61 @@ describe("Better Auth hardening", () => {
     const impersonating = new Headers({ cookie: [...jar.values()].join("; ") });
     expect((await get("/admin/list-users", impersonating)).status).toBe(403);
     expect((await post("/admin/stop-impersonating", impersonating, {})).status).toBe(200);
+  });
+  it("refuses a cross-site browser request to the username sign-in", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    onTestFinished(() => {
+      warn.mockRestore();
+    });
+    const request = (site: string) =>
+      test.identity.auth.handler(
+        new Request("http://localhost/api/auth/sign-in/username", {
+          method: "POST",
+          headers: { "content-type": "application/json", origin: "http://localhost", "sec-fetch-site": site },
+          body: JSON.stringify({ username: "nosuch:nobody", password: "wrong-password-1" }),
+        }),
+      );
+    expect((await request("cross-site")).status).toBe(403);
+    expect((await request("same-origin")).status).toBe(401);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("User not found"));
+  });
+
+  it("closes the organization endpoints over HTTP, but not to server-side calls", async () => {
+    const response = await post("/organization/update-member-role", ownerHeaders, { memberId: "x", role: "x" });
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({ code: "NOT_FOUND" });
+    expect((await get("/organization/list", ownerHeaders)).status).toBe(404);
+    // No request, so no refusal from this hook: later plans may call the organization API from the server.
+    await expect(test.identity.auth.api.listOrganizations({ headers: ownerHeaders })).resolves.toBeDefined();
+  });
+
+  it("never signs in by a placeholder .invalid email, and answers it exactly like a wrong password", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    onTestFinished(() => {
+      warn.mockRestore();
+    });
+    const realHash = async (password: string) => (await test.identity.auth.$context).password.hash(password);
+    const email = `placeholder-${crypto.randomUUID()}@staff.invalid`;
+    await createStaffAccount(test.database, realHash, {
+      organizationId: agency.organizationId,
+      name: "Placeholder",
+      email,
+      roleKey: "sales",
+      password: "placeholder-password-1",
+      mustChangePassword: false,
+    });
+    const attempt = (address: string, password: string) =>
+      post("/sign-in/email", new Headers(), { email: address, password });
+    const wrong = await attempt(agency.ownerEmail, "wrong-password-1");
+    expect(wrong.status).toBe(401);
+    const expected = await wrong.json();
+    expect(expected).toMatchObject({ code: "INVALID_EMAIL_OR_PASSWORD" });
+    // The right password still fails, in any letter case; the answer is the one a wrong password gets.
+    for (const address of [email, email.toUpperCase()]) {
+      const response = await attempt(address, "placeholder-password-1");
+      expect(response.status).toBe(401);
+      expect(await response.json()).toEqual(expected);
+    }
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("Invalid password"));
   });
 });
