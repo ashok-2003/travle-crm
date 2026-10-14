@@ -1,0 +1,14 @@
+/// Per-organization counters behind readable numbers such as BK-2026-0042 (see src/counters.ts).
+/// Organization-owned: row-level security applies (migration calls app_enable_org_rls).
+model OrgCounter {
+  /// Filled from db.forOrg()'s organization when omitted. Copy this line exactly into every organization-owned model.
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  /// Document prefix and year, e.g. "BK-2026".
+  key            String
+  /// The last number handed out.
+  value          Int
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@id([organizationId, key])
+  @@map("org_counter")
+}
