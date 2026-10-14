@@ -24,16 +24,23 @@ export function sfntFromWoff(woff: Uint8Array): Uint8Array {
   }
   const flavor = view.getUint32(4);
   const tableCount = view.getUint16(12);
+  const totalSfntSize = view.getUint32(16);
+  if (tableCount === 0) throw new RangeError("A WOFF font with no tables");
 
   const tables: Table[] = [];
+  let declaredTotal = SFNT_HEADER_SIZE + tableCount * SFNT_TABLE_RECORD_SIZE;
   for (let index = 0; index < tableCount; index++) {
     const entry = WOFF_HEADER_SIZE + index * WOFF_TABLE_ENTRY_SIZE;
+    if (entry + WOFF_TABLE_ENTRY_SIZE > woff.byteLength) throw new RangeError("A truncated WOFF font");
     const offset = view.getUint32(entry + 4);
     const compressedLength = view.getUint32(entry + 8);
     const length = view.getUint32(entry + 12);
+    declaredTotal += paddedToFour(length);
+    if (declaredTotal > totalSfntSize) throw new RangeError("WOFF tables larger than the font's declared size");
+    if (offset + compressedLength > woff.byteLength) throw new RangeError("A truncated WOFF font");
     const stored = woff.subarray(offset, offset + compressedLength);
     // A table is stored as is when compressing it wouldn't make it smaller.
-    const data = compressedLength < length ? new Uint8Array(inflateSync(stored)) : stored;
+    const data = compressedLength < length ? new Uint8Array(inflateSync(stored, { maxOutputLength: length })) : stored;
     if (data.byteLength !== length) throw new RangeError("A WOFF table unpacked to the wrong size");
     tables.push({ tag: view.getUint32(entry), checksum: view.getUint32(entry + 16), data });
   }
