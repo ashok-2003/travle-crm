@@ -1,5 +1,6 @@
-// Roles and the permission catalog (spec 6.5). Any member may see them; changing them needs roles:manage. Role
-// procedures read the session from the database (spec 6.4). The identity module stops anyone granting more than they hold.
+// Roles and the permission catalog (spec 6.5). Any member may see them; changing them needs roles:manage. Listing and
+// changing roles read the session from the database (spec 6.4); the catalog uses the cookie cache. The identity
+// module stops anyone granting more than they hold.
 import {
   createRoleInput,
   deleteRoleInput,

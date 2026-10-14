@@ -5,13 +5,13 @@ The web app imports the `AppRouter` type only.
 
 ## Procedure builders (`src/procedures.ts`)
 
-| Builder                              | Checks (spec 6.5)                                              | Use for                      |
-| ------------------------------------ | -------------------------------------------------------------- | ---------------------------- |
-| `publicProcedure`                    | none                                                           | nothing yet                  |
-| `protectedProcedure`                 | 1, from the 5-minute session cookie                            | `me.get`                     |
-| `orgProcedure`, `.requires("x:y")`   | 1, membership and pending steps read from the database, then 4 | organization data            |
-| `freshProcedure`, `.requires("x:y")` | the same, with the session itself read from the database       | money, roles, exports, staff |
-| `platformProcedure`                  | 1 from the database, user role `admin`, no membership          | the platform console         |
+| Builder                              | Checks (spec 6.5)                                              | Use for                                    |
+| ------------------------------------ | -------------------------------------------------------------- | ------------------------------------------ |
+| `publicProcedure`                    | none                                                           | nothing yet                                |
+| `protectedProcedure`                 | 1, from the 5-minute session cookie                            | `me.get`                                   |
+| `orgProcedure`, `.requires("x:y")`   | 1, membership and pending steps read from the database, then 4 | organization data                          |
+| `freshProcedure`, `.requires("x:y")` | the same, with the session itself read from the database       | money, roles, exports, staff, 2FA settings |
+| `platformProcedure`                  | 1 from the database, user role `admin`, no membership          | the platform console                       |
 
 Checks 2 (organization active) and 3 (module on the plan) arrive in plan 4 inside these builders, so procedures don't
 change. Check 5 (own or all records) is the handler's job, with `scopeFilter()` from `@travel-crm/domain/identity`.

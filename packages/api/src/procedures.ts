@@ -79,7 +79,7 @@ export const orgProcedure = Object.assign(member, {
     }),
 });
 
-/** Like orgProcedure, but the session is read from the database: for money, roles, exports and staff management. */
+/** Like orgProcedure, but the session is read from the database: for money, roles, exports, staff management and two-factor settings. */
 export const freshProcedure = Object.assign(freshMember, {
   requires: (...permissions: RequiredPermissions) =>
     freshMember.use(({ ctx, next }) => {
