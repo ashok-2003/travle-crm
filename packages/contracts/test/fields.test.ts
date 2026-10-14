@@ -59,6 +59,15 @@ describe("identity fields", () => {
     expect(personName.safeParse("रवि कुमार").success).toBe(true);
   });
 
+  it("accepts names in Indian scripts that need zero-width joiners", () => {
+    for (const schema of [personName, roleName]) {
+      expect(schema.safeParse("ക്\u200Dഷ").success).toBe(true);
+      expect(schema.safeParse("क्\u200Dष").success).toBe(true);
+      expect(schema.safeParse("क्\u200Cष").success).toBe(true);
+      expect(schema.safeParse("Priya Sharma").success).toBe(true);
+    }
+  });
+
   it("refuses to show a placeholder email", () => {
     expect(shownEmailAddress.safeParse("ravi@sharma.in").success).toBe(true);
     expect(shownEmailAddress.safeParse("removed-0199@no-email.invalid").success).toBe(false);

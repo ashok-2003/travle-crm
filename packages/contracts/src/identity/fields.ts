@@ -34,8 +34,11 @@ export const shownEmailAddress = z
   .pipe(z.email())
   .refine((email) => !email.toLowerCase().endsWith(".invalid"), "Placeholder email shown");
 
-/** Control and format characters (zero-width spaces, bidi overrides) make names invisible or misleading. */
-const hasNoHiddenCharacters = (text: string) => !/\p{C}/u.test(text);
+/**
+ * Names may hold zero-width joiners (Indian scripts need them) but no control characters, no bidi overrides that
+ * reorder the text around them, and must show at least one letter or digit, so an invisible name fails.
+ */
+const isVisibleName = (text: string) => !/[\p{Cc}\u202A-\u202E\u2066-\u2069]/u.test(text) && /[\p{L}\p{N}]/u.test(text);
 
 /** A person's name as shown in the app. */
 export const personName = z
@@ -43,7 +46,7 @@ export const personName = z
   .trim()
   .min(1)
   .max(100)
-  .refine(hasNoHiddenCharacters, "Use visible characters only");
+  .refine(isVisibleName, "Use a visible name without control characters");
 
 /** A password typed at sign-in or as the current password. Better Auth checks it; only its length is limited here. */
 export const passwordAttempt = z.string().min(1).max(128);
@@ -55,7 +58,12 @@ export const newPassword = z.string().min(10, "Use at least 10 characters").max(
 export const roleKey = z.string().regex(/^[a-z][a-z0-9-]{1,47}$/);
 
 /** A role's display name, e.g. "Senior sales". */
-export const roleName = z.string().trim().min(1).max(40).refine(hasNoHiddenCharacters, "Use visible characters only");
+export const roleName = z
+  .string()
+  .trim()
+  .min(1)
+  .max(40)
+  .refine(isVisibleName, "Use a visible name without control characters");
 
 /** The id of a row, a UUID v7. */
 export const recordId = z.uuid();
