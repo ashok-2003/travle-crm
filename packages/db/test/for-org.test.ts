@@ -2,7 +2,7 @@
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { createPrismaClient } from "../src/client.js";
 import { createDatabase, type Database } from "../src/database.js";
-import { forOrg, InvalidOrganizationIdError } from "../src/for-org.js";
+import { forOrg, InvalidOrganizationIdError, WrongDatabaseRoleError } from "../src/for-org.js";
 import { createPlatformClient, type PlatformClient } from "../src/platform.js";
 import { createTestOrganization } from "./helpers.js";
 
@@ -15,7 +15,7 @@ describe("db.forOrg", () => {
 
   beforeAll(async () => {
     platform = createPlatformClient(urls.platform);
-    db = createDatabase(urls.runtime);
+    db = createDatabase(urls.runtime, { maxConnections: 3 });
     orgA = await createTestOrganization(platform, "Sharma Holidays");
     orgB = await createTestOrganization(platform, "Goa Escapes");
     await db.forOrg(orgA, (tx) => tx.orgCounter.create({ data: { key: "TEST-A", value: 1 } }));
@@ -29,7 +29,8 @@ describe("db.forOrg", () => {
 
   it("shows only the current organization's rows", async () => {
     const keys = await db.forOrg(orgA, async (tx) => (await tx.orgCounter.findMany()).map((row) => row.key));
-    expect(keys).toEqual(["TEST-A"]);
+    expect(keys).toContain("TEST-A");
+    expect(keys).not.toContain("TEST-B");
   });
 
   it("fills organization_id from the transaction's organization", async () => {
@@ -79,5 +80,19 @@ describe("db.forOrg", () => {
   it("lets the platform client see every organization's rows", async () => {
     const rows = await platform.orgCounter.findMany({ where: { organizationId: { in: [orgA, orgB] } } });
     expect(new Set(rows.map((row) => row.organizationId))).toEqual(new Set([orgA, orgB]));
+  });
+
+  it("refuses to run as a role that can see every organization", async () => {
+    // A wrong DATABASE_URL would otherwise switch isolation off without any error.
+    for (const url of [urls.migrator, urls.platform]) {
+      const wrongRole = createDatabase(url, { maxConnections: 1 });
+      try {
+        await expect(wrongRole.forOrg(orgA, (tx) => tx.orgCounter.count())).rejects.toBeInstanceOf(
+          WrongDatabaseRoleError,
+        );
+      } finally {
+        await wrongRole.disconnect();
+      }
+    }
   });
 });

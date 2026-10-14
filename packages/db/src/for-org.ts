@@ -14,13 +14,29 @@ export class InvalidOrganizationIdError extends Error {
   }
 }
 
+/** Thrown when the connection is not the app_runtime role: other roles see every organization's rows. */
+export class WrongDatabaseRoleError extends Error {
+  constructor(role: string | undefined) {
+    super(
+      `forOrg() is connected to the database as ${JSON.stringify(role)}, but isolation only holds for app_runtime. ` +
+        "DATABASE_URL must connect as the app_runtime role (not app_migrator, app_platform or an admin user).",
+    );
+    this.name = "WrongDatabaseRoleError";
+  }
+}
+
 export async function forOrg<T>(client: PrismaClient, orgId: string, fn: (tx: OrgTx) => Promise<T>): Promise<T> {
   if (!UUID_PATTERN.test(orgId)) {
     throw new InvalidOrganizationIdError(orgId);
   }
   return client.$transaction(async (tx) => {
-    // is_local = true: the setting ends with this transaction, so a pooled connection never carries it over.
-    await tx.$executeRaw`SELECT set_config('app.org_id', ${orgId}, true)`;
+    // One round trip checks who we are and sets the organization. is_local = true: the setting ends with this
+    // transaction, so a pooled connection never carries it over.
+    const [session] = await tx.$queryRaw<{ role: string }[]>`
+      SELECT current_user AS role, set_config('app.org_id', ${orgId}, true)`;
+    if (session?.role !== "app_runtime") {
+      throw new WrongDatabaseRoleError(session?.role);
+    }
     return fn(tx);
   });
 }
