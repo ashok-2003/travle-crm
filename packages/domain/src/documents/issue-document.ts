@@ -1,5 +1,6 @@
-// Issues a document (spec 9.3): gives it the organization's next number, freezes its content and branding, and
-// publishes document.issued so the worker renders its PDF. Runs in the caller's transaction.
+// Issues a document (spec 9.3): gives it the organization's next number, freezes its content and branding,
+// publishes document.issued so the worker renders its PDF, and records it in the audit log. Runs in the caller's
+// transaction.
 import {
   issueDocumentInput,
   type IssueDocumentInput,
@@ -8,6 +9,7 @@ import {
 } from "@travel-crm/contracts/documents";
 import { nextDocumentNumber, type OrgTx } from "@travel-crm/db";
 import { characterLabel, unprintableCharactersIn } from "@travel-crm/integrations/pdf";
+import { recordAudit } from "../audit/index.js";
 import { organizationTimeZone } from "../identity/index.js";
 import { publishEvent } from "../jobs/index.js";
 import { DomainError, type Actor } from "../kernel/index.js";
@@ -81,5 +83,12 @@ export async function issueDocument(
     select: summaryFields,
   });
   await publishEvent(tx, { type: "document.issued", payload: { documentId: row.id } });
+  // The id and the number only: the content is the customer's, and the document itself keeps it.
+  await recordAudit(tx, actor, {
+    action: "document.issued",
+    entityType: "issued_document",
+    entityId: row.id,
+    after: { number },
+  });
   return toSummary(row);
 }

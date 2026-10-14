@@ -8,8 +8,9 @@ quotes and invoices bring theirs.
 - `issueDocument(tx, actor, { template, content, branding, prefix? }, now?)`: in the caller's transaction, checks the
   input against the contract (`VALIDATION`/`INVALID_DOCUMENT`), numbers the document (`DOC-2026-0001`, or the caller's
   prefix; the year counted in the organization's own time zone, read from the organization), freezes the checked,
-  trimmed content and branding with that number and the printed date, and publishes `document.issued`. `now` is the one issue time: it
-  is the document's `issued_at` and gives the printed date. Refuses text the PDF fonts can't show
+  trimmed content and branding with that number and the printed date, publishes `document.issued`, and records
+  `document.issued` in the audit log (the document's id and number, never its content). `now` is the one issue time:
+  it is the document's `issued_at` and gives the printed date. Refuses text the PDF fonts can't show
   (`VALIDATION`/`UNPRINTABLE_CHARACTERS`) before using a number. Callers check the actor may issue it.
 - `getIssuedDocument(tx, { documentId })`: the document's summary, with `pdfAttachmentId` (null until rendered) and
   `renderFailed`.

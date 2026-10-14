@@ -1,5 +1,5 @@
-// Issuing a document numbers it in its organization and year, freezes what it says, and publishes document.issued,
-// all in the caller's transaction.
+// Issuing a document numbers it in its organization and year, freezes what it says, publishes document.issued and
+// records it in the audit log, all in the caller's transaction.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { getIssuedDocument, issueDocument } from "../../src/documents/index.js";
 import { DomainError, systemActor, type Actor } from "../../src/kernel/index.js";
@@ -55,6 +55,23 @@ describe("issueDocument", () => {
     expect(events.map((event) => event.payload)).toEqual([{ documentId: first.id }, { documentId: second.id }]);
   });
 
+  it("records document.issued in the audit log: who issued it, its id and number, none of its content", async () => {
+    const issued = await test.db.forOrg(organizationId, (tx) => issueDocument(tx, owner, { ...quotation }, october15));
+    const entries = await test.db.forOrg(organizationId, (tx) =>
+      tx.auditEntry.findMany({ where: { entityType: "issued_document", entityId: issued.id } }),
+    );
+    expect(entries).toEqual([
+      expect.objectContaining({
+        action: "document.issued",
+        actorUserId: owner.userId,
+        source: "web",
+        impersonatedBy: null,
+        before: null,
+        after: { number: issued.number },
+      }),
+    ]);
+  });
+
   it("counts the year and the date in the organization's time zone", async () => {
     const lateOnNewYearsEve = new Date("2026-12-31T19:00:00Z");
     const india = await createOrganization(test);
@@ -78,7 +95,7 @@ describe("issueDocument", () => {
     expect(stored.renderInput).toMatchObject({ data: { issuedOn: "31 Dec 2026" } });
   });
 
-  it("issues nothing, and publishes nothing, when the caller's transaction rolls back", async () => {
+  it("issues, publishes and records nothing when the caller's transaction rolls back", async () => {
     const organization = await createOrganization(test);
     await expect(
       test.db.forOrg(organization, async (tx) => {
@@ -89,8 +106,9 @@ describe("issueDocument", () => {
     const left = await test.db.forOrg(organization, async (tx) => ({
       documents: await tx.issuedDocument.count(),
       events: await tx.outboxEvent.count(),
+      auditEntries: await tx.auditEntry.count(),
     }));
-    expect(left).toEqual({ documents: 0, events: 0 });
+    expect(left).toEqual({ documents: 0, events: 0, auditEntries: 0 });
     // The number the rolled-back document took came back with it.
     const again = await test.db.forOrg(organization, (tx) =>
       issueDocument(tx, systemActor(organization), { ...quotation }, october15),
