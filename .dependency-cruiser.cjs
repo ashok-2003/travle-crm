@@ -11,6 +11,18 @@ module.exports = {
       to: { path: "^packages/db/src/", pathNot: "^packages/db/src/(index|platform)\\.ts$" },
     },
     {
+      name: "raw-database-drivers-stay-in-db",
+      comment:
+        "Only packages/db may import the database drivers (pg, @prisma/client, @prisma/adapter-pg). " +
+        "Everything else goes through db.forOrg(), so row-level security cannot be skipped.",
+      severity: "error",
+      from: { pathNot: "^packages/db/" },
+      to: {
+        dependencyTypes: ["npm", "npm-dev", "npm-peer", "npm-optional"],
+        path: "(^|/)node_modules/(pg|@prisma/client|@prisma/adapter-pg)(/|$)",
+      },
+    },
+    {
       name: "no-circular",
       severity: "error",
       comment:
@@ -192,11 +204,13 @@ module.exports = {
     // Which modules not to follow further when encountered
     doNotFollow: {
       // path: an array of regular expressions in strings to match against
-      path: ["node_modules"],
+      // Generated code is not followed (its internals are noise) but stays in the graph, so rules can see
+      // imports of it. Listing it under `exclude` instead would hide those imports from every rule.
+      path: ["node_modules", "(^|/)src/generated/"],
     },
 
     // Which modules to exclude
-    exclude: { path: "(^|/)src/generated/|(^|/)\\.next/|next-env\\.d\\.ts$" },
+    exclude: { path: "(^|/)\\.next/|next-env\\.d\\.ts$" },
 
     // Which modules to exclusively include (array of regular expressions in strings)
     // dependency-cruiser will skip everything that doesn't match this pattern

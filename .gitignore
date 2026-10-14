@@ -11,3 +11,4 @@ next-env.d.ts
 !.env.example
 **/src/generated/
 .DS_Store
+.claude-flow/
