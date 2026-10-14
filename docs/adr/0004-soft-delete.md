@@ -43,9 +43,9 @@ Date: 2026-10-14 · Status: accepted · Implements spec section 5
     `signInRelations`, today only `organization`) at any depth of `include`, `select`, `where`, `data` or `orderBy` on
     organization-owned models. It follows relations through Prisma's description of the models, so it skips the values
     of Json fields, where an `organization` key is data (except a Json field named like one of Prisma's arguments,
-    such as `data`, which is walked so it can't hide a nested write). Any new relation from an organization table to a sign-in model
-    must be added to `signInRelations`; `sign-in-relations.test.ts` reads the schema and fails until it is. Queries
-    rooted at sign-in models, used by the identity module, are unrestricted.
+    such as `data`, which is walked so it can't hide a nested write). Any new relation from an organization table to
+    a sign-in model must be added to `signInRelations`; `sign-in-relations.test.ts` reads the schema and fails until
+    it is. Queries rooted at sign-in models, used by the identity module, are unrestricted.
   - ESLint flags a tagged `$queryRaw`/`$executeRaw` that names a sign-in table outside the identity module, because
     `OrgTx` keeps the raw-SQL methods.
 - **The identity client checks its role once.** The first query, raw or model, verifies `current_user` is
