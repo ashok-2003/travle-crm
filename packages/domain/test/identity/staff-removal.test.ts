@@ -1,0 +1,174 @@
+// Removing staff against Postgres (spec 6.3, ADR 0007): the person loses access and sign-in at once, their email and
+// username are released, and an organization always keeps an Owner.
+import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
+import { afterAll, beforeAll, describe, expect, inject, it, onTestFinished, vi } from "vitest";
+import type { MemberAccess } from "../../src/identity/member-access.js";
+import {
+  createTestAgency,
+  createTestIdentity,
+  signInByEmail,
+  type TestAgency,
+  type TestIdentity,
+} from "./test-identity.js";
+
+describe("removing staff", () => {
+  let platform: PlatformClient;
+  let test: TestIdentity;
+  let agency: TestAgency;
+  let owner: MemberAccess;
+
+  async function accessOf(userId: string, organizationId = agency.organizationId): Promise<MemberAccess> {
+    const access = await test.identity.resolveAccess(userId, organizationId);
+    if (!access) throw new Error("no access");
+    return access;
+  }
+
+  /** Signs in with organization code and username through Better Auth; true when it succeeds. */
+  async function canSignInByUsername(code: string, username: string, password: string): Promise<boolean> {
+    const response = await test.identity.auth.api.signInUsername({
+      body: { username: `${code}:${username}`.toLowerCase(), password },
+      asResponse: true,
+    });
+    return response.ok;
+  }
+
+  beforeAll(async () => {
+    platform = createPlatformClient(inject("dbUrls").platform);
+    test = createTestIdentity();
+    agency = await createTestAgency(test.identity, platform);
+    owner = await accessOf(agency.ownerUserId);
+  });
+
+  afterAll(async () => {
+    await test.close();
+    await platform.$disconnect();
+  });
+
+  it("treats a member of another organization as not found", async () => {
+    const other = await createTestAgency(test.identity, platform);
+    await expect(test.identity.staff.remove(owner, { memberId: other.ownerMemberId })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+      reason: "MEMBER_NOT_FOUND",
+    });
+  });
+
+  it("keeps an Owner when two Owners remove each other at the same moment", async () => {
+    const own = await createTestAgency(test.identity, platform);
+    const first = await accessOf(own.ownerUserId, own.organizationId);
+    const created = await test.identity.staff.create(first, {
+      name: "Second Owner",
+      username: "owner2",
+      roleKey: "org-owner",
+      temporaryPassword: "temporary-pass-11",
+    });
+    const second = await accessOf(created.userId, own.organizationId);
+    const results = await Promise.allSettled([
+      test.identity.staff.remove(first, { memberId: second.memberId }),
+      test.identity.staff.remove(second, { memberId: first.memberId }),
+    ]);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    // The loser finds it is no longer an Owner once the winner commits; a deadlock or timeout would not match.
+    expect(results.find((result) => result.status === "rejected")).toMatchObject({
+      reason: expect.objectContaining({ code: "FORBIDDEN", reason: "OWNER_ONLY" }) as unknown,
+    });
+    const owners = await test.database.client.member.count({
+      where: { organizationId: own.organizationId, role: "org-owner", deletedAt: null },
+    });
+    expect(owners).toBe(1);
+  });
+
+  it("removes a person: no access, no sign-in, and their email and username are free again", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    onTestFinished(() => {
+      warn.mockRestore();
+    });
+    const email = `kiran-${agency.code.toLowerCase()}@example.test`;
+    const kiran = await test.identity.staff.create(owner, {
+      name: "Kiran",
+      email,
+      username: "kiran",
+      roleKey: "sales",
+      temporaryPassword: "kiran-temp-pass-1",
+    });
+    await signInByEmail(test.identity, email, "kiran-temp-pass-1");
+    await test.identity.staff.remove(owner, { memberId: kiran.memberId });
+
+    expect(await test.identity.resolveAccess(kiran.userId, agency.organizationId)).toBeNull();
+    expect(await test.database.client.session.count({ where: { userId: kiran.userId } })).toBe(0);
+    await expect(signInByEmail(test.identity, email, "kiran-temp-pass-1")).rejects.toThrow(/Sign-in failed/);
+    expect(await canSignInByUsername(agency.code, "kiran", "kiran-temp-pass-1")).toBe(false);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("User not found"));
+
+    expect(await test.database.client.user.findUnique({ where: { id: kiran.userId } })).toMatchObject({
+      formerEmail: email,
+      banned: true,
+      banReason: "Removed from their organization",
+    });
+    expect(await test.database.client.account.findFirst({ where: { userId: kiran.userId } })).toMatchObject({
+      password: null,
+    });
+
+    // The retired address can be worked out from the user id. The hook refuses every ".invalid" address, and the wiped
+    // password and the ban each refuse it too. (A server-side call throws the refusal instead of returning it.)
+    const retired = `removed-${kiran.userId}@no-email.invalid`;
+    await expect(signInByEmail(test.identity, retired, "kiran-temp-pass-1")).rejects.toThrow(
+      /Invalid email or password/,
+    );
+
+    // Simulate a retired address that somehow became reachable, and test each remaining lock on its own.
+    const reachable = `retired-${kiran.userId}@example.com`;
+    await test.database.client.user.update({ where: { id: kiran.userId }, data: { email: reachable } });
+    const attempt = (password: string) =>
+      test.identity.auth.api.signInEmail({ body: { email: reachable, password }, asResponse: true });
+
+    // The wipe alone: not banned, no password to check.
+    await test.database.client.user.update({ where: { id: kiran.userId }, data: { banned: false } });
+    try {
+      expect((await attempt("kiran-temp-pass-1")).ok).toBe(false);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining("Password not found"));
+    } finally {
+      await test.database.client.user.update({ where: { id: kiran.userId }, data: { banned: true } });
+    }
+
+    // The ban alone: a real password is back, and only the ban refuses.
+    const context = await test.identity.auth.$context;
+    await test.database.client.account.updateMany({
+      where: { userId: kiran.userId, providerId: "credential" },
+      data: { password: await context.password.hash("kiran-temp-pass-1") },
+    });
+    try {
+      const banned = await attempt("kiran-temp-pass-1");
+      expect(banned.status).toBe(403);
+      expect(await banned.json()).toMatchObject({ code: "BANNED_USER" });
+    } finally {
+      await test.database.client.account.updateMany({
+        where: { userId: kiran.userId, providerId: "credential" },
+        data: { password: null },
+      });
+      await test.database.client.user.update({ where: { id: kiran.userId }, data: { email: retired } });
+    }
+    expect((await test.identity.staff.list(owner)).some((member) => member.memberId === kiran.memberId)).toBe(false);
+
+    const other = await createTestAgency(test.identity, platform);
+    const otherOwner = await accessOf(other.ownerUserId, other.organizationId);
+    await expect(
+      test.identity.staff.create(otherOwner, {
+        name: "Kiran",
+        email,
+        roleKey: "sales",
+        temporaryPassword: "kiran-temp-pass-2",
+      }),
+    ).resolves.toMatchObject({ email });
+    await expect(
+      test.identity.staff.create(owner, {
+        name: "Kiran Two",
+        username: "kiran",
+        roleKey: "sales",
+        temporaryPassword: "kiran-temp-pass-3",
+      }),
+    ).resolves.toMatchObject({ username: "kiran" });
+    await expect(test.identity.staff.remove(owner, { memberId: kiran.memberId })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+});
