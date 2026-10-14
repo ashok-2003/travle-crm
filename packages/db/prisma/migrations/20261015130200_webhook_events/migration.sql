@@ -29,3 +29,8 @@ ALTER TABLE "webhook_event"
   ADD CONSTRAINT webhook_event_event_type_length CHECK (char_length(event_type) BETWEEN 1 AND 255),
   ADD CONSTRAINT webhook_event_headers_object CHECK (jsonb_typeof(headers) = 'object'),
   ADD CONSTRAINT webhook_event_attempts_not_negative CHECK (attempts >= 0);
+
+-- Payloads are kept exactly as delivered: the runtime role may only record processing (processed_at, attempts,
+-- last_error), never change a payload or delete an event.
+REVOKE UPDATE, DELETE ON TABLE "webhook_event" FROM app_runtime;
+GRANT UPDATE (processed_at, attempts, last_error) ON TABLE "webhook_event" TO app_runtime;

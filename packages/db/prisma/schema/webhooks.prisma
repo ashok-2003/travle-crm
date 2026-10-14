@@ -1,6 +1,7 @@
 // The webhook intake (spec 9.7): every delivery a provider sends, stored raw before anything else happens.
 // No organization_id: the organization is unknown until the provider's handler reads the payload, so this table is
-// outside row-level security. Only the webhooks module reads it, through db.withoutOrg().
+// outside row-level security. Only the webhooks module is meant to read it, through db.withoutOrg(). That is NOT yet
+// enforced: every forOrg() transaction can still reach this model. The Integration task (I1) hides it from OrgTx.
 
 /// One event from a provider, kept exactly as delivered. A repeated delivery of the same event is not stored again.
 model WebhookEvent {
@@ -18,6 +19,7 @@ model WebhookEvent {
   processedAt     DateTime? @map("processed_at") @db.Timestamptz(6)
   /// Processing attempts so far, failed ones included.
   attempts        Int       @default(0)
+  /// The error's name or code only, at most 100 characters: never its message, which may quote the payload.
   lastError       String?   @map("last_error")
 
   @@unique([provider, providerEventId])
