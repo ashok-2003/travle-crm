@@ -15,6 +15,7 @@ import type { MemberAccess } from "./member-access.js";
 import { findRole } from "./role-lookup.js";
 import { isPlaceholderEmail, removedPersonEmail, shownEmail } from "./sign-in-names.js";
 import { createStaffAccount, type PasswordHasher } from "./staff-accounts.js";
+import { changeMember, lockMember, lockOwners } from "./staff-locks.js";
 
 /** The organization's active staff, oldest first. Placeholder emails are never shown. */
 export async function listStaff(database: IdentityDatabase, actor: MemberAccess): Promise<StaffMember[]> {
@@ -93,7 +94,11 @@ export async function resetStaffPassword(
   const passwordHash = await hashPassword(input.temporaryPassword);
   await database.forOrg(actor.organizationId, async (tx) => {
     const target = await findMember(tx, actor, input.memberId);
-    assertMayManageMember(actor, { userId: target.userId, role: await findRole(tx, target.role) });
+    const targetRole = await findRole(tx, target.role);
+    assertMayManageMember(actor, { userId: target.userId, role: targetRole });
+    // Locked in the same order as the other staff changes, so a promotion or removal landing now can't slip past.
+    if (targetRole.isOwner) await lockOwners(tx, actor, target.id, targetRole.key);
+    await lockMember(tx, target);
     const { count } = await tx.account.updateMany({
       where: { userId: target.userId, providerId: "credential" },
       data: { password: passwordHash },
@@ -137,49 +142,6 @@ export async function removeStaff(
     await tx.account.updateMany({ where: { userId: user.id, providerId: "credential" }, data: { password: null } });
     await tx.session.deleteMany({ where: { userId: user.id } });
   });
-}
-
-/**
- * Locks the organization's active Owners (in id order, so two changes can't deadlock) before one of them is removed or
- * demoted. If the actor was removed or demoted in the meantime they can no longer do this, and an Owner must remain.
- * The member table has no row-level security, so the organization is filtered here.
- */
-async function lockOwners(
-  tx: IdentityTx,
-  actor: MemberAccess,
-  targetMemberId: string,
-  ownerKey: string,
-): Promise<void> {
-  const owners = await tx.$queryRaw<{ id: string; user_id: string }[]>`
-    SELECT id, user_id FROM member
-    WHERE organization_id = ${actor.organizationId}::uuid AND role = ${ownerKey} AND deleted_at IS NULL
-    ORDER BY id FOR UPDATE`;
-  if (!owners.some((owner) => owner.user_id === actor.userId)) {
-    throw new DomainError("FORBIDDEN", "OWNER_ONLY", "Only an Owner can change an Owner");
-  }
-  if (!owners.some((owner) => owner.id === targetMemberId)) {
-    throw staffChanged();
-  }
-  if (owners.every((owner) => owner.id === targetMemberId)) {
-    throw new DomainError("CONFLICT", "LAST_OWNER", "The organization must keep an Owner");
-  }
-}
-
-/**
- * Writes only if the member still has the role the checks were made against, so a promotion that landed after they
- * were read can't be overwritten by someone with less access than the new role.
- */
-async function changeMember(
-  tx: IdentityTx,
-  target: { id: string; role: string },
-  data: { role: string } | ReturnType<typeof softDeleted>,
-): Promise<void> {
-  const { count } = await tx.member.updateMany({ where: { id: target.id, role: target.role, deletedAt: null }, data });
-  if (count !== 1) throw staffChanged();
-}
-
-function staffChanged(): DomainError {
-  return new DomainError("CONFLICT", "STAFF_CHANGED", "This person was changed by someone else. Reload and try again.");
 }
 
 /** An active member of the actor's organization. Members of other organizations are "not found". */

@@ -28,8 +28,11 @@ A person who joins again, here or in another organization, gets a new user row.
   user at an ordinary address and check the wipe and the ban each on its own, with the other undone.
 - **Owners can't strand an organization.** Removing or demoting an Owner locks the organization's active Owner rows in
   id order, checks the actor is still one of them, and refuses `LAST_OWNER` if none would remain. Two Owners removing
-  each other at once therefore leave exactly one. Every change to a member is also conditional on the role that was
-  checked (`STAFF_CHANGED` otherwise), so a promotion that lands meanwhile is never overwritten.
+  each other at once therefore leave exactly one. Every staff change (role, removal, password reset) is conditional on
+  the role that was checked and on the member not being removed (`STAFF_CHANGED` otherwise), so a promotion or a
+  removal that lands meanwhile is never overwritten. Role changes and removals write the member row only where it
+  still matches; a password reset, which writes elsewhere, first locks the member row on the same condition
+  (`staff-locks.ts`). All of them lock the Owners first when the target is one, in the same order.
 - **It takes effect at once.** Sessions are deleted; `orgProcedure` reads the membership on every request, so the next
   request is refused even while the 5-minute session cookie is still cached.
 - Rejected alternatives: deleting the user (breaks history and cascades), and Better Auth's `removeMember` and

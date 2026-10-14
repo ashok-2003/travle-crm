@@ -52,6 +52,34 @@ describe("removing staff", () => {
     });
   });
 
+  it("leaves the person exactly as they were when their removal is refused", async () => {
+    const email = `self-${agency.code.toLowerCase()}@example.test`;
+    const created = await test.identity.staff.create(owner, {
+      name: "Sam",
+      email,
+      username: "sam",
+      roleKey: "org-admin",
+      temporaryPassword: "sam-temp-pass-1",
+    });
+    await signInByEmail(test.identity, email, "sam-temp-pass-1");
+    const stateOf = async () => ({
+      user: await test.database.client.user.findUniqueOrThrow({
+        where: { id: created.userId },
+        select: { email: true, username: true, formerEmail: true, banned: true, banReason: true },
+      }),
+      password: (await test.database.client.account.findFirstOrThrow({ where: { userId: created.userId } })).password,
+      sessions: await test.database.client.session.count({ where: { userId: created.userId } }),
+      member: await test.database.client.member.findUnique({ where: { id: created.memberId } }),
+    });
+    const before = await stateOf();
+    expect(before).toMatchObject({ user: { email, username: expect.stringMatching(/:sam$/) as unknown }, sessions: 1 });
+    // The only refusal a removal can reach on its own: LAST_OWNER needs an Owner removing themselves, refused first.
+    await expect(
+      test.identity.staff.remove(await accessOf(created.userId), { memberId: created.memberId }),
+    ).rejects.toMatchObject({ reason: "CANNOT_CHANGE_YOURSELF" });
+    expect(await stateOf()).toEqual(before);
+  });
+
   it("keeps an Owner when two Owners remove each other at the same moment", async () => {
     const own = await createTestAgency(test.identity, platform);
     const first = await accessOf(own.ownerUserId, own.organizationId);

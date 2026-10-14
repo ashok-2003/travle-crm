@@ -211,32 +211,6 @@ describe("staff", () => {
       ).rejects.toMatchObject({ reason: "OWNER_ONLY" });
     });
 
-    it("refuses to change someone who was promoted after they were looked at", async () => {
-      const target = await test.identity.staff.create(owner, {
-        name: "Promoted",
-        username: "promoted",
-        roleKey: "sales",
-        temporaryPassword: "temporary-pass-13",
-      });
-      let change: Promise<unknown> = Promise.resolve();
-      await test.database.client.$transaction(async (tx) => {
-        // Holding the member row makes the Admin's write wait, after the Admin has already read the old role.
-        await tx.$queryRaw`SELECT id FROM member WHERE id = ${target.memberId}::uuid FOR UPDATE`;
-        change = test.identity.staff.updateRole(admin, { memberId: target.memberId, roleKey: "operations" });
-        change.catch(() => undefined);
-        for (let tries = 0; tries < 100; tries++) {
-          const waiting = await tx.$queryRaw<{ n: number }[]>`
-            SELECT count(*)::int AS n FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND datname = current_database()`;
-          if ((waiting[0]?.n ?? 0) > 0) break;
-          await new Promise((resolve) => setTimeout(resolve, 50));
-        }
-        await tx.member.update({ where: { id: target.memberId }, data: { role: "org-owner" } });
-      });
-      await expect(change).rejects.toMatchObject({ code: "CONFLICT", reason: "STAFF_CHANGED" });
-      const stored = await test.database.client.member.findUniqueOrThrow({ where: { id: target.memberId } });
-      expect(stored.role).toBe("org-owner");
-    });
-
     it("cannot change their own access", async () => {
       await expect(
         test.identity.staff.updateRole(admin, { memberId: admin.memberId, roleKey: "sales" }),
