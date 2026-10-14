@@ -154,6 +154,14 @@ describe("Better Auth hardening", () => {
       await post("/admin/update-user", headers, { userId: staff.userId, data: { role: "admin" } }),
       staff.userId,
     );
+    await expectRefusedAndUnchanged(
+      await post("/admin/set-role", headers, { userId: staff.userId, role: ["admin,user"] }),
+      staff.userId,
+    );
+    await expectRefusedAndUnchanged(
+      await post("/admin/update-user", headers, { userId: staff.userId, data: { role: "admin,user" } }),
+      staff.userId,
+    );
   });
 
   it("still lets a platform admin set a role on a person who has never been a member", async () => {

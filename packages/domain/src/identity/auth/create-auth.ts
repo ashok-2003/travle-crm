@@ -185,13 +185,13 @@ async function makesMemberPlatformAdmin(
   if (path === "/admin/set-role") requested = body.role;
   else if (path === "/admin/update-user") requested = (body.data as { role?: unknown } | null | undefined)?.role;
   else return false;
-  const roles = typeof requested === "string" ? requested.split(",").map((role) => role.trim()) : [requested].flat();
+  const roles = (coercedId(requested) ?? "").split(",").map((role) => role.trim());
   const userId = coercedId(body.userId);
   if (!roles.includes("admin") || userId === null) return false;
   return hasEverBeenMember(client, userId);
 }
 
-/** The id the way Better Auth's z.coerce.string() reads it: arrays become their elements joined by commas. */
+/** An id or role the way Better Auth reads it: arrays become their elements joined by commas. Used for both. */
 function coercedId(value: unknown): string | null {
   if (typeof value === "string") return value;
   if (typeof value === "number") return value.toString();
