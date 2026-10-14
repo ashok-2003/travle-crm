@@ -38,8 +38,9 @@ Date: 2026-10-14 · Status: accepted · Implements spec sections 6.1 to 6.4
   platform staff (Better Auth checks `user.role` alone) and refuses to make a member a platform admin. Better Auth's server-side
   `auth.api.*` calls also run this hook, so a server-side admin call needs a platform admin's request headers; the
   platform console in plan 4 calls with the signed-in admin's session.
-- **Hardening:** origin and CSRF checks pinned on; `/api/auth/organization/*` closed; trusted origins, secure cookies
-  and the client-IP header come from the environment; production requires HTTPS and rate limiting.
+- **Hardening:** origin and CSRF checks pinned on; `/api/auth/organization/*` closed; request bodies on `/api/auth/*`
+  and `/api/trpc/*` capped at 64 KB (413); trusted origins, secure cookies and the client-IP header come from the
+  environment; production requires HTTPS and rate limiting.
 
 ## Context
 

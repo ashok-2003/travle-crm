@@ -123,6 +123,15 @@ describe("sign-in", () => {
     expect(response.status).toBe(413);
   });
 
+  it("refuses a body over 64 KB on Better Auth's own endpoints with 413", async () => {
+    const response = await postJson(server, "/api/auth/sign-in/email", {
+      email: agency.owner.email,
+      password: "x".repeat(70_000),
+    });
+    expect(response.status).toBe(413);
+    expect(await response.json()).toEqual({ code: "PAYLOAD_TOO_LARGE", message: "Request is too large" });
+  });
+
   describe("login CSRF on the organization sign-in", () => {
     const credentials = () => ({ orgCode: agency.code, username: "ravi", password: "ravi-password-1" });
     const post = (headers: Record<string, string>, body: string) =>

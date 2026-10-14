@@ -11,6 +11,17 @@ export interface ServerDependencies {
   identity: Identity;
 }
 
+/** No sign-in or tRPC call needs a bigger body; the cap stops a client making the server read a huge one. */
+const BODY_LIMIT = 64 * 1024;
+
+/** Answers 413 as soon as a body passes maxSize bytes, before anything parses it. */
+function limitBody(maxSize: number) {
+  return bodyLimit({
+    maxSize,
+    onError: (c) => c.json({ code: "PAYLOAD_TOO_LARGE", message: "Request is too large" }, 413),
+  });
+}
+
 export function createApp({ identity }: ServerDependencies): Hono {
   const app = new Hono();
 
@@ -20,18 +31,15 @@ export function createApp({ identity }: ServerDependencies): Hono {
   app.all("/api/auth/organization/*", (c) => c.json({ code: "NOT_FOUND", message: "Not found" }, 404));
   // Our own route: it reads any body as JSON, so it needs the origin and content-type checks Better Auth would
   // otherwise apply to its own JSON-only endpoints (a cross-site form post must not sign a visitor in), and a size cap.
-  app.post(
-    "/api/auth/sign-in/org",
-    requireTrustedJson(identity),
-    bodyLimit({
-      maxSize: 8 * 1024,
-      onError: (c) => c.json({ code: "PAYLOAD_TOO_LARGE", message: "Request is too large" }, 413),
-    }),
-    (c) => organizationSignIn(identity.auth, c.req.raw),
+  app.post("/api/auth/sign-in/org", requireTrustedJson(identity), limitBody(8 * 1024), (c) =>
+    organizationSignIn(identity.auth, c.req.raw),
   );
+  // Registered after the route above, which answers first, so this cap is for Better Auth's own endpoints.
+  app.use("/api/auth/*", limitBody(BODY_LIMIT));
   app.on(["GET", "POST"], "/api/auth/*", (c) => identity.auth.handler(c.req.raw));
 
   app.use("/api/trpc/*", requireTrustedJson(identity));
+  app.use("/api/trpc/*", limitBody(BODY_LIMIT));
   app.use(
     "/api/trpc/*",
     trpcServer({

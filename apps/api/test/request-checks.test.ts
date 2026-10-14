@@ -67,6 +67,14 @@ describe("request checks", () => {
     expect(response.status).toBe(400);
   });
 
+  it("refuses a body over 64 KB with 413, before tRPC reads it", async () => {
+    const owner = await signedInOwner(server, agency);
+    const input = { required: false, padding: "x".repeat(70_000) };
+    const response = await mutate(server, "settings.setTwoFactorRequirement", input, owner);
+    expect(response.status).toBe(413);
+    expect(await response.json()).toEqual({ code: "PAYLOAD_TOO_LARGE", message: "Request is too large" });
+  });
+
   it("refuses a removed member at once, though their session cookie is still cached", async () => {
     const meera = await addStaff(server, agency, { username: "meera", roleKey: "operations" });
     const jar = await signedInStaff(server, agency, meera);
