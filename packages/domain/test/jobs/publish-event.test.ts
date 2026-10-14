@@ -26,10 +26,11 @@ describe("publishEvent", () => {
   });
 
   it("records the event in the organization of the transaction, unrelayed", async () => {
-    const id = await db.forOrg(organizationId, (tx) =>
-      publishEvent(tx, { type: "document.issued", payload: { documentId: "d1", pages: 2 } }),
-    );
-    const event = await db.forOrg(organizationId, (tx) => tx.outboxEvent.findUnique({ where: { id } }));
+    // Read back in the same transaction: once it commits, a relay running in another test may relay it at once.
+    const { id, event } = await db.forOrg(organizationId, async (tx) => {
+      const published = await publishEvent(tx, { type: "document.issued", payload: { documentId: "d1", pages: 2 } });
+      return { id: published, event: await tx.outboxEvent.findUnique({ where: { id: published } }) };
+    });
     expect(event).toMatchObject({
       organizationId,
       type: "document.issued",
