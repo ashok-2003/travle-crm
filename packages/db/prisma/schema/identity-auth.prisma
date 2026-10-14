@@ -1,0 +1,146 @@
+// Better Auth's tables (packages/domain/src/identity/auth). Written by hand from `npx auth@1.7.7 generate` output:
+// snake_case columns, uuid ids made by Prisma (Better Auth runs with generateId: false).
+// Sign-in tables: no row-level security, because Better Auth reads them before the organization is known.
+// Only the identity module may use them (@travel-crm/db/identity); db.forOrg()'s OrgTx hides them.
+
+/// A person who can sign in. Platform staff have role "admin" and no member row.
+model User {
+  id                 String    @id @default(uuid(7)) @db.Uuid
+  name               String
+  /// Unique across the product. Staff without email get a placeholder ending in @no-email.invalid.
+  email              String    @unique
+  emailVerified      Boolean   @default(false) @map("email_verified")
+  image              String?
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// username plugin: "<org code lowercased>:<username lowercased>", e.g. "sharma:ravi". Null when the person
+  /// signs in only by email, and after they are removed.
+  username           String?   @unique
+  /// The username as the person typed it, e.g. "Ravi".
+  displayUsername    String?   @map("display_username")
+  /// admin plugin: "admin" for platform staff, otherwise null.
+  role               String?
+  banned             Boolean?  @default(false)
+  banReason          String?   @map("ban_reason")
+  banExpires         DateTime? @map("ban_expires") @db.Timestamptz(6)
+  /// twoFactor plugin: true once the person has verified an authenticator code.
+  twoFactorEnabled   Boolean?  @default(false) @map("two_factor_enabled")
+  /// The email the person had before they were removed, so another organization can add them (ADR 0007).
+  formerEmail        String?   @map("former_email")
+  /// True after an admin sets a temporary password: the person must choose their own before using the app.
+  mustChangePassword Boolean   @default(false) @map("must_change_password")
+
+  sessions    Session[]
+  accounts    Account[]
+  member      Member?
+  invitations Invitation[]
+  twoFactors  TwoFactor[]
+
+  @@map("user")
+}
+
+model Session {
+  id                   String   @id @default(uuid(7)) @db.Uuid
+  expiresAt            DateTime @map("expires_at") @db.Timestamptz(6)
+  token                String   @unique
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  ipAddress            String?  @map("ip_address")
+  userAgent            String?  @map("user_agent")
+  userId               String   @map("user_id") @db.Uuid
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// organization plugin: set from the member row when the session is created (one user, one organization).
+  activeOrganizationId String?  @map("active_organization_id") @db.Uuid
+  /// admin plugin: the platform admin's user id while they impersonate this user, else null.
+  impersonatedBy       String?  @map("impersonated_by") @db.Uuid
+
+  @@index([userId])
+  @@map("session")
+}
+
+/// Sign-in methods. Password sign-in is the account with providerId "credential"; password holds its hash.
+model Account {
+  id                    String    @id @default(uuid(7)) @db.Uuid
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  userId                String    @map("user_id") @db.Uuid
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?   @map("access_token")
+  refreshToken          String?   @map("refresh_token")
+  idToken               String?   @map("id_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at") @db.Timestamptz(6)
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at") @db.Timestamptz(6)
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([userId])
+  @@map("account")
+}
+
+/// Short-lived values: password-reset tokens, two-factor challenges.
+model Verification {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+/// A user's place in their organization. Soft-deleted when they are removed (spec 6.3).
+model Member {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  /// One user belongs to exactly one organization (spec 4). A removed person who joins again gets a new user.
+  userId         String       @unique @map("user_id") @db.Uuid
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Our role key (role.key in the same organization), e.g. "sales". Never Better Auth's owner/admin/member.
+  role           String
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
+  /// The user id of whoever removed this member.
+  deletedBy      String?      @map("deleted_by") @db.Uuid
+
+  @@index([organizationId])
+  @@map("member")
+}
+
+/// organization plugin. Unused until email invitations arrive (plan 4); kept so Better Auth's schema is complete.
+model Invitation {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  email          String
+  role           String?
+  status         String       @default("pending")
+  expiresAt      DateTime     @map("expires_at") @db.Timestamptz(6)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  inviterId      String       @map("inviter_id") @db.Uuid
+  user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([email])
+  @@map("invitation")
+}
+
+/// twoFactor plugin: the encrypted authenticator secret and backup codes of one user.
+model TwoFactor {
+  id                      String    @id @default(uuid(7)) @db.Uuid
+  secret                  String
+  backupCodes             String    @map("backup_codes")
+  userId                  String    @map("user_id") @db.Uuid
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verified                Boolean?  @default(true)
+  failedVerificationCount Int?      @default(0) @map("failed_verification_count")
+  lockedUntil             DateTime? @map("locked_until") @db.Timestamptz(6)
+
+  @@index([secret])
+  @@index([userId])
+  @@map("two_factor")
+}

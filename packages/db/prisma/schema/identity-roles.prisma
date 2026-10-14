@@ -1,0 +1,44 @@
+// Roles and their permissions (spec 6.5). Our own tables, not Better Auth's access control (ADR 0005).
+// Organization-owned: row-level security applies (the migration calls app_enable_org_rls on both).
+
+/// A named set of permissions in one organization, e.g. "Sales". member.role holds its key.
+model Role {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String           @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String           @id @default(uuid(7)) @db.Uuid
+  /// Stable identifier stored in member.role, e.g. "sales" (CHECK role_key_format). Never changes.
+  key            String
+  name           String
+  /// The Owner role holds every permission, including ones added to the catalog later. It has no
+  /// role_permission rows and cannot be edited or deleted.
+  isOwner        Boolean          @default(false) @map("is_owner")
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?        @map("deleted_at") @db.Timestamptz(6)
+  /// The user id of whoever deleted the role.
+  deletedBy      String?          @map("deleted_by") @db.Uuid
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  permissions    RolePermission[]
+
+  /// Lets role_permission point at (organization_id, id), so a permission row can't name another organization's role.
+  @@unique([organizationId, id])
+  /// A key is unique among the organization's roles that are not deleted.
+  @@unique([organizationId, key], where: { deletedAt: null })
+  @@map("role")
+}
+
+/// One permission, such as "leads:create", granted to one role.
+model RolePermission {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  roleId         String       @map("role_id") @db.Uuid
+  /// A key from the permission catalog (packages/domain/src/identity/permissions.ts).
+  permission     String
+  /// For view permissions: "own" (records assigned to the member) or "all". Null otherwise (CHECK role_permission_scope_value).
+  scope          String?
+  role           Role         @relation(fields: [organizationId, roleId], references: [organizationId, id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@id([roleId, permission])
+  @@map("role_permission")
+}
