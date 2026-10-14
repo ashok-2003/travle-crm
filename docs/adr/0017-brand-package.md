@@ -8,8 +8,9 @@ Date: 2026-10-15 · Status: accepted · Implements spec section 10
   contacts and logo files. Every layer may read it; it reads no other package (dependency-cruiser,
   `brand-depends-on-nothing-of-ours`).
 - **The product name appears nowhere else.** `packages/brand/test/product-name.test.ts` reads every file git tracks
-  or would track and fails on any line holding `brand.productName` or `brand.shortName`, in any letter case or
-  spacing, outside `packages/brand/` and `docs/`. Being a test, it runs in `pnpm check` and CI (spec 12.1, gate 3).
+  or would track and fails on any text holding `brand.productName` or `brand.shortName`, in any letter case,
+  wrapped over a line break, or written as a slug or identifier (`travel-agency-os`, `TravelAgencyOS`,
+  `travel_agency_os`, `agency.os`), outside `packages/brand/` and `docs/`. Being a test, it runs in `pnpm check` and CI (spec 12.1, gate 3).
   - `docs/` is exempt because the spec and plans name the product on purpose, as the working name (open item Q8).
   - Binary files are skipped: they can't carry the name as text.
 - **The api's authenticator label** (`appName` in `apps/api/src/environment.ts`) is `brand.productName`.

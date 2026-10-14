@@ -17,16 +17,22 @@ export interface NameFinding {
 /** Folders that may name the product: the brand package itself, and the design documents. */
 const exemptFolders = ["packages/brand/", "docs/"];
 
-/** A pattern for one name: any case, and any run of spaces between its words. */
+/**
+ * A pattern for one name: any case, and between its words any run of whitespace (line breaks included), "-", "_" or
+ * "." or nothing at all, so slugs and identifiers ("travel-agency-os", "TravelAgencyOS") are caught too.
+ */
 function namePattern(name: string): RegExp {
   const words = name
     .trim()
     .split(/\s+/)
     .map((word) => word.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  return new RegExp(words.join("\\s+"), "i");
+  return new RegExp(words.join("[\\s._-]*"), "gi");
 }
 
-/** Every line, outside the exempt folders and binary files, that contains one of the names. One finding per line. */
+/**
+ * Every place, outside the exempt folders and binary files, where one of the names starts. The whole file is
+ * searched, so a name wrapped over two lines is found. One finding per line, for the line where a match starts.
+ */
 export function findProductNameOutsideBrand({
   files,
   names,
@@ -40,11 +46,20 @@ export function findProductNameOutsideBrand({
       .filter((file) => !exemptFolders.some((folder) => file.path.startsWith(folder)))
       // A NUL character means binary content (images, fonts), which can't carry the name as text.
       .filter((file) => !file.text.includes("\u0000"))
-      .flatMap((file) =>
-        file.text
-          .split(/\r?\n/)
-          .map((text, index) => ({ path: file.path, line: index + 1, text }))
-          .filter((line) => patterns.some((pattern) => pattern.test(line.text))),
-      )
+      .flatMap((file) => {
+        const lines = file.text.split(/\r?\n/);
+        return matchedLines(file.text).map((line) => ({ path: file.path, line, text: lines[line - 1] ?? "" }));
+      })
   );
+
+  /** The 1-based lines where a match of any pattern starts, ascending and without repeats. */
+  function matchedLines(text: string): number[] {
+    const found = new Set<number>();
+    for (const pattern of patterns) {
+      for (const match of text.matchAll(pattern)) {
+        found.add(text.slice(0, match.index).split("\n").length);
+      }
+    }
+    return [...found].sort((a, b) => a - b);
+  }
 }
