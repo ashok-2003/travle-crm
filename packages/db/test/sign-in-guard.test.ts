@@ -57,6 +57,25 @@ describe("sign-in relation guard", () => {
     ).rejects.toBeInstanceOf(SignInRelationError);
   });
 
+  it("rejects nested writes and ordering through the organization relation", async () => {
+    const roleId = await db.forOrg(organizationId, async (tx) => (await tx.role.findFirstOrThrow()).id);
+    await expect(
+      db.forOrg(organizationId, (tx) =>
+        tx.role.update({
+          where: { id: roleId },
+          data: { organization: { update: { members: { deleteMany: {} } } } },
+        }),
+      ),
+    ).rejects.toBeInstanceOf(SignInRelationError);
+    await expect(
+      db.forOrg(organizationId, (tx) => tx.role.findMany({ orderBy: { organization: { name: "asc" } } })),
+    ).rejects.toBeInstanceOf(SignInRelationError);
+    const renamed = await db.forOrg(organizationId, (tx) =>
+      tx.role.update({ where: { id: roleId }, data: { name: "Renamed guard" } }),
+    );
+    expect(renamed.name).toBe("Renamed guard");
+  });
+
   it("still allows relations between organization-owned models", async () => {
     const roles = await db.forOrg(organizationId, (tx) => tx.role.findMany({ include: { permissions: true } }));
     expect(roles[0]?.permissions).toHaveLength(1);

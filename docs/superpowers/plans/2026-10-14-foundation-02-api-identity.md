@@ -24,24 +24,26 @@
 5. Web app and release
 
 **How this plan was checked.**
-- Every file in it was written and run in a scratch clone of `main` at `b40c737` (plan 1 plus its fix wave). There, `pnpm check` was green from a clean clone. The code blocks below are those files after Prettier and ESLint.
-- **Tasks 1-3 were executed from this plan's first version and are kept exactly as written.** Task 1's review then widened the raw-SQL guard on the branch.
-- **Task 3b is new:** it carries the requirements from plan 1's final review that Tasks 1-3 predate.
-- Task 3b and Tasks 4-12 were replayed task by task on top of the branch as executed. After every task, `pnpm check` was green, the test counts matched the ones stated, and the commit hooks changed nothing.
+- Every file in it was written and run in a scratch clone of `main` at `b40c737` (plan 1 plus its fix wave). The code blocks below are those files after Prettier and ESLint.
+- **Tasks 1 and 2 are executed history, kept exactly as first written.** Task 1 landed as `3308232`, then its review widened the raw-SQL guard (`bf4429d`, `ca8f3b4`). Task 2 landed as `7bc7f85`. Their text refers to later tasks by the first version's numbers: from their "Task 3" on, add one (their Task 3 is now Task 4, their Task 5 is now Task 6).
+- **Task 3 is new:** a follow-up to Task 2, written against the code that landed at `7bc7f85`.
+- **Tasks 4-13 are the first version's Tasks 3-12,** with plan 1's final-review and Task 2's review requirements folded in.
+- Tasks 3-13 were replayed task by task on a clone of the branch at `7bc7f85`, under the guard as it landed. After every task, `pnpm check` was green, the test counts matched the ones stated, and the commit hooks changed nothing.
 
-**Plan 1 carry-overs handled here** (from plan 1's final review; plan 1's fix wave is already on `main`):
-- **Raw SQL guard.** Outside `packages/db`, ESLint refuses `$executeRawUnsafe`/`$queryRawUnsafe`, `set_config`/`app.org_id`, `SET ROLE`, `SET SESSION AUTHORIZATION`, `RESET ALL`/`RESET ROLE` and `CREATE TEMP`, each proven on a sample. This is Task 1, as widened in its review. `OrgTx` also stops exposing the `*Unsafe` methods (Task 3).
+**Review requirements handled here** (plan 1's final review, whose fix wave is already on `main`, and Task 2's review):
+- **Raw SQL guard.** Outside `packages/db`, ESLint refuses `$executeRawUnsafe`/`$queryRawUnsafe`, `set_config`/`app.org_id`, `SET ROLE`, `SET SESSION AUTHORIZATION`, `RESET ALL`/`RESET ROLE` and `CREATE TEMP`, each proven on a sample. This is Task 1, as widened in its review. `OrgTx` also stops exposing the `*Unsafe` methods (Task 4).
 - **Keys on organization tables.**
-  - A foreign key between two organization tables pairs `organization_id` (`role_permission → role`).
-  - Every unique constraint includes `organization_id`, except a primary key on `id`.
-  - The test suite checks both, with probes (foreign keys in Task 2; unique constraints, and `role_permission`'s key, in Task 3b).
-- **Soft delete and partial unique indexes** through Prisma's `partialIndexes` preview, which the drift check accepts (Tasks 2 and 3).
-- **`signInTables` is guarded:** every entry must exist, carry `organization_id`, and be `member` or `invitation` (Task 3b).
-- **The platform client is locked down.** An import rule lets only the platform module (none yet) and tests use `@travel-crm/db/platform`. The api's environment has no `DATABASE_PLATFORM_URL` (Tasks 3 and 9).
-- **`forOrg` options:** `{ timeout, maxWait }` pass through to Prisma's transaction. A `forOrg` inside another throws `NestedForOrgError` rather than relying on "never nest" being remembered (Task 3b).
-- **The runtime role's `UPDATE` on `organization`** is narrowed to the columns the api owns, never `code` (Task 2).
+  - A foreign key between two organization tables pairs `organization_id` (`role_permission → role`; Task 2).
+  - Every unique constraint includes `organization_id`, except a primary key on `id`. `role_permission`'s key gains it (Task 3).
+  - The test suite checks both with probes (Tasks 2 and 3), plus a direct test that organization B can't attach a permission to organization A's role (Task 3).
+- **Role keys are never reused,** so a member somehow left on a deleted role keeps no permissions instead of inheriting a later role (Task 3). Deleting a role anyone holds is refused (Task 8).
+- **Soft delete and partial unique indexes** through Prisma's `partialIndexes` preview, which the drift check accepts. Role names use one (Tasks 3 and 4).
+- **`signInTables` is guarded:** every entry must exist, carry `organization_id`, and be `member` or `invitation` (Task 3).
+- **The platform client is locked down.** An import rule lets only the platform module (none yet) and tests use `@travel-crm/db/platform`. The api's environment has no `DATABASE_PLATFORM_URL` (Tasks 4 and 10).
+- **`forOrg` options:** `{ timeout, maxWait }` pass through to Prisma's transaction. A `forOrg` inside another throws `NestedForOrgError` rather than relying on "never nest" being remembered (Task 4).
+- **`organization` has no row-level security.** The runtime role may UPDATE only `require_two_factor` and `updated_at`, never `code` (Task 2). The one update the api makes is scoped to the session's organization, and a test proves one owner can't flip another organization's setting (Tasks 9 and 11).
 - **`REVOKE TEMPORARY`** in a migration, for databases bootstrapped before plan 1's fix (Task 2).
-- **Ids stay UUIDs** (the policies cast to uuid): Better Auth runs with `generateId: false`, and Prisma's `uuid(7)` makes every id (Tasks 2 and 6).
+- **Ids stay UUIDs** (the policies cast to uuid): Better Auth runs with `generateId: false`, and Prisma's `uuid(7)` makes every id (Tasks 2 and 7).
 - **The api connects as `app_runtime`,** which plan 1's `forOrg` now insists on (`WrongDatabaseRoleError`).
 
 ## Global Constraints
@@ -62,6 +64,7 @@
   - Outside `packages/db`, never write SQL containing `set_config` or `app.org_id`, `SET`/`RESET` statements or `CREATE TEMP`, and never call `$executeRawUnsafe`/`$queryRawUnsafe`.
   - Keys on organization tables include `organization_id`: composite foreign keys `(organization_id, x_id) → x (organization_id, id)`, and `organization_id` in every unique constraint except a primary key on `id`.
   - Never call `forOrg()` inside another `forOrg()`; pass the outer `tx` down.
+  - `organization` has no row-level security: any update of it filters by the session's organization id, never by one taken from input.
   - Tests use small connection pools (`maxConnections: 2` or `3`); the test Postgres allows 300 connections across all test files.
 - **Better Auth facts this plan relies on** (all checked):
   - `app.request()` runs on `http://localhost`, so tests use that as the api's address and send `origin: http://localhost` on POSTs.
@@ -74,11 +77,11 @@
 
 These failure modes are implied by the spec but easy to miss. Each is pinned by tests in the tasks named.
 
-1. **An Admin out-ranking or taking over the Owner.** A member with `staff:manage` but not `roles:manage` must not be able to create an Owner, give anyone a role that allows more than they hold, or change, reset or remove an Owner; resetting the Owner's password would hand them the Owner's account. Expected: 403 with `OWNER_ONLY` or `EXCEEDS_YOUR_PERMISSIONS`, and the Owner's password still works. Pinned in Task 5 (rules), Task 8 (service) and Task 11 ("cannot take over the Owner's account by resetting its password").
-2. **A removed member whose session cookie is still cached.** For up to 5 minutes the cached cookie still passes Better Auth's session check. Expected: their next organization request is refused (403 `NOT_A_MEMBER`), sensitive procedures answer 401, they cannot sign in again, and their email can join another organization. Pinned in Task 8, Task 10 ("refuses a removed member at once…") and Task 11 ("removes someone at once…").
-3. **Staff without email.** Their placeholder address must never be shown: not in `staff.list`, not in `me.get`, not in the authenticator app's label. An admin must not be able to type a `.invalid` address. They sign in with organization code and username typed in any case. Expected: `email: null`, and the label `<CODE> <username>`. Pinned in Task 4, Task 6, Task 10 ("once required, holds members without it at setup…") and Task 11.
-4. **Requiring two-factor.** An owner who turns the requirement on without using two-factor would lock themselves out, and members caught by it must still be able to set it up. Expected: refused with `ENABLE_TWO_FACTOR_FIRST`; members without two-factor are held at `SET_UP_TWO_FACTOR`, but `me.get` and `/api/auth/two-factor/*` stay open; organization-code sign-in asks for the code too. Pinned in Task 8 and Task 10.
-5. **Better Auth's own endpoints as a side door.** `/api/auth/organization/*` would let a client change members and roles past our rules; `/api/auth/sign-up/email` would let strangers in; a sign-in posted from another website is cross-site request forgery. Expected: 404, no user created, and 403. Pinned in Task 9 ("closes Better Auth's organization endpoints to clients", "has no self sign-up", "refuses a sign-in posted from another website").
+1. **An Admin out-ranking or taking over the Owner.** A member with `staff:manage` but not `roles:manage` must not be able to create an Owner, give anyone a role that allows more than they hold, or change, reset or remove an Owner; resetting the Owner's password would hand them the Owner's account. Expected: 403 with `OWNER_ONLY` or `EXCEEDS_YOUR_PERMISSIONS`, and the Owner's password still works. Pinned in Task 6 (rules), Task 9 (service) and Task 12 ("cannot take over the Owner's account by resetting its password").
+2. **A removed member whose session cookie is still cached.** For up to 5 minutes the cached cookie still passes Better Auth's session check. Expected: their next organization request is refused (403 `NOT_A_MEMBER`), sensitive procedures answer 401, they cannot sign in again, and their email can join another organization. Pinned in Task 9, Task 11 ("refuses a removed member at once…") and Task 12 ("removes someone at once…").
+3. **Staff without email.** Their placeholder address must never be shown: not in `staff.list`, not in `me.get`, not in the authenticator app's label. An admin must not be able to type a `.invalid` address. They sign in with organization code and username typed in any case. Expected: `email: null`, and the label `<CODE> <username>`. Pinned in Task 5, Task 7, Task 11 ("once required, holds members without it at setup…") and Task 12.
+4. **Requiring two-factor.** An owner who turns the requirement on without using two-factor would lock themselves out, and members caught by it must still be able to set it up. Expected: refused with `ENABLE_TWO_FACTOR_FIRST`; members without two-factor are held at `SET_UP_TWO_FACTOR`, but `me.get` and `/api/auth/two-factor/*` stay open; organization-code sign-in asks for the code too. Pinned in Task 9 and Task 11.
+5. **Better Auth's own endpoints as a side door.** `/api/auth/organization/*` would let a client change members and roles past our rules; `/api/auth/sign-up/email` would let strangers in; a sign-in posted from another website is cross-site request forgery. Expected: 404, no user created, and 403. Pinned in Task 10 ("closes Better Auth's organization endpoints to clients", "has no self sign-up", "refuses a sign-in posted from another website").
 
 ## File Structure
 
@@ -877,8 +880,457 @@ git commit -m "feat(db): add Better Auth and role tables with row-level security
 ```
 
 ---
+### Task 3: Role permission key and sign-in table guard (follow-up to Task 2)
 
-### Task 3: Soft delete, the identity and testing entry points, and import rules
+Task 2 landed as written (`7bc7f85`). Plan 1's final review and Task 2's own review then asked for more on the same tables:
+- **Unique constraints on organization tables include `organization_id`.** A unique value shared across organizations tells one organization that another uses it. `role_permission`'s primary key is `(role_id, permission)`; this task makes it `(organization_id, role_id, permission)`.
+- **Role keys are never reused,** not even after the role is deleted. `member.role` holds the key with no foreign key (it is Better Auth's column), so a reused key would hand a new role to anyone still on the deleted one. The key's partial unique index becomes a plain one. Role names get the partial index instead: a deleted role's name may be used again.
+- **The schema check covers unique constraints as well as foreign keys.** `organization-keys.test.ts` replaces `foreign-keys.test.ts`, with a probe for each check. A primary key on `id` alone is exempt: random UUIDs reveal nothing.
+- **`signInTables` is guarded.** Every entry must exist, carry `organization_id`, and be `member` or `invitation`, so a typo or a stale entry can't exempt another table.
+- **A direct test of the key isolation property for roles.** Inside `forOrg(B)`, a permission row naming organization A's role fails on the composite foreign key.
+
+**Files** (as they are on `foundation/02-api-identity` after `7bc7f85`):
+- Modify: `packages/db/prisma/schema/identity-roles.prisma`
+- Create: `packages/db/prisma/migrations/<timestamp>_role_keys/migration.sql` (generated)
+- Delete: `packages/db/test/foreign-keys.test.ts`
+- Create: `packages/db/test/organization-keys.test.ts`
+- Modify: `packages/db/test/identity-tables.test.ts`, `packages/db/test/org-table-fixtures.ts` (a comment)
+
+**Interfaces:**
+- Consumes: Task 2's `role` and `role_permission` tables, `signInTables`, and plan 1's `createDatabase`, `createPrismaClient`, `createPlatformClient` and `createTestOrganization`.
+- Produces:
+  - `role_permission`'s primary key is `(organization_id, role_id, permission)`, and Prisma's compound id becomes `organizationId_roleId_permission`. Nothing in this plan uses it by name.
+  - `role`:
+    - `@@unique([organizationId, key])`, plain: keys are never reused. Its compound input is still `organizationId_key`.
+    - `@@unique([organizationId, name], where: { deletedAt: null })`: names are unique among live roles, and the match is exact. The identity module also refuses names that differ only in case (Task 8).
+  - Two schema checks, each with a probe:
+    - every foreign key between two organization tables pairs `organization_id`;
+    - every unique index on an organization table (sign-in tables apart) includes `organization_id`, except a primary key on `id` alone.
+  - The `signInTables` guard, in `identity-tables.test.ts`.
+
+- [ ] **Step 1: Write the failing tests**
+
+Task 2's foreign-key check moves into a file that also checks unique constraints:
+```bash
+cd /Users/ak/personal/travel-crm && git rm -q packages/db/test/foreign-keys.test.ts
+```
+
+`packages/db/test/organization-keys.test.ts`:
+```ts
+// Fails when a key on an organization-owned table leaves out organization_id:
+// - a foreign key without it lets a row point at another organization's row, because Postgres checks foreign keys
+//   without row-level security;
+// - a unique constraint without it tells one organization that another already uses a value.
+// The primary key on `id` alone is the exception: random UUIDs reveal nothing. Each check has a probe (run in a
+// rolled-back migrator transaction) proving it fires.
+import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import { createPrismaClient } from "../src/client.js";
+import type { Prisma } from "../src/generated/prisma/client.js";
+import { createPlatformClient, type PlatformClient } from "../src/platform.js";
+import { signInTables } from "./org-table-fixtures.js";
+
+type Queryable = Pick<Prisma.TransactionClient, "$queryRaw">;
+
+/** Foreign keys from one organization table to another that do not pair organization_id with organization_id. */
+async function foreignKeysWithoutOrganization(client: Queryable): Promise<string[]> {
+  const rows = await client.$queryRaw<{ table_name: string; name: string }[]>`
+    SELECT source.relname AS table_name, source.relname || '.' || fk.conname AS name
+    FROM pg_constraint fk
+    JOIN pg_class source ON source.oid = fk.conrelid
+    JOIN pg_namespace n ON n.oid = source.relnamespace AND n.nspname = 'public'
+    WHERE fk.contype = 'f'
+      AND EXISTS (SELECT 1 FROM pg_attribute a
+                  WHERE a.attrelid = fk.conrelid AND a.attname = 'organization_id' AND NOT a.attisdropped)
+      AND EXISTS (SELECT 1 FROM pg_attribute a
+                  WHERE a.attrelid = fk.confrelid AND a.attname = 'organization_id' AND NOT a.attisdropped)
+      AND NOT EXISTS (
+        SELECT 1
+        FROM unnest(fk.conkey, fk.confkey) AS pair(source_column, target_column)
+        JOIN pg_attribute s ON s.attrelid = fk.conrelid AND s.attnum = pair.source_column
+        JOIN pg_attribute t ON t.attrelid = fk.confrelid AND t.attnum = pair.target_column
+        WHERE s.attname = 'organization_id' AND t.attname = 'organization_id')
+    ORDER BY name`;
+  return rows.filter((row) => !signInTables.includes(row.table_name)).map((row) => row.name);
+}
+
+/** Unique indexes (including primary keys) on organization tables that leave out organization_id. */
+async function uniqueKeysWithoutOrganization(client: Queryable): Promise<string[]> {
+  const rows = await client.$queryRaw<{ table_name: string; name: string }[]>`
+    SELECT t.relname AS table_name, t.relname || '.' || i.relname AS name
+    FROM pg_index x
+    JOIN pg_class i ON i.oid = x.indexrelid
+    JOIN pg_class t ON t.oid = x.indrelid
+    JOIN pg_namespace n ON n.oid = t.relnamespace AND n.nspname = 'public'
+    WHERE x.indisunique
+      AND EXISTS (SELECT 1 FROM pg_attribute a
+                  WHERE a.attrelid = t.oid AND a.attname = 'organization_id' AND NOT a.attisdropped)
+      AND NOT EXISTS (SELECT 1 FROM pg_attribute a
+                      WHERE a.attrelid = t.oid AND a.attnum = ANY (x.indkey::int2[]) AND a.attname = 'organization_id')
+      AND NOT (x.indisprimary AND x.indnatts = 1 AND EXISTS (
+        SELECT 1 FROM pg_attribute a WHERE a.attrelid = t.oid AND a.attnum = x.indkey[0] AND a.attname = 'id'))
+    ORDER BY name`;
+  return rows.filter((row) => !signInTables.includes(row.table_name)).map((row) => row.name);
+}
+
+class Rollback extends Error {}
+
+/** Runs setup SQL then assertions inside a migrator transaction that is always rolled back. */
+async function probe(
+  migratorUrl: string,
+  run: (tx: Queryable & Pick<Prisma.TransactionClient, "$executeRaw">) => Promise<void>,
+) {
+  const migrator = createPrismaClient(migratorUrl, { max: 1 });
+  try {
+    await expect(
+      migrator.$transaction(async (tx) => {
+        await run(tx);
+        throw new Rollback("undo the probe tables");
+      }),
+    ).rejects.toBeInstanceOf(Rollback);
+  } finally {
+    await migrator.$disconnect();
+  }
+}
+
+describe("keys on organization tables", () => {
+  const urls = inject("dbUrls");
+  let platform: PlatformClient;
+
+  beforeAll(() => {
+    platform = createPlatformClient(urls.platform);
+  });
+
+  afterAll(async () => {
+    await platform.$disconnect();
+  });
+
+  it("pair organization_id in every foreign key to another organization table", async () => {
+    expect(await foreignKeysWithoutOrganization(platform)).toEqual([]);
+  });
+
+  it("include organization_id in every unique constraint, except a primary key on id", async () => {
+    expect(await uniqueKeysWithoutOrganization(platform)).toEqual([]);
+  });
+
+  it("catches a foreign key that leaves organization_id out", async () => {
+    await probe(urls.migrator, async (tx) => {
+      await tx.$executeRaw`CREATE TABLE fk_probe_parent (id uuid PRIMARY KEY, organization_id uuid NOT NULL,
+                             UNIQUE (organization_id, id))`;
+      await tx.$executeRaw`CREATE TABLE fk_probe_child (organization_id uuid NOT NULL,
+                             parent_id uuid REFERENCES fk_probe_parent (id))`;
+      expect(await foreignKeysWithoutOrganization(tx)).toEqual(["fk_probe_child.fk_probe_child_parent_id_fkey"]);
+      await tx.$executeRaw`ALTER TABLE fk_probe_child DROP CONSTRAINT fk_probe_child_parent_id_fkey,
+                             ADD FOREIGN KEY (organization_id, parent_id) REFERENCES fk_probe_parent (organization_id, id)`;
+      expect(await foreignKeysWithoutOrganization(tx)).toEqual([]);
+    });
+  });
+
+  it("catches a unique constraint that leaves organization_id out", async () => {
+    await probe(urls.migrator, async (tx) => {
+      await tx.$executeRaw`CREATE TABLE unique_probe (id uuid PRIMARY KEY, organization_id uuid NOT NULL, code text)`;
+      expect(await uniqueKeysWithoutOrganization(tx)).toEqual([]);
+      await tx.$executeRaw`CREATE UNIQUE INDEX unique_probe_code ON unique_probe (code)`;
+      expect(await uniqueKeysWithoutOrganization(tx)).toEqual(["unique_probe.unique_probe_code"]);
+      await tx.$executeRaw`DROP INDEX unique_probe_code`;
+      await tx.$executeRaw`CREATE UNIQUE INDEX unique_probe_code ON unique_probe (organization_id, code)`;
+      expect(await uniqueKeysWithoutOrganization(tx)).toEqual([]);
+    });
+  });
+});
+```
+
+Replace `packages/db/test/identity-tables.test.ts`. Four tests change; the others are as Task 2 wrote them:
+- the first test becomes the `signInTables` guard;
+- "lets a deleted role's key be used again…" becomes "never reuses a role key, even after the role is deleted";
+- "lets a deleted role's name be used again…" is new;
+- "refuses a permission row that names another organization's role" is new.
+```ts
+// Rules the identity tables enforce themselves: role key and scope formats, key reuse after a soft delete,
+// one organization per user, the sign-in table list, and which organization columns the api may change.
+import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import { createPrismaClient } from "../src/client.js";
+import { createDatabase, type Database } from "../src/database.js";
+import { createPlatformClient, type PlatformClient } from "../src/platform.js";
+import { createTestOrganization } from "./helpers.js";
+import { signInTables } from "./org-table-fixtures.js";
+
+describe("identity tables", () => {
+  const urls = inject("dbUrls");
+  let platform: PlatformClient;
+  let db: Database;
+  let organizationId: string;
+
+  beforeAll(async () => {
+    platform = createPlatformClient(urls.platform);
+    db = createDatabase(urls.runtime, { maxConnections: 3 });
+    organizationId = await createTestOrganization(platform, "Identity tables");
+  });
+
+  afterAll(async () => {
+    await db.disconnect();
+    await platform.$disconnect();
+  });
+
+  it("exempts from row-level security only Better Auth tables that exist and carry organization_id", async () => {
+    // The only Better Auth tables with organization_id. A typo or a stale entry must not exempt some other table.
+    const betterAuthTablesWithOrganizationId = ["invitation", "member"];
+    expect(signInTables.filter((table) => !betterAuthTablesWithOrganizationId.includes(table))).toEqual([]);
+    expect(new Set(signInTables).size).toBe(signInTables.length);
+    for (const table of signInTables) {
+      const [column] = await platform.$queryRaw<{ found: number }[]>`
+        SELECT count(*)::int AS found FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = ${table} AND column_name = 'organization_id'`;
+      expect(column?.found, `${table} must exist and have an organization_id column`).toBe(1);
+    }
+  });
+
+  it("only accepts role keys of lowercase letters, digits and hyphens that start with a letter", async () => {
+    await expect(
+      db.forOrg(organizationId, (tx) => tx.role.create({ data: { key: "senior-sales-2", name: "Senior sales" } })),
+    ).resolves.toMatchObject({ key: "senior-sales-2" });
+    for (const badKey of ["Sales", "2nd-shift", "sales manager", "s", "a".repeat(49)]) {
+      await expect(
+        db.forOrg(organizationId, (tx) => tx.role.create({ data: { key: badKey, name: "Bad" } })),
+      ).rejects.toThrow(/role_key_format/);
+    }
+  });
+
+  it("only accepts own, all or no scope on a permission", async () => {
+    const role = await db.forOrg(organizationId, (tx) => tx.role.create({ data: { key: "scoped", name: "Scoped" } }));
+    await db.forOrg(organizationId, (tx) =>
+      tx.rolePermission.createMany({
+        data: [
+          { roleId: role.id, permission: "leads:view", scope: "own" },
+          { roleId: role.id, permission: "quotes:view", scope: "all" },
+          { roleId: role.id, permission: "leads:create", scope: null },
+        ],
+      }),
+    );
+    await expect(
+      db.forOrg(organizationId, (tx) =>
+        tx.rolePermission.create({ data: { roleId: role.id, permission: "bookings:view", scope: "team" } }),
+      ),
+    ).rejects.toThrow(/role_permission_scope_value/);
+  });
+
+  it("never reuses a role key, even after the role is deleted", async () => {
+    // member.role holds the key with no foreign key, so a reused key would hand a new role to old members.
+    const first = await db.forOrg(organizationId, (tx) => tx.role.create({ data: { key: "guides", name: "Guides" } }));
+    await db.forOrg(organizationId, (tx) =>
+      tx.role.update({ where: { id: first.id }, data: { deletedAt: new Date(), deletedBy: first.id } }),
+    );
+    await expect(
+      db.forOrg(organizationId, (tx) => tx.role.create({ data: { key: "guides", name: "Guides again" } })),
+    ).rejects.toThrow(/Unique constraint/);
+  });
+
+  it("lets a deleted role's name be used again, but never by two roles that are not deleted", async () => {
+    const first = await db.forOrg(organizationId, (tx) =>
+      tx.role.create({ data: { key: "drivers-1", name: "Drivers" } }),
+    );
+    await expect(
+      db.forOrg(organizationId, (tx) => tx.role.create({ data: { key: "drivers-2", name: "Drivers" } })),
+    ).rejects.toThrow(/Unique constraint/);
+    await db.forOrg(organizationId, (tx) =>
+      tx.role.update({ where: { id: first.id }, data: { deletedAt: new Date(), deletedBy: first.id } }),
+    );
+    await expect(
+      db.forOrg(organizationId, (tx) => tx.role.create({ data: { key: "drivers-2", name: "Drivers" } })),
+    ).resolves.toMatchObject({ name: "Drivers" });
+  });
+
+  it("refuses a permission row that names another organization's role", async () => {
+    // The composite foreign key (organization_id, role_id) → role (organization_id, id): a row created in
+    // organization B can only point at B's roles, even though foreign keys are checked without row-level security.
+    const otherOrganizationId = await createTestOrganization(platform, "Identity tables, other roles");
+    const role = await db.forOrg(organizationId, (tx) =>
+      tx.role.create({ data: { key: "planners", name: "Planners" } }),
+    );
+    await expect(
+      db.forOrg(otherOrganizationId, (tx) =>
+        tx.rolePermission.create({ data: { roleId: role.id, permission: "leads:create" } }),
+      ),
+    ).rejects.toThrow(/role_permission_organization_id_role_id_fkey|Foreign key constraint/);
+  });
+
+  it("keeps each user in at most one organization", async () => {
+    const otherOrganizationId = await createTestOrganization(platform, "Identity tables, second");
+    const runtime = createPrismaClient(urls.runtime, { max: 1 });
+    try {
+      const user = await runtime.user.create({ data: { name: "Ravi", email: `ravi-${organizationId}@example.test` } });
+      await runtime.member.create({ data: { userId: user.id, organizationId, role: "sales" } });
+      await expect(
+        runtime.member.create({ data: { userId: user.id, organizationId: otherOrganizationId, role: "sales" } }),
+      ).rejects.toThrow(/Unique constraint/);
+    } finally {
+      await runtime.$disconnect();
+    }
+  });
+
+  it("lets the api change require_two_factor, but not an organization's name or sign-in code", async () => {
+    const runtime = createPrismaClient(urls.runtime, { max: 1 });
+    try {
+      await expect(
+        runtime.organization.update({ where: { id: organizationId }, data: { requireTwoFactor: true } }),
+      ).resolves.toMatchObject({ requireTwoFactor: true });
+      await expect(
+        runtime.organization.update({ where: { id: organizationId }, data: { name: "Renamed" } }),
+      ).rejects.toThrow(/permission denied/);
+      await expect(
+        runtime.organization.update({ where: { id: organizationId }, data: { code: "HIJACK1" } }),
+      ).rejects.toThrow(/permission denied/);
+    } finally {
+      await runtime.$disconnect();
+    }
+  });
+});
+```
+
+Replace `packages/db/test/org-table-fixtures.ts`. Only the comment on `signInTables` changes:
+```ts
+// One row-creating function per organization-owned table. isolation.test.ts runs its checks on each, and fails if
+// a table with an organization_id column is missing here. Add an entry whenever you add such a table.
+import type { OrgTx } from "../src/for-org.js";
+
+export const orgTableFixtures: Record<string, (tx: OrgTx) => Promise<unknown>> = {
+  org_counter: (tx) => tx.orgCounter.create({ data: { key: "ISO-2000", value: 1 } }),
+  role: (tx) => tx.role.create({ data: { key: "isolation-role", name: "Isolation role" } }),
+  role_permission: async (tx) => {
+    const role = await tx.role.create({ data: { key: "isolation-grant-role", name: "Isolation grant role" } });
+    return tx.rolePermission.create({ data: { roleId: role.id, permission: "leads:view", scope: "all" } });
+  },
+};
+
+/**
+ * Tables that carry organization_id but stay outside row-level security because sign-in reads them before the
+ * organization is known (spec section 4): Better Auth's member and invitation. Only the identity module may touch
+ * them. identity-tables.test.ts checks each entry exists and is one of those two, so no other table can be exempted.
+ */
+export const signInTables: readonly string[] = ["invitation", "member"];
+```
+
+- [ ] **Step 2: Run them to see them fail**
+
+Run: `cd /Users/ak/personal/travel-crm && source ~/.nvm/nvm.sh && nvm use >/dev/null && pnpm --filter @travel-crm/db test`
+
+Expected: FAIL.
+- "include organization_id in every unique constraint, except a primary key on id" reports `role_permission.role_permission_pkey`.
+- "never reuses a role key…" fails, because the deleted key is accepted.
+- "lets a deleted role's name be used again…" fails, because the second live "Drivers" is accepted.
+- "refuses a permission row that names another organization's role" already passes. It pins Task 2's composite foreign key.
+
+- [ ] **Step 3: Change the role keys**
+
+Replace `packages/db/prisma/schema/identity-roles.prisma`. Only `Role`'s two `@@unique` lines, the `key` comment and `RolePermission`'s `@@id` change:
+```prisma
+// Roles and their permissions (spec 6.5). Our own tables, not Better Auth's access control (ADR 0005).
+// Organization-owned: row-level security applies (the migration calls app_enable_org_rls on both).
+
+/// A named set of permissions in one organization, e.g. "Sales". member.role holds its key.
+model Role {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String           @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String           @id @default(uuid(7)) @db.Uuid
+  /// Stable identifier stored in member.role, e.g. "sales" (CHECK role_key_format). Never changes, and is never
+  /// reused, even after the role is deleted: a member somehow left on a deleted role must not inherit a later one.
+  key            String
+  name           String
+  /// The Owner role holds every permission, including ones added to the catalog later. It has no
+  /// role_permission rows and cannot be edited or deleted.
+  isOwner        Boolean          @default(false) @map("is_owner")
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?        @map("deleted_at") @db.Timestamptz(6)
+  /// The user id of whoever deleted the role.
+  deletedBy      String?          @map("deleted_by") @db.Uuid
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  permissions    RolePermission[]
+
+  /// Lets role_permission point at (organization_id, id), so a permission row can't name another organization's role.
+  @@unique([organizationId, id])
+  /// A key is unique among all the organization's roles, deleted ones included.
+  @@unique([organizationId, key])
+  /// A name is unique among the organization's roles that are not deleted, so a deleted role's name can be used again.
+  /// (Exact match here; the identity module also refuses names that differ only in letter case.)
+  @@unique([organizationId, name], where: { deletedAt: null })
+  @@map("role")
+}
+
+/// One permission, such as "leads:create", granted to one role.
+model RolePermission {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  roleId         String       @map("role_id") @db.Uuid
+  /// A key from the permission catalog (packages/domain/src/identity/permissions.ts).
+  permission     String
+  /// For view permissions: "own" (records assigned to the member) or "all". Null otherwise (CHECK role_permission_scope_value).
+  scope          String?
+  role           Role         @relation(fields: [organizationId, roleId], references: [organizationId, id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  /// Unique constraints on organization tables include organization_id (organization-keys.test.ts checks).
+  @@id([organizationId, roleId, permission])
+  @@map("role_permission")
+}
+```
+
+Create the migration with `prisma migrate diff`. Prisma's `migrate dev` refuses to run in a non-interactive shell when a migration carries warnings, and this one does ("A unique constraint covering the columns `[organization_id,key]` on the table `role` will be added. If there are existing duplicate values, this will fail.").
+```bash
+cd /Users/ak/personal/travel-crm && source ~/.nvm/nvm.sh && nvm use >/dev/null
+pnpm db:up && pnpm db:migrate
+cd packages/db
+migration="prisma/migrations/$(date -u +%Y%m%d%H%M%S)_role_keys"
+mkdir "$migration"
+pnpm exec prisma migrate diff --from-config-datasource --to-schema prisma/schema --script > "$migration/migration.sql"
+cat "$migration/migration.sql"
+```
+Expected: exactly this SQL, with nothing to append:
+```sql
+-- DropIndex
+DROP INDEX "role_organization_id_key_key";
+
+-- AlterTable
+ALTER TABLE "role_permission" DROP CONSTRAINT "role_permission_pkey",
+ADD CONSTRAINT "role_permission_pkey" PRIMARY KEY ("organization_id", "role_id", "permission");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "role_organization_id_key_key" ON "role"("organization_id", "key");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "role_organization_id_name_key" ON "role"("organization_id", "name") WHERE ("deleted_at" IS NULL);
+
+```
+
+`--from-config-datasource` diffs against the local database, which `pnpm db:migrate` has just brought up to date. The local database has no duplicate keys or names, so the new indexes apply cleanly.
+
+Apply it, check nothing is left over, and regenerate:
+```bash
+cd /Users/ak/personal/travel-crm/packages/db && source ~/.nvm/nvm.sh && nvm use >/dev/null
+pnpm exec prisma migrate deploy
+pnpm exec prisma migrate diff --from-config-datasource --to-schema prisma/schema --exit-code; echo "drift exit=$?"
+pnpm generate
+```
+Expected: "All migrations have been successfully applied", then `drift exit=0`, then "Generated Prisma Client".
+
+- [ ] **Step 4: Run the tests to see them pass**
+
+Run: `cd /Users/ak/personal/travel-crm && source ~/.nvm/nvm.sh && nvm use >/dev/null && pnpm --filter @travel-crm/db test`
+
+Expected: 57 tests pass in 7 files. The probes "catches a foreign key that leaves organization_id out" and "catches a unique constraint that leaves organization_id out" prove both checks fire.
+
+- [ ] **Step 5: Check and commit**
+
+Run: `cd /Users/ak/personal/travel-crm && source ~/.nvm/nvm.sh && nvm use >/dev/null && pnpm check`. Expected: green.
+
+```bash
+cd /Users/ak/personal/travel-crm
+git add packages/db
+git commit -m "feat(db): never reuse role keys, key role_permission by organization, guard signInTables"
+```
+
+---
+
+### Task 4: Soft delete, the identity and testing entry points, and import rules
 
 Spec section 5: deletes become updates, reads hide deleted rows, and `withDeleted()` brings them back. This task adds that as a Prisma client extension on every client `@travel-crm/db` makes. It also narrows `OrgTx`, so modules can't reach the sign-in tables or Prisma's raw-string methods. And it opens two deliberate doors, each guarded by an import rule:
 - `@travel-crm/db/identity`, for Better Auth and the identity module;
@@ -886,25 +1338,27 @@ Spec section 5: deletes become updates, reads hide deleted rows, and `withDelete
 
 **Files:**
 - Create: `packages/db/src/soft-delete.ts`, `packages/db/src/identity.ts`, `packages/db/src/errors.ts`, `packages/db/test/testing.ts`
-- Modify: `packages/db/src/client.ts`, `packages/db/src/for-org.ts`, `packages/db/src/platform.ts`, `packages/db/src/index.ts`, `packages/db/package.json`, `packages/db/test/schema-check.test.ts` (one type), `.dependency-cruiser.cjs`, `packages/db/README.md`, `docs/adr/README.md`
-- Create: `packages/db/test/soft-delete.test.ts`, `packages/db/test/identity-database.test.ts`, `packages/db/test/errors.test.ts`, `docs/adr/0004-soft-delete.md`
+- Modify: `packages/db/src/client.ts`, `packages/db/src/for-org.ts`, `packages/db/src/database.ts`, `packages/db/src/platform.ts`, `packages/db/src/index.ts`, `packages/db/package.json`, `packages/db/test/schema-check.test.ts` (one type), `.dependency-cruiser.cjs`, `packages/db/README.md`, `docs/adr/README.md`
+- Create: `packages/db/test/soft-delete.test.ts`, `packages/db/test/identity-database.test.ts`, `packages/db/test/errors.test.ts`, `packages/db/test/for-org-options.test.ts`, `docs/adr/0004-soft-delete.md`
 
 **Interfaces:**
-- Consumes: Task 2's models; plan 1's `forOrg`, `createDatabase`, `DatabaseOptions`, `createPlatformClient`, `createTestOrganization`, and `test/global-setup.ts` (which declares `inject("dbUrls")`).
+- Consumes: Tasks 2 and 3's models; plan 1's `forOrg`, `createDatabase`, `DatabaseOptions`, `createPlatformClient`, `createTestOrganization`, and `test/global-setup.ts` (which declares `inject("dbUrls")`).
 - Produces:
   - `createPrismaClient(connectionString, options?)` now returns the extended client, and `type DatabaseClient = ReturnType<typeof createPrismaClient>`. `PlatformClient` is `DatabaseClient`.
   - `type IdentityTx`: a transaction with every model, but without `$executeRawUnsafe`/`$queryRawUnsafe`.
   - `type OrgTx = Omit<IdentityTx, "user" | "session" | "account" | "verification" | "twoFactor" | "organization" | "member" | "invitation">`.
-  - `forOrg<T>(client: DatabaseClient, orgId: string, fn: (tx: IdentityTx) => Promise<T>): Promise<T>`. `Database.forOrg` still hands `fn` an `OrgTx`.
+  - `interface ForOrgOptions { maxWait?: number; timeout?: number }`, passed to Prisma's `$transaction` (its defaults are 2 s and 5 s).
+  - `forOrg<T>(client: DatabaseClient, orgId: string, fn: (tx: IdentityTx) => Promise<T>, options?: ForOrgOptions): Promise<T>`, and `Database.forOrg<T>(orgId, fn: (tx: OrgTx) => Promise<T>, options?: ForOrgOptions)`.
+  - `class NestedForOrgError extends Error`: a `forOrg` inside another `forOrg` throws it before any SQL runs.
   - `softDeleteModels: readonly string[]` (`"Role"`, `"Member"`).
   - `withDeleted<T>(fn: () => Promise<T>): Promise<T>`.
   - `softDeleted(deletedBy: string): { deletedAt: Date; deletedBy: string }`.
   - `class HardDeleteError extends Error`, and `isUniqueViolation(error: unknown): boolean`.
-  - `@travel-crm/db` also exports `isUniqueViolation`, `HardDeleteError`, `softDeleted`, `withDeleted`, and the types `Role` and `RolePermission`.
+  - `@travel-crm/db` also exports `isUniqueViolation`, `HardDeleteError`, `softDeleted`, `withDeleted`, `NestedForOrgError`, and the types `ForOrgOptions`, `Role` and `RolePermission`.
   - `@travel-crm/db/identity`:
     - `createIdentityDatabase(url: string, options?: DatabaseOptions): IdentityDatabase`;
-    - `interface IdentityDatabase { readonly client: IdentityClient; forOrg<T>(orgId, fn: (tx: IdentityTx) => Promise<T>): Promise<T>; disconnect(): Promise<void> }`;
-    - `type IdentityClient = DatabaseClient`, `type IdentityTx`, and `isUniqueViolation`.
+    - `interface IdentityDatabase { readonly client: IdentityClient; forOrg<T>(orgId, fn: (tx: IdentityTx) => Promise<T>, options?: ForOrgOptions): Promise<T>; disconnect(): Promise<void> }`;
+    - `type IdentityClient = DatabaseClient`, `type IdentityTx`, `type ForOrgOptions`, and `isUniqueViolation`.
   - `@travel-crm/db/testing` exports `createTestOrganization(platform, name?)` and `type DbUrls`; importing it brings in the `inject("dbUrls")` typing.
   - `@travel-crm/db/testing/global-setup` is plan 1's Vitest global setup.
   - Import rules: `db-internals-stay-in-db` (updated), `identity-database-only-in-identity`, `platform-database-only-in-platform` and `db-testing-only-in-tests`.
@@ -1125,6 +1579,73 @@ describe("isUniqueViolation", () => {
 });
 ```
 
+`packages/db/test/for-org-options.test.ts`:
+```ts
+// forOrg() limits: a transaction past its timeout is rolled back, and a forOrg() inside another is refused rather than
+// left to run on a second connection that can't see the first one's writes.
+import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import { createDatabase, type Database } from "../src/database.js";
+import { NestedForOrgError } from "../src/for-org.js";
+import { createIdentityDatabase, type IdentityDatabase } from "../src/identity.js";
+import { createPlatformClient, type PlatformClient } from "../src/platform.js";
+import { createTestOrganization } from "./helpers.js";
+
+const pause = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+describe("forOrg options and nesting", () => {
+  const urls = inject("dbUrls");
+  let platform: PlatformClient;
+  let db: Database;
+  let identityDatabase: IdentityDatabase;
+  let organizationId: string;
+
+  beforeAll(async () => {
+    platform = createPlatformClient(urls.platform);
+    db = createDatabase(urls.runtime, { maxConnections: 3 });
+    identityDatabase = createIdentityDatabase(urls.runtime, { maxConnections: 2 });
+    organizationId = await createTestOrganization(platform, "forOrg options");
+  });
+
+  afterAll(async () => {
+    await identityDatabase.disconnect();
+    await db.disconnect();
+    await platform.$disconnect();
+  });
+
+  it("rolls back a transaction that runs past its timeout", async () => {
+    await expect(
+      db.forOrg(
+        organizationId,
+        async (tx) => {
+          await tx.orgCounter.create({ data: { key: "SLOW-2026", value: 1 } });
+          await pause(400);
+        },
+        { timeout: 100 },
+      ),
+    ).rejects.toThrow(/timeout|expired|closed/i);
+    expect(await db.forOrg(organizationId, (tx) => tx.orgCounter.count({ where: { key: "SLOW-2026" } }))).toBe(0);
+  });
+
+  it("refuses a forOrg() inside another, from the same or another database handle", async () => {
+    await expect(
+      db.forOrg(organizationId, () => db.forOrg(organizationId, (tx) => tx.role.count())),
+    ).rejects.toBeInstanceOf(NestedForOrgError);
+    await expect(
+      identityDatabase.forOrg(organizationId, () => db.forOrg(organizationId, (tx) => tx.role.count())),
+    ).rejects.toBeInstanceOf(NestedForOrgError);
+  });
+
+  it("allows one forOrg() after another, and many side by side", async () => {
+    expect(await db.forOrg(organizationId, (tx) => tx.role.count())).toBe(0);
+    expect(await db.forOrg(organizationId, (tx) => tx.role.count())).toBe(0);
+    const counts = await Promise.all(
+      Array.from({ length: 6 }, () => db.forOrg(organizationId, (tx) => tx.role.count())),
+    );
+    expect(counts).toEqual([0, 0, 0, 0, 0, 0]);
+  });
+});
+```
+
 - [ ] **Step 2: Run them to see them fail**
 
 Run: `cd /Users/ak/personal/travel-crm && source ~/.nvm/nvm.sh && nvm use >/dev/null && pnpm --filter @travel-crm/db test`
@@ -1233,11 +1754,12 @@ export function createPlatformClient(url: string): PlatformClient {
 }
 ```
 
-- [ ] **Step 4: Narrow `OrgTx`, and add the identity entry point**
+- [ ] **Step 4: Narrow `OrgTx`, add the transaction options and the nesting guard, and add the identity entry point**
 
-Replace `packages/db/src/for-org.ts`. The checks are plan 1's; the types are new:
+Replace `packages/db/src/for-org.ts`. The id and role checks are plan 1's. New here are the narrowed types, `ForOrgOptions`, and the nesting guard:
 ```ts
 // Runs work inside one transaction scoped to one organization. Postgres row-level security does the scoping.
+import { AsyncLocalStorage } from "node:async_hooks";
 import type { ITXClientDenyList } from "@prisma/client/runtime/client";
 import type { DatabaseClient } from "./client.js";
 
@@ -1257,7 +1779,18 @@ export type IdentityTx = Omit<DatabaseClient, ITXClientDenyList | RawStringMetho
 /** A transaction bound to one organization: every query sees and writes only that organization's rows. */
 export type OrgTx = Omit<IdentityTx, SignInModel>;
 
+/** Limits for one forOrg() transaction, passed to Prisma. Prisma's defaults: wait 2 s for a connection, run 5 s. */
+export interface ForOrgOptions {
+  /** Longest wait for a free connection, in milliseconds. */
+  maxWait?: number;
+  /** Longest the transaction may run, in milliseconds. Past it, the work is rolled back and forOrg() rejects. */
+  timeout?: number;
+}
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Set while a forOrg() transaction runs, to catch a forOrg() inside it. */
+const insideForOrg = new AsyncLocalStorage<true>();
 
 /** Thrown before any SQL runs when the organization id is not a UUID. */
 export class InvalidOrganizationIdError extends Error {
@@ -1278,20 +1811,74 @@ export class WrongDatabaseRoleError extends Error {
   }
 }
 
-export async function forOrg<T>(client: DatabaseClient, orgId: string, fn: (tx: IdentityTx) => Promise<T>): Promise<T> {
+/**
+ * Thrown when forOrg() is called inside another forOrg(). The inner transaction would run on a second connection,
+ * blind to the outer one's uncommitted writes, and enough of them at once would empty the pool and deadlock.
+ * Pass the outer transaction's `tx` down instead.
+ */
+export class NestedForOrgError extends Error {
+  constructor() {
+    super("forOrg() was called inside another forOrg(). Pass the outer transaction's tx down instead.");
+    this.name = "NestedForOrgError";
+  }
+}
+
+/** Runs fn in one transaction that sees and changes only orgId's rows. Never call it inside another forOrg(). */
+export async function forOrg<T>(
+  client: DatabaseClient,
+  orgId: string,
+  fn: (tx: IdentityTx) => Promise<T>,
+  options: ForOrgOptions = {},
+): Promise<T> {
   if (!UUID_PATTERN.test(orgId)) {
     throw new InvalidOrganizationIdError(orgId);
   }
-  return client.$transaction(async (tx) => {
-    // One round trip checks who we are and sets the organization. is_local = true: the setting ends with this
-    // transaction, so a pooled connection never carries it over.
-    const [session] = await tx.$queryRaw<{ role: string }[]>`
-      SELECT current_user AS role, set_config('app.org_id', ${orgId}, true)`;
-    if (session?.role !== "app_runtime") {
-      throw new WrongDatabaseRoleError(session?.role);
-    }
-    return fn(tx);
-  });
+  if (insideForOrg.getStore()) {
+    throw new NestedForOrgError();
+  }
+  return insideForOrg.run(true, async () =>
+    client.$transaction(async (tx) => {
+      // One round trip checks who we are and sets the organization. is_local = true: the setting ends with this
+      // transaction, so a pooled connection never carries it over.
+      const [session] = await tx.$queryRaw<{ role: string }[]>`
+        SELECT current_user AS role, set_config('app.org_id', ${orgId}, true)`;
+      if (session?.role !== "app_runtime") {
+        throw new WrongDatabaseRoleError(session?.role);
+      }
+      return fn(tx);
+    }, options),
+  );
+}
+```
+
+Replace `packages/db/src/database.ts` (it passes the options through):
+```ts
+// The application's handle on the database: organization data is reachable only through forOrg().
+import { createPrismaClient } from "./client.js";
+import { forOrg, type ForOrgOptions, type OrgTx } from "./for-org.js";
+
+export interface Database {
+  /**
+   * Runs fn in one transaction that can see and change only orgId's rows. The only way to reach organization data.
+   * Never call it inside another forOrg() (it throws NestedForOrgError): pass that transaction's tx down instead.
+   */
+  forOrg<T>(orgId: string, fn: (tx: OrgTx) => Promise<T>, options?: ForOrgOptions): Promise<T>;
+  /** Closes the connection pool. */
+  disconnect(): Promise<void>;
+}
+
+export interface DatabaseOptions {
+  /** Largest number of open connections. Keep it small behind a transaction-mode pooler. */
+  maxConnections?: number;
+}
+
+/** Connects as the app_runtime role, the role every api request and job uses. */
+export function createDatabase(url: string, options: DatabaseOptions = {}): Database {
+  const client = createPrismaClient(url, { max: options.maxConnections ?? 10 });
+  return {
+    forOrg: (orgId, fn, options) => forOrg(client, orgId, fn, options),
+    disconnect: () => client.$disconnect(),
+  };
 }
 ```
 
@@ -1313,10 +1900,10 @@ export function isUniqueViolation(error: unknown): boolean {
 // security because sign-in reads them before the organization is known.
 import { createPrismaClient, type DatabaseClient } from "./client.js";
 import type { DatabaseOptions } from "./database.js";
-import { forOrg, type IdentityTx } from "./for-org.js";
+import { forOrg, type ForOrgOptions, type IdentityTx } from "./for-org.js";
 
 export { isUniqueViolation } from "./errors.js";
-export type { IdentityTx } from "./for-org.js";
+export type { ForOrgOptions, IdentityTx } from "./for-org.js";
 
 /**
  * For Better Auth's adapter and for sign-in lookups made before an organization is known. It sets no organization,
@@ -1327,7 +1914,7 @@ export type IdentityClient = DatabaseClient;
 export interface IdentityDatabase {
   readonly client: IdentityClient;
   /** Like db.forOrg(), but the transaction can also reach the sign-in tables. Filter them by organization yourself. */
-  forOrg<T>(orgId: string, fn: (tx: IdentityTx) => Promise<T>): Promise<T>;
+  forOrg<T>(orgId: string, fn: (tx: IdentityTx) => Promise<T>, options?: ForOrgOptions): Promise<T>;
   /** Closes the connection pool. */
   disconnect(): Promise<void>;
 }
@@ -1337,7 +1924,7 @@ export function createIdentityDatabase(url: string, options: DatabaseOptions = {
   const client = createPrismaClient(url, { max: options.maxConnections ?? 10 });
   return {
     client,
-    forOrg: (orgId, fn) => forOrg(client, orgId, fn),
+    forOrg: (orgId, fn, options) => forOrg(client, orgId, fn, options),
     disconnect: () => client.$disconnect(),
   };
 }
@@ -1349,7 +1936,13 @@ Replace `packages/db/src/index.ts`:
 export { createDatabase, type Database, type DatabaseOptions } from "./database.js";
 export { nextDocumentNumber, type DocumentNumberOptions } from "./counters.js";
 export { isUniqueViolation } from "./errors.js";
-export { InvalidOrganizationIdError, WrongDatabaseRoleError, type OrgTx } from "./for-org.js";
+export {
+  InvalidOrganizationIdError,
+  NestedForOrgError,
+  WrongDatabaseRoleError,
+  type ForOrgOptions,
+  type OrgTx,
+} from "./for-org.js";
 export { HardDeleteError, softDeleted, withDeleted } from "./soft-delete.js";
 export type { Organization, OrgCounter, Role, RolePermission } from "./generated/prisma/client.js";
 ```
@@ -1413,7 +2006,7 @@ Run: `cd /Users/ak/personal/travel-crm && source ~/.nvm/nvm.sh && nvm use >/dev/
 
 Expected:
 - `typecheck` passes. That proves the `@ts-expect-error` lines in `identity-database.test.ts`: if `OrgTx` exposed `member`, `user`, `organization` or the `*Unsafe` methods, the expect-error lines would themselves be errors.
-- All db tests pass: 64 in 10 files.
+- All db tests pass: 71 in 11 files.
 
 - [ ] **Step 6: Add the import rules and prove they fire**
 
@@ -1515,8 +2108,11 @@ Date: 2026-10-14 · Status: accepted · Implements spec section 5
   - refuses `delete` and `deleteMany` with `HardDeleteError`, before any SQL is sent.
 - Deleting is an update: `tx.role.update({ where: { id }, data: softDeleted(userId) })`.
 - `withDeleted(() => …)` shows deleted rows to the queries inside it, for Trash screens and restoring.
-- Values unique among live rows, such as role keys, use partial unique indexes:
-  `@@unique([organizationId, key], where: { deletedAt: null })`, from Prisma's `partialIndexes` preview feature.
+- Values unique among live rows, such as role names, use partial unique indexes:
+  `@@unique([organizationId, name], where: { deletedAt: null })`, from Prisma's `partialIndexes` preview feature. A
+  deleted role's name can be used again.
+- Identifiers that other rows refer to without a foreign key are never reused, deleted or not. Role keys, which
+  `member.role` holds, have a plain unique index.
 
 ## Context
 
@@ -1556,736 +2152,6 @@ The first and largest set of decisions is the Foundation spec: `docs/superpowers
 ```
 
 Replace `packages/db/README.md`:
-```markdown
-# @travel-crm/db
-
-The database layer: Prisma schema, migrations, and the rules that keep each organization's data apart.
-
-## Using it
-
-    import { createDatabase, nextDocumentNumber } from "@travel-crm/db";
-
-    const url = process.env.DATABASE_URL;
-    if (!url) throw new Error("DATABASE_URL is not set");
-    const db = createDatabase(url);   // must connect as the app_runtime role; forOrg() checks
-    const number = await db.forOrg(orgId, (tx) => nextDocumentNumber(tx, { prefix: "BK", year: 2026 }));
-
-Organization data is reachable only inside `db.forOrg()`. Postgres row-level security limits every query in that
-transaction to `orgId`'s rows; outside it, queries see nothing.
-
-## Entry points
-
-| Import                                | For                      | Gives                                                                         |
-| ------------------------------------- | ------------------------ | ----------------------------------------------------------------------------- |
-| `@travel-crm/db`                      | every module             | `createDatabase`, `OrgTx`, `nextDocumentNumber`, `softDeleted`, `withDeleted` |
-| `@travel-crm/db/identity`             | the identity module only | Better Auth's client, and `forOrg` transactions that reach the sign-in tables |
-| `@travel-crm/db/platform`             | the platform module only | a client that sees every organization                                         |
-| `@travel-crm/db/testing`              | tests only               | `createTestOrganization`, the `DbUrls` type                                   |
-| `@travel-crm/db/testing/global-setup` | other packages' Vitest   | the throwaway Postgres; `inject("dbUrls")` in tests                           |
-
-dependency-cruiser enforces the "only" column. Another package's `vitest.config.ts` uses the test database like this:
-
-    globalSetup: [createRequire(import.meta.url).resolve("@travel-crm/db/testing/global-setup")],
-
-## Adding a table that belongs to an organization
-
-1. Add the model in `prisma/schema/<module>.prisma` with this exact line, plus a relation to `Organization`:
-
-       organizationId String @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
-
-2. Create the migration: `pnpm --filter @travel-crm/db exec prisma migrate dev --create-only --name <change>`
-3. Append to the new `migration.sql`: `SELECT app_enable_org_rls('<table_name>');`
-4. Apply and regenerate: `pnpm --filter @travel-crm/db exec prisma migrate dev && pnpm --filter @travel-crm/db generate`
-5. Add a row-creating entry for the table to `test/org-table-fixtures.ts`.
-6. `pnpm check`. The isolation suite now covers the new table.
-
-Steps 3 and 5 are enforced: the tests fail if either is missing. A foreign key to another organization table must
-include `organization_id` (`@relation(fields: [organizationId, otherId], references: [organizationId, id])`).
-
-## Soft delete
-
-Rows of soft-delete models are never removed (ADR 0004). To make a model soft-deletable:
-
-1. Give it `deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)` and `deletedBy String? @map("deleted_by") @db.Uuid`.
-2. Add its model name to `softDeleteModels` in `src/soft-delete.ts`.
-3. Make unique values ignore deleted rows: `@@unique([organizationId, name], where: { deletedAt: null })`.
-
-Delete with `tx.thing.update({ where: { id }, data: softDeleted(userId) })`. Reads and updates skip deleted rows;
-`delete()` throws `HardDeleteError`. `withDeleted(() => …)` shows deleted rows for Trash screens and restoring.
-
-## Roles
-
-| Role           | Used by          | Sees                                  |
-| -------------- | ---------------- | ------------------------------------- |
-| `app_migrator` | migrations       | everything (owns the tables)          |
-| `app_runtime`  | api and worker   | only the organization set by `forOrg` |
-| `app_platform` | platform console | every organization                    |
-
-`sql/bootstrap.sql` creates them locally and in tests. Why it works this way: [ADR 0002](../../docs/adr/0002-row-level-security.md).
-```
-
-- [ ] **Step 8: Check and commit**
-
-Run: `cd /Users/ak/personal/travel-crm && source ~/.nvm/nvm.sh && nvm use >/dev/null && pnpm check`. Expected: green.
-
-```bash
-cd /Users/ak/personal/travel-crm
-git add packages/db .dependency-cruiser.cjs docs/adr
-git commit -m "feat(db): add soft delete, the identity entry point and test helpers for other packages"
-```
-
----
-### Task 3b: Keys on organization tables, the `signInTables` guard, and `forOrg` limits
-
-Plan 1's final review added requirements after Tasks 1-3 were written and executed. This task brings the database package up to them:
-- **Unique constraints on organization tables include `organization_id`.** A unique value shared across organizations tells one organization that another uses it. `role_permission`'s primary key was `(role_id, permission)`; a new migration makes it `(organization_id, role_id, permission)`.
-- **The schema check covers unique constraints as well as foreign keys.** `organization-keys.test.ts` replaces Task 2's `foreign-keys.test.ts`, with a probe for each check. A primary key on `id` alone is exempt, because random UUIDs reveal nothing.
-- **`signInTables` is guarded.** Every entry must exist, carry `organization_id`, and be `member` or `invitation`, so a typo or a stale entry can't exempt another table.
-- **`forOrg` limits.** `forOrg` takes `{ timeout, maxWait }`, passed to Prisma's transaction. It refuses to run inside another `forOrg`: the inner transaction would use a second connection, blind to the outer one's uncommitted writes, and many at once would deadlock the pool.
-
-The wider raw-SQL guard (session `SET`/`RESET`, `CREATE TEMP`) is already in, from Task 1's review fixes.
-
-**Files:**
-- Modify: `packages/db/prisma/schema/identity-roles.prisma`
-- Create: `packages/db/prisma/migrations/<timestamp>_role_permission_key/migration.sql` (generated)
-- Delete: `packages/db/test/foreign-keys.test.ts`
-- Create: `packages/db/test/organization-keys.test.ts`, `packages/db/test/for-org-options.test.ts`
-- Modify: `packages/db/test/identity-tables.test.ts`, `packages/db/test/org-table-fixtures.ts` (a comment)
-- Modify: `packages/db/src/for-org.ts`, `packages/db/src/database.ts`, `packages/db/src/identity.ts`, `packages/db/src/index.ts`, `packages/db/README.md`
-
-**Interfaces:**
-- Consumes:
-  - from Task 2, the `role_permission` table and `signInTables`;
-  - from Task 3, `forOrg`, `createDatabase`, `createIdentityDatabase`, `IdentityTx`, `OrgTx` and `createTestOrganization`.
-- Produces:
-  - `role_permission`'s primary key is `(organization_id, role_id, permission)`, and Prisma's compound id becomes `organizationId_roleId_permission`. Nothing in this plan uses it by name.
-  - Two schema checks, each with a probe:
-    - every foreign key between two organization tables pairs `organization_id`;
-    - every unique index on an organization table (sign-in tables apart) includes `organization_id`, except a primary key on `id` alone.
-  - `interface ForOrgOptions { maxWait?: number; timeout?: number }`, Prisma's transaction limits (defaults 2 s and 5 s).
-  - `forOrg<T>(client, orgId, fn, options?: ForOrgOptions)`, `Database.forOrg<T>(orgId, fn, options?)` and `IdentityDatabase.forOrg<T>(orgId, fn, options?)`.
-  - `class NestedForOrgError extends Error`: a `forOrg` inside another throws it before any SQL runs.
-  - New exports:
-    - `@travel-crm/db` exports `NestedForOrgError` and `type ForOrgOptions`;
-    - `@travel-crm/db/identity` exports `type ForOrgOptions`.
-
-- [ ] **Step 1: Write the failing tests**
-
-Task 2's foreign-key check moves into a file that also checks unique constraints:
-```bash
-cd /Users/ak/personal/travel-crm && git rm -q packages/db/test/foreign-keys.test.ts
-```
-
-`packages/db/test/organization-keys.test.ts`:
-```ts
-// Fails when a key on an organization-owned table leaves out organization_id:
-// - a foreign key without it lets a row point at another organization's row, because Postgres checks foreign keys
-//   without row-level security;
-// - a unique constraint without it tells one organization that another already uses a value.
-// The primary key on `id` alone is the exception: random UUIDs reveal nothing. Each check has a probe (run in a
-// rolled-back migrator transaction) proving it fires.
-import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { createPrismaClient } from "../src/client.js";
-import type { Prisma } from "../src/generated/prisma/client.js";
-import { createPlatformClient, type PlatformClient } from "../src/platform.js";
-import { signInTables } from "./org-table-fixtures.js";
-
-type Queryable = Pick<Prisma.TransactionClient, "$queryRaw">;
-
-/** Foreign keys from one organization table to another that do not pair organization_id with organization_id. */
-async function foreignKeysWithoutOrganization(client: Queryable): Promise<string[]> {
-  const rows = await client.$queryRaw<{ table_name: string; name: string }[]>`
-    SELECT source.relname AS table_name, source.relname || '.' || fk.conname AS name
-    FROM pg_constraint fk
-    JOIN pg_class source ON source.oid = fk.conrelid
-    JOIN pg_namespace n ON n.oid = source.relnamespace AND n.nspname = 'public'
-    WHERE fk.contype = 'f'
-      AND EXISTS (SELECT 1 FROM pg_attribute a
-                  WHERE a.attrelid = fk.conrelid AND a.attname = 'organization_id' AND NOT a.attisdropped)
-      AND EXISTS (SELECT 1 FROM pg_attribute a
-                  WHERE a.attrelid = fk.confrelid AND a.attname = 'organization_id' AND NOT a.attisdropped)
-      AND NOT EXISTS (
-        SELECT 1
-        FROM unnest(fk.conkey, fk.confkey) AS pair(source_column, target_column)
-        JOIN pg_attribute s ON s.attrelid = fk.conrelid AND s.attnum = pair.source_column
-        JOIN pg_attribute t ON t.attrelid = fk.confrelid AND t.attnum = pair.target_column
-        WHERE s.attname = 'organization_id' AND t.attname = 'organization_id')
-    ORDER BY name`;
-  return rows.filter((row) => !signInTables.includes(row.table_name)).map((row) => row.name);
-}
-
-/** Unique indexes (including primary keys) on organization tables that leave out organization_id. */
-async function uniqueKeysWithoutOrganization(client: Queryable): Promise<string[]> {
-  const rows = await client.$queryRaw<{ table_name: string; name: string }[]>`
-    SELECT t.relname AS table_name, t.relname || '.' || i.relname AS name
-    FROM pg_index x
-    JOIN pg_class i ON i.oid = x.indexrelid
-    JOIN pg_class t ON t.oid = x.indrelid
-    JOIN pg_namespace n ON n.oid = t.relnamespace AND n.nspname = 'public'
-    WHERE x.indisunique
-      AND EXISTS (SELECT 1 FROM pg_attribute a
-                  WHERE a.attrelid = t.oid AND a.attname = 'organization_id' AND NOT a.attisdropped)
-      AND NOT EXISTS (SELECT 1 FROM pg_attribute a
-                      WHERE a.attrelid = t.oid AND a.attnum = ANY (x.indkey::int2[]) AND a.attname = 'organization_id')
-      AND NOT (x.indisprimary AND x.indnatts = 1 AND EXISTS (
-        SELECT 1 FROM pg_attribute a WHERE a.attrelid = t.oid AND a.attnum = x.indkey[0] AND a.attname = 'id'))
-    ORDER BY name`;
-  return rows.filter((row) => !signInTables.includes(row.table_name)).map((row) => row.name);
-}
-
-class Rollback extends Error {}
-
-/** Runs setup SQL then assertions inside a migrator transaction that is always rolled back. */
-async function probe(
-  migratorUrl: string,
-  run: (tx: Queryable & Pick<Prisma.TransactionClient, "$executeRaw">) => Promise<void>,
-) {
-  const migrator = createPrismaClient(migratorUrl, { max: 1 });
-  try {
-    await expect(
-      migrator.$transaction(async (tx) => {
-        await run(tx);
-        throw new Rollback("undo the probe tables");
-      }),
-    ).rejects.toBeInstanceOf(Rollback);
-  } finally {
-    await migrator.$disconnect();
-  }
-}
-
-describe("keys on organization tables", () => {
-  const urls = inject("dbUrls");
-  let platform: PlatformClient;
-
-  beforeAll(() => {
-    platform = createPlatformClient(urls.platform);
-  });
-
-  afterAll(async () => {
-    await platform.$disconnect();
-  });
-
-  it("pair organization_id in every foreign key to another organization table", async () => {
-    expect(await foreignKeysWithoutOrganization(platform)).toEqual([]);
-  });
-
-  it("include organization_id in every unique constraint, except a primary key on id", async () => {
-    expect(await uniqueKeysWithoutOrganization(platform)).toEqual([]);
-  });
-
-  it("catches a foreign key that leaves organization_id out", async () => {
-    await probe(urls.migrator, async (tx) => {
-      await tx.$executeRaw`CREATE TABLE fk_probe_parent (id uuid PRIMARY KEY, organization_id uuid NOT NULL,
-                             UNIQUE (organization_id, id))`;
-      await tx.$executeRaw`CREATE TABLE fk_probe_child (organization_id uuid NOT NULL,
-                             parent_id uuid REFERENCES fk_probe_parent (id))`;
-      expect(await foreignKeysWithoutOrganization(tx)).toEqual(["fk_probe_child.fk_probe_child_parent_id_fkey"]);
-      await tx.$executeRaw`ALTER TABLE fk_probe_child DROP CONSTRAINT fk_probe_child_parent_id_fkey,
-                             ADD FOREIGN KEY (organization_id, parent_id) REFERENCES fk_probe_parent (organization_id, id)`;
-      expect(await foreignKeysWithoutOrganization(tx)).toEqual([]);
-    });
-  });
-
-  it("catches a unique constraint that leaves organization_id out", async () => {
-    await probe(urls.migrator, async (tx) => {
-      await tx.$executeRaw`CREATE TABLE unique_probe (id uuid PRIMARY KEY, organization_id uuid NOT NULL, code text)`;
-      expect(await uniqueKeysWithoutOrganization(tx)).toEqual([]);
-      await tx.$executeRaw`CREATE UNIQUE INDEX unique_probe_code ON unique_probe (code)`;
-      expect(await uniqueKeysWithoutOrganization(tx)).toEqual(["unique_probe.unique_probe_code"]);
-      await tx.$executeRaw`DROP INDEX unique_probe_code`;
-      await tx.$executeRaw`CREATE UNIQUE INDEX unique_probe_code ON unique_probe (organization_id, code)`;
-      expect(await uniqueKeysWithoutOrganization(tx)).toEqual([]);
-    });
-  });
-});
-```
-
-Replace `packages/db/test/identity-tables.test.ts`. Only its first test changes, into the `signInTables` guard:
-```ts
-// Rules the identity tables enforce themselves: role key and scope formats, key reuse after a soft delete,
-// one organization per user, the sign-in table list, and which organization columns the api may change.
-import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { createPrismaClient } from "../src/client.js";
-import { createDatabase, type Database } from "../src/database.js";
-import { createPlatformClient, type PlatformClient } from "../src/platform.js";
-import { createTestOrganization } from "./helpers.js";
-import { signInTables } from "./org-table-fixtures.js";
-
-describe("identity tables", () => {
-  const urls = inject("dbUrls");
-  let platform: PlatformClient;
-  let db: Database;
-  let organizationId: string;
-
-  beforeAll(async () => {
-    platform = createPlatformClient(urls.platform);
-    db = createDatabase(urls.runtime, { maxConnections: 3 });
-    organizationId = await createTestOrganization(platform, "Identity tables");
-  });
-
-  afterAll(async () => {
-    await db.disconnect();
-    await platform.$disconnect();
-  });
-
-  it("exempts from row-level security only Better Auth tables that exist and carry organization_id", async () => {
-    // The only Better Auth tables with organization_id. A typo or a stale entry must not exempt some other table.
-    const betterAuthTablesWithOrganizationId = ["invitation", "member"];
-    expect(signInTables.filter((table) => !betterAuthTablesWithOrganizationId.includes(table))).toEqual([]);
-    expect(new Set(signInTables).size).toBe(signInTables.length);
-    for (const table of signInTables) {
-      const [column] = await platform.$queryRaw<{ found: number }[]>`
-        SELECT count(*)::int AS found FROM information_schema.columns
-        WHERE table_schema = 'public' AND table_name = ${table} AND column_name = 'organization_id'`;
-      expect(column?.found, `${table} must exist and have an organization_id column`).toBe(1);
-    }
-  });
-
-  it("only accepts role keys of lowercase letters, digits and hyphens that start with a letter", async () => {
-    await expect(
-      db.forOrg(organizationId, (tx) => tx.role.create({ data: { key: "senior-sales-2", name: "Senior sales" } })),
-    ).resolves.toMatchObject({ key: "senior-sales-2" });
-    for (const badKey of ["Sales", "2nd-shift", "sales manager", "s", "a".repeat(49)]) {
-      await expect(
-        db.forOrg(organizationId, (tx) => tx.role.create({ data: { key: badKey, name: "Bad" } })),
-      ).rejects.toThrow(/role_key_format/);
-    }
-  });
-
-  it("only accepts own, all or no scope on a permission", async () => {
-    const role = await db.forOrg(organizationId, (tx) => tx.role.create({ data: { key: "scoped", name: "Scoped" } }));
-    await db.forOrg(organizationId, (tx) =>
-      tx.rolePermission.createMany({
-        data: [
-          { roleId: role.id, permission: "leads:view", scope: "own" },
-          { roleId: role.id, permission: "quotes:view", scope: "all" },
-          { roleId: role.id, permission: "leads:create", scope: null },
-        ],
-      }),
-    );
-    await expect(
-      db.forOrg(organizationId, (tx) =>
-        tx.rolePermission.create({ data: { roleId: role.id, permission: "bookings:view", scope: "team" } }),
-      ),
-    ).rejects.toThrow(/role_permission_scope_value/);
-  });
-
-  it("lets a deleted role's key be used again, but never by two roles that are not deleted", async () => {
-    const first = await db.forOrg(organizationId, (tx) => tx.role.create({ data: { key: "guides", name: "Guides" } }));
-    await expect(
-      db.forOrg(organizationId, (tx) => tx.role.create({ data: { key: "guides", name: "Guides again" } })),
-    ).rejects.toThrow(/Unique constraint/);
-    await db.forOrg(organizationId, (tx) =>
-      tx.role.update({ where: { id: first.id }, data: { deletedAt: new Date(), deletedBy: first.id } }),
-    );
-    await expect(
-      db.forOrg(organizationId, (tx) => tx.role.create({ data: { key: "guides", name: "Guides again" } })),
-    ).resolves.toMatchObject({ key: "guides" });
-  });
-
-  it("keeps each user in at most one organization", async () => {
-    const otherOrganizationId = await createTestOrganization(platform, "Identity tables, second");
-    const runtime = createPrismaClient(urls.runtime, { max: 1 });
-    try {
-      const user = await runtime.user.create({ data: { name: "Ravi", email: `ravi-${organizationId}@example.test` } });
-      await runtime.member.create({ data: { userId: user.id, organizationId, role: "sales" } });
-      await expect(
-        runtime.member.create({ data: { userId: user.id, organizationId: otherOrganizationId, role: "sales" } }),
-      ).rejects.toThrow(/Unique constraint/);
-    } finally {
-      await runtime.$disconnect();
-    }
-  });
-
-  it("lets the api change require_two_factor, but not an organization's name or sign-in code", async () => {
-    const runtime = createPrismaClient(urls.runtime, { max: 1 });
-    try {
-      await expect(
-        runtime.organization.update({ where: { id: organizationId }, data: { requireTwoFactor: true } }),
-      ).resolves.toMatchObject({ requireTwoFactor: true });
-      await expect(
-        runtime.organization.update({ where: { id: organizationId }, data: { name: "Renamed" } }),
-      ).rejects.toThrow(/permission denied/);
-      await expect(
-        runtime.organization.update({ where: { id: organizationId }, data: { code: "HIJACK1" } }),
-      ).rejects.toThrow(/permission denied/);
-    } finally {
-      await runtime.$disconnect();
-    }
-  });
-});
-```
-
-Replace `packages/db/test/org-table-fixtures.ts`. Only the comment on `signInTables` changes:
-```ts
-// One row-creating function per organization-owned table. isolation.test.ts runs its checks on each, and fails if
-// a table with an organization_id column is missing here. Add an entry whenever you add such a table.
-import type { OrgTx } from "../src/for-org.js";
-
-export const orgTableFixtures: Record<string, (tx: OrgTx) => Promise<unknown>> = {
-  org_counter: (tx) => tx.orgCounter.create({ data: { key: "ISO-2000", value: 1 } }),
-  role: (tx) => tx.role.create({ data: { key: "isolation-role", name: "Isolation role" } }),
-  role_permission: async (tx) => {
-    const role = await tx.role.create({ data: { key: "isolation-grant-role", name: "Isolation grant role" } });
-    return tx.rolePermission.create({ data: { roleId: role.id, permission: "leads:view", scope: "all" } });
-  },
-};
-
-/**
- * Tables that carry organization_id but stay outside row-level security because sign-in reads them before the
- * organization is known (spec section 4): Better Auth's member and invitation. Only the identity module may touch
- * them. identity-tables.test.ts checks each entry exists and is one of those two, so no other table can be exempted.
- */
-export const signInTables: readonly string[] = ["invitation", "member"];
-```
-
-`packages/db/test/for-org-options.test.ts`:
-```ts
-// forOrg() limits: a transaction past its timeout is rolled back, and a forOrg() inside another is refused rather than
-// left to run on a second connection that can't see the first one's writes.
-import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { createDatabase, type Database } from "../src/database.js";
-import { NestedForOrgError } from "../src/for-org.js";
-import { createIdentityDatabase, type IdentityDatabase } from "../src/identity.js";
-import { createPlatformClient, type PlatformClient } from "../src/platform.js";
-import { createTestOrganization } from "./helpers.js";
-
-const pause = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
-
-describe("forOrg options and nesting", () => {
-  const urls = inject("dbUrls");
-  let platform: PlatformClient;
-  let db: Database;
-  let identityDatabase: IdentityDatabase;
-  let organizationId: string;
-
-  beforeAll(async () => {
-    platform = createPlatformClient(urls.platform);
-    db = createDatabase(urls.runtime, { maxConnections: 3 });
-    identityDatabase = createIdentityDatabase(urls.runtime, { maxConnections: 2 });
-    organizationId = await createTestOrganization(platform, "forOrg options");
-  });
-
-  afterAll(async () => {
-    await identityDatabase.disconnect();
-    await db.disconnect();
-    await platform.$disconnect();
-  });
-
-  it("rolls back a transaction that runs past its timeout", async () => {
-    await expect(
-      db.forOrg(
-        organizationId,
-        async (tx) => {
-          await tx.orgCounter.create({ data: { key: "SLOW-2026", value: 1 } });
-          await pause(400);
-        },
-        { timeout: 100 },
-      ),
-    ).rejects.toThrow(/timeout|expired|closed/i);
-    expect(await db.forOrg(organizationId, (tx) => tx.orgCounter.count({ where: { key: "SLOW-2026" } }))).toBe(0);
-  });
-
-  it("refuses a forOrg() inside another, from the same or another database handle", async () => {
-    await expect(
-      db.forOrg(organizationId, () => db.forOrg(organizationId, (tx) => tx.role.count())),
-    ).rejects.toBeInstanceOf(NestedForOrgError);
-    await expect(
-      identityDatabase.forOrg(organizationId, () => db.forOrg(organizationId, (tx) => tx.role.count())),
-    ).rejects.toBeInstanceOf(NestedForOrgError);
-  });
-
-  it("allows one forOrg() after another, and many side by side", async () => {
-    expect(await db.forOrg(organizationId, (tx) => tx.role.count())).toBe(0);
-    expect(await db.forOrg(organizationId, (tx) => tx.role.count())).toBe(0);
-    const counts = await Promise.all(
-      Array.from({ length: 6 }, () => db.forOrg(organizationId, (tx) => tx.role.count())),
-    );
-    expect(counts).toEqual([0, 0, 0, 0, 0, 0]);
-  });
-});
-```
-
-- [ ] **Step 2: Run them to see them fail**
-
-Run: `cd /Users/ak/personal/travel-crm && source ~/.nvm/nvm.sh && nvm use >/dev/null && pnpm --filter @travel-crm/db test`
-
-Expected: FAIL.
-- "include organization_id in every unique constraint, except a primary key on id" reports `role_permission.role_permission_pkey`.
-- The `for-org-options` tests fail: `NestedForOrgError` isn't exported yet, and `forOrg` ignores the timeout.
-- Everything else passes.
-
-- [ ] **Step 3: Put `organization_id` into `role_permission`'s key**
-
-Replace `packages/db/prisma/schema/identity-roles.prisma`. Only `RolePermission`'s `@@id` and its comment change:
-```prisma
-// Roles and their permissions (spec 6.5). Our own tables, not Better Auth's access control (ADR 0005).
-// Organization-owned: row-level security applies (the migration calls app_enable_org_rls on both).
-
-/// A named set of permissions in one organization, e.g. "Sales". member.role holds its key.
-model Role {
-  /// Filled from db.forOrg()'s organization when omitted.
-  organizationId String           @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
-  id             String           @id @default(uuid(7)) @db.Uuid
-  /// Stable identifier stored in member.role, e.g. "sales" (CHECK role_key_format). Never changes.
-  key            String
-  name           String
-  /// The Owner role holds every permission, including ones added to the catalog later. It has no
-  /// role_permission rows and cannot be edited or deleted.
-  isOwner        Boolean          @default(false) @map("is_owner")
-  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt      DateTime?        @map("deleted_at") @db.Timestamptz(6)
-  /// The user id of whoever deleted the role.
-  deletedBy      String?          @map("deleted_by") @db.Uuid
-  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  permissions    RolePermission[]
-
-  /// Lets role_permission point at (organization_id, id), so a permission row can't name another organization's role.
-  @@unique([organizationId, id])
-  /// A key is unique among the organization's roles that are not deleted.
-  @@unique([organizationId, key], where: { deletedAt: null })
-  @@map("role")
-}
-
-/// One permission, such as "leads:create", granted to one role.
-model RolePermission {
-  /// Filled from db.forOrg()'s organization when omitted.
-  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
-  roleId         String       @map("role_id") @db.Uuid
-  /// A key from the permission catalog (packages/domain/src/identity/permissions.ts).
-  permission     String
-  /// For view permissions: "own" (records assigned to the member) or "all". Null otherwise (CHECK role_permission_scope_value).
-  scope          String?
-  role           Role         @relation(fields: [organizationId, roleId], references: [organizationId, id], onDelete: Cascade)
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-
-  /// Unique constraints on organization tables include organization_id (organization-keys.test.ts checks).
-  @@id([organizationId, roleId, permission])
-  @@map("role_permission")
-}
-```
-
-```bash
-cd /Users/ak/personal/travel-crm && source ~/.nvm/nvm.sh && nvm use >/dev/null
-pnpm db:up
-pnpm --filter @travel-crm/db exec prisma migrate dev --create-only --name role_permission_key
-```
-Expected: `prisma/migrations/<timestamp>_role_permission_key/migration.sql`, exactly as Prisma writes it, with nothing to append:
-```sql
-/*
-  Warnings:
-
-  - The primary key for the `role_permission` table will be changed. If it partially fails, the table could be left without primary key constraint.
-
-*/
--- AlterTable
-ALTER TABLE "role_permission" DROP CONSTRAINT "role_permission_pkey",
-ADD CONSTRAINT "role_permission_pkey" PRIMARY KEY ("organization_id", "role_id", "permission");
-```
-
-Prisma's warning is about a partial failure. That can't happen here: a migration runs in one transaction, and the two clauses are one statement.
-
-Apply it and regenerate:
-```bash
-cd /Users/ak/personal/travel-crm && source ~/.nvm/nvm.sh && nvm use >/dev/null
-pnpm --filter @travel-crm/db exec prisma migrate dev
-pnpm --filter @travel-crm/db generate
-```
-
-- [ ] **Step 4: Add the transaction options and the nesting guard**
-
-Replace `packages/db/src/for-org.ts`:
-```ts
-// Runs work inside one transaction scoped to one organization. Postgres row-level security does the scoping.
-import { AsyncLocalStorage } from "node:async_hooks";
-import type { ITXClientDenyList } from "@prisma/client/runtime/client";
-import type { DatabaseClient } from "./client.js";
-
-/**
- * Better Auth's tables. They have no row-level security, because sign-in reads them before the organization is known,
- * so OrgTx hides them. Only the identity module reaches them, through @travel-crm/db/identity.
- */
-type SignInModel =
-  "user" | "session" | "account" | "verification" | "twoFactor" | "organization" | "member" | "invitation";
-
-/** Prisma's methods that take SQL as a plain string. The tagged-template $queryRaw and $executeRaw remain. */
-type RawStringMethod = "$executeRawUnsafe" | "$queryRawUnsafe";
-
-/** A transaction bound to one organization that can also reach the sign-in tables. Only the identity module gets one. */
-export type IdentityTx = Omit<DatabaseClient, ITXClientDenyList | RawStringMethod>;
-
-/** A transaction bound to one organization: every query sees and writes only that organization's rows. */
-export type OrgTx = Omit<IdentityTx, SignInModel>;
-
-/** Limits for one forOrg() transaction, passed to Prisma. Prisma's defaults: wait 2 s for a connection, run 5 s. */
-export interface ForOrgOptions {
-  /** Longest wait for a free connection, in milliseconds. */
-  maxWait?: number;
-  /** Longest the transaction may run, in milliseconds. Past it, the work is rolled back and forOrg() rejects. */
-  timeout?: number;
-}
-
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/** Set while a forOrg() transaction runs, to catch a forOrg() inside it. */
-const insideForOrg = new AsyncLocalStorage<true>();
-
-/** Thrown before any SQL runs when the organization id is not a UUID. */
-export class InvalidOrganizationIdError extends Error {
-  constructor(value: string) {
-    super(`Not a valid organization id: ${JSON.stringify(value.slice(0, 64))}`);
-    this.name = "InvalidOrganizationIdError";
-  }
-}
-
-/** Thrown when the connection is not the app_runtime role: other roles see every organization's rows. */
-export class WrongDatabaseRoleError extends Error {
-  constructor(role: string | undefined) {
-    super(
-      `forOrg() is connected to the database as ${JSON.stringify(role)}, but isolation only holds for app_runtime. ` +
-        "DATABASE_URL must connect as the app_runtime role (not app_migrator, app_platform or an admin user).",
-    );
-    this.name = "WrongDatabaseRoleError";
-  }
-}
-
-/**
- * Thrown when forOrg() is called inside another forOrg(). The inner transaction would run on a second connection,
- * blind to the outer one's uncommitted writes, and enough of them at once would empty the pool and deadlock.
- * Pass the outer transaction's `tx` down instead.
- */
-export class NestedForOrgError extends Error {
-  constructor() {
-    super("forOrg() was called inside another forOrg(). Pass the outer transaction's tx down instead.");
-    this.name = "NestedForOrgError";
-  }
-}
-
-/** Runs fn in one transaction that sees and changes only orgId's rows. Never call it inside another forOrg(). */
-export async function forOrg<T>(
-  client: DatabaseClient,
-  orgId: string,
-  fn: (tx: IdentityTx) => Promise<T>,
-  options: ForOrgOptions = {},
-): Promise<T> {
-  if (!UUID_PATTERN.test(orgId)) {
-    throw new InvalidOrganizationIdError(orgId);
-  }
-  if (insideForOrg.getStore()) {
-    throw new NestedForOrgError();
-  }
-  return insideForOrg.run(true, async () =>
-    client.$transaction(async (tx) => {
-      // One round trip checks who we are and sets the organization. is_local = true: the setting ends with this
-      // transaction, so a pooled connection never carries it over.
-      const [session] = await tx.$queryRaw<{ role: string }[]>`
-        SELECT current_user AS role, set_config('app.org_id', ${orgId}, true)`;
-      if (session?.role !== "app_runtime") {
-        throw new WrongDatabaseRoleError(session?.role);
-      }
-      return fn(tx);
-    }, options),
-  );
-}
-```
-
-The guard uses AsyncLocalStorage, as `withDeleted()` does. It is scoped to one `forOrg` callback, so calls one after another, and many side by side, still work.
-
-Replace `packages/db/src/database.ts`:
-```ts
-// The application's handle on the database: organization data is reachable only through forOrg().
-import { createPrismaClient } from "./client.js";
-import { forOrg, type ForOrgOptions, type OrgTx } from "./for-org.js";
-
-export interface Database {
-  /**
-   * Runs fn in one transaction that can see and change only orgId's rows. The only way to reach organization data.
-   * Never call it inside another forOrg() (it throws NestedForOrgError): pass that transaction's tx down instead.
-   */
-  forOrg<T>(orgId: string, fn: (tx: OrgTx) => Promise<T>, options?: ForOrgOptions): Promise<T>;
-  /** Closes the connection pool. */
-  disconnect(): Promise<void>;
-}
-
-export interface DatabaseOptions {
-  /** Largest number of open connections. Keep it small behind a transaction-mode pooler. */
-  maxConnections?: number;
-}
-
-/** Connects as the app_runtime role, the role every api request and job uses. */
-export function createDatabase(url: string, options: DatabaseOptions = {}): Database {
-  const client = createPrismaClient(url, { max: options.maxConnections ?? 10 });
-  return {
-    forOrg: (orgId, fn, options) => forOrg(client, orgId, fn, options),
-    disconnect: () => client.$disconnect(),
-  };
-}
-```
-
-Replace `packages/db/src/identity.ts`:
-```ts
-// Entry point for the identity module only (dependency-cruiser enforces it). It reaches Better Auth's sign-in tables
-// (user, session, account, verification, two_factor, organization, member, invitation), which have no row-level
-// security because sign-in reads them before the organization is known.
-import { createPrismaClient, type DatabaseClient } from "./client.js";
-import type { DatabaseOptions } from "./database.js";
-import { forOrg, type ForOrgOptions, type IdentityTx } from "./for-org.js";
-
-export { isUniqueViolation } from "./errors.js";
-export type { ForOrgOptions, IdentityTx } from "./for-org.js";
-
-/**
- * For Better Auth's adapter and for sign-in lookups made before an organization is known. It sets no organization,
- * so organization-owned tables return no rows through it.
- */
-export type IdentityClient = DatabaseClient;
-
-export interface IdentityDatabase {
-  readonly client: IdentityClient;
-  /** Like db.forOrg(), but the transaction can also reach the sign-in tables. Filter them by organization yourself. */
-  forOrg<T>(orgId: string, fn: (tx: IdentityTx) => Promise<T>, options?: ForOrgOptions): Promise<T>;
-  /** Closes the connection pool. */
-  disconnect(): Promise<void>;
-}
-
-/** Connects as the app_runtime role, like createDatabase(). */
-export function createIdentityDatabase(url: string, options: DatabaseOptions = {}): IdentityDatabase {
-  const client = createPrismaClient(url, { max: options.maxConnections ?? 10 });
-  return {
-    client,
-    forOrg: (orgId, fn, options) => forOrg(client, orgId, fn, options),
-    disconnect: () => client.$disconnect(),
-  };
-}
-```
-
-Replace `packages/db/src/index.ts`:
-```ts
-// Public API of @travel-crm/db. Anything not exported here is internal to the package.
-export { createDatabase, type Database, type DatabaseOptions } from "./database.js";
-export { nextDocumentNumber, type DocumentNumberOptions } from "./counters.js";
-export { isUniqueViolation } from "./errors.js";
-export {
-  InvalidOrganizationIdError,
-  NestedForOrgError,
-  WrongDatabaseRoleError,
-  type ForOrgOptions,
-  type OrgTx,
-} from "./for-org.js";
-export { HardDeleteError, softDeleted, withDeleted } from "./soft-delete.js";
-export type { Organization, OrgCounter, Role, RolePermission } from "./generated/prisma/client.js";
-```
-
-- [ ] **Step 5: Run the tests to see them pass**
-
-Run: `cd /Users/ak/personal/travel-crm && source ~/.nvm/nvm.sh && nvm use >/dev/null && pnpm --filter @travel-crm/db typecheck && pnpm --filter @travel-crm/db test`
-
-Expected: 69 tests pass in 11 files. The counters test still hands out 25 numbers concurrently, which shows the nesting guard doesn't trip on calls side by side.
-
-- [ ] **Step 6: Document the rules**
-
-Replace `packages/db/README.md`. It adds the options, the nesting rule and the key rules:
 ```markdown
 # @travel-crm/db
 
@@ -2363,19 +2229,19 @@ Delete with `tx.thing.update({ where: { id }, data: softDeleted(userId) })`. Rea
 `sql/bootstrap.sql` creates them locally and in tests. Why it works this way: [ADR 0002](../../docs/adr/0002-row-level-security.md).
 ```
 
-- [ ] **Step 7: Check and commit**
+- [ ] **Step 8: Check and commit**
 
 Run: `cd /Users/ak/personal/travel-crm && source ~/.nvm/nvm.sh && nvm use >/dev/null && pnpm check`. Expected: green.
 
 ```bash
 cd /Users/ak/personal/travel-crm
-git add packages/db
-git commit -m "feat(db): require organization_id in unique keys, guard signInTables, and add forOrg limits"
+git add packages/db .dependency-cruiser.cjs docs/adr
+git commit -m "feat(db): add soft delete, the identity entry point and test helpers for other packages"
 ```
 
 ---
 
-### Task 4: Contracts for the identity API
+### Task 5: Contracts for the identity API
 
 Every API input and output gets a Zod 4 schema in `@travel-crm/contracts/identity`. The shared field rules also normalise what people type: organization codes become capitals, emails lower case. Output schemas refuse placeholder (`.invalid`) email addresses, so a leaked placeholder fails the response instead of reaching a screen.
 
@@ -2877,7 +2743,7 @@ git commit -m "feat(contracts): add Zod schemas for the identity API"
 
 ---
 
-### Task 5: The identity module's catalog, starter roles and rules
+### Task 6: The identity module's catalog, starter roles and rules
 
 The business rules that need no database:
 - the permission catalog;
@@ -2899,7 +2765,7 @@ The package starts with two modules: `kernel` (`DomainError`) and `identity`. Ea
 - Create: `docs/adr/0005-roles-and-permissions.md`
 
 **Interfaces:**
-- Consumes: from Task 4, the types `PermissionScope`, `PermissionGrantInput` and `PendingStep` from `@travel-crm/contracts/identity`.
+- Consumes: from Task 5, the types `PermissionScope`, `PermissionGrantInput` and `PendingStep` from `@travel-crm/contracts/identity`.
 - Produces:
   - `@travel-crm/domain/kernel`: `type DomainErrorCode = "NOT_FOUND" | "FORBIDDEN" | "CONFLICT" | "LIMIT_REACHED" | "FEATURE_LOCKED" | "VALIDATION"`, and `class DomainError extends Error { readonly code: DomainErrorCode; readonly reason: string; constructor(code, reason, message) }`.
   - From `@travel-crm/domain/identity`, the permission catalog:
@@ -2971,7 +2837,7 @@ import { base } from "@travel-crm/eslint-config";
 export default base({ tsconfigRootDir: import.meta.dirname });
 ```
 
-`packages/domain/vitest.config.ts` (Task 6 adds the database):
+`packages/domain/vitest.config.ts` (Task 7 adds the database):
 ```ts
 // Unit tests for the domain's business rules.
 import { defineConfig } from "vitest/config";
@@ -3775,7 +3641,7 @@ export function assertRoleIsEditable(role: { isOwner: boolean }): void {
 }
 ```
 
-`packages/domain/src/identity/index.ts` (Task 6 adds to it):
+`packages/domain/src/identity/index.ts` (Task 7 adds to it):
 ```ts
 // Public API of the identity module: permissions, roles, staff and sign-in. Other modules import only from here.
 export {
@@ -3891,8 +3757,13 @@ answers open question Q2
   organization.
 - **Role keys** are stable. Starter roles have fixed keys; a custom role's key is its name in Latin letters plus a
   random suffix (`senior-sales-3f9a2c`, or `role-3f9a2c` for a name like "बिक्री"). Keys never equal Better Auth's
-  built-in role names (`owner`, `admin`, `member`). Names are unique per organization, ignoring case.
-- A role with staff cannot be deleted. Deleting is a soft delete (ADR 0004).
+  built-in role names (`owner`, `admin`, `member`). Names are unique per organization among live roles, ignoring
+  case.
+- **Keys are never reused,** even after a role is deleted (a plain unique index on `(organization_id, key)`).
+  `member.role` holds the key with no foreign key (it is Better Auth's column), so a reused key would hand a later
+  role to anyone still on the deleted one.
+- **A role with staff cannot be deleted** (`ROLE_IN_USE`). Deleting is a soft delete (ADR 0004). A member who still
+  ends up on a deleted role, through a race, keeps no permissions until they are given another role.
 
 ## Starter roles (for the product owner to review)
 
@@ -3951,7 +3822,7 @@ git commit -m "feat(domain): add the permission catalog, starter roles and acces
 
 ---
 
-### Task 6: Better Auth and access in the identity module
+### Task 7: Better Auth and access in the identity module
 
 Better Auth's configuration lives in the identity module, which spec section 4 makes the only code that touches the sign-in tables. This task also adds:
 - `resolveAccess`, the per-request read behind request checks 1 and 4;
@@ -3968,9 +3839,9 @@ Better Auth's configuration lives in the identity module, which spec section 4 m
 
 **Interfaces:**
 - Consumes:
-  - From Task 3, `@travel-crm/db/identity` (`createIdentityDatabase`, `IdentityDatabase`, `IdentityClient`, `IdentityTx`, `isUniqueViolation`), `withDeleted` and `softDeleted` from `@travel-crm/db`, `@travel-crm/db/platform` and `@travel-crm/db/testing` in tests, and `@travel-crm/db/testing/global-setup`.
-  - From Task 5, everything in the identity index.
-  - From Task 4, `MeOutput`.
+  - From Task 4, `@travel-crm/db/identity` (`createIdentityDatabase`, `IdentityDatabase`, `IdentityClient`, `IdentityTx`, `isUniqueViolation`), `withDeleted` and `softDeleted` from `@travel-crm/db`, `@travel-crm/db/platform` and `@travel-crm/db/testing` in tests, and `@travel-crm/db/testing/global-setup`.
+  - From Task 6, everything in the identity index.
+  - From Task 5, `MeOutput`.
 - Produces:
   - `interface AuthSettings { appName; secret; baseUrl; trustedOrigins: readonly string[]; secureCookies: boolean; rateLimit: boolean; ipAddressHeaders: readonly string[] }`.
   - `createAuth(client: IdentityClient, settings: AuthSettings)` and `type Auth = ReturnType<typeof createAuth>`.
@@ -3979,7 +3850,7 @@ Better Auth's configuration lives in the identity module, which spec section 4 m
   - `seedStarterRoles(database, organizationId): Promise<void>`. A second call throws `CONFLICT ROLES_ALREADY_SEEDED`.
   - In `staff-accounts.ts`: `type PasswordHasher = (password: string) => Promise<string>`, `interface NewStaffAccount { organizationId; name; email?; username?; roleKey; password; mustChangePassword }`, `interface CreatedStaff { userId; memberId }`, and `createStaffAccount(database, hashPassword, account): Promise<CreatedStaff>`. It throws `VALIDATION EMAIL_OR_USERNAME_REQUIRED`, `NOT_FOUND ROLE_NOT_FOUND` or `CONFLICT EMAIL_OR_USERNAME_TAKEN`.
   - `interface IdentityOptions { databaseUrl; maxConnections?; auth: AuthSettings }`, `interface NewOwner { name; email; username?; password; mustChangePassword }`, and `createIdentity(options): Identity`.
-  - `interface Identity` with `auth`, `resolveAccess(userId, organizationId)`, `describeSignedInPerson(session)`, `isPlatformAdmin(user)`, `seedStarterRoles(organizationId)`, `createOrganizationOwner(organizationId, owner: NewOwner): Promise<CreatedStaff>` and `disconnect()`. Tasks 7 and 8 add `roles`, `staff` and `settings`.
+  - `interface Identity` with `auth`, `resolveAccess(userId, organizationId)`, `describeSignedInPerson(session)`, `isPlatformAdmin(user)`, `seedStarterRoles(organizationId)`, `createOrganizationOwner(organizationId, owner: NewOwner): Promise<CreatedStaff>` and `disconnect()`. Tasks 8 and 9 add `roles`, `staff` and `settings`.
   - The identity index also exports `createIdentity`, `Identity`, `IdentityOptions`, `NewOwner`, `Auth`, `AuthSettings`, `SignedInSession` and `CreatedStaff`.
 
 - [ ] **Step 1: Add the dependencies and the test database**
@@ -4258,7 +4129,7 @@ describe("identity access", () => {
 
 Run: `cd /Users/ak/personal/travel-crm && source ~/.nvm/nvm.sh && nvm use >/dev/null && pnpm --filter @travel-crm/domain test`
 
-Expected: the 27 Task 5 tests pass. `access.test.ts` fails: Vitest cannot resolve `../../src/identity/identity.js`.
+Expected: the 27 Task 6 tests pass. `access.test.ts` fails: Vitest cannot resolve `../../src/identity/identity.js`.
 
 - [ ] **Step 4: Configure Better Auth**
 
@@ -4815,9 +4686,14 @@ git commit -m "feat(domain): configure Better Auth and resolve each member's acc
 
 ---
 
-### Task 7: Roles
+### Task 8: Roles
 
-An organization's roles: list them, create them, change their name or permissions, delete unused ones. Every change goes through the Task 5 rules, so nobody can put a permission they lack into a role, or edit a role that allows more than they hold. The Owner role never changes.
+An organization's roles: list them, create them, change their name or permissions, delete unused ones. Every change goes through the Task 6 rules, so nobody can put a permission they lack into a role, or edit a role that allows more than they hold. The Owner role never changes.
+
+`member.role` holds a role's key with no foreign key, so this task makes sure no member is ever left pointing at the wrong role:
+- deleting a role anyone still holds is refused (`ROLE_IN_USE`);
+- since Task 3, a deleted role's key is never reused, so a member who somehow stays on a deleted role keeps no permissions rather than inheriting a later role of the same name;
+- two people creating roles with one name at the same moment get one role and one `ROLE_NAME_TAKEN`, not a database error.
 
 **Files:**
 - Create: `packages/domain/src/identity/role-lookup.ts`, `packages/domain/src/identity/roles.ts`
@@ -4826,16 +4702,18 @@ An organization's roles: list them, create them, change their name or permission
 
 **Interfaces:**
 - Consumes:
-  - From Task 6: `IdentityDatabase`, `createStaffAccount` (in tests), `createTestIdentity` and `createTestAgency`.
-  - From Task 5: `assertMayHandleRole`, `assertRoleIsEditable`, `permissionSetFromInput`, `PermissionSet`, `roleKeyFor` and `MemberAccess`.
-  - From Task 4: `CreateRoleInput`, `UpdateRoleInput`, `DeleteRoleInput` and `RoleSummary`.
+  - From Task 7: `IdentityDatabase`, `createStaffAccount` (in tests), `createTestIdentity` and `createTestAgency`.
+  - From Task 6: `assertMayHandleRole`, `assertRoleIsEditable`, `permissionSetFromInput`, `PermissionSet`, `roleKeyFor` and `MemberAccess`.
+  - From Task 5: `CreateRoleInput`, `UpdateRoleInput`, `DeleteRoleInput` and `RoleSummary`.
 - Produces:
   - `interface FoundRole extends RoleFacts { id; key; name }` and `findRole(tx: IdentityTx, key: string): Promise<FoundRole>`, which throws `NOT_FOUND ROLE_NOT_FOUND`.
   - `listRoles(database, actor): Promise<RoleSummary[]>`: the Owner first, then by name.
   - `createRole(database, actor, input): Promise<RoleSummary>`.
   - `updateRole(database, actor, input): Promise<RoleSummary>`.
-  - `deleteRole(database, actor, input): Promise<void>`, a soft delete.
-  - New refusal reasons: `ROLE_NAME_TAKEN` (CONFLICT; names are compared without case) and `ROLE_IN_USE` (CONFLICT).
+  - `deleteRole(database, actor, input): Promise<void>`, a soft delete, refused while any active member holds the role.
+  - New refusal reasons:
+    - `ROLE_NAME_TAKEN` (CONFLICT): names are compared without case, and a unique violation from a simultaneous create or rename is reported the same way;
+    - `ROLE_IN_USE` (CONFLICT).
   - `Identity.roles: { list(actor); create(actor, input); update(actor, input); delete(actor, input) }`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -4844,6 +4722,7 @@ An organization's roles: list them, create them, change their name or permission
 ```ts
 // Roles against Postgres: listing, creating, changing and deleting, and the rules that stop anyone granting more
 // than they hold or touching the Owner role.
+import { softDeleted } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import type { MemberAccess } from "../../src/identity/member-access.js";
@@ -4977,6 +4856,38 @@ describe("roles", () => {
     });
   });
 
+  it("gives one of two simultaneous roles with the same name a conflict", async () => {
+    const results = await Promise.allSettled([
+      test.identity.roles.create(owner, { name: "Night desk", permissions: [] }),
+      test.identity.roles.create(owner, { name: "Night desk", permissions: [] }),
+    ]);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    const [refused] = results.filter((result) => result.status === "rejected");
+    expect(refused?.reason).toMatchObject({ code: "CONFLICT", reason: "ROLE_NAME_TAKEN" });
+  });
+
+  it("never lets a later role pick up the members of a deleted one", async () => {
+    // Deleting a role with members is refused (above). Should a member still end up on a deleted role (say, through
+    // a role change racing the delete), they keep no permissions, and a new role of the same name gets a new key.
+    const couriers = await test.identity.roles.create(owner, {
+      name: "Couriers",
+      permissions: [{ permission: "departures:view" }],
+    });
+    const courier = await memberWithRole(couriers.key, "courier1");
+    await test.database.forOrg(agency.organizationId, (tx) =>
+      tx.role.updateMany({ where: { key: couriers.key }, data: softDeleted(agency.ownerUserId) }),
+    );
+    const again = await test.identity.roles.create(owner, {
+      name: "Couriers",
+      permissions: [{ permission: "departures:view" }],
+    });
+    expect(again.key).not.toBe(couriers.key);
+    expect(again.memberCount).toBe(0);
+    const access = await test.identity.resolveAccess(courier.userId, agency.organizationId);
+    expect(access?.role.key).toBe(couriers.key);
+    expect(access?.permissions.toGrants()).toEqual([]);
+  });
+
   it("reports an unknown role as not found", async () => {
     await expect(test.identity.roles.update(owner, { key: "no-such-role", name: "X" })).rejects.toMatchObject({
       code: "NOT_FOUND",
@@ -4994,7 +4905,7 @@ Expected: the earlier tests pass. `roles.test.ts` fails because `test.identity.r
 
 - [ ] **Step 3: Write the role lookup and the role functions**
 
-`packages/domain/src/identity/role-lookup.ts` (Task 8's staff functions use it too):
+`packages/domain/src/identity/role-lookup.ts` (Task 9's staff functions use it too):
 ```ts
 // Finds a role of the transaction's organization by key, with what it allows.
 import type { IdentityTx } from "@travel-crm/db/identity";
@@ -5028,7 +4939,7 @@ export async function findRole(tx: IdentityTx, key: string): Promise<FoundRole> 
 // check 4) before calling the changes; these functions enforce the rules in access-rules.ts.
 import type { CreateRoleInput, DeleteRoleInput, RoleSummary, UpdateRoleInput } from "@travel-crm/contracts/identity";
 import { softDeleted } from "@travel-crm/db";
-import type { IdentityDatabase, IdentityTx } from "@travel-crm/db/identity";
+import { isUniqueViolation, type IdentityDatabase, type IdentityTx } from "@travel-crm/db/identity";
 import { DomainError } from "../kernel/index.js";
 import { assertMayHandleRole, assertRoleIsEditable, permissionSetFromInput } from "./access-rules.js";
 import type { MemberAccess } from "./member-access.js";
@@ -5063,12 +4974,14 @@ export async function createRole(
 ): Promise<RoleSummary> {
   const permissions = permissionSetFromInput(input.permissions);
   assertMayHandleRole(actor, { isOwner: false, permissions });
-  return database.forOrg(actor.organizationId, async (tx) => {
-    await assertNameIsFree(tx, input.name);
-    const role = await tx.role.create({ data: { key: roleKeyFor(input.name), name: input.name } });
-    await replacePermissions(tx, role.id, permissions);
-    return summarise({ ...role, permissions }, 0);
-  });
+  return refusingDuplicateNames(
+    database.forOrg(actor.organizationId, async (tx) => {
+      await assertNameIsFree(tx, input.name);
+      const role = await tx.role.create({ data: { key: roleKeyFor(input.name), name: input.name } });
+      await replacePermissions(tx, role.id, permissions);
+      return summarise({ ...role, permissions }, 0);
+    }),
+  );
 }
 
 export async function updateRole(
@@ -5076,28 +4989,33 @@ export async function updateRole(
   actor: MemberAccess,
   input: UpdateRoleInput,
 ): Promise<RoleSummary> {
-  return database.forOrg(actor.organizationId, async (tx) => {
-    const role = await findRole(tx, input.key);
-    assertRoleIsEditable(role);
-    // Nobody may edit a role that allows more than they hold, even to take permissions away.
-    assertMayHandleRole(actor, role);
-    let permissions = role.permissions;
-    if (input.permissions !== undefined) {
-      permissions = permissionSetFromInput(input.permissions);
-      assertMayHandleRole(actor, { isOwner: false, permissions });
-      await replacePermissions(tx, role.id, permissions);
-    }
-    let name = role.name;
-    if (input.name !== undefined && input.name !== role.name) {
-      await assertNameIsFree(tx, input.name, role.id);
-      name = (await tx.role.update({ where: { id: role.id }, data: { name: input.name } })).name;
-    }
-    const memberCounts = await countMembersByRole(tx, actor.organizationId);
-    return summarise({ ...role, name, permissions }, memberCounts.get(role.key) ?? 0);
-  });
+  return refusingDuplicateNames(
+    database.forOrg(actor.organizationId, async (tx) => {
+      const role = await findRole(tx, input.key);
+      assertRoleIsEditable(role);
+      // Nobody may edit a role that allows more than they hold, even to take permissions away.
+      assertMayHandleRole(actor, role);
+      let permissions = role.permissions;
+      if (input.permissions !== undefined) {
+        permissions = permissionSetFromInput(input.permissions);
+        assertMayHandleRole(actor, { isOwner: false, permissions });
+        await replacePermissions(tx, role.id, permissions);
+      }
+      let name = role.name;
+      if (input.name !== undefined && input.name !== role.name) {
+        await assertNameIsFree(tx, input.name, role.id);
+        name = (await tx.role.update({ where: { id: role.id }, data: { name: input.name } })).name;
+      }
+      const memberCounts = await countMembersByRole(tx, actor.organizationId);
+      return summarise({ ...role, name, permissions }, memberCounts.get(role.key) ?? 0);
+    }),
+  );
 }
 
-/** Soft-deletes a role nobody has. Its key and name become free again. */
+/**
+ * Soft-deletes a role nobody has. Its name becomes free again; its key never does, so a member can never pick up a
+ * later role through a reused key.
+ */
 export async function deleteRole(
   database: IdentityDatabase,
   actor: MemberAccess,
@@ -5113,6 +5031,22 @@ export async function deleteRole(
     }
     await tx.role.update({ where: { id: role.id }, data: softDeleted(actor.userId) });
   });
+}
+
+/**
+ * Two people creating or renaming roles with one name at the same moment can both pass assertNameIsFree(); the
+ * database's unique index then refuses the second, which is reported the same way. (So, about once in 16 million, is
+ * a clash of a new key's random suffix.)
+ */
+async function refusingDuplicateNames<T>(work: Promise<T>): Promise<T> {
+  try {
+    return await work;
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      throw new DomainError("CONFLICT", "ROLE_NAME_TAKEN", "There is already a role with that name");
+    }
+    throw error;
+  }
 }
 
 /** Role names are unique within an organization, ignoring case, among roles that are not deleted. */
@@ -5238,9 +5172,10 @@ export function createIdentity(options: IdentityOptions): Identity {
 
 Run: `cd /Users/ak/personal/travel-crm && source ~/.nvm/nvm.sh && nvm use >/dev/null && pnpm --filter @travel-crm/domain typecheck && pnpm --filter @travel-crm/domain test`
 
-Expected: 46 tests pass. Among them:
+Expected: 48 tests pass. Among them:
 - "stops a member granting a permission they don't hold" and "stops a member editing a role that allows more than they hold" (Review Focus 1).
 - "creates a role with a readable key, whatever script its name is in": a Hindi name gives the key `role-xxxxxx`.
+- "refuses to delete a role staff still have", "never lets a later role pick up the members of a deleted one" and "gives one of two simultaneous roles with the same name a conflict".
 
 - [ ] **Step 5: Check and commit**
 
@@ -5254,7 +5189,7 @@ git commit -m "feat(domain): add role management with no-escalation rules"
 
 ---
 
-### Task 8: Staff, and requiring two-factor
+### Task 9: Staff, and requiring two-factor
 
 Staff management (spec 6.3) and the one organization setting identity owns:
 - list staff;
@@ -5272,18 +5207,18 @@ Staff management (spec 6.3) and the one organization setting identity owns:
 
 **Interfaces:**
 - Consumes:
-  - From Task 7: `findRole`.
-  - From Task 6: `createStaffAccount`, `PasswordHasher`, the test helpers and `signInByEmail`.
-  - From Task 5: `assertMayHandleRole`, `assertMayManageMember`, `isPlaceholderEmail`, `removedPersonEmail` and `shownEmail`.
-  - From Task 3: `softDeleted`.
-  - From Task 4: the staff and settings contracts.
+  - From Task 8: `findRole`.
+  - From Task 7: `createStaffAccount`, `PasswordHasher`, the test helpers and `signInByEmail`.
+  - From Task 6: `assertMayHandleRole`, `assertMayManageMember`, `isPlaceholderEmail`, `removedPersonEmail` and `shownEmail`.
+  - From Task 4: `softDeleted`.
+  - From Task 5: the staff and settings contracts.
 - Produces:
   - `listStaff(database, actor): Promise<StaffMember[]>`: this organization's active staff, oldest first, placeholder emails shown as `null`.
   - `createStaff(database, hashPassword, actor, input: CreateStaffInput): Promise<StaffMember>`: always `mustChangePassword: true`.
   - `updateStaffRole(database, actor, input): Promise<StaffMember>`.
   - `resetStaffPassword(database, hashPassword, actor, input): Promise<void>`: deletes the person's sessions and sets `mustChangePassword`.
   - `removeStaff(database, actor, input): Promise<void>`.
-  - `setTwoFactorRequirement(database, actor, input): Promise<SecuritySettings>`: throws `FORBIDDEN ENABLE_TWO_FACTOR_FIRST` when the actor has no two-factor.
+  - `setTwoFactorRequirement(database, actor, input): Promise<SecuritySettings>`: throws `FORBIDDEN ENABLE_TWO_FACTOR_FIRST` when the actor has no two-factor. It updates `organization` (which has no row-level security) by `actor.organizationId` only; the input carries no organization id.
   - New refusal reason: `MEMBER_NOT_FOUND` (NOT_FOUND). Members of other organizations are reported this way.
   - `Identity.staff: { list; create; updateRole; resetPassword; remove }` and `Identity.settings: { setTwoFactorRequirement }`.
 
@@ -5890,7 +5825,7 @@ export function createIdentity(options: IdentityOptions): Identity {
 
 Run: `cd /Users/ak/personal/travel-crm && source ~/.nvm/nvm.sh && nvm use >/dev/null && pnpm --filter @travel-crm/domain typecheck && pnpm --filter @travel-crm/domain test`
 
-Expected: 62 tests pass. These pin Review Focus 1, 2 and 4:
+Expected: 64 tests pass. These pin Review Focus 1, 2 and 4:
 - "an Admin … cannot change, reset or remove the Owner";
 - "removes a person: no access, no sign-in, and their email and username are free again";
 - "cannot be switched on by someone who doesn't use two-factor themselves".
@@ -6016,7 +5951,7 @@ git commit -m "feat(domain): manage staff with or without email, and the two-fac
 
 ---
 
-### Task 9: The api server, with Better Auth over HTTP
+### Task 10: The api server, with Better Auth over HTTP
 
 `apps/api` becomes a Hono app:
 - a health check;
@@ -6024,7 +5959,7 @@ git commit -m "feat(domain): manage staff with or without email, and the two-fac
 - the organization-code sign-in route;
 - Better Auth's organization endpoints closed.
 
-Its settings come from environment variables checked with Zod at start-up. A Node entry point runs it locally. Tests drive the app through `app.request()`, with a cookie jar standing in for the browser. tRPC arrives in Task 10.
+Its settings come from environment variables checked with Zod at start-up. A Node entry point runs it locally. Tests drive the app through `app.request()`, with a cookie jar standing in for the browser. tRPC arrives in Task 11.
 
 **Files:**
 - Create: `apps/api/package.json`, `tsconfig.json`, `eslint.config.js`, `vitest.config.ts`
@@ -6035,9 +5970,9 @@ Its settings come from environment variables checked with Zod at start-up. A Nod
 
 **Interfaces:**
 - Consumes:
-  - From Task 8: `createIdentity`, `Identity`, `AuthSettings`, `Auth`, `internalUsername`, `MemberAccess` and `identity.staff.create`.
-  - From Task 4: `orgSignInInput`.
-  - From Task 3: `@travel-crm/db/testing` and `@travel-crm/db/platform` in tests.
+  - From Task 9: `createIdentity`, `Identity`, `AuthSettings`, `Auth`, `internalUsername`, `MemberAccess` and `identity.staff.create`.
+  - From Task 5: `orgSignInInput`.
+  - From Task 4: `@travel-crm/db/testing` and `@travel-crm/db/platform` in tests.
 - Produces:
   - `loadEnvironment(source: Record<string, string | undefined>): Environment`, `type Environment`, `class EnvironmentError`, and `authSettingsFrom(environment: Environment): AuthSettings`.
   - Variables:
@@ -6627,7 +6562,7 @@ export async function organizationSignIn(auth: Auth, request: Request): Promise<
 }
 ```
 
-`apps/api/src/app.ts` (Task 10 adds tRPC):
+`apps/api/src/app.ts` (Task 11 adds tRPC):
 ```ts
 // The api's HTTP app: a health check and Better Auth's sign-in endpoints under /api/auth.
 import type { Identity } from "@travel-crm/domain/identity";
@@ -6690,7 +6625,7 @@ Expected: 15 tests pass. These pin Review Focus 5:
 - "refuses a sign-in posted from another website": Better Auth logs `Invalid origin: https://evil.example`, which is expected;
 - "closes Better Auth's organization endpoints to clients".
 
-If "refuses a sign-in posted from another website" gets 200, `disableOriginCheck: false` is missing from `createAuth` (Task 6).
+If "refuses a sign-in posted from another website" gets 200, `disableOriginCheck: false` is missing from `createAuth` (Task 7).
 
 - [ ] **Step 6: Cover `apps/` in the import rules**
 
@@ -6757,7 +6692,7 @@ git commit -m "feat(api-server): serve Better Auth with organization-code sign-i
 
 ---
 
-### Task 10: tRPC and the request checks
+### Task 11: tRPC and the request checks
 
 `packages/api` gets tRPC: the context, the error mapping and the procedure builders. The builders run the spec 6.5 checks in order:
 - 1, signed in;
@@ -6780,10 +6715,10 @@ The first routers are `me`, `settings` and `platform`, mounted at `/api/trpc`.
 
 **Interfaces:**
 - Consumes:
-  - From Task 9: `createApp`, `CookieJar` and the `test-server.ts` helpers.
-  - From Task 8: `Identity` with `resolveAccess`, `describeSignedInPerson`, `isPlatformAdmin`, `staff.create` and `settings.setTwoFactorRequirement`.
-  - From Task 5: `pendingStep`, `MemberAccess`, `Permission` and `DomainError`.
-  - From Task 4: `meOutput`, `securitySettings` and `setTwoFactorRequirementInput`.
+  - From Task 10: `createApp`, `CookieJar` and the `test-server.ts` helpers.
+  - From Task 9: `Identity` with `resolveAccess`, `describeSignedInPerson`, `isPlatformAdmin`, `staff.create` and `settings.setTwoFactorRequirement`.
+  - From Task 6: `pendingStep`, `MemberAccess`, `Permission` and `DomainError`.
+  - From Task 5: `meOutput`, `securitySettings` and `setTwoFactorRequirementInput`.
 - Produces:
   - `interface ApiDependencies { identity: Identity }`, `createContext(dependencies, request: Request)` (gives `{ identity, headers, session | null, user | null }`) and `type Context`.
   - `toTrpcError(error: DomainError): TRPCError`, `interface ErrorDetails { domainCode: DomainErrorCode | null; reason: string | null }`, `errorDetails(error: TRPCError)` and `publicMessage(error: TRPCError)`. Every error response carries `error.data.domainCode` and `error.data.reason`. Internal errors say only "Something went wrong".
@@ -7174,7 +7109,7 @@ export const platformRouter = router({
 });
 ```
 
-`packages/api/src/routers/app-router.ts` (Task 11 adds staff and roles):
+`packages/api/src/routers/app-router.ts` (Task 12 adds staff and roles):
 ```ts
 // Every tRPC router the api serves at /api/trpc. The web app imports the AppRouter type only, never this code.
 import { router } from "../trpc.js";
@@ -7561,6 +7496,28 @@ describe("two-factor sign-in", () => {
     expect(setup.totpUri).not.toContain("no-email.invalid");
   });
 
+  it("changes only the caller's own organization, whatever the input names", async () => {
+    // The organization table has no row-level security, so the update is scoped to the session's organization only.
+    const caller = await createTestAgency(server);
+    const other = await createTestAgency(server);
+    const owner = await signedInOwner(server, caller);
+    await enableTwoFactor(server, owner, caller.owner.password);
+    const response = await mutate(
+      server,
+      "settings.setTwoFactorRequirement",
+      { required: true, organizationId: other.organizationId },
+      owner,
+    );
+    expect(await dataOf(response)).toEqual({ requireTwoFactor: true });
+    const requirement = (organizationId: string) =>
+      server.platform.organization.findUniqueOrThrow({
+        where: { id: organizationId },
+        select: { requireTwoFactor: true },
+      });
+    expect(await requirement(caller.organizationId)).toEqual({ requireTwoFactor: true });
+    expect(await requirement(other.organizationId)).toEqual({ requireTwoFactor: false });
+  });
+
   it("asks for a code after the password, including at organization-code sign-in", async () => {
     const meera = await addStaff(server, agency, { username: "meera", roleKey: "operations" });
     const { secret } = await enableTwoFactor(server, await signedInStaff(server, agency, meera), meera.password);
@@ -7673,7 +7630,7 @@ describe("platform staff", () => {
 
 Run: `cd /Users/ak/personal/travel-crm && source ~/.nvm/nvm.sh && nvm use >/dev/null && pnpm --filter @travel-crm/api-server test`
 
-Expected: Task 9's 15 tests pass. The new files fail: every `/api/trpc/…` call answers 404, because tRPC isn't mounted yet.
+Expected: Task 10's 15 tests pass. The new files fail: every `/api/trpc/…` call answers 404, because tRPC isn't mounted yet.
 
 - [ ] **Step 7: Mount tRPC**
 
@@ -7721,12 +7678,13 @@ export function createApp({ identity }: ServerDependencies): Hono {
 
 Run: `cd /Users/ak/personal/travel-crm && source ~/.nvm/nvm.sh && nvm use >/dev/null && pnpm --filter @travel-crm/api-server typecheck && pnpm --filter @travel-crm/api-server test`
 
-Expected: 29 tests pass. These pin Review Focus 2, 3 and 4:
+Expected: 30 tests pass. These pin Review Focus 2, 3 and 4:
 - "refuses a removed member at once, though their session cookie is still cached";
 - "lets a revoked session through ordinary procedures for up to 5 minutes, but never through sensitive ones";
 - "can't be required by an owner who doesn't use it…";
 - "once required, holds members without it at setup, which stays open to them": the authenticator label shows `<CODE> ravi`, never the placeholder;
-- "asks for a code after the password, including at organization-code sign-in".
+- "asks for a code after the password, including at organization-code sign-in";
+- "changes only the caller's own organization, whatever the input names": the `organization` table has no row-level security, so this pins the WHERE clause to the session's organization.
 
 - [ ] **Step 9: Document the server**
 
@@ -7781,7 +7739,7 @@ git commit -m "feat(api): add tRPC with the request checks, and the me, settings
 
 ---
 
-### Task 11: Staff and roles over tRPC
+### Task 12: Staff and roles over tRPC
 
 The last two routers. `staff.*` needs `staff:manage`; changing roles needs `roles:manage`. Both read the session from the database (spec 6.4). Every member may list roles and read the permission catalog. The tests are the end-to-end journeys: an owner adds people with and without email, they sign in, roles change under them, and they are removed.
 
@@ -7792,10 +7750,10 @@ The last two routers. `staff.*` needs `staff:manage`; changing roles needs `role
 
 **Interfaces:**
 - Consumes:
-  - From Task 10: `freshProcedure`, `orgProcedure`, `router` and all the test support.
-  - From Task 8: `Identity.staff` and `Identity.roles`.
-  - From Task 5: `permissionCatalog`.
-  - From Task 4: the staff and roles contracts.
+  - From Task 11: `freshProcedure`, `orgProcedure`, `router` and all the test support.
+  - From Task 9: `Identity.staff` and `Identity.roles`.
+  - From Task 6: `permissionCatalog`.
+  - From Task 5: the staff and roles contracts.
 - Produces:
   - `staff.list` (query; output `StaffMember[]`) and `staff.create`, `staff.updateRole` (mutations; output `StaffMember`), all `freshProcedure.requires("staff:manage")`.
   - `staff.resetPassword` and `staff.remove`: mutations with no output, also `freshProcedure.requires("staff:manage")`.
@@ -8177,7 +8135,7 @@ describe("roles", () => {
 
 Run: `cd /Users/ak/personal/travel-crm && source ~/.nvm/nvm.sh && nvm use >/dev/null && pnpm --filter @travel-crm/api-server test`
 
-Expected: the 29 earlier tests pass. The new ones fail with 404 ("No procedure found on path …") for `staff.*` and `roles.*`.
+Expected: the 30 earlier tests pass. The new ones fail with 404 ("No procedure found on path …") for `staff.*` and `roles.*`.
 
 - [ ] **Step 3: Write the routers**
 
@@ -8289,7 +8247,7 @@ export type AppRouter = typeof appRouter;
 
 Run: `cd /Users/ak/personal/travel-crm && source ~/.nvm/nvm.sh && nvm use >/dev/null && pnpm --filter @travel-crm/api typecheck && pnpm --filter @travel-crm/api-server test`
 
-Expected: 48 tests pass. These pin Review Focus 1, 2 and 3:
+Expected: 49 tests pass. These pin Review Focus 1, 2 and 3:
 - "cannot take over the Owner's account by resetting its password";
 - "removes someone at once: no access on the next request, no sign-in, and their email is free again";
 - "refuses staff with neither email nor username, or a placeholder address";
@@ -8340,7 +8298,7 @@ git commit -m "feat(api): add the staff and roles routers"
 
 ---
 
-### Task 12: Repository conventions, and a clean-clone run
+### Task 13: Repository conventions, and a clean-clone run
 
 `CLAUDE.md` gains the identity, permission and soft-delete rules and the new repo map; `README.md` says how to run the api. Then a fresh clone proves the lockfile, approved builds, generated client, three test databases and import rules all work from nothing, the way CI runs them.
 
@@ -8486,9 +8444,9 @@ rm -rf /private/tmp/claude-501/-Users-ak-personal-yatrahikes-crm/20d5e186-01fd-4
 cd /private/tmp/claude-501/-Users-ak-personal-yatrahikes-crm/20d5e186-01fd-4585-b5e1-2faab53ae574/scratchpad/travel-crm-clean && git checkout -q foundation/02-api-identity
 pnpm install --frozen-lockfile && pnpm check
 ```
-Expected: install succeeds without prompts, and `pnpm check` is green: 17 Turborepo tasks. The test counts are 69 (db), 62 (domain), 48 (api-server), 32 (eslint-config, after Task 1's review), 11 (contracts) and 3 (api). Then `rm -rf /private/tmp/claude-501/-Users-ak-personal-yatrahikes-crm/20d5e186-01fd-4585-b5e1-2faab53ae574/scratchpad/travel-crm-clean`.
+Expected: install succeeds without prompts, and `pnpm check` is green: 17 Turborepo tasks. The test counts are 71 (db), 64 (domain), 49 (api-server), 32 (eslint-config, after Task 1's review), 11 (contracts) and 3 (api). Then `rm -rf /private/tmp/claude-501/-Users-ak-personal-yatrahikes-crm/20d5e186-01fd-4585-b5e1-2faab53ae574/scratchpad/travel-crm-clean`.
 
-If the clone's install stops on an unapproved build script, add it to `allowBuilds` with a comment saying why, the way `@trpc/server` was added in Task 10, and commit that too.
+If the clone's install stops on an unapproved build script, add it to `allowBuilds` with a comment saying why, the way `@trpc/server` was added in Task 11, and commit that too.
 
 ---
 

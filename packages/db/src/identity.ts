@@ -1,7 +1,7 @@
 // Entry point for the identity module only (dependency-cruiser enforces it). It reaches Better Auth's sign-in tables
 // (user, session, account, verification, two_factor, organization, member, invitation), which have no row-level
 // security because sign-in reads them before the organization is known.
-import { createPrismaClient, type DatabaseClient } from "./client.js";
+import { createPrismaClient, ensureRuntimeRole, type DatabaseClient } from "./client.js";
 import type { DatabaseOptions } from "./database.js";
 import { forOrg, type IdentityTx } from "./for-org.js";
 
@@ -27,7 +27,10 @@ export function createIdentityDatabase(url: string, options: DatabaseOptions = {
   const client = createPrismaClient(url, { max: options.maxConnections ?? 10, requireRuntimeRole: true });
   return {
     client,
-    forOrg: (orgId, fn) => forOrg(client, orgId, fn),
+    forOrg: async (orgId, fn) => {
+      await ensureRuntimeRole(client);
+      return forOrg(client, orgId, fn);
+    },
     disconnect: () => client.$disconnect(),
   };
 }

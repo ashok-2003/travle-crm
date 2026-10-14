@@ -13,28 +13,51 @@ export interface ClientOptions {
   requireRuntimeRole?: boolean;
 }
 
+/** Each client's cached role check, when it has one. */
+const runtimeRoleChecks = new WeakMap<object, () => Promise<void>>();
+
+/**
+ * Awaits the client's once-only role check (a no-op for clients made without requireRuntimeRole). Call it BEFORE
+ * opening a transaction: inside one, the check would need a second connection, and a small pool could wait forever.
+ */
+export async function ensureRuntimeRole(client: DatabaseClient): Promise<void> {
+  await runtimeRoleChecks.get(client)?.();
+}
+
 export function createPrismaClient(connectionString: string, options: ClientOptions = {}) {
   const adapter = new PrismaPg({ connectionString, max: options.max ?? 10 });
   const base = new PrismaClient({ adapter });
   let roleCheck: Promise<void> | undefined;
+  const checkRole = (): Promise<void> => {
+    // Cached, so a wrong role keeps failing instead of passing on the second query. Other failures (a dropped
+    // connection) are not cached: the next query asks again.
+    roleCheck ??= base.$queryRaw<{ role: string }[]>`SELECT current_user AS role`
+      .then(([row]) => {
+        if (row?.role !== "app_runtime") throw new WrongDatabaseRoleError(row?.role);
+      })
+      .catch((error: unknown) => {
+        if (!(error instanceof WrongDatabaseRoleError)) roleCheck = undefined;
+        throw error;
+      });
+    return roleCheck;
+  };
   const requireRuntimeRole = Prisma.defineExtension({
     name: "require-runtime-role",
     query: {
-      $allModels: {
-        async $allOperations({ args, query }) {
-          if (options.requireRuntimeRole) {
-            // Cached, including a failure: a wrong role must keep failing, not pass on the second query.
-            roleCheck ??= base.$queryRaw<{ role: string }[]>`SELECT current_user AS role`.then(([row]) => {
-              if (row?.role !== "app_runtime") throw new WrongDatabaseRoleError(row?.role);
-            });
-            await roleCheck;
-          }
-          return query(args);
-        },
+      // Covers model queries and raw queries, inside and outside transactions.
+      async $allOperations({ args, query }) {
+        await checkRole();
+        // query() is typed any for the top-level hook; pass its result through untouched.
+        const result: unknown = await query(args);
+        return result;
       },
     },
   });
-  return base.$extends(requireRuntimeRole).$extends(signInGuard).$extends(softDelete);
+  const client = base.$extends(signInGuard).$extends(softDelete);
+  if (!options.requireRuntimeRole) return client;
+  const checked = client.$extends(requireRuntimeRole);
+  runtimeRoleChecks.set(checked, checkRole);
+  return checked;
 }
 
 /** Prisma's client with the soft-delete extension applied. */

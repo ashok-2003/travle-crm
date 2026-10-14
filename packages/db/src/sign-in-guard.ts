@@ -42,10 +42,10 @@ export const signInGuard = Prisma.defineExtension({
     $allModels: {
       async $allOperations({ model, args, query }) {
         if (signInModels.includes(model)) return query(args);
-        const { include, select, where } = args as { include?: unknown; select?: unknown; where?: unknown };
-        rejectSignInRelation(model, include, "include");
-        rejectSignInRelation(model, select, "select");
-        rejectSignInRelation(model, where, "where");
+        // data and orderBy matter too: a nested write or an ordering through the relation reaches the same tables.
+        for (const part of ["include", "select", "where", "data", "orderBy"] as const) {
+          rejectSignInRelation(model, (args as Record<string, unknown>)[part], part);
+        }
         return query(args);
       },
     },

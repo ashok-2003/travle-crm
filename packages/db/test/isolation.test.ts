@@ -3,9 +3,14 @@ import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { createPrismaClient } from "../src/client.js";
 import { createDatabase, type Database } from "../src/database.js";
 import { Prisma } from "../src/generated/prisma/client.js";
+import { softDeleteModels } from "../src/soft-delete.js";
 import { createPlatformClient, type PlatformClient } from "../src/platform.js";
 import { createTestOrganization } from "./helpers.js";
 import { orgTableFixtures, signInTables } from "./org-table-fixtures.js";
+
+const softDeleteTables = softDeleteModels.map((model) =>
+  model.replaceAll(/[A-Z]/g, (letter, index: number) => (index ? "_" : "") + letter.toLowerCase()),
+);
 
 const quoteIdentifier = (name: string): string => `"${name.replaceAll('"', '""')}"`;
 
@@ -68,12 +73,12 @@ describe("organization isolation", () => {
 
     it("cannot be deleted by another organization", async () => {
       // Soft-delete tables give app_runtime no DELETE grant at all (ADR 0004), which is stronger than row-level security.
-      const mayDelete = await platform.$queryRaw<{ granted: boolean }[]>`
-        SELECT has_table_privilege('app_runtime', ${tableName}, 'DELETE') AS granted`;
-      if (mayDelete[0]?.granted) {
-        expect(await db.forOrg(orgB, (tx) => tx.$executeRaw`DELETE FROM ${table}`)).toBe(0);
+      // The list is fixed, not read from the grants, so a mistaken REVOKE on an ordinary table still fails here.
+      const deleteAsOtherOrganization = db.forOrg(orgB, (tx) => tx.$executeRaw`DELETE FROM ${table}`);
+      if (softDeleteTables.includes(tableName)) {
+        await expect(deleteAsOtherOrganization).rejects.toThrow(/permission denied/i);
       } else {
-        await expect(db.forOrg(orgB, (tx) => tx.$executeRaw`DELETE FROM ${table}`)).rejects.toThrow();
+        expect(await deleteAsOtherOrganization).toBe(0);
       }
       expect(await countRows(orgA)).toBeGreaterThan(0);
     });

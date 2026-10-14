@@ -71,4 +71,42 @@ describe("identity database", () => {
       await wrongRole.disconnect();
     }
   });
+
+  it(
+    "does not hang when the first call is a transaction on a pool of one connection",
+    { timeout: 10_000 },
+    async () => {
+      const single = createIdentityDatabase(urls.runtime, { maxConnections: 1 });
+      try {
+        expect(await single.forOrg(organizationId, (tx) => tx.role.count())).toBeGreaterThanOrEqual(0);
+      } finally {
+        await single.disconnect();
+      }
+    },
+  );
+
+  it("completes concurrent first transactions on a cold pool", { timeout: 20_000 }, async () => {
+    const cold = createIdentityDatabase(urls.runtime, { maxConnections: 2 });
+    try {
+      const counts = await Promise.all(
+        Array.from({ length: 5 }, () => cold.forOrg(organizationId, (tx) => tx.role.count())),
+      );
+      expect(counts).toHaveLength(5);
+    } finally {
+      await cold.disconnect();
+    }
+  });
+
+  it("checks the role for raw queries too", async () => {
+    const wrongRole = createIdentityDatabase(urls.platform, { maxConnections: 2 });
+    try {
+      await expect(wrongRole.client.$queryRaw`SELECT 1`).rejects.toBeInstanceOf(WrongDatabaseRoleError);
+      await expect(wrongRole.client.$executeRaw`SELECT 1`).rejects.toBeInstanceOf(WrongDatabaseRoleError);
+      await expect(wrongRole.forOrg(organizationId, (tx) => tx.role.count())).rejects.toBeInstanceOf(
+        WrongDatabaseRoleError,
+      );
+    } finally {
+      await wrongRole.disconnect();
+    }
+  });
 });

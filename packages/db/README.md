@@ -53,7 +53,7 @@ Rows of soft-delete models are never removed by the app (ADR 0004). To make a mo
 
 `app_runtime` has no DELETE grant on these tables, and `upsert()` throws `SoftDeleteUpsertError`. Queries on
 organization-owned models throw `SignInRelationError` if they use an `organization` relation at any depth of `include`,
-`select` or `where`, because that path leads to the sign-in tables; only `@travel-crm/db/identity` code starts from those.
+`select`, `where`, `data` or `orderBy`, because that path leads to the sign-in tables; only `@travel-crm/db/identity` code starts from those.
 
 Delete with `tx.thing.update({ where: { id }, data: softDeleted(userId) })`. Reads and updates skip deleted rows;
 `delete()` throws `HardDeleteError`. `withDeleted(() => …)` shows deleted rows for Trash screens and restoring.

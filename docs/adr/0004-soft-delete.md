@@ -35,8 +35,11 @@ Date: 2026-10-14 · Status: accepted · Implements spec section 5
 - **Organization-owned models can't follow relations into the sign-in tables.** Every organization table has an
   `organization` relation, and from `Organization` an include reaches `member`, `user` and `account` (password hashes),
   none of which has row-level security. The client extension throws `SignInRelationError` for an `organization` key at
-  any depth of `include`, `select` or `where` on organization-owned models. Queries rooted at sign-in models, used by
+  any depth of `include`, `select`, `where`, `data` or `orderBy` on organization-owned models. Queries rooted at sign-in models, used by
   the identity module, are unrestricted.
+- **The identity client checks its role once.** The first query, raw or model, verifies `current_user` is
+  `app_runtime`; `IdentityDatabase.forOrg()` awaits the check before opening a transaction, so a small pool can't
+  deadlock on it. A dropped connection during the check is retried; a wrong role fails every query.
 - **Hiding `$*RawUnsafe` is only part of the raw-SQL story.** The type narrowing hides the raw-string methods; the
   ESLint guard (Task 1) covers tagged templates, flagging `set_config`, `app.org_id`, `SET ROLE`, `RESET` and
   `CREATE TEMP` outside `packages/db`.
