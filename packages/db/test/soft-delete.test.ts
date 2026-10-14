@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { createDatabase, type Database } from "../src/database.js";
 import { createIdentityDatabase, type IdentityDatabase } from "../src/identity.js";
 import { createPlatformClient, type PlatformClient } from "../src/platform.js";
-import { HardDeleteError, softDeleted, withDeleted } from "../src/soft-delete.js";
+import { HardDeleteError, SoftDeleteUpsertError, softDeleted, withDeleted } from "../src/soft-delete.js";
 import { createTestOrganization } from "./helpers.js";
 
 describe("soft delete", () => {
@@ -96,5 +96,24 @@ describe("soft delete", () => {
     // Relations loaded with include are not filtered: query the soft-delete model itself.
     const withMember = await client.user.findUnique({ where: { id: user.id }, include: { member: true } });
     expect(withMember?.member?.deletedBy).toBe(deletedBy);
+  });
+
+  it("refuses upsert, which could update a deleted row and restore it outside withDeleted()", async () => {
+    await expect(
+      db.forOrg(organizationId, (tx) =>
+        tx.role.upsert({
+          where: { id: deletedRoleId },
+          create: { key: "x", name: "X" },
+          update: { deletedAt: null, deletedBy: null },
+        }),
+      ),
+    ).rejects.toBeInstanceOf(SoftDeleteUpsertError);
+  });
+
+  it("gives the runtime role no DELETE grant on soft-delete tables, so raw SQL can't remove rows either", async () => {
+    await expect(db.forOrg(organizationId, (tx) => tx.$executeRaw`DELETE FROM role`)).rejects.toThrow(
+      /permission denied/i,
+    );
+    await expect(identityDatabase.client.$executeRaw`DELETE FROM member`).rejects.toThrow(/permission denied/i);
   });
 });

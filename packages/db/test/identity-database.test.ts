@@ -2,6 +2,7 @@
 // that sets no organization. OrgTx, which every other module gets, hides the sign-in tables and raw-string SQL.
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import type { OrgTx } from "../src/for-org.js";
+import { WrongDatabaseRoleError } from "../src/for-org.js";
 import { createIdentityDatabase, type IdentityDatabase } from "../src/identity.js";
 import { createPlatformClient, type PlatformClient } from "../src/platform.js";
 import { createTestOrganization } from "./helpers.js";
@@ -47,11 +48,27 @@ describe("identity database", () => {
       tx.user,
       // @ts-expect-error organization is a sign-in table
       tx.organization,
-      // @ts-expect-error raw-string SQL could switch the organization
+      // The ESLint guard (Task 1) flags set_config, app.org_id, SET ROLE, RESET and CREATE TEMP in tagged templates
+      // outside packages/db; the type hides the raw-string methods, which the guard cannot see through.
+      // @ts-expect-error raw-string SQL is hidden from OrgTx
       tx.$executeRawUnsafe,
-      // @ts-expect-error raw-string SQL could switch the organization
+      // @ts-expect-error raw-string SQL is hidden from OrgTx
       tx.$queryRawUnsafe,
     ];
     expect(typeof hidden).toBe("function");
+  });
+
+  it("works as app_runtime, and refuses any other role on first use", async () => {
+    const runtime = createIdentityDatabase(urls.runtime, { maxConnections: 2 });
+    const wrongRole = createIdentityDatabase(urls.platform, { maxConnections: 2 });
+    try {
+      expect(await runtime.client.user.count()).toBeGreaterThanOrEqual(0);
+      await expect(wrongRole.client.user.count()).rejects.toBeInstanceOf(WrongDatabaseRoleError);
+      // The failed check is remembered: later queries fail the same way instead of slipping through.
+      await expect(wrongRole.client.member.findMany()).rejects.toBeInstanceOf(WrongDatabaseRoleError);
+    } finally {
+      await runtime.disconnect();
+      await wrongRole.disconnect();
+    }
   });
 });

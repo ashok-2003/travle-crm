@@ -24,7 +24,7 @@ export interface IdentityDatabase {
 
 /** Connects as the app_runtime role, like createDatabase(). */
 export function createIdentityDatabase(url: string, options: DatabaseOptions = {}): IdentityDatabase {
-  const client = createPrismaClient(url, { max: options.maxConnections ?? 10 });
+  const client = createPrismaClient(url, { max: options.maxConnections ?? 10, requireRuntimeRole: true });
   return {
     client,
     forOrg: (orgId, fn) => forOrg(client, orgId, fn),

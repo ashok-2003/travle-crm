@@ -45,11 +45,15 @@ include `organization_id` (`@relation(fields: [organizationId, otherId], referen
 
 ## Soft delete
 
-Rows of soft-delete models are never removed (ADR 0004). To make a model soft-deletable:
+Rows of soft-delete models are never removed by the app (ADR 0004). To make a model soft-deletable:
 
 1. Give it `deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)` and `deletedBy String? @map("deleted_by") @db.Uuid`.
 2. Add its model name to `softDeleteModels` in `src/soft-delete.ts`.
 3. Make unique values ignore deleted rows: `@@unique([organizationId, name], where: { deletedAt: null })`.
+
+`app_runtime` has no DELETE grant on these tables, and `upsert()` throws `SoftDeleteUpsertError`. Queries on
+organization-owned models throw `SignInRelationError` if they use an `organization` relation at any depth of `include`,
+`select` or `where`, because that path leads to the sign-in tables; only `@travel-crm/db/identity` code starts from those.
 
 Delete with `tx.thing.update({ where: { id }, data: softDeleted(userId) })`. Reads and updates skip deleted rows;
 `delete()` throws `HardDeleteError`. `withDeleted(() => …)` shows deleted rows for Trash screens and restoring.

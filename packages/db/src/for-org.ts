@@ -1,6 +1,9 @@
 // Runs work inside one transaction scoped to one organization. Postgres row-level security does the scoping.
 import type { ITXClientDenyList } from "@prisma/client/runtime/client";
 import type { DatabaseClient } from "./client.js";
+import { WrongDatabaseRoleError } from "./errors.js";
+
+export { WrongDatabaseRoleError } from "./errors.js";
 
 /**
  * Better Auth's tables. They have no row-level security, because sign-in reads them before the organization is known,
@@ -25,17 +28,6 @@ export class InvalidOrganizationIdError extends Error {
   constructor(value: string) {
     super(`Not a valid organization id: ${JSON.stringify(value.slice(0, 64))}`);
     this.name = "InvalidOrganizationIdError";
-  }
-}
-
-/** Thrown when the connection is not the app_runtime role: other roles see every organization's rows. */
-export class WrongDatabaseRoleError extends Error {
-  constructor(role: string | undefined) {
-    super(
-      `forOrg() is connected to the database as ${JSON.stringify(role)}, but isolation only holds for app_runtime. ` +
-        "DATABASE_URL must connect as the app_runtime role (not app_migrator, app_platform or an admin user).",
-    );
-    this.name = "WrongDatabaseRoleError";
   }
 }
 

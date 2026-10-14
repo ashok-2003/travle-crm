@@ -5,7 +5,7 @@ import { Prisma } from "./generated/prisma/client.js";
 /** Models whose tables have deleted_at and deleted_by. Add a model here when you give its table those columns. */
 export const softDeleteModels: readonly string[] = [Prisma.ModelName.Role, Prisma.ModelName.Member];
 
-/** Operations that must neither see nor change deleted rows. Creates are unaffected; deletes are refused. */
+/** Operations that must neither see nor change deleted rows. Creates are unaffected; deletes and upserts are refused. */
 const operationsThatSkipDeletedRows = new Set([
   "findUnique",
   "findUniqueOrThrow",
@@ -44,6 +44,17 @@ export class HardDeleteError extends Error {
   }
 }
 
+/** Thrown instead of upserting a soft-delete model: an upsert could update a deleted row and restore it. */
+export class SoftDeleteUpsertError extends Error {
+  constructor(model: string) {
+    super(
+      `${model} rows are soft-deleted, and upsert() could update a deleted row and restore it without withDeleted(). ` +
+        "Use findFirst() then create() or update() instead.",
+    );
+    this.name = "SoftDeleteUpsertError";
+  }
+}
+
 export const softDelete = Prisma.defineExtension({
   name: "soft-delete",
   query: {
@@ -52,6 +63,7 @@ export const softDelete = Prisma.defineExtension({
         if (!softDeleteModels.includes(model)) return query(args);
         // A rewritten delete could not record who deleted the row, so deletes are refused rather than rewritten.
         if (operation === "delete" || operation === "deleteMany") throw new HardDeleteError(model);
+        if (operation === "upsert") throw new SoftDeleteUpsertError(model);
         if (!operationsThatSkipDeletedRows.has(operation) || includeDeletedRows.getStore()) return query(args);
         const { where } = args as { where?: object };
         return query({ ...args, where: { ...where, deletedAt: null } });
