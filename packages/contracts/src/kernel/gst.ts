@@ -77,6 +77,7 @@ const GSTIN_PATTERN = /^(\d{2})[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
  * from the left. It catches every single wrong character and most swaps.
  */
 export function gstinCheckCharacter(first14: string): string {
+  if (!/^[0-9A-Z]{14}$/.test(first14)) throw new RangeError("A GSTIN's first 14 characters are capitals and digits");
   let sum = 0;
   for (let index = 0; index < 14; index++) {
     const product = CHECK_CHARACTERS.indexOf(first14.charAt(index)) * (index % 2 === 0 ? 1 : 2);
@@ -98,7 +99,10 @@ export function gstStateCodeFromGstin(gstinText: string): GstStateCode {
   return code;
 }
 
-/** A GSTIN typed in any case, stored in capitals. */
+/**
+ * A regular taxpayer's GSTIN typed in any case, stored in capitals. UINs, TDS, TCS and non-resident GSTINs follow
+ * other patterns and are not accepted yet.
+ */
 export const gstin = z
   .string()
   .trim()

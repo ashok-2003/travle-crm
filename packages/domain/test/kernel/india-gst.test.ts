@@ -1,9 +1,16 @@
 // India GST (spec 9.6): CGST + SGST (or UTGST) within a state, IGST between states and for exports, a rate per
 // line, each line's tax rounded half-up to the paisa.
 import { describe, expect, it } from "vitest";
-import { formatMoney, indiaGst, money, type IndiaGstInput, type TaxComponent } from "../../src/kernel/index.js";
+import {
+  formatMoney,
+  gstinCheckCharacter,
+  indiaGst,
+  money,
+  type IndiaGstInput,
+  type TaxComponent,
+} from "../../src/kernel/index.js";
 
-const line = (taxableValuePaise: number, rateBasisPoints: number, sacCode = "998552") => ({
+const line = (taxableValuePaise: number, rateBasisPoints: number, sacCode = "998555") => ({
   description: "Tour package",
   sacCode,
   taxableValue: money(taxableValuePaise),
@@ -60,7 +67,7 @@ describe("India GST", () => {
       placeOfSupplyStateCode: "OUTSIDE_INDIA",
       lines: [line(50_000, 500)],
     });
-    expect(breakdown.supplyType).toBe("export");
+    expect(breakdown.supplyType).toBe("outside-india");
     expect(shown(breakdown.components)).toEqual(["IGST 5% ₹25.00"]);
   });
 
@@ -122,5 +129,97 @@ describe("India GST", () => {
     expect(() => indiaGst.compute({ ...valid, lines: [line(100, 10_001)] })).toThrow(/rate/);
     const retired = { ...valid, supplierStateCode: "25" } as unknown as IndiaGstInput;
     expect(() => indiaGst.compute(retired)).toThrow(/state code/);
+  });
+
+  it("rounds a half exactly at .5 up in each half, and in IGST", () => {
+    // 5% of ₹100.20 is ₹5.01 exactly; each half is 250.5 paise, which rounds half up to 251, so CGST + SGST is ₹5.02.
+    const within = indiaGst.compute({
+      supplierStateCode: "27",
+      placeOfSupplyStateCode: "27",
+      lines: [line(10_020, 500)],
+    });
+    expect(shown(within.components)).toEqual(["CGST 2.5% ₹2.51", "SGST 2.5% ₹2.51"]);
+    expect(formatMoney(within.tax)).toBe("₹5.02");
+    const between = indiaGst.compute({
+      supplierStateCode: "27",
+      placeOfSupplyStateCode: "29",
+      lines: [line(10_020, 500)],
+    });
+    expect(formatMoney(between.tax)).toBe("₹5.01");
+  });
+
+  it("keeps CGST equal to SGST on a credit note line", () => {
+    const breakdown = indiaGst.compute({
+      supplierStateCode: "27",
+      placeOfSupplyStateCode: "27",
+      lines: [line(-10_010, 500)],
+    });
+    expect(shown(breakdown.components)).toEqual(["CGST 2.5% -₹2.50", "SGST 2.5% -₹2.50"]);
+    expect(formatMoney(breakdown.total)).toBe("-₹105.10");
+  });
+
+  it("charges CGST and SGST at 0% within a state", () => {
+    const breakdown = indiaGst.compute({
+      supplierStateCode: "27",
+      placeOfSupplyStateCode: "27",
+      lines: [line(100_000, 0)],
+    });
+    expect(shown(breakdown.components)).toEqual(["CGST 0% ₹0.00", "SGST 0% ₹0.00"]);
+  });
+
+  it("refuses a place of supply that isn't a state", () => {
+    const input = { supplierStateCode: "27", placeOfSupplyStateCode: "25", lines: [line(100, 500)] };
+    expect(() => indiaGst.compute(input as unknown as IndiaGstInput)).toThrow(/place of supply/);
+  });
+
+  it("charges IGST even within one state for a supply to or by a special economic zone", () => {
+    const breakdown = indiaGst.compute({
+      supplierStateCode: "27",
+      placeOfSupplyStateCode: "27",
+      specialEconomicZone: true,
+      lines: [line(1_000_000, 1800)],
+    });
+    expect(breakdown.supplyType).toBe("inter-state");
+    expect(shown(breakdown.components)).toEqual(["IGST 18% ₹1,800.00"]);
+  });
+
+  it("reports a supply without payment of tax at its rate with no tax", () => {
+    const sez = indiaGst.compute({
+      supplierStateCode: "27",
+      placeOfSupplyStateCode: "27",
+      specialEconomicZone: true,
+      withoutPayment: true,
+      lines: [line(1_000_000, 1800)],
+    });
+    expect(shown(sez.components)).toEqual(["IGST 18% ₹0.00"]);
+    expect(formatMoney(sez.total)).toBe("₹10,000.00");
+    const abroad = indiaGst.compute({
+      supplierStateCode: "27",
+      placeOfSupplyStateCode: "OUTSIDE_INDIA",
+      withoutPayment: true,
+      lines: [line(1_000_000, 1800)],
+    });
+    expect(shown(abroad.components)).toEqual(["IGST 18% ₹0.00"]);
+    expect(abroad.supplyType).toBe("outside-india");
+  });
+
+  it("refuses a domestic supply without payment of tax", () => {
+    const domestic = {
+      supplierStateCode: "27",
+      placeOfSupplyStateCode: "29",
+      withoutPayment: true,
+      lines: [line(100, 500)],
+    };
+    expect(() => indiaGst.compute(domestic as IndiaGstInput)).toThrow(RangeError);
+  });
+
+  it("suggests the tour operator codes in a SAC error, and the kernel exports the GSTIN check", () => {
+    const input: IndiaGstInput = {
+      supplierStateCode: "27",
+      placeOfSupplyStateCode: "27",
+      lines: [line(100, 500, "1234")],
+    };
+    expect(() => indiaGst.compute(input)).toThrow(/99855/);
+    expect(gstinCheckCharacter("27AAPFU0939F1Z")).toBe("V");
   });
 });

@@ -36,6 +36,14 @@ Date: 2026-10-15 · Status: accepted · Implements spec section 9.6
   of slabs (GST 2.0 moved most rates to 5 %, 18 % and 40 % on 22 September 2025; rates are data per item). It checks
   that a rate is whole basis points from 0 to 10000 and a SAC code six digits starting 99. Export zero-rating under a
   Letter of Undertaking is also the accounts module's decision: the engine computes IGST at the rate it is given.
+- **Special economic zones and supplies without payment of tax.** A supply to or by an SEZ unit or developer is
+  inter-state (IGST) even within one state (IGST Act s.7(5)(b) and the proviso to s.8(2)); the caller says so with
+  `specialEconomicZone`. `withoutPayment` is for zero-rated supplies under a Letter of Undertaking or bond, allowed
+  only for an SEZ supply or a place of supply outside India: IGST keeps the item's rate with ₹0 tax, as GSTR-1 and
+  e-invoices report it. The supply type for a place outside India is `outside-india`, not "export": whether it is an
+  export of services (s.2(6)) is the caller's decision.
+- **Limits.** `rateBasisPoints` is required, so a fixed-amount tax (such as a per-night tourist tax) needs an
+  extension of the engine. A six-digit SAC is required (Notification 78/2020-CT); tour operator services are 998555.
 - **GST facts live in `@travel-crm/contracts/kernel`**: the state list with GST codes (retired 25 and 28 left out)
   and GSTIN validation, with its base-36 Luhn check character (proved on the GST Network's sample GSTIN). Forms
   (plan 4's onboarding) and the engine share one copy; the kernel re-exports them.

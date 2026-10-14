@@ -27,6 +27,7 @@ export type { TaxBreakdown, TaxComponent, TaxedLine, TaxEngine } from "./tax/tax
 export { calendarDateIn, formatDateTime, parseCalendarDate, startOfDayIn, yearIn, type CalendarDate } from "./time.js";
 // GST facts and time zone names live with the API's field rules, so forms and the kernel share one copy.
 export {
+  gstinCheckCharacter,
   gstStateCodeFromGstin,
   gstStates,
   isGstStateCode,

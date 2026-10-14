@@ -1,6 +1,7 @@
 // GST registration facts: the state codes GSTINs start with, and GSTINs themselves, checked to the last character.
 import { describe, expect, it } from "vitest";
 import {
+  gstStateCode,
   gstStateCodeFromGstin,
   gstStates,
   gstin,
@@ -55,5 +56,25 @@ describe("GSTIN", () => {
   it("reads a typed GSTIN in any case", () => {
     expect(gstin.parse(" 27aapfu0939f1zv ")).toBe(SAMPLE_GSTIN);
     expect(gstin.safeParse("27AAPFU0939F1ZW").success).toBe(false);
+  });
+});
+
+describe("more GSTINs and fields", () => {
+  it("accept GSTINs verified with the checksum", () => {
+    for (const valid of ["29AAICA3918J1ZE", "27AAACR5055K1Z7", "29AACCF0683K1ZD"]) {
+      expect(isValidGstin(valid), valid).toBe(true);
+    }
+  });
+
+  it("only compute a check character for 14 capitals or digits", () => {
+    for (const bad of ["", "27AAPFU0939F1", "27aapfu0939f1z", "27AAPFU0939F1ZV", "27AAPFU0939F1!"]) {
+      expect(() => gstinCheckCharacter(bad), bad).toThrow(RangeError);
+    }
+  });
+
+  it("have a state code field", () => {
+    expect(gstStateCode.parse("27")).toBe("27");
+    expect(gstStateCode.safeParse("25").success).toBe(false);
+    expect(gstStateCode.safeParse("7").success).toBe(false);
   });
 });

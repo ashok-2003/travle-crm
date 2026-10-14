@@ -19,7 +19,7 @@ The shared kernel (spec 8, 9.6): building blocks every module uses. It imports n
     taxable value and rate in basis points) → `IndiaGstBreakdown` (`supplyType`, per-line and total CGST/SGST/UTGST
     or IGST);
   - GST facts, from `@travel-crm/contracts/kernel`: `gstStates`, `GstStateCode`, `isGstStateCode`,
-    `isUnionTerritoryWithoutLegislature`, `isValidGstin`, `gstStateCodeFromGstin`.
+    `isUnionTerritoryWithoutLegislature`, `isValidGstin`, `gstinCheckCharacter`, `gstStateCodeFromGstin`.
 - **Time** (instants in UTC, shown in the organization's zone):
   - `calendarDateIn(instant, timeZone)` → `"2026-10-15"`, `yearIn(instant, timeZone)`,
     `startOfDayIn(date, timeZone)` → the day's first instant;
@@ -28,7 +28,8 @@ The shared kernel (spec 8, 9.6): building blocks every module uses. It imports n
   - `CalendarDate` (a checked `YYYY-MM-DD` day, for departure dates), `parseCalendarDate(text)`;
   - `isValidTimeZone(name)`, from `@travel-crm/contracts/kernel`.
 - **Phone numbers** are normalised at the API boundary: `phoneNumber` and `toE164(text, defaultCountry?)` in
-  `@travel-crm/contracts/kernel`.
+  `@travel-crm/contracts/kernel`. It checks number ranges with libphonenumber's full metadata but stays lenient about
+  full-width digits, a `tel:` prefix and a trailing hyphen (all accepted); an unknown `defaultCountry` gives null.
 
 `@travel-crm/contracts/kernel` also has the fields forms use: `moneyField`, `rupeesText`, `gstStateCode`, `gstin`,
 `calendarDate`, `timeZoneName`, `phoneNumber`.
