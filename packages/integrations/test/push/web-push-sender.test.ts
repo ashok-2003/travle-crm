@@ -118,6 +118,25 @@ describe("web push sender", () => {
     });
   });
 
+  it("gives up on a push service that never answers, so the job retries", async () => {
+    const impatient = createWebPushSender({
+      publicKey: vapid.publicKey,
+      privateKey: vapid.privateKey,
+      subject: "mailto:a@b.c",
+      allowAnyEndpoint: true,
+      timeoutMs: 200,
+    });
+    const subscriber = createSubscriber();
+    try {
+      service.answerWith(0);
+      await expect(
+        impatient.send({ endpoint: service.endpoint("silent"), ...subscriber.keys }, { title: "t", body: "b" }),
+      ).rejects.toThrow();
+    } finally {
+      service.answerWith(201);
+    }
+  });
+
   describe("payload size", () => {
     it("sends a payload that just fits", async () => {
       const subscriber = createSubscriber();

@@ -79,6 +79,29 @@ describe("assertSafeHeaders", () => {
     }
   });
 
+  it("refuses header names that are not plain tokens, so whitespace can't dodge the denylist", () => {
+    for (const name of [
+      "Bcc ",
+      " Reply-To",
+      "Reply-To\t",
+      "Bcc\u00a0",
+      "X Header",
+      "X:Header",
+      "",
+      "Bc\u0063c\u200b",
+    ]) {
+      expect(() => {
+        assertSafeHeaders({ ...message, headers: { [name]: "x" } });
+      }, JSON.stringify(name)).toThrow(/header/);
+    }
+  });
+
+  it("refuses an encoded word in the recipient's name", () => {
+    expect(() => {
+      assertSafeHeaders({ ...message, to: { name: "=?utf-8?B?QmNjOiB4?=", address: "asha@agency.example" } });
+    }).toThrow(/encoded/);
+  });
+
   it("refuses placeholder addresses, whatever their case", () => {
     for (const address of ["staff-1@placeholder.invalid", "Staff@Example.INVALID"]) {
       expect(() => {

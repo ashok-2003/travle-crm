@@ -31,6 +31,8 @@ const RESERVED_HEADERS = new Set([
   "mime-version",
 ]);
 
+const HEADER_NAME = /^[A-Za-z0-9-]+$/;
+
 /** One plain address: no display name, list, quotes, comments or angle brackets. */
 const PLAIN_ADDRESS = /^[^\s,;<>"()\\]+@[^\s,;<>"()\\]+$/;
 
@@ -59,8 +61,13 @@ export function assertSafeHeaders(message: EmailMessage): void {
     }
   }
 
-  if (message.fromName.includes("=?")) {
-    throw new RangeError("The email's fromName has an encoded word, which could hide other text");
+  for (const [field, name] of [
+    ["fromName", message.fromName],
+    ["to.name", message.to.name],
+  ] as const) {
+    if (name?.includes("=?")) {
+      throw new RangeError(`The email's ${field} has an encoded word, which could hide other text`);
+    }
   }
   for (const [field, address] of [
     ["to.address", message.to.address],
@@ -74,6 +81,10 @@ export function assertSafeHeaders(message: EmailMessage): void {
     throw new RangeError("The email's recipient has a placeholder address, which is never emailed");
   }
   for (const name of Object.keys(message.headers ?? {})) {
+    // Only plain tokens: nodemailer trims a name like "Bcc " and would treat it as the real header.
+    if (!HEADER_NAME.test(name)) {
+      throw new RangeError("An email header name may only have letters, digits and hyphens");
+    }
     const lower = name.toLowerCase();
     if (RESERVED_HEADERS.has(lower) || lower.startsWith("content-")) {
       throw new RangeError(`The email header ${name} is set by the sender and can't be given`);

@@ -13,12 +13,14 @@ export interface WebPushSettings {
   subject: string;
   /** Tests only: lets a plain-http local server stand in for a push service. Never set it in production. */
   allowAnyEndpoint?: boolean | undefined;
+  /** How long a push service has to answer, in milliseconds. Default 10 seconds; tests shorten it. */
+  timeoutMs?: number | undefined;
 }
 
 /** A day: an unread notification about something older than that is noise. */
 const TIME_TO_LIVE_SECONDS = 24 * 60 * 60;
 
-/** A push service that doesn't answer shouldn't hold a worker. */
+/** A push service that doesn't answer shouldn't hold a worker (the default; see timeoutMs). */
 const TIMEOUT_MS = 10_000;
 
 function assertVapidSettings(settings: WebPushSettings): void {
@@ -59,7 +61,7 @@ export function createWebPushSender(settings: WebPushSettings): PushSender {
         headers: request.headers,
         body: request.body,
         redirect: "error",
-        signal: AbortSignal.timeout(TIMEOUT_MS),
+        signal: AbortSignal.timeout(settings.timeoutMs ?? TIMEOUT_MS),
       });
       if (response.status === 404 || response.status === 410) return "gone";
       if (!response.ok) {

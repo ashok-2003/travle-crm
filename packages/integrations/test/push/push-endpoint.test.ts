@@ -28,6 +28,8 @@ describe("isKnownPushEndpoint", () => {
       "https://push.example/abc",
       "https://fcm.googleapis.com.evil.example/abc",
       "https://evilnotify.windows.com/abc",
+      "https://fcm.googleapis.com:8443/fcm/send/abc",
+      "https://fcm.googleapis.com:444/fcm/send/abc",
       "https://user@fcm.googleapis.com@evil.example/abc",
       "javascript:alert(1)",
       "not a url",

@@ -44,9 +44,20 @@ describe("SMTP settings", () => {
     );
   });
 
-  it("refuses a user without a password", () => {
+  it("refuses a user without a password, or with an empty one", () => {
     spyOnTransport();
     expect(() => createSmtpEmailSender({ ...base, secure: false, user: "ses-user" })).toThrow(/password/);
+    expect(() => createSmtpEmailSender({ ...base, secure: false, user: "ses-user", password: "" })).toThrow(/password/);
+  });
+
+  it("hands nothing to nodemailer when a header name hides a Bcc behind whitespace", async () => {
+    const sendMail = vi.fn(() => Promise.resolve({}));
+    spyOnTransport(sendMail);
+    const sender = createSmtpEmailSender({ ...base, secure: false });
+    for (const name of ["Bcc ", " Reply-To", "Reply-To\t"]) {
+      await expect(sender.send({ ...message, headers: { [name]: "evil@example.test" } })).rejects.toThrow(/header/);
+    }
+    expect(sendMail).not.toHaveBeenCalled();
   });
 });
 

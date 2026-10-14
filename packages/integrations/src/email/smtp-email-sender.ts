@@ -30,7 +30,7 @@ function safeSendError(error: unknown): Error {
 }
 
 export function createSmtpEmailSender(settings: SmtpSettings): EmailSender {
-  if (settings.user !== undefined && settings.password === undefined) {
+  if (settings.user !== undefined && (settings.password === undefined || settings.password === "")) {
     throw new RangeError("The SMTP settings have a user but no password");
   }
   const transport = nodemailer.createTransport({

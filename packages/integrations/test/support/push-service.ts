@@ -14,7 +14,7 @@ export interface PushService {
   /** A subscription endpoint on this server, e.g. http://127.0.0.1:1234/push/<name>. */
   endpoint(name: string): string;
   readonly received: ReceivedPush[];
-  /** The status the next requests get (201 by default). */
+  /** The status the next requests get (201 by default; 0 never answers). */
   answerWith(status: number): void;
   close(): Promise<void>;
 }
@@ -26,6 +26,8 @@ export async function startPushService(): Promise<PushService> {
     const chunks: Buffer[] = [];
     request.on("data", (chunk: Buffer) => chunks.push(chunk));
     request.on("end", () => {
+      // 0 plays a push service that takes the request and never answers.
+      if (status === 0) return;
       received.push({
         method: request.method ?? "",
         path: request.url ?? "",
@@ -47,6 +49,7 @@ export async function startPushService(): Promise<PushService> {
     },
     close: () =>
       new Promise((resolve, reject) => {
+        server.closeAllConnections();
         server.close((error) => {
           if (error) reject(error);
           else resolve();

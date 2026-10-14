@@ -18,7 +18,7 @@ export function isKnownPushEndpoint(endpoint: string): boolean {
   } catch {
     return false;
   }
-  if (url.protocol !== "https:" || url.username !== "" || url.password !== "") return false;
+  if (url.protocol !== "https:" || url.username !== "" || url.password !== "" || url.port !== "") return false;
   const host = url.hostname.toLowerCase();
   return EXACT_HOSTS.has(host) || HOST_SUFFIXES.some((suffix) => host.endsWith(suffix));
 }
