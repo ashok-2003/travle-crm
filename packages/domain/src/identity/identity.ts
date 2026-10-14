@@ -1,9 +1,16 @@
 // Builds the identity module: Better Auth plus the operations the API and onboarding call. One per process.
-import type { MeOutput } from "@travel-crm/contracts/identity";
+import type {
+  CreateRoleInput,
+  DeleteRoleInput,
+  MeOutput,
+  RoleSummary,
+  UpdateRoleInput,
+} from "@travel-crm/contracts/identity";
 import { createIdentityDatabase } from "@travel-crm/db/identity";
 import { describeSignedInPerson, isPlatformAdmin, resolveAccess, type SignedInSession } from "./access.js";
 import { createAuth, type Auth, type AuthSettings } from "./auth/create-auth.js";
 import type { MemberAccess } from "./member-access.js";
+import { createRole, deleteRole, listRoles, updateRole } from "./roles.js";
 import { seedStarterRoles } from "./seed-starter-roles.js";
 import { createStaffAccount, type CreatedStaff, type PasswordHasher } from "./staff-accounts.js";
 import { OWNER_ROLE_KEY } from "./starter-roles.js";
@@ -34,6 +41,13 @@ export interface Identity {
   describeSignedInPerson(session: SignedInSession): Promise<MeOutput | null>;
   /** True for platform staff: user role "admin" (read from the database) and no membership. */
   isPlatformAdmin(user: { id: string; role?: string | null | undefined }): Promise<boolean>;
+  /** The actor's organization's roles. Changing them needs roles:manage, which the API checks. */
+  readonly roles: {
+    list(actor: MemberAccess): Promise<RoleSummary[]>;
+    create(actor: MemberAccess, input: CreateRoleInput): Promise<RoleSummary>;
+    update(actor: MemberAccess, input: UpdateRoleInput): Promise<RoleSummary>;
+    delete(actor: MemberAccess, input: DeleteRoleInput): Promise<void>;
+  };
   /** Creates the five starter roles. Onboarding calls it once per new organization. */
   seedStarterRoles(organizationId: string): Promise<void>;
   /** Adds an organization's first Owner. Onboarding only: it checks no permissions. */
@@ -52,6 +66,12 @@ export function createIdentity(options: IdentityOptions): Identity {
     resolveAccess: (userId, organizationId) => resolveAccess(database, userId, organizationId),
     describeSignedInPerson: (session) => describeSignedInPerson(database, session),
     isPlatformAdmin: (user) => isPlatformAdmin(database, user),
+    roles: {
+      list: (actor) => listRoles(database, actor),
+      create: (actor, input) => createRole(database, actor, input),
+      update: (actor, input) => updateRole(database, actor, input),
+      delete: (actor, input) => deleteRole(database, actor, input),
+    },
     seedStarterRoles: (organizationId) => seedStarterRoles(database, organizationId),
     createOrganizationOwner: (organizationId, owner) =>
       createStaffAccount(database, hashPassword, { ...owner, organizationId, roleKey: OWNER_ROLE_KEY }),
