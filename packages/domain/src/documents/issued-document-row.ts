@@ -12,6 +12,7 @@ export const summaryFields = {
   issuedBy: true,
   pdfAttachmentId: true,
   renderedAt: true,
+  renderFailure: true,
 } as const;
 
 interface SummaryRow {
@@ -23,12 +24,14 @@ interface SummaryRow {
   issuedBy: string | null;
   pdfAttachmentId: string | null;
   renderedAt: Date | null;
+  renderFailure: string | null;
 }
 
-export function toSummary(row: SummaryRow): IssuedDocumentSummary {
+export function toSummary({ renderFailure, ...row }: SummaryRow): IssuedDocumentSummary {
   // Parsed, so a template the renderer doesn't know fails here rather than in a customer's hands.
   return issuedDocumentSummary.parse({
     ...row,
+    renderFailed: renderFailure !== null,
     issuedAt: row.issuedAt.toISOString(),
     renderedAt: row.renderedAt?.toISOString() ?? null,
   });

@@ -1,5 +1,6 @@
 // The worker renders an issued document's PDF from its frozen content, once: never again, and into one attachment
 // however many times or how many runs at once it is delivered.
+import { issuedDocumentRenderInput } from "@travel-crm/contracts/documents";
 import { renderPdf, UnprintableTextError } from "@travel-crm/integrations/pdf";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { getIssuedDocument, issueDocument, renderIssuedDocumentListener } from "../../src/documents/index.js";
@@ -26,9 +27,7 @@ describe("rendering an issued document", () => {
   });
 
   async function issued(organizationId: string) {
-    return test.db.forOrg(organizationId, (tx) =>
-      issueDocument(tx, systemActor(organizationId), { ...quotation, timeZone: "Asia/Kolkata" }),
-    );
+    return test.db.forOrg(organizationId, (tx) => issueDocument(tx, systemActor(organizationId), { ...quotation }));
   }
 
   it("renders the frozen content once and attaches the PDF to the document", async () => {
@@ -123,6 +122,8 @@ describe("rendering an issued document", () => {
       recordId: document.id,
     });
     expect(attachments.map((attachment) => attachment.id)).toEqual([stored.pdfFileId]);
+    const key = `organizations/${organizationId}/attachments/${stored.pdfFileId}`;
+    expect(new TextDecoder().decode(await test.storage.get(key))).toBe("%PDF-1.7 first run");
   });
 
   it("renders a real PDF with the brand's renderer", async () => {
@@ -135,6 +136,15 @@ describe("rendering an issued document", () => {
     const key = `organizations/${organizationId}/attachments/${rendered.pdfAttachmentId ?? ""}`;
     const pdf = await test.storage.get(key);
     expect(new TextDecoder().decode(pdf?.subarray(0, 5))).toBe("%PDF-");
+    // The stored file is what the renderer makes from the frozen input and the one issue time, byte for byte.
+    const stored = await test.db.forOrg(organizationId, (tx) =>
+      tx.issuedDocument.findUniqueOrThrow({ where: { id: document.id } }),
+    );
+    const again = await renderPdf("sample", {
+      ...issuedDocumentRenderInput.parse(stored.renderInput),
+      issuedAt: stored.issuedAt,
+    });
+    expect(Buffer.from(pdf ?? []).equals(Buffer.from(again))).toBe(true);
   });
 
   it("records text the fonts can't show as a permanent failure instead of retrying", async () => {
@@ -154,6 +164,20 @@ describe("rendering an issued document", () => {
     );
     expect(stored.renderFailure).toBe("UNPRINTABLE_TEXT: U+0939");
     expect(stored.pdfAttachmentId).toBeNull();
+    const summary = await test.db.forOrg(organizationId, (tx) => getIssuedDocument(tx, { documentId: document.id }));
+    expect(summary).toMatchObject({ pdfAttachmentId: null, renderFailed: true });
+  });
+
+  it("records a failure with no named characters as just its code", async () => {
+    const organizationId = await createOrganization(test);
+    const document = await issued(organizationId);
+    const bare = Object.assign(new Error("unprintable"), { code: "UNPRINTABLE_TEXT" });
+    const listener = renderIssuedDocumentListener({ files: test.files, render: () => Promise.reject(bare) });
+    await listener.handle(await issuedEvent(test, organizationId, document.id), listenerContext(test, organizationId));
+    const stored = await test.db.forOrg(organizationId, (tx) =>
+      tx.issuedDocument.findUniqueOrThrow({ where: { id: document.id } }),
+    );
+    expect(stored.renderFailure).toBe("UNPRINTABLE_TEXT");
   });
 
   it("fails, so the job is retried, when the renderer breaks for any other reason", async () => {

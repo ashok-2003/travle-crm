@@ -36,8 +36,11 @@ export function createTestDocuments(): TestDocuments {
   };
 }
 
-export function createOrganization(test: TestDocuments): Promise<string> {
-  return createTestOrganization(test.platform, "Documents agency");
+/** A new organization; its time zone is Asia/Kolkata unless given. */
+export async function createOrganization(test: TestDocuments, timeZone?: string): Promise<string> {
+  const id = await createTestOrganization(test.platform, "Documents agency");
+  if (timeZone !== undefined) await test.platform.organization.update({ where: { id }, data: { timeZone } });
+  return id;
 }
 
 export const quotation: IssueDocumentInput = {

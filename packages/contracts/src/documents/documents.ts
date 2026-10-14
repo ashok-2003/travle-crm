@@ -77,6 +77,8 @@ export const issuedDocumentSummary = z.strictObject({
   /** The rendered PDF's attachment; null until the worker has rendered it. */
   pdfAttachmentId: z.uuid().nullable(),
   renderedAt: z.iso.datetime().nullable(),
+  /** True when the PDF can never be rendered as it stands (text its fonts can't show); the worker has stopped trying. */
+  renderFailed: z.boolean(),
 });
 export type IssuedDocumentSummary = z.infer<typeof issuedDocumentSummary>;
 

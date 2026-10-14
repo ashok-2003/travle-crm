@@ -23,10 +23,7 @@ describe("issueDocument", () => {
   });
 
   it("numbers the document, freezes what it says, and publishes document.issued", async () => {
-    const issue = () =>
-      test.db.forOrg(organizationId, (tx) =>
-        issueDocument(tx, owner, { ...quotation, timeZone: "Asia/Kolkata" }, october15),
-      );
+    const issue = () => test.db.forOrg(organizationId, (tx) => issueDocument(tx, owner, { ...quotation }, october15));
     const first = await issue();
     const second = await issue();
 
@@ -39,6 +36,7 @@ describe("issueDocument", () => {
       issuedBy: owner.userId,
       pdfAttachmentId: null,
       renderedAt: null,
+      renderFailed: false,
     });
     expect(second.number).toBe("DOC-2026-0002");
 
@@ -61,18 +59,17 @@ describe("issueDocument", () => {
     const lateOnNewYearsEve = new Date("2026-12-31T19:00:00Z");
     const india = await createOrganization(test);
     const inIndia = await test.db.forOrg(india, (tx) =>
-      issueDocument(tx, systemActor(india), { ...quotation, timeZone: "Asia/Kolkata" }, lateOnNewYearsEve),
+      issueDocument(tx, systemActor(india), { ...quotation }, lateOnNewYearsEve),
     );
     expect(inIndia.number).toBe("DOC-2027-0001");
+    const indiaStored = await test.db.forOrg(india, (tx) =>
+      tx.issuedDocument.findUniqueOrThrow({ where: { id: inIndia.id } }),
+    );
+    expect(indiaStored.renderInput).toMatchObject({ data: { issuedOn: "1 Jan 2027" } });
 
-    const london = await createOrganization(test);
+    const london = await createOrganization(test, "Europe/London");
     const inLondon = await test.db.forOrg(london, (tx) =>
-      issueDocument(
-        tx,
-        systemActor(london),
-        { ...quotation, timeZone: "Europe/London", prefix: "QT" },
-        lateOnNewYearsEve,
-      ),
+      issueDocument(tx, systemActor(london), { ...quotation, prefix: "QT" }, lateOnNewYearsEve),
     );
     expect(inLondon.number).toBe("QT-2026-0001");
     const stored = await test.db.forOrg(london, (tx) =>
@@ -85,7 +82,7 @@ describe("issueDocument", () => {
     const organization = await createOrganization(test);
     await expect(
       test.db.forOrg(organization, async (tx) => {
-        await issueDocument(tx, systemActor(organization), { ...quotation, timeZone: "Asia/Kolkata" });
+        await issueDocument(tx, systemActor(organization), { ...quotation });
         throw new Error("the quote could not be saved");
       }),
     ).rejects.toThrow("the quote could not be saved");
@@ -94,6 +91,11 @@ describe("issueDocument", () => {
       events: await tx.outboxEvent.count(),
     }));
     expect(left).toEqual({ documents: 0, events: 0 });
+    // The number the rolled-back document took came back with it.
+    const again = await test.db.forOrg(organization, (tx) =>
+      issueDocument(tx, systemActor(organization), { ...quotation }, october15),
+    );
+    expect(again.number).toBe("DOC-2026-0001");
   });
 
   it("refuses text its PDF can't show, before it uses a number", async () => {
@@ -101,21 +103,85 @@ describe("issueDocument", () => {
     const hindi = {
       ...quotation,
       content: { ...quotation.content, rows: [{ description: "होटल", amount: "₹4,000.00" }] },
-      timeZone: "Asia/Kolkata",
     };
     const refusal = test.db.forOrg(organization, (tx) => issueDocument(tx, systemActor(organization), hindi));
     await expect(refusal).rejects.toBeInstanceOf(DomainError);
     await expect(refusal).rejects.toMatchObject({ code: "VALIDATION", reason: "UNPRINTABLE_CHARACTERS" });
     const next = await test.db.forOrg(organization, (tx) =>
-      issueDocument(tx, systemActor(organization), { ...quotation, timeZone: "Asia/Kolkata" }, october15),
+      issueDocument(tx, systemActor(organization), { ...quotation }, october15),
     );
     expect(next.number).toBe("DOC-2026-0001");
   });
 
-  it("keeps what was issued: it can't be changed, and another organization can't see it", async () => {
-    const issued = await test.db.forOrg(organizationId, (tx) =>
-      issueDocument(tx, owner, { ...quotation, timeZone: "Asia/Kolkata" }),
+  it("refuses a document the contract refuses, before it uses a number", async () => {
+    const organization = await createOrganization(test);
+    const issue = (content: Partial<typeof quotation.content>) =>
+      test.db.forOrg(organization, (tx) =>
+        issueDocument(
+          tx,
+          systemActor(organization),
+          { ...quotation, content: { ...quotation.content, ...content } },
+          october15,
+        ),
+      );
+    // A line break passes the print check but is not allowed in a title.
+    await expect(issue({ title: "Quo\ntation" })).rejects.toMatchObject({
+      code: "VALIDATION",
+      reason: "INVALID_DOCUMENT",
+    });
+    await expect(issue({ rows: [] })).rejects.toMatchObject({ code: "VALIDATION", reason: "INVALID_DOCUMENT" });
+    await expect(issue({ rows: [{ description: "x".repeat(501), amount: "₹1.00" }] })).rejects.toMatchObject({
+      code: "VALIDATION",
+      reason: "INVALID_DOCUMENT",
+    });
+
+    const next = await issue({});
+    expect(next.number).toBe("DOC-2026-0001");
+  });
+
+  it("freezes the trimmed text, which is what prints", async () => {
+    const organization = await createOrganization(test);
+    const issued = await test.db.forOrg(organization, (tx) =>
+      issueDocument(tx, systemActor(organization), {
+        ...quotation,
+        content: { ...quotation.content, title: "  Quotation  " },
+      }),
     );
+    expect(issued.title).toBe("Quotation");
+    const stored = await test.db.forOrg(organization, (tx) =>
+      tx.issuedDocument.findUniqueOrThrow({ where: { id: issued.id } }),
+    );
+    expect(stored.renderInput).toMatchObject({ data: { title: "Quotation" } });
+  });
+
+  it("refuses to store a PDF other than the one chosen for the document, or a failure beside a PDF", async () => {
+    const organization = await createOrganization(test);
+    const issued = await test.db.forOrg(organization, (tx) => issueDocument(tx, systemActor(organization), quotation));
+    const other = "0199e7a0-0000-7000-8000-0000000000b1";
+    await expect(
+      test.db.forOrg(organization, (tx) =>
+        tx.issuedDocument.update({
+          where: { id: issued.id },
+          data: { pdfAttachmentId: other, renderedAt: new Date() },
+        }),
+      ),
+    ).rejects.toThrow(/issued_document_pdf_is_chosen_attachment/);
+
+    const stored = await test.db.forOrg(organization, (tx) =>
+      tx.issuedDocument.findUniqueOrThrow({ where: { id: issued.id } }),
+    );
+    await expect(
+      test.db.forOrg(organization, (tx) =>
+        tx.issuedDocument.update({
+          where: { id: issued.id },
+          data: { pdfAttachmentId: stored.pdfFileId, renderedAt: new Date(), renderFailure: "UNPRINTABLE_TEXT" },
+        }),
+      ),
+    ).rejects.toThrow(/issued_document_render_failure/);
+  });
+
+  it("keeps what was issued: it can't be changed, and another organization can't see it", async () => {
+    const issued = await test.db.forOrg(organizationId, (tx) => issueDocument(tx, owner, { ...quotation }));
     await expect(
       test.db.forOrg(organizationId, (tx) =>
         tx.issuedDocument.update({ where: { id: issued.id }, data: { title: "Changed" } }),

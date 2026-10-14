@@ -30,11 +30,13 @@ issuedAt })` returns the PDF's bytes. Templates are plain functions that build R
   attachment of the document. The attachment's id (`pdf_file_id`) is chosen when the document is issued and the
   listener always passes it, so listeners that run more than once, or at once, store one file: the files module
   returns the attachment that is already there. Marking the document (`updateMany ... where pdfAttachmentId is null`)
-  is then a no-op for every run but the first.
+  is then a no-op for every run but the first. A run that finds the attachment still pending, because another run is
+  mid-way, can rewrite the stored object with identical bytes; that relies on rendering being deterministic, which is
+  pinned within one build. The remaining risk is a rolling deploy that changes fonts between two runs of one document.
 - **A document that can never render is marked, not retried.** `render_failure` records the code and the refused code
   points (no customer text) and the job finishes; any other error is thrown and retried with backoff.
 - **Numbers per organization and year**, from `nextDocumentNumber` (`DOC-2026-0001`, or a module's own prefix), with
-  the year and the printed date counted in the organization's time zone: 00:30 on 1 January in Kolkata is 2027. The
+  the year and the printed date counted in the organization's own time zone, read when issuing: 00:30 on 1 January in Kolkata is 2027. The
   one issue time is also the document's `issued_at` and the PDF's date.
 
 ## Context
@@ -54,4 +56,6 @@ issuedAt })` returns the PDF's bytes. Templates are plain functions that build R
   model's back-relation lives in the files module's schema file.
 - The organization's logo joins the frozen branding when plan 4 stores branding settings; the renderer already draws
   one (PNG or JPEG).
+- The PDF attachment can be removed through the generic Files API, which would leave the document without its PDF:
+  attachment routes must refuse record type `issued_document`.
 - A new template is a new function in `templates/`, a value in the `pdfTemplate` contract, and its own content schema.

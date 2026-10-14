@@ -1,19 +1,19 @@
 // Issues a document (spec 9.3): gives it the organization's next number, freezes its content and branding, and
 // publishes document.issued so the worker renders its PDF. Runs in the caller's transaction.
-import type {
-  IssueDocumentInput,
-  IssuedDocumentRenderInput,
-  IssuedDocumentSummary,
+import {
+  issueDocumentInput,
+  type IssueDocumentInput,
+  type IssuedDocumentRenderInput,
+  type IssuedDocumentSummary,
 } from "@travel-crm/contracts/documents";
 import { nextDocumentNumber, type OrgTx } from "@travel-crm/db";
 import { characterLabel, unprintableCharactersIn } from "@travel-crm/integrations/pdf";
+import { organizationTimeZone } from "../identity/index.js";
 import { publishEvent } from "../jobs/index.js";
 import { DomainError, type Actor } from "../kernel/index.js";
 import { summaryFields, toSummary } from "./issued-document-row.js";
 
 export interface IssueDocumentOptions extends IssueDocumentInput {
-  /** The organization's IANA time zone: the document's year and date are counted in it. */
-  timeZone: string;
   /** 2-5 capital letters before the number. "DOC" unless a module has its own, such as "QT" for quotations. */
   prefix?: string | undefined;
 }
@@ -33,7 +33,8 @@ function printedDate(instant: Date, timeZone: string): string {
 /**
  * Callers decide whether the actor may issue the document; issuing decides its number and freezes it. What is
  * stored is exactly what the PDF shows, now and whenever it is opened again (spec 9.3: never regenerated). `now` is
- * the one issue time: it is the document's issued_at, and the printed date is that instant in the time zone.
+ * the one issue time: it is the document's issued_at, and the printed date is that instant in the organization's
+ * time zone (read here, from the organization).
  */
 export async function issueDocument(
   tx: OrgTx,
@@ -41,8 +42,19 @@ export async function issueDocument(
   input: IssueDocumentOptions,
   now: Date = new Date(),
 ): Promise<IssuedDocumentSummary> {
+  // The contract is checked here too, before a number is used, and what is frozen is the parsed (trimmed) value: it
+  // is what prints. Callers pass user input, and the PDF would otherwise show text the contract never allowed.
+  const checked = issueDocumentInput.safeParse({
+    template: input.template,
+    content: input.content,
+    branding: input.branding,
+  });
+  if (!checked.success) {
+    throw new DomainError("VALIDATION", "INVALID_DOCUMENT", "The document can't be issued as it is");
+  }
+  const { content, branding } = checked.data;
   // Checked before a number is used: React-PDF would print other letters in place of these.
-  const unprintable = unprintableCharactersIn([input.content, input.branding]);
+  const unprintable = unprintableCharactersIn([content, branding]);
   if (unprintable.length > 0) {
     throw new DomainError(
       "VALIDATION",
@@ -50,16 +62,18 @@ export async function issueDocument(
       `The document has characters its PDF can't show yet: ${unprintable.map(characterLabel).join(", ")}`,
     );
   }
-  const number = await nextDocumentNumber(tx, { prefix: input.prefix ?? "DOC", year: yearIn(now, input.timeZone) });
+  // The organization's own zone, so a caller can't freeze the wrong year and date into a numbered document.
+  const timeZone = await organizationTimeZone(tx, actor.organizationId);
+  const number = await nextDocumentNumber(tx, { prefix: input.prefix ?? "DOC", year: yearIn(now, timeZone) });
   const renderInput: IssuedDocumentRenderInput = {
-    data: { ...input.content, number, issuedOn: printedDate(now, input.timeZone) },
-    branding: input.branding,
+    data: { ...content, number, issuedOn: printedDate(now, timeZone) },
+    branding,
   };
   const row = await tx.issuedDocument.create({
     data: {
       template: input.template,
       number,
-      title: input.content.title,
+      title: content.title,
       renderInput,
       issuedBy: actor.userId,
       issuedAt: now,

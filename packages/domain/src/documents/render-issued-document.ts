@@ -50,7 +50,10 @@ export function renderIssuedDocumentListener({ files, render }: RenderIssuedDocu
         await context.forOrg((tx) =>
           tx.issuedDocument.updateMany({
             where: { id: document.id, pdfAttachmentId: null },
-            data: { renderFailure: `UNPRINTABLE_TEXT: ${codePoints.join(", ")}` },
+            data: {
+              renderFailure:
+                codePoints.length === 0 ? "UNPRINTABLE_TEXT" : `UNPRINTABLE_TEXT: ${codePoints.join(", ")}`,
+            },
           }),
         );
         return;
