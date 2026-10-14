@@ -31,7 +31,7 @@ Date: 2026-10-14 · Status: accepted · Implements spec sections 6.1 to 6.4
 - **Platform staff** have user role `admin` and no membership, ever (removed members count). They may impersonate a
   user for up to an hour. Impersonation has no durable record until the audit log arrives (plans 3 and 4); today the
   only marker is the session row.
-- **Side doors closed** by a `hooks.before` middleware in `create-auth.ts`: `/update-user` refuses `username` and
+- **Side doors closed** by a `hooks.before` middleware in `auth/side-doors.ts`: `/update-user` refuses `username` and
   `displayUsername` (only our staff API changes them), `/is-username-available` is closed, `/change-password` refuses
   a new password equal to the current one, and every `/admin/*` path re-checks the caller against our definition of
   platform staff (Better Auth checks `user.role` alone) and refuses to make a member a platform admin. Better Auth's server-side

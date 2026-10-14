@@ -2,14 +2,13 @@
 // database sessions with a 5-minute cookie cache, two-factor, platform admins and impersonation. No self sign-up.
 import type { IdentityClient } from "@travel-crm/db/identity";
 import { betterAuth } from "better-auth";
-import { APIError, createAuthMiddleware, getAuthoritativeSessionFromCtx } from "better-auth/api";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { admin } from "better-auth/plugins/admin";
 import { organization } from "better-auth/plugins/organization";
 import { twoFactor } from "better-auth/plugins/two-factor";
 import { username } from "better-auth/plugins/username";
-import { hasEverBeenMember, isPlatformAdminUser } from "../access.js";
 import { INTERNAL_USERNAME_PATTERN } from "../sign-in-names.js";
+import { closeSideDoors } from "./side-doors.js";
 import { relabelTotpForStaffWithoutEmail } from "./totp-label.js";
 
 export interface AuthSettings {
@@ -122,103 +121,4 @@ async function organizationOf(client: IdentityClient, userId: string): Promise<s
 
 async function clearMustChangePassword(client: IdentityClient, userId: string): Promise<void> {
   await client.user.update({ where: { id: userId }, data: { mustChangePassword: false } });
-}
-
-/**
- * Refuses what Better Auth's own endpoints would allow but our rules don't (ADR 0006):
- * - a member rewriting their username into another organization's namespace (only our staff API changes usernames),
- *   and probing which usernames exist;
- * - /admin/* for anyone who isn't platform staff by our definition (Better Auth checks user.role alone), and
- *   making a person with a membership a platform admin;
- * - Better Auth's organization endpoints over HTTP (members and roles go through our own API);
- * - signing in by a placeholder ".invalid" email, which staff without an email (or removed staff) carry;
- * - a cross-site browser request to the username sign-in, as Better Auth already does for email sign-in;
- * - a "password change" to the same password, which would clear must-change-password and keep the temporary one.
- */
-function closeSideDoors(client: IdentityClient) {
-  return createAuthMiddleware(async (ctx) => {
-    const body = (ctx.body ?? {}) as Record<string, unknown>;
-    // Over HTTP a request is present; server-side auth.api.* calls have none.
-    const overHttp = ctx.request !== undefined;
-    if (overHttp && ctx.path.startsWith("/organization/")) {
-      // The Hono route closes this first. Server-side calls stay possible, so later plans can use the plugin from code.
-      throw new APIError("NOT_FOUND", { code: "NOT_FOUND", message: "Not found" });
-    }
-    if (ctx.path === "/sign-in/username" && ctx.request?.headers.get("sec-fetch-site") === "cross-site") {
-      throw new APIError("FORBIDDEN", { code: "FORBIDDEN", message: "Cross-site sign-in is not allowed" });
-    }
-    if (ctx.path === "/sign-in/email" && typeof body.email === "string" && /\.invalid$/i.test(body.email.trim())) {
-      // Exactly Better Auth's answer to a wrong password, so nothing tells this case apart.
-      throw new APIError("UNAUTHORIZED", { code: "INVALID_EMAIL_OR_PASSWORD", message: "Invalid email or password" });
-    }
-    if (ctx.path === "/update-user" && ("username" in body || "displayUsername" in body)) {
-      throw new APIError("FORBIDDEN", {
-        code: "USERNAME_CHANGES_NOT_ALLOWED",
-        message: "Ask an administrator to change your username",
-      });
-    }
-    if (ctx.path === "/is-username-available") {
-      throw new APIError("NOT_FOUND", { code: "NOT_FOUND", message: "Not found" });
-    }
-    if (ctx.path === "/change-password" && isSamePassword(body.newPassword, body.currentPassword)) {
-      throw new APIError("BAD_REQUEST", {
-        code: "NEW_PASSWORD_MUST_DIFFER",
-        message: "Choose a password different from the current one",
-      });
-    }
-    if (ctx.path.startsWith("/admin/")) {
-      // The cookie cache is skipped: a demoted admin must lose access at once.
-      const session = await getAuthoritativeSessionFromCtx(ctx);
-      if (!session) throw new APIError("UNAUTHORIZED", { code: "UNAUTHORIZED", message: "Sign in first" });
-      // During impersonation the session's user is the impersonated member; Better Auth restores the admin named in
-      // impersonatedBy. That one path stays open, and only when that person is still platform staff.
-      const impersonatedBy = (session.session as { impersonatedBy?: string | null }).impersonatedBy;
-      const stoppingImpersonation =
-        ctx.path === "/admin/stop-impersonating" &&
-        !!impersonatedBy &&
-        (await isPlatformAdminUser(client, impersonatedBy));
-      if (!stoppingImpersonation && !(await isPlatformAdminUser(client, session.user.id))) {
-        throw new APIError("FORBIDDEN", { code: "FORBIDDEN", message: "Platform staff only" });
-      }
-      if (await makesMemberPlatformAdmin(client, ctx.path, body)) {
-        throw new APIError("FORBIDDEN", {
-          code: "MEMBERS_CANNOT_BE_PLATFORM_STAFF",
-          message: "A person with a membership can't be platform staff",
-        });
-      }
-    }
-  });
-}
-
-/** Better Auth hashes passwords after NFKC normalization, so look-alikes ("１" for "1") are the same password. */
-function isSamePassword(newPassword: unknown, currentPassword: unknown): boolean {
-  if (typeof newPassword !== "string" || typeof currentPassword !== "string") return false;
-  return newPassword.normalize("NFKC") === currentPassword.normalize("NFKC");
-}
-
-/**
- * Whether an /admin request would give the admin role to a person who has (or had) a membership. Mirrors how Better
- * Auth reads the request: the user id is coerced to a string, and a role string may hold several roles, comma-joined.
- */
-async function makesMemberPlatformAdmin(
-  client: IdentityClient,
-  path: string,
-  body: Record<string, unknown>,
-): Promise<boolean> {
-  let requested: unknown;
-  if (path === "/admin/set-role") requested = body.role;
-  else if (path === "/admin/update-user") requested = (body.data as { role?: unknown } | null | undefined)?.role;
-  else return false;
-  const roles = (coercedId(requested) ?? "").split(",").map((role) => role.trim());
-  const userId = coercedId(body.userId);
-  if (!roles.includes("admin") || userId === null) return false;
-  return hasEverBeenMember(client, userId);
-}
-
-/** An id or role the way Better Auth reads it: arrays become their elements joined by commas. Used for both. */
-function coercedId(value: unknown): string | null {
-  if (typeof value === "string") return value;
-  if (typeof value === "number") return value.toString();
-  if (Array.isArray(value)) return value.map((item: unknown) => coercedId(item) ?? "").join(",");
-  return null;
 }
