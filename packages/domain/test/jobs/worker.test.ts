@@ -98,6 +98,55 @@ describe("startWorker", () => {
     ]);
   });
 
+  it("reports a job whose event isn't found, with ids only, and doesn't retry it", async () => {
+    const queue = createMemoryJobQueue();
+    const runner = createMemoryJobRunner(queue);
+    const listener = recordingListener("documents.render-pdf", "document.issued");
+    const errors: Error[] = [];
+    const worker = await startWorker({
+      db,
+      runner,
+      queue,
+      listeners: [listener],
+      relay: { organizationIds: [] },
+      onError: (error) => errors.push(error as Error),
+    });
+    const eventId = "0199e7a0-0000-7000-8000-0000000000aa";
+    await queue.send("documents.render-pdf", { organizationId, eventId, eventType: "document.issued" });
+    await runner.runQueued();
+    await worker.stop();
+
+    expect(errors.map((error) => error.message)).toEqual([
+      `documents.render-pdf: event ${eventId} not found in organization ${organizationId}`,
+    ]);
+    expect(runner.failed).toEqual([]);
+    expect(listener.handled).toEqual([]);
+  });
+
+  it("validates every schedule before registering any work", async () => {
+    const queue = createMemoryJobQueue();
+    const runner = createMemoryJobRunner(queue);
+    const listener = recordingListener("documents.render-pdf", "document.issued");
+    await expect(
+      startWorker({
+        db,
+        runner,
+        queue,
+        listeners: [listener],
+        relay: { organizationIds: [] },
+        schedules: [{ queue: "x.y", cron: "every night", timeZone: "Asia/Kolkata", handle: () => Promise.resolve() }],
+      }),
+    ).rejects.toThrow(/cron expression/);
+    await queue.send("documents.render-pdf", {
+      organizationId,
+      eventId: "0199e7a0-0000-7000-8000-0000000000bb",
+      eventType: "document.issued",
+    });
+    // Nothing was registered: no handler took the job, and no schedule was kept.
+    expect(await runner.runQueued()).toBe(0);
+    expect(runner.schedules).toEqual([]);
+  });
+
   it("refuses two kinds of work on one queue, and a schedule in an unknown time zone", async () => {
     const queue = createMemoryJobQueue();
     const runner = createMemoryJobRunner(queue);

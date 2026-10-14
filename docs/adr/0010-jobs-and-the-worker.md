@@ -20,10 +20,15 @@ Date: 2026-10-15 · Status: accepted · Implements spec section 9.1
 - **One SECURITY DEFINER function**, `app_organizations_with_unrelayed_events(max)`: the relay's only look across
   organizations. It returns organization ids, oldest waiting first, and nothing else; `app_runtime` alone may call it.
   The relay then reads each organization's events inside `db.forOrg()`. The schema check allows exactly this one.
-- **Listeners run once per event** (`runListenerJob`): `processed_event` records `(organization, listener, event)`
-  after a run, and a run that finds its record skips. The event is read inside `forOrg(job's organization)`, so a job
+- **Listeners run at least once per event** (`runListenerJob`): `processed_event` records
+  `(organization, listener, event)` after a run, and a run that finds its record skips. The check, the work and the
+  record are separate transactions, so this is a best-effort skip, not exactly-once. The event is read inside `forOrg(job's organization)`, so a job
   that names the wrong organization finds nothing. Listeners run outside a transaction and use `context.forOrg` for
   their writes, as the system actor (`source: "job"`).
+- **Errors are stored, so they are cut down.** pg-boss stores a failed job's error in `pgboss.job.output` (no
+  row-level security), and the platform console shows it. The adapter reports the original error to `onError` (the
+  log) and throws a new `Error` for pg-boss: `Name: message`, emails masked as `[email]`, runs of 7 or more digits as
+  `[number]`, 200 characters, no cause, stack or extra properties. Keep personal data out of error messages anyway.
 - **Failures**: a rejected handler fails that attempt; pg-boss retries it 5 times with exponential backoff from
   10 seconds (at most an hour apart), then marks it failed. `PgBossJobs.failedJobs()` lists failed jobs, newest first,
   with their last error message: data access for the platform console (plan 4).
@@ -48,11 +53,21 @@ Date: 2026-10-15 · Status: accepted · Implements spec section 9.1
 
 ## Consequences
 
-- A listener runs at least once: a crash after its work and before its record runs it again. Database work in
-  `context.forOrg` should be idempotent; email and uploads may repeat.
+- A listener runs AT LEAST once: a crash after its work and before its record, or a second delivery of the job
+  (pg-boss re-dispatches one that ran past its expiry), runs it again, and two runs may overlap. Its database writes
+  may repeat too: key them on `event.id` (unique constraints, upserts). Emails and uploads may repeat.
+- A failed job's error is stored in pg-boss and shown to platform staff: keep personal data out of messages; ids only.
+- Removing a listener or schedule from the code leaves its pg-boss queue, jobs and schedule behind until reconciled
+  (plan 4). Changing the default retry policy doesn't reach queues that exist (`create_queue` is
+  `ON CONFLICT DO NOTHING`).
 - A test must not expect an event to stay unrelayed once committed, and every relay in a test names its
   organizations (`organizationIds`): test files share a database.
 - Upgrading pg-boss means a migration generated from `getMigrationPlans("pgboss", <schema version>)` before the new
   worker starts. With `migrate: false`, pg-boss refuses to run on a schema version it doesn't expect.
 - Completed jobs are deleted after 7 days and failed ones kept until then (pg-boss defaults); `processed_event` keeps
   the record that matters.
+- Upgrade details: pg-boss's version check is strict, so old copies of the worker can't restart once an upgrade
+  migration has run. Read the upgrade SQL for SECURITY DEFINER functions and views before applying it (the schema
+  check allows only our own). REINDEX is the migrator's job, not the runtime's. The grants at the end of
+  `20261015100000_pgboss` run after pg-boss's own COMMIT, so if one fails the schema exists without them: fix the
+  grants by hand before rerunning.

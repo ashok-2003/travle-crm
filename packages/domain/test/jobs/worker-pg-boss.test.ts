@@ -17,8 +17,8 @@ async function eventually(check: () => Promise<boolean> | boolean, timeoutMs = 2
 }
 
 describe("worker on pg-boss", () => {
-  const delivered = recordingListener("documents.render-pdf", "document.issued");
-  const broken = recordingListener("notifications.deliver", "notification.created");
+  const delivered = recordingListener("workerprobe.render-document", "document.issued");
+  const broken = recordingListener("workerprobe.always-fails", "notification.created");
   let platform: PlatformClient;
   let db: Database;
   let jobs: PgBossJobs;
@@ -56,7 +56,8 @@ describe("worker on pg-boss", () => {
     await jobs.stop();
     await db.disconnect();
     await platform.$disconnect();
-    expect(errors).toEqual([]);
+    // The only errors are the originals of the listener that always fails; nothing from pg-boss itself.
+    expect(errors.filter((error) => !(error as Error).message.includes("failed on purpose"))).toEqual([]);
   });
 
   it("delivers an event published in an organization to its listener", async () => {
@@ -74,13 +75,13 @@ describe("worker on pg-boss", () => {
     const eventId = await db.forOrg(organizationId, (tx) =>
       publishEvent(tx, { type: "notification.created", payload: { notificationId: "n1" } }),
     );
-    const jobId = listenerJobId("notifications.deliver", eventId);
+    const jobId = listenerJobId("workerprobe.always-fails", eventId);
     await eventually(async () => (await jobs.failedJobs()).some((job) => job.id === jobId));
     expect((await jobs.failedJobs()).find((job) => job.id === jobId)).toMatchObject({
-      queue: "notifications.deliver",
+      queue: "workerprobe.always-fails",
       data: { organizationId, eventId, eventType: "notification.created" },
       attempts: 2,
-      error: "notifications.deliver failed on purpose",
+      error: "Error: workerprobe.always-fails failed on purpose",
     });
     expect(broken.handled).toEqual([]);
   });

@@ -31,8 +31,8 @@ Domain events and the work the worker does after a change commits (spec 9.1).
 1. Define it with `defineListener({ name: "<module>.<what it does>", eventType, payload: <Zod schema>, handle })`,
    in the module that reacts. Its name is its job queue: lower case, dots between parts, unique.
 2. Pass it to `startWorker`'s `listeners` in the api's `worker` command. The relay queues its jobs from then on.
-3. Make it safe to run twice. Its database writes go through `context.forOrg`; anything outside the database (an
-   email, an upload) may repeat after a crash between doing it and recording the run.
+3. Make it safe to run twice. Its database writes go through `context.forOrg` and must be keyed on `event.id` (a
+   unique constraint, an upsert), and anything outside the database (an email, an upload) may repeat too.
 
 Queue names follow the same rule for plain handlers and schedules (`webhooks.process`, `rate-limits.purge`).
 
@@ -45,8 +45,15 @@ and small facts.
 
 - Publish in the same transaction as the change, never after it.
 - A payload holds ids and small facts; listeners read the rest inside `forOrg`. Never put personal data in a job.
-- Listeners run at least once and are keyed by event id. Make any work outside the database (an email, an upload)
-  safe to repeat.
+- Listeners run AT LEAST once, not exactly once. The "already handled?" check, the listener's work and the record
+  are separate transactions, so a crash after the work, or a second delivery (pg-boss re-dispatches a job that ran
+  past its expiry), runs the listener again, and two runs may overlap. Database writes may repeat as well as emails
+  and uploads: key them on `event.id`.
+- A failed job's error is stored in pg-boss and shown to platform staff: keep personal data out of error messages
+  (ids only). pg-boss stores a cut-down copy (`Name: message`, emails and long numbers masked, 200 characters); the
+  original goes to `onError`, the log. A job whose event isn't found is not retried but is reported to `onError`.
+- Removing a listener or schedule from the code leaves its pg-boss queue, jobs and schedule behind until they are
+  reconciled (plan 4).
 - `outbox_event` is append-only for the api and worker: they may only set `relayed_at`.
 - Don't test that an event stays unrelayed after its transaction commits: a relay running in another test (or the
   worker) may relay it at once. Read it back inside the publishing transaction instead. And in tests, always give

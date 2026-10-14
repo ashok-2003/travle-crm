@@ -48,6 +48,14 @@ export interface Worker {
   stop(): Promise<void>;
 }
 
+/** Five space-separated fields of digits, names and the usual cron symbols; pg-boss checks the rest on schedule(). */
+function assertCron(cron: string, queue: string): void {
+  const fields = cron.trim().split(/\s+/);
+  if (fields.length !== 5 || !fields.every((field) => /^[0-9A-Za-z*/,\-?#]+$/.test(field))) {
+    throw new RangeError(`Schedule ${queue} has an invalid cron expression ${JSON.stringify(cron)}`);
+  }
+}
+
 function assertTimeZone(timeZone: string, queue: string): void {
   try {
     new Intl.DateTimeFormat("en", { timeZone });
@@ -56,6 +64,10 @@ function assertTimeZone(timeZone: string, queue: string): void {
   }
 }
 
+/**
+ * Starts everything. The runner (pg-boss) keeps its queues and schedules after a restart: a listener or schedule
+ * removed from the code leaves its queue, jobs and schedule behind until someone reconciles them (plan 4).
+ */
 export async function startWorker(dependencies: WorkerDependencies): Promise<Worker> {
   const { db, runner, queue, listeners, handlers = [], schedules = [] } = dependencies;
   const queues = [
@@ -65,11 +77,23 @@ export async function startWorker(dependencies: WorkerDependencies): Promise<Wor
   ];
   const repeated = queues.filter((name, index) => queues.indexOf(name) !== index);
   if (repeated.length > 0) throw new Error(`Two kinds of work share the queue ${repeated.join(", ")}`);
-  for (const schedule of schedules) assertTimeZone(schedule.timeZone, schedule.queue);
+  // Check every schedule before registering anything, so a mistake leaves nothing half-started.
+  for (const schedule of schedules) {
+    assertCron(schedule.cron, schedule.queue);
+    assertTimeZone(schedule.timeZone, schedule.queue);
+  }
 
   for (const listener of listeners) {
     await runner.work(listener.name, async (job) => {
-      await runListenerJob({ db, listener, data: job.data });
+      const outcome = await runListenerJob({ db, listener, data: job.data });
+      // Not retried (the event won't appear), but not silent either. Ids only: this may reach logs.
+      if (outcome === "event-not-found") {
+        dependencies.onError?.(
+          new Error(
+            `${listener.name}: event ${String(job.data.eventId)} not found in organization ${String(job.data.organizationId)}`,
+          ),
+        );
+      }
     });
   }
   for (const handler of handlers) {

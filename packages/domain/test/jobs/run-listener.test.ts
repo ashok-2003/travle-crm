@@ -83,6 +83,44 @@ describe("runListenerJob", () => {
     expect(listener.handled).toEqual([]);
   });
 
+  it("lets two deliveries of one job overlap: both run the listener, and the run is recorded once", async () => {
+    // Listeners run at least once (pg-boss may deliver a job twice, e.g. after its expiry), so two overlapping runs of
+    // one event both do the work. What the second one records is a no-op.
+    const entered: string[] = [];
+    let release: () => void = () => undefined;
+    const bothEntered = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const listener = recordingListener("documents.render-pdf", "document.issued", async () => {
+      entered.push("run");
+      if (entered.length === 2) release();
+      await bothEntered;
+    });
+    const eventId = await publishIssued("d7");
+
+    const outcomes = await Promise.all([
+      runListenerJob({ db, listener, data: jobFor(eventId) }),
+      runListenerJob({ db, listener, data: jobFor(eventId) }),
+    ]);
+    expect(outcomes).toEqual(["handled", "handled"]);
+    expect(listener.handled).toHaveLength(2);
+    const records = await db.forOrg(organizationId, (tx) =>
+      tx.processedEvent.count({ where: { listener: "documents.render-pdf", eventId } }),
+    );
+    expect(records).toBe(1);
+  });
+
+  it("refuses a job whose event isn't of the listener's type, even if the job says it is", async () => {
+    const listener = recordingListener("documents.render-pdf", "document.issued");
+    const eventId = await db.forOrg(organizationId, (tx) =>
+      publishEvent(tx, { type: "notification.created", payload: { notificationId: "n1" } }),
+    );
+    await expect(runListenerJob({ db, listener, data: jobFor(eventId) })).rejects.toThrow(
+      /listens to document.issued, but event .* is notification.created/,
+    );
+    expect(listener.handled).toEqual([]);
+  });
+
   it("refuses a job that isn't for this listener's event type, or has no valid ids", async () => {
     const listener = recordingListener("documents.render-pdf", "document.issued");
     const eventId = await publishIssued("d6");

@@ -37,7 +37,12 @@ function eventPayload(value: unknown): EventPayload {
  * Runs listener on the job's event unless it already has. The event is read inside forOrg(job's organization), so a
  * job naming the wrong organization finds nothing ("event-not-found", not retried). The listener runs outside any
  * transaction, with a forOrg of its own for its writes; then the run is recorded. A listener that throws rejects,
- * and the job is retried with backoff. A crash after the listener but before the record runs it again.
+ * and the job is retried with backoff.
+ *
+ * At least once, not exactly once: the check, the listener's work and the record are separate transactions, so a crash
+ * after the work, or a second delivery of the job (pg-boss may re-dispatch one that ran past its expiry), runs the
+ * listener again, and two runs may overlap. Key the listener's database writes on event.id (unique constraints,
+ * upserts) as well as anything outside the database.
  */
 export async function runListenerJob({
   db,
@@ -64,6 +69,9 @@ export async function runListenerJob({
   });
   if (typeof found === "string") return found;
 
+  if (found.type !== listener.eventType) {
+    throw new TypeError(`${listener.name} listens to ${listener.eventType}, but event ${found.id} is ${found.type}`);
+  }
   const event: DomainEvent = {
     id: found.id,
     organizationId: found.organizationId,
