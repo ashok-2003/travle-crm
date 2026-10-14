@@ -1,0 +1,13 @@
+/// A travel agency using the product. This table has no organization_id and no row-level security:
+/// it is read during sign-in, before an organization is known (spec section 4).
+model Organization {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  name      String
+  /// Short sign-in code such as SHARMA: 3-12 capital letters or digits (CHECK organization_code_format).
+  code      String   @unique
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  counters  OrgCounter[]
+
+  @@map("organization")
+}
