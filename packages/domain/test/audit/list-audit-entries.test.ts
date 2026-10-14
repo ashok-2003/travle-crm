@@ -83,5 +83,14 @@ describe("listAuditEntries", () => {
     const otherOrganizationId = await createTestOrganization(platform, "Other audit list");
     const page = await db.forOrg(otherOrganizationId, (tx) => listAuditEntries(tx, listAuditEntriesInput.parse({})));
     expect(page).toEqual({ entries: [], nextCursor: null });
+    // Naming this organization's entries, as a cursor and as a record to filter by, finds nothing there either.
+    const ours = await list({ limit: 1 });
+    const named = await db.forOrg(otherOrganizationId, (tx) =>
+      listAuditEntries(
+        tx,
+        listAuditEntriesInput.parse({ before: ours.entries[0]?.id, entityType: "member", entityId: memberIds[0] }),
+      ),
+    );
+    expect(named).toEqual({ entries: [], nextCursor: null });
   });
 });

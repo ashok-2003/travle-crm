@@ -19,9 +19,16 @@ None.
 ## Rules worth knowing
 
 - Record in the same transaction as the change, and only when something changed.
-- Snapshots are curated: the fields that changed, never a whole row. A key that looks like a secret (`password`,
-  `secret`, `token`, `hash`) is refused before anything is written.
-- `audit_entry` is append-only: `app_runtime` has no UPDATE or DELETE on it. An entry is recorded in the actor's own
-  organization; an actor of another organization fails row-level security.
+- Snapshots are curated: the fields that changed, never a whole row. A key that looks like a secret (a word such as
+  `password`, `secret`, `token`, `hash`, `otp`, `credential`, or `apiKey`, `privateKey`, `backupCodes`) is refused
+  before anything is written. Each side is held to 8192 bytes of JSON (`RangeError`); the database checks twice that.
+- Personal fields (a name, an address, a phone number) appear only in entries about that person's own record. Other
+  records refer to people by id. Erasure then redacts one person's entries and nothing else.
+- Fields gated by a narrower permission (for example `documents:view_sensitive` or `money:view_margin`) are never
+  recorded by value, because anyone with `audit:view` could read them. Record only that they changed.
+- `audit_entry` is append-only: `app_runtime` has no UPDATE, DELETE or TRUNCATE on it. The platform role removes
+  entries (a whole organization, or one person's records for erasure) and may update only `before` and `after`, to
+  redact them, never who did what or when. An entry is recorded in the actor's own organization; an actor of another
+  organization fails row-level security. Everything but the system acts as a user (`audit_entry_actor_named`).
 - `action` reads `<entity>.<what happened>` (`staff.removed`); `entityType` is a record kind in lower case
   (`member`, `role`, `organization`).

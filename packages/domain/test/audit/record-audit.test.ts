@@ -112,7 +112,64 @@ describe("recordAudit", () => {
     );
     await expect(attempt({ account: { tokenHash: "x" } })).rejects.toThrow(/account\.tokenHash/);
     await expect(attempt({ codes: [{ backupSecret: "x" }] })).rejects.toThrow(/codes\.0\.backupSecret/);
+    for (const key of ["backupCodes", "otp", "apiKey", "privateKey", "credential", "api_key", "OTP", "passwordHash"]) {
+      await expect(attempt({ [key]: "x" })).rejects.toThrow(/never hold secrets/);
+    }
     expect(await entriesFor(entityId)).toEqual([]);
+  });
+
+  it("lets through keys that only share letters with a secret, and the flag that a password must change", async () => {
+    const entityId = "0199e7a0-0000-7000-8000-000000000107";
+    await db.forOrg(organizationId, (tx) =>
+      recordAudit(tx, owner, {
+        action: "staff.created",
+        entityType: "member",
+        entityId,
+        after: { mustChangePassword: true, hashtag: "#visa", hasEmail: true },
+      }),
+    );
+    expect(await entriesFor(entityId)).toHaveLength(1);
+  });
+
+  it("bounds a snapshot to 8192 bytes, in the code and again in the database", async () => {
+    const entityId = "0199e7a0-0000-7000-8000-000000000108";
+    const attempt = (note: string) =>
+      db.forOrg(organizationId, (tx) =>
+        recordAudit(tx, owner, { action: "role.updated", entityType: "role", entityId, after: { note } }),
+      );
+    await expect(attempt("x".repeat(8200))).rejects.toThrow(RangeError);
+    await expect(attempt("x".repeat(8200))).rejects.toThrow(/8192 bytes/);
+    await attempt("x".repeat(8000));
+    expect(await entriesFor(entityId)).toHaveLength(1);
+    // The database holds the same line (twice the size, as jsonb text is a little longer than the JSON we count).
+    await expect(
+      db.forOrg(
+        organizationId,
+        (tx) =>
+          tx.$executeRaw`INSERT INTO audit_entry (id, source, action, entity_type, entity_id, after)
+            VALUES (gen_random_uuid(), 'job', 'role.updated', 'role', ${entityId}::uuid, jsonb_build_object('note', repeat('x', 20000)))`,
+      ),
+    ).rejects.toThrow(/audit_entry_after_size/);
+  });
+
+  it("names an actor for every entry except the system's", async () => {
+    const entityId = "0199e7a0-0000-7000-8000-000000000109";
+    const nobody: Actor = { ...owner, userId: null };
+    await expect(
+      db.forOrg(organizationId, (tx) =>
+        recordAudit(tx, nobody, { action: "staff.removed", entityType: "member", entityId }),
+      ),
+    ).rejects.toThrow(/audit_entry_actor_named/);
+  });
+
+  it("refuses an admin's id on an entry that isn't an impersonation", async () => {
+    const entityId = "0199e7a0-0000-7000-8000-00000000010a";
+    const stray: Actor = { ...owner, impersonatedBy: supportUserId };
+    await expect(
+      db.forOrg(organizationId, (tx) =>
+        recordAudit(tx, stray, { action: "staff.removed", entityType: "member", entityId }),
+      ),
+    ).rejects.toThrow(/audit_entry_impersonation/);
   });
 
   it("refuses actions and record kinds that aren't well formed", async () => {
@@ -137,7 +194,27 @@ describe("recordAudit", () => {
     ).rejects.toThrow(/row-level security/);
   });
 
-  it("keeps entries fixed: the api and worker can't change or delete them", async () => {
+  it("lets the platform redact an entry's snapshots, but not rewrite who did what", async () => {
+    const entityId = "0199e7a0-0000-7000-8000-00000000010b";
+    await db.forOrg(organizationId, (tx) =>
+      recordAudit(tx, owner, { action: "role.updated", entityType: "role", entityId, after: { name: "Visa" } }),
+    );
+    await expect(
+      platform.$executeRaw`UPDATE audit_entry SET after = NULL WHERE entity_id = ${entityId}::uuid`,
+    ).resolves.toBe(1);
+    expect((await entriesFor(entityId))[0]?.after).toBeNull();
+    await expect(
+      platform.$executeRaw`UPDATE audit_entry SET actor_user_id = NULL WHERE entity_id = ${entityId}::uuid`,
+    ).rejects.toThrow(/permission denied/i);
+    await expect(
+      platform.$executeRaw`UPDATE audit_entry SET action = 'role.deleted' WHERE entity_id = ${entityId}::uuid`,
+    ).rejects.toThrow(/permission denied/i);
+  });
+
+  it("keeps entries fixed: the api and worker can't change, delete or truncate them", async () => {
+    await expect(db.forOrg(organizationId, (tx) => tx.$executeRaw`TRUNCATE audit_entry`)).rejects.toThrow(
+      /permission denied/i,
+    );
     await expect(
       db.forOrg(organizationId, (tx) => tx.$executeRaw`UPDATE audit_entry SET after = '{"name": "changed"}'::jsonb`),
     ).rejects.toThrow(/permission denied/i);

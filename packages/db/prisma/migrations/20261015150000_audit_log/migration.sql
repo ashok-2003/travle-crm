@@ -35,8 +35,18 @@ ALTER TABLE "audit_entry"
   ADD CONSTRAINT audit_entry_action_format CHECK (action ~ '^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$'),
   ADD CONSTRAINT audit_entry_entity_type_format CHECK (entity_type ~ '^[a-z][a-z_]{1,39}$'),
   ADD CONSTRAINT audit_entry_before_object CHECK (before IS NULL OR jsonb_typeof(before) = 'object'),
-  ADD CONSTRAINT audit_entry_after_object CHECK (after IS NULL OR jsonb_typeof(after) = 'object');
+  ADD CONSTRAINT audit_entry_after_object CHECK (after IS NULL OR jsonb_typeof(after) = 'object'),
+  -- Only the system (a job no person started) acts without a user.
+  ADD CONSTRAINT audit_entry_actor_named CHECK (source = 'job' OR actor_user_id IS NOT NULL),
+  -- Snapshots are small by design (recordAudit holds them to 8192 bytes of JSON); jsonb's text form is a little longer.
+  ADD CONSTRAINT audit_entry_before_size CHECK (octet_length(before::text) <= 16384),
+  ADD CONSTRAINT audit_entry_after_size CHECK (octet_length(after::text) <= 16384);
 
--- The log is append-only: the api and worker may add entries, never change or delete one. Only the platform role's
--- purge of a whole organization removes them.
-REVOKE UPDATE, DELETE ON TABLE "audit_entry" FROM app_runtime;
+-- The log is append-only: the api and worker may add entries, never change or delete one (the revoke also keeps them
+-- from truncating it). The platform role is the only one that removes or redacts entries, for a whole organization or
+-- for one person's records (erasure): it may delete, and update only the snapshots, never who did what or when. Once
+-- the Integration task adds the organization foreign key (ON DELETE RESTRICT), purging an organization deletes its
+-- audit_entry rows explicitly first.
+REVOKE UPDATE, DELETE, TRUNCATE ON TABLE "audit_entry" FROM app_runtime;
+REVOKE UPDATE ON TABLE "audit_entry" FROM app_platform;
+GRANT UPDATE (before, after) ON TABLE "audit_entry" TO app_platform;
