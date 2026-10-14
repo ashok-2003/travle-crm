@@ -1,7 +1,7 @@
 // Calls tRPC procedures through the HTTP app the way the web app's client does: queries are GETs with the input in
-// the URL, mutations are JSON POSTs.
+// the URL, mutations are JSON POSTs from the trusted origin.
 import type { CookieJar } from "./cookie-jar.js";
-import type { TestServer } from "./test-server.js";
+import { ORIGIN, type TestServer } from "./test-server.js";
 
 export async function query(server: TestServer, path: string, jar?: CookieJar, input?: unknown): Promise<Response> {
   const search = input === undefined ? "" : `?input=${encodeURIComponent(JSON.stringify(input))}`;
@@ -11,7 +11,7 @@ export async function query(server: TestServer, path: string, jar?: CookieJar, i
 export async function mutate(server: TestServer, path: string, input: unknown, jar?: CookieJar): Promise<Response> {
   return server.app.request(`/api/trpc/${path}`, {
     method: "POST",
-    headers: { "content-type": "application/json", ...(jar ? { cookie: jar.header } : {}) },
+    headers: { "content-type": "application/json", origin: ORIGIN, ...(jar ? { cookie: jar.header } : {}) },
     body: JSON.stringify(input),
   });
 }

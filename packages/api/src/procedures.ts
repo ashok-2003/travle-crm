@@ -5,6 +5,7 @@
 import { TRPCError } from "@trpc/server";
 import { pendingStep, type Identity, type MemberAccess, type Permission } from "@travel-crm/domain/identity";
 import { DomainError } from "@travel-crm/domain/kernel";
+import { forwardCookies } from "./context.js";
 import { toTrpcError } from "./errors.js";
 import { t } from "./trpc.js";
 
@@ -25,9 +26,14 @@ export const protectedProcedure = base.use(({ ctx, next }) => {
 
 /** Check 1 against the database, ignoring the cookie cache: a revoked session stops at once (spec 6.4). */
 const freshlySignedIn = base.use(async ({ ctx, next }) => {
-  const fresh = await ctx.identity.auth.api.getSession({ headers: ctx.headers, query: { disableCookieCache: true } });
-  if (!fresh) throw new TRPCError({ code: "UNAUTHORIZED" });
-  return next({ ctx: { session: fresh.session, user: fresh.user } });
+  const { headers, response } = await ctx.identity.auth.api.getSession({
+    headers: ctx.headers,
+    query: { disableCookieCache: true },
+    returnHeaders: true,
+  });
+  forwardCookies(headers, ctx.resHeaders);
+  if (!response) throw new TRPCError({ code: "UNAUTHORIZED" });
+  return next({ ctx: { session: response.session, user: response.user } });
 });
 
 interface SignedInContext {
