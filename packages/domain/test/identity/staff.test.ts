@@ -1,7 +1,7 @@
 // Staff against Postgres: adding people with or without email, changing roles, resetting passwords and removing
 // people (spec 6.3), with the rules that stop anyone reaching above their own access.
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
-import { afterAll, beforeAll, describe, expect, inject, it, onTestFinished, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, inject, it, onTestFinished, vi } from "vitest";
 import type { MemberAccess } from "../../src/identity/member-access.js";
 import {
   createTestAgency,
@@ -107,6 +107,14 @@ describe("staff", () => {
   });
 
   it("lets the same username exist in two organizations", async () => {
+    const first = await createTestAgency(test.identity, platform);
+    const firstOwner = await accessOf(first.ownerUserId, first.organizationId);
+    await test.identity.staff.create(firstOwner, {
+      name: "Ravi",
+      username: "ravi",
+      roleKey: "sales",
+      temporaryPassword: "temporary-pass-1",
+    });
     const other = await createTestAgency(test.identity, platform);
     const otherOwner = await accessOf(other.ownerUserId, other.organizationId);
     await expect(
@@ -203,6 +211,32 @@ describe("staff", () => {
       ).rejects.toMatchObject({ reason: "OWNER_ONLY" });
     });
 
+    it("refuses to change someone who was promoted after they were looked at", async () => {
+      const target = await test.identity.staff.create(owner, {
+        name: "Promoted",
+        username: "promoted",
+        roleKey: "sales",
+        temporaryPassword: "temporary-pass-13",
+      });
+      let change: Promise<unknown> = Promise.resolve();
+      await test.database.client.$transaction(async (tx) => {
+        // Holding the member row makes the Admin's write wait, after the Admin has already read the old role.
+        await tx.$queryRaw`SELECT id FROM member WHERE id = ${target.memberId}::uuid FOR UPDATE`;
+        change = test.identity.staff.updateRole(admin, { memberId: target.memberId, roleKey: "operations" });
+        change.catch(() => undefined);
+        for (let tries = 0; tries < 100; tries++) {
+          const waiting = await tx.$queryRaw<{ n: number }[]>`
+            SELECT count(*)::int AS n FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND datname = current_database()`;
+          if ((waiting[0]?.n ?? 0) > 0) break;
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+        await tx.member.update({ where: { id: target.memberId }, data: { role: "org-owner" } });
+      });
+      await expect(change).rejects.toMatchObject({ code: "CONFLICT", reason: "STAFF_CHANGED" });
+      const stored = await test.database.client.member.findUniqueOrThrow({ where: { id: target.memberId } });
+      expect(stored.role).toBe("org-owner");
+    });
+
     it("cannot change their own access", async () => {
       await expect(
         test.identity.staff.updateRole(admin, { memberId: admin.memberId, roleKey: "sales" }),
@@ -271,10 +305,36 @@ describe("staff", () => {
       test.identity.staff.remove(second, { memberId: first.memberId }),
     ]);
     expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    // The loser finds it is no longer an Owner once the winner commits; a deadlock or timeout would not match.
+    expect(results.find((result) => result.status === "rejected")).toMatchObject({
+      reason: expect.objectContaining({ code: "FORBIDDEN", reason: "OWNER_ONLY" }) as unknown,
+    });
     const owners = await test.database.client.member.count({
       where: { organizationId: own.organizationId, role: "org-owner", deletedAt: null },
     });
     expect(owners).toBe(1);
+  });
+
+  it("lets an Owner demote another Owner while two remain", async () => {
+    const own = await createTestAgency(test.identity, platform);
+    const first = await accessOf(own.ownerUserId, own.organizationId);
+    const [second, third] = await Promise.all(
+      ["owner2", "owner3"].map((username) =>
+        test.identity.staff.create(first, {
+          name: username,
+          username,
+          roleKey: "org-owner",
+          temporaryPassword: "temporary-pass-12",
+        }),
+      ),
+    );
+    if (!second || !third) throw new Error("not created");
+    const demoted = await test.identity.staff.updateRole(first, { memberId: second.memberId, roleKey: "sales" });
+    expect(demoted.role.key).toBe("sales");
+    const owners = await test.database.client.member.findMany({
+      where: { organizationId: own.organizationId, role: "org-owner" },
+    });
+    expect(owners.map((member) => member.id).sort()).toEqual([own.ownerMemberId, third.memberId].sort());
   });
 
   it("resets a password to a temporary one and signs the person out everywhere", async () => {
@@ -323,24 +383,54 @@ describe("staff", () => {
     expect(await canSignInByUsername(agency.code, "kiran", "kiran-temp-pass-1")).toBe(false);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("User not found"));
 
-    // The retired address can be worked out from the user id. The hook refuses every ".invalid" address, and the wiped
-    // password and the ban would each refuse it too. (A server-side call throws the refusal instead of returning it.)
-    const retired = `removed-${kiran.userId}@no-email.invalid`;
-    const refused = /Invalid email or password/;
-    await expect(signInByEmail(test.identity, retired, "kiran-temp-pass-1")).rejects.toThrow(refused);
-    expect(await test.database.client.account.findFirst({ where: { userId: kiran.userId } })).toMatchObject({
-      password: null,
-    });
-    await test.database.client.user.update({ where: { id: kiran.userId }, data: { banned: false } });
-    try {
-      await expect(signInByEmail(test.identity, retired, "kiran-temp-pass-1")).rejects.toThrow(refused);
-    } finally {
-      await test.database.client.user.update({ where: { id: kiran.userId }, data: { banned: true } });
-    }
     expect(await test.database.client.user.findUnique({ where: { id: kiran.userId } })).toMatchObject({
       formerEmail: email,
       banned: true,
+      banReason: "Removed from their organization",
     });
+    expect(await test.database.client.account.findFirst({ where: { userId: kiran.userId } })).toMatchObject({
+      password: null,
+    });
+
+    // The retired address can be worked out from the user id. The hook refuses every ".invalid" address, and the wiped
+    // password and the ban each refuse it too. (A server-side call throws the refusal instead of returning it.)
+    const retired = `removed-${kiran.userId}@no-email.invalid`;
+    await expect(signInByEmail(test.identity, retired, "kiran-temp-pass-1")).rejects.toThrow(
+      /Invalid email or password/,
+    );
+
+    // Simulate a retired address that somehow became reachable, and test each remaining lock on its own.
+    const reachable = `retired-${kiran.userId}@example.com`;
+    await test.database.client.user.update({ where: { id: kiran.userId }, data: { email: reachable } });
+    const attempt = (password: string) =>
+      test.identity.auth.api.signInEmail({ body: { email: reachable, password }, asResponse: true });
+
+    // The wipe alone: not banned, no password to check.
+    await test.database.client.user.update({ where: { id: kiran.userId }, data: { banned: false } });
+    try {
+      expect((await attempt("kiran-temp-pass-1")).ok).toBe(false);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining("Password not found"));
+    } finally {
+      await test.database.client.user.update({ where: { id: kiran.userId }, data: { banned: true } });
+    }
+
+    // The ban alone: a real password is back, and only the ban refuses.
+    const context = await test.identity.auth.$context;
+    await test.database.client.account.updateMany({
+      where: { userId: kiran.userId, providerId: "credential" },
+      data: { password: await context.password.hash("kiran-temp-pass-1") },
+    });
+    try {
+      const banned = await attempt("kiran-temp-pass-1");
+      expect(banned.status).toBe(403);
+      expect(await banned.json()).toMatchObject({ code: "BANNED_USER" });
+    } finally {
+      await test.database.client.account.updateMany({
+        where: { userId: kiran.userId, providerId: "credential" },
+        data: { password: null },
+      });
+      await test.database.client.user.update({ where: { id: kiran.userId }, data: { email: retired } });
+    }
     expect((await test.identity.staff.list(owner)).some((member) => member.memberId === kiran.memberId)).toBe(false);
 
     const other = await createTestAgency(test.identity, platform);
@@ -372,9 +462,13 @@ describe("two-factor requirement", () => {
   let test: TestIdentity;
   let agency: TestAgency;
 
-  beforeAll(async () => {
+  beforeAll(() => {
     platform = createPlatformClient(inject("dbUrls").platform);
     test = createTestIdentity();
+  });
+
+  // Every test gets its own organization, so none depends on another's state.
+  beforeEach(async () => {
     agency = await createTestAgency(test.identity, platform);
   });
 

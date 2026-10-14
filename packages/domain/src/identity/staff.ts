@@ -78,7 +78,7 @@ export async function updateStaffRole(
     if (kept.length === 0) throw new DomainError("NOT_FOUND", "ROLE_NOT_FOUND", `No role ${input.roleKey}`);
     const newRole = await findRole(tx, input.roleKey);
     assertMayHandleRole(actor, newRole);
-    await tx.member.update({ where: { id: target.id }, data: { role: newRole.key } });
+    await changeMember(tx, target, { role: newRole.key });
   });
   return staffMember(database, actor, input.memberId);
 }
@@ -119,7 +119,7 @@ export async function removeStaff(
     const targetRole = await findRole(tx, target.role);
     assertMayManageMember(actor, { userId: target.userId, role: targetRole });
     if (targetRole.isOwner) await lockOwners(tx, actor, target.id, targetRole.key);
-    await tx.member.update({ where: { id: target.id }, data: softDeleted(actor.userId) });
+    await changeMember(tx, target, softDeleted(actor.userId));
     const user = await tx.user.findUniqueOrThrow({ where: { id: target.userId } });
     await tx.user.update({
       where: { id: user.id },
@@ -158,11 +158,28 @@ async function lockOwners(
     throw new DomainError("FORBIDDEN", "OWNER_ONLY", "Only an Owner can change an Owner");
   }
   if (!owners.some((owner) => owner.id === targetMemberId)) {
-    throw new DomainError("NOT_FOUND", "MEMBER_NOT_FOUND", "No such staff member");
+    throw staffChanged();
   }
   if (owners.every((owner) => owner.id === targetMemberId)) {
     throw new DomainError("CONFLICT", "LAST_OWNER", "The organization must keep an Owner");
   }
+}
+
+/**
+ * Writes only if the member still has the role the checks were made against, so a promotion that landed after they
+ * were read can't be overwritten by someone with less access than the new role.
+ */
+async function changeMember(
+  tx: IdentityTx,
+  target: { id: string; role: string },
+  data: { role: string } | ReturnType<typeof softDeleted>,
+): Promise<void> {
+  const { count } = await tx.member.updateMany({ where: { id: target.id, role: target.role, deletedAt: null }, data });
+  if (count !== 1) throw staffChanged();
+}
+
+function staffChanged(): DomainError {
+  return new DomainError("CONFLICT", "STAFF_CHANGED", "This person was changed by someone else. Reload and try again.");
 }
 
 /** An active member of the actor's organization. Members of other organizations are "not found". */

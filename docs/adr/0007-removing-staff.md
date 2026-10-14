@@ -21,13 +21,15 @@ A person who joins again, here or in another organization, gets a new user row.
 - **The username must be released** so the organization can give it to someone else.
 - **The user row is never reused**, because `member.user_id` is unique (one user, one organization, spec section 4):
   the old membership row still points at it. Keeping the row keeps every "created by" reference valid.
-- **Two locks keep the retired row from signing in.** The retired address can be worked out from the user id, which
-  staff managers see, so clearing the email and username is not enough. Wiping the password hash makes Better Auth
-  refuse with "Password not found", and the ban makes its admin plugin refuse any new session, impersonation
-  included. Either one alone refuses sign-in; tests check each with the other undone.
+- **Three locks keep the retired row from signing in.** The retired address can be worked out from the user id, which
+  staff managers see, so clearing the email and username is not enough. Sign-in by email refuses every `.invalid`
+  address (the sign-in hook), wiping the password hash makes Better Auth refuse with "Password not found", and the ban
+  makes it refuse any new session, impersonation included. The tests check the hook first, then point the retired
+  user at an ordinary address and check the wipe and the ban each on its own, with the other undone.
 - **Owners can't strand an organization.** Removing or demoting an Owner locks the organization's active Owner rows in
   id order, checks the actor is still one of them, and refuses `LAST_OWNER` if none would remain. Two Owners removing
-  each other at once therefore leave exactly one.
+  each other at once therefore leave exactly one. Every change to a member is also conditional on the role that was
+  checked (`STAFF_CHANGED` otherwise), so a promotion that lands meanwhile is never overwritten.
 - **It takes effect at once.** Sessions are deleted; `orgProcedure` reads the membership on every request, so the next
   request is refused even while the 5-minute session cookie is still cached.
 - Rejected alternatives: deleting the user (breaks history and cascades), and Better Auth's `removeMember` and
