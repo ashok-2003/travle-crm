@@ -35,17 +35,24 @@ Date: 2026-10-14 · Status: accepted · Implements spec section 5
   an index Prisma doesn't know about. With the preview feature Prisma writes
   `CREATE UNIQUE INDEX … WHERE ("deleted_at" IS NULL)` itself and the drift check stays strict. If Prisma drops the
   feature, the indexes move to hand-written SQL and the drift check needs an exception.
-- **Organization-owned models can't follow relations into the sign-in tables.** Every organization table has an
-  `organization` relation, and from `Organization` an include reaches `member`, `user` and `account` (password hashes),
-  none of which has row-level security. The client extension throws `SignInRelationError` for an `organization` key at
-  any depth of `include`, `select`, `where`, `data` or `orderBy` on organization-owned models. Queries rooted at sign-in models, used by
-  the identity module, are unrestricted.
+- **Organization code can't reach the sign-in tables.** Every organization table has an `organization` relation, and
+  from `Organization` an include reaches `member`, `user` and `account` (password hashes), none of which has row-level
+  security. Three things keep organization code out:
+  - `OrgTx` hides the sign-in models, so `tx.user` and the like don't exist outside the identity module.
+  - The client extension throws `SignInRelationError` for a relation to a sign-in model (the names in
+    `signInRelations`, today only `organization`) at any depth of `include`, `select`, `where`, `data` or `orderBy` on
+    organization-owned models. It follows relations through Prisma's description of the models, so it skips the values
+    of Json fields, where an `organization` key is data. Any new relation from an organization table to a sign-in model
+    must be added to `signInRelations`; `sign-in-relations.test.ts` reads the schema and fails until it is. Queries
+    rooted at sign-in models, used by the identity module, are unrestricted.
+  - ESLint flags a tagged `$queryRaw`/`$executeRaw` that names a sign-in table outside the identity module, because
+    `OrgTx` keeps the raw-SQL methods.
 - **The identity client checks its role once.** The first query, raw or model, verifies `current_user` is
   `app_runtime`; `IdentityDatabase.forOrg()` awaits the check before opening a transaction, so a small pool can't
   deadlock on it. A dropped connection during the check is retried; a wrong role fails every query.
 - **Hiding `$*RawUnsafe` is only part of the raw-SQL story.** The type narrowing hides the raw-string methods; the
   ESLint guard (Task 1) covers tagged templates, flagging `set_config`, `app.org_id`, `SET ROLE`, `RESET` and
-  `CREATE TEMP` outside `packages/db`.
+  `CREATE TEMP` outside `packages/db`, and SQL naming a sign-in table outside the identity module.
 - **Includes are not filtered.** `include: { member: true }` returns a deleted member. Query the soft-delete model
   itself when that matters.
 

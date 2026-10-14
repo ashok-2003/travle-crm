@@ -41,9 +41,13 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   organization table (except a primary key on `id`). The test suite checks both.
 - Only the platform module uses `@travel-crm/db/platform` (it sees every organization).
 - Better Auth's sign-in tables (user, session, account, verification, two_factor, organization, member, invitation) have no
-  row-level security. Only `packages/domain/src/identity` reaches them, through `@travel-crm/db/identity`; `OrgTx` hides them.
-  Queries on organization-owned models may not use the `organization` relation anywhere in `include`, `select`, `where`,
-  `data` or `orderBy` (it leads to those tables): they throw `SignInRelationError`.
+  row-level security. Only `packages/domain/src/identity` reaches them, through `@travel-crm/db/identity`:
+  - `OrgTx` hides the sign-in models;
+  - ESLint flags a `$queryRaw`/`$executeRaw` that names a sign-in table anywhere outside the identity module;
+  - queries on organization-owned models may not follow a relation to a sign-in model (today only `organization`)
+    anywhere in `include`, `select`, `where`, `data` or `orderBy`: they throw `SignInRelationError`. A new relation from
+    an organization table to a sign-in model must be added to `signInRelations` (`packages/db/src/sign-in-guard.ts`);
+    a test reads the schema and fails until it is.
 - Outside `packages/db`, never write SQL that sets `app.org_id` (`set_config`), changes the session (`SET`, `RESET`) or
   creates temporary tables, and never use `$executeRawUnsafe`/`$queryRawUnsafe`: on a pooled connection they outlive the
   transaction. ESLint catches `set_config`, `app.org_id`, `SET ROLE`, `SET SESSION AUTHORIZATION`, `RESET ALL`/`ROLE`,
