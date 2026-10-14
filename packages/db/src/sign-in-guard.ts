@@ -43,6 +43,35 @@ export type ModelDescriptions = Readonly<
 const partsThatFollowRelations = ["include", "select", "where", "data", "orderBy"] as const;
 
 /**
+ * The names Prisma gives its own arguments inside a query. They never count as field names, so a Json column called
+ * `data` can't hide the `data` of a nested update; the price is that such a column's own value is walked too.
+ */
+const prismaArgumentNames = new Set([
+  ...partsThatFollowRelations,
+  "omit",
+  "create",
+  "createMany",
+  "connect",
+  "connectOrCreate",
+  "update",
+  "updateMany",
+  "upsert",
+  "set",
+  "disconnect",
+  "delete",
+  "deleteMany",
+  "some",
+  "every",
+  "none",
+  "is",
+  "isNot",
+  "AND",
+  "OR",
+  "NOT",
+  "_count",
+]);
+
+/**
  * A check that throws SignInRelationError when a query on an organization-owned model names a sign-in relation at any
  * depth. It follows relations to know which model each level of the arguments describes, so it can skip the values of
  * Json fields: a Json value is the record's own data, and an "organization" key inside it is not a relation.
@@ -56,7 +85,7 @@ export function signInRelationCheck(models: ModelDescriptions): (model: string, 
     for (const [key, child] of Object.entries(value)) {
       const childPath = `${path}.${key}`;
       if (signInRelations.includes(key)) throw new SignInRelationError(rootModel, key, childPath);
-      const field = fieldsByModel.get(model)?.get(key);
+      const field = prismaArgumentNames.has(key) ? undefined : fieldsByModel.get(model)?.get(key);
       if (field?.kind === "scalar" && field.type === "Json") continue;
       // Below a relation the arguments describe the related model; other keys (create, where, AND, some...) don't move.
       visit(rootModel, field?.kind === "object" ? field.type : model, child, childPath);

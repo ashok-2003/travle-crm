@@ -65,11 +65,19 @@ describe("the sign-in relation check", () => {
         { name: "details", kind: "scalar", type: "Json" },
         { name: "organization", kind: "object", type: "Organization" },
         { name: "notes", kind: "object", type: "Note" },
+        { name: "events", kind: "object", type: "Event" },
       ],
     },
     Note: {
       fields: [
         { name: "body", kind: "scalar", type: "Json" },
+        { name: "organization", kind: "object", type: "Organization" },
+      ],
+    },
+    // A Json column named like one of Prisma's arguments, as an event's payload might be.
+    Event: {
+      fields: [
+        { name: "data", kind: "scalar", type: "Json" },
         { name: "organization", kind: "object", type: "Organization" },
       ],
     },
@@ -100,6 +108,18 @@ describe("the sign-in relation check", () => {
     }).toThrow(SignInRelationError);
     expect(() => {
       check("Lead", { where: { AND: [{ notes: { some: { organization: { name: "x" } } } }] } });
+    }).toThrow(SignInRelationError);
+  });
+
+  it("never lets a Json column named like a Prisma argument hide a nested write", () => {
+    expect(() => {
+      check("Lead", {
+        data: { events: { update: { where: { id: "x" }, data: { organization: { connect: { id: "y" } } } } } },
+      });
+    }).toThrow(SignInRelationError);
+    // The price: such a column's own value is walked too, and refused if it has an organization key.
+    expect(() => {
+      check("Event", { data: { data: { organization: "x" } } });
     }).toThrow(SignInRelationError);
   });
 
