@@ -12,7 +12,8 @@ Date: 2026-10-15 · Status: accepted · Implements spec section 9.6
 - **One place for arithmetic.** `add`, `subtract`, `multiply` (by whole quantities), `sum`, `compare` work on paise.
   Fractions (`percentageOf` in basis points, `fractionOf`, `allocate`) compute in BigInt and round once, at the end,
   with the rounding the caller names: `half-up` (a half rounds away from zero, the default) or `half-even`.
-  `allocate` splits without losing a paisa and gives the leftover paise to the first parts.
+  `allocate` splits without losing a paisa and gives the leftover paise to the parts with the largest fractions
+  (ties to the earlier part), so no part is more than a paisa from its exact share.
 - **Typed amounts never pass through a float.** `parseRupees("12,50,000.50")` (and the `rupeesText` contract) read
   digits: plain, Indian grouping or international grouping, two decimals at most.
 - **Indian format.** `formatMoney` gives `₹12,50,000.00` and `formatIndianNumber` `1,23,45,678`: the last three

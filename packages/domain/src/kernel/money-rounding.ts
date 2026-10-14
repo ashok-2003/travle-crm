@@ -49,7 +49,8 @@ export function percentageOf(amount: Money, basisPoints: number, rounding: Round
 
 /**
  * Splits an amount in proportion to whole-number ratios without losing a paisa: each part is rounded down and the
- * paise left over go one each to the first parts. allocate(₹100, [1, 1, 1]) is ₹33.34, ₹33.33, ₹33.33.
+ * paise left over go one each to the parts with the largest fractions (ties to the earlier part), so no part is
+ * more than a paisa from its exact share. allocate(₹100, [1, 1, 1]) is ₹33.34, ₹33.33, ₹33.33.
  */
 export function allocate(amount: Money, ratios: readonly number[]): Money[] {
   const weights = ratios.map((ratio) => wholeNumber(ratio, "A ratio"));
@@ -59,12 +60,16 @@ export function allocate(amount: Money, ratios: readonly number[]): Money[] {
   const negative = amount.amountPaise < 0;
   const magnitude = BigInt(Math.abs(amount.amountPaise));
   const shares = weights.map((weight) => (magnitude * weight) / totalWeight);
-  let left = magnitude - shares.reduce((total, share) => total + share, 0n);
-  for (let index = 0; left > 0n; index = (index + 1) % shares.length) {
-    // Parts with a zero ratio get nothing, not even a leftover paisa.
-    if (weights[index] === 0n) continue;
-    shares[index] = (shares[index] ?? 0n) + 1n;
-    left -= 1n;
-  }
+  const remainders = weights.map((weight) => (magnitude * weight) % totalWeight);
+  const left = Number(magnitude - shares.reduce((total, share) => total + share, 0n));
+  // Parts with a zero ratio have a zero remainder and there are never more leftover paise than parts with a
+  // remainder, so they get nothing.
+  const byRemainder = weights
+    .map((_, index) => index)
+    .sort((a, b) => {
+      const difference = (remainders[b] ?? 0n) - (remainders[a] ?? 0n);
+      return difference > 0n ? 1 : difference < 0n ? -1 : a - b;
+    });
+  for (const index of byRemainder.slice(0, left)) shares[index] = (shares[index] ?? 0n) + 1n;
   return shares.map((share) => toMoney(negative ? -share : share, amount));
 }

@@ -1,6 +1,6 @@
 // Money (spec 9.6): integer paise plus a currency code. All arithmetic and rounding live in the kernel, so no module
 // ever computes with a float.
-import { paiseFromRupeesText, type CurrencyCode } from "@travel-crm/contracts/kernel";
+import { currencyCodes, paiseFromRupeesText, type CurrencyCode } from "@travel-crm/contracts/kernel";
 
 export type { CurrencyCode } from "@travel-crm/contracts/kernel";
 
@@ -21,7 +21,11 @@ function assertSafeInteger(value: number, what: string): void {
 /** Builds an amount from whole paise: money(125_000_050) is ₹12,50,000.50. */
 export function money(amountPaise: number, currency: CurrencyCode = "INR"): Money {
   assertSafeInteger(amountPaise, "An amount in paise");
-  return Object.freeze({ amountPaise, currency });
+  if (!(currencyCodes as readonly string[]).includes(currency)) {
+    throw new RangeError(`Unknown currency: ${JSON.stringify(currency)}`);
+  }
+  // Adding zero turns -0 into 0, so an amount has one zero.
+  return Object.freeze({ amountPaise: amountPaise + 0, currency });
 }
 
 /** Reads a typed amount such as "12,50,000.50" or "₹999" without going through a float. */
@@ -58,9 +62,17 @@ export function multiply(amount: Money, quantity: number): Money {
   return money(amount.amountPaise * quantity, amount.currency);
 }
 
-/** The total of a list of amounts in one currency; an empty list is zero rupees. */
+/** The total of a list of amounts in one currency; an empty list is zero. The range is checked once, at the end. */
 export function sum(amounts: readonly Money[], currency: CurrencyCode = "INR"): Money {
-  return amounts.reduce((total, amount) => add(total, amount), money(0, amounts[0]?.currency ?? currency));
+  let total = 0n;
+  for (const amount of amounts) {
+    sameCurrency(amount, { amountPaise: 0, currency });
+    total += BigInt(amount.amountPaise);
+  }
+  if (total > BigInt(Number.MAX_SAFE_INTEGER) || total < BigInt(Number.MIN_SAFE_INTEGER)) {
+    throw new RangeError("The total is too large to hold exactly");
+  }
+  return money(Number(total), currency);
 }
 
 export function compare(a: Money, b: Money): -1 | 0 | 1 {

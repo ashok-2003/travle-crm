@@ -13,23 +13,30 @@ function groupDigits(digits: string): string {
 }
 
 /**
- * A count or quantity in Indian grouping. Whole numbers unless fractionDigits is given; money goes through
- * formatMoney instead, which never rounds.
+ * A count or quantity in Indian grouping. Whole numbers unless fractionDigits is given, which rounds half away from
+ * zero; money goes through formatMoney instead, which never rounds. Numbers beyond the safe integers are refused.
  */
 export function formatIndianNumber(value: number | bigint, options: { fractionDigits?: number } = {}): string {
   const fractionDigits = options.fractionDigits ?? 0;
-  if (
-    typeof value === "number" &&
-    (!Number.isFinite(value) || (fractionDigits === 0 && !Number.isSafeInteger(value)))
-  ) {
+  if (!Number.isInteger(fractionDigits) || fractionDigits < 0 || fractionDigits > 20) {
+    throw new RangeError(`fractionDigits must be a whole number from 0 to 20, got ${String(fractionDigits)}`);
+  }
+  if (typeof value === "bigint") {
+    const fraction = fractionDigits > 0 ? `.${"0".repeat(fractionDigits)}` : "";
+    return `${value < 0n ? "-" : ""}${groupDigits((value < 0n ? -value : value).toString())}${fraction}`;
+  }
+  // Scale to whole units of the last digit shown, so everything after this is integer text.
+  const scaled = Math.round(Math.abs(value) * 10 ** fractionDigits);
+  if (!Number.isFinite(value) || !Number.isSafeInteger(scaled)) {
+    throw new RangeError(`Can't show ${String(value)} exactly with ${String(fractionDigits)} fraction digits`);
+  }
+  if (fractionDigits === 0 && !Number.isSafeInteger(value)) {
     throw new RangeError(`Can't show ${String(value)} as a whole number`);
   }
-  const text = typeof value === "bigint" ? value.toString() : value.toFixed(fractionDigits);
-  const negative = text.startsWith("-");
-  const [whole = "", fraction] = (negative ? text.slice(1) : text).split(".");
-  const fractionPart =
-    typeof value === "bigint" && fractionDigits > 0 ? `.${"0".repeat(fractionDigits)}` : fraction ? `.${fraction}` : "";
-  return `${negative ? "-" : ""}${groupDigits(whole)}${fractionPart}`;
+  const digits = scaled.toString().padStart(fractionDigits + 1, "0");
+  const whole = fractionDigits > 0 ? digits.slice(0, -fractionDigits) : digits;
+  const fraction = fractionDigits > 0 ? `.${digits.slice(-fractionDigits)}` : "";
+  return `${value < 0 && scaled > 0 ? "-" : ""}${groupDigits(whole)}${fraction}`;
 }
 
 /** "₹12,50,000.00", "-₹500.00", or without the symbol "12,50,000.00". */

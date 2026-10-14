@@ -39,3 +39,18 @@ describe("Indian number format", () => {
     expect(() => formatIndianNumber(1.5)).toThrow(RangeError);
   });
 });
+
+describe("fraction digits", () => {
+  it("are formatted exactly, rounding half away from zero", () => {
+    expect(formatIndianNumber(1234.5, { fractionDigits: 2 })).toBe("1,234.50");
+    expect(formatIndianNumber(-12_345.678, { fractionDigits: 1 })).toBe("-12,345.7");
+    expect(formatIndianNumber(0.5, { fractionDigits: 1 })).toBe("0.5");
+  });
+
+  it("refuse numbers outside the safe range and never print a negative zero", () => {
+    expect(() => formatIndianNumber(1e21, { fractionDigits: 2 })).toThrow(RangeError);
+    expect(() => formatIndianNumber(Number.POSITIVE_INFINITY, { fractionDigits: 2 })).toThrow(RangeError);
+    expect(formatIndianNumber(-0.001, { fractionDigits: 2 })).toBe("0.00");
+    expect(formatIndianNumber(-0)).toBe("0");
+  });
+});

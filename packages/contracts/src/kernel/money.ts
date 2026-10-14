@@ -10,6 +10,9 @@ export type CurrencyCode = (typeof currencyCodes)[number];
 export const moneyField = z.strictObject({ amountPaise: z.int(), currency: z.enum(currencyCodes) });
 export type MoneyField = z.infer<typeof moneyField>;
 
+/** The longest typed amount accepted, by the form field and by the parser alike. */
+export const MAX_RUPEES_TEXT_LENGTH = 40;
+
 /**
  * Whole rupees as people type them: plain digits, Indian grouping (12,50,000) or international grouping (1,250,000).
  * Two decimals at most.
@@ -18,6 +21,7 @@ const RUPEES_PATTERN = /^(-)?(\d+|\d{1,3}(?:,\d{3})+|\d{1,2}(?:,\d{2})*,\d{3})(?
 
 /** A typed rupee amount such as "12,50,000.50", "₹999" or "-500", in paise; null when it isn't one or is too large. */
 export function paiseFromRupeesText(text: string): number | null {
+  if (text.length > MAX_RUPEES_TEXT_LENGTH) return null;
   const match = RUPEES_PATTERN.exec(text.trim().replace(/^(-?)\s*₹\s*/, "$1"));
   if (!match) return null;
   const [, minus, rupees = "", fraction = ""] = match;
@@ -30,7 +34,7 @@ export function paiseFromRupeesText(text: string): number | null {
 /** A rupee amount typed into a form, read into paise. */
 export const rupeesText = z
   .string()
-  .max(40)
+  .max(MAX_RUPEES_TEXT_LENGTH)
   .transform((text, context) => {
     const paise = paiseFromRupeesText(text);
     if (paise === null) {

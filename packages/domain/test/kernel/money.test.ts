@@ -4,6 +4,8 @@ import {
   add,
   allocate,
   compare,
+  formatMoney,
+  fractionOf,
   isZero,
   money,
   multiply,
@@ -118,5 +120,83 @@ describe("parseRupees", () => {
     for (const bad of ["12.345", "12,,000", "1,000,", "1,2,3", "abc", "", "12 34", "1e5", "99999999999999999"]) {
       expect(() => parseRupees(bad), bad).toThrow(RangeError);
     }
+  });
+});
+
+describe("fixes after review", () => {
+  const MAX = Number.MAX_SAFE_INTEGER;
+
+  it("has one zero, never -0", () => {
+    expect(Object.is(money(-0).amountPaise, 0)).toBe(true);
+    expect(Object.is(negate(money(0)).amountPaise, 0)).toBe(true);
+    expect(Object.is(multiply(money(-100), 0).amountPaise, 0)).toBe(true);
+  });
+
+  it("gives leftover paise to the largest remainders, ties to the earlier part", () => {
+    // 3 paise over 1:1:10 is 0.25, 0.25 and 2.5: the spare paisa goes to the third part, not the first.
+    expect(allocate(money(3), [1, 1, 10])).toEqual([money(0), money(0), money(3)]);
+    expect(sum(allocate(money(MAX), [1, 2, 3, 4]))).toEqual(money(MAX));
+  });
+
+  it("keeps zero-weight parts at nothing and breaks ties toward the earlier part", () => {
+    expect(allocate(money(7), [0, 1, 0, 1])).toEqual([money(0), money(4), money(0), money(3)]);
+  });
+
+  it("refuses fractionOf with a bad denominator or numerator", () => {
+    expect(() => fractionOf(money(100), 1, 0)).toThrow(RangeError);
+    expect(() => fractionOf(money(100), 1, -3)).toThrow(RangeError);
+    expect(() => fractionOf(money(100), 1.5, 2)).toThrow(RangeError);
+    expect(() => fractionOf(money(100), 1, 2.5)).toThrow(RangeError);
+    expect(fractionOf(money(100), 1, 3)).toEqual(money(33));
+  });
+
+  it("refuses a percentage that overflows", () => {
+    expect(() => percentageOf(money(MAX), 20_000)).toThrow(RangeError);
+  });
+
+  it("refuses mixed currencies in subtract, compare and sum", () => {
+    const dollars = { amountPaise: 100, currency: "USD" } as unknown as ReturnType<typeof money>;
+    expect(() => subtract(rupees(1), dollars)).toThrow(/currencies/);
+    expect(() => compare(rupees(1), dollars)).toThrow(/currencies/);
+    expect(() => sum([rupees(1), dollars])).toThrow(/currencies/);
+  });
+
+  it("sums exactly and checks the range once, at the end", () => {
+    expect(sum([money(MAX), money(1), money(-1)])).toEqual(money(MAX));
+    expect(() => sum([money(MAX), money(1)])).toThrow(RangeError);
+  });
+
+  it("multiplies by a negative quantity", () => {
+    expect(multiply(money(250), -2)).toEqual(money(-500));
+  });
+
+  it("refuses a currency it doesn't know", () => {
+    expect(() => money(500, "USD" as never)).toThrow(RangeError);
+    expect(formatMoney(money(500))).toBe("₹5.00");
+  });
+
+  it("parses the largest amount and refuses one paisa more", () => {
+    expect(parseRupees("90071992547409.91")).toEqual(money(MAX));
+    expect(parseRupees("-90071992547409.91")).toEqual(money(-MAX));
+    expect(() => parseRupees("90071992547409.92")).toThrow(RangeError);
+  });
+
+  it("follows the grammar for a lone minus, a missing whole part and leading zeros", () => {
+    for (const bad of ["-", ".5", "-.5", "₹"]) expect(() => parseRupees(bad), bad).toThrow(RangeError);
+    expect(parseRupees("007")).toEqual(money(700));
+    expect(parseRupees("-0")).toEqual(money(0));
+    expect(Object.is(parseRupees("-0").amountPaise, 0)).toBe(true);
+  });
+
+  it("refuses long text before reading it", () => {
+    expect(() => parseRupees("1".repeat(41))).toThrow(RangeError);
+    expect(parseRupees("1".repeat(14))).toEqual(money(1_111_111_111_111_100));
+  });
+});
+
+describe("sum currency", () => {
+  it("refuses an item in another currency than the one asked for", () => {
+    const dollars = { amountPaise: 100, currency: "USD" } as unknown as ReturnType<typeof money>;
+    expect(() => sum([dollars])).toThrow(/currencies/);
   });
 });
