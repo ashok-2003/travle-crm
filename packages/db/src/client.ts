@@ -58,6 +58,7 @@ export function createPrismaClient(connectionString: string, options: ClientOpti
   const checked = client.$extends(requireRuntimeRole);
   // The hook above would run inside a transaction on a second connection when the check isn't cached yet, and a small
   // or cold pool can wait on itself. So $transaction (callback and batch forms) awaits the check before it starts.
+  // Never `$extends` this client; the result skips the Proxy that awaits the role check.
   const guarded = new Proxy(checked, {
     get(target, property) {
       if (property === "$transaction") {

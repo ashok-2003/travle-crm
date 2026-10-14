@@ -69,6 +69,8 @@ until it is.
 
 Delete with `tx.thing.update({ where: { id }, data: softDeleted(userId) })`. Reads and updates skip deleted rows;
 `delete()` throws `HardDeleteError`. `withDeleted(() => …)` shows deleted rows for Trash screens and restoring.
+Any module may call `withDeleted`: it is a view switch, not a permission, so who may see or restore deleted rows is
+checked by the caller, like any other permission.
 
 ## Roles
 
