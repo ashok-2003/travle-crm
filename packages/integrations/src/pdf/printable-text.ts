@@ -71,7 +71,7 @@ export function unprintableCharacters(text: string): string[] {
 }
 
 /** Every piece of text in a value: strings, and strings inside arrays and objects. Bytes (a logo) are skipped. */
-export function textsIn(value: unknown): string[] {
+function textsIn(value: unknown): string[] {
   if (typeof value === "string") return [value];
   if (value instanceof Uint8Array || value === null || typeof value !== "object") return [];
   return Object.values(value).flatMap(textsIn);

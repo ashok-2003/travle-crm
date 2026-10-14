@@ -1,7 +1,7 @@
 // The sample template renders the organization's branding and the document's content, pages long documents, and
 // refuses an accent colour that isn't a hex colour.
 import { brand } from "@travel-crm/brand";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { renderPdf, type SampleDocumentData } from "../../src/pdf/index.js";
 import { firstPageText, pdfText } from "./pdf-text.js";
 
@@ -144,5 +144,21 @@ describe("renderPdf output", () => {
     await expect(renderPdf("sample", { issuedAt, data: sample, branding: { ...branding, logo } })).rejects.toThrow(
       RangeError,
     );
+  });
+});
+
+describe("loading the renderer", () => {
+  it("does not evaluate React-PDF until a document is rendered", async () => {
+    vi.resetModules();
+    let loaded = false;
+    vi.doMock("@react-pdf/renderer", async (importOriginal) => {
+      loaded = true;
+      return importOriginal();
+    });
+    const pdf = await import("../../src/pdf/index.js");
+    expect(loaded).toBe(false);
+    await pdf.renderPdf("sample", { issuedAt, data: sample, branding });
+    expect(loaded).toBe(true);
+    vi.doUnmock("@react-pdf/renderer");
   });
 });

@@ -79,8 +79,8 @@ describe("printable text normalisation", () => {
   });
 
   it("shows a refused character as its code point, and gives the error a stable code", async () => {
-    const attempt = renderPdf("sample", withName("Zero​width"));
+    const attempt = renderPdf("sample", withName("Zero\u200Bwidth"));
     await expect(attempt).rejects.toThrow(/U\+200B/);
-    await expect(attempt).rejects.toMatchObject({ code: "UNPRINTABLE_TEXT", characters: ["​"] });
+    await expect(attempt).rejects.toMatchObject({ code: "UNPRINTABLE_TEXT", characters: ["\u200B"] });
   });
 });

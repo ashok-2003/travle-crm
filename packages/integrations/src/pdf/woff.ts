@@ -19,8 +19,8 @@ interface Table {
 function unpacked(stored: Uint8Array, length: number): Uint8Array {
   try {
     return new Uint8Array(inflateSync(stored, { maxOutputLength: length }));
-  } catch {
-    throw new RangeError("A WOFF table unpacks to more than it declares, or is damaged");
+  } catch (cause) {
+    throw new RangeError("A WOFF table unpacks to more than it declares, or is damaged", { cause });
   }
 }
 

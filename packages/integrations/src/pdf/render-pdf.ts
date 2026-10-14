@@ -1,14 +1,12 @@
 // Renders a document to PDF bytes. The worker calls it (spec 9.3); an issued document's PDF is rendered once.
-import { renderToBuffer, type DocumentProps } from "@react-pdf/renderer";
-import type { ReactElement } from "react";
 import type { PdfInput, PdfTemplate } from "./document-input.js";
-import { registerBrandFonts } from "./fonts.js";
 import { normalisedText, UnprintableTextError, unprintableCharactersIn } from "./printable-text.js";
-import { sampleDocument } from "./templates/sample-document.js";
 
-const templates: Record<PdfTemplate, (input: PdfInput) => ReactElement<DocumentProps>> = {
-  sample: sampleDocument,
-};
+// React-PDF, the fonts and the templates are loaded when a document is first rendered, not when this module is
+// imported: code that only checks text or reads document types (the domain) never evaluates React-PDF.
+const templates = {
+  sample: async () => (await import("./templates/sample-document.js")).sampleDocument,
+} satisfies Record<PdfTemplate, unknown>;
 
 /** The same value with every string normalised for printing. Bytes (a logo) and dates are kept as they are. */
 function normalised<T>(value: T): T {
@@ -33,9 +31,13 @@ export async function renderPdf(template: PdfTemplate, rawInput: PdfInput): Prom
   const input = normalised(rawInput);
   const unprintable = unprintableCharactersIn(input);
   if (unprintable.length > 0) throw new UnprintableTextError(unprintable);
+  const [{ renderToBuffer }, { registerBrandFonts }, buildDocument] = await Promise.all([
+    import("@react-pdf/renderer"),
+    import("./fonts.js"),
+    templates[template](),
+  ]);
   registerBrandFonts();
-  const document = templates[template](input);
-  const pdf = await renderToBuffer(document);
+  const pdf = await renderToBuffer(buildDocument(input));
   // A plain Uint8Array, not Node's Buffer subclass: storage adapters and PDF readers take it as it is.
   return new Uint8Array(pdf.buffer, pdf.byteOffset, pdf.byteLength);
 }
