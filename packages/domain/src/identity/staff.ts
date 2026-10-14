@@ -9,6 +9,7 @@ import type {
 } from "@travel-crm/contracts/identity";
 import { softDeleted } from "@travel-crm/db";
 import type { IdentityDatabase, IdentityTx } from "@travel-crm/db/identity";
+import { recordAudit } from "../audit/index.js";
 import { DomainError } from "../kernel/index.js";
 import { assertMayHandleRole, assertMayManageMember } from "./access-rules.js";
 import type { MemberAccess } from "./member-access.js";
@@ -59,6 +60,7 @@ export async function createStaff(
       roleKey: input.roleKey,
       password: input.temporaryPassword,
       mustChangePassword: true,
+      actor,
     },
     // Checked inside the transaction that adds the person, on the role as it is once held.
     (role) => {
@@ -80,7 +82,17 @@ export async function updateStaffRole(
     if (targetRole.isOwner) await lockOwners(tx, actor, target.id, targetRole.key);
     const newRole = await findRoleToGive(tx, input.roleKey);
     assertMayHandleRole(actor, newRole);
+    // Written even when the role is the same: the conditional write is what notices a change made meanwhile.
     await changeMember(tx, target, { role: newRole.key });
+    if (newRole.key !== target.role) {
+      await recordAudit(tx, actor, {
+        action: "staff.role-changed",
+        entityType: "member",
+        entityId: target.id,
+        before: { role: target.role },
+        after: { role: newRole.key },
+      });
+    }
   });
   return staffMember(database, actor, input.memberId);
 }
@@ -108,6 +120,7 @@ export async function resetStaffPassword(
       throw new Error(`Expected one credential account for user ${target.userId}, found ${String(count)}`);
     await tx.user.update({ where: { id: target.userId }, data: { mustChangePassword: true } });
     await tx.session.deleteMany({ where: { userId: target.userId } });
+    await recordAudit(tx, actor, { action: "staff.password-reset", entityType: "member", entityId: target.id });
   });
 }
 
@@ -142,6 +155,12 @@ export async function removeStaff(
     // The retired address can be worked out from the user id, so the old password must stop working too.
     await tx.account.updateMany({ where: { userId: user.id, providerId: "credential" }, data: { password: null } });
     await tx.session.deleteMany({ where: { userId: user.id } });
+    await recordAudit(tx, actor, {
+      action: "staff.removed",
+      entityType: "member",
+      entityId: target.id,
+      before: { name: user.name, role: target.role },
+    });
   });
 }
 

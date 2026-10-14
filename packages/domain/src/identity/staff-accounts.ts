@@ -1,9 +1,10 @@
 // Creates one staff member's sign-in records in a single transaction: user, password account and membership, after
-// holding and checking their role in that same transaction. Better Auth hashes the password, but its sign-up endpoint
-// is off, so we write the rows ourselves (ADR 0006).
+// holding and checking their role in that same transaction, and the audit entry that records it. Better Auth hashes
+// the password, but its sign-up endpoint is off, so we write the rows ourselves (ADR 0006).
 import { isUniqueViolation } from "@travel-crm/db/identity";
 import type { IdentityDatabase } from "@travel-crm/db/identity";
-import { DomainError } from "../kernel/index.js";
+import { recordAudit } from "../audit/index.js";
+import { DomainError, systemActor, type Actor } from "../kernel/index.js";
 import { findRoleToGive, type FoundRole } from "./role-lookup.js";
 import { INTERNAL_USERNAME_PATTERN, internalUsername, placeholderEmail } from "./sign-in-names.js";
 
@@ -21,6 +22,8 @@ export interface NewStaffAccount {
   password: string;
   /** True for a temporary password set by an admin. */
   mustChangePassword: boolean;
+  /** Who is adding them, for the audit log. Onboarding leaves it out: the system then adds the first Owner. */
+  actor?: Actor | undefined;
 }
 
 export interface CreatedStaff {
@@ -73,6 +76,18 @@ export async function createStaffAccount(
       });
       const member = await tx.member.create({
         data: { userId: user.id, organizationId: account.organizationId, role: role.key },
+      });
+      // Whether they have an email, not the address: the log outlives the account, which releases it (ADR 0007).
+      await recordAudit(tx, account.actor ?? systemActor(account.organizationId), {
+        action: "staff.created",
+        entityType: "member",
+        entityId: member.id,
+        after: {
+          name: account.name,
+          username: account.username ?? null,
+          role: role.key,
+          hasEmail: account.email !== undefined,
+        },
       });
       return { userId: user.id, memberId: member.id };
     });
