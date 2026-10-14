@@ -40,8 +40,12 @@ dependency-cruiser enforces the "only" column. Another package's `vitest.config.
 5. Add a row-creating entry for the table to `test/org-table-fixtures.ts`.
 6. `pnpm check`. The isolation suite now covers the new table.
 
-Steps 3 and 5 are enforced: the tests fail if either is missing. A foreign key to another organization table must
-include `organization_id` (`@relation(fields: [organizationId, otherId], references: [organizationId, id])`).
+Steps 3 and 5 are enforced: the tests fail if either is missing. Keys are checked too:
+
+- A foreign key to another organization table includes `organization_id`:
+  `@relation(fields: [organizationId, otherId], references: [organizationId, id])`.
+- A unique constraint includes `organization_id`, e.g. `@@unique([organizationId, key])`, so one organization can't learn
+  that another uses a value. Only a primary key on `id` alone is exempt.
 
 ## Soft delete
 

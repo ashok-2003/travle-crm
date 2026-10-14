@@ -6,7 +6,8 @@ model Role {
   /// Filled from db.forOrg()'s organization when omitted.
   organizationId String           @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
   id             String           @id @default(uuid(7)) @db.Uuid
-  /// Stable identifier stored in member.role, e.g. "sales" (CHECK role_key_format). Never changes.
+  /// Stable identifier stored in member.role, e.g. "sales" (CHECK role_key_format). Never changes, and is never
+  /// reused, even after the role is deleted: a member somehow left on a deleted role must not inherit a later one.
   key            String
   name           String
   /// The Owner role holds every permission, including ones added to the catalog later. It has no
@@ -22,8 +23,11 @@ model Role {
 
   /// Lets role_permission point at (organization_id, id), so a permission row can't name another organization's role.
   @@unique([organizationId, id])
-  /// A key is unique among the organization's roles that are not deleted.
-  @@unique([organizationId, key], where: { deletedAt: null })
+  /// A key is unique among all the organization's roles, deleted ones included.
+  @@unique([organizationId, key])
+  /// A name is unique among the organization's roles that are not deleted, so a deleted role's name can be used again.
+  /// (Exact match here; the identity module also refuses names that differ only in letter case.)
+  @@unique([organizationId, name], where: { deletedAt: null })
   @@map("role")
 }
 
@@ -39,6 +43,7 @@ model RolePermission {
   role           Role         @relation(fields: [organizationId, roleId], references: [organizationId, id], onDelete: Cascade)
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
-  @@id([roleId, permission])
+  /// Unique constraints on organization tables include organization_id (organization-keys.test.ts checks).
+  @@id([organizationId, roleId, permission])
   @@map("role_permission")
 }

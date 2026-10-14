@@ -14,6 +14,6 @@ export const orgTableFixtures: Record<string, (tx: OrgTx) => Promise<unknown>> =
 /**
  * Tables that carry organization_id but stay outside row-level security because sign-in reads them before the
  * organization is known (spec section 4): Better Auth's member and invitation. Only the identity module may touch
- * them. identity-tables.test.ts pins this list, so adding to it is a visible decision.
+ * them. identity-tables.test.ts checks each entry exists and is one of those two, so no other table can be exempted.
  */
 export const signInTables: readonly string[] = ["invitation", "member"];

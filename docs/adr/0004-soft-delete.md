@@ -17,8 +17,11 @@ Date: 2026-10-14 · Status: accepted · Implements spec section 5
     unaffected.
 - Deleting is an update: `tx.role.update({ where: { id }, data: softDeleted(userId) })`.
 - `withDeleted(() => …)` shows deleted rows to the queries inside it, for Trash screens and restoring.
-- Values unique among live rows, such as role keys, use partial unique indexes:
-  `@@unique([organizationId, key], where: { deletedAt: null })`, from Prisma's `partialIndexes` preview feature.
+- Values unique among live rows, such as role names, use partial unique indexes:
+  `@@unique([organizationId, name], where: { deletedAt: null })`, from Prisma's `partialIndexes` preview feature. A
+  deleted role's name can be used again.
+- Identifiers that other rows refer to without a foreign key are never reused, deleted or not. Role keys, which
+  `member.role` holds, have a plain unique index.
 
 ## Context
 

@@ -24,8 +24,17 @@ describe("identity tables", () => {
     await platform.$disconnect();
   });
 
-  it("skips row-level security only for Better Auth's member and invitation tables", () => {
-    expect(signInTables).toEqual(["invitation", "member"]);
+  it("exempts from row-level security only Better Auth tables that exist and carry organization_id", async () => {
+    // The only Better Auth tables with organization_id. A typo or a stale entry must not exempt some other table.
+    const betterAuthTablesWithOrganizationId = ["invitation", "member"];
+    expect(signInTables.filter((table) => !betterAuthTablesWithOrganizationId.includes(table))).toEqual([]);
+    expect(new Set(signInTables).size).toBe(signInTables.length);
+    for (const table of signInTables) {
+      const [column] = await platform.$queryRaw<{ found: number }[]>`
+        SELECT count(*)::int AS found FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = ${table} AND column_name = 'organization_id'`;
+      expect(column?.found, `${table} must exist and have an organization_id column`).toBe(1);
+    }
   });
 
   it("only accepts role keys of lowercase letters, digits and hyphens that start with a letter", async () => {
@@ -57,17 +66,44 @@ describe("identity tables", () => {
     ).rejects.toThrow(/role_permission_scope_value/);
   });
 
-  it("lets a deleted role's key be used again, but never by two roles that are not deleted", async () => {
+  it("never reuses a role key, even after the role is deleted", async () => {
+    // member.role holds the key with no foreign key, so a reused key would hand a new role to old members.
     const first = await db.forOrg(organizationId, (tx) => tx.role.create({ data: { key: "guides", name: "Guides" } }));
-    await expect(
-      db.forOrg(organizationId, (tx) => tx.role.create({ data: { key: "guides", name: "Guides again" } })),
-    ).rejects.toThrow(/Unique constraint/);
     await db.forOrg(organizationId, (tx) =>
       tx.role.update({ where: { id: first.id }, data: { deletedAt: new Date(), deletedBy: first.id } }),
     );
     await expect(
       db.forOrg(organizationId, (tx) => tx.role.create({ data: { key: "guides", name: "Guides again" } })),
-    ).resolves.toMatchObject({ key: "guides" });
+    ).rejects.toThrow(/Unique constraint/);
+  });
+
+  it("lets a deleted role's name be used again, but never by two roles that are not deleted", async () => {
+    const first = await db.forOrg(organizationId, (tx) =>
+      tx.role.create({ data: { key: "drivers-1", name: "Drivers" } }),
+    );
+    await expect(
+      db.forOrg(organizationId, (tx) => tx.role.create({ data: { key: "drivers-2", name: "Drivers" } })),
+    ).rejects.toThrow(/Unique constraint/);
+    await db.forOrg(organizationId, (tx) =>
+      tx.role.update({ where: { id: first.id }, data: { deletedAt: new Date(), deletedBy: first.id } }),
+    );
+    await expect(
+      db.forOrg(organizationId, (tx) => tx.role.create({ data: { key: "drivers-2", name: "Drivers" } })),
+    ).resolves.toMatchObject({ name: "Drivers" });
+  });
+
+  it("refuses a permission row that names another organization's role", async () => {
+    // The composite foreign key (organization_id, role_id) → role (organization_id, id): a row created in
+    // organization B can only point at B's roles, even though foreign keys are checked without row-level security.
+    const otherOrganizationId = await createTestOrganization(platform, "Identity tables, other roles");
+    const role = await db.forOrg(organizationId, (tx) =>
+      tx.role.create({ data: { key: "planners", name: "Planners" } }),
+    );
+    await expect(
+      db.forOrg(otherOrganizationId, (tx) =>
+        tx.rolePermission.create({ data: { roleId: role.id, permission: "leads:create" } }),
+      ),
+    ).rejects.toThrow(/role_permission_organization_id_role_id_fkey|Foreign key constraint/);
   });
 
   it("keeps each user in at most one organization", async () => {
