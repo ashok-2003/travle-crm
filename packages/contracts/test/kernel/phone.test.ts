@@ -22,3 +22,17 @@ describe("phone numbers", () => {
     }
   });
 });
+
+describe("phone number ranges", () => {
+  it("refuse numbers in ranges that don't exist", () => {
+    for (const bad of ["5555555555", "+91 5555555555", "1000000000", "1111111111"]) {
+      expect(toE164(bad), bad).toBeNull();
+    }
+  });
+
+  it("accept real mobile and landline numbers from the library's own examples", () => {
+    expect(toE164("8123456789")).toBe("+918123456789");
+    expect(toE164("+91 98765 43210")).toBe("+919876543210");
+    expect(toE164("011 2345 6789")).toBe("+911123456789");
+  });
+});

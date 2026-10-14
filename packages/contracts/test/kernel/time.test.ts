@@ -10,6 +10,13 @@ describe("time zone names", () => {
     expect(timeZoneName.parse(" Asia/Kolkata ")).toBe("Asia/Kolkata");
   });
 
+  it("give the spelling IANA uses, whatever case was typed", () => {
+    expect(timeZoneName.parse("Asia/KOLKATA")).toBe("Asia/Kolkata");
+    expect(timeZoneName.parse("asia/kolkata".replace("a", "A"))).toBe("Asia/Kolkata");
+    expect(timeZoneName.parse("Europe/LONDON")).toBe("Europe/London");
+    expect(timeZoneName.parse("America/PORT-AU-PRINCE")).toBe("America/Port-au-Prince");
+  });
+
   it("refuse offsets, abbreviations, wrong case and unknown places", () => {
     for (const zone of ["+05:30", "EST", "IST", "asia/kolkata", "Mars/Olympus", "", "Asia/Kolkata/"]) {
       expect(isValidTimeZone(zone), zone).toBe(false);

@@ -1,11 +1,11 @@
 // Phone numbers, saved in E.164 (spec 9.6): "+919876543210", whatever form people type them in. India is the
 // default country, so "98765 43210" and "09876543210" both work.
-import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js";
+import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js/max";
 import { z } from "zod";
 
 /**
  * The number in E.164, or null when the text isn't a valid number. Extensions are refused rather than dropped:
- * E.164 can't hold them. Uses libphonenumber's small metadata, which checks a number's country and length.
+ * E.164 can't hold them. Uses libphonenumber's full metadata, so a number's range is checked as well as its length.
  */
 export function toE164(text: string, defaultCountry: CountryCode = "IN"): string | null {
   const parsed = parsePhoneNumberFromString(text, defaultCountry);
