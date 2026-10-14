@@ -6,6 +6,18 @@ export function isUniqueViolation(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
 
+/**
+ * Thrown when forOrg() is called inside another forOrg(). The inner transaction would run on a second connection,
+ * blind to the outer one's uncommitted writes, and enough of them at once would empty the pool and deadlock.
+ * Pass the outer transaction's `tx` down instead.
+ */
+export class NestedForOrgError extends Error {
+  constructor() {
+    super("forOrg() was called inside another forOrg(). Pass the outer transaction's tx down instead.");
+    this.name = "NestedForOrgError";
+  }
+}
+
 /** Thrown when the connection is not the app_runtime role: other roles see every organization's rows. */
 export class WrongDatabaseRoleError extends Error {
   constructor(role: string | undefined) {

@@ -14,6 +14,11 @@ The database layer: Prisma schema, migrations, and the rules that keep each orga
 Organization data is reachable only inside `db.forOrg()`. Postgres row-level security limits every query in that
 transaction to `orgId`'s rows; outside it, queries see nothing.
 
+- `db.forOrg(orgId, fn, { timeout, maxWait })` passes Prisma's transaction limits through (defaults: 5 s to run, 2 s to
+  wait for a connection). Work past the timeout is rolled back.
+- Never call `forOrg()` inside another `forOrg()`. It throws `NestedForOrgError`, because the inner transaction would run
+  on a second connection that can't see the outer one's writes. Pass the outer `tx` down instead.
+
 ## Entry points
 
 | Import                                | For                      | Gives                                                                         |
