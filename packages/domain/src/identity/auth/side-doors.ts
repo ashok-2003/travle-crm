@@ -10,8 +10,9 @@ import { hasEverBeenMember, isPlatformAdminUser } from "../access.js";
  * - /admin/* for anyone who isn't platform staff by our definition (Better Auth checks user.role alone), and
  *   making a person with a membership a platform admin;
  * - Better Auth's organization endpoints over HTTP (members and roles go through our own API);
- * - signing in by a placeholder ".invalid" email, which staff without an email (or removed staff) carry;
- * - a cross-site browser request to the username sign-in, as Better Auth already does for email sign-in;
+ * - signing in by a placeholder ".invalid" email, which staff without an email (or removed staff) carry, over HTTP and
+ *   from server-side calls alike;
+ * - a cross-site browser request to the username sign-in, as Better Auth already checks Origin for email sign-in;
  * - a "password change" to the same password, which would clear must-change-password and keep the temporary one.
  */
 export function closeSideDoors(client: IdentityClient) {

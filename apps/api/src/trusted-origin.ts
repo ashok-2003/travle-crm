@@ -6,6 +6,8 @@ import type { MiddlewareHandler } from "hono";
 /**
  * Refuses every request but GET and HEAD unless it names a trusted origin (Better Auth's own list: its base URL and the
  * configured trusted origins) and carries JSON. An upload procedure will need its own route with its own checks.
+ * Origins are compared exactly, so a wildcard entry (which Better Auth itself would expand) never matches: the check
+ * fails closed. TRUSTED_ORIGINS refuses wildcards at start-up anyway.
  */
 export function requireTrustedJson(identity: Identity): MiddlewareHandler {
   return async (c, next) => {

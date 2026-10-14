@@ -22,7 +22,7 @@ export interface AuthSettings {
   trustedOrigins: readonly string[];
   /** HTTPS-only cookies with the __Secure- prefix. Always on in production. */
   secureCookies: boolean;
-  /** Sign-in rate limiting (spec 6.2). Turned off only in tests that sign in many times. */
+  /** Sign-in rate limiting (spec 6.2). Turned off only in development and tests. */
   rateLimit: boolean;
   /** Headers the load balancer puts the client's IP address in. Rate limits are counted per IP. */
   ipAddressHeaders: readonly string[];

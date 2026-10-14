@@ -44,6 +44,10 @@ Every new organization gets these five (`packages/domain/src/identity/starter-ro
 | Operations | `operations` | Quotes and bookings (all records): view; bookings: edit. Departures and suppliers: view, create, edit                                                                                                                                          |
 | Accounts   | `accounts`   | Accounts: view, create, edit. Margins. Quotes and bookings (all records): view. Suppliers: view                                                                                                                                                |
 
+Only view permissions carry a scope. "Own records" applies to editing and deleting too because those handlers call
+`assertRecordInScope` with the record's view permission (`leads:view` for a lead edit), so Sales edit only their own
+leads, and a record out of scope answers NOT_FOUND (check 5).
+
 ## Context
 
 - **Why not Better Auth's dynamic access control.** It stores a role's permissions as a JSON string in

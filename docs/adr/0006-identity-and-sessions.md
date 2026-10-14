@@ -63,9 +63,10 @@ Date: 2026-10-14 · Status: accepted · Implements spec sections 6.1 to 6.4
 - **`/api/auth/sign-in/org` is our own route**, so Better Auth's JSON-only gate doesn't cover it: it sits behind the
   same trusted-origin and JSON check as tRPC mutations (403 for a foreign or missing `Origin`, 415 for other content
   types) and an 8 KB body limit. Without that a cross-site form post could sign a visitor into an attacker's account.
-- **`closeSideDoors` also refuses**, over HTTP only: `/organization/*` (404, in case a path spelling slips past the Hono
-  route; server-side `auth.api.*` calls stay possible for later plans), `/sign-in/email` with a placeholder `.invalid`
-  address (answered exactly like a wrong password), and `/sign-in/username` from a cross-site browser request.
+- **`closeSideDoors` also refuses** `/organization/*` over HTTP only (404, in case a path spelling slips past the Hono
+  route; server-side `auth.api.*` calls stay possible for later plans); `/sign-in/email` with a placeholder `.invalid`
+  address, over HTTP and from server-side calls alike (answered exactly like a wrong password); and
+  `/sign-in/username` from a cross-site browser request (`Sec-Fetch-Site: cross-site`).
 - **Safe environment defaults.** `NODE_ENV` defaults to production. In production the api refuses an http base URL,
   `AUTH_RATE_LIMIT=false`, http trusted origins, and a weak or example `BETTER_AUTH_SECRET`.
 
