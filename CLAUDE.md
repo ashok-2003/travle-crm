@@ -23,6 +23,11 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - **Readable over clever.** Small single-purpose files (~200 lines is a smell), clear names, no abbreviations in public names.
   Each source file starts with a one-line comment saying what it is for. Comments explain _why_.
 - **Strict TypeScript.** No `any`, no `!` non-null assertions, no ignored build errors.
+- **Ports and adapters (ADR 0008).** Domain code never imports a vendor SDK. It takes a port from
+  `@travel-crm/integrations/<adapter>` (`ObjectStorage`, `JobQueue`, …) as a parameter; the api and worker pass the real
+  adapter, tests pass the in-memory one. Only `packages/integrations` imports pg-boss, the AWS SDK, nodemailer,
+  web-push and React-PDF, and it imports nothing of ours but `@travel-crm/brand`.
+- **The product's name, colours and contacts** come from `@travel-crm/brand`, never typed elsewhere.
 - **Pinned versions.** Shared tool versions live in the `catalog:` in `pnpm-workspace.yaml`. Prisma is pinned to 7.10.0;
   npm's `latest` for `prisma` is an 8.0 release candidate. Never install "latest" without checking.
 - **Commits.** Small, Conventional Commits (`feat(db): …`), enforced by commitlint. Git hooks format and lint staged files;
@@ -84,5 +89,9 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - `packages/api`: tRPC routers and the procedure builders that run the request checks.
 - `packages/contracts`: Zod schemas for every API input and output.
 - `packages/domain`: business rules, one folder per module (`identity`, `kernel`).
+  `@travel-crm/domain/<module>`, `@travel-crm/contracts/<module>` and `@travel-crm/integrations/<adapter>` each resolve
+  to `src/<name>/index.ts`, so a new module needs no `package.json` change.
+- `packages/integrations`: adapters to the outside world, each a port plus a real and an in-memory adapter.
+- `packages/brand`: the product's name, colours, fonts and contacts (spec 10).
 - `packages/db`: Prisma schema, migrations, RLS, `forOrg`, soft delete, document numbers.
 - `packages/tsconfig`, `packages/eslint-config`: shared settings (the ESLint config holds the raw-SQL guard).

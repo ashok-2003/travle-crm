@@ -12,3 +12,4 @@ The first and largest set of decisions is the Foundation spec: `docs/superpowers
 | [0005](0005-roles-and-permissions.md)  | Roles and permissions: our own tables, the catalog, starter roles, no escalation        |
 | [0006](0006-identity-and-sessions.md)  | Identity and sessions: Better Auth, organization-code sign-in, cookie cache, two-factor |
 | [0007](0007-removing-staff.md)         | Removing staff: soft-deleted membership, released email, sessions ended                 |
+| [0008](0008-ports-and-adapters.md)     | Ports and adapters: vendor SDKs only in `packages/integrations`, the brand package      |

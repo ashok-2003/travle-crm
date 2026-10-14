@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./identity": "./src/identity/index.ts"
+    "./*": "./src/*/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "libphonenumber-js": "1.13.15",
     "zod": "catalog:"
   },
   "devDependencies": {

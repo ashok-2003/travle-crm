@@ -77,6 +77,32 @@ module.exports = {
       to: { path: "^packages/domain/src/", pathNot: "^packages/domain/src/kernel/" },
     },
     {
+      name: "vendor-sdks-only-in-integrations",
+      comment:
+        "Domain code never calls a vendor SDK (spec 3): it calls a port in @travel-crm/integrations, and only that " +
+        "package imports pg-boss, the AWS SDK, nodemailer, web-push or React-PDF.",
+      severity: "error",
+      from: { pathNot: "^packages/integrations/" },
+      to: { path: "(^|/)node_modules/(pg-boss|@aws-sdk/[^/]+|nodemailer|web-push|@react-pdf/[^/]+)(/|$)" },
+    },
+    {
+      name: "integrations-are-adapters-only",
+      comment:
+        "Adapters know vendors, not our business: @travel-crm/integrations imports nothing of ours but the brand " +
+        "package. Its tests may use the test database.",
+      severity: "error",
+      from: { path: "^packages/integrations/src/" },
+      to: { path: "^(apps|packages)/", pathNot: ["^packages/integrations/", "^packages/brand/"] },
+    },
+    {
+      name: "brand-depends-on-nothing-of-ours",
+      comment:
+        "The brand package is the product's identity: every layer may read it, so its code reads no other package.",
+      severity: "error",
+      from: { path: "^packages/brand/src/" },
+      to: { path: "^(apps|packages)/", pathNot: "^packages/brand/" },
+    },
+    {
       name: "no-circular",
       severity: "error",
       comment:
