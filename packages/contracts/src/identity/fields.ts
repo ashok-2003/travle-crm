@@ -5,8 +5,9 @@ import { z } from "zod";
 export const organizationCode = z
   .string()
   .trim()
-  .toUpperCase()
-  .regex(/^[A-Z0-9]{3,12}$/, "Use 3-12 letters or digits");
+  // Checked before upper-casing: Unicode case mapping turns letters like "ſ" into "S".
+  .regex(/^[A-Za-z0-9]{3,12}$/, "Use 3-12 letters or digits")
+  .toUpperCase();
 
 /** A username within an organization, e.g. "Ravi" or "ravi.k". Kept as typed for display, compared without case. */
 export const staffUsername = z
@@ -22,14 +23,27 @@ export const emailAddress = z
   .string()
   .trim()
   .toLowerCase()
+  .max(254)
   .pipe(z.email())
   .refine((email) => !email.endsWith(".invalid"), "Use a real email address");
 
 /** An email address the API shows. Never a placeholder, so a leaked placeholder fails the response instead. */
-export const shownEmailAddress = z.email().refine((email) => !email.endsWith(".invalid"), "Placeholder email shown");
+export const shownEmailAddress = z
+  .string()
+  .max(254)
+  .pipe(z.email())
+  .refine((email) => !email.toLowerCase().endsWith(".invalid"), "Placeholder email shown");
+
+/** Control and format characters (zero-width spaces, bidi overrides) make names invisible or misleading. */
+const hasNoHiddenCharacters = (text: string) => !/\p{C}/u.test(text);
 
 /** A person's name as shown in the app. */
-export const personName = z.string().trim().min(1).max(100);
+export const personName = z
+  .string()
+  .trim()
+  .min(1)
+  .max(100)
+  .refine(hasNoHiddenCharacters, "Use visible characters only");
 
 /** A password typed at sign-in or as the current password. Better Auth checks it; only its length is limited here. */
 export const passwordAttempt = z.string().min(1).max(128);
@@ -41,7 +55,7 @@ export const newPassword = z.string().min(10, "Use at least 10 characters").max(
 export const roleKey = z.string().regex(/^[a-z][a-z0-9-]{1,47}$/);
 
 /** A role's display name, e.g. "Senior sales". */
-export const roleName = z.string().trim().min(1).max(40);
+export const roleName = z.string().trim().min(1).max(40).refine(hasNoHiddenCharacters, "Use visible characters only");
 
 /** The id of a row, a UUID v7. */
 export const recordId = z.uuid();

@@ -7,10 +7,13 @@ export const permissionScope = z.enum(["own", "all"]);
 export type PermissionScope = z.infer<typeof permissionScope>;
 
 /** A permission key such as "leads:create". The domain checks that it is in the permission catalog. */
-export const permissionKey = z.string().regex(/^[a-z_]+:[a-z_]+$/);
+export const permissionKey = z
+  .string()
+  .max(64)
+  .regex(/^[a-z_]+:[a-z_]+$/);
 
 /** A permission to grant. View permissions need a scope; the domain rejects a scope on any other permission. */
-export const permissionGrantInput = z.object({
+export const permissionGrantInput = z.strictObject({
   permission: permissionKey,
   scope: permissionScope.optional(),
 });
@@ -30,18 +33,23 @@ export const permissionGrant = z.object({
 });
 export type PermissionGrant = z.infer<typeof permissionGrant>;
 
-export const createRoleInput = z.object({ name: roleName, permissions: permissionGrantList });
+export const createRoleInput = z.strictObject({ name: roleName, permissions: permissionGrantList });
 export type CreateRoleInput = z.infer<typeof createRoleInput>;
 
 /** Change a role's name, its permissions, or both. Leave a field out to keep it. */
-export const updateRoleInput = z.object({
-  key: roleKey,
-  name: roleName.optional(),
-  permissions: permissionGrantList.optional(),
-});
+export const updateRoleInput = z
+  .strictObject({
+    key: roleKey,
+    name: roleName.optional(),
+    permissions: permissionGrantList.optional(),
+  })
+  .refine((input) => input.name !== undefined || input.permissions !== undefined, {
+    message: "Give a new name, new permissions or both",
+    path: ["name"],
+  });
 export type UpdateRoleInput = z.infer<typeof updateRoleInput>;
 
-export const deleteRoleInput = z.object({ key: roleKey });
+export const deleteRoleInput = z.strictObject({ key: roleKey });
 export type DeleteRoleInput = z.infer<typeof deleteRoleInput>;
 
 export const roleSummary = z.object({

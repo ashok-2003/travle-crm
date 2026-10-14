@@ -5,6 +5,8 @@ import {
   newPassword,
   organizationCode,
   roleKey,
+  personName,
+  roleName,
   shownEmailAddress,
   staffUsername,
 } from "../src/identity/index.js";
@@ -29,6 +31,32 @@ describe("identity fields", () => {
     expect(emailAddress.parse("  Ravi@Sharma.IN ")).toBe("ravi@sharma.in");
     expect(emailAddress.safeParse("sharma-ravi@no-email.invalid").success).toBe(false);
     expect(emailAddress.safeParse("not-an-email").success).toBe(false);
+  });
+
+  it("refuses placeholder addresses in any letter case", () => {
+    expect(emailAddress.safeParse("a@no-email.INVALID").success).toBe(false);
+    expect(shownEmailAddress.safeParse("a@no-email.INVALID").success).toBe(false);
+    expect(shownEmailAddress.safeParse("A@B.Invalid").success).toBe(false);
+  });
+
+  it("refuses emails longer than 254 characters", () => {
+    const tooLong = `${"a".repeat(64)}@${"b".repeat(63)}.${"c".repeat(63)}.${"d".repeat(60)}.in`;
+    expect(tooLong.length).toBeGreaterThan(254);
+    expect(emailAddress.safeParse(tooLong).success).toBe(false);
+    expect(shownEmailAddress.safeParse(tooLong).success).toBe(false);
+  });
+
+  it("refuses organization codes that only become valid by Unicode case mapping", () => {
+    expect(organizationCode.safeParse("ſharma").success).toBe(false);
+  });
+
+  it("refuses names that are invisible or carry control and bidi characters", () => {
+    for (const schema of [personName, roleName]) {
+      expect(schema.safeParse("\u200B\u200B").success).toBe(false);
+      expect(schema.safeParse("Ravi\u202EKumar").success).toBe(false);
+      expect(schema.safeParse("Ravi\u0000").success).toBe(false);
+    }
+    expect(personName.safeParse("रवि कुमार").success).toBe(true);
   });
 
   it("refuses to show a placeholder email", () => {

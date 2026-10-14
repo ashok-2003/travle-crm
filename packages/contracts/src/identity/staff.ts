@@ -15,7 +15,7 @@ import {
  * organization code. The temporary password must be changed at first sign-in.
  */
 export const createStaffInput = z
-  .object({
+  .strictObject({
     name: personName,
     email: emailAddress.optional(),
     username: staffUsername.optional(),
@@ -28,18 +28,18 @@ export const createStaffInput = z
   });
 export type CreateStaffInput = z.infer<typeof createStaffInput>;
 
-export const updateStaffRoleInput = z.object({ memberId: recordId, roleKey });
+export const updateStaffRoleInput = z.strictObject({ memberId: recordId, roleKey });
 export type UpdateStaffRoleInput = z.infer<typeof updateStaffRoleInput>;
 
-export const resetStaffPasswordInput = z.object({ memberId: recordId, temporaryPassword: newPassword });
+export const resetStaffPasswordInput = z.strictObject({ memberId: recordId, temporaryPassword: newPassword });
 export type ResetStaffPasswordInput = z.infer<typeof resetStaffPasswordInput>;
 
-export const removeStaffInput = z.object({ memberId: recordId });
+export const removeStaffInput = z.strictObject({ memberId: recordId });
 export type RemoveStaffInput = z.infer<typeof removeStaffInput>;
 
 export const staffMember = z.object({
-  memberId: z.uuid(),
-  userId: z.uuid(),
+  memberId: recordId,
+  userId: recordId,
   name: z.string(),
   /** Null for staff without email: their placeholder address is never shown. */
   email: shownEmailAddress.nullable(),

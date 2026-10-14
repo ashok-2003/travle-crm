@@ -2,7 +2,7 @@
 import { z } from "zod";
 import { organizationCode, passwordAttempt, staffUsername } from "./fields.js";
 
-export const orgSignInInput = z.object({
+export const orgSignInInput = z.strictObject({
   orgCode: organizationCode,
   username: staffUsername,
   password: passwordAttempt,

@@ -1,7 +1,13 @@
 // The identity inputs reject what the API must never receive: staff with no way to sign in, repeated permissions,
 // and scopes other than own or all.
 import { describe, expect, it } from "vitest";
-import { createRoleInput, createStaffInput, orgSignInInput, updateRoleInput } from "../src/identity/index.js";
+import {
+  createRoleInput,
+  createStaffInput,
+  orgSignInInput,
+  setTwoFactorRequirementInput,
+  updateRoleInput,
+} from "../src/identity/index.js";
 
 describe("identity inputs", () => {
   const staff = { name: "Ravi Kumar", roleKey: "sales", temporaryPassword: "temporary-pass-1" };
@@ -33,9 +39,25 @@ describe("identity inputs", () => {
     expect(createRoleInput.safeParse({ name: "x".repeat(41), permissions: [] }).success).toBe(false);
   });
 
-  it("updates a role's name, permissions, or both", () => {
-    expect(updateRoleInput.parse({ key: "sales" })).toEqual({ key: "sales" });
-    expect(updateRoleInput.safeParse({ key: "Sales" }).success).toBe(false);
+  it("updates a role's name, permissions, or both, but not nothing", () => {
+    expect(updateRoleInput.safeParse({ key: "sales" }).success).toBe(false);
+    expect(updateRoleInput.safeParse({ key: "sales", name: "Sales" }).success).toBe(true);
+    expect(updateRoleInput.safeParse({ key: "sales", permissions: [] }).success).toBe(true);
+    expect(updateRoleInput.safeParse({ key: "Sales", name: "Sales" }).success).toBe(false);
+  });
+
+  it("refuses unknown keys instead of dropping them", () => {
+    expect(updateRoleInput.safeParse({ key: "sales", permisions: [] }).success).toBe(false);
+    expect(createStaffInput.safeParse({ ...staff, username: "ravi", orgId: "x" }).success).toBe(false);
+    expect(orgSignInInput.safeParse({ orgCode: "SHARMA", username: "Ravi", password: "x", extra: 1 }).success).toBe(
+      false,
+    );
+    expect(setTwoFactorRequirementInput.safeParse({ required: true, other: 1 }).success).toBe(false);
+  });
+
+  it("refuses permission keys longer than 64 characters", () => {
+    const permission = `${"a".repeat(32)}:${"b".repeat(32)}`;
+    expect(createRoleInput.safeParse({ name: "Sales", permissions: [{ permission }] }).success).toBe(false);
   });
 
   it("normalises the organization code typed at sign-in", () => {
