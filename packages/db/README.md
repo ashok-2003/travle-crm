@@ -42,9 +42,14 @@ dependency-cruiser enforces the "only" column. Another package's `vitest.config.
 
        organizationId String @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
 
-2. Create the migration: `pnpm --filter @travel-crm/db exec prisma migrate dev --create-only --name <change>`
+2. Create the migration from the schema change alone, without a database. Save the schema as it was
+   (`before=$(mktemp -d) && git archive HEAD prisma/schema | tar -x -C "$before"`, run in `packages/db`), make a
+   folder `prisma/migrations/<timestamp>_<change>/`, then:
+   `pnpm exec prisma migrate diff --from-schema "$before/prisma/schema" --to-schema prisma/schema --script --output prisma/migrations/<timestamp>_<change>/migration.sql`.
+   Use `--output`, never shell redirection: Prisma prints "Loaded Prisma config…" to stderr, which would land in the file.
 3. Append to the new `migration.sql`: `SELECT app_enable_org_rls('<table_name>');`
-4. Apply and regenerate: `pnpm --filter @travel-crm/db exec prisma migrate dev && pnpm --filter @travel-crm/db generate`
+4. Regenerate the client: `pnpm --filter @travel-crm/db generate`. The tests apply the migrations to a throwaway
+   database and fail if the schema and migrations disagree. Never run `prisma migrate dev` or reset a shared database.
 5. Add a row-creating fixture for the table to your module's file in `test/org-table-fixtures/` (one file per module,
    gathered by `test/org-table-fixtures.ts`). Mark it `appendOnly: true` when the runtime role can't update or delete
    the table's rows (like `outbox_event`): the suite then expects those statements to be refused outright.

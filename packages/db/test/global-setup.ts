@@ -67,8 +67,9 @@ export async function setup(project: TestProject): Promise<void> {
     // `migrate diff --exit-code` exits with 2 for "differences found"; any other failure means the check didn't run.
     if ((error as { code?: unknown }).code === 2) {
       throw new Error(
-        "The Prisma schema and the migrations disagree. Create the missing migration with " +
-          "`pnpm --filter @travel-crm/db exec prisma migrate dev --create-only --name <change>`.",
+        "The Prisma schema and the migrations disagree. Create the missing migration without a database: " +
+          "`prisma migrate diff --from-schema <the schema before> --to-schema prisma/schema --script --output " +
+          "prisma/migrations/<timestamp>_<change>/migration.sql` (see packages/db/README.md).",
         { cause: error },
       );
     }

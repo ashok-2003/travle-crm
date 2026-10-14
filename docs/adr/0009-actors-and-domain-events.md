@@ -38,4 +38,6 @@ Date: 2026-10-15 · Status: accepted · Implements spec sections 8, 9.1 and 9.5
 
 - A listener runs at least once. It is keyed by event id, but work outside the database (an email, an upload) can
   repeat after a crash between doing it and recording it, so it must be safe to repeat.
+- Event payloads must hold ids only. The app can never delete outbox rows (no DELETE grant), so erasing personal
+  data that slipped into a payload goes through the platform role's purge.
 - Old outbox rows are never deleted by the app. A retention purge, if needed, runs as the platform role.
