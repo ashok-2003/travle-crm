@@ -19,3 +19,5 @@ export {
   type OutboxRelay,
   type RelayDependencies,
 } from "./relay.js";
+export { runListenerJob, type ListenerRunOutcome } from "./run-listener.js";
+export { startWorker, type JobHandler, type ScheduledJob, type Worker, type WorkerDependencies } from "./worker.js";

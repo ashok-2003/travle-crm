@@ -3,7 +3,7 @@
 import { PgBoss } from "pg-boss";
 import { assertQueueName, type JobData, type JobQueue } from "./job-queue.js";
 import type { JobRunner } from "./job-runner.js";
-import { defaultRetryPolicy } from "./retry-policy.js";
+import { defaultRetryPolicy, type RetryPolicy } from "./retry-policy.js";
 
 export interface PgBossJobsSettings {
   /** Postgres as the app_runtime role. */
@@ -12,6 +12,8 @@ export interface PgBossJobsSettings {
   maxConnections?: number;
   /** Seconds between a worker's checks for new jobs (pg-boss's default is 2). */
   pollingIntervalSeconds?: number;
+  /** How the queues this instance creates retry failed jobs. Tests shorten it; production keeps the default. */
+  retryPolicy?: RetryPolicy;
   /** Where pg-boss's errors go: a failing maintenance query, a lost connection. */
   onError?: (error: Error) => void;
 }
@@ -82,17 +84,19 @@ export function createPgBossJobs(settings: PgBossJobsSettings): PgBossJobs {
     else console.error("pg-boss error", error);
   });
 
-  // pg-boss 12 needs a queue to exist before jobs are sent to or worked from it. Creating one is idempotent.
+  // pg-boss 12 needs a queue to exist before jobs are sent to or worked from it. Creating one is idempotent, and an
+  // existing queue keeps the policy it was created with.
+  const retryPolicy = settings.retryPolicy ?? defaultRetryPolicy;
   const queues = new Map<string, Promise<void>>();
   function ensureQueue(name: string): Promise<void> {
     assertQueueName(name);
     let created = queues.get(name);
     if (!created) {
       created = boss.createQueue(name, {
-        retryLimit: defaultRetryPolicy.retryLimit,
-        retryDelay: defaultRetryPolicy.retryDelaySeconds,
+        retryLimit: retryPolicy.retryLimit,
+        retryDelay: retryPolicy.retryDelaySeconds,
         retryBackoff: true,
-        retryDelayMax: defaultRetryPolicy.retryDelayMaxSeconds,
+        retryDelayMax: retryPolicy.retryDelayMaxSeconds,
       });
       // A failed creation is not cached: the next use tries again.
       created.catch(() => queues.delete(name));

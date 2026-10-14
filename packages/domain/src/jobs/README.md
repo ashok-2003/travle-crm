@@ -15,8 +15,26 @@ Domain events and the work the worker does after a change commits (spec 9.1).
 - `startOutboxRelay({ ...those, intervalMs?, onError? })`: the relay in a loop, for the worker; `stop()` ends it.
 - `listenerJobId(listenerName, eventId)`: the deterministic job id, so relaying an event twice queues it once.
 - `organizationsWithEventsWaiting(db, limit)`: the organizations with events waiting, oldest first (ids only).
+- `runListenerJob({ db, listener, data })`: runs one listener on the event a relayed job names, in that event's
+  organization, unless `processed_event` says it already has: `"handled"`, `"already-handled"` or
+  `"event-not-found"` (a job naming the wrong organization finds nothing under row-level security).
+- `startWorker({ db, runner, queue, listeners, handlers?, schedules?, relay?, onError? })`: what the `worker` command
+  runs. Every listener's queue gets `runListenerJob`; each `JobHandler` (`{ queue, handle(data) }`, work with no
+  organization yet, such as webhooks) and `ScheduledJob` (`{ queue, cron, timeZone, data?, handle(data) }`) gets its
+  queue; then the relay starts. `stop()` stops the relay; the caller stops pg-boss after it.
 - Types: `DomainEvent`, `EventListener`, `ListenerContext` (the worker's actor and a `forOrg` for the event's
-  organization), `EventPayload`, `JsonValue`, `PayloadSchema`, `ListenerJobData`, `RelayDependencies`, `OutboxRelay`.
+  organization), `EventPayload`, `JsonValue`, `PayloadSchema`, `ListenerJobData`, `RelayDependencies`, `OutboxRelay`,
+  `ListenerRunOutcome`, `JobHandler`, `ScheduledJob`, `Worker`, `WorkerDependencies`.
+
+## Adding a listener
+
+1. Define it with `defineListener({ name: "<module>.<what it does>", eventType, payload: <Zod schema>, handle })`,
+   in the module that reacts. Its name is its job queue: lower case, dots between parts, unique.
+2. Pass it to `startWorker`'s `listeners` in the api's `worker` command. The relay queues its jobs from then on.
+3. Make it safe to run twice. Its database writes go through `context.forOrg`; anything outside the database (an
+   email, an upload) may repeat after a crash between doing it and recording the run.
+
+Queue names follow the same rule for plain handlers and schedules (`webhooks.process`, `rate-limits.purge`).
 
 ## Events
 
@@ -35,3 +53,8 @@ and small facts.
   the relay `organizationIds`: one that looks at every organization takes other test files' events.
 - The relay finds waiting organizations through `app_organizations_with_unrelayed_events`, the one SECURITY DEFINER
   function (ids only, ADR 0010); it reads the events themselves inside `forOrg`.
+- A failing job is retried 5 times with exponential backoff from 10 seconds, then lands in pg-boss's failed list
+  (`PgBossJobs.failedJobs()`, shown in the platform console in plan 4).
+- Upgrading pg-boss: a new version may change its schema. Generate a migration from
+  `getMigrationPlans("pgboss", <current schema version>)` (the version is in `pgboss.version`), like
+  `20261015100000_pgboss`, and apply it before the new worker starts (ADR 0010).
