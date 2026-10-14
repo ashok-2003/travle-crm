@@ -16,7 +16,8 @@ in build step 2.
   `unreadCount(tx, actor)`, `markRead(tx, actor, { notificationIds } | { all: true })`.
 - Opt-outs: `setPreference(tx, actor, { channel, kind, optedOut })`, `listPreferences(tx, actor)`,
   `isOptedOut(preferences, channel, kind)`.
-- Push: `savePushSubscription(tx, actor, subscription)`, `removePushSubscription(tx, actor, { endpoint })`.
+- Push: `savePushSubscription(tx, actor, subscription)`, `removePushSubscription(tx, actor, { endpoint })`. Removing
+  a member (identity's `staff.remove`) deletes all their subscriptions in the same transaction.
 - Type `Person`: an actor with a user id. A job has no bell (`FORBIDDEN`/`NOT_A_PERSON`).
 
 ## Events

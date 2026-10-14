@@ -1,5 +1,5 @@
 // Removing staff against Postgres (spec 6.3, ADR 0007): the person loses access and sign-in at once, their email and
-// username are released, and an organization always keeps an Owner.
+// username are released, their browsers stop getting push, and an organization always keeps an Owner.
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { afterAll, beforeAll, describe, expect, inject, it, onTestFinished, vi } from "vitest";
 import type { MemberAccess } from "../../src/identity/member-access.js";
@@ -23,6 +23,18 @@ describe("removing staff", () => {
     memberAccessOf(test.identity, userId, organizationId);
   const canSignIn = (code: string, username: string, password: string) =>
     canSignInByUsername(test.identity, code, username, password);
+
+  /** Saves a browser's push subscription for userId, as notifications' savePushSubscription would. */
+  const subscribeBrowser = (userId: string, browser: string) =>
+    test.database.forOrg(agency.organizationId, (tx) =>
+      tx.pushSubscription.create({
+        data: { userId, endpoint: `https://fcm.googleapis.com/fcm/send/${browser}`, p256dh: "key", auth: "secret" },
+      }),
+    );
+  const browsersOf = (userIds: string[]) =>
+    test.database.forOrg(agency.organizationId, (tx) =>
+      tx.pushSubscription.findMany({ where: { userId: { in: userIds } }, select: { userId: true, endpoint: true } }),
+    );
 
   beforeAll(async () => {
     platform = createPlatformClient(inject("dbUrls").platform);
@@ -54,6 +66,7 @@ describe("removing staff", () => {
       temporaryPassword: "sam-temp-pass-1",
     });
     await signInByEmail(test.identity, email, "sam-temp-pass-1");
+    await subscribeBrowser(created.userId, "sam-phone");
     const stateOf = async () => ({
       user: await test.database.client.user.findUniqueOrThrow({
         where: { id: created.userId },
@@ -62,6 +75,7 @@ describe("removing staff", () => {
       password: (await test.database.client.account.findFirstOrThrow({ where: { userId: created.userId } })).password,
       sessions: await test.database.client.session.count({ where: { userId: created.userId } }),
       member: await test.database.client.member.findUnique({ where: { id: created.memberId } }),
+      browsers: await browsersOf([created.userId]),
     });
     const before = await stateOf();
     expect(before).toMatchObject({ user: { email, username: expect.stringMatching(/:sam$/) as unknown }, sessions: 1 });
@@ -70,6 +84,29 @@ describe("removing staff", () => {
       test.identity.staff.remove(await accessOf(created.userId), { memberId: created.memberId }),
     ).rejects.toMatchObject({ reason: "CANNOT_CHANGE_YOURSELF" });
     expect(await stateOf()).toEqual(before);
+  });
+
+  it("forgets the removed person's browsers, so no push reaches them, and keeps everyone else's", async () => {
+    const [leaving, staying] = await Promise.all(
+      ["leaving", "staying"].map((username) =>
+        test.identity.staff.create(owner, {
+          name: username,
+          username,
+          roleKey: "sales",
+          temporaryPassword: "temporary-pass-12",
+        }),
+      ),
+    );
+    if (!leaving || !staying) throw new Error("no staff");
+    await subscribeBrowser(leaving.userId, "leaving-phone");
+    await subscribeBrowser(leaving.userId, "leaving-laptop");
+    await subscribeBrowser(staying.userId, "staying-phone");
+
+    await test.identity.staff.remove(owner, { memberId: leaving.memberId });
+
+    expect(await browsersOf([leaving.userId, staying.userId])).toEqual([
+      { userId: staying.userId, endpoint: "https://fcm.googleapis.com/fcm/send/staying-phone" },
+    ]);
   });
 
   it("keeps an Owner when two Owners remove each other at the same moment", async () => {

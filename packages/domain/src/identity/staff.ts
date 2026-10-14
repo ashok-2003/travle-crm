@@ -125,8 +125,9 @@ export async function resetStaffPassword(
 }
 
 /**
- * Removes a person from the organization (ADR 0007): their membership is soft-deleted, their sessions end, and their
- * email and username are released so they can be used again, by this organization or another.
+ * Removes a person from the organization (ADR 0007): their membership is soft-deleted, their sessions end, their
+ * browsers' push subscriptions are deleted, and their email and username are released so they can be used again, by
+ * this organization or another.
  */
 export async function removeStaff(
   database: IdentityDatabase,
@@ -155,6 +156,10 @@ export async function removeStaff(
     // The retired address can be worked out from the user id, so the old password must stop working too.
     await tx.account.updateMany({ where: { userId: user.id, providerId: "credential" }, data: { password: null } });
     await tx.session.deleteMany({ where: { userId: user.id } });
+    // The notifications module owns push_subscription, but it depends on identity, so identity can't call it: the
+    // removal deletes the rows itself, in its own transaction, as notifications does for a browser that is gone. A
+    // removed person's browsers then get nothing, even on a shared tablet that is never signed out.
+    await tx.pushSubscription.deleteMany({ where: { userId: user.id } });
     await recordAudit(tx, actor, {
       action: "staff.removed",
       entityType: "member",

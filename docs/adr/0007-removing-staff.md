@@ -11,6 +11,9 @@ Removing a member is one transaction:
    `username` is cleared, the credential account's password hash is wiped, and `banned` is set. `name` and
    `display_username` stay on the retired row.
 3. All their sessions are deleted.
+4. Their browsers' push subscriptions are deleted, so a shared device that was never signed out gets no more pushes
+   for them. The table belongs to the notifications module, which depends on identity, so the removal deletes the
+   rows itself rather than calling it.
 
 A person who joins again, here or in another organization, gets a new user row.
 

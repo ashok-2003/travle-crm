@@ -54,4 +54,6 @@ the platform admin as both the actor and `impersonatedBy`; they are written by a
 
 - The member table has no row-level security: every query of it filters by `organizationId` itself.
 - Nobody grants more than they hold, changes their own access, or touches an Owner unless they are one (`access-rules.ts`).
-- Removing someone soft-deletes their membership and releases their email and username (ADR 0007).
+- Removing someone soft-deletes their membership, releases their email and username, and deletes their browsers' push
+  subscriptions (ADR 0007). That table is the notifications module's, but notifications depends on identity, so the
+  removal deletes the rows itself, in its own transaction.
