@@ -1,6 +1,7 @@
 // What other modules may know about an organization and its people. Only the identity module reads the sign-in
 // tables (spec 4), so notifications, documents and the worker ask here.
-import type { IdentityDatabase } from "@travel-crm/db/identity";
+import type { OrgTx } from "@travel-crm/db";
+import type { IdentityDatabase, IdentityTx } from "@travel-crm/db/identity";
 import { shownEmail } from "./sign-in-names.js";
 
 export interface OrganizationProfile {
@@ -29,6 +30,20 @@ export async function organizationProfile(
     where: { id: organizationId },
     select: { id: true, name: true, code: true, timeZone: true, contactEmail: true },
   });
+}
+
+/**
+ * The organization's time zone, read inside the caller's transaction, so documents count their year and date in it
+ * without taking it from the caller. The organization is the transaction's own: it can't read another.
+ */
+export async function organizationTimeZone(tx: OrgTx, organizationId: string): Promise<string> {
+  // OrgTx hides the sign-in models; every forOrg() transaction is the same client underneath, and only this module
+  // may reach the organization model.
+  const organization = await (tx as IdentityTx).organization.findUniqueOrThrow({
+    where: { id: organizationId },
+    select: { timeZone: true },
+  });
+  return organization.timeZone;
 }
 
 /**
