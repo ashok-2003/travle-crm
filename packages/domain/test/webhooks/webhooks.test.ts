@@ -82,7 +82,7 @@ describe("webhook intake", () => {
         id: stored?.id,
         queue: WEBHOOK_PROCESS_QUEUE,
         data: { webhookEventId: stored?.id },
-        options: { id: stored?.id },
+        options: { id: stored?.id, retryLimit: 10, retryDelaySeconds: 30 },
       },
     ]);
   });
@@ -145,7 +145,7 @@ describe("webhook intake", () => {
     const id = (await storedEvent(eventId))?.id ?? "";
 
     await expect(processWebhookEvent(deps, id)).rejects.toThrow("the provider's handler failed");
-    expect(await storedEvent(eventId)).toMatchObject({ attempts: 1, lastError: "the provider's handler failed" });
+    expect(await storedEvent(eventId)).toMatchObject({ attempts: 1, lastError: "Error" });
     expect(await processWebhookEvent(deps, id)).toBe("processed");
     expect(await storedEvent(eventId)).toMatchObject({ attempts: 2, lastError: null });
     expect(processed).toHaveLength(1);
@@ -156,5 +156,145 @@ describe("webhook intake", () => {
     expect(await processWebhookEvent(deps, "0199e7a0-0000-7000-8000-00000000dead")).toBe("event-not-found");
     expect(await processWebhookEvent(deps, "not-a-uuid")).toBe("event-not-found");
     await expect(processWebhookJob(deps, {})).rejects.toThrow(/webhookEventId/);
+  });
+  it("stores no raw error message: only the error's name or code, kept short", async () => {
+    const eventId = `evt_${crypto.randomUUID()}`;
+    const failing: WebhookProvider = {
+      ...exampleProvider([]),
+      process: () =>
+        Promise.reject(Object.assign(new Error("could not reach asha@example.com"), { name: "PaymentError" })),
+    };
+    const deps = { db, queue: createMemoryJobQueue(), providers: [failing] };
+    await receiveWebhook(deps, "example", delivery({ id: eventId, type: "payment.captured" }));
+    const id = (await storedEvent(eventId))?.id ?? "";
+    await expect(processWebhookEvent(deps, id)).rejects.toThrow("asha@example.com");
+    expect((await storedEvent(eventId))?.lastError).toBe("PaymentError");
+
+    const coded: WebhookProvider = {
+      ...failing,
+      process: () => Promise.reject(Object.assign(new Error("secret detail"), { code: `E_${"X".repeat(200)}` })),
+    };
+    await expect(processWebhookEvent({ db, providers: [coded] }, id)).rejects.toThrow("secret detail");
+    expect((await storedEvent(eventId))?.lastError).toBe(`E_${"X".repeat(98)}`);
+  });
+
+  it("answers 400, and stores nothing, for a signed body the provider can't read or a verify that throws", async () => {
+    const { queue, deps } = setUp();
+    const rawBody = "not json at all";
+    const signature = createHmac("sha256", secret).update(rawBody).digest("hex");
+    const unreadable = { headers: new Headers({ "x-example-signature": signature }), rawBody };
+    expect(await receiveWebhook(deps, "example", unreadable)).toEqual({ status: 400 });
+
+    const throwing: WebhookProvider = {
+      ...exampleProvider([]),
+      verify: () => {
+        throw new Error("verify blew up");
+      },
+    };
+    const eventId = `evt_${crypto.randomUUID()}`;
+    expect(
+      await receiveWebhook({ db, queue, providers: [throwing] }, "example", delivery({ id: eventId, type: "t" })),
+    ).toEqual({ status: 400 });
+    expect(await storedEvent(eventId)).toBeNull();
+    expect(queue.sent).toEqual([]);
+  });
+
+  it("accepts a verify that answers asynchronously", async () => {
+    const eventId = `evt_${crypto.randomUUID()}`;
+    const asynchronous: WebhookProvider = {
+      ...exampleProvider([]),
+      verify: (request) =>
+        Promise.resolve(hmacSha256Signature({ secret, header: "x-example-signature", encoding: "hex" })(request)),
+    };
+    const queue = createMemoryJobQueue();
+    const deps = { db, queue, providers: [asynchronous] };
+    expect(await receiveWebhook(deps, "example", delivery({ id: eventId, type: "t" }))).toEqual({ status: 200 });
+    expect(await receiveWebhook(deps, "example", { ...delivery({ id: eventId, type: "t" }), rawBody: "{}" })).toEqual({
+      status: 401,
+    });
+  });
+
+  it("stores one row and queues one job when two deliveries of an event arrive at once", async () => {
+    const { queue, deps } = setUp();
+    const eventId = `evt_${crypto.randomUUID()}`;
+    const request = delivery({ id: eventId, type: "payment.captured" });
+    const receipts = await Promise.all([
+      receiveWebhook(deps, "example", request),
+      receiveWebhook(deps, "example", request),
+    ]);
+    expect(receipts).toEqual([{ status: 200 }, { status: 200 }]);
+    const rows = await db.withoutOrg((tx) => tx.webhookEvent.count({ where: { providerEventId: eventId } }));
+    expect(rows).toBe(1);
+    expect(queue.sent).toHaveLength(1);
+  });
+
+  it("queues the job on a repeat delivery when the first delivery's send failed", async () => {
+    const memory = createMemoryJobQueue();
+    let failNext = true;
+    const queue = {
+      send: (...args: Parameters<typeof memory.send>) => {
+        if (failNext) {
+          failNext = false;
+          return Promise.reject(new Error("the queue is down"));
+        }
+        return memory.send(...args);
+      },
+    };
+    const deps = { db, queue, providers: [exampleProvider([])] };
+    const request = delivery({ id: `evt_${crypto.randomUUID()}`, type: "payment.captured" });
+    await expect(receiveWebhook(deps, "example", request)).rejects.toThrow("the queue is down");
+    expect(memory.sent).toEqual([]);
+    expect(await receiveWebhook(deps, "example", request)).toEqual({ status: 200 });
+    expect(memory.sent).toHaveLength(1);
+  });
+
+  it("throws, so the job retries, when the event's provider isn't registered", async () => {
+    const { deps } = setUp();
+    const eventId = `evt_${crypto.randomUUID()}`;
+    await receiveWebhook(deps, "example", delivery({ id: eventId, type: "payment.captured" }));
+    const id = (await storedEvent(eventId))?.id ?? "";
+    await expect(processWebhookEvent({ db, providers: [] }, id)).rejects.toThrow(/No webhook provider named example/);
+  });
+
+  it("keeps the provider's error as the cause when recording the failure fails too", async () => {
+    const eventId = `evt_${crypto.randomUUID()}`;
+    const failing: WebhookProvider = {
+      ...exampleProvider([]),
+      process: () => Promise.reject(new Error("handler failed")),
+    };
+    await receiveWebhook(
+      { db, queue: createMemoryJobQueue(), providers: [failing] },
+      "example",
+      delivery({ id: eventId, type: "t" }),
+    );
+    const id = (await storedEvent(eventId))?.id ?? "";
+    let calls = 0;
+    const flaky = {
+      withoutOrg: ((...args: Parameters<Database["withoutOrg"]>) => {
+        calls += 1;
+        return calls === 2 ? Promise.reject(new Error("database down")) : db.withoutOrg(...args);
+      }) as Database["withoutOrg"],
+    };
+    const error: unknown = await processWebhookEvent({ db: flaky, providers: [failing] }, id).catch(
+      (caught: unknown) => caught,
+    );
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).cause).toMatchObject({ message: "handler failed" });
+  });
+
+  it("lets the api record attempts but never change a payload or delete an event", async () => {
+    const { deps } = setUp();
+    const eventId = `evt_${crypto.randomUUID()}`;
+    await receiveWebhook(deps, "example", delivery({ id: eventId, type: "payment.captured" }));
+    const id = (await storedEvent(eventId))?.id ?? "";
+    await expect(
+      db.withoutOrg((tx) => tx.$executeRaw`UPDATE webhook_event SET payload = 'changed' WHERE id = ${id}::uuid`),
+    ).rejects.toThrow(/permission denied/i);
+    await expect(
+      db.withoutOrg((tx) => tx.$executeRaw`DELETE FROM webhook_event WHERE id = ${id}::uuid`),
+    ).rejects.toThrow(/permission denied/i);
+    await expect(
+      db.withoutOrg((tx) => tx.$executeRaw`UPDATE webhook_event SET attempts = attempts + 1 WHERE id = ${id}::uuid`),
+    ).resolves.toBe(1);
   });
 });

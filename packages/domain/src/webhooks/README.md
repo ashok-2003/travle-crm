@@ -7,10 +7,11 @@ Foundation ships the intake and the signature helper.
 
 - `receiveWebhook({ db, queue, providers }, providerName, { headers, rawBody })`: verifies the signature, stores the
   raw event, queues `webhooks.process`, and returns `{ status }` (200, or 404 for an unknown provider, 401 for a bad
-  signature, 400 for an event the provider can't identify).
+  signature, 400 for a signed body the provider can't identify, which is not stored; also 400 if `verify` or `identify`
+  throws, which they should never do).
 - `processWebhookEvent({ db, providers }, webhookEventId)` and `processWebhookJob(deps, jobData)`: run the provider's
-  handler for a stored event once. Return `"processed"`, `"already-processed"` or `"event-not-found"`; a failing
-  handler's error is recorded on the event and rethrown so the job retries.
+  handler for a stored event at least once (see the rules below). Return `"processed"`, `"already-processed"` or `"event-not-found"`; a failing
+  handler's error name or code (never its message) is recorded on the event and the error rethrown so the job retries.
 - `hmacSha256Signature({ secret, header, prefix?, encoding })`: a `verify` for providers that sign the raw body
   with HMAC-SHA256.
 - `WEBHOOK_PROCESS_QUEUE` (`"webhooks.process"`), and the types `WebhookProvider`, `WebhookRequest`,
@@ -26,9 +27,13 @@ organization yet.
 
 ## Rules worth knowing
 
-- A provider is `{ name, keptHeaders, verify, identify, process }`. `verify` returns false for a bad signature and
-  never throws; `process` runs in the worker, finds the organization from the payload and works in `db.forOrg()`.
+- A provider is `{ name, keptHeaders, verify, identify, process }`. `verify` (which may be asynchronous) returns false
+  for a bad signature, and neither `verify` nor `identify` should throw; `process` runs in the worker, finds the organization from the payload and works in `db.forOrg()`.
 - Repeats are ignored by the provider's event id (`@@unique([provider, providerEventId])`), and the job's id is the
   event's id, so a repeated delivery queues nothing new.
-- `webhook_event` has no `organization_id` and no row-level security: only this module reads it, through
-  `db.withoutOrg()`. It keeps the raw payload and the headers the provider names, never cookies or authorization.
+- Processing is at least once, not exactly once: the handler and the mark-processed update are separate
+  transactions. A provider's `process` must do its work idempotently inside `db.forOrg()`, keyed by `event.id` or
+  `event.providerEventId` (for example a unique key on the payment record).
+- `webhook_event` has no `organization_id` and no row-level security: only this module is meant to read it, through
+  `db.withoutOrg()`. That is not enforced yet: every `forOrg()` transaction can still reach the model until Integration
+  task I1 hides it from `OrgTx`. The runtime role may update only `processed_at`, `attempts` and `last_error`. It keeps the raw payload and the headers the provider names, never cookies or authorization.

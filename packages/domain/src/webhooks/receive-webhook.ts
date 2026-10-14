@@ -7,6 +7,9 @@ import type { WebhookProvider, WebhookRequest } from "./provider.js";
 /** The job queue that processes stored events. Its data is `{ webhookEventId }`. */
 export const WEBHOOK_PROCESS_QUEUE = "webhooks.process";
 
+const WEBHOOK_RETRY_LIMIT = 10;
+const WEBHOOK_RETRY_DELAY_SECONDS = 30;
+
 /** Headers never stored, whatever a provider asks for: they would be credentials at rest. */
 const NEVER_KEPT = new Set(["authorization", "cookie", "proxy-authorization", "set-cookie"]);
 
@@ -39,8 +42,16 @@ export async function receiveWebhook(
 ): Promise<WebhookReceipt> {
   const provider = providers.find((candidate) => candidate.name === providerName);
   if (!provider) return { status: 404 };
-  if (!provider.verify(request)) return { status: 401 };
-  const identity = provider.identify(request);
+  // A provider that throws is answered like a body it can't read: 400, nothing stored.
+  let verified: boolean;
+  let identity: ReturnType<WebhookProvider["identify"]>;
+  try {
+    verified = await provider.verify(request);
+    if (!verified) return { status: 401 };
+    identity = provider.identify(request);
+  } catch {
+    return { status: 400 };
+  }
   if (!identity || !isShortText(identity.eventId) || !isShortText(identity.eventType)) return { status: 400 };
 
   const event = await db.withoutOrg(async (tx) => {
@@ -65,7 +76,13 @@ export async function receiveWebhook(
   // The job's id is the event's, so a repeat queues nothing new; a repeat of an event whose first job was never
   // queued (the queue was down) queues it now.
   if (event.processedAt === null) {
-    await queue.send(WEBHOOK_PROCESS_QUEUE, { webhookEventId: event.id }, { id: event.id });
+    // Generous retries (about 30 s, then doubling, ten times): a provider's handler may depend on something that is
+    // briefly down. A later sweep re-queues old unprocessed rows (ADR 0013).
+    await queue.send(
+      WEBHOOK_PROCESS_QUEUE,
+      { webhookEventId: event.id },
+      { id: event.id, retryLimit: WEBHOOK_RETRY_LIMIT, retryDelaySeconds: WEBHOOK_RETRY_DELAY_SECONDS },
+    );
   }
   return { status: 200 };
 }

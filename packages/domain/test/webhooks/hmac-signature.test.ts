@@ -33,4 +33,8 @@ describe("hmacSha256Signature", () => {
     expect(hexWithPrefix(request({ "x-hub-signature-256": `sha256=${signature.slice(0, 40)}` }))).toBe(false);
     expect(hexWithPrefix(request({ "x-hub-signature-256": "sha256=not-hex-at-all" }))).toBe(false);
   });
+
+  it("refuses to be built with an empty secret, which would accept forged signatures", () => {
+    expect(() => hmacSha256Signature({ secret: "", header: "x-signature", encoding: "hex" })).toThrow(RangeError);
+  });
 });

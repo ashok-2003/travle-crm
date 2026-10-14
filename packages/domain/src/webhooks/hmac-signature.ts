@@ -14,6 +14,8 @@ export interface HmacSignatureOptions {
 
 /** A WebhookProvider.verify that compares the header's signature with the body's in constant time. */
 export function hmacSha256Signature(options: HmacSignatureOptions): (request: WebhookRequest) => boolean {
+  // An HMAC with an empty key is computable by anyone, so an unset secret must not become "verify everything".
+  if (options.secret === "") throw new RangeError("A webhook signature secret can't be empty");
   const prefix = options.prefix ?? "";
   return ({ headers, rawBody }) => {
     const sent = headers.get(options.header);

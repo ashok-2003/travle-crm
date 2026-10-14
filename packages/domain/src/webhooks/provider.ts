@@ -25,13 +25,21 @@ export interface WebhookProvider {
   readonly name: string;
   /** The headers worth keeping with the event, lower case. Cookies and authorization are never kept. */
   readonly keptHeaders: readonly string[];
-  /** True when the request really comes from the provider. Never throws for a bad signature: returns false. */
-  verify(request: WebhookRequest): boolean;
-  /** The provider's id and type for the event, or null when the body doesn't say. */
+  /**
+   * True when the request really comes from the provider. Returns false for a bad signature and should never throw
+   * (if it does, the intake answers 400). May be asynchronous, e.g. to look up a secret per organization.
+   */
+  verify(request: WebhookRequest): boolean | Promise<boolean>;
+  /**
+   * The provider's id and type for the event, or null when the body doesn't say. Should never throw (if it does,
+   * the intake answers 400). A signed body this can't read is answered 400 and not stored.
+   */
   identify(request: WebhookRequest): { eventId: string; eventType: string } | null;
   /**
    * Handles one stored event, in the worker: finds the organization from the payload and does the work in
-   * db.forOrg(). Runs at least once per event; repeats of the same delivery never reach it twice.
+   * db.forOrg(). Runs at least once per event, not exactly once: the mark-processed update is a separate
+   * transaction, so a crash or a retry can run it again. Do the work idempotently inside db.forOrg(), keyed by
+   * `event.id` or `event.providerEventId` (for example a unique key on the payment record).
    */
   process(event: StoredWebhookEvent): Promise<void>;
 }
