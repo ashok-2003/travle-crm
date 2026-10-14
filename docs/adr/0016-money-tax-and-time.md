@@ -55,6 +55,10 @@ Date: 2026-10-15 · Status: accepted · Implements spec section 9.6
   `formatDateTime` uses Indian English (`15 Oct 2026, 9:30 pm`, and en-IN's own `Sept`).
 - **Zones are IANA names only.** `isValidTimeZone` takes `Area/Location` names and `UTC`, and refuses offsets
   (`+05:30`) and abbreviations (`IST`, `EST`), which the runtime would otherwise accept and map unpredictably.
+- **Zone names are stored as entered.** Intl ignores case, so two spellings of one zone both work, and the runtime's
+  own list uses legacy spellings (`Asia/Calcutta`), so there is no reliable source to rewrite names against. Plan 5's
+  time zone picker supplies canonical IANA spellings (with `Asia/Kolkata`) from a curated list; code that compares
+  zones compares the names Intl resolves them to.
 - **Calendar dates have no time**: a departure on 15 October is `"2026-10-15"` (`CalendarDate`, Postgres `date`),
   never a midnight instant that shifts with the zone. `startOfDayIn` handles daylight saving, including zones that
   skip midnight.

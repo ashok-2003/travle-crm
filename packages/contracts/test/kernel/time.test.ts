@@ -10,11 +10,12 @@ describe("time zone names", () => {
     expect(timeZoneName.parse(" Asia/Kolkata ")).toBe("Asia/Kolkata");
   });
 
-  it("give the spelling IANA uses, whatever case was typed", () => {
-    expect(timeZoneName.parse("Asia/KOLKATA")).toBe("Asia/Kolkata");
-    expect(timeZoneName.parse("asia/kolkata".replace("a", "A"))).toBe("Asia/Kolkata");
-    expect(timeZoneName.parse("Europe/LONDON")).toBe("Europe/London");
-    expect(timeZoneName.parse("America/PORT-AU-PRINCE")).toBe("America/Port-au-Prince");
+  it("are stored exactly as given, never rewritten", () => {
+    for (const zone of ["Etc/UTC", "US/Pacific", "Australia/NSW", "Asia/Kolkata", "America/Port-au-Prince"]) {
+      expect(timeZoneName.parse(zone), zone).toBe(zone);
+    }
+    // Intl ignores case, so another spelling of a zone works too and is kept as typed.
+    expect(timeZoneName.parse("Asia/KOLKATA")).toBe("Asia/KOLKATA");
   });
 
   it("refuse offsets, abbreviations, wrong case and unknown places", () => {

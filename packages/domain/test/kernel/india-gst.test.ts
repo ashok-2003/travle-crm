@@ -1,4 +1,4 @@
-// India GST (spec 9.6): CGST + SGST (or UTGST) within a state, IGST between states and for exports, a rate per
+// India GST (spec 9.6): CGST + SGST (or UTGST) within a state, IGST between states and outside India, a rate per
 // line, each line's tax rounded half-up to the paisa.
 import { describe, expect, it } from "vitest";
 import {

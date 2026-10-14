@@ -17,27 +17,6 @@ export function isValidTimeZone(name: string): boolean {
   }
 }
 
-const titleCased = (name: string) =>
-  name.replace(/[A-Za-z]+/g, (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
-
-/**
- * A valid zone name with the spelling IANA uses. Intl accepts any case but reports old names for newer ones
- * (Asia/Calcutta for Asia/Kolkata), so the case is fixed here without changing the name: a name Intl reports as its
- * own is returned in its spelling; any other name (an alias such as Asia/Kolkata) is title-cased when a segment is all
- * capitals or all lowercase, and kept as typed otherwise.
- */
-function canonicalTimeZoneName(name: string): string {
-  const reported = new Intl.DateTimeFormat("en-US", { timeZone: name }).resolvedOptions().timeZone;
-  if (reported.toLowerCase() === name.toLowerCase()) return reported;
-  const miscased = name
-    .split("/")
-    .some(
-      (part) =>
-        part.length > 1 && /^[A-Za-z]*$/.test(part) && (part === part.toUpperCase() || part === part.toLowerCase()),
-    );
-  return miscased && isValidTimeZone(titleCased(name)) ? titleCased(name) : name;
-}
-
 const CALENDAR_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 /** True for a real day written YYYY-MM-DD, from the year 1000 (2026-02-30 is refused). */
@@ -53,10 +32,9 @@ export function isCalendarDate(text: string): boolean {
 /** A day with no time, such as a departure date: "2026-10-15". */
 export const calendarDate = z.string().refine(isCalendarDate, "Use a date like 2026-10-15");
 
-/** An organization's time zone, e.g. "Asia/Kolkata". */
-export const timeZoneName = z
-  .string()
-  .trim()
-  .max(64)
-  .refine(isValidTimeZone, "Use a time zone like Asia/Kolkata")
-  .transform(canonicalTimeZoneName);
+/**
+ * An organization's time zone, e.g. "Asia/Kolkata", stored as entered. Intl ignores case, so "Asia/KOLKATA" is
+ * accepted too; the web app's time zone picker (plan 5) supplies canonical IANA spellings from a curated list. Code
+ * that compares two zones should compare the names Intl resolves them to, not the strings.
+ */
+export const timeZoneName = z.string().trim().max(64).refine(isValidTimeZone, "Use a time zone like Asia/Kolkata");
