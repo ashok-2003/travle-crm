@@ -1,4 +1,5 @@
-// Runs work inside one transaction scoped to one organization. Postgres row-level security does the scoping.
+// Runs work inside one transaction scoped to one organization (forOrg), or to none (withoutOrg). Postgres row-level
+// security does the scoping.
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { ITXClientDenyList } from "@prisma/client/runtime/client";
 import type { DatabaseClient } from "./client.js";
@@ -44,39 +45,16 @@ export class InvalidOrganizationIdError extends Error {
 }
 
 /**
- * Runs fn in one transaction with no organization set, for the few tables without organization_id (webhook events,
- * rate-limit counters) and the database functions that look across organizations without revealing their rows.
- * Every organization table shows no rows and refuses writes, exactly as row-level security fails closed.
+ * The shared shell of forOrg() and withoutOrg(): refuses nesting, opens the transaction, sets app.org_id (to "" for no
+ * organization, so that is a guarantee rather than an assumption about the pooled connection) and checks the role in
+ * the same round trip.
  */
-export async function withoutOrg<T>(
-  client: DatabaseClient,
-  fn: (tx: IdentityTx) => Promise<T>,
-  options: ForOrgOptions = {},
-): Promise<T> {
-  if (insideForOrg.getStore()) {
-    throw new NestedForOrgError();
-  }
-  return insideForOrg.run(true, async () =>
-    client.$transaction(async (tx) => {
-      const [session] = await tx.$queryRaw<{ role: string }[]>`SELECT current_user AS role`;
-      if (session?.role !== "app_runtime") {
-        throw new WrongDatabaseRoleError(session?.role);
-      }
-      return fn(tx);
-    }, options),
-  );
-}
-
-/** Runs fn in one transaction that sees and changes only orgId's rows. Never call it inside another forOrg(). */
-export async function forOrg<T>(
+async function inOrgTransaction<T>(
   client: DatabaseClient,
   orgId: string,
   fn: (tx: IdentityTx) => Promise<T>,
-  options: ForOrgOptions = {},
+  options: ForOrgOptions,
 ): Promise<T> {
-  if (!UUID_PATTERN.test(orgId)) {
-    throw new InvalidOrganizationIdError(orgId);
-  }
   if (insideForOrg.getStore()) {
     throw new NestedForOrgError();
   }
@@ -92,4 +70,30 @@ export async function forOrg<T>(
       return fn(tx);
     }, options),
   );
+}
+
+/**
+ * Runs fn in one transaction with no organization set, for the few tables without organization_id (webhook events,
+ * rate-limit counters) and the database functions that look across organizations without revealing their rows.
+ * Every organization table shows no rows and refuses writes, exactly as row-level security fails closed.
+ */
+export async function withoutOrg<T>(
+  client: DatabaseClient,
+  fn: (tx: IdentityTx) => Promise<T>,
+  options: ForOrgOptions = {},
+): Promise<T> {
+  return inOrgTransaction(client, "", fn, options);
+}
+
+/** Runs fn in one transaction that sees and changes only orgId's rows. Never call it inside another forOrg(). */
+export async function forOrg<T>(
+  client: DatabaseClient,
+  orgId: string,
+  fn: (tx: IdentityTx) => Promise<T>,
+  options: ForOrgOptions = {},
+): Promise<T> {
+  if (!UUID_PATTERN.test(orgId)) {
+    throw new InvalidOrganizationIdError(orgId);
+  }
+  return inOrgTransaction(client, orgId, fn, options);
 }

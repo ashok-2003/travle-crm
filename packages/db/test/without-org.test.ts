@@ -27,9 +27,21 @@ describe("db.withoutOrg", () => {
 
   it("sees no organization's rows, and can't write any", async () => {
     expect(await db.withoutOrg((tx) => tx.orgCounter.count())).toBe(0);
-    await expect(db.withoutOrg((tx) => tx.orgCounter.create({ data: { key: "NONE-2026", value: 1 } }))).rejects.toThrow(
-      /null value in column "organization_id"|row-level security/,
-    );
+    // Naming an organization gets past the NOT NULL check, so it is row-level security that refuses the write.
+    await expect(
+      db.withoutOrg((tx) => tx.orgCounter.create({ data: { organizationId, key: "NONE-2026", value: 1 } })),
+    ).rejects.toThrow(/row-level security/);
+  });
+
+  it("clears an organization left on the connection by an earlier session-level setting", async () => {
+    const client = createPrismaClient(urls.runtime, { max: 1 });
+    try {
+      await client.$executeRaw`SELECT set_config('app.org_id', ${organizationId}, false)`;
+      expect(await client.orgCounter.count()).toBe(1);
+      expect(await withoutOrg(client, (tx) => tx.orgCounter.count())).toBe(0);
+    } finally {
+      await client.$disconnect();
+    }
   });
 
   it("reads the organizations table, which has no row-level security", async () => {
