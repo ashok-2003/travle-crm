@@ -48,6 +48,11 @@ describe("soft delete", () => {
     expect(keys).toEqual(["kept"]);
     expect(await db.forOrg(organizationId, (tx) => tx.role.findUnique({ where: { id: deletedRoleId } }))).toBeNull();
     expect(await db.forOrg(organizationId, (tx) => tx.role.count({ where: { key: "binned" } }))).toBe(0);
+    expect(await db.forOrg(organizationId, (tx) => tx.role.findFirst({ where: { key: "binned" } }))).toBeNull();
+    const totals = await db.forOrg(organizationId, (tx) => tx.role.aggregate({ _count: { _all: true } }));
+    expect(totals._count._all).toBe(1);
+    const groups = await db.forOrg(organizationId, (tx) => tx.role.groupBy({ by: ["key"] }));
+    expect(groups.map((group) => group.key)).toEqual(["kept"]);
   });
 
   it("does not update deleted rows", async () => {
@@ -57,6 +62,10 @@ describe("soft delete", () => {
     expect(await db.forOrg(organizationId, (tx) => tx.role.updateMany({ data: { name: "Renamed" } }))).toEqual({
       count: 1,
     });
+    const returned = await db.forOrg(organizationId, (tx) =>
+      tx.role.updateManyAndReturn({ data: { name: "Renamed again" } }),
+    );
+    expect(returned.map((role) => role.key)).toEqual(["kept"]);
   });
 
   it("refuses hard deletes before touching the database, leaving the transaction usable", async () => {
@@ -78,10 +87,19 @@ describe("soft delete", () => {
   });
 
   it("restores a row inside withDeleted()", async () => {
-    await db.forOrg(organizationId, (tx) =>
-      withDeleted(() => tx.role.update({ where: { id: deletedRoleId }, data: { deletedAt: null, deletedBy: null } })),
+    // Its own organization and role, so restoring changes nothing the other tests count.
+    const restoringOrganizationId = await createTestOrganization(platform, "Soft delete, restore");
+    const roleId = await db.forOrg(restoringOrganizationId, async (tx) => {
+      const role = await tx.role.create({ data: { key: "restored", name: "Restored" } });
+      await tx.role.update({ where: { id: role.id }, data: softDeleted(deletedBy) });
+      return role.id;
+    });
+    await db.forOrg(restoringOrganizationId, (tx) =>
+      withDeleted(() => tx.role.update({ where: { id: roleId }, data: { deletedAt: null, deletedBy: null } })),
     );
-    expect(await db.forOrg(organizationId, (tx) => tx.role.count())).toBe(2);
+    expect(
+      await db.forOrg(restoringOrganizationId, (tx) => tx.role.findUnique({ where: { id: roleId } })),
+    ).toMatchObject({ key: "restored", deletedAt: null, deletedBy: null });
   });
 
   it("applies to members, which the identity module reaches without forOrg()", async () => {

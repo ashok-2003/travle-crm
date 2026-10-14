@@ -45,8 +45,10 @@ async function uniqueKeysWithoutOrganization(client: Queryable): Promise<string[
     WHERE x.indisunique
       AND EXISTS (SELECT 1 FROM pg_attribute a
                   WHERE a.attrelid = t.oid AND a.attname = 'organization_id' AND NOT a.attisdropped)
+      -- Only the key columns count: INCLUDE columns (after the first indnkeyatts) don't make the key per organization.
       AND NOT EXISTS (SELECT 1 FROM pg_attribute a
-                      WHERE a.attrelid = t.oid AND a.attnum = ANY (x.indkey::int2[]) AND a.attname = 'organization_id')
+                      WHERE a.attrelid = t.oid AND a.attnum = ANY ((x.indkey::int2[])[0:x.indnkeyatts - 1])
+                        AND a.attname = 'organization_id')
       AND NOT (x.indisprimary AND x.indnatts = 1 AND EXISTS (
         SELECT 1 FROM pg_attribute a WHERE a.attrelid = t.oid AND a.attnum = x.indkey[0] AND a.attname = 'id'))
     ORDER BY name`;
@@ -111,6 +113,10 @@ describe("keys on organization tables", () => {
       await tx.$executeRaw`CREATE TABLE unique_probe (id uuid PRIMARY KEY, organization_id uuid NOT NULL, code text)`;
       expect(await uniqueKeysWithoutOrganization(tx)).toEqual([]);
       await tx.$executeRaw`CREATE UNIQUE INDEX unique_probe_code ON unique_probe (code)`;
+      expect(await uniqueKeysWithoutOrganization(tx)).toEqual(["unique_probe.unique_probe_code"]);
+      await tx.$executeRaw`DROP INDEX unique_probe_code`;
+      // An INCLUDE column is stored in the index but not part of what must be unique.
+      await tx.$executeRaw`CREATE UNIQUE INDEX unique_probe_code ON unique_probe (code) INCLUDE (organization_id)`;
       expect(await uniqueKeysWithoutOrganization(tx)).toEqual(["unique_probe.unique_probe_code"]);
       await tx.$executeRaw`DROP INDEX unique_probe_code`;
       await tx.$executeRaw`CREATE UNIQUE INDEX unique_probe_code ON unique_probe (organization_id, code)`;
