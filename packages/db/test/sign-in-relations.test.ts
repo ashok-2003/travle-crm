@@ -123,6 +123,19 @@ describe("the sign-in relation check", () => {
     }).toThrow(SignInRelationError);
   });
 
+  it("walks every top-level argument, upsert's and any Prisma adds later, never reading one as a Json field", () => {
+    expect(() => {
+      check("Lead", { where: { id: "x" }, create: {}, update: { organization: { update: { name: "x" } } } });
+    }).toThrow(SignInRelationError);
+    expect(() => {
+      check("Lead", { cursor: { id: "x" }, aFutureArgument: { notes: { some: { organization: { name: "x" } } } } });
+    }).toThrow(SignInRelationError);
+    // Event has a Json column called data; the top-level data argument is still the write, not that column.
+    expect(() => {
+      check("Event", { data: { organization: { connect: { id: "y" } } } });
+    }).toThrow(SignInRelationError);
+  });
+
   it("leaves queries on the sign-in models themselves alone", () => {
     expect(() => {
       check("Member", { include: { organization: true } });

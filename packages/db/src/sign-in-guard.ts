@@ -39,16 +39,21 @@ export type ModelDescriptions = Readonly<
   >
 >;
 
-// data and orderBy matter too: a nested write or an ordering through the relation reaches the same tables.
-const partsThatFollowRelations = ["include", "select", "where", "data", "orderBy"] as const;
-
 /**
  * The names Prisma gives its own arguments inside a query. They never count as field names, so a Json column called
  * `data` can't hide the `data` of a nested update; the price is that such a column's own value is walked too.
  */
 const prismaArgumentNames = new Set([
-  ...partsThatFollowRelations,
+  "include",
+  "select",
   "omit",
+  "where",
+  "data",
+  "orderBy",
+  "cursor",
+  "distinct",
+  "take",
+  "skip",
   "create",
   "createMany",
   "connect",
@@ -73,8 +78,10 @@ const prismaArgumentNames = new Set([
 
 /**
  * A check that throws SignInRelationError when a query on an organization-owned model names a sign-in relation at any
- * depth. It follows relations to know which model each level of the arguments describes, so it can skip the values of
- * Json fields: a Json value is the record's own data, and an "organization" key inside it is not a relation.
+ * depth of any argument: where, data, include, select, orderBy, upsert's create and update, cursor, and whatever
+ * Prisma adds later. It follows relations to know which model each level of the arguments describes, so it can skip
+ * the values of Json fields: a Json value is the record's own data, and an "organization" key inside it is not a
+ * relation.
  */
 export function signInRelationCheck(models: ModelDescriptions): (model: string, args: unknown) => void {
   const fieldsByModel = new Map(
@@ -93,7 +100,13 @@ export function signInRelationCheck(models: ModelDescriptions): (model: string, 
   };
   return (model, args) => {
     if (signInModels.includes(model)) return;
-    for (const part of partsThatFollowRelations) visit(model, model, (args as Record<string, unknown>)[part], part);
+    // Every top-level key, not a chosen few: a list missed upsert's update, which reached every member's role. The
+    // top level holds only Prisma's arguments, so none of its keys is ever read as a field.
+    if (typeof args !== "object" || args === null) return;
+    for (const [argument, value] of Object.entries(args)) {
+      if (signInRelations.includes(argument)) throw new SignInRelationError(model, argument, argument);
+      visit(model, model, value, argument);
+    }
   };
 }
 

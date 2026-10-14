@@ -40,12 +40,14 @@ Date: 2026-10-14 · Status: accepted · Implements spec section 5
   security. Three things keep organization code out:
   - `OrgTx` hides the sign-in models, so `tx.user` and the like don't exist outside the identity module.
   - The client extension throws `SignInRelationError` for a relation to a sign-in model (the names in
-    `signInRelations`, today only `organization`) at any depth of `include`, `select`, `where`, `data` or `orderBy` on
-    organization-owned models. It follows relations through Prisma's description of the models, so it skips the values
-    of Json fields, where an `organization` key is data (except a Json field named like one of Prisma's arguments,
-    such as `data`, which is walked so it can't hide a nested write). Any new relation from an organization table to
-    a sign-in model must be added to `signInRelations`; `sign-in-relations.test.ts` reads the schema and fails until
-    it is. Queries rooted at sign-in models, used by the identity module, are unrestricted.
+    `signInRelations`, today only `organization`) at any depth of any argument (`where`, `data`, `include`, `select`,
+    `orderBy`, upsert's `create` and `update`, and whatever Prisma adds) on organization-owned models. A hand-picked
+    list of arguments once missed upsert's `update`, which reached every member's role. It follows relations through
+    Prisma's description of the models, so it skips the values of Json fields, where an `organization` key is data
+    (except a Json field named like one of Prisma's arguments, such as `data`, which is walked so it can't hide a
+    nested write). Any new relation from an organization table to a sign-in model must be added to
+    `signInRelations`; `sign-in-relations.test.ts` reads the schema and fails until it is. Queries rooted at sign-in
+    models, used by the identity module, are unrestricted.
   - ESLint flags a tagged `$queryRaw`/`$executeRaw` that names a sign-in table outside the identity module, because
     `OrgTx` keeps the raw-SQL methods.
 - **The identity client checks its role once.** The first query, raw or model, verifies `current_user` is

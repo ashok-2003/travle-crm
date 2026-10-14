@@ -45,9 +45,9 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   - `OrgTx` hides the sign-in models;
   - ESLint flags a `$queryRaw`/`$executeRaw` that names a sign-in table anywhere outside the identity module;
   - queries on organization-owned models may not follow a relation to a sign-in model (today only `organization`)
-    anywhere in `include`, `select`, `where`, `data` or `orderBy`: they throw `SignInRelationError`. A new relation from
-    an organization table to a sign-in model must be added to `signInRelations` (`packages/db/src/sign-in-guard.ts`);
-    a test reads the schema and fails until it is.
+    anywhere in any argument (`where`, `data`, `include`, upsert's `create` and `update`...): they throw
+    `SignInRelationError`. A new relation from an organization table to a sign-in model must be added to
+    `signInRelations` (`packages/db/src/sign-in-guard.ts`); a test reads the schema and fails until it is.
 - Outside `packages/db`, never write SQL that sets `app.org_id` (`set_config`), changes the session (`SET`, `RESET`) or
   creates temporary tables, and never use `$executeRawUnsafe`/`$queryRawUnsafe`: on a pooled connection they outlive the
   transaction. ESLint catches `set_config`, `app.org_id`, `SET ROLE`, `SET SESSION AUTHORIZATION`, `RESET ALL`/`ROLE`,

@@ -85,6 +85,89 @@ describe("sign-in relation guard", () => {
     expect(renamed.name).toBe("Renamed guard");
   });
 
+  describe("every argument of every operation", () => {
+    let upsertOrganizationId: string;
+    let memberId: string;
+
+    beforeAll(async () => {
+      // Its own organization and member, so a guard that let the write through would change nothing the others read.
+      upsertOrganizationId = await createTestOrganization(platform, "Sign-in guard, upsert");
+      const user = await identityDatabase.client.user.create({
+        data: { name: "Upsert", email: `upsert-${upsertOrganizationId}@example.test` },
+      });
+      memberId = (
+        await identityDatabase.client.member.create({
+          data: { userId: user.id, organizationId: upsertOrganizationId, role: "sales" },
+        })
+      ).id;
+    });
+
+    const counterKey = (key: string) => ({ organizationId_key: { organizationId: upsertOrganizationId, key } });
+
+    it("refuses upsert's update reaching members through the organization, before any SQL runs", async () => {
+      const counters = await db.forOrg(upsertOrganizationId, async (tx) => {
+        await expect(
+          tx.orgCounter.upsert({
+            where: counterKey("PROBE"),
+            create: { key: "PROBE", value: 1 },
+            update: {
+              organization: { update: { members: { updateMany: { where: {}, data: { role: "org-owner" } } } } },
+            },
+          }),
+        ).rejects.toBeInstanceOf(SignInRelationError);
+        // A statement that failed in Postgres would have aborted the transaction; this one still answers.
+        return tx.orgCounter.count();
+      });
+      expect(counters).toBe(0);
+      const member = await identityDatabase.client.member.findUniqueOrThrow({ where: { id: memberId } });
+      expect(member.role).toBe("sales");
+    });
+
+    it("refuses upsert's create connecting the organization", async () => {
+      await expect(
+        db.forOrg(upsertOrganizationId, (tx) =>
+          tx.orgCounter.upsert({
+            where: counterKey("PROBE"),
+            create: { key: "PROBE", value: 1, organization: { connect: { id: upsertOrganizationId } } },
+            update: {},
+          }),
+        ),
+      ).rejects.toBeInstanceOf(SignInRelationError);
+    });
+
+    it("still refuses create and createMany reaching the organization through data", async () => {
+      await expect(
+        db.forOrg(upsertOrganizationId, (tx) =>
+          tx.orgCounter.create({
+            data: { key: "PROBE", value: 1, organization: { connect: { id: upsertOrganizationId } } },
+          }),
+        ),
+      ).rejects.toBeInstanceOf(SignInRelationError);
+      // createMany rows take no relations; passed as a variable they skip TypeScript's excess-property check, and the
+      // guard refuses them before Prisma would.
+      const rows = [{ key: "PROBE", value: 1, organization: { connect: { id: upsertOrganizationId } } }];
+      await expect(
+        db.forOrg(upsertOrganizationId, (tx) => tx.orgCounter.createMany({ data: rows })),
+      ).rejects.toBeInstanceOf(SignInRelationError);
+    });
+
+    it("still lets an ordinary upsert and create through", async () => {
+      const upsert = (value: number) =>
+        db.forOrg(upsertOrganizationId, (tx) =>
+          tx.orgCounter.upsert({ where: counterKey("BK-2026"), create: { key: "BK-2026", value }, update: { value } }),
+        );
+      await expect(upsert(1)).resolves.toMatchObject({ key: "BK-2026", value: 1 });
+      await expect(upsert(2)).resolves.toMatchObject({ key: "BK-2026", value: 2 });
+      const role = await db.forOrg(upsertOrganizationId, (tx) =>
+        tx.role.create({
+          data: { key: "upserted", name: "Upserted", permissions: { create: { permission: "leads:create" } } },
+          include: { permissions: true },
+        }),
+      );
+      expect(role.permissions.map((grant) => grant.permission)).toEqual(["leads:create"]);
+    });
+  });
+
   it("still allows relations between organization-owned models", async () => {
     const roles = await db.forOrg(organizationId, (tx) => tx.role.findMany({ include: { permissions: true } }));
     expect(roles[0]?.permissions).toHaveLength(1);
