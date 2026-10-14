@@ -33,3 +33,8 @@ minimumReleaseAgeExclude:
   - turbo@2.11.8
   - "@testcontainers/postgresql@12.2.1"
   - testcontainers@12.2.1
+
+# @trpc/server ships "agent skills" for AI coding tools; we don't install them.
+permissions:
+  "@trpc/server":
+    skills: false
