@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "exports": { ".": "./index.js" },
+  "exports": {
+    ".": "./index.js"
+  },
   "dependencies": {
     "@eslint/js": "10.0.1",
     "typescript-eslint": "8.71.2"
@@ -11,6 +13,5 @@
   "devDependencies": {
     "eslint": "catalog:",
     "typescript": "catalog:"
-  },
-  "peerDependencies": { "eslint": ">=10" }
+  }
 }

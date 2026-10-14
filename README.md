@@ -20,3 +20,4 @@ You need Node 24 (`nvm install 24`), pnpm 12 and Docker.
 - `docs/adr/`: decisions and their reasons
 - `packages/db/`: database schema, migrations and organization isolation ([README](packages/db/README.md))
 - `CLAUDE.md`: the conventions every contributor follows
+- `CONTRIBUTING.md`: how to make a change (branches, commits, hooks)

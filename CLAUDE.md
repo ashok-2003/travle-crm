@@ -7,23 +7,25 @@ The design is in `docs/superpowers/specs/`, the build plans in `docs/superpowers
 
 Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 
-| Command | What it does |
-|---|---|
-| `pnpm install` | install dependencies |
-| `pnpm db:up` / `pnpm db:down` | start / stop local Postgres (Docker) |
-| `pnpm db:migrate` | apply migrations to local Postgres |
-| `pnpm check` | everything CI runs: typecheck, lint, tests, import rules |
-| `pnpm --filter @travel-crm/db test` | one package's tests (needs Docker running) |
+| Command                             | What it does                                             |
+| ----------------------------------- | -------------------------------------------------------- |
+| `pnpm install`                      | install dependencies                                     |
+| `pnpm db:up` / `pnpm db:down`       | start / stop local Postgres (Docker)                     |
+| `pnpm db:migrate`                   | apply migrations to local Postgres                       |
+| `pnpm format`                       | format every file with Prettier                          |
+| `pnpm check`                        | everything CI runs: typecheck, lint, tests, import rules |
+| `pnpm --filter @travel-crm/db test` | one package's tests (needs Docker running)               |
 
 ## How we write code
 
 - **Test first.** Write the failing test, watch it fail, then make it pass. "Done" means `pnpm check` is green.
 - **Readable over clever.** Small single-purpose files (~200 lines is a smell), clear names, no abbreviations in public names.
-  Each source file starts with a one-line comment saying what it is for. Comments explain *why*.
+  Each source file starts with a one-line comment saying what it is for. Comments explain _why_.
 - **Strict TypeScript.** No `any`, no `!` non-null assertions, no ignored build errors.
 - **Pinned versions.** Shared tool versions live in the `catalog:` in `pnpm-workspace.yaml`. Prisma is pinned to 7.10.0;
   npm's `latest` for `prisma` is an 8.0 release candidate. Never install "latest" without checking.
-- **Commits.** Small, with messages like `feat(db): …`. Never add a `Co-Authored-By` trailer. Never commit `.env` files or secrets.
+- **Commits.** Small, Conventional Commits (`feat(db): …`), enforced by commitlint. Git hooks format and lint staged files;
+  never bypass them with `--no-verify`. Never add a `Co-Authored-By` trailer. Never commit `.env` files or secrets.
 
 ## Data rules (non-negotiable)
 

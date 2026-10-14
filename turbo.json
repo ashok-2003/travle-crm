@@ -8,7 +8,10 @@
       "inputs": ["prisma/schema/**", "prisma.config.ts", "package.json"],
       "outputs": ["src/generated/**"]
     },
-    "build": { "dependsOn": ["^build", "generate", "^generate"], "outputs": [".next/**", "!.next/cache/**", "dist/**"] },
+    "build": {
+      "dependsOn": ["^build", "generate", "^generate"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+    },
     "typecheck": { "dependsOn": ["generate", "^generate"], "outputs": [] },
     "lint": { "dependsOn": ["generate", "^generate"], "outputs": [] },
     "test": {
