@@ -24,12 +24,14 @@ export {
   type IndiaGstLine,
 } from "./tax/india-gst.js";
 export type { TaxBreakdown, TaxComponent, TaxedLine, TaxEngine } from "./tax/tax-engine.js";
-// GST registration facts live with the API's field rules, so forms and the tax engine share one list.
+export { calendarDateIn, formatDateTime, parseCalendarDate, startOfDayIn, yearIn, type CalendarDate } from "./time.js";
+// GST facts and time zone names live with the API's field rules, so forms and the kernel share one copy.
 export {
   gstStateCodeFromGstin,
   gstStates,
   isGstStateCode,
   isUnionTerritoryWithoutLegislature,
   isValidGstin,
+  isValidTimeZone,
   type GstStateCode,
 } from "@travel-crm/contracts/kernel";

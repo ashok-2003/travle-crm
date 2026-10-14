@@ -39,6 +39,22 @@ Date: 2026-10-15 · Status: accepted · Implements spec section 9.6
   and GSTIN validation, with its base-36 Luhn check character (proved on the GST Network's sample GSTIN). Forms
   (plan 4's onboarding) and the engine share one copy; the kernel re-exports them.
 
+### Time and phone numbers
+
+- **Instants are `Date`s in UTC**, stored as `timestamptz`, and shown and counted in the organization's IANA time
+  zone (`organization.time_zone`, ADR 0009): `calendarDateIn`, `yearIn`, `startOfDayIn`, `formatDateTime`.
+  `formatDateTime` uses Indian English (`15 Oct 2026, 9:30 pm`, and en-IN's own `Sept`).
+- **Zones are IANA names only.** `isValidTimeZone` takes `Area/Location` names and `UTC`, and refuses offsets
+  (`+05:30`) and abbreviations (`IST`, `EST`), which the runtime would otherwise accept and map unpredictably.
+- **Calendar dates have no time**: a departure on 15 October is `"2026-10-15"` (`CalendarDate`, Postgres `date`),
+  never a midnight instant that shifts with the zone. `startOfDayIn` handles daylight saving, including zones that
+  skip midnight.
+- **Phone numbers are saved in E.164** (`+919876543210`). The `phoneNumber` contract normalises what people type,
+  with India as the default country, and refuses invalid numbers and extensions (E.164 can't hold them). It uses
+  libphonenumber-js's small metadata, which checks the country and the number's length, to keep the web app's bundle
+  small; the full metadata would also check number ranges.
+- **Translation (next-intl) arrives with the web app** in plan 5. Until then the kernel formats in Indian English.
+
 ## Context
 
 - Floats can't hold most paise amounts exactly (₹0.10 + ₹0.20 is not ₹0.30), and a GST invoice that is a paisa off
@@ -52,3 +68,7 @@ Date: 2026-10-15 · Status: accepted · Implements spec section 9.6
   into floats.
 - Rounding is visible at every call site that divides money, so reviewers can check it against the rule that
   applies (GST rounds each line half-up).
+- Code that counts days or years (document numbers, reminders, the subscription lifecycle) passes the
+  organization's time zone explicitly.
+- The validation helpers (GST, time zones, calendar dates, phone numbers) live in `@travel-crm/contracts/kernel`,
+  so a form and the domain can't disagree; the domain kernel re-exports the ones it uses.

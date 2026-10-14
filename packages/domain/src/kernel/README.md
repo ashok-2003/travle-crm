@@ -20,6 +20,18 @@ The shared kernel (spec 8, 9.6): building blocks every module uses. It imports n
     or IGST);
   - GST facts, from `@travel-crm/contracts/kernel`: `gstStates`, `GstStateCode`, `isGstStateCode`,
     `isUnionTerritoryWithoutLegislature`, `isValidGstin`, `gstStateCodeFromGstin`.
+- **Time** (instants in UTC, shown in the organization's zone):
+  - `calendarDateIn(instant, timeZone)` → `"2026-10-15"`, `yearIn(instant, timeZone)`,
+    `startOfDayIn(date, timeZone)` → the day's first instant;
+  - `formatDateTime(instant, { timeZone, style })` with `style` `"date"` (15 Oct 2026), `"time"` (9:30 pm) or
+    `"date-time"` (15 Oct 2026, 9:30 pm);
+  - `CalendarDate` (a checked `YYYY-MM-DD` day, for departure dates), `parseCalendarDate(text)`;
+  - `isValidTimeZone(name)`, from `@travel-crm/contracts/kernel`.
+- **Phone numbers** are normalised at the API boundary: `phoneNumber` and `toE164(text, defaultCountry?)` in
+  `@travel-crm/contracts/kernel`.
+
+`@travel-crm/contracts/kernel` also has the fields forms use: `moneyField`, `rupeesText`, `gstStateCode`, `gstin`,
+`calendarDate`, `timeZoneName`, `phoneNumber`.
 
 ## Events
 
@@ -32,3 +44,6 @@ None.
 - Mixing currencies throws. Results too large to hold exactly throw `RangeError`.
 - The tax engine takes the place of supply and each item's rate from the caller: it holds no place-of-supply rules
   and no list of slabs, so a rate change needs no code change.
+- Time zones are IANA names (`Asia/Kolkata`); offsets and abbreviations (`+05:30`, `IST`) are refused, because they
+  don't say what happens when a zone's rules change. Every time function throws `RangeError` for one.
+- Count days and years in the organization's zone, never in UTC: at 18:30 UTC it is already tomorrow in India.
