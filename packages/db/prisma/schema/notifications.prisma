@@ -24,10 +24,15 @@ model Notification {
   /// When a delivery took the email to send it. A claim older than the lease (5 minutes) with nothing sent is
   /// taken over: its run crashed. It is cleared when the send fails.
   emailClaimedAt  DateTime? @map("email_claimed_at") @db.Timestamptz(6)
+  /// When the email was refused for good (a bad message, not a down server): it is not tried again. Clears the claim.
+  emailFailedAt   DateTime? @map("email_failed_at") @db.Timestamptz(6)
   /// When the push went out to at least one browser. Set only after a send succeeded.
   pushedAt        DateTime? @map("pushed_at") @db.Timestamptz(6)
   /// As email_claimed_at, for the push.
   pushClaimedAt   DateTime? @map("push_claimed_at") @db.Timestamptz(6)
+  /// When the push was given up on for good: refused as a bad message, or there was no browser left to send to
+  /// (every one had been forgotten by its push service). Not tried again.
+  pushFailedAt    DateTime? @map("push_failed_at") @db.Timestamptz(6)
 
   /// One notification per (event, person): what keeps an at-least-once listener from notifying twice.
   @@unique([organizationId, sourceEventId, recipientUserId])

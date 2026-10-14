@@ -27,8 +27,10 @@ Date: 2026-10-15 · Status: accepted · Implements spec section 9.4
   sending asks to be retried instead of assuming the send happened. The cost is that a crash between the send and
   recording it can still repeat one email or push, which is the at-least-once guarantee.
 - **Email and push are independent**, and so is each browser: one failing doesn't stop the rest, and the push is done
-  once one browser got it. A failure that can never succeed (a header that is refused, an oversized push, a 5xx from
-  the mail server) is logged with ids only and not retried.
+  once one browser got it. A failure that can never succeed (a header that is refused, an oversized push, the mail
+  server refusing this message with a 5xx `EENVELOPE`/`EMESSAGE`) is recorded in `email_failed_at` / `push_failed_at`,
+  logged with ids and codes only, and not retried. A rejected login (EAUTH) is about our setup, not the message, so it
+  retries. Each SMTP send has a 60 second overall deadline.
 - **`notify()` is idempotent per source event.** A listener passes the event's id; `(organization, source event,
 person)` is unique, so a repeat adds no second notification. Requests pass none, and nulls stay distinct.
 - **Only active members are notified.** Delivery asks identity's `memberContacts`, which leaves out people who have

@@ -14,8 +14,8 @@ describe("claiming deliveries", () => {
 
   it("sends once when the same delivery runs twice at the same time, to each browser once", async () => {
     const asha = kit.addMember("asha@agency.example");
-    await kit.subscribe(asha, "phone");
-    await kit.subscribe(asha, "laptop");
+    const phone = await kit.subscribe(asha, "phone");
+    const laptop = await kit.subscribe(asha, "laptop");
     const { event } = await kit.notifyMember(asha);
     const slowEmail: EmailSender = {
       send: async (message) => {
@@ -30,9 +30,11 @@ describe("claiming deliveries", () => {
     ]);
 
     expect(kit.email.sent).toHaveLength(1);
-    expect(kit.push.sent).toHaveLength(2);
-    // The run that lost a claim to a run still sending asks to be retried, rather than assume it went out.
-    expect(runs.filter((run) => run.status === "rejected").length).toBeLessThanOrEqual(1);
+    expect(kit.push.sent.map((sent) => sent.subscription.endpoint).sort()).toEqual([laptop, phone].sort());
+    // A run that lost a claim to a run still sending asks to be retried, rather than assume it went out.
+    for (const run of runs) {
+      if (run.status === "rejected") expect(String(run.reason)).toMatch(/another run/);
+    }
   });
 
   it("takes over a claim older than the lease when nothing was sent, as its run must have crashed", async () => {

@@ -1,7 +1,7 @@
 // What the delivery tests share: a database, an organization, memory email and push senders, and members to notify.
 // Every test makes its own members, so tests don't depend on each other or on their order.
 import { randomUUID } from "node:crypto";
-import { createDatabase, type Database } from "@travel-crm/db";
+import { createDatabase, type Database, type OrgTx } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { createMemoryEmailSender, type MemoryEmailSender } from "@travel-crm/integrations/email";
@@ -43,8 +43,10 @@ export interface DeliveryKit {
   row(id: string): Promise<{
     emailedAt: Date | null;
     emailClaimedAt: Date | null;
+    emailFailedAt: Date | null;
     pushedAt: Date | null;
     pushClaimedAt: Date | null;
+    pushFailedAt: Date | null;
   }>;
 }
 
@@ -126,7 +128,14 @@ export function useDeliveryKit(name: string): DeliveryKit {
     kit.db.forOrg(kit.organizationId, (tx) =>
       tx.notification.findUniqueOrThrow({
         where: { id },
-        select: { emailedAt: true, emailClaimedAt: true, pushedAt: true, pushClaimedAt: true },
+        select: {
+          emailedAt: true,
+          emailClaimedAt: true,
+          emailFailedAt: true,
+          pushedAt: true,
+          pushClaimedAt: true,
+          pushFailedAt: true,
+        },
       }),
     );
 
@@ -136,4 +145,37 @@ export function useDeliveryKit(name: string): DeliveryKit {
 /** Runs the delivery listener on an event, as the worker would. */
 export function deliver(kit: DeliveryKit, event: DomainEvent, overrides: Partial<DeliveryDependencies> = {}) {
   return deliverNotificationListener(kit.dependencies(overrides)).handle(event, kit.context());
+}
+
+/**
+ * A listener context whose database breaks in one place: "pushSubscription" can't delete rows, and "releasing" can't
+ * clear an email claim. Everything else works.
+ */
+export function failing(kit: DeliveryKit, what: "pushSubscription" | "releasing"): ListenerContext {
+  const broken = () => Promise.reject(new Error("db down"));
+  return {
+    actor: kit.context().actor,
+    forOrg: (fn) =>
+      kit.context().forOrg((tx) =>
+        fn(
+          new Proxy(tx, {
+            get(target, property, receiver) {
+              if (what === "pushSubscription" && property === "pushSubscription") {
+                return { ...target.pushSubscription, deleteMany: broken };
+              }
+              if (what === "releasing" && property === "notification") {
+                return {
+                  ...target.notification,
+                  updateMany: (args: Parameters<OrgTx["notification"]["updateMany"]>[0]) =>
+                    "emailClaimedAt" in args.data && args.data.emailClaimedAt === null
+                      ? broken()
+                      : target.notification.updateMany(args),
+                };
+              }
+              return Reflect.get(target, property, receiver) as unknown;
+            },
+          }),
+        ),
+      ),
+  };
 }

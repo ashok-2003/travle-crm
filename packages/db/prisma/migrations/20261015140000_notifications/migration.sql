@@ -12,8 +12,10 @@ CREATE TABLE "notification" (
     "source_event_id" UUID,
     "emailed_at" TIMESTAMPTZ(6),
     "email_claimed_at" TIMESTAMPTZ(6),
+    "email_failed_at" TIMESTAMPTZ(6),
     "pushed_at" TIMESTAMPTZ(6),
     "push_claimed_at" TIMESTAMPTZ(6),
+    "push_failed_at" TIMESTAMPTZ(6),
 
     CONSTRAINT "notification_pkey" PRIMARY KEY ("id")
 );
@@ -80,4 +82,4 @@ ALTER TABLE "notification_preference"
 -- A notification is the record that something happened: the api and worker may mark it read, claim its deliveries
 -- and record them, and change or delete nothing else.
 REVOKE UPDATE, DELETE ON TABLE "notification" FROM app_runtime;
-GRANT UPDATE (read_at, emailed_at, email_claimed_at, pushed_at, push_claimed_at) ON TABLE "notification" TO app_runtime;
+GRANT UPDATE (read_at, emailed_at, email_claimed_at, email_failed_at, pushed_at, push_claimed_at, push_failed_at) ON TABLE "notification" TO app_runtime;
