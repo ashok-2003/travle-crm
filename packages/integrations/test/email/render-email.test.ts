@@ -1,7 +1,7 @@
 // The email layout escapes every value, shows the action as a button and a plain link, and names the product.
 import { brand } from "@travel-crm/brand";
 import { describe, expect, it } from "vitest";
-import { renderEmail } from "../../src/email/index.js";
+import { renderEmail, senderNameFor } from "../../src/email/index.js";
 
 describe("renderEmail", () => {
   it("lays out the heading, paragraphs, action and footer in HTML and plain text", () => {
@@ -53,5 +53,10 @@ describe("renderEmail", () => {
     const content = { heading: "x", paragraphs: [], footer: "y" };
     expect(() => renderEmail({ ...content, action: { label: "Open", url: "javascript:alert(1)" } })).toThrow(/http/);
     expect(() => renderEmail({ ...content, action: { label: "Open", url: "/relative" } })).toThrow(/http/);
+  });
+
+  it("names the sender as the organization via the product, on one line", () => {
+    expect(senderNameFor("Sharma Travels")).toBe(`Sharma Travels via ${brand.emailSenderName}`);
+    expect(senderNameFor(" Sharma\n  Travels ")).toBe(`Sharma Travels via ${brand.emailSenderName}`);
   });
 });
