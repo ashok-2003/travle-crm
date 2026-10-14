@@ -3,8 +3,8 @@
 //   without row-level security;
 // - a unique constraint without it tells one organization that another already uses a value;
 // - with no foreign key from organization_id to organization, a row could name an organization that doesn't exist.
-// The primary key on `id` alone is the exception: random UUIDs reveal nothing. Each check has a probe (run in a
-// rolled-back migrator transaction) proving it fires.
+// The primary key on `id` alone is the exception: random UUIDs reveal nothing. It also fails when a key to organization
+// cascades a deletion. Each check has a probe (run in a rolled-back migrator transaction) proving it fires.
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { createPrismaClient } from "../src/client.js";
 import type { Prisma } from "../src/generated/prisma/client.js";
