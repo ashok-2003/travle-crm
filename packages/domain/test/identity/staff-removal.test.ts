@@ -4,8 +4,10 @@ import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platfo
 import { afterAll, beforeAll, describe, expect, inject, it, onTestFinished, vi } from "vitest";
 import type { MemberAccess } from "../../src/identity/member-access.js";
 import {
+  canSignInByUsername,
   createTestAgency,
   createTestIdentity,
+  memberAccessOf,
   signInByEmail,
   type TestAgency,
   type TestIdentity,
@@ -17,20 +19,10 @@ describe("removing staff", () => {
   let agency: TestAgency;
   let owner: MemberAccess;
 
-  async function accessOf(userId: string, organizationId = agency.organizationId): Promise<MemberAccess> {
-    const access = await test.identity.resolveAccess(userId, organizationId);
-    if (!access) throw new Error("no access");
-    return access;
-  }
-
-  /** Signs in with organization code and username through Better Auth; true when it succeeds. */
-  async function canSignInByUsername(code: string, username: string, password: string): Promise<boolean> {
-    const response = await test.identity.auth.api.signInUsername({
-      body: { username: `${code}:${username}`.toLowerCase(), password },
-      asResponse: true,
-    });
-    return response.ok;
-  }
+  const accessOf = (userId: string, organizationId = agency.organizationId) =>
+    memberAccessOf(test.identity, userId, organizationId);
+  const canSignIn = (code: string, username: string, password: string) =>
+    canSignInByUsername(test.identity, code, username, password);
 
   beforeAll(async () => {
     platform = createPlatformClient(inject("dbUrls").platform);
@@ -124,7 +116,7 @@ describe("removing staff", () => {
     expect(await test.identity.resolveAccess(kiran.userId, agency.organizationId)).toBeNull();
     expect(await test.database.client.session.count({ where: { userId: kiran.userId } })).toBe(0);
     await expect(signInByEmail(test.identity, email, "kiran-temp-pass-1")).rejects.toThrow(/Sign-in failed/);
-    expect(await canSignInByUsername(agency.code, "kiran", "kiran-temp-pass-1")).toBe(false);
+    expect(await canSignIn(agency.code, "kiran", "kiran-temp-pass-1")).toBe(false);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("User not found"));
 
     expect(await test.database.client.user.findUnique({ where: { id: kiran.userId } })).toMatchObject({

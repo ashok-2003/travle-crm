@@ -5,6 +5,7 @@ import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platfo
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import type { Actor } from "../../src/kernel/index.js";
+import { backendPid, waitUntilBlockedBy } from "../lock-waits.js";
 import {
   createShareLink,
   findShareLink,
@@ -218,23 +219,20 @@ describe("share links", () => {
 
   it("makes a concurrent revoke wait for the first and then change nothing", async () => {
     const link = await share();
-    const waitingLocks = async () =>
-      Number((await platform.$queryRaw<{ n: bigint }[]>`SELECT count(*) AS n FROM pg_locks WHERE NOT granted`)[0]?.n);
-    const baseline = await waitingLocks();
     let release: () => void = () => undefined;
     const mayCommit = new Promise<void>((resolve) => {
       release = resolve;
     });
-    let firstHasRevoked: () => void = () => undefined;
-    const firstRevoked = new Promise<void>((resolve) => {
+    let firstHasRevoked: (holder: number) => void = () => undefined;
+    const firstRevoked = new Promise<number>((resolve) => {
       firstHasRevoked = resolve;
     });
     const first = db.forOrg(agent.organizationId, async (tx) => {
       await revokeShareLink(tx, agent, { shareLinkId: link.shareLinkId });
-      firstHasRevoked();
+      firstHasRevoked(await backendPid(tx));
       await mayCommit;
     });
-    await firstRevoked;
+    const holder = await firstRevoked;
     let secondDone = false;
     const second = db
       .forOrg(agent.organizationId, (tx) =>
@@ -243,10 +241,7 @@ describe("share links", () => {
       .then(() => {
         secondDone = true;
       });
-    for (let attempt = 0; attempt < 200 && (await waitingLocks()) <= baseline; attempt += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 25));
-    }
-    expect(await waitingLocks()).toBeGreaterThan(baseline);
+    await waitUntilBlockedBy(platform, holder);
     expect(secondDone).toBe(false);
     release();
     await Promise.all([first, second]);
