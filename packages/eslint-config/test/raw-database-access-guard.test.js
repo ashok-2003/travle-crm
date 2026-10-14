@@ -94,6 +94,12 @@ describe("raw database access guard", () => {
     "update Organization set name = ${name}",
     "DELETE FROM invitation",
     "SELECT id, user_id FROM member\n    WHERE role = ${ownerKey} ORDER BY id FOR UPDATE",
+    // Anywhere in a FROM list, and after USING.
+    "SELECT r.name FROM role r, member m WHERE m.role = r.key",
+    'SELECT 1 FROM lead AS l, "public"."user" u WHERE u.id = l.assigned_to_id',
+    "SELECT 1 FROM lead l, role, session s",
+    "UPDATE lead SET note = ${note} FROM role r, account a WHERE a.user_id = lead.assigned_to_id",
+    "DELETE FROM lead USING member WHERE lead.assigned_to_id = member.user_id",
   ];
 
   it.each(signInTableQueries)("reports %s outside the identity module", async (sql) => {
@@ -115,6 +121,18 @@ describe("raw database access guard", () => {
     }
     const roleLock = 'await tx.$queryRaw`SELECT id FROM "role" WHERE key = ${key} AND deleted_at IS NULL FOR SHARE`;';
     expect(await rulesReportedFor(roleLock)).toEqual([]);
+  });
+
+  it("does not flag sign-in names used as columns, in FROM lists or after USING", async () => {
+    for (const sql of [
+      "SELECT * FROM attachment WHERE organization_id = ${organizationId}::uuid",
+      "SELECT a.id FROM attachment a, lead l WHERE a.user_id = l.assigned_to_id",
+      "SELECT * FROM lead JOIN note USING (user_id)",
+      "DELETE FROM lead USING lead_archive WHERE lead.id = lead_archive.id",
+      "SELECT id FROM lead ORDER BY created_at, organization_id",
+    ]) {
+      expect(await rulesReportedFor("await tx.$queryRaw`" + sql + "`;")).toEqual([]);
+    }
   });
 
   it("still reports switching the organization inside the identity module", async () => {

@@ -14,13 +14,16 @@ const organizationSwitchMessage =
   "CREATE TEMP). Inside db.forOrg() the organization is meant to stay fixed for the transaction. This rule is a " +
   "tripwire against accidental use; Postgres row-level security is the real boundary.";
 
-// Matches a tagged $queryRaw/$executeRaw that reads or writes one of Better Auth's sign-in tables (FROM, JOIN, UPDATE
-// or INTO the table, quoted or not, optionally in "public"). OrgTx hides those models, but not the raw-SQL methods, and
-// the tables have no row-level security, so raw SQL is the remaining way in.
+// Matches a tagged $queryRaw/$executeRaw that reads or writes one of Better Auth's sign-in tables: after JOIN, UPDATE
+// or INTO, or anywhere in the comma-separated table list after FROM or USING (each earlier entry a table, maybe with an
+// alias), quoted or not, optionally in "public". Column names such as organization_id never match: the table name must
+// end there. OrgTx hides those models, but not the raw-SQL methods, and the tables have no row-level security, so raw
+// SQL is the remaining way in.
+const tableReference = '("?public"?\\.)?"?\\w+"?(\\s+(as\\s+)?\\w+)?';
 const signInTableSelector =
   "TaggedTemplateExpression[tag.property.name=/^\\$(queryRaw|executeRaw)$/] " +
-  'TemplateElement[value.raw=/\\b(from|join|update|into)\\s+("?public"?\\.)?"?' +
-  '(user|session|account|verification|two_factor|organization|member|invitation)"?\\b/i]';
+  `TemplateElement[value.raw=/\\b((from|using)\\s+(${tableReference}\\s*,\\s*)*|(join|update|into)\\s+)` +
+  '("?public"?\\.)?"?(user|session|account|verification|two_factor|organization|member|invitation)"?\\b/i]';
 
 /** SQL that switches the organization or the session, in a template or a plain string. Every package but db keeps these. */
 export const organizationSwitchSelectors = [
