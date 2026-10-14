@@ -89,9 +89,12 @@ describe("Better Auth hardening", () => {
 
   it("refuses the admin endpoints to a user who has the admin role and also a membership", async () => {
     await test.database.client.user.update({ where: { id: agency.ownerUserId }, data: { role: "admin" } });
-    const headers = await signInByEmail(test.identity, agency.ownerEmail, agency.ownerPassword);
-    expect((await get("/admin/list-users", headers)).status).toBe(403);
-    await test.database.client.user.update({ where: { id: agency.ownerUserId }, data: { role: null } });
+    try {
+      const headers = await signInByEmail(test.identity, agency.ownerEmail, agency.ownerPassword);
+      expect((await get("/admin/list-users", headers)).status).toBe(403);
+    } finally {
+      await test.database.client.user.update({ where: { id: agency.ownerUserId }, data: { role: null } });
+    }
   });
 
   it("refuses the admin endpoints without a session", async () => {
@@ -103,21 +106,66 @@ describe("Better Auth hardening", () => {
     expect((await get("/admin/list-users", headers)).status).toBe(200);
   });
 
-  it("refuses to make a member a platform admin, even a removed one", async () => {
-    const headers = await platformAdminHeaders();
+  async function newMember(username: string) {
     const staff = await createStaffAccount(test.database, hashPassword, {
       organizationId: agency.organizationId,
-      name: "Leaver",
-      username: "leaver",
+      name: username,
+      username,
       roleKey: "sales",
-      password: "leaver-password-1",
+      password: `${username}-password-1`,
       mustChangePassword: false,
     });
     const member = await test.database.client.member.findFirstOrThrow({ where: { userId: staff.userId } });
-    const makeAdmin = (userId: string) => post("/admin/set-role", headers, { userId, role: "admin" });
-    expect((await makeAdmin(staff.userId)).status).toBe(403);
-    await test.database.client.member.update({ where: { id: member.id }, data: softDeleted(agency.ownerUserId) });
-    expect((await makeAdmin(staff.userId)).status).toBe(403);
+    return { userId: staff.userId, memberId: member.id };
+  }
+
+  async function expectRefusedAndUnchanged(response: Response, userId: string): Promise<void> {
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({ code: "MEMBERS_CANNOT_BE_PLATFORM_STAFF" });
+    const user = await test.database.client.user.findUniqueOrThrow({ where: { id: userId } });
+    expect(user.role ?? "").not.toMatch(/admin/);
+  }
+
+  it("refuses to make a member a platform admin, even a removed one", async () => {
+    const headers = await platformAdminHeaders();
+    const staff = await newMember("leaver");
+    const makeAdmin = () => post("/admin/set-role", headers, { userId: staff.userId, role: "admin" });
+    await expectRefusedAndUnchanged(await makeAdmin(), staff.userId);
+    await test.database.client.member.update({ where: { id: staff.memberId }, data: softDeleted(agency.ownerUserId) });
+    await expectRefusedAndUnchanged(await makeAdmin(), staff.userId);
+  });
+
+  it("refuses the set-role bypasses: array ids, comma-joined roles, role arrays and admin update-user", async () => {
+    const headers = await platformAdminHeaders();
+    const staff = await newMember("bypass");
+    await expectRefusedAndUnchanged(
+      await post("/admin/set-role", headers, { userId: [staff.userId], role: "admin" }),
+      staff.userId,
+    );
+    await expectRefusedAndUnchanged(
+      await post("/admin/set-role", headers, { userId: staff.userId, role: "admin,user" }),
+      staff.userId,
+    );
+    await expectRefusedAndUnchanged(
+      await post("/admin/set-role", headers, { userId: staff.userId, role: ["admin"] }),
+      staff.userId,
+    );
+    await expectRefusedAndUnchanged(
+      await post("/admin/update-user", headers, { userId: staff.userId, data: { role: "admin" } }),
+      staff.userId,
+    );
+  });
+
+  it("still lets a platform admin set a role on a person who has never been a member", async () => {
+    const headers = await platformAdminHeaders();
+    const outsider = await test.database.client.user.create({
+      data: { name: "Outsider", email: `outsider-${crypto.randomUUID()}@example.test` },
+    });
+    const response = await post("/admin/set-role", headers, { userId: outsider.id, role: "admin" });
+    expect(response.status).toBe(200);
+    const user = await test.database.client.user.findUniqueOrThrow({ where: { id: outsider.id } });
+    expect(user.role).toBe("admin");
+    await test.database.client.user.update({ where: { id: outsider.id }, data: { role: null } });
   });
 
   it("does not treat a removed member whose role was set to admin as platform staff", async () => {
@@ -173,5 +221,42 @@ describe("Better Auth hardening", () => {
 
     const member = await signInByEmail(test.identity, agency.ownerEmail, agency.ownerPassword);
     expect((await post("/admin/stop-impersonating", member, {})).status).toBe(403);
+  });
+
+  it("refuses a new password that only looks different after Unicode normalization", async () => {
+    const realHash = async (password: string) => (await test.identity.auth.$context).password.hash(password);
+    const email = `temp-${crypto.randomUUID()}@example.test`;
+    const staff = await createStaffAccount(test.database, realHash, {
+      organizationId: agency.organizationId,
+      name: "Temp",
+      email,
+      roleKey: "sales",
+      password: "temp-password-1",
+      mustChangePassword: true,
+    });
+    const headers = await signInByEmail(test.identity, email, "temp-password-1");
+    const response = await post("/change-password", headers, {
+      currentPassword: "temp-password-1",
+      newPassword: "temp-password-\uFF11",
+    });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: "NEW_PASSWORD_MUST_DIFFER" });
+    const user = await test.database.client.user.findUniqueOrThrow({ where: { id: staff.userId } });
+    expect(user.mustChangePassword).toBe(true);
+  });
+
+  it("keeps the other admin endpoints closed during impersonation", async () => {
+    const adminHeaders = await platformAdminHeaders();
+    const impersonation = await post("/admin/impersonate-user", adminHeaders, { userId: agency.ownerUserId });
+    expect(impersonation.status).toBe(200);
+    const jar = new Map<string, string>();
+    for (const pair of (adminHeaders.get("cookie") ?? "").split("; ")) jar.set(pair.split("=")[0] ?? "", pair);
+    for (const setCookie of impersonation.headers.getSetCookie()) {
+      const pair = setCookie.split(";")[0] ?? "";
+      jar.set(pair.split("=")[0] ?? "", pair);
+    }
+    const impersonating = new Headers({ cookie: [...jar.values()].join("; ") });
+    expect((await get("/admin/list-users", impersonating)).status).toBe(403);
+    expect((await post("/admin/stop-impersonating", impersonating, {})).status).toBe(200);
   });
 });

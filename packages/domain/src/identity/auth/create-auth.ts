@@ -136,7 +136,7 @@ function closeSideDoors(client: IdentityClient) {
     if (ctx.path === "/is-username-available") {
       throw new APIError("NOT_FOUND", { code: "NOT_FOUND", message: "Not found" });
     }
-    if (ctx.path === "/change-password" && body.newPassword === body.currentPassword) {
+    if (ctx.path === "/change-password" && isSamePassword(body.newPassword, body.currentPassword)) {
       throw new APIError("BAD_REQUEST", {
         code: "NEW_PASSWORD_MUST_DIFFER",
         message: "Choose a password different from the current one",
@@ -156,15 +156,45 @@ function closeSideDoors(client: IdentityClient) {
       if (!stoppingImpersonation && !(await isPlatformAdminUser(client, session.user.id))) {
         throw new APIError("FORBIDDEN", { code: "FORBIDDEN", message: "Platform staff only" });
       }
-      const roles = [body.role].flat();
-      if (ctx.path === "/admin/set-role" && roles.includes("admin") && typeof body.userId === "string") {
-        if (await hasEverBeenMember(client, body.userId)) {
-          throw new APIError("FORBIDDEN", {
-            code: "MEMBERS_CANNOT_BE_PLATFORM_STAFF",
-            message: "A person with a membership can't be platform staff",
-          });
-        }
+      if (await makesMemberPlatformAdmin(client, ctx.path, body)) {
+        throw new APIError("FORBIDDEN", {
+          code: "MEMBERS_CANNOT_BE_PLATFORM_STAFF",
+          message: "A person with a membership can't be platform staff",
+        });
       }
     }
   });
+}
+
+/** Better Auth hashes passwords after NFKC normalization, so look-alikes ("１" for "1") are the same password. */
+function isSamePassword(newPassword: unknown, currentPassword: unknown): boolean {
+  if (typeof newPassword !== "string" || typeof currentPassword !== "string") return false;
+  return newPassword.normalize("NFKC") === currentPassword.normalize("NFKC");
+}
+
+/**
+ * Whether an /admin request would give the admin role to a person who has (or had) a membership. Mirrors how Better
+ * Auth reads the request: the user id is coerced to a string, and a role string may hold several roles, comma-joined.
+ */
+async function makesMemberPlatformAdmin(
+  client: IdentityClient,
+  path: string,
+  body: Record<string, unknown>,
+): Promise<boolean> {
+  let requested: unknown;
+  if (path === "/admin/set-role") requested = body.role;
+  else if (path === "/admin/update-user") requested = (body.data as { role?: unknown } | null | undefined)?.role;
+  else return false;
+  const roles = typeof requested === "string" ? requested.split(",").map((role) => role.trim()) : [requested].flat();
+  const userId = coercedId(body.userId);
+  if (!roles.includes("admin") || userId === null) return false;
+  return hasEverBeenMember(client, userId);
+}
+
+/** The id the way Better Auth's z.coerce.string() reads it: arrays become their elements joined by commas. */
+function coercedId(value: unknown): string | null {
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return value.toString();
+  if (Array.isArray(value)) return value.map((item: unknown) => coercedId(item) ?? "").join(",");
+  return null;
 }

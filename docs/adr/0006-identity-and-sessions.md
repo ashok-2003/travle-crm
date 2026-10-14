@@ -34,7 +34,9 @@ Date: 2026-10-14 · Status: accepted · Implements spec sections 6.1 to 6.4
 - **Side doors closed** by a `hooks.before` middleware in `create-auth.ts`: `/update-user` refuses `username` and
   `displayUsername` (only our staff API changes them), `/is-username-available` is closed, `/change-password` refuses
   a new password equal to the current one, and every `/admin/*` path re-checks the caller against our definition of
-  platform staff (Better Auth checks `user.role` alone) and refuses to make a member a platform admin.
+  platform staff (Better Auth checks `user.role` alone) and refuses to make a member a platform admin. Better Auth's server-side
+  `auth.api.*` calls also run this hook, so a server-side admin call needs a platform admin's request headers; the
+  platform console in plan 4 calls with the signed-in admin's session.
 - **Hardening:** origin and CSRF checks pinned on; `/api/auth/organization/*` closed; trusted origins, secure cookies
   and the client-IP header come from the environment; production requires HTTPS and rate limiting.
 
