@@ -1,5 +1,6 @@
 // Removing staff against Postgres (spec 6.3, ADR 0007): the person loses access and sign-in at once, their email and
-// username are released, their browsers stop getting push, and an organization always keeps an Owner.
+// username are released, staff.removed is published for the modules that keep things about them, and an organization
+// always keeps an Owner.
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { afterAll, beforeAll, describe, expect, inject, it, onTestFinished, vi } from "vitest";
 import type { MemberAccess } from "../../src/identity/member-access.js";
@@ -24,16 +25,13 @@ describe("removing staff", () => {
   const canSignIn = (code: string, username: string, password: string) =>
     canSignInByUsername(test.identity, code, username, password);
 
-  /** Saves a browser's push subscription for userId, as notifications' savePushSubscription would. */
-  const subscribeBrowser = (userId: string, browser: string) =>
+  /** The staff.removed events published about one member. */
+  const removalEventsOf = (memberId: string) =>
     test.database.forOrg(agency.organizationId, (tx) =>
-      tx.pushSubscription.create({
-        data: { userId, endpoint: `https://fcm.googleapis.com/fcm/send/${browser}`, p256dh: "key", auth: "secret" },
+      tx.outboxEvent.findMany({
+        where: { type: "staff.removed", payload: { path: ["memberId"], equals: memberId } },
+        select: { payload: true },
       }),
-    );
-  const browsersOf = (userIds: string[]) =>
-    test.database.forOrg(agency.organizationId, (tx) =>
-      tx.pushSubscription.findMany({ where: { userId: { in: userIds } }, select: { userId: true, endpoint: true } }),
     );
 
   beforeAll(async () => {
@@ -66,7 +64,6 @@ describe("removing staff", () => {
       temporaryPassword: "sam-temp-pass-1",
     });
     await signInByEmail(test.identity, email, "sam-temp-pass-1");
-    await subscribeBrowser(created.userId, "sam-phone");
     const stateOf = async () => ({
       user: await test.database.client.user.findUniqueOrThrow({
         where: { id: created.userId },
@@ -75,7 +72,7 @@ describe("removing staff", () => {
       password: (await test.database.client.account.findFirstOrThrow({ where: { userId: created.userId } })).password,
       sessions: await test.database.client.session.count({ where: { userId: created.userId } }),
       member: await test.database.client.member.findUnique({ where: { id: created.memberId } }),
-      browsers: await browsersOf([created.userId]),
+      removalEvents: await removalEventsOf(created.memberId),
     });
     const before = await stateOf();
     expect(before).toMatchObject({ user: { email, username: expect.stringMatching(/:sam$/) as unknown }, sessions: 1 });
@@ -86,26 +83,17 @@ describe("removing staff", () => {
     expect(await stateOf()).toEqual(before);
   });
 
-  it("forgets the removed person's browsers, so no push reaches them, and keeps everyone else's", async () => {
-    const [leaving, staying] = await Promise.all(
-      ["leaving", "staying"].map((username) =>
-        test.identity.staff.create(owner, {
-          name: username,
-          username,
-          roleKey: "sales",
-          temporaryPassword: "temporary-pass-12",
-        }),
-      ),
-    );
-    if (!leaving || !staying) throw new Error("no staff");
-    await subscribeBrowser(leaving.userId, "leaving-phone");
-    await subscribeBrowser(leaving.userId, "leaving-laptop");
-    await subscribeBrowser(staying.userId, "staying-phone");
-
+  it("publishes staff.removed with the member's and user's ids, and nothing else", async () => {
+    const leaving = await test.identity.staff.create(owner, {
+      name: "Leela",
+      username: "leela",
+      roleKey: "sales",
+      temporaryPassword: "temporary-pass-12",
+    });
     await test.identity.staff.remove(owner, { memberId: leaving.memberId });
-
-    expect(await browsersOf([leaving.userId, staying.userId])).toEqual([
-      { userId: staying.userId, endpoint: "https://fcm.googleapis.com/fcm/send/staying-phone" },
+    // The notifications module listens, and forgets the person's browsers (ADR 0007).
+    expect(await removalEventsOf(leaving.memberId)).toEqual([
+      { payload: { memberId: leaving.memberId, userId: leaving.userId } },
     ]);
   });
 

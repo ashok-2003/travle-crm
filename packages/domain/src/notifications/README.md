@@ -16,13 +16,17 @@ in build step 2.
   `unreadCount(tx, actor)`, `markRead(tx, actor, { notificationIds } | { all: true })`.
 - Opt-outs: `setPreference(tx, actor, { channel, kind, optedOut })`, `listPreferences(tx, actor)`,
   `isOptedOut(preferences, channel, kind)`.
-- Push: `savePushSubscription(tx, actor, subscription)`, `removePushSubscription(tx, actor, { endpoint })`. Removing
-  a member (identity's `staff.remove`) deletes all their subscriptions in the same transaction.
+- Push: `savePushSubscription(tx, actor, subscription)`, `removePushSubscription(tx, actor, { endpoint })`.
+- `forgetPushSubscriptionsListener`: the worker's listener `notifications.forget-push-subscriptions`. When identity
+  removes a member (`staff.removed`), it deletes all their push subscriptions in the event's organization.
 - Type `Person`: an actor with a user id. A job has no bell (`FORBIDDEN`/`NOT_A_PERSON`).
 
 ## Events
 
 - Publishes `notification.created` (`{ notificationId, channels }`), handled by `notifications.deliver`.
+- Listens to `staff.removed` (`notifications.forget-push-subscriptions`): deletes the removed person's push
+  subscriptions. They go a moment after the removal, not with it, which is harmless: delivery already skips people who
+  have left. A rerun deletes nothing.
 
 ## Rules worth knowing
 

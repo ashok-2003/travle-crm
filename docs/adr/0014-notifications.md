@@ -57,4 +57,7 @@ person)` is unique, so a repeat adds no second notification. Requests pass none,
 
 - The routers for the bell, the settings and push subscriptions come with their screens in plan 5.
 - Retention: notifications are kept; a purge, if needed, runs as the platform role.
+- A removed member's push subscriptions are deleted by the `notifications.forget-push-subscriptions` listener of
+  identity's `staff.removed`, so eventually rather than in the removal's transaction (identity can't call
+  notifications, which depends on it). That is harmless: delivery already skips people who have left.
 - WhatsApp templates (build step 2) become a third channel with the same opt-out rules.
