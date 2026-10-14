@@ -17,7 +17,12 @@ export interface StoredObject {
 }
 
 export interface ObjectStorage {
-  /** A URL the browser PUTs exactly this file to: its size and content type are part of the signature. */
+  /**
+   * A URL the browser PUTs exactly this file to: its size and content type are part of the signature, and it
+   * refuses to replace a file already stored under key (the returned headers include `if-none-match: *`).
+   * Keys are refused with a RangeError when empty, over 1024 bytes, absolute, dotted, or holding control characters
+   * or backslashes; sizeBytes must be a positive safe integer and expiresInSeconds a positive integer up to 7 days.
+   */
   presignUpload(
     object: { key: string; contentType: string; sizeBytes: number },
     expiresInSeconds: number,

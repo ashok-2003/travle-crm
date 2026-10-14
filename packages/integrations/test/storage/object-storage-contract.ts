@@ -67,6 +67,68 @@ export function describeObjectStorage(name: string, start: () => Promise<Storage
       expect(await subject.storage.get("organizations/contract/attachments/missing")).toBeNull();
     });
 
+    it("refuses a second upload to a key that already holds a file", async () => {
+      const key = freshKey();
+      const upload = await subject.storage.presignUpload({ key, contentType: "application/pdf", sizeBytes: 5 }, 60);
+      expect(upload.headers).toMatchObject({ "if-none-match": "*" });
+      await subject.upload(upload, bytes("hello"), "application/pdf");
+      await expect(subject.upload(upload, bytes("HELLO"), "application/pdf")).rejects.toThrow();
+      expect(text(await subject.storage.get(key))).toBe("hello");
+    });
+
+    it("refuses keys that are empty, too long, absolute, dotted, or hold control characters", async () => {
+      const badKeys = [
+        "",
+        "a".repeat(1025),
+        "/organizations/x",
+        "organizations//x",
+        "organizations/./x",
+        "organizations/../x",
+        "organizations/x/",
+        "organizations/a\\b",
+        "organizations/a\nb",
+        "organizations/a\u0000b",
+        "organizations/a\u007fb",
+      ];
+      for (const key of badKeys) {
+        const label = JSON.stringify(key.slice(0, 40));
+        const object = { key, contentType: "application/pdf", sizeBytes: 5 };
+        await expect(subject.storage.presignUpload(object, 60), label).rejects.toBeInstanceOf(RangeError);
+        await expect(subject.storage.presignDownload({ key, fileName: "a.pdf" }, 60), label).rejects.toBeInstanceOf(
+          RangeError,
+        );
+        await expect(
+          subject.storage.put({ key, contentType: "application/pdf", body: bytes("x") }),
+          label,
+        ).rejects.toBeInstanceOf(RangeError);
+        await expect(subject.storage.head(key), label).rejects.toBeInstanceOf(RangeError);
+        await expect(subject.storage.get(key), label).rejects.toBeInstanceOf(RangeError);
+      }
+    });
+
+    it("refuses sizes that are not positive safe integers, and expiries outside 1 second to 7 days", async () => {
+      const key = freshKey();
+      for (const sizeBytes of [0, -1, 1.5, Number.NaN, Number.MAX_SAFE_INTEGER + 1]) {
+        await expect(
+          subject.storage.presignUpload({ key, contentType: "application/pdf", sizeBytes }, 60),
+          String(sizeBytes),
+        ).rejects.toBeInstanceOf(RangeError);
+      }
+      for (const seconds of [0, -5, 1.5, Number.NaN, 604_801]) {
+        await expect(
+          subject.storage.presignUpload({ key, contentType: "application/pdf", sizeBytes: 5 }, seconds),
+          String(seconds),
+        ).rejects.toBeInstanceOf(RangeError);
+        await expect(
+          subject.storage.presignDownload({ key, fileName: "a.pdf" }, seconds),
+          String(seconds),
+        ).rejects.toBeInstanceOf(RangeError);
+      }
+      await expect(subject.storage.presignDownload({ key, fileName: "a.pdf" }, 604_800)).resolves.toEqual(
+        expect.any(String),
+      );
+    });
+
     it("presigns a download URL", async () => {
       const url = await subject.storage.presignDownload({ key: freshKey(), fileName: "Quote.pdf" }, 60);
       expect(typeof url).toBe("string");

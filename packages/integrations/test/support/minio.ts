@@ -4,6 +4,7 @@ import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3";
 import { GenericContainer, Wait } from "testcontainers";
 import type { S3StorageSettings } from "../../src/storage/index.js";
 
+// Pinned by tag, not digest: the tag is the community build's own release name.
 export const MINIO_IMAGE = "pgsty/minio:RELEASE.2026-08-04T00-00-00Z";
 
 const USER = "minio-test";
@@ -31,6 +32,21 @@ export async function startMinio(bucket = "files"): Promise<TestMinio> {
     secretAccessKey: PASSWORD,
     forcePathStyle: true,
   };
+  try {
+    await createBucket(endpoint, settings, bucket);
+  } catch (error) {
+    await container.stop();
+    throw error;
+  }
+  return {
+    settings,
+    stop: async () => {
+      await container.stop();
+    },
+  };
+}
+
+async function createBucket(endpoint: string, settings: S3StorageSettings, bucket: string): Promise<void> {
   const admin = new S3Client({
     endpoint,
     region: settings.region,
@@ -42,10 +58,4 @@ export async function startMinio(bucket = "files"): Promise<TestMinio> {
   } finally {
     admin.destroy();
   }
-  return {
-    settings,
-    stop: async () => {
-      await container.stop();
-    },
-  };
 }
