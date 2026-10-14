@@ -1,0 +1,25 @@
+// The webhook intake (spec 9.7): every delivery a provider sends, stored raw before anything else happens.
+// No organization_id: the organization is unknown until the provider's handler reads the payload, so this table is
+// outside row-level security. Only the webhooks module reads it, through db.withoutOrg().
+
+/// One event from a provider, kept exactly as delivered. A repeated delivery of the same event is not stored again.
+model WebhookEvent {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  /// The provider's name, as in /webhooks/<provider>, e.g. "razorpay" (CHECK webhook_event_provider_format).
+  provider        String
+  /// The provider's own id for the event: repeats share it.
+  providerEventId String    @map("provider_event_id")
+  eventType       String    @map("event_type")
+  receivedAt      DateTime  @default(now()) @map("received_at") @db.Timestamptz(6)
+  /// Only the headers the provider names, never cookies or authorization.
+  headers         Json
+  /// The raw body exactly as received: the signature was computed over it.
+  payload         String
+  processedAt     DateTime? @map("processed_at") @db.Timestamptz(6)
+  /// Processing attempts so far, failed ones included.
+  attempts        Int       @default(0)
+  lastError       String?   @map("last_error")
+
+  @@unique([provider, providerEventId])
+  @@map("webhook_event")
+}

@@ -35,6 +35,19 @@ Date: 2026-10-15 · Status: accepted · Implements spec sections 9.3 (share link
   for expired or revoked, with `Cache-Control: no-store`, `Referrer-Policy: no-referrer` and `X-Robots-Tag: noindex`.
 - **Links are revoked, never edited or deleted**: the runtime role may update only `revoked_at` and `revoked_by`.
 
+### The webhook intake
+
+- **`POST /webhooks/<provider>`**, in the spec's order: verify the signature, store the raw payload, queue a job,
+  reply 200; the job then processes the event, once. An unknown provider is 404, a bad signature 401 (nothing
+  stored), an event the provider can't identify 400, and a body over 1 MB 413 before it is read in full.
+- **Providers plug in** as `WebhookProvider` objects: `verify`, `identify` (the provider's event id and type) and
+  `process` (in the worker). `hmacSha256Signature(...)` builds `verify` for the common HMAC-of-the-body scheme,
+  compared in constant time.
+- **`webhook_event`** keeps every event: the raw body exactly as received, the headers the provider names (never
+  cookies or authorization), attempts and the last error. `@@unique([provider, providerEventId])` ignores repeats; the
+  `webhooks.process` job's id is the event's id, so a repeat queues nothing new, and a repeat of an event whose job was
+  never queued queues it then.
+
 ## Context
 
 - **Why Postgres, not memory.** Containers are stateless and run as several copies (spec 12.3): a limit kept in one
@@ -48,7 +61,19 @@ Date: 2026-10-15 · Status: accepted · Implements spec sections 9.3 (share link
   32-byte secret is), so carrying it costs nothing and keeps every share-link query inside `db.forOrg()`.
 - **Why 410 for expired and revoked links.** The customer's next step differs from a mistyped link ("ask for a new
   one"), and knowing that a random 32-byte secret once existed tells an attacker nothing useful.
+- **Why webhook events have no organization and no row-level security.** The organization is known only once the
+  provider's handler has read the payload (a WhatsApp number, a Razorpay account). The table holds raw provider data,
+  so only the webhooks module reads it, through `db.withoutOrg()`; each provider's `process` moves what it needs into
+  organization tables inside `db.forOrg()`.
+- **Why store before replying.** Providers retry until they get a 2xx. Storing first means a 200 is never sent for an
+  event we could lose, and a crash after storing is recovered by the provider's own retry (the repeat queues the job).
+- **The raw body is kept as text.** Providers send UTF-8 JSON, and the signature is checked over the same text.
 
 ## Consequences
 
-- Old windows are deleted when their key is hit again; `purgeExpired` (scheduled daily by the worker) clears the rest.
+- Public forms get Turnstile (spec 9.7) when the first form arrives with its screen (plan 5); the rate limit here
+  applies to them too.
+- Stored webhook payloads are kept; a retention purge for them comes with the first real provider (step 2, WhatsApp),
+  which knows how long its data must live.
+- Old rate-limit windows are deleted when their key is hit again; `purgeExpired` (scheduled daily by the worker)
+  clears the rest.
