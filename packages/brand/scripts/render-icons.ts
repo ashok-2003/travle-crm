@@ -1,6 +1,6 @@
 // Renders the favicon, the home-screen icons and the PWA manifest's icons from assets/logo.svg (spec 10).
 // Build-time only: it uses @resvg/resvg-js, a dev dependency, which is why it lives outside src/.
-import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Resvg } from "@resvg/resvg-js";
 import { brandAssets } from "../src/assets.js";
@@ -56,6 +56,8 @@ function iconSvg(logo: { viewBox: string; drawing: string }, icon: PngIcon): str
  * icons, one image), one 16-byte directory entry (size, colour planes, bits per pixel, length, offset 22), the PNG.
  */
 export function icoFromPng(png: Uint8Array, size: number): Uint8Array {
+  // ICO stores 256 as 0 and we only ever write the 32-pixel favicon, so larger sizes are refused.
+  if (size > 255) throw new RangeError(`An .ico entry holds at most 255 pixels here, got ${String(size)}`);
   const header = Buffer.alloc(22);
   header.writeUInt16LE(0, 0);
   header.writeUInt16LE(1, 2);
@@ -71,14 +73,21 @@ export function icoFromPng(png: Uint8Array, size: number): Uint8Array {
   return Buffer.concat([header, png]);
 }
 
-/** Writes every icon into outputDirectory (created if missing) and returns the file names written. */
+/** Writes every icon into outputDirectory (emptied first, created if missing) and returns the file names written. */
 export async function generateIcons(outputDirectory: string): Promise<string[]> {
+  // Start clean so a renamed or removed icon leaves no stale file. Only this folder is removed.
+  await rm(outputDirectory, { recursive: true, force: true });
   await mkdir(outputDirectory, { recursive: true });
   const logo = parseLogo(await readFile(brandAssets.logo, "utf8"));
   const written: string[] = [];
 
   for (const icon of pngIcons) {
-    const png = new Resvg(iconSvg(logo, icon)).render().asPng();
+    const png = new Resvg(iconSvg(logo, icon), {
+      // The logo has no text; never read system fonts, so the output is the same on every machine.
+      font: { loadSystemFonts: false },
+    })
+      .render()
+      .asPng();
     await writeFile(path.join(outputDirectory, icon.fileName), png);
     written.push(icon.fileName);
     if (icon.size === FAVICON_SIZE) {

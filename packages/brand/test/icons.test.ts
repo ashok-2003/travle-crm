@@ -1,10 +1,10 @@
 // The build turns the logo into the favicon, the home-screen icons and the PWA manifest's icons, at the right sizes.
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { inflateSync } from "node:zlib";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { generateIcons } from "../scripts/render-icons.js";
+import { generateIcons, icoFromPng } from "../scripts/render-icons.js";
 import { brand, brandAssets, pwaIcons } from "../src/index.js";
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -26,6 +26,45 @@ function readPng(png: Buffer): { width: number; height: number; topLeft: number[
   // The first row's first pixel is stored as is whatever the row's filter: there is no pixel left of or above it.
   const rows = inflateSync(Buffer.concat(pixelData));
   return { width, height, topLeft: [...rows.subarray(1, 5)] };
+}
+
+/** All pixels of an 8-bit RGBA PNG, with the row filters undone. Returns the pixel at (x, y) as [r, g, b, a]. */
+function decodePng(png: Buffer): { width: number; height: number; pixel: (x: number, y: number) => number[] } {
+  const { width, height } = readPng(png);
+  const chunks: Buffer[] = [];
+  for (let offset = 8; offset < png.length;) {
+    const length = png.readUInt32BE(offset);
+    if (png.toString("latin1", offset + 4, offset + 8) === "IDAT")
+      chunks.push(png.subarray(offset + 8, offset + 8 + length));
+    offset += 12 + length;
+  }
+  const raw = inflateSync(Buffer.concat(chunks));
+  const stride = width * 4;
+  const out = Buffer.alloc(stride * height);
+  for (let row = 0; row < height; row++) {
+    const filter = raw[row * (stride + 1)];
+    for (let i = 0; i < stride; i++) {
+      const byte = raw[row * (stride + 1) + 1 + i] ?? 0;
+      const left = i >= 4 ? (out[row * stride + i - 4] ?? 0) : 0;
+      const up = row > 0 ? (out[(row - 1) * stride + i] ?? 0) : 0;
+      const upLeft = row > 0 && i >= 4 ? (out[(row - 1) * stride + i - 4] ?? 0) : 0;
+      let predicted = 0;
+      if (filter === 1) predicted = left;
+      else if (filter === 2) predicted = up;
+      else if (filter === 3) predicted = (left + up) >> 1;
+      else if (filter === 4) {
+        const estimate = left + up - upLeft;
+        const [dLeft, dUp, dUpLeft] = [left, up, upLeft].map((value) => Math.abs(estimate - value)) as [
+          number,
+          number,
+          number,
+        ];
+        predicted = dLeft <= dUp && dLeft <= dUpLeft ? left : dUp <= dUpLeft ? up : upLeft;
+      }
+      out[row * stride + i] = (byte + predicted) & 255;
+    }
+  }
+  return { width, height, pixel: (x, y) => [...out.subarray(y * stride + x * 4, y * stride + x * 4 + 4)] };
 }
 
 /** "#1a1a1a" as an opaque RGBA pixel. */
@@ -91,6 +130,48 @@ describe("generated icons", () => {
 
   it("copies the logo as the SVG favicon", async () => {
     expect(await read("favicon.svg")).toEqual(await readFile(brandAssets.logo));
+  });
+
+  it("draws the mark: the middle of each icon holds pixels unlike its corner", async () => {
+    for (const fileName of [
+      "favicon-32.png",
+      "apple-touch-icon.png",
+      "icon-192.png",
+      "icon-512.png",
+      "icon-maskable-512.png",
+    ]) {
+      const { width, height, pixel } = decodePng(await read(fileName));
+      const corner = pixel(0, 0).join();
+      let differing = 0;
+      for (let y = height >> 2; y < height - (height >> 2); y++) {
+        for (let x = width >> 2; x < width - (width >> 2); x++) {
+          if (pixel(x, y).join() !== corner) differing++;
+        }
+      }
+      expect(differing, fileName).toBeGreaterThan(0);
+    }
+  });
+
+  it("keeps the maskable icon's edges all ink, so the mark sits inside the safe zone", async () => {
+    const { width, height, pixel } = decodePng(await read("icon-maskable-512.png"));
+    const ink = opaque(brand.colours.ink);
+    for (let i = 0; i < width; i++) {
+      expect(pixel(i, 0)).toEqual(ink);
+      expect(pixel(i, height - 1)).toEqual(ink);
+      expect(pixel(0, i)).toEqual(ink);
+      expect(pixel(width - 1, i)).toEqual(ink);
+    }
+  });
+
+  it("clears stale files from the output folder", async () => {
+    const stale = path.join(directory, "old-icon.png");
+    await writeFile(stale, "stale");
+    await generateIcons(directory);
+    await expect(readFile(stale)).rejects.toThrow();
+  });
+
+  it("refuses an .ico size above 255", () => {
+    expect(() => icoFromPng(new Uint8Array(1), 256)).toThrow(RangeError);
   });
 
   it("lists, for the PWA manifest, exactly the icons it wrote", async () => {
