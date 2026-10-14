@@ -5753,7 +5753,7 @@ describe("file inputs", () => {
   });
 
   it("refuses names with folders, control characters or text-direction tricks", () => {
-    for (const fileName of ["../passport.pdf", "a/b.pdf", "a\\b.pdf", "line\nbreak.pdf", "invoice‮fdp.exe", "   "]) {
+    for (const fileName of ["../passport.pdf", "a/b.pdf", "a\\b.pdf", "line\nbreak.pdf", "invoice\u202Efdp.exe", "   "]) {
       expect(requestUploadInput.safeParse({ ...passport, fileName }).success, JSON.stringify(fileName)).toBe(false);
     }
     expect(requestUploadInput.safeParse({ ...passport, fileName: `${"a".repeat(197)}.pdf` }).success).toBe(false);
@@ -5835,7 +5835,7 @@ export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 export const recordType = z.string().regex(/^[a-z][a-z_]{1,39}$/, "Use lower-case letters and underscores");
 
 /**
- * The name a file downloads as. No folders, and no control or text-direction characters: "invoice‮fdp.exe"
+ * The name a file downloads as. No folders, and no control or text-direction characters: "invoice\u202Efdp.exe"
  * shows as "invoiceexe.pdf".
  */
 export const attachmentFileName = z
@@ -5843,7 +5843,7 @@ export const attachmentFileName = z
   .trim()
   .min(1)
   .max(200)
-  .refine((name) => !/[/\\\p{Cc}‪-‮⁦-⁩]/u.test(name), "Use a file name without folders or control characters");
+  .refine((name) => !/[/\\\p{Cc}\u202A-\u202E\u2066-\u2069]/u.test(name), "Use a file name without folders or control characters");
 
 export const requestUploadInput = z.strictObject({
   recordType,
@@ -9908,7 +9908,7 @@ describe("share-link contracts", () => {
     const valid = { recordType: "issued_document", recordId, label: "Quote" };
     expect(createShareLinkInput.safeParse({ ...valid, recordType: "Issued-Document" }).success).toBe(false);
     expect(createShareLinkInput.safeParse({ ...valid, label: " " }).success).toBe(false);
-    expect(createShareLinkInput.safeParse({ ...valid, label: "a‮b" }).success).toBe(false);
+    expect(createShareLinkInput.safeParse({ ...valid, label: "a\u202Eb" }).success).toBe(false);
     expect(createShareLinkInput.safeParse({ ...valid, label: "x".repeat(201) }).success).toBe(false);
     expect(createShareLinkInput.safeParse({ ...valid, organizationId: recordId }).success).toBe(false);
     expect(createShareLinkInput.safeParse({ ...valid, expiresAt: "next week" }).success).toBe(false);
@@ -9954,7 +9954,7 @@ import { z } from "zod";
 export const shareableRecordType = z.string().regex(/^[a-z][a-z_]{1,39}$/, "Use a record type like issued_document");
 
 /** No control characters or bidi overrides (they can disguise what was shared), and something visible. */
-const isVisibleText = (text: string) => !/[\p{Cc}‪-‮⁦-⁩]/u.test(text) && /[\p{L}\p{N}]/u.test(text);
+const isVisibleText = (text: string) => !/[\p{Cc}\u202A-\u202E\u2066-\u2069]/u.test(text) && /[\p{L}\p{N}]/u.test(text);
 
 /** What was shared, as staff see it, e.g. "Quotation QT-2026-0042". */
 export const shareLinkLabel = z
