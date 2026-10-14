@@ -4,11 +4,14 @@
 
 /// The requests one key made in one fixed window.
 model RateLimitCounter {
-  /// sha256 of "<limit name>:<client address>", in hex (CHECK rate_limit_counter_key_hash): no IP addresses are kept.
+  /// HMAC-SHA256 of "<limit name>:<client address>" under a server secret, in hex (CHECK rate_limit_counter_key_hash):
+  /// a keyed hash, so the address can't be recovered without the secret.
   key         String
   windowStart DateTime @map("window_start") @db.Timestamptz(6)
   count       Int
 
   @@id([key, windowStart])
+  /// The daily purge finds finished windows by their start.
+  @@index([windowStart])
   @@map("rate_limit_counter")
 }

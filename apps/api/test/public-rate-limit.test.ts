@@ -3,7 +3,7 @@
 import { createDatabase, type Database } from "@travel-crm/db";
 import { createRateLimiter } from "@travel-crm/domain/rate-limits";
 import { Hono } from "hono";
-import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, inject, it, onTestFinished, vi } from "vitest";
 import { clientAddressFrom, rateLimit } from "../src/rate-limit.js";
 
 describe("public rate limit", () => {
@@ -22,7 +22,7 @@ describe("public rate limit", () => {
     const app = new Hono();
     app.use(
       rateLimit({
-        limiter: createRateLimiter(db),
+        limiter: createRateLimiter(db, { keySecret: "public-rate-limit-test-secret-32-bytes" }),
         name: `test-${crypto.randomUUID()}`,
         limit,
         windowSeconds: 60,
@@ -66,10 +66,41 @@ describe("public rate limit", () => {
     expect((await app.request("/", from("2.2.2.2, 203.0.113.14, 10.0.0.5"))).status).toBe(429);
   });
 
-  it("puts requests with no address in one shared bucket instead of letting them through", async () => {
+  it("puts requests with no address in one shared bucket instead of letting them through, and warns once", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    onTestFinished(() => {
+      warn.mockRestore();
+    });
     const app = limitedApp(1);
     expect((await app.request("/")).status).toBe(200);
     expect((await app.request("/")).status).toBe(429);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]?.[0])).toMatch(/no trusted client address.*load balancer/i);
+  });
+
+  it("fails closed when the database is down: a 500, and the route is not reached", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    onTestFinished(() => {
+      error.mockRestore();
+    });
+    let reached = false;
+    const app = new Hono();
+    app.use(
+      rateLimit({
+        limiter: { hit: () => Promise.reject(new Error("rate-limit database down")) },
+        name: "test",
+        limit: 5,
+        windowSeconds: 60,
+        clientAddress: () => "203.0.113.30",
+      }),
+    );
+    app.get("/", (c) => {
+      reached = true;
+      return c.text("ok");
+    });
+    expect((await app.request("/")).status).toBe(500);
+    expect(reached).toBe(false);
+    expect(error).toHaveBeenCalledWith(expect.objectContaining({ message: "rate-limit database down" }));
   });
 });
 

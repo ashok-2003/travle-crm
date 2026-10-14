@@ -13,12 +13,21 @@ export interface RateLimitOptions {
   clientAddress: (request: Request) => string | null;
 }
 
+let warnedAboutMissingAddress = false;
+
 /** Counts every request per limit name and client address; over the limit, answers 429 with Retry-After. */
 export function rateLimit(options: RateLimitOptions): MiddlewareHandler {
   const rule = { limit: options.limit, windowSeconds: options.windowSeconds };
   return async (c, next) => {
     // Without an address, every such request shares one bucket: an unknown client is limited, never let through.
-    const address = options.clientAddress(c.req.raw) ?? "no-address";
+    const clientAddress = options.clientAddress(c.req.raw);
+    if (clientAddress === null && !warnedAboutMissingAddress) {
+      warnedAboutMissingAddress = true;
+      console.warn(
+        `Rate limit "${options.name}": a request has no trusted client address (the address header is missing or untrusted). Check the load balancer: every such request shares one bucket.`,
+      );
+    }
+    const address = clientAddress ?? "no-address";
     const result = await options.limiter.hit(`${options.name}:${address}`, rule);
     c.header("RateLimit-Remaining", String(result.remaining));
     if (!result.allowed) {
@@ -99,7 +108,8 @@ function trustedProxyList(entries: readonly string[]): BlockList {
 
 /**
  * Reads the client's address the way Better Auth does for sign-in (ADR 0006), so a client can't forge one: from the
- * first configured header that is present, split on commas. With trusted proxies, the client is the first address
+ * first configured header that is present, split on commas. Unlike Better Auth it never falls through to the next
+ * header when that one holds nothing usable (it gives null), so a client can't choose which header is read. With trusted proxies, the client is the first address
  * from the right that isn't one of them (the leftmost values are whatever the client sent). Without them, only a
  * header holding exactly one address is believed. A malformed address, or none left, gives null, which the rate
  * limit counts in one shared bucket. IPv6 addresses come back as their /64 network.
