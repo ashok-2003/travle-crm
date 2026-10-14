@@ -6,6 +6,7 @@ import type { PushSender } from "@travel-crm/integrations/push";
 import type { MemberContact, OrganizationProfile } from "../identity/index.js";
 import { defineListener, type EventListener, type ListenerContext } from "../jobs/index.js";
 import { isOptedOut } from "./preferences.js";
+import { fitPushPayload } from "./push-payload.js";
 
 export interface DeliveryDependencies {
   email: EmailSender;
@@ -119,7 +120,11 @@ export function deliverNotificationListener(dependencies: DeliveryDependencies):
         !isOptedOut(preferences, "push", notification.kind) &&
         (await claim(context, notification.id, "pushedAt"))
       ) {
-        const payload = { title: notification.title, body: notification.body, url: notification.link ?? undefined };
+        const payload = fitPushPayload({
+          title: notification.title,
+          body: notification.body,
+          url: notification.link ?? undefined,
+        });
         const gone: string[] = [];
         try {
           for (const subscription of subscriptions) {

@@ -9,7 +9,7 @@ import {
   type EmailSender,
   type MemoryEmailSender,
 } from "@travel-crm/integrations/email";
-import { createMemoryPushSender, type MemoryPushSender } from "@travel-crm/integrations/push";
+import { createMemoryPushSender, MAX_PUSH_PAYLOAD_BYTES, type MemoryPushSender } from "@travel-crm/integrations/push";
 import { afterAll, beforeAll, beforeEach, describe, expect, inject, it } from "vitest";
 import type { MemberContact, OrganizationProfile } from "../../src/identity/index.js";
 import type { ListenerContext } from "../../src/jobs/index.js";
@@ -103,7 +103,10 @@ describe("delivering notifications", () => {
   });
 
   it("emails from the organization's name with its Reply-To and a way to opt out, and pushes every browser", async () => {
-    for (const endpoint of ["https://push.example/asha-phone", "https://push.example/asha-laptop"]) {
+    for (const endpoint of [
+      "https://fcm.googleapis.com/fcm/send/asha-phone",
+      "https://fcm.googleapis.com/fcm/send/asha-laptop",
+    ]) {
       await db.forOrg(organizationId, (tx) =>
         savePushSubscription(tx, personIn(organizationId, asha), {
           endpoint,
@@ -124,8 +127,8 @@ describe("delivering notifications", () => {
     });
     expect(email.sent[0]?.text).toContain("https://app.example/quotes/42");
     expect(push.sent.map((sent) => sent.subscription.endpoint).sort()).toEqual([
-      "https://push.example/asha-laptop",
-      "https://push.example/asha-phone",
+      "https://fcm.googleapis.com/fcm/send/asha-laptop",
+      "https://fcm.googleapis.com/fcm/send/asha-phone",
     ]);
     expect(push.sent[0]?.payload).toEqual({
       title: "Quotation opened",
@@ -201,13 +204,13 @@ describe("delivering notifications", () => {
   it("never emails staff without email, and still pushes to them", async () => {
     await db.forOrg(organizationId, (tx) =>
       savePushSubscription(tx, personIn(organizationId, ravi), {
-        endpoint: "https://push.example/ravi",
+        endpoint: "https://fcm.googleapis.com/fcm/send/ravi",
         keys: { p256dh: "B".repeat(87), auth: "A".repeat(22) },
       }),
     );
     await notifyAndDeliver(ravi);
     expect(email.sent).toEqual([]);
-    expect(push.sent.map((sent) => sent.subscription.endpoint)).toEqual(["https://push.example/ravi"]);
+    expect(push.sent.map((sent) => sent.subscription.endpoint)).toEqual(["https://fcm.googleapis.com/fcm/send/ravi"]);
   });
 
   it("sends nothing to someone who has left the organization", async () => {
@@ -218,12 +221,12 @@ describe("delivering notifications", () => {
   });
 
   it("deletes a subscription the push service has forgotten, and keeps the others", async () => {
-    push.markGone("https://push.example/asha-phone");
+    push.markGone("https://fcm.googleapis.com/fcm/send/asha-phone");
     await notifyAndDeliver(asha);
     const endpoints = await db.forOrg(organizationId, (tx) =>
       tx.pushSubscription.findMany({ where: { userId: asha }, select: { endpoint: true } }),
     );
-    expect(endpoints).toEqual([{ endpoint: "https://push.example/asha-laptop" }]);
+    expect(endpoints).toEqual([{ endpoint: "https://fcm.googleapis.com/fcm/send/asha-laptop" }]);
   });
 
   it("fails when email fails, so the job retries, and the retry sends it", async () => {
@@ -247,5 +250,64 @@ describe("delivering notifications", () => {
       { actor: systemActor(otherOrganizationId), forOrg: (fn) => db.forOrg(otherOrganizationId, fn) },
     );
     expect(email.sent).toEqual([]);
+  });
+
+  it("shortens a long notification so every push fits, and still pushes", async () => {
+    await db.forOrg(organizationId, (tx) =>
+      savePushSubscription(tx, personIn(organizationId, ravi), {
+        endpoint: "https://fcm.googleapis.com/fcm/send/ravi-long",
+        keys: { p256dh: "B".repeat(87), auth: "A".repeat(22) },
+      }),
+    );
+    const [id] = await db.forOrg(organizationId, (tx) =>
+      notify(tx, systemActor(organizationId), {
+        recipientUserIds: [ravi],
+        kind: "share-link.opened",
+        title: "🙂".repeat(120),
+        body: "🙂".repeat(1000),
+        channels: ["push"],
+      }),
+    );
+    const event = (await eventsOfType(db, organizationId, "notification.created")).find(
+      (candidate) => candidate.payload.notificationId === id,
+    );
+    if (!event) throw new Error("notify() published no delivery event");
+
+    await deliverNotificationListener(dependencies()).handle(event, context());
+
+    const sent = push.sent.find((candidate) => candidate.subscription.endpoint.endsWith("ravi-long"));
+    expect(Buffer.byteLength(JSON.stringify(sent?.payload))).toBeLessThanOrEqual(MAX_PUSH_PAYLOAD_BYTES);
+    expect(sent?.payload.body.endsWith("…")).toBe(true);
+  });
+
+  it("retries a push after a transient failure, and pushes once it works", async () => {
+    await db.forOrg(organizationId, (tx) =>
+      savePushSubscription(tx, personIn(organizationId, ravi), {
+        endpoint: "https://fcm.googleapis.com/fcm/send/ravi-retry",
+        keys: { p256dh: "B".repeat(87), auth: "A".repeat(22) },
+      }),
+    );
+    push.failNext(1);
+    const [id] = await db.forOrg(organizationId, (tx) =>
+      notify(tx, systemActor(organizationId), {
+        recipientUserIds: [ravi],
+        kind: "share-link.opened",
+        title: "Retry",
+        body: "Retry",
+        channels: ["push"],
+      }),
+    );
+    const event = (await eventsOfType(db, organizationId, "notification.created")).find(
+      (candidate) => candidate.payload.notificationId === id,
+    );
+    if (!event || !id) throw new Error("notify() published no delivery event");
+    const listener = deliverNotificationListener(dependencies());
+
+    await expect(listener.handle(event, context())).rejects.toThrow(/unavailable/);
+    expect((await notificationRow(id)).pushedAt).toBeNull();
+    await listener.handle(event, context());
+
+    expect(push.sent.some((candidate) => candidate.subscription.endpoint.endsWith("ravi-retry"))).toBe(true);
+    expect((await notificationRow(id)).pushedAt).toBeInstanceOf(Date);
   });
 });

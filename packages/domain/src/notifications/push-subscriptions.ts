@@ -6,7 +6,8 @@ import {
   type RemovePushSubscriptionInput,
 } from "@travel-crm/contracts/notifications";
 import type { OrgTx } from "@travel-crm/db";
-import type { Actor } from "../kernel/index.js";
+import { isKnownPushEndpoint } from "@travel-crm/integrations/push";
+import { DomainError, type Actor } from "../kernel/index.js";
 import { parseInput } from "./parse-input.js";
 import { asPerson } from "./person.js";
 
@@ -17,6 +18,14 @@ import { asPerson } from "./person.js";
 export async function savePushSubscription(tx: OrgTx, actor: Actor, input: PushSubscriptionInput): Promise<void> {
   const person = asPerson(actor);
   const { endpoint, keys } = parseInput(pushSubscriptionInput, input, "INVALID_PUSH_SUBSCRIPTION");
+  // The worker calls this address, so only the browsers' own push services are accepted.
+  if (!isKnownPushEndpoint(endpoint)) {
+    throw new DomainError(
+      "VALIDATION",
+      "INVALID_PUSH_SUBSCRIPTION",
+      "Push subscriptions must be on a known push service",
+    );
+  }
   await tx.pushSubscription.upsert({
     where: { organizationId_endpoint: { organizationId: person.organizationId, endpoint } },
     create: { userId: person.userId, endpoint, p256dh: keys.p256dh, auth: keys.auth },

@@ -32,7 +32,7 @@ export async function startPushService(): Promise<PushService> {
         headers: request.headers,
         body: Buffer.concat(chunks),
       });
-      response.writeHead(status).end();
+      response.writeHead(status, status >= 300 && status < 400 ? { location: "/elsewhere" } : {}).end();
     });
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));

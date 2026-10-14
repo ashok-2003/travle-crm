@@ -56,7 +56,7 @@ describe("notification preferences and push subscriptions", () => {
   it("keeps one subscription per browser, moving it to whoever subscribed last", async () => {
     const asha = personIn(organizationId);
     const ravi = personIn(organizationId);
-    const endpoint = "https://push.example/shared-tablet";
+    const endpoint = "https://fcm.googleapis.com/fcm/send/shared-tablet";
     await db.forOrg(organizationId, (tx) => savePushSubscription(tx, asha, { endpoint, keys }));
     await db.forOrg(organizationId, (tx) => savePushSubscription(tx, ravi, { endpoint, keys }));
 
@@ -75,11 +75,20 @@ describe("notification preferences and push subscriptions", () => {
   it("removes only the person's own subscription", async () => {
     const asha = personIn(organizationId);
     const ravi = personIn(organizationId);
-    const endpoint = "https://push.example/asha-only";
+    const endpoint = "https://fcm.googleapis.com/fcm/send/asha-only";
     await db.forOrg(organizationId, (tx) => savePushSubscription(tx, asha, { endpoint, keys }));
 
     expect(await db.forOrg(organizationId, (tx) => removePushSubscription(tx, ravi, { endpoint }))).toBe(false);
     expect(await db.forOrg(organizationId, (tx) => removePushSubscription(tx, asha, { endpoint }))).toBe(true);
     expect(await db.forOrg(organizationId, (tx) => tx.pushSubscription.count({ where: { endpoint } }))).toBe(0);
+  });
+
+  it("refuses an https endpoint that is not a known push service, so the worker never calls it", async () => {
+    for (const endpoint of ["https://push.example/x", "https://169.254.169.254/latest", "https://localhost/x"]) {
+      await expect(
+        db.forOrg(organizationId, (tx) => savePushSubscription(tx, personIn(organizationId), { endpoint, keys })),
+        endpoint,
+      ).rejects.toMatchObject({ code: "VALIDATION", reason: "INVALID_PUSH_SUBSCRIPTION" });
+    }
   });
 });

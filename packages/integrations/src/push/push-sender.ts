@@ -23,3 +23,21 @@ export interface PushSender {
    */
   send(subscription: PushSubscriptionKeys, payload: PushPayload): Promise<"sent" | "gone">;
 }
+
+/** The most a push service accepts: 4096 bytes, less the encryption's overhead. */
+export const MAX_PUSH_PAYLOAD_BYTES = 3993;
+
+/**
+ * The notification is too big to send. Permanent: sending it again fails the same way, so jobs must not retry it.
+ * The message holds no notification text.
+ */
+export class PushPayloadTooLargeError extends Error {
+  readonly code = "PUSH_PAYLOAD_TOO_LARGE";
+
+  constructor(bytes: number) {
+    super(
+      `The push payload is ${String(bytes)} bytes, over the ${String(MAX_PUSH_PAYLOAD_BYTES)} a push service takes`,
+    );
+    this.name = "PushPayloadTooLargeError";
+  }
+}
