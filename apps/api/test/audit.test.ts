@@ -46,7 +46,7 @@ describe("the audit log", () => {
         source: "web",
         impersonatedBy: null,
         entityType: "member",
-        before: { name: "leaver", role: "sales" },
+        before: { role: "sales" },
       }),
     ]);
   });

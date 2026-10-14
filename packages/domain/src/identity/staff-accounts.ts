@@ -77,17 +77,13 @@ export async function createStaffAccount(
       const member = await tx.member.create({
         data: { userId: user.id, organizationId: account.organizationId, role: role.key },
       });
-      // Whether they have an email, not the address: the log outlives the account, which releases it (ADR 0007).
+      // No name, username or address: the log outlives the account, and erasure clears those on the user row (ADR 0007).
+      // The member id leads to the person.
       await recordAudit(tx, account.actor ?? systemActor(account.organizationId), {
         action: "staff.created",
         entityType: "member",
         entityId: member.id,
-        after: {
-          name: account.name,
-          username: account.username ?? null,
-          role: role.key,
-          hasEmail: account.email !== undefined,
-        },
+        after: { role: role.key, hasEmail: account.email !== undefined },
       });
       return { userId: user.id, memberId: member.id };
     });

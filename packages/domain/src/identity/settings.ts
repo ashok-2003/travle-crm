@@ -19,22 +19,22 @@ export async function setTwoFactorRequirement(
   if (input.required && !actor.twoFactorEnabled) {
     throw new DomainError("FORBIDDEN", "ENABLE_TWO_FACTOR_FIRST", "Turn on two-factor sign-in for yourself first");
   }
-  const organization = await database.forOrg(actor.organizationId, async (tx) => {
-    const before = await tx.organization.findUniqueOrThrow({ where: { id: actor.organizationId } });
-    const after = await tx.organization.update({
-      where: { id: actor.organizationId },
+  await database.forOrg(actor.organizationId, async (tx) => {
+    // Conditional on the other value, so of two members changing it at once only the write that really changes it
+    // counts and is recorded, and each entry starts where the one before it ended.
+    const { count } = await tx.organization.updateMany({
+      where: { id: actor.organizationId, requireTwoFactor: !input.required },
       data: { requireTwoFactor: input.required },
     });
-    if (before.requireTwoFactor !== after.requireTwoFactor) {
+    if (count === 1) {
       await recordAudit(tx, actor, {
         action: "settings.two-factor-requirement-changed",
         entityType: "organization",
         entityId: actor.organizationId,
-        before: { requireTwoFactor: before.requireTwoFactor },
-        after: { requireTwoFactor: after.requireTwoFactor },
+        before: { requireTwoFactor: !input.required },
+        after: { requireTwoFactor: input.required },
       });
     }
-    return after;
   });
-  return { requireTwoFactor: organization.requireTwoFactor };
+  return { requireTwoFactor: input.required };
 }

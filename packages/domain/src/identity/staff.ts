@@ -159,7 +159,7 @@ export async function removeStaff(
       action: "staff.removed",
       entityType: "member",
       entityId: target.id,
-      before: { name: user.name, role: target.role },
+      before: { role: target.role },
     });
   });
 }
