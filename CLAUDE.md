@@ -43,10 +43,14 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   `packages/db/test/org-table-fixtures/` (mark it `appendOnly` if the runtime role can't update or delete its rows).
   The test suite fails without both. See `packages/db/README.md` for the full recipe.
 - Never call `forOrg()` inside another `forOrg()` (it throws `NestedForOrgError`): pass the outer `tx` down.
-- Tables without `organization_id` (webhook events, rate-limit counters) are reached with `db.withoutOrg(tx => …)`,
-  where every organization table shows no rows.
+- Tables without `organization_id` (webhook events, rate-limit counters) have no row-level security. `OrgTx` hides
+  their models and every transaction refuses them at run time; only their own modules reach them, inside
+  `db.withoutOrg(tx => …)` (where every organization table shows no rows), through `@travel-crm/db/webhooks` and
+  `@travel-crm/db/rate-limits`. dependency-cruiser keeps each entry point to its module.
 - A foreign key between two organization tables includes `organization_id`, and so does every unique constraint on an
-  organization table (except a primary key on `id`). The test suite checks both.
+  organization table (except a primary key on `id`). Every organization table's `organization_id` refers to
+  `organization` (`onDelete: Restrict, onUpdate: Restrict`), and no key to it cascades a deletion: a cascade runs as
+  the table's owner, past row-level security and grants. The test suite checks all of these.
 - Only the platform module uses `@travel-crm/db/platform` (it sees every organization).
 - Better Auth's sign-in tables (user, session, account, verification, two_factor, organization, member, invitation) have no
   row-level security. Only `packages/domain/src/identity` reaches them, through `@travel-crm/db/identity`:
