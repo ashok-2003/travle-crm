@@ -2,11 +2,13 @@
 // database sessions with a 5-minute cookie cache, two-factor, platform admins and impersonation. No self sign-up.
 import type { IdentityClient } from "@travel-crm/db/identity";
 import { betterAuth } from "better-auth";
+import { APIError, createAuthMiddleware, getAuthoritativeSessionFromCtx } from "better-auth/api";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { admin } from "better-auth/plugins/admin";
 import { organization } from "better-auth/plugins/organization";
 import { twoFactor } from "better-auth/plugins/two-factor";
 import { username } from "better-auth/plugins/username";
+import { hasEverBeenMember, isPlatformAdminUser } from "../access.js";
 import { INTERNAL_USERNAME_PATTERN } from "../sign-in-names.js";
 import { relabelTotpForStaffWithoutEmail } from "./totp-label.js";
 
@@ -80,7 +82,7 @@ export function createAuth(client: IdentityClient, settings: AuthSettings) {
         },
       },
     },
-    hooks: { after: relabelTotpForStaffWithoutEmail(client) },
+    hooks: { before: closeSideDoors(client), after: relabelTotpForStaffWithoutEmail(client) },
     rateLimit: { enabled: settings.rateLimit, storage: "memory" },
     plugins: [
       username({
@@ -112,4 +114,50 @@ async function organizationOf(client: IdentityClient, userId: string): Promise<s
 
 async function clearMustChangePassword(client: IdentityClient, userId: string): Promise<void> {
   await client.user.update({ where: { id: userId }, data: { mustChangePassword: false } });
+}
+
+/**
+ * Refuses what Better Auth's own endpoints would allow but our rules don't (ADR 0006):
+ * - a member rewriting their username into another organization's namespace (only our staff API changes usernames),
+ *   and probing which usernames exist;
+ * - /admin/* for anyone who isn't platform staff by our definition (Better Auth checks user.role alone), and
+ *   making a person with a membership a platform admin;
+ * - a "password change" to the same password, which would clear must-change-password and keep the temporary one.
+ */
+function closeSideDoors(client: IdentityClient) {
+  return createAuthMiddleware(async (ctx) => {
+    const body = (ctx.body ?? {}) as Record<string, unknown>;
+    if (ctx.path === "/update-user" && ("username" in body || "displayUsername" in body)) {
+      throw new APIError("FORBIDDEN", {
+        code: "USERNAME_CHANGES_NOT_ALLOWED",
+        message: "Ask an administrator to change your username",
+      });
+    }
+    if (ctx.path === "/is-username-available") {
+      throw new APIError("NOT_FOUND", { code: "NOT_FOUND", message: "Not found" });
+    }
+    if (ctx.path === "/change-password" && body.newPassword === body.currentPassword) {
+      throw new APIError("BAD_REQUEST", {
+        code: "NEW_PASSWORD_MUST_DIFFER",
+        message: "Choose a password different from the current one",
+      });
+    }
+    if (ctx.path.startsWith("/admin/")) {
+      // The cookie cache is skipped: a demoted admin must lose access at once.
+      const session = await getAuthoritativeSessionFromCtx(ctx);
+      if (!session) throw new APIError("UNAUTHORIZED", { code: "UNAUTHORIZED", message: "Sign in first" });
+      if (!(await isPlatformAdminUser(client, session.user.id))) {
+        throw new APIError("FORBIDDEN", { code: "FORBIDDEN", message: "Platform staff only" });
+      }
+      const roles = [body.role].flat();
+      if (ctx.path === "/admin/set-role" && roles.includes("admin") && typeof body.userId === "string") {
+        if (await hasEverBeenMember(client, body.userId)) {
+          throw new APIError("FORBIDDEN", {
+            code: "MEMBERS_CANNOT_BE_PLATFORM_STAFF",
+            message: "A person with a membership can't be platform staff",
+          });
+        }
+      }
+    }
+  });
 }

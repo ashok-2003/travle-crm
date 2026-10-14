@@ -32,7 +32,7 @@ export interface Identity {
   resolveAccess(userId: string, organizationId: string): Promise<MemberAccess | null>;
   /** What me.get returns. */
   describeSignedInPerson(session: SignedInSession): Promise<MeOutput | null>;
-  /** True for platform staff: user role "admin" and no membership. */
+  /** True for platform staff: user role "admin" (read from the database) and no membership. */
   isPlatformAdmin(user: { id: string; role?: string | null | undefined }): Promise<boolean>;
   /** Creates the five starter roles. Onboarding calls it once per new organization. */
   seedStarterRoles(organizationId: string): Promise<void>;

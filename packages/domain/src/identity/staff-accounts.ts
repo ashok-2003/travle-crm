@@ -3,7 +3,7 @@
 import { isUniqueViolation } from "@travel-crm/db/identity";
 import type { IdentityDatabase } from "@travel-crm/db/identity";
 import { DomainError } from "../kernel/index.js";
-import { internalUsername, placeholderEmail } from "./sign-in-names.js";
+import { INTERNAL_USERNAME_PATTERN, internalUsername, placeholderEmail } from "./sign-in-names.js";
 
 /** Hashes a password the way Better Auth checks it at sign-in. */
 export type PasswordHasher = (password: string) => Promise<string>;
@@ -44,10 +44,18 @@ export async function createStaffAccount(
       });
       if (!role) throw new DomainError("NOT_FOUND", "ROLE_NOT_FOUND", `No role ${account.roleKey}`);
       const username = account.username === undefined ? null : internalUsername(organization.code, account.username);
+      if (username !== null && !INTERNAL_USERNAME_PATTERN.test(username)) {
+        throw new DomainError(
+          "VALIDATION",
+          "INVALID_USERNAME",
+          "Usernames use letters, digits, _ . - (2 to 32 characters)",
+        );
+      }
       const user = await tx.user.create({
         data: {
           name: account.name,
-          email: account.email ?? placeholderEmail(organization.code, account.username ?? ""),
+          // Better Auth lowercases the email at sign-in, and the unique index is case-sensitive.
+          email: account.email?.toLowerCase() ?? placeholderEmail(organization.code, account.username ?? ""),
           username,
           displayUsername: account.username ?? null,
           mustChangePassword: account.mustChangePassword,

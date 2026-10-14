@@ -2,7 +2,7 @@
 // or a removal takes effect on the next request rather than when the 5-minute session cookie expires.
 import type { MeOutput } from "@travel-crm/contracts/identity";
 import { withDeleted } from "@travel-crm/db";
-import type { IdentityDatabase } from "@travel-crm/db/identity";
+import type { IdentityClient, IdentityDatabase } from "@travel-crm/db/identity";
 import { pendingStep, type MemberAccess } from "./member-access.js";
 import { PermissionSet } from "./permission-set.js";
 import { shownEmail } from "./sign-in-names.js";
@@ -17,12 +17,15 @@ export async function resolveAccess(
     const member = await tx.member.findUnique({
       where: { userId },
       include: {
-        user: { select: { mustChangePassword: true, twoFactorEnabled: true } },
+        user: { select: { mustChangePassword: true, twoFactorEnabled: true, banned: true, banExpires: true } },
         organization: { select: { requireTwoFactor: true } },
       },
     });
     // The member table has no row-level security, so the organization is checked here.
     if (member?.organizationId !== organizationId) return null;
+    // Better Auth's admin ban: refused at sign-in, but a session opened earlier must stop working too.
+    const { banned, banExpires } = member.user;
+    if (banned && (banExpires === null || banExpires > new Date())) return null;
     const role = await tx.role.findUnique({
       where: { organizationId_key: { organizationId, key: member.role } },
       include: { permissions: true },
@@ -84,12 +87,26 @@ export async function describeSignedInPerson(
   };
 }
 
-/** Platform staff (spec 6.1): Better Auth role "admin" and no membership in any organization, ever. */
+/**
+ * Platform staff (spec 6.1): Better Auth role "admin" and no membership in any organization, ever. The role is read
+ * from the database, never taken from the caller. The caller's `role` is ignored; only `id` says which user to check.
+ */
 export async function isPlatformAdmin(
   database: IdentityDatabase,
   user: { id: string; role?: string | null | undefined },
 ): Promise<boolean> {
-  if (user.role !== "admin") return false;
-  const membership = await withDeleted(() => database.client.member.findUnique({ where: { userId: user.id } }));
-  return membership === null;
+  return isPlatformAdminUser(database.client, user.id);
+}
+
+/** The same check for code that has only the client, such as Better Auth's hooks. */
+export async function isPlatformAdminUser(client: IdentityClient, userId: string): Promise<boolean> {
+  const stored = await client.user.findUnique({ where: { id: userId }, select: { role: true } });
+  if (stored?.role !== "admin") return false;
+  return !(await hasEverBeenMember(client, userId));
+}
+
+/** True for anyone who has a membership row, removed ones included (member rows are soft-deleted, never erased). */
+export async function hasEverBeenMember(client: IdentityClient, userId: string): Promise<boolean> {
+  const membership = await withDeleted(() => client.member.findUnique({ where: { userId } }));
+  return membership !== null;
 }

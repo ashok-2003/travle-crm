@@ -4,7 +4,9 @@ import { softDeleted } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { relabelTotpUri } from "../../src/identity/auth/totp-label.js";
+import { PermissionSet } from "../../src/identity/permission-set.js";
 import { permissions } from "../../src/identity/permissions.js";
+import { starterRoles } from "../../src/identity/starter-roles.js";
 import { createStaffAccount } from "../../src/identity/staff-accounts.js";
 import {
   createTestAgency,
@@ -65,8 +67,8 @@ describe("identity access", () => {
       mustChangePassword: true,
     });
     const access = await test.identity.resolveAccess(sales.userId, agency.organizationId);
-    expect(access?.permissions.scopeOf("leads:view")).toBe("own");
-    expect(access?.permissions.has("staff:manage")).toBe(false);
+    const salesRole = starterRoles.find((role) => role.key === "sales");
+    expect(access?.permissions.toGrants()).toEqual(PermissionSet.fromStored(salesRole?.grants ?? []).toGrants());
     expect(access?.mustChangePassword).toBe(true);
   });
 
@@ -96,7 +98,7 @@ describe("identity access", () => {
     const meera = await createStaffAccount(test.database, hashPassword, {
       organizationId: agency.organizationId,
       name: "Meera",
-      username: "Meera",
+      username: "Meera2",
       roleKey: "operations",
       password: "meera-password-1",
       mustChangePassword: true,
@@ -106,16 +108,24 @@ describe("identity access", () => {
       organizationId: agency.organizationId,
       impersonatedBy: null,
     });
-    expect(me?.user).toMatchObject({ name: "Meera", email: null, username: "Meera" });
+    expect(me?.user).toMatchObject({ name: "Meera", email: null, username: "Meera2" });
     expect(me?.member?.role.key).toBe("operations");
     expect(me?.pendingStep).toBe("CHANGE_PASSWORD");
     expect(me?.isPlatformAdmin).toBe(false);
   });
 
   it("labels a placeholder account in a two-factor link with the organization code and username", async () => {
+    await createStaffAccount(test.database, hashPassword, {
+      organizationId: agency.organizationId,
+      name: "Label Test",
+      username: "meera",
+      roleKey: "operations",
+      password: "label-password-1",
+      mustChangePassword: false,
+    });
     const link = `otpauth://totp/Test%20CRM:${encodeURIComponent(`${agency.code.toLowerCase()}-meera@no-email.invalid`)}?secret=ABC&issuer=Test`;
     const relabelled = await relabelTotpUri(test.database.client, link);
-    expect(decodeURIComponent(relabelled)).toContain(`Test CRM:${agency.code} Meera?secret=ABC`);
+    expect(decodeURIComponent(relabelled)).toContain(`Test CRM:${agency.code} meera?secret=ABC`);
     const withEmail = "otpauth://totp/Test%20CRM:asha%40example.test?secret=ABC";
     expect(await relabelTotpUri(test.database.client, withEmail)).toBe(withEmail);
   });
@@ -126,6 +136,63 @@ describe("identity access", () => {
     });
     expect(await test.identity.isPlatformAdmin(admin)).toBe(true);
     expect(await test.identity.isPlatformAdmin({ id: agency.ownerUserId, role: "admin" })).toBe(false);
-    expect(await test.identity.isPlatformAdmin({ id: admin.id, role: null })).toBe(false);
+    // The caller's role is ignored: the database says admin, so a caller claiming none changes nothing.
+    expect(await test.identity.isPlatformAdmin({ id: admin.id, role: null })).toBe(true);
+  });
+
+  it("finds no access for a banned user until the ban expires", async () => {
+    const staff = await createStaffAccount(test.database, hashPassword, {
+      organizationId: agency.organizationId,
+      name: "Banned",
+      username: "banned",
+      roleKey: "sales",
+      password: "banned-password-1",
+      mustChangePassword: false,
+    });
+    const ban = (banExpires: Date | null) =>
+      test.database.client.user.update({ where: { id: staff.userId }, data: { banned: true, banExpires } });
+    await ban(null);
+    expect(await test.identity.resolveAccess(staff.userId, agency.organizationId)).toBeNull();
+    await ban(new Date(Date.now() + 60_000));
+    expect(await test.identity.resolveAccess(staff.userId, agency.organizationId)).toBeNull();
+    await ban(new Date(Date.now() - 60_000));
+    expect(await test.identity.resolveAccess(staff.userId, agency.organizationId)).not.toBeNull();
+  });
+
+  it("reads the admin role from the database, not from the caller", async () => {
+    const ordinary = await test.database.client.user.create({
+      data: { name: "Plain", email: `plain-${agency.code.toLowerCase()}@example.test` },
+    });
+    expect(await test.identity.isPlatformAdmin({ id: ordinary.id, role: "admin" })).toBe(false);
+  });
+
+  it("stores a mixed-case email lower-cased, and the person can sign in with it", async () => {
+    const mixed = `Mixed-${agency.code}@Example.Test`;
+    const realHash = async (password: string) => (await test.identity.auth.$context).password.hash(password);
+    await createStaffAccount(test.database, realHash, {
+      organizationId: agency.organizationId,
+      name: "Mixed",
+      email: mixed,
+      roleKey: "sales",
+      password: "mixed-password-1",
+      mustChangePassword: false,
+    });
+    const stored = await test.database.client.user.findUnique({ where: { email: mixed.toLowerCase() } });
+    expect(stored).not.toBeNull();
+    const headers = await signInByEmail(test.identity, mixed, "mixed-password-1");
+    expect((await test.identity.auth.api.getSession({ headers }))?.user.id).toBe(stored?.id);
+  });
+
+  it("refuses a username that cannot be a sign-in name", async () => {
+    await expect(
+      createStaffAccount(test.database, hashPassword, {
+        organizationId: agency.organizationId,
+        name: "Bad",
+        username: "has space",
+        roleKey: "sales",
+        password: "bad-password-12",
+        mustChangePassword: false,
+      }),
+    ).rejects.toMatchObject({ code: "VALIDATION", reason: "INVALID_USERNAME" });
   });
 });

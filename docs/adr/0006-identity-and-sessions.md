@@ -14,8 +14,9 @@ Date: 2026-10-14 · Status: accepted · Implements spec sections 6.1 to 6.4
   `{ orgCode, username, password }`, builds that username and hands the request to Better Auth's username sign-in,
   so rate limiting, two-factor, cookies and hooks apply unchanged.
 - **Staff without email** get the placeholder `<code>-<username>@no-email.invalid` (Better Auth requires an email).
-  It is never shown: API responses show `null`, the response schemas refuse `.invalid` addresses, and the two-factor
-  setup link is relabelled `<CODE> <username>` for the authenticator app.
+  Our API never shows it: tRPC outputs show `null` and their schemas refuse `.invalid` addresses, and the two-factor
+  setup link is relabelled `<CODE> <username>` for the authenticator app. Better Auth's own `/get-session` and sign-in
+  responses do include the raw `user.email`, so the web app must never display it (plan 5 handles that in the UI).
 - **Staff are created in one transaction** of our own (user, password account, membership), with Better Auth's
   password hasher. Every new member gets a temporary password and must change it at first sign-in
   (`user.must_change_password`, cleared by Better Auth hooks after `/change-password` or a password reset).
@@ -27,7 +28,13 @@ Date: 2026-10-14 · Status: accepted · Implements spec sections 6.1 to 6.4
 - **Two-factor** is optional per person. An organization with `require_two_factor` refuses members without it
   everywhere except `me.get` and Better Auth's `/two-factor/*` endpoints. Turning the requirement on needs two-factor
   on the person doing it.
-- **Platform staff** have user role `admin` and no membership. They may impersonate a user for up to an hour.
+- **Platform staff** have user role `admin` and no membership, ever (removed members count). They may impersonate a
+  user for up to an hour. Impersonation has no durable record until the audit log arrives (plans 3 and 4); today the
+  only marker is the session row.
+- **Side doors closed** by a `hooks.before` middleware in `create-auth.ts`: `/update-user` refuses `username` and
+  `displayUsername` (only our staff API changes them), `/is-username-available` is closed, `/change-password` refuses
+  a new password equal to the current one, and every `/admin/*` path re-checks the caller against our definition of
+  platform staff (Better Auth checks `user.role` alone) and refuses to make a member a platform admin.
 - **Hardening:** origin and CSRF checks pinned on; `/api/auth/organization/*` closed; trusted origins, secure cookies
   and the client-IP header come from the environment; production requires HTTPS and rate limiting.
 
