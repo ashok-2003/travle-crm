@@ -1,6 +1,7 @@
 // Staff changes racing other changes (spec 6.3): each change locks what it checked, so one that lands meanwhile makes
-// it fail with STAFF_CHANGED instead of being overwritten. A transaction on a second connection holds the conflicting
-// change open, and the test waits until the staff change is stuck behind it before letting it commit.
+// it fail (STAFF_CHANGED, ROLE_NOT_FOUND...) instead of being overwritten. A transaction on a second connection holds
+// the conflicting change open, and the test waits until the staff change is stuck behind it before letting it commit.
+import { softDeleted } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import type { MemberAccess } from "../../src/identity/member-access.js";
@@ -132,5 +133,84 @@ describe("staff changes racing other changes", () => {
     await expect(removal).rejects.toMatchObject({ code: "CONFLICT", reason: "STAFF_CHANGED" });
     const stored = await test.database.client.member.findUniqueOrThrow({ where: { id: target.memberId } });
     expect(stored).toMatchObject({ role: "operations", deletedAt: null });
+  });
+
+  describe("adding someone while their role changes", () => {
+    const roleLock = 'SELECT id FROM "role" WHERE key = ';
+    const signInName = (username: string) => `${agency.code.toLowerCase()}:${username}`;
+
+    it("waits for a deletion of the role, then refuses with ROLE_NOT_FOUND and adds nobody", async () => {
+      const role = await test.identity.roles.create(owner, { name: "Seasonal", permissions: [] });
+      let creation: Promise<unknown> = Promise.resolve();
+      await platform.$transaction(async (tx) => {
+        // An Owner's deleteRole, not yet committed.
+        await tx.role.updateMany({
+          where: { organizationId: agency.organizationId, key: role.key },
+          data: softDeleted(agency.ownerUserId),
+        });
+        creation = test.identity.staff.create(owner, {
+          name: "Late",
+          username: "late",
+          roleKey: role.key,
+          temporaryPassword: "temporary-pass-2",
+        });
+        creation.catch(() => undefined);
+        await waitUntilBlockedAt(roleLock);
+      });
+      await expect(creation).rejects.toMatchObject({ code: "NOT_FOUND", reason: "ROLE_NOT_FOUND" });
+      expect(await test.database.client.user.findUnique({ where: { username: signInName("late") } })).toBeNull();
+    });
+
+    it("waits for a widening of the role, then refuses an Admin it now exceeds", async () => {
+      const role = await test.identity.roles.create(owner, {
+        name: "Front desk",
+        permissions: [{ permission: "leads:view", scope: "own" }],
+      });
+      let creation: Promise<unknown> = Promise.resolve();
+      await platform.$transaction(async (tx) => {
+        // An Owner's updateRole adding roles:manage, which Admins lack, not yet committed. updateRole locks the row first.
+        const [locked] = await tx.$queryRaw<{ id: string }[]>`
+          SELECT id FROM "role" WHERE organization_id = ${agency.organizationId}::uuid AND key = ${role.key} FOR UPDATE`;
+        if (!locked) throw new Error("role not found");
+        await tx.rolePermission.create({
+          data: { organizationId: agency.organizationId, roleId: locked.id, permission: "roles:manage" },
+        });
+        creation = test.identity.staff.create(admin, {
+          name: "Desk",
+          username: "desk",
+          roleKey: role.key,
+          temporaryPassword: "temporary-pass-3",
+        });
+        creation.catch(() => undefined);
+        await waitUntilBlockedAt(roleLock);
+      });
+      await expect(creation).rejects.toMatchObject({ code: "FORBIDDEN", reason: "EXCEEDS_YOUR_PERMISSIONS" });
+      expect(await test.database.client.user.findUnique({ where: { username: signInName("desk") } })).toBeNull();
+    });
+  });
+
+  it("can still reset, move or remove someone left on a deleted role", async () => {
+    const role = await test.identity.roles.create(owner, {
+      name: "Retired role",
+      permissions: [{ permission: "leads:view", scope: "own" }],
+    });
+    const moving = await addStaff("stranded1");
+    const leaving = await addStaff("stranded2");
+    // What a createStaff racing deleteRole could leave behind before createStaff locked the role: a deleted role.
+    for (const { memberId } of [moving, leaving]) {
+      await test.database.client.member.update({ where: { id: memberId }, data: { role: role.key } });
+    }
+    await platform.role.updateMany({
+      where: { organizationId: agency.organizationId, key: role.key },
+      data: softDeleted(agency.ownerUserId),
+    });
+    // The Admin's checks still read the deleted role's permissions, which they hold.
+    await expect(
+      test.identity.staff.updateRole(admin, { memberId: moving.memberId, roleKey: "sales" }),
+    ).resolves.toMatchObject({ role: { key: "sales" } });
+    await expect(
+      test.identity.staff.resetPassword(admin, { memberId: leaving.memberId, temporaryPassword: "stranded-pass-1" }),
+    ).resolves.toBeUndefined();
+    await expect(test.identity.staff.remove(admin, { memberId: leaving.memberId })).resolves.toBeUndefined();
   });
 });

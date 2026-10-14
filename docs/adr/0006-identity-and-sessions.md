@@ -43,7 +43,8 @@ Date: 2026-10-14 · Status: accepted · Implements spec sections 6.1 to 6.4
 ## Context
 
 - **Why not Better Auth's `createUser` and `addMember`.** Two calls, not atomic: a failure between them leaves a user
-  with no organization. Our transaction also checks the role and the organization code in the same place.
+  with no organization. Our one transaction also holds the role (`FOR SHARE`), checks that the person adding staff may
+  give it, and reads the organization code, before it writes the rows.
 - **Cookie cache staleness.** A revoked session passes the cache for up to 5 minutes. Because `orgProcedure` reads the
   membership from the database, a removed member is refused on their next request anyway; only `me.get` still
   answers from the cache, with no organization.

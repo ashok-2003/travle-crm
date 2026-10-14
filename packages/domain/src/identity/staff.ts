@@ -12,7 +12,7 @@ import type { IdentityDatabase, IdentityTx } from "@travel-crm/db/identity";
 import { DomainError } from "../kernel/index.js";
 import { assertMayHandleRole, assertMayManageMember } from "./access-rules.js";
 import type { MemberAccess } from "./member-access.js";
-import { findRole } from "./role-lookup.js";
+import { findCurrentRole, findRoleToGive } from "./role-lookup.js";
 import { isPlaceholderEmail, removedPersonEmail, shownEmail } from "./sign-in-names.js";
 import { createStaffAccount, type PasswordHasher } from "./staff-accounts.js";
 import { changeMember, lockMember, lockOwners } from "./staff-locks.js";
@@ -48,17 +48,23 @@ export async function createStaff(
   actor: MemberAccess,
   input: CreateStaffInput,
 ): Promise<StaffMember> {
-  const role = await database.forOrg(actor.organizationId, (tx) => findRole(tx, input.roleKey));
-  assertMayHandleRole(actor, role);
-  const created = await createStaffAccount(database, hashPassword, {
-    organizationId: actor.organizationId,
-    name: input.name,
-    email: input.email,
-    username: input.username,
-    roleKey: role.key,
-    password: input.temporaryPassword,
-    mustChangePassword: true,
-  });
+  const created = await createStaffAccount(
+    database,
+    hashPassword,
+    {
+      organizationId: actor.organizationId,
+      name: input.name,
+      email: input.email,
+      username: input.username,
+      roleKey: input.roleKey,
+      password: input.temporaryPassword,
+      mustChangePassword: true,
+    },
+    // Checked inside the transaction that adds the person, on the role as it is once held.
+    (role) => {
+      assertMayHandleRole(actor, role);
+    },
+  );
   return staffMember(database, actor, created.memberId);
 }
 
@@ -69,15 +75,10 @@ export async function updateStaffRole(
 ): Promise<StaffMember> {
   await database.forOrg(actor.organizationId, async (tx) => {
     const target = await findMember(tx, actor, input.memberId);
-    const targetRole = await findRole(tx, target.role);
+    const targetRole = await findCurrentRole(tx, target.role);
     assertMayManageMember(actor, { userId: target.userId, role: targetRole });
     if (targetRole.isOwner) await lockOwners(tx, actor, target.id, targetRole.key);
-    // A simultaneous deleteRole holds this row FOR UPDATE, so the member can never be left on a deleted role.
-    const kept = await tx.$queryRaw<
-      { id: string }[]
-    >`SELECT id FROM "role" WHERE key = ${input.roleKey} AND deleted_at IS NULL FOR SHARE`;
-    if (kept.length === 0) throw new DomainError("NOT_FOUND", "ROLE_NOT_FOUND", `No role ${input.roleKey}`);
-    const newRole = await findRole(tx, input.roleKey);
+    const newRole = await findRoleToGive(tx, input.roleKey);
     assertMayHandleRole(actor, newRole);
     await changeMember(tx, target, { role: newRole.key });
   });
@@ -94,7 +95,7 @@ export async function resetStaffPassword(
   const passwordHash = await hashPassword(input.temporaryPassword);
   await database.forOrg(actor.organizationId, async (tx) => {
     const target = await findMember(tx, actor, input.memberId);
-    const targetRole = await findRole(tx, target.role);
+    const targetRole = await findCurrentRole(tx, target.role);
     assertMayManageMember(actor, { userId: target.userId, role: targetRole });
     // Locked in the same order as the other staff changes, so a promotion or removal landing now can't slip past.
     if (targetRole.isOwner) await lockOwners(tx, actor, target.id, targetRole.key);
@@ -121,7 +122,7 @@ export async function removeStaff(
 ): Promise<void> {
   await database.forOrg(actor.organizationId, async (tx) => {
     const target = await findMember(tx, actor, input.memberId);
-    const targetRole = await findRole(tx, target.role);
+    const targetRole = await findCurrentRole(tx, target.role);
     assertMayManageMember(actor, { userId: target.userId, role: targetRole });
     if (targetRole.isOwner) await lockOwners(tx, actor, target.id, targetRole.key);
     await changeMember(tx, target, softDeleted(actor.userId));

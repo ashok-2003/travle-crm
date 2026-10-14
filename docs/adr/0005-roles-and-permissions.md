@@ -23,8 +23,12 @@ answers open question Q2
 - **Keys are never reused,** even after a role is deleted (a plain unique index on `(organization_id, key)`).
   `member.role` holds the key with no foreign key (it is Better Auth's column), so a reused key would hand a later
   role to anyone still on the deleted one.
-- **A role with staff cannot be deleted** (`ROLE_IN_USE`). Deleting is a soft delete (ADR 0004). A member who still
-  ends up on a deleted role, through a race, keeps no permissions until they are given another role.
+- **A role with staff cannot be deleted** (`ROLE_IN_USE`). Deleting is a soft delete (ADR 0004).
+- **Giving a role holds it.** Adding someone or changing their role takes the role row `FOR SHARE` in the same
+  transaction as the checks and the write; editing or deleting a role takes it `FOR UPDATE`. So nobody lands on a
+  role deleted meanwhile (`ROLE_NOT_FOUND`), or on one widened past what the giver holds (`EXCEEDS_YOUR_PERMISSIONS`).
+  A member left on a deleted role anyway (set by hand, say) keeps no permissions until they are given another role,
+  and can still be moved, reset or removed: those checks read the deleted role, whose permission rows remain.
 
 ## Starter roles (for the product owner to review)
 

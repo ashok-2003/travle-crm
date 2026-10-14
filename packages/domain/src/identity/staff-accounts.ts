@@ -1,8 +1,10 @@
-// Creates one staff member's sign-in records in a single transaction: user, password account and membership.
-// Better Auth hashes the password, but its sign-up endpoint is off, so we write the rows ourselves (ADR 0006).
+// Creates one staff member's sign-in records in a single transaction: user, password account and membership, after
+// holding and checking their role in that same transaction. Better Auth hashes the password, but its sign-up endpoint
+// is off, so we write the rows ourselves (ADR 0006).
 import { isUniqueViolation } from "@travel-crm/db/identity";
 import type { IdentityDatabase } from "@travel-crm/db/identity";
 import { DomainError } from "../kernel/index.js";
+import { findRoleToGive, type FoundRole } from "./role-lookup.js";
 import { INTERNAL_USERNAME_PATTERN, internalUsername, placeholderEmail } from "./sign-in-names.js";
 
 /** Hashes a password the way Better Auth checks it at sign-in. */
@@ -26,10 +28,16 @@ export interface CreatedStaff {
   memberId: string;
 }
 
+/**
+ * checkRole, when given, may refuse the role by throwing: it runs inside the transaction, on the role as it is once
+ * held, so a simultaneous deleteRole or updateRole can't change it between the check and the write. Onboarding passes
+ * none.
+ */
 export async function createStaffAccount(
   database: IdentityDatabase,
   hashPassword: PasswordHasher,
   account: NewStaffAccount,
+  checkRole?: (role: FoundRole) => void,
 ): Promise<CreatedStaff> {
   if (account.email === undefined && account.username === undefined) {
     throw new DomainError("VALIDATION", "EMAIL_OR_USERNAME_REQUIRED", "Give an email, a username or both");
@@ -39,10 +47,8 @@ export async function createStaffAccount(
   try {
     return await database.forOrg(account.organizationId, async (tx) => {
       const organization = await tx.organization.findUniqueOrThrow({ where: { id: account.organizationId } });
-      const role = await tx.role.findUnique({
-        where: { organizationId_key: { organizationId: account.organizationId, key: account.roleKey } },
-      });
-      if (!role) throw new DomainError("NOT_FOUND", "ROLE_NOT_FOUND", `No role ${account.roleKey}`);
+      const role = await findRoleToGive(tx, account.roleKey);
+      checkRole?.(role);
       const username = account.username === undefined ? null : internalUsername(organization.code, account.username);
       if (username !== null && !INTERNAL_USERNAME_PATTERN.test(username)) {
         throw new DomainError(
