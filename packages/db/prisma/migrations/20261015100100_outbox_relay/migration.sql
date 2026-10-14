@@ -1,10 +1,11 @@
 -- The outbox relay's one look across organizations (ADR 0010): which organizations have events waiting, oldest
 -- first. It returns organization ids only, which app_runtime can read from the organization table anyway, never an
--- event. SECURITY DEFINER: it runs as its owner, the migrator, whose platform_access policy sees every row; the
--- relay then reads each organization's events inside db.forOrg(), under row-level security as usual.
+-- event. STRICT (a NULL limit returns nothing), and the limit is clamped to 1..1000. SECURITY DEFINER: it runs as
+-- its owner, the migrator, whose platform_access policy sees every row; the relay then reads each organization's
+-- events inside db.forOrg(), under row-level security as usual.
 CREATE FUNCTION app_organizations_with_unrelayed_events(max_organizations integer)
 RETURNS SETOF uuid
-LANGUAGE sql STABLE SECURITY DEFINER
+LANGUAGE sql STABLE STRICT SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
   SELECT organization_id
@@ -12,7 +13,7 @@ AS $$
   WHERE relayed_at IS NULL
   GROUP BY organization_id
   ORDER BY min(occurred_at)
-  LIMIT max_organizations
+  LIMIT least(greatest(max_organizations, 1), 1000)
 $$;
 
 -- Only the api and worker call it.

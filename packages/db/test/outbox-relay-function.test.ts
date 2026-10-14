@@ -59,6 +59,16 @@ describe("app_organizations_with_unrelayed_events", () => {
     expect(await db.withoutOrg((tx) => tx.outboxEvent.count())).toBe(0);
   });
 
+  it("clamps its limit to 1..1000, and returns nothing for a NULL limit", async () => {
+    expect(await waiting(0)).toHaveLength(1);
+    expect(await waiting(-5)).toHaveLength(1);
+    expect(await waiting(1_000_000)).not.toHaveLength(0);
+    const none = await db.withoutOrg(
+      (tx) => tx.$queryRaw<unknown[]>`SELECT * FROM app_organizations_with_unrelayed_events(NULL::integer)`,
+    );
+    expect(none).toEqual([]);
+  });
+
   it("can be called only by the runtime role", async () => {
     await expect(platform.$queryRaw`SELECT * FROM app_organizations_with_unrelayed_events(10)`).rejects.toThrow(
       /permission denied/i,
