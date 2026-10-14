@@ -26,7 +26,8 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - **Pinned versions.** Shared tool versions live in the `catalog:` in `pnpm-workspace.yaml`. Prisma is pinned to 7.10.0;
   npm's `latest` for `prisma` is an 8.0 release candidate. Never install "latest" without checking.
 - **Commits.** Small, Conventional Commits (`feat(db): …`), enforced by commitlint. Git hooks format and lint staged files;
-  never bypass them with `--no-verify`. Never add a `Co-Authored-By` trailer. Never commit `.env` files or secrets.
+  never bypass them with `--no-verify`. Stage files by name; never `git add -A`, `git add .` or `git commit -a`
+  (other agents may be editing at the same time). Never add a `Co-Authored-By` trailer. Never commit `.env` files or secrets.
 
 ## Data rules (non-negotiable)
 
@@ -60,13 +61,15 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   - `freshProcedure` (reads the session from the database) for money, roles, exports and staff management;
   - `platformProcedure` for platform staff;
   - `protectedProcedure` only for things every signed-in person may see about themselves (`me.get`).
-- Inputs and outputs are Zod schemas from `@travel-crm/contracts`; every procedure has both.
+- Schemas come from `@travel-crm/contracts`: every input has a Zod schema, and every procedure that returns data has an
+  output schema. Input schemas are `z.strictObject`, so unknown keys get a 400; never use `z.object` for inputs.
+  Output schemas are `z.object`, which strips unknown keys.
 - Permissions are `module:action` in `packages/domain/src/identity/permissions.ts`. Add new ones there; the Owner role
   gets them automatically. List queries for scoped views filter with `scopeFilter()` (own or all records).
 - Domain modules are folders in `packages/domain/src`. Their public API is `index.ts`; other modules import only that.
   Business rule failures throw `DomainError` from `@travel-crm/domain/kernel`, which the API turns into an HTTP status.
-- Over HTTP, every request but GET and HEAD (tRPC mutations and `/api/auth/sign-in/org`) must name a trusted origin and
-  send JSON (`apps/api/src/trusted-origin.ts`). Better Auth's `/api/auth/organization/*` endpoints are closed (404):
+- Over HTTP, tRPC requests and `/api/auth/sign-in/org`, other than GET/HEAD, must name a trusted origin and
+  send JSON (`apps/api/src/trusted-origin.ts`); other `/api/auth/*` POSTs use Better Auth's own origin check. Better Auth's `/api/auth/organization/*` endpoints are closed (404):
   members and roles go through tRPC. Error responses carry no stack traces or internal messages.
 - The api's settings are checked at start-up (`apps/api/src/environment.ts`). `NODE_ENV` defaults to `production`, which
   needs https, rate limiting and a strong secret; local development sets `NODE_ENV=development` (`.env.example` does).

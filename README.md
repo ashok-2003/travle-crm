@@ -13,6 +13,8 @@ You need Node 24 (`nvm install 24`), pnpm 12 and Docker.
     pnpm db:migrate
     pnpm check        # typecheck, lint, tests, import rules
 
+`pnpm check` needs Docker running: the tests start a throwaway Postgres with Testcontainers.
+
 `.env.example` has everything development needs, including `NODE_ENV=development`. Without `NODE_ENV` the api assumes
 production and refuses to start on http or with the example secret.
 
