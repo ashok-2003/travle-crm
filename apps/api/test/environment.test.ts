@@ -88,6 +88,27 @@ describe("environment", () => {
     }
   });
 
+  it("refuses proxy addresses Better Auth would never match: zone ids and IPv4-mapped IPv6", () => {
+    const unmatched = [
+      "fe80::1%eth0",
+      "fe80::1%25eth0/64",
+      "::ffff:10.0.0.1",
+      "::ffff:10.0.0.0/104",
+      "::FFFF:a00:1",
+      "0:0:0:0:0:ffff:10.0.0.1",
+    ];
+    for (const AUTH_TRUSTED_PROXIES of unmatched) {
+      expect(() => loadEnvironment({ ...valid, NODE_ENV: "development", AUTH_TRUSTED_PROXIES })).toThrow(
+        /AUTH_TRUSTED_PROXIES/,
+      );
+    }
+    // Plain IPv6 addresses and ranges stay accepted.
+    expect(
+      loadEnvironment({ ...valid, NODE_ENV: "development", AUTH_TRUSTED_PROXIES: "fe80::1,2001:db8::/32,::1" })
+        .AUTH_TRUSTED_PROXIES,
+    ).toEqual(["fe80::1", "2001:db8::/32", "::1"]);
+  });
+
   it("names every missing or malformed variable, without printing values", () => {
     const attempt = () =>
       loadEnvironment({

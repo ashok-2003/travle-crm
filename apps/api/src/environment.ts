@@ -27,14 +27,23 @@ const origin = z.string().superRefine((value, context) => {
   }
 });
 
-/** An IPv4 or IPv6 address, or a CIDR range such as 10.0.0.0/8. */
+/**
+ * An IPv4 or IPv6 address, or a CIDR range such as 10.0.0.0/8. Zone ids (fe80::1%eth0) and IPv4-mapped IPv6 addresses
+ * (::ffff:10.0.0.1, in any spelling) are refused: Better Auth's proxy matching ignores them, so such a proxy would
+ * silently never count as trusted.
+ */
 const addressOrRange = z.string().refine((value) => {
   const [address = "", prefix, ...rest] = value.split("/");
   const version = isIP(address);
-  if (version === 0 || rest.length > 0) return false;
+  if (version === 0 || rest.length > 0 || address.includes("%") || isIpv4Mapped(address)) return false;
   if (prefix === undefined) return true;
   return /^\d{1,3}$/.test(prefix) && Number(prefix) <= (version === 4 ? 32 : 128);
-}, "must be IP addresses or CIDR ranges");
+}, "must be IP addresses or CIDR ranges, without zone ids or ::ffff: addresses");
+
+/** The URL parser writes every IPv6 address in its shortest form, so each spelling of ::ffff:a.b.c.d looks alike. */
+function isIpv4Mapped(address: string): boolean {
+  return isIP(address) === 6 && new URL(`http://[${address}]`).hostname.startsWith("[::ffff:");
+}
 
 const developmentLike = (nodeEnv: string): boolean => nodeEnv === "development" || nodeEnv === "test";
 
