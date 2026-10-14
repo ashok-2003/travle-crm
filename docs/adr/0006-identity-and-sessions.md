@@ -26,8 +26,9 @@ Date: 2026-10-14 · Status: accepted · Implements spec sections 6.1 to 6.4
   permissions from the database on every request. `freshProcedure` (money, roles, exports, staff management) and
   `platformProcedure` re-read the session itself, ignoring the cache.
 - **Two-factor** is optional per person. An organization with `require_two_factor` refuses members without it
-  everywhere except `me.get` and Better Auth's `/two-factor/*` endpoints. Turning the requirement on needs two-factor
-  on the person doing it.
+  everywhere except `me.get` and Better Auth's `/two-factor/*` endpoints. Turning the requirement on needs
+  `settings:manage` and two-factor on the person doing it; turning it off needs an Owner (`OWNER_ONLY`), since spec 6.2
+  makes requiring it an Owner's choice.
 - **Platform staff** have user role `admin` and no membership, ever (removed members count). They may impersonate a
   user for up to an hour. Impersonation has no durable record until the audit log arrives (plans 3 and 4); today the
   only marker is the session row.

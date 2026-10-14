@@ -34,13 +34,13 @@ answers open question Q2
 
 Every new organization gets these five (`packages/domain/src/identity/starter-roles.ts`).
 
-| Role       | Key          | Allows                                                                                                                                  |
-| ---------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Owner      | `org-owner`  | Everything, always, including permissions added later                                                                                   |
-| Admin      | `org-admin`  | Everything except `roles:manage`: staff, settings, audit log, margins, and every module over all records                                |
-| Sales      | `sales`      | Leads (own records): view, create, edit. Quotes (own): view, create, edit. Bookings (own): view, create. Departures and suppliers: view |
-| Operations | `operations` | Quotes and bookings (all records): view; bookings: edit. Departures and suppliers: view, create, edit                                   |
-| Accounts   | `accounts`   | Accounts: view, create, edit. Margins. Quotes and bookings (all records): view. Suppliers: view                                         |
+| Role       | Key          | Allows                                                                                                                                                                                                                                         |
+| ---------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Owner      | `org-owner`  | Everything, always, including permissions added later                                                                                                                                                                                          |
+| Admin      | `org-admin`  | Everything except `roles:manage`: staff, settings, audit log, margins, and every module over all records. Settings: an Admin may switch the two-factor requirement on, but only an Owner switches it off (spec 6.2: "an owner can require" it) |
+| Sales      | `sales`      | Leads (own records): view, create, edit. Quotes (own): view, create, edit. Bookings (own): view, create. Departures and suppliers: view                                                                                                        |
+| Operations | `operations` | Quotes and bookings (all records): view; bookings: edit. Departures and suppliers: view, create, edit                                                                                                                                          |
+| Accounts   | `accounts`   | Accounts: view, create, edit. Margins. Quotes and bookings (all records): view. Suppliers: view                                                                                                                                                |
 
 ## Context
 

@@ -10,6 +10,10 @@ export async function setTwoFactorRequirement(
   actor: MemberAccess,
   input: SetTwoFactorRequirementInput,
 ): Promise<SecuritySettings> {
+  // Spec 6.2: an Owner can require two-factor. Anyone with settings:manage may tighten sign-in; only an Owner loosens it.
+  if (!input.required && !actor.role.isOwner) {
+    throw new DomainError("FORBIDDEN", "OWNER_ONLY", "Only an Owner can stop requiring two-factor sign-in");
+  }
   // Otherwise the person turning it on would be shut out of the app until they set it up.
   if (input.required && !actor.twoFactorEnabled) {
     throw new DomainError("FORBIDDEN", "ENABLE_TWO_FACTOR_FIRST", "Turn on two-factor sign-in for yourself first");
