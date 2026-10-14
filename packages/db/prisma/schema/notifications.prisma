@@ -1,0 +1,79 @@
+// Notifications (spec 9.4): the in-app bell, each person's opt-outs, and their browsers' push subscriptions.
+// Organization-owned: row-level security applies (the migration calls app_enable_org_rls on all three).
+
+/// One notification for one person: a row in their bell, and perhaps an email and a push.
+model Notification {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId  String    @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id              String    @id @default(uuid(7)) @db.Uuid
+  /// Who it is for. Delivery checks they are still an active member.
+  recipientUserId String    @map("recipient_user_id") @db.Uuid
+  /// "<entity>.<what happened>", e.g. "share-link.opened" (CHECK notification_kind_format). Opt-outs are per kind.
+  kind            String
+  title           String
+  body            String
+  /// A path inside the web app, starting with "/" (CHECK notification_link_path).
+  link            String?
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  readAt          DateTime? @map("read_at") @db.Timestamptz(6)
+  /// The event that caused this notification, when a listener sent it: a repeat of the event adds nothing. Null for
+  /// notifications made while serving a request. Nulls are distinct, so those are never deduplicated.
+  sourceEventId   String?   @map("source_event_id") @db.Uuid
+  /// When the email was sent, so a retried delivery doesn't send it again. Set only after the send succeeded.
+  emailedAt       DateTime? @map("emailed_at") @db.Timestamptz(6)
+  /// When a delivery took the email to send it. A claim older than the lease (5 minutes) with nothing sent is
+  /// taken over: its run crashed. It is cleared when the send fails.
+  emailClaimedAt  DateTime? @map("email_claimed_at") @db.Timestamptz(6)
+  /// When the email was refused for good (a bad message, not a down server): it is not tried again. Clears the claim.
+  emailFailedAt   DateTime? @map("email_failed_at") @db.Timestamptz(6)
+  /// When the push went out to at least one browser. Set only after a send succeeded.
+  pushedAt        DateTime? @map("pushed_at") @db.Timestamptz(6)
+  /// As email_claimed_at, for the push.
+  pushClaimedAt   DateTime? @map("push_claimed_at") @db.Timestamptz(6)
+  /// When the push was given up on for good: refused as a bad message, or there was no browser left to send to
+  /// (every one had been forgotten by its push service). Not tried again.
+  pushFailedAt    DateTime? @map("push_failed_at") @db.Timestamptz(6)
+
+  /// One notification per (event, person): what keeps an at-least-once listener from notifying twice.
+  @@unique([organizationId, sourceEventId, recipientUserId])
+  /// The bell: a person's notifications, newest first (UUID v7 ids sort by time).
+  @@index([organizationId, recipientUserId, id(sort: Desc)])
+  /// The bell's unread count.
+  @@index([organizationId, recipientUserId], map: "notification_unread", where: { readAt: null })
+  @@map("notification")
+}
+
+/// One person's choice about email or push for one kind of notification, or for every kind ("*"). A kind's own
+/// row wins over "*". No row: they get it.
+model NotificationPreference {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String   @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  /// "email" or "push" (CHECK notification_preference_channel). The bell can't be turned off.
+  channel        String
+  /// A notification kind, or "*" for every kind (CHECK notification_preference_kind_format).
+  kind           String
+  optedOut       Boolean  @map("opted_out")
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@id([organizationId, userId, channel, kind])
+  @@map("notification_preference")
+}
+
+/// One browser's push subscription for one person. Deleted when the push service says it is gone.
+model PushSubscription {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String   @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String   @id @default(uuid(7)) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  /// The push service's URL for this browser. A browser that subscribes again for another person moves to them.
+  endpoint       String
+  /// The browser's P-256 public key and auth secret, base64url: the payload is encrypted to them.
+  p256dh         String
+  auth           String
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([organizationId, endpoint])
+  @@index([organizationId, userId])
+  @@map("push_subscription")
+}
