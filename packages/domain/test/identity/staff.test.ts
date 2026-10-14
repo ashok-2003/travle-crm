@@ -1,7 +1,7 @@
 // Staff against Postgres: adding people with or without email, changing roles, resetting passwords and removing
 // people (spec 6.3), with the rules that stop anyone reaching above their own access.
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
-import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, inject, it, onTestFinished, vi } from "vitest";
 import type { MemberAccess } from "../../src/identity/member-access.js";
 import {
   createTestAgency,
@@ -68,18 +68,38 @@ describe("staff", () => {
   });
 
   it("lists only this organization's staff, never showing placeholder addresses", async () => {
+    const own = await createTestAgency(test.identity, platform);
     const other = await createTestAgency(test.identity, platform);
-    const staff = await test.identity.staff.list(owner);
+    const ownOwner = await accessOf(own.ownerUserId, own.organizationId);
+    await test.identity.staff.create(ownOwner, {
+      name: "Ravi Kumar",
+      username: "ravi",
+      roleKey: "sales",
+      temporaryPassword: "temporary-pass-1",
+    });
+    await test.identity.staff.create(ownOwner, {
+      name: "Meera",
+      email: `meera-${own.code.toLowerCase()}@example.test`,
+      roleKey: "operations",
+      temporaryPassword: "temporary-pass-2",
+    });
+    const staff = await test.identity.staff.list(ownOwner);
     expect(staff.map((member) => member.name)).toEqual(["Asha Owner", "Ravi Kumar", "Meera"]);
     expect(staff.some((member) => member.userId === other.ownerUserId)).toBe(false);
     expect(staff.every((member) => !member.email?.endsWith(".invalid"))).toBe(true);
   });
 
   it("refuses a username already taken in the organization, ignoring case", async () => {
+    await test.identity.staff.create(owner, {
+      name: "First Ravi",
+      username: "taken-name",
+      roleKey: "sales",
+      temporaryPassword: "temporary-pass-3",
+    });
     await expect(
       test.identity.staff.create(owner, {
         name: "Another Ravi",
-        username: "ravi",
+        username: "TAKEN-name",
         roleKey: "sales",
         temporaryPassword: "temporary-pass-3",
       }),
@@ -101,8 +121,13 @@ describe("staff", () => {
 
   describe("an Admin", () => {
     let admin: MemberAccess;
+    let directors: { key: string };
 
     beforeAll(async () => {
+      directors = await test.identity.roles.create(owner, {
+        name: "Directors",
+        permissions: [{ permission: "roles:manage" }],
+      });
       const created = await test.identity.staff.create(owner, {
         name: "Admin",
         username: "admin",
@@ -124,10 +149,6 @@ describe("staff", () => {
     });
 
     it("cannot give a role that allows more than they hold", async () => {
-      const directors = await test.identity.roles.create(owner, {
-        name: "Directors",
-        permissions: [{ permission: "roles:manage" }],
-      });
       await expect(
         test.identity.staff.create(admin, {
           name: "Director",
@@ -149,6 +170,37 @@ describe("staff", () => {
         reason: "OWNER_ONLY",
       });
       await expect(test.identity.staff.remove(admin, target)).rejects.toMatchObject({ reason: "OWNER_ONLY" });
+    });
+
+    it("cannot manage a member whose role allows more than theirs", async () => {
+      const director = await test.identity.staff.create(owner, {
+        name: "Director Two",
+        username: "director2",
+        roleKey: directors.key,
+        temporaryPassword: "temporary-pass-9",
+      });
+      const target = { memberId: director.memberId };
+      await expect(test.identity.staff.updateRole(admin, { ...target, roleKey: "sales" })).rejects.toMatchObject({
+        reason: "EXCEEDS_YOUR_PERMISSIONS",
+      });
+      await expect(
+        test.identity.staff.resetPassword(admin, { ...target, temporaryPassword: "hijacked-pass-2" }),
+      ).rejects.toMatchObject({ reason: "EXCEEDS_YOUR_PERMISSIONS" });
+      await expect(test.identity.staff.remove(admin, target)).rejects.toMatchObject({
+        reason: "EXCEEDS_YOUR_PERMISSIONS",
+      });
+    });
+
+    it("cannot make someone an Owner by changing their role", async () => {
+      const helper = await test.identity.staff.create(owner, {
+        name: "Helper",
+        username: "helper",
+        roleKey: "sales",
+        temporaryPassword: "temporary-pass-10",
+      });
+      await expect(
+        test.identity.staff.updateRole(admin, { memberId: helper.memberId, roleKey: "org-owner" }),
+      ).rejects.toMatchObject({ reason: "OWNER_ONLY" });
     });
 
     it("cannot change their own access", async () => {
@@ -191,7 +243,45 @@ describe("staff", () => {
     });
   });
 
+  it("leaves a member of another organization unchanged when asked to change or reset them", async () => {
+    const other = await createTestAgency(test.identity, platform);
+    await expect(
+      test.identity.staff.updateRole(owner, { memberId: other.ownerMemberId, roleKey: "sales" }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND", reason: "MEMBER_NOT_FOUND" });
+    await expect(
+      test.identity.staff.resetPassword(owner, { memberId: other.ownerMemberId, temporaryPassword: "hijacked-pass-3" }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND", reason: "MEMBER_NOT_FOUND" });
+    const otherOwner = await accessOf(other.ownerUserId, other.organizationId);
+    expect(otherOwner.role.isOwner).toBe(true);
+    await expect(signInByEmail(test.identity, other.ownerEmail, other.ownerPassword)).resolves.toBeInstanceOf(Headers);
+  });
+
+  it("keeps an Owner when two Owners remove each other at the same moment", async () => {
+    const own = await createTestAgency(test.identity, platform);
+    const first = await accessOf(own.ownerUserId, own.organizationId);
+    const created = await test.identity.staff.create(first, {
+      name: "Second Owner",
+      username: "owner2",
+      roleKey: "org-owner",
+      temporaryPassword: "temporary-pass-11",
+    });
+    const second = await accessOf(created.userId, own.organizationId);
+    const results = await Promise.allSettled([
+      test.identity.staff.remove(first, { memberId: second.memberId }),
+      test.identity.staff.remove(second, { memberId: first.memberId }),
+    ]);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    const owners = await test.database.client.member.count({
+      where: { organizationId: own.organizationId, role: "org-owner", deletedAt: null },
+    });
+    expect(owners).toBe(1);
+  });
+
   it("resets a password to a temporary one and signs the person out everywhere", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    onTestFinished(() => {
+      warn.mockRestore();
+    });
     const sunil = await test.identity.staff.create(owner, {
       name: "Sunil",
       username: "sunil",
@@ -206,11 +296,16 @@ describe("staff", () => {
     });
     expect(await test.database.client.session.count({ where: { userId: sunil.userId } })).toBe(0);
     expect(await canSignInByUsername(agency.code, "sunil", "first-temp-pass-1")).toBe(false);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("Invalid password"));
     expect(await canSignInByUsername(agency.code, "sunil", "second-temp-pass-1")).toBe(true);
     expect((await accessOf(sunil.userId)).mustChangePassword).toBe(true);
   });
 
   it("removes a person: no access, no sign-in, and their email and username are free again", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    onTestFinished(() => {
+      warn.mockRestore();
+    });
     const email = `kiran-${agency.code.toLowerCase()}@example.test`;
     const kiran = await test.identity.staff.create(owner, {
       name: "Kiran",
@@ -226,6 +321,20 @@ describe("staff", () => {
     expect(await test.database.client.session.count({ where: { userId: kiran.userId } })).toBe(0);
     await expect(signInByEmail(test.identity, email, "kiran-temp-pass-1")).rejects.toThrow(/Sign-in failed/);
     expect(await canSignInByUsername(agency.code, "kiran", "kiran-temp-pass-1")).toBe(false);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("User not found"));
+
+    // The retired address can be worked out from the user id, so the wiped password and the ban each refuse it.
+    const retired = `removed-${kiran.userId}@no-email.invalid`;
+    await expect(signInByEmail(test.identity, retired, "kiran-temp-pass-1")).rejects.toThrow(/Sign-in failed/);
+    expect(await test.database.client.account.findFirst({ where: { userId: kiran.userId } })).toMatchObject({
+      password: null,
+    });
+    await test.database.client.user.update({ where: { id: kiran.userId }, data: { banned: false } });
+    try {
+      await expect(signInByEmail(test.identity, retired, "kiran-temp-pass-1")).rejects.toThrow(/Sign-in failed/);
+    } finally {
+      await test.database.client.user.update({ where: { id: kiran.userId }, data: { banned: true } });
+    }
     expect(await test.database.client.user.findUnique({ where: { id: kiran.userId } })).toMatchObject({
       formerEmail: email,
       banned: true,
@@ -298,5 +407,17 @@ describe("two-factor requirement", () => {
     const ravi = await test.identity.resolveAccess(sales.userId, agency.organizationId);
     expect(ravi?.organizationRequiresTwoFactor).toBe(true);
     expect(ravi?.twoFactorEnabled).toBe(false);
+  });
+
+  it("can be switched off again, and the choice is stored", async () => {
+    await test.database.client.user.update({ where: { id: agency.ownerUserId }, data: { twoFactorEnabled: true } });
+    const owner = await test.identity.resolveAccess(agency.ownerUserId, agency.organizationId);
+    if (!owner) throw new Error("no access");
+    await test.identity.settings.setTwoFactorRequirement(owner, { required: true });
+    await expect(test.identity.settings.setTwoFactorRequirement(owner, { required: false })).resolves.toEqual({
+      requireTwoFactor: false,
+    });
+    const stored = await platform.organization.findUniqueOrThrow({ where: { id: agency.organizationId } });
+    expect(stored.requireTwoFactor).toBe(false);
   });
 });

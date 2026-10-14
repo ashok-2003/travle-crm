@@ -14,11 +14,16 @@ Who can sign in, to which organization, and what they may do (spec section 6).
   - `settings.setTwoFactorRequirement`;
   - `seedStarterRoles(organizationId)` and `createOrganizationOwner(organizationId, owner)`, for onboarding;
   - `disconnect()`.
-- `permissions`, `permissionCatalog`, `isPermission`, `moduleOf`, `PermissionSet`: the permission catalog.
+- `permissions`, `permissionCatalog`, `isPermission`, `isScopedPermission`, `moduleOf`, `PermissionSet`: the permission
+  catalog.
+- `assertMayHandleRole`, `assertMayManageMember`, `assertRoleIsEditable`, `permissionSetFromInput`: the no-escalation
+  rules (ADR 0005).
+- `roleKeyFor(name)`: the key a new role gets.
 - `starterRoles`, `OWNER_ROLE_KEY`: the five roles every organization starts with (ADR 0005).
 - `scopeFilter(access, permission, ownerField)`, `assertRecordInScope(...)`: request check 5, own or all records.
 - `pendingStep(access)`: a password change or two-factor setup still to do.
-- `internalUsername`, `placeholderEmail`, `isPlaceholderEmail`, `shownEmail`: how sign-in names are stored.
+- `INTERNAL_USERNAME_PATTERN`, `internalUsername`, `placeholderEmail`, `isPlaceholderEmail`, `removedPersonEmail`,
+  `shownEmail`: how sign-in names are stored.
 
 ## Events
 

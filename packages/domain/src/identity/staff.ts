@@ -23,7 +23,7 @@ export async function listStaff(database: IdentityDatabase, actor: MemberAccess)
     const members = await tx.member.findMany({
       where: { organizationId: actor.organizationId },
       include: { user: true },
-      orderBy: { createdAt: "asc" },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     });
     const roleNames = new Map((await tx.role.findMany()).map((role) => [role.key, role.name]));
     return members.map((member) => ({
@@ -68,7 +68,14 @@ export async function updateStaffRole(
 ): Promise<StaffMember> {
   await database.forOrg(actor.organizationId, async (tx) => {
     const target = await findMember(tx, actor, input.memberId);
-    assertMayManageMember(actor, { userId: target.userId, role: await findRole(tx, target.role) });
+    const targetRole = await findRole(tx, target.role);
+    assertMayManageMember(actor, { userId: target.userId, role: targetRole });
+    if (targetRole.isOwner) await lockOwners(tx, actor, target.id, targetRole.key);
+    // A simultaneous deleteRole holds this row FOR UPDATE, so the member can never be left on a deleted role.
+    const kept = await tx.$queryRaw<
+      { id: string }[]
+    >`SELECT id FROM "role" WHERE key = ${input.roleKey} AND deleted_at IS NULL FOR SHARE`;
+    if (kept.length === 0) throw new DomainError("NOT_FOUND", "ROLE_NOT_FOUND", `No role ${input.roleKey}`);
     const newRole = await findRole(tx, input.roleKey);
     assertMayHandleRole(actor, newRole);
     await tx.member.update({ where: { id: target.id }, data: { role: newRole.key } });
@@ -87,10 +94,12 @@ export async function resetStaffPassword(
   await database.forOrg(actor.organizationId, async (tx) => {
     const target = await findMember(tx, actor, input.memberId);
     assertMayManageMember(actor, { userId: target.userId, role: await findRole(tx, target.role) });
-    await tx.account.updateMany({
+    const { count } = await tx.account.updateMany({
       where: { userId: target.userId, providerId: "credential" },
       data: { password: passwordHash },
     });
+    if (count !== 1)
+      throw new Error(`Expected one credential account for user ${target.userId}, found ${String(count)}`);
     await tx.user.update({ where: { id: target.userId }, data: { mustChangePassword: true } });
     await tx.session.deleteMany({ where: { userId: target.userId } });
   });
@@ -107,7 +116,9 @@ export async function removeStaff(
 ): Promise<void> {
   await database.forOrg(actor.organizationId, async (tx) => {
     const target = await findMember(tx, actor, input.memberId);
-    assertMayManageMember(actor, { userId: target.userId, role: await findRole(tx, target.role) });
+    const targetRole = await findRole(tx, target.role);
+    assertMayManageMember(actor, { userId: target.userId, role: targetRole });
+    if (targetRole.isOwner) await lockOwners(tx, actor, target.id, targetRole.key);
     await tx.member.update({ where: { id: target.id }, data: softDeleted(actor.userId) });
     const user = await tx.user.findUniqueOrThrow({ where: { id: target.userId } });
     await tx.user.update({
@@ -116,13 +127,42 @@ export async function removeStaff(
         formerEmail: isPlaceholderEmail(user.email) ? null : user.email,
         email: removedPersonEmail(user.id),
         username: null,
-        // Belt and braces: Better Auth refuses to create a session for a banned user.
+        // Better Auth refuses to create a session for a banned user. With the password wiped below, either one alone
+        // refuses sign-in.
         banned: true,
         banReason: "Removed from their organization",
       },
     });
+    // The retired address can be worked out from the user id, so the old password must stop working too.
+    await tx.account.updateMany({ where: { userId: user.id, providerId: "credential" }, data: { password: null } });
     await tx.session.deleteMany({ where: { userId: user.id } });
   });
+}
+
+/**
+ * Locks the organization's active Owners (in id order, so two changes can't deadlock) before one of them is removed or
+ * demoted. If the actor was removed or demoted in the meantime they can no longer do this, and an Owner must remain.
+ * The member table has no row-level security, so the organization is filtered here.
+ */
+async function lockOwners(
+  tx: IdentityTx,
+  actor: MemberAccess,
+  targetMemberId: string,
+  ownerKey: string,
+): Promise<void> {
+  const owners = await tx.$queryRaw<{ id: string; user_id: string }[]>`
+    SELECT id, user_id FROM member
+    WHERE organization_id = ${actor.organizationId}::uuid AND role = ${ownerKey} AND deleted_at IS NULL
+    ORDER BY id FOR UPDATE`;
+  if (!owners.some((owner) => owner.user_id === actor.userId)) {
+    throw new DomainError("FORBIDDEN", "OWNER_ONLY", "Only an Owner can change an Owner");
+  }
+  if (!owners.some((owner) => owner.id === targetMemberId)) {
+    throw new DomainError("NOT_FOUND", "MEMBER_NOT_FOUND", "No such staff member");
+  }
+  if (owners.every((owner) => owner.id === targetMemberId)) {
+    throw new DomainError("CONFLICT", "LAST_OWNER", "The organization must keep an Owner");
+  }
 }
 
 /** An active member of the actor's organization. Members of other organizations are "not found". */
