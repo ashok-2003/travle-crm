@@ -2,7 +2,7 @@
 import { ESLint } from "eslint";
 import tseslint from "typescript-eslint";
 import { describe, expect, it } from "vitest";
-import { rawDatabaseAccessGuard } from "../index.js";
+import { base, rawDatabaseAccessGuard } from "../index.js";
 
 const eslint = new ESLint({
   overrideConfigFile: true,
@@ -35,5 +35,45 @@ describe("raw database access guard", () => {
 
   it("allows ordinary parameterised raw SQL", async () => {
     expect(await rulesReportedFor("await tx.$queryRaw`SELECT count(*) FROM role WHERE key = ${key}`;")).toEqual([]);
+  });
+
+  const switchingStatements = [
+    "SELECT set_config ( 'app . org_id', 'x', true)",
+    "SET app  .  org_id = 'x'",
+    "SET ROLE postgres",
+    "set local role postgres",
+    "SET SESSION ROLE postgres",
+    "SET SESSION AUTHORIZATION postgres",
+    "RESET ALL",
+    "reset role",
+    "CREATE TEMP TABLE scratch (id int)",
+    "create temporary table scratch (id int)",
+  ];
+
+  it.each(switchingStatements)("reports %s in a plain string", async (sql) => {
+    expect(await rulesReportedFor('const sql = "' + sql + '";')).toEqual(["no-restricted-syntax"]);
+  });
+
+  it.each(switchingStatements)("reports %s in a tagged template", async (sql) => {
+    expect(await rulesReportedFor("await tx.$executeRaw`" + sql + "`;")).toContain("no-restricted-syntax");
+  });
+
+  it("reports the organization setting split across lines in a template", async () => {
+    expect(await rulesReportedFor("await tx.$executeRaw`SET app\n  .org_id = 'x'`;")).toContain("no-restricted-syntax");
+  });
+
+  it("does not flag ordinary SQL that merely contains SET or similar words", async () => {
+    expect(await rulesReportedFor("await tx.$queryRaw`SELECT * FROM lead WHERE status = ${status}`;")).toEqual([]);
+    expect(await rulesReportedFor(`const sql = "SELECT * FROM lead WHERE status = $1";`)).toEqual([]);
+    expect(await rulesReportedFor("await tx.$executeRaw`UPDATE lead SET name = ${name} WHERE id = ${id}`;")).toEqual(
+      [],
+    );
+    expect(await rulesReportedFor(`const sql = "UPDATE lead SET role_note = 'reset' WHERE id = $1";`)).toEqual([]);
+  });
+
+  it("stays part of the composed base() config", () => {
+    const rules = base({ tsconfigRootDir: import.meta.dirname }).flatMap((config) => Object.keys(config.rules ?? {}));
+    expect(rules).toContain("no-restricted-syntax");
+    expect(rules).toContain("no-restricted-properties");
   });
 });
