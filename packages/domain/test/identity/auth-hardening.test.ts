@@ -144,4 +144,25 @@ describe("Better Auth hardening", () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({ code: "NEW_PASSWORD_MUST_DIFFER" });
   });
+
+  it("lets a platform admin stop impersonating, and refuses stop-impersonating without impersonation", async () => {
+    const adminHeaders = await platformAdminHeaders();
+    const impersonation = await post("/admin/impersonate-user", adminHeaders, { userId: agency.ownerUserId });
+    expect(impersonation.status).toBe(200);
+    // A small cookie jar where the later value wins, as in a browser.
+    const jar = new Map<string, string>();
+    for (const pair of [adminHeaders.get("cookie") ?? "", ...impersonation.headers.getSetCookie()]
+      .flatMap((value) => value.split(";")[0]?.split("; ") ?? [])
+      .filter(Boolean)) {
+      const [name, ...value] = pair.split("=");
+      jar.set(name ?? "", value.join("="));
+    }
+    const impersonating = new Headers({ cookie: [...jar].map(([name, value]) => `${name}=${value}`).join("; ") });
+    const during = await test.identity.auth.api.getSession({ headers: impersonating });
+    expect(during?.user.id).toBe(agency.ownerUserId);
+    expect((await post("/admin/stop-impersonating", impersonating, {})).status).toBe(200);
+
+    const member = await signInByEmail(test.identity, agency.ownerEmail, agency.ownerPassword);
+    expect((await post("/admin/stop-impersonating", member, {})).status).toBe(403);
+  });
 });

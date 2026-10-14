@@ -146,7 +146,14 @@ function closeSideDoors(client: IdentityClient) {
       // The cookie cache is skipped: a demoted admin must lose access at once.
       const session = await getAuthoritativeSessionFromCtx(ctx);
       if (!session) throw new APIError("UNAUTHORIZED", { code: "UNAUTHORIZED", message: "Sign in first" });
-      if (!(await isPlatformAdminUser(client, session.user.id))) {
+      // During impersonation the session's user is the impersonated member; Better Auth restores the admin named in
+      // impersonatedBy. That one path stays open, and only when that person is still platform staff.
+      const impersonatedBy = (session.session as { impersonatedBy?: string | null }).impersonatedBy;
+      const stoppingImpersonation =
+        ctx.path === "/admin/stop-impersonating" &&
+        !!impersonatedBy &&
+        (await isPlatformAdminUser(client, impersonatedBy));
+      if (!stoppingImpersonation && !(await isPlatformAdminUser(client, session.user.id))) {
         throw new APIError("FORBIDDEN", { code: "FORBIDDEN", message: "Platform staff only" });
       }
       const roles = [body.role].flat();
