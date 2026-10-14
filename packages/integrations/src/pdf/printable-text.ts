@@ -46,7 +46,8 @@ export function normalisedText(text: string): string {
   return text.normalize("NFC").replaceAll(/\r\n?/g, "\n");
 }
 
-const codePointLabel = (character: string): string =>
+/** A character as "U+0939", so one that is invisible or unreadable can still be named. */
+export const characterLabel = (character: string): string =>
   `U+${(character.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, "0")}`;
 
 const isPrintable = (codePoint: number): boolean =>
@@ -69,6 +70,18 @@ export function unprintableCharacters(text: string): string[] {
   return [...found];
 }
 
+/** Every piece of text in a value: strings, and strings inside arrays and objects. Bytes (a logo) are skipped. */
+export function textsIn(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  if (value instanceof Uint8Array || value === null || typeof value !== "object") return [];
+  return Object.values(value).flatMap(textsIn);
+}
+
+/** The characters the PDF fonts can't show anywhere in a document's data, each once. */
+export function unprintableCharactersIn(value: unknown): string[] {
+  return unprintableCharacters(textsIn(value).join(""));
+}
+
 /**
  * Thrown, before rendering, for a document holding characters the fonts can't show. It is permanent: the same document
  * fails every time, so a job that gets it should not retry. Match on `code`, which is stable.
@@ -79,7 +92,7 @@ export class UnprintableTextError extends Error {
 
   constructor(characters: readonly string[]) {
     super(
-      `This document has characters its fonts can't show yet: ${characters.map((character) => `${character} (${codePointLabel(character)})`).join(", ")}`,
+      `This document has characters its fonts can't show yet: ${characters.map((character) => `${character} (${characterLabel(character)})`).join(", ")}`,
     );
     this.name = "UnprintableTextError";
     this.characters = characters;

@@ -15,6 +15,15 @@ interface Table {
   data: Uint8Array;
 }
 
+/** Inflates one table, never to more than the length it declares. */
+function unpacked(stored: Uint8Array, length: number): Uint8Array {
+  try {
+    return new Uint8Array(inflateSync(stored, { maxOutputLength: length }));
+  } catch {
+    throw new RangeError("A WOFF table unpacks to more than it declares, or is damaged");
+  }
+}
+
 const paddedToFour = (length: number): number => (length + 3) & ~3;
 
 export function sfntFromWoff(woff: Uint8Array): Uint8Array {
@@ -40,7 +49,7 @@ export function sfntFromWoff(woff: Uint8Array): Uint8Array {
     if (offset + compressedLength > woff.byteLength) throw new RangeError("A truncated WOFF font");
     const stored = woff.subarray(offset, offset + compressedLength);
     // A table is stored as is when compressing it wouldn't make it smaller.
-    const data = compressedLength < length ? new Uint8Array(inflateSync(stored, { maxOutputLength: length })) : stored;
+    const data = compressedLength < length ? unpacked(stored, length) : stored;
     if (data.byteLength !== length) throw new RangeError("A WOFF table unpacked to the wrong size");
     tables.push({ tag: view.getUint32(entry), checksum: view.getUint32(entry + 16), data });
   }

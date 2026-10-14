@@ -1,0 +1,37 @@
+// Issued documents (spec 9.3): numbered documents whose content is frozen when issued, and whose PDF the worker
+// renders once and never again. Organization-owned; the api and worker may only attach the rendered PDF to a row.
+// The organization relation, and the foreign key from pdf_attachment_id to attachment, are added with every plan 3
+// table's in plan 3's Integration task.
+
+/// A document as issued, e.g. quotation DOC-2026-0042.
+model IssuedDocument {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId  String    @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id              String    @id @default(uuid(7)) @db.Uuid
+  /// The template it renders with, e.g. "sample".
+  template        String
+  /// "<prefix>-<year>-<0001>" from the organization's counter (CHECK issued_document_number_format).
+  number          String
+  title           String
+  /// The content and branding exactly as issued, a JSON object (CHECK issued_document_render_input_object).
+  renderInput     Json      @map("render_input")
+  /// Who issued it; null when the system did.
+  issuedBy        String?   @map("issued_by") @db.Uuid
+  issuedAt        DateTime  @default(now()) @map("issued_at") @db.Timestamptz(6)
+  /// The id its PDF's attachment will have, chosen when the document is issued so a retried render stores the PDF
+  /// into the same attachment however often it runs.
+  pdfFileId       String    @default(uuid(7)) @map("pdf_file_id") @db.Uuid
+  /// The rendered PDF, an attachment of this document (always pdf_file_id). Set once, never replaced (CHECK
+  /// issued_document_rendered).
+  pdfAttachmentId String?   @map("pdf_attachment_id") @db.Uuid
+  renderedAt      DateTime? @map("rendered_at") @db.Timestamptz(6)
+  /// Set when rendering can never succeed, e.g. "UNPRINTABLE_TEXT: U+0939"; the worker then stops trying. Codes and
+  /// code points only: no customer text (CHECK issued_document_render_failure).
+  renderFailure   String?   @map("render_failure")
+
+  /// Lets other organization tables point at (organization_id, id).
+  @@unique([organizationId, id])
+  /// A number is used once in its organization.
+  @@unique([organizationId, number])
+  @@map("issued_document")
+}

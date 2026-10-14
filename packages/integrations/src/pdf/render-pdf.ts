@@ -3,19 +3,12 @@ import { renderToBuffer, type DocumentProps } from "@react-pdf/renderer";
 import type { ReactElement } from "react";
 import type { PdfInput, PdfTemplate } from "./document-input.js";
 import { registerBrandFonts } from "./fonts.js";
-import { normalisedText, UnprintableTextError, unprintableCharacters } from "./printable-text.js";
+import { normalisedText, UnprintableTextError, unprintableCharactersIn } from "./printable-text.js";
 import { sampleDocument } from "./templates/sample-document.js";
 
 const templates: Record<PdfTemplate, (input: PdfInput) => ReactElement<DocumentProps>> = {
   sample: sampleDocument,
 };
-
-/** Every piece of text in a value: strings, and strings inside arrays and objects. Bytes (a logo) are skipped. */
-function textsIn(value: unknown): string[] {
-  if (typeof value === "string") return [value];
-  if (value instanceof Uint8Array || value === null || typeof value !== "object") return [];
-  return Object.values(value).flatMap(textsIn);
-}
 
 /** The same value with every string normalised for printing. Bytes (a logo) and dates are kept as they are. */
 function normalised<T>(value: T): T {
@@ -38,7 +31,7 @@ export async function renderPdf(template: PdfTemplate, rawInput: PdfInput): Prom
     throw new RangeError("Logos are PNG or JPEG images");
   }
   const input = normalised(rawInput);
-  const unprintable = unprintableCharacters(textsIn(input).join(""));
+  const unprintable = unprintableCharactersIn(input);
   if (unprintable.length > 0) throw new UnprintableTextError(unprintable);
   registerBrandFonts();
   const document = templates[template](input);

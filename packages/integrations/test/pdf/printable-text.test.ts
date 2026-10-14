@@ -1,7 +1,13 @@
 // The PDF fonts' character set: every character called printable renders and reads back as itself in each font, and
 // anything else is caught before rendering, because React-PDF would print other letters in its place.
 import { describe, expect, it } from "vitest";
-import { printableCharacters, renderPdf, UnprintableTextError, unprintableCharacters } from "../../src/pdf/index.js";
+import {
+  printableCharacters,
+  renderPdf,
+  UnprintableTextError,
+  unprintableCharacters,
+  unprintableCharactersIn,
+} from "../../src/pdf/index.js";
 import { pdfText } from "./pdf-text.js";
 
 const issuedAt = new Date("2026-10-15T05:30:00Z");
@@ -33,6 +39,12 @@ describe("printable text", () => {
   it("names the characters it can't print, once each, and allows line breaks", () => {
     expect(unprintableCharacters("Hotel होटल, होटल ₹4,000\nPaid ✅")).toEqual(["ह", "ो", "ट", "ल", "✅"]);
     expect(unprintableCharacters("Ūdaipur – “Lake palace” ₹12,50,000…\n")).toEqual([]);
+  });
+
+  it("looks through every string in a document's data, and skips bytes", () => {
+    const data = { title: "Quotation", rows: [{ description: "होटल", amount: "₹1" }], logo: new Uint8Array([0xe0]) };
+    expect(unprintableCharactersIn(data)).toEqual(["ह", "ो", "ट", "ल"]);
+    expect(unprintableCharactersIn({ title: "Quotation", count: 3, missing: null })).toEqual([]);
   });
 
   it("refuses to render a document with text the fonts can't show, rather than print other letters", async () => {

@@ -44,7 +44,7 @@ describe("sfntFromWoff on bad input", () => {
     const bytes = copy();
     const length = view(bytes).getUint32(firstEntry + 12);
     view(bytes).setUint32(firstEntry + 12, length + 1);
-    expect(() => sfntFromWoff(bytes)).toThrow(RangeError);
+    expect(() => sfntFromWoff(bytes)).toThrow(/A WOFF table unpacked to the wrong size/);
   });
 
   it("refuses tables that add up to more than the declared size", () => {
@@ -66,7 +66,7 @@ describe("sfntFromWoff on bad input", () => {
         break;
       }
     }
-    expect(() => sfntFromWoff(bytes)).toThrow();
+    expect(() => sfntFromWoff(bytes)).toThrow(/A WOFF table unpacks to more than it declares/);
   });
 
   it("refuses a font with no tables", () => {
