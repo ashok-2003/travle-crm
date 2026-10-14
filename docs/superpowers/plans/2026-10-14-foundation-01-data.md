@@ -42,17 +42,17 @@
   - Organization data is reached only through `db.forOrg()`.
   - Every table with an `organization_id` column gets `SELECT app_enable_org_rls('<table>');` in the migration that creates it, plus an entry in `packages/db/test/org-table-fixtures.ts`.
 - **Commits.** Small commits with messages like `feat(db): …`, `chore: …`, `test(db): …`. **Never add a `Co-Authored-By` trailer.** The owner's global instructions forbid it. No secrets or `.env` files in git.
-- **Git.** Work on branch `foundation/01-data`. Don't push; there is no remote.
+- **Git.** Work on branch `foundation/01-data`. Don't push; there is no remote. From Task 2 on, git hooks run on every commit (Prettier, ESLint, commitlint); fix what they report and never use `--no-verify`.
 
 ## Review Focus
 
 These failure modes are implied by the spec but easy to miss. Each one is pinned by a test in the task named.
 
-1. **A pooled connection reused after a `forOrg` transaction must return 0 organization rows, not raise an error and not show the previous organization's rows.** Postgres reads the cleared setting back as `''`, not NULL. Pinned in Task 3: "does not leak the organization to the next query on the same connection".
-2. **A malformed organization id must be rejected with `InvalidOrganizationIdError` before any SQL runs.** Examples: `""`, `"abc"`, an SQL fragment. Pinned in Task 3.
-3. **A document counter past 9999 must keep going (`BK-2026-10000`) and never repeat under concurrency.** Pinned in Task 4.
-4. **The runtime role must not be able to create tables or read `_prisma_migrations`.** It must not see past RLS through schema changes. Pinned in Task 2.
-5. **A new table with `organization_id` but without the policies must fail the test suite.** Pinned in Task 5 by a negative probe that creates such a table inside a rolled-back transaction.
+1. **A pooled connection reused after a `forOrg` transaction must return 0 organization rows, not raise an error and not show the previous organization's rows.** Postgres reads the cleared setting back as `''`, not NULL. Pinned in Task 4: "does not leak the organization to the next query on the same connection".
+2. **A malformed organization id must be rejected with `InvalidOrganizationIdError` before any SQL runs.** Examples: `""`, `"abc"`, an SQL fragment. Pinned in Task 4.
+3. **A document counter past 9999 must keep going (`BK-2026-10000`) and never repeat under concurrency.** Pinned in Task 5.
+4. **The runtime role must not be able to create tables or read `_prisma_migrations`.** It must not see past RLS through schema changes. Pinned in Task 3.
+5. **A new table with `organization_id` but without the policies must fail the test suite.** Pinned in Task 6 by a negative probe that creates such a table inside a rolled-back transaction.
 
 ## File Structure
 
@@ -64,6 +64,11 @@ travel-crm/
 ├── .dependency-cruiser.cjs        import rules checked in CI
 ├── .github/workflows/ci.yml       CI: install, then `pnpm check`
 ├── CLAUDE.md                      conventions for anyone (human or AI) writing code here
+├── CONTRIBUTING.md                workflow: branches, commits, hooks
+├── .editorconfig, .prettierrc.json, .prettierignore
+├── .husky/                        git hooks: pre-commit (lint-staged), commit-msg (commitlint)
+├── lint-staged.config.js, commitlint.config.js, renovate.json
+├── .github/pull_request_template.md
 ├── README.md                      what this is, how to run it
 ├── docker-compose.yml             local Postgres 18 with the three roles
 ├── package.json                   root scripts (turbo), pinned tool versions
@@ -363,7 +368,7 @@ Expected:
 - The import prints `function`. If it crashes with "does not support TS 7.0", the eslint-config package is missing its own `typescript` devDependency.
 - tsc prints `Version 6.0.3`.
 
-Linting real TypeScript is first exercised in Task 2, which adds the first package with code.
+Linting real TypeScript is first exercised in Task 3, which adds the first package with code.
 
 - [ ] **Step 10: Write `CLAUDE.md`**
 
@@ -478,7 +483,7 @@ Node 24 LTS, pnpm 12.11.2, Turborepo 2.11.8, **TypeScript 6.0.3**, **Prisma 7.10
 One compiler, one lint toolchain, reproducible installs. Upgrading TypeScript or Prisma is a deliberate change with its own ADR.
 ```
 
-`docs/adr/0002-row-level-security.md`: written in Task 3, when the decision is implemented. Don't create it yet.
+`docs/adr/0002-row-level-security.md`: written in Task 4, when the decision is implemented. Don't create it yet.
 
 - [ ] **Step 12: Commit**
 
@@ -490,7 +495,279 @@ git commit -m "chore: set up pnpm + Turborepo workspace with shared TypeScript a
 
 ---
 
-### Task 2: Database package, roles and test harness
+### Task 2: Repository conventions (formatting, git hooks, commit messages)
+
+**Files:**
+- Create: `.editorconfig`, `.prettierrc.json`, `.prettierignore`, `lint-staged.config.js`, `commitlint.config.js`, `.husky/pre-commit`, `.husky/commit-msg`
+- Create: `.github/pull_request_template.md`, `renovate.json`, `.vscode/extensions.json`, `CONTRIBUTING.md`, `docs/adr/0003-repository-conventions.md`
+- Modify: `package.json` (devDependencies, `prepare`, `format`, `format:check`, `check`, `license`), `docs/adr/README.md`, `CLAUDE.md`, `README.md`
+
+**Interfaces:**
+- Consumes: Task 1's root `package.json` and the eslint-config package.
+- Produces:
+  - Every later commit goes through the hooks: Prettier and ESLint fix the staged files, and commitlint enforces Conventional Commits and rejects a `Co-Authored-By` trailer.
+  - Root `check` now starts with `format:check`.
+  - Never bypass the hooks with `--no-verify`.
+
+- [ ] **Step 1: Install the tools**
+
+```bash
+cd /Users/ak/personal/travel-crm && source ~/.nvm/nvm.sh && nvm use >/dev/null
+pnpm add -D -w husky@9.1.7 lint-staged@17.6.0 @commitlint/cli@21.2.3 @commitlint/config-conventional@21.2.3 prettier@3.9.10
+```
+
+- [ ] **Step 2: Write the formatting config**
+
+`.editorconfig`:
+```ini
+# Editor basics shared by every editor and by Prettier.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.md]
+trim_trailing_whitespace = false
+```
+
+`.prettierrc.json`:
+```json
+{
+  "$schema": "https://json.schemastore.org/prettierrc",
+  "printWidth": 120
+}
+```
+
+`.prettierignore`:
+```
+pnpm-lock.yaml
+**/src/generated/
+**/prisma/migrations/
+docs/superpowers/
+.superpowers/
+coverage/
+.turbo/
+```
+`docs/superpowers/` holds the approved spec and plans. They are kept exactly as reviewed.
+
+- [ ] **Step 3: Write the hook configs**
+
+`lint-staged.config.js`:
+```js
+// Runs on the files staged for a commit (via the husky pre-commit hook).
+export default {
+  // TypeScript in packages: format, then fix lint problems with that package's own ESLint config.
+  "packages/**/*.{ts,tsx}": ["prettier --write", "eslint --fix"],
+  "apps/**/*.{ts,tsx}": ["prettier --write", "eslint --fix"],
+  // Everything else Prettier understands.
+  "*.{js,mjs,cjs,json,md,yml,yaml,css}": ["prettier --write --ignore-unknown"],
+};
+```
+
+`commitlint.config.js`:
+```js
+// Commit messages follow Conventional Commits: "feat(db): add document numbers", "fix: …", "docs: …".
+export default {
+  extends: ["@commitlint/config-conventional"],
+  rules: {
+    // Long URLs and command output in bodies are fine.
+    "body-max-line-length": [0],
+    "footer-max-line-length": [0],
+    // The owner's rule: no co-author trailers on commits in this repo.
+    "trailer-exists": [2, "never", "Co-Authored-By:"],
+  },
+};
+```
+
+- [ ] **Step 4: Set up husky**
+
+Run: `cd /Users/ak/personal/travel-crm && source ~/.nvm/nvm.sh && nvm use >/dev/null && pnpm exec husky init`
+
+This adds `"prepare": "husky"` to `package.json` and creates `.husky/pre-commit`. Replace that file's content and add `commit-msg`.
+
+`.husky/pre-commit`:
+```sh
+pnpm exec lint-staged
+```
+
+`.husky/commit-msg`:
+```sh
+pnpm exec commitlint --edit "$1"
+```
+
+- [ ] **Step 5: Add the scripts and license field to the root `package.json`**
+
+Set these fields (keep everything else):
+```json
+  "license": "UNLICENSED",
+  "scripts": {
+    "prepare": "husky",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "depcruise": "depcruise packages --config .dependency-cruiser.cjs",
+    "check": "pnpm run format:check && turbo run typecheck lint test && pnpm run depcruise",
+    "db:up": "docker compose up -d --wait postgres",
+    "db:down": "docker compose down",
+    "db:migrate": "pnpm --filter @travel-crm/db db:migrate:deploy"
+  },
+```
+
+Then format what exists: `cd /Users/ak/personal/travel-crm && source ~/.nvm/nvm.sh && nvm use >/dev/null && pnpm format`
+
+- [ ] **Step 6: Prove the hooks work**
+
+```bash
+cd /Users/ak/personal/travel-crm && source ~/.nvm/nvm.sh && nvm use >/dev/null
+printf 'feat(db): add document numbers\n' | pnpm exec commitlint
+printf 'added stuff\n' | pnpm exec commitlint; echo "exit=$?"
+printf 'chore: tidy\n\nCo-Authored-By: Someone <someone@example.com>\n' | pnpm exec commitlint; echo "exit=$?"
+pnpm run format:check
+```
+Expected:
+- The first command passes silently.
+- The second fails (`subject-empty` / `type-empty`), and so does the third (`trailer-exists`). Both print a non-zero `exit=`.
+- `format:check` reports all files formatted.
+
+If the `trailer-exists` line passes, the rule's key is case-sensitive. Change the value to match how Git writes the trailer, then re-run.
+
+- [ ] **Step 7: Write the project-hygiene files**
+
+`.github/pull_request_template.md`:
+```markdown
+## What changed
+
+## Why
+
+## How it was tested
+
+<!-- The commands you ran and what they printed. "pnpm check" at minimum. -->
+
+## Checklist
+
+- [ ] `pnpm check` is green
+- [ ] New table with `organization_id`? Its migration calls `app_enable_org_rls`, and it has an entry in `packages/db/test/org-table-fixtures.ts`
+- [ ] A decision others will ask "why?" about has an ADR in `docs/adr/`
+- [ ] No secrets, `.env` files or personal data in the diff
+```
+
+`renovate.json`:
+```json
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":semanticCommits"],
+  "timezone": "Asia/Kolkata",
+  "schedule": ["before 9am on monday"],
+  "packageRules": [
+    {
+      "description": "Prisma packages move together. Major upgrades (8.x) need an ADR first.",
+      "matchPackageNames": ["prisma", "@prisma/client", "@prisma/adapter-pg"],
+      "groupName": "prisma",
+      "allowedVersions": "<8"
+    },
+    {
+      "description": "Stay on TypeScript 6 until typescript-eslint supports TypeScript 7 (ADR 0001).",
+      "matchPackageNames": ["typescript"],
+      "allowedVersions": "<7"
+    }
+  ]
+}
+```
+
+`.vscode/extensions.json`:
+```json
+{
+  "recommendations": ["dbaeumer.vscode-eslint", "esbenp.prettier-vscode", "prisma.prisma", "editorconfig.editorconfig"]
+}
+```
+
+`CONTRIBUTING.md`:
+```markdown
+# Contributing
+
+The conventions every change follows are in [CLAUDE.md](CLAUDE.md). This page covers the workflow.
+
+## Setup
+
+See [Run it locally](README.md#run-it-locally). `pnpm install` also installs the git hooks.
+
+## Making a change
+
+1. Branch from `main` (`feat/<topic>`, `fix/<topic>`).
+2. Write the failing test first, then the code.
+3. Commit in small steps. Messages follow [Conventional Commits](https://www.conventionalcommits.org): `feat(db): …`, `fix: …`, `docs: …`.
+4. Run `pnpm check` and open a pull request; the template asks how you tested it.
+
+## Git hooks
+
+- **pre-commit:** formats staged files with Prettier and fixes lint problems with ESLint.
+- **commit-msg:** rejects messages that aren't Conventional Commits, and `Co-Authored-By` trailers.
+
+Never skip them with `--no-verify`. If a GUI git client can't find Node, create `~/.config/husky/init.sh`
+containing `source ~/.nvm/nvm.sh && nvm use 24 >/dev/null`.
+```
+
+`docs/adr/0003-repository-conventions.md`:
+```markdown
+# 0003: Repository conventions
+
+Date: 2026-10-14 · Status: accepted
+
+## Decision
+
+- **Prettier** formats code (width 120); **ESLint** catches mistakes; `.editorconfig` covers editors.
+- **husky + lint-staged** run both on staged files before every commit.
+- **commitlint** enforces Conventional Commits and rejects `Co-Authored-By` trailers.
+- **Renovate** proposes dependency updates weekly, with guards for Prisma 8 and TypeScript 7.
+- A pull request template asks how each change was tested.
+
+## Context
+
+The owner asked for the conventions of well-run open-source monorepos, and most code is written by AI agents, so
+the rules must be enforced by tools rather than remembered. Not adopted, because they serve published libraries
+and this is a private application: Changesets, semantic-release, per-package versioning and a public LICENSE
+(`"license": "UNLICENSED"` instead).
+
+## Consequences
+
+Every commit in the history is formatted, linted and conventionally described. Renovate starts working once the
+repo is on GitHub.
+```
+
+Add a row to `docs/adr/README.md`:
+```markdown
+| [0003](0003-repository-conventions.md) | Repository conventions: Prettier, husky, lint-staged, commitlint, Renovate |
+```
+
+In `CLAUDE.md`, under "How we write code", replace the **Commits** bullet with:
+```markdown
+- **Commits.** Small, Conventional Commits (`feat(db): …`), enforced by commitlint. Git hooks format and lint staged files;
+  never bypass them with `--no-verify`. Never add a `Co-Authored-By` trailer. Never commit `.env` files or secrets.
+```
+and add `| pnpm format | format every file with Prettier |` to its command table.
+
+In `README.md`, add under "Where things are": `- CONTRIBUTING.md: how to make a change (branches, commits, hooks)`
+
+- [ ] **Step 8: Check and commit (through the new hooks)**
+
+```bash
+cd /Users/ak/personal/travel-crm && source ~/.nvm/nvm.sh && nvm use >/dev/null
+pnpm run format:check && pnpm run depcruise
+git add -A . && git status --short
+git commit -m "chore: add Prettier, husky, lint-staged, commitlint and contribution guidelines"
+```
+Expected: the commit runs `lint-staged` and `commitlint` and succeeds. `git status --short` must not list any `.env` file.
+
+---
+
+### Task 3: Database package, roles and test harness
 
 **Files:**
 - Create: `docker-compose.yml`, `.env.example`
@@ -975,7 +1252,7 @@ git commit -m "feat(db): add database package with roles, organization table and
 
 ---
 
-### Task 3: `db.forOrg()` and the first organization-owned table
+### Task 4: `db.forOrg()` and the first organization-owned table
 
 **Files:**
 - Create: `packages/db/prisma/schema/org-counter.prisma`
@@ -987,7 +1264,7 @@ git commit -m "feat(db): add database package with roles, organization table and
 - Create: `docs/adr/0002-row-level-security.md`; modify `docs/adr/README.md` (row already listed in Task 1)
 
 **Interfaces:**
-- Consumes: from Task 2, `createPrismaClient`, `createPlatformClient`, `createTestOrganization` and `inject("dbUrls")`.
+- Consumes: from Task 3, `createPrismaClient`, `createPlatformClient`, `createTestOrganization` and `inject("dbUrls")`.
 - Produces:
   - `type OrgTx = Prisma.TransactionClient`.
   - `class InvalidOrganizationIdError extends Error`.
@@ -1253,7 +1530,7 @@ git commit -m "feat(db): add db.forOrg() with row-level security and the org_cou
 
 ---
 
-### Task 4: Readable document numbers per organization
+### Task 5: Readable document numbers per organization
 
 **Files:**
 - Create: `packages/db/src/counters.ts`
@@ -1261,7 +1538,7 @@ git commit -m "feat(db): add db.forOrg() with row-level security and the org_cou
 - Create: `packages/db/test/counters.test.ts`
 
 **Interfaces:**
-- Consumes: from Task 3, `OrgTx`, `createDatabase`, `forOrg`, and the `org_counter` table; from Task 2, the helpers.
+- Consumes: from Task 4, `OrgTx`, `createDatabase`, `forOrg`, and the `org_counter` table; from Task 3, the helpers.
 - Produces:
   - `nextDocumentNumber(tx: OrgTx, options: DocumentNumberOptions): Promise<string>`.
   - `interface DocumentNumberOptions { prefix: string; year: number }`. `prefix` is 2–5 capital letters; `year` is 2000–9999.
@@ -1426,14 +1703,14 @@ git commit -m "feat(db): add per-organization document numbers (BK-2026-0042)"
 
 ---
 
-### Task 5: Isolation suite and RLS schema check
+### Task 6: Isolation suite and RLS schema check
 
 **Files:**
 - Create: `packages/db/test/org-table-fixtures.ts`, `packages/db/test/isolation.test.ts`, `packages/db/test/schema-check.test.ts`
 - Create: `packages/db/README.md`
 
 **Interfaces:**
-- Consumes: Tasks 2–4. `Prisma` (namespace) from `../src/generated/prisma/client.js`, for `Prisma.raw`.
+- Consumes: Tasks 3–5. `Prisma` (namespace) from `../src/generated/prisma/client.js`, for `Prisma.raw`.
 - Produces:
   - `orgTableFixtures: Record<string, (tx: OrgTx) => Promise<unknown>>`, keyed by table name. Every later plan adds one entry per new organization-owned table.
   - `signInTables: readonly string[]`, the tables that carry `organization_id` but stay outside RLS. Empty now; plan 2 adds Better Auth's `member` and `invitation`.
@@ -1699,7 +1976,7 @@ git commit -m "test(db): prove organization isolation for every organization-own
 
 ---
 
-### Task 6: CI workflow and a clean-checkout run
+### Task 7: CI workflow and a clean-checkout run
 
 **Files:**
 - Create: `.github/workflows/ci.yml`
