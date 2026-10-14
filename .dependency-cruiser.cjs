@@ -309,7 +309,7 @@ module.exports = {
       // _your_ environment). If that list is larger than you need you can pass
       // the extensions you actually use (e.g. ['.js', '.jsx']). This can speed
       // up module resolution, which is the most expensive step.
-      extensions: [".js"],
+      extensions: [".ts", ".d.ts", ".js"],
 
       // What to consider a 'main' field in package.json
       mainFields: ["module", "main", "types", "typings"],

@@ -1,0 +1,11 @@
+// Prisma 7 generator: TypeScript output inside the package, ES modules.
+generator client {
+  provider     = "prisma-client"
+  output       = "../../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+// The URL comes from prisma.config.ts, never from this file.
+datasource db {
+  provider = "postgresql"
+}

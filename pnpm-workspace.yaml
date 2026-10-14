@@ -30,3 +30,5 @@ minimumReleaseAgeExclude:
   - "@turbo/windows-64@2.11.8"
   - "@turbo/windows-arm64@2.11.8"
   - turbo@2.11.8
+  - "@testcontainers/postgresql@12.2.1"
+  - testcontainers@12.2.1
