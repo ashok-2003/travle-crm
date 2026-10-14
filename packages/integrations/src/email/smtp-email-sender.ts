@@ -12,7 +12,12 @@ export interface SmtpSettings {
   password?: string | undefined;
   /** Our sending address, e.g. no-reply@mail.<our domain>. */
   fromAddress: string;
+  /** The most one send may take in all, in milliseconds. Default 60 seconds; tests shorten it. */
+  sendTimeoutMs?: number | undefined;
 }
+
+/** socketTimeout is per round trip, so a server that answers slowly could hold a send for much longer than that. */
+const SEND_TIMEOUT_MS = 60_000;
 
 /** What a failed send keeps: the codes say what went wrong; the rest of nodemailer's error names the recipients. */
 function safeSendError(error: unknown): Error {
@@ -45,19 +50,39 @@ export function createSmtpEmailSender(settings: SmtpSettings): EmailSender {
     ...(settings.user === undefined ? {} : { auth: { user: settings.user, pass: settings.password ?? "" } }),
   });
 
+  const deadline = settings.sendTimeoutMs ?? SEND_TIMEOUT_MS;
+
+  /** Runs the send against the overall deadline; on timeout the connection is closed and the send is retryable. */
+  const withDeadline = async (send: Promise<unknown>): Promise<void> => {
+    let timer: NodeJS.Timeout | undefined;
+    const timedOut = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => {
+        transport.close();
+        reject(Object.assign(new Error("The send took too long"), { code: "ESENDTIMEOUT" }));
+      }, deadline);
+    });
+    try {
+      await Promise.race([send, timedOut]);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
   return {
     send: async (message) => {
       assertSafeHeaders(message);
       try {
-        await transport.sendMail({
-          from: { name: message.fromName, address: settings.fromAddress },
-          to: { name: message.to.name ?? "", address: message.to.address },
-          ...(message.replyTo === undefined ? {} : { replyTo: message.replyTo }),
-          subject: message.subject,
-          text: message.text,
-          html: message.html,
-          headers: { ...message.headers },
-        });
+        await withDeadline(
+          transport.sendMail({
+            from: { name: message.fromName, address: settings.fromAddress },
+            to: { name: message.to.name ?? "", address: message.to.address },
+            ...(message.replyTo === undefined ? {} : { replyTo: message.replyTo }),
+            subject: message.subject,
+            text: message.text,
+            html: message.html,
+            headers: { ...message.headers },
+          }),
+        );
       } catch (error) {
         throw safeSendError(error);
       }

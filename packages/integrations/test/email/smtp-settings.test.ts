@@ -17,8 +17,8 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function spyOnTransport(sendMail: () => Promise<unknown> = () => Promise.resolve({})) {
-  return vi.spyOn(nodemailer, "createTransport").mockReturnValue({ sendMail } as never);
+function spyOnTransport(sendMail: () => Promise<unknown> = () => Promise.resolve({}), close = vi.fn()) {
+  return vi.spyOn(nodemailer, "createTransport").mockReturnValue({ sendMail, close } as never);
 }
 
 describe("SMTP settings", () => {
@@ -58,6 +58,28 @@ describe("SMTP settings", () => {
       await expect(sender.send({ ...message, headers: { [name]: "evil@example.test" } })).rejects.toThrow(/header/);
     }
     expect(sendMail).not.toHaveBeenCalled();
+  });
+});
+
+describe("SMTP deadline", () => {
+  it("gives up on a send that trickles on past the deadline, closes the connection and asks for a retry", async () => {
+    const close = vi.fn();
+    spyOnTransport(() => new Promise(() => undefined), close);
+    const sender = createSmtpEmailSender({ ...base, secure: false, sendTimeoutMs: 50 });
+
+    const error: unknown = await sender.send(message).catch((caught: unknown) => caught);
+
+    expect(error).toMatchObject({ code: "ESENDTIMEOUT" });
+    expect(close).toHaveBeenCalledOnce();
+    expect(JSON.stringify(error)).not.toContain("agency.example");
+  });
+
+  it("allows 60 seconds by default", () => {
+    const timeout = vi.spyOn(globalThis, "setTimeout");
+    spyOnTransport();
+    const sender = createSmtpEmailSender({ ...base, secure: false });
+    void sender.send(message);
+    expect(timeout).toHaveBeenCalledWith(expect.any(Function), 60_000);
   });
 });
 

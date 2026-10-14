@@ -118,7 +118,7 @@ describe("web push sender", () => {
     });
   });
 
-  it("gives up on a push service that never answers, so the job retries", async () => {
+  it("gives up on a push service that never answers, so the job retries", { timeout: 2000 }, async () => {
     const impatient = createWebPushSender({
       publicKey: vapid.publicKey,
       privateKey: vapid.privateKey,
@@ -131,7 +131,7 @@ describe("web push sender", () => {
       service.answerWith(0);
       await expect(
         impatient.send({ endpoint: service.endpoint("silent"), ...subscriber.keys }, { title: "t", body: "b" }),
-      ).rejects.toThrow();
+      ).rejects.toMatchObject({ name: "TimeoutError" });
     } finally {
       service.answerWith(201);
     }
