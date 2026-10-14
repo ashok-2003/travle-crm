@@ -14,26 +14,53 @@ export interface SmtpSettings {
   fromAddress: string;
 }
 
+/** What a failed send keeps: the codes say what went wrong; the rest of nodemailer's error names the recipients. */
+function safeSendError(error: unknown): Error {
+  const { code, responseCode } = (typeof error === "object" && error !== null ? error : {}) as {
+    code?: unknown;
+    responseCode?: unknown;
+  };
+  const codeText = typeof code === "string" ? code : "unknown";
+  const responseText = typeof responseCode === "number" ? ` (SMTP ${String(responseCode)})` : "";
+  const safe = new Error(`Sending the email failed: ${codeText}${responseText}`);
+  return Object.assign(safe, {
+    ...(typeof code === "string" ? { code } : {}),
+    ...(typeof responseCode === "number" ? { responseCode } : {}),
+  });
+}
+
 export function createSmtpEmailSender(settings: SmtpSettings): EmailSender {
+  if (settings.user !== undefined && settings.password === undefined) {
+    throw new RangeError("The SMTP settings have a user but no password");
+  }
   const transport = nodemailer.createTransport({
     host: settings.host,
     port: settings.port,
     secure: settings.secure,
+    // Credentials never cross the network in clear text: without TLS from the first byte, STARTTLS is mandatory.
+    ...(settings.user !== undefined && !settings.secure ? { requireTLS: true } : {}),
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 30_000,
     ...(settings.user === undefined ? {} : { auth: { user: settings.user, pass: settings.password ?? "" } }),
   });
 
   return {
     send: async (message) => {
       assertSafeHeaders(message);
-      await transport.sendMail({
-        from: { name: message.fromName, address: settings.fromAddress },
-        to: { name: message.to.name ?? "", address: message.to.address },
-        ...(message.replyTo === undefined ? {} : { replyTo: message.replyTo }),
-        subject: message.subject,
-        text: message.text,
-        html: message.html,
-        headers: { ...message.headers },
-      });
+      try {
+        await transport.sendMail({
+          from: { name: message.fromName, address: settings.fromAddress },
+          to: { name: message.to.name ?? "", address: message.to.address },
+          ...(message.replyTo === undefined ? {} : { replyTo: message.replyTo }),
+          subject: message.subject,
+          text: message.text,
+          html: message.html,
+          headers: { ...message.headers },
+        });
+      } catch (error) {
+        throw safeSendError(error);
+      }
     },
   };
 }

@@ -69,4 +69,25 @@ describe("SMTP email sender", () => {
       sender.send({ ...message, headers: { "List-Unsubscribe": "<https://a>\r\nX-Evil: 1" } }),
     ).rejects.toThrow(/line break/);
   });
+
+  it("delivers names with quotes and commas as one recipient and one sender, without extra headers", async () => {
+    const tricky = 'Asha "Boss", Owner';
+    await sender.send({
+      ...message,
+      to: { name: tricky, address: "asha@agency.example" },
+      fromName: 'Sharma, "Travels"',
+      subject: "Tricky names",
+    });
+
+    const received = (await mailpit.messages()).find((sent) => sent.Subject === "Tricky names");
+    expect(received?.To).toEqual([{ Name: tricky, Address: "asha@agency.example" }]);
+    expect(received?.From.Name).toBe('Sharma, "Travels"');
+    const headers = await mailpit.headers(received?.ID ?? "");
+    expect(Object.keys(headers).map((name) => name.toLowerCase())).not.toContain("bcc");
+  });
+
+  it("refuses a Bcc or Reply-To set through the custom headers", async () => {
+    await expect(sender.send({ ...message, headers: { Bcc: "everyone@example.test" } })).rejects.toThrow(/header/);
+    await expect(sender.send({ ...message, headers: { "reply-to": "evil@example.test" } })).rejects.toThrow(/header/);
+  });
 });
