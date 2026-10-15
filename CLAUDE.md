@@ -99,9 +99,9 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - Request checks 2 and 3 (ADR 0021) run in every organization procedure: the subscription's state decides by what the
   call does (a query views, a mutation changes; mark an export `.meta({ lifecycle: "export" })`, what takes someone's
   access away `.meta({ lifecycle: "revoke" })`, and what every state must reach `.meta({ lifecycle: "always" })`), and
-  the procedure's plan module must be on the plan. `requires()` sets
-  that module from its first permission, and checks every permission's; a procedure without one declares
-  `.meta({ planModule: "core" })` or its business module. One that declares nothing refuses every call.
+  the procedure's plan module must be on the plan. `requires()` sets that module from its first permission, and
+  checks every permission's; a procedure without one declares `.meta({ planModule: "core" })` or its business module.
+  One that declares nothing refuses every call.
 - Permissions are `module:action` in `packages/domain/src/identity/permissions.ts`. Add new ones there; the Owner role
   gets them automatically. A new permission module also needs its plan module in `request-rules.ts`. List queries for
   scoped views filter with `scopeFilter()` (own or all records).
