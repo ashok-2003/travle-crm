@@ -1,7 +1,7 @@
 // The export job, which only the console process runs: it reads the organization a page at a time (no long
 // transaction) and stores JSON lines a part at a time (no export held in memory), then marks the export done and logs
 // "organization.exported". With it, the expiry job (organization-export-expiry.ts).
-import type { JobData } from "@travel-crm/integrations/jobs";
+import { ownMessage, type JobData } from "@travel-crm/integrations/jobs";
 import type { JobHandler } from "../jobs/index.js";
 import { exportPage, tablesToExport, type ExportedRow } from "./export-rows.js";
 import { expireOrganizationExports } from "./organization-export-expiry.js";
@@ -162,7 +162,8 @@ async function finishExport(
 /** Reads an export job's data back, refusing anything malformed: a bug, so the job fails loudly. */
 function exportJobOf(data: JobData): { exportId: string } {
   const { exportId } = data;
-  if (typeof exportId !== "string") throw new TypeError("An export job needs an exportId");
+  // Our own fixed words, so the failed-jobs list keeps them.
+  if (typeof exportId !== "string") throw ownMessage(new TypeError("An export job needs an exportId"));
   return { exportId };
 }
 

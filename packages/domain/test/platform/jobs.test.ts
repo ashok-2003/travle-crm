@@ -1,5 +1,6 @@
 // The platform's own jobs, as the console process registers them: one handler per queue, each reading its job's data
-// back strictly, so a malformed job fails loudly instead of acting on the wrong thing.
+// back strictly, so a malformed job fails loudly, and says why, instead of acting on the wrong thing.
+import { sanitizeJobError } from "@travel-crm/integrations/jobs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   ERASE_SUBJECT_QUEUE,
@@ -34,14 +35,24 @@ describe("the platform's job handlers", () => {
     expect(new Set(queues).size).toBe(queues.length);
   });
 
-  it("refuse a purge or an export job without its id", async () => {
+  it("refuse a purge or an export job without its id, in words of ours the failed-jobs list keeps", async () => {
     const handlerOf = (queue: string) => {
       const handler = platformJobHandlers(test.services).find((candidate) => candidate.queue === queue);
       if (!handler) throw new Error(`no handler for ${queue}`);
       return handler;
     };
-    await expect(handlerOf(PURGE_ORGANIZATION_QUEUE).handle({ requestedBy: null })).rejects.toThrow(TypeError);
-    await expect(handlerOf(EXPORT_ORGANIZATION_QUEUE).handle({ exportId: 42 })).rejects.toThrow(TypeError);
+    // What pg-boss stores of a failure is sanitizeJobError's copy: a library's error keeps only its name.
+    const storedFailure = (promise: Promise<void>) =>
+      promise.then(
+        () => "no failure",
+        (error: unknown) => sanitizeJobError(error).message,
+      );
+    expect(await storedFailure(handlerOf(PURGE_ORGANIZATION_QUEUE).handle({ requestedBy: null }))).toBe(
+      "TypeError: A purge job needs an organizationId",
+    );
+    expect(await storedFailure(handlerOf(EXPORT_ORGANIZATION_QUEUE).handle({ exportId: 42 }))).toBe(
+      "TypeError: An export job needs an exportId",
+    );
     // An export that isn't there (any more) is nothing to do.
     await expect(
       handlerOf(EXPORT_ORGANIZATION_QUEUE).handle({ exportId: "0199e7a0-0000-7000-8000-00000000beef" }),

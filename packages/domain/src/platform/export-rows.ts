@@ -2,6 +2,7 @@
 // carries organization_id (found from the catalog, so a module's new table is covered), the organization's own row,
 // and its people. Each page is read inside asOrganization, as app_runtime under row-level security.
 import { asOrganization, type IdentityTx } from "@travel-crm/db/platform";
+import { ownMessage } from "@travel-crm/integrations/jobs";
 import { personExport, type PersonExport } from "../identity/index.js";
 import type { PlatformServices } from "./services.js";
 
@@ -48,7 +49,8 @@ export async function exportPage(
       const people: PersonExport[] = [];
       if (page.table === "member") {
         for (const { id } of rows) {
-          if (typeof id !== "string") throw new TypeError("A member row without its id");
+          // Our own fixed words, so the failed-jobs list keeps them.
+          if (typeof id !== "string") throw ownMessage(new TypeError("A member row without its id"));
           people.push(await personExport(orgTx, organizationId, id));
         }
       }
