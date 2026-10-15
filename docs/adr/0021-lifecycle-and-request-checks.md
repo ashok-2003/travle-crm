@@ -43,6 +43,14 @@ for 7.2 (amending ADR 0020)
   subscription nothing either (`NO_SUBSCRIPTION`). Calls every state allows (`me.get`, `subscription.get`) let the app
   say why; `subscription.get` refuses an organization without a subscription with the same `NO_SUBSCRIPTION`. All of
   these are `FORBIDDEN`.
+- **Revoking access is always possible, because security outranks billing.** Read-only allows it to anyone with the
+  permission, and suspended to the Owner, like an export: removing staff (`staff.remove`), a new temporary password
+  (`staff.resetPassword`, which signs the person out everywhere), and requiring two-factor
+  (`settings.setTwoFactorRequirement` turning it on). Nothing else: turning two-factor off loosens sign-in, and a role
+  change (`staff.updateRole`) may give as well as take, so both stay changes. Read-only is "view and export, no new
+  records" (spec 7.3), and taking a departed employee's access away is no new record: an agency, as the data
+  fiduciary, must be able to cut someone off whatever it has paid, rather than wait out its read-only days with
+  them still able to look.
 - **Check 3, the module on the plan, for every procedure.** Each procedure declares the plan module it belongs to in
   its meta (`planModule`), or `"core"` for the Foundation's own features. `requires()` declares it from the first
   permission's module, as plan 2 arranged (`leads` belongs to `crm`, `quotes` to `quotes`, and so on, while `staff`,
@@ -52,7 +60,8 @@ for 7.2 (amending ADR 0020)
   ships.
 - **In the procedure builders.** `orgProcedure` and `freshProcedure` read the member and then the subscription, apply
   check 2 by the call's type (a query views, a mutation changes) unless the procedure's meta says it exports
-  (`lifecycle: "export"`) or must work in every state (`lifecycle: "always"`), then check 3 for its module, and
+  (`lifecycle: "export"`), revokes access (`lifecycle: "revoke"`) or must work in every state
+  (`lifecycle: "always"`), then check 3 for its module, and
   `requires()` check 3 for its permissions before check 4. `subscription.get` (any member, every state) shows the
   status, the next change's day, the modules and the limits, for the past-due banner and the app's navigation, and no
   price.

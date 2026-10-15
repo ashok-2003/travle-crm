@@ -109,9 +109,11 @@ and to. Changing something to what it already is records nothing.
   and the next day the organization is past due; after the policy's days (7) it is read-only, after its days (14)
   suspended. Only a person cancels, or ends a suspension or cancellation (by recording a payment or giving time). Days
   count from the day a state was due, in the organization's time zone.
-- What each state allows: trial, active and past due everything (past due shows a banner); read-only views and
-  exports; suspended only the Owner's exports (and, later, paying); cancelled nothing. Calls of kind `always` (me.get,
-  `subscription.get`) work in every state, so the app can say why the rest are refused.
+- What each state allows: trial, active and past due everything (past due shows a banner); read-only views, exports
+  and revoking access; suspended only the Owner's exports and revocations (and, later, paying); cancelled nothing.
+  Calls of kind `revoke` take someone's access away (removing staff, a new temporary password, requiring two-factor):
+  security outranks billing (ADR 0021). Calls of kind `always` (me.get, `subscription.get`) work in every state, so
+  the app can say why the rest are refused.
 - Check 3 applies to every procedure: each declares its plan module (`requires()` does it from its first permission)
   or `"core"`. A permission's module maps to a plan module (`leads` to `crm`; `staff`, `roles`, `settings`, `audit`,
   `money` and `documents` to none: every plan has them). A new permission module must be added to the map; a test
