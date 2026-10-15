@@ -7,6 +7,7 @@ import { generateKeyPairSync } from "node:crypto";
 import { cp } from "node:fs/promises";
 import { createServer, type Server } from "node:net";
 import path from "node:path";
+import type { StorageVariables } from "./minio";
 
 const webDirectory = path.resolve(import.meta.dirname, "../../..");
 const apiDirectory = path.resolve(webDirectory, "../api");
@@ -116,7 +117,14 @@ export interface Servers {
   stop(): void;
 }
 
-export async function startServers({ databaseUrl }: { databaseUrl: string }): Promise<Servers> {
+export async function startServers({
+  databaseUrl,
+  storage,
+}: {
+  databaseUrl: string;
+  /** A real bucket (support/minio.ts): the api checks it at start-up. */
+  storage: StorageVariables;
+}): Promise<Servers> {
   const reserved = await reservePorts(2);
   const [apiPort = 0, webPort = 0] = reserved.ports;
   const apiUrl = `http://127.0.0.1:${String(apiPort)}`;
@@ -153,12 +161,9 @@ export async function startServers({ databaseUrl }: { databaseUrl: string }): Pr
           TRUSTED_ORIGINS: "",
           // Journeys sign in many times from one address.
           AUTH_RATE_LIMIT: "false",
-          // Plan 3's services are configured from the environment; the journeys send no email and store no files.
-          S3_BUCKET: "e2e",
-          S3_ACCESS_KEY_ID: "e2e",
-          S3_SECRET_ACCESS_KEY: "e2e-secret",
-          S3_ENDPOINT: "http://127.0.0.1:9",
-          S3_FORCE_PATH_STYLE: "true",
+          // Plan 3's services are configured from the environment. Storage is real, because the api refuses to start
+          // without a bucket it can use. Email has no start-up check, and the journeys send none.
+          ...storage,
           SMTP_HOST: "127.0.0.1",
           SMTP_PORT: "9",
           EMAIL_FROM_ADDRESS: "no-reply@travel-crm.localhost",
