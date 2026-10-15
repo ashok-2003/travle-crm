@@ -47,7 +47,8 @@ export function Sidebar() {
         <Link
           href={routes.account}
           aria-current={pathname === routes.account ? "page" : undefined}
-          className="flex h-11 items-center gap-3 rounded-lg px-3 hover:bg-accent"
+          // At least 44px, growing when a long name wraps (names are never truncated).
+          className="flex min-h-11 items-center gap-3 rounded-lg px-3 py-1 hover:bg-accent"
         >
           <UserIcon aria-hidden="true" className="size-5" />
           <span className="min-w-0">

@@ -1,4 +1,7 @@
-// The navigation follows the member's permissions: an Owner sees every destination, a salesperson only Home.
+// The navigation follows the member's permissions: an Owner sees every destination, a salesperson only Home. Tests
+// may read the domain's permission catalog (only src is kept to the api's types), and this needs no DOM.
+// @vitest-environment node
+import { isPermission } from "@travel-crm/domain/identity";
 import { describe, expect, it } from "vitest";
 import { holds } from "@/session/me-context";
 import { isCurrent, navigationItems, visibleNavigationItems } from "@/shell/navigation";
@@ -23,7 +26,8 @@ describe("visibleNavigationItems", () => {
   it("names a module (none yet) and a permission the catalog knows for each item", () => {
     for (const item of navigationItems) {
       expect(item.module).toBeNull();
-      if (item.requires !== null) expect(item.requires).toMatch(/^[a-z_]+:[a-z_]+$/);
+      // A typo such as "staff:manger" would hide the item from everyone but Owners.
+      if (item.requires !== null) expect(isPermission(item.requires), item.requires).toBe(true);
     }
   });
 });
