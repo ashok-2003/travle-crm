@@ -19,8 +19,8 @@ colors:
   money-pressed: "#07352f"
   money-tint: "#e3f1ee"
   status-red: { dot: "#d92d20", bg: "#fdecea", ink: "#9b1c1c" }
-  status-amber: { dot: "#d97706", bg: "#fff3d6", ink: "#7a4100" }
-  status-green: { dot: "#16a34a", bg: "#e3f4e7", ink: "#14532d" }
+  status-amber: { dot: "#c2680a", bg: "#fff3d6", ink: "#7a4100" }
+  status-green: { dot: "#168f43", bg: "#e3f4e7", ink: "#14532d" }
   status-neutral: { dot: "#6b6b6b", bg: "#ecebe6", ink: "#4a4a4a" }
 typography:
   page-title: { family: "EB Garamond", size: 30px, weight: 500, lineHeight: 36px, tracking: "-0.01em" }
@@ -83,7 +83,7 @@ Named rules:
 - **One Action Colour.** Blue is the only interactive colour. A violet or forest element is never a button; it is information. If it is clickable, it gets blue treatment (underline or hover) on top.
 - **Status Is Only Status.** Red, amber and green never decorate, never colour a chart series for variety, never tint a card for emphasis.
 - **Dot Plus Word.** Status is always a dot and a word, never colour alone.
-- **Forest Is Not Green.** Status green is a bright, light-bodied green (`#16a34a` dot, `#e3f4e7` bg); forest is a deep blue-green used for money text and Accounts chrome. Never use forest for a status badge or green for a money total.
+- **Forest Is Not Green.** Status green is a bright, light-bodied green (`#168f43` dot, `#e3f4e7` bg); forest is a deep blue-green used for money text and Accounts chrome. Never use forest for a status badge or green for a money total.
 - **Tint Surfaces Carry Dark Ink.** Text on a role tint uses the role's dark ink (`#4c2f97`, `#034f46`, `#1d4ed8`), never muted grey.
 - Money direction is shown by sign and label ("Received", "Due"), not by red/green on the amount itself. Overdue is a status badge next to the amount.
 
@@ -195,26 +195,27 @@ Don't:
 
 Target WCAG 2.2 AA. Contrast checked with the WCAG relative-luminance formula (computed against canvas `#fffdf9` unless stated).
 
-| Pair                                                                                  | Ratio  | Use                                                      |
-| ------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------- |
-| Ink `#1a1a1a` on canvas                                                               | 17.1:1 | Body                                                     |
-| Ink on surface `#f5f4f0`                                                              | 15.8:1 | Text on panels                                           |
-| Ink muted `#6b6b6b` on canvas                                                         | 5.25:1 | Secondary text (AA)                                      |
-| Ink muted on surface                                                                  | 4.84:1 | Secondary text on panels (AA)                            |
-| Blue `#2563eb` on canvas                                                              | 5.09:1 | Links, focus ring                                        |
-| White on blue `#2563eb`                                                               | 5.17:1 | Primary button                                           |
-| White on blue hover `#1d4ed8`                                                         | 6.7:1  | Button hover                                             |
-| Blue `#1d4ed8` on tint `#eef2ff`                                                      | 5.99:1 | Active nav, selected chip                                |
-| White on violet `#6a4bbd`                                                             | 6.26:1 | Violet fills (unread counts)                             |
-| Tint ink `#4c2f97` on lavender `#efe7fd`                                              | 8.11:1 | Violet badges                                            |
-| Forest `#034f46` on canvas                                                            | 9.35:1 | Money text                                               |
-| Forest on tint `#e3f1ee`                                                              | 8.18:1 | Money badges                                             |
-| Red ink `#9b1c1c` on `#fdecea`                                                        | 7.13:1 | Status badge                                             |
-| Amber ink `#7a4100` on `#fff3d6`                                                      | 7.37:1 | Status badge                                             |
-| Green ink `#14532d` on `#e3f4e7`                                                      | 7.97:1 | Status badge                                             |
-| Neutral ink `#4a4a4a` on `#ecebe6`                                                    | 7.42:1 | Status badge                                             |
-| Input border `#8a8a82` on canvas                                                      | 3.42:1 | UI boundary (needs 3:1)                                  |
-| Status dots on canvas: red `#d92d20` 4.76, amber `#d97706` 3.14, green `#16a34a` 3.24 | n/a    | Non-text, meets 3:1; the word carries the meaning anyway |
+| Pair                                                                                  | Ratio  | Use                                                     |
+| ------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------- |
+| Ink `#1a1a1a` on canvas                                                               | 17.1:1 | Body                                                    |
+| Ink on surface `#f5f4f0`                                                              | 15.8:1 | Text on panels                                          |
+| Ink muted `#6b6b6b` on canvas                                                         | 5.25:1 | Secondary text (AA)                                     |
+| Ink muted on surface                                                                  | 4.84:1 | Secondary text on panels (AA)                           |
+| Blue `#2563eb` on canvas                                                              | 5.09:1 | Links, focus ring                                       |
+| White on blue `#2563eb`                                                               | 5.17:1 | Primary button                                          |
+| White on blue hover `#1d4ed8`                                                         | 6.7:1  | Button hover                                            |
+| Blue `#1d4ed8` on tint `#eef2ff`                                                      | 5.99:1 | Active nav, selected chip                               |
+| White on violet `#6a4bbd`                                                             | 6.26:1 | Violet fills (unread counts)                            |
+| Tint ink `#4c2f97` on lavender `#efe7fd`                                              | 8.11:1 | Violet badges                                           |
+| Forest `#034f46` on canvas                                                            | 9.35:1 | Money text                                              |
+| Forest on tint `#e3f1ee`                                                              | 8.18:1 | Money badges                                            |
+| Red ink `#9b1c1c` on `#fdecea`                                                        | 7.13:1 | Status badge                                            |
+| Amber ink `#7a4100` on `#fff3d6`                                                      | 7.37:1 | Status badge                                            |
+| Green ink `#14532d` on `#e3f4e7`                                                      | 7.97:1 | Status badge                                            |
+| Neutral ink `#4a4a4a` on `#ecebe6`                                                    | 7.42:1 | Status badge                                            |
+| Input border `#8a8a82` on canvas                                                      | 3.42:1 | UI boundary (needs 3:1)                                 |
+| Status dots on canvas: red `#d92d20` 4.76, amber `#c2680a` 3.92, green `#168f43` 4.10 | n/a    | Non-text, meets 3:1                                     |
+| Status dots on their badge fill: red 4.22, amber 3.61, green 3.64, neutral 4.46       | n/a    | Non-text, meets 3:1; the word still carries the meaning |
 
 Hairline `#e6e3dc` (1.26:1) is decorative only; never the sole indicator of an input, button or selected state.
 

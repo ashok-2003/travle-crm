@@ -71,7 +71,9 @@ export const numbersExtended = localFont({
     },
   ],
   variable: "--font-numbers-extended",
-  preload: false,
+  // Preloaded, unlike the other extended files: it holds the rupee sign, so without this every money amount would
+  // paint in a fallback face and then swap.
+  preload: true,
   adjustFontFallback: false,
   declarations: [
     {

@@ -62,8 +62,8 @@ export const brand = {
     moneyPressed: "#07352f",
     moneyTint: "#e3f1ee",
     status: {
-      good: { dot: "#16a34a", fill: "#e3f4e7", ink: "#14532d" },
-      attention: { dot: "#d97706", fill: "#fff3d6", ink: "#7a4100" },
+      good: { dot: "#168f43", fill: "#e3f4e7", ink: "#14532d" },
+      attention: { dot: "#c2680a", fill: "#fff3d6", ink: "#7a4100" },
       bad: { dot: "#d92d20", fill: "#fdecea", ink: "#9b1c1c" },
       neutral: { dot: "#6b6b6b", fill: "#ecebe6", ink: "#4a4a4a" },
     } satisfies Record<string, StatusColour>,

@@ -29,7 +29,14 @@ const Toaster = (props: ToasterProps) => {
           "--border-radius": "var(--radius)",
         } as React.CSSProperties
       }
-      toastOptions={{ classNames: { toast: "cn-toast shadow-md" } }}
+      toastOptions={{
+        classNames: {
+          toast: "cn-toast pr-12! shadow-md",
+          // axe measures the button, not a pseudo-element, so it is a real 44px square (DESIGN.md section 4), moved
+          // from sonner's 20px corner badge to the toast's right edge, with room left for the text.
+          closeButton: "top-0! right-0! left-auto! size-11! transform-none! border-0! bg-transparent!",
+        },
+      }}
       {...props}
     />
   );
