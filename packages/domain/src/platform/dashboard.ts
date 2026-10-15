@@ -1,7 +1,11 @@
 // The platform dashboard (spec 7.4): every organization with its status, days left, seats used, last activity and this
-// month's usage. The list in one platform transaction, then one for each organization, stepping into it for what its
-// modules count.
-import type { OrganizationOverview } from "@travel-crm/contracts/platform";
+// month's usage, a page at a time. The page's list in one platform transaction, then one for each organization,
+// stepping into it for what its modules count.
+import type {
+  ListOrganizationsOverviewInput,
+  OrganizationOverview,
+  OrganizationsOverviewPage,
+} from "@travel-crm/contracts/platform";
 import { asOrganization } from "@travel-crm/db/platform";
 import { auditEntriesSince } from "../audit/index.js";
 import { documentsIssuedSince } from "../documents/index.js";
@@ -18,17 +22,25 @@ function daysBetween(from: string, to: string): number {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS);
 }
 
+/** A page of the dashboard, oldest organization first; the next page starts after its last organization. */
 export async function organizationsOverview(
   services: PlatformServices,
+  input: ListOrganizationsOverviewInput,
   now: Date = new Date(),
-): Promise<OrganizationOverview[]> {
-  const { organizations, activity } = await services.platformDb.transaction(async (tx) => {
-    const found = await listOrganizationRecords(tx);
+): Promise<OrganizationsOverviewPage> {
+  const { organizations, more, activity } = await services.platformDb.transaction(async (tx) => {
+    // One more than the page, to know whether another page follows.
+    const found = await listOrganizationRecords(tx, { limit: input.limit + 1, after: input.after });
+    const page = found.slice(0, input.limit);
     const people = await memberActivity(
       tx,
-      found.map((organization) => organization.id),
+      page.map((organization) => organization.id),
     );
-    return { organizations: found, activity: new Map(people.map((row) => [row.organizationId, row])) };
+    return {
+      organizations: page,
+      more: found.length > input.limit,
+      activity: new Map(people.map((row) => [row.organizationId, row])),
+    };
   });
   const overviews: OrganizationOverview[] = [];
   // A short transaction for each organization's few counts, rather than one that grows with every organization.
@@ -59,5 +71,5 @@ export async function organizationsOverview(
       thisMonth: { changes: counted.changes, documentsIssued: counted.documentsIssued },
     });
   }
-  return overviews;
+  return { organizations: overviews, nextCursor: more ? (organizations.at(-1)?.id ?? null) : null };
 }

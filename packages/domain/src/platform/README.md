@@ -64,8 +64,10 @@ organizationId)` records a `platform_export` row and queues `EXPORT_ORGANIZATION
   recorded in the organization's own audit log. Lifting a manual suspension (super admins) is the subscriptions
   module's `liftSuspension`, which the console's router runs in a platform transaction. The nightly lifecycle job is
   the console's too (`apps/api/src/console-jobs.ts`).
-- The dashboard (spec 7.4): `organizationsOverview(services, now?)`, every organization with its status, plan, days
-  to its next change, seats and storage against its limits, last activity, and this month's changes and documents.
+- The dashboard (spec 7.4): `organizationsOverview(services, { limit, after? }, now?)`, every organization a page at
+  a time (oldest first, the next page after the last one's id), with its status, plan, days to its next change, seats
+  and storage against its limits, last activity, and this month's changes and documents. Each organization's counts
+  take a short platform transaction of their own, so a page, not the whole list, is what one request waits for.
 - Failed jobs (spec 9.1): `listFailedJobs(services, { limit, after?, queue? })` (newest first, a page at a time),
   `retryFailedJob(services, staff, { queue, jobId })` (one more attempt; never for the purge, the erasure or the
   export, which a super admin asks for again: `NOT_RETRYABLE`), `listSchedules(services)` and

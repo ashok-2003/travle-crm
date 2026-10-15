@@ -14,9 +14,20 @@ export interface OrganizationRecord {
 
 const recordFields = { id: true, name: true, code: true, timeZone: true, contactEmail: true, createdAt: true } as const;
 
-/** Every organization, oldest first. */
-export async function listOrganizationRecords(tx: IdentityTx): Promise<OrganizationRecord[]> {
-  return tx.organization.findMany({ select: recordFields, orderBy: [{ createdAt: "asc" }, { id: "asc" }] });
+/**
+ * Up to `limit` organizations, oldest first, after the one given: ids are UUID v7, so they carry their creation time,
+ * and a page after an organization purged since still starts in the right place.
+ */
+export async function listOrganizationRecords(
+  tx: IdentityTx,
+  page: { limit: number; after?: string | undefined },
+): Promise<OrganizationRecord[]> {
+  return tx.organization.findMany({
+    select: recordFields,
+    where: page.after === undefined ? {} : { id: { gt: page.after } },
+    orderBy: { id: "asc" },
+    take: page.limit,
+  });
 }
 
 export async function findOrganizationRecord(tx: IdentityTx, organizationId: string): Promise<OrganizationRecord> {
