@@ -9,5 +9,7 @@
   "continue": "Continue",
   "continuing": "Continuing",
   "skipToContent": "Skip to content",
+  "showPassword": "Show password",
+  "hidePassword": "Hide password",
   "offline": "You're offline. Showing what was last loaded; changes wait until you're back online."
 }

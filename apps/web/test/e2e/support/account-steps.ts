@@ -8,13 +8,13 @@ export async function signInWithCode(page: Page, code: string, person: { usernam
   await page.getByRole("tab", { name: "Organization code" }).click();
   await page.getByRole("textbox", { name: "Organization code" }).fill(code);
   await page.getByRole("textbox", { name: "Username" }).fill(person.username);
-  await page.getByLabel("Password").fill(person.password);
+  await page.getByLabel("Password", { exact: true }).fill(person.password);
   await page.getByRole("button", { name: "Sign in" }).click();
 }
 
 /** Completes the setup screen and returns the secret, as the person's phone would keep it. */
 export async function setUpTwoFactor(page: Page, password: string): Promise<string> {
-  await page.getByLabel("Password").fill(password);
+  await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByRole("img", { name: /QR code/ })).toBeVisible();
   // The key for typing by hand: base32, in groups of four.

@@ -1,10 +1,20 @@
 "use client";
 
-// The staff list (DESIGN.md section 6): a table on tablets and wider, a divided list on phones with the name and
+// The staff list (DESIGN.md section 6): a table on tablets and wider, a list of items on phones with the name and
 // status on the first line and the details on the second. Names wrap rather than being cut off.
 import type { RoleSummary, StaffMember } from "@travel-crm/contracts/identity";
 import { useTranslations } from "next-intl";
+import { Fragment } from "react";
 import { StatusBadge } from "@/components/status-badge";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemSeparator,
+  ItemTitle,
+} from "@/components/ui/item";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDay } from "@/lib/format";
 import { useMe } from "@/session/me-context";
@@ -29,22 +39,27 @@ export function StaffList({ staff, roles }: { staff: StaffMember[]; roles: RoleS
 
   if (!wide) {
     return (
-      <ul className="divide-y rounded-lg border">
-        {staff.map((member) => (
-          <li key={member.memberId} className="flex items-start gap-3 px-4 py-3">
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-medium break-words script-leading">{member.name}</span>
-                {status(member)}
-              </div>
-              <p className="text-label text-muted-foreground break-words script-leading">
-                {member.role.name} · {signInName(member)} · {t("joinedOn", { date: joined(member) })}
-              </p>
-            </div>
-            {actions(member)}
-          </li>
+      <ItemGroup>
+        {staff.map((member, index) => (
+          <Fragment key={member.memberId}>
+            {index > 0 && <ItemSeparator />}
+            <Item size="sm" role="listitem">
+              <ItemContent>
+                <ItemTitle className="flex-wrap">
+                  <span className="script-leading">{member.name}</span>
+                  {status(member)}
+                </ItemTitle>
+                <ItemDescription>
+                  <span className="wrap-anywhere script-leading">
+                    {member.role.name} · {signInName(member)} · {t("joinedOn", { date: joined(member) })}
+                  </span>
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions>{actions(member)}</ItemActions>
+            </Item>
+          </Fragment>
         ))}
-      </ul>
+      </ItemGroup>
     );
   }
 

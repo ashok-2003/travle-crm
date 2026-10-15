@@ -7,11 +7,17 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { usePageData } from "@/data/providers";
 
+/** Signing out, for the button here and the sidebar's menu button. */
+export function useSignOut(): () => void {
+  const page = usePageData();
+  return () => void page.signOut();
+}
+
 export function SignOutButton({ className }: { className?: string }) {
   const t = useTranslations("shell.navigation");
-  const page = usePageData();
+  const signOut = useSignOut();
   return (
-    <Button variant="ghost" className={className} onClick={() => void page.signOut()}>
+    <Button variant="ghost" className={className} onClick={signOut}>
       <LogOutIcon aria-hidden="true" />
       {t("signOut")}
     </Button>

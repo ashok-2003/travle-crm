@@ -5,9 +5,11 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { Fragment } from "react";
 import { Delayed } from "@/components/delayed";
 import { ErrorState } from "@/components/error-state";
 import { PageTitle } from "@/components/page-title";
+import { Item, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTRPC } from "@/data/trpc";
 import { routes } from "@/lib/routes";
@@ -23,25 +25,29 @@ export function RolesScreen() {
   const body = () => {
     if (roles.data) {
       return (
-        <ul className="divide-y rounded-lg border">
-          {roles.data.map((role) => (
-            <li key={role.key}>
-              <Link
-                href={`${routes.roles}/${role.key}`}
-                className="flex min-h-14 items-center gap-3 px-4 py-3 hover:bg-accent"
-              >
-                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span className="font-medium break-words script-leading">{role.name}</span>
-                  <span className="text-label text-muted-foreground">
-                    {role.isOwner ? t("everyPermission") : t("permissionCount", { count: role.permissions.length })}
-                  </span>
-                </span>
-                <span className="numbers text-muted-foreground">{t("people", { count: role.memberCount })}</span>
-                <ChevronRightIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-              </Link>
-            </li>
+        <ItemGroup>
+          {roles.data.map((role, index) => (
+            <Fragment key={role.key}>
+              {index > 0 && <ItemSeparator />}
+              <div role="listitem">
+                <Item size="sm" asChild>
+                  <Link href={`${routes.roles}/${role.key}`}>
+                    <ItemContent>
+                      <ItemTitle>
+                        <span className="script-leading">{role.name}</span>
+                      </ItemTitle>
+                      <ItemDescription>
+                        {role.isOwner ? t("everyPermission") : t("permissionCount", { count: role.permissions.length })}
+                      </ItemDescription>
+                    </ItemContent>
+                    <span className="numbers text-muted-foreground">{t("people", { count: role.memberCount })}</span>
+                    <ChevronRightIcon aria-hidden="true" className="size-4" />
+                  </Link>
+                </Item>
+              </div>
+            </Fragment>
           ))}
-        </ul>
+        </ItemGroup>
       );
     }
     if (roles.isError) {

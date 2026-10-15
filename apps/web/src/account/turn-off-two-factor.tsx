@@ -5,6 +5,7 @@
 import { useTranslations } from "next-intl";
 import { useId, useState, type SubmitEvent } from "react";
 import { toast } from "sonner";
+import { PasswordInput } from "@/components/password-input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,7 +18,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Field, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { authClient, type AuthClient } from "@/data/auth-client";
 import { AuthFailureAlert, type AuthFailure } from "./form-alert";
@@ -72,9 +72,8 @@ export function TurnOffTwoFactor({
           </DialogHeader>
           <Field>
             <FieldLabel htmlFor={`${id}-password`}>{t("fields.password")}</FieldLabel>
-            <Input
+            <PasswordInput
               id={`${id}-password`}
-              type="password"
               autoComplete="current-password"
               value={password}
               onChange={(event) => {
