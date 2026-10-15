@@ -11,4 +11,11 @@ export {
 } from "./memory-job-runner.js";
 export { createPgBossJobs, type FailedJob, type PgBossJobs, type PgBossJobsSettings } from "./pg-boss-jobs.js";
 export { defaultRetryPolicy, type RetryPolicy } from "./retry-policy.js";
-export { maskPersonalData, ownMessage, ownMessages, sanitizeJobError, toError } from "./sanitize-job-error.js";
+export {
+  maskPersonalData,
+  OWN_MESSAGE_KEY,
+  ownMessage,
+  ownMessages,
+  sanitizeJobError,
+  toError,
+} from "./sanitize-job-error.js";

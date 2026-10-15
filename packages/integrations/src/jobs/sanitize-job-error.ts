@@ -3,8 +3,13 @@
 // else's error (Prisma's, the AWS SDK's, nodemailer's, pg's) keeps its names and codes only, as the log does.
 import { describeError } from "./describe-error.js";
 
-/** Set on an error, or a class's prototype, whose message our own code writes from ids and codes. */
-const OWN_MESSAGE = Symbol.for("@travel-crm/own-message");
+/**
+ * The registry key set on an error, or a class's prototype, whose message our own code writes from ids and codes. The
+ * domain kernel marks DomainError with the same key without importing this module (it stays browser-safe); a test
+ * checks the two strings agree.
+ */
+export const OWN_MESSAGE_KEY = "@travel-crm/own-message";
+const OWN_MESSAGE = Symbol.for(OWN_MESSAGE_KEY);
 
 // An address's local part stops at a URL's own punctuation, so "?to=jane@example.com" keeps "?to=".
 const EMAIL = /[^\s@<>()[\]",;:/?&=#]+@[^\s@<>()[\]",;:]+\.[^\s@<>()[\]",;:]+/g;

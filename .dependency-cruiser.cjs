@@ -96,6 +96,16 @@ module.exports = {
       to: { path: "^packages/domain/src/", pathNot: "^packages/domain/src/kernel/" },
     },
     {
+      name: "kernel-is-browser-safe",
+      comment:
+        "The web app's client code imports the kernel (money, GST, dates), so it imports only itself and " +
+        "@travel-crm/contracts: never @travel-crm/integrations (pg-boss, Node built-ins), a Node built-in or any " +
+        "other package. apps/api/test/browser-safe-kernel.test.ts bundles it for a browser.",
+      severity: "error",
+      from: { path: "^packages/domain/src/kernel/" },
+      to: { pathNot: ["^packages/domain/src/kernel/", "^packages/contracts/"] },
+    },
+    {
       name: "vendor-sdks-only-in-integrations",
       comment:
         "Domain code never calls a vendor SDK (spec 3): it calls a port in @travel-crm/integrations, and only that " +
