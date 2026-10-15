@@ -58,8 +58,9 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   grants. Plans 1 and 2's keys keep Prisma's `ON UPDATE CASCADE` (organization ids never change). The test suite
   checks the keys, the unique constraints, and that every key to `organization` restricts deletion.
 - Only the platform module uses `@travel-crm/db/platform` (it sees every organization), and only the console process
-  reads `DATABASE_PLATFORM_URL` (deploys give it to no other). Module code written for `forOrg()` runs there inside `asOrganization(tx, orgId, …)`,
-  as the runtime role under row-level security; everything else in a platform transaction names its organization.
+  reads `DATABASE_PLATFORM_URL` (deploys give it to no other). Module code written for `forOrg()` runs there inside
+  `asOrganization(tx, orgId, …)`, as the runtime role under row-level security; everything else in a platform
+  transaction names its organization.
 - Better Auth's sign-in tables (user, session, account, verification, two_factor, organization, member, invitation) have no
   row-level security. Only `packages/domain/src/identity` reaches them, through `@travel-crm/db/identity`:
   - `OrgTx` hides the sign-in models;
@@ -97,7 +98,8 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   call does (a query views, a mutation changes; mark an export `.meta({ lifecycle: "export" })`, and what every state
   must reach `.meta({ lifecycle: "always" })`), and each required permission's module must be on the plan.
 - Permissions are `module:action` in `packages/domain/src/identity/permissions.ts`. Add new ones there; the Owner role
-  gets them automatically. A new permission module also needs its plan module in `request-rules.ts`. List queries for scoped views filter with `scopeFilter()` (own or all records).
+  gets them automatically. A new permission module also needs its plan module in `request-rules.ts`. List queries for
+  scoped views filter with `scopeFilter()` (own or all records).
 - Domain modules are folders in `packages/domain/src`. Their public API is `index.ts`; other modules import only that.
   Business rule failures throw `DomainError` from `@travel-crm/domain/kernel`, which the API turns into an HTTP status.
   Plain HTTP routes answer in their own way (the share link's pages); an error nothing handled is logged by names and
@@ -136,11 +138,13 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 
 - **Plans are data** the console edits (prices in paise, seats, WhatsApp numbers, storage, modules); none is seeded.
   `planLimits` hands the plan's seats to identity and its storage to the files module. Seats and modules are race-free;
-  the storage limit is not, by plan 3's choice (uploads in flight may overshoot it: it is a plan's limit, not a safety rule).
+  the storage limit is not, by plan 3's choice (uploads in flight may overshoot it: it is a plan's limit, not a safety
+  rule).
 - **The lifecycle is computed on every request** (`dueState`), so a late job never grants access; the worker's
   `subscriptions.advance-lifecycle` writes it down each night. Payments and cancelling are the console's.
 - **Platform admins act in their own name:** `platformActor(organizationId, adminUserId)`, source `platform`, in the
-  organization's audit log; the platform log (`recordPlatformAudit`) holds what belongs to no organization and an organization's whole life: onboarded, exported, purged.
+  organization's audit log; the platform log (`recordPlatformAudit`) holds what belongs to no organization and an
+  organization's whole life: onboarded, exported, purged.
 - **Permanent deletion** (spec 5) happens only in the console's jobs. A new organization table is purged with the rest
   (`deleteOrganizationRows` reads the catalog); a module that keeps files or personal data about a person or record
   adds its step to `packages/domain/src/platform/erasure.ts`.

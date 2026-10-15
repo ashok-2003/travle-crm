@@ -70,11 +70,11 @@ Date: 2026-10-14 · Status: accepted · Implements spec sections 6.1 to 6.4
 - **Cookie cache staleness.** A revoked session passes the cache for up to 5 minutes. Because `orgProcedure` reads the
   membership from the database, a removed member is refused on their next request anyway; only `me.get` still
   answers from the cache, with no organization.
-- **What a password reset ends at once.** The person's session rows are deleted, so `freshProcedure` and the
-  console's `staffProcedure` and `superAdminProcedure`, which re-read the session, refuse a stolen cookie straight away. Its 5-minute cookie cache can
-  still pass `protectedProcedure` and the other organization procedures until it expires: the window plan 2 accepted
-  above. If that ever needs closing, one option is a `sessions_valid_after` time on the user, set by a reset and
-  checked in `resolveAccess` against when the session was created.
+- **What a password reset ends at once.** The person's session rows are deleted, so `freshProcedure` and the console's
+  `staffProcedure` and `superAdminProcedure`, which re-read the session, refuse a stolen cookie straight away. Its
+  5-minute cookie cache can still pass `protectedProcedure` and the other organization procedures until it expires: the
+  window plan 2 accepted above. If that ever needs closing, one option is a `sessions_valid_after` time on the user, set
+  by a reset and checked in `resolveAccess` against when the session was created.
 - **The reset link's token outside the api (plan 5).** The emailed link is `GET /api/auth/reset-password/<token>`, so
   a load balancer's access log records the token: plan 5's deploy keeps those logs short-lived or strips that path.
   The web app's reset page gets the token in its address, so it must send `Referrer-Policy: no-referrer`, remove the

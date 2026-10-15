@@ -21,12 +21,13 @@ first Owner
   under the platform admin's name, with source `platform`.
 - **Invite links last 72 hours**, against a password reset's hour: an Owner may open the email the next day. Earlier
   links keep working until they lapse, so asking twice never strands anyone.
-- **The shared demo is rebuilt every night the same way** (spec 7.4). The console's `platform.reset-demo` job, at
-  02:00 India time, purges the organization last night's reset built, then builds it again in one platform
-  transaction (two transactions in all, so a failed build leaves no demo until the job's retry succeeds): the business profile, the starter roles, and three staff (Owner, Sales, Operations) who sign in with
-  the demo's code and `DEMO_PASSWORD`, with no email and no invite; subscribed to the plan `DEMO_PLAN_KEY` names,
-  paid a month ahead. It purges only an organization that has a `demo.reset` entry in the platform log, so a code
-  set by mistake can't purge an agency, and it checks the plan before it purges anything.
+- **The shared demo is rebuilt every night the same way** (spec 7.4). The console's `platform.reset-demo` job, at 02:00
+  India time, purges the organization last night's reset built, then builds it again in one platform transaction (two
+  transactions in all, so a failed build leaves no demo until the job's retry succeeds): the business profile, the
+  starter roles, and three staff (Owner, Sales, Operations) who sign in with the demo's code and `DEMO_PASSWORD`, with
+  no email and no invite; subscribed to the plan `DEMO_PLAN_KEY` names, paid a month ahead. It purges only an
+  organization that has a `demo.reset` entry in the platform log, so a code set by mistake can't purge an agency, and it
+  checks the plan before it purges anything.
 
 ## Context
 
@@ -36,8 +37,8 @@ first Owner
   a change in that format fails them.
 - **Why an event, not an email from the console.** The worker already has the email adapter and retries; the console
   sends nothing itself (it starts with the api's full environment, so it needs the SMTP settings to start, but never
-  uses them), and a failed send is retried rather than lost. The token never travels in the event or the
-  job: the listener makes it.
+  uses them), and a failed send is retried rather than lost. The token never travels in the event or the job: the
+  listener makes it.
 
 ## Consequences
 

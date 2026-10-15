@@ -67,10 +67,10 @@ development server) routes there, and the platform's own jobs, from `src/console
 | `platform.erase-subject`      | erases a removed person or one record in every module (spec 5)                        |
 | `platform.reset-demo`         | every night at 02:00 India time, purges and rebuilds the shared demo (spec 7.4)       |
 
-It is the only process that reads `DATABASE_PLATFORM_URL` (deploys give it to no other), and it needs everything else the api does. It refuses to start
-when that connection isn't the platform role, as well as for everything the api refuses. It runs no listeners and
-relays nothing: the worker does. One instance is enough; keep it running for the demo reset. It stops on SIGTERM like
-the api.
+It is the only process that reads `DATABASE_PLATFORM_URL` (deploys give it to no other), and it needs everything else
+the api does. It refuses to start when that connection isn't the platform role, as well as for everything the api
+refuses. It runs no listeners and relays nothing: the worker does. One instance is enough; keep it running for the demo
+reset. It stops on SIGTERM like the api.
 
 | Variable                 | Required | Default | Meaning                                                                        |
 | ------------------------ | -------- | ------- | ------------------------------------------------------------------------------ |
@@ -111,9 +111,9 @@ A process opens up to `2 × DATABASE_POOL_SIZE + 5` connections: one pool for th
 pg-boss's 5. That is 25 by default, and Postgres allows 100; the console adds its platform pool of 3. For more than 3
 instances (api, worker and console together), put a connection pooler in front of Postgres, or lower the size.
 
-The platform pool has 3 connections (`platform/services.ts`) against long transactions (a purge may take 10
-minutes, the demo build 20 seconds), so a big purge plus an erasure leaves one for every console request. That is
-fine at today's scale.
+The platform pool has 3 connections (`platform/services.ts`) against long transactions (a purge may take 10 minutes, the
+demo build 20 seconds), so a big purge plus an erasure leaves one for every console request. That is fine at today's
+scale.
 
 The api and the worker never read `DATABASE_MIGRATOR_URL` or `DATABASE_PLATFORM_URL`: migrations run as a separate
 step, and only the console process connects as the role that sees every organization. The public routes' rate-limit

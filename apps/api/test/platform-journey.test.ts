@@ -43,6 +43,17 @@ const profile = {
   documentTerms: null,
 };
 
+// Every field the lifecycle reads, so the worker's nightly advance (another file runs it over every organization in
+// the shared database) can't leave a stale stored status behind between two steps.
+function lapsedTrial(daysAgo: number) {
+  return {
+    status: "trial" as const,
+    trialEndsOn: new Date(Date.now() - daysAgo * DAY_MS),
+    paidThrough: null,
+    statusChangedAt: new Date(Date.now() - 30 * DAY_MS),
+  };
+}
+
 describe("an agency's life on the platform", () => {
   const email = createMemoryEmailSender();
   const consoleQueue = createMemoryJobQueue();
@@ -172,7 +183,7 @@ describe("an agency's life on the platform", () => {
     // policy another test file might briefly set (past due for 7 to 10 days), so no policy can change the answer.
     await server.platform.subscription.update({
       where: { organizationId },
-      data: { trialEndsOn: new Date(Date.now() - 2 * DAY_MS), statusChangedAt: new Date(Date.now() - 30 * DAY_MS) },
+      data: lapsedTrial(2),
     });
     expect((await dataOf<SubscriptionOverview>(await query(server, "subscription.get", owner))).status).toBe(
       "past_due",
@@ -182,7 +193,7 @@ describe("an agency's life on the platform", () => {
     // Thirteen days after it, it is read-only: the Owner may look, but not change anything.
     await server.platform.subscription.update({
       where: { organizationId },
-      data: { trialEndsOn: new Date(Date.now() - 13 * DAY_MS) },
+      data: lapsedTrial(13),
     });
     expect((await dataOf<SubscriptionOverview>(await query(server, "subscription.get", owner))).status).toBe(
       "read_only",
