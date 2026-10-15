@@ -17,6 +17,20 @@ export function toTrpcError(error: DomainError): TRPCError {
   return new TRPCError({ code: trpcCodeOf[error.code], message: error.message, cause: error });
 }
 
+/**
+ * The middleware every procedure starts with, the api's and the console's: a domain error thrown below it becomes its
+ * tRPC status.
+ */
+export async function domainErrorsAsStatus<R extends { ok: boolean; error?: { cause?: unknown } }>({
+  next,
+}: {
+  next: () => Promise<R>;
+}): Promise<R> {
+  const result = await next();
+  if (!result.ok && result.error?.cause instanceof DomainError) throw toTrpcError(result.error.cause);
+  return result;
+}
+
 /** What the client sees about a failed call, beyond tRPC's code and status. */
 export interface ErrorDetails {
   /** The domain error code, e.g. "FORBIDDEN", or null for errors that aren't domain errors. */

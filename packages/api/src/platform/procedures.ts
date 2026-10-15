@@ -2,15 +2,11 @@
 // platform role and no membership), no temporary password left to replace; super admins for the rest (spec 5).
 import { TRPCError } from "@trpc/server";
 import { DomainError } from "@travel-crm/domain/kernel";
-import { toTrpcError } from "../errors.js";
+import { domainErrorsAsStatus } from "../errors.js";
 import { platformT } from "./trpc.js";
 
 /** Every procedure turns domain errors into their HTTP status. */
-const base = platformT.procedure.use(async ({ next }) => {
-  const result = await next();
-  if (!result.ok && result.error.cause instanceof DomainError) throw toTrpcError(result.error.cause);
-  return result;
-});
+const base = platformT.procedure.use(domainErrorsAsStatus);
 
 /** Platform staff of either level. The context read the session from the database, so a revoked one stops at once. */
 export const staffProcedure = base.use(async ({ ctx, next }) => {

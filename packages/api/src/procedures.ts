@@ -17,15 +17,11 @@ import {
   type SubscriptionAccess,
 } from "@travel-crm/domain/subscriptions";
 import { forwardCookies } from "./context.js";
-import { toTrpcError } from "./errors.js";
+import { domainErrorsAsStatus } from "./errors.js";
 import { t, type ProcedureMeta } from "./trpc.js";
 
 /** Every procedure turns domain errors into their HTTP status. */
-const base = t.procedure.use(async ({ next }) => {
-  const result = await next();
-  if (!result.ok && result.error.cause instanceof DomainError) throw toTrpcError(result.error.cause);
-  return result;
-});
+const base = t.procedure.use(domainErrorsAsStatus);
 
 export const publicProcedure = base;
 
