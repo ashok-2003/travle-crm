@@ -4,26 +4,21 @@
 import { ESLint } from "eslint";
 import tseslint from "typescript-eslint";
 import { describe, expect, it } from "vitest";
-import { base, rawDatabaseAccessGuard, rawSqlSelectorsAllowing } from "../index.js";
+import domainConfig from "../../domain/eslint.config.js";
+import { base, rawDatabaseAccessGuard } from "../index.js";
+
+/**
+ * The modules' overrides exactly as packages/domain/eslint.config.js has them (the entries that set the guard's rule
+ * for some folders), so a change there is tested here. turbo.json makes that file an input of this test.
+ */
+const domainOverrides = domainConfig.filter((config) => config.files && config.rules?.["no-restricted-syntax"]);
 
 const eslint = new ESLint({
   overrideConfigFile: true,
   overrideConfig: [
     { files: ["**/*.ts"], languageOptions: { parser: tseslint.parser } },
     rawDatabaseAccessGuard,
-    // The modules' overrides, as packages/domain/eslint.config.js writes them.
-    {
-      files: ["src/identity/**", "test/identity/**"],
-      rules: { "no-restricted-syntax": ["error", ...rawSqlSelectorsAllowing("signInTables")] },
-    },
-    {
-      files: ["src/webhooks/**", "test/webhooks/**"],
-      rules: { "no-restricted-syntax": ["error", ...rawSqlSelectorsAllowing("webhookEvents")] },
-    },
-    {
-      files: ["src/rate-limits/**", "test/rate-limits/**"],
-      rules: { "no-restricted-syntax": ["error", ...rawSqlSelectorsAllowing("rateLimitCounters")] },
-    },
+    ...domainOverrides,
   ],
 });
 
@@ -38,6 +33,14 @@ const insideWebhooks = "src/webhooks/sample.ts";
 const insideRateLimits = "src/rate-limits/sample.ts";
 
 describe("raw database access guard", () => {
+  it("reads the domain package's three module overrides", () => {
+    expect(domainOverrides.map((config) => config.files)).toEqual([
+      ["src/identity/**", "test/identity/**"],
+      ["src/webhooks/**", "test/webhooks/**"],
+      ["src/rate-limits/**", "test/rate-limits/**"],
+    ]);
+  });
+
   it("reports SQL that sets the organization, in a tagged template", async () => {
     const source = "await tx.$executeRaw`SELECT set_config('app.org_id', ${otherOrganization}, true)`;";
     expect(await rulesReportedFor(source)).toContain("no-restricted-syntax");

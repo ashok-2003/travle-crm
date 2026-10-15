@@ -26,6 +26,12 @@
       "outputs": [],
       "cache": false
     },
+    // The raw-SQL guard's test lints with the domain package's real overrides, which live outside this package.
+    "@travel-crm/eslint-config#test": {
+      "dependsOn": ["generate", "^generate"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/domain/eslint.config.js"],
+      "outputs": []
+    },
     "db:migrate:deploy": { "cache": false, "env": ["DATABASE_MIGRATOR_URL"] },
     "dev": { "cache": false, "persistent": true }
   }
