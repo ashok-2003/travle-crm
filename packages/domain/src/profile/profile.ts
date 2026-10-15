@@ -1,9 +1,14 @@
 // An organization's business profile (spec 7.1): saved at onboarding by the platform, inside the new organization, and
 // later by its Owner; the setup checklist reads it. One row per organization, under row-level security.
-import type { OrganizationProfileDetails, SaveOrganizationProfileInput } from "@travel-crm/contracts/profile";
+import type {
+  OrganizationProfileDetails,
+  SaveBrandingInput,
+  SaveOrganizationProfileInput,
+  UpdateOrganizationProfileInput,
+} from "@travel-crm/contracts/profile";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
-import type { Actor } from "../kernel/index.js";
+import { DomainError, type Actor } from "../kernel/index.js";
 
 /** The transaction's organization's profile, or null before onboarding saved one. */
 export async function getOrganizationProfile(tx: OrgTx): Promise<OrganizationProfileDetails | null> {
@@ -37,10 +42,56 @@ export async function saveOrganizationProfile(
   actor: Actor,
   input: SaveOrganizationProfileInput,
 ): Promise<OrganizationProfileDetails> {
+  return write(tx, actor, input, Object.keys(input) as ProfileField[]);
+}
+
+/** Saves the business details and keeps the branding as it was. */
+export async function updateOrganizationProfile(
+  tx: OrgTx,
+  actor: Actor,
+  input: UpdateOrganizationProfileInput,
+): Promise<OrganizationProfileDetails> {
+  await lockProfile(tx, actor);
   const before = await getOrganizationProfile(tx);
-  const changed = (Object.keys(input) as (keyof SaveOrganizationProfileInput)[]).filter(
-    (field) => before?.[field] !== input[field],
-  );
+  const branding = { brandColour: before?.brandColour ?? null, documentTerms: before?.documentTerms ?? null };
+  return write(tx, actor, { ...input, ...branding }, Object.keys(input) as ProfileField[]);
+}
+
+/** Saves the branding and keeps the business details as they were. They must exist: the colour hangs on a profile. */
+export async function saveOrganizationBranding(
+  tx: OrgTx,
+  actor: Actor,
+  input: SaveBrandingInput,
+): Promise<OrganizationProfileDetails> {
+  await lockProfile(tx, actor);
+  const before = await getOrganizationProfile(tx);
+  if (!before) {
+    throw new DomainError("CONFLICT", "PROFILE_NOT_SAVED", "Save the business details before the branding");
+  }
+  return write(tx, actor, { ...before, ...input }, Object.keys(input) as ProfileField[]);
+}
+
+type ProfileValues = Omit<OrganizationProfileDetails, "updatedAt">;
+type ProfileField = keyof ProfileValues;
+
+/**
+ * Two saves at once (a double click, two tabs) take turns: each reads the profile the other left, so the audit log
+ * names what each really changed, and a first save is recorded once. Held until the transaction ends.
+ */
+async function lockProfile(tx: OrgTx, actor: Actor): Promise<void> {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`organization_profile:${actor.organizationId}`}, 0))`;
+}
+
+/** Writes the whole row, and records the `touched` fields that differ from what was there. */
+async function write(
+  tx: OrgTx,
+  actor: Actor,
+  input: ProfileValues,
+  touched: ProfileField[],
+): Promise<OrganizationProfileDetails> {
+  await lockProfile(tx, actor);
+  const before = await getOrganizationProfile(tx);
+  const changed = touched.filter((field) => before?.[field] !== input[field]);
   if (changed.length > 0) {
     await tx.organizationProfile.upsert({
       where: { organizationId: actor.organizationId },

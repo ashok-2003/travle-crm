@@ -18,7 +18,16 @@ and the setup checklist), with spec 10's "an organization's own branding … sto
 
 ## Consequences
 
-- The api's `profile` router serves it: `get`, `save` and `checklist`, each needing `settings:manage`, since the
-  profile holds the bank details. Saving reads the session afresh, as money and settings do.
+- The api serves it as `organization.profile` (`get`, `update`: legal name, GSTIN and state, address, contact, bank
+  details, invoice prefix), `organization.branding` (`get`, `update`: the colour and document terms; the logo comes
+  with uploads) and `organization.setup.get` (the checklist). Each needs `settings:manage`, since the profile holds the
+  bank details; branding and the checklist never carry the account number. Saving reads the session afresh, as money
+  and settings do. Branding can only be saved once the business details exist.
+- **One rule for optional text:** a blank box is no value, so `""` (or spaces) becomes null for every optional field.
+  Account numbers are accepted as printed on a cheque, with spaces or hyphens.
+- **The database repeats the rules** as CHECK constraints, tested directly. The GST state must be one of the kernel's
+  state codes (a test compares the database's list with the kernel's, so a new state needs a migration).
+- **Saves take turns** (a transaction-scoped advisory lock per organization), so the audit log's changed-field lists
+  are accurate when two saves race.
 - Documents' frozen branding (ADR 0012) can read the colour and terms from here when quotes arrive; the logo comes with
   uploads (plan 5).

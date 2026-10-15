@@ -1,27 +1,45 @@
-// The organization's business profile and setup checklist (spec 7.1): what onboarding left for the Owner to complete.
-// Bank details are in it, so seeing it needs settings:manage too, and saving it reads the session afresh.
+// The organization's business profile, branding and setup checklist (spec 7.1), served as organization.profile,
+// organization.branding and organization.setup. Bank details are in the profile, so every procedure needs
+// settings:manage, and saving reads the session afresh. Branding and the checklist carry no account number.
 import {
-  organizationProfileDetails,
-  saveOrganizationProfileInput,
+  brandingDetails,
+  businessProfileDetails,
+  saveBrandingInput,
   setupChecklist,
+  updateOrganizationProfileInput,
 } from "@travel-crm/contracts/profile";
 import { setupChecklistOf } from "@travel-crm/domain/profile";
 import { freshProcedure, orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
 
-export const profileRouter = router({
+const profileRouter = router({
   get: orgProcedure
     .requires("settings:manage")
-    .output(organizationProfileDetails.nullable())
+    .output(businessProfileDetails.nullable())
     .query(({ ctx }) => ctx.profiles.get(ctx.member.organizationId)),
 
-  save: freshProcedure
+  update: freshProcedure
     .requires("settings:manage")
-    .input(saveOrganizationProfileInput)
-    .output(organizationProfileDetails)
-    .mutation(({ ctx, input }) => ctx.profiles.save(ctx.member, input)),
+    .input(updateOrganizationProfileInput)
+    .output(businessProfileDetails)
+    .mutation(({ ctx, input }) => ctx.profiles.update(ctx.member, input)),
+});
 
-  checklist: orgProcedure
+const brandingRouter = router({
+  get: orgProcedure
+    .requires("settings:manage")
+    .output(brandingDetails.nullable())
+    .query(({ ctx }) => ctx.profiles.get(ctx.member.organizationId)),
+
+  update: freshProcedure
+    .requires("settings:manage")
+    .input(saveBrandingInput)
+    .output(brandingDetails)
+    .mutation(({ ctx, input }) => ctx.profiles.saveBranding(ctx.member, input)),
+});
+
+const setupRouter = router({
+  get: orgProcedure
     .requires("settings:manage")
     .output(setupChecklist)
     .query(async ({ ctx }) => {
@@ -31,4 +49,10 @@ export const profileRouter = router({
       ]);
       return setupChecklistOf(profile, staff.length);
     }),
+});
+
+export const organizationRouter = router({
+  profile: profileRouter,
+  branding: brandingRouter,
+  setup: setupRouter,
 });
