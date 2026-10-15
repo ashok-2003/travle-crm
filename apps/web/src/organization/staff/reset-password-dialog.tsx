@@ -12,6 +12,7 @@ import { useErrorMessage } from "@/lib/error-message";
 import { useMe } from "@/session/me-context";
 import { ResponsiveDialog } from "../responsive-dialog";
 import { Handover } from "./handover";
+import { handoverSignInName } from "./staff-details";
 import { temporaryPassword } from "./temporary-password";
 import { useResetStaffPassword } from "./use-staff";
 
@@ -29,10 +30,15 @@ export function ResetPasswordDialog({
   const { apiError } = useErrorMessage();
   const [password, setPassword] = useState(temporaryPassword);
   const reset = useResetStaffPassword();
+  const changeOpen = (next: boolean) => {
+    // The new password is in the call's variables: let go of it when the dialog closes.
+    if (!next) reset.reset();
+    onOpenChange(next);
+  };
   return (
     <ResponsiveDialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={changeOpen}
       title={t("resetPassword.title", { name: member.name })}
       description={t("resetPassword.description")}
     >
@@ -41,13 +47,13 @@ export function ResetPasswordDialog({
           <Handover
             name={member.name}
             organizationCode={member.username === null ? null : me.organization.code}
-            signInName={member.username ?? member.email}
+            signInName={handoverSignInName(member)}
             password={password}
           />
           <Button
             className="self-end"
             onClick={() => {
-              onOpenChange(false);
+              changeOpen(false);
             }}
           >
             {t("create.done")}

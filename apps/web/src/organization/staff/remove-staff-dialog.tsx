@@ -3,7 +3,6 @@
 // Removing someone (ADR 0007): asked once more, because they are signed out at once and can't come back.
 import type { StaffMember } from "@travel-crm/contracts/identity";
 import { useTranslations } from "next-intl";
-import { toast } from "sonner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,7 +13,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useErrorMessage } from "@/lib/error-message";
 import { useRemoveStaff } from "./use-staff";
 
 export function RemoveStaffDialog({
@@ -28,8 +26,7 @@ export function RemoveStaffDialog({
 }) {
   const t = useTranslations("staff.remove");
   const tCommon = useTranslations("common");
-  const { apiError } = useErrorMessage();
-  const remove = useRemoveStaff();
+  const remove = useRemoveStaff(member.name);
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
@@ -50,10 +47,8 @@ export function RemoveStaffDialog({
                 { memberId: member.memberId },
                 {
                   onSuccess: () => {
-                    toast.success(t("removed", { name: member.name }));
                     onOpenChange(false);
                   },
-                  onError: (error) => toast.error(apiError(error), { duration: Infinity }),
                 },
               );
             }}

@@ -30,6 +30,8 @@
     "saving": "Saving",
     "saved": "{name} was saved",
     "notFound": "This role no longer exists.",
+    "changedUnderYou": "This role was saved by someone else while you were editing. Your edits are kept, and saving will replace their changes.",
+    "loadSaved": "Drop my edits and load the saved role",
     "scope": "Whose records",
     "scopeOwn": "Only their own",
     "scopeAll": "Everyone's"

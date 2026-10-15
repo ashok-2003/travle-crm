@@ -2,10 +2,8 @@
 
 // Deleting a role: only one nobody has (the api refuses others), asked once more. Its name becomes free again.
 import type { RoleSummary } from "@travel-crm/contracts/identity";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import { toast } from "sonner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,16 +16,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { FieldDescription } from "@/components/ui/field";
-import { useErrorMessage } from "@/lib/error-message";
-import { routes } from "@/lib/routes";
 import { useDeleteRole } from "./use-roles";
 
 export function DeleteRoleDialog({ role }: { role: RoleSummary }) {
   const t = useTranslations("roles.delete");
   const tCommon = useTranslations("common");
-  const { apiError } = useErrorMessage();
-  const router = useRouter();
-  const remove = useDeleteRole();
+  const remove = useDeleteRole(role.name);
   const [open, setOpen] = useState(false);
   const inUse = role.memberCount > 0;
   return (
@@ -57,16 +51,7 @@ export function DeleteRoleDialog({ role }: { role: RoleSummary }) {
               disabled={remove.isPending}
               onClick={(event) => {
                 event.preventDefault();
-                remove.mutate(
-                  { key: role.key },
-                  {
-                    onSuccess: () => {
-                      toast.success(t("deleted", { name: role.name }));
-                      router.push(routes.roles);
-                    },
-                    onError: (error) => toast.error(apiError(error), { duration: Infinity }),
-                  },
-                );
+                remove.mutate({ key: role.key });
               }}
             >
               {t("confirm")}

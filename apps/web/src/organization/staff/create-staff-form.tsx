@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useErrorMessage } from "@/lib/error-message";
 import { toCreateStaffInput, type CreateStaffValues } from "./create-staff-values";
 import { temporaryPassword } from "./temporary-password";
-import { useCreateStaff } from "./use-staff";
+import type { useCreateStaff } from "./use-staff";
 
 /** The roles new staff may be given: every role but Owner, which only an Owner hands over later. */
 export function assignableRoles(roles: RoleSummary[]): RoleSummary[] {
@@ -22,14 +22,16 @@ export function assignableRoles(roles: RoleSummary[]): RoleSummary[] {
 
 export function CreateStaffForm({
   roles,
+  create,
   onCreated,
 }: {
   roles: RoleSummary[];
+  /** The add call, owned by the dialog so that it can clear it (and the password in it) when it closes. */
+  create: ReturnType<typeof useCreateStaff>;
   onCreated: (member: StaffMember, password: string) => void;
 }) {
   const t = useTranslations("staff");
   const { apiError } = useErrorMessage();
-  const create = useCreateStaff();
   const resolver: Resolver<CreateStaffValues> = (values) => {
     const result = toCreateStaffInput(values);
     if (result.ok) return { values, errors: {} };

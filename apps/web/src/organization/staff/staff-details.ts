@@ -10,6 +10,13 @@ export function signInName(member: Pick<StaffMember, "email" | "username">): str
   return member.username ?? "";
 }
 
+/** What to give a person to sign in with when handing over their details: the username if they have one (with the
+ * organization code), else a real email. A placeholder address is never shown. */
+export function handoverSignInName(member: Pick<StaffMember, "email" | "username">): string | null {
+  if (member.username !== null) return member.username;
+  return member.email !== null && !isPlaceholder(member.email) ? member.email : null;
+}
+
 /** The staff list with one person's role replaced: what the screen shows while the change is on its way. */
 export function withRole(staff: StaffMember[], memberId: string, role: StaffMember["role"]): StaffMember[] {
   return staff.map((member) => (member.memberId === memberId ? { ...member, role } : member));
