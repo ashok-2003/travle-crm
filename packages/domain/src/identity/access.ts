@@ -89,6 +89,7 @@ export async function describeSignedInPerson(
       name: organization.name,
       code: organization.code,
       requireTwoFactor: organization.requireTwoFactor,
+      timeZone: organization.timeZone,
     },
     member: access && {
       memberId: access.memberId,

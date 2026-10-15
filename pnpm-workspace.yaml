@@ -12,8 +12,10 @@ catalog:
   "@prisma/client": 7.10.0
   "@prisma/adapter-pg": 7.10.0
   zod: 4.6.7
-  react: 19.3.0
+  react: 19.3.1
+  react-dom: 19.3.1
   "@types/react": 19.3.0
+  "@types/react-dom": 19.3.0
 
 # pnpm 12 refuses to run install scripts unless approved here.
 # Prisma and esbuild need theirs; the others come in through testcontainers and are not needed.
@@ -21,6 +23,9 @@ allowBuilds:
   "@prisma/engines": true
   prisma: true
   esbuild: true
+  # next-intl's message extractor, which the web app doesn't run; both ship prebuilt binaries.
+  "@parcel/watcher": false
+  "@swc/core": false
   cpu-features: false
   protobufjs: false
   ssh2: false
@@ -36,7 +41,11 @@ minimumReleaseAgeExclude:
   - "@testcontainers/postgresql@12.2.1"
   - testcontainers@12.2.1
 
-# @trpc/server ships "agent skills" for AI coding tools; we don't install them.
+# tRPC's packages ship "agent skills" for AI coding tools; we don't install them.
 permissions:
   "@trpc/server":
+    skills: false
+  "@trpc/client":
+    skills: false
+  "@trpc/tanstack-react-query":
     skills: false

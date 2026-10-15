@@ -5,3 +5,7 @@ docs/superpowers/
 .superpowers/
 coverage/
 .turbo/
+# The web app's generated and test output (apps/web/.gitignore; Prettier reads only the root's ignore files).
+apps/web/public/sw.js
+apps/web/test-results/
+apps/web/playwright-report/
