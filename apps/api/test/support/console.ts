@@ -1,10 +1,15 @@
 // The platform console on the test database, beside a test server whose identity it shares (so the server's sign-in
-// cookies work here): its services, on in-memory storage and job queue unless a test passes real ones, its HTTP app,
+// cookies work here): its services, on in-memory storage and jobs unless a test passes real ones, its HTTP app,
 // and calls to a part of its router before that part joins platformRouter.
 import { createPlatformContext } from "@travel-crm/api";
 import { createDatabase } from "@travel-crm/db";
 import { createPlatformServices, type PlatformServices } from "@travel-crm/domain/platform";
-import { createMemoryJobQueue, type JobQueue } from "@travel-crm/integrations/jobs";
+import {
+  createMemoryJobAdministration,
+  createMemoryJobQueue,
+  type JobAdministration,
+  type JobQueue,
+} from "@travel-crm/integrations/jobs";
 import { createMemoryStorage, type ObjectStorage } from "@travel-crm/integrations/storage";
 import type { AnyTRPCRouter } from "@trpc/server";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
@@ -25,6 +30,7 @@ export interface TestConsole {
 export interface TestConsoleOptions {
   storage?: ObjectStorage;
   queue?: JobQueue;
+  jobs?: JobAdministration;
 }
 
 export function createTestConsole(server: TestServer, options: TestConsoleOptions = {}): TestConsole {
@@ -37,6 +43,7 @@ export function createTestConsole(server: TestServer, options: TestConsoleOption
     identity: server.identity,
     storage: options.storage ?? createMemoryStorage(),
     queue: options.queue ?? createMemoryJobQueue(),
+    jobs: options.jobs ?? createMemoryJobAdministration(),
   });
   const lines: string[] = [];
   return {

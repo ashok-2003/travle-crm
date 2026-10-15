@@ -4,7 +4,12 @@ import { randomUUID } from "node:crypto";
 import type { OnboardOrganizationInput } from "@travel-crm/contracts/platform";
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import { createDatabase } from "@travel-crm/db";
-import { createMemoryJobQueue, type MemoryJobQueue } from "@travel-crm/integrations/jobs";
+import {
+  createMemoryJobAdministration,
+  createMemoryJobQueue,
+  type MemoryJobAdministration,
+  type MemoryJobQueue,
+} from "@travel-crm/integrations/jobs";
 import { createMemoryStorage, type MemoryStorage } from "@travel-crm/integrations/storage";
 import { inject } from "vitest";
 import { createPlan, createPlatformServices, type PlatformServices } from "../../src/platform/index.js";
@@ -17,6 +22,7 @@ export interface TestPlatform {
   services: PlatformServices;
   storage: MemoryStorage;
   queue: MemoryJobQueue;
+  jobs: MemoryJobAdministration;
   identity: TestIdentity;
   close(): Promise<void>;
 }
@@ -27,6 +33,7 @@ export function createTestPlatform(): TestPlatform {
   const db = createDatabase(urls.runtime, { maxConnections: 2 });
   const storage = createMemoryStorage();
   const queue = createMemoryJobQueue();
+  const jobs = createMemoryJobAdministration();
   const services = createPlatformServices({
     platformDatabaseUrl: urls.platform,
     maxConnections: 2,
@@ -34,11 +41,13 @@ export function createTestPlatform(): TestPlatform {
     identity: identity.identity,
     storage,
     queue,
+    jobs,
   });
   return {
     services,
     storage,
     queue,
+    jobs,
     identity,
     close: async () => {
       await services.platformDb.disconnect();

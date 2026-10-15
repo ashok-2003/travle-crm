@@ -27,6 +27,11 @@ The platform console's work across organizations (spec sections 5 and 7). It is 
 - An organization's subscription: `getSubscription(services, organizationId)` (with its payments), and
   `changePlan`, `setOverrides`, `setTrialEnd`, `setPaidThrough`, `recordPayment`, `voidPayment`, `suspend`, `cancel`
   `(services, staff, input)`, each one platform transaction, recorded in the organization's own audit log.
+- The dashboard (spec 7.4): `organizationsOverview(services, now?)`, every organization with its status, plan, days
+  to its next change, seats and storage against its limits, last activity, and this month's changes and documents.
+- Failed jobs (spec 9.1): `listFailedJobs(services, limit)`, `retryFailedJob(services, staff, { queue, jobId })`,
+  `listSchedules(services)` and `removeSchedule(services, staff, queue)` (super admins), through the
+  `JobAdministration` port. Each retry and removed schedule is recorded in the platform log.
 - Types: `PlatformActor`, `PlatformChange`. The contracts are in `@travel-crm/contracts/platform`.
 
 ## Events

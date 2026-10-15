@@ -38,7 +38,17 @@ export interface FailedJob {
   error: string;
 }
 
-export interface PgBossJobs extends JobQueue, JobRunner {
+/** What the platform console does with jobs (spec 9.1): see what failed, run it again, see and remove schedules. */
+export interface JobAdministration {
+  /** Failed jobs, newest first. */
+  failedJobs(options?: { limit?: number }): Promise<FailedJob[]>;
+  /** Runs a failed job again, from its first attempt. A job that isn't failed (any more) is left alone. */
+  retryFailedJob(queue: string, jobId: string): Promise<void>;
+  schedules(): Promise<{ queue: string; cron: string; timeZone: string }[]>;
+  unschedule(queue: string): Promise<void>;
+}
+
+export interface PgBossJobs extends JobQueue, JobRunner, JobAdministration {
   start(): Promise<void>;
   /** Stops taking jobs, waits up to 30 seconds for running handlers to finish, and closes the pool. */
   stop(): Promise<void>;
@@ -183,6 +193,11 @@ export function createPgBossJobs(settings: PgBossJobsSettings): PgBossJobs {
     async unschedule(queue) {
       assertQueueName(queue);
       await boss.unschedule(queue);
+    },
+
+    async retryFailedJob(queue, jobId) {
+      assertQueueName(queue);
+      await boss.retry(queue, jobId);
     },
 
     async schedules() {
