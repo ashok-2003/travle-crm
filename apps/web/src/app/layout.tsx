@@ -23,6 +23,14 @@ export const metadata: Metadata = {
   title: { default: brand.productName, template: `%s · ${brand.productName}` },
   description: brand.tagline,
   applicationName: brand.productName,
+  // The brand's icons, which scripts/generate.ts copies to public/icons.
+  icons: {
+    icon: [
+      { url: "/icons/favicon.ico", sizes: "32x32" },
+      { url: "/icons/favicon.svg", type: "image/svg+xml" },
+    ],
+    apple: "/icons/apple-touch-icon.png",
+  },
 };
 
 export const viewport: Viewport = {
