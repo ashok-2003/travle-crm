@@ -26,12 +26,16 @@ super-admin action in the platform console")
   whole folder. The storage key is made from them (`organizations/<organization>/attachments/<attachment>`, ADR 0011),
   so no file name is kept. Once the transaction commits, the job deletes what is due at once, then each row; a failure
   there is logged as one ids-only line, not thrown. Whatever is left (a storage error, a restart, a later sweep) goes
-  to `platform.delete-stored-files`, the console's job, which deletes each file, then its row, every organization's at
-  each run, and is retried for about a day (30 retries, up to an hour apart) before the failed-jobs list, where a
-  retry starts it again. Each run queues the next for the earliest row left, to start when it is due; the job's id is
-  made from that time, so a run pg-boss started early can't queue itself again and again. An hourly sweep
-  (`platform.sweep-stored-files`, the console's schedule) runs the same pass, for rows whose job was lost. Nothing
-  reaches storage inside a transaction, and nothing is forgotten after one.
+  to `platform.delete-stored-files`, the console's job. Its data names the organization, and each run covers that
+  organization alone: it deletes the due files, each then its row, and is retried for about a day (30 retries, up to
+  an hour apart) before the failed-jobs list, where a retry starts it again. After a run, it queues the next for the
+  organization's earliest row left, to start when that row is due. The job's id is made from the organization and that
+  time, so the purge's own send and the follow-up for one row are one job.
+- **The hourly sweep is required.** A run pg-boss starts early (the clocks a minute or more apart) finds its row not
+  yet due, and its follow-up is ignored: that job id is its own, still running. Such a row waits for the hourly sweep
+  (`platform.sweep-stored-files`, the console's schedule), one pass over every organization's due rows, which also
+  catches rows whose job was lost (a crash before the send) or ran out of retries. Nothing reaches storage inside a
+  transaction, and nothing is forgotten after one.
 - **A purge sweeps its organization's folder, not its keys.** It queues the folder (`deletePrefix`, which lists and
   deletes 1,000 keys a request, so a large organization takes one request per thousand files, not one per file) twice:
   once at once, and again 15 minutes later (`LATE_WRITES_MS`), when every upload link handed out before the purge has
@@ -60,9 +64,12 @@ super-admin action in the platform console")
   (`VALIDATION`/`KEPT_BY_LAW`): it is a GST invoice or its like, kept as issued (ADR 0012), and DPDP allows the
   retention a law requires. It keeps the customer's details as they were; the erasure covers the person's own records.
 - **Exports first.** `exportedFiles` and `auditEntriesAbout` give what the export before a purge or an erasure holds;
-  the export lists files with download links that lapse, rather than copying them. A purge or an erasure needs the
-  organization's `organization.exported` (or the subject's `subject.exported`) platform log entry from the last day,
-  matched on `target_organization_id`, so one organization's export never counts for another.
+  the export lists files with download links that lapse, rather than copying them. A purge needs a fresh export
+  (`hasFreshExport`): one done within the last day and not withdrawn since. An erasure withdraws every export of its
+  organization, though their `organization.exported` log entries stay, so a purge after it needs a new export, without
+  the erased person. An erasure needs the subject's `subject.exported` platform log entry from the last day: a subject
+  export is handed over in the console's response, not stored, so nothing withdraws it. Both are matched on the
+  organization, so one organization's export never counts for another.
 - **The runtime role can't do any of it.** It has no right to delete attachments, notifications or share links, to
   change audit entries, or to touch the outbox; each of these functions fails with "permission denied" outside a
   platform transaction. Reads that rely on row-level security (`auditEntriesSince`, `documentsIssuedSince`) refuse to
@@ -75,8 +82,8 @@ super-admin action in the platform console")
   `organization.purged` or `subject.erased` in the platform log under the super admin who asked; an erasure also
   records `subject.erased`, without personal data, in the organization's own log.
 - **The purge job checks everything again,** under the subscription's lock, which every subscription change takes: the
-  organization is cancelled by its lifecycle as of today (`entitlementsOf`, in its own time zone), and its export is
-  less than a day old when the job runs. Otherwise it keeps the organization and records `organization.purge-skipped`
+  organization is cancelled by its lifecycle as of today (`entitlementsOf`, in its own time zone), and it has a fresh
+  export when the job runs (under a day old, and not withdrawn by an erasure since the request). Otherwise it keeps the organization and records `organization.purge-skipped`
   with the reason (`not-cancelled` with the status, or `no-recent-export`); a super admin asks again, which checks
   everything again. A payment recorded during a purge waits for it, then finds the organization gone. The nightly
   demo reset purges its own active demo with none of these checks.

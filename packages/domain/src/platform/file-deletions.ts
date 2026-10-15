@@ -1,7 +1,7 @@
 // Deleting the stored files a purge or an erasure queued (ADR 0022). Their transaction can't reach storage, so it puts
 // the files in the deletions' outbox; once it commits, this deletes each file, then its row, and the console's job
 // retries until the outbox is empty. Nothing is lost to a storage error or a restart: the rows stay until the bytes go,
-// each run queues the next for what is left, and an hourly sweep catches anything a lost job left behind.
+// each run queues the next for its organization's rows left, and the hourly sweep (required) catches what no job will.
 import { describeError, ownMessages, type JobData } from "@travel-crm/integrations/jobs";
 import { deleteQueuedFile, dueFileDeletions, forgetFileDeletion, nextFileDeletionDue } from "../files/index.js";
 import { listenerJobId, type JobHandler, type ScheduledJob } from "../jobs/index.js";
@@ -88,8 +88,9 @@ export async function deleteDueFiles(
 /**
  * Queues the outbox job for the next queued deletion (the organization's, or anyone's), to start once it is due. Its
  * data names the organization, so that run works on it alone. One job per organization and due time: its id is made
- * from both, so the purge's own send and a run's follow-up for the same row are one job, and a run that finds the row
- * not yet due (pg-boss started it early) can't queue itself again and again.
+ * from both, so the purge's own send and a run's follow-up for the same row are one job. A run that finds its row not
+ * yet due (pg-boss started it early) queues nothing: the id is its own, still running, so the send is ignored, and the
+ * row waits for the hourly sweep.
  */
 async function queueNextRun(services: PlatformServices, now: Date, organizationId?: string): Promise<void> {
   const next = await services.platformDb.transaction((tx) => nextFileDeletionDue(tx, organizationId));
@@ -154,8 +155,9 @@ export function deleteStoredFilesHandler(services: PlatformServices): JobHandler
 }
 
 /**
- * The hourly backstop, for the console's schedules: one run over every organization, for rows whose job was lost (a
- * crash before the send) or ran out of retries.
+ * The hourly sweep, which the console must schedule: one run over every organization's due rows. It is what reaches a
+ * row whose job pg-boss started early (its follow-up is ignored), was lost (a crash before the send), or ran out of
+ * retries.
  */
 export function storedFileDeletionsSchedule(services: PlatformServices): ScheduledJob {
   return {

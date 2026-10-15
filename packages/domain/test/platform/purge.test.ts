@@ -8,7 +8,15 @@ import { asOrganization, createPlatformClient, type PlatformClient } from "@trav
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { LATE_WRITES_MS } from "../../src/files/index.js";
 import { deleteDueFiles, DELETE_STORED_FILES_QUEUE } from "../../src/platform/file-deletions.js";
-import { cancel, listPlatformLog, purgeOrganization, requestPurge } from "../../src/platform/index.js";
+import { erasureJobOf } from "../../src/platform/erasure.js";
+import {
+  cancel,
+  eraseSubject,
+  listPlatformLog,
+  purgeOrganization,
+  requestErasure,
+  requestPurge,
+} from "../../src/platform/index.js";
 import { purgeBlocker } from "../../src/platform/purge.js";
 import {
   hmacSha256Signature,
@@ -16,7 +24,15 @@ import {
   receiveWebhook,
   type WebhookProvider,
 } from "../../src/webhooks/index.js";
-import { deletionAgency, exportOrganizationNow, flakyServices, keysOf, storedFile } from "./test-deletion.js";
+import {
+  deletionAgency,
+  exportOrganizationNow,
+  exportTraveller,
+  flakyServices,
+  keysOf,
+  storedFile,
+  traveller,
+} from "./test-deletion.js";
 import { createTestPlan, createTestPlatform, support, supportUserId, type TestPlatform } from "./test-platform.js";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -194,6 +210,33 @@ describe("purging an organization", () => {
     await exportOrganizationNow(test.services, organizationId);
     expect(await afterAStep(new Date())).toBeNull();
     expect(await afterAStep(new Date(Date.now() + 25 * HOUR_MS))).toBe("no-recent-export");
+  });
+
+  it("refuses a purge once an erasure has withdrawn the export, when asked and in the job", async () => {
+    const { organizationId, code, job } = await readyToPurge();
+    // An erasure after the export withdraws every export of the organization: they may hold the erased person.
+    await exportTraveller(test.services, organizationId);
+    const subject = { kind: "record" as const, recordType: "traveller", recordId: traveller };
+    await requestErasure(test.services, support, { organizationId, subject, confirmation: code });
+    const erasure = test.queue.sent.at(-1);
+    if (!erasure) throw new Error("no erasure job was queued");
+    await eraseSubject(test.services, erasureJobOf(erasure.data));
+
+    // The purge asked for before the erasure is kept, and says why, though the export's log entry stays.
+    expect(await purgeOrganization(test.services, job)).toBeNull();
+    expect(await platform.organization.count({ where: { id: organizationId } })).toBe(1);
+    const log = await test.services.platformDb.transaction((tx) =>
+      listPlatformLog(tx, { targetOrganizationId: organizationId, limit: 1 }),
+    );
+    expect(log.entries[0]).toMatchObject({
+      action: "organization.purge-skipped",
+      after: { reason: "no-recent-export" },
+    });
+    // Asked again, it is refused until a new export is made.
+    const ask = () => requestPurge(test.services, support, { organizationId, confirmation: code });
+    await expect(ask()).rejects.toMatchObject({ reason: "EXPORT_FIRST" });
+    await exportOrganizationNow(test.services, organizationId);
+    expect(await ask()).toEqual({ jobId: expect.any(String) as string });
   });
 
   it("counts only this organization's own export", async () => {

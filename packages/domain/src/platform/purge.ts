@@ -10,7 +10,7 @@ import { DomainError } from "../kernel/index.js";
 import { entitlementsOf } from "../subscriptions/index.js";
 import { tombstoneWebhookEvents } from "../webhooks/index.js";
 import { deleteFilesAfterCommit } from "./file-deletions.js";
-import { exportedRecently, lockSubscription } from "./merge-stand-ins.js";
+import { hasFreshExport, lockSubscription } from "./merge-stand-ins.js";
 import { recordPlatformAudit } from "./platform-log.js";
 import type { PlatformServices } from "./services.js";
 
@@ -29,8 +29,9 @@ function refusal(blocker: PurgeBlocker): DomainError {
 }
 
 /**
- * What stands in the purge's way: the organization must be cancelled by its lifecycle as of today, and exported within
- * the last day. Checked under the subscription's lock (the one every subscription change takes), so a payment recorded
+ * What stands in the purge's way: the organization must be cancelled by its lifecycle as of today, and have an export
+ * done within the last day and not withdrawn since (an erasure withdraws every export, as it may hold the erased
+ * person, though its log entry stays). Checked under the subscription's lock (the one every subscription change takes), so a payment recorded
  * now waits for the purge, then finds the organization gone, rather than vanishing with it.
  *
  * Run on the platform transaction itself, never inside an asOrganization step: a step sees only its organization, so a
@@ -49,7 +50,7 @@ export async function purgeBlocker(
   }
   const status = (await entitlementsOf(tx, organizationId, now))?.status ?? null;
   if (status !== "cancelled") return { blocker: "not-cancelled", status };
-  if (!(await exportedRecently(tx, "organization.exported", organizationId, now, organizationId))) {
+  if (!(await hasFreshExport(tx, organizationId, now))) {
     return { blocker: "no-recent-export", status };
   }
   return { blocker: null, status };
