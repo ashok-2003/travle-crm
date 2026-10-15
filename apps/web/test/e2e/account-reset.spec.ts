@@ -1,5 +1,6 @@
 // Resetting a forgotten password (spec 6.2). The emailed link needs plan 3's Task I3 (the api sending reset email,
-// read here from Mailpit); until it is merged these journeys cover the screens and the token check.
+// read here from Mailpit); until it is merged these journeys cover the screens and the token check. The token leaves
+// the address bar as soon as the screen has read it (ADR 0006), and saving still sends it.
 import { expectAccessible } from "./support/accessibility";
 import { expect, test } from "./support/fixtures";
 
@@ -14,12 +15,19 @@ test("the forgot-password screen explains both ways to get a new password", asyn
 test("an expired or used link offers a new one", async ({ page }) => {
   await page.goto("/reset-password?error=INVALID_TOKEN");
   await expect(page.getByText("This reset link has expired or was used already.")).toBeVisible();
+  await expect(page).toHaveURL(/\/reset-password$/);
   await expectAccessible(page);
 
   await page.goto("/reset-password?token=not-a-real-token");
+  await expect(page).toHaveURL(/\/reset-password$/);
   await page.getByLabel("New password", { exact: true }).fill("a-brand-new-password");
   await page.getByLabel("New password again").fill("a-brand-new-password");
+  const saved = page.waitForRequest((request) => new URL(request.url()).pathname === "/api/auth/reset-password");
   await page.getByRole("button", { name: "Save new password" }).click();
+  const request = await saved;
+  expect(request.postDataJSON()).toMatchObject({ token: "not-a-real-token" });
+  // Sent from the cleaned address, so the request's Referer no longer carries the token either.
+  expect((await request.allHeaders()).referer ?? "").not.toContain("not-a-real-token");
   await page.getByRole("link", { name: "Ask for a new link" }).click();
   await expect(page).toHaveURL(/\/forgot-password$/);
 });

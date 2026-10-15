@@ -32,28 +32,32 @@ export function TextField<Values extends FieldValues>({
     <Controller
       control={control}
       name={name}
-      render={({ field, fieldState }) => (
-        <Field data-invalid={fieldState.invalid} className={className}>
-          <FieldLabel htmlFor={id}>{label}</FieldLabel>
-          <Input
-            id={id}
-            {...inputProps}
-            {...field}
-            value={typeof field.value === "string" ? field.value : ""}
-            aria-invalid={fieldState.invalid}
-            aria-describedby={[hint ? `${id}-hint` : null, fieldState.error ? `${id}-error` : null]
-              .filter((part) => part !== null)
-              .join(" ")}
-          />
-          {hint && <FieldDescription id={`${id}-hint`}>{hint}</FieldDescription>}
-          {fieldState.error && (
-            <FieldError id={`${id}-error`} className="flex items-start gap-1.5">
-              <CircleAlertIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-              {fieldState.error.message}
-            </FieldError>
-          )}
-        </Field>
-      )}
+      render={({ field, fieldState }) => {
+        const describedBy = [hint ? `${id}-hint` : null, fieldState.error ? `${id}-error` : null].filter(
+          (part) => part !== null,
+        );
+        return (
+          <Field data-invalid={fieldState.invalid} className={className}>
+            <FieldLabel htmlFor={id}>{label}</FieldLabel>
+            <Input
+              id={id}
+              {...inputProps}
+              {...field}
+              value={typeof field.value === "string" ? field.value : ""}
+              aria-invalid={fieldState.invalid}
+              // No attribute at all rather than an empty one, which points at nothing.
+              aria-describedby={describedBy.length > 0 ? describedBy.join(" ") : undefined}
+            />
+            {hint && <FieldDescription id={`${id}-hint`}>{hint}</FieldDescription>}
+            {fieldState.error && (
+              <FieldError id={`${id}-error`} className="flex items-start gap-1.5">
+                <CircleAlertIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+                {fieldState.error.message}
+              </FieldError>
+            )}
+          </Field>
+        );
+      }}
     />
   );
 }

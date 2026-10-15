@@ -1,5 +1,5 @@
-// The code step: six digits from the app (or a backup code), sent with the trust-device choice; an expired first
-// step sends the person back to sign in.
+// The code step: six digits from the app (or a backup code), sent with the trust-device choice, which says it is for
+// a device nobody else uses; an expired first step sends the person back to sign in.
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -26,14 +26,24 @@ describe("TwoFactorChallenge", () => {
     expect(finishSignIn).toHaveBeenCalledWith("/staff");
   });
 
-  it("takes a backup code instead", async () => {
+  it("says trusting the device is only for one nobody else uses", () => {
+    renderScreen(<TwoFactorChallenge auth={{ verifyTwoFactorCode: vi.fn(), verifyBackupCode: vi.fn() }} />);
+    expect(screen.getByLabelText(account.twoFactor.trustDevice)).toHaveAccessibleDescription(
+      account.twoFactor.trustDeviceHint,
+    );
+  });
+
+  it("takes a backup code instead, with the focus on its field", async () => {
     const verifyBackupCode = answers(refused(401, "INVALID_BACKUP_CODE"));
     renderScreen(<TwoFactorChallenge auth={{ verifyTwoFactorCode: vi.fn(), verifyBackupCode }} />);
     await userEvent.click(screen.getByRole("button", { name: account.twoFactor.useBackupCode }));
+    expect(screen.getByLabelText(account.fields.backupCode)).toHaveFocus();
     await userEvent.type(screen.getByLabelText(account.fields.backupCode), " abcde-12345 ");
     await userEvent.click(screen.getByRole("button", { name: account.twoFactor.submit }));
     expect(verifyBackupCode).toHaveBeenCalledWith({ code: "abcde-12345", trustDevice: false });
     expect(await screen.findByText(errors.auth.INVALID_BACKUP_CODE)).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: account.twoFactor.useAuthenticator }));
+    expect(screen.getByLabelText(account.fields.code)).toHaveFocus();
   });
 
   it("sends the person back to sign in when the first step has expired", async () => {

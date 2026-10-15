@@ -4,7 +4,6 @@
 // the code filled in, once this device has used it. A person with two-factor sign-in goes on to type a code.
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import Link from "next/link";
 import { useState } from "react";
 import { PageTitle } from "@/components/page-title";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,6 +14,7 @@ import { EmailSignInForm } from "./email-sign-in-form";
 import { useFinishSignIn } from "./finish-sign-in";
 import { nextPath } from "./next-path";
 import { useRememberedOrganizationCode } from "./remembered-code";
+import { TextLink } from "./text-link";
 
 type Way = "email" | "code";
 
@@ -66,9 +66,7 @@ export function SignInScreen({ auth }: { auth?: Pick<AuthClient, "signInWithEmai
           <p className="mt-4 text-label text-muted-foreground">{t("noEmailHint")}</p>
         </TabsContent>
       </Tabs>
-      <Link href={routes.forgotPassword} className="text-primary underline-offset-4 hover:underline">
-        {t("forgotPassword")}
-      </Link>
+      <TextLink href={routes.forgotPassword}>{t("forgotPassword")}</TextLink>
     </div>
   );
 }

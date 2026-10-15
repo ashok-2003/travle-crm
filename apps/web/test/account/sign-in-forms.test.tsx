@@ -1,5 +1,5 @@
-// The two sign-in forms check what was typed with the api's own rules, send it, and say plainly why a sign-in was
-// refused. The organization code is remembered only after it worked.
+// The two sign-in forms check what was typed with the api's own rules (in our own words), send it, and say plainly why
+// a sign-in was refused. The organization code is remembered only after it worked.
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -24,7 +24,15 @@ describe("EmailSignInForm", () => {
     await userEvent.type(screen.getByLabelText(account.fields.email), "asha");
     await userEvent.click(screen.getByRole("button", { name: account.signIn.submit }));
     expect(await screen.findByText(account.fields.invalidEmail)).toBeVisible();
+    await userEvent.type(screen.getByLabelText(account.fields.email), "@sharma.invalid");
+    await userEvent.click(screen.getByRole("button", { name: account.signIn.submit }));
+    expect(await screen.findByText(account.fields.realEmail)).toBeVisible();
     expect(signInWithEmail).not.toHaveBeenCalled();
+  });
+
+  it("links a field to nothing while it has no hint or error", () => {
+    renderScreen(<EmailSignInForm onSignedIn={vi.fn()} auth={{ signInWithEmail: vi.fn() }} />);
+    expect(screen.getByLabelText(account.fields.email)).not.toHaveAttribute("aria-describedby");
   });
 
   it("sends the email as the api compares it, and reports the outcome", async () => {
@@ -77,14 +85,22 @@ describe("CodeSignInForm", () => {
     expect(rememberedOrganizationCode()).toBe("SHARMA");
   });
 
-  it("refuses a code the api would refuse", async () => {
+  it("refuses a code or username the api would refuse", async () => {
     const signInWithCode = answers(ok({ twoFactorRequired: false }));
     renderScreen(<CodeSignInForm rememberedCode={null} onSignedIn={vi.fn()} auth={{ signInWithCode }} />);
+    await userEvent.click(screen.getByRole("button", { name: account.signIn.submit }));
+    expect(await screen.findAllByText(account.fields.required)).toHaveLength(3);
     await userEvent.type(screen.getByLabelText(account.fields.organizationCode), "SH");
-    await userEvent.type(screen.getByLabelText(account.fields.username), "ravi");
+    await userEvent.type(screen.getByLabelText(account.fields.username), "r");
     await userEvent.type(screen.getByLabelText(account.fields.password), "p");
     await userEvent.click(screen.getByRole("button", { name: account.signIn.submit }));
-    expect(await screen.findByText("Use 3-12 letters or digits")).toBeVisible();
+    expect(await screen.findByText(account.fields.organizationCodeInvalid)).toBeVisible();
+    expect(screen.getByText(account.fields.usernameInvalid)).toBeVisible();
     expect(signInWithCode).not.toHaveBeenCalled();
+  });
+
+  it("doesn't invite the address book's company name into the code field", () => {
+    renderScreen(<CodeSignInForm rememberedCode={null} onSignedIn={vi.fn()} auth={{ signInWithCode: vi.fn() }} />);
+    expect(screen.getByLabelText(account.fields.organizationCode)).toHaveAttribute("autocomplete", "off");
   });
 });

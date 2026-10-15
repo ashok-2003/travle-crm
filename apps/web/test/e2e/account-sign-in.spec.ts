@@ -1,17 +1,22 @@
 // Signing in (spec 6.3, spec 12.1's first journey): by email, and by organization code and username, which the device
-// then remembers; a wrong password says so; with two-factor on, the code comes next.
+// then remembers; a wrong password says so; with two-factor on, the code comes next. Either way the person lands on
+// the page they were sent from (?next=).
 import { expectAccessible } from "./support/accessibility";
 import { expect, signInByEmail, test } from "./support/fixtures";
 import { secretOf, totpCode } from "./support/totp";
 
-test("an Owner signs in by email", async ({ page, agency }) => {
-  await page.goto("/sign-in");
+test("an Owner signs in by email, back to the page they were sent from", async ({ page, agency }) => {
+  // Before its script runs, the prerendered page shows a skeleton, not an empty column.
+  expect(await (await page.request.get("/sign-in")).text()).toContain('aria-busy="true"');
+  await page.goto("/sign-in?next=%2Fstaff");
   await expect(page.getByRole("heading", { level: 1, name: "Sign in" })).toBeVisible();
+  await expect(page).toHaveTitle(/^Sign in · /);
   await expectAccessible(page);
   await page.getByRole("textbox", { name: "Email" }).fill(agency.owner.email);
   await page.getByLabel("Password").fill(agency.owner.password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: `Welcome, ${agency.owner.name}` })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Staff" })).toBeVisible();
+  await expect(page).toHaveURL(/\/staff$/);
 });
 
 test("staff sign in with the organization code, which the device then remembers", async ({
@@ -57,7 +62,7 @@ test("with two-factor on, the code from the app comes after the password", async
   await page.request.post("/api/auth/two-factor/verify-totp", { data: { code: totpCode(secret) }, headers: origin });
   await page.context().clearCookies();
 
-  await page.goto("/sign-in?next=%2F");
+  await page.goto("/sign-in?next=%2Faccount");
   await page.getByRole("textbox", { name: "Email" }).fill(agency.owner.email);
   await page.getByLabel("Password").fill(agency.owner.password);
   await page.getByRole("button", { name: "Sign in" }).click();
@@ -65,5 +70,5 @@ test("with two-factor on, the code from the app comes after the password", async
   await expectAccessible(page);
   await page.getByLabel("Code from your authenticator app").fill(totpCode(secret));
   await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: `Welcome, ${agency.owner.name}` })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Your account" })).toBeVisible();
 });

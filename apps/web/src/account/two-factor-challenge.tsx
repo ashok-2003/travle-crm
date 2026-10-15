@@ -1,7 +1,8 @@
 "use client";
 
 // The second step of a two-factor sign-in: the 6-digit code from the authenticator app, or a backup code. Better
-// Auth remembers the first step in a short-lived cookie; if it has expired the person starts again.
+// Auth remembers the first step in a short-lived cookie; if it has expired the person starts again. Switching between
+// the two kinds of code puts the focus in the new field.
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
@@ -9,17 +10,15 @@ import { useId, useState, type SubmitEvent } from "react";
 import { PageTitle } from "@/components/page-title";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { Field, FieldContent, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Spinner } from "@/components/ui/spinner";
 import { authClient, type AuthClient } from "@/data/auth-client";
 import { routes } from "@/lib/routes";
 import { AuthFailureAlert, type AuthFailure } from "./form-alert";
 import { useFinishSignIn } from "./finish-sign-in";
 import { nextPath } from "./next-path";
-
-const CODE_LENGTH = 6;
+import { CODE_LENGTH, SixDigitCode } from "./six-digit-code";
 
 export function TwoFactorChallenge({
   auth = authClient,
@@ -65,6 +64,7 @@ export function TwoFactorChallenge({
           {useBackup ? (
             <Input
               id={`${id}-code`}
+              autoFocus
               value={code}
               onChange={(event) => {
                 setCode(event.target.value);
@@ -75,35 +75,25 @@ export function TwoFactorChallenge({
               className="numbers"
             />
           ) : (
-            <InputOTP
-              id={`${id}-code`}
-              maxLength={CODE_LENGTH}
-              value={code}
-              onChange={setCode}
-              inputMode="numeric"
-              pattern="^[0-9]+$"
-              autoComplete="one-time-code"
-              autoFocus
-            >
-              <InputOTPGroup className="numbers">
-                {Array.from({ length: CODE_LENGTH }, (_, index) => (
-                  <InputOTPSlot key={index} index={index} className="size-11 text-number-lg" />
-                ))}
-              </InputOTPGroup>
-            </InputOTP>
+            <SixDigitCode id={`${id}-code`} value={code} onChange={setCode} autoFocus />
           )}
         </Field>
         <Field orientation="horizontal">
           <Checkbox
             id={`${id}-trust`}
+            aria-describedby={`${id}-trust-hint`}
             checked={trustDevice}
             onCheckedChange={(checked) => {
               setTrustDevice(checked === true);
             }}
           />
-          <FieldLabel htmlFor={`${id}-trust`} className="font-normal">
-            {t("twoFactor.trustDevice")}
-          </FieldLabel>
+          {/* Agencies share office PCs. On a trusted one, whoever learns this person's password needs no code. */}
+          <FieldContent>
+            <FieldLabel htmlFor={`${id}-trust`} className="font-normal">
+              {t("twoFactor.trustDevice")}
+            </FieldLabel>
+            <FieldDescription id={`${id}-trust-hint`}>{t("twoFactor.trustDeviceHint")}</FieldDescription>
+          </FieldContent>
         </Field>
         <AuthFailureAlert failure={failure} />
         {expired ? (

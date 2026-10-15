@@ -1,12 +1,14 @@
-// Changing a password: the new one twice, at least 10 characters, and the current one checked by the api.
+// Changing a password: the new one twice, at least 10 characters, and the current one checked by the api. Once it is
+// saved, a next screen that doesn't open leaves the person a way on, never the form again.
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ChangePasswordForm } from "@/account/change-password-form";
 import { messages } from "@/i18n/messages";
+import { unanswered } from "../support/api-errors";
 import { answers, ok, refused, renderScreen } from "./render";
 
-const { account, errors } = messages;
+const { account, common, errors } = messages;
 
 async function fill(current: string, chosen: string, again: string) {
   await userEvent.type(screen.getByLabelText(account.fields.temporaryPassword), current);
@@ -20,7 +22,7 @@ describe("ChangePasswordForm", () => {
     const changePassword = answers(ok(null));
     renderScreen(<ChangePasswordForm temporary onChanged={vi.fn()} auth={{ changePassword }} />);
     await fill("temporary-1", "short", "different");
-    expect(await screen.findByText("Use at least 10 characters")).toBeVisible();
+    expect(await screen.findByText(account.fields.passwordTooShort)).toBeVisible();
     expect(screen.getByText(account.fields.passwordsDiffer)).toBeVisible();
     expect(changePassword).not.toHaveBeenCalled();
   });
@@ -41,5 +43,17 @@ describe("ChangePasswordForm", () => {
     await fill("wrong", "my-own-password", "my-own-password");
     expect(await screen.findByText(errors.auth.INVALID_PASSWORD)).toBeVisible();
     expect(onChanged).not.toHaveBeenCalled();
+  });
+
+  it("says the password is saved when the next screen doesn't open, and continues from there", async () => {
+    const changePassword = answers(ok(null));
+    const onChanged = vi.fn().mockRejectedValueOnce(unanswered()).mockResolvedValueOnce(undefined);
+    renderScreen(<ChangePasswordForm temporary onChanged={onChanged} auth={{ changePassword }} />);
+    await fill("temporary-1", "my-own-password", "my-own-password");
+    expect(await screen.findByText(account.changePassword.savedNotContinued)).toBeVisible();
+    expect(screen.queryByLabelText(account.fields.temporaryPassword)).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: common.continue }));
+    expect(onChanged).toHaveBeenCalledTimes(2);
+    expect(changePassword).toHaveBeenCalledOnce();
   });
 });

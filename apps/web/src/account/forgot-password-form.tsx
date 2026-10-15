@@ -2,7 +2,6 @@
 
 // Asking for a password-reset link by email (spec 6.2). The answer is the same whether or not anyone has the
 // address, so the screen can't be used to find out who has an account. Staff without email ask their admin.
-import { zodResolver } from "@hookform/resolvers/zod";
 import { emailAddress } from "@travel-crm/contracts/identity";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
@@ -13,8 +12,9 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { authClient, type AuthClient } from "@/data/auth-client";
 import { routes } from "@/lib/routes";
+import { focusWhenShown } from "./focus";
 import { AuthFailureAlert, type AuthFailure } from "./form-alert";
-import { useFieldErrorMessages } from "./form-errors";
+import { useFormResolver } from "./form-errors";
 import { TextField } from "./text-field";
 
 const resetRequest = z.strictObject({ email: emailAddress });
@@ -24,9 +24,8 @@ export function ForgotPasswordForm({ auth = authClient }: { auth?: Pick<AuthClie
   const tFields = useTranslations("account.fields");
   const [sent, setSent] = useState(false);
   const [failure, setFailure] = useState<AuthFailure | null>(null);
-  const errorMessages = useFieldErrorMessages();
   const form = useForm<z.input<typeof resetRequest>, unknown, z.output<typeof resetRequest>>({
-    resolver: zodResolver(resetRequest, { error: errorMessages }),
+    resolver: useFormResolver(resetRequest),
     defaultValues: { email: "" },
   });
 
@@ -43,7 +42,7 @@ export function ForgotPasswordForm({ auth = authClient }: { auth?: Pick<AuthClie
 
   if (sent) {
     return (
-      <Alert>
+      <Alert ref={focusWhenShown} tabIndex={-1}>
         <AlertDescription>{t("sent")}</AlertDescription>
       </Alert>
     );
