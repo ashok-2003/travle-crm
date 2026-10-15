@@ -22,9 +22,9 @@ The first and largest set of decisions is the Foundation spec: `docs/superpowers
 | [0015](0015-audit-log.md)                    | The audit log: append-only, in the change's transaction, impersonation recorded           |
 | [0016](0016-money-tax-and-time.md)           | Money in integer paise, the tax engine and India GST, time zones, phone numbers           |
 | [0017](0017-brand-package.md)                | The brand package: one source of truth, the product-name check, generated icons           |
-| [0018](0018-platform-console.md)             | The platform console: its own process, the platform role's transactions, the platform log |
-| [0019](0019-plans-and-subscriptions.md)      | Plans, subscriptions and payments as data, ready for Razorpay Subscriptions               |
-| [0020](0020-lifecycle-and-request-checks.md) | The subscription lifecycle, computed on every request, and request checks 2 and 3         |
-| [0021](0021-onboarding.md)                   | Onboarding in one transaction, the Owner's invite, and the nightly demo                   |
-| [0022](0022-permanent-deletion.md)           | Permanent deletion: purging an organization, erasing one person or record                 |
-| [0023](0023-business-profile.md)             | The organization's business profile and setup checklist                                   |
+| [0019](0019-platform-console.md)             | The platform console: its own process, the platform role's transactions, the platform log |
+| [0020](0020-plans-and-subscriptions.md)      | Plans, subscriptions and payments as data, ready for Razorpay Subscriptions               |
+| [0021](0021-lifecycle-and-request-checks.md) | The subscription lifecycle, computed on every request, and request checks 2 and 3         |
+| [0022](0022-onboarding.md)                   | Onboarding in one transaction, the Owner's invite, and the nightly demo                   |
+| [0023](0023-permanent-deletion.md)           | Permanent deletion: purging an organization, erasing one person or record                 |
+| [0024](0024-business-profile.md)             | The organization's business profile and setup checklist                                   |

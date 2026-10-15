@@ -1,4 +1,4 @@
-// Support impersonates only an organization's active staff (ADR 0018), never other platform staff: a platform admin has
+// Support impersonates only an organization's active staff (ADR 0019), never other platform staff: a platform admin has
 // no membership, so the side door refuses them as a target before Better Auth's own admin rules are reached.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { platformStaffRoles } from "../../src/identity/index.js";

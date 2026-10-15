@@ -1,4 +1,4 @@
-// The console process's own settings (ADR 0018), beside the api's environment it starts with: the platform role's
+// The console process's own settings (ADR 0019), beside the api's environment it starts with: the platform role's
 // connection, which only this process is given, its port, and the shared demo the nightly job resets. Checked at
 // start-up, like the api's.
 import { organizationCode } from "@travel-crm/contracts/identity";

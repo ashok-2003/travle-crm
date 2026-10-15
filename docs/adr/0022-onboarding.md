@@ -1,4 +1,4 @@
-# 0021: Onboarding in one transaction, and the Owner's invite
+# 0022: Onboarding in one transaction, and the Owner's invite
 
 Date: 2026-10-16 · Status: accepted · Implements spec section 7.1, and replaces plan 2's temporary password for the
 first Owner
@@ -6,7 +6,7 @@ first Owner
 ## Decision
 
 - **Onboarding is one platform transaction.** The console creates the organization's row as the platform role (the
-  api never may), then steps into the new organization (`asOrganization`, ADR 0018) for everything identity does
+  api never may), then steps into the new organization (`asOrganization`, ADR 0019) for everything identity does
   there: the five starter roles and the first Owner. If any step fails, nothing is left behind: no organization without
   an Owner, no Owner without roles.
 - **The Owner is invited by email, with no password.** `inviteOwner` creates the Owner's user and membership and no
@@ -18,8 +18,8 @@ first Owner
   hour. The invite is the agency's email (spec 9.4): its name as the sender, Reply-To its contact address.
 - **What onboarding makes, in order** (`onboardOrganization`): the organization's row (name, code, time zone, contact
   email) as the platform role; then, inside it, the starter roles, the business profile (legal name, GSTIN, GST state,
-  contact: ADR 0023), the invited Owner and `organization.onboarded` in its log; then, as the platform role again, the
-  subscription (ADR 0019) and `organization.onboarded` in the platform log. Everything in the organization's log is
+  contact: ADR 0024), the invited Owner and `organization.onboarded` in its log; then, as the platform role again, the
+  subscription (ADR 0020) and `organization.onboarded` in the platform log. Everything in the organization's log is
   under the platform admin's name, with source `platform`.
 - **Invite links last 72 hours**, against a password reset's hour: an Owner may open the email the next day. Earlier
   links keep working until they lapse, so asking twice never strands anyone.
@@ -36,7 +36,7 @@ first Owner
   India time, purges the organization last night's reset built, then builds it again in one platform transaction (two
   transactions in all, so a failed build leaves no demo until the job's retry succeeds): the business profile, the
   starter roles, and three staff (Owner, Sales, Operations) who sign in with the demo's code and `DEMO_PASSWORD`, with
-  no email and no invite; subscribed to the demo's own plan, never for sale (ADR 0019), paid a month ahead. It purges
+  no email and no invite; subscribed to the demo's own plan, never for sale (ADR 0020), paid a month ahead. It purges
   only an organization that has a `demo.reset` entry in the platform log, so a code set by mistake can't purge an
   agency, and it checks the plan before it purges anything.
 

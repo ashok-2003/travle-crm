@@ -16,7 +16,7 @@ CREATE INDEX "stored_file_deletion_due_at_id_idx" ON "stored_file_deletion"("due
 -- Hand-written (Prisma does not model these). Keep below the generated SQL.
 -- ---------------------------------------------------------------------------
 
--- The deletions' outbox (ADR 0022): the console's purge and erasure add rows in their own transactions, and its job
+-- The deletions' outbox (ADR 0023): the console's purge and erasure add rows in their own transactions, and its job
 -- removes each once the file is gone. The api and worker have no business with it, and nobody changes a row.
 REVOKE ALL ON TABLE "stored_file_deletion" FROM app_runtime;
 REVOKE UPDATE, TRUNCATE ON TABLE "stored_file_deletion" FROM app_platform;

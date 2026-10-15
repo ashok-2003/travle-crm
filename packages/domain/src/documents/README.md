@@ -37,7 +37,7 @@ quotes and invoices bring theirs.
   `render_failure`, and can't delete a document (money documents are cancelled or credited, never deleted; spec 5).
 - An issued document keeps the customer's details as issued, through an erasure too: a GST invoice and its like must
   be kept by law, and DPDP allows retention a law requires. The platform's erasure refuses an `issued_document`
-  (`VALIDATION`/`KEPT_BY_LAW`, ADR 0022); only a purge of the whole organization deletes one, with its PDF.
+  (`VALIDATION`/`KEPT_BY_LAW`, ADR 0023); only a purge of the whole organization deletes one, with its PDF.
 - A document is rendered once. Its PDF's attachment id (`pdf_file_id`) is chosen when it is issued, and the listener
   always stores into it: a rerun, two overlapping deliveries, or a crash between storing and marking all end in the
   same attachment, and a document that has its PDF is never rendered again.

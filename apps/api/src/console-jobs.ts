@@ -1,4 +1,4 @@
-// What the console process runs besides its HTTP app (ADR 0018): the platform's own jobs (purging an organization,
+// What the console process runs besides its HTTP app (ADR 0019): the platform's own jobs (purging an organization,
 // erasing a person or a record, exporting one, deleting stored files), the nightly subscription lifecycle, the hourly
 // sweep of stored files still to delete and, when a demo is set, its nightly reset. They need the platform role, which
 // only this process holds. No listeners and no outbox relay: those are the worker's.
@@ -56,7 +56,7 @@ export function consoleJobs(services: PlatformServices, demo: DemoSettings | nul
           },
         ];
   // Required beside the deletions' own job: pg-boss drops a follow-up whose id it already holds, and a job lost before
-  // it was sent, or out of retries, would leave its outbox rows for good (ADR 0022).
+  // it was sent, or out of retries, would leave its outbox rows for good (ADR 0023).
   const storedFilesSweep = storedFileDeletionsSchedule(services);
   return { handlers: platformJobHandlers(services), schedules: [lifecycle, storedFilesSweep, ...demoReset] };
 }

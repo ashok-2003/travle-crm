@@ -1,4 +1,4 @@
-// How many invite emails one address gets (ADR 0021), counted apart from plan 3's password resets: anyone may ask for
+// How many invite emails one address gets (ADR 0022), counted apart from plan 3's password resets: anyone may ask for
 // resets to an address, but only platform staff ask for invites, each recorded, so resets can never use invites up.
 import { ownMessages } from "@travel-crm/integrations/jobs";
 import type { RateLimitRule } from "../rate-limits/index.js";

@@ -1,4 +1,4 @@
-# 0019: Plans, subscriptions and payments as data
+# 0020: Plans, subscriptions and payments as data
 
 Date: 2026-10-16 · Status: accepted · Implements spec sections 7.2 and 7.4, and the data behind 7.3
 
@@ -9,7 +9,7 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 7.2 and 7.4, an
   before GST, limits (seats, WhatsApp numbers, storage bytes) and the business modules they include (`crm`, `inbox`,
   `catalog`, `quotes`, `bookings`, `departures`, `suppliers`, `accounts`, `reports`). The Foundation's own features
   (staff, roles, settings, the audit log, documents) come with every plan. Super admins edit plans in the console; no
-  code names one and no migration seeds one (Q4: prices are data). The demo's own plan is not for sale (ADR 0020).
+  code names one and no migration seeds one (Q4: prices are data). The demo's own plan is not for sale (ADR 0021).
 - **One subscription per organization** (`subscription`, keyed by `organization_id`, under row-level security): its
   plan and billing cycle, status, when the status last changed, the trial's last day, the last day paid for, and the
   overrides of spec 7.2: extra seats, an agreed price, modules switched on early. Overrides double as feature flags
@@ -19,7 +19,7 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 7.2 and 7.4, an
   moves the paid-through day forward and, from today on, makes the organization active again. A mistaken payment is
   voided, never deleted.
 - **Only the platform role writes these tables**, the nightly lifecycle job included, which runs in the console
-  process (ADR 0020). The api and the worker only read them, for the request checks. The console's changes run in
+  process (ADR 0021). The api and the worker only read them, for the request checks. The console's changes run in
   platform transactions and are recorded in the organization's own audit log under the platform admin's name; plan
   changes, which belong to no organization, go in the platform log.
 - **Billing readiness (spec 7.4: "Razorpay Subscriptions webhooks update the same record later").** A subscription
@@ -43,5 +43,5 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 7.2 and 7.4, an
 ## Consequences
 
 - Adding a business module later means adding it to the module list (contracts and the table's check) and mapping
-  its permissions to it (ADR 0020).
+  its permissions to it (ADR 0021).
 - Plan changes apply to every organization on the plan at once; a price agreed for one organization is its override.

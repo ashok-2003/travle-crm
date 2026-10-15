@@ -9,7 +9,7 @@ The api: one Hono app on Node. Settings come from environment variables (`src/en
 | `GET /health`                | `{ "status": "ok" }` for the container platform                                                  |
 | `POST /api/auth/sign-in/org` | sign in with `{ orgCode, username, password }` (see ADR 0006)                                    |
 | `/api/auth/*`                | Better Auth: email sign-in, sign-out, password reset, `/change-password`, `/two-factor/*`        |
-| `/api/auth/admin/*`          | closed (404), but support's `/admin/impersonate-user` and `/admin/stop-impersonating` (ADR 0018) |
+| `/api/auth/admin/*`          | closed (404), but support's `/admin/impersonate-user` and `/admin/stop-impersonating` (ADR 0019) |
 | `/api/auth/organization/*`   | closed (404): members and roles are managed through tRPC                                         |
 | `/api/trpc/*`                | the tRPC routers from `@travel-crm/api`                                                          |
 | `GET /p/<token>`             | a share link (ADR 0013): an issued document's PDF; 30 requests a minute per address              |
@@ -59,7 +59,7 @@ its message or the error itself, which can quote a person's data (a Prisma valid
 ## The console
 
 `pnpm --filter @travel-crm/api-server console` starts the platform console's process from the same code and image
-(ADR 0018): the console's tRPC at `/api/platform/trpc` on `CONSOLE_PORT`, which the load balancer (and the web app's
+(ADR 0019): the console's tRPC at `/api/platform/trpc` on `CONSOLE_PORT`, which the load balancer (and the web app's
 development server) routes there, and the platform's own jobs, from `src/console-jobs.ts`:
 
 | Queue                             | What it does                                                                                 |
@@ -68,8 +68,8 @@ development server) routes there, and the platform's own jobs, from `src/console
 | `platform.erase-subject`          | erases a removed person or one record in every module (spec 5)                               |
 | `platform.export-organization`    | writes an organization's export to the platform's storage, kept 7 days (spec 5)              |
 | `platform.expire-exports`         | deletes the parts and file copies of exports past their 7 days, or withdrawn by an erasure   |
-| `platform.delete-stored-files`    | deletes the stored files a purge or an erasure queued, retrying until done (ADR 0022)        |
-| `platform.sweep-stored-files`     | every hour, deletes what the deletions' outbox holds that no job will reach (ADR 0022)       |
+| `platform.delete-stored-files`    | deletes the stored files a purge or an erasure queued, retrying until done (ADR 0023)        |
+| `platform.sweep-stored-files`     | every hour, deletes what the deletions' outbox holds that no job will reach (ADR 0023)       |
 | `subscriptions.advance-lifecycle` | every day at 00:15 India time, records each subscription's state, as the platform role (7.3) |
 | `platform.reset-demo`             | every night at 02:00 India time, purges and rebuilds the shared demo (spec 7.4)              |
 

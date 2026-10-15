@@ -1,4 +1,4 @@
-# 0018: The platform console: its own process, the platform role's transactions, the platform log
+# 0019: The platform console: its own process, the platform role's transactions, the platform log
 
 Date: 2026-10-16 · Status: accepted · Implements spec sections 4 (the `app_platform` role) and 7, with spec 5's
 "audit record in the platform log"

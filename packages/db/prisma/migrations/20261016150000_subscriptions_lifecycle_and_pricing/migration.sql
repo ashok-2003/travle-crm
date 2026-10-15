@@ -1,5 +1,5 @@
 -- Plan 4's fix wave: the owner's pricing, the trial as a policy setting, a suspension made by hand, and only the
--- platform role writing a subscription (ADR 0020). Before launch: plan 4 is deployed nowhere yet, and every column
+-- platform role writing a subscription (ADR 0021). Before launch: plan 4 is deployed nowhere yet, and every column
 -- this adds is nullable or has a default (plan.for_sale, subscription_policy.trial_days), so it applies to a local
 -- database that already has plans and subscriptions, with no reset needed.
 
@@ -46,6 +46,6 @@ ALTER TABLE "subscription_policy"
     trial_days BETWEEN 1 AND 90 AND past_due_days BETWEEN 1 AND 90 AND read_only_days BETWEEN 1 AND 180);
 
 -- Only the platform role writes a subscription. The lifecycle job now runs in the console process as that role
--- (ADR 0020), so the runtime role loses the status columns it could update; it keeps SELECT for its request checks.
+-- (ADR 0021), so the runtime role loses the status columns it could update; it keeps SELECT for its request checks.
 REVOKE UPDATE (status, status_changed_at, updated_at) ON TABLE "subscription" FROM app_runtime;
 REVOKE UPDATE ON TABLE "subscription" FROM app_runtime;

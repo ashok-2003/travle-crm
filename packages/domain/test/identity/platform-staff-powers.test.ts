@@ -1,6 +1,6 @@
 // What platform staff may do through Better Auth's admin plugin: support only impersonates, and only once any
 // temporary password is replaced, as the console requires too; a super admin keeps the plugin's other powers, which
-// the side doors still limit (ADR 0018). Server-side auth.api.* calls carry no request, so Better Auth's own role
+// the side doors still limit (ADR 0019). Server-side auth.api.* calls carry no request, so Better Auth's own role
 // check is what binds them.
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";

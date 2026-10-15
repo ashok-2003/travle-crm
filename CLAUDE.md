@@ -96,7 +96,7 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - Schemas come from `@travel-crm/contracts`: every input has a Zod schema, and every procedure that returns data has an
   output schema. Input schemas are `z.strictObject`, so unknown keys get a 400; never use `z.object` for inputs.
   Output schemas are `z.object`, which strips unknown keys.
-- Request checks 2 and 3 (ADR 0020) run in every organization procedure: the subscription's state decides by what the
+- Request checks 2 and 3 (ADR 0021) run in every organization procedure: the subscription's state decides by what the
   call does (a query views, a mutation changes; mark an export `.meta({ lifecycle: "export" })`, and what every state
   must reach `.meta({ lifecycle: "always" })`), and the procedure's plan module must be on the plan. `requires()` sets
   that module from its first permission, and checks every permission's; a procedure without one declares
@@ -111,7 +111,7 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - Over HTTP, tRPC requests and `/api/auth/sign-in/org`, other than GET/HEAD, must name a trusted origin and
   send JSON (`apps/api/src/trusted-origin.ts`); other `/api/auth/*` POSTs use Better Auth's own origin check. Better Auth's `/api/auth/organization/*` endpoints are closed (404):
   members and roles go through tRPC. So are its `/admin/*` endpoints, but support's `/admin/impersonate-user` and
-  `/admin/stop-impersonating` (ADR 0018). Error responses carry no stack traces or internal messages.
+  `/admin/stop-impersonating` (ADR 0019). Error responses carry no stack traces or internal messages.
 - The api's settings are checked at start-up (`apps/api/src/environment.ts`). `NODE_ENV` defaults to `production`, which
   needs https, rate limiting and a strong secret; local development sets `NODE_ENV=development` (`.env.example` does).
 - Whoever acts is an `Actor` (kernel): `MemberAccess` in requests, `systemActor(organizationId)` in the worker. Its
@@ -138,7 +138,7 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - **Job data and errors** hold ids, never personal data: pg-boss's tables have no row-level security, and a failed
   job's error is shown to platform staff.
 
-## Platform and subscriptions (spec 7; ADRs 0018-0023)
+## Platform and subscriptions (spec 7; ADRs 0019-0024)
 
 - **Plans are data** the console edits: tiers priced monthly, yearly or both, in paise before GST, with optional
   prices for extra seats, and sold only on the cycles they are priced for; seats, WhatsApp numbers, storage, modules.

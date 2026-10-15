@@ -17,7 +17,7 @@ Links that open one record for someone who isn't signed in (spec 9.3), such as a
   minutes. A preview (`preview: true`: HEAD, prefetch, link-preview bots) records nothing. The route calls it only
   after the record's resolver answered with success.
 - `listShareLinks(tx, { recordType, recordId })`: a record's links with open counts and the last open, for staff.
-- `forgetRecordShareLinks(tx, { organizationId, recordType, recordId })`: a record's erasure (spec 5, ADR 0022), by
+- `forgetRecordShareLinks(tx, { organizationId, recordType, recordId })`: a record's erasure (spec 5, ADR 0023), by
   the platform role: deletes its links and their opens, and returns `{ shareLinks, opens, openedEventIds }`, the last
   being the `share-link.opened` events of those opens, whose notifications the erasure deletes too.
 - Types: `NewShareLink`, `OpenedShareLink`, `SharedRecord`, `ShareLinkVisitor`.

@@ -110,7 +110,7 @@ checked by the caller, like any other permission.
 every organization's rows: name the organization in every query. Inside such a transaction,
 `asOrganization(tx, orgId, orgTx => …)` switches to `app_runtime` in one organization (`SET LOCAL ROLE`, then
 `app.org_id`), so module code written for `db.forOrg()` runs unchanged under row-level security and the runtime role's
-grants, in the same transaction as the platform's own writes ([ADR 0018](../../docs/adr/0018-platform-console.md)).
+grants, in the same transaction as the platform's own writes ([ADR 0019](../../docs/adr/0019-platform-console.md)).
 It returns to `app_platform` afterwards, even when its work failed, and can't be nested. One step at a time: nothing
 may run beside it (no `Promise.all`), the platform `tx` itself is refused while a step is open, and a step's `orgTx`
 is refused once its work settles (`OrganizationStepEndedError`). After a step fails in the database, the transaction
@@ -129,7 +129,7 @@ the runtime role has no rights on them: the platform log (`platform_audit_entry`
 each copied). They name the organization they concern as `target_organization_id`, with no foreign key, so a purge's
 catalog walk leaves them and they outlive it.
 
-For permanent deletion (ADR 0022), `deleteOrganizationRows(tx, organizationId)` deletes the organization's rows in
+For permanent deletion (ADR 0023), `deleteOrganizationRows(tx, organizationId)` deletes the organization's rows in
 every table that has `organization_id`, found from the catalog and ordered so no foreign key trips (`audit_entry`
 first), then the organization; `organizationRows(tx, organizationId, { except })` returns them as JSON, by table (the
 console's export no longer uses it: it reads a page at a time through the `app_export_organization_rows` function). A

@@ -1,4 +1,4 @@
-// The console process's jobs (ADR 0018): the platform's purge and erasure jobs, the nightly subscription lifecycle at
+// The console process's jobs (ADR 0019): the platform's purge and erasure jobs, the nightly subscription lifecycle at
 // 00:15 India time, as the platform role, the hourly sweep of the stored files still to delete, and, when a demo is
 // set, the nightly demo reset at 02:00; with the demo switched off, the schedule an earlier start left in pg-boss goes.
 import { randomUUID } from "node:crypto";
@@ -18,7 +18,7 @@ const lifecycleSchedule = {
   data: {},
 };
 // Every hour, the deletions' outbox is swept for what no job will reach: pg-boss drops a follow-up whose id it already
-// holds, and a job can be lost before it is sent or run out of retries (ADR 0022).
+// holds, and a job can be lost before it is sent or run out of retries (ADR 0023).
 const storedFilesSweep = { queue: SWEEP_STORED_FILES_QUEUE, cron: "0 * * * *", timeZone: "Asia/Kolkata", data: {} };
 
 describe("the console's jobs", () => {

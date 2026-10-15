@@ -27,7 +27,7 @@ model PlatformAuditEntry {
   @@map("platform_audit_entry")
 }
 
-/// Stored files still to delete after a purge or an erasure committed: the deletions' outbox (ADR 0022). A row is
+/// Stored files still to delete after a purge or an erasure committed: the deletions' outbox (ADR 0023). A row is
 /// written in the same platform transaction as the rows it follows; the console's job deletes the file, then the row,
 /// and is retried until none is left. Ids only: the storage key is made from them, never stored, so no file name is
 /// kept. Its organization column is not organization_id: the row must outlive the purge, whose catalog walk deletes

@@ -1,4 +1,4 @@
-// The deletions' outbox (ADR 0022): stored files a purge or an erasure has committed to deleting, kept by id until
+// The deletions' outbox (ADR 0023): stored files a purge or an erasure has committed to deleting, kept by id until
 // the bytes are gone, so a storage error or a restart after the commit can't leave a file stored with nothing to find
 // it. The platform's job reads it, deletes each file, then its row, in platform transactions.
 import type { OrgTx } from "@travel-crm/db";

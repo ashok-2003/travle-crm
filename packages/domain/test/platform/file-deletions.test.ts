@@ -1,4 +1,4 @@
-// The console's job that empties the deletions' outbox (ADR 0022): it deletes each due file, then its row; one file
+// The console's job that empties the deletions' outbox (ADR 0023): it deletes each due file, then its row; one file
 // storage refuses holds up no other: its row stays for the next run, and the run fails so the job is retried; a row
 // not yet due gets one follow-up run, queued for when it is; and an hourly sweep sits beside the job.
 import { randomUUID } from "node:crypto";

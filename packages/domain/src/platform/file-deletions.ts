@@ -1,4 +1,4 @@
-// Deleting the stored files a purge or an erasure queued (ADR 0022). Their transaction can't reach storage, so it puts
+// Deleting the stored files a purge or an erasure queued (ADR 0023). Their transaction can't reach storage, so it puts
 // the files in the deletions' outbox; once it commits, this deletes each file, then its row, and the console's job
 // retries until the outbox is empty. Nothing is lost to a storage error or a restart: the rows stay until the bytes go,
 // each run queues the next for its organization's rows left, and the hourly sweep (required) catches what no job will.

@@ -25,7 +25,7 @@ in build step 2.
 - `forgetRecipient(tx, { organizationId, userId })`: an erasure's part (spec 5): the person's notifications, opt-outs
   and push subscriptions, deleted by the platform role.
 - `forgetRecordNotifications(tx, { organizationId, recordId, sourceEventIds })`: a record's erasure (spec 5, ADR
-  0022): deletes the notifications about the record, those whose link names its id and those the given events caused
+  0023): deletes the notifications about the record, those whose link names its id and those the given events caused
   (a share link's opens: their titles quote its label), by the platform role. Returns how many went. Emails and pushes
   already sent stay sent.
 

@@ -1,5 +1,7 @@
 # Foundation 04: Platform and Subscriptions Implementation Plan
 
+> **ADR numbers:** this plan predates the renumbering. Its ADRs 0018-0023 are now 0019-0024 (`docs/adr/`), so plan 5A's web app could take 0018.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. This plan is built for parallel execution: after Tasks 0.1 and 0.2, four tracks run at the same time, each in its own git worktree; Task M1 merges them; Track P runs; the Integration tasks run last.
 
 **Goal:** The platform side of the Foundation (spec section 7, with spec 5's permanent deletion and spec 6.5's request checks 2 and 3) exists, is tested, and runs end to end through the api, the worker and a new console process: onboarding in one transaction with an emailed invite, plans as data, each organization's subscription and payments, the lifecycle computed on every request and recorded each night, the console's API (organizations, plans, subscriptions, data protection, the dashboard, failed jobs, the platform log), the platform's purge and erasure jobs, the business profile and setup checklist, the nightly demo reset, and billing readiness for Razorpay Subscriptions. The console's screens are plan 5's.

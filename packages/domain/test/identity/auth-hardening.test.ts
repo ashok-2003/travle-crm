@@ -1,6 +1,6 @@
 // Better Auth's own endpoints, run through its real handler: the side doors that would let a member change their
 // sign-in name into another organization's namespace, or reach the platform-admin endpoints (ADR 0006), which stay
-// open over HTTP only for support's impersonation, of an organization's active staff (ADR 0018).
+// open over HTTP only for support's impersonation, of an organization's active staff (ADR 0019).
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { softDeleted } from "@travel-crm/db";
 import { afterAll, beforeAll, describe, expect, inject, it, onTestFinished, vi } from "vitest";

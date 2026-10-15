@@ -98,4 +98,4 @@ the platform admin as both the actor and `impersonatedBy`; they are written by a
   (`access-rules.ts`).
 - Removing someone soft-deletes their membership and releases their email and username (ADR 0007).
 - Better Auth's `/admin/*` endpoints are closed over HTTP but for starting and stopping support's impersonation
-  (`auth/side-doors.ts`), and support may impersonate only an organization's active staff (ADR 0018).
+  (`auth/side-doors.ts`), and support may impersonate only an organization's active staff (ADR 0019).

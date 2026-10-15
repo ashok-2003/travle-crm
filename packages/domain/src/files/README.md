@@ -33,7 +33,7 @@ documents are marked sensitive (spec 5).
 - Types: `Files`, `FilesDependencies`, `GeneratedFile`, `DownloadLink`. Inputs and outputs are in
   `@travel-crm/contracts/files`.
 
-- Permanent deletion, for the platform's purge and erasure (spec 5, ADR 0022), in a platform transaction. The bytes
+- Permanent deletion, for the platform's purge and erasure (spec 5, ADR 0023), in a platform transaction. The bytes
   can't go inside it, so each function queues them in the deletions' outbox (`stored_file_deletion`, ids only) in the
   same transaction:
   - `queueOrganizationFileDeletion(tx, organizationId, now)`: a purge's, before its rows go. Queues the whole storage

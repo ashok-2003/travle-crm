@@ -1,4 +1,4 @@
-// A purge's stored files can never outlive it (ADR 0022): they are queued in the deletions' outbox in the purge's own
+// A purge's stored files can never outlive it (ADR 0023): they are queued in the deletions' outbox in the purge's own
 // transaction, deleted after it commits, swept again on a rerun and once late uploads have landed, and a storage that
 // fails only delays them. The job checks the request's conditions again under the subscription's lock, and blanks
 // webhook events still in flight.

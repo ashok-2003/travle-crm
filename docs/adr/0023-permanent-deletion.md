@@ -1,4 +1,4 @@
-# 0022: Permanent deletion: purging an organization, erasing one person
+# 0023: Permanent deletion: purging an organization, erasing one person
 
 Date: 2026-10-16 · Status: accepted · Implements spec section 5 ("permanent deletion happens only through a
 super-admin action in the platform console")
@@ -19,7 +19,7 @@ super-admin action in the platform console")
     recorded against them (the visitor's network and browser), and names the `share-link.opened` events of those
     opens, whose notifications quote the label;
   - identity: `erasePerson` clears a removed person's name, addresses and every way to sign in, keeping the user's id,
-    and `deleteUsers` deletes an organization's people (ADR 0021's module).
+    and `deleteUsers` deletes an organization's people (ADR 0022's module).
 - **Stored files go through an outbox, by id only.** The transaction that deletes the rows writes
   `stored_file_deletion` rows (a platform table: no `organization_id`, so the purge's catalog walk leaves it, and no
   rights for the runtime role): the organization's id and the attachment's id, or no attachment for the organization's

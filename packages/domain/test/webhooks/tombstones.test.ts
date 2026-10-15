@@ -1,4 +1,4 @@
-// What a purge or an erasure does to stored webhook events (ADR 0013, ADR 0022): the worker keeps each event with the
+// What a purge or an erasure does to stored webhook events (ADR 0013, ADR 0023): the worker keeps each event with the
 // organization its handler found, and the platform role later blanks those events' payloads and headers, keeping the
 // provider's id, so a replay is still ignored.
 import { createHmac, randomUUID } from "node:crypto";

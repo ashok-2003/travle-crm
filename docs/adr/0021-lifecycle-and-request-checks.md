@@ -1,13 +1,13 @@
-# 0020: The subscription lifecycle, and request checks 2 and 3
+# 0021: The subscription lifecycle, and request checks 2 and 3
 
 Date: 2026-10-16 · Status: accepted · Implements spec sections 7.3 and 6.5 (checks 2 and 3), and the owner's pricing
-for 7.2 (amending ADR 0019)
+for 7.2 (amending ADR 0020)
 
 ## Decision
 
 - **The lifecycle is rules on calendar days.** A trial or a paid period ends; the next day the organization is past
   due; after the policy's past-due days (7) it is read-only; after its read-only days (14) suspended. A person cancels,
-  and a person ends a suspension or a cancellation, by recording a payment or giving time (ADR 0019). The days count
+  and a person ends a suspension or a cancellation, by recording a payment or giving time (ADR 0020). The days count
   in the organization's time zone, from the day each state was due. The policy is one row, `subscription_policy`,
   which super admins change in the console (Q3); it also holds the trial's length (7 days, today the first), which
   onboarding uses when it is given no last day.
@@ -56,7 +56,7 @@ for 7.2 (amending ADR 0019)
   `requires()` check 3 for its permissions before check 4. `subscription.get` (any member, every state) shows the
   status, the next change's day, the modules and the limits, for the past-due banner and the app's navigation, and no
   price.
-- **The owner's pricing (spec 7.2; amends ADR 0019).** A plan is a tier with a flat price per organization, not per
+- **The owner's pricing (spec 7.2; amends ADR 0020).** A plan is a tier with a flat price per organization, not per
   seat: monthly and/or yearly, at least one, and it is sold only on the cycles it has a price for (`NOT_SOLD_MONTHLY`,
   `NOT_SOLD_YEARLY`). It includes its seats, WhatsApp numbers, storage and modules, and may price an extra seat per
   month and per year. Every price is INR in paise before GST. A subscription is billed monthly or yearly, buys extra
@@ -87,7 +87,7 @@ for 7.2 (amending ADR 0019)
   is committed.
 - **Why the job moved to the console.** Its one column grant let the runtime role write any status and any date, which
   alone could give an organization unlimited full access. The console already runs the platform's own jobs with the
-  platform role (ADR 0018), so the grant could go.
+  platform role (ADR 0019), so the grant could go.
 - **Why a suspension by hand is a mark, not a status.** The lifecycle's own suspension ends with a payment; a person's
   suspension (a chargeback, abuse) must not, or any payment, even one for an old period, would undo it.
 

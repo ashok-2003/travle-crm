@@ -22,7 +22,7 @@ Date: 2026-10-15 · Status: accepted · Implements spec section 9.2 and the sens
   stay stored until a purge. `requestUpload` refuses past the limit that `storageLimitBytes` returns (plan 4 passes
   the plan's limit). Files the server makes (rendered PDFs) count but are never refused: an invoice must render.
 - **Attachments are soft-deleted** (ADR 0004): `app_runtime` has no DELETE grant; the platform's purge and erasure
-  (plan 4, ADR 0022) remove rows and queue their stored files in the deletions' outbox, which the console's job
+  (plan 4, ADR 0023) remove rows and queue their stored files in the deletions' outbox, which the console's job
   empties. The port's `delete` and `deletePrefix` (one organization's folder, `organizations/<id>/`, 1,000 keys a
   request) are for that alone.
 - **Uploads allowed**: PDF, JPEG, PNG, WebP and HEIC, up to 25 MB, names without folders, control or bidi

@@ -2,7 +2,7 @@
 
 The platform console's work across organizations (spec sections 5 and 7). It is the only module that uses
 `@travel-crm/db/platform`, whose transactions see every organization; the console process is the only one that holds
-`DATABASE_PLATFORM_URL` ([ADR 0018](../../../../docs/adr/0018-platform-console.md)).
+`DATABASE_PLATFORM_URL` ([ADR 0019](../../../../docs/adr/0019-platform-console.md)).
 
 ## Public functions and values (`index.ts`)
 
@@ -76,7 +76,7 @@ None.
   as `app_runtime` under row-level security, in the same transaction.
 - A change a platform admin makes inside an organization is recorded in that organization's audit log as
   `platformActor(organizationId, adminUserId)` (source `platform`), so its staff see it too; subscription changes are
-  recorded only there (ADR 0019). Onboarding, corrections, exports, purges and erasures also go in the platform log,
+  recorded only there (ADR 0020). Onboarding, corrections, exports, purges and erasures also go in the platform log,
   and so do changes that belong to no organization (plans, the policy, jobs).
 - The platform log is append-only even for the platform role, and the api and worker have no rights on it. Its entries
   hold ids and small facts, never secrets or personal data, so they can outlive the organization they name.

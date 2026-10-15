@@ -1,4 +1,4 @@
-// Blanking stored webhook payloads (ADR 0013, ADR 0022): a purge or an erasure keeps an event's provider id, so a
+// Blanking stored webhook payloads (ADR 0013, ADR 0023): a purge or an erasure keeps an event's provider id, so a
 // replay is still ignored, and drops what the provider sent, which may hold personal data. The platform role only.
 import type { OrgTx } from "@travel-crm/db";
 import { webhookEvents } from "@travel-crm/db/webhooks";

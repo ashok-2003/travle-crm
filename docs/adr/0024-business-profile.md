@@ -1,4 +1,4 @@
-# 0023: The organization's business profile
+# 0024: The organization's business profile
 
 Date: 2026-10-16 · Status: accepted · Implements the data of spec section 7.1 (onboarding's GSTIN, state and contacts,
 and the setup checklist), with spec 10's "an organization's own branding … stored in the database"

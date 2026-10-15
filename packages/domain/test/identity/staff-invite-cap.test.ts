@@ -1,4 +1,4 @@
-// The invite's own cap (ADR 0021): five invite emails an hour to one address, every attempt counted, apart from plan 3's
+// The invite's own cap (ADR 0022): five invite emails an hour to one address, every attempt counted, apart from plan 3's
 // resets. Past it the job fails with our own message, and the failed jobs keep it: an invite never ends quietly. The
 // listener runs on a memory job runner, registered as the worker registers it, with pg-boss's retries.
 import { createDatabase, type Database } from "@travel-crm/db";

@@ -17,7 +17,7 @@ Foundation ships the intake and the signature helper.
 - `hmacSha256Signature({ secret, header, prefix?, encoding })`: a `verify` for providers that sign the raw body
   with HMAC-SHA256.
 - `tombstoneWebhookEvents(tx, organizationId, { organizationGone? })`: for the platform's purge and erasure (ADR
-  0022), in a platform transaction: blanks the payload and headers of the organization's processed events, keeping
+  0023), in a platform transaction: blanks the payload and headers of the organization's processed events, keeping
   their provider ids, and counts as `waiting` the events still in flight (a handler found the organization, then
   failed). An erasure leaves those to their handler; a purge (`organizationGone: true`) blanks them too.
 - `WEBHOOK_PROCESS_QUEUE` (`"webhooks.process"`), and the types `WebhookProvider`, `WebhookRequest`,

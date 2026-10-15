@@ -1,4 +1,4 @@
-// Permanent deletion end to end (spec 5, ADR 0022): a super admin's request through the console's tRPC, the console's
+// Permanent deletion end to end (spec 5, ADR 0023): a super admin's request through the console's tRPC, the console's
 // own jobs (purge or erasure, then the deletions' outbox), to the finished state: nothing left of what went, in the
 // database or in storage, and the platform log's record of it. A purge's export goes through the console's own export
 // job; a subject's export is returned at once and only logged, so its platform log entry is written straight in.

@@ -66,7 +66,7 @@ and small facts.
   queue, the job id and the error's names and codes, never its message. A job whose event isn't found is not retried
   but is reported to `onError`.
 - Removing a listener or schedule from the code leaves its pg-boss queue, jobs and schedule behind: a super admin
-  removes the schedule in the platform console (ADR 0018).
+  removes the schedule in the platform console (ADR 0019).
 - `outbox_event` is append-only for the api and worker: they may only set `relayed_at`.
 - Don't test that an event stays unrelayed after its transaction commits: a relay running in another test (or the
   worker) may relay it at once. Read it back inside the publishing transaction instead. And in tests, always give

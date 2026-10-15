@@ -1,4 +1,4 @@
-// Invites and plan 3's password resets are capped apart (ADR 0021). Anyone may ask for resets to an address, so three
+// Invites and plan 3's password resets are capped apart (ADR 0022). Anyone may ask for resets to an address, so three
 // anonymous requests, the reset's whole hour, must not keep an Owner's invite from going out. Both run on one rate
 // limiter, as services.ts gives the api and the worker.
 import { randomUUID } from "node:crypto";

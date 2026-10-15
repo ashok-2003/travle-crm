@@ -24,7 +24,7 @@ export interface StoredWebhookEvent {
 export interface WebhookProcessing {
   /**
    * The organization the event is about, once the handler has found it: the event is kept with it, even if the
-   * handler then fails, so that organization's purge, or an erasure in it, can blank the stored payload (ADR 0022).
+   * handler then fails, so that organization's purge, or an erasure in it, can blank the stored payload (ADR 0023).
    * Throws a RangeError for anything but an organization's id (a UUID), which fails the handler's attempt.
    */
   isAbout(organizationId: string): void;

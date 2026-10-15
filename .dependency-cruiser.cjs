@@ -82,7 +82,7 @@ module.exports = {
       name: "api-and-worker-never-load-the-platform",
       comment:
         "Nothing the api server or the worker runs may reach the platform module or the console's tRPC, even through " +
-        "other files: their code would then be loaded in a process that holds no DATABASE_PLATFORM_URL (ADR 0018).",
+        "other files: their code would then be loaded in a process that holds no DATABASE_PLATFORM_URL (ADR 0019).",
       severity: "error",
       from: { path: ["^apps/api/src/(?!console)[^/]+\\.ts$", "^packages/api/src/(?!platform/)"] },
       to: { path: ["^packages/domain/src/platform/", "^packages/api/src/platform/"], reachable: true },

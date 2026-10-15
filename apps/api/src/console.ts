@@ -1,6 +1,6 @@
 // Starts the platform console (`pnpm --filter @travel-crm/api-server console`): the console's tRPC at
 // /api/platform/trpc, and the platform's own jobs. The api's image run as a third command, beside the api and the
-// worker, and the only one given DATABASE_PLATFORM_URL (ADR 0018). One instance is enough; keep it running for the
+// worker, and the only one given DATABASE_PLATFORM_URL (ADR 0019). One instance is enough; keep it running for the
 // nightly demo reset.
 import { serve } from "@hono/node-server";
 import { createPlatformServices } from "@travel-crm/domain/platform";

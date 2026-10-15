@@ -39,7 +39,7 @@ every state), `profile` (`get`, `save`, `checklist`: the business profile and th
 ## The platform console (`src/platform/`)
 
 The console's routers are served apart, at `/api/platform/trpc`, by the console process: the only one that holds
-`DATABASE_PLATFORM_URL` (ADR 0018). They are their own entry, `@travel-crm/api/platform`, which only the console's
+`DATABASE_PLATFORM_URL` (ADR 0019). They are their own entry, `@travel-crm/api/platform`, which only the console's
 files import (dependency-cruiser checks that nothing the api server or the worker runs reaches it), so the api never
 loads them. They have their own tRPC instance (`platformT`), context (`createPlatformContext(services, request,
 resHeaders)`, which always reads the session from the database) and builders:

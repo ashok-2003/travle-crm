@@ -61,7 +61,7 @@ REVOKE ALL ON TABLE "platform_export", "platform_export_file" FROM app_runtime;
 REVOKE DELETE, TRUNCATE ON TABLE "platform_export" FROM app_platform;
 REVOKE UPDATE, DELETE, TRUNCATE ON TABLE "platform_export_file" FROM app_platform;
 
--- One page of an organization's rows in one of its tables, for the platform's export job (ADR 0022): the rows of the
+-- One page of an organization's rows in one of its tables, for the platform's export job (ADR 0023): the rows of the
 -- organization asOrganization() set (app.org_id) in primary-key order, after the row `after_row` (null for the first
 -- page), at most `page_size` of them, each as JSON. Every table with organization_id qualifies, and organization itself
 -- (by its id), so a module's new table needs no change here. The name is checked against the catalog and quoted
