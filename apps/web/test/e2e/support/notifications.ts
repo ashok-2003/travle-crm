@@ -1,6 +1,6 @@
 // What the notification journeys need beyond every journey's agency: a quotation the Owner issued and shared, made
 // through the domain as the documents screen will make it, rendered by the journeys' own worker, so a customer can
-// open its link; and a look at the Owner's bell in the database, in the agency's own scope.
+// open its link; and a look at the Owner's bell and push subscriptions in the database, in the agency's own scope.
 import type { IssueDocumentInput } from "@travel-crm/contracts/documents";
 import { createDatabase, type Database } from "@travel-crm/db";
 import { getIssuedDocument, issueDocument } from "@travel-crm/domain/documents";
@@ -22,6 +22,8 @@ interface NotificationFixtures {
   shareAsOwner: () => Promise<SharedDocument>;
   /** How many of the Owner's notifications are unread. */
   ownerUnread: () => Promise<number>;
+  /** The endpoints of the Owner's browsers that may receive push. */
+  ownerPushEndpoints: () => Promise<string[]>;
 }
 
 const quotation = (organizationName: string): IssueDocumentInput => ({
@@ -83,5 +85,13 @@ export const test = base.extend<NotificationFixtures, { organizationData: Databa
         tx.notification.count({ where: { recipientUserId: owner.userId, readAt: null } }),
       ),
     );
+  },
+  ownerPushEndpoints: async ({ organizationData, agency, owner }, use) => {
+    await use(async () => {
+      const subscriptions = await organizationData.forOrg(agency.organizationId, (tx) =>
+        tx.pushSubscription.findMany({ where: { userId: owner.userId }, select: { endpoint: true } }),
+      );
+      return subscriptions.map(({ endpoint }) => endpoint);
+    });
   },
 });

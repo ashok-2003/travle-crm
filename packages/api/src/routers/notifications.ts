@@ -1,18 +1,24 @@
-// notifications.*: the bell and each person's choice of what reaches them by email and push (spec 9.4), for every
-// member: they are the person's own, so they need no permission. The bell's list and count are views like any other;
-// marking read and the choices touch only the person's own rows, never the organization's records, so they work in
-// every state of the subscription: an unsubscribe link must work whatever the organization has paid (DPDP).
+// notifications.*: the bell, each person's choice of what reaches them by email and push, and their browsers' push
+// subscriptions (spec 9.4), for every member: they are the person's own, so they need no permission. The bell's list
+// and count are views like any other; marking read, the choices and the browsers touch only the person's own rows,
+// never the organization's records, so they work in every state of the subscription: an unsubscribe link must work
+// whatever the organization has paid (DPDP), and so must signing out, which removes this browser's subscription.
 import {
   listNotificationsInput,
   markReadInput,
   notificationPage,
   notificationPreference,
   notificationPreferenceInput,
+  pushSubscriptionInput,
+  removePushSubscriptionInput,
 } from "@travel-crm/contracts/notifications";
+import { DomainError } from "@travel-crm/domain/kernel";
 import {
   listNotifications,
   listPreferences,
   markRead,
+  removePushSubscription,
+  savePushSubscription,
   setPreference,
   unreadCount,
 } from "@travel-crm/domain/notifications";
@@ -21,7 +27,7 @@ import { orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
 
 const person = orgProcedure.meta({ planModule: "core" });
-/** The person's own rows, in every state of the subscription. */
+/** The person's own rows, and what their browser needs to add one, in every state of the subscription. */
 const ownRows = person.meta({ lifecycle: "always" });
 
 const preferencesRouter = router({
@@ -36,6 +42,32 @@ const preferencesRouter = router({
     .mutation(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, (tx) => setPreference(tx, ctx.member, input)),
     ),
+});
+
+const pushRouter = router({
+  /** The VAPID public key the browser subscribes with, from the api's settings: no key is built into the web app. */
+  publicKey: ownRows.output(z.string()).query(({ ctx }) => ctx.pushPublicKey),
+
+  /**
+   * Saves this browser's subscription for the person (a shared browser moves to whoever subscribes last). Refused to
+   * support impersonating them: the person's pushes would reach support's browser.
+   */
+  subscribe: ownRows
+    .input(pushSubscriptionInput)
+    .use(({ ctx, next }) => {
+      if (ctx.member.impersonatedBy !== null) {
+        throw new DomainError("FORBIDDEN", "IMPERSONATING", "Only the person can subscribe their browser to push");
+      }
+      return next();
+    })
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db.forOrg(ctx.member.organizationId, (tx) => savePushSubscription(tx, ctx.member, input));
+    }),
+
+  /** Removes this browser's subscription if it is the person's; another person's stays. */
+  unsubscribe: ownRows.input(removePushSubscriptionInput).mutation(async ({ ctx, input }) => {
+    await ctx.db.forOrg(ctx.member.organizationId, (tx) => removePushSubscription(tx, ctx.member, input));
+  }),
 });
 
 export const notificationsRouter = router({
@@ -58,4 +90,5 @@ export const notificationsRouter = router({
     .mutation(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => markRead(tx, ctx.member, input))),
 
   preferences: preferencesRouter,
+  push: pushRouter,
 });

@@ -1,9 +1,9 @@
 "use client";
 
-// /account/notifications (spec 9.4): the person's own choice of what reaches them by email and push, for every kind
-// and for each one; the bell always shows everything, so it isn't offered. A change saves at once. Support
-// impersonating the person sees the choices but can't change them (consent is the person's own), and staff who sign
-// in without email are told why none reaches them.
+// /account/notifications (spec 9.4): push on this device, and the person's own choice of what reaches them by email
+// and push, for every kind and for each one; the bell always shows everything, so it isn't offered. A change saves at
+// once. Support impersonating the person sees the choices but can't change them (consent is the person's own), and
+// staff who sign in without email are told why none reaches them.
 import { useTranslations } from "next-intl";
 import { useId } from "react";
 import { Delayed } from "@/components/delayed";
@@ -12,6 +12,7 @@ import { PageTitle } from "@/components/page-title";
 import { Skeleton } from "@/components/ui/skeleton";
 import { shownEmail } from "@/lib/shown-email";
 import { useMe } from "@/session/me-context";
+import { PushOnThisDevice } from "../push/push-on-this-device";
 import { EVERY_KIND, notificationKinds, reaches } from "./kinds";
 import { PreferenceRow } from "./preference-row";
 import { usePreferences, useSetPreference } from "./use-preferences";
@@ -82,6 +83,7 @@ export function NotificationPreferencesScreen() {
     <div className="flex max-w-[720px] flex-col gap-6">
       <PageTitle>{t("title")}</PageTitle>
       <p className="text-muted-foreground">{t("intro")}</p>
+      <PushOnThisDevice />
       <section aria-labelledby={headingId} className="flex flex-col gap-3">
         <h2 id={headingId} className="text-section font-semibold">
           {t("kindsHeading")}

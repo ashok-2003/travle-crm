@@ -38,6 +38,26 @@
     "noEmail": "You sign in without an email address, so no email is sent to you.",
     "impersonating": "Only {name} can change these: what reaches them is their choice."
   },
+  "push": {
+    "heading": "On this device",
+    "label": "Push notifications",
+    "on": "On",
+    "off": "Off",
+    "turnOn": "Turn on push",
+    "turningOn": "Turning on",
+    "turnOff": "Turn off push",
+    "turningOff": "Turning off",
+    "onHint": "This device shows a notification when something reaches you by push.",
+    "offHint": "Turn it on to get push notifications on this device. Your browser asks you first.",
+    "checking": "Checking this device",
+    "unsupported": "This browser can't receive push notifications. On an iPhone or iPad, add the app to your Home Screen and open it from there.",
+    "noWorker": "This page hasn't started the app's offline support, which push needs. Reload the page and try again.",
+    "blocked": "Your browser blocks notifications from this app. Allow them in the browser's settings for this site, then reload the page.",
+    "failed": "This browser couldn't turn push on. Try again in a moment.",
+    "impersonating": "Support can't turn push on for {name}: it would reach support's device, not theirs.",
+    "fallbackTitle": "Something needs you",
+    "fallbackBody": "Open the app to see what happened."
+  },
   "account": {
     "label": "Notifications",
     "action": "Choose what reaches you"
