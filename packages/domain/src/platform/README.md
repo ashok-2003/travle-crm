@@ -6,10 +6,16 @@ The platform console's work across organizations (spec sections 5 and 7). It is 
 
 ## Public functions and values (`index.ts`)
 
+- Plans and the policy: `listPlans(services, input)`, `createPlan`, `updatePlan`, `archivePlan(services, staff, …)`,
+  `getSubscriptionPolicy(services)`, `setSubscriptionPolicy(services, staff, policy)`. Plans belong to no organization,
+  so each change is recorded in the platform log.
 - `recordPlatformAudit(tx, actor, { action, targetType, targetId, targetOrganizationId?, before?, after? })`: writes
   one entry in the platform log, in the platform transaction that makes the change. `actor` is `{ userId }`, the
   platform admin, or `{ userId: null }` for the platform's own jobs.
 - `listPlatformLog(tx, input)`: the log newest first, a page at a time, or one organization's entries.
+- An organization's subscription: `getSubscription(services, organizationId)` (with its payments), and
+  `changePlan`, `setOverrides`, `setTrialEnd`, `setPaidThrough`, `recordPayment`, `voidPayment`, `suspend`, `cancel`
+  `(services, staff, input)`, each one platform transaction, recorded in the organization's own audit log.
 - Types: `PlatformActor`, `PlatformChange`. The contracts are in `@travel-crm/contracts/platform`.
 
 ## Events

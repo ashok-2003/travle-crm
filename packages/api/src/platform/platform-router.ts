@@ -3,6 +3,8 @@
 import { listPlatformLogInput, platformLogPage, platformWhoAmIOutput } from "@travel-crm/contracts/platform";
 import { listPlatformLog } from "@travel-crm/domain/platform";
 import { staffProcedure } from "./procedures.js";
+import { plansRouter } from "./routers/plans.js";
+import { subscriptionsRouter } from "./routers/subscriptions.js";
 import { platformT } from "./trpc.js";
 
 export const platformRouter = platformT.router({
@@ -10,6 +12,8 @@ export const platformRouter = platformT.router({
   whoAmI: staffProcedure
     .output(platformWhoAmIOutput)
     .query(({ ctx }) => ({ userId: ctx.staff.userId, name: ctx.staff.name, level: ctx.staff.level })),
+  plans: plansRouter,
+  subscriptions: subscriptionsRouter,
   log: platformT.router({
     /** What platform staff and the platform's jobs did, newest first. */
     list: staffProcedure
