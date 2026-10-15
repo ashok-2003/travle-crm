@@ -10,6 +10,7 @@ import { twoFactor } from "better-auth/plugins/two-factor";
 import { username } from "better-auth/plugins/username";
 import { INTERNAL_USERNAME_PATTERN } from "../sign-in-names.js";
 import { impersonationAudit } from "./impersonation-audit.js";
+import { passwordResetSender, type SendPasswordResetEmail } from "./password-reset.js";
 import { closeSideDoors } from "./side-doors.js";
 import { relabelTotpForStaffWithoutEmail } from "./totp-label.js";
 
@@ -33,6 +34,8 @@ export interface AuthSettings {
    * x-forwarded-for, skipping these. Empty: the header is trusted only when it holds a single address.
    */
   trustedProxies: readonly string[];
+  /** Sends password-reset emails. Without it, Better Auth answers "Reset password isn't enabled". */
+  sendPasswordResetEmail?: SendPasswordResetEmail | undefined;
 }
 
 const DAY = 60 * 60 * 24;
@@ -67,6 +70,11 @@ export function createAuth(database: IdentityDatabase, settings: AuthSettings) {
       onPasswordReset: async ({ user }) => {
         await clearMustChangePassword(client, user.id);
       },
+      // Whoever had the old password is signed out everywhere: a reset usually means it was lost or stolen.
+      revokeSessionsOnPasswordReset: true,
+      ...(settings.sendPasswordResetEmail === undefined
+        ? {}
+        : { sendResetPassword: passwordResetSender(settings.sendPasswordResetEmail) }),
     },
     session: {
       expiresIn: 7 * DAY,

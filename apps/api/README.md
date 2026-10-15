@@ -4,15 +4,15 @@ The api: one Hono app on Node. Settings come from environment variables (`src/en
 
 ## Routes
 
-| Route                        | What it is                                                                            |
-| ---------------------------- | ------------------------------------------------------------------------------------- |
-| `GET /health`                | `{ "status": "ok" }` for the container platform                                       |
-| `POST /api/auth/sign-in/org` | sign in with `{ orgCode, username, password }` (see ADR 0006)                         |
-| `/api/auth/*`                | Better Auth: email sign-in, sign-out, `/change-password`, `/two-factor/*`, `/admin/*` |
-| `/api/auth/organization/*`   | closed (404): members and roles are managed through tRPC                              |
-| `/api/trpc/*`                | the tRPC routers from `@travel-crm/api`                                               |
-| `GET /p/<token>`             | a share link (ADR 0013): an issued document's PDF; 30 requests a minute per address   |
-| `POST /webhooks/<provider>`  | the webhook intake (ADR 0013): verify, store, 200, queue; 600 a minute per address    |
+| Route                        | What it is                                                                                            |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `GET /health`                | `{ "status": "ok" }` for the container platform                                                       |
+| `POST /api/auth/sign-in/org` | sign in with `{ orgCode, username, password }` (see ADR 0006)                                         |
+| `/api/auth/*`                | Better Auth: email sign-in, sign-out, password reset, `/change-password`, `/two-factor/*`, `/admin/*` |
+| `/api/auth/organization/*`   | closed (404): members and roles are managed through tRPC                                              |
+| `/api/trpc/*`                | the tRPC routers from `@travel-crm/api`                                                               |
+| `GET /p/<token>`             | a share link (ADR 0013): an issued document's PDF; 30 requests a minute per address                   |
+| `POST /webhooks/<provider>`  | the webhook intake (ADR 0013): verify, store, 200, queue; 600 a minute per address                    |
 
 ## Environment
 

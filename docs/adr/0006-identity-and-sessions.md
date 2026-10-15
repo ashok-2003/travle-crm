@@ -25,6 +25,16 @@ Date: 2026-10-14 · Status: accepted · Implements spec sections 6.1 to 6.4
 - **Request checks.** `protectedProcedure` trusts the cookie cache. `orgProcedure` also reads the membership, role and
   permissions from the database on every request. `freshProcedure` (money, roles, exports, staff management) and
   `platformProcedure` re-read the session itself, ignoring the cache.
+- **Password reset by email** (plan 3): `POST /api/auth/request-password-reset` with `redirectTo` on the web app
+  (`APP_URL`, a trusted origin) emails a one-hour link from our address under the product's name. Opening it leads
+  back to the web app with a token, and `POST /api/auth/reset-password` sets the new password, clears
+  `must_change_password` and ends every session the person had. Staff without email are never emailed (their admin
+  resets their password), and every request gets the same answer whether or not the address exists; sending isn't
+  awaited, so its timing doesn't tell either. A `redirectTo` on any other origin is refused (403) before the address
+  is looked up. Better Auth limits these requests to 3 a minute per client address, read as sign-in reads it. A
+  failed send is logged by its code alone: the message could quote the link, whose token must never reach a log.
+  The side doors stay as they are: answering a placeholder address early would skip Better Auth's origin check and
+  database work, and so answer differently from a real address; the sender skips placeholders instead.
 - **Two-factor** is optional per person. An organization with `require_two_factor` refuses members without it
   everywhere except `me.get` and Better Auth's `/two-factor/*` endpoints. Turning the requirement on needs
   `settings:manage` and two-factor on the person doing it; turning it off needs an Owner (`OWNER_ONLY`), since spec 6.2

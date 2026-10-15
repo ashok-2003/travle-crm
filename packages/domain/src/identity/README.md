@@ -13,6 +13,8 @@ Who can sign in, to which organization, and what they may do (spec section 6).
   - `organizationProfile(organizationId)` and `memberContacts(organizationId, userIds)`: what other modules may know
     about an organization and its people (they can't read the sign-in tables);
   - `staff.list / create / updateRole / resetPassword / remove`;
+  - with `auth.sendPasswordResetEmail` set (the api passes its email sender), Better Auth's password reset by email
+    link; staff without email are never emailed, and a reset ends every session the person had;
   - `roles.list / create / update / delete`;
   - `settings.setTwoFactorRequirement`;
   - `seedStarterRoles(organizationId)` and `createOrganizationOwner(organizationId, owner)`, for onboarding;

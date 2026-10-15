@@ -10,6 +10,7 @@ import { createPgBossJobs, type PgBossJobs } from "@travel-crm/integrations/jobs
 import { createWebPushSender, type PushSender } from "@travel-crm/integrations/push";
 import { createS3Storage, type ObjectStorage } from "@travel-crm/integrations/storage";
 import { authSettingsFrom, type Environment } from "./environment.js";
+import { passwordResetEmails } from "./password-reset-email.js";
 
 export interface Services {
   environment: Environment;
@@ -50,7 +51,7 @@ export function createServices(environment: Environment): Services {
   const identity = createIdentity({
     databaseUrl: environment.DATABASE_URL,
     maxConnections: environment.DATABASE_POOL_SIZE,
-    auth: authSettingsFrom(environment),
+    auth: { ...authSettingsFrom(environment), sendPasswordResetEmail: passwordResetEmails(email) },
   });
   // The concrete S3 adapter, for its start-up check; everything else gets the port.
   const s3 = createS3Storage({
