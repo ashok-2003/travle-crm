@@ -59,7 +59,9 @@ dependency-cruiser enforces the "only" column. Another package's `vitest.config.
    database and fail if the schema and migrations disagree. Never run `prisma migrate dev` or reset a shared database.
 5. Add a row-creating fixture for the table to your module's file in `test/org-table-fixtures/` (one file per module,
    gathered by `test/org-table-fixtures.ts`). Mark it `appendOnly: true` when the runtime role can't update or delete
-   the table's rows (like `outbox_event`): the suite then expects those statements to be refused outright.
+   the table's rows (like `outbox_event`): the suite then expects those statements to be refused outright. When the
+   role may update only some columns (granted by name, like `outbox_event.relayed_at`), name one as `updatableColumn`,
+   so another organization's update is tested on it. The suite reads the grants and fails when that is missing.
 6. `pnpm check`. The isolation suite now covers the new table.
 
 Steps 3 and 5 are enforced: the tests fail if either is missing. Keys are checked too:

@@ -8,7 +8,7 @@ export interface OrgTableFixture {
    * The table is append-only for the api and worker: they can't delete its rows or change their organization_id
    * (they may update only columns granted to them by name, such as outbox_event.relayed_at). The isolation suite
    * then expects those statements to be refused outright, which is stronger than row-level security. An append-only
-   * table with any granted column names it as `updatableColumn`.
+   * table with any granted column names it as `updatableColumn`: the suite reads the grants and fails otherwise.
    */
   appendOnly?: boolean;
   /**
