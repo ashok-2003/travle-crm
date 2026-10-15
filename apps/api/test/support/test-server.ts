@@ -113,12 +113,9 @@ const everythingPlan = {
   key: EVERYTHING_PLAN_KEY,
   name: "Everything (tests)",
   monthlyPricePaise: 0,
-  annualPricePaise: 0,
-  includedSeats: 1000,
-  extraSeatMonthlyPricePaise: 0,
-  extraSeatAnnualPricePaise: 0,
+  seatLimit: 1000,
   whatsappNumberLimit: 10,
-  storageGb: 1000,
+  storageLimitBytes: 1_000_000_000_000n,
   modules: [...planModules],
 };
 

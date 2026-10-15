@@ -2,7 +2,7 @@
 // a suspension made by hand, its dates and overrides, and its price with GST.
 import type { SubscriptionDetails } from "@travel-crm/contracts/subscriptions";
 import { lifecycleAccessOf } from "./entitlements.js";
-import { priceOf } from "./pricing.js";
+import { subscriptionPriceOf } from "./pricing.js";
 import { billingCycleOf, modulesOf, type StoredSubscription } from "./rows.js";
 import type { SubscriptionToday } from "./state.js";
 
@@ -26,7 +26,7 @@ export function subscriptionDetailsOf(row: StoredSubscription, today: Subscripti
     extraSeats: row.extraSeats,
     customPricePaise: row.customPricePaise,
     extraModules: modulesOf(row.extraModules),
-    price: priceOf(row.plan, {
+    price: subscriptionPriceOf(row.plan, {
       billingCycle: cycle,
       extraSeats: row.extraSeats,
       customPricePaise: row.customPricePaise,

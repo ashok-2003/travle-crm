@@ -14,13 +14,13 @@ export interface PlanRow {
   id: string;
   key: string;
   name: string;
-  monthlyPricePaise: number;
-  annualPricePaise: number;
-  includedSeats: number;
-  extraSeatMonthlyPricePaise: number;
-  extraSeatAnnualPricePaise: number;
+  monthlyPricePaise: number | null;
+  yearlyPricePaise: number | null;
+  extraSeatMonthlyPricePaise: number | null;
+  extraSeatYearlyPricePaise: number | null;
+  seatLimit: number;
   whatsappNumberLimit: number;
-  storageGb: number;
+  storageLimitBytes: bigint;
   modules: string[];
   archivedAt: Date | null;
 }
@@ -31,12 +31,13 @@ export function planSummaryOf(row: PlanRow): PlanSummary {
     key: row.key,
     name: row.name,
     monthlyPricePaise: row.monthlyPricePaise,
-    annualPricePaise: row.annualPricePaise,
-    includedSeats: row.includedSeats,
+    yearlyPricePaise: row.yearlyPricePaise,
     extraSeatMonthlyPricePaise: row.extraSeatMonthlyPricePaise,
-    extraSeatAnnualPricePaise: row.extraSeatAnnualPricePaise,
+    extraSeatYearlyPricePaise: row.extraSeatYearlyPricePaise,
+    seatLimit: row.seatLimit,
     whatsappNumberLimit: row.whatsappNumberLimit,
-    storageGb: row.storageGb,
+    // Limits are at most 10 TB (the contract's), well within a safe integer.
+    storageLimitBytes: Number(row.storageLimitBytes),
     modules: modulesOf(row.modules),
     archived: row.archivedAt !== null,
   };

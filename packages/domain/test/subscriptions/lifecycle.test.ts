@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { parseCalendarDate as day } from "../../src/kernel/index.js";
 import { dueState, nextStep, type LifecycleState } from "../../src/subscriptions/index.js";
 
-const policy = { trialDays: 7, pastDueDays: 7, readOnlyDays: 14 };
+const policy = { pastDueDays: 7, readOnlyDays: 14 };
 const state = (fields: Partial<LifecycleState>): LifecycleState => ({
   status: "active",
   since: day("2026-01-01"),

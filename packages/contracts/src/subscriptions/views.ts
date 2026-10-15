@@ -14,23 +14,15 @@ export const lifecycleAccess = z.enum(["full", "read_only", "export_only", "lock
 export type LifecycleAccess = z.infer<typeof lifecycleAccess>;
 
 /**
- * What the organization pays per billing cycle, in paise: the plan's price and its extra seats', or the agreed price
- * in their place; then GST on top (18 %), shown separately.
+ * What a subscription costs per billing cycle, in paise: the plan's flat price (or the agreed one) and the extra seats
+ * at the plan's seat price, before GST, with the GST (18 %) shown apart, as Indian buyers expect "+18% GST".
  */
 export const subscriptionPrice = z.object({
-  billingCycle,
-  planPricePaise: z.int(),
+  cycle: billingCycle,
+  basePaise: z.int(),
   extraSeats: z.int(),
-  /** One extra seat's price for the billing cycle. */
-  extraSeatPricePaise: z.int(),
-  /** The plan's price and the extra seats'. */
-  listPricePaise: z.int(),
-  /** The agreed price, when there is one. */
-  customPricePaise: z.int().nullable(),
-  /** Before GST: the agreed price, or else the list price. */
-  pricePaise: z.int(),
-  /** 1800 is 18 %. */
-  gstRateBasisPoints: z.int(),
+  extraSeatsPaise: z.int(),
+  subtotalPaise: z.int(),
   gstPaise: z.int(),
   totalPaise: z.int(),
 });
@@ -60,7 +52,8 @@ export const subscriptionDetails = z.object({
   extraSeats: z.int(),
   customPricePaise: z.int().nullable(),
   extraModules: z.array(planModule),
-  price: subscriptionPrice,
+  /** Null only when the plan stopped being sold on this cycle and no price was agreed. */
+  price: subscriptionPrice.nullable(),
 });
 export type SubscriptionDetails = z.infer<typeof subscriptionDetails>;
 

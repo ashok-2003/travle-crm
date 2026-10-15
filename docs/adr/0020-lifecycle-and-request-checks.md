@@ -9,8 +9,8 @@ for 7.2 (amending ADR 0019)
   due; after the policy's past-due days (7) it is read-only; after its read-only days (14) suspended. A person cancels,
   and a person ends a suspension or a cancellation, by recording a payment or giving time (ADR 0019). The days count
   in the organization's time zone, from the day each state was due. The policy is one row, `subscription_policy`,
-  which super admins change in the console (Q3); it also holds the trial's length (7 days), which onboarding uses when
-  it is given no last day.
+  which super admins change in the console (Q3); it also holds the trial's length (7 days, today the first), which
+  onboarding uses when it is given no last day.
 - **Every rule and screen uses the state due today; the nightly job records it.** `subscriptionToday` reads the
   subscription, its plan and the policy, and follows the lifecycle from what was recorded up to today. The request
   checks, the console's decisions (whether a trial can be moved, what a payment does) and what the console shows all
@@ -19,9 +19,9 @@ for 7.2 (amending ADR 0019)
 - **The job runs in the console process, as the platform role.** `advanceSubscriptions` is scheduled at 00:15 India
   time by the console (`subscriptions.advance-lifecycle`), not the worker. For each subscription the lifecycle can still
   move, in its own platform transaction, it locks the row, recomputes from the row as held, and writes the change with
-  `subscription.status-changed` by the system. If any organization fails, the others still run and the job fails
-  with one `LifecycleJobError` naming them by id, so pg-boss retries it and the failed-jobs list shows it; a rerun
-  finds nothing more to do.
+  `subscription.status-changed` by the system. An organization that fails is logged by id (the console's log, names
+  and codes only), the others still run, and then the job fails with one `LifecycleJobError` naming them, so pg-boss
+  records and retries it and the failed-jobs list shows it; a rerun finds nothing more to do.
 - **Every change takes the same lock first.** The console's changes, payments and voids, and the job all begin with
   `SELECT … FOR NO KEY UPDATE` on the subscription row, then read it. So a payment and the job never interleave:
   whichever comes second waits, then reads what the first wrote. `FOR NO KEY UPDATE`, not `FOR UPDATE`, because a
@@ -56,14 +56,16 @@ for 7.2 (amending ADR 0019)
   `requires()` check 3 for its permissions before check 4. `subscription.get` (any member, every state) shows the
   status, the next change's day, the modules and the limits, for the past-due banner and the app's navigation, and no
   price.
-- **The owner's pricing (spec 7.2; amends ADR 0019).** A plan is a flat tier per agency: a monthly and an annual price,
-  the seats they include, a price per extra seat for each billing cycle, storage in whole GB (10^9 bytes), WhatsApp
-  numbers and modules. Every price is INR in paise before GST. A subscription is billed monthly or annually and may
-  have extra seats, each at the plan's price, or an agreed price per cycle in place of the plan's and the seats'. The
-  seat limit is the included seats plus the extra ones. The console's `subscriptions.get` shows the price for the cycle
-  and GST at 18 % separately (rounded half-up to the paisa, with the kernel's money); the agency's own staff never see
-  a price. No plan is seeded in production; `seedPlaceholderPlans` puts placeholder Starter (3 seats, 5 GB), Growth
-  (10, 25 GB) and Pro (25, 100 GB) tiers on sale for the demo reset and tests, their prices marked as placeholders.
+- **The owner's pricing (spec 7.2; amends ADR 0019).** A plan is a tier with a flat price per organization, not per
+  seat: monthly and/or yearly, at least one, and it is sold only on the cycles it has a price for (`NOT_SOLD_MONTHLY`,
+  `NOT_SOLD_YEARLY`). It includes its seats, WhatsApp numbers, storage and modules, and may price an extra seat per
+  month and per year. Every price is INR in paise before GST. A subscription is billed monthly or yearly, buys extra
+  seats at the plan's seat price, and may have an agreed price in place of the plan's flat one. The seat limit is the
+  plan's seats plus those bought. The console's `subscriptions.get` shows the cycle's price with GST at 18 % apart
+  (rounded half-up to the paisa, with the kernel's money); the agency's own staff never see a price. No migration
+  seeds a plan, as the prices aren't confirmed: `seedPlaceholderPlans` puts placeholder Starter (3 seats, 5 GB,
+  ₹1,999 a month), Growth (10, 25 GB, ₹4,999) and Pro (25, 100 GB, ₹9,999) tiers on sale for the demo reset and
+  tests, a year at ten months' price and an extra seat at ₹299 a month.
 - **Support's impersonation ends with its session.** `protectedProcedure` trusts the 5-minute cookie cache, except
   for an impersonation session: that one is read from the database on every request, and its admin re-checked as
   platform staff. Stopping, the hour running out, or the admin losing platform access ends it at once, not up to five

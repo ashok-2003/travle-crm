@@ -36,21 +36,19 @@ describe("a subscription's details", () => {
     );
     // ₹2,500 a month and two seats at ₹500: ₹3,500, and GST of ₹630.
     expect(withSeats.price).toEqual({
-      billingCycle: "monthly",
-      planPricePaise: 250_000,
+      cycle: "monthly",
+      basePaise: 250_000,
       extraSeats: 2,
-      extraSeatPricePaise: 50_000,
-      listPricePaise: 350_000,
-      customPricePaise: null,
-      pricePaise: 350_000,
-      gstRateBasisPoints: 1800,
+      extraSeatsPaise: 100_000,
+      subtotalPaise: 350_000,
       gstPaise: 63_000,
       totalPaise: 413_000,
     });
     const agreed = await inPlatform((tx) =>
-      setOverrides(tx, byAdmin, { organizationId, extraSeats: 2, customPricePaise: 299_999, extraModules: [] }, now),
+      setOverrides(tx, byAdmin, { organizationId, extraSeats: 2, customPricePaise: 199_999, extraModules: [] }, now),
     );
-    expect(agreed.price).toMatchObject({ listPricePaise: 350_000, pricePaise: 299_999, gstPaise: 54_000 });
+    // An agreed price replaces the plan's; the extra seats still cost the plan's seat price.
+    expect(agreed.price).toMatchObject({ basePaise: 199_999, subtotalPaise: 299_999, gstPaise: 54_000 });
   });
 
   it("shows the state due today, and what the daily job last recorded", async () => {

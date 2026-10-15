@@ -6,9 +6,19 @@ import { isUniqueViolation } from "@travel-crm/db";
 import { DomainError } from "../kernel/index.js";
 import { planSummaryOf } from "./rows.js";
 
+/** The columns a plan's fields fill: extra seats left out are not sold, as with null. */
+export function planColumns<Fields extends Omit<CreatePlanInput, "key">>(fields: Fields) {
+  return {
+    ...fields,
+    extraSeatMonthlyPricePaise: fields.extraSeatMonthlyPricePaise ?? null,
+    extraSeatYearlyPricePaise: fields.extraSeatYearlyPricePaise ?? null,
+    storageLimitBytes: BigInt(fields.storageLimitBytes),
+  };
+}
+
 export async function createPlan(tx: OrgTx, input: CreatePlanInput): Promise<PlanSummary> {
   try {
-    return planSummaryOf(await tx.plan.create({ data: input }));
+    return planSummaryOf(await tx.plan.create({ data: planColumns(input) }));
   } catch (error) {
     if (isUniqueViolation(error)) throw new DomainError("CONFLICT", "PLAN_KEY_TAKEN", "Another plan has that key");
     throw error;
@@ -25,7 +35,7 @@ export async function updatePlan(
 ): Promise<{ before: PlanSummary; after: PlanSummary }> {
   const before = await findPlan(tx, input.planId);
   const { planId, ...fields } = input;
-  const after = await tx.plan.update({ where: { id: planId }, data: fields });
+  const after = await tx.plan.update({ where: { id: planId }, data: planColumns(fields) });
   return { before, after: planSummaryOf(after) };
 }
 

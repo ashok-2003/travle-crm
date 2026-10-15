@@ -18,12 +18,12 @@ const growth = {
   key: `growth-${crypto.randomUUID().slice(0, 8)}`,
   name: "Growth",
   monthlyPricePaise: 450_000,
-  annualPricePaise: 4_500_000,
-  includedSeats: 15,
-  extraSeatMonthlyPricePaise: 40_000,
-  extraSeatAnnualPricePaise: 400_000,
+  yearlyPricePaise: 4_500_000,
+  extraSeatMonthlyPricePaise: 29_900,
+  extraSeatYearlyPricePaise: 299_000,
+  seatLimit: 15,
   whatsappNumberLimit: 2,
-  storageGb: 20,
+  storageLimitBytes: 20_000_000_000,
   modules: ["crm", "quotes", "bookings"],
 };
 
@@ -52,11 +52,11 @@ describe("the console's plans", () => {
       await consoleMutate(
         testConsole,
         "plans.update",
-        { planId: created.id, ...growth, key: undefined, includedSeats: 20 },
+        { planId: created.id, ...growth, key: undefined, seatLimit: 20 },
         superAdmin.jar,
       ),
     );
-    expect(updated).toMatchObject({ key: growth.key, includedSeats: 20 });
+    expect(updated).toMatchObject({ key: growth.key, seatLimit: 20 });
     await dataOf(await consoleMutate(testConsole, "plans.archive", { planId: created.id }, superAdmin.jar));
     const log = await testConsole.services.platformDb.transaction((tx) => listPlatformLog(tx, { limit: 100 }));
     const entries = log.entries.filter((entry) => entry.targetId === created.id).map((entry) => entry.action);
@@ -79,9 +79,16 @@ describe("the console's plans", () => {
     ).toEqual({ status: 403, reason: "SUPER_ADMIN_ONLY" });
   });
 
-  it("refuses a plan without both prices, or with fields it doesn't know", async () => {
+  it("refuses a plan with no price, or with fields it doesn't know", async () => {
     expect(
-      (await consoleMutate(testConsole, "plans.create", { ...growth, annualPricePaise: null }, superAdmin.jar)).status,
+      (
+        await consoleMutate(
+          testConsole,
+          "plans.create",
+          { ...growth, monthlyPricePaise: null, yearlyPricePaise: null },
+          superAdmin.jar,
+        )
+      ).status,
     ).toBe(400);
     expect((await consoleMutate(testConsole, "plans.create", { ...growth, discount: 5 }, superAdmin.jar)).status).toBe(
       400,

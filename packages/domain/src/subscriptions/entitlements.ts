@@ -12,9 +12,6 @@ import type { CalendarDate } from "../kernel/index.js";
 import { modulesOf, withPlan } from "./rows.js";
 import { subscriptionToday } from "./state.js";
 
-/** A plan's storage is sold in gigabytes of 10^9 bytes; the files module counts bytes. */
-export const BYTES_PER_GB = 1_000_000_000;
-
 export interface Entitlements {
   /** The state today, even before the nightly job records it. */
   status: SubscriptionStatus;
@@ -22,7 +19,7 @@ export interface Entitlements {
   planName: string;
   /** The plan's modules and those switched on early. */
   modules: ReadonlySet<PlanModule>;
-  /** Seats are the plan's included ones plus the extra ones. */
+  /** Seats are the plan's own plus the extra ones bought. */
   limits: { seats: number; whatsappNumbers: number; storageBytes: number };
   trialEndsOn: CalendarDate | null;
   paidThrough: CalendarDate | null;
@@ -56,9 +53,9 @@ export async function entitlementsOf(tx: OrgTx, organizationId: string, now: Dat
     planName: row.plan.name,
     modules: new Set([...modulesOf(row.plan.modules), ...modulesOf(row.extraModules)]),
     limits: {
-      seats: row.plan.includedSeats + row.extraSeats,
+      seats: row.plan.seatLimit + row.extraSeats,
       whatsappNumbers: row.plan.whatsappNumberLimit,
-      storageBytes: row.plan.storageGb * BYTES_PER_GB,
+      storageBytes: Number(row.plan.storageLimitBytes),
     },
     trialEndsOn: today.due.trialEndsOn,
     paidThrough: today.due.paidThrough,

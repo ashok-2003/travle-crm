@@ -115,12 +115,9 @@ describe("services", () => {
           key: `one-seat-${organizationId.slice(-12)}`,
           name: "One seat",
           monthlyPricePaise: 0,
-          annualPricePaise: 0,
-          includedSeats: 1,
-          extraSeatMonthlyPricePaise: 0,
-          extraSeatAnnualPricePaise: 0,
+          seatLimit: 1,
           whatsappNumberLimit: 0,
-          storageGb: 1,
+          storageLimitBytes: 1000n,
           modules: ["crm"],
         },
       });
@@ -158,8 +155,7 @@ describe("services", () => {
           recordId: crypto.randomUUID(),
           fileName: "itinerary.pdf",
           contentType: "application/pdf",
-          // One byte over the plan's gigabyte.
-          sizeBytes: 1_000_000_001,
+          sizeBytes: 1001,
           sensitive: false,
         }),
       ).rejects.toMatchObject({ reason: "STORAGE_LIMIT_REACHED" });

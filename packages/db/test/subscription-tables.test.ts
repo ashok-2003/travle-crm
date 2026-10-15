@@ -1,6 +1,6 @@
 // Rules the subscription tables enforce themselves (spec 7.2, 7.3): only the platform role writes plans, subscriptions,
 // payments and the policy, the lifecycle's status included; the runtime role only reads them; and the values stay
-// within what the lifecycle and the owner's pricing know.
+// within what the lifecycle and the owner's pricing know. No plan is seeded: the platform team enters them.
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { createDatabase, type Database } from "../src/database.js";
@@ -17,12 +17,10 @@ const plan = (key = `plan-${randomUUID().slice(0, 8)}`) => ({
   key,
   name: "Starter",
   monthlyPricePaise: 250_000,
-  annualPricePaise: 2_500_000,
-  includedSeats: 5,
   extraSeatMonthlyPricePaise: 50_000,
-  extraSeatAnnualPricePaise: 500_000,
+  seatLimit: 5,
   whatsappNumberLimit: 1,
-  storageGb: 5,
+  storageLimitBytes: 5_000_000_000n,
   modules: ["crm", "quotes"],
 });
 
@@ -56,6 +54,10 @@ describe("subscription tables", () => {
     await db.disconnect();
     await platformDb.disconnect();
     await platform.$disconnect();
+  });
+
+  it("seeds no plan: the prices aren't the owner's yet, and the platform team enters plans in the console", async () => {
+    expect(await platform.plan.count({ where: { key: { in: ["starter", "growth", "pro"] } } })).toBe(0);
   });
 
   it("lets the runtime role read plans, the policy and its own subscription", async () => {
@@ -96,7 +98,7 @@ describe("subscription tables", () => {
       /permission denied/,
     );
     await expect(
-      db.forOrg(organizationId, (tx) => tx.plan.update({ where: { id: planId }, data: { includedSeats: 500 } })),
+      db.forOrg(organizationId, (tx) => tx.plan.update({ where: { id: planId }, data: { seatLimit: 500 } })),
     ).rejects.toThrow(/permission denied/);
     await expect(
       db.forOrg(organizationId, (tx) =>
@@ -118,10 +120,11 @@ describe("subscription tables", () => {
   it("keeps plans priced, limited and on the product's modules, each by its own check", async () => {
     const cases: [Prisma.PlanCreateInput, string][] = [
       [{ ...plan(), key: "Starter" }, "plan_key_format"],
+      [{ ...plan(), monthlyPricePaise: null }, "plan_priced"],
       [{ ...plan(), monthlyPricePaise: -1 }, "plan_prices_not_negative"],
-      [{ ...plan(), extraSeatAnnualPricePaise: -1 }, "plan_prices_not_negative"],
-      [{ ...plan(), includedSeats: 0 }, "plan_limits_positive"],
-      [{ ...plan(), storageGb: 0 }, "plan_limits_positive"],
+      [{ ...plan(), extraSeatYearlyPricePaise: -1 }, "plan_prices_not_negative"],
+      [{ ...plan(), seatLimit: 0 }, "plan_limits_positive"],
+      [{ ...plan(), storageLimitBytes: 0n }, "plan_limits_positive"],
       [{ ...plan(), modules: ["crm", "teleport"] }, "plan_modules_known"],
     ];
     for (const [bad, constraint] of cases) {
@@ -142,7 +145,7 @@ describe("subscription tables", () => {
       [{ ...base, status: "paused" }, "subscription_status_value"],
       [{ ...base, status: "trial" }, "subscription_trial_dated"],
       [{ ...base, status: "active", paidThrough: null }, "subscription_active_paid"],
-      [{ ...base, status: "active", billingCycle: "yearly" }, "subscription_billing_cycle_value"],
+      [{ ...base, status: "active", billingCycle: "annual" }, "subscription_billing_cycle_value"],
       [{ ...base, status: "active", extraModules: ["teleport"] }, "subscription_extra_modules_known"],
       [{ ...base, status: "active", manualSuspensionAt: new Date() }, "subscription_manual_suspension"],
       [{ ...base, status: "active", manualSuspensionReason: "Unpaid" }, "subscription_manual_suspension"],
@@ -153,8 +156,8 @@ describe("subscription tables", () => {
       );
     }
     await expect(
-      platform.subscription.create({ data: { ...base, status: "active", billingCycle: "annual" } }),
-    ).resolves.toMatchObject({ billingCycle: "annual" });
+      platform.subscription.create({ data: { ...base, status: "active", billingCycle: "yearly" } }),
+    ).resolves.toMatchObject({ billingCycle: "yearly" });
   });
 
   it("keeps payments positive, from the day they were paid, voided with a reason, and a provider's once", async () => {

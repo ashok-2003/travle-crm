@@ -1,6 +1,6 @@
-// The plans' and subscriptions' contracts: a plan is a flat tier with a monthly and an annual price before GST, its
-// seats, storage in GB and modules, and a price for each extra seat; console changes name the organization, carry real
-// dates, and say why when a person overrides the lifecycle.
+// The plans' and subscriptions' contracts: a plan is a tier priced per organization monthly, yearly or both, before
+// GST, limited, on known modules, and may sell extra seats; console changes name the organization, carry real dates,
+// and say why when a person overrides the lifecycle; the policy holds the trial's days beside the unpaid states'.
 import { describe, expect, it } from "vitest";
 import {
   createPlanInput,
@@ -16,32 +16,35 @@ const organizationId = "0199e7a0-0000-7000-8000-0000000000d1";
 const starter = {
   key: "starter",
   name: "Starter",
-  monthlyPricePaise: 199_900,
-  annualPricePaise: 1_999_000,
-  includedSeats: 3,
-  extraSeatMonthlyPricePaise: 49_900,
-  extraSeatAnnualPricePaise: 499_000,
+  monthlyPricePaise: 250_000,
+  yearlyPricePaise: null,
+  seatLimit: 5,
   whatsappNumberLimit: 1,
-  storageGb: 5,
+  storageLimitBytes: 5_000_000_000,
   modules: ["crm", "quotes"],
 };
 
 describe("plan contracts", () => {
-  it("takes a plan with both prices, its seats, an extra seat's prices, storage in GB and known modules", () => {
+  it("takes a plan priced monthly, yearly or both, with limits and known modules", () => {
     expect(createPlanInput.parse(starter)).toEqual(starter);
-    expect(createPlanInput.safeParse({ ...starter, extraSeatMonthlyPricePaise: 0 }).success).toBe(true);
+    expect(
+      createPlanInput.safeParse({ ...starter, monthlyPricePaise: null, yearlyPricePaise: 2_500_000 }).success,
+    ).toBe(true);
+    const unpriced = createPlanInput.safeParse({ ...starter, monthlyPricePaise: null });
+    expect(unpriced.error?.issues[0]?.path).toEqual(["monthlyPricePaise"]);
   });
 
-  it("refuses a plan without both prices, and bad keys, limits and modules, and unknown fields", () => {
+  it("sells extra seats above the plan's, per month and per year, or not at all", () => {
+    const withSeats = { ...starter, extraSeatMonthlyPricePaise: 29_900, extraSeatYearlyPricePaise: null };
+    expect(createPlanInput.parse(withSeats)).toEqual(withSeats);
+    expect(createPlanInput.safeParse({ ...starter, extraSeatMonthlyPricePaise: -1 }).success).toBe(false);
+  });
+
+  it("refuses bad keys, limits and modules, and unknown fields", () => {
     for (const bad of [
-      { ...starter, annualPricePaise: null },
-      { ...starter, monthlyPricePaise: undefined },
-      { ...starter, extraSeatAnnualPricePaise: undefined },
       { ...starter, key: "Starter" },
       { ...starter, key: "s" },
-      { ...starter, includedSeats: 0 },
-      { ...starter, storageGb: 0 },
-      { ...starter, storageGb: 2.5 },
+      { ...starter, seatLimit: 0 },
       { ...starter, monthlyPricePaise: 99.5 },
       { ...starter, modules: ["crm", "teleport"] },
       { ...starter, discount: 10 },
@@ -59,16 +62,13 @@ describe("plan contracts", () => {
 });
 
 describe("subscription contracts", () => {
-  it("starts on the policy's trial, a trial to a real day, or paid through one, billed monthly or annually", () => {
+  it("starts on the policy's trial, a trial to a real day, or paid through one", () => {
     const trial = { planId: organizationId, billingCycle: "monthly", trialEndsOn: "2026-10-30", paidThrough: null };
     expect(startSubscriptionInput.parse(trial)).toEqual(trial);
-    expect(startSubscriptionInput.parse({ planId: organizationId, billingCycle: "annual" })).toEqual({
-      planId: organizationId,
-      billingCycle: "annual",
-      paidThrough: null,
-    });
+    const policysTrial = { planId: organizationId, billingCycle: "yearly", paidThrough: null };
+    expect(startSubscriptionInput.parse(policysTrial)).toEqual(policysTrial);
     expect(startSubscriptionInput.safeParse({ ...trial, trialEndsOn: "2026-02-30" }).success).toBe(false);
-    expect(startSubscriptionInput.safeParse({ ...trial, billingCycle: "yearly" }).success).toBe(false);
+    expect(startSubscriptionInput.safeParse({ ...trial, billingCycle: "weekly" }).success).toBe(false);
   });
 
   it("takes overrides within bounds", () => {
@@ -98,7 +98,7 @@ describe("subscription contracts", () => {
     );
   });
 
-  it("sets the trial's days with the past-due and read-only days", () => {
+  it("holds the trial's days and the unpaid states' days, each within bounds", () => {
     const policy = { trialDays: 7, pastDueDays: 7, readOnlyDays: 14 };
     expect(setSubscriptionPolicyInput.parse(policy)).toEqual(policy);
     expect(setSubscriptionPolicyInput.safeParse({ ...policy, trialDays: 0 }).success).toBe(false);

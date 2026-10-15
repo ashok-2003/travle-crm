@@ -9,8 +9,8 @@ import { planModule, pricePaise } from "./plans.js";
 export const subscriptionStatus = z.enum(["trial", "active", "past_due", "read_only", "suspended", "cancelled"]);
 export type SubscriptionStatus = z.infer<typeof subscriptionStatus>;
 
-/** Which of the plan's prices the organization pays. */
-export const billingCycle = z.enum(["monthly", "annual"]);
+/** Which of the plan's prices the organization pays: monthly or annually. */
+export const billingCycle = z.enum(["monthly", "yearly"]);
 export type BillingCycle = z.infer<typeof billingCycle>;
 
 /** Why a platform admin did something by hand, kept in the organization's audit log. */
@@ -21,12 +21,12 @@ export const startSubscriptionInput = z.strictObject({
   planId: recordId,
   billingCycle,
   /**
-   * The trial's last day. Left out, the trial lasts the policy's trialDays from today; null, there is no trial and the
-   * subscription starts active, paid through paidThrough.
+   * The trial's last day. Left out, the trial lasts the policy's trial days (7), today included; null, there is no
+   * trial and the subscription starts active, paid through paidThrough.
    */
   trialEndsOn: calendarDate.nullable().optional(),
   /** The last day already paid for, when the subscription starts active. */
-  paidThrough: calendarDate.nullable().default(null),
+  paidThrough: calendarDate.nullable(),
 });
 export type StartSubscriptionInput = z.infer<typeof startSubscriptionInput>;
 
@@ -37,8 +37,8 @@ export const changePlanInput = z.strictObject({ organizationId: recordId, planId
 export type ChangePlanInput = z.infer<typeof changePlanInput>;
 
 /**
- * Overrides (spec 7.2): seats beyond the plan's, each at the plan's extra-seat price; an agreed price per billing cycle
- * before GST, in place of the plan's and its extra seats'; modules switched on early.
+ * Extra seats bought above the plan's, each at the plan's extra-seat price, and the overrides (spec 7.2): an agreed
+ * price per billing cycle before GST, in place of the plan's, and modules switched on early.
  */
 export const setOverridesInput = z.strictObject({
   organizationId: recordId,

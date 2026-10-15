@@ -1,13 +1,6 @@
 -- AlterTable
-ALTER TABLE "plan" DROP COLUMN "seat_limit",
-DROP COLUMN "storage_limit_bytes",
-DROP COLUMN "yearly_price_paise",
-ADD COLUMN     "annual_price_paise" INTEGER NOT NULL,
-ADD COLUMN     "extra_seat_annual_price_paise" INTEGER NOT NULL,
-ADD COLUMN     "extra_seat_monthly_price_paise" INTEGER NOT NULL,
-ADD COLUMN     "included_seats" INTEGER NOT NULL,
-ADD COLUMN     "storage_gb" INTEGER NOT NULL,
-ALTER COLUMN "monthly_price_paise" SET NOT NULL;
+ALTER TABLE "plan" ADD COLUMN     "extra_seat_monthly_price_paise" INTEGER,
+ADD COLUMN     "extra_seat_yearly_price_paise" INTEGER;
 
 -- AlterTable
 ALTER TABLE "subscription" ADD COLUMN     "manual_suspension_at" TIMESTAMPTZ(6),
@@ -21,22 +14,18 @@ ALTER TABLE "subscription_policy" ADD COLUMN     "trial_days" INTEGER NOT NULL D
 -- Hand-written (Prisma does not model these). Keep below the generated SQL.
 -- ---------------------------------------------------------------------------
 
--- The owner's pricing (spec 7.2): every plan has a monthly and an annual price, and a price per extra seat for each,
--- all before GST; the seats they include; storage in whole GB. Dropping the old columns dropped the checks that named
--- them (plan_priced, plan_prices_not_negative, plan_limits_positive); these replace them.
+-- The owner's pricing (spec 7.2): a flat price per organization, monthly and/or yearly, and a price per extra seat
+-- for either, all before GST. No plan is seeded here: the prices aren't confirmed, and production plans are the
+-- platform team's to enter. The demo reset and the tests seed placeholder tiers themselves.
+ALTER TABLE "plan" DROP CONSTRAINT plan_prices_not_negative;
 ALTER TABLE "plan"
   ADD CONSTRAINT plan_prices_not_negative CHECK (
-    monthly_price_paise >= 0 AND annual_price_paise >= 0
-    AND extra_seat_monthly_price_paise >= 0 AND extra_seat_annual_price_paise >= 0),
-  ADD CONSTRAINT plan_limits_positive CHECK (included_seats > 0 AND whatsapp_number_limit >= 0 AND storage_gb > 0);
+    coalesce(monthly_price_paise, 0) >= 0 AND coalesce(yearly_price_paise, 0) >= 0
+    AND coalesce(extra_seat_monthly_price_paise, 0) >= 0 AND coalesce(extra_seat_yearly_price_paise, 0) >= 0);
 
--- Billed monthly or annually ("yearly" was the old word for the second). Active always means paid through a day:
--- without one the lifecycle has no next step, so an active row without it would keep full access for ever. A manual
--- suspension is recorded with its reason, and who made it.
-ALTER TABLE "subscription" DROP CONSTRAINT subscription_billing_cycle_value;
-UPDATE "subscription" SET billing_cycle = 'annual' WHERE billing_cycle = 'yearly';
+-- Active always means paid through a day: without one the lifecycle has no next step, so an active row without it
+-- would keep full access for ever. A manual suspension is recorded with its reason, and who made it.
 ALTER TABLE "subscription"
-  ADD CONSTRAINT subscription_billing_cycle_value CHECK (billing_cycle IN ('monthly', 'annual')),
   ADD CONSTRAINT subscription_active_paid CHECK (status <> 'active' OR paid_through IS NOT NULL),
   ADD CONSTRAINT subscription_manual_suspension CHECK (
     (manual_suspension_at IS NULL) = (manual_suspension_reason IS NULL)

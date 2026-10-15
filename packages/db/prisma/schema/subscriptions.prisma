@@ -3,25 +3,25 @@
 // platform role writes them, the console's nightly lifecycle job included; the api only reads them, for its request
 // checks.
 
-/// A plan the platform sells (spec 7.2): a flat tier per agency, with a monthly and an annual price, the seats they
-/// include and what each extra seat adds, its storage and its modules. Prices are INR in paise before GST, which is
-/// shown and charged on top. Plans are data: no code names one.
+/// A plan the platform sells (spec 7.2): a tier with a flat price per organization, not per seat, its limits and its
+/// modules, and a price for each seat above its own. Plans are data: no code names one. Prices are before GST, which is
+/// shown and charged on top.
 model Plan {
   id                         String         @id @default(uuid(7)) @db.Uuid
   /// Stable, e.g. "starter" (CHECK plan_key_format). It never changes.
   key                        String         @unique
   name                       String
-  /// INR in paise before GST, per month and per year (CHECK plan_prices_not_negative).
-  monthlyPricePaise          Int            @map("monthly_price_paise")
-  annualPricePaise           Int            @map("annual_price_paise")
-  /// The seats the price includes (CHECK plan_limits_positive).
-  includedSeats              Int            @map("included_seats")
-  /// What each seat beyond them adds, per month and per year, in paise before GST.
-  extraSeatMonthlyPricePaise Int            @map("extra_seat_monthly_price_paise")
-  extraSeatAnnualPricePaise  Int            @map("extra_seat_annual_price_paise")
+  /// INR in paise before GST, per month and per year (a yearly price may be a discount). A plan is sold only the ways
+  /// it is priced; at least one is set (CHECK plan_priced).
+  monthlyPricePaise          Int?           @map("monthly_price_paise")
+  yearlyPricePaise           Int?           @map("yearly_price_paise")
+  /// One seat above the plan's, per month and per year, before GST; null when it isn't sold that way.
+  extraSeatMonthlyPricePaise Int?           @map("extra_seat_monthly_price_paise")
+  extraSeatYearlyPricePaise  Int?           @map("extra_seat_yearly_price_paise")
+  /// The staff seats the price includes; more are bought as extra seats on the subscription.
+  seatLimit                  Int            @map("seat_limit")
   whatsappNumberLimit        Int            @map("whatsapp_number_limit")
-  /// Files the organization may keep, in whole gigabytes of 10^9 bytes.
-  storageGb                  Int            @map("storage_gb")
+  storageLimitBytes          BigInt         @map("storage_limit_bytes")
   /// The business modules it includes, e.g. {crm,quotes} (CHECK plan_modules_known). The Foundation's own features
   /// (staff, roles, settings, the audit log, documents) come with every plan.
   modules                    String[]
@@ -39,7 +39,7 @@ model Subscription {
   /// Filled from db.forOrg()'s organization when omitted. Also the key: one subscription per organization.
   organizationId         String                @id @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
   planId                 String                @map("plan_id") @db.Uuid
-  /// "monthly" or "annual": which of the plan's prices it pays (CHECK subscription_billing_cycle_value).
+  /// "monthly" or "yearly": which of the plan's prices it pays (CHECK subscription_billing_cycle_value).
   billingCycle           String                @map("billing_cycle")
   /// The lifecycle's state as last recorded: "trial", "active", "past_due", "read_only", "suspended" or "cancelled"
   /// (CHECK subscription_status_value). Every rule and screen uses the state due today, computed from this and the
@@ -52,8 +52,9 @@ model Subscription {
   trialEndsOn            DateTime?             @map("trial_ends_on") @db.Date
   /// The last day paid for, in the organization's time zone. Null until the first payment.
   paidThrough            DateTime?             @map("paid_through") @db.Date
-  /// Overrides (spec 7.2): seats beyond the plan's (each priced by the plan), a price agreed for this organization per
-  /// billing cycle before GST, in place of the plan's and its extra seats', and modules switched on early.
+  /// Seats bought above the plan's, at the plan's extra-seat price (spec 7.2's extra seats); then the overrides: a
+  /// price agreed for this organization per billing cycle before GST, in place of the plan's, and modules switched on
+  /// early.
   extraSeats             Int                   @default(0) @map("extra_seats")
   customPricePaise       Int?                  @map("custom_price_paise")
   extraModules           String[]              @default([]) @map("extra_modules")

@@ -45,12 +45,12 @@ describe("the console's subscriptions", () => {
           key: `${name.toLowerCase()}-${crypto.randomUUID().slice(0, 8)}`,
           name,
           monthlyPricePaise: 250_000,
-          annualPricePaise: 2_500_000,
-          includedSeats: 5,
+          yearlyPricePaise: 2_500_000,
           extraSeatMonthlyPricePaise: 50_000,
-          extraSeatAnnualPricePaise: 500_000,
+          extraSeatYearlyPricePaise: 500_000,
+          seatLimit: 5,
           whatsappNumberLimit: 1,
-          storageGb: 5,
+          storageLimitBytes: 5_000_000_000,
           modules,
         },
       );
@@ -87,7 +87,7 @@ describe("the console's subscriptions", () => {
       await consoleMutate(
         testConsole,
         "subscriptions.changePlan",
-        { organizationId, planId: growth.id, billingCycle: "annual" },
+        { organizationId, planId: growth.id, billingCycle: "yearly" },
         support.jar,
       ),
     );
@@ -102,10 +102,10 @@ describe("the console's subscriptions", () => {
     // ₹25,000 a year and two seats at ₹5,000: ₹35,000 before GST, and ₹6,300 of GST.
     expect(overridden).toMatchObject({
       plan: { id: growth.id },
-      billingCycle: "annual",
+      billingCycle: "yearly",
       extraSeats: 2,
       extraModules: ["accounts"],
-      price: { listPricePaise: 3_500_000, pricePaise: 3_500_000, gstPaise: 630_000, totalPaise: 4_130_000 },
+      price: { cycle: "yearly", subtotalPaise: 3_500_000, gstPaise: 630_000, totalPaise: 4_130_000 },
     });
     const entries = await server.platform.auditEntry.findMany({
       where: { organizationId, entityType: "subscription" },

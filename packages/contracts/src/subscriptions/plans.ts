@@ -1,5 +1,6 @@
-// Plans as the console edits them (spec 7.2, the owner's pricing): flat tiers per agency, each with a monthly and an
-// annual price before GST, the seats they include and a price per extra seat, storage in GB, and the modules included.
+// Plans as the console edits them (spec 7.2, the owner's pricing): tiers with a flat INR price per organization, per
+// month and/or year and before GST, the seats, storage and modules they include, and a price for each seat bought
+// above the plan's.
 import { z } from "zod";
 import { recordId } from "../identity/index.js";
 
@@ -26,25 +27,32 @@ export const pricePaise = z.int().min(0).max(2_000_000_000);
 
 const planFields = {
   name: z.string().trim().min(1).max(60),
-  /** Before GST, which is shown separately and charged on top (18 %). */
-  monthlyPricePaise: pricePaise,
-  annualPricePaise: pricePaise,
-  /** The seats the price includes. */
-  includedSeats: z.int().min(1).max(10_000),
-  /** What each seat beyond the included ones adds, per month and per year, before GST. */
-  extraSeatMonthlyPricePaise: pricePaise,
-  extraSeatAnnualPricePaise: pricePaise,
+  /**
+   * Before GST, which is shown separately and charged on top (18 %), for the whole organization. Null when the plan
+   * isn't sold that way: a plan is sold only on the billing cycles it has a price for. At least one is set.
+   */
+  monthlyPricePaise: pricePaise.nullable(),
+  yearlyPricePaise: pricePaise.nullable(),
+  /** One seat above the plan's, before GST. Null or left out: the plan sells no extra seats that way. */
+  extraSeatMonthlyPricePaise: pricePaise.nullable().optional(),
+  extraSeatYearlyPricePaise: pricePaise.nullable().optional(),
+  /** The staff seats the price includes. */
+  seatLimit: z.int().min(1).max(10_000),
   whatsappNumberLimit: z.int().min(0).max(100),
-  /** Whole gigabytes (10^9 bytes), at most 10 TB. */
-  storageGb: z.int().min(1).max(10_000),
+  /** At most 10 TB. */
+  storageLimitBytes: z.int().min(1).max(10_000_000_000_000),
   modules: z.array(planModule).max(planModules.length),
 };
 
-export const createPlanInput = z.strictObject({ key: planKey, ...planFields });
+const isPriced = (plan: { monthlyPricePaise: number | null; yearlyPricePaise: number | null }) =>
+  plan.monthlyPricePaise !== null || plan.yearlyPricePaise !== null;
+const priceMissing = { message: "Give a monthly price, a yearly price or both", path: ["monthlyPricePaise"] };
+
+export const createPlanInput = z.strictObject({ key: planKey, ...planFields }).refine(isPriced, priceMissing);
 export type CreatePlanInput = z.infer<typeof createPlanInput>;
 
 /** Everything but the key, which never changes. */
-export const updatePlanInput = z.strictObject({ planId: recordId, ...planFields });
+export const updatePlanInput = z.strictObject({ planId: recordId, ...planFields }).refine(isPriced, priceMissing);
 export type UpdatePlanInput = z.infer<typeof updatePlanInput>;
 
 export const planIdInput = z.strictObject({ planId: recordId });
@@ -57,13 +65,13 @@ export const planSummary = z.object({
   id: recordId,
   key: planKey,
   name: z.string(),
-  monthlyPricePaise: z.int(),
-  annualPricePaise: z.int(),
-  includedSeats: z.int(),
-  extraSeatMonthlyPricePaise: z.int(),
-  extraSeatAnnualPricePaise: z.int(),
+  monthlyPricePaise: z.int().nullable(),
+  yearlyPricePaise: z.int().nullable(),
+  extraSeatMonthlyPricePaise: z.int().nullable(),
+  extraSeatYearlyPricePaise: z.int().nullable(),
+  seatLimit: z.int(),
   whatsappNumberLimit: z.int(),
-  storageGb: z.int(),
+  storageLimitBytes: z.int(),
   modules: z.array(planModule),
   archived: z.boolean(),
 });

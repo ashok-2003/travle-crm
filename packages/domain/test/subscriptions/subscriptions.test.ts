@@ -74,17 +74,17 @@ describe("subscriptions", () => {
     ]);
   });
 
-  it("starts the policy's trial when no last day is given: 7 days from today", async () => {
+  it("starts a trial of the policy's 7 days, today included, when no end is given", async () => {
     const organizationId = await createTestOrganization(test.platform, "Trial by policy");
     const started = await inPlatform((tx) =>
       startSubscription(
         tx,
         byAdmin,
-        { organizationId, planId: starter.id, billingCycle: "annual", paidThrough: null },
+        { organizationId, planId: starter.id, billingCycle: "yearly", paidThrough: null },
         now,
       ),
     );
-    expect(started).toMatchObject({ status: "trial", billingCycle: "annual", trialEndsOn: "2026-10-23" });
+    expect(started).toMatchObject({ status: "trial", billingCycle: "yearly", trialEndsOn: "2026-10-22" });
   });
 
   it("reads today in the organization's time zone, refusing a trial that ended yesterday there", async () => {
@@ -133,9 +133,9 @@ describe("subscriptions", () => {
 
   it("changes the plan and billing cycle, and records nothing for the same ones again", async () => {
     const organizationId = await createSubscribedOrganization(test, starter);
-    const change = { organizationId, planId: growth.id, billingCycle: "annual" } as const;
+    const change = { organizationId, planId: growth.id, billingCycle: "yearly" } as const;
     const changed = await inPlatform((tx) => changePlan(tx, byAdmin, change, now));
-    expect(changed).toMatchObject({ plan: { id: growth.id }, billingCycle: "annual" });
+    expect(changed).toMatchObject({ plan: { id: growth.id }, billingCycle: "yearly" });
     await inPlatform((tx) => changePlan(tx, byAdmin, change, now));
     expect(
       (await subscriptionEntries(test, organizationId)).map((entry) => [entry.action, entry.before, entry.after]),
@@ -144,9 +144,23 @@ describe("subscriptions", () => {
       [
         "subscription.plan-changed",
         { plan: starter.key, billingCycle: "monthly" },
-        { plan: growth.key, billingCycle: "annual" },
+        { plan: growth.key, billingCycle: "yearly" },
       ],
     ]);
+  });
+
+  it("sells a plan only the ways it is priced", async () => {
+    const monthlyOnly = await createTestPlan(test, { yearlyPricePaise: null });
+    await expect(createSubscribedOrganization(test, monthlyOnly, { billingCycle: "yearly" })).rejects.toMatchObject({
+      code: "VALIDATION",
+      reason: "NOT_SOLD_YEARLY",
+    });
+    const organizationId = await createSubscribedOrganization(test, starter);
+    await expect(
+      inPlatform((tx) =>
+        changePlan(tx, byAdmin, { organizationId, planId: monthlyOnly.id, billingCycle: "yearly" }, now),
+      ),
+    ).rejects.toMatchObject({ reason: "NOT_SOLD_YEARLY" });
   });
 
   it("sets overrides: extra seats, an agreed price and modules switched on early", async () => {

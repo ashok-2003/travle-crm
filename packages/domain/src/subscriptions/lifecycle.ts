@@ -5,6 +5,9 @@
 import type { SubscriptionPolicy, SubscriptionStatus } from "@travel-crm/contracts/subscriptions";
 import { addDays, type CalendarDate } from "../kernel/index.js";
 
+/** The policy's days the unpaid states last; the trial's own days matter only when a subscription starts. */
+export type UnpaidDays = Pick<SubscriptionPolicy, "pastDueDays" | "readOnlyDays">;
+
 /** What the lifecycle reads of a subscription. */
 export interface LifecycleState {
   status: SubscriptionStatus;
@@ -17,7 +20,7 @@ export interface LifecycleState {
 /** The state a subscription moves to if nothing is paid, and its first day; null when only a person moves it on. */
 export function nextStep(
   state: LifecycleState,
-  policy: SubscriptionPolicy,
+  policy: UnpaidDays,
 ): { status: SubscriptionStatus; on: CalendarDate } | null {
   switch (state.status) {
     case "trial":
@@ -38,7 +41,7 @@ export function nextStep(
  * Where the lifecycle has got to by today: every step whose first day has come, in order, each counted from the day
  * the one before it began. So the state is right however long ago the daily job last ran.
  */
-export function dueState(state: LifecycleState, policy: SubscriptionPolicy, today: CalendarDate): LifecycleState {
+export function dueState(state: LifecycleState, policy: UnpaidDays, today: CalendarDate): LifecycleState {
   let current = state;
   for (let next = nextStep(current, policy); next !== null && next.on <= today; next = nextStep(current, policy)) {
     current = { ...current, status: next.status, since: next.on };

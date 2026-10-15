@@ -1,46 +1,52 @@
 // Placeholder tiers for the demo reset and for tests, never for production: there, super admins enter the real plans
-// in the console (plans are data, spec 7.2). The tiers are the owner's (Starter, Growth, Pro: seats and storage); the
-// prices and module sets are PLACEHOLDERS until the owner sets them (spec Q4).
+// in the console (plans are data, spec 7.2), and no migration seeds one. The tiers' seats and storage are the owner's;
+// every price is a PLACEHOLDER until the owner confirms it (spec Q4).
 import type { CreatePlanInput, PlanSummary } from "@travel-crm/contracts/subscriptions";
 import type { OrgTx } from "@travel-crm/db";
+import { planColumns } from "./plans.js";
 import { planSummaryOf } from "./rows.js";
 
-/** PLACEHOLDER prices (paise, before GST) and module sets; the seats and storage are the owner's tiers. */
+const GIGABYTE = 1024 ** 3;
+
+/** An extra seat: ₹299 a month, ₹2,990 a year (PLACEHOLDER), on every tier. */
+const extraSeat = { extraSeatMonthlyPricePaise: 29_900, extraSeatYearlyPricePaise: 299_000 } as const;
+
+/**
+ * Starter, Growth and Pro: 3, 10 and 25 seats; 5, 25 and 100 GB. PLACEHOLDER prices before 18 % GST: ₹1,999, ₹4,999
+ * and ₹9,999 a month, the yearly price ten months'; the WhatsApp numbers and modules are placeholders too.
+ */
 export const placeholderPlans: readonly CreatePlanInput[] = [
   {
     key: "starter",
     name: "Starter",
     monthlyPricePaise: 199_900,
-    annualPricePaise: 1_999_000,
-    includedSeats: 3,
-    extraSeatMonthlyPricePaise: 49_900,
-    extraSeatAnnualPricePaise: 499_000,
+    yearlyPricePaise: 1_999_000,
+    ...extraSeat,
+    seatLimit: 3,
     whatsappNumberLimit: 1,
-    storageGb: 5,
-    modules: ["crm", "quotes"],
+    storageLimitBytes: 5 * GIGABYTE,
+    modules: ["crm", "inbox", "catalog", "quotes"],
   },
   {
     key: "growth",
     name: "Growth",
     monthlyPricePaise: 499_900,
-    annualPricePaise: 4_999_000,
-    includedSeats: 10,
-    extraSeatMonthlyPricePaise: 39_900,
-    extraSeatAnnualPricePaise: 399_000,
+    yearlyPricePaise: 4_999_000,
+    ...extraSeat,
+    seatLimit: 10,
     whatsappNumberLimit: 2,
-    storageGb: 25,
-    modules: ["crm", "inbox", "catalog", "quotes", "bookings", "departures"],
+    storageLimitBytes: 25 * GIGABYTE,
+    modules: ["crm", "inbox", "catalog", "quotes", "bookings", "departures", "suppliers"],
   },
   {
     key: "pro",
     name: "Pro",
     monthlyPricePaise: 999_900,
-    annualPricePaise: 9_999_000,
-    includedSeats: 25,
-    extraSeatMonthlyPricePaise: 29_900,
-    extraSeatAnnualPricePaise: 299_000,
+    yearlyPricePaise: 9_999_000,
+    ...extraSeat,
+    seatLimit: 25,
     whatsappNumberLimit: 5,
-    storageGb: 100,
+    storageLimitBytes: 100 * GIGABYTE,
     modules: ["crm", "inbox", "catalog", "quotes", "bookings", "departures", "suppliers", "accounts", "reports"],
   },
 ];
@@ -52,7 +58,7 @@ export const placeholderPlans: readonly CreatePlanInput[] = [
 export async function seedPlaceholderPlans(tx: OrgTx): Promise<PlanSummary[]> {
   const seeded: PlanSummary[] = [];
   for (const plan of placeholderPlans) {
-    const row = await tx.plan.upsert({ where: { key: plan.key }, create: plan, update: {} });
+    const row = await tx.plan.upsert({ where: { key: plan.key }, create: planColumns(plan), update: {} });
     seeded.push(planSummaryOf(row));
   }
   return seeded;

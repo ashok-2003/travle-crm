@@ -18,6 +18,7 @@ import { toDateColumn } from "./dates.js";
 import { subscriptionDetailsOf } from "./details.js";
 import { findPlanOnSale } from "./plans.js";
 import { getSubscriptionPolicy } from "./policy.js";
+import { assertSoldOn } from "./pricing.js";
 import { withPlan } from "./rows.js";
 import { lockedSubscription, subscriptionNotFound, subscriptionToday } from "./state.js";
 
@@ -47,8 +48,8 @@ export async function lockSubscription(
 }
 
 /**
- * A new organization's subscription (onboarding, spec 7.1): on a trial to its last day (the policy's trial days from
- * today, unless given), or active and paid through a day. Recorded as "subscription.started".
+ * A new organization's subscription (onboarding, spec 7.1): on a trial, to the day given or for the policy's trial
+ * days, or active and paid through a day; on a cycle the plan is sold on. Recorded as "subscription.started".
  */
 export async function startSubscription(
   tx: OrgTx,
@@ -58,10 +59,14 @@ export async function startSubscription(
 ): Promise<SubscriptionDetails> {
   const { organizationId } = input;
   const plan = await findPlanOnSale(tx, input.planId);
+  assertSoldOn(plan, input.billingCycle);
   const timeZone = await organizationTimeZone(tx, organizationId);
   const today = calendarDateIn(now, timeZone);
+  // Left out, the trial is the policy's days, today the first of them.
   const trialEndsOn =
-    input.trialEndsOn === undefined ? addDays(today, (await getSubscriptionPolicy(tx)).trialDays) : input.trialEndsOn;
+    input.trialEndsOn === undefined
+      ? addDays(today, (await getSubscriptionPolicy(tx)).trialDays - 1)
+      : input.trialEndsOn;
   if (trialEndsOn !== null && trialEndsOn < today) {
     throw new DomainError("VALIDATION", "TRIAL_END_IN_PAST", "A trial must end today or later");
   }
@@ -106,7 +111,10 @@ export async function startSubscription(
   return details;
 }
 
-/** Moves the organization to another plan or billing cycle. The same plan and cycle again changes nothing. */
+/**
+ * Moves the organization to another plan or billing cycle, one the plan is sold on. The same plan and cycle again
+ * changes nothing.
+ */
 export async function changePlan(
   tx: OrgTx,
   by: ConsoleActor,
@@ -118,6 +126,7 @@ export async function changePlan(
     return subscriptionDetailsOf(row, today);
   }
   const plan = await findPlanOnSale(tx, input.planId);
+  assertSoldOn(plan, input.billingCycle);
   await tx.subscription.update({
     where: { organizationId: input.organizationId },
     data: { planId: plan.id, billingCycle: input.billingCycle },

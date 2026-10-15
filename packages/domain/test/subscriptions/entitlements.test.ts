@@ -21,7 +21,7 @@ describe("entitlements", () => {
 
   beforeAll(async () => {
     test = createTestSubscriptions();
-    plan = await createTestPlan(test, { name: "Starter", includedSeats: 5, storageGb: 5, modules: ["crm"] });
+    plan = await createTestPlan(test, { name: "Starter", seatLimit: 5, modules: ["crm"] });
   });
 
   afterAll(async () => {
