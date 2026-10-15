@@ -1,5 +1,6 @@
 // Everything the worker runs (spec 9.1): each module's listeners, the webhook processing job, and the scheduled jobs,
-// built from the process's services. The api and the worker are one image; `worker.ts` starts this side.
+// built from the process's services. The api and the worker are one image; `worker.ts` starts this side. The
+// platform's own jobs, which need the platform role, run in the console process instead (console-jobs.ts).
 import type { Database } from "@travel-crm/db";
 import { renderIssuedDocumentListener } from "@travel-crm/domain/documents";
 import type { Files } from "@travel-crm/domain/files";
@@ -8,14 +9,16 @@ import type { EventListener, JobHandler, ScheduledJob } from "@travel-crm/domain
 import { deliverNotificationListener, forgetPushSubscriptionsListener } from "@travel-crm/domain/notifications";
 import { purgeExpiredRateLimits, RATE_LIMIT_PURGE_QUEUE } from "@travel-crm/domain/rate-limits";
 import { notifySharerListener } from "@travel-crm/domain/share-links";
+import { ADVANCE_SUBSCRIPTIONS_QUEUE, advanceSubscriptions } from "@travel-crm/domain/subscriptions";
 import { processWebhookJob, WEBHOOK_PROCESS_QUEUE, type WebhookProvider } from "@travel-crm/domain/webhooks";
 import type { EmailSender } from "@travel-crm/integrations/email";
+import { describeError } from "@travel-crm/integrations/jobs";
 import { renderPdf } from "@travel-crm/integrations/pdf";
 import type { PushSender } from "@travel-crm/integrations/push";
 
 export interface WorkerJobDependencies {
   db: Database;
-  identity: Pick<Identity, "organizationProfile" | "memberContacts">;
+  identity: Pick<Identity, "organizationProfile" | "memberContacts" | "organizationIds" | "inviteListener">;
   files: Files;
   email: EmailSender;
   push: PushSender;
@@ -51,6 +54,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
         memberContacts: (organizationId, userIds) => identity.memberContacts(organizationId, userIds),
       }),
       forgetPushSubscriptionsListener,
+      identity.inviteListener({ email, appUrl }),
     ],
     handlers: [
       {
@@ -69,6 +73,24 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
         timeZone: "Asia/Kolkata",
         handle: async () => {
           await purgeExpiredRateLimits(db, new Date(Date.now() - DAY_MS));
+        },
+      },
+      {
+        // Just after midnight in India, where every agency's day starts: a trial that ended yesterday is recorded as
+        // past due before anyone signs in. The request checks already compute the state on every request (spec 7.3);
+        // this writes it down, so the console and the audit log show it.
+        queue: ADVANCE_SUBSCRIPTIONS_QUEUE,
+        cron: "15 0 * * *",
+        timeZone: "Asia/Kolkata",
+        handle: async () => {
+          await advanceSubscriptions({
+            db,
+            organizationIds: await identity.organizationIds(),
+            // One organization failing doesn't stop the rest; the log gets its id and the error's names and codes.
+            onError: (error, organizationId) => {
+              log(`${ADVANCE_SUBSCRIPTIONS_QUEUE}: organization ${organizationId} failed: ${describeError(error)}`);
+            },
+          });
         },
       },
     ],

@@ -1,9 +1,9 @@
-// The api's and the worker's one log (spec 9.1): a line per problem on stderr, `<process>: <line>`, ids and codes only.
+// Each process's one log (spec 9.1): a line per problem on stderr, `<process>: <line>`, ids and codes only.
 // Lines are written by our code from ids and codes; errors appear as their names and codes, never their messages or
 // the objects, which can quote what the code was working on (an email address, a reset link).
 import { describeError } from "@travel-crm/integrations/jobs";
 
-export type ProcessName = "api" | "worker";
+export type ProcessName = "api" | "worker" | "console";
 
 /** Where a process's problems go, one line each. */
 export type ProcessLog = (line: string) => void;

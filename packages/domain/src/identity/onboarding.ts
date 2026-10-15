@@ -58,6 +58,26 @@ export async function inviteOwner(
 }
 
 /**
+ * A member who signs in with the organization's code, a username and a password already chosen, in the transaction's
+ * organization: the shared demo's staff (no email, no invite). Recorded as "staff.created" by `actor`.
+ */
+export async function addStaffWithPassword(
+  tx: IdentityTx,
+  actor: Actor,
+  staff: { name: string; username: string; roleKey: string; passwordHash: string },
+): Promise<CreatedStaff> {
+  return insertStaffAccount(tx, {
+    organizationId: actor.organizationId,
+    name: staff.name,
+    username: staff.username,
+    roleKey: staff.roleKey,
+    passwordHash: staff.passwordHash,
+    mustChangePassword: false,
+    actor,
+  });
+}
+
+/**
  * Asks for an invite email to an active member who has a real address: publishes "staff.invited", which the worker's
  * identity.send-invite listener turns into an email with a link to choose a password. Asking again sends a new link;
  * the earlier ones keep working until they lapse. Recorded as "staff.invited".

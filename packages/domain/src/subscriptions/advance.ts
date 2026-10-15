@@ -9,6 +9,9 @@ import { dueState } from "./lifecycle.js";
 import { getSubscriptionPolicy } from "./policy.js";
 import { statusOf } from "./rows.js";
 
+/** The worker's daily job's queue. */
+export const ADVANCE_SUBSCRIPTIONS_QUEUE = "subscriptions.advance-lifecycle";
+
 /** A status the job moved, and the day the new one began. */
 export interface StatusChange {
   organizationId: string;

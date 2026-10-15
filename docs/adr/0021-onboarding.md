@@ -21,13 +21,19 @@ first Owner
   under the platform admin's name, with source `platform`.
 - **Invite links last 72 hours**, against a password reset's hour: an Owner may open the email the next day. Earlier
   links keep working until they lapse, so asking twice never strands anyone.
+- **The shared demo is rebuilt every night the same way** (spec 7.4). The console's `platform.reset-demo` job, at
+  02:00 India time, purges the organization last night's reset built and builds it again in one platform
+  transaction: the business profile, the starter roles, and three staff (Owner, Sales, Operations) who sign in with
+  the demo's code and `DEMO_PASSWORD`, with no email and no invite; subscribed to the plan `DEMO_PLAN_KEY` names,
+  paid a month ahead. It purges only an organization that has a `demo.reset` entry in the platform log, so a code
+  set by mistake can't purge an agency, and it checks the plan before it purges anything.
 
 ## Context
 
 - **Why Better Auth's reset token.** It is the one way Better Auth sets a password on an account it didn't create,
-  and the web app's reset page already handles it. The token is stored as Better Auth stores its own
-  (a hash of `reset-password:<token>`, the user's id as the value); the invite tests run the whole path through Better Auth, so a
-  change in that format fails them.
+  and the web app's reset page already handles it. The token is stored as Better Auth stores its own (a hash of
+  `reset-password:<token>`, the user's id as the value); the invite tests run the whole path through Better Auth, so
+  a change in that format fails them.
 - **Why an event, not an email from the console.** The worker already has the email adapter and retries; the console
   needs no SMTP settings, and a failed send is retried rather than lost. The token never travels in the event or the
   job: the listener makes it.

@@ -25,6 +25,11 @@ export async function findOrganizationRecord(tx: IdentityTx, organizationId: str
   return organization;
 }
 
+/** The organization with this sign-in code, or null when there is none. */
+export async function findOrganizationByCode(tx: IdentityTx, code: string): Promise<OrganizationRecord | null> {
+  return tx.organization.findUnique({ where: { code }, select: recordFields });
+}
+
 /** Corrects the name, time zone and contact email. Returns the row before and after. */
 export async function updateOrganizationRecord(
   tx: IdentityTx,

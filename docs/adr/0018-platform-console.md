@@ -45,6 +45,10 @@ adminUserId)`), not as the system.
   "an audit record in the platform log"). It is append-only even for `app_platform`, and `app_runtime` has no rights on
   it.
 
+- **The console process runs the platform's own jobs** (purge, erasure, the nightly demo reset), which need the
+  platform role, with `startJobHandlers`: handlers and schedules only. It runs no listeners and no outbox relay; the
+  worker's relay is the only one, since a relay that knew no listeners would mark every event relayed with nothing
+  queued for it.
 - **Failed jobs and schedules.** The console lists failed jobs, runs one again, and lists the schedules; a super admin
   removes a schedule whose job the code no longer has (ADR 0010). It reaches pg-boss through the `JobAdministration`
   port (`@travel-crm/integrations/jobs`), and records each retry and removed schedule in the platform log. Job data

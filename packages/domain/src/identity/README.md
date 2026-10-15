@@ -20,14 +20,16 @@ Who can sign in, to which organization, and what they may do (spec section 6).
   - `roles.list / create / update / delete`;
   - `settings.setTwoFactorRequirement`;
   - `seedStarterRoles(organizationId)` and `createOrganizationOwner(organizationId, owner)` (an Owner with a password,
-    for tests and the demo);
+    for tests);
   - `organizationIds()`: every organization's id, for jobs that visit each one;
   - `inviteListener({ email, appUrl, now? })`: the worker's `identity.send-invite` listener;
   - `disconnect()`.
 - Onboarding's steps, each in the caller's transaction (the console runs them in one platform transaction):
   `createOrganizationRecord(tx, { name, code, timeZone, contactEmail })` (the platform role only),
   `insertStarterRoles(tx)`, `inviteOwner(tx, actor, { name, email })` and `requestInvite(tx, actor, memberId)` (inside
-  the organization, `asOrganization`). `INVITE_LINK_HOURS` (72), `SEND_INVITE_LISTENER`.
+  the organization, `asOrganization`). `INVITE_LINK_HOURS` (72), `SEND_INVITE_LISTENER`. The nightly demo reset adds
+  its staff with `addStaffWithPassword(tx, actor, { name, username, roleKey, passwordHash })` (organization-code
+  sign-in, no email, no invite) and finds last night's demo with `findOrganizationByCode(tx, code)`.
 - Permanent deletion's steps, for the platform's jobs (spec 5): `personExport(tx, organizationId, memberId)` and
   `erasePerson(tx, organizationId, memberId)` (a removed person's name, addresses, password, sessions, two-factor
   secret and reset tokens; the membership row stays, so ids still lead somewhere), `organizationUserIds(tx,

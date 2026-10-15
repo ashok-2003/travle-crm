@@ -26,7 +26,8 @@ naming the organization); under `app_runtime` they fail with "permission denied"
 - Request checks 2 and 3: `assertLifecycleAllows(entitlements, { kind, isOwner })` (`kind` is `view`, `change`,
   `export` or `always`), `assertModulesOnPlan(entitlements, permissionModules)`, `planModuleOf(permissionModule)`.
 - The daily job: `advanceSubscriptions({ db, organizationIds, now?, onError? })`, each organization in its own
-  `forOrg()`; `advanceSubscription(tx, organizationId, now)` for one.
+  `forOrg()`; `advanceSubscription(tx, organizationId, now)` for one. The worker runs it on
+  `ADVANCE_SUBSCRIPTIONS_QUEUE` (`subscriptions.advance-lifecycle`) at 00:15 India time.
 
 ## Events
 

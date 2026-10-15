@@ -1,6 +1,7 @@
 // Public API of the platform module: the platform console's work across organizations (spec 5 and 7). Only this
 // module uses @travel-crm/db/platform, which sees every organization.
 export { organizationsOverview } from "./dashboard.js";
+export { RESET_DEMO_QUEUE, resetDemoOrganization, type DemoSettings } from "./demo.js";
 export { ERASE_SUBJECT_QUEUE, eraseSubject, requestErasure } from "./erasure.js";
 export { exportOrganization, exportSubject } from "./exports.js";
 export { listFailedJobs, listSchedules, removeSchedule, retryFailedJob } from "./failed-jobs.js";

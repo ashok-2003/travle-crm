@@ -17,6 +17,9 @@ The platform console's work across organizations (spec sections 5 and 7). It is 
   record), which queue `platform.purge-organization` and `platform.erase-subject`; `purgeOrganization` (which keeps
   an organization no longer cancelled, as `organization.purge-skipped`) and `eraseSubject`, the jobs;
   `platformJobHandlers(services)`, for the console process's job runner.
+- The shared demo (spec 7.4): `resetDemoOrganization(services, { code, planKey, password }, now?)`, the console's
+  nightly `RESET_DEMO_QUEUE` (`platform.reset-demo`) job: purges last night's demo (only an organization a reset built,
+  as the platform log shows) and builds it again with its profile and three staff who sign in with the code.
 - Plans and the policy: `listPlans(services, input)`, `createPlan`, `updatePlan`, `archivePlan(services, staff, …)`,
   `getSubscriptionPolicy(services)`, `setSubscriptionPolicy(services, staff, policy)`. Plans belong to no organization,
   so each change is recorded in the platform log.

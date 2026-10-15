@@ -19,9 +19,16 @@ export { deleteUsers, erasePerson, organizationUserIds, personExport, type Perso
 export { createIdentity, type Identity, type IdentityOptions, type NewOwner } from "./identity.js";
 export { pendingStep, type MemberAccess } from "./member-access.js";
 export { memberActivity, type MemberActivity } from "./member-activity.js";
-export { createOrganizationRecord, inviteOwner, requestInvite, type NewOrganization } from "./onboarding.js";
+export {
+  addStaffWithPassword,
+  createOrganizationRecord,
+  inviteOwner,
+  requestInvite,
+  type NewOrganization,
+} from "./onboarding.js";
 export type { MemberContact, OrganizationProfile } from "./organization-profile.js";
 export {
+  findOrganizationByCode,
   findOrganizationRecord,
   listOrganizationRecords,
   updateOrganizationRecord,

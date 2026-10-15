@@ -105,9 +105,12 @@ export interface TestAgency {
   owner: { userId: string; memberId: string; email: string; password: string };
 }
 
+/** The key of the plan test agencies are on. */
+export const EVERYTHING_PLAN_KEY = "test-everything";
+
 /** Every module, and room to spare: the plan test agencies are on unless a test changes their subscription. */
 const everythingPlan = {
-  key: "test-everything",
+  key: EVERYTHING_PLAN_KEY,
   name: "Everything (tests)",
   monthlyPricePaise: 0,
   seatLimit: 1000,
