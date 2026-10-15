@@ -9,7 +9,7 @@
     "build": "next build",
     "start": "next start --port 3000",
     "typecheck": "next typegen && tsc --noEmit && tsc --noEmit -p src/service-worker",
-    "lint": "eslint .",
+    "lint": "next typegen && eslint .",
     "test": "vitest run",
     "e2e": "playwright test"
   },

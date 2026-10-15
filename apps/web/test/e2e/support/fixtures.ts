@@ -1,11 +1,13 @@
 // What every journey starts from: the web app's address, and a new organization of its own with an Owner who signs
-// in by email, made directly in the database the way onboarding (plan 4) will. Staff are added the same way. Every
-// journey also ends with an accessibility check of its last screen (accessible-after-each.ts).
+// in by email and an active subscription, made directly in the database the way onboarding (plan 4) does. Staff are
+// added the same way. Every journey also ends with an accessibility check of its last screen
+// (accessible-after-each.ts).
 import { expect, type Page } from "@playwright/test";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { createIdentity, type Identity, type MemberAccess } from "@travel-crm/domain/identity";
 import { test as base } from "./accessible-after-each";
+import { subscribeToEverything } from "./subscriptions";
 
 export { skipAccessibilityCheck } from "./accessible-after-each";
 
@@ -73,6 +75,7 @@ export const test = base.extend<Fixtures, { database: Database }>({
   ],
   agency: async ({ database }, use) => {
     const organizationId = await createTestOrganization(database.platform, "Sharma Travels");
+    await subscribeToEverything(database.platform, organizationId);
     const { code } = await database.platform.organization.findUniqueOrThrow({ where: { id: organizationId } });
     await database.identity.seedStarterRoles(organizationId);
     const owner = {
