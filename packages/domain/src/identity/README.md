@@ -46,6 +46,16 @@ Who can sign in, to which organization, and what they may do (spec section 6).
   with a role edit) so two additions can't both take the last.
 - `platformStaffRoles` (Better Auth's `user.role` for each level: `admin` for support, `super-admin`) and
   `platformStaffLevelOf(role)`.
+- Platform staff's accounts, written by our own code in the console's platform transaction, never through Better
+  Auth's admin API (ADR 0019): `createPlatformStaffAccount(tx, actor, { name, email, level, passwordHash })`,
+  `createFirstSuperAdmin(tx, { name, email, passwordHash })` (`SUPER_ADMIN_EXISTS` once there is one),
+  `changePlatformStaffLevel(tx, actor, { userId, level })`, `removeFromPlatformStaff(tx, actor, userId)` and
+  `replacePlatformStaffPassword(tx, actor, { userId, passwordHash })`; `platformStaffAccounts(tx)`, the list, removed
+  people included; `temporaryPassword()`. Each change takes one advisory lock first, then checks the actor is still a
+  super admin (`SUPER_ADMIN_ONLY`), that no member or former member gets a level (`EVER_A_MEMBER`, by user or by
+  address, a removed member's former one included), and that a super admin remains (`LAST_SUPER_ADMIN`). A removal
+  clears the role, bans the user and deletes their sessions and the impersonations they started; the row and its
+  address stay (`STAFF_EMAIL_TAKEN`). A demotion keeps the impersonations: support may impersonate.
 - `permissions`, `permissionCatalog`, `isPermission`, `isScopedPermission`, `moduleOf`, `PermissionSet`: the permission
   catalog.
 - `assertMayHandleRole`, `assertMayManageMember`, `assertRoleIsEditable`, `permissionSetFromInput`: the no-escalation

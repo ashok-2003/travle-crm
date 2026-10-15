@@ -85,6 +85,17 @@ reset. It stops on SIGTERM like the api.
 | `DEMO_ORGANIZATION_CODE` | no       | no demo | the demo's sign-in code; both `DEMO_` variables or neither                     |
 | `DEMO_PASSWORD`          | no       |         | every demo account's password (12 characters or more): `asha`, `ravi`, `meena` |
 
+### The console's one-off commands
+
+Each runs once with the console's environment (the same variables and checks, so the same `console start-up failed`
+when one is wrong), serves nothing, runs no jobs and exits (`src/console-command.ts`). Never over HTTP.
+
+- **`pnpm --filter @travel-crm/api-server run first-super-admin -- --email <address> --name <name>`** makes the first
+  super admin, who adds everyone else from the console (ADR 0019). It refuses once any super admin exists, also when
+  two runs start at once, and exits 1 with the reason on stderr. It prints the new super admin's temporary password to
+  stdout and nothing else: the one secret a process of ours prints, on purpose, since the operator's own terminal is
+  where it must go. Pass it on in person; they replace it at their first sign-in, by email, before the console opens.
+
 ## Environment
 
 | Variable                                   | Required | Default                 | Meaning                                                                                   |

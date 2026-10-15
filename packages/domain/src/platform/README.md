@@ -45,6 +45,13 @@ organizationId)` records a `platform_export` row and queues `EXPORT_ORGANIZATION
 - Plans and the policy: `listPlans(services, input)`, `createPlan`, `updatePlan`, `archivePlan(services, staff, …)`,
   `getSubscriptionPolicy(services)`, `setSubscriptionPolicy(services, staff, policy)`. Plans belong to no organization,
   so each change is recorded in the platform log.
+- Platform staff (ADR 0019), super admins only: `listPlatformStaff(services)` (everyone with a level, and everyone
+  removed, with `removedAt` from the log's `platform-staff.removed` entry), `addPlatformStaff(services, staff,
+{ name, email, level })` and `resetPlatformStaffPassword(services, staff, { userId })` (each returns a temporary
+  password, which nothing stores but as a hash), `setPlatformStaffLevel(services, staff, { userId, level })` and
+  `removePlatformStaff(services, staff, { userId })`; `addFirstSuperAdmin(services, { name, email })`, the one-off
+  command's. Each is one platform transaction: identity's write under its platform staff lock, and a log entry of ids
+  and levels (target type `platform_staff`).
 - `recordPlatformAudit(tx, actor, { action, targetType, targetId, targetOrganizationId?, before?, after? })`: writes
   one entry in the platform log, in the platform transaction that makes the change. `actor` is `{ userId }`, the
   platform admin, or `{ userId: null }` for the platform's own jobs.

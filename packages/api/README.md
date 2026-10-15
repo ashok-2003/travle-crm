@@ -60,4 +60,5 @@ resHeaders)`, which always reads the session from the database) and builders:
 | `subscriptions`  | `get`, `changePlan`, `setOverrides`, `setTrialEnd`, `setPaidThrough`, `recordPayment`, `voidPayment`, `suspend`, `cancel`; super admins: `liftSuspension` |
 | `dataProtection` | super admins: `exportOrganization` (queues it), `exports`, `downloadExport`, `requestPurge`, `exportSubject`, `requestErasure`                            |
 | `jobs`           | `failed` (a page at a time: `after`, `queue`), `retry` (never a purge, erasure or export), `schedules`; super admins: `unschedule`                        |
+| `platformStaff`  | super admins: `list`, `add` and `resetPassword` (each returns a temporary password, once), `setLevel`, `remove` (ADR 0019)                                |
 | `log`            | `list`: the platform log, newest first, or one organization's                                                                                             |

@@ -24,7 +24,33 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 4 (the `app_pla
   404 for everyone, platform staff included: the console has its own API, and some of those endpoints would skip our
   rules (`/admin/remove-user` deletes a user outright, past soft delete; `/admin/set-user-password` skips
   must-change-password). Server-side `auth.api.*` admin calls still run the same hook, so they need a platform admin's
-  request headers; our own code makes none.
+  request headers; our own code makes none: identity writes platform staff's levels itself (below).
+- **Managing platform staff** is a super admin's alone (`platformStaff.*`, all `superAdminProcedure`; support sees
+  itself through `whoAmI`). Identity writes `user.role` in the console's platform transaction, beside the platform
+  log's entry, never through Better Auth. Every change first takes one lock (`pg_advisory_xact_lock` on a fixed key)
+  and checks everything after it, the acting super admin included, so changes take turns: two super admins demoting
+  or removing each other leave one, and the last super admin can't be demoted or removed (`LAST_SUPER_ADMIN`).
+  Every write checks `hasEverBeenMember`: a member, a removed one, or someone coming back by the address they had
+  before their removal never gets a level (`EVER_A_MEMBER`).
+  - **Adding** makes a user with no membership, a password account and `mustChangePassword`: the temporary password
+    is in the response alone, never logged, emailed, stored in the log or carried by a job. A taken address is
+    `STAFF_EMAIL_TAKEN`. A super admin can also set a new temporary password (`resetPassword`), which ends every
+    session the person has; platform staff may also reset their own by email, like anyone.
+  - **Demoting** a super admin to support keeps the impersonations they started: support may impersonate.
+  - **Removing** clears the role (`describePlatformStaff` reads the role, not the ban), bans the user ("Removed from
+    platform staff") and deletes their sessions and every session whose `impersonated_by` is them, in the same
+    transaction: their next console call is a 401, and the api's per-request check refuses the impersonated member's
+    next request. The user row stays, so the logs' ids still resolve, and so does its address: adding it again is
+    `STAFF_EMAIL_TAKEN`. Restoring a removed person is a later feature.
+  - **Two-factor is required of platform staff.** Plan 5B enforces it once the console's screens can set it up, as
+    the step after a new password; the staff list shows `twoFactorEnabled` already, so nothing built now changes.
+  - **The first super admin** comes from a one-off command run with the console's environment, never over HTTP:
+    `first-super-admin -- --email <address> --name <name>`. It takes the same lock and refuses once any super admin
+    exists, so two runs at once make one. It prints the temporary password to the operator's terminal (stdout), and
+    nothing else: the one secret our processes print, since that terminal is where it must go.
+  - **The record:** each change is a platform log entry (`platform-staff.added`, `.level-changed`, `.password-reset`,
+    `.removed`; target type `platform_staff`, the person's user id), by the acting super admin (no one for the
+    command), with the level before and after. Never a name, an address or a password.
 - **Support impersonates only an organization's active staff**: a member who isn't removed or banned. Anyone else
   (someone who was never a member, a removed member, a banned one) is refused with `IMPERSONATION_TARGET_NOT_A_MEMBER`
   before a session exists, so every impersonation has an organization's audit log to be recorded in.
@@ -83,6 +109,11 @@ adminUserId)`), not as the system.
 - **Why `INHERIT FALSE`.** With inheritance the platform role would also hold the runtime role's grants (rate-limit
   counters, which it has no business with) and be subject to its policies; without it, the membership only allows the
   explicit switch.
+- **Why our own writes for platform staff, under one lock.** Better Auth's `setRole` and `banUser` would need a
+  platform admin's request headers to pass the side doors, and they know nothing of memberships or of the last super
+  admin. A row lock can't guard "at least one super admin remains", which is about rows that may not exist yet (the
+  first super admin) or that another change is about to alter; one advisory lock for every change to platform staff
+  makes them take turns, and changes are rare enough that turns cost nothing.
 
 ## Consequences
 
@@ -97,3 +128,5 @@ adminUserId)`), not as the system.
 - dependency-cruiser keeps `@travel-crm/domain/platform` to the console's own code (`apps/api/src/console*.ts`,
   `packages/api/src/platform/`) and tests, and `@travel-crm/api/platform`, the console's routers, to the console's own
   files, so the api and the worker never load the platform's code.
+- Removed platform staff can't be restored yet: their address stays taken until a later feature brings them back.
+  Two-factor for platform staff is required but not yet enforced (plan 5B).

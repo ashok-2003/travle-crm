@@ -152,6 +152,9 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - **Platform admins act in their own name:** `platformActor(organizationId, adminUserId)`, source `platform`, in the
   organization's audit log; the platform log (`recordPlatformAudit`) holds what belongs to no organization and an
   organization's whole life: onboarded, exported, purged.
+- **Platform staff** are managed by super admins in the console only (`platformStaff.*`): identity writes the level
+  itself under one lock, never through Better Auth's admin API, and nobody who was ever a member gets one. The first
+  super admin comes from `pnpm --filter @travel-crm/api-server run first-super-admin -- --email <e> --name <n>`.
 - **Permanent deletion** (spec 5) happens only in the console's jobs. A new organization table is purged with the rest
   (`deleteOrganizationRows` reads the catalog); a module that keeps files or personal data about a person or record
   adds its step to `packages/domain/src/platform/erasure.ts`.
