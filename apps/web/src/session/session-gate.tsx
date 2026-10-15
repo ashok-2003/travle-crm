@@ -1,9 +1,9 @@
 "use client";
 
-// The way into the app shell. me.get says who is signed in; until it answers the screen shows a skeleton, from the
-// saved cache at once when there is one. Signed out, the data layer sends the person to sign in; with a password
-// change or two-factor setup pending, they go to take it; platform staff, who belong to no organization, are told
-// this app isn't theirs.
+// The way into the app shell. me.get says who is signed in; until it answers the screen shows a skeleton (a saved
+// copy is restored first when it is that person's: data/page-data.ts). Signed out, the data layer sends the person
+// to sign in; with a password change or two-factor setup pending, they go to take it; platform staff, who belong to
+// no organization, are told this app isn't theirs.
 import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useEffect, type ReactNode } from "react";
@@ -11,6 +11,7 @@ import { Delayed } from "@/components/delayed";
 import { ErrorState } from "@/components/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTRPC } from "@/data/trpc";
+import { replacePage } from "@/lib/navigate";
 import { pendingStepRoute } from "@/lib/routes";
 import { SignOutButton } from "@/shell/sign-out";
 import { isSignedInMember, MeProvider } from "./me-context";
@@ -23,7 +24,7 @@ export function SessionGate({ children }: { children: ReactNode }) {
   const pendingStep = me.data?.pendingStep ?? null;
 
   useEffect(() => {
-    if (pendingStep) window.location.replace(pendingStepRoute(pendingStep));
+    if (pendingStep) replacePage(pendingStepRoute(pendingStep));
   }, [pendingStep]);
 
   if (me.data === undefined) {
