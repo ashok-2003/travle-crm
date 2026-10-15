@@ -9,7 +9,13 @@
     "backupCode": "Backup code",
     "required": "Fill this in.",
     "invalidEmail": "Type an email like name@example.com.",
-    "tooLong": "This is too long."
+    "tooLong": "This is too long.",
+    "currentPassword": "Current password",
+    "temporaryPassword": "Temporary password",
+    "newPassword": "New password",
+    "newPasswordHint": "At least 10 characters",
+    "confirmPassword": "New password again",
+    "passwordsDiffer": "The two passwords are different."
   },
   "signIn": {
     "title": "Sign in",
@@ -31,5 +37,52 @@
     "submit": "Continue",
     "submitting": "Checking",
     "startAgain": "Start signing in again"
+  },
+  "changePassword": {
+    "title": "Choose a new password",
+    "pendingIntro": "Your admin gave you a temporary password. Choose your own to continue.",
+    "intro": "Choose a new password. You'll stay signed in here; other devices are signed out.",
+    "submit": "Save new password",
+    "submitting": "Saving",
+    "changed": "Your password is changed."
+  },
+  "twoFactorSetup": {
+    "title": "Set up two-factor sign-in",
+    "pendingIntro": "Your organization asks everyone to sign in with a code from an authenticator app as well as a password.",
+    "intro": "Sign in with a code from an authenticator app as well as your password.",
+    "passwordStep": "Confirm your password to start.",
+    "start": "Continue",
+    "starting": "Checking",
+    "scan": "Scan this code with an authenticator app such as Google Authenticator or Microsoft Authenticator.",
+    "qrLabel": "QR code to add this account to an authenticator app",
+    "manualKey": "Can't scan it? Type this key instead:",
+    "confirmStep": "Then type the 6-digit code the app shows.",
+    "confirm": "Turn on",
+    "confirming": "Turning on",
+    "backupTitle": "Save your backup codes",
+    "backupIntro": "If you lose your phone, each of these codes signs you in once. Keep them somewhere safe; they won't be shown again.",
+    "copyCodes": "Copy codes",
+    "copied": "Codes copied",
+    "done": "I've saved them"
+  },
+  "account": {
+    "title": "Your account",
+    "name": "Name",
+    "email": "Email",
+    "username": "Username",
+    "organization": "Organization",
+    "role": "Role",
+    "password": "Password",
+    "changePassword": "Change password",
+    "twoFactor": "Two-factor sign-in",
+    "twoFactorOn": "On",
+    "twoFactorOff": "Off",
+    "twoFactorRequired": "Your organization requires it, so it stays on.",
+    "setUp": "Set up",
+    "turnOff": "Turn off",
+    "turnOffTitle": "Turn off two-factor sign-in?",
+    "turnOffIntro": "You'll sign in with your password only. Confirm your password to turn it off.",
+    "turningOff": "Turning off",
+    "turnedOff": "Two-factor sign-in is off."
   }
 }
