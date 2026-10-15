@@ -9,7 +9,7 @@
     "build": "next build",
     "start": "next start --port 3000",
     "typecheck": "next typegen && tsc --noEmit && tsc --noEmit -p src/service-worker",
-    "lint": "eslint .",
+    "lint": "next typegen && eslint .",
     "test": "vitest run",
     "e2e": "playwright test"
   },
@@ -41,7 +41,7 @@
     "idb-keyval": "6.3.0",
     "input-otp": "1.5.0",
     "lucide-react": "1.56.0",
-    "next": "16.4.0",
+    "next": "16.4.1",
     "next-intl": "4.14.9",
     "radix-ui": "1.8.1",
     "react": "catalog:",
@@ -54,7 +54,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
-    "@next/eslint-plugin-next": "16.4.0",
+    "@next/eslint-plugin-next": "16.4.1",
     "@playwright/test": "1.64.0",
     "@tailwindcss/turbopack": "4.3.3",
     "@testing-library/jest-dom": "7.0.1",
