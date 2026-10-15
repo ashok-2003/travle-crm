@@ -10,5 +10,6 @@
     "paths": { "@/*": ["./src/*"] }
   },
   "include": ["next-env.d.ts", "src", "scripts", "test", "*.ts", ".next/types/**/*.ts", ".next/dev/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  // The service worker runs in a worker, not a page: src/service-worker/tsconfig.json checks it with the worker's types.
+  "exclude": ["node_modules", "src/service-worker"]
 }

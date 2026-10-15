@@ -1,5 +1,7 @@
 # Written by `pnpm generate` from the brand package (scripts/generate.ts).
 /public/icons/
+# Bundled by `pnpm generate` from src/service-worker (scripts/service-worker.ts).
+/public/sw.js
 # Playwright's reports and traces.
 /test-results/
 /playwright-report/
