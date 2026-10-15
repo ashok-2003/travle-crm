@@ -40,4 +40,10 @@ export interface ObjectStorage {
    * holds nothing succeeds, so a purge that stopped halfway can run again.
    */
   delete(key: string): Promise<void>;
+  /**
+   * Deletes every file stored under prefix, for good, and returns how many: the platform's purge of one organization's
+   * folder (spec 5). The prefix ends in "/" and is at least two folders deep ("organizations/<id>/"); anything else is
+   * a RangeError. Safe to repeat: an empty folder deletes nothing.
+   */
+  deletePrefix(prefix: string): Promise<number>;
 }
