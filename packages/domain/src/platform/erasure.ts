@@ -5,7 +5,7 @@
 import { randomUUID } from "node:crypto";
 import type { ErasureSubject, QueuedJob, RequestErasureInput } from "@travel-crm/contracts/platform";
 import { erasureSubject } from "@travel-crm/contracts/platform";
-import type { JobData } from "@travel-crm/integrations/jobs";
+import { ownMessage, type JobData } from "@travel-crm/integrations/jobs";
 import { recordAudit, redactAuditEntries } from "../audit/index.js";
 import { deleteRecordFiles } from "../files/index.js";
 import { erasePerson, findOrganizationRecord, personExport } from "../identity/index.js";
@@ -44,7 +44,7 @@ function jobDataOf(organizationId: string, subject: ErasureSubject, requestedBy:
       };
 }
 
-/** Reads a job's data back, refusing anything malformed: a bug, so the job fails loudly. */
+/** Reads a job's data back, refusing anything malformed: a bug, so the job fails loudly, in words the list keeps. */
 export function erasureJobOf(data: JobData): ErasureJob & { requestedBy: string; requestId: string } {
   const { organizationId, requestedBy, requestId, kind, memberId, recordType, recordId } = data;
   if (
@@ -53,7 +53,7 @@ export function erasureJobOf(data: JobData): ErasureJob & { requestedBy: string;
     typeof requestId !== "string" ||
     !isUuid(requestId)
   ) {
-    throw new TypeError("An erasure job needs organizationId, requestedBy and requestId");
+    throw ownMessage(new TypeError("An erasure job needs organizationId, requestedBy and requestId"));
   }
   return {
     organizationId,

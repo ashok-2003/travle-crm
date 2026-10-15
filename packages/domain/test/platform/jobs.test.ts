@@ -3,6 +3,7 @@
 import { sanitizeJobError } from "@travel-crm/integrations/jobs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
+  DELETE_STORED_FILES_QUEUE,
   ERASE_SUBJECT_QUEUE,
   EXPIRE_EXPORTS_QUEUE,
   EXPORT_ORGANIZATION_QUEUE,
@@ -22,12 +23,13 @@ describe("the platform's job handlers", () => {
     await test.close();
   });
 
-  it("cover the purge, the erasure, the export and its expiry, once each", () => {
+  it("cover the purge, the erasure, the stored files' deletions, the export and its expiry, once each", () => {
     const queues = platformJobHandlers(test.services).map((handler) => handler.queue);
     expect(queues).toEqual(
       expect.arrayContaining([
         PURGE_ORGANIZATION_QUEUE,
         ERASE_SUBJECT_QUEUE,
+        DELETE_STORED_FILES_QUEUE,
         EXPORT_ORGANIZATION_QUEUE,
         EXPIRE_EXPORTS_QUEUE,
       ]),
@@ -35,7 +37,7 @@ describe("the platform's job handlers", () => {
     expect(new Set(queues).size).toBe(queues.length);
   });
 
-  it("refuse a purge or an export job without its id, in words of ours the failed-jobs list keeps", async () => {
+  it("refuse a purge, an erasure or an export job without its ids, in words of ours the failed-jobs list keeps", async () => {
     const handlerOf = (queue: string) => {
       const handler = platformJobHandlers(test.services).find((candidate) => candidate.queue === queue);
       if (!handler) throw new Error(`no handler for ${queue}`);
@@ -49,6 +51,9 @@ describe("the platform's job handlers", () => {
       );
     expect(await storedFailure(handlerOf(PURGE_ORGANIZATION_QUEUE).handle({ requestedBy: null }))).toBe(
       "TypeError: A purge job needs an organizationId",
+    );
+    expect(await storedFailure(handlerOf(ERASE_SUBJECT_QUEUE).handle({ organizationId: "x", kind: "record" }))).toBe(
+      "TypeError: An erasure job needs organizationId, requestedBy and requestId",
     );
     expect(await storedFailure(handlerOf(EXPORT_ORGANIZATION_QUEUE).handle({ exportId: 42 }))).toBe(
       "TypeError: An export job needs an exportId",
