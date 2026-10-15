@@ -19,7 +19,7 @@ export interface GeneratedFile {
   sensitive?: boolean | undefined;
   /**
    * A UUID the caller chooses, so a retried job stores the file once: a file already stored under it for the same
-   * record is returned as it is.
+   * record is returned as it is. The first run's file name and sensitive flag win: a retry with others changes neither.
    */
   attachmentId?: string | undefined;
 }

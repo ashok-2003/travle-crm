@@ -20,7 +20,8 @@ model OutboxEvent {
   @@map("outbox_event")
 }
 
-/// Which listener has handled which event, so each listener runs once per event (spec 9.1). Append-only.
+/// Which listener has handled which event, so a repeat of a finished run is skipped (spec 9.1). Listeners still run at
+/// least once: overlapping or crashed runs can repeat. Append-only.
 model ProcessedEvent {
   /// Filled from db.forOrg()'s organization when omitted.
   organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid

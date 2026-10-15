@@ -37,7 +37,7 @@ Date: 2026-10-15 · Status: accepted · Implements spec section 9.5, and closes 
 - **Why grants, not a trigger.** A trigger that refuses updates can be dropped or bypassed by its owner; a missing
   grant can't be used by the runtime role at all, and the isolation suite proves it on every run.
 - **Why no names or email addresses in staff entries.** The log is append-only and outlives the account: a removed
-  person's email is released for reuse (ADR 0007), and a DPDP erasure request should not have to edit the audit log.
+  person's email is released for reuse (ADR 0007), and staff entries hold no names, so erasure needn't edit them.
   The member id leads to the person while their user row exists; erasure clears the name there (ADR 0007).
 - **Why record impersonation in an after hook.** Only Better Auth knows whether the call succeeded; the hook reads the
   new session's `impersonatedBy` on start, and the session being ended on stop. The start entry records when the

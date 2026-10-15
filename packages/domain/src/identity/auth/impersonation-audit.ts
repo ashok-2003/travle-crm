@@ -13,7 +13,7 @@ const STOPPED = "/admin/stop-impersonating";
 interface Impersonation {
   userId: string;
   adminUserId: string;
-  /** When the impersonation session lapses, if it isn't ended sooner; recorded at the start only. */
+  /** When the impersonation session lapses, if it isn't ended sooner. The start and stop entries both carry it. */
   expiresAt?: Date | undefined;
   /** The impersonation session's token, so a start that can't be recorded can end it again. */
   token?: string | undefined;

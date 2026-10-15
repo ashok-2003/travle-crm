@@ -1,5 +1,6 @@
-// Runs one listener on one event, in the event's organization, at most once per event (spec 9.1). The worker calls
-// it for each job the relay queued.
+// Runs one listener on one event, in the event's organization (spec 9.1). A run that finds the event already handled
+// skips it, but two runs can still overlap or repeat after a crash: listeners run at least once. The worker calls it
+// for each job the relay queued.
 import type { Database } from "@travel-crm/db";
 import type { JobData } from "@travel-crm/integrations/jobs";
 import { isUuid, systemActor } from "../kernel/index.js";

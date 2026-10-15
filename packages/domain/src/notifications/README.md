@@ -5,13 +5,14 @@ in build step 2.
 
 ## Public functions and values (`index.ts`)
 
-- `notify(tx, actor, { recipientUserIds, kind, title, body, link?, channels })`: the one service every module calls,
-  in its own transaction. One bell notification per person (the actor is left out: nobody is told about their own
-  action), and when `channels` names `email` or `push`, one `notification.created` event per notification. Returns
-  the ids.
-- `deliverNotificationListener({ email, push, organizationProfile, memberContacts, appUrl })`: the worker's listener
-  `notifications.deliver`. Pass identity's `organizationProfile` and `memberContacts`, the email and push adapters,
-  and the web app's address.
+- `notify(tx, actor, { recipientUserIds, excludeUserIds?, sourceEventId?, kind, title, body, link?, channels })`: the
+  one service every module calls, in its own transaction. One bell notification per person (the actor and anyone in
+  `excludeUserIds` are left out: nobody is told about their own action), and when `channels` names `email` or `push`,
+  one `notification.created` event per notification. A listener passes its event's id as `sourceEventId`, so running
+  again adds nothing. Returns the ids of the notifications this call created.
+- `deliverNotificationListener({ email, push, organizationProfile, memberContacts, appUrl, log })`: the worker's
+  listener `notifications.deliver`. Pass identity's `organizationProfile` and `memberContacts`, the email and push
+  adapters, the web app's address, and the worker's log (ids and codes only).
 - The bell, always the acting person's own: `listNotifications(tx, actor, { cursor?, limit? })` (newest first),
   `unreadCount(tx, actor)`, `markRead(tx, actor, { notificationIds } | { all: true })`.
 - Opt-outs: `setPreference(tx, actor, { channel, kind, optedOut })`, `listPreferences(tx, actor)`,

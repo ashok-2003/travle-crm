@@ -37,7 +37,9 @@ person)` is unique, so a repeat adds no second notification. Requests pass none,
   left; staff without email get push and the bell, never an email to their placeholder address.
 - **Links are paths inside the web app**, checked by the contract and the table (`notification_link_path`), so a
   notification can't send anyone to another site.
-- **Notifications are append-only for the api and worker**, except `read_at`, `emailed_at` and `pushed_at`.
+- **Notifications are append-only for the api and worker**, except seven columns: `read_at`, and for email and push
+  each its claim, sent marker and failure (`email_claimed_at`, `emailed_at`, `email_failed_at`, `push_claimed_at`,
+  `pushed_at`, `push_failed_at`).
 
 ## Context
 
