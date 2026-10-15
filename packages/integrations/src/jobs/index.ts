@@ -2,6 +2,7 @@
 export { describeError } from "./describe-error.js";
 export { assertQueueName, type JobData, type JobOptions, type JobQueue } from "./job-queue.js";
 export type { JobHandlerFunction, JobRunner, RunningJob, ScheduleOptions } from "./job-runner.js";
+export type { FailedJob, FailedJobsAfter, FailedJobsOptions, JobAdministration } from "./job-administration.js";
 export { createMemoryJobAdministration, type MemoryJobAdministration } from "./memory-job-administration.js";
 export { createMemoryJobQueue, type MemoryJobQueue, type SentJob } from "./memory-job-queue.js";
 export {
@@ -10,13 +11,7 @@ export {
   type MemoryJobRunner,
   type MemorySchedule,
 } from "./memory-job-runner.js";
-export {
-  createPgBossJobs,
-  type FailedJob,
-  type JobAdministration,
-  type PgBossJobs,
-  type PgBossJobsSettings,
-} from "./pg-boss-jobs.js";
+export { createPgBossJobs, type PgBossJobs, type PgBossJobsSettings } from "./pg-boss-jobs.js";
 export { defaultRetryPolicy, type RetryPolicy } from "./retry-policy.js";
 export {
   maskPersonalData,

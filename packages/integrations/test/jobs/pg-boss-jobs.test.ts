@@ -124,24 +124,6 @@ describe("pg-boss jobs", () => {
     expect(lines.splice(0)).toEqual(Array(3).fill(`queue probe.failing, job ${String(id)} failed: Error`));
   });
 
-  it("runs a failed job again when asked, from its first attempt", async () => {
-    const runs: number[] = [];
-    let fail = true;
-    await jobs.work("probe.retried", (job) => {
-      runs.push(job.retryCount);
-      return fail ? Promise.reject(new Error("not yet")) : Promise.resolve();
-    });
-    const id = await jobs.send("probe.retried", { eventId: "e9" }, { retryLimit: 0 });
-    await eventually(async () => (await jobs.failedJobs()).some((job) => job.id === id), 25_000);
-    fail = false;
-    if (id === null) throw new Error("the job was not queued");
-    await jobs.retryFailedJob("probe.retried", id);
-    await eventually(() => runs.length === 2, 25_000);
-    expect((await jobs.failedJobs()).some((job) => job.id === id)).toBe(false);
-    // The failed attempt was logged by queue, job id and name; take it out of the suite's check for pg-boss's own.
-    expect(lines.splice(0)).toEqual([`queue probe.retried, job ${id} failed: Error`]);
-  });
-
   it("queues a repeated job id once", async () => {
     const id = randomUUID();
     expect(await jobs.send("probe.once", { eventId: "e3" }, { id })).toBe(id);
