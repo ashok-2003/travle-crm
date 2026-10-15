@@ -18,6 +18,8 @@ describe("impersonation targets", () => {
   it("refuses support impersonating platform staff, support or super admin", async () => {
     const support = await createPlatformAdmin(test, "support-password-1");
     const headers = await signInByEmail(test.identity, support.email, "support-password-1");
+    // Two-factor on, as the side doors require of platform staff (impersonation-two-factor.test.ts).
+    await test.database.client.user.update({ where: { id: support.userId }, data: { twoFactorEnabled: true } });
     const otherSupport = await createPlatformAdmin(test, "other-password-1");
     const superAdmin = await createPlatformAdmin(test, "super-password-1");
     await test.database.client.user.update({

@@ -38,7 +38,9 @@ Who can sign in, to which organization, and what they may do (spec section 6).
   `organizationUserIds(tx, organizationId)` and `deleteUsers(tx, userIds)` (a purge's people, with their sessions and
   memberships).
 - `memberActivity(tx, organizationIds)`: seats used and the last activity per organization, for the platform
-  dashboard. `recordMemberActivity(database, access, now?)` keeps that activity on the member: the api calls it, as
+  dashboard. `organizationMembers(tx, organizationId)`: the organization's active members (removed and banned ones
+  left out) with their role's name, whether it is the Owner's, their real email or none, whether they have a password
+  yet and their last activity, for the console's organization page; read inside the organization (`asOrganization`). `recordMemberActivity(database, access, now?)` keeps that activity on the member: the api calls it, as
   `Identity.recordActivity(access)`, on each request it lets through, and it writes at most once a day, never for
   support's impersonation. Signing out keeps it.
 - `IdentityOptions.seatLimit` (a `SeatLimit`): the seats an organization's plan gives. `staff.create` refuses past them

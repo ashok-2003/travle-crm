@@ -26,9 +26,9 @@ export interface SideDoorOptions {
  * - a member rewriting their username into another organization's namespace (only our staff API changes usernames),
  *   and probing which usernames exist;
  * - /admin/* over HTTP, except starting and stopping support's impersonation;
- * - /admin/* for anyone who isn't platform staff by our definition (Better Auth checks user.role alone) or still has a
- *   temporary password to replace, making a person with a membership a platform admin, and impersonating anyone but
- *   an organization's active staff;
+ * - /admin/* for anyone who isn't platform staff by our definition (Better Auth checks user.role alone), still has a
+ *   temporary password to replace or hasn't set up two-factor, making a person with a membership a platform admin,
+ *   and impersonating anyone but an organization's active staff;
  * - Better Auth's organization endpoints over HTTP (members and roles go through our own API);
  * - signing in by a placeholder ".invalid" email, which staff without an email (or removed staff) carry, over HTTP and
  *   from server-side calls alike;
@@ -98,6 +98,10 @@ export function closeSideDoors(client: IdentityClient, options: SideDoorOptions 
         // As in the console: a temporary password is replaced before anything else, impersonation included.
         if (staff.mustChangePassword) {
           throw new APIError("FORBIDDEN", { code: "CHANGE_PASSWORD", message: "Choose a new password first" });
+        }
+        // Then two-factor, also as in the console: the platform's accounts reach every organization's data.
+        if (!staff.twoFactorEnabled) {
+          throw new APIError("FORBIDDEN", { code: "SET_UP_TWO_FACTOR", message: "Set up two-factor sign-in first" });
         }
       }
       if (ctx.path === "/admin/impersonate-user") {

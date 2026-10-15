@@ -57,15 +57,21 @@ async function choose(label: string, option: RegExp | string): Promise<void> {
   await userEvent.click(await screen.findByRole("option", { name: option }));
 }
 
+/** Types into a field at once, as a paste: the form reads it the same way, and jsdom is slow at keystrokes. */
+async function fill(label: string, text: string): Promise<void> {
+  await userEvent.click(screen.getByLabelText(label));
+  await userEvent.paste(text);
+}
+
 /** Everything the form asks for, the usual trial left as it is. */
 async function fillIn(): Promise<void> {
-  await userEvent.type(screen.getByLabelText(onboard.agency.name), "Kerala Trails");
-  await userEvent.type(screen.getByLabelText(onboard.agency.code), "kerala");
-  await userEvent.type(screen.getByLabelText(onboard.agency.contactEmail), "hello@keralatrails.example");
-  await userEvent.type(screen.getByLabelText(onboard.profile.legalName), "Kerala Trails LLP");
+  await fill(onboard.agency.name, "Kerala Trails");
+  await fill(onboard.agency.code, "kerala");
+  await fill(onboard.agency.contactEmail, "hello@keralatrails.example");
+  await fill(onboard.profile.legalName, "Kerala Trails LLP");
   await choose(onboard.profile.gstState, /Kerala/);
-  await userEvent.type(screen.getByLabelText(onboard.owner.name), "Lakshmi Nair");
-  await userEvent.type(screen.getByLabelText(onboard.owner.email), "lakshmi@keralatrails.example");
+  await fill(onboard.owner.name, "Lakshmi Nair");
+  await fill(onboard.owner.email, "lakshmi@keralatrails.example");
   await choose(onboard.subscription.plan, /Growth/);
 }
 
@@ -74,7 +80,8 @@ afterEach(() => {
   navigation.push.mockReset();
 });
 
-describe("OnboardScreen", () => {
+// A long form with Radix selects: jsdom takes seconds over each journey through it, more on a busy machine.
+describe("OnboardScreen", { timeout: 20_000 }, () => {
   it("offers the plans on sale with their prices, and their cycles once one is chosen", async () => {
     renderOnboarding();
     expect(await screen.findByRole("heading", { level: 1, name: onboard.title })).toBeVisible();
@@ -135,7 +142,7 @@ describe("OnboardScreen", () => {
     const api = renderOnboarding();
     await screen.findByRole("combobox", { name: onboard.subscription.plan });
     await fillIn();
-    await userEvent.type(screen.getByLabelText(onboard.profile.gstin), "27AAPFU0939F1ZV");
+    await fill(onboard.profile.gstin, "27AAPFU0939F1ZV");
     await userEvent.click(screen.getByRole("button", { name: onboard.submit }));
     expect(await screen.findByText(onboard.problems.gstinOtherState)).toBeVisible();
     expect(api.calls).not.toContain("platform.organizations.onboard");

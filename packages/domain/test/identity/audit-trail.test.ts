@@ -67,10 +67,14 @@ describe("identity's audit trail", () => {
     return [...jar.values()].join("; ");
   }
 
-  /** A platform admin (user role "admin", no membership), signed in; returns their id and session cookies. */
+  /**
+   * A platform admin (user role "admin", no membership), signed in, then with two-factor on as the setup screen leaves
+   * them (the side doors require it); returns their id and session cookies.
+   */
   async function signedInPlatformAdmin(): Promise<{ userId: string; cookie: string }> {
     const { userId, email } = await createPlatformAdmin(test, "support-password-1");
     const signIn = await post("/sign-in/email", "", { email, password: "support-password-1" });
+    await test.database.client.user.update({ where: { id: userId }, data: { twoFactorEnabled: true } });
     return { userId, cookie: cookiesAfter("", signIn) };
   }
 

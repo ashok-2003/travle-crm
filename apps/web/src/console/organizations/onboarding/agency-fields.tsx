@@ -45,7 +45,12 @@ export function ProfileFields({ control }: { control: Control<OnboardValues> }) 
     <FieldSet>
       <FieldLegend className="text-section font-semibold">{t("heading")}</FieldLegend>
       <TextField control={control} name="legalName" label={t("legalName")} hint={t("legalNameHint")} />
-      <GstStateField control={control} name="gstStateCode" label={t("gstState")} />
+      <GstStateField
+        control={control}
+        name="gstStateCode"
+        label={t("gstState")}
+        placeholder={t("gstStatePlaceholder")}
+      />
       <TextField
         control={control}
         name="gstin"

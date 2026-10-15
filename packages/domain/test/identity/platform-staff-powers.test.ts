@@ -28,7 +28,7 @@ describe("platform staff's powers in Better Auth", () => {
     await platform.$disconnect();
   });
 
-  /** Platform staff at this Better Auth role, never a member, signed in by email. */
+  /** Platform staff at this Better Auth role, never a member, signed in by email, then with two-factor on. */
   async function signedInStaff(role: "admin" | "super-admin", mustChangePassword = false) {
     const email = `staff-${crypto.randomUUID()}@platform.test`;
     const user = await platform.user.create({ data: { name: "Platform person", email, role, mustChangePassword } });
@@ -36,7 +36,9 @@ describe("platform staff's powers in Better Auth", () => {
     await platform.account.create({
       data: { userId: user.id, accountId: user.id, providerId: "credential", password: hash },
     });
-    return { userId: user.id, headers: await signInByEmail(test.identity, email, "platform-password-1") };
+    const headers = await signInByEmail(test.identity, email, "platform-password-1");
+    await platform.user.update({ where: { id: user.id }, data: { twoFactorEnabled: true } });
+    return { userId: user.id, headers };
   }
 
   /** Starts an impersonation over HTTP, as the console does. */

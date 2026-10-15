@@ -33,7 +33,9 @@ test("support onboards an agency, whose Owner chooses a password from the invite
 
   await expect(page.getByRole("heading", { level: 1, name: "Kerala Trails" })).toBeVisible();
   await expect(page.getByText("The Owner has an email invite to choose a password.")).toBeVisible();
-  await expect(page.getByText(code, { exact: true })).toBeVisible();
+  const record = page.getByRole("region", { name: "Organization" });
+  await expect(record.getByText(code, { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Members" }).getByText("Invite sent, no password yet")).toBeVisible();
 
   // The Owner, in a browser of their own.
   await page.context().clearCookies();

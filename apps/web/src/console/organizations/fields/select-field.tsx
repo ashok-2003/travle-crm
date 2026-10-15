@@ -26,7 +26,7 @@ export function SelectField<Values extends FieldValues>({
   name: FieldPath<Values>;
   label: string;
   hint?: string;
-  placeholder?: string;
+  placeholder?: string | undefined;
   options: SelectOption[];
   /** Runs after the field takes a new value, for fields that follow it. */
   onChosen?: (value: string) => void;

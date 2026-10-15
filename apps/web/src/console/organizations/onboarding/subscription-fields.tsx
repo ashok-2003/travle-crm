@@ -51,6 +51,7 @@ export function SubscriptionFields({
         control={form.control}
         name="planId"
         label={t("plan")}
+        placeholder={t("planPlaceholder")}
         options={plans.map((plan) => ({ value: plan.id, label: planLabel(plan) }))}
         onChosen={(value) => {
           const plan = plans.find((candidate) => candidate.id === value);

@@ -14,6 +14,7 @@ import {
   type TestServer,
 } from "./support/test-server.js";
 import { dataOf, mutate, query, refusalOf } from "./support/trpc.js";
+import { enableTwoFactor } from "./support/two-factor.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -83,6 +84,8 @@ describe("the subscription's request check", () => {
     const admin = await createPlatformAdmin(server);
     const jar = new CookieJar();
     await signInByEmail(server, jar, admin.email, admin.password);
+    // Support impersonates only with two-factor on (impersonation-two-factor.test.ts in the domain).
+    await enableTwoFactor(server, jar, admin.password);
     jar.absorb(await postJson(server, "/api/auth/admin/impersonate-user", { userId: agency.owner.userId }, jar));
     expect((await query(server, "settings.get", jar)).status).toBe(200);
     await server.platform.session.deleteMany({ where: { impersonatedBy: admin.userId } });

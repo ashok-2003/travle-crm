@@ -21,7 +21,8 @@
       "contactName": "Contact person",
       "contactNameHint": "Optional.",
       "contactPhone": "Contact phone",
-      "contactPhoneHint": "Optional. For example 98765 43210."
+      "contactPhoneHint": "Optional. For example 98765 43210.",
+      "gstStatePlaceholder": "Choose the state"
     },
     "owner": {
       "heading": "Owner",
@@ -53,7 +54,8 @@
       "loading": "Loading the plans",
       "plansLoadFailed": "The plans didn't load.",
       "noPlans": "No plan is on sale. A super admin adds plans on the Plans screen.",
-      "plansLink": "Open Plans"
+      "plansLink": "Open Plans",
+      "planPlaceholder": "Choose a plan"
     },
     "submit": "Onboard the agency",
     "submitting": "Onboarding",
@@ -88,6 +90,76 @@
     "loadFailed": "The organization didn't load.",
     "notFound": "There is no such organization. It may have been deleted for good.",
     "backToDashboard": "Back to the dashboard",
-    "onboarded": "The Owner has an email invite to choose a password. Its link lasts 72 hours."
+    "onboarded": "The Owner has an email invite to choose a password. Its link lasts 72 hours.",
+    "dataProtection": "Data protection"
+  },
+  "record": {
+    "heading": "Organization",
+    "name": "Name",
+    "code": "Organization code",
+    "timeZone": "Time zone",
+    "contactEmail": "Contact email",
+    "noContactEmail": "None",
+    "onboardedOn": "Onboarded on",
+    "correct": "Correct details",
+    "dialogTitle": "Correct the organization's details",
+    "dialogDescription": "Its name, time zone and contact email. Its code never changes: staff usernames contain it.",
+    "contactEmailHint": "Optional. Replies to the agency's emails go here.",
+    "save": "Save",
+    "saving": "Saving",
+    "saved": "Saved",
+    "problems": {
+      "required": "Fill this in.",
+      "nameInvalid": "Use at most 120 characters.",
+      "emailInvalid": "Type a real email address, like name@example.com.",
+      "timeZoneInvalid": "Choose a time zone."
+    }
+  },
+  "profile": {
+    "heading": "Business profile",
+    "hint": "The Owner keeps it up to date from the agency's settings; the account number shows its last four digits only.",
+    "none": "No business profile yet.",
+    "legalName": "Legal name",
+    "gstin": "GSTIN",
+    "gstState": "GST state",
+    "address": "Address",
+    "contactName": "Contact person",
+    "contactPhone": "Contact phone",
+    "bankAccountName": "Account name",
+    "bankAccountNumber": "Account number",
+    "bankIfsc": "IFSC",
+    "bankName": "Bank",
+    "invoicePrefix": "Invoice prefix",
+    "notGiven": "Not given"
+  },
+  "members": {
+    "heading": "Members",
+    "loading": "Loading the members",
+    "loadFailed": "The members didn't load.",
+    "empty": "No active members.",
+    "owner": "Owner",
+    "noEmail": "No email",
+    "neverActive": "Never",
+    "invitePending": "Invite sent, no password yet",
+    "columns": {
+      "name": "Name",
+      "role": "Role",
+      "email": "Email",
+      "lastActive": "Last active",
+      "actions": "Actions"
+    },
+    "lastActive": "Last active {date}",
+    "impersonate": "Sign in as {name}",
+    "resendInvite": "Resend the invite",
+    "resending": "Sending",
+    "inviteSent": "A new invite is on its way to {email}.",
+    "neverUsed": "Hasn't used the app yet"
+  },
+  "impersonate": {
+    "title": "Sign in as {name}?",
+    "description": "You'll see {organization} as {name} does, and what you change is theirs. It is recorded in the organization's audit log and ends after an hour at most. Stop from the banner at the top.",
+    "confirm": "Sign in as {name}",
+    "starting": "Signing in",
+    "notAMember": "{name} is no longer active staff, so you can't sign in as them."
   }
 }

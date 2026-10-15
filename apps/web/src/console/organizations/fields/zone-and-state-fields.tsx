@@ -31,10 +31,12 @@ export function GstStateField<Values extends FieldValues>({
   control,
   name,
   label,
+  placeholder,
 }: {
   control: Control<Values>;
   name: FieldPath<Values>;
   label: string;
+  placeholder?: string;
 }) {
   const options = gstStates.map((state) => ({
     value: state.code,
@@ -45,5 +47,5 @@ export function GstStateField<Values extends FieldValues>({
       </span>
     ),
   }));
-  return <SelectField control={control} name={name} label={label} options={options} />;
+  return <SelectField control={control} name={name} label={label} placeholder={placeholder} options={options} />;
 }

@@ -1,8 +1,9 @@
 "use client";
 
 // /console/organizations/<id>: one organization as the console shows it (organizations.get): its name, sign-in code
-// and status today; just after onboarding, that the Owner's invite is on its way. An organization that doesn't exist
-// (purged, or a mistyped address) is said so, with the way back to the dashboard.
+// and status today; just after onboarding, that the Owner's invite is on its way; its row with corrections, its
+// business profile and its members; for super admins, the way to its data protection. An organization that doesn't
+// exist (purged, or a mistyped address) is said so, with the way back to the dashboard.
 import { useQuery } from "@tanstack/react-query";
 import { CircleCheckIcon, SearchXIcon } from "lucide-react";
 import Link from "next/link";
@@ -17,12 +18,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { refusalOf } from "@/data/api-error";
 import { useConsoleTRPC } from "../../data/console-trpc";
 import { consoleRoutes } from "../../routes";
+import { isSuperAdmin, useStaff } from "../../session/staff-context";
 import { SubscriptionStatusBadge } from "../../subscription-status";
+import { MembersSection } from "./members-section";
+import { ProfileSection, RecordSection } from "./record-and-profile";
 
 export function OrganizationScreen({ organizationId, onboarded }: { organizationId: string; onboarded: boolean }) {
   const t = useTranslations("consoleOrganizations.organization");
   const tCommon = useTranslations("common");
   const trpc = useConsoleTRPC();
+  const staff = useStaff();
   const details = useQuery(trpc.organizations.get.queryOptions({ organizationId }));
 
   if (!details.data) {
@@ -53,14 +58,19 @@ export function OrganizationScreen({ organizationId, onboarded }: { organization
     );
   }
 
-  const { organization, subscription } = details.data;
+  const { organization, profile, subscription } = details.data;
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex max-w-[1200px] flex-col gap-8">
       <div className="flex flex-col gap-2">
         <PageTitle className="text-balance break-words script-leading">{organization.name}</PageTitle>
         <p className="flex flex-wrap items-center gap-3">
           <span className="numbers">{organization.code}</span>
           <SubscriptionStatusBadge status={subscription?.subscription.status ?? null} />
+          {isSuperAdmin(staff) && (
+            <Button asChild variant="ghost">
+              <Link href={consoleRoutes.dataProtection(organization.id)}>{t("dataProtection")}</Link>
+            </Button>
+          )}
         </p>
       </div>
       {onboarded && (
@@ -69,6 +79,9 @@ export function OrganizationScreen({ organizationId, onboarded }: { organization
           <AlertDescription>{t("onboarded")}</AlertDescription>
         </Alert>
       )}
+      <RecordSection organization={organization} />
+      <ProfileSection profile={profile} />
+      <MembersSection organization={organization} />
     </div>
   );
 }

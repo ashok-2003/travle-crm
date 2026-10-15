@@ -12,6 +12,7 @@ import {
   type TestServer,
 } from "./support/test-server.js";
 import { dataOf, mutate, refusalOf } from "./support/trpc.js";
+import { enableTwoFactor } from "./support/two-factor.js";
 
 describe("the audit log", () => {
   let server: TestServer;
@@ -68,6 +69,8 @@ describe("the audit log", () => {
     const admin = await createPlatformAdmin(server);
     const jar = new CookieJar();
     await signInByEmail(server, jar, admin.email, admin.password);
+    // Support impersonates only with two-factor on (impersonation-two-factor.test.ts in the domain).
+    await enableTwoFactor(server, jar, admin.password);
     const started = jar.absorb(
       await postJson(server, "/api/auth/admin/impersonate-user", { userId: agency.owner.userId }, jar),
     );
