@@ -7,7 +7,7 @@ import type { Files } from "@travel-crm/domain/files";
 import type { Identity } from "@travel-crm/domain/identity";
 import type { EventListener, JobHandler, ScheduledJob } from "@travel-crm/domain/jobs";
 import { deliverNotificationListener, forgetPushSubscriptionsListener } from "@travel-crm/domain/notifications";
-import { purgeExpiredRateLimits, RATE_LIMIT_PURGE_QUEUE } from "@travel-crm/domain/rate-limits";
+import { purgeExpiredRateLimits, RATE_LIMIT_PURGE_QUEUE, type RateLimiter } from "@travel-crm/domain/rate-limits";
 import { notifySharerListener } from "@travel-crm/domain/share-links";
 import { ADVANCE_SUBSCRIPTIONS_QUEUE, advanceSubscriptions } from "@travel-crm/domain/subscriptions";
 import { processWebhookJob, WEBHOOK_PROCESS_QUEUE, type WebhookProvider } from "@travel-crm/domain/webhooks";
@@ -25,6 +25,8 @@ export interface WorkerJobDependencies {
   /** The web app's address, for links in notification emails. */
   appUrl: string;
   webhookProviders: readonly WebhookProvider[];
+  /** Counts each address's password emails: the invites share plan 3's per-recipient cap. */
+  rateLimiter: RateLimiter;
   /** Where problems that need attention go, one line each, ids and codes only: the worker's log. */
   log: (line: string) => void;
 }
@@ -38,7 +40,7 @@ export interface WorkerJobs {
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
-  const { db, identity, files, email, push, appUrl, webhookProviders, log } = dependencies;
+  const { db, identity, files, email, push, appUrl, webhookProviders, rateLimiter, log } = dependencies;
   return {
     listeners: [
       renderIssuedDocumentListener({ files, render: renderPdf }),
@@ -54,7 +56,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
         memberContacts: (organizationId, userIds) => identity.memberContacts(organizationId, userIds),
       }),
       forgetPushSubscriptionsListener,
-      identity.inviteListener({ email, appUrl }),
+      identity.inviteListener({ email, appUrl, limiter: rateLimiter }),
     ],
     handlers: [
       {
