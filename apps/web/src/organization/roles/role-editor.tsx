@@ -4,23 +4,22 @@
 import { roleName, type PermissionCatalogEntry, type RoleSummary } from "@travel-crm/contracts/identity";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { useErrorMessage } from "@/lib/error-message";
 import { DeleteRoleDialog } from "./delete-role-dialog";
-import { toGrantInputs, type Grant } from "./permission-grants";
+import { toGrantInputs } from "./permission-grants";
 import { PermissionsEditor } from "./permissions-editor";
+import { useEditableRole } from "./use-editable-role";
 import { useUpdateRole } from "./use-roles";
 
 export function RoleEditor({ role, catalog }: { role: RoleSummary; catalog: PermissionCatalogEntry[] }) {
   const t = useTranslations("roles");
   const { apiError } = useErrorMessage();
   const update = useUpdateRole();
-  const [name, setName] = useState(role.name);
-  const [grants, setGrants] = useState<Grant[]>(role.permissions);
+  const { name, setName, grants, setGrants, changedUnderYou, loadSaved } = useEditableRole(role);
   const [nameInvalid, setNameInvalid] = useState(false);
 
   if (role.isOwner) {
@@ -41,12 +40,19 @@ export function RoleEditor({ role, catalog }: { role: RoleSummary; catalog: Perm
         const parsed = roleName.safeParse(name);
         setNameInvalid(!parsed.success);
         if (!parsed.success) return;
-        update.mutate(
-          { key: role.key, name: parsed.data, permissions: toGrantInputs(grants) },
-          { onSuccess: (saved) => toast.success(t("editor.saved", { name: saved.name })) },
-        );
+        update.mutate({ key: role.key, name: parsed.data, permissions: toGrantInputs(grants) });
       }}
     >
+      {changedUnderYou && (
+        <Alert>
+          <AlertDescription className="flex flex-col items-start gap-2">
+            {t("editor.changedUnderYou")}
+            <Button type="button" variant="outline" onClick={loadSaved}>
+              {t("editor.loadSaved")}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
       <Field data-invalid={nameInvalid}>
         <FieldLabel htmlFor="role-name">{t("editor.name")}</FieldLabel>
         <Input

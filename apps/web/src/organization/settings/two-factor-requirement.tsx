@@ -5,7 +5,6 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { toast } from "sonner";
 import { ErrorState } from "@/components/error-state";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Field, FieldContent, FieldDescription, FieldLabel } from "@/components/ui/field";
@@ -56,10 +55,7 @@ export function TwoFactorRequirement() {
           checked={required}
           disabled={disabled || change.isPending}
           onCheckedChange={(checked) => {
-            change.mutate(
-              { required: checked },
-              { onSuccess: (saved) => toast.success(saved.requireTwoFactor ? t("turnedOn") : t("turnedOff")) },
-            );
+            change.mutate({ required: checked });
           }}
         />
       </Field>

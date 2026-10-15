@@ -74,7 +74,7 @@ export function StaffList({ staff, roles }: { staff: StaffMember[]; roles: RoleS
               </div>
             </TableCell>
             <TableCell className="whitespace-normal break-all">{signInName(member)}</TableCell>
-            <TableCell>{member.role.name}</TableCell>
+            <TableCell className="whitespace-normal">{member.role.name}</TableCell>
             <TableCell>{member.twoFactorEnabled ? t("twoFactorOn") : t("twoFactorOff")}</TableCell>
             <TableCell className="numbers text-right">{joined(member)}</TableCell>
             <TableCell className="text-right">{actions(member)}</TableCell>

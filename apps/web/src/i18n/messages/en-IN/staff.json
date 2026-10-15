@@ -37,6 +37,7 @@
     "organizationCode": "Organization code",
     "copy": "Copy",
     "copied": "Copied",
+    "copyFailed": "Couldn't copy. Select the text and copy it yourself.",
     "done": "Done"
   },
   "form": {

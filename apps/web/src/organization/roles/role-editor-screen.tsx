@@ -27,14 +27,10 @@ export function RoleEditorScreen({ roleKey }: { roleKey: string }) {
 
   const body = () => {
     if (roles.data && catalog.data) {
-      // Keyed by what the role holds, so the editor starts again from the saved role when it changes: when the cached
-      // copy shown first is replaced by the api's answer, or someone else changes it.
+      // Keyed by the role only: when its saved content changes under the editor (the cached copy replaced by the api's
+      // answer, someone else's save) the editor follows it, or warns if the person has unsaved edits.
       return role ? (
-        <RoleEditor
-          key={`${role.key}:${role.name}:${JSON.stringify(role.permissions)}`}
-          role={role}
-          catalog={catalog.data}
-        />
+        <RoleEditor key={role.key} role={role} catalog={catalog.data} />
       ) : (
         <EmptyState icon={SearchXIcon} message={t("editor.notFound")} />
       );

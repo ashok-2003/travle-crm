@@ -10,16 +10,24 @@ import { useMe } from "@/session/me-context";
 import { ResponsiveDialog } from "../responsive-dialog";
 import { CreateStaffForm } from "./create-staff-form";
 import { Handover } from "./handover";
+import { handoverSignInName } from "./staff-details";
+import { useCreateStaff } from "./use-staff";
 
 export function CreateStaffDialog({ roles }: { roles: RoleSummary[] }) {
   const t = useTranslations("staff");
   const me = useMe();
   const [open, setOpen] = useState(false);
   const [created, setCreated] = useState<{ member: StaffMember; password: string } | null>(null);
+  const create = useCreateStaff();
 
   const changeOpen = (next: boolean) => {
     setOpen(next);
-    if (!next) setCreated(null);
+    if (!next) {
+      // The temporary password is in the form's values and the call's variables: let go of both, so it exists only
+      // while this dialog shows it.
+      setCreated(null);
+      create.reset();
+    }
   };
 
   return (
@@ -43,7 +51,7 @@ export function CreateStaffDialog({ roles }: { roles: RoleSummary[] }) {
             <Handover
               name={created.member.name}
               organizationCode={created.member.username === null ? null : me.organization.code}
-              signInName={created.member.username ?? created.member.email}
+              signInName={handoverSignInName(created.member)}
               password={created.password}
             />
             <Button
@@ -58,6 +66,7 @@ export function CreateStaffDialog({ roles }: { roles: RoleSummary[] }) {
         ) : (
           <CreateStaffForm
             roles={roles}
+            create={create}
             onCreated={(member, password) => {
               setCreated({ member, password });
             }}

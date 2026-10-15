@@ -14,7 +14,15 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
       variant="outline"
       aria-label={label}
       onClick={() => {
-        void navigator.clipboard.writeText(value).then(() => toast.success(t("copied")));
+        // Clipboard access can be refused (no permission, an insecure page): say so rather than appear to work.
+        void (async () => {
+          try {
+            await navigator.clipboard.writeText(value);
+            toast.success(t("copied"));
+          } catch {
+            toast.error(t("copyFailed"));
+          }
+        })();
       }}
     >
       <CopyIcon aria-hidden="true" />

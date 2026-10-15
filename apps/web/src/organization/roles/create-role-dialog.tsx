@@ -2,7 +2,6 @@
 
 // "New role": a name first, with no permissions; the editor it opens is where permissions are chosen.
 import { PlusIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { roleName } from "@travel-crm/contracts/identity";
@@ -11,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { useErrorMessage } from "@/lib/error-message";
-import { routes } from "@/lib/routes";
 import { ResponsiveDialog } from "../responsive-dialog";
 import { useCreateRole } from "./use-roles";
 
@@ -19,11 +17,20 @@ export function CreateRoleDialog() {
   const t = useTranslations("roles.create");
   const tRoles = useTranslations("roles");
   const { apiError } = useErrorMessage();
-  const router = useRouter();
   const create = useCreateRole();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [invalid, setInvalid] = useState(false);
+
+  const changeOpen = (next: boolean) => {
+    setOpen(next);
+    // Closed, it starts over: no half-typed name, no old refusal.
+    if (!next) {
+      setName("");
+      setInvalid(false);
+      create.reset();
+    }
+  };
 
   return (
     <>
@@ -35,7 +42,7 @@ export function CreateRoleDialog() {
         <PlusIcon aria-hidden="true" />
         {tRoles("add")}
       </Button>
-      <ResponsiveDialog open={open} onOpenChange={setOpen} title={t("title")} description={t("description")}>
+      <ResponsiveDialog open={open} onOpenChange={changeOpen} title={t("title")} description={t("description")}>
         <form
           noValidate
           className="flex flex-col gap-6"
@@ -44,14 +51,7 @@ export function CreateRoleDialog() {
             const parsed = roleName.safeParse(name);
             setInvalid(!parsed.success);
             if (!parsed.success) return;
-            create.mutate(
-              { name: parsed.data, permissions: [] },
-              {
-                onSuccess: (role) => {
-                  router.push(`${routes.roles}/${role.key}`);
-                },
-              },
-            );
+            create.mutate({ name: parsed.data, permissions: [] });
           }}
         >
           <Field data-invalid={invalid}>

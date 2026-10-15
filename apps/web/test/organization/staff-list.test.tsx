@@ -80,4 +80,14 @@ describe("StaffList", () => {
     const { container } = renderAs(<StaffList staff={leaked} roles={roles} />, owner);
     expect(container.textContent).not.toMatch(/\.invalid/i);
   });
+
+  it("never shows a placeholder address in the phone list either", () => {
+    screenIs("phone");
+    const leaked = staff.map((person) =>
+      person.username === "ravi" ? { ...person, email: "s-ravi@no-email.invalid" } : person,
+    );
+    const { container } = renderAs(<StaffList staff={leaked} roles={roles} />, owner);
+    expect(container.textContent).not.toMatch(/\.invalid/i);
+    expect(screen.getByText(/Sales · ravi · Joined/)).toBeVisible();
+  });
 });

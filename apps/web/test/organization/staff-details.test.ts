@@ -1,7 +1,7 @@
 // Staff are shown by what they sign in with, and never by the placeholder address staff without email carry.
 import type { StaffMember } from "@travel-crm/contracts/identity";
 import { describe, expect, it } from "vitest";
-import { signInName, withRole } from "@/organization/staff/staff-details";
+import { handoverSignInName, signInName, withRole } from "@/organization/staff/staff-details";
 
 const ravi: StaffMember = {
   memberId: "0199a000-0000-7000-8000-00000000000a",
@@ -24,6 +24,18 @@ describe("signInName", () => {
   it("never shows a placeholder address, even if one reached the app", () => {
     expect(signInName({ email: "sharma-ravi@no-email.invalid", username: "ravi" })).toBe("ravi");
     expect(signInName({ email: "X@NO-EMAIL.INVALID", username: null })).toBe("");
+  });
+});
+
+describe("handoverSignInName", () => {
+  it("is the username when there is one, since that is what goes with the organization code", () => {
+    expect(handoverSignInName({ email: "ravi@sharma.in", username: "ravi" })).toBe("ravi");
+  });
+
+  it("is a real email otherwise, and never a placeholder address", () => {
+    expect(handoverSignInName({ email: "ravi@sharma.in", username: null })).toBe("ravi@sharma.in");
+    expect(handoverSignInName({ email: "sharma-ravi@no-email.invalid", username: null })).toBeNull();
+    expect(handoverSignInName({ email: null, username: null })).toBeNull();
   });
 });
 
