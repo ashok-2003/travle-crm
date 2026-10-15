@@ -43,14 +43,9 @@ export function SignInScreen({ auth }: { auth?: Pick<AuthClient, "signInWithEmai
         }}
         className="gap-5"
       >
-        {/* 44px tall, the smallest touch target (DESIGN.md section 4). */}
-        <TabsList className="w-full group-data-horizontal/tabs:h-11">
-          <TabsTrigger value="email" className="text-muted-foreground data-active:text-foreground">
-            {t("byEmail")}
-          </TabsTrigger>
-          <TabsTrigger value="code" className="text-muted-foreground data-active:text-foreground">
-            {t("byCode")}
-          </TabsTrigger>
+        <TabsList className="w-full">
+          <TabsTrigger value="email">{t("byEmail")}</TabsTrigger>
+          <TabsTrigger value="code">{t("byCode")}</TabsTrigger>
         </TabsList>
         <TabsContent value="email">
           <EmailSignInForm onSignedIn={onSignedIn} {...(auth ? { auth } : {})} />

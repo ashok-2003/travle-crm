@@ -17,16 +17,16 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { usePageData } from "@/data/providers";
 import { routes } from "@/lib/routes";
 import { useMe } from "@/session/me-context";
 import { isCurrent, visibleNavigationItems } from "./navigation";
 import { prefetchHandlers, usePrefetchDestination } from "./prefetch";
+import { useSignOut } from "./sign-out";
 
 export function AppSidebar() {
   const t = useTranslations("shell.navigation");
   const me = useMe();
-  const page = usePageData();
+  const signOut = useSignOut();
   const pathname = usePathname();
   const prefetch = usePrefetchDestination();
   const onAccount = pathname === routes.account;
@@ -76,7 +76,7 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={() => void page.signOut()}>
+            <SidebarMenuButton onClick={signOut}>
               <LogOutIcon aria-hidden="true" />
               {t("signOut")}
             </SidebarMenuButton>

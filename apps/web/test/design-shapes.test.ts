@@ -123,7 +123,8 @@ describe("the shadcn components", () => {
     for (const dropped of ["xs:", "icon-xs", "icon-sm"]) expect(source).not.toContain(dropped);
   });
 
-  it("table headers are surface-toned", () => {
-    expect(ui("table.tsx")).toContain("bg-muted");
+  it("table headers are shadcn's own, with no fill on top", () => {
+    const header = /function TableHeader[\s\S]*?cn\("([^"]*)"/.exec(ui("table.tsx"))?.[1];
+    expect(header).toBe("[&_tr]:border-b");
   });
 });

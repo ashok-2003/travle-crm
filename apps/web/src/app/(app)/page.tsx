@@ -5,8 +5,9 @@
 import { ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { Fragment } from "react";
 import { PageTitle } from "@/components/page-title";
-import { Item, ItemContent, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item";
+import { Item, ItemContent, ItemGroup, ItemMedia, ItemSeparator, ItemTitle } from "@/components/ui/item";
 import { useMe } from "@/session/me-context";
 import { visibleNavigationItems, type NavigationItem } from "@/shell/navigation";
 
@@ -23,20 +24,23 @@ export default function HomePage() {
         <section className="flex flex-col gap-3">
           <p className="text-muted-foreground">{t("intro", { organization: me.organization.name })}</p>
           <ItemGroup>
-            {setUp.map((item) => (
-              <div key={item.key} role="listitem">
-                <Item variant="outline" asChild>
-                  <Link href={item.href}>
-                    <ItemMedia variant="icon">
-                      <item.icon aria-hidden="true" />
-                    </ItemMedia>
-                    <ItemContent>
-                      <ItemTitle>{t(item.key)}</ItemTitle>
-                    </ItemContent>
-                    <ChevronRightIcon aria-hidden="true" className="size-4" />
-                  </Link>
-                </Item>
-              </div>
+            {setUp.map((item, index) => (
+              <Fragment key={item.key}>
+                {index > 0 && <ItemSeparator />}
+                <div role="listitem">
+                  <Item size="sm" asChild>
+                    <Link href={item.href}>
+                      <ItemMedia variant="icon">
+                        <item.icon aria-hidden="true" />
+                      </ItemMedia>
+                      <ItemContent>
+                        <ItemTitle>{t(item.key)}</ItemTitle>
+                      </ItemContent>
+                      <ChevronRightIcon aria-hidden="true" className="size-4" />
+                    </Link>
+                  </Item>
+                </div>
+              </Fragment>
             ))}
           </ItemGroup>
         </section>

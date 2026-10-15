@@ -4,8 +4,17 @@
 // status on the first line and the details on the second. Names wrap rather than being cut off.
 import type { RoleSummary, StaffMember } from "@travel-crm/contracts/identity";
 import { useTranslations } from "next-intl";
+import { Fragment } from "react";
 import { StatusBadge } from "@/components/status-badge";
-import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemSeparator,
+  ItemTitle,
+} from "@/components/ui/item";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDay } from "@/lib/format";
 import { useMe } from "@/session/me-context";
@@ -31,21 +40,24 @@ export function StaffList({ staff, roles }: { staff: StaffMember[]; roles: RoleS
   if (!wide) {
     return (
       <ItemGroup>
-        {staff.map((member) => (
-          <Item key={member.memberId} variant="outline" role="listitem">
-            <ItemContent>
-              <ItemTitle>
-                <span className="script-leading">{member.name}</span>
-                {status(member)}
-              </ItemTitle>
-              <ItemDescription>
-                <span className="wrap-anywhere script-leading">
-                  {member.role.name} · {signInName(member)} · {t("joinedOn", { date: joined(member) })}
-                </span>
-              </ItemDescription>
-            </ItemContent>
-            <ItemActions>{actions(member)}</ItemActions>
-          </Item>
+        {staff.map((member, index) => (
+          <Fragment key={member.memberId}>
+            {index > 0 && <ItemSeparator />}
+            <Item size="sm" role="listitem">
+              <ItemContent>
+                <ItemTitle className="flex-wrap">
+                  <span className="script-leading">{member.name}</span>
+                  {status(member)}
+                </ItemTitle>
+                <ItemDescription>
+                  <span className="wrap-anywhere script-leading">
+                    {member.role.name} · {signInName(member)} · {t("joinedOn", { date: joined(member) })}
+                  </span>
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions>{actions(member)}</ItemActions>
+            </Item>
+          </Fragment>
         ))}
       </ItemGroup>
     );

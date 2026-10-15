@@ -6,11 +6,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Detail } from "@/components/detail";
+import { Details } from "@/components/details";
 import { PageTitle } from "@/components/page-title";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
-import { ItemGroup } from "@/components/ui/item";
 import { useTRPC } from "@/data/trpc";
 import { routes } from "@/lib/routes";
 import { shownEmail } from "@/lib/shown-email";
@@ -33,54 +32,52 @@ export function AccountScreen() {
   return (
     <div className="flex max-w-[720px] flex-col gap-6">
       <PageTitle>{t("title")}</PageTitle>
-      <ItemGroup>
-        <Detail label={t("name")}>
-          <Name>{user.name}</Name>
-        </Detail>
-        {email !== null && <Detail label={t("email")}>{email}</Detail>}
-        {user.username !== null && <Detail label={t("username")}>{user.username}</Detail>}
-        <Detail label={t("organization")}>
-          <Name>{organization.name}</Name> <span className="numbers text-muted-foreground">{organization.code}</span>
-        </Detail>
-        <Detail label={t("role")}>
-          <Name>{member.role.name}</Name>
-        </Detail>
-        <Detail
-          label={t("password")}
-          action={
-            <Button variant="outline" asChild>
-              <Link href={routes.changePassword}>{t("changePassword")}</Link>
-            </Button>
-          }
-        />
-        {user.twoFactorEnabled ? (
-          <Detail
-            label={t("twoFactor")}
-            action={
-              organization.requireTwoFactor ? (
-                <span className="text-label text-muted-foreground">{t("twoFactorRequired")}</span>
-              ) : (
-                <TurnOffTwoFactor
-                  onTurnedOff={() => queryClient.invalidateQueries({ queryKey: trpc.me.get.queryKey() })}
-                />
-              )
-            }
-          >
-            <StatusBadge tone="good">{t("twoFactorOn")}</StatusBadge>
-          </Detail>
-        ) : (
-          <Detail
-            label={t("twoFactor")}
-            action={
+      <Details
+        rows={[
+          { label: t("name"), value: <Name>{user.name}</Name> },
+          ...(email === null ? [] : [{ label: t("email"), value: email }]),
+          ...(user.username === null ? [] : [{ label: t("username"), value: user.username }]),
+          {
+            label: t("organization"),
+            value: (
+              <>
+                <Name>{organization.name}</Name>
+                <span className="numbers text-muted-foreground">{organization.code}</span>
+              </>
+            ),
+          },
+          { label: t("role"), value: <Name>{member.role.name}</Name> },
+          {
+            label: t("password"),
+            action: (
               <Button variant="outline" asChild>
-                <Link href={routes.twoFactorSetup}>{t("setUp")}</Link>
+                <Link href={routes.changePassword}>{t("changePassword")}</Link>
               </Button>
-            }
-          >
-            <StatusBadge tone="neutral">{t("twoFactorOff")}</StatusBadge>
-          </Detail>
-        )}
-      </ItemGroup>
+            ),
+          },
+          user.twoFactorEnabled
+            ? {
+                label: t("twoFactor"),
+                value: <StatusBadge tone="good">{t("twoFactorOn")}</StatusBadge>,
+                action: organization.requireTwoFactor ? (
+                  <span className="text-label text-muted-foreground">{t("twoFactorRequired")}</span>
+                ) : (
+                  <TurnOffTwoFactor
+                    onTurnedOff={() => queryClient.invalidateQueries({ queryKey: trpc.me.get.queryKey() })}
+                  />
+                ),
+              }
+            : {
+                label: t("twoFactor"),
+                value: <StatusBadge tone="neutral">{t("twoFactorOff")}</StatusBadge>,
+                action: (
+                  <Button variant="outline" asChild>
+                    <Link href={routes.twoFactorSetup}>{t("setUp")}</Link>
+                  </Button>
+                ),
+              },
+        ]}
+      />
     </div>
   );
 }
