@@ -80,9 +80,15 @@ development server) routes there, and the platform's own jobs, from `src/console
 
 It is the only process that reads `DATABASE_PLATFORM_URL` (deploys give it to no other), and it needs everything else
 the api does. It refuses to start when that connection isn't the platform role, or when the platform role can't step
-into an organization as `app_runtime` (`OrganizationStepRefusedError`: the grant a hosted database needs, ADR 0019
-and `docs/deploy-checklist.md`), as well as for everything the api refuses. It runs no listeners and relays nothing: the worker does. One instance is enough; keep it running for the demo
-reset. It stops on SIGTERM like the api.
+into an organization as `app_runtime` (`OrganizationStepRefusedError`: the grant a hosted database needs, ADR 0019 and
+`docs/deploy-checklist.md`), as well as for everything the api refuses. It runs no listeners and relays nothing: the
+worker does. One instance is enough; keep it running for the demo reset.
+
+It stops on SIGTERM like the api, but its jobs can run long, so the drain may cut one short: pg-boss waits 30 seconds
+for running jobs, then the pools close under whatever is still running. Both long jobs are safe to cut. A purge is one
+transaction, which rolls back, and pg-boss runs it again once the attempt's time is up. An export cut midway restarts
+only after its attempt's 2-hour limit (`EXPORT_JOB_SECONDS`), when pg-boss counts the attempt failed and retries it.
+Give the console at least 30 seconds between SIGTERM and a hard kill.
 
 | Variable                 | Required | Default | Meaning                                                                        |
 | ------------------------ | -------- | ------- | ------------------------------------------------------------------------------ |
