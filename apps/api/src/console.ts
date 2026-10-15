@@ -27,7 +27,7 @@ const { services, log, running } = await startProcess("console", async ({ enviro
   try {
     // A transaction checks that the connection is the platform role: refuse to start rather than fail requests.
     await platform.platformDb.transaction(() => Promise.resolve());
-    await startConsoleJobs(services.jobs, platform, settings.demo, log);
+    await startConsoleJobs(services.jobs, platform, settings.demo);
   } catch (error) {
     await platform.platformDb.disconnect().catch(() => undefined);
     throw error;

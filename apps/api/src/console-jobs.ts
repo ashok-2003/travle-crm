@@ -11,19 +11,14 @@ import {
 } from "@travel-crm/domain/platform";
 import { ADVANCE_SUBSCRIPTIONS_QUEUE, advanceSubscriptions } from "@travel-crm/domain/subscriptions";
 import { describeError, type JobRunner } from "@travel-crm/integrations/jobs";
-import { processLog, type ProcessLog } from "./process-log.js";
 
 export interface ConsoleJobs {
   handlers: JobHandler[];
   schedules: ScheduledJob[];
 }
 
-/** `log` is the console's own (ids and codes only); the jobs report each organization they couldn't handle there. */
-export function consoleJobs(
-  services: PlatformServices,
-  demo: DemoSettings | null,
-  log: ProcessLog = processLog("console"),
-): ConsoleJobs {
+/** The jobs report each organization they couldn't handle to the services' log, the console's own (ids and codes). */
+export function consoleJobs(services: PlatformServices, demo: DemoSettings | null): ConsoleJobs {
   const lifecycle: ScheduledJob = {
     // Just after midnight in India, where most agencies' day starts: a trial that ended yesterday there is recorded
     // as past due before anyone signs in. An agency in a zone west of India is recorded up to a day later; the
@@ -37,7 +32,9 @@ export function consoleJobs(
       await advanceSubscriptions({
         db: services.platformDb,
         onError: (error, organizationId) => {
-          log(`${ADVANCE_SUBSCRIPTIONS_QUEUE}: organization ${organizationId} failed: ${describeError(error)}`);
+          services.log(
+            `${ADVANCE_SUBSCRIPTIONS_QUEUE}: organization ${organizationId} failed: ${describeError(error)}`,
+          );
         },
       });
     },
@@ -64,9 +61,8 @@ export async function startConsoleJobs(
   runner: JobRunner,
   services: PlatformServices,
   demo: DemoSettings | null,
-  log: ProcessLog = processLog("console"),
 ): Promise<void> {
   // pg-boss keeps a schedule across restarts: with the demo switched off, last start's schedule goes too.
   if (demo === null) await runner.unschedule(RESET_DEMO_QUEUE);
-  await startJobHandlers({ runner, ...consoleJobs(services, demo, log) });
+  await startJobHandlers({ runner, ...consoleJobs(services, demo) });
 }

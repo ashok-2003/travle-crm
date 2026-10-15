@@ -108,8 +108,9 @@ describe("the console's jobs", () => {
       },
     };
     const lines: string[] = [];
-    const { schedules } = consoleJobs({ ...testConsole.services, platformDb: failingOnce }, null, (line) =>
-      lines.push(line),
+    const { schedules } = consoleJobs(
+      { ...testConsole.services, platformDb: failingOnce, log: (line) => lines.push(line) },
+      null,
     );
     const lifecycle = schedules.find((schedule) => schedule.queue === ADVANCE_SUBSCRIPTIONS_QUEUE);
     await expect(lifecycle?.handle({})).rejects.toBeInstanceOf(LifecycleJobError);
