@@ -1,4 +1,5 @@
-// After signing in, a person returns to the page they were sent from, but never to another site.
+// After signing in, a person returns to the page they were sent from, but never to another site, and never to a
+// signed-out screen, which would put them back on a sign-in form.
 import { describe, expect, it } from "vitest";
 import { nextPath } from "@/account/next-path";
 
@@ -8,6 +9,13 @@ describe("nextPath", () => {
     expect(nextPath(new URLSearchParams())).toBe("/");
     expect(nextPath(new URLSearchParams("next=//evil.example"))).toBe("/");
     expect(nextPath(new URLSearchParams("next=https://evil.example"))).toBe("/");
+  });
+
+  it("refuses a signed-out screen, filters and all", () => {
+    for (const next of ["/sign-in", "/sign-in?next=/sign-in", "/forgot-password", "/reset-password", "/offline"]) {
+      expect(nextPath(new URLSearchParams({ next })), next).toBe("/");
+    }
+    expect(nextPath(new URLSearchParams({ next: "/staff?role=sales" }))).toBe("/staff?role=sales");
   });
 
   it("refuses a path that a browser would resolve to another site", () => {
