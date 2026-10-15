@@ -4,11 +4,12 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 7.2 and 7.4, an
 
 ## Decision
 
-- **Plans are rows** (`plan`): a stable key, a name, INR prices in paise per month and per year (at least one), limits
-  (seats, WhatsApp numbers, storage bytes) and the business modules they include (`crm`, `inbox`, `catalog`, `quotes`,
-  `bookings`, `departures`, `suppliers`, `accounts`, `reports`). The Foundation's own features (staff, roles,
-  settings, the audit log, documents) come with every plan. Super admins edit plans in the console; no code names one
-  (Q4: prices are data).
+- **Plans are rows** (`plan`): a stable key, a name, a flat INR price per organization in paise per month and per
+  year (at least one; a plan is sold only on the cycles it is priced for), a price per extra seat for either, all
+  before GST, limits (seats, WhatsApp numbers, storage bytes) and the business modules they include (`crm`, `inbox`,
+  `catalog`, `quotes`, `bookings`, `departures`, `suppliers`, `accounts`, `reports`). The Foundation's own features
+  (staff, roles, settings, the audit log, documents) come with every plan. Super admins edit plans in the console; no
+  code names one and no migration seeds one (Q4: prices are data). The demo's own plan is not for sale (ADR 0020).
 - **One subscription per organization** (`subscription`, keyed by `organization_id`, under row-level security): its
   plan and billing cycle, status, when the status last changed, the trial's last day, the last day paid for, and the
   overrides of spec 7.2: extra seats, an agreed price, modules switched on early. Overrides double as feature flags
@@ -17,15 +18,17 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 7.2 and 7.4, an
   holds the amount, the day it was paid, the day it pays through, a reference, and who recorded it. Recording one
   moves the paid-through day forward and, from today on, makes the organization active again. A mistaken payment is
   voided, never deleted.
-- **Only the platform role writes these tables.** The api reads them for its request checks; the worker's lifecycle
-  job may change a subscription's status and nothing else (column grants). The console's changes run in platform
-  transactions and are recorded in the organization's own audit log under the platform admin's name; plan changes,
-  which belong to no organization, go in the platform log.
+- **Only the platform role writes these tables**, the nightly lifecycle job included, which runs in the console
+  process (ADR 0020). The api and the worker only read them, for the request checks. The console's changes run in
+  platform transactions and are recorded in the organization's own audit log under the platform admin's name; plan
+  changes, which belong to no organization, go in the platform log.
 - **Billing readiness (spec 7.4: "Razorpay Subscriptions webhooks update the same record later").** A subscription
   has a `provider_subscription_id`, and a payment a `provider` and `provider_payment_id`, unique per organization:
   `recordPayment(…, { provider: { provider: "razorpay", providerPaymentId } })` records a repeated webhook's payment
   once. The Razorpay provider itself (its `verify` with `hmacSha256Signature`, `identify` and `process`) comes with
-  online billing; the Foundation ships no Razorpay code.
+  online billing; the Foundation ships no Razorpay code. Recording a payment needs the platform role, which the api and
+  the worker never hold, so a Razorpay webhook's payment step must run in the console process: the api stores and
+  verifies the webhook as today, and hands the payment to the console through the outbox or a console job.
 
 ## Context
 

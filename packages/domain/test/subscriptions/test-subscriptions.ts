@@ -12,9 +12,13 @@ import {
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { inject } from "vitest";
 import { createPlan, startSubscription } from "../../src/subscriptions/index.js";
+import { backendPid } from "../lock-waits.js";
 
 export const adminUserId = "0199e7a0-0000-7000-8000-00000000ad01";
 export const byAdmin = { userId: adminUserId };
+
+/** The tests' clock, 11:30 on 16 October 2026 in India: every date in these tests is relative to it, not to today. */
+export const testNow = new Date("2026-10-16T06:00:00Z");
 
 export interface TestSubscriptions {
   platformDb: PlatformDatabase;
@@ -50,6 +54,8 @@ export async function createTestPlan(
       name: "Starter",
       monthlyPricePaise: 250_000,
       yearlyPricePaise: 2_500_000,
+      extraSeatMonthlyPricePaise: 50_000,
+      extraSeatYearlyPricePaise: 500_000,
       seatLimit: 5,
       whatsappNumberLimit: 1,
       storageLimitBytes: 5_000_000_000,
@@ -59,7 +65,10 @@ export async function createTestPlan(
   );
 }
 
-/** An organization (in Asia/Kolkata unless told otherwise) subscribed to plan as start says. */
+/**
+ * An organization (in Asia/Kolkata unless told otherwise) subscribed to plan as start says, at `now` (the tests'
+ * clock unless given): by default active and paid through a year after the tests' clock.
+ */
 export async function createSubscribedOrganization(
   test: TestSubscriptions,
   plan: PlanSummary,
@@ -79,10 +88,10 @@ export async function createSubscribedOrganization(
         planId: plan.id,
         billingCycle: "monthly",
         trialEndsOn: null,
-        paidThrough: "2099-12-31",
+        paidThrough: "2027-10-15",
         ...start,
       },
-      options.now,
+      options.now ?? testNow,
     ),
   );
   return organizationId;
@@ -93,4 +102,29 @@ export async function subscriptionEntries(test: TestSubscriptions, organizationI
   return test.db.forOrg(organizationId, (tx) =>
     tx.auditEntry.findMany({ where: { entityType: "subscription" }, orderBy: { id: "asc" } }),
   );
+}
+
+/**
+ * A transaction held open where it calls pause(tx), until release(): `pid` is its backend process, for
+ * waitUntilBlockedBy. For tests that race two transactions through the real code.
+ */
+export function holdOpen() {
+  let release: () => void = () => undefined;
+  const released = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let holding: (pid: number) => void = () => undefined;
+  const pid = new Promise<number>((resolve) => {
+    holding = resolve;
+  });
+  return {
+    pid,
+    release: () => {
+      release();
+    },
+    pause: async (tx: Parameters<typeof backendPid>[0]) => {
+      holding(await backendPid(tx));
+      await released;
+    },
+  };
 }

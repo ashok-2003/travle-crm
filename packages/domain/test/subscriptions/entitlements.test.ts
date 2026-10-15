@@ -3,16 +3,17 @@
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createSubscriptionAccess, overviewOf, setOverrides } from "../../src/subscriptions/index.js";
+import { createSubscriptionAccess, overviewOf, setOverrides, suspend } from "../../src/subscriptions/index.js";
 import {
   byAdmin,
   createSubscribedOrganization,
   createTestPlan,
   createTestSubscriptions,
+  testNow,
   type TestSubscriptions,
 } from "./test-subscriptions.js";
 
-const october16 = new Date("2026-10-16T06:00:00Z");
+const october16 = testNow;
 
 describe("entitlements", () => {
   let test: TestSubscriptions;
@@ -37,7 +38,12 @@ describe("entitlements", () => {
       { now: october16 },
     );
     await test.platformDb.transaction((tx) =>
-      setOverrides(tx, byAdmin, { organizationId, extraSeats: 2, customPricePaise: null, extraModules: ["quotes"] }),
+      setOverrides(
+        tx,
+        byAdmin,
+        { organizationId, extraSeats: 2, customPricePaise: null, extraModules: ["quotes"] },
+        october16,
+      ),
     );
     const entitlements = await accessAt(october16).entitlementsOf(organizationId);
     expect(entitlements && overviewOf(entitlements)).toEqual({
@@ -83,6 +89,24 @@ describe("entitlements", () => {
     const justAfterMidnightInIndia = accessAt(new Date("2026-10-16T19:00:00Z"));
     expect(await justAfterMidnightInIndia.entitlementsOf(india)).toMatchObject({ status: "past_due" });
     expect(await justAfterMidnightInIndia.entitlementsOf(london)).toMatchObject({ status: "trial" });
+  });
+
+  it("are suspended while suspended by hand, whatever is paid, with no next change", async () => {
+    const organizationId = await createSubscribedOrganization(
+      test,
+      plan,
+      { paidThrough: "2026-10-31" },
+      { now: october16 },
+    );
+    await test.platformDb.transaction((tx) =>
+      suspend(tx, byAdmin, { organizationId, reason: "Chargeback" }, october16),
+    );
+    expect(await accessAt(october16).entitlementsOf(organizationId)).toMatchObject({
+      status: "suspended",
+      access: "export_only",
+      nextChangeOn: null,
+      paidThrough: "2026-10-31",
+    });
   });
 
   it("are null for an organization without a subscription", async () => {

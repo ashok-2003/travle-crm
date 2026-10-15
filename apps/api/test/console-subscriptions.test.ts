@@ -1,8 +1,11 @@
 // The console's work on an organization's subscription (spec 7.2-7.4): platform staff change its plan and overrides,
-// record payments and suspend or cancel it by hand, and the organization's own audit log shows each change under the
-// platform admin's name. Organization staff reach none of it.
+// record payments and cancel it by hand; the console sees the state due today and the price with GST; the
+// organization's own audit log shows each change under the platform admin's name. Organization staff reach none of
+// it. Suspensions made by hand: console-suspensions.test.ts. Dates are relative to today in India, the test agencies'
+// zone, read when each is needed, so a run across midnight there still agrees with the console.
 import type { PlanSummary, SubscriptionDetails, SubscriptionWithPayments } from "@travel-crm/contracts/subscriptions";
 import { createTestOrganization } from "@travel-crm/db/testing";
+import { addDays, calendarDateIn } from "@travel-crm/domain/kernel";
 import { createPlan } from "@travel-crm/domain/platform";
 import { startSubscription } from "@travel-crm/domain/subscriptions";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -17,6 +20,8 @@ import {
 import { signedInOwner } from "./support/people.js";
 import { createTestAgency, createTestServer, type TestServer } from "./support/test-server.js";
 import { dataOf, refusalOf } from "./support/trpc.js";
+
+const todayInIndia = () => calendarDateIn(new Date(), "Asia/Kolkata");
 
 describe("the console's subscriptions", () => {
   let server: TestServer;
@@ -37,7 +42,9 @@ describe("the console's subscriptions", () => {
           key: `${name.toLowerCase()}-${crypto.randomUUID().slice(0, 8)}`,
           name,
           monthlyPricePaise: 250_000,
-          yearlyPricePaise: null,
+          yearlyPricePaise: 2_500_000,
+          extraSeatMonthlyPricePaise: 50_000,
+          extraSeatYearlyPricePaise: 500_000,
           seatLimit: 5,
           whatsappNumberLimit: 1,
           storageLimitBytes: 5_000_000_000,
@@ -53,18 +60,24 @@ describe("the console's subscriptions", () => {
     await server.close();
   });
 
-  /** An organization the console started on Starter. Test agencies come subscribed to every module already. */
+  /** An organization the console started on Starter, paid through a year from today. */
   async function subscribedOrganization(): Promise<string> {
+    const paidThrough = addDays(todayInIndia(), 365);
     const organizationId = await createTestOrganization(server.platform, "Subscriber");
     await testConsole.services.platformDb.transaction((tx) =>
       startSubscription(
         tx,
         { userId: support.userId },
-        { organizationId, planId: starter.id, billingCycle: "monthly", trialEndsOn: null, paidThrough: "2099-12-31" },
+        { organizationId, planId: starter.id, billingCycle: "monthly", trialEndsOn: null, paidThrough },
       ),
     );
     return organizationId;
   }
+
+  const shown = async (organizationId: string) =>
+    dataOf<SubscriptionWithPayments>(
+      await consoleQuery(testConsole, "subscriptions.get", support.jar, { organizationId }),
+    );
 
   it("changes the plan and overrides, recorded in the organization's log under the admin's name", async () => {
     const organizationId = await subscribedOrganization();
@@ -80,15 +93,24 @@ describe("the console's subscriptions", () => {
       await consoleMutate(
         testConsole,
         "subscriptions.setOverrides",
-        { organizationId, extraSeats: 2, customPricePaise: 0, extraModules: ["accounts"] },
+        { organizationId, extraSeats: 2, customPricePaise: null, extraModules: ["accounts"] },
         support.jar,
       ),
     );
+    // ₹25,000 a year and two seats at ₹5,000: ₹35,000 before GST, and ₹6,300 of GST.
     expect(overridden).toMatchObject({
       plan: { id: growth.id },
       billingCycle: "yearly",
       extraSeats: 2,
       extraModules: ["accounts"],
+      price: {
+        cycle: "yearly",
+        subtotalPaise: 3_500_000,
+        cgstPaise: 315_000,
+        sgstPaise: 315_000,
+        gstPaise: 630_000,
+        totalPaise: 4_130_000,
+      },
     });
     const entries = await server.platform.auditEntry.findMany({
       where: { organizationId, entityType: "subscription" },
@@ -101,16 +123,15 @@ describe("the console's subscriptions", () => {
     ]);
   });
 
-  it("records a payment, suspends and cancels by hand, and shows the subscription with its payments", async () => {
+  it("shows the state due today, records a payment that makes it active again, and cancels by hand", async () => {
+    // Paid through four weeks ago, though recorded as active: suspended today. The console's nightly job, which other
+    // files run over the shared database, may record that at any moment, so only today's state is asserted.
     const organizationId = await subscribedOrganization();
-    await dataOf(
-      await consoleMutate(
-        testConsole,
-        "subscriptions.suspend",
-        { organizationId, reason: "Unpaid since August" },
-        support.jar,
-      ),
-    );
+    await server.platform.subscription.update({
+      where: { organizationId },
+      data: { paidThrough: new Date(`${addDays(todayInIndia(), -28)}T00:00:00Z`) },
+    });
+    expect((await shown(organizationId)).subscription).toMatchObject({ status: "suspended", access: "export_only" });
     const payment = await dataOf<{ id: string }>(
       await consoleMutate(
         testConsole,
@@ -118,18 +139,17 @@ describe("the console's subscriptions", () => {
         {
           organizationId,
           amountPaise: 250_000,
-          paidOn: "2026-10-16",
-          paidThrough: "2099-12-31",
+          paidOn: todayInIndia(),
+          paidThrough: addDays(todayInIndia(), 30),
           reference: "UPI 6123",
         },
         support.jar,
       ),
     );
-    const shown = await dataOf<SubscriptionWithPayments>(
-      await consoleQuery(testConsole, "subscriptions.get", support.jar, { organizationId }),
-    );
-    expect(shown.subscription.status).toBe("active");
-    expect(shown.payments.map((listed) => listed.id)).toEqual([payment.id]);
+    const afterPaying = await shown(organizationId);
+    // Recorded as active by the payment itself: due already, so no job run can change it.
+    expect(afterPaying.subscription).toMatchObject({ status: "active", recorded: { status: "active" } });
+    expect(afterPaying.payments.map((listed) => listed.id)).toEqual([payment.id]);
     expect(
       await dataOf(
         await consoleMutate(
@@ -139,7 +159,7 @@ describe("the console's subscriptions", () => {
           support.jar,
         ),
       ),
-    ).toMatchObject({ status: "cancelled" });
+    ).toMatchObject({ status: "cancelled", access: "locked" });
   });
 
   it("says when an organization has no subscription, and refuses a reason left blank", async () => {

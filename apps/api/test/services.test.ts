@@ -128,7 +128,7 @@ describe("services", () => {
           billingCycle: "monthly",
           status: "active",
           statusChangedAt: new Date(),
-          paidThrough: new Date("2099-12-31"),
+          paidThrough: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
         },
       });
       await services.identity.seedStarterRoles(organizationId);

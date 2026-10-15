@@ -1,111 +1,8 @@
 // The request checks of spec 6.5 in the procedure builders, on stand-in identity and subscription services: 2 the
-// organization's lifecycle state, 3 the module on the plan, 4 the role's permission, in that order; and support's
-// impersonation read from the database every time, never from the cookie cache.
-import type { Identity, MemberAccess } from "@travel-crm/domain/identity";
-import { PermissionSet } from "@travel-crm/domain/identity";
-import { lifecycleAccessOf, type Entitlements } from "@travel-crm/domain/subscriptions";
-import type { PlanModule, SubscriptionStatus } from "@travel-crm/contracts/subscriptions";
+// organization's lifecycle state, 3 the module on the plan, 4 the role's permission, in that order; and what
+// subscription.get answers. Support's impersonation: impersonation-checks.test.ts.
 import { describe, expect, it } from "vitest";
-import type { Context } from "../src/context.js";
-import { freshProcedure, orgProcedure, protectedProcedure } from "../src/procedures.js";
-import { router, t } from "../src/trpc.js";
-
-const organizationId = "0199e7a0-0000-7000-8000-0000000000c1";
-const userId = "0199e7a0-0000-7000-8000-0000000000c2";
-const adminUserId = "0199e7a0-0000-7000-8000-0000000000c3";
-
-/** Procedures of every kind, as later modules will write them. */
-const probe = router({
-  view: orgProcedure.query(() => "viewed"),
-  change: orgProcedure.mutation(() => "changed"),
-  exportData: orgProcedure.meta({ lifecycle: "export" }).mutation(() => "exported"),
-  status: orgProcedure.meta({ lifecycle: "always" }).query(() => "status"),
-  createLead: orgProcedure.requires("leads:create").mutation(() => "lead created"),
-  manageStaff: freshProcedure.requires("staff:manage").mutation(() => "staff managed"),
-  whoAmI: protectedProcedure.query(({ ctx }) => ctx.session.impersonatedBy ?? "nobody"),
-});
-
-interface Setup {
-  status?: SubscriptionStatus | "none";
-  modules?: PlanModule[];
-  isOwner?: boolean;
-  granted?: string[];
-  /** The session in the cookie cache. */
-  impersonatedBy?: string | null;
-  /** The session the database holds now: null once it is gone. */
-  storedSession?: { impersonatedBy: string | null } | null;
-  /** Whether the impersonating admin is still platform staff. */
-  adminStillStaff?: boolean;
-}
-
-/** A caller of the probe router for a member set up as asked, and a count of database session reads. */
-function callerFor(setup: Setup) {
-  const reads = { sessions: 0 };
-  const member: MemberAccess = {
-    organizationId,
-    userId,
-    memberId: "0199e7a0-0000-7000-8000-0000000000c4",
-    source: setup.impersonatedBy ? "impersonation" : "web",
-    impersonatedBy: setup.impersonatedBy ?? null,
-    role: { key: "sales", name: "Sales", isOwner: setup.isOwner ?? false },
-    permissions: setup.isOwner
-      ? PermissionSet.everything()
-      : PermissionSet.fromStored((setup.granted ?? []).map((permission) => ({ permission, scope: null }))),
-    mustChangePassword: false,
-    twoFactorEnabled: false,
-    organizationRequiresTwoFactor: false,
-  };
-  const session = { activeOrganizationId: organizationId, impersonatedBy: setup.impersonatedBy ?? null };
-  const stored = setup.storedSession === undefined ? session : setup.storedSession;
-  const identity = {
-    auth: {
-      api: {
-        getSession: () => {
-          reads.sessions += 1;
-          return Promise.resolve({
-            headers: new Headers(),
-            response: stored && { session: { ...session, ...stored }, user: { id: userId } },
-          });
-        },
-      },
-    },
-    resolveAccess: () => Promise.resolve(member),
-    isPlatformAdmin: () => Promise.resolve(setup.adminStillStaff ?? true),
-  } as unknown as Identity;
-  const status = setup.status ?? "active";
-  const entitlements: Entitlements | null =
-    status === "none"
-      ? null
-      : {
-          status,
-          access: lifecycleAccessOf(status),
-          planName: "Starter",
-          modules: new Set(setup.modules ?? []),
-          limits: { seats: 5, whatsappNumbers: 1, storageBytes: 1 },
-          trialEndsOn: null,
-          paidThrough: null,
-          nextChangeOn: null,
-        };
-  const ctx = {
-    identity,
-    subscriptions: { entitlementsOf: () => Promise.resolve(entitlements) },
-    headers: new Headers(),
-    resHeaders: new Headers(),
-    session,
-    user: { id: userId },
-  } as unknown as Context;
-  return { caller: t.createCallerFactory(probe)(ctx), reads };
-}
-
-/** The reason a call is refused with, or what it answered. */
-async function outcome(call: Promise<string>): Promise<string> {
-  try {
-    return await call;
-  } catch (error) {
-    const cause = (error as { cause?: { reason?: string } }).cause;
-    return cause?.reason ?? (error as { code: string }).code;
-  }
-}
+import { callerFor, outcome } from "./request-probe.js";
 
 describe("request check 2: the organization's lifecycle state", () => {
   it("lets a read-only organization view and export, and refuses its changes", async () => {
@@ -145,30 +42,32 @@ describe("request check 3: the module on the plan", () => {
     );
   });
 
+  it("refuses a business module's procedure off the plan though it requires no permission", async () => {
+    expect(await outcome(callerFor({ modules: ["crm"] }).caller.quoteTemplates())).toBe("MODULE_NOT_ON_PLAN");
+    expect(await outcome(callerFor({ modules: ["quotes"] }).caller.quoteTemplates())).toBe("templates");
+  });
+
+  it("refuses every call to a procedure that declares no plan module, rather than skip the check", async () => {
+    expect(await outcome(callerFor({ isOwner: true }).caller.undeclared())).toBe("INTERNAL_SERVER_ERROR");
+  });
+
   it("needs no module for the Foundation's own permissions", async () => {
     expect(await outcome(callerFor({ modules: [], isOwner: true }).caller.manageStaff())).toBe("staff managed");
   });
 });
 
-describe("support's impersonation", () => {
-  it("is read from the database on every request, while other sessions use the cookie cache", async () => {
-    const plain = callerFor({});
-    expect(await outcome(plain.caller.whoAmI())).toBe("nobody");
-    expect(plain.reads.sessions).toBe(0);
-    const impersonating = callerFor({ impersonatedBy: adminUserId });
-    expect(await outcome(impersonating.caller.whoAmI())).toBe(adminUserId);
-    expect(impersonating.reads.sessions).toBe(1);
-  });
-
-  it("stops at once when its session is gone, though the cookie cache still holds it", async () => {
-    const ended = callerFor({ impersonatedBy: adminUserId, storedSession: null });
-    expect(await outcome(ended.caller.whoAmI())).toBe("UNAUTHORIZED");
-    expect(await outcome(ended.caller.view())).toBe("UNAUTHORIZED");
-  });
-
-  it("stops at once when the admin is no longer platform staff", async () => {
-    const demoted = callerFor({ impersonatedBy: adminUserId, adminStillStaff: false });
-    expect(await outcome(demoted.caller.whoAmI())).toBe("UNAUTHORIZED");
-    expect(await outcome(demoted.caller.manageStaff())).toBe("UNAUTHORIZED");
+describe("subscription.get", () => {
+  it("answers in every state, and refuses an organization without a subscription as check 2 does", async () => {
+    expect(
+      await outcome(
+        callerFor({ status: "cancelled" })
+          .caller.subscription.get()
+          .then((got) => got.status),
+      ),
+    ).toBe("cancelled");
+    const refused = await callerFor({ status: "none" })
+      .caller.subscription.get()
+      .catch((error: unknown) => error as { code: string; cause?: { reason?: string } });
+    expect(refused).toMatchObject({ code: "FORBIDDEN", cause: { reason: "NO_SUBSCRIPTION" } });
   });
 });

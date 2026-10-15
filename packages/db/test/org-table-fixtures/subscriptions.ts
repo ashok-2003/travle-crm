@@ -1,10 +1,13 @@
-// Isolation fixtures for the subscriptions module. Only the platform role inserts these rows; the runtime role may
-// move a subscription's status, and change nothing else.
+// Isolation fixtures for the subscriptions module. Only the platform role writes these rows, the nightly lifecycle job
+// included; the runtime role may only read them.
 import { randomUUID } from "node:crypto";
 import type { PlatformTx } from "../../src/platform.js";
 import type { OrgTableFixtures } from "../org-table-fixture.js";
 
+/** The organization's subscription, made if it has none: either fixture may run first. */
 async function subscribe(tx: PlatformTx, organizationId: string) {
+  const existing = await tx.subscription.findUnique({ where: { organizationId } });
+  if (existing) return existing;
   const plan = await tx.plan.create({
     data: {
       key: `isolation-${randomUUID().slice(0, 8)}`,
@@ -22,18 +25,18 @@ async function subscribe(tx: PlatformTx, organizationId: string) {
       planId: plan.id,
       billingCycle: "monthly",
       status: "active",
-      statusChangedAt: new Date(),
+      statusChangedAt: new Date("2026-10-01T00:00:00Z"),
       paidThrough: new Date("2026-12-31"),
     },
   });
 }
 
 export const fixtures: OrgTableFixtures = {
-  subscription: { createAsPlatform: subscribe, appendOnly: true, updatableColumn: "status" },
+  subscription: { createAsPlatform: subscribe, appendOnly: true },
   subscription_payment: {
     createAsPlatform: async (tx, organizationId) => {
-      // A payment needs its organization's subscription, which the subscription fixture may have made already.
-      if (!(await tx.subscription.findUnique({ where: { organizationId } }))) await subscribe(tx, organizationId);
+      // A payment needs its organization's subscription.
+      await subscribe(tx, organizationId);
       return tx.subscriptionPayment.create({
         data: {
           organizationId,

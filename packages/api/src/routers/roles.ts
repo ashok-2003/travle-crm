@@ -16,10 +16,16 @@ import { router } from "../trpc.js";
 const roleManager = freshProcedure.requires("roles:manage");
 
 export const rolesRouter = router({
-  list: freshProcedure.output(z.array(roleSummary)).query(({ ctx }) => ctx.identity.roles.list(ctx.member)),
+  list: freshProcedure
+    .meta({ planModule: "core" })
+    .output(z.array(roleSummary))
+    .query(({ ctx }) => ctx.identity.roles.list(ctx.member)),
 
   /** Every permission a role can grant, for the roles editor. */
-  permissionCatalog: orgProcedure.output(z.array(permissionCatalogEntry)).query(() => permissionCatalog),
+  permissionCatalog: orgProcedure
+    .meta({ planModule: "core" })
+    .output(z.array(permissionCatalogEntry))
+    .query(() => permissionCatalog),
 
   create: roleManager
     .input(createRoleInput)

@@ -32,7 +32,7 @@ describe("the subscription lifecycle", () => {
     expect(dueState(pastDue, policy, day("2026-11-08"))).toMatchObject({ status: "read_only", since: "2026-11-08" });
     const readOnly = state({ status: "read_only", since: day("2026-11-08") });
     expect(nextStep(readOnly, policy)).toEqual({ status: "suspended", on: "2026-11-22" });
-    expect(nextStep(readOnly, { pastDueDays: 7, readOnlyDays: 30 })).toEqual({ status: "suspended", on: "2026-12-08" });
+    expect(nextStep(readOnly, { ...policy, readOnlyDays: 30 })).toEqual({ status: "suspended", on: "2026-12-08" });
   });
 
   it("leaves suspended and cancelled to a person", () => {

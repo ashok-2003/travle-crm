@@ -1,24 +1,28 @@
-// How the subscriptions module turns its rows into what callers see.
+// How the subscriptions module reads its rows. The tables' checks keep every value to the known ones, so anything else
+// is a bug worth failing loudly on.
 import type {
+  BillingCycle,
   PlanModule,
   PlanSummary,
-  SubscriptionDetails,
   SubscriptionPayment,
   SubscriptionStatus,
 } from "@travel-crm/contracts/subscriptions";
-import { planModule, subscriptionStatus } from "@travel-crm/contracts/subscriptions";
+import { billingCycle, paymentProvider, planModule, subscriptionStatus } from "@travel-crm/contracts/subscriptions";
 import { fromDateColumn } from "./dates.js";
 
-interface PlanRow {
+export interface PlanRow {
   id: string;
   key: string;
   name: string;
   monthlyPricePaise: number | null;
   yearlyPricePaise: number | null;
+  extraSeatMonthlyPricePaise: number | null;
+  extraSeatYearlyPricePaise: number | null;
   seatLimit: number;
   whatsappNumberLimit: number;
   storageLimitBytes: bigint;
   modules: string[];
+  forSale: boolean;
   archivedAt: Date | null;
 }
 
@@ -29,16 +33,18 @@ export function planSummaryOf(row: PlanRow): PlanSummary {
     name: row.name,
     monthlyPricePaise: row.monthlyPricePaise,
     yearlyPricePaise: row.yearlyPricePaise,
+    extraSeatMonthlyPricePaise: row.extraSeatMonthlyPricePaise,
+    extraSeatYearlyPricePaise: row.extraSeatYearlyPricePaise,
     seatLimit: row.seatLimit,
     whatsappNumberLimit: row.whatsappNumberLimit,
     // Limits are at most 10 TB (the contract's), well within a safe integer.
     storageLimitBytes: Number(row.storageLimitBytes),
     modules: modulesOf(row.modules),
+    forSale: row.forSale,
     archived: row.archivedAt !== null,
   };
 }
 
-/** The table's checks keep modules to the known ones; anything else is a bug worth failing loudly on. */
 export function modulesOf(values: readonly string[]): PlanModule[] {
   return values.map((value) => planModule.parse(value));
 }
@@ -47,7 +53,12 @@ export function statusOf(value: string): SubscriptionStatus {
   return subscriptionStatus.parse(value);
 }
 
-export interface SubscriptionRow {
+export function billingCycleOf(value: string): BillingCycle {
+  return billingCycle.parse(value);
+}
+
+/** A subscription row with its plan, as every read and change of one loads it. */
+export interface StoredSubscription {
   organizationId: string;
   billingCycle: string;
   status: string;
@@ -57,23 +68,14 @@ export interface SubscriptionRow {
   extraSeats: number;
   customPricePaise: number | null;
   extraModules: string[];
-  plan: { id: string; key: string; name: string };
+  manualSuspensionAt: Date | null;
+  manualSuspensionBy: string | null;
+  manualSuspensionReason: string | null;
+  plan: PlanRow;
 }
 
-export function subscriptionDetailsOf(row: SubscriptionRow): SubscriptionDetails {
-  return {
-    organizationId: row.organizationId,
-    plan: { id: row.plan.id, key: row.plan.key, name: row.plan.name },
-    billingCycle: row.billingCycle === "yearly" ? "yearly" : "monthly",
-    status: statusOf(row.status),
-    statusChangedAt: row.statusChangedAt.toISOString(),
-    trialEndsOn: row.trialEndsOn ? fromDateColumn(row.trialEndsOn) : null,
-    paidThrough: row.paidThrough ? fromDateColumn(row.paidThrough) : null,
-    extraSeats: row.extraSeats,
-    customPricePaise: row.customPricePaise,
-    extraModules: modulesOf(row.extraModules),
-  };
-}
+/** What to include to load a StoredSubscription. */
+export const withPlan = { plan: true } as const;
 
 interface PaymentRow {
   id: string;
@@ -96,7 +98,7 @@ export function paymentOf(row: PaymentRow): SubscriptionPayment {
     paidOn: fromDateColumn(row.paidOn),
     paidThrough: fromDateColumn(row.paidThrough),
     reference: row.reference,
-    provider: row.provider === "razorpay" ? "razorpay" : "manual",
+    provider: paymentProvider.parse(row.provider),
     recordedBy: row.recordedBy,
     recordedAt: row.recordedAt.toISOString(),
     voided:

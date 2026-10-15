@@ -19,6 +19,8 @@ const growth = {
   name: "Growth",
   monthlyPricePaise: 450_000,
   yearlyPricePaise: 4_500_000,
+  extraSeatMonthlyPricePaise: 29_900,
+  extraSeatYearlyPricePaise: 299_000,
   seatLimit: 15,
   whatsappNumberLimit: 2,
   storageLimitBytes: 20_000_000_000,
@@ -94,24 +96,22 @@ describe("the console's plans", () => {
   });
 
   it("shows the subscription policy, and lets only a super admin change it", async () => {
-    expect(await dataOf(await consoleQuery(testConsole, "plans.policy", support.jar))).toEqual({
-      pastDueDays: 7,
-      readOnlyDays: 14,
+    const policy = { trialDays: 7, pastDueDays: 7, readOnlyDays: 14 };
+    expect(await dataOf(await consoleQuery(testConsole, "plans.policy", support.jar))).toEqual(policy);
+    const changed = { ...policy, readOnlyDays: 15 };
+    expect(await refusalOf(await consoleMutate(testConsole, "plans.setPolicy", changed, support.jar))).toEqual({
+      status: 403,
+      reason: "SUPER_ADMIN_ONLY",
     });
-    expect(
-      await refusalOf(
-        await consoleMutate(testConsole, "plans.setPolicy", { pastDueDays: 10, readOnlyDays: 20 }, support.jar),
-      ),
-    ).toEqual({ status: 403, reason: "SUPER_ADMIN_ONLY" });
     try {
-      expect(
-        await dataOf(
-          await consoleMutate(testConsole, "plans.setPolicy", { pastDueDays: 10, readOnlyDays: 20 }, superAdmin.jar),
-        ),
-      ).toEqual({ pastDueDays: 10, readOnlyDays: 20 });
+      // The policy is one row every test file's organizations read while files run at once. Only the suspension day
+      // moves, and no other file's dates are near it, so the change cannot alter their lifecycle states.
+      expect(await dataOf(await consoleMutate(testConsole, "plans.setPolicy", changed, superAdmin.jar))).toEqual(
+        changed,
+      );
     } finally {
       // Other test files rely on the spec's defaults.
-      await consoleMutate(testConsole, "plans.setPolicy", { pastDueDays: 7, readOnlyDays: 14 }, superAdmin.jar);
+      await consoleMutate(testConsole, "plans.setPolicy", policy, superAdmin.jar);
     }
   });
 });

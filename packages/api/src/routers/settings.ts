@@ -5,6 +5,7 @@ import { router } from "../trpc.js";
 
 export const settingsRouter = router({
   get: orgProcedure
+    .meta({ planModule: "core" })
     .output(securitySettings)
     .query(({ ctx }) => ({ requireTwoFactor: ctx.member.organizationRequiresTwoFactor })),
 

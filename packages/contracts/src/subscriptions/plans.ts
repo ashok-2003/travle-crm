@@ -1,4 +1,6 @@
-// Plans as the console edits them (spec 7.2): an INR price per month and/or year, limits, and the modules included.
+// Plans as the console edits them (spec 7.2, the owner's pricing): tiers with a flat INR price per organization, per
+// month and/or year and before GST, the seats, storage and modules they include, and a price for each seat bought
+// above the plan's.
 import { z } from "zod";
 import { recordId } from "../identity/index.js";
 
@@ -25,9 +27,16 @@ export const pricePaise = z.int().min(0).max(2_000_000_000);
 
 const planFields = {
   name: z.string().trim().min(1).max(60),
-  /** Null when the plan isn't sold that way. At least one of the two is set. */
+  /**
+   * Before GST, which is shown separately and charged on top (18 %), for the whole organization. Null when the plan
+   * isn't sold that way: a plan is sold only on the billing cycles it has a price for. At least one is set.
+   */
   monthlyPricePaise: pricePaise.nullable(),
   yearlyPricePaise: pricePaise.nullable(),
+  /** One seat above the plan's, before GST. Null or left out: the plan sells no extra seats that way. */
+  extraSeatMonthlyPricePaise: pricePaise.nullable().optional(),
+  extraSeatYearlyPricePaise: pricePaise.nullable().optional(),
+  /** The staff seats the price includes. */
   seatLimit: z.int().min(1).max(10_000),
   whatsappNumberLimit: z.int().min(0).max(100),
   /** At most 10 TB. */
@@ -58,10 +67,14 @@ export const planSummary = z.object({
   name: z.string(),
   monthlyPricePaise: z.int().nullable(),
   yearlyPricePaise: z.int().nullable(),
+  extraSeatMonthlyPricePaise: z.int().nullable(),
+  extraSeatYearlyPricePaise: z.int().nullable(),
   seatLimit: z.int(),
   whatsappNumberLimit: z.int(),
   storageLimitBytes: z.int(),
   modules: z.array(planModule),
+  /** False only for the demo's own plan, which is never offered at onboarding. */
+  forSale: z.boolean(),
   archived: z.boolean(),
 });
 export type PlanSummary = z.infer<typeof planSummary>;

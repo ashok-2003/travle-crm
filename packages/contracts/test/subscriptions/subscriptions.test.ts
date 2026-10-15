@@ -1,11 +1,13 @@
-// The plans' and subscriptions' contracts: a plan is priced one way or both, limited, and on known modules; console
-// changes name the organization, carry real dates, and say why when a person overrides the lifecycle.
+// The plans' and subscriptions' contracts: a plan is a tier priced per organization monthly, yearly or both, before
+// GST, limited, on known modules, and may sell extra seats; console changes name the organization, carry real dates,
+// and say why when a person overrides the lifecycle; the policy holds the trial's days beside the unpaid states'.
 import { describe, expect, it } from "vitest";
 import {
   createPlanInput,
   recordPaymentInput,
   setOverridesInput,
   setPaidThroughInput,
+  setSubscriptionPolicyInput,
   startSubscriptionInput,
   updatePlanInput,
 } from "../../src/subscriptions/index.js";
@@ -32,6 +34,12 @@ describe("plan contracts", () => {
     expect(unpriced.error?.issues[0]?.path).toEqual(["monthlyPricePaise"]);
   });
 
+  it("sells extra seats above the plan's, per month and per year, or not at all", () => {
+    const withSeats = { ...starter, extraSeatMonthlyPricePaise: 29_900, extraSeatYearlyPricePaise: null };
+    expect(createPlanInput.parse(withSeats)).toEqual(withSeats);
+    expect(createPlanInput.safeParse({ ...starter, extraSeatMonthlyPricePaise: -1 }).success).toBe(false);
+  });
+
   it("refuses bad keys, limits and modules, and unknown fields", () => {
     for (const bad of [
       { ...starter, key: "Starter" },
@@ -54,9 +62,11 @@ describe("plan contracts", () => {
 });
 
 describe("subscription contracts", () => {
-  it("starts on a trial to a real day, or paid through one", () => {
+  it("starts on the policy's trial, a trial to a real day, or paid through one", () => {
     const trial = { planId: organizationId, billingCycle: "monthly", trialEndsOn: "2026-10-30", paidThrough: null };
     expect(startSubscriptionInput.parse(trial)).toEqual(trial);
+    const policysTrial = { planId: organizationId, billingCycle: "yearly", paidThrough: null };
+    expect(startSubscriptionInput.parse(policysTrial)).toEqual(policysTrial);
     expect(startSubscriptionInput.safeParse({ ...trial, trialEndsOn: "2026-02-30" }).success).toBe(false);
     expect(startSubscriptionInput.safeParse({ ...trial, billingCycle: "weekly" }).success).toBe(false);
   });
@@ -67,7 +77,7 @@ describe("subscription contracts", () => {
     expect(setOverridesInput.safeParse({ ...overrides, extraSeats: -1 }).success).toBe(false);
   });
 
-  it("records a payment of at least a paisa, and asks why access is given without one", () => {
+  it("records a payment of at least a paisa, arrears for a past period too, and asks why time is given", () => {
     const payment = {
       organizationId,
       amountPaise: 250_000,
@@ -76,6 +86,8 @@ describe("subscription contracts", () => {
       reference: "NEFT UTR 412345678901",
     };
     expect(recordPaymentInput.parse(payment)).toEqual(payment);
+    // Money that arrives on the 16th for September: the lifecycle decides what it changes.
+    expect(recordPaymentInput.safeParse({ ...payment, paidThrough: "2026-09-30" }).success).toBe(true);
     expect(recordPaymentInput.safeParse({ ...payment, amountPaise: 0 }).success).toBe(false);
     expect(setPaidThroughInput.safeParse({ organizationId, paidThrough: "2026-12-31", reason: " " }).success).toBe(
       false,
@@ -83,5 +95,12 @@ describe("subscription contracts", () => {
     expect(setPaidThroughInput.safeParse({ organizationId, paidThrough: "2026-12-31", reason: "Pilot" }).success).toBe(
       true,
     );
+  });
+
+  it("holds the trial's days and the unpaid states' days, each within bounds", () => {
+    const policy = { trialDays: 7, pastDueDays: 7, readOnlyDays: 14 };
+    expect(setSubscriptionPolicyInput.parse(policy)).toEqual(policy);
+    expect(setSubscriptionPolicyInput.safeParse({ ...policy, trialDays: 0 }).success).toBe(false);
+    expect(setSubscriptionPolicyInput.safeParse({ pastDueDays: 7, readOnlyDays: 14 }).success).toBe(false);
   });
 });

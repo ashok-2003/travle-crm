@@ -131,7 +131,7 @@ async function everythingPlanId(platform: PlatformClient): Promise<string> {
   }
 }
 
-/** Puts the organization on the test plan, active and paid for years, as onboarding would have. */
+/** Puts the organization on the test plan, active and paid for a year from today, as onboarding would have. */
 export async function subscribeToEverything(platform: PlatformClient, organizationId: string): Promise<void> {
   await platform.subscription.create({
     data: {
@@ -140,7 +140,7 @@ export async function subscribeToEverything(platform: PlatformClient, organizati
       billingCycle: "monthly",
       status: "active",
       statusChangedAt: new Date(),
-      paidThrough: new Date("2099-12-31"),
+      paidThrough: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
     },
   });
 }

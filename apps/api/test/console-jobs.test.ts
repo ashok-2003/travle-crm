@@ -1,12 +1,22 @@
-// The console process's jobs (ADR 0018): the platform's purge and erasure jobs, and, when a demo is set, the nightly
-// demo reset at 02:00 India time; with the demo switched off, the schedule an earlier start left in pg-boss goes.
+// The console process's jobs (ADR 0018): the platform's purge and erasure jobs, the nightly subscription lifecycle at
+// 00:15 India time, as the platform role, and, when a demo is set, the nightly demo reset at 02:00; with the demo
+// switched off, the schedule an earlier start left in pg-boss goes.
 import { randomUUID } from "node:crypto";
 import { PURGE_ORGANIZATION_QUEUE, RESET_DEMO_QUEUE } from "@travel-crm/domain/platform";
+import { ADVANCE_SUBSCRIPTIONS_QUEUE, LifecycleJobError } from "@travel-crm/domain/subscriptions";
 import { createMemoryJobQueue, createMemoryJobRunner } from "@travel-crm/integrations/jobs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { startConsoleJobs } from "../src/console-jobs.js";
+import { consoleJobs, startConsoleJobs } from "../src/console-jobs.js";
 import { createTestConsole, type TestConsole } from "./support/console.js";
 import { createTestAgency, createTestServer, EVERYTHING_PLAN_KEY, type TestServer } from "./support/test-server.js";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const lifecycleSchedule = {
+  queue: ADVANCE_SUBSCRIPTIONS_QUEUE,
+  cron: "15 0 * * *",
+  timeZone: "Asia/Kolkata",
+  data: {},
+};
 
 describe("the console's jobs", () => {
   let server: TestServer;
@@ -34,6 +44,7 @@ describe("the console's jobs", () => {
     };
     await startConsoleJobs(runner, testConsole.services, demo);
     expect(runner.schedules).toEqual([
+      lifecycleSchedule,
       { queue: RESET_DEMO_QUEUE, cron: "0 2 * * *", timeZone: "Asia/Kolkata", data: {} },
     ]);
 
@@ -50,6 +61,61 @@ describe("the console's jobs", () => {
     const runner = createMemoryJobRunner(queue);
     await runner.schedule(RESET_DEMO_QUEUE, "0 2 * * *", { timeZone: "Asia/Kolkata" });
     await startConsoleJobs(runner, testConsole.services, null);
-    expect(runner.schedules).toEqual([]);
+    expect(runner.schedules).toEqual([lifecycleSchedule]);
+  });
+
+  it("records a lapsed trial as past due every night, as the platform role", async () => {
+    const queue = createMemoryJobQueue();
+    const runner = createMemoryJobRunner(queue);
+    const agency = await createTestAgency(server);
+    // Two days ago in UTC is at least yesterday in India, whatever the hour.
+    await server.platform.subscription.update({
+      where: { organizationId: agency.organizationId },
+      data: {
+        status: "trial",
+        trialEndsOn: new Date(Date.now() - 2 * DAY_MS),
+        paidThrough: null,
+        statusChangedAt: new Date(Date.now() - 30 * DAY_MS),
+      },
+    });
+    await startConsoleJobs(runner, testConsole.services, null);
+    await runner.fireSchedule(ADVANCE_SUBSCRIPTIONS_QUEUE);
+    expect(await runner.runQueued()).toBe(1);
+    expect(runner.failed).toEqual([]);
+    const subscription = await server.platform.subscription.findUniqueOrThrow({
+      where: { organizationId: agency.organizationId },
+    });
+    expect(subscription.status).toBe("past_due");
+    expect(
+      await server.platform.auditEntry.findFirst({
+        where: { organizationId: agency.organizationId, action: "subscription.status-changed" },
+      }),
+    ).toMatchObject({ source: "job", before: { status: "trial" }, after: { status: "past_due" } });
+  });
+
+  it("logs each organization the lifecycle can't advance by id, goes on, then fails the run", async () => {
+    // At least two subscriptions to advance: the one that fails, and one after it.
+    await createTestAgency(server);
+    await createTestAgency(server);
+    const { platformDb } = testConsole.services;
+    // The first transaction lists the subscriptions; the next, the first organization's, fails.
+    let transactions = 0;
+    const failingOnce: typeof platformDb = {
+      ...platformDb,
+      transaction: (fn, options) => {
+        transactions += 1;
+        return transactions === 2 ? Promise.reject(new Error("connection lost")) : platformDb.transaction(fn, options);
+      },
+    };
+    const lines: string[] = [];
+    const { schedules } = consoleJobs({ ...testConsole.services, platformDb: failingOnce }, null, (line) =>
+      lines.push(line),
+    );
+    const lifecycle = schedules.find((schedule) => schedule.queue === ADVANCE_SUBSCRIPTIONS_QUEUE);
+    await expect(lifecycle?.handle({})).rejects.toBeInstanceOf(LifecycleJobError);
+    expect(transactions).toBeGreaterThan(2);
+    expect(lines).toEqual([
+      expect.stringMatching(/^subscriptions\.advance-lifecycle: organization [0-9a-f-]{36} failed: Error$/),
+    ]);
   });
 });
