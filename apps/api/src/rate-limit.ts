@@ -11,6 +11,11 @@ export interface RateLimitOptions {
   windowSeconds: number;
   /** The client's address, from clientAddressFrom(...), or null when none can be trusted. */
   clientAddress: (request: Request) => string | null;
+  /**
+   * What a refused request gets, e.g. an HTML page for routes people open in a browser. Retry-After and
+   * RateLimit-Remaining are added to it. Without it, JSON with code RATE_LIMITED.
+   */
+  refusal?: (retryAfterSeconds: number) => Response;
 }
 
 let warnedAboutMissingAddress = false;
@@ -36,6 +41,13 @@ export function rateLimit(options: RateLimitOptions): MiddlewareHandler {
     const address = clientAddress ?? "no-address";
     const result = await options.limiter.hit(`${options.name}:${address}`, rule);
     c.header("RateLimit-Remaining", String(result.remaining));
+    if (!result.allowed && options.refusal) {
+      const refused = options.refusal(result.retryAfterSeconds);
+      const headers = new Headers(refused.headers);
+      headers.set("Retry-After", String(result.retryAfterSeconds));
+      headers.set("RateLimit-Remaining", String(result.remaining));
+      return new Response(refused.body, { status: refused.status, headers });
+    }
     if (!result.allowed) {
       c.header("Retry-After", String(result.retryAfterSeconds));
       return c.json(

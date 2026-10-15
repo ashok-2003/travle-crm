@@ -14,7 +14,7 @@ import {
 } from "@travel-crm/domain/share-links";
 import { afterAll, beforeAll, describe, expect, inject, it, onTestFinished, vi } from "vitest";
 import { clientAddressFrom } from "../src/rate-limit.js";
-import { shareLinkRoutes, type ShareLinkRouteOptions } from "../src/share-link-route.js";
+import { shareLinkRoutes, tooManyRequestsPage, type ShareLinkRouteOptions } from "../src/share-link-route.js";
 
 const opened: OpenedShareLink = {
   organizationId: "0199e7a0-0000-7000-8000-0000000000aa",
@@ -161,6 +161,38 @@ describe("share-link route", () => {
     const revoked = await failing("LINK_REVOKED").request("/abc");
     expect(revoked.status).toBe(410);
     expect(await revoked.text()).toContain("This link has been turned off");
+  });
+
+  it("shows a resolver's 'not found' as a page: 503 with Retry-After while a document is being prepared", async () => {
+    const { recorded, recordOpen } = recorder();
+    const refusing = (reason: string) =>
+      routes(
+        () => Promise.resolve(opened),
+        { issued_document: () => Promise.reject(new DomainError("NOT_FOUND", reason, "x")) },
+        recordOpen,
+      );
+    const notReady = await refusing("DOCUMENT_NOT_READY").request("/abc");
+    expect(notReady.status).toBe(503);
+    expect(notReady.headers.get("retry-after")).toBe("30");
+    expect(notReady.headers.get("content-type")).toMatch(/^text\/html; charset=utf-8/i);
+    expectPrivate(notReady);
+    expect(await notReady.text()).toContain("This document is still being prepared");
+
+    const gone = await refusing("DOCUMENT_NOT_FOUND").request("/abc");
+    expect(gone.status).toBe(404);
+    expect(gone.headers.get("retry-after")).toBeNull();
+    expect(await gone.text()).toContain("This link doesn't work");
+    // The customer saw neither record.
+    expect(recorded).toEqual([]);
+  });
+
+  it("has a page for a browser that tried too often, with how long to wait", async () => {
+    const page = tooManyRequestsPage(42);
+    expect(page.status).toBe(429);
+    expect(page.headers.get("retry-after")).toBe("42");
+    expect(page.headers.get("content-type")).toBe("text/html; charset=utf-8");
+    expectPrivate(page);
+    expect(await page.text()).toContain("Too many tries");
   });
 
   it("answers 404 for a record type no resolver knows, including Object's own keys", async () => {

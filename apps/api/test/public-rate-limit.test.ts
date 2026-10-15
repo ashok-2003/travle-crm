@@ -53,6 +53,33 @@ describe("public rate limit", () => {
     expect(await refused.json()).toMatchObject({ code: "RATE_LIMITED", reason: "RATE_LIMITED" });
   });
 
+  it("answers with the route's own refusal when it has one, still saying when to come back", async () => {
+    const app = new Hono();
+    app.use(
+      rateLimit({
+        limiter: createRateLimiter(db, { keySecret: "public-rate-limit-test-secret-32-bytes" }),
+        name: `test-${crypto.randomUUID()}`,
+        limit: 1,
+        windowSeconds: 60,
+        clientAddress: clientAddressFrom({ headerNames: ["x-forwarded-for"], trustedProxies: [] }),
+        refusal: (retryAfterSeconds) =>
+          new Response(`<p>Wait ${String(retryAfterSeconds)} s</p>`, {
+            status: 429,
+            headers: { "Content-Type": "text/html; charset=utf-8" },
+          }),
+      }),
+    );
+    app.get("/", (c) => c.text("ok"));
+    await app.request("/", from("203.0.113.14"));
+    const refused = await app.request("/", from("203.0.113.14"));
+    expect(refused.status).toBe(429);
+    expect(refused.headers.get("content-type")).toBe("text/html; charset=utf-8");
+    const retryAfter = refused.headers.get("retry-after");
+    expect(Number(retryAfter)).toBeGreaterThan(0);
+    expect(refused.headers.get("ratelimit-remaining")).toBe("0");
+    expect(await refused.text()).toBe(`<p>Wait ${String(retryAfter)} s</p>`);
+  });
+
   it("counts each client address on its own", async () => {
     const app = limitedApp(1);
     expect((await app.request("/", from("203.0.113.12"))).status).toBe(200);

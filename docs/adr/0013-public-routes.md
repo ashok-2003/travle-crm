@@ -12,11 +12,16 @@ Date: 2026-10-15 · Status: accepted · Implements spec sections 9.3 (share link
   under a server secret is stored, so the table holds no IP addresses and none can be recovered from it without the
   secret (a plain hash of an IPv4 address can be reversed by trying all of them in minutes). The runtime role may
   update only `count`; the platform role has no access.
-- **The secret** (`keySecret`, at least 32 bytes) is derived by the Integration task from `BETTER_AUTH_SECRET` with
-  `hkdfSync("sha256", secret, "", "rate-limit-keys", 32)`, so there is no new environment variable. Rotating it only
-  resets the counts.
-- **Hono middleware** `rateLimit({ limiter, name, limit, windowSeconds, clientAddress })` answers 429 with
-  `Retry-After` and `{ code: "RATE_LIMITED" }`, and sets `RateLimit-Remaining`.
+- **The secret** (`keySecret`, at least 32 bytes) is derived from `BETTER_AUTH_SECRET` with
+  `hkdfSync("sha256", secret, "", "rate-limit-keys", 32)` (`rateLimitKeySecret` in `apps/api/src/services.ts`), so
+  there is no new environment variable. Rotating it only resets the counts.
+- **Hono middleware** `rateLimit({ limiter, name, limit, windowSeconds, clientAddress, refusal? })` answers 429 with
+  `Retry-After` and `{ code: "RATE_LIMITED" }`, and sets `RateLimit-Remaining`. A route people open in a browser passes
+  its own `refusal`: `/p/*` answers with an HTML page like its other ones; `/webhooks/*` keeps the JSON.
+- **The limits:** `/p/*` at 30 requests a minute per client address (a customer opens a link a few times; guessing
+  needs millions of tries), `/webhooks/*` at 600 (providers send bursts from a few addresses). WhatsApp's status
+  callbacks can pass 600 a minute during a broadcast; Meta retries on 429, so they arrive late rather than lost, and
+  the WhatsApp step should raise that limit or count by provider.
 - **The client's address is one it can't forge.** `clientAddressFrom({ headerNames, trustedProxies })` follows Better
   Auth's rule for sign-in (ADR 0006): in the first configured header present (`AUTH_IP_ADDRESS_HEADERS`), the first
   address from the right that isn't a trusted proxy (`AUTH_TRUSTED_PROXIES`); with no trusted proxies, only a header
@@ -62,6 +67,8 @@ Date: 2026-10-15 · Status: accepted · Implements spec sections 9.3 (share link
 - **The route answers customers in a browser**: the resolver registered for the record type shows the record (for an
   issued document, a redirect to its PDF); a link that doesn't work gets a small HTML page, 404 for unknown and 410
   for expired or revoked, with `Cache-Control: no-store`, `Referrer-Policy: no-referrer` and `X-Robots-Tag: noindex`.
+  A resolver answers "not found" the same way, by throwing `NOT_FOUND`: an issued document whose PDF isn't rendered
+  yet gets a 503 "still being prepared" page with `Retry-After: 30` (`DOCUMENT_NOT_READY`).
 - **Links are revoked, never edited or deleted**: the runtime role may update only `revoked_at` and `revoked_by`, and
   a trigger makes revocation final: a revoked link can't be changed again. Concurrent revokes write once.
 

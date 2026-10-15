@@ -1,15 +1,47 @@
-// The api's HTTP app: a health check, Better Auth's sign-in endpoints under /api/auth, and tRPC at /api/trpc.
+// The api's HTTP app: a health check, Better Auth's sign-in endpoints under /api/auth, tRPC at /api/trpc, and the
+// public routes that need no session: share links at /p and the webhook intake at /webhooks, both rate-limited.
 import { trpcServer } from "@hono/trpc-server";
 import { appRouter, createContext } from "@travel-crm/api";
+import type { Database } from "@travel-crm/db";
+import type { Files } from "@travel-crm/domain/files";
 import type { Identity } from "@travel-crm/domain/identity";
+import type { RateLimiter } from "@travel-crm/domain/rate-limits";
+import { findShareLink, recordShareLinkOpen } from "@travel-crm/domain/share-links";
+import { receiveWebhook, type WebhookProvider } from "@travel-crm/domain/webhooks";
+import type { JobQueue } from "@travel-crm/integrations/jobs";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { organizationSignIn } from "./org-sign-in.js";
+import { rateLimit } from "./rate-limit.js";
+import { shareLinkResolvers } from "./share-link-resolvers.js";
+import { shareLinkRoutes, tooManyRequestsPage } from "./share-link-route.js";
 import { requireTrustedJson } from "./trusted-origin.js";
+import { webhookRoutes } from "./webhook-route.js";
 
 export interface ServerDependencies {
   identity: Identity;
+  /** The public routes' database: share links, webhook events, rate-limit counters. */
+  db: Database;
+  files: Pick<Files, "systemDownloadLink">;
+  /** Where the webhook intake queues work for the worker. */
+  queue: JobQueue;
+  rateLimiter: RateLimiter;
+  /** The client's address as AUTH_IP_ADDRESS_HEADERS and AUTH_TRUSTED_PROXIES say to read it. */
+  clientAddress: (request: Request) => string | null;
+  /** The webhook providers. The Foundation has none; later steps add theirs (Razorpay, WhatsApp). */
+  webhookProviders: readonly WebhookProvider[];
 }
+
+/**
+ * Per client address and minute. A customer opens a link a few times; guessing tokens needs millions of tries.
+ * Providers send bursts of webhooks from a few addresses, and retry what we refuse. WhatsApp's status callbacks can
+ * pass 600 a minute during a broadcast: Meta retries on 429, so they arrive late rather than being lost, and the
+ * WhatsApp step should raise this limit or count by provider when broadcasts arrive.
+ */
+const publicLimits = {
+  shareLinks: { limit: 30, windowSeconds: 60 },
+  webhooks: { limit: 600, windowSeconds: 60 },
+};
 
 /** No sign-in or tRPC call needs a bigger body; the cap stops a client making the server read a huge one. */
 const BODY_LIMIT = 64 * 1024;
@@ -22,7 +54,8 @@ function limitBody(maxSize: number) {
   });
 }
 
-export function createApp({ identity }: ServerDependencies): Hono {
+export function createApp(dependencies: ServerDependencies): Hono {
+  const { identity, db, files, queue, rateLimiter, clientAddress, webhookProviders } = dependencies;
   const app = new Hono();
 
   app.get("/health", (c) => c.json({ status: "ok" }));
@@ -50,6 +83,39 @@ export function createApp({ identity }: ServerDependencies): Hono {
         // Refusals (401, 403, 404...) are answers, not faults. Only unexpected errors are logged.
         if (error.code === "INTERNAL_SERVER_ERROR") console.error(`tRPC ${path ?? "?"} failed`, error);
       },
+    }),
+  );
+
+  // No session, no cookies: these answer customers' browsers and providers' servers. The webhook route caps its own
+  // body at 1 MB; share links are GETs. Over the limit, /p answers with a page (a customer's browser shows it) and
+  // /webhooks with JSON.
+  app.use(
+    "/p/*",
+    rateLimit({
+      limiter: rateLimiter,
+      name: "share-links",
+      ...publicLimits.shareLinks,
+      clientAddress,
+      refusal: tooManyRequestsPage,
+    }),
+  );
+  app.route(
+    "/p",
+    shareLinkRoutes({
+      find: (token) => findShareLink(db, token),
+      recordOpen: (opened, visitor) => recordShareLinkOpen(db, opened, visitor),
+      resolvers: shareLinkResolvers({ db, files }),
+      clientAddress,
+    }),
+  );
+  app.use(
+    "/webhooks/*",
+    rateLimit({ limiter: rateLimiter, name: "webhooks", ...publicLimits.webhooks, clientAddress }),
+  );
+  app.route(
+    "/webhooks",
+    webhookRoutes({
+      receive: (provider, request) => receiveWebhook({ db, queue, providers: webhookProviders }, provider, request),
     }),
   );
 

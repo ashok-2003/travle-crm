@@ -269,6 +269,9 @@ importers:
       '@travel-crm/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@travel-crm/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@travel-crm/domain':
         specifier: workspace:*
         version: link:../../packages/domain
@@ -288,9 +291,6 @@ importers:
       '@better-auth/utils':
         specifier: 0.4.2
         version: 0.4.2
-      '@travel-crm/db':
-        specifier: workspace:*
-        version: link:../../packages/db
       '@travel-crm/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config

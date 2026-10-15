@@ -15,6 +15,7 @@
     "@travel-crm/api": "workspace:*",
     "@travel-crm/brand": "workspace:*",
     "@travel-crm/contracts": "workspace:*",
+    "@travel-crm/db": "workspace:*",
     "@travel-crm/domain": "workspace:*",
     "@travel-crm/integrations": "workspace:*",
     "@trpc/server": "11.19.0",
@@ -23,7 +24,6 @@
   },
   "devDependencies": {
     "@better-auth/utils": "0.4.2",
-    "@travel-crm/db": "workspace:*",
     "@travel-crm/eslint-config": "workspace:*",
     "@travel-crm/tsconfig": "workspace:*",
     "@types/node": "catalog:",
