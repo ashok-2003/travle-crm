@@ -1,7 +1,13 @@
 // A Better Auth hooks.before middleware that refuses what Better Auth's own endpoints would allow but our rules don't.
 import type { IdentityClient } from "@travel-crm/db/identity";
 import { APIError, createAuthMiddleware, getAuthoritativeSessionFromCtx } from "better-auth/api";
-import { hasEverBeenMember, isActiveMemberUser, isPlatformAdminUser, platformStaffLevelOf } from "../access.js";
+import {
+  describePlatformStaff,
+  hasEverBeenMember,
+  isActiveMemberUser,
+  isPlatformAdminUser,
+  platformStaffLevelOf,
+} from "../access.js";
 
 /**
  * The admin endpoints that stay open over HTTP: support's impersonation, which the console starts and stops through
@@ -20,8 +26,9 @@ export interface SideDoorOptions {
  * - a member rewriting their username into another organization's namespace (only our staff API changes usernames),
  *   and probing which usernames exist;
  * - /admin/* over HTTP, except starting and stopping support's impersonation;
- * - /admin/* for anyone who isn't platform staff by our definition (Better Auth checks user.role alone), making a
- *   person with a membership a platform admin, and impersonating anyone but an organization's active staff;
+ * - /admin/* for anyone who isn't platform staff by our definition (Better Auth checks user.role alone) or still has a
+ *   temporary password to replace, making a person with a membership a platform admin, and impersonating anyone but
+ *   an organization's active staff;
  * - Better Auth's organization endpoints over HTTP (members and roles go through our own API);
  * - signing in by a placeholder ".invalid" email, which staff without an email (or removed staff) carry, over HTTP and
  *   from server-side calls alike;
@@ -85,8 +92,13 @@ export function closeSideDoors(client: IdentityClient, options: SideDoorOptions 
         ctx.path === "/admin/stop-impersonating" &&
         !!impersonatedBy &&
         (await isPlatformAdminUser(client, impersonatedBy));
-      if (!stoppingImpersonation && !(await isPlatformAdminUser(client, session.user.id))) {
-        throw new APIError("FORBIDDEN", { code: "FORBIDDEN", message: "Platform staff only" });
+      if (!stoppingImpersonation) {
+        const staff = await describePlatformStaff(client, session.user.id);
+        if (!staff) throw new APIError("FORBIDDEN", { code: "FORBIDDEN", message: "Platform staff only" });
+        // As in the console: a temporary password is replaced before anything else, impersonation included.
+        if (staff.mustChangePassword) {
+          throw new APIError("FORBIDDEN", { code: "CHANGE_PASSWORD", message: "Choose a new password first" });
+        }
       }
       if (ctx.path === "/admin/impersonate-user") {
         // An impersonation nobody in an organization can see in their log must not start.
