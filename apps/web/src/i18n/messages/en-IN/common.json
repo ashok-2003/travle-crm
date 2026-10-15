@@ -7,6 +7,7 @@
   "close": "Close",
   "back": "Back",
   "continue": "Continue",
+  "continuing": "Continuing",
   "skipToContent": "Skip to content",
   "offline": "You're offline. Showing what was last loaded; changes wait until you're back online."
 }

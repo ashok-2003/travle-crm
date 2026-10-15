@@ -40,7 +40,7 @@ describe("opening a page with a saved copy", () => {
 
   it("refreshes the copy and asks me.get again when the device comes back online", { timeout: 10_000 }, async () => {
     await saveCopyFor(asha, ["Ravi"]);
-    const offline = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    const browserOnLine = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
     const api = stubApi({ "me.get": "offline", "staff.list": "offline" });
     renderApp();
     expect(await screen.findByText("Asha: Ravi", undefined, { timeout: 500 })).toBeVisible();
@@ -49,7 +49,7 @@ describe("opening a page with a saved copy", () => {
     const beforeReconnecting = api.calls.length;
     api.answer("me.get", { data: asha });
     api.answer("staff.list", { data: [staffNamed("Ravi"), staffNamed("Meera")] });
-    offline.mockReturnValue(true);
+    browserOnLine.mockReturnValue(true);
     window.dispatchEvent(new Event("online"));
     expect(await screen.findByText("Asha: Ravi, Meera")).toBeVisible();
     expect(api.calls.slice(beforeReconnecting)).toEqual(expect.arrayContaining(["me.get", "staff.list"]));

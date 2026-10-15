@@ -43,8 +43,11 @@ export function signInRoute(from?: string): string {
   return from && isAppPath(from) ? `${routes.signIn}?next=${encodeURIComponent(from)}` : routes.signIn;
 }
 
-/** Any origin of our own would do: a path is checked by whether resolving it against this one stays on it. */
-const BASE = "https://app.invalid";
+/**
+ * Any origin of our own would do: a path is checked by whether resolving it against this one stays on it, and read
+ * (its pathname) by resolving it here too, as next-path.ts does.
+ */
+export const PATH_BASE = "https://app.invalid";
 
 /** One slash, then something other than a slash or a backslash (which browsers read as a slash). */
 const ONE_LEADING_SLASH = /^\/(?![/\\])/;
@@ -75,10 +78,10 @@ export function isAppPath(path: string): boolean {
   let url: URL;
   let pathname: string;
   try {
-    url = new URL(path, BASE);
+    url = new URL(path, PATH_BASE);
     pathname = decodeURIComponent(url.pathname);
   } catch {
     return false; // a malformed escape such as "/%E0"
   }
-  return url.origin === BASE && looksLikeAppPath(pathname) && !pathname.toLowerCase().startsWith("/api");
+  return url.origin === PATH_BASE && looksLikeAppPath(pathname) && !pathname.toLowerCase().startsWith("/api");
 }

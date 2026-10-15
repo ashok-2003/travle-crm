@@ -47,7 +47,11 @@ describe("ChangePasswordForm", () => {
 
   it("says the password is saved when the next screen doesn't open, and continues from there", async () => {
     const changePassword = answers(ok(null));
-    const onChanged = vi.fn().mockRejectedValueOnce(unanswered()).mockResolvedValueOnce(undefined);
+    let goOn: () => void = () => undefined;
+    const onChanged = vi
+      .fn()
+      .mockRejectedValueOnce(unanswered())
+      .mockImplementationOnce(() => new Promise<void>((resolve) => (goOn = resolve)));
     renderScreen(<ChangePasswordForm temporary onChanged={onChanged} auth={{ changePassword }} />);
     await fill("temporary-1", "my-own-password", "my-own-password");
     expect(await screen.findByText(account.changePassword.savedNotContinued)).toBeVisible();
@@ -58,6 +62,9 @@ describe("ChangePasswordForm", () => {
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.queryByLabelText(account.fields.temporaryPassword)).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: common.continue }));
+    // While it works, the button says so: its spinner is decoration, so the words carry it.
+    expect(screen.getByRole("button", { name: common.continuing })).toBeDisabled();
+    goOn();
     expect(onChanged).toHaveBeenCalledTimes(2);
     expect(changePassword).toHaveBeenCalledOnce();
   });

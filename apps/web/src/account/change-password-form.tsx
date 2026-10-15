@@ -66,7 +66,7 @@ export function ChangePasswordForm({
         <OutcomeMessage>{t("changePassword.savedNotContinued")}</OutcomeMessage>
         <Button disabled={goingOn} onClick={() => void goOn()}>
           {goingOn && <Spinner />}
-          {tCommon("continue")}
+          {goingOn ? tCommon("continuing") : tCommon("continue")}
         </Button>
       </div>
     );

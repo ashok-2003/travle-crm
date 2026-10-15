@@ -113,11 +113,18 @@ describe("TwoFactorSetup", () => {
   });
 
   it("says why it can't go on after the codes are saved, and tries again", async () => {
-    const onDone = vi.fn().mockRejectedValueOnce(unanswered()).mockResolvedValueOnce(undefined);
+    let goOn: () => void = () => undefined;
+    const onDone = vi
+      .fn()
+      .mockRejectedValueOnce(unanswered())
+      .mockImplementationOnce(() => new Promise<void>((resolve) => (goOn = resolve)));
     await reachBackupCodes(onDone);
     await userEvent.click(screen.getByRole("button", { name: account.twoFactorSetup.done }));
     expect(await screen.findByText(errors.network)).toBeVisible();
     await userEvent.click(screen.getByRole("button", { name: account.twoFactorSetup.done }));
+    // While it works, the button says so: its spinner is decoration, so the words carry it.
+    expect(screen.getByRole("button", { name: messages.common.continuing })).toBeDisabled();
+    goOn();
     expect(onDone).toHaveBeenCalledTimes(2);
   });
 });

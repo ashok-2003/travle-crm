@@ -14,6 +14,7 @@ import { focusWhenShown } from "./focus";
 
 export function BackupCodes({ codes, onDone }: { codes: string[]; onDone: () => Promise<void> | void }) {
   const t = useTranslations("account.twoFactorSetup");
+  const tCommon = useTranslations("common");
   const { apiError } = useErrorMessage();
   const id = useId();
   const [copied, setCopied] = useState<boolean | null>(null);
@@ -69,7 +70,7 @@ export function BackupCodes({ codes, onDone }: { codes: string[]; onDone: () => 
       )}
       <Button onClick={() => void done()} disabled={busy}>
         {busy && <Spinner />}
-        {t("done")}
+        {busy ? tCommon("continuing") : t("done")}
       </Button>
     </section>
   );
