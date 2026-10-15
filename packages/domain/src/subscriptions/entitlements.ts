@@ -1,5 +1,6 @@
-// What an organization may use today (spec 7.2): its plan plus its overrides, and how far its lifecycle has got. Read
-// on every request by the api's checks 2 and 3, under the organization's row-level security.
+// What an organization may use today (spec 7.2): its plan plus its overrides, and its state today (the lifecycle as
+// due today, or suspended while suspended by hand). Read on every request by the api's checks 2 and 3, under the
+// organization's row-level security.
 import type {
   LifecycleAccess,
   PlanModule,
@@ -7,21 +8,21 @@ import type {
   SubscriptionStatus,
 } from "@travel-crm/contracts/subscriptions";
 import type { Database, OrgTx } from "@travel-crm/db";
-import { organizationTimeZone } from "../identity/index.js";
-import { calendarDateIn, type CalendarDate } from "../kernel/index.js";
-import { fromDateColumn } from "./dates.js";
-import { dueState, nextStep, type LifecycleState } from "./lifecycle.js";
-import { getSubscriptionPolicy } from "./policy.js";
-import { modulesOf, statusOf } from "./rows.js";
+import type { CalendarDate } from "../kernel/index.js";
+import { modulesOf, withPlan } from "./rows.js";
+import { subscriptionToday } from "./state.js";
+
+/** A plan's storage is sold in gigabytes of 10^9 bytes; the files module counts bytes. */
+export const BYTES_PER_GB = 1_000_000_000;
 
 export interface Entitlements {
-  /** Where the lifecycle has got to today, even before the daily job records it. */
+  /** The state today, even before the nightly job records it. */
   status: SubscriptionStatus;
   access: LifecycleAccess;
   planName: string;
   /** The plan's modules and those switched on early. */
   modules: ReadonlySet<PlanModule>;
-  /** Seats include the extra ones. */
+  /** Seats are the plan's included ones plus the extra ones. */
   limits: { seats: number; whatsappNumbers: number; storageBytes: number };
   trialEndsOn: CalendarDate | null;
   paidThrough: CalendarDate | null;
@@ -46,34 +47,26 @@ export function lifecycleAccessOf(status: SubscriptionStatus): LifecycleAccess {
 
 /** The organization's entitlements at `now`, or null when it has no subscription. */
 export async function entitlementsOf(tx: OrgTx, organizationId: string, now: Date): Promise<Entitlements | null> {
-  const row = await tx.subscription.findUnique({ where: { organizationId }, include: { plan: true } });
+  const row = await tx.subscription.findUnique({ where: { organizationId }, include: withPlan });
   if (!row) return null;
-  const timeZone = await organizationTimeZone(tx, organizationId);
-  const policy = await getSubscriptionPolicy(tx);
-  const stored: LifecycleState = {
-    status: statusOf(row.status),
-    since: calendarDateIn(row.statusChangedAt, timeZone),
-    trialEndsOn: row.trialEndsOn ? fromDateColumn(row.trialEndsOn) : null,
-    paidThrough: row.paidThrough ? fromDateColumn(row.paidThrough) : null,
-  };
-  const state = dueState(stored, policy, calendarDateIn(now, timeZone));
+  const today = await subscriptionToday(tx, row, now);
   return {
-    status: state.status,
-    access: lifecycleAccessOf(state.status),
+    status: today.status,
+    access: lifecycleAccessOf(today.status),
     planName: row.plan.name,
     modules: new Set([...modulesOf(row.plan.modules), ...modulesOf(row.extraModules)]),
     limits: {
-      seats: row.plan.seatLimit + row.extraSeats,
+      seats: row.plan.includedSeats + row.extraSeats,
       whatsappNumbers: row.plan.whatsappNumberLimit,
-      storageBytes: Number(row.plan.storageLimitBytes),
+      storageBytes: row.plan.storageGb * BYTES_PER_GB,
     },
-    trialEndsOn: state.trialEndsOn,
-    paidThrough: state.paidThrough,
-    nextChangeOn: nextStep(state, policy)?.on ?? null,
+    trialEndsOn: today.due.trialEndsOn,
+    paidThrough: today.due.paidThrough,
+    nextChangeOn: today.nextChangeOn,
   };
 }
 
-/** What subscription.get shows staff about their own subscription. */
+/** What subscription.get shows staff about their own subscription: no price. */
 export function overviewOf(entitlements: Entitlements): SubscriptionOverview {
   return {
     status: entitlements.status,

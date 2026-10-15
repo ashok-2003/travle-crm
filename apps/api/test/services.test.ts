@@ -115,9 +115,12 @@ describe("services", () => {
           key: `one-seat-${organizationId.slice(-12)}`,
           name: "One seat",
           monthlyPricePaise: 0,
-          seatLimit: 1,
+          annualPricePaise: 0,
+          includedSeats: 1,
+          extraSeatMonthlyPricePaise: 0,
+          extraSeatAnnualPricePaise: 0,
           whatsappNumberLimit: 0,
-          storageLimitBytes: 1000n,
+          storageGb: 1,
           modules: ["crm"],
         },
       });
@@ -128,7 +131,7 @@ describe("services", () => {
           billingCycle: "monthly",
           status: "active",
           statusChangedAt: new Date(),
-          paidThrough: new Date("2099-12-31"),
+          paidThrough: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
         },
       });
       await services.identity.seedStarterRoles(organizationId);
@@ -155,7 +158,8 @@ describe("services", () => {
           recordId: crypto.randomUUID(),
           fileName: "itinerary.pdf",
           contentType: "application/pdf",
-          sizeBytes: 1001,
+          // One byte over the plan's gigabyte.
+          sizeBytes: 1_000_000_001,
           sensitive: false,
         }),
       ).rejects.toMatchObject({ reason: "STORAGE_LIMIT_REACHED" });

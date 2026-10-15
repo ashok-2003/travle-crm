@@ -1,27 +1,35 @@
 // Plans and subscriptions (spec 7.2, 7.3): what each organization pays for and may use. Plans are platform data, with
 // no organization; a subscription and its payments belong to one organization, under row-level security. Only the
-// platform role writes them; the api reads them for its request checks, and the worker moves a subscription along.
+// platform role writes them, the console's nightly lifecycle job included; the api only reads them, for its request
+// checks.
 
-/// A plan the platform sells: its INR price, its limits and its modules (spec 7.2). Plans are data: no code names one.
+/// A plan the platform sells (spec 7.2): a flat tier per agency, with a monthly and an annual price, the seats they
+/// include and what each extra seat adds, its storage and its modules. Prices are INR in paise before GST, which is
+/// shown and charged on top. Plans are data: no code names one.
 model Plan {
-  id                  String         @id @default(uuid(7)) @db.Uuid
+  id                         String         @id @default(uuid(7)) @db.Uuid
   /// Stable, e.g. "starter" (CHECK plan_key_format). It never changes.
-  key                 String         @unique
-  name                String
-  /// INR in paise, per month and per year. A plan may be sold one way only; at least one is set (CHECK plan_priced).
-  monthlyPricePaise   Int?           @map("monthly_price_paise")
-  yearlyPricePaise    Int?           @map("yearly_price_paise")
-  seatLimit           Int            @map("seat_limit")
-  whatsappNumberLimit Int            @map("whatsapp_number_limit")
-  storageLimitBytes   BigInt         @map("storage_limit_bytes")
+  key                        String         @unique
+  name                       String
+  /// INR in paise before GST, per month and per year (CHECK plan_prices_not_negative).
+  monthlyPricePaise          Int            @map("monthly_price_paise")
+  annualPricePaise           Int            @map("annual_price_paise")
+  /// The seats the price includes (CHECK plan_limits_positive).
+  includedSeats              Int            @map("included_seats")
+  /// What each seat beyond them adds, per month and per year, in paise before GST.
+  extraSeatMonthlyPricePaise Int            @map("extra_seat_monthly_price_paise")
+  extraSeatAnnualPricePaise  Int            @map("extra_seat_annual_price_paise")
+  whatsappNumberLimit        Int            @map("whatsapp_number_limit")
+  /// Files the organization may keep, in whole gigabytes of 10^9 bytes.
+  storageGb                  Int            @map("storage_gb")
   /// The business modules it includes, e.g. {crm,quotes} (CHECK plan_modules_known). The Foundation's own features
   /// (staff, roles, settings, the audit log, documents) come with every plan.
-  modules             String[]
+  modules                    String[]
   /// Archived plans take no new subscriptions; organizations already on one keep it.
-  archivedAt          DateTime?      @map("archived_at") @db.Timestamptz(6)
-  createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt           DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
-  subscriptions       Subscription[]
+  archivedAt                 DateTime?      @map("archived_at") @db.Timestamptz(6)
+  createdAt                  DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                  DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  subscriptions              Subscription[]
 
   @@map("plan")
 }
@@ -31,20 +39,29 @@ model Subscription {
   /// Filled from db.forOrg()'s organization when omitted. Also the key: one subscription per organization.
   organizationId         String                @id @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
   planId                 String                @map("plan_id") @db.Uuid
-  /// "monthly" or "yearly" (CHECK subscription_billing_cycle_value).
+  /// "monthly" or "annual": which of the plan's prices it pays (CHECK subscription_billing_cycle_value).
   billingCycle           String                @map("billing_cycle")
-  /// "trial", "active", "past_due", "read_only", "suspended" or "cancelled" (CHECK subscription_status_value).
+  /// The lifecycle's state as last recorded: "trial", "active", "past_due", "read_only", "suspended" or "cancelled"
+  /// (CHECK subscription_status_value). Every rule and screen uses the state due today, computed from this and the
+  /// dates; the console's nightly job writes that down. Active is always paid through a day (subscription_active_paid).
   status                 String
-  /// When the status last changed: the unpaid states last a number of days from it (subscription_policy).
+  /// The first day of the recorded status, as midnight in the organization's time zone: the unpaid states last a
+  /// number of days from it (subscription_policy).
   statusChangedAt        DateTime              @map("status_changed_at") @db.Timestamptz(6)
-  /// The last day of the trial; set exactly while the status is "trial".
+  /// The trial's last day, kept once the trial is over; set while the status is "trial" (subscription_trial_dated).
   trialEndsOn            DateTime?             @map("trial_ends_on") @db.Date
   /// The last day paid for, in the organization's time zone. Null until the first payment.
   paidThrough            DateTime?             @map("paid_through") @db.Date
-  /// Overrides (spec 7.2): seats beyond the plan's, a price agreed for this organization, modules switched on early.
+  /// Overrides (spec 7.2): seats beyond the plan's (each priced by the plan), a price agreed for this organization per
+  /// billing cycle before GST, in place of the plan's and its extra seats', and modules switched on early.
   extraSeats             Int                   @default(0) @map("extra_seats")
   customPricePaise       Int?                  @map("custom_price_paise")
   extraModules           String[]              @default([]) @map("extra_modules")
+  /// A suspension by platform staff, apart from the lifecycle: the organization is suspended while it is set, whatever
+  /// it has paid. Payments never clear it; only a super admin does. Set with who and why (subscription_manual_suspension).
+  manualSuspensionAt     DateTime?             @map("manual_suspension_at") @db.Timestamptz(6)
+  manualSuspensionBy     String?               @map("manual_suspension_by") @db.Uuid
+  manualSuspensionReason String?               @map("manual_suspension_reason")
   /// Razorpay's id for this subscription once Razorpay Subscriptions bills it (spec 7.4); null while billing is by hand.
   providerSubscriptionId String?               @map("provider_subscription_id")
   createdAt              DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -65,7 +82,8 @@ model SubscriptionPayment {
   /// INR in paise, more than zero (CHECK subscription_payment_amount_positive).
   amountPaise       Int          @map("amount_paise")
   paidOn            DateTime     @map("paid_on") @db.Date
-  /// The last day this payment pays for: the subscription is paid through at least this day once it is recorded.
+  /// The last day this payment pays for, not before paid_on (CHECK subscription_payment_dates): the subscription is
+  /// paid through at least this day once it is recorded.
   paidThrough       DateTime     @map("paid_through") @db.Date
   /// How it was paid, for whoever matches the bank statement, e.g. "NEFT UTR 412345678901".
   reference         String?
@@ -90,11 +108,13 @@ model SubscriptionPayment {
   @@map("subscription_payment")
 }
 
-/// How many days an organization stays past due, then read-only, before the next state (spec 7.3; Q3: 7 and 14).
-/// One row, edited by super admins in the console.
+/// How many days a new organization's trial lasts, and how many an organization stays past due, then read-only,
+/// before the next state (spec 7.3; Q3: 7 and 14; the owner: a 7-day trial). One row, edited by super admins in the
+/// console.
 model SubscriptionPolicy {
   /// Always true: the table holds one row (CHECK subscription_policy_one_row).
   id           Boolean  @id @default(true)
+  trialDays    Int      @default(7) @map("trial_days")
   pastDueDays  Int      @default(7) @map("past_due_days")
   readOnlyDays Int      @default(14) @map("read_only_days")
   updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)

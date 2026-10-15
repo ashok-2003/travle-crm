@@ -8,26 +8,24 @@ import { planSummaryOf } from "./rows.js";
 
 export async function createPlan(tx: OrgTx, input: CreatePlanInput): Promise<PlanSummary> {
   try {
-    return planSummaryOf(
-      await tx.plan.create({ data: { ...input, storageLimitBytes: BigInt(input.storageLimitBytes) } }),
-    );
+    return planSummaryOf(await tx.plan.create({ data: input }));
   } catch (error) {
     if (isUniqueViolation(error)) throw new DomainError("CONFLICT", "PLAN_KEY_TAKEN", "Another plan has that key");
     throw error;
   }
 }
 
-/** Changes what a plan costs, allows and includes. Organizations on it get the new limits and modules at once. */
+/**
+ * Changes what a plan costs, allows and includes. Organizations on it get the new limits, modules and prices at once
+ * (an agreed price of their own stays).
+ */
 export async function updatePlan(
   tx: OrgTx,
   input: UpdatePlanInput,
 ): Promise<{ before: PlanSummary; after: PlanSummary }> {
   const before = await findPlan(tx, input.planId);
   const { planId, ...fields } = input;
-  const after = await tx.plan.update({
-    where: { id: planId },
-    data: { ...fields, storageLimitBytes: BigInt(fields.storageLimitBytes) },
-  });
+  const after = await tx.plan.update({ where: { id: planId }, data: fields });
   return { before, after: planSummaryOf(after) };
 }
 

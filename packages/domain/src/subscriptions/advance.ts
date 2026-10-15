@@ -1,15 +1,13 @@
-// The daily lifecycle job (spec 7.3): records each organization's subscription as far as its unpaid days have taken
-// it. The request checks already compute the state on every request; this writes it down and logs each change.
-import type { Database, OrgTx } from "@travel-crm/db";
+// The nightly lifecycle job (spec 7.3): records each organization's subscription as far as its unpaid days have taken
+// it. The request checks and the console already compute the state due today; this writes it down and logs each
+// change. It runs in the console process as the platform role, the only role that writes a subscription.
+import type { OrgTx } from "@travel-crm/db";
+import { describeError, ownMessages } from "@travel-crm/integrations/jobs";
 import { recordAudit } from "../audit/index.js";
-import { organizationTimeZone } from "../identity/index.js";
-import { calendarDateIn, startOfDayIn, systemActor } from "../kernel/index.js";
-import { fromDateColumn } from "./dates.js";
-import { dueState } from "./lifecycle.js";
-import { getSubscriptionPolicy } from "./policy.js";
-import { statusOf } from "./rows.js";
+import { systemActor } from "../kernel/index.js";
+import { lockSubscriptionRow, statusColumns, subscriptionToday } from "./state.js";
 
-/** The worker's daily job's queue. */
+/** The console's nightly job's queue. */
 export const ADVANCE_SUBSCRIPTIONS_QUEUE = "subscriptions.advance-lifecycle";
 
 /** A status the job moved, and the day the new one began. */
@@ -20,58 +18,89 @@ export interface StatusChange {
   since: string;
 }
 
+/** Runs one function in one transaction that may write subscriptions: the console's platform transactions. */
+export interface SubscriptionWriter {
+  transaction<T>(fn: (tx: OrgTx) => Promise<T>): Promise<T>;
+}
+
 /**
- * Moves one organization's subscription to where it is due today, as the runtime role inside its forOrg(). Writes only
- * if the subscription is still as it was read: a change from the console in the meantime wins, and the next run looks
- * again. Recorded as "subscription.status-changed" by the system. Returns null when nothing moved.
+ * Some organizations' subscriptions could not be advanced; the others were. Ids and error names only, so pg-boss keeps
+ * the message and the console's failed-jobs list shows it; a rerun is safe.
+ */
+export class LifecycleJobError extends Error {
+  static {
+    ownMessages(this);
+  }
+
+  constructor(
+    readonly failures: readonly { organizationId: string; error: unknown }[],
+    readonly changes: readonly StatusChange[],
+    total: number,
+  ) {
+    const [first] = failures;
+    super(
+      `${String(failures.length)} of ${String(total)} subscriptions not advanced; the first, ` +
+        `${first?.organizationId ?? "none"}: ${describeError(first?.error)}`,
+    );
+    this.name = "LifecycleJobError";
+  }
+}
+
+/**
+ * Moves one organization's subscription to where it is due today. It holds the row first and works from it as held,
+ * so a payment or other change from the console is either already in what it reads or waits for it, and is never
+ * overwritten. Recorded as "subscription.status-changed" by the system. Returns null when nothing moved.
  */
 export async function advanceSubscription(tx: OrgTx, organizationId: string, now: Date): Promise<StatusChange | null> {
-  const row = await tx.subscription.findUnique({ where: { organizationId } });
+  const row = await lockSubscriptionRow(tx, organizationId);
   if (!row) return null;
-  const timeZone = await organizationTimeZone(tx, organizationId);
-  const stored = {
-    status: statusOf(row.status),
-    since: calendarDateIn(row.statusChangedAt, timeZone),
-    trialEndsOn: row.trialEndsOn ? fromDateColumn(row.trialEndsOn) : null,
-    paidThrough: row.paidThrough ? fromDateColumn(row.paidThrough) : null,
-  };
-  const due = dueState(stored, await getSubscriptionPolicy(tx), calendarDateIn(now, timeZone));
-  if (due.status === stored.status) return null;
-  const { count } = await tx.subscription.updateMany({
-    where: { organizationId, status: row.status, statusChangedAt: row.statusChangedAt },
-    // The day the state began, not the day the job noticed: days in a state count from when it was due.
-    data: { status: due.status, statusChangedAt: startOfDayIn(due.since, timeZone) },
-  });
-  if (count === 0) return null;
+  const today = await subscriptionToday(tx, row, now);
+  const { recorded, due } = today;
+  if (due.status === recorded.status) return null;
+  await tx.subscription.update({ where: { organizationId }, data: statusColumns(today, due) });
   await recordAudit(tx, systemActor(organizationId), {
     action: "subscription.status-changed",
     entityType: "subscription",
     entityId: organizationId,
-    before: { status: stored.status },
+    before: { status: recorded.status },
     after: { status: due.status, since: due.since },
   });
-  return { organizationId, from: stored.status, to: due.status, since: due.since };
+  return { organizationId, from: recorded.status, to: due.status, since: due.since };
+}
+
+/** The subscriptions the lifecycle can still move: suspended and cancelled ones wait for a person. */
+async function movingSubscriptions(tx: OrgTx): Promise<string[]> {
+  const rows = await tx.subscription.findMany({
+    where: { status: { in: ["trial", "active", "past_due", "read_only"] } },
+    select: { organizationId: true },
+    orderBy: { organizationId: "asc" },
+  });
+  return rows.map((row) => row.organizationId);
 }
 
 /**
- * The job: each organization in its own transaction, so one that fails (its error goes to onError, ids only) doesn't
- * stop the rest. Safe to run twice: a second run finds nothing due.
+ * The job: each organization in its own transaction, so one that fails doesn't stop the rest; then, if any failed,
+ * one LifecycleJobError naming them, so the job is retried and shows as failed. Safe to run twice: a second run finds
+ * nothing due. `organizationIds` limits it to those (tests); by default, every subscription the lifecycle can move.
  */
 export async function advanceSubscriptions(dependencies: {
-  db: Pick<Database, "forOrg">;
-  organizationIds: readonly string[];
+  db: SubscriptionWriter;
+  organizationIds?: readonly string[];
   now?: Date;
-  onError?: (error: unknown, organizationId: string) => void;
 }): Promise<StatusChange[]> {
+  const { db } = dependencies;
   const now = dependencies.now ?? new Date();
+  const organizationIds = dependencies.organizationIds ?? (await db.transaction(movingSubscriptions));
   const changes: StatusChange[] = [];
-  for (const organizationId of dependencies.organizationIds) {
+  const failures: { organizationId: string; error: unknown }[] = [];
+  for (const organizationId of organizationIds) {
     try {
-      const change = await dependencies.db.forOrg(organizationId, (tx) => advanceSubscription(tx, organizationId, now));
+      const change = await db.transaction((tx) => advanceSubscription(tx, organizationId, now));
       if (change) changes.push(change);
     } catch (error) {
-      dependencies.onError?.(error, organizationId);
+      failures.push({ organizationId, error });
     }
   }
+  if (failures.length > 0) throw new LifecycleJobError(failures, changes, organizationIds.length);
   return changes;
 }

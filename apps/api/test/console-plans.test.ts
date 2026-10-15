@@ -18,10 +18,12 @@ const growth = {
   key: `growth-${crypto.randomUUID().slice(0, 8)}`,
   name: "Growth",
   monthlyPricePaise: 450_000,
-  yearlyPricePaise: 4_500_000,
-  seatLimit: 15,
+  annualPricePaise: 4_500_000,
+  includedSeats: 15,
+  extraSeatMonthlyPricePaise: 40_000,
+  extraSeatAnnualPricePaise: 400_000,
   whatsappNumberLimit: 2,
-  storageLimitBytes: 20_000_000_000,
+  storageGb: 20,
   modules: ["crm", "quotes", "bookings"],
 };
 
@@ -50,11 +52,11 @@ describe("the console's plans", () => {
       await consoleMutate(
         testConsole,
         "plans.update",
-        { planId: created.id, ...growth, key: undefined, seatLimit: 20 },
+        { planId: created.id, ...growth, key: undefined, includedSeats: 20 },
         superAdmin.jar,
       ),
     );
-    expect(updated).toMatchObject({ key: growth.key, seatLimit: 20 });
+    expect(updated).toMatchObject({ key: growth.key, includedSeats: 20 });
     await dataOf(await consoleMutate(testConsole, "plans.archive", { planId: created.id }, superAdmin.jar));
     const log = await testConsole.services.platformDb.transaction((tx) => listPlatformLog(tx, { limit: 100 }));
     const entries = log.entries.filter((entry) => entry.targetId === created.id).map((entry) => entry.action);
@@ -77,16 +79,9 @@ describe("the console's plans", () => {
     ).toEqual({ status: 403, reason: "SUPER_ADMIN_ONLY" });
   });
 
-  it("refuses a plan with no price, or with fields it doesn't know", async () => {
+  it("refuses a plan without both prices, or with fields it doesn't know", async () => {
     expect(
-      (
-        await consoleMutate(
-          testConsole,
-          "plans.create",
-          { ...growth, monthlyPricePaise: null, yearlyPricePaise: null },
-          superAdmin.jar,
-        )
-      ).status,
+      (await consoleMutate(testConsole, "plans.create", { ...growth, annualPricePaise: null }, superAdmin.jar)).status,
     ).toBe(400);
     expect((await consoleMutate(testConsole, "plans.create", { ...growth, discount: 5 }, superAdmin.jar)).status).toBe(
       400,
@@ -94,24 +89,22 @@ describe("the console's plans", () => {
   });
 
   it("shows the subscription policy, and lets only a super admin change it", async () => {
-    expect(await dataOf(await consoleQuery(testConsole, "plans.policy", support.jar))).toEqual({
-      pastDueDays: 7,
-      readOnlyDays: 14,
+    const policy = { trialDays: 7, pastDueDays: 7, readOnlyDays: 14 };
+    expect(await dataOf(await consoleQuery(testConsole, "plans.policy", support.jar))).toEqual(policy);
+    const changed = { ...policy, readOnlyDays: 15 };
+    expect(await refusalOf(await consoleMutate(testConsole, "plans.setPolicy", changed, support.jar))).toEqual({
+      status: 403,
+      reason: "SUPER_ADMIN_ONLY",
     });
-    expect(
-      await refusalOf(
-        await consoleMutate(testConsole, "plans.setPolicy", { pastDueDays: 10, readOnlyDays: 20 }, support.jar),
-      ),
-    ).toEqual({ status: 403, reason: "SUPER_ADMIN_ONLY" });
     try {
-      expect(
-        await dataOf(
-          await consoleMutate(testConsole, "plans.setPolicy", { pastDueDays: 10, readOnlyDays: 20 }, superAdmin.jar),
-        ),
-      ).toEqual({ pastDueDays: 10, readOnlyDays: 20 });
+      // The policy is one row every test file's organizations read while files run at once. Only the suspension day
+      // moves, and no other file's dates are near it, so the change cannot alter their lifecycle states.
+      expect(await dataOf(await consoleMutate(testConsole, "plans.setPolicy", changed, superAdmin.jar))).toEqual(
+        changed,
+      );
     } finally {
       // Other test files rely on the spec's defaults.
-      await consoleMutate(testConsole, "plans.setPolicy", { pastDueDays: 7, readOnlyDays: 14 }, superAdmin.jar);
+      await consoleMutate(testConsole, "plans.setPolicy", policy, superAdmin.jar);
     }
   });
 });

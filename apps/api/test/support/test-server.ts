@@ -113,9 +113,12 @@ const everythingPlan = {
   key: EVERYTHING_PLAN_KEY,
   name: "Everything (tests)",
   monthlyPricePaise: 0,
-  seatLimit: 1000,
+  annualPricePaise: 0,
+  includedSeats: 1000,
+  extraSeatMonthlyPricePaise: 0,
+  extraSeatAnnualPricePaise: 0,
   whatsappNumberLimit: 10,
-  storageLimitBytes: 1_000_000_000_000n,
+  storageGb: 1000,
   modules: [...planModules],
 };
 
@@ -131,7 +134,7 @@ async function everythingPlanId(platform: PlatformClient): Promise<string> {
   }
 }
 
-/** Puts the organization on the test plan, active and paid for years, as onboarding would have. */
+/** Puts the organization on the test plan, active and paid for a year from today, as onboarding would have. */
 export async function subscribeToEverything(platform: PlatformClient, organizationId: string): Promise<void> {
   await platform.subscription.create({
     data: {
@@ -140,7 +143,7 @@ export async function subscribeToEverything(platform: PlatformClient, organizati
       billingCycle: "monthly",
       status: "active",
       statusChangedAt: new Date(),
-      paidThrough: new Date("2099-12-31"),
+      paidThrough: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
     },
   });
 }

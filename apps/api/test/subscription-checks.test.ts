@@ -15,6 +15,8 @@ import {
 } from "./support/test-server.js";
 import { dataOf, mutate, query, refusalOf } from "./support/trpc.js";
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 describe("the subscription's request check", () => {
   let server: TestServer;
 
@@ -67,7 +69,7 @@ describe("the subscription's request check", () => {
   });
 
   it("counts a trial that ended yesterday as past due today, before the daily job has run", async () => {
-    const yesterdayInIndia = calendarDateIn(new Date(Date.now() - 24 * 60 * 60 * 1000), "Asia/Kolkata");
+    const yesterdayInIndia = calendarDateIn(new Date(Date.now() - DAY_MS), "Asia/Kolkata");
     const { owner } = await agencyWith({ status: "trial", trialEndsOn: new Date(`${yesterdayInIndia}T00:00:00Z`) });
     expect(await dataOf<SubscriptionOverview>(await query(server, "subscription.get", owner))).toMatchObject({
       status: "past_due",
@@ -77,7 +79,7 @@ describe("the subscription's request check", () => {
   });
 
   it("ends support's impersonation the moment its session is gone, though the cookie cache still holds it", async () => {
-    const { agency } = await agencyWith({ status: "active", paidThrough: new Date("2099-12-31") });
+    const { agency } = await agencyWith({ status: "active", paidThrough: new Date(Date.now() + 365 * DAY_MS) });
     const admin = await createPlatformAdmin(server);
     const jar = new CookieJar();
     await signInByEmail(server, jar, admin.email, admin.password);

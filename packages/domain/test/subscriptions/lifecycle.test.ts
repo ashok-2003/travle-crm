@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { parseCalendarDate as day } from "../../src/kernel/index.js";
 import { dueState, nextStep, type LifecycleState } from "../../src/subscriptions/index.js";
 
-const policy = { pastDueDays: 7, readOnlyDays: 14 };
+const policy = { trialDays: 7, pastDueDays: 7, readOnlyDays: 14 };
 const state = (fields: Partial<LifecycleState>): LifecycleState => ({
   status: "active",
   since: day("2026-01-01"),
@@ -32,7 +32,7 @@ describe("the subscription lifecycle", () => {
     expect(dueState(pastDue, policy, day("2026-11-08"))).toMatchObject({ status: "read_only", since: "2026-11-08" });
     const readOnly = state({ status: "read_only", since: day("2026-11-08") });
     expect(nextStep(readOnly, policy)).toEqual({ status: "suspended", on: "2026-11-22" });
-    expect(nextStep(readOnly, { pastDueDays: 7, readOnlyDays: 30 })).toEqual({ status: "suspended", on: "2026-12-08" });
+    expect(nextStep(readOnly, { ...policy, readOnlyDays: 30 })).toEqual({ status: "suspended", on: "2026-12-08" });
   });
 
   it("leaves suspended and cancelled to a person", () => {

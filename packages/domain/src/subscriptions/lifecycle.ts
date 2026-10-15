@@ -1,6 +1,7 @@
 // The subscription lifecycle (spec 7.3): trial or active, then past due, read-only and suspended as unpaid days pass,
-// each for the policy's number of days; cancelled, and suspended for good, only by a person. Pure rules on calendar
-// days in the organization's time zone, used by the request checks and the daily job alike.
+// each for the policy's number of days. Suspended and cancelled stay put until a person acts: a payment or time given
+// ends either, and only a person cancels. Pure rules on calendar days in the organization's time zone, used by the
+// request checks, the console's changes and the nightly job alike.
 import type { SubscriptionPolicy, SubscriptionStatus } from "@travel-crm/contracts/subscriptions";
 import { addDays, type CalendarDate } from "../kernel/index.js";
 

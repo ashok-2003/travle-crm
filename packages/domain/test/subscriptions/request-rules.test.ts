@@ -5,10 +5,12 @@ import { moduleOf, permissions } from "../../src/identity/index.js";
 import {
   assertLifecycleAllows,
   assertModulesOnPlan,
+  assertOnPlan,
   lifecycleAccessOf,
   planModuleOf,
   type CallKind,
   type Entitlements,
+  type ProcedureModule,
 } from "../../src/subscriptions/index.js";
 import type { SubscriptionStatus } from "@travel-crm/contracts/subscriptions";
 
@@ -107,5 +109,16 @@ describe("request check 3: the module on the plan", () => {
     }).toThrow("Not on this organization's plan: bookings, accounts");
     expect(onPlan(["leads"], null)).toBe("FEATURE_LOCKED MODULE_NOT_ON_PLAN");
     expect(onPlan(["roles"], null)).toBe("allowed");
+  });
+
+  it("refuses a procedure's own plan module off the plan, and never the Foundation's own", () => {
+    const starter = entitlements("active", new Set(["crm"]));
+    const onPlan = (planModules: ProcedureModule[], plan: Entitlements | null = starter) =>
+      refusal(() => {
+        assertOnPlan(plan, planModules);
+      });
+    expect(onPlan(["crm"])).toBe("allowed");
+    expect(onPlan(["quotes"])).toBe("FEATURE_LOCKED MODULE_NOT_ON_PLAN");
+    expect(onPlan(["core"], null)).toBe("allowed");
   });
 });

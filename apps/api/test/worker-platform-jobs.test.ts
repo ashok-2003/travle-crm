@@ -1,9 +1,11 @@
-// The worker's jobs for subscriptions and onboarding: just after midnight in India it records each organization's
-// subscription as far as its unpaid days have taken it (spec 7.3), and it emails the invite the console's onboarding
-// asked for, whose link lets the new Owner choose a password and sign in (spec 7.1). In-memory runner and email.
+// The worker's job for onboarding: it emails the invite the console's onboarding asked for, whose link lets the new
+// Owner choose a password and sign in (spec 7.1), and runs no subscription job (the console process records the
+// lifecycle, as the platform role: console-jobs.test.ts). In-memory runner and email.
 import type { OnboardOrganizationInput } from "@travel-crm/contracts/platform";
 import { startWorker } from "@travel-crm/domain/jobs";
+import { addDays, calendarDateIn } from "@travel-crm/domain/kernel";
 import { onboardOrganization } from "@travel-crm/domain/platform";
+import { ADVANCE_SUBSCRIPTIONS_QUEUE } from "@travel-crm/domain/subscriptions";
 import { createMemoryEmailSender } from "@travel-crm/integrations/email";
 import { createMemoryJobQueue, createMemoryJobRunner } from "@travel-crm/integrations/jobs";
 import { createMemoryPushSender } from "@travel-crm/integrations/push";
@@ -20,9 +22,7 @@ import {
   type TestServer,
 } from "./support/test-server.js";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-describe("the worker's subscription and invite jobs", () => {
+describe("the worker's invite job", () => {
   const reported: string[] = [];
   const email = createMemoryEmailSender();
   let server: TestServer;
@@ -49,26 +49,9 @@ describe("the worker's subscription and invite jobs", () => {
     await server.close();
   });
 
-  it("records a lapsed trial as past due, every night just after midnight in India", async () => {
-    const agency = await createTestAgency(server);
-    // Two days ago in UTC is at least yesterday in India, whatever the hour.
-    await server.platform.subscription.update({
-      where: { organizationId: agency.organizationId },
-      data: {
-        status: "trial",
-        trialEndsOn: new Date(Date.now() - 2 * DAY_MS),
-        paidThrough: null,
-        statusChangedAt: new Date(Date.now() - 30 * DAY_MS),
-      },
-    });
-    const lifecycle = work.schedules.find((schedule) => schedule.queue === "subscriptions.advance-lifecycle");
-    expect(lifecycle).toMatchObject({ cron: "15 0 * * *", timeZone: "Asia/Kolkata" });
-    await lifecycle?.handle({});
-    const subscription = await server.platform.subscription.findUniqueOrThrow({
-      where: { organizationId: agency.organizationId },
-    });
-    expect(subscription.status).toBe("past_due");
-    expect(reported).toEqual([]);
+  it("leaves the subscription lifecycle to the console process", () => {
+    expect(work.schedules.map((schedule) => schedule.queue)).not.toContain(ADVANCE_SUBSCRIPTIONS_QUEUE);
+    expect(work.handlers.map((handler) => handler.queue)).not.toContain(ADVANCE_SUBSCRIPTIONS_QUEUE);
   });
 
   it("emails the Owner the console onboarded, whose link lets them choose a password and sign in", async () => {
@@ -90,7 +73,13 @@ describe("the worker's subscription and invite jobs", () => {
         contactPhone: null,
       },
       owner: { name: "Kavya Rao", email: ownerEmail },
-      subscription: { planId: plan.id, billingCycle: "monthly", trialEndsOn: "2099-01-31", paidThrough: null },
+      // A month's trial from today in India, the agency's zone.
+      subscription: {
+        planId: plan.id,
+        billingCycle: "monthly",
+        trialEndsOn: addDays(calendarDateIn(new Date(), "Asia/Kolkata"), 30),
+        paidThrough: null,
+      },
     };
     const { organizationId } = await onboardOrganization(testConsole.services, { userId: crypto.randomUUID() }, input);
 
@@ -119,5 +108,6 @@ describe("the worker's subscription and invite jobs", () => {
     const chosen = await postJson(server, "/api/auth/reset-password", { token, newPassword: "kavya-chose-this-1" });
     expect(chosen.status).toBe(200);
     expect((await signInByEmail(server, new CookieJar(), ownerEmail, "kavya-chose-this-1")).status).toBe(200);
+    expect(reported).toEqual([]);
   });
 });

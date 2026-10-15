@@ -1,5 +1,6 @@
-// The console's work on one organization's subscription (spec 7.2-7.4): its plan, dates, overrides, status by hand,
-// and the payments recorded against it. Platform staff of either level.
+// The console's work on one organization's subscription (spec 7.2-7.4): its state today beside the one recorded, its
+// price with GST, plan, dates, overrides, access ended by hand, and the payments recorded against it. Platform staff
+// of either level, but only a super admin lifts a suspension made by hand.
 import {
   changePlanInput,
   endAccessInput,
@@ -24,7 +25,8 @@ import {
   suspend,
   voidPayment,
 } from "@travel-crm/domain/platform";
-import { staffProcedure } from "../procedures.js";
+import { liftSuspension } from "@travel-crm/domain/subscriptions";
+import { staffProcedure, superAdminProcedure } from "../procedures.js";
 import { platformT } from "../trpc.js";
 
 export const subscriptionsRouter = platformT.router({
@@ -60,6 +62,11 @@ export const subscriptionsRouter = platformT.router({
     .input(endAccessInput)
     .output(subscriptionDetails)
     .mutation(({ ctx, input }) => suspend(ctx.services, ctx.staff, input)),
+  /** The only way out of a suspension made by hand: no payment lifts it. */
+  liftSuspension: superAdminProcedure
+    .input(endAccessInput)
+    .output(subscriptionDetails)
+    .mutation(({ ctx, input }) => ctx.services.platformDb.transaction((tx) => liftSuspension(tx, ctx.staff, input))),
   cancel: staffProcedure
     .input(endAccessInput)
     .output(subscriptionDetails)

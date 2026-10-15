@@ -17,10 +17,12 @@ function snapshotOf(plan: PlanSummary) {
     key: plan.key,
     name: plan.name,
     monthlyPricePaise: plan.monthlyPricePaise,
-    yearlyPricePaise: plan.yearlyPricePaise,
-    seatLimit: plan.seatLimit,
+    annualPricePaise: plan.annualPricePaise,
+    includedSeats: plan.includedSeats,
+    extraSeatMonthlyPricePaise: plan.extraSeatMonthlyPricePaise,
+    extraSeatAnnualPricePaise: plan.extraSeatAnnualPricePaise,
     whatsappNumberLimit: plan.whatsappNumberLimit,
-    storageLimitBytes: plan.storageLimitBytes,
+    storageGb: plan.storageGb,
     modules: plan.modules,
     archived: plan.archived,
   };
@@ -82,15 +84,18 @@ export async function getSubscriptionPolicy(services: PlatformServices): Promise
   return services.platformDb.transaction((tx) => subscriptions.getSubscriptionPolicy(tx));
 }
 
-/** Changes how many days an organization stays past due, then read-only (spec 7.3). Super admins only. */
+/**
+ * Changes how many days a new organization's trial lasts, and an organization stays past due, then read-only (spec
+ * 7.3). Super admins only. The same days again record nothing.
+ */
 export async function setSubscriptionPolicy(
   services: PlatformServices,
   staff: { userId: string },
   policy: SubscriptionPolicy,
 ): Promise<SubscriptionPolicy> {
   return services.platformDb.transaction(async (tx) => {
-    const { before, after } = await subscriptions.setSubscriptionPolicy(tx, staff, policy);
-    if (JSON.stringify(before) !== JSON.stringify(after)) {
+    const { before, after, changed } = await subscriptions.setSubscriptionPolicy(tx, staff, policy);
+    if (changed) {
       await recordPlatformAudit(tx, staff, {
         action: "subscription-policy.changed",
         targetType: "subscription_policy",
