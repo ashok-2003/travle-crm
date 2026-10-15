@@ -1,10 +1,12 @@
 // The console's own process, started as a deploy starts it: it reads its settings, checks the platform role, starts
 // pg-boss and the platform's jobs, answers /health and the console's tRPC on CONSOLE_PORT, and exits 0 on SIGTERM; a
-// connection that isn't the platform role stops it at start-up. Real Postgres and MinIO; SMTP is never reached.
+// connection that isn't the platform role stops it at start-up. Its one-off command for the first super admin starts
+// the same way and prints the temporary password alone on stdout. Real Postgres and MinIO; SMTP is never reached.
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { createServer, type AddressInfo } from "node:net";
 import { fileURLToPath } from "node:url";
+import { createIsolatedDatabase } from "@travel-crm/db/testing";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { testEnvironmentVariables } from "./support/environment.js";
 import { startMinio, type TestMinio } from "./support/minio.js";
@@ -24,6 +26,8 @@ async function freePort(): Promise<number> {
 interface ConsoleProcess {
   /** Everything it printed so far. */
   output(): string;
+  /** What it printed on stdout alone. */
+  stdout(): string;
   hasExited(): boolean;
   exited: Promise<number | null>;
   stop(): void;
@@ -40,16 +44,15 @@ describe("the console process", () => {
     await minio.stop();
   });
 
-  /** `src/console.ts` in its own Node, with only the variables a deploy gives it: nothing of the test runner's. */
-  function startConsole(port: number, overrides: Record<string, string> = {}): ConsoleProcess {
-    const child = spawn(process.execPath, ["--import", "tsx", "src/console.ts"], {
+  /** A script and its arguments in its own Node, with only the variables a deploy gives it: none of the runner's. */
+  function startScript(script: readonly string[], overrides: Record<string, string> = {}): ConsoleProcess {
+    const child = spawn(process.execPath, ["--import", "tsx", ...script], {
       cwd: apiDirectory,
       env: {
         PATH: process.env.PATH,
         ...testEnvironmentVariables({
           DATABASE_PLATFORM_URL: inject("dbUrls").platform,
           DATABASE_POOL_SIZE: "2",
-          CONSOLE_PORT: String(port),
           S3_ENDPOINT: minio.settings.endpoint ?? "",
           S3_BUCKET: minio.settings.bucket,
           S3_ACCESS_KEY_ID: minio.settings.accessKeyId,
@@ -62,16 +65,25 @@ describe("the console process", () => {
       stdio: ["ignore", "pipe", "pipe"],
     });
     let printed = "";
-    child.stdout.on("data", (chunk: Buffer) => (printed += chunk.toString()));
+    let stdout = "";
+    child.stdout.on("data", (chunk: Buffer) => {
+      printed += chunk.toString();
+      stdout += chunk.toString();
+    });
     child.stderr.on("data", (chunk: Buffer) => (printed += chunk.toString()));
     const exited = once(child, "exit").then(([code]) => code as number | null);
     return {
       output: () => printed,
+      stdout: () => stdout,
       hasExited: () => child.exitCode !== null,
       exited,
       stop: () => child.kill("SIGTERM"),
     };
   }
+
+  /** `src/console.ts`, the console process. */
+  const startConsole = (port: number, overrides: Record<string, string> = {}) =>
+    startScript(["src/console.ts"], { CONSOLE_PORT: String(port), ...overrides });
 
   it("starts, serves the console's tRPC, and exits 0 on SIGTERM", { timeout: 90_000 }, async () => {
     const port = await freePort();
@@ -96,4 +108,29 @@ describe("the console process", () => {
     expect(await running.exited).toBe(1);
     expect(running.output()).toMatch(/^console start-up failed WrongPlatformRoleError/m);
   });
+
+  it(
+    "runs the first-super-admin command once, printing the temporary password alone",
+    { timeout: 90_000 },
+    async () => {
+      // A database of its own, where no super admin exists yet.
+      const database = await createIsolatedDatabase(inject("dbUrls"));
+      const firstSuperAdmin = (email: string) =>
+        startScript(["src/console-command.ts", "first-super-admin", "--", "--email", email, "--name", "First Admin"], {
+          DATABASE_URL: database.urls.runtime,
+          DATABASE_PLATFORM_URL: database.urls.platform,
+        });
+      try {
+        const first = firstSuperAdmin("first@platform.test");
+        expect(await first.exited).toBe(0);
+        expect(first.stdout()).toMatch(/^[\w-]{24}\n$/);
+        expect(first.output()).toBe(first.stdout());
+        const second = firstSuperAdmin("second@platform.test");
+        expect(await second.exited).toBe(1);
+        expect(second.output()).toBe("A super admin exists already: they add everyone else from the console.\n");
+      } finally {
+        await database.drop();
+      }
+    },
+  );
 });

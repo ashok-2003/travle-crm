@@ -7,6 +7,7 @@
     "dev": "tsx watch --env-file-if-exists=../../.env src/server.ts",
     "worker": "tsx --env-file-if-exists=../../.env src/worker.ts",
     "console": "tsx --env-file-if-exists=../../.env src/console.ts",
+    "first-super-admin": "tsx --env-file-if-exists=../../.env src/console-command.ts first-super-admin",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run"
