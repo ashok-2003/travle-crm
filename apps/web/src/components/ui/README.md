@@ -15,13 +15,15 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
   `select` trigger and options, `dropdown-menu` items, `tabs` triggers, `table` rows and header cells, `input-otp`
   slots, the dialog and sheet close buttons are 44px. `checkbox` is 20px with a 44px hit area, `switch` 44x24 with a
   44px tall one. The small `sm` sizes of `select` and `switch` are gone. `input-group` is 44px high; its `icon-sm`
-  button is 36px with a 44px hit area (`after:-inset-1`), and its `xs` and `icon-xs` buttons are gone.
+  button is 36px with a 44px hit area (`after:-inset-1`), and its `xs` and `icon-xs` buttons are gone. `sidebar` menu
+  buttons are at least 44px (`lg` 48), growing when a name wraps; their `sm` size is gone.
 - Shapes: cards 10px (`rounded-lg`) with a hairline border instead of a ring; dialogs 14px; inputs, input groups,
   textareas, selects and OTP slots 6px; checkboxes 4px; titles (card, dialog, sheet, alert dialog) Figtree 600 at the section size. Dialogs and
   alert dialogs carry the overlay shadow. Table headers are surface-toned.
 - Layers: `z-(--z-overlay)` for scrims, `z-(--z-dialog)` for dialogs, sheets, menus and selects (menus share the dialog
-  layer so they open above a dialog), `z-(--z-sticky)` for sticky bits. Never `z-50`.
-- Names wrap: no `line-clamp`, `truncate` or `whitespace-nowrap` in `select` or `table`.
+  layer so they open above a dialog), `z-(--z-sticky)` for sticky bits and the sidebar, `z-(--z-tooltip)` for
+  tooltips. Never `z-50`.
+- Names wrap: no `line-clamp`, `truncate` or `whitespace-nowrap` in `select`, `table` or `sidebar`.
 - Focus: the one global 2px outline in `globals.css`; components don't add `focus-visible:ring-*`. An input group's
   outline goes round the whole group, not the input inside it (`globals.css`).
 - `button.tsx`: pill shape (`rounded-full`), primary hover is `action-pressed`; outline has the input border; ghost is
@@ -33,6 +35,11 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
   sheet's Close words are the `common.close` message.
 - `spinner.tsx`: decoration (`aria-hidden`), without `role="status"` or a label: it sits in busy buttons, whose own label
   says what is happening, and a status inside a button would join its name.
+- `sidebar.tsx`: 232px wide; its `--sidebar-*` colours are the brand's in `globals.css` (surface, the blue tint for the
+  current page). It asks `lib/use-wide-screen.ts` whether the screen is a phone instead of shadcn's `use-mobile` hook,
+  and has five small lint fixes. Its own words (the trigger's and rail's "Toggle Sidebar", the phone sheet's title)
+  are not messages yet: the app uses neither the trigger, the rail nor the phone sheet (phones keep the bottom bar),
+  so make them messages before using one. `tooltip.tsx` came with it.
 - `sonner.tsx`: one light theme (no `next-themes`), bottom right, a close button with a 44px hit area.
 - `field.tsx`, `input-otp.tsx`: three small fixes the repo's strict lint rules ask for.
 

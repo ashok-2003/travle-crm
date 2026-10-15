@@ -21,6 +21,7 @@ import { InputGroup, InputGroupButton, InputGroupInput } from "@/components/ui/i
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { SidebarMenuButton, SidebarProvider } from "@/components/ui/sidebar";
 import { Switch } from "@/components/ui/switch";
 import { TableHead, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -38,6 +39,8 @@ vi.stubGlobal(
   },
 );
 Object.assign(Element.prototype, { scrollIntoView: noop, hasPointerCapture: () => false });
+// The sidebar asks whether the screen is wide; this one is.
+vi.stubGlobal("matchMedia", () => ({ matches: true, addEventListener: noop, removeEventListener: noop }));
 
 function expectTarget(element: Element, { square = false } = {}) {
   const { width, height } = targetSize(element);
@@ -70,6 +73,19 @@ describe("touch targets", () => {
     render(<InputGroupButton size={size} aria-label="Show" />);
     expectTarget(screen.getByRole("button"), { square: size === "icon-sm" });
   });
+
+  it.each(["default", "lg"] as const)(
+    "a %s sidebar menu button, at least 44px so a wrapping name can grow it",
+    (size) => {
+      render(
+        <SidebarProvider>
+          <SidebarMenuButton size={size}>Staff</SidebarMenuButton>
+        </SidebarProvider>,
+      );
+      expect(screen.getByRole("button").className).toMatch(/(^| )min-h-1[12]( |$)/);
+      expectTarget(screen.getByRole("button"));
+    },
+  );
 
   it("a checkbox, through its hit area", () => {
     render(<Checkbox aria-label="Agree" />);

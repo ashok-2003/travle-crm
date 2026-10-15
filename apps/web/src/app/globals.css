@@ -91,6 +91,12 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
   /* The dialog and sheet scrim: ink at 40 %. */
   --color-scrim: color-mix(in srgb, var(--brand-ink) 40%, transparent);
 
@@ -178,6 +184,13 @@
   --border: var(--brand-hairline);
   --input: var(--brand-input-border);
   --ring: var(--brand-action);
+  /* The desktop sidebar (DESIGN.md section 6): the surface tone; the current page in the blue tint with dark blue. */
+  --sidebar: var(--brand-surface);
+  --sidebar-foreground: var(--brand-ink);
+  --sidebar-accent: var(--brand-action-tint);
+  --sidebar-accent-foreground: var(--brand-action-pressed);
+  --sidebar-border: var(--brand-hairline);
+  --sidebar-ring: var(--brand-action);
 }
 
 @layer base {

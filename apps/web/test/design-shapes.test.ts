@@ -113,7 +113,7 @@ describe("the shadcn components", () => {
     expect(source, "numeric z-index").not.toMatch(/\bz-\d+\b/);
     expect(source, "a focus ring on top of the global outline").not.toMatch(/focus-visible:(ring|outline)-/);
     expect(source, "a ring in place of the hairline border").not.toContain("ring-foreground/10");
-    if (name === "select.tsx" || name === "table.tsx") {
+    if (["select.tsx", "table.tsx", "sidebar.tsx", "item.tsx"].includes(name)) {
       expect(source, "clipped names").not.toMatch(/line-clamp|whitespace-nowrap|truncate/);
     }
   });
