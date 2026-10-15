@@ -1,9 +1,11 @@
 // The jobs port on pg-boss (spec 9.1): queues in Postgres, no extra server. pg-boss runs as app_runtime with
 // migrate: false; its schema comes from our migrations (ADR 0010).
 import { PgBoss } from "pg-boss";
+import { describeError } from "./describe-error.js";
+import type { JobAdministration } from "./job-administration.js";
 import { assertJobId, assertQueueName, type JobData, type JobQueue } from "./job-queue.js";
 import type { JobRunner } from "./job-runner.js";
-import { describeError } from "./describe-error.js";
+import { failedJobsPage, toJobData } from "./pg-boss-failed-jobs.js";
 import { defaultRetryPolicy, type RetryPolicy } from "./retry-policy.js";
 import { sanitizeJobError, toError } from "./sanitize-job-error.js";
 
@@ -25,74 +27,20 @@ export interface PgBossJobsSettings {
   log?: (line: string) => void;
 }
 
-/** A job that used all its retries, for the platform console's failed-jobs list (plan 4). */
-export interface FailedJob {
-  id: string;
-  queue: string;
-  data: JobData;
-  /** Every attempt, the first one included. */
-  attempts: number;
-  /** Null when pg-boss recorded no completion time. */
-  failedAt: Date | null;
-  /** The last attempt's error message. */
-  error: string;
-}
-
-/** What the platform console does with jobs (spec 9.1): see what failed, run it again, see and remove schedules. */
-export interface JobAdministration {
-  /** Failed jobs, newest first. */
-  failedJobs(options?: { limit?: number }): Promise<FailedJob[]>;
-  /** Runs a failed job again, from its first attempt. A job that isn't failed (any more) is left alone. */
-  retryFailedJob(queue: string, jobId: string): Promise<void>;
-  schedules(): Promise<{ queue: string; cron: string; timeZone: string }[]>;
-  unschedule(queue: string): Promise<void>;
-}
-
 export interface PgBossJobs extends JobQueue, JobRunner, JobAdministration {
   start(): Promise<void>;
   /** Stops taking jobs, waits up to 30 seconds for running handlers to finish, and closes the pool. */
   stop(): Promise<void>;
-  /** Failed jobs, newest first. Data access only: the console screen is plan 4's. */
-  failedJobs(options?: { limit?: number }): Promise<FailedJob[]>;
-  /** The schedules pg-boss holds, for operations and tests. */
-  schedules(): Promise<{ queue: string; cron: string; timeZone: string }[]>;
 }
 
 /** The schema our migrations create pg-boss in (migration 20261015100000_pgboss). */
 const SCHEMA = "pgboss";
 
-const MAX_FAILED_JOBS = 500;
+/** The longest an attempt may run: pg-boss refuses more (node_modules/pg-boss/dist/attorney.js, MAX_EXPIRATION_HOURS). */
+const MAX_EXPIRE_IN_SECONDS = 24 * 60 * 60;
 
-interface FailedJobRow {
-  id: string;
-  name: string;
-  data: unknown;
-  retry_count: number;
-  completed_on: Date | null;
-  output: unknown;
-}
-
-/**
- * Job data is a flat object of strings, numbers, booleans and nulls (the port's JobData); anything else is refused.
- * A job sent without data has none (null), which is an empty object here.
- */
-function toJobData(value: unknown): JobData {
-  if (value === null || value === undefined) return {};
-  if (typeof value !== "object" || Array.isArray(value)) throw new TypeError("Job data is not a plain object");
-  for (const [key, field] of Object.entries(value)) {
-    if (field !== null && !["string", "number", "boolean"].includes(typeof field)) {
-      throw new TypeError(`Job data field ${key} is not a string, number, boolean or null`);
-    }
-  }
-  return value as JobData;
-}
-
-function errorMessageOf(output: unknown): string {
-  if (typeof output === "object" && output !== null && "message" in output && typeof output.message === "string") {
-    return output.message;
-  }
-  return "unknown error";
-}
+/** The code of pg-boss's error for a queue that doesn't exist (node_modules/pg-boss/dist/manager.js). */
+const QUEUE_NOT_FOUND = "PGBOSS_QUEUE_NOT_FOUND";
 
 export function createPgBossJobs(settings: PgBossJobsSettings): PgBossJobs {
   const boss = new PgBoss({
@@ -151,10 +99,18 @@ export function createPgBossJobs(settings: PgBossJobsSettings): PgBossJobs {
 
     async send(queue, data, options = {}) {
       if (options.id !== undefined) assertJobId(options.id);
+      const { expireInSeconds } = options;
+      if (
+        expireInSeconds !== undefined &&
+        (!Number.isInteger(expireInSeconds) || expireInSeconds < 1 || expireInSeconds > MAX_EXPIRE_IN_SECONDS)
+      ) {
+        throw new RangeError(`expireInSeconds must be a whole number from 1 to ${String(MAX_EXPIRE_IN_SECONDS)}`);
+      }
       await ensureQueue(queue);
       return boss.send(queue, data, {
         ...(options.id === undefined ? {} : { id: options.id }),
         ...(options.startAfter === undefined ? {} : { startAfter: options.startAfter }),
+        ...(expireInSeconds === undefined ? {} : { expireInSeconds }),
         ...(options.retryLimit === undefined ? {} : { retryLimit: options.retryLimit }),
         ...(options.retryDelaySeconds === undefined
           ? {}
@@ -197,7 +153,19 @@ export function createPgBossJobs(settings: PgBossJobsSettings): PgBossJobs {
 
     async retryFailedJob(queue, jobId) {
       assertQueueName(queue);
-      await boss.retry(queue, jobId);
+      assertJobId(jobId);
+      try {
+        // pg-boss's typings leave the response's fields out; it counts the jobs it moved (manager.js,
+        // mapCommandResponse): none when the job isn't failed, or not any more.
+        const response = (await boss.retry(queue, jobId)) as { affected?: number };
+        return (response.affected ?? 0) > 0;
+      } catch (error) {
+        // A queue nobody ever created (manager.js, getQueueCache).
+        if (typeof error === "object" && error !== null && "code" in error && error.code === QUEUE_NOT_FOUND) {
+          return false;
+        }
+        throw error;
+      }
     },
 
     async schedules() {
@@ -208,32 +176,6 @@ export function createPgBossJobs(settings: PgBossJobsSettings): PgBossJobs {
       }));
     },
 
-    async failedJobs({ limit = 50 } = {}) {
-      if (!Number.isInteger(limit) || limit < 1 || limit > MAX_FAILED_JOBS) {
-        throw new RangeError(`limit must be a whole number from 1 to ${String(MAX_FAILED_JOBS)}`);
-      }
-      const { rows } = await boss.getDb().executeSql(
-        `SELECT id, name, data, retry_count, completed_on, output FROM ${SCHEMA}.job
-         WHERE state = 'failed' ORDER BY completed_on DESC NULLS LAST LIMIT $1`,
-        [limit],
-      );
-      const failed: FailedJob[] = [];
-      for (const row of rows as FailedJobRow[]) {
-        try {
-          failed.push({
-            id: row.id,
-            queue: row.name,
-            data: toJobData(row.data),
-            attempts: row.retry_count + 1,
-            failedAt: row.completed_on,
-            error: errorMessageOf(row.output),
-          });
-        } catch (error) {
-          // One unreadable row must not hide the others from the console.
-          report(`failed job ${row.id} on queue ${row.name} can't be listed: ${describeError(error)}`);
-        }
-      }
-      return failed;
-    },
+    failedJobs: (options = {}) => failedJobsPage(boss, SCHEMA, options, report),
   };
 }

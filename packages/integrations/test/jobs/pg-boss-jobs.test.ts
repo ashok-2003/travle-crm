@@ -124,24 +124,6 @@ describe("pg-boss jobs", () => {
     expect(lines.splice(0)).toEqual(Array(3).fill(`queue probe.failing, job ${String(id)} failed: Error`));
   });
 
-  it("runs a failed job again when asked, from its first attempt", async () => {
-    const runs: number[] = [];
-    let fail = true;
-    await jobs.work("probe.retried", (job) => {
-      runs.push(job.retryCount);
-      return fail ? Promise.reject(new Error("not yet")) : Promise.resolve();
-    });
-    const id = await jobs.send("probe.retried", { eventId: "e9" }, { retryLimit: 0 });
-    await eventually(async () => (await jobs.failedJobs()).some((job) => job.id === id), 25_000);
-    fail = false;
-    if (id === null) throw new Error("the job was not queued");
-    await jobs.retryFailedJob("probe.retried", id);
-    await eventually(() => runs.length === 2, 25_000);
-    expect((await jobs.failedJobs()).some((job) => job.id === id)).toBe(false);
-    // The failed attempt was logged by queue, job id and name; take it out of the suite's check for pg-boss's own.
-    expect(lines.splice(0)).toEqual([`queue probe.retried, job ${id} failed: Error`]);
-  });
-
   it("queues a repeated job id once", async () => {
     const id = randomUUID();
     expect(await jobs.send("probe.once", { eventId: "e3" }, { id })).toBe(id);
@@ -166,6 +148,23 @@ describe("pg-boss jobs", () => {
         SELECT retry_limit, retry_delay, retry_backoff, retry_delay_max FROM pgboss.queue WHERE name = 'probe.policy'`,
     );
     expect(rows).toEqual([{ retry_limit: 5, retry_delay: 10, retry_backoff: true, retry_delay_max: 3600 }]);
+  });
+
+  it("gives a job the time to run it asks for, up to pg-boss's 24 hours, before its attempt counts as failed", async () => {
+    const id = await jobs.send(
+      "probe.long",
+      {},
+      { expireInSeconds: 2 * 60 * 60, startAfter: new Date(Date.now() + 3_600_000) },
+    );
+    const rows = await db.withoutOrg(
+      (tx) => tx.$queryRaw<{ expire_seconds: number }[]>`SELECT expire_seconds FROM pgboss.job WHERE id = ${id}::uuid`,
+    );
+    expect(rows).toEqual([{ expire_seconds: 7200 }]);
+    for (const expireInSeconds of [0, 1.5, 24 * 60 * 60 + 1]) {
+      await expect(jobs.send("probe.long", {}, { expireInSeconds }), String(expireInSeconds)).rejects.toThrow(
+        RangeError,
+      );
+    }
   });
 
   it("stores only a sanitised error, and logs only names: no personal data, cause, detail or stack", async () => {

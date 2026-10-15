@@ -1,5 +1,6 @@
 // The storage port on S3, or any S3-compatible server: AWS S3 in the cloud, MinIO locally (spec 9.2).
 import {
+  CopyObjectCommand,
   DeleteObjectCommand,
   DeleteObjectsCommand,
   GetObjectCommand,
@@ -113,6 +114,21 @@ export function createS3Storage(settings: S3StorageSettings): S3Storage {
     async put({ key, contentType, body }) {
       assertSafeKey(key);
       await client.send(new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType, Body: body }));
+    },
+
+    async copy(from, to) {
+      assertSafeKey(from);
+      assertSafeKey(to);
+      try {
+        // The source is "bucket/key", URL-encoded a segment at a time; the metadata, its content type included, is
+        // copied with it (MetadataDirective COPY, the default). One request copies a file of up to 5 GB.
+        const source = `${bucket}/${from.split("/").map(encodeURIComponent).join("/")}`;
+        await client.send(new CopyObjectCommand({ Bucket: bucket, Key: to, CopySource: source }));
+        return true;
+      } catch (error) {
+        if (isErrorNamed(error, "NoSuchKey")) return false;
+        throw error;
+      }
     },
 
     async head(key) {

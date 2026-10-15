@@ -1,14 +1,16 @@
 // The platform's own jobs, which only the console process runs: it alone holds the platform role's connection.
-import type { JobData } from "@travel-crm/integrations/jobs";
+import { ownMessage, type JobData } from "@travel-crm/integrations/jobs";
 import type { JobHandler } from "../jobs/index.js";
 import { ERASE_SUBJECT_QUEUE, eraseSubject, erasureJobOf } from "./erasure.js";
 import { deleteStoredFilesHandler } from "./file-deletions.js";
+import { organizationExportJobHandlers } from "./organization-export-job.js";
 import { PURGE_ORGANIZATION_QUEUE, purgeOrganization } from "./purge.js";
 import type { PlatformServices } from "./services.js";
 
 function purgeJobOf(data: JobData): { organizationId: string; requestedBy: string | null } {
   const { organizationId, requestedBy } = data;
-  if (typeof organizationId !== "string") throw new TypeError("A purge job needs an organizationId");
+  // Our own fixed words, so the failed-jobs list keeps them.
+  if (typeof organizationId !== "string") throw ownMessage(new TypeError("A purge job needs an organizationId"));
   return { organizationId, requestedBy: typeof requestedBy === "string" ? requestedBy : null };
 }
 
@@ -28,5 +30,6 @@ export function platformJobHandlers(services: PlatformServices): JobHandler[] {
       },
     },
     deleteStoredFilesHandler(services),
+    ...organizationExportJobHandlers(services),
   ];
 }

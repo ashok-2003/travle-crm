@@ -2,6 +2,7 @@
 // invite, the Owner chooses a password from the link, signs in, and finds the subscription the console started.
 import type { OnboardedOrganization, OnboardOrganizationInput } from "@travel-crm/contracts/platform";
 import type { SubscriptionOverview } from "@travel-crm/contracts/subscriptions";
+import { addDays, calendarDateIn } from "@travel-crm/domain/kernel";
 import { createPlan } from "@travel-crm/domain/platform";
 import { runListenerJob } from "@travel-crm/domain/jobs";
 import { createRateLimiter } from "@travel-crm/domain/rate-limits";
@@ -58,7 +59,13 @@ describe("onboarding through the console", () => {
         contactPhone: null,
       },
       owner: { name: "Lakshmi Nair", email: `lakshmi-${code.toLowerCase()}@example.test` },
-      subscription: { planId: plan.id, billingCycle: "monthly", trialEndsOn: "2099-01-31", paidThrough: null },
+      // A month's trial from today, whatever today is.
+      subscription: {
+        planId: plan.id,
+        billingCycle: "monthly",
+        trialEndsOn: addDays(calendarDateIn(new Date(), "Asia/Kolkata"), 30),
+        paidThrough: null,
+      },
     };
   });
 
@@ -94,7 +101,7 @@ describe("onboarding through the console", () => {
       status: "trial",
       planName: "Starter",
       modules: ["crm"],
-      trialEndsOn: "2099-01-31",
+      trialEndsOn: input.subscription.trialEndsOn,
     });
   });
 

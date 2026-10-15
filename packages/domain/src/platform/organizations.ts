@@ -31,6 +31,14 @@ function recordOf(stored: StoredRecord): OrganizationRecord {
   return { ...stored, createdAt: stored.createdAt.toISOString() };
 }
 
+/**
+ * A bank account number as the console shows it: its last four digits. Inside the organization only staff with
+ * settings:manage see the whole number, and platform staff of either level have no need to.
+ */
+function lastFourDigits(accountNumber: string | null): string | null {
+  return accountNumber === null ? null : `XXXX${accountNumber.slice(-4)}`;
+}
+
 export async function getOrganization(
   services: PlatformServices,
   organizationId: string,
@@ -38,7 +46,11 @@ export async function getOrganization(
   return services.platformDb.transaction(async (tx) => {
     const organization = recordOf(await findOrganizationRecord(tx, organizationId));
     const profile = await asOrganization(tx, organizationId, getOrganizationProfile);
-    return { organization, profile, subscription: await subscriptionOf(tx, organizationId) };
+    return {
+      organization,
+      profile: profile && { ...profile, bankAccountNumber: lastFourDigits(profile.bankAccountNumber) },
+      subscription: await subscriptionOf(tx, organizationId),
+    };
   });
 }
 
@@ -54,12 +66,15 @@ export async function updateOrganization(
       before: { name: before.name, timeZone: before.timeZone, contactEmail: before.contactEmail !== null },
       after: { name: after.name, timeZone: after.timeZone, contactEmail: after.contactEmail !== null },
     };
-    await recordAudit(tx, platformActor(input.organizationId, staff.userId), {
-      action: "organization.updated",
-      entityType: "organization",
-      entityId: input.organizationId,
-      ...change,
-    });
+    // The row is the platform role's to change; the entry goes in as the organization, under row-level security.
+    await asOrganization(tx, input.organizationId, (orgTx) =>
+      recordAudit(orgTx, platformActor(input.organizationId, staff.userId), {
+        action: "organization.updated",
+        entityType: "organization",
+        entityId: input.organizationId,
+        ...change,
+      }),
+    );
     await recordPlatformAudit(tx, staff, {
       action: "organization.updated",
       targetType: "organization",

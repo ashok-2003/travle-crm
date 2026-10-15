@@ -36,6 +36,7 @@ export interface TestConsoleOptions {
 export function createTestConsole(server: TestServer, options: TestConsoleOptions = {}): TestConsole {
   const urls = inject("dbUrls");
   const db = createDatabase(urls.runtime, { maxConnections: 2 });
+  const lines: string[] = [];
   const services = createPlatformServices({
     platformDatabaseUrl: urls.platform,
     maxConnections: 2,
@@ -44,8 +45,8 @@ export function createTestConsole(server: TestServer, options: TestConsoleOption
     storage: options.storage ?? createMemoryStorage(),
     queue: options.queue ?? createMemoryJobQueue(),
     jobs: options.jobs ?? createMemoryJobAdministration(),
+    log: (line) => lines.push(line),
   });
-  const lines: string[] = [];
   return {
     app: createConsoleApp(services, (line) => lines.push(line)),
     services,

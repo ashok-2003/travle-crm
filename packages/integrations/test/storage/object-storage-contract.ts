@@ -187,5 +187,24 @@ export function describeObjectStorage(name: string, start: () => Promise<Storage
       expect(typeof url).toBe("string");
       expect(url.length).toBeGreaterThan(0);
     });
+
+    it("copies a stored file to another key, with its type, replacing what was there; nothing from an empty key", async () => {
+      const from = freshKey();
+      const to = `platform/exports/contract/${String((next += 1))}/files/copy`;
+      await subject.storage.put({ key: from, contentType: "application/pdf", body: bytes("%PDF-1.4 passport") });
+      await subject.storage.put({ key: to, contentType: "text/plain", body: bytes("old") });
+
+      expect(await subject.storage.copy(from, to)).toBe(true);
+      expect(await subject.storage.head(to)).toEqual({ sizeBytes: 17, contentType: "application/pdf" });
+      expect(text(await subject.storage.get(to))).toBe("%PDF-1.4 passport");
+      // The original stays, and the copy outlives it.
+      await subject.storage.delete(from);
+      expect(text(await subject.storage.get(to))).toBe("%PDF-1.4 passport");
+
+      expect(await subject.storage.copy(freshKey(), `${to}-none`)).toBe(false);
+      expect(await subject.storage.head(`${to}-none`)).toBeNull();
+      await expect(subject.storage.copy("../escape", to)).rejects.toThrow(RangeError);
+      await expect(subject.storage.copy(from, "/absolute")).rejects.toThrow(RangeError);
+    });
   });
 }

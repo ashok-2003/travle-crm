@@ -62,6 +62,7 @@ export type OrganizationRecord = z.infer<typeof organizationRecord>;
 /** One organization as the console shows it. */
 export const organizationDetails = z.object({
   organization: organizationRecord,
+  /** Its bank account number shown by its last four digits, as "XXXX7890". */
   profile: organizationProfileDetails.nullable(),
   /** Null for an organization without a subscription, which onboarding never makes. */
   subscription: subscriptionWithPayments.nullable(),

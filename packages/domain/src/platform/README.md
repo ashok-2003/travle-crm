@@ -9,10 +9,25 @@ The platform console's work across organizations (spec sections 5 and 7). It is 
 - Organizations: `onboardOrganization(services, staff, input)` (spec 7.1, one platform transaction: the
   organization, its roles, business profile, subscription and invited Owner), `resendInvite(services, staff,
 { organizationId, memberId })`, `getOrganization(services, organizationId)` (its row, profile and subscription with
-  payments), `updateOrganization(services, staff, input)` (name, time zone, contact email; never the code).
-- Permanent deletion (spec 5), super admins only: `exportOrganization(services, staff, organizationId)` and
-  `exportSubject(services, staff, { organizationId, subject })` (logged; a purge or erasure needs one from the last
-  day), `requestPurge(services, staff, { organizationId, confirmation })` (the code typed, the subscription
+  payments; the bank account by its last four digits), `updateOrganization(services, staff, input)` (name, time zone,
+  contact email; never the code).
+- An organization's export (spec 5), super admins only, as a job: `requestOrganizationExport(services, staff,
+organizationId)` records a `platform_export` row and queues `EXPORT_ORGANIZATION_QUEUE` (`platform.export-organization`),
+  whose job, `runOrganizationExport(services, { exportId }, sizes?)`, reads every table a batch at a time (each batch
+  its own transaction, inside `asOrganization`), stores JSON lines a part at a time under
+  `platform/exports/<organizationId>/<exportId>/` and a copy of each file under its `files/` (storage's server-side
+  `copy`), then logs `organization.exported`. Each attempt may run for two hours (`expireInSeconds`).
+  `listOrganizationExports(services, organizationId)` and `downloadOrganizationExport(services, staff, exportId)`
+  (15-minute links to its parts and its file copies, each download logged).
+  `expireOrganizationExports(services, tx, organizationId, "erasure")`, in an erasure's platform transaction,
+  withdraws the organization's exports (no download or writing from the commit). `EXPIRE_EXPORTS_QUEUE`'s job,
+  `deleteExpiredExports(services, now?)`, expires those past their 7 days and deletes every expired export's parts
+  and copies, then its whole folder (storage's `deletePrefix`). `hasFreshExport(tx, organizationId, now)`: whether
+  the organization has an export done in the last day and still kept, which a purge relies on; the
+  `organization.exported` log entry stays after a withdrawal, so the log can't say this.
+- Permanent deletion (spec 5), super admins only: `exportSubject(services, staff, { organizationId, subject })`
+  (logged; an erasure needs one, and a purge an organization's export, from the last day),
+  `requestPurge(services, staff, { organizationId, confirmation })` (the code typed, the subscription
   cancelled) and `requestErasure(services, staff, { organizationId, subject, confirmation })` (a removed member or one
   record), which queue `platform.purge-organization` and `platform.erase-subject`; `purgeOrganization` (which keeps
   an organization no longer cancelled, as `organization.purge-skipped`) and `eraseSubject`, the jobs;
@@ -32,9 +47,11 @@ The platform console's work across organizations (spec sections 5 and 7). It is 
   `(services, staff, input)`, each one platform transaction, recorded in the organization's own audit log.
 - The dashboard (spec 7.4): `organizationsOverview(services, now?)`, every organization with its status, plan, days
   to its next change, seats and storage against its limits, last activity, and this month's changes and documents.
-- Failed jobs (spec 9.1): `listFailedJobs(services, limit)`, `retryFailedJob(services, staff, { queue, jobId })`,
-  `listSchedules(services)` and `removeSchedule(services, staff, queue)` (super admins), through the
-  `JobAdministration` port. Each retry and removed schedule is recorded in the platform log.
+- Failed jobs (spec 9.1): `listFailedJobs(services, { limit, after?, queue? })` (newest first, a page at a time),
+  `retryFailedJob(services, staff, { queue, jobId })` (one more attempt; never for the purge, the erasure or the
+  export, which a super admin asks for again: `NOT_RETRYABLE`), `listSchedules(services)` and
+  `removeSchedule(services, staff, queue)` (super admins), through the `JobAdministration` port. Each retry and removed
+  schedule is recorded in the platform log.
 - Types: `PlatformActor`, `PlatformChange`. The contracts are in `@travel-crm/contracts/platform`.
 
 ## Events
@@ -52,3 +69,8 @@ None.
   and so do changes that belong to no organization (plans, the policy, jobs).
 - The platform log is append-only even for the platform role, and the api and worker have no rights on it. Its entries
   hold ids and small facts, never secrets or personal data, so they can outlive the organization they name.
+- An export is the platform's, not the organization's: `platform_export` has no `organization_id` and its parts are
+  outside `organizations/<id>/`, so a purge, which deletes from every table with `organization_id` and the
+  organization's own storage, leaves it, and the agency can still take its data, files and all, for the 7 days.
+- What an export stores is counted (parts) or recorded (copies, `platform_export_file`) under its row's lock, and
+  only while it is being written, so the expiry, which marks it expired first, finds everything to delete.

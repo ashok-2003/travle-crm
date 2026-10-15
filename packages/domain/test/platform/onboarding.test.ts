@@ -51,7 +51,7 @@ describe("onboarding", () => {
       },
       profile: { legalName: "Sharma Holidays Private Limited", gstStateCode: "27", contactPhone: "+919876543210" },
       subscription: {
-        subscription: { status: "trial", trialEndsOn: "2099-01-31", plan: { id: plan.id } },
+        subscription: { status: "trial", trialEndsOn: input.subscription.trialEndsOn, plan: { id: plan.id } },
         payments: [],
       },
     });
@@ -117,6 +117,14 @@ describe("onboarding", () => {
       before: { name: "Sharma Holidays", contactEmail: true },
       after: { name: "Sharma Holidays & Tours", contactEmail: false },
     });
+  });
+
+  it("shows the organization's bank account by its last four digits only", async () => {
+    const { organizationId } = await onboardOrganization(test.services, support, onboardingInput(plan));
+    await inOrganization(organizationId, (tx) =>
+      tx.organizationProfile.update({ where: { organizationId }, data: { bankAccountNumber: "001234567890" } }),
+    );
+    expect((await getOrganization(test.services, organizationId)).profile?.bankAccountNumber).toBe("XXXX7890");
   });
 
   it("says when an organization doesn't exist", async () => {

@@ -22,6 +22,7 @@ const { services, log, running } = await startProcess("console", async ({ enviro
     storage: services.storage,
     queue: services.jobs,
     jobs: services.jobs,
+    log,
   });
   try {
     // A transaction checks that the connection is the platform role: refuse to start rather than fail requests.
