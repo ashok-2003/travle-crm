@@ -12,24 +12,12 @@ import { characterLabel, unprintableCharactersIn } from "@travel-crm/integration
 import { recordAudit } from "../audit/index.js";
 import { organizationTimeZone } from "../identity/index.js";
 import { publishEvent } from "../jobs/index.js";
-import { DomainError, type Actor } from "../kernel/index.js";
+import { DomainError, formatDateTime, yearIn, type Actor } from "../kernel/index.js";
 import { summaryFields, toSummary } from "./issued-document-row.js";
 
 export interface IssueDocumentOptions extends IssueDocumentInput {
   /** 2-5 capital letters before the number. "DOC" unless a module has its own, such as "QT" for quotations. */
   prefix?: string | undefined;
-}
-
-/** The year it is in the time zone, e.g. 2027 at 00:30 on 1 January in Kolkata, still 2026 in UTC. */
-function yearIn(instant: Date, timeZone: string): number {
-  return Number(new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric" }).format(instant));
-}
-
-/** The date as printed on the document, e.g. "15 Oct 2026". */
-function printedDate(instant: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-IN", { timeZone, day: "numeric", month: "short", year: "numeric" }).format(
-    instant,
-  );
 }
 
 /**
@@ -66,9 +54,10 @@ export async function issueDocument(
   }
   // The organization's own zone, so a caller can't freeze the wrong year and date into a numbered document.
   const timeZone = await organizationTimeZone(tx, actor.organizationId);
+  // The year and date as the organization's clocks show them: 00:30 on 1 January in Kolkata is still 2026 in UTC.
   const number = await nextDocumentNumber(tx, { prefix: input.prefix ?? "DOC", year: yearIn(now, timeZone) });
   const renderInput: IssuedDocumentRenderInput = {
-    data: { ...content, number, issuedOn: printedDate(now, timeZone) },
+    data: { ...content, number, issuedOn: formatDateTime(now, { timeZone, style: "date" }) },
     branding,
   };
   const row = await tx.issuedDocument.create({

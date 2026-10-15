@@ -27,6 +27,9 @@ resolver there that shows the record.
 
 - `share-link.opened`, payload `{ shareLinkId, openId }` (`shareLinkOpenedEvent` in
   `@travel-crm/contracts/share-links`): someone opened a link.
+- Listens to `share-link.opened` (`notifySharerListener()`, queue `share-links.notify-sharer`): tells the person who
+  made the link, through `notify()` keyed on the event, in the bell and by email and push. A link the system made
+  tells nobody.
 
 ## Rules worth knowing
 
