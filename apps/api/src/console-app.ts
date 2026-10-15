@@ -3,7 +3,7 @@
 // in through the api's /api/auth like everyone else; the console reads the same session cookie. It logs as the api
 // does: unexpected errors only, by names and codes.
 import { trpcServer } from "@hono/trpc-server";
-import { createPlatformContext, platformRouter } from "@travel-crm/api";
+import { createPlatformContext, platformRouter } from "@travel-crm/api/platform";
 import type { PlatformServices } from "@travel-crm/domain/platform";
 import { describeError } from "@travel-crm/integrations/jobs";
 import { Hono } from "hono";

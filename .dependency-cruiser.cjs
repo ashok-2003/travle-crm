@@ -69,6 +69,25 @@ module.exports = {
       to: { path: "^packages/domain/src/platform/" },
     },
     {
+      name: "console-routers-only-in-the-console",
+      comment:
+        "The console's tRPC (packages/api/src/platform/, served as @travel-crm/api/platform) runs on the platform's " +
+        "services. Only the console process (apps/api/src/console*.ts) and tests may import it, so @travel-crm/api's " +
+        "own entry, which the api server and the web app import, never carries it.",
+      severity: "error",
+      from: { pathNot: ["^packages/api/src/platform/", "^apps/api/src/console[^/]*\\.ts$", "(^|/)test/"] },
+      to: { path: "^packages/api/src/platform/" },
+    },
+    {
+      name: "api-and-worker-never-load-the-platform",
+      comment:
+        "Nothing the api server or the worker runs may reach the platform module or the console's tRPC, even through " +
+        "other files: their code would then be loaded in a process that holds no DATABASE_PLATFORM_URL (ADR 0018).",
+      severity: "error",
+      from: { path: ["^apps/api/src/(?!console)[^/]+\\.ts$", "^packages/api/src/(?!platform/)"] },
+      to: { path: ["^packages/domain/src/platform/", "^packages/api/src/platform/"], reachable: true },
+    },
+    {
       name: "db-testing-only-in-tests",
       comment: "@travel-crm/db/testing starts Postgres containers and creates organizations. Only tests may use it.",
       severity: "error",

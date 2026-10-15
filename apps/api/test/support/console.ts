@@ -1,7 +1,7 @@
 // The platform console on the test database, beside a test server whose identity it shares (so the server's sign-in
 // cookies work here): its services, on in-memory storage and jobs unless a test passes real ones, its HTTP app,
 // and calls to a part of its router before that part joins platformRouter.
-import { createPlatformContext } from "@travel-crm/api";
+import { createPlatformContext } from "@travel-crm/api/platform";
 import { createDatabase } from "@travel-crm/db";
 import { createPlatformServices, type PlatformServices } from "@travel-crm/domain/platform";
 import {
