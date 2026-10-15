@@ -5,6 +5,7 @@ import { createDatabase, type Database } from "@travel-crm/db";
 import { createFiles, type Files } from "@travel-crm/domain/files";
 import { createIdentity, type Identity } from "@travel-crm/domain/identity";
 import { createRateLimiter, type RateLimiter } from "@travel-crm/domain/rate-limits";
+import { createSubscriptionAccess, type SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { createSmtpEmailSender, type EmailSender } from "@travel-crm/integrations/email";
 import { createPgBossJobs, type PgBossJobs } from "@travel-crm/integrations/jobs";
 import { createWebPushSender, type PushSender } from "@travel-crm/integrations/push";
@@ -17,6 +18,8 @@ export interface Services {
   environment: Environment;
   db: Database;
   identity: Identity;
+  /** What each organization may use today: the api's request checks 2 and 3. */
+  subscriptions: SubscriptionAccess;
   storage: ObjectStorage;
   files: Files;
   /** pg-boss: the api sends jobs to it (webhooks), the worker also runs them. */
@@ -87,6 +90,7 @@ export function createServices(environment: Environment, log: ProcessLog): Servi
     environment,
     db,
     identity,
+    subscriptions: createSubscriptionAccess({ db }),
     storage,
     files: createFiles({ db, storage }),
     jobs,

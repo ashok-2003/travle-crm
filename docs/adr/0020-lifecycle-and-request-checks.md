@@ -24,6 +24,16 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 7.3 and 6.5 (ch
   belong to every plan. A permission whose module is neither on the plan nor switched on early fails with
   `FEATURE_LOCKED` (`MODULE_NOT_ON_PLAN`).
 
+- **In the procedure builders.** `orgProcedure` and `freshProcedure` read the member and then the subscription,
+  apply check 2 by the call's type (a query views, a mutation changes) unless the procedure's meta says it exports
+  (`lifecycle: "export"`) or must work in every state (`lifecycle: "always"`), and `requires()` applies check 3 before
+  check 4. `subscription.get` (any member, every state) shows the status, the next change's day, the modules and the
+  limits, for the past-due banner and the app's navigation.
+- **Support's impersonation ends with its session.** `protectedProcedure` trusts the 5-minute cookie cache, except
+  for an impersonation session: that one is read from the database on every request, and its admin re-checked as
+  platform staff. Stopping, the hour running out, or the admin losing platform access ends it at once, not up to five
+  minutes later.
+
 ## Context
 
 - **Why compute rather than trust the stored status.** A scheduled job can be late, fail or be paused. Reading the

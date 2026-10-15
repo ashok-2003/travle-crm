@@ -2,6 +2,7 @@
 // record payments and suspend or cancel it by hand, and the organization's own audit log shows each change under the
 // platform admin's name. Organization staff reach none of it.
 import type { PlanSummary, SubscriptionDetails, SubscriptionWithPayments } from "@travel-crm/contracts/subscriptions";
+import { createTestOrganization } from "@travel-crm/db/testing";
 import { createPlan } from "@travel-crm/domain/platform";
 import { startSubscription } from "@travel-crm/domain/subscriptions";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -14,7 +15,7 @@ import {
   type TestPlatformStaff,
 } from "./support/console.js";
 import { signedInOwner } from "./support/people.js";
-import { createTestAgency, createTestServer, type TestAgency, type TestServer } from "./support/test-server.js";
+import { createTestAgency, createTestServer, type TestServer } from "./support/test-server.js";
 import { dataOf, refusalOf } from "./support/trpc.js";
 
 describe("the console's subscriptions", () => {
@@ -52,27 +53,21 @@ describe("the console's subscriptions", () => {
     await server.close();
   });
 
-  async function subscribedAgency(): Promise<TestAgency> {
-    const agency = await createTestAgency(server);
+  /** An organization the console started on Starter. Test agencies come subscribed to every module already. */
+  async function subscribedOrganization(): Promise<string> {
+    const organizationId = await createTestOrganization(server.platform, "Subscriber");
     await testConsole.services.platformDb.transaction((tx) =>
       startSubscription(
         tx,
         { userId: support.userId },
-        {
-          organizationId: agency.organizationId,
-          planId: starter.id,
-          billingCycle: "monthly",
-          trialEndsOn: null,
-          paidThrough: "2099-12-31",
-        },
+        { organizationId, planId: starter.id, billingCycle: "monthly", trialEndsOn: null, paidThrough: "2099-12-31" },
       ),
     );
-    return agency;
+    return organizationId;
   }
 
   it("changes the plan and overrides, recorded in the organization's log under the admin's name", async () => {
-    const agency = await subscribedAgency();
-    const { organizationId } = agency;
+    const organizationId = await subscribedOrganization();
     await dataOf(
       await consoleMutate(
         testConsole,
@@ -107,7 +102,7 @@ describe("the console's subscriptions", () => {
   });
 
   it("records a payment, suspends and cancels by hand, and shows the subscription with its payments", async () => {
-    const { organizationId } = await subscribedAgency();
+    const organizationId = await subscribedOrganization();
     await dataOf(
       await consoleMutate(
         testConsole,
@@ -148,28 +143,17 @@ describe("the console's subscriptions", () => {
   });
 
   it("says when an organization has no subscription, and refuses a reason left blank", async () => {
-    const unsubscribed = await createTestAgency(server);
+    const organizationId = await createTestOrganization(server.platform, "Unsubscribed");
     expect(
-      await refusalOf(
-        await consoleQuery(testConsole, "subscriptions.get", support.jar, {
-          organizationId: unsubscribed.organizationId,
-        }),
-      ),
+      await refusalOf(await consoleQuery(testConsole, "subscriptions.get", support.jar, { organizationId })),
     ).toEqual({ status: 404, reason: "SUBSCRIPTION_NOT_FOUND" });
     expect(
-      (
-        await consoleMutate(
-          testConsole,
-          "subscriptions.suspend",
-          { organizationId: unsubscribed.organizationId, reason: "" },
-          support.jar,
-        )
-      ).status,
+      (await consoleMutate(testConsole, "subscriptions.suspend", { organizationId, reason: "" }, support.jar)).status,
     ).toBe(400);
   });
 
   it("is out of reach of an organization's own staff", async () => {
-    const agency = await subscribedAgency();
+    const agency = await createTestAgency(server);
     const owner = await signedInOwner(server, agency);
     expect(
       await refusalOf(

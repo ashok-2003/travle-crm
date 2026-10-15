@@ -1,13 +1,15 @@
 // Builds the api on the test database: the Hono app, its identity module, the public routes' services (on in-memory
 // storage and job queue unless a test passes real ones), and a platform client for creating organizations (which the
 // api itself can never do). Requests go through app.request(), so no port is opened.
-import { createDatabase, type Database } from "@travel-crm/db";
+import { planModules } from "@travel-crm/contracts/subscriptions";
+import { createDatabase, isUniqueViolation, type Database } from "@travel-crm/db";
 import type { PlatformClient } from "@travel-crm/db/platform";
 import { createPlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { createFiles, type Files } from "@travel-crm/domain/files";
 import { createIdentity, type AuthSettings, type Identity } from "@travel-crm/domain/identity";
 import { createRateLimiter } from "@travel-crm/domain/rate-limits";
+import { createSubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import type { WebhookProvider } from "@travel-crm/domain/webhooks";
 import { createMemoryJobQueue, type JobQueue } from "@travel-crm/integrations/jobs";
 import { createMemoryStorage, type ObjectStorage } from "@travel-crm/integrations/storage";
@@ -64,6 +66,7 @@ export function createTestServer(settings: Partial<AuthSettings> = {}, options: 
   const platform = createPlatformClient(urls.platform);
   const app = createApp({
     identity,
+    subscriptions: createSubscriptionAccess({ db }),
     db,
     files,
     queue: options.queue ?? createMemoryJobQueue(),
@@ -92,9 +95,50 @@ export interface TestAgency {
   owner: { userId: string; memberId: string; email: string; password: string };
 }
 
-/** An organization with its starter roles and an Owner who signs in by email, as onboarding (plan 4) will make. */
+/** Every module, and room to spare: the plan test agencies are on unless a test changes their subscription. */
+const everythingPlan = {
+  key: "test-everything",
+  name: "Everything (tests)",
+  monthlyPricePaise: 0,
+  seatLimit: 1000,
+  whatsappNumberLimit: 10,
+  storageLimitBytes: 1_000_000_000_000n,
+  modules: [...planModules],
+};
+
+/** The test plan's id. Test files run at once, so another may create the plan between the look and the create. */
+async function everythingPlanId(platform: PlatformClient): Promise<string> {
+  const existing = await platform.plan.findUnique({ where: { key: everythingPlan.key }, select: { id: true } });
+  if (existing) return existing.id;
+  try {
+    return (await platform.plan.create({ data: everythingPlan, select: { id: true } })).id;
+  } catch (error) {
+    if (!isUniqueViolation(error)) throw error;
+    return (await platform.plan.findUniqueOrThrow({ where: { key: everythingPlan.key }, select: { id: true } })).id;
+  }
+}
+
+/** Puts the organization on the test plan, active and paid for years, as onboarding would have. */
+export async function subscribeToEverything(platform: PlatformClient, organizationId: string): Promise<void> {
+  await platform.subscription.create({
+    data: {
+      organizationId,
+      planId: await everythingPlanId(platform),
+      billingCycle: "monthly",
+      status: "active",
+      statusChangedAt: new Date(),
+      paidThrough: new Date("2099-12-31"),
+    },
+  });
+}
+
+/**
+ * An organization with its starter roles, an Owner who signs in by email, and an active subscription to every module,
+ * as onboarding makes them.
+ */
 export async function createTestAgency(server: TestServer): Promise<TestAgency> {
   const organizationId = await createTestOrganization(server.platform, "Test agency");
+  await subscribeToEverything(server.platform, organizationId);
   const { code } = await server.platform.organization.findUniqueOrThrow({ where: { id: organizationId } });
   await server.identity.seedStarterRoles(organizationId);
   const email = `owner-${code.toLowerCase()}@example.test`;

@@ -1,15 +1,22 @@
 // The tRPC context: who sent the request, read from the session cookie (the 5-minute cache, spec 6.4).
 import type { Identity } from "@travel-crm/domain/identity";
+import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 
 export interface ApiDependencies {
   identity: Identity;
+  /** What each organization may use today: request checks 2 and 3. */
+  subscriptions: SubscriptionAccess;
 }
 
 /**
  * `resHeaders` are the response's headers: Better Auth re-issues its cookies while reading the session (a fresh cache
  * cookie, a longer expiry), and those Set-Cookie headers must reach the browser.
  */
-export async function createContext({ identity }: ApiDependencies, request: Request, resHeaders: Headers) {
+export async function createContext(
+  { identity, subscriptions }: ApiDependencies,
+  request: Request,
+  resHeaders: Headers,
+) {
   const { headers, response } = await identity.auth.api.getSession({
     headers: request.headers,
     returnHeaders: true,
@@ -17,6 +24,7 @@ export async function createContext({ identity }: ApiDependencies, request: Requ
   forwardCookies(headers, resHeaders);
   return {
     identity,
+    subscriptions,
     headers: request.headers,
     resHeaders,
     session: response?.session ?? null,

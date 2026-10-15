@@ -5,6 +5,7 @@
 import { randomUUID } from "node:crypto";
 import { createDatabase, type Database } from "@travel-crm/db";
 import { createIdentity, type Identity } from "@travel-crm/domain/identity";
+import { createSubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { createMemoryJobQueue } from "@travel-crm/integrations/jobs";
 import { afterAll, beforeAll, describe, expect, inject, it, vi } from "vitest";
 import { createApp } from "../src/app.js";
@@ -79,6 +80,7 @@ describe.each(["development", "production"])("the api's log under NODE_ENV=%s", 
           }),
         }),
       }),
+      subscriptions: createSubscriptionAccess({ db }),
       db,
       files: { systemDownloadLink: () => Promise.reject(leak) },
       queue: createMemoryJobQueue(),
