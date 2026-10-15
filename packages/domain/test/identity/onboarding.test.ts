@@ -3,6 +3,7 @@
 // Owner, invited by email with no password yet.
 import { randomUUID } from "node:crypto";
 import { createDatabase, type Database } from "@travel-crm/db";
+import type { IdentityTx } from "@travel-crm/db/identity";
 import { asOrganization, createPlatformDatabase, type PlatformDatabase } from "@travel-crm/db/platform";
 import { afterAll, beforeAll, describe, expect, inject, it, onTestFinished, vi } from "vitest";
 import {
@@ -12,7 +13,8 @@ import {
   OWNER_ROLE_KEY,
   requestInvite,
 } from "../../src/identity/index.js";
-import { platformActor } from "../../src/kernel/index.js";
+import { platformActor, type Actor } from "../../src/kernel/index.js";
+import { insertStaffAccount } from "../../src/identity/staff-accounts.js";
 import { createTestIdentity, type TestIdentity } from "./test-identity.js";
 
 const adminUserId = "0199e7a0-0000-7000-8000-00000000ad11";
@@ -119,18 +121,52 @@ describe("onboarding's identity steps", () => {
     ).rejects.toThrow(/permission denied/);
   });
 
-  it("asks for another invite only for the organization's own members with a real address", async () => {
-    const { organizationId, owner } = await onboard(uniqueCode(), `again-${randomUUID()}@example.test`);
-    const actor = platformActor(organizationId, adminUserId);
-    await platformDb.transaction((tx) =>
-      asOrganization(tx, organizationId, (orgTx) => requestInvite(orgTx, actor, owner.memberId)),
+  /** Runs `step` stepped into the organization, as the console does, acting as the platform admin. */
+  const inOrganization = <T>(organizationId: string, step: (orgTx: IdentityTx, actor: Actor) => Promise<T>) =>
+    platformDb.transaction((tx) =>
+      asOrganization(tx, organizationId, (orgTx) => step(orgTx, platformActor(organizationId, adminUserId))),
     );
-    expect(await db.forOrg(organizationId, (tx) => tx.outboxEvent.count({ where: { type: "staff.invited" } }))).toBe(2);
+  const invite = (organizationId: string, memberId: string) =>
+    inOrganization(organizationId, (orgTx, actor) => requestInvite(orgTx, actor, memberId));
+  const invitesOf = (organizationId: string) =>
+    db.forOrg(organizationId, (tx) => tx.outboxEvent.count({ where: { type: "staff.invited" } }));
+
+  it("asks for another invite only for its own members with a real address and no password yet", async () => {
+    const { organizationId, owner } = await onboard(uniqueCode(), `again-${randomUUID()}@example.test`);
+    await invite(organizationId, owner.memberId);
+    expect(await invitesOf(organizationId)).toBe(2);
     const other = await onboard(uniqueCode(), `other-${randomUUID()}@example.test`);
-    await expect(
-      platformDb.transaction((tx) =>
-        asOrganization(tx, organizationId, (orgTx) => requestInvite(orgTx, actor, other.owner.memberId)),
-      ),
-    ).rejects.toMatchObject({ reason: "MEMBER_NOT_FOUND" });
+    await expect(invite(organizationId, other.owner.memberId)).rejects.toMatchObject({ reason: "MEMBER_NOT_FOUND" });
+    const addStaff = (staff: { email?: string; username?: string; passwordHash: string | null }) =>
+      inOrganization(organizationId, (orgTx, actor) =>
+        insertStaffAccount(orgTx, {
+          organizationId,
+          name: "Staff",
+          roleKey: "sales",
+          mustChangePassword: true,
+          actor,
+          ...staff,
+        }),
+      );
+    const noEmail = await addStaff({ username: "nomail", passwordHash: null });
+    await expect(invite(organizationId, noEmail.memberId)).rejects.toMatchObject({
+      code: "VALIDATION",
+      reason: "NO_EMAIL",
+    });
+    // Staff an admin added with a temporary password reset it instead, within the reset's hour.
+    const withPassword = await addStaff({ email: `temporary-${randomUUID()}@example.test`, passwordHash: "a-hash" });
+    await expect(invite(organizationId, withPassword.memberId)).rejects.toMatchObject({
+      code: "CONFLICT",
+      reason: "PASSWORD_ALREADY_SET",
+    });
+    expect(await invitesOf(organizationId)).toBe(2);
+  });
+
+  it("lists every organization's id, oldest first, for the jobs that visit each one", async () => {
+    const older = await onboard(uniqueCode(), `older-${randomUUID()}@example.test`);
+    const newer = await onboard(uniqueCode(), `newer-${randomUUID()}@example.test`);
+    const ids = await test.identity.organizationIds();
+    expect(ids).toContain(older.organizationId);
+    expect(ids.indexOf(newer.organizationId)).toBeGreaterThan(ids.indexOf(older.organizationId));
   });
 });

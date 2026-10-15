@@ -6,6 +6,7 @@ import { isUniqueViolation, type IdentityTx } from "@travel-crm/db/identity";
 import { recordAudit } from "../audit/index.js";
 import { publishEvent } from "../jobs/index.js";
 import { DomainError, type Actor } from "../kernel/index.js";
+import { hasChosenPassword } from "./password-emails.js";
 import { isPlaceholderEmail } from "./sign-in-names.js";
 import { insertStaffAccount, type CreatedStaff } from "./staff-accounts.js";
 import { OWNER_ROLE_KEY } from "./starter-roles.js";
@@ -78,9 +79,10 @@ export async function addStaffWithPassword(
 }
 
 /**
- * Asks for an invite email to an active member who has a real address: publishes "staff.invited", which the worker's
- * identity.send-invite listener turns into an email with a link to choose a password. Asking again sends a new link;
- * the earlier ones keep working until they lapse. Recorded as "staff.invited".
+ * Asks for an invite email to an active member who has a real address and no password yet (the Owner from
+ * onboarding, until they choose one): publishes "staff.invited", which the worker's identity.send-invite listener
+ * turns into an email with a link to choose a password. Asking again sends a new link; the earlier ones keep working
+ * until they lapse. Someone with a password resets it instead, within the reset's hour. Recorded as "staff.invited".
  */
 export async function requestInvite(tx: IdentityTx, actor: Actor, memberId: string): Promise<void> {
   // The member table has no row-level security, so the organization is filtered here.
@@ -91,6 +93,13 @@ export async function requestInvite(tx: IdentityTx, actor: Actor, memberId: stri
   if (!member) throw new DomainError("NOT_FOUND", "MEMBER_NOT_FOUND", "No such staff member");
   if (isPlaceholderEmail(member.user.email)) {
     throw new DomainError("VALIDATION", "NO_EMAIL", "This person has no email address to send an invite to");
+  }
+  if (await hasChosenPassword(tx, member.userId)) {
+    throw new DomainError(
+      "CONFLICT",
+      "PASSWORD_ALREADY_SET",
+      "This person has a password already: they can reset it from the sign-in page",
+    );
   }
   await publishEvent(tx, {
     type: "staff.invited",
