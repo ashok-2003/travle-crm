@@ -21,7 +21,8 @@ export interface SideDoorOptions {
  * - a "password change" to the same password, which would clear must-change-password and keep the temporary one;
  * - a password-reset request whose link would lead anywhere but the reset page, even on a trusted origin. It is
  *   refused before any address is looked up, exactly as Better Auth refuses an untrusted redirect, so every address
- *   gets the same answer.
+ *   gets the same answer. This binds server-side auth.api.requestPasswordReset calls too: code that sends someone a
+ *   reset link must pass the reset page as redirectTo.
  */
 export function closeSideDoors(client: IdentityClient, options: SideDoorOptions = {}) {
   return createAuthMiddleware(async (ctx) => {

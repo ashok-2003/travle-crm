@@ -95,7 +95,9 @@ Date: 2026-10-14 · Status: accepted · Implements spec sections 6.1 to 6.4
   route; server-side `auth.api.*` calls stay possible for later plans); `/sign-in/email` with a placeholder `.invalid`
   address, over HTTP and from server-side calls alike (answered exactly like a wrong password);
   `/sign-in/username` from a cross-site browser request (`Sec-Fetch-Site: cross-site`); and
-  `/request-password-reset` with any `redirectTo` but the reset page (see the password reset above).
+  `/request-password-reset` with any `redirectTo` but the reset page (see the password reset above), over HTTP and
+  from server-side `auth.api.requestPasswordReset` calls alike: code that sends someone a reset link must pass the
+  reset page as `redirectTo`.
 - **Safe environment defaults.** `NODE_ENV` defaults to production. In production the api refuses an http base URL,
   `AUTH_RATE_LIMIT=false`, http trusted origins, and a weak or example `BETTER_AUTH_SECRET`.
 
