@@ -4,7 +4,13 @@
   "tasks": {
     "generate": {
       "dependsOn": ["^generate", "@travel-crm/brand#build"],
-      "inputs": ["scripts/**", "src/service-worker/**", "$TURBO_ROOT$/packages/brand/src/**"],
+      "inputs": [
+        "scripts/**",
+        "src/service-worker/**",
+        "src/app/**/page.*",
+        "src/lib/routes.ts",
+        "$TURBO_ROOT$/packages/brand/src/**"
+      ],
       "outputs": ["src/generated/**", "public/icons/**", "public/sw.js"]
     },
     "build": {
