@@ -15,5 +15,14 @@
       "matchPackageNames": ["typescript"],
       "allowedVersions": "<7"
     }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "The images the smoke runs start beside ours (scripts/docker/images.sh), each <name>:<tag>@<digest>.",
+      "managerFilePatterns": ["/^scripts/docker/images\\.sh$/"],
+      "matchStrings": ["=\"(?<depName>[^:\"]+):(?<currentValue>[^@\"]+)@(?<currentDigest>sha256:[a-f0-9]{64})\""],
+      "datasourceTemplate": "docker"
+    }
   ]
 }

@@ -9,6 +9,7 @@
     "console": "tsx --env-file-if-exists=../../.env src/console.ts",
     "first-super-admin": "tsx --env-file-if-exists=../../.env src/console-command.ts first-super-admin",
     "demo": "tsx --env-file-if-exists=../../.env src/console-command.ts demo",
+    "build": "tsx scripts/build.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run"
@@ -31,6 +32,7 @@
     "@travel-crm/eslint-config": "workspace:*",
     "@travel-crm/tsconfig": "workspace:*",
     "@types/node": "catalog:",
+    "esbuild": "0.28.2",
     "eslint": "catalog:",
     "testcontainers": "12.2.1",
     "tsx": "4.23.15",
