@@ -2,28 +2,10 @@
 
 // A form or confirmation over the page: a dialog on wider screens, a bottom sheet on phones (DESIGN.md: on mobile,
 // prefer bottom sheets for forms and pickers). Both trap focus, close on Escape and give focus back afterwards.
-import { useSyncExternalStore, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-
-const wide = "(min-width: 768px)";
-
-function subscribe(onChange: () => void): () => void {
-  const query = window.matchMedia(wide);
-  query.addEventListener("change", onChange);
-  return () => {
-    query.removeEventListener("change", onChange);
-  };
-}
-
-/** Whether the screen is tablet-wide or more. Phones first: false until the browser says otherwise. */
-export function useWideScreen(): boolean {
-  return useSyncExternalStore(
-    subscribe,
-    () => window.matchMedia(wide).matches,
-    () => false,
-  );
-}
+import { useWideScreen } from "@/lib/use-wide-screen";
 
 export function ResponsiveDialog({
   open,

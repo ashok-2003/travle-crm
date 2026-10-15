@@ -8,7 +8,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDay } from "@/lib/format";
 import { useMe } from "@/session/me-context";
-import { useWideScreen } from "../responsive-dialog";
+import { useWideScreen } from "@/lib/use-wide-screen";
 import { StaffActions } from "./staff-actions";
 import { signInName } from "./staff-details";
 
