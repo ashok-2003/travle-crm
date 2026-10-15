@@ -5,7 +5,6 @@
 import { createHmac, randomUUID } from "node:crypto";
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
-import { webhookEvents } from "@travel-crm/db/webhooks";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { LATE_WRITES_MS } from "../../src/files/index.js";
 import { deleteDueFiles, DELETE_STORED_FILES_QUEUE } from "../../src/platform/file-deletions.js";
@@ -134,9 +133,7 @@ describe("purging an organization", () => {
         headers,
         rawBody: body,
       });
-      const row = await test.services.db.withoutOrg((tx) =>
-        webhookEvents(tx).findFirstOrThrow({ where: { payload: body } }),
-      );
+      const row = await platform.webhookEvent.findFirstOrThrow({ where: { payload: body } });
       await expect(processWebhookEvent({ db: test.services.db, providers: [failingProvider] }, row.id)).rejects.toThrow(
         /locked/,
       );
