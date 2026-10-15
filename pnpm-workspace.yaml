@@ -49,3 +49,15 @@ permissions:
     skills: false
   "@trpc/tanstack-react-query":
     skills: false
+
+# The dependency audit (`pnpm audit --audit-level=high`, a CI gate, ADR 0027). Each fix names its advisory: remove it
+# once the package that holds the old version moves past it.
+overrides:
+  # GHSA-3f6p-5ww8-9rcr: Prisma's CLI holds mysql2 3.15.3, for a database we don't use.
+  "prisma>mysql2": 3.24.5
+  # GHSA-ggr8-5vv4-36mx: Prisma's config loader holds deepmerge-ts 7.1.5; it merges only our own prisma.config.ts.
+  "@prisma/config>deepmerge-ts": 8.0.2
+auditConfig:
+  ignoreGhsas:
+    # braces has no fixed version. Only ESLint's Next.js plugin reaches it, globbing patterns from our own config.
+    - GHSA-vfj7-8cjw-p6xm

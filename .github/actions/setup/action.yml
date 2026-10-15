@@ -1,0 +1,19 @@
+# How every CI job that runs our code starts (.github/workflows/ci.yml): pnpm and Node as the repository names them,
+# the dependencies exactly as the lockfile has them, then the generated code the checks read: Prisma's client (spec
+# 12.1, gate 1), the brand's icons and the web app's generated files.
+name: Set up the repository
+description: pnpm, Node 24, the locked dependencies and the generated code
+runs:
+  using: composite
+  steps:
+    # The version in package.json's packageManager; the store is cached by the lockfile.
+    - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      with:
+        cache: true
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version-file: .nvmrc
+    - run: pnpm install --frozen-lockfile
+      shell: bash
+    - run: pnpm --filter @travel-crm/db generate && pnpm --filter @travel-crm/brand build && pnpm --filter @travel-crm/web generate
+      shell: bash

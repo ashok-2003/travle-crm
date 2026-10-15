@@ -24,7 +24,10 @@
     "images:smoke": "scripts/docker/smoke-images.sh",
     "product:up": "docker compose --file docker-compose.product.yml up --detach --build --wait && docker compose --file docker-compose.product.yml run --rm --no-deps console demo",
     "product:down": "docker compose --file docker-compose.product.yml down",
-    "product:smoke": "scripts/docker/smoke-product.sh"
+    "product:smoke": "scripts/docker/smoke-product.sh",
+    "lighthouse": "turbo run build --filter=@travel-crm/web && pnpm --filter @travel-crm/web lighthouse",
+    "migrations:check": "scripts/ci/check-migrations.sh",
+    "workflows:lint": "scripts/ci/lint-workflows.sh"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.3",
