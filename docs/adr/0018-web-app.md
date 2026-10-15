@@ -25,17 +25,22 @@ Date: 2026-10-15 · Status: accepted · Implements spec sections 3, 11 and 12.1 
 - **The cache.** Queries are fresh for 30 seconds and refresh when the window regains focus or the device reconnects;
   refusals are never retried. Successful queries are saved to IndexedDB (idb-keyval), keyed by build and recorded
   with whose they are (`me.get`'s user and organization); mutations never are, since their variables can hold a
-  temporary password. Opening a page asks `me.get` first and restores the copy only for that person, then refreshes
-  it; offline, or with no answer within 3 seconds, it shows what the device saved and drops it the moment `me.get`
-  names someone else. So online the copy shows after one small request rather than at once: the price of never
-  showing one person's data to another, or to a session that has ended.
+  temporary password. Opening a page asks `me.get` once and waits for it however long it takes, then restores the
+  copy only for that person and refreshes it. Only when the device reports offline (`navigator.onLine`, or
+  TanStack's `onlineManager`) does the copy show before `me.get` answers. It shows at once then, and is dropped the
+  moment `me.get` names someone else. Online, a slow or failing `me.get` shows nothing saved. So online the copy
+  shows after one small request rather than at once: the price of never showing one person's data to another, or
+  to a session that has ended.
 - **Wiping.** A wipe stops the page saving first (the subscription ends, and a save waiting in the throttle can't
   land), then empties the caches, clears the IndexedDB store, and changes a data-free generation in localStorage that
-  voids any copy another tab is still about to write. The service worker's page copies stay: it keeps only shells it
-  fetched without cookies, and its offline page must outlive a sign-out. Signing out wipes, tells the app's other
-  tabs (BroadcastChannel), which wipe too and go to sign-in unless they show a signed-out screen (sign-in, reset,
-  offline), and only then asks the api, for at most 5 seconds. If that fails, a data-free marker says a sign-out is
-  owed, and the next page (or coming back online) settles it before anything asks who is signed in. A 401 wipes and
+  voids any copy another tab is still about to write. A sign-out leaves the service worker's page copies: it keeps
+  only shells it fetched without cookies, which hold no organization data, and its offline page must outlive a
+  sign-out.
+- **Signing out** blanks the screen at once and wipes the device. It tells the app's other tabs (BroadcastChannel),
+  which wipe too and go to sign-in unless they show a signed-out screen (sign-in, reset, offline). It records a
+  data-free marker that a sign-out is owed, then loads the sign-in page without waiting for the api. The call to the
+  api is sent with `keepalive`, so it outlives the page, and its answer clears the marker. A marker still there is
+  settled by the next page (or by coming back online) before anything asks who is signed in. A 401 wipes and
   returns the person to sign in, then to where they were; a pending step sends them to take it.
 - **Sign-in calls** go to Better Auth's endpoints and our `/api/auth/sign-in/org` through a small typed client that
   keeps nothing of Better Auth's user object: for staff without email it holds the placeholder address, which is
