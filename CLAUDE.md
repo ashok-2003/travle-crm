@@ -158,7 +158,8 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - **Permanent deletion** (spec 5) happens only in the console's jobs. A new organization table is purged with the rest
   (`deleteOrganizationRows` reads the catalog); a module that keeps files or personal data about a person or record
   adds its step to `packages/domain/src/platform/erasure.ts`.
-- **The demo** is rebuilt every night by `resetDemoOrganization`; a module with sample data adds it there.
+- **The demo** is rebuilt every night by `resetDemoOrganization`; a module with sample data adds it there. Locally,
+  `pnpm --filter @travel-crm/api-server run demo` builds it at once.
 
 ## Repo map
 

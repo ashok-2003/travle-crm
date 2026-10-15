@@ -40,8 +40,9 @@ organizationId)` records a `platform_export` row and queues `EXPORT_ORGANIZATION
   catches what no job will. `platformJobHandlers(services)`, for the console process's job runner.
 - The shared demo (spec 7.4): `resetDemoOrganization(services, { code, password }, now?)`, the console's nightly
   `RESET_DEMO_QUEUE` (`platform.reset-demo`) job: purges last night's demo (only an organization a reset built, as the
-  platform log shows) and builds it again with its profile and three staff who sign in with the code, on the demo's
-  own plan (the subscriptions module's `demoPlan`, never for sale).
+  platform log shows) and builds it again with its profile and three staff who sign in with the code (`demoStaff`),
+  on the demo's own plan (the subscriptions module's `demoPlan`, never for sale). apps/api's `demo` command runs it
+  once, at once.
 - Plans and the policy: `listPlans(services, input)`, `createPlan`, `updatePlan`, `archivePlan(services, staff, …)`,
   `getSubscriptionPolicy(services)`, `setSubscriptionPolicy(services, staff, policy)`. Plans belong to no organization,
   so each change is recorded in the platform log.

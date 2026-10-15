@@ -32,7 +32,8 @@ const TIME_ZONE = "Asia/Kolkata";
 /** Paid a month ahead from the day it is built: reset nightly, it never reaches past due. */
 const PAID_DAYS = 30;
 
-const DEMO_STAFF = [
+/** Who signs in to the demo, with its code and the demo password. */
+export const demoStaff = [
   { name: "Asha Mehta", username: "asha", roleKey: OWNER_ROLE_KEY },
   { name: "Ravi Kumar", username: "ravi", roleKey: "sales" },
   { name: "Meena Iyer", username: "meena", roleKey: "operations" },
@@ -88,7 +89,7 @@ export async function resetDemoOrganization(
       await asOrganization(tx, organization.id, async (orgTx) => {
         await insertStarterRoles(orgTx);
         await saveOrganizationProfile(orgTx, actor, DEMO_PROFILE);
-        for (const staff of DEMO_STAFF) await addStaffWithPassword(orgTx, actor, { ...staff, passwordHash });
+        for (const staff of demoStaff) await addStaffWithPassword(orgTx, actor, { ...staff, passwordHash });
       });
       await startSubscription(
         tx,

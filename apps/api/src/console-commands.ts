@@ -2,8 +2,15 @@
 // (src/console-command.ts), so the tests run them on the test console's services.
 import { parseArgs } from "node:util";
 import { emailAddress, personName } from "@travel-crm/contracts/identity";
+import { starterRoles } from "@travel-crm/domain/identity";
 import { DomainError } from "@travel-crm/domain/kernel";
-import { addFirstSuperAdmin, type PlatformServices } from "@travel-crm/domain/platform";
+import {
+  addFirstSuperAdmin,
+  demoStaff,
+  resetDemoOrganization,
+  type DemoSettings,
+  type PlatformServices,
+} from "@travel-crm/domain/platform";
 
 /** The operator's terminal. */
 export interface CommandOutput {
@@ -34,10 +41,48 @@ export async function firstSuperAdminCommand(
     return 0;
   } catch (error) {
     // Our own words, ids at most: a super admin exists, or the address is taken or a member's.
-    if (!(error instanceof DomainError)) throw error;
-    output.stderr(error.message);
+    return refused(error, output);
+  }
+}
+
+/**
+ * `demo`: builds the shared demo now, for a fresh local database, rather than at the nightly 02:00 reset: the same
+ * reset (resetDemoOrganization), with the console's DEMO_ variables, purging the last demo it built. It prints the
+ * organization code and the usernames to sign in with, and never the password: that is DEMO_PASSWORD, already set.
+ */
+export async function demoCommand(
+  platform: PlatformServices,
+  demo: DemoSettings | null,
+  args: readonly string[],
+  output: CommandOutput,
+): Promise<number> {
+  if (args.some((arg) => arg !== "--")) {
+    output.stderr("Usage: demo");
     return 1;
   }
+  if (demo === null) {
+    output.stderr("Set DEMO_ORGANIZATION_CODE and DEMO_PASSWORD first (see .env.example).");
+    return 1;
+  }
+  try {
+    await resetDemoOrganization(platform, demo);
+  } catch (error) {
+    // The code belongs to an organization no reset built, or a plan for sale took the demo plan's key.
+    return refused(error, output);
+  }
+  const roleName = (key: string) => starterRoles.find((role) => role.key === key)?.name ?? key;
+  output.stdout(
+    `The demo is ready: sign in with organization code ${demo.code}, the password in DEMO_PASSWORD and one of`,
+  );
+  output.stdout(`  ${demoStaff.map((staff) => `${staff.username} (${roleName(staff.roleKey)})`).join(", ")}`);
+  return 0;
+}
+
+/** A refusal in our own words goes to stderr, with exit code 1; anything else is the command failing. */
+function refused(error: unknown, output: CommandOutput): number {
+  if (!(error instanceof DomainError)) throw error;
+  output.stderr(error.message);
+  return 1;
 }
 
 /** The email (in lower case) and name, checked as the console checks them, or null for anything else. */

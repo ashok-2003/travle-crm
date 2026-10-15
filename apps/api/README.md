@@ -95,6 +95,11 @@ when one is wrong), serves nothing, runs no jobs and exits (`src/console-command
   two runs start at once, and exits 1 with the reason on stderr. It prints the new super admin's temporary password to
   stdout and nothing else: the one secret a process of ours prints, on purpose, since the operator's own terminal is
   where it must go. Pass it on in person; they replace it at their first sign-in, by email, before the console opens.
+- **`pnpm --filter @travel-crm/api-server run demo`** builds the shared demo now, so a fresh local database has it
+  without waiting for the 02:00 reset: the same reset (`resetDemoOrganization`), with `DEMO_ORGANIZATION_CODE` and
+  `DEMO_PASSWORD` from `.env` (it says to set them when they aren't), purging the last demo it built. Run it after
+  `pnpm services:up` and `pnpm db:migrate`. It prints the organization code and the usernames to sign in with (`asha`
+  the Owner, `ravi` in Sales, `meena` in Operations), never a password: theirs is `DEMO_PASSWORD`.
 
 ## Environment
 
