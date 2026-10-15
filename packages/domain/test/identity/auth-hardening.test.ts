@@ -1,5 +1,6 @@
 // Better Auth's own endpoints, run through its real handler: the side doors that would let a member change their
-// sign-in name into another organization's namespace, or reach the platform-admin endpoints (ADR 0006).
+// sign-in name into another organization's namespace, or reach the platform-admin endpoints (ADR 0006), which stay
+// open over HTTP only for support's impersonation, of an organization's active staff (ADR 0018).
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { softDeleted } from "@travel-crm/db";
 import { afterAll, beforeAll, describe, expect, inject, it, onTestFinished, vi } from "vitest";
@@ -79,23 +80,59 @@ describe("Better Auth hardening", () => {
     expect(response.status).toBe(404);
   });
 
-  it("refuses the admin endpoints to a user who has the admin role and also a membership", async () => {
+  /** A server-side call's refusal: its HTTP status and code, or "allowed". */
+  async function refusalOf(call: Promise<unknown>): Promise<string> {
+    try {
+      await call;
+      return "allowed";
+    } catch (error) {
+      const { status, body } = error as { status: string; body?: { code?: string } };
+      return `${status} ${body?.code ?? ""}`.trim();
+    }
+  }
+
+  const listUsers = (headers: Headers) => test.identity.auth.api.listUsers({ headers, query: {} });
+
+  it("closes every admin endpoint over HTTP but starting and stopping impersonation, even to platform staff", async () => {
+    const headers = await platformAdminHeaders();
+    for (const path of ["/admin/list-users", "/admin/get-user?id=x"]) {
+      expect((await get(path, headers)).status, path).toBe(404);
+    }
+    for (const path of [
+      "/admin/create-user",
+      "/admin/set-role",
+      "/admin/update-user",
+      "/admin/ban-user",
+      "/admin/unban-user",
+      "/admin/remove-user",
+      "/admin/set-user-password",
+      "/admin/list-user-sessions",
+      "/admin/revoke-user-session",
+      "/admin/revoke-user-sessions",
+      "/admin/has-permission",
+    ]) {
+      expect((await post(path, headers, { userId: agency.ownerUserId })).status, path).toBe(404);
+    }
+    const user = await test.database.client.user.findUnique({ where: { id: agency.ownerUserId } });
+    expect(user?.banned).toBe(false);
+  });
+
+  it("refuses the admin endpoints, from server-side calls too, to a user who has the admin role and a membership", async () => {
     await test.database.client.user.update({ where: { id: agency.ownerUserId }, data: { role: "admin" } });
     try {
       const headers = await signInByEmail(test.identity, agency.ownerEmail, agency.ownerPassword);
-      expect((await get("/admin/list-users", headers)).status).toBe(403);
+      expect(await refusalOf(listUsers(headers))).toBe("FORBIDDEN FORBIDDEN");
     } finally {
       await test.database.client.user.update({ where: { id: agency.ownerUserId }, data: { role: null } });
     }
   });
 
   it("refuses the admin endpoints without a session", async () => {
-    expect((await get("/admin/list-users", new Headers())).status).toBe(401);
+    expect(await refusalOf(listUsers(new Headers()))).toBe("UNAUTHORIZED UNAUTHORIZED");
   });
 
-  it("lets a genuine platform admin use the admin endpoints", async () => {
-    const headers = await platformAdminHeaders();
-    expect((await get("/admin/list-users", headers)).status).toBe(200);
+  it("lets a genuine platform admin call the admin endpoints from the server", async () => {
+    expect(await refusalOf(listUsers(await platformAdminHeaders()))).toBe("allowed");
   });
 
   async function newMember(username: string) {
@@ -111,49 +148,42 @@ describe("Better Auth hardening", () => {
     return { userId: staff.userId, memberId: member.id };
   }
 
-  async function expectRefusedAndUnchanged(response: Response, userId: string): Promise<void> {
-    expect(response.status).toBe(403);
-    expect(await response.json()).toMatchObject({ code: "MEMBERS_CANNOT_BE_PLATFORM_STAFF" });
+  async function expectRefusedAndUnchanged(call: Promise<unknown>, userId: string): Promise<void> {
+    expect(await refusalOf(call)).toBe("FORBIDDEN MEMBERS_CANNOT_BE_PLATFORM_STAFF");
     const user = await test.database.client.user.findUniqueOrThrow({ where: { id: userId } });
     expect(user.role ?? "").not.toMatch(/admin/);
   }
 
+  /** Better Auth's admin endpoints as a server-side call makes them, with any body, as a careless caller might. */
+  const adminCall = (path: "setRole" | "adminUpdateUser", headers: Headers, body: unknown) =>
+    (test.identity.auth.api[path] as (request: { headers: Headers; body: unknown }) => Promise<unknown>)({
+      headers,
+      body,
+    });
+
   it("refuses to make a member a platform admin, even a removed one", async () => {
     const headers = await platformAdminHeaders();
     const staff = await newMember("leaver");
-    const makeAdmin = () => post("/admin/set-role", headers, { userId: staff.userId, role: "admin" });
-    await expectRefusedAndUnchanged(await makeAdmin(), staff.userId);
+    const makeAdmin = () => adminCall("setRole", headers, { userId: staff.userId, role: "admin" });
+    await expectRefusedAndUnchanged(makeAdmin(), staff.userId);
     await test.database.client.member.update({ where: { id: staff.memberId }, data: softDeleted(agency.ownerUserId) });
-    await expectRefusedAndUnchanged(await makeAdmin(), staff.userId);
+    await expectRefusedAndUnchanged(makeAdmin(), staff.userId);
   });
 
   it("refuses the set-role bypasses: array ids, comma-joined roles, role arrays and admin update-user", async () => {
     const headers = await platformAdminHeaders();
     const staff = await newMember("bypass");
-    await expectRefusedAndUnchanged(
-      await post("/admin/set-role", headers, { userId: [staff.userId], role: "admin" }),
-      staff.userId,
-    );
-    await expectRefusedAndUnchanged(
-      await post("/admin/set-role", headers, { userId: staff.userId, role: "admin,user" }),
-      staff.userId,
-    );
-    await expectRefusedAndUnchanged(
-      await post("/admin/set-role", headers, { userId: staff.userId, role: ["admin"] }),
-      staff.userId,
-    );
-    await expectRefusedAndUnchanged(
-      await post("/admin/update-user", headers, { userId: staff.userId, data: { role: "admin" } }),
-      staff.userId,
-    );
-    await expectRefusedAndUnchanged(
-      await post("/admin/set-role", headers, { userId: staff.userId, role: ["admin,user"] }),
-      staff.userId,
-    );
-    await expectRefusedAndUnchanged(
-      await post("/admin/update-user", headers, { userId: staff.userId, data: { role: "admin,user" } }),
-      staff.userId,
-    );
+    for (const [path, body] of [
+      ["setRole", { userId: [staff.userId], role: "admin" }],
+      ["setRole", { userId: staff.userId, role: "admin,user" }],
+      ["setRole", { userId: staff.userId, role: ["admin"] }],
+      ["setRole", { userId: staff.userId, role: "super-admin" }],
+      ["adminUpdateUser", { userId: staff.userId, data: { role: "admin" } }],
+      ["setRole", { userId: staff.userId, role: ["admin,user"] }],
+      ["adminUpdateUser", { userId: staff.userId, data: { role: "admin,user" } }],
+    ] as const) {
+      await expectRefusedAndUnchanged(adminCall(path, headers, body), staff.userId);
+    }
   });
 
   it("still lets a platform admin set a role on a person who has never been a member", async () => {
@@ -161,8 +191,7 @@ describe("Better Auth hardening", () => {
     const outsider = await test.database.client.user.create({
       data: { name: "Outsider", email: `outsider-${crypto.randomUUID()}@example.test` },
     });
-    const response = await post("/admin/set-role", headers, { userId: outsider.id, role: "admin" });
-    expect(response.status).toBe(200);
+    expect(await refusalOf(adminCall("setRole", headers, { userId: outsider.id, role: "admin" }))).toBe("allowed");
     const user = await test.database.client.user.findUniqueOrThrow({ where: { id: outsider.id } });
     expect(user.role).toBe("admin");
     await test.database.client.user.update({ where: { id: outsider.id }, data: { role: null } });
@@ -256,9 +285,31 @@ describe("Better Auth hardening", () => {
       jar.set(pair.split("=")[0] ?? "", pair);
     }
     const impersonating = new Headers({ cookie: [...jar.values()].join("; ") });
-    expect((await get("/admin/list-users", impersonating)).status).toBe(403);
+    expect((await get("/admin/list-users", impersonating)).status).toBe(404);
+    expect(await refusalOf(listUsers(impersonating))).toBe("FORBIDDEN FORBIDDEN");
     expect((await post("/admin/stop-impersonating", impersonating, {})).status).toBe(200);
   });
+  it("impersonates only an organization's active staff", async () => {
+    const headers = await platformAdminHeaders();
+    const impersonate = (userId: string) => post("/admin/impersonate-user", headers, { userId });
+    const outsider = await test.database.client.user.create({
+      data: { name: "Outsider", email: `never-member-${crypto.randomUUID()}@example.test` },
+    });
+    const leaver = await newMember("removed-one");
+    await test.database.client.member.update({ where: { id: leaver.memberId }, data: softDeleted(agency.ownerUserId) });
+    const banned = await newMember("banned-one");
+    await test.database.client.user.update({ where: { id: banned.userId }, data: { banned: true } });
+    for (const userId of [outsider.id, leaver.userId, banned.userId, crypto.randomUUID()]) {
+      const refused = await impersonate(userId);
+      expect(refused.status).toBe(403);
+      expect(await refused.json()).toMatchObject({ code: "IMPERSONATION_TARGET_NOT_A_MEMBER" });
+    }
+    expect(
+      await test.database.client.session.count({ where: { impersonatedBy: { not: null }, userId: leaver.userId } }),
+    ).toBe(0);
+    expect((await impersonate((await newMember("present-one")).userId)).status).toBe(200);
+  });
+
   it("refuses a cross-site browser request to the username sign-in", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     onTestFinished(() => {

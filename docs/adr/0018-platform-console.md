@@ -16,6 +16,15 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 4 (the `app_pla
   platform staff and permanent deletion (spec 5: "a super-admin action"). Both have no membership, ever. The console's
   builders check them on every request: `staffProcedure` (either level, and no temporary password left to replace)
   and `superAdminProcedure`. Better Auth gives both roles the same powers on its own endpoints.
+- **Better Auth's admin endpoints are closed over HTTP**, except starting and stopping support's impersonation
+  (`/admin/impersonate-user`, `/admin/stop-impersonating`), which answer as before. Every other `/admin/*` path is a
+  404 for everyone, platform staff included: the console has its own API, and some of those endpoints would skip our
+  rules (`/admin/remove-user` deletes a user outright, past soft delete; `/admin/set-user-password` skips
+  must-change-password). Server-side `auth.api.*` admin calls still run the same hook, so they need a platform admin's
+  request headers; our own code makes none.
+- **Support impersonates only an organization's active staff**: a member who isn't removed or banned. Anyone else
+  (someone who was never a member, a removed member, a banned one) is refused with `IMPERSONATION_TARGET_NOT_A_MEMBER`
+  before a session exists, so every impersonation has an organization's audit log to be recorded in.
 - **The platform role's transactions.** `@travel-crm/db/platform` gives the platform module
   `createPlatformDatabase(url).transaction(tx => …)`: one transaction as `app_platform`, which sees every organization
   (its `platform_access` policy) and has the rights the api never gets: creating organizations, writing plans and
