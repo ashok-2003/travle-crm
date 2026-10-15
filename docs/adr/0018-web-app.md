@@ -9,8 +9,10 @@ Date: 2026-10-15 · Status: accepted · Implements spec sections 3, 11 and 12.1 
   every page is a static shell the service worker may keep for offline use.
 - **Same origin.** The browser calls `/api/*` on the address it loaded the app from (spec 3). In development and the
   journeys a Next.js rewrite sends it to `API_ORIGIN`; rewrites are fixed at build time, so a deployment routes
-  `/api/*` to the api at its load balancer. The api's `BETTER_AUTH_URL` is the app's address (browsers reach the api
-  there), and its trusted origins hold it, so its origin and JSON checks pass with no CORS.
+  `/api/*` to the api at its load balancer. A production build without `API_ORIGIN` has no rewrite at all (an `/api`
+  request reaching the app is a 404, never one sent to localhost), and one that isn't an http(s) origin fails the
+  build. The api's `BETTER_AUTH_URL` is the app's address (browsers reach the api there), and its trusted origins hold
+  it, so its origin and JSON checks pass with no CORS.
 - **The api's types only.** The app imports `type AppRouter`; at run time it may use only the brand package, the
   contracts' Zod schemas (forms validate with the api's own rules) and the kernel's formatting.
   dependency-cruiser enforces it (`web-reaches-the-api-over-http`).
@@ -21,21 +23,41 @@ Date: 2026-10-15 · Status: accepted · Implements spec sections 3, 11 and 12.1 
   (preloaded, with size-matched fallbacks). Each has a Latin file and a Latin-extended file limited by unicode-range
   (the second has ₹). Noto fonts for nine Indian scripts load only when a page shows that script. No Google Fonts.
 - **The cache.** Queries are fresh for 30 seconds and refresh when the window regains focus or the device reconnects;
-  refusals are never retried. The cache is saved to IndexedDB (idb-keyval), keyed by build, shown at once on the next
-  visit and then refreshed. Signing out ends the session, empties the cache and its saved copy, and tells the app's
-  other tabs (BroadcastChannel), which do the same. A 401 does it too; a pending step sends the person to take it.
+  refusals are never retried. Successful queries are saved to IndexedDB (idb-keyval), keyed by build and recorded
+  with whose they are (`me.get`'s user and organization); mutations never are, since their variables can hold a
+  temporary password. Opening a page asks `me.get` first and restores the copy only for that person, then refreshes
+  it; offline, or with no answer within 3 seconds, it shows what the device saved and drops it the moment `me.get`
+  names someone else. So online the copy shows after one small request rather than at once: the price of never
+  showing one person's data to another, or to a session that has ended.
+- **Wiping.** A wipe stops the page saving first (the subscription ends, and a save waiting in the throttle can't
+  land), then empties the caches, clears the IndexedDB store and the service worker's `pages-*` caches, and changes a
+  data-free generation in localStorage that voids any copy another tab is still about to write. Signing out wipes,
+  tells the app's other tabs (BroadcastChannel), which wipe too, and only then asks the api, for at most 5 seconds.
+  If that fails, a data-free marker says a sign-out is owed, and the next page (or coming back online) settles it
+  before anything asks who is signed in. A 401 wipes and returns the person to sign in, then to where they were; a
+  pending step sends them to take it.
 - **Sign-in calls** go to Better Auth's endpoints and our `/api/auth/sign-in/org` through a small typed client that
   keeps nothing of Better Auth's user object: for staff without email it holds the placeholder address, which is
   never shown. Who is signed in comes from `me.get` only.
 - **Words** go through next-intl (spec 9.6) without i18n routing: one locale, `en-IN`, one message file per feature,
   and the api's refusal reasons mapped to sentences in `errors.json`.
-- **Security headers** on every response, with a Content-Security-Policy limited to our own origin. Scripts and styles
-  allow `'unsafe-inline'`: Next.js inlines its boot scripts, and nonces would make every page render per request,
-  which the offline shell can't use. React escapes everything it renders, and the app renders no user HTML.
+- **Security headers** on every response, with a Content-Security-Policy limited to our own origin, and
+  `upgrade-insecure-requests` outside development. The reset-password and two-factor pages also send
+  `Referrer-Policy: no-referrer`, so a token in their address never travels as a Referer, not even through the
+  `/api` rewrite into the api's logs.
+- **`'unsafe-inline'` is an accepted risk.** Scripts and styles allow it: Next.js inlines its boot scripts, and nonces
+  would make every page render per request, which the offline shell can't use. That leaves one guard against
+  injected script: React escapes everything it renders, and the app never renders HTML from a string, which
+  `test/no-inner-html.test.ts` enforces. What still limits an injection: `connect-src`, `form-action` and
+  `base-uri` are our own origin only, `object-src` is none, and framing is refused. Revisit if the app ever needs
+  to show rich text: sanitize it on the server, or move to nonces.
 - **The PWA.** A manifest from the brand package; a hand-written service worker (bundled by esbuild) keeps build files
   and visited pages, falls back to an offline page, and never touches `/api`.
 - **Tests.** Vitest in jsdom for logic and components. Playwright journeys on a phone and a desktop against the real
-  api and a throwaway Postgres (the same setup as the api's tests), on free ports, with an axe check on each screen.
+  api and a throwaway Postgres (the same setup as the api's tests), on free ports, with an axe check after every
+  journey, on the screen it ends on (an automatic fixture; a journey opts out only with a written reason). Turbo runs
+  the journeys after the web app's typecheck and lint, because `next build` rewrites `.next/types` while those read
+  it; a separate `distDir` would make Next.js rewrite `tsconfig.json` on every run.
 
 ## Context
 
@@ -57,3 +79,6 @@ Date: 2026-10-15 · Status: accepted · Implements spec sections 3, 11 and 12.1 
 - Behind a load balancer, `AUTH_TRUSTED_PROXIES` must be set as for the api alone: the rewrite forwards
   `x-forwarded-for` unchanged.
 - Adding a screen means a message file entry, a navigation item if it is a destination, and a journey.
+- A screen that shows a secret it got from a query (a setup link, backup codes) sets `meta: { persist: false }`, so
+  the saved copy never holds it.
+- `includeSubDomains` in HSTS binds every subdomain of the app's domain to https: choose the domain with that in mind.

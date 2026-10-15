@@ -126,13 +126,24 @@ module.exports = {
       comment:
         "The web app imports the API's types, never its code (spec 3): it reaches data through /api. At run time it " +
         "may use the brand, the contracts' schemas (for forms) and the kernel's money and date formatting, nothing " +
-        "that touches the database, the server or a vendor.",
+        "that touches the database, the server or a vendor. apps/web/test is outside it on purpose: the journeys " +
+        "seed organizations through @travel-crm/domain/identity and @travel-crm/db/platform, and unit tests may read " +
+        "the permission catalog. web-source-never-imports-tests keeps those imports from reaching src.",
       severity: "error",
       from: { path: "^apps/web/(src|scripts)/" },
       to: {
         path: "^(apps/api/|packages/(api|db|integrations)/|packages/domain/src/(?!kernel/))",
         dependencyTypesNot: ["type-only"],
       },
+    },
+    {
+      name: "web-source-never-imports-tests",
+      comment:
+        "The web app's tests may reach the database and the domain (see web-reaches-the-api-over-http), so nothing " +
+        "the app ships, or builds with, may import from apps/web/test.",
+      severity: "error",
+      from: { path: "^apps/web/(src|scripts)/" },
+      to: { path: "^apps/web/test/" },
     },
     {
       name: "web-pages-skip-node-only-brand-files",
