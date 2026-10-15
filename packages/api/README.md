@@ -5,15 +5,20 @@ The web app imports the `AppRouter` type only, and the console screens the `Plat
 
 ## Procedure builders (`src/procedures.ts`)
 
-| Builder                              | Checks (spec 6.5)                                              | Use for                                    |
-| ------------------------------------ | -------------------------------------------------------------- | ------------------------------------------ |
-| `publicProcedure`                    | none                                                           | nothing yet                                |
-| `protectedProcedure`                 | 1, from the 5-minute session cookie                            | `me.get`                                   |
-| `orgProcedure`, `.requires("x:y")`   | 1, membership and pending steps read from the database, then 4 | organization data                          |
-| `freshProcedure`, `.requires("x:y")` | the same, with the session itself read from the database       | money, roles, exports, staff, 2FA settings |
+| Builder                              | Checks (spec 6.5)                                                                | Use for                                    |
+| ------------------------------------ | -------------------------------------------------------------------------------- | ------------------------------------------ |
+| `publicProcedure`                    | none                                                                             | nothing yet                                |
+| `protectedProcedure`                 | 1, from the 5-minute session cookie (an impersonation session from the database) | `me.get`                                   |
+| `orgProcedure`, `.requires("x:y")`   | 1, membership and pending steps read from the database, then 2, 3 and 4          | organization data                          |
+| `freshProcedure`, `.requires("x:y")` | the same, with the session itself read from the database                         | money, roles, exports, staff, 2FA settings |
 
-Checks 2 (organization active) and 3 (module on the plan) arrive in plan 4 inside these builders, so procedures don't
-change. Check 5 (own or all records) is the handler's job, with `scopeFilter()` from `@travel-crm/domain/identity`.
+Check 2 (organization active) reads the organization's subscription with the member, and refuses by what the call
+does: a query views, a mutation changes. A procedure that exports data says so with `.meta({ lifecycle: "export" })`
+(allowed while read-only, and to the Owner while suspended); one every state must allow, so the app can say why the
+rest is refused, with `.meta({ lifecycle: "always" })`. Check 3 (module on the plan) comes from each required
+permission's module, inside `requires()`, before check 4. Check 5 (own or all records) is the handler's job, with
+`scopeFilter()` from `@travel-crm/domain/identity`. Support's impersonation session is always read from the database,
+and its admin re-checked, so it ends the moment the session does, not when the cookie cache expires.
 
 ## Errors
 
@@ -23,7 +28,8 @@ app's translated message. Unexpected errors say only "Something went wrong".
 
 ## Routers
 
-`me`, `staff`, `roles`, `settings`. Add a router in `src/routers/` and list it in `app-router.ts`.
+`me`, `staff`, `roles`, `settings`, `subscription` (`get`: what the organization's subscription allows today, in
+every state). Add a router in `src/routers/` and list it in `app-router.ts`.
 
 ## The platform console (`src/platform/`)
 

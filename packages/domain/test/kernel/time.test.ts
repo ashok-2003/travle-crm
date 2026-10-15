@@ -1,7 +1,14 @@
 // Times are instants in UTC, shown and counted in the organization's time zone (spec 9.6); departure dates are
 // calendar dates with no time at all.
 import { describe, expect, it } from "vitest";
-import { calendarDateIn, formatDateTime, parseCalendarDate, startOfDayIn, yearIn } from "../../src/kernel/index.js";
+import {
+  addDays,
+  calendarDateIn,
+  formatDateTime,
+  parseCalendarDate,
+  startOfDayIn,
+  yearIn,
+} from "../../src/kernel/index.js";
 
 const at = (iso: string) => new Date(iso);
 
@@ -40,6 +47,14 @@ describe("calendar dates", () => {
     for (const bad of ["2026-02-30", "2026-2-3", "15/10/2026", "2026-10-15T00:00:00Z", "0999-01-01"]) {
       expect(() => parseCalendarDate(bad), bad).toThrow(RangeError);
     }
+  });
+
+  it("add days across month ends, leap days and years, and back", () => {
+    expect(addDays(parseCalendarDate("2026-10-31"), 1)).toBe("2026-11-01");
+    expect(addDays(parseCalendarDate("2028-02-28"), 1)).toBe("2028-02-29");
+    expect(addDays(parseCalendarDate("2026-12-25"), 14)).toBe("2027-01-08");
+    expect(addDays(parseCalendarDate("2026-03-01"), -1)).toBe("2026-02-28");
+    expect(() => addDays(parseCalendarDate("2026-03-01"), 1.5)).toThrow(RangeError);
   });
 });
 

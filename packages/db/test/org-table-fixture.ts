@@ -1,9 +1,15 @@
 // The shape of an isolation fixture: how to create a row in one organization-owned table (see org-table-fixtures.ts).
 import type { OrgTx } from "../src/for-org.js";
+import type { PlatformTx } from "../src/platform.js";
 
 export interface OrgTableFixture {
-  /** Creates one row in the table, inside db.forOrg(). */
-  create: (tx: OrgTx) => Promise<unknown>;
+  /** Creates one row in the table, inside db.forOrg(). Give this or createAsPlatform. */
+  create?: (tx: OrgTx) => Promise<unknown>;
+  /**
+   * For a table the runtime role may not insert into (a subscription, which only the platform console writes):
+   * creates one row for organizationId in a platform transaction.
+   */
+  createAsPlatform?: (tx: PlatformTx, organizationId: string) => Promise<unknown>;
   /**
    * The table is append-only for the api and worker: they can't delete its rows or change their organization_id
    * (they may update only columns granted to them by name, such as outbox_event.relayed_at). The isolation suite

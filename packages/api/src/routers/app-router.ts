@@ -5,12 +5,14 @@ import { meRouter } from "./me.js";
 import { rolesRouter } from "./roles.js";
 import { settingsRouter } from "./settings.js";
 import { staffRouter } from "./staff.js";
+import { subscriptionRouter } from "./subscription.js";
 
 export const appRouter = router({
   me: meRouter,
   staff: staffRouter,
   roles: rolesRouter,
   settings: settingsRouter,
+  subscription: subscriptionRouter,
 });
 
 export type AppRouter = typeof appRouter;

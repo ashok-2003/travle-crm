@@ -4,7 +4,12 @@ import { createPrismaClient } from "../src/client.js";
 import { createDatabase, type Database } from "../src/database.js";
 import { Prisma } from "../src/generated/prisma/client.js";
 import { softDeleteModels } from "../src/soft-delete.js";
-import { createPlatformClient, type PlatformClient } from "../src/platform.js";
+import {
+  createPlatformClient,
+  createPlatformDatabase,
+  type PlatformClient,
+  type PlatformDatabase,
+} from "../src/platform.js";
 import { createTestOrganization } from "./helpers.js";
 import { orgTableFixtures, signInTables } from "./org-table-fixtures.js";
 
@@ -39,12 +44,14 @@ async function runtimeUpdatableColumns(platform: PlatformClient, tables: string[
 describe("organization isolation", () => {
   const urls = inject("dbUrls");
   let platform: PlatformClient;
+  let platformDb: PlatformDatabase;
   let db: Database;
   let orgA: string;
   let orgB: string;
 
   beforeAll(async () => {
     platform = createPlatformClient(urls.platform);
+    platformDb = createPlatformDatabase(urls.platform, { maxConnections: 1 });
     db = createDatabase(urls.runtime, { maxConnections: 3 });
     orgA = await createTestOrganization(platform, "Isolation A");
     orgB = await createTestOrganization(platform, "Isolation B");
@@ -52,6 +59,7 @@ describe("organization isolation", () => {
 
   afterAll(async () => {
     await db.disconnect();
+    await platformDb.disconnect();
     await platform.$disconnect();
   });
 
@@ -93,8 +101,14 @@ describe("organization isolation", () => {
     const organizationIdLocked = appendOnly || fixture?.updatableColumn !== undefined;
 
     beforeAll(async () => {
-      if (!fixture) throw new Error(`No fixture for ${tableName}`);
-      await db.forOrg(orgA, fixture.create);
+      if (fixture?.createAsPlatform) {
+        const { createAsPlatform } = fixture;
+        await platformDb.transaction((tx) => createAsPlatform(tx, orgA));
+      } else if (fixture?.create) {
+        await db.forOrg(orgA, fixture.create);
+      } else {
+        throw new Error(`No fixture for ${tableName}`);
+      }
     });
 
     it("is invisible to another organization", async () => {

@@ -23,6 +23,8 @@ model Organization {
   invitations             Invitation[]
   roles                   Role[]
   rolePermissions         RolePermission[]
+  subscription            Subscription?
+  subscriptionPayments    SubscriptionPayment[]
   outboxEvents            OutboxEvent[]
   processedEvents         ProcessedEvent[]
   attachments             Attachment[]

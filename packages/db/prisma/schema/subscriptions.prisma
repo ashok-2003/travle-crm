@@ -1,0 +1,105 @@
+// Plans and subscriptions (spec 7.2, 7.3): what each organization pays for and may use. Plans are platform data, with
+// no organization; a subscription and its payments belong to one organization, under row-level security. Only the
+// platform role writes them; the api reads them for its request checks, and the worker moves a subscription along.
+
+/// A plan the platform sells: its INR price, its limits and its modules (spec 7.2). Plans are data: no code names one.
+model Plan {
+  id                  String         @id @default(uuid(7)) @db.Uuid
+  /// Stable, e.g. "starter" (CHECK plan_key_format). It never changes.
+  key                 String         @unique
+  name                String
+  /// INR in paise, per month and per year. A plan may be sold one way only; at least one is set (CHECK plan_priced).
+  monthlyPricePaise   Int?           @map("monthly_price_paise")
+  yearlyPricePaise    Int?           @map("yearly_price_paise")
+  seatLimit           Int            @map("seat_limit")
+  whatsappNumberLimit Int            @map("whatsapp_number_limit")
+  storageLimitBytes   BigInt         @map("storage_limit_bytes")
+  /// The business modules it includes, e.g. {crm,quotes} (CHECK plan_modules_known). The Foundation's own features
+  /// (staff, roles, settings, the audit log, documents) come with every plan.
+  modules             String[]
+  /// Archived plans take no new subscriptions; organizations already on one keep it.
+  archivedAt          DateTime?      @map("archived_at") @db.Timestamptz(6)
+  createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  subscriptions       Subscription[]
+
+  @@map("plan")
+}
+
+/// An organization's subscription (spec 7.2, 7.3): its plan, dates, status and overrides. One per organization.
+model Subscription {
+  /// Filled from db.forOrg()'s organization when omitted. Also the key: one subscription per organization.
+  organizationId         String                @id @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  planId                 String                @map("plan_id") @db.Uuid
+  /// "monthly" or "yearly" (CHECK subscription_billing_cycle_value).
+  billingCycle           String                @map("billing_cycle")
+  /// "trial", "active", "past_due", "read_only", "suspended" or "cancelled" (CHECK subscription_status_value).
+  status                 String
+  /// When the status last changed: the unpaid states last a number of days from it (subscription_policy).
+  statusChangedAt        DateTime              @map("status_changed_at") @db.Timestamptz(6)
+  /// The last day of the trial; set exactly while the status is "trial".
+  trialEndsOn            DateTime?             @map("trial_ends_on") @db.Date
+  /// The last day paid for, in the organization's time zone. Null until the first payment.
+  paidThrough            DateTime?             @map("paid_through") @db.Date
+  /// Overrides (spec 7.2): seats beyond the plan's, a price agreed for this organization, modules switched on early.
+  extraSeats             Int                   @default(0) @map("extra_seats")
+  customPricePaise       Int?                  @map("custom_price_paise")
+  extraModules           String[]              @default([]) @map("extra_modules")
+  /// Razorpay's id for this subscription once Razorpay Subscriptions bills it (spec 7.4); null while billing is by hand.
+  providerSubscriptionId String?               @map("provider_subscription_id")
+  createdAt              DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  plan                   Plan                  @relation(fields: [planId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  organization           Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  payments               SubscriptionPayment[]
+
+  @@map("subscription")
+}
+
+/// A payment the console recorded (spec 7.4: amount, dates and status), or later one Razorpay reported. Never deleted:
+/// a mistaken entry is voided.
+model SubscriptionPayment {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId    String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id                String       @id @default(uuid(7)) @db.Uuid
+  /// INR in paise, more than zero (CHECK subscription_payment_amount_positive).
+  amountPaise       Int          @map("amount_paise")
+  paidOn            DateTime     @map("paid_on") @db.Date
+  /// The last day this payment pays for: the subscription is paid through at least this day once it is recorded.
+  paidThrough       DateTime     @map("paid_through") @db.Date
+  /// How it was paid, for whoever matches the bank statement, e.g. "NEFT UTR 412345678901".
+  reference         String?
+  /// "manual" (recorded in the console) or "razorpay" (reported by its webhook, later).
+  provider          String       @default("manual")
+  /// The provider's own id for the payment: a repeated webhook finds it and records nothing twice.
+  providerPaymentId String?      @map("provider_payment_id")
+  /// The platform admin who recorded it; null for a provider's webhook.
+  recordedBy        String?      @map("recorded_by") @db.Uuid
+  recordedAt        DateTime     @default(now()) @map("recorded_at") @db.Timestamptz(6)
+  voidedAt          DateTime?    @map("voided_at") @db.Timestamptz(6)
+  voidedBy          String?      @map("voided_by") @db.Uuid
+  voidReason        String?      @map("void_reason")
+  /// A payment belongs to its organization's subscription: there is no payment without one.
+  subscription      Subscription @relation(fields: [organizationId], references: [organizationId], onDelete: Restrict, onUpdate: Restrict, map: "subscription_payment_subscription_fkey")
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, provider, providerPaymentId])
+  /// An organization's payments, newest first.
+  @@index([organizationId, paidOn(sort: Desc)])
+  @@map("subscription_payment")
+}
+
+/// How many days an organization stays past due, then read-only, before the next state (spec 7.3; Q3: 7 and 14).
+/// One row, edited by super admins in the console.
+model SubscriptionPolicy {
+  /// Always true: the table holds one row (CHECK subscription_policy_one_row).
+  id           Boolean  @id @default(true)
+  pastDueDays  Int      @default(7) @map("past_due_days")
+  readOnlyDays Int      @default(14) @map("read_only_days")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// The super admin who last changed it; null for the defaults.
+  updatedBy    String?  @map("updated_by") @db.Uuid
+
+  @@map("subscription_policy")
+}

@@ -7,6 +7,7 @@ import type { Files } from "@travel-crm/domain/files";
 import type { Identity } from "@travel-crm/domain/identity";
 import type { RateLimiter } from "@travel-crm/domain/rate-limits";
 import { findShareLink, recordShareLinkOpen } from "@travel-crm/domain/share-links";
+import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { receiveWebhook, type WebhookProvider } from "@travel-crm/domain/webhooks";
 import { describeError, type JobQueue } from "@travel-crm/integrations/jobs";
 import { Hono } from "hono";
@@ -22,6 +23,8 @@ import { webhookRoutes } from "./webhook-route.js";
 
 export interface ServerDependencies {
   identity: Identity;
+  /** What each organization may use today, for the request checks 2 and 3. */
+  subscriptions: SubscriptionAccess;
   /** The public routes' database: share links, webhook events, rate-limit counters. */
   db: Database;
   files: Pick<Files, "systemDownloadLink">;
@@ -59,7 +62,7 @@ function limitBody(maxSize: number) {
 }
 
 export function createApp(dependencies: ServerDependencies): Hono {
-  const { identity, db, files, queue, rateLimiter, clientAddress, webhookProviders, log } = dependencies;
+  const { identity, subscriptions, db, files, queue, rateLimiter, clientAddress, webhookProviders, log } = dependencies;
   const app = new Hono();
   app.onError(apiErrorHandler(log));
 
@@ -83,7 +86,7 @@ export function createApp(dependencies: ServerDependencies): Hono {
     trpcServer({
       router: appRouter,
       endpoint: "/api/trpc",
-      createContext: ({ resHeaders }, c) => createContext({ identity }, c.req.raw, resHeaders),
+      createContext: ({ resHeaders }, c) => createContext({ identity, subscriptions }, c.req.raw, resHeaders),
       onError: ({ error, path }) => {
         // Refusals (401, 403, 404...) are answers, not faults. Only unexpected errors are logged, by names and codes:
         // tRPC copies the cause's message into its own, and a Prisma message can quote the query's values.
