@@ -10,7 +10,7 @@ import { reportProblem } from "@/lib/report-problem";
 import { isPublicRoute, pendingStepRoute, routes, signInRoute } from "@/lib/routes";
 import { refusalOf } from "./api-error";
 import { authClient, type AuthClient } from "./auth-client";
-import { endSession, isSignOutOwed } from "./owed-sign-out";
+import { settleOwedSignOut } from "./owed-sign-out";
 import { isMeAnswer, ownerOf, sameOwner, type CopyOwner } from "./owner";
 import { createQueryCopy } from "./persistence";
 import { createQueryClient } from "./query-client";
@@ -105,7 +105,7 @@ export function createPageData({ buster, onLeaving, auth = authClient }: PageDat
 
   async function open(): Promise<boolean> {
     const openedAt = Date.now();
-    if (isSignOutOwed() && !(await endSession(auth))) {
+    if (!(await settleOwedSignOut(auth))) {
       // The previous person's session may still be alive, so nothing may ask the api who is signed in: a signed-out
       // screen opens as it is (it asks nothing), any other sends the person to sign in.
       if (isPublicRoute(window.location.pathname)) return true;
@@ -142,14 +142,14 @@ export function createPageData({ buster, onLeaving, auth = authClient }: PageDat
         // A fetch's answer; setQueryData is a "manual" success, and restoring a copy is no success at all.
         if (event.action.type === "success" && event.action.manual !== true) onMeAnswered(event.action.data);
       });
-      const settleOwedSignOut = () => {
-        if (isSignOutOwed()) void endSession(auth);
+      const settleOnceOnline = () => {
+        void settleOwedSignOut(auth);
       };
-      window.addEventListener("online", settleOwedSignOut);
+      window.addEventListener("online", settleOnceOnline);
       return () => {
         stopListening();
         stopWatching();
-        window.removeEventListener("online", settleOwedSignOut);
+        window.removeEventListener("online", settleOnceOnline);
       };
     },
   };

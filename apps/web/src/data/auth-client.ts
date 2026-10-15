@@ -2,6 +2,7 @@
 // POSTs to /api/auth on the app's own address, so the browser sends the session cookie and a trusted Origin.
 // Only what the screens need is read from each answer: Better Auth's user objects are never kept, because for staff
 // without email they hold the placeholder address, which is never shown (ADR 0006). me.get says who is signed in.
+import { settledBeforeSigningIn } from "./owed-sign-out";
 
 export type AuthResult<T> =
   | { ok: true; data: T }
@@ -90,9 +91,16 @@ export function createAuthClient(fetchImplementation: Fetch = (...arguments_) =>
   const nothing = (): null => null;
 
   return {
-    signInWithEmail: (input: { email: string; password: string }) => post("/sign-in/email", input, signInOutcome),
-    signInWithCode: (input: { orgCode: string; username: string; password: string }) =>
-      post("/sign-in/org", input, signInOutcome),
+    // A sign-in first waits for a sign-out still being settled on this page (owed-sign-out.ts): that answer deletes
+    // the session cookie, and must not land after the new one.
+    signInWithEmail: async (input: { email: string; password: string }) => {
+      await settledBeforeSigningIn();
+      return post("/sign-in/email", input, signInOutcome);
+    },
+    signInWithCode: async (input: { orgCode: string; username: string; password: string }) => {
+      await settledBeforeSigningIn();
+      return post("/sign-in/org", input, signInOutcome);
+    },
     /** The second step of a two-factor sign-in. trustDevice skips it on this device for 30 days. */
     verifyTwoFactorCode: (input: { code: string; trustDevice: boolean }) =>
       post("/two-factor/verify-totp", input, nothing),

@@ -39,9 +39,13 @@ Date: 2026-10-15 · Status: accepted · Implements spec sections 3, 11 and 12.1 
 - **Signing out** blanks the screen at once and wipes the device. It tells the app's other tabs (BroadcastChannel),
   which wipe too and go to sign-in unless they show a signed-out screen (sign-in, reset, offline). It records a
   data-free marker that a sign-out is owed, then loads the sign-in page without waiting for the api. The call to the
-  api is sent with `keepalive`, so it outlives the page, and its answer clears the marker. A marker still there is
-  settled by the next page (or by coming back online) before anything asks who is signed in. A 401 wipes and
-  returns the person to sign in, then to where they were; a pending step sends them to take it.
+  api is sent with `keepalive`, so it still reaches the api after the page has gone. But that page can no longer
+  hear the answer, so the marker usually reaches the sign-in page. That page settles it again before anything asks
+  who is signed in, and so does coming back online; a second sign-out of a session already ended is harmless. A
+  sign-in waits for a settle call under way, because that answer deletes the session cookie and must not land after
+  the new one. A sign-in that succeeds clears the marker (`finishSignIn`), so nothing can sign the new session out on
+  the old one's behalf. A 401 wipes and returns the person to sign in, then to where they were; a pending step sends
+  them to take it.
 - **Sign-in calls** go to Better Auth's endpoints and our `/api/auth/sign-in/org` through a small typed client that
   keeps nothing of Better Auth's user object: for staff without email it holds the placeholder address, which is
   never shown. Who is signed in comes from `me.get` only.
