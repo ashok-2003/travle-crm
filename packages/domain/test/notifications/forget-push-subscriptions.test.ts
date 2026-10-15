@@ -52,8 +52,18 @@ describe("forgetting a removed member's browsers", () => {
     expect(await browsersOf([leaving])).toEqual([]);
   });
 
-  it("refuses an event that doesn't carry the two ids", async () => {
-    const malformed = { ...staffRemoved(randomUUID()), payload: { userId: "someone" } };
-    await expect(forgetPushSubscriptionsListener.handle(malformed, kit.context())).rejects.toThrow();
+  it("refuses an event that doesn't carry the two ids, and deletes nothing", async () => {
+    const leaving = kit.addMember(null);
+    const kept = await kit.subscribe(leaving, "not-yet");
+    const malformed = { ...staffRemoved(leaving), payload: { userId: "someone" } };
+    // The contract's check: memberId is missing and userId is not a UUID.
+    await expect(forgetPushSubscriptionsListener.handle(malformed, kit.context())).rejects.toMatchObject({
+      name: "ZodError",
+      issues: [
+        expect.objectContaining({ path: ["memberId"], code: "invalid_type" }),
+        expect.objectContaining({ path: ["userId"], format: "uuid" }),
+      ],
+    });
+    expect(await browsersOf([leaving])).toEqual([{ userId: leaving, endpoint: kept }]);
   });
 });

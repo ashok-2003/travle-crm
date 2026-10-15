@@ -5,6 +5,7 @@ import type {
   RemoveStaffInput,
   ResetStaffPasswordInput,
   StaffMember,
+  StaffRemovedEvent,
   UpdateStaffRoleInput,
 } from "@travel-crm/contracts/identity";
 import { softDeleted } from "@travel-crm/db";
@@ -157,8 +158,10 @@ export async function removeStaff(
     // The retired address can be worked out from the user id, so the old password must stop working too.
     await tx.account.updateMany({ where: { userId: user.id, providerId: "credential" }, data: { password: null } });
     await tx.session.deleteMany({ where: { userId: user.id } });
-    // Modules above identity react to the removal through the outbox (spec 8): ids only.
-    await publishEvent(tx, { type: "staff.removed", payload: { memberId: target.id, userId: user.id } });
+    // Modules above identity react to the removal through the outbox (spec 8): ids only, exactly the event's contract,
+    // which the listeners check strictly.
+    const removed = { memberId: target.id, userId: user.id } satisfies StaffRemovedEvent;
+    await publishEvent(tx, { type: "staff.removed", payload: removed });
     await recordAudit(tx, actor, {
       action: "staff.removed",
       entityType: "member",
