@@ -20,8 +20,8 @@ missing them, and the api refuses to start: copy `.env.example` again.
 Then start the four processes, each in its own terminal:
 
     pnpm --filter @travel-crm/api-server dev       # the api, http://localhost:3001
-    pnpm --filter @travel-crm/api-server worker    # jobs: PDFs, email, push, webhooks, the nightly lifecycle record
-    pnpm --filter @travel-crm/api-server console   # the platform console's api, http://localhost:3002
+    pnpm --filter @travel-crm/api-server worker    # jobs: PDFs, email, push, webhooks
+    pnpm --filter @travel-crm/api-server console   # the platform console: its api on :3002, the lifecycle, purges, the demo reset
     pnpm --filter @travel-crm/web dev              # the web app, http://localhost:3000
 
 Make the demo agency once (it also resets every night at 02:00 India time while the console runs):
