@@ -19,6 +19,13 @@
       "outputs": [],
       "passThroughEnv": ["DOCKER_HOST", "TESTCONTAINERS_*"]
     },
+    // The product-name check reads every file in the repository, but turbo keys a task's cache on its own package's
+    // files only, so a cached run would pass after the name was typed in another package. It is fast: never cache it.
+    "@travel-crm/brand#test": {
+      "dependsOn": ["generate", "^generate"],
+      "outputs": [],
+      "cache": false
+    },
     "db:migrate:deploy": { "cache": false, "env": ["DATABASE_MIGRATOR_URL"] },
     "dev": { "cache": false, "persistent": true }
   }
