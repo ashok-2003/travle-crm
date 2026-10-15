@@ -9,6 +9,8 @@
   "license": "UNLICENSED",
   "scripts": {
     "prepare": "husky",
+    "dev": "pnpm services:up && pnpm db:migrate && turbo run dev worker console",
+    "demo": "pnpm --filter @travel-crm/api-server run demo",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "turbo run typecheck",

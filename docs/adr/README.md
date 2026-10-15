@@ -29,3 +29,4 @@ The first and largest set of decisions is the Foundation spec: `docs/superpowers
 | [0022](0022-onboarding.md)                   | Onboarding in one transaction, the Owner's invite, and the nightly demo                   |
 | [0023](0023-permanent-deletion.md)           | Permanent deletion: purging an organization, erasing one person or record                 |
 | [0024](0024-business-profile.md)             | The organization's business profile and setup checklist                                   |
+| [0027](0027-release.md)                      | The release: the images and the api's bundle, the product in Docker, CI's gates, Renovate |
