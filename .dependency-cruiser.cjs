@@ -51,6 +51,24 @@ module.exports = {
       to: { path: "^packages/db/src/platform\\.ts$" },
     },
     {
+      name: "platform-module-only-in-the-console",
+      comment:
+        "@travel-crm/domain/platform opens the platform role's connection (createPlatformServices) and runs the " +
+        "console's work on it. Only the console process (apps/api/src/console*.ts), the console's own tRPC " +
+        "(packages/api/src/platform/) and tests may import it: never the api server or the worker, which hold no " +
+        "DATABASE_PLATFORM_URL, nor any other domain module.",
+      severity: "error",
+      from: {
+        pathNot: [
+          "^packages/domain/src/platform/",
+          "^packages/api/src/platform/",
+          "^apps/api/src/console[^/]*\\.ts$",
+          "(^|/)test/",
+        ],
+      },
+      to: { path: "^packages/domain/src/platform/" },
+    },
+    {
       name: "db-testing-only-in-tests",
       comment: "@travel-crm/db/testing starts Postgres containers and creates organizations. Only tests may use it.",
       severity: "error",

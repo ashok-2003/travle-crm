@@ -17,9 +17,11 @@ import {
 import { webhookEvents } from "../src/webhooks.js";
 import { createTestOrganization } from "./helpers.js";
 
-async function currentRole(tx: PlatformTx): Promise<string | undefined> {
-  const [row] = await tx.$queryRaw<{ role: string }[]>`SELECT current_user AS role`;
-  return row?.role;
+/** Who the transaction runs as, and the organization it has set ("" for none, null if never set on the connection). */
+async function sessionOf(tx: PlatformTx): Promise<{ role: string; organization: string | null } | undefined> {
+  const [row] = await tx.$queryRaw<{ role: string; organization: string | null }[]>`
+    SELECT current_user AS role, current_setting('app.org_id', true) AS organization`;
+  return row;
 }
 
 describe("the platform database", () => {
@@ -76,11 +78,12 @@ describe("the platform database", () => {
         const [row] = await orgTx.$queryRaw<{ role: string }[]>`SELECT current_user AS role`;
         return { role: row?.role, organizations: await orgTx.orgCounter.groupBy({ by: ["organizationId"] }) };
       });
-      return { inside, after: await currentRole(tx), everyone: await tx.orgCounter.count() };
+      return { inside, after: await sessionOf(tx), everyone: await tx.orgCounter.count() };
     });
     expect(seen.inside.role).toBe("app_runtime");
     expect(seen.inside.organizations).toEqual([{ organizationId: organizationA }]);
-    expect(seen.after).toBe("app_platform");
+    // No organization left set: a platform insert that names none must not land in the one stepped into.
+    expect(seen.after).toEqual({ role: "app_platform", organization: "" });
     expect(seen.everyone).toBeGreaterThanOrEqual(3);
     expect(await db.forOrg(organizationA, (tx) => tx.orgCounter.count({ where: { key: "STEPPED-2026" } }))).toBe(1);
   });
@@ -98,13 +101,42 @@ describe("the platform database", () => {
   });
 
   it("returns to the platform role when the work inside fails, so the transaction can go on", async () => {
-    const role = await platformDb.transaction(async (tx) => {
+    const after = await platformDb.transaction(async (tx) => {
       await expect(
         asOrganization(tx, organizationB, () => Promise.reject(new Error("refused by a business rule"))),
       ).rejects.toThrow("refused by a business rule");
-      return currentRole(tx);
+      return sessionOf(tx);
     });
-    expect(role).toBe("app_platform");
+    expect(after).toEqual({ role: "app_platform", organization: "" });
+  });
+
+  it("starts with no organization set, whatever its pooled connection held before", async () => {
+    // A new connection has never set app.org_id, so only the transaction's own reset makes it "" rather than null.
+    const fresh = createPlatformDatabase(urls.platform, { maxConnections: 1 });
+    try {
+      expect(await fresh.transaction(sessionOf)).toEqual({ role: "app_platform", organization: "" });
+    } finally {
+      await fresh.disconnect();
+    }
+  });
+
+  it("refuses a write inside a step that names another organization, and changes nothing there", async () => {
+    await expect(
+      platformDb.transaction((tx) =>
+        asOrganization(tx, organizationA, (orgTx) =>
+          orgTx.orgCounter.create({ data: { organizationId: organizationB, key: "CROSS-2026", value: 1 } }),
+        ),
+      ),
+    ).rejects.toThrow(/row-level security/);
+    const changed = await platformDb.transaction((tx) =>
+      asOrganization(tx, organizationA, (orgTx) =>
+        orgTx.orgCounter.updateMany({ where: { organizationId: organizationB }, data: { value: 99 } }),
+      ),
+    );
+    expect(changed.count).toBe(0);
+    expect(await platform.orgCounter.findMany({ where: { organizationId: organizationB } })).toEqual([
+      { organizationId: organizationB, key: "PLATFORM-2026", value: 1 },
+    ]);
   });
 
   it("can't be nested: no forOrg(), second organization or second platform transaction inside", async () => {

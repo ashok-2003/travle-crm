@@ -54,6 +54,13 @@ describe("Better Auth hardening", () => {
     return signInByEmail(test.identity, email, "admin-password-1");
   }
 
+  /** A super admin's: support may only impersonate, even from the server (platform-staff-powers.test.ts). */
+  async function superAdminHeaders(): Promise<Headers> {
+    const { userId, email } = await createPlatformAdmin(test, "admin-password-1");
+    await test.database.client.user.update({ where: { id: userId }, data: { role: "super-admin" } });
+    return signInByEmail(test.identity, email, "admin-password-1");
+  }
+
   it("refuses a member changing their username or display name, and changes nothing", async () => {
     const before = await test.database.client.user.findUniqueOrThrow({ where: { id: agency.ownerUserId } });
     const username = await post("/update-user", ownerHeaders, { username: "othercode:ravi" });
@@ -131,8 +138,8 @@ describe("Better Auth hardening", () => {
     expect(await refusalOf(listUsers(new Headers()))).toBe("UNAUTHORIZED UNAUTHORIZED");
   });
 
-  it("lets a genuine platform admin call the admin endpoints from the server", async () => {
-    expect(await refusalOf(listUsers(await platformAdminHeaders()))).toBe("allowed");
+  it("lets a genuine super admin call the admin endpoints from the server", async () => {
+    expect(await refusalOf(listUsers(await superAdminHeaders()))).toBe("allowed");
   });
 
   async function newMember(username: string) {
@@ -186,8 +193,8 @@ describe("Better Auth hardening", () => {
     }
   });
 
-  it("still lets a platform admin set a role on a person who has never been a member", async () => {
-    const headers = await platformAdminHeaders();
+  it("still lets a super admin set a role on a person who has never been a member", async () => {
+    const headers = await superAdminHeaders();
     const outsider = await test.database.client.user.create({
       data: { name: "Outsider", email: `outsider-${crypto.randomUUID()}@example.test` },
     });
