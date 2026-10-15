@@ -7,15 +7,26 @@ export function isUniqueViolation(error: unknown): boolean {
 }
 
 /**
+ * The registry key @travel-crm/integrations/jobs reads (its OWN_MESSAGE_KEY) to keep a failed job's message: set on
+ * the errors below whose message is fixed text. This package can't import integrations, so the string is repeated,
+ * as in the domain kernel; apps/api's console tests check that pg-boss keeps these messages.
+ */
+const OWN_MESSAGE = Symbol.for("@travel-crm/own-message");
+
+/**
  * Thrown when forOrg() or withoutOrg() is called inside another one. The inner transaction would run on a second connection,
  * blind to the outer one's uncommitted writes, and enough of them at once would empty the pool and deadlock.
- * Pass the outer transaction's `tx` down instead.
+ * Pass the outer transaction's `tx` down instead. Also thrown when asOrganization() starts while its platform
+ * transaction is already in an organization, inside that step or beside it: their role switches would interleave.
  */
 export class NestedForOrgError extends Error {
-  constructor() {
+  constructor(nested: "transaction" | "step" = "transaction") {
     super(
-      "forOrg() or withoutOrg() was called inside another forOrg() or withoutOrg(). " +
-        "Pass the outer transaction's tx down instead.",
+      nested === "transaction"
+        ? "forOrg() or withoutOrg() was called inside another forOrg() or withoutOrg(). " +
+            "Pass the outer transaction's tx down instead."
+        : "asOrganization() was called while its platform transaction is already in an organization, inside that " +
+            "step or beside it (as in Promise.all). Step into one organization at a time, awaiting each step.",
     );
     this.name = "NestedForOrgError";
   }
@@ -55,5 +66,44 @@ export class WrongPlatformRoleError extends Error {
         "every organization. DATABASE_PLATFORM_URL must connect as the app_platform role.",
     );
     this.name = "WrongPlatformRoleError";
+  }
+}
+
+/**
+ * Thrown when a platform transaction is used while it is stepped into an organization, or ends before the step does.
+ * Its one connection runs as app_runtime in that organization until asOrganization() returns, so a platform query
+ * beside the step would run in the organization, and the step's queries after it as the platform role.
+ */
+export class OrganizationStepOpenError extends Error {
+  static {
+    Object.defineProperty(this.prototype, OWN_MESSAGE, { value: true });
+  }
+
+  constructor() {
+    super(
+      "This platform transaction is in an organization until asOrganization() returns, and nothing else may use or " +
+        "end it meanwhile. Inside the step, use the step's own transaction; outside it, await asOrganization() first.",
+    );
+    this.name = "OrganizationStepOpenError";
+  }
+}
+
+/**
+ * Thrown on every use of a platform transaction after a step into an organization failed in the database, and in place
+ * of its commit. Postgres aborts a transaction at its first error and answers its COMMIT with a silent ROLLBACK, so a
+ * caller that caught the step's error and went on would otherwise see the transaction succeed with nothing saved.
+ */
+export class PlatformTransactionAbortedError extends Error {
+  static {
+    Object.defineProperty(this.prototype, OWN_MESSAGE, { value: true });
+  }
+
+  constructor(options: { cause: unknown }) {
+    super(
+      "A step into an organization failed in the database, so Postgres aborted this platform transaction: nothing " +
+        "it did will be saved, and it can run nothing more. Let the step's error end the transaction.",
+      options,
+    );
+    this.name = "PlatformTransactionAbortedError";
   }
 }
