@@ -56,5 +56,47 @@
       "branding": { "title": "Branding", "hint": "Your colour and terms, on the documents you issue" },
       "staff": { "title": "Staff", "hint": "Add your staff and give each a role" }
     }
+  },
+  "files": {
+    "title": "Business files",
+    "intro": "Papers your business keeps to hand: its GST certificate, PAN card, licences, a cancelled cheque. Only roles that may change settings see them.",
+    "empty": "No files yet. Upload your GST certificate, PAN card or a cancelled cheque."
+  },
+  "attachments": {
+    "upload": "Upload a file",
+    "allowed": "PDF, JPEG, PNG, WebP or HEIC, up to 25 MB.",
+    "sensitive": "Sensitive",
+    "sensitiveHint": "For papers with personal details, such as an ID card. Only roles allowed to see sensitive files can then see its name, open it or remove it.",
+    "uploading": "Uploading {name}",
+    "progress": "{percent}%",
+    "stop": "Stop",
+    "uploaded": "{name} was uploaded",
+    "storageUnreachable": "The file didn't reach storage. Check your connection and try again.",
+    "storageRefused": "Storage didn't accept the file. Try again.",
+    "problems": {
+      "type": "{name} can't be uploaded. Use a PDF, JPEG, PNG, WebP or HEIC file.",
+      "size": "{name} is larger than 25 MB. Choose a smaller file.",
+      "empty": "{name} is empty. Choose another file.",
+      "name": "This file's name can't be used. Rename it and try again."
+    },
+    "loadFailed": "The files didn't load.",
+    "kinds": {
+      "pdf": "PDF",
+      "jpeg": "JPEG image",
+      "png": "PNG image",
+      "webp": "WebP image",
+      "heic": "HEIC photo",
+      "other": "File"
+    },
+    "added": "Added {date}",
+    "sensitiveFile": "Sensitive file",
+    "sensitiveHidden": "Your role can't open sensitive files.",
+    "download": "Download",
+    "downloadName": "Download {name}",
+    "remove": "Remove",
+    "removeName": "Remove {name}",
+    "removeTitle": "Remove {name}?",
+    "removeDescription": "It goes from this list for everyone. Removed files still count toward your plan's storage.",
+    "removed": "{name} was removed"
   }
 }

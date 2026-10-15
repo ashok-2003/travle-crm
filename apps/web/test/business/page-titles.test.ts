@@ -12,6 +12,7 @@ const { business } = messages;
 
 const pages: [string, () => Promise<{ generateMetadata: () => Promise<unknown> }>, string][] = [
   ["/settings/profile", () => import("@/app/(app)/settings/profile/page"), business.profile.title],
+  ["/settings/files", () => import("@/app/(app)/settings/files/page"), business.files.title],
   ["/setup", () => import("@/app/(app)/setup/page"), business.setup.title],
 ];
 
