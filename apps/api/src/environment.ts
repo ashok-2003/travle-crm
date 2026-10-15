@@ -104,7 +104,7 @@ export type Environment = z.infer<typeof environmentSchema>;
 /** Lists every problem by variable name. Values are never included: some are secrets. */
 export class EnvironmentError extends Error {
   constructor(problems: string[]) {
-    super(`The api's environment is not valid:\n${problems.map((problem) => `  - ${problem}`).join("\n")}`);
+    super(`The environment is not valid:\n${problems.map((problem) => `  - ${problem}`).join("\n")}`);
     this.name = "EnvironmentError";
   }
 }

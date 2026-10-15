@@ -1,39 +1,20 @@
 // What the api runs on is built from the environment: start() refuses to go on when the storage bucket can't be
-// used, before pg-boss starts; the rate limiter's key is derived from the auth secret rather than set apart; and the
-// password-reset email goes out through the SMTP sender to APP_URL's reset page.
+// used, before pg-boss starts; the rate limiter's key is derived from the auth secret rather than set apart; the
+// password-reset email goes out through the SMTP sender to APP_URL's reset page; and pg-boss's problems go to the
+// process's one log as ids and codes, with nothing else on the console.
 import { createPlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { describe, expect, inject, it } from "vitest";
-import { loadEnvironment } from "../src/environment.js";
+import { processLog } from "../src/process-log.js";
 import { createServices, rateLimitKeySecret } from "../src/services.js";
+import { consoleOutput } from "./support/console-output.js";
+import { testEnvironment as environment, testSecret as secret } from "./support/environment.js";
+import { eventually } from "./support/eventually.js";
 import { startMailpit } from "./support/mailpit.js";
-
-const secret = "a-long-enough-development-secret-123";
-
-/** A test environment for the services; nothing listens on the discard port the bucket points at. */
-const environment = (overrides: Record<string, string> = {}) =>
-  loadEnvironment({
-    NODE_ENV: "test",
-    DATABASE_URL: inject("dbUrls").runtime,
-    BETTER_AUTH_SECRET: secret,
-    BETTER_AUTH_URL: "http://localhost:3001",
-    S3_ENDPOINT: "http://127.0.0.1:9",
-    S3_FORCE_PATH_STYLE: "true",
-    S3_BUCKET: "travel-crm",
-    S3_ACCESS_KEY_ID: "minio-dev",
-    S3_SECRET_ACCESS_KEY: "minio-dev-secret",
-    SMTP_HOST: "localhost",
-    EMAIL_FROM_ADDRESS: "no-reply@travel-crm.localhost",
-    // The dev-only pair from .env.example: web push checks the keys' shape.
-    VAPID_PUBLIC_KEY: "BNDwagd-1gwbRjL1o3iP9g4zUvYkczzP1yE9xNbcidEzKkDbvrHaBCyHQi8btoNnI9IMV7CoQun_1oMlSCz5lTY",
-    VAPID_PRIVATE_KEY: "UrS7-d1PFp4TPIVRSD5qGMXmRPN_NbpYvsJxhc6j3nU",
-    VAPID_SUBJECT: "mailto:dev@travel-crm.localhost",
-    ...overrides,
-  });
 
 describe("services", () => {
   it("refuses to start when the storage bucket can't be reached", async () => {
-    const services = createServices(environment());
+    const services = createServices(environment(), processLog("api"));
     try {
       await expect(services.start()).rejects.toThrow(`The storage bucket "travel-crm" can't be used: unreachable`);
     } finally {
@@ -51,6 +32,7 @@ describe("services", () => {
         // One request from no forwarded address: Better Auth's own limit isn't what this checks.
         AUTH_RATE_LIMIT: "false",
       }),
+      processLog("api"),
     );
     const platform = createPlatformClient(inject("dbUrls").platform);
     try {
@@ -84,6 +66,31 @@ describe("services", () => {
       await services.close();
       await platform.$disconnect();
       await mailpit.stop();
+    }
+  });
+
+  it("logs a failing job by queue, job and names and codes only, and nothing reaches the console but that line", async () => {
+    const output = consoleOutput();
+    const services = createServices(environment(), processLog("worker"));
+    try {
+      await services.jobs.start();
+      const leaky = Object.assign(
+        new Error("no mailbox for jane.doe@example.com", { cause: new Error("rejected jane.doe@example.com") }),
+        { code: "EENVELOPE", response: "550 jane.doe@example.com unknown" },
+      );
+      await services.jobs.work("probe.leaky", () => Promise.reject(leaky));
+      const id = await services.jobs.send("probe.leaky", {}, { retryLimit: 0 });
+      await eventually(
+        () => services.jobs.failedJobs(),
+        (failed) => failed.some((job) => job.id === id),
+        "the job to fail",
+      );
+      expect(output()).toEqual([
+        `worker: queue probe.leaky, job ${String(id)} failed: Error EENVELOPE, caused by Error`,
+      ]);
+      expect(output().join("\n")).not.toMatch(/jane/);
+    } finally {
+      await services.close();
     }
   });
 

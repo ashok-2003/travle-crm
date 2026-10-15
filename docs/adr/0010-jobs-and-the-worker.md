@@ -30,10 +30,16 @@ Date: 2026-10-15 · Status: accepted · Implements spec section 9.1
   that names the wrong organization finds nothing. Listeners run outside a transaction and use `context.forOrg` for
   their writes, as the system actor (`source: "job"`).
 - **Errors are stored, so they are cut down.** pg-boss stores a failed job's error in `pgboss.job.output` (no
-  row-level security), and the platform console shows it. The adapter reports the original error to `onError` (the
-  log) and throws a new `Error` for pg-boss: `Name: message`, emails masked as `[email]`, runs of 7 or more digits as
-  `[number]` (also when written with spaces or hyphens, like a phone or Aadhaar number), 200 characters, no cause,
-  stack or extra properties. The masking is a safety net, not a filter: names, addresses, PAN numbers, phone numbers written with dots or brackets (`(022) 2345.6789`) and emails
+  row-level security), and the platform console shows it. The adapter throws a new `Error` for pg-boss: `Name:
+message`, emails masked as `[email]`, runs of 7 or more digits that stand alone as `[number]` (also when written
+  with spaces or hyphens, like a phone or Aadhaar number; UUIDs and digits inside a word or an id are left whole),
+  200 characters, no cause, stack or extra properties.
+- **One log, ids and codes only.** The adapter's `log` gets a line for a failing job (its queue, job id and error),
+  for pg-boss's own errors (with the queue when pg-boss names one), pg-boss's warnings in its own words, and failed
+  jobs it can't list. An error appears as its name and code and its causes' (`describeError`, three levels), never
+  its message or the object, which can quote personal data. The api and the worker pass their process log
+  (`<process>: <line>` on stderr); what the jobs module reports to `startWorker`'s `onError` is a message it wrote from
+  ids, with the original as the cause. The masking is a safety net, not a filter: names, addresses, PAN numbers, phone numbers written with dots or brackets (`(022) 2345.6789`) and emails
   without a domain are not masked, so error messages must stay ids-only.
 - **Failures**: a rejected handler fails that attempt; pg-boss retries it 5 times with exponential backoff from
   10 seconds (at most an hour apart), then marks it failed. `PgBossJobs.failedJobs()` lists failed jobs, newest first,

@@ -63,7 +63,7 @@ describe("the api and the worker, end to end", () => {
       maxConnections: 3,
       pollingIntervalSeconds: 0.5,
       retryPolicy: { retryLimit: 1, retryDelaySeconds: 1, retryDelayMaxSeconds: 1 },
-      onError: (error) => reported.push(`pg-boss: ${error.message}`),
+      log: (line) => reported.push(`pg-boss: ${line}`),
     });
     await jobs.start();
     server = createTestServer(

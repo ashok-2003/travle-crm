@@ -40,8 +40,9 @@ export interface WorkerDependencies {
     organizationIds?: readonly string[];
   };
   /**
-   * Where the relay's errors go, and reports of jobs whose event wasn't found (ids only). Job failures go to the
-   * runner's retries and failed list instead.
+   * Where the relay's errors go, and reports of jobs whose event wasn't found. Each is an Error whose message is ids
+   * only, written by this module, with the original (if any) as its cause. Job failures go to the runner's retries and
+   * failed list instead.
    */
   onError?: (error: unknown) => void;
 }

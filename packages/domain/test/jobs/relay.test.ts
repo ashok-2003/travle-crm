@@ -360,4 +360,42 @@ describe("outbox relay", () => {
     expect(reported).toBe(1);
     expect(memory.sent.filter((job) => job.data.eventId === eventId)).toHaveLength(1);
   });
+
+  it("reports every failure with a message of ids only, the original as its cause", async () => {
+    /** Starts a relay and stops it at its first report, which it returns. */
+    const firstReport = (dependencies: Omit<Parameters<typeof startOutboxRelay>[0], "intervalMs" | "onError">) =>
+      new Promise<Error>((resolve, reject) => {
+        let reported = false;
+        const relay = startOutboxRelay({
+          ...dependencies,
+          intervalMs: 50,
+          onError: (error) => {
+            if (reported) return;
+            reported = true;
+            relay.stop().then(() => {
+              resolve(error as Error);
+            }, reject);
+          },
+        });
+      });
+    const broken = await createTestOrganization(platform, "Relay reports broken");
+    await publish(broken, "notification.created", { notificationId: "rp1" });
+    const unreachable = Object.assign(new Error("could not reach jane.doe@example.com"), { code: "ECONNREFUSED" });
+
+    const oneOrganization = await firstReport({
+      db,
+      listeners,
+      organizationIds: [broken],
+      queue: { send: () => Promise.reject(unreachable) },
+    });
+    // Before any organization: finding the organizations with events waiting needs the database.
+    const wholePass = await firstReport({
+      db: { withoutOrg: () => Promise.reject(unreachable) } as unknown as typeof db,
+      listeners,
+      queue: countingQueue().queue,
+    });
+    expect(oneOrganization.message).toBe(`Relaying organization ${broken} failed`);
+    expect(wholePass.message).toBe("Relaying the outbox failed");
+    expect([oneOrganization.cause, wholePass.cause]).toEqual([unreachable, unreachable]);
+  });
 });

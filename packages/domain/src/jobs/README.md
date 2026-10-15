@@ -13,7 +13,9 @@ Domain events and the work the worker does after a change commits (spec 9.1).
   `{ organizationId, eventId, eventType }` and the id `listenerJobId(listener, event)`, then marks the event relayed.
   Returns how many events it relayed.
 - `startOutboxRelay({ ...those, intervalMs?, onError? })`: the relay in a loop, for the worker; `stop()` ends it. One
-  failing organization doesn't stop a pass (each failure goes to `onError`); after failed passes it waits longer, up to
+  failing organization doesn't stop a pass (each failure goes to `onError` as an Error whose message is ids only,
+  "Relaying organization <id> failed" or "Relaying the outbox failed", with the original as its cause); after failed
+  passes it waits longer, up to
   a minute. Defaults: 50 organizations per pass, 100 events per organization, 1 s between idle passes.
 - `listenerJobId(listenerName, eventId)`: the deterministic job id, so relaying an event twice queues it once.
 - `organizationsWithEventsWaiting(db, limit)`: the organizations with events waiting, oldest first (ids only).
@@ -53,8 +55,9 @@ and small facts.
   past its expiry: 900 s by default in pg-boss 12, and each expiry uses up a retry), runs the listener again, and two runs may overlap. Database writes may repeat as well as emails
   and uploads: key them on `event.id`.
 - A failed job's error is stored in pg-boss and shown to platform staff: keep personal data out of error messages
-  (ids only). pg-boss stores a cut-down copy (`Name: message`, emails and numbers of 7+ digits, also written with
-  spaces or hyphens, masked, 200 characters); the original goes to `onError`, the log. The masking is a safety net:
+  (ids only). pg-boss stores a cut-down copy (`Name: message`, emails and numbers of 7+ digits standing alone, also
+  written with spaces or hyphens, masked, UUIDs kept whole, 200 characters); the log gets the queue, the job id and the
+  error's names and codes, never its message. The masking is a safety net:
   names, addresses, PAN numbers, phone numbers written with dots or brackets (`(022) 2345.6789`) and emails
   without a domain are not masked. A job whose event isn't found is not retried but is reported to `onError`.
 - Removing a listener or schedule from the code leaves its pg-boss queue, jobs and schedule behind until they are

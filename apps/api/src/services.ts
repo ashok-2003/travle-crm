@@ -11,6 +11,7 @@ import { createWebPushSender, type PushSender } from "@travel-crm/integrations/p
 import { createS3Storage, type ObjectStorage } from "@travel-crm/integrations/storage";
 import { authSettingsFrom, type Environment } from "./environment.js";
 import { passwordResetEmails, resetPasswordPageOf } from "./password-reset-email.js";
+import type { ProcessLog } from "./process-log.js";
 
 export interface Services {
   environment: Environment;
@@ -38,7 +39,8 @@ export function rateLimitKeySecret(betterAuthSecret: string): Uint8Array {
   return new Uint8Array(hkdfSync("sha256", betterAuthSecret, "", "rate-limit-keys", 32));
 }
 
-export function createServices(environment: Environment): Services {
+/** `log` is the process's one log: pg-boss's problems go there, as ids and codes. */
+export function createServices(environment: Environment, log: ProcessLog): Services {
   const db = createDatabase(environment.DATABASE_URL, { maxConnections: environment.DATABASE_POOL_SIZE });
   const rateLimiter = createRateLimiter(db, { keySecret: rateLimitKeySecret(environment.BETTER_AUTH_SECRET) });
   const email = createSmtpEmailSender({
@@ -72,9 +74,7 @@ export function createServices(environment: Environment): Services {
   const storage: ObjectStorage = s3;
   const jobs = createPgBossJobs({
     connectionString: environment.DATABASE_URL,
-    onError: (error) => {
-      console.error("pg-boss error", error);
-    },
+    log,
   });
   const push = createWebPushSender({
     publicKey: environment.VAPID_PUBLIC_KEY,

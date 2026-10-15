@@ -25,6 +25,7 @@ describe("worker on pg-boss", () => {
   let worker: Worker;
   let organizationId: string;
   const errors: unknown[] = [];
+  const logged: string[] = [];
 
   beforeAll(async () => {
     const urls = inject("dbUrls");
@@ -37,7 +38,7 @@ describe("worker on pg-boss", () => {
       pollingIntervalSeconds: 0.5,
       // One quick retry, so a failing listener reaches the failed list within the test.
       retryPolicy: { retryLimit: 1, retryDelaySeconds: 1, retryDelayMaxSeconds: 1 },
-      onError: (error) => errors.push(error),
+      log: (line) => logged.push(line),
     });
     await jobs.start();
     broken.failuresLeft = Number.POSITIVE_INFINITY;
@@ -56,8 +57,9 @@ describe("worker on pg-boss", () => {
     await jobs.stop();
     await db.disconnect();
     await platform.$disconnect();
-    // The only errors are the originals of the listener that always fails; nothing from pg-boss itself.
-    expect(errors.filter((error) => !(error as Error).message.includes("failed on purpose"))).toEqual([]);
+    // Nothing went wrong but the listener that always fails, and nothing from pg-boss itself.
+    expect(errors).toEqual([]);
+    expect(logged.filter((line) => !line.startsWith("queue workerprobe.always-fails, job "))).toEqual([]);
   });
 
   it("delivers an event published in an organization to its listener", async () => {

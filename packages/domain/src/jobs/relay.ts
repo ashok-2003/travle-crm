@@ -140,7 +140,9 @@ export function relayBackoffMs(consecutiveFailures: number, intervalMs: number):
  * Relays in a loop: straight on while there are events waiting, otherwise every intervalMs (default 1 s). An error
  * goes to onError and the loop carries on, waiting longer after each failed pass in a row (up to a minute), so a
  * database blip or a pg-boss outage doesn't stop the worker's relay or flood the log. A failed pass reports each
- * failing organization's error. An onError that throws is ignored.
+ * failing organization's error. What onError gets is always an Error whose message is ids only, written here
+ * ("Relaying organization <id> failed", "Relaying the outbox failed"), with the original as its cause, so a log can
+ * print the message as it is. An onError that throws is ignored.
  */
 export function startOutboxRelay(
   dependencies: RelayDependencies & { intervalMs?: number; onError?: (error: unknown) => void },
@@ -178,7 +180,7 @@ export function startOutboxRelay(
           for (const reported of error.errors as unknown[]) report(reported);
         } else {
           failures += 1;
-          report(error);
+          report(new Error("Relaying the outbox failed", { cause: error }));
         }
       }
       // stop() aborts the wait, so stopping never waits out the interval.

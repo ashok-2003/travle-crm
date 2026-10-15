@@ -29,8 +29,8 @@ pg-boss:
 - **One job at a time, in the order sent.** pg-boss runs jobs concurrently and may deliver one again after it expires.
   The twin can't overlap two runs of a job, so tests that need that call the handler twice at once themselves (as
   `packages/domain/test/jobs/run-listener.test.ts` does).
-- **No error log.** pg-boss sends each failing handler's original error to `onError`; the twin only lists the cut-down
-  error in `failed`.
+- **No log.** pg-boss logs each failing job (queue, job id, the error's names and codes) to `log`; the twin only lists
+  the cut-down error in `failed`.
 - **The retry policy is the default one.** A job without `retryLimit` gets `defaultRetryPolicy`'s limit; pg-boss uses
   the policy its queue was created with (`retryPolicy` in its settings).
 - **Ids are remembered for ever.** pg-boss deletes finished jobs after its retention (7 days by default), and then

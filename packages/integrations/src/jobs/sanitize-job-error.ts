@@ -1,9 +1,19 @@
 // What pg-boss stores about a failed job (its error) has no row-level security and is shown to platform staff, so a
-// handler's error is cut down before pg-boss sees it. The original goes to the logs through onError.
+// handler's error is cut down before pg-boss sees it. The log gets only its names and codes (describeError).
 
 const EMAIL = /[^\s@<>()[\]",;:]+@[^\s@<>()[\]",;:]+\.[^\s@<>()[\]",;:]+/g;
+// What a number stands between: neither side may touch a letter, a digit or a hyphen, so digits inside a word, a
+// code or an id are left alone.
+const ALONE_BEFORE = String.raw`(?<![\p{L}\p{N}-])`;
+const ALONE_AFTER = String.raw`(?![\p{L}\p{N}-])`;
+// A UUID is kept whole, even one whose groups happen to be all digits (it would read as a number split by hyphens).
+const UUID = String.raw`[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`;
 // Seven or more digits, in one run or in groups split by spaces or hyphens: phone numbers, Aadhaar numbers.
-const LONG_NUMBER = /\+?\d[\d\s-]{5,}\d/g;
+const LONG_NUMBER = String.raw`\+?\d[\d\s-]{5,}\d`;
+const UUID_OR_LONG_NUMBER = new RegExp(
+  `${ALONE_BEFORE}(${UUID})${ALONE_AFTER}|${ALONE_BEFORE}${LONG_NUMBER}${ALONE_AFTER}`,
+  "giu",
+);
 const MAX_LENGTH = 200;
 
 /** Anything that was thrown, as an Error: pg-boss's warnings and some libraries' errors are plain objects. */
@@ -17,15 +27,16 @@ export function toError(value: unknown): Error {
 
 /**
  * A new Error for pg-boss to store: `Name: message` with email addresses and runs of 7 or more digits masked, at most
- * 200 characters, and no cause, extra properties or original stack. This is a safety net, not a filter: names,
- * addresses, PAN numbers, phone numbers written with dots or brackets, like (022) 2345.6789, and emails without a
- * domain pass through, so messages must stay ids-only.
+ * 200 characters, and no cause, extra properties or original stack. A run is masked only when it stands alone, so
+ * UUIDs and other ids stay readable. This is a safety net, not a filter: names, addresses, PAN numbers, phone numbers
+ * written with dots or brackets, like (022) 2345.6789, numbers run into a word, and emails without a domain pass
+ * through, so messages must stay ids-only.
  */
 export function sanitizeJobError(error: unknown): Error {
   const original = toError(error);
   const text = `${original.name}: ${original.message}`
     .replace(EMAIL, "[email]")
-    .replace(LONG_NUMBER, "[number]")
+    .replace(UUID_OR_LONG_NUMBER, (match, uuid: string | undefined) => (uuid === undefined ? "[number]" : match))
     .slice(0, MAX_LENGTH);
   const sanitized = new Error(text);
   sanitized.stack = text;

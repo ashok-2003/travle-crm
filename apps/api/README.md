@@ -29,7 +29,11 @@ same environment as the api, connects as `app_runtime` too and opens no port. `s
 | `rate-limits.purge`                       | every day at 03:30 India time, deletes rate-limit windows over a day old  |
 
 It also relays the outbox every second. Problems go to one log, a line each, ids and codes only (`worker: ...` on
-stderr). Like the api, it refuses to start when the bucket can't be used. Stop it with SIGTERM: it stops relaying,
+stderr; the api's are `api: ...`): a failing job by queue, job id and the error's names and codes, pg-boss's own
+errors and warnings, the relay's failures and jobs whose event wasn't found. No line holds an error's message or the
+error itself. Like the api, it refuses to start when the environment isn't valid, the bucket can't be used or a
+listener or schedule can't be registered: one `worker start-up failed` message with the error in full (nothing has
+run yet), the pools closed, exit 1. Stop it with SIGTERM: it stops relaying,
 lets running jobs finish (up to 30 seconds), closes its pools and exits 0. Run more copies to go faster: pg-boss gives
 each job to one of them.
 

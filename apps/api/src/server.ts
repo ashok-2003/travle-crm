@@ -1,13 +1,11 @@
 // Starts the api on Node (`pnpm --filter @travel-crm/api-server dev`). All settings come from the environment.
 import { serve } from "@hono/node-server";
 import { createApp } from "./app.js";
-import { loadEnvironment } from "./environment.js";
 import { clientAddressFrom } from "./rate-limit.js";
-import { startedServices } from "./start-up.js";
+import { startProcess } from "./start-up.js";
 import { webhookProviders } from "./webhook-providers.js";
 
-const environment = loadEnvironment(process.env);
-const services = await startedServices(environment, "api");
+const { environment, services } = await startProcess("api", () => undefined);
 
 const app = createApp({
   identity: services.identity,
