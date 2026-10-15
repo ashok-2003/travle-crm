@@ -116,8 +116,15 @@ describe("the api and the worker, end to end", () => {
     );
     expect(attachments.map((attachment) => attachment.id)).toEqual([rendered.pdfAttachmentId]);
     // Ids only: job errors are cut down before pg-boss keeps them, so the list's entries are what matter, not text.
-    // Only jobs that failed since this file started: other files' pg-boss jobs aren't this flow's.
-    const failed = (await flow.jobs.failedJobs()).filter((job) => job.failedAt !== null && job.failedAt >= startedAt);
+    // Only this flow's queues, since this file started: other files run pg-boss on the same database at the same time.
+    const queues = new Set([
+      ...flow.work.listeners.map((listener) => listener.name),
+      ...flow.work.handlers.map((handler) => handler.queue),
+      ...flow.work.schedules.map((schedule) => schedule.queue),
+    ]);
+    const failed = (await flow.jobs.failedJobs()).filter(
+      (job) => queues.has(job.queue) && job.failedAt !== null && job.failedAt >= startedAt,
+    );
     expect(failed.map((job) => job.queue)).toEqual([]);
   }, 90_000);
 
