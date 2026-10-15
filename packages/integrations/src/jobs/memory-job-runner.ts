@@ -17,7 +17,7 @@ export interface MemorySchedule {
 export interface MemoryFailedJob {
   job: SentJob;
   attempts: number;
-  /** The last attempt's error, cut down as pg-boss stores it: "Error: message", emails and long numbers masked. */
+  /** The last attempt's error, cut down as pg-boss stores it (sanitizeJobError). */
   error: string;
 }
 

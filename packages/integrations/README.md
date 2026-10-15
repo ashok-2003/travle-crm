@@ -19,7 +19,8 @@ it calls a port defined here, and the api and worker pass in the real adapter. T
 
 `createMemoryJobQueue` and `createMemoryJobRunner` stand in for pg-boss in the domain's tests. One contract suite
 (`test/jobs/job-adapter-contract.ts`) runs against both: data reaches its queue's handler, a failing job is retried up
-to its limit and listed with the cut-down error pg-boss stores (`Error: message`, emails and long numbers masked), a
+to its limit and listed with the cut-down error pg-boss stores (an error our code wrote keeps its masked message,
+anyone else's only its names and codes), a
 job id repeated on its queue queues nothing (another queue may reuse it), ids are UUIDs, queue names are checked
 wherever one is named, a queue has one schedule, and an unknown time zone is refused. Where the twin can't act like
 pg-boss:

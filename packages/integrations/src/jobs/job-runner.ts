@@ -24,10 +24,9 @@ export interface JobRunner {
    * Runs handler for every job on queue. A handler that rejects fails that attempt: the job is retried with
    * backoff, and after its last retry it lands in the failed list.
    *
-   * A failed job's error is stored in pg-boss and shown to platform staff: keep personal data out of error messages
-   * (ids only). pg-boss stores a shortened copy with emails and long numbers (phone, Aadhaar) masked; the adapter's log
-   * gets the queue, the job id and the error's names and codes, never its message. The masking is a safety net: names, addresses, PAN numbers, phone numbers written with dots or brackets (022) 2345.6789, and emails
-   * without a domain are not masked.
+   * A failed job's error is stored in pg-boss and shown to platform staff, cut down by sanitizeJobError: an error our
+   * code wrote (ownMessage, ownMessages) keeps its message, masked, so write it from ids only; any other keeps only its
+   * names and codes. The adapter's log gets the queue, the job id and the error's names and codes, never its message.
    */
   work(queue: string, handler: JobHandlerFunction, options?: { concurrency?: number }): Promise<void>;
   /** Queues a job on queue each time the cron expression comes round, read in the given time zone. */

@@ -2,7 +2,7 @@
 // skips it, but two runs can still overlap or repeat after a crash: listeners run at least once. The worker calls it
 // for each job the relay queued.
 import type { Database } from "@travel-crm/db";
-import type { JobData } from "@travel-crm/integrations/jobs";
+import { ownMessage, type JobData } from "@travel-crm/integrations/jobs";
 import { isUuid, systemActor } from "../kernel/index.js";
 import type { DomainEvent, EventListener, EventPayload } from "./events.js";
 import type { ListenerJobData } from "./relay.js";
@@ -13,13 +13,13 @@ export type ListenerRunOutcome = "handled" | "already-handled" | "event-not-foun
 function listenerJobData(data: JobData, listener: EventListener): ListenerJobData {
   const { organizationId, eventId, eventType } = data;
   if (typeof organizationId !== "string" || !isUuid(organizationId)) {
-    throw new TypeError(`${listener.name} job has no valid organizationId`);
+    throw ownMessage(new TypeError(`${listener.name} job has no valid organizationId`));
   }
   if (typeof eventId !== "string" || !isUuid(eventId)) {
-    throw new TypeError(`${listener.name} job has no valid eventId`);
+    throw ownMessage(new TypeError(`${listener.name} job has no valid eventId`));
   }
   if (eventType !== listener.eventType) {
-    throw new TypeError(`${listener.name} listens to ${listener.eventType}, not ${String(eventType)}`);
+    throw ownMessage(new TypeError(`${listener.name} listens to ${listener.eventType}, not ${String(eventType)}`));
   }
   return { organizationId, eventId, eventType };
 }
@@ -27,7 +27,7 @@ function listenerJobData(data: JobData, listener: EventListener): ListenerJobDat
 /** The table's CHECK makes every payload an object; anything else here means the row was changed by hand. */
 function eventPayload(value: unknown): EventPayload {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new TypeError("An outbox event's payload must be a JSON object");
+    throw ownMessage(new TypeError("An outbox event's payload must be a JSON object"));
   }
   return value as EventPayload;
 }
@@ -69,7 +69,9 @@ export async function runListenerJob({
   if (typeof found === "string") return found;
 
   if (found.type !== listener.eventType) {
-    throw new TypeError(`${listener.name} listens to ${listener.eventType}, but event ${found.id} is ${found.type}`);
+    throw ownMessage(
+      new TypeError(`${listener.name} listens to ${listener.eventType}, but event ${found.id} is ${found.type}`),
+    );
   }
   const event: DomainEvent = {
     id: found.id,

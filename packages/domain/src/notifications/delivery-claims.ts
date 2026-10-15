@@ -2,6 +2,7 @@
 // overlap). A channel is claimed with a lease before it is sent, marked sent only once a send worked, and marked failed
 // when it can never succeed, so repeated and overlapping runs send once and give up once.
 import type { OrgTx } from "@travel-crm/db";
+import { ownMessage } from "@travel-crm/integrations/jobs";
 import type { ListenerContext } from "../jobs/index.js";
 
 /**
@@ -114,5 +115,5 @@ export async function markFailed(context: ListenerContext, id: string, channel: 
 export async function checkOtherRun(context: ListenerContext, id: string, channel: Channel): Promise<void> {
   const row = await context.forOrg((tx) => tx.notification.findUnique({ where: { id } }));
   if (row !== null && channel.isFinished(row)) return;
-  throw new Error(`Notification ${id}: the ${channel.name} is being delivered by another run`);
+  throw ownMessage(new Error(`Notification ${id}: the ${channel.name} is being delivered by another run`));
 }

@@ -29,18 +29,24 @@ Date: 2026-10-15 · Status: accepted · Implements spec section 9.1
   record are separate transactions, so this is a best-effort skip, not exactly-once. The event is read inside `forOrg(job's organization)`, so a job
   that names the wrong organization finds nothing. Listeners run outside a transaction and use `context.forOrg` for
   their writes, as the system actor (`source: "job"`).
-- **Errors are stored, so they are cut down.** pg-boss stores a failed job's error in `pgboss.job.output` (no
-  row-level security), and the platform console shows it. The adapter throws a new `Error` for pg-boss: `Name:
-message`, emails masked as `[email]`, runs of 7 or more digits that stand alone as `[number]` (also when written
-  with spaces or hyphens, like a phone or Aadhaar number; UUIDs and digits inside a word or an id are left whole),
-  200 characters, no cause, stack or extra properties.
+- **Errors are stored, so they are cut down, and keep a message only when we wrote it.** pg-boss stores a failed
+  job's error in `pgboss.job.output` (no row-level security), and the platform console shows it. The adapter throws
+  a new `Error` for pg-boss of at most 200 characters, with no cause, stack or extra properties:
+  - **An error our own code wrote** keeps `Name: message`. That is a `DomainError`, another class marked with
+    `ownMessages`, or one error marked with `ownMessage`, such as `Notification <id>: the push failed`. Emails are
+    masked as `[email]` and runs of 7 or more digits that stand alone as `[number]` (also when written with spaces or
+    hyphens, like a phone or Aadhaar number; UUIDs and digits inside a word or an id are left whole). The masking is
+    a safety net, not a filter: names, addresses, PAN numbers, phone numbers written with dots or brackets
+    (`(022) 2345.6789`) and emails without a domain are not masked, so our messages stay ids-only.
+  - **Anyone else's error** (Prisma's, the AWS SDK's, nodemailer's, pg's, a library's plain `Error`) keeps only its
+    names and codes (`describeError`). A library's message can quote what it was given: a Prisma validation error
+    quotes the query's values, a person's name among them, which no masking catches.
 - **One log, ids and codes only.** The adapter's `log` gets a line for a failing job (its queue, job id and error),
   for pg-boss's own errors (with the queue when pg-boss names one), pg-boss's warnings in its own words, and failed
   jobs it can't list. An error appears as its name and code and its causes' (`describeError`, three levels), never
   its message or the object, which can quote personal data. The api and the worker pass their process log
   (`<process>: <line>` on stderr); what the jobs module reports to `startWorker`'s `onError` is a message it wrote from
-  ids, with the original as the cause. The masking is a safety net, not a filter: names, addresses, PAN numbers, phone numbers written with dots or brackets (`(022) 2345.6789`) and emails
-  without a domain are not masked, so error messages must stay ids-only.
+  ids, with the original as the cause.
 - **Failures**: a rejected handler fails that attempt; pg-boss retries it 5 times with exponential backoff from
   10 seconds (at most an hour apart), then marks it failed. `PgBossJobs.failedJobs()` lists failed jobs, newest first,
   with their last error message: data access for the platform console (plan 4).

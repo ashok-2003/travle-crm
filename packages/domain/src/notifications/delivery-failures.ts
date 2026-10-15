@@ -1,12 +1,16 @@
 // What a failed delivery means: whether trying again could help, what may be said about it, and recording that a
 // channel is given up on. Messages here carry ids and codes, never addresses or notification text.
-import { describeError } from "@travel-crm/integrations/jobs";
+import { describeError, ownMessage, ownMessages } from "@travel-crm/integrations/jobs";
 import { PushPayloadTooLargeError } from "@travel-crm/integrations/push";
 import type { ListenerContext } from "../jobs/index.js";
 import { markFailed, type Channel } from "./delivery-claims.js";
 
 /** Every push subscription was forgotten by its push service: there is nobody left to send to, which is final. */
 export class NothingToDeliverError extends Error {
+  static {
+    ownMessages(this);
+  }
+
   constructor() {
     super("There is no push subscription left to deliver to");
     this.name = "NothingToDeliverError";
@@ -51,7 +55,7 @@ export async function attempt(
     return undefined;
   } catch (error) {
     if (!isPermanent(error))
-      return error instanceof Error ? error : new Error(`Notification ${id}: ${channel.name} failed`);
+      return error instanceof Error ? error : ownMessage(new Error(`Notification ${id}: ${channel.name} failed`));
     // Having nobody to send to is expected, not worth a log line.
     if (!(error instanceof NothingToDeliverError)) {
       log(`Notification ${id}: the ${channel.name} can't be delivered and won't be retried (${describe(error)})`);
@@ -59,7 +63,9 @@ export async function attempt(
     try {
       await markFailed(context, id, channel);
     } catch (recordingError) {
-      return recordingError instanceof Error ? recordingError : new Error(`Notification ${id}: recording failed`);
+      return recordingError instanceof Error
+        ? recordingError
+        : ownMessage(new Error(`Notification ${id}: recording failed`));
     }
     return undefined;
   }

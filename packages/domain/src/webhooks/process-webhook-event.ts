@@ -3,7 +3,7 @@
 // separate transactions, so a crash between them runs the handler again. Handlers must be idempotent.
 import type { Database } from "@travel-crm/db";
 import { webhookEvents } from "@travel-crm/db/webhooks";
-import { describeError, type JobData } from "@travel-crm/integrations/jobs";
+import { describeError, ownMessage, type JobData } from "@travel-crm/integrations/jobs";
 import { isUuid } from "../kernel/index.js";
 import type { StoredWebhookEvent, WebhookProvider } from "./provider.js";
 
@@ -47,7 +47,7 @@ export async function processWebhookEvent(
   if (row.processedAt) return "already-processed";
   const provider = providers.find((candidate) => candidate.name === row.provider);
   // Thrown, not skipped: the provider may be missing only until a deploy brings it, and the job retries.
-  if (!provider) throw new Error(`No webhook provider named ${row.provider} is registered`);
+  if (!provider) throw ownMessage(new Error(`No webhook provider named ${row.provider} is registered`));
 
   const event: StoredWebhookEvent = {
     id: row.id,
@@ -76,9 +76,11 @@ export async function processWebhookEvent(
       );
     } catch (recordingError) {
       // Both errors are kept, in one AggregateError whose own message quotes neither (messages may quote payloads).
-      throw new AggregateError([error, recordingError], "A webhook event failed, and so did recording the failure", {
-        cause: recordingError,
-      });
+      throw ownMessage(
+        new AggregateError([error, recordingError], "A webhook event failed, and so did recording the failure", {
+          cause: recordingError,
+        }),
+      );
     }
     throw error;
   }
@@ -102,6 +104,6 @@ export async function processWebhookJob(
   data: JobData,
 ): Promise<WebhookProcessResult> {
   const { webhookEventId } = data;
-  if (typeof webhookEventId !== "string") throw new Error("A webhooks.process job needs a webhookEventId");
+  if (typeof webhookEventId !== "string") throw ownMessage(new Error("A webhooks.process job needs a webhookEventId"));
   return processWebhookEvent(dependencies, webhookEventId);
 }

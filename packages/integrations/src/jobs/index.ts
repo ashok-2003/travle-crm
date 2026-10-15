@@ -18,4 +18,11 @@ export {
   type PgBossJobsSettings,
 } from "./pg-boss-jobs.js";
 export { defaultRetryPolicy, type RetryPolicy } from "./retry-policy.js";
-export { maskPersonalData, sanitizeJobError, toError } from "./sanitize-job-error.js";
+export {
+  maskPersonalData,
+  OWN_MESSAGE_KEY,
+  ownMessage,
+  ownMessages,
+  sanitizeJobError,
+  toError,
+} from "./sanitize-job-error.js";
