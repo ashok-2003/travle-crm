@@ -15,6 +15,9 @@ Foundation ships the intake and the signature helper.
   error rethrown so the job retries.
 - `hmacSha256Signature({ secret, header, prefix?, encoding })`: a `verify` for providers that sign the raw body
   with HMAC-SHA256.
+- `tombstoneWebhookEvents(tx, organizationId)`: for the platform's purge and erasure (ADR 0022), in a platform
+  transaction: blanks the payload and headers of the organization's processed events, keeping their provider ids, and
+  counts the events still waiting to be processed.
 - `WEBHOOK_PROCESS_QUEUE` (`"webhooks.process"`), and the types `WebhookProvider`, `WebhookRequest`,
   `StoredWebhookEvent`, `WebhookDependencies`, `WebhookReceipt`, `ProcessWebhookDependencies`,
   `WebhookProcessResult`.
@@ -28,6 +31,8 @@ organization yet.
 
 ## Rules worth knowing
 
+- A provider's `process(event, processing)` calls `processing.isAbout(organizationId)` once it has found the
+  organization: the event is kept with it (`resolved_organization_id`), so a purge or an erasure can blank it.
 - A provider is `{ name, keptHeaders, verify, identify, process }`. `verify` (which may be asynchronous) returns false
   for a bad signature, and neither `verify` nor `identify` should throw; `process` runs in the worker, finds the
   organization from the payload and works in `db.forOrg()`.

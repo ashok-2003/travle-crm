@@ -15,6 +15,13 @@ super-admin action in the platform console")
   - notifications: `forgetRecipient` deletes the person's notifications, opt-outs and push subscriptions;
   - identity: `erasePerson` clears a removed person's name, addresses and every way to sign in, keeping the user's id,
     and `deleteUsers` deletes an organization's people (ADR 0021's module).
+- **Whole organizations from the catalog.** `deleteOrganizationRows` (`@travel-crm/db/platform`) finds every table
+  with `organization_id` in the database's catalog, deletes the organization's rows in an order no foreign key trips
+  over (`audit_entry` first, as its key restricts), then the organization. A later module's table needs no change
+  here. `organizationRows` exports the same rows as JSON.
+- **Webhook events become tombstones.** The worker keeps each processed event with the organization its handler
+  found (`resolved_organization_id`, reported by `processing.isAbout`); a purge or an erasure blanks those events'
+  payloads and headers and keeps their provider ids, so a replayed event is still ignored (ADR 0013's consequence).
 - **Exports first.** `exportedFiles` and `auditEntriesAbout` give what the export before a purge or an erasure holds;
   the export lists files with download links that lapse, rather than copying them.
 - **The runtime role can't do any of it.** It has no right to delete attachments or notifications, or to change audit

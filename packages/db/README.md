@@ -119,3 +119,8 @@ it needs that line run once as the `postgres` superuser:
 
 Platform transactions also reach the tables without `organization_id` through their entry points
 (`webhookEvents(tx)`); a transaction stepped into an organization does not.
+
+For permanent deletion (ADR 0022), `deleteOrganizationRows(tx, organizationId)` deletes the organization's rows in
+every table that has `organization_id`, found from the catalog and ordered so no foreign key trips (`audit_entry`
+first), then the organization; `organizationRows(tx, organizationId, { except })` returns them as JSON, by table, for
+an export. A new organization table is covered without being listed anywhere.
