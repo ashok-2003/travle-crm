@@ -1,11 +1,12 @@
 "use client";
 
 // One labelled input bound to a form field (DESIGN.md: a visible label above, never a placeholder alone; the error
-// below with an icon, linked by aria-describedby; inputs 16px so iOS doesn't zoom).
+// below with an icon, linked by aria-describedby; inputs 16px so iOS doesn't zoom). A password gets the show/hide button.
 import { CircleAlertIcon } from "lucide-react";
 import { useId, type ComponentProps } from "react";
 import { Controller, type Control, type FieldPath, type FieldValues } from "react-hook-form";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
+import { PasswordInput } from "@/components/password-input";
 import { Input } from "@/components/ui/input";
 
 type InputProps = Pick<
@@ -28,6 +29,7 @@ export function TextField<Values extends FieldValues>({
   className?: string;
 }) {
   const id = useId();
+  const FieldInput = inputProps.type === "password" ? PasswordInput : Input;
   return (
     <Controller
       control={control}
@@ -39,7 +41,7 @@ export function TextField<Values extends FieldValues>({
         return (
           <Field data-invalid={fieldState.invalid} className={className}>
             <FieldLabel htmlFor={id}>{label}</FieldLabel>
-            <Input
+            <FieldInput
               id={id}
               {...inputProps}
               {...field}

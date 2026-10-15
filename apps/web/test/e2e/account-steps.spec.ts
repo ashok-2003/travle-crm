@@ -62,7 +62,7 @@ test("an Owner turns two-factor on from their account, then signs in with a code
   await page.context().clearCookies();
   await page.goto("/sign-in");
   await page.getByRole("textbox", { name: "Email" }).fill(agency.owner.email);
-  await page.getByLabel("Password").fill(agency.owner.password);
+  await page.getByLabel("Password", { exact: true }).fill(agency.owner.password);
   await page.getByRole("button", { name: "Sign in" }).click();
   // The next 30-second code, so this journey doesn't rely on Better Auth taking the code that turned two-factor on a
   // second time. Better Auth 1.7.7 would (it has no replay check); the window it accepts includes the next code.

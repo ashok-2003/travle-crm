@@ -14,17 +14,20 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
   area from `after:-inset-y-1`, for dense desktop toolbars); the `xs`, `icon-xs` and `icon-sm` sizes are gone.
   `select` trigger and options, `dropdown-menu` items, `tabs` triggers, `table` rows and header cells, `input-otp`
   slots, the dialog and sheet close buttons are 44px. `checkbox` is 20px with a 44px hit area, `switch` 44x24 with a
-  44px tall one. The small `sm` sizes of `select` and `switch` are gone.
-- Shapes: cards 10px (`rounded-lg`) with a hairline border instead of a ring; dialogs 14px; inputs, selects and OTP
-  slots 6px; checkboxes 4px; titles (card, dialog, sheet, alert dialog) Figtree 600 at the section size. Dialogs and
+  44px tall one. The small `sm` sizes of `select` and `switch` are gone. `input-group` is 44px high; its `icon-sm`
+  button is 36px with a 44px hit area (`after:-inset-1`), and its `xs` and `icon-xs` buttons are gone.
+- Shapes: cards 10px (`rounded-lg`) with a hairline border instead of a ring; dialogs 14px; inputs, input groups,
+  textareas, selects and OTP slots 6px; checkboxes 4px; titles (card, dialog, sheet, alert dialog) Figtree 600 at the section size. Dialogs and
   alert dialogs carry the overlay shadow. Table headers are surface-toned.
 - Layers: `z-(--z-overlay)` for scrims, `z-(--z-dialog)` for dialogs, sheets, menus and selects (menus share the dialog
   layer so they open above a dialog), `z-(--z-sticky)` for sticky bits. Never `z-50`.
 - Names wrap: no `line-clamp`, `truncate` or `whitespace-nowrap` in `select` or `table`.
-- Focus: the one global 2px outline in `globals.css`; components don't add `focus-visible:ring-*`.
+- Focus: the one global 2px outline in `globals.css`; components don't add `focus-visible:ring-*`. An input group's
+  outline goes round the whole group, not the input inside it (`globals.css`).
 - `button.tsx`: pill shape (`rounded-full`), primary hover is `action-pressed`; outline has the input border; ghost is
   blue text; destructive is an ink outline with red text.
-- `input.tsx`: 44px high, 16px text at every width (no iOS zoom), 6px radius, canvas fill.
+- `input.tsx`: 44px high, 16px text at every width (no iOS zoom), 6px radius, canvas fill. `textarea.tsx` (which
+  `input-group` brings) is 16px at every width too.
 - `badge.tsx`: 4px radius.
 - `dialog.tsx`, `alert-dialog.tsx`, `sheet.tsx`: the overlay is the `scrim` token, without blur. The dialog's and the
   sheet's Close words are the `common.close` message.

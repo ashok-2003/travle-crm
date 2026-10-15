@@ -53,6 +53,8 @@ describe("radii", () => {
     expect(ui("card.tsx")).not.toContain("rounded-xl");
     expect(ui("dialog.tsx")).toContain("rounded-xl");
     expect(ui("input.tsx")).toContain("rounded-sm");
+    expect(ui("input-group.tsx")).toMatch(/data-slot="input-group"[\s\S]*?rounded-sm/);
+    expect(ui("textarea.tsx")).toContain("rounded-sm");
     expect(ui("select.tsx")).toMatch(/SelectPrimitive\.Trigger[\s\S]*rounded-sm/);
   });
 });

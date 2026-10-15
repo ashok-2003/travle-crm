@@ -229,3 +229,12 @@
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
+
+/* An input with a button inside it (the password input): the outline goes round the whole field, not the input. */
+[data-slot="input-group"]:has(> [data-slot="input-group-control"]:focus-visible) {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+[data-slot="input-group-control"]:focus-visible {
+  outline: none;
+}

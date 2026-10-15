@@ -33,7 +33,7 @@ test("a forgotten password is reset from the emailed link, and the new one signs
 
   await page.getByRole("link", { name: "Sign in" }).click();
   await page.getByRole("textbox", { name: "Email" }).fill(agency.owner.email);
-  await page.getByLabel("Password").fill(newPassword);
+  await page.getByLabel("Password", { exact: true }).fill(newPassword);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("heading", { level: 1, name: `Welcome, ${agency.owner.name}` })).toBeVisible();
 });

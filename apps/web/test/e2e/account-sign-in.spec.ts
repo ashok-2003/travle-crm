@@ -13,7 +13,13 @@ test("an Owner signs in by email, back to the page they were sent from", async (
   await expect(page).toHaveTitle(/^Sign in · /);
   await expectAccessible(page);
   await page.getByRole("textbox", { name: "Email" }).fill(agency.owner.email);
-  await page.getByLabel("Password").fill(agency.owner.password);
+  const password = page.getByLabel("Password", { exact: true });
+  await password.fill(agency.owner.password);
+  // The eye shows what was typed, and the form still sends it.
+  await page.getByRole("button", { name: "Show password" }).click();
+  await expect(password).toHaveAttribute("type", "text");
+  await expect(password).toHaveValue(agency.owner.password);
+  await expect(page.getByRole("button", { name: "Hide password" })).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Staff" })).toBeVisible();
   await expect(page).toHaveURL(/\/staff$/);
@@ -29,7 +35,7 @@ test("staff sign in with the organization code, which the device then remembers"
   await page.getByRole("tab", { name: "Organization code" }).click();
   await page.getByRole("textbox", { name: "Organization code" }).fill(agency.code.toLowerCase());
   await page.getByRole("textbox", { name: "Username" }).fill(ravi.username);
-  await page.getByLabel("Password").fill(ravi.password);
+  await page.getByLabel("Password", { exact: true }).fill(ravi.password);
   await expectAccessible(page);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Welcome, Ravi Kumar" })).toBeVisible();
@@ -44,7 +50,7 @@ test("staff sign in with the organization code, which the device then remembers"
 test("a wrong password says so, and signs nobody in", async ({ page, agency }) => {
   await page.goto("/sign-in");
   await page.getByRole("textbox", { name: "Email" }).fill(agency.owner.email);
-  await page.getByLabel("Password").fill("not-the-password");
+  await page.getByLabel("Password", { exact: true }).fill("not-the-password");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("alert").filter({ hasText: "That email and password don't match." })).toBeVisible();
   await expect(page).toHaveURL(/\/sign-in$/);
@@ -64,7 +70,7 @@ test("with two-factor on, the code from the app comes after the password", async
 
   await page.goto("/sign-in?next=%2Faccount");
   await page.getByRole("textbox", { name: "Email" }).fill(agency.owner.email);
-  await page.getByLabel("Password").fill(agency.owner.password);
+  await page.getByLabel("Password", { exact: true }).fill(agency.owner.password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Enter your code" })).toBeVisible();
   await expectAccessible(page);

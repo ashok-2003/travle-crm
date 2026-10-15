@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
@@ -53,6 +54,21 @@ describe("touch targets", () => {
   it("an input", () => {
     render(<Input aria-label="Name" />);
     expectTarget(screen.getByRole("textbox"));
+  });
+
+  it("an input group's input", () => {
+    render(
+      <InputGroup>
+        <InputGroupInput aria-label="Name" />
+      </InputGroup>,
+    );
+    expectTarget(screen.getByRole("group"));
+    expectTarget(screen.getByRole("textbox"));
+  });
+
+  it.each(["sm", "icon-sm"] as const)("an input group's %s button", (size) => {
+    render(<InputGroupButton size={size} aria-label="Show" />);
+    expectTarget(screen.getByRole("button"), { square: size === "icon-sm" });
   });
 
   it("a checkbox, through its hit area", () => {
