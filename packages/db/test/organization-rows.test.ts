@@ -46,7 +46,11 @@ describe("an organization's rows", () => {
   /** An organization with a row in every organization table: each module's isolation fixture, and a member. */
   async function populated(name: string): Promise<string> {
     const organizationId = await createTestOrganization(platform, name);
-    for (const fixture of Object.values(orgTableFixtures)) await db.forOrg(organizationId, fixture.create);
+    for (const fixture of Object.values(orgTableFixtures)) {
+      const { create, createAsPlatform } = fixture;
+      if (createAsPlatform) await platformDb.transaction((tx) => createAsPlatform(tx, organizationId));
+      else if (create) await db.forOrg(organizationId, create);
+    }
     const user = await platform.user.create({ data: { name, email: `${randomUUID()}@example.test` } });
     await platform.member.create({ data: { organizationId, userId: user.id, role: "isolation-role" } });
     await platform.invitation.create({
