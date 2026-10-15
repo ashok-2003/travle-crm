@@ -2,7 +2,6 @@
 
 // /account: who the person is (from me.get, so a placeholder email is never shown), and their password and
 // two-factor sign-in.
-import { shownEmailAddress } from "@travel-crm/contracts/identity";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
@@ -12,6 +11,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { useTRPC } from "@/data/trpc";
 import { routes } from "@/lib/routes";
+import { shownEmail } from "@/lib/shown-email";
 import { useMe } from "@/session/me-context";
 import { TurnOffTwoFactor } from "./turn-off-two-factor";
 
@@ -35,9 +35,7 @@ export function AccountScreen() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const { user, organization, member } = me;
-  // me.get already refuses to send a placeholder; checked again with the same rule, because one shown here would
-  // look like a real address to write to.
-  const email = user.email !== null && shownEmailAddress.safeParse(user.email).success ? user.email : null;
+  const email = shownEmail(user.email);
 
   return (
     <div className="flex max-w-[720px] flex-col gap-6">
