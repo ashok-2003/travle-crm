@@ -2,7 +2,7 @@
 // platform console's routers are served apart, by the console process (platform/platform-router.ts).
 import { router } from "../trpc.js";
 import { meRouter } from "./me.js";
-import { profileRouter } from "./profile.js";
+import { organizationRouter } from "./profile.js";
 import { rolesRouter } from "./roles.js";
 import { settingsRouter } from "./settings.js";
 import { staffRouter } from "./staff.js";
@@ -14,7 +14,7 @@ export const appRouter = router({
   roles: rolesRouter,
   settings: settingsRouter,
   subscription: subscriptionRouter,
-  profile: profileRouter,
+  organization: organizationRouter,
 });
 
 export type AppRouter = typeof appRouter;

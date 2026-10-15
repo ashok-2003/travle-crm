@@ -9,8 +9,11 @@ branding for its documents).
 - `getOrganizationProfile(tx)`: the transaction's organization's profile, or null before one was saved.
 - `saveOrganizationProfile(tx, actor, input)`: saves the whole profile (onboarding, inside the new organization, and
   the Owner later). The input is `saveOrganizationProfileInput` from `@travel-crm/contracts/profile`.
-- `createProfiles({ db })`: the api's `Profiles`, `get(organizationId)` and `save(actor, input)`, each in the
-  organization's own transaction.
+- `updateOrganizationProfile(tx, actor, input)`: saves the business details, keeping the branding.
+- `saveOrganizationBranding(tx, actor, input)`: saves the colour and document terms, keeping the details; fails with
+  `PROFILE_NOT_SAVED` (CONFLICT) before a profile exists.
+- `createProfiles({ db })`: the api's `Profiles`, `get(organizationId)`, `save`, `update` and `saveBranding`, each in
+  the organization's own transaction.
 - `setupChecklistOf(profile, activeStaff)`: the checklist's steps (`business-details`, `bank-details`,
   `invoice-prefix`, `branding`, `staff`) and whether each is done.
 
@@ -22,6 +25,8 @@ records nothing.
 
 ## Rules worth knowing
 
+- Saves of one organization take turns (an advisory lock until the transaction ends), so the audit log's changed-field
+  lists stay true when two saves race.
 - One row per organization, under row-level security. The runtime role writes its fields but can't move it to
   another organization or delete it; the platform's purge deletes it with the organization.
 - A GSTIN's first two digits are its state's code, and the database checks that too. An agency not registered for GST
