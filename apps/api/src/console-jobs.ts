@@ -1,9 +1,11 @@
 // What the console process runs besides its HTTP app (ADR 0019): the platform's own jobs (purging an organization,
 // erasing a person or a record, exporting one, deleting stored files), the nightly subscription lifecycle, the hourly
-// sweep of stored files still to delete and, when a demo is set, its nightly reset. They need the platform role, which
-// only this process holds. No listeners and no outbox relay: those are the worker's.
+// sweep of stored files still to delete, the daily sweep of exports past their time and, when a demo is set, its
+// nightly reset. They need the platform role, which only this process holds. No listeners and no outbox relay: those
+// are the worker's.
 import { startJobHandlers, type JobHandler, type ScheduledJob } from "@travel-crm/domain/jobs";
 import {
+  expiredExportsSchedule,
   platformJobHandlers,
   RESET_DEMO_QUEUE,
   resetDemoOrganization,
@@ -58,7 +60,13 @@ export function consoleJobs(services: PlatformServices, demo: DemoSettings | nul
   // Required beside the deletions' own job: pg-boss drops a follow-up whose id it already holds, and a job lost before
   // it was sent, or out of retries, would leave its outbox rows for good (ADR 0023).
   const storedFilesSweep = storedFileDeletionsSchedule(services);
-  return { handlers: platformJobHandlers(services), schedules: [lifecycle, storedFilesSweep, ...demoReset] };
+  // Required beside each export's own expiry job for the same reason: one job out of retries would leave its parts
+  // and file copies stored for good (ADR 0023).
+  const expiredExportsSweep = expiredExportsSchedule(services);
+  return {
+    handlers: platformJobHandlers(services),
+    schedules: [lifecycle, storedFilesSweep, expiredExportsSweep, ...demoReset],
+  };
 }
 
 /** Registers the console's jobs with the runner (pg-boss). Stop the runner to stop them. */

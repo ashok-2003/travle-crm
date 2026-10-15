@@ -15,9 +15,11 @@ export {
   EXPORT_ORGANIZATION_QUEUE,
   listOrganizationExports,
   requestOrganizationExport,
+  SWEEP_EXPIRED_EXPORTS_QUEUE,
 } from "./organization-export.js";
 export {
   deleteExpiredExports,
+  expiredExportsSchedule,
   expireOrganizationExports,
   type ExportWithdrawalReason,
 } from "./organization-export-expiry.js";

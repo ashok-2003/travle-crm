@@ -18,6 +18,12 @@ export const EXPORT_ORGANIZATION_QUEUE = "platform.export-organization";
  */
 export const EXPIRE_EXPORTS_QUEUE = "platform.expire-exports";
 
+/**
+ * The daily sweep the console must schedule beside it (expiredExportsSchedule): pg-boss drops a failed job a week
+ * after its last retry, and an export's expiry rests on its one job.
+ */
+export const SWEEP_EXPIRED_EXPORTS_QUEUE = "platform.sweep-expired-exports";
+
 /** How long an export is kept. */
 const EXPORT_KEPT_MS = 7 * 24 * 60 * 60 * 1000;
 

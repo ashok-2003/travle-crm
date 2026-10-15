@@ -22,7 +22,9 @@ organizationId)` records a `platform_export` row and queues `EXPORT_ORGANIZATION
   `expireOrganizationExports(services, tx, organizationId, "erasure")`, in an erasure's platform transaction,
   withdraws the organization's exports (no download or writing from the commit). `EXPIRE_EXPORTS_QUEUE`'s job,
   `deleteExpiredExports(services, now?)`, expires those past their 7 days and deletes every expired export's parts
-  and copies, then its whole folder (storage's `deletePrefix`). `hasFreshExport(tx, organizationId, now)`: whether
+  and copies, then its whole folder (storage's `deletePrefix`); `expiredExportsSchedule(services)`
+  (`SWEEP_EXPIRED_EXPORTS_QUEUE`, daily), which the console must schedule, runs it over every export due, for an
+  export whose own job ran out of retries. `hasFreshExport(tx, organizationId, now)`: whether
   the organization has an export done in the last day and still kept, which a purge relies on; the
   `organization.exported` log entry stays after a withdrawal, so the log can't say this.
 - Permanent deletion (spec 5), super admins only: `exportSubject(services, staff, { organizationId, subject })`

@@ -70,6 +70,7 @@ development server) routes there, and the platform's own jobs, from `src/console
 | `platform.expire-exports`         | deletes the parts and file copies of exports past their 7 days, or withdrawn by an erasure   |
 | `platform.delete-stored-files`    | deletes the stored files a purge or an erasure queued, retrying until done (ADR 0023)        |
 | `platform.sweep-stored-files`     | every hour, deletes what the deletions' outbox holds that no job will reach (ADR 0023)       |
+| `platform.sweep-expired-exports`  | every day at 03:45 India time, clears exports past their 7 days that no job cleared          |
 | `subscriptions.advance-lifecycle` | every day at 00:15 India time, records each subscription's state, as the platform role (7.3) |
 | `platform.reset-demo`             | every night at 02:00 India time, purges and rebuilds the shared demo (spec 7.4)              |
 

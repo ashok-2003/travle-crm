@@ -69,7 +69,10 @@ super-admin action in the platform console")
   the organization, and stores JSON-lines parts and a copy of each stored file under
   `platform/exports/<organization>/<export>/`, ids only in the keys. `platform_export` keeps it for 7 days; a download
   hands out 15-minute links and is logged (`organization.export-downloaded`); `platform.expire-exports` then deletes
-  its parts and copies. `organization.exported` is written only once the export is complete. A subject's export
+  its parts and copies. That job is one per export, and pg-boss drops a failed job a week after its last retry, so a
+  daily sweep (`platform.sweep-expired-exports`, the console's schedule at 03:45 India time) runs the same expiry over
+  every export due, as the hourly sweep does for stored files: an erased person's data never stays stored past the
+  export's 7 days because one job failed. `organization.exported` is written only once the export is complete. A subject's export
   (`exportedFiles` and `auditEntriesAbout`) is returned at once in the console's response, its file links lasting 15
   minutes, and only logged. A purge needs a fresh export
   (`hasFreshExport`): one done within the last day and not withdrawn since. An erasure withdraws every export of its
