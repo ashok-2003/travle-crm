@@ -12,7 +12,6 @@ import {
   cancel,
   eraseSubject,
   ERASE_SUBJECT_QUEUE,
-  exportOrganization,
   exportSubject,
   listPlatformLog,
   onboardOrganization,
@@ -22,6 +21,7 @@ import {
   requestErasure,
   requestPurge,
 } from "../../src/platform/index.js";
+import { exportOrganizationNow } from "./test-exports.js";
 import {
   createTestPlan,
   createTestPlatform,
@@ -93,18 +93,6 @@ describe("permanent deletion", () => {
     return { organizationId, code: input.code, owner, staff };
   }
 
-  it("exports an organization: its tables, people and files with links", async () => {
-    const { organizationId } = await agency();
-    const exported = await exportOrganization(test.services, support, organizationId);
-    expect(exported.tables.organization).toEqual([expect.objectContaining({ id: organizationId })]);
-    expect(exported.tables.subscription).toHaveLength(1);
-    expect(exported.tables.outbox_event).toBeUndefined();
-    expect(exported.people.map((person) => person.name).sort()).toEqual(["Asha Sharma", "Ravi"]);
-    expect(exported.files).toEqual([
-      expect.objectContaining({ fileName: "Passport.pdf", downloadUrl: expect.any(String) as string }),
-    ]);
-  });
-
   it("purges a cancelled organization only with its code typed and a fresh export, then leaves its record alone", async () => {
     const { organizationId, code } = await agency();
     const ask = (confirmation: string) => requestPurge(test.services, support, { organizationId, confirmation });
@@ -112,7 +100,7 @@ describe("permanent deletion", () => {
     await expect(ask(code)).rejects.toMatchObject({ reason: "CANCEL_FIRST" });
     await cancel(test.services, support, { organizationId, reason: "Closing down" });
     await expect(ask(code)).rejects.toMatchObject({ reason: "EXPORT_FIRST" });
-    await exportOrganization(test.services, support, organizationId);
+    await exportOrganizationNow(test.services, organizationId);
     const { jobId } = await ask(code);
     expect(test.queue.sent).toContainEqual(
       expect.objectContaining({
@@ -129,7 +117,10 @@ describe("permanent deletion", () => {
     const client = test.identity.database.client;
     expect(await client.organization.count({ where: { id: organizationId } })).toBe(0);
     expect(await withDeleted(() => client.member.count({ where: { organizationId } }))).toBe(0);
-    expect([...test.storage.objects.keys()].some((key) => key.includes(organizationId))).toBe(false);
+    // The organization's own files go; its export, under the platform's prefix, is kept for its 7 days.
+    expect([...test.storage.objects.keys()].some((key) => key.startsWith(`organizations/${organizationId}/`))).toBe(
+      false,
+    );
     const log = await test.services.platformDb.transaction((tx) =>
       listPlatformLog(tx, { targetOrganizationId: organizationId, limit: 10 }),
     );
@@ -141,7 +132,7 @@ describe("permanent deletion", () => {
   it("skips a queued purge when a payment made the organization active again before the job ran", async () => {
     const { organizationId, code } = await agency();
     await cancel(test.services, support, { organizationId, reason: "Closing down" });
-    await exportOrganization(test.services, support, organizationId);
+    await exportOrganizationNow(test.services, organizationId);
     await requestPurge(test.services, support, { organizationId, confirmation: code });
     await recordPayment(test.services, support, {
       organizationId,
