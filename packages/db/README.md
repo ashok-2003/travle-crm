@@ -21,10 +21,11 @@ transaction to `orgId`'s rows; outside it, queries see nothing.
 - `db.withoutOrg(fn)` runs a transaction with no organization, for the few tables without `organization_id` (webhook
   events, rate-limit counters) and database functions that look across organizations without revealing rows.
   Organization tables show no rows and refuse writes in it. It can't be nested either.
-- The tables without `organization_id` have no row-level security, so `OrgTx` leaves their models out and every
-  transaction refuses them at run time (`UnscopedModelError`). Their own modules reach them inside `db.withoutOrg()`:
-  `webhookEvents(tx)` from `@travel-crm/db/webhooks`, `rateLimitCounters(tx)` from `@travel-crm/db/rate-limits`.
-  ESLint flags raw SQL naming either table outside its module.
+- The tables without `organization_id` have no row-level security, so `OrgTx` and the identity module's client leave
+  their models out, and every transaction and that client refuse them at run time (`UnscopedModelError`). Their own
+  modules reach them inside `db.withoutOrg()`: `webhookEvents(tx)` from `@travel-crm/db/webhooks`,
+  `rateLimitCounters(tx)` from `@travel-crm/db/rate-limits`. ESLint flags raw SQL naming either table outside its
+  module.
 
 ## Entry points
 

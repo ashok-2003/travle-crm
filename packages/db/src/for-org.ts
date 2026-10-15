@@ -22,7 +22,7 @@ type RawStringMethod = "$executeRawUnsafe" | "$queryRawUnsafe";
  * transaction hides them; only their own modules reach them, in db.withoutOrg(), through @travel-crm/db/webhooks and
  * @travel-crm/db/rate-limits.
  */
-type UnscopedModel = "webhookEvent" | "rateLimitCounter";
+export type UnscopedModel = "webhookEvent" | "rateLimitCounter";
 const unscopedModels: readonly string[] = ["webhookEvent", "rateLimitCounter"] satisfies UnscopedModel[];
 
 /** A transaction with every model, which this package's entry points unwrap. */
@@ -51,11 +51,11 @@ const insideForOrg = new AsyncLocalStorage<true>();
 const withoutOrgTransactions = new WeakMap<object, TransactionClient>();
 
 /**
- * The transaction as fn gets it: the types already leave the unscoped models out, and this refuses them at run time
- * too, so a cast can't reach a table without row-level security.
+ * A transaction or client as other code gets it: the types already leave the unscoped models out, and this refuses
+ * them at run time too, so a cast can't reach a table without row-level security.
  */
-function hideUnscopedModels(tx: TransactionClient): IdentityTx {
-  return new Proxy(tx, {
+export function hidingUnscopedModels<Target extends object>(target: Target): Omit<Target, UnscopedModel> {
+  return new Proxy(target, {
     get(target, property) {
       if (typeof property === "string" && unscopedModels.includes(property)) throw new UnscopedModelError(property);
       return Reflect.get(target, property) as unknown;
@@ -94,7 +94,7 @@ async function inOrgTransaction<T>(
       if (session?.role !== "app_runtime") {
         throw new WrongDatabaseRoleError(session?.role);
       }
-      const handle = hideUnscopedModels(tx);
+      const handle: IdentityTx = hidingUnscopedModels(tx);
       // No organization: the unscoped tables' entry points may reach through this handle.
       if (orgId === "") withoutOrgTransactions.set(handle, tx);
       return fn(handle);
