@@ -21,9 +21,9 @@ export interface PlatformServices {
   jobs: JobAdministration;
   /**
    * The console process's log, a line each, ids and codes only (errors as describeError gives them), for what goes
-   * wrong after a commit with no one to tell. The console passes its own; tests may leave it out.
+   * wrong after a commit with no one to tell. Required, so a process can't forget it; tests pass a collector.
    */
-  log?: (line: string) => void;
+  log: (line: string) => void;
 }
 
 export interface PlatformServicesOptions extends Omit<PlatformServices, "platformDb"> {

@@ -25,6 +25,8 @@ export interface TestPlatform {
   queue: MemoryJobQueue;
   jobs: MemoryJobAdministration;
   identity: TestIdentity;
+  /** What the platform's services logged. */
+  lines: string[];
   close(): Promise<void>;
 }
 
@@ -35,6 +37,7 @@ export function createTestPlatform(): TestPlatform {
   const storage = createMemoryStorage();
   const queue = createMemoryJobQueue();
   const jobs = createMemoryJobAdministration();
+  const lines: string[] = [];
   const services = createPlatformServices({
     platformDatabaseUrl: urls.platform,
     maxConnections: 2,
@@ -43,6 +46,7 @@ export function createTestPlatform(): TestPlatform {
     storage,
     queue,
     jobs,
+    log: (line) => lines.push(line),
   });
   return {
     services,
@@ -50,6 +54,7 @@ export function createTestPlatform(): TestPlatform {
     queue,
     jobs,
     identity,
+    lines,
     close: async () => {
       await services.platformDb.disconnect();
       await db.disconnect();
