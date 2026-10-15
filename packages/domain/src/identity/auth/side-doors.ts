@@ -1,7 +1,14 @@
 // A Better Auth hooks.before middleware that refuses what Better Auth's own endpoints would allow but our rules don't.
 import type { IdentityClient } from "@travel-crm/db/identity";
 import { APIError, createAuthMiddleware, getAuthoritativeSessionFromCtx } from "better-auth/api";
-import { hasEverBeenMember, isPlatformAdminUser, platformStaffLevelOf } from "../access.js";
+import { hasEverBeenMember, isActiveMemberUser, isPlatformAdminUser, platformStaffLevelOf } from "../access.js";
+
+/**
+ * The admin endpoints that stay open over HTTP: support's impersonation, which the console starts and stops through
+ * Better Auth. Every other one is closed: the console has its own API, and some would skip our rules (remove-user
+ * deletes a user outright, past soft delete; set-user-password skips must-change-password).
+ */
+const adminPathsOpenOverHttp: readonly string[] = ["/admin/impersonate-user", "/admin/stop-impersonating"];
 
 export interface SideDoorOptions {
   /** The web app's reset page: the only redirectTo a password-reset request may name. Unset, the rule is off. */
@@ -12,8 +19,9 @@ export interface SideDoorOptions {
  * Refuses what Better Auth's own endpoints would allow but our rules don't (ADR 0006):
  * - a member rewriting their username into another organization's namespace (only our staff API changes usernames),
  *   and probing which usernames exist;
- * - /admin/* for anyone who isn't platform staff by our definition (Better Auth checks user.role alone), and
- *   making a person with a membership a platform admin;
+ * - /admin/* over HTTP, except starting and stopping support's impersonation;
+ * - /admin/* for anyone who isn't platform staff by our definition (Better Auth checks user.role alone), making a
+ *   person with a membership a platform admin, and impersonating anyone but an organization's active staff;
  * - Better Auth's organization endpoints over HTTP (members and roles go through our own API);
  * - signing in by a placeholder ".invalid" email, which staff without an email (or removed staff) carry, over HTTP and
  *   from server-side calls alike;
@@ -29,6 +37,9 @@ export function closeSideDoors(client: IdentityClient, options: SideDoorOptions 
     const body = (ctx.body ?? {}) as Record<string, unknown>;
     // Over HTTP a request is present; server-side auth.api.* calls have none.
     const overHttp = ctx.request !== undefined;
+    if (overHttp && ctx.path.startsWith("/admin/") && !adminPathsOpenOverHttp.includes(ctx.path)) {
+      throw new APIError("NOT_FOUND", { code: "NOT_FOUND", message: "Not found" });
+    }
     if (overHttp && ctx.path.startsWith("/organization/")) {
       // The Hono route closes this first. Server-side calls stay possible, so later plans can use the plugin from code.
       throw new APIError("NOT_FOUND", { code: "NOT_FOUND", message: "Not found" });
@@ -76,6 +87,16 @@ export function closeSideDoors(client: IdentityClient, options: SideDoorOptions 
         (await isPlatformAdminUser(client, impersonatedBy));
       if (!stoppingImpersonation && !(await isPlatformAdminUser(client, session.user.id))) {
         throw new APIError("FORBIDDEN", { code: "FORBIDDEN", message: "Platform staff only" });
+      }
+      if (ctx.path === "/admin/impersonate-user") {
+        // An impersonation nobody in an organization can see in their log must not start.
+        const target = coercedString(body.userId);
+        if (target === null || !(await isActiveMemberUser(client, target))) {
+          throw new APIError("FORBIDDEN", {
+            code: "IMPERSONATION_TARGET_NOT_A_MEMBER",
+            message: "Only an organization's active staff can be impersonated",
+          });
+        }
       }
       if (await makesMemberPlatformAdmin(client, ctx.path, body)) {
         throw new APIError("FORBIDDEN", {

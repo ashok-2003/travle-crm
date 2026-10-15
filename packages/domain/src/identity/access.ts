@@ -161,3 +161,18 @@ export async function hasEverBeenMember(client: IdentityClient, userId: string):
   const membership = await withDeleted(() => client.member.findUnique({ where: { userId } }));
   return membership !== null;
 }
+
+/**
+ * True for an active member: a membership that isn't removed, and a user who isn't banned (removed staff are). Support
+ * impersonates only these, so every impersonation has an organization's audit log to be recorded in.
+ */
+export async function isActiveMemberUser(client: IdentityClient, userId: string): Promise<boolean> {
+  // Soft delete hides removed members.
+  const member = await client.member.findUnique({
+    where: { userId },
+    select: { user: { select: { banned: true, banExpires: true } } },
+  });
+  if (!member) return false;
+  const { banned, banExpires } = member.user;
+  return !(banned && (banExpires === null || banExpires > new Date()));
+}
