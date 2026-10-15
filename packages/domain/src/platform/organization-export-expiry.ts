@@ -12,7 +12,6 @@ import {
 } from "./organization-export.js";
 import { recordPlatformAudit } from "./platform-log.js";
 import type { PlatformServices } from "./services.js";
-import { deletePrefix } from "./storage-stand-in.js";
 
 /** Why an export ended before its time. */
 export type ExportWithdrawalReason = "erasure";
@@ -107,7 +106,7 @@ async function clearExport(services: PlatformServices, row: { id: string; target
     if (copies.length < PAGE) break;
     after = copies.at(-1)?.attachmentId;
   }
-  await deletePrefix(services.storage, exportFolder(row));
+  await services.storage.deletePrefix(exportFolder(row));
 }
 
 /**

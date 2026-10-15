@@ -1,7 +1,7 @@
 // Permanent deletion end to end (spec 5, ADR 0022): a super admin's request through the console's tRPC, the console's
 // own jobs (purge or erasure, then the deletions' outbox), to the finished state: nothing left of what went, in the
-// database or in storage, and the platform log's record of it. The export a request needs is P's to test; here its
-// platform log entry is written straight in.
+// database or in storage, and the platform log's record of it. A purge's export goes through the console's own export
+// job; a subject's export is returned at once and only logged, so its platform log entry is written straight in.
 import { randomUUID } from "node:crypto";
 import type { QueuedJob } from "@travel-crm/contracts/platform";
 import { recordAudit } from "@travel-crm/domain/audit";
@@ -64,10 +64,16 @@ describe("permanent deletion from the console's request to the finished state", 
   const keysOf = (organizationId: string) =>
     [...storage.objects.keys()].filter((key) => key.startsWith(`organizations/${organizationId}/`));
 
-  /** What an export leaves in the platform log, which the request and the job look for. */
-  async function exportLogged(organizationId: string, action: string, targetType: string, targetId: string) {
+  /** What a subject's export leaves in the platform log, which the erasure's request and job look for. */
+  async function subjectExportLogged(organizationId: string, targetType: string, targetId: string) {
     await server.platform.platformAuditEntry.create({
-      data: { actorUserId: superAdmin.userId, action, targetType, targetId, targetOrganizationId: organizationId },
+      data: {
+        actorUserId: superAdmin.userId,
+        action: "subject.exported",
+        targetType,
+        targetId,
+        targetOrganizationId: organizationId,
+      },
     });
   }
 
@@ -79,7 +85,11 @@ describe("permanent deletion from the console's request to the finished state", 
     await dataOf(
       await consoleMutate(testConsole, "subscriptions.cancel", { organizationId, reason: "Closed down" }, support.jar),
     );
-    await exportLogged(organizationId, "organization.exported", "organization", organizationId);
+    await dataOf(
+      await consoleMutate(testConsole, "dataProtection.exportOrganization", { organizationId }, superAdmin.jar),
+    );
+    // The export, then its expiry, queued with it, which finds nothing due yet.
+    expect(await consoleRunner.runQueued()).toBe(2);
 
     const before = Date.now();
     const { jobId } = await dataOf<QueuedJob>(
@@ -109,6 +119,7 @@ describe("permanent deletion from the console's request to the finished state", 
       orderBy: { occurredAt: "asc" },
     });
     expect(log.map((entry) => [entry.action, entry.actorUserId])).toEqual([
+      ["organization.export-requested", superAdmin.userId],
       ["organization.exported", superAdmin.userId],
       ["organization.purge-requested", superAdmin.userId],
       ["organization.purged", superAdmin.userId],
@@ -146,7 +157,7 @@ describe("permanent deletion from the console's request to the finished state", 
       userAgent: "Mobile Safari",
       preview: false,
     });
-    await exportLogged(organizationId, "subject.exported", "traveller", traveller);
+    await subjectExportLogged(organizationId, "traveller", traveller);
 
     const subject = { kind: "record", recordType: "traveller", recordId: traveller };
     const { jobId } = await dataOf<QueuedJob>(

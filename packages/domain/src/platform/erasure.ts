@@ -16,7 +16,7 @@ import { tombstoneWebhookEvents } from "../webhooks/index.js";
 import { assertErasableRecordType, erasedFor, erasureBlocker } from "./deletion-checks.js";
 import { subjectRecord } from "./exports.js";
 import { deleteFilesAfterCommit } from "./file-deletions.js";
-import { expireOrganizationExports } from "./merge-stand-ins.js";
+import { expireOrganizationExports } from "./organization-export-expiry.js";
 import { recordPlatformAudit } from "./platform-log.js";
 import type { PlatformServices } from "./services.js";
 
@@ -154,7 +154,7 @@ export async function eraseSubject(services: PlatformServices, job: ErasureJob, 
       entityId: record.recordId,
     });
     const webhooks = await tombstoneWebhookEvents(tx, organizationId);
-    const exportsExpired = await expireOrganizationExports(services, tx, organizationId, "erasure");
+    const exportsExpired = await expireOrganizationExports(services, tx, organizationId, "erasure", now);
     const actor =
       job.requestedBy === null ? systemActor(organizationId) : platformActor(organizationId, job.requestedBy);
     await recordAudit(tx, actor, {

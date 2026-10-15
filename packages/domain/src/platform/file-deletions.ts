@@ -7,7 +7,6 @@ import { deleteQueuedFile, dueFileDeletions, forgetFileDeletion, nextFileDeletio
 import { listenerJobId, type JobHandler, type ScheduledJob } from "../jobs/index.js";
 import { isUuid } from "../kernel/index.js";
 import { tombstoneWebhookEvents } from "../webhooks/index.js";
-import { platformLog } from "./merge-stand-ins.js";
 import type { PlatformServices } from "./services.js";
 
 export const DELETE_STORED_FILES_QUEUE = "platform.delete-stored-files";
@@ -136,7 +135,7 @@ export async function deleteFilesAfterCommit(
   try {
     await deleteDueFiles(services, { now, organizationId });
   } catch (error) {
-    platformLog(services)(
+    services.log(
       `${DELETE_STORED_FILES_QUEUE}: organization ${organizationId}'s files are left to the job (${describeError(error)})`,
     );
   }

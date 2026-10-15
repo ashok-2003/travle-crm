@@ -24,15 +24,8 @@ import {
   receiveWebhook,
   type WebhookProvider,
 } from "../../src/webhooks/index.js";
-import {
-  deletionAgency,
-  exportOrganizationNow,
-  exportTraveller,
-  flakyServices,
-  keysOf,
-  storedFile,
-  traveller,
-} from "./test-deletion.js";
+import { deletionAgency, exportTraveller, flakyServices, keysOf, storedFile, traveller } from "./test-deletion.js";
+import { exportOrganizationNow } from "./test-exports.js";
 import { createTestPlan, createTestPlatform, support, supportUserId, type TestPlatform } from "./test-platform.js";
 
 const HOUR_MS = 60 * 60 * 1000;

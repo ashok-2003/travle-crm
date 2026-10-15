@@ -7,10 +7,10 @@ import { deleteOrganizationRows, type PlatformTx } from "@travel-crm/db/platform
 import { queueOrganizationFileDeletion } from "../files/index.js";
 import { deleteUsers, findOrganizationRecord, organizationUserIds } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
-import { entitlementsOf } from "../subscriptions/index.js";
+import { entitlementsOf, lockSubscription } from "../subscriptions/index.js";
 import { tombstoneWebhookEvents } from "../webhooks/index.js";
 import { deleteFilesAfterCommit } from "./file-deletions.js";
-import { hasFreshExport, lockSubscription } from "./merge-stand-ins.js";
+import { hasFreshExport } from "./exports.js";
 import { recordPlatformAudit } from "./platform-log.js";
 import type { PlatformServices } from "./services.js";
 
@@ -31,8 +31,9 @@ function refusal(blocker: PurgeBlocker): DomainError {
 /**
  * What stands in the purge's way: the organization must be cancelled by its lifecycle as of today, and have an export
  * done within the last day and not withdrawn since (an erasure withdraws every export, as it may hold the erased
- * person, though its log entry stays). Checked under the subscription's lock (the one every subscription change takes), so a payment recorded
- * now waits for the purge, then finds the organization gone, rather than vanishing with it.
+ * person, though its log entry stays). Checked under the subscription's lock (the one every subscription change
+ * takes), so a payment recorded now waits for the purge, then finds the organization gone, rather than vanishing
+ * with it.
  *
  * Run on the platform transaction itself, never inside an asOrganization step: a step sees only its organization, so a
  * check made there could find too little and let a purge through.
@@ -43,7 +44,7 @@ export async function purgeBlocker(
   now: Date,
 ): Promise<{ blocker: PurgeBlocker | null; status: string | null }> {
   try {
-    await lockSubscription(tx, organizationId);
+    await lockSubscription(tx, organizationId, now);
   } catch (error) {
     if (!(error instanceof DomainError && error.reason === "SUBSCRIPTION_NOT_FOUND")) throw error;
     return { blocker: "not-cancelled", status: null };

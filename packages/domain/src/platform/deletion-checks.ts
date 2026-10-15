@@ -5,7 +5,7 @@
 import type { PlatformTx } from "@travel-crm/db/platform";
 import { findOrganizationRecord } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
-import { exportedRecently } from "./merge-stand-ins.js";
+import { exportedRecently } from "./exports.js";
 
 /** Why an erasure can't go ahead now: the request refuses, and the job skips and logs it. */
 export type ErasureBlocker = "organization-gone" | "no-recent-export";
