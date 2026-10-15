@@ -1,12 +1,14 @@
 // A purge's stored files can never outlive it (ADR 0023): they are queued in the deletions' outbox in the purge's own
 // transaction, deleted after it commits, swept again on a rerun and once late uploads have landed, and a storage that
-// fails only delays them. The job checks the request's conditions again under the subscription's lock, and blanks
-// webhook events still in flight.
+// fails only delays them. The job checks the request's conditions again under the subscription's lock, blanks
+// webhook events still in flight, and holds the organization's row, so a row written meanwhile can't stop it.
 import { createHmac, randomUUID } from "node:crypto";
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import { asOrganization, createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import { recordAudit } from "../../src/audit/index.js";
 import { LATE_WRITES_MS } from "../../src/files/index.js";
+import { systemActor } from "../../src/kernel/index.js";
 import { deleteDueFiles, DELETE_STORED_FILES_QUEUE } from "../../src/platform/file-deletions.js";
 import { erasureJobOf } from "../../src/platform/erasure.js";
 import {
@@ -24,6 +26,7 @@ import {
   receiveWebhook,
   type WebhookProvider,
 } from "../../src/webhooks/index.js";
+import { backendPid, waitUntilBlockedBy } from "../lock-waits.js";
 import { deletionAgency, exportTraveller, flakyServices, keysOf, storedFile, traveller } from "./test-deletion.js";
 import { exportOrganizationNow } from "./test-exports.js";
 import { createTestPlan, createTestPlatform, support, supportUserId, type TestPlatform } from "./test-platform.js";
@@ -250,6 +253,43 @@ describe("purging an organization", () => {
     await expect(
       requestPurge(test.services, support, { organizationId: agency.organizationId, confirmation: agency.code }),
     ).rejects.toMatchObject({ reason: "EXPORT_FIRST" });
+  });
+
+  it("holds the organization's row: a row written meanwhile waits for the purge, then finds it gone", async () => {
+    const { organizationId, job } = await readyToPurge();
+    const settled = (promise: Promise<unknown>) =>
+      promise.then(
+        () => "done",
+        (error: unknown) => (error instanceof Error ? error.message : String(error)),
+      );
+    let purge = Promise.resolve("not started");
+    let write = Promise.resolve("not started");
+    // Another transaction holds the organization's profile, which the purge deletes: the purge, past its checks and
+    // holding the organization's row, waits there. A listener then writes an audit entry in the organization.
+    await platform.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`SELECT 1 FROM organization_profile WHERE organization_id = ${organizationId}::uuid FOR UPDATE`;
+        const holder = await backendPid(tx);
+        purge = settled(purgeOrganization(test.services, job));
+        await waitUntilBlockedBy(platform, holder, { statement: "organization_profile" });
+        write = settled(
+          test.services.db.forOrg(organizationId, (orgTx) =>
+            recordAudit(orgTx, systemActor(organizationId), {
+              action: "lead.created",
+              entityType: "lead",
+              entityId: randomUUID(),
+            }),
+          ),
+        );
+        // The write is queued behind the purge, which is behind this transaction.
+        await waitUntilBlockedBy(platform, holder, { count: 2 });
+      },
+      { timeout: 30_000 },
+    );
+    expect(await purge).toBe("done");
+    expect(await write).toMatch(/foreign key/i);
+    expect(await platform.organization.count({ where: { id: organizationId } })).toBe(0);
+    expect(await platform.auditEntry.count({ where: { organizationId } })).toBe(0);
   });
 
   it("makes a payment recorded during the purge wait, then keeps the organization it made active", async () => {

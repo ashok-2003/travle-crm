@@ -94,7 +94,10 @@ super-admin action in the platform console")
   the organization and records `organization.purge-skipped` with the reason (`not-cancelled` with the status, or
   `no-recent-export`); a super admin asks again, which checks everything again. A payment recorded during a purge
   waits for it, then finds the organization gone. The nightly demo reset purges its own active demo with none of
-  these checks.
+  these checks. Past the checks, the purge also holds the organization's row (`FOR UPDATE`, after the subscription,
+  the order every holder of both keeps): a row written into any organization table meanwhile (a listener, a webhook,
+  the demo's users) waits, then fails on the organization gone, instead of failing the purge's last `DELETE` on its
+  `RESTRICT` key. A write already under way finishes first and goes with the rest.
 - **The erasure job checks again too:** its organization still exists, and the subject's export is less than a day old
   when the job runs. Otherwise nothing is erased, and `subject.erasure-skipped` gives the reason
   (`organization-gone` or `no-recent-export`).

@@ -25,6 +25,16 @@ export async function findOrganizationRecord(tx: IdentityTx, organizationId: str
   return organization;
 }
 
+/**
+ * Holds the organization's row until the transaction ends, for its purge: FOR UPDATE, which conflicts with the KEY
+ * SHARE lock that writing a row keyed to the organization takes, so a row written into any of its tables meanwhile
+ * waits for the purge, then finds the organization gone. Taken after the subscription's lock, the order every holder
+ * keeps. The platform role only.
+ */
+export async function holdOrganizationRecord(tx: IdentityTx, organizationId: string): Promise<void> {
+  await tx.$queryRaw`SELECT id FROM organization WHERE id = ${organizationId}::uuid FOR UPDATE`;
+}
+
 /** The organization with this sign-in code, or null when there is none. */
 export async function findOrganizationByCode(tx: IdentityTx, code: string): Promise<OrganizationRecord | null> {
   return tx.organization.findUnique({ where: { code }, select: recordFields });
