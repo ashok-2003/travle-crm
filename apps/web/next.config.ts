@@ -38,6 +38,14 @@ const nextConfig: NextConfig = {
   headers: () =>
     Promise.resolve([
       { source: "/:path*", headers: securityHeaders({ development: process.env.NODE_ENV === "development" }) },
+      // The browser checks for a new worker on every visit; the worker's scope is the whole app.
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache" },
+          { key: "Service-Worker-Allowed", value: "/" },
+        ],
+      },
     ]),
   rewrites: () => Promise.resolve([{ source: "/api/:path*", destination: `${apiOrigin}/api/:path*` }]),
 };

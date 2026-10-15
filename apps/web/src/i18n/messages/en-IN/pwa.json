@@ -1,1 +1,8 @@
-{}
+{
+  "offline": {
+    "title": "You're offline",
+    "body": "This page isn't saved on this device yet. Pages you've opened before still work offline.",
+    "tryAgain": "Try again",
+    "home": "Go to the home screen"
+  }
+}
