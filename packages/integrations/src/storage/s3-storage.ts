@@ -12,7 +12,7 @@ import {
   type S3ClientConfig,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { ownMessages } from "../jobs/sanitize-job-error.js";
+import { ownMessages } from "../jobs/index.js";
 import { assertExpiry, assertPositiveSize, assertSafeKey, assertSafePrefix } from "./checks.js";
 import { attachmentDisposition } from "./content-disposition.js";
 import type { ObjectStorage } from "./object-storage.js";

@@ -15,7 +15,7 @@ import { createShareLink, findShareLink, recordShareLinkOpen } from "../../src/s
 import {
   deletionAgency,
   exportTraveller,
-  flakyStorage,
+  flakyServices,
   keysOf,
   storedFile,
   traveller,
@@ -120,29 +120,34 @@ describe("erasing a record", () => {
     await storedFile(test, agency.organizationId, "Passport.pdf");
     await exportTraveller(test.services, agency.organizationId);
     const job = { organizationId: agency.organizationId, subject, requestedBy: supportUserId };
-    const flaky = flakyStorage(test.storage);
-    const services = { ...test.services, storage: flaky.storage };
+    const flaky = flakyServices(test);
 
-    await eraseSubject(services, job).catch(() => undefined);
+    // The first run's storage delete is refused after its commit: the erasure itself is done.
+    await eraseSubject(flaky.services, job);
+    expect(await platform.attachment.count({ where: { organizationId: agency.organizationId } })).toBe(0);
+    expect(keysOf(test, agency.organizationId)).toHaveLength(1);
+    // Run again, as pg-boss runs a job at least once, with storage back.
     flaky.failing.now = false;
-    await eraseSubject(services, job);
+    await eraseSubject(flaky.services, job);
 
     expect(keysOf(test, agency.organizationId)).toEqual([]);
   });
 
-  it("keeps a storage failure's files queued, and the console's job deletes them without a rerun", async () => {
+  it("keeps a storage failure's files queued, logs it, and the console's job deletes them without a rerun", async () => {
     const agency = await deletionAgency(test, plan);
     await storedFile(test, agency.organizationId, "Passport.pdf");
-    const flaky = flakyStorage(test.storage);
-    const services = { ...test.services, storage: flaky.storage };
+    const { services, failing, logged } = flakyServices(test);
     const now = new Date();
 
     await eraseSubject(services, await requested(agency), now);
     expect(await platform.attachment.count({ where: { organizationId: agency.organizationId } })).toBe(0);
     expect(keysOf(test, agency.organizationId)).toHaveLength(1);
     expect(await platform.storedFileDeletion.count({ where: { targetOrganizationId: agency.organizationId } })).toBe(1);
+    expect(logged).toEqual([
+      `platform.delete-stored-files: organization ${agency.organizationId}'s files are left to the job (FileDeletionsFailedError, caused by Error)`,
+    ]);
 
-    flaky.failing.now = false;
+    failing.now = false;
     await deleteDueFiles(services, { now, organizationId: agency.organizationId });
     expect(keysOf(test, agency.organizationId)).toEqual([]);
     expect(await platform.storedFileDeletion.count({ where: { targetOrganizationId: agency.organizationId } })).toBe(0);

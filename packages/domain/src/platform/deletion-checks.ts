@@ -1,13 +1,11 @@
-// What permanent deletion checks before it deletes anything (spec 5), both when a super admin asks and again in the
-// job: a fresh export of what goes, and, for an erasure, a record that holds personal data and that the system
+// What an erasure checks before it deletes anything (spec 5), both when a super admin asks and again in the job: its
+// organization still there, a fresh export of the subject, a record that holds personal data and that the system
 // doesn't keep by law, and whether the job already did its work. Every read here runs on the platform transaction
 // itself, never inside an asOrganization step, which sees only its organization and could find too little.
 import type { PlatformTx } from "@travel-crm/db/platform";
 import { findOrganizationRecord } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
-
-/** An export this long ago or less counts for a purge or an erasure. */
-export const EXPORT_FRESH_FOR_MS = 24 * 60 * 60 * 1000;
+import { exportedRecently } from "./merge-stand-ins.js";
 
 /** Why an erasure can't go ahead now: the request refuses, and the job skips and logs it. */
 export type ErasureBlocker = "organization-gone" | "no-recent-export";
@@ -25,8 +23,8 @@ export async function erasureBlocker(
     if (error instanceof DomainError && error.reason === "ORGANIZATION_NOT_FOUND") return "organization-gone";
     throw error;
   }
-  const exported = { action: "subject.exported", organizationId, targetId: record.recordId };
-  return (await exportedWithinADay(tx, exported, now)) ? null : "no-recent-export";
+  const exported = await exportedRecently(tx, "subject.exported", record.recordId, now, organizationId);
+  return exported ? null : "no-recent-export";
 }
 
 /** Whether a request's erasure is already recorded: its job's id is in the platform log's `subject.erased` entry. */
@@ -36,28 +34,6 @@ export async function erasedFor(tx: PlatformTx, organizationId: string, requestI
       action: "subject.erased",
       targetOrganizationId: organizationId,
       after: { path: ["requestId"], equals: requestId },
-    },
-  });
-  return count > 0;
-}
-
-/**
- * Whether the organization's platform log has `action` (`organization.exported`, `subject.exported`) from the last day
- * before `now`, for the target when one is given. Matched on the organization too, so one organization's export never
- * counts for another's.
- */
-export async function exportedWithinADay(
-  tx: PlatformTx,
-  entry: { action: string; organizationId: string; targetId?: string },
-  now: Date,
-): Promise<boolean> {
-  const since = new Date(now.getTime() - EXPORT_FRESH_FOR_MS);
-  const count = await tx.platformAuditEntry.count({
-    where: {
-      action: entry.action,
-      targetOrganizationId: entry.organizationId,
-      ...(entry.targetId === undefined ? {} : { targetId: entry.targetId }),
-      occurredAt: { gte: since },
     },
   });
   return count > 0;

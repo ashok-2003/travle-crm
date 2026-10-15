@@ -24,11 +24,14 @@ super-admin action in the platform console")
   `stored_file_deletion` rows (a platform table: no `organization_id`, so the purge's catalog walk leaves it, and no
   rights for the runtime role): the organization's id and the attachment's id, or no attachment for the organization's
   whole folder. The storage key is made from them (`organizations/<organization>/attachments/<attachment>`, ADR 0011),
-  so no file name is kept. Once the transaction commits, the job deletes what is due at once, then each row; whatever
-  is left (a storage error, a restart, a later sweep) goes to `platform.delete-stored-files`, the console's job, which
-  deletes each file, then its row, every organization's at each run, and is retried for about a day (30 retries, up to
-  an hour apart) before the failed-jobs list, where a retry starts it again. Nothing reaches storage inside a
-  transaction, and nothing is forgotten after one.
+  so no file name is kept. Once the transaction commits, the job deletes what is due at once, then each row; a failure
+  there is logged as one ids-only line, not thrown. Whatever is left (a storage error, a restart, a later sweep) goes
+  to `platform.delete-stored-files`, the console's job, which deletes each file, then its row, every organization's at
+  each run, and is retried for about a day (30 retries, up to an hour apart) before the failed-jobs list, where a
+  retry starts it again. Each run queues the next for the earliest row left, to start when it is due; the job's id is
+  made from that time, so a run pg-boss started early can't queue itself again and again. An hourly sweep
+  (`platform.sweep-stored-files`, the console's schedule) runs the same pass, for rows whose job was lost. Nothing
+  reaches storage inside a transaction, and nothing is forgotten after one.
 - **A purge sweeps its organization's folder, not its keys.** It queues the folder (`deletePrefix`, which lists and
   deletes 1,000 keys a request, so a large organization takes one request per thousand files, not one per file) twice:
   once at once, and again 15 minutes later (`LATE_WRITES_MS`), when every upload link handed out before the purge has
@@ -82,10 +85,10 @@ super-admin action in the platform console")
   (`organization-gone` or `no-recent-export`).
 - **Re-checks read on the platform transaction itself,** never inside an `asOrganization` step: a step sees only its
   organization, so a check made there could find too little and let a deletion through.
-- **An erasure expires the organization's stored exports** (`expireOrganizationExports(tx, organizationId,
-"erasure")`, after its deletes, in its transaction): an export is kept for 7 days and would otherwise keep the erased
-  person. A purge leaves them: they live under `platform/exports/<organization>/`, outside the folder it sweeps, so
-  the agency can still take its data away, and they expire after their 7 days.
+- **An erasure expires the organization's stored exports** at once (`expireOrganizationExports(services, tx,
+organizationId, "erasure")`, after its deletes, in its transaction, which marks them expired and logs it; their
+  files go in a sweep it queues): an export is kept for 7 days and would otherwise keep the erased person. A purge
+  leaves them (see Consequences).
 - **Both jobs are safe to run again.** A purge of an organization already gone sweeps its folder again. An erasure
   job carries its request's id, recorded in its `subject.erased` entry: a run repeating a finished one (pg-boss runs a
   job at least once) changes and records nothing more, and only finishes the files.
@@ -102,6 +105,10 @@ super-admin action in the platform console")
 
 ## Consequences
 
+- **A deliberate window after a purge:** the organization's exports stay under `platform/exports/<organization>/`
+  for up to 7 days, then expire. That is what exporting before a purge is for: the agency takes its data away after
+  it is gone. The purge's sweep covers `organizations/<organization>/` only. An erasure is different: it expires them
+  at once.
 - An organization's queued, retrying and archived pg-boss jobs outlive its purge until pg-boss's own retention
   removes them. They hold ids only (spec 9.1); a queued one runs against an organization that no longer exists and
   finds nothing to do.

@@ -1,7 +1,8 @@
 // The audit log's part in permanent deletion and the platform dashboard (spec 5, 7.4): one record's entries for an
 // export, their redaction on erasure, and how many changes an organization made in a month.
-import { auditSource, type AuditEntry } from "@travel-crm/contracts/audit";
+import type { AuditEntry } from "@travel-crm/contracts/audit";
 import type { OrgTx } from "@travel-crm/db";
+import { auditEntryOf } from "./list-audit-entries.js";
 
 /** One record whose entries an erasure redacts, e.g. a member or a traveller. */
 export interface AuditedRecord {
@@ -23,23 +24,7 @@ export async function auditEntriesAbout(tx: OrgTx, record: AuditedRecord): Promi
     // Entries written in one transaction share its time; the id (UUID v7) orders them and makes the order total.
     orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
   });
-  return rows.map((row) => ({
-    id: row.id,
-    occurredAt: row.occurredAt.toISOString(),
-    actorUserId: row.actorUserId,
-    // The table's check allows only the contract's sources, and its snapshot checks only objects or NULL.
-    source: auditSource.parse(row.source),
-    impersonatedBy: row.impersonatedBy,
-    action: row.action,
-    entityType: row.entityType,
-    entityId: row.entityId,
-    before: snapshotOf(row.before),
-    after: snapshotOf(row.after),
-  }));
-}
-
-function snapshotOf(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null && !Array.isArray(value) ? { ...value } : null;
+  return rows.map(auditEntryOf);
 }
 
 /**

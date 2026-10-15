@@ -16,7 +16,7 @@ import {
   receiveWebhook,
   type WebhookProvider,
 } from "../../src/webhooks/index.js";
-import { deletionAgency, exportOrganizationNow, flakyStorage, keysOf, storedFile } from "./test-deletion.js";
+import { deletionAgency, exportOrganizationNow, flakyServices, keysOf, storedFile } from "./test-deletion.js";
 import { createTestPlan, createTestPlatform, support, supportUserId, type TestPlatform } from "./test-platform.js";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -69,38 +69,43 @@ describe("purging an organization", () => {
 
   it("leaves nothing stored when storage fails after the commit and the job runs again", async () => {
     const { organizationId, job } = await readyToPurge();
-    const flaky = flakyStorage(test.storage);
-    const services = { ...test.services, storage: flaky.storage };
+    const flaky = flakyServices(test);
 
-    // pg-boss retries a job that failed; the first run's storage deletes are refused.
-    await purgeOrganization(services, job).catch(() => undefined);
+    // The first run's storage deletes are refused after its commit: the purge itself is done, and says so.
+    expect(await purgeOrganization(flaky.services, job)).toMatchObject({ files: 2 });
+    expect(await platform.organization.count({ where: { id: organizationId } })).toBe(0);
+    expect(await queued(organizationId)).toHaveLength(2);
     expect(keysOf(test, organizationId)).toHaveLength(2);
+    // Run again, as pg-boss runs a job at least once, with storage back.
     flaky.failing.now = false;
-    await purgeOrganization(services, job);
+    expect(await purgeOrganization(flaky.services, job)).toBeNull();
 
     expect(keysOf(test, organizationId)).toEqual([]);
   });
 
-  it("keeps a storage failure's files queued, and the console's job deletes them without a rerun", async () => {
+  it("keeps a storage failure's files queued, logs it, and the console's job deletes them without a rerun", async () => {
     const { organizationId, job } = await readyToPurge();
-    const flaky = flakyStorage(test.storage);
-    const services = { ...test.services, storage: flaky.storage };
+    const { services, failing, logged } = flakyServices(test);
     const now = new Date();
 
     // The purge is done once its transaction commits: the files wait in the outbox, and the job is queued.
     expect(await purgeOrganization(services, job, { now })).toMatchObject({ files: 2, people: 1 });
     expect(await platform.organization.count({ where: { id: organizationId } })).toBe(0);
     expect(keysOf(test, organizationId)).toHaveLength(2);
+    // One line, ids and codes only.
+    expect(logged).toEqual([
+      `platform.delete-stored-files: organization ${organizationId}'s files are left to the job (FileDeletionsFailedError, caused by Error)`,
+    ]);
     expect((await queued(organizationId)).map((row) => row.dueAt)).toEqual([
       now,
       new Date(now.getTime() + LATE_WRITES_MS),
     ]);
     expect(test.queue.sent.filter((sent) => sent.queue === DELETE_STORED_FILES_QUEUE).at(-1)).toMatchObject({
-      data: {},
+      data: { organizationId },
       options: { retryLimit: 30, startAfter: expect.any(Date) as Date },
     });
 
-    flaky.failing.now = false;
+    failing.now = false;
     expect(await deleteDueFiles(services, { now, organizationId })).toBeGreaterThanOrEqual(1);
     expect(keysOf(test, organizationId)).toEqual([]);
     // Once late uploads have landed, the folder is swept again and the outbox is empty.

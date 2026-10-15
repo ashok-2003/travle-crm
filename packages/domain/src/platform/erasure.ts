@@ -154,7 +154,7 @@ export async function eraseSubject(services: PlatformServices, job: ErasureJob, 
       entityId: record.recordId,
     });
     const webhooks = await tombstoneWebhookEvents(tx, organizationId);
-    await expireOrganizationExports(tx, organizationId, "erasure");
+    await expireOrganizationExports(services, tx, organizationId, "erasure");
     const actor =
       job.requestedBy === null ? systemActor(organizationId) : platformActor(organizationId, job.requestedBy);
     await recordAudit(tx, actor, {

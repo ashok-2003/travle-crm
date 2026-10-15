@@ -9,9 +9,8 @@ import { deleteUsers, findOrganizationRecord, organizationUserIds } from "../ide
 import { DomainError } from "../kernel/index.js";
 import { entitlementsOf } from "../subscriptions/index.js";
 import { tombstoneWebhookEvents } from "../webhooks/index.js";
-import { exportedWithinADay } from "./deletion-checks.js";
 import { deleteFilesAfterCommit } from "./file-deletions.js";
-import { lockSubscription } from "./merge-stand-ins.js";
+import { exportedRecently, lockSubscription } from "./merge-stand-ins.js";
 import { recordPlatformAudit } from "./platform-log.js";
 import type { PlatformServices } from "./services.js";
 
@@ -50,7 +49,7 @@ export async function purgeBlocker(
   }
   const status = (await entitlementsOf(tx, organizationId, now))?.status ?? null;
   if (status !== "cancelled") return { blocker: "not-cancelled", status };
-  if (!(await exportedWithinADay(tx, { action: "organization.exported", organizationId }, now))) {
+  if (!(await exportedRecently(tx, "organization.exported", organizationId, now, organizationId))) {
     return { blocker: "no-recent-export", status };
   }
   return { blocker: null, status };

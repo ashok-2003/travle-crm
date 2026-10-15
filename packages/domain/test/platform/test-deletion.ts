@@ -94,3 +94,15 @@ export function flakyStorage(storage: MemoryStorage): { storage: ObjectStorage; 
     },
   };
 }
+
+/** The platform's services on a flaky storage, with a log that keeps its lines for the test to read. */
+export function flakyServices(test: TestPlatform): {
+  services: PlatformServices;
+  failing: { now: boolean };
+  logged: string[];
+} {
+  const flaky = flakyStorage(test.storage);
+  const logged: string[] = [];
+  const services = { ...test.services, storage: flaky.storage, log: (line: string) => logged.push(line) };
+  return { services, failing: flaky.failing, logged };
+}

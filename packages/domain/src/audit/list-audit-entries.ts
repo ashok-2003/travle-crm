@@ -18,19 +18,35 @@ export async function listAuditEntries(tx: OrgTx, input: ListAuditEntriesInput):
   });
   const page = rows.slice(0, input.limit);
   return {
-    entries: page.map((row): AuditEntry => ({
-      id: row.id,
-      occurredAt: row.occurredAt.toISOString(),
-      actorUserId: row.actorUserId,
-      source: sourceOf(row.source),
-      impersonatedBy: row.impersonatedBy,
-      action: row.action,
-      entityType: row.entityType,
-      entityId: row.entityId,
-      before: snapshotOf(row.before),
-      after: snapshotOf(row.after),
-    })),
+    entries: page.map(auditEntryOf),
     nextCursor: rows.length > input.limit ? (page.at(-1)?.id ?? null) : null,
+  };
+}
+
+/** An audit_entry row as the log shows it: the module's one mapping, for the list and for an erasure's export. */
+export function auditEntryOf(row: {
+  id: string;
+  occurredAt: Date;
+  actorUserId: string | null;
+  source: string;
+  impersonatedBy: string | null;
+  action: string;
+  entityType: string;
+  entityId: string;
+  before: unknown;
+  after: unknown;
+}): AuditEntry {
+  return {
+    id: row.id,
+    occurredAt: row.occurredAt.toISOString(),
+    actorUserId: row.actorUserId,
+    source: sourceOf(row.source),
+    impersonatedBy: row.impersonatedBy,
+    action: row.action,
+    entityType: row.entityType,
+    entityId: row.entityId,
+    before: snapshotOf(row.before),
+    after: snapshotOf(row.after),
   };
 }
 

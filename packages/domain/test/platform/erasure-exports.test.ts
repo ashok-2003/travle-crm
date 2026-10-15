@@ -33,14 +33,19 @@ describe("an erasure's stored exports", () => {
     const sent = test.queue.sent.at(-1);
     if (!sent) throw new Error("no erasure job was queued");
     const seen: number[] = [];
-    vi.mocked(expireOrganizationExports).mockImplementationOnce(async (tx) => {
+    vi.mocked(expireOrganizationExports).mockImplementationOnce(async (_services, tx) => {
       // The same transaction: the record's files are already gone from it.
       seen.push(await tx.attachment.count({ where: { organizationId } }));
     });
 
     await eraseSubject(test.services, erasureJobOf(sent.data));
 
-    expect(expireOrganizationExports).toHaveBeenCalledExactlyOnceWith(expect.anything(), organizationId, "erasure");
+    expect(expireOrganizationExports).toHaveBeenCalledExactlyOnceWith(
+      test.services,
+      expect.anything(),
+      organizationId,
+      "erasure",
+    );
     expect(seen).toEqual([0]);
   });
 });
