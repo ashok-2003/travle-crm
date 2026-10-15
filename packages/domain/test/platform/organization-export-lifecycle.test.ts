@@ -14,6 +14,7 @@ import {
   requestOrganizationExport,
   runOrganizationExport,
 } from "../../src/platform/index.js";
+import { exportedRecently } from "../../src/platform/exports.js";
 import { exportOrganizationNow, exportParts } from "./test-exports.js";
 import { createTestPlan, createTestPlatform, onboardingInput, support, type TestPlatform } from "./test-platform.js";
 
@@ -121,6 +122,18 @@ describe("an export's life", () => {
     );
     // Again: nothing more is due.
     expect(await expireOrganizationExports(test.services)).toBe(0);
+  });
+
+  it("counts an export for a purge only for the organization it was of", async () => {
+    const [organizationId, other] = [await agency(), await agency()];
+    await exportOrganizationNow(test.services, organizationId);
+    const counts = (targetId: string, of?: string) =>
+      test.services.platformDb.transaction((tx) =>
+        exportedRecently(tx, "organization.exported", targetId, new Date(), of),
+      );
+    expect(await counts(organizationId, organizationId)).toBe(true);
+    expect(await counts(organizationId, other)).toBe(false);
+    expect(await counts(other, other)).toBe(false);
   });
 
   it("reads only an organization's own tables, as the organization asOrganization set", async () => {
