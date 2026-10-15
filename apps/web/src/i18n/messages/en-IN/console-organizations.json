@@ -1,1 +1,93 @@
-{}
+{
+  "onboard": {
+    "title": "Onboard an agency",
+    "intro": "This creates the agency's organization, its business profile and its subscription, and emails its Owner an invite to choose a password.",
+    "agency": {
+      "heading": "The agency",
+      "name": "Agency name",
+      "code": "Organization code",
+      "codeHint": "3 to 12 letters or digits, like SHARMA. Staff without email sign in with it, and it never changes.",
+      "timeZone": "Time zone",
+      "contactEmail": "Contact email",
+      "contactEmailHint": "Replies to the agency's emails go here."
+    },
+    "profile": {
+      "heading": "Business profile",
+      "legalName": "Legal name",
+      "legalNameHint": "As registered for GST.",
+      "gstState": "GST state",
+      "gstin": "GSTIN",
+      "gstinHint": "Optional. Its first two digits are its state's code.",
+      "contactName": "Contact person",
+      "contactNameHint": "Optional.",
+      "contactPhone": "Contact phone",
+      "contactPhoneHint": "Optional. For example 98765 43210."
+    },
+    "owner": {
+      "heading": "Owner",
+      "name": "Owner's name",
+      "email": "Owner's email",
+      "emailHint": "The invite goes here. Its link to choose a password lasts 72 hours."
+    },
+    "subscription": {
+      "heading": "Subscription",
+      "plan": "Plan",
+      "planPrices": {
+        "monthly": "{price} a month",
+        "yearly": "{price} a year"
+      },
+      "cycle": "Billing",
+      "cycles": {
+        "monthly": "Monthly, {price} before GST",
+        "yearly": "Yearly, {price} before GST"
+      },
+      "start": "How it starts",
+      "starts": {
+        "trial": "A trial of the usual length",
+        "trial-until": "A trial until a day you choose",
+        "paid": "Active, already paid through a day"
+      },
+      "trialLength": "{count, plural, one {# day} other {# days}}, today the first",
+      "trialEndsOn": "The trial's last day",
+      "paidThrough": "Paid through",
+      "loading": "Loading the plans",
+      "plansLoadFailed": "The plans didn't load.",
+      "noPlans": "No plan is on sale. A super admin adds plans on the Plans screen.",
+      "plansLink": "Open Plans"
+    },
+    "submit": "Onboard the agency",
+    "submitting": "Onboarding",
+    "problems": {
+      "required": "Fill this in.",
+      "codeInvalid": "Use 3 to 12 letters or digits, like SHARMA.",
+      "emailInvalid": "Type a real email address, like name@example.com.",
+      "nameInvalid": "Use a visible name of at most 120 characters.",
+      "gstinInvalid": "Check the GSTIN: 15 characters, ending in a check character that must match.",
+      "gstinOtherState": "This GSTIN is of another state. Its first two digits are its state's code.",
+      "phoneInvalid": "Type a phone number like 98765 43210.",
+      "timeZoneInvalid": "Choose a time zone.",
+      "dateRequired": "Choose the day.",
+      "dateInvalid": "Use a date like 2026-10-15."
+    }
+  },
+  "timeZones": {
+    "Asia/Kolkata": "India (Asia/Kolkata)",
+    "Asia/Kathmandu": "Nepal (Asia/Kathmandu)",
+    "Asia/Colombo": "Sri Lanka (Asia/Colombo)",
+    "Asia/Dhaka": "Bangladesh (Asia/Dhaka)",
+    "Asia/Thimphu": "Bhutan (Asia/Thimphu)",
+    "Indian/Maldives": "Maldives (Indian/Maldives)",
+    "Asia/Dubai": "United Arab Emirates (Asia/Dubai)",
+    "Asia/Singapore": "Singapore (Asia/Singapore)",
+    "Europe/London": "United Kingdom (Europe/London)",
+    "UTC": "Coordinated Universal Time (UTC)"
+  },
+  "organization": {
+    "title": "Organization",
+    "loading": "Loading the organization",
+    "loadFailed": "The organization didn't load.",
+    "notFound": "There is no such organization. It may have been deleted for good.",
+    "backToDashboard": "Back to the dashboard",
+    "onboarded": "The Owner has an email invite to choose a password. Its link lasts 72 hours."
+  }
+}
