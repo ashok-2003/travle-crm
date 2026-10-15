@@ -55,12 +55,41 @@ describe("touch targets", () => {
 
   it("a checkbox, through its hit area", () => {
     render(<Checkbox aria-label="Agree" />);
+    // The hit area is a pseudo-element placed over the box: it counts only when absolute, on a positioned element.
+    expect(screen.getByRole("checkbox")).toHaveClass("relative", "after:absolute");
     expectTarget(screen.getByRole("checkbox"), { square: true });
   });
 
   it("a switch, through its hit area", () => {
     render(<Switch aria-label="Two-factor" />);
+    expect(screen.getByRole("switch")).toHaveClass("relative", "after:absolute");
     expectTarget(screen.getByRole("switch"), { square: true });
+  });
+
+  it("reads the size class that wins, as cn merges them, so a caller's className can't shrink a target unseen", () => {
+    render(
+      <>
+        <Button className="h-8">Plain</Button>
+        <Button size="icon" className="h-8" aria-label="Icon" />
+        <div data-testid="at-least" className="min-h-11 h-8" />
+      </>,
+    );
+    // size-11 then h-8: both stay, and the later h-8 sets the height.
+    expect(targetSize(screen.getByRole("button", { name: "Plain" })).height).toBe(32);
+    expect(targetSize(screen.getByRole("button", { name: "Icon" })).height).toBe(32);
+    // min-height is its own property: h-8 can't take an element under it.
+    expect(targetSize(screen.getByTestId("at-least")).height).toBe(44);
+  });
+
+  it("counts a hit area only from an absolute pseudo-element on a positioned element", () => {
+    render(
+      <>
+        <Checkbox aria-label="Static" className="after:static" />
+        <div data-testid="unpositioned" className="size-5 after:absolute after:-inset-3" />
+      </>,
+    );
+    expect(targetSize(screen.getByRole("checkbox")).height).toBe(20);
+    expect(targetSize(screen.getByTestId("unpositioned")).height).toBe(20);
   });
 
   it("tab triggers", () => {
