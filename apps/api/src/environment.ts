@@ -76,10 +76,17 @@ const environmentSchema = z
     ...serviceVariables,
   })
   .superRefine((environment, context) => {
-    if (developmentLike(environment.NODE_ENV)) return;
     const problem = (path: string, message: string) => {
       context.addIssue({ code: "custom", path: [path], message });
     };
+    // A user without a password (or the other way round) is a half-made setting, in every environment.
+    if (environment.SMTP_USER !== undefined && environment.SMTP_PASSWORD === undefined) {
+      problem("SMTP_PASSWORD", "is needed with SMTP_USER");
+    }
+    if (environment.SMTP_PASSWORD !== undefined && environment.SMTP_USER === undefined) {
+      problem("SMTP_USER", "is needed with SMTP_PASSWORD");
+    }
+    if (developmentLike(environment.NODE_ENV)) return;
     if (!environment.BETTER_AUTH_URL.startsWith("https://")) problem("BETTER_AUTH_URL", "must be https in production");
     if (!environment.APP_URL.startsWith("https://")) problem("APP_URL", "must be https in production");
     if (!environment.AUTH_RATE_LIMIT) problem("AUTH_RATE_LIMIT", "cannot be off in production");

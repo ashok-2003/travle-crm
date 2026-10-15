@@ -7,7 +7,10 @@ import { assertSafeHeaders, type EmailSender } from "./email-sender.js";
 export interface SmtpSettings {
   host: string;
   port: number;
-  /** TLS from the first byte (port 465). Otherwise STARTTLS is used when the server offers it. */
+  /**
+   * TLS from the first byte (port 465). Otherwise STARTTLS: mandatory whenever `user` is set, so credentials never
+   * cross in clear text, and used when the server offers it otherwise.
+   */
   secure: boolean;
   user?: string | undefined;
   password?: string | undefined;

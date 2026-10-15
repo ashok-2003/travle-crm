@@ -3,18 +3,30 @@ import { serve } from "@hono/node-server";
 import { createApp } from "./app.js";
 import { loadEnvironment } from "./environment.js";
 import { clientAddressFrom } from "./rate-limit.js";
-import { createServices } from "./services.js";
+import { createServices, type Services } from "./services.js";
 
 const environment = loadEnvironment(process.env);
-const services = createServices(environment);
-try {
-  await services.start();
-} catch (error) {
-  // A bucket the api can't use, or a database pg-boss can't reach: don't serve requests that would fail.
-  console.error("api start-up failed", error);
-  await services.close().catch(() => undefined);
-  process.exit(1);
+
+/**
+ * Builds and starts what the api runs on, or exits 1: a bucket the api can't use, a database pg-boss can't reach, or
+ * adapters that can't be built (a VAPID private key that isn't the public key's) all end here, with one message.
+ */
+async function startedServices(): Promise<Services> {
+  let services: Services | undefined;
+  try {
+    services = createServices(environment);
+    await services.start();
+    return services;
+  } catch (error) {
+    console.error("api start-up failed", error);
+    await services?.close().catch((closeError: unknown) => {
+      console.error("closing the pools after the failed start-up failed too", closeError);
+    });
+    process.exit(1);
+  }
 }
+
+const services = await startedServices();
 
 const app = createApp({
   identity: services.identity,

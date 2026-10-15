@@ -86,13 +86,15 @@ describe("environment", () => {
       BETTER_AUTH_URL: "https://app.example.in",
       APP_URL: "https://app.example.in",
     };
-    expect(() =>
+    const staging = () =>
       loadEnvironment({
         ...production,
         BETTER_AUTH_SECRET: "wB7qk2Rz9XvLm4TnY8cPa5HdJ3sFe6Ug",
         TRUSTED_ORIGINS: "http://staging.example.in",
-      }),
-    ).toThrow(/TRUSTED_ORIGINS/);
+      });
+    expect(staging).toThrow(/TRUSTED_ORIGINS/);
+    // TRUSTED_ORIGINS is the only problem: the https APP_URL passes.
+    expect(staging).not.toThrow(/APP_URL/);
   });
 
   it("reads AUTH_TRUSTED_PROXIES as a list of IP addresses and CIDR ranges", () => {
@@ -185,6 +187,20 @@ describe("environment", () => {
       });
     expect(attempt).toThrow(/S3_BUCKET[\s\S]*SMTP_HOST[\s\S]*EMAIL_FROM_ADDRESS[\s\S]*VAPID_PUBLIC_KEY/);
     expect(attempt).toThrow(/VAPID_SUBJECT: must start with "mailto:" or "https:\/\/"/);
+  });
+
+  it("takes SMTP credentials only as a pair, naming the one that is missing", () => {
+    const development = { ...valid, NODE_ENV: "development" };
+    expect(() => loadEnvironment({ ...development, SMTP_USER: "mailer" })).toThrow(
+      /SMTP_PASSWORD: is needed with SMTP_USER/,
+    );
+    expect(() => loadEnvironment({ ...development, SMTP_PASSWORD: "secret-password" })).toThrow(
+      /SMTP_USER: is needed with SMTP_PASSWORD/,
+    );
+    expect(() => loadEnvironment({ ...development, SMTP_PASSWORD: "secret-password" })).not.toThrow(/secret-password/);
+    expect(loadEnvironment({ ...development, SMTP_USER: "mailer", SMTP_PASSWORD: "secret-password" })).toMatchObject({
+      SMTP_USER: "mailer",
+    });
   });
 
   it("trusts the web app's address, so a password reset can send people back to it", () => {

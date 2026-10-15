@@ -18,8 +18,12 @@ export const serviceVariables = {
   /** SMTP, or Amazon SES's SMTP interface; Mailpit locally. */
   SMTP_HOST: z.string().min(1),
   SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(587),
-  /** TLS from the first byte (port 465). Otherwise STARTTLS is used when the server offers it. */
+  /**
+   * TLS from the first byte (port 465). Otherwise STARTTLS: mandatory whenever SMTP_USER is set, so credentials never
+   * cross in clear text, and used when the server offers it otherwise.
+   */
   SMTP_SECURE: z.stringbool().default(false),
+  /** SMTP credentials: both or neither (environment.ts checks the pair). */
   SMTP_USER: z.string().min(1).optional(),
   SMTP_PASSWORD: z.string().min(1).optional(),
   /** Email comes from our domain (spec 9.4), under the organization's name, e.g. no-reply@mail.<our domain>. */
