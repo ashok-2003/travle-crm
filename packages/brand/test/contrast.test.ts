@@ -55,4 +55,10 @@ describe("contrast", () => {
       expect(contrast(status.dot, colours.canvas), name).toBeGreaterThanOrEqual(3);
     }
   });
+
+  it("gives status dots 3:1 on their own badge fill, where StatusBadge draws them", () => {
+    for (const [name, status] of Object.entries(colours.status)) {
+      expect(contrast(status.dot, status.fill), name).toBeGreaterThanOrEqual(3);
+    }
+  });
 });

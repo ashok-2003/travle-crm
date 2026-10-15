@@ -1,12 +1,75 @@
 /* The app's one stylesheet: Tailwind, the brand's colours, and the design rules of DESIGN.md as theme values. */
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 /* The brand's colours, and only those: it switches Tailwind's own palette (red-500, black, white...) off. */
 @import "../generated/brand.css";
 
 /* No dark theme yet: dark: classes in shadcn components apply only under a .dark class nobody sets. */
 @custom-variant dark (&:is(.dark *));
+
+/*
+ * The state variants shadcn's components use (data-open:, data-checked:...), so both Radix's data-state="open" and a
+ * bare data-open attribute match. Copied from shadcn's tailwind.css, which would otherwise be a runtime dependency.
+ */
+@custom-variant data-open {
+  &:where([data-state="open"]),
+  &:where([data-open]:not([data-open="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-closed {
+  &:where([data-state="closed"]),
+  &:where([data-closed]:not([data-closed="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-checked {
+  &:where([data-state="checked"]),
+  &:where([data-checked]:not([data-checked="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-unchecked {
+  &:where([data-state="unchecked"]),
+  &:where([data-unchecked]:not([data-unchecked="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-disabled {
+  &:where([data-disabled="true"]),
+  &:where([data-disabled]:not([data-disabled="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-active {
+  &:where([data-state="active"]),
+  &:where([data-active]:not([data-active="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-horizontal {
+  &:where([data-orientation="horizontal"]) {
+    @slot;
+  }
+}
+
+@custom-variant data-vertical {
+  &:where([data-orientation="vertical"]) {
+    @slot;
+  }
+}
+
+@custom-variant data-selected {
+  &:where([data-selected="true"]) {
+    @slot;
+  }
+}
 
 @theme inline {
   /* shadcn/ui's colour names, on the brand's roles (DESIGN.md section 2). */
@@ -31,17 +94,12 @@
   /* The dialog and sheet scrim: ink at 40 %. */
   --color-scrim: color-mix(in srgb, var(--brand-ink) 40%, transparent);
 
-  /* Font stacks: the Latin file, its extended twin, then Indian scripts (DESIGN.md section 3). */
-  --font-sans:
-    var(--font-ui-extended), var(--font-ui), "Noto Sans Devanagari Variable", "Noto Sans Bengali Variable",
-    "Noto Sans Tamil Variable", "Noto Sans Telugu Variable", "Noto Sans Gujarati Variable",
-    "Noto Sans Kannada Variable", "Noto Sans Malayalam Variable", "Noto Sans Gurmukhi Variable", system-ui, sans-serif;
+  /* Font stacks: the Latin file, its extended twin, then Indian scripts (DESIGN.md section 3). Every stack ends in
+     the same fallbacks, mono included, because ids and phone numbers sit next to Devanagari names. */
+  --font-sans: var(--font-ui-extended), var(--font-ui), var(--indic-sans), var(--system-fallback);
   --font-heading: var(--font-sans);
-  --font-title:
-    var(--font-title-extended), var(--font-title), "Noto Serif Devanagari Variable", "Noto Sans Bengali Variable",
-    "Noto Sans Tamil Variable", "Noto Sans Telugu Variable", "Noto Sans Gujarati Variable",
-    "Noto Sans Kannada Variable", "Noto Sans Malayalam Variable", "Noto Sans Gurmukhi Variable", serif;
-  --font-mono: var(--font-numbers-extended), var(--font-numbers), ui-monospace, monospace;
+  --font-title: var(--font-title-extended), var(--font-title), var(--indic-serif), var(--indic-sans), serif;
+  --font-mono: var(--font-numbers-extended), var(--font-numbers), ui-monospace, var(--indic-sans), monospace;
 
   /* The type scale (DESIGN.md section 3): text-title, text-body, text-number... */
   --text-title: 1.875rem;
@@ -82,6 +140,21 @@
 }
 
 :root {
+  --indic-sans:
+    "Noto Sans Devanagari Variable", "Noto Sans Bengali Variable", "Noto Sans Tamil Variable",
+    "Noto Sans Telugu Variable", "Noto Sans Gujarati Variable", "Noto Sans Kannada Variable",
+    "Noto Sans Malayalam Variable", "Noto Sans Gurmukhi Variable";
+  --indic-serif: "Noto Serif Devanagari Variable";
+  --system-fallback: system-ui, sans-serif;
+  /* The semantic z scale (DESIGN.md section 4: sticky 10, dropdown 20, overlay 30, dialog 40, toast 50, tooltip 60).
+     Menus and selects sit on the dialog layer, not 20, so they open above a dialog; they are portalled after it, so
+     document order puts them on top. Use z-(--z-name). */
+  --z-sticky: 10;
+  --z-dropdown: 20;
+  --z-overlay: 30;
+  --z-dialog: 40;
+  --z-toast: 50;
+  --z-tooltip: 60;
   --radius: 0.625rem;
   --overlay-shadow:
     0 8px 24px color-mix(in srgb, var(--brand-ink) 10%, transparent),
@@ -130,6 +203,15 @@
   :where(:lang(hi), :lang(mr), :lang(bn), :lang(ta), :lang(te), :lang(gu), :lang(kn), :lang(ml), :lang(pa)) {
     line-height: 1.6;
   }
+}
+
+/*
+ * Indic line height without a lang attribute: CSS can't see a script, so an element that shows a record's name (which
+ * may be Devanagari, Tamil...) and carries no lang takes this instead. A fixed 22px line is not clipped unless the box
+ * has overflow hidden and a fixed height; this utility is for those cases.
+ */
+@utility script-leading {
+  line-height: 1.6;
 }
 
 /* Numbers are mono with tabular figures, so columns line up (DESIGN.md section 3). */

@@ -14,9 +14,26 @@ function sourceFiles(directory: string): string[] {
   });
 }
 
-/** Hex codes, colour functions, and Tailwind's own palette (switched off, but a class would silently do nothing). */
-const colourLiteral =
-  /#[0-9a-f]{3,8}\b|\b(rgba?|hsla?|oklch|oklab|lab|lch)\(|\b(bg|text|border|ring|fill|stroke|outline|from|to|via|shadow|divide|accent|caret|decoration)-(black|white|(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3})\b/i;
+const namedColours =
+  "black|white|red|orange|yellow|green|teal|cyan|blue|indigo|violet|purple|pink|gray|grey|brown|navy|maroon|silver|gold";
+const palette =
+  "slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose";
+
+/**
+ * Hex codes, colour functions, Tailwind's own palette under any utility prefix (bg-red-500, border-t-red-500,
+ * ring-offset-white, placeholder-gray-400: switched off, but a class would silently do nothing), arbitrary values
+ * (bg-[red]), and named colours in inline styles (color: "red").
+ */
+export const colourLiteral = new RegExp(
+  [
+    String.raw`#[0-9a-f]{3,8}\b`,
+    String.raw`\b(rgba?|hsla?|oklch|oklab|lab|lch)\(`,
+    String.raw`\b[a-z]+(?:-[a-z]+)*-(black|white|(${palette})-\d{2,3})\b`,
+    String.raw`-\[(${namedColours})\]`,
+    String.raw`\b(color|background|backgroundColor|borderColor|fill|stroke|outlineColor)\s*:\s*["'](${namedColours})["']`,
+  ].join("|"),
+  "i",
+);
 
 describe("colour literals", () => {
   it("appear nowhere in the app's source but the generated brand stylesheet", () => {
@@ -30,4 +47,24 @@ describe("colour literals", () => {
     );
     expect(offenders).toEqual([]);
   });
+
+  it.each([
+    "bg-red-500",
+    "border-t-red-500",
+    "ring-offset-white",
+    "placeholder-gray-400",
+    "bg-[red]",
+    'color: "red"',
+    "#fff",
+    "rgb(0 0 0)",
+  ])("catches %s", (sample) => {
+    expect(colourLiteral.test(sample)).toBe(true);
+  });
+
+  it.each(["text-primary-foreground", "bg-status-good-fill", "border-input", "ring-ring/50", "bg-scrim"])(
+    "lets the brand's tokens through: %s",
+    (sample) => {
+      expect(colourLiteral.test(sample)).toBe(false);
+    },
+  );
 });

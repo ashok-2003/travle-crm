@@ -29,7 +29,13 @@ const Toaster = (props: ToasterProps) => {
           "--border-radius": "var(--radius)",
         } as React.CSSProperties
       }
-      toastOptions={{ classNames: { toast: "cn-toast shadow-md" } }}
+      toastOptions={{
+        classNames: {
+          toast: "cn-toast shadow-md",
+          // 20px visible, 44px to hit (DESIGN.md section 4): the pseudo-element is the extra reach.
+          closeButton: "after:absolute after:-inset-3",
+        },
+      }}
       {...props}
     />
   );
