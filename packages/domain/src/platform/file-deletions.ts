@@ -1,12 +1,31 @@
 // Deleting the stored files a purge or an erasure queued (ADR 0022). Their transaction can't reach storage, so it puts
 // the files in the deletions' outbox; once it commits, this deletes each file, then its row, and the console's job
 // retries until the outbox is empty. Nothing is lost to a storage error or a restart: the rows stay until the bytes go.
+import { ownMessages } from "@travel-crm/integrations/jobs";
 import { deleteQueuedFile, dueFileDeletions, forgetFileDeletion, nextFileDeletionDue } from "../files/index.js";
 import type { JobHandler } from "../jobs/index.js";
 import { tombstoneWebhookEvents } from "../webhooks/index.js";
 import type { PlatformServices } from "./services.js";
 
 export const DELETE_STORED_FILES_QUEUE = "platform.delete-stored-files";
+
+/**
+ * Some queued files couldn't be deleted in a run: their rows stay, and the job is retried. The message holds counts
+ * only; the storage errors are kept, the first as the cause.
+ */
+export class FileDeletionsFailedError extends AggregateError {
+  static {
+    ownMessages(this);
+  }
+
+  override readonly name = "FileDeletionsFailedError";
+
+  constructor(errors: readonly unknown[], finished: number) {
+    super(errors, `${String(errors.length)} queued file deletions failed and ${String(finished)} finished`, {
+      cause: errors[0],
+    });
+  }
+}
 
 /**
  * About a day of retries, then the failed-jobs list: 30, 1 minute apart at first and doubling to the queue's longest
@@ -22,7 +41,8 @@ const BATCH = 100;
 
 /**
  * Deletes the queued files due by `now`, oldest first: each file (or a purged organization's whole folder), then its
- * row. Only one organization's when it is given; every organization's otherwise. Returns how many it finished.
+ * row. Only one organization's when it is given; every organization's otherwise. Returns how many it finished. A file
+ * storage refuses holds up no other: its row stays, the run goes on, and then fails with FileDeletionsFailedError.
  *
  * A folder row means its organization was purged: its webhook events are tombstoned again with it, catching any that
  * a handler found since the purge (a retry that failed on the missing organization).
@@ -32,20 +52,31 @@ export async function deleteDueFiles(
   options: { now: Date; organizationId?: string },
 ): Promise<number> {
   let finished = 0;
+  const failed: unknown[] = [];
+  const failedIds: string[] = [];
   for (;;) {
-    const due = await services.platformDb.transaction((tx) => dueFileDeletions(tx, { ...options, limit: BATCH }));
+    const due = await services.platformDb.transaction((tx) =>
+      dueFileDeletions(tx, { ...options, limit: BATCH, exceptIds: failedIds }),
+    );
     for (const deletion of due) {
-      if (deletion.attachmentId === null) {
-        await services.platformDb.transaction((tx) =>
-          tombstoneWebhookEvents(tx, deletion.organizationId, { organizationGone: true }),
-        );
+      try {
+        if (deletion.attachmentId === null) {
+          await services.platformDb.transaction((tx) =>
+            tombstoneWebhookEvents(tx, deletion.organizationId, { organizationGone: true }),
+          );
+        }
+        await deleteQueuedFile(services.storage, deletion);
+        await services.platformDb.transaction((tx) => forgetFileDeletion(tx, deletion.id));
+        finished += 1;
+      } catch (error) {
+        failed.push(error);
+        failedIds.push(deletion.id);
       }
-      await deleteQueuedFile(services.storage, deletion);
-      await services.platformDb.transaction((tx) => forgetFileDeletion(tx, deletion.id));
-      finished += 1;
     }
-    if (due.length < BATCH) return finished;
+    if (due.length < BATCH) break;
   }
+  if (failed.length > 0) throw new FileDeletionsFailedError(failed, finished);
+  return finished;
 }
 
 /**

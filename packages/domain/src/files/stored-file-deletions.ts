@@ -21,15 +21,19 @@ export function organizationFolder(organizationId: string): string {
   return `organizations/${organizationId}/`;
 }
 
-/** The deletions due by `now`, oldest first, at most `limit`; only one organization's when it is given. */
+/**
+ * The deletions due by `now`, oldest first, at most `limit`; only one organization's when it is given, and none of
+ * `exceptIds` (those a run has already tried and storage refused).
+ */
 export async function dueFileDeletions(
   tx: OrgTx,
-  options: { now: Date; limit: number; organizationId?: string },
+  options: { now: Date; limit: number; organizationId?: string; exceptIds?: readonly string[] },
 ): Promise<StoredFileDeletion[]> {
   const rows = await tx.storedFileDeletion.findMany({
     where: {
       dueAt: { lte: options.now },
       ...(options.organizationId === undefined ? {} : { targetOrganizationId: options.organizationId }),
+      ...(options.exceptIds?.length ? { id: { notIn: [...options.exceptIds] } } : {}),
     },
     orderBy: [{ dueAt: "asc" }, { id: "asc" }],
     take: options.limit,
