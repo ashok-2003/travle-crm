@@ -51,7 +51,7 @@ describe("onboarding", () => {
       },
       profile: { legalName: "Sharma Holidays Private Limited", gstStateCode: "27", contactPhone: "+919876543210" },
       subscription: {
-        subscription: { status: "trial", trialEndsOn: "2099-01-31", plan: { id: plan.id } },
+        subscription: { status: "trial", trialEndsOn: input.subscription.trialEndsOn, plan: { id: plan.id } },
         payments: [],
       },
     });

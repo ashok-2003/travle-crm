@@ -12,6 +12,7 @@ import {
 } from "@travel-crm/integrations/jobs";
 import { createMemoryStorage, type MemoryStorage } from "@travel-crm/integrations/storage";
 import { inject } from "vitest";
+import { addDays, calendarDateIn } from "../../src/kernel/index.js";
 import { createPlan, createPlatformServices, type PlatformServices } from "../../src/platform/index.js";
 import { createTestIdentity, type TestIdentity } from "../identity/test-identity.js";
 
@@ -70,7 +71,7 @@ export function createTestPlan(test: TestPlatform): Promise<PlanSummary> {
   });
 }
 
-/** What the platform team enters for a new agency, with a unique code and owner address. */
+/** What the platform team enters for a new agency, with a unique code and owner address, on a month's trial. */
 export function onboardingInput(plan: PlanSummary): OnboardOrganizationInput {
   const code = `S${randomUUID().replaceAll("-", "").slice(0, 9).toUpperCase()}`;
   return {
@@ -86,6 +87,11 @@ export function onboardingInput(plan: PlanSummary): OnboardOrganizationInput {
       contactPhone: "+919876543210",
     },
     owner: { name: "Asha Sharma", email: `asha-${code.toLowerCase()}@example.test` },
-    subscription: { planId: plan.id, billingCycle: "monthly", trialEndsOn: "2099-01-31", paidThrough: null },
+    subscription: {
+      planId: plan.id,
+      billingCycle: "monthly",
+      trialEndsOn: addDays(calendarDateIn(new Date(), "Asia/Kolkata"), 30),
+      paidThrough: null,
+    },
   };
 }

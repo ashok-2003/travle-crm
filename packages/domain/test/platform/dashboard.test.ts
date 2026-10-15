@@ -2,6 +2,7 @@
 // usage, counted by the modules that keep them; and the failed-jobs list, retried and cleared from the console.
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { addDays, calendarDateIn } from "../../src/kernel/index.js";
 import {
   listFailedJobs,
   listPlatformLog,
@@ -27,12 +28,16 @@ describe("the platform dashboard", () => {
   });
 
   it("shows each organization's status, days left, seats, and this month's changes", async () => {
+    // The dashboard's clock, taken before onboarding: every entry onboarding writes is at or after it, so this month's,
+    // and the trial ends a fortnight from it, whatever today is.
+    const now = new Date();
+    const trialEndsOn = addDays(calendarDateIn(now, "Asia/Kolkata"), 14);
     const input = onboardingInput(plan);
     const { organizationId } = await onboardOrganization(test.services, support, {
       ...input,
-      subscription: { ...input.subscription, trialEndsOn: "2026-10-30" },
+      subscription: { ...input.subscription, trialEndsOn },
     });
-    const overview = (await organizationsOverview(test.services, new Date("2026-10-16T06:00:00Z"))).find(
+    const overview = (await organizationsOverview(test.services, now)).find(
       (organization) => organization.organizationId === organizationId,
     );
     expect(overview).toEqual({
@@ -41,7 +46,7 @@ describe("the platform dashboard", () => {
       code: input.code,
       status: "trial",
       planName: "Starter",
-      nextChangeOn: "2026-10-31",
+      nextChangeOn: addDays(trialEndsOn, 1),
       daysLeft: 15,
       seats: { used: 1, limit: 5 },
       storage: { usedBytes: 0, limitBytes: 5_000_000_000 },
