@@ -87,6 +87,16 @@ async function organizationForeignKeysThatDoNotRestrictDeletes(client: Queryable
   return rows.map((row) => row.name);
 }
 
+/** A table's foreign keys: what each refers to, and its delete and update actions (r restrict, c cascade, a none). */
+async function foreignKeysOf(client: Queryable, table: string) {
+  return client.$queryRaw<{ name: string; target: string; onDelete: string; onUpdate: string }[]>`
+    SELECT fk.conname AS name, fk.confrelid::regclass::text AS target,
+           fk.confdeltype::text AS "onDelete", fk.confupdtype::text AS "onUpdate"
+    FROM pg_constraint fk
+    WHERE fk.contype = 'f' AND fk.conrelid = ${table}::regclass
+    ORDER BY fk.conname`;
+}
+
 class Rollback extends Error {}
 
 /** Runs setup SQL then assertions inside a migrator transaction that is always rolled back. */
@@ -142,6 +152,26 @@ describe("keys on organization tables", () => {
 
   it("refuse to delete an organization that still has rows, rather than cascade", async () => {
     expect(await organizationForeignKeysThatDoNotRestrictDeletes(platform)).toEqual([]);
+  });
+
+  it("give audit_entry one foreign key, to organization, so no deletion elsewhere reaches the log", async () => {
+    // Postgres runs a cascade as the table's owner, past the grants that keep the log append-only: a key from
+    // actor_user_id or impersonated_by to user (whose keys cascade) would let deleting a user delete entries.
+    expect(await foreignKeysOf(platform, "audit_entry")).toEqual([
+      { name: "audit_entry_organization_id_fkey", target: "organization", onDelete: "r", onUpdate: "r" },
+    ]);
+  });
+
+  it("lists every foreign key of a table, with its actions", async () => {
+    await probe(urls.migrator, async (tx) => {
+      await tx.$executeRaw`CREATE TABLE audit_probe (organization_id uuid NOT NULL
+                             CONSTRAINT audit_probe_organization REFERENCES organization (id) ON DELETE RESTRICT,
+                             actor_user_id uuid CONSTRAINT audit_probe_actor REFERENCES "user" (id) ON DELETE CASCADE)`;
+      expect(await foreignKeysOf(tx, "audit_probe")).toEqual([
+        { name: "audit_probe_actor", target: '"user"', onDelete: "c", onUpdate: "a" },
+        { name: "audit_probe_organization", target: "organization", onDelete: "r", onUpdate: "a" },
+      ]);
+    });
   });
 
   it("catches a foreign key to organization that cascades a deletion", async () => {
