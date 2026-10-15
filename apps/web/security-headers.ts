@@ -42,7 +42,8 @@ export function securityHeaders({ development }: { development: boolean }): { ke
 }
 
 /**
- * Pages whose address can hold a secret (the emailed reset token) or that sit in the middle of signing in. Their
+ * Pages whose address can hold a secret (the emailed reset token) or that sit in the middle of signing in, and the
+ * offline page, which the service worker shows at any address that fails to load, a token page's included. Their
  * requests carry only the origin as Referer, never the path or query, not even to our own origin, where the /api
  * rewrite would pass the full address on to the api's and the load balancer's logs (ADR 0006).
  *
@@ -50,7 +51,7 @@ export function securityHeaders({ development }: { development: boolean }): { ke
  * same-origin POST, and both the api's trusted-JSON check and Better Auth's origin check refuse that. "strict-origin"
  * leaves Origin as it is.
  */
-export const TOKEN_PAGES = ["/reset-password", "/sign-in/two-factor", "/two-factor-setup"] as const;
+export const TOKEN_PAGES = ["/reset-password", "/sign-in/two-factor", "/two-factor-setup", "/offline"] as const;
 
 /**
  * The header rules for next.config.ts. Next.js applies every matching rule in order and a later value wins

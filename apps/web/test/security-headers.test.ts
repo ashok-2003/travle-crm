@@ -46,4 +46,9 @@ describe("security headers", () => {
     }
     expect(headersFor("/staff")["Referrer-Policy"]).toBe("strict-origin-when-cross-origin");
   });
+
+  it("send only the origin from the offline page too, which the service worker shows at any address", () => {
+    // Offline at /reset-password?token=..., the worker answers with the stored /offline page, headers and all.
+    expect(headersFor("/offline")["Referrer-Policy"]).toBe("strict-origin");
+  });
 });
