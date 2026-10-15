@@ -1,5 +1,6 @@
-// Leaving a session, and forgetting what it left on this device: the query cache in memory and its saved copy, and
-// the pages the service worker kept, in this tab and in every other tab of the app (spec 11).
+// Leaving a session, and forgetting what it left on this device: the query cache in memory and its saved copy, in
+// this tab and in every other tab of the app (spec 11). The service worker's page copies stay: it keeps only shells it
+// fetched itself without cookies, which hold no one's data, and the offline page must outlive a sign-out.
 import type { QueryClient } from "@tanstack/react-query";
 import { reportProblem } from "@/lib/report-problem";
 import type { AuthClient } from "./auth-client";
@@ -7,8 +8,6 @@ import { endSession } from "./owed-sign-out";
 import { deleteSavedCopies, stopSaving } from "./persistence";
 
 const CHANNEL = "travel-crm-session";
-/** The service worker's copies of pages (src/service-worker/strategy.ts): "pages-v1", and any later version. */
-const PAGE_CACHE_PREFIX = "pages-";
 /** Marks this page's messages: BroadcastChannel also delivers them to the other channel objects in this tab. */
 const THIS_PAGE = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 
@@ -20,13 +19,6 @@ interface SignOutMessage {
 /** Other versions of the app may share the channel, so messages are checked, not trusted. */
 function isSignOutMessage(data: unknown): data is SignOutMessage {
   return data !== null && typeof data === "object" && (data as { type?: unknown }).type === "signed-out";
-}
-
-async function deletePageCaches(): Promise<void> {
-  // Cache Storage exists only on secure origins (and not in jsdom).
-  if (typeof caches === "undefined") return;
-  const names = (await caches.keys()).filter((name) => name.startsWith(PAGE_CACHE_PREFIX));
-  await Promise.all(names.map((name) => caches.delete(name)));
 }
 
 /** Runs each step once the one before has finished, failed or not. Returns the failures. */
@@ -44,9 +36,9 @@ async function inOrder(steps: (() => unknown)[]): Promise<unknown[]> {
 
 /**
  * Forgets what this device holds of the organization, each step finished before the next starts: saving stops (so
- * no save can land afterwards), the query and mutation caches empty, the saved copy goes, then the service worker's
- * pages. It never rejects, because every caller loads another page next either way: a step that fails is reported
- * once, and the steps after it still run.
+ * no save can land afterwards), the query and mutation caches empty, then the saved copy goes. It never rejects,
+ * because every caller loads another page next either way: a step that fails is reported once, and the steps after it
+ * still run.
  */
 export async function wipeLocalData(queryClient: QueryClient): Promise<void> {
   const failures = await inOrder([
@@ -56,7 +48,6 @@ export async function wipeLocalData(queryClient: QueryClient): Promise<void> {
       queryClient.clear();
     },
     deleteSavedCopies,
-    deletePageCaches,
   ]);
   if (failures.length > 0) reportProblem(failures[0]);
 }

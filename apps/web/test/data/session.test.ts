@@ -1,6 +1,7 @@
 // Signing out leaves nothing to restore, with the cache saved exactly as the app saves it: saving stops before
-// anything is deleted, so no save can land afterwards; the cache, its saved copy and the service worker's pages go;
-// other tabs are told; only then is the api asked. Offline, the device is still wiped and the sign-out is owed.
+// anything is deleted, so no save can land afterwards; the cache and its saved copy go (the service worker's cookie-less
+// shells stay); other tabs are told; only then is the api asked. Offline, the device is still wiped and the sign-out
+// is owed.
 import "fake-indexeddb/auto";
 import { QueryClient } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -63,18 +64,20 @@ describe("wipeLocalData", () => {
     expect(await hasPersistedQueries()).toBe(false);
   });
 
-  it("deletes the service worker's page copies, and only those", async () => {
-    const deleted = vi.fn((name: string) => Promise.resolve(name.length > 0));
-    vi.stubGlobal("caches", { keys: () => Promise.resolve(["pages-v1", "pages-v2", "static-v1"]), delete: deleted });
+  it("leaves the service worker's caches alone, so the offline page outlives a sign-out", async () => {
+    const deleted = vi.fn(() => Promise.resolve(true));
+    vi.stubGlobal("caches", { keys: () => Promise.resolve(["pages-v2", "static-v2"]), delete: deleted });
     await wipeLocalData(new QueryClient());
-    expect(deleted.mock.calls.map(([name]) => name)).toEqual(["pages-v1", "pages-v2"]);
+    expect(deleted).not.toHaveBeenCalled();
   });
 
   it("reports a failed step once, still runs the others, and never rejects", async () => {
     const reported = vi.fn();
     vi.stubGlobal("reportError", reported);
-    vi.stubGlobal("caches", { keys: () => Promise.reject(new Error("Cache Storage is broken")), delete: vi.fn() });
     const queryClient = await pageWithSavedData();
+    vi.spyOn(queryClient, "clear").mockImplementation(() => {
+      throw new Error("the cache is broken");
+    });
     await expect(wipeLocalData(queryClient)).resolves.toBeUndefined();
     expect(reported).toHaveBeenCalledOnce();
     expect(await hasPersistedQueries()).toBe(false);
@@ -116,11 +119,14 @@ describe("signOut", () => {
 
   it("still tells the other tabs when the wipe fails, and doesn't reject", async () => {
     vi.stubGlobal("reportError", vi.fn());
-    vi.stubGlobal("caches", { keys: () => Promise.reject(new Error("Cache Storage is broken")), delete: vi.fn() });
+    const queryClient = new QueryClient();
+    vi.spyOn(queryClient, "clear").mockImplementation(() => {
+      throw new Error("the cache is broken");
+    });
     const otherTab = vi.fn();
     const channel = new BroadcastChannel("travel-crm-session");
     channel.onmessage = otherTab;
-    await expect(signOut(new QueryClient(), { signOut: () => Promise.resolve(answered) })).resolves.toBeUndefined();
+    await expect(signOut(queryClient, { signOut: () => Promise.resolve(answered) })).resolves.toBeUndefined();
     await vi.waitFor(() => {
       expect(otherTab).toHaveBeenCalledOnce();
     });

@@ -30,12 +30,13 @@ Date: 2026-10-15 · Status: accepted · Implements spec sections 3, 11 and 12.1 
   names someone else. So online the copy shows after one small request rather than at once: the price of never
   showing one person's data to another, or to a session that has ended.
 - **Wiping.** A wipe stops the page saving first (the subscription ends, and a save waiting in the throttle can't
-  land), then empties the caches, clears the IndexedDB store and the service worker's `pages-*` caches, and changes a
-  data-free generation in localStorage that voids any copy another tab is still about to write. Signing out wipes,
-  tells the app's other tabs (BroadcastChannel), which wipe too, and only then asks the api, for at most 5 seconds.
-  If that fails, a data-free marker says a sign-out is owed, and the next page (or coming back online) settles it
-  before anything asks who is signed in. A 401 wipes and returns the person to sign in, then to where they were; a
-  pending step sends them to take it.
+  land), then empties the caches, clears the IndexedDB store, and changes a data-free generation in localStorage that
+  voids any copy another tab is still about to write. The service worker's page copies stay: it keeps only shells it
+  fetched without cookies, and its offline page must outlive a sign-out. Signing out wipes, tells the app's other
+  tabs (BroadcastChannel), which wipe too and go to sign-in unless they show a signed-out screen (sign-in, reset,
+  offline), and only then asks the api, for at most 5 seconds. If that fails, a data-free marker says a sign-out is
+  owed, and the next page (or coming back online) settles it before anything asks who is signed in. A 401 wipes and
+  returns the person to sign in, then to where they were; a pending step sends them to take it.
 - **Sign-in calls** go to Better Auth's endpoints and our `/api/auth/sign-in/org` through a small typed client that
   keeps nothing of Better Auth's user object: for staff without email it holds the placeholder address, which is
   never shown. Who is signed in comes from `me.get` only.
@@ -43,8 +44,9 @@ Date: 2026-10-15 · Status: accepted · Implements spec sections 3, 11 and 12.1 
   and the api's refusal reasons mapped to sentences in `errors.json`.
 - **Security headers** on every response, with a Content-Security-Policy limited to our own origin, and
   `upgrade-insecure-requests` outside development. The reset-password and two-factor pages also send
-  `Referrer-Policy: no-referrer`, so a token in their address never travels as a Referer, not even through the
-  `/api` rewrite into the api's logs.
+  `Referrer-Policy: strict-origin`, so a token in their address never travels as a Referer, not even through the
+  `/api` rewrite into the api's logs. Not `no-referrer`: under it a same-origin POST sends `Origin: null`, which
+  the api's origin checks refuse.
 - **`'unsafe-inline'` is an accepted risk.** Scripts and styles allow it: Next.js inlines its boot scripts, and nonces
   would make every page render per request, which the offline shell can't use. That leaves one guard against
   injected script: React escapes everything it renders, and the app never renders HTML from a string, which
