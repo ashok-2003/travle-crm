@@ -12,6 +12,7 @@ import {
   type S3ClientConfig,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { ownMessages } from "../jobs/sanitize-job-error.js";
 import { assertExpiry, assertPositiveSize, assertSafeKey, assertSafePrefix } from "./checks.js";
 import { attachmentDisposition } from "./content-disposition.js";
 import type { ObjectStorage } from "./object-storage.js";
@@ -170,6 +171,10 @@ export function createS3Storage(settings: S3StorageSettings): S3Storage {
 
 /** Storage refused to delete some files of a prefix. Its message gives the count and S3's code, never a key. */
 class StorageDeleteError extends Error {
+  static {
+    ownMessages(this);
+  }
+
   override readonly name = "StorageDeleteError";
 
   constructor(
