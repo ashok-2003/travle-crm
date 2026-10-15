@@ -6,6 +6,10 @@ The platform console's work across organizations (spec sections 5 and 7). It is 
 
 ## Public functions and values (`index.ts`)
 
+- Organizations: `onboardOrganization(services, staff, input)` (spec 7.1, one platform transaction: the
+  organization, its roles, business profile, subscription and invited Owner), `resendInvite(services, staff,
+{ organizationId, memberId })`, `getOrganization(services, organizationId)` (its row, profile and subscription with
+  payments), `updateOrganization(services, staff, input)` (name, time zone, contact email; never the code).
 - Plans and the policy: `listPlans(services, input)`, `createPlan`, `updatePlan`, `archivePlan(services, staff, …)`,
   `getSubscriptionPolicy(services)`, `setSubscriptionPolicy(services, staff, policy)`. Plans belong to no organization,
   so each change is recorded in the platform log.

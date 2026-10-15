@@ -1,5 +1,7 @@
 // Public API of the platform module: the platform console's work across organizations (spec 5 and 7). Only this
 // module uses @travel-crm/db/platform, which sees every organization.
+export { onboardOrganization, resendInvite } from "./onboarding.js";
+export { getOrganization, updateOrganization } from "./organizations.js";
 export {
   archivePlan,
   createPlan,

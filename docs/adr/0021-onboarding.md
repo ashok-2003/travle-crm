@@ -14,6 +14,11 @@ first Owner
   `staff.invited`. The worker's `identity.send-invite` listener stores a Better Auth reset token for them and emails a
   link to the web app's `/reset-password` page. Choosing a password there goes through Better Auth's own
   `/reset-password`, which creates the password account; then they sign in. `requestInvite` sends a new link later.
+- **What onboarding makes, in order** (`onboardOrganization`): the organization's row (name, code, time zone, contact
+  email) as the platform role; then, inside it, the starter roles, the business profile (legal name, GSTIN, GST state,
+  contact: ADR 0023), the invited Owner and `organization.onboarded` in its log; then, as the platform role again, the
+  subscription (ADR 0019) and `organization.onboarded` in the platform log. Everything in the organization's log is
+  under the platform admin's name, with source `platform`.
 - **Invite links last 72 hours**, against a password reset's hour: an Owner may open the email the next day. Earlier
   links keep working until they lapse, so asking twice never strands anyone.
 
