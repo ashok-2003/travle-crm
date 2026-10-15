@@ -20,6 +20,11 @@
       "passThroughEnv": ["DOCKER_HOST", "TESTCONTAINERS_*"]
     },
     "db:migrate:deploy": { "cache": false, "env": ["DATABASE_MIGRATOR_URL"] },
-    "dev": { "cache": false, "persistent": true }
+    "dev": { "cache": false, "persistent": true },
+    "e2e": {
+      "dependsOn": ["generate", "^generate"],
+      "cache": false,
+      "passThroughEnv": ["DOCKER_HOST", "TESTCONTAINERS_*"]
+    }
   }
 }

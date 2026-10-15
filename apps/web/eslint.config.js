@@ -5,9 +5,18 @@ import reactHooks from "eslint-plugin-react-hooks";
 import { defineConfig } from "eslint/config";
 
 export default defineConfig(
-  base({ tsconfigRootDir: import.meta.dirname, ignores: [".next/**", "next-env.d.ts", "public/**"] }),
+  base({
+    tsconfigRootDir: import.meta.dirname,
+    // Build output, served files, and Playwright's results (written while lint may be running).
+    ignores: [".next/**", "next-env.d.ts", "public/**", "test-results/**", "playwright-report/**"],
+  }),
   nextPlugin.configs["core-web-vitals"],
   reactHooks.configs.flat.recommended,
+  // Playwright fixtures take an empty pattern and call `use`, which isn't React's hook.
+  {
+    files: ["test/e2e/**"],
+    rules: { "no-empty-pattern": "off", "react-hooks/rules-of-hooks": "off" },
+  },
   // The Turbopack loader and dependency-cruiser's alias file are CommonJS, which the tools that load them need.
   {
     files: ["**/*.cjs"],

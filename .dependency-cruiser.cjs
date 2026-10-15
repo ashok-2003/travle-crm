@@ -333,7 +333,8 @@ module.exports = {
     },
 
     // Which modules to exclude
-    exclude: { path: "(^|/)\\.next/|next-env\\.d\\.ts$" },
+    // The web app's public/ holds files served as they are (icons, the bundled service worker), never imported.
+    exclude: { path: "(^|/)\\.next/|next-env\\.d\\.ts$|^apps/web/public/" },
 
     // Which modules to exclusively include (array of regular expressions in strings)
     // dependency-cruiser will skip everything that doesn't match this pattern

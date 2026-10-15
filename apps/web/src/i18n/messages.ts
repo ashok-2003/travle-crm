@@ -3,6 +3,7 @@
 import account from "./messages/en-IN/account.json";
 import common from "./messages/en-IN/common.json";
 import errors from "./messages/en-IN/errors.json";
+import pwa from "./messages/en-IN/pwa.json";
 import roles from "./messages/en-IN/roles.json";
 import settings from "./messages/en-IN/settings.json";
 import shell from "./messages/en-IN/shell.json";
@@ -10,6 +11,6 @@ import staff from "./messages/en-IN/staff.json";
 
 export const locale = "en-IN";
 
-export const messages = { account, common, errors, roles, settings, shell, staff };
+export const messages = { account, common, errors, pwa, roles, settings, shell, staff };
 
 export type Messages = typeof messages;
