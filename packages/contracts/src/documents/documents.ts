@@ -84,6 +84,24 @@ export const issuedDocumentSummary = z.strictObject({
 });
 export type IssuedDocumentSummary = z.infer<typeof issuedDocumentSummary>;
 
+/** One of the organization's issued documents. */
+export const documentRefInput = z.strictObject({ documentId: z.uuid() });
+export type DocumentRefInput = z.infer<typeof documentRefInput>;
+
+/** The organization's issued documents, newest first. `cursor` is the last document of the page before. */
+export const listIssuedDocumentsInput = z.strictObject({
+  cursor: z.uuid().optional(),
+  limit: z.number().int().min(1).max(50).default(20),
+});
+export type ListIssuedDocumentsInput = z.input<typeof listIssuedDocumentsInput>;
+
+export const issuedDocumentPage = z.object({
+  documents: z.array(issuedDocumentSummary),
+  /** Pass as `cursor` for the next page; null on the last page. */
+  nextCursor: z.uuid().nullable(),
+});
+export type IssuedDocumentPage = z.infer<typeof issuedDocumentPage>;
+
 /** The payload of the "document.issued" event. */
 export const documentIssuedEvent = z.strictObject({ documentId: z.uuid() });
 export type DocumentIssuedEvent = z.infer<typeof documentIssuedEvent>;

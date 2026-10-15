@@ -40,5 +40,45 @@
       "saving": "Saving",
       "saved": "Branding saved"
     }
+  },
+  "sample": {
+    "heading": "Preview",
+    "intro": "See your branding on a sample quotation. It is numbered SMPL and kept with your documents, as every issued document is.",
+    "issue": "Preview on a sample quotation",
+    "issuing": "Issuing the sample",
+    "preparing": "{number} is being prepared. This takes a few seconds.",
+    "ready": "{number} is ready.",
+    "failed": "{number} can't be made into a PDF: its text has characters the PDF can't show yet.",
+    "download": "Download the PDF",
+    "allDocuments": "All documents"
+  },
+  "list": {
+    "title": "Documents",
+    "intro": "The documents your organization has issued, newest first. Each is kept as it was issued, with its PDF.",
+    "loadFailed": "The documents didn't load.",
+    "empty": "No documents yet. Preview a sample quotation on the branding screen to issue your first.",
+    "emptyAction": "Go to branding",
+    "more": "Show more documents",
+    "loadingMore": "Loading more documents",
+    "issuedAt": "{day}, {time}",
+    "columns": {
+      "number": "Number",
+      "document": "Document",
+      "issued": "Issued",
+      "status": "Status",
+      "actions": "Actions"
+    }
+  },
+  "templates": {
+    "sample": "Sample"
+  },
+  "status": {
+    "ready": "Ready",
+    "preparing": "Being prepared",
+    "failed": "Can't be made"
+  },
+  "download": {
+    "named": "Download {number} as a PDF",
+    "label": "PDF"
   }
 }

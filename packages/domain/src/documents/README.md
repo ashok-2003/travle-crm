@@ -15,11 +15,17 @@ quotes and invoices bring theirs.
 - `getIssuedDocument(tx, { documentId })`: the document's summary, with `pdfAttachmentId` (null until rendered) and
   `renderFailed`.
   Another organization's document is `NOT_FOUND`/`DOCUMENT_NOT_FOUND`.
+- `listIssuedDocuments(tx, { cursor?, limit? })`: the organization's documents, newest issued first, `limit` (1-50,
+  20 unless given) at a time, with `nextCursor` for the page after (`VALIDATION`/`INVALID_PAGE` for a page it can't
+  read); a cursor the organization can't see starts an empty page.
 - `renderIssuedDocumentListener({ files, render })`: the worker's listener `documents.render-pdf`. Pass the files
   module (it stores the PDF and reads the logo) and `renderPdf` from `@travel-crm/integrations/pdf`.
 - `sampleQuotation({ recipient, supplierStateCode, placeOfSupplyStateCode, lines, branding, notes? })`: the sample
   template's content as a quotation, its GST worked out by the kernel's `indiaGst` and every amount printed with
   `formatMoney`, ready for `issueDocument`.
+- `brandedSampleQuotation({ organizationName, profile, logoAttachmentId? })`: the sample an organization previews its
+  branding on: made-up lines taxed within its own GST state, its name, colour, terms and logo. Issue it with
+  `prefix: SAMPLE_PREFIX` (`"SMPL"`): it is kept like any document, and its number says it is a sample.
 
 - `documentsIssuedSince(tx, since)`: a usage counter for the platform dashboard. It counts the transaction's
   organization by row-level security, so it runs in `forOrg` or `asOrganization` and refuses the platform role
