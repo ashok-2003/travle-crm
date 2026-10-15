@@ -1,7 +1,6 @@
 // Starting an organization's subscription and changing its plan and overrides from the console (spec 7.1, 7.2): each
 // is recorded in that organization's log under the platform admin's name, a change to the same values records
-// nothing, dates are read in the organization's own time zone, and the console sees the state due today beside the
-// one recorded, with the price.
+// nothing, and dates are read in the organization's own time zone. What the console sees: details.test.ts.
 import type { PlanSummary, SetOverridesInput } from "@travel-crm/contracts/subscriptions";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -165,47 +164,6 @@ describe("subscriptions", () => {
     expect(entries.filter((entry) => entry.action === "subscription.overrides-changed")).toEqual([
       expect.objectContaining({ before: { extraSeats: 0, customPricePaise: null, extraModules: [] } }),
     ]);
-  });
-
-  it("shows the price per billing cycle before GST, its extra seats, and GST at 18 % on top", async () => {
-    const organizationId = await createSubscribedOrganization(test, starter);
-    const withSeats = await inPlatform((tx) =>
-      setOverrides(tx, byAdmin, { organizationId, extraSeats: 2, customPricePaise: null, extraModules: [] }, now),
-    );
-    // ₹2,500 a month and two seats at ₹500: ₹3,500, and GST of ₹630.
-    expect(withSeats.price).toEqual({
-      billingCycle: "monthly",
-      planPricePaise: 250_000,
-      extraSeats: 2,
-      extraSeatPricePaise: 50_000,
-      listPricePaise: 350_000,
-      customPricePaise: null,
-      pricePaise: 350_000,
-      gstRateBasisPoints: 1800,
-      gstPaise: 63_000,
-      totalPaise: 413_000,
-    });
-    const agreed = await inPlatform((tx) =>
-      setOverrides(tx, byAdmin, { organizationId, extraSeats: 2, customPricePaise: 299_999, extraModules: [] }, now),
-    );
-    expect(agreed.price).toMatchObject({ listPricePaise: 350_000, pricePaise: 299_999, gstPaise: 54_000 });
-  });
-
-  it("shows the state due today, and what the daily job last recorded", async () => {
-    const organizationId = await createSubscribedOrganization(
-      test,
-      starter,
-      { trialEndsOn: "2026-10-10", paidThrough: null },
-      { now: new Date("2026-10-01T06:00:00Z") },
-    );
-    expect(await inPlatform((tx) => getSubscription(tx, organizationId, now))).toMatchObject({
-      status: "past_due",
-      access: "full",
-      since: "2026-10-11",
-      nextChangeOn: "2026-10-18",
-      recorded: { status: "trial", since: "2026-10-01" },
-      manualSuspension: null,
-    });
   });
 
   it("says when an organization has no subscription", async () => {

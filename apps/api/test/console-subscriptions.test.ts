@@ -2,7 +2,8 @@
 // record payments and suspend or cancel it by hand; only a super admin lifts a suspension made by hand, which no
 // payment does; the console sees the state due today beside the one recorded, and the price with GST; the
 // organization's own audit log shows each change under the platform admin's name. Organization staff reach none of
-// it. Dates are relative to today in India, the test agencies' zone.
+// it. Dates are relative to today in India, the test agencies' zone. One router end to end over HTTP, so a little
+// over the usual length.
 import type { PlanSummary, SubscriptionDetails, SubscriptionWithPayments } from "@travel-crm/contracts/subscriptions";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { addDays, calendarDateIn } from "@travel-crm/domain/kernel";
