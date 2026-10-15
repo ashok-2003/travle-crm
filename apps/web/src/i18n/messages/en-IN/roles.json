@@ -1,1 +1,85 @@
-{}
+{
+  "title": "Roles",
+  "intro": "A role is a set of permissions. Each person has one role; changing a role changes what everyone with it may do.",
+  "add": "New role",
+  "loadFailed": "The roles didn't load.",
+  "columns": {
+    "name": "Role",
+    "members": "People",
+    "permissions": "Permissions"
+  },
+  "people": "{count, plural, =0 {Nobody} one {# person} other {# people}}",
+  "permissionCount": "{count, plural, =0 {No permissions} one {# permission} other {# permissions}}",
+  "everyPermission": "Every permission",
+  "ownerNote": "The Owner role always holds every permission, including ones added later. It can't be changed.",
+  "create": {
+    "title": "New role",
+    "description": "Name it, then choose what it may do.",
+    "name": "Name",
+    "nameHint": "For example: Senior sales.",
+    "nameRequired": "Give the role a name of up to 40 characters.",
+    "submit": "Create",
+    "submitting": "Creating"
+  },
+  "editor": {
+    "back": "All roles",
+    "name": "Name",
+    "permissions": "Permissions",
+    "permissionsHint": "View permissions also say whose records the role sees: only those assigned to the person, or all of them.",
+    "save": "Save",
+    "saving": "Saving",
+    "saved": "{name} was saved",
+    "notFound": "This role no longer exists.",
+    "scope": "Whose records",
+    "scopeOwn": "Only their own",
+    "scopeAll": "Everyone's"
+  },
+  "delete": {
+    "action": "Delete role",
+    "inUse": "{count, plural, one {# person has} other {# people have}} this role. Give them another role before deleting it.",
+    "title": "Delete {name}?",
+    "description": "Nobody has this role, and its name becomes free to use again.",
+    "confirm": "Delete",
+    "deleted": "{name} was deleted"
+  },
+  "modules": {
+    "staff": "Staff",
+    "roles": "Roles",
+    "settings": "Settings",
+    "audit": "Audit log",
+    "money": "Money",
+    "documents": "Traveller documents",
+    "leads": "Leads",
+    "quotes": "Quotes",
+    "bookings": "Bookings",
+    "departures": "Departures",
+    "suppliers": "Suppliers",
+    "accounts": "Accounts"
+  },
+  "permissions": {
+    "staff:manage": "Add, change and remove staff",
+    "roles:manage": "Create and change roles",
+    "settings:manage": "Change the organization's settings",
+    "audit:view": "See the audit log",
+    "money:view_margin": "See costs, margins and profit",
+    "documents:view_sensitive": "See passports, Aadhaar and other ID documents",
+    "leads:view": "See leads",
+    "leads:create": "Add leads",
+    "leads:edit": "Change leads",
+    "quotes:view": "See quotes",
+    "quotes:create": "Create quotes",
+    "quotes:edit": "Change quotes",
+    "bookings:view": "See bookings",
+    "bookings:create": "Create bookings",
+    "bookings:edit": "Change bookings",
+    "departures:view": "See departures",
+    "departures:create": "Create departures",
+    "departures:edit": "Change departures",
+    "suppliers:view": "See suppliers",
+    "suppliers:create": "Add suppliers",
+    "suppliers:edit": "Change suppliers",
+    "accounts:view": "See invoices, receipts and payments",
+    "accounts:create": "Create invoices, receipts and payments",
+    "accounts:edit": "Change invoices, receipts and payments"
+  }
+}
