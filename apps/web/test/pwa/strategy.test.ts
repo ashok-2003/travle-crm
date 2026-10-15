@@ -65,7 +65,7 @@ describe("cachesToDelete", () => {
     expect(cachesToDelete(["uploads", "drafts-v1", CACHE_NAMES.pages])).toEqual([]);
   });
 
-  it("names its caches with the prefixes sign-out looks for", () => {
+  it("names its caches with its own prefixes, the only caches it ever deletes", () => {
     expect(CACHE_NAMES.pages.startsWith(CACHE_PREFIXES.pages)).toBe(true);
     expect(CACHE_NAMES.static.startsWith(CACHE_PREFIXES.static)).toBe(true);
   });

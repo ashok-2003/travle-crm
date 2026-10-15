@@ -116,8 +116,13 @@ test("screens open offline by the app's links, opened before or not, with their 
   // As page loads, as when the app is opened again without a connection.
   await page.reload();
   await expect(main.getByText(agency.owner.name, { exact: true })).toBeVisible();
-  await page.goto("/roles");
+  // This page loaded offline, so the router could prefetch nothing: the link's fetch fails, Next loads the page
+  // itself (a new document, hence the load event), and the worker answers it from the kept shell.
+  const loaded = page.waitForEvent("load");
+  await navigation.getByRole("link", { name: "Roles" }).click();
+  await loaded;
   await expect(main.getByRole("link", { name: /Sales/ })).toBeVisible();
+  await expect(banner).toBeVisible();
   // A role's page renders per address, so it is never kept: offline it gives way to the roles list.
   await page.goto("/roles/sales");
   await expect(page).toHaveURL(/\/roles$/);

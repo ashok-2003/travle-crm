@@ -31,6 +31,11 @@ describe("installing", () => {
     for (const request of shellRequests) expect(request.credentials, request.url).toBe("omit");
   });
 
+  it("fetches each build file once, however many shells name it", async () => {
+    const worker = await installed();
+    expect(worker.requests.filter(({ url }) => url === at("/_next/static/chunks/a.js"))).toHaveLength(1);
+  });
+
   it("fails without the offline page, so the browser tries again on a later visit", async () => {
     const site = app();
     const worker = startWorker(await bundledWorker(), (url) =>
@@ -47,6 +52,18 @@ describe("files", () => {
     const event = worker.fetch("/_next/static/chunks/new.js");
     expect(await (await event.answer)?.text()).toBe("file /_next/static/chunks/new.js");
     await expect(event.settled()).resolves.toBeUndefined();
+  });
+
+  it("are kept by their address alone, never with the page's request, whose referrer can carry a token", async () => {
+    const worker = await installed();
+    // Firefox and WebKit keep a stored Request's referrer, here the reset page with its token.
+    const referrer = at("/reset-password?token=secret-token");
+    for (const path of ["/icons/favicon.svg", "/_next/static/chunks/reset.js"]) {
+      await worker.fetch(path, { referrer }).settled();
+      expect(worker.storage.contents()[STATIC], path).toContain(at(path));
+    }
+    const withToken = worker.storage.storedRequests().filter((request) => request.referrer?.includes("token="));
+    expect(withToken).toEqual([]);
   });
 
   it("ask the network first for icons, whose names stay when they change, and fall back to the kept copy", async () => {

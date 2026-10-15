@@ -1,8 +1,17 @@
 // The service worker, bundled into public/sw.js by scripts/service-worker.ts with the app's page list. It keeps an
 // offline shell: every static page (its shell), fetched by the worker itself without cookies, the build's files those
-// shells name, and the icons. A page load's own answer is never kept. strategy.ts decides how each request is
-// answered, shells.ts what may be kept.
-import { filesNamedIn, isKeepableFile, isKeepablePage, pageCacheKey, parentShellFor, shellsToKeep } from "./shells";
+// shells name, and the icons. A page load's own answer is never kept, and every entry is put and looked up by its
+// URL alone (shells.ts says why). strategy.ts decides how each request is answered, shells.ts what may be kept.
+import {
+  fileCacheKey,
+  filesNamedIn,
+  filesNamedInStylesheet,
+  isKeepableFile,
+  isKeepablePage,
+  pageCacheKey,
+  parentShellFor,
+  shellsToKeep,
+} from "./shells";
 import { CACHE_NAMES, cachesToDelete, NAVIGATION_TIMEOUT_MS, OFFLINE_PAGE, strategyFor } from "./strategy";
 
 declare const self: ServiceWorkerGlobalScope;
@@ -77,33 +86,35 @@ async function offlineAnswer(url: string): Promise<Response> {
 
 /** The build's files, kept until a new build's shells name others (refreshShells). */
 async function cacheFirst(event: FetchEvent): Promise<Response> {
-  const saved = await caches.match(event.request, { cacheName: CACHE_NAMES.static });
+  const key = fileCacheKey(event.request.url);
+  const saved = await caches.match(key, { cacheName: CACHE_NAMES.static });
   if (saved) return saved;
   const response = await fetch(event.request);
-  keepInBackground(event, response);
+  keepInBackground(event, key, response);
   return response;
 }
 
 /** The icons: from the network, so a changed icon shows; the kept copy offline. */
 async function networkFirst(event: FetchEvent): Promise<Response> {
+  const key = fileCacheKey(event.request.url);
   let response: Response;
   try {
     response = await fetch(event.request);
   } catch {
-    return (await caches.match(event.request, { cacheName: CACHE_NAMES.static })) ?? Response.error();
+    return (await caches.match(key, { cacheName: CACHE_NAMES.static })) ?? Response.error();
   }
-  keepInBackground(event, response);
+  keepInBackground(event, key, response);
   return response;
 }
 
 /** Keeps a copy without holding up the answer: a write that fails (storage full) leaves the answer as it was. */
-function keepInBackground(event: FetchEvent, response: Response): void {
+function keepInBackground(event: FetchEvent, key: string, response: Response): void {
   if (!isKeepableFile(response)) return;
   const copy = response.clone();
   event.waitUntil(
     caches
       .open(CACHE_NAMES.static)
-      .then((cache) => cache.put(event.request, copy))
+      .then((cache) => cache.put(key, copy))
       .catch(() => undefined),
   );
 }
@@ -125,10 +136,29 @@ async function refreshShells(): Promise<void> {
   const shells = await Promise.all(keys.map((key) => refreshShell(pages, key)));
   // A page no longer in the app leaves with its shell.
   await deleteAllBut(pages, new Set(keys));
-  const named = new Set(shells.flatMap(({ html }) => (html === null ? [] : filesNamedIn(html))).map(absolute));
-  // A changed shell means a new build: the files no shell names any more were the old build's.
-  if (shells.some(({ changed }) => changed)) await deleteAllBut(files, named);
-  await Promise.all([...named].map((file) => keepFile(files, file)));
+  // Shells share most of their files: each is fetched once.
+  const named = [
+    ...new Set(
+      shells
+        .flatMap(({ html }) => (html === null ? [] : filesNamedIn(html)))
+        .map((file) => fileCacheKey(absolute(file))),
+    ),
+  ];
+  await Promise.all(named.map((file) => keepFile(files, file)));
+  // A changed shell means a new build: the files neither its shells nor its stylesheets name were the old build's.
+  // Fonts the stylesheets name stay without being fetched ahead (some 1.5 MB): a page loads one when it shows that
+  // script.
+  if (shells.some(({ changed }) => changed)) {
+    const fonts = await Promise.all(named.map((file) => fontsNamedBy(files, file)));
+    await deleteAllBut(files, new Set([...named, ...fonts.flat()]));
+  }
+}
+
+/** The fonts a kept stylesheet names; nothing for any other file. */
+async function fontsNamedBy(files: Cache, url: string): Promise<string[]> {
+  if (!new URL(url).pathname.endsWith(".css")) return [];
+  const css = await (await files.match(url))?.text();
+  return css === undefined ? [] : filesNamedInStylesheet(css, url);
 }
 
 /**

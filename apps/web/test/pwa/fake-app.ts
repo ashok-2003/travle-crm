@@ -1,5 +1,6 @@
 // The app as Next.js serves it, for the service worker's tests (worker-sandbox.ts runs the worker): static pages
-// naming one build's files, a role's page rendered per request, the api behind /api in any case (the rewrite ignores
+// naming one build's script and stylesheet (which names fonts, two shared by every build), a role's page rendered per
+// request, the api behind /api in any case (the rewrite ignores
 // case). Also the worker as it ships, bundled once, and ways to install it and load a page through it.
 import { bundleServiceWorker } from "../../scripts/service-worker";
 import { CACHE_NAMES } from "@/service-worker/strategy";
@@ -25,8 +26,13 @@ export function app(build = "a"): SiteAnswer {
         headers: { "content-type": "application/json" },
       });
     }
+    if (path.endsWith(".css")) {
+      const fonts = ["devanagari", "tamil", `only-${build}`];
+      return answer(fonts.map((font) => `@font-face{src:url("../media/${font}.woff2")}`).join(""));
+    }
     if (path.startsWith("/_next/static/") || path.startsWith("/icons/")) return answer(`file ${path}`);
-    const page = `<html><body>${path} of build ${build}<script src="/_next/static/chunks/${build}.js" async=""></script></body></html>`;
+    const files = `<link rel="stylesheet" href="/_next/static/chunks/${build}.css"/><script src="/_next/static/chunks/${build}.js" async=""></script>`;
+    const page = `<html><body>${path} of build ${build}${files}</body></html>`;
     if (path.startsWith("/roles/")) {
       return answer(page, {
         headers: { "content-type": "text/html", "cache-control": "private, no-cache, no-store, max-age=0" },

@@ -14,7 +14,7 @@ export interface RequestFacts {
   mode: string;
 }
 
-/** Every cache the worker makes starts with one of these; it deletes no others. Signing out deletes "pages-" ones. */
+/** Every cache the worker makes starts with one of these; it deletes no others. */
 export const CACHE_PREFIXES = { pages: "pages-", static: "static-" } as const;
 
 /** Bump a version when a cache's content changes shape: activation then drops the old one. v2: pages keyed by path. */

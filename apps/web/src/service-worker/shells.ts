@@ -24,6 +24,14 @@ export function pageCacheKey(url: string): string {
   return origin + pathname;
 }
 
+/** The key a file is kept under: its address as a string, never the page's Request, which Cache Storage would keep
+ * with its referrer (Firefox and WebKit do), and that can be a page whose query holds a token. The query stays: it
+ * can name a deployment. */
+export function fileCacheKey(url: string): string {
+  const { origin, pathname, search } = new URL(url);
+  return origin + pathname + search;
+}
+
 export interface ResponseFacts {
   /** "basic" for an answer from the app's own origin. */
   type: string;
@@ -64,6 +72,19 @@ const LEGACY_SCRIPT = /<script\b[^>]*\bnomodule\b[^>]*>/gi;
 export function filesNamedIn(html: string): string[] {
   const legacy = new Set([...html.matchAll(LEGACY_SCRIPT)].flatMap(([tag]) => tag.match(NAMED_FILE) ?? []));
   return [...new Set(html.match(NAMED_FILE) ?? [])].filter((file) => !legacy.has(file));
+}
+
+const STYLESHEET_URL = /url\(\s*(["']?)([^"')]+)\1\s*\)/g;
+
+/** The app's own files a stylesheet names (its fonts), as keys: its url()s are relative to the stylesheet. A page
+ * loads a script's font only when it shows that script, so a shell's HTML never names those. */
+export function filesNamedInStylesheet(css: string, stylesheetUrl: string): string[] {
+  const { origin } = new URL(stylesheetUrl);
+  const files = [...css.matchAll(STYLESHEET_URL)]
+    .map(([, , path]) => new URL(path ?? "", stylesheetUrl))
+    .filter((url) => url.origin === origin)
+    .map((url) => fileCacheKey(url.href));
+  return [...new Set(files)];
 }
 
 /**

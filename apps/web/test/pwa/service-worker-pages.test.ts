@@ -49,6 +49,19 @@ describe("page loads online", () => {
     expect(worker.requests.filter((request) => request.url === at("/settings")).at(-1)?.cache).toBe("no-cache");
   });
 
+  it("keep the fonts the new build's stylesheet names, without fetching ahead those never used", async () => {
+    const worker = await installed(app("a"));
+    for (const font of ["devanagari", "only-a"]) await worker.fetch(`/_next/static/media/${font}.woff2`).settled();
+    worker.site = app("b");
+    await pageLoad(worker, "/");
+    const kept = worker.storage.contents()[STATIC];
+    // A page loads a script's font only when it shows that script: the new build hasn't asked for it yet.
+    expect(kept).toContain(at("/_next/static/media/devanagari.woff2"));
+    expect(kept).not.toContain(at("/_next/static/media/only-a.woff2"));
+    expect(kept).toContain(at("/_next/static/chunks/b.css"));
+    expect(worker.requests.some(({ url }) => url.endsWith("/tamil.woff2"))).toBe(false);
+  });
+
   it("keep a shell the server failed to give again, as during a deploy", async () => {
     const worker = await installed();
     const site = app();

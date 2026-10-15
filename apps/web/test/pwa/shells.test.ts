@@ -3,7 +3,9 @@
 // token travels in one).
 import { describe, expect, it } from "vitest";
 import {
+  fileCacheKey,
   filesNamedIn,
+  filesNamedInStylesheet,
   isKeepableFile,
   isKeepablePage,
   pageCacheKey,
@@ -51,6 +53,14 @@ describe("pageCacheKey", () => {
       "https://app.example.in/reset-password",
     );
     expect(pageCacheKey("https://app.example.in/sign-in?next=%2Fstaff")).toBe("https://app.example.in/sign-in");
+  });
+});
+
+describe("fileCacheKey", () => {
+  it("keys a file by its address, query kept (it can name a deployment), fragment dropped", () => {
+    expect(fileCacheKey("https://app.example.in/_next/static/chunks/a.js?dpl=7#x")).toBe(
+      "https://app.example.in/_next/static/chunks/a.js?dpl=7",
+    );
   });
 });
 
@@ -125,6 +135,29 @@ describe("filesNamedIn", () => {
 
   it("skips legacy scripts, which a browser with service workers never runs", () => {
     expect(filesNamedIn('<script src="/_next/static/chunks/polyfills.js" noModule=""></script>')).toEqual([]);
+  });
+});
+
+describe("filesNamedInStylesheet", () => {
+  const stylesheet = "https://app.example.in/_next/static/chunks/app.css";
+
+  it("lists the fonts a stylesheet names, its url()s read against the stylesheet's address", () => {
+    const css = [
+      '@font-face{src:url("../media/devanagari.woff2") format("woff2")}',
+      "@font-face{src:url('../media/tamil.woff2')}",
+      "@font-face{src:url(/_next/static/media/figtree.woff2)}",
+      '@font-face{src:url("../media/devanagari.woff2")}',
+    ].join("");
+    expect(filesNamedInStylesheet(css, stylesheet)).toEqual([
+      "https://app.example.in/_next/static/media/devanagari.woff2",
+      "https://app.example.in/_next/static/media/tamil.woff2",
+      "https://app.example.in/_next/static/media/figtree.woff2",
+    ]);
+  });
+
+  it("skips inline data and other sites' files", () => {
+    const css = "a{background:url(data:image/svg+xml;utf8,<svg/>)}@font-face{src:url(https://fonts.example/x.woff2)}";
+    expect(filesNamedInStylesheet(css, stylesheet)).toEqual([]);
   });
 });
 
