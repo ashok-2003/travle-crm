@@ -39,20 +39,40 @@ async function bodyOf(response: Response): Promise<Record<string, unknown>> {
   }
 }
 
+/** How long signing out waits for the api: the device is already wiped, and a sign-out not heard is owed instead. */
+export const SIGN_OUT_TIMEOUT = 5_000;
+
 export function createAuthClient(fetchImplementation: Fetch = (...arguments_) => fetch(...arguments_)) {
-  async function post<T>(path: string, body: unknown, read: (body: Record<string, unknown>) => T) {
+  async function post<T>(
+    path: string,
+    body: unknown,
+    read: (body: Record<string, unknown>) => T,
+    { timeout }: { timeout?: number } = {},
+  ) {
+    // A timer rather than AbortSignal.timeout, so tests can move the clock.
+    const giveUp = new AbortController();
+    const timer =
+      timeout === undefined
+        ? undefined
+        : setTimeout(() => {
+            giveUp.abort();
+          }, timeout);
     let response: Response;
+    let json: Record<string, unknown>;
     try {
       response = await fetchImplementation(`/api/auth${path}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
         credentials: "same-origin",
+        signal: giveUp.signal,
       });
+      json = await bodyOf(response);
     } catch {
       return { ok: false, status: 0, code: "NETWORK", retryAfterSeconds: null } satisfies AuthResult<T>;
+    } finally {
+      clearTimeout(timer);
     }
-    const json = await bodyOf(response);
     if (response.ok) return { ok: true, data: read(json) } satisfies AuthResult<T>;
     const retryAfter = Number(response.headers.get("x-retry-after") ?? response.headers.get("retry-after"));
     return {
@@ -92,7 +112,8 @@ export function createAuthClient(fetchImplementation: Fetch = (...arguments_) =>
     requestPasswordReset: (input: { email: string; redirectTo: string }) =>
       post("/request-password-reset", input, nothing),
     resetPassword: (input: { token: string; newPassword: string }) => post("/reset-password", input, nothing),
-    signOut: () => post("/sign-out", {}, nothing),
+    /** Gives up after SIGN_OUT_TIMEOUT, answering as if the api couldn't be reached. */
+    signOut: () => post("/sign-out", {}, nothing, { timeout: SIGN_OUT_TIMEOUT }),
   };
 }
 

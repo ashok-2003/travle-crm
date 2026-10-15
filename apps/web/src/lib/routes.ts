@@ -13,14 +13,20 @@ export const routes = {
   staff: "/staff",
   roles: "/roles",
   settings: "/settings",
+  /** The service worker's fallback for a page never opened before (src/service-worker/strategy.ts). */
+  offline: "/offline",
 } as const;
 
-/** Screens for people who aren't signed in. A refused call never sends anyone away from these. */
+/**
+ * Screens that need no one signed in. Nothing sends anyone away from these, neither a refused call nor another tab
+ * signing out: the person may be typing, or reading "Your password is changed".
+ */
 const publicRoutes: readonly string[] = [
   routes.signIn,
   routes.twoFactorChallenge,
   routes.forgotPassword,
   routes.resetPassword,
+  routes.offline,
 ];
 
 export function isPublicRoute(path: string): boolean {
@@ -32,12 +38,47 @@ export function pendingStepRoute(step: PendingStep): string {
   return step === "CHANGE_PASSWORD" ? routes.changePassword : routes.twoFactorSetup;
 }
 
-/** The sign-in address that brings the person back to `from` (a path in this app) afterwards. */
+/** The sign-in address that brings the person back to `from` (a path in this app, with its query) afterwards. */
 export function signInRoute(from?: string): string {
   return from && isAppPath(from) ? `${routes.signIn}?next=${encodeURIComponent(from)}` : routes.signIn;
 }
 
-/** A path inside this app ("/staff"), never another site ("//evil.example", "https://..."). */
+/** Any origin of our own would do: a path is checked by whether resolving it against this one stays on it. */
+const BASE = "https://app.invalid";
+
+/** One slash, then something other than a slash or a backslash (which browsers read as a slash). */
+const ONE_LEADING_SLASH = /^\/(?![/\\])/;
+
+/** Whitespace or a backslash anywhere: the URL parser drops tabs and newlines, so "/\t/x" becomes "//x". */
+const WHITESPACE_OR_BACKSLASH = /[\s\\]/;
+
+/** C0 and C1 control characters and DEL, tested by code so the check needs no control characters of its own. */
+function hasControlCharacter(text: string): boolean {
+  for (let index = 0; index < text.length; index += 1) {
+    const code = text.charCodeAt(index);
+    if (code < 0x20 || (code >= 0x7f && code <= 0x9f)) return true;
+  }
+  return false;
+}
+
+function looksLikeAppPath(text: string): boolean {
+  return ONE_LEADING_SLASH.test(text) && !WHITESPACE_OR_BACKSLASH.test(text) && !hasControlCharacter(text);
+}
+
+/**
+ * A page of this app ("/staff?role=sales"), never another site ("//evil.example", "/\t/evil.example") or the api
+ * ("/API/auth/..."), for following ?next= after signing in. The path must look like a path both as written and with
+ * its escapes decoded ("/%5Cevil"), and must resolve to our own origin, as the browser will resolve it.
+ */
 export function isAppPath(path: string): boolean {
-  return path.startsWith("/") && !path.startsWith("//") && !path.startsWith("/\\");
+  if (!looksLikeAppPath(path)) return false;
+  let url: URL;
+  let pathname: string;
+  try {
+    url = new URL(path, BASE);
+    pathname = decodeURIComponent(url.pathname);
+  } catch {
+    return false; // a malformed escape such as "/%E0"
+  }
+  return url.origin === BASE && looksLikeAppPath(pathname) && !pathname.toLowerCase().startsWith("/api");
 }

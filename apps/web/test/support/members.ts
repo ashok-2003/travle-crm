@@ -1,22 +1,35 @@
-// me.get answers for tests: an Owner, and a member of a role with the given permissions.
+// me.get answers for tests: an Owner, and a member of a role with the given permissions, optionally another person,
+// in another organization, or with support impersonating them.
 import type { SignedInMember } from "@/session/me-context";
 
 export function member({
   isOwner = false,
   permissions = [],
-}: { isOwner?: boolean; permissions?: string[] } = {}): SignedInMember {
+  name = "Asha",
+  userId = "0199a000-0000-7000-8000-000000000001",
+  organizationId = "0199a000-0000-7000-8000-000000000002",
+  impersonatedBy = null,
+}: {
+  isOwner?: boolean;
+  permissions?: string[];
+  name?: string;
+  userId?: string;
+  organizationId?: string;
+  /** The platform admin's user id while support is signed in as this member. */
+  impersonatedBy?: string | null;
+} = {}): SignedInMember {
   return {
     user: {
-      id: "0199a000-0000-7000-8000-000000000001",
-      name: "Asha",
+      id: userId,
+      name,
       email: null,
-      username: "asha",
+      username: name.toLowerCase(),
       twoFactorEnabled: false,
     },
-    impersonatedBy: null,
+    impersonatedBy,
     isPlatformAdmin: false,
     organization: {
-      id: "0199a000-0000-7000-8000-000000000002",
+      id: organizationId,
       name: "Sharma Travels",
       code: "SHARMA",
       requireTwoFactor: false,

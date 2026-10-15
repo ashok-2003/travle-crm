@@ -15,29 +15,38 @@ function wrapper({ children }: { children: ReactNode }) {
   );
 }
 
-describe("useErrorMessage", () => {
-  const { result } = renderHook(() => useErrorMessage(), { wrapper });
+const errorMessage = () => renderHook(() => useErrorMessage(), { wrapper }).result.current;
 
+const failure = (status: number, code: string) => ({ ok: false, status, code, retryAfterSeconds: null }) as const;
+
+describe("useErrorMessage", () => {
   it("uses the domain reason's message", () => {
-    expect(result.current.apiError(refusal(409, "ROLE_IN_USE"))).toBe(messages.errors.reasons.ROLE_IN_USE);
+    expect(errorMessage().apiError(refusal(409, "ROLE_IN_USE"))).toBe(messages.errors.reasons.ROLE_IN_USE);
   });
 
   it("falls back to the status, and to the network message when nothing answered", () => {
-    expect(result.current.apiError(refusal(403, "SOMETHING_NEW"))).toBe(messages.errors.forbidden);
-    expect(result.current.apiError(refusal(500))).toBe(messages.errors.generic);
-    expect(result.current.apiError(unanswered())).toBe(messages.errors.network);
+    const { apiError } = errorMessage();
+    expect(apiError(refusal(403, "SOMETHING_NEW"))).toBe(messages.errors.forbidden);
+    expect(apiError(refusal(500))).toBe(messages.errors.generic);
+    expect(apiError(unanswered())).toBe(messages.errors.network);
   });
 
   it("explains sign-in failures by their code", () => {
-    const wrongPassword = {
-      ok: false,
-      status: 401,
-      code: "INVALID_EMAIL_OR_PASSWORD",
-      retryAfterSeconds: null,
-    } as const;
-    expect(result.current.authError(wrongPassword)).toBe(messages.errors.auth.INVALID_EMAIL_OR_PASSWORD);
-    expect(result.current.authError({ ...wrongPassword, status: 429, code: "TOO_MANY_REQUESTS" })).toBe(
-      messages.errors.tooManyRequests,
-    );
+    const { authError } = errorMessage();
+    expect(authError(failure(401, "INVALID_EMAIL_OR_PASSWORD"))).toBe(messages.errors.auth.INVALID_EMAIL_OR_PASSWORD);
+    expect(authError(failure(429, "TOO_MANY_REQUESTS"))).toBe(messages.errors.tooManyRequests);
+  });
+
+  it("gives Better Auth's lockout, two-factor and reset-address codes their own sentences", () => {
+    const { authError } = errorMessage();
+    const statusOnly = [messages.errors.tooManyRequests, messages.errors.invalid, messages.errors.forbidden];
+    for (const [status, code] of [
+      [429, "ACCOUNT_TEMPORARILY_LOCKED"],
+      [400, "TOTP_ALREADY_ENABLED"],
+      [403, "INVALID_REDIRECT_URL"],
+    ] as const) {
+      expect(statusOnly, code).not.toContain(authError(failure(status, code)));
+    }
+    expect(authError(failure(429, "ACCOUNT_TEMPORARILY_LOCKED"))).toMatch(/15 minutes/);
   });
 });

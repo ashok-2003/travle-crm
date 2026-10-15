@@ -66,6 +66,24 @@ describe("authClient", () => {
     expect(limited).toEqual({ ok: false, status: 429, code: "TOO_MANY_REQUESTS", retryAfterSeconds: 42 });
   });
 
+  it("gives up on signing out after 5 seconds, as if the api couldn't be reached", async () => {
+    vi.useFakeTimers();
+    const stalled = vi.fn<typeof fetch>(
+      (_url, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            reject(new DOMException("The operation was aborted.", "AbortError"));
+          });
+        }),
+    );
+    const signingOut = createAuthClient(stalled).signOut();
+    await vi.advanceTimersByTimeAsync(4_999);
+    expect(stalled.mock.calls[0]?.[1]?.signal?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await signingOut).toEqual({ ok: false, status: 0, code: "NETWORK", retryAfterSeconds: null });
+    vi.useRealTimers();
+  });
+
   it("reports an unreachable api as a network failure", async () => {
     const offline = vi.fn<typeof fetch>(() => Promise.reject(new TypeError("Failed to fetch")));
     expect(await createAuthClient(offline).signOut()).toEqual({

@@ -60,12 +60,17 @@ export function BottomBar() {
           </SheetHeader>
           <div className="flex flex-col gap-1 px-4 pb-4">
             {[
-              ...inMore.map((item) => ({ key: item.key, href: item.href, icon: item.icon })),
-              { key: "account" as const, href: routes.account, icon: UserIcon },
-            ].map((entry) => (
+              ...inMore.map((item) => ({ key: item.key, href: item.href, icon: item.icon, destination: item.key })),
+              { key: "account" as const, href: routes.account, icon: UserIcon, destination: null },
+            ].map(({ destination, ...entry }) => (
               <Link
                 key={entry.key}
                 href={entry.href}
+                {...(destination === null
+                  ? {}
+                  : prefetchHandlers(() => {
+                      prefetch(destination);
+                    }))}
                 onClick={() => {
                   setMoreOpen(false);
                 }}

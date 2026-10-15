@@ -1,32 +1,28 @@
 // The app shell: a signed-in member lands in their organization with the navigation their role allows, every page
-// carries the security headers, and signing out leaves no organization data on the device.
-import { expectAccessible } from "./support/accessibility";
-import { expect, signInByEmail, test } from "./support/fixtures";
+// carries the security headers, and signing out leaves no organization data on the device, offline too. Each
+// journey's last screen also gets the automatic accessibility check (support/accessible-after-each.ts).
+import type { Page, TestInfo } from "@playwright/test";
+import { expect, signInByCode, signInByEmail, test } from "./support/fixtures";
+
+const isPhone = (testInfo: TestInfo) => testInfo.project.name === "phone";
 
 test("an Owner sees their organization and every destination", async ({ page, agency }, testInfo) => {
   await signInByEmail(page, agency.owner);
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1, name: `Welcome, ${agency.owner.name}` })).toBeVisible();
   const navigation = page.getByRole("navigation", { name: "Main" }).filter({ visible: true });
-  for (const destination of testInfo.project.name === "phone"
+  for (const destination of isPhone(testInfo)
     ? ["Home", "Staff", "Roles", "Settings", "More"]
     : ["Home", "Staff", "Roles", "Settings"]) {
     await expect(
-      navigation.getByRole(testInfo.project.name === "phone" && destination === "More" ? "button" : "link", {
-        name: destination,
-      }),
+      navigation.getByRole(isPhone(testInfo) && destination === "More" ? "button" : "link", { name: destination }),
     ).toBeVisible();
   }
-  await expectAccessible(page);
 });
 
 test("a salesperson sees only what their role allows", async ({ page, addStaff, agency }) => {
   const ravi = await addStaff({ name: "Ravi Kumar", username: "ravi", roleKey: "sales" });
-  const response = await page.request.post("/api/auth/sign-in/org", {
-    data: { orgCode: agency.code, username: ravi.username, password: ravi.password },
-    headers: { origin: process.env.E2E_BASE_URL ?? "" },
-  });
-  expect(response.ok()).toBe(true);
+  await signInByCode(page, { code: agency.code, staff: ravi });
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1, name: "Welcome, Ravi Kumar" })).toBeVisible();
   const navigation = page.getByRole("navigation", { name: "Main" }).filter({ visible: true });
@@ -35,8 +31,19 @@ test("a salesperson sees only what their role allows", async ({ page, addStaff, 
   await expect(page.getByText("Your organization's admins set things up.")).toBeVisible();
 });
 
+test("the phone's More sheet holds the account and sign-out", async ({ page, agency }, testInfo) => {
+  test.skip(!isPhone(testInfo), "the More sheet is the phone's; desktops show the sidebar");
+  await signInByEmail(page, agency.owner);
+  await page.goto("/");
+  await page.getByRole("button", { name: "More" }).click();
+  const sheet = page.getByRole("dialog", { name: agency.name });
+  await expect(sheet.getByRole("link", { name: "Your account" })).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Sign out" })).toBeVisible();
+  // The journey ends with the sheet open, so the accessibility check judges it.
+});
+
 test("pointing at a destination loads its data before it opens", async ({ page, agency }, testInfo) => {
-  test.skip(testInfo.project.name === "phone", "phones have no pointer; touching the link does the same");
+  test.skip(isPhone(testInfo), "phones have no pointer; touching the link does the same");
   await signInByEmail(page, agency.owner);
   await page.goto("/");
   const staffList = page.waitForRequest((request) => request.url().includes("/api/trpc/staff.list"));
@@ -44,12 +51,18 @@ test("pointing at a destination loads its data before it opens", async ({ page, 
   await staffList;
 });
 
-test("pages carry the security headers", async ({ page }) => {
+test("pages carry the security headers, and the token pages send only their origin as referrer", async ({ page }) => {
   const response = await page.goto("/");
   const headers = response?.headers() ?? {};
   expect(headers["content-security-policy"]).toContain("frame-ancestors 'none'");
+  expect(headers["content-security-policy"]).toContain("upgrade-insecure-requests");
   expect(headers["x-content-type-options"]).toBe("nosniff");
+  expect(headers["referrer-policy"]).toBe("strict-origin-when-cross-origin");
   expect(headers["x-powered-by"]).toBeUndefined();
+  for (const address of ["/reset-password?token=abc", "/sign-in/two-factor", "/two-factor-setup"]) {
+    const answer = await page.request.get(address, { maxRedirects: 0 });
+    expect(answer.headers()["referrer-policy"], address).toBe("strict-origin");
+  }
 });
 
 test("a signed-out visitor is sent to sign in", async ({ page }) => {
@@ -57,18 +70,43 @@ test("a signed-out visitor is sent to sign in", async ({ page }) => {
   await expect(page).toHaveURL(/\/sign-in\?next=%2F$/);
 });
 
+async function signOutFrom(page: Page, testInfo: TestInfo): Promise<void> {
+  if (isPhone(testInfo)) await page.getByRole("button", { name: "More" }).click();
+  await page.getByRole("button", { name: "Sign out" }).filter({ visible: true }).click();
+}
+
 test("signing out wipes the saved data and ends the session", async ({ page, agency }, testInfo) => {
   await signInByEmail(page, agency.owner);
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   // The query cache saves itself to IndexedDB within a second of changing.
   await expect.poll(() => page.evaluate(savedQueries)).toBeGreaterThan(0);
-  if (testInfo.project.name === "phone") await page.getByRole("button", { name: "More" }).click();
-  await page.getByRole("button", { name: "Sign out" }).filter({ visible: true }).click();
+  await signOutFrom(page, testInfo);
   await expect(page).toHaveURL(/\/sign-in$/);
   expect(await page.evaluate(savedQueries)).toBe(0);
   const me = await page.request.get("/api/trpc/me.get");
   expect(me.status()).toBe(401);
+});
+
+test("signing out offline wipes at once, and the next page online ends the session first", async ({
+  page,
+  context,
+  agency,
+}, testInfo) => {
+  await signInByEmail(page, agency.owner);
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect.poll(() => page.evaluate(savedQueries)).toBeGreaterThan(0);
+  await context.setOffline(true);
+  const leaving = page.waitForRequest((request) => request.isNavigationRequest() && request.url().endsWith("/sign-in"));
+  await signOutFrom(page, testInfo);
+  await leaving;
+  await context.setOffline(false);
+  await page.goto("/");
+  // The owed sign-out reached the api before anything asked who is signed in, so the session is gone.
+  await expect(page).toHaveURL(/\/sign-in\?next=%2F$/);
+  expect(await page.evaluate(savedQueries)).toBe(0);
+  expect((await page.request.get("/api/trpc/me.get")).status()).toBe(401);
 });
 
 /** How many saved query-cache entries IndexedDB holds (runs in the page). */

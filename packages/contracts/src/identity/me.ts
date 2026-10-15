@@ -1,5 +1,6 @@
 // Output of me.get: who is signed in, their organization and permissions, and anything they must do first.
 import { z } from "zod";
+import { timeZoneName } from "../kernel/time.js";
 import { permissionGrant } from "./roles.js";
 import { recordId, shownEmailAddress } from "./fields.js";
 
@@ -25,8 +26,11 @@ export const meOutput = z.object({
       name: z.string(),
       code: z.string(),
       requireTwoFactor: z.boolean(),
-      /** An IANA zone such as "Asia/Kolkata": the web app shows dates and times in it (spec 9.6). */
-      timeZone: z.string(),
+      /**
+       * An IANA zone such as "Asia/Kolkata": the web app shows dates and times in it (spec 9.6). A stored zone Intl
+       * doesn't know fails the answer here, rather than every date format on every screen.
+       */
+      timeZone: timeZoneName,
     })
     .nullable(),
   member: z
