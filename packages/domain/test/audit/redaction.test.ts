@@ -96,4 +96,26 @@ describe("the audit log in erasure", () => {
     expect(await db.forOrg(organizationId, (tx) => auditEntriesSince(tx, new Date(Date.now() - 60_000)))).toBe(106);
     expect(await db.forOrg(organizationId, (tx) => auditEntriesSince(tx, new Date(Date.now() + 60_000)))).toBe(0);
   });
+
+  it("reads only the record's own organization, even where every organization is visible", async () => {
+    const elsewhere = await createTestOrganization(platform, "Audit elsewhere");
+    await db.forOrg(elsewhere, (tx) =>
+      recordAudit(
+        tx,
+        { ...owner, organizationId: elsewhere },
+        {
+          action: "traveller.updated",
+          entityType: "traveller",
+          entityId: traveller,
+          after: { phone: "+919800000000" },
+        },
+      ),
+    );
+    const record = { organizationId, entityType: "traveller", entityId: traveller };
+    // A bare platform transaction sees every organization: row-level security limits nothing there.
+    expect(await platformDb.transaction((tx) => auditEntriesAbout(tx, record))).toHaveLength(105);
+    expect(await db.forOrg(elsewhere, (tx) => auditEntriesAbout(tx, record))).toEqual([]);
+    // A counter has no organization to filter by: it refuses the platform role.
+    await expect(platformDb.transaction((tx) => auditEntriesSince(tx, new Date(0)))).rejects.toThrow(RangeError);
+  });
 });

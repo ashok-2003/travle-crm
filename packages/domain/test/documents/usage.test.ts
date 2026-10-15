@@ -27,4 +27,8 @@ describe("documents issued", () => {
       0,
     );
   });
+
+  it("refuses to count as the platform role, which would count every organization's", async () => {
+    await expect(test.platform.$transaction((tx) => documentsIssuedSince(tx, new Date(0)))).rejects.toThrow(RangeError);
+  });
 });
