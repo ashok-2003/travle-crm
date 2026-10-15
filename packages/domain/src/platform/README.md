@@ -89,9 +89,11 @@ None.
   belongs to one organization (module code written for `db.forOrg()`) runs inside `asOrganization(tx, orgId, …)`,
   as `app_runtime` under row-level security, in the same transaction.
 - A change a platform admin makes inside an organization is recorded in that organization's audit log as
-  `platformActor(organizationId, adminUserId)` (source `platform`), so its staff see it too; subscription changes are
-  recorded only there (ADR 0020). Onboarding, corrections, exports, purges and erasures also go in the platform log,
-  and so do changes that belong to no organization (plans, the policy, jobs).
+  `platformActor(organizationId, adminUserId)` (source `platform`), so its staff see it too. Subscription changes are
+  recorded there; support's billing changes (time given, a voided payment, a plan change, a cancellation) also go in
+  the platform log, by ids, days and amounts, never a reason's words, so a super admin can review them (ADR 0020).
+  Onboarding, corrections, exports, purges and erasures also go in the platform log, and so do changes that belong
+  to no organization (plans, the policy, jobs).
 - The platform log is append-only even for the platform role, and the api and worker have no rights on it. Its entries
   hold ids and small facts, never secrets or personal data, so they can outlive the organization they name.
 - An export is the platform's, not the organization's: `platform_export` has no `organization_id` and its parts are
