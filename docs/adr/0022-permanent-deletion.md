@@ -72,11 +72,20 @@ super-admin action in the platform console")
   `organization.purged` or `subject.erased` in the platform log under the super admin who asked; an erasure also
   records `subject.erased`, without personal data, in the organization's own log.
 - **The purge job checks everything again,** under the subscription's lock, which every subscription change takes: the
-  organization is still cancelled, and its export is less than a day old when the job runs. Otherwise it keeps the
-  organization and records `organization.purge-skipped` with the reason (`not-cancelled` with the status, or
-  `no-recent-export`); a super admin asks again, which checks everything again. A payment recorded during a purge
-  waits for it, then finds the organization gone. The nightly demo reset purges its own active demo with none of
-  these checks.
+  organization is cancelled by its lifecycle as of today (`entitlementsOf`, in its own time zone), and its export is
+  less than a day old when the job runs. Otherwise it keeps the organization and records `organization.purge-skipped`
+  with the reason (`not-cancelled` with the status, or `no-recent-export`); a super admin asks again, which checks
+  everything again. A payment recorded during a purge waits for it, then finds the organization gone. The nightly
+  demo reset purges its own active demo with none of these checks.
+- **The erasure job checks again too:** its organization still exists, and the subject's export is less than a day old
+  when the job runs. Otherwise nothing is erased, and `subject.erasure-skipped` gives the reason
+  (`organization-gone` or `no-recent-export`).
+- **Re-checks read on the platform transaction itself,** never inside an `asOrganization` step: a step sees only its
+  organization, so a check made there could find too little and let a deletion through.
+- **An erasure expires the organization's stored exports** (`expireOrganizationExports(tx, organizationId,
+"erasure")`, after its deletes, in its transaction): an export is kept for 7 days and would otherwise keep the erased
+  person. A purge leaves them: they live under `platform/exports/<organization>/`, outside the folder it sweeps, so
+  the agency can still take its data away, and they expire after their 7 days.
 - **Both jobs are safe to run again.** A purge of an organization already gone sweeps its folder again. An erasure
   job carries its request's id, recorded in its `subject.erased` entry: a run repeating a finished one (pg-boss runs a
   job at least once) changes and records nothing more, and only finishes the files.
@@ -100,4 +109,5 @@ super-admin action in the platform console")
 - A webhook event a handler never resolves to an organization can't be found by a purge; ADR 0013's retention sweep
   blanks it.
 - Later modules (CRM's travellers) add their own step to erasure, as these do, and their record type to the list.
+- A legal or deletion hold, keeping an organization or a person from deletion while one applies, is a later feature.
 - Deployment: the bucket must be unversioned, or expire noncurrent versions (ADR 0011): "for good" holds only then.
