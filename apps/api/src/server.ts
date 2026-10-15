@@ -3,30 +3,11 @@ import { serve } from "@hono/node-server";
 import { createApp } from "./app.js";
 import { loadEnvironment } from "./environment.js";
 import { clientAddressFrom } from "./rate-limit.js";
-import { createServices, type Services } from "./services.js";
+import { startedServices } from "./start-up.js";
+import { webhookProviders } from "./webhook-providers.js";
 
 const environment = loadEnvironment(process.env);
-
-/**
- * Builds and starts what the api runs on, or exits 1: a bucket the api can't use, a database pg-boss can't reach, or
- * adapters that can't be built (a VAPID private key that isn't the public key's) all end here, with one message.
- */
-async function startedServices(): Promise<Services> {
-  let services: Services | undefined;
-  try {
-    services = createServices(environment);
-    await services.start();
-    return services;
-  } catch (error) {
-    console.error("api start-up failed", error);
-    await services?.close().catch((closeError: unknown) => {
-      console.error("closing the pools after the failed start-up failed too", closeError);
-    });
-    process.exit(1);
-  }
-}
-
-const services = await startedServices();
+const services = await startedServices(environment, "api");
 
 const app = createApp({
   identity: services.identity,
@@ -38,7 +19,7 @@ const app = createApp({
     headerNames: environment.AUTH_IP_ADDRESS_HEADERS,
     trustedProxies: environment.AUTH_TRUSTED_PROXIES,
   }),
-  webhookProviders: [],
+  webhookProviders,
 });
 
 const server = serve({ fetch: app.fetch, port: environment.PORT }, (address) => {

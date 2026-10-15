@@ -14,6 +14,25 @@ The api: one Hono app on Node. Settings come from environment variables (`src/en
 | `GET /p/<token>`             | a share link (ADR 0013): an issued document's PDF; 30 requests a minute per address                   |
 | `POST /webhooks/<provider>`  | the webhook intake (ADR 0013): verify, store, 200, queue; 600 a minute per address                    |
 
+## The worker
+
+`pnpm --filter @travel-crm/api-server worker` starts the worker from the same code and image (spec 9.1). It needs the
+same environment as the api, connects as `app_runtime` too and opens no port. `src/worker-jobs.ts` lists what it runs:
+
+| Queue                                     | What it does                                                              |
+| ----------------------------------------- | ------------------------------------------------------------------------- |
+| `documents.render-pdf`                    | renders an issued document's PDF once and stores it (ADR 0012)            |
+| `notifications.deliver`                   | emails and pushes a notification, respecting opt-outs (ADR 0014)          |
+| `notifications.forget-push-subscriptions` | deletes a removed member's push subscriptions (`staff.removed`, ADR 0007) |
+| `share-links.notify-sharer`               | tells whoever shared a link that it was opened                            |
+| `webhooks.process`                        | hands a stored webhook to its provider, once (ADR 0013)                   |
+| `rate-limits.purge`                       | every day at 03:30 India time, deletes rate-limit windows over a day old  |
+
+It also relays the outbox every second. Problems go to one log, a line each, ids and codes only (`worker: ...` on
+stderr). Like the api, it refuses to start when the bucket can't be used. Stop it with SIGTERM: it stops relaying,
+lets running jobs finish (up to 30 seconds), closes its pools and exits 0. Run more copies to go faster: pg-boss gives
+each job to one of them.
+
 ## Environment
 
 | Variable                                   | Required | Default                 | Meaning                                                                                   |

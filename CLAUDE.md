@@ -7,15 +7,17 @@ The design is in `docs/superpowers/specs/`, the build plans in `docs/superpowers
 
 Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 
-| Command                                    | What it does                                             |
-| ------------------------------------------ | -------------------------------------------------------- |
-| `pnpm install`                             | install dependencies                                     |
-| `pnpm db:up` / `pnpm db:down`              | start / stop local Postgres (Docker)                     |
-| `pnpm db:migrate`                          | apply migrations to local Postgres                       |
-| `pnpm --filter @travel-crm/api-server dev` | run the api on http://localhost:3001 (reads `.env`)      |
-| `pnpm format`                              | format every file with Prettier                          |
-| `pnpm check`                               | everything CI runs: typecheck, lint, tests, import rules |
-| `pnpm --filter @travel-crm/<package> test` | one package's tests (most need Docker running)           |
+| Command                                       | What it does                                              |
+| --------------------------------------------- | --------------------------------------------------------- |
+| `pnpm install`                                | install dependencies                                      |
+| `pnpm db:up` / `pnpm db:down`                 | start / stop local Postgres (Docker)                      |
+| `pnpm services:up`                            | start Postgres, MinIO (files) and Mailpit (email) locally |
+| `pnpm db:migrate`                             | apply migrations to local Postgres                        |
+| `pnpm --filter @travel-crm/api-server dev`    | run the api on http://localhost:3001 (reads `.env`)       |
+| `pnpm --filter @travel-crm/api-server worker` | run the worker: outbox relay, listeners, jobs, schedules  |
+| `pnpm format`                                 | format every file with Prettier                           |
+| `pnpm check`                                  | everything CI runs: typecheck, lint, tests, import rules  |
+| `pnpm --filter @travel-crm/<package> test`    | one package's tests (most need Docker running)            |
 
 ## How we write code
 
@@ -100,12 +102,35 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - Whoever acts is an `Actor` (kernel): `MemberAccess` in requests, `systemActor(organizationId)` in the worker. Its
   `source` and `impersonatedBy` say whether support is impersonating the member.
 
+## Shared services (spec 9; ADRs 0008-0017)
+
+- **Events and jobs:** publish with `publishEvent(tx, …)`; react with a listener (`defineListener`) registered in
+  `apps/api/src/worker-jobs.ts`. Listeners run in the worker, at least once per event, in the event's organization: key
+  their database writes on the event id, and make work outside the database safe to repeat. Scheduled jobs go in the
+  same file, with a cron and a time zone.
+- **Files:** `createFiles(...)` (`@travel-crm/domain/files`): presigned uploads and downloads, attachments on any
+  record (every call names the record), `documents:view_sensitive` for sensitive files. Never stream file bytes
+  through the api.
+- **PDFs:** `issueDocument(tx, …)` numbers and freezes a document in the organization's time zone; the worker renders it
+  once (`documents.render-pdf`).
+- **Notifications:** `notify(tx, actor, …)` is the one way to tell people something (bell, email, push; opt-outs apply).
+  A listener passes `sourceEventId`, so a repeat adds nothing.
+- **Audit:** `recordAudit(tx, actor, …)` in the same transaction as the change, for every change staff make.
+- **Money and time:** `Money` in integer paise, `indiaGst` for tax, `formatMoney` (₹12,50,000.00), times in UTC shown in
+  the organization's zone (`formatDateTime`), departure dates as `CalendarDate`. Never floats, never local time.
+- **Public routes** (`/p/<token>`, `/webhooks/<provider>`) are rate-limited; a new shared record type adds a resolver in
+  `apps/api/src/share-link-resolvers.ts`, a new provider goes in `apps/api/src/webhook-providers.ts`.
+- **Job data and errors** hold ids, never personal data: pg-boss's tables have no row-level security, and a failed
+  job's error is shown to platform staff.
+
 ## Repo map
 
-- `apps/api`: the Hono server. Health check, Better Auth at `/api/auth/*`, organization-code sign-in, tRPC at `/api/trpc`.
+- `apps/api`: the Hono server (health check, Better Auth at `/api/auth/*`, organization-code sign-in, tRPC at
+  `/api/trpc`, share links at `/p`, webhooks at `/webhooks`) and, from the same image, the `worker` command.
 - `packages/api`: tRPC routers and the procedure builders that run the request checks.
 - `packages/contracts`: Zod schemas for every API input and output.
-- `packages/domain`: business rules, one folder per module (`identity`, `kernel`).
+- `packages/domain`: business rules, one folder per module (`identity`, `kernel`, `jobs`, `files`, `documents`,
+  `notifications`, `audit`, `share-links`, `webhooks`, `rate-limits`; listed in `packages/domain/README.md`).
   `@travel-crm/domain/<module>`, `@travel-crm/contracts/<module>` and `@travel-crm/integrations/<adapter>` each resolve
   to `src/<name>/index.ts`, so a new module needs no `package.json` change.
 - `packages/integrations`: adapters to the outside world, each a port plus a real and an in-memory adapter.

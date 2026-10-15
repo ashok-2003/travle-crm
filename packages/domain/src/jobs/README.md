@@ -32,7 +32,8 @@ Domain events and the work the worker does after a change commits (spec 9.1).
 
 1. Define it with `defineListener({ name: "<module>.<what it does>", eventType, payload: <Zod schema>, handle })`,
    in the module that reacts. Its name is its job queue: lower case, dots between parts, unique.
-2. Pass it to `startWorker`'s `listeners` in the api's `worker` command. The relay queues its jobs from then on.
+2. Add it to the `listeners` in `apps/api/src/worker-jobs.ts`, which the api's `worker` command passes to
+   `startWorker`. The relay queues its jobs from then on.
 3. Make it safe to run twice. Its database writes go through `context.forOrg` and must be keyed on `event.id` (a
    unique constraint, an upsert), and anything outside the database (an email, an upload) may repeat too.
 
