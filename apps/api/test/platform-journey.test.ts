@@ -1,7 +1,7 @@
 // One agency's whole life through the console, the api and the worker (spec 7): a super admin puts a plan on sale,
 // support onboards the agency, the worker emails its Owner the invite, the Owner chooses a password, completes the
-// business profile and sees the trial; the trial lapses and the agency turns read-only, a payment makes it active
-// again; then it is exported, cancelled and purged, and only the platform log remembers it.
+// business profile and branding and sees the trial; the trial lapses and the agency turns read-only, a payment makes it
+// active again; then it is exported, cancelled and purged, and only the platform log remembers it.
 import type { OnboardedOrganization, PlatformLogPage, QueuedJob } from "@travel-crm/contracts/platform";
 import type { SubscriptionOverview } from "@travel-crm/contracts/subscriptions";
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
@@ -40,12 +40,12 @@ const profile = {
   bankIfsc: "HDFC0001234",
   bankName: "HDFC Bank",
   invoicePrefix: "ST",
-  brandColour: "#2e6b3f",
-  documentTerms: null,
 };
 
-// Every field the lifecycle reads, so the worker's nightly advance (another file runs it over every organization in
-// the shared database) can't leave a stale stored status behind between two steps.
+const branding = { brandColour: "#2e6b3f", documentTerms: null };
+
+// Every field the lifecycle reads, so the console's nightly advance (console-jobs.test.ts runs it over every
+// organization in the shared database) can't leave a stale stored status behind between two steps.
 function lapsedTrial(daysAgo: number) {
   return {
     status: "trial" as const,
@@ -179,7 +179,8 @@ describe("an agency's life on the platform", () => {
       trialEndsOn: addDays(today, 14),
       limits: { seats: 3 },
     });
-    await dataOf(await mutate(server, "profile.save", profile, owner));
+    await dataOf(await mutate(server, "organization.profile.update", profile, owner));
+    await dataOf(await mutate(server, "organization.branding.update", branding, owner));
 
     // Two days after the trial's end it is past due: nothing is withheld yet. The dates leave days of margin under any
     // policy another test file might briefly set (past due for 7 to 10 days), so no policy can change the answer.
@@ -190,7 +191,7 @@ describe("an agency's life on the platform", () => {
     expect((await dataOf<SubscriptionOverview>(await query(server, "subscription.get", owner))).status).toBe(
       "past_due",
     );
-    await dataOf(await mutate(server, "profile.save", profile, owner));
+    await dataOf(await mutate(server, "organization.profile.update", profile, owner));
 
     // Thirteen days after it, it is read-only: the Owner may look, but not change anything.
     await server.platform.subscription.update({
@@ -200,8 +201,8 @@ describe("an agency's life on the platform", () => {
     expect((await dataOf<SubscriptionOverview>(await query(server, "subscription.get", owner))).status).toBe(
       "read_only",
     );
-    expect((await query(server, "profile.get", owner)).status).toBe(200);
-    expect(await refusalOf(await mutate(server, "profile.save", profile, owner))).toEqual({
+    expect((await query(server, "organization.profile.get", owner)).status).toBe(200);
+    expect(await refusalOf(await mutate(server, "organization.profile.update", profile, owner))).toEqual({
       status: 403,
       reason: "ORGANIZATION_READ_ONLY",
     });
@@ -222,12 +223,16 @@ describe("an agency's life on the platform", () => {
       ),
     );
     expect((await dataOf<SubscriptionOverview>(await query(server, "subscription.get", owner))).status).toBe("active");
-    await dataOf(await mutate(server, "profile.save", { ...profile, documentTerms: "50% advance" }, owner));
+    await dataOf(
+      await mutate(server, "organization.branding.update", { ...branding, documentTerms: "50% advance" }, owner),
+    );
 
-    // Leaving: export, cancel (the Owner can still see why), then the purge, which only a super admin asks for.
+    // Leaving: export, cancel (the Owner can still see why), then the purge, which only a super admin asks for. The
+    // export is the console's job, with its expiry, queued with it, which finds nothing due yet.
     await dataOf(
       await consoleMutate(testConsole, "dataProtection.exportOrganization", { organizationId }, superAdmin.jar),
     );
+    expect(await consoleRunner.runQueued()).toBe(2);
     await dataOf(
       await consoleMutate(
         testConsole,
@@ -239,7 +244,7 @@ describe("an agency's life on the platform", () => {
     expect((await dataOf<SubscriptionOverview>(await query(server, "subscription.get", owner))).status).toBe(
       "cancelled",
     );
-    expect(await refusalOf(await query(server, "profile.get", owner))).toEqual({
+    expect(await refusalOf(await query(server, "organization.profile.get", owner))).toEqual({
       status: 403,
       reason: "ORGANIZATION_CANCELLED",
     });
@@ -251,7 +256,10 @@ describe("an agency's life on the platform", () => {
         superAdmin.jar,
       ),
     );
-    expect(await consoleRunner.runQueued()).toBe(1);
+    // The purge, then the deletions' follow-up run it queues for the second sweep of the organization's storage folder,
+    // due once upload links handed out before the purge lapse. The memory runner ignores that start time, so it runs at
+    // once, finds the sweep not yet due, and queues nothing more: its next run would have the same id.
+    expect(await consoleRunner.runQueued()).toBe(2);
     expect(consoleRunner.failed).toEqual([]);
     expect(reported).toEqual([]);
 
@@ -276,6 +284,7 @@ describe("an agency's life on the platform", () => {
       "organization.purged",
       "organization.purge-requested",
       "organization.exported",
+      "organization.export-requested",
       "organization.onboarded",
     ]);
   });
