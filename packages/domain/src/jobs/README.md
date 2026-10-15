@@ -26,9 +26,12 @@ Domain events and the work the worker does after a change commits (spec 9.1).
   runs. Every listener's queue gets `runListenerJob`; each `JobHandler` (`{ queue, handle(data) }`, work with no
   organization yet, such as webhooks) and `ScheduledJob` (`{ queue, cron, timeZone, data?, handle(data) }`) gets its
   queue; then the relay starts. `stop()` stops the relay; the caller stops pg-boss after it.
+- `startJobHandlers({ runner, handlers?, schedules? })`: the same for a process with no listeners, the console: its
+  handlers and schedules, and no relay. The worker's relay is the only one: a relay that knew no listeners would mark
+  every event relayed with nothing queued for it.
 - Types: `DomainEvent`, `EventListener`, `ListenerContext` (the worker's actor and a `forOrg` for the event's
   organization), `EventPayload`, `JsonValue`, `PayloadSchema`, `ListenerJobData`, `RelayDependencies`, `OutboxRelay`,
-  `ListenerRunOutcome`, `JobHandler`, `ScheduledJob`, `Worker`, `WorkerDependencies`.
+  `ListenerRunOutcome`, `JobHandler`, `ScheduledJob`, `Worker`, `WorkerDependencies`, `JobHandlerDependencies`.
 
 ## Adding a listener
 
@@ -62,8 +65,8 @@ and small facts.
   (Prisma, the AWS SDK, nodemailer, pg, a library's plain `Error`) keeps only its names and codes. The log gets the
   queue, the job id and the error's names and codes, never its message. A job whose event isn't found is not retried
   but is reported to `onError`.
-- Removing a listener or schedule from the code leaves its pg-boss queue, jobs and schedule behind until they are
-  reconciled (plan 4).
+- Removing a listener or schedule from the code leaves its pg-boss queue, jobs and schedule behind: a super admin
+  removes the schedule in the platform console (ADR 0019).
 - `outbox_event` is append-only for the api and worker: they may only set `relayed_at`.
 - Don't test that an event stays unrelayed after its transaction commits: a relay running in another test (or the
   worker) may relay it at once. Read it back inside the publishing transaction instead. And in tests, always give
@@ -71,7 +74,7 @@ and small facts.
 - The relay finds waiting organizations through `app_organizations_with_unrelayed_events`, the one SECURITY DEFINER
   function (ids only, ADR 0010); it reads the events themselves inside `forOrg`.
 - A failing job is retried 5 times with exponential backoff from 10 seconds, then lands in pg-boss's failed list
-  (`PgBossJobs.failedJobs()`, shown in the platform console in plan 4).
+  (`PgBossJobs.failedJobs()`, which the platform console lists and can run again).
 - Upgrading pg-boss: a new version may change its schema. Generate a migration from
   `getMigrationPlans("pgboss", <current schema version>)` (the version is in `pgboss.version`), like
   `20261015100000_pgboss`, and apply it before the new worker starts (ADR 0010).

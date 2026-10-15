@@ -5,12 +5,23 @@ The audit log (spec 9.5): who changed what in an organization, from where, and t
 ## Public functions and values (`index.ts`)
 
 - `recordAudit(tx, actor, { action, entityType, entityId, before?, after? })`: writes one entry in the change's own
-  transaction, so the entry exists exactly when the change commits. The `actor` (an `Actor`, such as `MemberAccess`
-  or `systemActor(organizationId)`) gives who acted, the source (`web`, `api`, `job`, `impersonation`) and the
-  platform admin while support impersonates a member.
+  transaction, so the entry exists exactly when the change commits. The `actor` (an `Actor`, such as `MemberAccess`,
+  `systemActor(organizationId)` or `platformActor(organizationId, adminUserId)`) gives who acted, the source (`web`,
+  `api`, `job`, `impersonation`, `platform`) and the platform admin while support impersonates a member.
+- `assertAuditable({ action, before?, after? })`: the checks `recordAudit` makes before writing (the action's shape, no
+  secrets, at most 8192 bytes a side), for the platform's own log.
 - `listAuditEntries(tx, input)`: the log newest first, a page at a time (`before` is the last id of the previous
   page), or one record's history (`entityType` with `entityId`). The API checks `audit:view` first.
 - Types: `AuditChange`, `AuditSnapshot`. The contracts are in `@travel-crm/contracts/audit`.
+
+- `auditEntriesAbout(tx, { organizationId, entityType, entityId })`: every entry about one record, for an export,
+  newest first. Filtered by the organization, so a platform transaction (every organization) gets that one's alone.
+- `redactAuditEntries(tx, record)`: the platform role's erasure (spec 5): replaces each entry's `before` and `after`
+  with `{ "redacted": true }` (sides with no state stay null), keeping who did what and when. Returns how many changed;
+  a second run changes none.
+- `auditEntriesSince(tx, since)`: changes recorded since a time, a usage counter for the platform dashboard. It counts
+  the transaction's organization by row-level security, so it runs in `forOrg` or `asOrganization` and refuses the
+  platform role (`RangeError`).
 
 ## Events
 

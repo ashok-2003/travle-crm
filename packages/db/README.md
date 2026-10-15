@@ -33,15 +33,20 @@ transaction to `orgId`'s rows; outside it, queries see nothing.
 | ------------------------------------- | --------------------------- | ----------------------------------------------------------------------------- |
 | `@travel-crm/db`                      | every module                | `createDatabase`, `OrgTx`, `nextDocumentNumber`, `softDeleted`, `withDeleted` |
 | `@travel-crm/db/identity`             | the identity module only    | Better Auth's client, and `forOrg` transactions that reach the sign-in tables |
-| `@travel-crm/db/platform`             | the platform module only    | a client that sees every organization                                         |
+| `@travel-crm/db/platform`             | the platform module only    | transactions that see every organization, and `asOrganization` inside them    |
 | `@travel-crm/db/webhooks`             | the webhooks module only    | `webhookEvents(tx)`: the `webhook_event` table, in `db.withoutOrg()`          |
 | `@travel-crm/db/rate-limits`          | the rate-limits module only | `rateLimitCounters(tx)`: the `rate_limit_counter` table, in `db.withoutOrg()` |
-| `@travel-crm/db/testing`              | tests only                  | `createTestOrganization`, the `DbUrls` type                                   |
+| `@travel-crm/db/testing`              | tests only                  | `createTestOrganization`, `createIsolatedDatabase`, the `DbUrls` type         |
 | `@travel-crm/db/testing/global-setup` | other packages' Vitest      | the throwaway Postgres; `inject("dbUrls")` in tests                           |
 
 dependency-cruiser enforces the "only" column. Another package's `vitest.config.ts` uses the test database like this:
 
     globalSetup: [createRequire(import.meta.url).resolve("@travel-crm/db/testing/global-setup")],
+
+A package's test files share that one database and run at once. A test of a rule that counts across the whole
+database (the last super admin, say), which other files' rows would upset, runs on a database of its own:
+`createIsolatedDatabase(inject("dbUrls"))` copies the migrated one (global-setup keeps a copy before any test runs) and
+gives the same roles' URLs for it; `drop()` it afterwards.
 
 ## Adding a table that belongs to an organization
 
@@ -103,3 +108,33 @@ checked by the caller, like any other permission.
 | `app_platform` | platform console | every organization                    |
 
 `sql/bootstrap.sql` creates them locally and in tests. Why it works this way: [ADR 0002](../../docs/adr/0002-row-level-security.md).
+
+## The platform role's transactions
+
+`createPlatformDatabase(DATABASE_PLATFORM_URL).transaction(tx => …)` runs as `app_platform`, which sees and may change
+every organization's rows: name the organization in every query. Inside such a transaction,
+`asOrganization(tx, orgId, orgTx => …)` switches to `app_runtime` in one organization (`SET LOCAL ROLE`, then
+`app.org_id`), so module code written for `db.forOrg()` runs unchanged under row-level security and the runtime role's
+grants, in the same transaction as the platform's own writes ([ADR 0019](../../docs/adr/0019-platform-console.md)).
+It returns to `app_platform` afterwards, even when its work failed, and can't be nested. One step at a time: nothing
+may run beside it (no `Promise.all`), the platform `tx` itself is refused while a step is open, and a step's `orgTx`
+is refused once its work settles (`OrganizationStepEndedError`). After a step fails in the database, the transaction
+can't be used further or committed (`PlatformTransactionAbortedError`). The switch needs
+`GRANT app_runtime TO app_platform WITH INHERIT FALSE, SET TRUE` (in `sql/bootstrap.sql`); a local database made before
+it needs that line run once as the `postgres` superuser:
+
+    docker compose exec postgres psql -U postgres -d travel_crm -c "GRANT app_runtime TO app_platform WITH INHERIT FALSE, SET TRUE"
+
+Platform transactions also reach the tables without `organization_id` through their entry points
+(`webhookEvents(tx)`); a transaction stepped into an organization does not.
+
+The platform's own tables (`prisma/schema/platform.prisma`) have no `organization_id` and no row-level security, and
+the runtime role has no rights on them: the platform log (`platform_audit_entry`), the deletions' outbox
+(`stored_file_deletion`) and the organizations' exports (`platform_export`, with `platform_export_file` for the files
+each copied). They name the organization they concern as `target_organization_id`, with no foreign key, so a purge's
+catalog walk leaves them and they outlive it.
+
+For permanent deletion (ADR 0023), `deleteOrganizationRows(tx, organizationId)` deletes the organization's rows in
+every table that has `organization_id`, found from the catalog and ordered so no foreign key trips (`audit_entry`
+first), then the organization. A new organization table is covered without being listed anywhere. The console's
+export reads an organization's rows a page at a time through the `app_export_organization_rows` function instead.

@@ -1,9 +1,11 @@
 // Starting the api or the worker goes through one guard: the environment is read, the services built and started,
 // and the process's own start (the worker's listeners and schedules) run inside it. Any failure there is one
-// "<process> start-up failed" message, the pools closed, and exit 1.
-import { describe, expect, it, vi } from "vitest";
+// "<process> start-up failed" message, the pools closed, and exit 1. Once started, an error nothing handled is one
+// ids-only line in the process's log, then the process's drain, exiting 1.
+import { EventEmitter } from "node:events";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import type { Services } from "../src/services.js";
-import { startProcess } from "../src/start-up.js";
+import { startProcess, stopOnUnhandledErrors } from "../src/start-up.js";
 import { consoleOutput } from "./support/console-output.js";
 import { testEnvironmentVariables } from "./support/environment.js";
 
@@ -80,5 +82,42 @@ describe("starting a process", () => {
     const output = consoleOutput();
     started.log("a line");
     expect(output()).toEqual(["api: a line"]);
+  });
+});
+
+describe("an error nothing handled", () => {
+  it("is one line by names and codes, then the process's drain, exiting 1, once", () => {
+    const events = new EventEmitter();
+    const lines: string[] = [];
+    const drain = vi.fn();
+    stopOnUnhandledErrors((line) => lines.push(line), drain, { events, exit: vi.fn() });
+    events.emit("unhandledRejection", new Error("asha@example.test could not be reached"), Promise.resolve());
+    expect(lines).toEqual(["unhandled rejection: Error"]);
+    expect(drain).toHaveBeenCalledExactlyOnceWith(1);
+    // Another while draining is logged too, and drains nothing more.
+    events.emit("uncaughtException", new TypeError("reset link https://example.test/r/secret"), "uncaughtException");
+    expect(lines).toEqual(["unhandled rejection: Error", "uncaught exception: TypeError"]);
+    expect(drain).toHaveBeenCalledOnce();
+  });
+
+  it("exits 1 after 45 seconds if the drain hangs, with a timer that holds nothing open", () => {
+    vi.useFakeTimers();
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    const events = new EventEmitter();
+    const lines: string[] = [];
+    const exit = vi.fn();
+    const timers = vi.spyOn(globalThis, "setTimeout");
+    // A drain that never finishes: a stuck pool, a keep-alive the server won't close.
+    stopOnUnhandledErrors((line) => lines.push(line), vi.fn(), { events, exit });
+    events.emit("uncaughtException", new Error("stuck"), "uncaughtException");
+    const deadline = timers.mock.results[0]?.value as NodeJS.Timeout | undefined;
+    expect(deadline?.hasRef()).toBe(false);
+    vi.advanceTimersByTime(44_999);
+    expect(exit).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(exit).toHaveBeenCalledExactlyOnceWith(1);
+    expect(lines).toEqual(["uncaught exception: Error", "the drain took over 45 seconds: exiting"]);
   });
 });

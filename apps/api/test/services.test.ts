@@ -1,7 +1,8 @@
 // What the api runs on is built from the environment: start() refuses to go on when the database role is wrong or
 // the storage bucket can't be used, before pg-boss starts; the rate limiter's key is derived from the auth secret rather than set apart; the
-// password-reset email goes out through the SMTP sender to APP_URL's reset page; and pg-boss's problems go to the
-// process's one log as ids and codes, with nothing else on the console.
+// password-reset email goes out through the SMTP sender to APP_URL's reset page; pg-boss's problems go to the
+// process's one log as ids and codes, with nothing else on the console; and each organization is held to its plan's
+// seats and storage.
 import { WrongDatabaseRoleError } from "@travel-crm/db";
 import { createPlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
@@ -101,6 +102,66 @@ describe("services", () => {
       expect(output().join("\n")).not.toMatch(/jane/);
     } finally {
       await services.close();
+    }
+  });
+
+  it("holds each organization to its plan's seats and storage", async () => {
+    const services = createServices(environment(), processLog("api"));
+    const platform = createPlatformClient(inject("dbUrls").platform);
+    try {
+      const organizationId = await createTestOrganization(platform, "Small agency");
+      const plan = await platform.plan.create({
+        data: {
+          key: `one-seat-${organizationId.slice(-12)}`,
+          name: "One seat",
+          monthlyPricePaise: 0,
+          seatLimit: 1,
+          whatsappNumberLimit: 0,
+          storageLimitBytes: 1000n,
+          modules: ["crm"],
+        },
+      });
+      await platform.subscription.create({
+        data: {
+          organizationId,
+          planId: plan.id,
+          billingCycle: "monthly",
+          status: "active",
+          statusChangedAt: new Date(),
+          paidThrough: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        },
+      });
+      await services.identity.seedStarterRoles(organizationId);
+      const owner = await services.identity.createOrganizationOwner(organizationId, {
+        name: "Asha Owner",
+        email: `owner-${organizationId}@example.test`,
+        password: "owner-password-1",
+        mustChangePassword: false,
+      });
+      const access = await services.identity.resolveAccess(owner.userId, organizationId);
+      if (!access) throw new Error("the owner has no access");
+      // The Owner has the plan's one seat.
+      await expect(
+        services.identity.staff.create(access, {
+          name: "Ravi",
+          username: "ravi",
+          roleKey: "sales",
+          temporaryPassword: "ravi-password-1",
+        }),
+      ).rejects.toMatchObject({ reason: "SEAT_LIMIT_REACHED" });
+      await expect(
+        services.files.requestUpload(access, {
+          recordType: "lead",
+          recordId: crypto.randomUUID(),
+          fileName: "itinerary.pdf",
+          contentType: "application/pdf",
+          sizeBytes: 1001,
+          sensitive: false,
+        }),
+      ).rejects.toMatchObject({ reason: "STORAGE_LIMIT_REACHED" });
+    } finally {
+      await services.close();
+      await platform.$disconnect();
     }
   });
 

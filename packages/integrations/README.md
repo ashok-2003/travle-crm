@@ -25,8 +25,8 @@ job id repeated on its queue queues nothing (another queue may reuse it), ids ar
 wherever one is named, a queue has one schedule, and an unknown time zone is refused. Where the twin can't act like
 pg-boss:
 
-- **No clock.** Jobs run when a test calls `runQueued()`. `startAfter` and the retry delay are ignored, and a failing
-  job's retries run at once.
+- **No clock.** Jobs run when a test calls `runQueued()`. `startAfter`, `expireInSeconds` and the retry delay are
+  ignored, and a failing job's retries run at once.
 - **One job at a time, in the order sent.** pg-boss runs jobs concurrently and may deliver one again after it expires.
   The twin can't overlap two runs of a job, so tests that need that call the handler twice at once themselves (as
   `packages/domain/test/jobs/run-listener.test.ts` does).

@@ -1,5 +1,6 @@
 // Starts a throwaway Postgres 18 once per test run, creates the roles, applies the migrations,
-// checks the Prisma schema matches them, and hands connection URLs to the tests via inject("dbUrls").
+// checks the Prisma schema matches them, keeps a copy for createIsolatedDatabase, and hands connection URLs to the
+// tests via inject("dbUrls").
 import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -7,17 +8,13 @@ import { promisify } from "node:util";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import pg from "pg";
 import type { TestProject } from "vitest/node";
+import { TEMPLATE_DATABASE, type DbUrls } from "./test-databases.js";
+
+export type { DbUrls } from "./test-databases.js";
 
 const execFileAsync = promisify(execFile);
 const packageRoot = path.resolve(import.meta.dirname, "..");
 const prismaBin = path.join(packageRoot, "node_modules/.bin/prisma");
-
-export interface DbUrls {
-  superuser: string;
-  migrator: string;
-  runtime: string;
-  platform: string;
-}
 
 declare module "vitest" {
   export interface ProvidedContext {
@@ -74,6 +71,15 @@ export async function setup(project: TestProject): Promise<void> {
       );
     }
     throw new Error("The drift check could not run (Prisma CLI or database connection error).", { cause: error });
+  }
+
+  // Before any test connects: Postgres copies a database only while nobody is connected to it.
+  const copier = new pg.Client({ connectionString: urls.superuser });
+  await copier.connect();
+  try {
+    await copier.query(`CREATE DATABASE ${TEMPLATE_DATABASE} TEMPLATE app`);
+  } finally {
+    await copier.end();
   }
 
   project.provide("dbUrls", urls);

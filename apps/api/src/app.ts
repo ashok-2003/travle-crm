@@ -5,12 +5,14 @@ import { appRouter, createContext } from "@travel-crm/api";
 import type { Database } from "@travel-crm/db";
 import type { Files } from "@travel-crm/domain/files";
 import type { Identity } from "@travel-crm/domain/identity";
+import type { Profiles } from "@travel-crm/domain/profile";
 import type { RateLimiter } from "@travel-crm/domain/rate-limits";
 import { findShareLink, recordShareLinkOpen } from "@travel-crm/domain/share-links";
+import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { receiveWebhook, type WebhookProvider } from "@travel-crm/domain/webhooks";
 import { describeError, type JobQueue } from "@travel-crm/integrations/jobs";
 import { Hono } from "hono";
-import { bodyLimit } from "hono/body-limit";
+import { limitBody } from "./body-limit.js";
 import { apiErrorHandler } from "./error-handler.js";
 import { organizationSignIn } from "./org-sign-in.js";
 import type { ProcessLog } from "./process-log.js";
@@ -22,6 +24,10 @@ import { webhookRoutes } from "./webhook-route.js";
 
 export interface ServerDependencies {
   identity: Identity;
+  /** What each organization may use today, for the request checks 2 and 3. */
+  subscriptions: SubscriptionAccess;
+  /** The organization's business profile, for the profile router. */
+  profiles: Profiles;
   /** The public routes' database: share links, webhook events, rate-limit counters. */
   db: Database;
   files: Pick<Files, "systemDownloadLink">;
@@ -50,16 +56,9 @@ const publicLimits = {
 /** No sign-in or tRPC call needs a bigger body; the cap stops a client making the server read a huge one. */
 const BODY_LIMIT = 64 * 1024;
 
-/** Answers 413 as soon as a body passes maxSize bytes, before anything parses it. */
-function limitBody(maxSize: number) {
-  return bodyLimit({
-    maxSize,
-    onError: (c) => c.json({ code: "PAYLOAD_TOO_LARGE", message: "Request is too large" }, 413),
-  });
-}
-
 export function createApp(dependencies: ServerDependencies): Hono {
-  const { identity, db, files, queue, rateLimiter, clientAddress, webhookProviders, log } = dependencies;
+  const { identity, subscriptions, profiles, db, files, queue, rateLimiter, clientAddress, webhookProviders, log } =
+    dependencies;
   const app = new Hono();
   app.onError(apiErrorHandler(log));
 
@@ -83,7 +82,7 @@ export function createApp(dependencies: ServerDependencies): Hono {
     trpcServer({
       router: appRouter,
       endpoint: "/api/trpc",
-      createContext: ({ resHeaders }, c) => createContext({ identity }, c.req.raw, resHeaders),
+      createContext: ({ resHeaders }, c) => createContext({ identity, subscriptions, profiles }, c.req.raw, resHeaders),
       onError: ({ error, path }) => {
         // Refusals (401, 403, 404...) are answers, not faults. Only unexpected errors are logged, by names and codes:
         // tRPC copies the cause's message into its own, and a Prisma message can quote the query's values.

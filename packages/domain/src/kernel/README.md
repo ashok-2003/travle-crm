@@ -4,7 +4,8 @@ The shared kernel (spec 8, 9.6): building blocks every module uses. It imports n
 
 ## Public functions and values (`index.ts`)
 
-- **Who acts:** `Actor`, `ActorSource`, `systemActor(organizationId)` (ADR 0009).
+- **Who acts:** `Actor`, `ActorSource`, `systemActor(organizationId)` (ADR 0009), and
+  `platformActor(organizationId, adminUserId)` for a platform admin working in the console (ADR 0019).
 - **Errors:** `DomainError(code, reason, message)`, `DomainErrorCode`.
 - **Money** (integer paise, ADR 0016):
   - `Money`, `CurrencyCode` (`"INR"`), `money(paise, currency?)`, `parseRupees(text)`;
@@ -22,7 +23,7 @@ The shared kernel (spec 8, 9.6): building blocks every module uses. It imports n
     `isUnionTerritoryWithoutLegislature`, `isValidGstin`, `gstinCheckCharacter`, `gstStateCodeFromGstin`.
 - **Time** (instants in UTC, shown in the organization's zone):
   - `calendarDateIn(instant, timeZone)` → `"2026-10-15"`, `yearIn(instant, timeZone)`,
-    `startOfDayIn(date, timeZone)` → the day's first instant;
+    `startOfDayIn(date, timeZone)` → the day's first instant, `addDays(date, days)` → another calendar date;
   - `formatDateTime(instant, { timeZone, style })` with `style` `"date"` (15 Oct 2026), `"time"` (9:30 pm) or
     `"date-time"` (15 Oct 2026, 9:30 pm);
   - `CalendarDate` (a checked `YYYY-MM-DD` day, for departure dates), `parseCalendarDate(text)`;

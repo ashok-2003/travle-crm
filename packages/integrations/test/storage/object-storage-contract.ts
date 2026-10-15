@@ -64,6 +64,57 @@ export function describeObjectStorage(name: string, start: () => Promise<Storage
       expect(text(await subject.storage.get(key))).toBe("%PDF-1.3");
     });
 
+    it("deletes a stored file for good, and deleting again or nothing at all succeeds", async () => {
+      const key = freshKey();
+      await subject.storage.put({ key, contentType: "text/plain", body: bytes("gone soon") });
+      await subject.storage.delete(key);
+      expect(await subject.storage.head(key)).toBeNull();
+      expect(await subject.storage.get(key)).toBeNull();
+      await subject.storage.delete(key);
+      await subject.storage.delete(freshKey());
+      await expect(subject.storage.delete("../escape")).rejects.toThrow(RangeError);
+    });
+
+    it("deletes everything under a prefix, past one listing page, and nothing beside it", async () => {
+      const prefix = `organizations/prefix-${String((next += 1))}/`;
+      // Over 1,000: S3 lists and deletes at most 1,000 keys a request, so this takes two pages.
+      const inside = Array.from({ length: 1005 }, (_, index) => `${prefix}attachments/${String(index)}`);
+      // Shares the prefix's characters but not its folder, so it must stay.
+      const beside = `${prefix.slice(0, -1)}0/attachments/kept`;
+      for (let start = 0; start < inside.length; start += 50) {
+        await Promise.all(
+          inside
+            .slice(start, start + 50)
+            .map((key) => subject.storage.put({ key, contentType: "text/plain", body: bytes("x") })),
+        );
+      }
+      await subject.storage.put({ key: beside, contentType: "text/plain", body: bytes("kept") });
+
+      expect(await subject.storage.deletePrefix(prefix)).toBe(1005);
+
+      for (const key of [inside[0], inside[999], inside[1004]])
+        expect(await subject.storage.head(key ?? "")).toBeNull();
+      expect(text(await subject.storage.get(beside))).toBe("kept");
+      // Again: nothing left, nothing deleted, no error.
+      expect(await subject.storage.deletePrefix(prefix)).toBe(0);
+    });
+
+    it("refuses a prefix that could reach past one organization's folder", async () => {
+      for (const prefix of [
+        "",
+        "/",
+        "organizations",
+        "organizations/",
+        "organizations/x",
+        "/organizations/x/",
+        "organizations/../",
+        "organizations//x/",
+        "organizations/a\nb/",
+      ]) {
+        await expect(subject.storage.deletePrefix(prefix), JSON.stringify(prefix)).rejects.toBeInstanceOf(RangeError);
+      }
+    });
+
     it("answers null, not an error, for a key with nothing stored", async () => {
       expect(await subject.storage.head("organizations/contract/attachments/missing")).toBeNull();
       expect(await subject.storage.get("organizations/contract/attachments/missing")).toBeNull();
@@ -135,6 +186,25 @@ export function describeObjectStorage(name: string, start: () => Promise<Storage
       const url = await subject.storage.presignDownload({ key: freshKey(), fileName: "Quote.pdf" }, 60);
       expect(typeof url).toBe("string");
       expect(url.length).toBeGreaterThan(0);
+    });
+
+    it("copies a stored file to another key, with its type, replacing what was there; nothing from an empty key", async () => {
+      const from = freshKey();
+      const to = `platform/exports/contract/${String((next += 1))}/files/copy`;
+      await subject.storage.put({ key: from, contentType: "application/pdf", body: bytes("%PDF-1.4 passport") });
+      await subject.storage.put({ key: to, contentType: "text/plain", body: bytes("old") });
+
+      expect(await subject.storage.copy(from, to)).toBe(true);
+      expect(await subject.storage.head(to)).toEqual({ sizeBytes: 17, contentType: "application/pdf" });
+      expect(text(await subject.storage.get(to))).toBe("%PDF-1.4 passport");
+      // The original stays, and the copy outlives it.
+      await subject.storage.delete(from);
+      expect(text(await subject.storage.get(to))).toBe("%PDF-1.4 passport");
+
+      expect(await subject.storage.copy(freshKey(), `${to}-none`)).toBe(false);
+      expect(await subject.storage.head(`${to}-none`)).toBeNull();
+      await expect(subject.storage.copy("../escape", to)).rejects.toThrow(RangeError);
+      await expect(subject.storage.copy(from, "/absolute")).rejects.toThrow(RangeError);
     });
   });
 }

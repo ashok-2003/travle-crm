@@ -1,11 +1,12 @@
 // The worker wires every kind of work to the runner and relays events, on the in-memory runner: an event published
-// in an organization reaches its listener, handlers and schedules run, and mistakes in the wiring are refused.
+// in an organization reaches its listener, handlers and schedules run, and mistakes in the wiring are refused. A
+// process without listeners (the console) runs its handlers and schedules and relays nothing.
 import { createDatabase, type Database } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { createMemoryJobQueue, createMemoryJobRunner, type JobData } from "@travel-crm/integrations/jobs";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { publishEvent, startWorker } from "../../src/jobs/index.js";
+import { publishEvent, startJobHandlers, startWorker } from "../../src/jobs/index.js";
 import { recordingListener } from "./test-listeners.js";
 
 async function eventually(check: () => boolean, timeoutMs = 10_000): Promise<void> {
@@ -234,5 +235,55 @@ describe("startWorker", () => {
         schedules: [{ queue: "x.y", cron: "* * * * *", timeZone: "India/Mumbai", handle: () => Promise.resolve() }],
       }),
     ).rejects.toThrow(/unknown time zone/);
+  });
+
+  it("runs a process's handlers and schedules without listeners, leaving every event for the worker's relay", async () => {
+    const queue = createMemoryJobQueue();
+    const runner = createMemoryJobRunner(queue);
+    const purged: JobData[] = [];
+    const resets: JobData[] = [];
+    const quiet = await createTestOrganization(platform, "Console jobs");
+    const eventId = await db.forOrg(quiet, (tx) =>
+      publishEvent(tx, { type: "document.issued", payload: { documentId: "c1" } }),
+    );
+    await startJobHandlers({
+      runner,
+      handlers: [
+        {
+          queue: "platform.purge-organization",
+          handle: (data) => {
+            purged.push(data);
+            return Promise.resolve();
+          },
+        },
+      ],
+      schedules: [
+        {
+          queue: "platform.reset-demo",
+          cron: "0 2 * * *",
+          timeZone: "Asia/Kolkata",
+          handle: (data) => {
+            resets.push(data);
+            return Promise.resolve();
+          },
+        },
+      ],
+    });
+    await queue.send("platform.purge-organization", { organizationId: quiet });
+    await runner.fireSchedule("platform.reset-demo");
+    await runner.runQueued();
+
+    expect(purged).toEqual([{ organizationId: quiet }]);
+    expect(resets).toEqual([{}]);
+    // A relay that knew no listeners would have marked the event relayed with nothing queued for it.
+    const event = await db.forOrg(quiet, (tx) => tx.outboxEvent.findUniqueOrThrow({ where: { id: eventId } }));
+    expect(event.relayedAt).toBeNull();
+    await expect(
+      startJobHandlers({
+        runner,
+        handlers: [{ queue: "a.b", handle: () => Promise.resolve() }],
+        schedules: [{ queue: "a.b", cron: "* * * * *", timeZone: "Asia/Kolkata", handle: () => Promise.resolve() }],
+      }),
+    ).rejects.toThrow(/share the queue a.b/);
   });
 });

@@ -7,17 +7,18 @@ The design is in `docs/superpowers/specs/`, the build plans in `docs/superpowers
 
 Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 
-| Command                                       | What it does                                              |
-| --------------------------------------------- | --------------------------------------------------------- |
-| `pnpm install`                                | install dependencies                                      |
-| `pnpm db:up` / `pnpm db:down`                 | start / stop local Postgres (Docker)                      |
-| `pnpm services:up`                            | start Postgres, MinIO (files) and Mailpit (email) locally |
-| `pnpm db:migrate`                             | apply migrations to local Postgres                        |
-| `pnpm --filter @travel-crm/api-server dev`    | run the api on http://localhost:3001 (reads `.env`)       |
-| `pnpm --filter @travel-crm/api-server worker` | run the worker: outbox relay, listeners, jobs, schedules  |
-| `pnpm format`                                 | format every file with Prettier                           |
-| `pnpm check`                                  | everything CI runs: typecheck, lint, tests, import rules  |
-| `pnpm --filter @travel-crm/<package> test`    | one package's tests (most need Docker running)            |
+| Command                                        | What it does                                                    |
+| ---------------------------------------------- | --------------------------------------------------------------- |
+| `pnpm install`                                 | install dependencies                                            |
+| `pnpm db:up` / `pnpm db:down`                  | start / stop local Postgres (Docker)                            |
+| `pnpm services:up`                             | start Postgres, MinIO (files) and Mailpit (email) locally       |
+| `pnpm db:migrate`                              | apply migrations to local Postgres                              |
+| `pnpm --filter @travel-crm/api-server dev`     | run the api on http://localhost:3001 (reads `.env`)             |
+| `pnpm --filter @travel-crm/api-server worker`  | run the worker: outbox relay, listeners, jobs, schedules        |
+| `pnpm --filter @travel-crm/api-server console` | run the platform console on http://localhost:3002, and its jobs |
+| `pnpm format`                                  | format every file with Prettier                                 |
+| `pnpm check`                                   | everything CI runs: typecheck, lint, tests, import rules        |
+| `pnpm --filter @travel-crm/<package> test`     | one package's tests (most need Docker running)                  |
 
 ## How we write code
 
@@ -56,7 +57,12 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   (`onDelete: Restrict, onUpdate: Restrict`), because a cascade runs as the table's owner, past row-level security and
   grants. Plans 1 and 2's keys keep Prisma's `ON UPDATE CASCADE` (organization ids never change). The test suite
   checks the keys, the unique constraints, and that every key to `organization` restricts deletion.
-- Only the platform module uses `@travel-crm/db/platform` (it sees every organization).
+- Only the platform module uses `@travel-crm/db/platform` (it sees every organization), and only the console process
+  reads `DATABASE_PLATFORM_URL` (deploys give it to no other). Only the console's own code (`apps/api/src/console*.ts`,
+  `packages/api/src/platform/`, served as `@travel-crm/api/platform`) imports `@travel-crm/domain/platform`, and
+  nothing the api server or the worker runs reaches either (dependency-cruiser). Module code written for `forOrg()`
+  runs there inside `asOrganization(tx, orgId, …)`, as the runtime role under row-level security: one step at a time
+  per transaction, awaited, with nothing beside it. Everything else in a platform transaction names its organization.
 - Better Auth's sign-in tables (user, session, account, verification, two_factor, organization, member, invitation) have no
   row-level security. Only `packages/domain/src/identity` reaches them, through `@travel-crm/db/identity`:
   - `OrgTx` hides the sign-in models;
@@ -84,20 +90,29 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - Every tRPC procedure is built from `packages/api/src/procedures.ts`:
   - `orgProcedure.requires("module:action")` for organization data;
   - `freshProcedure` (reads the session from the database) for money, roles, exports and staff management;
-  - `platformProcedure` for platform staff;
+  - `staffProcedure` and `superAdminProcedure` (`packages/api/src/platform/procedures.ts`) for the console's routers,
+    served apart at `/api/platform/trpc` by the console process;
   - `protectedProcedure` only for things every signed-in person may see about themselves (`me.get`).
 - Schemas come from `@travel-crm/contracts`: every input has a Zod schema, and every procedure that returns data has an
   output schema. Input schemas are `z.strictObject`, so unknown keys get a 400; never use `z.object` for inputs.
   Output schemas are `z.object`, which strips unknown keys.
+- Request checks 2 and 3 (ADR 0021) run in every organization procedure: the subscription's state decides by what the
+  call does (a query views, a mutation changes; mark an export `.meta({ lifecycle: "export" })`, what takes someone's
+  access away `.meta({ lifecycle: "revoke" })`, and what every state must reach `.meta({ lifecycle: "always" })`), and
+  the procedure's plan module must be on the plan. `requires()` sets that module from its first permission, and
+  checks every permission's; a procedure without one declares `.meta({ planModule: "core" })` or its business module.
+  One that declares nothing refuses every call.
 - Permissions are `module:action` in `packages/domain/src/identity/permissions.ts`. Add new ones there; the Owner role
-  gets them automatically. List queries for scoped views filter with `scopeFilter()` (own or all records).
+  gets them automatically. A new permission module also needs its plan module in `request-rules.ts`. List queries for
+  scoped views filter with `scopeFilter()` (own or all records).
 - Domain modules are folders in `packages/domain/src`. Their public API is `index.ts`; other modules import only that.
   Business rule failures throw `DomainError` from `@travel-crm/domain/kernel`, which the API turns into an HTTP status.
   Plain HTTP routes answer in their own way (the share link's pages); an error nothing handled is logged by names and
   codes and answered generically (`apps/api/src/error-handler.ts`).
 - Over HTTP, tRPC requests and `/api/auth/sign-in/org`, other than GET/HEAD, must name a trusted origin and
   send JSON (`apps/api/src/trusted-origin.ts`); other `/api/auth/*` POSTs use Better Auth's own origin check. Better Auth's `/api/auth/organization/*` endpoints are closed (404):
-  members and roles go through tRPC. Error responses carry no stack traces or internal messages.
+  members and roles go through tRPC. So are its `/admin/*` endpoints, but support's `/admin/impersonate-user` and
+  `/admin/stop-impersonating` (ADR 0019). Error responses carry no stack traces or internal messages.
 - The api's settings are checked at start-up (`apps/api/src/environment.ts`). `NODE_ENV` defaults to `production`, which
   needs https, rate limiting and a strong secret; local development sets `NODE_ENV=development` (`.env.example` does).
 - Whoever acts is an `Actor` (kernel): `MemberAccess` in requests, `systemActor(organizationId)` in the worker. Its
@@ -124,14 +139,39 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - **Job data and errors** hold ids, never personal data: pg-boss's tables have no row-level security, and a failed
   job's error is shown to platform staff.
 
+## Platform and subscriptions (spec 7; ADRs 0019-0024)
+
+- **Plans are data** the console edits: tiers priced monthly, yearly or both, in paise before GST, with optional
+  prices for extra seats, and sold only on the cycles they are priced for; seats, WhatsApp numbers, storage, modules.
+  No migration seeds one, and the demo is on a plan of its own that is never for sale. `planLimits` hands the plan's
+  seats (extra seats included) to identity and its storage to the files module. Seats and modules are race-free;
+  the storage limit is not, by plan 3's choice (uploads in flight may overshoot it: it is a plan's limit, not a safety
+  rule).
+- **The lifecycle is computed on every request** (`dueState`), so a late job never grants access; the console's
+  `subscriptions.advance-lifecycle` writes it down each night. Only the platform role writes subscriptions, under the
+  row's lock: payments, cancelling and the nightly job are all the console's.
+- **Platform admins act in their own name:** `platformActor(organizationId, adminUserId)`, source `platform`, in the
+  organization's audit log; the platform log (`recordPlatformAudit`) holds what belongs to no organization and an
+  organization's whole life: onboarded, exported, purged.
+- **Platform staff** are managed by super admins in the console only (`platformStaff.*`): identity writes the level
+  itself under one lock, never through Better Auth's admin API, and nobody who was ever a member gets one. The first
+  super admin comes from `pnpm --filter @travel-crm/api-server run first-super-admin -- --email <e> --name <n>`.
+- **Permanent deletion** (spec 5) happens only in the console's jobs. A new organization table is purged with the rest
+  (`deleteOrganizationRows` reads the catalog); a module that keeps files or personal data about a person or record
+  adds its step to `packages/domain/src/platform/erasure.ts`.
+- **The demo** is rebuilt every night by `resetDemoOrganization`; a module with sample data adds it there. Locally,
+  `pnpm --filter @travel-crm/api-server run demo` builds it at once.
+
 ## Repo map
 
 - `apps/api`: the Hono server (health check, Better Auth at `/api/auth/*`, organization-code sign-in, tRPC at
-  `/api/trpc`, share links at `/p`, webhooks at `/webhooks`) and, from the same image, the `worker` command.
+  `/api/trpc`, share links at `/p`, webhooks at `/webhooks`) and, from the same image, the `worker` command and the
+  `console` command (the platform console's tRPC at `/api/platform/trpc`, and the platform's jobs).
 - `packages/api`: tRPC routers and the procedure builders that run the request checks.
 - `packages/contracts`: Zod schemas for every API input and output.
 - `packages/domain`: business rules, one folder per module (`identity`, `kernel`, `jobs`, `files`, `documents`,
-  `notifications`, `audit`, `share-links`, `webhooks`, `rate-limits`; listed in `packages/domain/README.md`).
+  `notifications`, `audit`, `share-links`, `webhooks`, `rate-limits`, `subscriptions`, `profile`, `platform`; listed in
+  `packages/domain/README.md`).
   `@travel-crm/domain/<module>`, `@travel-crm/contracts/<module>` and `@travel-crm/integrations/<adapter>` each resolve
   to `src/<name>/index.ts`, so a new module needs no `package.json` change.
 - `packages/integrations`: adapters to the outside world, each a port plus a real and an in-memory adapter.

@@ -21,8 +21,10 @@ Date: 2026-10-15 · Status: accepted · Implements spec section 9.2 and the sens
 - **Storage is counted per organization**: every attachment row's size, deleted ones included, because their bytes
   stay stored until a purge. `requestUpload` refuses past the limit that `storageLimitBytes` returns (plan 4 passes
   the plan's limit). Files the server makes (rendered PDFs) count but are never refused: an invoice must render.
-- **Attachments are soft-deleted** (ADR 0004): `app_runtime` has no DELETE grant; the platform's purge (plan 4)
-  removes rows and their stored files together.
+- **Attachments are soft-deleted** (ADR 0004): `app_runtime` has no DELETE grant; the platform's purge and erasure
+  (plan 4, ADR 0023) remove rows and queue their stored files in the deletions' outbox, which the console's job
+  empties. The port's `delete` and `deletePrefix` (one organization's folder, `organizations/<id>/`, 1,000 keys a
+  request) are for that alone.
 - **Uploads allowed**: PDF, JPEG, PNG, WebP and HEIC, up to 25 MB, names without folders, control or bidi
   characters (`@travel-crm/contracts/files`). SVG and HTML are refused: they can carry scripts.
 - **Operations name their record.** `confirmUpload`, `downloadLink` and `remove` take
@@ -38,8 +40,15 @@ Date: 2026-10-15 · Status: accepted · Implements spec section 9.2 and the sens
   `NotFound` (S3 sends no body on a HEAD 404, so a wrong bucket looks the same there). The S3 adapter's
   `checkBucket()` runs at start-up to catch a wrong bucket name.
 - **Deployment requirements.** Static access keys for now (no instance or task roles). The bucket must have ACLs
-  disabled (Bucket owner enforced), because unsigned `x-amz-acl` headers could ride on a presigned `PUT`; plan 5's
-  deploy checklist repeats this. The credentials need `s3:ListBucket`, or `head` on a missing key gets 403.
+  disabled (Bucket owner enforced), because unsigned `x-amz-acl` headers could ride on a presigned `PUT`; the deploy
+  checklist (`docs/deploy-checklist.md`) repeats this. The credentials need `s3:ListBucket`, or `head` on a missing key gets 403.
+  - **"Deleted for good" needs the right bucket.** On a versioned bucket a delete only adds a delete marker and the
+    file stays, passports included. The bucket must be unversioned, or have a lifecycle rule that expires noncurrent
+    versions and expired delete markers (within a day): the deploy checklist states which.
+  - **Only the console process deletes.** Its jobs (the purge, the erasure, the deletions' outbox, the platform's own
+    exports) are the only callers of `delete` and `deletePrefix`. Give `s3:DeleteObject` to the console's access keys
+    alone; the api's and the worker's need `s3:PutObject`, `s3:GetObject` and `s3:ListBucket`. Today the three
+    processes read the same storage settings, so the console needs its own keys in its environment.
 - **Locally, MinIO** from the community build `pgsty/minio`, because MinIO no longer publishes images. The adapter
   is plain S3, so another S3-compatible image is a one-line swap.
 - **The AWS SDK's checksums are off unless required** (`requestChecksumCalculation: "WHEN_REQUIRED"`). Otherwise it
@@ -58,5 +67,5 @@ Date: 2026-10-15 · Status: accepted · Implements spec section 9.2 and the sens
 ## Consequences
 
 - The bucket needs CORS rules allowing `PUT` from the web app's origin before browsers can upload (plan 5).
-- Later: malware scanning before a file becomes ready (spec 9.2), a job that sweeps pending uploads older than a day,
-  and the purge (plan 4). Each attachment's record module decides who may attach and see files on its records.
+- Later: malware scanning before a file becomes ready (spec 9.2), and a job that sweeps pending uploads older than a
+  day. Each attachment's record module decides who may attach and see files on its records.

@@ -154,7 +154,7 @@ describe("identity tables", () => {
     await expect(run(Prisma.sql`UPDATE role SET is_owner = true ${byId}`)).rejects.toThrow(/permission denied/);
   });
 
-  it("lets the api change a member's role, remove and restore them, but never move them to another organization or user", async () => {
+  it("lets the api change a member's role, remove and restore them, and note their activity, but never move them", async () => {
     const otherOrganizationId = await createTestOrganization(platform, "Identity tables, member columns");
     const runtime = createPrismaClient(urls.runtime, { max: 1 });
     try {
@@ -173,6 +173,10 @@ describe("identity tables", () => {
       ).resolves.toBe(1);
       await expect(
         runtime.$executeRaw`UPDATE member SET deleted_at = NULL, deleted_by = NULL WHERE id = ${member.id}::uuid`,
+      ).resolves.toBe(1);
+      // Identity's recordMemberActivity, as a request arrives.
+      await expect(
+        runtime.$executeRaw`UPDATE member SET last_active_at = now() WHERE id = ${member.id}::uuid`,
       ).resolves.toBe(1);
       await expect(
         runtime.$executeRaw`UPDATE member SET organization_id = ${otherOrganizationId}::uuid WHERE id = ${member.id}::uuid`,

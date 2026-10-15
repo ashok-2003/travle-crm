@@ -5,23 +5,31 @@
 
 /// One event from a provider, kept exactly as delivered. A repeated delivery of the same event is not stored again.
 model WebhookEvent {
-  id              String    @id @default(uuid(7)) @db.Uuid
+  id                     String    @id @default(uuid(7)) @db.Uuid
   /// The provider's name, as in /webhooks/<provider>, e.g. "razorpay" (CHECK webhook_event_provider_format).
-  provider        String
+  provider               String
   /// The provider's own id for the event: repeats share it.
-  providerEventId String    @map("provider_event_id")
-  eventType       String    @map("event_type")
-  receivedAt      DateTime  @default(now()) @map("received_at") @db.Timestamptz(6)
+  providerEventId        String    @map("provider_event_id")
+  eventType              String    @map("event_type")
+  receivedAt             DateTime  @default(now()) @map("received_at") @db.Timestamptz(6)
   /// Only the headers the provider names, never cookies or authorization.
-  headers         Json
+  headers                Json
   /// The raw body exactly as received: the signature was computed over it.
-  payload         String
-  processedAt     DateTime? @map("processed_at") @db.Timestamptz(6)
+  payload                String
+  processedAt            DateTime? @map("processed_at") @db.Timestamptz(6)
   /// Processing attempts so far, failed ones included.
-  attempts        Int       @default(0)
+  attempts               Int       @default(0)
   /// The error's name or code only, at most 100 characters: never its message, which may quote the payload.
-  lastError       String?   @map("last_error")
+  lastError              String?   @map("last_error")
+  /// The organization the provider's handler found the event to be about, recorded whether the handler then succeeded
+  /// or failed: a purge of that organization finds its events by it, those still being retried included. No foreign
+  /// key, and not organization_id: the table has no row-level security.
+  resolvedOrganizationId String?   @map("resolved_organization_id") @db.Uuid
+  /// When a purge or an erasure blanked the payload and headers. The provider's id stays, so a replay is still ignored.
+  tombstonedAt           DateTime? @map("tombstoned_at") @db.Timestamptz(6)
 
   @@unique([provider, providerEventId])
+  /// An organization's events, for its purge.
+  @@index([resolvedOrganizationId])
   @@map("webhook_event")
 }

@@ -1,5 +1,5 @@
 // Public API of the shared kernel: building blocks every domain module uses.
-export { systemActor, type Actor, type ActorSource } from "./actor.js";
+export { platformActor, systemActor, type Actor, type ActorSource } from "./actor.js";
 export { DomainError, type DomainErrorCode } from "./errors.js";
 export { formatIndianNumber, formatMoney } from "./indian-format.js";
 export {
@@ -25,7 +25,15 @@ export {
   type IndiaGstLine,
 } from "./tax/india-gst.js";
 export type { TaxBreakdown, TaxComponent, TaxedLine, TaxEngine } from "./tax/tax-engine.js";
-export { calendarDateIn, formatDateTime, parseCalendarDate, startOfDayIn, yearIn, type CalendarDate } from "./time.js";
+export {
+  addDays,
+  calendarDateIn,
+  formatDateTime,
+  parseCalendarDate,
+  startOfDayIn,
+  yearIn,
+  type CalendarDate,
+} from "./time.js";
 export { isUuid } from "./uuid.js";
 // GST facts and time zone names live with the API's field rules, so forms and the kernel share one copy.
 export {
