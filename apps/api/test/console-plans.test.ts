@@ -100,15 +100,17 @@ describe("the console's plans", () => {
     });
     expect(
       await refusalOf(
-        await consoleMutate(testConsole, "plans.setPolicy", { pastDueDays: 10, readOnlyDays: 20 }, support.jar),
+        await consoleMutate(testConsole, "plans.setPolicy", { pastDueDays: 7, readOnlyDays: 15 }, support.jar),
       ),
     ).toEqual({ status: 403, reason: "SUPER_ADMIN_ONLY" });
     try {
+      // The policy is one row every test file's organizations read while files run at once. Only the suspension day
+      // moves, and no other file's dates are near it, so the change cannot alter their lifecycle states.
       expect(
         await dataOf(
-          await consoleMutate(testConsole, "plans.setPolicy", { pastDueDays: 10, readOnlyDays: 20 }, superAdmin.jar),
+          await consoleMutate(testConsole, "plans.setPolicy", { pastDueDays: 7, readOnlyDays: 15 }, superAdmin.jar),
         ),
-      ).toEqual({ pastDueDays: 10, readOnlyDays: 20 });
+      ).toEqual({ pastDueDays: 7, readOnlyDays: 15 });
     } finally {
       // Other test files rely on the spec's defaults.
       await consoleMutate(testConsole, "plans.setPolicy", { pastDueDays: 7, readOnlyDays: 14 }, superAdmin.jar);

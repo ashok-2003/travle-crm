@@ -7,7 +7,8 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 4 (the `app_pla
 
 - **The console is its own process.** The api image gets a third command, `console`, beside the api and the worker. It
   serves the console's tRPC at `/api/platform/trpc` (`createConsoleApp`) and runs the platform's own jobs, and it is
-  the only process given `DATABASE_PLATFORM_URL`: the api and the worker never hold it (plan 2's rule). The load
+  the only process that reads `DATABASE_PLATFORM_URL`, and deploys give it to no other: the api and the worker never
+  read it. (Locally all three commands load the same `.env`, which sets it) (plan 2's rule). The load
   balancer, and in development the web app's server, route `/api/platform/*` to it, so the browser still calls `/api`
   on the address it loaded the app from (spec 3) and cookies stay first-party. Platform staff sign in through the
   api's `/api/auth` like everyone else; the console reads the same session cookie, always from the database.
