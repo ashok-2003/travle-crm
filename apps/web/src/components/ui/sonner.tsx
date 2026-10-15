@@ -31,9 +31,10 @@ const Toaster = (props: ToasterProps) => {
       }
       toastOptions={{
         classNames: {
-          toast: "cn-toast shadow-md",
-          // 20px visible, 44px to hit (DESIGN.md section 4): the pseudo-element is the extra reach.
-          closeButton: "after:absolute after:-inset-3",
+          toast: "cn-toast pr-12! shadow-md",
+          // axe measures the button, not a pseudo-element, so it is a real 44px square (DESIGN.md section 4), moved
+          // from sonner's 20px corner badge to the toast's right edge, with room left for the text.
+          closeButton: "top-0! right-0! left-auto! size-11! transform-none! border-0! bg-transparent!",
         },
       }}
       {...props}
