@@ -13,6 +13,9 @@ Who can sign in, to which organization, and what they may do (spec section 6).
   - `organizationProfile(organizationId)` and `memberContacts(organizationId, userIds)`: what other modules may know
     about an organization and its people (they can't read the sign-in tables);
   - `staff.list / create / updateRole / resetPassword / remove`;
+  - with `auth.passwordReset` set (the api passes its email sender and the web app's reset page), Better Auth's
+    password reset by email link; staff without email are never emailed, a link may lead back only to the reset page,
+    and a reset ends every session the person had;
   - `roles.list / create / update / delete`;
   - `settings.setTwoFactorRequirement`;
   - `seedStarterRoles(organizationId)` and `createOrganizationOwner(organizationId, owner)`, for onboarding;
@@ -30,21 +33,25 @@ Who can sign in, to which organization, and what they may do (spec section 6).
 
 ## Events
 
-No domain events yet. Every change below is written to the audit log in the change's own transaction (ADR 0015),
-with the acting member, or the system for onboarding:
+- Publishes `staff.removed` (`{ memberId, userId }`, `staffRemovedEvent` in `@travel-crm/contracts/identity`) when
+  someone is removed, in the removal's transaction. Notifications listens (`notifications.forget-push-subscriptions`)
+  and forgets the person's browsers.
 
-| Action                                    | Record         | Before                 | After                               |
-| ----------------------------------------- | -------------- | ---------------------- | ----------------------------------- |
-| `staff.created`                           | `member`       |                        | name, username, role, whether email |
-| `staff.role-changed`                      | `member`       | role                   | role                                |
-| `staff.password-reset`                    | `member`       |                        |                                     |
-| `staff.removed`                           | `member`       | name, role             |                                     |
-| `role.created`                            | `role`         |                        | name, permissions                   |
-| `role.updated`                            | `role`         | name, permissions      | name, permissions                   |
-| `role.deleted`                            | `role`         | key, name, permissions |                                     |
-| `settings.two-factor-requirement-changed` | `organization` | requireTwoFactor       | requireTwoFactor                    |
-| `support.impersonation-started`           | `member`       |                        | the impersonated user's id          |
-| `support.impersonation-stopped`           | `member`       |                        | the impersonated user's id          |
+Every change below is written to the audit log in the change's own transaction (ADR 0015), with the acting member, or
+the system for onboarding:
+
+| Action                                    | Record         | Before                 | After                                                |
+| ----------------------------------------- | -------------- | ---------------------- | ---------------------------------------------------- |
+| `staff.created`                           | `member`       |                        | role, whether they have an email                     |
+| `staff.role-changed`                      | `member`       | role                   | role                                                 |
+| `staff.password-reset`                    | `member`       |                        |                                                      |
+| `staff.removed`                           | `member`       | role                   |                                                      |
+| `role.created`                            | `role`         |                        | name, permissions                                    |
+| `role.updated`                            | `role`         | name, permissions      | name, permissions                                    |
+| `role.deleted`                            | `role`         | key, name, permissions |                                                      |
+| `settings.two-factor-requirement-changed` | `organization` | requireTwoFactor       | requireTwoFactor                                     |
+| `support.impersonation-started`           | `member`       |                        | the impersonated user's id, when the session expires |
+| `support.impersonation-stopped`           | `member`       |                        | the impersonated user's id, when the session expires |
 
 A change that changes nothing (the same role again, the same setting) records nothing. Support's two entries name
 the platform admin as both the actor and `impersonatedBy`; they are written by a Better Auth plugin

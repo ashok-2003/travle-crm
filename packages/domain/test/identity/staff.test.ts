@@ -4,8 +4,10 @@ import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platfo
 import { afterAll, beforeAll, describe, expect, inject, it, onTestFinished, vi } from "vitest";
 import type { MemberAccess } from "../../src/identity/member-access.js";
 import {
+  canSignInByUsername,
   createTestAgency,
   createTestIdentity,
+  memberAccessOf,
   signInByEmail,
   type TestAgency,
   type TestIdentity,
@@ -17,20 +19,10 @@ describe("staff", () => {
   let agency: TestAgency;
   let owner: MemberAccess;
 
-  async function accessOf(userId: string, organizationId = agency.organizationId): Promise<MemberAccess> {
-    const access = await test.identity.resolveAccess(userId, organizationId);
-    if (!access) throw new Error("no access");
-    return access;
-  }
-
-  /** Signs in with organization code and username through Better Auth; true when it succeeds. */
-  async function canSignInByUsername(code: string, username: string, password: string): Promise<boolean> {
-    const response = await test.identity.auth.api.signInUsername({
-      body: { username: `${code}:${username}`.toLowerCase(), password },
-      asResponse: true,
-    });
-    return response.ok;
-  }
+  const accessOf = (userId: string, organizationId = agency.organizationId) =>
+    memberAccessOf(test.identity, userId, organizationId);
+  const canSignIn = (code: string, username: string, password: string) =>
+    canSignInByUsername(test.identity, code, username, password);
 
   beforeAll(async () => {
     platform = createPlatformClient(inject("dbUrls").platform);
@@ -53,7 +45,7 @@ describe("staff", () => {
     });
     expect(ravi).toMatchObject({ email: null, username: "Ravi", role: { key: "sales", name: "Sales" } });
     expect(ravi.mustChangePassword).toBe(true);
-    expect(await canSignInByUsername(agency.code, "RAVI", "temporary-pass-1")).toBe(true);
+    expect(await canSignIn(agency.code, "RAVI", "temporary-pass-1")).toBe(true);
   });
 
   it("adds staff with email, who sign in by email", async () => {
@@ -290,15 +282,15 @@ describe("staff", () => {
       temporaryPassword: "first-temp-pass-1",
     });
     await test.database.client.user.update({ where: { id: sunil.userId }, data: { mustChangePassword: false } });
-    expect(await canSignInByUsername(agency.code, "sunil", "first-temp-pass-1")).toBe(true);
+    expect(await canSignIn(agency.code, "sunil", "first-temp-pass-1")).toBe(true);
     await test.identity.staff.resetPassword(owner, {
       memberId: sunil.memberId,
       temporaryPassword: "second-temp-pass-1",
     });
     expect(await test.database.client.session.count({ where: { userId: sunil.userId } })).toBe(0);
-    expect(await canSignInByUsername(agency.code, "sunil", "first-temp-pass-1")).toBe(false);
+    expect(await canSignIn(agency.code, "sunil", "first-temp-pass-1")).toBe(false);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("Invalid password"));
-    expect(await canSignInByUsername(agency.code, "sunil", "second-temp-pass-1")).toBe(true);
+    expect(await canSignIn(agency.code, "sunil", "second-temp-pass-1")).toBe(true);
     expect((await accessOf(sunil.userId)).mustChangePassword).toBe(true);
   });
 });

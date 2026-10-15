@@ -158,7 +158,7 @@ describe("webhook intake", () => {
     expect(await processWebhookEvent(deps, "not-a-uuid")).toBe("event-not-found");
     await expect(processWebhookJob(deps, {})).rejects.toThrow(/webhookEventId/);
   });
-  it("stores no raw error message: only the error's name or code, kept short", async () => {
+  it("stores no raw error message: only the error's name, and its code when that looks like one", async () => {
     const eventId = `evt_${crypto.randomUUID()}`;
     const failing: WebhookProvider = {
       ...exampleProvider([]),
@@ -171,12 +171,18 @@ describe("webhook intake", () => {
     await expect(processWebhookEvent(deps, id)).rejects.toThrow("asha@example.com");
     expect((await storedEvent(eventId))?.lastError).toBe("PaymentError");
 
-    const coded: WebhookProvider = {
-      ...failing,
-      process: () => Promise.reject(Object.assign(new Error("secret detail"), { code: `E_${"X".repeat(200)}` })),
+    const failWith = async (code: string) => {
+      const coded: WebhookProvider = {
+        ...failing,
+        process: () => Promise.reject(Object.assign(new Error("secret detail"), { code })),
+      };
+      await expect(processWebhookEvent({ db, providers: [coded] }, id)).rejects.toThrow("secret detail");
+      return (await storedEvent(eventId))?.lastError;
     };
-    await expect(processWebhookEvent({ db, providers: [coded] }, id)).rejects.toThrow("secret detail");
-    expect((await storedEvent(eventId))?.lastError).toBe(`E_${"X".repeat(98)}`);
+    expect(await failWith("ECONNRESET")).toBe("Error ECONNRESET");
+    // A "code" that isn't an identifier could hold anything, so it is left out.
+    expect(await failWith("asha@example.com")).toBe("Error");
+    expect(await failWith(`E_${"X".repeat(200)}`)).toBe("Error");
   });
 
   it("answers 400, and stores nothing, for a signed body the provider can't read or a verify that throws", async () => {

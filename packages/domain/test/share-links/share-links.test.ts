@@ -5,11 +5,11 @@ import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platfo
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import type { Actor } from "../../src/kernel/index.js";
+import { backendPid, waitUntilBlockedBy } from "../lock-waits.js";
 import {
   createShareLink,
   findShareLink,
   listShareLinks,
-  openShareLink,
   recordShareLinkOpen,
   revokeShareLink,
 } from "../../src/share-links/index.js";
@@ -44,6 +44,13 @@ describe("share links", () => {
     await platform.$disconnect();
   });
 
+  /** What the route does when the customer got the record: check the link, then record the open. */
+  const openLink = async (token: string, who: typeof visitor, now?: Date) => {
+    const opened = await findShareLink(db, token, now);
+    await recordShareLinkOpen(db, opened, who, now);
+    return opened;
+  };
+
   const share = (input: { label?: string; expiresAt?: Date | null } = {}, actor = agent) =>
     db.forOrg(actor.organizationId, (tx) =>
       createShareLink(tx, actor, {
@@ -58,7 +65,7 @@ describe("share links", () => {
     expect(link.path).toBe(`/p/${link.token}`);
     expect(link.token).toMatch(/^[A-Za-z0-9_-]{65}$/);
 
-    const opened = await openShareLink(db, link.token, visitor);
+    const opened = await openLink(link.token, visitor);
     expect(opened).toEqual({
       organizationId: agent.organizationId,
       shareLinkId: link.shareLinkId,
@@ -87,20 +94,20 @@ describe("share links", () => {
 
   it("expires after 30 days unless told otherwise, and a link without expiry keeps working", async () => {
     const lasting = await share();
-    await expect(openShareLink(db, lasting.token, visitor, new Date(Date.now() + 29 * DAY))).resolves.toBeDefined();
-    await expect(openShareLink(db, lasting.token, visitor, new Date(Date.now() + 31 * DAY))).rejects.toMatchObject({
+    await expect(openLink(lasting.token, visitor, new Date(Date.now() + 29 * DAY))).resolves.toBeDefined();
+    await expect(openLink(lasting.token, visitor, new Date(Date.now() + 31 * DAY))).rejects.toMatchObject({
       code: "NOT_FOUND",
       reason: "LINK_EXPIRED",
     });
     const forever = await share({ expiresAt: null });
-    await expect(openShareLink(db, forever.token, visitor, new Date(Date.now() + 3650 * DAY))).resolves.toBeDefined();
+    await expect(openLink(forever.token, visitor, new Date(Date.now() + 3650 * DAY))).resolves.toBeDefined();
   });
 
   it("stops working once revoked, and revoking twice is harmless", async () => {
     const link = await share();
     await db.forOrg(agent.organizationId, (tx) => revokeShareLink(tx, agent, { shareLinkId: link.shareLinkId }));
     await db.forOrg(agent.organizationId, (tx) => revokeShareLink(tx, agent, { shareLinkId: link.shareLinkId }));
-    await expect(openShareLink(db, link.token, visitor)).rejects.toMatchObject({ reason: "LINK_REVOKED" });
+    await expect(openLink(link.token, visitor)).rejects.toMatchObject({ reason: "LINK_REVOKED" });
     const stored = await db.forOrg(agent.organizationId, (tx) =>
       tx.shareLink.findUniqueOrThrow({ where: { id: link.shareLinkId } }),
     );
@@ -111,13 +118,13 @@ describe("share links", () => {
     const link = await share();
     const notFound = { code: "NOT_FOUND", reason: "LINK_NOT_FOUND" };
     const otherSecret = `${link.token.slice(0, 22)}${"A".repeat(43)}`;
-    await expect(openShareLink(db, otherSecret, visitor)).rejects.toMatchObject(notFound);
-    await expect(openShareLink(db, "not-a-token", visitor)).rejects.toMatchObject(notFound);
-    await expect(openShareLink(db, `${link.token}x`, visitor)).rejects.toMatchObject(notFound);
+    await expect(openLink(otherSecret, visitor)).rejects.toMatchObject(notFound);
+    await expect(openLink("not-a-token", visitor)).rejects.toMatchObject(notFound);
+    await expect(openLink(`${link.token}x`, visitor)).rejects.toMatchObject(notFound);
     // The same secret under another organization's id opens nothing: the secret is looked up in that organization.
     const theirs = await share({}, otherAgent);
     const crossed = `${theirs.token.slice(0, 22)}${link.token.slice(22)}`;
-    await expect(openShareLink(db, crossed, visitor)).rejects.toMatchObject(notFound);
+    await expect(openLink(crossed, visitor)).rejects.toMatchObject(notFound);
   });
 
   it("can't revoke another organization's link", async () => {
@@ -136,8 +143,8 @@ describe("share links", () => {
     const second = await db.forOrg(agent.organizationId, (tx) =>
       createShareLink(tx, agent, { ...listed, label: "Second" }),
     );
-    await openShareLink(db, first.token, visitor);
-    await openShareLink(db, first.token, visitor);
+    await openLink(first.token, visitor);
+    await openLink(first.token, visitor);
 
     const links = await db.forOrg(agent.organizationId, (tx) => listShareLinks(tx, listed));
     expect(links.map((link) => [link.id, link.label, link.openCount])).toEqual([
@@ -171,7 +178,7 @@ describe("share links", () => {
 
   it("checks a link and returns its record, in preview mode, without recording an open or publishing", async () => {
     const link = await share();
-    expect(await openShareLink(db, link.token, preview)).toMatchObject({ shareLinkId: link.shareLinkId });
+    expect(await openLink(link.token, preview)).toMatchObject({ shareLinkId: link.shareLinkId });
     expect(await findShareLink(db, link.token)).toMatchObject({ shareLinkId: link.shareLinkId });
     expect(await opensOf(link)).toEqual([]);
     expect(await openedEventsOf(link)).toEqual([]);
@@ -218,23 +225,20 @@ describe("share links", () => {
 
   it("makes a concurrent revoke wait for the first and then change nothing", async () => {
     const link = await share();
-    const waitingLocks = async () =>
-      Number((await platform.$queryRaw<{ n: bigint }[]>`SELECT count(*) AS n FROM pg_locks WHERE NOT granted`)[0]?.n);
-    const baseline = await waitingLocks();
     let release: () => void = () => undefined;
     const mayCommit = new Promise<void>((resolve) => {
       release = resolve;
     });
-    let firstHasRevoked: () => void = () => undefined;
-    const firstRevoked = new Promise<void>((resolve) => {
+    let firstHasRevoked: (holder: number) => void = () => undefined;
+    const firstRevoked = new Promise<number>((resolve) => {
       firstHasRevoked = resolve;
     });
     const first = db.forOrg(agent.organizationId, async (tx) => {
       await revokeShareLink(tx, agent, { shareLinkId: link.shareLinkId });
-      firstHasRevoked();
+      firstHasRevoked(await backendPid(tx));
       await mayCommit;
     });
-    await firstRevoked;
+    const holder = await firstRevoked;
     let secondDone = false;
     const second = db
       .forOrg(agent.organizationId, (tx) =>
@@ -243,10 +247,7 @@ describe("share links", () => {
       .then(() => {
         secondDone = true;
       });
-    for (let attempt = 0; attempt < 200 && (await waitingLocks()) <= baseline; attempt += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 25));
-    }
-    expect(await waitingLocks()).toBeGreaterThan(baseline);
+    await waitUntilBlockedBy(platform, holder);
     expect(secondDone).toBe(false);
     release();
     await Promise.all([first, second]);
@@ -270,7 +271,7 @@ describe("share links", () => {
   it("finds nothing for a token naming no organization", async () => {
     const link = await share();
     const nilOrganization = "A".repeat(22);
-    await expect(openShareLink(db, `${nilOrganization}${link.token.slice(22)}`, visitor)).rejects.toMatchObject({
+    await expect(openLink(`${nilOrganization}${link.token.slice(22)}`, visitor)).rejects.toMatchObject({
       code: "NOT_FOUND",
       reason: "LINK_NOT_FOUND",
     });

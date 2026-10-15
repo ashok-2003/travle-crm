@@ -10,6 +10,8 @@ export const fixtures: OrgTableFixtures = {
         data: { recipientUserId: someone, kind: "isolation.checked", title: "Isolation", body: "Checked" },
       }),
     appendOnly: true,
+    // The bell marks it read; delivery claims and marks its email and push (seven columns are granted).
+    updatableColumn: "read_at",
   },
   notification_preference: {
     create: (tx) =>

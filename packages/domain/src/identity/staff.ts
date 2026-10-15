@@ -5,11 +5,13 @@ import type {
   RemoveStaffInput,
   ResetStaffPasswordInput,
   StaffMember,
+  StaffRemovedEvent,
   UpdateStaffRoleInput,
 } from "@travel-crm/contracts/identity";
 import { softDeleted } from "@travel-crm/db";
 import type { IdentityDatabase, IdentityTx } from "@travel-crm/db/identity";
 import { recordAudit } from "../audit/index.js";
+import { publishEvent } from "../jobs/index.js";
 import { DomainError } from "../kernel/index.js";
 import { assertMayHandleRole, assertMayManageMember } from "./access-rules.js";
 import type { MemberAccess } from "./member-access.js";
@@ -126,7 +128,8 @@ export async function resetStaffPassword(
 
 /**
  * Removes a person from the organization (ADR 0007): their membership is soft-deleted, their sessions end, and their
- * email and username are released so they can be used again, by this organization or another.
+ * email and username are released so they can be used again, by this organization or another. It publishes
+ * staff.removed, so the modules that keep things about the person (notifications: their browsers) can let go of them.
  */
 export async function removeStaff(
   database: IdentityDatabase,
@@ -155,6 +158,10 @@ export async function removeStaff(
     // The retired address can be worked out from the user id, so the old password must stop working too.
     await tx.account.updateMany({ where: { userId: user.id, providerId: "credential" }, data: { password: null } });
     await tx.session.deleteMany({ where: { userId: user.id } });
+    // Modules above identity react to the removal through the outbox (spec 8): ids only, exactly the event's contract,
+    // which the listeners check strictly.
+    const removed = { memberId: target.id, userId: user.id } satisfies StaffRemovedEvent;
+    await publishEvent(tx, { type: "staff.removed", payload: removed });
     await recordAudit(tx, actor, {
       action: "staff.removed",
       entityType: "member",

@@ -1,17 +1,24 @@
-// Proves the raw-database guard fires on code that could switch organization inside db.forOrg() or query the sign-in
-// tables outside the identity module, and stays quiet otherwise.
+// Proves the raw-database guard fires on code that could switch organization inside db.forOrg(), or query a table
+// without row-level security outside its own module (the sign-in tables, webhook_event, rate_limit_counter), and stays
+// quiet otherwise.
 import { ESLint } from "eslint";
 import tseslint from "typescript-eslint";
 import { describe, expect, it } from "vitest";
-import { base, organizationSwitchSelectors, rawDatabaseAccessGuard } from "../index.js";
+import domainConfig from "../../domain/eslint.config.js";
+import { base, rawDatabaseAccessGuard } from "../index.js";
+
+/**
+ * The modules' overrides exactly as packages/domain/eslint.config.js has them (the entries that set the guard's rule
+ * for some folders), so a change there is tested here. turbo.json makes that file an input of this test.
+ */
+const domainOverrides = domainConfig.filter((config) => config.files && config.rules?.["no-restricted-syntax"]);
 
 const eslint = new ESLint({
   overrideConfigFile: true,
   overrideConfig: [
     { files: ["**/*.ts"], languageOptions: { parser: tseslint.parser } },
     rawDatabaseAccessGuard,
-    // The identity module's override, as packages/domain/eslint.config.js writes it.
-    { files: ["src/identity/**"], rules: { "no-restricted-syntax": ["error", ...organizationSwitchSelectors] } },
+    ...domainOverrides,
   ],
 });
 
@@ -22,8 +29,18 @@ async function rulesReportedFor(source, filePath = "src/leads/sample.ts") {
 }
 
 const insideIdentity = "src/identity/sample.ts";
+const insideWebhooks = "src/webhooks/sample.ts";
+const insideRateLimits = "src/rate-limits/sample.ts";
 
 describe("raw database access guard", () => {
+  it("reads the domain package's three module overrides", () => {
+    expect(domainOverrides.map((config) => config.files)).toEqual([
+      ["src/identity/**", "test/identity/**"],
+      ["src/webhooks/**", "test/webhooks/**"],
+      ["src/rate-limits/**", "test/rate-limits/**"],
+    ]);
+  });
+
   it("reports SQL that sets the organization, in a tagged template", async () => {
     const source = "await tx.$executeRaw`SELECT set_config('app.org_id', ${otherOrganization}, true)`;";
     expect(await rulesReportedFor(source)).toContain("no-restricted-syntax");
@@ -111,11 +128,56 @@ describe("raw database access guard", () => {
     expect(await rulesReportedFor("await tx.$queryRaw`" + sql + "`;", insideIdentity)).toEqual([]);
   });
 
+  const webhookEventQueries = [
+    "SELECT payload FROM webhook_event WHERE id = ${id}::uuid",
+    'UPDATE "public"."webhook_event" SET attempts = attempts + 1',
+    "SELECT 1 FROM lead l, webhook_event w WHERE w.provider_event_id = l.source_id",
+    "DELETE FROM webhook_event",
+  ];
+  const rateLimitCounterQueries = [
+    "INSERT INTO rate_limit_counter (key, window_start, count) VALUES (${key}, ${start}, 1)",
+    "DELETE FROM rate_limit_counter WHERE window_start < ${olderThan}",
+    'SELECT count FROM "rate_limit_counter" WHERE key = ${key}',
+  ];
+
+  it.each(webhookEventQueries)("reports %s outside the webhooks module", async (sql) => {
+    for (const filePath of [undefined, insideIdentity, insideRateLimits]) {
+      expect(await rulesReportedFor("await tx.$queryRaw`" + sql + "`;", filePath)).toEqual(["no-restricted-syntax"]);
+    }
+  });
+
+  it.each(webhookEventQueries)("allows %s inside the webhooks module", async (sql) => {
+    expect(await rulesReportedFor("await tx.$executeRaw`" + sql + "`;", insideWebhooks)).toEqual([]);
+    expect(await rulesReportedFor("await tx.$executeRaw`" + sql + "`;", "test/webhooks/sample.test.ts")).toEqual([]);
+  });
+
+  it.each(rateLimitCounterQueries)("reports %s outside the rate-limits module", async (sql) => {
+    for (const filePath of [undefined, insideIdentity, insideWebhooks]) {
+      expect(await rulesReportedFor("await tx.$queryRaw`" + sql + "`;", filePath)).toEqual(["no-restricted-syntax"]);
+    }
+  });
+
+  it.each(rateLimitCounterQueries)("allows %s inside the rate-limits module", async (sql) => {
+    expect(await rulesReportedFor("await tx.$queryRaw`" + sql + "`;", insideRateLimits)).toEqual([]);
+    expect(await rulesReportedFor("await tx.$queryRaw`" + sql + "`;", "test/rate-limits/sample.test.ts")).toEqual([]);
+  });
+
+  it("keeps the sign-in tables and the organization switch refused inside the webhooks and rate-limits modules", async () => {
+    for (const filePath of [insideWebhooks, insideRateLimits]) {
+      expect(await rulesReportedFor('await tx.$queryRaw`SELECT * FROM "user"`;', filePath)).toEqual([
+        "no-restricted-syntax",
+      ]);
+      expect(await rulesReportedFor('const sql = "RESET ROLE";', filePath)).toEqual(["no-restricted-syntax"]);
+    }
+  });
+
   it("does not flag tables whose names merely start like a sign-in table's", async () => {
     for (const sql of [
       "SELECT * FROM member_note",
       'SELECT * FROM "user_preference"',
       "SELECT * FROM accounts_ledger",
+      "SELECT * FROM webhook_event_archive",
+      "SELECT * FROM rate_limit_counter_history",
     ]) {
       expect(await rulesReportedFor("await tx.$queryRaw`" + sql + "`;")).toEqual([]);
     }

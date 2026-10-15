@@ -1,6 +1,6 @@
 // notify(): the one notification service every module calls (spec 9.4). It writes the bell rows and asks the worker
 // to deliver by email and push, in the caller's own transaction.
-import { notifyInput, type NotifyInput } from "@travel-crm/contracts/notifications";
+import { notifyInput, type NotificationCreatedEvent, type NotifyInput } from "@travel-crm/contracts/notifications";
 import type { OrgTx } from "@travel-crm/db";
 import { publishEvent } from "../jobs/index.js";
 import type { Actor } from "../kernel/index.js";
@@ -35,7 +35,8 @@ export async function notify(tx: OrgTx, actor: Actor, input: NotifyInput): Promi
   });
   if (channels.length > 0) {
     for (const { id } of created) {
-      await publishEvent(tx, { type: "notification.created", payload: { notificationId: id, channels } });
+      const payload = { notificationId: id, channels } satisfies NotificationCreatedEvent;
+      await publishEvent(tx, { type: "notification.created", payload });
     }
   }
   return created.map(({ id }) => id);

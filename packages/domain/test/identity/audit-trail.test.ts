@@ -5,9 +5,13 @@ import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platfo
 import { afterAll, beforeAll, describe, expect, inject, it, vi } from "vitest";
 import { createAuth } from "../../src/identity/auth/create-auth.js";
 import type { MemberAccess } from "../../src/identity/member-access.js";
+import { backendPid, waitUntilBlockedBy } from "../lock-waits.js";
 import {
+  addStaffMember,
+  createPlatformAdmin,
   createTestAgency,
   createTestIdentity,
+  memberAccessOf,
   testAuthSettings,
   type TestAgency,
   type TestIdentity,
@@ -19,44 +23,14 @@ describe("identity's audit trail", () => {
   let agency: TestAgency;
   let owner: MemberAccess;
 
-  async function accessOf(
+  const accessOf = (
     userId: string,
     session?: { impersonatedBy: string | null },
     organizationId = agency.organizationId,
-  ): Promise<MemberAccess> {
-    const access = await test.identity.resolveAccess(userId, organizationId, session);
-    if (!access) throw new Error("no access");
-    return access;
-  }
+  ) => memberAccessOf(test.identity, userId, organizationId, session);
 
   /** Adds a member of the agency with the given role, as the Owner. */
-  async function addStaff(username: string, roleKey: string) {
-    return test.identity.staff.create(owner, {
-      name: username,
-      username,
-      roleKey,
-      temporaryPassword: "temporary-pass-1",
-    });
-  }
-
-  /**
-   * Waits until `count` sessions are blocked by the session with backend `pid`, directly or queued behind one that is. Test files share one Postgres and run
-   * in parallel, so the blocker is matched: another file's lock wait must not count.
-   */
-  async function waitUntilBlockedBy(pid: number, count = 1): Promise<void> {
-    for (let tries = 0; tries < 100; tries++) {
-      const [waiting] = await test.database.client.$queryRaw<{ n: number }[]>`
-        WITH RECURSIVE waiting(pid) AS (
-          SELECT pid FROM pg_stat_activity WHERE ${pid}::int = ANY(pg_blocking_pids(pid))
-          UNION
-          SELECT a.pid FROM pg_stat_activity a JOIN waiting w ON w.pid = ANY(pg_blocking_pids(a.pid))
-        )
-        SELECT count(*)::int AS n FROM waiting`;
-      if ((waiting?.n ?? 0) >= count) return;
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    }
-    throw new Error(`Fewer than ${String(count)} sessions waited for backend ${String(pid)}`);
-  }
+  const addStaff = (username: string, roleKey: string) => addStaffMember(test.identity, owner, username, roleKey);
 
   /** The staff entries about one record: other tests add other kinds (support's) to the same member. */
   async function staffEntriesAbout(entityId: string) {
@@ -95,14 +69,9 @@ describe("identity's audit trail", () => {
 
   /** A platform admin (user role "admin", no membership), signed in; returns their id and session cookies. */
   async function signedInPlatformAdmin(): Promise<{ userId: string; cookie: string }> {
-    const email = `support-${crypto.randomUUID()}@example.test`;
-    const user = await test.database.client.user.create({ data: { name: "Support", email, role: "admin" } });
-    const password = await (await test.identity.auth.$context).password.hash("support-password-1");
-    await test.database.client.account.create({
-      data: { userId: user.id, accountId: user.id, providerId: "credential", password },
-    });
+    const { userId, email } = await createPlatformAdmin(test, "support-password-1");
     const signIn = await post("/sign-in/email", "", { email, password: "support-password-1" });
-    return { userId: user.id, cookie: cookiesAfter("", signIn) };
+    return { userId, cookie: cookiesAfter("", signIn) };
   }
 
   beforeAll(async () => {
@@ -238,10 +207,10 @@ describe("identity's audit trail", () => {
     await test.database.client.$transaction(async (tx) => {
       // Holding the member row makes the Admin's write wait after it has read the old role; then someone moves them.
       await tx.$queryRaw`SELECT id FROM member WHERE id = ${target.memberId}::uuid FOR UPDATE`;
-      const [holder] = await tx.$queryRaw<{ pid: number }[]>`SELECT pg_backend_pid() AS pid`;
+      const holder = await backendPid(tx);
       change = test.identity.staff.updateRole(admin, { memberId: target.memberId, roleKey: "operations" });
       change.catch(() => undefined);
-      await waitUntilBlockedBy(holder?.pid ?? 0);
+      await waitUntilBlockedBy(test.database.client, holder);
       await tx.member.update({ where: { id: target.memberId }, data: { role: "accounts" } });
     });
     await expect(change).rejects.toMatchObject({ code: "CONFLICT", reason: "STAFF_CHANGED" });
@@ -347,13 +316,13 @@ describe("identity's audit trail", () => {
     // it already on, changes nothing and records nothing.
     await test.database.client.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM organization WHERE id = ${own.organizationId}::uuid FOR UPDATE`;
-      const [holder] = await tx.$queryRaw<{ pid: number }[]>`SELECT pg_backend_pid() AS pid`;
+      const holder = await backendPid(tx);
       changes = [first, second].map((admin) => {
         const change = test.identity.settings.setTwoFactorRequirement(admin, { required: true });
         change.catch(() => undefined);
         return change;
       });
-      await waitUntilBlockedBy(holder?.pid ?? 0, 2);
+      await waitUntilBlockedBy(test.database.client, holder, { count: 2 });
     });
     await Promise.all(changes);
 
@@ -424,6 +393,8 @@ describe("identity's audit trail", () => {
     );
     logged.mockRestore();
     expect(started.status).toBe(500);
+    // A refused impersonation hands out no cookie: nobody leaves with a session to use.
+    expect(started.headers.getSetCookie()).toEqual([]);
     const left = await test.database.client.session.count({
       where: { userId: agency.ownerUserId, impersonatedBy: support.userId },
     });

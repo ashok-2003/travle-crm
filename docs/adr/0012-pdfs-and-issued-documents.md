@@ -56,6 +56,9 @@ issuedAt })` returns the PDF's bytes. Templates are plain functions that build R
   back-relation lives in the files module's schema file.
 - The organization's logo joins the frozen branding when plan 4 stores branding settings; the renderer already draws
   one (PNG or JPEG).
-- The PDF attachment can be removed through the generic Files API, which would leave the document without its PDF:
-  attachment routes must refuse record type `issued_document`.
+- The PDF can't be removed or replaced through the generic Files API, which would leave the document without it or
+  with another file: the files module treats `issued_document` as a system-owned record type, and `requestUpload` and
+  `remove` refuse its files to everyone (`FORBIDDEN`/`SYSTEM_OWNED_FILE`). Only `storeGeneratedFile` writes them.
+- A document whose PDF can never be rendered (`render_failure`) opens at its share link as a page saying it can't be
+  shown (404, no `Retry-After`), not as "still being prepared".
 - A new template is a new function in `templates/`, a value in the `pdfTemplate` contract, and its own content schema.

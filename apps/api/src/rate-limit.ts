@@ -1,5 +1,6 @@
 // Rate limits for the public routes (share links, webhooks): Hono middleware over the domain's Postgres-backed limiter.
 import { BlockList, isIP } from "node:net";
+import { ipv6Groups } from "@travel-crm/domain/kernel";
 import type { RateLimiter } from "@travel-crm/domain/rate-limits";
 import type { MiddlewareHandler } from "hono";
 
@@ -11,6 +12,13 @@ export interface RateLimitOptions {
   windowSeconds: number;
   /** The client's address, from clientAddressFrom(...), or null when none can be trusted. */
   clientAddress: (request: Request) => string | null;
+  /**
+   * What a refused request gets, e.g. an HTML page for routes people open in a browser. Retry-After and
+   * RateLimit-Remaining are added to it. Without it, JSON with code RATE_LIMITED.
+   */
+  refusal?: (retryAfterSeconds: number) => Response;
+  /** The process log, for the once-per-process warning about requests with no trusted address. */
+  log: (line: string) => void;
 }
 
 let warnedAboutMissingAddress = false;
@@ -28,7 +36,7 @@ export function rateLimit(options: RateLimitOptions): MiddlewareHandler {
     const clientAddress = options.clientAddress(c.req.raw);
     if (clientAddress === null && !warnedAboutMissingAddress) {
       warnedAboutMissingAddress = true;
-      console.warn(
+      options.log(
         `Rate limit "${options.name}": a request has no trusted client address (the address header is missing or ` +
           "untrusted). Check the load balancer: every such request shares one bucket.",
       );
@@ -36,6 +44,13 @@ export function rateLimit(options: RateLimitOptions): MiddlewareHandler {
     const address = clientAddress ?? "no-address";
     const result = await options.limiter.hit(`${options.name}:${address}`, rule);
     c.header("RateLimit-Remaining", String(result.remaining));
+    if (!result.allowed && options.refusal) {
+      const refused = options.refusal(result.retryAfterSeconds);
+      const headers = new Headers(refused.headers);
+      headers.set("Retry-After", String(result.retryAfterSeconds));
+      headers.set("RateLimit-Remaining", String(result.remaining));
+      return new Response(refused.body, { status: refused.status, headers });
+    }
     if (!result.allowed) {
       c.header("Retry-After", String(result.retryAfterSeconds));
       return c.json(
@@ -58,25 +73,6 @@ export interface ClientAddressSettings {
 interface Hop {
   address: string;
   family: "ipv4" | "ipv6";
-}
-
-/**
- * The eight groups of an IPv6 address. The URL parser gives its shortest form, refuses zone ids, and writes a dotted
- * tail in hex.
- */
-function ipv6Groups(address: string): number[] | null {
-  let host: string;
-  try {
-    host = new URL(`http://[${address}]`).hostname.slice(1, -1);
-  } catch {
-    return null;
-  }
-  const groups = (part: string) => (part === "" ? [] : part.split(":").map((group) => Number.parseInt(group, 16)));
-  const [head = "", tail] = host.split("::");
-  if (tail === undefined) return groups(head);
-  const left = groups(head);
-  const right = groups(tail);
-  return [...left, ...Array<number>(8 - left.length - right.length).fill(0), ...right];
 }
 
 function parseHop(text: string): Hop | null {

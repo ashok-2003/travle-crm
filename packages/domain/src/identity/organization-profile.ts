@@ -34,7 +34,8 @@ export async function organizationProfile(
 
 /**
  * The organization's time zone, read inside the caller's transaction, so documents count their year and date in it
- * without taking it from the caller. The organization is the transaction's own: it can't read another.
+ * without taking it from the caller. The organization table has no row-level security, so this reads the id it is
+ * given: pass the transaction's own organization.
  */
 export async function organizationTimeZone(tx: OrgTx, organizationId: string): Promise<string> {
   // OrgTx hides the sign-in models; every forOrg() transaction is the same client underneath, and only this module

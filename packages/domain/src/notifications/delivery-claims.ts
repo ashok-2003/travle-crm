@@ -2,12 +2,15 @@
 // overlap). A channel is claimed with a lease before it is sent, marked sent only once a send worked, and marked failed
 // when it can never succeed, so repeated and overlapping runs send once and give up once.
 import type { OrgTx } from "@travel-crm/db";
+import { ownMessage } from "@travel-crm/integrations/jobs";
 import type { ListenerContext } from "../jobs/index.js";
 
 /**
- * How long a claim holds a channel. A push is bounded at 10 seconds and an SMTP send at 60 (see the adapters), so a
- * live run is done well inside 5 minutes; a claim older than that belongs to a run that crashed, and a retry takes it
- * over. It is also well below the jobs' retry window, so that takeover happens within the retries and not after them.
+ * How long a claim holds a channel. The email and push run side by side, and each is bounded: a push at 10 seconds,
+ * an SMTP send at 60 (an overall deadline that destroys the connection, so nothing is delivered after it), plus a few
+ * database round trips. A live run is therefore done within about a minute and a half, far inside 5 minutes; a claim
+ * older than that belongs to a run that crashed, and a retry takes it over. The jobs' retry window reaches at least
+ * 310 seconds, so that takeover lands inside the retries with margin, not after the last one.
  */
 export const LEASE_MS = 5 * 60_000;
 
@@ -19,8 +22,7 @@ export interface Channel {
   readonly name: "email" | "push";
   /** Neither sent nor failed, and unclaimed or claimed longer ago than the lease. */
   claimable(now: Date): Where;
-  claimedAt(at: Date): Where;
-  claim(at: Date): Data;
+  claimedAt(at: Date): Data & Where;
   unclaim(): Data;
   sent(at: Date): Data;
   failed(at: Date): Data;
@@ -43,7 +45,6 @@ export const email: Channel = {
     OR: [{ emailClaimedAt: null }, { emailClaimedAt: { lt: expired(now) } }],
   }),
   claimedAt: (at) => ({ emailClaimedAt: at }),
-  claim: (at) => ({ emailClaimedAt: at }),
   unclaim: () => ({ emailClaimedAt: null }),
   sent: (at) => ({ emailedAt: at }),
   failed: (at) => ({ emailFailedAt: at, emailClaimedAt: null }),
@@ -58,7 +59,6 @@ export const push: Channel = {
     OR: [{ pushClaimedAt: null }, { pushClaimedAt: { lt: expired(now) } }],
   }),
   claimedAt: (at) => ({ pushClaimedAt: at }),
-  claim: (at) => ({ pushClaimedAt: at }),
   unclaim: () => ({ pushClaimedAt: null }),
   sent: (at) => ({ pushedAt: at }),
   failed: (at) => ({ pushFailedAt: at, pushClaimedAt: null }),
@@ -72,7 +72,7 @@ export const push: Channel = {
 export async function claim(context: ListenerContext, id: string, channel: Channel): Promise<Date | null> {
   const claimedAt = new Date();
   const taken = await context.forOrg((tx) =>
-    tx.notification.updateMany({ where: { id, ...channel.claimable(claimedAt) }, data: channel.claim(claimedAt) }),
+    tx.notification.updateMany({ where: { id, ...channel.claimable(claimedAt) }, data: channel.claimedAt(claimedAt) }),
   );
   return taken.count > 0 ? claimedAt : null;
 }
@@ -115,5 +115,5 @@ export async function markFailed(context: ListenerContext, id: string, channel: 
 export async function checkOtherRun(context: ListenerContext, id: string, channel: Channel): Promise<void> {
   const row = await context.forOrg((tx) => tx.notification.findUnique({ where: { id } }));
   if (row !== null && channel.isFinished(row)) return;
-  throw new Error(`Notification ${id}: the ${channel.name} is being delivered by another run`);
+  throw ownMessage(new Error(`Notification ${id}: the ${channel.name} is being delivered by another run`));
 }

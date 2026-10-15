@@ -210,7 +210,10 @@ describe("India GST", () => {
       withoutPayment: true,
       lines: [line(100, 500)],
     };
-    expect(() => indiaGst.compute(domestic as IndiaGstInput)).toThrow(RangeError);
+    // The message, not just the class: a bad state code is a RangeError too.
+    expect(() => indiaGst.compute(domestic as IndiaGstInput)).toThrow(
+      /without payment of tax is only for a special economic zone or a place outside India/,
+    );
   });
 
   it("suggests the tour operator codes in a SAC error, and the kernel exports the GSTIN check", () => {

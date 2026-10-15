@@ -53,7 +53,28 @@ const pages = {
   },
   LINK_EXPIRED: { status: 410, heading: "This link has expired", advice: "Ask whoever sent it for a new one." },
   LINK_REVOKED: { status: 410, heading: "This link has been turned off", advice: "Ask whoever sent it for a new one." },
+  DOCUMENT_NOT_READY: {
+    status: 503,
+    heading: "This document is still being prepared",
+    advice: "Try the link again in a minute.",
+  },
+  // Its PDF can never be made (the renderer gave up for good): waiting would not help.
+  DOCUMENT_UNAVAILABLE: {
+    status: 404,
+    heading: "This document can't be shown",
+    advice: "Ask whoever sent it for a new copy.",
+  },
+  TOO_MANY_TRIES: { status: 429, heading: "Too many tries", advice: "Wait a minute, then open the link again." },
+  // Something failed on our side; the log has what.
+  SERVER_ERROR: {
+    status: 500,
+    heading: "This link doesn't work",
+    advice: "Something went wrong on our side. Try the link again in a few minutes.",
+  },
 } as const;
+
+/** How long a customer is asked to wait for a document the worker is still rendering, in seconds. */
+const NOT_READY_RETRY_SECONDS = 30;
 
 type PageReason = keyof typeof pages;
 
@@ -62,8 +83,9 @@ const isPageReason = (reason: string): reason is PageReason => Object.hasOwn(pag
 /** Text content needs only these escaped. */
 const escapeHtml = (text: string) => text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
-function errorPage(reason: PageReason): Response {
+function errorPage(reason: PageReason, retryAfterSeconds?: number): Response {
   const { status, heading, advice } = pages[reason];
+  const retryAfter = retryAfterSeconds ?? (status === 503 ? NOT_READY_RETRY_SECONDS : undefined);
   const { colours, fonts } = brand;
   const html = `<!doctype html>
 <html lang="en">
@@ -85,11 +107,22 @@ p{color:${colours.muted};line-height:1.5;margin:0}
     status,
     headers: {
       ...privacyHeaders,
+      ...(retryAfter === undefined ? {} : { "Retry-After": String(retryAfter) }),
       "Content-Type": "text/html; charset=utf-8",
       "Content-Security-Policy":
         "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
     },
   });
+}
+
+/** The /p routes' answer over the rate limit: a page, like their others, since customers open these in a browser. */
+export function tooManyRequestsPage(retryAfterSeconds: number): Response {
+  return errorPage("TOO_MANY_TRIES", retryAfterSeconds);
+}
+
+/** The /p routes' answer to an error nothing handled: the page customers get when a link doesn't work. */
+export function linkFailedPage(): Response {
+  return errorPage("SERVER_ERROR");
 }
 
 /** A resolver's response with the privacy headers added (a copy: Response.redirect's headers can't be changed). */
@@ -124,7 +157,16 @@ export function shareLinkRoutes(options: ShareLinkRouteOptions): Hono {
       ? options.resolvers[opened.recordType]
       : undefined;
     if (!resolve) return errorPage("LINK_NOT_FOUND");
-    const response = await resolve(opened);
+    let response: Response;
+    try {
+      response = await resolve(opened);
+    } catch (error) {
+      // A resolver says "not found" (or "not ready yet") the same way the link itself does.
+      if (error instanceof DomainError && error.code === "NOT_FOUND") {
+        return errorPage(isPageReason(error.reason) ? error.reason : "LINK_NOT_FOUND");
+      }
+      throw error;
+    }
     // Counted and announced only when the customer got the record: not for a 404, a 503 "being prepared" or a failure.
     if (response.status < 400) await options.recordOpen(opened, visitor);
     return keptPrivate(response);

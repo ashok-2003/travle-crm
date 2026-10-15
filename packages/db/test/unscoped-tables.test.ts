@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { createDatabase, type Database } from "../src/database.js";
 import { UnscopedModelError } from "../src/errors.js";
 import type { IdentityTx, OrgTx } from "../src/for-org.js";
-import { createIdentityDatabase, type IdentityDatabase } from "../src/identity.js";
+import { createIdentityDatabase, type IdentityClient, type IdentityDatabase } from "../src/identity.js";
 import { createPlatformClient, type PlatformClient } from "../src/platform.js";
 import { rateLimitCounters } from "../src/rate-limits.js";
 import { webhookEvents } from "../src/webhooks.js";
@@ -36,9 +36,9 @@ describe("tables without organization_id", () => {
     await platform.$disconnect();
   });
 
-  it("are missing from OrgTx and IdentityTx", () => {
-    // Compile-time checks: `pnpm typecheck` fails if either type exposes them again.
-    const hidden = (tx: OrgTx, identityTx: IdentityTx): unknown[] => [
+  it("are missing from OrgTx, IdentityTx and the identity module's client", () => {
+    // Compile-time checks: `pnpm typecheck` fails if any of these types exposes them again.
+    const hidden = (tx: OrgTx, identityTx: IdentityTx, client: IdentityClient): unknown[] => [
       // @ts-expect-error webhook_event has no row-level security, so OrgTx leaves it out
       tx.webhookEvent,
       // @ts-expect-error rate_limit_counter has no row-level security, so OrgTx leaves it out
@@ -47,8 +47,34 @@ describe("tables without organization_id", () => {
       identityTx.webhookEvent,
       // @ts-expect-error nor rate_limit_counter
       identityTx.rateLimitCounter,
+      // @ts-expect-error the client Better Auth uses reaches its own tables, not webhook_event
+      client.webhookEvent,
+      // @ts-expect-error nor rate_limit_counter
+      client.rateLimitCounter,
+      // The client's own transactions are IdentityTx too.
+      client.$transaction((clientTx) =>
+        Promise.resolve([
+          // @ts-expect-error a transaction on the identity client reaches the sign-in tables, not webhook_event
+          clientTx.webhookEvent,
+          // @ts-expect-error nor rate_limit_counter
+          clientTx.rateLimitCounter,
+        ]),
+      ),
+      // @ts-expect-error an extension would skip the client's role check and its hiding of these tables
+      client.$extends,
     ];
     expect(typeof hidden).toBe("function");
+  });
+
+  it("are refused inside the identity client's own transactions, which can't be extended away", async () => {
+    for (const model of ["webhookEvent", "rateLimitCounter"]) {
+      await expect(identity.client.$transaction((tx) => reachFor(tx, model))).rejects.toBeInstanceOf(
+        UnscopedModelError,
+      );
+    }
+    // The sign-in tables are still there, which is what Better Auth's adapter uses the transactions for.
+    expect(await identity.client.$transaction((tx) => tx.user.count())).toBeGreaterThanOrEqual(0);
+    expect(() => Reflect.get(identity.client, "$extends") as unknown).toThrow(/can't be extended/);
   });
 
   it("are refused at run time when a cast reaches past the types", async () => {
@@ -59,6 +85,8 @@ describe("tables without organization_id", () => {
       );
       // withoutOrg()'s transaction too: only the entry points reach through it.
       await expect(db.withoutOrg((tx) => reachFor(tx, model))).rejects.toBeInstanceOf(UnscopedModelError);
+      // And the identity module's client, which queries outside any transaction.
+      expect(() => Reflect.get(identity.client, model) as unknown).toThrow(UnscopedModelError);
     }
   });
 

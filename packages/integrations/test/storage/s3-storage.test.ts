@@ -78,7 +78,7 @@ describe("S3 storage on a server with no such bucket", () => {
 
   it("throws, rather than answering 'no such key', and checkBucket names the bucket", async () => {
     const storage = createS3Storage({ ...minio.settings, bucket: "wrong-bucket" });
-    await expect(storage.get("organizations/o1/attachments/a1")).rejects.toThrow();
+    await expect(storage.get("organizations/o1/attachments/a1")).rejects.toMatchObject({ name: "NoSuchBucket" });
     await expect(storage.checkBucket()).rejects.toThrow(/wrong-bucket/);
     await expect(storage.checkBucket()).rejects.not.toThrow(/minio-test-password/);
   });

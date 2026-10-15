@@ -2,6 +2,27 @@
 // are retried up to the job's limit and then recorded, and schedules are kept with their time zone.
 import { describe, expect, it } from "vitest";
 import { createMemoryJobQueue, createMemoryJobRunner } from "../../src/jobs/index.js";
+import { describeJobAdapter } from "./job-adapter-contract.js";
+
+describeJobAdapter("memory", () => {
+  const queue = createMemoryJobQueue();
+  const runner = createMemoryJobRunner(queue);
+  return Promise.resolve({
+    queue,
+    runner,
+    runUntil: async (check) => {
+      await runner.runQueued();
+      if (!(await check())) throw new Error("Every queued job ran, and the check still fails");
+    },
+    failed: () =>
+      Promise.resolve(
+        runner.failed.map(({ job, attempts, error }) => ({ id: job.id, queue: job.queue, attempts, error })),
+      ),
+    schedules: () =>
+      Promise.resolve(runner.schedules.map(({ queue: name, cron, timeZone }) => ({ queue: name, cron, timeZone }))),
+    stop: () => Promise.resolve(),
+  });
+});
 
 describe("memory job runner", () => {
   it("runs queued jobs that have a handler, including jobs the handlers queue", async () => {
@@ -33,8 +54,24 @@ describe("memory job runner", () => {
     await runner.runQueued();
     expect(attempts).toEqual([0, 1, 2]);
     expect(runner.failed).toMatchObject([
-      { attempts: 3, error: "mail server down", job: { queue: "notifications.deliver" } },
+      // Not a message our code wrote, so only its name is kept.
+      { attempts: 3, error: "Error", job: { queue: "notifications.deliver" } },
     ]);
+  });
+
+  it("gives each attempt its own copy of the data, so a handler that changes it doesn't change the retry's", async () => {
+    const queue = createMemoryJobQueue();
+    const runner = createMemoryJobRunner(queue);
+    const seen: unknown[] = [];
+    await runner.work("webhooks.process", (job) => {
+      seen.push({ ...job.data });
+      (job.data as Record<string, unknown>).webhookEventId = "changed";
+      return Promise.reject(new Error("try again"));
+    });
+    await queue.send("webhooks.process", { webhookEventId: "w3" }, { retryLimit: 1 });
+    await runner.runQueued();
+    expect(seen).toEqual([{ webhookEventId: "w3" }, { webhookEventId: "w3" }]);
+    expect(queue.sent[0]?.data).toEqual({ webhookEventId: "w3" });
   });
 
   it("keeps schedules with their time zone, and fires them on demand", async () => {

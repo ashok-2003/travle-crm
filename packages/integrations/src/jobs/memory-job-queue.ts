@@ -1,6 +1,7 @@
-// An in-memory JobQueue for tests: it records what was sent, and repeats of a job id queue nothing, as in pg-boss.
+// An in-memory JobQueue for tests: it records what was sent, and a job id repeated on its queue queues nothing, as in
+// pg-boss.
 import { randomUUID } from "node:crypto";
-import { assertQueueName, type JobData, type JobOptions, type JobQueue } from "./job-queue.js";
+import { assertJobId, assertQueueName, type JobData, type JobOptions, type JobQueue } from "./job-queue.js";
 
 export interface SentJob {
   id: string;
@@ -22,11 +23,18 @@ export function createMemoryJobQueue(): MemoryJobQueue {
     send: (queue, data, options = {}) =>
       new Promise((resolve) => {
         assertQueueName(queue);
-        if (options.id !== undefined && sent.some((job) => job.id === options.id)) {
+        if (options.id !== undefined) assertJobId(options.id);
+        if (options.id !== undefined && sent.some((job) => job.queue === queue && job.id === options.id)) {
           resolve(null);
           return;
         }
-        const job = { id: options.id ?? randomUUID(), queue, data, options };
+        // Copies, as pg-boss's JSON round trip makes them: a caller changing its object later changes no job.
+        const job = {
+          id: options.id ?? randomUUID(),
+          queue,
+          data: structuredClone(data),
+          options: structuredClone(options),
+        };
         sent.push(job);
         resolve(job.id);
       }),

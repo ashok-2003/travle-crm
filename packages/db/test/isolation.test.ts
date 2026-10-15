@@ -24,6 +24,18 @@ async function tablesWithOrganizationId(platform: PlatformClient): Promise<strin
   return rows.map((row) => row.table_name).filter((name) => !signInTables.includes(name));
 }
 
+/** The columns app_runtime may UPDATE, by table, as the grants say (table-wide or column by column). */
+async function runtimeUpdatableColumns(platform: PlatformClient, tables: string[]): Promise<Map<string, string[]>> {
+  const rows = await platform.$queryRaw<{ table_name: string; column_name: string }[]>`
+    SELECT table_name, column_name FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = ANY(${tables}::text[])
+      AND has_column_privilege('app_runtime', format('public.%I', table_name), column_name, 'UPDATE')
+    ORDER BY table_name, column_name`;
+  const columns = new Map<string, string[]>();
+  for (const row of rows) columns.set(row.table_name, [...(columns.get(row.table_name) ?? []), row.column_name]);
+  return columns;
+}
+
 describe("organization isolation", () => {
   const urls = inject("dbUrls");
   let platform: PlatformClient;
@@ -45,6 +57,25 @@ describe("organization isolation", () => {
 
   it("has an isolation fixture for every table with an organization_id column", async () => {
     expect(await tablesWithOrganizationId(platform)).toEqual(Object.keys(orgTableFixtures).sort());
+  });
+
+  it("checks updates with a column the runtime role may update, whenever the grants let it update any", async () => {
+    // Read from the grants, so a table given UPDATE on a few columns can't be tested on organization_id alone (which
+    // the role then can't update at all), leaving those columns untested under row-level security.
+    const granted = await runtimeUpdatableColumns(platform, Object.keys(orgTableFixtures));
+    const problems = Object.entries(orgTableFixtures).flatMap(([tableName, fixture]) => {
+      const columns = granted.get(tableName) ?? [];
+      if (columns.length === 0) {
+        return fixture.appendOnly === true && fixture.updatableColumn === undefined
+          ? []
+          : [`${tableName}: app_runtime may update no column, so its fixture is appendOnly with no updatableColumn`];
+      }
+      const checked = fixture.updatableColumn ?? "organization_id";
+      return columns.includes(checked)
+        ? []
+        : [`${tableName}: the update check uses ${checked}, but app_runtime may update only ${columns.join(", ")}`];
+    });
+    expect(problems).toEqual([]);
   });
 
   describe.each(Object.keys(orgTableFixtures))("table %s", (tableName) => {

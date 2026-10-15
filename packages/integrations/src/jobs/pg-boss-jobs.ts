@@ -1,8 +1,9 @@
 // The jobs port on pg-boss (spec 9.1): queues in Postgres, no extra server. pg-boss runs as app_runtime with
 // migrate: false; its schema comes from our migrations (ADR 0010).
 import { PgBoss } from "pg-boss";
-import { assertQueueName, type JobData, type JobQueue } from "./job-queue.js";
+import { assertJobId, assertQueueName, type JobData, type JobQueue } from "./job-queue.js";
 import type { JobRunner } from "./job-runner.js";
+import { describeError } from "./describe-error.js";
 import { defaultRetryPolicy, type RetryPolicy } from "./retry-policy.js";
 import { sanitizeJobError, toError } from "./sanitize-job-error.js";
 
@@ -16,10 +17,12 @@ export interface PgBossJobsSettings {
   /** How the queues this instance creates retry failed jobs. Tests shorten it; production keeps the default. */
   retryPolicy?: RetryPolicy;
   /**
-   * Where pg-boss's errors go (a failing maintenance query, a lost connection), its warnings (prefixed "pg-boss
-   * warning:"), the original errors of failing handlers, and failed-job rows that couldn't be read.
+   * The process's log, a line each: a failing handler (its queue, job id and error), pg-boss's own errors (a failing
+   * maintenance query, a lost connection; with the queue when pg-boss names one), its warnings in its own words, and
+   * failed-job rows that couldn't be read. Errors appear as their names and codes only (describeError), never their
+   * messages or the objects, which can quote personal data. Without it, the lines go to stderr.
    */
-  onError?: (error: Error) => void;
+  log?: (line: string) => void;
 }
 
 /** A job that used all its retries, for the platform console's failed-jobs list (plan 4). */
@@ -90,15 +93,22 @@ export function createPgBossJobs(settings: PgBossJobsSettings): PgBossJobs {
     migrate: false,
     createSchema: false,
   });
-  function report(error: Error): void {
-    if (settings.onError) settings.onError(error);
-    else console.error("pg-boss error", error);
+  function report(line: string): void {
+    try {
+      if (settings.log) settings.log(line);
+      else console.error(line);
+    } catch {
+      // A broken logger must not break pg-boss's loops, nor replace the sanitised error it stores.
+    }
   }
-  boss.on("error", (error) => {
-    report(toError(error));
+  boss.on("error", (error: unknown) => {
+    // pg-boss spreads a worker's error into a plain object with the queue it was working.
+    const queue = typeof error === "object" && error !== null && "queue" in error ? error.queue : undefined;
+    report(`pg-boss error${typeof queue === "string" ? ` on queue ${queue}` : ""}: ${describeError(error)}`);
   });
   boss.on("warning", (warning) => {
-    report(new Error(`pg-boss warning: ${toError(warning).message}`));
+    // pg-boss's warnings are its own words about its own state (a slow query, a long queue), not a handler's data.
+    report(`pg-boss warning: ${toError(warning).message}`);
   });
 
   // pg-boss 12 needs a queue to exist before jobs are sent to or worked from it. Creating one is idempotent
@@ -130,6 +140,7 @@ export function createPgBossJobs(settings: PgBossJobsSettings): PgBossJobs {
     stop: () => boss.stop({ graceful: true, timeout: 30_000 }),
 
     async send(queue, data, options = {}) {
+      if (options.id !== undefined) assertJobId(options.id);
       await ensureQueue(queue);
       return boss.send(queue, data, {
         ...(options.id === undefined ? {} : { id: options.id }),
@@ -155,12 +166,9 @@ export function createPgBossJobs(settings: PgBossJobsSettings): PgBossJobs {
           try {
             await handler({ id: job.id, data: toJobData(job.data), retryCount: job.retryCount });
           } catch (error) {
-            // pg-boss stores what we throw, in a table without row-level security: log the original, throw a cut-down copy.
-            try {
-              report(toError(error));
-            } catch {
-              // A broken logger must not replace the sanitised error pg-boss stores.
-            }
+            // pg-boss stores what we throw, in a table without row-level security, so it gets a cut-down copy; the log
+            // gets the queue, the job and the error's names and codes.
+            report(`queue ${queue}, job ${job.id} failed: ${describeError(error)}`);
             throw sanitizeJobError(error);
           }
         },
@@ -207,7 +215,7 @@ export function createPgBossJobs(settings: PgBossJobsSettings): PgBossJobs {
           });
         } catch (error) {
           // One unreadable row must not hide the others from the console.
-          report(new Error(`Failed job ${row.id} on ${row.name} can't be listed: ${toError(error).message}`));
+          report(`failed job ${row.id} on queue ${row.name} can't be listed: ${describeError(error)}`);
         }
       }
       return failed;

@@ -1,6 +1,7 @@
 // Listeners and a counting job queue for the jobs module's tests.
 import { createMemoryJobQueue, type JobQueue, type MemoryJobQueue } from "@travel-crm/integrations/jobs";
 import type { DomainEvent, EventListener, ListenerContext } from "../../src/jobs/index.js";
+import { DomainError } from "../../src/kernel/index.js";
 
 /** A listener that records the events it handles, and can be told to fail. */
 export interface RecordingListener extends EventListener {
@@ -21,7 +22,8 @@ export function recordingListener(
     async handle(event: DomainEvent, context: ListenerContext) {
       if (listener.failuresLeft > 0) {
         listener.failuresLeft -= 1;
-        throw new Error(`${name} failed on purpose`);
+        // Our own error, with an email in it: pg-boss keeps the message, masked.
+        throw new DomainError("CONFLICT", "FAILED_ON_PURPOSE", `${name} failed on purpose for jane.doe@example.com`);
       }
       listener.handled.push(event);
       if (handle) await handle(event, context);

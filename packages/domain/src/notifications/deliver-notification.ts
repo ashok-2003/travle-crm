@@ -2,6 +2,7 @@
 // organization's name with its Reply-To, respecting each person's opt-outs, and never to someone who has left.
 import { notificationCreatedEvent } from "@travel-crm/contracts/notifications";
 import { renderEmail, senderNameFor, type EmailSender } from "@travel-crm/integrations/email";
+import { ownMessage } from "@travel-crm/integrations/jobs";
 import type { PushSender } from "@travel-crm/integrations/push";
 import type { MemberContact, OrganizationProfile } from "../identity/index.js";
 import { defineListener, type EventListener, type ListenerContext } from "../jobs/index.js";
@@ -9,12 +10,11 @@ import {
   checkOtherRun,
   claim,
   email as emailChannel,
-  markFailed,
   markSent,
   push as pushChannel,
   release,
 } from "./delivery-claims.js";
-import { attempt, isPermanent } from "./delivery-failures.js";
+import { attempt, isPermanent, NothingToDeliverError } from "./delivery-failures.js";
 import { isOptedOut } from "./preferences.js";
 import { fitPushPayload } from "./push-payload.js";
 
@@ -87,7 +87,7 @@ export function deliverNotificationListener(dependencies: DeliveryDependencies):
         // Staff without email (a null address) get no email.
         if (!wanted || contact.email === null) return;
         const organization = await dependencies.organizationProfile(event.organizationId);
-        if (!organization) throw new Error(`Organization ${event.organizationId} has no profile`);
+        if (!organization) throw ownMessage(new Error(`Organization ${event.organizationId} has no profile`));
         const { html, text } = renderEmail({
           heading: notification.title,
           paragraphs: [notification.body],
@@ -143,7 +143,6 @@ export function deliverNotificationListener(dependencies: DeliveryDependencies):
         });
 
         if (reached) await markSent(context, id, pushChannel);
-        else if (failures.length === 0) await markFailed(context, id, pushChannel); // every browser was forgotten
         // The push service forgot these browsers (unsubscribed, or the browser dropped them). Recorded after the
         // send, so failing to forget them never causes a push that arrived to be sent again.
         if (forgotten.length > 0) {
@@ -154,11 +153,13 @@ export function deliverNotificationListener(dependencies: DeliveryDependencies):
               log(`Notification ${id}: ${String(ids.length)} forgotten push subscription(s) could not be deleted`);
             });
         }
-        if (reached || failures.length === 0) return;
+        if (reached) return;
+        // Every browser was forgotten: nothing to deliver to. Recorded like any other give-up, by `attempt`.
+        if (failures.length === 0) throw new NothingToDeliverError();
 
         const retryable = failures.find((failure) => !isPermanent(failure)) ?? failures[0];
         if (!isPermanent(retryable)) await release(context, id, pushChannel, claimedAt, log);
-        throw retryable instanceof Error ? retryable : new Error(`Notification ${id}: the push failed`);
+        throw retryable instanceof Error ? retryable : ownMessage(new Error(`Notification ${id}: the push failed`));
       };
 
       const problems = await Promise.all([

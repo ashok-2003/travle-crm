@@ -2,7 +2,13 @@
 import type { AttachmentRefInput, AttachmentSummary } from "@travel-crm/contracts/files";
 import { softDeleted } from "@travel-crm/db";
 import { DomainError, type Actor } from "../kernel/index.js";
-import { attachmentFields, canViewSensitive, findAttachment, summaryFor } from "./attachment-row.js";
+import {
+  attachmentFields,
+  canViewSensitive,
+  findAttachment,
+  isSystemOwnedRecordType,
+  summaryFor,
+} from "./attachment-row.js";
 import type { FilesDependencies } from "./dependencies.js";
 import { bytesStored } from "./uploads.js";
 
@@ -27,7 +33,7 @@ export async function listAttachments(
 
 /**
  * Hides the file (ADR 0004). Its bytes stay in storage, and count, until the platform's purge. A sensitive file is
- * removed only by a member holding documents:view_sensitive.
+ * removed only by a member holding documents:view_sensitive; a file of a system-owned record type, by no one.
  */
 export async function removeAttachment(
   { db }: FilesDependencies,
@@ -36,6 +42,9 @@ export async function removeAttachment(
 ): Promise<void> {
   await db.forOrg(actor.organizationId, async (tx) => {
     const row = await findAttachment(tx, input);
+    if (isSystemOwnedRecordType(row.recordType)) {
+      throw new DomainError("FORBIDDEN", "SYSTEM_OWNED_FILE", "This file belongs to its record and can't be removed");
+    }
     if (row.sensitive && !canViewSensitive(actor)) {
       throw new DomainError("FORBIDDEN", "MISSING_PERMISSION", "Requires documents:view_sensitive");
     }

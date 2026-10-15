@@ -37,7 +37,9 @@ person)` is unique, so a repeat adds no second notification. Requests pass none,
   left; staff without email get push and the bell, never an email to their placeholder address.
 - **Links are paths inside the web app**, checked by the contract and the table (`notification_link_path`), so a
   notification can't send anyone to another site.
-- **Notifications are append-only for the api and worker**, except `read_at`, `emailed_at` and `pushed_at`.
+- **Notifications are append-only for the api and worker**, except seven columns: `read_at`, and for email and push
+  each its claim, sent marker and failure (`email_claimed_at`, `emailed_at`, `email_failed_at`, `push_claimed_at`,
+  `pushed_at`, `push_failed_at`).
 
 ## Context
 
@@ -57,4 +59,7 @@ person)` is unique, so a repeat adds no second notification. Requests pass none,
 
 - The routers for the bell, the settings and push subscriptions come with their screens in plan 5.
 - Retention: notifications are kept; a purge, if needed, runs as the platform role.
+- A removed member's push subscriptions are deleted by the `notifications.forget-push-subscriptions` listener of
+  identity's `staff.removed`, so eventually rather than in the removal's transaction (identity can't call
+  notifications, which depends on it). That is harmless: delivery already skips people who have left.
 - WhatsApp templates (build step 2) become a third channel with the same opt-out rules.

@@ -12,24 +12,6 @@ const trpcCodeOf: Record<DomainErrorCode, TRPCError["code"]> = {
   VALIDATION: "BAD_REQUEST",
 };
 
-/** The HTTP status of each domain error code, for routes outside tRPC (share links, webhooks). Same as tRPC's. */
-const httpStatusOf: Record<DomainErrorCode, 400 | 403 | 404 | 409> = {
-  NOT_FOUND: 404,
-  FORBIDDEN: 403,
-  CONFLICT: 409,
-  LIMIT_REACHED: 403,
-  FEATURE_LOCKED: 403,
-  VALIDATION: 400,
-};
-
-/** The response a plain HTTP route sends for a domain error: its status, and the code and reason to translate. */
-export function domainErrorResponse(error: DomainError): Response {
-  return Response.json(
-    { code: error.code, reason: error.reason, message: error.message },
-    { status: httpStatusOf[error.code] },
-  );
-}
-
 /** The tRPC error for a domain error, keeping it as the cause so the formatter can read its code and reason. */
 export function toTrpcError(error: DomainError): TRPCError {
   return new TRPCError({ code: trpcCodeOf[error.code], message: error.message, cause: error });

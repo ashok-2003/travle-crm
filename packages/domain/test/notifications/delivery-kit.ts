@@ -147,6 +147,16 @@ export function deliver(kit: DeliveryKit, event: DomainEvent, overrides: Partial
   return deliverNotificationListener(kit.dependencies(overrides)).handle(event, kit.context());
 }
 
+/** `target` with some of its members replaced; every other member is the real one. */
+function overriding<T extends object>(target: T, replacements: Partial<T>): T {
+  return new Proxy(target, {
+    get: (real, property, receiver) =>
+      property in replacements
+        ? (replacements as Record<string | symbol, unknown>)[property]
+        : (Reflect.get(real, property, receiver) as unknown),
+  });
+}
+
 /**
  * A listener context whose database breaks in one place: "pushSubscription" can't delete rows, and "releasing" can't
  * clear an email claim. Everything else works.
@@ -158,23 +168,16 @@ export function failing(kit: DeliveryKit, what: "pushSubscription" | "releasing"
     forOrg: (fn) =>
       kit.context().forOrg((tx) =>
         fn(
-          new Proxy(tx, {
-            get(target, property, receiver) {
-              if (what === "pushSubscription" && property === "pushSubscription") {
-                return { ...target.pushSubscription, deleteMany: broken };
-              }
-              if (what === "releasing" && property === "notification") {
-                return {
-                  ...target.notification,
-                  updateMany: (args: Parameters<OrgTx["notification"]["updateMany"]>[0]) =>
+          what === "pushSubscription"
+            ? overriding(tx, { pushSubscription: overriding(tx.pushSubscription, { deleteMany: broken as never }) })
+            : overriding(tx, {
+                notification: overriding(tx.notification, {
+                  updateMany: ((args: Parameters<OrgTx["notification"]["updateMany"]>[0]) =>
                     "emailClaimedAt" in args.data && args.data.emailClaimedAt === null
                       ? broken()
-                      : target.notification.updateMany(args),
-                };
-              }
-              return Reflect.get(target, property, receiver) as unknown;
-            },
-          }),
+                      : tx.notification.updateMany(args)) as never,
+                }),
+              }),
         ),
       ),
   };

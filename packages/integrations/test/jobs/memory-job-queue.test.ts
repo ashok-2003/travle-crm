@@ -24,6 +24,16 @@ describe("memory job queue", () => {
     expect(queue.sent).toHaveLength(1);
   });
 
+  it("keeps its own copy of the data and options, as pg-boss's JSON round trip does", async () => {
+    const queue = createMemoryJobQueue();
+    const data = { webhookEventId: "w2" };
+    const options = { retryLimit: 3 };
+    await queue.send("webhooks.process", data, options);
+    data.webhookEventId = "changed";
+    options.retryLimit = 0;
+    expect(queue.sent).toMatchObject([{ data: { webhookEventId: "w2" }, options: { retryLimit: 3 } }]);
+  });
+
   it("refuses queue names that are not <module>.<action>", async () => {
     const queue = createMemoryJobQueue();
     await expect(queue.send("RenderPdf", {})).rejects.toThrow(/Queue names/);

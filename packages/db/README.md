@@ -21,9 +21,11 @@ transaction to `orgId`'s rows; outside it, queries see nothing.
 - `db.withoutOrg(fn)` runs a transaction with no organization, for the few tables without `organization_id` (webhook
   events, rate-limit counters) and database functions that look across organizations without revealing rows.
   Organization tables show no rows and refuse writes in it. It can't be nested either.
-- The tables without `organization_id` have no row-level security, so `OrgTx` leaves their models out and every
-  transaction refuses them at run time (`UnscopedModelError`). Their own modules reach them inside `db.withoutOrg()`:
+- The tables without `organization_id` have no row-level security, so `OrgTx` and the identity module's client leave
+  their models out, and every transaction and that client (its own transactions included; it refuses `$extends`)
+  refuse them at run time (`UnscopedModelError`). Their own modules reach them inside `db.withoutOrg()`:
   `webhookEvents(tx)` from `@travel-crm/db/webhooks`, `rateLimitCounters(tx)` from `@travel-crm/db/rate-limits`.
+  ESLint flags raw SQL naming either table outside its module.
 
 ## Entry points
 
@@ -57,7 +59,9 @@ dependency-cruiser enforces the "only" column. Another package's `vitest.config.
    database and fail if the schema and migrations disagree. Never run `prisma migrate dev` or reset a shared database.
 5. Add a row-creating fixture for the table to your module's file in `test/org-table-fixtures/` (one file per module,
    gathered by `test/org-table-fixtures.ts`). Mark it `appendOnly: true` when the runtime role can't update or delete
-   the table's rows (like `outbox_event`): the suite then expects those statements to be refused outright.
+   the table's rows (like `outbox_event`): the suite then expects those statements to be refused outright. When the
+   role may update only some columns (granted by name, like `outbox_event.relayed_at`), name one as `updatableColumn`,
+   so another organization's update is tested on it. The suite reads the grants and fails when that is missing.
 6. `pnpm check`. The isolation suite now covers the new table.
 
 Steps 3 and 5 are enforced: the tests fail if either is missing. Keys are checked too:

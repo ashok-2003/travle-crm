@@ -17,6 +17,9 @@ quotes and invoices bring theirs.
   Another organization's document is `NOT_FOUND`/`DOCUMENT_NOT_FOUND`.
 - `renderIssuedDocumentListener({ files, render })`: the worker's listener `documents.render-pdf`. Pass the files
   module and `renderPdf` from `@travel-crm/integrations/pdf`.
+- `sampleQuotation({ recipient, supplierStateCode, placeOfSupplyStateCode, lines, branding, notes? })`: the sample
+  template's content as a quotation, its GST worked out by the kernel's `indiaGst` and every amount printed with
+  `formatMoney`, ready for `issueDocument`.
 
 ## Events
 

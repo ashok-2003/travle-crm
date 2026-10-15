@@ -43,7 +43,7 @@ model ShareLinkOpen {
   ipAddress      String?      @map("ip_address")
   /// The browser's User-Agent, at most 300 characters.
   userAgent      String?      @map("user_agent")
-  shareLink      ShareLink    @relation(fields: [organizationId, shareLinkId], references: [organizationId, id], onDelete: Restrict)
+  shareLink      ShareLink    @relation(fields: [organizationId, shareLinkId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([organizationId, shareLinkId, openedAt])

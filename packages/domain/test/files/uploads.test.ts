@@ -1,5 +1,6 @@
 // Uploading: the browser sends the file straight to storage, the api confirms it arrived as promised, and every
 // organization's files count toward its storage limit, deleted ones included until a purge.
+import { softDeleted } from "@travel-crm/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createFiles } from "../../src/files/index.js";
 import { systemActor } from "../../src/kernel/index.js";
@@ -44,6 +45,29 @@ describe("uploading files", () => {
     expect(confirmed).toEqual({ ...attachment, status: "ready" });
     expect([...test.storage.objects.keys()]).toContain(`organizations/${organizationId}/attachments/${attachment.id}`);
     expect(await test.files.confirmUpload(sales, ref(attachment))).toEqual(confirmed);
+  });
+
+  it("lets only the system store files of a system-owned record, such as an issued document's PDF", async () => {
+    const pdfOfDocument = passportUpload({
+      recordType: "issued_document",
+      fileName: "DOC-2026-0099.pdf",
+      sizeBytes: 9,
+    });
+    for (const actor of [memberOf(organizationId, "org-owner"), systemActor(organizationId)]) {
+      await expect(test.files.requestUpload(actor, pdfOfDocument)).rejects.toMatchObject({
+        code: "FORBIDDEN",
+        reason: "SYSTEM_OWNED_FILE",
+      });
+    }
+    // The system's own path, which renders the PDF, still works.
+    const stored = await test.files.storeGeneratedFile(systemActor(organizationId), {
+      recordType: "issued_document",
+      recordId: pdfOfDocument.recordId,
+      fileName: "DOC-2026-0099.pdf",
+      contentType: "application/pdf",
+      body: bytes("%PDF-1.3 x"),
+    });
+    expect(stored).toMatchObject({ recordType: "issued_document", status: "ready" });
   });
 
   it("refuses to confirm a file that never arrived, or arrived different", async () => {
@@ -105,6 +129,18 @@ describe("uploading files", () => {
     ).rejects.toMatchObject({ code: "CONFLICT", reason: "ATTACHMENT_ID_IN_USE" });
   });
 
+  it("answers with a generated sensitive file's name hidden from a caller who may not open it", async () => {
+    const stored = await test.files.storeGeneratedFile(memberOf(organizationId, "sales"), {
+      recordType: "lead",
+      recordId: "0199e7a0-0000-7000-8000-0000000000d4",
+      fileName: "Passport - Asha.pdf",
+      contentType: "application/pdf",
+      body: bytes("%PDF-pp"),
+      sensitive: true,
+    });
+    expect(stored).toMatchObject({ fileName: "Sensitive file", sensitive: true, status: "ready" });
+  });
+
   it("refuses a generated file whose name hides a folder or a direction mark", async () => {
     for (const fileName of ["../x.pdf", "invoice\u202Efdp.exe"]) {
       await expect(
@@ -150,8 +186,11 @@ describe("uploading files", () => {
     expect(a).toMatchObject({ id: file.attachmentId, status: "ready" });
 
     const inUse = { code: "CONFLICT", reason: "ATTACHMENT_ID_IN_USE" };
+    // An issued document's PDF can't be removed through the files API, so the deletion is made in the table.
     const owner = memberOf(organizationId, "org-owner");
-    await test.files.remove(owner, { recordType: file.recordType, recordId: file.recordId, attachmentId: a.id });
+    await test.db.forOrg(organizationId, (tx) =>
+      tx.attachment.update({ where: { id: a.id }, data: softDeleted(owner.userId) }),
+    );
     await expect(test.files.storeGeneratedFile(system, file)).rejects.toMatchObject(inUse);
 
     const otherOrganizationId = await createOrganization(test, "Another files agency");

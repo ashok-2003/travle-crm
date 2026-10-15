@@ -13,7 +13,10 @@ export interface JobOptions {
   retryDelaySeconds?: number;
   /** Not before this time. */
   startAfter?: Date;
-  /** The job's id, a UUID. Sending the same id again queues nothing and returns null, so a send can be repeated. */
+  /**
+   * The job's id, a UUID. Sending the same id to the same queue again queues nothing and returns null, so a send can
+   * be repeated. Another queue may use the same id.
+   */
   id?: string;
 }
 
@@ -29,4 +32,11 @@ export function assertQueueName(name: string): void {
   if (!QUEUE_NAME_PATTERN.test(name)) {
     throw new RangeError(`Queue names look like "documents.render-pdf", got ${JSON.stringify(name)}`);
   }
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Job ids are UUIDs (pg-boss's id column is one), checked before the job is sent. */
+export function assertJobId(id: string): void {
+  if (!UUID_PATTERN.test(id)) throw new RangeError(`Job ids are UUIDs, got ${JSON.stringify(id.slice(0, 64))}`);
 }

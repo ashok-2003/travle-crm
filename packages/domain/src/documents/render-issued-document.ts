@@ -1,6 +1,7 @@
 // The worker's listener that renders an issued document's PDF (spec 9.3): from the frozen content, once, stored as
 // the document's attachment. Rendering and storing happen outside any transaction: they are slow.
 import { documentIssuedEvent, issuedDocumentRenderInput, pdfTemplate } from "@travel-crm/contracts/documents";
+import { ownMessage } from "@travel-crm/integrations/jobs";
 import { characterLabel, type PdfInput, type PdfTemplate } from "@travel-crm/integrations/pdf";
 import type { Files } from "../files/index.js";
 import { defineListener, type EventListener } from "../jobs/index.js";
@@ -32,7 +33,7 @@ export function renderIssuedDocumentListener({ files, render }: RenderIssuedDocu
       const { documentId } = event.payload;
       const document = await context.forOrg((tx) => tx.issuedDocument.findUnique({ where: { id: documentId } }));
       // The event commits with its document, so a missing one is a fault: fail, and the job is retried, then listed.
-      if (!document) throw new Error(`Issued document ${documentId} not found in its event's organization`);
+      if (!document) throw ownMessage(new Error(`Issued document ${documentId} not found in its event's organization`));
       // Never regenerated: once a document has its PDF, every later run leaves it alone. One that can never be
       // rendered is left alone too.
       if (document.pdfAttachmentId !== null || document.renderFailure !== null) return;

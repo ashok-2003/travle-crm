@@ -1,12 +1,31 @@
 // What a failed delivery means: whether trying again could help, what may be said about it, and recording that a
 // channel is given up on. Messages here carry ids and codes, never addresses or notification text.
+import { describeError, ownMessage, ownMessages } from "@travel-crm/integrations/jobs";
 import { PushPayloadTooLargeError } from "@travel-crm/integrations/push";
 import type { ListenerContext } from "../jobs/index.js";
 import { markFailed, type Channel } from "./delivery-claims.js";
 
+/** Every push subscription was forgotten by its push service: there is nobody left to send to, which is final. */
+export class NothingToDeliverError extends Error {
+  static {
+    ownMessages(this);
+  }
+
+  constructor() {
+    super("There is no push subscription left to deliver to");
+    this.name = "NothingToDeliverError";
+  }
+}
+
 /** A failure that sending again cannot fix: bad content, an oversized push, or the mail server refusing the message. */
 export function isPermanent(error: unknown): boolean {
-  if (error instanceof RangeError || error instanceof PushPayloadTooLargeError) return true;
+  if (
+    error instanceof RangeError ||
+    error instanceof PushPayloadTooLargeError ||
+    error instanceof NothingToDeliverError
+  ) {
+    return true;
+  }
   const { code, responseCode } = (error ?? {}) as { code?: unknown; responseCode?: unknown };
   // A 5xx is permanent only when it is about this message. A refused login (EAUTH 535) or greeting (554) is about our
   // setup, and fixing the credentials fixes it: those retry.
@@ -14,10 +33,10 @@ export function isPermanent(error: unknown): boolean {
   return aboutTheMessage && typeof responseCode === "number" && responseCode >= 500 && responseCode < 600;
 }
 
-/** What to say about an error without personal data: its name and codes, never its message. */
+/** What to say about an error without personal data: its names and codes, and the mail server's reply code. */
 function describe(error: unknown): string {
-  const { name, code, responseCode } = (error ?? {}) as { name?: unknown; code?: unknown; responseCode?: unknown };
-  return [name, code, responseCode].filter((part) => typeof part === "string" || typeof part === "number").join(" ");
+  const { responseCode } = (error ?? {}) as { responseCode?: unknown };
+  return typeof responseCode === "number" ? `${describeError(error)} ${String(responseCode)}` : describeError(error);
 }
 
 /**
@@ -36,12 +55,17 @@ export async function attempt(
     return undefined;
   } catch (error) {
     if (!isPermanent(error))
-      return error instanceof Error ? error : new Error(`Notification ${id}: ${channel.name} failed`);
-    log(`Notification ${id}: the ${channel.name} can't be delivered and won't be retried (${describe(error)})`);
+      return error instanceof Error ? error : ownMessage(new Error(`Notification ${id}: ${channel.name} failed`));
+    // Having nobody to send to is expected, not worth a log line.
+    if (!(error instanceof NothingToDeliverError)) {
+      log(`Notification ${id}: the ${channel.name} can't be delivered and won't be retried (${describe(error)})`);
+    }
     try {
       await markFailed(context, id, channel);
     } catch (recordingError) {
-      return recordingError instanceof Error ? recordingError : new Error(`Notification ${id}: recording failed`);
+      return recordingError instanceof Error
+        ? recordingError
+        : ownMessage(new Error(`Notification ${id}: recording failed`));
     }
     return undefined;
   }

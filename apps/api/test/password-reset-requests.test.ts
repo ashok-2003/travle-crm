@@ -1,0 +1,115 @@
+// How a password-reset request is protected around the email: Better Auth limits requests per client address, a
+// sender that fails, even before it starts, never changes the answer, and no failure puts the reset link in a log.
+import { randomUUID } from "node:crypto";
+import { createDatabase } from "@travel-crm/db";
+import { createRateLimiter } from "@travel-crm/domain/rate-limits";
+import type { EmailSender } from "@travel-crm/integrations/email";
+import { afterAll, beforeAll, describe, expect, inject, it, onTestFinished, vi } from "vitest";
+import { passwordResetEmails } from "../src/password-reset-email.js";
+import {
+  createTestAgency,
+  createTestServer,
+  ORIGIN,
+  postJson,
+  type TestAgency,
+  type TestServer,
+} from "./support/test-server.js";
+
+const resetPage = `${ORIGIN}/reset-password`;
+const keySecret = "password-reset-requests-secret-32-bytes";
+
+/** Silences console.error for this test and returns what it was given, flattened to text. */
+function capturedErrors(): () => string[] {
+  const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  onTestFinished(() => {
+    error.mockRestore();
+  });
+  return () =>
+    error.mock.calls
+      .flat()
+      .map((part) => (part instanceof Error ? `${part.message} ${String(part.stack)}` : String(part)));
+}
+
+describe("password reset requests", () => {
+  let server: TestServer;
+  let agency: TestAgency;
+
+  beforeAll(async () => {
+    // Only the answers matter here, so the sender sends nothing.
+    server = createTestServer({
+      rateLimit: true,
+      passwordReset: { sendEmail: () => Promise.resolve(), pageUrl: resetPage },
+    });
+    agency = await createTestAgency(server);
+  });
+
+  afterAll(async () => {
+    await server.close();
+  });
+
+  it("are rate limited per client address: three a minute", async () => {
+    const ask = (address: string) =>
+      postJson(
+        server,
+        "/api/auth/request-password-reset",
+        { email: agency.owner.email, redirectTo: resetPage },
+        undefined,
+        { "x-forwarded-for": address },
+      );
+    for (let attempt = 0; attempt < 3; attempt += 1) expect((await ask("203.0.113.40")).status).toBe(200);
+    const refused = await ask("203.0.113.40");
+    expect(refused.status).toBe(429);
+    expect(Number(refused.headers.get("x-retry-after") ?? refused.headers.get("retry-after"))).toBeGreaterThan(0);
+    expect((await ask("203.0.113.41")).status).toBe(200);
+  });
+});
+
+describe("a password-reset sender that fails", () => {
+  it("answers a real address before the sender starts, even one that throws at once, and logs no link", async () => {
+    const errors = capturedErrors();
+    let calls = 0;
+    const server = createTestServer({
+      passwordReset: {
+        sendEmail: () => {
+          calls += 1;
+          throw new Error("could not deliver http://localhost/api/auth/reset-password/secret-token-1");
+        },
+        pageUrl: resetPage,
+      },
+    });
+    try {
+      const agency = await createTestAgency(server);
+      const asked = await postJson(server, "/api/auth/request-password-reset", {
+        email: agency.owner.email,
+        redirectTo: resetPage,
+      });
+      expect(asked.status).toBe(200);
+      expect(await asked.json()).toMatchObject({ status: true });
+      // Answered first: the send starts on a later turn of the event loop.
+      expect(calls).toBe(0);
+      await new Promise((resolve) => setImmediate(resolve));
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(calls).toBe(1);
+      expect(errors()).toEqual(["A password-reset email could not be sent"]);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("keeps the reset link out of the log when sending fails", async () => {
+    const logged: string[] = [];
+    const url = "http://localhost/api/auth/reset-password/secret-reset-token-123?callbackURL=http%3A%2F%2Flocalhost";
+    // A library error that quotes the message it failed to send, link and all.
+    const failing: EmailSender = { send: () => Promise.reject(new Error(`could not deliver: ${url}`)) };
+    const db = createDatabase(inject("dbUrls").runtime, { maxConnections: 1 });
+    try {
+      await passwordResetEmails(failing, createRateLimiter(db, { keySecret }), (line) => logged.push(line))({
+        to: { name: "Asha", address: `asha-${randomUUID()}@example.test` },
+        url,
+      });
+    } finally {
+      await db.disconnect();
+    }
+    expect(logged).toEqual(["Could not send a password-reset email: Error"]);
+  });
+});

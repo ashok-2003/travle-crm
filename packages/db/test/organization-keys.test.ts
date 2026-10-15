@@ -3,8 +3,9 @@
 //   without row-level security;
 // - a unique constraint without it tells one organization that another already uses a value;
 // - with no foreign key from organization_id to organization, a row could name an organization that doesn't exist.
-// The primary key on `id` alone is the exception: random UUIDs reveal nothing. Each check has a probe (run in a
-// rolled-back migrator transaction) proving it fires.
+// The primary key on `id` alone is the exception: random UUIDs reveal nothing. It also fails when a key to organization
+// cascades a deletion, or when a key from a table made after plan 2 cascades an update. Each check has a probe (run in
+// a rolled-back migrator transaction) proving it fires.
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { createPrismaClient } from "../src/client.js";
 import type { Prisma } from "../src/generated/prisma/client.js";
@@ -87,6 +88,43 @@ async function organizationForeignKeysThatDoNotRestrictDeletes(client: Queryable
   return rows.map((row) => row.name);
 }
 
+/**
+ * The tables plans 1 and 2 made, whose keys kept Prisma's default ON UPDATE CASCADE. Every key since restricts updates
+ * too (ON UPDATE RESTRICT): a cascade runs as the table's owner, past a REVOKE UPDATE such as outbox_event's.
+ */
+const tablesWithCascadingUpdates = [
+  "account",
+  "invitation",
+  "member",
+  "org_counter",
+  "role",
+  "role_permission",
+  "session",
+  "two_factor",
+];
+
+/** Foreign keys that don't restrict a change to the key they refer to, outside the tables plans 1 and 2 made. */
+async function foreignKeysThatDoNotRestrictUpdates(client: Queryable): Promise<string[]> {
+  const rows = await client.$queryRaw<{ table_name: string; name: string }[]>`
+    SELECT source.relname AS table_name, source.relname || '.' || fk.conname AS name
+    FROM pg_constraint fk
+    JOIN pg_class source ON source.oid = fk.conrelid
+    JOIN pg_namespace n ON n.oid = source.relnamespace AND n.nspname = 'public'
+    WHERE fk.contype = 'f' AND fk.confupdtype <> 'r'
+    ORDER BY name`;
+  return rows.filter((row) => !tablesWithCascadingUpdates.includes(row.table_name)).map((row) => row.name);
+}
+
+/** A table's foreign keys: what each refers to, and its delete and update actions (r restrict, c cascade, a none). */
+async function foreignKeysOf(client: Queryable, table: string) {
+  return client.$queryRaw<{ name: string; target: string; onDelete: string; onUpdate: string }[]>`
+    SELECT fk.conname AS name, fk.confrelid::regclass::text AS target,
+           fk.confdeltype::text AS "onDelete", fk.confupdtype::text AS "onUpdate"
+    FROM pg_constraint fk
+    WHERE fk.contype = 'f' AND fk.conrelid = ${table}::regclass
+    ORDER BY fk.conname`;
+}
+
 class Rollback extends Error {}
 
 /** Runs setup SQL then assertions inside a migrator transaction that is always rolled back. */
@@ -142,6 +180,43 @@ describe("keys on organization tables", () => {
 
   it("refuse to delete an organization that still has rows, rather than cascade", async () => {
     expect(await organizationForeignKeysThatDoNotRestrictDeletes(platform)).toEqual([]);
+  });
+
+  it("refuse to change a key a row refers to, rather than cascade, on every table since plan 2", async () => {
+    expect(await foreignKeysThatDoNotRestrictUpdates(platform)).toEqual([]);
+  });
+
+  it("catches a foreign key that cascades an update", async () => {
+    await probe(urls.migrator, async (tx) => {
+      await tx.$executeRaw`CREATE TABLE update_probe (id uuid PRIMARY KEY, organization_id uuid NOT NULL
+                             CONSTRAINT update_probe_organization REFERENCES organization (id)
+                             ON DELETE RESTRICT ON UPDATE CASCADE)`;
+      expect(await foreignKeysThatDoNotRestrictUpdates(tx)).toEqual(["update_probe.update_probe_organization"]);
+      await tx.$executeRaw`ALTER TABLE update_probe DROP CONSTRAINT update_probe_organization,
+                             ADD FOREIGN KEY (organization_id) REFERENCES organization (id)
+                             ON DELETE RESTRICT ON UPDATE RESTRICT`;
+      expect(await foreignKeysThatDoNotRestrictUpdates(tx)).toEqual([]);
+    });
+  });
+
+  it("give audit_entry one foreign key, to organization, so no deletion elsewhere reaches the log", async () => {
+    // Postgres runs a cascade as the table's owner, past the grants that keep the log append-only: a key from
+    // actor_user_id or impersonated_by to user (whose keys cascade) would let deleting a user delete entries.
+    expect(await foreignKeysOf(platform, "audit_entry")).toEqual([
+      { name: "audit_entry_organization_id_fkey", target: "organization", onDelete: "r", onUpdate: "r" },
+    ]);
+  });
+
+  it("lists every foreign key of a table, with its actions", async () => {
+    await probe(urls.migrator, async (tx) => {
+      await tx.$executeRaw`CREATE TABLE audit_probe (organization_id uuid NOT NULL
+                             CONSTRAINT audit_probe_organization REFERENCES organization (id) ON DELETE RESTRICT,
+                             actor_user_id uuid CONSTRAINT audit_probe_actor REFERENCES "user" (id) ON DELETE CASCADE)`;
+      expect(await foreignKeysOf(tx, "audit_probe")).toEqual([
+        { name: "audit_probe_actor", target: '"user"', onDelete: "c", onUpdate: "a" },
+        { name: "audit_probe_organization", target: "organization", onDelete: "r", onUpdate: "a" },
+      ]);
+    });
   });
 
   it("catches a foreign key to organization that cascades a deletion", async () => {

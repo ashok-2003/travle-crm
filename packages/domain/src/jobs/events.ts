@@ -30,9 +30,10 @@ export interface ListenerContext {
 }
 
 /**
- * Reacts to one type of event. The worker runs it once per event: listeners are keyed by event id (spec 9.1), and a
- * failed run is retried with backoff. Work outside the database (an email, an upload) may still repeat after a crash,
- * so make it safe to repeat.
+ * Reacts to one type of event. The worker runs it at least once per event (spec 9.1): a failed run is retried with
+ * backoff, and a crashed or overlapping run can repeat one that worked. Key database writes on the event's id (a
+ * unique key, like notify's sourceEventId), so a repeat adds nothing; other work (an email, an upload) may repeat, so
+ * make it safe to repeat.
  */
 export interface EventListener {
   /** Unique, and the name of the listener's job queue: "<module>.<what it does>", e.g. "documents.render-pdf". */
