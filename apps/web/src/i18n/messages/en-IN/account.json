@@ -4,18 +4,26 @@
     "password": "Password",
     "organizationCode": "Organization code",
     "organizationCodeHint": "Your organization's short code, for example SHARMA",
+    "organizationCodeInvalid": "Use 3 to 12 letters or digits, like SHARMA.",
     "username": "Username",
+    "usernameInvalid": "Use 2 to 32 letters, digits, dots, dashes or underscores.",
     "code": "Code from your authenticator app",
     "backupCode": "Backup code",
     "required": "Fill this in.",
     "invalidEmail": "Type an email like name@example.com.",
+    "realEmail": "Type a real email address.",
     "tooLong": "This is too long.",
     "currentPassword": "Current password",
     "temporaryPassword": "Temporary password",
     "newPassword": "New password",
     "newPasswordHint": "At least 10 characters",
+    "passwordTooShort": "Use at least 10 characters.",
     "confirmPassword": "New password again",
     "passwordsDiffer": "The two passwords are different."
+  },
+  "steps": {
+    "loadFailed": "Your account details didn't load.",
+    "backToAccount": "Back to your account"
   },
   "signIn": {
     "title": "Sign in",
@@ -34,6 +42,7 @@
     "useBackupCode": "Use a backup code instead",
     "useAuthenticator": "Use the authenticator app instead",
     "trustDevice": "Don't ask again on this device for 30 days",
+    "trustDeviceHint": "Only on a device nobody else uses, never on a shared office computer.",
     "submit": "Continue",
     "submitting": "Checking",
     "startAgain": "Start signing in again"
@@ -44,7 +53,8 @@
     "intro": "Choose a new password. You'll stay signed in here; other devices are signed out.",
     "submit": "Save new password",
     "submitting": "Saving",
-    "changed": "Your password is changed."
+    "changed": "Your password is changed.",
+    "savedNotContinued": "Your new password is saved, but the next screen didn't open. Check your connection and continue."
   },
   "twoFactorSetup": {
     "title": "Set up two-factor sign-in",
@@ -63,6 +73,7 @@
     "backupIntro": "If you lose your phone, each of these codes signs you in once. Keep them somewhere safe; they won't be shown again.",
     "copyCodes": "Copy codes",
     "copied": "Codes copied",
+    "copyFailed": "Copying didn't work here. Write the codes down instead.",
     "done": "I've saved them"
   },
   "account": {

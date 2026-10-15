@@ -2,6 +2,7 @@
 
 // /account: who the person is (from me.get, so a placeholder email is never shown), and their password and
 // two-factor sign-in.
+import { shownEmailAddress } from "@travel-crm/contracts/identity";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
@@ -29,13 +30,16 @@ export function AccountScreen() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const { user, organization, member } = me;
+  // me.get already refuses to send a placeholder; checked again with the same rule, because one shown here would
+  // look like a real address to write to.
+  const email = user.email !== null && shownEmailAddress.safeParse(user.email).success ? user.email : null;
 
   return (
     <div className="flex max-w-[720px] flex-col gap-6">
       <PageTitle>{t("title")}</PageTitle>
       <dl className="divide-y rounded-lg border">
         <Row label={t("name")}>{user.name}</Row>
-        {user.email !== null && <Row label={t("email")}>{user.email}</Row>}
+        {email !== null && <Row label={t("email")}>{email}</Row>}
         {user.username !== null && <Row label={t("username")}>{user.username}</Row>}
         <Row label={t("organization")}>
           {organization.name} <span className="numbers text-muted-foreground">{organization.code}</span>

@@ -1,20 +1,35 @@
-// The sign-in screen opens on email, or on the organization code once this device has used one, filled in.
+// The sign-in screen opens on email, or on the organization code once this device has used one, filled in. After
+// signing in, the person goes back to the app page they were sent from (?next=), through the code step if they use
+// two-factor.
 import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SignInScreen } from "@/account/sign-in-screen";
 import { messages } from "@/i18n/messages";
-import { renderScreen } from "./render";
+import { answers, ok, renderScreen } from "./render";
 
+const push = vi.fn();
+const finishSignIn = vi.fn();
+let search = "";
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
-  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ push }),
+  useSearchParams: () => new URLSearchParams(search),
 }));
+vi.mock("@/account/finish-sign-in", () => ({ useFinishSignIn: () => finishSignIn }));
 
 const { account } = messages;
 
 afterEach(() => {
   window.localStorage.clear();
+  search = "";
+  vi.clearAllMocks();
 });
+
+async function signInByEmail() {
+  await userEvent.type(screen.getByRole("textbox", { name: account.fields.email }), "asha@example.in");
+  await userEvent.type(screen.getByLabelText(account.fields.password), "owner-password-1");
+  await userEvent.click(screen.getByRole("button", { name: account.signIn.submit }));
+}
 
 describe("SignInScreen", () => {
   it("opens on email the first time", () => {
@@ -28,5 +43,27 @@ describe("SignInScreen", () => {
     renderScreen(<SignInScreen />);
     expect(screen.getByRole("tab", { name: account.signIn.byCode })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("textbox", { name: account.fields.organizationCode })).toHaveValue("SHARMA");
+  });
+
+  it("goes back to the page the person was sent from", async () => {
+    search = "next=/staff";
+    const signInWithEmail = answers(ok({ twoFactorRequired: false }));
+    renderScreen(<SignInScreen auth={{ signInWithEmail, signInWithCode: vi.fn() }} />);
+    await signInByEmail();
+    expect(finishSignIn).toHaveBeenCalledWith("/staff");
+  });
+
+  it("takes that page on to the code step", async () => {
+    search = "next=/staff";
+    const signInWithEmail = answers(ok({ twoFactorRequired: true }));
+    renderScreen(<SignInScreen auth={{ signInWithEmail, signInWithCode: vi.fn() }} />);
+    await signInByEmail();
+    expect(push).toHaveBeenCalledWith("/sign-in/two-factor?next=%2Fstaff");
+    expect(finishSignIn).not.toHaveBeenCalled();
+  });
+
+  it("makes the forgotten-password link a 44px touch target", () => {
+    renderScreen(<SignInScreen />);
+    expect(screen.getByRole("link", { name: account.signIn.forgotPassword })).toHaveClass("min-h-11");
   });
 });

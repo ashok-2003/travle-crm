@@ -2,19 +2,23 @@
 
 // Choosing a new password: the current one (or the temporary one an admin gave), and the new one twice. Better Auth
 // checks the current password; the api's hook refuses a "new" password equal to it.
-import { zodResolver } from "@hookform/resolvers/zod";
-import { newPassword, passwordAttempt } from "@travel-crm/contracts/identity";
+import { passwordAttempt } from "@travel-crm/contracts/identity";
 import { useTranslations } from "next-intl";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
+import type { z } from "zod";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { authClient, type AuthClient } from "@/data/auth-client";
+import { focusWhenShown } from "./focus";
 import { AuthFailureAlert, type AuthFailure } from "./form-alert";
-import { useFieldErrorMessages } from "./form-errors";
+import { useFormResolver } from "./form-errors";
+import { useNewPasswordSchema } from "./new-password-schema";
 import { TextField } from "./text-field";
+
+const currentPasswordField = { currentPassword: passwordAttempt };
 
 export function ChangePasswordForm({
   temporary,
@@ -27,30 +31,49 @@ export function ChangePasswordForm({
   auth?: Pick<AuthClient, "changePassword">;
 }) {
   const t = useTranslations("account");
+  const tCommon = useTranslations("common");
   const [failure, setFailure] = useState<AuthFailure | null>(null);
-  const errorMessages = useFieldErrorMessages();
-  const schema = useMemo(
-    () =>
-      z
-        .strictObject({ currentPassword: passwordAttempt, newPassword, confirmPassword: z.string() })
-        .refine((values) => values.newPassword === values.confirmPassword, {
-          message: t("fields.passwordsDiffer"),
-          path: ["confirmPassword"],
-        }),
-    [t],
-  );
+  // The new password is saved but the next screen didn't open (me.get unreachable). The form, whose current password
+  // is now wrong, never comes back; only a way on does.
+  const [savedOnly, setSavedOnly] = useState(false);
+  const [goingOn, setGoingOn] = useState(false);
+  const schema = useNewPasswordSchema(currentPasswordField);
   const form = useForm<z.input<typeof schema>, unknown, z.output<typeof schema>>({
-    resolver: zodResolver(schema, { error: errorMessages }),
+    resolver: useFormResolver(schema),
     defaultValues: { currentPassword: "", newPassword: "", confirmPassword: "" },
   });
+
+  const goOn = async () => {
+    setGoingOn(true);
+    try {
+      await onChanged();
+    } catch {
+      setSavedOnly(true);
+    } finally {
+      setGoingOn(false);
+    }
+  };
 
   const submit = form.handleSubmit(async ({ currentPassword, newPassword: chosen }) => {
     setFailure(null);
     const result = await auth.changePassword({ currentPassword, newPassword: chosen });
-    if (result.ok) await onChanged();
+    if (result.ok) await goOn();
     else setFailure(result);
   });
 
+  if (savedOnly) {
+    return (
+      <div className="flex flex-col gap-5">
+        <Alert ref={focusWhenShown} tabIndex={-1}>
+          <AlertDescription>{t("changePassword.savedNotContinued")}</AlertDescription>
+        </Alert>
+        <Button disabled={goingOn} onClick={() => void goOn()}>
+          {goingOn && <Spinner />}
+          {tCommon("continue")}
+        </Button>
+      </div>
+    );
+  }
   return (
     <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-5">
       <FieldGroup>

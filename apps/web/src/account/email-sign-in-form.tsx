@@ -1,7 +1,6 @@
 "use client";
 
 // Signing in with an email and password (spec 6.3), checked with the same field rules the api uses.
-import { zodResolver } from "@hookform/resolvers/zod";
 import { emailAddress, passwordAttempt } from "@travel-crm/contracts/identity";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
@@ -12,7 +11,7 @@ import { FieldGroup } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { authClient, type AuthClient, type SignInOutcome } from "@/data/auth-client";
 import { AuthFailureAlert, type AuthFailure } from "./form-alert";
-import { useFieldErrorMessages } from "./form-errors";
+import { useFormResolver } from "./form-errors";
 import { TextField } from "./text-field";
 
 const emailSignIn = z.strictObject({ email: emailAddress, password: passwordAttempt });
@@ -26,9 +25,8 @@ export function EmailSignInForm({
 }) {
   const t = useTranslations("account");
   const [failure, setFailure] = useState<AuthFailure | null>(null);
-  const errorMessages = useFieldErrorMessages();
   const form = useForm<z.input<typeof emailSignIn>, unknown, z.output<typeof emailSignIn>>({
-    resolver: zodResolver(emailSignIn, { error: errorMessages }),
+    resolver: useFormResolver(emailSignIn),
     defaultValues: { email: "", password: "" },
   });
 

@@ -41,6 +41,7 @@ test("an organization that requires two-factor sends staff to set it up first", 
   await signInWithCode(page, agency.code, ravi);
   await expect(page).toHaveURL(/\/two-factor-setup$/);
   await expect(page.getByText("Your organization asks everyone")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Back to your account" })).toHaveCount(0);
   await expectAccessible(page);
   await setUpTwoFactor(page, ravi.password);
   await expect(page.getByRole("heading", { level: 1, name: "Welcome, Ravi Kumar" })).toBeVisible();
@@ -53,6 +54,8 @@ test("an Owner turns two-factor on from their account, then signs in with a code
   await expect(page.getByText(agency.owner.email)).toBeVisible();
   await expectAccessible(page);
   await page.getByRole("link", { name: "Set up" }).click();
+  // A setup the Owner chose has a way back; the one an organization requires (above) doesn't.
+  await expect(page.getByRole("link", { name: "Back to your account" })).toBeVisible();
   const secret = await setUpTwoFactor(page, agency.owner.password);
   await expect(page.getByRole("heading", { level: 1, name: `Welcome, ${agency.owner.name}` })).toBeVisible();
 
@@ -61,7 +64,8 @@ test("an Owner turns two-factor on from their account, then signs in with a code
   await page.getByRole("textbox", { name: "Email" }).fill(agency.owner.email);
   await page.getByLabel("Password").fill(agency.owner.password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  // The next 30-second code: the current one was just used to turn two-factor on.
+  // The next 30-second code, so this journey doesn't rely on Better Auth taking the code that turned two-factor on a
+  // second time. Better Auth 1.7.7 would (it has no replay check); the window it accepts includes the next code.
   await page.getByLabel("Code from your authenticator app").fill(totpCode(secret, Date.now() + 30_000));
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByRole("heading", { level: 1, name: `Welcome, ${agency.owner.name}` })).toBeVisible();

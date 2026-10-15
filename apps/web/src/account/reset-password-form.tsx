@@ -2,23 +2,28 @@
 
 // Choosing a new password from the emailed link. Better Auth opened the link, checked it and sent the browser here
 // with ?token=, or with ?error=INVALID_TOKEN when it had expired or been used. A reset signs the person out
-// everywhere (plan 3, Task I3), so they then sign in with the new password.
-import { zodResolver } from "@hookform/resolvers/zod";
-import { newPassword } from "@travel-crm/contracts/identity";
+// everywhere (plan 3, Task I3), so this device forgets their data, the app's other tabs are told, and they sign in
+// again with the new password.
+import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
+import type { z } from "zod";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { authClient, type AuthClient } from "@/data/auth-client";
+import { announceSignOut, wipeLocalData } from "@/data/session";
 import { routes } from "@/lib/routes";
+import { focusWhenShown } from "./focus";
 import { AuthFailureAlert, type AuthFailure } from "./form-alert";
-import { useFieldErrorMessages } from "./form-errors";
+import { useFormResolver } from "./form-errors";
+import { useNewPasswordSchema } from "./new-password-schema";
 import { TextField } from "./text-field";
+
+const noOtherFields = {};
 
 export function ResetPasswordForm({
   token,
@@ -29,21 +34,12 @@ export function ResetPasswordForm({
   auth?: Pick<AuthClient, "resetPassword">;
 }) {
   const t = useTranslations("account");
+  const queryClient = useQueryClient();
   const [outcome, setOutcome] = useState<"form" | "done" | "invalid">(token === null ? "invalid" : "form");
   const [failure, setFailure] = useState<AuthFailure | null>(null);
-  const errorMessages = useFieldErrorMessages();
-  const schema = useMemo(
-    () =>
-      z
-        .strictObject({ newPassword, confirmPassword: z.string() })
-        .refine((values) => values.newPassword === values.confirmPassword, {
-          message: t("fields.passwordsDiffer"),
-          path: ["confirmPassword"],
-        }),
-    [t],
-  );
+  const schema = useNewPasswordSchema(noOtherFields);
   const form = useForm<z.input<typeof schema>, unknown, z.output<typeof schema>>({
-    resolver: zodResolver(schema, { error: errorMessages }),
+    resolver: useFormResolver(schema),
     defaultValues: { newPassword: "", confirmPassword: "" },
   });
 
@@ -51,15 +47,22 @@ export function ResetPasswordForm({
     if (token === null) return;
     setFailure(null);
     const result = await auth.resetPassword({ token, newPassword: chosen });
-    if (result.ok) setOutcome("done");
-    else if (result.code === "INVALID_TOKEN") setOutcome("invalid");
+    if (result.ok) {
+      try {
+        await wipeLocalData(queryClient);
+      } catch {
+        // Storage that refuses the wipe still leaves the person needing to know that their password changed.
+      }
+      announceSignOut();
+      setOutcome("done");
+    } else if (result.code === "INVALID_TOKEN") setOutcome("invalid");
     else setFailure(result);
   });
 
   if (outcome === "invalid") {
     return (
       <div className="flex flex-col gap-5">
-        <Alert variant="destructive">
+        <Alert variant="destructive" ref={focusWhenShown} tabIndex={-1}>
           <AlertDescription>{t("resetPassword.invalidLink")}</AlertDescription>
         </Alert>
         <Button asChild>
@@ -71,7 +74,7 @@ export function ResetPasswordForm({
   if (outcome === "done") {
     return (
       <div className="flex flex-col gap-5">
-        <Alert>
+        <Alert ref={focusWhenShown} tabIndex={-1}>
           <AlertDescription>{t("resetPassword.done")}</AlertDescription>
         </Alert>
         <Button asChild>

@@ -2,7 +2,6 @@
 
 // Signing in with the organization code, a username and a password (spec 6.3), for staff with or without email.
 // The code is remembered after a successful sign-in, so next time only the username and password are typed.
-import { zodResolver } from "@hookform/resolvers/zod";
 import { orgSignInInput } from "@travel-crm/contracts/identity";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
@@ -13,7 +12,7 @@ import { FieldGroup } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { authClient, type AuthClient, type SignInOutcome } from "@/data/auth-client";
 import { AuthFailureAlert, type AuthFailure } from "./form-alert";
-import { useFieldErrorMessages } from "./form-errors";
+import { useFormResolver } from "./form-errors";
 import { rememberOrganizationCode } from "./remembered-code";
 import { TextField } from "./text-field";
 
@@ -28,9 +27,8 @@ export function CodeSignInForm({
 }) {
   const t = useTranslations("account");
   const [failure, setFailure] = useState<AuthFailure | null>(null);
-  const errorMessages = useFieldErrorMessages();
   const form = useForm<z.input<typeof orgSignInInput>, unknown, z.output<typeof orgSignInInput>>({
-    resolver: zodResolver(orgSignInInput, { error: errorMessages }),
+    resolver: useFormResolver(orgSignInInput),
     defaultValues: { orgCode: rememberedCode ?? "", username: "", password: "" },
   });
 
@@ -53,7 +51,9 @@ export function CodeSignInForm({
           name="orgCode"
           label={t("fields.organizationCode")}
           hint={t("fields.organizationCodeHint")}
-          autoComplete="organization"
+          // Not "organization": the address book's company name ("Sharma Travels Pvt Ltd") is never the code, and the
+          // code is remembered after the first sign-in anyway.
+          autoComplete="off"
           autoCapitalize="characters"
           spellCheck={false}
           className="[&_input]:numbers [&_input]:uppercase"
