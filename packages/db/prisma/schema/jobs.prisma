@@ -13,7 +13,7 @@ model OutboxEvent {
   occurredAt     DateTime     @default(now()) @map("occurred_at") @db.Timestamptz(6)
   /// When the relay queued this event's listeners; null until then. The only column the api and worker may change.
   relayedAt      DateTime?    @map("relayed_at") @db.Timestamptz(6)
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   /// The relay's work list: each organization's events not yet relayed, oldest first (UUID v7 ids sort by time).
   @@index([organizationId, id], map: "outbox_event_unrelayed", where: { relayedAt: null })
