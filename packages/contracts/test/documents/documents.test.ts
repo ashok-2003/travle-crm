@@ -43,6 +43,14 @@ describe("documents contracts", () => {
     expect(issueDocumentInput.safeParse(branding("#034f46; font-size: 99")).success).toBe(false);
   });
 
+  it("carries the organization's logo as its attachment's id", () => {
+    const withLogo = (logoAttachmentId: string) => ({ ...valid, branding: { ...valid.branding, logoAttachmentId } });
+    const logoAttachmentId = "0199e7a0-0000-7000-8000-00000000a001";
+    expect(issueDocumentInput.parse(withLogo(logoAttachmentId)).branding.logoAttachmentId).toBe(logoAttachmentId);
+    expect(issueDocumentInput.safeParse(withLogo("logo.png")).success).toBe(false);
+    expect(issueDocumentInput.safeParse({ ...valid, branding: { ...valid.branding, logo: "x" } }).success).toBe(false);
+  });
+
   it("refuses control characters, except line breaks in notes and terms", () => {
     const withTitle = (title: string) => ({ ...valid, content: { ...valid.content, title } });
     expect(issueDocumentInput.safeParse(withTitle("Quo\u0000tation")).success).toBe(false);

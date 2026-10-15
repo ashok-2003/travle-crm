@@ -26,7 +26,7 @@ const printedAmount = line(24);
 /** The templates the renderer knows. The Foundation ships one; quotes and invoices add theirs. */
 export const pdfTemplate = z.enum(["sample"]);
 
-/** The organization's own branding on a document. Its logo joins when plan 4 stores branding settings. */
+/** The organization's own branding on a document, as it was when the document was issued. */
 export const documentBranding = z.strictObject({
   organizationName: line(120),
   accentColour: z
@@ -34,6 +34,8 @@ export const documentBranding = z.strictObject({
     .regex(/^#[0-9a-fA-F]{6}$/, "Use a colour like #1a2b3c")
     .optional(),
   terms: paragraph(2000).optional(),
+  /** The organization's logo (an organization_logo attachment), which the worker reads from storage and draws. */
+  logoAttachmentId: z.uuid().optional(),
 });
 
 /** What the sample template says. Issuing adds the number and the date. */

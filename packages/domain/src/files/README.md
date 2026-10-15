@@ -29,8 +29,11 @@ documents are marked sensitive (spec 5).
     size and type; the name must pass `attachmentFileName` (`VALIDATION`/`INVALID_FILE_NAME`);
   - `systemDownloadLink(organizationId, { attachmentId })`: for server code that has already decided the viewer may
     see the file (share links); refuses sensitive files (`FORBIDDEN`/`SENSITIVE_FILE`);
+  - `systemFile(organizationId, { recordType, recordId, attachmentId })`: a ready file's bytes and stored type, for
+    server code that draws it into what it makes (the worker puts the organization's logo on a PDF); named by its
+    record like `downloadLink`, and refuses sensitive files (`FORBIDDEN`/`SENSITIVE_FILE`);
   - `storageUsedBytes(organizationId)`.
-- Types: `Files`, `FilesDependencies`, `GeneratedFile`, `DownloadLink`. Inputs and outputs are in
+- Types: `Files`, `FilesDependencies`, `GeneratedFile`, `DownloadLink`, `StoredFile`. Inputs and outputs are in
   `@travel-crm/contracts/files`.
 
 - Permanent deletion, for the platform's purge and erasure (spec 5, ADR 0023), in a platform transaction. The bytes

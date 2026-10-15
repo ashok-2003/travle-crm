@@ -1,5 +1,5 @@
 // Builds the documents module's surroundings on the test database: files on in-memory storage, a fake renderer that
-// records what it was asked to render, and the context the worker gives a listener.
+// records what it was asked to render, the context the worker gives a listener, and logos to draw.
 import type { IssueDocumentInput } from "@travel-crm/contracts/documents";
 import { createDatabase, type Database } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
@@ -53,6 +53,32 @@ export const quotation: IssueDocumentInput = {
   },
   branding: { organizationName: "Sharma Holidays", accentColour: "#034f46", terms: "50% to book." },
 };
+
+const bytesOf = (base64: string) => Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
+
+/** The smallest valid logos: a 1x1 transparent PNG and a 1x1 grey JPEG. */
+export const tinyPng = bytesOf(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+);
+export const tinyJpeg = bytesOf(
+  "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////" +
+    "////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=",
+);
+
+/** Stores a logo for the organization, as the branding screen's upload leaves it: ready, on the organization. */
+export async function storedLogo(
+  test: TestDocuments,
+  organizationId: string,
+  logo: { body: Uint8Array; contentType: string } = { body: tinyPng, contentType: "image/png" },
+): Promise<string> {
+  const attachment = await test.files.storeGeneratedFile(systemActor(organizationId), {
+    recordType: "organization_logo",
+    recordId: organizationId,
+    fileName: "Logo.png",
+    ...logo,
+  });
+  return attachment.id;
+}
 
 /** The document.issued event issuing wrote to the outbox, as the worker hands it to a listener. */
 export async function issuedEvent(

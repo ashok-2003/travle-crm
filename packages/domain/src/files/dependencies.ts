@@ -24,6 +24,12 @@ export interface GeneratedFile {
   attachmentId?: string | undefined;
 }
 
+/** A stored file's bytes and the type it was stored as, for server code that draws it into something it makes. */
+export interface StoredFile {
+  body: Uint8Array;
+  contentType: string;
+}
+
 /** A short-lived link that downloads a file. */
 export interface DownloadLink {
   url: string;

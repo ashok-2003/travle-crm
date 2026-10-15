@@ -1,5 +1,6 @@
 // Renders a document to PDF bytes. The worker calls it (spec 9.3); an issued document's PDF is rendered once.
 import type { PdfInput, PdfTemplate } from "./document-input.js";
+import { imageTypeOf } from "./image-type.js";
 import { normalisedText, UnprintableTextError, unprintableCharactersIn } from "./printable-text.js";
 
 // React-PDF, the fonts and the templates are loaded when a document is first rendered, not when this module is
@@ -16,17 +17,16 @@ function normalised<T>(value: T): T {
   return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, normalised(entry)])) as T;
 }
 
-const LOGO_TYPES: readonly string[] = ["image/png", "image/jpeg"];
-
 /**
- * Renders one template. Rejects before rendering anything when the branding's accent colour isn't #rrggbb, and with
- * UnprintableTextError when some text holds characters the fonts can't show. Text is printed in its composed (NFC)
- * form with \n line endings, and the output depends only on the input, including `issuedAt`.
+ * Renders one template. Rejects before rendering anything when the branding's accent colour isn't #rrggbb or its logo
+ * isn't the PNG or JPEG its type says (React-PDF would leave it out without a word), and with UnprintableTextError
+ * when some text holds characters the fonts can't show. Text is printed in its composed (NFC) form with \n line
+ * endings, and the output depends only on the input, including `issuedAt`.
  */
 export async function renderPdf(template: PdfTemplate, rawInput: PdfInput): Promise<Uint8Array> {
-  const logoType: string | undefined = rawInput.branding.logo?.contentType;
-  if (logoType !== undefined && !LOGO_TYPES.includes(logoType)) {
-    throw new RangeError("Logos are PNG or JPEG images");
+  const { logo } = rawInput.branding;
+  if (logo !== undefined && imageTypeOf(logo.data) !== logo.contentType) {
+    throw new RangeError("Logos are PNG or JPEG images, and their bytes must be the type they say");
   }
   const input = normalised(rawInput);
   const unprintable = unprintableCharactersIn(input);

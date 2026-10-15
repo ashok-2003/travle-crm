@@ -4,7 +4,7 @@ import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
 import type { AttachmentRefInput } from "@travel-crm/contracts/files";
 import { findAttachment, findAttachmentById, storageKeyOf, type AttachmentRow } from "./attachment-row.js";
-import type { DownloadLink, FilesDependencies } from "./dependencies.js";
+import type { DownloadLink, FilesDependencies, StoredFile } from "./dependencies.js";
 
 /** Short: a link that leaks in a chat or a log stops working within minutes. */
 const DOWNLOAD_URL_SECONDS = 5 * 60;
@@ -37,6 +37,27 @@ export async function systemDownloadLink(
     throw new DomainError("FORBIDDEN", "SENSITIVE_FILE", "Sensitive files are shown only to staff allowed to see them");
   }
   return presign(storage, row);
+}
+
+/**
+ * A file's bytes, for server code that has already decided the file may be shown and draws it into what it makes:
+ * the organization's logo on a PDF. Named by its record, so an id that belongs to another record is "not found";
+ * sensitive files are refused, as for systemDownloadLink.
+ */
+export async function systemFile(
+  { db, storage }: FilesDependencies,
+  organizationId: string,
+  input: AttachmentRefInput,
+): Promise<StoredFile> {
+  const row = await db.forOrg(organizationId, (tx) => findAttachment(tx, input));
+  assertReady(row);
+  if (row.sensitive) {
+    throw new DomainError("FORBIDDEN", "SENSITIVE_FILE", "Sensitive files are shown only to staff allowed to see them");
+  }
+  const body = await storage.get(storageKeyOf(row));
+  // A ready file that storage has lost is a fault, not a missing file: fail, so a job that wanted it is retried.
+  if (!body) throw new Error(`Attachment ${row.id} is ready but storage holds nothing for it`);
+  return { body, contentType: row.contentType };
 }
 
 /** A pending upload hasn't arrived: as far as anyone downloading is concerned, it doesn't exist yet. */

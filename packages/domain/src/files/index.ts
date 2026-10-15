@@ -1,5 +1,5 @@
 // Public API of the files module: files attached to records, in object storage (spec 9.2).
-export type { DownloadLink, FilesDependencies, GeneratedFile } from "./dependencies.js";
+export type { DownloadLink, FilesDependencies, GeneratedFile, StoredFile } from "./dependencies.js";
 export { createFiles, type Files } from "./files.js";
 export {
   deleteRecordFiles,

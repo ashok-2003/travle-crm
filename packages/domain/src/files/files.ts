@@ -5,8 +5,8 @@ import type { PresignedUpload } from "@travel-crm/integrations/storage";
 import type { MemberAccess } from "../identity/index.js";
 import type { Actor } from "../kernel/index.js";
 import { listAttachments, removeAttachment, storageUsedBytes } from "./attachments.js";
-import type { DownloadLink, FilesDependencies, GeneratedFile } from "./dependencies.js";
-import { downloadLink, systemDownloadLink } from "./downloads.js";
+import type { DownloadLink, FilesDependencies, GeneratedFile, StoredFile } from "./dependencies.js";
+import { downloadLink, systemDownloadLink, systemFile } from "./downloads.js";
 import { confirmUpload, requestUpload, storeGeneratedFile } from "./uploads.js";
 
 export interface Files {
@@ -33,6 +33,8 @@ export interface Files {
   storeGeneratedFile(actor: Actor, file: GeneratedFile): Promise<AttachmentSummary>;
   /** A link for trusted server code (share links) to an ordinary file; sensitive files are refused. */
   systemDownloadLink(organizationId: string, input: { attachmentId: string }): Promise<DownloadLink>;
+  /** An ordinary file's bytes, named by its record, for server code that draws it (a logo on a PDF). */
+  systemFile(organizationId: string, input: AttachmentRefInput): Promise<StoredFile>;
   /** Bytes the organization keeps in storage, deleted files included until a purge. */
   storageUsedBytes(organizationId: string): Promise<number>;
 }
@@ -46,6 +48,7 @@ export function createFiles(dependencies: FilesDependencies): Files {
     remove: (actor, input) => removeAttachment(dependencies, actor, input),
     storeGeneratedFile: (actor, file) => storeGeneratedFile(dependencies, actor, file),
     systemDownloadLink: (organizationId, input) => systemDownloadLink(dependencies, organizationId, input),
+    systemFile: (organizationId, input) => systemFile(dependencies, organizationId, input),
     storageUsedBytes: (organizationId) => storageUsedBytes(dependencies, organizationId),
   };
 }

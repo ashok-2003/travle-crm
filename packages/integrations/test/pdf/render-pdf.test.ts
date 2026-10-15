@@ -1,15 +1,10 @@
 // The sample template renders the organization's branding and the document's content, pages long documents, and
-// refuses an accent colour that isn't a hex colour.
+// refuses an accent colour that isn't a hex colour, or a logo that isn't the PNG or JPEG it says it is.
 import { brand } from "@travel-crm/brand";
 import { describe, expect, it, vi } from "vitest";
 import { renderPdf, type SampleDocumentData } from "../../src/pdf/index.js";
+import { tinyJpeg, tinyPng } from "./logos.js";
 import { firstPageText, pdfText } from "./pdf-text.js";
-
-/** A 1x1 transparent PNG: the smallest valid logo. */
-const tinyPng = Uint8Array.from(
-  atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="),
-  (character) => character.charCodeAt(0),
-);
 
 const issuedAt = new Date("2026-10-15T05:30:00Z");
 
@@ -101,6 +96,13 @@ describe("renderPdf", () => {
       branding: { ...branding, logo: { data: tinyPng, contentType: "image/png" } },
     });
     expect(new TextDecoder("latin1").decode(withLogo)).toContain("/Subtype /Image");
+    const withJpeg = await renderPdf("sample", {
+      issuedAt,
+      data: sample,
+      branding: { ...branding, logo: { data: tinyJpeg, contentType: "image/jpeg" } },
+    });
+    // A JPEG is embedded as it is, compressed the way it came.
+    expect(new TextDecoder("latin1").decode(withJpeg)).toContain("/DCTDecode");
     const plain = await pdfText(
       await renderPdf("sample", { issuedAt, data: sample, branding: { organizationName: "Goa Escapes" } }),
     );
@@ -144,6 +146,20 @@ describe("renderPdf output", () => {
     await expect(renderPdf("sample", { issuedAt, data: sample, branding: { ...branding, logo } })).rejects.toThrow(
       RangeError,
     );
+  });
+
+  it("refuses a logo whose bytes aren't the image it says it is, which React-PDF would silently leave out", async () => {
+    const mislabelled = [
+      { data: tinyPng, contentType: "image/jpeg" as const },
+      { data: tinyJpeg, contentType: "image/png" as const },
+      { data: new TextEncoder().encode("not an image"), contentType: "image/png" as const },
+    ];
+    for (const logo of mislabelled) {
+      await expect(
+        renderPdf("sample", { issuedAt, data: sample, branding: { ...branding, logo } }),
+        logo.contentType,
+      ).rejects.toThrow(RangeError);
+    }
   });
 });
 
