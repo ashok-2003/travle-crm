@@ -37,18 +37,18 @@ Who can sign in, to which organization, and what they may do (spec section 6).
 Every change below is written to the audit log in the change's own transaction (ADR 0015), with the acting member, or
 the system for onboarding:
 
-| Action                                    | Record         | Before                 | After                               |
-| ----------------------------------------- | -------------- | ---------------------- | ----------------------------------- |
-| `staff.created`                           | `member`       |                        | name, username, role, whether email |
-| `staff.role-changed`                      | `member`       | role                   | role                                |
-| `staff.password-reset`                    | `member`       |                        |                                     |
-| `staff.removed`                           | `member`       | name, role             |                                     |
-| `role.created`                            | `role`         |                        | name, permissions                   |
-| `role.updated`                            | `role`         | name, permissions      | name, permissions                   |
-| `role.deleted`                            | `role`         | key, name, permissions |                                     |
-| `settings.two-factor-requirement-changed` | `organization` | requireTwoFactor       | requireTwoFactor                    |
-| `support.impersonation-started`           | `member`       |                        | the impersonated user's id          |
-| `support.impersonation-stopped`           | `member`       |                        | the impersonated user's id          |
+| Action                                    | Record         | Before                 | After                                                |
+| ----------------------------------------- | -------------- | ---------------------- | ---------------------------------------------------- |
+| `staff.created`                           | `member`       |                        | role, whether they have an email                     |
+| `staff.role-changed`                      | `member`       | role                   | role                                                 |
+| `staff.password-reset`                    | `member`       |                        |                                                      |
+| `staff.removed`                           | `member`       | role                   |                                                      |
+| `role.created`                            | `role`         |                        | name, permissions                                    |
+| `role.updated`                            | `role`         | name, permissions      | name, permissions                                    |
+| `role.deleted`                            | `role`         | key, name, permissions |                                                      |
+| `settings.two-factor-requirement-changed` | `organization` | requireTwoFactor       | requireTwoFactor                                     |
+| `support.impersonation-started`           | `member`       |                        | the impersonated user's id, when the session expires |
+| `support.impersonation-stopped`           | `member`       |                        | the impersonated user's id, when the session expires |
 
 A change that changes nothing (the same role again, the same setting) records nothing. Support's two entries name
 the platform admin as both the actor and `impersonatedBy`; they are written by a Better Auth plugin

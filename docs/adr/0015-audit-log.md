@@ -55,8 +55,9 @@ Date: 2026-10-15 · Status: accepted · Implements spec section 9.5, and closes 
   erasure of one person redacts their entries the same way. Nothing else can change or remove an entry.
 - The key from `audit_entry` to `organization` is `ON DELETE RESTRICT ON UPDATE RESTRICT`, like every plan 3 table's,
   and never a cascade: Postgres runs a cascade as the table's owner, past row-level security and past the grants that
-  keep the log append-only. For the same reason `actor_user_id` and `impersonated_by` have no foreign key to `user`: every key to `user`
-  cascades, so deleting a user would delete or change entries.
+  keep the log append-only. For the same reason `actor_user_id` and `impersonated_by` have no foreign key to `user`:
+  every key to `user` cascades, so deleting a user would delete or change entries. It is the table's only foreign key,
+  and a test says so.
 - Every module that changes data calls `recordAudit` in its own transactions. A change no person made (a scheduled job)
   is recorded with `source: "job"` and no user.
 - The `api` source is reserved for API clients, which arrive later.

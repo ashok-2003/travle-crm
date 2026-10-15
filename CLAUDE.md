@@ -50,8 +50,10 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   either table outside it (`rawSqlSelectorsAllowing` in `packages/domain/eslint.config.js`).
 - A foreign key between two organization tables includes `organization_id`, and so does every unique constraint on an
   organization table (except a primary key on `id`). Every organization table's `organization_id` refers to
-  `organization` (`onDelete: Restrict, onUpdate: Restrict`), and no key to it cascades a deletion: a cascade runs as
-  the table's owner, past row-level security and grants. The test suite checks all of these.
+  `organization`: plan 3's keys, and every new one, are `ON DELETE RESTRICT ON UPDATE RESTRICT`
+  (`onDelete: Restrict, onUpdate: Restrict`), because a cascade runs as the table's owner, past row-level security and
+  grants. Plans 1 and 2's keys keep Prisma's `ON UPDATE CASCADE` (organization ids never change). The test suite
+  checks the keys, the unique constraints, and that every key to `organization` restricts deletion.
 - Only the platform module uses `@travel-crm/db/platform` (it sees every organization).
 - Better Auth's sign-in tables (user, session, account, verification, two_factor, organization, member, invitation) have no
   row-level security. Only `packages/domain/src/identity` reaches them, through `@travel-crm/db/identity`:
