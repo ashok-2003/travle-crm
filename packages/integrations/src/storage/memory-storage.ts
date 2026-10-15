@@ -52,6 +52,15 @@ export function createMemoryStorage(now: () => Date = () => new Date()): MemoryS
         assertSafeKey(key);
         objects.set(key, { body: body.slice(), contentType });
       }),
+    copy: (from, to) =>
+      promised(() => {
+        assertSafeKey(from);
+        assertSafeKey(to);
+        const object = objects.get(from);
+        if (!object) return false;
+        objects.set(to, { body: object.body.slice(), contentType: object.contentType });
+        return true;
+      }),
     head: (key) =>
       promised((): StoredObject | null => {
         assertSafeKey(key);

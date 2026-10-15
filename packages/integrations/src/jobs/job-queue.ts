@@ -14,6 +14,11 @@ export interface JobOptions {
   /** Not before this time. */
   startAfter?: Date;
   /**
+   * How long one attempt may run, in whole seconds, before pg-boss counts it failed and retries it: 15 minutes unless
+   * the job's queue needs longer (an export of a large organization), at most pg-boss's 24 hours.
+   */
+  expireInSeconds?: number;
+  /**
    * The job's id, a UUID. Sending the same id to the same queue again queues nothing and returns null, so a send can
    * be repeated. Another queue may use the same id.
    */

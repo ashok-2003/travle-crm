@@ -36,6 +36,9 @@ export interface PgBossJobs extends JobQueue, JobRunner, JobAdministration {
 /** The schema our migrations create pg-boss in (migration 20261015100000_pgboss). */
 const SCHEMA = "pgboss";
 
+/** The longest an attempt may run: pg-boss refuses more (node_modules/pg-boss/dist/attorney.js, MAX_EXPIRATION_HOURS). */
+const MAX_EXPIRE_IN_SECONDS = 24 * 60 * 60;
+
 /** The code of pg-boss's error for a queue that doesn't exist (node_modules/pg-boss/dist/manager.js). */
 const QUEUE_NOT_FOUND = "PGBOSS_QUEUE_NOT_FOUND";
 
@@ -96,10 +99,18 @@ export function createPgBossJobs(settings: PgBossJobsSettings): PgBossJobs {
 
     async send(queue, data, options = {}) {
       if (options.id !== undefined) assertJobId(options.id);
+      const { expireInSeconds } = options;
+      if (
+        expireInSeconds !== undefined &&
+        (!Number.isInteger(expireInSeconds) || expireInSeconds < 1 || expireInSeconds > MAX_EXPIRE_IN_SECONDS)
+      ) {
+        throw new RangeError(`expireInSeconds must be a whole number from 1 to ${String(MAX_EXPIRE_IN_SECONDS)}`);
+      }
       await ensureQueue(queue);
       return boss.send(queue, data, {
         ...(options.id === undefined ? {} : { id: options.id }),
         ...(options.startAfter === undefined ? {} : { startAfter: options.startAfter }),
+        ...(expireInSeconds === undefined ? {} : { expireInSeconds }),
         ...(options.retryLimit === undefined ? {} : { retryLimit: options.retryLimit }),
         ...(options.retryDelaySeconds === undefined
           ? {}

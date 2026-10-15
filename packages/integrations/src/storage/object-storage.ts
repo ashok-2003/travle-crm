@@ -31,6 +31,12 @@ export interface ObjectStorage {
   presignDownload(object: { key: string; fileName: string }, expiresInSeconds: number): Promise<string>;
   /** Stores a file the server made itself, such as a rendered PDF. */
   put(object: { key: string; contentType: string; body: Uint8Array }): Promise<void>;
+  /**
+   * Copies the file stored under `from` to `to`, with its content type, replacing whatever `to` held: inside the
+   * store (S3's CopyObject), so the bytes never pass through the api. Returns false, copying nothing, when `from`
+   * holds nothing. The platform's export uses it, to keep an organization's files beside the export (spec 5).
+   */
+  copy(from: string, to: string): Promise<boolean>;
   /** The stored file's size and type, or null when nothing is stored under key. */
   head(key: string): Promise<StoredObject | null>;
   /** The stored file's bytes, or null when nothing is stored under key. */
