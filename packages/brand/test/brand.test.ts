@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { brand } from "../src/index.js";
 
-/** Every string value in a nested object, with its path, e.g. ["colours.status.good.ink", "#166534"]. */
+/** Every string value in a nested object, with its path, e.g. ["colours.status.good.ink", "#14532d"]. */
 function leaves(value: object, prefix = ""): [string, string][] {
   return Object.entries(value).flatMap(([key, child]: [string, unknown]) => {
     const path = prefix ? `${prefix}.${key}` : key;

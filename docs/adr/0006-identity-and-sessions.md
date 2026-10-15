@@ -78,8 +78,9 @@ Date: 2026-10-14 · Status: accepted · Implements spec sections 6.1 to 6.4
 - **The reset link's token outside the api (plan 5).** The emailed link is `GET /api/auth/reset-password/<token>`, so
   a load balancer's access log records the token: the deploy keeps those logs short-lived or strips that path
   (`docs/deploy-checklist.md`).
-  The web app's reset page gets the token in its address, so it must send `Referrer-Policy: no-referrer`, remove the
-  token from the address bar with `history.replaceState` once it has read it, and load no third-party scripts.
+  The web app's reset page gets the token in its address, so it sends `Referrer-Policy: strict-origin` (only the
+  origin, never the path or query; ADR 0018 says why not `no-referrer`), removes the token from the address bar with
+  `history.replaceState` once it has read it, and loads no third-party scripts.
 - **Better Auth skips its origin check when `NODE_ENV` is `test`.** We pin `disableOriginCheck: false`, so tests prove
   the same CSRF protection production has.
 - **Rate limits are kept in memory**, per instance. With several instances behind a load balancer, move them to the

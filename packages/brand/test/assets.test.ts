@@ -2,7 +2,8 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { brand, brandAssets } from "../src/index.js";
+import { brandAssets } from "../src/assets.js";
+import { brand } from "../src/index.js";
 
 describe("brand assets", () => {
   it("are absolute paths to the two logo files", () => {

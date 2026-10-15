@@ -1,0 +1,10 @@
+{
+  "extends": "@travel-crm/tsconfig/base.json",
+  "compilerOptions": {
+    "lib": ["ES2024", "WebWorker"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": []
+  },
+  "include": ["."]
+}
