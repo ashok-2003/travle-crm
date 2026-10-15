@@ -35,6 +35,7 @@ model Organization {
   notificationPreferences NotificationPreference[]
   pushSubscriptions       PushSubscription[]
   auditEntries            AuditEntry[]
+  profile                 OrganizationProfile?
 
   @@map("organization")
 }

@@ -1,0 +1,35 @@
+// An organization's business profile (spec 7.1): what the platform enters at onboarding (legal name, GSTIN, the
+// state for GST's place of supply, a contact), and what its Owner completes on the setup checklist (bank details,
+// invoice prefix, branding for its documents). Organization-owned, under row-level security; one row each.
+
+/// The organization's business details, as its quotes and invoices will show them.
+model OrganizationProfile {
+  /// Filled from db.forOrg()'s organization when omitted. Also the key: one profile per organization.
+  organizationId    String       @id @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  /// The registered name, e.g. "Sharma Holidays Private Limited".
+  legalName         String       @map("legal_name")
+  /// Null for an agency not registered for GST (CHECK organization_profile_gstin_format).
+  gstin             String?
+  /// The two-digit GST state code that decides CGST and SGST or IGST (spec 9.6), e.g. "27".
+  gstStateCode      String       @map("gst_state_code")
+  address           String?
+  contactName       String?      @map("contact_name")
+  /// E.164, e.g. "+919876543210".
+  contactPhone      String?      @map("contact_phone")
+  bankAccountName   String?      @map("bank_account_name")
+  bankAccountNumber String?      @map("bank_account_number")
+  bankIfsc          String?      @map("bank_ifsc")
+  bankName          String?      @map("bank_name")
+  /// 2-5 capital letters invoices are numbered with, e.g. "SH" for SH-2026-0042 (spec 7.1's checklist).
+  invoicePrefix     String?      @map("invoice_prefix")
+  /// The organization's own colour on its documents, "#rrggbb" (spec 10: not the product's brand).
+  brandColour       String?      @map("brand_colour")
+  /// The terms printed on its quotes and invoices.
+  documentTerms     String?      @map("document_terms")
+  updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// Who last saved it: a member, or a platform admin at onboarding.
+  updatedBy         String?      @map("updated_by") @db.Uuid
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@map("organization_profile")
+}
