@@ -1,5 +1,7 @@
 // Starting a process on the services (the api, the worker and the console alike): read the environment, build the
-// services, check the bucket and start pg-boss, then the process's own start, or exit 1 with one message.
+// services, check the bucket and start pg-boss, then the process's own start, or exit 1 with one message. And its last
+// resort once started: an error nothing handled ends it through its own drain.
+import { describeError } from "@travel-crm/integrations/jobs";
 import { loadEnvironment, type Environment } from "./environment.js";
 import { processLog, type ProcessLog, type ProcessName } from "./process-log.js";
 import { createServices, type Services } from "./services.js";
@@ -55,4 +57,29 @@ export async function startProcess<T>(
     });
     process.exit(1);
   }
+}
+
+/** What the last resort listens on: the process itself, unless a test gives an emitter of its own. */
+type ProcessEvents = Pick<NodeJS.EventEmitter, "on">;
+
+/**
+ * A promise rejected with nothing to handle it, or an exception nothing caught, ends the process as SIGTERM does, but
+ * exiting 1: one line in the process's log by names and codes (Node's default prints the error in full, with its
+ * message, which can quote what the code was working on: an email address, a reset link), then `drain`, the process's
+ * own shutdown. Another one while it drains is logged and drains nothing more.
+ */
+export function stopOnUnhandledErrors(
+  log: ProcessLog,
+  drain: (exitCode: 1) => void,
+  events: ProcessEvents = process,
+): void {
+  let draining = false;
+  const stop = (what: string) => (error: unknown) => {
+    log(`${what}: ${describeError(error)}`);
+    if (draining) return;
+    draining = true;
+    drain(1);
+  };
+  events.on("unhandledRejection", stop("unhandled rejection"));
+  events.on("uncaughtException", stop("uncaught exception"));
 }

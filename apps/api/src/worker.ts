@@ -4,7 +4,7 @@
 import { startWorker } from "@travel-crm/domain/jobs";
 import { describeError } from "@travel-crm/integrations/jobs";
 import { workerProblemLine } from "./process-log.js";
-import { startProcess } from "./start-up.js";
+import { startProcess, stopOnUnhandledErrors } from "./start-up.js";
 import { webhookProviders } from "./webhook-providers.js";
 import { workerJobs } from "./worker-jobs.js";
 
@@ -30,16 +30,22 @@ const {
 console.log("worker running");
 
 // Container platforms send SIGTERM before stopping an instance: stop relaying, let running jobs finish, close the
-// pools. Exit 0 only when that went well, so the platform can tell a clean stop from a failed one.
-function shutDown(): void {
+// pools. Exit 0 only when that went well, so the platform can tell a clean stop from a failed one; 1 after an error
+// nothing handled, which drains the same way.
+function shutDown(exitCode: 0 | 1): void {
   worker
     .stop()
     .then(() => services.close())
-    .then(() => process.exit(0))
+    .then(() => process.exit(exitCode))
     .catch((error: unknown) => {
       log(`shutdown failed: ${describeError(error)}`);
       process.exit(1);
     });
 }
-process.on("SIGTERM", shutDown);
-process.on("SIGINT", shutDown);
+process.on("SIGTERM", () => {
+  shutDown(0);
+});
+process.on("SIGINT", () => {
+  shutDown(0);
+});
+stopOnUnhandledErrors(log, shutDown);
