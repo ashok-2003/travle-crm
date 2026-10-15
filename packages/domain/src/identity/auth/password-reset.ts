@@ -11,13 +11,32 @@ export interface PasswordResetEmail {
 /** Sends a password-reset email. It logs its own failures, and is not awaited. */
 export type SendPasswordResetEmail = (email: PasswordResetEmail) => Promise<void>;
 
+export interface PasswordResetSettings {
+  sendEmail: SendPasswordResetEmail;
+  /**
+   * The web app's reset page, e.g. https://app.example.in/reset-password: the one place a reset link may lead back
+   * to. A request naming any other `redirectTo` is refused, as an untrusted one is.
+   */
+  pageUrl: string;
+}
+
+/** A reset link's lifetime, in seconds. */
+export const RESET_LINK_SECONDS = 60 * 60;
+
 /** Better Auth's sendResetPassword, around ours. */
 export function passwordResetSender(send: SendPasswordResetEmail) {
   return ({ user, url }: { user: { name: string; email: string }; url: string }): Promise<void> => {
     if (!isPlaceholderEmail(user.email)) {
-      // Not awaited, as Better Auth advises: how long sending takes would tell a caller whether the address exists.
-      // The sender logs its own failures; a failure must never crash the api.
-      void send({ to: { name: user.name, address: user.email }, url }).catch(() => undefined);
+      // Off the request path entirely, as Better Auth advises: the answer goes out first, so how long sending takes
+      // (or a sender that throws at once) can't tell a caller whether the address exists.
+      setImmediate(() => {
+        Promise.resolve()
+          .then(() => send({ to: { name: user.name, address: user.email }, url }))
+          .catch(() => {
+            // The sender logs its own failures. The error itself may quote the link, so it is never printed here.
+            console.error("A password-reset email could not be sent");
+          });
+      });
     }
     return Promise.resolve();
   };

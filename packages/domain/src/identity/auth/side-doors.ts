@@ -3,6 +3,11 @@ import type { IdentityClient } from "@travel-crm/db/identity";
 import { APIError, createAuthMiddleware, getAuthoritativeSessionFromCtx } from "better-auth/api";
 import { hasEverBeenMember, isPlatformAdminUser } from "../access.js";
 
+export interface SideDoorOptions {
+  /** The web app's reset page: the only redirectTo a password-reset request may name. Unset, the rule is off. */
+  resetPasswordPage?: string | undefined;
+}
+
 /**
  * Refuses what Better Auth's own endpoints would allow but our rules don't (ADR 0006):
  * - a member rewriting their username into another organization's namespace (only our staff API changes usernames),
@@ -13,9 +18,12 @@ import { hasEverBeenMember, isPlatformAdminUser } from "../access.js";
  * - signing in by a placeholder ".invalid" email, which staff without an email (or removed staff) carry, over HTTP and
  *   from server-side calls alike;
  * - a cross-site browser request to the username sign-in, as Better Auth already checks Origin for email sign-in;
- * - a "password change" to the same password, which would clear must-change-password and keep the temporary one.
+ * - a "password change" to the same password, which would clear must-change-password and keep the temporary one;
+ * - a password-reset request whose link would lead anywhere but the reset page, even on a trusted origin. It is
+ *   refused before any address is looked up, exactly as Better Auth refuses an untrusted redirect, so every address
+ *   gets the same answer.
  */
-export function closeSideDoors(client: IdentityClient) {
+export function closeSideDoors(client: IdentityClient, options: SideDoorOptions = {}) {
   return createAuthMiddleware(async (ctx) => {
     const body = (ctx.body ?? {}) as Record<string, unknown>;
     // Over HTTP a request is present; server-side auth.api.* calls have none.
@@ -30,6 +38,14 @@ export function closeSideDoors(client: IdentityClient) {
     if (ctx.path === "/sign-in/email" && typeof body.email === "string" && /\.invalid$/i.test(body.email.trim())) {
       // Exactly Better Auth's answer to a wrong password, so nothing tells this case apart.
       throw new APIError("UNAUTHORIZED", { code: "INVALID_EMAIL_OR_PASSWORD", message: "Invalid email or password" });
+    }
+    if (
+      ctx.path === "/request-password-reset" &&
+      options.resetPasswordPage !== undefined &&
+      body.redirectTo !== options.resetPasswordPage
+    ) {
+      // Better Auth's own refusal of an untrusted redirectTo, word for word.
+      throw new APIError("FORBIDDEN", { message: "Invalid redirectURL", code: "INVALID_REDIRECT_URL" });
     }
     if (ctx.path === "/update-user" && ("username" in body || "displayUsername" in body)) {
       throw new APIError("FORBIDDEN", {

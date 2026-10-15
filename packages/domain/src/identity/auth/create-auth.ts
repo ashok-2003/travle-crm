@@ -10,7 +10,7 @@ import { twoFactor } from "better-auth/plugins/two-factor";
 import { username } from "better-auth/plugins/username";
 import { INTERNAL_USERNAME_PATTERN } from "../sign-in-names.js";
 import { impersonationAudit } from "./impersonation-audit.js";
-import { passwordResetSender, type SendPasswordResetEmail } from "./password-reset.js";
+import { passwordResetSender, RESET_LINK_SECONDS, type PasswordResetSettings } from "./password-reset.js";
 import { closeSideDoors } from "./side-doors.js";
 import { relabelTotpForStaffWithoutEmail } from "./totp-label.js";
 
@@ -34,8 +34,8 @@ export interface AuthSettings {
    * x-forwarded-for, skipping these. Empty: the header is trusted only when it holds a single address.
    */
   trustedProxies: readonly string[];
-  /** Sends password-reset emails. Without it, Better Auth answers "Reset password isn't enabled". */
-  sendPasswordResetEmail?: SendPasswordResetEmail | undefined;
+  /** Password reset by email: the sender and the reset page. Without it, Better Auth answers "Reset password isn't enabled". */
+  passwordReset?: PasswordResetSettings | undefined;
 }
 
 const DAY = 60 * 60 * 24;
@@ -72,9 +72,15 @@ export function createAuth(database: IdentityDatabase, settings: AuthSettings) {
       },
       // Whoever had the old password is signed out everywhere: a reset usually means it was lost or stolen.
       revokeSessionsOnPasswordReset: true,
-      ...(settings.sendPasswordResetEmail === undefined
+      // Set here rather than left to the library's default.
+      resetPasswordTokenExpiresIn: RESET_LINK_SECONDS,
+      ...(settings.passwordReset === undefined
         ? {}
-        : { sendResetPassword: passwordResetSender(settings.sendPasswordResetEmail) }),
+        : { sendResetPassword: passwordResetSender(settings.passwordReset.sendEmail) }),
+    },
+    verification: {
+      // A reset link's token is kept only as a hash, so the table can't be read for a working link.
+      storeIdentifier: { default: "plain", overrides: { "reset-password:": "hashed" } },
     },
     session: {
       expiresIn: 7 * DAY,
@@ -100,7 +106,10 @@ export function createAuth(database: IdentityDatabase, settings: AuthSettings) {
         },
       },
     },
-    hooks: { before: closeSideDoors(client), after: relabelTotpForStaffWithoutEmail(client) },
+    hooks: {
+      before: closeSideDoors(client, { resetPasswordPage: settings.passwordReset?.pageUrl }),
+      after: relabelTotpForStaffWithoutEmail(client),
+    },
     rateLimit: { enabled: settings.rateLimit, storage: "memory" },
     plugins: [
       username({
