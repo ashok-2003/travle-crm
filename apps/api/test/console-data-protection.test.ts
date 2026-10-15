@@ -129,7 +129,9 @@ describe("permanent deletion through the console", () => {
       expect(await s3Runner.runQueued()).toBe(2);
       await dataOf(await mutate("subscriptions.cancel", { organizationId, reason: "Closed" }, support.jar));
       await dataOf(await mutate("dataProtection.requestPurge", { organizationId, confirmation: leaving.code }));
-      expect(await s3Runner.runQueued()).toBe(1);
+      // The purge, then the deletions' follow-up for its folder's second sweep, which this runner starts at once
+      // (it ignores startAfter): the sweep isn't due yet, so it queues nothing more.
+      expect(await s3Runner.runQueued()).toBe(2);
       expect(s3Runner.failed).toEqual([]);
       expect(await storage.head(fileKey)).toBeNull();
 
