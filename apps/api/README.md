@@ -76,8 +76,7 @@ reset. It stops on SIGTERM like the api.
 | ------------------------ | -------- | ------- | ------------------------------------------------------------------------------ |
 | `DATABASE_PLATFORM_URL`  | yes      |         | Postgres as the `app_platform` role; never the api's or the worker's           |
 | `CONSOLE_PORT`           | no       | `3002`  |                                                                                |
-| `DEMO_ORGANIZATION_CODE` | no       | no demo | the demo's sign-in code; all three `DEMO_` variables or none                   |
-| `DEMO_PLAN_KEY`          | no       |         | the key of the plan on sale the demo is on                                     |
+| `DEMO_ORGANIZATION_CODE` | no       | no demo | the demo's sign-in code; both `DEMO_` variables or neither                     |
 | `DEMO_PASSWORD`          | no       |         | every demo account's password (12 characters or more): `asha`, `ravi`, `meena` |
 
 ## Environment

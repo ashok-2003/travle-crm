@@ -36,9 +36,9 @@ first Owner
   India time, purges the organization last night's reset built, then builds it again in one platform transaction (two
   transactions in all, so a failed build leaves no demo until the job's retry succeeds): the business profile, the
   starter roles, and three staff (Owner, Sales, Operations) who sign in with the demo's code and `DEMO_PASSWORD`, with
-  no email and no invite; subscribed to the plan `DEMO_PLAN_KEY` names, paid a month ahead. It purges only an
-  organization that has a `demo.reset` entry in the platform log, so a code set by mistake can't purge an agency, and it
-  checks the plan before it purges anything.
+  no email and no invite; subscribed to the demo's own plan, never for sale (ADR 0019), paid a month ahead. It purges
+  only an organization that has a `demo.reset` entry in the platform log, so a code set by mistake can't purge an
+  agency, and it checks the plan before it purges anything.
 
 ## Context
 

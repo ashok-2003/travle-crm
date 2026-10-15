@@ -8,7 +8,7 @@ import { createMemoryJobQueue, createMemoryJobRunner } from "@travel-crm/integra
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { consoleJobs, startConsoleJobs } from "../src/console-jobs.js";
 import { createTestConsole, type TestConsole } from "./support/console.js";
-import { createTestAgency, createTestServer, EVERYTHING_PLAN_KEY, type TestServer } from "./support/test-server.js";
+import { createTestAgency, createTestServer, type TestServer } from "./support/test-server.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const lifecycleSchedule = {
@@ -38,13 +38,7 @@ describe("the console's jobs", () => {
   it("runs the platform's jobs, and resets the demo every night at 02:00 India time", async () => {
     const queue = createMemoryJobQueue();
     const runner = createMemoryJobRunner(queue);
-    // The first test agency puts the test plan on sale.
-    await createTestAgency(server);
-    const demo = {
-      code: `D${randomUUID().slice(0, 8).toUpperCase()}`,
-      planKey: EVERYTHING_PLAN_KEY,
-      password: "demo-password-123",
-    };
+    const demo = { code: `D${randomUUID().slice(0, 8).toUpperCase()}`, password: "demo-password-123" };
     await startConsoleJobs(runner, testConsole.services, demo);
     expect(runner.schedules).toEqual([
       lifecycleSchedule,

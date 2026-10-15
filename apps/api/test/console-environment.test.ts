@@ -5,7 +5,7 @@ import { loadConsoleSettings } from "../src/console-environment.js";
 
 const environment = { DATABASE_URL: "postgresql://app_runtime:runtime@localhost:55432/travel_crm" };
 const platform = { DATABASE_PLATFORM_URL: "postgresql://app_platform:platform@localhost:55432/travel_crm" };
-const demo = { DEMO_ORGANIZATION_CODE: "demo", DEMO_PLAN_KEY: "growth", DEMO_PASSWORD: "demo-password-123" };
+const demo = { DEMO_ORGANIZATION_CODE: "demo", DEMO_PASSWORD: "demo-password-123" };
 
 /** The variables without the one named. */
 const without = (variables: Record<string, string>, name: string) =>
@@ -21,7 +21,7 @@ describe("the console's settings", () => {
     expect(loadConsoleSettings({ ...platform, ...demo, CONSOLE_PORT: "4002" }, environment)).toEqual({
       platformDatabaseUrl: platform.DATABASE_PLATFORM_URL,
       port: 4002,
-      demo: { code: "DEMO", planKey: "growth", password: "demo-password-123" },
+      demo: { code: "DEMO", password: "demo-password-123" },
     });
   });
 
@@ -34,7 +34,7 @@ describe("the console's settings", () => {
 
   it("takes the demo whole or not at all, and never with a short password", () => {
     expect(() => loadConsoleSettings({ ...platform, ...without(demo, "DEMO_PASSWORD") }, environment)).toThrow(
-      /DEMO_PASSWORD: is needed with DEMO_ORGANIZATION_CODE, DEMO_PLAN_KEY/,
+      /DEMO_PASSWORD: is needed with DEMO_ORGANIZATION_CODE/,
     );
     expect(() => loadConsoleSettings({ ...platform, ...demo, DEMO_PASSWORD: "short" }, environment)).toThrow(
       /DEMO_PASSWORD/,

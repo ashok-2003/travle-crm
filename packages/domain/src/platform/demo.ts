@@ -1,9 +1,8 @@
 // The shared demo organization (spec 7.4: "one shared demo with realistic sample data, reset nightly by a job"). The
 // console's nightly job purges last night's demo and builds it again: its business profile, the starter roles, and
-// staff in three roles who sign in with its code, their username and the demo password. The modules that keep
-// leads, quotes and bookings add their sample data here when they arrive.
+// staff in three roles who sign in with its code, their username and the demo password, on the demo's own plan, which
+// is never for sale. The modules that keep leads, quotes and bookings add their sample data here when they arrive.
 import { saveOrganizationProfileInput } from "@travel-crm/contracts/profile";
-import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import { asOrganization, type PlatformTx } from "@travel-crm/db/platform";
 import {
   addStaffWithPassword,
@@ -14,7 +13,7 @@ import {
 } from "../identity/index.js";
 import { addDays, calendarDateIn, DomainError, systemActor } from "../kernel/index.js";
 import { saveOrganizationProfile } from "../profile/index.js";
-import { listPlans, startSubscription } from "../subscriptions/index.js";
+import { demoPlan, startSubscription } from "../subscriptions/index.js";
 import { recordPlatformAudit } from "./platform-log.js";
 import { purgeOrganization } from "./purge.js";
 import type { PlatformServices } from "./services.js";
@@ -24,8 +23,6 @@ export const RESET_DEMO_QUEUE = "platform.reset-demo";
 export interface DemoSettings {
   /** The demo's organization code, e.g. DEMO: everyone signs in with it. */
   code: string;
-  /** The key of the plan on sale that the demo is subscribed to. */
-  planKey: string;
   /** Every demo account's password. */
   password: string;
 }
@@ -61,7 +58,8 @@ const DEMO_PROFILE = saveOrganizationProfileInput.parse({
 /**
  * Purges the organization last night's reset built, then builds the demo again; the first run only builds it. Both
  * checks come before the purge: an organization with the demo's code that no reset built is never touched (a code set
- * by mistake can't purge an agency), and a plan key that matches no plan on sale leaves last night's demo as it is.
+ * by mistake can't purge an agency), and a plan for sale that took the demo plan's key leaves last night's demo as it
+ * is (DEMO_PLAN_KEY_TAKEN).
  */
 export async function resetDemoOrganization(
   services: PlatformServices,
@@ -70,7 +68,7 @@ export async function resetDemoOrganization(
 ): Promise<{ organizationId: string }> {
   const { lastNight, plan } = await services.platformDb.transaction(async (tx) => ({
     lastNight: await lastDemo(tx, demo.code),
-    plan: await planOnSale(tx, demo.planKey),
+    plan: await demoPlan(tx),
   }));
   if (lastNight !== null) {
     // The demo is active, never cancelled: the purge's own check is for agencies, and lastDemo made sure of this one.
@@ -120,12 +118,6 @@ export async function resetDemoOrganization(
     // A dozen statements and three accounts, as onboarding.
     { timeout: 20_000 },
   );
-}
-
-async function planOnSale(tx: PlatformTx, planKey: string): Promise<PlanSummary> {
-  const plan = (await listPlans(tx, { includeArchived: false })).find((candidate) => candidate.key === planKey);
-  if (!plan) throw new DomainError("NOT_FOUND", "DEMO_PLAN_NOT_FOUND", `No plan on sale has the key ${planKey}`);
-  return plan;
 }
 
 /** The organization with the demo's code, or null; refused when no demo reset built it. */
