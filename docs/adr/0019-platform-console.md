@@ -80,8 +80,10 @@ adminUserId)`), not as the system.
   exports, purges, erasures) and the platform's own jobs: who (or the system), the action, the target and the
   organization it concerns, and small before and after snapshots with the
   same checks as the organizations' log. It has no foreign key to `organization`, so it outlives a purge (spec 5:
-  "an audit record in the platform log"). It is append-only even for `app_platform`, and `app_runtime` has no rights on
-  it.
+  "an audit record in the platform log"). So it keeps ids and codes, never an organization's name: a sole
+  proprietor's agency is often named after its owner, and a correction (`organization.updated`) records only
+  `nameChanged`, as it records only whether there is a contact email; the organization's own log, purged with it,
+  keeps the names. It is append-only even for `app_platform`, and `app_runtime` has no rights on it.
 
 - **The console process runs the platform's own jobs** (purge, erasure, an organization's export and its expiry, the
   stored files' deletions and their hourly sweep, the nightly subscription lifecycle and demo reset), which need the

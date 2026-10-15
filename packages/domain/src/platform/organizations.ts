@@ -62,25 +62,29 @@ export async function updateOrganization(
 ): Promise<OrganizationRecord> {
   return services.platformDb.transaction(async (tx) => {
     const { before, after } = await updateOrganizationRecord(tx, input);
-    const change = {
-      before: { name: before.name, timeZone: before.timeZone, contactEmail: before.contactEmail !== null },
-      after: { name: after.name, timeZone: after.timeZone, contactEmail: after.contactEmail !== null },
-    };
+    const withoutName = (record: StoredRecord) => ({
+      timeZone: record.timeZone,
+      contactEmail: record.contactEmail !== null,
+    });
     // The row is the platform role's to change; the entry goes in as the organization, under row-level security.
     await asOrganization(tx, input.organizationId, (orgTx) =>
       recordAudit(orgTx, platformActor(input.organizationId, staff.userId), {
         action: "organization.updated",
         entityType: "organization",
         entityId: input.organizationId,
-        ...change,
+        before: { name: before.name, ...withoutName(before) },
+        after: { name: after.name, ...withoutName(after) },
       }),
     );
+    // The platform log outlives a purge, and a sole proprietor's agency is often named after its owner: only whether
+    // the name changed, as for the contact email.
     await recordPlatformAudit(tx, staff, {
       action: "organization.updated",
       targetType: "organization",
       targetId: input.organizationId,
       targetOrganizationId: input.organizationId,
-      ...change,
+      before: withoutName(before),
+      after: { nameChanged: before.name !== after.name, ...withoutName(after) },
     });
     return recordOf(after);
   });
