@@ -1,1 +1,45 @@
-{}
+{
+  "bell": {
+    "title": "Notifications",
+    "label": "{count, plural, =0 {Notifications} other {Notifications, # unread}}",
+    "manyUnread": "99+",
+    "description": "What happened, newest first.",
+    "loading": "Loading your notifications",
+    "loadFailed": "Your notifications didn't load.",
+    "empty": "Nothing yet. You hear here when something needs you, such as a customer opening a link you shared.",
+    "unread": "Unread",
+    "when": "{day}, {time}",
+    "markRead": "Mark read",
+    "markAllRead": "Mark all read",
+    "showMore": "Show older notifications",
+    "loadingMore": "Loading older notifications",
+    "impersonating": "You see {name}'s notifications. Only they can mark them read.",
+    "preferences": "Choose what reaches you"
+  },
+  "preferences": {
+    "title": "Notifications",
+    "intro": "Your bell always shows what happened. Choose what also reaches you by email, and as a push notification on devices where you turn push on.",
+    "kindsHeading": "What reaches you",
+    "kindWins": "A choice for one kind of notification wins over Everything.",
+    "email": "Email",
+    "push": "Push",
+    "everything": {
+      "label": "Everything",
+      "hint": "Every kind of notification, unless you choose otherwise for one below."
+    },
+    "kinds": {
+      "shareLinkOpened": {
+        "label": "A customer opens a link you shared",
+        "hint": "At most once every 10 minutes for each link."
+      }
+    },
+    "loading": "Loading your choices",
+    "loadFailed": "Your choices didn't load.",
+    "noEmail": "You sign in without an email address, so no email is sent to you.",
+    "impersonating": "Only {name} can change these: what reaches them is their choice."
+  },
+  "account": {
+    "label": "Notifications",
+    "action": "Choose what reaches you"
+  }
+}

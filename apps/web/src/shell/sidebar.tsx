@@ -1,13 +1,15 @@
 "use client";
 
-// The desktop navigation (DESIGN.md section 6): a 232px column on the surface tone, the organization's name, the
-// destinations, and the person's account and sign-out at the bottom. The current page has the blue tint.
+// The desktop navigation (DESIGN.md section 6): a 232px column on the surface tone, the organization's name with the
+// bell beside it, the destinations, and the person's account and sign-out at the bottom. The current page has the
+// blue tint.
 import { UserIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
+import { NotificationBell } from "@/notifications/bell/notification-bell";
 import { useMe } from "@/session/me-context";
 import { isCurrent, visibleNavigationItems } from "./navigation";
 import { prefetchHandlers, usePrefetchDestination } from "./prefetch";
@@ -20,7 +22,10 @@ export function Sidebar() {
   const prefetch = usePrefetchDestination();
   return (
     <aside className="hidden w-58 shrink-0 flex-col gap-6 border-r bg-surface px-3 py-5 md:flex">
-      <p className="px-3 text-section font-semibold">{me.organization.name}</p>
+      <div className="flex items-center justify-between gap-2 pl-3">
+        <p className="script-leading min-w-0 text-section font-semibold break-words">{me.organization.name}</p>
+        <NotificationBell opensAs="popover" />
+      </div>
       <nav aria-label={t("label")} className="flex flex-1 flex-col gap-1">
         {visibleNavigationItems(me).map((item) => {
           const current = isCurrent(item, pathname);

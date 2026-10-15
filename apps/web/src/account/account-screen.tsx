@@ -1,7 +1,7 @@
 "use client";
 
-// /account: who the person is (from me.get, so a placeholder email is never shown), and their password and
-// two-factor sign-in.
+// /account: who the person is (from me.get, so a placeholder email is never shown), their password and two-factor
+// sign-in, and the way to choose what notifications reach them.
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
@@ -31,6 +31,7 @@ function Name({ children }: { children: ReactNode }) {
 
 export function AccountScreen() {
   const t = useTranslations("account.account");
+  const tNotifications = useTranslations("notifications.account");
   const me = useMe();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -77,6 +78,11 @@ export function AccountScreen() {
               </Button>
             </>
           )}
+        </Row>
+        <Row label={tNotifications("label")}>
+          <Button variant="outline" asChild>
+            <Link href={routes.notificationPreferences}>{tNotifications("action")}</Link>
+          </Button>
         </Row>
       </dl>
     </div>
