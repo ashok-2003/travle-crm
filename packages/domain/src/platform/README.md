@@ -10,6 +10,13 @@ The platform console's work across organizations (spec sections 5 and 7). It is 
   organization, its roles, business profile, subscription and invited Owner), `resendInvite(services, staff,
 { organizationId, memberId })`, `getOrganization(services, organizationId)` (its row, profile and subscription with
   payments), `updateOrganization(services, staff, input)` (name, time zone, contact email; never the code).
+- Permanent deletion (spec 5), super admins only: `exportOrganization(services, staff, organizationId)` and
+  `exportSubject(services, staff, { organizationId, subject })` (logged; a purge or erasure needs one from the last
+  day), `requestPurge(services, staff, { organizationId, confirmation })` (the code typed, the subscription
+  cancelled) and `requestErasure(services, staff, { organizationId, subject, confirmation })` (a removed member or one
+  record), which queue `platform.purge-organization` and `platform.erase-subject`; `purgeOrganization` (which keeps
+  an organization no longer cancelled, as `organization.purge-skipped`) and `eraseSubject`, the jobs;
+  `platformJobHandlers(services)`, for the console process's job runner.
 - Plans and the policy: `listPlans(services, input)`, `createPlan`, `updatePlan`, `archivePlan(services, staff, …)`,
   `getSubscriptionPolicy(services)`, `setSubscriptionPolicy(services, staff, policy)`. Plans belong to no organization,
   so each change is recorded in the platform log.

@@ -1,5 +1,8 @@
 // Public API of the platform module: the platform console's work across organizations (spec 5 and 7). Only this
 // module uses @travel-crm/db/platform, which sees every organization.
+export { ERASE_SUBJECT_QUEUE, eraseSubject, requestErasure } from "./erasure.js";
+export { exportOrganization, exportSubject } from "./exports.js";
+export { platformJobHandlers } from "./jobs.js";
 export { onboardOrganization, resendInvite } from "./onboarding.js";
 export { getOrganization, updateOrganization } from "./organizations.js";
 export {
@@ -11,6 +14,7 @@ export {
   updatePlan,
 } from "./plans.js";
 export { listPlatformLog, recordPlatformAudit, type PlatformActor, type PlatformChange } from "./platform-log.js";
+export { PURGE_ORGANIZATION_QUEUE, purgeOrganization, requestPurge, type PurgeResult } from "./purge.js";
 export { createPlatformServices, type PlatformServices, type PlatformServicesOptions } from "./services.js";
 export {
   cancel,

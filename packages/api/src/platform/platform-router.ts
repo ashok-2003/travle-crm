@@ -3,6 +3,7 @@
 import { listPlatformLogInput, platformLogPage, platformWhoAmIOutput } from "@travel-crm/contracts/platform";
 import { listPlatformLog } from "@travel-crm/domain/platform";
 import { staffProcedure } from "./procedures.js";
+import { dataProtectionRouter } from "./routers/data-protection.js";
 import { organizationsRouter } from "./routers/organizations.js";
 import { plansRouter } from "./routers/plans.js";
 import { subscriptionsRouter } from "./routers/subscriptions.js";
@@ -14,6 +15,7 @@ export const platformRouter = platformT.router({
     .output(platformWhoAmIOutput)
     .query(({ ctx }) => ({ userId: ctx.staff.userId, name: ctx.staff.name, level: ctx.staff.level })),
   organizations: organizationsRouter,
+  dataProtection: dataProtectionRouter,
   plans: plansRouter,
   subscriptions: subscriptionsRouter,
   log: platformT.router({
