@@ -1,13 +1,15 @@
 // An export's life after its job: links that last 15 minutes, each download in the platform log; a failed attempt
-// marked and finished by a retry; a repeated job that does nothing; and, after 7 days, its parts deleted and the
-// export marked expired. Also the database function it reads with, which only reads an organization's own tables.
+// marked and finished by a retry; a repeated job that does nothing; an export that counts for its own organization
+// only. Also the database function it reads with, which only reads an organization's own tables. Its end is
+// organization-export-expiry.test.ts's.
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
-import { asOrganization } from "@travel-crm/db/platform";
+import { asOrganization, type PlatformDatabase } from "@travel-crm/db/platform";
+import { sanitizeJobError } from "@travel-crm/integrations/jobs";
 import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   downloadOrganizationExport,
-  expireOrganizationExports,
+  exportSubject,
   listOrganizationExports,
   listPlatformLog,
   onboardOrganization,
@@ -15,10 +17,8 @@ import {
   runOrganizationExport,
 } from "../../src/platform/index.js";
 import { exportedRecently } from "../../src/platform/exports.js";
-import { exportOrganizationNow, exportParts } from "./test-exports.js";
+import { exportOrganizationNow } from "./test-exports.js";
 import { createTestPlan, createTestPlatform, onboardingInput, support, type TestPlatform } from "./test-platform.js";
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 describe("an export's life", () => {
   let test: TestPlatform;
@@ -68,6 +68,38 @@ describe("an export's life", () => {
     ).rejects.toMatchObject({ reason: "EXPORT_NOT_FOUND" });
   });
 
+  it("gives 15-minute links in a subject's export too", async () => {
+    const organizationId = await agency();
+    const recordId = "0199e7a0-0000-7000-8000-00000000f11e";
+    await test.services.db.forOrg(organizationId, async (tx) => {
+      const file = await tx.attachment.create({
+        data: {
+          recordType: "traveller",
+          recordId,
+          fileName: "Passport.pdf",
+          contentType: "application/pdf",
+          sizeBytes: 3,
+          status: "ready",
+          confirmedAt: new Date(),
+        },
+      });
+      await test.storage.put({
+        key: `organizations/${organizationId}/attachments/${file.id}`,
+        contentType: "application/pdf",
+        body: new Uint8Array([1, 2, 3]),
+      });
+    });
+    const before = Date.now();
+    const exported = await exportSubject(test.services, support, {
+      organizationId,
+      subject: { kind: "record", recordType: "traveller", recordId },
+    });
+    // The memory store writes each link's expiry, in milliseconds, into it.
+    const expires = Number(new URL(exported.files[0]?.downloadUrl ?? "memory://x").searchParams.get("expires"));
+    expect(expires - before).toBeGreaterThan(14 * 60 * 1000);
+    expect(expires - before).toBeLessThanOrEqual(15 * 60 * 1000 + 1000);
+  });
+
   it("marks an export failed when an attempt fails, and a retry finishes it, logged once", async () => {
     const organizationId = await agency();
     let failures = 1;
@@ -93,41 +125,37 @@ describe("an export's life", () => {
     expect(actions.filter((action) => action === "organization.exported")).toHaveLength(1);
   });
 
-  it("deletes an export's parts after its 7 days, marks it expired, and logs it; a newer one stays", async () => {
+  it("says so, in words the failed-jobs list keeps, when a failed export can't even be marked failed", async () => {
     const organizationId = await agency();
-    // Asked for 8 days ago, so due now. (Other test files' exports, asked for today, are not, so they are left alone.)
-    const old = await requestOrganizationExport(
-      test.services,
-      support,
-      organizationId,
-      new Date(Date.now() - 8 * DAY_MS),
+    let broken = false;
+    const platformDb: PlatformDatabase = {
+      ...test.services.platformDb,
+      transaction: (fn, options) =>
+        broken ? Promise.reject(new Error("database is down")) : test.services.platformDb.transaction(fn, options),
+    };
+    const storage: ObjectStorage = {
+      ...test.storage,
+      put: () => {
+        broken = true;
+        return Promise.reject(new Error("storage is down"));
+      },
+    };
+    const services = { ...test.services, platformDb, storage };
+    const { exportId } = await requestOrganizationExport(services, support, organizationId);
+    const failure = await runOrganizationExport(services, { exportId }).then(
+      () => null,
+      (error: unknown) => error,
     );
-    await runOrganizationExport(test.services, { exportId: old.exportId });
-    const recent = await exportOrganizationNow(test.services, organizationId);
-    expect(exportParts(test.storage, old)).toHaveLength(1);
-
-    expect(await expireOrganizationExports(test.services)).toBeGreaterThanOrEqual(1);
-    expect(exportParts(test.storage, old)).toEqual([]);
-    expect(exportParts(test.storage, recent)).toHaveLength(1);
-    const exports = await listOrganizationExports(test.services, organizationId);
-    expect(exports.map((exported) => [exported.exportId, exported.state])).toEqual([
-      [recent.exportId, "done"],
-      [old.exportId, "expired"],
-    ]);
-    await expect(downloadOrganizationExport(test.services, support, old.exportId)).rejects.toMatchObject({
-      reason: "EXPORT_EXPIRED",
-    });
-    expect((await logOf(organizationId)).find((entry) => entry.action === "organization.export-expired")).toMatchObject(
-      { actorUserId: null, after: { exportId: old.exportId, parts: 1 } },
+    expect(sanitizeJobError(failure).message).toBe(
+      `AggregateError: Export ${exportId} failed, and could not be marked failed`,
     );
-    // Again: nothing more is due.
-    expect(await expireOrganizationExports(test.services)).toBe(0);
+    expect(failure).toMatchObject({ cause: { message: "storage is down" } });
   });
 
   it("counts an export for a purge only for the organization it was of", async () => {
     const [organizationId, other] = [await agency(), await agency()];
     await exportOrganizationNow(test.services, organizationId);
-    const counts = (targetId: string, of?: string) =>
+    const counts = (targetId: string, of: string) =>
       test.services.platformDb.transaction((tx) =>
         exportedRecently(tx, "organization.exported", targetId, new Date(), of),
       );

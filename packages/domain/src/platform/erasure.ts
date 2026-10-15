@@ -59,7 +59,7 @@ export async function requestErasure(
         );
       }
     }
-    if (!(await exportedRecently(tx, "subject.exported", record.recordId, now))) {
+    if (!(await exportedRecently(tx, "subject.exported", record.recordId, now, input.organizationId))) {
       throw new DomainError("CONFLICT", "EXPORT_FIRST", "Export what is kept about them first (within the last day)");
     }
     await recordPlatformAudit(tx, staff, {

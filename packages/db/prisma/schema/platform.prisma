@@ -28,33 +28,49 @@ model PlatformAuditEntry {
 }
 
 /// An export of one organization's data (spec 5: "export, typed confirmation, purge job"), which the console's job
-/// writes to the platform's own storage, platform/exports/<organization>/<export>/, as JSON lines a part at a time.
-/// Kept 7 days, then its parts are deleted and it is marked expired. It names its organization by id without a foreign
-/// key, so it outlives the organization's purge (whose catalog sweep looks for organization_id), and the runtime role
-/// has no rights on it. The row itself stays, ids and counts only.
+/// writes to the platform's own storage, platform/exports/<organization>/<export>/: its rows as JSON lines a part at a
+/// time, and a copy of each of its files. Kept 7 days, or until an erasure in the organization withdraws it, then its
+/// parts and copies are deleted and it is marked expired. It names its organization by id without a foreign key, so
+/// it outlives the organization's purge (whose catalog sweep looks for organization_id), and the runtime role has no
+/// rights on it. The row itself stays, ids and counts only.
 model PlatformExport {
-  id                   String    @id @default(uuid(7)) @db.Uuid
-  targetOrganizationId String    @map("target_organization_id") @db.Uuid
+  id                   String               @id @default(uuid(7)) @db.Uuid
+  targetOrganizationId String               @map("target_organization_id") @db.Uuid
   /// The super admin who asked for it.
-  requestedBy          String    @map("requested_by") @db.Uuid
-  requestedAt          DateTime  @map("requested_at") @db.Timestamptz(6)
-  /// requested, done, failed (its last attempt failed; a retry may still finish it) or expired
-  /// (CHECK platform_export_state_value).
-  state                String    @default("requested")
-  /// The most parts any attempt stored: what the expiry deletes.
-  partsWritten         Int       @default(0) @map("parts_written")
-  /// Once done: its parts, the table rows and the people in them.
-  partCount            Int?      @map("part_count")
-  rowCount             Int?      @map("row_count")
-  personCount          Int?      @map("person_count")
-  completedAt          DateTime? @map("completed_at") @db.Timestamptz(6)
+  requestedBy          String               @map("requested_by") @db.Uuid
+  requestedAt          DateTime             @map("requested_at") @db.Timestamptz(6)
+  /// requested, done, failed (its last attempt failed; a retry may still finish it) or expired: no longer to be
+  /// downloaded (CHECK platform_export_state_value).
+  state                String               @default("requested")
+  /// The most parts any attempt stored: what the expiry deletes, with the copies in files.
+  partsWritten         Int                  @default(0) @map("parts_written")
+  /// Once done: its parts, the table rows and the people in them, and the files copied.
+  partCount            Int?                 @map("part_count")
+  rowCount             Int?                 @map("row_count")
+  personCount          Int?                 @map("person_count")
+  fileCount            Int?                 @map("file_count")
+  completedAt          DateTime?            @map("completed_at") @db.Timestamptz(6)
   /// When its parts are deleted: 7 days after it was asked for.
-  expiresAt            DateTime  @map("expires_at") @db.Timestamptz(6)
-  expiredAt            DateTime? @map("expired_at") @db.Timestamptz(6)
+  expiresAt            DateTime             @map("expires_at") @db.Timestamptz(6)
+  expiredAt            DateTime?            @map("expired_at") @db.Timestamptz(6)
+  /// When its parts and copies were deleted from storage; null until then, after it expired too.
+  clearedAt            DateTime?            @map("cleared_at") @db.Timestamptz(6)
+  files                PlatformExportFile[]
 
   /// One organization's exports, newest first.
   @@index([targetOrganizationId, requestedAt(sort: Desc)], map: "platform_export_organization")
   /// The exports the expiry job looks for.
   @@index([state, expiresAt], map: "platform_export_due")
   @@map("platform_export")
+}
+
+/// A file an export copied beside itself, to platform/exports/<organization>/<export>/files/<attachment>: what its
+/// download links to and its expiry deletes. Ids only.
+model PlatformExportFile {
+  exportId     String         @map("export_id") @db.Uuid
+  attachmentId String         @map("attachment_id") @db.Uuid
+  export       PlatformExport @relation(fields: [exportId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([exportId, attachmentId])
+  @@map("platform_export_file")
 }

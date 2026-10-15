@@ -9,8 +9,8 @@ import { findOrganizationRecord, personExport } from "../identity/index.js";
 import { recordPlatformAudit, type PlatformActor } from "./platform-log.js";
 import type { PlatformServices } from "./services.js";
 
-/** Download links in a subject's export work for a day. */
-const EXPORT_LINK_SECONDS = 24 * 60 * 60;
+/** Download links in a subject's export work for 15 minutes, as an organization's do. */
+const EXPORT_LINK_SECONDS = 15 * 60;
 
 /** An export of everything this long ago or less counts for a purge or an erasure. */
 export const EXPORT_VALID_FOR_MS = 24 * 60 * 60 * 1000;
@@ -48,22 +48,17 @@ export async function exportSubject(
 }
 
 /**
- * Whether `action` was logged for the target within the last day. Pass the organization: an export then counts only
- * for the organization it was of, as a record's id typed for another organization finds nothing.
+ * Whether `action` was logged for the target, in the organization, within the last day: an export counts only for the
+ * organization it was of, so a record's id typed for another organization finds nothing.
  */
 export async function exportedRecently(
   tx: PlatformTx,
   action: string,
   targetId: string,
   now: Date,
-  organizationId?: string,
+  organizationId: string,
 ): Promise<boolean> {
   const since = new Date(now.getTime() - EXPORT_VALID_FOR_MS);
-  const where = {
-    action,
-    targetId,
-    occurredAt: { gte: since },
-    ...(organizationId === undefined ? {} : { targetOrganizationId: organizationId }),
-  };
+  const where = { action, targetId, targetOrganizationId: organizationId, occurredAt: { gte: since } };
   return (await tx.platformAuditEntry.count({ where })) > 0;
 }

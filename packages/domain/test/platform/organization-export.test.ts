@@ -19,7 +19,7 @@ import {
   runOrganizationExport,
 } from "../../src/platform/index.js";
 import { memberAccessOf } from "../identity/test-identity.js";
-import { exportLines, exportParts } from "./test-exports.js";
+import { exportLines, exportParts, rowsOf } from "./test-exports.js";
 import {
   createTestPlan,
   createTestPlatform,
@@ -130,6 +130,7 @@ describe("an organization's export", () => {
       parts: 1,
       rows: done?.rows,
       people: 2,
+      files: 1,
     });
   });
 
@@ -138,19 +139,18 @@ describe("an organization's export", () => {
     const requested = await requestOrganizationExport(test.services, support, organizationId);
     await runOrganizationExport(test.services, { exportId: requested.exportId });
     const lines = exportLines(test.storage, requested);
-    const rowsOf = (table: string) =>
-      lines.flatMap((line) => ("table" in line && line.table === table ? [line.row] : []));
+    const rowsOfTable = (table: string) => rowsOf(lines, table);
 
     const counts = await rowCounts(organizationId);
     expect(counts.audit_entry).toBeGreaterThan(MANY_ENTRIES);
-    const auditIds = rowsOf("audit_entry").map((row) => row.id);
+    const auditIds = rowsOfTable("audit_entry").map((row) => row.id);
     expect(auditIds).toHaveLength(counts.audit_entry);
     expect(new Set(auditIds).size).toBe(counts.audit_entry);
-    expect(rowsOf("organization")).toEqual([expect.objectContaining({ id: organizationId })]);
-    expect(rowsOf("subscription")).toHaveLength(1);
-    expect(rowsOf("attachment")).toEqual([expect.objectContaining({ file_name: "Passport.pdf" })]);
-    expect(rowsOf("member")).toHaveLength(counts.member);
-    expect(rowsOf("outbox_event")).toEqual([]);
+    expect(rowsOfTable("organization")).toEqual([expect.objectContaining({ id: organizationId })]);
+    expect(rowsOfTable("subscription")).toHaveLength(1);
+    expect(rowsOfTable("attachment")).toEqual([expect.objectContaining({ file_name: "Passport.pdf" })]);
+    expect(rowsOfTable("member")).toHaveLength(counts.member);
+    expect(rowsOfTable("outbox_event")).toEqual([]);
     const people = lines.flatMap((line) => ("person" in line ? [line.person] : []));
     expect(people.map((person) => person.name).sort()).toEqual(["Asha Sharma", "Ravi"]);
     // Nothing of another organization's.
@@ -163,36 +163,36 @@ describe("an organization's export", () => {
     expect(done).toMatchObject({ rows: lines.length - people.length, people: 2 });
   });
 
-  it("stores parts of the size asked for, under the platform's prefix, and keeps them through a purge", async () => {
+  it("stores parts of the size asked for and copies of the files, under the platform's prefix, through a purge", async () => {
     const { organizationId, code } = await bigAgency();
     await cancel(test.services, support, { organizationId, reason: "Closing down" });
     const requested = await requestOrganizationExport(test.services, support, organizationId);
-    await runOrganizationExport(
-      test.services,
-      { exportId: requested.exportId },
-      { batchRows: 50, partBytes: 64 * 1024 },
-    );
+    await runOrganizationExport(test.services, requested, { batchRows: 50, partBytes: 64 * 1024 });
     const parts = exportParts(test.storage, requested);
+    const prefix = `platform/exports/${organizationId}/${requested.exportId}/`;
     expect(parts.length).toBeGreaterThan(1);
     expect(parts.map(([key]) => key)).toEqual(
-      parts.map(
-        (_, index) =>
-          `platform/exports/${organizationId}/${requested.exportId}/${String(index + 1).padStart(5, "0")}.jsonl`,
-      ),
+      parts.map((_, index) => `${prefix}${String(index + 1).padStart(5, "0")}.jsonl`),
     );
     const [done] = await listOrganizationExports(test.services, organizationId);
-    expect(done).toMatchObject({ parts: parts.length });
-    // The organization's files are linked, not copied.
-    const before = await downloadOrganizationExport(test.services, support, requested.exportId);
-    expect(before.parts).toHaveLength(parts.length);
-    expect(before.files).toEqual([expect.objectContaining({ fileName: "Passport.pdf" })]);
+    expect(done).toMatchObject({ parts: parts.length, files: 1 });
+    const [file] = rowsOf(exportLines(test.storage, requested), "attachment");
+    const copyKey = `${prefix}files/${String(file?.id)}`;
+    expect(test.storage.objects.get(copyKey)).toMatchObject({ contentType: "application/pdf" });
 
     await requestPurge(test.services, support, { organizationId, confirmation: code });
     await purgeOrganization(test.services, { organizationId, requestedBy: supportUserId });
+    expect([...test.storage.objects.keys()].some((key) => key.startsWith(`organizations/${organizationId}/`))).toBe(
+      false,
+    );
     expect(exportParts(test.storage, requested)).toHaveLength(parts.length);
     expect(await listOrganizationExports(test.services, organizationId)).toEqual([done]);
-    // Still there to download for its 7 days; the files went with the organization.
+    // Still there to download for its 7 days, the file's bytes with it: its own copy, by the file's id.
     const after = await downloadOrganizationExport(test.services, support, requested.exportId);
-    expect(after).toMatchObject({ parts: before.parts.map(({ part }) => ({ part })), files: [] });
+    expect(after.parts).toHaveLength(parts.length);
+    expect(after.files).toEqual([
+      { fileId: file?.id, url: expect.stringContaining(encodeURIComponent(copyKey)) as string },
+    ]);
+    expect([...(test.storage.objects.get(copyKey)?.body ?? [])]).toEqual([1, 2, 3]);
   });
 });

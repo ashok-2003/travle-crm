@@ -19,11 +19,11 @@ export async function exportOrganizationNow(
 /** One line of an export part: a table's row, or a person. */
 export type ExportLine = { table: string; row: Record<string, unknown> } | { person: Record<string, unknown> };
 
-/** An export's stored parts, by key, in order. */
+/** An export's stored parts, by key, in order (its file copies, under files/, aside). */
 export function exportParts(storage: MemoryStorage, exported: OrganizationExport): [string, ExportLine[]][] {
   const prefix = `platform/exports/${exported.organizationId}/${exported.exportId}/`;
   return [...storage.objects.entries()]
-    .filter(([key]) => key.startsWith(prefix))
+    .filter(([key]) => key.startsWith(prefix) && key.endsWith(".jsonl"))
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, object]) => [
       key,
@@ -33,6 +33,11 @@ export function exportParts(storage: MemoryStorage, exported: OrganizationExport
         .filter((line) => line !== "")
         .map((line) => JSON.parse(line) as ExportLine),
     ]);
+}
+
+/** One table's rows among an export's lines. */
+export function rowsOf(lines: readonly ExportLine[], table: string): Record<string, unknown>[] {
+  return lines.flatMap((line) => ("table" in line && line.table === table ? [line.row] : []));
 }
 
 /** Every line of an export, its parts' in order. */

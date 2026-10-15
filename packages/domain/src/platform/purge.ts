@@ -31,7 +31,7 @@ export async function requestPurge(
     if ((await getSubscription(tx, input.organizationId)).status !== "cancelled") {
       throw new DomainError("CONFLICT", "CANCEL_FIRST", "Cancel the organization's subscription before purging it");
     }
-    if (!(await exportedRecently(tx, "organization.exported", input.organizationId, now))) {
+    if (!(await exportedRecently(tx, "organization.exported", input.organizationId, now, input.organizationId))) {
       throw new DomainError("CONFLICT", "EXPORT_FIRST", "Export the organization's data first (within the last day)");
     }
     await recordPlatformAudit(tx, staff, {

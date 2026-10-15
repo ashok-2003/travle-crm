@@ -9,11 +9,21 @@ CREATE TABLE "platform_export" (
     "part_count" INTEGER,
     "row_count" INTEGER,
     "person_count" INTEGER,
+    "file_count" INTEGER,
     "completed_at" TIMESTAMPTZ(6),
     "expires_at" TIMESTAMPTZ(6) NOT NULL,
     "expired_at" TIMESTAMPTZ(6),
+    "cleared_at" TIMESTAMPTZ(6),
 
     CONSTRAINT "platform_export_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "platform_export_file" (
+    "export_id" UUID NOT NULL,
+    "attachment_id" UUID NOT NULL,
+
+    CONSTRAINT "platform_export_file_pkey" PRIMARY KEY ("export_id","attachment_id")
 );
 
 -- CreateIndex
@@ -22,25 +32,34 @@ CREATE INDEX "platform_export_organization" ON "platform_export"("target_organiz
 -- CreateIndex
 CREATE INDEX "platform_export_due" ON "platform_export"("state", "expires_at");
 
+-- AddForeignKey
+ALTER TABLE "platform_export_file" ADD CONSTRAINT "platform_export_file_export_id_fkey" FOREIGN KEY ("export_id") REFERENCES "platform_export"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
 -- ---------------------------------------------------------------------------
 -- Hand-written (Prisma does not model these). Keep below the generated SQL.
 -- ---------------------------------------------------------------------------
 
--- An export moves from requested to done, or to failed (and back, when a retry finishes it), and at last to expired.
--- Done means its parts are stored and counted; the counts are never negative, and no more parts than were stored.
+-- An export moves from requested to done, or to failed (and back, when a retry finishes it), and at last to expired,
+-- by time or withdrawn by an erasure; it is cleared once its stored parts and copies are deleted, which follows its
+-- expiry. Done means its parts are stored and counted; the counts are never negative, and no more parts than were
+-- stored.
 ALTER TABLE "platform_export"
   ADD CONSTRAINT platform_export_state_value CHECK (state IN ('requested', 'done', 'failed', 'expired')),
   ADD CONSTRAINT platform_export_done_counted CHECK (
     state <> 'done' OR (completed_at IS NOT NULL AND part_count IS NOT NULL AND row_count IS NOT NULL
-      AND person_count IS NOT NULL)),
+      AND person_count IS NOT NULL AND file_count IS NOT NULL)),
   ADD CONSTRAINT platform_export_expired_at CHECK (state <> 'expired' OR expired_at IS NOT NULL),
+  ADD CONSTRAINT platform_export_cleared_after_expiry CHECK (cleared_at IS NULL OR state = 'expired'),
   ADD CONSTRAINT platform_export_counts CHECK (
-    parts_written >= 0 AND part_count >= 0 AND part_count <= parts_written AND row_count >= 0 AND person_count >= 0),
+    parts_written >= 0 AND part_count >= 0 AND part_count <= parts_written AND row_count >= 0 AND person_count >= 0
+      AND file_count >= 0),
   ADD CONSTRAINT platform_export_expiry CHECK (expires_at > requested_at);
 
--- The console keeps these; the api and worker have no business with them. Rows are marked expired, never removed.
-REVOKE ALL ON TABLE "platform_export" FROM app_runtime;
+-- The console keeps these; the api and worker have no business with them. Exports are marked expired, never removed,
+-- and a copied file's row is never changed or removed either.
+REVOKE ALL ON TABLE "platform_export", "platform_export_file" FROM app_runtime;
 REVOKE DELETE, TRUNCATE ON TABLE "platform_export" FROM app_platform;
+REVOKE UPDATE, DELETE, TRUNCATE ON TABLE "platform_export_file" FROM app_platform;
 
 -- One page of an organization's rows in one of its tables, for the platform's export job (ADR 0022): the rows of the
 -- organization asOrganization() set (app.org_id) in primary-key order, after the row `after_row` (null for the first

@@ -26,7 +26,7 @@ export const exportedFile = z.object({
   sizeBytes: z.int(),
   sensitive: z.boolean(),
   deleted: z.boolean(),
-  /** Works for 24 hours; null for an upload that never finished. */
+  /** Works for about 15 minutes; null for an upload that never finished. */
   downloadUrl: z.string().nullable(),
 });
 
@@ -60,10 +60,11 @@ export const organizationExport = z.object({
   completedAt: z.iso.datetime().nullable(),
   /** When its parts are deleted: 7 days after it was asked for. */
   expiresAt: z.iso.datetime(),
-  /** Once done: its parts, and the table rows and people they hold. */
+  /** Once done: its parts, the table rows and people they hold, and the files it copied. */
   parts: z.int().nullable(),
   rows: z.int().nullable(),
   people: z.int().nullable(),
+  files: z.int().nullable(),
 });
 export type OrganizationExport = z.infer<typeof organizationExport>;
 
@@ -72,14 +73,14 @@ export type ExportIdInput = z.infer<typeof exportIdInput>;
 
 /**
  * Links to a done export, each working for about 15 minutes. Each part holds lines of `{"table", "row"}` (every table
- * of the organization's) and `{"person"}` (its people's sign-in names and addresses). Files are listed in the
- * attachment table's rows, not copied: their links are the organization's stored files, gone once it is purged.
+ * of the organization's) and `{"person"}` (its people's sign-in names and addresses). Each file is the export's own
+ * copy, so it outlives a purge; its link saves it under its id (`fileId`), which the attachment rows name.
  */
 export const organizationExportDownload = z.object({
   exportId: recordId,
   linksExpireAt: z.iso.datetime(),
   parts: z.array(z.object({ part: z.int(), url: z.string() })),
-  files: z.array(z.object({ fileId: recordId, fileName: z.string(), url: z.string() })),
+  files: z.array(z.object({ fileId: recordId, url: z.string() })),
 });
 export type OrganizationExportDownload = z.infer<typeof organizationExportDownload>;
 

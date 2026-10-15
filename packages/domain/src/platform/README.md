@@ -14,11 +14,15 @@ The platform console's work across organizations (spec sections 5 and 7). It is 
 - An organization's export (spec 5), super admins only, as a job: `requestOrganizationExport(services, staff,
 organizationId)` records a `platform_export` row and queues `EXPORT_ORGANIZATION_QUEUE` (`platform.export-organization`),
   whose job, `runOrganizationExport(services, { exportId }, sizes?)`, reads every table a batch at a time (each batch
-  its own transaction, inside `asOrganization`) and stores JSON lines a part at a time under
-  `platform/exports/<organizationId>/<exportId>/`, then logs `organization.exported`.
+  its own transaction, inside `asOrganization`), stores JSON lines a part at a time under
+  `platform/exports/<organizationId>/<exportId>/` and a copy of each file under its `files/` (storage's server-side
+  `copy`), then logs `organization.exported`. Each attempt may run for two hours (`expireInSeconds`).
   `listOrganizationExports(services, organizationId)` and `downloadOrganizationExport(services, staff, exportId)`
-  (15-minute links to its parts and to the organization's stored files, each download logged). After 7 days
-  `EXPIRE_EXPORTS_QUEUE`'s job, `expireOrganizationExports(services, now?)`, deletes the parts and marks it expired.
+  (15-minute links to its parts and its file copies, each download logged).
+  `expireOrganizationExports(services, tx, organizationId, "erasure")`, in an erasure's platform transaction,
+  withdraws the organization's exports (no download or writing from the commit). `EXPIRE_EXPORTS_QUEUE`'s job,
+  `deleteExpiredExports(services, now?)`, expires those past their 7 days and deletes every expired export's parts
+  and copies.
 - Permanent deletion (spec 5), super admins only: `exportSubject(services, staff, { organizationId, subject })`
   (logged; an erasure needs one, and a purge an organization's export, from the last day),
   `requestPurge(services, staff, { organizationId, confirmation })` (the code typed, the subscription
@@ -65,5 +69,6 @@ None.
   hold ids and small facts, never secrets or personal data, so they can outlive the organization they name.
 - An export is the platform's, not the organization's: `platform_export` has no `organization_id` and its parts are
   outside `organizations/<id>/`, so a purge, which deletes from every table with `organization_id` and the
-  organization's own storage, leaves it, and the agency can still take its data for the 7 days. Its files are listed
-  (the attachment rows), not copied: their links work until the purge.
+  organization's own storage, leaves it, and the agency can still take its data, files and all, for the 7 days.
+- What an export stores is counted (parts) or recorded (copies, `platform_export_file`) under its row's lock, and
+  only while it is being written, so the expiry, which marks it expired first, finds everything to delete.
