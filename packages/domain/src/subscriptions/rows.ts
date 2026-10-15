@@ -22,6 +22,7 @@ export interface PlanRow {
   whatsappNumberLimit: number;
   storageLimitBytes: bigint;
   modules: string[];
+  forSale: boolean;
   archivedAt: Date | null;
 }
 
@@ -39,6 +40,7 @@ export function planSummaryOf(row: PlanRow): PlanSummary {
     // Limits are at most 10 TB (the contract's), well within a safe integer.
     storageLimitBytes: Number(row.storageLimitBytes),
     modules: modulesOf(row.modules),
+    forSale: row.forSale,
     archived: row.archivedAt !== null,
   };
 }

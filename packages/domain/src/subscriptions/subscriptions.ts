@@ -16,9 +16,8 @@ import { addDays, calendarDateIn, DomainError, startOfDayIn } from "../kernel/in
 import { actorIn, type ConsoleActor } from "./console-actor.js";
 import { toDateColumn } from "./dates.js";
 import { subscriptionDetailsOf } from "./details.js";
-import { findPlanOnSale } from "./plans.js";
+import { holdPlanToSubscribe } from "./plans.js";
 import { getSubscriptionPolicy } from "./policy.js";
-import { assertSoldOn } from "./pricing.js";
 import { withPlan } from "./rows.js";
 import { lockedSubscription, subscriptionNotFound, subscriptionToday } from "./state.js";
 
@@ -58,8 +57,8 @@ export async function startSubscription(
   now: Date = new Date(),
 ): Promise<SubscriptionDetails> {
   const { organizationId } = input;
-  const plan = await findPlanOnSale(tx, input.planId);
-  assertSoldOn(plan, input.billingCycle);
+  // Only the platform's own job (the demo reset) puts an organization on the demo's plan.
+  const plan = await holdPlanToSubscribe(tx, input.planId, input.billingCycle, { demo: by.userId === null });
   const timeZone = await organizationTimeZone(tx, organizationId);
   const today = calendarDateIn(now, timeZone);
   // Left out, the trial is the policy's days, today the first of them.
@@ -125,8 +124,7 @@ export async function changePlan(
   if (row.plan.id === input.planId && row.billingCycle === input.billingCycle) {
     return subscriptionDetailsOf(row, today);
   }
-  const plan = await findPlanOnSale(tx, input.planId);
-  assertSoldOn(plan, input.billingCycle);
+  const plan = await holdPlanToSubscribe(tx, input.planId, input.billingCycle, { demo: false });
   await tx.subscription.update({
     where: { organizationId: input.organizationId },
     data: { planId: plan.id, billingCycle: input.billingCycle },

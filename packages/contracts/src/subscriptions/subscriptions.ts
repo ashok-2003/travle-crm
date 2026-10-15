@@ -55,20 +55,18 @@ export type SetTrialEndInput = z.infer<typeof setTrialEndInput>;
 export const setPaidThroughInput = z.strictObject({ organizationId: recordId, paidThrough: calendarDate, reason });
 export type SetPaidThroughInput = z.infer<typeof setPaidThroughInput>;
 
-/** A payment pays from the day it was paid on: paidThrough is that day or later (as the table checks). */
-export const recordPaymentInput = z
-  .strictObject({
-    organizationId: recordId,
-    amountPaise: pricePaise.min(1),
-    paidOn: calendarDate,
-    paidThrough: calendarDate,
-    /** How it was paid, e.g. "NEFT UTR 412345678901". */
-    reference: z.string().trim().min(1).max(100).nullable(),
-  })
-  .refine((payment) => payment.paidThrough >= payment.paidOn, {
-    message: "A payment pays through the day it was paid or later",
-    path: ["paidThrough"],
-  });
+/**
+ * A payment received on `paidOn` that pays through `paidThrough`. That day may be before it was paid: money for a past
+ * period (arrears), whose effect the lifecycle decides.
+ */
+export const recordPaymentInput = z.strictObject({
+  organizationId: recordId,
+  amountPaise: pricePaise.min(1),
+  paidOn: calendarDate,
+  paidThrough: calendarDate,
+  /** How it was paid, e.g. "NEFT UTR 412345678901". */
+  reference: z.string().trim().min(1).max(100).nullable(),
+});
 export type RecordPaymentInput = z.infer<typeof recordPaymentInput>;
 
 export const voidPaymentInput = z.strictObject({ organizationId: recordId, paymentId: recordId, reason });

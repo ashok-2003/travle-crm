@@ -77,7 +77,7 @@ describe("subscription contracts", () => {
     expect(setOverridesInput.safeParse({ ...overrides, extraSeats: -1 }).success).toBe(false);
   });
 
-  it("records a payment of at least a paisa through a day from the day it was paid, and asks why time is given", () => {
+  it("records a payment of at least a paisa, arrears for a past period too, and asks why time is given", () => {
     const payment = {
       organizationId,
       amountPaise: 250_000,
@@ -86,10 +86,9 @@ describe("subscription contracts", () => {
       reference: "NEFT UTR 412345678901",
     };
     expect(recordPaymentInput.parse(payment)).toEqual(payment);
-    expect(recordPaymentInput.safeParse({ ...payment, paidThrough: "2026-10-16" }).success).toBe(true);
+    // Money that arrives on the 16th for September: the lifecycle decides what it changes.
+    expect(recordPaymentInput.safeParse({ ...payment, paidThrough: "2026-09-30" }).success).toBe(true);
     expect(recordPaymentInput.safeParse({ ...payment, amountPaise: 0 }).success).toBe(false);
-    const backwards = recordPaymentInput.safeParse({ ...payment, paidThrough: "2026-10-15" });
-    expect(backwards.error?.issues[0]?.path).toEqual(["paidThrough"]);
     expect(setPaidThroughInput.safeParse({ organizationId, paidThrough: "2026-12-31", reason: " " }).success).toBe(
       false,
     );

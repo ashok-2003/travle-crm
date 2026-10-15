@@ -73,6 +73,8 @@ export const planSummary = z.object({
   whatsappNumberLimit: z.int(),
   storageLimitBytes: z.int(),
   modules: z.array(planModule),
+  /** False only for the demo's own plan, which is never offered at onboarding. */
+  forSale: z.boolean(),
   archived: z.boolean(),
 });
 export type PlanSummary = z.infer<typeof planSummary>;

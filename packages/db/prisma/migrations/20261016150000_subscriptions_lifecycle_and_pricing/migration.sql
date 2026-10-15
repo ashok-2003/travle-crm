@@ -1,6 +1,12 @@
+-- Plan 4's fix wave: the owner's pricing, the trial as a policy setting, a suspension made by hand, and only the
+-- platform role writing a subscription (ADR 0020). Before launch: plan 4 is deployed nowhere yet, and every column
+-- this adds is nullable or has a default (plan.for_sale, subscription_policy.trial_days), so it applies to a local
+-- database that already has plans and subscriptions, with no reset needed.
+
 -- AlterTable
 ALTER TABLE "plan" ADD COLUMN     "extra_seat_monthly_price_paise" INTEGER,
-ADD COLUMN     "extra_seat_yearly_price_paise" INTEGER;
+ADD COLUMN     "extra_seat_yearly_price_paise" INTEGER,
+ADD COLUMN     "for_sale" BOOLEAN NOT NULL DEFAULT true;
 
 -- AlterTable
 ALTER TABLE "subscription" ADD COLUMN     "manual_suspension_at" TIMESTAMPTZ(6),
@@ -16,7 +22,8 @@ ALTER TABLE "subscription_policy" ADD COLUMN     "trial_days" INTEGER NOT NULL D
 
 -- The owner's pricing (spec 7.2): a flat price per organization, monthly and/or yearly, and a price per extra seat
 -- for either, all before GST. No plan is seeded here: the prices aren't confirmed, and production plans are the
--- platform team's to enter. The demo reset and the tests seed placeholder tiers themselves.
+-- platform team's to enter. The tests seed placeholder tiers themselves, and the demo reset its own plan, which is
+-- not for sale (for_sale false).
 ALTER TABLE "plan" DROP CONSTRAINT plan_prices_not_negative;
 ALTER TABLE "plan"
   ADD CONSTRAINT plan_prices_not_negative CHECK (
@@ -31,10 +38,6 @@ ALTER TABLE "subscription"
     (manual_suspension_at IS NULL) = (manual_suspension_reason IS NULL)
     AND (manual_suspension_at IS NOT NULL OR manual_suspension_by IS NULL)
     AND char_length(manual_suspension_reason) <= 200);
-
--- A payment pays from the day it was paid, never for days before it.
-ALTER TABLE "subscription_payment"
-  ADD CONSTRAINT subscription_payment_dates CHECK (paid_through >= paid_on);
 
 -- The trial's length is the policy's, beside the past-due and read-only days.
 ALTER TABLE "subscription_policy" DROP CONSTRAINT subscription_policy_days;

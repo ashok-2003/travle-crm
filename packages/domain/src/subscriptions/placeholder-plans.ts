@@ -1,6 +1,7 @@
-// Placeholder tiers for the demo reset and for tests, never for production: there, super admins enter the real plans
-// in the console (plans are data, spec 7.2), and no migration seeds one. The tiers' seats and storage are the owner's;
-// every price is a PLACEHOLDER until the owner confirms it (spec Q4).
+// Placeholder tiers for tests only. Plans are global, so seeding these anywhere else would put them on sale: in
+// production super admins enter the real plans in the console (plans are data, spec 7.2), no migration seeds one, and
+// the demo has its own plan, not for sale (demo-plan.ts). The tiers' seats and storage are the owner's; every price is
+// a PLACEHOLDER until the owner confirms it (spec Q4).
 import type { CreatePlanInput, PlanSummary } from "@travel-crm/contracts/subscriptions";
 import type { OrgTx } from "@travel-crm/db";
 import { planColumns } from "./plans.js";

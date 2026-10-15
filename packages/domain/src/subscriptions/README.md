@@ -8,13 +8,18 @@ Every function takes a transaction. Writes, and the lock, need the platform role
 transaction, naming the organization); under `app_runtime` they fail with "permission denied", whatever the code does.
 Changes take `now?` last (the tests' clock); dates are calendar days in the organization's time zone.
 
-- Plans: `createPlan(tx, input)`, `updatePlan(tx, input)` (returns `before` and `after`), `archivePlan(tx, planId)`
-  (returns whether it changed), `listPlans(tx, { includeArchived })`, `findPlan(tx, planId)`, `planColumns(fields)`.
-- Placeholder tiers, for the demo reset and tests only: `placeholderPlans`, `seedPlaceholderPlans(tx)` (puts any
+- Plans: `createPlan(tx, input)`, `updatePlan(tx, input)` (returns `before` and `after`; `PLAN_CYCLE_IN_USE` for
+  dropping a cycle's price an organization pays), `archivePlan(tx, planId)` (returns whether it changed),
+  `listPlans(tx, { includeArchived })` (without archived ones, only those for sale), `findPlan(tx, planId)`,
+  `planColumns(fields)`.
+- The demo's plan: `demoPlan(tx)` (made once, found again after; not for sale) and `DEMO_PLAN_KEY`, for the nightly
+  demo reset.
+- Placeholder tiers, for tests only (plans are global): `placeholderPlans`, `seedPlaceholderPlans(tx)` (puts any
   missing one on sale; changes none that exists).
 - A subscription: `startSubscription(tx, by, input, now?)` (onboarding: a trial to its last day, or the policy's trial
-  days, today included, when none is given; or active and paid through a day; on a cycle the plan is sold on;
-  `SUBSCRIPTION_EXISTS` for a second one),
+  days, today included, when none is given; or active and paid through a day; on a cycle the plan is sold on, and a
+  plan for sale unless the platform's own job asks (the demo's): `PLAN_NOT_FOR_SALE`; `SUBSCRIPTION_EXISTS` for a
+  second one),
   `getSubscription(tx, organizationId, now?)`, `lockSubscription(tx, organizationId, now?)` (the same, holding the
   row until the transaction ends), `changePlan`, `setOverrides`, `setTrialEnd`, `setPaidThrough`, `suspend`,
   `liftSuspension` (super admins: the console checks), `cancel` (each `(tx, by, input, now?)`). Each returns the
@@ -23,9 +28,9 @@ Changes take `now?` last (the tests' clock); dates are calendar days in the orga
 - Payments: `recordPayment(tx, by, input, { now?, provider? })`, `voidPayment(tx, by, input)`,
   `listPayments(tx, organizationId)`.
 - Prices: `subscriptionPriceOf(plan, { billingCycle, extraSeats, customPricePaise })` (the cycle's flat or agreed
-  price, the extra seats at the plan's seat price, the subtotal, GST at `SUBSCRIPTION_GST_BASIS_POINTS`, 1800 or 18 %,
-  and the total, in paise; null when the cycle has no price), `planPriceFor(plan, cycle)`, `assertSoldOn(plan, cycle)`
-  (`NOT_SOLD_MONTHLY`, `NOT_SOLD_YEARLY`).
+  price, the extra seats at the plan's seat price, the subtotal, CGST and SGST at half of
+  `SUBSCRIPTION_GST_BASIS_POINTS` (1800, 18 %) each, the GST and the total, in paise; `NOT_SOLD_MONTHLY` or
+  `NOT_SOLD_YEARLY` for a cycle with neither), `planPriceFor(plan, cycle)`, `assertSoldOn(plan, cycle)`.
 - The policy: `getSubscriptionPolicy(tx)` (`trialDays`, `pastDueDays`, `readOnlyDays`),
   `setSubscriptionPolicy(tx, by, policy)` (returns `before`, `after` and whether it `changed`), `samePolicy(a, b)`.
 - `by` is a `ConsoleActor`, `{ userId }`: the platform admin, or `null` for the platform's own jobs.
@@ -75,10 +80,11 @@ and to. Changing something to what it already is records nothing.
   organizations already on it keep it and get its changes at once.
 - The owner's pricing: a plan is a tier with a flat price per organization, monthly and/or yearly, the seats it
   includes, a price per extra seat for either cycle (or none), its storage and modules. Every price is INR in paise
-  before GST, which the console shows apart at 18 %. A plan is sold only on the cycles it has a price for. An agreed
-  price replaces the plan's flat price; extra seats still cost the plan's seat price (nothing where it sells none).
-  The agency's staff never see a price (`subscription.get` has none). No migration seeds a plan: the placeholder
-  tiers (`placeholderPlans`, `seedPlaceholderPlans`) are for the demo reset and tests.
+  before GST, which the console shows apart at 18 %, as CGST and SGST that add up. A plan is sold only on the cycles
+  it has a price for, and keeps a cycle's price while an organization pays it that way. An agreed price replaces the
+  plan's flat price; extra seats still cost the plan's seat price (nothing where it sells none). The agency's staff
+  never see a price (`subscription.get` has none). No migration seeds a plan: the placeholder tiers are for tests,
+  and the demo has its own plan, not for sale.
 - One subscription per organization, keyed by `organization_id`. A trial has its last day; an active subscription is
   always paid through a day (the table checks both).
 - Every rule and screen uses the state due today (`subscriptionToday`): the lifecycle followed from what was recorded,
@@ -96,8 +102,8 @@ and to. Changing something to what it already is records nothing.
   runtime role reads them for its request checks, and can neither update nor lock a subscription.
 - A provider's payment (Razorpay, later) carries its own id: `recordPayment` with `provider` finds a repeat by
   `(organization, provider, providerPaymentId)` and records nothing twice.
-- Payments are never deleted: `voidPayment` marks one, once, and changes no dates. A payment pays through the day it
-  was paid on or later.
+- Payments are never deleted: `voidPayment` marks one, once, and changes no dates. A payment may pay for days before
+  it was paid (arrears); the lifecycle decides what it changes.
 - The lifecycle (spec 7.3): a trial (the policy's 7 days, today the first, unless onboarding gives its last day) or a
   paid period ends,
   and the next day the organization is past due; after the policy's days (7) it is read-only, after its days (14)

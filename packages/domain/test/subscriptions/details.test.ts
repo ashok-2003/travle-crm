@@ -41,6 +41,8 @@ describe("a subscription's details", () => {
       extraSeats: 2,
       extraSeatsPaise: 100_000,
       subtotalPaise: 350_000,
+      cgstPaise: 31_500,
+      sgstPaise: 31_500,
       gstPaise: 63_000,
       totalPaise: 413_000,
     });

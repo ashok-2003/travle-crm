@@ -1,9 +1,8 @@
-// Rules the subscription tables enforce themselves (spec 7.2, 7.3): only the platform role writes plans, subscriptions,
-// payments and the policy, the lifecycle's status included; the runtime role only reads them; and the values stay
-// within what the lifecycle and the owner's pricing know. No plan is seeded: the platform team enters them.
+// Rules the subscription tables enforce themselves (spec 7.2, 7.3): the values stay within what the lifecycle and the
+// owner's pricing know, and no plan is seeded (the platform team enters them). Who may write them:
+// subscription-grants.test.ts.
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { createDatabase, type Database } from "../src/database.js";
 import type { Prisma } from "../src/generated/prisma/client.js";
 import {
   createPlatformClient,
@@ -28,14 +27,12 @@ describe("subscription tables", () => {
   const urls = inject("dbUrls");
   let platform: PlatformClient;
   let platformDb: PlatformDatabase;
-  let db: Database;
   let organizationId: string;
   let planId: string;
 
   beforeAll(async () => {
     platform = createPlatformClient(urls.platform);
     platformDb = createPlatformDatabase(urls.platform, { maxConnections: 1 });
-    db = createDatabase(urls.runtime, { maxConnections: 2 });
     organizationId = await createTestOrganization(platform, "Subscription tables");
     planId = (await platform.plan.create({ data: plan() })).id;
     await platform.subscription.create({
@@ -51,70 +48,15 @@ describe("subscription tables", () => {
   });
 
   afterAll(async () => {
-    await db.disconnect();
     await platformDb.disconnect();
     await platform.$disconnect();
   });
 
-  it("seeds no plan: the prices aren't the owner's yet, and the platform team enters plans in the console", async () => {
-    expect(await platform.plan.count({ where: { key: { in: ["starter", "growth", "pro"] } } })).toBe(0);
-  });
-
-  it("lets the runtime role read plans, the policy and its own subscription", async () => {
-    expect(await db.forOrg(organizationId, (tx) => tx.plan.count({ where: { id: planId } }))).toBe(1);
-    expect(
-      await db.forOrg(organizationId, (tx) => tx.subscriptionPolicy.findUnique({ where: { id: true } })),
-    ).toMatchObject({ trialDays: 7, pastDueDays: 7, readOnlyDays: 14 });
-    expect(await db.forOrg(organizationId, (tx) => tx.subscription.count())).toBe(1);
-  });
-
-  it("refuses the runtime role every update of a subscription, its status included", async () => {
-    for (const data of [
-      { status: "active", statusChangedAt: new Date("2026-10-16T00:00:00Z") },
-      { status: "past_due" },
-      { statusChangedAt: new Date("2099-01-01T00:00:00Z") },
-      { planId },
-      { paidThrough: new Date("2027-01-01") },
-      { extraSeats: 50 },
-      { extraModules: ["accounts"] },
-      { manualSuspensionAt: null },
-    ]) {
-      await expect(
-        db.forOrg(organizationId, (tx) => tx.subscription.update({ where: { organizationId }, data })),
-      ).rejects.toThrow(/permission denied/);
-    }
-    // Nor may it lock the row, which needs the right to update it.
-    await expect(
-      db.forOrg(
-        organizationId,
-        (tx) =>
-          tx.$queryRaw`SELECT 1 FROM subscription WHERE organization_id = ${organizationId}::uuid FOR NO KEY UPDATE`,
-      ),
-    ).rejects.toThrow(/permission denied/);
-  });
-
-  it("refuses every other write to the runtime role", async () => {
-    await expect(db.forOrg(organizationId, (tx) => tx.plan.create({ data: plan() }))).rejects.toThrow(
-      /permission denied/,
+  it("seeds no plan, and a plan is for sale unless made otherwise (the demo's own)", async () => {
+    expect(await platform.plan.count({ where: { key: { in: ["starter", "growth", "pro", "platform-demo"] } } })).toBe(
+      0,
     );
-    await expect(
-      db.forOrg(organizationId, (tx) => tx.plan.update({ where: { id: planId }, data: { seatLimit: 500 } })),
-    ).rejects.toThrow(/permission denied/);
-    await expect(
-      db.forOrg(organizationId, (tx) =>
-        tx.subscriptionPolicy.update({ where: { id: true }, data: { pastDueDays: 90 } }),
-      ),
-    ).rejects.toThrow(/permission denied/);
-    await expect(
-      db.forOrg(organizationId, (tx) =>
-        tx.subscriptionPayment.create({
-          data: { amountPaise: 1, paidOn: new Date("2026-10-16"), paidThrough: new Date("2030-12-31") },
-        }),
-      ),
-    ).rejects.toThrow(/permission denied/);
-    await expect(db.forOrg(organizationId, (tx) => tx.subscription.deleteMany({}))).rejects.toThrow(
-      /permission denied/,
-    );
+    expect(await platform.plan.findUniqueOrThrow({ where: { id: planId } })).toMatchObject({ forSale: true });
   });
 
   it("keeps plans priced, limited and on the product's modules, each by its own check", async () => {
@@ -160,16 +102,13 @@ describe("subscription tables", () => {
     ).resolves.toMatchObject({ billingCycle: "yearly" });
   });
 
-  it("keeps payments positive, from the day they were paid, voided with a reason, and a provider's once", async () => {
+  it("keeps payments positive, voided with a reason, and a provider's once; arrears may be for days already past", async () => {
     const payment = { organizationId, paidOn: new Date("2026-10-16"), paidThrough: new Date("2026-11-15") };
     await expect(platform.subscriptionPayment.create({ data: { ...payment, amountPaise: 0 } })).rejects.toThrow(
       /subscription_payment_amount_positive/,
     );
-    await expect(
-      platform.subscriptionPayment.create({
-        data: { ...payment, amountPaise: 100, paidThrough: new Date("2026-10-15") },
-      }),
-    ).rejects.toThrow(/subscription_payment_dates/);
+    const arrears = { ...payment, amountPaise: 100, paidThrough: new Date("2026-09-30") };
+    await expect(platform.subscriptionPayment.create({ data: arrears })).resolves.toMatchObject({ amountPaise: 100 });
     await expect(
       platform.subscriptionPayment.create({ data: { ...payment, amountPaise: 100, voidedAt: new Date() } }),
     ).rejects.toThrow(/subscription_payment_voided/);

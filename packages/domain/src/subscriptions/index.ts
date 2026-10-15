@@ -10,6 +10,7 @@ export {
   type SubscriptionWriter,
 } from "./advance.js";
 export type { ConsoleActor } from "./console-actor.js";
+export { DEMO_PLAN_KEY, demoPlan } from "./demo-plan.js";
 export {
   createSubscriptionAccess,
   entitlementsOf,

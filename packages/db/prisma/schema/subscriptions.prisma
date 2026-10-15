@@ -25,6 +25,8 @@ model Plan {
   /// The business modules it includes, e.g. {crm,quotes} (CHECK plan_modules_known). The Foundation's own features
   /// (staff, roles, settings, the audit log, documents) come with every plan.
   modules                    String[]
+  /// False only for the demo's own plan: never listed for onboarding, nor taken by anyone but the platform's demo job.
+  forSale                    Boolean        @default(true) @map("for_sale")
   /// Archived plans take no new subscriptions; organizations already on one keep it.
   archivedAt                 DateTime?      @map("archived_at") @db.Timestamptz(6)
   createdAt                  DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -83,8 +85,8 @@ model SubscriptionPayment {
   /// INR in paise, more than zero (CHECK subscription_payment_amount_positive).
   amountPaise       Int          @map("amount_paise")
   paidOn            DateTime     @map("paid_on") @db.Date
-  /// The last day this payment pays for, not before paid_on (CHECK subscription_payment_dates): the subscription is
-  /// paid through at least this day once it is recorded.
+  /// The last day this payment pays for: the subscription is paid through at least this day once it is recorded. It may
+  /// be before paid_on: money for a past period (arrears), whose effect the lifecycle decides.
   paidThrough       DateTime     @map("paid_through") @db.Date
   /// How it was paid, for whoever matches the bank statement, e.g. "NEFT UTR 412345678901".
   reference         String?

@@ -61,11 +61,14 @@ for 7.2 (amending ADR 0019)
   `NOT_SOLD_YEARLY`). It includes its seats, WhatsApp numbers, storage and modules, and may price an extra seat per
   month and per year. Every price is INR in paise before GST. A subscription is billed monthly or yearly, buys extra
   seats at the plan's seat price, and may have an agreed price in place of the plan's flat one. The seat limit is the
-  plan's seats plus those bought. The console's `subscriptions.get` shows the cycle's price with GST at 18 % apart
-  (rounded half-up to the paisa, with the kernel's money); the agency's own staff never see a price. No migration
-  seeds a plan, as the prices aren't confirmed: `seedPlaceholderPlans` puts placeholder Starter (3 seats, 5 GB,
-  ₹1,999 a month), Growth (10, 25 GB, ₹4,999) and Pro (25, 100 GB, ₹9,999) tiers on sale for the demo reset and
-  tests, a year at ten months' price and an extra seat at ₹299 a month.
+  plan's seats plus those bought. A plan can't drop a cycle's price while an organization pays it that way
+  (`PLAN_CYCLE_IN_USE`; the plan row is held, so this can't race a move onto that cycle), so every subscription has
+  a price. The console's `subscriptions.get` shows it with GST at 18 % apart, as CGST and SGST at 9 % each, rounded
+  half-up on its own as the kernel's GST engine splits a line, so the halves always add up to the GST shown; the
+  agency's own staff never see a price. No migration seeds a plan, as the prices aren't confirmed, and plans are
+  global, so nothing seeds the tiers outside tests (`seedPlaceholderPlans`: placeholder Starter, Growth and Pro). The
+  demo has its own plan, not for sale (`demoPlan`): never listed for onboarding nor accepted there, and put on an
+  organization only by the platform's own demo job.
 - **Support's impersonation ends with its session.** `protectedProcedure` trusts the 5-minute cookie cache, except
   for an impersonation session: that one is read from the database on every request, and its admin re-checked as
   platform staff. Stopping, the hour running out, or the admin losing platform access ends it at once, not up to five
@@ -96,6 +99,5 @@ for 7.2 (amending ADR 0019)
   request path never depends on it).
 - A later step's new permission module must be mapped to a plan module before the catalog test passes, and a new
   procedure without permissions must declare its `planModule`.
-- A payment pays through the day it was paid or later (`subscription_payment_dates`), which catches dates typed the
-  wrong way round. The cost: money received after the whole period it pays for (arrears only) can't be recorded with
-  the day it arrived; drop the check if that case matters.
+- A payment may pay for days before it was paid (arrears): money that arrives today for a past period is recorded
+  with the day it arrived, and the lifecycle decides what it changes (a day already past makes nothing active).

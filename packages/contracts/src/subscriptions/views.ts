@@ -15,7 +15,8 @@ export type LifecycleAccess = z.infer<typeof lifecycleAccess>;
 
 /**
  * What a subscription costs per billing cycle, in paise: the plan's flat price (or the agreed one) and the extra seats
- * at the plan's seat price, before GST, with the GST (18 %) shown apart, as Indian buyers expect "+18% GST".
+ * at the plan's seat price, before GST; then GST at 18 % apart, as Indian buyers expect "+18% GST": CGST and SGST at
+ * 9 % each, rounded on their own as the kernel's GST engine does, so the halves always add up to `gstPaise`.
  */
 export const subscriptionPrice = z.object({
   cycle: billingCycle,
@@ -23,6 +24,8 @@ export const subscriptionPrice = z.object({
   extraSeats: z.int(),
   extraSeatsPaise: z.int(),
   subtotalPaise: z.int(),
+  cgstPaise: z.int(),
+  sgstPaise: z.int(),
   gstPaise: z.int(),
   totalPaise: z.int(),
 });
@@ -52,8 +55,8 @@ export const subscriptionDetails = z.object({
   extraSeats: z.int(),
   customPricePaise: z.int().nullable(),
   extraModules: z.array(planModule),
-  /** Null only when the plan stopped being sold on this cycle and no price was agreed. */
-  price: subscriptionPrice.nullable(),
+  /** Every subscription has one: it is on a cycle its plan is sold on, which the plan can't drop while it is. */
+  price: subscriptionPrice,
 });
 export type SubscriptionDetails = z.infer<typeof subscriptionDetails>;
 

@@ -40,7 +40,7 @@ describe("subscription payments", () => {
     await test.close();
   });
 
-  /** A payment through a day, paid on the tests' today unless an older day is given. */
+  /** A payment through a day, paid on the tests' today. */
   const pay = (organizationId: string, paidThrough: string, { amountPaise = 250_000, paidOn = "2026-10-16" } = {}) =>
     test.platformDb.transaction((tx) =>
       recordPayment(
@@ -87,16 +87,29 @@ describe("subscription payments", () => {
     });
   });
 
+  it("records arrears paid today for a past period, and lets the lifecycle decide what they change", async () => {
+    // Paid through August, suspended since 22 September; September's money arrives on 16 October.
+    const organizationId = await createSubscribedOrganization(
+      test,
+      plan,
+      { paidThrough: "2026-08-31" },
+      { now: started },
+    );
+    const arrears = await pay(organizationId, "2026-09-30");
+    expect(arrears).toMatchObject({ paidOn: "2026-10-16", paidThrough: "2026-09-30" });
+    expect(await subscriptionOf(organizationId)).toMatchObject({ status: "suspended", paidThrough: "2026-09-30" });
+  });
+
   it("never moves the paid-through day back for an older period's payment", async () => {
     const organizationId = await createSubscribedOrganization(test, plan, { paidThrough: "2026-12-31" }, { now });
-    await pay(organizationId, "2026-09-30", { paidOn: "2026-09-01" });
+    await pay(organizationId, "2026-09-30");
     expect(await subscriptionOf(organizationId)).toMatchObject({ paidThrough: "2026-12-31", status: "active" });
   });
 
   it("makes nothing active with an older period's payment, though the organization was paid ahead", async () => {
     const organizationId = await createSubscribedOrganization(test, plan, { paidThrough: "2026-12-31" }, { now });
     await test.platformDb.transaction((tx) => cancel(tx, byAdmin, { organizationId, reason: "Left us" }, now));
-    await pay(organizationId, "2026-09-30", { paidOn: "2026-09-01" });
+    await pay(organizationId, "2026-09-30");
     expect(await subscriptionOf(organizationId)).toMatchObject({ status: "cancelled", paidThrough: "2026-12-31" });
   });
 
@@ -105,7 +118,7 @@ describe("subscription payments", () => {
     const late = await createSubscribedOrganization(test, plan, { paidThrough: "2026-09-30" }, { now: started });
     await advanceSubscriptions({ db: test.platformDb, organizationIds: [ran], now });
     for (const organizationId of [ran, late]) {
-      await pay(organizationId, "2026-10-15", { amountPaise: 100_000, paidOn: "2026-10-01" });
+      await pay(organizationId, "2026-10-15", { amountPaise: 100_000 });
     }
     // Paid through the 30th, so past due from 1 October and read-only from the 8th, whenever the job last ran.
     for (const organizationId of [ran, late]) {
