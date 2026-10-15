@@ -2,7 +2,7 @@
 // Auth's sign-out, answered from handlers a test sets, with every call recorded in the order it was made.
 import { vi } from "vitest";
 
-/** What the api sends for one procedure: its data or a refusal. */
+/** What the api sends for one procedure: its data or a refusal (for an auth call, `reason` is Better Auth's code). */
 type Sent = { data: unknown } | { status: number; reason?: string | null };
 
 /**
@@ -61,7 +61,8 @@ export function stubApi(answers: Record<string, Answer>): ApiStub {
         calls.push(path);
         const sent = await settle(answerFor(path));
         if (sent === null) throw new TypeError("Failed to fetch");
-        return Response.json({}, { status: "data" in sent ? 200 : sent.status });
+        if ("data" in sent) return Response.json({});
+        return Response.json(sent.reason ? { code: sent.reason } : {}, { status: sent.status });
       }
       const paths = decodeURIComponent(url.pathname.slice("/api/trpc/".length)).split(",");
       calls.push(...paths);

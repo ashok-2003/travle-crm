@@ -5,11 +5,11 @@
 import type { AppRouter } from "@travel-crm/api";
 import { hashKey, hydrate, onlineManager } from "@tanstack/react-query";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
-import { loadPage } from "@/lib/navigate";
+import { loadPage, replacePage } from "@/lib/navigate";
 import { reportProblem } from "@/lib/report-problem";
 import { isPublicRoute, pendingStepRoute, routes, signInRoute } from "@/lib/routes";
 import { refusalOf } from "./api-error";
-import { authClient, type AuthClient } from "./auth-client";
+import { authClient, onSessionEnded, type AuthClient } from "./auth-client";
 import { settleOwedSignOut } from "./owed-sign-out";
 import { isMeAnswer, ownerOf, sameOwner, type CopyOwner } from "./owner";
 import { createQueryCopy } from "./persistence";
@@ -51,12 +51,16 @@ export function createPageData({ buster, onLeaving, auth = authClient }: PageDat
     loadPage(to);
   }
 
+  /** The session is gone (a tRPC or a Better Auth 401): wipe, sign in, come back. A signed-out screen stays put. */
+  function sessionEnded(): void {
+    if (!isPublicRoute(window.location.pathname)) void leave(signInRoute(currentPage()));
+  }
+
   const queryClient = createQueryClient({
-    onSignedOut: () => {
-      if (!isPublicRoute(window.location.pathname)) void leave(signInRoute(currentPage()));
-    },
+    onSignedOut: sessionEnded,
+    // In place of this page, so Back doesn't return to a screen that showed data, as SessionGate does.
     onPendingStep: (step) => {
-      if (window.location.pathname !== pendingStepRoute(step)) loadPage(pendingStepRoute(step));
+      if (window.location.pathname !== pendingStepRoute(step)) replacePage(pendingStepRoute(step));
     },
   });
   const meQuery = createTRPCOptionsProxy<AppRouter>({ client: apiClient, queryClient }).me.get.queryOptions();
@@ -133,7 +137,7 @@ export function createPageData({ buster, onLeaving, auth = authClient }: PageDat
     },
     /** Signs out: the screen goes at once, and the sign-in page loads once the device is wiped (session.ts). */
     signOut: () => leave(routes.signIn, () => signOut(queryClient, auth)),
-    /** Listens for other tabs signing out, me.get's answers and the connection returning. Returns the unsubscribe. */
+    /** Listens for other tabs signing out, me.get's answers, Better Auth 401s and the connection returning. */
     listen(): () => void {
       const stopListening = listenForSignOut(() => {
         // A signed-out screen holds nothing to hide; the person may be typing into it.
@@ -149,9 +153,11 @@ export function createPageData({ buster, onLeaving, auth = authClient }: PageDat
         void settleOwedSignOut(auth);
       };
       window.addEventListener("online", settleOnceOnline);
+      const stopHearingAuth = onSessionEnded(sessionEnded);
       return () => {
         stopListening();
         stopWatching();
+        stopHearingAuth();
         window.removeEventListener("online", settleOnceOnline);
       };
     },

@@ -43,6 +43,19 @@ async function bodyOf(response: Response): Promise<Record<string, unknown>> {
 /** How long signing out waits for the api: the device is already wiped, and a sign-out not heard is owed instead. */
 export const SIGN_OUT_TIMEOUT = 5_000;
 
+const sessionEndedListeners = new Set<() => void>();
+
+/**
+ * Calls listener whenever a call finds the session gone (changing the password, turning two-factor on or off), so the
+ * page leaves as it does on a tRPC 401 (page-data.ts). Returns the unsubscribe function.
+ */
+export function onSessionEnded(listener: () => void): () => void {
+  sessionEndedListeners.add(listener);
+  return () => {
+    sessionEndedListeners.delete(listener);
+  };
+}
+
 export function createAuthClient(fetchImplementation: Fetch = (...arguments_) => fetch(...arguments_)) {
   async function post<T>(
     path: string,
@@ -77,10 +90,15 @@ export function createAuthClient(fetchImplementation: Fetch = (...arguments_) =>
     }
     if (response.ok) return { ok: true, data: read(json) } satisfies AuthResult<T>;
     const retryAfter = Number(response.headers.get("x-retry-after") ?? response.headers.get("retry-after"));
+    const code = typeof json.code === "string" ? json.code : response.status === 429 ? "TOO_MANY_REQUESTS" : "UNKNOWN";
+    // Better Auth's session check answers a bare UNAUTHORIZED; its other 401s name what was wrong (INVALID_CODE...).
+    if (response.status === 401 && (code === "UNAUTHORIZED" || code === "UNKNOWN")) {
+      for (const listener of sessionEndedListeners) listener();
+    }
     return {
       ok: false,
       status: response.status,
-      code: typeof json.code === "string" ? json.code : response.status === 429 ? "TOO_MANY_REQUESTS" : "UNKNOWN",
+      code,
       retryAfterSeconds: Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : null,
     } satisfies AuthResult<T>;
   }

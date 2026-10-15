@@ -11,7 +11,7 @@ import { isSignOutOwed } from "@/data/owed-sign-out";
 import { deleteSavedCopies, hasPersistedQueries } from "@/data/persistence";
 import { DataProviders } from "@/data/providers";
 import { announceSignOut } from "@/data/session";
-import { loadPage } from "@/lib/navigate";
+import { loadPage, replacePage } from "@/lib/navigate";
 import { stubApi } from "../support/api-stub";
 import { member } from "../support/members";
 import { pause, saveCopyFor, staffNamed } from "../support/saved-copy";
@@ -44,6 +44,7 @@ beforeEach(async () => {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.mocked(loadPage).mockReset();
+  vi.mocked(replacePage).mockReset();
   onlineManager.setOnline(true);
 });
 
@@ -146,6 +147,15 @@ describe("DataProviders", () => {
     announceSignOut();
     await pause(100);
     expect(screen.getByText("Asha: Ravi")).toBeVisible();
+    expect(loadPage).not.toHaveBeenCalled();
+  });
+
+  it("sends a person with a step to take there in place of this page, so Back can't return to its data", async () => {
+    stubApi({ "me.get": { data: asha }, "staff.list": { status: 403, reason: "CHANGE_PASSWORD" } });
+    renderApp();
+    await vi.waitFor(() => {
+      expect(replacePage).toHaveBeenCalledWith("/change-password");
+    });
     expect(loadPage).not.toHaveBeenCalled();
   });
 
