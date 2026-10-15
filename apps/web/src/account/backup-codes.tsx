@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { useErrorMessage } from "@/lib/error-message";
 import { focusWhenShown } from "./focus";
@@ -49,11 +50,15 @@ export function BackupCodes({ codes, onDone }: { codes: string[]; onDone: () => 
         {t("backupTitle")}
       </h2>
       <p>{t("backupIntro")}</p>
-      <ul className="numbers grid grid-cols-2 gap-2 rounded-lg border bg-surface p-4">
-        {codes.map((code) => (
-          <li key={code}>{code}</li>
-        ))}
-      </ul>
+      <Card>
+        <CardContent>
+          <ul className="numbers grid grid-cols-2 gap-2">
+            {codes.map((code) => (
+              <li key={code}>{code}</li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
       <Button variant="outline" onClick={() => void copyCodes()}>
         {copied === true ? t("copied") : t("copyCodes")}
       </Button>

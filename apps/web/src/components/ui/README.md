@@ -16,14 +16,15 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
   slots, the dialog and sheet close buttons are 44px. `checkbox` is 20px with a 44px hit area, `switch` 44x24 with a
   44px tall one. The small `sm` sizes of `select` and `switch` are gone. `input-group` is 44px high; its `icon-sm`
   button is 36px with a 44px hit area (`after:-inset-1`), and its `xs` and `icon-xs` buttons are gone. `sidebar` menu
-  buttons are at least 44px (`lg` 48), growing when a name wraps; their `sm` size is gone.
+  buttons are at least 44px (`lg` 48), growing when a name wraps; their `sm` size is gone. An `item` is at least 44px,
+  for one that is a link; its `xs` size is gone.
 - Shapes: cards 10px (`rounded-lg`) with a hairline border instead of a ring; dialogs 14px; inputs, input groups,
   textareas, selects and OTP slots 6px; checkboxes 4px; titles (card, dialog, sheet, alert dialog) Figtree 600 at the section size. Dialogs and
   alert dialogs carry the overlay shadow. Table headers are surface-toned.
 - Layers: `z-(--z-overlay)` for scrims, `z-(--z-dialog)` for dialogs, sheets, menus and selects (menus share the dialog
   layer so they open above a dialog), `z-(--z-sticky)` for sticky bits and the sidebar, `z-(--z-tooltip)` for
   tooltips. Never `z-50`.
-- Names wrap: no `line-clamp`, `truncate` or `whitespace-nowrap` in `select`, `table` or `sidebar`.
+- Names wrap: no `line-clamp`, `truncate` or `whitespace-nowrap` in `select`, `table`, `sidebar` or `item`.
 - Focus: the one global 2px outline in `globals.css`; components don't add `focus-visible:ring-*`. An input group's
   outline goes round the whole group, not the input inside it (`globals.css`).
 - `button.tsx`: pill shape (`rounded-full`), primary hover is `action-pressed`; outline has the input border; ghost is

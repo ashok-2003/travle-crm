@@ -6,6 +6,7 @@ import { ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { PageTitle } from "@/components/page-title";
+import { Item, ItemContent, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item";
 import { useMe } from "@/session/me-context";
 import { visibleNavigationItems, type NavigationItem } from "@/shell/navigation";
 
@@ -21,17 +22,23 @@ export default function HomePage() {
       {setUp.length > 0 ? (
         <section className="flex flex-col gap-3">
           <p className="text-muted-foreground">{t("intro", { organization: me.organization.name })}</p>
-          <ul className="divide-y rounded-lg border">
+          <ItemGroup>
             {setUp.map((item) => (
-              <li key={item.key}>
-                <Link href={item.href} className="flex min-h-14 items-center gap-3 px-4 py-3 hover:bg-accent">
-                  <item.icon aria-hidden="true" className="size-5 shrink-0 text-muted-foreground" />
-                  <span className="flex-1">{t(item.key)}</span>
-                  <ChevronRightIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-                </Link>
-              </li>
+              <div key={item.key} role="listitem">
+                <Item variant="outline" asChild>
+                  <Link href={item.href}>
+                    <ItemMedia variant="icon">
+                      <item.icon aria-hidden="true" />
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle>{t(item.key)}</ItemTitle>
+                    </ItemContent>
+                    <ChevronRightIcon aria-hidden="true" className="size-4" />
+                  </Link>
+                </Item>
+              </div>
             ))}
-          </ul>
+          </ItemGroup>
         </section>
       ) : (
         <p className="text-muted-foreground">{t("nothingToSetUp")}</p>

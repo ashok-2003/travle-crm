@@ -19,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { Item } from "@/components/ui/item";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { SidebarMenuButton, SidebarProvider } from "@/components/ui/sidebar";
@@ -86,6 +87,15 @@ describe("touch targets", () => {
       expectTarget(screen.getByRole("button"));
     },
   );
+
+  it.each(["default", "sm"] as const)("a %s item that is a link", (size) => {
+    render(
+      <Item size={size} asChild>
+        <a href="/staff">Staff</a>
+      </Item>,
+    );
+    expectTarget(screen.getByRole("link"));
+  });
 
   it("a checkbox, through its hit area", () => {
     render(<Checkbox aria-label="Agree" />);

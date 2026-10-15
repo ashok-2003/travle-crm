@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
 import { useErrorMessage } from "@/lib/error-message";
 import { DeleteRoleDialog } from "./delete-role-dialog";
 import { toGrantInputs } from "./permission-grants";
@@ -76,7 +77,8 @@ export function RoleEditor({ role, catalog }: { role: RoleSummary; catalog: Perm
           <AlertDescription>{apiError(update.error)}</AlertDescription>
         </Alert>
       )}
-      <div className="flex flex-wrap items-start justify-between gap-4 border-t pt-6">
+      <Separator />
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <DeleteRoleDialog role={role} />
         <Button type="submit" disabled={update.isPending}>
           {update.isPending ? t("editor.saving") : t("editor.save")}

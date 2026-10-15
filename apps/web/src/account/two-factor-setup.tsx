@@ -133,7 +133,7 @@ export function TwoFactorSetup({
           <QrCode
             value={step.totpUri}
             label={t("twoFactorSetup.qrLabel")}
-            className="size-48 self-center rounded-lg border bg-background p-2 text-foreground"
+            className="size-48 self-center text-foreground"
           />
           <p className="text-label text-muted-foreground">
             {t("twoFactorSetup.manualKey")}{" "}
