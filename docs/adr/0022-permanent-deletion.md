@@ -7,45 +7,97 @@ super-admin action in the platform console")
 
 - **Each module deletes what it owns**, through a function the platform's jobs call in a platform transaction, so no
   module reaches another's tables:
-  - files: `storedFileKeys` and `deleteRecordFiles` give the storage keys of the rows they cover; the bytes are deleted
-    with the storage port's new `delete`, after the transaction commits, and deleting again is harmless. A
-    system-owned record's files (an issued document's PDF) go only with their record, in a whole-organization purge;
+  - files: `queueOrganizationFileDeletion` (a purge) and `deleteRecordFiles` (an erasure) delete the rows and queue
+    their stored bytes in the deletions' outbox, in the same transaction (below). A system-owned record's files (an
+    issued document's PDF) go only with their record, in a whole-organization purge;
   - audit: `redactAuditEntries` replaces one record's snapshots with `{ "redacted": true }` through the platform role's
     column grant (ADR 0015), keeping who did what and when;
-  - notifications: `forgetRecipient` deletes the person's notifications, opt-outs and push subscriptions;
+  - notifications: `forgetRecipient` deletes a person's notifications, opt-outs and push subscriptions;
+    `forgetRecordNotifications` deletes the notifications about a record: those whose link names it (a notification
+    about a record links to it, `/travellers/<id>`), and those an event about it caused;
+  - share links: `forgetRecordShareLinks` deletes a record's links (their labels name what was shared) with every open
+    recorded against them (the visitor's network and browser), and names the `share-link.opened` events of those
+    opens, whose notifications quote the label;
   - identity: `erasePerson` clears a removed person's name, addresses and every way to sign in, keeping the user's id,
     and `deleteUsers` deletes an organization's people (ADR 0021's module).
+- **Stored files go through an outbox, by id only.** The transaction that deletes the rows writes
+  `stored_file_deletion` rows (a platform table: no `organization_id`, so the purge's catalog walk leaves it, and no
+  rights for the runtime role): the organization's id and the attachment's id, or no attachment for the organization's
+  whole folder. The storage key is made from them (`organizations/<organization>/attachments/<attachment>`, ADR 0011),
+  so no file name is kept. Once the transaction commits, the job deletes what is due at once, then each row; whatever
+  is left (a storage error, a restart, a later sweep) goes to `platform.delete-stored-files`, the console's job, which
+  deletes each file, then its row, every organization's at each run, and is retried for about a day (30 retries, up to
+  an hour apart) before the failed-jobs list, where a retry starts it again. Nothing reaches storage inside a
+  transaction, and nothing is forgotten after one.
+- **A purge sweeps its organization's folder, not its keys.** It queues the folder (`deletePrefix`, which lists and
+  deletes 1,000 keys a request, so a large organization takes one request per thousand files, not one per file) twice:
+  once at once, and again 15 minutes later (`LATE_WRITES_MS`), when every upload link handed out before the purge has
+  lapsed (10 minutes) and a render under way has stored its file. The folder catches what no row names: a late upload,
+  a PDF stored as the purge ran, an object a past failure left. A purge job run again for an organization already gone
+  queues the folder again. An erasure queues one row per attachment of its record: the rest of the folder is someone
+  else's.
 - **Whole organizations from the catalog.** `deleteOrganizationRows` (`@travel-crm/db/platform`) finds every table
   with `organization_id` in the database's catalog, deletes the organization's rows in an order no foreign key trips
   over (`audit_entry` first, as its key restricts), then the organization. A later module's table needs no change
   here. `organizationRows` exports the same rows as JSON.
-- **Webhook events become tombstones.** The worker keeps each processed event with the organization its handler
-  found (`resolved_organization_id`, reported by `processing.isAbout`); a purge or an erasure blanks those events'
-  payloads and headers and keeps their provider ids, so a replayed event is still ignored (ADR 0013's consequence).
+- **Webhook events become tombstones.** The worker keeps each event with the organization its handler found
+  (`resolved_organization_id`, reported by `processing.isAbout`, which takes only a UUID), whether the handler then
+  succeeded or failed. A tombstone blanks the payload and headers and keeps the provider's id, so a replayed event is
+  still ignored (ADR 0013's consequence), and a retry of a tombstoned event runs no handler.
+  - A purge blanks all of the organization's events, those still in flight too (its `webhooksWaiting` counts them): no
+    handler can use an event about an organization that is gone. Its later folder sweep blanks again any event a
+    handler found since (a retry that failed on the missing organization).
+  - An erasure blanks every processed event of the organization, not only the person's: the intake can't tell which
+    payloads quote them, and a processed payload has no further use. It leaves events in flight to their handler (a
+    payment still to record) and counts them as `webhooksWaiting`; they keep their payload until the next erasure in
+    the organization or ADR 0013's retention sweep.
+- **Erasure is for records of people.** A record subject must be on the list of types that hold a person's data
+  (today the traveller, as spec 5 says; a module adds its own type with its erasure step), or it is refused
+  (`VALIDATION`/`NOT_PERSONAL_DATA`) when asked and again in the job. An issued document is refused
+  (`VALIDATION`/`KEPT_BY_LAW`): it is a GST invoice or its like, kept as issued (ADR 0012), and DPDP allows the
+  retention a law requires. It keeps the customer's details as they were; the erasure covers the person's own records.
 - **Exports first.** `exportedFiles` and `auditEntriesAbout` give what the export before a purge or an erasure holds;
-  the export lists files with download links that lapse, rather than copying them.
-- **The runtime role can't do any of it.** It has no right to delete attachments or notifications, or to change audit
-  entries; each of these functions fails with "permission denied" outside a platform transaction.
+  the export lists files with download links that lapse, rather than copying them. A purge or an erasure needs the
+  organization's `organization.exported` (or the subject's `subject.exported`) platform log entry from the last day,
+  matched on `target_organization_id`, so one organization's export never counts for another.
+- **The runtime role can't do any of it.** It has no right to delete attachments, notifications or share links, to
+  change audit entries, or to touch the outbox; each of these functions fails with "permission denied" outside a
+  platform transaction. Reads that rely on row-level security (`auditEntriesSince`, `documentsIssuedSince`) refuse to
+  run as the platform role, and `auditEntriesAbout` filters by the record's organization.
 
 - **The console's steps, as spec 5 lists them.** A super admin exports (the organization's tables, people and files,
-  or one subject's data), types the organization's code, and the console queues a job: `platform.purge-organization`
-  for a cancelled organization, `platform.erase-subject` for a removed member or one record. A purge or an erasure
-  needs an export from the last day. The job runs everything in one platform transaction (the purge allows ten
-  minutes), deletes stored files after it commits, and records `organization.purged` or `subject.erased` in the
-  platform log; an erasure also records `subject.erased`, without personal data, in the organization's own log. Both
-  jobs are safe to run again. The purge looks again when it runs: an organization a payment made active since the
-  request is kept, and `organization.purge-skipped` says so.
+  or one subject's data), types the organization's code, and the console queues a job, once the request is recorded:
+  `platform.purge-organization` for a cancelled organization, `platform.erase-subject` for a removed member or one
+  record. The job runs everything in one platform transaction (the purge allows ten minutes) and records
+  `organization.purged` or `subject.erased` in the platform log under the super admin who asked; an erasure also
+  records `subject.erased`, without personal data, in the organization's own log.
+- **The purge job checks everything again,** under the subscription's lock, which every subscription change takes: the
+  organization is still cancelled, and its export is less than a day old when the job runs. Otherwise it keeps the
+  organization and records `organization.purge-skipped` with the reason (`not-cancelled` with the status, or
+  `no-recent-export`); a super admin asks again, which checks everything again. A payment recorded during a purge
+  waits for it, then finds the organization gone. The nightly demo reset purges its own active demo with none of
+  these checks.
+- **Both jobs are safe to run again.** A purge of an organization already gone sweeps its folder again. An erasure
+  job carries its request's id, recorded in its `subject.erased` entry: a run repeating a finished one (pg-boss runs a
+  job at least once) changes and records nothing more, and only finishes the files.
 
 ## Context
 
-- **Why bytes after the commit.** If the transaction rolls back, the files are still there with their rows. If the
-  storage deletes stop halfway, rerunning the job deletes the rest: a key with nothing stored is fine.
+- **Why an outbox, not deletes after the commit.** The bytes can't be deleted inside the transaction: if it rolled
+  back, the rows would point at nothing. Deleted after it, they were deleted once: a storage error, a crash or a
+  deploy after the commit left them stored for good, with nothing left naming them (the rows were gone, and a rerun
+  found nothing). The outbox is written with the rows, so the deletion exists exactly when the commit does, and stays
+  until storage confirms it.
 - **Why redact rather than delete audit entries.** The log says that something happened, by whom and when; erasure
   removes what it says about the person, and nothing else.
 
 ## Consequences
 
-- A PDF render that runs at the very moment of an organization's purge could store its one file after the purge's
-  storage pass. Purges run only on cancelled organizations, which make nothing new, so the window is a job queued
-  before the cancellation.
-- Later modules (CRM's travellers) add their own step to erasure, as these do.
+- An organization's queued, retrying and archived pg-boss jobs outlive its purge until pg-boss's own retention
+  removes them. They hold ids only (spec 9.1); a queued one runs against an organization that no longer exists and
+  finds nothing to do.
+- An email or a push about an erased record that was already sent stays sent; only the bell's copy goes.
+- A webhook event a handler never resolves to an organization can't be found by a purge; ADR 0013's retention sweep
+  blanks it.
+- Later modules (CRM's travellers) add their own step to erasure, as these do, and their record type to the list.
+- Deployment: the bucket must be unversioned, or expire noncurrent versions (ADR 0011): "for good" holds only then.

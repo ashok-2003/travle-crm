@@ -24,6 +24,10 @@ in build step 2.
 
 - `forgetRecipient(tx, { organizationId, userId })`: an erasure's part (spec 5): the person's notifications, opt-outs
   and push subscriptions, deleted by the platform role.
+- `forgetRecordNotifications(tx, { organizationId, recordId, sourceEventIds })`: a record's erasure (spec 5, ADR
+  0022): deletes the notifications about the record, those whose link names its id and those the given events caused
+  (a share link's opens: their titles quote its label), by the platform role. Returns how many went. Emails and pushes
+  already sent stay sent.
 
 ## Events
 
@@ -37,6 +41,8 @@ in build step 2.
 - Kinds read `<entity>.<what happened>` (`share-link.opened`); opt-outs are per kind, or `*` for every kind, and a
   kind's own choice wins over `*`. The bell can't be turned off.
 - Links are paths inside the web app (`/quotes/42`), never full URLs: a notification can't lead anyone off the app.
+- A notification about a record links to it by its id (`/travellers/<id>`), or names the event about it as
+  `sourceEventId`: that is how the record's erasure finds it. One that quotes a person's data with neither is missed.
 - Email comes from our address as "<organization> via <product>", with Reply-To the organization's contact email when
   set, and a `List-Unsubscribe` header pointing at `/settings/notifications`. Staff without email get none.
 - Delivery claims a channel (`email_claimed_at`, `push_claimed_at`) with a 5-minute lease before sending it, and
