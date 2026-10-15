@@ -5,7 +5,6 @@
 import { randomUUID } from "node:crypto";
 import type { ErasureSubject, QueuedJob, RequestErasureInput } from "@travel-crm/contracts/platform";
 import { erasureSubject } from "@travel-crm/contracts/platform";
-import type { PlatformTx } from "@travel-crm/db/platform";
 import type { JobData } from "@travel-crm/integrations/jobs";
 import { recordAudit, redactAuditEntries } from "../audit/index.js";
 import { deleteRecordFiles } from "../files/index.js";
@@ -14,9 +13,10 @@ import { DomainError, isUuid, platformActor, systemActor } from "../kernel/index
 import { forgetRecipient, forgetRecordNotifications } from "../notifications/index.js";
 import { forgetRecordShareLinks } from "../share-links/index.js";
 import { tombstoneWebhookEvents } from "../webhooks/index.js";
-import { assertErasableRecordType, exportedWithinADay } from "./deletion-checks.js";
+import { assertErasableRecordType, erasedFor, erasureBlocker } from "./deletion-checks.js";
 import { subjectRecord } from "./exports.js";
 import { deleteFilesAfterCommit } from "./file-deletions.js";
+import { expireOrganizationExports } from "./merge-stand-ins.js";
 import { recordPlatformAudit } from "./platform-log.js";
 import type { PlatformServices } from "./services.js";
 
@@ -86,8 +86,7 @@ export async function requestErasure(
         );
       }
     }
-    const exported = { action: "subject.exported", organizationId: input.organizationId, targetId: record.recordId };
-    if (!(await exportedWithinADay(tx, exported, now))) {
+    if ((await erasureBlocker(tx, input.organizationId, record, now)) !== null) {
       throw new DomainError("CONFLICT", "EXPORT_FIRST", "Export what is kept about them first (within the last day)");
     }
     await recordPlatformAudit(tx, staff, {
@@ -109,16 +108,35 @@ export async function requestErasure(
  * The job: erases the subject in every module that keeps something about it, in one platform transaction. For a
  * member: identity's sign-in data, their notifications, opt-outs and browsers. For either: the record's files, its share
  * links and their opens, the notifications about it, its audit entries' snapshots, and the organization's processed
- * webhook payloads (any may quote the person, and none is needed once processed). Stored files go after the commit,
- * through the deletions' outbox. A run repeating its request's finished one (the job ran, but pg-boss never heard)
- * only finishes the files.
+ * webhook payloads (any may quote the person, and none is needed once processed). Then every stored export of the
+ * organization expires, since one may still hold the person. Stored files go after the commit, through the deletions'
+ * outbox.
+ *
+ * It checks the request's conditions again first, on the platform transaction before any step: an organization gone
+ * since, or a subject export over a day old by now, means nothing is erased, and "subject.erasure-skipped" says why.
+ * A run repeating its request's finished one (the job ran, but pg-boss never heard) only finishes the files.
  */
 export async function eraseSubject(services: PlatformServices, job: ErasureJob, now: Date = new Date()): Promise<void> {
   const { organizationId, subject } = job;
   if (subject.kind === "record") assertErasableRecordType(subject.recordType);
   const record = subjectRecord(subject);
-  await services.platformDb.transaction(async (tx) => {
-    if (job.requestId !== undefined && (await erasedFor(tx, organizationId, job.requestId))) return;
+  const erased = await services.platformDb.transaction(async (tx) => {
+    if (job.requestId !== undefined && (await erasedFor(tx, organizationId, job.requestId))) return true;
+    const blocker = await erasureBlocker(tx, organizationId, record, now);
+    if (blocker !== null) {
+      await recordPlatformAudit(
+        tx,
+        { userId: job.requestedBy },
+        {
+          action: "subject.erasure-skipped",
+          targetType: record.recordType,
+          targetId: record.recordId,
+          targetOrganizationId: organizationId,
+          after: { reason: blocker },
+        },
+      );
+      return false;
+    }
     if (subject.kind === "member") {
       const { userId } = await erasePerson(tx, organizationId, subject.memberId);
       await forgetRecipient(tx, { organizationId, userId });
@@ -136,6 +154,7 @@ export async function eraseSubject(services: PlatformServices, job: ErasureJob, 
       entityId: record.recordId,
     });
     const webhooks = await tombstoneWebhookEvents(tx, organizationId);
+    await expireOrganizationExports(tx, organizationId, "erasure");
     const actor =
       job.requestedBy === null ? systemActor(organizationId) : platformActor(organizationId, job.requestedBy);
     await recordAudit(tx, actor, {
@@ -163,18 +182,7 @@ export async function eraseSubject(services: PlatformServices, job: ErasureJob, 
         },
       },
     );
+    return true;
   });
-  await deleteFilesAfterCommit(services, organizationId, now);
-}
-
-/** Whether the request's erasure is already recorded: its job's id is in the platform log's entry. */
-async function erasedFor(tx: PlatformTx, organizationId: string, requestId: string): Promise<boolean> {
-  const count = await tx.platformAuditEntry.count({
-    where: {
-      action: "subject.erased",
-      targetOrganizationId: organizationId,
-      after: { path: ["requestId"], equals: requestId },
-    },
-  });
-  return count > 0;
+  if (erased) await deleteFilesAfterCommit(services, organizationId, now);
 }

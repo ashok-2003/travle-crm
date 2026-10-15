@@ -1,18 +1,20 @@
 // Erasing one record (spec 5): only a record that holds a person's data, never what the law keeps; its files, share
-// links with their opens, and the notifications about it all go; its stored files outlive no storage failure; and a
-// repeated run of a finished erasure changes and records nothing more.
+// links with their opens, and the notifications about it all go; its stored files outlive no storage failure; the job
+// checks its export again on the platform transaction; and a repeated run of a finished erasure changes and records
+// nothing more.
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
-import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
+import { asOrganization, createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { systemActor } from "../../src/kernel/index.js";
 import { notify } from "../../src/notifications/index.js";
+import { erasureBlocker } from "../../src/platform/deletion-checks.js";
 import { deleteDueFiles } from "../../src/platform/file-deletions.js";
 import { eraseSubject, ERASE_SUBJECT_QUEUE, requestErasure } from "../../src/platform/index.js";
 import { erasureJobOf } from "../../src/platform/erasure.js";
 import { createShareLink, findShareLink, recordShareLinkOpen } from "../../src/share-links/index.js";
 import {
   deletionAgency,
-  exportLogged,
+  exportTraveller,
   flakyStorage,
   keysOf,
   storedFile,
@@ -43,7 +45,7 @@ describe("erasing a record", () => {
   /** Asks for the traveller's erasure after its export, and returns the job as the console's runner would read it. */
   async function requested(agency: DeletionAgency) {
     const { organizationId, code } = agency;
-    await exportLogged(test, organizationId, "subject.exported", { targetType: "traveller", targetId: traveller });
+    await exportTraveller(test.services, organizationId);
     await requestErasure(test.services, support, { organizationId, subject, confirmation: code });
     const sent = test.queue.sent.at(-1);
     if (sent?.queue !== ERASE_SUBJECT_QUEUE) throw new Error("no erasure job was queued");
@@ -101,9 +103,6 @@ describe("erasing a record", () => {
         subject: { kind: "record", recordType, recordId: traveller },
         confirmation: code,
       });
-    for (const recordType of ["issued_document", "subscription", "role"]) {
-      await exportLogged(test, organizationId, "subject.exported", { targetType: recordType, targetId: traveller });
-    }
     await expect(ask("issued_document")).rejects.toMatchObject({ code: "VALIDATION", reason: "KEPT_BY_LAW" });
     await expect(ask("subscription")).rejects.toMatchObject({ code: "VALIDATION", reason: "NOT_PERSONAL_DATA" });
     await expect(ask("role")).rejects.toMatchObject({ reason: "NOT_PERSONAL_DATA" });
@@ -119,6 +118,7 @@ describe("erasing a record", () => {
   it("leaves nothing stored when storage fails after the commit and the job runs again", async () => {
     const agency = await deletionAgency(test, plan);
     await storedFile(test, agency.organizationId, "Passport.pdf");
+    await exportTraveller(test.services, agency.organizationId);
     const job = { organizationId: agency.organizationId, subject, requestedBy: supportUserId };
     const flaky = flakyStorage(test.storage);
     const services = { ...test.services, storage: flaky.storage };
@@ -143,7 +143,7 @@ describe("erasing a record", () => {
     expect(await platform.storedFileDeletion.count({ where: { targetOrganizationId: agency.organizationId } })).toBe(1);
 
     flaky.failing.now = false;
-    await deleteDueFiles(services, { now });
+    await deleteDueFiles(services, { now, organizationId: agency.organizationId });
     expect(keysOf(test, agency.organizationId)).toEqual([]);
     expect(await platform.storedFileDeletion.count({ where: { targetOrganizationId: agency.organizationId } })).toBe(0);
   });
@@ -160,6 +160,38 @@ describe("erasing a record", () => {
         where: { action: "subject.erased", targetOrganizationId: agency.organizationId },
       }),
     ).toBe(1);
+  });
+
+  it("erases nothing when the export is over a day old by the time the job runs, and says why", async () => {
+    const agency = await deletionAgency(test, plan);
+    await storedFile(test, agency.organizationId, "Passport.pdf");
+    const job = await requested(agency);
+    await eraseSubject(test.services, job, new Date(Date.now() + 25 * 60 * 60 * 1000));
+    expect(keysOf(test, agency.organizationId)).toHaveLength(1);
+    expect(await platform.attachment.count({ where: { organizationId: agency.organizationId } })).toBe(1);
+    const entries = await platform.platformAuditEntry.findMany({
+      where: { targetOrganizationId: agency.organizationId, action: { startsWith: "subject.eras" } },
+      orderBy: { occurredAt: "asc" },
+    });
+    expect(entries.map((entry) => [entry.action, entry.actorUserId, entry.after])).toEqual([
+      ["subject.erasure-requested", supportUserId, null],
+      ["subject.erasure-skipped", supportUserId, { reason: "no-recent-export" }],
+    ]);
+  });
+
+  it("checks again on the platform transaction, whatever ran in an organization's step before", async () => {
+    const agency = await deletionAgency(test, plan);
+    const record = { recordId: traveller };
+    const afterAStep = (now: Date) =>
+      test.services.platformDb.transaction(async (tx) => {
+        // Earlier work in a step sees only this organization: none of it may carry into the check.
+        await asOrganization(tx, agency.organizationId, (orgTx) => orgTx.attachment.count());
+        return erasureBlocker(tx, agency.organizationId, record, now);
+      });
+    expect(await afterAStep(new Date())).toBe("no-recent-export");
+    await exportTraveller(test.services, agency.organizationId);
+    expect(await afterAStep(new Date())).toBeNull();
+    expect(await afterAStep(new Date(Date.now() + 25 * 60 * 60 * 1000))).toBe("no-recent-export");
   });
 
   it("reads back only a job that names its request", () => {

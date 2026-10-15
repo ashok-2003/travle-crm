@@ -4,18 +4,19 @@
 // webhook events still in flight.
 import { createHmac, randomUUID } from "node:crypto";
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
-import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
+import { asOrganization, createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { LATE_WRITES_MS } from "../../src/files/index.js";
 import { deleteDueFiles, DELETE_STORED_FILES_QUEUE } from "../../src/platform/file-deletions.js";
 import { cancel, listPlatformLog, purgeOrganization, requestPurge } from "../../src/platform/index.js";
+import { purgeBlocker } from "../../src/platform/purge.js";
 import {
   hmacSha256Signature,
   processWebhookEvent,
   receiveWebhook,
   type WebhookProvider,
 } from "../../src/webhooks/index.js";
-import { deletionAgency, exportLogged, flakyStorage, keysOf, storedFile } from "./test-deletion.js";
+import { deletionAgency, exportOrganizationNow, flakyStorage, keysOf, storedFile } from "./test-deletion.js";
 import { createTestPlan, createTestPlatform, support, supportUserId, type TestPlatform } from "./test-platform.js";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -55,7 +56,7 @@ describe("purging an organization", () => {
     await storedFile(test, agency.organizationId, "Passport.pdf");
     await storedFile(test, agency.organizationId, "Aadhaar.pdf");
     await cancel(test.services, support, { organizationId: agency.organizationId, reason: "Closing down" });
-    await exportLogged(test, agency.organizationId);
+    await exportOrganizationNow(test.services, agency.organizationId);
     await requestPurge(test.services, support, { organizationId: agency.organizationId, confirmation: agency.code });
     return { ...agency, job: { organizationId: agency.organizationId, requestedBy: supportUserId } };
   }
@@ -100,10 +101,10 @@ describe("purging an organization", () => {
     });
 
     flaky.failing.now = false;
-    expect(await deleteDueFiles(services, { now })).toBeGreaterThanOrEqual(1);
+    expect(await deleteDueFiles(services, { now, organizationId })).toBeGreaterThanOrEqual(1);
     expect(keysOf(test, organizationId)).toEqual([]);
     // Once late uploads have landed, the folder is swept again and the outbox is empty.
-    await deleteDueFiles(services, { now: new Date(now.getTime() + LATE_WRITES_MS) });
+    await deleteDueFiles(services, { now: new Date(now.getTime() + LATE_WRITES_MS), organizationId });
     expect(await queued(organizationId)).toEqual([]);
   });
 
@@ -120,7 +121,7 @@ describe("purging an organization", () => {
     expect(keysOf(test, organizationId)).toEqual([]);
 
     await test.storage.put({ key: late, contentType: "application/pdf", body: new Uint8Array([5]) });
-    await deleteDueFiles(test.services, { now: new Date(now.getTime() + LATE_WRITES_MS) });
+    await deleteDueFiles(test.services, { now: new Date(now.getTime() + LATE_WRITES_MS), organizationId });
     expect(keysOf(test, organizationId)).toEqual([]);
   });
 
@@ -155,7 +156,7 @@ describe("purging an organization", () => {
 
     // A retry that only now finds the organization (gone) keeps the payload until the later sweep.
     const later = await deliver();
-    await deleteDueFiles(test.services, { now: new Date(now.getTime() + LATE_WRITES_MS) });
+    await deleteDueFiles(test.services, { now: new Date(now.getTime() + LATE_WRITES_MS), organizationId });
     expect(await platform.webhookEvent.findUniqueOrThrow({ where: { id: later } })).toMatchObject(blank);
   });
 
@@ -172,6 +173,22 @@ describe("purging an organization", () => {
       actorUserId: supportUserId,
       after: { reason: "no-recent-export", status: "cancelled" },
     });
+  });
+
+  it("checks again on the platform transaction, whatever ran in an organization's step before", async () => {
+    const { organizationId } = await deletionAgency(test, plan);
+    const afterAStep = (now: Date) =>
+      test.services.platformDb.transaction(async (tx) => {
+        // Earlier work in a step sees only this organization: none of it may carry into the check.
+        await asOrganization(tx, organizationId, (orgTx) => orgTx.subscription.findFirst());
+        return (await purgeBlocker(tx, organizationId, now)).blocker;
+      });
+    expect(await afterAStep(new Date())).toBe("not-cancelled");
+    await cancel(test.services, support, { organizationId, reason: "Closing down" });
+    expect(await afterAStep(new Date())).toBe("no-recent-export");
+    await exportOrganizationNow(test.services, organizationId);
+    expect(await afterAStep(new Date())).toBeNull();
+    expect(await afterAStep(new Date(Date.now() + 25 * HOUR_MS))).toBe("no-recent-export");
   });
 
   it("counts only this organization's own export", async () => {

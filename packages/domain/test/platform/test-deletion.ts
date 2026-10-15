@@ -1,10 +1,15 @@
-// What the purge and erasure tests share: an onboarded agency with a traveller's stored files, the platform log
-// entry an export leaves (the precondition both check), and a storage that fails when told to.
+// What the purge and erasure tests share: an onboarded agency with a traveller's stored files, the exports both
+// need first, and a storage that fails when told to.
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import type { MemoryStorage, ObjectStorage } from "@travel-crm/integrations/storage";
 import { memberAccessOf } from "../identity/test-identity.js";
 import type { MemberAccess } from "../../src/identity/index.js";
-import { onboardOrganization, recordPlatformAudit } from "../../src/platform/index.js";
+import {
+  exportOrganization,
+  exportSubject,
+  onboardOrganization,
+  type PlatformServices,
+} from "../../src/platform/index.js";
 import { onboardingInput, support, type TestPlatform } from "./test-platform.js";
 
 export const traveller = "0199e7a0-0000-7000-8000-0000000000aa";
@@ -61,18 +66,19 @@ export function keysOf(test: TestPlatform, organizationId: string): string[] {
 }
 
 /**
- * What an export leaves in the platform log, which a purge (`organization.exported`) or an erasure
- * (`subject.exported`) looks for. Written straight in: how the export itself is made is the export's tests' business.
+ * Exports the organization, as a purge needs, through this branch's export (it logs `organization.exported`). Wave
+ * P's export is a job, and its helper of this name and signature (test-exports.ts) takes this one's place at merge.
  */
-export async function exportLogged(
-  test: TestPlatform,
-  organizationId: string,
-  action: "organization.exported" | "subject.exported" = "organization.exported",
-  target: { targetType: string; targetId: string } = { targetType: "organization", targetId: organizationId },
-): Promise<void> {
-  await test.services.platformDb.transaction((tx) =>
-    recordPlatformAudit(tx, support, { action, ...target, targetOrganizationId: organizationId }),
-  );
+export async function exportOrganizationNow(services: PlatformServices, organizationId: string): Promise<void> {
+  await exportOrganization(services, support, organizationId);
+}
+
+/** Exports what the organization keeps about one traveller, as an erasure needs (it logs `subject.exported`). */
+export async function exportTraveller(services: PlatformServices, organizationId: string): Promise<void> {
+  await exportSubject(services, support, {
+    organizationId,
+    subject: { kind: "record", recordType: "traveller", recordId: traveller },
+  });
 }
 
 /** The memory storage, but its deletes fail while `failing` says so: an S3 outage, or the console restarting. */

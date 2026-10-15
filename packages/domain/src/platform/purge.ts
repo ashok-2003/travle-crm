@@ -7,9 +7,11 @@ import { deleteOrganizationRows, type PlatformTx } from "@travel-crm/db/platform
 import { queueOrganizationFileDeletion } from "../files/index.js";
 import { deleteUsers, findOrganizationRecord, organizationUserIds } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
+import { entitlementsOf } from "../subscriptions/index.js";
 import { tombstoneWebhookEvents } from "../webhooks/index.js";
 import { exportedWithinADay } from "./deletion-checks.js";
 import { deleteFilesAfterCommit } from "./file-deletions.js";
+import { lockSubscription } from "./merge-stand-ins.js";
 import { recordPlatformAudit } from "./platform-log.js";
 import type { PlatformServices } from "./services.js";
 
@@ -19,7 +21,7 @@ export const PURGE_ORGANIZATION_QUEUE = "platform.purge-organization";
 const PURGE_TIMEOUT_MS = 10 * 60 * 1000;
 
 /** Why an organization can't be purged now: the request refuses with it, and the job skips and logs it. */
-type PurgeBlocker = "not-cancelled" | "no-recent-export";
+export type PurgeBlocker = "not-cancelled" | "no-recent-export";
 
 function refusal(blocker: PurgeBlocker): DomainError {
   return blocker === "not-cancelled"
@@ -28,17 +30,25 @@ function refusal(blocker: PurgeBlocker): DomainError {
 }
 
 /**
- * What stands in the purge's way, checked under the subscription's lock (the one every subscription change takes), so
- * a payment recorded now waits for the purge, then finds the organization gone, rather than vanishing with it.
+ * What stands in the purge's way: the organization must be cancelled by its lifecycle as of today, and exported within
+ * the last day. Checked under the subscription's lock (the one every subscription change takes), so a payment recorded
+ * now waits for the purge, then finds the organization gone, rather than vanishing with it.
+ *
+ * Run on the platform transaction itself, never inside an asOrganization step: a step sees only its organization, so a
+ * check made there could find too little and let a purge through.
  */
-async function purgeBlocker(
+export async function purgeBlocker(
   tx: PlatformTx,
   organizationId: string,
   now: Date,
 ): Promise<{ blocker: PurgeBlocker | null; status: string | null }> {
-  const [subscription] = await tx.$queryRaw<{ status: string }[]>`
-    SELECT status FROM subscription WHERE organization_id = ${organizationId}::uuid FOR UPDATE`;
-  const status = subscription?.status ?? null;
+  try {
+    await lockSubscription(tx, organizationId);
+  } catch (error) {
+    if (!(error instanceof DomainError && error.reason === "SUBSCRIPTION_NOT_FOUND")) throw error;
+    return { blocker: "not-cancelled", status: null };
+  }
+  const status = (await entitlementsOf(tx, organizationId, now))?.status ?? null;
   if (status !== "cancelled") return { blocker: "not-cancelled", status };
   if (!(await exportedWithinADay(tx, { action: "organization.exported", organizationId }, now))) {
     return { blocker: "no-recent-export", status };
