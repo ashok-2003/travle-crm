@@ -121,6 +121,22 @@ describe("the shadcn components", () => {
     for (const dropped of ["xs:", "icon-xs", "icon-sm"]) expect(source).not.toContain(dropped);
   });
 
+  it.each([
+    ["popover.tsx", "z-(--z-dialog)"],
+    ["tooltip.tsx", "z-(--z-tooltip)"],
+  ])("%s floats on its layer with the overlay shadow", (name, layer) => {
+    const source = ui(name);
+    expect(source).toContain(layer);
+    expect(source).toContain("shadow-md");
+  });
+
+  it("text areas are shaped as inputs: 6px, canvas fill, 16px text at every width", () => {
+    const source = ui("textarea.tsx");
+    expect(source).toContain("rounded-sm");
+    expect(source).toContain("bg-background");
+    expect(source).not.toMatch(/md:text-sm/);
+  });
+
   it("table headers are surface-toned", () => {
     expect(ui("table.tsx")).toContain("bg-muted");
   });

@@ -23,7 +23,10 @@ function checkedOrigin(name: string, value: string, example: string): string {
  * request, so a production build without the setting has no rewrite to it at all: a request that reaches the app is a
  * 404, never one quietly sent to whatever listens on localhost.
  */
-function originSetting(name: "API_ORIGIN" | "CONSOLE_ORIGIN", developmentDefault: string): string | null {
+function originSetting(
+  name: "API_ORIGIN" | "CONSOLE_ORIGIN" | "STORAGE_ORIGIN",
+  developmentDefault: string,
+): string | null {
   const value = process.env[name];
   if (value) return checkedOrigin(name, value, developmentDefault);
   return production ? null : developmentDefault;
@@ -33,6 +36,11 @@ function originSetting(name: "API_ORIGIN" | "CONSOLE_ORIGIN", developmentDefault
 const apiOrigin = originSetting("API_ORIGIN", "http://localhost:3001");
 /** The console process (ADR 0019): the console's tRPC at /api/platform/trpc. */
 const consoleOrigin = originSetting("CONSOLE_ORIGIN", "http://localhost:3002");
+/**
+ * Object storage (spec 9.2), for the Content-Security-Policy: the browser uploads to it and loads images from it, so a
+ * deployment sets it to its bucket's endpoint when the app is built. In development, docker-compose's MinIO.
+ */
+const storageOrigin = originSetting("STORAGE_ORIGIN", "http://localhost:9000");
 
 /** The console's rewrite comes first: /api/platform/... matches /api/:path* too, which would send it to the api. */
 function rewrites() {
@@ -75,7 +83,7 @@ const nextConfig: NextConfig = {
   },
   headers: () =>
     Promise.resolve([
-      ...securityHeaderRules({ development: process.env.NODE_ENV === "development" }),
+      ...securityHeaderRules({ development: process.env.NODE_ENV === "development", storageOrigin }),
       // The browser checks for a new worker on every visit; the worker's scope is the whole app.
       {
         source: "/sw.js",

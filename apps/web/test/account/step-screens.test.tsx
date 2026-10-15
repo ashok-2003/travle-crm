@@ -82,3 +82,14 @@ describe.each(screens)("%s", (_, Screen, title, step) => {
     expect(screen.queryByRole("link", { name: account.steps.backToAccount })).toBeNull();
   });
 });
+
+describe("TwoFactorSetupScreen for platform staff", () => {
+  it("says the console asks for it, not an organization", async () => {
+    navigation.search = "next=%2Fconsole";
+    const staff = { ...member(), isPlatformAdmin: true, organization: null, member: null };
+    apiAnswers(() => Promise.resolve(Response.json([{ result: { data: staff } }])));
+    renderScreen(<TwoFactorSetupScreen />);
+    expect(await screen.findByText(account.twoFactorSetup.platformIntro)).toBeVisible();
+    expect(screen.queryByText(account.twoFactorSetup.pendingIntro)).toBeNull();
+  });
+});

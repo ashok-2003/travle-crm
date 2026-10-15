@@ -18,11 +18,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { TableHead, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { locale, messages } from "@/i18n/messages";
 import { targetSize } from "./touch-targets";
 
@@ -60,6 +62,21 @@ describe("touch targets", () => {
     // The hit area is a pseudo-element placed over the box: it counts only when absolute, on a positioned element.
     expect(screen.getByRole("checkbox")).toHaveClass("relative", "after:absolute");
     expectTarget(screen.getByRole("checkbox"), { square: true });
+  });
+
+  it("a radio button, through its hit area", () => {
+    render(
+      <RadioGroup aria-label="Cycle" defaultValue="monthly">
+        <RadioGroupItem value="monthly" aria-label="Monthly" />
+      </RadioGroup>,
+    );
+    expect(screen.getByRole("radio")).toHaveClass("relative", "after:absolute");
+    expectTarget(screen.getByRole("radio"), { square: true });
+  });
+
+  it("a text area", () => {
+    render(<Textarea aria-label="Note" />);
+    expectTarget(screen.getByRole("textbox"));
   });
 
   it("a switch, through its hit area", () => {

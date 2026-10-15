@@ -28,9 +28,12 @@ export interface ServerDependencies {
   subscriptions: SubscriptionAccess;
   /** The organization's business profile, for the profile router. */
   profiles: Profiles;
-  /** The public routes' database: share links, webhook events, rate-limit counters. */
+  /** The public routes' database (share links, webhook events, rate-limit counters), and the procedures'. */
   db: Database;
-  files: Pick<Files, "systemDownloadLink">;
+  /** Presigned uploads and downloads for the procedures; a share link's download for its route. */
+  files: Files;
+  /** The VAPID public key the browser subscribes to push with (notifications.push.publicKey). */
+  pushPublicKey: string;
   /** Where the webhook intake queues work for the worker. */
   queue: JobQueue;
   rateLimiter: RateLimiter;
@@ -57,8 +60,19 @@ const publicLimits = {
 const BODY_LIMIT = 64 * 1024;
 
 export function createApp(dependencies: ServerDependencies): Hono {
-  const { identity, subscriptions, profiles, db, files, queue, rateLimiter, clientAddress, webhookProviders, log } =
-    dependencies;
+  const {
+    identity,
+    subscriptions,
+    profiles,
+    db,
+    files,
+    pushPublicKey,
+    queue,
+    rateLimiter,
+    clientAddress,
+    webhookProviders,
+    log,
+  } = dependencies;
   const app = new Hono();
   app.onError(apiErrorHandler(log));
 
@@ -82,7 +96,8 @@ export function createApp(dependencies: ServerDependencies): Hono {
     trpcServer({
       router: appRouter,
       endpoint: "/api/trpc",
-      createContext: ({ resHeaders }, c) => createContext({ identity, subscriptions, profiles }, c.req.raw, resHeaders),
+      createContext: ({ resHeaders }, c) =>
+        createContext({ identity, subscriptions, profiles, db, files, pushPublicKey }, c.req.raw, resHeaders),
       onError: ({ error, path }) => {
         // Refusals (401, 403, 404...) are answers, not faults. Only unexpected errors are logged, by names and codes:
         // tRPC copies the cause's message into its own, and a Prisma message can quote the query's values.

@@ -37,6 +37,9 @@ export const testAuthSettings: AuthSettings = {
   trustedProxies: [],
 };
 
+/** The VAPID public key the test server hands the browser: any text will do until a test sends a push. */
+export const TEST_PUSH_PUBLIC_KEY = "test-vapid-public-key";
+
 export interface TestServer {
   app: Hono;
   identity: Identity;
@@ -83,6 +86,7 @@ export function createTestServer(settings: Partial<AuthSettings> = {}, options: 
     profiles: createProfiles({ db }),
     db,
     files,
+    pushPublicKey: TEST_PUSH_PUBLIC_KEY,
     queue: options.queue ?? createMemoryJobQueue(),
     rateLimiter: createRateLimiter(db, { keySecret: "test-server-rate-limit-secret-of-32-bytes" }),
     clientAddress: clientAddressFrom({ headerNames: ["x-forwarded-for"], trustedProxies: [] }),

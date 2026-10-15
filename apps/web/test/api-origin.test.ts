@@ -75,6 +75,34 @@ describe("the rewrites", () => {
   });
 });
 
+describe("the storage origin", () => {
+  const policyWith = async (env: Record<string, string | undefined>) => {
+    const config = await configWith(env);
+    const rules = config.headers ? await config.headers() : [];
+    const all = rules.find((rule) => rule.source === "/:path*");
+    return all?.headers.find((header) => header.key === "Content-Security-Policy")?.value ?? "";
+  };
+
+  it("joins the policy's connect-src and img-src, for uploads and images straight from storage", async () => {
+    const policy = await policyWith({ NODE_ENV: "production", STORAGE_ORIGIN: "https://files.example.in/" });
+    expect(policy).toContain("connect-src 'self' https://files.example.in;");
+    expect(policy).toContain("img-src 'self' data: blob: https://files.example.in;");
+  });
+
+  it("is local MinIO in development, and nothing in a production build without STORAGE_ORIGIN", async () => {
+    expect(await policyWith({ NODE_ENV: "development", STORAGE_ORIGIN: undefined })).toContain(
+      "connect-src 'self' http://localhost:9000;",
+    );
+    expect(await policyWith({ NODE_ENV: "production", STORAGE_ORIGIN: undefined })).toContain("connect-src 'self';");
+  });
+
+  it("is refused when it isn't an http(s) origin, when the app is built", async () => {
+    await expect(configWith({ NODE_ENV: "production", STORAGE_ORIGIN: "files.example.in" })).rejects.toThrow(
+      /STORAGE_ORIGIN/,
+    );
+  });
+});
+
 describe("the header rules", () => {
   it("come after the catch-all for the token pages", async () => {
     const config = await configWith({ NODE_ENV: "production" });

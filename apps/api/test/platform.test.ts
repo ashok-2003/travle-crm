@@ -2,7 +2,7 @@
 // and impersonation (at most an hour) makes the admin act as the user, never as platform staff.
 import type { MeOutput } from "@travel-crm/contracts/identity";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { consoleQuery, createTestConsole, type TestConsole } from "./support/console.js";
+import { consoleQuery, createTestConsole, signInPlatformStaffAgain, type TestConsole } from "./support/console.js";
 import { CookieJar } from "./support/cookie-jar.js";
 import { createPlatformAdmin, signedInOwner } from "./support/people.js";
 import {
@@ -14,18 +14,23 @@ import {
   type TestServer,
 } from "./support/test-server.js";
 import { dataOf, query, refusalOf } from "./support/trpc.js";
+import { enableTwoFactor } from "./support/two-factor.js";
 
 describe("platform staff", () => {
   let server: TestServer;
   let testConsole: TestConsole;
   let agency: TestAgency;
-  let admin: { userId: string; email: string; password: string };
+  let admin: { userId: string; email: string; password: string; secret: string };
 
   beforeAll(async () => {
     server = createTestServer();
     testConsole = createTestConsole(server);
     agency = await createTestAgency(server);
-    admin = await createPlatformAdmin(server);
+    const created = await createPlatformAdmin(server);
+    // The console requires two-factor of platform staff (console-two-factor.test.ts).
+    const jar = new CookieJar();
+    await signInByEmail(server, jar, created.email, created.password);
+    admin = { ...created, secret: (await enableTwoFactor(server, jar, created.password)).secret };
   });
 
   afterAll(async () => {
@@ -34,8 +39,7 @@ describe("platform staff", () => {
   });
 
   it("reach platform procedures, and organization staff don't", async () => {
-    const jar = new CookieJar();
-    await signInByEmail(server, jar, admin.email, admin.password);
+    const jar = await signInPlatformStaffAgain(server, admin);
     expect(await dataOf(await consoleQuery(testConsole, "whoAmI", jar))).toEqual({
       userId: admin.userId,
       name: "Platform support",
@@ -49,14 +53,12 @@ describe("platform staff", () => {
   });
 
   it("are not organization members", async () => {
-    const jar = new CookieJar();
-    await signInByEmail(server, jar, admin.email, admin.password);
+    const jar = await signInPlatformStaffAgain(server, admin);
     expect(await refusalOf(await query(server, "settings.get", jar))).toEqual({ status: 403, reason: "NOT_A_MEMBER" });
   });
 
   it("can impersonate a user for an hour, acting as them and not as platform staff", async () => {
-    const jar = new CookieJar();
-    await signInByEmail(server, jar, admin.email, admin.password);
+    const jar = await signInPlatformStaffAgain(server, admin);
     const start = jar.absorb(
       await postJson(server, "/api/auth/admin/impersonate-user", { userId: agency.owner.userId }, jar),
     );

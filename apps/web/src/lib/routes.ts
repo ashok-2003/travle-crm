@@ -13,6 +13,16 @@ export const routes = {
   staff: "/staff",
   roles: "/roles",
   settings: "/settings",
+  /** The setup checklist: what an organization does first (spec 11). */
+  setup: "/setup",
+  /** The settings screen's sections (organization/settings/settings-sections.tsx). */
+  profile: "/settings/profile",
+  branding: "/settings/branding",
+  files: "/settings/files",
+  documents: "/settings/documents",
+  audit: "/settings/audit",
+  /** Each person's own choice of what they are told, and how (spec 9.4). */
+  notificationPreferences: "/account/notifications",
   /** The platform console's dashboard; its other screens are in src/console/routes.ts, which only it imports. */
   console: "/console",
   /** The service worker's fallback for a page never opened before (src/service-worker/strategy.ts). */

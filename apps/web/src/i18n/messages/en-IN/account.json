@@ -59,6 +59,7 @@
   "twoFactorSetup": {
     "title": "Set up two-factor sign-in",
     "pendingIntro": "Your organization asks everyone to sign in with a code from an authenticator app as well as a password.",
+    "platformIntro": "The platform console asks its staff to sign in with a code from an authenticator app as well as a password.",
     "intro": "Sign in with a code from an authenticator app as well as your password.",
     "passwordStep": "Confirm your password to start.",
     "start": "Continue",

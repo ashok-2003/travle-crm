@@ -118,6 +118,8 @@ export interface PlatformStaffMember {
   level: PlatformStaffLevel;
   /** Set until they replace a temporary password; the console refuses them until then. */
   mustChangePassword: boolean;
+  /** Whether they sign in with two-factor; the console refuses them without it (after the password). */
+  twoFactorEnabled: boolean;
 }
 
 /** The level a stored role names exactly, or null. A comma-joined list of roles is no level. */
@@ -150,11 +152,17 @@ export type SignInReader = Pick<IdentityTx, "user" | "member">;
 export async function describePlatformStaff(client: SignInReader, userId: string): Promise<PlatformStaffMember | null> {
   const stored = await client.user.findUnique({
     where: { id: userId },
-    select: { name: true, role: true, mustChangePassword: true },
+    select: { name: true, role: true, mustChangePassword: true, twoFactorEnabled: true },
   });
   const level = platformStaffLevelOf(stored?.role);
   if (!stored || level === null || (await hasEverBeenMember(client, userId))) return null;
-  return { userId, name: stored.name, level, mustChangePassword: stored.mustChangePassword };
+  return {
+    userId,
+    name: stored.name,
+    level,
+    mustChangePassword: stored.mustChangePassword,
+    twoFactorEnabled: stored.twoFactorEnabled ?? false,
+  };
 }
 
 /** True for anyone who has a membership row, removed ones included (member rows are soft-deleted, never erased). */

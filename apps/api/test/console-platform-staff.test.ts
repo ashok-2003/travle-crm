@@ -1,5 +1,6 @@
 // Managing platform staff from the console (spec 5, 6.1), super admins only. A newcomer gets a temporary password,
-// shown once, and must replace it before the console lets them in; nobody who is or was a member of an organization
+// shown once, and must replace it and turn on two-factor before the console lets them in; nobody who is or was a
+// member of an organization
 // can become staff; and the platform log records each change by ids and levels, never a name, an address or a
 // temporary password, which appears nowhere but in its one response.
 import type { AddedPlatformStaff, PlatformStaffEntry, TemporaryPasswordOutput } from "@travel-crm/contracts/platform";
@@ -24,6 +25,7 @@ import {
   type TestServer,
 } from "./support/test-server.js";
 import { dataOf, refusalOf } from "./support/trpc.js";
+import { enableTwoFactor } from "./support/two-factor.js";
 
 const newAddress = (who: string) => `${who}-${crypto.randomUUID()}@platform.test`;
 
@@ -61,7 +63,7 @@ describe("managing platform staff", () => {
     dataOf<PlatformStaffEntry[]>(await consoleQuery(testConsole, "platformStaff.list", superAdmin.jar));
   const listed = async (userId: string) => (await list()).find((entry) => entry.userId === userId);
 
-  it("adds support with a temporary password, which they replace before the console lets them in", async () => {
+  it("adds support with a temporary password, which they replace, and two-factor on, before the console lets them in", async () => {
     const email = newAddress("newcomer");
     const added = await dataOf<AddedPlatformStaff>(await add({ name: "New support", email, level: "support" }));
     const jar = new CookieJar();
@@ -82,12 +84,17 @@ describe("managing platform staff", () => {
     });
     const change = { currentPassword: added.temporaryPassword, newPassword: "a-password-of-their-own" };
     expect(jar.absorb(await postJson(server, "/api/auth/change-password", change, jar)).status).toBe(200);
+    expect(await refusalOf(await consoleQuery(testConsole, "whoAmI", jar))).toEqual({
+      status: 403,
+      reason: "SET_UP_TWO_FACTOR",
+    });
+    await enableTwoFactor(server, jar, change.newPassword);
     expect(await dataOf(await consoleQuery(testConsole, "whoAmI", jar))).toEqual({
       userId: added.userId,
       name: "New support",
       level: "support",
     });
-    expect(await listed(added.userId)).toMatchObject({ mustChangePassword: false });
+    expect(await listed(added.userId)).toMatchObject({ mustChangePassword: false, twoFactorEnabled: true });
   });
 
   it("lets only a super admin see or change platform staff: support sees itself through whoAmI", async () => {

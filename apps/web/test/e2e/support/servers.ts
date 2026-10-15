@@ -159,7 +159,13 @@ export async function startServers({
     // Build first, while nothing runs: a failed build has nothing to stop.
     await run(path.join(webDirectory, "node_modules/.bin/next"), ["build"], {
       cwd: webDirectory,
-      env: { ...process.env, API_ORIGIN: apiUrl, CONSOLE_ORIGIN: consoleUrl },
+      env: {
+        ...process.env,
+        API_ORIGIN: apiUrl,
+        CONSOLE_ORIGIN: consoleUrl,
+        // The browser uploads to MinIO and loads images from it: the policy must allow its origin.
+        STORAGE_ORIGIN: new URL(storage.S3_ENDPOINT).origin,
+      },
     });
     // The standalone server serves .next/static and public only when they sit beside it, as a Docker image puts them.
     const standalone = path.join(webDirectory, ".next/standalone/apps/web");

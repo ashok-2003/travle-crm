@@ -13,25 +13,30 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
 - Touch targets, 44px: every `button` size (`default` 44, `lg` 48, `icon` 44, `icon-lg` 48; `sm` is 36 with a 44px hit
   area from `after:-inset-y-1`, for dense desktop toolbars); the `xs`, `icon-xs` and `icon-sm` sizes are gone.
   `select` trigger and options, `dropdown-menu` items, `tabs` triggers, `table` rows and header cells, `input-otp`
-  slots, the dialog and sheet close buttons are 44px. `checkbox` is 20px with a 44px hit area, `switch` 44x24 with a
-  44px tall one. The small `sm` sizes of `select` and `switch` are gone.
+  slots, the dialog and sheet close buttons are 44px. `checkbox` and `radio-group` items are 20px with a 44px hit
+  area, `switch` 44x24 with a 44px tall one. The small `sm` sizes of `select` and `switch` are gone.
 - Shapes: cards 10px (`rounded-lg`) with a hairline border instead of a ring; dialogs 14px; inputs, selects and OTP
   slots 6px; checkboxes 4px; titles (card, dialog, sheet, alert dialog) Figtree 600 at the section size. Dialogs and
   alert dialogs carry the overlay shadow. Table headers are surface-toned.
-- Layers: `z-(--z-overlay)` for scrims, `z-(--z-dialog)` for dialogs, sheets, menus and selects (menus share the dialog
-  layer so they open above a dialog), `z-(--z-sticky)` for sticky bits. Never `z-50`.
+- Layers: `z-(--z-overlay)` for scrims, `z-(--z-dialog)` for dialogs, sheets, menus, selects and popovers (menus share
+  the dialog layer so they open above a dialog), `z-(--z-tooltip)` for tooltips, `z-(--z-sticky)` for sticky bits.
+  Never `z-50`.
 - Names wrap: no `line-clamp`, `truncate` or `whitespace-nowrap` in `select` or `table`.
 - Focus: the one global 2px outline in `globals.css`; components don't add `focus-visible:ring-*`.
 - `button.tsx`: pill shape (`rounded-full`), primary hover is `action-pressed`; outline has the input border; ghost is
   blue text; destructive is an ink outline with red text.
-- `input.tsx`: 44px high, 16px text at every width (no iOS zoom), 6px radius, canvas fill.
+- `input.tsx`: 44px high, 16px text at every width (no iOS zoom), 6px radius, canvas fill. `textarea.tsx` likewise
+  (6px, canvas fill, 16px text), at least 64px high.
+- `popover.tsx`, `tooltip.tsx`: the overlay shadow; the popover a hairline border instead of a ring; the tooltip's
+  text at the caption size. `Tooltip` brings its own `TooltipProvider`, so no layout has to wrap the app in one.
+- `progress.tsx`: its bar moves only behind `motion-safe:`.
 - `badge.tsx`: 4px radius.
 - `dialog.tsx`, `alert-dialog.tsx`, `sheet.tsx`: the overlay is the `scrim` token, without blur. The dialog's and the
   sheet's Close words are the `common.close` message.
 - `spinner.tsx`: decoration (`aria-hidden`), without `role="status"` or a label: it sits in busy buttons, whose own label
   says what is happening, and a status inside a button would join its name.
 - `sonner.tsx`: one light theme (no `next-themes`), bottom right, a close button with a 44px hit area.
-- `field.tsx`, `input-otp.tsx`: three small fixes the repo's strict lint rules ask for.
+- `field.tsx`, `input-otp.tsx`, `progress.tsx`: small fixes the repo's strict lint rules ask for.
 
 shadcn's own `tailwind.css` is not a dependency: the state variants the components use (`data-open:`,
 `data-checked:`...) are copied into `globals.css`. Add to that list when a new component needs another.

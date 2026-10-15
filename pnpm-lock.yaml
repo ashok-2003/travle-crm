@@ -517,6 +517,9 @@ importers:
       '@travel-crm/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@travel-crm/db':
+        specifier: workspace:*
+        version: link:../db
       '@travel-crm/domain':
         specifier: workspace:*
         version: link:../domain

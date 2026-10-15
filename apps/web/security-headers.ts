@@ -1,21 +1,30 @@
 // The headers every response carries (spec 12.4: strict security headers). Kept apart from next.config.ts so a test
 // can read them.
 
+/** What the policy depends on: development's needs, and the storage the browser uploads to (spec 9.2), if any. */
+export interface PolicySettings {
+  development: boolean;
+  /** Object storage's origin: presigned uploads go to it, and logos and previews load from it. */
+  storageOrigin?: string | null;
+}
+
 /**
  * The Content-Security-Policy. Scripts and styles allow 'unsafe-inline' because Next.js inlines its boot scripts and
  * the component library sets inline styles; nonces would make every page render per request, and pages must stay
- * static so the service worker can keep them for offline use. Everything else is our own origin only. The accepted
- * risk is recorded in ADR 0018; test/no-inner-html.test.ts keeps its premise, that the app renders no HTML of its own.
+ * static so the service worker can keep them for offline use. Everything else is our own origin only, but for
+ * storage: files go straight to it (a PUT to a presigned URL) and images come from it. The accepted risk is recorded
+ * in ADR 0018; test/no-inner-html.test.ts keeps its premise, that the app renders no HTML of its own.
  */
-export function contentSecurityPolicy({ development }: { development: boolean }): string {
+export function contentSecurityPolicy({ development, storageOrigin = null }: PolicySettings): string {
+  const storage = storageOrigin === null ? "" : ` ${storageOrigin}`;
   return [
     "default-src 'self'",
     // React's development build evaluates code for its error overlays.
     `script-src 'self' 'unsafe-inline'${development ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
+    `img-src 'self' data: blob:${storage}`,
     "font-src 'self'",
-    "connect-src 'self'",
+    `connect-src 'self'${storage}`,
     "worker-src 'self'",
     "manifest-src 'self'",
     "object-src 'none'",
@@ -28,9 +37,9 @@ export function contentSecurityPolicy({ development }: { development: boolean })
   ].join("; ");
 }
 
-export function securityHeaders({ development }: { development: boolean }): { key: string; value: string }[] {
+export function securityHeaders(settings: PolicySettings): { key: string; value: string }[] {
   return [
-    { key: "Content-Security-Policy", value: contentSecurityPolicy({ development }) },
+    { key: "Content-Security-Policy", value: contentSecurityPolicy(settings) },
     { key: "X-Content-Type-Options", value: "nosniff" },
     { key: "X-Frame-Options", value: "DENY" },
     { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
@@ -57,9 +66,9 @@ export const TOKEN_PAGES = ["/reset-password", "/sign-in/two-factor", "/two-fact
  * The header rules for next.config.ts. Next.js applies every matching rule in order and a later value wins
  * (next/dist/server/lib/router-utils/resolve-routes.js), so the pages' own Referrer-Policy comes after the catch-all.
  */
-export function securityHeaderRules({ development }: { development: boolean }) {
+export function securityHeaderRules(settings: PolicySettings) {
   return [
-    { source: "/:path*", headers: securityHeaders({ development }) },
+    { source: "/:path*", headers: securityHeaders(settings) },
     ...TOKEN_PAGES.map((source) => ({ source, headers: [{ key: "Referrer-Policy", value: "strict-origin" }] })),
   ];
 }

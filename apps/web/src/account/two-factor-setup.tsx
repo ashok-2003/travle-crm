@@ -44,11 +44,14 @@ function manualKey(totpUri: string): string {
 
 export function TwoFactorSetup({
   pending,
+  askedBy = "organization",
   onDone,
   auth = authClient,
 }: {
-  /** The organization requires two-factor and this is why the person is here. */
+  /** The organization (or the console) requires two-factor and this is why the person is here. */
   pending: boolean;
+  /** Who requires it: the person's organization, or the platform console, for its staff. */
+  askedBy?: "organization" | "console";
   onDone: () => Promise<void> | void;
   auth?: Pick<AuthClient, "startTwoFactorSetup" | "confirmTwoFactor">;
 }) {
@@ -94,7 +97,13 @@ export function TwoFactorSetup({
   return (
     <div className="flex flex-col gap-6">
       <PageTitle>{t("twoFactorSetup.title")}</PageTitle>
-      <p className="text-muted-foreground">{pending ? t("twoFactorSetup.pendingIntro") : t("twoFactorSetup.intro")}</p>
+      <p className="text-muted-foreground">
+        {!pending
+          ? t("twoFactorSetup.intro")
+          : askedBy === "console"
+            ? t("twoFactorSetup.platformIntro")
+            : t("twoFactorSetup.pendingIntro")}
+      </p>
 
       {step.name === "password" && (
         <form noValidate onSubmit={start} className="flex flex-col gap-5">

@@ -4,16 +4,18 @@
 // nothing either.
 import { randomUUID } from "node:crypto";
 import { createDatabase, type Database } from "@travel-crm/db";
+import { createFiles } from "@travel-crm/domain/files";
 import { createIdentity, type Identity } from "@travel-crm/domain/identity";
 import { createProfiles } from "@travel-crm/domain/profile";
 import { createSubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { createMemoryJobQueue } from "@travel-crm/integrations/jobs";
+import { createMemoryStorage } from "@travel-crm/integrations/storage";
 import { afterAll, beforeAll, describe, expect, inject, it, vi } from "vitest";
 import { createApp } from "../src/app.js";
 import { processLog } from "../src/process-log.js";
 import { clientAddressFrom } from "../src/rate-limit.js";
 import { consoleOutput } from "./support/console-output.js";
-import { ORIGIN, testAuthSettings } from "./support/test-server.js";
+import { ORIGIN, TEST_PUSH_PUBLIC_KEY, testAuthSettings } from "./support/test-server.js";
 
 const personal = "Jane Doe, jane.doe@example.com, +91 98765 43210";
 const leaked = /Jane Doe|jane\.doe|98765/;
@@ -84,7 +86,10 @@ describe.each(["development", "production"])("the api's log under NODE_ENV=%s", 
       subscriptions: createSubscriptionAccess({ db }),
       profiles: createProfiles({ db }),
       db,
-      files: { systemDownloadLink: () => Promise.reject(leak) },
+      files: overriding(createFiles({ db, storage: createMemoryStorage() }), {
+        systemDownloadLink: () => Promise.reject(leak),
+      }),
+      pushPublicKey: TEST_PUSH_PUBLIC_KEY,
       queue: createMemoryJobQueue(),
       rateLimiter: { hit: () => Promise.reject(leak) },
       clientAddress: clientAddressFrom({ headerNames: ["x-forwarded-for"], trustedProxies: [] }),

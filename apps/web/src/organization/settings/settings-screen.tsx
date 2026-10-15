@@ -1,11 +1,12 @@
 "use client";
 
-// The settings screen: the organization's name and sign-in code, read-only here (the platform team sets them), and
-// whether everyone must use two-factor sign-in.
+// The settings screen: the organization's name and sign-in code, read-only here (the platform team sets them),
+// whether everyone must use two-factor sign-in, and the way to the organization's other settings.
 import { useTranslations } from "next-intl";
 import { PageTitle } from "@/components/page-title";
 import { useMe } from "@/session/me-context";
 import { CopyButton } from "../copy-button";
+import { SettingsSections } from "./settings-sections";
 import { TwoFactorRequirement } from "./two-factor-requirement";
 
 export function SettingsScreen() {
@@ -41,6 +42,7 @@ export function SettingsScreen() {
           <TwoFactorRequirement />
         </div>
       </section>
+      <SettingsSections />
     </div>
   );
 }
