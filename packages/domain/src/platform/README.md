@@ -73,8 +73,10 @@ organizationId)` records a `platform_export` row and queues `EXPORT_ORGANIZATION
 - Failed jobs (spec 9.1): `listFailedJobs(services, { limit, after?, queue? })` (newest first, a page at a time),
   `retryFailedJob(services, staff, { queue, jobId })` (one more attempt; never for the purge, the erasure or the
   export, which a super admin asks for again: `NOT_RETRYABLE`), `listSchedules(services)` and
-  `removeSchedule(services, staff, queue)` (super admins), through the `JobAdministration` port. Each retry and removed
-  schedule is recorded in the platform log.
+  `removeSchedule(services, staff, queue)` (super admins; never a schedule the console registers itself:
+  `SCHEDULE_IS_THE_CONSOLES`), through the `JobAdministration` port. pg-boss acts outside our transactions, so each
+  retry and removal is recorded in the platform log first (`job.retried`, `schedule.removed`), in a transaction of its
+  own, and a failure after it (`job.retry-failed`, `schedule.removal-failed`, with the reason or the error's names).
 - Types: `PlatformActor`, `PlatformChange`. The contracts are in `@travel-crm/contracts/platform`.
 
 ## Events

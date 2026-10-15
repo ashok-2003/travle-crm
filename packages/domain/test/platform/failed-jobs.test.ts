@@ -1,6 +1,6 @@
 // The failed-jobs list (spec 9.1) in the console: newest first a page at a time, one more attempt for a failed job and
-// a schedule removed, each in the platform log; nothing logged for a job that wasn't there; and the platform's purge,
-// erasure and export never retried, as a super admin asks for them again instead.
+// a schedule removed, each in the platform log before it is done, so none goes unlogged, and a failure logged too; and
+// the platform's purge, erasure and export never retried, as a super admin asks for them again instead.
 import type { FailedJob } from "@travel-crm/integrations/jobs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
@@ -85,11 +85,44 @@ describe("the failed-jobs list", () => {
     expect(pages).toEqual([[jobId(5), jobId(4)], [jobId(2), jobId(1)], [jobId(3)]]);
   });
 
-  it("logs nothing, and says so, when the job isn't failed (any more)", async () => {
+  it("logs the attempt and its failure, and says so, when the job isn't failed (any more)", async () => {
     await expect(
       retryFailedJob(test.services, support, { queue: "documents.render-pdf", jobId: jobId(404) }),
     ).rejects.toMatchObject({ code: "NOT_FOUND", reason: "FAILED_JOB_NOT_FOUND" });
-    expect(await logAbout([jobId(404)])).toEqual([]);
+    expect(await logAbout([jobId(404)])).toEqual(["job.retry-failed", "job.retried"]);
+  });
+
+  it("does nothing it couldn't log first, and logs an action that then fails", async () => {
+    // A target id too long for the platform log: its entry is refused, as a failed write would be.
+    const unloggable = "x".repeat(201);
+    test.jobs.failed.push(failed("documents.render-pdf", unloggable, 1));
+    test.jobs.scheduled.push({ queue: unloggable, cron: "0 8 * * 1", timeZone: "Asia/Kolkata" });
+    await expect(
+      retryFailedJob(test.services, support, { queue: "documents.render-pdf", jobId: unloggable }),
+    ).rejects.toThrow(RangeError);
+    await expect(removeSchedule(test.services, support, unloggable)).rejects.toThrow(RangeError);
+    expect(test.jobs.retried.filter((job) => job.jobId === unloggable)).toEqual([]);
+    expect(test.jobs.scheduled.filter((schedule) => schedule.queue === unloggable)).toHaveLength(1);
+
+    // pg-boss refuses the retry and the removal after both were logged: each failure is logged too.
+    const refusing = {
+      ...test.services,
+      jobs: {
+        ...test.jobs,
+        retryFailedJob: () => Promise.reject(new Error("pg-boss is down")),
+        unschedule: () => Promise.reject(new Error("pg-boss is down")),
+      },
+    };
+    await expect(
+      retryFailedJob(refusing, support, { queue: "documents.render-pdf", jobId: jobId(500) }),
+    ).rejects.toThrow("pg-boss is down");
+    await expect(removeSchedule(refusing, support, "reports.monthly-digest")).rejects.toThrow("pg-boss is down");
+    expect(await logAbout([jobId(500), "reports.monthly-digest"])).toEqual([
+      "schedule.removal-failed",
+      "schedule.removed",
+      "job.retry-failed",
+      "job.retried",
+    ]);
   });
 
   it("retries the platform's cleanups, which only finish what a committed purge, erasure or expiry began", async () => {

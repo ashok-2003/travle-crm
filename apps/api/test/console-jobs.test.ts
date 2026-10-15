@@ -1,10 +1,11 @@
 // The console process's jobs (ADR 0019): the platform's purge and erasure jobs, the nightly subscription lifecycle at
 // 00:15 India time, as the platform role, the hourly sweep of the stored files still to delete, the daily sweep of
 // exports past their time, and, when a demo is set, the nightly demo reset at 02:00; with the demo switched off, the
-// schedule an earlier start left in pg-boss goes.
+// schedule an earlier start left in pg-boss goes. A super admin can't remove any of these schedules from the console.
 import { randomUUID } from "node:crypto";
 import {
   PURGE_ORGANIZATION_QUEUE,
+  removeSchedule,
   RESET_DEMO_QUEUE,
   SWEEP_EXPIRED_EXPORTS_QUEUE,
   SWEEP_STORED_FILES_QUEUE,
@@ -105,6 +106,18 @@ describe("the console's jobs", () => {
     expect(
       await platformDb.transaction((tx) => tx.platformExport.findUniqueOrThrow({ where: { id: lost.id } })),
     ).toMatchObject({ state: "expired", clearedAt: expect.any(Date) as Date });
+  });
+
+  it("refuses to remove a schedule the console registers, which would stop it until the next start", async () => {
+    const demo = { code: "DEMOCODE", password: "demo-password-123" };
+    const queues = consoleJobs(testConsole.services, demo).schedules.map((schedule) => schedule.queue);
+    expect(queues).toHaveLength(4);
+    for (const queue of queues) {
+      await expect(removeSchedule(testConsole.services, { userId: randomUUID() }, queue), queue).rejects.toMatchObject({
+        code: "CONFLICT",
+        reason: "SCHEDULE_IS_THE_CONSOLES",
+      });
+    }
   });
 
   it("records a lapsed trial as past due every night, as the platform role", async () => {

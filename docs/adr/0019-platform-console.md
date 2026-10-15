@@ -91,9 +91,12 @@ adminUserId)`), not as the system.
   listeners and no outbox relay; the worker's relay is the only one, since a relay that knew no listeners would mark
   every event relayed with nothing queued for it.
 - **Failed jobs and schedules.** The console lists failed jobs, runs one again, and lists the schedules; a super admin
-  removes a schedule whose job the code no longer has (ADR 0010). It reaches pg-boss through the `JobAdministration`
-  port (`@travel-crm/integrations/jobs`), and records each retry and removed schedule in the platform log. Job data
-  holds only ids, so the list shows nothing personal.
+  removes a schedule whose job the code no longer has (ADR 0010), never one the console registers at every start
+  (`SCHEDULE_IS_THE_CONSOLES`: it would only stop until the next start). It reaches pg-boss through the
+  `JobAdministration` port (`@travel-crm/integrations/jobs`). pg-boss acts on its own connection, outside the
+  platform's transactions, so each retry and removed schedule is recorded in the platform log first, in a transaction
+  of its own, and a failure after it (`job.retry-failed`, `schedule.removal-failed`): nothing is done unlogged. Job
+  data holds only ids, so the list shows nothing personal.
 
 ## Context
 
