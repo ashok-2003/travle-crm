@@ -33,7 +33,7 @@ transaction to `orgId`'s rows; outside it, queries see nothing.
 | ------------------------------------- | --------------------------- | ----------------------------------------------------------------------------- |
 | `@travel-crm/db`                      | every module                | `createDatabase`, `OrgTx`, `nextDocumentNumber`, `softDeleted`, `withDeleted` |
 | `@travel-crm/db/identity`             | the identity module only    | Better Auth's client, and `forOrg` transactions that reach the sign-in tables |
-| `@travel-crm/db/platform`             | the platform module only    | a client that sees every organization                                         |
+| `@travel-crm/db/platform`             | the platform module only    | transactions that see every organization, and `asOrganization` inside them    |
 | `@travel-crm/db/webhooks`             | the webhooks module only    | `webhookEvents(tx)`: the `webhook_event` table, in `db.withoutOrg()`          |
 | `@travel-crm/db/rate-limits`          | the rate-limits module only | `rateLimitCounters(tx)`: the `rate_limit_counter` table, in `db.withoutOrg()` |
 | `@travel-crm/db/testing`              | tests only                  | `createTestOrganization`, the `DbUrls` type                                   |
@@ -103,3 +103,19 @@ checked by the caller, like any other permission.
 | `app_platform` | platform console | every organization                    |
 
 `sql/bootstrap.sql` creates them locally and in tests. Why it works this way: [ADR 0002](../../docs/adr/0002-row-level-security.md).
+
+## The platform role's transactions
+
+`createPlatformDatabase(DATABASE_PLATFORM_URL).transaction(tx => …)` runs as `app_platform`, which sees and may change
+every organization's rows: name the organization in every query. Inside such a transaction,
+`asOrganization(tx, orgId, orgTx => …)` switches to `app_runtime` in one organization (`SET LOCAL ROLE`, then
+`app.org_id`), so module code written for `db.forOrg()` runs unchanged under row-level security and the runtime role's
+grants, in the same transaction as the platform's own writes ([ADR 0018](../../docs/adr/0018-platform-console.md)).
+It returns to `app_platform` afterwards, even when its work failed, and can't be nested. The switch needs
+`GRANT app_runtime TO app_platform WITH INHERIT FALSE, SET TRUE` (in `sql/bootstrap.sql`); a local database made before
+it needs that line run once as the `postgres` superuser:
+
+    docker compose exec postgres psql -U postgres -d travel_crm -c "GRANT app_runtime TO app_platform WITH INHERIT FALSE, SET TRUE"
+
+Platform transactions also reach the tables without `organization_id` through their entry points
+(`webhookEvents(tx)`); a transaction stepped into an organization does not.

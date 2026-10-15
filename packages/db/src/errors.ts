@@ -46,3 +46,14 @@ export class UnscopedModelError extends Error {
     this.name = "UnscopedModelError";
   }
 }
+
+/** Thrown when a platform transaction's connection is not the app_platform role, the only one that sees every row. */
+export class WrongPlatformRoleError extends Error {
+  constructor(role: string | undefined) {
+    super(
+      `A platform transaction is connected to the database as ${JSON.stringify(role)}, but only app_platform sees ` +
+        "every organization. DATABASE_PLATFORM_URL must connect as the app_platform role.",
+    );
+    this.name = "WrongPlatformRoleError";
+  }
+}

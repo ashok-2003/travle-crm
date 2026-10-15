@@ -4,7 +4,8 @@ The shared kernel (spec 8, 9.6): building blocks every module uses. It imports n
 
 ## Public functions and values (`index.ts`)
 
-- **Who acts:** `Actor`, `ActorSource`, `systemActor(organizationId)` (ADR 0009).
+- **Who acts:** `Actor`, `ActorSource`, `systemActor(organizationId)` (ADR 0009), and
+  `platformActor(organizationId, adminUserId)` for a platform admin working in the console (ADR 0018).
 - **Errors:** `DomainError(code, reason, message)`, `DomainErrorCode`.
 - **Money** (integer paise, ADR 0016):
   - `Money`, `CurrencyCode` (`"INR"`), `money(paise, currency?)`, `parseRupees(text)`;

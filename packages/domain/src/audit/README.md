@@ -5,9 +5,11 @@ The audit log (spec 9.5): who changed what in an organization, from where, and t
 ## Public functions and values (`index.ts`)
 
 - `recordAudit(tx, actor, { action, entityType, entityId, before?, after? })`: writes one entry in the change's own
-  transaction, so the entry exists exactly when the change commits. The `actor` (an `Actor`, such as `MemberAccess`
-  or `systemActor(organizationId)`) gives who acted, the source (`web`, `api`, `job`, `impersonation`) and the
-  platform admin while support impersonates a member.
+  transaction, so the entry exists exactly when the change commits. The `actor` (an `Actor`, such as `MemberAccess`,
+  `systemActor(organizationId)` or `platformActor(organizationId, adminUserId)`) gives who acted, the source (`web`,
+  `api`, `job`, `impersonation`, `platform`) and the platform admin while support impersonates a member.
+- `assertAuditable({ action, before?, after? })`: the checks `recordAudit` makes before writing (the action's shape, no
+  secrets, at most 8192 bytes a side), for the platform's own log.
 - `listAuditEntries(tx, input)`: the log newest first, a page at a time (`before` is the last id of the previous
   page), or one record's history (`entityType` with `entityId`). The API checks `audit:view` first.
 - Types: `AuditChange`, `AuditSnapshot`. The contracts are in `@travel-crm/contracts/audit`.

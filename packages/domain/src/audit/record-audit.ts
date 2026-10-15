@@ -33,15 +33,12 @@ const SECRET_PHRASES = ["apikey", "privatekey", "backupcode"];
 const ALLOWED_KEYS = new Set(["mustChangePassword"]);
 
 /**
- * Records who changed what, from where, in the same transaction as the change. The actor's source and impersonatedBy
- * say whether it came from the web app, the worker or support impersonating a member.
+ * Refuses, before anything is written, what no log may hold: an action not shaped "<entity>.<what happened>", a
+ * snapshot key that looks like a secret, or a side over 8192 bytes of JSON. The platform's own log checks the same.
  */
-export async function recordAudit(tx: OrgTx, actor: Actor, change: AuditChange): Promise<void> {
+export function assertAuditable(change: Pick<AuditChange, "action" | "before" | "after">): void {
   if (!ACTION_PATTERN.test(change.action)) {
     throw new RangeError(`Audit actions look like "staff.removed", got ${JSON.stringify(change.action)}`);
-  }
-  if (!ENTITY_TYPE_PATTERN.test(change.entityType)) {
-    throw new RangeError(`Audit record kinds look like "member", got ${JSON.stringify(change.entityType)}`);
   }
   for (const [side, snapshot] of [
     ["before", change.before],
@@ -53,6 +50,17 @@ export async function recordAudit(tx: OrgTx, actor: Actor, change: AuditChange):
         throw new RangeError(`Audit snapshots hold at most ${String(MAX_SNAPSHOT_BYTES)} bytes of JSON (${side})`);
       }
     }
+  }
+}
+
+/**
+ * Records who changed what, from where, in the same transaction as the change. The actor's source and impersonatedBy
+ * say whether it came from the web app, the worker, support impersonating a member, or a platform admin.
+ */
+export async function recordAudit(tx: OrgTx, actor: Actor, change: AuditChange): Promise<void> {
+  assertAuditable(change);
+  if (!ENTITY_TYPE_PATTERN.test(change.entityType)) {
+    throw new RangeError(`Audit record kinds look like "member", got ${JSON.stringify(change.entityType)}`);
   }
   await tx.auditEntry.create({
     data: {

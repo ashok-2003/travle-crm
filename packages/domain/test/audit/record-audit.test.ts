@@ -1,11 +1,17 @@
 // recordAudit writes one entry in the change's own transaction: who acted, from where, and what changed. Entries are
 // fixed once written, and never hold secrets.
 import { createDatabase, type Database } from "@travel-crm/db";
-import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
+import {
+  asOrganization,
+  createPlatformClient,
+  createPlatformDatabase,
+  type PlatformClient,
+  type PlatformDatabase,
+} from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { recordAudit, type AuditSnapshot } from "../../src/audit/index.js";
-import { systemActor, type Actor } from "../../src/kernel/index.js";
+import { listAuditEntries, recordAudit, type AuditSnapshot } from "../../src/audit/index.js";
+import { platformActor, systemActor, type Actor } from "../../src/kernel/index.js";
 
 const ownerUserId = "0199e7a0-0000-7000-8000-0000000000f1";
 const supportUserId = "0199e7a0-0000-7000-8000-0000000000f2";
@@ -13,6 +19,7 @@ const memberId = "0199e7a0-0000-7000-8000-0000000000f3";
 
 describe("recordAudit", () => {
   let platform: PlatformClient;
+  let platformDb: PlatformDatabase;
   let db: Database;
   let organizationId: string;
   let owner: Actor;
@@ -20,6 +27,7 @@ describe("recordAudit", () => {
   beforeAll(async () => {
     const urls = inject("dbUrls");
     platform = createPlatformClient(urls.platform);
+    platformDb = createPlatformDatabase(urls.platform, { maxConnections: 1 });
     db = createDatabase(urls.runtime, { maxConnections: 2 });
     organizationId = await createTestOrganization(platform, "Audit");
     owner = { organizationId, userId: ownerUserId, source: "web", impersonatedBy: null };
@@ -27,6 +35,7 @@ describe("recordAudit", () => {
 
   afterAll(async () => {
     await db.disconnect();
+    await platformDb.disconnect();
     await platform.$disconnect();
   });
 
@@ -70,6 +79,28 @@ describe("recordAudit", () => {
     );
     expect(await entriesFor(memberId)).toEqual([
       expect.objectContaining({ actorUserId: null, source: "job", before: null, after: { name: "Asha Owner" } }),
+    ]);
+  });
+
+  it("records a platform admin acting from the console under their own name, with source platform", async () => {
+    const adminUserId = "0199e7a0-0000-7000-8000-0000000000f4";
+    const ownerMemberId = "0199e7a0-0000-7000-8000-0000000000f5";
+    // The console writes an organization's log from a platform transaction, stepped into the organization.
+    await platformDb.transaction((tx) =>
+      asOrganization(tx, organizationId, (orgTx) =>
+        recordAudit(orgTx, platformActor(organizationId, adminUserId), {
+          action: "staff.created",
+          entityType: "member",
+          entityId: ownerMemberId,
+          after: { role: "owner", hasEmail: true },
+        }),
+      ),
+    );
+    const page = await db.forOrg(organizationId, (tx) =>
+      listAuditEntries(tx, { entityType: "member", entityId: ownerMemberId, limit: 10 }),
+    );
+    expect(page.entries).toEqual([
+      expect.objectContaining({ actorUserId: adminUserId, source: "platform", impersonatedBy: null }),
     ]);
   });
 

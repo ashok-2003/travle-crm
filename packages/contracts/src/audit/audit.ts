@@ -3,7 +3,7 @@ import { z } from "zod";
 import { recordId } from "../identity/index.js";
 
 /** Where a change came from. The database's audit_entry_source_value check holds the same values. */
-export const auditSource = z.enum(["web", "api", "job", "impersonation"]);
+export const auditSource = z.enum(["web", "api", "job", "impersonation", "platform"]);
 export type AuditSource = z.infer<typeof auditSource>;
 
 /** A kind of record, e.g. "member" or "role". Matches the database's audit_entry_entity_type_format check. */

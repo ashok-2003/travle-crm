@@ -1,0 +1,28 @@
+// The platform's own records (spec 5 and 7), kept by the console, never by an organization's staff. Not organization-
+// owned: no organization_id and no row-level security. The runtime role has no rights on these tables at all.
+
+/// The platform log: what platform staff did in the console, and what the platform's own jobs did. Append-only. It
+/// names organizations by id without a foreign key, so it outlives an organization's purge (spec 5).
+model PlatformAuditEntry {
+  id                   String   @id @default(uuid(7)) @db.Uuid
+  occurredAt           DateTime @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  /// The platform admin who acted, or null for the platform's own jobs (the nightly demo reset).
+  actorUserId          String?  @map("actor_user_id") @db.Uuid
+  /// "<entity>.<what happened>", e.g. "organization.onboarded" (CHECK platform_audit_entry_action_format).
+  action               String
+  /// The kind of thing acted on, e.g. "organization", "plan", "platform_staff", "job".
+  targetType           String   @map("target_type")
+  /// Its id: a UUID, or for jobs a queue name or job id.
+  targetId             String   @map("target_id")
+  /// The organization the entry concerns, when there is one.
+  targetOrganizationId String?  @map("target_organization_id") @db.Uuid
+  /// The fields that changed, as JSON objects; no secrets and no personal data, as in the organizations' log.
+  before               Json?
+  after                Json?
+
+  /// The log, newest first.
+  @@index([occurredAt(sort: Desc), id(sort: Desc)], map: "platform_audit_entry_newest")
+  /// One organization's entries, newest first.
+  @@index([targetOrganizationId, occurredAt(sort: Desc)], map: "platform_audit_entry_organization")
+  @@map("platform_audit_entry")
+}

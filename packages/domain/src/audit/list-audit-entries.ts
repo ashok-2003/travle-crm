@@ -1,5 +1,10 @@
 // Reads an organization's audit log, newest first, a page at a time. The API checks audit:view before calling it.
-import type { AuditEntry, AuditEntryPage, ListAuditEntriesInput } from "@travel-crm/contracts/audit";
+import {
+  auditSource,
+  type AuditEntry,
+  type AuditEntryPage,
+  type ListAuditEntriesInput,
+} from "@travel-crm/contracts/audit";
 import type { OrgTx } from "@travel-crm/db";
 
 export async function listAuditEntries(tx: OrgTx, input: ListAuditEntriesInput): Promise<AuditEntryPage> {
@@ -29,9 +34,10 @@ export async function listAuditEntries(tx: OrgTx, input: ListAuditEntriesInput):
   };
 }
 
-/** The table's check allows only these four. */
+/** The table's check allows only the contract's sources. */
 function sourceOf(value: string): AuditEntry["source"] {
-  if (value === "web" || value === "api" || value === "job" || value === "impersonation") return value;
+  const source = auditSource.safeParse(value);
+  if (source.success) return source.data;
   throw new Error(`Unknown audit source ${JSON.stringify(value)}`);
 }
 
