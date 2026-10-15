@@ -37,6 +37,17 @@ export {
 export { organizationTimeZone } from "./organization-profile.js";
 export { PermissionSet, type Grant } from "./permission-set.js";
 export {
+  changePlatformStaffLevel,
+  createFirstSuperAdmin,
+  createPlatformStaffAccount,
+  removeFromPlatformStaff,
+  replacePlatformStaffPassword,
+  temporaryPassword,
+  type NewPlatformStaff,
+  type PlatformStaffActor,
+} from "./platform-staff.js";
+export { platformStaffAccounts, type PlatformStaffAccount } from "./platform-staff-list.js";
+export {
   isPermission,
   isScopedPermission,
   moduleOf,

@@ -7,6 +7,7 @@ import { dataProtectionRouter } from "./routers/data-protection.js";
 import { dashboardRouter, jobsRouter } from "./routers/operations.js";
 import { organizationsRouter } from "./routers/organizations.js";
 import { plansRouter } from "./routers/plans.js";
+import { platformStaffRouter } from "./routers/platform-staff.js";
 import { subscriptionsRouter } from "./routers/subscriptions.js";
 import { platformT } from "./trpc.js";
 
@@ -21,6 +22,7 @@ export const platformRouter = platformT.router({
   plans: plansRouter,
   subscriptions: subscriptionsRouter,
   jobs: jobsRouter,
+  platformStaff: platformStaffRouter,
   log: platformT.router({
     /** What platform staff and the platform's jobs did, newest first. */
     list: staffProcedure

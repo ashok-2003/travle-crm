@@ -3,7 +3,7 @@
 import type { MeOutput } from "@travel-crm/contracts/identity";
 import type { PlatformStaffLevel } from "@travel-crm/contracts/platform";
 import { withDeleted } from "@travel-crm/db";
-import type { IdentityClient, IdentityDatabase } from "@travel-crm/db/identity";
+import type { IdentityClient, IdentityDatabase, IdentityTx } from "@travel-crm/db/identity";
 import { isBannedNow } from "./bans.js";
 import { pendingStep, type MemberAccess } from "./member-access.js";
 import { PermissionSet } from "./permission-set.js";
@@ -142,11 +142,11 @@ export async function isPlatformAdminUser(client: IdentityClient, userId: string
   return (await describePlatformStaff(client, userId)) !== null;
 }
 
+/** What the platform staff checks read: the identity client, or a transaction (the console's, under its staff lock). */
+export type SignInReader = Pick<IdentityTx, "user" | "member">;
+
 /** The person's platform level and name, or null when they are not platform staff (or have ever been a member). */
-export async function describePlatformStaff(
-  client: IdentityClient,
-  userId: string,
-): Promise<PlatformStaffMember | null> {
+export async function describePlatformStaff(client: SignInReader, userId: string): Promise<PlatformStaffMember | null> {
   const stored = await client.user.findUnique({
     where: { id: userId },
     select: { name: true, role: true, mustChangePassword: true },
@@ -157,7 +157,7 @@ export async function describePlatformStaff(
 }
 
 /** True for anyone who has a membership row, removed ones included (member rows are soft-deleted, never erased). */
-export async function hasEverBeenMember(client: IdentityClient, userId: string): Promise<boolean> {
+export async function hasEverBeenMember(client: SignInReader, userId: string): Promise<boolean> {
   const membership = await withDeleted(() => client.member.findUnique({ where: { userId } }));
   return membership !== null;
 }

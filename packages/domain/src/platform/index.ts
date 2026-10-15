@@ -32,6 +32,14 @@ export {
   updatePlan,
 } from "./plans.js";
 export { listPlatformLog, recordPlatformAudit, type PlatformActor, type PlatformChange } from "./platform-log.js";
+export {
+  addFirstSuperAdmin,
+  addPlatformStaff,
+  listPlatformStaff,
+  removePlatformStaff,
+  resetPlatformStaffPassword,
+  setPlatformStaffLevel,
+} from "./platform-staff.js";
 export { PURGE_ORGANIZATION_QUEUE, purgeOrganization, requestPurge, type PurgeResult } from "./purge.js";
 export { createPlatformServices, type PlatformServices, type PlatformServicesOptions } from "./services.js";
 export {
