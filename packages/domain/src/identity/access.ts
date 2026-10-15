@@ -4,6 +4,7 @@ import type { MeOutput } from "@travel-crm/contracts/identity";
 import type { PlatformStaffLevel } from "@travel-crm/contracts/platform";
 import { withDeleted } from "@travel-crm/db";
 import type { IdentityClient, IdentityDatabase } from "@travel-crm/db/identity";
+import { isBannedNow } from "./bans.js";
 import { pendingStep, type MemberAccess } from "./member-access.js";
 import { PermissionSet } from "./permission-set.js";
 import { shownEmail } from "./sign-in-names.js";
@@ -35,8 +36,7 @@ export async function resolveAccess(
     // The member table has no row-level security, so the organization is checked here.
     if (member?.organizationId !== organizationId) return null;
     // Better Auth's admin ban: refused at sign-in, but a session opened earlier must stop working too.
-    const { banned, banExpires } = member.user;
-    if (banned && (banExpires === null || banExpires > new Date())) return null;
+    if (isBannedNow(member.user)) return null;
     const role = await tx.role.findUnique({
       where: { organizationId_key: { organizationId, key: member.role } },
       include: { permissions: true },
@@ -172,7 +172,5 @@ export async function isActiveMemberUser(client: IdentityClient, userId: string)
     where: { userId },
     select: { user: { select: { banned: true, banExpires: true } } },
   });
-  if (!member) return false;
-  const { banned, banExpires } = member.user;
-  return !(banned && (banExpires === null || banExpires > new Date()));
+  return member !== null && !isBannedNow(member.user);
 }

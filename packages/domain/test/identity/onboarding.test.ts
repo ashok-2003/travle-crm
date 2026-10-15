@@ -161,12 +161,4 @@ describe("onboarding's identity steps", () => {
     });
     expect(await invitesOf(organizationId)).toBe(2);
   });
-
-  it("lists every organization's id, oldest first, for the jobs that visit each one", async () => {
-    const older = await onboard(uniqueCode(), `older-${randomUUID()}@example.test`);
-    const newer = await onboard(uniqueCode(), `newer-${randomUUID()}@example.test`);
-    const ids = await test.identity.organizationIds();
-    expect(ids).toContain(older.organizationId);
-    expect(ids.indexOf(newer.organizationId)).toBeGreaterThan(ids.indexOf(older.organizationId));
-  });
 });

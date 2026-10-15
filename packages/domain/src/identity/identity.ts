@@ -102,8 +102,6 @@ export interface Identity {
   readonly settings: {
     setTwoFactorRequirement(actor: MemberAccess, input: SetTwoFactorRequirementInput): Promise<SecuritySettings>;
   };
-  /** Every organization's id, oldest first: for jobs that visit each one, such as the subscription lifecycle. */
-  organizationIds(): Promise<string[]>;
   /** The worker's listener that emails "staff.invited" invites (identity.send-invite). */
   inviteListener(dependencies: InviteDependencies): EventListener;
   /** Creates the five starter roles. Onboarding calls it once per new organization. */
@@ -144,10 +142,6 @@ export function createIdentity(options: IdentityOptions): Identity {
     settings: {
       setTwoFactorRequirement: (actor, input) => setTwoFactorRequirement(database, actor, input),
     },
-    organizationIds: async () =>
-      (await database.client.organization.findMany({ select: { id: true }, orderBy: { createdAt: "asc" } })).map(
-        (organization) => organization.id,
-      ),
     inviteListener: (dependencies) => staffInviteListener(database, dependencies),
     seedStarterRoles: (organizationId) => seedStarterRoles(database, organizationId),
     createOrganizationOwner: (organizationId, owner) =>

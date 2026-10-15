@@ -21,7 +21,6 @@ Who can sign in, to which organization, and what they may do (spec section 6).
   - `settings.setTwoFactorRequirement`;
   - `seedStarterRoles(organizationId)` and `createOrganizationOwner(organizationId, owner)` (an Owner with a password,
     for tests);
-  - `organizationIds()`: every organization's id, oldest first, for jobs that visit each one;
   - `inviteListener({ email, appUrl, limiter, now? })`: the worker's `identity.send-invite` listener, counting each
     address's invite attempts with the rate limiter;
   - `disconnect()`.
