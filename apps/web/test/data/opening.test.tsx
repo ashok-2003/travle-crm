@@ -2,6 +2,7 @@
 // and it shows at once, even on a cold start the query library hasn't heard about (N1). Online, it waits for me.get,
 // however slow, so a copy is never shown before it is known to be this person's.
 import "fake-indexeddb/auto";
+import { onlineManager } from "@tanstack/react-query";
 import { screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deleteSavedCopies } from "@/data/persistence";
@@ -23,6 +24,8 @@ beforeEach(async () => {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  // Opening offline tells TanStack so; the next test starts online again.
+  onlineManager.setOnline(true);
 });
 
 describe("opening a page with a saved copy", () => {
@@ -33,6 +36,23 @@ describe("opening a page with a saved copy", () => {
     stubApi({ "me.get": "offline", "staff.list": "offline" });
     renderApp();
     expect(await screen.findByText("Asha: Ravi", undefined, { timeout: 500 })).toBeVisible();
+  });
+
+  it("refreshes the copy and asks me.get again when the device comes back online", { timeout: 10_000 }, async () => {
+    await saveCopyFor(asha, ["Ravi"]);
+    const offline = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    const api = stubApi({ "me.get": "offline", "staff.list": "offline" });
+    renderApp();
+    expect(await screen.findByText("Asha: Ravi", undefined, { timeout: 500 })).toBeVisible();
+    // Long enough for any retries a believed-online query library would make to run out.
+    await pause(3_500);
+    const beforeReconnecting = api.calls.length;
+    api.answer("me.get", { data: asha });
+    api.answer("staff.list", { data: [staffNamed("Ravi"), staffNamed("Meera")] });
+    offline.mockReturnValue(true);
+    window.dispatchEvent(new Event("online"));
+    expect(await screen.findByText("Asha: Ravi, Meera")).toBeVisible();
+    expect(api.calls.slice(beforeReconnecting)).toEqual(expect.arrayContaining(["me.get", "staff.list"]));
   });
 
   it("online, when me.get fails, opens at once (asking only once) and shows nothing saved", async () => {

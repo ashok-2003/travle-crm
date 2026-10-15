@@ -105,6 +105,9 @@ export function createPageData({ buster, onLeaving, auth = authClient }: PageDat
 
   async function open(): Promise<boolean> {
     const openedAt = Date.now();
+    // On a cold start offline the browser knows, but TanStack hasn't heard an "offline" event and believes it's
+    // online: queries would fail instead of waiting, and coming back online would refresh nothing. Tell it.
+    if (!navigator.onLine) onlineManager.setOnline(false);
     if (!(await settleOwedSignOut(auth))) {
       // The previous person's session may still be alive, so nothing may ask the api who is signed in: a signed-out
       // screen opens as it is (it asks nothing), any other sends the person to sign in.
