@@ -13,6 +13,14 @@ import { startMinio, type TestMinio } from "./support/minio.js";
 
 const apiDirectory = fileURLToPath(new URL("..", import.meta.url));
 
+/**
+ * Loaded into the process before its own code (node --import): on SIGUSR2 it leaves a promise rejected with nothing to
+ * handle it, as a bug would, with an error that quotes a person's data.
+ */
+const rejectOnSignal = `data:text/javascript,${encodeURIComponent(
+  'process.on("SIGUSR2", () => { void Promise.reject(new Error("asha@example.test could not be reached")); });',
+)}`;
+
 /** A port nothing listens on, for a process to take. */
 async function freePort(): Promise<number> {
   const server = createServer().listen(0, "127.0.0.1");
@@ -43,30 +51,26 @@ describe("a process's last resort", () => {
    */
   async function rejectedIn(script: string, ready: string): Promise<{ code: number | null; output: string }> {
     const port = String(await freePort());
-    const child = spawn(
-      process.execPath,
-      ["--import", "tsx", "--import", "./test/support/reject-on-signal.ts", script],
-      {
-        cwd: apiDirectory,
-        env: {
-          PATH: process.env.PATH,
-          ...testEnvironmentVariables({
-            DATABASE_URL: database.urls.runtime,
-            DATABASE_PLATFORM_URL: database.urls.platform,
-            DATABASE_POOL_SIZE: "2",
-            PORT: port,
-            CONSOLE_PORT: port,
-            S3_ENDPOINT: minio.settings.endpoint ?? "",
-            S3_BUCKET: minio.settings.bucket,
-            S3_ACCESS_KEY_ID: minio.settings.accessKeyId,
-            S3_SECRET_ACCESS_KEY: minio.settings.secretAccessKey,
-            SMTP_HOST: "127.0.0.1",
-            SMTP_PORT: "9",
-          }),
-        },
-        stdio: ["ignore", "pipe", "pipe"],
+    const child = spawn(process.execPath, ["--import", "tsx", "--import", rejectOnSignal, script], {
+      cwd: apiDirectory,
+      env: {
+        PATH: process.env.PATH,
+        ...testEnvironmentVariables({
+          DATABASE_URL: database.urls.runtime,
+          DATABASE_PLATFORM_URL: database.urls.platform,
+          DATABASE_POOL_SIZE: "2",
+          PORT: port,
+          CONSOLE_PORT: port,
+          S3_ENDPOINT: minio.settings.endpoint ?? "",
+          S3_BUCKET: minio.settings.bucket,
+          S3_ACCESS_KEY_ID: minio.settings.accessKeyId,
+          S3_SECRET_ACCESS_KEY: minio.settings.secretAccessKey,
+          SMTP_HOST: "127.0.0.1",
+          SMTP_PORT: "9",
+        }),
       },
-    );
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     let output = "";
     child.stdout.on("data", (chunk: Buffer) => (output += chunk.toString()));
     child.stderr.on("data", (chunk: Buffer) => (output += chunk.toString()));
