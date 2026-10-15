@@ -84,5 +84,23 @@
     "turnOffIntro": "You'll sign in with your password only. Confirm your password to turn it off.",
     "turningOff": "Turning off",
     "turnedOff": "Two-factor sign-in is off."
+  },
+  "forgotPassword": {
+    "title": "Reset your password",
+    "intro": "Type the email you sign in with. If it has an account, we'll send a link to choose a new password.",
+    "submit": "Send the link",
+    "submitting": "Sending",
+    "sent": "If an account has that email, a link to reset its password is on its way. It works for one hour.",
+    "noEmail": "Staff who sign in with the organization code and a username: ask your admin to reset your password.",
+    "backToSignIn": "Back to sign in"
+  },
+  "resetPassword": {
+    "title": "Choose a new password",
+    "submit": "Save new password",
+    "submitting": "Saving",
+    "done": "Your password is changed, and you're signed out everywhere. Sign in with the new password.",
+    "invalidLink": "This reset link has expired or was used already.",
+    "askAgain": "Ask for a new link",
+    "signIn": "Sign in"
   }
 }
