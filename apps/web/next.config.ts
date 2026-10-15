@@ -2,6 +2,7 @@
 // specific to one host.
 import path from "node:path";
 import type { NextConfig } from "next";
+import createNextIntlPlugin from "next-intl/plugin";
 import { securityHeaders } from "./security-headers";
 
 /**
@@ -11,6 +12,9 @@ import { securityHeaders } from "./security-headers";
  */
 const apiOrigin = process.env.API_ORIGIN ?? "http://localhost:3001";
 
+/** Changes with every build (or set CACHE_VERSION), so the browser drops a query cache an older build saved. */
+const cacheVersion = process.env.CACHE_VERSION ?? String(Date.now());
+
 const nextConfig: NextConfig = {
   output: "standalone",
   reactStrictMode: true,
@@ -19,6 +23,7 @@ const nextConfig: NextConfig = {
   agentRules: false,
   // No image optimization endpoint: the app shows no remote images, and the endpoint is work and attack surface.
   images: { unoptimized: true },
+  env: { NEXT_PUBLIC_CACHE_VERSION: cacheVersion },
   // Tailwind's own Turbopack loader compiles every stylesheet (no PostCSS step).
   turbopack: {
     rules: {
@@ -37,4 +42,4 @@ const nextConfig: NextConfig = {
   rewrites: () => Promise.resolve([{ source: "/api/:path*", destination: `${apiOrigin}/api/:path*` }]),
 };
 
-export default nextConfig;
+export default createNextIntlPlugin("./src/i18n/request.ts")(nextConfig);

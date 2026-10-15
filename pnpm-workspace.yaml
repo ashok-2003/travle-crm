@@ -23,6 +23,9 @@ allowBuilds:
   "@prisma/engines": true
   prisma: true
   esbuild: true
+  # next-intl's message extractor, which the web app doesn't run; both ship prebuilt binaries.
+  "@parcel/watcher": false
+  "@swc/core": false
   cpu-features: false
   protobufjs: false
   ssh2: false
@@ -38,7 +41,11 @@ minimumReleaseAgeExclude:
   - "@testcontainers/postgresql@12.2.1"
   - testcontainers@12.2.1
 
-# @trpc/server ships "agent skills" for AI coding tools; we don't install them.
+# tRPC's packages ship "agent skills" for AI coding tools; we don't install them.
 permissions:
   "@trpc/server":
+    skills: false
+  "@trpc/client":
+    skills: false
+  "@trpc/tanstack-react-query":
     skills: false

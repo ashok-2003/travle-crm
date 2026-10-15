@@ -20,7 +20,14 @@ export const meOutput = z.object({
   /** Platform staff: user role "admin" and no organization. */
   isPlatformAdmin: z.boolean(),
   organization: z
-    .object({ id: recordId, name: z.string(), code: z.string(), requireTwoFactor: z.boolean() })
+    .object({
+      id: recordId,
+      name: z.string(),
+      code: z.string(),
+      requireTwoFactor: z.boolean(),
+      /** An IANA zone such as "Asia/Kolkata": the web app shows dates and times in it (spec 9.6). */
+      timeZone: z.string(),
+    })
     .nullable(),
   member: z
     .object({

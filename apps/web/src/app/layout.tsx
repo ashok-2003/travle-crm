@@ -2,7 +2,9 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { brand } from "@travel-crm/brand";
+import { NextIntlClientProvider } from "next-intl";
 import { Toaster } from "@/components/ui/sonner";
+import { DataProviders } from "@/data/providers";
 import { fontVariables } from "./fonts";
 // Indian scripts (DESIGN.md section 3). Each file's faces carry a unicode-range, so a browser downloads one only when
 // a page shows that script.
@@ -35,8 +37,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en-IN" className={fontVariables}>
       <body>
-        {children}
-        <Toaster />
+        <NextIntlClientProvider>
+          <DataProviders>{children}</DataProviders>
+          <Toaster />
+        </NextIntlClientProvider>
       </body>
     </html>
   );

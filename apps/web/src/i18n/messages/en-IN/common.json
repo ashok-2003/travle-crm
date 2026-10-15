@@ -1,0 +1,12 @@
+{
+  "loading": "Loading",
+  "tryAgain": "Try again",
+  "save": "Save",
+  "saving": "Saving",
+  "cancel": "Cancel",
+  "close": "Close",
+  "back": "Back",
+  "continue": "Continue",
+  "skipToContent": "Skip to content",
+  "offline": "You're offline. Showing what was last loaded; changes wait until you're back online."
+}

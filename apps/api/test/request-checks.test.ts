@@ -38,7 +38,12 @@ describe("request checks", () => {
     const ravi = await addStaff(server, agency, { username: "ravi", roleKey: "sales" });
     const me = await dataOf<MeOutput>(await query(server, "me.get", await signedInStaff(server, agency, ravi)));
     expect(me.user).toMatchObject({ id: ravi.userId, email: null, username: "ravi", twoFactorEnabled: false });
-    expect(me.organization).toMatchObject({ id: agency.organizationId, code: agency.code, requireTwoFactor: false });
+    expect(me.organization).toMatchObject({
+      id: agency.organizationId,
+      code: agency.code,
+      requireTwoFactor: false,
+      timeZone: "Asia/Kolkata",
+    });
     expect(me.member?.role).toEqual({ key: "sales", name: "Sales", isOwner: false });
     expect(me.member?.permissions).toContainEqual({ permission: "leads:view", scope: "own" });
     expect(me).toMatchObject({ impersonatedBy: null, isPlatformAdmin: false, pendingStep: null });
