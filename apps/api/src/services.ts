@@ -7,7 +7,7 @@ import { createFiles, type Files } from "@travel-crm/domain/files";
 import { createIdentity, type Identity } from "@travel-crm/domain/identity";
 import { createProfiles, type Profiles } from "@travel-crm/domain/profile";
 import { createRateLimiter, type RateLimiter } from "@travel-crm/domain/rate-limits";
-import { createSubscriptionAccess, planLimits, type SubscriptionAccess } from "@travel-crm/domain/subscriptions";
+import { createSubscriptionAccess, planLimits } from "@travel-crm/domain/subscriptions";
 import { createSmtpEmailSender, type EmailSender } from "@travel-crm/integrations/email";
 import { createPgBossJobs, type PgBossJobs } from "@travel-crm/integrations/jobs";
 import { createWebPushSender, type PushSender } from "@travel-crm/integrations/push";
@@ -20,8 +20,6 @@ export interface Services {
   environment: Environment;
   db: Database;
   identity: Identity;
-  /** What each organization may use today: the api's request checks 2 and 3. */
-  subscriptions: SubscriptionAccess;
   /** Organizations' business profiles. */
   profiles: Profiles;
   storage: ObjectStorage;
@@ -50,9 +48,9 @@ export function rateLimitKeySecret(betterAuthSecret: string): Uint8Array {
 export function createServices(environment: Environment, log: ProcessLog): Services {
   const db = createDatabase(environment.DATABASE_URL, { maxConnections: environment.DATABASE_POOL_SIZE });
   const rateLimiter = createRateLimiter(db, { keySecret: rateLimitKeySecret(environment.BETTER_AUTH_SECRET) });
-  const subscriptions = createSubscriptionAccess({ db });
-  // Seats and storage are the plan's (spec 7.2): identity refuses staff past them, the files module uploads.
-  const limits = planLimits(subscriptions);
+  // Seats and storage are the plan's (spec 7.2): identity refuses staff past them, the files module uploads. The api's
+  // request checks read the same entitlements through an access of their own (server.ts).
+  const limits = planLimits(createSubscriptionAccess({ db }));
   const email = createSmtpEmailSender({
     host: environment.SMTP_HOST,
     port: environment.SMTP_PORT,
@@ -98,7 +96,6 @@ export function createServices(environment: Environment, log: ProcessLog): Servi
     environment,
     db,
     identity,
-    subscriptions,
     profiles: createProfiles({ db }),
     storage,
     files: createFiles({ db, storage, storageLimitBytes: limits.storageBytes }),

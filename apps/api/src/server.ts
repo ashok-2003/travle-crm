@@ -1,5 +1,6 @@
 // Starts the api on Node (`pnpm --filter @travel-crm/api-server dev`). All settings come from the environment.
 import { serve } from "@hono/node-server";
+import { createSubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { describeError } from "@travel-crm/integrations/jobs";
 import { createApp } from "./app.js";
 import { clientAddressFrom } from "./rate-limit.js";
@@ -10,7 +11,8 @@ const { environment, services, log } = await startProcess("api", () => undefined
 
 const app = createApp({
   identity: services.identity,
-  subscriptions: services.subscriptions,
+  // Only the api's request checks read what each organization may use today: the worker and the console never do.
+  subscriptions: createSubscriptionAccess({ db: services.db }),
   profiles: services.profiles,
   db: services.db,
   files: services.files,
