@@ -20,7 +20,8 @@ documents are marked sensitive (spec 5).
   - `list(actor, { recordType, recordId })`: the record's ready files, sensitive ones marked; a sensitive file's name
     shows only to members with `documents:view_sensitive`, others (and the system) see "Sensitive file";
   - `remove(actor, { recordType, recordId, attachmentId })`: a soft delete; only members with
-    `documents:view_sensitive` may remove a sensitive file (the system may not);
+    `documents:view_sensitive` may remove a sensitive file (the system may not), and no one may remove a file of a
+    system-owned record type, today `issued_document` (`FORBIDDEN`/`SYSTEM_OWNED_FILE`);
   - `storeGeneratedFile(actor, file)`: stores a file the server made (a rendered PDF) and returns it ready. With a
     chosen `attachmentId` a retry stores it once (`CONFLICT`/`ATTACHMENT_ID_IN_USE` if the id belongs to another
     record, organization or a deleted file); a retry after a failed upload completes the pending row with its own

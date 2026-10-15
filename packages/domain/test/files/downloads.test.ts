@@ -1,5 +1,6 @@
 // Downloading: short-lived links, sensitive files only for those allowed to see them, and nothing across
 // organizations.
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { systemActor } from "../../src/kernel/index.js";
 import type { MemberAccess } from "../../src/identity/index.js";
@@ -193,6 +194,25 @@ describe("downloading files", () => {
     });
     await test.files.remove(operations, ref(passport));
     await expect(test.files.downloadLink(operations, ref(passport))).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("refuses to remove a file the system owns, such as an issued document's PDF, whoever asks", async () => {
+    const pdf = await test.files.storeGeneratedFile(systemActor(organizationId), {
+      recordType: "issued_document",
+      recordId: randomUUID(),
+      fileName: "DOC-2026-0007.pdf",
+      contentType: "application/pdf",
+      body: bytes("%PDF-1.3 issued"),
+    });
+    for (const actor of [memberOf(organizationId, "org-owner"), systemActor(organizationId)]) {
+      await expect(test.files.remove(actor, ref(pdf))).rejects.toMatchObject({
+        code: "FORBIDDEN",
+        reason: "SYSTEM_OWNED_FILE",
+      });
+    }
+    expect((await test.files.systemDownloadLink(organizationId, { attachmentId: pdf.id })).url).toContain(
+      "DOC-2026-0007.pdf",
+    );
   });
 
   it("lets another organization neither confirm, list, download nor remove a file", async () => {

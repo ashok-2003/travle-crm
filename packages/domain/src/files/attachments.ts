@@ -26,8 +26,14 @@ export async function listAttachments(
 }
 
 /**
+ * Record types whose files the system makes and keeps: an issued document's PDF is part of what was issued (ADR
+ * 0012), so no one removes it through the generic calls, the system included.
+ */
+const SYSTEM_OWNED_RECORD_TYPES: readonly string[] = ["issued_document"];
+
+/**
  * Hides the file (ADR 0004). Its bytes stay in storage, and count, until the platform's purge. A sensitive file is
- * removed only by a member holding documents:view_sensitive.
+ * removed only by a member holding documents:view_sensitive; a file of a system-owned record type, by no one.
  */
 export async function removeAttachment(
   { db }: FilesDependencies,
@@ -36,6 +42,9 @@ export async function removeAttachment(
 ): Promise<void> {
   await db.forOrg(actor.organizationId, async (tx) => {
     const row = await findAttachment(tx, input);
+    if (SYSTEM_OWNED_RECORD_TYPES.includes(row.recordType)) {
+      throw new DomainError("FORBIDDEN", "SYSTEM_OWNED_FILE", "This file belongs to its record and can't be removed");
+    }
     if (row.sensitive && !canViewSensitive(actor)) {
       throw new DomainError("FORBIDDEN", "MISSING_PERMISSION", "Requires documents:view_sensitive");
     }

@@ -1,5 +1,6 @@
 // Uploading: the browser sends the file straight to storage, the api confirms it arrived as promised, and every
 // organization's files count toward its storage limit, deleted ones included until a purge.
+import { softDeleted } from "@travel-crm/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createFiles } from "../../src/files/index.js";
 import { systemActor } from "../../src/kernel/index.js";
@@ -150,8 +151,11 @@ describe("uploading files", () => {
     expect(a).toMatchObject({ id: file.attachmentId, status: "ready" });
 
     const inUse = { code: "CONFLICT", reason: "ATTACHMENT_ID_IN_USE" };
+    // An issued document's PDF can't be removed through the files API, so the deletion is made in the table.
     const owner = memberOf(organizationId, "org-owner");
-    await test.files.remove(owner, { recordType: file.recordType, recordId: file.recordId, attachmentId: a.id });
+    await test.db.forOrg(organizationId, (tx) =>
+      tx.attachment.update({ where: { id: a.id }, data: softDeleted(owner.userId) }),
+    );
     await expect(test.files.storeGeneratedFile(system, file)).rejects.toMatchObject(inUse);
 
     const otherOrganizationId = await createOrganization(test, "Another files agency");
