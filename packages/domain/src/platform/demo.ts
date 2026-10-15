@@ -14,6 +14,7 @@ import {
 import { addDays, calendarDateIn, DomainError, systemActor } from "../kernel/index.js";
 import { saveOrganizationProfile } from "../profile/index.js";
 import { demoPlan, startSubscription } from "../subscriptions/index.js";
+import { hashPassword } from "./password-hash.js";
 import { recordPlatformAudit } from "./platform-log.js";
 import { purgeOrganization } from "./purge.js";
 import type { PlatformServices } from "./services.js";
@@ -76,7 +77,7 @@ export async function resetDemoOrganization(
     await purgeOrganization(services, { organizationId: lastNight, requestedBy: null }, { requireCancelled: false });
   }
   // Hashing is slow on purpose: once, before the transaction, for every demo account.
-  const passwordHash = await (await services.identity.auth.$context).password.hash(demo.password);
+  const passwordHash = await hashPassword(services, demo.password);
   return services.platformDb.transaction(
     async (tx) => {
       const organization = await createOrganizationRecord(tx, {

@@ -1,12 +1,15 @@
 // The command that makes the first super admin (`first-super-admin -- --email <e> --name <n>`), run once with the
 // console's environment, never over HTTP. It prints the temporary password to the operator's terminal and nothing
-// else, and refuses once any super admin exists, also when two runs start at the same moment. Each test runs on a
-// database of its own, where no super admin exists yet: other test files add theirs to the shared one.
+// else, and refuses once any super admin exists, also when two runs overlap: proven with the second forced inside the
+// first's open transaction, and with two runs at the same moment. Each test runs on a database of its own, where no
+// super admin exists yet: other test files add theirs to the shared one.
 import { createIsolatedDatabase, type IsolatedDatabase } from "@travel-crm/db/testing";
+import { createFirstSuperAdmin } from "@travel-crm/domain/identity";
 import { afterEach, beforeEach, describe, expect, inject, it } from "vitest";
 import { firstSuperAdminCommand } from "../src/console-commands.js";
 import { consoleQuery, createTestConsole, type TestConsole } from "./support/console.js";
 import { CookieJar } from "./support/cookie-jar.js";
+import { overlapping } from "./support/overlapping.js";
 import { createTestServer, signInByEmail, type TestServer } from "./support/test-server.js";
 import { refusalOf } from "./support/trpc.js";
 
@@ -74,6 +77,19 @@ describe("the first super admin", () => {
       stdout: [],
       stderr: ["A super admin exists already: they add everyone else from the console."],
     });
+    expect(await superAdmins()).toHaveLength(1);
+  });
+
+  it("makes one when a run starts inside another's open transaction: the second waits, then is refused", async () => {
+    const made = (email: string) => ({ name: "First", email, passwordHash: "not-a-real-hash" });
+    const [first, second] = await overlapping(
+      testConsole.services.platformDb,
+      server.platform,
+      (tx) => createFirstSuperAdmin(tx, made("first@platform.test")),
+      (tx) => createFirstSuperAdmin(tx, made("second@platform.test")),
+    );
+    expect(first.status).toBe("fulfilled");
+    expect(second).toMatchObject({ status: "rejected", reason: { reason: "SUPER_ADMIN_EXISTS" } });
     expect(await superAdmins()).toHaveLength(1);
   });
 

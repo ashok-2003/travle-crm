@@ -1,7 +1,8 @@
 // Platform staff from the console (spec 5, 6.1), super admins only, and the first super admin from a one-off command.
 // Identity writes the levels itself, under its platform staff lock, in the same platform transaction as the platform
 // log's entry, which holds ids and levels only: never a name, an address or a password. A temporary password is in
-// the function's result alone, for the one response or terminal it is shown in.
+// the function's result alone, for the one response or terminal it is shown in. An impersonation a removal or a new
+// password ends is recorded in its member's organization's log, as a stop through Better Auth is.
 import type {
   AddedPlatformStaff,
   AddPlatformStaffInput,
@@ -9,7 +10,8 @@ import type {
   SetPlatformStaffLevelInput,
   TemporaryPasswordOutput,
 } from "@travel-crm/contracts/platform";
-import type { PlatformTx } from "@travel-crm/db/platform";
+import { asOrganization, type PlatformTx } from "@travel-crm/db/platform";
+import { recordAudit } from "../audit/index.js";
 import {
   changePlatformStaffLevel,
   createFirstSuperAdmin,
@@ -18,8 +20,11 @@ import {
   removeFromPlatformStaff,
   replacePlatformStaffPassword,
   temporaryPassword,
+  type EndedImpersonation,
   type PlatformStaffActor,
 } from "../identity/index.js";
+import { platformActor } from "../kernel/index.js";
+import { hashPassword } from "./password-hash.js";
 import { recordPlatformAudit, type PlatformActor, type PlatformChange } from "./platform-log.js";
 import type { PlatformServices } from "./services.js";
 
@@ -51,7 +56,7 @@ export async function addPlatformStaff(
   input: AddPlatformStaffInput,
 ): Promise<AddedPlatformStaff> {
   const password = temporaryPassword();
-  const passwordHash = await hashOf(services, password);
+  const passwordHash = await hashPassword(services, password);
   const { userId } = await services.platformDb.transaction(async (tx) => {
     const created = await createPlatformStaffAccount(tx, staff, { ...input, passwordHash });
     await record(tx, staff, {
@@ -70,7 +75,7 @@ export async function addFirstSuperAdmin(
   input: { name: string; email: string },
 ): Promise<AddedPlatformStaff> {
   const password = temporaryPassword();
-  const passwordHash = await hashOf(services, password);
+  const passwordHash = await hashPassword(services, password);
   const { userId } = await services.platformDb.transaction(async (tx) => {
     const created = await createFirstSuperAdmin(tx, { ...input, passwordHash });
     // No one in the console acts: the operator ran the command.
@@ -100,8 +105,9 @@ export async function removePlatformStaff(
   input: { userId: string },
 ): Promise<void> {
   await services.platformDb.transaction(async (tx) => {
-    const { before } = await removeFromPlatformStaff(tx, staff, input.userId);
+    const { before, endedImpersonations } = await removeFromPlatformStaff(tx, staff, input.userId);
     await record(tx, staff, { action: REMOVED, targetId: input.userId, before: { level: before } });
+    await recordStops(tx, staff, endedImpersonations, "removed-from-platform-staff");
   });
 }
 
@@ -112,17 +118,39 @@ export async function resetPlatformStaffPassword(
   input: { userId: string },
 ): Promise<TemporaryPasswordOutput> {
   const password = temporaryPassword();
-  const passwordHash = await hashOf(services, password);
+  const passwordHash = await hashPassword(services, password);
   await services.platformDb.transaction(async (tx) => {
-    await replacePlatformStaffPassword(tx, staff, { userId: input.userId, passwordHash });
+    const { endedImpersonations } = await replacePlatformStaffPassword(tx, staff, {
+      userId: input.userId,
+      passwordHash,
+    });
     await record(tx, staff, { action: "platform-staff.password-reset", targetId: input.userId });
+    await recordStops(tx, staff, endedImpersonations, "password-reset");
   });
   return { temporaryPassword: password };
 }
 
-/** Better Auth's own hasher. Slow on purpose, so it runs before the transaction, which holds the staff lock. */
-async function hashOf(services: PlatformServices, password: string): Promise<string> {
-  return (await services.identity.auth.$context).password.hash(password);
+/**
+ * "support.impersonation-stopped" in each member's organization's log, as Better Auth's stop endpoint writes it, so its
+ * staff see the impersonation end. The super admin who ended it acts, from the console; the impersonating admin and
+ * the reason are in the entry.
+ */
+async function recordStops(
+  tx: PlatformTx,
+  staff: PlatformStaffActor,
+  ended: readonly EndedImpersonation[],
+  reason: "removed-from-platform-staff" | "password-reset",
+): Promise<void> {
+  for (const { organizationId, memberId, userId, adminUserId, expiresAt } of ended) {
+    await asOrganization(tx, organizationId, (orgTx) =>
+      recordAudit(orgTx, platformActor(organizationId, staff.userId), {
+        action: "support.impersonation-stopped",
+        entityType: "member",
+        entityId: memberId,
+        after: { userId, adminUserId, expiresAt: expiresAt.toISOString(), reason },
+      }),
+    );
+  }
 }
 
 function record(

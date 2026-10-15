@@ -57,10 +57,9 @@ describe("managing platform staff", () => {
     consoleMutate(testConsole, "platformStaff.add", input, superAdmin.jar);
   const setLevel = (userId: string, level: string) =>
     consoleMutate(testConsole, "platformStaff.setLevel", { userId, level }, superAdmin.jar);
-  const listed = async (userId: string) =>
-    (await dataOf<PlatformStaffEntry[]>(await consoleQuery(testConsole, "platformStaff.list", superAdmin.jar))).find(
-      (entry) => entry.userId === userId,
-    );
+  const list = async () =>
+    dataOf<PlatformStaffEntry[]>(await consoleQuery(testConsole, "platformStaff.list", superAdmin.jar));
+  const listed = async (userId: string) => (await list()).find((entry) => entry.userId === userId);
 
   it("adds support with a temporary password, which they replace before the console lets them in", async () => {
     const email = newAddress("newcomer");
@@ -167,7 +166,8 @@ describe("managing platform staff", () => {
       { ...noOrganization, action: "platform-staff.password-reset", before: null, after: null },
       { ...noOrganization, action: "platform-staff.removed", before: { level: "super-admin" }, after: null },
     ]);
-    expect(JSON.stringify(entries)).not.toMatch(new RegExp(`Recorded|${email}`));
+    expect(JSON.stringify(entries)).not.toContain("Recorded");
+    expect(JSON.stringify(entries)).not.toContain(email);
   });
 
   it("shows a temporary password in its response only: not in the platform log, the console's log or pg-boss", async () => {

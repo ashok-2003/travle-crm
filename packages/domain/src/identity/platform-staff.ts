@@ -7,6 +7,7 @@ import type { PlatformStaffLevel } from "@travel-crm/contracts/platform";
 import { isUniqueViolation, type IdentityTx } from "@travel-crm/db/identity";
 import { DomainError } from "../kernel/index.js";
 import { describePlatformStaff, hasEverBeenMember, platformStaffRoles } from "./access.js";
+import { endPlatformStaffSessions, type EndedImpersonation } from "./platform-staff-sessions.js";
 
 /** Better Auth's ban reason for someone removed from platform staff: the row stays, so the logs' ids lead somewhere. */
 export const REMOVED_FROM_PLATFORM_STAFF = "Removed from platform staff";
@@ -45,7 +46,8 @@ export async function createFirstSuperAdmin(
   staff: Omit<NewPlatformStaff, "level">,
 ): Promise<{ userId: string }> {
   await lockPlatformStaff(tx);
-  if ((await superAdminsBesides(tx, null)) > 0) {
+  // Any super admin at all, one who hasn't chosen a password yet included: this command makes the first one only.
+  if ((await superAdmins(tx, { besides: null, readyOnly: false })) > 0) {
     throw new DomainError(
       "CONFLICT",
       "SUPER_ADMIN_EXISTS",
@@ -81,7 +83,7 @@ export async function removeFromPlatformStaff(
   tx: IdentityTx,
   actor: PlatformStaffActor,
   userId: string,
-): Promise<{ before: PlatformStaffLevel }> {
+): Promise<{ before: PlatformStaffLevel; endedImpersonations: EndedImpersonation[] }> {
   await lockPlatformStaff(tx);
   await assertSuperAdmin(tx, actor);
   const before = await levelOf(tx, userId);
@@ -90,8 +92,7 @@ export async function removeFromPlatformStaff(
     where: { id: userId },
     data: { role: null, banned: true, banReason: REMOVED_FROM_PLATFORM_STAFF, banExpires: null },
   });
-  await endSessions(tx, userId);
-  return { before };
+  return { before, endedImpersonations: await endPlatformStaffSessions(tx, userId) };
 }
 
 /**
@@ -102,7 +103,7 @@ export async function replacePlatformStaffPassword(
   tx: IdentityTx,
   actor: PlatformStaffActor,
   input: { userId: string; passwordHash: string },
-): Promise<void> {
+): Promise<{ endedImpersonations: EndedImpersonation[] }> {
   await lockPlatformStaff(tx);
   await assertSuperAdmin(tx, actor);
   await levelOf(tx, input.userId);
@@ -112,7 +113,7 @@ export async function replacePlatformStaffPassword(
   });
   if (count !== 1) throw new Error(`Expected one credential account for user ${input.userId}, found ${String(count)}`);
   await tx.user.update({ where: { id: input.userId }, data: { mustChangePassword: true } });
-  await endSessions(tx, input.userId);
+  return { endedImpersonations: await endPlatformStaffSessions(tx, input.userId) };
 }
 
 /** Held until the transaction ends. One fixed key: every change to platform staff waits for the one before it. */
@@ -134,18 +135,26 @@ async function levelOf(tx: IdentityTx, userId: string): Promise<PlatformStaffLev
   return staff.level;
 }
 
+/**
+ * Another super admin must be able to act now: one still to replace a temporary password counts for nothing yet, so a
+ * super admin can't add one and leave, handing the platform to someone who may never sign in.
+ */
 async function assertAnotherSuperAdmin(tx: IdentityTx, userId: string): Promise<void> {
-  if ((await superAdminsBesides(tx, userId)) === 0) {
+  if ((await superAdmins(tx, { besides: userId, readyOnly: true })) === 0) {
     throw new DomainError("CONFLICT", "LAST_SUPER_ADMIN", "The platform must keep a super admin");
   }
 }
 
-/** Super admins other than userId who can still sign in: not banned, and never a member (removed ones included). */
-async function superAdminsBesides(tx: IdentityTx, userId: string | null): Promise<number> {
+/**
+ * Super admins other than `besides` who can still sign in: not banned, and never a member (removed ones included).
+ * `readyOnly` leaves out those with a temporary password still to replace.
+ */
+async function superAdmins(tx: IdentityTx, filter: { besides: string | null; readyOnly: boolean }): Promise<number> {
   const [row] = await tx.$queryRaw<{ n: number }[]>`
     SELECT count(*)::int AS n FROM "user" u
-    WHERE u.role = ${platformStaffRoles["super-admin"]} AND u.id IS DISTINCT FROM ${userId}::uuid
+    WHERE u.role = ${platformStaffRoles["super-admin"]} AND u.id IS DISTINCT FROM ${filter.besides}::uuid
       AND (u.banned IS NOT TRUE OR u.ban_expires <= now())
+      AND NOT (${filter.readyOnly}::boolean AND u.must_change_password)
       AND NOT EXISTS (SELECT 1 FROM member m WHERE m.user_id = u.id)`;
   return row?.n ?? 0;
 }
@@ -178,17 +187,8 @@ async function insertAccount(tx: IdentityTx, staff: NewPlatformStaff): Promise<{
   }
 }
 
-/** Their own sessions, and every session they opened as a member (support's impersonation). */
-async function endSessions(tx: IdentityTx, userId: string): Promise<void> {
-  await tx.session.deleteMany({ where: { OR: [{ userId }, { impersonatedBy: userId }] } });
-}
-
 function everAMember(): DomainError {
-  return new DomainError(
-    "CONFLICT",
-    "EVER_A_MEMBER",
-    "A person who is or was in an organization can't be platform staff",
-  );
+  return new DomainError("CONFLICT", "EVER_A_MEMBER", "A member, past or present, can't be platform staff");
 }
 
 function emailTaken(): DomainError {

@@ -47,6 +47,7 @@ export {
   type PlatformStaffActor,
 } from "./platform-staff.js";
 export { platformStaffAccounts, type PlatformStaffAccount } from "./platform-staff-list.js";
+export type { EndedImpersonation } from "./platform-staff-sessions.js";
 export {
   isPermission,
   isScopedPermission,

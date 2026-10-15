@@ -1,7 +1,8 @@
 // What a change to platform staff does to sessions. Removing someone ends their power at once: their own sessions and
 // the impersonations they started are deleted, so their next console call and the impersonated member's next request
-// are refused; their user row stays, banned, and their address stays taken. Demoting a super admin keeps their
-// impersonations (support may impersonate). A new temporary password signs them out everywhere.
+// are refused, and each ended impersonation is recorded in its organization's log; their user row stays, banned, and
+// their address stays taken. Demoting a super admin keeps their impersonations (support may impersonate). A new
+// temporary password signs them out everywhere, impersonations included.
 import type { PlatformStaffEntry, TemporaryPasswordOutput } from "@travel-crm/contracts/platform";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
@@ -57,7 +58,28 @@ describe("platform staff's sessions", () => {
 
   const impersonationsBy = (userId: string) => server.platform.session.count({ where: { impersonatedBy: userId } });
 
-  it("removes support: their sessions and their impersonations end at once", async () => {
+  /** The Owner's organization's log entries for impersonations by this admin that the console ended. */
+  const stopsRecorded = (adminUserId: string) =>
+    server.platform.auditEntry.findMany({
+      where: {
+        organizationId: agency.organizationId,
+        action: "support.impersonation-stopped",
+        after: { path: ["adminUserId"], equals: adminUserId },
+      },
+      select: { actorUserId: true, source: true, impersonatedBy: true, entityType: true, entityId: true, after: true },
+    });
+
+  /** What the Owner's organization reads when the console ended an impersonation by this admin, for this reason. */
+  const stopEntry = (adminUserId: string, reason: string) => ({
+    actorUserId: superAdmin.userId,
+    source: "platform",
+    impersonatedBy: null,
+    entityType: "member",
+    entityId: agency.owner.memberId,
+    after: { userId: agency.owner.userId, adminUserId, expiresAt: expect.any(String) as string, reason },
+  });
+
+  it("removes support: their sessions and their impersonations end at once, recorded where they were", async () => {
     const leaving = await signedInPlatformStaff(server, "support");
     const impersonation = await impersonatingOwner(leaving);
     expect((await consoleQuery(testConsole, "whoAmI", leaving.jar)).status).toBe(200);
@@ -68,6 +90,7 @@ describe("platform staff's sessions", () => {
     expect((await consoleQuery(testConsole, "whoAmI", leaving.jar)).status).toBe(401);
     expect((await query(server, "settings.get", impersonation)).status).toBe(401);
     expect((await signInByEmail(server, new CookieJar(), leaving.email, leaving.password)).ok).toBe(false);
+    expect(await stopsRecorded(leaving.userId)).toEqual([stopEntry(leaving.userId, "removed-from-platform-staff")]);
   });
 
   it("keeps a removed person's row, with no level, and their address taken, as any address in use is", async () => {
@@ -108,9 +131,10 @@ describe("platform staff's sessions", () => {
     expect(await impersonationsBy(demoted.userId)).toBe(1);
     expect((await query(server, "settings.get", impersonation)).status).toBe(200);
     expect(await dataOf(await consoleQuery(testConsole, "whoAmI", demoted.jar))).toMatchObject({ level: "support" });
+    expect(await stopsRecorded(demoted.userId)).toEqual([]);
   });
 
-  it("sets a new temporary password, shown once, and signs them out everywhere", async () => {
+  it("sets a new temporary password, shown once, and signs them out everywhere, impersonations included", async () => {
     const forgetful = await signedInPlatformStaff(server, "support");
     const impersonation = await impersonatingOwner(forgetful);
     const { temporaryPassword } = await dataOf<TemporaryPasswordOutput>(
@@ -118,6 +142,7 @@ describe("platform staff's sessions", () => {
     );
     expect((await consoleQuery(testConsole, "whoAmI", forgetful.jar)).status).toBe(401);
     expect((await query(server, "settings.get", impersonation)).status).toBe(401);
+    expect(await stopsRecorded(forgetful.userId)).toEqual([stopEntry(forgetful.userId, "password-reset")]);
     expect((await signInByEmail(server, new CookieJar(), forgetful.email, forgetful.password)).ok).toBe(false);
     const jar = new CookieJar();
     expect((await signInByEmail(server, jar, forgetful.email, temporaryPassword)).status).toBe(200);
