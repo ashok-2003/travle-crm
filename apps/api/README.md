@@ -75,8 +75,9 @@ development server) routes there, and the platform's own jobs, from `src/console
 | `platform.reset-demo`             | every night at 02:00 India time, purges and rebuilds the shared demo (spec 7.4)              |
 
 It is the only process that reads `DATABASE_PLATFORM_URL` (deploys give it to no other), and it needs everything else
-the api does. It refuses to start when that connection isn't the platform role, as well as for everything the api
-refuses. It runs no listeners and relays nothing: the worker does. One instance is enough; keep it running for the demo
+the api does. It refuses to start when that connection isn't the platform role, or when the platform role can't step
+into an organization as `app_runtime` (`OrganizationStepRefusedError`: the grant a hosted database needs, ADR 0019
+and `docs/deploy-checklist.md`), as well as for everything the api refuses. It runs no listeners and relays nothing: the worker does. One instance is enough; keep it running for the demo
 reset. It stops on SIGTERM like the api.
 
 | Variable                 | Required | Default | Meaning                                                                        |

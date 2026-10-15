@@ -124,8 +124,13 @@ adminUserId)`), not as the system.
 
 - Deploying runs three services from one image: `api`, `worker` and `console` (one instance is plenty; it must stay
   up for the platform's scheduled jobs).
-- A hosted database needs the same `GRANT` when its roles are created (plan 5's deploy checklist); a local database
-  bootstrapped before plan 4 needs it run once (`packages/db/README.md`).
+- **A hosted database's prerequisites** (`docs/deploy-checklist.md`): Postgres 16 or later, for the grant's
+  `WITH INHERIT FALSE, SET TRUE`; the same `GRANT` when its roles are created, run by a role holding ADMIN OPTION on
+  `app_runtime` (on a managed service, the role that created it); and a transaction-mode pooler is fine, since the
+  switch is `SET LOCAL` and `app.org_id` transaction-local. The console checks the grant at start-up, with an empty
+  step into an organization inside its role check's transaction, and refuses to start without it
+  (`OrganizationStepRefusedError`), rather than start healthy and fail every step. A local database bootstrapped
+  before plan 4 needs the grant run once (`packages/db/README.md`).
 - Everything a platform transaction does outside `asOrganization` must name its organization; reviewers check it.
 - Inside a step `session_user` is still `app_platform`, so SQL there that ran `RESET ROLE` or `SET ROLE app_platform`
   would see every organization. Only `packages/db` writes such SQL (the ESLint tripwire); inside `forOrg()` nothing can

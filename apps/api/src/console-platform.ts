@@ -1,6 +1,6 @@
 // The console's platform services on a started process (ADR 0019): its own settings, and the platform role's
 // connection, checked before anything uses it. The console process and its one-off commands start the same way.
-import { createPlatformServices, type PlatformServices } from "@travel-crm/domain/platform";
+import { checkPlatformConnection, createPlatformServices, type PlatformServices } from "@travel-crm/domain/platform";
 import { loadConsoleSettings, type ConsoleSettings } from "./console-environment.js";
 import type { ProcessBase } from "./start-up.js";
 
@@ -9,7 +9,10 @@ export interface ConsolePlatform {
   platform: PlatformServices;
 }
 
-/** A missing DATABASE_PLATFORM_URL or a connection that isn't the platform role throws, with the platform pool closed. */
+/**
+ * A missing DATABASE_PLATFORM_URL, a connection that isn't the platform role, or a platform role that can't step into
+ * an organization (the grant a hosted database needs) throws, with the platform pool closed.
+ */
 export async function startConsolePlatform({ environment, services, log }: ProcessBase): Promise<ConsolePlatform> {
   const settings = loadConsoleSettings(process.env, environment);
   const platform = createPlatformServices({
@@ -22,8 +25,8 @@ export async function startConsolePlatform({ environment, services, log }: Proce
     log,
   });
   try {
-    // A transaction checks that the connection is the platform role: refuse to start rather than fail later.
-    await platform.platformDb.transaction(() => Promise.resolve());
+    // The connection is the platform role, and may switch to the runtime role: refuse to start rather than fail later.
+    await checkPlatformConnection(platform.platformDb);
   } catch (error) {
     await platform.platformDb.disconnect().catch(() => undefined);
     throw error;

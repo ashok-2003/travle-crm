@@ -6,6 +6,10 @@ The platform console's work across organizations (spec sections 5 and 7). It is 
 
 ## Public functions and values (`index.ts`)
 
+- What the console runs on: `createPlatformServices(options)` (the platform role's pool beside the services the
+  console shares with the api), and `checkPlatformConnection(platformDb)`, its start-up check: a platform transaction
+  (the role is `app_platform`) with an empty step into an organization inside it (the role may switch to
+  `app_runtime`), or `OrganizationStepRefusedError`, which names the grant a hosted database needs.
 - Organizations: `onboardOrganization(services, staff, input)` (spec 7.1, one platform transaction: the
   organization, its roles, business profile, subscription and invited Owner), `resendInvite(services, staff,
 { organizationId, memberId })`, `getOrganization(services, organizationId)` (its row, profile and subscription with

@@ -43,7 +43,13 @@ export {
   setPlatformStaffLevel,
 } from "./platform-staff.js";
 export { PURGE_ORGANIZATION_QUEUE, purgeOrganization, requestPurge, type PurgeResult } from "./purge.js";
-export { createPlatformServices, type PlatformServices, type PlatformServicesOptions } from "./services.js";
+export {
+  checkPlatformConnection,
+  createPlatformServices,
+  OrganizationStepRefusedError,
+  type PlatformServices,
+  type PlatformServicesOptions,
+} from "./services.js";
 export {
   cancel,
   changePlan,
