@@ -21,6 +21,8 @@ quotes and invoices bring theirs.
   template's content as a quotation, its GST worked out by the kernel's `indiaGst` and every amount printed with
   `formatMoney`, ready for `issueDocument`.
 
+- `documentsIssuedSince(tx, since)`: a usage counter for the platform dashboard.
+
 ## Events
 
 - Publishes `document.issued` with `{ documentId }`.

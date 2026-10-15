@@ -59,8 +59,13 @@ export async function processWebhookEvent(
     payload: row.payload,
     attempts: row.attempts,
   };
+  let organizationId: string | null = null;
   try {
-    await provider.process(event);
+    await provider.process(event, {
+      isAbout: (id) => {
+        organizationId = id;
+      },
+    });
   } catch (error) {
     try {
       await db.withoutOrg((tx) =>
@@ -80,7 +85,12 @@ export async function processWebhookEvent(
   await db.withoutOrg((tx) =>
     webhookEvents(tx).updateMany({
       where: { id: row.id, processedAt: null },
-      data: { processedAt: new Date(), attempts: { increment: 1 }, lastError: null },
+      data: {
+        processedAt: new Date(),
+        attempts: { increment: 1 },
+        lastError: null,
+        resolvedOrganizationId: organizationId,
+      },
     }),
   );
   return "processed";

@@ -63,6 +63,11 @@ export function createMemoryStorage(now: () => Date = () => new Date()): MemoryS
         assertSafeKey(key);
         return objects.get(key)?.body.slice() ?? null;
       }),
+    delete: (key) =>
+      promised(() => {
+        assertSafeKey(key);
+        objects.delete(key);
+      }),
     upload: (upload, body, contentType) =>
       promised(() => {
         if (now() > upload.expiresAt) throw new Error("The upload URL has expired");

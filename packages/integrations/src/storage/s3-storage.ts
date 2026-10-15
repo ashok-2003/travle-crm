@@ -1,5 +1,6 @@
 // The storage port on S3, or any S3-compatible server: AWS S3 in the cloud, MinIO locally (spec 9.2).
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   HeadBucketCommand,
   HeadObjectCommand,
@@ -127,6 +128,12 @@ export function createS3Storage(settings: S3StorageSettings): S3Storage {
         if (isErrorNamed(error, "NoSuchKey")) return null;
         throw error;
       }
+    },
+
+    async delete(key) {
+      assertSafeKey(key);
+      // S3 answers success for a key with nothing stored, so deleting is safe to repeat.
+      await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
     },
   };
 }
