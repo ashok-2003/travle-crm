@@ -3,7 +3,7 @@
 // are refused; their user row stays, banned, and their address stays taken. Demoting a super admin keeps their
 // impersonations (support may impersonate). A new temporary password signs them out everywhere.
 import type { PlatformStaffEntry, TemporaryPasswordOutput } from "@travel-crm/contracts/platform";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import {
   consoleMutate,
   consoleQuery,
@@ -118,7 +118,13 @@ describe("platform staff's sessions", () => {
     );
     expect((await consoleQuery(testConsole, "whoAmI", forgetful.jar)).status).toBe(401);
     expect((await query(server, "settings.get", impersonation)).status).toBe(401);
+    // Better Auth warns of the old password, which is the point: kept off the test output, and checked.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    onTestFinished(() => {
+      warn.mockRestore();
+    });
     expect((await signInByEmail(server, new CookieJar(), forgetful.email, forgetful.password)).ok).toBe(false);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("Invalid password"));
     const jar = new CookieJar();
     expect((await signInByEmail(server, jar, forgetful.email, temporaryPassword)).status).toBe(200);
     expect(await refusalOf(await consoleQuery(testConsole, "whoAmI", jar))).toEqual({
