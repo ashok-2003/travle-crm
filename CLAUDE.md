@@ -58,9 +58,11 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   grants. Plans 1 and 2's keys keep Prisma's `ON UPDATE CASCADE` (organization ids never change). The test suite
   checks the keys, the unique constraints, and that every key to `organization` restricts deletion.
 - Only the platform module uses `@travel-crm/db/platform` (it sees every organization), and only the console process
-  reads `DATABASE_PLATFORM_URL` (deploys give it to no other). Module code written for `forOrg()` runs there inside
-  `asOrganization(tx, orgId, …)`, as the runtime role under row-level security; everything else in a platform
-  transaction names its organization.
+  reads `DATABASE_PLATFORM_URL` (deploys give it to no other). Only the console's own code (`apps/api/src/console*.ts`,
+  `packages/api/src/platform/`, served as `@travel-crm/api/platform`) imports `@travel-crm/domain/platform`, and
+  nothing the api server or the worker runs reaches either (dependency-cruiser). Module code written for `forOrg()`
+  runs there inside `asOrganization(tx, orgId, …)`, as the runtime role under row-level security: one step at a time
+  per transaction, awaited, with nothing beside it. Everything else in a platform transaction names its organization.
 - Better Auth's sign-in tables (user, session, account, verification, two_factor, organization, member, invitation) have no
   row-level security. Only `packages/domain/src/identity` reaches them, through `@travel-crm/db/identity`:
   - `OrgTx` hides the sign-in models;
@@ -96,7 +98,9 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   Output schemas are `z.object`, which strips unknown keys.
 - Request checks 2 and 3 (ADR 0020) run in every organization procedure: the subscription's state decides by what the
   call does (a query views, a mutation changes; mark an export `.meta({ lifecycle: "export" })`, and what every state
-  must reach `.meta({ lifecycle: "always" })`), and each required permission's module must be on the plan.
+  must reach `.meta({ lifecycle: "always" })`), and the procedure's plan module must be on the plan. `requires()` sets
+  that module from its first permission, and checks every permission's; a procedure without one declares
+  `.meta({ planModule: "core" })` or its business module. One that declares nothing refuses every call.
 - Permissions are `module:action` in `packages/domain/src/identity/permissions.ts`. Add new ones there; the Owner role
   gets them automatically. A new permission module also needs its plan module in `request-rules.ts`. List queries for
   scoped views filter with `scopeFilter()` (own or all records).
@@ -136,12 +140,15 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 
 ## Platform and subscriptions (spec 7; ADRs 0018-0023)
 
-- **Plans are data** the console edits (prices in paise, seats, WhatsApp numbers, storage, modules); none is seeded.
-  `planLimits` hands the plan's seats to identity and its storage to the files module. Seats and modules are race-free;
+- **Plans are data** the console edits: tiers priced monthly, yearly or both, in paise before GST, with optional
+  prices for extra seats, and sold only on the cycles they are priced for; seats, WhatsApp numbers, storage, modules.
+  No migration seeds one, and the demo is on a plan of its own that is never for sale. `planLimits` hands the plan's
+  seats (extra seats included) to identity and its storage to the files module. Seats and modules are race-free;
   the storage limit is not, by plan 3's choice (uploads in flight may overshoot it: it is a plan's limit, not a safety
   rule).
-- **The lifecycle is computed on every request** (`dueState`), so a late job never grants access; the worker's
-  `subscriptions.advance-lifecycle` writes it down each night. Payments and cancelling are the console's.
+- **The lifecycle is computed on every request** (`dueState`), so a late job never grants access; the console's
+  `subscriptions.advance-lifecycle` writes it down each night. Only the platform role writes subscriptions, under the
+  row's lock: payments, cancelling and the nightly job are all the console's.
 - **Platform admins act in their own name:** `platformActor(organizationId, adminUserId)`, source `platform`, in the
   organization's audit log; the platform log (`recordPlatformAudit`) holds what belongs to no organization and an
   organization's whole life: onboarded, exported, purged.

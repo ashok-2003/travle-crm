@@ -10,8 +10,8 @@ CREATE ROLE app_runtime  LOGIN PASSWORD 'runtime'  NOBYPASSRLS;
 CREATE ROLE app_platform LOGIN PASSWORD 'platform' NOBYPASSRLS;
 
 -- The platform console steps into one organization as the runtime role inside its own transactions (SET LOCAL ROLE,
--- asOrganization in src/platform.ts), so module code runs there under row-level security. INHERIT FALSE: otherwise
--- the platform role never holds the runtime role's rights. No role may become app_platform or app_migrator.
+-- asOrganization in src/platform.ts), so module code runs there under row-level security. INHERIT FALSE, so the
+-- platform role never holds the runtime role's rights. No role may become app_platform or app_migrator.
 GRANT app_runtime TO app_platform WITH INHERIT FALSE, SET TRUE;
 
 -- The migrator owns the database, and so (Postgres 15+) the public schema. Nobody else can create tables in it.

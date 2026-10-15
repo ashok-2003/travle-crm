@@ -16,7 +16,9 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 4 (the `app_pla
   onboarding, subscriptions, impersonation, failed jobs. A super admin (role `super-admin`) also manages plans,
   platform staff and permanent deletion (spec 5: "a super-admin action"). Both have no membership, ever. The console's
   builders check them on every request: `staffProcedure` (either level, and no temporary password left to replace)
-  and `superAdminProcedure`. Better Auth gives both roles the same powers on its own endpoints.
+  and `superAdminProcedure`. On Better Auth's own endpoints support may only start an impersonation (its role grants
+  `user: impersonate` alone); a super admin keeps the admin plugin's powers, which the side doors limit. Either level
+  must first replace a temporary password: the console and the side doors both refuse until then (`CHANGE_PASSWORD`).
 - **Better Auth's admin endpoints are closed over HTTP**, except starting and stopping support's impersonation
   (`/admin/impersonate-user`, `/admin/stop-impersonating`), which answer as before. Every other `/admin/*` path is a
   404 for everyone, platform staff included: the console has its own API, and some of those endpoints would skip our
@@ -31,12 +33,19 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 4 (the `app_pla
   (its `platform_access` policy) and has the rights the api never gets: creating organizations, writing plans and
   subscriptions, purging. It checks it really is `app_platform` and, like `forOrg()`, can't be nested.
 - **Stepping into one organization.** Inside a platform transaction, `asOrganization(tx, orgId, orgTx => …)` runs
-  `SET LOCAL ROLE app_runtime` and sets `app.org_id`, so the code inside runs exactly as in `db.forOrg()`: row-level
-  security limits it to that organization, new rows take its id, and only the runtime role's grants apply. Then it
-  resets the role, even when the work failed. Onboarding, for example, creates the organization as `app_platform` and
-  its roles and Owner through the identity module's own code, in one transaction. The platform role may switch to the
-  runtime role without inheriting its rights (`GRANT app_runtime TO app_platform WITH INHERIT FALSE, SET TRUE`); no
-  role may switch to `app_platform`.
+  `SET LOCAL ROLE app_runtime` and sets `app.org_id`, so the code inside runs as in `db.forOrg()`: row-level security
+  limits it to that organization, new rows take its id, and only the runtime role's grants apply. Then it resets the
+  role, even when the work failed. Onboarding, for example, creates the organization as `app_platform` and its roles
+  and Owner through the identity module's own code, in one transaction. The platform role may switch to the runtime
+  role without inheriting its rights (`GRANT app_runtime TO app_platform WITH INHERIT FALSE, SET TRUE`); no role may
+  switch to `app_platform`.
+- **One step at a time per transaction.** A second step, inside the first or beside it (`Promise.all`), is refused
+  before any SQL (`NestedForOrgError`), and so is any use of the platform transaction's own `tx` while a step is open
+  (`OrganizationStepOpenError`). A step's transaction works only until its work settles: a query made in it but
+  awaited later, or a helper begun in it and awaited outside, is refused (`OrganizationStepEndedError`). Queries are
+  checked when they run, not only when they are made. A step that fails in the database leaves the transaction
+  aborted: every later use, and the commit, throw `PlatformTransactionAbortedError` instead of Postgres's silent
+  rollback.
 - **Platform admins act in their own name.** A change a platform admin makes to an organization's data is recorded in
   that organization's audit log with source `platform` and the admin as the actor (`platformActor(organizationId,
 adminUserId)`), not as the system.
@@ -48,7 +57,8 @@ adminUserId)`), not as the system.
   "an audit record in the platform log"). It is append-only even for `app_platform`, and `app_runtime` has no rights on
   it.
 
-- **The console process runs the platform's own jobs** (purge, erasure, the nightly demo reset), which need the
+- **The console process runs the platform's own jobs** (purge, erasure, an organization's export and its expiry, the
+  stored files' deletions and their hourly sweep, the nightly subscription lifecycle and demo reset), which need the
   platform role, with `startJobHandlers`: handlers and schedules only. It runs no listeners and no outbox relay; the
   worker's relay is the only one, since a relay that knew no listeners would mark every event relayed with nothing
   queued for it.
@@ -81,3 +91,9 @@ adminUserId)`), not as the system.
 - A hosted database needs the same `GRANT` when its roles are created (plan 5's deploy checklist); a local database
   bootstrapped before plan 4 needs it run once (`packages/db/README.md`).
 - Everything a platform transaction does outside `asOrganization` must name its organization; reviewers check it.
+- Inside a step `session_user` is still `app_platform`, so SQL there that ran `RESET ROLE` or `SET ROLE app_platform`
+  would see every organization. Only `packages/db` writes such SQL (the ESLint tripwire); inside `forOrg()` nothing can
+  leave `app_runtime`.
+- dependency-cruiser keeps `@travel-crm/domain/platform` to the console's own code (`apps/api/src/console*.ts`,
+  `packages/api/src/platform/`) and tests, and `@travel-crm/api/platform`, the console's routers, to the console's own
+  files, so the api and the worker never load the platform's code.

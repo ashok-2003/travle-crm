@@ -46,7 +46,8 @@ super-admin action in the platform console")
 - **Whole organizations from the catalog.** `deleteOrganizationRows` (`@travel-crm/db/platform`) finds every table
   with `organization_id` in the database's catalog, deletes the organization's rows in an order no foreign key trips
   over (`audit_entry` first, as its key restricts), then the organization. A later module's table needs no change
-  here. `organizationRows` exports the same rows as JSON.
+  here. The organization's export reads the same tables from the catalog (all but the outbox, processed events and
+  push subscriptions), a page at a time.
 - **Webhook events become tombstones.** The worker keeps each event with the organization its handler found
   (`resolved_organization_id`, reported by `processing.isAbout`, which takes only a UUID), whether the handler then
   succeeded or failed. A tombstone blanks the payload and headers and keeps the provider's id, so a replayed event is
@@ -63,8 +64,14 @@ super-admin action in the platform console")
   (`VALIDATION`/`NOT_PERSONAL_DATA`) when asked and again in the job. An issued document is refused
   (`VALIDATION`/`KEPT_BY_LAW`): it is a GST invoice or its like, kept as issued (ADR 0012), and DPDP allows the
   retention a law requires. It keeps the customer's details as they were; the erasure covers the person's own records.
-- **Exports first.** `exportedFiles` and `auditEntriesAbout` give what the export before a purge or an erasure holds;
-  the export lists files with download links that lapse, rather than copying them. A purge needs a fresh export
+- **Exports first.** An organization's export is a console job (`platform.export-organization`, given two hours): it
+  reads every organization table through `app_export_organization_rows`, a page per short transaction stepped into
+  the organization, and stores JSON-lines parts and a copy of each stored file under
+  `platform/exports/<organization>/<export>/`, ids only in the keys. `platform_export` keeps it for 7 days; a download
+  hands out 15-minute links and is logged (`organization.export-downloaded`); `platform.expire-exports` then deletes
+  its parts and copies. `organization.exported` is written only once the export is complete. A subject's export
+  (`exportedFiles` and `auditEntriesAbout`) is returned at once in the console's response, its file links lasting 15
+  minutes, and only logged. A purge needs a fresh export
   (`hasFreshExport`): one done within the last day and not withdrawn since. An erasure withdraws every export of its
   organization, though their `organization.exported` log entries stay, so a purge after it needs a new export, without
   the erased person. An erasure needs the subject's `subject.exported` platform log entry from the last day: a subject
@@ -83,19 +90,20 @@ super-admin action in the platform console")
   records `subject.erased`, without personal data, in the organization's own log.
 - **The purge job checks everything again,** under the subscription's lock, which every subscription change takes: the
   organization is cancelled by its lifecycle as of today (`entitlementsOf`, in its own time zone), and it has a fresh
-  export when the job runs (under a day old, and not withdrawn by an erasure since the request). Otherwise it keeps the organization and records `organization.purge-skipped`
-  with the reason (`not-cancelled` with the status, or `no-recent-export`); a super admin asks again, which checks
-  everything again. A payment recorded during a purge waits for it, then finds the organization gone. The nightly
-  demo reset purges its own active demo with none of these checks.
+  export when the job runs (under a day old, and not withdrawn by an erasure since the request). Otherwise it keeps
+  the organization and records `organization.purge-skipped` with the reason (`not-cancelled` with the status, or
+  `no-recent-export`); a super admin asks again, which checks everything again. A payment recorded during a purge
+  waits for it, then finds the organization gone. The nightly demo reset purges its own active demo with none of
+  these checks.
 - **The erasure job checks again too:** its organization still exists, and the subject's export is less than a day old
   when the job runs. Otherwise nothing is erased, and `subject.erasure-skipped` gives the reason
   (`organization-gone` or `no-recent-export`).
 - **Re-checks read on the platform transaction itself,** never inside an `asOrganization` step: a step sees only its
   organization, so a check made there could find too little and let a deletion through.
-- **An erasure expires the organization's stored exports** at once (`expireOrganizationExports(services, tx,
-organizationId, "erasure")`, after its deletes, in its transaction, which marks them expired and logs it; their
-  files go in a sweep it queues): an export is kept for 7 days and would otherwise keep the erased person. A purge
-  leaves them (see Consequences).
+- **An erasure expires the organization's stored exports** at once
+  (`expireOrganizationExports(services, tx, organizationId, "erasure")`, after its deletes, in its transaction, which
+  marks them expired and logs it; their files go in a sweep it queues): an export is kept for 7 days and would
+  otherwise keep the erased person. A purge leaves them (see Consequences).
 - **Both jobs are safe to run again.** A purge of an organization already gone sweeps its folder again. An erasure
   job carries its request's id, recorded in its `subject.erased` entry: a run repeating a finished one (pg-boss runs a
   job at least once) changes and records nothing more, and only finishes the files.

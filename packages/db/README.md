@@ -111,7 +111,10 @@ every organization's rows: name the organization in every query. Inside such a t
 `asOrganization(tx, orgId, orgTx => …)` switches to `app_runtime` in one organization (`SET LOCAL ROLE`, then
 `app.org_id`), so module code written for `db.forOrg()` runs unchanged under row-level security and the runtime role's
 grants, in the same transaction as the platform's own writes ([ADR 0018](../../docs/adr/0018-platform-console.md)).
-It returns to `app_platform` afterwards, even when its work failed, and can't be nested. The switch needs
+It returns to `app_platform` afterwards, even when its work failed, and can't be nested. One step at a time: nothing
+may run beside it (no `Promise.all`), the platform `tx` itself is refused while a step is open, and a step's `orgTx`
+is refused once its work settles (`OrganizationStepEndedError`). After a step fails in the database, the transaction
+can't be used further or committed (`PlatformTransactionAbortedError`). The switch needs
 `GRANT app_runtime TO app_platform WITH INHERIT FALSE, SET TRUE` (in `sql/bootstrap.sql`); a local database made before
 it needs that line run once as the `postgres` superuser:
 
@@ -120,7 +123,14 @@ it needs that line run once as the `postgres` superuser:
 Platform transactions also reach the tables without `organization_id` through their entry points
 (`webhookEvents(tx)`); a transaction stepped into an organization does not.
 
+The platform's own tables (`prisma/schema/platform.prisma`) have no `organization_id` and no row-level security, and
+the runtime role has no rights on them: the platform log (`platform_audit_entry`), the deletions' outbox
+(`stored_file_deletion`) and the organizations' exports (`platform_export`, with `platform_export_file` for the files
+each copied). They name the organization they concern as `target_organization_id`, with no foreign key, so a purge's
+catalog walk leaves them and they outlive it.
+
 For permanent deletion (ADR 0022), `deleteOrganizationRows(tx, organizationId)` deletes the organization's rows in
 every table that has `organization_id`, found from the catalog and ordered so no foreign key trips (`audit_entry`
-first), then the organization; `organizationRows(tx, organizationId, { except })` returns them as JSON, by table, for
-an export. A new organization table is covered without being listed anywhere.
+first), then the organization; `organizationRows(tx, organizationId, { except })` returns them as JSON, by table (the
+console's export no longer uses it: it reads a page at a time through the `app_export_organization_rows` function). A
+new organization table is covered without being listed anywhere.

@@ -15,8 +15,10 @@ The web app imports the `AppRouter` type only, and the console screens the `Plat
 Check 2 (organization active) reads the organization's subscription with the member, and refuses by what the call
 does: a query views, a mutation changes. A procedure that exports data says so with `.meta({ lifecycle: "export" })`
 (allowed while read-only, and to the Owner while suspended); one every state must allow, so the app can say why the
-rest is refused, with `.meta({ lifecycle: "always" })`. Check 3 (module on the plan) comes from each required
-permission's module, inside `requires()`, before check 4. Check 5 (own or all records) is the handler's job, with
+rest is refused, with `.meta({ lifecycle: "always" })`. Check 3 (module on the plan) comes from each procedure's
+`planModule` meta: `requires()` sets it from its first permission, and checks every permission's module before check
+4; any other organization procedure declares `.meta({ planModule: "core" })` or its business module, and one that
+declares nothing refuses every call. Check 5 (own or all records) is the handler's job, with
 `scopeFilter()` from `@travel-crm/domain/identity`. Support's impersonation session is always read from the database,
 and its admin re-checked, so it ends the moment the session does, not when the cookie cache expires. Once a member
 passes their pending steps, their last activity is noted for the platform dashboard (`identity.recordActivity`): at
@@ -49,13 +51,13 @@ resHeaders)`, which always reads the session from the database) and builders:
 
 `platformRouter` (`src/platform/platform-router.ts`) lists them, the routers in `src/platform/routers/`:
 
-| Router           | Procedures                                                                                                                |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| (top level)      | `whoAmI`                                                                                                                  |
-| `dashboard`      | `organizations`: every organization's status, plan, days left, seats, storage and this month's use                        |
-| `organizations`  | `onboard`, `get`, `update`, `resendInvite`                                                                                |
-| `plans`          | `list`, `policy`; super admins: `create`, `update`, `archive`, `setPolicy`                                                |
-| `subscriptions`  | `get`, `changePlan`, `setOverrides`, `setTrialEnd`, `setPaidThrough`, `recordPayment`, `voidPayment`, `suspend`, `cancel` |
-| `dataProtection` | super admins: `exportOrganization`, `requestPurge`, `exportSubject`, `requestErasure`                                     |
-| `jobs`           | `failed`, `retry`, `schedules`; super admins: `unschedule`                                                                |
-| `log`            | `list`: the platform log, newest first, or one organization's                                                             |
+| Router           | Procedures                                                                                                                                                |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| (top level)      | `whoAmI`                                                                                                                                                  |
+| `dashboard`      | `organizations`: every organization's status, plan, days left, seats, storage and this month's use                                                        |
+| `organizations`  | `onboard`, `get`, `update`, `resendInvite`                                                                                                                |
+| `plans`          | `list`, `policy`; super admins: `create`, `update`, `archive`, `setPolicy`                                                                                |
+| `subscriptions`  | `get`, `changePlan`, `setOverrides`, `setTrialEnd`, `setPaidThrough`, `recordPayment`, `voidPayment`, `suspend`, `cancel`; super admins: `liftSuspension` |
+| `dataProtection` | super admins: `exportOrganization` (queues it), `exports`, `downloadExport`, `requestPurge`, `exportSubject`, `requestErasure`                            |
+| `jobs`           | `failed` (a page at a time: `after`, `queue`), `retry` (never a purge, erasure or export), `schedules`; super admins: `unschedule`                        |
+| `log`            | `list`: the platform log, newest first, or one organization's                                                                                             |

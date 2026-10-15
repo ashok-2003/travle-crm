@@ -24,7 +24,7 @@ export interface WorkerJobDependencies {
   /** The web app's address, for links in notification emails. */
   appUrl: string;
   webhookProviders: readonly WebhookProvider[];
-  /** Counts each address's password emails: the invites share plan 3's per-recipient cap. */
+  /** Counts each address's invite emails against identity's own per-recipient cap, apart from password resets. */
   rateLimiter: RateLimiter;
   /** Where problems that need attention go, one line each, ids and codes only: the worker's log. */
   log: (line: string) => void;

@@ -29,7 +29,6 @@ same environment as the api, connects as `app_runtime` too and opens no port. `s
 | `webhooks.process`                        | hands a stored webhook to its provider, once (ADR 0013)                   |
 | `rate-limits.purge`                       | every day at 03:30 India time, deletes rate-limit windows over a day old  |
 | `identity.send-invite`                    | emails an invited Owner the link to choose a password (`staff.invited`)   |
-| `subscriptions.advance-lifecycle`         | every day at 00:15 India time, records each subscription's state (7.3)    |
 
 It also relays the outbox every second, and logs as the api does (below). Like the api, it refuses to start when the
 environment isn't valid, the database role is wrong, the bucket can't be used or a listener or schedule can't be
@@ -50,7 +49,9 @@ its message or the error itself, which can quote a person's data (a Prisma valid
 - **The worker:** a failing job by queue, job id and error, pg-boss's own errors and warnings, the relay's failures,
   jobs whose event wasn't found, and a failed shutdown.
 - **The console:** a console call that fails unexpectedly (`console tRPC <path> failed: ...`), a failing platform job,
-  pg-boss's own errors and warnings, and a failed shutdown.
+  each organization the nightly lifecycle couldn't advance, a purge's or an erasure's files left to the deletions'
+  job, pg-boss's own errors and warnings, and a failed shutdown. The platform's services carry this log
+  (`PlatformServices.log`).
 - **Start-up is the one exception.** A process that can't start prints one `<process> start-up failed` message with
   the error in full, closes its pools and exits 1. Only set-up has run by then, so the error quotes no one's data
   (`src/start-up.ts`).
@@ -61,11 +62,16 @@ its message or the error itself, which can quote a person's data (a Prisma valid
 (ADR 0018): the console's tRPC at `/api/platform/trpc` on `CONSOLE_PORT`, which the load balancer (and the web app's
 development server) routes there, and the platform's own jobs, from `src/console-jobs.ts`:
 
-| Queue                         | What it does                                                                          |
-| ----------------------------- | ------------------------------------------------------------------------------------- |
-| `platform.purge-organization` | deletes a cancelled, exported organization for good, when a super admin asks (spec 5) |
-| `platform.erase-subject`      | erases a removed person or one record in every module (spec 5)                        |
-| `platform.reset-demo`         | every night at 02:00 India time, purges and rebuilds the shared demo (spec 7.4)       |
+| Queue                             | What it does                                                                                 |
+| --------------------------------- | -------------------------------------------------------------------------------------------- |
+| `platform.purge-organization`     | deletes a cancelled, exported organization for good, when a super admin asks (spec 5)        |
+| `platform.erase-subject`          | erases a removed person or one record in every module (spec 5)                               |
+| `platform.export-organization`    | writes an organization's export to the platform's storage, kept 7 days (spec 5)              |
+| `platform.expire-exports`         | deletes the parts and file copies of exports past their 7 days, or withdrawn by an erasure   |
+| `platform.delete-stored-files`    | deletes the stored files a purge or an erasure queued, retrying until done (ADR 0022)        |
+| `platform.sweep-stored-files`     | every hour, deletes what the deletions' outbox holds that no job will reach (ADR 0022)       |
+| `subscriptions.advance-lifecycle` | every day at 00:15 India time, records each subscription's state, as the platform role (7.3) |
+| `platform.reset-demo`             | every night at 02:00 India time, purges and rebuilds the shared demo (spec 7.4)              |
 
 It is the only process that reads `DATABASE_PLATFORM_URL` (deploys give it to no other), and it needs everything else
 the api does. It refuses to start when that connection isn't the platform role, as well as for everything the api

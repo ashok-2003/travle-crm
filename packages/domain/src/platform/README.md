@@ -26,12 +26,18 @@ organizationId)` records a `platform_export` row and queues `EXPORT_ORGANIZATION
   the organization has an export done in the last day and still kept, which a purge relies on; the
   `organization.exported` log entry stays after a withdrawal, so the log can't say this.
 - Permanent deletion (spec 5), super admins only: `exportSubject(services, staff, { organizationId, subject })`
-  (logged; an erasure needs one, and a purge an organization's export, from the last day),
-  `requestPurge(services, staff, { organizationId, confirmation })` (the code typed, the subscription
-  cancelled) and `requestErasure(services, staff, { organizationId, subject, confirmation })` (a removed member or one
-  record), which queue `platform.purge-organization` and `platform.erase-subject`; `purgeOrganization` (which keeps
-  an organization no longer cancelled, as `organization.purge-skipped`) and `eraseSubject`, the jobs;
-  `platformJobHandlers(services)`, for the console process's job runner.
+  (logged; an erasure needs one, and a purge an organization's fresh export, from the last day),
+  `requestPurge(services, staff, { organizationId, confirmation })` (the code typed, the subscription cancelled) and
+  `requestErasure(services, staff, { organizationId, subject, confirmation })` (a removed member, or a record that
+  holds a person's data: an issued document is `KEPT_BY_LAW`, anything else not a person's `NOT_PERSONAL_DATA`), which
+  queue `platform.purge-organization` and `platform.erase-subject` once the request is recorded; an erasure's job
+  carries its `requestId`, so a repeat run only finishes the files. `purgeOrganization` and `eraseSubject`, the jobs,
+  check again on the platform transaction: a purge is skipped as `organization.purge-skipped` (`not-cancelled`,
+  `no-recent-export`), an erasure as `subject.erasure-skipped` (`organization-gone`, `no-recent-export`). An erasure
+  also withdraws the organization's exports. Stored files go after the commit, through the deletions' outbox:
+  `DELETE_STORED_FILES_QUEUE` (`platform.delete-stored-files`) retries until it is empty, and
+  `storedFileDeletionsSchedule(services)` (`SWEEP_STORED_FILES_QUEUE`, hourly), which the console must schedule,
+  catches what no job will. `platformJobHandlers(services)`, for the console process's job runner.
 - The shared demo (spec 7.4): `resetDemoOrganization(services, { code, password }, now?)`, the console's nightly
   `RESET_DEMO_QUEUE` (`platform.reset-demo`) job: purges last night's demo (only an organization a reset built, as the
   platform log shows) and builds it again with its profile and three staff who sign in with the code, on the demo's
@@ -43,9 +49,13 @@ organizationId)` records a `platform_export` row and queues `EXPORT_ORGANIZATION
   one entry in the platform log, in the platform transaction that makes the change. `actor` is `{ userId }`, the
   platform admin, or `{ userId: null }` for the platform's own jobs.
 - `listPlatformLog(tx, input)`: the log newest first, a page at a time, or one organization's entries.
-- An organization's subscription: `getSubscription(services, organizationId)` (with its payments), and
-  `changePlan`, `setOverrides`, `setTrialEnd`, `setPaidThrough`, `recordPayment`, `voidPayment`, `suspend`, `cancel`
-  `(services, staff, input)`, each one platform transaction, recorded in the organization's own audit log.
+- An organization's subscription: `getSubscription(services, organizationId)` (with its payments: the state due
+  today beside what the nightly job last recorded, `recorded`, any manual suspension, and the price with CGST and
+  SGST), and `changePlan`, `setOverrides`, `setTrialEnd`, `setPaidThrough`, `recordPayment`, `voidPayment`,
+  `suspend`, `cancel` `(services, staff, input)`, each one platform transaction under the subscription's lock,
+  recorded in the organization's own audit log. Lifting a manual suspension (super admins) is the subscriptions
+  module's `liftSuspension`, which the console's router runs in a platform transaction. The nightly lifecycle job is
+  the console's too (`apps/api/src/console-jobs.ts`).
 - The dashboard (spec 7.4): `organizationsOverview(services, now?)`, every organization with its status, plan, days
   to its next change, seats and storage against its limits, last activity, and this month's changes and documents.
 - Failed jobs (spec 9.1): `listFailedJobs(services, { limit, after?, queue? })` (newest first, a page at a time),
