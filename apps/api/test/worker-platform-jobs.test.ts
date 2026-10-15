@@ -5,6 +5,7 @@ import type { OnboardOrganizationInput } from "@travel-crm/contracts/platform";
 import { startWorker } from "@travel-crm/domain/jobs";
 import { addDays, calendarDateIn } from "@travel-crm/domain/kernel";
 import { onboardOrganization } from "@travel-crm/domain/platform";
+import { createRateLimiter } from "@travel-crm/domain/rate-limits";
 import { ADVANCE_SUBSCRIPTIONS_QUEUE } from "@travel-crm/domain/subscriptions";
 import { createMemoryEmailSender } from "@travel-crm/integrations/email";
 import { createMemoryJobQueue, createMemoryJobRunner } from "@travel-crm/integrations/jobs";
@@ -40,6 +41,9 @@ describe("the worker's invite job", () => {
       push: createMemoryPushSender(),
       appUrl: "https://app.example.in",
       webhookProviders: [],
+      rateLimiter: createRateLimiter(server.db, {
+        keySecret: "worker-platform-jobs-test-rate-limit-secret-of-32-bytes",
+      }),
       log: (line) => reported.push(line),
     });
   });

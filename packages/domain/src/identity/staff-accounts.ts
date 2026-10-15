@@ -1,6 +1,6 @@
-// Creates one staff member's sign-in records in a single transaction: user, password account and membership, after
-// holding and checking their role in that same transaction, and the audit entry that records it. Better Auth hashes
-// the password, but its sign-up endpoint is off, so we write the rows ourselves (ADR 0006).
+// Writes one staff member's sign-in records in one transaction, their own or the caller's: the user, a password account
+// when they have a password, the membership, and the audit entry, after holding and checking their role in that same
+// transaction. Better Auth hashes passwords, but its sign-up endpoint is off, so we write the rows ourselves (ADR 0006).
 import { isUniqueViolation } from "@travel-crm/db/identity";
 import type { IdentityDatabase, IdentityTx } from "@travel-crm/db/identity";
 import { recordAudit } from "../audit/index.js";
@@ -22,7 +22,7 @@ export interface NewStaffAccount {
   password: string;
   /** True for a temporary password set by an admin. */
   mustChangePassword: boolean;
-  /** Who is adding them, for the audit log. Onboarding leaves it out: the system then adds the first Owner. */
+  /** Who is adding them, for the audit log. Left out, the system adds them: createOrganizationOwner, for tests. */
   actor?: Actor | undefined;
   /** The organization's seats (spec 7.2), or null or left out for no limit. */
   seatLimit?: number | null | undefined;
@@ -129,10 +129,12 @@ function assertHasSignInName(account: { email?: string | undefined; username?: s
 
 /**
  * Refuses a new member once the organization's active members fill its seats. The organization's row is held until
- * the transaction ends, so two people added at once can't both take the last seat.
+ * the transaction ends, so two people added at once can't both take the last seat: NO KEY UPDATE conflicts with itself.
+ * Not FOR UPDATE, which also conflicts with the KEY SHARE that every insert of a row keyed to the organization takes:
+ * an updateRole holding the role this addition then waits for, while inserting permissions, would deadlock with it.
  */
 async function assertSeatFree(tx: IdentityTx, organizationId: string, seatLimit: number): Promise<void> {
-  await tx.$queryRaw`SELECT id FROM organization WHERE id = ${organizationId}::uuid FOR UPDATE`;
+  await tx.$queryRaw`SELECT id FROM organization WHERE id = ${organizationId}::uuid FOR NO KEY UPDATE`;
   // Soft delete leaves removed members out: they free their seat.
   if ((await tx.member.count({ where: { organizationId } })) >= seatLimit) {
     throw new DomainError("LIMIT_REACHED", "SEAT_LIMIT_REACHED", "Every seat on this organization's plan is taken");

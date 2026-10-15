@@ -4,6 +4,7 @@ import type { OnboardedOrganization, OnboardOrganizationInput } from "@travel-cr
 import type { SubscriptionOverview } from "@travel-crm/contracts/subscriptions";
 import { createPlan } from "@travel-crm/domain/platform";
 import { runListenerJob } from "@travel-crm/domain/jobs";
+import { createRateLimiter } from "@travel-crm/domain/rate-limits";
 import { createMemoryEmailSender } from "@travel-crm/integrations/email";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
@@ -77,7 +78,11 @@ describe("onboarding through the console", () => {
     );
     await runListenerJob({
       db: server.db,
-      listener: server.identity.inviteListener({ email, appUrl: "http://localhost" }),
+      listener: server.identity.inviteListener({
+        email,
+        appUrl: "http://localhost",
+        limiter: createRateLimiter(server.db, { keySecret: "console-organizations-test-secret-32-bytes" }),
+      }),
       data: { organizationId: onboarded.organizationId, eventId: event.id, eventType: event.type },
     });
     const token = /\/reset-password\?token=([A-Za-z0-9_-]+)/.exec(email.sent[0]?.text ?? "")?.[1];

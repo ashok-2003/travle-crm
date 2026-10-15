@@ -7,6 +7,7 @@ import type { SubscriptionOverview } from "@travel-crm/contracts/subscriptions";
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import { startWorker } from "@travel-crm/domain/jobs";
 import { addDays, calendarDateIn } from "@travel-crm/domain/kernel";
+import { createRateLimiter } from "@travel-crm/domain/rate-limits";
 import { createMemoryEmailSender } from "@travel-crm/integrations/email";
 import { createMemoryJobQueue, createMemoryJobRunner } from "@travel-crm/integrations/jobs";
 import { createMemoryPushSender } from "@travel-crm/integrations/push";
@@ -81,6 +82,7 @@ describe("an agency's life on the platform", () => {
         push: createMemoryPushSender(),
         appUrl: "https://app.example.in",
         webhookProviders: [],
+        rateLimiter: createRateLimiter(server.db, { keySecret: "platform-journey-test-rate-limit-secret-of-32-bytes" }),
         log: (line) => {
           throw new Error(`the worker reported: ${line}`);
         },

@@ -13,7 +13,9 @@ first Owner
   password account, records `staff.created` and `staff.invited` under the platform admin's name, and publishes
   `staff.invited`. The worker's `identity.send-invite` listener stores a Better Auth reset token for them and emails a
   link to the web app's `/reset-password` page. Choosing a password there goes through Better Auth's own
-  `/reset-password`, which creates the password account; then they sign in. `requestInvite` sends a new link later.
+  `/reset-password`, which creates the password account; then they sign in. `requestInvite` sends a new link later,
+  but only to someone with no password yet: anyone who has one (`PASSWORD_ALREADY_SET`) resets it, within the reset's
+  hour. The invite is the agency's email (spec 9.4): its name as the sender, Reply-To its contact address.
 - **What onboarding makes, in order** (`onboardOrganization`): the organization's row (name, code, time zone, contact
   email) as the platform role; then, inside it, the starter roles, the business profile (legal name, GSTIN, GST state,
   contact: ADR 0023), the invited Owner and `organization.onboarded` in its log; then, as the platform role again, the
@@ -21,6 +23,15 @@ first Owner
   under the platform admin's name, with source `platform`.
 - **Invite links last 72 hours**, against a password reset's hour: an Owner may open the email the next day. Earlier
   links keep working until they lapse, so asking twice never strands anyone.
+- **Invites have a cap of their own.** An address gets at most five invite emails an hour, counted in Postgres under
+  `staff-invite-recipient:<address>`, apart from plan 3's resets (three an hour, under their own key). Anyone may ask
+  for resets to an address, so resets must never use up invites. Only platform staff ask for invites, each one
+  recorded, so abuse is visible and bounded. Every attempt counts, retries included: five leaves room for a failed
+  send's retries.
+- **Past the cap the job fails, never quietly.** The listener stores no link, sends nothing, and throws
+  `InviteCapReachedError`, an error of ours with an ids-only message that the failed jobs keep. After its retries the
+  job stays in the console's failed jobs, where support sees it and retries it once the hour is out. So a send that
+  keeps failing ends there too: five failed sends use up the hour, and the last retry fails on the cap.
 - **The shared demo is rebuilt every night the same way** (spec 7.4). The console's `platform.reset-demo` job, at
   02:00 India time, purges the organization last night's reset built and builds it again in one platform
   transaction: the business profile, the starter roles, and three staff (Owner, Sales, Operations) who sign in with
@@ -40,6 +51,9 @@ first Owner
 
 ## Consequences
 
-- A retried send can email a second link; both work. Removed, banned and placeholder-address people get nothing.
-- Staff created by an organization's admins keep plan 2's temporary passwords; inviting them by email can reuse
-  `requestInvite` later.
+- A retried send can email a second link; both work. Removed, banned and placeholder-address people get nothing, nor
+  does anyone who has chosen a password by the time the listener runs: those jobs end done. A retry counts against
+  the cap again, so a long mail outage shows in the failed jobs as the cap's error, not the mail server's.
+- Staff created by an organization's admins keep plan 2's temporary passwords, so they are never invited:
+  `requestInvite` refuses anyone with a password. Inviting staff by email instead would mean adding them with no
+  password, as onboarding adds the Owner.

@@ -92,8 +92,14 @@ describe("erasure and purge, identity's part", () => {
     expect(await platform.verification.count({ where: { value: person.userId } })).toBe(0);
     // The membership stays, so audit entries and records still have someone to point at.
     expect(await withDeleted(() => platform.member.count({ where: { id: person.memberId } }))).toBe(1);
-    // Erasing again changes nothing.
+    // Erasing again clears nothing more: the row is the same, but for the time Prisma stamps on every update.
     await platformDb.transaction((tx) => erasePerson(tx, agency.organizationId, person.memberId));
+    const again = await platform.user.findUniqueOrThrow({
+      where: { id: person.userId },
+      include: { accounts: true, sessions: true, twoFactors: true },
+    });
+    expect({ ...again, updatedAt: user.updatedAt }).toEqual(user);
+    expect(await platform.verification.count({ where: { value: person.userId } })).toBe(0);
   });
 
   it("erases only someone already removed, and only in their own organization", async () => {
