@@ -46,7 +46,8 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - Tables without `organization_id` (webhook events, rate-limit counters) have no row-level security. `OrgTx` hides
   their models and every transaction refuses them at run time; only their own modules reach them, inside
   `db.withoutOrg(tx => …)` (where every organization table shows no rows), through `@travel-crm/db/webhooks` and
-  `@travel-crm/db/rate-limits`. dependency-cruiser keeps each entry point to its module.
+  `@travel-crm/db/rate-limits`. dependency-cruiser keeps each entry point to its module, and ESLint flags raw SQL naming
+  either table outside it (`rawSqlSelectorsAllowing` in `packages/domain/eslint.config.js`).
 - A foreign key between two organization tables includes `organization_id`, and so does every unique constraint on an
   organization table (except a primary key on `id`). Every organization table's `organization_id` refers to
   `organization` (`onDelete: Restrict, onUpdate: Restrict`), and no key to it cascades a deletion: a cascade runs as

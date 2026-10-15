@@ -92,8 +92,9 @@ Date: 2026-10-15 · Status: accepted · Implements spec sections 9.3 (share link
   them at run time with `UnscopedModelError`, so a cast doesn't reach them either. Each module reaches its table inside
   `db.withoutOrg()` through its own entry point, `webhookEvents(tx)` from `@travel-crm/db/webhooks` and
   `rateLimitCounters(tx)` from `@travel-crm/db/rate-limits`, which refuse a `forOrg()` transaction; dependency-cruiser
-  lets only that module import each one. Raw SQL (`$queryRaw`) can still name the tables: unlike the sign-in tables,
-  no lint rule flags that yet.
+  lets only that module import each one. Raw SQL is covered too: the ESLint raw-SQL guard flags a `$queryRaw` or
+  `$executeRaw` that names `webhook_event` outside `packages/domain/src/webhooks/` (and its tests), or
+  `rate_limit_counter` outside `packages/domain/src/rate-limits/`, as it flags the sign-in tables outside identity.
 
 ## Context
 

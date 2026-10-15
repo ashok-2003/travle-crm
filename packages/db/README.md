@@ -24,6 +24,7 @@ transaction to `orgId`'s rows; outside it, queries see nothing.
 - The tables without `organization_id` have no row-level security, so `OrgTx` leaves their models out and every
   transaction refuses them at run time (`UnscopedModelError`). Their own modules reach them inside `db.withoutOrg()`:
   `webhookEvents(tx)` from `@travel-crm/db/webhooks`, `rateLimitCounters(tx)` from `@travel-crm/db/rate-limits`.
+  ESLint flags raw SQL naming either table outside its module.
 
 ## Entry points
 

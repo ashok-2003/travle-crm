@@ -38,6 +38,6 @@ organization yet.
   `event.providerEventId` (for example a unique key on the payment record).
 - `webhook_event` has no `organization_id` and no row-level security: only this module reads it, as
   `webhookEvents(tx)` from `@travel-crm/db/webhooks` inside `db.withoutOrg()`. `OrgTx` leaves the model out, a
-  transaction refuses it at run time (`UnscopedModelError`), and dependency-cruiser keeps the entry point to this
-  module. The runtime role may update only `processed_at`, `attempts` and `last_error`. It keeps the raw payload and
+  transaction refuses it at run time (`UnscopedModelError`), dependency-cruiser keeps the entry point to this
+  module, and ESLint flags raw SQL naming `webhook_event` anywhere else. The runtime role may update only `processed_at`, `attempts` and `last_error`. It keeps the raw payload and
   the headers the provider names, never cookies or authorization.
