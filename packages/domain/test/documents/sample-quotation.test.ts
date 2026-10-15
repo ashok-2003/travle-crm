@@ -4,6 +4,13 @@ import { describe, expect, it } from "vitest";
 import { sampleQuotation } from "../../src/documents/index.js";
 import { money } from "../../src/kernel/index.js";
 
+const transfers = {
+  description: "Airport transfers",
+  sacCode: "996601",
+  taxableValue: money(4_999_99),
+  rateBasisPoints: 1800,
+};
+
 const quotation = {
   recipient: { name: "Meera Iyer", lines: ["Mumbai 400002"] },
   supplierStateCode: "27" as const,
@@ -16,7 +23,7 @@ const quotation = {
       taxableValue: money(12_50_000_00),
       rateBasisPoints: 500,
     },
-    { description: "Airport transfers", sacCode: "996601", taxableValue: money(4_999_99), rateBasisPoints: 1800 },
+    transfers,
   ],
   branding: { organizationName: "Sharma Holidays" },
 };
@@ -48,5 +55,16 @@ describe("sample quotation", () => {
       "Total",
     ]);
     expect(issued.content.totals.at(-1)).toEqual({ label: "Total", amount: "₹13,18,399.99", emphasis: true });
+  });
+
+  it("leaves out a blank detail rather than printing an empty part", () => {
+    for (const detail of ["", "   "]) {
+      const [line] = sampleQuotation({
+        ...quotation,
+        placeOfSupplyStateCode: "27",
+        lines: [{ ...transfers, detail }],
+      }).content.rows;
+      expect(line?.detail).toBe("SAC 996601");
+    }
   });
 });

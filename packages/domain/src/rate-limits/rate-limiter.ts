@@ -101,6 +101,9 @@ export function createRateLimiter(db: Pick<Database, "withoutOrg">, { keySecret 
   };
 }
 
+/** The scheduled job that runs purgeExpiredRateLimits, once a day for the whole platform. */
+export const RATE_LIMIT_PURGE_QUEUE = "rate-limits.purge";
+
 /**
  * Deletes the windows that started before olderThan, for the daily clean-up job (it needs no key secret). Works in
  * batches, each in its own short transaction, so a big table doesn't hold one long lock. Returns how many went.

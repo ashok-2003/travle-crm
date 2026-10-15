@@ -6,7 +6,7 @@ import type { Files } from "@travel-crm/domain/files";
 import type { Identity } from "@travel-crm/domain/identity";
 import type { EventListener, JobHandler, ScheduledJob } from "@travel-crm/domain/jobs";
 import { deliverNotificationListener, forgetPushSubscriptionsListener } from "@travel-crm/domain/notifications";
-import { purgeExpiredRateLimits } from "@travel-crm/domain/rate-limits";
+import { purgeExpiredRateLimits, RATE_LIMIT_PURGE_QUEUE } from "@travel-crm/domain/rate-limits";
 import { notifySharerListener } from "@travel-crm/domain/share-links";
 import { processWebhookJob, WEBHOOK_PROCESS_QUEUE, type WebhookProvider } from "@travel-crm/domain/webhooks";
 import type { EmailSender } from "@travel-crm/integrations/email";
@@ -62,8 +62,9 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
     ],
     schedules: [
       {
-        // Rate-limit windows last a minute; a day's worth is kept for looking into abuse.
-        queue: "rate-limits.purge",
+        // Rate-limit windows last a minute; a day's worth is kept for looking into abuse. The job is the platform's,
+        // not an organization's, so it runs in a fixed zone: India time, a quiet hour for the agencies it serves.
+        queue: RATE_LIMIT_PURGE_QUEUE,
         cron: "30 3 * * *",
         timeZone: "Asia/Kolkata",
         handle: async () => {

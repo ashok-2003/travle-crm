@@ -2,6 +2,7 @@
 export {
   createRateLimiter,
   purgeExpiredRateLimits,
+  RATE_LIMIT_PURGE_QUEUE,
   type RateLimiter,
   type RateLimiterOptions,
   type RateLimitResult,

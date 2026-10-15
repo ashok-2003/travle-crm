@@ -10,7 +10,7 @@ every api instance counts against the same limit.
   - `hit(key, { limit, windowSeconds }, now?)`: counts one hit and returns `{ allowed, remaining, retryAfterSeconds }`.
 - `purgeExpiredRateLimits(db, olderThan, batchSize?)`: deletes windows that started before `olderThan`, in
   batches of `batchSize` rows (a whole number from 1 to 100,000; default 10,000), each in its own transaction, for a
-  daily clean-up job. It needs no secret.
+  daily clean-up job. It needs no secret. `RATE_LIMIT_PURGE_QUEUE` (`rate-limits.purge`) is that job's queue.
 - Types: `RateLimiter`, `RateLimiterOptions`, `RateLimitRule`, `RateLimitResult`.
 
 The api's Hono middleware is `rateLimit(...)` in `apps/api/src/rate-limit.ts`.
