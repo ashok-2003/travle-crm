@@ -35,4 +35,9 @@ export interface ObjectStorage {
   head(key: string): Promise<StoredObject | null>;
   /** The stored file's bytes, or null when nothing is stored under key. */
   get(key: string): Promise<Uint8Array | null>;
+  /**
+   * Deletes the file stored under key, for good: the platform's purge and erasure only (spec 5). Deleting a key that
+   * holds nothing succeeds, so a purge that stopped halfway can run again.
+   */
+  delete(key: string): Promise<void>;
 }

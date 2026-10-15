@@ -22,6 +22,9 @@ in build step 2.
   removes a member (`staff.removed`), it deletes all their push subscriptions in the event's organization.
 - Type `Person`: an actor with a user id. A job has no bell (`FORBIDDEN`/`NOT_A_PERSON`).
 
+- `forgetRecipient(tx, { organizationId, userId })`: an erasure's part (spec 5): the person's notifications, opt-outs
+  and push subscriptions, deleted by the platform role.
+
 ## Events
 
 - Publishes `notification.created` (`{ notificationId, channels }`), handled by `notifications.deliver`.

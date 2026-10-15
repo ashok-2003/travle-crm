@@ -64,6 +64,17 @@ export function describeObjectStorage(name: string, start: () => Promise<Storage
       expect(text(await subject.storage.get(key))).toBe("%PDF-1.3");
     });
 
+    it("deletes a stored file for good, and deleting again or nothing at all succeeds", async () => {
+      const key = freshKey();
+      await subject.storage.put({ key, contentType: "text/plain", body: bytes("gone soon") });
+      await subject.storage.delete(key);
+      expect(await subject.storage.head(key)).toBeNull();
+      expect(await subject.storage.get(key)).toBeNull();
+      await subject.storage.delete(key);
+      await subject.storage.delete(freshKey());
+      await expect(subject.storage.delete("../escape")).rejects.toThrow(RangeError);
+    });
+
     it("answers null, not an error, for a key with nothing stored", async () => {
       expect(await subject.storage.head("organizations/contract/attachments/missing")).toBeNull();
       expect(await subject.storage.get("organizations/contract/attachments/missing")).toBeNull();

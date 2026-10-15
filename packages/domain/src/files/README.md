@@ -33,6 +33,12 @@ documents are marked sensitive (spec 5).
 - Types: `Files`, `FilesDependencies`, `GeneratedFile`, `DownloadLink`. Inputs and outputs are in
   `@travel-crm/contracts/files`.
 
+- Permanent deletion and exports, for the platform's purge and erasure (spec 5), in a platform transaction:
+  `storedFileKeys(tx, organizationId)` (every file, removed ones included), `deleteRecordFiles(tx, { organizationId,
+recordType, recordId })` (deletes the rows and returns their storage keys; a system-owned record's files are
+  refused), `deleteStoredFiles(storage, keys)` (after the transaction commits; safe to repeat), and
+  `exportedFiles(tx, storage, where, linkSeconds)` (files with download links). `bytesStored(tx)`: the storage used.
+
 ## Events
 
 None yet.
