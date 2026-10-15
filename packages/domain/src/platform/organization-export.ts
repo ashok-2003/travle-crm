@@ -17,7 +17,7 @@ export const EXPORT_ORGANIZATION_QUEUE = "platform.export-organization";
 export const EXPIRE_EXPORTS_QUEUE = "platform.expire-exports";
 
 /** How long an export is kept. */
-export const EXPORT_KEPT_MS = 7 * 24 * 60 * 60 * 1000;
+const EXPORT_KEPT_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** How long a download link works. */
 const EXPORT_LINK_SECONDS = 15 * 60;
@@ -42,7 +42,7 @@ export function exportPartKey(row: Pick<ExportRow, "id" | "targetOrganizationId"
   return `platform/exports/${row.targetOrganizationId}/${row.id}/${String(part).padStart(5, "0")}.jsonl`;
 }
 
-export function exportOf(row: ExportRow): OrganizationExport {
+function exportOf(row: ExportRow): OrganizationExport {
   return {
     exportId: row.id,
     organizationId: row.targetOrganizationId,

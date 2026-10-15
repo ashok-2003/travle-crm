@@ -7,6 +7,7 @@ import { asOrganization } from "@travel-crm/db/platform";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   cancel,
+  downloadOrganizationExport,
   EXPIRE_EXPORTS_QUEUE,
   EXPORT_ORGANIZATION_QUEUE,
   listOrganizationExports,
@@ -181,10 +182,17 @@ describe("an organization's export", () => {
     );
     const [done] = await listOrganizationExports(test.services, organizationId);
     expect(done).toMatchObject({ parts: parts.length });
+    // The organization's files are linked, not copied.
+    const before = await downloadOrganizationExport(test.services, support, requested.exportId);
+    expect(before.parts).toHaveLength(parts.length);
+    expect(before.files).toEqual([expect.objectContaining({ fileName: "Passport.pdf" })]);
 
     await requestPurge(test.services, support, { organizationId, confirmation: code });
     await purgeOrganization(test.services, { organizationId, requestedBy: supportUserId });
     expect(exportParts(test.storage, requested)).toHaveLength(parts.length);
     expect(await listOrganizationExports(test.services, organizationId)).toEqual([done]);
+    // Still there to download for its 7 days; the files went with the organization.
+    const after = await downloadOrganizationExport(test.services, support, requested.exportId);
+    expect(after).toMatchObject({ parts: before.parts.map(({ part }) => ({ part })), files: [] });
   });
 });
