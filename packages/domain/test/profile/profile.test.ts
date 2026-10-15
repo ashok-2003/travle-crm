@@ -75,29 +75,20 @@ describe("the business profile", () => {
     expect(JSON.stringify(entries)).not.toContain("001234567890");
   });
 
-  it("keeps each organization's profile to itself, and never deletes one for the api", async () => {
+  it("keeps each organization's profile to itself, however it is read, and never deletes one for the api", async () => {
     const owner = await ownerOfNewOrganization();
-    await db.forOrg(owner.organizationId, (tx) => saveOrganizationProfile(tx, owner, details));
+    const named = { ...details, legalName: "Named Trails LLP" };
+    await db.forOrg(owner.organizationId, (tx) => saveOrganizationProfile(tx, owner, named));
     const other = await ownerOfNewOrganization();
     expect(await db.forOrg(other.organizationId, (tx) => getOrganizationProfile(tx, other.organizationId))).toBeNull();
+    // The platform role sees every organization's profile: the read names the one it means.
+    const asPlatform = (organizationId: string) =>
+      platform.$transaction((tx) => getOrganizationProfile(tx, organizationId));
+    expect(await asPlatform(owner.organizationId)).toMatchObject({ legalName: "Named Trails LLP" });
+    expect(await asPlatform(other.organizationId)).toBeNull();
     await expect(db.forOrg(owner.organizationId, (tx) => tx.organizationProfile.deleteMany({}))).rejects.toThrow(
       /permission denied/,
     );
-  });
-
-  it("reads only the organization it names, even in a transaction that sees every organization's profile", async () => {
-    const owner = await ownerOfNewOrganization();
-    await db.forOrg(owner.organizationId, (tx) =>
-      saveOrganizationProfile(tx, owner, {
-        ...details,
-        legalName: "Named Trails LLP",
-        bankAccountNumber: "009876543210",
-      }),
-    );
-    const unsaved = await ownerOfNewOrganization();
-    const read = (organizationId: string) => platform.$transaction((tx) => getOrganizationProfile(tx, organizationId));
-    expect(await read(owner.organizationId)).toMatchObject({ legalName: "Named Trails LLP" });
-    expect(await read(unsaved.organizationId)).toBeNull();
   });
 
   it("keeps the branding when the business details are updated, and the details when the branding is", async () => {
