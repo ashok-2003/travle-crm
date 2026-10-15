@@ -105,5 +105,125 @@
       "pastDueDays": "Use a whole number of days from 1 to 90.",
       "readOnlyDays": "Use a whole number of days from 1 to 180."
     }
+  },
+  "time": {
+    "dayAndTime": "{day}, {time}"
+  },
+  "jobs": {
+    "title": "Jobs",
+    "intro": "Jobs that failed after their last retry, newest first, and the schedules that start jobs. A job holds ids, never anyone's details.",
+    "failedTitle": "Failed jobs",
+    "loading": "Loading the failed jobs",
+    "loadFailed": "The failed jobs didn't load.",
+    "empty": "No failed jobs. Every job has run, or is still being retried.",
+    "emptyQueue": "No failed jobs on {queue}.",
+    "queue": "Queue",
+    "queueHint": "Show one queue's failed jobs, such as documents.render-pdf.",
+    "queueInvalid": "Queue names look like documents.render-pdf.",
+    "filter": "Show this queue",
+    "showingQueue": "Showing {queue} only.",
+    "allQueues": "Show every queue",
+    "failedAt": "Failed {when}",
+    "noTime": "No time recorded",
+    "attempts": "{count, plural, one {# attempt} other {# attempts}}",
+    "data": "Data",
+    "noData": "No data",
+    "error": "Error",
+    "retry": "Run again",
+    "retried": "Sent to run again",
+    "showMore": "Show more failed jobs",
+    "loadingMore": "Loading more"
+  },
+  "schedules": {
+    "title": "Schedules",
+    "intro": "The jobs started on a timetable, by their cron in their time zone. The worker and the console register theirs at every start.",
+    "loading": "Loading the schedules",
+    "loadFailed": "The schedules didn't load.",
+    "empty": "No schedules.",
+    "cron": "Cron",
+    "timeZone": "Time zone",
+    "readOnly": "Only a super admin removes a schedule.",
+    "remove": "Remove",
+    "removeFor": "Remove the schedule for {queue}",
+    "removeTitle": "Remove the schedule for {queue}?",
+    "removeDescription": "Only for a job the code no longer has: a schedule the worker or the console still registers comes back at its next start. The removal is recorded in the platform log.",
+    "removeConfirm": "Remove schedule",
+    "removed": "The schedule for {queue} was removed"
+  },
+  "log": {
+    "title": "Platform log",
+    "intro": "What platform staff and the platform's own jobs did, newest first. Entries keep ids and codes, never an organization's name, so they outlive a deletion.",
+    "loading": "Loading the platform log",
+    "loadFailed": "The platform log didn't load.",
+    "empty": "Nothing is recorded yet.",
+    "showMore": "Show older entries",
+    "loadingMore": "Loading more",
+    "you": "You",
+    "automatic": "Automatic",
+    "platformStaff": "Platform staff",
+    "organization": "Organization",
+    "deletedOrganization": "Deleted organization {code}",
+    "deletedOrganizationWithoutCode": "A deleted organization",
+    "changes": "What changed",
+    "hideChanges": "Hide the changes",
+    "changedTo": "changed to",
+    "unknownAction": "Recorded “{action}”",
+    "targets": {
+      "plan": "Plan",
+      "platform_staff": "Platform staff",
+      "job": "Job",
+      "member": "Member",
+      "traveller": "Traveller"
+    },
+    "actions": {
+      "organization": {
+        "onboarded": "Onboarded the organization",
+        "updated": "Corrected the organization's details",
+        "export-requested": "Asked for an export of the organization",
+        "exported": "Finished the organization's export",
+        "export-downloaded": "Downloaded the organization's export",
+        "export-expired": "Deleted the organization's export, expired or withdrawn",
+        "purge-requested": "Asked for the organization to be deleted for good",
+        "purge-skipped": "Kept the organization: its deletion's checks failed",
+        "purged": "Deleted the organization for good"
+      },
+      "subject": {
+        "exported": "Exported what is kept about one person or record",
+        "erasure-requested": "Asked for one person's or record's erasure",
+        "erasure-skipped": "Kept a person or record: the erasure's checks failed",
+        "erased": "Erased one person or record"
+      },
+      "plan": {
+        "created": "Created a plan",
+        "updated": "Changed a plan",
+        "archived": "Archived a plan"
+      },
+      "subscription-policy": {
+        "changed": "Changed the subscription policy"
+      },
+      "subscription": {
+        "plan-changed": "Moved the organization to another plan",
+        "paid-through-changed": "Changed the day the organization is paid through",
+        "payment-voided": "Voided a payment",
+        "cancelled": "Cancelled the organization's subscription"
+      },
+      "platform-staff": {
+        "added": "Added platform staff",
+        "level-changed": "Changed a platform staff member's level",
+        "password-reset": "Gave platform staff a new temporary password",
+        "removed": "Removed platform staff"
+      },
+      "job": {
+        "retried": "Ran a failed job again",
+        "retry-failed": "Tried to run a failed job again, and it didn't run"
+      },
+      "schedule": {
+        "removed": "Removed a schedule",
+        "removal-failed": "Tried to remove a schedule, and it stayed"
+      },
+      "demo": {
+        "reset": "Rebuilt the demo organization"
+      }
+    }
   }
 }

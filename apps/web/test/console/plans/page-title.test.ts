@@ -9,7 +9,8 @@ vi.mock("next-intl/server", () => ({
 }));
 
 describe("the plans page", () => {
-  it("is titled as its heading", async () => {
+  // The first import transforms the screen's whole module graph, which takes a while on a busy machine.
+  it("is titled as its heading", { timeout: 15_000 }, async () => {
     const { generateMetadata } = await import("@/app/console/plans/page");
     expect(await generateMetadata()).toEqual({ title: messages.consolePlatform.plans.title });
   });

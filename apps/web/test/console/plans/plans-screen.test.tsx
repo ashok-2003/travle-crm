@@ -90,12 +90,17 @@ describe("PlansScreen", () => {
     const api = open({ data: [] });
     await userEvent.click(await screen.findByRole("button", { name: words.add }));
     const dialog = screen.getByRole("dialog", { name: form.createTitle });
-    await userEvent.type(within(dialog).getByLabelText(form.key), "growth");
-    await userEvent.type(within(dialog).getByLabelText(form.name), "Growth");
-    await userEvent.type(within(dialog).getByLabelText(form.monthlyPrice), "4,999");
-    await userEvent.type(within(dialog).getByLabelText(form.seats), "10");
-    await userEvent.type(within(dialog).getByLabelText(form.whatsappNumbers), "2");
-    await userEvent.type(within(dialog).getByLabelText(form.storageGigabytes), "25");
+    // Pasted, one event a field: typing key by key is slow on a busy machine.
+    const fill = async (label: string, value: string) => {
+      await userEvent.click(within(dialog).getByLabelText(label));
+      await userEvent.paste(value);
+    };
+    await fill(form.key, "growth");
+    await fill(form.name, "Growth");
+    await fill(form.monthlyPrice, "4,999");
+    await fill(form.seats, "10");
+    await fill(form.whatsappNumbers, "2");
+    await fill(form.storageGigabytes, "25");
     await userEvent.click(within(dialog).getByRole("checkbox", { name: messages.consolePlatform.modules.crm }));
     api.answer("platform.plans.create", { data: plan() });
     api.answer("platform.plans.list", { data: [plan()] });
