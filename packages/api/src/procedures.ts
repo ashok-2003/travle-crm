@@ -1,15 +1,19 @@
 // The procedure builders. Each request runs the checks of spec 6.5 in order:
 //   1 signed in → 2 organization active → 3 module on the plan → 4 role permission → handler.
-// Check 2 comes with the member (memberAccessFor), check 3 with requires(), before check 4. Check 5 (own or all
-// records) is the handler's, through scopeFilter(); check 6 is Postgres row-level security.
+// Checks 2 and 3 come with the member (memberAccessFor): check 3 for the module every organization procedure declares
+// in its meta, and again in requires() for its permissions' modules, before check 4. Check 5 (own or all records) is
+// the handler's, through scopeFilter(); check 6 is Postgres row-level security.
 import { TRPCError } from "@trpc/server";
 import { moduleOf, pendingStep, type Identity, type MemberAccess, type Permission } from "@travel-crm/domain/identity";
 import { DomainError } from "@travel-crm/domain/kernel";
 import {
   assertLifecycleAllows,
   assertModulesOnPlan,
+  assertOnPlan,
+  planModuleOf,
   type CallKind,
   type Entitlements,
+  type ProcedureModule,
   type SubscriptionAccess,
 } from "@travel-crm/domain/subscriptions";
 import { forwardCookies } from "./context.js";
@@ -84,11 +88,25 @@ interface SignedInContext {
   user: { id: string };
 }
 
-/** What a call does, for check 2: a query views, a mutation changes, unless the procedure says otherwise. */
-function callKindOf(type: string, meta: ProcedureMeta | undefined): CallKind {
-  if (meta?.lifecycle === "always") return "always";
-  if (meta?.lifecycle === "export") return "export";
-  return type === "query" ? "view" : "change";
+interface Call {
+  /** What the call does, for check 2. */
+  kind: CallKind;
+  /** The plan module it belongs to, for check 3. */
+  planModule: ProcedureModule;
+}
+
+/**
+ * What a call does, for check 2 (a query views, a mutation changes, unless the procedure says otherwise), and its
+ * plan module, for check 3. A procedure that declares no module is a bug: it fails closed, never skipping check 3.
+ */
+function callOf(type: string, meta: ProcedureMeta | undefined): Call {
+  const planModule = meta?.planModule;
+  if (planModule === undefined) {
+    throw new Error("This organization procedure declares no plan module: use requires(), or meta planModule");
+  }
+  if (meta?.lifecycle === "always") return { kind: "always", planModule };
+  if (meta?.lifecycle === "export") return { kind: "export", planModule };
+  return { kind: type === "query" ? "view" : "change", planModule };
 }
 
 /**
@@ -96,11 +114,11 @@ function callKindOf(type: string, meta: ProcedureMeta | undefined): CallKind {
  * change applies to the next request. Members with a password change or two-factor setup still to do are refused
  * here; the endpoints they need for it (Better Auth's /change-password and /two-factor/*, and me.get) stay open.
  * The session's impersonatedBy goes with the access, so whatever support does while impersonating is recorded as such.
- * Then check 2: what the organization's subscription allows today.
+ * Then check 2, what the organization's subscription allows today, and check 3 for the procedure's own module.
  */
 async function memberAccessFor(
   ctx: SignedInContext,
-  call: CallKind,
+  call: Call,
 ): Promise<{ member: MemberAccess; entitlements: Entitlements | null }> {
   const organizationId = ctx.session.activeOrganizationId;
   const session = { impersonatedBy: ctx.session.impersonatedBy ?? null };
@@ -110,11 +128,12 @@ async function memberAccessFor(
   if (step === "CHANGE_PASSWORD") throw new DomainError("FORBIDDEN", step, "Choose a new password first");
   if (step === "SET_UP_TWO_FACTOR") throw new DomainError("FORBIDDEN", step, "Set up two-factor sign-in first");
   const entitlements = await ctx.subscriptions.entitlementsOf(access.organizationId);
-  assertLifecycleAllows(entitlements, { kind: call, isOwner: access.role.isOwner });
+  assertLifecycleAllows(entitlements, { kind: call.kind, isOwner: access.role.isOwner });
+  assertOnPlan(entitlements, [call.planModule]);
   return { member: access, entitlements };
 }
 
-/** Checks 3 and 4: the permissions' modules are on the plan, then the member's role holds every permission. */
+/** Checks 3 and 4 for required permissions: their modules are on the plan, then the role holds every one. */
 function assertMayUse(member: MemberAccess, entitlements: Entitlements | null, required: readonly Permission[]): void {
   assertModulesOnPlan(entitlements, required.map(moduleOf));
   const missing = member.permissions.missing(required);
@@ -125,17 +144,25 @@ function assertMayUse(member: MemberAccess, entitlements: Entitlements | null, r
 
 type RequiredPermissions = [Permission, ...Permission[]];
 
+/** The plan module of a procedure that requires these permissions: its first one's, or core for the Foundation's. */
+function planModuleOfPermissions(permissions: RequiredPermissions): ProcedureModule {
+  return planModuleOf(moduleOf(permissions[0])) ?? "core";
+}
+
 const member = protectedProcedure.use(async ({ ctx, type, meta, next }) =>
-  next({ ctx: await memberAccessFor(ctx, callKindOf(type, meta)) }),
+  next({ ctx: await memberAccessFor(ctx, callOf(type, meta)) }),
 );
 const freshMember = freshlySignedIn.use(async ({ ctx, type, meta, next }) =>
-  next({ ctx: await memberAccessFor(ctx, callKindOf(type, meta)) }),
+  next({ ctx: await memberAccessFor(ctx, callOf(type, meta)) }),
 );
 
-/** Any member of the session's organization. `.requires("leads:create")` adds checks 3 and 4. */
+/**
+ * Any member of the session's organization. `.requires("leads:create")` declares the procedure's plan module and adds
+ * checks 3 and 4; without permissions, declare it: `.meta({ planModule: "core" })` for the Foundation's own.
+ */
 export const orgProcedure = Object.assign(member, {
   requires: (...permissions: RequiredPermissions) =>
-    member.use(({ ctx, next }) => {
+    member.meta({ planModule: planModuleOfPermissions(permissions) }).use(({ ctx, next }) => {
       assertMayUse(ctx.member, ctx.entitlements, permissions);
       return next();
     }),
@@ -144,7 +171,7 @@ export const orgProcedure = Object.assign(member, {
 /** Like orgProcedure, but the session is read from the database: for money, roles, exports, staff management and two-factor settings. */
 export const freshProcedure = Object.assign(freshMember, {
   requires: (...permissions: RequiredPermissions) =>
-    freshMember.use(({ ctx, next }) => {
+    freshMember.meta({ planModule: planModuleOfPermissions(permissions) }).use(({ ctx, next }) => {
       assertMayUse(ctx.member, ctx.entitlements, permissions);
       return next();
     }),

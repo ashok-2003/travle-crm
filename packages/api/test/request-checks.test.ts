@@ -8,20 +8,28 @@ import type { PlanModule, SubscriptionStatus } from "@travel-crm/contracts/subsc
 import { describe, expect, it } from "vitest";
 import type { Context } from "../src/context.js";
 import { freshProcedure, orgProcedure, protectedProcedure } from "../src/procedures.js";
+import { subscriptionRouter } from "../src/routers/subscription.js";
 import { router, t } from "../src/trpc.js";
 
 const organizationId = "0199e7a0-0000-7000-8000-0000000000c1";
 const userId = "0199e7a0-0000-7000-8000-0000000000c2";
 const adminUserId = "0199e7a0-0000-7000-8000-0000000000c3";
 
+const core = { planModule: "core" } as const;
+
 /** Procedures of every kind, as later modules will write them. */
 const probe = router({
-  view: orgProcedure.query(() => "viewed"),
-  change: orgProcedure.mutation(() => "changed"),
-  exportData: orgProcedure.meta({ lifecycle: "export" }).mutation(() => "exported"),
-  status: orgProcedure.meta({ lifecycle: "always" }).query(() => "status"),
+  view: orgProcedure.meta(core).query(() => "viewed"),
+  change: orgProcedure.meta(core).mutation(() => "changed"),
+  exportData: orgProcedure.meta({ ...core, lifecycle: "export" }).mutation(() => "exported"),
+  status: orgProcedure.meta({ ...core, lifecycle: "always" }).query(() => "status"),
+  /** A procedure that forgot to say which module it belongs to. */
+  undeclared: orgProcedure.query(() => "undeclared"),
   createLead: orgProcedure.requires("leads:create").mutation(() => "lead created"),
   manageStaff: freshProcedure.requires("staff:manage").mutation(() => "staff managed"),
+  /** A business module's procedure that needs no permission: check 3 still applies, from its meta. */
+  quoteTemplates: orgProcedure.meta({ planModule: "quotes" }).query(() => "templates"),
+  subscription: subscriptionRouter,
   whoAmI: protectedProcedure.query(({ ctx }) => ctx.session.impersonatedBy ?? "nobody"),
 });
 
@@ -145,8 +153,33 @@ describe("request check 3: the module on the plan", () => {
     );
   });
 
+  it("refuses a business module's procedure off the plan though it requires no permission", async () => {
+    expect(await outcome(callerFor({ modules: ["crm"] }).caller.quoteTemplates())).toBe("MODULE_NOT_ON_PLAN");
+    expect(await outcome(callerFor({ modules: ["quotes"] }).caller.quoteTemplates())).toBe("templates");
+  });
+
+  it("refuses every call to a procedure that declares no plan module, rather than skip the check", async () => {
+    expect(await outcome(callerFor({ isOwner: true }).caller.undeclared())).toBe("INTERNAL_SERVER_ERROR");
+  });
+
   it("needs no module for the Foundation's own permissions", async () => {
     expect(await outcome(callerFor({ modules: [], isOwner: true }).caller.manageStaff())).toBe("staff managed");
+  });
+});
+
+describe("subscription.get", () => {
+  it("answers in every state, and refuses an organization without a subscription as check 2 does", async () => {
+    expect(
+      await outcome(
+        callerFor({ status: "cancelled" })
+          .caller.subscription.get()
+          .then((got) => got.status),
+      ),
+    ).toBe("cancelled");
+    const refused = await callerFor({ status: "none" })
+      .caller.subscription.get()
+      .catch((error: unknown) => error as { code: string; cause?: { reason?: string } });
+    expect(refused).toMatchObject({ code: "FORBIDDEN", cause: { reason: "NO_SUBSCRIPTION" } });
   });
 });
 
