@@ -89,6 +89,25 @@ export class OrganizationStepOpenError extends Error {
 }
 
 /**
+ * Thrown when a step's transaction is used after asOrganization() returned: by then the transaction is the platform
+ * role again, so a query made in the step but run later, or work begun in it and awaited outside, would see every
+ * organization.
+ */
+export class OrganizationStepEndedError extends Error {
+  static {
+    Object.defineProperty(this.prototype, OWN_MESSAGE, { value: true });
+  }
+
+  constructor() {
+    super(
+      "A step into an organization has ended, so its transaction can't be used any more: it would run as the " +
+        "platform role. Await everything a step starts before asOrganization() returns.",
+    );
+    this.name = "OrganizationStepEndedError";
+  }
+}
+
+/**
  * Thrown on every use of a platform transaction after a step into an organization failed in the database, and in place
  * of its commit. Postgres aborts a transaction at its first error and answers its COMMIT with a silent ROLLBACK, so a
  * caller that caught the step's error and went on would otherwise see the transaction succeed with nothing saved.

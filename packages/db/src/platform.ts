@@ -1,10 +1,12 @@
 // Entry point for the platform module only (dependency-cruiser enforces it, tests aside): transactions as the
 // app_platform role, which sees every organization (platform_access policy), and, inside one, a step into a single
 // organization as app_runtime, where row-level security and the runtime role's grants apply as in db.forOrg().
+// Over 200 lines: the transaction and its step guard each other's state, so they stay together.
 import { createPrismaClient, type DatabaseClient } from "./client.js";
 import type { DatabaseOptions } from "./database.js";
 import {
   NestedForOrgError,
+  OrganizationStepEndedError,
   OrganizationStepOpenError,
   PlatformTransactionAbortedError,
   WrongPlatformRoleError,
@@ -18,8 +20,14 @@ import {
   type IdentityTx,
   type TransactionClient,
 } from "./for-org.js";
+import { guardedQueries } from "./guarded-queries.js";
 
-export { OrganizationStepOpenError, PlatformTransactionAbortedError, WrongPlatformRoleError } from "./errors.js";
+export {
+  OrganizationStepEndedError,
+  OrganizationStepOpenError,
+  PlatformTransactionAbortedError,
+  WrongPlatformRoleError,
+} from "./errors.js";
 export { deleteOrganizationRows, organizationRows } from "./organization-rows.js";
 export type { ForOrgOptions, IdentityTx, OrgTx } from "./for-org.js";
 
@@ -49,12 +57,24 @@ export function createPlatformClient(url: string): PlatformClient {
 
 /** One open platform transaction, as this file tracks it. */
 interface OpenTransaction {
-  /** Prisma's transaction. Only this file uses it directly; fn gets a guarded handle (guardedHandle). */
+  /** Prisma's transaction. Only this file uses it directly; fn gets a guarded handle to it. */
   readonly tx: TransactionClient;
-  /** True while asOrganization() runs in it: its one connection then belongs to the step. */
-  inStep: boolean;
+  /** The step into an organization running in it, if any: its one connection then belongs to the step. */
+  step: OpenStep | null;
   /** Set once Postgres aborted it during a step, to the error that did it. */
   abortedBy: { error: unknown } | null;
+  /** The platform handle's queries running now. A step waits for them before it switches role. */
+  readonly running: Set<Promise<unknown>>;
+}
+
+/** One step into an organization. */
+interface OpenStep {
+  /** False once the step's work has settled: from then on its handle refuses every query. */
+  open: boolean;
+  /** The step handle's queries running now. The step waits for them before it switches back. */
+  readonly running: Set<Promise<unknown>>;
+  /** What asOrganization() returned, so the transaction can handle it if fn leaves the step behind. */
+  promise: Promise<unknown> | null;
 }
 
 /** The open platform transactions, by the handle each gave its function. */
@@ -69,17 +89,31 @@ export function createPlatformDatabase(url: string, options: DatabaseOptions = {
         client.$transaction(async (tx) => {
           // No organization set, a guarantee rather than an assumption about the pooled connection.
           await setOrganization(tx, "", "app_platform");
-          const open: OpenTransaction = { tx, inStep: false, abortedBy: null };
-          const handle = guardedHandle(open);
+          const open: OpenTransaction = { tx, step: null, abortedBy: null, running: new Set() };
+          // Refused while a step is open (the connection then runs in the organization) or once one left it aborted.
+          const handle = guardedQueries(tx, {
+            check: () => {
+              assertUsable(open);
+            },
+            running: open.running,
+          });
           openTransactions.set(handle, open);
           // The platform role reads and writes webhook events itself (tombstones after a purge).
           allowUnscopedModels(handle, handle);
-          const result = await fn(handle);
-          // Before the commit: not with a step still open or after one failed, and not after any other database error
-          // its caller caught, where this round trip fails ("current transaction is aborted").
-          assertUsable(open);
-          await setOrganization(tx, "", "app_platform");
-          return result;
+          try {
+            const result = await fn(handle);
+            await Promise.allSettled(open.running);
+            // Before the commit: not with a step still open or after one failed, and not after any other database
+            // error its caller caught, where this round trip fails ("current transaction is aborted").
+            assertUsable(open);
+            await setOrganization(tx, "", "app_platform");
+            return result;
+          } finally {
+            // A step fn left behind, as when a refused query beside it threw first, fails once the transaction rolls
+            // back. Its rejection is handled here, as the transaction's own error reports the problem: left
+            // unhandled, it would end the process.
+            open.step?.promise?.catch(() => undefined);
+          }
         }, transactionOptions),
       ),
     disconnect: () => client.$disconnect(),
@@ -93,30 +127,44 @@ export function createPlatformDatabase(url: string, options: DatabaseOptions = {
  * session is still app_platform's, so SQL that reset the role would leave the organization. Only this package writes
  * such SQL; ESLint refuses it everywhere else. Afterwards the transaction is the platform role again, with no
  * organization set, even when fn failed. One step at a time: not nested, and nothing beside it (no Promise.all).
+ * fn's transaction works only until fn settles: await everything it starts.
  */
-export async function asOrganization<T>(
+export function asOrganization<T>(
   tx: PlatformTx,
   organizationId: string,
   fn: (orgTx: IdentityTx) => Promise<T>,
 ): Promise<T> {
+  const promise = runStep(tx, organizationId, fn);
+  // runStep's checks run before its first await, so a step without a promise yet is the one it has just begun.
+  const step = openTransactions.get(tx)?.step;
+  if (step && !step.promise) step.promise = promise;
+  return promise;
+}
+
+async function runStep<T>(tx: PlatformTx, organizationId: string, fn: (orgTx: IdentityTx) => Promise<T>): Promise<T> {
   assertOrganizationId(organizationId);
   const open = openTransactions.get(tx);
   // Never a forOrg() transaction, which it would switch into another organization.
   if (!open) throw new TypeError("asOrganization() takes only the transaction a platform transaction gave fn");
   // Checked and set before any SQL, so a second step, inside this one or beside it, never starts: their role switches
   // would interleave on the one connection, and one step's queries would run in the other's organization.
-  if (open.inStep) throw new NestedForOrgError("step");
+  if (open.step) throw new NestedForOrgError("step");
   assertUsable(open);
-  open.inStep = true;
+  const step: OpenStep = { open: true, running: new Set(), promise: null };
+  open.step = step;
   try {
-    return await inOrganization(open, organizationId, fn);
+    // Platform queries that started before the step finish first, as the platform role.
+    await Promise.allSettled(open.running);
+    return await inOrganization(open, step, organizationId, fn);
   } finally {
-    open.inStep = false;
+    step.open = false;
+    open.step = null;
   }
 }
 
 async function inOrganization<T>(
   open: OpenTransaction,
+  step: OpenStep,
   organizationId: string,
   fn: (orgTx: IdentityTx) => Promise<T>,
 ): Promise<T> {
@@ -126,10 +174,17 @@ async function inOrganization<T>(
     await open.tx.$executeRaw`SET LOCAL ROLE app_runtime`;
     await setOrganization(open.tx, organizationId, "app_runtime");
   });
+  const stepGuard = {
+    check: () => {
+      if (!step.open) throw new OrganizationStepEndedError();
+    },
+    running: step.running,
+  };
   let result: T;
   try {
-    result = await fn(hidingUnscopedModels(open.tx));
+    result = await fn(guardedQueries(hidingUnscopedModels(open.tx), stepGuard));
   } catch (error) {
+    await endStep(step);
     // A caller may catch this and go on in the transaction, so leave the organization. After a database error
     // Postgres has aborted the transaction and leaving fails too; the step's error is the one that aborted it.
     await leaveOrganization(open).catch(() => {
@@ -137,8 +192,15 @@ async function inOrganization<T>(
     });
     throw error;
   }
+  await endStep(step);
   await leaveOrganization(open);
   return result;
+}
+
+/** Refuses the step's handle from now on, then waits for the queries it started, so all of them run in the step. */
+async function endStep(step: OpenStep): Promise<void> {
+  step.open = false;
+  await Promise.allSettled(step.running);
 }
 
 /** Back to the platform role, with no organization set. */
@@ -169,21 +231,8 @@ async function setOrganization(tx: TransactionClient, organizationId: string, ro
   if (session?.role !== role) throw new WrongPlatformRoleError(session?.role);
 }
 
-/**
- * The handle a platform transaction's fn gets: the transaction itself, refusing every use while a step is open (its
- * connection then runs in the organization) and once a failed step left it aborted.
- */
-function guardedHandle(open: OpenTransaction): PlatformTx {
-  return new Proxy(open.tx, {
-    get(target, property) {
-      assertUsable(open);
-      return Reflect.get(target, property) as unknown;
-    },
-  });
-}
-
 /** Throws, before any SQL runs, unless the transaction can go on as the platform role. */
 function assertUsable(open: OpenTransaction): void {
   if (open.abortedBy) throw new PlatformTransactionAbortedError({ cause: open.abortedBy.error });
-  if (open.inStep) throw new OrganizationStepOpenError();
+  if (open.step) throw new OrganizationStepOpenError();
 }
