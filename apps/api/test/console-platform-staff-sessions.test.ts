@@ -4,7 +4,9 @@
 // their address stays taken. Demoting a super admin keeps their impersonations (support may impersonate). A new
 // temporary password signs them out everywhere, impersonations included.
 import type { PlatformStaffEntry, TemporaryPasswordOutput } from "@travel-crm/contracts/platform";
+import { removeFromPlatformStaff } from "@travel-crm/domain/identity";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterFirstSessionStatement } from "./support/after-session-statement.js";
 import {
   consoleMutate,
   consoleQuery,
@@ -91,6 +93,29 @@ describe("platform staff's sessions", () => {
     expect((await query(server, "settings.get", impersonation)).status).toBe(401);
     expect((await signInByEmail(server, new CookieJar(), leaving.email, leaving.password)).ok).toBe(false);
     expect(await stopsRecorded(leaving.userId)).toEqual([stopEntry(leaving.userId, "removed-from-platform-staff")]);
+  });
+
+  it("returns exactly the impersonations it deleted, though another starts while it runs", async () => {
+    const leaving = await signedInPlatformStaff(server, "support");
+    const impersonationBy = (token: string) => ({
+      userId: agency.owner.userId,
+      token,
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      impersonatedBy: leaving.userId,
+    });
+    await server.platform.session.create({ data: impersonationBy(crypto.randomUUID()) });
+    const { endedImpersonations } = await testConsole.services.platformDb.transaction((tx) =>
+      removeFromPlatformStaff(
+        // A second impersonation commits right after the removal's first statement on sessions.
+        afterFirstSessionStatement(tx, () =>
+          server.platform.session.create({ data: impersonationBy(crypto.randomUUID()) }),
+        ),
+        superAdmin,
+        leaving.userId,
+      ),
+    );
+    const deleted = 2 - (await impersonationsBy(leaving.userId));
+    expect({ returned: endedImpersonations.length, deleted }).toEqual({ returned: deleted, deleted });
   });
 
   it("keeps a removed person's row, with no level, and their address taken, as any address in use is", async () => {

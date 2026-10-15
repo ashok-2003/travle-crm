@@ -14,17 +14,21 @@ export interface EndedImpersonation {
   expiresAt: Date;
 }
 
+/**
+ * One statement deletes the sessions and returns the impersonations among them, so an impersonation that starts
+ * meanwhile is either deleted and returned, or left alone (and refused by the per-request check): never deleted
+ * unrecorded. Support impersonates only active members; one removed since has no log of theirs to write to.
+ */
 export async function endPlatformStaffSessions(tx: IdentityTx, userId: string): Promise<EndedImpersonation[]> {
-  const impersonations = await tx.session.findMany({
-    where: { impersonatedBy: userId },
-    orderBy: { createdAt: "asc" },
-    select: { userId: true, expiresAt: true, user: { select: { member: true } } },
-  });
-  await tx.session.deleteMany({ where: { OR: [{ userId }, { impersonatedBy: userId }] } });
-  // Support impersonates only active members; one removed since has no log of theirs to write to, as at a stop.
-  return impersonations.flatMap(({ user: { member }, ...session }) =>
-    member?.deletedAt === null
-      ? [{ ...session, organizationId: member.organizationId, memberId: member.id, adminUserId: userId }]
-      : [],
-  );
+  const ended = await tx.$queryRaw<Omit<EndedImpersonation, "adminUserId">[]>`
+    WITH ended AS (
+      DELETE FROM "session" WHERE user_id = ${userId}::uuid OR impersonated_by = ${userId}::uuid
+      RETURNING user_id, impersonated_by, expires_at, created_at
+    )
+    SELECT m.organization_id::text AS "organizationId", m.id::text AS "memberId", e.user_id::text AS "userId",
+      e.expires_at AS "expiresAt"
+    FROM ended e JOIN member m ON m.user_id = e.user_id AND m.deleted_at IS NULL
+    WHERE e.impersonated_by = ${userId}::uuid
+    ORDER BY e.created_at`;
+  return ended.map((impersonation) => ({ ...impersonation, adminUserId: userId }));
 }
