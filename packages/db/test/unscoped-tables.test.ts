@@ -51,8 +51,30 @@ describe("tables without organization_id", () => {
       client.webhookEvent,
       // @ts-expect-error nor rate_limit_counter
       client.rateLimitCounter,
+      // The client's own transactions are IdentityTx too.
+      client.$transaction((clientTx) =>
+        Promise.resolve([
+          // @ts-expect-error a transaction on the identity client reaches the sign-in tables, not webhook_event
+          clientTx.webhookEvent,
+          // @ts-expect-error nor rate_limit_counter
+          clientTx.rateLimitCounter,
+        ]),
+      ),
+      // @ts-expect-error an extension would skip the client's role check and its hiding of these tables
+      client.$extends,
     ];
     expect(typeof hidden).toBe("function");
+  });
+
+  it("are refused inside the identity client's own transactions, which can't be extended away", async () => {
+    for (const model of ["webhookEvent", "rateLimitCounter"]) {
+      await expect(identity.client.$transaction((tx) => reachFor(tx, model))).rejects.toBeInstanceOf(
+        UnscopedModelError,
+      );
+    }
+    // The sign-in tables are still there, which is what Better Auth's adapter uses the transactions for.
+    expect(await identity.client.$transaction((tx) => tx.user.count())).toBeGreaterThanOrEqual(0);
+    expect(() => Reflect.get(identity.client, "$extends") as unknown).toThrow(/can't be extended/);
   });
 
   it("are refused at run time when a cast reaches past the types", async () => {
