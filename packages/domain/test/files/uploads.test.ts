@@ -2,7 +2,7 @@
 // organization's files count toward its storage limit, deleted ones included until a purge.
 import { softDeleted } from "@travel-crm/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createFiles } from "../../src/files/index.js";
+import { bytesStored, createFiles } from "../../src/files/index.js";
 import { systemActor } from "../../src/kernel/index.js";
 import {
   bytes,
@@ -282,5 +282,11 @@ describe("the storage limit", () => {
     });
     const { attachment: fits } = await test.files.requestUpload(owner, passportUpload({ sizeBytes: 400 }));
     expect(fits.sizeBytes).toBe(400);
+  });
+
+  it("counts only the organization it names, even in a transaction that sees every organization's files", async () => {
+    const other = await createOrganization(test, "Other agency");
+    await test.files.requestUpload(memberOf(other, "org-owner"), passportUpload({ sizeBytes: 7 }));
+    expect(await test.platform.$transaction((tx) => bytesStored(tx, other))).toBe(7);
   });
 });

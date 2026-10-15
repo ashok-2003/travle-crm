@@ -38,7 +38,7 @@ export async function organizationsOverview(
     const counted = await services.platformDb.transaction((tx) =>
       asOrganization(tx, organization.id, async (orgTx) => ({
         entitlements: await entitlementsOf(orgTx, organization.id, now),
-        storedBytes: await bytesStored(orgTx),
+        storedBytes: await bytesStored(orgTx, organization.id),
         changes: await auditEntriesSince(orgTx, monthStart),
         documentsIssued: await documentsIssuedSince(orgTx, monthStart),
       })),

@@ -57,7 +57,7 @@ describe("the business profile", () => {
 
   it("saves the profile, then changes it, recording the changed fields by name only", async () => {
     const owner = await ownerOfNewOrganization();
-    expect(await db.forOrg(owner.organizationId, getOrganizationProfile)).toBeNull();
+    expect(await db.forOrg(owner.organizationId, (tx) => getOrganizationProfile(tx, owner.organizationId))).toBeNull();
     await db.forOrg(owner.organizationId, (tx) => saveOrganizationProfile(tx, owner, details));
     const saved = await db.forOrg(owner.organizationId, (tx) =>
       saveOrganizationProfile(tx, owner, { ...details, bankAccountNumber: "001234567890", bankIfsc: "HDFC0001234" }),
@@ -79,10 +79,25 @@ describe("the business profile", () => {
     const owner = await ownerOfNewOrganization();
     await db.forOrg(owner.organizationId, (tx) => saveOrganizationProfile(tx, owner, details));
     const other = await ownerOfNewOrganization();
-    expect(await db.forOrg(other.organizationId, getOrganizationProfile)).toBeNull();
+    expect(await db.forOrg(other.organizationId, (tx) => getOrganizationProfile(tx, other.organizationId))).toBeNull();
     await expect(db.forOrg(owner.organizationId, (tx) => tx.organizationProfile.deleteMany({}))).rejects.toThrow(
       /permission denied/,
     );
+  });
+
+  it("reads only the organization it names, even in a transaction that sees every organization's profile", async () => {
+    const owner = await ownerOfNewOrganization();
+    await db.forOrg(owner.organizationId, (tx) =>
+      saveOrganizationProfile(tx, owner, {
+        ...details,
+        legalName: "Named Trails LLP",
+        bankAccountNumber: "009876543210",
+      }),
+    );
+    const unsaved = await ownerOfNewOrganization();
+    const read = (organizationId: string) => platform.$transaction((tx) => getOrganizationProfile(tx, organizationId));
+    expect(await read(owner.organizationId)).toMatchObject({ legalName: "Named Trails LLP" });
+    expect(await read(unsaved.organizationId)).toBeNull();
   });
 
   it("keeps the branding when the business details are updated, and the details when the branding is", async () => {

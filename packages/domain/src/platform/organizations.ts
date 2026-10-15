@@ -45,7 +45,7 @@ export async function getOrganization(
 ): Promise<OrganizationDetails> {
   return services.platformDb.transaction(async (tx) => {
     const organization = recordOf(await findOrganizationRecord(tx, organizationId));
-    const profile = await asOrganization(tx, organizationId, getOrganizationProfile);
+    const profile = await asOrganization(tx, organizationId, (orgTx) => getOrganizationProfile(orgTx, organizationId));
     return {
       organization,
       profile: profile && { ...profile, bankAccountNumber: lastFourDigits(profile.bankAccountNumber) },
