@@ -52,6 +52,10 @@ its message or the error itself, which can quote a person's data (a Prisma valid
   each organization the nightly lifecycle couldn't advance, a purge's or an erasure's files left to the deletions'
   job, pg-boss's own errors and warnings, and a failed shutdown. The platform's services carry this log
   (`PlatformServices.log`).
+- **An error nothing handled**, in any of the three once started (a promise rejected with no handler, an exception
+  nothing caught): one line, `<process>: unhandled rejection: ...` or `<process>: uncaught exception: ...`, by names
+  and codes, never Node's default print of the whole error; then the same drain as SIGTERM, exiting 1
+  (`stopOnUnhandledErrors` in `src/start-up.ts`).
 - **Start-up is the one exception.** A process that can't start prints one `<process> start-up failed` message with
   the error in full, closes its pools and exits 1. Only set-up has run by then, so the error quotes no one's data
   (`src/start-up.ts`).
@@ -70,13 +74,21 @@ development server) routes there, and the platform's own jobs, from `src/console
 | `platform.expire-exports`         | deletes the parts and file copies of exports past their 7 days, or withdrawn by an erasure   |
 | `platform.delete-stored-files`    | deletes the stored files a purge or an erasure queued, retrying until done (ADR 0023)        |
 | `platform.sweep-stored-files`     | every hour, deletes what the deletions' outbox holds that no job will reach (ADR 0023)       |
+| `platform.sweep-expired-exports`  | every day at 03:45 India time, clears exports past their 7 days that no job cleared          |
 | `subscriptions.advance-lifecycle` | every day at 00:15 India time, records each subscription's state, as the platform role (7.3) |
 | `platform.reset-demo`             | every night at 02:00 India time, purges and rebuilds the shared demo (spec 7.4)              |
 
 It is the only process that reads `DATABASE_PLATFORM_URL` (deploys give it to no other), and it needs everything else
-the api does. It refuses to start when that connection isn't the platform role, as well as for everything the api
-refuses. It runs no listeners and relays nothing: the worker does. One instance is enough; keep it running for the demo
-reset. It stops on SIGTERM like the api.
+the api does. It refuses to start when that connection isn't the platform role, or when the platform role can't step
+into an organization as `app_runtime` (`OrganizationStepRefusedError`: the grant a hosted database needs, ADR 0019 and
+`docs/deploy-checklist.md`), as well as for everything the api refuses. It runs no listeners and relays nothing: the
+worker does. One instance is enough; keep it running for the demo reset.
+
+It stops on SIGTERM like the api, but its jobs can run long, so the drain may cut one short: pg-boss waits 30 seconds
+for running jobs, then the pools close under whatever is still running. Both long jobs are safe to cut. A purge is one
+transaction, which rolls back, and pg-boss runs it again once the attempt's time is up. An export cut midway restarts
+only after its attempt's 2-hour limit (`EXPORT_JOB_SECONDS`), when pg-boss counts the attempt failed and retries it.
+Give the console at least 30 seconds between SIGTERM and a hard kill.
 
 | Variable                 | Required | Default | Meaning                                                                        |
 | ------------------------ | -------- | ------- | ------------------------------------------------------------------------------ |

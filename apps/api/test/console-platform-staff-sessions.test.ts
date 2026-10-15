@@ -5,7 +5,7 @@
 // temporary password signs them out everywhere, impersonations included.
 import type { PlatformStaffEntry, TemporaryPasswordOutput } from "@travel-crm/contracts/platform";
 import { removeFromPlatformStaff } from "@travel-crm/domain/identity";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { afterFirstSessionStatement } from "./support/after-session-statement.js";
 import {
   consoleMutate,
@@ -168,7 +168,13 @@ describe("platform staff's sessions", () => {
     expect((await consoleQuery(testConsole, "whoAmI", forgetful.jar)).status).toBe(401);
     expect((await query(server, "settings.get", impersonation)).status).toBe(401);
     expect(await stopsRecorded(forgetful.userId)).toEqual([stopEntry(forgetful.userId, "password-reset")]);
+    // Better Auth warns of the old password, which is the point: kept off the test output, and checked.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    onTestFinished(() => {
+      warn.mockRestore();
+    });
     expect((await signInByEmail(server, new CookieJar(), forgetful.email, forgetful.password)).ok).toBe(false);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("Invalid password"));
     const jar = new CookieJar();
     expect((await signInByEmail(server, jar, forgetful.email, temporaryPassword)).status).toBe(200);
     expect(await refusalOf(await consoleQuery(testConsole, "whoAmI", jar))).toEqual({

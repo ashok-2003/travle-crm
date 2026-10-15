@@ -10,9 +10,15 @@ import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import { DomainError, type Actor } from "../kernel/index.js";
 
-/** The transaction's organization's profile, or null before onboarding saved one. */
-export async function getOrganizationProfile(tx: OrgTx): Promise<OrganizationProfileDetails | null> {
-  const row = await tx.organizationProfile.findFirst();
+/**
+ * The organization's profile, or null before onboarding saved one. Named, not left to row-level security: the
+ * platform's own transaction sees every organization's profile, bank account included.
+ */
+export async function getOrganizationProfile(
+  tx: OrgTx,
+  organizationId: string,
+): Promise<OrganizationProfileDetails | null> {
+  const row = await tx.organizationProfile.findUnique({ where: { organizationId } });
   if (!row) return null;
   return {
     legalName: row.legalName,
@@ -52,7 +58,7 @@ export async function updateOrganizationProfile(
   input: UpdateOrganizationProfileInput,
 ): Promise<OrganizationProfileDetails> {
   await lockProfile(tx, actor);
-  const before = await getOrganizationProfile(tx);
+  const before = await getOrganizationProfile(tx, actor.organizationId);
   const branding = { brandColour: before?.brandColour ?? null, documentTerms: before?.documentTerms ?? null };
   return write(tx, actor, { ...input, ...branding }, Object.keys(input) as ProfileField[]);
 }
@@ -64,7 +70,7 @@ export async function saveOrganizationBranding(
   input: SaveBrandingInput,
 ): Promise<OrganizationProfileDetails> {
   await lockProfile(tx, actor);
-  const before = await getOrganizationProfile(tx);
+  const before = await getOrganizationProfile(tx, actor.organizationId);
   if (!before) {
     throw new DomainError("CONFLICT", "PROFILE_NOT_SAVED", "Save the business details before the branding");
   }
@@ -90,7 +96,7 @@ async function write(
   touched: ProfileField[],
 ): Promise<OrganizationProfileDetails> {
   await lockProfile(tx, actor);
-  const before = await getOrganizationProfile(tx);
+  const before = await getOrganizationProfile(tx, actor.organizationId);
   const changed = touched.filter((field) => before?.[field] !== input[field]);
   if (changed.length > 0) {
     await tx.organizationProfile.upsert({
@@ -105,7 +111,7 @@ async function write(
       after: { fields: changed },
     });
   }
-  const saved = await getOrganizationProfile(tx);
+  const saved = await getOrganizationProfile(tx, actor.organizationId);
   if (!saved) throw new Error("The profile was saved but can't be read back");
   return saved;
 }

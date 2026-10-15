@@ -5,12 +5,17 @@ import { DomainError } from "../kernel/index.js";
 import type { Entitlements } from "./entitlements.js";
 
 /**
- * What a call does, for the lifecycle: reads, changes, exports, or something every state allows (me.get and the
- * subscription's own status, so the app can say why the rest is refused).
+ * What a call does, for the lifecycle: reads, changes, exports, takes someone's access away (removing staff, a new
+ * temporary password, requiring two-factor), or something every state allows (me.get and the subscription's own
+ * status, so the app can say why the rest is refused).
  */
-export type CallKind = "view" | "change" | "export" | "always";
+export type CallKind = "view" | "change" | "export" | "revoke" | "always";
 
-/** Check 2 (spec 7.3): read-only allows views and exports; suspended only the Owner's exports; cancelled nothing. */
+/**
+ * Check 2 (spec 7.3): read-only allows views, exports and revoking access; suspended only the Owner's exports and
+ * revocations; cancelled nothing. Revoking is never a billing matter: an agency must be able to cut off someone who
+ * left, whether or not it has paid (ADR 0021).
+ */
 export function assertLifecycleAllows(
   entitlements: Entitlements | null,
   call: { kind: CallKind; isOwner: boolean },
@@ -26,7 +31,7 @@ export function assertLifecycleAllows(
       if (call.kind !== "change") return;
       throw new DomainError("FORBIDDEN", "ORGANIZATION_READ_ONLY", "This organization is read-only until it pays");
     case "export_only":
-      if (call.kind === "export" && call.isOwner) return;
+      if ((call.kind === "export" || call.kind === "revoke") && call.isOwner) return;
       throw new DomainError("FORBIDDEN", "ORGANIZATION_SUSPENDED", "This organization is suspended until it pays");
     case "locked":
       throw new DomainError("FORBIDDEN", "ORGANIZATION_CANCELLED", "This organization's subscription has ended");

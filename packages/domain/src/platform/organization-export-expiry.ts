@@ -3,12 +3,14 @@
 // The row stays, ids and counts only. Marking first, under the row's lock, means the job writing an export can store
 // nothing the clearing then misses (export-storage.ts).
 import type { PlatformTx } from "@travel-crm/db/platform";
+import type { ScheduledJob } from "../jobs/index.js";
 import {
   EXPIRE_EXPORTS_QUEUE,
   EXPORT_JOB_SECONDS,
   exportFileKey,
   exportFolder,
   exportPartKey,
+  SWEEP_EXPIRED_EXPORTS_QUEUE,
 } from "./organization-export.js";
 import { recordPlatformAudit } from "./platform-log.js";
 import type { PlatformServices } from "./services.js";
@@ -135,4 +137,22 @@ export async function deleteExpiredExports(services: PlatformServices, now: Date
     }
     if (due.length < PAGE) return cleared;
   }
+}
+
+/**
+ * The daily sweep, which the console must schedule: one run of the expiry job over every export due. It is what clears
+ * an export whose own job ran out of retries and was then dropped by pg-boss (a week after it failed), so an erased
+ * person's data isn't left stored past the export's 7 days. Each run takes every export due, so a lost run is made up
+ * by the next, and clearing an export twice deletes nothing more.
+ */
+export function expiredExportsSchedule(services: PlatformServices): ScheduledJob {
+  return {
+    queue: SWEEP_EXPIRED_EXPORTS_QUEUE,
+    // After the demo reset (02:00) and the worker's rate-limit purge (03:30), when no agency is at work.
+    cron: "45 3 * * *",
+    timeZone: "Asia/Kolkata",
+    handle: async () => {
+      await deleteExpiredExports(services, new Date());
+    },
+  };
 }

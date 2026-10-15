@@ -57,7 +57,7 @@ describe("the business profile", () => {
 
   it("saves the profile, then changes it, recording the changed fields by name only", async () => {
     const owner = await ownerOfNewOrganization();
-    expect(await db.forOrg(owner.organizationId, getOrganizationProfile)).toBeNull();
+    expect(await db.forOrg(owner.organizationId, (tx) => getOrganizationProfile(tx, owner.organizationId))).toBeNull();
     await db.forOrg(owner.organizationId, (tx) => saveOrganizationProfile(tx, owner, details));
     const saved = await db.forOrg(owner.organizationId, (tx) =>
       saveOrganizationProfile(tx, owner, { ...details, bankAccountNumber: "001234567890", bankIfsc: "HDFC0001234" }),
@@ -75,11 +75,17 @@ describe("the business profile", () => {
     expect(JSON.stringify(entries)).not.toContain("001234567890");
   });
 
-  it("keeps each organization's profile to itself, and never deletes one for the api", async () => {
+  it("keeps each organization's profile to itself, however it is read, and never deletes one for the api", async () => {
     const owner = await ownerOfNewOrganization();
-    await db.forOrg(owner.organizationId, (tx) => saveOrganizationProfile(tx, owner, details));
+    const named = { ...details, legalName: "Named Trails LLP" };
+    await db.forOrg(owner.organizationId, (tx) => saveOrganizationProfile(tx, owner, named));
     const other = await ownerOfNewOrganization();
-    expect(await db.forOrg(other.organizationId, getOrganizationProfile)).toBeNull();
+    expect(await db.forOrg(other.organizationId, (tx) => getOrganizationProfile(tx, other.organizationId))).toBeNull();
+    // The platform role sees every organization's profile: the read names the one it means.
+    const asPlatform = (organizationId: string) =>
+      platform.$transaction((tx) => getOrganizationProfile(tx, organizationId));
+    expect(await asPlatform(owner.organizationId)).toMatchObject({ legalName: "Named Trails LLP" });
+    expect(await asPlatform(other.organizationId)).toBeNull();
     await expect(db.forOrg(owner.organizationId, (tx) => tx.organizationProfile.deleteMany({}))).rejects.toThrow(
       /permission denied/,
     );

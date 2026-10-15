@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import type { QueuedJob, RequestPurgeInput } from "@travel-crm/contracts/platform";
 import { deleteOrganizationRows, type PlatformTx } from "@travel-crm/db/platform";
 import { queueOrganizationFileDeletion } from "../files/index.js";
-import { deleteUsers, findOrganizationRecord, organizationUserIds } from "../identity/index.js";
+import { deleteUsers, findOrganizationRecord, holdOrganizationRecord, organizationUserIds } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
 import { entitlementsOf, lockSubscription } from "../subscriptions/index.js";
 import { tombstoneWebhookEvents } from "../webhooks/index.js";
@@ -129,6 +129,10 @@ export async function purgeOrganization(
         });
         return "skipped";
       }
+      // Without it, a row written meanwhile into any organization table (a listener, a webhook, the demo's users at
+      // 02:00) would fail the last DELETE on its RESTRICT key; held, such a write waits, then fails on the organization
+      // gone. After the subscription's lock (purgeBlocker), as every holder of both takes them.
+      await holdOrganizationRecord(tx, job.organizationId);
       const files = await queueOrganizationFileDeletion(tx, job.organizationId, now);
       const userIds = await organizationUserIds(tx, job.organizationId);
       const webhooks = await tombstoneWebhookEvents(tx, job.organizationId, { organizationGone: true });

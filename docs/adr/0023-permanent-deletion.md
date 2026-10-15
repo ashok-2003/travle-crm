@@ -69,7 +69,10 @@ super-admin action in the platform console")
   the organization, and stores JSON-lines parts and a copy of each stored file under
   `platform/exports/<organization>/<export>/`, ids only in the keys. `platform_export` keeps it for 7 days; a download
   hands out 15-minute links and is logged (`organization.export-downloaded`); `platform.expire-exports` then deletes
-  its parts and copies. `organization.exported` is written only once the export is complete. A subject's export
+  its parts and copies. That job is one per export, and pg-boss drops a failed job a week after its last retry, so a
+  daily sweep (`platform.sweep-expired-exports`, the console's schedule at 03:45 India time) runs the same expiry over
+  every export due, as the hourly sweep does for stored files: an erased person's data never stays stored past the
+  export's 7 days because one job failed. `organization.exported` is written only once the export is complete. A subject's export
   (`exportedFiles` and `auditEntriesAbout`) is returned at once in the console's response, its file links lasting 15
   minutes, and only logged. A purge needs a fresh export
   (`hasFreshExport`): one done within the last day and not withdrawn since. An erasure withdraws every export of its
@@ -94,7 +97,10 @@ super-admin action in the platform console")
   the organization and records `organization.purge-skipped` with the reason (`not-cancelled` with the status, or
   `no-recent-export`); a super admin asks again, which checks everything again. A payment recorded during a purge
   waits for it, then finds the organization gone. The nightly demo reset purges its own active demo with none of
-  these checks.
+  these checks. Past the checks, the purge also holds the organization's row (`FOR UPDATE`, after the subscription,
+  the order every holder of both keeps): a row written into any organization table meanwhile (a listener, a webhook,
+  the demo's users) waits, then fails on the organization gone, instead of failing the purge's last `DELETE` on its
+  `RESTRICT` key. A write already under way finishes first and goes with the rest.
 - **The erasure job checks again too:** its organization still exists, and the subject's export is less than a day old
   when the job runs. Otherwise nothing is erased, and `subject.erasure-skipped` gives the reason
   (`organization-gone` or `no-recent-export`).

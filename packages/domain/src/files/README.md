@@ -46,8 +46,9 @@ documents are marked sensitive (spec 5).
   - for the job that empties the outbox: `dueFileDeletions(tx, { now, limit, organizationId? })`,
     `deleteQueuedFile(storage, deletion)` (the file, or the whole folder, `organizationFolder(id)`),
     `forgetFileDeletion(tx, id)` and `nextFileDeletionDue(tx, organizationId?)`. Each is safe to repeat.
-- Exports: `exportedFiles(tx, storage, where, linkSeconds)` (files with download links). `bytesStored(tx)`: the
-  storage used.
+- Exports: `exportedFiles(tx, storage, where, linkSeconds)` (files with download links). `bytesStored(tx, organizationId)`:
+  the storage the organization uses, named rather than left to row-level security, so a platform transaction counts
+  that one alone.
 
 ## Events
 

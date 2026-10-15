@@ -20,6 +20,7 @@ const probe = router({
   view: orgProcedure.meta(core).query(() => "viewed"),
   change: orgProcedure.meta(core).mutation(() => "changed"),
   exportData: orgProcedure.meta({ ...core, lifecycle: "export" }).mutation(() => "exported"),
+  revokeAccess: orgProcedure.meta({ ...core, lifecycle: "revoke" }).mutation(() => "revoked"),
   status: orgProcedure.meta({ ...core, lifecycle: "always" }).query(() => "status"),
   /** A procedure that forgot to say which module it belongs to. */
   undeclared: orgProcedure.query(() => "undeclared"),

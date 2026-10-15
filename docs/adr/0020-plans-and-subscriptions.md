@@ -21,7 +21,10 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 7.2 and 7.4, an
 - **Only the platform role writes these tables**, the nightly lifecycle job included, which runs in the console
   process (ADR 0021). The api and the worker only read them, for the request checks. The console's changes run in
   platform transactions and are recorded in the organization's own audit log under the platform admin's name; plan
-  changes, which belong to no organization, go in the platform log.
+  changes, which belong to no organization, go in the platform log. So do the billing changes support may make
+  freely: time given (`subscription.paid-through-changed`), a voided payment, a plan change and a cancellation, with
+  ids, days, amounts in paise and who acted, never the reason typed, and only when something changed. A super admin
+  can then review what support gave away from the console's own log, without impersonating each Owner.
 - **Billing readiness (spec 7.4: "Razorpay Subscriptions webhooks update the same record later").** A subscription
   has a `provider_subscription_id`, and a payment a `provider` and `provider_payment_id`, unique per organization:
   `recordPayment(…, { provider: { provider: "razorpay", providerPaymentId } })` records a repeated webhook's payment

@@ -9,9 +9,10 @@ import { errorShape } from "./errors.js";
 export interface ProcedureMeta {
   /**
    * "export": a download of the organization's data, allowed while read-only and, to the Owner, while suspended.
+   * "revoke": takes someone's access away, allowed while read-only and, to the Owner, while suspended (ADR 0021).
    * "always": allowed in every lifecycle state, so the app can say why everything else is refused.
    */
-  lifecycle?: "export" | "always";
+  lifecycle?: "export" | "revoke" | "always";
   /**
    * Check 3: the plan module the procedure belongs to, or "core" for the Foundation's own features, which every plan
    * has. `requires()` sets it from the first permission's module; a procedure without permissions declares it. An

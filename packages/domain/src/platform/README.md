@@ -6,6 +6,10 @@ The platform console's work across organizations (spec sections 5 and 7). It is 
 
 ## Public functions and values (`index.ts`)
 
+- What the console runs on: `createPlatformServices(options)` (the platform role's pool beside the services the
+  console shares with the api), and `checkPlatformConnection(platformDb)`, its start-up check: a platform transaction
+  (the role is `app_platform`) with an empty step into an organization inside it (the role may switch to
+  `app_runtime`), or `OrganizationStepRefusedError`, which names the grant a hosted database needs.
 - Organizations: `onboardOrganization(services, staff, input)` (spec 7.1, one platform transaction: the
   organization, its roles, business profile, subscription and invited Owner), `resendInvite(services, staff,
 { organizationId, memberId })`, `getOrganization(services, organizationId)` (its row, profile and subscription with
@@ -22,7 +26,9 @@ organizationId)` records a `platform_export` row and queues `EXPORT_ORGANIZATION
   `expireOrganizationExports(services, tx, organizationId, "erasure")`, in an erasure's platform transaction,
   withdraws the organization's exports (no download or writing from the commit). `EXPIRE_EXPORTS_QUEUE`'s job,
   `deleteExpiredExports(services, now?)`, expires those past their 7 days and deletes every expired export's parts
-  and copies, then its whole folder (storage's `deletePrefix`). `hasFreshExport(tx, organizationId, now)`: whether
+  and copies, then its whole folder (storage's `deletePrefix`); `expiredExportsSchedule(services)`
+  (`SWEEP_EXPIRED_EXPORTS_QUEUE`, daily), which the console must schedule, runs it over every export due, for an
+  export whose own job ran out of retries. `hasFreshExport(tx, organizationId, now)`: whether
   the organization has an export done in the last day and still kept, which a purge relies on; the
   `organization.exported` log entry stays after a withdrawal, so the log can't say this.
 - Permanent deletion (spec 5), super admins only: `exportSubject(services, staff, { organizationId, subject })`
@@ -65,13 +71,17 @@ organizationId)` records a `platform_export` row and queues `EXPORT_ORGANIZATION
   recorded in the organization's own audit log. Lifting a manual suspension (super admins) is the subscriptions
   module's `liftSuspension`, which the console's router runs in a platform transaction. The nightly lifecycle job is
   the console's too (`apps/api/src/console-jobs.ts`).
-- The dashboard (spec 7.4): `organizationsOverview(services, now?)`, every organization with its status, plan, days
-  to its next change, seats and storage against its limits, last activity, and this month's changes and documents.
+- The dashboard (spec 7.4): `organizationsOverview(services, { limit, after? }, now?)`, every organization a page at
+  a time (oldest first, the next page after the last one's id), with its status, plan, days to its next change, seats
+  and storage against its limits, last activity, and this month's changes and documents. Each organization's counts
+  take a short platform transaction of their own, so a page, not the whole list, is what one request waits for.
 - Failed jobs (spec 9.1): `listFailedJobs(services, { limit, after?, queue? })` (newest first, a page at a time),
   `retryFailedJob(services, staff, { queue, jobId })` (one more attempt; never for the purge, the erasure or the
   export, which a super admin asks for again: `NOT_RETRYABLE`), `listSchedules(services)` and
-  `removeSchedule(services, staff, queue)` (super admins), through the `JobAdministration` port. Each retry and removed
-  schedule is recorded in the platform log.
+  `removeSchedule(services, staff, queue)` (super admins; never a schedule the console registers itself:
+  `SCHEDULE_IS_THE_CONSOLES`), through the `JobAdministration` port. pg-boss acts outside our transactions, so each
+  retry and removal is recorded in the platform log first (`job.retried`, `schedule.removed`), in a transaction of its
+  own, and a failure after it (`job.retry-failed`, `schedule.removal-failed`, with the reason or the error's names).
 - Types: `PlatformActor`, `PlatformChange`. The contracts are in `@travel-crm/contracts/platform`.
 
 ## Events
@@ -84,9 +94,11 @@ None.
   belongs to one organization (module code written for `db.forOrg()`) runs inside `asOrganization(tx, orgId, …)`,
   as `app_runtime` under row-level security, in the same transaction.
 - A change a platform admin makes inside an organization is recorded in that organization's audit log as
-  `platformActor(organizationId, adminUserId)` (source `platform`), so its staff see it too; subscription changes are
-  recorded only there (ADR 0020). Onboarding, corrections, exports, purges and erasures also go in the platform log,
-  and so do changes that belong to no organization (plans, the policy, jobs).
+  `platformActor(organizationId, adminUserId)` (source `platform`), so its staff see it too. Subscription changes are
+  recorded there; support's billing changes (time given, a voided payment, a plan change, a cancellation) also go in
+  the platform log, by ids, days and amounts, never a reason's words, so a super admin can review them (ADR 0020).
+  Onboarding, corrections, exports, purges and erasures also go in the platform log, and so do changes that belong
+  to no organization (plans, the policy, jobs).
 - The platform log is append-only even for the platform role, and the api and worker have no rights on it. Its entries
   hold ids and small facts, never secrets or personal data, so they can outlive the organization they name.
 - An export is the platform's, not the organization's: `platform_export` has no `organization_id` and its parts are

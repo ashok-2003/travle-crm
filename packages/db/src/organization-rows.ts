@@ -1,11 +1,11 @@
-// An organization's rows in every table that carries organization_id, for the platform's purge and export (spec 5).
-// The tables come from the database's own catalog, so a module's new table is covered without a list to keep up.
-// Only @travel-crm/db/platform exports these.
+// An organization's rows in every table that carries organization_id, for the platform's purge (spec 5). The tables
+// come from the database's own catalog, so a module's new table is covered without a list to keep up. Only
+// @travel-crm/db/platform exports this.
 import type { DatabaseClient } from "./client.js";
 import { assertOrganizationId, type TransactionClient } from "./for-org.js";
 
-/** The raw-SQL methods with SQL as a string: table names come from the catalog, never from a caller. */
-type RawStrings = Pick<DatabaseClient, "$executeRawUnsafe" | "$queryRawUnsafe">;
+/** The raw-SQL method with SQL as a string: table names come from the catalog, never from a caller. */
+type RawStrings = Pick<DatabaseClient, "$executeRawUnsafe">;
 
 const quoted = (name: string): string => `"${name.replaceAll('"', '""')}"`;
 
@@ -65,30 +65,4 @@ export async function deleteOrganizationRows(
   }
   deleted.organization = await raw.$executeRawUnsafe(`DELETE FROM organization WHERE id = $1::uuid`, organizationId);
   return deleted;
-}
-
-/**
- * Every row of the organization as JSON, by table, and the organization's own row: an export's data. Tables listed in
- * `except` (internal ones such as the outbox) are left out.
- */
-export async function organizationRows(
-  tx: TransactionClient,
-  organizationId: string,
-  options: { except?: readonly string[] } = {},
-): Promise<Record<string, unknown[]>> {
-  assertOrganizationId(organizationId);
-  const raw = tx as unknown as RawStrings;
-  const tables = ["organization", ...(await tablesInDeleteOrder(tx)).sort()].filter(
-    (table) => !(options.except ?? []).includes(table),
-  );
-  const rows: Record<string, unknown[]> = {};
-  for (const table of tables) {
-    const column = table === "organization" ? "id" : "organization_id";
-    const found = await raw.$queryRawUnsafe<{ row: unknown }[]>(
-      `SELECT row_to_json(t) AS row FROM ${quoted(table)} t WHERE ${column} = $1::uuid`,
-      organizationId,
-    );
-    rows[table] = found.map((entry) => entry.row);
-  }
-  return rows;
 }

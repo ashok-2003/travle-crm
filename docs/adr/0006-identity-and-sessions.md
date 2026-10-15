@@ -76,7 +76,8 @@ Date: 2026-10-14 · Status: accepted · Implements spec sections 6.1 to 6.4
   window plan 2 accepted above. If that ever needs closing, one option is a `sessions_valid_after` time on the user, set
   by a reset and checked in `resolveAccess` against when the session was created.
 - **The reset link's token outside the api (plan 5).** The emailed link is `GET /api/auth/reset-password/<token>`, so
-  a load balancer's access log records the token: plan 5's deploy keeps those logs short-lived or strips that path.
+  a load balancer's access log records the token: the deploy keeps those logs short-lived or strips that path
+  (`docs/deploy-checklist.md`).
   The web app's reset page gets the token in its address, so it must send `Referrer-Policy: no-referrer`, remove the
   token from the address bar with `history.replaceState` once it has read it, and load no third-party scripts.
 - **Better Auth skips its origin check when `NODE_ENV` is `test`.** We pin `disableOriginCheck: false`, so tests prove
@@ -88,7 +89,8 @@ Date: 2026-10-14 · Status: accepted · Implements spec sections 6.1 to 6.4
   unless `advanced.ipAddress.trustedProxies` is set. Behind a proxy that appends to the header, every client would fall
   into one shared bucket and three failed sign-ins would lock everyone out. So either the load balancer overwrites the
   header with the single client address, or the deploy sets `AUTH_TRUSTED_PROXIES` (IPs or CIDRs of the proxies); the
-  client is then the first address from the right that isn't a trusted proxy. Plan 5's deploy checklist repeats this.
+  client is then the first address from the right that isn't a trusted proxy. The deploy checklist
+  (`docs/deploy-checklist.md`) repeats this.
 - **`/api/auth/sign-in/org` is our own route**, so Better Auth's JSON-only gate doesn't cover it: it sits behind the
   same trusted-origin and JSON check as tRPC mutations (403 for a foreign or missing `Origin`, 415 for other content
   types) and an 8 KB body limit. Without that a cross-site form post could sign a visitor into an attacker's account.

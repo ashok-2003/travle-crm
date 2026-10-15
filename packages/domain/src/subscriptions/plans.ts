@@ -18,7 +18,14 @@ export function planColumns<Fields extends Omit<CreatePlanInput, "key">>(fields:
   };
 }
 
+/** The demo plan's key: stable, so each night's reset finds it again, and reserved, so no plan for sale takes it. */
+export const DEMO_PLAN_KEY = "platform-demo";
+
 export async function createPlan(tx: OrgTx, input: CreatePlanInput): Promise<PlanSummary> {
+  // A plan for sale with the demo's key would stop the nightly reset (DEMO_PLAN_KEY_TAKEN) once it had purged the demo.
+  if (input.key === DEMO_PLAN_KEY) {
+    throw new DomainError("CONFLICT", "PLAN_KEY_RESERVED", "That key is the demo's own plan's");
+  }
   try {
     return planSummaryOf(await tx.plan.create({ data: planColumns(input) }));
   } catch (error) {
@@ -55,9 +62,15 @@ async function assertNoneOnCycle(tx: OrgTx, planId: string, cycle: BillingCycle)
   }
 }
 
-/** Takes the plan off sale. Organizations already on it keep it; archiving twice changes nothing. */
+/**
+ * Takes the plan off sale. Organizations already on it keep it; archiving twice changes nothing. Never the demo's own
+ * plan: nothing un-archives a plan, and the next nightly reset would purge the demo, then fail to put it back.
+ */
 export async function archivePlan(tx: OrgTx, planId: string): Promise<{ plan: PlanSummary; changed: boolean }> {
   const plan = await findPlan(tx, planId);
+  if (plan.key === DEMO_PLAN_KEY) {
+    throw new DomainError("CONFLICT", "DEMO_PLAN_LOCKED", "The demo's own plan can't be archived");
+  }
   if (plan.archived) return { plan, changed: false };
   return {
     plan: planSummaryOf(await tx.plan.update({ where: { id: planId }, data: { archivedAt: new Date() } })),

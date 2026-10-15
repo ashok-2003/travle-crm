@@ -30,6 +30,7 @@ export type { MemberContact, OrganizationProfile } from "./organization-profile.
 export {
   findOrganizationByCode,
   findOrganizationRecord,
+  holdOrganizationRecord,
   listOrganizationRecords,
   updateOrganizationRecord,
   type OrganizationRecord,

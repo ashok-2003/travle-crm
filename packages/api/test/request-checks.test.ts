@@ -20,6 +20,15 @@ describe("request check 2: the organization's lifecycle state", () => {
     expect(await outcome(callerFor({ status: "suspended" }).caller.exportData())).toBe("ORGANIZATION_SUSPENDED");
   });
 
+  it("lets a read-only organization revoke access, and only the Owner while suspended", async () => {
+    expect(await outcome(callerFor({ status: "read_only" }).caller.revokeAccess())).toBe("revoked");
+    expect(await outcome(callerFor({ status: "suspended", isOwner: true }).caller.revokeAccess())).toBe("revoked");
+    expect(await outcome(callerFor({ status: "suspended" }).caller.revokeAccess())).toBe("ORGANIZATION_SUSPENDED");
+    expect(await outcome(callerFor({ status: "cancelled", isOwner: true }).caller.revokeAccess())).toBe(
+      "ORGANIZATION_CANCELLED",
+    );
+  });
+
   it("refuses everything once cancelled, or without a subscription, except what every state allows", async () => {
     const cancelled = callerFor({ status: "cancelled", isOwner: true }).caller;
     expect(await outcome(cancelled.exportData())).toBe("ORGANIZATION_CANCELLED");
