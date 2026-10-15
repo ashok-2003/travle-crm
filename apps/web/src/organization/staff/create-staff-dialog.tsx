@@ -1,12 +1,15 @@
 "use client";
 
-// "Add staff": the form, then the details to hand over once the person exists.
+// "Add staff": the form, then the details to hand over once the person exists. A new member is a change, so while the
+// subscription refuses changes the button is disabled and says why (ADR 0021).
 import type { RoleSummary, StaffMember } from "@travel-crm/contracts/identity";
 import { UserPlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { FieldDescription } from "@/components/ui/field";
 import { useMe } from "@/session/me-context";
+import { useWriteAccess } from "@/subscription/write-access";
 import { ResponsiveDialog } from "../responsive-dialog";
 import { CreateStaffForm } from "./create-staff-form";
 import { Handover } from "./handover";
@@ -19,6 +22,7 @@ export function CreateStaffDialog({ roles }: { roles: RoleSummary[] }) {
   const [open, setOpen] = useState(false);
   const [created, setCreated] = useState<{ member: StaffMember; password: string } | null>(null);
   const create = useCreateStaff();
+  const write = useWriteAccess();
 
   const changeOpen = (next: boolean) => {
     setOpen(next);
@@ -31,8 +35,10 @@ export function CreateStaffDialog({ roles }: { roles: RoleSummary[] }) {
   };
 
   return (
-    <>
+    <div className="flex flex-col items-start gap-2">
       <Button
+        disabled={!write.allowed}
+        aria-describedby={write.hint === null ? undefined : "add-staff-refused"}
         onClick={() => {
           changeOpen(true);
         }}
@@ -40,6 +46,11 @@ export function CreateStaffDialog({ roles }: { roles: RoleSummary[] }) {
         <UserPlusIcon aria-hidden="true" />
         {t("add")}
       </Button>
+      {write.hint !== null && (
+        <FieldDescription id="add-staff-refused" className="max-w-[40ch]">
+          {write.hint}
+        </FieldDescription>
+      )}
       <ResponsiveDialog
         open={open}
         onOpenChange={changeOpen}
@@ -73,6 +84,6 @@ export function CreateStaffDialog({ roles }: { roles: RoleSummary[] }) {
           />
         )}
       </ResponsiveDialog>
-    </>
+    </div>
   );
 }

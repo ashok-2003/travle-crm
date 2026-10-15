@@ -1,6 +1,7 @@
 "use client";
 
-// Deleting a role: only one nobody has (the api refuses others), asked once more. Its name becomes free again.
+// Deleting a role: only one nobody has (the api refuses others), asked once more. Its name becomes free again. It is a
+// change, so it waits while the subscription refuses changes; the role editor says why (ADR 0021).
 import type { RoleSummary } from "@travel-crm/contracts/identity";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
@@ -16,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { FieldDescription } from "@/components/ui/field";
+import { useWriteAccess } from "@/subscription/write-access";
 import { useDeleteRole } from "./use-roles";
 
 export function DeleteRoleDialog({ role }: { role: RoleSummary }) {
@@ -24,11 +26,12 @@ export function DeleteRoleDialog({ role }: { role: RoleSummary }) {
   const remove = useDeleteRole(role.name);
   const [open, setOpen] = useState(false);
   const inUse = role.memberCount > 0;
+  const write = useWriteAccess();
   return (
     <div className="flex flex-col items-start gap-2">
       <Button
         variant="destructive"
-        disabled={inUse}
+        disabled={inUse || !write.allowed}
         aria-describedby={inUse ? "role-in-use" : undefined}
         onClick={() => {
           setOpen(true);

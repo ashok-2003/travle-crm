@@ -1,7 +1,7 @@
 "use client";
 
 // The permissions of a role, grouped by module: a checkbox each, and for view permissions whose records they cover.
-// Read-only for the Owner role, which holds everything.
+// Read-only for the Owner role, which holds everything; disabled, as they stand, while the subscription refuses changes.
 import type { PermissionCatalogEntry } from "@travel-crm/contracts/identity";
 import { useTranslations } from "next-intl";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -15,11 +15,13 @@ export function PermissionsEditor({
   grants,
   onChange,
   readOnly,
+  disabled = false,
 }: {
   catalog: PermissionCatalogEntry[];
   grants: Grant[];
   onChange: (grants: Grant[]) => void;
   readOnly: boolean;
+  disabled?: boolean;
 }) {
   const t = useTranslations("roles.editor");
   const labels = usePermissionLabels();
@@ -38,7 +40,7 @@ export function PermissionsEditor({
                   <Checkbox
                     id={id}
                     checked={readOnly || grant !== undefined}
-                    disabled={readOnly}
+                    disabled={readOnly || disabled}
                     onCheckedChange={(checked) => {
                       onChange(toggle(grants, entry, checked === true));
                     }}
@@ -49,6 +51,7 @@ export function PermissionsEditor({
                 </Field>
                 {entry.scoped && grant !== undefined && !readOnly && (
                   <Select
+                    disabled={disabled}
                     value={grant.scope ?? "own"}
                     onValueChange={(scope) => {
                       onChange(setScope(grants, entry.permission, scope === "all" ? "all" : "own"));

@@ -1,6 +1,7 @@
 "use client";
 
-// One role's name and permissions, saved together. The Owner role is shown read-only: it holds every permission.
+// One role's name and permissions, saved together. The Owner role is shown read-only: it holds every permission. While
+// the subscription refuses changes, the fields, saving and deleting are disabled, and the editor says why (ADR 0021).
 import { roleName, type PermissionCatalogEntry, type RoleSummary } from "@travel-crm/contracts/identity";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
@@ -9,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { useErrorMessage } from "@/lib/error-message";
+import { useWriteAccess } from "@/subscription/write-access";
 import { DeleteRoleDialog } from "./delete-role-dialog";
 import { toGrantInputs } from "./permission-grants";
 import { PermissionsEditor } from "./permissions-editor";
@@ -21,6 +23,7 @@ export function RoleEditor({ role, catalog }: { role: RoleSummary; catalog: Perm
   const update = useUpdateRole();
   const { name, setName, grants, setGrants, changedUnderYou, loadSaved } = useEditableRole(role);
   const [nameInvalid, setNameInvalid] = useState(false);
+  const write = useWriteAccess();
 
   if (role.isOwner) {
     return (
@@ -60,6 +63,7 @@ export function RoleEditor({ role, catalog }: { role: RoleSummary; catalog: Perm
           value={name}
           maxLength={40}
           aria-invalid={nameInvalid}
+          disabled={!write.allowed}
           onChange={(event) => {
             setName(event.target.value);
           }}
@@ -69,16 +73,27 @@ export function RoleEditor({ role, catalog }: { role: RoleSummary; catalog: Perm
       <section className="flex flex-col gap-3">
         <h2 className="text-section font-semibold">{t("editor.permissions")}</h2>
         <FieldDescription>{t("editor.permissionsHint")}</FieldDescription>
-        <PermissionsEditor catalog={catalog} grants={grants} onChange={setGrants} readOnly={false} />
+        <PermissionsEditor
+          catalog={catalog}
+          grants={grants}
+          onChange={setGrants}
+          readOnly={false}
+          disabled={!write.allowed}
+        />
       </section>
       {update.isError && (
         <Alert variant="destructive">
           <AlertDescription>{apiError(update.error)}</AlertDescription>
         </Alert>
       )}
+      {write.hint !== null && <FieldDescription id="role-changes-refused">{write.hint}</FieldDescription>}
       <div className="flex flex-wrap items-start justify-between gap-4 border-t pt-6">
         <DeleteRoleDialog role={role} />
-        <Button type="submit" disabled={update.isPending}>
+        <Button
+          type="submit"
+          disabled={update.isPending || !write.allowed}
+          aria-describedby={write.hint === null ? undefined : "role-changes-refused"}
+        >
           {update.isPending ? t("editor.saving") : t("editor.save")}
         </Button>
       </div>
