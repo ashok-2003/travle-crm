@@ -13,6 +13,8 @@ export const routes = {
   staff: "/staff",
   roles: "/roles",
   settings: "/settings",
+  /** The platform console's dashboard; its other screens are in src/console/routes.ts, which only it imports. */
+  console: "/console",
   /** The service worker's fallback for a page never opened before (src/service-worker/strategy.ts). */
   offline: "/offline",
 } as const;
@@ -33,9 +35,10 @@ export function isPublicRoute(path: string): boolean {
   return publicRoutes.includes(path);
 }
 
-/** Where a person goes to take the step the api insists on. */
-export function pendingStepRoute(step: PendingStep): string {
-  return step === "CHANGE_PASSWORD" ? routes.changePassword : routes.twoFactorSetup;
+/** Where a person goes to take the step the api insists on, coming back to `from` (an app path) afterwards. */
+export function pendingStepRoute(step: PendingStep, from?: string): string {
+  const route = step === "CHANGE_PASSWORD" ? routes.changePassword : routes.twoFactorSetup;
+  return from && isAppPath(from) ? `${route}?next=${encodeURIComponent(from)}` : route;
 }
 
 /** The sign-in address that brings the person back to `from` (a path in this app, with its query) afterwards. */

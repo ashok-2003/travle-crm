@@ -25,6 +25,8 @@
   },
   "banners": {
     "offline": "You're offline. You see what was last loaded, and changes wait until you're back online.",
-    "impersonated": "Support is signed in as you. Everything they do is recorded in the audit log."
+    "impersonated": "Support is signed in as you. Everything they do is recorded in the audit log.",
+    "stop": "Stop",
+    "stopping": "Stopping"
   }
 }

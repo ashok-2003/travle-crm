@@ -64,4 +64,10 @@ describe("routes", () => {
     expect(pendingStepRoute("CHANGE_PASSWORD")).toBe(routes.changePassword);
     expect(pendingStepRoute("SET_UP_TWO_FACTOR")).toBe(routes.twoFactorSetup);
   });
+
+  it("brings the person back from a pending step to an app path, as from signing in", () => {
+    expect(pendingStepRoute("CHANGE_PASSWORD", "/console/plans")).toBe("/change-password?next=%2Fconsole%2Fplans");
+    expect(pendingStepRoute("SET_UP_TWO_FACTOR", routes.console)).toBe("/two-factor-setup?next=%2Fconsole");
+    expect(pendingStepRoute("SET_UP_TWO_FACTOR", "//evil.example")).toBe(routes.twoFactorSetup);
+  });
 });

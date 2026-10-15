@@ -1,5 +1,6 @@
 // The way into the app shell: a member gets the shell, a pending password change or two-factor setup sends the
-// person to take it, platform staff are told this app isn't theirs, and a me.get that fails says so with a Retry.
+// person to take it, platform staff go to the console, anyone else is told this app isn't theirs, and a me.get that
+// fails says so with a Retry.
 import "fake-indexeddb/auto";
 import { render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
@@ -54,8 +55,18 @@ describe("SessionGate", () => {
     expect(screen.queryByText(/Shell for/)).toBeNull();
   });
 
-  it("tells platform staff this app isn't theirs, and lets them sign out", async () => {
+  it("sends platform staff to the console, and shows nothing of the shell", async () => {
     stubApi({ "me.get": { data: { ...member(), isPlatformAdmin: true, organization: null, member: null } } });
+    renderGate();
+    await vi.waitFor(() => {
+      expect(replacePage).toHaveBeenCalledWith("/console");
+    });
+    expect(screen.queryByText(/Shell for/)).toBeNull();
+    expect(screen.queryByText(session.notStaff)).toBeNull();
+  });
+
+  it("tells someone in no organization this app isn't theirs, and lets them sign out", async () => {
+    stubApi({ "me.get": { data: { ...member(), organization: null, member: null } } });
     renderGate();
     expect(await screen.findByText(session.notStaff)).toBeVisible();
     expect(screen.getByRole("button", { name: messages.shell.navigation.signOut })).toBeVisible();

@@ -7,27 +7,48 @@ import { securityHeaderRules } from "./security-headers";
 
 const production = process.env.NODE_ENV === "production";
 
-/** API_ORIGIN as a bare origin ("http://127.0.0.1:4000/" gives "http://127.0.0.1:4000"), or the build fails. */
-function checkedOrigin(value: string): string {
+/** An origin setting as a bare origin ("http://127.0.0.1:4000/" gives "http://127.0.0.1:4000"), or the build fails. */
+function checkedOrigin(name: string, value: string, example: string): string {
   const url = URL.parse(value);
   const isOrigin =
     url !== null && (url.protocol === "http:" || url.protocol === "https:") && url.href === `${url.origin}/`;
-  if (!isOrigin) throw new Error(`API_ORIGIN must be an http(s) origin such as http://localhost:3001, not "${value}"`);
+  if (!isOrigin) throw new Error(`${name} must be an http(s) origin such as ${example}, not "${value}"`);
   return url.origin;
 }
 
 /**
- * Where /api/* goes (spec 3): the browser always calls the api on the address it loaded the app from, so cookies stay
- * first-party and the api needs no CORS. Rewrites are fixed when the app is built, so this is for development and the
- * end-to-end tests. A deployment routes /api/* to the api at its load balancer, before Next.js sees the request, so a
- * production build without API_ORIGIN has no rewrite at all: an /api request that reaches the app is a 404, never one
- * quietly sent to whatever listens on localhost.
+ * Where a rewrite goes (spec 3): the browser always calls the api and the console on the address it loaded the app
+ * from, so cookies stay first-party and neither needs CORS. Rewrites are fixed when the app is built, so this is for
+ * development and the end-to-end tests. A deployment routes these paths at its load balancer, before Next.js sees the
+ * request, so a production build without the setting has no rewrite to it at all: a request that reaches the app is a
+ * 404, never one quietly sent to whatever listens on localhost.
  */
-const apiOrigin = process.env.API_ORIGIN
-  ? checkedOrigin(process.env.API_ORIGIN)
-  : production
-    ? null
-    : "http://localhost:3001";
+function originSetting(name: "API_ORIGIN" | "CONSOLE_ORIGIN", developmentDefault: string): string | null {
+  const value = process.env[name];
+  if (value) return checkedOrigin(name, value, developmentDefault);
+  return production ? null : developmentDefault;
+}
+
+/** The api: its tRPC and sign-in at /api, and the share links (/p) and webhooks it serves on the app's address. */
+const apiOrigin = originSetting("API_ORIGIN", "http://localhost:3001");
+/** The console process (ADR 0019): the console's tRPC at /api/platform/trpc. */
+const consoleOrigin = originSetting("CONSOLE_ORIGIN", "http://localhost:3002");
+
+/** The console's rewrite comes first: /api/platform/... matches /api/:path* too, which would send it to the api. */
+function rewrites() {
+  const toConsole =
+    consoleOrigin === null
+      ? []
+      : [{ source: "/api/platform/:path*", destination: `${consoleOrigin}/api/platform/:path*` }];
+  const toApi =
+    apiOrigin === null
+      ? []
+      : ["/api", "/p", "/webhooks"].map((prefix) => ({
+          source: `${prefix}/:path*`,
+          destination: `${apiOrigin}${prefix}/:path*`,
+        }));
+  return [...toConsole, ...toApi];
+}
 
 /** Changes with every build (or set CACHE_VERSION), so the browser drops a query cache an older build saved. */
 const cacheVersion = process.env.CACHE_VERSION ?? String(Date.now());
@@ -64,8 +85,7 @@ const nextConfig: NextConfig = {
         ],
       },
     ]),
-  rewrites: () =>
-    Promise.resolve(apiOrigin === null ? [] : [{ source: "/api/:path*", destination: `${apiOrigin}/api/:path*` }]),
+  rewrites: () => Promise.resolve(rewrites()),
 };
 
 export default createNextIntlPlugin("./src/i18n/request.ts")(nextConfig);

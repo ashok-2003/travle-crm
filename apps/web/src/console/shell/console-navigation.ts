@@ -1,0 +1,43 @@
+// The console's destinations and who sees them: support everything but Staff, which super admins manage alone
+// (spec 5). Hiding is for convenience only; the console's api refuses support's calls there anyway.
+import {
+  CirclePlusIcon,
+  LayersIcon,
+  LayoutDashboardIcon,
+  ScrollTextIcon,
+  ServerCogIcon,
+  UserCogIcon,
+  type LucideIcon,
+} from "lucide-react";
+import { consoleRoutes } from "../routes";
+import { isSuperAdmin, type ConsoleStaff } from "../session/staff-context";
+
+export interface ConsoleNavigationItem {
+  /** Also the message key in the "console.navigation" namespace. */
+  key: "home" | "onboard" | "plans" | "jobs" | "log" | "staff";
+  href: string;
+  icon: LucideIcon;
+  /** Shown to super admins only. */
+  superAdminOnly: boolean;
+}
+
+export const consoleNavigationItems: readonly ConsoleNavigationItem[] = [
+  { key: "home", href: consoleRoutes.home, icon: LayoutDashboardIcon, superAdminOnly: false },
+  { key: "onboard", href: consoleRoutes.onboard, icon: CirclePlusIcon, superAdminOnly: false },
+  { key: "plans", href: consoleRoutes.plans, icon: LayersIcon, superAdminOnly: false },
+  { key: "jobs", href: consoleRoutes.jobs, icon: ServerCogIcon, superAdminOnly: false },
+  { key: "log", href: consoleRoutes.log, icon: ScrollTextIcon, superAdminOnly: false },
+  { key: "staff", href: consoleRoutes.staff, icon: UserCogIcon, superAdminOnly: true },
+];
+
+/** The items this person may use, in order. */
+export function visibleConsoleItems(staff: Pick<ConsoleStaff, "level">): ConsoleNavigationItem[] {
+  return consoleNavigationItems.filter((item) => !item.superAdminOnly || isSuperAdmin(staff));
+}
+
+/** Whether the item is the current page: the dashboard only on its own page, the others on their path and below. */
+export function isCurrentConsoleItem(item: ConsoleNavigationItem, pathname: string): boolean {
+  return item.href === consoleRoutes.home
+    ? pathname === consoleRoutes.home
+    : pathname === item.href || pathname.startsWith(`${item.href}/`);
+}

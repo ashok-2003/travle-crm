@@ -1,7 +1,8 @@
 // How the service worker answers each request, decided from the request alone so it can be tested without a worker.
 // It keeps the app's static pages and the build's files for an offline shell (spec 11, DESIGN.md: an offline shell),
-// as shells.ts sets out. It never answers for the api: the organization's data is kept only by the query cache, which
-// signing out wipes.
+// as shells.ts sets out. It never answers for the api, nor for the share links and webhooks the api serves on the
+// app's address: the organization's data is kept only by the query cache, which signing out wipes, and a share link
+// redirects to storage.
 
 /** network-only: the worker stays out of it. cache-first: the build's files, whose names change with their content.
  * network-first: the icons, whose names don't. page: a page load, from the network, else the page's saved shell. */
@@ -30,8 +31,9 @@ export function strategyFor(request: RequestFacts, appOrigin: string): Strategy 
   if (request.method !== "GET") return "network-only";
   const url = new URL(request.url);
   if (url.origin !== appOrigin) return "network-only";
-  // Before the page check: a password-reset email opens /api/auth/reset-password/<token> as a page load.
-  if (isApiPath(url.pathname) || url.pathname === "/sw.js") return "network-only";
+  // Before the page check: a password-reset email opens /api/auth/reset-password/<token> as a page load, and a
+  // customer opens a share link (/p/<token>) as one.
+  if (isServerPath(url.pathname) || url.pathname === "/sw.js") return "network-only";
   if (request.mode === "navigate") return "page";
   if (url.pathname.startsWith("/_next/static/")) return "cache-first";
   if (url.pathname.startsWith("/icons/")) return "network-first";
@@ -40,11 +42,14 @@ export function strategyFor(request: RequestFacts, appOrigin: string): Strategy 
   return "network-only";
 }
 
-/** /api and everything under it, in any case: Next.js's rewrites ignore case (caseSensitiveRoutes is off by default),
- * so /API/trpc/... reaches the api too. */
-function isApiPath(pathname: string): boolean {
+/** The paths rewritten to the api (next.config.ts). */
+const SERVER_PATHS = ["/api", "/p", "/webhooks"];
+
+/** /api, /p and /webhooks and everything under them, in any case: Next.js's rewrites ignore case
+ * (caseSensitiveRoutes is off by default), so /API/trpc/... reaches the api too. */
+function isServerPath(pathname: string): boolean {
   const path = pathname.toLowerCase();
-  return path === "/api" || path.startsWith("/api/");
+  return SERVER_PATHS.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
 }
 
 /** The caches an older version of the worker made. Only its own: other features may keep caches of theirs. */

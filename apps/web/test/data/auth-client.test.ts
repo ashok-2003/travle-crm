@@ -66,6 +66,19 @@ describe("authClient", () => {
     expect(limited).toEqual({ ok: false, status: 429, code: "TOO_MANY_REQUESTS", retryAfterSeconds: 42 });
   });
 
+  it("starts and stops support's impersonation through Better Auth's admin endpoints", async () => {
+    const fetch = answering(200, { session: { token: "t" }, user: { email: "x@no-email.invalid" } });
+    const auth = createAuthClient(fetch);
+    const userId = "0199a000-0000-7000-8000-000000000001";
+    expect(await auth.impersonate({ userId })).toEqual({ ok: true, data: null });
+    expect(await auth.stopImpersonating()).toEqual({ ok: true, data: null });
+    expect(fetch.mock.calls.map(([url]) => url)).toEqual([
+      "/api/auth/admin/impersonate-user",
+      "/api/auth/admin/stop-impersonating",
+    ]);
+    expect(sentBody(fetch)).toEqual({ userId });
+  });
+
   it("sends the sign-out so it outlives the page, which leaves without waiting for it", async () => {
     const fetch = answering(200, { success: true });
     await createAuthClient(fetch).signOut();

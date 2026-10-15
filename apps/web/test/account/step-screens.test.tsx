@@ -1,6 +1,6 @@
 // The screens for a step outside the app shell (choosing a password, setting up two-factor) start from me.get: while
 // it loads they show a labelled skeleton, if it fails they say so and offer Try again, and a step the person chose
-// themselves has a way back to their account, unlike one the api insists on.
+// themselves has a way back to their account, unlike one the api insists on or one the app sent them to with ?next=.
 import type { PendingStep } from "@travel-crm/contracts/identity";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -12,7 +12,12 @@ import { messages } from "@/i18n/messages";
 import { member } from "../support/members";
 import { renderScreen } from "./render";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
+const navigation = vi.hoisted(() => ({ search: "" }));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(navigation.search),
+}));
 
 const { account, common } = messages;
 
@@ -33,6 +38,7 @@ function apiAnswers(...answers: (() => Promise<Response>)[]): void {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  navigation.search = "";
 });
 
 const screens: [string, ComponentType, string, PendingStep][] = [
@@ -63,6 +69,14 @@ describe.each(screens)("%s", (_, Screen, title, step) => {
 
   it("offers no way around a step the api insists on", async () => {
     apiAnswers(answering(step));
+    renderScreen(<Screen />);
+    expect(await screen.findByRole("heading", { level: 1, name: title })).toBeVisible();
+    expect(screen.queryByRole("link", { name: account.steps.backToAccount })).toBeNull();
+  });
+
+  it("offers no way around a step the app sent the person to, to come back to ?next= afterwards", async () => {
+    navigation.search = "next=%2Fconsole";
+    apiAnswers(answering());
     renderScreen(<Screen />);
     expect(await screen.findByRole("heading", { level: 1, name: title })).toBeVisible();
     expect(screen.queryByRole("link", { name: account.steps.backToAccount })).toBeNull();

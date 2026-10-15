@@ -17,6 +17,9 @@ import { OFFLINE_PAGE } from "@/service-worker/strategy";
 const appRoutes = [
   "/",
   "/account",
+  "/console",
+  "/console/organizations/[organizationId]",
+  "/console/plans",
   "/offline",
   "/reset-password",
   "/roles",
@@ -40,6 +43,11 @@ describe("shellsToKeep", () => {
     for (const page of ["/reset-password", "/sign-in/two-factor", "/two-factor-setup", "/roles/[key]"]) {
       expect(shells).not.toContain(page);
     }
+  });
+
+  it("never keeps a console page: the console works online only, and its screens are platform staff's", () => {
+    const shells = shellsToKeep(appRoutes);
+    expect(shells.filter((page) => page === "/console" || page.startsWith("/console/"))).toEqual([]);
   });
 
   it("keeps the offline page even when the page list misses it", () => {
@@ -167,7 +175,7 @@ describe("parentShellFor", () => {
   });
 
   it("gives no fallback to an address of no page with a dynamic segment", () => {
-    for (const path of ["/roles", "/roles/sales/extra", "/staff/sales", "/nowhere"]) {
+    for (const path of ["/roles", "/roles/sales/extra", "/staff/sales", "/nowhere", "/console/organizations/x"]) {
       expect(parentShellFor(path, appRoutes), path).toBeNull();
     }
   });

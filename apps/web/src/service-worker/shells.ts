@@ -9,11 +9,18 @@ import { OFFLINE_PAGE } from "./strategy";
  * only online anyway. Offline they show the offline page. */
 const NEVER_KEPT: readonly string[] = [routes.resetPassword, routes.twoFactorChallenge, routes.twoFactorSetup];
 
-/** The pages kept as shells, from the app's pages: all but the never-kept ones and those with a dynamic segment
- * ("/roles/[key]"), which render per address and can't be fetched ahead (parentShellFor stands in); the offline page
- * always. */
+/** The console's pages: platform staff's, online only, with a query cache that is never saved (ADR 0019). */
+function isConsolePage(route: string): boolean {
+  return route === routes.console || route.startsWith(`${routes.console}/`);
+}
+
+/** The pages kept as shells, from the app's pages: all but the never-kept ones, the console's, and those with a
+ * dynamic segment ("/roles/[key]"), which render per address and can't be fetched ahead (parentShellFor stands in);
+ * the offline page always. */
 export function shellsToKeep(appRoutes: readonly string[]): string[] {
-  const shells = appRoutes.filter((route) => !route.includes("[") && !NEVER_KEPT.includes(route));
+  const shells = appRoutes.filter(
+    (route) => !route.includes("[") && !NEVER_KEPT.includes(route) && !isConsolePage(route),
+  );
   return [...new Set([...shells, OFFLINE_PAGE])];
 }
 

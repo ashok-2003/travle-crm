@@ -3,7 +3,7 @@
 // The way into the app shell. me.get says who is signed in; until it answers the screen shows a skeleton (a saved
 // copy is restored first when it is that person's: data/page-data.ts). Signed out, the data layer sends the person
 // to sign in; with a password change or two-factor setup pending, they go to take it; platform staff, who belong to
-// no organization, are told this app isn't theirs.
+// no organization, go to the console; anyone else in no organization is told this app isn't theirs.
 import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useEffect, type ReactNode } from "react";
@@ -12,7 +12,7 @@ import { ErrorState } from "@/components/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTRPC } from "@/data/trpc";
 import { replacePage } from "@/lib/navigate";
-import { pendingStepRoute } from "@/lib/routes";
+import { pendingStepRoute, routes } from "@/lib/routes";
 import { SignOutButton } from "@/shell/sign-out";
 import { isSignedInMember, MeProvider } from "./me-context";
 
@@ -22,10 +22,12 @@ export function SessionGate({ children }: { children: ReactNode }) {
   const trpc = useTRPC();
   const me = useQuery(trpc.me.get.queryOptions());
   const pendingStep = me.data?.pendingStep ?? null;
+  const platformStaff = me.data?.isPlatformAdmin === true && me.data.organization === null;
 
   useEffect(() => {
     if (pendingStep) replacePage(pendingStepRoute(pendingStep));
-  }, [pendingStep]);
+    else if (platformStaff) replacePage(routes.console);
+  }, [pendingStep, platformStaff]);
 
   if (me.data === undefined) {
     if (me.isError) {
@@ -45,7 +47,7 @@ export function SessionGate({ children }: { children: ReactNode }) {
       </Delayed>
     );
   }
-  if (pendingStep) return null;
+  if (pendingStep || platformStaff) return null;
   if (!isSignedInMember(me.data)) {
     return (
       <div className="mx-auto flex max-w-[40ch] flex-col items-center gap-4 px-4 py-16 text-center">

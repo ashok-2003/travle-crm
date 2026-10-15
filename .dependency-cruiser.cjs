@@ -73,10 +73,41 @@ module.exports = {
       comment:
         "The console's tRPC (packages/api/src/platform/, served as @travel-crm/api/platform) runs on the platform's " +
         "services. Only the console process (apps/api/src/console*.ts) and tests may import it, so @travel-crm/api's " +
-        "own entry, which the api server and the web app import, never carries it.",
+        "own entry, which the api server and the web app import, never carries it. The web app's console screens " +
+        "type their calls with it: web-console-types-the-platform-router-only.",
       severity: "error",
-      from: { pathNot: ["^packages/api/src/platform/", "^apps/api/src/console[^/]*\\.ts$", "(^|/)test/"] },
+      from: {
+        pathNot: [
+          "^packages/api/src/platform/",
+          "^apps/api/src/console[^/]*\\.ts$",
+          "(^|/)test/",
+          "^apps/web/src/console/",
+        ],
+      },
       to: { path: "^packages/api/src/platform/" },
+    },
+    {
+      name: "web-console-types-the-platform-router-only",
+      comment:
+        "The web app's console screens (apps/web/src/console) know the console's procedures by the PlatformRouter " +
+        "type alone: an import of @travel-crm/api/platform's entry and no other file of it, and a type import, as " +
+        "web-reaches-the-api-over-http holds every import of the api.",
+      severity: "error",
+      from: { path: "^apps/web/src/console/" },
+      to: { path: "^packages/api/src/platform/", pathNot: "^packages/api/src/platform/index\\.ts$" },
+    },
+    {
+      name: "web-console-code-only-in-the-console",
+      comment:
+        "The console's screens and data layer (apps/web/src/console) are the console's alone: only its own files, " +
+        "its routes (apps/web/src/app/console) and tests import them, so no organization screen reaches the " +
+        "console's tRPC client or its cache. The app reaches the console by its address (routes.console).",
+      severity: "error",
+      from: {
+        path: "^apps/web/",
+        pathNot: ["^apps/web/src/console/", "^apps/web/src/app/console/", "^apps/web/test/"],
+      },
+      to: { path: "^apps/web/src/console/" },
     },
     {
       name: "api-and-worker-never-load-the-platform",

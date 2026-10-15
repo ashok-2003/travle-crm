@@ -1,0 +1,55 @@
+{
+  "title": "Console",
+  "navigation": {
+    "label": "Console",
+    "home": "Dashboard",
+    "onboard": "Onboard",
+    "plans": "Plans",
+    "jobs": "Jobs",
+    "log": "Log",
+    "staff": "Staff",
+    "more": "More",
+    "signOut": "Sign out"
+  },
+  "levels": {
+    "support": "Support",
+    "super-admin": "Super admin"
+  },
+  "gate": {
+    "loading": "Opening the console",
+    "loadFailed": "The console didn't open.",
+    "notStaff": "This console is for platform staff."
+  },
+  "status": {
+    "trial": "Trial",
+    "active": "Active",
+    "past_due": "Payment due",
+    "read_only": "Read only",
+    "suspended": "Suspended",
+    "cancelled": "Cancelled",
+    "none": "No subscription"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "loading": "Loading the organizations",
+    "loadFailed": "The organizations didn't load.",
+    "empty": "No organizations yet. Onboard the first one.",
+    "onboardFirst": "Onboard an organization",
+    "showMore": "Show more organizations",
+    "loadingMore": "Loading more",
+    "columns": {
+      "organization": "Organization",
+      "status": "Status",
+      "daysLeft": "Days left",
+      "seats": "Seats",
+      "lastActive": "Last active",
+      "changes": "Changes this month",
+      "documents": "Documents this month"
+    },
+    "daysLeft": "{count, plural, one {# day} other {# days}}",
+    "noChangeDue": "No change due",
+    "seats": "{used} of {limit}",
+    "seatsNoLimit": "{used}, no limit",
+    "neverActive": "Never"
+  }
+}

@@ -1,5 +1,6 @@
-// A stand-in for the api behind /api, for tests that render the real data layer: tRPC's batched queries and Better
-// Auth's sign-out, answered from handlers a test sets, with every call recorded in the order it was made.
+// A stand-in for the api behind /api, for tests that render the real data layer: tRPC's batched queries, the
+// console's (/api/platform/trpc, recorded as "platform.<path>") and Better Auth's calls, answered from handlers a test
+// sets, with every call recorded in the order it was made.
 import { vi } from "vitest";
 
 /** What the api sends for one procedure: its data or a refusal (for an auth call, `reason` is Better Auth's code). */
@@ -21,9 +22,9 @@ export function heldAnswer(then: Sent): { answer: Answer; release: () => void } 
 }
 
 export interface ApiStub {
-  /** Procedure paths ("me.get") and "auth/sign-out", in call order. */
+  /** Procedure paths ("me.get", "platform.whoAmI") and auth calls ("auth/sign-out"), in call order. */
   calls: string[];
-  /** Sets or replaces the answer for a procedure path, or for "auth/sign-out". */
+  /** Sets or replaces the answer for a procedure path, or for an auth call such as "auth/sign-out". */
   answer(path: string, answer: Answer): void;
 }
 
@@ -37,6 +38,9 @@ function itemFor(answer: Sent) {
     },
   };
 }
+
+const API_TRPC = "/api/trpc/";
+const CONSOLE_TRPC = "/api/platform/trpc/";
 
 export function stubApi(answers: Record<string, Answer>): ApiStub {
   const calls: string[] = [];
@@ -64,7 +68,10 @@ export function stubApi(answers: Record<string, Answer>): ApiStub {
         if ("data" in sent) return Response.json({});
         return Response.json(sent.reason ? { code: sent.reason } : {}, { status: sent.status });
       }
-      const paths = decodeURIComponent(url.pathname.slice("/api/trpc/".length)).split(",");
+      const toConsole = url.pathname.startsWith(CONSOLE_TRPC);
+      const paths = decodeURIComponent(url.pathname.slice((toConsole ? CONSOLE_TRPC : API_TRPC).length))
+        .split(",")
+        .map((path) => (toConsole ? `platform.${path}` : path));
       calls.push(...paths);
       const found = await Promise.all(paths.map((path) => settle(answerFor(path))));
       const sent = found.filter((answer): answer is Sent => answer !== null);

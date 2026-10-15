@@ -1,26 +1,27 @@
 "use client";
 
-// /change-password: the first sign-in with a temporary password ends here (the CHANGE_PASSWORD step), and anyone may
-// come here from their account, and go back to it. Afterwards the app asks the api what's next; other devices are
-// signed out.
+// /change-password: the first sign-in with a temporary password ends here (the CHANGE_PASSWORD step, from the app or,
+// with ?next=, the console), and anyone may come here from their account, and go back to it. Afterwards the app asks
+// the api what's next; other devices are signed out.
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { PageTitle } from "@/components/page-title";
 import { routes } from "@/lib/routes";
 import { ChangePasswordForm } from "./change-password-form";
-import { CurrentPersonGate, useContinueAfterStep } from "./current-person";
+import { CurrentPersonGate, useContinueAfterStep, useReturnPath } from "./current-person";
 import { TextLink } from "./text-link";
 
 export function ChangePasswordScreen() {
   const t = useTranslations("account");
   const router = useRouter();
   const continueAfterStep = useContinueAfterStep();
+  const sentHere = useReturnPath() !== null;
 
   return (
     <CurrentPersonGate>
       {(me) => {
-        const pending = me.pendingStep === "CHANGE_PASSWORD";
+        const pending = me.pendingStep === "CHANGE_PASSWORD" || sentHere;
         return (
           <div className="flex flex-col gap-6">
             <PageTitle>{t("changePassword.title")}</PageTitle>

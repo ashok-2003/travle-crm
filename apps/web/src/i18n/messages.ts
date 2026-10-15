@@ -2,6 +2,7 @@
 // owns one namespace file, so features can be written side by side without touching each other's words.
 import account from "./messages/en-IN/account.json";
 import common from "./messages/en-IN/common.json";
+import consoleMessages from "./messages/en-IN/console.json";
 import errors from "./messages/en-IN/errors.json";
 import pwa from "./messages/en-IN/pwa.json";
 import roles from "./messages/en-IN/roles.json";
@@ -11,6 +12,7 @@ import staff from "./messages/en-IN/staff.json";
 
 export const locale = "en-IN";
 
-export const messages = { account, common, errors, pwa, roles, settings, shell, staff };
+// "console" would shadow the global console in this module, hence the import's longer name.
+export const messages = { account, common, console: consoleMessages, errors, pwa, roles, settings, shell, staff };
 
 export type Messages = typeof messages;

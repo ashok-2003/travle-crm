@@ -1,5 +1,6 @@
 // How the service worker answers each request (spec 11: an offline shell; cached data lives in the query cache, not
-// here). It never answers for the api, in any case, so no organization data passes through the worker's caches.
+// here). It never answers for the api, in any case, so no organization data passes through the worker's caches, nor
+// for the api's public routes: share links and webhooks.
 import { describe, expect, it } from "vitest";
 import { CACHE_NAMES, CACHE_PREFIXES, cachesToDelete, strategyFor } from "@/service-worker/strategy";
 
@@ -25,6 +26,16 @@ describe("strategyFor", () => {
     }
     // Only /api itself: a page whose path merely starts with the same letters is a page.
     expect(strategyFor(request("/apiary", { mode: "navigate" }), origin)).toBe("page");
+  });
+
+  it("leaves share links and webhooks to the network, in any case: a share link redirects to storage", () => {
+    for (const path of ["/p/abc123", "/P/abc123", "/p", "/webhooks/razorpay", "/Webhooks/razorpay"]) {
+      expect(strategyFor(request(path, { mode: "navigate" }), origin), path).toBe("network-only");
+      expect(strategyFor(request(path), origin), path).toBe("network-only");
+    }
+    // Only those paths themselves: a page whose path merely starts with the same letters is a page.
+    expect(strategyFor(request("/pricing", { mode: "navigate" }), origin)).toBe("page");
+    expect(strategyFor(request("/webhooksettings", { mode: "navigate" }), origin)).toBe("page");
   });
 
   it("answers page loads from the network first, falling back to a saved shell", () => {
