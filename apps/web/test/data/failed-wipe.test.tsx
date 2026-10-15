@@ -1,19 +1,19 @@
 // Signing in opens the app even when its wipe fails (finishSignIn: wipeLocalData, then a full page load). That is
 // safe only because a saved copy belongs to its owner: here person A's copy survives a wipe that deleted nothing, and
-// person B, signing in next, is never shown any of it, whether or not the device's storage recovers.
+// person B, signing in next, is never shown any of it, whether or not the device's storage recovers, and however
+// long me.get takes to say who B is.
 import "fake-indexeddb/auto";
-import { QueryClient, useQuery } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { QueryClient } from "@tanstack/react-query";
+import { screen } from "@testing-library/react";
 import type * as IdbKeyval from "idb-keyval";
 import { createStore, get } from "idb-keyval";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deleteSavedCopies, hasPersistedQueries } from "@/data/persistence";
-import { DataProviders } from "@/data/providers";
 import { wipeLocalData } from "@/data/session";
-import { useTRPC } from "@/data/trpc";
-import { stubApi } from "../support/api-stub";
+import { heldAnswer, stubApi } from "../support/api-stub";
 import { member } from "../support/members";
-import { saveCopyFor, staffNamed } from "../support/saved-copy";
+import { pause, saveCopyFor, staffNamed } from "../support/saved-copy";
+import { forgetRenders, renderApp, rendered } from "../support/staff-screen";
 
 /** While on, IndexedDB refuses to clear: the wipe's delete fails, and so does removing a copy. */
 const broken = vi.hoisted(() => ({ storage: false }));
@@ -35,18 +35,6 @@ const kiran = member({
   organizationId: "0199a000-0000-7000-8000-000000000008",
 });
 
-let rendered: string[] = [];
-
-function StaffScreen() {
-  const trpc = useTRPC();
-  const me = useQuery(trpc.me.get.queryOptions());
-  const staff = useQuery(trpc.staff.list.queryOptions());
-  const text =
-    me.data && staff.data ? `${me.data.user.name}: ${staff.data.map((person) => person.name).join(", ")}` : "loading";
-  rendered.push(text);
-  return <p>{text}</p>;
-}
-
 /** Asha's copy is saved; then a sign-in's wipe fails at every step that touches storage. */
 async function signInWhoseWipeFails(): Promise<void> {
   await saveCopyFor(asha, ["Ravi"]);
@@ -64,7 +52,7 @@ beforeEach(async () => {
   await deleteSavedCopies();
   window.history.replaceState(null, "", "/staff");
   vi.stubGlobal("reportError", vi.fn());
-  rendered = [];
+  forgetRenders();
 });
 
 afterEach(() => {
@@ -77,27 +65,27 @@ describe("a sign-in whose wipe failed", () => {
     await signInWhoseWipeFails();
     broken.storage = false;
     stubApi({ "me.get": { data: kiran }, "staff.list": { data: [staffNamed("Meera")] } });
-    render(
-      <DataProviders>
-        <StaffScreen />
-      </DataProviders>,
-    );
+    renderApp();
     expect(await screen.findByText("Kiran: Meera")).toBeVisible();
     expect(rendered.join("\n")).not.toMatch(/Asha|Ravi/);
     const saved = await get<string>("queries", createStore("travel-crm", "query-cache"));
     expect(saved ?? "").not.toContain("Ravi");
   });
 
-  it("shows nothing of it even while storage stays broken and the copy can't be removed", async () => {
-    await signInWhoseWipeFails();
-    stubApi({ "me.get": { data: kiran }, "staff.list": { data: [staffNamed("Meera")] } });
-    render(
-      <DataProviders>
-        <StaffScreen />
-      </DataProviders>,
-    );
-    expect(await screen.findByText("Kiran: Meera")).toBeVisible();
-    expect(rendered.join("\n")).not.toMatch(/Asha|Ravi/);
-    expect(reportError).toHaveBeenCalled();
-  });
+  it(
+    "shows nothing of it while storage stays broken, even when me.get takes 5 seconds",
+    { timeout: 15_000 },
+    async () => {
+      await signInWhoseWipeFails();
+      const slowMe = heldAnswer({ data: kiran });
+      stubApi({ "me.get": slowMe.answer, "staff.list": { data: [staffNamed("Meera")] } });
+      renderApp();
+      await pause(5_000);
+      expect(rendered.join("\n")).not.toMatch(/Asha|Ravi/);
+      slowMe.release();
+      expect(await screen.findByText("Kiran: Meera")).toBeVisible();
+      expect(rendered.join("\n")).not.toMatch(/Asha|Ravi/);
+      expect(reportError).toHaveBeenCalled();
+    },
+  );
 });

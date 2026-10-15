@@ -17,20 +17,12 @@ import { createQueryClient } from "./query-client";
 import { listenForSignOut, signOut, wipeLocalData } from "./session";
 import { createApiClient } from "./trpc";
 
-/** How long opening waits for me.get to say whose a saved copy may be. After that it shows, as it would offline. */
-export const OWNER_CHECK_TIMEOUT = 3_000;
-
-/** promise's value, or undefined if it takes longer than ms. */
-async function within<T>(promise: Promise<T>, ms: number): Promise<T | undefined> {
-  let timer: number | undefined;
-  const late = new Promise<undefined>((resolve) => {
-    timer = window.setTimeout(resolve, ms);
-  });
-  try {
-    return await Promise.race([promise, late]);
-  } finally {
-    window.clearTimeout(timer);
-  }
+/**
+ * Whether the device says it is offline: the browser's own flag, or TanStack's onlineManager, which learns only from
+ * online and offline events, so on a cold start offline it still believes it is online.
+ */
+function deviceIsOffline(): boolean {
+  return !navigator.onLine || !onlineManager.isOnline();
 }
 
 const currentPage = () => `${window.location.pathname}${window.location.search}`;
@@ -79,14 +71,18 @@ export function createPageData({ buster, onLeaving, auth = authClient }: PageDat
     else if (!sameOwner(owner, answer)) void leave(routes.home);
   }
 
-  /** Who me.get says is signed in: "nobody" on a 401, "unknown" offline, slow or failing. A 401 also leaves. */
-  async function whoIsSignedIn(): Promise<CopyOwner | "nobody" | "unknown"> {
-    if (!onlineManager.isOnline()) return "unknown";
+  /**
+   * Who me.get says is signed in, asked once and waited for however long it takes: "nobody" on a 401 (which also
+   * leaves), "offline" when the device says so, before or after asking, and "unknown" when the api failed though the
+   * device is online.
+   */
+  async function whoIsSignedIn(): Promise<CopyOwner | "nobody" | "offline" | "unknown"> {
+    if (deviceIsOffline()) return "offline";
     try {
-      const me = await within(queryClient.query(meQuery), OWNER_CHECK_TIMEOUT);
-      return me === undefined ? "unknown" : ownerOf(me);
+      return ownerOf(await queryClient.query({ ...meQuery, retry: false }));
     } catch (error) {
-      return refusalOf(error)?.status === 401 ? "nobody" : "unknown";
+      if (refusalOf(error)?.status === 401) return "nobody";
+      return deviceIsOffline() ? "offline" : "unknown";
     }
   }
 
@@ -94,8 +90,11 @@ export function createPageData({ buster, onLeaving, auth = authClient }: PageDat
     const saved = await copy.read();
     if (!saved) return;
     const signedIn = await whoIsSignedIn();
-    // Unknown: show what this device saved, as offline. If me.get later names someone else, the page leaves then.
-    const expected = signedIn === "unknown" ? (owner ?? saved.owner) : signedIn;
+    // Online but unanswered: nothing saved shows. The screens ask again, and show the failure with a Retry.
+    if (signedIn === "unknown") return;
+    // Offline nobody can be asked, so the device shows what it saved for its last person. If me.get later names
+    // someone else, the page leaves then.
+    const expected = signedIn === "offline" ? (owner ?? saved.owner) : signedIn;
     if (expected === "nobody" || !sameOwner(expected, saved.owner)) {
       await copy.remove();
       return;

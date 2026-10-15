@@ -3,7 +3,7 @@
 // sign in and back; another tab's sign-out wipes this tab too, but never moves a signed-out screen, and a page's own
 // announcement moves nothing; an owed sign-out is settled before me.get is asked.
 import "fake-indexeddb/auto";
-import { onlineManager, useQuery } from "@tanstack/react-query";
+import { onlineManager } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { createStore, get } from "idb-keyval";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -11,11 +11,11 @@ import { isSignOutOwed } from "@/data/owed-sign-out";
 import { deleteSavedCopies, hasPersistedQueries } from "@/data/persistence";
 import { DataProviders } from "@/data/providers";
 import { announceSignOut } from "@/data/session";
-import { useTRPC } from "@/data/trpc";
 import { loadPage } from "@/lib/navigate";
 import { stubApi } from "../support/api-stub";
 import { member } from "../support/members";
 import { pause, saveCopyFor, staffNamed } from "../support/saved-copy";
+import { forgetRenders, renderApp, rendered } from "../support/staff-screen";
 
 vi.mock("@/lib/navigate", () => ({ loadPage: vi.fn(), replacePage: vi.fn() }));
 
@@ -28,26 +28,6 @@ const kiran = member({
 });
 const savedText = async () => String(await get("queries", createStore("travel-crm", "query-cache")));
 
-/** Every text the screen rendered, in order, so a test can say what was never on screen. */
-let rendered: string[] = [];
-
-function StaffScreen() {
-  const trpc = useTRPC();
-  const me = useQuery(trpc.me.get.queryOptions());
-  const staff = useQuery(trpc.staff.list.queryOptions());
-  const text =
-    me.data && staff.data ? `${me.data.user.name}: ${staff.data.map((person) => person.name).join(", ")}` : "loading";
-  rendered.push(text);
-  return <p>{text}</p>;
-}
-
-const renderApp = () =>
-  render(
-    <DataProviders>
-      <StaffScreen />
-    </DataProviders>,
-  );
-
 function signOutInAnotherTab(): void {
   const otherTab = new BroadcastChannel("travel-crm-session");
   otherTab.postMessage({ type: "signed-out", from: "another-tab" });
@@ -58,7 +38,7 @@ beforeEach(async () => {
   await deleteSavedCopies();
   window.localStorage.removeItem("travel-crm.sign-out-owed");
   window.history.replaceState(null, "", "/staff");
-  rendered = [];
+  forgetRenders();
 });
 
 afterEach(() => {
