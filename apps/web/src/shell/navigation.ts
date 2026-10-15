@@ -1,6 +1,7 @@
-// The app's destinations and who sees them (spec 11: navigation follows the caller's permissions). Hiding is for
-// convenience only; the api refuses whatever a role doesn't allow. When plans and entitlements arrive (plan 4), an
-// item's `module` is what the organization's plan must include for it to show.
+// The app's destinations and who sees them (spec 11: navigation follows the caller's permissions and entitlements).
+// Hiding is for convenience only; the api refuses whatever a role or the plan doesn't allow. An item's `module` is
+// what the organization's plan must include for it to show (request check 3).
+import type { PlanModule } from "@travel-crm/contracts/subscriptions";
 import { HouseIcon, SettingsIcon, ShieldCheckIcon, UsersIcon, type LucideIcon } from "lucide-react";
 import { holds, type SignedInMember } from "@/session/me-context";
 import { routes } from "@/lib/routes";
@@ -23,9 +24,16 @@ export const navigationItems: readonly NavigationItem[] = [
   { key: "settings", href: routes.settings, icon: SettingsIcon, requires: "settings:manage", module: null },
 ];
 
-/** The items this member may use, in order. */
-export function visibleNavigationItems(me: SignedInMember): NavigationItem[] {
-  return navigationItems.filter((item) => item.requires === null || holds(me, item.requires));
+/** Whether the plan's modules (subscription.get's) include the item's; while they are unknown, every item shows. */
+export function isOnPlan(item: Pick<NavigationItem, "module">, modules: readonly PlanModule[] | undefined): boolean {
+  return item.module === null || modules === undefined || modules.some((module) => module === item.module);
+}
+
+/** The items this member may use, in order: their role holds the item's permission, their plan its module. */
+export function visibleNavigationItems(me: SignedInMember, modules?: readonly PlanModule[]): NavigationItem[] {
+  return navigationItems.filter(
+    (item) => (item.requires === null || holds(me, item.requires)) && isOnPlan(item, modules),
+  );
 }
 
 /** How many items fit in the phone's bottom bar before the rest move to "More" (DESIGN.md: 4-5 destinations). */
