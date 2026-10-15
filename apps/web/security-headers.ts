@@ -4,7 +4,8 @@
 /**
  * The Content-Security-Policy. Scripts and styles allow 'unsafe-inline' because Next.js inlines its boot scripts and
  * the component library sets inline styles; nonces would make every page render per request, and pages must stay
- * static so the service worker can keep them for offline use. Everything else is our own origin only.
+ * static so the service worker can keep them for offline use. Everything else is our own origin only. The accepted
+ * risk is recorded in ADR 0018; test/no-inner-html.test.ts keeps its premise, that the app renders no HTML of its own.
  */
 export function contentSecurityPolicy({ development }: { development: boolean }): string {
   return [
@@ -21,6 +22,9 @@ export function contentSecurityPolicy({ development }: { development: boolean })
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
+    // A deployment is https only. Development may run over plain http on the local network, to try it on a phone;
+    // browsers leave localhost and 127.0.0.1 (the journeys) alone.
+    ...(development ? [] : ["upgrade-insecure-requests"]),
   ].join("; ");
 }
 
@@ -34,5 +38,23 @@ export function securityHeaders({ development }: { development: boolean }): { ke
     { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()" },
     // Browsers ignore it over plain http (local development); deployments are https only.
     { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
+  ];
+}
+
+/**
+ * Pages whose address can hold a secret (the emailed reset token) or that sit in the middle of signing in. They send
+ * no Referer at all, not even to our own origin, where the /api rewrite would pass it on to the api's and the load
+ * balancer's logs (ADR 0006).
+ */
+export const NO_REFERRER_PAGES = ["/reset-password", "/sign-in/two-factor", "/two-factor-setup"] as const;
+
+/**
+ * The header rules for next.config.ts. Next.js applies every matching rule in order and a later value wins
+ * (next/dist/server/lib/router-utils/resolve-routes.js), so the pages' own Referrer-Policy comes after the catch-all.
+ */
+export function securityHeaderRules({ development }: { development: boolean }) {
+  return [
+    { source: "/:path*", headers: securityHeaders({ development }) },
+    ...NO_REFERRER_PAGES.map((source) => ({ source, headers: [{ key: "Referrer-Policy", value: "no-referrer" }] })),
   ];
 }
