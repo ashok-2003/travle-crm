@@ -63,8 +63,10 @@ Date: 2026-10-15 · Status: accepted · Implements spec sections 3, 11 and 12.1 
   `test/no-inner-html.test.ts` enforces. What still limits an injection: `connect-src`, `form-action` and
   `base-uri` are our own origin only, `object-src` is none, and framing is refused. Revisit if the app ever needs
   to show rich text: sanitize it on the server, or move to nonces.
-- **The PWA.** A manifest from the brand package; a hand-written service worker (bundled by esbuild) keeps build files
-  and visited pages, falls back to an offline page, and never touches `/api`.
+- **The PWA.** A manifest from the brand package; a hand-written service worker (bundled by esbuild) keeps a shell of
+  every static page, which it fetches itself without cookies, the build files those shells name, and the icons. It
+  never keeps a page load's own answer, so nothing a signed-in request returned is stored. It falls back to an
+  offline page, and never touches `/api`.
 - **Tests.** Vitest in jsdom for logic and components. Playwright journeys on a phone and a desktop against the real
   api and a throwaway Postgres (the same setup as the api's tests), on free ports, with an axe check after every
   journey, on the screen it ends on (an automatic fixture; a journey opts out only with a written reason). Turbo runs

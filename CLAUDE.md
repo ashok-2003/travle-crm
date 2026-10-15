@@ -142,8 +142,8 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 ## The web app (`apps/web`, ADR 0018)
 
 - `pnpm --filter @travel-crm/web dev` runs it on http://localhost:3000 with the api on :3001 (`/api/*` is rewritten to
-  `API_ORIGIN`). `pnpm e2e` runs the journeys against a real api and Postgres; once per machine, first run
-  `pnpm --filter @travel-crm/web exec playwright install chromium`. `pnpm check` runs them too.
+  `API_ORIGIN`). `pnpm e2e` runs the journeys against a real api, Postgres, MinIO and Mailpit (Docker); once per
+  machine, first run `pnpm --filter @travel-crm/web exec playwright install chromium`. `pnpm check` runs them too.
 - It imports the api's types only (`import type { AppRouter }`); at run time just the brand, the contracts' schemas
   and the kernel's formatting. Data comes from tRPC hooks (`useTRPC()`); server-rendered HTML holds no organization
   data, because the service worker keeps pages for offline use.

@@ -17,8 +17,9 @@ load balancer instead, and the api's `TRUSTED_ORIGINS` (or `BETTER_AUTH_URL`) mu
 ## How it's put together
 
 - `scripts/generate.ts` (Turborepo runs it before dev, build, typecheck, lint and test) writes
-  `src/generated/brand.css`, the brand's colours as CSS variables, and copies the brand's icons to `public/icons`.
-  Both come from `@travel-crm/brand`; git keeps neither.
+  `src/generated/brand.css`, the brand's colours as CSS variables, copies the brand's icons to `public/icons`, and
+  bundles the service worker from `src/service-worker` into `public/sw.js`. The first two come from
+  `@travel-crm/brand`; git keeps none of the three.
 - `DESIGN.md` at the repository root holds the design rules. Its palette must equal `brand.colours`
   (`test/design-tokens.test.ts`).
 - `security-headers.ts`: the headers every response carries.
