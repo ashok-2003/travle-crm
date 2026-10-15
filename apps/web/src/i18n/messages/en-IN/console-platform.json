@@ -300,5 +300,104 @@
       "confirm": "Remove",
       "removed": "{name} was removed"
     }
+  },
+  "dataProtection": {
+    "title": "Data protection",
+    "intro": "Permanent deletion happens only here (spec 5): export first, type the organization's code to confirm, then the console's job deletes it and the platform log keeps the record.",
+    "loading": "Loading the organization",
+    "loadFailed": "The organization didn't load.",
+    "backToOrganization": "Back to the organization",
+    "deleted": "This organization has been deleted for good. Each of its exports stays for 7 days from when it was asked for.",
+    "exports": {
+      "title": "Exports",
+      "intro": "Everything the organization keeps, for it to take away: its tables, its people and copies of its files, as JSON lines. Each export is kept for 7 days, and outlives a deletion.",
+      "export": "Export everything",
+      "exporting": "Asking",
+      "asked": "Export asked for. The console's job is preparing it.",
+      "loading": "Loading the exports",
+      "loadFailed": "The exports didn't load.",
+      "empty": "No exports yet.",
+      "states": {
+        "requested": "Being prepared",
+        "done": "Ready",
+        "failed": "Failed",
+        "expired": "Expired"
+      },
+      "requestedAt": "Asked for {when}",
+      "completedAt": "Finished {when}",
+      "expiresAt": "Kept until {when}",
+      "parts": "{count, plural, one {# part} other {# parts}}",
+      "rows": "{count, plural, one {# row} other {# rows}}",
+      "people": "{count, plural, one {# person} other {# people}}",
+      "files": "{count, plural, one {# file} other {# files}}",
+      "download": "Download",
+      "downloading": "Getting the links",
+      "linksExpire": "These links work until {when}.",
+      "part": "Part {number}",
+      "file": "File {id}"
+    },
+    "purge": {
+      "title": "Delete the organization for good",
+      "intro": "Its tables, its people and its files are deleted, and can't be brought back. The platform log keeps that it happened, with its code.",
+      "cancelled": "Its subscription is cancelled",
+      "notCancelled": "Cancel the organization's subscription first.",
+      "exported": "An export finished in the last day",
+      "notExported": "Export the organization's data first: a deletion needs an export finished in the last day.",
+      "met": "Done:",
+      "unmet": "Still to do:",
+      "action": "Delete for good",
+      "confirmTitle": "Delete {name} for good?",
+      "confirmDescription": "This can't be undone. The console's job checks everything again before it deletes anything.",
+      "confirm": "Delete for good",
+      "queued": "Asked for. The console's job checks everything again, then deletes the organization.",
+      "purged": "Deleted for good: {rows} rows, {people} people and {files} files.",
+      "skipped": {
+        "not-cancelled": "Kept: the organization wasn't cancelled when the job ran.",
+        "no-recent-export": "Kept: its export was over a day old, or withdrawn, when the job ran. Export again, then ask again."
+      }
+    },
+    "confirmation": {
+      "label": "Type {code} to confirm",
+      "hint": "The organization's code, exactly as shown."
+    },
+    "subject": {
+      "title": "One person or record",
+      "intro": "On a DPDP request the organization passes on: export what it keeps about one removed member or one record of a person, give it to them, then erase it. Issued documents are kept as issued, as the law requires.",
+      "kind": "Who or what",
+      "member": "A removed member",
+      "record": "A record of a person",
+      "memberId": "Member id",
+      "recordType": "Record type",
+      "recordTypeHint": "Such as traveller.",
+      "recordId": "Record id",
+      "idInvalid": "Use the id as the organization's records show it, such as 0199a000-0000-7000-8000-000000000002.",
+      "recordTypeInvalid": "Use lower-case letters and underscores, such as traveller.",
+      "export": "Export what is kept",
+      "exporting": "Exporting",
+      "exportedAt": "Exported {when}. Its file links work for 15 minutes.",
+      "personFacts": {
+        "name": "Name",
+        "email": "Email",
+        "username": "Username",
+        "role": "Role",
+        "joined": "Joined",
+        "removed": "Removed"
+      },
+      "auditEntries": "{count, plural, one {# audit entry} other {# audit entries}}",
+      "noFiles": "No files",
+      "sensitive": "Sensitive",
+      "deletedFile": "Deleted",
+      "noLink": "Never finished uploading",
+      "erase": "Erase",
+      "eraseTitle": "Erase this person or record?",
+      "eraseDescription": "What the organization keeps about them goes for good: their sign-in details, files, share links, notifications, and what the audit log says of them. It needs their export from the last day.",
+      "confirmErase": "Erase for good",
+      "queued": "Asked for. The console's job checks again, then erases.",
+      "erased": "Erased: what was kept about them is gone.",
+      "skipped": {
+        "organization-gone": "Nothing erased: the organization was deleted.",
+        "no-recent-export": "Nothing erased: their export was over a day old when the job ran. Export again, then ask again."
+      }
+    }
   }
 }
