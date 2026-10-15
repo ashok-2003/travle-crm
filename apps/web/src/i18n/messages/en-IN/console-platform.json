@@ -225,5 +225,80 @@
         "reset": "Rebuilt the demo organization"
       }
     }
+  },
+  "staff": {
+    "title": "Platform staff",
+    "intro": "Who works on the platform. Support works with organizations; a super admin also manages plans, platform staff and permanent deletion. Everyone signs in with two-factor.",
+    "add": "Add platform staff",
+    "loading": "Loading the platform staff",
+    "loadFailed": "The platform staff didn't load.",
+    "removedTitle": "Removed",
+    "you": "You",
+    "columns": {
+      "name": "Name",
+      "email": "Email",
+      "level": "Level",
+      "state": "Sign-in",
+      "added": "Added",
+      "removed": "Removed",
+      "actions": "Actions"
+    },
+    "twoFactorOn": "Two-factor on",
+    "twoFactorOff": "No two-factor yet",
+    "mustReplacePassword": "Must replace the temporary password",
+    "addedOn": "Added {day}",
+    "removedOn": "Removed {day}",
+    "actionsFor": "Actions for {name}",
+    "levelHints": {
+      "support": "Works with organizations: onboarding, subscriptions, impersonation, failed jobs.",
+      "super-admin": "Also manages plans, platform staff and permanent deletion."
+    },
+    "addForm": {
+      "title": "Add platform staff",
+      "description": "They sign in by email with a temporary password, then choose their own and set up two-factor sign-in.",
+      "name": "Full name",
+      "email": "Email",
+      "level": "Level",
+      "submit": "Add",
+      "submitting": "Adding",
+      "problems": {
+        "nameRequired": "Give their full name.",
+        "emailInvalid": "Use a real email address."
+      }
+    },
+    "handover": {
+      "added": "{name} was added",
+      "intro": "Give {name} these details to sign in:",
+      "shownOnce": "Copy them now: the temporary password is shown only this once.",
+      "email": "Email",
+      "temporaryPassword": "Temporary password",
+      "copyEmail": "Copy the email",
+      "copyPassword": "Copy the temporary password",
+      "firstSignIn": "At their first sign-in they replace this password and set up two-factor sign-in.",
+      "done": "Done"
+    },
+    "changeLevel": {
+      "action": "Change level",
+      "title": "Change {name}'s level",
+      "description": "From their next call. A super admin made support keeps the impersonations they started.",
+      "submit": "Change level",
+      "submitting": "Changing",
+      "changed": "{name} is now {level}"
+    },
+    "resetPassword": {
+      "action": "New temporary password",
+      "title": "A new temporary password for {name}",
+      "description": "They are signed out everywhere, and the impersonations they started end. They replace it at their next sign-in.",
+      "submit": "Make a new temporary password",
+      "submitting": "Making it",
+      "done": "Give {name} this temporary password:"
+    },
+    "remove": {
+      "action": "Remove",
+      "title": "Remove {name} from the platform staff?",
+      "description": "They are signed out at once, and the impersonations they started end. Their address stays taken: they can't be added again with it.",
+      "confirm": "Remove",
+      "removed": "{name} was removed"
+    }
   }
 }
