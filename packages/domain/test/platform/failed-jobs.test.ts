@@ -90,6 +90,17 @@ describe("the failed-jobs list", () => {
     expect(await logAbout([jobId(404)])).toEqual([]);
   });
 
+  it("retries the platform's cleanups, which only finish what a committed purge, erasure or expiry began", async () => {
+    // Fixer D's deletions' outbox, and the export's expiry.
+    const queues = ["platform.delete-stored-files", "platform.expire-exports"];
+    queues.forEach((queue, index) => test.jobs.failed.push(failed(queue, jobId(900 + index), 1)));
+    for (const [index, queue] of queues.entries()) {
+      await retryFailedJob(test.services, support, { queue, jobId: jobId(900 + index) });
+    }
+    expect(test.jobs.retried.filter((job) => queues.includes(job.queue)).map((job) => job.queue)).toEqual(queues);
+    expect(await logAbout(queues.map((_, index) => jobId(900 + index)))).toEqual(["job.retried", "job.retried"]);
+  });
+
   it("never retries a purge, an erasure or an export: a super admin asks for it again, so every check runs", async () => {
     const queues = [PURGE_ORGANIZATION_QUEUE, ERASE_SUBJECT_QUEUE, EXPORT_ORGANIZATION_QUEUE];
     queues.forEach((queue, index) => test.jobs.failed.push(failed(queue, jobId(700 + index), 1)));

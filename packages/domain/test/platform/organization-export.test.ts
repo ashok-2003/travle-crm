@@ -125,6 +125,8 @@ describe("an organization's export", () => {
       "organization.exported",
       "organization.export-requested",
     ]);
+    // As a purge's check reads it: the organization's own entry, by its id.
+    expect(log.entries[1]).toMatchObject({ targetId: organizationId, targetOrganizationId: organizationId });
     expect(log.entries[1]?.after).toEqual({
       exportId: requested.exportId,
       parts: 1,

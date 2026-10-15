@@ -19,6 +19,11 @@ export interface PlatformServices {
   queue: JobQueue;
   /** Every process's failed jobs and schedules, for the console's failed-jobs list (spec 9.1). */
   jobs: JobAdministration;
+  /**
+   * The console process's log, a line each, ids and codes only (errors as describeError gives them), for what goes
+   * wrong after a commit with no one to tell. The console passes its own; tests may leave it out.
+   */
+  log?: (line: string) => void;
 }
 
 export interface PlatformServicesOptions extends Omit<PlatformServices, "platformDb"> {
