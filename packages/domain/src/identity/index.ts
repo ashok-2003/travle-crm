@@ -21,6 +21,12 @@ export { pendingStep, type MemberAccess } from "./member-access.js";
 export { memberActivity, type MemberActivity } from "./member-activity.js";
 export { createOrganizationRecord, inviteOwner, requestInvite, type NewOrganization } from "./onboarding.js";
 export type { MemberContact, OrganizationProfile } from "./organization-profile.js";
+export {
+  findOrganizationRecord,
+  listOrganizationRecords,
+  updateOrganizationRecord,
+  type OrganizationRecord,
+} from "./organization-records.js";
 export { organizationTimeZone } from "./organization-profile.js";
 export { PermissionSet, type Grant } from "./permission-set.js";
 export {

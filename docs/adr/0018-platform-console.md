@@ -45,6 +45,11 @@ adminUserId)`), not as the system.
   "an audit record in the platform log"). It is append-only even for `app_platform`, and `app_runtime` has no rights on
   it.
 
+- **Failed jobs and schedules.** The console lists failed jobs, runs one again, and lists the schedules; a super admin
+  removes a schedule whose job the code no longer has (ADR 0010). It reaches pg-boss through the `JobAdministration`
+  port (`@travel-crm/integrations/jobs`), and records each retry and removed schedule in the platform log. Job data
+  holds only ids, so the list shows nothing personal.
+
 ## Context
 
 - **Why a separate process.** The api answers every organization's staff and the public routes; holding a connection

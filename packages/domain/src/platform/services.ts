@@ -2,7 +2,7 @@
 // process that holds DATABASE_PLATFORM_URL.
 import type { Database } from "@travel-crm/db";
 import { createPlatformDatabase, type PlatformDatabase } from "@travel-crm/db/platform";
-import type { JobQueue } from "@travel-crm/integrations/jobs";
+import type { JobAdministration, JobQueue } from "@travel-crm/integrations/jobs";
 import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import type { Identity } from "../identity/index.js";
 
@@ -17,6 +17,8 @@ export interface PlatformServices {
   storage: ObjectStorage;
   /** Where the console queues the platform's own jobs. */
   queue: JobQueue;
+  /** Every process's failed jobs and schedules, for the console's failed-jobs list (spec 9.1). */
+  jobs: JobAdministration;
 }
 
 export interface PlatformServicesOptions extends Omit<PlatformServices, "platformDb"> {

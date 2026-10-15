@@ -6,6 +6,17 @@ The platform console's work across organizations (spec sections 5 and 7). It is 
 
 ## Public functions and values (`index.ts`)
 
+- Organizations: `onboardOrganization(services, staff, input)` (spec 7.1, one platform transaction: the
+  organization, its roles, business profile, subscription and invited Owner), `resendInvite(services, staff,
+{ organizationId, memberId })`, `getOrganization(services, organizationId)` (its row, profile and subscription with
+  payments), `updateOrganization(services, staff, input)` (name, time zone, contact email; never the code).
+- Permanent deletion (spec 5), super admins only: `exportOrganization(services, staff, organizationId)` and
+  `exportSubject(services, staff, { organizationId, subject })` (logged; a purge or erasure needs one from the last
+  day), `requestPurge(services, staff, { organizationId, confirmation })` (the code typed, the subscription
+  cancelled) and `requestErasure(services, staff, { organizationId, subject, confirmation })` (a removed member or one
+  record), which queue `platform.purge-organization` and `platform.erase-subject`; `purgeOrganization` (which keeps
+  an organization no longer cancelled, as `organization.purge-skipped`) and `eraseSubject`, the jobs;
+  `platformJobHandlers(services)`, for the console process's job runner.
 - Plans and the policy: `listPlans(services, input)`, `createPlan`, `updatePlan`, `archivePlan(services, staff, …)`,
   `getSubscriptionPolicy(services)`, `setSubscriptionPolicy(services, staff, policy)`. Plans belong to no organization,
   so each change is recorded in the platform log.
@@ -16,6 +27,11 @@ The platform console's work across organizations (spec sections 5 and 7). It is 
 - An organization's subscription: `getSubscription(services, organizationId)` (with its payments), and
   `changePlan`, `setOverrides`, `setTrialEnd`, `setPaidThrough`, `recordPayment`, `voidPayment`, `suspend`, `cancel`
   `(services, staff, input)`, each one platform transaction, recorded in the organization's own audit log.
+- The dashboard (spec 7.4): `organizationsOverview(services, now?)`, every organization with its status, plan, days
+  to its next change, seats and storage against its limits, last activity, and this month's changes and documents.
+- Failed jobs (spec 9.1): `listFailedJobs(services, limit)`, `retryFailedJob(services, staff, { queue, jobId })`,
+  `listSchedules(services)` and `removeSchedule(services, staff, queue)` (super admins), through the
+  `JobAdministration` port. Each retry and removed schedule is recorded in the platform log.
 - Types: `PlatformActor`, `PlatformChange`. The contracts are in `@travel-crm/contracts/platform`.
 
 ## Events

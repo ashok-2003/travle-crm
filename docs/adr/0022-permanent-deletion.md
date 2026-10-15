@@ -27,6 +27,15 @@ super-admin action in the platform console")
 - **The runtime role can't do any of it.** It has no right to delete attachments or notifications, or to change audit
   entries; each of these functions fails with "permission denied" outside a platform transaction.
 
+- **The console's steps, as spec 5 lists them.** A super admin exports (the organization's tables, people and files,
+  or one subject's data), types the organization's code, and the console queues a job: `platform.purge-organization`
+  for a cancelled organization, `platform.erase-subject` for a removed member or one record. A purge or an erasure
+  needs an export from the last day. The job runs everything in one platform transaction (the purge allows ten
+  minutes), deletes stored files after it commits, and records `organization.purged` or `subject.erased` in the
+  platform log; an erasure also records `subject.erased`, without personal data, in the organization's own log. Both
+  jobs are safe to run again. The purge looks again when it runs: an organization a payment made active since the
+  request is kept, and `organization.purge-skipped` says so.
+
 ## Context
 
 - **Why bytes after the commit.** If the transaction rolls back, the files are still there with their rows. If the
