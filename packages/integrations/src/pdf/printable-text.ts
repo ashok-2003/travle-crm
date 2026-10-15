@@ -1,5 +1,6 @@
 // Which characters the PDF fonts can show. React-PDF draws a character no font has (Devanagari, Tamil, emoji) as
 // other letters rather than as an empty box, so a document holding one is refused instead of printed wrong.
+import { ownMessages } from "../jobs/sanitize-job-error.js";
 
 /**
  * Code point ranges that every brand font has in both weights (latin and latin-ext files together) and that read back
@@ -87,6 +88,10 @@ export function unprintableCharactersIn(value: unknown): string[] {
  * fails every time, so a job that gets it should not retry. Match on `code`, which is stable.
  */
 export class UnprintableTextError extends Error {
+  static {
+    ownMessages(this);
+  }
+
   readonly code = "UNPRINTABLE_TEXT";
   readonly characters: readonly string[];
 

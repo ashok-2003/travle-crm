@@ -2,7 +2,7 @@
 // act like pg-boss where they rely on it. Where it can't (time, concurrency, logging), the package README says how.
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { JobData, JobQueue, JobRunner } from "../../src/jobs/index.js";
+import { ownMessage, type JobData, type JobQueue, type JobRunner } from "../../src/jobs/index.js";
 
 /** A job that used all its retries, as either adapter lists it. */
 export interface ListedFailure {
@@ -54,7 +54,8 @@ export function describeJobAdapter(name: string, start: () => Promise<JobsUnderT
       const tries: number[] = [];
       await subject.runner.work("contract.failing", (job) => {
         tries.push(job.retryCount);
-        return Promise.reject(new Error(`no mailbox for jane@example.com, try ${String(job.retryCount)}`));
+        // A message our code wrote: kept, masked.
+        return Promise.reject(ownMessage(new Error(`no mailbox for jane@example.com, try ${String(job.retryCount)}`)));
       });
       const id = await subject.queue.send("contract.failing", {}, { retryLimit: 2, retryDelaySeconds: 1 });
       await subject.runUntil(async () => (await subject.failed()).some((job) => job.id === id));
@@ -65,6 +66,15 @@ export function describeJobAdapter(name: string, start: () => Promise<JobsUnderT
         attempts: 3,
         error: "Error: no mailbox for [email], try 2",
       });
+    });
+
+    it("lists a library's error by its names and codes only, never its message", async () => {
+      await subject.runner.work("contract.library-failing", () =>
+        Promise.reject(Object.assign(new Error("no mailbox for jane@example.com"), { code: "EENVELOPE" })),
+      );
+      const id = await subject.queue.send("contract.library-failing", {}, { retryLimit: 0 });
+      await subject.runUntil(async () => (await subject.failed()).some((job) => job.id === id));
+      expect((await subject.failed()).find((job) => job.id === id)?.error).toBe("Error EENVELOPE");
     });
 
     it("queues a repeated job id once on its queue, and again on another queue, and runs both", async () => {

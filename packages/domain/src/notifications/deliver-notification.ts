@@ -2,6 +2,7 @@
 // organization's name with its Reply-To, respecting each person's opt-outs, and never to someone who has left.
 import { notificationCreatedEvent } from "@travel-crm/contracts/notifications";
 import { renderEmail, senderNameFor, type EmailSender } from "@travel-crm/integrations/email";
+import { ownMessage } from "@travel-crm/integrations/jobs";
 import type { PushSender } from "@travel-crm/integrations/push";
 import type { MemberContact, OrganizationProfile } from "../identity/index.js";
 import { defineListener, type EventListener, type ListenerContext } from "../jobs/index.js";
@@ -86,7 +87,7 @@ export function deliverNotificationListener(dependencies: DeliveryDependencies):
         // Staff without email (a null address) get no email.
         if (!wanted || contact.email === null) return;
         const organization = await dependencies.organizationProfile(event.organizationId);
-        if (!organization) throw new Error(`Organization ${event.organizationId} has no profile`);
+        if (!organization) throw ownMessage(new Error(`Organization ${event.organizationId} has no profile`));
         const { html, text } = renderEmail({
           heading: notification.title,
           paragraphs: [notification.body],
@@ -158,7 +159,7 @@ export function deliverNotificationListener(dependencies: DeliveryDependencies):
 
         const retryable = failures.find((failure) => !isPermanent(failure)) ?? failures[0];
         if (!isPermanent(retryable)) await release(context, id, pushChannel, claimedAt, log);
-        throw retryable instanceof Error ? retryable : new Error(`Notification ${id}: the push failed`);
+        throw retryable instanceof Error ? retryable : ownMessage(new Error(`Notification ${id}: the push failed`));
       };
 
       const problems = await Promise.all([

@@ -1,5 +1,10 @@
 // What pg-boss stores about a failed job (its error) has no row-level security and is shown to platform staff, so a
-// handler's error is cut down before pg-boss sees it. The log gets only its names and codes (describeError).
+// handler's error is cut down before pg-boss sees it. It keeps a message only when our own code wrote it; anyone
+// else's error (Prisma's, the AWS SDK's, nodemailer's, pg's) keeps its names and codes only, as the log does.
+import { describeError } from "./describe-error.js";
+
+/** Set on an error, or a class's prototype, whose message our own code writes from ids and codes. */
+const OWN_MESSAGE = Symbol.for("@travel-crm/own-message");
 
 // An address's local part stops at a URL's own punctuation, so "?to=jane@example.com" keeps "?to=".
 const EMAIL = /[^\s@<>()[\]",;:/?&=#]+@[^\s@<>()[\]",;:]+\.[^\s@<>()[\]",;:]+/g;
@@ -39,12 +44,33 @@ export function maskPersonalData(text: string): string {
 }
 
 /**
- * A new Error for pg-boss to store: `Name: message` masked by maskPersonalData, at most 200 characters, and no cause,
- * extra properties or original stack.
+ * Marks an error our own code made, whose message it wrote from ids and codes (not a library's, which may quote data):
+ * pg-boss keeps that message, masked. Returns the error, for `throw ownMessage(new Error(...))`.
+ */
+export function ownMessage<E extends Error>(error: E): E {
+  Object.defineProperty(error, OWN_MESSAGE, { value: true });
+  return error;
+}
+
+/** Marks every error of a class our own code defines, such as DomainError, as ownMessage marks one. */
+export function ownMessages(errorClass: abstract new (...args: never[]) => Error): void {
+  Object.defineProperty(errorClass.prototype, OWN_MESSAGE, { value: true });
+}
+
+function hasOwnMessage(error: unknown): error is Error {
+  return error instanceof Error && (error as unknown as Record<symbol, unknown>)[OWN_MESSAGE] === true;
+}
+
+/**
+ * A new Error for pg-boss to store, at most 200 characters, with no cause, extra properties or original stack. An
+ * error our code wrote (ownMessage, ownMessages) keeps `Name: message`, masked by maskPersonalData. Any other keeps
+ * only its names and codes (describeError): a library's message can quote what it was given, as a Prisma validation
+ * error quotes the query's values, names and all, which no masking catches.
  */
 export function sanitizeJobError(error: unknown): Error {
-  const original = toError(error);
-  const text = maskPersonalData(`${original.name}: ${original.message}`).slice(0, MAX_LENGTH);
+  const text = (
+    hasOwnMessage(error) ? maskPersonalData(`${error.name}: ${error.message}`) : describeError(error)
+  ).slice(0, MAX_LENGTH);
   const sanitized = new Error(text);
   sanitized.stack = text;
   return sanitized;

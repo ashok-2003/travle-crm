@@ -1,8 +1,8 @@
-// What pg-boss stores about a failed job is shown to platform staff, so errors are cut down to a short message
-// with emails and long numbers masked (ids left whole), and normalised when they aren't Errors.
+// What pg-boss stores about a failed job is shown to platform staff. An error whose message our code wrote keeps it,
+// cut short with emails and long numbers masked (ids left whole); anyone else's error keeps only its names and codes.
 import { randomBytes, randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { sanitizeJobError, toError } from "../../src/jobs/index.js";
+import { ownMessage, ownMessages, sanitizeJobError, toError } from "../../src/jobs/index.js";
 
 /** A version 7 UUID (RFC 9562), as Postgres's uuidv7() makes them: the time in milliseconds, then random bits. */
 function uuidV7(milliseconds: number): string {
@@ -14,15 +14,40 @@ function uuidV7(milliseconds: number): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
+/** An error message our code wrote, as the sanitiser sees it. */
+const ours = (message: string) => sanitizeJobError(ownMessage(new Error(message))).message;
+
 describe("sanitizeJobError", () => {
-  it("keeps the error's name and message, masks emails and runs of 7 or more digits", () => {
-    const error = sanitizeJobError(new TypeError("send to a.b+c@mail.example.co failed, ref 1234567, code 123456"));
+  it("keeps only the names and codes of an error our code didn't write, never its message", () => {
+    const fromALibrary = Object.assign(new Error("no mailbox for Jane Doe <jane.doe@example.com>"), {
+      code: "EENVELOPE",
+      cause: new TypeError("rejected jane.doe@example.com"),
+    });
+    expect(sanitizeJobError(fromALibrary).message).toBe("Error EENVELOPE, caused by TypeError");
+    expect(sanitizeJobError(new RangeError("Jane Doe")).message).toBe("RangeError");
+    expect(sanitizeJobError(fromALibrary).stack).toBe("Error EENVELOPE, caused by TypeError");
+  });
+
+  it("keeps the name and message of an error our code wrote, masking emails and runs of 7 or more digits", () => {
+    const error = sanitizeJobError(
+      ownMessage(new TypeError("send to a.b+c@mail.example.co failed, ref 1234567, code 123456")),
+    );
     expect(error.message).toBe("TypeError: send to [email] failed, ref [number], code 123456");
+  });
+
+  it("keeps the messages of every error of a class our code defines", () => {
+    class QuoteRefused extends Error {
+      static {
+        ownMessages(this);
+      }
+    }
+    const refused = Object.assign(new QuoteRefused("Quote for jane.doe@example.com refused"), { name: "QuoteRefused" });
+    expect(sanitizeJobError(refused).message).toBe("QuoteRefused: Quote for [email] refused");
   });
 
   it("masks phone and Aadhaar style numbers written with spaces or hyphens", () => {
     for (const written of ["98765 43210", "+91-98765-43210", "1234 5678 9012"]) {
-      expect(sanitizeJobError(new Error(`call ${written} now`)).message).toBe("Error: call [number] now");
+      expect(ours(`call ${written} now`)).toBe("Error: call [number] now");
     }
   });
 
@@ -35,7 +60,7 @@ describe("sanitizeJobError", () => {
     ];
     for (let index = 0; index < ids.length; index += 2) {
       const message = `listener: event ${ids[index] ?? ""} not found in organization ${ids[index + 1] ?? ""}`;
-      expect(sanitizeJobError(new Error(message)).message).toBe(`Error: ${message}`);
+      expect(ours(message)).toBe(`Error: ${message}`);
     }
   });
 
@@ -49,12 +74,12 @@ describe("sanitizeJobError", () => {
       ["build ab1234567cd and v-1234567", "build ab1234567cd and v-1234567"],
     ];
     for (const [written, masked] of cases) {
-      expect(sanitizeJobError(new Error(written)).message).toBe(`Error: ${masked}`);
+      expect(ours(written)).toBe(`Error: ${masked}`);
     }
   });
 
   it("drops the cause, the stack's origin and extra properties", () => {
-    const original = Object.assign(new Error("x", { cause: new Error("inner") }), { detail: "secret" });
+    const original = Object.assign(ownMessage(new Error("x", { cause: new Error("inner") })), { detail: "secret" });
     const error = sanitizeJobError(original);
     expect(error).not.toBe(original);
     expect(error.cause).toBeUndefined();
@@ -63,12 +88,12 @@ describe("sanitizeJobError", () => {
   });
 
   it("truncates to 200 characters", () => {
-    expect(sanitizeJobError(new Error("a".repeat(500))).message).toHaveLength(200);
+    expect(ours("a".repeat(500))).toHaveLength(200);
   });
 
-  it("accepts things that aren't Errors", () => {
-    expect(sanitizeJobError("plain string").message).toBe("Error: plain string");
-    expect(sanitizeJobError({ message: "object with message" }).message).toBe("Error: object with message");
+  it("accepts things that aren't Errors, by what they are", () => {
+    expect(sanitizeJobError("jane.doe@example.com").message).toBe("string");
+    expect(sanitizeJobError({ message: "jane.doe@example.com", code: "57P01" }).message).toBe("Error 57P01");
   });
 });
 

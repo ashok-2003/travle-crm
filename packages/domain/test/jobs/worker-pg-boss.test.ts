@@ -83,7 +83,7 @@ describe("worker on pg-boss", () => {
       queue: "workerprobe.always-fails",
       data: { organizationId, eventId, eventType: "notification.created" },
       attempts: 2,
-      error: "Error: workerprobe.always-fails failed on purpose",
+      error: "DomainError: workerprobe.always-fails failed on purpose for [email]",
     });
     expect(broken.handled).toEqual([]);
   });

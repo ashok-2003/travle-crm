@@ -1,4 +1,5 @@
 // The web push port (spec 9.4): send one notification to one browser subscription.
+import { ownMessages } from "../jobs/sanitize-job-error.js";
 
 /** What a browser hands over when it subscribes (PushSubscription.toJSON(): endpoint and keys). */
 export interface PushSubscriptionKeys {
@@ -32,6 +33,10 @@ export const MAX_PUSH_PAYLOAD_BYTES = 3993;
  * The message holds no notification text.
  */
 export class PushPayloadTooLargeError extends Error {
+  static {
+    ownMessages(this);
+  }
+
   readonly code = "PUSH_PAYLOAD_TOO_LARGE";
 
   constructor(bytes: number) {

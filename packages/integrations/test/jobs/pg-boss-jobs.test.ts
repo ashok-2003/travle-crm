@@ -6,7 +6,7 @@ import { createDatabase, type Database } from "@travel-crm/db";
 import type { DbUrls } from "@travel-crm/db/testing";
 import { PgBoss } from "pg-boss";
 import { afterAll, beforeAll, describe, expect, inject, it, onTestFinished, vi } from "vitest";
-import { createPgBossJobs, type PgBossJobs } from "../../src/jobs/index.js";
+import { createPgBossJobs, ownMessage, type PgBossJobs } from "../../src/jobs/index.js";
 import { describeJobAdapter } from "./job-adapter-contract.js";
 
 /** Everything written to the console or to stdout and stderr during this test, which is kept off the screen. */
@@ -102,7 +102,7 @@ describe("pg-boss jobs", () => {
     await jobs.work("probe.failing", (job) => {
       tries.push(job.retryCount);
       triedAt.push(Date.now());
-      return Promise.reject(new Error(`attempt ${String(job.retryCount + 1)} failed`));
+      return Promise.reject(ownMessage(new Error(`attempt ${String(job.retryCount + 1)} failed`)));
     });
     const id = await jobs.send("probe.failing", { eventId: "e2" }, { retryLimit: 2, retryDelaySeconds: 1 });
 
@@ -161,7 +161,9 @@ describe("pg-boss jobs", () => {
     await sanitising.start();
     try {
       const original = Object.assign(
-        new Error("no mailbox for jane.doe@example.com, call 9876543210", { cause: new Error("secret cause") }),
+        ownMessage(
+          new Error("no mailbox for jane.doe@example.com, call 9876543210", { cause: new Error("secret cause") }),
+        ),
         { detail: "Key (email)=(jane.doe@example.com) already exists." },
       );
       await sanitising.work("probe.sanitised", () => Promise.reject(original));
@@ -197,9 +199,40 @@ describe("pg-boss jobs", () => {
       await throwing.work("probe.logger-broken", () => Promise.reject(new Error("boom for jane@example.com")));
       const id = await throwing.send("probe.logger-broken", {}, { retryLimit: 0 });
       await eventually(async () => (await throwing.failedJobs()).some((job) => job.id === id));
-      expect((await throwing.failedJobs()).find((job) => job.id === id)?.error).toBe("Error: boom for [email]");
+      expect((await throwing.failedJobs()).find((job) => job.id === id)?.error).toBe("Error");
     } finally {
       await throwing.stop();
+    }
+  });
+
+  it("stores a library's error by its name only: a Prisma validation error keeps none of the data it quotes", async () => {
+    const leaky = createPgBossJobs({
+      connectionString: urls.runtime,
+      maxConnections: 2,
+      pollingIntervalSeconds: 0.5,
+      log: () => undefined,
+    });
+    await leaky.start();
+    try {
+      // Prisma quotes the query's values in a validation error's message: here a person's name, email and phone.
+      const person = "Jane Doe, jane.doe@example.com, +91 98765 43210";
+      await leaky.work("probe.prisma-leak", async () => {
+        await db.forOrg(randomUUID(), (tx) =>
+          tx.notification.create({
+            data: { recipientUserId: randomUUID(), kind: "probe.leak", title: person, body: 42 } as never,
+          }),
+        );
+      });
+      const id = await leaky.send("probe.prisma-leak", {}, { retryLimit: 0 });
+      await eventually(async () => (await leaky.failedJobs()).some((job) => job.id === id));
+      const [row] = await db.withoutOrg(
+        (tx) =>
+          tx.$queryRaw<{ output: string }[]>`SELECT output::text AS output FROM pgboss.job WHERE id = ${id}::uuid`,
+      );
+      expect(row?.output).toContain("PrismaClientValidationError");
+      expect(row?.output).not.toMatch(/Jane Doe|jane\.doe|98765/);
+    } finally {
+      await leaky.stop();
     }
   });
 

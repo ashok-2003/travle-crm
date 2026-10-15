@@ -54,7 +54,8 @@ describe("memory job runner", () => {
     await runner.runQueued();
     expect(attempts).toEqual([0, 1, 2]);
     expect(runner.failed).toMatchObject([
-      { attempts: 3, error: "Error: mail server down", job: { queue: "notifications.deliver" } },
+      // Not a message our code wrote, so only its name is kept.
+      { attempts: 3, error: "Error", job: { queue: "notifications.deliver" } },
     ]);
   });
 
