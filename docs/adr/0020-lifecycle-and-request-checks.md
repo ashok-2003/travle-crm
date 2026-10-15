@@ -1,34 +1,69 @@
 # 0020: The subscription lifecycle, and request checks 2 and 3
 
-Date: 2026-10-16 · Status: accepted · Implements spec sections 7.3 and 6.5 (checks 2 and 3)
+Date: 2026-10-16 · Status: accepted · Implements spec sections 7.3 and 6.5 (checks 2 and 3), and the owner's pricing
+for 7.2 (amending ADR 0019)
 
 ## Decision
 
 - **The lifecycle is rules on calendar days.** A trial or a paid period ends; the next day the organization is past
   due; after the policy's past-due days (7) it is read-only; after its read-only days (14) suspended. A person cancels,
-  and a person ends a suspension, by recording a payment or giving time (ADR 0019). The days count in the
-  organization's time zone, from the day each state was due. The two durations are one row,
-  `subscription_policy`, which super admins change in the console (Q3).
-- **The request checks compute today's state; the daily job records it.** `entitlementsOf` reads the subscription,
-  its plan and the policy, and follows the lifecycle up to today, so access is right even if the job ran late or not
-  at all. The job (`advanceSubscriptions`, scheduled daily by the worker) writes the state down and records
-  `subscription.status-changed` in the organization's log, by the system. It writes only if the subscription is still
-  as it read it: a change from the console in the meantime wins.
+  and a person ends a suspension or a cancellation, by recording a payment or giving time (ADR 0019). The days count
+  in the organization's time zone, from the day each state was due. The policy is one row, `subscription_policy`,
+  which super admins change in the console (Q3); it also holds the trial's length (7 days), which onboarding uses when
+  it is given no last day.
+- **Every rule and screen uses the state due today; the nightly job records it.** `subscriptionToday` reads the
+  subscription, its plan and the policy, and follows the lifecycle from what was recorded up to today. The request
+  checks, the console's decisions (whether a trial can be moved, what a payment does) and what the console shows all
+  use it, never the stored status, so whether the job has run changes no answer. The console's `subscriptions.get`
+  shows both: `status` (today) and `recorded`. A console change writes the state due today with its own change.
+- **The job runs in the console process, as the platform role.** `advanceSubscriptions` is scheduled at 00:15 India
+  time by the console (`subscriptions.advance-lifecycle`), not the worker. For each subscription the lifecycle can still
+  move, in its own platform transaction, it locks the row, recomputes from the row as held, and writes the change with
+  `subscription.status-changed` by the system. If any organization fails, the others still run and the job fails
+  with one `LifecycleJobError` naming them by id, so pg-boss retries it and the failed-jobs list shows it; a rerun
+  finds nothing more to do.
+- **Every change takes the same lock first.** The console's changes, payments and voids, and the job all begin with
+  `SELECT … FOR NO KEY UPDATE` on the subscription row, then read it. So a payment and the job never interleave:
+  whichever comes second waits, then reads what the first wrote. `FOR NO KEY UPDATE`, not `FOR UPDATE`, because a
+  payment's insert takes `KEY SHARE` on the row through its foreign key, which a full lock would wait on (and, with the
+  locks taken in the other order, deadlock with). `lockSubscription` offers the same lock to other platform work (a
+  purge's last look).
+- **Only the platform role writes a subscription.** `app_runtime` keeps `SELECT` for its request checks and has no
+  `UPDATE` at all, so no api or worker query, nor injected SQL, can give an organization access. The table also checks
+  that active means paid through a day (`subscription_active_paid`), as a trial has its last day
+  (`subscription_trial_dated`): neither state can last for ever by mistake.
+- **A suspension made by hand is its own mark.** Platform staff suspend an organization at once, whatever it has
+  paid (`manual_suspension_at`, `_by`, `_reason`). While it is set the organization is suspended (unless cancelled,
+  which is further still), and no payment clears it; only a super admin lifts it (`subscriptions.liftSuspension`),
+  recorded as `subscription.suspension-lifted`. A payment's own day decides whether it revives an organization, so a
+  payment for an older period never does, even where the subscription was paid ahead.
 - **Check 2, the organization active**, by what a call does: trial, active and past due allow everything; read-only
   allows views and exports but no changes (`ORGANIZATION_READ_ONLY`); suspended allows only the Owner's exports
   (`ORGANIZATION_SUSPENDED`); cancelled allows nothing (`ORGANIZATION_CANCELLED`); an organization without a
-  subscription nothing either (`NO_SUBSCRIPTION`). Calls every state allows (`me.get`, the subscription's own
-  status) let the app say why. All of these are `FORBIDDEN`.
-- **Check 3, the module on the plan**, from each permission's module, as plan 2 arranged: `leads` belongs to the
-  `crm` module, `quotes` to `quotes`, and so on, while `staff`, `roles`, `settings`, `audit`, `money` and `documents`
-  belong to every plan. A permission whose module is neither on the plan nor switched on early fails with
-  `FEATURE_LOCKED` (`MODULE_NOT_ON_PLAN`).
-
-- **In the procedure builders.** `orgProcedure` and `freshProcedure` read the member and then the subscription,
-  apply check 2 by the call's type (a query views, a mutation changes) unless the procedure's meta says it exports
-  (`lifecycle: "export"`) or must work in every state (`lifecycle: "always"`), and `requires()` applies check 3 before
-  check 4. `subscription.get` (any member, every state) shows the status, the next change's day, the modules and the
-  limits, for the past-due banner and the app's navigation.
+  subscription nothing either (`NO_SUBSCRIPTION`). Calls every state allows (`me.get`, `subscription.get`) let the app
+  say why; `subscription.get` refuses an organization without a subscription with the same `NO_SUBSCRIPTION`. All of
+  these are `FORBIDDEN`.
+- **Check 3, the module on the plan, for every procedure.** Each procedure declares the plan module it belongs to in
+  its meta (`planModule`), or `"core"` for the Foundation's own features. `requires()` declares it from the first
+  permission's module, as plan 2 arranged (`leads` belongs to `crm`, `quotes` to `quotes`, and so on, while `staff`,
+  `roles`, `settings`, `audit`, `money` and `documents` are core), and also checks every required permission's module.
+  A module neither on the plan nor switched on early fails with `FEATURE_LOCKED` (`MODULE_NOT_ON_PLAN`). An
+  organization procedure that declares nothing refuses every call (a 500), and a test walks the app router so none
+  ships.
+- **In the procedure builders.** `orgProcedure` and `freshProcedure` read the member and then the subscription, apply
+  check 2 by the call's type (a query views, a mutation changes) unless the procedure's meta says it exports
+  (`lifecycle: "export"`) or must work in every state (`lifecycle: "always"`), then check 3 for its module, and
+  `requires()` check 3 for its permissions before check 4. `subscription.get` (any member, every state) shows the
+  status, the next change's day, the modules and the limits, for the past-due banner and the app's navigation, and no
+  price.
+- **The owner's pricing (spec 7.2; amends ADR 0019).** A plan is a flat tier per agency: a monthly and an annual price,
+  the seats they include, a price per extra seat for each billing cycle, storage in whole GB (10^9 bytes), WhatsApp
+  numbers and modules. Every price is INR in paise before GST. A subscription is billed monthly or annually and may
+  have extra seats, each at the plan's price, or an agreed price per cycle in place of the plan's and the seats'. The
+  seat limit is the included seats plus the extra ones. The console's `subscriptions.get` shows the price for the cycle
+  and GST at 18 % separately (rounded half-up to the paisa, with the kernel's money); the agency's own staff never see
+  a price. No plan is seeded in production; `seedPlaceholderPlans` puts placeholder Starter (3 seats, 5 GB), Growth
+  (10, 25 GB) and Pro (25, 100 GB) tiers on sale for the demo reset and tests, their prices marked as placeholders.
 - **Support's impersonation ends with its session.** `protectedProcedure` trusts the 5-minute cookie cache, except
   for an impersonation session: that one is read from the database on every request, and its admin re-checked as
   platform staff. Stopping, the hour running out, or the admin losing platform access ends it at once, not up to five
@@ -38,12 +73,27 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 7.3 and 6.5 (ch
 
 - **Why compute rather than trust the stored status.** A scheduled job can be late, fail or be paused. Reading the
   dates on every request costs one small query in a transaction the request opens anyway, and means a missed job
-  never grants access nobody paid for.
+  never grants access nobody paid for, nor takes away access that was paid for.
 - **Why days count from when a state was due.** If the job missed a week, an organization must not get an extra
   week of grace; and a re-run must find the same answer.
+- **Why the job holds the row rather than check it hasn't changed.** A payment on an organization already active
+  changes neither its status nor when it changed, so a write conditional on those two overwrote a payment made while
+  the job ran (a paid-up organization ended suspended). Holding the row first means the job only ever works from what
+  is committed.
+- **Why the job moved to the console.** Its one column grant let the runtime role write any status and any date, which
+  alone could give an organization unlimited full access. The console already runs the platform's own jobs with the
+  platform role (ADR 0018), so the grant could go.
+- **Why a suspension by hand is a mark, not a status.** The lifecycle's own suspension ends with a payment; a person's
+  suspension (a chargeback, abuse) must not, or any payment, even one for an old period, would undo it.
 
 ## Consequences
 
-- Each request reads the subscription, its plan and the policy in one extra transaction (spec 6.4 allows caching
-  these per container later).
-- A later step's new permission module must be mapped to a plan module before the catalog test passes.
+- Each request reads the subscription, its plan, the organization's time zone and the policy in one extra transaction
+  (spec 6.4 allows caching these per container later).
+- The worker runs no subscription job; deploying the console process is what keeps the recorded state current (the
+  request path never depends on it).
+- A later step's new permission module must be mapped to a plan module before the catalog test passes, and a new
+  procedure without permissions must declare its `planModule`.
+- A payment pays through the day it was paid or later (`subscription_payment_dates`), which catches dates typed the
+  wrong way round. The cost: money received after the whole period it pays for (arrears only) can't be recorded with
+  the day it arrived; drop the check if that case matters.
