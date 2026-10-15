@@ -17,6 +17,7 @@ export type { Auth, AuthSettings } from "./auth/create-auth.js";
 export type { PasswordResetEmail, PasswordResetSettings, SendPasswordResetEmail } from "./auth/password-reset.js";
 export { createIdentity, type Identity, type IdentityOptions, type NewOwner } from "./identity.js";
 export { pendingStep, type MemberAccess } from "./member-access.js";
+export { createOrganizationRecord, inviteOwner, requestInvite, type NewOrganization } from "./onboarding.js";
 export type { MemberContact, OrganizationProfile } from "./organization-profile.js";
 export { organizationTimeZone } from "./organization-profile.js";
 export { PermissionSet, type Grant } from "./permission-set.js";
@@ -40,5 +41,7 @@ export {
   removedPersonEmail,
   shownEmail,
 } from "./sign-in-names.js";
+export { insertStarterRoles } from "./seed-starter-roles.js";
 export type { CreatedStaff } from "./staff-accounts.js";
+export { INVITE_LINK_HOURS, SEND_INVITE_LISTENER, type InviteDependencies } from "./staff-invites.js";
 export { OWNER_ROLE_KEY, starterRoles, type StarterRole } from "./starter-roles.js";

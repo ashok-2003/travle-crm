@@ -2,7 +2,7 @@
 // holding and checking their role in that same transaction, and the audit entry that records it. Better Auth hashes
 // the password, but its sign-up endpoint is off, so we write the rows ourselves (ADR 0006).
 import { isUniqueViolation } from "@travel-crm/db/identity";
-import type { IdentityDatabase } from "@travel-crm/db/identity";
+import type { IdentityDatabase, IdentityTx } from "@travel-crm/db/identity";
 import { recordAudit } from "../audit/index.js";
 import { DomainError, systemActor, type Actor } from "../kernel/index.js";
 import { findRoleToGive, type FoundRole } from "./role-lookup.js";
@@ -31,6 +31,12 @@ export interface CreatedStaff {
   memberId: string;
 }
 
+/** An account's records as insertStaffAccount writes them: a password hash, or none until the person chooses one. */
+export interface StaffAccountRecord extends Omit<NewStaffAccount, "password"> {
+  /** Null for someone invited by email: they choose their password from the invite's link. */
+  passwordHash: string | null;
+}
+
 /**
  * checkRole, when given, may refuse the role by throwing: it runs inside the transaction, on the role as it is once
  * held, so a simultaneous deleteRole or updateRole can't change it between the check and the write. Onboarding passes
@@ -42,55 +48,76 @@ export async function createStaffAccount(
   account: NewStaffAccount,
   checkRole?: (role: FoundRole) => void,
 ): Promise<CreatedStaff> {
-  if (account.email === undefined && account.username === undefined) {
-    throw new DomainError("VALIDATION", "EMAIL_OR_USERNAME_REQUIRED", "Give an email, a username or both");
-  }
-  // Hashing is slow on purpose; do it before opening the transaction.
-  const passwordHash = await hashPassword(account.password);
+  // Hashing is slow on purpose: refuse what can't be written before it, and hash before opening the transaction.
+  assertHasSignInName(account);
+  const { password, ...rest } = account;
+  const record = { ...rest, passwordHash: await hashPassword(password) };
+  return database.forOrg(account.organizationId, (tx) => insertStaffAccount(tx, record, checkRole));
+}
+
+/**
+ * Writes the account in the caller's transaction, in the account's organization: the user, a password account when
+ * there is a hash, the membership, and the audit entry. Onboarding calls it inside the platform's transaction, stepped
+ * into the new organization.
+ */
+export async function insertStaffAccount(
+  tx: IdentityTx,
+  account: StaffAccountRecord,
+  checkRole?: (role: FoundRole) => void,
+): Promise<CreatedStaff> {
+  assertHasSignInName(account);
   try {
-    return await database.forOrg(account.organizationId, async (tx) => {
-      const organization = await tx.organization.findUniqueOrThrow({ where: { id: account.organizationId } });
-      const role = await findRoleToGive(tx, account.roleKey);
-      checkRole?.(role);
-      const username = account.username === undefined ? null : internalUsername(organization.code, account.username);
-      if (username !== null && !INTERNAL_USERNAME_PATTERN.test(username)) {
-        throw new DomainError(
-          "VALIDATION",
-          "INVALID_USERNAME",
-          "Usernames use letters, digits, _ . - (2 to 32 characters)",
-        );
-      }
-      const user = await tx.user.create({
-        data: {
-          name: account.name,
-          // Better Auth lowercases the email at sign-in, and the unique index is case-sensitive.
-          email: account.email?.toLowerCase() ?? placeholderEmail(organization.code, account.username ?? ""),
-          username,
-          displayUsername: account.username ?? null,
-          mustChangePassword: account.mustChangePassword,
-        },
-      });
-      // Better Auth's password sign-in reads the "credential" account whose accountId is the user id.
-      await tx.account.create({
-        data: { userId: user.id, accountId: user.id, providerId: "credential", password: passwordHash },
-      });
-      const member = await tx.member.create({
-        data: { userId: user.id, organizationId: account.organizationId, role: role.key },
-      });
-      // No name, username or address: the log outlives the account, and erasure clears those on the user row (ADR 0007).
-      // The member id leads to the person.
-      await recordAudit(tx, account.actor ?? systemActor(account.organizationId), {
-        action: "staff.created",
-        entityType: "member",
-        entityId: member.id,
-        after: { role: role.key, hasEmail: account.email !== undefined },
-      });
-      return { userId: user.id, memberId: member.id };
+    const organization = await tx.organization.findUniqueOrThrow({ where: { id: account.organizationId } });
+    const role = await findRoleToGive(tx, account.roleKey);
+    checkRole?.(role);
+    const username = account.username === undefined ? null : internalUsername(organization.code, account.username);
+    if (username !== null && !INTERNAL_USERNAME_PATTERN.test(username)) {
+      throw new DomainError(
+        "VALIDATION",
+        "INVALID_USERNAME",
+        "Usernames use letters, digits, _ . - (2 to 32 characters)",
+      );
+    }
+    const user = await tx.user.create({
+      data: {
+        name: account.name,
+        // Better Auth lowercases the email at sign-in, and the unique index is case-sensitive.
+        email: account.email?.toLowerCase() ?? placeholderEmail(organization.code, account.username ?? ""),
+        username,
+        displayUsername: account.username ?? null,
+        mustChangePassword: account.mustChangePassword,
+      },
     });
+    // Better Auth's password sign-in reads the "credential" account whose accountId is the user id. Without a hash
+    // there is none yet: Better Auth's password reset creates it when the invited person chooses their password.
+    if (account.passwordHash !== null) {
+      await tx.account.create({
+        data: { userId: user.id, accountId: user.id, providerId: "credential", password: account.passwordHash },
+      });
+    }
+    const member = await tx.member.create({
+      data: { userId: user.id, organizationId: account.organizationId, role: role.key },
+    });
+    // No name, username or address: the log outlives the account, and erasure clears those on the user row (ADR 0007).
+    // The member id leads to the person.
+    await recordAudit(tx, account.actor ?? systemActor(account.organizationId), {
+      action: "staff.created",
+      entityType: "member",
+      entityId: member.id,
+      after: { role: role.key, hasEmail: account.email !== undefined },
+    });
+    return { userId: user.id, memberId: member.id };
   } catch (error) {
     if (isUniqueViolation(error)) {
       throw new DomainError("CONFLICT", "EMAIL_OR_USERNAME_TAKEN", "That email or username is already in use");
     }
     throw error;
+  }
+}
+
+/** Everyone signs in by an email, a username, or both. */
+function assertHasSignInName(account: { email?: string | undefined; username?: string | undefined }): void {
+  if (account.email === undefined && account.username === undefined) {
+    throw new DomainError("VALIDATION", "EMAIL_OR_USERNAME_REQUIRED", "Give an email, a username or both");
   }
 }
