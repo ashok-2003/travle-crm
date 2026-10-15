@@ -34,6 +34,20 @@ describe("database setup", () => {
     ]);
   });
 
+  it("lets the platform role switch to the runtime role without inheriting its rights, and no role the reverse", async () => {
+    const memberships = await queryAs<{ role: string; member: string; inherits: boolean; switches: boolean }>(
+      urls.superuser,
+      `SELECT r.rolname AS role, m.rolname AS member, a.inherit_option AS inherits, a.set_option AS switches
+       FROM pg_auth_members a
+       JOIN pg_roles r ON r.oid = a.roleid
+       JOIN pg_roles m ON m.oid = a.member
+       WHERE r.rolname LIKE 'app\\_%' OR m.rolname LIKE 'app\\_%'`,
+    );
+    expect(memberships).toEqual([{ role: "app_runtime", member: "app_platform", inherits: false, switches: true }]);
+    await expect(queryAs(urls.runtime, "SET ROLE app_platform")).rejects.toThrow(/permission denied/);
+    await expect(queryAs(urls.runtime, "SET ROLE app_migrator")).rejects.toThrow(/permission denied/);
+  });
+
   it("does not let the runtime role read migration history or create tables", async () => {
     await expect(queryAs(urls.runtime, 'SELECT * FROM "_prisma_migrations"')).rejects.toThrow(/permission denied/);
     await expect(queryAs(urls.runtime, "CREATE TABLE sneaky (id int)")).rejects.toThrow(/permission denied/);

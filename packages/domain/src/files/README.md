@@ -33,6 +33,22 @@ documents are marked sensitive (spec 5).
 - Types: `Files`, `FilesDependencies`, `GeneratedFile`, `DownloadLink`. Inputs and outputs are in
   `@travel-crm/contracts/files`.
 
+- Permanent deletion, for the platform's purge and erasure (spec 5, ADR 0023), in a platform transaction. The bytes
+  can't go inside it, so each function queues them in the deletions' outbox (`stored_file_deletion`, ids only) in the
+  same transaction:
+  - `queueOrganizationFileDeletion(tx, organizationId, now)`: a purge's, before its rows go. Queues the whole storage
+    folder, due at once and again after `LATE_WRITES_MS` (15 minutes, once upload links handed out before the purge
+    have lapsed), and returns how many files the organization's rows held, removed ones and unfinished uploads
+    included;
+  - `deleteRecordFiles(tx, { organizationId, recordType, recordId }, now)`: an erasure's. Deletes the record's rows,
+    removed ones included, queues each file's bytes due at `now`, and returns how many went. A system-owned record's
+    files are refused (`FORBIDDEN`/`SYSTEM_OWNED_FILE`);
+  - for the job that empties the outbox: `dueFileDeletions(tx, { now, limit, organizationId? })`,
+    `deleteQueuedFile(storage, deletion)` (the file, or the whole folder, `organizationFolder(id)`),
+    `forgetFileDeletion(tx, id)` and `nextFileDeletionDue(tx, organizationId?)`. Each is safe to repeat.
+- Exports: `exportedFiles(tx, storage, where, linkSeconds)` (files with download links). `bytesStored(tx)`: the
+  storage used.
+
 ## Events
 
 None yet.
@@ -46,3 +62,6 @@ None yet.
   stored, so a row can't point at another organization's file.
 - Pending files (uploads not yet confirmed) are never listed or downloadable.
 - Deleted files stay in storage, and count toward the limit, until the platform's purge.
+- The outbox holds an organization's id and an attachment's id, never a key or a name: the key is made from them, as
+  for any file. A row stays until storage has confirmed the delete, so a storage error or a restart after the
+  platform's transaction delays a file's deletion and never forgets it.

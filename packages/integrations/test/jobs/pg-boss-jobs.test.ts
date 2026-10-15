@@ -150,6 +150,23 @@ describe("pg-boss jobs", () => {
     expect(rows).toEqual([{ retry_limit: 5, retry_delay: 10, retry_backoff: true, retry_delay_max: 3600 }]);
   });
 
+  it("gives a job the time to run it asks for, up to pg-boss's 24 hours, before its attempt counts as failed", async () => {
+    const id = await jobs.send(
+      "probe.long",
+      {},
+      { expireInSeconds: 2 * 60 * 60, startAfter: new Date(Date.now() + 3_600_000) },
+    );
+    const rows = await db.withoutOrg(
+      (tx) => tx.$queryRaw<{ expire_seconds: number }[]>`SELECT expire_seconds FROM pgboss.job WHERE id = ${id}::uuid`,
+    );
+    expect(rows).toEqual([{ expire_seconds: 7200 }]);
+    for (const expireInSeconds of [0, 1.5, 24 * 60 * 60 + 1]) {
+      await expect(jobs.send("probe.long", {}, { expireInSeconds }), String(expireInSeconds)).rejects.toThrow(
+        RangeError,
+      );
+    }
+  });
+
   it("stores only a sanitised error, and logs only names: no personal data, cause, detail or stack", async () => {
     const reported: string[] = [];
     const sanitising = createPgBossJobs({

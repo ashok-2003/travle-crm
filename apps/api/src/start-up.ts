@@ -1,5 +1,5 @@
-// Starting a process on the services (the api and the worker alike): read the environment, build the services, check
-// the bucket and start pg-boss, then the process's own start, or exit 1 with one message.
+// Starting a process on the services (the api, the worker and the console alike): read the environment, build the
+// services, check the bucket and start pg-boss, then the process's own start, or exit 1 with one message.
 import { loadEnvironment, type Environment } from "./environment.js";
 import { processLog, type ProcessLog, type ProcessName } from "./process-log.js";
 import { createServices, type Services } from "./services.js";

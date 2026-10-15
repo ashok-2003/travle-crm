@@ -1,6 +1,6 @@
 // An in-memory ObjectStorage for tests: it keeps files in a Map and checks a simulated browser upload the way S3
 // checks a presigned one (same size and type, before it expires).
-import { assertExpiry, assertPositiveSize, assertSafeKey } from "./checks.js";
+import { assertExpiry, assertPositiveSize, assertSafeKey, assertSafePrefix } from "./checks.js";
 import type { ObjectStorage, PresignedUpload, StoredObject } from "./object-storage.js";
 
 interface MemoryObject {
@@ -52,6 +52,15 @@ export function createMemoryStorage(now: () => Date = () => new Date()): MemoryS
         assertSafeKey(key);
         objects.set(key, { body: body.slice(), contentType });
       }),
+    copy: (from, to) =>
+      promised(() => {
+        assertSafeKey(from);
+        assertSafeKey(to);
+        const object = objects.get(from);
+        if (!object) return false;
+        objects.set(to, { body: object.body.slice(), contentType: object.contentType });
+        return true;
+      }),
     head: (key) =>
       promised((): StoredObject | null => {
         assertSafeKey(key);
@@ -62,6 +71,18 @@ export function createMemoryStorage(now: () => Date = () => new Date()): MemoryS
       promised(() => {
         assertSafeKey(key);
         return objects.get(key)?.body.slice() ?? null;
+      }),
+    delete: (key) =>
+      promised(() => {
+        assertSafeKey(key);
+        objects.delete(key);
+      }),
+    deletePrefix: (prefix) =>
+      promised(() => {
+        assertSafePrefix(prefix);
+        const keys = [...objects.keys()].filter((key) => key.startsWith(prefix));
+        for (const key of keys) objects.delete(key);
+        return keys.length;
       }),
     upload: (upload, body, contentType) =>
       promised(() => {

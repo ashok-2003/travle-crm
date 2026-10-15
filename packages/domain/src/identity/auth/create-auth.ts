@@ -5,9 +5,11 @@ import type { IdentityClient, IdentityDatabase } from "@travel-crm/db/identity";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { admin } from "better-auth/plugins/admin";
+import { adminAc, defaultAc, userAc } from "better-auth/plugins/admin/access";
 import { organization } from "better-auth/plugins/organization";
 import { twoFactor } from "better-auth/plugins/two-factor";
 import { username } from "better-auth/plugins/username";
+import { platformStaffRoles } from "../access.js";
 import { INTERNAL_USERNAME_PATTERN } from "../sign-in-names.js";
 import { authLogger } from "./auth-logger.js";
 import { impersonationAudit } from "./impersonation-audit.js";
@@ -45,6 +47,13 @@ export interface AuthSettings {
 }
 
 const DAY = 60 * 60 * 24;
+
+/**
+ * Support's powers on Better Auth's own admin endpoints: starting an impersonation (stopping one needs none). The side
+ * doors close the other endpoints over HTTP, but a server-side auth.api.* call made with support's headers would
+ * still set roles (their own to super-admin), reset passwords, ban or remove users.
+ */
+const supportAc = defaultAc.newRole({ user: ["impersonate"], session: [] });
 
 export function createAuth(database: IdentityDatabase, settings: AuthSettings) {
   const client = database.client;
@@ -131,8 +140,14 @@ export function createAuth(database: IdentityDatabase, settings: AuthSettings) {
         schema: { organization: { fields: { slug: "code" } } },
         allowUserToCreateOrganization: false,
       }),
-      // Platform staff have user role "admin". Support may impersonate a user for at most an hour (spec 6.1).
-      admin({ adminRoles: ["admin"], impersonationSessionDuration: 60 * 60 }),
+      // Platform staff have user role "admin" (support) or "super-admin". On Better Auth's endpoints support may only
+      // impersonate, and a super admin keeps the plugin's powers, which the side doors limit; the console's own checks
+      // tell the levels apart. Support may impersonate a user for at most an hour (spec 6.1).
+      admin({
+        adminRoles: Object.values(platformStaffRoles),
+        roles: { user: userAc, [platformStaffRoles.support]: supportAc, [platformStaffRoles["super-admin"]]: adminAc },
+        impersonationSessionDuration: 60 * 60,
+      }),
       // Writes "support.impersonation-started" and "-stopped" to the member's organization's audit log.
       impersonationAudit(database),
       twoFactor({ issuer: settings.appName }),

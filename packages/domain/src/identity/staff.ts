@@ -20,6 +20,11 @@ import { isPlaceholderEmail, removedPersonEmail, shownEmail } from "./sign-in-na
 import { createStaffAccount, type PasswordHasher } from "./staff-accounts.js";
 import { changeMember, lockMember, lockOwners } from "./staff-locks.js";
 
+/** How many seats an organization's plan gives (spec 7.2), or null for no limit. */
+export type SeatLimit = (organizationId: string) => Promise<number | null>;
+
+const noSeatLimit: SeatLimit = () => Promise.resolve(null);
+
 /** The organization's active staff, oldest first. Placeholder emails are never shown. */
 export async function listStaff(database: IdentityDatabase, actor: MemberAccess): Promise<StaffMember[]> {
   return database.forOrg(actor.organizationId, async (tx) => {
@@ -44,13 +49,18 @@ export async function listStaff(database: IdentityDatabase, actor: MemberAccess)
   });
 }
 
-/** Adds a staff member with a temporary password they must change at first sign-in. */
+/**
+ * Adds a staff member with a temporary password they must change at first sign-in, while the organization's plan has a
+ * seat for them.
+ */
 export async function createStaff(
   database: IdentityDatabase,
   hashPassword: PasswordHasher,
   actor: MemberAccess,
   input: CreateStaffInput,
+  seatLimit: SeatLimit = noSeatLimit,
 ): Promise<StaffMember> {
+  const seats = await seatLimit(actor.organizationId);
   const created = await createStaffAccount(
     database,
     hashPassword,
@@ -63,6 +73,7 @@ export async function createStaff(
       password: input.temporaryPassword,
       mustChangePassword: true,
       actor,
+      seatLimit: seats,
     },
     // Checked inside the transaction that adds the person, on the role as it is once held.
     (role) => {

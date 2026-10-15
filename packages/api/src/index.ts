@@ -1,4 +1,5 @@
-// Public API of @travel-crm/api: the tRPC router and its context, for apps/api to serve.
+// Public API of @travel-crm/api: the api's tRPC router and context, for apps/api to serve and the web app to type its
+// calls with. The platform console's are @travel-crm/api/platform, which only the console process imports.
 export { createContext, type ApiDependencies, type Context } from "./context.js";
 export type { ErrorDetails } from "./errors.js";
 export { appRouter, type AppRouter } from "./routers/app-router.js";

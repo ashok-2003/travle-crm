@@ -23,6 +23,17 @@ export function assertSafeKey(key: string): void {
   }
 }
 
+/**
+ * A folder to delete everything under: a safe key ending in "/", two levels deep at least ("organizations/<id>/"), so
+ * a mistaken prefix can never be empty or a whole top-level folder such as every organization's files.
+ */
+export function assertSafePrefix(prefix: string): void {
+  if (!prefix.endsWith("/")) throw new RangeError("A storage prefix ends with /");
+  const folder = prefix.slice(0, -1);
+  assertSafeKey(folder);
+  if (folder.split("/").length < 2) throw new RangeError("A storage prefix is at least two folders deep");
+}
+
 function isControlOrBackslash(code: number): boolean {
   return code <= 0x1f || code === 0x7f || code === 0x5c;
 }

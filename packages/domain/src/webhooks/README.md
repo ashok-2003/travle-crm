@@ -10,11 +10,16 @@ Foundation ships the intake and the signature helper.
   signature, 400 for a signed body the provider can't identify, which is not stored; also 400 if `verify` or `identify`
   throws, which they should never do).
 - `processWebhookEvent({ db, providers }, webhookEventId)` and `processWebhookJob(deps, jobData)`: run the provider's
-  handler for a stored event at least once (see the rules below). Return `"processed"`, `"already-processed"` or
-  `"event-not-found"`; a failing handler's error name or code (never its message) is recorded on the event and the
-  error rethrown so the job retries.
+  handler for a stored event at least once (see the rules below). Return `"processed"`, `"already-processed"`,
+  `"tombstoned"` (a purge blanked it before its handler finished: nothing is run) or `"event-not-found"`; a failing
+  handler's error name or code (never its message) is recorded on the event and the error rethrown so the job
+  retries.
 - `hmacSha256Signature({ secret, header, prefix?, encoding })`: a `verify` for providers that sign the raw body
   with HMAC-SHA256.
+- `tombstoneWebhookEvents(tx, organizationId, { organizationGone? })`: for the platform's purge and erasure (ADR
+  0023), in a platform transaction: blanks the payload and headers of the organization's processed events, keeping
+  their provider ids, and counts as `waiting` the events still in flight (a handler found the organization, then
+  failed). An erasure leaves those to their handler; a purge (`organizationGone: true`) blanks them too.
 - `WEBHOOK_PROCESS_QUEUE` (`"webhooks.process"`), and the types `WebhookProvider`, `WebhookRequest`,
   `StoredWebhookEvent`, `WebhookDependencies`, `WebhookReceipt`, `ProcessWebhookDependencies`,
   `WebhookProcessResult`.
@@ -28,6 +33,10 @@ organization yet.
 
 ## Rules worth knowing
 
+- A provider's `process(event, processing)` calls `processing.isAbout(organizationId)` once it has found the
+  organization: the event is kept with it (`resolved_organization_id`), even when the handler then fails, so a purge
+  or an erasure can blank it. A later attempt that doesn't call it keeps what an earlier one found. Anything but a
+  UUID is a `RangeError` inside the handler, recorded like any failure.
 - A provider is `{ name, keptHeaders, verify, identify, process }`. `verify` (which may be asynchronous) returns false
   for a bad signature, and neither `verify` nor `identify` should throw; `process` runs in the worker, finds the
   organization from the payload and works in `db.forOrg()`.
@@ -40,5 +49,5 @@ organization yet.
   `webhookEvents(tx)` from `@travel-crm/db/webhooks` inside `db.withoutOrg()`. `OrgTx` leaves the model out, a
   transaction refuses it at run time (`UnscopedModelError`), dependency-cruiser keeps the entry point to this module,
   and ESLint flags raw SQL naming `webhook_event` anywhere else. The runtime role may update only `processed_at`,
-  `attempts` and `last_error`. It keeps the raw payload and the headers the provider names, never cookies or
+  `attempts`, `last_error` and `resolved_organization_id`; only the platform role tombstones. It keeps the raw payload and the headers the provider names, never cookies or
   authorization.

@@ -6,13 +6,16 @@ import { protectedProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
 
 export const meRouter = router({
-  get: protectedProcedure.output(meOutput).query(async ({ ctx }) => {
-    const me = await ctx.identity.describeSignedInPerson({
-      userId: ctx.user.id,
-      organizationId: ctx.session.activeOrganizationId ?? null,
-      impersonatedBy: ctx.session.impersonatedBy ?? null,
-    });
-    if (!me) throw new TRPCError({ code: "UNAUTHORIZED" });
-    return me;
-  }),
+  get: protectedProcedure
+    .meta({ planModule: "core" })
+    .output(meOutput)
+    .query(async ({ ctx }) => {
+      const me = await ctx.identity.describeSignedInPerson({
+        userId: ctx.user.id,
+        organizationId: ctx.session.activeOrganizationId ?? null,
+        impersonatedBy: ctx.session.impersonatedBy ?? null,
+      });
+      if (!me) throw new TRPCError({ code: "UNAUTHORIZED" });
+      return me;
+    }),
 });

@@ -43,4 +43,20 @@ describe("audit contracts", () => {
     expect(auditEntry.parse(entry)).toEqual(entry);
     expect(auditEntry.safeParse({ ...entry, source: "email" }).success).toBe(false);
   });
+
+  it("describes an entry made by a platform admin from the console", () => {
+    const entry = {
+      id: "0199e7a0-0000-7000-8000-0000000000c2",
+      occurredAt: "2026-10-16T09:30:00.000Z",
+      actorUserId: "0199e7a0-0000-7000-8000-0000000000e1",
+      source: "platform",
+      impersonatedBy: null,
+      action: "staff.created",
+      entityType: "member",
+      entityId: memberId,
+      before: null,
+      after: { role: "owner", hasEmail: true },
+    };
+    expect(auditEntry.parse(entry)).toEqual(entry);
+  });
 });

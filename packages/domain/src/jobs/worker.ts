@@ -1,5 +1,6 @@
 // The worker (spec 9.1): runs every listener, plain job handler and scheduled job, and the outbox relay. The api's
-// `worker` command builds the adapters and calls startWorker; it also stops the job runner it built.
+// `worker` command builds the adapters and calls startWorker; it also stops the job runner it built. The console
+// process, which has no listeners, starts only its handlers and schedules (startJobHandlers).
 import type { Database } from "@travel-crm/db";
 import type { JobData, JobQueue, JobRunner } from "@travel-crm/integrations/jobs";
 import type { EventListener } from "./events.js";
@@ -47,6 +48,13 @@ export interface WorkerDependencies {
   onError?: (error: unknown) => void;
 }
 
+/** A process's plain handlers and schedules, without listeners: what the console process runs. */
+export interface JobHandlerDependencies {
+  runner: JobRunner;
+  handlers?: readonly JobHandler[];
+  schedules?: readonly ScheduledJob[];
+}
+
 export interface Worker {
   /** Stops the relay after its current pass. Stop the runner (pg-boss) afterwards; it finishes running jobs. */
   stop(): Promise<void>;
@@ -68,27 +76,21 @@ function assertTimeZone(timeZone: string, queue: string): void {
   }
 }
 
-/**
- * Starts everything. The runner (pg-boss) keeps its queues and schedules after a restart: a listener or schedule
- * removed from the code leaves its queue, jobs and schedule behind until someone reconciles them (plan 4).
- */
-export async function startWorker(dependencies: WorkerDependencies): Promise<Worker> {
-  const { db, runner, queue, listeners, handlers = [], schedules = [] } = dependencies;
-  const queues = [
-    ...listeners.map((listener) => listener.name),
-    ...handlers.map((handler) => handler.queue),
-    ...schedules.map((schedule) => schedule.queue),
-  ];
+/** Refuses two kinds of work on one queue, and a schedule pg-boss couldn't read, before anything is registered. */
+function assertWiring(queues: readonly string[], schedules: readonly ScheduledJob[]): void {
   const repeated = queues.filter((name, index) => queues.indexOf(name) !== index);
   if (repeated.length > 0) throw new Error(`Two kinds of work share the queue ${repeated.join(", ")}`);
-  // Check every schedule before registering anything, so a mistake leaves nothing half-started.
   for (const schedule of schedules) {
     assertCron(schedule.cron, schedule.queue);
     assertTimeZone(schedule.timeZone, schedule.queue);
   }
+}
 
-  // Schedules first: the runner may refuse one (a cron it can't read), and then no listener or relay has started. The
-  // schedules registered before the refused one stay in the runner until the next start reconciles them.
+/**
+ * The runner may refuse a schedule (a cron it can't read); the schedules registered before it stay in the runner until
+ * the next start reconciles them.
+ */
+async function registerSchedules(runner: JobRunner, schedules: readonly ScheduledJob[]): Promise<void> {
   for (const schedule of schedules) {
     await runner.work(schedule.queue, (job) => schedule.handle(job.data));
     await runner.schedule(schedule.queue, schedule.cron, {
@@ -96,6 +98,24 @@ export async function startWorker(dependencies: WorkerDependencies): Promise<Wor
       ...(schedule.data === undefined ? {} : { data: schedule.data }),
     });
   }
+}
+
+/**
+ * Starts everything. The runner (pg-boss) keeps its queues and schedules after a restart: a listener or schedule
+ * removed from the code leaves its queue, jobs and schedule behind until a super admin removes it in the console.
+ */
+export async function startWorker(dependencies: WorkerDependencies): Promise<Worker> {
+  const { db, runner, queue, listeners, handlers = [], schedules = [] } = dependencies;
+  assertWiring(
+    [
+      ...listeners.map((listener) => listener.name),
+      ...handlers.map((handler) => handler.queue),
+      ...schedules.map((schedule) => schedule.queue),
+    ],
+    schedules,
+  );
+  // Schedules first: when the runner refuses one, no listener or relay has started.
+  await registerSchedules(runner, schedules);
   for (const listener of listeners) {
     await runner.work(listener.name, async (job) => {
       const outcome = await runListenerJob({ db, listener, data: job.data });
@@ -128,4 +148,21 @@ export async function startWorker(dependencies: WorkerDependencies): Promise<Wor
     ...(dependencies.onError === undefined ? {} : { onError: dependencies.onError }),
   });
   return { stop: () => relay.stop() };
+}
+
+/**
+ * Starts plain handlers and schedules only: no listeners and no outbox relay. The worker's relay is the one that
+ * knows every listener; a relay that knew none would mark each event relayed with nothing queued for it. Stop the
+ * runner to stop them.
+ */
+export async function startJobHandlers(dependencies: JobHandlerDependencies): Promise<void> {
+  const { runner, handlers = [], schedules = [] } = dependencies;
+  assertWiring(
+    [...handlers.map((handler) => handler.queue), ...schedules.map((schedule) => schedule.queue)],
+    schedules,
+  );
+  await registerSchedules(runner, schedules);
+  for (const handler of handlers) {
+    await runner.work(handler.queue, (job) => handler.handle(job.data));
+  }
 }

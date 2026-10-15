@@ -1,10 +1,13 @@
 // What the api and the worker run on, built once per process from the environment: the database, identity, the
-// adapters (S3, SMTP, web push, pg-boss) and the services made from them. close() releases every pool.
+// adapters (S3, SMTP, web push, pg-boss) and the services made from them, held to each organization's plan limits.
+// close() releases every pool.
 import { hkdfSync } from "node:crypto";
 import { createDatabase, type Database } from "@travel-crm/db";
 import { createFiles, type Files } from "@travel-crm/domain/files";
 import { createIdentity, type Identity } from "@travel-crm/domain/identity";
+import { createProfiles, type Profiles } from "@travel-crm/domain/profile";
 import { createRateLimiter, type RateLimiter } from "@travel-crm/domain/rate-limits";
+import { createSubscriptionAccess, planLimits } from "@travel-crm/domain/subscriptions";
 import { createSmtpEmailSender, type EmailSender } from "@travel-crm/integrations/email";
 import { createPgBossJobs, type PgBossJobs } from "@travel-crm/integrations/jobs";
 import { createWebPushSender, type PushSender } from "@travel-crm/integrations/push";
@@ -17,6 +20,8 @@ export interface Services {
   environment: Environment;
   db: Database;
   identity: Identity;
+  /** Organizations' business profiles. */
+  profiles: Profiles;
   storage: ObjectStorage;
   files: Files;
   /** pg-boss: the api sends jobs to it (webhooks), the worker also runs them. */
@@ -43,6 +48,9 @@ export function rateLimitKeySecret(betterAuthSecret: string): Uint8Array {
 export function createServices(environment: Environment, log: ProcessLog): Services {
   const db = createDatabase(environment.DATABASE_URL, { maxConnections: environment.DATABASE_POOL_SIZE });
   const rateLimiter = createRateLimiter(db, { keySecret: rateLimitKeySecret(environment.BETTER_AUTH_SECRET) });
+  // Seats and storage are the plan's (spec 7.2): identity refuses staff past them, the files module uploads. The api's
+  // request checks read the same entitlements through an access of their own (server.ts).
+  const limits = planLimits(createSubscriptionAccess({ db }));
   const email = createSmtpEmailSender({
     host: environment.SMTP_HOST,
     port: environment.SMTP_PORT,
@@ -62,6 +70,7 @@ export function createServices(environment: Environment, log: ProcessLog): Servi
         pageUrl: resetPasswordPageOf(environment.APP_URL),
       },
     },
+    seatLimit: limits.seats,
   });
   // The concrete S3 adapter, for its start-up check; everything else gets the port.
   const s3 = createS3Storage({
@@ -87,8 +96,9 @@ export function createServices(environment: Environment, log: ProcessLog): Servi
     environment,
     db,
     identity,
+    profiles: createProfiles({ db }),
     storage,
-    files: createFiles({ db, storage }),
+    files: createFiles({ db, storage, storageLimitBytes: limits.storageBytes }),
     jobs,
     email,
     push,

@@ -6,10 +6,11 @@ export {
   type ProcessWebhookDependencies,
   type WebhookProcessResult,
 } from "./process-webhook-event.js";
-export type { StoredWebhookEvent, WebhookProvider, WebhookRequest } from "./provider.js";
+export type { StoredWebhookEvent, WebhookProcessing, WebhookProvider, WebhookRequest } from "./provider.js";
 export {
   receiveWebhook,
   WEBHOOK_PROCESS_QUEUE,
   type WebhookDependencies,
   type WebhookReceipt,
 } from "./receive-webhook.js";
+export { tombstoneWebhookEvents } from "./tombstones.js";

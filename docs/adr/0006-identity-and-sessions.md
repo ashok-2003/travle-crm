@@ -24,7 +24,8 @@ Date: 2026-10-14 · Status: accepted · Implements spec sections 6.1 to 6.4
   carries its organization (`active_organization_id`), set by a hook when the session is created.
 - **Request checks.** `protectedProcedure` trusts the cookie cache. `orgProcedure` also reads the membership, role and
   permissions from the database on every request. `freshProcedure` (money, roles, exports, staff management) and
-  `platformProcedure` re-read the session itself, ignoring the cache.
+  the console's `staffProcedure` and `superAdminProcedure` (`packages/api/src/platform/procedures.ts`; plan 4
+  replaced the earlier `platformProcedure`) re-read the session itself, ignoring the cache.
 - **Password reset by email** (plan 3): `POST /api/auth/request-password-reset` with `redirectTo` set to the web
   app's reset page (`${APP_URL}/reset-password`) emails a one-hour link from our address under the product's name.
   Opening it leads back to that page with a token, and `POST /api/auth/reset-password` sets the new password, clears
@@ -56,7 +57,7 @@ Date: 2026-10-14 · Status: accepted · Implements spec sections 6.1 to 6.4
   a new password equal to the current one, and every `/admin/*` path re-checks the caller against our definition of
   platform staff (Better Auth checks `user.role` alone) and refuses to make a member a platform admin. Better Auth's server-side
   `auth.api.*` calls also run this hook, so a server-side admin call needs a platform admin's request headers; the
-  platform console in plan 4 calls with the signed-in admin's session.
+  platform console makes none: identity writes platform staff's levels itself (ADR 0019).
 - **Hardening:** origin and CSRF checks pinned on; `/api/auth/organization/*` closed; request bodies on `/api/auth/*`
   and `/api/trpc/*` capped at 64 KB (413); trusted origins, secure cookies and the client-IP header come from the
   environment; production requires HTTPS and rate limiting.
@@ -69,11 +70,11 @@ Date: 2026-10-14 · Status: accepted · Implements spec sections 6.1 to 6.4
 - **Cookie cache staleness.** A revoked session passes the cache for up to 5 minutes. Because `orgProcedure` reads the
   membership from the database, a removed member is refused on their next request anyway; only `me.get` still
   answers from the cache, with no organization.
-- **What a password reset ends at once.** The person's session rows are deleted, so `freshProcedure` and
-  `platformProcedure`, which re-read the session, refuse a stolen cookie straight away. Its 5-minute cookie cache can
-  still pass `protectedProcedure` and the other organization procedures until it expires: the window plan 2 accepted
-  above. If that ever needs closing, one option is a `sessions_valid_after` time on the user, set by a reset and
-  checked in `resolveAccess` against when the session was created.
+- **What a password reset ends at once.** The person's session rows are deleted, so `freshProcedure` and the console's
+  `staffProcedure` and `superAdminProcedure`, which re-read the session, refuse a stolen cookie straight away. Its
+  5-minute cookie cache can still pass `protectedProcedure` and the other organization procedures until it expires: the
+  window plan 2 accepted above. If that ever needs closing, one option is a `sessions_valid_after` time on the user, set
+  by a reset and checked in `resolveAccess` against when the session was created.
 - **The reset link's token outside the api (plan 5).** The emailed link is `GET /api/auth/reset-password/<token>`, so
   a load balancer's access log records the token: plan 5's deploy keeps those logs short-lived or strips that path.
   The web app's reset page gets the token in its address, so it sends `Referrer-Policy: strict-origin` (only the

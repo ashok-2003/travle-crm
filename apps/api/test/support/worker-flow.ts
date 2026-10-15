@@ -2,6 +2,7 @@
 // worker.test.ts runs its flow on. Starting it records each thing as it starts, so a set-up that fails half-way is
 // stopped without hiding its error.
 import { startWorker, type Worker } from "@travel-crm/domain/jobs";
+import { createRateLimiter } from "@travel-crm/domain/rate-limits";
 import { createMemoryEmailSender, type MemoryEmailSender } from "@travel-crm/integrations/email";
 import { createPgBossJobs, type PgBossJobs } from "@travel-crm/integrations/jobs";
 import { createMemoryPushSender } from "@travel-crm/integrations/push";
@@ -68,6 +69,7 @@ export async function startWorkerFlow(
     push: createMemoryPushSender(),
     appUrl: "https://app.example.in",
     webhookProviders: [webhooks.provider],
+    rateLimiter: createRateLimiter(server.db, { keySecret: "worker-flow-test-rate-limit-secret-of-32-bytes" }),
     log: (line) => reported.push(line),
   });
   running.worker = await startWorker({

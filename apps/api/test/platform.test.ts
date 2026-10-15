@@ -1,7 +1,8 @@
-// Platform staff (spec 6.1): user role "admin" and no organization. They reach platform procedures, organization
-// staff don't, and impersonation (at most an hour) makes the admin act as the user, never as platform staff.
+// Platform staff (spec 6.1): a platform role and no organization. They reach the console, organization staff don't,
+// and impersonation (at most an hour) makes the admin act as the user, never as platform staff.
 import type { MeOutput } from "@travel-crm/contracts/identity";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { consoleQuery, createTestConsole, type TestConsole } from "./support/console.js";
 import { CookieJar } from "./support/cookie-jar.js";
 import { createPlatformAdmin, signedInOwner } from "./support/people.js";
 import {
@@ -16,28 +17,32 @@ import { dataOf, query, refusalOf } from "./support/trpc.js";
 
 describe("platform staff", () => {
   let server: TestServer;
+  let testConsole: TestConsole;
   let agency: TestAgency;
   let admin: { userId: string; email: string; password: string };
 
   beforeAll(async () => {
     server = createTestServer();
+    testConsole = createTestConsole(server);
     agency = await createTestAgency(server);
     admin = await createPlatformAdmin(server);
   });
 
   afterAll(async () => {
+    await testConsole.close();
     await server.close();
   });
 
   it("reach platform procedures, and organization staff don't", async () => {
     const jar = new CookieJar();
     await signInByEmail(server, jar, admin.email, admin.password);
-    expect(await dataOf(await query(server, "platform.whoAmI", jar))).toEqual({
+    expect(await dataOf(await consoleQuery(testConsole, "whoAmI", jar))).toEqual({
       userId: admin.userId,
       name: "Platform support",
+      level: "support",
     });
     expect((await dataOf<MeOutput>(await query(server, "me.get", jar))).isPlatformAdmin).toBe(true);
-    expect(await refusalOf(await query(server, "platform.whoAmI", await signedInOwner(server, agency)))).toEqual({
+    expect(await refusalOf(await consoleQuery(testConsole, "whoAmI", await signedInOwner(server, agency)))).toEqual({
       status: 403,
       reason: "PLATFORM_ONLY",
     });
@@ -61,7 +66,7 @@ describe("platform staff", () => {
     expect(me).toMatchObject({ impersonatedBy: admin.userId, isPlatformAdmin: false });
     expect(me.user.id).toBe(agency.owner.userId);
     expect((await query(server, "settings.get", jar)).status).toBe(200);
-    expect((await query(server, "platform.whoAmI", jar)).status).toBe(403);
+    expect((await consoleQuery(testConsole, "whoAmI", jar)).status).toBe(403);
     const session = await server.platform.session.findFirstOrThrow({
       where: { userId: agency.owner.userId, impersonatedBy: admin.userId },
     });

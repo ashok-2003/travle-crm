@@ -1,15 +1,21 @@
 // The storage port on S3, or any S3-compatible server: AWS S3 in the cloud, MinIO locally (spec 9.2).
 import {
+  CopyObjectCommand,
+  DeleteObjectCommand,
+  DeleteObjectsCommand,
   GetObjectCommand,
   HeadBucketCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
   S3ServiceException,
   type S3ClientConfig,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { assertExpiry, assertPositiveSize, assertSafeKey } from "./checks.js";
+import { ownMessages } from "../jobs/index.js";
+import { assertExpiry, assertPositiveSize, assertSafeKey, assertSafePrefix } from "./checks.js";
+import { attachmentDisposition } from "./content-disposition.js";
 import type { ObjectStorage } from "./object-storage.js";
 
 export interface S3StorageSettings {
@@ -41,6 +47,9 @@ export interface S3Storage extends ObjectStorage {
  * - The bucket must have ACLs disabled (Bucket owner enforced): unsigned x-amz-acl headers could otherwise ride on
  *   a presigned PUT.
  * - `head` on a missing key needs s3:ListBucket, or S3 answers 403 instead of 404.
+ * - `delete` and `deletePrefix` need s3:DeleteObject (DeleteObjects too), which only the console's keys should hold,
+ *   and an unversioned bucket, or one whose noncurrent versions expire: a versioned bucket keeps a deleted file
+ *   (ADR 0011).
  */
 export function createS3Storage(settings: S3StorageSettings): S3Storage {
   const config: S3ClientConfig = {
@@ -107,6 +116,21 @@ export function createS3Storage(settings: S3StorageSettings): S3Storage {
       await client.send(new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType, Body: body }));
     },
 
+    async copy(from, to) {
+      assertSafeKey(from);
+      assertSafeKey(to);
+      try {
+        // The source is "bucket/key", URL-encoded a segment at a time; the metadata, its content type included, is
+        // copied with it (MetadataDirective COPY, the default). One request copies a file of up to 5 GB.
+        const source = `${bucket}/${from.split("/").map(encodeURIComponent).join("/")}`;
+        await client.send(new CopyObjectCommand({ Bucket: bucket, Key: to, CopySource: source }));
+        return true;
+      } catch (error) {
+        if (isErrorNamed(error, "NoSuchKey")) return false;
+        throw error;
+      }
+    },
+
     async head(key) {
       assertSafeKey(key);
       try {
@@ -128,7 +152,53 @@ export function createS3Storage(settings: S3StorageSettings): S3Storage {
         throw error;
       }
     },
+
+    async delete(key) {
+      assertSafeKey(key);
+      // S3 answers success for a key with nothing stored, so deleting is safe to repeat.
+      await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+    },
+
+    async deletePrefix(prefix) {
+      assertSafePrefix(prefix);
+      let deleted = 0;
+      let token: string | undefined;
+      do {
+        // A page holds at most 1,000 keys, as many as one DeleteObjects takes: one request per 1,000 files.
+        const page = await client.send(
+          new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ...(token ? { ContinuationToken: token } : {}) }),
+        );
+        const objects = (page.Contents ?? []).flatMap((object) => (object.Key ? [{ Key: object.Key }] : []));
+        if (objects.length > 0) {
+          const result = await client.send(
+            new DeleteObjectsCommand({ Bucket: bucket, Delete: { Objects: objects, Quiet: true } }),
+          );
+          // S3 answers 200 even when it kept some: the refused keys come back in Errors.
+          const refused = result.Errors ?? [];
+          if (refused.length > 0) throw new StorageDeleteError(refused[0]?.Code ?? "Unknown", refused.length);
+          deleted += objects.length;
+        }
+        token = page.IsTruncated ? page.NextContinuationToken : undefined;
+      } while (token);
+      return deleted;
+    },
   };
+}
+
+/** Storage refused to delete some files of a prefix. Its message gives the count and S3's code, never a key. */
+class StorageDeleteError extends Error {
+  static {
+    ownMessages(this);
+  }
+
+  override readonly name = "StorageDeleteError";
+
+  constructor(
+    readonly code: string,
+    refused: number,
+  ) {
+    super(`Storage refused to delete ${String(refused)} files (${code})`);
+  }
 }
 
 /**
@@ -138,19 +208,4 @@ export function createS3Storage(settings: S3StorageSettings): S3Storage {
  */
 function isErrorNamed(error: unknown, name: string): boolean {
   return error instanceof S3ServiceException && error.name === name;
-}
-
-/**
- * `attachment; filename="…"; filename*=UTF-8''…` (RFC 6266): browsers use the UTF-8 name, so Hindi names and quotes
- * survive; the plain name is an ASCII fallback with anything risky replaced, so it can't break out of its quotes.
- */
-export function attachmentDisposition(fileName: string): string {
-  // A lone surrogate would make encodeURIComponent throw: it becomes U+FFFD, and "_" in the ASCII fallback.
-  const wellFormed = fileName.toWellFormed();
-  const fallback = wellFormed.replace(/[^\x20-\x7e]|["\\]/g, "_");
-  const encoded = encodeURIComponent(wellFormed).replace(
-    /['()*]/g,
-    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
-  );
-  return `attachment; filename="${fallback}"; filename*=UTF-8''${encoded}`;
 }

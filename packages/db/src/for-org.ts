@@ -26,7 +26,7 @@ export type UnscopedModel = "webhookEvent" | "rateLimitCounter";
 const unscopedModels: readonly string[] = ["webhookEvent", "rateLimitCounter"] satisfies UnscopedModel[];
 
 /** A transaction with every model, which this package's entry points unwrap. */
-type TransactionClient = Omit<DatabaseClient, ITXClientDenyList | RawStringMethod>;
+export type TransactionClient = Omit<DatabaseClient, ITXClientDenyList | RawStringMethod>;
 
 /** A transaction bound to one organization that can also reach the sign-in tables. Only the identity module gets one. */
 export type IdentityTx = Omit<TransactionClient, UnscopedModel>;
@@ -71,6 +71,29 @@ export class InvalidOrganizationIdError extends Error {
   }
 }
 
+/** Lets a transaction handle reach the tables without organization_id through their entry points. */
+export function allowUnscopedModels(handle: object, tx: TransactionClient): void {
+  withoutOrgTransactions.set(handle, tx);
+}
+
+/**
+ * Runs fn as one of this package's transactions (forOrg, withoutOrg, a platform transaction), refusing to start
+ * inside another one: the inner transaction would run on a second connection, blind to the outer one's writes.
+ */
+export async function enterTransaction<T>(fn: () => Promise<T>): Promise<T> {
+  if (insideForOrg.getStore()) {
+    throw new NestedForOrgError();
+  }
+  return insideForOrg.run(true, fn);
+}
+
+/** Throws InvalidOrganizationIdError, before any SQL runs, unless orgId is a UUID. */
+export function assertOrganizationId(orgId: string): void {
+  if (!UUID_PATTERN.test(orgId)) {
+    throw new InvalidOrganizationIdError(orgId);
+  }
+}
+
 /**
  * The shared shell of forOrg() and withoutOrg(): refuses nesting, opens the transaction, sets app.org_id (to "" for no
  * organization, so that is a guarantee rather than an assumption about the pooled connection) and checks the role in
@@ -82,10 +105,7 @@ async function inOrgTransaction<T>(
   fn: (tx: IdentityTx) => Promise<T>,
   options: ForOrgOptions,
 ): Promise<T> {
-  if (insideForOrg.getStore()) {
-    throw new NestedForOrgError();
-  }
-  return insideForOrg.run(true, async () =>
+  return enterTransaction(async () =>
     client.$transaction(async (tx) => {
       // One round trip checks who we are and sets the organization. is_local = true: the setting ends with this
       // transaction, so a pooled connection never carries it over.
@@ -96,7 +116,7 @@ async function inOrgTransaction<T>(
       }
       const handle: IdentityTx = hidingUnscopedModels(tx);
       // No organization: the unscoped tables' entry points may reach through this handle.
-      if (orgId === "") withoutOrgTransactions.set(handle, tx);
+      if (orgId === "") allowUnscopedModels(handle, tx);
       return fn(handle);
     }, options),
   );
@@ -123,15 +143,13 @@ export async function forOrg<T>(
   fn: (tx: IdentityTx) => Promise<T>,
   options: ForOrgOptions = {},
 ): Promise<T> {
-  if (!UUID_PATTERN.test(orgId)) {
-    throw new InvalidOrganizationIdError(orgId);
-  }
+  assertOrganizationId(orgId);
   return inOrgTransaction(client, orgId, fn, options);
 }
 
 /**
- * A table without organization_id, from a handle db.withoutOrg() gave out. For @travel-crm/db's entry points; any
- * other transaction, forOrg()'s included, throws UnscopedModelError.
+ * A table without organization_id, from a handle db.withoutOrg() or a platform transaction gave out. For
+ * @travel-crm/db's entry points; any other transaction, forOrg()'s included, throws UnscopedModelError.
  */
 export function unscopedModel<Model extends UnscopedModel>(tx: OrgTx, model: Model): TransactionClient[Model] {
   const transaction = withoutOrgTransactions.get(tx);
