@@ -1,5 +1,6 @@
-// A password field's show/hide button switches the field between hidden and shown, says which it will do next, and
-// leaves what was typed, the focus and the browser's autocomplete hint as they were.
+// A password field's show/hide button switches the field between hidden and shown, says which it will do next (its
+// label alone: WAI-ARIA has a toggle either change its label or be pressed, not both), and leaves what was typed, the
+// focus and the browser's autocomplete hint as they were.
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
@@ -25,7 +26,7 @@ describe("PasswordInput", () => {
     expect(field).toHaveAttribute("type", "password");
     const toggle = screen.getByRole("button", { name: common.showPassword });
     expect(toggle).toHaveAttribute("type", "button");
-    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    expect(toggle).not.toHaveAttribute("aria-pressed");
   });
 
   it("switches the type and the label, keeping the value, the focus and the autocomplete hint", async () => {
@@ -37,7 +38,7 @@ describe("PasswordInput", () => {
     expect(field).toHaveFocus();
     expect(field).toHaveAttribute("autocomplete", "current-password");
     const toggle = screen.getByRole("button", { name: common.hidePassword });
-    expect(toggle).toHaveAttribute("aria-pressed", "true");
+    expect(toggle).not.toHaveAttribute("aria-pressed");
     await userEvent.click(toggle);
     expect(field).toHaveAttribute("type", "password");
     expect(field).toHaveValue("owner-password-1");

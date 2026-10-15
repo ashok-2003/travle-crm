@@ -19,7 +19,7 @@ test("an Owner signs in by email, back to the page they were sent from", async (
   await page.getByRole("button", { name: "Show password" }).click();
   await expect(password).toHaveAttribute("type", "text");
   await expect(password).toHaveValue(agency.owner.password);
-  await expect(page.getByRole("button", { name: "Hide password" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Hide password" })).toBeVisible();
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Staff" })).toBeVisible();
   await expect(page).toHaveURL(/\/staff$/);

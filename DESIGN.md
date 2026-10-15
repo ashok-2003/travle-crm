@@ -111,6 +111,7 @@ Rules:
 - **Garamond for page titles only.** One per screen (`h1`). Never in cards, buttons, tables or dialogs. Dialog titles use Figtree 600.
 - **Every number is mono with tabular-nums**: money, counts, percentages, ids (e.g. `Q-1042`), phone numbers, and dates in tables. Dates inside running prose may stay Figtree.
 - Minimum text size is 12px; body on mobile is never below 15px (inputs are 16px to stop iOS zoom).
+- shadcn/ui components keep their own text sizes (`text-sm`, 14px, in buttons, items, cards, the sidebar); the 15px body is for running text outside them. (Proposed, for the owner to confirm.)
 - Body line length 65-75ch. `text-wrap: balance` on titles, `pretty` on prose.
 - No uppercase tracked eyebrows, no gradient text, no letter-spacing tighter than -0.02em.
 - **Indian scripts.** Customer names, places and messages may be Devanagari, Tamil, Telugu, Bengali, Gujarati, Kannada, Malayalam, Gurmukhi and others. Neither Figtree, Garamond nor Plex Mono covers them. Font stacks must append fallbacks, in order: `"Noto Sans Devanagari", "Noto Sans Bengali", "Noto Sans Tamil", "Noto Sans Telugu", "Noto Sans Gujarati", "Noto Sans Kannada", "Noto Sans Malayalam", "Noto Sans Gurmukhi", system-ui, sans-serif`. For the Garamond title add `"Noto Serif Devanagari"` before the sans fallbacks. Load Noto subsets by `unicode-range` so Latin-only users download nothing extra. Indic scripts need more line-height: use at least 1.6 for body text containing them; never clip descenders or matras with fixed heights.

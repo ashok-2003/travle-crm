@@ -38,7 +38,8 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
   says what is happening, and a status inside a button would join its name.
 - `sidebar.tsx`: 232px wide; its `--sidebar-*` colours are the brand's in `globals.css` (surface, the blue tint for the
   current page). It asks `lib/use-wide-screen.ts` whether the screen is a phone instead of shadcn's `use-mobile` hook,
-  and has five small lint fixes. Its own words (the trigger's and rail's "Toggle Sidebar", the phone sheet's title)
+  and has five small lint fixes. It has no Ctrl/Cmd+B shortcut: the app's sidebar never folds away, so the keys stay
+  the browser's. Its own words (the trigger's and rail's "Toggle Sidebar", the phone sheet's title)
   are not messages yet: the app uses neither the trigger, the rail nor the phone sheet (phones keep the bottom bar),
   so make them messages before using one. `tooltip.tsx` came with it.
 - `sonner.tsx`: one light theme (no `next-themes`), bottom right, a close button with a 44px hit area.

@@ -17,7 +17,6 @@ export function PasswordInput(props: ComponentProps<"input">) {
       <InputGroupAddon align="inline-end">
         <InputGroupButton
           size="icon-sm"
-          aria-pressed={shown}
           aria-label={shown ? t("hidePassword") : t("showPassword")}
           onMouseDown={(event) => {
             event.preventDefault();
