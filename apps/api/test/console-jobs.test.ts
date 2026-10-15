@@ -3,10 +3,10 @@
 // switched off, the schedule an earlier start left in pg-boss goes.
 import { randomUUID } from "node:crypto";
 import { PURGE_ORGANIZATION_QUEUE, RESET_DEMO_QUEUE } from "@travel-crm/domain/platform";
-import { ADVANCE_SUBSCRIPTIONS_QUEUE } from "@travel-crm/domain/subscriptions";
+import { ADVANCE_SUBSCRIPTIONS_QUEUE, LifecycleJobError } from "@travel-crm/domain/subscriptions";
 import { createMemoryJobQueue, createMemoryJobRunner } from "@travel-crm/integrations/jobs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { startConsoleJobs } from "../src/console-jobs.js";
+import { consoleJobs, startConsoleJobs } from "../src/console-jobs.js";
 import { createTestConsole, type TestConsole } from "./support/console.js";
 import { createTestAgency, createTestServer, EVERYTHING_PLAN_KEY, type TestServer } from "./support/test-server.js";
 
@@ -91,5 +91,31 @@ describe("the console's jobs", () => {
         where: { organizationId: agency.organizationId, action: "subscription.status-changed" },
       }),
     ).toMatchObject({ source: "job", before: { status: "trial" }, after: { status: "past_due" } });
+  });
+
+  it("logs each organization the lifecycle can't advance by id, goes on, then fails the run", async () => {
+    // At least two subscriptions to advance: the one that fails, and one after it.
+    await createTestAgency(server);
+    await createTestAgency(server);
+    const { platformDb } = testConsole.services;
+    // The first transaction lists the subscriptions; the next, the first organization's, fails.
+    let transactions = 0;
+    const failingOnce: typeof platformDb = {
+      ...platformDb,
+      transaction: (fn, options) => {
+        transactions += 1;
+        return transactions === 2 ? Promise.reject(new Error("connection lost")) : platformDb.transaction(fn, options);
+      },
+    };
+    const lines: string[] = [];
+    const { schedules } = consoleJobs({ ...testConsole.services, platformDb: failingOnce }, null, (line) =>
+      lines.push(line),
+    );
+    const lifecycle = schedules.find((schedule) => schedule.queue === ADVANCE_SUBSCRIPTIONS_QUEUE);
+    await expect(lifecycle?.handle({})).rejects.toBeInstanceOf(LifecycleJobError);
+    expect(transactions).toBeGreaterThan(2);
+    expect(lines).toEqual([
+      expect.stringMatching(/^subscriptions\.advance-lifecycle: organization [0-9a-f-]{36} failed: Error$/),
+    ]);
   });
 });

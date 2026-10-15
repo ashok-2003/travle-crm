@@ -171,16 +171,21 @@ describe("the lifecycle job", () => {
     await inserting;
   });
 
-  it("goes on past an organization it can't advance, then fails naming it by id", async () => {
+  it("reports each organization it can't advance, goes on past it, then fails naming it by id", async () => {
     const organizationId = await createSubscribedOrganization(
       test,
       plan,
       { paidThrough: "2026-09-30" },
       { now: started },
     );
-    const failed = await advance(["not-an-organization", organizationId], new Date("2026-10-02T06:00:00Z")).catch(
-      (error: unknown) => error,
-    );
+    const reported: string[] = [];
+    const failed = await advanceSubscriptions({
+      db: test.platformDb,
+      organizationIds: ["not-an-organization", organizationId],
+      now: new Date("2026-10-02T06:00:00Z"),
+      onError: (_error, failedId) => reported.push(failedId),
+    }).catch((error: unknown) => error);
+    expect(reported).toEqual(["not-an-organization"]);
     expect(failed).toBeInstanceOf(LifecycleJobError);
     const { failures, changes, message } = failed as LifecycleJobError;
     expect(failures.map((failure) => failure.organizationId)).toEqual(["not-an-organization"]);

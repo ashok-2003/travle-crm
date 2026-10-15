@@ -10,25 +10,36 @@ import {
   type PlatformServices,
 } from "@travel-crm/domain/platform";
 import { ADVANCE_SUBSCRIPTIONS_QUEUE, advanceSubscriptions } from "@travel-crm/domain/subscriptions";
-import type { JobRunner } from "@travel-crm/integrations/jobs";
+import { describeError, type JobRunner } from "@travel-crm/integrations/jobs";
+import { processLog, type ProcessLog } from "./process-log.js";
 
 export interface ConsoleJobs {
   handlers: JobHandler[];
   schedules: ScheduledJob[];
 }
 
-export function consoleJobs(services: PlatformServices, demo: DemoSettings | null): ConsoleJobs {
+/** `log` is the console's own (ids and codes only); the jobs report each organization they couldn't handle there. */
+export function consoleJobs(
+  services: PlatformServices,
+  demo: DemoSettings | null,
+  log: ProcessLog = processLog("console"),
+): ConsoleJobs {
   const lifecycle: ScheduledJob = {
     // Just after midnight in India, where most agencies' day starts: a trial that ended yesterday there is recorded
     // as past due before anyone signs in. An agency in a zone west of India is recorded up to a day later; the
     // request checks and the console compute its state on every read anyway (spec 7.3), so this only writes it down
-    // for the console and the audit log. One organization failing doesn't stop the rest, and fails the job, naming it
-    // by id, so pg-boss retries it and the failed-jobs list shows it.
+    // for the console and the audit log. One organization failing doesn't stop the rest: the log gets its id and the
+    // error's names and codes, and the run then fails, naming it, so pg-boss records it and retries.
     queue: ADVANCE_SUBSCRIPTIONS_QUEUE,
     cron: "15 0 * * *",
     timeZone: "Asia/Kolkata",
     handle: async () => {
-      await advanceSubscriptions({ db: services.platformDb });
+      await advanceSubscriptions({
+        db: services.platformDb,
+        onError: (error, organizationId) => {
+          log(`${ADVANCE_SUBSCRIPTIONS_QUEUE}: organization ${organizationId} failed: ${describeError(error)}`);
+        },
+      });
     },
   };
   const demoReset: ScheduledJob[] =
@@ -53,8 +64,9 @@ export async function startConsoleJobs(
   runner: JobRunner,
   services: PlatformServices,
   demo: DemoSettings | null,
+  log: ProcessLog = processLog("console"),
 ): Promise<void> {
   // pg-boss keeps a schedule across restarts: with the demo switched off, last start's schedule goes too.
   if (demo === null) await runner.unschedule(RESET_DEMO_QUEUE);
-  await startJobHandlers({ runner, ...consoleJobs(services, demo) });
+  await startJobHandlers({ runner, ...consoleJobs(services, demo, log) });
 }

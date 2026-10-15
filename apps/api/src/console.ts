@@ -13,7 +13,7 @@ import { startProcess } from "./start-up.js";
 // The console's own start runs inside the start-up guard: its settings, the platform role's connection and its jobs.
 // A missing DATABASE_PLATFORM_URL, a connection that isn't the platform role, or a schedule pg-boss refuses ends in
 // one "console start-up failed" message, with the pools closed.
-const { services, log, running } = await startProcess("console", async ({ environment, services }) => {
+const { services, log, running } = await startProcess("console", async ({ environment, services, log }) => {
   const settings = loadConsoleSettings(process.env, environment);
   const platform = createPlatformServices({
     platformDatabaseUrl: settings.platformDatabaseUrl,
@@ -26,7 +26,7 @@ const { services, log, running } = await startProcess("console", async ({ enviro
   try {
     // A transaction checks that the connection is the platform role: refuse to start rather than fail requests.
     await platform.platformDb.transaction(() => Promise.resolve());
-    await startConsoleJobs(services.jobs, platform, settings.demo);
+    await startConsoleJobs(services.jobs, platform, settings.demo, log);
   } catch (error) {
     await platform.platformDb.disconnect().catch(() => undefined);
     throw error;

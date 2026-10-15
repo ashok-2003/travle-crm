@@ -79,14 +79,16 @@ async function movingSubscriptions(tx: OrgTx): Promise<string[]> {
 }
 
 /**
- * The job: each organization in its own transaction, so one that fails doesn't stop the rest; then, if any failed,
- * one LifecycleJobError naming them, so the job is retried and shows as failed. Safe to run twice: a second run finds
- * nothing due. `organizationIds` limits it to those (tests); by default, every subscription the lifecycle can move.
+ * The job: each organization in its own transaction, so one that fails doesn't stop the rest; each failure goes to
+ * onError as it happens (the console's log, ids only); then, if any failed, one LifecycleJobError naming them, so the
+ * job is retried and shows as failed. Safe to run twice: a second run finds nothing due. `organizationIds` limits it
+ * to those (tests); by default, every subscription the lifecycle can still move.
  */
 export async function advanceSubscriptions(dependencies: {
   db: SubscriptionWriter;
   organizationIds?: readonly string[];
   now?: Date;
+  onError?: (error: unknown, organizationId: string) => void;
 }): Promise<StatusChange[]> {
   const { db } = dependencies;
   const now = dependencies.now ?? new Date();
@@ -99,6 +101,7 @@ export async function advanceSubscriptions(dependencies: {
       if (change) changes.push(change);
     } catch (error) {
       failures.push({ organizationId, error });
+      dependencies.onError?.(error, organizationId);
     }
   }
   if (failures.length > 0) throw new LifecycleJobError(failures, changes, organizationIds.length);
