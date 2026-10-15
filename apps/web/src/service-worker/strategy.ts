@@ -1,11 +1,11 @@
 // How the service worker answers each request, decided from the request alone so it can be tested without a worker.
-// It keeps pages and the build's files for an offline shell (spec 11, DESIGN.md: an offline shell). It never stores
-// an api answer: the organization's data is kept only by the query cache, which signing out wipes. Pages are safe to
-// keep because they hold no data of anyone's: every screen loads its data in the browser, through the api.
+// It keeps the app's static pages and the build's files for an offline shell (spec 11, DESIGN.md: an offline shell),
+// as shells.ts sets out. It never answers for the api: the organization's data is kept only by the query cache, which
+// signing out wipes.
 
-/** network-only: the worker stays out of it. cache-first: files whose name changes with their content. page: a page
- * load, from the network when possible, else the copy kept from the last visit, else the offline page. */
-export type Strategy = "network-only" | "cache-first" | "page";
+/** network-only: the worker stays out of it. cache-first: the build's files, whose names change with their content.
+ * network-first: the icons, whose names don't. page: a page load, from the network, else the page's saved shell. */
+export type Strategy = "network-only" | "cache-first" | "network-first" | "page";
 
 export interface RequestFacts {
   url: string;
@@ -14,27 +14,42 @@ export interface RequestFacts {
   mode: string;
 }
 
-/** Bump a version when a cache's content changes shape: activation then drops the old one. */
-export const CACHE_NAMES = { pages: "pages-v1", static: "static-v1" } as const;
+/** Every cache the worker makes starts with one of these; it deletes no others. Signing out deletes "pages-" ones. */
+export const CACHE_PREFIXES = { pages: "pages-", static: "static-" } as const;
 
-/** Shown for a page that was never visited when there is no connection. Kept when the worker installs. */
+/** Bump a version when a cache's content changes shape: activation then drops the old one. v2: pages keyed by path. */
+export const CACHE_NAMES = { pages: `${CACHE_PREFIXES.pages}v2`, static: `${CACHE_PREFIXES.static}v2` } as const;
+
+/** Shown for an address with no saved shell when there is no connection. */
 export const OFFLINE_PAGE = "/offline";
+
+/** How long a page load waits for a weak connection before the saved shell is shown instead. */
+export const NAVIGATION_TIMEOUT_MS = 4000;
 
 export function strategyFor(request: RequestFacts, appOrigin: string): Strategy {
   if (request.method !== "GET") return "network-only";
   const url = new URL(request.url);
   if (url.origin !== appOrigin) return "network-only";
   // Before the page check: a password-reset email opens /api/auth/reset-password/<token> as a page load.
-  if (url.pathname.startsWith("/api/") || url.pathname === "/sw.js") return "network-only";
+  if (isApiPath(url.pathname) || url.pathname === "/sw.js") return "network-only";
   if (request.mode === "navigate") return "page";
-  if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/icons/")) return "cache-first";
+  if (url.pathname.startsWith("/_next/static/")) return "cache-first";
+  if (url.pathname.startsWith("/icons/")) return "network-first";
   // Everything else, such as the data Next.js's router fetches between pages (?_rsc=): a failed one makes the router
   // load the page itself, which the "page" strategy then answers.
   return "network-only";
 }
 
-/** The caches an older version of the worker made. */
+/** /api and everything under it, in any case: Next.js's rewrites ignore case (caseSensitiveRoutes is off by default),
+ * so /API/trpc/... reaches the api too. */
+function isApiPath(pathname: string): boolean {
+  const path = pathname.toLowerCase();
+  return path === "/api" || path.startsWith("/api/");
+}
+
+/** The caches an older version of the worker made. Only its own: other features may keep caches of theirs. */
 export function cachesToDelete(cacheNames: readonly string[]): string[] {
   const current: readonly string[] = Object.values(CACHE_NAMES);
-  return cacheNames.filter((name) => !current.includes(name));
+  const ours = Object.values(CACHE_PREFIXES);
+  return cacheNames.filter((name) => ours.some((prefix) => name.startsWith(prefix)) && !current.includes(name));
 }

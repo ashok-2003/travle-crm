@@ -1,5 +1,6 @@
-// The page the service worker shows for an address that was never visited, while there is no connection. It is
-// kept when the worker installs, so it needs no network; "Try again" is a plain form, which works without scripts.
+// The page the service worker shows, at the address the person tried, when there is no connection and no saved shell
+// for it (a page that needs a connection, or no page at all). The worker keeps it, so it needs no network, and both
+// ways out work without scripts.
 import type { Metadata } from "next";
 import { WifiOffIcon } from "lucide-react";
 import Link from "next/link";
@@ -20,13 +21,16 @@ export default async function OfflinePage() {
       <WifiOffIcon aria-hidden="true" className="size-10 text-muted-foreground" strokeWidth={1.25} />
       <PageTitle>{t("title")}</PageTitle>
       <p className="text-muted-foreground">{t("body")}</p>
-      {/* A GET form without an action reloads the address the person tried. */}
-      <form className="flex flex-col items-center gap-3">
-        <Button type="submit">{t("tryAgain")}</Button>
-        <Link href={routes.home} className="text-primary underline-offset-4 hover:underline">
-          {t("home")}
-        </Link>
-      </form>
+      <div className="flex flex-col items-center gap-3">
+        {/* An empty href is this very address, query included (a GET form would drop the query): a full load,
+            which tries the network again. */}
+        <Button asChild>
+          <a href="">{t("tryAgain")}</a>
+        </Button>
+        <Button asChild variant="ghost">
+          <Link href={routes.home}>{t("home")}</Link>
+        </Button>
+      </div>
     </main>
   );
 }
