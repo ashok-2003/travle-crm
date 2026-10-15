@@ -393,6 +393,8 @@ describe("identity's audit trail", () => {
     );
     logged.mockRestore();
     expect(started.status).toBe(500);
+    // A refused impersonation hands out no cookie: nobody leaves with a session to use.
+    expect(started.headers.getSetCookie()).toEqual([]);
     const left = await test.database.client.session.count({
       where: { userId: agency.ownerUserId, impersonatedBy: support.userId },
     });

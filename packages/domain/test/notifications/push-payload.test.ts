@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { fitPushPayload } from "../../src/notifications/push-payload.js";
 
 const size = (payload: object) => Buffer.byteLength(JSON.stringify(payload));
-const family = "👨‍👩‍👧‍👦";
+const family = "\u{1F468}\u200D\u{1F469}\u200D\u{1F467}\u200D\u{1F466}";
 const flag = "🇮🇳";
 
 describe("fitPushPayload", () => {

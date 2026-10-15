@@ -47,7 +47,7 @@ describe("file inputs", () => {
     for (const mark of ["\u200E", "\u200F", "\u061C", "\u2028", "\u2029", "\u202A", "\u2066", "\u2069"]) {
       expect(requestUploadInput.safeParse({ ...passport, fileName: `a${mark}b.pdf` }).success, mark).toBe(false);
     }
-    // Devanagari "क्‍ष" with a zero-width joiner (U+200D) and "ने" with a zero-width non-joiner (U+200C).
+    // Devanagari "क्\u200Dष" with a zero-width joiner (U+200D) and "ने" with a zero-width non-joiner (U+200C).
     for (const fileName of ["\u0915\u094D\u200D\u0937.pdf", "\u0928\u200C\u0947.pdf"]) {
       expect(requestUploadInput.safeParse({ ...passport, fileName }).success, fileName).toBe(true);
     }
