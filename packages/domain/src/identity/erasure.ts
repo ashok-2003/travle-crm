@@ -1,6 +1,7 @@
 // Identity's part of permanent deletion (spec 5): erasing one removed person on a DPDP request, and the people of an
-// organization being purged. Only the platform role runs these, in the console's purge and erasure jobs; the runtime
-// role can't delete users' passwords or rename removed people this way.
+// organization being purged. Only the console's purge and erasure jobs call these, in their platform transactions. The
+// database doesn't stop the runtime role making the same writes (it has full DML on the sign-in tables, as Better Auth
+// needs); what keeps them to those jobs is that no api code calls them.
 import { withDeleted } from "@travel-crm/db";
 import type { IdentityTx } from "@travel-crm/db/identity";
 import { DomainError } from "../kernel/index.js";
@@ -49,7 +50,8 @@ export async function personExport(tx: IdentityTx, organizationId: string, membe
 /**
  * Erases a removed person's sign-in data: name, addresses and usernames on the user row; their password, sessions,
  * two-factor secret and reset tokens. The rows that point at them (the membership, audit entries) keep the ids,
- * which now lead nowhere personal. Someone still a member must be removed first. Erasing twice changes nothing.
+ * which now lead nowhere personal; the membership's last activity stays too, a time with no one behind it. Someone
+ * still a member must be removed first. Erasing twice is harmless: the second time finds nothing more to clear.
  * Returns the user's id, for the other modules' parts of the erasure.
  */
 export async function erasePerson(
