@@ -9,12 +9,15 @@ import { PageTitle } from "@/components/page-title";
 import { useMe } from "@/session/me-context";
 import { visibleNavigationItems, type NavigationItem } from "@/shell/navigation";
 
-type SetUpItem = NavigationItem & { key: Exclude<NavigationItem["key"], "home"> };
+/** The destinations that set the organization up: not home, nor the audit log, which looks back. */
+type SetUpItem = NavigationItem & { key: Exclude<NavigationItem["key"], "home" | "audit"> };
 
 export default function HomePage() {
   const t = useTranslations("shell.home");
   const me = useMe();
-  const setUp = visibleNavigationItems(me).filter((item): item is SetUpItem => item.key !== "home");
+  const setUp = visibleNavigationItems(me).filter(
+    (item): item is SetUpItem => item.key !== "home" && item.key !== "audit",
+  );
   return (
     <div className="flex max-w-[720px] flex-col gap-6">
       <PageTitle>{t("title", { name: me.user.name })}</PageTitle>
