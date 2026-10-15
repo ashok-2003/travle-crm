@@ -70,10 +70,11 @@ with the exact change in the task named:
   two-factor requirement, the organization code). Names agreed with plan 4's planner, for the later plan-5 parts:
   `organization.profile.get/update`, `organization.branding.get/update`, `organization.setup.get` (settings:manage);
   `subscription.get` (any member, every lifecycle state: `status`, `access`, `planName`, `modules`, `trialEndsOn`,
-  `paidThrough`, `nextChangeOn`, `limits`); refusals `ORGANIZATION_READ_ONLY`, `ORGANIZATION_SUSPENDED`,
+  `paidThrough`, `nextChangeOn`, `limits`; no price: staff don't see what the agency pays, only the console does);
+  refusals `ORGANIZATION_READ_ONLY`, `ORGANIZATION_SUSPENDED`,
   `ORGANIZATION_CANCELLED` and `FEATURE_LOCKED`/`MODULE_NOT_ON_PLAN`; `planModuleOf(moduleOf(permission))`; the
   console's own endpoint `/api/platform/trpc` (`PlatformRouter`, port 3002 locally). Plan 4's Owner invite links to
-  `/reset-password?token=…`, which Track A builds.
+  `/reset-password?token=…`, which Track A builds. ADR numbers: 0018 is this plan's; plan 4 uses 0019-0024.
 - **Setting up for a deploy** (plan 5's release part): route `/api/*` to the api at the load balancer, set the api's
   `BETTER_AUTH_URL` (or `TRUSTED_ORIGINS`) to the app's address, and `AUTH_TRUSTED_PROXIES` as plan 3 says: the
   rewrite and the load balancer pass `x-forwarded-for` on unchanged.
