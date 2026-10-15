@@ -169,7 +169,12 @@ function exportJobOf(data: JobData): { exportId: string } {
 /** The export's two jobs, for the console process's job runner. */
 export function organizationExportJobHandlers(services: PlatformServices): JobHandler[] {
   return [
-    { queue: EXPORT_ORGANIZATION_QUEUE, handle: (data) => runOrganizationExport(services, exportJobOf(data)) },
+    {
+      queue: EXPORT_ORGANIZATION_QUEUE,
+      handle: async (data) => {
+        await runOrganizationExport(services, exportJobOf(data));
+      },
+    },
     {
       queue: EXPIRE_EXPORTS_QUEUE,
       handle: async () => {
