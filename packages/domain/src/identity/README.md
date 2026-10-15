@@ -21,23 +21,31 @@ Who can sign in, to which organization, and what they may do (spec section 6).
   - `settings.setTwoFactorRequirement`;
   - `seedStarterRoles(organizationId)` and `createOrganizationOwner(organizationId, owner)` (an Owner with a password,
     for tests);
-  - `organizationIds()`: every organization's id, for jobs that visit each one;
-  - `inviteListener({ email, appUrl, now? })`: the worker's `identity.send-invite` listener;
+  - `organizationIds()`: every organization's id, oldest first, for jobs that visit each one;
+  - `inviteListener({ email, appUrl, limiter, now? })`: the worker's `identity.send-invite` listener, counting each
+    address's emails with the rate limiter;
   - `disconnect()`.
 - Onboarding's steps, each in the caller's transaction (the console runs them in one platform transaction):
   `createOrganizationRecord(tx, { name, code, timeZone, contactEmail })` (the platform role only),
   `insertStarterRoles(tx)`, `inviteOwner(tx, actor, { name, email })` and `requestInvite(tx, actor, memberId)` (inside
-  the organization, `asOrganization`). `INVITE_LINK_HOURS` (72), `SEND_INVITE_LISTENER`. The nightly demo reset adds
+  the organization, `asOrganization`). `requestInvite` is only for someone with no password yet (`NO_EMAIL` without
+  a real address, `PASSWORD_ALREADY_SET` once they have one: they reset it instead). `INVITE_LINK_HOURS` (72),
+  `SEND_INVITE_LISTENER`. The nightly demo reset adds
   its staff with `addStaffWithPassword(tx, actor, { name, username, roleKey, passwordHash })` (organization-code
   sign-in, no email, no invite) and finds last night's demo with `findOrganizationByCode(tx, code)`.
 - Permanent deletion's steps, for the platform's jobs (spec 5): `personExport(tx, organizationId, memberId)` and
   `erasePerson(tx, organizationId, memberId)` (a removed person's name, addresses, password, sessions, two-factor
-  secret and reset tokens; the membership row stays, so ids still lead somewhere), `organizationUserIds(tx,
-organizationId)` and `deleteUsers(tx, userIds)` (a purge's people, with their sessions and memberships).
-- `memberActivity(tx, organizationIds)`: seats used and the last sign-in's time per organization, for the platform
-  dashboard.
+  secret and reset tokens; the membership row stays, so ids still lead somewhere),
+  `organizationUserIds(tx, organizationId)` and `deleteUsers(tx, userIds)` (a purge's people, with their sessions and
+  memberships).
+- `memberActivity(tx, organizationIds)`: seats used and the last activity per organization, for the platform
+  dashboard. `recordMemberActivity(database, access, now?)` keeps that activity on the member: the api calls it on each
+  request it lets through, and it writes at most once a day, never for support's impersonation. Signing out keeps it.
+- `PASSWORD_EMAILS_PER_RECIPIENT` (3 an hour), `passwordEmailRecipientKey(address)` and `resetPasswordPageOf(appUrl)`:
+  the cap and the page that invites and plan 3's password resets share.
 - `IdentityOptions.seatLimit` (a `SeatLimit`): the seats an organization's plan gives. `staff.create` refuses past them
-  (`LIMIT_REACHED`, `SEAT_LIMIT_REACHED`), holding the organization's row so two additions can't both take the last.
+  (`LIMIT_REACHED`, `SEAT_LIMIT_REACHED`), holding the organization's row (`FOR NO KEY UPDATE`, so it never deadlocks
+  with a role edit) so two additions can't both take the last.
 - `platformStaffRoles` (Better Auth's `user.role` for each level: `admin` for support, `super-admin`) and
   `platformStaffLevelOf(role)`.
 - `permissions`, `permissionCatalog`, `isPermission`, `isScopedPermission`, `moduleOf`, `PermissionSet`: the permission
@@ -57,9 +65,11 @@ organizationId)` and `deleteUsers(tx, userIds)` (a purge's people, with their se
   someone is removed, in the removal's transaction. Notifications listens (`notifications.forget-push-subscriptions`)
   and forgets the person's browsers.
 - Publishes `staff.invited` (`{ memberId, userId }`, `staffInvitedEvent`) when an invite is asked for. Its own
-  listener, `identity.send-invite`, emails a link to choose a password: a Better Auth reset token, kept
-  only as a hash as Better Auth keeps its own, that lasts 72 hours, at `<APP_URL>/reset-password?token=<token>`, the page Better Auth's
-  reset links lead to. Nobody removed, banned or without a real address is emailed.
+  listener, `identity.send-invite`, emails a link to choose a password: a Better Auth reset token, kept only as a hash
+  as Better Auth keeps its own, that lasts 72 hours, at `<APP_URL>/reset-password?token=<token>`, the page Better
+  Auth's reset links lead to. It is the agency's email: its name as the sender, Reply-To its contact address. Nobody
+  removed, banned, without a real address or with a password by then is emailed, and an address gets at most three
+  password emails an hour, invites and resets together; past that the listener skips the email without a word.
 
 Every change below is written to the audit log in the change's own transaction (ADR 0015), with the acting member,
 the platform admin for onboarding (source `platform`), or the system:
@@ -85,7 +95,8 @@ the platform admin as both the actor and `impersonatedBy`; they are written by a
 ## Rules worth knowing
 
 - The member table has no row-level security: every query of it filters by `organizationId` itself.
-- Nobody grants more than they hold, changes their own access, or touches an Owner unless they are one (`access-rules.ts`).
+- Nobody grants more than they hold, changes their own access, or touches an Owner unless they are one
+  (`access-rules.ts`).
 - Removing someone soft-deletes their membership and releases their email and username (ADR 0007).
 - Better Auth's `/admin/*` endpoints are closed over HTTP but for starting and stopping support's impersonation
   (`auth/side-doors.ts`), and support may impersonate only an organization's active staff (ADR 0018).
