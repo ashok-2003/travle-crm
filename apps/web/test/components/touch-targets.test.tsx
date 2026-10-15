@@ -2,6 +2,7 @@
 // utilities each shadcn component puts on its interactive element (see touch-targets.ts). A new size that slips under
 // 44px, or a checkbox shrunk back to shadcn's 16px, fails here instead of surfacing on a phone.
 import { render, screen } from "@testing-library/react";
+import { NextIntlClientProvider } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -22,6 +23,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/
 import { Switch } from "@/components/ui/switch";
 import { TableHead, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { locale, messages } from "@/i18n/messages";
 import { targetSize } from "./touch-targets";
 
 // Radix measures and scrolls open menus; jsdom has neither.
@@ -158,7 +160,7 @@ describe("touch targets", () => {
 
   it("the dialog and sheet close buttons", () => {
     render(
-      <>
+      <NextIntlClientProvider locale={locale} messages={messages}>
         <Dialog open>
           <DialogContent>
             <DialogTitle>Title</DialogTitle>
@@ -171,9 +173,9 @@ describe("touch targets", () => {
             <SheetDescription>Body</SheetDescription>
           </SheetContent>
         </Sheet>
-      </>,
+      </NextIntlClientProvider>,
     );
-    const closes = screen.getAllByRole("button", { name: "Close", hidden: true });
+    const closes = screen.getAllByRole("button", { name: messages.common.close, hidden: true });
     expect(closes).toHaveLength(2);
     for (const close of closes) expectTarget(close, { square: true });
   });

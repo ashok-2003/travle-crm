@@ -26,7 +26,10 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
   blue text; destructive is an ink outline with red text.
 - `input.tsx`: 44px high, 16px text at every width (no iOS zoom), 6px radius, canvas fill.
 - `badge.tsx`: 4px radius.
-- `dialog.tsx`, `alert-dialog.tsx`, `sheet.tsx`: the overlay is the `scrim` token, without blur.
+- `dialog.tsx`, `alert-dialog.tsx`, `sheet.tsx`: the overlay is the `scrim` token, without blur. The dialog's and the
+  sheet's Close words are the `common.close` message.
+- `spinner.tsx`: decoration (`aria-hidden`), without `role="status"` or a label: it sits in busy buttons, whose own label
+  says what is happening, and a status inside a button would join its name.
 - `sonner.tsx`: one light theme (no `next-themes`), bottom right, a close button with a 44px hit area.
 - `field.tsx`, `input-otp.tsx`: three small fixes the repo's strict lint rules ask for.
 
