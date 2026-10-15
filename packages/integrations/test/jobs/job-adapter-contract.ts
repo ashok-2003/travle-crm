@@ -67,11 +67,20 @@ export function describeJobAdapter(name: string, start: () => Promise<JobsUnderT
       });
     });
 
-    it("queues a repeated job id once on its queue, and again on another queue", async () => {
+    it("queues a repeated job id once on its queue, and again on another queue, and runs both", async () => {
+      const ran: string[] = [];
+      for (const queue of ["contract.reused-id", "contract.reused-id-elsewhere"]) {
+        await subject.runner.work(queue, (job) => {
+          ran.push(`${queue} ${job.id}`);
+          return Promise.resolve();
+        });
+      }
       const id = randomUUID();
-      expect(await subject.queue.send("contract.once", {}, { id })).toBe(id);
-      expect(await subject.queue.send("contract.once", {}, { id })).toBeNull();
-      expect(await subject.queue.send("contract.once-elsewhere", {}, { id })).toBe(id);
+      expect(await subject.queue.send("contract.reused-id", {}, { id })).toBe(id);
+      expect(await subject.queue.send("contract.reused-id", {}, { id })).toBeNull();
+      expect(await subject.queue.send("contract.reused-id-elsewhere", {}, { id })).toBe(id);
+      await subject.runUntil(() => ran.length === 2);
+      expect(ran.sort()).toEqual([`contract.reused-id ${id}`, `contract.reused-id-elsewhere ${id}`]);
     });
 
     it("refuses a job id that is not a UUID", async () => {

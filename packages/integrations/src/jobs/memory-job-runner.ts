@@ -46,7 +46,8 @@ export function createMemoryJobRunner(queue: MemoryJobQueue): MemoryJobRunner {
   const handlers = new Map<string, JobHandlerFunction>();
   const schedules: MemorySchedule[] = [];
   const failed: MemoryFailedJob[] = [];
-  const finished = new Set<string>();
+  /** The jobs already run, by the sent job itself: one id may name a job on each of several queues. */
+  const finished = new Set<SentJob>();
 
   async function run(job: SentJob, handler: JobHandlerFunction): Promise<void> {
     const retryLimit = job.options.retryLimit ?? defaultRetryPolicy.retryLimit;
@@ -91,10 +92,10 @@ export function createMemoryJobRunner(queue: MemoryJobQueue): MemoryJobRunner {
     async runQueued() {
       let ran = 0;
       for (;;) {
-        const next = queue.sent.find((job) => !finished.has(job.id) && handlers.has(job.queue));
+        const next = queue.sent.find((job) => !finished.has(job) && handlers.has(job.queue));
         const handler = next && handlers.get(next.queue);
         if (!next || !handler) return ran;
-        finished.add(next.id);
+        finished.add(next);
         await run(next, handler);
         ran += 1;
       }
