@@ -1,1 +1,60 @@
-{}
+{
+  "profile": {
+    "title": "Business profile",
+    "intro": "What your quotations and invoices say about your business. Only roles that may change settings see it, because it holds your bank details.",
+    "loadFailed": "The business profile didn't load.",
+    "business": "Business",
+    "legalName": "Legal name",
+    "legalNameHint": "As registered for GST, or as your bank knows it.",
+    "gstin": "GSTIN",
+    "gstinHint": "Leave it empty if your business isn't registered for GST.",
+    "gstState": "GST state",
+    "gstStateHint": "Where your business is registered. It decides whether a sale carries CGST and SGST, or IGST.",
+    "chooseState": "Choose a state",
+    "address": "Address",
+    "contact": "Contact",
+    "contactName": "Contact person",
+    "contactPhone": "Contact phone",
+    "bank": "Bank account",
+    "bankHint": "Printed on your invoices, so customers know where to pay.",
+    "bankAccountName": "Account name",
+    "bankAccountNumber": "Account number",
+    "bankIfsc": "IFSC",
+    "bankName": "Bank",
+    "invoices": "Invoices",
+    "invoicePrefix": "Invoice prefix",
+    "invoicePrefixHint": "2-5 letters your invoice numbers start with, such as SH for SH-2026-0042.",
+    "saved": "The business profile was saved",
+    "problems": {
+      "legalName": "Give your business's legal name, in up to 120 characters.",
+      "gstin": "Check the GSTIN: 15 characters, ending in a check character that must match.",
+      "gstinOfAnotherState": "This GSTIN is registered in {state}. Choose that state, or check the GSTIN.",
+      "gstStateCode": "Choose the state your business is registered in.",
+      "address": "Use up to 500 characters.",
+      "contactName": "Use a name of up to 100 characters.",
+      "contactPhone": "Use a phone number like 98765 43210.",
+      "bankAccountName": "Use up to 120 characters.",
+      "bankAccountNumber": "Use the account's 9 to 18 digits.",
+      "bankIfsc": "Check the IFSC: 11 characters, the fifth a zero.",
+      "bankName": "Use up to 120 characters.",
+      "invoicePrefix": "Use 2-5 letters."
+    }
+  },
+  "setup": {
+    "title": "Set up your organization",
+    "intro": "A few things to do before your first quotation. Each step opens the screen where it is done.",
+    "homeHeading": "Finish setting up {organization}",
+    "progress": "{done} of {total} done",
+    "allDone": "Everything is set up.",
+    "loadFailed": "The setup checklist didn't load.",
+    "done": "Done",
+    "toDo": "To do",
+    "steps": {
+      "business-details": { "title": "Business details", "hint": "Your address and a contact phone" },
+      "bank-details": { "title": "Bank details", "hint": "The account your customers pay into" },
+      "invoice-prefix": { "title": "Invoice prefix", "hint": "The letters your invoice numbers start with" },
+      "branding": { "title": "Branding", "hint": "Your colour and terms, on the documents you issue" },
+      "staff": { "title": "Staff", "hint": "Add your staff and give each a role" }
+    }
+  }
+}
