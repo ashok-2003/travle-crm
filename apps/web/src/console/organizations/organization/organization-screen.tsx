@@ -2,7 +2,7 @@
 
 // /console/organizations/<id>: one organization as the console shows it (organizations.get): its name, sign-in code
 // and status today; just after onboarding, that the Owner's invite is on its way; its row with corrections, its
-// business profile and its members; for super admins, the way to its data protection. An organization that doesn't
+// subscription, its business profile and its members; for super admins, the way to its data protection. An organization that doesn't
 // exist (purged, or a mistyped address) is said so, with the way back to the dashboard.
 import { useQuery } from "@tanstack/react-query";
 import { CircleCheckIcon, SearchXIcon } from "lucide-react";
@@ -20,6 +20,7 @@ import { useConsoleTRPC } from "../../data/console-trpc";
 import { consoleRoutes } from "../../routes";
 import { isSuperAdmin, useStaff } from "../../session/staff-context";
 import { SubscriptionStatusBadge } from "../../subscription-status";
+import { SubscriptionSection } from "../subscription/subscription-section";
 import { MembersSection } from "./members-section";
 import { ProfileSection, RecordSection } from "./record-and-profile";
 
@@ -80,6 +81,7 @@ export function OrganizationScreen({ organizationId, onboarded }: { organization
         </Alert>
       )}
       <RecordSection organization={organization} />
+      <SubscriptionSection organization={organization} subscription={subscription} />
       <ProfileSection profile={profile} />
       <MembersSection organization={organization} />
     </div>
