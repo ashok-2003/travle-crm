@@ -3,6 +3,7 @@
 // staff in three roles who sign in with its code, their username and the demo password. The modules that keep
 // leads, quotes and bookings add their sample data here when they arrive.
 import { saveOrganizationProfileInput } from "@travel-crm/contracts/profile";
+import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import { asOrganization, type PlatformTx } from "@travel-crm/db/platform";
 import {
   addStaffWithPassword,
@@ -13,7 +14,6 @@ import {
 } from "../identity/index.js";
 import { addDays, calendarDateIn, DomainError, systemActor } from "../kernel/index.js";
 import { saveOrganizationProfile } from "../profile/index.js";
-import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import { listPlans, startSubscription } from "../subscriptions/index.js";
 import { recordPlatformAudit } from "./platform-log.js";
 import { purgeOrganization } from "./purge.js";
