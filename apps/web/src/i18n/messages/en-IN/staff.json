@@ -1,1 +1,72 @@
-{}
+{
+  "title": "Staff",
+  "intro": "Everyone who signs in to your organization, and the role that decides what each of them may do.",
+  "add": "Add staff",
+  "loadFailed": "The staff list didn't load.",
+  "empty": "Nobody else is here yet. Add the people who work with you.",
+  "you": "You",
+  "columns": {
+    "name": "Name",
+    "signIn": "Signs in with",
+    "role": "Role",
+    "twoFactor": "Two-factor",
+    "joined": "Joined",
+    "actions": "Actions"
+  },
+  "twoFactorOn": "On",
+  "twoFactorOff": "Off",
+  "mustChangePassword": "Must change password",
+  "joinedOn": "Joined {date}",
+  "actionsFor": "Actions for {name}",
+  "create": {
+    "title": "Add staff",
+    "description": "Give them an email, a username or both. Staff without email sign in with your organization code and their username.",
+    "name": "Full name",
+    "email": "Email",
+    "emailHint": "Optional. They can sign in with it and reset their own password.",
+    "username": "Username",
+    "usernameHint": "Optional. 2-32 letters, digits, dots, dashes or underscores.",
+    "role": "Role",
+    "temporaryPassword": "Temporary password",
+    "temporaryPasswordHint": "They choose their own password the first time they sign in.",
+    "newPassword": "Make another",
+    "submit": "Add",
+    "submitting": "Adding",
+    "added": "{name} was added",
+    "handover": "Give {name} these details to sign in:",
+    "organizationCode": "Organization code",
+    "copy": "Copy",
+    "copied": "Copied",
+    "done": "Done"
+  },
+  "form": {
+    "nameRequired": "Give their full name.",
+    "emailInvalid": "Use a real email address.",
+    "usernameInvalid": "Use 2-32 letters, digits, dots, dashes or underscores.",
+    "emailOrUsername": "Give an email, a username or both.",
+    "roleRequired": "Choose a role.",
+    "passwordTooShort": "Use at least 10 characters."
+  },
+  "changeRole": {
+    "action": "Change role",
+    "title": "Change {name}'s role",
+    "description": "The new role applies from their next action.",
+    "submit": "Change role",
+    "changed": "{name} is now {role}"
+  },
+  "resetPassword": {
+    "action": "Reset password",
+    "title": "Reset {name}'s password",
+    "description": "They are signed out everywhere and must choose a new password with this temporary one.",
+    "submit": "Reset password",
+    "submitting": "Resetting",
+    "done": "Give {name} this temporary password:"
+  },
+  "remove": {
+    "action": "Remove",
+    "title": "Remove {name}?",
+    "description": "They are signed out at once and can't sign in again. What they did stays in your records.",
+    "confirm": "Remove",
+    "removed": "{name} was removed"
+  }
+}
