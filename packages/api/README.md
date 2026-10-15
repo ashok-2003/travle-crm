@@ -44,4 +44,15 @@ builders:
 | `staffProcedure`      | signed in, platform staff of either level (no membership ever), no temporary password | everything support does                   |
 | `superAdminProcedure` | the same, and the super-admin level                                                   | plans, platform staff, permanent deletion |
 
-`platformRouter` (`src/platform/platform-router.ts`) lists them: `whoAmI`, `log.list`.
+`platformRouter` (`src/platform/platform-router.ts`) lists them, the routers in `src/platform/routers/`:
+
+| Router           | Procedures                                                                                                                |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| (top level)      | `whoAmI`                                                                                                                  |
+| `dashboard`      | `organizations`: every organization's status, plan, days left, seats, storage and this month's use                        |
+| `organizations`  | `onboard`, `get`, `update`, `resendInvite`                                                                                |
+| `plans`          | `list`, `policy`; super admins: `create`, `update`, `archive`, `setPolicy`                                                |
+| `subscriptions`  | `get`, `changePlan`, `setOverrides`, `setTrialEnd`, `setPaidThrough`, `recordPayment`, `voidPayment`, `suspend`, `cancel` |
+| `dataProtection` | super admins: `exportOrganization`, `requestPurge`, `exportSubject`, `requestErasure`                                     |
+| `jobs`           | `failed`, `retry`, `schedules`; super admins: `unschedule`                                                                |
+| `log`            | `list`: the platform log, newest first, or one organization's                                                             |

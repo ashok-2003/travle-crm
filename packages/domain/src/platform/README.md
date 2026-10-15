@@ -46,7 +46,9 @@ None.
 - A platform transaction (`PlatformTx`) has no organization: every query names the organization it means. Work that
   belongs to one organization (module code written for `db.forOrg()`) runs inside `asOrganization(tx, orgId, …)`,
   as `app_runtime` under row-level security, in the same transaction.
-- A change a platform admin makes to an organization's data is recorded twice: in the platform log, and in that
-  organization's audit log as `platformActor(organizationId, adminUserId)` (source `platform`), so its staff see it too.
+- A change a platform admin makes inside an organization is recorded in that organization's audit log as
+  `platformActor(organizationId, adminUserId)` (source `platform`), so its staff see it too; subscription changes are
+  recorded only there (ADR 0019). Onboarding, corrections, exports, purges and erasures also go in the platform log,
+  and so do changes that belong to no organization (plans, the policy, jobs).
 - The platform log is append-only even for the platform role, and the api and worker have no rights on it. Its entries
   hold ids and small facts, never secrets or personal data, so they can outlive the organization they name.

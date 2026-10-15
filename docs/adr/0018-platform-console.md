@@ -39,8 +39,10 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 4 (the `app_pla
 - **Platform admins act in their own name.** A change a platform admin makes to an organization's data is recorded in
   that organization's audit log with source `platform` and the admin as the actor (`platformActor(organizationId,
 adminUserId)`), not as the system.
-- **The platform log.** `platform_audit_entry` records every console change and the platform's own jobs: who (or the
-  system), the action, the target and the organization it concerns, and small before and after snapshots with the
+- **The platform log.** `platform_audit_entry` records what belongs to no organization's own log (plans, the
+  policy, retried jobs and removed schedules), what happens to an organization as a whole (onboarding, corrections,
+  exports, purges, erasures) and the platform's own jobs: who (or the system), the action, the target and the
+  organization it concerns, and small before and after snapshots with the
   same checks as the organizations' log. It has no foreign key to `organization`, so it outlives a purge (spec 5:
   "an audit record in the platform log"). It is append-only even for `app_platform`, and `app_runtime` has no rights on
   it.

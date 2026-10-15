@@ -12,7 +12,7 @@ import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { receiveWebhook, type WebhookProvider } from "@travel-crm/domain/webhooks";
 import { describeError, type JobQueue } from "@travel-crm/integrations/jobs";
 import { Hono } from "hono";
-import { bodyLimit } from "hono/body-limit";
+import { limitBody } from "./body-limit.js";
 import { apiErrorHandler } from "./error-handler.js";
 import { organizationSignIn } from "./org-sign-in.js";
 import type { ProcessLog } from "./process-log.js";
@@ -55,14 +55,6 @@ const publicLimits = {
 
 /** No sign-in or tRPC call needs a bigger body; the cap stops a client making the server read a huge one. */
 const BODY_LIMIT = 64 * 1024;
-
-/** Answers 413 as soon as a body passes maxSize bytes, before anything parses it. */
-function limitBody(maxSize: number) {
-  return bodyLimit({
-    maxSize,
-    onError: (c) => c.json({ code: "PAYLOAD_TOO_LARGE", message: "Request is too large" }, 413),
-  });
-}
 
 export function createApp(dependencies: ServerDependencies): Hono {
   const { identity, subscriptions, profiles, db, files, queue, rateLimiter, clientAddress, webhookProviders, log } =
