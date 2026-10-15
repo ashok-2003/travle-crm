@@ -7,6 +7,7 @@ import { generateKeyPairSync } from "node:crypto";
 import { cp } from "node:fs/promises";
 import { createServer, type Server } from "node:net";
 import path from "node:path";
+import type { EmailVariables } from "./mailpit";
 import type { StorageVariables } from "./minio";
 
 const webDirectory = path.resolve(import.meta.dirname, "../../..");
@@ -120,10 +121,13 @@ export interface Servers {
 export async function startServers({
   databaseUrl,
   storage,
+  email,
 }: {
   databaseUrl: string;
   /** A real bucket (support/minio.ts): the api checks it at start-up. */
   storage: StorageVariables;
+  /** Mailpit's SMTP (support/mailpit.ts), where journeys read the emails the api sends. */
+  email: EmailVariables;
 }): Promise<Servers> {
   const reserved = await reservePorts(2);
   const [apiPort = 0, webPort = 0] = reserved.ports;
@@ -161,11 +165,10 @@ export async function startServers({
           TRUSTED_ORIGINS: "",
           // Journeys sign in many times from one address.
           AUTH_RATE_LIMIT: "false",
-          // Plan 3's services are configured from the environment. Storage is real, because the api refuses to start
-          // without a bucket it can use. Email has no start-up check, and the journeys send none.
+          // Plan 3's services are configured from the environment, all of them real: the api refuses to start without
+          // a bucket it can use, and journeys read the email it sends.
           ...storage,
-          SMTP_HOST: "127.0.0.1",
-          SMTP_PORT: "9",
+          ...email,
           EMAIL_FROM_ADDRESS: "no-reply@travel-crm.localhost",
           VAPID_PUBLIC_KEY: vapid.publicKey,
           VAPID_PRIVATE_KEY: vapid.privateKey,

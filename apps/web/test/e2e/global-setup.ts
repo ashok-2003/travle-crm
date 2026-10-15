@@ -1,9 +1,10 @@
-// Before the journeys: a throwaway Postgres with every migration (the same setup the api's tests use) and a MinIO
-// bucket, then the api and the built web app. The journeys read where everything is from environment variables; each
-// test makes its own organization, so tests never share data. Playwright doesn't tear down a setup that failed, so a
-// failure here stops the containers itself.
+// Before the journeys: a throwaway Postgres with every migration (the same setup the api's tests use), a MinIO bucket
+// and a Mailpit inbox, then the api and the built web app. The journeys read where everything is from environment
+// variables; each test makes its own organization, so tests never share data. Playwright doesn't tear down a setup
+// that failed, so a failure here stops the containers itself.
 import type { TestProject } from "vitest/node";
 import { setup as startDatabase, teardown as stopDatabase, type DbUrls } from "@travel-crm/db/testing/global-setup";
+import { startMailpit, type Mailpit } from "./support/mailpit";
 import { startMinio, type Minio } from "./support/minio";
 import { startServers } from "./support/servers";
 
@@ -17,10 +18,11 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     },
   };
   let minio: Minio | undefined;
-  /** Stops the containers that started; the database last, whatever stopping MinIO did. */
+  let mailpit: Mailpit | undefined;
+  /** Stops the containers that started; the database last, whatever stopping the others did. */
   const stopContainers = async () => {
     try {
-      await minio?.stop();
+      await Promise.allSettled([minio?.stop(), mailpit?.stop()]);
     } finally {
       await stopDatabase();
     }
@@ -29,10 +31,16 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   try {
     if (!urls) throw new Error("the database setup gave no URLs");
     minio = await startMinio();
-    const servers = await startServers({ databaseUrl: urls.runtime, storage: minio.variables });
+    mailpit = await startMailpit();
+    const servers = await startServers({
+      databaseUrl: urls.runtime,
+      storage: minio.variables,
+      email: mailpit.variables,
+    });
     process.env.E2E_BASE_URL = servers.webUrl;
     process.env.E2E_DATABASE_URL = urls.runtime;
     process.env.E2E_PLATFORM_DATABASE_URL = urls.platform;
+    process.env.E2E_MAILPIT_URL = mailpit.url;
     return async () => {
       servers.stop();
       await stopContainers();
