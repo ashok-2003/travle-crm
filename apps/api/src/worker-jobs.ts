@@ -47,7 +47,9 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
         appUrl,
         log,
       }),
-      notifySharerListener(),
+      notifySharerListener({
+        memberContacts: (organizationId, userIds) => identity.memberContacts(organizationId, userIds),
+      }),
       forgetPushSubscriptionsListener,
     ],
     handlers: [
