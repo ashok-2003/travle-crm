@@ -119,6 +119,14 @@ describe("onboarding", () => {
     });
   });
 
+  it("shows the organization's bank account by its last four digits only", async () => {
+    const { organizationId } = await onboardOrganization(test.services, support, onboardingInput(plan));
+    await inOrganization(organizationId, (tx) =>
+      tx.organizationProfile.update({ where: { organizationId }, data: { bankAccountNumber: "001234567890" } }),
+    );
+    expect((await getOrganization(test.services, organizationId)).profile?.bankAccountNumber).toBe("XXXX7890");
+  });
+
   it("says when an organization doesn't exist", async () => {
     await expect(getOrganization(test.services, "0199e7a0-0000-7000-8000-0000000000ab")).rejects.toMatchObject({
       reason: "ORGANIZATION_NOT_FOUND",
