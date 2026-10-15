@@ -102,10 +102,16 @@ describe("telling the sharer a link was opened", () => {
   });
 
   it("fits a long label into the title with an ellipsis, never splitting a character", async () => {
+    const family = "\u{1F468}\u200D\u{1F469}\u200D\u{1F467}\u200D\u{1F466}";
+    const ksha = "\u0915\u094D\u0937";
     const labels = {
       longest: `Quotation ${"x".repeat(190)}`,
       // The cut falls on the emoji: both halves of the surrogate pair go, not just one.
       emojiAtTheCut: `${"a".repeat(110)}\u{1F600}${"b".repeat(88)}`,
+      // A family emoji is four emoji joined by zero-width joiners, and "ksha" a conjunct of three code points: each
+      // is one character to a reader, so it goes whole or stays whole.
+      familyAtTheCut: `${"a".repeat(105)}${family}${"b".repeat(84)}`,
+      conjunctAtTheCut: `${"a".repeat(109)}${ksha}${"b".repeat(88)}`,
       justFits: "q".repeat(112),
     };
     const titles: Record<string, string | undefined> = {};
@@ -116,6 +122,8 @@ describe("telling the sharer a link was opened", () => {
     }
     expect(titles.longest).toBe(`Opened: Quotation ${"x".repeat(101)}…`);
     expect(titles.emojiAtTheCut).toBe(`Opened: ${"a".repeat(110)}…`);
+    expect(titles.familyAtTheCut).toBe(`Opened: ${"a".repeat(105)}…`);
+    expect(titles.conjunctAtTheCut).toBe(`Opened: ${"a".repeat(109)}…`);
     expect(titles.justFits).toBe(`Opened: ${labels.justFits}`);
     for (const title of Object.values(titles)) {
       expect(title?.length).toBeLessThanOrEqual(120);

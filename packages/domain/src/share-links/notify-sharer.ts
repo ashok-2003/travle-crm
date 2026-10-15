@@ -14,20 +14,23 @@ export interface NotifySharerDependencies {
 const OPENED = "Opened: ";
 const ELLIPSIS = "…";
 
+/** Characters as a reader sees them: an emoji sequence or an Indic conjunct is one, however many code points it has. */
+const characters = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+
 /**
  * "Opened: <label>" within the notification title's limit. A label may be longer than that allows, so a long one is
- * cut on whole characters (never between the halves of a surrogate pair) and ends with an ellipsis.
+ * cut between whole characters (never inside an emoji, a surrogate pair or a conjunct) and ends with an ellipsis.
  */
 function openedTitle(label: string): string {
   const max = notifyInput.shape.title.maxLength ?? Number.POSITIVE_INFINITY;
   const whole = `${OPENED}${label}`;
   if (whole.length <= max) return whole;
-  // The limit counts UTF-16 code units, as String.length does: an emoji takes two.
+  // The limit counts UTF-16 code units, as String.length does: an emoji takes two, a family of four takes eleven.
   const room = max - OPENED.length - ELLIPSIS.length;
   let kept = "";
-  for (const character of label) {
-    if (kept.length + character.length > room) break;
-    kept += character;
+  for (const { segment } of characters.segment(label)) {
+    if (kept.length + segment.length > room) break;
+    kept += segment;
   }
   return `${OPENED}${kept.trimEnd()}${ELLIPSIS}`;
 }
