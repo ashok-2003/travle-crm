@@ -1,0 +1,15 @@
+{
+  "extends": "@travel-crm/tsconfig/base.json",
+  "compilerOptions": {
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [{ "name": "next" }],
+    "paths": { "@/*": ["./src/*"] }
+  },
+  "include": ["next-env.d.ts", "src", "scripts", "test", "*.ts", ".next/types/**/*.ts", ".next/dev/types/**/*.ts"],
+  // The service worker runs in a worker, not a page: src/service-worker/tsconfig.json checks it with the worker's types.
+  "exclude": ["node_modules", "src/service-worker"]
+}

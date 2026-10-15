@@ -15,11 +15,12 @@
     "lint": "turbo run lint",
     "test": "turbo run test",
     "depcruise": "depcruise apps packages --config .dependency-cruiser.cjs",
-    "check": "pnpm run format:check && turbo run typecheck lint test && pnpm run depcruise",
+    "check": "pnpm run format:check && turbo run typecheck lint test e2e && pnpm run depcruise",
     "db:up": "docker compose up -d --wait postgres",
     "services:up": "docker compose up -d --wait postgres minio mailpit && docker compose run --rm minio-bucket",
     "db:down": "docker compose down",
-    "db:migrate": "pnpm --filter @travel-crm/db db:migrate:deploy"
+    "db:migrate": "pnpm --filter @travel-crm/db db:migrate:deploy",
+    "e2e": "turbo run e2e"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.3",

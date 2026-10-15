@@ -1,0 +1,30 @@
+{
+  "navigation": {
+    "label": "Main",
+    "home": "Home",
+    "staff": "Staff",
+    "roles": "Roles",
+    "settings": "Settings",
+    "more": "More",
+    "account": "Your account",
+    "signOut": "Sign out"
+  },
+  "home": {
+    "title": "Welcome, {name}",
+    "intro": "{organization} runs here. Set it up:",
+    "staff": "Add your staff and give each a role",
+    "roles": "Decide what each role may see and do",
+    "settings": "Choose how your staff sign in",
+    "nothingToSetUp": "Your organization's admins set things up. Your work will appear here as modules arrive."
+  },
+  "session": {
+    "loading": "Opening your organization",
+    "loadFailed": "Your organization didn't load.",
+    "notStaff": "This app is for the staff of an organization. Platform staff use the platform console.",
+    "noAccess": "Your role doesn't include this screen. Ask an Owner or Admin if you need it."
+  },
+  "banners": {
+    "offline": "You're offline. You see what was last loaded, and changes wait until you're back online.",
+    "impersonated": "Support is signed in as you. Everything they do is recorded in the audit log."
+  }
+}
