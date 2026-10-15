@@ -37,7 +37,7 @@ import { seedStarterRoles } from "./seed-starter-roles.js";
 import { setTwoFactorRequirement } from "./settings.js";
 import { createStaffAccount, type CreatedStaff, type PasswordHasher } from "./staff-accounts.js";
 import { staffInviteListener, type InviteDependencies } from "./staff-invites.js";
-import { createStaff, listStaff, removeStaff, resetStaffPassword, updateStaffRole } from "./staff.js";
+import { createStaff, listStaff, removeStaff, resetStaffPassword, updateStaffRole, type SeatLimit } from "./staff.js";
 import { OWNER_ROLE_KEY } from "./starter-roles.js";
 
 export interface IdentityOptions {
@@ -46,6 +46,8 @@ export interface IdentityOptions {
   /** Size of the identity module's connection pool. */
   maxConnections?: number;
   auth: AuthSettings;
+  /** The seats each organization's plan gives; adding staff past them is refused. Unset: no limit. */
+  seatLimit?: SeatLimit | undefined;
 }
 
 /** The first Owner of a new organization. */
@@ -121,7 +123,7 @@ export function createIdentity(options: IdentityOptions): Identity {
     describePlatformStaff: (userId) => describePlatformStaff(database.client, userId),
     staff: {
       list: (actor) => listStaff(database, actor),
-      create: (actor, input) => createStaff(database, hashPassword, actor, input),
+      create: (actor, input) => createStaff(database, hashPassword, actor, input, options.seatLimit),
       updateRole: (actor, input) => updateStaffRole(database, actor, input),
       resetPassword: (actor, input) => resetStaffPassword(database, hashPassword, actor, input),
       remove: (actor, input) => removeStaff(database, actor, input),

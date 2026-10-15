@@ -28,6 +28,14 @@ Who can sign in, to which organization, and what they may do (spec section 6).
   `createOrganizationRecord(tx, { name, code, timeZone, contactEmail })` (the platform role only),
   `insertStarterRoles(tx)`, `inviteOwner(tx, actor, { name, email })` and `requestInvite(tx, actor, memberId)` (inside
   the organization, `asOrganization`). `INVITE_LINK_HOURS` (72), `SEND_INVITE_LISTENER`.
+- Permanent deletion's steps, for the platform's jobs (spec 5): `personExport(tx, organizationId, memberId)` and
+  `erasePerson(tx, organizationId, memberId)` (a removed person's name, addresses, password, sessions, two-factor
+  secret and reset tokens; the membership row stays, so ids still lead somewhere), `organizationUserIds(tx,
+organizationId)` and `deleteUsers(tx, userIds)` (a purge's people, with their sessions and memberships).
+- `memberActivity(tx, organizationIds)`: seats used and the last sign-in's time per organization, for the platform
+  dashboard.
+- `IdentityOptions.seatLimit` (a `SeatLimit`): the seats an organization's plan gives. `staff.create` refuses past them
+  (`LIMIT_REACHED`, `SEAT_LIMIT_REACHED`), holding the organization's row so two additions can't both take the last.
 - `platformStaffRoles` (Better Auth's `user.role` for each level: `admin` for support, `super-admin`) and
   `platformStaffLevelOf(role)`.
 - `permissions`, `permissionCatalog`, `isPermission`, `isScopedPermission`, `moduleOf`, `PermissionSet`: the permission

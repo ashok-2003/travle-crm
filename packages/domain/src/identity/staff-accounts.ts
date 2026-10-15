@@ -24,6 +24,8 @@ export interface NewStaffAccount {
   mustChangePassword: boolean;
   /** Who is adding them, for the audit log. Onboarding leaves it out: the system then adds the first Owner. */
   actor?: Actor | undefined;
+  /** The organization's seats (spec 7.2), or null or left out for no limit. */
+  seatLimit?: number | null | undefined;
 }
 
 export interface CreatedStaff {
@@ -68,6 +70,9 @@ export async function insertStaffAccount(
   assertHasSignInName(account);
   try {
     const organization = await tx.organization.findUniqueOrThrow({ where: { id: account.organizationId } });
+    if (account.seatLimit !== undefined && account.seatLimit !== null) {
+      await assertSeatFree(tx, account.organizationId, account.seatLimit);
+    }
     const role = await findRoleToGive(tx, account.roleKey);
     checkRole?.(role);
     const username = account.username === undefined ? null : internalUsername(organization.code, account.username);
@@ -119,5 +124,17 @@ export async function insertStaffAccount(
 function assertHasSignInName(account: { email?: string | undefined; username?: string | undefined }): void {
   if (account.email === undefined && account.username === undefined) {
     throw new DomainError("VALIDATION", "EMAIL_OR_USERNAME_REQUIRED", "Give an email, a username or both");
+  }
+}
+
+/**
+ * Refuses a new member once the organization's active members fill its seats. The organization's row is held until
+ * the transaction ends, so two people added at once can't both take the last seat.
+ */
+async function assertSeatFree(tx: IdentityTx, organizationId: string, seatLimit: number): Promise<void> {
+  await tx.$queryRaw`SELECT id FROM organization WHERE id = ${organizationId}::uuid FOR UPDATE`;
+  // Soft delete leaves removed members out: they free their seat.
+  if ((await tx.member.count({ where: { organizationId } })) >= seatLimit) {
+    throw new DomainError("LIMIT_REACHED", "SEAT_LIMIT_REACHED", "Every seat on this organization's plan is taken");
   }
 }
