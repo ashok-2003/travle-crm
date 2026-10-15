@@ -10,7 +10,8 @@ export default defineConfig({
   globalTimeout: 10 * 60_000,
   timeout: 30_000,
   workers: 2,
-  forbidOnly: true,
+  // A test.only left in by mistake fails CI; locally it focuses a run.
+  forbidOnly: Boolean(process.env.CI),
   reporter: [["list"]],
   use: { trace: "retain-on-failure" },
   projects: [

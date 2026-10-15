@@ -1,9 +1,13 @@
 // What every journey starts from: the web app's address, and a new organization of its own with an Owner who signs
-// in by email, made directly in the database the way onboarding (plan 4) will. Staff are added the same way.
-import { test as base, expect, type Page } from "@playwright/test";
+// in by email, made directly in the database the way onboarding (plan 4) will. Staff are added the same way. Every
+// journey also ends with an accessibility check of its last screen (accessible-after-each.ts).
+import { expect, type Page } from "@playwright/test";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { createIdentity, type Identity, type MemberAccess } from "@travel-crm/domain/identity";
+import { test as base } from "./accessible-after-each";
+
+export { skipAccessibilityCheck } from "./accessible-after-each";
 
 function environment(name: string): string {
   const value = process.env[name];
@@ -109,6 +113,15 @@ export async function signInByEmail(page: Page, { email, password }: { email: st
   const response = await page.request.post("/api/auth/sign-in/email", {
     data: { email, password },
     // The api accepts sign-ins only from the web app's own origin, which a browser would send.
+    headers: { origin: environment("E2E_BASE_URL") },
+  });
+  expect(response.ok()).toBe(true);
+}
+
+/** Signs staff in with the organization code through the api, as the sign-in screen does. */
+export async function signInByCode(page: Page, { code, staff }: { code: string; staff: Staff }) {
+  const response = await page.request.post("/api/auth/sign-in/org", {
+    data: { orgCode: code, username: staff.username, password: staff.password },
     headers: { origin: environment("E2E_BASE_URL") },
   });
   expect(response.ok()).toBe(true);
