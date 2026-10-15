@@ -50,8 +50,9 @@ Date: 2026-10-15 · Status: accepted · Implements spec sections 3, 11 and 12.1 
 - **Security headers** on every response, with a Content-Security-Policy limited to our own origin, and
   `upgrade-insecure-requests` outside development. The reset-password and two-factor pages also send
   `Referrer-Policy: strict-origin`, so a token in their address never travels as a Referer, not even through the
-  `/api` rewrite into the api's logs. Not `no-referrer`: under it a same-origin POST sends `Origin: null`, which
-  the api's origin checks refuse.
+  `/api` rewrite into the api's logs. Not `no-referrer`: under it a browser's own form POST (not `fetch()`, whose
+  default mode keeps the real `Origin`) sends `Origin: null`, which the api's origin checks refuse; `strict-origin`
+  keeps the token out either way.
 - **`'unsafe-inline'` is an accepted risk.** Scripts and styles allow it: Next.js inlines its boot scripts, and nonces
   would make every page render per request, which the offline shell can't use. That leaves one guard against
   injected script: React escapes everything it renders, and the app never renders HTML from a string, which
