@@ -37,6 +37,17 @@ export interface ExportedFile {
 export const LATE_WRITES_MS = 15 * 60 * 1000;
 
 /**
+ * Where every file of the organization is stored, removed ones and unfinished uploads included: an export that copies
+ * them. The keys are made from the rows (ids only), as for any file.
+ */
+export async function storedFileKeys(tx: OrgTx, organizationId: string): Promise<string[]> {
+  const rows = await withDeleted(() =>
+    tx.attachment.findMany({ where: { organizationId }, select: { organizationId: true, id: true } }),
+  );
+  return rows.map(storageKeyOf);
+}
+
+/**
  * Queues the deletion of every file the organization stored, removed ones and unfinished uploads included, in the
  * purge's own transaction before its rows go: its whole storage folder, swept as soon as the purge commits and again
  * once anything sent late has arrived. Returns how many files its rows held, for the platform log. Also right on an

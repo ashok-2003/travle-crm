@@ -22,8 +22,8 @@ export async function lockSubscription(tx: OrgTx, organizationId: string): Promi
 
 /**
  * Marks every stored export of the organization expired and logs it, in the transaction, and queues the sweep that
- * deletes their files: an erased person must not stay in an export kept for its 7 days. This branch stores no exports
- * yet (wave P's export job does), so nothing is left to expire here.
+ * deletes their files, and returns how many it withdrew: an erased person must not stay in an export kept for its 7
+ * days. This branch stores no exports yet (wave P's export job does), so there are none to expire here.
  */
 /* eslint-disable @typescript-eslint/no-unused-vars -- the stand-in keeps wave P's signature, which uses all four */
 export function expireOrganizationExports(
@@ -31,8 +31,8 @@ export function expireOrganizationExports(
   tx: PlatformTx,
   organizationId: string,
   reason: "erasure",
-): Promise<void> {
-  return Promise.resolve();
+): Promise<number> {
+  return Promise.resolve(0);
 }
 /* eslint-enable @typescript-eslint/no-unused-vars */
 

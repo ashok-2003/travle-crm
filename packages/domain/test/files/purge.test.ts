@@ -14,6 +14,7 @@ import {
   nextFileDeletionDue,
   organizationFolder,
   queueOrganizationFileDeletion,
+  storedFileKeys,
 } from "../../src/files/index.js";
 import { OWNER_ROLE_KEY } from "../../src/identity/index.js";
 import { systemActor } from "../../src/kernel/index.js";
@@ -68,6 +69,22 @@ describe("permanent deletion of files", () => {
       expect.objectContaining({ attachmentId: null, dueAt: now }),
       expect.objectContaining({ attachmentId: null, dueAt: new Date(now.getTime() + LATE_WRITES_MS) }),
     ]);
+  });
+
+  it("finds where every file of the organization is stored, removed ones included, for an export", async () => {
+    const organizationId = await createOrganization(test);
+    const kept = await stored(organizationId, traveller, "Visa.pdf");
+    const removed = await stored(organizationId, traveller, "Old visa.pdf");
+    await test.files.remove(memberOf(organizationId, OWNER_ROLE_KEY), {
+      recordType: "traveller",
+      recordId: traveller,
+      attachmentId: removed.id,
+    });
+    await stored(await createOrganization(test), traveller, "Another agency's visa.pdf");
+    const keys = await platformDb.transaction((tx) => storedFileKeys(tx, organizationId));
+    expect(keys.sort()).toEqual(
+      [kept.id, removed.id].map((id) => `organizations/${organizationId}/attachments/${id}`).sort(),
+    );
   });
 
   it("deletes one record's files and queues their bytes in the same transaction, and nobody else's", async () => {

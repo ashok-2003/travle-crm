@@ -36,6 +36,7 @@ describe("an erasure's stored exports", () => {
     vi.mocked(expireOrganizationExports).mockImplementationOnce(async (_services, tx) => {
       // The same transaction: the record's files are already gone from it.
       seen.push(await tx.attachment.count({ where: { organizationId } }));
+      return 2;
     });
 
     await eraseSubject(test.services, erasureJobOf(sent.data));
@@ -47,5 +48,12 @@ describe("an erasure's stored exports", () => {
       "erasure",
     );
     expect(seen).toEqual([0]);
+    // How many it withdrew is in the erasure's platform log entry.
+    const erased = await test.services.platformDb.transaction((tx) =>
+      tx.platformAuditEntry.findFirstOrThrow({
+        where: { action: "subject.erased", targetOrganizationId: organizationId },
+      }),
+    );
+    expect(erased.after).toMatchObject({ exportsExpired: 2 });
   });
 });
