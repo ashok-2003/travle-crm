@@ -97,24 +97,19 @@ describe("a password-reset sender that fails", () => {
   });
 
   it("keeps the reset link out of the log when sending fails", async () => {
-    const errors = capturedErrors();
+    const logged: string[] = [];
     const url = "http://localhost/api/auth/reset-password/secret-reset-token-123?callbackURL=http%3A%2F%2Flocalhost";
     // A library error that quotes the message it failed to send, link and all.
     const failing: EmailSender = { send: () => Promise.reject(new Error(`could not deliver: ${url}`)) };
     const db = createDatabase(inject("dbUrls").runtime, { maxConnections: 1 });
     try {
-      await passwordResetEmails(
-        failing,
-        createRateLimiter(db, { keySecret }),
-      )({
+      await passwordResetEmails(failing, createRateLimiter(db, { keySecret }), (line) => logged.push(line))({
         to: { name: "Asha", address: `asha-${randomUUID()}@example.test` },
         url,
       });
     } finally {
       await db.disconnect();
     }
-    expect(errors()).toHaveLength(1);
-    expect(errors().join(" ")).toContain("Could not send a password-reset email");
-    expect(errors().join(" ")).not.toContain("secret-reset-token-123");
+    expect(logged).toEqual(["Could not send a password-reset email: Error"]);
   });
 });

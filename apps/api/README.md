@@ -28,14 +28,27 @@ same environment as the api, connects as `app_runtime` too and opens no port. `s
 | `webhooks.process`                        | hands a stored webhook to its provider, once (ADR 0013)                   |
 | `rate-limits.purge`                       | every day at 03:30 India time, deletes rate-limit windows over a day old  |
 
-It also relays the outbox every second. Problems go to one log, a line each, ids and codes only (`worker: ...` on
-stderr; the api's are `api: ...`): a failing job by queue, job id and the error's names and codes, pg-boss's own
-errors and warnings, the relay's failures and jobs whose event wasn't found. No line holds an error's message or the
-error itself. Like the api, it refuses to start when the environment isn't valid, the bucket can't be used or a
-listener or schedule can't be registered: one `worker start-up failed` message with the error in full (nothing has
-run yet), the pools closed, exit 1. Stop it with SIGTERM: it stops relaying,
-lets running jobs finish (up to 30 seconds), closes its pools and exits 0. Run more copies to go faster: pg-boss gives
-each job to one of them.
+It also relays the outbox every second, and logs as the api does (below). Like the api, it refuses to start when the
+environment isn't valid, the database role is wrong, the bucket can't be used or a listener or schedule can't be
+registered. Stop it with SIGTERM: it stops relaying, lets running jobs finish (up to 30 seconds), closes its pools and
+exits 0. Run more copies to go faster: pg-boss gives each job to one of them.
+
+## The log
+
+Both processes write their problems to one log on stderr, a line each, ids and codes only: `api: ...` and
+`worker: ...`. An error appears as its name and code and its causes' (three levels down, `describeError`), never as
+its message or the error itself, which can quote a person's data (a Prisma validation error quotes the query's values).
+
+- **The api:** a tRPC call or a route that fails unexpectedly (`tRPC <path> failed: ...`, `GET /p failed: ...`, never
+  a share link's token), Better Auth's warnings and errors with email addresses and long numbers masked, a reset email
+  that couldn't be sent, the rate limit's warning about requests with no trusted address, and a failed shutdown. A
+  customer whose share link fails gets the "This link doesn't work" page with the usual privacy headers; any other
+  caller gets `{ "code": "INTERNAL_SERVER_ERROR", "message": "Something went wrong" }`.
+- **The worker:** a failing job by queue, job id and error, pg-boss's own errors and warnings, the relay's failures,
+  jobs whose event wasn't found, and a failed shutdown.
+- **Start-up is the one exception.** A process that can't start prints one `<process> start-up failed` message with
+  the error in full, closes its pools and exits 1. Only set-up has run by then, so the error quotes no one's data
+  (`src/start-up.ts`).
 
 ## Environment
 
@@ -48,7 +61,7 @@ each job to one of them.
 | `AUTH_RATE_LIMIT`                          | no       | `true`                  | sign-in rate limiting; off only in development and test                                   |
 | `AUTH_IP_ADDRESS_HEADERS`                  | no       | `x-forwarded-for`       | header(s) the load balancer puts the client's IP in                                       |
 | `AUTH_TRUSTED_PROXIES`                     | no       | none                    | proxy IPs/CIDRs in front of the api; see `.env.example`                                   |
-| `DATABASE_POOL_SIZE`                       | no       | `10`                    | connections per instance                                                                  |
+| `DATABASE_POOL_SIZE`                       | no       | `10`                    | the size of each of the process's two database pools (see below)                          |
 | `S3_BUCKET`                                | yes      |                         | the bucket files and PDFs are stored in; checked at start-up                              |
 | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | yes      |                         | object storage credentials                                                                |
 | `S3_ENDPOINT`                              | no       | AWS S3                  | an S3-compatible server, e.g. MinIO's `http://localhost:59000`                            |
@@ -63,6 +76,10 @@ each job to one of them.
 | `APP_URL`                                  | no       | `http://localhost:3000` | the web app: email links point there; a trusted origin; https in production               |
 | `PORT`                                     | no       | `3001`                  |                                                                                           |
 | `NODE_ENV`                                 | no       | `production`            | production needs https, rate limiting and a strong secret                                 |
+
+A process opens up to `2 × DATABASE_POOL_SIZE + 5` connections: one pool for the database, one for identity, and
+pg-boss's 5. That is 25 by default, and Postgres allows 100. For more than 3 instances (api and worker together), put
+a connection pooler in front of Postgres, or lower the size.
 
 The api never reads `DATABASE_MIGRATOR_URL` or `DATABASE_PLATFORM_URL`: migrations run as a separate step, and only the
 platform module may connect as the role that sees every organization. The public routes' rate-limit key is derived

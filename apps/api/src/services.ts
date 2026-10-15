@@ -24,7 +24,7 @@ export interface Services {
   email: EmailSender;
   push: PushSender;
   rateLimiter: RateLimiter;
-  /** Checks the storage bucket, then starts pg-boss. Call before serving requests or running the worker. */
+  /** Checks the database role and the storage bucket, then starts pg-boss. Call before serving requests or working. */
   start(): Promise<void>;
   /** Stops pg-boss (waiting for running jobs) and closes the database pools. */
   close(): Promise<void>;
@@ -56,8 +56,9 @@ export function createServices(environment: Environment, log: ProcessLog): Servi
     maxConnections: environment.DATABASE_POOL_SIZE,
     auth: {
       ...authSettingsFrom(environment),
+      log,
       passwordReset: {
-        sendEmail: passwordResetEmails(email, rateLimiter),
+        sendEmail: passwordResetEmails(email, rateLimiter, log),
         pageUrl: resetPasswordPageOf(environment.APP_URL),
       },
     },
@@ -93,6 +94,9 @@ export function createServices(environment: Environment, log: ProcessLog): Servi
     push,
     rateLimiter,
     start: async () => {
+      // A DATABASE_URL for the wrong role (app_migrator, say) would otherwise fail every request and job while the
+      // process looked healthy: the first query checks the role, so make one now.
+      await db.withoutOrg(() => Promise.resolve());
       // A wrong bucket name or credentials would otherwise surface only at the first upload: refuse to start.
       await s3.checkBucket();
       await jobs.start();

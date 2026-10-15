@@ -6,6 +6,7 @@ import { createRateLimiter, type RateLimiter } from "@travel-crm/domain/rate-lim
 import { createSmtpEmailSender } from "@travel-crm/integrations/email";
 import { afterAll, beforeAll, expect, inject, onTestFinished, vi } from "vitest";
 import { passwordResetEmails } from "../../src/password-reset-email.js";
+import { processLog } from "../../src/process-log.js";
 import { startMailpit, type Mailpit, type MailpitMessage } from "./mailpit.js";
 import {
   createTestAgency,
@@ -120,7 +121,8 @@ export function useResetKit(): ResetKit {
     limiterDb = createDatabase(inject("dbUrls").runtime, { maxConnections: 2 });
     const smtp = createSmtpEmailSender({ host: mailpit.smtpHost, port: mailpit.smtpPort, secure: false, fromAddress });
     const limiter = createRateLimiter(limiterDb, { keySecret: "password-reset-test-secret-of-32-bytes" });
-    emails = tracked(passwordResetEmails(smtp, pinnedLimiter(limiter, new Date(), kit.capHits)));
+    // A failed send would print an "api: ..." line, which the gate's clean stderr would show.
+    emails = tracked(passwordResetEmails(smtp, pinnedLimiter(limiter, new Date(), kit.capHits), processLog("api")));
     kit.emails = emails;
     server = createTestServer({ passwordReset: { sendEmail: emails.send, pageUrl: resetPage } });
     kit.server = server;

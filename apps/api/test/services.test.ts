@@ -1,7 +1,8 @@
-// What the api runs on is built from the environment: start() refuses to go on when the storage bucket can't be
-// used, before pg-boss starts; the rate limiter's key is derived from the auth secret rather than set apart; the
+// What the api runs on is built from the environment: start() refuses to go on when the database role is wrong or
+// the storage bucket can't be used, before pg-boss starts; the rate limiter's key is derived from the auth secret rather than set apart; the
 // password-reset email goes out through the SMTP sender to APP_URL's reset page; and pg-boss's problems go to the
 // process's one log as ids and codes, with nothing else on the console.
+import { WrongDatabaseRoleError } from "@travel-crm/db";
 import { createPlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { describe, expect, inject, it } from "vitest";
@@ -17,6 +18,15 @@ describe("services", () => {
     const services = createServices(environment(), processLog("api"));
     try {
       await expect(services.start()).rejects.toThrow(`The storage bucket "travel-crm" can't be used: unreachable`);
+    } finally {
+      await services.close();
+    }
+  });
+
+  it("refuses to start when DATABASE_URL isn't the app_runtime role, before it tries the bucket or pg-boss", async () => {
+    const services = createServices(environment({ DATABASE_URL: inject("dbUrls").migrator }), processLog("api"));
+    try {
+      await expect(services.start()).rejects.toThrow(WrongDatabaseRoleError);
     } finally {
       await services.close();
     }

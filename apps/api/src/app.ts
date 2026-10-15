@@ -8,10 +8,12 @@ import type { Identity } from "@travel-crm/domain/identity";
 import type { RateLimiter } from "@travel-crm/domain/rate-limits";
 import { findShareLink, recordShareLinkOpen } from "@travel-crm/domain/share-links";
 import { receiveWebhook, type WebhookProvider } from "@travel-crm/domain/webhooks";
-import type { JobQueue } from "@travel-crm/integrations/jobs";
+import { describeError, type JobQueue } from "@travel-crm/integrations/jobs";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
+import { apiErrorHandler } from "./error-handler.js";
 import { organizationSignIn } from "./org-sign-in.js";
+import type { ProcessLog } from "./process-log.js";
 import { rateLimit } from "./rate-limit.js";
 import { shareLinkResolvers } from "./share-link-resolvers.js";
 import { shareLinkRoutes, tooManyRequestsPage } from "./share-link-route.js";
@@ -30,6 +32,8 @@ export interface ServerDependencies {
   clientAddress: (request: Request) => string | null;
   /** The webhook providers. The Foundation has none; later steps add theirs (Razorpay, WhatsApp). */
   webhookProviders: readonly WebhookProvider[];
+  /** The process's one log: unexpected errors and warnings, a line each of ids, names and codes. */
+  log: ProcessLog;
 }
 
 /**
@@ -55,8 +59,9 @@ function limitBody(maxSize: number) {
 }
 
 export function createApp(dependencies: ServerDependencies): Hono {
-  const { identity, db, files, queue, rateLimiter, clientAddress, webhookProviders } = dependencies;
+  const { identity, db, files, queue, rateLimiter, clientAddress, webhookProviders, log } = dependencies;
   const app = new Hono();
+  app.onError(apiErrorHandler(log));
 
   app.get("/health", (c) => c.json({ status: "ok" }));
 
@@ -80,8 +85,9 @@ export function createApp(dependencies: ServerDependencies): Hono {
       endpoint: "/api/trpc",
       createContext: ({ resHeaders }, c) => createContext({ identity }, c.req.raw, resHeaders),
       onError: ({ error, path }) => {
-        // Refusals (401, 403, 404...) are answers, not faults. Only unexpected errors are logged.
-        if (error.code === "INTERNAL_SERVER_ERROR") console.error(`tRPC ${path ?? "?"} failed`, error);
+        // Refusals (401, 403, 404...) are answers, not faults. Only unexpected errors are logged, by names and codes:
+        // tRPC copies the cause's message into its own, and a Prisma message can quote the query's values.
+        if (error.code === "INTERNAL_SERVER_ERROR") log(`tRPC ${path ?? "?"} failed: ${describeError(error)}`);
       },
     }),
   );
@@ -97,6 +103,7 @@ export function createApp(dependencies: ServerDependencies): Hono {
       ...publicLimits.shareLinks,
       clientAddress,
       refusal: tooManyRequestsPage,
+      log,
     }),
   );
   app.route(
@@ -110,7 +117,7 @@ export function createApp(dependencies: ServerDependencies): Hono {
   );
   app.use(
     "/webhooks/*",
-    rateLimit({ limiter: rateLimiter, name: "webhooks", ...publicLimits.webhooks, clientAddress }),
+    rateLimit({ limiter: rateLimiter, name: "webhooks", ...publicLimits.webhooks, clientAddress, log }),
   );
   app.route(
     "/webhooks",

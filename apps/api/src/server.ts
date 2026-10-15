@@ -1,11 +1,12 @@
 // Starts the api on Node (`pnpm --filter @travel-crm/api-server dev`). All settings come from the environment.
 import { serve } from "@hono/node-server";
+import { describeError } from "@travel-crm/integrations/jobs";
 import { createApp } from "./app.js";
 import { clientAddressFrom } from "./rate-limit.js";
 import { startProcess } from "./start-up.js";
 import { webhookProviders } from "./webhook-providers.js";
 
-const { environment, services } = await startProcess("api", () => undefined);
+const { environment, services, log } = await startProcess("api", () => undefined);
 
 const app = createApp({
   identity: services.identity,
@@ -18,6 +19,7 @@ const app = createApp({
     trustedProxies: environment.AUTH_TRUSTED_PROXIES,
   }),
   webhookProviders,
+  log,
 });
 
 const server = serve({ fetch: app.fetch, port: environment.PORT }, (address) => {
@@ -35,7 +37,7 @@ function shutDown(): void {
         process.exit(0);
       })
       .catch((error: unknown) => {
-        console.error("api shutdown failed", error);
+        log(`shutdown failed: ${describeError(error)}`);
         process.exit(1);
       });
   });

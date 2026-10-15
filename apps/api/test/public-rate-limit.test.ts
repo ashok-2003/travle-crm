@@ -3,7 +3,8 @@
 import { createDatabase, type Database } from "@travel-crm/db";
 import { createRateLimiter } from "@travel-crm/domain/rate-limits";
 import { Hono } from "hono";
-import { afterAll, beforeAll, describe, expect, inject, it, onTestFinished, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import { apiErrorHandler } from "../src/error-handler.js";
 import { clientAddressFrom, rateLimit, resetMissingAddressWarning } from "../src/rate-limit.js";
 
 describe("public rate limit", () => {
@@ -17,6 +18,10 @@ describe("public rate limit", () => {
     await db.disconnect();
   });
 
+  /** What the limits logged: the once-per-process warning, say. */
+  const logged: string[] = [];
+  const log = (line: string) => logged.push(line);
+
   /** A tiny app behind the limit, with a name of its own so tests don't share counts. */
   function limitedApp(limit: number, trustedProxies: readonly string[] = []) {
     const app = new Hono();
@@ -27,6 +32,7 @@ describe("public rate limit", () => {
         limit,
         windowSeconds: 60,
         clientAddress: clientAddressFrom({ headerNames: ["x-forwarded-for"], trustedProxies }),
+        log,
       }),
     );
     app.get("/", (c) => c.text("ok"));
@@ -67,6 +73,7 @@ describe("public rate limit", () => {
             status: 429,
             headers: { "Content-Type": "text/html; charset=utf-8" },
           }),
+        log,
       }),
     );
     app.get("/", (c) => c.text("ok"));
@@ -95,24 +102,20 @@ describe("public rate limit", () => {
 
   it("puts requests with no address in one shared bucket instead of letting them through, and warns once", async () => {
     resetMissingAddressWarning();
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    onTestFinished(() => {
-      warn.mockRestore();
-    });
+    logged.length = 0;
     const app = limitedApp(1);
     expect((await app.request("/")).status).toBe(200);
     expect((await app.request("/")).status).toBe(429);
-    expect(warn).toHaveBeenCalledTimes(1);
-    expect(String(warn.mock.calls[0]?.[0])).toMatch(/no trusted client address.*load balancer/i);
+    expect(logged).toHaveLength(1);
+    expect(logged[0]).toMatch(/no trusted client address.*load balancer/i);
   });
 
   it("fails closed when the database is down: a 500, and the route is not reached", async () => {
-    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    onTestFinished(() => {
-      error.mockRestore();
-    });
     let reached = false;
+    const failures: string[] = [];
     const app = new Hono();
+    // The api's handler: the failure is one line of names in the log.
+    app.onError(apiErrorHandler((line) => failures.push(line)));
     app.use(
       rateLimit({
         limiter: { hit: () => Promise.reject(new Error("rate-limit database down")) },
@@ -120,6 +123,7 @@ describe("public rate limit", () => {
         limit: 5,
         windowSeconds: 60,
         clientAddress: () => "203.0.113.30",
+        log,
       }),
     );
     app.get("/", (c) => {
@@ -128,7 +132,7 @@ describe("public rate limit", () => {
     });
     expect((await app.request("/")).status).toBe(500);
     expect(reached).toBe(false);
-    expect(error).toHaveBeenCalledWith(expect.objectContaining({ message: "rate-limit database down" }));
+    expect(failures).toEqual(["GET / failed: Error"]);
   });
 });
 

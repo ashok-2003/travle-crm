@@ -27,7 +27,13 @@ export interface StartProcessOptions {
  * Starts the process, or exits 1: an invalid environment, a bucket it can't use, a database pg-boss can't reach,
  * adapters that can't be built (a VAPID private key that isn't the public key's) and a failing start of the process's
  * own (a repeated queue name, a schedule pg-boss refuses) all end here, with one "<process> start-up failed" message
- * and the pools closed. The message holds the error in full: nothing has run yet, so it can't quote anyone's data.
+ * and the pools closed.
+ *
+ * The message holds the error in full: the one exception to the ids-only log. What has run by then is set-up: the
+ * environment check, the services' checks (the database role, the bucket) and pg-boss's start, and for the worker its
+ * schedules and queues, whose jobs pg-boss may already have begun. No request has been served and the relay hasn't
+ * started. The error comes from that set-up (a variable, a connection, pg-boss refusing a schedule or a queue), not
+ * from a request or a job, so it quotes no one's data.
  */
 export async function startProcess<T>(
   processName: ProcessName,

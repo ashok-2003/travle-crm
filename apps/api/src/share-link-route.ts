@@ -65,6 +65,12 @@ const pages = {
     advice: "Ask whoever sent it for a new copy.",
   },
   TOO_MANY_TRIES: { status: 429, heading: "Too many tries", advice: "Wait a minute, then open the link again." },
+  // Something failed on our side; the log has what.
+  SERVER_ERROR: {
+    status: 500,
+    heading: "This link doesn't work",
+    advice: "Something went wrong on our side. Try the link again in a few minutes.",
+  },
 } as const;
 
 /** How long a customer is asked to wait for a document the worker is still rendering, in seconds. */
@@ -112,6 +118,11 @@ p{color:${colours.muted};line-height:1.5;margin:0}
 /** The /p routes' answer over the rate limit: a page, like their others, since customers open these in a browser. */
 export function tooManyRequestsPage(retryAfterSeconds: number): Response {
   return errorPage("TOO_MANY_TRIES", retryAfterSeconds);
+}
+
+/** The /p routes' answer to an error nothing handled: the page customers get when a link doesn't work. */
+export function linkFailedPage(): Response {
+  return errorPage("SERVER_ERROR");
 }
 
 /** A resolver's response with the privacy headers added (a copy: Response.redirect's headers can't be changed). */

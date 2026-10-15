@@ -14,6 +14,7 @@ import { createMemoryStorage, type ObjectStorage } from "@travel-crm/integration
 import type { Hono } from "hono";
 import { inject } from "vitest";
 import { createApp } from "../../src/app.js";
+import { processLog, type ProcessLog } from "../../src/process-log.js";
 import { clientAddressFrom } from "../../src/rate-limit.js";
 import type { CookieJar } from "./cookie-jar.js";
 
@@ -47,6 +48,8 @@ export interface TestServerOptions {
   storage?: ObjectStorage;
   /** Where the app queues jobs (webhooks to process); in memory unless given, e.g. pg-boss. */
   queue?: JobQueue;
+  /** The app's log; the api's own unless given, so an unexpected error shows on stderr as "api: ...". */
+  log?: ProcessLog;
 }
 
 export function createTestServer(settings: Partial<AuthSettings> = {}, options: TestServerOptions = {}): TestServer {
@@ -67,6 +70,7 @@ export function createTestServer(settings: Partial<AuthSettings> = {}, options: 
     rateLimiter: createRateLimiter(db, { keySecret: "test-server-rate-limit-secret-of-32-bytes" }),
     clientAddress: clientAddressFrom({ headerNames: ["x-forwarded-for"], trustedProxies: [] }),
     webhookProviders: options.webhookProviders ?? [],
+    log: options.log ?? processLog("api"),
   });
   return {
     app,

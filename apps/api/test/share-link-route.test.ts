@@ -12,7 +12,9 @@ import {
   type OpenedShareLink,
   type ShareLinkVisitor,
 } from "@travel-crm/domain/share-links";
+import { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, inject, it, onTestFinished, vi } from "vitest";
+import { apiErrorHandler } from "../src/error-handler.js";
 import { clientAddressFrom } from "../src/rate-limit.js";
 import { shareLinkRoutes, tooManyRequestsPage, type ShareLinkRouteOptions } from "../src/share-link-route.js";
 
@@ -210,15 +212,31 @@ describe("share-link route", () => {
     }
   });
 
-  it("lets other failures through as server errors", async () => {
-    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    onTestFinished(() => {
-      error.mockRestore();
-    });
-    const response = await routes(() => Promise.reject(new Error("database down"))).request("/abc");
-    expect(response.status).toBe(500);
-    expect(error).toHaveBeenCalledWith(expect.objectContaining({ message: "database down" }));
-    expect(await response.text()).not.toContain("database down");
+  it("lets other failures through to the api's handler: the link page for the customer, a line of names for the log", async () => {
+    const failures: [Error, string][] = [
+      [new Error("database down for jane.doe@example.com"), "GET /p failed: Error"],
+      // A resolver refusing for a reason of its own, e.g. a sensitive file.
+      [
+        new DomainError("FORBIDDEN", "SENSITIVE_FILE", "This file can't be shared"),
+        "GET /p failed: DomainError FORBIDDEN",
+      ],
+    ];
+    for (const [failure, line] of failures) {
+      const logged: string[] = [];
+      const app = new Hono();
+      app.onError(apiErrorHandler((line) => logged.push(line)));
+      app.route(
+        "/p",
+        routes(() => Promise.resolve(opened), { issued_document: () => Promise.reject(failure) }),
+      );
+      const response = await app.request("/p/abc");
+      expect(response.status).toBe(500);
+      expectPrivate(response);
+      const page = await response.text();
+      expect(page).toContain("This link doesn't work");
+      expect(page).not.toMatch(/database down|jane|can't be shared/);
+      expect(logged).toEqual([line]);
+    }
   });
 });
 

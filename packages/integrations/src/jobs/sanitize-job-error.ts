@@ -1,7 +1,8 @@
 // What pg-boss stores about a failed job (its error) has no row-level security and is shown to platform staff, so a
 // handler's error is cut down before pg-boss sees it. The log gets only its names and codes (describeError).
 
-const EMAIL = /[^\s@<>()[\]",;:]+@[^\s@<>()[\]",;:]+\.[^\s@<>()[\]",;:]+/g;
+// An address's local part stops at a URL's own punctuation, so "?to=jane@example.com" keeps "?to=".
+const EMAIL = /[^\s@<>()[\]",;:/?&=#]+@[^\s@<>()[\]",;:]+\.[^\s@<>()[\]",;:]+/g;
 // What a number stands between: neither side may touch a letter, a digit or a hyphen, so digits inside a word, a
 // code or an id are left alone.
 const ALONE_BEFORE = String.raw`(?<![\p{L}\p{N}-])`;
@@ -26,18 +27,24 @@ export function toError(value: unknown): Error {
 }
 
 /**
- * A new Error for pg-boss to store: `Name: message` with email addresses and runs of 7 or more digits masked, at most
- * 200 characters, and no cause, extra properties or original stack. A run is masked only when it stands alone, so
- * UUIDs and other ids stay readable. This is a safety net, not a filter: names, addresses, PAN numbers, phone numbers
+ * Text with email addresses and runs of 7 or more digits masked. A run is masked only when it stands alone, so UUIDs
+ * and other ids stay readable. This is a safety net, not a filter: names, addresses, PAN numbers, phone numbers
  * written with dots or brackets, like (022) 2345.6789, numbers run into a word, and emails without a domain pass
- * through, so messages must stay ids-only.
+ * through, so text meant for a log or a table must stay ids-only.
+ */
+export function maskPersonalData(text: string): string {
+  return text
+    .replace(EMAIL, "[email]")
+    .replace(UUID_OR_LONG_NUMBER, (match, uuid: string | undefined) => (uuid === undefined ? "[number]" : match));
+}
+
+/**
+ * A new Error for pg-boss to store: `Name: message` masked by maskPersonalData, at most 200 characters, and no cause,
+ * extra properties or original stack.
  */
 export function sanitizeJobError(error: unknown): Error {
   const original = toError(error);
-  const text = `${original.name}: ${original.message}`
-    .replace(EMAIL, "[email]")
-    .replace(UUID_OR_LONG_NUMBER, (match, uuid: string | undefined) => (uuid === undefined ? "[number]" : match))
-    .slice(0, MAX_LENGTH);
+  const text = maskPersonalData(`${original.name}: ${original.message}`).slice(0, MAX_LENGTH);
   const sanitized = new Error(text);
   sanitized.stack = text;
   return sanitized;

@@ -4,6 +4,7 @@ import { brand } from "@travel-crm/brand";
 import type { SendPasswordResetEmail } from "@travel-crm/domain/identity";
 import type { RateLimiter } from "@travel-crm/domain/rate-limits";
 import { renderEmail, type EmailSender } from "@travel-crm/integrations/email";
+import { describeError } from "@travel-crm/integrations/jobs";
 
 /**
  * Reset emails one address gets at most: three an hour, counted in Postgres like the public routes' limits, so every
@@ -17,14 +18,15 @@ export function resetPasswordPageOf(appUrl: string): string {
   return `${appUrl.replace(/\/+$/, "")}/reset-password`;
 }
 
-/** What a failure's log line keeps: its code or name. Messages can quote the email, and so the reset link's token. */
-function failureLabel(error: unknown): string {
-  const code = typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
-  if (typeof code === "string" && code !== "") return code;
-  return error instanceof Error ? error.name : "unknown error";
-}
-
-export function passwordResetEmails(email: EmailSender, limiter: Pick<RateLimiter, "hit">): SendPasswordResetEmail {
+/**
+ * Sends the reset email, at most PER_RECIPIENT a recipient. A failure goes to `log` by the error's names and codes:
+ * its message can quote the email, and so the reset link's token.
+ */
+export function passwordResetEmails(
+  email: EmailSender,
+  limiter: Pick<RateLimiter, "hit">,
+  log: (line: string) => void,
+): SendPasswordResetEmail {
   return async ({ to, url }) => {
     try {
       // Over the cap, nothing is sent and nothing said: the request was answered before this ran.
@@ -42,7 +44,7 @@ export function passwordResetEmails(email: EmailSender, limiter: Pick<RateLimite
       await email.send({ to, fromName: brand.emailSenderName, subject: "Reset your password", ...content });
     } catch (error) {
       // Not awaited by the request (the timing would tell whether the address exists), so this is the only report.
-      console.error(`Could not send a password-reset email: ${failureLabel(error)}`);
+      log(`Could not send a password-reset email: ${describeError(error)}`);
     }
   };
 }

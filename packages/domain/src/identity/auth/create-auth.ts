@@ -9,6 +9,7 @@ import { organization } from "better-auth/plugins/organization";
 import { twoFactor } from "better-auth/plugins/two-factor";
 import { username } from "better-auth/plugins/username";
 import { INTERNAL_USERNAME_PATTERN } from "../sign-in-names.js";
+import { authLogger } from "./auth-logger.js";
 import { impersonationAudit } from "./impersonation-audit.js";
 import { passwordResetSender, RESET_LINK_SECONDS, type PasswordResetSettings } from "./password-reset.js";
 import { closeSideDoors } from "./side-doors.js";
@@ -36,6 +37,11 @@ export interface AuthSettings {
   trustedProxies: readonly string[];
   /** Password reset by email: the sender and the reset page. Without it, Better Auth answers "Reset password isn't enabled". */
   passwordReset?: PasswordResetSettings | undefined;
+  /**
+   * The process's one log, for Better Auth's warnings and errors (masked, ids and codes only) and a reset email that
+   * could not be sent. Without it, the console.
+   */
+  log?: ((line: string) => void) | undefined;
 }
 
 const DAY = 60 * 60 * 24;
@@ -48,6 +54,7 @@ export function createAuth(database: IdentityDatabase, settings: AuthSettings) {
     baseURL: settings.baseUrl,
     trustedOrigins: [...settings.trustedOrigins],
     database: prismaAdapter(client, { provider: "postgresql" }),
+    logger: authLogger(settings.log),
     advanced: {
       // Prisma makes the ids: uuid v7, from @default(uuid(7)) in the schema.
       database: { generateId: false },
@@ -76,7 +83,7 @@ export function createAuth(database: IdentityDatabase, settings: AuthSettings) {
       resetPasswordTokenExpiresIn: RESET_LINK_SECONDS,
       ...(settings.passwordReset === undefined
         ? {}
-        : { sendResetPassword: passwordResetSender(settings.passwordReset.sendEmail) }),
+        : { sendResetPassword: passwordResetSender(settings.passwordReset.sendEmail, settings.log) }),
     },
     verification: {
       // A reset link's token is kept only as a hash, so the table can't be read for a working link.

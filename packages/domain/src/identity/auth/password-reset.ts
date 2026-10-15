@@ -23,8 +23,13 @@ export interface PasswordResetSettings {
 /** A reset link's lifetime, in seconds. */
 export const RESET_LINK_SECONDS = 60 * 60;
 
-/** Better Auth's sendResetPassword, around ours. */
-export function passwordResetSender(send: SendPasswordResetEmail) {
+/** Better Auth's sendResetPassword, around ours. A failure the sender didn't report goes to `log` (else the console). */
+export function passwordResetSender(
+  send: SendPasswordResetEmail,
+  log: (line: string) => void = (line) => {
+    console.error(line);
+  },
+) {
   return ({ user, url }: { user: { name: string; email: string }; url: string }): Promise<void> => {
     if (!isPlaceholderEmail(user.email)) {
       // Off the request path entirely, as Better Auth advises: the answer goes out first, so how long sending takes
@@ -34,7 +39,7 @@ export function passwordResetSender(send: SendPasswordResetEmail) {
           .then(() => send({ to: { name: user.name, address: user.email }, url }))
           .catch(() => {
             // The sender logs its own failures. The error itself may quote the link, so it is never printed here.
-            console.error("A password-reset email could not be sent");
+            log("A password-reset email could not be sent");
           });
       });
     }
