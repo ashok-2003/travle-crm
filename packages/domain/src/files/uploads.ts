@@ -14,6 +14,7 @@ import {
   attachmentFields,
   type AttachmentRow,
   findAttachment,
+  isSystemOwnedRecordType,
   storageKeyOf,
   summaryFor,
   toSummary,
@@ -34,6 +35,9 @@ export async function requestUpload(
   actor: Actor,
   input: RequestUploadInput,
 ): Promise<{ attachment: AttachmentSummary; upload: PresignedUpload }> {
+  if (isSystemOwnedRecordType(input.recordType)) {
+    throw new DomainError("FORBIDDEN", "SYSTEM_OWNED_FILE", "Only the system stores files of this record");
+  }
   const limit = storageLimitBytes ? await storageLimitBytes(actor.organizationId) : null;
   // A pending upload counts at once, so a burst of uploads can't overshoot the limit by much. Two requests at the
   // same moment may both pass: the limit is a plan's, not a safety rule.

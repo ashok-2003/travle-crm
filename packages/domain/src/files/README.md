@@ -10,7 +10,8 @@ documents are marked sensitive (spec 5).
   gives an organization's limit (plan 4 passes its plan's), and without it there is none. The `Files` it returns has:
   - `requestUpload(actor, input)`: records a pending file and returns it with the presigned upload (10 minutes) the
     browser sends the file to, with the headers it must send unchanged. Refuses `LIMIT_REACHED`/`STORAGE_LIMIT_REACHED`
-    past the storage limit;
+    past the storage limit, and `FORBIDDEN`/`SYSTEM_OWNED_FILE` for a system-owned record type (only
+    `storeGeneratedFile` writes those);
   - `confirmUpload(actor, { recordType, recordId, attachmentId })`: marks it ready once storage holds the promised
     size and type (`NOT_FOUND`/`UPLOAD_NOT_FOUND`, `VALIDATION`/`UPLOAD_DOES_NOT_MATCH`); harmless to repeat, which is
     the answer to a retried PUT that storage refuses with 412 (the first arrived). Like `list`, it shows a sensitive

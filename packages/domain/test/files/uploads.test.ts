@@ -47,6 +47,29 @@ describe("uploading files", () => {
     expect(await test.files.confirmUpload(sales, ref(attachment))).toEqual(confirmed);
   });
 
+  it("lets only the system store files of a system-owned record, such as an issued document's PDF", async () => {
+    const pdfOfDocument = passportUpload({
+      recordType: "issued_document",
+      fileName: "DOC-2026-0099.pdf",
+      sizeBytes: 9,
+    });
+    for (const actor of [memberOf(organizationId, "org-owner"), systemActor(organizationId)]) {
+      await expect(test.files.requestUpload(actor, pdfOfDocument)).rejects.toMatchObject({
+        code: "FORBIDDEN",
+        reason: "SYSTEM_OWNED_FILE",
+      });
+    }
+    // The system's own path, which renders the PDF, still works.
+    const stored = await test.files.storeGeneratedFile(systemActor(organizationId), {
+      recordType: "issued_document",
+      recordId: pdfOfDocument.recordId,
+      fileName: "DOC-2026-0099.pdf",
+      contentType: "application/pdf",
+      body: bytes("%PDF-1.3 x"),
+    });
+    expect(stored).toMatchObject({ recordType: "issued_document", status: "ready" });
+  });
+
   it("refuses to confirm a file that never arrived, or arrived different", async () => {
     const sales = memberOf(organizationId, "sales");
     const { attachment } = await test.files.requestUpload(sales, passportUpload());
