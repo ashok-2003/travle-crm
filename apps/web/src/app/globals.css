@@ -1,2 +1,149 @@
+/* The app's one stylesheet: Tailwind, the brand's colours, and the design rules of DESIGN.md as theme values. */
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+/* The brand's colours, and only those: it switches Tailwind's own palette (red-500, black, white...) off. */
 @import "../generated/brand.css";
+
+/* No dark theme yet: dark: classes in shadcn components apply only under a .dark class nobody sets. */
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  /* shadcn/ui's colour names, on the brand's roles (DESIGN.md section 2). */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  /* The dialog and sheet scrim: ink at 40 %. */
+  --color-scrim: color-mix(in srgb, var(--brand-ink) 40%, transparent);
+
+  /* Font stacks: the Latin file, its extended twin, then Indian scripts (DESIGN.md section 3). */
+  --font-sans:
+    var(--font-ui-extended), var(--font-ui), "Noto Sans Devanagari Variable", "Noto Sans Bengali Variable",
+    "Noto Sans Tamil Variable", "Noto Sans Telugu Variable", "Noto Sans Gujarati Variable",
+    "Noto Sans Kannada Variable", "Noto Sans Malayalam Variable", "Noto Sans Gurmukhi Variable", system-ui, sans-serif;
+  --font-heading: var(--font-sans);
+  --font-title:
+    var(--font-title-extended), var(--font-title), "Noto Serif Devanagari Variable", "Noto Sans Bengali Variable",
+    "Noto Sans Tamil Variable", "Noto Sans Telugu Variable", "Noto Sans Gujarati Variable",
+    "Noto Sans Kannada Variable", "Noto Sans Malayalam Variable", "Noto Sans Gurmukhi Variable", serif;
+  --font-mono: var(--font-numbers-extended), var(--font-numbers), ui-monospace, monospace;
+
+  /* The type scale (DESIGN.md section 3): text-title, text-body, text-number... */
+  --text-title: 1.875rem;
+  --text-title--line-height: 2.25rem;
+  --text-title-mobile: 1.5rem;
+  --text-title-mobile--line-height: 1.875rem;
+  --text-section: 1rem;
+  --text-section--line-height: 1.5rem;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.375rem;
+  --text-label: 0.8125rem;
+  --text-label--line-height: 1.125rem;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1rem;
+  --text-number: 0.875rem;
+  --text-number--line-height: 1.25rem;
+  --text-number-lg: 1.5rem;
+  --text-number-lg--line-height: 1.875rem;
+
+  /* Radii (DESIGN.md section 4): sm 6px for inputs, lg 10px for cards, xl 14px for dialogs, badge 4px. */
+  --radius-badge: 4px;
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Flat at rest; only floating overlays cast a shadow (DESIGN.md section 5). */
+  --shadow-xs: none;
+  --shadow-sm: none;
+  --shadow-md: var(--overlay-shadow);
+  --shadow-lg: var(--overlay-shadow);
+  --shadow-xl: var(--overlay-shadow);
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+:root {
+  --radius: 0.625rem;
+  --overlay-shadow:
+    0 8px 24px color-mix(in srgb, var(--brand-ink) 10%, transparent),
+    0 1px 2px color-mix(in srgb, var(--brand-ink) 6%, transparent);
+  --background: var(--brand-canvas);
+  --foreground: var(--brand-ink);
+  --card: var(--brand-canvas);
+  --card-foreground: var(--brand-ink);
+  --popover: var(--brand-canvas);
+  --popover-foreground: var(--brand-ink);
+  --primary: var(--brand-action);
+  --primary-foreground: var(--brand-on-action);
+  --secondary: var(--brand-surface);
+  --secondary-foreground: var(--brand-ink);
+  --muted: var(--brand-surface);
+  --muted-foreground: var(--brand-muted);
+  /* Hover and selection: the action tint with its dark blue (the active nav item, a selected row). */
+  --accent: var(--brand-action-tint);
+  --accent-foreground: var(--brand-action-pressed);
+  --destructive: var(--brand-status-bad-ink);
+  --border: var(--brand-hairline);
+  --input: var(--brand-input-border);
+  --ring: var(--brand-action);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    @apply font-sans;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-background text-body text-foreground antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  /* Indian scripts need room for matras and conjuncts (DESIGN.md section 3). */
+  :where(:lang(hi), :lang(mr), :lang(bn), :lang(ta), :lang(te), :lang(gu), :lang(kn), :lang(ml), :lang(pa)) {
+    line-height: 1.6;
+  }
+}
+
+/* Numbers are mono with tabular figures, so columns line up (DESIGN.md section 3). */
+@utility numbers {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Every focusable element shows a 2px action-blue outline 2px away when focused from the keyboard (DESIGN.md
+ * section 8). Left outside any layer on purpose: unlayered rules win over Tailwind's utilities, so a component's
+ * outline-none can't hide it.
+ */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
