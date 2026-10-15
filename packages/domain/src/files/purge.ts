@@ -1,6 +1,7 @@
 // Permanent deletion of files (spec 5): attachment rows and the bytes in storage, gone for good, for the platform's
 // purge of an organization and its erasure of one record's files. Only the platform role may delete attachment rows;
-// until then a removed file stays stored, and counts.
+// until then a removed file stays stored, and counts. The bytes can't go in the transaction, so the transaction queues
+// them in the deletions' outbox (stored-file-deletions.ts), and they go once it commits.
 import type { OrgTx } from "@travel-crm/db";
 import { withDeleted } from "@travel-crm/db";
 import type { ObjectStorage } from "@travel-crm/integrations/storage";
@@ -30,37 +31,48 @@ export interface ExportedFile {
 }
 
 /**
- * Where every file of the organization is stored, removed ones included: what a purge must delete from storage. Read
- * it in the purge's own transaction, before the rows go.
+ * Upload links handed out before a purge work for 10 minutes (uploads.ts), and a PDF render under way stores its file
+ * within seconds: after this long, nothing more can arrive in a purged organization's folder.
  */
-export async function storedFileKeys(tx: OrgTx, organizationId: string): Promise<string[]> {
-  const rows = await withDeleted(() =>
-    tx.attachment.findMany({ where: { organizationId }, select: { organizationId: true, id: true } }),
-  );
-  return rows.map(storageKeyOf);
+export const LATE_WRITES_MS = 15 * 60 * 1000;
+
+/**
+ * Queues the deletion of every file the organization stored, removed ones and unfinished uploads included, in the
+ * purge's own transaction before its rows go: its whole storage folder, swept as soon as the purge commits and again
+ * once anything sent late has arrived. Returns how many files its rows held, for the platform log. Also right on an
+ * organization already purged: its folder is swept again.
+ */
+export async function queueOrganizationFileDeletion(tx: OrgTx, organizationId: string, now: Date): Promise<number> {
+  const files = await withDeleted(() => tx.attachment.count({ where: { organizationId } }));
+  await tx.storedFileDeletion.createMany({
+    data: [now, new Date(now.getTime() + LATE_WRITES_MS)].map((dueAt) => ({
+      targetOrganizationId: organizationId,
+      attachmentId: null,
+      dueAt,
+    })),
+  });
+  return files;
 }
 
 /**
- * Deletes one record's attachment rows, removed ones included, and returns where their bytes are stored, for
- * deleteStoredFiles once the transaction has committed. A system-owned record's files (an issued document's PDF) are
- * refused: they go only with their record, in a purge.
+ * Deletes one record's attachment rows, removed ones included, and queues their bytes' deletion in the same
+ * transaction, due at `now` (the caller's clock, which also decides what is due). Returns how many files went. A
+ * system-owned record's files (an issued document's PDF) are refused: they go only with their record, in a purge.
  */
-export async function deleteRecordFiles(tx: OrgTx, record: FileRecord): Promise<string[]> {
+export async function deleteRecordFiles(tx: OrgTx, record: FileRecord, now: Date): Promise<number> {
   if (isSystemOwnedRecordType(record.recordType)) {
     throw new DomainError("FORBIDDEN", "SYSTEM_OWNED_FILE", "These files belong to their record and go only with it");
   }
   // A plain DELETE: soft delete refuses Prisma's, and only the platform role has the right to it here.
-  const deleted = await tx.$queryRaw<{ organization_id: string; id: string }[]>`
+  const deleted = await tx.$queryRaw<{ id: string }[]>`
     DELETE FROM attachment
     WHERE organization_id = ${record.organizationId}::uuid
       AND record_type = ${record.recordType} AND record_id = ${record.recordId}::uuid
-    RETURNING organization_id, id`;
-  return deleted.map((row) => storageKeyOf({ organizationId: row.organization_id, id: row.id }));
-}
-
-/** Deletes stored bytes by key. Safe to repeat: a key that holds nothing is fine. */
-export async function deleteStoredFiles(storage: ObjectStorage, keys: readonly string[]): Promise<void> {
-  for (const key of keys) await storage.delete(key);
+    RETURNING id`;
+  await tx.storedFileDeletion.createMany({
+    data: deleted.map((row) => ({ targetOrganizationId: record.organizationId, attachmentId: row.id, dueAt: now })),
+  });
+  return deleted.length;
 }
 
 /** The organization's files, or one record's, removed ones included, each with a download link for `linkSeconds`. */

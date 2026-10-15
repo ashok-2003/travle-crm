@@ -3,10 +3,18 @@ export type { DownloadLink, FilesDependencies, GeneratedFile } from "./dependenc
 export { createFiles, type Files } from "./files.js";
 export {
   deleteRecordFiles,
-  deleteStoredFiles,
   exportedFiles,
-  storedFileKeys,
+  LATE_WRITES_MS,
+  queueOrganizationFileDeletion,
   type ExportedFile,
   type FileRecord,
 } from "./purge.js";
+export {
+  deleteQueuedFile,
+  dueFileDeletions,
+  forgetFileDeletion,
+  nextFileDeletionDue,
+  organizationFolder,
+  type StoredFileDeletion,
+} from "./stored-file-deletions.js";
 export { bytesStored } from "./uploads.js";

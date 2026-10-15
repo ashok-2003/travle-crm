@@ -2,6 +2,7 @@
 import type { JobData } from "@travel-crm/integrations/jobs";
 import type { JobHandler } from "../jobs/index.js";
 import { ERASE_SUBJECT_QUEUE, eraseSubject, erasureJobOf } from "./erasure.js";
+import { deleteStoredFilesHandler } from "./file-deletions.js";
 import { PURGE_ORGANIZATION_QUEUE, purgeOrganization } from "./purge.js";
 import type { PlatformServices } from "./services.js";
 
@@ -26,5 +27,6 @@ export function platformJobHandlers(services: PlatformServices): JobHandler[] {
         await eraseSubject(services, erasureJobOf(data));
       },
     },
+    deleteStoredFilesHandler(services),
   ];
 }

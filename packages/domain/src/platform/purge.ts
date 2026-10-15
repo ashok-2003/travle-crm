@@ -1,15 +1,16 @@
 // Purging a whole organization (spec 5): a super admin asks, with the organization's code typed and an export from
-// the last day, once it is cancelled; the console's job then deletes everything, and the platform log keeps the record.
+// the last day, once it is cancelled; the console's job checks all of it again, deletes everything, and the platform
+// log keeps the record. Stored files go once the job commits, through the deletions' outbox (file-deletions.ts).
 import { randomUUID } from "node:crypto";
 import type { QueuedJob, RequestPurgeInput } from "@travel-crm/contracts/platform";
 import { deleteOrganizationRows, type PlatformTx } from "@travel-crm/db/platform";
-import { deleteStoredFiles, storedFileKeys } from "../files/index.js";
+import { queueOrganizationFileDeletion } from "../files/index.js";
 import { deleteUsers, findOrganizationRecord, organizationUserIds } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
-import { getSubscription } from "../subscriptions/index.js";
 import { tombstoneWebhookEvents } from "../webhooks/index.js";
-import { exportedRecently } from "./exports.js";
-import { recordPlatformAudit, type PlatformActor } from "./platform-log.js";
+import { exportedWithinADay } from "./deletion-checks.js";
+import { deleteFilesAfterCommit } from "./file-deletions.js";
+import { recordPlatformAudit } from "./platform-log.js";
 import type { PlatformServices } from "./services.js";
 
 export const PURGE_ORGANIZATION_QUEUE = "platform.purge-organization";
@@ -17,37 +18,62 @@ export const PURGE_ORGANIZATION_QUEUE = "platform.purge-organization";
 /** Big organizations take a while; the purge is one transaction, so nothing is left half done. */
 const PURGE_TIMEOUT_MS = 10 * 60 * 1000;
 
+/** Why an organization can't be purged now: the request refuses with it, and the job skips and logs it. */
+type PurgeBlocker = "not-cancelled" | "no-recent-export";
+
+function refusal(blocker: PurgeBlocker): DomainError {
+  return blocker === "not-cancelled"
+    ? new DomainError("CONFLICT", "CANCEL_FIRST", "Cancel the organization's subscription before purging it")
+    : new DomainError("CONFLICT", "EXPORT_FIRST", "Export the organization's data first (within the last day)");
+}
+
+/**
+ * What stands in the purge's way, checked under the subscription's lock (the one every subscription change takes), so
+ * a payment recorded now waits for the purge, then finds the organization gone, rather than vanishing with it.
+ */
+async function purgeBlocker(
+  tx: PlatformTx,
+  organizationId: string,
+  now: Date,
+): Promise<{ blocker: PurgeBlocker | null; status: string | null }> {
+  const [subscription] = await tx.$queryRaw<{ status: string }[]>`
+    SELECT status FROM subscription WHERE organization_id = ${organizationId}::uuid FOR UPDATE`;
+  const status = subscription?.status ?? null;
+  if (status !== "cancelled") return { blocker: "not-cancelled", status };
+  if (!(await exportedWithinADay(tx, { action: "organization.exported", organizationId }, now))) {
+    return { blocker: "no-recent-export", status };
+  }
+  return { blocker: null, status };
+}
+
 export async function requestPurge(
   services: PlatformServices,
   staff: { userId: string },
   input: RequestPurgeInput,
   now: Date = new Date(),
 ): Promise<QueuedJob> {
-  return services.platformDb.transaction(async (tx) => {
+  await services.platformDb.transaction(async (tx) => {
     const organization = await findOrganizationRecord(tx, input.organizationId);
     if (input.confirmation !== organization.code) {
       throw new DomainError("VALIDATION", "CONFIRMATION_MISMATCH", "Type the organization's code to confirm");
     }
-    if ((await getSubscription(tx, input.organizationId)).status !== "cancelled") {
-      throw new DomainError("CONFLICT", "CANCEL_FIRST", "Cancel the organization's subscription before purging it");
-    }
-    if (!(await exportedRecently(tx, "organization.exported", input.organizationId, now))) {
-      throw new DomainError("CONFLICT", "EXPORT_FIRST", "Export the organization's data first (within the last day)");
-    }
+    const { blocker } = await purgeBlocker(tx, input.organizationId, now);
+    if (blocker !== null) throw refusal(blocker);
     await recordPlatformAudit(tx, staff, {
       action: "organization.purge-requested",
       targetType: "organization",
       targetId: input.organizationId,
       targetOrganizationId: input.organizationId,
     });
-    const jobId = randomUUID();
-    await services.queue.send(
-      PURGE_ORGANIZATION_QUEUE,
-      { organizationId: input.organizationId, requestedBy: staff.userId },
-      { id: jobId },
-    );
-    return { jobId };
   });
+  // Queued once the request is recorded, so no job runs without one; the job checks everything again when it runs.
+  const jobId = randomUUID();
+  await services.queue.send(
+    PURGE_ORGANIZATION_QUEUE,
+    { organizationId: input.organizationId, requestedBy: staff.userId },
+    { id: jobId },
+  );
+  return { jobId };
 }
 
 /** What a purge removed, in the platform log. */
@@ -59,67 +85,62 @@ export interface PurgeResult {
 
 /**
  * The job: deletes the organization's rows (every table, found from the catalog), its people, and its stored files,
- * and blanks its webhook events, then records "organization.purged". An organization already gone is a no-op, so the
- * job is safe to run again; stored files are deleted after the transaction commits. It purges only an organization
- * still cancelled: one a payment made active again since the request is kept, and "organization.purge-skipped" says
- * why. The nightly demo reset, which purges an active demo, says `requireCancelled: false`.
+ * and blanks its webhook events, then records "organization.purged" under the super admin who asked. It checks the
+ * request's conditions again first: an organization a payment made active again, or whose last export is over a day
+ * old by now, is kept, and "organization.purge-skipped" says why. The nightly demo reset, which purges an active demo
+ * that nobody exports, says `requireCancelled: false`, and none of an agency's checks apply.
+ *
+ * Safe to run again: an organization already gone has its storage folder swept again, for anything that reached it
+ * since. Stored files go once the transaction commits, through the deletions' outbox, so a storage error or a restart
+ * after the commit leaves them queued for the console's job, never stored for good.
  */
 export async function purgeOrganization(
   services: PlatformServices,
   job: { organizationId: string; requestedBy: string | null },
-  options: { requireCancelled?: boolean } = {},
+  options: { requireCancelled?: boolean; now?: Date } = {},
 ): Promise<PurgeResult | null> {
-  const purged = await services.platformDb.transaction(
-    async (tx) => {
+  const now = options.now ?? new Date();
+  const actor = { userId: job.requestedBy };
+  const target = { targetType: "organization", targetId: job.organizationId, targetOrganizationId: job.organizationId };
+  const outcome = await services.platformDb.transaction(
+    async (tx): Promise<PurgeResult | "gone" | "skipped"> => {
       const code = await codeOf(tx, job.organizationId);
-      if (code === null) return null;
-      const status = await statusOf(tx, job.organizationId);
-      if ((options.requireCancelled ?? true) && status !== "cancelled") {
-        await recordPlatformAudit(
-          tx,
-          { userId: job.requestedBy },
-          {
-            action: "organization.purge-skipped",
-            targetType: "organization",
-            targetId: job.organizationId,
-            targetOrganizationId: job.organizationId,
-            after: { status },
-          },
-        );
-        return null;
+      if (code === null) {
+        await queueOrganizationFileDeletion(tx, job.organizationId, now);
+        return "gone";
       }
-      const keys = await storedFileKeys(tx, job.organizationId);
+      const { blocker, status } = await purgeBlocker(tx, job.organizationId, now);
+      if ((options.requireCancelled ?? true) && blocker !== null) {
+        await recordPlatformAudit(tx, actor, {
+          action: "organization.purge-skipped",
+          ...target,
+          after: { reason: blocker, status },
+        });
+        return "skipped";
+      }
+      const files = await queueOrganizationFileDeletion(tx, job.organizationId, now);
       const userIds = await organizationUserIds(tx, job.organizationId);
-      const webhooks = await tombstoneWebhookEvents(tx, job.organizationId);
+      const webhooks = await tombstoneWebhookEvents(tx, job.organizationId, { organizationGone: true });
       const deleted = await deleteOrganizationRows(tx, job.organizationId);
       const people = await deleteUsers(tx, userIds);
       const result: PurgeResult = {
         rows: Object.values(deleted).reduce((total, count) => total + count, 0),
         people,
-        files: keys.length,
+        files,
       };
-      const actor: PlatformActor = { userId: job.requestedBy };
       await recordPlatformAudit(tx, actor, {
         action: "organization.purged",
-        targetType: "organization",
-        targetId: job.organizationId,
-        targetOrganizationId: job.organizationId,
+        ...target,
         before: { code },
         after: { ...result, webhooksTombstoned: webhooks.tombstoned, webhooksWaiting: webhooks.waiting },
       });
-      return { result, keys };
+      return result;
     },
     { timeout: PURGE_TIMEOUT_MS },
   );
-  if (!purged) return null;
-  await deleteStoredFiles(services.storage, purged.keys);
-  return purged.result;
-}
-
-/** The subscription's status as stored, or null without one. */
-async function statusOf(tx: PlatformTx, organizationId: string): Promise<string | null> {
-  const subscription = await tx.subscription.findUnique({ where: { organizationId }, select: { status: true } });
-  return subscription?.status ?? null;
+  if (outcome === "skipped") return null;
+  await deleteFilesAfterCommit(services, job.organizationId, now);
+  return outcome === "gone" ? null : outcome;
 }
 
 /** The organization's code, or null once it is gone. */
