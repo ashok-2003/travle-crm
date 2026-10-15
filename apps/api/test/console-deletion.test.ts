@@ -117,7 +117,9 @@ describe("permanent deletion from the console's request to the finished state", 
       where: { targetOrganizationId: organizationId },
       orderBy: { occurredAt: "asc" },
     });
+    // Support's cancellation is a billing change, which the platform log keeps too (ADR 0020).
     expect(log.map((entry) => [entry.action, entry.actorUserId])).toEqual([
+      ["subscription.cancelled", support.userId],
       ["organization.export-requested", superAdmin.userId],
       ["organization.exported", superAdmin.userId],
       ["organization.purge-requested", superAdmin.userId],
