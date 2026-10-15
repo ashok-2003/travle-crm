@@ -10,7 +10,7 @@ export {
   type SubscriptionWriter,
 } from "./advance.js";
 export type { ConsoleActor } from "./console-actor.js";
-export { DEMO_PLAN_KEY, demoPlan } from "./demo-plan.js";
+export { demoPlan } from "./demo-plan.js";
 export {
   createSubscriptionAccess,
   entitlementsOf,
@@ -24,7 +24,7 @@ export { setPaidThrough, setTrialEnd } from "./paid-dates.js";
 export { listPayments, recordPayment, voidPayment, type ProviderPayment } from "./payments.js";
 export { placeholderPlans, seedPlaceholderPlans } from "./placeholder-plans.js";
 export { planLimits, type PlanLimits } from "./plan-limits.js";
-export { archivePlan, createPlan, findPlan, listPlans, updatePlan } from "./plans.js";
+export { archivePlan, createPlan, DEMO_PLAN_KEY, findPlan, listPlans, updatePlan } from "./plans.js";
 export { getSubscriptionPolicy, samePolicy, setSubscriptionPolicy } from "./policy.js";
 export { assertSoldOn, planPriceFor, SUBSCRIPTION_GST_BASIS_POINTS, subscriptionPriceOf } from "./pricing.js";
 export {

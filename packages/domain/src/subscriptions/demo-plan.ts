@@ -5,11 +5,8 @@ import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import { planModules } from "@travel-crm/contracts/subscriptions";
 import type { OrgTx } from "@travel-crm/db";
 import { DomainError } from "../kernel/index.js";
-import { planColumns } from "./plans.js";
+import { DEMO_PLAN_KEY, planColumns } from "./plans.js";
 import { planSummaryOf } from "./rows.js";
-
-/** The demo plan's key: stable, so each night's reset finds it again. */
-export const DEMO_PLAN_KEY = "platform-demo";
 
 /** Every module, room for the demo's staff and its files, and no price: nobody pays for the demo. */
 const demoPlanFields = {
@@ -25,8 +22,9 @@ const demoPlanFields = {
 
 /**
  * The demo's plan, made the first time it is asked for and found again after: what the demo reset subscribes the demo
- * organization to, monthly. A plan for sale that already has the key is never taken over (DEMO_PLAN_KEY_TAKEN). The
- * platform role only.
+ * organization to, monthly. The console can't create a plan with its key (PLAN_KEY_RESERVED) nor archive it
+ * (DEMO_PLAN_LOCKED); a plan for sale that already had the key, from before that, is never taken over
+ * (DEMO_PLAN_KEY_TAKEN). The platform role only.
  */
 export async function demoPlan(tx: OrgTx): Promise<PlanSummary> {
   const plan = planSummaryOf(

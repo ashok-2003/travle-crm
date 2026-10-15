@@ -77,7 +77,9 @@ for 7.2 (amending ADR 0020)
   agency's own staff never see a price. No migration seeds a plan, as the prices aren't confirmed, and plans are
   global, so nothing seeds the tiers outside tests (`seedPlaceholderPlans`: placeholder Starter, Growth and Pro). The
   demo has its own plan, not for sale (`demoPlan`): never listed for onboarding nor accepted there, and put on an
-  organization only by the platform's own demo job.
+  organization only by the platform's own demo job. Its key is reserved (`PLAN_KEY_RESERVED`) and it can't be archived
+  (`DEMO_PLAN_LOCKED`), since nothing un-archives a plan and the nightly reset purges the demo before it subscribes
+  the new one.
 - **Support's impersonation ends with its session.** `protectedProcedure` trusts the 5-minute cookie cache, except
   for an impersonation session: that one is read from the database on every request, and its admin re-checked as
   platform staff. Stopping, the hour running out, or the admin losing platform access ends it at once, not up to five
