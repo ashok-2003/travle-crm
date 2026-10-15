@@ -20,7 +20,7 @@ export function StaffScreen() {
   const trpc = useTRPC();
   // Always asked again when the screen opens: the copy restored from IndexedDB after a reload can predate a change
   // made a moment earlier, such as someone just removed.
-  const staff = useQuery({ ...trpc.staff.list.queryOptions(), refetchOnMount: "always" });
+  const staff = useQuery(trpc.staff.list.queryOptions());
   const roles = useQuery(trpc.roles.list.queryOptions());
 
   const body = () => {

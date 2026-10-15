@@ -22,3 +22,4 @@ The first and largest set of decisions is the Foundation spec: `docs/superpowers
 | [0015](0015-audit-log.md)                 | The audit log: append-only, in the change's transaction, impersonation recorded            |
 | [0016](0016-money-tax-and-time.md)        | Money in integer paise, the tax engine and India GST, time zones, phone numbers            |
 | [0017](0017-brand-package.md)             | The brand package: one source of truth, the product-name check, generated icons            |
+| [0018](0018-web-app.md)                   | The web app: same origin, the api's types only, brand tokens, the saved cache, the PWA     |

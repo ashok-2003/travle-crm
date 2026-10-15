@@ -21,7 +21,7 @@ export function RoleEditorScreen({ roleKey }: { roleKey: string }) {
   const trpc = useTRPC();
   // An editor starts from the api's latest answer: a copy restored from IndexedDB can be a few seconds older than a
   // save just made, and saving from it would undo that save.
-  const roles = useQuery({ ...trpc.roles.list.queryOptions(), refetchOnMount: "always" });
+  const roles = useQuery(trpc.roles.list.queryOptions());
   const catalog = useQuery(trpc.roles.permissionCatalog.queryOptions());
   const role = roles.data?.find((entry) => entry.key === roleKey);
 

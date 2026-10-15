@@ -18,7 +18,7 @@ export function RolesScreen() {
   const tCommon = useTranslations("common");
   const trpc = useTRPC();
   // Always asked again when the screen opens: the copy restored from IndexedDB can predate a change just made.
-  const roles = useQuery({ ...trpc.roles.list.queryOptions(), refetchOnMount: "always" });
+  const roles = useQuery(trpc.roles.list.queryOptions());
 
   const body = () => {
     if (roles.data) {

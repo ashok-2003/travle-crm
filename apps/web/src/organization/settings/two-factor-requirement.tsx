@@ -27,7 +27,7 @@ export function TwoFactorRequirement() {
   const { apiError } = useErrorMessage();
   const trpc = useTRPC();
   // Always asked again when the screen opens: the copy restored from IndexedDB can predate a change just made.
-  const settings = useQuery({ ...trpc.settings.get.queryOptions(), refetchOnMount: "always" });
+  const settings = useQuery(trpc.settings.get.queryOptions());
   const change = useSetTwoFactorRequirement();
 
   if (!settings.data) {

@@ -45,6 +45,6 @@
     "INVALID_TWO_FACTOR_COOKIE": "Your sign-in timed out. Start again.",
     "TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE": "Too many wrong codes. Start signing in again.",
     "INVALID_TOKEN": "This reset link has expired or was used already. Ask for a new one.",
-    "RESET_NOT_AVAILABLE": "Password reset by email isn't available yet. Ask your organization's admin."
+    "RESET_PASSWORD_DISABLED": "Password reset by email isn't available yet. Ask your organization's admin."
   }
 }

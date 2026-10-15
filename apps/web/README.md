@@ -22,6 +22,15 @@ load balancer instead, and the api's `TRUSTED_ORIGINS` (or `BETTER_AUTH_URL`) mu
 - `DESIGN.md` at the repository root holds the design rules. Its palette must equal `brand.colours`
   (`test/design-tokens.test.ts`).
 - `security-headers.ts`: the headers every response carries.
+- `src/data/`: the tRPC client, the TanStack Query cache saved to IndexedDB, the sign-in calls (`auth-client.ts`), and
+  signing out (`session.ts`), which wipes the cache here and in other tabs.
+- `src/session/` and `src/shell/`: the session gate (me.get, pending steps), the navigation by permission, banners.
+- `src/account/`, `src/organization/`: the account and organization screens; `src/pwa/`, `src/service-worker/`: the
+  installable app and its offline shell.
+- `src/i18n/messages/en-IN/`: every word on screen, one file per feature.
+- `test/`: Vitest unit and component tests; `test/e2e/`: Playwright journeys. `pnpm --filter @travel-crm/web e2e`
+  starts a throwaway Postgres, the api and a fresh build on free ports (Docker must be running; install Chromium
+  once with `pnpm --filter @travel-crm/web exec playwright install chromium`).
 - `turbopack/workspace-imports-loader.cjs`: our packages import `./file.js` for `./file.ts`, which Turbopack can't
   map yet (vercel/next.js#82945); the loader drops the `.js` for files under `packages/*/src`. Remove it when
   Turbopack resolves such imports itself.

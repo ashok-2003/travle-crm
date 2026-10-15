@@ -28,7 +28,7 @@ describe("ForgotPasswordForm", () => {
     renderScreen(<ForgotPasswordForm auth={{ requestPasswordReset }} />);
     await userEvent.type(screen.getByLabelText(account.fields.email), "asha@example.in");
     await userEvent.click(screen.getByRole("button", { name: account.forgotPassword.submit }));
-    expect(await screen.findByText(errors.auth.RESET_NOT_AVAILABLE)).toBeVisible();
+    expect(await screen.findByText(errors.auth.RESET_PASSWORD_DISABLED)).toBeVisible();
   });
 });
 

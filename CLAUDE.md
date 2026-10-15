@@ -105,3 +105,21 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - `packages/brand`: the product's name, colours, fonts and contacts (spec 10).
 - `packages/db`: Prisma schema, migrations, RLS, `forOrg`, soft delete, document numbers.
 - `packages/tsconfig`, `packages/eslint-config`: shared settings (the ESLint config holds the raw-SQL guard).
+
+## The web app (`apps/web`, ADR 0018)
+
+- `pnpm --filter @travel-crm/web dev` runs it on http://localhost:3000 with the api on :3001 (`/api/*` is rewritten to
+  `API_ORIGIN`). `pnpm e2e` runs the journeys against a real api and Postgres; once per machine, first run
+  `pnpm --filter @travel-crm/web exec playwright install chromium`. `pnpm check` runs them too.
+- It imports the api's types only (`import type { AppRouter }`); at run time just the brand, the contracts' schemas
+  and the kernel's formatting. Data comes from tRPC hooks (`useTRPC()`); server-rendered HTML holds no organization
+  data, because the service worker keeps pages for offline use.
+- Colours come from the brand's tokens (`bg-canvas`, `text-status-bad-ink`, shadcn's `bg-primary`...), never a literal;
+  a test refuses `#hex`, `rgb()` and Tailwind's palette. DESIGN.md holds the design rules; its palette must equal
+  `brand.colours`.
+- Every word on screen is a next-intl message in the feature's file in `src/i18n/messages/en-IN/`; a refusal shows the
+  sentence for its reason (`errors.json`, `useErrorMessage()`).
+- shadcn components: `pnpm dlx shadcn@4.21.4 add <name>` from `apps/web`, then the checks in
+  `src/components/ui/README.md`.
+- Never show a `.invalid` email, and never read people from Better Auth's `/get-session`: `me.get` says who is signed
+  in. Hiding a button is a convenience; the api checks every call.

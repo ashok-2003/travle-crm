@@ -19,14 +19,6 @@ import { TextField } from "./text-field";
 
 const resetRequest = z.strictObject({ email: emailAddress });
 
-/**
- * Until the api sends reset email (plan 3, Task I3), Better Auth answers RESET_PASSWORD_DISABLED; it is shown as
- * "not available yet" rather than as a mistake in the address.
- */
-function asShown(failure: AuthFailure): AuthFailure {
-  return failure.code === "RESET_PASSWORD_DISABLED" ? { ...failure, code: "RESET_NOT_AVAILABLE" } : failure;
-}
-
 export function ForgotPasswordForm({ auth = authClient }: { auth?: Pick<AuthClient, "requestPasswordReset"> }) {
   const t = useTranslations("account.forgotPassword");
   const tFields = useTranslations("account.fields");
@@ -46,7 +38,7 @@ export function ForgotPasswordForm({ auth = authClient }: { auth?: Pick<AuthClie
       redirectTo: `${window.location.origin}${routes.resetPassword}`,
     });
     if (result.ok) setSent(true);
-    else setFailure(asShown(result));
+    else setFailure(result);
   });
 
   if (sent) {
