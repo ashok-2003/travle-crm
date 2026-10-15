@@ -23,12 +23,20 @@ const output: CommandOutput = {
   },
 };
 
-const [name = "", ...args] = process.argv.slice(2);
-const command = commands[name];
-if (command === undefined) {
-  output.stderr(`Usage: console-command <${Object.keys(commands).join(" | ")}> [arguments]`);
-  process.exit(1);
+/** Ends the process once what it printed has left: a pipe may still hold it, and exiting would drop it. */
+async function exitWhenPrinted(code: number): Promise<never> {
+  await Promise.all([process.stdout, process.stderr].map((stream) => new Promise((done) => stream.write("", done))));
+  process.exit(code);
 }
+
+/** A name that isn't one of the commands: says which there are, and ends the process. */
+async function usage(): Promise<never> {
+  output.stderr(`Usage: console-command <${Object.keys(commands).join(" | ")}> [arguments]`);
+  return exitWhenPrinted(1);
+}
+
+const [name = "", ...args] = process.argv.slice(2);
+const command = commands[name] ?? (await usage());
 
 const { services, log, running } = await startProcess("console", startConsolePlatform);
 let code = 1;
@@ -45,6 +53,4 @@ try {
   log(`shutdown failed: ${describeError(error)}`);
   code = 1;
 }
-// A pipe may still hold what was printed: let it drain before the process ends.
-await Promise.all([process.stdout, process.stderr].map((stream) => new Promise((done) => stream.write("", done))));
-process.exit(code);
+await exitWhenPrinted(code);

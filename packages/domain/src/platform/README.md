@@ -52,7 +52,8 @@ organizationId)` records a `platform_export` row and queues `EXPORT_ORGANIZATION
   password, which nothing stores but as a hash), `setPlatformStaffLevel(services, staff, { userId, level })` and
   `removePlatformStaff(services, staff, { userId })`; `addFirstSuperAdmin(services, { name, email })`, the one-off
   command's. Each is one platform transaction: identity's write under its platform staff lock, and a log entry of ids
-  and levels (target type `platform_staff`).
+  and levels (target type `platform_staff`). An impersonation a removal or a reset ends gets a
+  `support.impersonation-stopped` entry in its member's organization's log.
 - `recordPlatformAudit(tx, actor, { action, targetType, targetId, targetOrganizationId?, before?, after? })`: writes
   one entry in the platform log, in the platform transaction that makes the change. `actor` is `{ userId }`, the
   platform admin, or `{ userId: null }` for the platform's own jobs.

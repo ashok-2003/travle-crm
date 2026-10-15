@@ -53,9 +53,11 @@ Who can sign in, to which organization, and what they may do (spec section 6).
   `replacePlatformStaffPassword(tx, actor, { userId, passwordHash })`; `platformStaffAccounts(tx)`, the list, removed
   people included; `temporaryPassword()`. Each change takes one advisory lock first, then checks the actor is still a
   super admin (`SUPER_ADMIN_ONLY`), that no member or former member gets a level (`EVER_A_MEMBER`, by user or by
-  address, a removed member's former one included), and that a super admin remains (`LAST_SUPER_ADMIN`). A removal
-  clears the role, bans the user and deletes their sessions and the impersonations they started; the row and its
-  address stay (`STAFF_EMAIL_TAKEN`). A demotion keeps the impersonations: support may impersonate.
+  address, a removed member's former one included), and that a super admin able to act remains (`LAST_SUPER_ADMIN`;
+  one still to replace a temporary password doesn't count). A removal clears the role, bans the user and deletes
+  their sessions and the impersonations they started, as a new temporary password does; both return those
+  impersonations (`EndedImpersonation`), for the caller to record. The row and its address stay
+  (`STAFF_EMAIL_TAKEN`). A demotion keeps the impersonations: support may impersonate.
 - `permissions`, `permissionCatalog`, `isPermission`, `isScopedPermission`, `moduleOf`, `PermissionSet`: the permission
   catalog.
 - `assertMayHandleRole`, `assertMayManageMember`, `assertRoleIsEditable`, `permissionSetFromInput`: the no-escalation

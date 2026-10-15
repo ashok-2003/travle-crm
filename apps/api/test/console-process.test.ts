@@ -133,4 +133,10 @@ describe("the console process", () => {
       }
     },
   );
+
+  it("names its commands when given another, before starting anything", { timeout: 30_000 }, async () => {
+    const unknown = startScript(["src/console-command.ts", "make-tea"]);
+    expect(await unknown.exited).toBe(1);
+    expect(unknown.output()).toBe("Usage: console-command <first-super-admin | demo> [arguments]\n");
+  });
 });

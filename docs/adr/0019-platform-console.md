@@ -29,19 +29,27 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 4 (the `app_pla
   itself through `whoAmI`). Identity writes `user.role` in the console's platform transaction, beside the platform
   log's entry, never through Better Auth. Every change first takes one lock (`pg_advisory_xact_lock` on a fixed key)
   and checks everything after it, the acting super admin included, so changes take turns: two super admins demoting
-  or removing each other leave one, and the last super admin can't be demoted or removed (`LAST_SUPER_ADMIN`).
+  or removing each other leave one, and the last super admin can't be demoted or removed (`LAST_SUPER_ADMIN`). A
+  super admin still to replace a temporary password doesn't count as another: nobody can add one and leave, handing
+  the platform to someone who may never sign in (the first-run command counts them, though, so it makes one only).
   Every write checks `hasEverBeenMember`: a member, a removed one, or someone coming back by the address they had
-  before their removal never gets a level (`EVER_A_MEMBER`).
+  before their removal never gets a level (`EVER_A_MEMBER`). After a DPDP erasure, which clears that former address,
+  only the person's own user id is checked: a new account at the same address can't be told apart from a stranger's.
   - **Adding** makes a user with no membership, a password account and `mustChangePassword`: the temporary password
     is in the response alone, never logged, emailed, stored in the log or carried by a job. A taken address is
     `STAFF_EMAIL_TAKEN`. A super admin can also set a new temporary password (`resetPassword`), which ends every
-    session the person has; platform staff may also reset their own by email, like anyone.
+    session the person has, the impersonations they started included; platform staff may also reset their own by
+    email, like anyone.
   - **Demoting** a super admin to support keeps the impersonations they started: support may impersonate.
   - **Removing** clears the role (`describePlatformStaff` reads the role, not the ban), bans the user ("Removed from
     platform staff") and deletes their sessions and every session whose `impersonated_by` is them, in the same
     transaction: their next console call is a 401, and the api's per-request check refuses the impersonated member's
     next request. The user row stays, so the logs' ids still resolve, and so does its address: adding it again is
     `STAFF_EMAIL_TAKEN`. Restoring a removed person is a later feature.
+  - **An impersonation a removal or a new temporary password ends** is recorded in the member's organization's audit
+    log as `support.impersonation-stopped`, as a stop through Better Auth is: the super admin acts (source `platform`),
+    and the entry names the impersonating admin, the session's end and the reason (`removed-from-platform-staff`,
+    `password-reset`). One that simply runs out its hour has no stop entry; its start entry already says when it ends.
   - **Two-factor is required of platform staff.** Plan 5B enforces it once the console's screens can set it up, as
     the step after a new password; the staff list shows `twoFactorEnabled` already, so nothing built now changes.
   - **The first super admin** comes from a one-off command run with the console's environment, never over HTTP:
@@ -129,4 +137,6 @@ adminUserId)`), not as the system.
   `packages/api/src/platform/`) and tests, and `@travel-crm/api/platform`, the console's routers, to the console's own
   files, so the api and the worker never load the platform's code.
 - Removed platform staff can't be restored yet: their address stays taken until a later feature brings them back.
-  Two-factor for platform staff is required but not yet enforced (plan 5B).
+  Their password hash stays too, refused only by the ban, so a restore must set a new temporary password (as
+  `resetPassword` does), never just lift the ban. Two-factor for platform staff is required but not yet enforced
+  (plan 5B).
