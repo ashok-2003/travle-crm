@@ -36,12 +36,17 @@ transaction to `orgId`'s rows; outside it, queries see nothing.
 | `@travel-crm/db/platform`             | the platform module only    | transactions that see every organization, and `asOrganization` inside them    |
 | `@travel-crm/db/webhooks`             | the webhooks module only    | `webhookEvents(tx)`: the `webhook_event` table, in `db.withoutOrg()`          |
 | `@travel-crm/db/rate-limits`          | the rate-limits module only | `rateLimitCounters(tx)`: the `rate_limit_counter` table, in `db.withoutOrg()` |
-| `@travel-crm/db/testing`              | tests only                  | `createTestOrganization`, the `DbUrls` type                                   |
+| `@travel-crm/db/testing`              | tests only                  | `createTestOrganization`, `createIsolatedDatabase`, the `DbUrls` type         |
 | `@travel-crm/db/testing/global-setup` | other packages' Vitest      | the throwaway Postgres; `inject("dbUrls")` in tests                           |
 
 dependency-cruiser enforces the "only" column. Another package's `vitest.config.ts` uses the test database like this:
 
     globalSetup: [createRequire(import.meta.url).resolve("@travel-crm/db/testing/global-setup")],
+
+A package's test files share that one database and run at once. A test of a rule that counts across the whole
+database (the last super admin, say), which other files' rows would upset, runs on a database of its own:
+`createIsolatedDatabase(inject("dbUrls"))` copies the migrated one (global-setup keeps a copy before any test runs) and
+gives the same roles' URLs for it; `drop()` it afterwards.
 
 ## Adding a table that belongs to an organization
 

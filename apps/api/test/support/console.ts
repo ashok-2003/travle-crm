@@ -1,6 +1,6 @@
-// The platform console on the test database, beside a test server whose identity it shares (so the server's sign-in
-// cookies work here): its services, on in-memory storage and jobs unless a test passes real ones, its HTTP app,
-// and calls to a part of its router before that part joins platformRouter.
+// The platform console on the test server's database, beside the server, whose identity it shares (so the server's
+// sign-in cookies work here): its services, on in-memory storage and jobs unless a test passes real ones, its HTTP
+// app, and calls to a part of its router before that part joins platformRouter.
 import { createPlatformContext } from "@travel-crm/api/platform";
 import { createDatabase } from "@travel-crm/db";
 import { createPlatformServices, type PlatformServices } from "@travel-crm/domain/platform";
@@ -14,7 +14,6 @@ import { createMemoryStorage, type ObjectStorage } from "@travel-crm/integration
 import type { AnyTRPCRouter } from "@trpc/server";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import type { Hono } from "hono";
-import { inject } from "vitest";
 import { createConsoleApp } from "../../src/console-app.js";
 import { CookieJar } from "./cookie-jar.js";
 import { ORIGIN, signInByEmail, type TestServer } from "./test-server.js";
@@ -34,7 +33,7 @@ export interface TestConsoleOptions {
 }
 
 export function createTestConsole(server: TestServer, options: TestConsoleOptions = {}): TestConsole {
-  const urls = inject("dbUrls");
+  const { urls } = server;
   const db = createDatabase(urls.runtime, { maxConnections: 2 });
   const lines: string[] = [];
   const services = createPlatformServices({

@@ -6,7 +6,7 @@ import { planModules } from "@travel-crm/contracts/subscriptions";
 import { createDatabase, isUniqueViolation, type Database } from "@travel-crm/db";
 import type { PlatformClient } from "@travel-crm/db/platform";
 import { createPlatformClient } from "@travel-crm/db/platform";
-import { createTestOrganization } from "@travel-crm/db/testing";
+import { createTestOrganization, type DbUrls } from "@travel-crm/db/testing";
 import { createFiles, type Files } from "@travel-crm/domain/files";
 import { createIdentity, type AuthSettings, type Identity } from "@travel-crm/domain/identity";
 import { createProfiles } from "@travel-crm/domain/profile";
@@ -43,6 +43,8 @@ export interface TestServer {
   db: Database;
   files: Files;
   platform: PlatformClient;
+  /** The database it runs on, for a console beside it. */
+  urls: DbUrls;
   close(): Promise<void>;
 }
 
@@ -54,10 +56,12 @@ export interface TestServerOptions {
   queue?: JobQueue;
   /** The app's log; the api's own unless given, so an unexpected error shows on stderr as "api: ...". */
   log?: ProcessLog;
+  /** The database to run on: the test run's shared one, unless a file needs one of its own (createIsolatedDatabase). */
+  dbUrls?: DbUrls;
 }
 
 export function createTestServer(settings: Partial<AuthSettings> = {}, options: TestServerOptions = {}): TestServer {
-  const urls = inject("dbUrls");
+  const urls = options.dbUrls ?? inject("dbUrls");
   const db = createDatabase(urls.runtime, { maxConnections: 3 });
   const subscriptions = createSubscriptionAccess({ db });
   const limits = planLimits(subscriptions);
@@ -91,6 +95,7 @@ export function createTestServer(settings: Partial<AuthSettings> = {}, options: 
     db,
     files,
     platform,
+    urls,
     close: async () => {
       await identity.disconnect();
       await db.disconnect();
