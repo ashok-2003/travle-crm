@@ -53,14 +53,19 @@ export interface ExportRow {
 
 type ExportPlace = Pick<ExportRow, "id" | "targetOrganizationId">;
 
-/** Where an export's part is stored: the platform's prefix, never the organization's, which a purge sweeps. Ids only. */
+/** The export's own folder: the platform's prefix, never the organization's, which a purge sweeps. Ids only. */
+export function exportFolder(row: ExportPlace): string {
+  return `platform/exports/${row.targetOrganizationId}/${row.id}/`;
+}
+
+/** Where an export's part is stored, numbered from 1. */
 export function exportPartKey(row: ExportPlace, part: number): string {
-  return `platform/exports/${row.targetOrganizationId}/${row.id}/${String(part).padStart(5, "0")}.jsonl`;
+  return `${exportFolder(row)}${String(part).padStart(5, "0")}.jsonl`;
 }
 
 /** Where an export keeps its copy of one of the organization's files, by the file's (attachment's) id. */
 export function exportFileKey(row: ExportPlace, attachmentId: string): string {
-  return `platform/exports/${row.targetOrganizationId}/${row.id}/files/${attachmentId}`;
+  return `${exportFolder(row)}files/${attachmentId}`;
 }
 
 function exportOf(row: ExportRow): OrganizationExport {

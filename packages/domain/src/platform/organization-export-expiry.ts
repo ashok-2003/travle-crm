@@ -3,9 +3,16 @@
 // The row stays, ids and counts only. Marking first, under the row's lock, means the job writing an export can store
 // nothing the clearing then misses (export-storage.ts).
 import type { PlatformTx } from "@travel-crm/db/platform";
-import { EXPIRE_EXPORTS_QUEUE, EXPORT_JOB_SECONDS, exportFileKey, exportPartKey } from "./organization-export.js";
+import {
+  EXPIRE_EXPORTS_QUEUE,
+  EXPORT_JOB_SECONDS,
+  exportFileKey,
+  exportFolder,
+  exportPartKey,
+} from "./organization-export.js";
 import { recordPlatformAudit } from "./platform-log.js";
 import type { PlatformServices } from "./services.js";
+import { deletePrefix } from "./storage-stand-in.js";
 
 /** Why an export ended before its time. */
 export type ExportWithdrawalReason = "erasure";
@@ -72,7 +79,10 @@ export async function expireOrganizationExports(
   return withdrawn;
 }
 
-/** Deletes an expired export's parts and file copies from storage. Safe to repeat: a key holding nothing is fine. */
+/**
+ * Deletes an expired export's parts and file copies from storage, those counted and recorded, then everything else
+ * under its own folder: what an attempt that died between storing and recording left. Safe to repeat.
+ */
 async function clearExport(services: PlatformServices, row: { id: string; targetOrganizationId: string }) {
   const { partsWritten } = await services.platformDb.transaction((tx) =>
     tx.platformExport.findUniqueOrThrow({ where: { id: row.id }, select: { partsWritten: true } }),
@@ -94,9 +104,10 @@ async function clearExport(services: PlatformServices, row: { id: string; target
           .map((copy) => services.storage.delete(exportFileKey(row, copy.attachmentId))),
       );
     }
-    if (copies.length < PAGE) return;
+    if (copies.length < PAGE) break;
     after = copies.at(-1)?.attachmentId;
   }
+  await deletePrefix(services.storage, exportFolder(row));
 }
 
 /**

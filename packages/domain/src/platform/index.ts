@@ -3,7 +3,7 @@
 export { organizationsOverview } from "./dashboard.js";
 export { RESET_DEMO_QUEUE, resetDemoOrganization, type DemoSettings } from "./demo.js";
 export { ERASE_SUBJECT_QUEUE, eraseSubject, requestErasure } from "./erasure.js";
-export { exportSubject } from "./exports.js";
+export { exportSubject, hasFreshExport } from "./exports.js";
 export { listFailedJobs, listSchedules, removeSchedule, retryFailedJob } from "./failed-jobs.js";
 export { platformJobHandlers } from "./jobs.js";
 export { onboardOrganization, resendInvite } from "./onboarding.js";

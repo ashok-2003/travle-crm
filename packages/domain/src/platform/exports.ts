@@ -48,6 +48,22 @@ export async function exportSubject(
 }
 
 /**
+ * Whether the organization has an export a purge can rely on: done within the last day, and still kept, neither past
+ * its 7 days nor withdrawn by an erasure since. Its "organization.exported" log entry stays after a withdrawal, so the
+ * log alone can't say this.
+ */
+export async function hasFreshExport(tx: PlatformTx, organizationId: string, now: Date): Promise<boolean> {
+  const since = new Date(now.getTime() - EXPORT_VALID_FOR_MS);
+  const where = {
+    targetOrganizationId: organizationId,
+    state: "done",
+    completedAt: { gte: since },
+    expiresAt: { gt: now },
+  };
+  return (await tx.platformExport.count({ where })) > 0;
+}
+
+/**
  * Whether `action` was logged for the target, in the organization, within the last day: an export counts only for the
  * organization it was of, so a record's id typed for another organization finds nothing.
  */

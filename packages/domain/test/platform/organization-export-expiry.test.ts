@@ -1,6 +1,6 @@
-// An export's end: after its 7 days, or withdrawn by an erasure in its organization's transaction (from the commit, no
-// download), then the expiry job deletes its parts and its copies of the organization's files. A rolled-back erasure
-// withdraws nothing, and an export being written when it is withdrawn stores nothing more and leaves no copy behind.
+// An export's end: after its 7 days, or withdrawn by an erasure in its organization's transaction (no download from the
+// commit), then the expiry job deletes its parts, its file copies and anything else in its folder. A rolled-back
+// erasure withdraws nothing; an export being written when it is withdrawn stores nothing more, no copy left behind.
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -132,6 +132,32 @@ describe("an export's end", () => {
     await expect(downloadOrganizationExport(test.services, support, others.exportId)).resolves.toMatchObject({
       files: [expect.objectContaining({ fileId: expect.any(String) as string })],
     });
+  });
+
+  it("clears an export's whole folder too, so what a stalled attempt left unrecorded goes as well", async () => {
+    const organizationId = await agencyWithFile();
+    const done = await exportOrganizationNow(test.services, organizationId);
+    const folder = `platform/exports/${organizationId}/${done.exportId}/`;
+    // What an attempt that died between storing and recording would leave: a part and a copy no row counts.
+    const orphan = { contentType: "application/octet-stream", body: new Uint8Array([0]) };
+    await test.storage.put({ ...orphan, key: `${folder}00099.jsonl` });
+    await test.storage.put({ ...orphan, key: `${folder}files/0199e7a0-0000-7000-8000-00000000dead` });
+    const prefixes: string[] = []; // The port's deletePrefix (fixer D's), as its memory twin does it:
+    const storage = {
+      ...test.storage,
+      deletePrefix: async (prefix: string) => {
+        prefixes.push(prefix);
+        const keys = [...test.storage.objects.keys()].filter((key) => key.startsWith(prefix));
+        for (const key of keys) await test.storage.delete(key);
+        return keys.length;
+      },
+    };
+    await test.services.platformDb.transaction((tx) =>
+      expireOrganizationExports(test.services, tx, organizationId, "erasure"),
+    );
+    await deleteExpiredExports({ ...test.services, storage });
+    expect(prefixes).toContain(folder);
+    expect(storedFor(done)).toEqual([]);
   });
 
   it("withdraws nothing when the erasure's transaction rolls back", async () => {
