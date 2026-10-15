@@ -6,11 +6,12 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 4 (the `app_pla
 ## Decision
 
 - **The console is its own process.** The api image gets a third command, `console`, beside the api and the worker. It
-  serves the console's tRPC at `/api/platform/trpc` (`createConsoleApp`) and runs the platform's own jobs, and it is
-  the only process given `DATABASE_PLATFORM_URL`: the api and the worker never hold it (plan 2's rule). The load
-  balancer, and in development the web app's server, route `/api/platform/*` to it, so the browser still calls `/api`
-  on the address it loaded the app from (spec 3) and cookies stay first-party. Platform staff sign in through the
-  api's `/api/auth` like everyone else; the console reads the same session cookie, always from the database.
+  serves the console's tRPC at `/api/platform/trpc` (`createConsoleApp`) and runs the platform's own jobs, and it is the
+  only process that reads `DATABASE_PLATFORM_URL` (plan 2's rule; deploys give it to no other, though locally all three
+  commands load the same `.env`, which sets it): the api and the worker never read it. The load balancer, and in
+  development the web app's server, route `/api/platform/*` to it, so the browser still calls `/api` on the address it
+  loaded the app from (spec 3) and cookies stay first-party. Platform staff sign in through the api's `/api/auth` like
+  everyone else; the console reads the same session cookie, always from the database.
 - **Two levels of platform staff.** Support (Better Auth role `admin`, as in plan 2) works with organizations:
   onboarding, subscriptions, impersonation, failed jobs. A super admin (role `super-admin`) also manages plans,
   platform staff and permanent deletion (spec 5: "a super-admin action"). Both have no membership, ever. The console's

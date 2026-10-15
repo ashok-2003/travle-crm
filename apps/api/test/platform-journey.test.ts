@@ -44,10 +44,24 @@ const profile = {
   documentTerms: null,
 };
 
+// Every field the lifecycle reads, so the worker's nightly advance (another file runs it over every organization in
+// the shared database) can't leave a stale stored status behind between two steps.
+function lapsedTrial(daysAgo: number) {
+  return {
+    status: "trial" as const,
+    trialEndsOn: new Date(Date.now() - daysAgo * DAY_MS),
+    paidThrough: null,
+    statusChangedAt: new Date(Date.now() - 30 * DAY_MS),
+  };
+}
+
 describe("an agency's life on the platform", () => {
   const email = createMemoryEmailSender();
   const consoleQueue = createMemoryJobQueue();
   const consoleRunner = createMemoryJobRunner(consoleQueue);
+  // What the worker reports. A throwing log would only fail its own job (the runner retries it, then records it), so
+  // lines are collected and the journey asserts there were none.
+  const reported: string[] = [];
   let server: TestServer;
   let testConsole: TestConsole;
   let support: TestPlatformStaff;
@@ -83,9 +97,7 @@ describe("an agency's life on the platform", () => {
         appUrl: "https://app.example.in",
         webhookProviders: [],
         rateLimiter: createRateLimiter(server.db, { keySecret: "platform-journey-test-rate-limit-secret-of-32-bytes" }),
-        log: (line) => {
-          throw new Error(`the worker reported: ${line}`);
-        },
+        log: (line) => reported.push(line),
       }),
       relay: { intervalMs: 20, organizationIds: [organizationId] },
     });
@@ -169,10 +181,21 @@ describe("an agency's life on the platform", () => {
     });
     await dataOf(await mutate(server, "profile.save", profile, owner));
 
-    // Ten days after the trial's end it is read-only: the Owner may look, but not change anything.
+    // Two days after the trial's end it is past due: nothing is withheld yet. The dates leave days of margin under any
+    // policy another test file might briefly set (past due for 7 to 10 days), so no policy can change the answer.
     await server.platform.subscription.update({
       where: { organizationId },
-      data: { trialEndsOn: new Date(Date.now() - 10 * DAY_MS), statusChangedAt: new Date(Date.now() - 30 * DAY_MS) },
+      data: lapsedTrial(2),
+    });
+    expect((await dataOf<SubscriptionOverview>(await query(server, "subscription.get", owner))).status).toBe(
+      "past_due",
+    );
+    await dataOf(await mutate(server, "profile.save", profile, owner));
+
+    // Thirteen days after it, it is read-only: the Owner may look, but not change anything.
+    await server.platform.subscription.update({
+      where: { organizationId },
+      data: lapsedTrial(13),
     });
     expect((await dataOf<SubscriptionOverview>(await query(server, "subscription.get", owner))).status).toBe(
       "read_only",
@@ -230,6 +253,7 @@ describe("an agency's life on the platform", () => {
     );
     expect(await consoleRunner.runQueued()).toBe(1);
     expect(consoleRunner.failed).toEqual([]);
+    expect(reported).toEqual([]);
 
     // Gone: the organization, its Owner and their sessions. The cookie cache may still vouch for the session for a
     // few minutes, but the membership is read from the database on every request. The platform log keeps what
