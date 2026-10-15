@@ -76,6 +76,7 @@ export function callerFor(setup: Setup) {
       },
     },
     resolveAccess: () => Promise.resolve(member),
+    recordActivity: () => Promise.resolve(),
     isPlatformAdmin: () => Promise.resolve(setup.adminStillStaff ?? true),
   } as unknown as Identity;
   const status = setup.status ?? "active";

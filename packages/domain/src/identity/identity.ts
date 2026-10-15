@@ -26,6 +26,7 @@ import {
 import { createAuth, type Auth, type AuthSettings } from "./auth/create-auth.js";
 import type { EventListener } from "../jobs/index.js";
 import type { MemberAccess } from "./member-access.js";
+import { recordMemberActivity } from "./member-activity.js";
 import {
   memberContacts,
   organizationProfile,
@@ -73,6 +74,11 @@ export interface Identity {
   organizationProfile(organizationId: string): Promise<OrganizationProfile | null>;
   /** Names and real email addresses of the organization's active members among userIds, for notifications. */
   memberContacts(organizationId: string, userIds: readonly string[]): Promise<MemberContact[]>;
+  /**
+   * Notes that the member is using the app, for the platform dashboard: the api calls it on each request it lets
+   * through. It writes at most once a day per member, and never for support's impersonation.
+   */
+  recordActivity(access: MemberAccess): Promise<void>;
   /** True for platform staff: a platform role (read from the database) and no membership. */
   isPlatformAdmin(user: { id: string; role?: string | null | undefined }): Promise<boolean>;
   /** The person's platform level, name and pending password change, or null for anyone who isn't platform staff. */
@@ -119,6 +125,7 @@ export function createIdentity(options: IdentityOptions): Identity {
     describeSignedInPerson: (session) => describeSignedInPerson(database, session),
     organizationProfile: (organizationId) => organizationProfile(database, organizationId),
     memberContacts: (organizationId, userIds) => memberContacts(database, organizationId, userIds),
+    recordActivity: (access) => recordMemberActivity(database, access),
     isPlatformAdmin: (user) => isPlatformAdmin(database, user),
     describePlatformStaff: (userId) => describePlatformStaff(database.client, userId),
     staff: {

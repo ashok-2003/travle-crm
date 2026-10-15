@@ -114,7 +114,8 @@ function callOf(type: string, meta: ProcedureMeta | undefined): Call {
  * change applies to the next request. Members with a password change or two-factor setup still to do are refused
  * here; the endpoints they need for it (Better Auth's /change-password and /two-factor/*, and me.get) stay open.
  * The session's impersonatedBy goes with the access, so whatever support does while impersonating is recorded as such.
- * Then check 2, what the organization's subscription allows today, and check 3 for the procedure's own module.
+ * The member's last activity is noted, then check 2, what the organization's subscription allows today, and check 3
+ * for the procedure's own module.
  */
 async function memberAccessFor(
   ctx: SignedInContext,
@@ -127,6 +128,9 @@ async function memberAccessFor(
   const step = pendingStep(access);
   if (step === "CHANGE_PASSWORD") throw new DomainError("FORBIDDEN", step, "Choose a new password first");
   if (step === "SET_UP_TWO_FACTOR") throw new DomainError("FORBIDDEN", step, "Set up two-factor sign-in first");
+  // The member is using the app, whatever the subscription allows today: one indexed UPDATE, matching no row on most
+  // requests (it writes once a day), and none during support's impersonation.
+  await ctx.identity.recordActivity(access);
   const entitlements = await ctx.subscriptions.entitlementsOf(access.organizationId);
   assertLifecycleAllows(entitlements, { kind: call.kind, isOwner: access.role.isOwner });
   assertOnPlan(entitlements, [call.planModule]);

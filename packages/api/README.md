@@ -18,7 +18,9 @@ does: a query views, a mutation changes. A procedure that exports data says so w
 rest is refused, with `.meta({ lifecycle: "always" })`. Check 3 (module on the plan) comes from each required
 permission's module, inside `requires()`, before check 4. Check 5 (own or all records) is the handler's job, with
 `scopeFilter()` from `@travel-crm/domain/identity`. Support's impersonation session is always read from the database,
-and its admin re-checked, so it ends the moment the session does, not when the cookie cache expires.
+and its admin re-checked, so it ends the moment the session does, not when the cookie cache expires. Once a member
+passes their pending steps, their last activity is noted for the platform dashboard (`identity.recordActivity`): at
+most one write a day per member, and none for support's impersonation.
 
 ## Errors
 
