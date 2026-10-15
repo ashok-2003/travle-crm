@@ -2,7 +2,20 @@
 // It is the product's own account email, not one sent for an agency, so it has no agency name and no Reply-To.
 import { brand } from "@travel-crm/brand";
 import type { SendPasswordResetEmail } from "@travel-crm/domain/identity";
+import type { RateLimiter } from "@travel-crm/domain/rate-limits";
 import { renderEmail, type EmailSender } from "@travel-crm/integrations/email";
+
+/**
+ * Reset emails one address gets at most: three an hour, counted in Postgres like the public routes' limits, so every
+ * api instance counts together. Better Auth's own limit is per client address; this one stops many addresses (or many
+ * instances) from filling one person's inbox.
+ */
+const PER_RECIPIENT = { limit: 3, windowSeconds: 60 * 60 };
+
+/** The web app's reset page under APP_URL, the one place a reset link may lead back to. */
+export function resetPasswordPageOf(appUrl: string): string {
+  return `${appUrl.replace(/\/+$/, "")}/reset-password`;
+}
 
 /** What a failure's log line keeps: its code or name. Messages can quote the email, and so the reset link's token. */
 function failureLabel(error: unknown): string {
@@ -11,9 +24,12 @@ function failureLabel(error: unknown): string {
   return error instanceof Error ? error.name : "unknown error";
 }
 
-export function passwordResetEmails(email: EmailSender): SendPasswordResetEmail {
+export function passwordResetEmails(email: EmailSender, limiter: Pick<RateLimiter, "hit">): SendPasswordResetEmail {
   return async ({ to, url }) => {
     try {
+      // Over the cap, nothing is sent and nothing said: the request was answered before this ran.
+      const recipient = await limiter.hit(`password-reset-recipient:${to.address.toLowerCase()}`, PER_RECIPIENT);
+      if (!recipient.allowed) return;
       const content = renderEmail({
         heading: "Choose a new password",
         paragraphs: [

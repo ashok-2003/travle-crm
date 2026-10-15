@@ -10,7 +10,7 @@ import { createPgBossJobs, type PgBossJobs } from "@travel-crm/integrations/jobs
 import { createWebPushSender, type PushSender } from "@travel-crm/integrations/push";
 import { createS3Storage, type ObjectStorage } from "@travel-crm/integrations/storage";
 import { authSettingsFrom, type Environment } from "./environment.js";
-import { passwordResetEmails } from "./password-reset-email.js";
+import { passwordResetEmails, resetPasswordPageOf } from "./password-reset-email.js";
 
 export interface Services {
   environment: Environment;
@@ -40,6 +40,7 @@ export function rateLimitKeySecret(betterAuthSecret: string): Uint8Array {
 
 export function createServices(environment: Environment): Services {
   const db = createDatabase(environment.DATABASE_URL, { maxConnections: environment.DATABASE_POOL_SIZE });
+  const rateLimiter = createRateLimiter(db, { keySecret: rateLimitKeySecret(environment.BETTER_AUTH_SECRET) });
   const email = createSmtpEmailSender({
     host: environment.SMTP_HOST,
     port: environment.SMTP_PORT,
@@ -51,7 +52,13 @@ export function createServices(environment: Environment): Services {
   const identity = createIdentity({
     databaseUrl: environment.DATABASE_URL,
     maxConnections: environment.DATABASE_POOL_SIZE,
-    auth: { ...authSettingsFrom(environment), sendPasswordResetEmail: passwordResetEmails(email) },
+    auth: {
+      ...authSettingsFrom(environment),
+      passwordReset: {
+        sendEmail: passwordResetEmails(email, rateLimiter),
+        pageUrl: resetPasswordPageOf(environment.APP_URL),
+      },
+    },
   });
   // The concrete S3 adapter, for its start-up check; everything else gets the port.
   const s3 = createS3Storage({
@@ -84,7 +91,7 @@ export function createServices(environment: Environment): Services {
     jobs,
     email,
     push,
-    rateLimiter: createRateLimiter(db, { keySecret: rateLimitKeySecret(environment.BETTER_AUTH_SECRET) }),
+    rateLimiter,
     start: async () => {
       // A wrong bucket name or credentials would otherwise surface only at the first upload: refuse to start.
       await s3.checkBucket();
