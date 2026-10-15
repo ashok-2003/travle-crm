@@ -23,9 +23,15 @@ first Owner
   under the platform admin's name, with source `platform`.
 - **Invite links last 72 hours**, against a password reset's hour: an Owner may open the email the next day. Earlier
   links keep working until they lapse, so asking twice never strands anyone.
-- **Invites share the reset's cap.** An address gets at most three password emails an hour, invites and resets
-  together, counted by the same Postgres rate limiter under plan 3's key for the recipient. Past it the listener stores
-  no link and sends nothing; like the reset, it says nothing either.
+- **Invites have a cap of their own.** An address gets at most five invite emails an hour, counted in Postgres under
+  `staff-invite-recipient:<address>`, apart from plan 3's resets (three an hour, under their own key). Anyone may ask
+  for resets to an address, so resets must never use up invites. Only platform staff ask for invites, each one
+  recorded, so abuse is visible and bounded. Every attempt counts, retries included: five leaves room for a failed
+  send's retries.
+- **Past the cap the job fails, never quietly.** The listener stores no link, sends nothing, and throws
+  `InviteCapReachedError`, an error of ours with an ids-only message that the failed jobs keep. After its retries the
+  job stays in the console's failed jobs, where support sees it and retries it once the hour is out. So a send that
+  keeps failing ends there too: five failed sends use up the hour, and the last retry fails on the cap.
 - **The shared demo is rebuilt every night the same way** (spec 7.4). The console's `platform.reset-demo` job, at
   02:00 India time, purges the organization last night's reset built and builds it again in one platform
   transaction: the business profile, the starter roles, and three staff (Owner, Sales, Operations) who sign in with
@@ -46,7 +52,8 @@ first Owner
 ## Consequences
 
 - A retried send can email a second link; both work. Removed, banned and placeholder-address people get nothing, nor
-  does anyone who has chosen a password by the time the listener runs. A retry counts against the cap again.
+  does anyone who has chosen a password by the time the listener runs: those jobs end done. A retry counts against
+  the cap again, so a long mail outage shows in the failed jobs as the cap's error, not the mail server's.
 - Staff created by an organization's admins keep plan 2's temporary passwords, so they are never invited:
   `requestInvite` refuses anyone with a password. Inviting staff by email instead would mean adding them with no
   password, as onboarding adds the Owner.

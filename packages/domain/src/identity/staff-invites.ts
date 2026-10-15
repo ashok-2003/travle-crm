@@ -9,12 +9,8 @@ import { renderEmail, senderNameFor, type EmailSender } from "@travel-crm/integr
 import { defineListener, type EventListener } from "../jobs/index.js";
 import type { RateLimiter } from "../rate-limits/index.js";
 import { isBannedNow } from "./bans.js";
-import {
-  hasChosenPassword,
-  PASSWORD_EMAILS_PER_RECIPIENT,
-  passwordEmailRecipientKey,
-  resetPasswordPageOf,
-} from "./password-emails.js";
+import { InviteCapReachedError, INVITES_PER_RECIPIENT, inviteRecipientKey } from "./invite-cap.js";
+import { hasChosenPassword, resetPasswordPageOf } from "./password-emails.js";
 import { isPlaceholderEmail } from "./sign-in-names.js";
 
 /** How long an invite link works. Longer than a password reset's hour: an owner may open it the next day. */
@@ -24,7 +20,7 @@ export interface InviteDependencies {
   email: EmailSender;
   /** The web app's address; the link goes to its /reset-password page, as Better Auth's reset links do. */
   appUrl: string;
-  /** Counts each address's password emails, these and plan 3's resets, against PASSWORD_EMAILS_PER_RECIPIENT. */
+  /** Counts each address's invite attempts against INVITES_PER_RECIPIENT, under a key resets never use. */
   limiter: Pick<RateLimiter, "hit">;
   /** The time now; tests pass a fixed one. */
   now?: () => Date;
@@ -59,8 +55,9 @@ async function invitee(tx: IdentityTx, organizationId: string, invited: StaffInv
 
 /**
  * Sends the invite. Nothing is sent to someone removed, banned, without a real address, or who has a password by
- * then, nor past the address's cap. At least once, as every listener: a retry after a failed send stores a second
- * token and sends the email again; both links work until they lapse.
+ * then: the job is done. Past the address's cap the job fails (InviteCapReachedError), so the failed jobs keep it. At
+ * least once, as every listener: a retry after a failed send stores a second token and sends the email again; both
+ * links work until they lapse.
  */
 export function staffInviteListener(database: IdentityDatabase, dependencies: InviteDependencies): EventListener {
   const now = dependencies.now ?? (() => new Date());
@@ -73,9 +70,11 @@ export function staffInviteListener(database: IdentityDatabase, dependencies: In
       const at = now();
       const person = await database.forOrg(organizationId, (tx) => invitee(tx, organizationId, event.payload, at));
       if (!person) return;
-      // Over the cap nothing is stored or sent, and nothing said, as with plan 3's resets.
-      const recipient = passwordEmailRecipientKey(person.email);
-      if (!(await dependencies.limiter.hit(recipient, PASSWORD_EMAILS_PER_RECIPIENT, at)).allowed) return;
+      // Every attempt counts, retries included. Over the cap nothing is stored or sent, and the job fails, loudly.
+      const recipient = inviteRecipientKey(person.email);
+      if (!(await dependencies.limiter.hit(recipient, INVITES_PER_RECIPIENT, at)).allowed) {
+        throw new InviteCapReachedError(event.payload.memberId);
+      }
       const token = await database.forOrg(organizationId, async (tx) => {
         // Checked again in the transaction that stores the link: a removal may have landed meanwhile.
         if (!(await invitee(tx, organizationId, event.payload, at))) return null;

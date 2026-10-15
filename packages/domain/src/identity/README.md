@@ -23,7 +23,7 @@ Who can sign in, to which organization, and what they may do (spec section 6).
     for tests);
   - `organizationIds()`: every organization's id, oldest first, for jobs that visit each one;
   - `inviteListener({ email, appUrl, limiter, now? })`: the worker's `identity.send-invite` listener, counting each
-    address's emails with the rate limiter;
+    address's invite attempts with the rate limiter;
   - `disconnect()`.
 - Onboarding's steps, each in the caller's transaction (the console runs them in one platform transaction):
   `createOrganizationRecord(tx, { name, code, timeZone, contactEmail })` (the platform role only),
@@ -41,8 +41,6 @@ Who can sign in, to which organization, and what they may do (spec section 6).
 - `memberActivity(tx, organizationIds)`: seats used and the last activity per organization, for the platform
   dashboard. `recordMemberActivity(database, access, now?)` keeps that activity on the member: the api calls it on each
   request it lets through, and it writes at most once a day, never for support's impersonation. Signing out keeps it.
-- `PASSWORD_EMAILS_PER_RECIPIENT` (3 an hour), `passwordEmailRecipientKey(address)` and `resetPasswordPageOf(appUrl)`:
-  the cap and the page that invites and plan 3's password resets share.
 - `IdentityOptions.seatLimit` (a `SeatLimit`): the seats an organization's plan gives. `staff.create` refuses past them
   (`LIMIT_REACHED`, `SEAT_LIMIT_REACHED`), holding the organization's row (`FOR NO KEY UPDATE`, so it never deadlocks
   with a role edit) so two additions can't both take the last.
@@ -68,8 +66,9 @@ Who can sign in, to which organization, and what they may do (spec section 6).
   listener, `identity.send-invite`, emails a link to choose a password: a Better Auth reset token, kept only as a hash
   as Better Auth keeps its own, that lasts 72 hours, at `<APP_URL>/reset-password?token=<token>`, the page Better
   Auth's reset links lead to. It is the agency's email: its name as the sender, Reply-To its contact address. Nobody
-  removed, banned, without a real address or with a password by then is emailed, and an address gets at most three
-  password emails an hour, invites and resets together; past that the listener skips the email without a word.
+  removed, banned, without a real address or with a password by then is emailed. An address gets at most five invite
+  attempts an hour (`invite-cap.ts`), apart from plan 3's resets, which can't use them up. Past that the job fails with
+  `InviteCapReachedError`, and the failed jobs keep it.
 
 Every change below is written to the audit log in the change's own transaction (ADR 0015), with the acting member,
 the platform admin for onboarding (source `platform`), or the system:

@@ -1,22 +1,14 @@
 // The invite email (spec 7.1): the worker's identity.send-invite listener emails a link that lets the invited person
 // choose a password through Better Auth's reset and then sign in. Nobody removed, banned, without a real address or
-// with a password by then is emailed; the link works for 72 hours; and an address gets at most three password emails
-// an hour, invites and plan 3's resets together.
+// with a password by then is emailed, and the link works for 72 hours. The invite's own cap: staff-invite-cap.test.ts.
 import { randomUUID } from "node:crypto";
 import { createDatabase, softDeleted, type Database } from "@travel-crm/db";
-import { asOrganization, createPlatformDatabase, type PlatformDatabase } from "@travel-crm/db/platform";
+import { createPlatformDatabase, type PlatformDatabase } from "@travel-crm/db/platform";
 import { createMemoryEmailSender } from "@travel-crm/integrations/email";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import {
-  createOrganizationRecord,
-  insertStarterRoles,
-  inviteOwner,
-  requestInvite,
-  type CreatedStaff,
-} from "../../src/identity/index.js";
 import { runListenerJob } from "../../src/jobs/index.js";
-import { platformActor } from "../../src/kernel/index.js";
 import { createRateLimiter, type RateLimiter } from "../../src/rate-limits/index.js";
+import { invitedJobs, inviteAgain, invitedOwner as onboardedWithOwner } from "./invites.js";
 import { createTestIdentity, signInByEmail, type TestIdentity } from "./test-identity.js";
 
 /** With a path, as APP_URL may have: the link keeps it. */
@@ -45,45 +37,16 @@ describe("the invite email", () => {
     await platformDb.disconnect();
   });
 
-  async function invitedOwner(): Promise<{ organizationId: string; owner: CreatedStaff; email: string }> {
-    const code = `I${randomUUID().replaceAll("-", "").slice(0, 9).toUpperCase()}`;
-    const email = `owner-${code.toLowerCase()}@example.test`;
-    return platformDb.transaction(async (tx) => {
-      const organization = await createOrganizationRecord(tx, {
-        name: "Kerala Trails",
-        code,
-        timeZone: "Asia/Kolkata",
-        contactEmail,
-      });
-      const owner = await asOrganization(tx, organization.id, async (orgTx) => {
-        await insertStarterRoles(orgTx);
-        return inviteOwner(orgTx, platformActor(organization.id, randomUUID()), { name: "Lakshmi Nair", email });
-      });
-      return { organizationId: organization.id, owner, email };
-    });
-  }
-
-  /** Asks for another invite, as the console's resendInvite does. */
-  const inviteAgain = (organizationId: string, memberId: string) =>
-    platformDb.transaction((tx) =>
-      asOrganization(tx, organizationId, (orgTx) =>
-        requestInvite(orgTx, platformActor(organizationId, randomUUID()), memberId),
-      ),
-    );
-
-  const invitedEvents = (organizationId: string) =>
-    db.forOrg(organizationId, (tx) =>
-      tx.outboxEvent.findMany({ where: { type: "staff.invited" }, orderBy: { id: "asc" } }),
-    );
+  const invitedOwner = () => onboardedWithOwner(platformDb, contactEmail);
 
   /** Runs the invite listener at `now` on a staff.invited event, the latest unless `first`, as the worker would. */
   async function deliverInvite(organizationId: string, { now = new Date(), first = false } = {}) {
     const email = createMemoryEmailSender();
-    const events = await invitedEvents(organizationId);
-    const event = first ? events[0] : events.at(-1);
-    if (!event) throw new Error("No staff.invited event");
+    const jobs = await invitedJobs(db, organizationId);
+    const data = first ? jobs[0] : jobs.at(-1);
+    if (!data) throw new Error("No staff.invited event");
     const listener = test.identity.inviteListener({ email, appUrl, limiter, now: () => now });
-    await runListenerJob({ db, listener, data: { organizationId, eventId: event.id, eventType: event.type } });
+    await runListenerJob({ db, listener, data });
     return email.sent;
   }
 
@@ -131,7 +94,7 @@ describe("the invite email", () => {
 
     // Two invites asked for; the first one's link sets a password before the second is sent.
     const chosen = await invitedOwner();
-    await inviteAgain(chosen.organizationId, chosen.owner.memberId);
+    await inviteAgain(platformDb, chosen.organizationId, chosen.owner.memberId);
     const [message] = await deliverInvite(chosen.organizationId, { first: true });
     await choosePassword(tokenIn(message?.text), "chosen-password-1");
     expect(await deliverInvite(chosen.organizationId)).toEqual([]);
@@ -141,7 +104,7 @@ describe("the invite email", () => {
     const { organizationId, owner } = await invitedOwner();
     const [message] = await deliverInvite(organizationId);
     await choosePassword(tokenIn(message?.text), "chosen-password-2");
-    await expect(inviteAgain(organizationId, owner.memberId)).rejects.toMatchObject({
+    await expect(inviteAgain(platformDb, organizationId, owner.memberId)).rejects.toMatchObject({
       code: "CONFLICT",
       reason: "PASSWORD_ALREADY_SET",
     });
@@ -158,20 +121,5 @@ describe("the invite email", () => {
     await expect(choosingWithLinkSentAgo(72 * HOUR + MINUTE)).rejects.toMatchObject({
       body: { code: "INVALID_TOKEN" },
     });
-  });
-
-  it("counts invites with the address's password resets, three an hour, and skips the rest unsaid", async () => {
-    // One instant, in one hour's window, so the counts can't straddle two windows.
-    const now = new Date(Math.floor(Date.now() / HOUR) * HOUR + MINUTE);
-    const { organizationId, owner, email } = await invitedOwner();
-    // Two reset emails this hour, counted under plan 3's key for the address.
-    for (let reset = 0; reset < 2; reset++) {
-      await limiter.hit(`password-reset-recipient:${email}`, { limit: 3, windowSeconds: 60 * 60 }, now);
-    }
-    expect(await deliverInvite(organizationId, { now })).toHaveLength(1);
-    await inviteAgain(organizationId, owner.memberId);
-    expect(await deliverInvite(organizationId, { now })).toEqual([]);
-    // Over the cap no token is stored either: the one link sent is the only one.
-    expect(await test.database.client.verification.count({ where: { value: owner.userId } })).toBe(1);
   });
 });
