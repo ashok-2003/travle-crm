@@ -59,6 +59,13 @@ function wallClock(instant: Date, timeZone: string): WallClock {
   };
 }
 
+/** The calendar date `days` days after date (before it, for a negative number). Days have no time zone. */
+export function addDays(date: CalendarDate, days: number): CalendarDate {
+  if (!Number.isSafeInteger(days)) throw new RangeError(`Days to add must be a whole number, got ${String(days)}`);
+  const [year = 0, month = 1, day = 1] = date.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10) as CalendarDate;
+}
+
 /** The day it is in timeZone at instant: at 18:30 UTC it is already tomorrow in India. */
 export function calendarDateIn(instant: Date, timeZone: string): CalendarDate {
   assertTimeZone(timeZone);

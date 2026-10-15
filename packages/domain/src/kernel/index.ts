@@ -25,7 +25,15 @@ export {
   type IndiaGstLine,
 } from "./tax/india-gst.js";
 export type { TaxBreakdown, TaxComponent, TaxedLine, TaxEngine } from "./tax/tax-engine.js";
-export { calendarDateIn, formatDateTime, parseCalendarDate, startOfDayIn, yearIn, type CalendarDate } from "./time.js";
+export {
+  addDays,
+  calendarDateIn,
+  formatDateTime,
+  parseCalendarDate,
+  startOfDayIn,
+  yearIn,
+  type CalendarDate,
+} from "./time.js";
 export { isUuid } from "./uuid.js";
 // GST facts and time zone names live with the API's field rules, so forms and the kernel share one copy.
 export {

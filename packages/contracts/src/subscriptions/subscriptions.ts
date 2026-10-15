@@ -105,3 +105,27 @@ export const subscriptionWithPayments = z.object({
   payments: z.array(subscriptionPayment),
 });
 export type SubscriptionWithPayments = z.infer<typeof subscriptionWithPayments>;
+
+/**
+ * What an organization's subscription lets its staff do (spec 7.3): everything; view and export only; only the Owner,
+ * only exports and paying; nothing.
+ */
+export const lifecycleAccess = z.enum(["full", "read_only", "export_only", "locked"]);
+export type LifecycleAccess = z.infer<typeof lifecycleAccess>;
+
+/**
+ * What subscription.get tells an organization's staff about their own subscription, in every state: the banner, and
+ * which modules the app shows. Dates are calendar days in the organization's time zone.
+ */
+export const subscriptionOverview = z.object({
+  status: subscriptionStatus,
+  access: lifecycleAccess,
+  planName: z.string(),
+  modules: z.array(planModule),
+  trialEndsOn: calendarDate.nullable(),
+  paidThrough: calendarDate.nullable(),
+  /** The day the status moves on if nothing is paid, e.g. from past due to read-only; null when it won't. */
+  nextChangeOn: calendarDate.nullable(),
+  limits: z.object({ seats: z.int(), whatsappNumbers: z.int(), storageBytes: z.int() }),
+});
+export type SubscriptionOverview = z.infer<typeof subscriptionOverview>;
