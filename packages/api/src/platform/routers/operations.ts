@@ -1,6 +1,6 @@
 // The console's running of the platform: the dashboard of organizations (spec 7.4) and the failed-jobs list (spec 9.1).
 import {
-  failedJob,
+  failedJobsPage,
   jobSchedule,
   listFailedJobsInput,
   organizationOverview,
@@ -26,10 +26,12 @@ export const dashboardRouter = platformT.router({
 });
 
 export const jobsRouter = platformT.router({
+  /** Failed jobs, newest first, a page at a time; optionally one queue's. */
   failed: staffProcedure
     .input(listFailedJobsInput)
-    .output(z.array(failedJob))
-    .query(({ ctx, input }) => listFailedJobs(ctx.services, input.limit)),
+    .output(failedJobsPage)
+    .query(({ ctx, input }) => listFailedJobs(ctx.services, input)),
+  /** One more attempt of a failed job; not for the platform's purge, erasure or export, which are asked for again. */
   retry: staffProcedure
     .input(retryFailedJobInput)
     .mutation(({ ctx, input }) => retryFailedJob(ctx.services, ctx.staff, input)),
