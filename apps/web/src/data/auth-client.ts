@@ -47,7 +47,7 @@ export function createAuthClient(fetchImplementation: Fetch = (...arguments_) =>
     path: string,
     body: unknown,
     read: (body: Record<string, unknown>) => T,
-    { timeout }: { timeout?: number } = {},
+    { timeout, keepalive = false }: { timeout?: number; keepalive?: boolean } = {},
   ) {
     // A timer rather than AbortSignal.timeout, so tests can move the clock.
     const giveUp = new AbortController();
@@ -66,6 +66,7 @@ export function createAuthClient(fetchImplementation: Fetch = (...arguments_) =>
         body: JSON.stringify(body),
         credentials: "same-origin",
         signal: giveUp.signal,
+        keepalive,
       });
       json = await bodyOf(response);
     } catch {
@@ -112,8 +113,11 @@ export function createAuthClient(fetchImplementation: Fetch = (...arguments_) =>
     requestPasswordReset: (input: { email: string; redirectTo: string }) =>
       post("/request-password-reset", input, nothing),
     resetPassword: (input: { token: string; newPassword: string }) => post("/reset-password", input, nothing),
-    /** Gives up after SIGN_OUT_TIMEOUT, answering as if the api couldn't be reached. */
-    signOut: () => post("/sign-out", {}, nothing, { timeout: SIGN_OUT_TIMEOUT }),
+    /**
+     * Kept alive, so the request still reaches the api when the page that sent it has already gone (signing out
+     * leaves at once). Gives up after SIGN_OUT_TIMEOUT, answering as if the api couldn't be reached.
+     */
+    signOut: () => post("/sign-out", {}, nothing, { timeout: SIGN_OUT_TIMEOUT, keepalive: true }),
   };
 }
 

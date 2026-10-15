@@ -1,40 +1,19 @@
 "use client";
 
-// Signing out: the device forgets the organization's data, the api ends the session, and the sign-in screen opens.
-import { useQueryClient } from "@tanstack/react-query";
+// Signing out (data/session.ts): the screen goes at once, the device forgets the organization's data, and the sign-in
+// screen opens without waiting for the api, which is told on the way out.
 import { LogOutIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { authClient } from "@/data/auth-client";
-import { signOut } from "@/data/session";
-import { loadPage } from "@/lib/navigate";
-import { reportProblem } from "@/lib/report-problem";
-import { routes } from "@/lib/routes";
-
-export function useSignOut() {
-  const queryClient = useQueryClient();
-  const [signingOut, setSigningOut] = useState(false);
-  const run = async () => {
-    setSigningOut(true);
-    try {
-      await signOut(queryClient, authClient);
-    } catch (error) {
-      // signOut reports its own failures and doesn't reject; this keeps anything unforeseen from going unreported.
-      reportProblem(error);
-    }
-    loadPage(routes.signIn);
-  };
-  return { signingOut, signOut: run };
-}
+import { usePageData } from "@/data/providers";
 
 export function SignOutButton({ className }: { className?: string }) {
   const t = useTranslations("shell.navigation");
-  const { signingOut, signOut: run } = useSignOut();
+  const page = usePageData();
   return (
-    <Button variant="ghost" className={className} disabled={signingOut} onClick={() => void run()}>
+    <Button variant="ghost" className={className} onClick={() => void page.signOut()}>
       <LogOutIcon aria-hidden="true" />
-      {signingOut ? t("signingOut") : t("signOut")}
+      {t("signOut")}
     </Button>
   );
 }

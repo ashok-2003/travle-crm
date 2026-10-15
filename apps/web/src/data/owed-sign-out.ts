@@ -1,10 +1,19 @@
-// A sign-out the api never heard: the device was offline, or the api didn't answer in time. Until it hears it, the
-// previous person's session cookie could open their organization again, so the next page settles it before anything
-// asks the api who is signed in (page-data.ts), and so does coming back online. The marker in localStorage holds no
-// data, only that a sign-out is owed.
+// A sign-out the api hasn't confirmed. It is owed from before the call goes out, because the page leaves without
+// waiting for it: offline, or if the call never lands, the previous person's session cookie could open their
+// organization again. So the next page settles it before anything asks the api who is signed in (page-data.ts), and
+// so does coming back online. The marker in localStorage holds no data, only that a sign-out is owed.
 import type { AuthClient } from "./auth-client";
 
 const KEY = "travel-crm.sign-out-owed";
+
+/** Records that a sign-out is owed, before asking the api for it. */
+export function oweSignOut(): void {
+  try {
+    window.localStorage.setItem(KEY, "1");
+  } catch {
+    // Blocked storage: nothing can be remembered. The device is still wiped.
+  }
+}
 
 export function isSignOutOwed(): boolean {
   try {

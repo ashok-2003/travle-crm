@@ -66,6 +66,12 @@ describe("authClient", () => {
     expect(limited).toEqual({ ok: false, status: 429, code: "TOO_MANY_REQUESTS", retryAfterSeconds: 42 });
   });
 
+  it("sends the sign-out so it outlives the page, which leaves without waiting for it", async () => {
+    const fetch = answering(200, { success: true });
+    await createAuthClient(fetch).signOut();
+    expect(fetch.mock.calls[0]?.[1]?.keepalive).toBe(true);
+  });
+
   it("gives up on signing out after 5 seconds, as if the api couldn't be reached", async () => {
     vi.useFakeTimers();
     const stalled = vi.fn<typeof fetch>(

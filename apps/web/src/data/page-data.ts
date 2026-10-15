@@ -1,7 +1,7 @@
 // One page's data: the query cache and the tRPC client, how the page opens and how it leaves. Opening settles a
 // sign-out the api never heard, then restores the saved copy only if it belongs to whoever me.get says is signed in.
-// Leaving stops everything rendering, wipes the device's data, then loads another page. A page whose me.get later
-// names someone else than the data it holds leaves too.
+// Leaving stops everything rendering, wipes the device's data, then loads another page: on a 401, on another tab's
+// sign-out, on signing out here, and when me.get names someone else than the data the page holds.
 import type { AppRouter } from "@travel-crm/api";
 import { hashKey, hydrate, onlineManager } from "@tanstack/react-query";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
@@ -14,7 +14,7 @@ import { endSession, isSignOutOwed } from "./owed-sign-out";
 import { isMeAnswer, ownerOf, sameOwner, type CopyOwner } from "./owner";
 import { createQueryCopy } from "./persistence";
 import { createQueryClient } from "./query-client";
-import { listenForSignOut, wipeLocalData } from "./session";
+import { listenForSignOut, signOut, wipeLocalData } from "./session";
 import { createApiClient } from "./trpc";
 
 /** How long opening waits for me.get to say whose a saved copy may be. After that it shows, as it would offline. */
@@ -50,11 +50,12 @@ export function createPageData({ buster, onLeaving, auth = authClient }: PageDat
   let leaving = false;
   let opened: Promise<boolean> | undefined;
 
-  async function leave(to: string): Promise<void> {
+  /** Nothing renders from here on; forget runs (by default the wipe), and only then does `to` load. */
+  async function leave(to: string, forget: () => Promise<void> = () => wipeLocalData(queryClient)): Promise<void> {
     if (leaving) return;
     leaving = true;
     onLeaving();
-    await wipeLocalData(queryClient);
+    await forget();
     loadPage(to);
   }
 
@@ -128,6 +129,8 @@ export function createPageData({ buster, onLeaving, auth = authClient }: PageDat
     startSaving: () => {
       copy.startSaving();
     },
+    /** Signs out: the screen goes at once, and the sign-in page loads once the device is wiped (session.ts). */
+    signOut: () => leave(routes.signIn, () => signOut(queryClient, auth)),
     /** Listens for other tabs signing out, me.get's answers and the connection returning. Returns the unsubscribe. */
     listen(): () => void {
       const stopListening = listenForSignOut(() => {

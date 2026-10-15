@@ -84,8 +84,9 @@ test("signing out wipes the saved data and ends the session", async ({ page, age
   await signOutFrom(page, testInfo);
   await expect(page).toHaveURL(/\/sign-in$/);
   expect(await page.evaluate(savedQueries)).toBe(0);
-  const me = await page.request.get("/api/trpc/me.get");
-  expect(me.status()).toBe(401);
+  // The page left without waiting for the api; the call it sent on the way out (or the sign-in page's) ends the session.
+  await expect.poll(async () => (await page.request.get("/api/trpc/me.get")).status()).toBe(401);
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("travel-crm.sign-out-owed"))).toBeNull();
 });
 
 test("signing out offline wipes at once, and the next page online ends the session first", async ({

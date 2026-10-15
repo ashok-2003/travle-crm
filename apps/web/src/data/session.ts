@@ -4,7 +4,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { reportProblem } from "@/lib/report-problem";
 import type { AuthClient } from "./auth-client";
-import { endSession } from "./owed-sign-out";
+import { endSession, oweSignOut } from "./owed-sign-out";
 import { deleteSavedCopies, stopSaving } from "./persistence";
 
 const CHANNEL = "travel-crm-session";
@@ -77,9 +77,9 @@ export function listenForSignOut(onSignedOutElsewhere: () => void): () => void {
 
 /**
  * Signs out in the order that leaves least behind: this device forgets the organization's data, the other tabs are
- * told, and only then is the api asked to end the session, for at most 5 seconds (auth-client.ts). If it can't be
- * reached, the sign-out is owed and the next page settles it first (owed-sign-out.ts). It never rejects; the caller
- * opens the sign-in page next.
+ * told, and a sign-out is owed (owed-sign-out.ts). Then the api is asked to end the session, without waiting: the
+ * caller opens the sign-in page at once, the request outlives the page (auth-client.ts), and its answer clears what is
+ * owed. A request that never lands leaves it owed, and the next page settles it first. It never rejects.
  */
 export async function signOut(queryClient: QueryClient, auth: Pick<AuthClient, "signOut">): Promise<void> {
   await wipeLocalData(queryClient);
@@ -88,5 +88,6 @@ export async function signOut(queryClient: QueryClient, auth: Pick<AuthClient, "
   } catch (error) {
     reportProblem(error);
   }
-  await endSession(auth);
+  oweSignOut();
+  void endSession(auth);
 }

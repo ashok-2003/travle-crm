@@ -7,8 +7,7 @@
     "settings": "Settings",
     "more": "More",
     "account": "Your account",
-    "signOut": "Sign out",
-    "signingOut": "Signing out"
+    "signOut": "Sign out"
   },
   "home": {
     "title": "Welcome, {name}",

@@ -85,7 +85,7 @@ describe("wipeLocalData", () => {
 });
 
 describe("signOut", () => {
-  it("wipes the device and tells the other tabs before asking the api", async () => {
+  it("wipes the device, tells the other tabs and owes the sign-out before asking the api", async () => {
     const queryClient = await pageWithSavedData();
     const otherTab = new BroadcastChannel("travel-crm-session");
     const toldOtherTab = new Promise((resolve) => {
@@ -94,26 +94,27 @@ describe("signOut", () => {
     const stateWhenAsked: unknown[] = [];
     const auth = {
       signOut: vi.fn(async () => {
-        stateWhenAsked.push(await hasPersistedQueries(), queryClient.getQueryCache().getAll().length);
+        stateWhenAsked.push(await hasPersistedQueries(), queryClient.getQueryCache().getAll().length, isSignOutOwed());
         await toldOtherTab;
         return answered;
       }),
     };
     await signOut(queryClient, auth);
+    await vi.waitFor(() => {
+      expect(isSignOutOwed()).toBe(false);
+    });
     otherTab.close();
-    expect(stateWhenAsked).toEqual([false, 0]);
-    expect(isSignOutOwed()).toBe(false);
+    expect(stateWhenAsked).toEqual([false, 0, true]);
   });
 
-  it("wipes at once offline, without waiting for the api, and owes the sign-out", async () => {
+  it("returns once the device is wiped, without waiting for the api, and stays owed if the api can't be reached", async () => {
     const queryClient = await pageWithSavedData();
     let answer: (result: SignOutResult) => void = () => undefined;
-    const signingOut = signOut(queryClient, { signOut: () => new Promise((resolve) => (answer = resolve)) });
-    await vi.waitFor(async () => {
-      expect(await hasPersistedQueries()).toBe(false);
-    });
+    await signOut(queryClient, { signOut: () => new Promise((resolve) => (answer = resolve)) });
+    expect(await hasPersistedQueries()).toBe(false);
+    expect(isSignOutOwed()).toBe(true);
     answer(unreachable);
-    await signingOut;
+    await pause(10);
     expect(isSignOutOwed()).toBe(true);
   });
 

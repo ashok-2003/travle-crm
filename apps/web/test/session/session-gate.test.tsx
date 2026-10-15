@@ -1,10 +1,10 @@
 // The way into the app shell: a member gets the shell, a pending password change or two-factor setup sends the
 // person to take it, platform staff are told this app isn't theirs, and a me.get that fails says so with a Retry.
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import "fake-indexeddb/auto";
 import { render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createApiClient, TRPCProvider } from "@/data/trpc";
+import { DataProviders } from "@/data/providers";
 import { locale, messages } from "@/i18n/messages";
 import { replacePage } from "@/lib/navigate";
 import { useMe } from "@/session/me-context";
@@ -20,17 +20,15 @@ function Shell() {
   return <p>Shell for {useMe().user.name}</p>;
 }
 
+/** The gate inside the app's own data layer, which the not-staff screen's sign-out button goes through. */
 function renderGate() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <NextIntlClientProvider locale={locale} messages={messages}>
-      <QueryClientProvider client={queryClient}>
-        <TRPCProvider trpcClient={createApiClient()} queryClient={queryClient}>
-          <SessionGate>
-            <Shell />
-          </SessionGate>
-        </TRPCProvider>
-      </QueryClientProvider>
+      <DataProviders>
+        <SessionGate>
+          <Shell />
+        </SessionGate>
+      </DataProviders>
     </NextIntlClientProvider>,
   );
 }
@@ -67,7 +65,8 @@ describe("SessionGate", () => {
   it("says when me.get didn't load, with a way to try again", async () => {
     stubApi({ "me.get": "offline" });
     renderGate();
-    expect(await screen.findByText(session.loadFailed)).toBeVisible();
+    // The app's queries try an unanswered call three times, a second and then two apart.
+    expect(await screen.findByText(session.loadFailed, undefined, { timeout: 5_000 })).toBeVisible();
     expect(screen.getByRole("button", { name: messages.common.tryAgain })).toBeVisible();
   });
 });
