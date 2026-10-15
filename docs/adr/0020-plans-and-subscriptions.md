@@ -21,10 +21,16 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 7.2 and 7.4, an
 - **Only the platform role writes these tables**, the nightly lifecycle job included, which runs in the console
   process (ADR 0021). The api and the worker only read them, for the request checks. The console's changes run in
   platform transactions and are recorded in the organization's own audit log under the platform admin's name; plan
-  changes, which belong to no organization, go in the platform log. So do the billing changes support may make
-  freely: time given (`subscription.paid-through-changed`), a voided payment, a plan change and a cancellation, with
-  ids, days, amounts in paise and who acted, never the reason typed, and only when something changed. A super admin
-  can then review what support gave away from the console's own log, without impersonating each Owner.
+  changes, which belong to no organization, go in the platform log. So does every change platform staff make to a
+  subscription or its billing, as an entry on the subscription (target `subscription`, the organization's id): the
+  terms it starts on (in `organization.onboarded`), a trial moved (`subscription.trial-end-changed`), overrides
+  (`.overrides-changed`), time given (`.paid-through-changed`), a payment recorded or voided (`.payment-recorded`,
+  `.payment-voided`), a plan or cycle changed (`.plan-changed`), a suspension by hand and its lifting
+  (`.suspended`, `.suspension-lifted`) and a cancellation (`.cancelled`). Each holds ids, days, amounts in paise,
+  states and who acted, the state before and after; never a reason typed nor a payment's reference, which may name
+  someone; and only when something changed. A super admin can then review everything support changed from the
+  console's own log, without impersonating each Owner. The platform's own jobs (the nightly lifecycle, the demo
+  reset) stay in the organization's log alone.
 - **Billing readiness (spec 7.4: "Razorpay Subscriptions webhooks update the same record later").** A subscription
   has a `provider_subscription_id`, and a payment a `provider` and `provider_payment_id`, unique per organization:
   `recordPayment(…, { provider: { provider: "razorpay", providerPaymentId } })` records a repeated webhook's payment

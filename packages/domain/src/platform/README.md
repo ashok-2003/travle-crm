@@ -67,10 +67,10 @@ organizationId)` records a `platform_export` row and queues `EXPORT_ORGANIZATION
 - An organization's subscription: `getSubscription(services, organizationId)` (with its payments: the state due
   today beside what the nightly job last recorded, `recorded`, any manual suspension, and the price with CGST and
   SGST), and `changePlan`, `setOverrides`, `setTrialEnd`, `setPaidThrough`, `recordPayment`, `voidPayment`,
-  `suspend`, `cancel` `(services, staff, input)`, each one platform transaction under the subscription's lock,
-  recorded in the organization's own audit log. Lifting a manual suspension (super admins) is the subscriptions
-  module's `liftSuspension`, which the console's router runs in a platform transaction. The nightly lifecycle job is
-  the console's too (`apps/api/src/console-jobs.ts`).
+  `suspend`, `liftSuspension` (super admins, which the console's procedure checks), `cancel`
+  `(services, staff, input)`, each one platform transaction under the subscription's lock, recorded in the
+  organization's own audit log and, when it changed something, in the platform log too (`billing-log.ts`). The
+  nightly lifecycle job is the console's too (`apps/api/src/console-jobs.ts`).
 - The dashboard (spec 7.4): `organizationsOverview(services, { limit, after? }, now?)`, every organization a page at
   a time (oldest first, the next page after the last one's id), with its status, plan, days to its next change, seats
   and storage against its limits, last activity, and this month's changes and documents. Each organization's counts
@@ -95,8 +95,8 @@ None.
   as `app_runtime` under row-level security, in the same transaction.
 - A change a platform admin makes inside an organization is recorded in that organization's audit log as
   `platformActor(organizationId, adminUserId)` (source `platform`), so its staff see it too. Subscription changes are
-  recorded there; support's billing changes (time given, a voided payment, a plan change, a cancellation) also go in
-  the platform log, by ids, days and amounts, never a reason's words, so a super admin can review them (ADR 0020).
+  recorded there; every change platform staff make to a subscription or its billing also goes in the platform log,
+  by ids, days and amounts, never a reason's or a reference's words, so a super admin can review them (ADR 0020).
   Onboarding, corrections, exports, purges and erasures also go in the platform log, and so do changes that belong
   to no organization (plans, the policy, jobs).
 - The platform log is append-only even for the platform role, and the api and worker have no rights on it. Its entries

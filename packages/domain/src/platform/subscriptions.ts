@@ -1,7 +1,7 @@
 // The console's changes to an organization's subscription (spec 7.2-7.4). Each runs in one platform transaction, and
-// the subscriptions module records it in that organization's audit log under the platform admin's name. The billing
-// changes support may make freely (time given, a payment voided, a plan changed, a cancellation) also go in the
-// platform log, so a super admin can review them without opening each organization's log (ADR 0020).
+// the subscriptions module records it in that organization's audit log under the platform admin's name. Every one
+// that changes something also goes in the platform log, so a super admin can review all that platform staff changed
+// without opening each organization's log (ADR 0020).
 import type {
   ChangePlanInput,
   EndAccessInput,
@@ -13,37 +13,19 @@ import type {
   SubscriptionPayment,
   VoidPaymentInput,
 } from "@travel-crm/contracts/subscriptions";
-import type { PlatformTx } from "@travel-crm/db/platform";
-import type { AuditSnapshot } from "../audit/index.js";
 import * as subscriptions from "../subscriptions/index.js";
-import { recordPlatformAudit, type PlatformActor } from "./platform-log.js";
+import {
+  logBillingChange,
+  loggedChange,
+  overridesShown,
+  paidShown,
+  planShown,
+  statusShown,
+  suspensionShown,
+  trialShown,
+} from "./billing-log.js";
+import type { PlatformActor } from "./platform-log.js";
 import type { PlatformServices } from "./services.js";
-
-/**
- * A billing change in the platform log, beside the organization's own entry: ids, days and amounts in paise and who
- * acted, never the reason typed, which may name someone. Only when something changed, as the organization's log.
- */
-async function logBillingChange(
-  tx: PlatformTx,
-  staff: PlatformActor,
-  organizationId: string,
-  change: { action: string; before?: AuditSnapshot; after: AuditSnapshot },
-): Promise<void> {
-  await recordPlatformAudit(tx, staff, {
-    ...change,
-    targetType: "subscription",
-    targetId: organizationId,
-    targetOrganizationId: organizationId,
-  });
-}
-
-/**
- * The subscription held, as every change holds it first, and as it is once held: what the change in the same
- * transaction starts from.
- */
-function heldSubscription(tx: PlatformTx, organizationId: string): Promise<SubscriptionDetails> {
-  return subscriptions.lockSubscription(tx, organizationId);
-}
 
 /** An organization's subscription and its payments, newest first. */
 export async function getSubscription(
@@ -61,18 +43,10 @@ export async function changePlan(
   staff: PlatformActor,
   input: ChangePlanInput,
 ): Promise<SubscriptionDetails> {
-  return services.platformDb.transaction(async (tx) => {
-    const before = await heldSubscription(tx, input.organizationId);
-    const after = await subscriptions.changePlan(tx, staff, input);
-    if (before.plan.id !== after.plan.id || before.billingCycle !== after.billingCycle) {
-      await logBillingChange(tx, staff, input.organizationId, {
-        action: "subscription.plan-changed",
-        before: { planId: before.plan.id, billingCycle: before.billingCycle },
-        after: { planId: after.plan.id, billingCycle: after.billingCycle },
-      });
-    }
-    return after;
-  });
+  const logged = { action: "subscription.plan-changed", shown: planShown };
+  return loggedChange(services, staff, input.organizationId, logged, (tx) =>
+    subscriptions.changePlan(tx, staff, input),
+  );
 }
 
 export async function setOverrides(
@@ -80,7 +54,10 @@ export async function setOverrides(
   staff: PlatformActor,
   input: SetOverridesInput,
 ): Promise<SubscriptionDetails> {
-  return services.platformDb.transaction((tx) => subscriptions.setOverrides(tx, staff, input));
+  const logged = { action: "subscription.overrides-changed", shown: overridesShown };
+  return loggedChange(services, staff, input.organizationId, logged, (tx) =>
+    subscriptions.setOverrides(tx, staff, input),
+  );
 }
 
 export async function setTrialEnd(
@@ -88,35 +65,50 @@ export async function setTrialEnd(
   staff: PlatformActor,
   input: SetTrialEndInput,
 ): Promise<SubscriptionDetails> {
-  return services.platformDb.transaction((tx) => subscriptions.setTrialEnd(tx, staff, input));
+  const logged = { action: "subscription.trial-end-changed", shown: trialShown };
+  return loggedChange(services, staff, input.organizationId, logged, (tx) =>
+    subscriptions.setTrialEnd(tx, staff, input),
+  );
 }
 
-/** Time given without a payment, or a correction: logged with the paid-through day and the state, before and after. */
+/** Time given without a payment, or a correction. */
 export async function setPaidThrough(
   services: PlatformServices,
   staff: PlatformActor,
   input: SetPaidThroughInput,
 ): Promise<SubscriptionDetails> {
-  return services.platformDb.transaction(async (tx) => {
-    const before = await heldSubscription(tx, input.organizationId);
-    const after = await subscriptions.setPaidThrough(tx, staff, input);
-    if (before.paidThrough !== after.paidThrough || before.status !== after.status) {
-      await logBillingChange(tx, staff, input.organizationId, {
-        action: "subscription.paid-through-changed",
-        before: { paidThrough: before.paidThrough, status: before.status },
-        after: { paidThrough: after.paidThrough, status: after.status },
-      });
-    }
-    return after;
-  });
+  const logged = { action: "subscription.paid-through-changed", shown: paidShown };
+  return loggedChange(services, staff, input.organizationId, logged, (tx) =>
+    subscriptions.setPaidThrough(tx, staff, input),
+  );
 }
 
+/**
+ * Logged with the payment's id, amount and days, and the subscription's paid-through day and state before and after;
+ * never its reference, which may name the payer.
+ */
 export async function recordPayment(
   services: PlatformServices,
   staff: PlatformActor,
   input: RecordPaymentInput,
 ): Promise<SubscriptionPayment> {
-  return services.platformDb.transaction((tx) => subscriptions.recordPayment(tx, staff, input));
+  return services.platformDb.transaction(async (tx) => {
+    const before = paidShown(await subscriptions.lockSubscription(tx, input.organizationId));
+    const payment = await subscriptions.recordPayment(tx, staff, input);
+    const after = paidShown(await subscriptions.getSubscription(tx, input.organizationId));
+    await logBillingChange(tx, staff, input.organizationId, {
+      action: "subscription.payment-recorded",
+      before,
+      after: {
+        paymentId: payment.id,
+        amountPaise: payment.amountPaise,
+        paidOn: payment.paidOn,
+        paysThrough: payment.paidThrough,
+        ...after,
+      },
+    });
+    return payment;
+  });
 }
 
 export async function voidPayment(
@@ -125,7 +117,7 @@ export async function voidPayment(
   input: VoidPaymentInput,
 ): Promise<SubscriptionPayment> {
   return services.platformDb.transaction(async (tx) => {
-    await heldSubscription(tx, input.organizationId);
+    await subscriptions.lockSubscription(tx, input.organizationId);
     const before = await subscriptions.listPayments(tx, input.organizationId);
     const voided = await subscriptions.voidPayment(tx, staff, input);
     if (before.some((payment) => payment.id === voided.id && payment.voided === null)) {
@@ -148,7 +140,20 @@ export async function suspend(
   staff: PlatformActor,
   input: EndAccessInput,
 ): Promise<SubscriptionDetails> {
-  return services.platformDb.transaction((tx) => subscriptions.suspend(tx, staff, input));
+  const logged = { action: "subscription.suspended", shown: suspensionShown };
+  return loggedChange(services, staff, input.organizationId, logged, (tx) => subscriptions.suspend(tx, staff, input));
+}
+
+/** The only way out of a suspension made by hand. Super admins only, which the console's procedure checks. */
+export async function liftSuspension(
+  services: PlatformServices,
+  staff: PlatformActor,
+  input: EndAccessInput,
+): Promise<SubscriptionDetails> {
+  const logged = { action: "subscription.suspension-lifted", shown: suspensionShown };
+  return loggedChange(services, staff, input.organizationId, logged, (tx) =>
+    subscriptions.liftSuspension(tx, staff, input),
+  );
 }
 
 export async function cancel(
@@ -156,16 +161,6 @@ export async function cancel(
   staff: PlatformActor,
   input: EndAccessInput,
 ): Promise<SubscriptionDetails> {
-  return services.platformDb.transaction(async (tx) => {
-    const before = await heldSubscription(tx, input.organizationId);
-    const after = await subscriptions.cancel(tx, staff, input);
-    if (before.status !== after.status) {
-      await logBillingChange(tx, staff, input.organizationId, {
-        action: "subscription.cancelled",
-        before: { status: before.status },
-        after: { status: after.status },
-      });
-    }
-    return after;
-  });
+  const logged = { action: "subscription.cancelled", shown: statusShown };
+  return loggedChange(services, staff, input.organizationId, logged, (tx) => subscriptions.cancel(tx, staff, input));
 }
