@@ -58,6 +58,21 @@ describe("memory job runner", () => {
     ]);
   });
 
+  it("gives each attempt its own copy of the data, so a handler that changes it doesn't change the retry's", async () => {
+    const queue = createMemoryJobQueue();
+    const runner = createMemoryJobRunner(queue);
+    const seen: unknown[] = [];
+    await runner.work("webhooks.process", (job) => {
+      seen.push({ ...job.data });
+      (job.data as Record<string, unknown>).webhookEventId = "changed";
+      return Promise.reject(new Error("try again"));
+    });
+    await queue.send("webhooks.process", { webhookEventId: "w3" }, { retryLimit: 1 });
+    await runner.runQueued();
+    expect(seen).toEqual([{ webhookEventId: "w3" }, { webhookEventId: "w3" }]);
+    expect(queue.sent[0]?.data).toEqual({ webhookEventId: "w3" });
+  });
+
   it("keeps schedules with their time zone, and fires them on demand", async () => {
     const queue = createMemoryJobQueue();
     const runner = createMemoryJobRunner(queue);

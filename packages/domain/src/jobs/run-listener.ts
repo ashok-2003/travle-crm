@@ -2,21 +2,19 @@
 // it for each job the relay queued.
 import type { Database } from "@travel-crm/db";
 import type { JobData } from "@travel-crm/integrations/jobs";
-import { systemActor } from "../kernel/index.js";
+import { isUuid, systemActor } from "../kernel/index.js";
 import type { DomainEvent, EventListener, EventPayload } from "./events.js";
 import type { ListenerJobData } from "./relay.js";
 
 export type ListenerRunOutcome = "handled" | "already-handled" | "event-not-found";
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 /** The job's data as the relay wrote it. A job that doesn't match its listener is a bug, so it fails loudly. */
 function listenerJobData(data: JobData, listener: EventListener): ListenerJobData {
   const { organizationId, eventId, eventType } = data;
-  if (typeof organizationId !== "string" || !UUID_PATTERN.test(organizationId)) {
+  if (typeof organizationId !== "string" || !isUuid(organizationId)) {
     throw new TypeError(`${listener.name} job has no valid organizationId`);
   }
-  if (typeof eventId !== "string" || !UUID_PATTERN.test(eventId)) {
+  if (typeof eventId !== "string" || !isUuid(eventId)) {
     throw new TypeError(`${listener.name} job has no valid eventId`);
   }
   if (eventType !== listener.eventType) {

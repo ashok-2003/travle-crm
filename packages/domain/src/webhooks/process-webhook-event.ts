@@ -3,10 +3,10 @@
 // separate transactions, so a crash between them runs the handler again. Handlers must be idempotent.
 import type { Database } from "@travel-crm/db";
 import { webhookEvents } from "@travel-crm/db/webhooks";
-import type { JobData } from "@travel-crm/integrations/jobs";
+import { describeError, type JobData } from "@travel-crm/integrations/jobs";
+import { isUuid } from "../kernel/index.js";
 import type { StoredWebhookEvent, WebhookProvider } from "./provider.js";
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_ERROR_LENGTH = 100;
 
 export interface ProcessWebhookDependencies {
@@ -25,13 +25,12 @@ function headersFrom(value: unknown): Record<string, string> {
 }
 
 /**
- * What is kept of a failure in the table: the error's code or name, never its message (messages quote payloads, and
- * payloads hold personal data). The full error is rethrown, to the logs and the job queue.
+ * What is kept of a failure in the table: the error's names and codes (describeError), never its message (messages
+ * quote payloads, and payloads hold personal data). The error is rethrown: the job queue stores a cut-down copy and
+ * the log its names and codes.
  */
 function errorLabel(error: unknown): string {
-  const code = typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
-  const label = typeof code === "string" && code !== "" ? code : error instanceof Error ? error.name : "UnknownError";
-  return label.slice(0, MAX_ERROR_LENGTH);
+  return describeError(error).slice(0, MAX_ERROR_LENGTH);
 }
 
 /**
@@ -42,7 +41,7 @@ export async function processWebhookEvent(
   { db, providers }: ProcessWebhookDependencies,
   webhookEventId: string,
 ): Promise<WebhookProcessResult> {
-  if (!UUID_PATTERN.test(webhookEventId)) return "event-not-found";
+  if (!isUuid(webhookEventId)) return "event-not-found";
   const row = await db.withoutOrg((tx) => webhookEvents(tx).findUnique({ where: { id: webhookEventId } }));
   if (!row) return "event-not-found";
   if (row.processedAt) return "already-processed";

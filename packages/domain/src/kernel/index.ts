@@ -16,6 +16,7 @@ export {
   type Money,
 } from "./money.js";
 export { allocate, fractionOf, percentageOf, type Rounding } from "./money-rounding.js";
+export { ipv6Groups } from "./ip-address.js";
 export {
   indiaGst,
   type GstSupplyType,
@@ -25,6 +26,7 @@ export {
 } from "./tax/india-gst.js";
 export type { TaxBreakdown, TaxComponent, TaxedLine, TaxEngine } from "./tax/tax-engine.js";
 export { calendarDateIn, formatDateTime, parseCalendarDate, startOfDayIn, yearIn, type CalendarDate } from "./time.js";
+export { isUuid } from "./uuid.js";
 // GST facts and time zone names live with the API's field rules, so forms and the kernel share one copy.
 export {
   gstinCheckCharacter,

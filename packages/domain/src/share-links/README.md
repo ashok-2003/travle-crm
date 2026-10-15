@@ -16,7 +16,6 @@ Links that open one record for someone who isn't signed in (spec 9.3), such as a
   `share-link.opened` in one transaction. Every open is recorded; the event goes out at most once per link in 10
   minutes. A preview (`preview: true`: HEAD, prefetch, link-preview bots) records nothing. The route calls it only
   after the record's resolver answered with success.
-- `openShareLink(db, token, visitor, now?)`: `findShareLink` then `recordShareLinkOpen`.
 - `listShareLinks(tx, { recordType, recordId })`: a record's links with open counts and the last open, for staff.
 - Types: `NewShareLink`, `OpenedShareLink`, `SharedRecord`, `ShareLinkVisitor`.
 

@@ -28,7 +28,13 @@ export function createMemoryJobQueue(): MemoryJobQueue {
           resolve(null);
           return;
         }
-        const job = { id: options.id ?? randomUUID(), queue, data, options };
+        // Copies, as pg-boss's JSON round trip makes them: a caller changing its object later changes no job.
+        const job = {
+          id: options.id ?? randomUUID(),
+          queue,
+          data: structuredClone(data),
+          options: structuredClone(options),
+        };
         sent.push(job);
         resolve(job.id);
       }),

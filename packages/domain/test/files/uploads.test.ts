@@ -129,6 +129,18 @@ describe("uploading files", () => {
     ).rejects.toMatchObject({ code: "CONFLICT", reason: "ATTACHMENT_ID_IN_USE" });
   });
 
+  it("answers with a generated sensitive file's name hidden from a caller who may not open it", async () => {
+    const stored = await test.files.storeGeneratedFile(memberOf(organizationId, "sales"), {
+      recordType: "lead",
+      recordId: "0199e7a0-0000-7000-8000-0000000000d4",
+      fileName: "Passport - Asha.pdf",
+      contentType: "application/pdf",
+      body: bytes("%PDF-pp"),
+      sensitive: true,
+    });
+    expect(stored).toMatchObject({ fileName: "Sensitive file", sensitive: true, status: "ready" });
+  });
+
   it("refuses a generated file whose name hides a folder or a direction mark", async () => {
     for (const fileName of ["../x.pdf", "invoice\u202Efdp.exe"]) {
       await expect(

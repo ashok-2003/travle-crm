@@ -92,8 +92,9 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - Permissions are `module:action` in `packages/domain/src/identity/permissions.ts`. Add new ones there; the Owner role
   gets them automatically. List queries for scoped views filter with `scopeFilter()` (own or all records).
 - Domain modules are folders in `packages/domain/src`. Their public API is `index.ts`; other modules import only that.
-  Business rule failures throw `DomainError` from `@travel-crm/domain/kernel`, which the API turns into an HTTP status
-  (`domainErrorResponse` from `@travel-crm/api` does the same for plain HTTP routes).
+  Business rule failures throw `DomainError` from `@travel-crm/domain/kernel`, which the API turns into an HTTP status.
+  Plain HTTP routes answer in their own way (the share link's pages); an error nothing handled is logged by names and
+  codes and answered generically (`apps/api/src/error-handler.ts`).
 - Over HTTP, tRPC requests and `/api/auth/sign-in/org`, other than GET/HEAD, must name a trusted origin and
   send JSON (`apps/api/src/trusted-origin.ts`); other `/api/auth/*` POSTs use Better Auth's own origin check. Better Auth's `/api/auth/organization/*` endpoints are closed (404):
   members and roles go through tRPC. Error responses carry no stack traces or internal messages.

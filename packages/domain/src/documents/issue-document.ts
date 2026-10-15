@@ -3,6 +3,7 @@
 // transaction.
 import {
   issueDocumentInput,
+  type DocumentIssuedEvent,
   type IssueDocumentInput,
   type IssuedDocumentRenderInput,
   type IssuedDocumentSummary,
@@ -71,7 +72,8 @@ export async function issueDocument(
     },
     select: summaryFields,
   });
-  await publishEvent(tx, { type: "document.issued", payload: { documentId: row.id } });
+  // Exactly the event's contract, which the listener checks strictly.
+  await publishEvent(tx, { type: "document.issued", payload: { documentId: row.id } satisfies DocumentIssuedEvent });
   // The id and the number only: the content is the customer's, and the document itself keeps it.
   await recordAudit(tx, actor, {
     action: "document.issued",

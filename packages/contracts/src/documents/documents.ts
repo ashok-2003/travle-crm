@@ -84,3 +84,4 @@ export type IssuedDocumentSummary = z.infer<typeof issuedDocumentSummary>;
 
 /** The payload of the "document.issued" event. */
 export const documentIssuedEvent = z.strictObject({ documentId: z.uuid() });
+export type DocumentIssuedEvent = z.infer<typeof documentIssuedEvent>;

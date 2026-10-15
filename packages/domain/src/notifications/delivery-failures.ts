@@ -1,5 +1,6 @@
 // What a failed delivery means: whether trying again could help, what may be said about it, and recording that a
 // channel is given up on. Messages here carry ids and codes, never addresses or notification text.
+import { describeError } from "@travel-crm/integrations/jobs";
 import { PushPayloadTooLargeError } from "@travel-crm/integrations/push";
 import type { ListenerContext } from "../jobs/index.js";
 import { markFailed, type Channel } from "./delivery-claims.js";
@@ -28,10 +29,10 @@ export function isPermanent(error: unknown): boolean {
   return aboutTheMessage && typeof responseCode === "number" && responseCode >= 500 && responseCode < 600;
 }
 
-/** What to say about an error without personal data: its name and codes, never its message. */
+/** What to say about an error without personal data: its names and codes, and the mail server's reply code. */
 function describe(error: unknown): string {
-  const { name, code, responseCode } = (error ?? {}) as { name?: unknown; code?: unknown; responseCode?: unknown };
-  return [name, code, responseCode].filter((part) => typeof part === "string" || typeof part === "number").join(" ");
+  const { responseCode } = (error ?? {}) as { responseCode?: unknown };
+  return typeof responseCode === "number" ? `${describeError(error)} ${String(responseCode)}` : describeError(error);
 }
 
 /**

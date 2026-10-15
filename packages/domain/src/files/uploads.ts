@@ -162,7 +162,8 @@ export async function storeGeneratedFile(
   if (row.status === "ready") return summaryFor(actor, row);
   await storage.put({ key: storageKeyOf(row), contentType: file.contentType, body: file.body });
   return db.forOrg(actor.organizationId, async (tx) =>
-    toSummary(
+    summaryFor(
+      actor,
       await tx.attachment.update({
         where: { id: row.id },
         // A retry may carry a different body than the failed first run left announced: keep the row true to storage.

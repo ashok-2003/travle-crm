@@ -53,7 +53,8 @@ export function createMemoryJobRunner(queue: MemoryJobQueue): MemoryJobRunner {
     const retryLimit = job.options.retryLimit ?? defaultRetryPolicy.retryLimit;
     for (let retryCount = 0; ; retryCount += 1) {
       try {
-        await handler({ id: job.id, data: job.data, retryCount });
+        // Each attempt reads the job afresh, as pg-boss does: a handler that changes its data changes no retry.
+        await handler({ id: job.id, data: structuredClone(job.data), retryCount });
         return;
       } catch (error) {
         if (retryCount >= retryLimit) {
@@ -79,7 +80,7 @@ export function createMemoryJobRunner(queue: MemoryJobQueue): MemoryJobRunner {
         assertTimeZone(options.timeZone);
         const index = schedules.findIndex((schedule) => schedule.queue === name);
         if (index >= 0) schedules.splice(index, 1);
-        schedules.push({ queue: name, cron, timeZone: options.timeZone, data: options.data ?? {} });
+        schedules.push({ queue: name, cron, timeZone: options.timeZone, data: structuredClone(options.data ?? {}) });
         resolve();
       }),
     unschedule: (name) =>

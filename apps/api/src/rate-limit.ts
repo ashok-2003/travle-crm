@@ -1,5 +1,6 @@
 // Rate limits for the public routes (share links, webhooks): Hono middleware over the domain's Postgres-backed limiter.
 import { BlockList, isIP } from "node:net";
+import { ipv6Groups } from "@travel-crm/domain/kernel";
 import type { RateLimiter } from "@travel-crm/domain/rate-limits";
 import type { MiddlewareHandler } from "hono";
 
@@ -72,25 +73,6 @@ export interface ClientAddressSettings {
 interface Hop {
   address: string;
   family: "ipv4" | "ipv6";
-}
-
-/**
- * The eight groups of an IPv6 address. The URL parser gives its shortest form, refuses zone ids, and writes a dotted
- * tail in hex.
- */
-function ipv6Groups(address: string): number[] | null {
-  let host: string;
-  try {
-    host = new URL(`http://[${address}]`).hostname.slice(1, -1);
-  } catch {
-    return null;
-  }
-  const groups = (part: string) => (part === "" ? [] : part.split(":").map((group) => Number.parseInt(group, 16)));
-  const [head = "", tail] = host.split("::");
-  if (tail === undefined) return groups(head);
-  const left = groups(head);
-  const right = groups(tail);
-  return [...left, ...Array<number>(8 - left.length - right.length).fill(0), ...right];
 }
 
 function parseHop(text: string): Hop | null {

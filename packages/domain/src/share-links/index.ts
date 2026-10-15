@@ -4,7 +4,6 @@ export {
   createShareLink,
   findShareLink,
   listShareLinks,
-  openShareLink,
   recordShareLinkOpen,
   revokeShareLink,
   type NewShareLink,

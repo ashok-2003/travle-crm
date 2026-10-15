@@ -1,16 +1,19 @@
 // Share links (spec 9.3): /p/<token> opens one record for someone who isn't signed in. Links expire and can be
 // revoked. Each customer open is recorded and announced (share-link.opened, coalesced), so staff can see a customer
 // looked; previews and prefetches are checked like any open but record nothing.
-import { isVisibleShareLinkText, type ShareLinkSummary } from "@travel-crm/contracts/share-links";
+import {
+  isVisibleShareLinkText,
+  type ShareLinkOpenedEvent,
+  type ShareLinkSummary,
+} from "@travel-crm/contracts/share-links";
 import type { Database, OrgTx } from "@travel-crm/db";
 import { publishEvent } from "../jobs/index.js";
-import { DomainError, type Actor } from "../kernel/index.js";
+import { DomainError, isUuid, type Actor } from "../kernel/index.js";
 import { newShareLinkToken, parseShareLinkToken } from "./token.js";
 import { shortenUserAgent, truncateIpAddress } from "./visitor.js";
 
 const DEFAULT_LIFETIME_MILLISECONDS = 30 * 24 * 60 * 60 * 1000;
 const RECORD_TYPE_PATTERN = /^[a-z][a-z_]{1,39}$/;
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** The record a link opens. */
 export interface SharedRecord {
@@ -58,7 +61,7 @@ export async function createShareLink(
   if (!RECORD_TYPE_PATTERN.test(input.recordType)) {
     throw new DomainError("VALIDATION", "INVALID_RECORD_TYPE", "Use a record type like issued_document");
   }
-  if (!UUID_PATTERN.test(input.recordId)) {
+  if (!isUuid(input.recordId)) {
     throw new DomainError("VALIDATION", "INVALID_RECORD_ID", "The record id must be a UUID");
   }
   const label = input.label.trim();
@@ -94,7 +97,7 @@ export async function revokeShareLink(
   input: { shareLinkId: string },
   now: Date = new Date(),
 ): Promise<void> {
-  const link = UUID_PATTERN.test(input.shareLinkId)
+  const link = isUuid(input.shareLinkId)
     ? await tx.shareLink.findUnique({ where: { id: input.shareLinkId }, select: { revokedAt: true } })
     : null;
   if (!link) throw notFound("LINK_NOT_FOUND", "No such link");
@@ -125,14 +128,8 @@ export async function findShareLink(
     if (!link) throw notFound("LINK_NOT_FOUND", "This link doesn't work");
     if (link.revokedAt) throw notFound("LINK_REVOKED", "This link has been turned off");
     if (link.expiresAt && link.expiresAt <= now) throw notFound("LINK_EXPIRED", "This link has expired");
-    return {
-      organizationId,
-      shareLinkId: link.id,
-      recordType: link.recordType,
-      recordId: link.recordId,
-      label: link.label,
-      createdBy: link.createdBy,
-    };
+    const { id: shareLinkId, recordType, recordId, label, createdBy } = link;
+    return { organizationId, shareLinkId, recordType, recordId, label, createdBy };
   });
 }
 
@@ -165,29 +162,15 @@ export async function recordShareLinkOpen(
       select: { id: true },
     });
     if (!latest) {
-      await publishEvent(tx, {
-        type: "share-link.opened",
-        payload: { shareLinkId: opened.shareLinkId, openId: open.id },
-      });
+      const payload = { shareLinkId: opened.shareLinkId, openId: open.id } satisfies ShareLinkOpenedEvent;
+      await publishEvent(tx, { type: "share-link.opened", payload });
     }
   });
 }
 
-/** Checks a link and records the open (unless the visitor is a preview), in one call: findShareLink, then recordShareLinkOpen. */
-export async function openShareLink(
-  db: Pick<Database, "forOrg">,
-  token: string,
-  visitor: ShareLinkVisitor,
-  now: Date = new Date(),
-): Promise<OpenedShareLink> {
-  const opened = await findShareLink(db, token, now);
-  await recordShareLinkOpen(db, opened, visitor, now);
-  return opened;
-}
-
 /** A record's links, newest first, with how often and when they were last opened, for staff. */
 export async function listShareLinks(tx: OrgTx, record: SharedRecord): Promise<ShareLinkSummary[]> {
-  if (!UUID_PATTERN.test(record.recordId)) {
+  if (!isUuid(record.recordId)) {
     throw new DomainError("VALIDATION", "INVALID_RECORD_ID", "The record id must be a UUID");
   }
   const links = await tx.shareLink.findMany({

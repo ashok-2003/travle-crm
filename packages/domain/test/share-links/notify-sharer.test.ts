@@ -6,7 +6,12 @@ import { describe, expect, it } from "vitest";
 import { runListenerJob, type DomainEvent } from "../../src/jobs/index.js";
 import { systemActor, type Actor } from "../../src/kernel/index.js";
 import { setPreference } from "../../src/notifications/index.js";
-import { createShareLink, notifySharerListener, openShareLink } from "../../src/share-links/index.js";
+import {
+  createShareLink,
+  findShareLink,
+  notifySharerListener,
+  recordShareLinkOpen,
+} from "../../src/share-links/index.js";
 import { deliver, useDeliveryKit } from "../notifications/delivery-kit.js";
 import { eventsOfType, personIn } from "../notifications/test-support.js";
 
@@ -23,7 +28,8 @@ describe("telling the sharer a link was opened", () => {
     const link = await kit.db.forOrg(actor.organizationId, (tx) =>
       createShareLink(tx, actor, { recordType: "issued_document", recordId: randomUUID(), label }),
     );
-    await openShareLink(kit.db, link.token, { ipAddress: "203.0.113.5", userAgent: "Mozilla/5.0", preview: false });
+    const opened = await findShareLink(kit.db, link.token);
+    await recordShareLinkOpen(kit.db, opened, { ipAddress: "203.0.113.5", userAgent: "Mozilla/5.0", preview: false });
     const event = await kit.db.forOrg(actor.organizationId, (tx) =>
       tx.outboxEvent.findFirstOrThrow({
         where: { type: "share-link.opened", payload: { path: ["shareLinkId"], equals: link.shareLinkId } },
