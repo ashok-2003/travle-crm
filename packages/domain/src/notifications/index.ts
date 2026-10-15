@@ -3,6 +3,7 @@ export { listNotifications, markRead, unreadCount } from "./bell.js";
 export { deliverNotificationListener, type DeliveryDependencies } from "./deliver-notification.js";
 export { forgetPushSubscriptionsListener } from "./forget-push-subscriptions.js";
 export { forgetRecipient } from "./forget-recipient.js";
+export { forgetRecordNotifications } from "./forget-record.js";
 export { notify } from "./notify.js";
 export type { Person } from "./person.js";
 export { isOptedOut, listPreferences, setPreference } from "./preferences.js";

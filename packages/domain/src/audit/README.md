@@ -14,11 +14,14 @@ The audit log (spec 9.5): who changed what in an organization, from where, and t
   page), or one record's history (`entityType` with `entityId`). The API checks `audit:view` first.
 - Types: `AuditChange`, `AuditSnapshot`. The contracts are in `@travel-crm/contracts/audit`.
 
-- `auditEntriesAbout(tx, { organizationId, entityType, entityId })`: every entry about one record, for an export.
+- `auditEntriesAbout(tx, { organizationId, entityType, entityId })`: every entry about one record, for an export,
+  newest first. Filtered by the organization, so a platform transaction (every organization) gets that one's alone.
 - `redactAuditEntries(tx, record)`: the platform role's erasure (spec 5): replaces each entry's `before` and `after`
   with `{ "redacted": true }` (sides with no state stay null), keeping who did what and when. Returns how many changed;
   a second run changes none.
-- `auditEntriesSince(tx, since)`: changes recorded since a time, a usage counter for the platform dashboard.
+- `auditEntriesSince(tx, since)`: changes recorded since a time, a usage counter for the platform dashboard. It counts
+  the transaction's organization by row-level security, so it runs in `forOrg` or `asOrganization` and refuses the
+  platform role (`RangeError`).
 
 ## Events
 

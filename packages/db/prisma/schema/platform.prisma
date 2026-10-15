@@ -26,3 +26,23 @@ model PlatformAuditEntry {
   @@index([targetOrganizationId, occurredAt(sort: Desc)], map: "platform_audit_entry_organization")
   @@map("platform_audit_entry")
 }
+
+/// Stored files still to delete after a purge or an erasure committed: the deletions' outbox (ADR 0022). A row is
+/// written in the same platform transaction as the rows it follows; the console's job deletes the file, then the row,
+/// and is retried until none is left. Ids only: the storage key is made from them, never stored, so no file name is
+/// kept. Its organization column is not organization_id: the row must outlive the purge, whose catalog walk deletes
+/// every table with one.
+model StoredFileDeletion {
+  id                   String   @id @default(uuid(7)) @db.Uuid
+  /// The organization whose storage folder holds the file. No foreign key: the organization may be gone.
+  targetOrganizationId String   @map("target_organization_id") @db.Uuid
+  /// The attachment whose bytes go; null for everything in the organization's folder (a purge).
+  attachmentId         String?  @map("attachment_id") @db.Uuid
+  /// Not before then: a purge sweeps its organization's folder again once upload links handed out before it lapse.
+  dueAt                DateTime @default(now()) @map("due_at") @db.Timestamptz(6)
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  /// The job's work list: what is due, oldest first.
+  @@index([dueAt, id])
+  @@map("stored_file_deletion")
+}

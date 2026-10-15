@@ -4,20 +4,30 @@ import type { OrgTx } from "@travel-crm/db";
 import { webhookEvents } from "@travel-crm/db/webhooks";
 
 /**
- * Tombstones the events processed for the organization: their payloads and headers blanked, their ids kept. An event
- * still waiting to be processed is left alone (its handler needs it) and counted, so the caller can run this again
- * once it has been processed. Runs in a platform transaction.
+ * Tombstones the organization's events: their payloads and headers blanked, their ids kept. Runs in a platform
+ * transaction, and again harmlessly.
+ *
+ * `waiting` counts the organization's events still in flight: a handler found the organization but failed, and the
+ * job is retrying it. An erasure leaves those to their handler, which still needs the payload (a payment to record),
+ * and blanks only processed events. A purge (`organizationGone`) blanks them too: no handler can use an event about an
+ * organization that no longer exists, and the next retry finds the tombstone and stops.
  */
 export async function tombstoneWebhookEvents(
   tx: OrgTx,
   organizationId: string,
+  options: { organizationGone?: boolean } = {},
 ): Promise<{ tombstoned: number; waiting: number }> {
   const events = webhookEvents(tx);
+  const waiting = await events.count({
+    where: { resolvedOrganizationId: organizationId, processedAt: null, tombstonedAt: null },
+  });
   const { count } = await events.updateMany({
-    where: { resolvedOrganizationId: organizationId, processedAt: { not: null }, tombstonedAt: null },
+    where: {
+      resolvedOrganizationId: organizationId,
+      tombstonedAt: null,
+      ...(options.organizationGone ? {} : { processedAt: { not: null } }),
+    },
     data: { payload: "", headers: {}, tombstonedAt: new Date() },
   });
-  // Unprocessed events have no organization yet, unless a handler failed after finding it: those wait.
-  const waiting = await events.count({ where: { resolvedOrganizationId: organizationId, processedAt: null } });
   return { tombstoned: count, waiting };
 }

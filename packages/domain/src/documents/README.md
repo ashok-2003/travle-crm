@@ -21,7 +21,9 @@ quotes and invoices bring theirs.
   template's content as a quotation, its GST worked out by the kernel's `indiaGst` and every amount printed with
   `formatMoney`, ready for `issueDocument`.
 
-- `documentsIssuedSince(tx, since)`: a usage counter for the platform dashboard.
+- `documentsIssuedSince(tx, since)`: a usage counter for the platform dashboard. It counts the transaction's
+  organization by row-level security, so it runs in `forOrg` or `asOrganization` and refuses the platform role
+  (`RangeError`).
 
 ## Events
 
@@ -33,6 +35,9 @@ quotes and invoices bring theirs.
 
 - What was issued never changes: the runtime role may only set `pdf_attachment_id`, `rendered_at` and
   `render_failure`, and can't delete a document (money documents are cancelled or credited, never deleted; spec 5).
+- An issued document keeps the customer's details as issued, through an erasure too: a GST invoice and its like must
+  be kept by law, and DPDP allows retention a law requires. The platform's erasure refuses an `issued_document`
+  (`VALIDATION`/`KEPT_BY_LAW`, ADR 0022); only a purge of the whole organization deletes one, with its PDF.
 - A document is rendered once. Its PDF's attachment id (`pdf_file_id`) is chosen when it is issued, and the listener
   always stores into it: a rerun, two overlapping deliveries, or a crash between storing and marking all end in the
   same attachment, and a document that has its PDF is never rendered again.
