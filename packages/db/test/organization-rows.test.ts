@@ -1,5 +1,5 @@
-// The platform's purge and export of one organization (spec 5): every table with organization_id, found from the
-// catalog, deleted in an order no foreign key trips over, the organization last; another organization untouched.
+// The platform's purge of one organization (spec 5): every table with organization_id, found from the catalog,
+// deleted in an order no foreign key trips over, the organization last; another organization untouched.
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { createDatabase, type Database } from "../src/database.js";
@@ -8,7 +8,6 @@ import {
   createPlatformClient,
   createPlatformDatabase,
   deleteOrganizationRows,
-  organizationRows,
   type PlatformClient,
   type PlatformDatabase,
 } from "../src/platform.js";
@@ -68,18 +67,6 @@ describe("an organization's rows", () => {
     }
     return counts;
   };
-
-  it("exports every row of the organization, by table, with the organization's own", async () => {
-    const organizationId = await populated("Exported");
-    const exported = await platformDb.transaction((tx) =>
-      organizationRows(tx, organizationId, { except: ["outbox_event"] }),
-    );
-    expect(exported.organization).toEqual([expect.objectContaining({ id: organizationId, name: "Exported" })]);
-    expect(exported.outbox_event).toBeUndefined();
-    for (const table of (await organizationTables(platform)).filter((name) => name !== "outbox_event")) {
-      expect(exported[table]?.length, table).toBeGreaterThan(0);
-    }
-  });
 
   it("deletes every row of the organization, audit entries first, then the organization, and no one else's", async () => {
     const purged = await populated("Purged");

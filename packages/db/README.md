@@ -136,6 +136,5 @@ catalog walk leaves them and they outlive it.
 
 For permanent deletion (ADR 0023), `deleteOrganizationRows(tx, organizationId)` deletes the organization's rows in
 every table that has `organization_id`, found from the catalog and ordered so no foreign key trips (`audit_entry`
-first), then the organization; `organizationRows(tx, organizationId, { except })` returns them as JSON, by table (the
-console's export no longer uses it: it reads a page at a time through the `app_export_organization_rows` function). A
-new organization table is covered without being listed anywhere.
+first), then the organization. A new organization table is covered without being listed anywhere. The console's
+export reads an organization's rows a page at a time through the `app_export_organization_rows` function instead.
