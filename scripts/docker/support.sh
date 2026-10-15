@@ -1,11 +1,19 @@
-# What the smoke runs share: failing with a reason, waiting for an address to answer, checking answers, and stopping
-# a container the way a container platform does. Sourced by the scripts, never run.
+# What the smoke runs share: failing with a reason, free ports, waiting for an address to answer, checking answers,
+# and stopping a container the way a container platform does. Sourced by the scripts, never run.
 # shellcheck shell=bash
 
 # Prints the reason on stderr and ends the script (its EXIT trap cleans up).
 fail() {
   echo "FAIL: $*" >&2
   exit 1
+}
+
+# A port nothing on this computer listens on now.
+free_port() {
+  node --eval 'const server = require("node:net").createServer().listen(0, "127.0.0.1", () => {
+    console.log(server.address().port);
+    server.close();
+  });'
 }
 
 # Runs a command every half second until it succeeds, for up to a minute: `wait_until "<what>" <command...>`.

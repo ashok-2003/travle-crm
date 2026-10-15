@@ -21,7 +21,10 @@
     "db:down": "docker compose down",
     "db:migrate": "pnpm --filter @travel-crm/db db:migrate:deploy",
     "e2e": "turbo run e2e",
-    "images:smoke": "scripts/docker/smoke-images.sh"
+    "images:smoke": "scripts/docker/smoke-images.sh",
+    "product:up": "docker compose --file docker-compose.product.yml up --detach --build --wait && docker compose --file docker-compose.product.yml run --rm --no-deps console demo",
+    "product:down": "docker compose --file docker-compose.product.yml down",
+    "product:smoke": "scripts/docker/smoke-product.sh"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.3",

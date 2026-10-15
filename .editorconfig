@@ -11,3 +11,7 @@ trim_trailing_whitespace = true
 
 [*.md]
 trim_trailing_whitespace = false
+
+# Caddy's own format (`caddy fmt`) indents with tabs.
+[Caddyfile]
+indent_style = tab
