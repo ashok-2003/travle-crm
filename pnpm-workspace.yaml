@@ -13,7 +13,9 @@ catalog:
   "@prisma/adapter-pg": 7.10.0
   zod: 4.6.7
   react: 19.3.0
+  react-dom: 19.3.0
   "@types/react": 19.3.0
+  "@types/react-dom": 19.3.0
 
 # pnpm 12 refuses to run install scripts unless approved here.
 # Prisma and esbuild need theirs; the others come in through testcontainers and are not needed.

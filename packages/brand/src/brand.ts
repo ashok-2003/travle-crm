@@ -1,11 +1,14 @@
 // The product's own identity (spec section 10): its name, colours, fonts and contacts, in one place.
 // An organization's own logo, colours and terms are per-organization settings in the database, not these.
 
-/** A status colour: text and dot, background and border. Status colours mean status only (confirmed, due, lost). */
+/**
+ * A status colour (DESIGN.md section 2): a dot, a tinted badge background, and the dark text on it. Status colours
+ * mean status only (confirmed, due, lost), and always come with a word.
+ */
 export interface StatusColour {
-  readonly ink: string;
+  readonly dot: string;
   readonly fill: string;
-  readonly border: string;
+  readonly ink: string;
 }
 
 export const brand = {
@@ -25,33 +28,44 @@ export const brand = {
   /** The sender name on email the product sends for an organization: "<organization> via <this>". */
   emailSenderName: "Travel Agency OS",
 
-  /** Colour tokens, read by Tailwind (plan 5), the PDF templates and the email layout. */
+  /**
+   * Colour tokens, read by the web app's Tailwind theme, the PDF templates and the email layout. The values are the
+   * ones in DESIGN.md's front matter; a web app test fails when the two disagree.
+   */
   colours: {
     /** Text and the darkest surfaces. */
     ink: "#1a1a1a",
-    /** Secondary text. */
-    muted: "#6b6b70",
+    /** Secondary text, captions and placeholders: 5.25:1 on canvas. */
+    muted: "#6b6b6b",
     /** Page background: warm white. */
     canvas: "#fffdf9",
     /** Panels, table headers and the sidebar. */
     surface: "#f5f4f0",
-    /** Thin lines between flat surfaces. */
+    /** Thin lines between flat surfaces. Decorative only: never the one sign of a control or a selection. */
     hairline: "#e6e3dc",
-    /** The main action, the active item and focus. */
+    /** The edge of inputs and secondary buttons: 3.42:1 on canvas, enough for a control's boundary. */
+    inputBorder: "#8a8a82",
+    /** The one interactive colour: buttons, links, focus rings, the active item. */
     action: "#2563eb",
     actionPressed: "#1d4ed8",
-    /** People and conversations. */
+    /** Selected chips and the active navigation item, with actionPressed as their text. */
+    actionTint: "#eef2ff",
+    /** Text on an action fill: 5.17:1 on action. */
+    onAction: "#ffffff",
+    /** People and conversations: the inbox, follow-ups, assignees. Information, never a button. */
     people: "#6a4bbd",
     peoplePressed: "#5b3fa6",
     peopleTint: "#efe7fd",
     peopleTintInk: "#4c2f97",
-    /** Money: amounts, margins, payments. */
+    /** Money: amounts received, margins, invoices and the Accounts area. Never a status. */
     money: "#034f46",
     moneyPressed: "#07352f",
+    moneyTint: "#e3f1ee",
     status: {
-      good: { ink: "#166534", fill: "#e6f6ec", border: "#bfe5cc" },
-      attention: { ink: "#8a5a00", fill: "#fdf3d8", border: "#f1d999" },
-      bad: { ink: "#9f1f17", fill: "#fde8e6", border: "#f5c4bf" },
+      good: { dot: "#16a34a", fill: "#e3f4e7", ink: "#14532d" },
+      attention: { dot: "#d97706", fill: "#fff3d6", ink: "#7a4100" },
+      bad: { dot: "#d92d20", fill: "#fdecea", ink: "#9b1c1c" },
+      neutral: { dot: "#6b6b6b", fill: "#ecebe6", ink: "#4a4a4a" },
     } satisfies Record<string, StatusColour>,
   },
 

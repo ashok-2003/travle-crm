@@ -122,6 +122,28 @@ module.exports = {
       to: { path: "^(apps|packages)/", pathNot: "^packages/brand/" },
     },
     {
+      name: "web-reaches-the-api-over-http",
+      comment:
+        "The web app imports the API's types, never its code (spec 3): it reaches data through /api. At run time it " +
+        "may use the brand, the contracts' schemas (for forms) and the kernel's money and date formatting, nothing " +
+        "that touches the database, the server or a vendor.",
+      severity: "error",
+      from: { path: "^apps/web/(src|scripts)/" },
+      to: {
+        path: "^(apps/api/|packages/(api|db|integrations)/|packages/domain/src/(?!kernel/))",
+        dependencyTypesNot: ["type-only"],
+      },
+    },
+    {
+      name: "web-pages-skip-node-only-brand-files",
+      comment:
+        "@travel-crm/brand/files holds absolute file paths, built with Node's path module at import: it breaks in " +
+        "a browser bundle. Only the web app's build scripts may use it.",
+      severity: "error",
+      from: { path: "^apps/web/src/" },
+      to: { path: "^packages/brand/src/assets\\.ts$" },
+    },
+    {
       name: "no-circular",
       severity: "error",
       comment:
@@ -149,6 +171,8 @@ module.exports = {
           "(^|/)tsconfig[.]json$", // TypeScript config
           "(^|/)(?:babel|webpack)[.]config[.](?:js|cjs|mjs|ts|cts|mts|json)$", // other configs
           "(^|/)src/(index|platform)\\.ts$", // a package's public entry point is never imported inside the package
+          "^apps/web/turbopack/", // Turbopack loaders, named in next.config.ts
+          "^apps/web/src/app/", // Next.js loads the app's routes, layouts and special files by their names
         ],
       },
       to: {},
@@ -386,11 +410,10 @@ module.exports = {
     // The (optional) 'env' and 'arguments' attributes contain the parameters
     // to be passed if your webpack config is a function and takes them (see
     //  webpack documentation for details)
-    // webpackConfig: {
-    //  fileName: 'webpack.config.js',
-    //  env: {},
-    //  arguments: {}
-    // },
+    // Only for its resolve.alias: the web app's "@/..." imports (apps/web/src), as its tsconfig's paths say.
+    webpackConfig: {
+      fileName: "apps/web/depcruise-aliases.cjs",
+    },
 
     // Babel config ('.babelrc', '.babelrc.json', '.babelrc.json5', ...) to use
     // for compilation
@@ -423,7 +446,7 @@ module.exports = {
       // _your_ environment). If that list is larger than you need you can pass
       // the extensions you actually use (e.g. ['.js', '.jsx']). This can speed
       // up module resolution, which is the most expensive step.
-      extensions: [".ts", ".d.ts", ".js"],
+      extensions: [".ts", ".tsx", ".d.ts", ".js"],
 
       // What to consider a 'main' field in package.json
       mainFields: ["module", "main", "types", "typings"],

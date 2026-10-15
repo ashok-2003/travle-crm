@@ -5,7 +5,8 @@ import path from "node:path";
 import { inflateSync } from "node:zlib";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { generateIcons, icoFromPng } from "../scripts/render-icons.js";
-import { brand, brandAssets, pwaIcons } from "../src/index.js";
+import { brandAssets } from "../src/assets.js";
+import { brand, pwaIcons } from "../src/index.js";
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 

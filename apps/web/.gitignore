@@ -1,0 +1,5 @@
+# Written by `pnpm generate` from the brand package (scripts/generate.ts).
+/public/icons/
+# Playwright's reports and traces.
+/test-results/
+/playwright-report/

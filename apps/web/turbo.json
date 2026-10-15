@@ -1,0 +1,11 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "generate": {
+      "dependsOn": ["^generate", "@travel-crm/brand#build"],
+      "inputs": ["scripts/**", "$TURBO_ROOT$/packages/brand/src/**"],
+      "outputs": ["src/generated/**", "public/icons/**"]
+    }
+  }
+}
