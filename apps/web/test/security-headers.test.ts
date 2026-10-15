@@ -1,5 +1,5 @@
 // Every page is sent with the strict headers spec 12.4 asks for, and the policy allows only our own origin. The pages
-// whose address can hold a secret send no Referer at all.
+// whose address can hold a secret send only their origin as Referer, never the path or query.
 import { describe, expect, it } from "vitest";
 import { contentSecurityPolicy, securityHeaderRules, securityHeaders } from "../security-headers";
 
@@ -38,9 +38,10 @@ describe("security headers", () => {
     expect(contentSecurityPolicy({ development: true })).not.toContain("upgrade-insecure-requests");
   });
 
-  it("send no referrer from the reset and two-factor pages, whose address can hold a token", () => {
+  it("send only the origin as referrer from the reset and two-factor pages, whose address can hold a token", () => {
     for (const page of ["/reset-password", "/sign-in/two-factor", "/two-factor-setup"]) {
-      expect(headersFor(page)["Referrer-Policy"], page).toBe("no-referrer");
+      // Not "no-referrer": that makes a same-origin POST send "Origin: null", which the api's origin checks refuse.
+      expect(headersFor(page)["Referrer-Policy"], page).toBe("strict-origin");
       expect(headersFor(page)["Content-Security-Policy"], page).toContain("default-src 'self'");
     }
     expect(headersFor("/staff")["Referrer-Policy"]).toBe("strict-origin-when-cross-origin");

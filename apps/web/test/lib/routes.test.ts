@@ -59,6 +59,7 @@ describe("routes", () => {
   it("knows the signed-out screens and where each pending step is taken", () => {
     expect(isPublicRoute(routes.signIn)).toBe(true);
     expect(isPublicRoute(routes.resetPassword)).toBe(true);
+    expect(isPublicRoute("/offline")).toBe(true);
     expect(isPublicRoute(routes.staff)).toBe(false);
     expect(pendingStepRoute("CHANGE_PASSWORD")).toBe(routes.changePassword);
     expect(pendingStepRoute("SET_UP_TWO_FACTOR")).toBe(routes.twoFactorSetup);

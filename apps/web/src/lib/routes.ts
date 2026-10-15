@@ -13,14 +13,20 @@ export const routes = {
   staff: "/staff",
   roles: "/roles",
   settings: "/settings",
+  /** The service worker's fallback for a page never opened before (src/service-worker/strategy.ts). */
+  offline: "/offline",
 } as const;
 
-/** Screens for people who aren't signed in. A refused call never sends anyone away from these. */
+/**
+ * Screens that need no one signed in. Nothing sends anyone away from these, neither a refused call nor another tab
+ * signing out: the person may be typing, or reading "Your password is changed".
+ */
 const publicRoutes: readonly string[] = [
   routes.signIn,
   routes.twoFactorChallenge,
   routes.forgotPassword,
   routes.resetPassword,
+  routes.offline,
 ];
 
 export function isPublicRoute(path: string): boolean {

@@ -42,11 +42,15 @@ export function securityHeaders({ development }: { development: boolean }): { ke
 }
 
 /**
- * Pages whose address can hold a secret (the emailed reset token) or that sit in the middle of signing in. They send
- * no Referer at all, not even to our own origin, where the /api rewrite would pass it on to the api's and the load
- * balancer's logs (ADR 0006).
+ * Pages whose address can hold a secret (the emailed reset token) or that sit in the middle of signing in. Their
+ * requests carry only the origin as Referer, never the path or query, not even to our own origin, where the /api
+ * rewrite would pass the full address on to the api's and the load balancer's logs (ADR 0006).
+ *
+ * Not "no-referrer": under it the Fetch standard ("append a request Origin header") sends `Origin: null` on a
+ * same-origin POST, and both the api's trusted-JSON check and Better Auth's origin check refuse that. "strict-origin"
+ * leaves Origin as it is.
  */
-export const NO_REFERRER_PAGES = ["/reset-password", "/sign-in/two-factor", "/two-factor-setup"] as const;
+export const TOKEN_PAGES = ["/reset-password", "/sign-in/two-factor", "/two-factor-setup"] as const;
 
 /**
  * The header rules for next.config.ts. Next.js applies every matching rule in order and a later value wins
@@ -55,6 +59,6 @@ export const NO_REFERRER_PAGES = ["/reset-password", "/sign-in/two-factor", "/tw
 export function securityHeaderRules({ development }: { development: boolean }) {
   return [
     { source: "/:path*", headers: securityHeaders({ development }) },
-    ...NO_REFERRER_PAGES.map((source) => ({ source, headers: [{ key: "Referrer-Policy", value: "no-referrer" }] })),
+    ...TOKEN_PAGES.map((source) => ({ source, headers: [{ key: "Referrer-Policy", value: "strict-origin" }] })),
   ];
 }

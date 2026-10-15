@@ -51,7 +51,7 @@ test("pointing at a destination loads its data before it opens", async ({ page, 
   await staffList;
 });
 
-test("pages carry the security headers, and the token pages send no referrer", async ({ page }) => {
+test("pages carry the security headers, and the token pages send only their origin as referrer", async ({ page }) => {
   const response = await page.goto("/");
   const headers = response?.headers() ?? {};
   expect(headers["content-security-policy"]).toContain("frame-ancestors 'none'");
@@ -61,7 +61,7 @@ test("pages carry the security headers, and the token pages send no referrer", a
   expect(headers["x-powered-by"]).toBeUndefined();
   for (const address of ["/reset-password?token=abc", "/sign-in/two-factor", "/two-factor-setup"]) {
     const answer = await page.request.get(address, { maxRedirects: 0 });
-    expect(answer.headers()["referrer-policy"], address).toBe("no-referrer");
+    expect(answer.headers()["referrer-policy"], address).toBe("strict-origin");
   }
 });
 

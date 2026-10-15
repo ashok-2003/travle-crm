@@ -1,6 +1,7 @@
 // The data layer as the app runs it, DataProviders over IndexedDB: a saved copy shows only for the person it was saved
 // for, then refreshes; a copy saved for anyone else is wiped and never rendered; a 401 wipes, then sends the person to
-// sign in and back; another tab's sign-out wipes this tab too; an owed sign-out is settled before me.get is asked.
+// sign in and back; another tab's sign-out wipes this tab too, but never moves a signed-out screen, and a page's own
+// announcement moves nothing; an owed sign-out is settled before me.get is asked.
 import "fake-indexeddb/auto";
 import { onlineManager, useQuery } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
@@ -9,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { isSignOutOwed } from "@/data/owed-sign-out";
 import { deleteSavedCopies, hasPersistedQueries } from "@/data/persistence";
 import { DataProviders } from "@/data/providers";
+import { announceSignOut } from "@/data/session";
 import { useTRPC } from "@/data/trpc";
 import { loadPage } from "@/lib/navigate";
 import { stubApi } from "../support/api-stub";
@@ -138,17 +140,32 @@ describe("DataProviders", () => {
     expect(await hasPersistedQueries()).toBe(false);
   });
 
-  it("leaves a signed-out screen in place when another tab signs out", async () => {
-    window.history.replaceState(null, "", "/sign-in");
+  it("never leaves a signed-out screen, whichever tab announces a sign-out", async () => {
     stubApi({});
-    render(
-      <DataProviders>
-        <p>Sign in</p>
-      </DataProviders>,
-    );
-    signOutInAnotherTab();
+    for (const path of ["/reset-password", "/sign-in", "/offline"]) {
+      window.history.replaceState(null, "", path);
+      const { unmount } = render(
+        <DataProviders>
+          <p>Your password is changed</p>
+        </DataProviders>,
+      );
+      // A reset announces its own sign-out; another tab may sign out at the same moment.
+      announceSignOut();
+      signOutInAnotherTab();
+      await pause(100);
+      expect(screen.getByText("Your password is changed"), path).toBeVisible();
+      unmount();
+    }
+    expect(loadPage).not.toHaveBeenCalled();
+  });
+
+  it("ignores its own announcement on a signed-in screen", async () => {
+    stubApi({ "me.get": { data: asha }, "staff.list": { data: [staffNamed("Ravi")] } });
+    renderApp();
+    expect(await screen.findByText("Asha: Ravi")).toBeVisible();
+    announceSignOut();
     await pause(100);
-    expect(screen.getByText("Sign in")).toBeVisible();
+    expect(screen.getByText("Asha: Ravi")).toBeVisible();
     expect(loadPage).not.toHaveBeenCalled();
   });
 

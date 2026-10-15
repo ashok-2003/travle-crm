@@ -1,9 +1,9 @@
 // next.config.ts as Next.js loads it. The /api rewrite (spec 3) goes to API_ORIGIN, checked when the app is built: a
-// production build without one gets no rewrite, never a silent one to localhost. The header rules put the
-// no-referrer pages after the catch-all, so their policy wins.
+// production build without one gets no rewrite, never a silent one to localhost. The header rules put the token
+// pages' referrer policy after the catch-all, so it wins.
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { NO_REFERRER_PAGES } from "../security-headers";
+import { TOKEN_PAGES } from "../security-headers";
 
 async function configWith(env: Record<string, string | undefined>) {
   vi.resetModules();
@@ -46,10 +46,10 @@ describe("the /api rewrite", () => {
 });
 
 describe("the header rules", () => {
-  it("come after the catch-all for the no-referrer pages", async () => {
+  it("come after the catch-all for the token pages", async () => {
     const config = await configWith({ NODE_ENV: "production" });
     const sources = (config.headers ? await config.headers() : []).map((rule) => rule.source);
-    for (const page of NO_REFERRER_PAGES) {
+    for (const page of TOKEN_PAGES) {
       expect(sources.indexOf(page), page).toBeGreaterThan(sources.indexOf("/:path*"));
     }
   });
