@@ -17,6 +17,10 @@ export function shareLinkResolvers({ db, files }: ShareLinkResolverDependencies)
       const document = await db.forOrg(opened.organizationId, (tx) =>
         getIssuedDocument(tx, { documentId: opened.recordId }),
       );
+      // A PDF that can never be rendered isn't coming: say so, rather than asking the customer to retry for ever.
+      if (document.renderFailed) {
+        throw new DomainError("NOT_FOUND", "DOCUMENT_UNAVAILABLE", "The document can't be shown");
+      }
       // The worker renders the PDF moments after issuing; a customer this quick is asked to try again shortly.
       if (document.pdfAttachmentId === null) {
         throw new DomainError("NOT_FOUND", "DOCUMENT_NOT_READY", "The document is still being prepared");

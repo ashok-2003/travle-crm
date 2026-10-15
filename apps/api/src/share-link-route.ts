@@ -58,6 +58,12 @@ const pages = {
     heading: "This document is still being prepared",
     advice: "Try the link again in a minute.",
   },
+  // Its PDF can never be made (the renderer gave up for good): waiting would not help.
+  DOCUMENT_UNAVAILABLE: {
+    status: 404,
+    heading: "This document can't be shown",
+    advice: "Ask whoever sent it for a new copy.",
+  },
   TOO_MANY_TRIES: { status: 429, heading: "Too many tries", advice: "Wait a minute, then open the link again." },
 } as const;
 

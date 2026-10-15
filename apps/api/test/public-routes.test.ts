@@ -8,7 +8,7 @@ import { systemActor } from "@travel-crm/domain/kernel";
 import { createShareLink } from "@travel-crm/domain/share-links";
 import { hmacSha256Signature, type WebhookProvider } from "@travel-crm/domain/webhooks";
 import { createMemoryJobQueue } from "@travel-crm/integrations/jobs";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { createTestAgency, createTestServer, type TestAgency, type TestServer } from "./support/test-server.js";
 
 const webhookSecret = "public-routes-secret";
@@ -100,7 +100,41 @@ describe("public routes", () => {
     expect(await opens()).toBe(1);
   });
 
+  it("says plainly that a document that can never render can't be shown, without asking to retry", async () => {
+    const actor = systemActor(agency.organizationId);
+    const link = await server.db.forOrg(agency.organizationId, async (tx) => {
+      const issued = await issueDocument(tx, actor, { ...quotation });
+      // What the render listener records when the fonts can't show the text (D2).
+      await tx.issuedDocument.update({ where: { id: issued.id }, data: { renderFailure: "UNPRINTABLE_TEXT: U+0939" } });
+      return createShareLink(tx, actor, {
+        recordType: "issued_document",
+        recordId: issued.id,
+        label: `Quotation ${issued.number}`,
+      });
+    });
+    const page = await server.app.request(link.path, fromAddress("203.0.113.250"));
+    expect(page.status).toBe(404);
+    expect(page.headers.get("retry-after")).toBeNull();
+    expect(page.headers.get("cache-control")).toBe("no-store");
+    expect(page.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(page.headers.get("x-robots-tag")).toBe("noindex");
+    const text = await page.text();
+    expect(text).toContain("This document can't be shown");
+    expect(text).toContain("Ask whoever sent it for a new copy.");
+    expect(text).not.toContain("still being prepared");
+    const opens = await server.db.forOrg(agency.organizationId, (tx) =>
+      tx.shareLinkOpen.count({ where: { shareLinkId: link.shareLinkId } }),
+    );
+    expect(opens).toBe(0);
+  });
+
   it("limits share-link requests per client address with a page a browser can show, and leaves others alone", async () => {
+    // Every request in one limit window: the clock stands still a second after a window opens.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    vi.setSystemTime(Math.floor(Date.now() / 60_000) * 60_000 + 1_000);
     const octet = Math.floor(Math.random() * 200);
     const guesser = `198.51.100.${String(octet)}`;
     const statuses: number[] = [];
@@ -110,7 +144,7 @@ describe("public routes", () => {
     expect(statuses.every((status) => status === 404)).toBe(true);
     const limited = await server.app.request(`/p/${randomUUID()}`, fromAddress(guesser));
     expect(limited.status).toBe(429);
-    expect(Number(limited.headers.get("retry-after"))).toBeGreaterThan(0);
+    expect(limited.headers.get("retry-after")).toBe("59");
     expect(limited.headers.get("content-type")).toBe("text/html; charset=utf-8");
     expect(limited.headers.get("cache-control")).toBe("no-store");
     expect(await limited.text()).toContain("Too many tries");

@@ -68,7 +68,8 @@ Date: 2026-10-15 · Status: accepted · Implements spec sections 9.3 (share link
   issued document, a redirect to its PDF); a link that doesn't work gets a small HTML page, 404 for unknown and 410
   for expired or revoked, with `Cache-Control: no-store`, `Referrer-Policy: no-referrer` and `X-Robots-Tag: noindex`.
   A resolver answers "not found" the same way, by throwing `NOT_FOUND`: an issued document whose PDF isn't rendered
-  yet gets a 503 "still being prepared" page with `Retry-After: 30` (`DOCUMENT_NOT_READY`).
+  yet gets a 503 "still being prepared" page with `Retry-After: 30` (`DOCUMENT_NOT_READY`); one whose PDF can never be
+  rendered gets a 404 page saying it can't be shown, with no `Retry-After` (`DOCUMENT_UNAVAILABLE`).
 - **Links are revoked, never edited or deleted**: the runtime role may update only `revoked_at` and `revoked_by`, and
   a trigger makes revocation final: a revoked link can't be changed again. Concurrent revokes write once.
 

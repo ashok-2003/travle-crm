@@ -178,6 +178,12 @@ describe("share-link route", () => {
     expectPrivate(notReady);
     expect(await notReady.text()).toContain("This document is still being prepared");
 
+    const unavailable = await refusing("DOCUMENT_UNAVAILABLE").request("/abc");
+    expect(unavailable.status).toBe(404);
+    expect(unavailable.headers.get("retry-after")).toBeNull();
+    expectPrivate(unavailable);
+    expect(await unavailable.text()).toContain("This document can't be shown");
+
     const gone = await refusing("DOCUMENT_NOT_FOUND").request("/abc");
     expect(gone.status).toBe(404);
     expect(gone.headers.get("retry-after")).toBeNull();
