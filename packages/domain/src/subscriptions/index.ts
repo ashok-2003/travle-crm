@@ -12,6 +12,7 @@ export {
 } from "./entitlements.js";
 export { dueState, nextStep, type LifecycleState } from "./lifecycle.js";
 export { listPayments, recordPayment, voidPayment, type ProviderPayment } from "./payments.js";
+export { planLimits, type PlanLimits } from "./plan-limits.js";
 export { archivePlan, createPlan, findPlan, listPlans, updatePlan } from "./plans.js";
 export { getSubscriptionPolicy, setSubscriptionPolicy } from "./policy.js";
 export { assertLifecycleAllows, assertModulesOnPlan, planModuleOf, type CallKind } from "./request-rules.js";

@@ -29,7 +29,8 @@ app's translated message. Unexpected errors say only "Something went wrong".
 ## Routers
 
 `me`, `staff`, `roles`, `settings`, `subscription` (`get`: what the organization's subscription allows today, in
-every state). Add a router in `src/routers/` and list it in `app-router.ts`.
+every state), `profile` (`get`, `save`, `checklist`: the business profile and the setup checklist, all three needing
+`settings:manage`). Add a router in `src/routers/` and list it in `app-router.ts`.
 
 ## The platform console (`src/platform/`)
 

@@ -9,6 +9,8 @@ branding for its documents).
 - `getOrganizationProfile(tx)`: the transaction's organization's profile, or null before one was saved.
 - `saveOrganizationProfile(tx, actor, input)`: saves the whole profile (onboarding, inside the new organization, and
   the Owner later). The input is `saveOrganizationProfileInput` from `@travel-crm/contracts/profile`.
+- `createProfiles({ db })`: the api's `Profiles`, `get(organizationId)` and `save(actor, input)`, each in the
+  organization's own transaction.
 - `setupChecklistOf(profile, activeStaff)`: the checklist's steps (`business-details`, `bank-details`,
   `invoice-prefix`, `branding`, `staff`) and whether each is done.
 

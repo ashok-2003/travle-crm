@@ -11,6 +11,7 @@ const { environment, services, log } = await startProcess("api", () => undefined
 const app = createApp({
   identity: services.identity,
   subscriptions: services.subscriptions,
+  profiles: services.profiles,
   db: services.db,
   files: services.files,
   queue: services.jobs,

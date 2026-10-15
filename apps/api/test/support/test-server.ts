@@ -1,6 +1,7 @@
 // Builds the api on the test database: the Hono app, its identity module, the public routes' services (on in-memory
-// storage and job queue unless a test passes real ones), and a platform client for creating organizations (which the
-// api itself can never do). Requests go through app.request(), so no port is opened.
+// storage and job queue unless a test passes real ones), held to the plan limits as in services.ts, and a platform
+// client for creating organizations (which the api itself can never do). Requests go through app.request(), so no
+// port is opened.
 import { planModules } from "@travel-crm/contracts/subscriptions";
 import { createDatabase, isUniqueViolation, type Database } from "@travel-crm/db";
 import type { PlatformClient } from "@travel-crm/db/platform";
@@ -8,8 +9,9 @@ import { createPlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { createFiles, type Files } from "@travel-crm/domain/files";
 import { createIdentity, type AuthSettings, type Identity } from "@travel-crm/domain/identity";
+import { createProfiles } from "@travel-crm/domain/profile";
 import { createRateLimiter } from "@travel-crm/domain/rate-limits";
-import { createSubscriptionAccess } from "@travel-crm/domain/subscriptions";
+import { createSubscriptionAccess, planLimits } from "@travel-crm/domain/subscriptions";
 import type { WebhookProvider } from "@travel-crm/domain/webhooks";
 import { createMemoryJobQueue, type JobQueue } from "@travel-crm/integrations/jobs";
 import { createMemoryStorage, type ObjectStorage } from "@travel-crm/integrations/storage";
@@ -56,17 +58,25 @@ export interface TestServerOptions {
 
 export function createTestServer(settings: Partial<AuthSettings> = {}, options: TestServerOptions = {}): TestServer {
   const urls = inject("dbUrls");
+  const db = createDatabase(urls.runtime, { maxConnections: 3 });
+  const subscriptions = createSubscriptionAccess({ db });
+  const limits = planLimits(subscriptions);
   const identity = createIdentity({
     databaseUrl: urls.runtime,
     maxConnections: 3,
     auth: { ...testAuthSettings, ...settings },
+    seatLimit: limits.seats,
   });
-  const db = createDatabase(urls.runtime, { maxConnections: 3 });
-  const files = createFiles({ db, storage: options.storage ?? createMemoryStorage() });
+  const files = createFiles({
+    db,
+    storage: options.storage ?? createMemoryStorage(),
+    storageLimitBytes: limits.storageBytes,
+  });
   const platform = createPlatformClient(urls.platform);
   const app = createApp({
     identity,
-    subscriptions: createSubscriptionAccess({ db }),
+    subscriptions,
+    profiles: createProfiles({ db }),
     db,
     files,
     queue: options.queue ?? createMemoryJobQueue(),

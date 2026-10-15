@@ -1,11 +1,14 @@
 // The tRPC context: who sent the request, read from the session cookie (the 5-minute cache, spec 6.4).
 import type { Identity } from "@travel-crm/domain/identity";
+import type { Profiles } from "@travel-crm/domain/profile";
 import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 
 export interface ApiDependencies {
   identity: Identity;
   /** What each organization may use today: request checks 2 and 3. */
   subscriptions: SubscriptionAccess;
+  /** The organization's business profile (spec 7.1). */
+  profiles: Profiles;
 }
 
 /**
@@ -13,7 +16,7 @@ export interface ApiDependencies {
  * cookie, a longer expiry), and those Set-Cookie headers must reach the browser.
  */
 export async function createContext(
-  { identity, subscriptions }: ApiDependencies,
+  { identity, subscriptions, profiles }: ApiDependencies,
   request: Request,
   resHeaders: Headers,
 ) {
@@ -25,6 +28,7 @@ export async function createContext(
   return {
     identity,
     subscriptions,
+    profiles,
     headers: request.headers,
     resHeaders,
     session: response?.session ?? null,

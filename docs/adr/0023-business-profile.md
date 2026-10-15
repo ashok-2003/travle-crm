@@ -18,6 +18,7 @@ and the setup checklist), with spec 10's "an organization's own branding … sto
 
 ## Consequences
 
-- The org-side routers (the profile, the checklist) come with the Integration task, which owns the api's context.
+- The api's `profile` router serves it: `get`, `save` and `checklist`, each needing `settings:manage`, since the
+  profile holds the bank details. Saving reads the session afresh, as money and settings do.
 - Documents' frozen branding (ADR 0012) can read the colour and terms from here when quotes arrive; the logo comes with
   uploads (plan 5).

@@ -21,6 +21,8 @@ naming the organization); under `app_runtime` they fail with "permission denied"
 - What an organization may use: `entitlementsOf(tx, organizationId, now)` (plan and overrides, and the status due
   today, or null without a subscription), `createSubscriptionAccess({ db, now? })` (the api's one read per request),
   `overviewOf(entitlements)` (what `subscription.get` shows), `lifecycleAccessOf(status)`.
+- `planLimits(access)`: the plan's seats and storage as identity's `seatLimit` and the files module's
+  `storageLimitBytes` take them, read when they are needed; none without a subscription.
 - Request checks 2 and 3: `assertLifecycleAllows(entitlements, { kind, isOwner })` (`kind` is `view`, `change`,
   `export` or `always`), `assertModulesOnPlan(entitlements, permissionModules)`, `planModuleOf(permissionModule)`.
 - The daily job: `advanceSubscriptions({ db, organizationIds, now?, onError? })`, each organization in its own
