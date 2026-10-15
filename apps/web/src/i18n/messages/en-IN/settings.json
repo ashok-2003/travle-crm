@@ -1,1 +1,20 @@
-{}
+{
+  "title": "Settings",
+  "loadFailed": "The settings didn't load.",
+  "organization": {
+    "heading": "Organization",
+    "name": "Name",
+    "code": "Organization code",
+    "codeHint": "Staff without email sign in with this code and their username.",
+    "copyCode": "Copy the organization code"
+  },
+  "security": {
+    "heading": "Sign-in security",
+    "requireTwoFactor": "Require two-factor sign-in for everyone",
+    "requireTwoFactorHint": "Everyone then signs in with a code from an authenticator app as well as their password. Staff who haven't set it up are asked to at their next sign-in.",
+    "ownerOnly": "Only an Owner can stop requiring two-factor sign-in.",
+    "setUpYours": "Set up two-factor for yourself",
+    "turnedOn": "Two-factor sign-in is now required for everyone",
+    "turnedOff": "Two-factor sign-in is now optional"
+  }
+}
