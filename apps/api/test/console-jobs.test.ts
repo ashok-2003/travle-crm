@@ -1,8 +1,8 @@
 // The console process's jobs (ADR 0018): the platform's purge and erasure jobs, the nightly subscription lifecycle at
-// 00:15 India time, as the platform role, and, when a demo is set, the nightly demo reset at 02:00; with the demo
-// switched off, the schedule an earlier start left in pg-boss goes.
+// 00:15 India time, as the platform role, the hourly sweep of the stored files still to delete, and, when a demo is
+// set, the nightly demo reset at 02:00; with the demo switched off, the schedule an earlier start left in pg-boss goes.
 import { randomUUID } from "node:crypto";
-import { PURGE_ORGANIZATION_QUEUE, RESET_DEMO_QUEUE } from "@travel-crm/domain/platform";
+import { PURGE_ORGANIZATION_QUEUE, RESET_DEMO_QUEUE, SWEEP_STORED_FILES_QUEUE } from "@travel-crm/domain/platform";
 import { ADVANCE_SUBSCRIPTIONS_QUEUE, LifecycleJobError } from "@travel-crm/domain/subscriptions";
 import { createMemoryJobQueue, createMemoryJobRunner } from "@travel-crm/integrations/jobs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -17,6 +17,9 @@ const lifecycleSchedule = {
   timeZone: "Asia/Kolkata",
   data: {},
 };
+// Every hour, the deletions' outbox is swept for what no job will reach: pg-boss drops a follow-up whose id it already
+// holds, and a job can be lost before it is sent or run out of retries (ADR 0022).
+const storedFilesSweep = { queue: SWEEP_STORED_FILES_QUEUE, cron: "0 * * * *", timeZone: "Asia/Kolkata", data: {} };
 
 describe("the console's jobs", () => {
   let server: TestServer;
@@ -45,6 +48,7 @@ describe("the console's jobs", () => {
     await startConsoleJobs(runner, testConsole.services, demo);
     expect(runner.schedules).toEqual([
       lifecycleSchedule,
+      storedFilesSweep,
       { queue: RESET_DEMO_QUEUE, cron: "0 2 * * *", timeZone: "Asia/Kolkata", data: {} },
     ]);
 
@@ -61,7 +65,7 @@ describe("the console's jobs", () => {
     const runner = createMemoryJobRunner(queue);
     await runner.schedule(RESET_DEMO_QUEUE, "0 2 * * *", { timeZone: "Asia/Kolkata" });
     await startConsoleJobs(runner, testConsole.services, null);
-    expect(runner.schedules).toEqual([lifecycleSchedule]);
+    expect(runner.schedules).toEqual([lifecycleSchedule, storedFilesSweep]);
   });
 
   it("records a lapsed trial as past due every night, as the platform role", async () => {

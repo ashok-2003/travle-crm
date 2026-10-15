@@ -5,6 +5,7 @@ export { RESET_DEMO_QUEUE, resetDemoOrganization, type DemoSettings } from "./de
 export { ERASE_SUBJECT_QUEUE, eraseSubject, requestErasure } from "./erasure.js";
 export { exportSubject, hasFreshExport } from "./exports.js";
 export { listFailedJobs, listSchedules, removeSchedule, retryFailedJob } from "./failed-jobs.js";
+export { DELETE_STORED_FILES_QUEUE, storedFileDeletionsSchedule, SWEEP_STORED_FILES_QUEUE } from "./file-deletions.js";
 export { platformJobHandlers } from "./jobs.js";
 export { onboardOrganization, resendInvite } from "./onboarding.js";
 export { downloadOrganizationExport } from "./export-download.js";

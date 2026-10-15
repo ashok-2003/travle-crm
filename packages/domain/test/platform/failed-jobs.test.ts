@@ -4,7 +4,9 @@
 import type { FailedJob } from "@travel-crm/integrations/jobs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
+  DELETE_STORED_FILES_QUEUE,
   ERASE_SUBJECT_QUEUE,
+  EXPIRE_EXPORTS_QUEUE,
   EXPORT_ORGANIZATION_QUEUE,
   listFailedJobs,
   listPlatformLog,
@@ -91,8 +93,8 @@ describe("the failed-jobs list", () => {
   });
 
   it("retries the platform's cleanups, which only finish what a committed purge, erasure or expiry began", async () => {
-    // Fixer D's deletions' outbox, and the export's expiry.
-    const queues = ["platform.delete-stored-files", "platform.expire-exports"];
+    // The deletions' outbox, and the export's expiry.
+    const queues = [DELETE_STORED_FILES_QUEUE, EXPIRE_EXPORTS_QUEUE];
     queues.forEach((queue, index) => test.jobs.failed.push(failed(queue, jobId(900 + index), 1)));
     for (const [index, queue] of queues.entries()) {
       await retryFailedJob(test.services, support, { queue, jobId: jobId(900 + index) });

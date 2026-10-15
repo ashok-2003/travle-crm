@@ -7,7 +7,7 @@ import type { QueuedJob } from "@travel-crm/contracts/platform";
 import { recordAudit } from "@travel-crm/domain/audit";
 import { systemActor } from "@travel-crm/domain/kernel";
 import { notify } from "@travel-crm/domain/notifications";
-import { ERASE_SUBJECT_QUEUE } from "@travel-crm/domain/platform";
+import { DELETE_STORED_FILES_QUEUE, ERASE_SUBJECT_QUEUE } from "@travel-crm/domain/platform";
 import { createShareLink, findShareLink, recordShareLinkOpen } from "@travel-crm/domain/share-links";
 import { createMemoryJobQueue, createMemoryJobRunner } from "@travel-crm/integrations/jobs";
 import { createMemoryStorage } from "@travel-crm/integrations/storage";
@@ -23,7 +23,6 @@ import {
 import { createTestAgency, createTestServer, type TestAgency, type TestServer } from "./support/test-server.js";
 import { dataOf, refusalOf } from "./support/trpc.js";
 
-const DELETE_STORED_FILES_QUEUE = "platform.delete-stored-files";
 const LATE_WRITES_MS = 15 * 60 * 1000;
 
 describe("permanent deletion from the console's request to the finished state", () => {
