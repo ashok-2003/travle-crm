@@ -72,6 +72,20 @@ describe("StaffList", () => {
     expect(screen.getByText(/Sales · ravi · Joined 16 Oct/)).toBeVisible();
   });
 
+  it("gives names room for Indian scripts, in the table and on phones", () => {
+    // Devanagari matras need a taller line than Latin text (DESIGN.md section 3); a name carries no lang to say so.
+    screenIs("wide");
+    const { unmount } = renderAs(<StaffList staff={staff} roles={roles} />, owner);
+    const ravi = screen.getByRole("row", { name: /रवि कुमार/ });
+    expect(within(ravi).getByText("रवि कुमार")).toHaveClass("script-leading");
+    expect(within(ravi).getByText("Sales")).toHaveClass("script-leading");
+    unmount();
+    screenIs("phone");
+    renderAs(<StaffList staff={staff} roles={roles} />, owner);
+    expect(screen.getByText("रवि कुमार")).toHaveClass("script-leading");
+    expect(screen.getByText(/Sales · ravi · Joined 16 Oct/)).toHaveClass("script-leading");
+  });
+
   it("never shows a placeholder address", () => {
     screenIs("wide");
     const leaked = staff.map((person) =>

@@ -26,6 +26,17 @@ describe("AccountScreen", () => {
     expect(screen.getByRole("link", { name: account.changePassword })).toHaveAttribute("href", "/change-password");
   });
 
+  it("gives the person's, organization's and role's names room for Indian scripts", () => {
+    const ravi = member({ name: "रवि कुमार" });
+    ravi.user.username = "ravi";
+    ravi.organization.name = "शर्मा ट्रैवल्स";
+    ravi.member.role.name = "बिक्री";
+    renderAccount(ravi);
+    for (const name of ["रवि कुमार", "शर्मा ट्रैवल्स", "बिक्री"]) {
+      expect(screen.getByText(name), name).toHaveClass("script-leading");
+    }
+  });
+
   it("never shows a placeholder email, even if one reached it", () => {
     const staff = member();
     staff.user.email = "asha.0199a000@staff.invalid";

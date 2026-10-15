@@ -34,10 +34,10 @@ export function StaffList({ staff, roles }: { staff: StaffMember[]; roles: RoleS
           <li key={member.memberId} className="flex items-start gap-3 px-4 py-3">
             <div className="flex min-w-0 flex-1 flex-col gap-1">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-medium break-words">{member.name}</span>
+                <span className="font-medium break-words script-leading">{member.name}</span>
                 {status(member)}
               </div>
-              <p className="text-label text-muted-foreground break-words">
+              <p className="text-label text-muted-foreground break-words script-leading">
                 {member.role.name} · {signInName(member)} · {t("joinedOn", { date: joined(member) })}
               </p>
             </div>
@@ -69,12 +69,12 @@ export function StaffList({ staff, roles }: { staff: StaffMember[]; roles: RoleS
           <TableRow key={member.memberId}>
             <TableCell className="whitespace-normal">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-medium">{member.name}</span>
+                <span className="font-medium script-leading">{member.name}</span>
                 {status(member)}
               </div>
             </TableCell>
             <TableCell className="whitespace-normal break-all">{signInName(member)}</TableCell>
-            <TableCell className="whitespace-normal">{member.role.name}</TableCell>
+            <TableCell className="whitespace-normal script-leading">{member.role.name}</TableCell>
             <TableCell>{member.twoFactorEnabled ? t("twoFactorOn") : t("twoFactorOff")}</TableCell>
             <TableCell className="numbers text-right">{joined(member)}</TableCell>
             <TableCell className="text-right">{actions(member)}</TableCell>

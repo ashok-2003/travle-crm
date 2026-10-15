@@ -31,7 +31,7 @@ export function RolesScreen() {
                 className="flex min-h-14 items-center gap-3 px-4 py-3 hover:bg-accent"
               >
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span className="font-medium break-words">{role.name}</span>
+                  <span className="font-medium break-words script-leading">{role.name}</span>
                   <span className="text-label text-muted-foreground">
                     {role.isOwner ? t("everyPermission") : t("permissionCount", { count: role.permissions.length })}
                   </span>

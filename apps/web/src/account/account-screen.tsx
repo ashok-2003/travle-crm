@@ -24,6 +24,11 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+/** A name as people typed it, in any script: Indian scripts need a taller line, and the name carries no lang. */
+function Name({ children }: { children: ReactNode }) {
+  return <span className="script-leading">{children}</span>;
+}
+
 export function AccountScreen() {
   const t = useTranslations("account.account");
   const me = useMe();
@@ -38,13 +43,17 @@ export function AccountScreen() {
     <div className="flex max-w-[720px] flex-col gap-6">
       <PageTitle>{t("title")}</PageTitle>
       <dl className="divide-y rounded-lg border">
-        <Row label={t("name")}>{user.name}</Row>
+        <Row label={t("name")}>
+          <Name>{user.name}</Name>
+        </Row>
         {email !== null && <Row label={t("email")}>{email}</Row>}
         {user.username !== null && <Row label={t("username")}>{user.username}</Row>}
         <Row label={t("organization")}>
-          {organization.name} <span className="numbers text-muted-foreground">{organization.code}</span>
+          <Name>{organization.name}</Name> <span className="numbers text-muted-foreground">{organization.code}</span>
         </Row>
-        <Row label={t("role")}>{member.role.name}</Row>
+        <Row label={t("role")}>
+          <Name>{member.role.name}</Name>
+        </Row>
         <Row label={t("password")}>
           <Button variant="outline" asChild>
             <Link href={routes.changePassword}>{t("changePassword")}</Link>
