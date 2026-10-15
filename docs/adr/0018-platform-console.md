@@ -5,6 +5,17 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 4 (the `app_pla
 
 ## Decision
 
+- **The console is its own process.** The api image gets a third command, `console`, beside the api and the worker. It
+  serves the console's tRPC at `/api/platform/trpc` (`createConsoleApp`) and runs the platform's own jobs, and it is
+  the only process given `DATABASE_PLATFORM_URL`: the api and the worker never hold it (plan 2's rule). The load
+  balancer, and in development the web app's server, route `/api/platform/*` to it, so the browser still calls `/api`
+  on the address it loaded the app from (spec 3) and cookies stay first-party. Platform staff sign in through the
+  api's `/api/auth` like everyone else; the console reads the same session cookie, always from the database.
+- **Two levels of platform staff.** Support (Better Auth role `admin`, as in plan 2) works with organizations:
+  onboarding, subscriptions, impersonation, failed jobs. A super admin (role `super-admin`) also manages plans,
+  platform staff and permanent deletion (spec 5: "a super-admin action"). Both have no membership, ever. The console's
+  builders check them on every request: `staffProcedure` (either level, and no temporary password left to replace)
+  and `superAdminProcedure`. Better Auth gives both roles the same powers on its own endpoints.
 - **The platform role's transactions.** `@travel-crm/db/platform` gives the platform module
   `createPlatformDatabase(url).transaction(tx => …)`: one transaction as `app_platform`, which sees every organization
   (its `platform_access` policy) and has the rights the api never gets: creating organizations, writing plans and
@@ -27,6 +38,10 @@ adminUserId)`), not as the system.
 
 ## Context
 
+- **Why a separate process.** The api answers every organization's staff and the public routes; holding a connection
+  that sees every organization there would turn any bug in it into a cross-organization leak. The console has a few
+  users and a small surface, and can be locked down further (an IP allow-list at the load balancer) without touching
+  the api. It costs one more service to deploy, from the same image.
 - **Why switch roles instead of filtering by hand.** As `app_platform` nothing scopes a query: module code written for
   `forOrg()` that relies on row-level security (counting a table, a default `organization_id`) would read or write
   across organizations. Switching to `app_runtime` inside the transaction keeps one rule for all module code (it always
@@ -40,6 +55,8 @@ adminUserId)`), not as the system.
 
 ## Consequences
 
+- Deploying runs three services from one image: `api`, `worker` and `console` (one instance is plenty; it must stay
+  up for the platform's scheduled jobs).
 - A hosted database needs the same `GRANT` when its roles are created (plan 5's deploy checklist); a local database
   bootstrapped before plan 4 needs it run once (`packages/db/README.md`).
 - Everything a platform transaction does outside `asOrganization` must name its organization; reviewers check it.

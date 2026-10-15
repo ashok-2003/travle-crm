@@ -1,6 +1,6 @@
 // How errors reach the client (spec 9.7): each domain error code becomes a tRPC status, and the response carries the
 // code and reason the web app turns into a translated message. Unexpected errors never show their own message.
-import { TRPCError } from "@trpc/server";
+import { TRPCError, type TRPCDefaultErrorShape } from "@trpc/server";
 import { DomainError, type DomainErrorCode } from "@travel-crm/domain/kernel";
 
 const trpcCodeOf: Record<DomainErrorCode, TRPCError["code"]> = {
@@ -35,4 +35,21 @@ export function errorDetails(error: TRPCError): ErrorDetails {
 /** Internal errors can carry SQL or file paths in their message; the client gets a generic one instead. */
 export function publicMessage(error: TRPCError): string {
   return error.code === "INTERNAL_SERVER_ERROR" ? "Something went wrong" : error.message;
+}
+
+/**
+ * The error every tRPC response carries, the api's and the console's: an allow-list, so a field tRPC adds later can't
+ * reach clients by being spread in.
+ */
+export function errorShape({ shape, error }: { shape: TRPCDefaultErrorShape; error: TRPCError }) {
+  return {
+    ...shape,
+    message: publicMessage(error),
+    data: {
+      code: shape.data.code,
+      httpStatus: shape.data.httpStatus,
+      ...(shape.data.path === undefined ? {} : { path: shape.data.path }),
+      ...errorDetails(error),
+    },
+  };
 }

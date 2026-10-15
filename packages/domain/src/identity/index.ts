@@ -6,7 +6,13 @@ export {
   permissionSetFromInput,
 } from "./access-rules.js";
 export type { RoleFacts } from "./access-rules.js";
-export type { AccessSession, SignedInSession } from "./access.js";
+export {
+  platformStaffLevelOf,
+  platformStaffRoles,
+  type AccessSession,
+  type PlatformStaffMember,
+  type SignedInSession,
+} from "./access.js";
 export type { Auth, AuthSettings } from "./auth/create-auth.js";
 export type { PasswordResetEmail, PasswordResetSettings, SendPasswordResetEmail } from "./auth/password-reset.js";
 export { createIdentity, type Identity, type IdentityOptions, type NewOwner } from "./identity.js";

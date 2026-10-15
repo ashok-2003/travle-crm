@@ -1,6 +1,7 @@
 // Who is acting, for request checks 1 and 4 (spec 6.5). Read from the database on every request, so a role change
 // or a removal takes effect on the next request rather than when the 5-minute session cookie expires.
 import type { MeOutput } from "@travel-crm/contracts/identity";
+import type { PlatformStaffLevel } from "@travel-crm/contracts/platform";
 import { withDeleted } from "@travel-crm/db";
 import type { IdentityClient, IdentityDatabase } from "@travel-crm/db/identity";
 import { pendingStep, type MemberAccess } from "./member-access.js";
@@ -100,8 +101,34 @@ export async function describeSignedInPerson(
 }
 
 /**
- * Platform staff (spec 6.1): Better Auth role "admin" and no membership in any organization, ever. The role is read
- * from the database, never taken from the caller. The caller's `role` is ignored; only `id` says which user to check.
+ * Better Auth's user.role for each level of platform staff (spec 5, 6.1). Support works with organizations:
+ * onboarding, subscriptions, impersonation, failed jobs. A super admin also manages plans, platform staff and
+ * permanent deletion. "admin" came first (plan 2) and means support.
+ */
+export const platformStaffRoles: Readonly<Record<PlatformStaffLevel, string>> = {
+  support: "admin",
+  "super-admin": "super-admin",
+};
+
+/** Platform staff as the console sees them. */
+export interface PlatformStaffMember {
+  userId: string;
+  name: string;
+  level: PlatformStaffLevel;
+  /** Set until they replace a temporary password; the console refuses them until then. */
+  mustChangePassword: boolean;
+}
+
+/** The level a stored role names exactly, or null. A comma-joined list of roles is no level. */
+export function platformStaffLevelOf(role: string | null | undefined): PlatformStaffLevel | null {
+  if (role === platformStaffRoles.support) return "support";
+  if (role === platformStaffRoles["super-admin"]) return "super-admin";
+  return null;
+}
+
+/**
+ * Platform staff (spec 6.1): a platform role and no membership in any organization, ever. The role is read from the
+ * database, never taken from the caller. The caller's `role` is ignored; only `id` says which user to check.
  */
 export async function isPlatformAdmin(
   database: IdentityDatabase,
@@ -112,9 +139,21 @@ export async function isPlatformAdmin(
 
 /** The same check for code that has only the client, such as Better Auth's hooks. */
 export async function isPlatformAdminUser(client: IdentityClient, userId: string): Promise<boolean> {
-  const stored = await client.user.findUnique({ where: { id: userId }, select: { role: true } });
-  if (stored?.role !== "admin") return false;
-  return !(await hasEverBeenMember(client, userId));
+  return (await describePlatformStaff(client, userId)) !== null;
+}
+
+/** The person's platform level and name, or null when they are not platform staff (or have ever been a member). */
+export async function describePlatformStaff(
+  client: IdentityClient,
+  userId: string,
+): Promise<PlatformStaffMember | null> {
+  const stored = await client.user.findUnique({
+    where: { id: userId },
+    select: { name: true, role: true, mustChangePassword: true },
+  });
+  const level = platformStaffLevelOf(stored?.role);
+  if (!stored || level === null || (await hasEverBeenMember(client, userId))) return null;
+  return { userId, name: stored.name, level, mustChangePassword: stored.mustChangePassword };
 }
 
 /** True for anyone who has a membership row, removed ones included (member rows are soft-deleted, never erased). */

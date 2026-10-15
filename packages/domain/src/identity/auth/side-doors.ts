@@ -1,7 +1,7 @@
 // A Better Auth hooks.before middleware that refuses what Better Auth's own endpoints would allow but our rules don't.
 import type { IdentityClient } from "@travel-crm/db/identity";
 import { APIError, createAuthMiddleware, getAuthoritativeSessionFromCtx } from "better-auth/api";
-import { hasEverBeenMember, isPlatformAdminUser } from "../access.js";
+import { hasEverBeenMember, isPlatformAdminUser, platformStaffLevelOf } from "../access.js";
 
 export interface SideDoorOptions {
   /** The web app's reset page: the only redirectTo a password-reset request may name. Unset, the rule is off. */
@@ -94,8 +94,9 @@ function isSamePassword(newPassword: unknown, currentPassword: unknown): boolean
 }
 
 /**
- * Whether an /admin request would give the admin role to a person who has (or had) a membership. Mirrors how Better
- * Auth reads the request: the user id is coerced to a string, and a role string may hold several roles, comma-joined.
+ * Whether an /admin request would give a platform role (support's "admin" or "super-admin") to a person who has (or
+ * had) a membership. Mirrors how Better Auth reads the request: the user id is coerced to a string, and a role string
+ * may hold several roles, comma-joined.
  */
 async function makesMemberPlatformAdmin(
   client: IdentityClient,
@@ -108,7 +109,7 @@ async function makesMemberPlatformAdmin(
   else return false;
   const roles = (coercedString(requested) ?? "").split(",").map((role) => role.trim());
   const userId = coercedString(body.userId);
-  if (!roles.includes("admin") || userId === null) return false;
+  if (!roles.some((role) => platformStaffLevelOf(role) !== null) || userId === null) return false;
   return hasEverBeenMember(client, userId);
 }
 

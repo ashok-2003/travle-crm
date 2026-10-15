@@ -15,10 +15,12 @@ import type {
 } from "@travel-crm/contracts/identity";
 import { createIdentityDatabase } from "@travel-crm/db/identity";
 import {
+  describePlatformStaff,
   describeSignedInPerson,
   isPlatformAdmin,
   resolveAccess,
   type AccessSession,
+  type PlatformStaffMember,
   type SignedInSession,
 } from "./access.js";
 import { createAuth, type Auth, type AuthSettings } from "./auth/create-auth.js";
@@ -67,8 +69,10 @@ export interface Identity {
   organizationProfile(organizationId: string): Promise<OrganizationProfile | null>;
   /** Names and real email addresses of the organization's active members among userIds, for notifications. */
   memberContacts(organizationId: string, userIds: readonly string[]): Promise<MemberContact[]>;
-  /** True for platform staff: user role "admin" (read from the database) and no membership. */
+  /** True for platform staff: a platform role (read from the database) and no membership. */
   isPlatformAdmin(user: { id: string; role?: string | null | undefined }): Promise<boolean>;
+  /** The person's platform level, name and pending password change, or null for anyone who isn't platform staff. */
+  describePlatformStaff(userId: string): Promise<PlatformStaffMember | null>;
   /** The actor's organization's staff. The API checks staff:manage first. */
   readonly staff: {
     list(actor: MemberAccess): Promise<StaffMember[]>;
@@ -108,6 +112,7 @@ export function createIdentity(options: IdentityOptions): Identity {
     organizationProfile: (organizationId) => organizationProfile(database, organizationId),
     memberContacts: (organizationId, userIds) => memberContacts(database, organizationId, userIds),
     isPlatformAdmin: (user) => isPlatformAdmin(database, user),
+    describePlatformStaff: (userId) => describePlatformStaff(database.client, userId),
     staff: {
       list: (actor) => listStaff(database, actor),
       create: (actor, input) => createStaff(database, hashPassword, actor, input),

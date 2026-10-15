@@ -9,7 +9,8 @@ Who can sign in, to which organization, and what they may do (spec section 6).
   - `resolveAccess(userId, organizationId, session?)`: the member's role, permissions and pending steps, or null.
     Pass the session's `impersonatedBy`: the access is an `Actor` whose `source` is then `impersonation`;
   - `describeSignedInPerson(session)`: what `me.get` returns;
-  - `isPlatformAdmin(user)`;
+  - `isPlatformAdmin(user)`, and `describePlatformStaff(userId)`: the person's platform level (`support` or
+    `super-admin`), name and pending password change, or null for anyone who isn't platform staff;
   - `organizationProfile(organizationId)` and `memberContacts(organizationId, userIds)`: what other modules may know
     about an organization and its people (they can't read the sign-in tables);
   - `staff.list / create / updateRole / resetPassword / remove`;
@@ -20,6 +21,8 @@ Who can sign in, to which organization, and what they may do (spec section 6).
   - `settings.setTwoFactorRequirement`;
   - `seedStarterRoles(organizationId)` and `createOrganizationOwner(organizationId, owner)`, for onboarding;
   - `disconnect()`.
+- `platformStaffRoles` (Better Auth's `user.role` for each level: `admin` for support, `super-admin`) and
+  `platformStaffLevelOf(role)`.
 - `permissions`, `permissionCatalog`, `isPermission`, `isScopedPermission`, `moduleOf`, `PermissionSet`: the permission
   catalog.
 - `assertMayHandleRole`, `assertMayManageMember`, `assertRoleIsEditable`, `permissionSetFromInput`: the no-escalation

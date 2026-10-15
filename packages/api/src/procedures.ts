@@ -89,11 +89,3 @@ export const freshProcedure = Object.assign(freshMember, {
       return next();
     }),
 });
-
-/** Platform staff only (spec 6.1): user role "admin" and no membership, on a session read from the database. */
-export const platformProcedure = freshlySignedIn.use(async ({ ctx, next }) => {
-  if (!(await ctx.identity.isPlatformAdmin(ctx.user))) {
-    throw new DomainError("FORBIDDEN", "PLATFORM_ONLY", "Only platform staff can do this");
-  }
-  return next();
-});
