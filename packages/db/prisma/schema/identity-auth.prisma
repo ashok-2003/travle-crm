@@ -106,6 +106,9 @@ model Member {
   deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
   /// The user id of whoever removed this member.
   deletedBy      String?      @map("deleted_by") @db.Uuid
+  /// When the member last made a request, support's impersonation aside: written at most once a day, so accurate to
+  /// a day. Kept here, not read from sessions, because signing out deletes the session. Null until their first request.
+  lastActiveAt   DateTime?    @map("last_active_at") @db.Timestamptz(6)
 
   @@index([organizationId])
   @@map("member")
