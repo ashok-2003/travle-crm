@@ -28,7 +28,7 @@ export {
   PlatformTransactionAbortedError,
   WrongPlatformRoleError,
 } from "./errors.js";
-export { deleteOrganizationRows, organizationRows } from "./organization-rows.js";
+export { deleteOrganizationRows } from "./organization-rows.js";
 export type { ForOrgOptions, IdentityTx, OrgTx } from "./for-org.js";
 
 export type PlatformClient = DatabaseClient;

@@ -56,5 +56,5 @@ export async function removeAttachment(
 }
 
 export async function storageUsedBytes({ db }: FilesDependencies, organizationId: string): Promise<number> {
-  return db.forOrg(organizationId, bytesStored);
+  return db.forOrg(organizationId, (tx) => bytesStored(tx, organizationId));
 }

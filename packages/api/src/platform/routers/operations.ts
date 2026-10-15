@@ -3,7 +3,8 @@ import {
   failedJobsPage,
   jobSchedule,
   listFailedJobsInput,
-  organizationOverview,
+  listOrganizationsOverviewInput,
+  organizationsOverviewPage,
   retryFailedJobInput,
   unscheduleInput,
 } from "@travel-crm/contracts/platform";
@@ -19,10 +20,11 @@ import { staffProcedure, superAdminProcedure } from "../procedures.js";
 import { platformT } from "../trpc.js";
 
 export const dashboardRouter = platformT.router({
-  /** Every organization: status, days left, seats used, last activity, this month's usage. */
+  /** Every organization, a page at a time: status, days left, seats used, last activity, this month's usage. */
   organizations: staffProcedure
-    .output(z.array(organizationOverview))
-    .query(({ ctx }) => organizationsOverview(ctx.services)),
+    .input(listOrganizationsOverviewInput)
+    .output(organizationsOverviewPage)
+    .query(({ ctx, input }) => organizationsOverview(ctx.services, input)),
 });
 
 export const jobsRouter = platformT.router({

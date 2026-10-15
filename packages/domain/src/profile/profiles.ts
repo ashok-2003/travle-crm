@@ -29,7 +29,7 @@ export interface Profiles {
 export function createProfiles(dependencies: { db: Pick<Database, "forOrg"> }): Profiles {
   const { db } = dependencies;
   return {
-    get: (organizationId) => db.forOrg(organizationId, getOrganizationProfile),
+    get: (organizationId) => db.forOrg(organizationId, (tx) => getOrganizationProfile(tx, organizationId)),
     save: (actor, input) => db.forOrg(actor.organizationId, (tx) => saveOrganizationProfile(tx, actor, input)),
     update: (actor, input) => db.forOrg(actor.organizationId, (tx) => updateOrganizationProfile(tx, actor, input)),
     saveBranding: (actor, input) => db.forOrg(actor.organizationId, (tx) => saveOrganizationBranding(tx, actor, input)),

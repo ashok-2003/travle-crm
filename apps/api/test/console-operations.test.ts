@@ -1,7 +1,7 @@
 // The console's dashboard (spec 7.4) and failed-jobs list (spec 9.1) over HTTP: platform staff see every organization
 // and every failed job, a page at a time; support runs a failed job again, but nobody retries the platform's purge,
 // erasure or export; only a super admin removes a schedule.
-import type { FailedJobsPage, OrganizationOverview } from "@travel-crm/contracts/platform";
+import type { FailedJobsPage, OrganizationsOverviewPage } from "@travel-crm/contracts/platform";
 import { ERASE_SUBJECT_QUEUE, EXPORT_ORGANIZATION_QUEUE, PURGE_ORGANIZATION_QUEUE } from "@travel-crm/domain/platform";
 import { createMemoryJobAdministration } from "@travel-crm/integrations/jobs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -17,6 +17,12 @@ import { createTestAgency, createTestServer, type TestServer } from "./support/t
 import { dataOf, refusalOf } from "./support/trpc.js";
 
 const jobId = (n: number) => `0199e7a0-0000-7000-8000-${String(n).padStart(12, "0")}`;
+
+/** The id just below this one: a page after it starts with this organization, whatever other test files add. */
+function justBefore(id: string): string {
+  const hex = (BigInt(`0x${id.replaceAll("-", "")}`) - 1n).toString(16).padStart(32, "0");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
 
 describe("the console's operations", () => {
   const jobs = createMemoryJobAdministration();
@@ -37,17 +43,30 @@ describe("the console's operations", () => {
     await server.close();
   });
 
-  it("shows every organization on the dashboard, with its plan and seats", async () => {
+  it("shows every organization on the dashboard a page at a time, with its plan and seats", async () => {
     const agency = await createTestAgency(server);
-    const overviews = await dataOf<OrganizationOverview[]>(
-      await consoleQuery(testConsole, "dashboard.organizations", support.jar),
+    const page = await dataOf<OrganizationsOverviewPage>(
+      await consoleQuery(testConsole, "dashboard.organizations", support.jar, {
+        limit: 1,
+        after: justBefore(agency.organizationId),
+      }),
     );
-    expect(overviews.find((overview) => overview.organizationId === agency.organizationId)).toMatchObject({
-      code: agency.code,
-      status: "active",
-      planName: "Everything (tests)",
-      seats: { used: 1, limit: 1000 },
-    });
+    expect(page.organizations).toEqual([
+      expect.objectContaining({
+        organizationId: agency.organizationId,
+        code: agency.code,
+        status: "active",
+        planName: "Everything (tests)",
+        seats: { used: 1, limit: 1000 },
+      }),
+    ]);
+    // The first page, at its default size: oldest first, and the next page after its last organization.
+    const first = await dataOf<OrganizationsOverviewPage>(
+      await consoleQuery(testConsole, "dashboard.organizations", support.jar, {}),
+    );
+    expect(first.organizations.length).toBeLessThanOrEqual(25);
+    if (first.nextCursor !== null) expect(first.nextCursor).toBe(first.organizations.at(-1)?.organizationId);
+    expect((await consoleQuery(testConsole, "dashboard.organizations", support.jar, { limit: 101 })).status).toBe(400);
   });
 
   it("lists failed jobs a page at a time and runs one again; only a super admin removes a schedule", async () => {

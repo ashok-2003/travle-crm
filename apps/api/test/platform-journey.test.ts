@@ -283,6 +283,8 @@ describe("an agency's life on the platform", () => {
     expect(log.entries.map((entry) => entry.action)).toEqual([
       "organization.purged",
       "organization.purge-requested",
+      // Support's cancellation, a billing change the platform log keeps too (ADR 0020).
+      "subscription.cancelled",
       "organization.exported",
       "organization.export-requested",
       "organization.onboarded",

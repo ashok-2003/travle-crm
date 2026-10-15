@@ -6,7 +6,8 @@ branding for its documents).
 
 ## Public functions and values (`index.ts`)
 
-- `getOrganizationProfile(tx)`: the transaction's organization's profile, or null before one was saved.
+- `getOrganizationProfile(tx, organizationId)`: the organization's profile, or null before one was saved. It names
+  the organization rather than rely on row-level security, so a platform transaction gets that one, never another's.
 - `saveOrganizationProfile(tx, actor, input)`: saves the whole profile (onboarding, inside the new organization, and
   the Owner later). The input is `saveOrganizationProfileInput` from `@travel-crm/contracts/profile`.
 - `updateOrganizationProfile(tx, actor, input)`: saves the business details, keeping the branding.

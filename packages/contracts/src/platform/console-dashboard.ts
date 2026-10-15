@@ -23,6 +23,20 @@ export const organizationOverview = z.object({
 });
 export type OrganizationOverview = z.infer<typeof organizationOverview>;
 
+/** The dashboard a page at a time, oldest organization first; the next page starts after its last organization. */
+export const listOrganizationsOverviewInput = z.strictObject({
+  limit: z.int().min(1).max(100).default(25),
+  after: recordId.optional(),
+});
+export type ListOrganizationsOverviewInput = z.infer<typeof listOrganizationsOverviewInput>;
+
+export const organizationsOverviewPage = z.object({
+  organizations: z.array(organizationOverview),
+  /** Pass as `after` for the next page; null on the last page. */
+  nextCursor: recordId.nullable(),
+});
+export type OrganizationsOverviewPage = z.infer<typeof organizationsOverviewPage>;
+
 /** A queue's name, "<module>.<what it does>", e.g. "documents.render-pdf", as the jobs port checks it. */
 export const queueName = z
   .string()

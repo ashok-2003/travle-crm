@@ -1,4 +1,6 @@
 // The storage port on S3, or any S3-compatible server: AWS S3 in the cloud, MinIO locally (spec 9.2).
+// Over 200 lines: it is one port's adapter, each method a few lines around its S3 command, all on one client and
+// bucket. Split (copy and deletePrefix apart, say), the pieces would only pass those two around.
 import {
   CopyObjectCommand,
   DeleteObjectCommand,

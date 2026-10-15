@@ -117,6 +117,16 @@ describe("onboarding", () => {
       before: { name: "Sharma Holidays", contactEmail: true },
       after: { name: "Sharma Holidays & Tours", contactEmail: false },
     });
+    // The platform log outlives a purge, and a sole proprietor's agency is often named after them: only a flag.
+    const log = await test.services.platformDb.transaction((tx) =>
+      listPlatformLog(tx, { targetOrganizationId: organizationId, limit: 1 }),
+    );
+    expect(log.entries[0]).toMatchObject({
+      action: "organization.updated",
+      before: { timeZone: "Asia/Kolkata", contactEmail: true },
+      after: { nameChanged: true, timeZone: "Asia/Kolkata", contactEmail: false },
+    });
+    expect(JSON.stringify(log.entries[0])).not.toContain("Sharma");
   });
 
   it("shows the organization's bank account by its last four digits only", async () => {

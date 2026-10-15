@@ -57,7 +57,9 @@ describe("the demo reset", () => {
     expect(subscription).toMatchObject({ status: "active", paidThrough: "2026-11-16", plan: { key: DEMO_PLAN_KEY } });
     // Plans are global: the demo's is never offered to an agency.
     expect(onSale.map((candidate) => candidate.key)).not.toContain(DEMO_PLAN_KEY);
-    expect(await test.services.db.forOrg(organizationId, getOrganizationProfile)).toMatchObject({
+    expect(
+      await test.services.db.forOrg(organizationId, (tx) => getOrganizationProfile(tx, organizationId)),
+    ).toMatchObject({
       legalName: "Demo Holidays Private Limited",
       invoicePrefix: "DH",
     });

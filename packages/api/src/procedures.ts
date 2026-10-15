@@ -100,8 +100,9 @@ function callOf(type: string, meta: ProcedureMeta | undefined): Call {
   if (planModule === undefined) {
     throw new Error("This organization procedure declares no plan module: use requires(), or meta planModule");
   }
-  if (meta?.lifecycle === "always") return { kind: "always", planModule };
-  if (meta?.lifecycle === "export") return { kind: "export", planModule };
+  const lifecycle = meta?.lifecycle;
+  if (lifecycle === "always" || lifecycle === "export" || lifecycle === "revoke")
+    return { kind: lifecycle, planModule };
   return { kind: type === "query" ? "view" : "change", planModule };
 }
 

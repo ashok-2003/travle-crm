@@ -7,7 +7,7 @@ import { describeError } from "@travel-crm/integrations/jobs";
 import { createConsoleApp } from "./console-app.js";
 import { startConsoleJobs } from "./console-jobs.js";
 import { startConsolePlatform } from "./console-platform.js";
-import { startProcess } from "./start-up.js";
+import { startProcess, stopOnUnhandledErrors } from "./start-up.js";
 
 // The console's own start runs inside the start-up guard: its settings, the platform role's connection and its jobs.
 // A missing DATABASE_PLATFORM_URL, a connection that isn't the platform role, or a schedule pg-boss refuses ends in
@@ -29,15 +29,16 @@ const server = serve({ fetch: createConsoleApp(platform, log).fetch, port: setti
 });
 
 // Container platforms send SIGTERM before stopping an instance: finish open requests, let running jobs finish (pg-boss
-// stops with the services), then close the pools. Exit 0 only when that went well.
-function shutDown(): void {
+// stops with the services, waiting up to 30 seconds), then close the pools. Exit 0 only when that went well; 1 after
+// an error nothing handled, which drains the same way.
+function shutDown(exitCode: 0 | 1): void {
   server.close((closeError) => {
     services
       .close()
       .then(() => platform.platformDb.disconnect())
       .then(() => {
         if (closeError) throw closeError;
-        process.exit(0);
+        process.exit(exitCode);
       })
       .catch((error: unknown) => {
         log(`shutdown failed: ${describeError(error)}`);
@@ -45,5 +46,10 @@ function shutDown(): void {
       });
   });
 }
-process.on("SIGTERM", shutDown);
-process.on("SIGINT", shutDown);
+process.on("SIGTERM", () => {
+  shutDown(0);
+});
+process.on("SIGINT", () => {
+  shutDown(0);
+});
+stopOnUnhandledErrors(log, shutDown);

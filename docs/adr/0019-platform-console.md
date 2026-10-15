@@ -85,21 +85,26 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 4 (the `app_pla
 adminUserId)`), not as the system.
 - **The platform log.** `platform_audit_entry` records what belongs to no organization's own log (plans, the
   policy, retried jobs and removed schedules), what happens to an organization as a whole (onboarding, corrections,
-  exports, purges, erasures) and the platform's own jobs: who (or the system), the action, the target and the
-  organization it concerns, and small before and after snapshots with the
+  exports, purges, erasures, and support's billing changes: ADR 0020) and the platform's own jobs: who (or the
+  system), the action, the target and the organization it concerns, and small before and after snapshots with the
   same checks as the organizations' log. It has no foreign key to `organization`, so it outlives a purge (spec 5:
-  "an audit record in the platform log"). It is append-only even for `app_platform`, and `app_runtime` has no rights on
-  it.
+  "an audit record in the platform log"). So it keeps ids and codes, never an organization's name: a sole
+  proprietor's agency is often named after its owner, and a correction (`organization.updated`) records only
+  `nameChanged`, as it records only whether there is a contact email; the organization's own log, purged with it,
+  keeps the names. It is append-only even for `app_platform`, and `app_runtime` has no rights on it.
 
 - **The console process runs the platform's own jobs** (purge, erasure, an organization's export and its expiry, the
-  stored files' deletions and their hourly sweep, the nightly subscription lifecycle and demo reset), which need the
-  platform role, with `startJobHandlers`: handlers and schedules only. It runs no listeners and no outbox relay; the
-  worker's relay is the only one, since a relay that knew no listeners would mark every event relayed with nothing
-  queued for it.
+  stored files' deletions and their hourly sweep, the exports' daily sweep, the nightly subscription lifecycle and
+  demo reset), which need the platform role, with `startJobHandlers`: handlers and schedules only. It runs no
+  listeners and no outbox relay; the worker's relay is the only one, since a relay that knew no listeners would mark
+  every event relayed with nothing queued for it.
 - **Failed jobs and schedules.** The console lists failed jobs, runs one again, and lists the schedules; a super admin
-  removes a schedule whose job the code no longer has (ADR 0010). It reaches pg-boss through the `JobAdministration`
-  port (`@travel-crm/integrations/jobs`), and records each retry and removed schedule in the platform log. Job data
-  holds only ids, so the list shows nothing personal.
+  removes a schedule whose job the code no longer has (ADR 0010), never one the console registers at every start
+  (`SCHEDULE_IS_THE_CONSOLES`: it would only stop until the next start). It reaches pg-boss through the
+  `JobAdministration` port (`@travel-crm/integrations/jobs`). pg-boss acts on its own connection, outside the
+  platform's transactions, so each retry and removed schedule is recorded in the platform log first, in a transaction
+  of its own, and a failure after it (`job.retry-failed`, `schedule.removal-failed`): nothing is done unlogged. Job
+  data holds only ids, so the list shows nothing personal.
 
 ## Context
 
@@ -127,8 +132,13 @@ adminUserId)`), not as the system.
 
 - Deploying runs three services from one image: `api`, `worker` and `console` (one instance is plenty; it must stay
   up for the platform's scheduled jobs).
-- A hosted database needs the same `GRANT` when its roles are created (plan 5's deploy checklist); a local database
-  bootstrapped before plan 4 needs it run once (`packages/db/README.md`).
+- **A hosted database's prerequisites** (`docs/deploy-checklist.md`): Postgres 16 or later, for the grant's
+  `WITH INHERIT FALSE, SET TRUE`; the same `GRANT` when its roles are created, run by a role holding ADMIN OPTION on
+  `app_runtime` (on a managed service, the role that created it); and a transaction-mode pooler is fine, since the
+  switch is `SET LOCAL` and `app.org_id` transaction-local. The console checks the grant at start-up, with an empty
+  step into an organization inside its role check's transaction, and refuses to start without it
+  (`OrganizationStepRefusedError`), rather than start healthy and fail every step. A local database bootstrapped
+  before plan 4 needs the grant run once (`packages/db/README.md`).
 - Everything a platform transaction does outside `asOrganization` must name its organization; reviewers check it.
 - Inside a step `session_user` is still `app_platform`, so SQL there that ran `RESET ROLE` or `SET ROLE app_platform`
   would see every organization. Only `packages/db` writes such SQL (the ESLint tripwire); inside `forOrg()` nothing can

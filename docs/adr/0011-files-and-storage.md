@@ -40,11 +40,11 @@ Date: 2026-10-15 · Status: accepted · Implements spec section 9.2 and the sens
   `NotFound` (S3 sends no body on a HEAD 404, so a wrong bucket looks the same there). The S3 adapter's
   `checkBucket()` runs at start-up to catch a wrong bucket name.
 - **Deployment requirements.** Static access keys for now (no instance or task roles). The bucket must have ACLs
-  disabled (Bucket owner enforced), because unsigned `x-amz-acl` headers could ride on a presigned `PUT`; plan 5's
-  deploy checklist repeats this. The credentials need `s3:ListBucket`, or `head` on a missing key gets 403.
+  disabled (Bucket owner enforced), because unsigned `x-amz-acl` headers could ride on a presigned `PUT`; the deploy
+  checklist (`docs/deploy-checklist.md`) repeats this. The credentials need `s3:ListBucket`, or `head` on a missing key gets 403.
   - **"Deleted for good" needs the right bucket.** On a versioned bucket a delete only adds a delete marker and the
     file stays, passports included. The bucket must be unversioned, or have a lifecycle rule that expires noncurrent
-    versions and expired delete markers (within a day): plan 5's deploy checklist states which.
+    versions and expired delete markers (within a day): the deploy checklist states which.
   - **Only the console process deletes.** Its jobs (the purge, the erasure, the deletions' outbox, the platform's own
     exports) are the only callers of `delete` and `deletePrefix`. Give `s3:DeleteObject` to the console's access keys
     alone; the api's and the worker's need `s3:PutObject`, `s3:GetObject` and `s3:ListBucket`. Today the three

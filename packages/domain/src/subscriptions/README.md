@@ -13,7 +13,8 @@ Changes take `now?` last (the tests' clock); dates are calendar days in the orga
   `listPlans(tx, { includeArchived })` (without archived ones, only those for sale), `findPlan(tx, planId)`,
   `planColumns(fields)`.
 - The demo's plan: `demoPlan(tx)` (made once, found again after; not for sale) and `DEMO_PLAN_KEY`, for the nightly
-  demo reset.
+  demo reset. No other plan may take the key (`PLAN_KEY_RESERVED`), and the demo's plan can't be archived
+  (`DEMO_PLAN_LOCKED`): either would stop the reset once it had purged the demo.
 - Placeholder tiers, for tests only (plans are global): `placeholderPlans`, `seedPlaceholderPlans(tx)` (puts any
   missing one on sale; changes none that exists).
 - A subscription: `startSubscription(tx, by, input, now?)` (onboarding: a trial to its last day, or the policy's trial
@@ -109,9 +110,11 @@ and to. Changing something to what it already is records nothing.
   and the next day the organization is past due; after the policy's days (7) it is read-only, after its days (14)
   suspended. Only a person cancels, or ends a suspension or cancellation (by recording a payment or giving time). Days
   count from the day a state was due, in the organization's time zone.
-- What each state allows: trial, active and past due everything (past due shows a banner); read-only views and
-  exports; suspended only the Owner's exports (and, later, paying); cancelled nothing. Calls of kind `always` (me.get,
-  `subscription.get`) work in every state, so the app can say why the rest are refused.
+- What each state allows: trial, active and past due everything (past due shows a banner); read-only views, exports
+  and revoking access; suspended only the Owner's exports and revocations (and, later, paying); cancelled nothing.
+  Calls of kind `revoke` take someone's access away (removing staff, a new temporary password, requiring two-factor):
+  security outranks billing (ADR 0021). Calls of kind `always` (me.get, `subscription.get`) work in every state, so
+  the app can say why the rest are refused.
 - Check 3 applies to every procedure: each declares its plan module (`requires()` does it from its first permission)
   or `"core"`. A permission's module maps to a plan module (`leads` to `crm`; `staff`, `roles`, `settings`, `audit`,
   `money` and `documents` to none: every plan has them). A new permission module must be added to the map; a test

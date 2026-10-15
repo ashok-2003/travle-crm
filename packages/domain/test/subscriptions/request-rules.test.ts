@@ -70,6 +70,14 @@ describe("request check 2: the organization's lifecycle state", () => {
     ]);
   });
 
+  it("allows revoking access while read-only, and to the Owner while suspended: security outranks billing", () => {
+    expect([outcome("read_only", "revoke"), outcome("suspended", "revoke", true)]).toEqual(["allowed", "allowed"]);
+    expect([outcome("suspended", "revoke"), outcome("cancelled", "revoke", true)]).toEqual([
+      "ORGANIZATION_SUSPENDED",
+      "ORGANIZATION_CANCELLED",
+    ]);
+  });
+
   it("allows nothing once cancelled, and nothing without a subscription, but what every state allows", () => {
     expect(outcome("cancelled", "export", true)).toBe("ORGANIZATION_CANCELLED");
     expect(outcome("cancelled", "always")).toBe("allowed");

@@ -24,9 +24,14 @@ import type { FilesDependencies, GeneratedFile } from "./dependencies.js";
 /** Long enough for a slow phone connection to send 25 MB. */
 const UPLOAD_URL_SECONDS = 10 * 60;
 
-/** Bytes the organization keeps in storage: every attachment, deleted ones too, until a purge removes them. */
-export async function bytesStored(tx: OrgTx): Promise<number> {
-  const totals = await withDeleted(() => tx.attachment.aggregate({ _sum: { sizeBytes: true } }));
+/**
+ * Bytes the organization keeps in storage: every attachment, deleted ones too, until a purge removes them. Named, not
+ * left to row-level security: the platform's own transaction sees every organization's files.
+ */
+export async function bytesStored(tx: OrgTx, organizationId: string): Promise<number> {
+  const totals = await withDeleted(() =>
+    tx.attachment.aggregate({ where: { organizationId }, _sum: { sizeBytes: true } }),
+  );
   return totals._sum.sizeBytes ?? 0;
 }
 
@@ -42,7 +47,7 @@ export async function requestUpload(
   // A pending upload counts at once, so a burst of uploads can't overshoot the limit by much. Two requests at the
   // same moment may both pass: the limit is a plan's, not a safety rule.
   const row = await db.forOrg(actor.organizationId, async (tx) => {
-    if (limit !== null && (await bytesStored(tx)) + input.sizeBytes > limit) {
+    if (limit !== null && (await bytesStored(tx, actor.organizationId)) + input.sizeBytes > limit) {
       throw new DomainError("LIMIT_REACHED", "STORAGE_LIMIT_REACHED", "This organization's file storage is full");
     }
     return tx.attachment.create({
