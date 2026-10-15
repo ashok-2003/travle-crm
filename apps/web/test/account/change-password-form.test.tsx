@@ -51,6 +51,11 @@ describe("ChangePasswordForm", () => {
     renderScreen(<ChangePasswordForm temporary onChanged={onChanged} auth={{ changePassword }} />);
     await fill("temporary-1", "my-own-password", "my-own-password");
     expect(await screen.findByText(account.changePassword.savedNotContinued)).toBeVisible();
+    // Announced once: a focused heading, not role="alert" as well.
+    expect(document.activeElement).toBe(
+      screen.getByRole("heading", { level: 2, name: account.changePassword.savedNotContinued }),
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.queryByLabelText(account.fields.temporaryPassword)).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: common.continue }));
     expect(onChanged).toHaveBeenCalledTimes(2);

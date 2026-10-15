@@ -7,12 +7,11 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { authClient, type AuthClient } from "@/data/auth-client";
-import { focusWhenShown } from "./focus";
+import { OutcomeMessage } from "./outcome-message";
 import { AuthFailureAlert, type AuthFailure } from "./form-alert";
 import { useFormResolver } from "./form-errors";
 import { useNewPasswordSchema } from "./new-password-schema";
@@ -64,9 +63,7 @@ export function ChangePasswordForm({
   if (savedOnly) {
     return (
       <div className="flex flex-col gap-5">
-        <Alert ref={focusWhenShown} tabIndex={-1}>
-          <AlertDescription>{t("changePassword.savedNotContinued")}</AlertDescription>
-        </Alert>
+        <OutcomeMessage>{t("changePassword.savedNotContinued")}</OutcomeMessage>
         <Button disabled={goingOn} onClick={() => void goOn()}>
           {goingOn && <Spinner />}
           {tCommon("continue")}

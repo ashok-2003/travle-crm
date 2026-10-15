@@ -10,14 +10,13 @@ import Link from "next/link";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { authClient, type AuthClient } from "@/data/auth-client";
 import { announceSignOut, wipeLocalData } from "@/data/session";
 import { routes } from "@/lib/routes";
-import { focusWhenShown } from "./focus";
+import { OutcomeMessage } from "./outcome-message";
 import { AuthFailureAlert, type AuthFailure } from "./form-alert";
 import { useFormResolver } from "./form-errors";
 import { useNewPasswordSchema } from "./new-password-schema";
@@ -62,9 +61,7 @@ export function ResetPasswordForm({
   if (outcome === "invalid") {
     return (
       <div className="flex flex-col gap-5">
-        <Alert variant="destructive" ref={focusWhenShown} tabIndex={-1}>
-          <AlertDescription>{t("resetPassword.invalidLink")}</AlertDescription>
-        </Alert>
+        <OutcomeMessage variant="destructive">{t("resetPassword.invalidLink")}</OutcomeMessage>
         <Button asChild>
           <Link href={routes.forgotPassword}>{t("resetPassword.askAgain")}</Link>
         </Button>
@@ -74,9 +71,7 @@ export function ResetPasswordForm({
   if (outcome === "done") {
     return (
       <div className="flex flex-col gap-5">
-        <Alert ref={focusWhenShown} tabIndex={-1}>
-          <AlertDescription>{t("resetPassword.done")}</AlertDescription>
-        </Alert>
+        <OutcomeMessage>{t("resetPassword.done")}</OutcomeMessage>
         <Button asChild>
           <Link href={routes.signIn}>{t("resetPassword.signIn")}</Link>
         </Button>

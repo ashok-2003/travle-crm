@@ -19,6 +19,15 @@ beforeEach(() => {
   vi.mocked(announceSignOut).mockReset();
 });
 
+/**
+ * An outcome is announced one way: as a heading that takes focus. It isn't also role="alert", which would read it to
+ * a screen reader a second time.
+ */
+function expectAnnouncedOnce(text: string): void {
+  expect(document.activeElement).toBe(screen.getByRole("heading", { level: 2, name: text }));
+  expect(screen.queryByRole("alert")).toBeNull();
+}
+
 describe("ForgotPasswordForm", () => {
   it("asks for a link that leads back to the reset screen, and answers the same for any address", async () => {
     const requestPasswordReset = answers(ok(null));
@@ -30,7 +39,7 @@ describe("ForgotPasswordForm", () => {
       redirectTo: `${window.location.origin}/reset-password`,
     });
     expect(await screen.findByText(account.forgotPassword.sent)).toBeVisible();
-    expect(document.activeElement).toHaveTextContent(account.forgotPassword.sent);
+    expectAnnouncedOnce(account.forgotPassword.sent);
   });
 
   it("says reset by email isn't available while the api can't send it", async () => {
@@ -55,7 +64,7 @@ describe("ResetPasswordForm", () => {
     await saveNewPassword();
     expect(resetPassword).toHaveBeenCalledWith({ token: "token-1", newPassword: "a-brand-new-password" });
     expect(await screen.findByText(account.resetPassword.done)).toBeVisible();
-    expect(document.activeElement).toHaveTextContent(account.resetPassword.done);
+    expectAnnouncedOnce(account.resetPassword.done);
     expect(screen.getByRole("link", { name: account.resetPassword.signIn })).toHaveAttribute("href", "/sign-in");
     expect(wipeLocalData).toHaveBeenCalledOnce();
     expect(announceSignOut).toHaveBeenCalledOnce();
@@ -80,7 +89,7 @@ describe("ResetPasswordForm", () => {
       "href",
       "/forgot-password",
     );
-    expect(document.activeElement).toHaveTextContent(account.resetPassword.invalidLink);
+    expectAnnouncedOnce(account.resetPassword.invalidLink);
     expect(wipeLocalData).not.toHaveBeenCalled();
     expect(announceSignOut).not.toHaveBeenCalled();
   });

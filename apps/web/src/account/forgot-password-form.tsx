@@ -7,12 +7,11 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { authClient, type AuthClient } from "@/data/auth-client";
 import { routes } from "@/lib/routes";
-import { focusWhenShown } from "./focus";
+import { OutcomeMessage } from "./outcome-message";
 import { AuthFailureAlert, type AuthFailure } from "./form-alert";
 import { useFormResolver } from "./form-errors";
 import { TextField } from "./text-field";
@@ -41,11 +40,7 @@ export function ForgotPasswordForm({ auth = authClient }: { auth?: Pick<AuthClie
   });
 
   if (sent) {
-    return (
-      <Alert ref={focusWhenShown} tabIndex={-1}>
-        <AlertDescription>{t("sent")}</AlertDescription>
-      </Alert>
-    );
+    return <OutcomeMessage>{t("sent")}</OutcomeMessage>;
   }
   return (
     <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-5">
