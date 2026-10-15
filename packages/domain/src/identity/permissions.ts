@@ -11,6 +11,8 @@ export const permissions = [
   "settings:manage",
   "audit:view",
   "money:view_margin",
+  // Traveller ID documents such as passports and Aadhaar (spec 5): files marked sensitive
+  "documents:view_sensitive",
   // Business modules, listed now so the starter roles are complete from the first organization
   ...scopedPermissions,
   "leads:create",

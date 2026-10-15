@@ -25,13 +25,32 @@ Date: 2026-10-14 · Status: accepted · Implements spec sections 6.1 to 6.4
 - **Request checks.** `protectedProcedure` trusts the cookie cache. `orgProcedure` also reads the membership, role and
   permissions from the database on every request. `freshProcedure` (money, roles, exports, staff management) and
   `platformProcedure` re-read the session itself, ignoring the cache.
+- **Password reset by email** (plan 3): `POST /api/auth/request-password-reset` with `redirectTo` set to the web
+  app's reset page (`${APP_URL}/reset-password`) emails a one-hour link from our address under the product's name.
+  Opening it leads back to that page with a token, and `POST /api/auth/reset-password` sets the new password, clears
+  `must_change_password` and deletes every session the person had (what that ends at once is in Context). The token
+  works once and is stored only as a hash.
+  - **The same answer for every address.** Staff without email are never emailed (their admin resets their
+    password), and every request gets the same status, headers and body whether or not the address exists. Sending
+    starts on a later turn of the event loop, after the answer, so the time to answer is close for every address too.
+  - **Only the reset page.** A `redirectTo` that names anything else (another page on a trusted origin, or no page at
+    all) is refused by a side door before the address is looked up, word for word as Better Auth refuses an untrusted
+    origin (403).
+  - **Limits.** Better Auth allows 3 requests a minute per client address, read as sign-in reads it. One address gets
+    at most 3 reset emails an hour, counted in Postgres across instances; over that, nothing is sent and the answer
+    is unchanged.
+  - **Logs.** A failed send is logged by its code alone: the message could quote the link, whose token must never
+    reach a log.
+  - **Placeholders.** No side door answers a placeholder address early. Better Auth stays the only source of the
+    answer for every address, so that answer can't drift from a real address's on an upgrade; the sender skips
+    placeholders instead.
 - **Two-factor** is optional per person. An organization with `require_two_factor` refuses members without it
   everywhere except `me.get` and Better Auth's `/two-factor/*` endpoints. Turning the requirement on needs
   `settings:manage` and two-factor on the person doing it; turning it off needs an Owner (`OWNER_ONLY`), since spec 6.2
   makes requiring it an Owner's choice.
 - **Platform staff** have user role `admin` and no membership, ever (removed members count). They may impersonate a
-  user for up to an hour. Impersonation has no durable record until the audit log arrives (plans 3 and 4); today the
-  only marker is the session row.
+  user for up to an hour. Starting and stopping it is recorded in that member's organization's audit log, and
+  everything done meanwhile is recorded with `source: "impersonation"` and the admin's id (ADR 0015).
 - **Side doors closed** by a `hooks.before` middleware in `auth/side-doors.ts`: `/update-user` refuses `username` and
   `displayUsername` (only our staff API changes them), `/is-username-available` is closed, `/change-password` refuses
   a new password equal to the current one, and every `/admin/*` path re-checks the caller against our definition of
@@ -50,6 +69,15 @@ Date: 2026-10-14 · Status: accepted · Implements spec sections 6.1 to 6.4
 - **Cookie cache staleness.** A revoked session passes the cache for up to 5 minutes. Because `orgProcedure` reads the
   membership from the database, a removed member is refused on their next request anyway; only `me.get` still
   answers from the cache, with no organization.
+- **What a password reset ends at once.** The person's session rows are deleted, so `freshProcedure` and
+  `platformProcedure`, which re-read the session, refuse a stolen cookie straight away. Its 5-minute cookie cache can
+  still pass `protectedProcedure` and the other organization procedures until it expires: the window plan 2 accepted
+  above. If that ever needs closing, one option is a `sessions_valid_after` time on the user, set by a reset and
+  checked in `resolveAccess` against when the session was created.
+- **The reset link's token outside the api (plan 5).** The emailed link is `GET /api/auth/reset-password/<token>`, so
+  a load balancer's access log records the token: plan 5's deploy keeps those logs short-lived or strips that path.
+  The web app's reset page gets the token in its address, so it must send `Referrer-Policy: no-referrer`, remove the
+  token from the address bar with `history.replaceState` once it has read it, and load no third-party scripts.
 - **Better Auth skips its origin check when `NODE_ENV` is `test`.** We pin `disableOriginCheck: false`, so tests prove
   the same CSRF protection production has.
 - **Rate limits are kept in memory**, per instance. With several instances behind a load balancer, move them to the
@@ -65,8 +93,11 @@ Date: 2026-10-14 · Status: accepted · Implements spec sections 6.1 to 6.4
   types) and an 8 KB body limit. Without that a cross-site form post could sign a visitor into an attacker's account.
 - **`closeSideDoors` also refuses** `/organization/*` over HTTP only (404, in case a path spelling slips past the Hono
   route; server-side `auth.api.*` calls stay possible for later plans); `/sign-in/email` with a placeholder `.invalid`
-  address, over HTTP and from server-side calls alike (answered exactly like a wrong password); and
-  `/sign-in/username` from a cross-site browser request (`Sec-Fetch-Site: cross-site`).
+  address, over HTTP and from server-side calls alike (answered exactly like a wrong password);
+  `/sign-in/username` from a cross-site browser request (`Sec-Fetch-Site: cross-site`); and
+  `/request-password-reset` with any `redirectTo` but the reset page (see the password reset above), over HTTP and
+  from server-side `auth.api.requestPasswordReset` calls alike: code that sends someone a reset link must pass the
+  reset page as `redirectTo`.
 - **Safe environment defaults.** `NODE_ENV` defaults to production. In production the api refuses an http base URL,
   `AUTH_RATE_LIMIT=false`, http trusted origins, and a weak or example `BETTER_AUTH_SECRET`.
 

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Placeholder mark until a designed logo replaces it: a route from a start point to a destination. -->
+  <path fill="#1a1a1a" d="M14 0h36a14 14 0 0 1 14 14v36a14 14 0 0 1-14 14H14A14 14 0 0 1 0 50V14A14 14 0 0 1 14 0Z"/>
+  <path fill="none" stroke="#fffdf9" stroke-width="5" stroke-linecap="round" d="M17 46c6-14 14-4 20-14s6-12 10-16"/>
+  <path fill="#fffdf9" d="M47 9a7 7 0 1 1 0 14a7 7 0 1 1 0-14Z"/>
+  <path fill="#1a1a1a" d="M47 13a3 3 0 1 1 0 6a3 3 0 1 1 0-6Z"/>
+  <path fill="#fffdf9" d="M17 42a4 4 0 1 1 0 8a4 4 0 1 1 0-8Z"/>
+</svg>

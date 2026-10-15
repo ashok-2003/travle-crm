@@ -1,0 +1,38 @@
+// The storage port (spec 9.2): what the domain needs from an S3-compatible object store. Files go straight between
+// the browser and storage through short-lived presigned URLs; the api never streams them.
+
+/** An upload the browser makes itself, straight to storage. */
+export interface PresignedUpload {
+  url: string;
+  method: "PUT";
+  /** Headers the browser must send exactly as given: they are signed, so a different size or type is refused. */
+  headers: Record<string, string>;
+  expiresAt: Date;
+}
+
+/** What storage knows about a stored file. */
+export interface StoredObject {
+  sizeBytes: number;
+  contentType: string | null;
+}
+
+export interface ObjectStorage {
+  /**
+   * A URL the browser PUTs exactly this file to: its size and content type are part of the signature, and it
+   * refuses to replace a file already stored under key (the returned headers include `if-none-match: *`).
+   * Keys are refused with a RangeError when empty, over 1024 bytes, absolute, dotted, or holding control characters
+   * or backslashes; sizeBytes must be a positive safe integer and expiresInSeconds a positive integer up to 7 days.
+   */
+  presignUpload(
+    object: { key: string; contentType: string; sizeBytes: number },
+    expiresInSeconds: number,
+  ): Promise<PresignedUpload>;
+  /** A URL that downloads the file and saves it under fileName. */
+  presignDownload(object: { key: string; fileName: string }, expiresInSeconds: number): Promise<string>;
+  /** Stores a file the server made itself, such as a rendered PDF. */
+  put(object: { key: string; contentType: string; body: Uint8Array }): Promise<void>;
+  /** The stored file's size and type, or null when nothing is stored under key. */
+  head(key: string): Promise<StoredObject | null>;
+  /** The stored file's bytes, or null when nothing is stored under key. */
+  get(key: string): Promise<Uint8Array | null>;
+}

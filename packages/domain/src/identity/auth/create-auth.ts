@@ -1,6 +1,7 @@
 // Better Auth, configured for this product (ADR 0006): sign-in by email or by organization code and username,
-// database sessions with a 5-minute cookie cache, two-factor, platform admins and impersonation. No self sign-up.
-import type { IdentityClient } from "@travel-crm/db/identity";
+// database sessions with a 5-minute cookie cache, two-factor, platform admins and impersonation, which the audit log
+// records. No self sign-up.
+import type { IdentityClient, IdentityDatabase } from "@travel-crm/db/identity";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { admin } from "better-auth/plugins/admin";
@@ -8,6 +9,9 @@ import { organization } from "better-auth/plugins/organization";
 import { twoFactor } from "better-auth/plugins/two-factor";
 import { username } from "better-auth/plugins/username";
 import { INTERNAL_USERNAME_PATTERN } from "../sign-in-names.js";
+import { authLogger } from "./auth-logger.js";
+import { impersonationAudit } from "./impersonation-audit.js";
+import { passwordResetSender, RESET_LINK_SECONDS, type PasswordResetSettings } from "./password-reset.js";
 import { closeSideDoors } from "./side-doors.js";
 import { relabelTotpForStaffWithoutEmail } from "./totp-label.js";
 
@@ -31,17 +35,26 @@ export interface AuthSettings {
    * x-forwarded-for, skipping these. Empty: the header is trusted only when it holds a single address.
    */
   trustedProxies: readonly string[];
+  /** Password reset by email: the sender and the reset page. Without it, Better Auth answers "Reset password isn't enabled". */
+  passwordReset?: PasswordResetSettings | undefined;
+  /**
+   * The process's one log, for Better Auth's warnings and errors (masked, ids and codes only) and a reset email that
+   * could not be sent. Without it, the console.
+   */
+  log?: ((line: string) => void) | undefined;
 }
 
 const DAY = 60 * 60 * 24;
 
-export function createAuth(client: IdentityClient, settings: AuthSettings) {
+export function createAuth(database: IdentityDatabase, settings: AuthSettings) {
+  const client = database.client;
   return betterAuth({
     appName: settings.appName,
     secret: settings.secret,
     baseURL: settings.baseUrl,
     trustedOrigins: [...settings.trustedOrigins],
     database: prismaAdapter(client, { provider: "postgresql" }),
+    logger: authLogger(settings.log),
     advanced: {
       // Prisma makes the ids: uuid v7, from @default(uuid(7)) in the schema.
       database: { generateId: false },
@@ -64,6 +77,17 @@ export function createAuth(client: IdentityClient, settings: AuthSettings) {
       onPasswordReset: async ({ user }) => {
         await clearMustChangePassword(client, user.id);
       },
+      // Whoever had the old password is signed out everywhere: a reset usually means it was lost or stolen.
+      revokeSessionsOnPasswordReset: true,
+      // Set here rather than left to the library's default.
+      resetPasswordTokenExpiresIn: RESET_LINK_SECONDS,
+      ...(settings.passwordReset === undefined
+        ? {}
+        : { sendResetPassword: passwordResetSender(settings.passwordReset.sendEmail, settings.log) }),
+    },
+    verification: {
+      // A reset link's token is kept only as a hash, so the table can't be read for a working link.
+      storeIdentifier: { default: "plain", overrides: { "reset-password:": "hashed" } },
     },
     session: {
       expiresIn: 7 * DAY,
@@ -89,7 +113,10 @@ export function createAuth(client: IdentityClient, settings: AuthSettings) {
         },
       },
     },
-    hooks: { before: closeSideDoors(client), after: relabelTotpForStaffWithoutEmail(client) },
+    hooks: {
+      before: closeSideDoors(client, { resetPasswordPage: settings.passwordReset?.pageUrl }),
+      after: relabelTotpForStaffWithoutEmail(client),
+    },
     rateLimit: { enabled: settings.rateLimit, storage: "memory" },
     plugins: [
       username({
@@ -106,6 +133,8 @@ export function createAuth(client: IdentityClient, settings: AuthSettings) {
       }),
       // Platform staff have user role "admin". Support may impersonate a user for at most an hour (spec 6.1).
       admin({ adminRoles: ["admin"], impersonationSessionDuration: 60 * 60 }),
+      // Writes "support.impersonation-started" and "-stopped" to the member's organization's audit log.
+      impersonationAudit(database),
       twoFactor({ issuer: settings.appName }),
     ],
   });

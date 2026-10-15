@@ -4,8 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./identity": "./src/identity/index.ts",
-    "./kernel": "./src/kernel/index.ts"
+    "./*": "./src/*/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -15,6 +14,7 @@
   "dependencies": {
     "@travel-crm/contracts": "workspace:*",
     "@travel-crm/db": "workspace:*",
+    "@travel-crm/integrations": "workspace:*",
     "better-auth": "1.7.7"
   },
   "devDependencies": {

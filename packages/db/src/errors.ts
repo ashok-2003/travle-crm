@@ -7,13 +7,16 @@ export function isUniqueViolation(error: unknown): boolean {
 }
 
 /**
- * Thrown when forOrg() is called inside another forOrg(). The inner transaction would run on a second connection,
+ * Thrown when forOrg() or withoutOrg() is called inside another one. The inner transaction would run on a second connection,
  * blind to the outer one's uncommitted writes, and enough of them at once would empty the pool and deadlock.
  * Pass the outer transaction's `tx` down instead.
  */
 export class NestedForOrgError extends Error {
   constructor() {
-    super("forOrg() was called inside another forOrg(). Pass the outer transaction's tx down instead.");
+    super(
+      "forOrg() or withoutOrg() was called inside another forOrg() or withoutOrg(). " +
+        "Pass the outer transaction's tx down instead.",
+    );
     this.name = "NestedForOrgError";
   }
 }
@@ -22,9 +25,24 @@ export class NestedForOrgError extends Error {
 export class WrongDatabaseRoleError extends Error {
   constructor(role: string | undefined) {
     super(
-      `forOrg() is connected to the database as ${JSON.stringify(role)}, but isolation only holds for app_runtime. ` +
+      `forOrg() or withoutOrg() is connected to the database as ${JSON.stringify(role)}, but isolation only holds for app_runtime. ` +
         "DATABASE_URL must connect as the app_runtime role (not app_migrator, app_platform or an admin user).",
     );
     this.name = "WrongDatabaseRoleError";
+  }
+}
+
+/**
+ * Thrown when an organization transaction reaches for a table without organization_id (webhook_event,
+ * rate_limit_counter). Those tables have no row-level security, so only their own module reaches them, inside
+ * db.withoutOrg(), through its entry point (@travel-crm/db/webhooks or @travel-crm/db/rate-limits).
+ */
+export class UnscopedModelError extends Error {
+  constructor(model: string) {
+    super(
+      `${model} has no organization_id and no row-level security, so this transaction can't reach it. ` +
+        "Its own module reaches it inside db.withoutOrg(), through its @travel-crm/db entry point.",
+    );
+    this.name = "UnscopedModelError";
   }
 }

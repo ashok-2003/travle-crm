@@ -5,6 +5,7 @@ import { softDeleted } from "@travel-crm/db";
 import { afterAll, beforeAll, describe, expect, inject, it, onTestFinished, vi } from "vitest";
 import { createStaffAccount } from "../../src/identity/staff-accounts.js";
 import {
+  createPlatformAdmin,
   createTestAgency,
   createTestIdentity,
   signInByEmail,
@@ -48,16 +49,7 @@ describe("Better Auth hardening", () => {
   }
 
   async function platformAdminHeaders(): Promise<Headers> {
-    const email = `admin-${crypto.randomUUID()}@example.test`;
-    const user = await test.database.client.user.create({ data: { name: "Support", email, role: "admin" } });
-    await test.database.client.account.create({
-      data: {
-        userId: user.id,
-        accountId: user.id,
-        providerId: "credential",
-        password: await (await test.identity.auth.$context).password.hash("admin-password-1"),
-      },
-    });
+    const { email } = await createPlatformAdmin(test, "admin-password-1");
     return signInByEmail(test.identity, email, "admin-password-1");
   }
 

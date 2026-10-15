@@ -37,6 +37,10 @@ export type ResetStaffPasswordInput = z.infer<typeof resetStaffPasswordInput>;
 export const removeStaffInput = z.strictObject({ memberId: recordId });
 export type RemoveStaffInput = z.infer<typeof removeStaffInput>;
 
+/** The payload of "staff.removed": the membership removed and its user, ids only. */
+export const staffRemovedEvent = z.strictObject({ memberId: recordId, userId: recordId });
+export type StaffRemovedEvent = z.infer<typeof staffRemovedEvent>;
+
 export const staffMember = z.object({
   memberId: recordId,
   userId: recordId,

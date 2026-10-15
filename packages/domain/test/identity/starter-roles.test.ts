@@ -40,6 +40,13 @@ describe("starter roles", () => {
     expect(sales.missing(["money:view_margin", "staff:manage", "settings:manage"])).toHaveLength(3);
   });
 
+  it("show travellers' ID documents to Operations, but not to Sales or Accounts", () => {
+    expect(roleNamed("Operations").has("documents:view_sensitive")).toBe(true);
+    expect(roleNamed("Admin").has("documents:view_sensitive")).toBe(true);
+    expect(roleNamed("Sales").has("documents:view_sensitive")).toBe(false);
+    expect(roleNamed("Accounts").has("documents:view_sensitive")).toBe(false);
+  });
+
   it("show margins to Accounts, but not to Operations", () => {
     expect(roleNamed("Accounts").has("money:view_margin")).toBe(true);
     expect(roleNamed("Operations").has("money:view_margin")).toBe(false);

@@ -1,0 +1,8 @@
+{
+  "extends": "@travel-crm/tsconfig/base.json",
+  "compilerOptions": {
+    // PDF templates are React components (React-PDF), written as .tsx.
+    "jsx": "react-jsx"
+  },
+  "include": ["src", "test", "vitest.config.ts"]
+}

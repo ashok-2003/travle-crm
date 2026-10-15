@@ -1,9 +1,10 @@
 // Creates one staff member's sign-in records in a single transaction: user, password account and membership, after
-// holding and checking their role in that same transaction. Better Auth hashes the password, but its sign-up endpoint
-// is off, so we write the rows ourselves (ADR 0006).
+// holding and checking their role in that same transaction, and the audit entry that records it. Better Auth hashes
+// the password, but its sign-up endpoint is off, so we write the rows ourselves (ADR 0006).
 import { isUniqueViolation } from "@travel-crm/db/identity";
 import type { IdentityDatabase } from "@travel-crm/db/identity";
-import { DomainError } from "../kernel/index.js";
+import { recordAudit } from "../audit/index.js";
+import { DomainError, systemActor, type Actor } from "../kernel/index.js";
 import { findRoleToGive, type FoundRole } from "./role-lookup.js";
 import { INTERNAL_USERNAME_PATTERN, internalUsername, placeholderEmail } from "./sign-in-names.js";
 
@@ -21,6 +22,8 @@ export interface NewStaffAccount {
   password: string;
   /** True for a temporary password set by an admin. */
   mustChangePassword: boolean;
+  /** Who is adding them, for the audit log. Onboarding leaves it out: the system then adds the first Owner. */
+  actor?: Actor | undefined;
 }
 
 export interface CreatedStaff {
@@ -73,6 +76,14 @@ export async function createStaffAccount(
       });
       const member = await tx.member.create({
         data: { userId: user.id, organizationId: account.organizationId, role: role.key },
+      });
+      // No name, username or address: the log outlives the account, and erasure clears those on the user row (ADR 0007).
+      // The member id leads to the person.
+      await recordAudit(tx, account.actor ?? systemActor(account.organizationId), {
+        action: "staff.created",
+        entityType: "member",
+        entityId: member.id,
+        after: { role: role.key, hasEmail: account.email !== undefined },
       });
       return { userId: user.id, memberId: member.id };
     });

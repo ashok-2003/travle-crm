@@ -6,6 +6,7 @@ import {
   createStaffInput,
   orgSignInInput,
   setTwoFactorRequirementInput,
+  staffRemovedEvent,
   updateRoleInput,
 } from "../src/identity/index.js";
 
@@ -44,6 +45,13 @@ describe("identity inputs", () => {
     expect(updateRoleInput.safeParse({ key: "sales", name: "Sales" }).success).toBe(true);
     expect(updateRoleInput.safeParse({ key: "sales", permissions: [] }).success).toBe(true);
     expect(updateRoleInput.safeParse({ key: "Sales", name: "Sales" }).success).toBe(false);
+  });
+
+  it("carries only the member's and user's ids in staff.removed", () => {
+    const ids = { memberId: "0199e7a0-0000-7000-8000-000000000001", userId: "0199e7a0-0000-7000-8000-000000000002" };
+    expect(staffRemovedEvent.parse(ids)).toEqual(ids);
+    expect(staffRemovedEvent.safeParse({ ...ids, email: "ravi@sharma.in" }).success).toBe(false);
+    expect(staffRemovedEvent.safeParse({ memberId: ids.memberId }).success).toBe(false);
   });
 
   it("refuses unknown keys instead of dropping them", () => {

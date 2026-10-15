@@ -4,13 +4,14 @@ module.exports = {
     {
       name: "db-internals-stay-in-db",
       comment:
-        "Other packages reach @travel-crm/db only through its entry points (index, identity, platform, and the " +
-        "test-only testing files), so the raw Prisma client and the generated code never leak out of the package.",
+        "Other packages reach @travel-crm/db only through its entry points (index, identity, platform, webhooks, " +
+        "rate-limits, and the test-only testing files), so the raw Prisma client and the generated code never leak " +
+        "out of the package.",
       severity: "error",
       from: { path: "^(apps|packages)/", pathNot: "^packages/db/" },
       to: {
         path: "^packages/db/(src|test)/",
-        pathNot: "^packages/db/(src/(index|identity|platform)|test/(testing|global-setup))\\.ts$",
+        pathNot: "^packages/db/(src/(index|identity|platform|webhooks|rate-limits)|test/(testing|global-setup))\\.ts$",
       },
     },
     {
@@ -21,6 +22,24 @@ module.exports = {
       severity: "error",
       from: { pathNot: ["^packages/db/", "^packages/domain/(src|test)/identity/"] },
       to: { path: "^packages/db/src/identity\\.ts$" },
+    },
+    {
+      name: "webhook-events-only-in-webhooks",
+      comment:
+        "@travel-crm/db/webhooks reaches webhook_event, which has no organization_id and no row-level security: " +
+        "every organization's raw provider payloads. Only the webhooks module may use it (ADR 0013).",
+      severity: "error",
+      from: { pathNot: ["^packages/db/", "^packages/domain/(src|test)/webhooks/"] },
+      to: { path: "^packages/db/src/webhooks\\.ts$" },
+    },
+    {
+      name: "rate-limit-counters-only-in-rate-limits",
+      comment:
+        "@travel-crm/db/rate-limits reaches rate_limit_counter, which has no organization_id and no row-level " +
+        "security. Only the rate-limits module may use it (ADR 0013).",
+      severity: "error",
+      from: { pathNot: ["^packages/db/", "^packages/domain/(src|test)/rate-limits/"] },
+      to: { path: "^packages/db/src/rate-limits\\.ts$" },
     },
     {
       name: "platform-database-only-in-platform",
@@ -75,6 +94,42 @@ module.exports = {
       severity: "error",
       from: { path: "^packages/domain/src/kernel/" },
       to: { path: "^packages/domain/src/", pathNot: "^packages/domain/src/kernel/" },
+    },
+    {
+      name: "kernel-is-browser-safe",
+      comment:
+        "The web app's client code imports the kernel (money, GST, dates), so it imports only itself and " +
+        "@travel-crm/contracts: never @travel-crm/integrations (pg-boss, Node built-ins), a Node built-in or any " +
+        "other package. apps/api/test/browser-safe-kernel.test.ts bundles it for a browser.",
+      severity: "error",
+      from: { path: "^packages/domain/src/kernel/" },
+      to: { pathNot: ["^packages/domain/src/kernel/", "^packages/contracts/"] },
+    },
+    {
+      name: "vendor-sdks-only-in-integrations",
+      comment:
+        "Domain code never calls a vendor SDK (spec 3): it calls a port in @travel-crm/integrations, and only that " +
+        "package imports pg-boss, the AWS SDK, nodemailer, web-push or React-PDF.",
+      severity: "error",
+      from: { pathNot: "^packages/integrations/" },
+      to: { path: "(^|/)node_modules/(pg-boss|@aws-sdk/[^/]+|nodemailer|web-push|@react-pdf/[^/]+)(/|$)" },
+    },
+    {
+      name: "integrations-are-adapters-only",
+      comment:
+        "Adapters know vendors, not our business: @travel-crm/integrations imports nothing of ours but the brand " +
+        "package. Its tests may use the test database.",
+      severity: "error",
+      from: { path: "^packages/integrations/src/" },
+      to: { path: "^(apps|packages)/", pathNot: ["^packages/integrations/", "^packages/brand/"] },
+    },
+    {
+      name: "brand-depends-on-nothing-of-ours",
+      comment:
+        "The brand package is the product's identity: every layer may read it, so its code reads no other package.",
+      severity: "error",
+      from: { path: "^packages/brand/src/" },
+      to: { path: "^(apps|packages)/", pathNot: "^packages/brand/" },
     },
     {
       name: "no-circular",

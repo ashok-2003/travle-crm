@@ -1,11 +1,14 @@
 // Removing staff against Postgres (spec 6.3, ADR 0007): the person loses access and sign-in at once, their email and
-// username are released, and an organization always keeps an Owner.
+// username are released, staff.removed is published for the modules that keep things about them, and an organization
+// always keeps an Owner.
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { afterAll, beforeAll, describe, expect, inject, it, onTestFinished, vi } from "vitest";
 import type { MemberAccess } from "../../src/identity/member-access.js";
 import {
+  canSignInByUsername,
   createTestAgency,
   createTestIdentity,
+  memberAccessOf,
   signInByEmail,
   type TestAgency,
   type TestIdentity,
@@ -17,20 +20,19 @@ describe("removing staff", () => {
   let agency: TestAgency;
   let owner: MemberAccess;
 
-  async function accessOf(userId: string, organizationId = agency.organizationId): Promise<MemberAccess> {
-    const access = await test.identity.resolveAccess(userId, organizationId);
-    if (!access) throw new Error("no access");
-    return access;
-  }
+  const accessOf = (userId: string, organizationId = agency.organizationId) =>
+    memberAccessOf(test.identity, userId, organizationId);
+  const canSignIn = (code: string, username: string, password: string) =>
+    canSignInByUsername(test.identity, code, username, password);
 
-  /** Signs in with organization code and username through Better Auth; true when it succeeds. */
-  async function canSignInByUsername(code: string, username: string, password: string): Promise<boolean> {
-    const response = await test.identity.auth.api.signInUsername({
-      body: { username: `${code}:${username}`.toLowerCase(), password },
-      asResponse: true,
-    });
-    return response.ok;
-  }
+  /** The staff.removed events published about one member. */
+  const removalEventsOf = (memberId: string) =>
+    test.database.forOrg(agency.organizationId, (tx) =>
+      tx.outboxEvent.findMany({
+        where: { type: "staff.removed", payload: { path: ["memberId"], equals: memberId } },
+        select: { payload: true },
+      }),
+    );
 
   beforeAll(async () => {
     platform = createPlatformClient(inject("dbUrls").platform);
@@ -70,6 +72,7 @@ describe("removing staff", () => {
       password: (await test.database.client.account.findFirstOrThrow({ where: { userId: created.userId } })).password,
       sessions: await test.database.client.session.count({ where: { userId: created.userId } }),
       member: await test.database.client.member.findUnique({ where: { id: created.memberId } }),
+      removalEvents: await removalEventsOf(created.memberId),
     });
     const before = await stateOf();
     expect(before).toMatchObject({ user: { email, username: expect.stringMatching(/:sam$/) as unknown }, sessions: 1 });
@@ -78,6 +81,20 @@ describe("removing staff", () => {
       test.identity.staff.remove(await accessOf(created.userId), { memberId: created.memberId }),
     ).rejects.toMatchObject({ reason: "CANNOT_CHANGE_YOURSELF" });
     expect(await stateOf()).toEqual(before);
+  });
+
+  it("publishes staff.removed with the member's and user's ids, and nothing else", async () => {
+    const leaving = await test.identity.staff.create(owner, {
+      name: "Leela",
+      username: "leela",
+      roleKey: "sales",
+      temporaryPassword: "temporary-pass-12",
+    });
+    await test.identity.staff.remove(owner, { memberId: leaving.memberId });
+    // The notifications module listens, and forgets the person's browsers (ADR 0007).
+    expect(await removalEventsOf(leaving.memberId)).toEqual([
+      { payload: { memberId: leaving.memberId, userId: leaving.userId } },
+    ]);
   });
 
   it("keeps an Owner when two Owners remove each other at the same moment", async () => {
@@ -124,7 +141,7 @@ describe("removing staff", () => {
     expect(await test.identity.resolveAccess(kiran.userId, agency.organizationId)).toBeNull();
     expect(await test.database.client.session.count({ where: { userId: kiran.userId } })).toBe(0);
     await expect(signInByEmail(test.identity, email, "kiran-temp-pass-1")).rejects.toThrow(/Sign-in failed/);
-    expect(await canSignInByUsername(agency.code, "kiran", "kiran-temp-pass-1")).toBe(false);
+    expect(await canSignIn(agency.code, "kiran", "kiran-temp-pass-1")).toBe(false);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("User not found"));
 
     expect(await test.database.client.user.findUnique({ where: { id: kiran.userId } })).toMatchObject({

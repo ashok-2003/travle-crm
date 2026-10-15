@@ -18,16 +18,26 @@ transaction to `orgId`'s rows; outside it, queries see nothing.
   wait for a connection). Work past the timeout is rolled back.
 - Never call `forOrg()` inside another `forOrg()`. It throws `NestedForOrgError`, because the inner transaction would run
   on a second connection that can't see the outer one's writes. Pass the outer `tx` down instead.
+- `db.withoutOrg(fn)` runs a transaction with no organization, for the few tables without `organization_id` (webhook
+  events, rate-limit counters) and database functions that look across organizations without revealing rows.
+  Organization tables show no rows and refuse writes in it. It can't be nested either.
+- The tables without `organization_id` have no row-level security, so `OrgTx` and the identity module's client leave
+  their models out, and every transaction and that client (its own transactions included; it refuses `$extends`)
+  refuse them at run time (`UnscopedModelError`). Their own modules reach them inside `db.withoutOrg()`:
+  `webhookEvents(tx)` from `@travel-crm/db/webhooks`, `rateLimitCounters(tx)` from `@travel-crm/db/rate-limits`.
+  ESLint flags raw SQL naming either table outside its module.
 
 ## Entry points
 
-| Import                                | For                      | Gives                                                                         |
-| ------------------------------------- | ------------------------ | ----------------------------------------------------------------------------- |
-| `@travel-crm/db`                      | every module             | `createDatabase`, `OrgTx`, `nextDocumentNumber`, `softDeleted`, `withDeleted` |
-| `@travel-crm/db/identity`             | the identity module only | Better Auth's client, and `forOrg` transactions that reach the sign-in tables |
-| `@travel-crm/db/platform`             | the platform module only | a client that sees every organization                                         |
-| `@travel-crm/db/testing`              | tests only               | `createTestOrganization`, the `DbUrls` type                                   |
-| `@travel-crm/db/testing/global-setup` | other packages' Vitest   | the throwaway Postgres; `inject("dbUrls")` in tests                           |
+| Import                                | For                         | Gives                                                                         |
+| ------------------------------------- | --------------------------- | ----------------------------------------------------------------------------- |
+| `@travel-crm/db`                      | every module                | `createDatabase`, `OrgTx`, `nextDocumentNumber`, `softDeleted`, `withDeleted` |
+| `@travel-crm/db/identity`             | the identity module only    | Better Auth's client, and `forOrg` transactions that reach the sign-in tables |
+| `@travel-crm/db/platform`             | the platform module only    | a client that sees every organization                                         |
+| `@travel-crm/db/webhooks`             | the webhooks module only    | `webhookEvents(tx)`: the `webhook_event` table, in `db.withoutOrg()`          |
+| `@travel-crm/db/rate-limits`          | the rate-limits module only | `rateLimitCounters(tx)`: the `rate_limit_counter` table, in `db.withoutOrg()` |
+| `@travel-crm/db/testing`              | tests only                  | `createTestOrganization`, the `DbUrls` type                                   |
+| `@travel-crm/db/testing/global-setup` | other packages' Vitest      | the throwaway Postgres; `inject("dbUrls")` in tests                           |
 
 dependency-cruiser enforces the "only" column. Another package's `vitest.config.ts` uses the test database like this:
 
@@ -39,10 +49,19 @@ dependency-cruiser enforces the "only" column. Another package's `vitest.config.
 
        organizationId String @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
 
-2. Create the migration: `pnpm --filter @travel-crm/db exec prisma migrate dev --create-only --name <change>`
+2. Create the migration from the schema change alone, without a database. Save the schema as it was
+   (`before=$(mktemp -d) && git archive HEAD prisma/schema | tar -x -C "$before"`, run in `packages/db`), make a
+   folder `prisma/migrations/<timestamp>_<change>/`, then:
+   `pnpm exec prisma migrate diff --from-schema "$before/prisma/schema" --to-schema prisma/schema --script --output prisma/migrations/<timestamp>_<change>/migration.sql`.
+   Use `--output`, never shell redirection: Prisma prints "Loaded Prisma config…" to stderr, which would land in the file.
 3. Append to the new `migration.sql`: `SELECT app_enable_org_rls('<table_name>');`
-4. Apply and regenerate: `pnpm --filter @travel-crm/db exec prisma migrate dev && pnpm --filter @travel-crm/db generate`
-5. Add a row-creating entry for the table to `test/org-table-fixtures.ts`.
+4. Regenerate the client: `pnpm --filter @travel-crm/db generate`. The tests apply the migrations to a throwaway
+   database and fail if the schema and migrations disagree. Never run `prisma migrate dev` or reset a shared database.
+5. Add a row-creating fixture for the table to your module's file in `test/org-table-fixtures/` (one file per module,
+   gathered by `test/org-table-fixtures.ts`). Mark it `appendOnly: true` when the runtime role can't update or delete
+   the table's rows (like `outbox_event`): the suite then expects those statements to be refused outright. When the
+   role may update only some columns (granted by name, like `outbox_event.relayed_at`), name one as `updatableColumn`,
+   so another organization's update is tested on it. The suite reads the grants and fails when that is missing.
 6. `pnpm check`. The isolation suite now covers the new table.
 
 Steps 3 and 5 are enforced: the tests fail if either is missing. Keys are checked too:
@@ -51,6 +70,9 @@ Steps 3 and 5 are enforced: the tests fail if either is missing. Keys are checke
   `@relation(fields: [organizationId, otherId], references: [organizationId, id])`.
 - A unique constraint includes `organization_id`, e.g. `@@unique([organizationId, key])`, so one organization can't learn
   that another uses a value. Only a primary key on `id` alone is exempt.
+- `organization_id` refers to `organization`, and never cascades an organization's deletion:
+  `@relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)`. Postgres runs a
+  cascade as the table's owner, past row-level security and past grants such as `audit_entry`'s.
 
 ## Soft delete
 

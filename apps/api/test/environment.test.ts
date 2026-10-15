@@ -1,4 +1,5 @@
 // The api refuses to start with settings that are missing, malformed or unsafe in production, and says which.
+import { brand } from "@travel-crm/brand";
 import { describe, expect, it } from "vitest";
 import { authSettingsFrom, EnvironmentError, loadEnvironment } from "../src/environment.js";
 
@@ -6,6 +7,14 @@ const valid = {
   DATABASE_URL: "postgresql://app_runtime:runtime@localhost:55432/travel_crm",
   BETTER_AUTH_SECRET: "a-long-enough-development-secret-123",
   BETTER_AUTH_URL: "http://localhost:3001",
+  S3_BUCKET: "travel-crm",
+  S3_ACCESS_KEY_ID: "minio-dev",
+  S3_SECRET_ACCESS_KEY: "minio-dev-secret",
+  SMTP_HOST: "localhost",
+  EMAIL_FROM_ADDRESS: "no-reply@travel-crm.localhost",
+  VAPID_PUBLIC_KEY: "public-key",
+  VAPID_PRIVATE_KEY: "private-key",
+  VAPID_SUBJECT: "mailto:dev@travel-crm.localhost",
 };
 
 describe("environment", () => {
@@ -14,7 +23,8 @@ describe("environment", () => {
     expect(environment).toMatchObject({ NODE_ENV: "development", PORT: 3001, AUTH_RATE_LIMIT: true });
     expect(authSettingsFrom(environment)).toMatchObject({
       secureCookies: false,
-      trustedOrigins: [],
+      // The web app's development address (APP_URL's default).
+      trustedOrigins: ["http://localhost:3000"],
       rateLimit: true,
       ipAddressHeaders: ["x-forwarded-for"],
       trustedProxies: [],
@@ -23,7 +33,10 @@ describe("environment", () => {
 
   it("treats an unset NODE_ENV as production, so a deploy that forgets it gets the production guards", () => {
     expect(() => loadEnvironment(valid)).toThrow(/BETTER_AUTH_URL: must be https in production/);
-    expect(loadEnvironment({ ...valid, BETTER_AUTH_URL: "https://app.example.in" }).NODE_ENV).toBe("production");
+    expect(
+      loadEnvironment({ ...valid, BETTER_AUTH_URL: "https://app.example.in", APP_URL: "https://app.example.in" })
+        .NODE_ENV,
+    ).toBe("production");
   });
 
   it("allows rate limiting off only in development and test", () => {
@@ -33,7 +46,12 @@ describe("environment", () => {
   });
 
   it("refuses weak secrets in production, naming the variable and never the value", () => {
-    const production = { ...valid, NODE_ENV: "production", BETTER_AUTH_URL: "https://app.example.in" };
+    const production = {
+      ...valid,
+      NODE_ENV: "production",
+      BETTER_AUTH_URL: "https://app.example.in",
+      APP_URL: "https://app.example.in",
+    };
     const weak = [
       "dev-only-secret-not-for-any-real-deploy",
       "ab".repeat(20),
@@ -62,14 +80,21 @@ describe("environment", () => {
     for (const TRUSTED_ORIGINS of bad) {
       expect(() => loadEnvironment({ ...valid, NODE_ENV: "development", TRUSTED_ORIGINS })).toThrow(/TRUSTED_ORIGINS/);
     }
-    const production = { ...valid, NODE_ENV: "production", BETTER_AUTH_URL: "https://app.example.in" };
-    expect(() =>
+    const production = {
+      ...valid,
+      NODE_ENV: "production",
+      BETTER_AUTH_URL: "https://app.example.in",
+      APP_URL: "https://app.example.in",
+    };
+    const staging = () =>
       loadEnvironment({
         ...production,
         BETTER_AUTH_SECRET: "wB7qk2Rz9XvLm4TnY8cPa5HdJ3sFe6Ug",
         TRUSTED_ORIGINS: "http://staging.example.in",
-      }),
-    ).toThrow(/TRUSTED_ORIGINS/);
+      });
+    expect(staging).toThrow(/TRUSTED_ORIGINS/);
+    // TRUSTED_ORIGINS is the only problem: the https APP_URL passes.
+    expect(staging).not.toThrow(/APP_URL/);
   });
 
   it("reads AUTH_TRUSTED_PROXIES as a list of IP addresses and CIDR ranges", () => {
@@ -109,6 +134,10 @@ describe("environment", () => {
     ).toEqual(["fe80::1", "2001:db8::/32", "::1"]);
   });
 
+  it("names the product to authenticator apps with the brand's name", () => {
+    expect(authSettingsFrom(loadEnvironment({ ...valid, NODE_ENV: "development" })).appName).toBe(brand.productName);
+  });
+
   it("names every missing or malformed variable, without printing values", () => {
     const attempt = () =>
       loadEnvironment({
@@ -137,15 +166,64 @@ describe("environment", () => {
     );
   });
 
+  it("needs object storage, email and web push settings, with AWS and SMTP defaults", () => {
+    const environment = loadEnvironment({ ...valid, NODE_ENV: "development" });
+    expect(environment).toMatchObject({
+      APP_URL: "http://localhost:3000",
+      S3_REGION: "ap-south-1",
+      S3_FORCE_PATH_STYLE: false,
+      SMTP_PORT: 587,
+      SMTP_SECURE: false,
+    });
+    expect(environment.S3_ENDPOINT).toBeUndefined();
+    const attempt = () =>
+      loadEnvironment({
+        NODE_ENV: "development",
+        DATABASE_URL: valid.DATABASE_URL,
+        BETTER_AUTH_SECRET: valid.BETTER_AUTH_SECRET,
+        BETTER_AUTH_URL: valid.BETTER_AUTH_URL,
+        S3_BUCKET: "Not_A_Bucket",
+        VAPID_SUBJECT: "dev@travel-crm.localhost",
+      });
+    expect(attempt).toThrow(/S3_BUCKET[\s\S]*SMTP_HOST[\s\S]*EMAIL_FROM_ADDRESS[\s\S]*VAPID_PUBLIC_KEY/);
+    expect(attempt).toThrow(/VAPID_SUBJECT: must start with "mailto:" or "https:\/\/"/);
+  });
+
+  it("takes SMTP credentials only as a pair, naming the one that is missing", () => {
+    const development = { ...valid, NODE_ENV: "development" };
+    expect(() => loadEnvironment({ ...development, SMTP_USER: "mailer" })).toThrow(
+      /SMTP_PASSWORD: is needed with SMTP_USER/,
+    );
+    expect(() => loadEnvironment({ ...development, SMTP_PASSWORD: "secret-password" })).toThrow(
+      /SMTP_USER: is needed with SMTP_PASSWORD/,
+    );
+    expect(() => loadEnvironment({ ...development, SMTP_PASSWORD: "secret-password" })).not.toThrow(/secret-password/);
+    expect(loadEnvironment({ ...development, SMTP_USER: "mailer", SMTP_PASSWORD: "secret-password" })).toMatchObject({
+      SMTP_USER: "mailer",
+    });
+  });
+
+  it("trusts the web app's address, so a password reset can send people back to it", () => {
+    const development = { ...valid, NODE_ENV: "development" };
+    const settings = authSettingsFrom(loadEnvironment({ ...development, TRUSTED_ORIGINS: "http://localhost:3000" }));
+    expect(settings.trustedOrigins).toEqual(["http://localhost:3000"]);
+    const staging = authSettingsFrom(loadEnvironment({ ...development, APP_URL: "https://staging.example.in/app" }));
+    expect(staging.trustedOrigins).toEqual(["https://staging.example.in"]);
+  });
+
   it("insists on HTTPS, secure cookies and rate limiting in production", () => {
     const production = { ...valid, NODE_ENV: "production" };
     expect(() => loadEnvironment(production)).toThrow(/BETTER_AUTH_URL: must be https in production/);
     const https = {
       ...production,
       BETTER_AUTH_URL: "https://app.example.in",
+      APP_URL: "https://app.example.in",
       BETTER_AUTH_SECRET: "wB7qk2Rz9XvLm4TnY8cPa5HdJ3sFe6Ug",
     };
     expect(authSettingsFrom(loadEnvironment(https)).secureCookies).toBe(true);
+    expect(() => loadEnvironment({ ...https, APP_URL: "http://app.example.in" })).toThrow(
+      /APP_URL: must be https in production/,
+    );
     expect(() => loadEnvironment({ ...https, AUTH_RATE_LIMIT: "false" })).toThrow(/AUTH_RATE_LIMIT/);
   });
 });

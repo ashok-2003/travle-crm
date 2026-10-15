@@ -1,7 +1,9 @@
 // The api's settings, read from environment variables once at start-up and checked, so a bad deploy fails loudly.
 import { isIP } from "node:net";
+import { brand } from "@travel-crm/brand";
 import type { AuthSettings } from "@travel-crm/domain/identity";
 import { z } from "zod";
+import { serviceVariables } from "./service-variables.js";
 
 /** The secret in .env.example: fine on a laptop, never in production. */
 const EXAMPLE_SECRET = "dev-only-secret-not-for-any-real-deploy";
@@ -64,20 +66,29 @@ const environmentSchema = z
     TRUSTED_ORIGINS: commaSeparated.pipe(z.array(origin)),
     /** Sign-in rate limiting. Only development and tests may turn it off. */
     AUTH_RATE_LIMIT: z.stringbool().default(true),
-    /** Headers the load balancer puts the client's IP address in, comma-separated. */
+    /** Headers the load balancer puts the client's IP address in, comma-separated. Public routes' limits use it too. */
     AUTH_IP_ADDRESS_HEADERS: commaSeparated.pipe(z.array(z.string()).min(1)).default(["x-forwarded-for"]),
     /**
      * Proxies in front of the api (IPs or CIDRs). Without them x-forwarded-for is trusted only when it holds one
      * address, so the load balancer must overwrite it; with them, the client is the first address not in this list.
      */
     AUTH_TRUSTED_PROXIES: commaSeparated.pipe(z.array(addressOrRange)),
+    ...serviceVariables,
   })
   .superRefine((environment, context) => {
-    if (developmentLike(environment.NODE_ENV)) return;
     const problem = (path: string, message: string) => {
       context.addIssue({ code: "custom", path: [path], message });
     };
+    // A user without a password (or the other way round) is a half-made setting, in every environment.
+    if (environment.SMTP_USER !== undefined && environment.SMTP_PASSWORD === undefined) {
+      problem("SMTP_PASSWORD", "is needed with SMTP_USER");
+    }
+    if (environment.SMTP_PASSWORD !== undefined && environment.SMTP_USER === undefined) {
+      problem("SMTP_USER", "is needed with SMTP_PASSWORD");
+    }
+    if (developmentLike(environment.NODE_ENV)) return;
     if (!environment.BETTER_AUTH_URL.startsWith("https://")) problem("BETTER_AUTH_URL", "must be https in production");
+    if (!environment.APP_URL.startsWith("https://")) problem("APP_URL", "must be https in production");
     if (!environment.AUTH_RATE_LIMIT) problem("AUTH_RATE_LIMIT", "cannot be off in production");
     if (environment.TRUSTED_ORIGINS.some((item) => !item.startsWith("https://"))) {
       problem("TRUSTED_ORIGINS", "must be https origins in production");
@@ -93,7 +104,7 @@ export type Environment = z.infer<typeof environmentSchema>;
 /** Lists every problem by variable name. Values are never included: some are secrets. */
 export class EnvironmentError extends Error {
   constructor(problems: string[]) {
-    super(`The api's environment is not valid:\n${problems.map((problem) => `  - ${problem}`).join("\n")}`);
+    super(`The environment is not valid:\n${problems.map((problem) => `  - ${problem}`).join("\n")}`);
     this.name = "EnvironmentError";
   }
 }
@@ -108,11 +119,14 @@ export function loadEnvironment(source: Record<string, string | undefined>): Env
 
 export function authSettingsFrom(environment: Environment): AuthSettings {
   return {
-    // The product's name moves to the brand package (spec section 10) when that package exists.
-    appName: "Travel CRM",
+    // Authenticator apps show the product's name next to the code.
+    appName: brand.productName,
     secret: environment.BETTER_AUTH_SECRET,
     baseUrl: environment.BETTER_AUTH_URL,
-    trustedOrigins: environment.TRUSTED_ORIGINS.map((origin) => new URL(origin).origin),
+    // The web app may call the api with cookies, and a password reset may send people back to it.
+    trustedOrigins: [
+      ...new Set([...environment.TRUSTED_ORIGINS, environment.APP_URL].map((url) => new URL(url).origin)),
+    ],
     secureCookies: environment.NODE_ENV === "production" || environment.BETTER_AUTH_URL.startsWith("https://"),
     rateLimit: environment.AUTH_RATE_LIMIT,
     ipAddressHeaders: environment.AUTH_IP_ADDRESS_HEADERS.map((header) => header.toLowerCase()),

@@ -11,6 +11,11 @@ Removing a member is one transaction:
    `username` is cleared, the credential account's password hash is wiped, and `banned` is set. `name` and
    `display_username` stay on the retired row.
 3. All their sessions are deleted.
+4. `staff.removed` is published (`{ memberId, userId }`), for the modules that keep things about the person. The
+   notifications module's listener deletes their browsers' push subscriptions, so a shared device that was never
+   signed out gets no more pushes for them. That happens a moment after the removal commits, not in its
+   transaction: notifications depends on identity, so identity can't call it (spec 8), and delivery already skips
+   people who have left.
 
 A person who joins again, here or in another organization, gets a new user row.
 

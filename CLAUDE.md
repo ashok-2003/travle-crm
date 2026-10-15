@@ -7,15 +7,17 @@ The design is in `docs/superpowers/specs/`, the build plans in `docs/superpowers
 
 Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 
-| Command                                    | What it does                                             |
-| ------------------------------------------ | -------------------------------------------------------- |
-| `pnpm install`                             | install dependencies                                     |
-| `pnpm db:up` / `pnpm db:down`              | start / stop local Postgres (Docker)                     |
-| `pnpm db:migrate`                          | apply migrations to local Postgres                       |
-| `pnpm --filter @travel-crm/api-server dev` | run the api on http://localhost:3001 (reads `.env`)      |
-| `pnpm format`                              | format every file with Prettier                          |
-| `pnpm check`                               | everything CI runs: typecheck, lint, tests, import rules |
-| `pnpm --filter @travel-crm/<package> test` | one package's tests (most need Docker running)           |
+| Command                                       | What it does                                              |
+| --------------------------------------------- | --------------------------------------------------------- |
+| `pnpm install`                                | install dependencies                                      |
+| `pnpm db:up` / `pnpm db:down`                 | start / stop local Postgres (Docker)                      |
+| `pnpm services:up`                            | start Postgres, MinIO (files) and Mailpit (email) locally |
+| `pnpm db:migrate`                             | apply migrations to local Postgres                        |
+| `pnpm --filter @travel-crm/api-server dev`    | run the api on http://localhost:3001 (reads `.env`)       |
+| `pnpm --filter @travel-crm/api-server worker` | run the worker: outbox relay, listeners, jobs, schedules  |
+| `pnpm format`                                 | format every file with Prettier                           |
+| `pnpm check`                                  | everything CI runs: typecheck, lint, tests, import rules  |
+| `pnpm --filter @travel-crm/<package> test`    | one package's tests (most need Docker running)            |
 
 ## How we write code
 
@@ -23,6 +25,11 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - **Readable over clever.** Small single-purpose files (~200 lines is a smell), clear names, no abbreviations in public names.
   Each source file starts with a one-line comment saying what it is for. Comments explain _why_.
 - **Strict TypeScript.** No `any`, no `!` non-null assertions, no ignored build errors.
+- **Ports and adapters (ADR 0008).** Domain code never imports a vendor SDK. It takes a port from
+  `@travel-crm/integrations/<adapter>` (`ObjectStorage`, `JobQueue`, …) as a parameter; the api and worker pass the real
+  adapter, tests pass the in-memory one. Only `packages/integrations` imports pg-boss, the AWS SDK, nodemailer,
+  web-push and React-PDF, and it imports nothing of ours but `@travel-crm/brand`.
+- **The product's name, colours and contacts** come from `@travel-crm/brand`, never typed elsewhere.
 - **Pinned versions.** Shared tool versions live in the `catalog:` in `pnpm-workspace.yaml`. Prisma is pinned to 7.10.0;
   npm's `latest` for `prisma` is an 8.0 release candidate. Never install "latest" without checking.
 - **Commits.** Small, Conventional Commits (`feat(db): …`), enforced by commitlint. Git hooks format and lint staged files;
@@ -34,11 +41,21 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - Organization data is read and written only inside `db.forOrg(orgId, tx => …)` from `@travel-crm/db`.
   Postgres row-level security then limits every query to that organization; with no organization set, queries see nothing.
 - Every table with an `organization_id` column needs, in the migration that creates it:
-  `SELECT app_enable_org_rls('<table_name>');`, plus a row-creating entry in `packages/db/test/org-table-fixtures.ts`.
+  `SELECT app_enable_org_rls('<table_name>');`, plus a row-creating fixture in your module's file in
+  `packages/db/test/org-table-fixtures/` (mark it `appendOnly` if the runtime role can't update or delete its rows).
   The test suite fails without both. See `packages/db/README.md` for the full recipe.
 - Never call `forOrg()` inside another `forOrg()` (it throws `NestedForOrgError`): pass the outer `tx` down.
+- Tables without `organization_id` (webhook events, rate-limit counters) have no row-level security. `OrgTx` hides
+  their models and every transaction refuses them at run time; only their own modules reach them, inside
+  `db.withoutOrg(tx => …)` (where every organization table shows no rows), through `@travel-crm/db/webhooks` and
+  `@travel-crm/db/rate-limits`. dependency-cruiser keeps each entry point to its module, and ESLint flags raw SQL naming
+  either table outside it (`rawSqlSelectorsAllowing` in `packages/domain/eslint.config.js`).
 - A foreign key between two organization tables includes `organization_id`, and so does every unique constraint on an
-  organization table (except a primary key on `id`). The test suite checks both.
+  organization table (except a primary key on `id`). Every organization table's `organization_id` refers to
+  `organization`: plan 3's keys, and every new one, are `ON DELETE RESTRICT ON UPDATE RESTRICT`
+  (`onDelete: Restrict, onUpdate: Restrict`), because a cascade runs as the table's owner, past row-level security and
+  grants. Plans 1 and 2's keys keep Prisma's `ON UPDATE CASCADE` (organization ids never change). The test suite
+  checks the keys, the unique constraints, and that every key to `organization` restricts deletion.
 - Only the platform module uses `@travel-crm/db/platform` (it sees every organization).
 - Better Auth's sign-in tables (user, session, account, verification, two_factor, organization, member, invitation) have no
   row-level security. Only `packages/domain/src/identity` reaches them, through `@travel-crm/db/identity`:
@@ -57,6 +74,10 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   `@@unique([...], where: { deletedAt: null })`.
   `upsert()` is refused on soft-delete models, and `app_runtime` has no DELETE grant on their tables.
 - IDs are UUID v7 (`@default(uuid(7)) @db.Uuid`). Money is never a float.
+- Domain events (ADR 0009): `publishEvent(tx, { type, payload })` from `@travel-crm/domain/jobs`, in the same
+  transaction as the change. Types read `<entity>.<what happened>`; payloads hold ids, never personal data.
+  Listeners are built with `defineListener` and must be safe to run twice.
+- Other modules never read the sign-in tables: they ask identity (`organizationProfile`, `memberContacts`).
 
 ## API and permission rules
 
@@ -72,17 +93,48 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   gets them automatically. List queries for scoped views filter with `scopeFilter()` (own or all records).
 - Domain modules are folders in `packages/domain/src`. Their public API is `index.ts`; other modules import only that.
   Business rule failures throw `DomainError` from `@travel-crm/domain/kernel`, which the API turns into an HTTP status.
+  Plain HTTP routes answer in their own way (the share link's pages); an error nothing handled is logged by names and
+  codes and answered generically (`apps/api/src/error-handler.ts`).
 - Over HTTP, tRPC requests and `/api/auth/sign-in/org`, other than GET/HEAD, must name a trusted origin and
   send JSON (`apps/api/src/trusted-origin.ts`); other `/api/auth/*` POSTs use Better Auth's own origin check. Better Auth's `/api/auth/organization/*` endpoints are closed (404):
   members and roles go through tRPC. Error responses carry no stack traces or internal messages.
 - The api's settings are checked at start-up (`apps/api/src/environment.ts`). `NODE_ENV` defaults to `production`, which
   needs https, rate limiting and a strong secret; local development sets `NODE_ENV=development` (`.env.example` does).
+- Whoever acts is an `Actor` (kernel): `MemberAccess` in requests, `systemActor(organizationId)` in the worker. Its
+  `source` and `impersonatedBy` say whether support is impersonating the member.
+
+## Shared services (spec 9; ADRs 0008-0017)
+
+- **Events and jobs:** publish with `publishEvent(tx, …)`; react with a listener (`defineListener`) registered in
+  `apps/api/src/worker-jobs.ts`. Listeners run in the worker, at least once per event, in the event's organization: key
+  their database writes on the event id, and make work outside the database safe to repeat. Scheduled jobs go in the
+  same file, with a cron and a time zone.
+- **Files:** `createFiles(...)` (`@travel-crm/domain/files`): presigned uploads and downloads, attachments on any
+  record (every call names the record), `documents:view_sensitive` for sensitive files. Never stream file bytes
+  through the api.
+- **PDFs:** `issueDocument(tx, …)` numbers and freezes a document in the organization's time zone; the worker renders it
+  once (`documents.render-pdf`).
+- **Notifications:** `notify(tx, actor, …)` is the one way to tell people something (bell, email, push; opt-outs apply).
+  A listener passes `sourceEventId`, so a repeat adds nothing.
+- **Audit:** `recordAudit(tx, actor, …)` in the same transaction as the change, for every change staff make.
+- **Money and time:** `Money` in integer paise, `indiaGst` for tax, `formatMoney` (₹12,50,000.00), times in UTC shown in
+  the organization's zone (`formatDateTime`), departure dates as `CalendarDate`. Never floats, never local time.
+- **Public routes** (`/p/<token>`, `/webhooks/<provider>`) are rate-limited; a new shared record type adds a resolver in
+  `apps/api/src/share-link-resolvers.ts`, a new provider goes in `apps/api/src/webhook-providers.ts`.
+- **Job data and errors** hold ids, never personal data: pg-boss's tables have no row-level security, and a failed
+  job's error is shown to platform staff.
 
 ## Repo map
 
-- `apps/api`: the Hono server. Health check, Better Auth at `/api/auth/*`, organization-code sign-in, tRPC at `/api/trpc`.
+- `apps/api`: the Hono server (health check, Better Auth at `/api/auth/*`, organization-code sign-in, tRPC at
+  `/api/trpc`, share links at `/p`, webhooks at `/webhooks`) and, from the same image, the `worker` command.
 - `packages/api`: tRPC routers and the procedure builders that run the request checks.
 - `packages/contracts`: Zod schemas for every API input and output.
-- `packages/domain`: business rules, one folder per module (`identity`, `kernel`).
+- `packages/domain`: business rules, one folder per module (`identity`, `kernel`, `jobs`, `files`, `documents`,
+  `notifications`, `audit`, `share-links`, `webhooks`, `rate-limits`; listed in `packages/domain/README.md`).
+  `@travel-crm/domain/<module>`, `@travel-crm/contracts/<module>` and `@travel-crm/integrations/<adapter>` each resolve
+  to `src/<name>/index.ts`, so a new module needs no `package.json` change.
+- `packages/integrations`: adapters to the outside world, each a port plus a real and an in-memory adapter.
+- `packages/brand`: the product's name, colours, fonts and contacts (spec 10).
 - `packages/db`: Prisma schema, migrations, RLS, `forOrg`, soft delete, document numbers.
 - `packages/tsconfig`, `packages/eslint-config`: shared settings (the ESLint config holds the raw-SQL guard).
