@@ -25,11 +25,6 @@
       "matchDatasources": ["docker"],
       "matchPackageNames": ["node"],
       "allowedVersions": "<25"
-    },
-    {
-      "description": "Our own images, which docker-compose.product.yml builds from this repository: nothing to look up.",
-      "matchPackageNames": ["travel-crm-api", "travel-crm-web"],
-      "enabled": false
     }
   ],
   "customManagers": [

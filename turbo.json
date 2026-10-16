@@ -33,7 +33,8 @@
       "outputs": []
     },
     "db:migrate:deploy": { "cache": false, "env": ["DATABASE_MIGRATOR_URL"] },
-    // `pnpm dev` runs these three at once, after the generated code (Prisma's client, the brand's files) exists.
+    // `pnpm dev` runs these three at once, after the generated code exists: Prisma's client, and the web app's files,
+    // whose generate builds the brand's icons first (apps/web/turbo.json); the web app's dev script doesn't repeat it.
     "dev": { "dependsOn": ["generate", "^generate"], "cache": false, "persistent": true },
     "worker": { "dependsOn": ["^generate"], "cache": false, "persistent": true },
     "console": { "dependsOn": ["^generate"], "cache": false, "persistent": true },

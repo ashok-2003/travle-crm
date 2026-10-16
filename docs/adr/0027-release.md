@@ -6,9 +6,11 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 2.7 (images tha
 ## Decision
 
 - **Two images from the lockfile.** `apps/api/Dockerfile` and `apps/web/Dockerfile` build from the repository's root
-  on `node:24.21.0-trixie-slim`, pinned by tag and digest: `pnpm fetch` in a layer of its own, then
-  `pnpm install --frozen-lockfile --offline`. They run as the `node` user, write nothing to their own file system and
-  hold no secret: every setting comes from the environment when a container starts.
+  on `node:24.21.0-trixie-slim`, pinned by tag and digest: pnpm from corepack in the version `packageManager` names,
+  `pnpm fetch` in a layer of its own, then `pnpm install --frozen-lockfile --offline`. They run as the `node` user,
+  with Node alone (npm, corepack and yarn removed), write nothing to their own file system and hold no secret: every
+  setting comes from the environment when a container starts, and no `.env` from the checkout reaches a build
+  (`.dockerignore`).
 - **The api runs as a bundle.** esbuild bundles each command (`server`, `worker`, `console`, `console-command`) with
   our packages and every third-party package but the integrations package's own, which the image installs with
   `pnpm deploy --prod` of that package (`apps/api/scripts/bundle.ts`). Production starts plain Node on JavaScript.
@@ -19,14 +21,23 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 2.7 (images tha
 - **The web image is Next.js's standalone server**, built without `API_ORIGIN`, so it rewrites nothing. Its build
   arguments are `CACHE_VERSION` and `STORAGE_ORIGIN`, the bucket's origin its Content-Security-Policy allows, so one
   build serves every environment whose files are at the same origin (path-style URLs on one regional endpoint).
-- **The whole product in Docker** is a compose file of its own (`docker-compose.product.yml`, project
-  `travel-crm-product`): Postgres with `bootstrap.sql`'s roles and grant, MinIO and its bucket, Mailpit, a one-off
-  `migrate`, the four services, and Caddy routing as the load balancer will (`docker/Caddyfile`). Files are stored at
-  `storage.localhost`, which reaches MinIO from the containers and from the browser. `pnpm product:up` runs it.
+- **The whole product in Docker** is a compose file of its own (`docker-compose.product.yml`): Postgres with
+  `bootstrap.sql`'s roles and grant, MinIO and its bucket, Mailpit, a one-off `migrate`, the four services, and Caddy
+  routing as the load balancer will (`docker/Caddyfile`). Files are stored at `storage.localhost`, which reaches MinIO
+  from the containers and from the browser. `pnpm product:up` runs it.
+- **Each checkout's own Compose projects.** Every script that runs Compose goes through `scripts/dev/compose.sh`,
+  which names the project `COMPOSE_PROJECT_NAME` (from the environment or `.env`), else
+  `travel-crm-<the checksum of the checkout's full path>`, with `-product` for the product; the images are tagged
+  after that name too. A second clone or worktree, even in a folder of the same name, never recreates the first's
+  containers or its volumes, and a checkout with containers from before keeps them with
+  `COMPOSE_PROJECT_NAME=travel-crm`. Neither compose file names its project, and both publish their ports on
+  127.0.0.1 alone, since their passwords are public.
 - **Smoke runs prove both.** `pnpm images:smoke` runs every command of the api image in production mode, read-only,
   against a throwaway Postgres, MinIO and Mailpit: health, a PDF rendered with the brand's fonts, the web app's
-  security headers and no `/api` rewrite, and every process stopping by itself on SIGTERM. `pnpm product:smoke`
-  brings the compose project up on free ports and signs the demo's Owner in through the proxy.
+  security headers and no `/api` rewrite, every process stopping by itself on SIGTERM, and no `.env` file in either
+  image. `pnpm product:smoke` brings the compose project up on free ports, checks each route through the proxy (a
+  share link's 404, a webhook's refusal, the console's and the api's tRPC) and the web app's headers passed on once
+  each, and signs the demo's Owner in.
 - **CI runs a job per gate** (`.github/workflows/ci.yml`): typecheck; lint with the import rules, the product-name
   check and actionlint with ShellCheck; the unit, integration and isolation tests on the runner's Docker; the journeys
   in Playwright's Chromium; Lighthouse; the migrations on an empty Postgres 18 with Prisma's drift check; the images
@@ -34,7 +45,7 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 2.7 (images tha
   one composite setup action. CodeQL scans the code and the workflows.
 - **Lighthouse 13 directly**, three runs per public page (`/sign-in`, `/offline`) on its phone, the median held to
   budgets in a tested module: performance ≥ 0.8, accessibility 1, best practices ≥ 0.95, cumulative layout shift
-  ≤ 0.1.
+  ≤ 0.01.
 - **The dependency audit is `pnpm audit --audit-level=high`.** Its fixes are `overrides` in `pnpm-workspace.yaml`, its
   exceptions `auditConfig.ignoreGhsas`, each with its advisory and the reason beside it.
 - **Everything is pinned:** npm packages by version, images by tag and digest, actions by commit with their version
@@ -80,6 +91,10 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 2.7 (images tha
   waits for the owner.
 - The product in Docker runs the api in development mode, because it serves plain http on localhost with the example
   secret; production settings are the image smoke's.
-- CodeQL's results on a private repository need GitHub Code Security.
+- **Owner items.** CodeQL's results on a private repository need GitHub Code Security: the owner turns it on, or the
+  analysis gets `upload: never` and keeps its SARIF as a workflow artifact; until then the CodeQL job fails at the
+  upload. Lighthouse's performance floor is 0.8 now and goes to 0.9 once CI's runs show the room; the signed-in pages
+  are measured later, once a run can sign in. Both are in the deploy checklist's "Still open".
+- The images' `corepack install` reads the root `package.json`, so a change to it fetches the packages again.
 - Each override and exception in `pnpm-workspace.yaml` goes when the package holding the old version moves past it;
   re-run the audit after every dependency change.

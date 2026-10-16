@@ -81,11 +81,18 @@ const port = await freePort();
 const server = spawn(process.execPath, ["server.js"], {
   cwd: standalone,
   env: { ...process.env, NODE_ENV: "production", PORT: String(port), HOSTNAME: "127.0.0.1" },
-  stdio: "ignore",
+  stdio: ["ignore", "pipe", "pipe"],
 });
+// What the server printed, shown if it doesn't come up: a crash says why there.
+let serverOutput = "";
+server.stdout.on("data", (chunk: Buffer) => (serverOutput += chunk.toString()));
+server.stderr.on("data", (chunk: Buffer) => (serverOutput += chunk.toString()));
 try {
   const origin = `http://127.0.0.1:${String(port)}`;
-  await waitUntilUp(`${origin}/sign-in`);
+  await waitUntilUp(`${origin}/sign-in`).catch((error: unknown) => {
+    console.error(`The server's output:\n${serverOutput}`);
+    throw error;
+  });
   const chromePath = process.env.CHROME_PATH ?? chromium.executablePath();
   const missed: string[] = [];
   for (const page of PAGES) {
