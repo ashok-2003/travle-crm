@@ -7,8 +7,8 @@ import { NextIntlClientProvider } from "next-intl";
 import { useForm } from "react-hook-form";
 import { describe, expect, it, vi } from "vitest";
 import { ChoiceField } from "@/console/organizations/fields/choice-field";
-import { MoneyField } from "@/console/organizations/fields/money-field";
-import { SelectField } from "@/console/organizations/fields/select-field";
+import { MoneyField } from "@/components/forms/money-field";
+import { SelectField } from "@/components/forms/select-field";
 import { locale, messages } from "@/i18n/messages";
 
 interface Values {

@@ -11,9 +11,10 @@ import { TextField } from "@/account/text-field";
 import { DateField } from "@/components/date-field";
 import { FieldGroup } from "@/components/ui/field";
 import { useConsoleTRPC } from "../../data/console-trpc";
-import { ChangeDialog, FormFooter, useChangeDialog, type Sending } from "../change-dialog";
-import { useCheckedForm } from "../fields/checked-form";
-import { MoneyField } from "../fields/money-field";
+import { FormDialog, FormFooter, type Sending } from "@/components/forms/form-dialog";
+import { useChangeDialog } from "../change-dialog";
+import { useCheckedForm } from "@/components/forms/use-checked-form";
+import { MoneyField } from "@/components/forms/money-field";
 import { toRecordPaymentInput } from "./change-inputs";
 
 export function RecordPaymentDialog({ organizationId, timeZone }: { organizationId: string; timeZone: string }) {
@@ -22,7 +23,7 @@ export function RecordPaymentDialog({ organizationId, timeZone }: { organization
   const dialog = useChangeDialog(organizationId, t("done"));
   const record = useMutation(trpc.subscriptions.recordPayment.mutationOptions({ onSuccess: dialog.onSuccess }));
   return (
-    <ChangeDialog
+    <FormDialog
       dialog={dialog}
       sending={record}
       label={t("action")}
@@ -31,7 +32,7 @@ export function RecordPaymentDialog({ organizationId, timeZone }: { organization
       primary
     >
       <RecordPaymentForm organizationId={organizationId} timeZone={timeZone} record={record} />
-    </ChangeDialog>
+    </FormDialog>
   );
 }
 
