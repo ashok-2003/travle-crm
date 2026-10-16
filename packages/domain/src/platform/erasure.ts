@@ -1,17 +1,20 @@
 // Erasing one person or record on a DPDP request passed on by the organization (spec 5): a super admin asks, with the
 // organization's code typed and an export from the last day; the console's job then erases it, module by module, and
 // records it in the organization's log and the platform's, without the personal data. Only a removed member, or a
-// record that holds a person's data, can be erased (deletion-checks.ts).
+// record that holds a person's data (a traveller, a customer), can be erased (deletion-checks.ts).
 import { randomUUID } from "node:crypto";
 import type { ErasureSubject, QueuedJob, RequestErasureInput } from "@travel-crm/contracts/platform";
 import { erasureSubject } from "@travel-crm/contracts/platform";
+import { asOrganization, type PlatformTx } from "@travel-crm/db/platform";
 import { ownMessage, type JobData } from "@travel-crm/integrations/jobs";
 import { recordAudit, redactAuditEntries } from "../audit/index.js";
+import { eraseCustomer, type CustomerSubject } from "../crm/index.js";
 import { deleteRecordFiles } from "../files/index.js";
 import { erasePerson, findOrganizationRecord, personExport } from "../identity/index.js";
-import { DomainError, isUuid, platformActor, systemActor } from "../kernel/index.js";
+import { DomainError, isUuid, platformActor, systemActor, type Actor } from "../kernel/index.js";
 import { forgetRecipient, forgetRecordNotifications } from "../notifications/index.js";
 import { forgetRecordShareLinks } from "../share-links/index.js";
+import { cancelOpenTasks, redactTaskTitles } from "../tasks/index.js";
 import { tombstoneWebhookEvents } from "../webhooks/index.js";
 import { assertErasableRecordType, erasedFor, erasureBlocker } from "./deletion-checks.js";
 import { subjectRecord } from "./exports.js";
@@ -105,12 +108,43 @@ export async function requestErasure(
 }
 
 /**
+ * A customer's part (R38): crm empties and soft-deletes them and their leads, with the leads' notes, repeat enquiries
+ * and blocked contacts. Each lead's open tasks are cancelled, since a task on an erased lead would sit in someone's
+ * Today for ever, and every one of their titles emptied; the notifications and files about each lead go. Counts only,
+ * for the platform log.
+ */
+async function eraseCustomerParts(tx: PlatformTx, actor: Actor, subject: CustomerSubject, now: Date) {
+  const { organizationId } = subject;
+  const { leadIds, ...erased } = await eraseCustomer(tx, subject);
+  const leads = leadIds.map((recordId) => ({ organizationId, recordType: "lead", recordId }));
+  // Module code for one organization runs in a step, as the runtime role: its audit entries and events name it.
+  const tasksCancelled = await asOrganization(tx, organizationId, async (orgTx) => {
+    let cancelled = 0;
+    for (const lead of leads) cancelled += (await cancelOpenTasks(orgTx, actor, lead, now)).length;
+    return cancelled;
+  });
+  const taskTitles = await redactTaskTitles(tx, { organizationId, recordType: "lead", recordIds: leadIds });
+  let notifications = 0;
+  let files = 0;
+  for (const lead of leads) {
+    notifications += await forgetRecordNotifications(tx, {
+      organizationId,
+      recordId: lead.recordId,
+      sourceEventIds: [],
+    });
+    files += await deleteRecordFiles(tx, lead, now);
+  }
+  return { leads: leadIds.length, ...erased, tasksCancelled, taskTitles, notifications, files };
+}
+
+/**
  * The job: erases the subject in every module that keeps something about it, in one platform transaction. For a
- * member: identity's sign-in data, their notifications, opt-outs and browsers. For either: the record's files, its share
- * links and their opens, the notifications about it, its audit entries' snapshots, and the organization's processed
- * webhook payloads (any may quote the person, and none is needed once processed). Then every stored export of the
- * organization expires, since one may still hold the person. Stored files go after the commit, through the deletions'
- * outbox.
+ * member: identity's sign-in data, their notifications, opt-outs and browsers. For a customer (a "person" record):
+ * crm's part, with their leads' tasks, notifications and files (eraseCustomerParts). For any: the record's files, its
+ * share links and their opens, the notifications about it, its audit entries' snapshots, and the organization's
+ * processed webhook payloads (any may quote the person, and none is needed once processed). Then every stored export
+ * of the organization expires, since one may still hold the person. Stored files go after the commit, through the
+ * deletions' outbox.
  *
  * It checks the request's conditions again first, on the platform transaction before any step: an organization gone
  * since, or a subject export over a day old by now, means nothing is erased, and "subject.erasure-skipped" says why.
@@ -137,10 +171,16 @@ export async function eraseSubject(services: PlatformServices, job: ErasureJob, 
       );
       return false;
     }
+    const actor =
+      job.requestedBy === null ? systemActor(organizationId) : platformActor(organizationId, job.requestedBy);
     if (subject.kind === "member") {
       const { userId } = await erasePerson(tx, organizationId, subject.memberId);
       await forgetRecipient(tx, { organizationId, userId });
     }
+    const customer =
+      record.recordType === "person"
+        ? await eraseCustomerParts(tx, actor, { organizationId, personId: record.recordId }, now)
+        : null;
     const files = await deleteRecordFiles(tx, { organizationId, ...record }, now);
     const shareLinks = await forgetRecordShareLinks(tx, { organizationId, ...record });
     const notifications = await forgetRecordNotifications(tx, {
@@ -155,8 +195,6 @@ export async function eraseSubject(services: PlatformServices, job: ErasureJob, 
     });
     const webhooks = await tombstoneWebhookEvents(tx, organizationId);
     const exportsExpired = await expireOrganizationExports(services, tx, organizationId, "erasure", now);
-    const actor =
-      job.requestedBy === null ? systemActor(organizationId) : platformActor(organizationId, job.requestedBy);
     await recordAudit(tx, actor, {
       action: "subject.erased",
       entityType: record.recordType,
@@ -180,6 +218,7 @@ export async function eraseSubject(services: PlatformServices, job: ErasureJob, 
           exportsExpired,
           webhooksTombstoned: webhooks.tombstoned,
           webhooksWaiting: webhooks.waiting,
+          ...(customer === null ? {} : { customer }),
         },
       },
     );

@@ -432,6 +432,15 @@
         "joined": "Joined",
         "removed": "Removed"
       },
+      "customer": {
+        "name": "Name",
+        "erased": "Erased",
+        "phone": "Phone",
+        "email": "Email",
+        "instagram": "Instagram",
+        "counts": "{leads, plural, one {# lead} other {# leads}} · {notes, plural, one {# note} other {# notes}} · {enquiries, plural, one {# repeat enquiry} other {# repeat enquiries}} · {tasks, plural, one {# task} other {# tasks}}",
+        "copy": "Copy as JSON"
+      },
       "auditEntries": "{count, plural, one {# audit entry} other {# audit entries}}",
       "noFiles": "No files",
       "sensitive": "Sensitive",

@@ -44,15 +44,16 @@ export async function countNewLeadsWaiting(tx: OrgTx, ownerUserId: string): Prom
 /** A stored calendar day, as "2026-11-14". */
 const dayOf = (date: Date) => date.toISOString().slice(0, 10);
 
-interface TravelColumns {
+/** A lead's or a repeat enquiry's travel columns. */
+export interface TravelColumns {
   travelKind: string;
   travelStart: Date | null;
   travelEnd: Date | null;
   travelMonth: Date | null;
 }
 
-/** When they travel, from the lead's columns (CHECK lead_travel_fits_kind keeps them consistent). */
-function travelWhenOf(lead: TravelColumns): TravelWhen {
+/** When they travel, from the row's columns (CHECK lead_travel_fits_kind keeps them consistent). */
+export function travelWhenOf(lead: TravelColumns): TravelWhen {
   if (lead.travelKind === "dates" && lead.travelStart !== null && lead.travelEnd !== null) {
     return { kind: "dates", from: dayOf(lead.travelStart), to: dayOf(lead.travelEnd) };
   }

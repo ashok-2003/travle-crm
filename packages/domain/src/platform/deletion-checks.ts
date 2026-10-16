@@ -41,9 +41,10 @@ export async function erasedFor(tx: PlatformTx, organizationId: string, requestI
 
 /**
  * The record types an erasure may name (a member is erased as a member): the records that hold a person's data. Spec
- * 5 names the traveller. A module whose records hold personal data adds its type here with its own erasure step.
+ * 5 names the traveller; release 1 adds crm's customer, the "person" (its erasure step is crm's eraseCustomer). A
+ * module whose records hold personal data adds its type here with its own erasure step.
  */
-const PERSONAL_RECORD_TYPES: readonly string[] = ["traveller"];
+const PERSONAL_RECORD_TYPES: readonly string[] = ["traveller", "person"];
 
 /** Records the system keeps as they were made, by law: an issued document is a GST invoice or its like (ADR 0012). */
 const KEPT_BY_LAW_RECORD_TYPES: readonly string[] = ["issued_document"];
