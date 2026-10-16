@@ -1,0 +1,31 @@
+// The agency's own catalog (spec 6): destinations for now, which quotes will use too. Organization-owned: row-level
+// security applies (the migration calls app_enable_org_rls). A name is unique among live destinations whatever its
+// case, through the hand-written index destination_name_live (R2): Prisma models no expression index.
+
+/// A place the agency sells trips to, added from the lead form by typing its name. Soft-deleted: a merge deletes the
+/// one merged away and points it at the one kept.
+model Destination {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String        @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String        @id @default(uuid(7)) @db.Uuid
+  /// Trimmed, 1-80 characters (CHECK destination_name_length).
+  name           String
+  /// The destination it was merged into: a name typed later resolves there (R34).
+  mergedIntoId   String?       @map("merged_into_id") @db.Uuid
+  createdBy      String?       @map("created_by") @db.Uuid
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?     @map("deleted_at") @db.Timestamptz(6)
+  deletedBy      String?       @map("deleted_by") @db.Uuid
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  mergedInto     Destination?  @relation("DestinationMerges", fields: [organizationId, mergedIntoId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  mergedFrom     Destination[] @relation("DestinationMerges")
+  leads          Lead[]
+  enquiries      LeadEnquiry[]
+
+  /// Lets leads, enquiries and merged destinations point at (organization_id, id).
+  @@unique([organizationId, id])
+  /// The picker's typo-tolerant search.
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "destination_name_trgm")
+  @@map("destination")
+}

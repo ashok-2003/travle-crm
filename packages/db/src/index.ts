@@ -10,5 +10,6 @@ export {
   type OrgTx,
 } from "./for-org.js";
 export { SignInRelationError } from "./sign-in-guard.js";
+export { emptySql, joinSql, sql, type Sql } from "./sql.js";
 export { HardDeleteError, SoftDeleteUpsertError, softDeleted, withDeleted } from "./soft-delete.js";
 export type { Organization, OrgCounter, Role, RolePermission } from "./generated/prisma/client.js";

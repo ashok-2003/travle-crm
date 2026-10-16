@@ -26,3 +26,8 @@ ALTER DEFAULT PRIVILEGES FOR ROLE app_migrator IN SCHEMA public
 -- Temp tables outlive a transaction on a pooled connection, so one organization's rows copied into one could be
 -- read by the next organization's transaction. Nobody gets to create them.
 DO $$ BEGIN EXECUTE format('REVOKE TEMPORARY ON DATABASE %I FROM PUBLIC', current_database()); END $$;
+
+-- Trigram search on names and phone digits, and btree_gist for step 3's exclusion constraints (ADR 0028). The
+-- leads_by_hand migration creates them too, for a database bootstrapped before it.
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE EXTENSION IF NOT EXISTS btree_gist;
