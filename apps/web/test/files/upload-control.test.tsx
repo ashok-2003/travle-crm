@@ -19,7 +19,7 @@ vi.mock("sonner", () => ({ toast }));
 
 const words = messages.business.attachments;
 const tryAgain = words.tryAgainName.replace("{name}", "GST certificate.pdf");
-const sensitive = () => screen.getByRole("radio", { name: new RegExp(`^${words.sensitive}`) });
+const sensitive = () => screen.getByRole("radio", { name: words.sensitive });
 const countOf = (calls: string[], path: string) => calls.filter((call) => call === path).length;
 
 describe("UploadControl", () => {
@@ -104,7 +104,8 @@ describe("UploadControl", () => {
     await screen.findByText("No files yet.");
     expect(screen.getByRole("group", { name: words.sensitivity })).toHaveTextContent(words.sensitivityHint);
     expect(sensitive()).toBeChecked();
-    await userEvent.click(screen.getByRole("radio", { name: new RegExp(`^${words.notSensitive}`) }));
+    expect(sensitive()).toHaveAccessibleDescription(words.sensitiveHint);
+    await userEvent.click(screen.getByRole("radio", { name: words.notSensitive }));
     await userEvent.upload(fileInput(), pdf());
     await waitFor(() => {
       expect(toast.success).toHaveBeenCalled();

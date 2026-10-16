@@ -27,7 +27,7 @@ test("a newly onboarded Owner fills the profile and watches the checklist tick",
   await page.getByLabel("GSTIN").fill(ONBOARDED_GSTIN.toLowerCase());
   await page.getByLabel("Address").fill("14 Linking Road, Bandra West, Mumbai 400050");
   await page.getByLabel("Account name").fill("Sharma Travels Private Limited");
-  await page.getByLabel("Account number").fill("0012 3456 7890");
+  await page.getByLabel("Account number", { exact: true }).fill("0012 3456 7890");
   await page.getByLabel("IFSC").fill("hdfc0001234");
   await page.getByLabel("Bank", { exact: true }).fill("HDFC Bank");
   await page.getByLabel("Invoice prefix").fill("st");
@@ -36,7 +36,7 @@ test("a newly onboarded Owner fills the profile and watches the checklist tick",
   // The form shows what the api keeps, the account number by its last four digits only.
   await expect(page.getByLabel("GSTIN")).toHaveValue(ONBOARDED_GSTIN);
   await expect(page.getByLabel("IFSC")).toHaveValue("HDFC0001234");
-  await expect(page.getByLabel("Account number")).toHaveValue("XXXX7890");
+  await expect(page.getByLabel("Account number", { exact: true })).toHaveValue("XXXX7890");
   await expect(page.getByRole("button", { name: "Change the account number" })).toBeVisible();
   await expect(page.getByLabel("Invoice prefix")).toHaveValue("ST");
 

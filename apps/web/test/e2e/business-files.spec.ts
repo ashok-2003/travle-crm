@@ -12,7 +12,7 @@ const PDF = Buffer.from("%PDF-1.4\n% A GST registration certificate, as far as s
 
 /** Uploads a PDF through the screen, as a person picks it from their files, choosing first whether it is sensitive. */
 async function uploadPdf(page: Page, name: string, { sensitive }: { sensitive: boolean }): Promise<void> {
-  await page.getByRole("radio", { name: sensitive ? /^Sensitive/ : /^Not sensitive/ }).check();
+  await page.getByRole("radio", { name: sensitive ? "Sensitive" : "Not sensitive", exact: true }).check();
   const chooser = page.waitForEvent("filechooser");
   await page.getByRole("button", { name: "Upload a file" }).click();
   await (await chooser).setFiles({ name, mimeType: "application/pdf", buffer: PDF });

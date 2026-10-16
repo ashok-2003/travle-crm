@@ -83,12 +83,18 @@ export function UploadControl({ record }: { record: AttachmentRecord }) {
             }}
           >
             {SENSITIVITIES.map((choice) => (
+              // The whole card picks the choice; the radio is named by its title and described by its hint.
               <FieldLabel key={choice} htmlFor={`${id}-${choice}`}>
                 <Field orientation="horizontal">
-                  <RadioGroupItem value={choice} id={`${id}-${choice}`} />
+                  <RadioGroupItem
+                    value={choice}
+                    id={`${id}-${choice}`}
+                    aria-labelledby={`${id}-${choice}-title`}
+                    aria-describedby={`${id}-${choice}-hint`}
+                  />
                   <FieldContent>
-                    <FieldTitle>{t(choice)}</FieldTitle>
-                    <FieldDescription>{t(`${choice}Hint`)}</FieldDescription>
+                    <FieldTitle id={`${id}-${choice}-title`}>{t(choice)}</FieldTitle>
+                    <FieldDescription id={`${id}-${choice}-hint`}>{t(`${choice}Hint`)}</FieldDescription>
                   </FieldContent>
                 </Field>
               </FieldLabel>
