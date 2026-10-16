@@ -1,7 +1,9 @@
 "use client";
 
 // The settings screen: the organization's name and sign-in code, read-only here (the platform team sets them),
-// whether everyone must use two-factor sign-in, and the way to the organization's other settings.
+// whether everyone must use two-factor sign-in (while features.twoFactor is on), and the way to the organization's
+// other settings.
+import { features } from "@travel-crm/contracts/features";
 import { useTranslations } from "next-intl";
 import { Details } from "@/components/details";
 import { PageHeader } from "@/components/page-header";
@@ -32,12 +34,14 @@ export function SettingsScreen() {
           ]}
         />
       </section>
-      <section aria-labelledby="security-heading" className="flex flex-col gap-3">
-        <h2 id="security-heading" className="text-section font-semibold">
-          {t("security.heading")}
-        </h2>
-        <TwoFactorRequirement />
-      </section>
+      {features.twoFactor && (
+        <section aria-labelledby="security-heading" className="flex flex-col gap-3">
+          <h2 id="security-heading" className="text-section font-semibold">
+            {t("security.heading")}
+          </h2>
+          <TwoFactorRequirement />
+        </section>
+      )}
       <SettingsSections />
     </div>
   );

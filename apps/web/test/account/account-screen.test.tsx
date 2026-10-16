@@ -1,12 +1,15 @@
 // The account page shows the person's own details from me.get (no email for staff without one, and never a
 // placeholder address), and offers turning two-factor off only when the organization doesn't require it.
 import { screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { AccountScreen } from "@/account/account-screen";
 import { messages } from "@/i18n/messages";
 import { MeProvider, type SignedInMember } from "@/session/me-context";
 import { member } from "../support/members";
 import { renderScreen } from "./render";
+
+// Two-factor is off in the product (@travel-crm/contracts/features): these tests prove what turning it on brings.
+vi.mock("@travel-crm/contracts/features", () => ({ features: { twoFactor: true } }));
 
 const { account } = messages.account;
 

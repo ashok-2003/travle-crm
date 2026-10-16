@@ -1,7 +1,9 @@
 "use client";
 
 // The staff list (DESIGN.md section 6): a table on tablets and wider, a list of items on phones with the name and
-// status on the first line and the details on the second. Names wrap rather than being cut off.
+// status on the first line and the details on the second. Names wrap rather than being cut off. The table's
+// two-factor column shows only while features.twoFactor is on.
+import { features } from "@travel-crm/contracts/features";
 import type { RoleSummary, StaffMember } from "@travel-crm/contracts/identity";
 import { useTranslations } from "next-intl";
 import { Fragment } from "react";
@@ -70,7 +72,7 @@ export function StaffList({ staff, roles }: { staff: StaffMember[]; roles: RoleS
           <TableHead scope="col">{t("columns.name")}</TableHead>
           <TableHead scope="col">{t("columns.signIn")}</TableHead>
           <TableHead scope="col">{t("columns.role")}</TableHead>
-          <TableHead scope="col">{t("columns.twoFactor")}</TableHead>
+          {features.twoFactor && <TableHead scope="col">{t("columns.twoFactor")}</TableHead>}
           <TableHead scope="col" className="text-right">
             {t("columns.joined")}
           </TableHead>
@@ -90,7 +92,9 @@ export function StaffList({ staff, roles }: { staff: StaffMember[]; roles: RoleS
             </TableCell>
             <TableCell className="whitespace-normal break-all">{signInName(member)}</TableCell>
             <TableCell className="whitespace-normal script-leading">{member.role.name}</TableCell>
-            <TableCell>{member.twoFactorEnabled ? t("twoFactorOn") : t("twoFactorOff")}</TableCell>
+            {features.twoFactor && (
+              <TableCell>{member.twoFactorEnabled ? t("twoFactorOn") : t("twoFactorOff")}</TableCell>
+            )}
             <TableCell className="numbers text-right">{joined(member)}</TableCell>
             <TableCell className="text-right">{actions(member)}</TableCell>
           </TableRow>

@@ -1,7 +1,8 @@
 "use client";
 
 // /account: who the person is (from me.get, so a placeholder email is never shown), their password and two-factor
-// sign-in, and the way to choose what notifications reach them.
+// sign-in (while features.twoFactor is on), and the way to choose what notifications reach them.
+import { features } from "@travel-crm/contracts/features";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
@@ -29,6 +30,25 @@ export function AccountScreen() {
   const queryClient = useQueryClient();
   const { user, organization, member } = me;
   const email = shownEmail(user.email);
+  const twoFactorRow = user.twoFactorEnabled
+    ? {
+        label: t("twoFactor"),
+        value: <StatusBadge tone="good">{t("twoFactorOn")}</StatusBadge>,
+        action: organization.requireTwoFactor ? (
+          <span className="text-label text-muted-foreground">{t("twoFactorRequired")}</span>
+        ) : (
+          <TurnOffTwoFactor onTurnedOff={() => queryClient.invalidateQueries({ queryKey: trpc.me.get.queryKey() })} />
+        ),
+      }
+    : {
+        label: t("twoFactor"),
+        value: <StatusBadge tone="neutral">{t("twoFactorOff")}</StatusBadge>,
+        action: (
+          <Button variant="outline" asChild>
+            <Link href={routes.twoFactorSetup}>{t("setUp")}</Link>
+          </Button>
+        ),
+      };
 
   return (
     <div className="flex max-w-[720px] flex-col gap-6">
@@ -56,27 +76,7 @@ export function AccountScreen() {
               </Button>
             ),
           },
-          user.twoFactorEnabled
-            ? {
-                label: t("twoFactor"),
-                value: <StatusBadge tone="good">{t("twoFactorOn")}</StatusBadge>,
-                action: organization.requireTwoFactor ? (
-                  <span className="text-label text-muted-foreground">{t("twoFactorRequired")}</span>
-                ) : (
-                  <TurnOffTwoFactor
-                    onTurnedOff={() => queryClient.invalidateQueries({ queryKey: trpc.me.get.queryKey() })}
-                  />
-                ),
-              }
-            : {
-                label: t("twoFactor"),
-                value: <StatusBadge tone="neutral">{t("twoFactorOff")}</StatusBadge>,
-                action: (
-                  <Button variant="outline" asChild>
-                    <Link href={routes.twoFactorSetup}>{t("setUp")}</Link>
-                  </Button>
-                ),
-              },
+          ...(features.twoFactor ? [twoFactorRow] : []),
           {
             label: tNotifications("label"),
             action: (
