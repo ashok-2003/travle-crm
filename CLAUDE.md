@@ -232,20 +232,22 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 7. **A dialog that sends a request** disables Cancel and ignores closing while it is pending, and its success
    handling survives a close: `ConfirmDialog`, or `ResponsiveDialog` with `busy`.
 
-A screen builds from the shared pieces (in `apps/web/src/`) before writing its own:
+A screen builds from the shared pieces in `apps/web/src/` before writing its own:
 
-- **Screens:** `components/page-header` opens every screen; `components/empty-state`; `components/error-state`
-  (with a refusal's sentence when it has one); `components/refusal-alert` for every failed request's alert;
-  `components/loading-rows` for every loading list; `components/text-link` and its `BackLink` for every link in
-  text; `components/copy-button`.
-- **Dialogs:** `components/responsive-dialog` (its `footer` slot holds Cancel and the main button, outside the
-  scrolling body; `busy` holds it open), `components/confirm-dialog` (`children`, `confirmDisabled`) for every
-  confirmation, and `components/forms/form-dialog` for every form in a dialog.
-- **Forms:** `components/form-field`, `components/date-field`, and `components/forms/`: `use-checked-form` and
-  `checked` (the contract's checks, a refusal's field errors), `money-field`, `select-field`, `gst-state-field`.
-- **Lists and records:** `data/use-cursor-pages` with its Show more button for every cursor list;
-  `components/audit-change` and `components/stored-value` for an audit entry's before and after.
-- **Words:** `lib/format`'s `formatDayTime` and `formatPhoneNumber`, and `useInstantText` (`components/`).
+- **Screens:** `PageHeader` (`components/page-header.tsx`) opens every screen; `EmptyState` and `ErrorState`;
+  `RefusalAlert` for every failed request's alert; `LoadingRows` for every loading list; `Details` for labelled
+  values; `TextLink` and `BackLink` (`components/text-link.tsx`) for every link in text; `CopyButton`.
+- **Dialogs:** `ResponsiveDialog` (its `footer` holds Cancel and the main button outside the scrolling body; `busy`
+  holds it open), `ConfirmDialog` (`children`, `confirmDisabled`) for every confirmation, and `FormDialog`
+  (`components/forms/form-dialog.tsx`) for every form in a dialog.
+- **Forms:** `FormField`, `DateField`, and `components/forms/`: `useCheckedForm` and `checked` (the contract's checks
+  and a refusal's field errors), `MoneyField`, `SelectField`, `GstStateField`.
+- **Lists and records:** `useCursorPages` (`data/use-cursor-pages.ts`) with `ShowMoreButton` for every cursor list;
+  `AuditChange` and `StoredValue` for an audit entry's before and after.
+- **Words:** `lib/format.ts`'s `formatDayTime` and `formatPhoneNumber`, and `useInstantText`
+  (`components/instant-text.ts`).
+
+Each component without a path is in `components/`, in the file of its name (`EmptyState` in `empty-state.tsx`).
 
 ## The platform console (`/console`, ADR 0025)
 
