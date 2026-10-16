@@ -61,9 +61,10 @@ async function handOverOpenLeads(context: ListenerContext, handOver: HandOver): 
   }
 }
 
-/** The leads still the member's that hold open tasks of theirs, a page of those tasks a transaction. */
-async function handOverLeadsWithOpenTasks(context: ListenerContext, handOver: HandOver): Promise<void> {
+/** One pass over the member's open tasks on leads, by task id, a page a transaction; returns how many leads moved. */
+async function leadsWithOpenTasksPass(context: ListenerContext, handOver: HandOver): Promise<number> {
   let after: string | undefined;
+  let moved = 0;
   for (;;) {
     const page = await context.forOrg(async (tx) => {
       const tasks = await listOpenRecordTasksOf(tx, {
@@ -73,13 +74,26 @@ async function handOverLeadsWithOpenTasks(context: ListenerContext, handOver: Ha
         ...(after === undefined ? {} : { after }),
       });
       const leadIds = [...new Set(tasks.flatMap((task) => (task.record === null ? [] : [task.record.recordId])))];
-      if (leadIds.length > 0) {
-        await moveLockedLeads(tx, context.actor, handOver, sql`id = ANY(${leadIds}::uuid[])`);
-      }
-      return { last: tasks.at(-1)?.id };
+      const locked =
+        leadIds.length === 0
+          ? 0
+          : await moveLockedLeads(tx, context.actor, handOver, sql`id = ANY(${leadIds}::uuid[])`);
+      return { last: tasks.at(-1)?.id, locked };
     });
-    if (page.last === undefined) return;
+    moved += page.locked;
+    if (page.last === undefined) return moved;
     after = page.last;
+  }
+}
+
+/**
+ * The leads still the member's that hold open tasks of theirs. The pages run by task id, so that a task on a lead the
+ * member doesn't own is passed over rather than read for ever; a lead given to them meanwhile may have its task behind
+ * the cursor, so another pass runs while the last one moved anything.
+ */
+async function handOverLeadsWithOpenTasks(context: ListenerContext, handOver: HandOver): Promise<void> {
+  for (;;) {
+    if ((await leadsWithOpenTasksPass(context, handOver)) === 0) return;
   }
 }
 

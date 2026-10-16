@@ -246,6 +246,126 @@ describe("a departing member's work", () => {
     );
   });
 
+  /**
+   * Runs the manager's changes in a transaction held open until the hand-over waits on it, then lets it commit and
+   * waits for both.
+   */
+  async function whileAManagerChanges(change: (tx: OrgTx) => Promise<void>, handOver: () => Promise<void>) {
+    let holder = 0;
+    const released = Promise.withResolvers<undefined>();
+    const changed = Promise.withResolvers<undefined>();
+    const managersChanges = db.forOrg(
+      organizationId,
+      async (tx) => {
+        holder = await backendPid(tx);
+        await change(tx);
+        changed.resolve(undefined);
+        await released.promise;
+      },
+      { timeout: 20_000 },
+    );
+    await changed.promise;
+    const handingOver = handOver();
+    await waitUntilBlockedBy(platform, holder);
+    released.resolve(undefined);
+    await managersChanges;
+    await handingOver;
+  }
+
+  const countBy = <T extends string | null>(values: T[]) => {
+    const counts = new Map<T, number>();
+    for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
+    return counts;
+  };
+
+  it("moves every Won lead with open work when some change while a page waits on them", async () => {
+    const { leaver, owner, handOver } = departure();
+    const [ravi, manager] = [randomUUID(), randomUUID()];
+    const managerActor: Actor = { organizationId, userId: manager, source: "web", impersonatedBy: null };
+    const followUpOn = (tx: OrgTx, leadId: string, assigneeUserId: string) =>
+      aTask(tx, { kind: "follow-up", assigneeUserId, record: { recordType: "lead", recordId: leadId } });
+    const { byTask, ravisLead } = await inOrg(async (tx) => {
+      // Ravi's Won lead comes first, so its follow-up is older than every one of the leaver's.
+      const ravis = await aLead(tx, { ownerUserId: ravi, stage: "won" });
+      await followUpOn(tx, ravis.id, ravi);
+      const person = await tx.person.create({ data: { name: "Many Trips", email: `${randomUUID()}@example.test` } });
+      const leads = await tx.lead.createManyAndReturn({
+        data: Array.from({ length: 80 }, () => ({
+          personId: person.id,
+          source: "phone_call",
+          ownerUserId: leaver,
+          stage: "won",
+        })),
+        select: { id: true },
+      });
+      const tasks = [];
+      for (const lead of leads) tasks.push({ taskId: (await followUpOn(tx, lead.id, leaver)).id, leadId: lead.id });
+      return { byTask: tasks.sort((first, second) => first.taskId.localeCompare(second.taskId)), ravisLead: ravis.id };
+    });
+    const leadOfTask = (index: number) => byTask[index]?.leadId ?? "";
+
+    // While the second page of the leaver's follow-ups waits on its leads, a manager gives two of those leads to Ravi,
+    // edits a third, and gives the leaver Ravi's Won lead, whose follow-up sits behind the page's cursor.
+    await whileAManagerChanges(async (tx) => {
+      for (const index of [55, 60]) {
+        await changeLeadOwner(tx, managerActor, { leadId: leadOfTask(index), ownerUserId: ravi });
+      }
+      await tx.lead.update({ where: { id: leadOfTask(70) }, data: { roomType: "Deluxe" } });
+      await changeLeadOwner(tx, managerActor, { leadId: ravisLead, ownerUserId: leaver });
+    }, handOver);
+
+    const leadIds = [...byTask.map((task) => task.leadId), ravisLead];
+    const owners = await inOrg((tx) =>
+      tx.lead.findMany({ where: { id: { in: leadIds } }, select: { ownerUserId: true } }),
+    );
+    expect(countBy(owners.map((lead) => lead.ownerUserId))).toEqual(
+      new Map([
+        [owner, 79],
+        [ravi, 2],
+      ]),
+    );
+    const assignees = await inOrg((tx) =>
+      tx.task.findMany({ where: { recordId: { in: leadIds } }, select: { assigneeUserId: true } }),
+    );
+    expect(countBy(assignees.map((task) => task.assigneeUserId))).toEqual(
+      new Map([
+        [owner, 79],
+        [ravi, 2],
+      ]),
+    );
+  });
+
+  it("moves every standalone task left when some change while a batch waits on them", async () => {
+    const { leaver, owner, handOver } = departure();
+    const ravi = randomUUID();
+    const { taskIds, ravisTask } = await inOrg(async (tx) => {
+      // Ravi's task comes first, older than every one of the leaver's.
+      const ravis = await aTask(tx, { assigneeUserId: ravi });
+      const made = [];
+      for (let index = 0; index < 80; index += 1) made.push((await aTask(tx, { assigneeUserId: leaver })).id);
+      return { taskIds: made.sort(), ravisTask: ravis.id };
+    });
+    const at = (index: number) => taskIds[index] ?? "";
+
+    // While the second batch waits on its tasks, a manager gives two to Ravi, edits a third, and gives the leaver
+    // Ravi's task, which the waiting batch can't see.
+    await whileAManagerChanges(async (tx) => {
+      await tx.task.updateMany({ where: { id: { in: [at(55), at(60)] } }, data: { assigneeUserId: ravi } });
+      await tx.task.update({ where: { id: at(70) }, data: { title: "Call back after lunch" } });
+      await tx.task.update({ where: { id: ravisTask }, data: { assigneeUserId: leaver } });
+    }, handOver);
+
+    const assignees = await inOrg((tx) =>
+      tx.task.findMany({ where: { id: { in: [...taskIds, ravisTask] } }, select: { assigneeUserId: true } }),
+    );
+    expect(countBy(assignees.map((task) => task.assigneeUserId))).toEqual(
+      new Map([
+        [owner, 79],
+        [ravi, 2],
+      ]),
+    );
+  });
+
   it("keeps a reassign of a standalone task that commits while the hand-over waits for it", async () => {
     const { leaver, owner, handOver } = departure();
     const ravi = randomUUID();
