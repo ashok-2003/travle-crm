@@ -1,26 +1,25 @@
 "use client";
 
-// The setup checklist screen (spec 7.1, spec 11): what an organization does first, each step marked done or to do and
-// leading to where it is done, and how far along it is.
+// The setup checklist screen (spec 7.1, spec 11): what an organization does first, how far along it is, and every step
+// marked done or to do and leading to where it is done. Home's setup card lists the same steps' rows, those to do.
 import { useTranslations } from "next-intl";
 import { BackToSettings } from "@/components/back-to-settings";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
-import { SetupSteps, useSetupProgress } from "./setup-steps";
+import { SetupProgress, SetupSteps } from "./setup-steps";
 import { useSetupChecklist } from "./use-setup-checklist";
 
 export function SetupScreen() {
   const t = useTranslations("business.setup");
   const tCommon = useTranslations("common");
   const checklist = useSetupChecklist();
-  const progress = useSetupProgress();
 
   const body = () => {
     if (checklist.data) {
       return (
-        <div className="flex flex-col gap-3">
-          <p className="text-label text-muted-foreground">{progress(checklist.data)}</p>
+        <div className="flex flex-col gap-4">
+          <SetupProgress checklist={checklist.data} />
           <SetupSteps checklist={checklist.data} />
           {checklist.data.done && <p>{t("allDone")}</p>}
         </div>
@@ -36,7 +35,7 @@ export function SetupScreen() {
         />
       );
     }
-    return <LoadingRows rows={5} shape="twoLines" />;
+    return <LoadingRows rows={7} shape="twoLines" />;
   };
 
   return (
