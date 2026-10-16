@@ -1,7 +1,8 @@
 # The reverse proxy in front of the whole product in Docker (docker-compose.product.yml). It routes as a deploy's
 # load balancer does (docs/deploy-checklist.md): the console's api to the console, the api's paths to the api, every
-# other path to the web app. Like the load balancer, it sets X-Forwarded-For to the one address the request came
-# from, whatever the request said, which is what the api's rate limits trust.
+# other path to the web app. Unlike the load balancers, which add the address they saw to X-Forwarded-For (so a deploy
+# sets AUTH_TRUSTED_PROXIES), Caddy, with no trusted proxies of its own, replaces the header with the one address the
+# request came from, whatever the request said: the api's rate limits trust a header holding one address.
 {
 	# Plain http on localhost: no certificates, and no admin endpoint to reach.
 	auto_https off

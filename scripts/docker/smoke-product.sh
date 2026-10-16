@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # `pnpm product:smoke` (spec 2.7): brings the whole product up in Docker (docker-compose.product.yml) as a project of
 # its own on free ports, uses it through the proxy as a browser does, and removes it with its data, however it ends.
-# Expects the proxy to route as the load balancer will and to pass the web app's security headers on once each, mail
-# and files to be readable where the README says, the demo to build, and the demo's Owner to sign in.
+# Expects the proxy to route as the load balancer will and to pass the web app's security headers on once each,
+# Mailpit at the port the README gives, MinIO at the address presigned links use, the demo to build, and the demo's
+# Owner to sign in.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 source scripts/docker/support.sh
