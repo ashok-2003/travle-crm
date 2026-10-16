@@ -26,8 +26,10 @@ function Sections({ organizationId }: { organizationId: string }) {
   const details = useQuery(trpc.organizations.get.queryOptions({ organizationId }));
   const exports = useExports(organizationId);
   const deleted = refusalOf(details.error)?.reason === "ORGANIZATION_NOT_FOUND";
+  // Once deleted, whatever was held of it is no longer shown.
+  const organization = deleted ? undefined : details.data;
 
-  if (!details.data && !deleted) {
+  if (!organization && !deleted) {
     return details.isError ? (
       <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void details.refetch()} />
     ) : (
@@ -36,17 +38,17 @@ function Sections({ organizationId }: { organizationId: string }) {
   }
   return (
     <>
-      {details.data ? (
+      {organization ? (
         <p className="flex flex-wrap items-baseline gap-x-3">
-          <span className="text-section font-semibold script-leading">{details.data.organization.name}</span>
-          <span className="numbers text-muted-foreground">{details.data.organization.code}</span>
+          <span className="text-section font-semibold script-leading">{organization.organization.name}</span>
+          <span className="numbers text-muted-foreground">{organization.organization.code}</span>
         </p>
       ) : (
         <p role="status">{t("deleted")}</p>
       )}
       <ExportsSection organizationId={organizationId} canExport={!deleted} />
-      {details.data && <PurgeSection details={details.data} exports={exports.data} />}
-      {details.data && <SubjectSection organization={details.data.organization} />}
+      {organization && <PurgeSection details={organization} exports={exports.data} />}
+      {organization && <SubjectSection organization={organization.organization} />}
     </>
   );
 }

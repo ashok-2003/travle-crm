@@ -2,18 +2,22 @@
 
 // Deleting the organization for good (spec 5, ADR 0023): offered once it is cancelled (by its lifecycle today) and has
 // an export finished in the last day, each condition shown met or not with what to do; the console's job checks both
-// again before it deletes anything. Its result comes from the platform log.
+// again before it deletes anything. Its result comes from the platform log. The request is the section's, so what
+// follows it doesn't depend on the dialog still being open, and a deletion refreshes the organization.
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { OrganizationDetails, OrganizationExport } from "@travel-crm/contracts/platform";
 import { CircleCheckIcon, CircleDashedIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { formatCount } from "@/lib/format";
+import { useConsoleTRPC } from "../data/console-trpc";
 import { hasFreshExport } from "./fresh-export";
-import { useJobOutcome } from "./job-outcome";
+import { askedNow, useJobOutcome } from "./job-outcome";
+import { JobStatus } from "./job-status";
 import { PurgeDialog } from "./purge-dialog";
 
-const SKIP_REASONS = ["not-cancelled", "no-recent-export"] as const;
+const SKIP_REASONS = ["not-cancelled", "no-recent-export", "unknown"] as const;
 
 function Condition({ met, done, toDo }: { met: boolean; done: string; toDo: string }) {
   const t = useTranslations("consolePlatform.dataProtection.purge");
@@ -43,7 +47,17 @@ export function PurgeSection({
   const { organization } = details;
   const [confirming, setConfirming] = useState(false);
   const [since, setSince] = useState<number | null>(null);
-  const outcome = useJobOutcome({
+  const trpc = useConsoleTRPC();
+  const queryClient = useQueryClient();
+  const purge = useMutation(
+    trpc.dataProtection.requestPurge.mutationOptions({
+      onSuccess: () => {
+        setSince(askedNow());
+        setConfirming(false);
+      },
+    }),
+  );
+  const { outcome, gaveUp } = useJobOutcome({
     organizationId: organization.id,
     requested: "organization.purge-requested",
     results: ["organization.purged", "organization.purge-skipped"],
@@ -53,12 +67,17 @@ export function PurgeSection({
   const cancelled = details.subscription?.subscription.status === "cancelled";
   const exported = hasFreshExport(exports ?? []);
 
+  const purged = outcome?.action === "organization.purged";
+  useEffect(() => {
+    if (purged) void queryClient.invalidateQueries({ queryKey: trpc.organizations.get.pathKey() });
+  }, [purged, queryClient, trpc]);
+
   let result: string | null = null;
-  if (outcome?.action === "organization.purged") {
+  if (purged) {
     const count = (field: string) => formatCount(Number(outcome.after?.[field] ?? 0));
     result = t("purged", { rows: count("rows"), people: count("people"), files: count("files") });
   } else if (outcome) {
-    const reason = SKIP_REASONS.find((known) => known === outcome.after?.reason) ?? "no-recent-export";
+    const reason = SKIP_REASONS.find((known) => known === outcome.after?.reason) ?? "unknown";
     result = t(`skipped.${reason}`);
   }
 
@@ -84,18 +103,19 @@ export function PurgeSection({
       >
         {t("action")}
       </Button>
-      {since !== null && (
-        <p role="status" className="max-w-[65ch]">
-          {result ?? t("queued")}
-        </p>
-      )}
+      {since !== null && <JobStatus result={result} queued={t("queued")} gaveUp={gaveUp} />}
       {confirming && (
         <PurgeDialog
           organization={organization}
           open
-          onOpenChange={setConfirming}
-          onQueued={() => {
-            setSince(Date.now());
+          onOpenChange={(open) => {
+            if (!open) purge.reset();
+            setConfirming(open);
+          }}
+          pending={purge.isPending}
+          error={purge.error}
+          onConfirm={(confirmation) => {
+            purge.mutate({ organizationId: organization.id, confirmation });
           }}
         />
       )}

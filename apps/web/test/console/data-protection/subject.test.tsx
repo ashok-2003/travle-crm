@@ -5,6 +5,7 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { heldAnswer } from "../../support/api-stub";
 import { messages } from "@/i18n/messages";
 import { inputsTo } from "../plans/render-console";
 import { logged, openScreen, organizationId } from "./agency";
@@ -43,6 +44,15 @@ const subjectExport = {
 async function paste(label: string, value: string) {
   await userEvent.click(screen.getByLabelText(label));
   await userEvent.paste(value);
+}
+
+/** Pastes the member's id and exports what is kept about them, which an erasure needs shown first. */
+async function exportMember(api: ReturnType<typeof openScreen>) {
+  await screen.findByText("Sharma Travels");
+  await paste(words.subject.memberId, memberId);
+  api.answer("platform.dataProtection.exportSubject", { data: subjectExport });
+  await userEvent.click(screen.getByRole("button", { name: words.subject.export }));
+  await screen.findByText("Ravi Kumar");
 }
 
 afterEach(() => {
@@ -93,8 +103,7 @@ describe("one person's or record's export and erasure", () => {
 
   it("erases them once the code is typed, and shows the job's result", async () => {
     const api = openScreen({});
-    await screen.findByText("Sharma Travels");
-    await paste(words.subject.memberId, memberId);
+    await exportMember(api);
     await userEvent.click(screen.getByRole("button", { name: words.subject.erase }));
     const confirm = within(screen.getByRole("alertdialog", { name: words.subject.eraseTitle }));
     await userEvent.type(confirm.getByLabelText(words.confirmation.label.replace("{code}", "SHARMA")), "SHARMA");
@@ -117,13 +126,69 @@ describe("one person's or record's export and erasure", () => {
 
   it("shows the api's sentence when an erasure is refused", async () => {
     const api = openScreen({});
-    await screen.findByText("Sharma Travels");
-    await paste(words.subject.memberId, memberId);
+    await exportMember(api);
     await userEvent.click(screen.getByRole("button", { name: words.subject.erase }));
     const confirm = within(screen.getByRole("alertdialog", { name: words.subject.eraseTitle }));
     await userEvent.type(confirm.getByLabelText(words.confirmation.label.replace("{code}", "SHARMA")), "SHARMA");
     api.answer("platform.dataProtection.requestErasure", { status: 409, reason: "REMOVE_FIRST" });
     await userEvent.click(confirm.getByRole("button", { name: words.subject.confirmErase }));
     expect(await confirm.findByText(messages.errors.reasons.REMOVE_FIRST)).toBeVisible();
+  });
+  it("offers Erase only once the export shown is of the very person typed", async () => {
+    const api = openScreen({});
+    await screen.findByText("Sharma Travels");
+    await paste(words.subject.memberId, memberId);
+    const erase = screen.getByRole("button", { name: words.subject.erase });
+    expect(erase).toBeDisabled();
+    expect(screen.getByText(words.subject.eraseNeedsExport)).toBeVisible();
+    api.answer("platform.dataProtection.exportSubject", { data: subjectExport });
+    await userEvent.click(screen.getByRole("button", { name: words.subject.export }));
+    await screen.findByText("Ravi Kumar");
+    expect(erase).toBeEnabled();
+    await userEvent.type(screen.getByLabelText(words.subject.memberId), "0");
+    expect(erase).toBeDisabled();
+  });
+
+  it("can't be closed while the erasure is being asked for, and still shows its result", async () => {
+    const api = openScreen({});
+    await exportMember(api);
+    await userEvent.click(screen.getByRole("button", { name: words.subject.erase }));
+    const dialog = screen.getByRole("alertdialog", { name: words.subject.eraseTitle });
+    const confirm = within(dialog);
+    await userEvent.type(confirm.getByLabelText(words.confirmation.label.replace("{code}", "SHARMA")), "SHARMA");
+    const held = heldAnswer({ data: { jobId: "0199a000-0000-7000-8000-0000000000ac" } });
+    api.answer("platform.dataProtection.requestErasure", held.answer);
+    await userEvent.click(confirm.getByRole("button", { name: words.subject.confirmErase }));
+    expect(confirm.getByRole("button", { name: messages.common.cancel })).toBeDisabled();
+    await userEvent.keyboard("{Escape}");
+    expect(dialog).toBeVisible();
+    held.release();
+    expect(await screen.findByText(words.subject.queued)).toBeVisible();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("doesn't misstate a reason it doesn't know", async () => {
+    const api = openScreen({});
+    await exportMember(api);
+    await userEvent.click(screen.getByRole("button", { name: words.subject.erase }));
+    const confirm = within(screen.getByRole("alertdialog", { name: words.subject.eraseTitle }));
+    await userEvent.type(confirm.getByLabelText(words.confirmation.label.replace("{code}", "SHARMA")), "SHARMA");
+    api.answer("platform.dataProtection.requestErasure", { data: { jobId: "0199a000-0000-7000-8000-0000000000ac" } });
+    api.answer("platform.log.list", {
+      data: {
+        entries: [
+          logged("subject.erasure-skipped", {
+            targetType: "member",
+            targetId: memberId,
+            after: { reason: "new-thing" },
+          }),
+          logged("subject.erasure-requested", { targetType: "member", targetId: memberId }),
+        ],
+        nextCursor: null,
+      },
+    });
+    await userEvent.click(confirm.getByRole("button", { name: words.subject.confirmErase }));
+    expect(await screen.findByText(words.subject.skipped.unknown)).toBeVisible();
+    expect(screen.queryByText(words.subject.skipped["no-recent-export"])).toBeNull();
   });
 });

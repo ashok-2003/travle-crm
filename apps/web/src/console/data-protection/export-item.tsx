@@ -2,9 +2,10 @@
 
 // One export of the organization: its state as a dot and a word, when it was asked for, finished and is kept until,
 // what it holds once done, and, for a done one, its download links, each working for about 15 minutes (a download is
-// logged, so the links are fetched only when asked for).
+// logged, so the links are fetched only when asked for). Once the links lapse they are dropped, and Download is back.
 import type { OrganizationExport } from "@travel-crm/contracts/platform";
 import { useTranslations } from "next-intl";
+import { useEffect } from "react";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,15 @@ export function ExportItem({ entry }: { entry: OrganizationExport }) {
   const instantText = useInstantText();
   const { apiError } = useErrorMessage();
   const download = useDownloadExport();
+  const { reset } = download;
+  const linksExpireAt = download.data?.linksExpireAt;
+  useEffect(() => {
+    if (linksExpireAt === undefined) return;
+    const timer = setTimeout(reset, Math.max(0, Date.parse(linksExpireAt) - Date.now()));
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [linksExpireAt, reset]);
   return (
     <Item size="sm" role="listitem">
       <ItemContent className="gap-2">
@@ -56,6 +66,7 @@ export function ExportItem({ entry }: { entry: OrganizationExport }) {
           <Button
             variant="outline"
             className="self-start"
+            aria-label={t("downloadFor", { when: instantText(entry.requestedAt) })}
             disabled={download.isPending}
             onClick={() => {
               download.mutate({ exportId: entry.exportId });

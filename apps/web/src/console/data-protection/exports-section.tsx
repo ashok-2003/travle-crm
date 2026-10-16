@@ -52,7 +52,7 @@ export function ExportsSection({ organizationId, canExport }: { organizationId: 
         </div>
         {canExport && (
           <Button
-            disabled={ask.isPending}
+            disabled={ask.isPending || exports.data?.some((entry) => entry.state === "requested")}
             onClick={() => {
               ask.mutate({ organizationId });
             }}
