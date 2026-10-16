@@ -107,7 +107,8 @@ describe("TextLink and BackLink", () => {
     expect(alone).toHaveClass("whitespace-normal", "h-auto", "min-h-11");
     expect(alone).not.toHaveClass("whitespace-nowrap", "h-11");
     const inline = screen.getByRole("link", { name: "Sharma Travels" });
-    expect(inline).toHaveClass("whitespace-normal", "align-baseline");
+    // As wide as its words, so a table cell's column of name and code keeps the name at the start.
+    expect(inline).toHaveClass("whitespace-normal", "align-baseline", "w-fit");
     expect(inline).not.toHaveClass("min-h-11", "self-start");
   });
 
