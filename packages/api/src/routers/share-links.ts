@@ -10,7 +10,7 @@ import {
 } from "@travel-crm/contracts/share-links";
 import type { IssuedDocumentSummary } from "@travel-crm/contracts/documents";
 import type { OrgTx } from "@travel-crm/db";
-import { getIssuedDocument } from "@travel-crm/domain/documents";
+import { assertPdfCanBeMade, getIssuedDocument } from "@travel-crm/domain/documents";
 import { DomainError } from "@travel-crm/domain/kernel";
 import { createShareLink, listShareLinks, revokeShareLink } from "@travel-crm/domain/share-links";
 import { z } from "zod";
@@ -43,9 +43,7 @@ export const shareLinksRouter = router({
     .output(createdShareLink)
     .mutation(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
-        if ((await sharedDocument(tx, input)).renderFailed) {
-          throw new DomainError("NOT_FOUND", "DOCUMENT_UNAVAILABLE", "The document's PDF can't be made");
-        }
+        assertPdfCanBeMade(await sharedDocument(tx, input));
         const { expiresAt, ...link } = input;
         return createShareLink(tx, ctx.member, {
           ...link,

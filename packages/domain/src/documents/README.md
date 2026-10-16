@@ -15,6 +15,8 @@ quotes and invoices bring theirs.
 - `getIssuedDocument(tx, { documentId })`: the document's summary, with `pdfAttachmentId` (null until rendered) and
   `renderFailed`.
   Another organization's document is `NOT_FOUND`/`DOCUMENT_NOT_FOUND`.
+- `assertPdfCanBeMade(document)`: refuses a document whose PDF can never be made (`NOT_FOUND`/`DOCUMENT_UNAVAILABLE`):
+  the download link, a new share link and the share link's page all ask it.
 - `listIssuedDocuments(tx, { cursor?, limit? })`: the organization's documents, newest issued first, `limit` (1-50,
   20 unless given) at a time, with `nextCursor` for the page after (`VALIDATION`/`INVALID_PAGE` for a page it can't
   read); a cursor the organization can't see starts an empty page.
