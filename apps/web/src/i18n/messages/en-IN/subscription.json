@@ -10,8 +10,9 @@
       "status": "Suspended",
       "title": "Your organization is suspended",
       "body": "Nobody can use it until support opens it again. Its data is kept as it was.",
-      "ownerCanRevoke": "As its Owner, you can still take away someone's access: remove them, or give them a new password.",
-      "toStaff": "Go to Staff"
+      "ownerCanRevoke": "As its Owner, you can still take away someone's access (remove them, or give them a new password), download its documents and turn their share links off.",
+      "toStaff": "Go to Staff",
+      "toDocuments": "Go to Documents"
     },
     "cancelled": {
       "status": "Cancelled",
