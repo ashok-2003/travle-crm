@@ -11,7 +11,7 @@ You need Node 24 (`nvm install 24`), pnpm 12 and Docker.
     cp .env.example .env    # then uncomment DEMO_ORGANIZATION_CODE and DEMO_PASSWORD for the demo agency
     pnpm services:up        # Postgres on :55432, MinIO on :59000 (console :59001), Mailpit on :58025
     pnpm db:migrate
-    pnpm --filter @travel-crm/db generate && pnpm --filter @travel-crm/brand build
+    pnpm exec turbo run generate   # Prisma's client, the brand's icons and the web app's generated files
 
 `.env.example` has everything development needs, including `NODE_ENV=development`. Without `NODE_ENV` the api assumes
 production and refuses to start on http or with the example secret. An `.env` made before a plan added settings is
