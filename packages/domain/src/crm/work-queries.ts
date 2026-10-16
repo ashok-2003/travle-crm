@@ -37,9 +37,13 @@ export async function newLeadsWaiting(tx: OrgTx, filter: NewLeadsWaitingFilter):
   return tx.$queryRaw<NewLeadWaiting[]>(newLeadsWaitingQuery(filter));
 }
 
+/** The count of the owner's leads in New, as composable SQL over lead_new_by_owner. */
+export function countNewLeadsWaitingQuery(ownerUserId: string): Sql {
+  return sql`SELECT count(*)::int AS n FROM lead WHERE ${newLeadsOf(ownerUserId)}`;
+}
+
 export async function countNewLeadsWaiting(tx: OrgTx, ownerUserId: string): Promise<number> {
-  const [row] = await tx.$queryRaw<{ n: number }[]>`
-    SELECT count(*)::int AS n FROM lead WHERE ${newLeadsOf(ownerUserId)}`;
+  const [row] = await tx.$queryRaw<{ n: number }[]>(countNewLeadsWaitingQuery(ownerUserId));
   return row?.n ?? 0;
 }
 

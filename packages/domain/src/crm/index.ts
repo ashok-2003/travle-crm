@@ -18,6 +18,7 @@ export { moveLeadStage, reassignLead, reopenLead } from "./stage-changes.js";
 export { addLeadNote, listLeadTimeline } from "./timeline.js";
 export {
   countNewLeadsWaiting,
+  countNewLeadsWaitingQuery,
   leadBriefs,
   newLeadsWaiting,
   newLeadsWaitingQuery,

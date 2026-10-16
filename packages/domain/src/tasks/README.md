@@ -28,7 +28,8 @@ owner's: the crm module moves them with the lead.
   returns how many moved.
 - `openTasksOf(tx, record)` (earliest due first) and `nextOpenTasks(tx, recordType, recordIds)` (each record's
   earliest open task).
-- `openTasksQuery(filter)` (composable SQL, R11), `listOpenTasks(tx, filter)` and `countOpenTasks(tx, filter)`: one
+- `openTasksQuery(filter)` and `countOpenTasksQuery(filter)` (composable SQL, R11), `listOpenTasks(tx, filter)` and
+  `countOpenTasks(tx, filter)`: one
   person's open tasks by due time, within `dueFrom`/`dueBefore`, a page `after` a task id (keyset on due time and id).
 - `listTasksOnRecord(tx, recordType, recordIds)`: every task on the records, done and cancelled ones too, earliest
   due first (a customer's export).

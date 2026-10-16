@@ -10,9 +10,17 @@ import { createDatabase, type Database, type OrgTx, type Sql } from "@travel-crm
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { createIsolatedDatabase, createTestOrganization, type IsolatedDatabase } from "@travel-crm/db/testing";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { countLeads, leadCountsQuery, leadListQuery, listLeads, newLeadsWaitingQuery } from "../../src/crm/index.js";
+import {
+  countLeads,
+  countNewLeadsWaitingQuery,
+  leadCountsQuery,
+  leadListQuery,
+  listLeads,
+  newLeadsWaitingQuery,
+} from "../../src/crm/index.js";
 import type { MemberAccess } from "../../src/identity/index.js";
-import { openTasksQuery } from "../../src/tasks/index.js";
+import { addDays, calendarDateIn, startOfDayIn } from "../../src/kernel/index.js";
+import { countOpenTasksQuery, openTasksQuery } from "../../src/tasks/index.js";
 import { todaySummary } from "../../src/today/index.js";
 import { memberWithStarterRole } from "../identity/rule-helpers.js";
 import { seedLargeAgency } from "./large-agency.js";
@@ -55,6 +63,13 @@ describe("a large agency", () => {
     const neighbour = await createTestOrganization(platform, "Neighbouring agency");
     await seedLargeAgency(platform, isolated.urls, neighbour, NEIGHBOUR);
     const userId = ownerUserIds[0] ?? "";
+    // One customer whose name no one else has, for a search that finds one person among every open lead.
+    const zubin = await platform.person.create({
+      data: { organizationId, name: "Zubin Wadhwani", phoneE164: "+917000000001" },
+    });
+    await platform.lead.create({
+      data: { organizationId, personId: zubin.id, stage: "contacted", ownerUserId: userId, source: "referral" },
+    });
     salesperson = memberWithStarterRole("sales", { organizationId, userId });
     manager = memberWithStarterRole("org-admin", { organizationId, userId });
   }, 300_000);
@@ -87,7 +102,8 @@ describe("a large agency", () => {
     expect((await plan("counts", leadCountsQuery({ ownerUserId: null }))).indexes).toContain("lead_open_stage_counts");
     const input = leadCountsInput.parse({ view: "everyone" });
     const counts = await inOrg((tx) => countLeads(tx, manager, input));
-    expect(counts.open).toBe(SIZE.leads / 2);
+    // Half the seeded leads are open, and Zubin Wadhwani's.
+    expect(counts.open).toBe(SIZE.leads / 2 + 1);
     expect(await time("counts", (tx) => countLeads(tx, manager, input))).toBeLessThan(150);
   });
 
@@ -99,6 +115,32 @@ describe("a large agency", () => {
     expect(page.items.length).toBeGreaterThan(0);
     expect(page.items.every((item) => item.person.name === "Rahul Sharma")).toBe(true);
     expect(await time("search-name", (tx) => listLeads(tx, manager, input))).toBeLessThan(250);
+  });
+
+  // The slow cases: a page that a match or two can't fill, so the scan reads every open lead of the agency.
+  it("finds the one 'Zubin Wadhwani' within 250 ms, reading every open lead", async () => {
+    const search = { kind: "name" as const, text: "Zubin Wadhwani" };
+    await plan("search-name-one", leadListQuery({ ownerUserId: null, stages: openLeadStages, search, limit: 26 }));
+    const input = listLeadsInput.parse({ view: "everyone", search: "Zubin Wadhwani" });
+    const page = await inOrg((tx) => listLeads(tx, manager, input));
+    expect(page.items.map((item) => item.person.name)).toEqual(["Zubin Wadhwani"]);
+    expect(await time("search-name-one", (tx) => listLeads(tx, manager, input))).toBeLessThan(250);
+  });
+
+  it("finds nobody named 'Xavier Quintanilla' within 250 ms, reading every open lead", async () => {
+    const search = { kind: "name" as const, text: "Xavier Quintanilla" };
+    await plan("search-name-none", leadListQuery({ ownerUserId: null, stages: openLeadStages, search, limit: 26 }));
+    const input = listLeadsInput.parse({ view: "everyone", search: "Xavier Quintanilla" });
+    expect((await inOrg((tx) => listLeads(tx, manager, input))).items).toEqual([]);
+    expect(await time("search-name-none", (tx) => listLeads(tx, manager, input))).toBeLessThan(250);
+  });
+
+  it("finds no lead for digits nobody has within 250 ms", async () => {
+    const search = { kind: "digits" as const, digits: "99999" };
+    await plan("search-digits-none", leadListQuery({ ownerUserId: null, stages: openLeadStages, search, limit: 26 }));
+    const input = listLeadsInput.parse({ view: "everyone", search: "99999" });
+    expect((await inOrg((tx) => listLeads(tx, manager, input))).items).toEqual([]);
+    expect(await time("search-digits-none", (tx) => listLeads(tx, manager, input))).toBeLessThan(250);
   });
 
   it("finds a lead by five digits within 250 ms", async () => {
@@ -122,6 +164,19 @@ describe("a large agency", () => {
     expect((await plan("today-overdue", overdue)).indexes).toContain("task_open_by_assignee");
     const newLeads = newLeadsWaitingQuery({ ownerUserId: salesperson.userId, limit: 21 });
     expect((await plan("today-new-leads", newLeads)).indexes).toContain("lead_new_by_owner");
+    const endsAt = startOfDayIn(addDays(calendarDateIn(now, "Asia/Kolkata"), 1), "Asia/Kolkata");
+    const assigneeUserId = salesperson.userId;
+    const dueToday = openTasksQuery({ assigneeUserId, dueFrom: now, dueBefore: endsAt, limit: 21 });
+    expect((await plan("today-due-today", dueToday)).indexes).toContain("task_open_by_assignee");
+    const counted = {
+      "today-overdue-count": countOpenTasksQuery({ assigneeUserId, dueBefore: now }),
+      "today-due-today-count": countOpenTasksQuery({ assigneeUserId, dueFrom: now, dueBefore: endsAt }),
+    };
+    for (const [name, query] of Object.entries(counted)) {
+      expect((await plan(name, query)).indexes, name).toContain("task_open_by_assignee");
+    }
+    const newLeadsCount = countNewLeadsWaitingQuery(salesperson.userId);
+    expect((await plan("today-new-leads-count", newLeadsCount)).indexes).toContain("lead_new_by_owner");
     const summary = await inOrg((tx) => todaySummary(tx, salesperson, now));
     expect(summary.counts.newLeads).toBe(SIZE.leads / 10 / SIZE.staff);
     expect(summary.counts.overdue).toBeGreaterThan(0);
@@ -131,7 +186,17 @@ describe("a large agency", () => {
   it("never scans lead, person or task from start to end", () => {
     const checked = [...plans].filter(([name]) => !name.startsWith("search-"));
     expect(checked.map(([name]) => name).sort()).toEqual(
-      ["counts", "everyone-open", "mine-open", "today-new-leads", "today-overdue"].sort(),
+      [
+        "counts",
+        "everyone-open",
+        "mine-open",
+        "today-due-today",
+        "today-due-today-count",
+        "today-new-leads",
+        "today-new-leads-count",
+        "today-overdue",
+        "today-overdue-count",
+      ].sort(),
     );
     for (const [name, found] of checked) {
       expect(
