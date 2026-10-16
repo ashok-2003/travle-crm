@@ -2,7 +2,7 @@
 // /admin/impersonate-user, the side door the console starts it through, refuses platform staff without it, after a
 // temporary password still to replace, so nobody reaches an agency's data past the console's own check.
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
-import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, inject, it, vi } from "vitest";
 import {
   createPlatformAdmin,
   createTestAgency,
@@ -11,6 +11,9 @@ import {
   type TestAgency,
   type TestIdentity,
 } from "./test-identity.js";
+
+// Two-factor is off in the product (@travel-crm/contracts/features): these tests prove what turning it on brings.
+vi.mock("@travel-crm/contracts/features", () => ({ features: { twoFactor: true } }));
 
 describe("impersonation and two-factor", () => {
   let test: TestIdentity;

@@ -1,5 +1,6 @@
 // The organization setting the identity module owns: whether every member must use two-factor sign-in (spec 6.2).
 // The API checks settings:manage before calling setTwoFactorRequirement.
+import { features } from "@travel-crm/contracts/features";
 import type { SecuritySettings, SetTwoFactorRequirementInput } from "@travel-crm/contracts/identity";
 import type { IdentityDatabase } from "@travel-crm/db/identity";
 import { recordAudit } from "../audit/index.js";
@@ -11,6 +12,8 @@ export async function setTwoFactorRequirement(
   actor: MemberAccess,
   input: SetTwoFactorRequirementInput,
 ): Promise<SecuritySettings> {
+  // With two-factor off (features.twoFactor) the setting is hidden and not enforced, so there is nothing to change.
+  if (!features.twoFactor) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Two-factor sign-in is turned off");
   // Spec 6.2: an Owner can require two-factor. Anyone with settings:manage may tighten sign-in; only an Owner loosens it.
   if (!input.required && !actor.role.isOwner) {
     throw new DomainError("FORBIDDEN", "OWNER_ONLY", "Only an Owner can stop requiring two-factor sign-in");
