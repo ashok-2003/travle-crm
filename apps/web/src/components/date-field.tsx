@@ -1,20 +1,25 @@
 "use client";
 
-// A calendar day bound to a form field, for every date a person enters (never the browser's own date input): a button
-// showing the day as Indian screens write it, dd/mm/yyyy, that opens the registry Calendar in a Popover. The value
-// stays the api's yyyy-mm-dd, or empty while none is chosen. Labelled, hinted and with its error as every field is
-// (form-field.tsx); the button is named by its label and the day it shows, and is 44px high. Empty, it shows the
-// format the day will take, to the eye only.
+// A calendar day bound to a react-hook-form field, for every date a person enters (never the browser's own date
+// input). It is the registry InputGroup, shaped as every input: the day typed as Indian screens write it, dd/mm/yyyy
+// (or 1/2/2027, 01-02-2027), with a calendar button at its end that opens the registry Calendar in a Popover.
+// Labelled, hinted and with its error as every field is (form-field.tsx):
+//
+//   <DateField control={form.control} name="paidOn" label={t("paidOn")} />
+//
+// The value is the api's yyyy-mm-dd, "" while empty, and the text as typed while it isn't a real day, so the form's
+// check refuses it and names the field.
 import { CalendarIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import { Controller, type Control, type FieldPath, type FieldValues } from "react-hook-form";
+import { useController, type Control, type FieldPath, type FieldValues } from "react-hook-form";
 import { FormField } from "@/components/form-field";
-import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const CALENDAR_DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
+const INDIAN_DAY = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/;
 
 /** How many years the calendar's year list reaches either side of today. */
 const YEARS_AROUND = 10;
@@ -37,6 +42,16 @@ function valueOf(day: Date): string {
   return `${String(day.getFullYear())}-${twoDigits(day.getMonth() + 1)}-${twoDigits(day.getDate())}`;
 }
 
+/** A typed day ("16/10/2026", "1/2/2027", "01-02-2027") as yyyy-mm-dd, or null for text that isn't a real day. */
+export function parseIndianDate(text: string): string | null {
+  const match = INDIAN_DAY.exec(text.trim());
+  if (!match) return null;
+  const [day, month, year] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  const date = new Date(year, month - 1, day);
+  const real = date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+  return real ? valueOf(date) : null;
+}
+
 export function DateField<Values extends FieldValues>({
   control,
   name,
@@ -49,67 +64,65 @@ export function DateField<Values extends FieldValues>({
   hint?: string;
 }) {
   const t = useTranslations("calendar");
+  const { field, fieldState } = useController({ control, name });
+  const value = typeof field.value === "string" ? field.value : "";
+  const day = dayOf(value);
+  const [typed, setTyped] = useState(() => indianDate(value));
   const [open, setOpen] = useState(false);
+  // What was typed while it stands for the value; the value itself once it was set some other way (the calendar).
+  const text = parseIndianDate(typed) === value || typed.trim() === value ? typed : indianDate(value);
   const thisYear = new Date().getFullYear();
   return (
-    <Controller
-      control={control}
-      name={name}
-      render={({ field, fieldState }) => {
-        const value = typeof field.value === "string" ? field.value : "";
-        const day = dayOf(value);
-        return (
-          <FormField label={label} hint={hint} error={fieldState.error?.message}>
-            {(links, labelId) => (
-              <Popover
-                open={open}
-                onOpenChange={(next) => {
-                  setOpen(next);
-                  if (!next) field.onBlur();
-                }}
-              >
-                <PopoverTrigger asChild>
-                  <Button
-                    {...links}
-                    ref={field.ref}
-                    variant="outline"
-                    // The label, then the day shown: "Paid on 16/10/2026".
-                    aria-labelledby={day ? `${labelId} ${links.id}-day` : labelId}
-                    className="w-full justify-start font-normal"
-                  >
-                    <CalendarIcon aria-hidden="true" />
-                    {day ? (
-                      <span id={`${links.id}-day`} className="numbers">
-                        {indianDate(value)}
-                      </span>
-                    ) : (
-                      <span aria-hidden="true" className="text-muted-foreground">
-                        {t("placeholder")}
-                      </span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    required
-                    autoFocus
-                    captionLayout="dropdown"
-                    selected={day}
-                    {...(day && { defaultMonth: day })}
-                    startMonth={new Date(thisYear - YEARS_AROUND, 0)}
-                    endMonth={new Date(thisYear + YEARS_AROUND, 11)}
-                    onSelect={(chosen) => {
-                      field.onChange(valueOf(chosen));
-                      setOpen(false);
-                    }}
-                  />
-                </PopoverContent>
-              </Popover>
-            )}
-          </FormField>
-        );
-      }}
-    />
+    <FormField label={label} hint={hint} error={fieldState.error?.message}>
+      {(links) => (
+        // The calendar is the Popover's child beside the group, not inside its addon: the addon focuses the box on a
+        // click within it, which a click in the calendar (a portal, but its React child) would otherwise reach.
+        <Popover open={open} onOpenChange={setOpen}>
+          <InputGroup>
+            <InputGroupInput
+              {...links}
+              ref={field.ref}
+              name={field.name}
+              value={text}
+              placeholder={t("placeholder")}
+              autoComplete="off"
+              className="numbers"
+              onChange={(event) => {
+                setTyped(event.target.value);
+                field.onChange(parseIndianDate(event.target.value) ?? event.target.value.trim());
+              }}
+              onBlur={() => {
+                // A day typed loosely ("1/2/2027") is written out in full once the person moves on.
+                if (day) setTyped(indianDate(value));
+                field.onBlur();
+              }}
+            />
+            <InputGroupAddon align="inline-end">
+              <PopoverTrigger asChild>
+                <InputGroupButton size="icon-sm" aria-label={t("choose", { label })}>
+                  <CalendarIcon aria-hidden="true" />
+                </InputGroupButton>
+              </PopoverTrigger>
+            </InputGroupAddon>
+          </InputGroup>
+          <PopoverContent align="end" className="w-auto p-0">
+            <Calendar
+              mode="single"
+              required
+              autoFocus
+              captionLayout="dropdown"
+              selected={day}
+              {...(day && { defaultMonth: day })}
+              startMonth={new Date(thisYear - YEARS_AROUND, 0)}
+              endMonth={new Date(thisYear + YEARS_AROUND, 11)}
+              onSelect={(chosen) => {
+                field.onChange(valueOf(chosen));
+                setOpen(false);
+              }}
+            />
+          </PopoverContent>
+        </Popover>
+      )}
+    </FormField>
   );
 }

@@ -33,10 +33,6 @@
     "subscription": {
       "heading": "Subscription",
       "plan": "Plan",
-      "planPrices": {
-        "monthly": "{price} a month",
-        "yearly": "{price} a year"
-      },
       "cycle": "Billing",
       "cycles": {
         "monthly": "Monthly, {price} before GST",
@@ -148,23 +144,23 @@
       "lastActive": "Last active",
       "actions": "Actions"
     },
-    "lastActive": "Last active {date}",
+    "lastActive": "Last active: {date}",
     "impersonate": "Sign in as {name}",
+    "impersonateShort": "Sign in as",
     "resendInvite": "Resend the invite",
     "resending": "Sending",
-    "inviteSent": "A new invite is on its way to {email}.",
-    "neverUsed": "Hasn't used the app yet"
+    "inviteSent": "A new invite is on its way to {email}."
   },
   "impersonate": {
     "title": "Sign in as {name}?",
     "description": "You'll see {organization} as {name} does, and what you change is theirs. It is recorded in the organization's audit log and ends after an hour at most. Stop from the banner at the top.",
     "confirm": "Sign in as {name}",
-    "starting": "Signing in",
-    "notAMember": "{name} is no longer active staff, so you can't sign in as them."
+    "starting": "Signing in"
   },
   "subscription": {
     "heading": "Subscription",
     "none": "This organization has no subscription.",
+    "change": "Change",
     "status": "Status today",
     "since": "since {date}",
     "recorded": "The nightly job last recorded {status} since {date}; it catches up tonight.",

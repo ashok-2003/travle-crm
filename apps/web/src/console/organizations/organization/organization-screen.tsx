@@ -11,7 +11,7 @@ import { useTranslations } from "next-intl";
 import { Delayed } from "@/components/delayed";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
-import { PageTitle } from "@/components/page-title";
+import { PageHeader } from "@/components/page-header";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -62,18 +62,22 @@ export function OrganizationScreen({ organizationId, onboarded }: { organization
   const { organization, profile, subscription } = details.data;
   return (
     <div className="flex max-w-[1200px] flex-col gap-8">
-      <div className="flex flex-col gap-2">
-        <PageTitle className="text-balance break-words script-leading">{organization.name}</PageTitle>
-        <p className="flex flex-wrap items-center gap-3">
-          <span className="numbers">{organization.code}</span>
-          <SubscriptionStatusBadge status={subscription?.subscription.status ?? null} />
-          {isSuperAdmin(staff) && (
-            <Button asChild variant="ghost">
+      <PageHeader
+        title={<span className="break-words script-leading">{organization.name}</span>}
+        intro={
+          <span className="flex flex-wrap items-center gap-3">
+            <span className="numbers">{organization.code}</span>
+            <SubscriptionStatusBadge status={subscription?.subscription.status ?? null} />
+          </span>
+        }
+        action={
+          isSuperAdmin(staff) && (
+            <Button asChild variant="outline">
               <Link href={consoleRoutes.dataProtection(organization.id)}>{t("dataProtection")}</Link>
             </Button>
-          )}
-        </p>
-      </div>
+          )
+        }
+      />
       {onboarded && (
         <Alert>
           <CircleCheckIcon aria-hidden="true" />

@@ -1,12 +1,13 @@
 "use client";
 
 // Onboarding's first three parts: the agency's own row (name, sign-in code, time zone, contact email), its business
-// profile (legal name, GST state and GSTIN, a contact) and its Owner, who is invited by email.
+// profile (legal name, GST state and GSTIN, a contact, the phone after its +91) and its Owner, who is invited by email.
 import { useTranslations } from "next-intl";
 import type { Control } from "react-hook-form";
 import { TextField } from "@/account/text-field";
 import { FieldLegend, FieldSet } from "@/components/ui/field";
 import { GstStateField } from "@/components/forms/gst-state-field";
+import { PhoneField } from "@/components/forms/phone-field";
 import { TimeZoneField } from "../fields/time-zone-field";
 import type { OnboardValues } from "./onboard-values";
 
@@ -63,15 +64,7 @@ export function ProfileFields({ control }: { control: Control<OnboardValues> }) 
         spellCheck={false}
       />
       <TextField control={control} name="contactName" label={t("contactName")} hint={t("contactNameHint")} />
-      <TextField
-        control={control}
-        name="contactPhone"
-        label={t("contactPhone")}
-        hint={t("contactPhoneHint")}
-        type="tel"
-        inputMode="tel"
-        className="[&_input]:numbers"
-      />
+      <PhoneField control={control} name="contactPhone" label={t("contactPhone")} hint={t("contactPhoneHint")} />
     </FieldSet>
   );
 }

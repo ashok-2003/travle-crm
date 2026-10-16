@@ -101,5 +101,7 @@ describe("the console's form fields", () => {
     // The first field in error takes the focus; a radio group passes it to its first radio.
     expect(screen.getByRole("radio", { name: "A trial" })).toHaveFocus();
     expect(screen.getByRole("radio", { name: "Paid" }).closest("[data-slot=field]")).toHaveClass("min-h-11");
+    // A label with no words under it sits on the radio's line, in the row's middle, outside any field content.
+    expect(screen.getByText("Paid").closest("[data-slot=field-content]")).toBeNull();
   });
 });

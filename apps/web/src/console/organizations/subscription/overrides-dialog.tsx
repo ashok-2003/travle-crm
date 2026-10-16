@@ -2,7 +2,7 @@
 
 // The subscription's overrides (spec 7.2, subscriptions.setOverrides): seats bought above the plan's, an agreed price
 // before GST in place of the plan's (blank for the plan's own), and business modules switched on early. Starts from
-// the overrides as they are.
+// the overrides as they are. It opens from the subscription's Change menu.
 import {
   planModules,
   type PlanModule,
@@ -14,30 +14,39 @@ import { useTranslations } from "next-intl";
 import { Controller } from "react-hook-form";
 import { TextField } from "@/account/text-field";
 import { Checkbox } from "@/components/ui/checkbox";
+import { FormAlert, FormDialog, type OpenState, type Sending } from "@/components/forms/form-dialog";
+import { MoneyField, rupeesFieldText } from "@/components/forms/money-field";
+import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { useConsoleTRPC } from "../../data/console-trpc";
-import { FormDialog, FormFooter, type Sending } from "@/components/forms/form-dialog";
 import { useChangeDialog } from "../change-dialog";
-import { useCheckedForm } from "@/components/forms/use-checked-form";
-import { MoneyField, rupeesFieldText } from "@/components/forms/money-field";
 import { toOverridesInput } from "./change-inputs";
 
-export function OverridesDialog({ subscription }: { subscription: SubscriptionDetails }) {
+export function OverridesDialog({ subscription, state }: { subscription: SubscriptionDetails; state: OpenState }) {
   const t = useTranslations("consoleOrganizations.subscription.overrides");
   const trpc = useConsoleTRPC();
-  const dialog = useChangeDialog(subscription.organizationId, t("done"));
+  const dialog = useChangeDialog(subscription.organizationId, t("done"), state);
   const save = useMutation(trpc.subscriptions.setOverrides.mutationOptions({ onSuccess: dialog.onSuccess }));
   return (
-    <FormDialog dialog={dialog} sending={save} label={t("action")} title={t("title")} description={t("description")}>
-      <OverridesForm subscription={subscription} save={save} />
+    <FormDialog
+      dialog={dialog}
+      sending={save}
+      title={t("title")}
+      description={t("description")}
+      submit={t("submit")}
+      submitting={t("submitting")}
+    >
+      {(formId) => <OverridesForm formId={formId} subscription={subscription} save={save} />}
     </FormDialog>
   );
 }
 
 function OverridesForm({
+  formId,
   subscription,
   save,
 }: {
+  formId: string;
   subscription: SubscriptionDetails;
   save: Sending<SetOverridesInput>;
 }) {
@@ -52,7 +61,7 @@ function OverridesForm({
     (problem) => t(`problems.${problem}`),
   );
   return (
-    <form noValidate onSubmit={onSubmit(save.mutate)} className="flex flex-col gap-6">
+    <form id={formId} noValidate onSubmit={onSubmit(save.mutate)} className="flex flex-col gap-6">
       <FieldGroup>
         <TextField
           control={form.control}
@@ -99,12 +108,7 @@ function OverridesForm({
           )}
         />
       </FieldGroup>
-      <FormFooter
-        sending={save}
-        problem={formProblem}
-        label={t("overrides.submit")}
-        pendingLabel={t("overrides.submitting")}
-      />
+      <FormAlert sending={save} problem={formProblem} />
     </form>
   );
 }

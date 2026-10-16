@@ -82,6 +82,14 @@ describe("MembersSection", () => {
     expect(screen.queryByRole("button", { name: members.resendInvite })).toBeNull();
   });
 
+  it("says a member never active the same way on phones, and keeps the sign-in button short", async () => {
+    screenIs("phone");
+    renderMembers({ "platform.organizations.members": { data: [ravi] } });
+    expect(await screen.findByText(`Last active: ${members.neverActive}`)).toBeVisible();
+    // Its words alone; the name is in its accessible name, which tells the rows' buttons apart.
+    expect(screen.getByRole("button", { name: "Sign in as Ravi" })).toHaveTextContent(/^Sign in as$/);
+  });
+
   it("marks each Owner, under whatever name the agency gave the Owner role", async () => {
     screenIs("wide");
     const proprietor = member({ memberId: ravi.memberId, userId: ravi.userId, name: "Anil", roleName: "Proprietor" });
@@ -139,7 +147,7 @@ describe("MembersSection", () => {
     expect(reportError).toHaveBeenCalledWith(noChannel);
   });
 
-  it("says why an impersonation was refused, and stays", async () => {
+  it("says why an impersonation was refused, in errors.json's words, and stays", async () => {
     screenIs("wide");
     renderMembers({
       "platform.organizations.members": { data: [member()] },
@@ -148,7 +156,7 @@ describe("MembersSection", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Sign in as Lakshmi Nair" }));
     const dialog = await screen.findByRole("alertdialog");
     await userEvent.click(within(dialog).getByRole("button", { name: "Sign in as Lakshmi Nair" }));
-    expect(await within(dialog).findByText(impersonate.notAMember.replace("{name}", "Lakshmi Nair"))).toBeVisible();
+    expect(await within(dialog).findByText(messages.errors.reasons.IMPERSONATION_TARGET_NOT_A_MEMBER)).toBeVisible();
     expect(navigation.loadPage).not.toHaveBeenCalled();
   });
 

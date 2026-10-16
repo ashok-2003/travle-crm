@@ -7,8 +7,8 @@ import type { OrganizationMember, OrganizationRecord } from "@travel-crm/contrac
 import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { Fragment } from "react";
-import { Delayed } from "@/components/delayed";
 import { ErrorState } from "@/components/error-state";
+import { LoadingRows } from "@/components/loading-rows";
 import { StatusBadge } from "@/components/status-badge";
 import {
   Item,
@@ -19,7 +19,6 @@ import {
   ItemSeparator,
   ItemTitle,
 } from "@/components/ui/item";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDay } from "@/lib/format";
 import { shownEmail } from "@/lib/shown-email";
@@ -56,12 +55,7 @@ export function MembersSection({ organization }: { organization: OrganizationRec
     content = members.isError ? (
       <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void members.refetch()} />
     ) : (
-      <Delayed>
-        <div role="status" aria-busy="true" aria-label={t("loading")} className="flex flex-col gap-2">
-          <Skeleton className="h-14 w-full" />
-          <Skeleton className="h-14 w-full" />
-        </div>
-      </Delayed>
+      <LoadingRows rows={2} shape="twoLines" label={t("loading")} />
     );
   } else if (members.data.length === 0) {
     content = <p className="text-muted-foreground">{t("empty")}</p>;
@@ -84,9 +78,9 @@ export function MembersSection({ organization }: { organization: OrganizationRec
                   </span>
                 </ItemDescription>
                 <ItemDescription>
-                  {member.lastActiveAt === null
-                    ? t("neverUsed")
-                    : t("lastActive", { date: lastActive(member.lastActiveAt) })}
+                  {t("lastActive", {
+                    date: member.lastActiveAt === null ? t("neverActive") : lastActive(member.lastActiveAt),
+                  })}
                 </ItemDescription>
               </ItemContent>
               <ItemActions>{actions(member)}</ItemActions>
