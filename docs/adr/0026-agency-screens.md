@@ -13,7 +13,7 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 7.1, 7.3, 9.2-9
   refused, is disabled with the reason's sentence as its description. Taking access away, and finding whom or what to
   cut off (removing staff and the list to choose them from, a new temporary password, requiring two-factor, a
   document's share links and turning one off), is the `revoke` kind; taking the papers away (a file's or a PDF's
-  download link, and the issued documents' list) is the `export` kind. Both stay open while read-only, and for the
+  download link, and the lists of the papers and the issued documents) is the `export` kind. Both stay open while read-only, and for the
   Owner while suspended.
 - **Every refusal reason has its sentence.** `errors.json` holds one for every reason a `DomainError` can carry in the
   domain, the api and the api server, and may hold one for a code Better Auth's side doors refuse with
