@@ -1,9 +1,11 @@
-// For the image smoke run (scripts/docker/smoke-images.sh): issues the sample quotation in an organization, so the
-// worker's container renders its PDF with the brand's fonts, as it will an agency's documents. Prints the document's
-// id. DATABASE_URL (the runtime role) and ORGANIZATION_ID come from the environment.
+// For the image smoke run (scripts/docker/smoke-images.sh): issues the branding's sample quotation in an organization,
+// as documents.issueSample does, so the worker's container renders its PDF with the brand's fonts, as it will an
+// agency's documents. Prints the document's id. DATABASE_URL (the runtime role) and ORGANIZATION_ID come from the
+// environment.
+import { SAMPLE_DOCUMENT_PREFIX } from "@travel-crm/contracts/documents";
 import { createDatabase } from "@travel-crm/db";
-import { issueDocument, sampleQuotation } from "@travel-crm/domain/documents";
-import { money, systemActor } from "@travel-crm/domain/kernel";
+import { brandedSampleQuotation, issueDocument } from "@travel-crm/domain/documents";
+import { systemActor } from "@travel-crm/domain/kernel";
 
 const { DATABASE_URL: databaseUrl, ORGANIZATION_ID: organizationId } = process.env;
 if (databaseUrl === undefined || organizationId === undefined) {
@@ -12,26 +14,13 @@ if (databaseUrl === undefined || organizationId === undefined) {
 
 const db = createDatabase(databaseUrl, { maxConnections: 1 });
 try {
+  // Taxed within Maharashtra, with no colour, terms or logo: the ₹ comes from each font's Latin-extended file.
+  const sample = brandedSampleQuotation({
+    organizationName: "Demo Holidays",
+    profile: { gstStateCode: "27", brandColour: null, documentTerms: null },
+  });
   const issued = await db.forOrg(organizationId, (tx) =>
-    issueDocument(
-      tx,
-      systemActor(organizationId),
-      sampleQuotation({
-        recipient: { name: "Meera Iyer", lines: ["Mumbai 400002"] },
-        supplierStateCode: "27",
-        placeOfSupplyStateCode: "27",
-        // Tour operator services, in rupees and paise: the ₹ comes from each font's Latin-extended file.
-        lines: [
-          {
-            description: "Andaman islands, 6 nights",
-            sacCode: "998555",
-            taxableValue: money(12_50_000_00),
-            rateBasisPoints: 500,
-          },
-        ],
-        branding: { organizationName: "Demo Holidays" },
-      }),
-    ),
+    issueDocument(tx, systemActor(organizationId), { ...sample, prefix: SAMPLE_DOCUMENT_PREFIX }),
   );
   console.log(issued.id);
 } finally {
