@@ -136,16 +136,20 @@ services:
       timeout: 3s
       retries: 30
 
+  # The worker and the console let running jobs finish for up to 30 seconds on SIGTERM (docs/deploy-checklist.md), so
+  # `pnpm product:down` waits 35 before it kills them, not Compose's 10.
   worker:
     <<: *api-image
     command: ["worker"]
     environment: *api-environment
     depends_on: *api-depends-on
+    stop_grace_period: 35s
 
   # The only service with the platform role's URL. It runs the nightly demo reset with the demo's variables.
   console:
     <<: *api-image
     command: ["console"]
+    stop_grace_period: 35s
     environment:
       <<: *api-environment
       DATABASE_PLATFORM_URL: postgresql://app_platform:platform@postgres:5432/travel_crm
