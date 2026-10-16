@@ -12,7 +12,13 @@ const keys = (items: { key: string }[]) => items.map((item) => item.key);
 
 describe("visibleNavigationItems", () => {
   it("shows an Owner everything", () => {
-    expect(keys(visibleNavigationItems(member({ isOwner: true })))).toEqual(["home", "staff", "roles", "settings"]);
+    expect(keys(visibleNavigationItems(member({ isOwner: true })))).toEqual([
+      "home",
+      "staff",
+      "roles",
+      "settings",
+      "audit",
+    ]);
   });
 
   it("shows each item only to roles holding its permission", () => {
