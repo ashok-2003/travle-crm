@@ -23,6 +23,16 @@
     "markContactedPerson": "Mark {name} contacted",
     "markedContacted": "Marked contacted"
   },
+  "nudge": {
+    "count": "{count, plural, one {# thing today} other {# things today}}",
+    "nothing": "Nothing for today",
+    "overdue": "Overdue",
+    "waiting": "New lead, no reply yet",
+    "ago": "{elapsed} ago",
+    "open": "Open Today",
+    "loadFailed": "Today's work didn't load.",
+    "newLead": "New lead"
+  },
   "addTask": {
     "action": "Add a task",
     "title": "Add a task",
