@@ -15,7 +15,7 @@ export function OutcomeMessage({
   return (
     <Alert variant={variant} role={undefined}>
       {/* Styled as the box's description, which the variant colours. */}
-      <h2 data-slot="alert-description" ref={focusWhenShown} tabIndex={-1} className="text-sm text-balance">
+      <h2 data-slot="alert-description" ref={focusWhenShown} tabIndex={-1} className="text-sm text-pretty outline-none">
         {children}
       </h2>
     </Alert>

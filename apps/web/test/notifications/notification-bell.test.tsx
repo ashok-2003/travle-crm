@@ -180,12 +180,19 @@ describe("NotificationBell", () => {
   });
 
   it("says when the list didn't load, with a way to try again", async () => {
-    const api = renderBell({ "notifications.unreadCount": { data: 0 }, "notifications.list": { status: 500 } });
+    const api = renderBell({ "notifications.unreadCount": { data: 0 }, "notifications.list": "offline" });
     const list = within(await openBell(0));
     expect(await list.findByText(bell.loadFailed)).toBeVisible();
     api.answer("notifications.list", page([notification(1)]));
     await userEvent.click(list.getByRole("button", { name: messages.common.tryAgain }));
     expect(await list.findByText("Opened: Quotation 1")).toBeVisible();
+  });
+
+  it("gives the api's sentence when it refused the list", async () => {
+    renderBell({ "notifications.unreadCount": { data: 0 }, "notifications.list": { status: 403 } });
+    const list = within(await openBell(0));
+    expect(await list.findByText(messages.errors.forbidden)).toBeVisible();
+    expect(list.queryByText(bell.loadFailed)).toBeNull();
   });
 
   it("lets support impersonating the member read the list, with no way to mark it read", async () => {

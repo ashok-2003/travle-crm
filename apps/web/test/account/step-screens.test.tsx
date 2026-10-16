@@ -100,7 +100,9 @@ describe("a ?next= the person was sent with, and no step me.get names", () => {
     navigation.search = "next=%2Fstaff";
     apiAnswers(answering());
     renderScreen(<TwoFactorSetupScreen />);
-    expect(await screen.findByText(account.twoFactorSetup.intro)).toBeVisible();
+    expect(
+      await screen.findByText(`${account.twoFactorSetup.intro} ${account.twoFactorSetup.passwordStep}`),
+    ).toBeVisible();
     expect(screen.queryByText(account.twoFactorSetup.pendingIntro)).toBeNull();
   });
 });
@@ -117,7 +119,9 @@ describe("the step screens for platform staff", () => {
     navigation.search = "next=%2Fconsole";
     apiAnswers(answeringAs(staff()));
     renderScreen(<TwoFactorSetupScreen />);
-    expect(await screen.findByText(account.twoFactorSetup.platformIntro)).toBeVisible();
+    expect(
+      await screen.findByText(`${account.twoFactorSetup.platformIntro} ${account.twoFactorSetup.passwordStep}`),
+    ).toBeVisible();
     expect(screen.queryByText(account.twoFactorSetup.pendingIntro)).toBeNull();
   });
 
@@ -125,7 +129,9 @@ describe("the step screens for platform staff", () => {
     navigation.search = "next=%2Fconsole";
     apiAnswers(answeringAs(staff(true)));
     renderScreen(<TwoFactorSetupScreen />);
-    expect(await screen.findByText(account.twoFactorSetup.intro)).toBeVisible();
+    expect(
+      await screen.findByText(`${account.twoFactorSetup.intro} ${account.twoFactorSetup.passwordStep}`),
+    ).toBeVisible();
   });
 
   it("ask for the temporary password when the console sent them, and only then", async () => {

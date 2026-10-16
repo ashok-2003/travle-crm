@@ -110,6 +110,8 @@
     "title": "Choose a new password",
     "submit": "Save new password",
     "submitting": "Saving",
+    "doneTitle": "Password changed",
+    "invalidTitle": "This link has expired",
     "done": "Your password is changed, and you're signed out everywhere. Sign in with the new password.",
     "invalidLink": "This reset link has expired or was used already.",
     "askAgain": "Ask for a new link",

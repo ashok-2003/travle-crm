@@ -40,6 +40,14 @@ async function switchFor(row: string, channel: "email" | "push") {
   return within(group).getByRole("switch", { name: preferences[channel] });
 }
 
+it("leads back to Your account", async () => {
+  renderScreen({ "notifications.preferences": choices([]) });
+  expect(await screen.findByRole("link", { name: messages.account.steps.backToAccount })).toHaveAttribute(
+    "href",
+    "/account",
+  );
+});
+
 beforeEach(() => {
   toast.error.mockClear();
 });

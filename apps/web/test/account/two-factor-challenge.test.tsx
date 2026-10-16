@@ -20,12 +20,20 @@ describe("TwoFactorChallenge", () => {
     const verifyTwoFactorCode = answers(ok(null));
     renderScreen(<TwoFactorChallenge auth={{ verifyTwoFactorCode, verifyBackupCode: vi.fn() }} />);
     const submit = screen.getByRole("button", { name: account.twoFactor.submit });
-    expect(submit).toBeDisabled();
+    expect(submit).toBeEnabled();
     await userEvent.type(screen.getByLabelText(account.fields.code), "123456");
     await userEvent.click(screen.getByLabelText(account.twoFactor.trustDevice));
     await userEvent.click(submit);
     expect(verifyTwoFactorCode).toHaveBeenCalledWith({ code: "123456", trustDevice: true });
     expect(finishSignIn).toHaveBeenCalledWith("/staff");
+  });
+
+  it("says what is missing when the code is empty, and sends nothing", async () => {
+    const verifyTwoFactorCode = vi.fn();
+    renderScreen(<TwoFactorChallenge auth={{ verifyTwoFactorCode, verifyBackupCode: vi.fn() }} />);
+    await userEvent.click(screen.getByRole("button", { name: account.twoFactor.submit }));
+    expect(await screen.findByText(account.fields.required)).toBeVisible();
+    expect(verifyTwoFactorCode).not.toHaveBeenCalled();
   });
 
   it("says trusting the device is only for one nobody else uses", () => {

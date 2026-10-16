@@ -49,6 +49,7 @@ export function SignInScreen({ auth }: { auth?: Pick<AuthClient, "signInWithEmai
         </TabsList>
         <TabsContent value="email">
           <EmailSignInForm onSignedIn={onSignedIn} {...(auth ? { auth } : {})} />
+          <TextLink href={routes.forgotPassword}>{t("forgotPassword")}</TextLink>
         </TabsContent>
         <TabsContent value="code">
           {/* Keyed by the code, so the form starts again filled in once the browser has read it. */}
@@ -61,7 +62,6 @@ export function SignInScreen({ auth }: { auth?: Pick<AuthClient, "signInWithEmai
           <p className="mt-4 text-label text-muted-foreground">{t("noEmailHint")}</p>
         </TabsContent>
       </Tabs>
-      <TextLink href={routes.forgotPassword}>{t("forgotPassword")}</TextLink>
     </div>
   );
 }

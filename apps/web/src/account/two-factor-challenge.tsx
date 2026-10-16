@@ -9,6 +9,7 @@ import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useId, useState, type SubmitEvent } from "react";
+import { FormField } from "@/components/form-field";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -39,11 +40,14 @@ export function TwoFactorChallenge({
   const [submitting, setSubmitting] = useState(false);
 
   const ready = useBackup ? code.trim().length > 0 : code.length === CODE_LENGTH;
+  // The button stays live like every account form's; pressing it with the code missing says so.
+  const [missing, setMissing] = useState(false);
   const expired =
     failure?.code === "INVALID_TWO_FACTOR_COOKIE" || failure?.code === "TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE";
 
   const submit = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setMissing(!ready);
     if (!ready) return;
     setSubmitting(true);
     setFailure(null);
@@ -61,25 +65,29 @@ export function TwoFactorChallenge({
     <div className="flex flex-col gap-6">
       <PageHeader title={t("twoFactor.title")} intro={useBackup ? t("twoFactor.backupIntro") : t("twoFactor.intro")} />
       <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-5">
-        <Field>
-          <FieldLabel htmlFor={`${id}-code`}>{useBackup ? t("fields.backupCode") : t("fields.code")}</FieldLabel>
-          {useBackup ? (
-            <Input
-              id={`${id}-code`}
-              autoFocus
-              value={code}
-              onChange={(event) => {
-                setCode(event.target.value);
-              }}
-              autoComplete="off"
-              autoCapitalize="none"
-              spellCheck={false}
-              className="numbers"
-            />
-          ) : (
-            <SixDigitCode id={`${id}-code`} value={code} onChange={setCode} autoFocus />
-          )}
-        </Field>
+        <FormField
+          label={useBackup ? t("fields.backupCode") : t("fields.code")}
+          error={missing && !ready ? t("fields.required") : undefined}
+        >
+          {(links) =>
+            useBackup ? (
+              <Input
+                {...links}
+                autoFocus
+                value={code}
+                onChange={(event) => {
+                  setCode(event.target.value);
+                }}
+                autoComplete="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                className="numbers"
+              />
+            ) : (
+              <SixDigitCode id={links.id} value={code} onChange={setCode} autoFocus />
+            )
+          }
+        </FormField>
         {offersTrust && (
           <Field orientation="horizontal">
             <Checkbox
@@ -105,19 +113,20 @@ export function TwoFactorChallenge({
             <Link href={`${routes.signIn}?next=${encodeURIComponent(next)}`}>{t("twoFactor.startAgain")}</Link>
           </Button>
         ) : (
-          <Button type="submit" disabled={!ready || submitting}>
+          <Button type="submit" disabled={submitting}>
             {submitting && <Spinner />}
             {submitting ? t("twoFactor.submitting") : t("twoFactor.submit")}
           </Button>
         )}
       </form>
       <Button
-        variant="ghost"
-        className="self-start"
+        variant="link"
+        className="self-start px-0"
         onClick={() => {
           setUseBackup(!useBackup);
           setCode("");
           setFailure(null);
+          setMissing(false);
         }}
       >
         {useBackup ? t("twoFactor.useAuthenticator") : t("twoFactor.useBackupCode")}

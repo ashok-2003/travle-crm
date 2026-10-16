@@ -56,6 +56,16 @@ describe("ResetPasswordScreen", () => {
     replaceState(null, "", "/reset-password?error=INVALID_TOKEN");
     renderScreen(<ResetPasswordScreen auth={{ resetPassword: answers(ok(null)) }} />);
     expect(screen.getByText(account.resetPassword.invalidLink)).toBeVisible();
+    expect(screen.getByRole("heading", { level: 1, name: account.resetPassword.invalidTitle })).toBeVisible();
     expect(window.location.search).toBe("");
+  });
+
+  it("titles the page by what it holds: the form, then the saved password", async () => {
+    renderScreen(<ResetPasswordScreen auth={{ resetPassword: answers(ok(null)) }} />);
+    expect(screen.getByRole("heading", { level: 1, name: account.resetPassword.title })).toBeVisible();
+    await userEvent.type(screen.getByLabelText(account.fields.newPassword), "a-long-new-password");
+    await userEvent.type(screen.getByLabelText(account.fields.confirmPassword), "a-long-new-password");
+    await userEvent.click(screen.getByRole("button", { name: account.resetPassword.submit }));
+    expect(await screen.findByRole("heading", { level: 1, name: account.resetPassword.doneTitle })).toBeVisible();
   });
 });

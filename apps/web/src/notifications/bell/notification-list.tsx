@@ -7,57 +7,41 @@
 import { BellIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Fragment } from "react";
-import { Delayed } from "@/components/delayed";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
-import { Button } from "@/components/ui/button";
+import { ShowMoreButton } from "@/components/show-more-button";
 import { ItemGroup, ItemSeparator } from "@/components/ui/item";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Spinner } from "@/components/ui/spinner";
+import { LoadingRows } from "@/components/loading-rows";
+import { refusalOf } from "@/data/api-error";
+import { useErrorMessage } from "@/lib/error-message";
 import { useMe } from "@/session/me-context";
 import { NotificationItem } from "./notification-item";
-import { useMarkRead, useNotificationPages, useUnreadCount } from "./use-bell";
+import { useMarkRead, useNotificationPages } from "./use-bell";
 
 export function NotificationList({ open, onFollow }: { open: boolean; onFollow: () => void }) {
   const t = useTranslations("notifications.bell");
   const tCommon = useTranslations("common");
   const me = useMe();
+  const { apiError } = useErrorMessage();
   const pages = useNotificationPages({ enabled: open });
-  const unread = useUnreadCount().data ?? 0;
   const markRead = useMarkRead();
   const canMark = me.impersonatedBy === null;
-  const { notifications } = pages;
+  const { items: notifications } = pages;
+  // The api's own sentence when it refused (a suspended organization, say), else that it didn't load.
+  const failure = refusalOf(pages.error) === null ? t("loadFailed") : apiError(pages.error);
 
   if (notifications === undefined) {
     return pages.isError ? (
-      <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void pages.refetch()} />
+      <ErrorState message={failure} retryLabel={tCommon("tryAgain")} onRetry={() => void pages.refetch()} />
     ) : (
-      <Delayed>
-        <div role="status" aria-busy="true" aria-label={t("loading")} className="flex flex-col gap-2 p-4">
-          {[0, 1, 2].map((row) => (
-            <Skeleton key={row} className="h-14 w-full" />
-          ))}
-        </div>
-      </Delayed>
+      <LoadingRows rows={3} label={t("loading")} />
     );
   }
   if (notifications.length === 0) return <EmptyState icon={BellIcon} message={t("empty")} />;
 
   return (
     <div className="flex flex-col gap-1 pb-3">
-      {canMark ? (
-        unread > 0 && (
-          <Button
-            variant="ghost"
-            className="mr-2 self-end"
-            onClick={() => {
-              markRead.mutate({ all: true });
-            }}
-          >
-            {t("markAllRead")}
-          </Button>
-        )
-      ) : (
+      {!canMark && (
         <p className="px-4 py-2 text-label text-muted-foreground">{t("impersonating", { name: me.user.name })}</p>
       )}
       <ItemGroup>
@@ -81,17 +65,7 @@ export function NotificationList({ open, onFollow }: { open: boolean; onFollow: 
           );
         })}
       </ItemGroup>
-      {pages.hasNextPage && (
-        <Button
-          variant="outline"
-          className="self-center"
-          disabled={pages.isFetchingNextPage}
-          onClick={() => void pages.fetchNextPage()}
-        >
-          {pages.isFetchingNextPage && <Spinner />}
-          {pages.isFetchingNextPage ? t("loadingMore") : t("showMore")}
-        </Button>
-      )}
+      <ShowMoreButton pages={pages} label={t("showMore")} />
     </div>
   );
 }

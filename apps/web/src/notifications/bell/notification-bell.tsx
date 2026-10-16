@@ -7,8 +7,16 @@ import { BellIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { MarkAllRead } from "./mark-all-read";
 import { NotificationList } from "./notification-list";
 import { UnreadCount } from "./unread-count";
 import { useUnreadCount } from "./use-bell";
@@ -37,9 +45,15 @@ export function NotificationBell({ opensAs }: { opensAs: "popover" | "sheet" }) 
           aria-labelledby={titleId}
           className="max-h-[80dvh] w-96 max-w-[calc(100vw-2rem)] gap-0 overflow-y-auto p-0"
         >
-          <h2 id={titleId} className="px-4 pt-3 text-section font-semibold">
-            {t("title")}
-          </h2>
+          <PopoverHeader className="px-4 pt-3">
+            <div className="flex items-center justify-between gap-2">
+              <PopoverTitle id={titleId} className="text-section font-semibold">
+                {t("title")}
+              </PopoverTitle>
+              <MarkAllRead />
+            </div>
+            <PopoverDescription>{t("description")}</PopoverDescription>
+          </PopoverHeader>
           <NotificationList open={open} onFollow={close} />
         </PopoverContent>
       </Popover>
@@ -53,7 +67,10 @@ export function NotificationBell({ opensAs }: { opensAs: "popover" | "sheet" }) 
         className="max-h-[90dvh] gap-0 overflow-y-auto rounded-t-xl pb-[env(safe-area-inset-bottom)]"
       >
         <SheetHeader>
-          <SheetTitle>{t("title")}</SheetTitle>
+          <div className="flex items-center justify-between gap-2">
+            <SheetTitle>{t("title")}</SheetTitle>
+            <MarkAllRead />
+          </div>
           <SheetDescription>{t("description")}</SheetDescription>
         </SheetHeader>
         <NotificationList open={open} onFollow={close} />
