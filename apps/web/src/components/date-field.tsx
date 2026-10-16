@@ -3,8 +3,10 @@
 // A calendar day bound to a form field, for every date a person enters (never the browser's own date input): a button
 // showing the day as Indian screens write it, dd/mm/yyyy, that opens the registry Calendar in a Popover. The value
 // stays the api's yyyy-mm-dd, or empty while none is chosen. Labelled, hinted and with its error as every field is
-// (form-field.tsx); the button is named by its label and the day it shows, and is 44px high.
+// (form-field.tsx); the button is named by its label and the day it shows, and is 44px high. Empty, it shows the
+// format the day will take, to the eye only.
 import { CalendarIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Controller, type Control, type FieldPath, type FieldValues } from "react-hook-form";
 import { FormField } from "@/components/form-field";
@@ -46,6 +48,7 @@ export function DateField<Values extends FieldValues>({
   label: string;
   hint?: string;
 }) {
+  const t = useTranslations("calendar");
   const [open, setOpen] = useState(false);
   const thisYear = new Date().getFullYear();
   return (
@@ -81,7 +84,7 @@ export function DateField<Values extends FieldValues>({
                       </span>
                     ) : (
                       <span aria-hidden="true" className="text-muted-foreground">
-                        dd/mm/yyyy
+                        {t("placeholder")}
                       </span>
                     )}
                   </Button>

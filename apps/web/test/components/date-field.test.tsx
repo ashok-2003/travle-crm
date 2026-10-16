@@ -31,10 +31,10 @@ function DayForm({ day, onSave }: { day: string; onSave: (day: string) => void }
   );
 }
 
-function renderField(day = "") {
+function renderField(day = "", words = messages) {
   const onSave = vi.fn();
   render(
-    <NextIntlClientProvider locale={locale} messages={messages}>
+    <NextIntlClientProvider locale={locale} messages={words}>
       <DayForm day={day} onSave={onSave} />
     </NextIntlClientProvider>,
   );
@@ -77,6 +77,12 @@ describe("DateField", () => {
     const button = screen.getByRole("button", { name: "Paid on 16/10/2026" });
     expect(button).toHaveTextContent("16/10/2026");
     expect(targetSize(button).height).toBeGreaterThanOrEqual(44);
+  });
+
+  it("shows its empty hint in the app's words, hidden from screen readers", () => {
+    renderField("", { ...messages, calendar: { ...messages.calendar, placeholder: "DD-MM-YYYY" } });
+    const hint = within(screen.getByRole("button", { name: "Paid on" })).getByText("DD-MM-YYYY");
+    expect(hint).toHaveAttribute("aria-hidden", "true");
   });
 
   it("is named by its label alone while no day is chosen", () => {
