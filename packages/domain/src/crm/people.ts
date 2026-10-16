@@ -161,10 +161,10 @@ export async function recordPersonEdit(
 export function newestOpenLead(
   tx: OrgTx,
   personId: string,
-): Promise<{ id: string; ownerUserId: string | null; destinationId: string | null } | null> {
+): Promise<{ id: string; ownerUserId: string | null; destinationId: string | null; returning: boolean } | null> {
   return tx.lead.findFirst({
     where: { personId, stage: { in: [...openLeadStages] } },
     orderBy: { id: "desc" },
-    select: { id: true, ownerUserId: true, destinationId: true },
+    select: { id: true, ownerUserId: true, destinationId: true, returning: true },
   });
 }

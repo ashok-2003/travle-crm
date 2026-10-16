@@ -112,7 +112,8 @@
     "DUE_IN_THE_PAST": "That time has already passed. Choose a later time.",
     "TASK_CLOSED": "This is already done or cancelled.",
     "DESTINATION_NAME_TAKEN": "Another destination already has that name.",
-    "MERGE_INTO_ITSELF": "Choose a different destination to keep."
+    "MERGE_INTO_ITSELF": "Choose a different destination to keep.",
+    "OPEN_LEAD_EXISTS": "This person already has an open lead. Add this enquiry to that lead, or make it a new trip enquiry."
   },
   "auth": {
     "INVALID_EMAIL_OR_PASSWORD": "That email and password don't match.",
