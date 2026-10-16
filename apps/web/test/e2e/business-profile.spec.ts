@@ -33,10 +33,11 @@ test("a newly onboarded Owner fills the profile and watches the checklist tick",
   await page.getByLabel("Invoice prefix").fill("st");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("The business profile was saved")).toBeVisible();
-  // The form shows what the api keeps.
+  // The form shows what the api keeps, the account number by its last four digits only.
   await expect(page.getByLabel("GSTIN")).toHaveValue(ONBOARDED_GSTIN);
   await expect(page.getByLabel("IFSC")).toHaveValue("HDFC0001234");
-  await expect(page.getByLabel("Account number")).toHaveValue("001234567890");
+  await expect(page.getByLabel("Account number")).toHaveValue("XXXX7890");
+  await expect(page.getByRole("button", { name: "Change the account number" })).toBeVisible();
   await expect(page.getByLabel("Invoice prefix")).toHaveValue("ST");
 
   await page.goto("/setup");

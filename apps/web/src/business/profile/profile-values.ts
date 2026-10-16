@@ -39,6 +39,9 @@ function phoneAsTyped(e164: string): string {
   return national ? `${national[1] ?? ""} ${national[2] ?? ""}` : e164;
 }
 
+/** A saved account number as the screen shows it: its last four digits, as the platform console shows it. */
+export const maskedAccountNumber = (number: string) => `XXXX${number.slice(-4)}`;
+
 /** The form's boxes for the saved profile, or empty ones before any was saved. */
 export function profileValuesOf(profile: BusinessProfileDetails | null): ProfileValues {
   const values = Object.fromEntries(FIELDS.map((field) => [field, profile?.[field] ?? ""])) as ProfileValues;
