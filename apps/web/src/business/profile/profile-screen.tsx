@@ -19,7 +19,12 @@ export function ProfileScreen() {
     if (profile.isSuccess) return <ProfileForm profile={profile.data} />;
     if (profile.isError) {
       return (
-        <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void profile.refetch()} />
+        <ErrorState
+          message={t("loadFailed")}
+          error={profile.error}
+          retryLabel={tCommon("tryAgain")}
+          onRetry={() => void profile.refetch()}
+        />
       );
     }
     return <LoadingRows rows={5} shape="twoLines" />;

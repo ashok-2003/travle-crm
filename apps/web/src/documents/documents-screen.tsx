@@ -50,7 +50,12 @@ export function DocumentsScreen() {
     }
     if (issued.isError) {
       return (
-        <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void issued.refetch()} />
+        <ErrorState
+          message={t("loadFailed")}
+          error={issued.error}
+          retryLabel={tCommon("tryAgain")}
+          onRetry={() => void issued.refetch()}
+        />
       );
     }
     return <LoadingRows rows={3} shape="twoLines" />;

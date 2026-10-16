@@ -177,6 +177,13 @@ describe("DocumentsScreen", () => {
     expect(screen.queryByRole("link", { name: messages.settings.title })).toBeNull();
   });
 
+  it("says a refusal's own sentence rather than that the documents didn't load", async () => {
+    screenIs("wide");
+    renderScreen({ "documents.list": { status: 403, reason: "MISSING_PERMISSION" } });
+    expect(await screen.findByText(messages.errors.reasons.MISSING_PERMISSION)).toBeVisible();
+    expect(screen.queryByText(words.list.loadFailed)).toBeNull();
+  });
+
   it("says when the documents didn't load, and tries again", async () => {
     screenIs("wide");
     const user = userEvent.setup();

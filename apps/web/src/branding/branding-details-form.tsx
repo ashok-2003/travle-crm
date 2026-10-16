@@ -11,10 +11,11 @@ import { useForm, useWatch, type FieldErrors, type Resolver } from "react-hook-f
 import { FormField } from "@/components/form-field";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
-import { FieldDescription, FieldGroup } from "@/components/ui/field";
+import { FieldGroup } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useWriteAccess } from "@/subscription/write-access";
+import { WriteHint } from "@/subscription/write-hint";
 import { useSaveBranding } from "./use-branding";
 
 interface BrandingValues {
@@ -110,7 +111,7 @@ export function BrandingDetailsForm({ saved }: { saved: BrandingDetails }) {
         >
           {save.isPending ? t("saving") : t("save")}
         </Button>
-        {write.hint !== null && <FieldDescription id={hintId}>{write.hint}</FieldDescription>}
+        <WriteHint id={hintId} hint={write.hint} />
       </div>
     </form>
   );

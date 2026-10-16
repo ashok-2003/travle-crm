@@ -27,7 +27,12 @@ export function AttachmentsPanel({ record, emptyMessage }: { record: AttachmentR
     }
     if (files.isError) {
       return (
-        <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void files.refetch()} />
+        <ErrorState
+          message={t("loadFailed")}
+          error={files.error}
+          retryLabel={tCommon("tryAgain")}
+          onRetry={() => void files.refetch()}
+        />
       );
     }
     return <LoadingRows rows={3} shape="twoLines" />;

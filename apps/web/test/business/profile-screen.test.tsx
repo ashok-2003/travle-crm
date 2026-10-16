@@ -134,6 +134,10 @@ describe("ProfileScreen", () => {
     expect(await screen.findByText(messages.errors.reasons.ORGANIZATION_READ_ONLY)).toBeVisible();
     expect(screen.getByRole("button", { name: messages.common.save })).toBeDisabled();
     expect(screen.getByLabelText(words.legalName)).toBeDisabled();
+    // The state's list stays shut too: Radix opens it unless its own disabled is set, which a disabled fieldset isn't.
+    const state = screen.getByRole("combobox", { name: words.gstState });
+    expect(state).toBeDisabled();
+    expect(state).toHaveAttribute("data-disabled");
   });
 
   it("says so when the profile didn't load, and tries again", async () => {

@@ -24,6 +24,7 @@ export function SelectField<Values extends FieldValues>({
   placeholder,
   options,
   onChosen,
+  disabled = false,
 }: {
   control: Control<Values>;
   name: FieldPath<Values>;
@@ -33,6 +34,8 @@ export function SelectField<Values extends FieldValues>({
   options: SelectOption[];
   /** Runs after the field takes a new value, for fields that follow it. */
   onChosen?: (value: string) => void;
+  /** Radix's Select opens from its own disabled, not from a disabled fieldset around it. */
+  disabled?: boolean;
 }) {
   return (
     <Controller
@@ -43,6 +46,7 @@ export function SelectField<Values extends FieldValues>({
           {(links) => (
             <Select
               name={field.name}
+              disabled={disabled}
               value={typeof field.value === "string" ? field.value : ""}
               onValueChange={(value) => {
                 field.onChange(value);

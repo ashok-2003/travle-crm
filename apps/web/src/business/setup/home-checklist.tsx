@@ -37,6 +37,7 @@ export function HomeChecklist({ afterwards }: { afterwards: ReactNode }) {
       <>
         <ErrorState
           message={t("loadFailed")}
+          error={checklist.error}
           retryLabel={tCommon("tryAgain")}
           onRetry={() => void checklist.refetch()}
         />

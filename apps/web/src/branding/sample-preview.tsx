@@ -10,12 +10,12 @@ import { ErrorState } from "@/components/error-state";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { TextLink } from "@/components/text-link";
 import { Button } from "@/components/ui/button";
-import { FieldDescription } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { documentState } from "@/documents/document-state";
 import { useDownloadPdf } from "@/documents/use-download-pdf";
 import { routes } from "@/lib/routes";
 import { useWriteAccess } from "@/subscription/write-access";
+import { WriteHint } from "@/subscription/write-hint";
 import { useSample } from "./use-sample";
 
 export function SamplePreview() {
@@ -24,7 +24,7 @@ export function SamplePreview() {
   const write = useWriteAccess();
   const take = useWriteAccess("export");
   const hintId = useId();
-  const { issue, sample, checkFailed, checkAgain } = useSample();
+  const { issue, sample, checkFailed, checkError, checkAgain } = useSample();
   const download = useDownloadPdf();
   const state = sample ? documentState(sample) : null;
 
@@ -34,11 +34,12 @@ export function SamplePreview() {
         <h2 id="sample-heading" className="text-section font-semibold">
           {t("heading")}
         </h2>
-        <p className="max-w-[65ch] text-muted-foreground">{t("intro")}</p>
+        <p className="max-w-[65ch] text-label text-muted-foreground">{t("intro")}</p>
       </div>
       {sample && checkFailed && (
         <ErrorState
           message={t("checkFailed", { number: sample.number })}
+          error={checkError}
           retryLabel={tCommon("tryAgain")}
           onRetry={checkAgain}
         />
@@ -75,7 +76,7 @@ export function SamplePreview() {
         </Button>
         {sample && <TextLink href={routes.documents}>{t("allDocuments")}</TextLink>}
       </div>
-      {write.hint !== null && <FieldDescription id={hintId}>{write.hint}</FieldDescription>}
+      <WriteHint id={hintId} hint={write.hint} />
     </section>
   );
 }

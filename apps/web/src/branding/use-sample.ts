@@ -31,6 +31,7 @@ export function useSample() {
     // The issued document is the answer until the first get comes back.
     sample: sample.data ?? issued,
     checkFailed: sample.isError,
+    checkError: sample.error,
     checkAgain: () => void sample.refetch(),
   };
 }

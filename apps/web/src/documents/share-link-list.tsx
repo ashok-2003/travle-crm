@@ -104,7 +104,12 @@ export function ShareLinkList({ documentId }: { documentId: string }) {
   }
   if (links.isError) {
     return (
-      <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void links.refetch()} />
+      <ErrorState
+        message={t("loadFailed")}
+        error={links.error}
+        retryLabel={tCommon("tryAgain")}
+        onRetry={() => void links.refetch()}
+      />
     );
   }
   return <LoadingRows rows={1} shape="twoLines" />;
