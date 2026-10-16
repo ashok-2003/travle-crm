@@ -1,8 +1,9 @@
 // Erasing and exporting a customer (spec 7, ADR 0023, R38, R39): crm's part of a person's erasure, run on the
-// platform's transaction as the console's job runs it. Their name and contacts go, they and their leads are
-// soft-deleted with the trip facts kept, their leads' notes and repeat enquiries go with those timeline entries, and
-// blocked contacts that held their phone, email or handle go; nobody else's rows change. The export before it holds
-// their contacts and each lead's stage, trip, source, notes, enquiries and task titles.
+// platform's transaction as the console's job runs it, and the export, read in the organization's transaction. Their
+// name and contacts go, they and their leads are soft-deleted with the trip facts kept, their leads' notes and repeat
+// enquiries go with those timeline entries, and blocked contacts that held their phone, email or handle go; nobody
+// else's rows change. The export before it holds their contacts and each lead's stage, trip, source, notes, enquiries
+// and task titles.
 import { randomUUID } from "node:crypto";
 import { createDatabase, withDeleted, type Database, type OrgTx } from "@travel-crm/db";
 import {
@@ -82,8 +83,8 @@ describe("a customer's erasure and export", () => {
 
   const inOrg = <T>(work: (tx: OrgTx) => Promise<T>): Promise<T> => db.forOrg(organizationId, work);
   const erase = (personId: string) => platformDb.transaction((tx) => eraseCustomer(tx, { organizationId, personId }));
-  const exported = (personId: string) =>
-    platformDb.transaction((tx) => exportCustomer(tx, { organizationId, personId }));
+  // The export only reads, in the organization's own transaction (the console runs it in asOrganization).
+  const exported = (personId: string) => inOrg((tx) => exportCustomer(tx, { organizationId, personId }));
 
   beforeAll(async () => {
     const urls = inject("dbUrls");

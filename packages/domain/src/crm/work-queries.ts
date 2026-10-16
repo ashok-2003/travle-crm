@@ -1,9 +1,10 @@
 // What Today reads from crm (spec 3.5, R35): one person's leads still in New, oldest first, as composable SQL over
 // lead_new_by_owner (R11: the performance tests EXPLAIN the exact query), and the brief line each lead shows beside
 // its task: the person's name and phone, the trip in one line and the source.
-import { leadSource, type TravelWhen, type TripSummary } from "@travel-crm/contracts/crm";
+import { leadSource } from "@travel-crm/contracts/crm";
 import type { LeadBrief } from "@travel-crm/contracts/today";
 import { emptySql, sql, type OrgTx, type Sql } from "@travel-crm/db";
+import { tripSummaryColumns, tripSummaryOf } from "./trip-record.js";
 
 export interface NewLeadsWaitingFilter {
   ownerUserId: string;
@@ -41,62 +42,23 @@ export async function countNewLeadsWaiting(tx: OrgTx, ownerUserId: string): Prom
   return row?.n ?? 0;
 }
 
-/** A stored calendar day, as "2026-11-14". */
-const dayOf = (date: Date) => date.toISOString().slice(0, 10);
-
-/** A lead's or a repeat enquiry's travel columns. */
-export interface TravelColumns {
-  travelKind: string;
-  travelStart: Date | null;
-  travelEnd: Date | null;
-  travelMonth: Date | null;
-}
-
-/** When they travel, from the row's columns (CHECK lead_travel_fits_kind keeps them consistent). */
-export function travelWhenOf(lead: TravelColumns): TravelWhen {
-  if (lead.travelKind === "dates" && lead.travelStart !== null && lead.travelEnd !== null) {
-    return { kind: "dates", from: dayOf(lead.travelStart), to: dayOf(lead.travelEnd) };
-  }
-  if (lead.travelKind === "month" && lead.travelMonth !== null) {
-    return { kind: "month", month: dayOf(lead.travelMonth).slice(0, 7) };
-  }
-  return { kind: lead.travelKind === "flexible" ? "flexible" : "unknown" };
-}
-
 /** The live leads among the ids, each in brief; a lead that is gone (erased) is left out. */
 export async function leadBriefs(tx: OrgTx, leadIds: readonly string[]): Promise<Map<string, LeadBrief>> {
   if (leadIds.length === 0) return new Map();
   const leads = await tx.lead.findMany({
     where: { id: { in: [...new Set(leadIds)] } },
-    select: {
-      id: true,
-      source: true,
-      travelKind: true,
-      travelStart: true,
-      travelEnd: true,
-      travelMonth: true,
-      adults: true,
-      childrenAges: true,
-      person: { select: { name: true, phoneE164: true } },
-      destination: { select: { name: true } },
-    },
+    select: { id: true, source: true, person: { select: { name: true, phoneE164: true } }, ...tripSummaryColumns },
   });
   return new Map(
-    leads.map((lead) => {
-      const trip: TripSummary = {
-        destinationName: lead.destination?.name ?? null,
-        when: travelWhenOf(lead),
-        adults: lead.adults,
-        childrenCount: lead.childrenAges.length,
-      };
-      const brief = {
+    leads.map((lead) => [
+      lead.id,
+      {
         id: lead.id,
         personName: lead.person.name,
         phone: lead.person.phoneE164,
-        trip,
+        trip: tripSummaryOf(lead),
         source: leadSource.parse(lead.source),
-      };
-      return [lead.id, brief];
-    }),
+      },
+    ]),
   );
 }
