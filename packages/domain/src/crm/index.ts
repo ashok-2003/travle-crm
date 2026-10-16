@@ -2,6 +2,11 @@
 // catalog and tasks modules below it, never today above it.
 export { blockLeadContact, listBlockedContacts, unblockContact } from "./blocking.js";
 export { createLead } from "./create-lead.js";
+export {
+  HAND_OVER_BATCH,
+  handOverDepartingMemberListener,
+  type DepartingMemberDependencies,
+} from "./departing-member.js";
 export { mergeDestinations } from "./destination-merges.js";
 export { findKnownContact } from "./known-contact.js";
 export { editLeadPerson, editLeadTrip, moveLeadStage, reassignLead, reopenLead } from "./lead-changes.js";
