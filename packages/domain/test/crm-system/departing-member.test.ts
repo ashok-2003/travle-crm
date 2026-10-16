@@ -197,6 +197,40 @@ describe("a departing member's work", () => {
     expect((await auditOf(reassigned)).map((entry) => entry.actorUserId)).toEqual([manager]);
   });
 
+  it("keeps a reassign of a standalone task that commits while the hand-over waits for it", async () => {
+    const { leaver, owner, handOver } = departure();
+    const ravi = randomUUID();
+    const [reassigned, untouched] = await inOrg(async (tx) => [
+      (await aTask(tx, { assigneeUserId: leaver })).id,
+      (await aTask(tx, { assigneeUserId: leaver })).id,
+    ]);
+    let holder = 0;
+    const released = Promise.withResolvers<undefined>();
+    const changed = Promise.withResolvers<undefined>();
+    // A manager gives the task to Ravi in a transaction that stays open until the hand-over waits on it.
+    const managersChange = db.forOrg(
+      organizationId,
+      async (tx) => {
+        holder = await backendPid(tx);
+        await tx.task.update({ where: { id: reassigned }, data: { assigneeUserId: ravi } });
+        changed.resolve(undefined);
+        await released.promise;
+      },
+      { timeout: 15_000 },
+    );
+    await changed.promise;
+
+    const handingOver = handOver();
+    await waitUntilBlockedBy(platform, holder);
+    released.resolve(undefined);
+    await managersChange;
+    await handingOver;
+
+    expect(await taskAssignee(reassigned)).toBe(ravi);
+    expect(await taskAssignee(untouched)).toBe(owner);
+    expect(await auditOf(reassigned)).toEqual([]);
+  });
+
   it("records each move as the system's, in the audit log and on the timeline", async () => {
     const { leaver, owner, handOver } = departure();
     const ids = await inOrg(async (tx) => {
