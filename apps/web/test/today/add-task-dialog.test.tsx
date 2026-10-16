@@ -168,6 +168,34 @@ describe("AddTaskDialog", () => {
     expect(inputsSentTo("tasks.add")).toEqual([]);
   });
 
+  it("says what the lead search is doing in a status outside the list, and a failed search with Try again", async () => {
+    const api = stubApi({
+      "leads.owners": { data: [{ userId: asha.user.id, name: "Asha" }] },
+      "leads.list": { data: { items: [], nextCursor: null, people: {} } },
+    });
+    renderDialog(asha);
+    const dialog = await openDialog();
+    await userEvent.click(within(dialog).getByRole("combobox", { name: words.lead }));
+    const searchBox = await screen.findByRole("combobox", { name: words.search });
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent(words.searchHint);
+    expect(screen.getByRole("listbox")).not.toContainElement(status);
+    await userEvent.type(searchBox, "Zz");
+    await waitFor(() => {
+      expect(status).toHaveTextContent(words.noMatch);
+    });
+
+    api.answer("leads.list", { status: 500 });
+    await userEvent.type(searchBox, "y");
+    await waitFor(() => {
+      expect(status).toHaveTextContent(messages.errors.generic);
+    });
+    api.answer("leads.list", { data: { items: [rahulsLead], nextCursor: null, people: {} } });
+    await userEvent.click(screen.getByRole("button", { name: messages.common.tryAgain }));
+    expect(await screen.findByRole("option", { name: /Rahul Sharma/ })).toBeVisible();
+    expect(status).toBeEmptyDOMElement();
+  });
+
   it("holds while saving, and shows DUE_IN_THE_PAST's sentence on the time", async () => {
     const held = heldAnswer({ status: 400, reason: "DUE_IN_THE_PAST" });
     stubApi({ "tasks.add": held.answer });

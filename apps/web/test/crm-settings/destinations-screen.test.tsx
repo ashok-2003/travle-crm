@@ -1,6 +1,7 @@
 // Destinations in Settings (spec 3.6): the agency's own list, alphabetically, searched by part of a name; each renamed,
 // a name another destination has refused with its sentence, or merged into another after asking, saying how many leads
-// moved to the one kept. Both are changes for settings:manage.
+// moved to the one kept, which is found by searching the whole list, past its first 100. Both are changes for
+// settings:manage.
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -10,6 +11,7 @@ import { messages } from "@/i18n/messages";
 import { inputsSentTo } from "../documents/sent";
 import { renderAs, screenIs } from "../organization/render";
 import { stubApi } from "../support/api-stub";
+import { stubCalls } from "../today/api";
 
 const words = messages.settings.destinations;
 
@@ -17,6 +19,12 @@ const goa = { id: "0199e7a0-0000-7000-8000-0000000000d1", name: "Goa" };
 const goaTrip = { id: "0199e7a0-0000-7000-8000-0000000000d2", name: "Goa trip" };
 const kashmir = { id: "0199e7a0-0000-7000-8000-0000000000d3", name: "Kashmir" };
 const kerala = { id: "0199e7a0-0000-7000-8000-0000000000d4", name: "Kerala" };
+const zanzibar = { id: "0199e7a0-0000-7000-8000-0000000009f1", name: "Zanzibar" };
+/** 120 more, so Zanzibar comes after the first 100 alphabetically. */
+const places = Array.from({ length: 120 }, (_, index) => ({
+  id: `0199e7a0-0000-7000-8000-${(0x100 + index).toString(16).padStart(12, "0")}`,
+  name: `Place ${String(index).padStart(3, "0")}`,
+}));
 
 beforeEach(() => {
   screenIs("wide");
@@ -129,20 +137,64 @@ describe("DestinationsScreen", () => {
     const dialog = await screen.findByRole("dialog", { name: words.merge.title.replace("{name}", "Goa trip") });
     // It asks which to keep, and says what merging does, before anything is sent.
     expect(within(dialog).getByText(words.merge.description.replace(/\{name\}/g, "Goa trip"))).toBeVisible();
+    const merge = within(dialog).getByRole("button", { name: words.merge.submit });
+    expect(merge.dataset.variant).toBe("destructive");
+    // Nothing chosen yet: it says so, and sends nothing.
+    await userEvent.click(merge);
+    expect(await within(dialog).findByText(words.merge.problems.required)).toBeVisible();
     const keep = within(dialog).getByRole("combobox", { name: words.merge.keep });
     await userEvent.click(keep);
     const options = await screen.findAllByRole("option");
     // Never itself.
     expect(options.map((option) => option.textContent)).toEqual(["Goa", "Kashmir"]);
     await userEvent.click(screen.getByRole("option", { name: "Goa" }));
+    expect(keep).toHaveTextContent("Goa");
     expect(inputsSentTo("destinations.merge")).toEqual([]);
-    const merge = within(dialog).getByRole("button", { name: words.merge.submit });
-    expect(merge.dataset.variant).toBe("destructive");
     await userEvent.click(merge);
     await waitFor(() => {
       expect(inputsSentTo("destinations.merge")).toEqual([{ destinationId: goaTrip.id, intoDestinationId: goa.id }]);
     });
     expect(await screen.findByText("Merged. 3 leads moved to Goa.")).toBeVisible();
+  });
+
+  it("finds a destination past the first 100 by searching, and says when that search failed, with Try again", async () => {
+    const all = [goa, goaTrip, ...places, zanzibar];
+    let searchFails = false;
+    const api = stubCalls((call) => {
+      if (call.path === "destinations.merge") return { data: { leadsMoved: 1 } };
+      const { query, limit } = call.input as { query?: string; limit: number };
+      if (searchFails && query !== undefined) return { status: 500 };
+      const found = all.filter((place) => place.name.toLowerCase().includes((query ?? "").toLowerCase()));
+      return { data: found.slice(0, limit) };
+    });
+    renderScreen();
+    expect(await listed()).toHaveLength(100);
+    expect(screen.queryByText("Zanzibar")).toBeNull();
+    await choose("Goa trip", words.merge.action);
+    const dialog = await screen.findByRole("dialog", { name: words.merge.title.replace("{name}", "Goa trip") });
+    await userEvent.click(within(dialog).getByRole("combobox", { name: words.merge.keep }));
+    const searchBox = await screen.findByRole("combobox", { name: words.merge.search });
+    expect(await screen.findByRole("option", { name: "Goa" })).toBeVisible();
+    expect(screen.queryByRole("option", { name: "Zanzibar" })).toBeNull();
+
+    searchFails = true;
+    await userEvent.type(searchBox, "zan");
+    const status = screen.getByRole("status");
+    await waitFor(() => {
+      expect(status).toHaveTextContent(messages.errors.generic);
+    });
+    expect(screen.getByRole("listbox")).not.toContainElement(status);
+    searchFails = false;
+    await userEvent.click(screen.getByRole("button", { name: messages.common.tryAgain }));
+    await userEvent.click(await screen.findByRole("option", { name: "Zanzibar" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: words.merge.submit }));
+    await waitFor(() => {
+      expect(api.calls.find((call) => call.path === "destinations.merge")?.input).toEqual({
+        destinationId: goaTrip.id,
+        intoDestinationId: zanzibar.id,
+      });
+    });
+    expect(await screen.findByText("Merged. 1 lead moved to Zanzibar.")).toBeVisible();
   });
 
   it("says when there are none yet, and when the list didn't load, with Try again", async () => {

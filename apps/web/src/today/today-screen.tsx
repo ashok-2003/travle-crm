@@ -4,13 +4,16 @@
 // how many things it holds, red when some are overdue, with Add a task as the screen's action; then Overdue, New leads
 // waiting for a reply and Due today, each shown while it holds something. A quiet line says what later releases add.
 import type { TodaySectionName, TodaySummary } from "@travel-crm/contracts/today";
+import { parseCalendarDate, startOfDayIn } from "@travel-crm/domain/kernel";
 import { CalendarCheckIcon } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
+import { formatDay } from "@/lib/format";
+import { useMe } from "@/session/me-context";
 import { AddTaskDialog } from "./add-task-dialog";
 import { TodaySection } from "./today-section";
 import { useTodaySummary } from "./use-today";
@@ -21,21 +24,23 @@ const sections: readonly { name: TodaySectionName; count: keyof TodaySummary["co
   { name: "due-today", count: "dueToday" },
 ];
 
-/** A day with no time, read as UTC midnight so formatting never moves it: "Fri" and "16 Oct". */
-const weekday = new Intl.DateTimeFormat("en-IN", { weekday: "short", timeZone: "UTC" });
-const dayMonth = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: "UTC" });
-
-/** "Fri 16 Oct · 8 things", and "2 overdue" in red when some are. */
+/**
+ * "Fri 16 Oct · 8 things", and "2 overdue" in red when some are. The day is the agency's (the api's), shown by the
+ * shared formatDay from its first moment in the agency's zone; lib/format.ts has no weekday, so next-intl's formatter
+ * gives it, in the same zone.
+ */
 function DayLine({ summary }: { summary: TodaySummary }) {
   const t = useTranslations("today");
-  const date = new Date(`${summary.day}T00:00:00Z`);
+  const format = useFormatter();
+  const { timeZone } = useMe().organization;
+  const start = startOfDayIn(parseCalendarDate(summary.day), timeZone);
   const { overdue, newLeads, dueToday } = summary.counts;
   return (
     <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
       <span>
         {t("intro", {
-          weekday: weekday.format(date),
-          day: dayMonth.format(date),
+          weekday: format.dateTime(start, { weekday: "short", timeZone }),
+          day: formatDay(start, { timeZone }),
           count: overdue + newLeads + dueToday,
         })}
       </span>

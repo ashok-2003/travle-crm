@@ -1,6 +1,6 @@
 // A stand-in for the api behind /api/trpc for Today's tests, which ask one procedure with several inputs (a page of
 // each section): every call, batched or not, is answered by the test's `reply` from its procedure and input, and
-// recorded in order. A reply is the data, a refusal with the api's reason, or no answer ever (a skeleton stays).
+// recorded in order. A reply is the data, a refusal (with the api's reason, if it gives one), or no answer at all.
 import { vi } from "vitest";
 
 export interface Call {
@@ -9,7 +9,7 @@ export interface Call {
   input: unknown;
 }
 
-type Answered = { data: unknown } | { status: number; reason: string };
+type Answered = { data: unknown } | { status: number; reason?: string };
 
 export type Reply = Answered | "never" | "offline";
 
@@ -20,9 +20,9 @@ const itemFor = (reply: Answered) =>
     ? { result: { data: reply.data } }
     : {
         error: {
-          message: reply.reason,
+          message: reply.reason ?? "Refused",
           code: -32603,
-          data: { code: "FORBIDDEN", httpStatus: reply.status, reason: reply.reason },
+          data: { code: "FORBIDDEN", httpStatus: reply.status, reason: reply.reason ?? null },
         },
       };
 
