@@ -23,7 +23,7 @@
   },
   "steps": {
     "loadFailed": "Your account details didn't load.",
-    "backToAccount": "Back to your account"
+    "backToAccount": "Your account"
   },
   "signIn": {
     "title": "Sign in",

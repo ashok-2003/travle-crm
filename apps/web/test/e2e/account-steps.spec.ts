@@ -41,7 +41,7 @@ test("an organization that requires two-factor sends staff to set it up first", 
   await signInWithCode(page, agency.code, ravi);
   await expect(page).toHaveURL(/\/two-factor-setup$/);
   await expect(page.getByText("Your organization asks everyone")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Back to your account" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Your account", exact: true })).toHaveCount(0);
   await expectAccessible(page);
   await setUpTwoFactor(page, ravi.password);
   await expect(page.getByRole("heading", { level: 1, name: "Welcome, Ravi Kumar" })).toBeVisible();
@@ -55,7 +55,7 @@ test("an Owner turns two-factor on from their account, then signs in with a code
   await expectAccessible(page);
   await page.getByRole("link", { name: "Set up" }).click();
   // A setup the Owner chose has a way back; the one an organization requires (above) doesn't.
-  await expect(page.getByRole("link", { name: "Back to your account" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Your account", exact: true })).toBeVisible();
   const secret = await setUpTwoFactor(page, agency.owner.password);
   await expect(page.getByRole("heading", { level: 1, name: `Welcome, ${agency.owner.name}` })).toBeVisible();
 

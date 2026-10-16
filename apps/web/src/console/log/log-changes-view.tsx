@@ -82,10 +82,13 @@ function say<T extends string>(options: readonly T[], value: string, words: (opt
   return option && words(option);
 }
 
-/** The entry's snapshots without the record's own id, which says nothing to a reader. */
+/** The records' own ids the platform module stores beside their changes, which say nothing to a reader. */
+const OWN_IDS = new Set(["paymentId", "exportId"]);
+
+/** The entry's snapshots without the record's own id. */
 function withoutOwnId(snapshot: PlatformLogEntry["before"]): PlatformLogEntry["before"] {
   if (snapshot === null) return null;
-  return Object.fromEntries(Object.entries(snapshot).filter(([field]) => field !== "paymentId"));
+  return Object.fromEntries(Object.entries(snapshot).filter(([field]) => !OWN_IDS.has(field)));
 }
 
 export function LogChanges({ entry, names }: { entry: Pick<PlatformLogEntry, "before" | "after">; names: LogNames }) {

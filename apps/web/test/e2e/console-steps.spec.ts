@@ -15,7 +15,7 @@ test("new platform staff replace their temporary password and set up two-factor,
 
   await expect(page).toHaveURL(/\/change-password\?next=%2Fconsole$/);
   await expect(page.getByText("Your admin gave you a temporary password.")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Back to your account" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Your account", exact: true })).toHaveCount(0);
   await page.getByLabel("Temporary password").fill(newcomer.password);
   await page.getByLabel("New password", { exact: true }).fill("newcomers-own-password");
   await page.getByLabel("New password again").fill("newcomers-own-password");
