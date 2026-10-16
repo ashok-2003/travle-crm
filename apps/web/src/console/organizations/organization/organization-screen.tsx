@@ -2,8 +2,8 @@
 
 // /console/organizations/<id>: one organization as the console shows it (organizations.get): its name, sign-in code
 // and status today; just after onboarding, that the Owner's invite is on its way; its row with corrections, its
-// subscription, its business profile and its members; for super admins, the way to its data protection. An organization that doesn't
-// exist (purged, or a mistyped address) is said so, with the way back to the dashboard.
+// subscription, its business profile and its members; for super admins, the way to its data protection. An
+// organization that doesn't exist (purged, or a mistyped address) is said so, with the way back to the dashboard.
 import { useQuery } from "@tanstack/react-query";
 import { CircleCheckIcon, SearchXIcon } from "lucide-react";
 import Link from "next/link";
