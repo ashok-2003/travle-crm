@@ -25,7 +25,7 @@ describe("the console's requests", () => {
     await server.close();
   });
 
-  /** A JSON POST from the trusted origin, as the console screens send mutations, with this body. */
+  /** A JSON POST from the trusted origin, as the console screens send every call, with this body. */
   async function post(body: string | ReadableStream<Uint8Array>): Promise<Response> {
     return testConsole.app.request("/api/platform/trpc/whoAmI", {
       method: "POST",
@@ -51,7 +51,7 @@ describe("the console's requests", () => {
   });
 
   it("lets a body under the limit through to tRPC", async () => {
-    // whoAmI is a query, so tRPC itself answers the POST: the limit didn't.
-    expect((await post(JSON.stringify({ padding: "x".repeat(1_000) }))).status).toBe(405);
+    // whoAmI is a query, which the web app posts as it posts every call: tRPC answers it.
+    expect((await post(JSON.stringify({ padding: "x".repeat(1_000) }))).status).toBe(200);
   });
 });

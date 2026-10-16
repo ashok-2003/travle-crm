@@ -251,6 +251,9 @@ deploy (Q6, Q11). Everything above holds on both; this is what differs.
   (`apps/api/README.md`, "The log"), and its start-up line to stdout. The platform keeps both.
 - **The load balancer's access logs** keep the request's path, which for a password reset holds its token: keep them
   short-lived or strip that path (above).
+- **Access logs must not record query strings for `/api/trpc/*` and `/api/platform/trpc/*`.** The web app posts every
+  call, queries included, so a customer's phone, email or searched name stays in the body; a GET (tRPC's default, and
+  what a test or a curl may still send) carries its input in the URL, where no erasure reaches it.
 
 ## Still open before launch
 
