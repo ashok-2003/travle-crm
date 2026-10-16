@@ -48,10 +48,14 @@ export function demoLeads(now: Date, timeZone: string): DemoLead[] {
   const ago = (minutes: number) => new Date(now.getTime() - minutes * 60_000);
   const daysAgo = (days: number) => ago(days * 24 * 60);
   const at = (days: number, time: string) => instantAt(addDays(today, days), parseTimeOfDay(time), timeZone);
-  // Due today: spread between now and the agency's midnight, whatever hour the demo is built.
+  // Due today: spread between now and the agency's midnight, whatever hour the demo is built, on the minute unless the
+  // minute is already past (a reset in the day's last minute keeps the exact instant, still today).
   const endsAt = startOfDayIn(addDays(today, 1), timeZone).getTime();
-  const laterToday = (part: number) =>
-    new Date(Math.floor((now.getTime() + (endsAt - now.getTime()) * part) / 60_000) * 60_000);
+  const laterToday = (part: number) => {
+    const exact = now.getTime() + (endsAt - now.getTime()) * part;
+    const onTheMinute = Math.floor(exact / 60_000) * 60_000;
+    return new Date(onTheMinute > now.getTime() ? onTheMinute : exact);
+  };
   const dates = (from: number, nights: number) =>
     ({ kind: "dates", from: addDays(today, from), to: addDays(today, from + nights) }) as const;
   const month = (inDays: number) => ({ kind: "month", month: addDays(today, inDays).slice(0, 7) }) as const;

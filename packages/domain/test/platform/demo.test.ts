@@ -8,6 +8,7 @@ import { leadStages } from "@travel-crm/contracts/crm";
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { findOrganizationRecord } from "../../src/identity/index.js";
+import { addDays, calendarDateIn, startOfDayIn } from "../../src/kernel/index.js";
 import { todaySummary } from "../../src/today/index.js";
 import {
   listPlatformLog,
@@ -130,6 +131,50 @@ describe("the demo reset", () => {
       expect(today.counts.newLeads).toBeGreaterThanOrEqual(1);
       expect(today.counts.dueToday).toBeGreaterThanOrEqual(1);
       expect(today.top.map((item) => item.kind)).toEqual(["task", "new-lead", "task"]);
+    }
+  });
+
+  it("times the follow-ups two overdue, three due today and two later, even a minute before midnight", async () => {
+    // 02:00 and 15:00 in India, and 23:59:30, when "later today" is half a minute long.
+    const nows = ["2026-10-17T20:30:00Z", "2026-10-18T09:30:00Z", "2026-10-18T18:29:30Z"].map((iso) => new Date(iso));
+    for (const now of nows) {
+      const { organizationId } = await resetDemoOrganization(test.services, demoSettings(), now);
+      const endsAt = startOfDayIn(addDays(calendarDateIn(now, "Asia/Kolkata"), 1), "Asia/Kolkata");
+      const due = await test.services.db.forOrg(organizationId, (tx) =>
+        tx.task.findMany({ where: { kind: "follow-up" }, select: { dueAt: true } }),
+      );
+      const split = [
+        due.filter(({ dueAt }) => dueAt < now).length,
+        due.filter(({ dueAt }) => dueAt >= now && dueAt < endsAt).length,
+        due.filter(({ dueAt }) => dueAt >= endsAt).length,
+      ];
+      expect(split, now.toISOString()).toEqual([2, 3, 2]);
+    }
+  });
+
+  it("dates each lead's stage change as its timeline does, before a past trip", async () => {
+    const now = new Date("2026-10-17T20:30:00Z");
+    const { organizationId } = await resetDemoOrganization(test.services, demoSettings(), now);
+    const leads = await test.services.db.forOrg(organizationId, (tx) =>
+      tx.lead.findMany({
+        where: { stage: { not: "new" } },
+        select: {
+          stage: true,
+          createdAt: true,
+          stageChangedAt: true,
+          firstReplyAt: true,
+          travelStart: true,
+          timeline: { where: { kind: "stage-changed" }, select: { occurredAt: true } },
+        },
+      }),
+    );
+    expect(leads).toHaveLength(11);
+    for (const lead of leads) {
+      expect(lead.timeline.map((entry) => entry.occurredAt)).toEqual([lead.stageChangedAt]);
+      expect(lead.stageChangedAt > lead.createdAt && lead.stageChangedAt < now).toBe(true);
+      expect(lead.firstReplyAt).toEqual(lead.stage === "not_a_lead" ? null : lead.stageChangedAt);
+      if (lead.travelStart !== null && lead.travelStart < now)
+        expect(lead.stageChangedAt < lead.travelStart).toBe(true);
     }
   });
 

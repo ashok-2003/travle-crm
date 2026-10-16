@@ -13,8 +13,11 @@ import { DESTINATIONS, PEOPLE, demoLeads } from "./demo-lead-data.js";
 import { recordLeadEvent } from "./lead-events.js";
 import { addPerson } from "./people.js";
 
-const between = (from: Date, to: Date, part: number) =>
-  new Date(from.getTime() + (to.getTime() - from.getTime()) * part);
+const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
+
+/** When a demo lead left New: two days after it came, or 40% of the way to now for a lead younger than five days. */
+const movedOnAt = (createdAt: Date, now: Date) =>
+  new Date(createdAt.getTime() + Math.min(TWO_DAYS_MS, (now.getTime() - createdAt.getTime()) * 0.4));
 
 /** Builds the demo's leads, inside the reset's transaction in the demo organization, as `actor` (the system). */
 export async function addDemoLeads(
@@ -67,9 +70,15 @@ export async function addDemoLeads(
       },
       now,
     );
+    // A lead past New was moved on two days after it came, or sooner for a younger one: its row and its timeline say
+    // the same, and its first reply is that moment, as the stage rule keeps it (but for Not a lead).
+    const changedAt = movedOnAt(lead.createdAt, now);
     if (lead.stage !== "new") {
-      const occurredAt = between(lead.createdAt, now, 0.4);
-      await recordLeadEvent(tx, actor, { leadId, kind: "stage-changed", stage: lead.stage, occurredAt });
+      await tx.lead.update({
+        where: { id: leadId },
+        data: { stageChangedAt: changedAt, firstReplyAt: lead.stage === "not_a_lead" ? null : changedAt },
+      });
+      await recordLeadEvent(tx, actor, { leadId, kind: "stage-changed", stage: lead.stage, occurredAt: changedAt });
     }
     if (lead.followUp !== undefined) {
       const { title, dueAt } = lead.followUp;
@@ -86,7 +95,7 @@ export async function addDemoLeads(
         leadId,
         kind: "follow-up-added",
         record: added,
-        occurredAt: between(lead.createdAt, now, 0.5),
+        occurredAt: changedAt,
       });
     }
   }
