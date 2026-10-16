@@ -11,11 +11,14 @@ export function NoteField<Values extends FieldValues>({
   name,
   label,
   hint,
+  disabled = false,
 }: {
   control: Control<Values>;
   name: FieldPath<Values>;
   label: string;
   hint?: string;
+  /** Held while what it is part of is being sent. */
+  disabled?: boolean;
 }) {
   return (
     <Controller
@@ -24,7 +27,13 @@ export function NoteField<Values extends FieldValues>({
       render={({ field, fieldState }) => (
         <FormField label={label} hint={hint} error={fieldState.error?.message}>
           {(links) => (
-            <Textarea {...links} {...field} rows={3} value={typeof field.value === "string" ? field.value : ""} />
+            <Textarea
+              {...links}
+              {...field}
+              rows={3}
+              disabled={disabled}
+              value={typeof field.value === "string" ? field.value : ""}
+            />
           )}
         </FormField>
       )}

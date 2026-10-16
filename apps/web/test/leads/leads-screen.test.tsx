@@ -6,7 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { messages } from "@/i18n/messages";
 import { LeadsScreen } from "@/leads/list/leads-screen";
-import { stubApi, type Answer } from "../support/api-stub";
+import { heldAnswer, stubApi, type Answer } from "../support/api-stub";
 import { address } from "./navigation";
 import { aListItem, aPage, counts, ids } from "./records";
 import { inputsTo, lastInputTo, owner, renderScreen, salesperson } from "./screen";
@@ -209,6 +209,33 @@ describe("LeadsScreen", () => {
       "href",
       `/leads/${ids.rahul}?view=everyone`,
     );
+  });
+
+  it("names the destination the address chose once the agency's list arrives", async () => {
+    address.set(`/leads?destination=${ids.goa}`);
+    const destinations = heldAnswer({ data: [{ id: ids.goa, name: "Goa" }] });
+    renderLeads({ "destinations.search": destinations.answer });
+    await userEvent.click(await screen.findByRole("button", { name: list.filtersChosen.replace("{count}", "1") }));
+    const filters = await screen.findByRole("dialog", { name: list.filtersDialog.title });
+    const picker = within(filters).getByRole("combobox", { name: list.filtersDialog.destination });
+    expect(picker).toHaveTextContent(list.filtersDialog.chosen);
+    destinations.release();
+    await waitFor(() => {
+      expect(picker).toHaveTextContent("Goa");
+    });
+  });
+
+  it("says when the chips' counts didn't load, with Try again, and keeps the list", async () => {
+    const api = renderLeads({ "leads.counts": { status: 500 } });
+    expect(await screen.findByText(list.countsFailed)).toBeVisible();
+    expect(await rows()).toHaveLength(1);
+    api.answer("leads.counts", { data: counts });
+    await userEvent.click(screen.getByRole("button", { name: messages.common.tryAgain }));
+    const chips = screen.getByRole("radiogroup", { name: list.chips });
+    await waitFor(() => {
+      expect(within(chips).getByRole("radio", { name: /^New/ })).toHaveTextContent("New3");
+    });
+    expect(screen.queryByText(list.countsFailed)).not.toBeInTheDocument();
   });
 
   it("shows the skeleton, the error with Try again, and a refusal's sentence", async () => {

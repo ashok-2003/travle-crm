@@ -6,7 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { messages } from "@/i18n/messages";
 import { Timeline } from "@/leads/lead/timeline";
-import { stubApi } from "../support/api-stub";
+import { heldAnswer, stubApi } from "../support/api-stub";
 import { member } from "../support/members";
 import { aLead, anEntry, aTimeline, ids } from "./records";
 import { inputsTo, lastInputTo, owner, renderScreen } from "./screen";
@@ -132,5 +132,36 @@ describe("Timeline", () => {
     api.answer("leads.timeline", aTimeline(entries()));
     await userEvent.click(screen.getByRole("button", { name: messages.common.tryAgain }));
     expect(await sentences()).toHaveLength(9);
+  });
+
+  it("shows two lines that read alike, each once, without a clash", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const enquiry = anEntry({
+      kind: "repeat-enquiry",
+      enquiry: { source: "other", sourceDetail: null, note: "Other", trip: { ...aLead().trip, destination: null } },
+    });
+    stubApi({ "leads.timeline": aTimeline([enquiry]) });
+    renderScreen(<Timeline lead={aLead()} />);
+    expect(await sentences()).toEqual([words.repeatEnquiry]);
+    expect(screen.getAllByText("Other")).toHaveLength(2);
+    expect(errors.mock.calls.flat().join(" ")).not.toMatch(/same key/);
+    errors.mockRestore();
+  });
+
+  it("holds the note box while the note is being sent", async () => {
+    const sending = heldAnswer({ data: null });
+    stubApi({ "leads.timeline": aTimeline(entries()), "leads.addNote": sending.answer });
+    renderScreen(<Timeline lead={aLead()} />);
+    const box = await screen.findByLabelText(words.addNote);
+    await userEvent.type(box, "Called back");
+    await userEvent.click(screen.getByRole("button", { name: words.saveNote }));
+    await waitFor(() => {
+      expect(box).toBeDisabled();
+    });
+    sending.release();
+    await waitFor(() => {
+      expect(box).toBeEnabled();
+    });
+    expect(box).toHaveValue("");
   });
 });

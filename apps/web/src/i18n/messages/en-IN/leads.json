@@ -133,7 +133,8 @@
       "anyTripType": "Any trip type",
       "clear": "Clear all",
       "apply": "Show leads"
-    }
+    },
+    "countsFailed": "The counts didn't load."
   },
   "form": {
     "title": "New lead",
@@ -208,7 +209,8 @@
       "newLead": "New trip enquiry",
       "newLeadHint": "A new lead for the same person, marked Returning.",
       "blocked": "This contact is on the blocked list. You can still save the lead.",
-      "chooseThenSave": "Someone added a lead for this person a moment ago. Choose what to do with this enquiry, then save again."
+      "chooseThenSave": "Someone added a lead for this person a moment ago. Choose what to do with this enquiry, then save again.",
+      "chooseFirst": "Choose what to do with the open lead above, then save."
     },
     "destination": {
       "placeholder": "Choose a destination",
@@ -217,7 +219,8 @@
       "searching": "Searching",
       "noMatch": "No destination matches.",
       "add": "Add “{name}”",
-      "clear": "No destination"
+      "clear": "No destination",
+      "loadFailed": "The destinations didn't load."
     },
     "problems": {
       "required": "Fill this in.",
@@ -244,7 +247,8 @@
     "loading": "Loading the lead",
     "loadFailed": "The lead didn't load.",
     "notFound": "There's no lead here. It may have been removed.",
-    "stage": "Stage",
+    "stageNamed": "Stage: {stage}",
+    "moveTo": "Move to {stage}",
     "tapToMove": "Tap a stage to move the lead there.",
     "moved": "Moved to {stage}",
     "reopen": "Reopen",
@@ -286,7 +290,8 @@
       "problems": {
         "required": "Choose who works the lead.",
         "owner": "Choose who works the lead."
-      }
+      },
+      "ownersFailed": "The people who can work leads didn't load."
     },
     "edit": "Edit",
     "work": {

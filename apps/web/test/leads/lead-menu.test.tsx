@@ -123,4 +123,17 @@ describe("LeadMenu", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: words.reassign.submit }));
     expect(await within(dialog).findByText(messages.errors.reasons.NOT_A_LEAD_WORKER)).toBeVisible();
   });
+
+  it("says when the people who can work leads didn't load, with Try again, and can't be sent", async () => {
+    const api = renderMenu();
+    api.answer("leads.owners", { status: 500 });
+    await userEvent.click(within(await openMenu()).getByRole("menuitem", { name: words.menu.reassign }));
+    const dialog = await screen.findByRole("dialog", { name: words.reassign.title });
+    expect(await within(dialog).findByText(words.reassign.ownersFailed)).toBeVisible();
+    expect(within(dialog).getByRole("button", { name: words.reassign.submit })).toBeDisabled();
+    api.answer("leads.owners", { data: [{ userId: salesperson.user.id, name: "Ravi Kumar" }] });
+    await userEvent.click(within(dialog).getByRole("button", { name: messages.common.tryAgain }));
+    expect(await within(dialog).findByRole("combobox", { name: words.reassign.owner })).toBeVisible();
+    expect(within(dialog).getByRole("button", { name: words.reassign.submit })).toBeEnabled();
+  });
 });

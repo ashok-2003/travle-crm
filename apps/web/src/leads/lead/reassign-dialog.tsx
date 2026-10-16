@@ -2,11 +2,13 @@
 
 // Giving a lead to someone else (spec 3.4, 4, R14, R21): one of the people who can work leads (leads.owners), the
 // lead's open follow-ups going with it. A FormDialog: it holds while the request is out, and a refusal (someone who
-// can't work leads any more) shows its sentence in it. Opened from the ⋯ menu or the owner card.
+// can't work leads any more) shows its sentence in it; a list of people that didn't load says so, with Try again.
+// Opened from the ⋯ menu or the owner card.
 import { reassignLeadInput, type LeadDetail, type ReassignLeadInput } from "@travel-crm/contracts/crm";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
+import { ErrorState } from "@/components/error-state";
 import { checked } from "@/components/forms/checked";
 import { FormAlert, FormDialog, type Sending } from "@/components/forms/form-dialog";
 import { SelectField } from "@/components/forms/select-field";
@@ -29,6 +31,7 @@ function ReassignForm({
   reassign: Sending<ReassignLeadInput>;
 }) {
   const t = useTranslations("leads.lead.reassign");
+  const tCommon = useTranslations("common");
   const owners = useLeadOwners();
   const { form, onSubmit, formProblem } = useCheckedForm<ReassignValues, ReassignLeadInput, "required" | "owner">(
     { ownerUserId: lead.ownerUserId ?? "" },
@@ -41,6 +44,17 @@ function ReassignForm({
       ),
     (problem) => t(`problems.${problem}`),
   );
+  // Without the list there is no one to choose: it says why, with Try again, and the dialog can't be sent.
+  if (owners.isError) {
+    return (
+      <ErrorState
+        message={t("ownersFailed")}
+        error={owners.error}
+        retryLabel={tCommon("tryAgain")}
+        onRetry={() => void owners.refetch()}
+      />
+    );
+  }
   return (
     <form id={formId} noValidate onSubmit={onSubmit(reassign.mutate)} className="flex flex-col gap-4">
       <SelectField

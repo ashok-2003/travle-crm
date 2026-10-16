@@ -3,12 +3,14 @@
 // The destination picker (spec 3.2, R45): the registry combobox, a Command in a Popover, searching the agency's own
 // list as the person types (destinations.search, forgiving of typos). In the lead form a name that isn't on the list
 // can be added ('Add "Spiti"'), which the api adds to the list when the lead is saved; the list's filter picks only
-// existing ones. Labelled, hinted and with its error as every field is (form-field.tsx).
+// existing ones. A search that fails says so, with Try again. Labelled, hinted and with its error as every field is
+// (form-field.tsx).
 import { useQuery } from "@tanstack/react-query";
 import { ChevronsUpDownIcon, PlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { useController, type Control, type FieldPath, type FieldValues } from "react-hook-form";
+import { ErrorState } from "@/components/error-state";
 import { FormField } from "@/components/form-field";
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -44,6 +46,7 @@ export function DestinationField<Values extends FieldValues>({
   allowNew?: boolean;
 }) {
   const t = useTranslations("leads.form.destination");
+  const tCommon = useTranslations("common");
   const trpc = useTRPC();
   const { field, fieldState } = useController({ control, name });
   const value: unknown = field.value;
@@ -97,7 +100,17 @@ export function DestinationField<Values extends FieldValues>({
                 placeholder={allowNew ? t("searchOrAdd") : t("search")}
               />
               <CommandList>
-                <CommandEmpty>{found.isPending ? t("searching") : t("noMatch")}</CommandEmpty>
+                {found.isError ? (
+                  // Not "no match": the list didn't load. A new name can still be added meanwhile.
+                  <ErrorState
+                    message={t("loadFailed")}
+                    error={found.error}
+                    retryLabel={tCommon("tryAgain")}
+                    onRetry={() => void found.refetch()}
+                  />
+                ) : (
+                  <CommandEmpty>{found.isPending ? t("searching") : t("noMatch")}</CommandEmpty>
+                )}
                 <CommandGroup>
                   {found.data?.map((destination) => (
                     <CommandItem
@@ -111,7 +124,7 @@ export function DestinationField<Values extends FieldValues>({
                       {destination.name}
                     </CommandItem>
                   ))}
-                  {allowNew && newName !== "" && listed === false && (
+                  {allowNew && newName !== "" && listed !== true && (
                     <CommandItem
                       value="new"
                       onSelect={() => {

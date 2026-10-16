@@ -27,8 +27,9 @@ export function TimelineEntryItem({ entry, people }: { entry: TimelineEntry; peo
   const lines = (...texts: (string | null)[]) =>
     texts
       .filter((text) => text !== null && text !== "")
-      .map((text) => (
-        <p key={text} className="whitespace-pre-line script-leading">
+      .map((text, index) => (
+        // Two lines may read alike (a note that repeats the trip), so each is keyed by its entry and its place.
+        <p key={`${entry.id}-${String(index)}`} className="whitespace-pre-line script-leading">
           {text}
         </p>
       ));

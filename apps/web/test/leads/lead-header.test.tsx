@@ -79,7 +79,9 @@ describe("LeadScreen", () => {
     address.set(`/leads/${ids.rahul}?view=everyone&stage=new`);
     renderLeadScreen();
     expect(await screen.findByRole("heading", { level: 1, name: "Rahul Sharma" })).toBeVisible();
-    expect(screen.getByRole("region", { name: words.stage })).toBeVisible();
+    expect(
+      screen.getByRole("region", { name: words.stageNamed.replace("{stage}", messages.leads.stages.new) }),
+    ).toBeVisible();
     expect(screen.getByRole("link", { name: words.back })).toHaveAttribute("href", "/leads?view=everyone&stage=new");
   });
 

@@ -113,6 +113,16 @@ export function LeadsScreen() {
         />
         <FiltersDialog filters={input} chipShown={isChipStage(input.stage)} ownOnly={ownOnly} onApply={show} />
       </div>
+      {counts.isError && (
+        // The chips still filter without their counts; a line says they didn't load, with Try again. A refusal would
+        // refuse the list too, whose own error says its reason.
+        <div role="alert" className="flex flex-wrap items-center gap-x-2 text-label text-muted-foreground">
+          {t("countsFailed")}
+          <Button variant="link" className="h-auto min-h-11 px-0" onClick={() => void counts.refetch()}>
+            {tCommon("tryAgain")}
+          </Button>
+        </div>
+      )}
     </div>
   );
 

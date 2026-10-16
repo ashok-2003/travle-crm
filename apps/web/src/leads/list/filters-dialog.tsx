@@ -14,7 +14,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { SlidersHorizontalIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import { SelectField } from "@/components/forms/select-field";
 import { ResponsiveDialog } from "@/components/responsive-dialog";
@@ -59,8 +59,8 @@ function FiltersForm({
   const destinations = useQuery(
     trpc.destinations.search.queryOptions({ limit: 100 }, { enabled: filters.destinationId !== undefined }),
   );
-  const destinationName =
-    destinations.data?.find((destination) => destination.id === filters.destinationId)?.name ?? words("chosen");
+  const named = destinations.data?.find((destination) => destination.id === filters.destinationId);
+  const destinationName = named?.name ?? words("chosen");
   const form = useForm<FilterValues>({
     defaultValues: {
       stage: filters.stage,
@@ -73,6 +73,13 @@ function FiltersForm({
     },
   });
   const { control } = form;
+  // Opened before the agency's list arrived, the picker names the chosen destination once it does.
+  useEffect(() => {
+    const chosen = form.getValues("destination");
+    if (named && chosen?.kind === "existing" && chosen.destinationId === named.id && chosen.name !== named.name) {
+      form.setValue("destination", { ...chosen, name: named.name });
+    }
+  }, [named, form]);
   return (
     <form
       id={formId}
