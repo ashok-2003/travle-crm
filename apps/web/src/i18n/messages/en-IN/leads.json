@@ -34,9 +34,9 @@
     "trek": "Trek"
   },
   "hotelCategories": {
-    "3_star": "3 star",
-    "4_star": "4 star",
-    "5_star": "5 star",
+    "3_star": "3★",
+    "4_star": "4★",
+    "5_star": "5★",
     "any": "Any"
   },
   "food": {
