@@ -4,13 +4,12 @@
 import type { StaffMember } from "@travel-crm/contracts/identity";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { useErrorMessage } from "@/lib/error-message";
 import { useMe } from "@/session/me-context";
-import { ResponsiveDialog } from "../responsive-dialog";
+import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { Handover } from "./handover";
 import { handoverSignInName } from "./staff-details";
 import { temporaryPassword } from "./temporary-password";
@@ -27,7 +26,6 @@ export function ResetPasswordDialog({
 }) {
   const t = useTranslations("staff");
   const me = useMe();
-  const { apiError } = useErrorMessage();
   const [password, setPassword] = useState(temporaryPassword);
   const reset = useResetStaffPassword();
   const formId = useId();
@@ -92,11 +90,7 @@ export function ResetPasswordDialog({
               }}
             />
           </Field>
-          {reset.isError && (
-            <Alert variant="destructive">
-              <AlertDescription>{apiError(reset.error)}</AlertDescription>
-            </Alert>
-          )}
+          <RefusalAlert error={reset.error} />
         </form>
       )}
     </ResponsiveDialog>

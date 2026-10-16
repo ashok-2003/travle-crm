@@ -7,7 +7,7 @@ import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ResponsiveDialog } from "../responsive-dialog";
+import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { useChangeStaffRole } from "./use-staff";
 
 export function ChangeRoleDialog({

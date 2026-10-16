@@ -8,7 +8,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ConsoleProviders } from "@/console/data/console-providers";
 import { DashboardScreen } from "@/console/dashboard/dashboard-screen";
-import { PLATFORM_TIME_ZONE } from "@/console/platform-time-zone";
+import { PLATFORM_TIME_ZONE } from "@/lib/platform-time-zone";
 import { locale, messages } from "@/i18n/messages";
 import { formatDay } from "@/lib/format";
 import { stubApi } from "../support/api-stub";

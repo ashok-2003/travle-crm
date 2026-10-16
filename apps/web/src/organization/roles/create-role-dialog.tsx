@@ -6,19 +6,17 @@ import { PlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { roleName } from "@travel-crm/contracts/identity";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { useErrorMessage } from "@/lib/error-message";
 import { useWriteAccess } from "@/subscription/write-access";
-import { ResponsiveDialog } from "../responsive-dialog";
+import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { useCreateRole } from "./use-roles";
 
 export function CreateRoleDialog() {
   const t = useTranslations("roles.create");
   const tRoles = useTranslations("roles");
-  const { apiError } = useErrorMessage();
   const create = useCreateRole();
   const write = useWriteAccess();
   const [open, setOpen] = useState(false);
@@ -91,11 +89,7 @@ export function CreateRoleDialog() {
             <FieldDescription>{t("nameHint")}</FieldDescription>
             {invalid && <FieldError>{t("nameRequired")}</FieldError>}
           </Field>
-          {create.isError && (
-            <Alert variant="destructive">
-              <AlertDescription>{apiError(create.error)}</AlertDescription>
-            </Alert>
-          )}
+          <RefusalAlert error={create.error} />
         </form>
       </ResponsiveDialog>
     </div>

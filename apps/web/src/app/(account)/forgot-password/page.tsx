@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { ForgotPasswordForm } from "@/account/forgot-password-form";
-import { TextLink } from "@/account/text-link";
+import { TextLink } from "@/components/text-link";
 import { PageHeader } from "@/components/page-header";
 import { routes } from "@/lib/routes";
 

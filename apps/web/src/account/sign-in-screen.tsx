@@ -14,7 +14,7 @@ import { EmailSignInForm } from "./email-sign-in-form";
 import { useFinishSignIn } from "./finish-sign-in";
 import { nextPath } from "./next-path";
 import { useRememberedOrganizationCode } from "./remembered-code";
-import { TextLink } from "./text-link";
+import { TextLink } from "@/components/text-link";
 
 type Way = "email" | "code";
 

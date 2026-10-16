@@ -17,5 +17,6 @@
     "title": "This page doesn't exist",
     "body": "The address may be mistyped, or the page has moved.",
     "home": "Go to the home screen"
-  }
+  },
+  "loadingMore": "Loading more"
 }

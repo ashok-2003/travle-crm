@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Item, ItemContent } from "@/components/ui/item";
 import { useErrorMessage } from "@/lib/error-message";
-import { useInstantText } from "../log/instant";
+import { useInstantText } from "@/components/instant-text";
 import { useDownloadExport } from "./use-exports";
 
 const toneOf: Record<OrganizationExport["state"], StatusTone> = {

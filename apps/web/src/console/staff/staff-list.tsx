@@ -15,7 +15,7 @@ import {
   ItemTitle,
 } from "@/components/ui/item";
 import { formatDay } from "@/lib/format";
-import { PLATFORM_TIME_ZONE } from "../platform-time-zone";
+import { PLATFORM_TIME_ZONE } from "@/lib/platform-time-zone";
 import { useStaff } from "../session/staff-context";
 import { SignInState } from "./sign-in-state";
 import { StaffActions } from "./staff-actions";

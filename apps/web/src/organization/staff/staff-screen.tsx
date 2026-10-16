@@ -7,15 +7,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { UsersIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Delayed } from "@/components/delayed";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { PageHeader } from "@/components/page-header";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useTRPC } from "@/data/trpc";
 import { useWriteAccess } from "@/subscription/write-access";
 import { CreateStaffDialog } from "./create-staff-dialog";
 import { StaffList } from "./staff-list";
+import { LoadingRows } from "@/components/loading-rows";
 
 export function StaffScreen() {
   const t = useTranslations("staff");
@@ -50,15 +49,7 @@ export function StaffScreen() {
         />
       );
     }
-    return (
-      <Delayed>
-        <div role="status" aria-busy="true" aria-label={tCommon("loading")} className="flex flex-col gap-2">
-          {[0, 1, 2, 3].map((row) => (
-            <Skeleton key={row} className="h-14 w-full" />
-          ))}
-        </div>
-      </Delayed>
-    );
+    return <LoadingRows />;
   };
 
   return (

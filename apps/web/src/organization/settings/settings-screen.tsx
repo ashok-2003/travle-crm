@@ -7,7 +7,7 @@ import { Details } from "@/components/details";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { useMe } from "@/session/me-context";
-import { CopyButton } from "../copy-button";
+import { CopyButton } from "@/components/copy-button";
 import { SettingsSections } from "./settings-sections";
 import { TwoFactorRequirement } from "./two-factor-requirement";
 

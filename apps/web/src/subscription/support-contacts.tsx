@@ -4,11 +4,7 @@ import { brand } from "@travel-crm/brand";
 import { MailIcon, PhoneIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Item, ItemContent, ItemGroup, ItemMedia, ItemSeparator, ItemTitle } from "@/components/ui/item";
-
-/** An Indian number in E.164 ("+919876543210") as "+91 98765 43210"; any other as it is stored. */
-function formatPhone(phone: string): string {
-  return phone.replace(/^\+91(\d{5})(\d{5})$/, "+91 $1 $2");
-}
+import { formatPhoneNumber } from "@/lib/format";
 
 export function SupportContacts() {
   const t = useTranslations("subscription.locked");
@@ -38,7 +34,7 @@ export function SupportContacts() {
                 <PhoneIcon aria-hidden="true" />
               </ItemMedia>
               <ItemContent>
-                <ItemTitle className="numbers">{formatPhone(brand.supportPhone)}</ItemTitle>
+                <ItemTitle className="numbers">{formatPhoneNumber(brand.supportPhone)}</ItemTitle>
               </ItemContent>
             </a>
           </Item>

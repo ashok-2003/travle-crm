@@ -7,8 +7,8 @@ import { NextIntlClientProvider } from "next-intl";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Button } from "@/components/ui/button";
 import { locale, messages } from "@/i18n/messages";
-import { ResponsiveDialog } from "@/organization/responsive-dialog";
-import { screenIs } from "./render";
+import { ResponsiveDialog } from "@/components/responsive-dialog";
+import { screenIs } from "../organization/render";
 
 const { common } = messages;
 

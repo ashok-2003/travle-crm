@@ -1,8 +1,8 @@
 "use client";
 
-// The dashboard's organizations a page at a time (dashboard.organizations), oldest first: each page asks for those
-// after the last organization of the page before.
-import { useInfiniteQuery } from "@tanstack/react-query";
+// The dashboard's organizations a page at a time (dashboard.organizations, data/use-cursor-pages.ts), oldest first:
+// each page asks for those after the last organization of the page before.
+import { useCursorPages } from "@/data/use-cursor-pages";
 import { useConsoleTRPC, useConsoleTRPCClient } from "../data/console-trpc";
 
 export const ORGANIZATIONS_PER_PAGE = 25;
@@ -10,15 +10,13 @@ export const ORGANIZATIONS_PER_PAGE = 25;
 export function useOrganizationsOverview() {
   const trpc = useConsoleTRPC();
   const client = useConsoleTRPCClient();
-  const query = useInfiniteQuery({
+  return useCursorPages({
     queryKey: [...trpc.dashboard.organizations.pathKey(), { limit: ORGANIZATIONS_PER_PAGE }],
-    queryFn: ({ pageParam }) =>
+    page: (cursor) =>
       client.dashboard.organizations.query({
         limit: ORGANIZATIONS_PER_PAGE,
-        ...(pageParam === null ? {} : { after: pageParam }),
+        ...(cursor === null ? {} : { after: cursor }),
       }),
-    initialPageParam: null as string | null,
-    getNextPageParam: (page) => page.nextCursor,
+    items: (page) => page.organizations,
   });
-  return { ...query, organizations: query.data?.pages.flatMap((page) => page.organizations) };
 }

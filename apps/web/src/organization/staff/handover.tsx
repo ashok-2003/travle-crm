@@ -4,7 +4,7 @@
 // the temporary password, each with a copy button. Shown once; nobody can read the password again later.
 import { useTranslations } from "next-intl";
 import { Details } from "@/components/details";
-import { CopyButton } from "../copy-button";
+import { CopyButton } from "@/components/copy-button";
 
 export function Handover({
   name,

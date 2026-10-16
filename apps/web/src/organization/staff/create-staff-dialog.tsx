@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { FieldDescription } from "@/components/ui/field";
 import { useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
-import { ResponsiveDialog } from "../responsive-dialog";
+import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { CreateStaffForm } from "./create-staff-form";
 import { Handover } from "./handover";
 import { handoverSignInName } from "./staff-details";

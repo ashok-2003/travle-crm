@@ -28,6 +28,9 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetT
 import { useWideScreen } from "@/lib/use-wide-screen";
 import { cn } from "@/lib/utils";
 
+/** A bottom sheet's frame on phones: at most 90% of the screen, scrolling past it, clear of the home indicator. */
+export const BOTTOM_SHEET_CLASSES = "max-h-[90dvh] overflow-y-auto rounded-t-xl pb-[env(safe-area-inset-bottom)]";
+
 export function ResponsiveDialog({
   open,
   onOpenChange,
@@ -92,11 +95,7 @@ export function ResponsiveDialog({
   }
   return (
     <Sheet open={open} onOpenChange={changeOpen}>
-      <SheetContent
-        side="bottom"
-        showCloseButton={!busy}
-        className="max-h-[90dvh] gap-0 rounded-t-xl pb-[env(safe-area-inset-bottom)]"
-      >
+      <SheetContent side="bottom" showCloseButton={!busy} className={cn(BOTTOM_SHEET_CLASSES, "gap-0")}>
         <SheetHeader>
           <SheetTitle>{title}</SheetTitle>
           <SheetDescription>{description}</SheetDescription>

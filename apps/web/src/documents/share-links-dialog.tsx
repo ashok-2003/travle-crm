@@ -3,7 +3,7 @@
 // A document's share links (spec 9.3): the links made so far, a new one, and a new link's whole address once.
 import type { IssuedDocumentSummary } from "@travel-crm/contracts/documents";
 import { useTranslations } from "next-intl";
-import { ResponsiveDialog } from "@/organization/responsive-dialog";
+import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { CreateShareLinkForm } from "./create-share-link-form";
 import { CreatedLink } from "./created-link";
 import { ShareLinkList } from "./share-link-list";

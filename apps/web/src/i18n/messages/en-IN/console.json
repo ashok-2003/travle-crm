@@ -37,7 +37,6 @@
     "empty": "No organizations yet. Onboard the first one.",
     "onboardFirst": "Onboard an organization",
     "showMore": "Show more organizations",
-    "loadingMore": "Loading more",
     "columns": {
       "organization": "Organization",
       "status": "Status",

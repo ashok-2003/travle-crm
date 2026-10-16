@@ -6,12 +6,11 @@
 import type { RoleSummary, StaffMember } from "@travel-crm/contracts/identity";
 import { useTranslations } from "next-intl";
 import { Controller, useForm, type FieldErrors, type Resolver } from "react-hook-form";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useErrorMessage } from "@/lib/error-message";
 import { toCreateStaffInput, type CreateStaffValues } from "./create-staff-values";
 import { temporaryPassword } from "./temporary-password";
 import type { useCreateStaff } from "./use-staff";
@@ -35,7 +34,6 @@ export function CreateStaffForm({
   onCreated: (member: StaffMember, password: string) => void;
 }) {
   const t = useTranslations("staff");
-  const { apiError } = useErrorMessage();
   const resolver: Resolver<CreateStaffValues> = (values) => {
     const result = toCreateStaffInput(values);
     if (result.ok) return { values, errors: {} };
@@ -153,11 +151,7 @@ export function CreateStaffForm({
           <FieldError errors={[errors.temporaryPassword]} />
         </Field>
       </FieldGroup>
-      {create.isError && (
-        <Alert variant="destructive">
-          <AlertDescription>{apiError(create.error)}</AlertDescription>
-        </Alert>
-      )}
+      <RefusalAlert error={create.error} />
     </form>
   );
 }

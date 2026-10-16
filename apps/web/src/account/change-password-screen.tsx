@@ -11,7 +11,7 @@ import { PageHeader } from "@/components/page-header";
 import { routes } from "@/lib/routes";
 import { ChangePasswordForm } from "./change-password-form";
 import { CurrentPersonGate, isStepDue, useContinueAfterStep, useReturnPath } from "./current-person";
-import { TextLink } from "./text-link";
+import { TextLink } from "@/components/text-link";
 
 export function ChangePasswordScreen() {
   const t = useTranslations("account");

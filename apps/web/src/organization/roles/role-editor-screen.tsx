@@ -3,18 +3,17 @@
 // /roles/<key>: one role in the editor. The role comes from the roles list (there is no single-role call), so the
 // list screen and the editor share one cached answer.
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeftIcon, SearchXIcon } from "lucide-react";
-import Link from "next/link";
+import { SearchXIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Delayed } from "@/components/delayed";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { PageHeader } from "@/components/page-header";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTRPC } from "@/data/trpc";
 import { routes } from "@/lib/routes";
 import { RoleEditor } from "./role-editor";
+import { BackLink } from "@/components/text-link";
 
 export function RoleEditorScreen({ roleKey }: { roleKey: string }) {
   const t = useTranslations("roles");
@@ -60,12 +59,7 @@ export function RoleEditorScreen({ roleKey }: { roleKey: string }) {
 
   return (
     <div className="flex max-w-[720px] flex-col gap-6">
-      <Button variant="link" className="self-start px-0" asChild>
-        <Link href={routes.roles}>
-          <ArrowLeftIcon aria-hidden="true" />
-          {t("editor.back")}
-        </Link>
-      </Button>
+      <BackLink href={routes.roles} label={t("editor.back")} />
       <PageHeader title={role?.name ?? t("title")} />
       {body()}
     </div>
