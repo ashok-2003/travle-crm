@@ -77,9 +77,8 @@ export function ChangeDialog({
       </Button>
       <ResponsiveDialog
         open={dialog.open}
-        onOpenChange={(open) => {
-          if (!sending.isPending) dialog.setOpen(open);
-        }}
+        onOpenChange={dialog.setOpen}
+        busy={sending.isPending}
         title={title}
         description={description}
       >

@@ -258,9 +258,10 @@ describe("SubscriptionSection", { timeout: 20_000 }, () => {
     await fill(dialog, words.reason.label, "Chargeback");
     await userEvent.click(within(dialog).getByRole("button", { name: words.suspend.submit }));
     expect(await within(dialog).findByRole("button", { name: words.suspend.submitting })).toBeDisabled();
+    // Nothing closes it meanwhile: Escape does nothing, and there is no close button to press.
     await userEvent.keyboard("{Escape}");
-    await userEvent.click(within(dialog).getByRole("button", { name: messages.common.close }));
     expect(screen.getByRole("dialog", { name: words.suspend.title })).toBeVisible();
+    expect(within(dialog).queryByRole("button", { name: messages.common.close })).toBeNull();
     held.release();
     await vi.waitFor(() => {
       expect(screen.queryByRole("dialog")).toBeNull();
