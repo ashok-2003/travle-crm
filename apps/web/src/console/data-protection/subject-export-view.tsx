@@ -32,15 +32,12 @@ function CustomerPart({ customer }: { customer: CustomerExport }) {
     enquiries: total((lead) => lead.enquiries.length),
     tasks: total((lead) => lead.tasks.length),
   };
-  return (
-    <>
-      <Details rows={contacts} />
-      <p className="numbers text-label">{t("counts", counts)}</p>
-      <div>
-        <CopyButton value={JSON.stringify(customer, null, 2)} label={t("copy")} />
-      </div>
-    </>
-  );
+  const kept = {
+    label: t("kept"),
+    value: t("counts", counts),
+    action: <CopyButton value={JSON.stringify(customer, null, 2)} label={t("copy")} />,
+  };
+  return <Details rows={[...contacts, kept]} />;
 }
 
 export function SubjectExportView({ exported }: { exported: SubjectExport }) {
