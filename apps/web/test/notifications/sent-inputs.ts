@@ -1,6 +1,6 @@
 // What the app sent with each call to one procedure, in call order, for tests whose api is support/api-stub.ts: read
-// from the fetch stub's calls, a query's input from ?input= and a mutation's from its body, both batched by index as
-// tRPC's httpBatchLink sends them.
+// from the fetch stub's calls, from the body (the app posts queries too) or else ?input=, batched by index as tRPC's
+// httpBatchLink sends them.
 import { vi } from "vitest";
 
 const API_TRPC = "/api/trpc/";

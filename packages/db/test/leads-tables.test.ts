@@ -55,6 +55,21 @@ describe("the leads tables", () => {
     expect(rows.map((row) => row.extname)).toEqual(expect.arrayContaining(["btree_gist", "pg_trgm"]));
   });
 
+  it("gives each table a unique (organization_id, id), for keys from later tables", async () => {
+    const tables = ["person", "lead", "lead_timeline_entry", "lead_note", "lead_enquiry", "blocked_contact"];
+    tables.push("destination", "task");
+    const rows = await platform.$queryRaw<{ table: string }[]>`
+      SELECT t.relname AS table
+      FROM pg_index i
+      JOIN pg_class t ON t.oid = i.indrelid
+      JOIN pg_namespace n ON n.oid = t.relnamespace AND n.nspname = 'public'
+      WHERE i.indisunique AND i.indpred IS NULL AND t.relname = ANY(${tables}::text[])
+        AND (SELECT array_agg(a.attname::text ORDER BY k.ordinality)
+             FROM unnest(i.indkey) WITH ORDINALITY AS k(attnum, ordinality)
+             JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = k.attnum) = ARRAY['organization_id', 'id']`;
+    expect(rows.map((row) => row.table).sort()).toEqual([...tables].sort());
+  });
+
   it("refuses a person with no phone, email or handle", async () => {
     await expect(inOrg((tx) => tx.person.create({ data: { name: "Nobody" } }))).rejects.toThrow(/person_has_contact/);
     await expect(inOrg((tx) => tx.person.create({ data: { name: "", phoneE164: "+919800000002" } }))).rejects.toThrow(
