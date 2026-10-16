@@ -5,7 +5,7 @@
 // above the button, which sits in the dialog's footer.
 import type { SubscriptionPolicy } from "@travel-crm/contracts/subscriptions";
 import { useTranslations } from "next-intl";
-import { TextField } from "@/account/text-field";
+import { TextField } from "@/components/forms/text-field";
 import { FormAlert, FormDialog } from "@/components/forms/form-dialog";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { FieldGroup } from "@/components/ui/field";

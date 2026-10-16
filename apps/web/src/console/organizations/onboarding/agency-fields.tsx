@@ -4,7 +4,7 @@
 // profile (legal name, GST state and GSTIN, a contact, the phone after its +91) and its Owner, who is invited by email.
 import { useTranslations } from "next-intl";
 import type { Control } from "react-hook-form";
-import { TextField } from "@/account/text-field";
+import { TextField } from "@/components/forms/text-field";
 import { FieldLegend, FieldSet } from "@/components/ui/field";
 import { GstStateField } from "@/components/forms/gst-state-field";
 import { PhoneField } from "@/components/forms/phone-field";

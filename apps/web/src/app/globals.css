@@ -244,9 +244,10 @@
 /*
  * Every focusable element shows a 2px action-blue outline 2px away when focused from the keyboard (DESIGN.md
  * section 8). Left outside any layer on purpose: unlayered rules win over Tailwind's utilities, so a component's
- * outline-none can't hide it.
+ * outline-none can't hide it. An element with tabindex="-1" (a heading or the page content that focus moves to only
+ * so it is read out) draws none.
  */
-:focus-visible {
+:focus-visible:not([tabindex="-1"]) {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }

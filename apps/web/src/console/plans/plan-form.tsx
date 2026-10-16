@@ -6,7 +6,7 @@
 // dialog's (PlanDialog), sending this form by its id.
 import type { CreatePlanInput, PlanSummary, UpdatePlanInput } from "@travel-crm/contracts/subscriptions";
 import { useTranslations } from "next-intl";
-import { TextField } from "@/account/text-field";
+import { TextField } from "@/components/forms/text-field";
 import { FormAlert } from "@/components/forms/form-dialog";
 import { MoneyField } from "@/components/forms/money-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";

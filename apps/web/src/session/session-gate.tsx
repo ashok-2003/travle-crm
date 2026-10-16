@@ -38,7 +38,12 @@ export function SessionGate({ children }: { children: ReactNode }) {
   if (me.data === undefined) {
     if (me.isError) {
       return (
-        <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void me.refetch()} />
+        <ErrorState
+          message={t("loadFailed")}
+          error={me.error}
+          retryLabel={tCommon("tryAgain")}
+          onRetry={() => void me.refetch()}
+        />
       );
     }
     return (

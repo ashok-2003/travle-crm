@@ -12,7 +12,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { authClient, type AuthClient, type SignInOutcome } from "@/data/auth-client";
 import { AuthFailureAlert, type AuthFailure } from "./form-alert";
 import { useFormResolver } from "./form-errors";
-import { TextField } from "./text-field";
+import { TextField } from "@/components/forms/text-field";
 
 const emailSignIn = z.strictObject({ email: emailAddress, password: passwordAttempt });
 

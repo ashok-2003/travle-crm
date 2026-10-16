@@ -2,9 +2,10 @@
 
 // The audit log's words: each action's sentence (audit.json's actions), a readable one made from the action itself for
 // an action recorded before its sentence was written, who acted, and where from; and in a change, each known field's
-// name, a permission's grant by its label and scope, and a recorded instant in the organization's zone. Anything else
-// shows as stored.
-import type { AuditActor, AuditSource } from "@travel-crm/contracts/audit";
+// name, a permission's grant by its label and scope, a business profile's field by the form's own label, a record's
+// type in words, and a recorded instant in the organization's zone. Anything else shows as stored. A field that only
+// points at a record (its id) isn't shown at all: the entry's history link leads to the record.
+import type { AuditActor, AuditLogEntry, AuditSource } from "@travel-crm/contracts/audit";
 import { useTranslations } from "next-intl";
 import { useCallback } from "react";
 import audit from "@/i18n/messages/en-IN/audit.json";
@@ -19,6 +20,32 @@ type KnownAction = { [Entity in keyof Actions]: `${Entity}.${keyof Actions[Entit
 
 const isEntity = (value: string): value is keyof Actions => Object.hasOwn(audit.actions, value);
 const isKnownField = (value: string): value is keyof typeof audit.fields => Object.hasOwn(audit.fields, value);
+const isKnownRecordType = (value: string): value is keyof typeof audit.recordTypes =>
+  Object.hasOwn(audit.recordTypes, value);
+
+/** A profile field's label in the form (business.profile): the GST state's is under its own name. */
+const PROFILE_LABELS = {
+  legalName: "legalName",
+  gstin: "gstin",
+  gstStateCode: "gstState",
+  address: "address",
+  contactName: "contactName",
+  contactPhone: "contactPhone",
+  bankAccountName: "bankAccountName",
+  bankAccountNumber: "bankAccountNumber",
+  bankIfsc: "bankIfsc",
+  bankName: "bankName",
+  invoicePrefix: "invoicePrefix",
+} as const;
+const isProfileField = (value: string): value is keyof typeof PROFILE_LABELS => Object.hasOwn(PROFILE_LABELS, value);
+
+/** Fields that only point at a record, never shown as a change. */
+const POINTERS: readonly string[] = ["recordId"];
+
+/** A change's side without the fields that only point at a record. */
+export function withoutPointers(snapshot: AuditLogEntry["before"]): AuditLogEntry["before"] {
+  return snapshot && Object.fromEntries(Object.entries(snapshot).filter(([field]) => !POINTERS.includes(field)));
+}
 
 /** A role's grant as the roles module records it: { permission, scope }. */
 function isGrant(value: unknown): value is { permission: string; scope: "own" | "all" | null } {
@@ -50,6 +77,7 @@ export function readableAction(action: string): string {
 export function useAuditWords() {
   const t = useTranslations("audit");
   const tRoles = useTranslations("roles.editor");
+  const tProfile = useTranslations("business.profile");
   const labels = usePermissionLabels();
   const { timeZone } = useMe().organization;
 
@@ -78,7 +106,13 @@ export function useAuditWords() {
   const field = useCallback((key: string) => (isKnownField(key) ? t(`fields.${key}`) : key), [t]);
 
   const value = useCallback(
-    (_field: string, stored: unknown): string | undefined => {
+    (field: string, stored: unknown): string | undefined => {
+      if (field === "fields" && typeof stored === "string") {
+        return isProfileField(stored) ? tProfile(PROFILE_LABELS[stored]) : stored;
+      }
+      if (field === "recordType" && typeof stored === "string") {
+        return isKnownRecordType(stored) ? t(`recordTypes.${stored}`) : readableAction(stored);
+      }
       if (isGrant(stored)) {
         const name = labels.permission(stored.permission);
         if (stored.scope === null) return name;
@@ -88,7 +122,7 @@ export function useAuditWords() {
         return formatDayTime(new Date(stored), { timeZone });
       return undefined;
     },
-    [labels, tRoles, timeZone],
+    [t, labels, tRoles, tProfile, timeZone],
   );
 
   return { action, actor, source, field, value };

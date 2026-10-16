@@ -17,7 +17,7 @@ const navigation = vi.hoisted(() => ({ search: "" }));
 
 vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(navigation.search) }));
 
-const { audit, common, errors, roles } = messages;
+const { audit, business, common, errors, roles } = messages;
 const viewer = member({ isOwner: true });
 /** The zone the screen shows times in: the viewer's organization's. */
 const { timeZone } = viewer.organization;
@@ -203,6 +203,43 @@ describe("AuditScreen", () => {
     // A field that isn't a list, from nothing: before is None.
     expect(change.getByText(audit.fields.name)).toBeVisible();
     expect(change.getByText(audit.change.none)).toBeVisible();
+  });
+
+  it("names the profile's saved fields by the form's labels, and a shared record by its type, never its id", async () => {
+    const recordId = "0199a000-0000-7000-8000-0000000000c1";
+    stubApi({
+      "audit.list": page([
+        entry({
+          action: "organization-profile.saved",
+          entityType: "organization",
+          before: null,
+          after: { fields: ["legalName", "gstStateCode", "bankAccountNumber"] },
+        }),
+        entry({
+          id: "0199a000-0000-7000-8000-0000000000a2",
+          action: "share-link.created",
+          entityType: "issued_document",
+          before: null,
+          after: { recordType: "issued_document", recordId, expiresAt: null },
+        }),
+      ]),
+    });
+    renderScreen();
+    await listed();
+    const saved = opener(audit.actions["organization-profile"].saved);
+    await userEvent.click(saved);
+    const profile = changeOpenedBy(saved);
+    for (const label of [business.profile.legalName, business.profile.gstState, business.profile.bankAccountNumber]) {
+      expect(profile.getByText(label)).toBeVisible();
+    }
+    expect(profile.queryByText(/legalName|gstStateCode|bankAccountNumber/)).toBeNull();
+
+    const shared = opener(audit.actions["share-link"].created);
+    await userEvent.click(shared);
+    const link = changeOpenedBy(shared);
+    expect(link.getByText(audit.recordTypes.issued_document)).toBeVisible();
+    expect(link.queryByText(recordId)).toBeNull();
+    expect(link.queryByText("issued_document")).toBeNull();
   });
 
   it("offers nothing to open for a change that recorded none, or none that changed", async () => {

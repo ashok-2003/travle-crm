@@ -53,7 +53,7 @@ describe("the two-factor requirement in each state of the subscription", () => {
   it("can't be turned off in a read-only organization, and says why", async () => {
     const requirement = await renderRequirement("read_only", true);
     expect(requirement).toBeDisabled();
-    expect(screen.getByText(reasons.ORGANIZATION_READ_ONLY)).toBeVisible();
+    expect(requirement).toHaveAccessibleDescription(reasons.ORGANIZATION_READ_ONLY);
   });
 
   it("can be turned off by an Owner while the subscription is paid", async () => {

@@ -7,7 +7,7 @@ import type { RecordPaymentInput } from "@travel-crm/contracts/subscriptions";
 import { calendarDateIn } from "@travel-crm/domain/kernel";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { TextField } from "@/account/text-field";
+import { TextField } from "@/components/forms/text-field";
 import { DateField } from "@/components/date-field";
 import { FormAlert, FormDialog, type Sending } from "@/components/forms/form-dialog";
 import { MoneyField } from "@/components/forms/money-field";

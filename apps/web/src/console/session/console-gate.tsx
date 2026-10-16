@@ -68,7 +68,12 @@ export function ConsoleGate({ children }: { children: ReactNode }) {
     if (refusalDestination(whoAmI.error)) return null;
     if (refusalOf(whoAmI.error)?.reason === "PLATFORM_ONLY") return <NotStaff />;
     return (
-      <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void whoAmI.refetch()} />
+      <ErrorState
+        message={t("loadFailed")}
+        error={whoAmI.error}
+        retryLabel={tCommon("tryAgain")}
+        onRetry={() => void whoAmI.refetch()}
+      />
     );
   }
   return (

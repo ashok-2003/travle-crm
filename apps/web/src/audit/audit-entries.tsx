@@ -12,7 +12,7 @@ import { Item, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle
 import { formatDayTime } from "@/lib/format";
 import { useMe } from "@/session/me-context";
 import { AuditChange, hasChange } from "@/components/audit-change";
-import { useAuditWords } from "./audit-words";
+import { useAuditWords, withoutPointers } from "./audit-words";
 import { recordHistoryHref } from "./record-filter";
 import { TextLink } from "@/components/text-link";
 
@@ -21,7 +21,9 @@ function AuditEntry({ entry, recordLink }: { entry: AuditLogEntry; recordLink: b
   const words = useAuditWords();
   const { timeZone } = useMe().organization;
   const instant = new Date(entry.occurredAt);
-  const changed = hasChange(entry.before, entry.after);
+  const before = withoutPointers(entry.before);
+  const after = withoutPointers(entry.after);
+  const changed = hasChange(before, after);
   const sentence = words.action(entry.action);
   return (
     <Item size="sm" role="listitem">
@@ -53,7 +55,7 @@ function AuditEntry({ entry, recordLink }: { entry: AuditLogEntry; recordLink: b
           )}
           {changed && (
             <CollapsibleContent>
-              <AuditChange before={entry.before} after={entry.after} fieldName={words.field} valueText={words.value} />
+              <AuditChange before={before} after={after} fieldName={words.field} valueText={words.value} />
             </CollapsibleContent>
           )}
         </ItemContent>

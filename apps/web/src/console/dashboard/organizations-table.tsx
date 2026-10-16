@@ -43,7 +43,7 @@ export function OrganizationsTable({ organizations }: { organizations: Organizat
             <TableRow key={organization.organizationId}>
               <TableCell className="whitespace-normal">
                 <div className="flex flex-col">
-                  <TextLink href={consoleRoutes.organization(organization.organizationId)}>
+                  <TextLink href={consoleRoutes.organization(organization.organizationId)} inline>
                     <span className="script-leading">{organization.name}</span>
                   </TextLink>
                   <span className="text-caption text-muted-foreground">
