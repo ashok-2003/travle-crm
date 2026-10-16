@@ -1,0 +1,77 @@
+"use client";
+
+// One labelled box of the business profile form (DESIGN.md section 6: the label above, the hint and any problem below
+// it, linked by aria-describedby, the problem with an icon; ids and numbers mono; a phone after its +91).
+import { CircleAlertIcon } from "lucide-react";
+import type { UseFormReturn } from "react-hook-form";
+import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
+import type { ProfileField, ProfileValues } from "./profile-values";
+
+export function ProfileTextField({
+  form,
+  name,
+  label,
+  hint,
+  mono = false,
+  prefix,
+  multiline = false,
+  autoComplete = "off",
+  inputMode,
+}: {
+  form: UseFormReturn<ProfileValues>;
+  name: Exclude<ProfileField, "gstStateCode">;
+  label: string;
+  hint?: string;
+  /** GSTIN, IFSC, account numbers and phones: mono, tabular, and never respelt or capitalised by the keyboard. */
+  mono?: boolean;
+  /** Shown before the box, such as +91 before a phone number. */
+  prefix?: string;
+  multiline?: boolean;
+  autoComplete?: string;
+  inputMode?: "text" | "numeric" | "tel";
+}) {
+  const id = `profile-${name}`;
+  const error = form.formState.errors[name];
+  const describedBy = [hint ? `${id}-hint` : null, error ? `${id}-error` : null].filter((part) => part !== null);
+  const box = {
+    id,
+    autoComplete,
+    "aria-invalid": error !== undefined,
+    // No attribute at all rather than an empty one, which points at nothing.
+    "aria-describedby": describedBy.length > 0 ? describedBy.join(" ") : undefined,
+    ...form.register(name),
+  };
+  return (
+    <Field data-invalid={error !== undefined}>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      {multiline ? (
+        <Textarea rows={3} {...box} />
+      ) : (
+        <div className="flex">
+          {prefix && (
+            <span className="numbers flex h-11 items-center rounded-l-sm border border-r-0 border-input bg-muted px-3 text-muted-foreground">
+              {prefix}
+            </span>
+          )}
+          <Input
+            {...box}
+            inputMode={inputMode}
+            spellCheck={mono ? false : undefined}
+            autoCapitalize={mono ? "characters" : undefined}
+            className={cn(mono && "numbers", prefix && "rounded-l-none")}
+          />
+        </div>
+      )}
+      {hint && <FieldDescription id={`${id}-hint`}>{hint}</FieldDescription>}
+      {error && (
+        <FieldError id={`${id}-error`} className="flex items-start gap-1.5">
+          <CircleAlertIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          {error.message}
+        </FieldError>
+      )}
+    </Field>
+  );
+}
