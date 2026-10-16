@@ -85,7 +85,66 @@
   },
   "returning": "Returning",
   "formerMember": "A former member",
-  "list": {},
-  "form": {},
+  "list": {
+    "title": "Leads",
+    "intro": "Everyone who asked about a trip, and the next thing to do for each.",
+    "newLead": "New lead",
+    "whose": "Whose leads",
+    "mine": "Mine",
+    "everyone": "Everyone",
+    "search": "Search leads by name or phone",
+    "searchPlaceholder": "Search by name or phone",
+    "chips": "Show",
+    "open": "Open",
+    "mineOpen": "Mine · open",
+    "filters": "Filters",
+    "filtersChosen": "Filters, {count} chosen",
+    "leads": "Leads",
+    "showMore": "Show more leads",
+    "loading": "Loading leads",
+    "loadFailed": "The leads didn't load.",
+    "empty": "No open leads yet. Add one when someone asks about a trip.",
+    "emptyMine": "You have no open leads. Add one when someone asks about a trip.",
+    "emptyFiltered": "No results for these filters",
+    "clearFilters": "Clear filters",
+    "unassigned": "Unassigned",
+    "noBudget": "Not given",
+    "columns": {
+      "name": "Name",
+      "trip": "Trip",
+      "stage": "Stage",
+      "next": "Next",
+      "owner": "Owner",
+      "budget": "Budget",
+      "added": "Added"
+    },
+    "filtersDialog": {
+      "title": "Filters",
+      "description": "Show only the leads that match.",
+      "stage": "Stage",
+      "openStages": "Open (New to Booking requested)",
+      "owner": "Owner",
+      "anyone": "Anyone",
+      "source": "Source",
+      "anySource": "Any source",
+      "destination": "Destination",
+      "chosen": "The chosen destination",
+      "tripType": "Trip type",
+      "anyTripType": "Any trip type",
+      "clear": "Clear all",
+      "apply": "Show leads"
+    }
+  },
+  "form": {
+    "destination": {
+      "placeholder": "Choose a destination",
+      "search": "Search destinations",
+      "searchOrAdd": "Search, or type a new one",
+      "searching": "Searching",
+      "noMatch": "No destination matches.",
+      "add": "Add “{name}”",
+      "clear": "No destination"
+    }
+  },
   "lead": {}
 }
