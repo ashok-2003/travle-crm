@@ -33,6 +33,9 @@ describe("TwoFactorChallenge", () => {
     renderScreen(<TwoFactorChallenge auth={{ verifyTwoFactorCode, verifyBackupCode: vi.fn() }} />);
     await userEvent.click(screen.getByRole("button", { name: account.twoFactor.submit }));
     expect(await screen.findByText(account.fields.required)).toBeVisible();
+    const boxes = screen.getByLabelText(account.fields.code);
+    expect(boxes).toHaveAttribute("aria-invalid", "true");
+    expect(boxes).toHaveAccessibleDescription(account.fields.required);
     expect(verifyTwoFactorCode).not.toHaveBeenCalled();
   });
 

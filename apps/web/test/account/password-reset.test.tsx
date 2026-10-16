@@ -42,14 +42,12 @@ describe("ForgotPasswordForm", () => {
     expectAnnouncedOnce(account.forgotPassword.sent);
   });
 
-  it("shows the instruction and the staff note only until the link is sent", async () => {
+  it("shows the staff note only until the link is sent", async () => {
     renderScreen(<ForgotPasswordForm auth={{ requestPasswordReset: answers(ok(null)) }} />);
-    expect(screen.getByText(account.forgotPassword.intro)).toBeVisible();
     expect(screen.getByText(account.forgotPassword.noEmail)).toBeVisible();
     await userEvent.type(screen.getByLabelText(account.fields.email), "asha@example.in");
     await userEvent.click(screen.getByRole("button", { name: account.forgotPassword.submit }));
     await screen.findByText(account.forgotPassword.sent);
-    expect(screen.queryByText(account.forgotPassword.intro)).toBeNull();
     expect(screen.queryByText(account.forgotPassword.noEmail)).toBeNull();
   });
 

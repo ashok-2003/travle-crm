@@ -106,7 +106,7 @@ describe("NotificationBell", () => {
     expect(within(read).queryByText(bell.unread)).toBeNull();
     // In the organization's zone: 05:30 UTC is 11:00 am in India ("16 Oct", with the year once it isn't this one).
     const day = formatDay(new Date("2026-10-16T05:30:00.000Z"), { timeZone: "Asia/Kolkata" });
-    expect(within(linked).getByText(t("when", { day, time: "11:00 am" }))).toBeVisible();
+    expect(within(linked).getByText(`${day}, 11:00 am`)).toBeVisible();
   });
 
   it("marks an item read as its link is followed, and the count drops at once", async () => {
@@ -189,9 +189,12 @@ describe("NotificationBell", () => {
   });
 
   it("gives the api's sentence when it refused the list", async () => {
-    renderBell({ "notifications.unreadCount": { data: 0 }, "notifications.list": { status: 403 } });
+    renderBell({
+      "notifications.unreadCount": { data: 0 },
+      "notifications.list": { status: 403, reason: "OWNER_ONLY" },
+    });
     const list = within(await openBell(0));
-    expect(await list.findByText(messages.errors.forbidden)).toBeVisible();
+    expect(await list.findByText(messages.errors.reasons.OWNER_ONLY)).toBeVisible();
     expect(list.queryByText(bell.loadFailed)).toBeNull();
   });
 

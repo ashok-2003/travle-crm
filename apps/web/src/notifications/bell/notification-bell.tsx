@@ -6,6 +6,7 @@
 import { BellIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
+import { BOTTOM_SHEET_CLASSES } from "@/components/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -17,6 +18,7 @@ import {
 } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { MarkAllRead } from "./mark-all-read";
+import { cn } from "@/lib/utils";
 import { NotificationList } from "./notification-list";
 import { UnreadCount } from "./unread-count";
 import { useUnreadCount } from "./use-bell";
@@ -62,10 +64,7 @@ export function NotificationBell({ opensAs }: { opensAs: "popover" | "sheet" }) 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>{trigger}</SheetTrigger>
-      <SheetContent
-        side="bottom"
-        className="max-h-[90dvh] gap-0 overflow-y-auto rounded-t-xl pb-[env(safe-area-inset-bottom)]"
-      >
+      <SheetContent side="bottom" className={cn(BOTTOM_SHEET_CLASSES, "gap-0")}>
         <SheetHeader>
           <div className="flex items-center justify-between gap-2 pr-10">
             <SheetTitle>{t("title")}</SheetTitle>

@@ -10,7 +10,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
-import { formatDay, formatTime } from "@/lib/format";
+import { formatDayTime } from "@/lib/format";
 import { isAppPath } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import { useMe } from "@/session/me-context";
@@ -48,9 +48,7 @@ export function NotificationItem({
           {notification.title}
         </ItemTitle>
         <ItemDescription className="script-leading wrap-anywhere">{notification.body}</ItemDescription>
-        <span className="text-caption text-muted-foreground">
-          {t("when", { day: formatDay(createdAt, { timeZone }), time: formatTime(createdAt, { timeZone }) })}
-        </span>
+        <span className="text-caption text-muted-foreground">{formatDayTime(createdAt, { timeZone })}</span>
       </ItemContent>
     </>
   );

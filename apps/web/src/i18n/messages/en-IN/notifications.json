@@ -8,11 +8,9 @@
     "loadFailed": "Your notifications didn't load.",
     "empty": "Nothing yet. You hear here when something needs you, such as a customer opening a link you shared.",
     "unread": "Unread",
-    "when": "{day}, {time}",
     "markRead": "Mark read",
     "markAllRead": "Mark all read",
     "showMore": "Show older notifications",
-    "loadingMore": "Loading older notifications",
     "impersonating": "You see {name}'s notifications. Only they can mark them read.",
     "preferences": "Choose what reaches you"
   },

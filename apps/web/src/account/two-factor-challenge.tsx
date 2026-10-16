@@ -84,7 +84,7 @@ export function TwoFactorChallenge({
                 className="numbers"
               />
             ) : (
-              <SixDigitCode id={links.id} value={code} onChange={setCode} autoFocus />
+              <SixDigitCode links={links} value={code} onChange={setCode} autoFocus />
             )
           }
         </FormField>

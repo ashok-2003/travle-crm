@@ -162,7 +162,7 @@ export function TwoFactorSetup({
             label={t("twoFactorSetup.confirmStep")}
             error={missing && code.length !== CODE_LENGTH ? t("fields.required") : undefined}
           >
-            {(links) => <SixDigitCode id={links.id} value={code} onChange={setCode} />}
+            {(links) => <SixDigitCode links={links} value={code} onChange={setCode} />}
           </FormField>
           <AuthFailureAlert failure={failure} />
           <Button type="submit" disabled={busy}>

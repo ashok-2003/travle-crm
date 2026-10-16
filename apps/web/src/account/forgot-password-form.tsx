@@ -44,7 +44,6 @@ export function ForgotPasswordForm({ auth = authClient }: { auth?: Pick<AuthClie
   }
   return (
     <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-5">
-      <p>{t("intro")}</p>
       <TextField
         control={form.control}
         name="email"

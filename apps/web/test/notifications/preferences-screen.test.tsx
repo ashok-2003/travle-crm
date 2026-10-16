@@ -42,7 +42,7 @@ async function switchFor(row: string, channel: "email" | "push") {
 
 it("leads back to Your account", async () => {
   renderScreen({ "notifications.preferences": choices([]) });
-  expect(await screen.findByRole("link", { name: messages.account.steps.backToAccount })).toHaveAttribute(
+  expect(await screen.findByRole("link", { name: messages.shell.navigation.account })).toHaveAttribute(
     "href",
     "/account",
   );
