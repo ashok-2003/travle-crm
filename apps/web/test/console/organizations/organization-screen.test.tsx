@@ -68,6 +68,13 @@ describe("OrganizationScreen", () => {
     expect(screen.getByRole("link", { name: organization.backToDashboard })).toHaveAttribute("href", "/console");
   });
 
+  it("says the same of an address whose id isn't one, which the api refuses as invalid", async () => {
+    stubApi({ "platform.organizations.get": { status: 400 } });
+    renderConsoleScreen(<OrganizationScreen organizationId="not-an-id" onboarded={false} />);
+    expect(await screen.findByText(organization.notFound)).toBeVisible();
+    expect(screen.queryByText(organization.loadFailed)).toBeNull();
+  });
+
   it("says when the organization didn't load, and loads it on Try again", async () => {
     const api = stubApi({ "platform.organizations.get": { status: 403 } });
     renderConsoleScreen(<OrganizationScreen organizationId={organizationId} onboarded={false} />);
