@@ -4,8 +4,6 @@ import { SAMPLE_DOCUMENT_PREFIX, SAMPLES_PER_DAY } from "@travel-crm/contracts/d
 import type { OrgTx } from "@travel-crm/db";
 import { DomainError } from "../kernel/index.js";
 
-export { SAMPLES_PER_DAY };
-
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** The organization's samples issued since `since`, in the transaction's organization (row-level security). */
