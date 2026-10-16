@@ -7,6 +7,7 @@ import type { AttachmentSummary } from "@travel-crm/contracts/files";
 import { DownloadIcon, FileIcon, LockIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Fragment, useState } from "react";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Item,
@@ -23,8 +24,7 @@ import { holds, useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { kindOf } from "./attachment-file";
 import { formatFileSize } from "./file-size";
-import { RemoveAttachmentDialog } from "./remove-attachment-dialog";
-import { useDownloadAttachment, type AttachmentRecord } from "./use-attachments";
+import { useDownloadAttachment, useRemoveAttachment, type AttachmentRecord } from "./use-attachments";
 
 function AttachmentActions({
   record,
@@ -40,6 +40,9 @@ function AttachmentActions({
   const take = useWriteAccess("export");
   const download = useDownloadAttachment();
   const [removing, setRemoving] = useState(false);
+  const remove = useRemoveAttachment(record, name, () => {
+    setRemoving(false);
+  });
   return (
     <div className="flex flex-wrap gap-2">
       <Button
@@ -54,7 +57,7 @@ function AttachmentActions({
         {t("download")}
       </Button>
       <Button
-        variant="destructive"
+        variant="outline"
         aria-label={t("removeName", { name })}
         disabled={!change.allowed}
         onClick={() => {
@@ -63,12 +66,17 @@ function AttachmentActions({
       >
         {t("remove")}
       </Button>
-      <RemoveAttachmentDialog
-        record={record}
-        attachmentId={attachment.id}
-        name={name}
+      {/* Its bytes stay in storage until the platform's purge, so it still counts toward the plan (ADR 0011). */}
+      <ConfirmDialog
         open={removing}
         onOpenChange={setRemoving}
+        title={t("removeTitle", { name })}
+        description={t("removeDescription")}
+        action={t("remove")}
+        request={remove}
+        onConfirm={() => {
+          remove.mutate({ ...record, attachmentId: attachment.id });
+        }}
       />
     </div>
   );

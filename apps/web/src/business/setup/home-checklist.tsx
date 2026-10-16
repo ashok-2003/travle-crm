@@ -1,7 +1,8 @@
 "use client";
 
 // The Owner's home, until the organization is set up (spec 7.1: the Owner lands on the setup checklist): the
-// checklist's steps and how far along they are, and once every step is done, the home it shows otherwise.
+// checklist's steps and how far along they are, and once every step is done, the home it shows otherwise. While the
+// checklist loads, or if it didn't, that usual home shows under its place, so the way to every screen is never hidden.
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { Delayed } from "@/components/delayed";
@@ -45,8 +46,11 @@ export function HomeChecklist({ afterwards }: { afterwards: ReactNode }) {
     );
   }
   return (
-    <Delayed>
-      <Skeleton role="status" aria-busy="true" aria-label={tCommon("loading")} className="h-72 w-full" />
-    </Delayed>
+    <>
+      <Delayed>
+        <Skeleton role="status" aria-busy="true" aria-label={tCommon("loading")} className="h-72 w-full" />
+      </Delayed>
+      {afterwards}
+    </>
   );
 }

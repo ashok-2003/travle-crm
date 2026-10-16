@@ -51,7 +51,8 @@ export function useLogoUpload() {
   return { state, start };
 }
 
-export function useRemoveLogo() {
+/** Removing the logo; `onRemoved` closes the dialog that asked, however it is by then. */
+export function useRemoveLogo(onRemoved: () => void) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const t = useTranslations("documents.branding.logo");
@@ -59,6 +60,7 @@ export function useRemoveLogo() {
     trpc.organization.logo.remove.mutationOptions({
       onSuccess: () => {
         toast.success(t("removed"));
+        onRemoved();
       },
       onSettled: () => queryClient.invalidateQueries({ queryKey: trpc.organization.logo.get.queryKey() }),
     }),

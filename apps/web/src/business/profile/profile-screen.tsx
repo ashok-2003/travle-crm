@@ -13,14 +13,10 @@ import { useProfile } from "./use-profile";
 export function ProfileScreen() {
   const t = useTranslations("business.profile");
   const tCommon = useTranslations("common");
-  // Always asked again when the screen opens: the copy restored from IndexedDB can predate a change just made.
   const profile = useProfile();
 
   const body = () => {
-    if (profile.isSuccess) {
-      // A newer profile (saved here, or elsewhere and refreshed) starts the form again from what the api keeps.
-      return <ProfileForm key={profile.data?.updatedAt ?? "new"} profile={profile.data} />;
-    }
+    if (profile.isSuccess) return <ProfileForm profile={profile.data} />;
     if (profile.isError) {
       return (
         <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void profile.refetch()} />

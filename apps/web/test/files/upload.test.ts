@@ -21,6 +21,8 @@ class FakeRequest {
   onload: (() => void) | null = null;
   onerror: (() => void) | null = null;
   onabort: (() => void) | null = null;
+  /** As in a browser, after load, error and abort alike. */
+  onloadend: (() => void) | null = null;
 
   constructor() {
     FakeRequest.last = this;
@@ -38,11 +40,18 @@ class FakeRequest {
   abort() {
     this.aborted = true;
     this.onabort?.();
+    this.onloadend?.();
   }
   /** Storage answers. */
   answer(status: number) {
     this.status = status;
     this.onload?.();
+    this.onloadend?.();
+  }
+  /** Storage can't be reached. */
+  fail() {
+    this.onerror?.();
+    this.onloadend?.();
   }
 }
 
@@ -100,7 +109,7 @@ describe("uploadFile", () => {
     sent().answer(403);
     await expect(refused).rejects.toEqual(expect.objectContaining({ name: "UploadError", status: 403 }));
     const unreachable = uploadFile(upload, file);
-    sent().onerror?.();
+    sent().fail();
     const error: unknown = await unreachable.catch((reason: unknown) => reason);
     expect(error).toBeInstanceOf(UploadError);
     expect((error as UploadError).status).toBe(0);
@@ -116,5 +125,26 @@ describe("uploadFile", () => {
     FakeRequest.last = undefined;
     await expect(uploadFile(upload, file, { signal: stopping.signal })).rejects.toMatchObject({ name: "AbortError" });
     expect(FakeRequest.last).toBeUndefined();
+  });
+
+  it("stops listening to its signal once the upload ends, however it ends", async () => {
+    vi.stubGlobal("XMLHttpRequest", FakeRequest);
+    const stopping = new AbortController();
+    const ended: FakeRequest[] = [];
+    const arrived = uploadFile(upload, file, { signal: stopping.signal });
+    ended.push(sent());
+    sent().answer(200);
+    await arrived;
+    const refused = uploadFile(upload, file, { signal: stopping.signal });
+    ended.push(sent());
+    sent().answer(403);
+    await refused.catch(() => undefined);
+    const unreachable = uploadFile(upload, file, { signal: stopping.signal });
+    ended.push(sent());
+    sent().fail();
+    await unreachable.catch(() => undefined);
+    // A signal shared by several uploads is stopped later: none of the finished requests hears it.
+    stopping.abort();
+    expect(ended.map((request) => request.aborted)).toEqual([false, false, false]);
   });
 });

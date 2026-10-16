@@ -10,7 +10,7 @@ import { UploadError, uploadFile } from "@/files/upload";
 import { messages } from "@/i18n/messages";
 import { newQueryClient, renderWithApi } from "../organization/api";
 import { screenIs } from "../organization/render";
-import { stubApi, type Answer } from "../support/api-stub";
+import { heldAnswer, stubApi, type Answer } from "../support/api-stub";
 import { inputsSentTo } from "../documents/sent";
 import { subscriptionAnswer } from "../documents/subscription";
 
@@ -160,17 +160,24 @@ describe("LogoPanel", () => {
     expect(uploadFile).not.toHaveBeenCalled();
   });
 
-  it("removes the logo once asked again", async () => {
+  it("removes the logo once asked again, the dialog waiting for the api's answer", async () => {
     const user = userEvent.setup();
-    const api = renderPanel({ "organization.logo.remove": { data: null } });
-    await user.click(await screen.findByRole("button", { name: words.remove }));
+    const removal = heldAnswer({ data: null });
+    const api = renderPanel({ "organization.logo.remove": removal.answer });
+    const remove = await screen.findByRole("button", { name: words.remove });
+    // Red is for the final step only.
+    expect(remove).toHaveAttribute("data-variant", "outline");
+    await user.click(remove);
     expect(screen.getByText(words.removeDescription)).toBeVisible();
     api.answer("organization.logo.get", { data: null });
     await user.click(screen.getByRole("button", { name: words.removeConfirm }));
-    await waitFor(() => {
-      expect(inputsSentTo("organization.logo.remove")).toEqual([{ attachmentId }]);
-    });
+    expect(screen.getByRole("button", { name: messages.common.cancel })).toBeDisabled();
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("alertdialog")).toBeVisible();
+    removal.release();
     expect(await screen.findByText(words.none)).toBeVisible();
+    expect(inputsSentTo("organization.logo.remove")).toEqual([{ attachmentId }]);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 
   it("says when a logo can't be shown", async () => {

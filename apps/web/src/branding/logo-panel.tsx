@@ -7,6 +7,7 @@ import { MAX_LOGO_BYTES, type OrganizationLogo } from "@travel-crm/contracts/pro
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Delayed } from "@/components/delayed";
 import { ErrorState } from "@/components/error-state";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -17,8 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useTRPC } from "@/data/trpc";
 import { formatFileSize } from "@/files/file-size";
 import { useWriteAccess } from "@/subscription/write-access";
-import { RemoveLogoDialog } from "./remove-logo-dialog";
-import { useLogoUpload } from "./use-logo";
+import { useLogoUpload, useRemoveLogo } from "./use-logo";
 
 /** The logo as it was uploaded, contained in the space a document's header gives it. */
 function LogoImage({ logo }: { logo: OrganizationLogo }) {
@@ -55,6 +55,9 @@ export function LogoPanel() {
   const write = useWriteAccess();
   const fileInput = useRef<HTMLInputElement>(null);
   const [removing, setRemoving] = useState(false);
+  const remove = useRemoveLogo(() => {
+    setRemoving(false);
+  });
   const uploading = state.phase === "uploading";
 
   const preview = () => {
@@ -87,13 +90,13 @@ export function LogoPanel() {
               <AlertDescription>{state.message}</AlertDescription>
             </Alert>
           )}
+          {/* Hidden from everyone, screen readers too: the button opens it. Labelled for tests and journeys. */}
           <input
             ref={fileInput}
             type="file"
             accept="image/png,image/jpeg"
             aria-label={t("fileLabel")}
-            tabIndex={-1}
-            className="sr-only"
+            className="hidden"
             onChange={(event) => {
               const file = event.target.files?.[0];
               // Cleared, so choosing the same file again (after a failed upload) is a change too.
@@ -111,7 +114,7 @@ export function LogoPanel() {
             </Button>
             {logo.data && (
               <Button
-                variant="destructive"
+                variant="outline"
                 disabled={!write.allowed || uploading}
                 onClick={() => {
                   setRemoving(true);
@@ -124,7 +127,20 @@ export function LogoPanel() {
           {write.hint !== null && <p className="text-label text-muted-foreground">{write.hint}</p>}
         </CardContent>
       </Card>
-      {logo.data && <RemoveLogoDialog logo={logo.data} open={removing} onOpenChange={setRemoving} />}
+      {/* Documents issued from now on have no logo; those already issued keep theirs. */}
+      {logo.data && (
+        <ConfirmDialog
+          open={removing}
+          onOpenChange={setRemoving}
+          title={t("removeTitle")}
+          description={t("removeDescription")}
+          action={t("removeConfirm")}
+          request={remove}
+          onConfirm={() => {
+            if (logo.data) remove.mutate({ attachmentId: logo.data.attachmentId });
+          }}
+        />
+      )}
     </section>
   );
 }
