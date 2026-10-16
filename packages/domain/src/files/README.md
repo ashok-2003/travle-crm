@@ -19,7 +19,8 @@ documents are marked sensitive (spec 5).
     shows a sensitive file's real name only to members with `documents:view_sensitive`;
   - `downloadLink(member, { recordType, recordId, attachmentId })`: a 5-minute link that saves the file under its
     name; a sensitive file needs `documents:view_sensitive` (`FORBIDDEN`/`MISSING_PERMISSION`);
-  - `list(actor, { recordType, recordId })`: the record's ready files, sensitive ones marked; a sensitive file's name
+  - `list(actor, { recordType, recordId })`: the record's ready files, oldest first by when they arrived (confirmed),
+    sensitive ones marked; a sensitive file's name
     shows only to members with `documents:view_sensitive`, others (and the system) see "Sensitive file";
   - `remove(actor, { recordType, recordId, attachmentId })`: a soft delete; only members with
     `documents:view_sensitive` may remove a sensitive file (the system may not), and no one may remove a file of a

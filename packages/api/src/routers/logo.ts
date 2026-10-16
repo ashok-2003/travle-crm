@@ -21,14 +21,14 @@ import { router } from "../trpc.js";
 const logosOf = (member: MemberAccess) => ({ recordType: LOGO_RECORD_TYPE, recordId: member.organizationId });
 
 /**
- * The organization's logo: the newest of its ready logo files, or undefined. A replaced logo is kept, so a document
+ * The organization's logo: the ready logo file that arrived last, or undefined. A replaced logo is kept, so a document
  * issued with it a moment before still finds it when the worker renders.
  */
 export async function currentLogo(
   files: Pick<Files, "list">,
   member: MemberAccess,
 ): Promise<AttachmentSummary | undefined> {
-  // Oldest first.
+  // In the order they arrived.
   return (await files.list(member, logosOf(member))).at(-1);
 }
 

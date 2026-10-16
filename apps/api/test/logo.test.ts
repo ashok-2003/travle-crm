@@ -93,6 +93,33 @@ describe("the organization's logo", () => {
     }
   });
 
+  it("makes the logo the upload that arrived last, when two overlap", async () => {
+    const agency = await createTestAgency(server);
+    const jar = await signedInOwner(server, agency);
+    const requested = async (fileName: string) => {
+      const { attachmentId, upload } = await dataOf<LogoUpload>(
+        await mutate(
+          server,
+          "organization.logo.requestUpload",
+          { fileName, contentType: "image/png", sizeBytes: tinyPng.byteLength },
+          jar,
+        ),
+      );
+      await storage.upload({ ...upload, expiresAt: new Date(upload.expiresAt) }, tinyPng, "image/png");
+      return attachmentId;
+    };
+    const slow = await requested("Slow.png");
+    const quick = await requested("Quick.png");
+    await dataOf(await mutate(server, "organization.logo.confirmUpload", { attachmentId: quick }, jar));
+    const arrivedLast = await dataOf<OrganizationLogo>(
+      await mutate(server, "organization.logo.confirmUpload", { attachmentId: slow }, jar),
+    );
+    // What the screen shows after its upload, the api's logo too.
+    expect(await dataOf<OrganizationLogo>(await query(server, "organization.logo.get", jar))).toMatchObject({
+      attachmentId: arrivedLast.attachmentId,
+    });
+  });
+
   it("refuses a file of more pixels than a logo may hold, as a bomb, or that isn't the image it says", async () => {
     const agency = await createTestAgency(server);
     const jar = await signedInOwner(server, agency);
