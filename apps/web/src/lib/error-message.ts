@@ -1,7 +1,8 @@
 "use client";
 
 // The sentence a person reads when something they did was refused or failed: the domain reason's own message when
-// there is one (spec 9.7), otherwise one for the HTTP status, or for not reaching the server at all.
+// there is one (spec 9.7), Better Auth's code's for its calls, otherwise one for the HTTP status, or for not reaching
+// the server at all.
 import { useTranslations } from "next-intl";
 import { useCallback } from "react";
 import { refusalOf } from "@/data/api-error";
@@ -42,9 +43,15 @@ export function useErrorMessage() {
     [t, forStatus],
   );
 
-  /** For a failed sign-in, password or two-factor call. */
+  /**
+   * For a failed sign-in, password, two-factor or impersonation call: Better Auth's code, else a reason of ours (the
+   * side door's refusals of Better Auth's calls), else the status.
+   */
   const authError = useCallback(
-    (failure: Failure): string => (isAuthCode(failure.code) ? t(`auth.${failure.code}`) : forStatus(failure.status)),
+    (failure: Failure): string => {
+      if (isAuthCode(failure.code)) return t(`auth.${failure.code}`);
+      return isReason(failure.code) ? t(`reasons.${failure.code}`) : forStatus(failure.status);
+    },
     [t, forStatus],
   );
 
