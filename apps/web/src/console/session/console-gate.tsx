@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { refusalOf } from "@/data/api-error";
+import { usePageData } from "@/data/providers";
 import { refusalDestination } from "@/data/query-client";
 import { useTRPC } from "@/data/trpc";
 import { StopImpersonatingButton } from "@/shell/stop-impersonating";
@@ -21,13 +22,17 @@ import { useConsoleTRPC } from "../data/console-trpc";
 import { ConsoleSignOutButton } from "../shell/console-sign-out";
 import { StaffProvider } from "./staff-context";
 
-/** The console isn't theirs. Signing out would end support's impersonation and strand support's own session. */
+/**
+ * The console isn't theirs. Signing out would end support's impersonation and strand support's own session. me.get
+ * is the app's call, in the app's cache: its 401 signs out as the app does, and Stop wipes what the app holds.
+ */
 function NotStaff() {
   const t = useTranslations("console.gate");
-  const me = useQuery(useTRPC().me.get.queryOptions());
+  const { queryClient } = usePageData();
+  const me = useQuery(useTRPC().me.get.queryOptions(), queryClient);
   const impersonating = Boolean(me.data?.impersonatedBy);
   let action;
-  if (impersonating) action = <StopImpersonatingButton />;
+  if (impersonating) action = <StopImpersonatingButton queryClient={queryClient} />;
   else if (!me.isPending) action = <ConsoleSignOutButton />;
   return (
     <EmptyState icon={ShieldUserIcon} message={impersonating ? t("impersonating") : t("notStaff")} action={action} />

@@ -60,9 +60,10 @@ export function createPageData({ buster, onLeaving, auth = authClient }: PageDat
   const queryClient = createQueryClient({
     onSignedOut: sessionEnded,
     // In place of this page, so Back doesn't return to a screen that showed data, as SessionGate does. Support can't
-    // take a member's step: SessionGate shows it with the way to stop instead.
+    // take a member's step: me.get is asked again, so SessionGate shows the step with the way to stop at once.
     onPendingStep: (step) => {
-      if (!impersonating && window.location.pathname !== pendingStepRoute(step)) replacePage(pendingStepRoute(step));
+      if (impersonating) void queryClient.invalidateQueries({ queryKey: meQuery.queryKey }, { cancelRefetch: false });
+      else if (window.location.pathname !== pendingStepRoute(step)) replacePage(pendingStepRoute(step));
     },
   });
   const meQuery = createTRPCOptionsProxy<AppRouter>({ client: apiClient, queryClient }).me.get.queryOptions();

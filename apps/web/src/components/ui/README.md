@@ -53,7 +53,9 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
   `SidebarGroupAction` (20px, a 36px hit area on phones only), `SidebarRail` (16px wide), and the words of the trigger,
   the rail and the phone sheet ("Toggle Sidebar", the sheet's title), which are not messages. Make them 44px and
   messages before using one. `tooltip.tsx` came with it.
-- `sonner.tsx`: one light theme (no `next-themes`), bottom right, a close button with a 44px hit area.
+- `sonner.tsx`: one light theme (no `next-themes`), bottom right, a close button with a 44px hit area. On phones its
+  `mobileOffset` is `var(--toast-bottom-gap)`, which `globals.css` sets to 4rem (the 56px bottom bar and 8px more) only
+  while the page has the phone navigation, so toasts clear the bar there and sit at the bottom elsewhere.
 - `field.tsx`, `input-otp.tsx`, `progress.tsx`: small fixes the repo's strict lint rules ask for.
 
 shadcn's own `tailwind.css` is not a dependency: the state variants the components use (`data-open:`,

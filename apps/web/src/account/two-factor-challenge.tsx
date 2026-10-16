@@ -3,8 +3,8 @@
 // The second step of a two-factor sign-in: the 6-digit code from the authenticator app, or a backup code. Better
 // Auth remembers the first step in a short-lived cookie; if it has expired the person starts again. Switching between
 // the two kinds of code puts the focus in the new field. Platform staff's device is never trusted, since they reach
-// every organization: the api ignores the box for them (ADR 0025), its hint says so, and on the way to the console it
-// isn't offered at all.
+// every organization: the api ignores the box for them (ADR 0025), and on the way to the console it isn't offered at
+// all.
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
