@@ -8,7 +8,6 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { useTRPC } from "@/data/trpc";
-import { useErrorMessage } from "@/lib/error-message";
 import { routes } from "@/lib/routes";
 
 function useRefreshRoles() {
@@ -55,16 +54,13 @@ export function useDeleteRole(name: string) {
   const refresh = useRefreshRoles();
   const router = useRouter();
   const t = useTranslations("roles.delete");
-  const { apiError } = useErrorMessage();
   return useMutation(
     trpc.roles.delete.mutationOptions({
       onSuccess: () => {
         toast.success(t("deleted", { name }));
         router.push(routes.roles);
       },
-      onError: (error) => {
-        toast.error(apiError(error), { duration: Infinity });
-      },
+      // A refusal shows in the dialog (components/confirm-dialog.tsx).
       onSettled: refresh,
     }),
   );

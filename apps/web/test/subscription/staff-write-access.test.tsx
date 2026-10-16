@@ -127,8 +127,8 @@ describe("the staff screen in each state of the subscription", () => {
     await userEvent.click(within(menu).getByRole("menuitem", { name: "Remove" }));
     const confirm = await screen.findByRole("alertdialog", { name: "Remove Ravi Kumar?" });
     await userEvent.click(within(confirm).getByRole("button", { name: "Remove" }));
-    await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(reasons.ORGANIZATION_CANCELLED, { duration: Infinity });
-    });
+    // In the dialog, which stays open, rather than a toast as well.
+    expect(await within(confirm).findByText(reasons.ORGANIZATION_CANCELLED)).toBeVisible();
+    expect(toast.error).not.toHaveBeenCalled();
   });
 });
