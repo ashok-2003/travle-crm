@@ -7,11 +7,11 @@ import type { OrganizationRecord, UpdateOrganizationInput } from "@travel-crm/co
 import { useMutation } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { TextField } from "@/account/text-field";
+import { FormAlert, FormDialog, type Sending } from "@/components/forms/form-dialog";
+import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { FieldGroup } from "@/components/ui/field";
 import { useConsoleTRPC } from "../../data/console-trpc";
-import { FormDialog, FormFooter, type Sending } from "@/components/forms/form-dialog";
 import { useChangeDialog } from "../change-dialog";
-import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { TimeZoneField } from "../fields/time-zone-field";
 import { toUpdateInput } from "./record-values";
 
@@ -24,19 +24,23 @@ export function CorrectRecordDialog({ organization }: { organization: Organizati
     <FormDialog
       dialog={dialog}
       sending={update}
-      label={t("correct")}
+      trigger={{ label: t("correct") }}
       title={t("dialogTitle")}
       description={t("dialogDescription")}
+      submit={t("save")}
+      submitting={t("saving")}
     >
-      <CorrectRecordForm organization={organization} update={update} />
+      {(formId) => <CorrectRecordForm formId={formId} organization={organization} update={update} />}
     </FormDialog>
   );
 }
 
 function CorrectRecordForm({
+  formId,
   organization,
   update,
 }: {
+  formId: string;
   organization: OrganizationRecord;
   update: Sending<UpdateOrganizationInput>;
 }) {
@@ -47,7 +51,7 @@ function CorrectRecordForm({
     (problem) => t(`problems.${problem}`),
   );
   return (
-    <form noValidate onSubmit={onSubmit(update.mutate)} className="flex flex-col gap-6">
+    <form id={formId} noValidate onSubmit={onSubmit(update.mutate)} className="flex flex-col gap-6">
       <FieldGroup>
         <TextField control={form.control} name="name" label={t("name")} autoComplete="off" />
         <TimeZoneField control={form.control} name="timeZone" label={t("timeZone")} current={organization.timeZone} />
@@ -61,7 +65,7 @@ function CorrectRecordForm({
           autoComplete="off"
         />
       </FieldGroup>
-      <FormFooter sending={update} problem={formProblem} label={t("save")} pendingLabel={t("saving")} />
+      <FormAlert sending={update} problem={formProblem} />
     </form>
   );
 }

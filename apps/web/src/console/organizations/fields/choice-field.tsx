@@ -27,6 +27,11 @@ export function ChoiceField<Values extends FieldValues>({
   options: ChoiceOption[];
 }) {
   const id = useId();
+  const label = (option: ChoiceOption) => (
+    <FieldLabel htmlFor={`${id}-${option.value}`} className="font-normal">
+      {option.label}
+    </FieldLabel>
+  );
   return (
     <Controller
       control={control}
@@ -50,12 +55,15 @@ export function ChoiceField<Values extends FieldValues>({
               {options.map((option) => (
                 <Field key={option.value} orientation="horizontal" className="min-h-11">
                   <RadioGroupItem id={`${id}-${option.value}`} value={option.value} />
-                  <FieldContent>
-                    <FieldLabel htmlFor={`${id}-${option.value}`} className="font-normal">
-                      {option.label}
-                    </FieldLabel>
-                    {option.description && <FieldDescription>{option.description}</FieldDescription>}
-                  </FieldContent>
+                  {/* A label alone sits in the row's middle; one with words under it, at its top. */}
+                  {option.description ? (
+                    <FieldContent>
+                      {label(option)}
+                      <FieldDescription>{option.description}</FieldDescription>
+                    </FieldContent>
+                  ) : (
+                    label(option)
+                  )}
                 </Field>
               ))}
             </RadioGroup>

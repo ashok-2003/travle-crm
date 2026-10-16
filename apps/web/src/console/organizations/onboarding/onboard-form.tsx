@@ -2,21 +2,20 @@
 
 // The onboarding form: the agency, its business profile, its Owner and its subscription, checked by the api's own
 // schema before it is sent (problems under their fields); a refusal shows above the button, keeping what was typed.
+// The button ends the form as a dialog's footer ends one: full width on phones, at the right from tablets up.
 // Onboarded, it opens the organization's page, which says the Owner's invite is on its way.
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { CircleAlertIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { FormAlert } from "@/components/forms/form-dialog";
+import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { Button } from "@/components/ui/button";
 import { FieldLegend, FieldSet } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
-import { useErrorMessage } from "@/lib/error-message";
 import { useConsoleTRPC } from "../../data/console-trpc";
 import { consoleRoutes } from "../../routes";
-import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { AgencyFields, OwnerFields, ProfileFields } from "./agency-fields";
 import { emptyOnboardValues, toOnboardInput } from "./onboard-values";
 import { SubscriptionFields } from "./subscription-fields";
@@ -26,7 +25,6 @@ export type PlansOnSale = { plans: PlanSummary[]; trialDays: number | null } | {
 
 export function OnboardForm({ plansOnSale }: { plansOnSale: PlansOnSale }) {
   const t = useTranslations("consoleOrganizations.onboard");
-  const { apiError } = useErrorMessage();
   const router = useRouter();
   const queryClient = useQueryClient();
   const trpc = useConsoleTRPC();
@@ -56,13 +54,8 @@ export function OnboardForm({ plansOnSale }: { plansOnSale: PlansOnSale }) {
           plansOnSale.placeholder
         )}
       </FieldSet>
-      {(formProblem !== undefined || onboard.isError) && (
-        <Alert variant="destructive">
-          <CircleAlertIcon aria-hidden="true" />
-          <AlertDescription>{formProblem ?? apiError(onboard.error)}</AlertDescription>
-        </Alert>
-      )}
-      <Button type="submit" disabled={!ready || onboard.isPending} className="self-start">
+      <FormAlert sending={onboard} problem={formProblem} />
+      <Button type="submit" disabled={!ready || onboard.isPending} className="w-full md:w-auto md:self-end">
         {onboard.isPending && <Spinner />}
         {onboard.isPending ? t("submitting") : t("submit")}
       </Button>

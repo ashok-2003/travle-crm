@@ -6,11 +6,10 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Delayed } from "@/components/delayed";
 import { ErrorState } from "@/components/error-state";
-import { PageTitle } from "@/components/page-title";
+import { LoadingRows } from "@/components/loading-rows";
+import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useConsoleTRPC } from "../../data/console-trpc";
 import { consoleRoutes } from "../../routes";
 import { OnboardForm, type PlansOnSale } from "./onboard-form";
@@ -49,23 +48,13 @@ export function OnboardScreen() {
     };
   } else {
     plansOnSale = {
-      placeholder: (
-        <Delayed>
-          <div role="status" aria-busy="true" aria-label={t("subscription.loading")} className="flex flex-col gap-2">
-            <Skeleton className="h-11 w-full" />
-            <Skeleton className="h-24 w-full" />
-          </div>
-        </Delayed>
-      ),
+      placeholder: <LoadingRows rows={2} label={t("subscription.loading")} />,
     };
   }
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <PageTitle>{t("title")}</PageTitle>
-        <p className="max-w-[65ch] text-pretty text-muted-foreground">{t("intro")}</p>
-      </div>
+      <PageHeader title={t("title")} intro={t("intro")} />
       <OnboardForm plansOnSale={plansOnSale} />
     </div>
   );

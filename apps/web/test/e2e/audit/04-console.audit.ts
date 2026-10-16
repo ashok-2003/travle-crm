@@ -53,7 +53,7 @@ test("a super admin's console, screen by screen", async ({
   await expect(page.getByRole("heading", { level: 1, name: "Onboard an agency" })).toBeVisible();
   await shoot(page, "console-onboard");
   await page.getByRole("radio", { name: "A trial until a day you choose" }).check();
-  await page.getByRole("button", { name: "The trial's last day" }).click();
+  await page.getByRole("button", { name: "Choose The trial's last day from the calendar" }).click();
   await expect(page.locator("[data-slot=calendar]")).toBeVisible();
   await shoot(page, "console-onboard-calendar");
   await page.keyboard.press("Escape");
@@ -70,9 +70,12 @@ test("a super admin's console, screen by screen", async ({
   await shoot(page, "console-record-payment");
   await payment.getByRole("button", { name: "Record the payment" }).click();
   await expect(payment).toHaveCount(0);
+  // The pointer would rest on the toast that comes up where the footer's button was, and hold it open.
+  await page.mouse.move(0, 0);
   await expect(subscription.getByText("NEFT UTR 412345678901")).toBeVisible();
   await shoot(page, "console-organization");
-  await subscription.getByRole("button", { name: "Change plan" }).click();
+  await subscription.getByRole("button", { name: "Change", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Change plan" }).click();
   const changePlan = page.getByRole("dialog", { name: "Change the plan" });
   await expect(changePlan).toBeVisible();
   await shoot(page, "console-change-plan");

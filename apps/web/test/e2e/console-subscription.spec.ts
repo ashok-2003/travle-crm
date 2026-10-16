@@ -37,7 +37,10 @@ test("a date field's calendar fits a 320px phone, its days still 40px at least",
   await signInToConsole(page, support);
   await page.goto(`/console/organizations/${agency.organizationId}`);
   await page.getByRole("region", { name: "Subscription" }).getByRole("button", { name: "Record a payment" }).click();
-  await page.getByRole("dialog", { name: "Record a payment" }).getByRole("button", { name: "Pays through" }).click();
+  await page
+    .getByRole("dialog", { name: "Record a payment" })
+    .getByRole("button", { name: "Choose Pays through from the calendar" })
+    .click();
   const calendar = page.locator("[data-slot=calendar]");
   await expect(calendar).toBeVisible();
   // Measured once the popover's zoom-in has finished: mid-animation it is scaled down, and looks smaller than it is.
@@ -58,7 +61,8 @@ test("a suspension shows in the console, and the agency's calls are refused", as
   await signInToConsole(page, support);
   await page.goto(`/console/organizations/${agency.organizationId}`);
   const subscription = page.getByRole("region", { name: "Subscription" });
-  await subscription.getByRole("button", { name: "Suspend", exact: true }).click();
+  await subscription.getByRole("button", { name: "Change", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Suspend" }).click();
   const dialog = page.getByRole("dialog", { name: "Suspend this organization?" });
   await dialog.getByLabel("Reason").fill("Chargeback on the last payment");
   await dialog.getByRole("button", { name: "Suspend" }).click();

@@ -6,7 +6,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { checked } from "@/components/forms/checked";
-import { FormFooter } from "@/components/forms/form-dialog";
+import { FormAlert } from "@/components/forms/form-dialog";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { locale, messages } from "@/i18n/messages";
 
@@ -46,12 +46,8 @@ function NameForm({ send }: { send: (input: unknown) => void }) {
   return (
     <form noValidate onSubmit={onSubmit(send)}>
       <input aria-label="Name" {...form.register("name")} />
-      <FormFooter
-        sending={{ isPending: false, error: null }}
-        problem={formProblem}
-        label="Save"
-        pendingLabel="Saving"
-      />
+      <FormAlert sending={{ error: null }} problem={formProblem} />
+      <button type="submit">Save</button>
     </form>
   );
 }

@@ -74,7 +74,10 @@ export function ImpersonateDialog({
       }}
     >
       <AlertDialogTrigger asChild>
-        <Button variant="outline">{tMembers("impersonate", { name: member.name })}</Button>
+        {/* The name in its accessible name only: it tells the rows' buttons apart, and the button stays short. */}
+        <Button variant="outline" aria-label={tMembers("impersonate", { name: member.name })}>
+          {tMembers("impersonateShort")}
+        </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
@@ -85,11 +88,7 @@ export function ImpersonateDialog({
         </AlertDialogHeader>
         {failure && (
           <Alert variant="destructive">
-            <AlertDescription>
-              {failure.code === "IMPERSONATION_TARGET_NOT_A_MEMBER"
-                ? t("notAMember", { name: member.name })
-                : authError(failure)}
-            </AlertDescription>
+            <AlertDescription>{authError(failure)}</AlertDescription>
           </Alert>
         )}
         <AlertDialogFooter>

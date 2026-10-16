@@ -83,12 +83,12 @@ afterEach(() => {
 
 // A long form with Radix selects: jsdom takes seconds over each journey through it, more on a busy machine.
 describe("OnboardScreen", { timeout: 20_000 }, () => {
-  it("offers the plans on sale with their prices, and their cycles once one is chosen", async () => {
+  it("offers the plans on sale by name, and their cycles with their prices once one is chosen", async () => {
     renderOnboarding();
     expect(await screen.findByRole("heading", { level: 1, name: onboard.title })).toBeVisible();
     await userEvent.click(await screen.findByRole("combobox", { name: onboard.subscription.plan }));
     const options = await screen.findAllByRole("option");
-    expect(options.map((option) => option.textContent)).toEqual(["Growth · ₹2,500 a month · ₹25,000 a year"]);
+    expect(options.map((option) => option.textContent)).toEqual(["Growth"]);
     await userEvent.click(options[0] ?? document.body);
     const cycle = screen.getByRole("radiogroup", { name: onboard.subscription.cycle });
     expect(within(cycle).getByRole("radio", { name: "Monthly, ₹2,500 before GST" })).toBeChecked();
@@ -123,13 +123,22 @@ describe("OnboardScreen", { timeout: 20_000 }, () => {
     ]);
   });
 
+  it("takes the contact phone after its +91, mono", async () => {
+    renderOnboarding();
+    await screen.findByRole("combobox", { name: onboard.subscription.plan });
+    const phone = screen.getByRole("textbox", { name: onboard.profile.contactPhone });
+    expect(phone.closest("[data-slot=input-group]")).toHaveTextContent("+91");
+    expect(phone).toHaveAttribute("type", "tel");
+    expect(phone).toHaveClass("numbers");
+  });
+
   it("starts the subscription paid through a day when asked", async () => {
     renderOnboarding();
     await screen.findByRole("combobox", { name: onboard.subscription.plan });
     await fillIn();
     await userEvent.click(screen.getByRole("radio", { name: "Yearly, ₹25,000 before GST" }));
     await userEvent.click(screen.getByRole("radio", { name: onboard.subscription.starts.paid }));
-    await chooseDay(screen.getByLabelText(onboard.subscription.paidThrough), "2027-03-31");
+    await chooseDay(onboard.subscription.paidThrough, "2027-03-31");
     await userEvent.click(screen.getByRole("button", { name: onboard.submit }));
     await vi.waitFor(() => {
       expect(navigation.push).toHaveBeenCalled();

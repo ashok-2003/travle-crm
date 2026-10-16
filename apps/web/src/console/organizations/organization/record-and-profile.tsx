@@ -2,16 +2,15 @@
 
 // The organization's row (name, code, time zone, contact email, when it was onboarded), with its corrections, and its
 // business profile, read-only here: the Owner keeps it up to date, and the account number comes masked by the api.
-// GSTIN, IFSC, codes and numbers are mono; dates are the organization's own.
+// GSTIN, IFSC, codes and numbers are mono; dates are the organization's own, written as in a sentence.
 import type { OrganizationRecord } from "@travel-crm/contracts/platform";
 import type { OrganizationProfileDetails } from "@travel-crm/contracts/profile";
 import { gstStates } from "@travel-crm/contracts/kernel";
 import { useTranslations } from "next-intl";
-import { formatDay } from "@/lib/format";
+import { formatDay, formatPhoneNumber } from "@/lib/format";
 import { isListedTimeZone } from "../fields/time-zones";
 import { CorrectRecordDialog } from "./correct-record-dialog";
 import { DetailList, DetailSection } from "./detail-list";
-import { formatPhoneNumber } from "./phone-number";
 
 export function RecordSection({ organization }: { organization: OrganizationRecord }) {
   const t = useTranslations("consoleOrganizations.record");
@@ -34,11 +33,7 @@ export function RecordSection({ organization }: { organization: OrganizationReco
           },
           {
             label: t("onboardedOn"),
-            value: (
-              <span className="numbers">
-                {formatDay(new Date(organization.createdAt), { timeZone: organization.timeZone })}
-              </span>
-            ),
+            value: formatDay(new Date(organization.createdAt), { timeZone: organization.timeZone }),
           },
         ]}
       />

@@ -9,12 +9,12 @@ import { useMutation } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { TextField } from "@/account/text-field";
 import { DateField } from "@/components/date-field";
+import { FormAlert, FormDialog, type Sending } from "@/components/forms/form-dialog";
+import { MoneyField } from "@/components/forms/money-field";
+import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { FieldGroup } from "@/components/ui/field";
 import { useConsoleTRPC } from "../../data/console-trpc";
-import { FormDialog, FormFooter, type Sending } from "@/components/forms/form-dialog";
 import { useChangeDialog } from "../change-dialog";
-import { useCheckedForm } from "@/components/forms/use-checked-form";
-import { MoneyField } from "@/components/forms/money-field";
 import { toRecordPaymentInput } from "./change-inputs";
 
 export function RecordPaymentDialog({ organizationId, timeZone }: { organizationId: string; timeZone: string }) {
@@ -26,21 +26,26 @@ export function RecordPaymentDialog({ organizationId, timeZone }: { organization
     <FormDialog
       dialog={dialog}
       sending={record}
-      label={t("action")}
+      trigger={{ label: t("action"), variant: "default" }}
       title={t("title")}
       description={t("description")}
-      primary
+      submit={t("submit")}
+      submitting={t("submitting")}
     >
-      <RecordPaymentForm organizationId={organizationId} timeZone={timeZone} record={record} />
+      {(formId) => (
+        <RecordPaymentForm formId={formId} organizationId={organizationId} timeZone={timeZone} record={record} />
+      )}
     </FormDialog>
   );
 }
 
 function RecordPaymentForm({
+  formId,
   organizationId,
   timeZone,
   record,
 }: {
+  formId: string;
   organizationId: string;
   timeZone: string;
   record: Sending<RecordPaymentInput>;
@@ -52,7 +57,7 @@ function RecordPaymentForm({
     (problem) => t(`problems.${problem}`),
   );
   return (
-    <form noValidate onSubmit={onSubmit(record.mutate)} className="flex flex-col gap-6">
+    <form id={formId} noValidate onSubmit={onSubmit(record.mutate)} className="flex flex-col gap-6">
       <FieldGroup>
         <MoneyField
           control={form.control}
@@ -70,12 +75,7 @@ function RecordPaymentForm({
           autoComplete="off"
         />
       </FieldGroup>
-      <FormFooter
-        sending={record}
-        problem={formProblem}
-        label={t("recordPayment.submit")}
-        pendingLabel={t("recordPayment.submitting")}
-      />
+      <FormAlert sending={record} problem={formProblem} />
     </form>
   );
 }

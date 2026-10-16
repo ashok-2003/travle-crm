@@ -1,7 +1,7 @@
 "use client";
 
-// Choosing a plan on sale and a billing cycle it is sold on, for onboarding and for a change of plan: each plan with
-// its prices, then the cycles of the plan chosen, each with its price before GST.
+// Choosing a plan on sale and a billing cycle it is sold on, for onboarding and for a change of plan: each plan by
+// its name, then the cycles of the plan chosen, each with its price before GST (said once, there).
 import type { BillingCycle, PlanSummary } from "@travel-crm/contracts/subscriptions";
 import { useTranslations } from "next-intl";
 import type { Control, FieldPath, FieldValues } from "react-hook-form";
@@ -33,11 +33,6 @@ export function PlanFields<Values extends FieldValues>({
 }) {
   const t = useTranslations("consoleOrganizations.onboard.subscription");
   const chosen = plans.find((plan) => plan.id === chosenPlanId);
-  const planLabel = (plan: PlanSummary) =>
-    [
-      plan.name,
-      ...cyclesOf(plan).map((cycle) => t(`planPrices.${cycle}`, { price: rupees(priceOf(plan, cycle) ?? 0) })),
-    ].join(" · ");
   return (
     <>
       <SelectField
@@ -45,7 +40,7 @@ export function PlanFields<Values extends FieldValues>({
         name={planField}
         label={t("plan")}
         placeholder={t("planPlaceholder")}
-        options={plans.map((plan) => ({ value: plan.id, label: planLabel(plan) }))}
+        options={plans.map((plan) => ({ value: plan.id, label: plan.name }))}
         onChosen={(value) => {
           const plan = plans.find((candidate) => candidate.id === value);
           if (plan) onPlanChosen(plan);

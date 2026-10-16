@@ -2,36 +2,21 @@
 
 // The organization's subscription on its page (spec 7.2-7.4): its state today, beside the one the nightly job last
 // recorded when they differ; the next change; a suspension made by hand; the plan, the dates and the overrides; the
-// price with GST; what support may change; and the payments. Every change goes through subscriptions.*; lifting a
-// suspension is a super admin's, the others either level's.
+// price with GST; and the payments. Its header holds what support may change: the Change menu
+// (subscription-changes.tsx) and Record a payment, the primary. Every change goes through subscriptions.*. Dates are
+// written as in a sentence, in Figtree, wherever they sit in the list; money and counts are mono.
 import type { OrganizationRecord } from "@travel-crm/contracts/platform";
-import type { SubscriptionDetails, SubscriptionWithPayments } from "@travel-crm/contracts/subscriptions";
-import { calendarDateIn } from "@travel-crm/domain/kernel";
+import type { SubscriptionWithPayments } from "@travel-crm/contracts/subscriptions";
 import { useTranslations } from "next-intl";
 import { formatDay } from "@/lib/format";
-import { isSuperAdmin, useStaff } from "../../session/staff-context";
 import { SubscriptionStatusBadge } from "../../subscription-status";
 import { rupees } from "../fields/plan-prices";
 import { DetailList, DetailSection, type Detail } from "../organization/detail-list";
 import { formatCalendarDay } from "./calendar-day";
-import { ChangePlanDialog } from "./change-plan-dialog";
-import { PaidThroughDialog, TrialEndDialog } from "./dates-dialogs";
-import { OverridesDialog } from "./overrides-dialog";
 import { PaymentsList } from "./payments-list";
 import { PriceBreakdown } from "./price-breakdown";
 import { RecordPaymentDialog } from "./record-payment-dialog";
-import { EndAccessDialog } from "./reason-dialogs";
-
-/**
- * Whether the trial lasts today, as the api decides (subscriptions/paid-dates.ts): by the state due today, which a
- * suspension by hand hides behind "suspended". That state is the trial recorded, until its last day has passed.
- */
-function inTrial(subscription: SubscriptionDetails, today: string): boolean {
-  if (subscription.manualSuspension === null) return subscription.status === "trial";
-  return (
-    subscription.recorded.status === "trial" && (subscription.trialEndsOn === null || subscription.trialEndsOn >= today)
-  );
-}
+import { SubscriptionChanges } from "./subscription-changes";
 
 export function SubscriptionSection({
   organization,
@@ -42,7 +27,6 @@ export function SubscriptionSection({
 }) {
   const t = useTranslations("consoleOrganizations.subscription");
   const tStatus = useTranslations("console.status");
-  const staff = useStaff();
   if (!found) {
     return (
       <DetailSection id="subscription-heading" heading={t("heading")}>
@@ -52,8 +36,7 @@ export function SubscriptionSection({
   }
   const { subscription, payments } = found;
   const muted = (text: string) => <span className="text-muted-foreground">{text}</span>;
-  const day = (date: string | null) =>
-    date === null ? muted(t("notSet")) : <span className="numbers">{formatCalendarDay(date)}</span>;
+  const day = (date: string | null) => (date === null ? muted(t("notSet")) : formatCalendarDay(date));
   const recordedDiffers =
     subscription.recorded.status !== subscription.status || subscription.recorded.since !== subscription.since;
   const details: Detail[] = [
@@ -123,25 +106,15 @@ export function SubscriptionSection({
     <DetailSection
       id="subscription-heading"
       heading={t("heading")}
-      action={<RecordPaymentDialog organizationId={organization.id} timeZone={organization.timeZone} />}
+      action={
+        <span className="flex flex-wrap gap-2">
+          <SubscriptionChanges organization={organization} subscription={subscription} />
+          <RecordPaymentDialog organizationId={organization.id} timeZone={organization.timeZone} />
+        </span>
+      }
     >
       <DetailList details={details} />
       <PriceBreakdown price={subscription.price} agreed={subscription.customPricePaise !== null} />
-      <div className="flex flex-wrap gap-2">
-        <ChangePlanDialog subscription={subscription} />
-        <OverridesDialog subscription={subscription} />
-        {inTrial(subscription, calendarDateIn(new Date(), organization.timeZone)) && (
-          <TrialEndDialog subscription={subscription} />
-        )}
-        <PaidThroughDialog subscription={subscription} />
-        {subscription.manualSuspension === null && subscription.status !== "cancelled" && (
-          <EndAccessDialog subscription={subscription} change="suspend" />
-        )}
-        {subscription.manualSuspension !== null && isSuperAdmin(staff) && (
-          <EndAccessDialog subscription={subscription} change="liftSuspension" />
-        )}
-        {subscription.status !== "cancelled" && <EndAccessDialog subscription={subscription} change="cancel" />}
-      </div>
       <h3 className="text-section font-semibold">{t("payments.heading")}</h3>
       <PaymentsList organizationId={organization.id} payments={payments} />
     </DetailSection>
