@@ -3,7 +3,10 @@
 import { router } from "../trpc.js";
 import { attachmentsRouter } from "./attachments.js";
 import { auditRouter } from "./audit.js";
+import { blockedContactsRouter } from "./blocked-contacts.js";
+import { destinationsRouter } from "./destinations.js";
 import { documentsRouter } from "./documents.js";
+import { leadsRouter } from "./leads.js";
 import { meRouter } from "./me.js";
 import { notificationsRouter } from "./notifications.js";
 import { organizationRouter } from "./profile.js";
@@ -12,6 +15,8 @@ import { settingsRouter } from "./settings.js";
 import { shareLinksRouter } from "./share-links.js";
 import { staffRouter } from "./staff.js";
 import { subscriptionRouter } from "./subscription.js";
+import { tasksRouter } from "./tasks.js";
+import { todayRouter } from "./today.js";
 
 export const appRouter = router({
   me: meRouter,
@@ -25,6 +30,11 @@ export const appRouter = router({
   documents: documentsRouter,
   shareLinks: shareLinksRouter,
   audit: auditRouter,
+  leads: leadsRouter,
+  blockedContacts: blockedContactsRouter,
+  destinations: destinationsRouter,
+  tasks: tasksRouter,
+  today: todayRouter,
 });
 
 export type AppRouter = typeof appRouter;

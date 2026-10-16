@@ -13,6 +13,10 @@ Who can sign in, to which organization, and what they may do (spec section 6).
     `super-admin`), name and pending password change, or null for anyone who isn't platform staff;
   - `organizationProfile(organizationId)` and `memberContacts(organizationId, userIds)`: what other modules may know
     about an organization and its people (they can't read the sign-in tables);
+  - `leadWorkers(organizationId)`: the people who can work leads (R14), active members whose role is the Owner's or
+    grants `leads:view` (any scope), by name, for the owner and assignee pickers; and `firstOwner(organizationId)`:
+    the earliest-joined active Owner (R15), who receives a departing member's leads and tasks. Both are also exported
+    as functions taking the identity database;
   - `staff.list / create / updateRole / resetPassword / remove`;
   - with `auth.passwordReset` set (the api passes its email sender and the web app's reset page), Better Auth's
     password reset by email link; staff without email are never emailed, a link may lead back only to the reset page,
