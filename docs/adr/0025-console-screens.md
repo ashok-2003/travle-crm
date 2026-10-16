@@ -41,11 +41,17 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 6.1, 7 and 11 (
 - **The screens:** the dashboard (every organization a page at a time: status as a dot and a word, days left, seats,
   last activity, this month's use); onboarding; an organization's page (its record and corrections, its business
   profile, its members with the Owner's invite resent, its subscription: today's state beside the recorded one, the
-  price with CGST and SGST, plan, overrides, trial end, paid-through, payments recorded and voided, suspension, lifting
-  it (super admins), cancelling); data protection (super admins: exports and their downloads, the purge with the code
-  typed, one person's or record's export and erasure); plans and the subscription policy (support reads, super admins
-  change); failed jobs, schedules and the platform log; platform staff (super admins). Times show in Asia/Kolkata (the
-  platform's own zone); amounts are typed in rupees and read into paise by the contracts.
+  price with one GST row at 18% (Ruling C: CGST and SGST, or IGST, are split once the platform's own GSTIN and state
+  are set, with tax invoices), plan, overrides, trial end, paid-through, payments recorded and voided, suspension,
+  lifting it (super admins), cancelling); data protection (super admins: exports and their downloads, the purge with
+  the code typed, one person's or record's export and erasure); plans and the subscription policy (support reads,
+  super admins change); failed jobs, schedules and the platform log; platform staff (super admins). Amounts are typed
+  in rupees and read into paise by the contracts.
+- **Time zones.** What belongs to the platform shows in its own zone, Asia/Kolkata (`PLATFORM_TIME_ZONE`): the
+  dashboard's last activity, failed jobs, the platform log, data protection's exports, platform staff. What belongs to
+  an organization shows in that organization's zone: on its page, its members' last activity, the day it was
+  onboarded and a suspension's day. The subscription's days (trial end, paid-through, payments) are calendar days of
+  the organization, shown as they are, never moved by a zone; a schedule shows its own zone beside it.
 
 ## Context
 
