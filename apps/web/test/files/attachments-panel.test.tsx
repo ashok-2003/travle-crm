@@ -139,6 +139,16 @@ describe("AttachmentsPanel", () => {
     expect(screen.getByText(messages.errors.reasons.ORGANIZATION_SUSPENDED)).toBeVisible();
   });
 
+  it("says a refusal's own sentence rather than that the files didn't load", async () => {
+    stubApi({
+      "attachments.list": { status: 403, reason: "ORGANIZATION_SUSPENDED" },
+      "subscription.get": subscription("full"),
+    });
+    renderPanel();
+    expect(await screen.findByText(messages.errors.reasons.ORGANIZATION_SUSPENDED)).toBeVisible();
+    expect(screen.queryByText(words.loadFailed)).toBeNull();
+  });
+
   it("says so when the files didn't load, and tries again", async () => {
     const api = stubApi({ "attachments.list": { status: 500 }, "subscription.get": subscription("full") });
     renderPanel();

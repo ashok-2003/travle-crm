@@ -32,6 +32,7 @@ export function BrandingForm() {
       return (
         <ErrorState
           message={t("details.loadFailed")}
+          error={branding.error}
           retryLabel={tCommon("tryAgain")}
           onRetry={() => void branding.refetch()}
         />

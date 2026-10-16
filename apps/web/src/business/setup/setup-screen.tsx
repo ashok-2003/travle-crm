@@ -30,6 +30,7 @@ export function SetupScreen() {
       return (
         <ErrorState
           message={t("loadFailed")}
+          error={checklist.error}
           retryLabel={tCommon("tryAgain")}
           onRetry={() => void checklist.refetch()}
         />
