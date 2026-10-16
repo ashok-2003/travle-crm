@@ -7,7 +7,11 @@ import type { NotificationChannel, NotificationPreference } from "@travel-crm/co
 export const EVERY_KIND = "*";
 
 /** Each kind, and the key of its words under notifications.preferences.kinds. */
-export const notificationKinds = [{ kind: "share-link.opened", messageKey: "shareLinkOpened" }] as const;
+export const notificationKinds = [
+  { kind: "share-link.opened", messageKey: "shareLinkOpened" },
+  { kind: "lead.assigned", messageKey: "leadAssigned" },
+  { kind: "lead.repeat-enquiry", messageKey: "leadRepeatEnquiry" },
+] as const;
 
 /** Whether notifications of this kind reach the person on this channel, given their choices. */
 export function reaches(

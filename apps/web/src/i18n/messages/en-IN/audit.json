@@ -7,8 +7,8 @@
   "emptyRecord": "Nothing has been recorded about this record.",
   "showMore": "Show older changes",
   "moreFailed": "The older changes didn't load.",
-  "recordHistory": "{kind, select, member {This staff member's history} role {This role's history} organization {The organization's history} subscription {The subscription's history} issued_document {This document's history} other {This record's history}}",
-  "oneRecord": "{kind, select, member {The history of one staff member} role {The history of one role} organization {The organization's history} subscription {The subscription's history} issued_document {The history of one document} other {The history of one record}}",
+  "recordHistory": "{kind, select, member {This staff member's history} role {This role's history} organization {The organization's history} subscription {The subscription's history} issued_document {This document's history} lead {This lead's history} person {This customer's history} task {This follow-up or task's history} destination {This destination's history} other {This record's history}}",
+  "oneRecord": "{kind, select, member {The history of one staff member} role {The history of one role} organization {The organization's history} subscription {The subscription's history} issued_document {The history of one document} lead {The history of one lead} person {The history of one customer} task {The history of one follow-up or task} destination {The history of one destination} other {The history of one record}}",
   "showEverything": "Show every change",
   "change": {
     "open": "{action}: see what changed",
@@ -84,6 +84,35 @@
     },
     "subject": {
       "erased": "Erased a person's or record's personal data"
+    },
+    "person": {
+      "added": "Added a customer",
+      "edited": "Changed a customer's name or contacts"
+    },
+    "lead": {
+      "added": "Added a lead",
+      "repeat-enquiry": "Added a repeat enquiry to a lead",
+      "note-added": "Added a note to a lead",
+      "stage-changed": "Moved a lead to another stage",
+      "reopened": "Reopened a closed lead",
+      "reassigned": "Gave a lead to another owner",
+      "trip-edited": "Changed a lead's trip"
+    },
+    "task": {
+      "added": "Added a follow-up or task",
+      "done": "Marked a follow-up or task done",
+      "snoozed": "Snoozed a follow-up or task",
+      "cancelled": "Cancelled a follow-up or task",
+      "reassigned": "Gave a follow-up or task to someone else"
+    },
+    "destination": {
+      "added": "Added a destination",
+      "renamed": "Renamed a destination",
+      "merged": "Merged a destination into another"
+    },
+    "blocked-contact": {
+      "added": "Blocked a contact",
+      "removed": "Unblocked a contact"
     }
   },
   "fields": {
@@ -95,11 +124,21 @@
     "key": "Key",
     "number": "Number",
     "fields": "Fields saved",
-    "recordType": "Shared record",
+    "recordType": "Record",
     "expiresAt": "Expires",
-    "revokedAt": "Turned off"
+    "revokedAt": "Turned off",
+    "stage": "Stage",
+    "ownerUserId": "Owner",
+    "assigneeUserId": "Assigned to",
+    "dueAt": "Due",
+    "kind": "Kind",
+    "mergedInto": "Merged into"
   },
   "recordTypes": {
-    "issued_document": "A document"
+    "issued_document": "A document",
+    "lead": "A lead",
+    "person": "A customer",
+    "task": "A follow-up or task",
+    "destination": "A destination"
   }
 }

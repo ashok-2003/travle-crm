@@ -164,6 +164,16 @@ module.exports = {
       to: { path: "^packages/domain/src/", pathNot: "^packages/domain/src/[^/]+/index\\.ts$" },
     },
     {
+      name: "business-modules-call-down",
+      comment:
+        "The business modules are layered (spec 6, 8): catalog and tasks at L0, crm at L1, today above them. A module " +
+        "calls only down: catalog and tasks never call crm or today, and crm never calls today. An action spanning two " +
+        "modules is the higher one's, or its router calls both (R22).",
+      severity: "error",
+      from: { path: "^packages/domain/src/(catalog|tasks|crm)/" },
+      to: { path: "^packages/domain/src/(crm|today)/", pathNot: "^packages/domain/src/$1/" },
+    },
+    {
       name: "kernel-depends-on-no-module",
       comment: "The shared kernel is the bottom layer (spec 8): modules use it, it uses no module.",
       severity: "error",
