@@ -4,7 +4,7 @@
 // whether everyone must use two-factor sign-in, and the way to the organization's other settings.
 import { useTranslations } from "next-intl";
 import { Details } from "@/components/details";
-import { PageTitle } from "@/components/page-title";
+import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { useMe } from "@/session/me-context";
 import { CopyButton } from "../copy-button";
@@ -16,7 +16,7 @@ export function SettingsScreen() {
   const me = useMe();
   return (
     <div className="flex max-w-[720px] flex-col gap-8">
-      <PageTitle>{t("title")}</PageTitle>
+      <PageHeader title={t("title")} />
       <section aria-labelledby="organization-heading" className="flex flex-col gap-3">
         <h2 id="organization-heading" className="text-section font-semibold">
           {t("organization.heading")}

@@ -10,7 +10,7 @@ import { useTranslations } from "next-intl";
 import { Delayed } from "@/components/delayed";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
-import { PageTitle } from "@/components/page-title";
+import { PageHeader } from "@/components/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTRPC } from "@/data/trpc";
 import { useWriteAccess } from "@/subscription/write-access";
@@ -63,13 +63,11 @@ export function StaffScreen() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex max-w-[65ch] flex-col gap-2">
-          <PageTitle>{t("title")}</PageTitle>
-          <p className="text-muted-foreground">{t("intro")}</p>
-        </div>
-        {shownRoles && <CreateStaffDialog roles={shownRoles} />}
-      </div>
+      <PageHeader
+        title={t("title")}
+        intro={t("intro")}
+        action={shownRoles && <CreateStaffDialog roles={shownRoles} />}
+      />
       {body()}
     </div>
   );

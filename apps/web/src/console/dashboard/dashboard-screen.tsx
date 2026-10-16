@@ -9,7 +9,7 @@ import { useTranslations } from "next-intl";
 import { Delayed } from "@/components/delayed";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
-import { PageTitle } from "@/components/page-title";
+import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
@@ -76,7 +76,7 @@ export function DashboardScreen() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageTitle>{t("title")}</PageTitle>
+      <PageHeader title={t("title")} />
       {content}
     </div>
   );

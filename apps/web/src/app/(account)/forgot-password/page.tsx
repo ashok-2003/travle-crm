@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { ForgotPasswordForm } from "@/account/forgot-password-form";
 import { TextLink } from "@/account/text-link";
-import { PageTitle } from "@/components/page-title";
+import { PageHeader } from "@/components/page-header";
 import { routes } from "@/lib/routes";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -16,8 +16,7 @@ export default function ForgotPasswordPage() {
   const t = useTranslations("account.forgotPassword");
   return (
     <div className="flex flex-col gap-6">
-      <PageTitle>{t("title")}</PageTitle>
-      <p className="text-muted-foreground">{t("intro")}</p>
+      <PageHeader title={t("title")} intro={t("intro")} />
       <ForgotPasswordForm />
       <p className="text-label text-muted-foreground">{t("noEmail")}</p>
       <TextLink href={routes.signIn}>{t("backToSignIn")}</TextLink>

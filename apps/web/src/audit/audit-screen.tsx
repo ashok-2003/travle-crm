@@ -10,7 +10,7 @@ import { useTranslations } from "next-intl";
 import { Delayed } from "@/components/delayed";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
-import { PageTitle } from "@/components/page-title";
+import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
@@ -75,10 +75,7 @@ export function AuditScreen() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex max-w-[65ch] flex-col gap-2">
-        <PageTitle>{t("title")}</PageTitle>
-        <p className="text-muted-foreground">{t("intro")}</p>
-      </div>
+      <PageHeader title={t("title")} intro={t("intro")} />
       {record && (
         <div className="flex flex-wrap items-center gap-x-6">
           <p className="font-medium">{t("oneRecord", { kind: record.entityType })}</p>

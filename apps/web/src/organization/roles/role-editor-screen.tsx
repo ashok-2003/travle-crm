@@ -9,7 +9,7 @@ import { useTranslations } from "next-intl";
 import { Delayed } from "@/components/delayed";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
-import { PageTitle } from "@/components/page-title";
+import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTRPC } from "@/data/trpc";
@@ -66,7 +66,7 @@ export function RoleEditorScreen({ roleKey }: { roleKey: string }) {
           {t("editor.back")}
         </Link>
       </Button>
-      <PageTitle>{role?.name ?? t("title")}</PageTitle>
+      <PageHeader title={role?.name ?? t("title")} />
       {body()}
     </div>
   );

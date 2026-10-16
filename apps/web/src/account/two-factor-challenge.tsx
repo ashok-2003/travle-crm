@@ -9,7 +9,7 @@ import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useId, useState, type SubmitEvent } from "react";
-import { PageTitle } from "@/components/page-title";
+import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldContent, FieldDescription, FieldLabel } from "@/components/ui/field";
@@ -59,8 +59,7 @@ export function TwoFactorChallenge({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageTitle>{t("twoFactor.title")}</PageTitle>
-      <p className="text-muted-foreground">{useBackup ? t("twoFactor.backupIntro") : t("twoFactor.intro")}</p>
+      <PageHeader title={t("twoFactor.title")} intro={useBackup ? t("twoFactor.backupIntro") : t("twoFactor.intro")} />
       <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-5">
         <Field>
           <FieldLabel htmlFor={`${id}-code`}>{useBackup ? t("fields.backupCode") : t("fields.code")}</FieldLabel>

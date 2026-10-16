@@ -8,7 +8,7 @@ import { useTranslations } from "next-intl";
 import { Fragment } from "react";
 import { Delayed } from "@/components/delayed";
 import { ErrorState } from "@/components/error-state";
-import { PageTitle } from "@/components/page-title";
+import { PageHeader } from "@/components/page-header";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTRPC } from "@/data/trpc";
@@ -68,13 +68,7 @@ export function RolesScreen() {
 
   return (
     <div className="flex max-w-[720px] flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex max-w-[65ch] flex-col gap-2">
-          <PageTitle>{t("title")}</PageTitle>
-          <p className="text-muted-foreground">{t("intro")}</p>
-        </div>
-        <CreateRoleDialog />
-      </div>
+      <PageHeader title={t("title")} intro={t("intro")} action={<CreateRoleDialog />} />
       {body()}
     </div>
   );
