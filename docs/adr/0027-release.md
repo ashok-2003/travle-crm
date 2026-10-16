@@ -91,7 +91,10 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 2.7 (images tha
   waits for the owner.
 - The product in Docker runs the api in development mode, because it serves plain http on localhost with the example
   secret; production settings are the image smoke's.
-- CodeQL's results on a private repository need GitHub Code Security.
+- **Owner items.** CodeQL's results on a private repository need GitHub Code Security: the owner turns it on, or the
+  analysis gets `upload: never` and keeps its SARIF as a workflow artifact; until then the CodeQL job fails at the
+  upload. Lighthouse's performance floor is 0.8 now and goes to 0.9 once CI's runs show the room; the signed-in pages
+  are measured later, once a run can sign in. Both are in the deploy checklist's "Still open".
 - The images' `corepack install` reads the root `package.json`, so a change to it fetches the packages again.
 - Each override and exception in `pnpm-workspace.yaml` goes when the package holding the old version moves past it;
   re-run the audit after every dependency change.
