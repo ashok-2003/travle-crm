@@ -49,6 +49,13 @@ describe("noticeOf", () => {
     });
   });
 
+  it("says payment is due with no day when none is set for read-only", () => {
+    expect(noticeOf(overview("past_due", { paidThrough: "2026-10-14" }), today)).toEqual({
+      kind: "pastDue",
+      readOnlyFrom: null,
+    });
+  });
+
   it("says a read-only organization is so until it pays", () => {
     expect(noticeOf(overview("read_only", { nextChangeOn: "2026-10-30" }), today)).toEqual({ kind: "readOnly" });
   });

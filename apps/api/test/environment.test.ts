@@ -1,4 +1,6 @@
 // The api refuses to start with settings that are missing, malformed or unsafe in production, and says which.
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { brand } from "@travel-crm/brand";
 import { describe, expect, it } from "vitest";
 import { authSettingsFrom, EnvironmentError, loadEnvironment } from "../src/environment.js";
@@ -73,6 +75,30 @@ describe("environment", () => {
         BETTER_AUTH_SECRET: "dev-only-secret-not-for-any-real-deploy",
       }),
     ).not.toThrow();
+  });
+
+  it("refuses .env.example's VAPID pair in production, naming the variable and never the value", () => {
+    const example = readFileSync(path.resolve(import.meta.dirname, "../../../.env.example"), "utf8");
+    const exampleValue = (name: string) => new RegExp(`^${name}=(.+)$`, "m").exec(example)?.[1]?.trim() ?? "";
+    const pair = {
+      VAPID_PUBLIC_KEY: exampleValue("VAPID_PUBLIC_KEY"),
+      VAPID_PRIVATE_KEY: exampleValue("VAPID_PRIVATE_KEY"),
+    };
+    expect(pair.VAPID_PUBLIC_KEY).toMatch(/^B[\w-]{86}$/);
+    const production = {
+      ...valid,
+      NODE_ENV: "production",
+      BETTER_AUTH_URL: "https://app.example.in",
+      APP_URL: "https://app.example.in",
+      BETTER_AUTH_SECRET: "wB7qk2Rz9XvLm4TnY8cPa5HdJ3sFe6Ug",
+    };
+    const attempt = () => loadEnvironment({ ...production, ...pair });
+    expect(attempt).toThrow(/VAPID_PUBLIC_KEY: is \.env\.example's/);
+    expect(attempt).not.toThrow(pair.VAPID_PUBLIC_KEY);
+    expect(attempt).not.toThrow(pair.VAPID_PRIVATE_KEY);
+    // A pair of the environment's own, and the example pair on a laptop, are fine.
+    expect(() => loadEnvironment(production)).not.toThrow();
+    expect(() => loadEnvironment({ ...valid, ...pair, NODE_ENV: "development" })).not.toThrow();
   });
 
   it("accepts only plain origins in TRUSTED_ORIGINS, and only https ones in production", () => {

@@ -1,9 +1,10 @@
 # The whole product in Docker (spec 2.7): the api's and the web app's images (apps/*/Dockerfile) with Postgres, MinIO
 # and Mailpit, behind a reverse proxy that routes as the load balancer will (docker/Caddyfile). `pnpm product:up`
-# builds and starts it and builds the demo; open http://localhost:58080. `pnpm product:down` stops it. It is a project
-# of its own, with its own network, volumes and ports, so it runs beside the development services
-# (docker-compose.yml). Dev-only secrets, as in .env.example; the ports can be moved with the PRODUCT_* variables.
-name: travel-crm-product
+# builds and starts it and builds the demo; open http://localhost:58080. `pnpm product:down` stops it. Both run it
+# through scripts/dev/compose.sh, which names the project after the checkout with -product added, so it has its own
+# network, volumes and ports and runs beside the development services (docker-compose.yml), and sets IMAGE_PREFIX, which
+# the images' tags carry (plain `docker compose` refuses this file without it). Dev-only secrets, as in .env.example,
+# so every port is this computer's alone (127.0.0.1); the ports can be moved with the PRODUCT_* variables.
 
 # What the api, the worker and the console share. Development mode, because the address is plain http: production
 # refuses http and the example secret (apps/api/src/environment.ts). Files are stored at storage.localhost, an address
@@ -30,7 +31,7 @@ x-api-environment: &api-environment
 
 # One build of the api's image for the four services that run it.
 x-api-image: &api-image
-  image: travel-crm-api:local
+  image: ${IMAGE_PREFIX:?run it with pnpm product:up or scripts/dev/compose.sh --product}-api:local
   build:
     context: .
     dockerfile: apps/api/Dockerfile
@@ -74,8 +75,8 @@ services:
       MINIO_ROOT_USER: minio-dev
       MINIO_ROOT_PASSWORD: minio-dev-secret
     ports:
-      - "${PRODUCT_STORAGE_PORT:-58090}:${PRODUCT_STORAGE_PORT:-58090}"
-      - "${PRODUCT_STORAGE_CONSOLE_PORT:-58091}:9001"
+      - "127.0.0.1:${PRODUCT_STORAGE_PORT:-58090}:${PRODUCT_STORAGE_PORT:-58090}"
+      - "127.0.0.1:${PRODUCT_STORAGE_CONSOLE_PORT:-58091}:9001"
     networks:
       default:
         aliases: [storage.localhost]
@@ -104,7 +105,7 @@ services:
   mailpit:
     image: axllent/mailpit:v1.31.5@sha256:94f6b70c1436defae6799d9ac7ff0eeff9540465b842026d5cdb018f1c0234ea
     ports:
-      - "${PRODUCT_MAIL_PORT:-58081}:8025"
+      - "127.0.0.1:${PRODUCT_MAIL_PORT:-58081}:8025"
 
   # The migrations, once, as app_migrator, before anything else starts (spec 12.3).
   migrate:
@@ -135,16 +136,20 @@ services:
       timeout: 3s
       retries: 30
 
+  # The worker and the console let running jobs finish for up to 30 seconds on SIGTERM (docs/deploy-checklist.md), so
+  # `pnpm product:down` waits 35 before it kills them, not Compose's 10.
   worker:
     <<: *api-image
     command: ["worker"]
     environment: *api-environment
     depends_on: *api-depends-on
+    stop_grace_period: 35s
 
   # The only service with the platform role's URL. It runs the nightly demo reset with the demo's variables.
   console:
     <<: *api-image
     command: ["console"]
+    stop_grace_period: 35s
     environment:
       <<: *api-environment
       DATABASE_PLATFORM_URL: postgresql://app_platform:platform@postgres:5432/travel_crm
@@ -165,7 +170,7 @@ services:
       retries: 30
 
   web:
-    image: travel-crm-web:local
+    image: ${IMAGE_PREFIX:?run it with pnpm product:up or scripts/dev/compose.sh --product}-web:local
     build:
       context: .
       dockerfile: apps/web/Dockerfile
@@ -191,7 +196,7 @@ services:
   proxy:
     image: caddy:2.11.7-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f
     ports:
-      - "${PRODUCT_PORT:-58080}:80"
+      - "127.0.0.1:${PRODUCT_PORT:-58080}:80"
     volumes:
       - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
     depends_on:

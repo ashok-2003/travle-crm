@@ -167,6 +167,29 @@ describe("LogScreen", () => {
     expect(screen.queryByRole("button", { name: words.showMore })).toBeNull();
   });
 
+  it("asks only for the names of organizations it hasn't seen when showing more", async () => {
+    const other = "0199a000-0000-7000-8000-000000000003";
+    const api = open(page([onboarded], onboarded.id));
+    await screen.findByText("Sharma Travels");
+    api.answer(
+      "platform.log.list",
+      page([
+        entry({ id: "0199a000-0000-7000-8000-0000000000c3", targetOrganizationId: other, targetType: "organization" }),
+        entry({ id: "0199a000-0000-7000-8000-0000000000c4", targetOrganizationId: organizationId }),
+      ]),
+    );
+    await userEvent.click(screen.getByRole("button", { name: words.showMore }));
+    await vi.waitFor(() => {
+      expect(inputsTo("organizations.get")).toEqual([{ organizationId }, { organizationId: other }]);
+    });
+  });
+
+  it("says when an organization's name didn't load, other than by its being deleted", async () => {
+    open(page([onboarded]), viewer, { status: 500, reason: "INTERNAL" });
+    expect(await screen.findByText(words.nameFailed, { exact: false }, { timeout: 8000 })).toBeVisible();
+    expect(screen.getByRole("link", { name: "SHARMA" })).toBeVisible();
+  });
+
   it("says when nothing is recorded yet, and when the log didn't load", async () => {
     const api = open({ status: 403 });
     expect(await screen.findByText(words.loadFailed)).toBeVisible();

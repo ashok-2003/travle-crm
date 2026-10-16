@@ -19,6 +19,10 @@
     "bankHint": "Printed on your invoices, so customers know where to pay.",
     "bankAccountName": "Account name",
     "bankAccountNumber": "Account number",
+    "bankAccountNumberSaved": "Only its last four digits are shown.",
+    "change": "Change",
+    "changeAccountNumber": "Change the account number",
+    "keepAccountNumber": "Keep the saved number",
     "bankIfsc": "IFSC",
     "bankName": "Bank",
     "invoices": "Invoices",
@@ -37,7 +41,8 @@
       "bankAccountNumber": "Use the account's 9 to 18 digits.",
       "bankIfsc": "Check the IFSC: 11 characters, the fifth a zero.",
       "bankName": "Use up to 120 characters.",
-      "invoicePrefix": "Use 2-5 letters."
+      "invoicePrefix": "Use 2-5 letters.",
+      "invoicePrefixReserved": "These letters number the app's own documents, such as its samples. Choose others."
     }
   },
   "setup": {
@@ -65,11 +70,16 @@
   "attachments": {
     "upload": "Upload a file",
     "allowed": "PDF, JPEG, PNG, WebP or HEIC, up to 25 MB.",
+    "sensitivity": "Is the file sensitive?",
+    "sensitivityHint": "This can't be changed later. To change it, remove the file and upload it again.",
     "sensitive": "Sensitive",
-    "sensitiveHint": "For papers with personal details, such as an ID card. Only roles allowed to see sensitive files can then see its name, open it or remove it.",
+    "sensitiveHint": "Papers with personal or bank details, such as a PAN card or a cancelled cheque. Only roles allowed to see sensitive files see its name and can open or remove it.",
+    "notSensitive": "Not sensitive",
+    "notSensitiveHint": "Papers such as a GST certificate or a licence. Every role that may see these files sees its name and can open it.",
     "uploading": "Uploading {name}",
     "progress": "{percent}%",
     "stop": "Stop",
+    "tryAgainName": "Try again to upload {name}",
     "uploaded": "{name} was uploaded",
     "storageUnreachable": "The file didn't reach storage. Check your connection and try again.",
     "storageRefused": "Storage didn't accept the file. Try again.",

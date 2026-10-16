@@ -2,6 +2,7 @@
 // publishes document.issued so the worker renders its PDF, and records it in the audit log. Runs in the caller's
 // transaction.
 import {
+  DEFAULT_DOCUMENT_PREFIX,
   issueDocumentInput,
   type DocumentIssuedEvent,
   type IssueDocumentInput,
@@ -56,7 +57,10 @@ export async function issueDocument(
   // The organization's own zone, so a caller can't freeze the wrong year and date into a numbered document.
   const timeZone = await organizationTimeZone(tx, actor.organizationId);
   // The year and date as the organization's clocks show them: 00:30 on 1 January in Kolkata is still 2026 in UTC.
-  const number = await nextDocumentNumber(tx, { prefix: input.prefix ?? "DOC", year: yearIn(now, timeZone) });
+  const number = await nextDocumentNumber(tx, {
+    prefix: input.prefix ?? DEFAULT_DOCUMENT_PREFIX,
+    year: yearIn(now, timeZone),
+  });
   const renderInput: IssuedDocumentRenderInput = {
     data: { ...content, number, issuedOn: formatDateTime(now, { timeZone, style: "date" }) },
     branding,

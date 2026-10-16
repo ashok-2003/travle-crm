@@ -1,8 +1,11 @@
 // next.config.ts as Next.js loads it. The rewrites (spec 3) go to API_ORIGIN and CONSOLE_ORIGIN, checked when the app
 // is built: a production build without one gets no rewrite to it, never a silent one to localhost. The console's
-// /api/platform comes before the api's /api, which would match it too. The header rules put the token pages' referrer
-// policy after the catch-all, so it wins.
+// /api/platform comes before the api's /api, which would match it too. STORAGE_ORIGIN joins the policy, local MinIO in
+// development, and a production build refuses to go without it. The header rules put the token pages' referrer policy
+// after the catch-all, so it wins.
 // @vitest-environment node
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TOKEN_PAGES } from "../security-headers";
 
@@ -89,11 +92,21 @@ describe("the storage origin", () => {
     expect(policy).toContain("img-src 'self' data: blob: https://files.example.in;");
   });
 
-  it("is local MinIO in development, and nothing in a production build without STORAGE_ORIGIN", async () => {
+  it("is local MinIO in development: the origin of .env.example's S3_ENDPOINT, as docker-compose publishes it", async () => {
+    const example = readFileSync(path.resolve(import.meta.dirname, "../../../.env.example"), "utf8");
+    const endpoint = /^S3_ENDPOINT=(.+)$/m.exec(example)?.[1] ?? "";
+    expect(endpoint).not.toBe("");
     expect(await policyWith({ NODE_ENV: "development", STORAGE_ORIGIN: undefined })).toContain(
-      "connect-src 'self' http://localhost:9000;",
+      `connect-src 'self' ${new URL(endpoint).origin};`,
     );
-    expect(await policyWith({ NODE_ENV: "production", STORAGE_ORIGIN: undefined })).toContain("connect-src 'self';");
+  });
+
+  it("is required by a production build, whose policy would otherwise block every upload and logo", async () => {
+    for (const value of [undefined, ""]) {
+      await expect(policyWith({ NODE_ENV: "production", STORAGE_ORIGIN: value }), String(value)).rejects.toThrow(
+        /STORAGE_ORIGIN/,
+      );
+    }
   });
 
   it("is refused when it isn't an http(s) origin, when the app is built", async () => {
@@ -105,7 +118,7 @@ describe("the storage origin", () => {
 
 describe("the header rules", () => {
   it("come after the catch-all for the token pages", async () => {
-    const config = await configWith({ NODE_ENV: "production" });
+    const config = await configWith({ NODE_ENV: "production", STORAGE_ORIGIN: "https://files.example.in" });
     const sources = (config.headers ? await config.headers() : []).map((rule) => rule.source);
     for (const page of TOKEN_PAGES) {
       expect(sources.indexOf(page), page).toBeGreaterThan(sources.indexOf("/:path*"));

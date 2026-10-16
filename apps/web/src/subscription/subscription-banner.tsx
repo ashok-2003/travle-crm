@@ -5,18 +5,18 @@
 // organization's calendar days. Nothing while subscription.get loads or fails: its refusals speak for themselves.
 import { calendarDateIn } from "@travel-crm/domain/kernel";
 import { useTranslations } from "next-intl";
+import { statusToneClasses, type StatusTone } from "@/components/status-badge";
 import { cn } from "@/lib/utils";
 import { useMe } from "@/session/me-context";
 import { formatCalendarDate } from "./calendar-date";
 import { noticeOf, type SubscriptionNotice } from "./subscription-notice";
 import { useSubscription } from "./use-subscription";
 
-// Written out in full so Tailwind finds every class. Neutral for a trial ending, amber for payment due, red for
-// read-only (DESIGN.md's status vocabulary).
-const tones: Record<SubscriptionNotice["kind"], { strip: string; dot: string }> = {
-  trialEnding: { strip: "bg-status-neutral-fill text-status-neutral-ink", dot: "bg-status-neutral-dot" },
-  pastDue: { strip: "bg-status-attention-fill text-status-attention-ink", dot: "bg-status-attention-dot" },
-  readOnly: { strip: "bg-status-bad-fill text-status-bad-ink", dot: "bg-status-bad-dot" },
+/** Neutral for a trial ending, amber for payment due, red for read-only (DESIGN.md's status vocabulary). */
+const tones: Record<SubscriptionNotice["kind"], StatusTone> = {
+  trialEnding: "neutral",
+  pastDue: "attention",
+  readOnly: "bad",
 };
 
 export function SubscriptionBanner() {
@@ -38,9 +38,10 @@ export function SubscriptionBanner() {
         return t("readOnly");
     }
   };
+  const tone = statusToneClasses[tones[notice.kind]];
   return (
-    <p className={cn("flex items-center gap-2 px-4 py-2 text-label", tones[notice.kind].strip)}>
-      <span aria-hidden="true" className={cn("size-1.5 shrink-0 rounded-full", tones[notice.kind].dot)} />
+    <p className={cn("flex items-center gap-2 px-4 py-2 text-label", tone.badge)}>
+      <span aria-hidden="true" className={cn("size-1.5 shrink-0 rounded-full", tone.dot)} />
       {words()}
     </p>
   );

@@ -1,10 +1,11 @@
 // Platform staff (spec 6.1): a platform role and no organization. They reach the console, organization staff don't,
-// and impersonation (at most an hour) makes the admin act as the user, never as platform staff.
+// and impersonation (at most an hour) makes the admin act as the user, never as platform staff, and never as a member
+// with a step only they can take.
 import type { MeOutput } from "@travel-crm/contracts/identity";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { consoleQuery, createTestConsole, signInPlatformStaffAgain, type TestConsole } from "./support/console.js";
 import { CookieJar } from "./support/cookie-jar.js";
-import { createPlatformAdmin, signedInOwner } from "./support/people.js";
+import { createPlatformAdmin, ownerAccess, signedInOwner } from "./support/people.js";
 import {
   createTestAgency,
   createTestServer,
@@ -82,5 +83,40 @@ describe("platform staff", () => {
     const owner = await signedInOwner(server, agency);
     const attempt = await postJson(server, "/api/auth/admin/impersonate-user", { userId: admin.userId }, owner);
     expect(attempt.status).toBe(403);
+  });
+
+  it("can't impersonate a member with a step to take first, which only they can (it needs their password)", async () => {
+    const jar = await signInPlatformStaffAgain(server, admin);
+    const impersonate = async (userId: string) =>
+      jar.absorb(await postJson(server, "/api/auth/admin/impersonate-user", { userId }, jar));
+    const refused = async (userId: string) => {
+      const response = await impersonate(userId);
+      return { status: response.status, code: ((await response.json()) as { code?: string }).code };
+    };
+    const pending = { status: 403, code: "TARGET_HAS_PENDING_STEP" };
+    // Meera still has the temporary password she was added with.
+    const meera = await server.identity.staff.create(await ownerAccess(server, agency), {
+      name: "Meera Iyer",
+      email: `meera-${agency.code.toLowerCase()}@example.test`,
+      roleKey: "operations",
+      temporaryPassword: "meera-password-1",
+    });
+    expect(await refused(meera.userId)).toEqual(pending);
+    // This organization requires two-factor, which its Owner hasn't set up.
+    const strict = await createTestAgency(server);
+    await server.platform.organization.update({
+      where: { id: strict.organizationId },
+      data: { requireTwoFactor: true },
+    });
+    expect(await refused(strict.owner.userId)).toEqual(pending);
+    const targets = [meera.userId, strict.owner.userId];
+    expect(
+      await server.platform.session.count({ where: { impersonatedBy: admin.userId, userId: { in: targets } } }),
+    ).toBe(0);
+
+    // Once the step is taken, support may sign in as them.
+    await server.platform.user.update({ where: { id: strict.owner.userId }, data: { twoFactorEnabled: true } });
+    expect((await impersonate(strict.owner.userId)).status).toBe(200);
+    jar.absorb(await postJson(server, "/api/auth/admin/stop-impersonating", {}, jar));
   });
 });

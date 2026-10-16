@@ -5,6 +5,7 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { heldAnswer } from "../../support/api-stub";
 import { messages } from "@/i18n/messages";
 import { inputsTo } from "../plans/render-console";
 import { anExport, details, logged, openScreen, organizationId } from "./agency";
@@ -99,4 +100,96 @@ describe("deleting the organization for good", () => {
     expect(await confirm.findByText(words.purge.notExported)).toBeVisible();
     expect(confirm.queryByText(messages.errors.reasons.EXPORT_FIRST)).toBeNull();
   });
+
+  it("can't be closed while the request is out, and still shows what follows once it is answered", async () => {
+    const api = openScreen({
+      "platform.organizations.get": details("cancelled"),
+      "platform.dataProtection.exports": { data: [anExport()] },
+    });
+    const confirm = await openConfirm();
+    await userEvent.type(confirm.getByLabelText(words.confirmation.label.replace("{code}", "SHARMA")), "SHARMA");
+    const held = heldAnswer({ data: { jobId: "0199a000-0000-7000-8000-0000000000ab" } });
+    api.answer("platform.dataProtection.requestPurge", held.answer);
+    await userEvent.click(confirm.getByRole("button", { name: words.purge.confirm }));
+    expect(confirm.getByRole("button", { name: messages.common.cancel })).toBeDisabled();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.getByRole("alertdialog")).toBeVisible();
+    held.release();
+    expect(await screen.findByText(words.purge.queued)).toBeVisible();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("refreshes the organization once it is deleted, so nothing more is offered", async () => {
+    const api = openScreen({
+      "platform.organizations.get": details("cancelled"),
+      "platform.dataProtection.exports": { data: [anExport()] },
+    });
+    const confirm = await openConfirm();
+    await userEvent.type(confirm.getByLabelText(words.confirmation.label.replace("{code}", "SHARMA")), "SHARMA");
+    api.answer("platform.dataProtection.requestPurge", { data: { jobId: "0199a000-0000-7000-8000-0000000000ab" } });
+    api.answer("platform.log.list", {
+      data: {
+        entries: [
+          logged("organization.purged", { after: { rows: 1, people: 1, files: 1 } }),
+          logged("organization.purge-requested"),
+        ],
+        nextCursor: null,
+      },
+    });
+    api.answer("platform.organizations.get", { status: 404, reason: "ORGANIZATION_NOT_FOUND" });
+    await userEvent.click(confirm.getByRole("button", { name: words.purge.confirm }));
+    expect(await screen.findByText(words.deleted)).toBeVisible();
+    expect(screen.getByText(/^Deleted for good: /)).toBeVisible();
+    expect(inputsTo("organizations.get").length).toBeGreaterThan(1);
+    expect(screen.queryByRole("button", { name: words.subject.export })).toBeNull();
+  });
+
+  it("doesn't misstate a reason it doesn't know", async () => {
+    const api = openScreen({
+      "platform.organizations.get": details("cancelled"),
+      "platform.dataProtection.exports": { data: [anExport()] },
+    });
+    const confirm = await openConfirm();
+    await userEvent.type(confirm.getByLabelText(words.confirmation.label.replace("{code}", "SHARMA")), "SHARMA");
+    api.answer("platform.dataProtection.requestPurge", { data: { jobId: "0199a000-0000-7000-8000-0000000000ab" } });
+    api.answer("platform.log.list", {
+      data: {
+        entries: [
+          logged("organization.purge-skipped", { after: { reason: "new-thing" } }),
+          logged("organization.purge-requested"),
+        ],
+        nextCursor: null,
+      },
+    });
+    await userEvent.click(confirm.getByRole("button", { name: words.purge.confirm }));
+    expect(await screen.findByText(words.purge.skipped.unknown)).toBeVisible();
+  });
+
+  it("stops asking after ten minutes without a result, and points to the failed jobs", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const api = openScreen({
+        "platform.organizations.get": details("cancelled"),
+        "platform.dataProtection.exports": { data: [anExport()] },
+      });
+      const confirm = await openConfirm();
+      await userEvent.type(confirm.getByLabelText(words.confirmation.label.replace("{code}", "SHARMA")), "SHARMA", {
+        delay: null,
+      });
+      api.answer("platform.dataProtection.requestPurge", { data: { jobId: "0199a000-0000-7000-8000-0000000000ab" } });
+      api.answer("platform.log.list", {
+        data: { entries: [logged("organization.purge-requested")], nextCursor: null },
+      });
+      await userEvent.click(confirm.getByRole("button", { name: words.purge.confirm }), { delay: null });
+      expect(await screen.findByText(words.purge.queued)).toBeVisible();
+      await vi.advanceTimersByTimeAsync(10 * 60 * 1000 + 3000);
+      expect(await screen.findByText(new RegExp(words.waitedTooLong))).toBeVisible();
+      expect(screen.getByRole("link", { name: words.seeJobs })).toHaveAttribute("href", "/console/jobs");
+      const asked = inputsTo("log.list").length;
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(inputsTo("log.list").length).toBe(asked);
+    } finally {
+      vi.useRealTimers();
+    }
+  }, 30_000);
 });

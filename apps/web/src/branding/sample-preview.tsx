@@ -1,10 +1,11 @@
 "use client";
 
 // "Preview on a sample quotation" (spec 9.3): issues a sample with the branding as it is saved, waits while the worker
-// prepares its PDF, then offers it to download. The sample is kept with the organization's documents, as every
-// issued document is; its number, SMPL-…, says what it is.
+// prepares its PDF, then offers it to download; if asking after it fails, it says so and asks again when told. The
+// sample is kept with the organization's documents, as every issued document is; its number, SMPL-…, says what it is.
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { ErrorState } from "@/components/error-state";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,9 +19,11 @@ import { useSample } from "./use-sample";
 
 export function SamplePreview() {
   const t = useTranslations("documents.sample");
+  const tCommon = useTranslations("common");
   const { apiError } = useErrorMessage();
   const write = useWriteAccess();
-  const { issue, sample } = useSample();
+  const take = useWriteAccess("export");
+  const { issue, sample, checkFailed, checkAgain } = useSample();
   const download = useDownloadPdf();
   const state = sample ? documentState(sample) : null;
 
@@ -32,7 +35,14 @@ export function SamplePreview() {
       <Card>
         <CardContent className="flex flex-col items-start gap-4">
           <p className="max-w-[65ch] text-muted-foreground">{t("intro")}</p>
-          {sample && (
+          {sample && checkFailed && (
+            <ErrorState
+              message={t("checkFailed", { number: sample.number })}
+              retryLabel={tCommon("tryAgain")}
+              onRetry={checkAgain}
+            />
+          )}
+          {sample && !checkFailed && (
             // Polite: the preparing and ready lines follow each other as the worker gets on.
             <div role="status" className="flex flex-wrap items-center gap-3">
               {state === "preparing" && <Spinner aria-hidden="true" />}
@@ -46,8 +56,9 @@ export function SamplePreview() {
           )}
           <div className="flex flex-wrap items-center gap-3">
             {sample && state === "ready" && (
+              // An export: a suspended organization's Owner may still take the PDF (ADR 0021).
               <Button
-                disabled={download.isPending}
+                disabled={!take.allowed || download.isPending}
                 onClick={() => {
                   download.mutate(sample.id);
                 }}

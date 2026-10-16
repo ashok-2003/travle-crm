@@ -6,16 +6,23 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { StaffScreen } from "@/console/staff/staff-screen";
 import { messages } from "@/i18n/messages";
-import { stubApi } from "../../support/api-stub";
+import { heldAnswer, stubApi } from "../../support/api-stub";
 import { screenIs } from "../../organization/render";
 import { inputsTo, renderConsole } from "../plans/render-console";
+import { CacheProbe, mutationsHeld } from "./cache-probe";
 import { kavita, viewer } from "./people";
 
 const { staff: words } = messages.consolePlatform;
 
 async function openForm() {
   const api = stubApi({ "platform.platformStaff.list": { data: [kavita] } });
-  renderConsole(<StaffScreen />, viewer);
+  renderConsole(
+    <>
+      <StaffScreen />
+      <CacheProbe />
+    </>,
+    viewer,
+  );
   await userEvent.click(await screen.findByRole("button", { name: words.add }));
   return { api, dialog: within(screen.getByRole("dialog", { name: words.addForm.title })) };
 }
@@ -55,10 +62,29 @@ describe("adding platform staff", () => {
 
     await userEvent.click(handover.getByRole("button", { name: words.handover.done }));
     expect(screen.queryByText("Tmp7kQx2pLm9")).toBeNull();
+    await vi.waitFor(() => {
+      expect(mutationsHeld()).toEqual([]);
+    });
     await userEvent.click(screen.getByRole("button", { name: words.add }));
     expect(
       within(screen.getByRole("dialog", { name: words.addForm.title })).getByLabelText(words.addForm.name),
     ).toHaveValue("");
+  });
+
+  it("can't be closed while the person is being added, and still shows the password", async () => {
+    screenIs("wide");
+    const { api, dialog } = await openForm();
+    await fill(dialog.getByLabelText(words.addForm.name), "Neha Joshi");
+    await fill(dialog.getByLabelText(words.addForm.email), "neha@platform.test");
+    const held = heldAnswer({
+      data: { userId: "0199a000-0000-7000-8000-0000000000b0", temporaryPassword: "Tmp7kQx2pLm9" },
+    });
+    api.answer("platform.platformStaff.add", held.answer);
+    await userEvent.click(dialog.getByRole("button", { name: words.addForm.submit }));
+    await userEvent.keyboard("{Escape}");
+    expect(screen.getByRole("dialog", { name: words.addForm.title })).toBeVisible();
+    held.release();
+    expect(await screen.findByText("Tmp7kQx2pLm9")).toBeVisible();
   });
 
   it("says what to fix before anything is sent", async () => {

@@ -2,13 +2,17 @@
 # `pnpm images:smoke` (spec 12.1, gate 7): builds the api's and the web app's images, then runs every command of the
 # api's image as a deploy does (production settings, a read-only file system) against a throwaway Postgres, MinIO and
 # Mailpit. Expects the api and the console to answer /health, the worker to render a PDF with the brand's fonts, the
-# web app to serve /sign-in with its security headers and no /api rewrite, and each process to stop on SIGTERM by
-# itself. Everything it starts is removed again, however it ends.
+# web app to serve /sign-in with its security headers and no /api rewrite, each process to stop on SIGTERM by itself,
+# and neither image to hold a .env file. Everything it starts is removed again, however it ends. The images are tagged
+# after this checkout's project (scripts/dev/compose.sh), so a run in another clone never retags this one's.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 source scripts/docker/images.sh
 source scripts/docker/support.sh
 
+prefix="$(scripts/dev/compose.sh --print-name)"
+api_tag="$prefix-api:local"
+web_tag="$prefix-web:local"
 run="travel-crm-smoke-$$"
 work="$(mktemp -d)"
 cleanup() {
@@ -19,8 +23,17 @@ cleanup() {
 trap cleanup EXIT
 
 echo "Building the images"
-docker build --file apps/api/Dockerfile --tag travel-crm-api:local .
-docker build --file apps/web/Dockerfile --tag travel-crm-web:local .
+docker build --file apps/api/Dockerfile --tag "$api_tag" .
+# A production build needs a storage origin for its CSP. Nothing here uploads, so the local one serves.
+docker build --file apps/web/Dockerfile --build-arg STORAGE_ORIGIN=http://localhost:59000 --tag "$web_tag" .
+# Neither image holds a .env from the checkout (.dockerignore): the web app's build reads them, and Next.js copies .env
+# and .env.production beside its server. node_modules is skipped: what a package ships is not the checkout's.
+for image in "$api_tag" "$web_tag"; do
+  found="$(docker run --rm --entrypoint find "$image" /app -name node_modules -prune -o -name '.env*' \
+    ! -name .env.example -print)"
+  [ -z "$found" ] || fail "$image holds $found"
+done
+echo "ok: neither image holds a .env file"
 
 docker network create "$run" >/dev/null
 # A container of this run, on its network, removed by cleanup.
@@ -48,8 +61,15 @@ wait_until "Postgres starting" docker exec "$run-postgres" pg_isready --host 127
 wait_until "MinIO starting" docker exec "$run-minio" mc alias set local http://localhost:9000 minio-dev minio-dev-secret
 docker exec "$run-minio" mc mb --ignore-existing local/travel-crm >/dev/null
 
-# Production settings, as a deploy sets them: https addresses, rate limiting, a strong secret made for this run.
+# Production settings, as a deploy sets them: https addresses, rate limiting, and a strong secret and a VAPID key pair
+# made for this run (production refuses .env.example's).
 secret="$(node --eval 'console.log(require("node:crypto").randomBytes(32).toString("base64"))')"
+vapid="$(node --eval '
+  const { privateKey } = require("node:crypto").generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+  const { x, y, d } = privateKey.export({ format: "jwk" });
+  const point = Buffer.concat([Buffer.of(4), Buffer.from(x, "base64url"), Buffer.from(y, "base64url")]);
+  console.log("VAPID_PUBLIC_KEY=" + point.toString("base64url") + "\nVAPID_PRIVATE_KEY=" + d);
+')"
 cat >"$work/api.env" <<EOF
 NODE_ENV=production
 DATABASE_URL=postgresql://app_runtime:runtime@postgres:5432/travel_crm
@@ -64,7 +84,8 @@ S3_FORCE_PATH_STYLE=true
 SMTP_HOST=mailpit
 SMTP_PORT=1025
 EMAIL_FROM_ADDRESS=no-reply@travel-crm.localhost
-$(grep '^VAPID_' .env.example)
+$vapid
+VAPID_SUBJECT=mailto:ops@example.test
 EOF
 cp "$work/api.env" "$work/console.env"
 cat >>"$work/console.env" <<EOF
@@ -79,21 +100,21 @@ api_image() {
 
 echo "migrate, first-super-admin and demo, once each"
 api_image --rm --env DATABASE_MIGRATOR_URL=postgresql://app_migrator:migrator@postgres:5432/travel_crm \
-  travel-crm-api:local migrate | tee "$work/migrate.log"
+  "$api_tag" migrate | tee "$work/migrate.log"
 grep --quiet "All migrations have been successfully applied" "$work/migrate.log" || fail "migrate applied nothing"
-password="$(api_image --rm --env-file "$work/console.env" travel-crm-api:local \
+password="$(api_image --rm --env-file "$work/console.env" "$api_tag" \
   first-super-admin --email ops@example.test --name "Smoke Admin")"
 [ -n "$password" ] || fail "first-super-admin printed no temporary password"
 echo "ok: first-super-admin made the first super admin"
-api_image --rm --env-file "$work/console.env" travel-crm-api:local demo | grep --fixed-strings "The demo is ready" ||
+api_image --rm --env-file "$work/console.env" "$api_tag" demo | grep --fixed-strings "The demo is ready" ||
   fail "demo didn't build the demo"
 
 echo "api, console and worker"
 api_image --detach --name "$run-api" --env-file "$work/api.env" --publish 127.0.0.1::3001 \
-  travel-crm-api:local >/dev/null
+  "$api_tag" >/dev/null
 api_image --detach --name "$run-console" --env-file "$work/console.env" --publish 127.0.0.1::3002 \
-  travel-crm-api:local console >/dev/null
-api_image --detach --name "$run-worker" --env-file "$work/api.env" travel-crm-api:local worker >/dev/null
+  "$api_tag" console >/dev/null
+api_image --detach --name "$run-worker" --env-file "$work/api.env" "$api_tag" worker >/dev/null
 wait_for_status "http://127.0.0.1:$(port_of api 3001)/health" 200 "$run-api"
 echo "ok: the api answers /health"
 wait_for_status "http://127.0.0.1:$(port_of console 3002)/health" 200 "$run-console"
@@ -120,7 +141,7 @@ echo "ok: the PDF embeds EB Garamond, Figtree and IBM Plex Mono"
 
 echo "web"
 docker run --detach --name "$run-web" --label "$run" --read-only --tmpfs /tmp --publish 127.0.0.1::3000 \
-  travel-crm-web:local >/dev/null
+  "$web_tag" >/dev/null
 web="http://127.0.0.1:$(port_of web 3000)"
 wait_for_status "$web/sign-in" 200 "$run-web"
 curl --silent --fail --dump-header "$work/headers" --output /dev/null "$web/sign-in"

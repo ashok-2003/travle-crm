@@ -12,13 +12,15 @@ documents are marked sensitive (spec 5).
     browser sends the file to, with the headers it must send unchanged. Refuses `LIMIT_REACHED`/`STORAGE_LIMIT_REACHED`
     past the storage limit, and `FORBIDDEN`/`SYSTEM_OWNED_FILE` for a system-owned record type (only
     `storeGeneratedFile` writes those);
-  - `confirmUpload(actor, { recordType, recordId, attachmentId })`: marks it ready once storage holds the promised
-    size and type (`NOT_FOUND`/`UPLOAD_NOT_FOUND`, `VALIDATION`/`UPLOAD_DOES_NOT_MATCH`); harmless to repeat, which is
-    the answer to a retried PUT that storage refuses with 412 (the first arrived). Like `list`, it shows a sensitive
-    file's real name only to members with `documents:view_sensitive`;
+  - `confirmUpload(actor, { recordType, recordId, attachmentId }, check?)`: marks it ready once storage holds the
+    promised size and type (`NOT_FOUND`/`UPLOAD_NOT_FOUND`, `VALIDATION`/`UPLOAD_DOES_NOT_MATCH`) and `check`, when
+    given, passes on the stored bytes (a `StoredBytesCheck`: the logo's pixels); a refused file stays pending. Harmless
+    to repeat, which is the answer to a retried PUT that storage refuses with 412 (the first arrived). Like `list`, it
+    shows a sensitive file's real name only to members with `documents:view_sensitive`;
   - `downloadLink(member, { recordType, recordId, attachmentId })`: a 5-minute link that saves the file under its
     name; a sensitive file needs `documents:view_sensitive` (`FORBIDDEN`/`MISSING_PERMISSION`);
-  - `list(actor, { recordType, recordId })`: the record's ready files, sensitive ones marked; a sensitive file's name
+  - `list(actor, { recordType, recordId })`: the record's ready files, oldest first by when they arrived (confirmed),
+    sensitive ones marked; a sensitive file's name
     shows only to members with `documents:view_sensitive`, others (and the system) see "Sensitive file";
   - `remove(actor, { recordType, recordId, attachmentId })`: a soft delete; only members with
     `documents:view_sensitive` may remove a sensitive file (the system may not), and no one may remove a file of a

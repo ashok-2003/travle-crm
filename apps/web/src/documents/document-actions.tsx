@@ -1,7 +1,7 @@
 "use client";
 
-// What can be done with one issued document from the list: download its PDF once the worker has made it, and share it
-// by link, unless its PDF can never be made.
+// What can be done with one issued document from the list, once the worker has made its PDF: download it, and share
+// it by link. Not before: a customer opening a link at once would only be told it is still being prepared.
 import type { IssuedDocumentSummary } from "@travel-crm/contracts/documents";
 import { Share2Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -17,9 +17,9 @@ export function DocumentActions({ document }: { document: IssuedDocumentSummary 
   const state = documentState(document);
   return (
     <div className="flex flex-wrap justify-end gap-2">
-      {state === "ready" && <DownloadPdfButton document={document} />}
-      {state !== "failed" && (
+      {state === "ready" && (
         <>
+          <DownloadPdfButton document={document} />
           <Button
             variant="outline"
             aria-label={t("openNamed", { number: document.number })}

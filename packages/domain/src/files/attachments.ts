@@ -13,8 +13,9 @@ import type { FilesDependencies } from "./dependencies.js";
 import { bytesStored } from "./uploads.js";
 
 /**
- * The record's ready files, oldest first. Sensitive ones are listed, marked, so staff know they exist; their names
- * (a passport's holder) are shown only to members holding documents:view_sensitive, and the system sees none.
+ * The record's ready files, oldest first by when they arrived (confirmed), so two uploads that overlap end in the
+ * order the uploader saw them finish. Sensitive ones are listed, marked, so staff know they exist; their names (a
+ * passport's holder) are shown only to members holding documents:view_sensitive, and the system sees none.
  */
 export async function listAttachments(
   { db }: FilesDependencies,
@@ -25,7 +26,7 @@ export async function listAttachments(
     const rows = await tx.attachment.findMany({
       where: { recordType: record.recordType, recordId: record.recordId, status: "ready" },
       select: attachmentFields,
-      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      orderBy: [{ confirmedAt: "asc" }, { id: "asc" }],
     });
     return rows.map((row) => summaryFor(actor, row));
   });

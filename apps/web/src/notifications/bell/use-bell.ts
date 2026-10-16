@@ -6,6 +6,7 @@
 import type { MarkReadInput, NotificationPage } from "@travel-crm/contracts/notifications";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { refusalOf } from "@/data/api-error";
 import { useTRPC, useTRPCClient } from "@/data/trpc";
 import { useErrorMessage } from "@/lib/error-message";
 
@@ -14,9 +15,18 @@ export const NOTIFICATIONS_PER_PAGE = 20;
 /** The bell is how people hear of things, so its count doesn't wait for the window to regain focus. */
 const COUNT_REFRESH_MS = 60_000;
 
+/** Asked again every minute, unless the api refused the last ask (a cancelled or suspended organization): the same
+ * answer would come every time. Coming back to the window asks again. */
+export function countRefreshInterval(error: unknown): number | false {
+  return refusalOf(error) === null ? COUNT_REFRESH_MS : false;
+}
+
 export function useUnreadCount() {
   const trpc = useTRPC();
-  return useQuery({ ...trpc.notifications.unreadCount.queryOptions(), refetchInterval: COUNT_REFRESH_MS });
+  return useQuery({
+    ...trpc.notifications.unreadCount.queryOptions(),
+    refetchInterval: (query) => countRefreshInterval(query.state.error),
+  });
 }
 
 /** The list's key: under notifications.list, so invalidating that path refreshes it. */

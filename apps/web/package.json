@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "generate": "tsx scripts/generate.ts",
-    "dev": "pnpm run generate && next dev --port 3000",
+    "dev": "next dev --port 3000",
     "build": "next build",
     "start": "next start --port 3000",
     "typecheck": "next typegen && tsc --noEmit && tsc --noEmit -p src/service-worker",

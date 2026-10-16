@@ -3,7 +3,7 @@
 import { softDeleted } from "@travel-crm/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { bytesStored, createFiles } from "../../src/files/index.js";
-import { systemActor } from "../../src/kernel/index.js";
+import { DomainError, systemActor } from "../../src/kernel/index.js";
 import {
   bytes,
   createOrganization,
@@ -103,6 +103,25 @@ describe("uploading files", () => {
       code: "VALIDATION",
       reason: "UPLOAD_DOES_NOT_MATCH",
     });
+  });
+
+  it("hands the stored bytes to the caller's check, and keeps the file pending when it refuses them", async () => {
+    const sales = memberOf(organizationId, "sales");
+    const { attachment, upload } = await test.files.requestUpload(sales, passportUpload());
+    await test.storage.upload(upload, bytes("%PDF-passpt"), "application/pdf");
+    const seen: string[] = [];
+    const refusing = (body: Uint8Array, declaredType: string) => {
+      seen.push(`${new TextDecoder().decode(body)} as ${declaredType}`);
+      throw new DomainError("VALIDATION", "LOGO_TOO_LARGE", "Too many pixels");
+    };
+    await expect(test.files.confirmUpload(sales, ref(attachment), refusing)).rejects.toMatchObject({
+      reason: "LOGO_TOO_LARGE",
+    });
+    expect(seen).toEqual(["%PDF-passpt as application/pdf"]);
+    expect(
+      await test.files.list(sales, { recordType: "lead", recordId: passportUpload().recordId }),
+    ).not.toContainEqual(expect.objectContaining({ id: attachment.id }));
+    expect(await test.files.confirmUpload(sales, ref(attachment), () => undefined)).toMatchObject({ status: "ready" });
   });
 
   it("stores a file the server made once, however often the render job retries", async () => {

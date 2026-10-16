@@ -20,7 +20,8 @@ model OrganizationProfile {
   bankAccountNumber String?      @map("bank_account_number")
   bankIfsc          String?      @map("bank_ifsc")
   bankName          String?      @map("bank_name")
-  /// 2-5 capital letters invoices are numbered with, e.g. "SH" for SH-2026-0042 (spec 7.1's checklist).
+  /// 2-5 capital letters invoices are numbered with, e.g. "SH" for SH-2026-0042 (spec 7.1's checklist); never SMPL or
+  /// DOC, which number the platform's own documents (CHECK organization_profile_invoice_prefix_not_reserved).
   invoicePrefix     String?      @map("invoice_prefix")
   /// The organization's own colour on its documents, "#rrggbb" (spec 10: not the product's brand).
   brandColour       String?      @map("brand_colour")

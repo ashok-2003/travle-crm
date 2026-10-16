@@ -58,4 +58,8 @@ in build step 2.
   `excludeUserIds` to leave out the person who acted. A request-time caller is left out automatically.
 - `setPreference` and `markRead` are refused to an impersonating actor (`FORBIDDEN`/`IMPERSONATING`): consent and
   reading are the person's own.
+- A browser has one subscription row per organization: subscribing again in the same organization moves it to the
+  new person, but another organization's row is out of reach. So the web app drops the browser's subscription on the
+  device at every sign-in and sign-out; the push service then answers 404 or 410 for the old endpoint, and delivery
+  deletes that row (`deliver.test.ts`, and `web-push-sender.test.ts` for the two answers).
 - The tRPC routers are `notifications.*` (`packages/api/src/routers/notifications.ts`).

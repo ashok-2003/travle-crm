@@ -18,7 +18,8 @@
   "gate": {
     "loading": "Opening the console",
     "loadFailed": "The console didn't open.",
-    "notStaff": "This console is for platform staff."
+    "notStaff": "This console is for platform staff.",
+    "impersonating": "You're signed in as a member of an organization. Stop to come back to the console."
   },
   "status": {
     "trial": "Trial",

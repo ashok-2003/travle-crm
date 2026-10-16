@@ -37,6 +37,9 @@ export function uploadFile(
   return new Promise((resolve, reject) => {
     // XMLHttpRequest, not fetch: only it reports an upload's progress in every browser.
     const request = new XMLHttpRequest();
+    const abort = () => {
+      request.abort();
+    };
     request.open(upload.method, upload.url);
     for (const [name, value] of Object.entries(upload.headers)) {
       if (!SENT_BY_THE_BROWSER.has(name.toLowerCase())) request.setRequestHeader(name, value);
@@ -58,13 +61,11 @@ export function uploadFile(
     request.onabort = () => {
       reject(stopped());
     };
-    signal?.addEventListener(
-      "abort",
-      () => {
-        request.abort();
-      },
-      { once: true },
-    );
+    // However the request ends, the signal is let go, so one shared by several uploads collects no listeners.
+    request.onloadend = () => {
+      signal?.removeEventListener("abort", abort);
+    };
+    signal?.addEventListener("abort", abort, { once: true });
     request.send(file);
   });
 }

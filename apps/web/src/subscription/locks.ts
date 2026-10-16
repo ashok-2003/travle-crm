@@ -1,7 +1,8 @@
 // Whether the subscription shuts the organization's screens (spec 7.3): suspended (only the Owner's exports and
 // revocations work), cancelled (nothing works) or never set up (NO_SUBSCRIPTION); and the screens that stay open:
-// the person's own account (me.get and Better Auth answer in every state), and Staff for the Owner while suspended,
-// where removing someone or giving them a new password still works (ADR 0021).
+// the person's own account (me.get and Better Auth answer in every state), and for the Owner while suspended, Staff,
+// where removing someone or giving them a new password still works, and Documents, whose PDFs download and whose
+// share links turn off (ADR 0021).
 import type { SubscriptionOverview } from "@travel-crm/contracts/subscriptions";
 import { refusalOf } from "@/data/api-error";
 import { routes } from "@/lib/routes";
@@ -24,9 +25,12 @@ export function lockOf(overview: SubscriptionOverview | undefined, error: unknow
   }
 }
 
+/** The suspended Owner's screens: every call they make is an export or a revocation. */
+const SUSPENDED_OWNER_SCREENS = [routes.staff, routes.documents];
+
 /** Whether the screen at `pathname` shows despite the lock. */
 export function staysOpen(lock: Lock, { pathname, isOwner }: { pathname: string; isOwner: boolean }): boolean {
   if (pathname === routes.account) return true;
-  const atStaff = pathname === routes.staff || pathname.startsWith(`${routes.staff}/`);
-  return lock === "suspended" && isOwner && atStaff;
+  const at = (route: string) => pathname === route || pathname.startsWith(`${route}/`);
+  return lock === "suspended" && isOwner && SUSPENDED_OWNER_SCREENS.some(at);
 }

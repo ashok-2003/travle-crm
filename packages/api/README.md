@@ -14,8 +14,9 @@ The web app imports the `AppRouter` type only, and the console screens the `Plat
 
 Check 2 (organization active) reads the organization's subscription with the member, and refuses by what the call
 does: a query views, a mutation changes. A procedure that exports data says so with `.meta({ lifecycle: "export" })`
-(allowed while read-only, and to the Owner while suspended); one that takes someone's access away, with
-`.meta({ lifecycle: "revoke" })` (allowed the same way: `staff.list`, `staff.remove`, `staff.resetPassword`, and
+(allowed while read-only, and to the Owner while suspended: `attachments.downloadLink`, `documents.list` and
+`documents.downloadLink`); one that takes someone's access away, with `.meta({ lifecycle: "revoke" })` (allowed the
+same way: `staff.list`, `staff.remove`, `staff.resetPassword`, `shareLinks.list`, `shareLinks.revoke`, and
 `settings.setTwoFactorRequirement`, which checks again as a change when it turns two-factor off); one every state must
 allow, so the app can say why the rest is refused, with `.meta({ lifecycle: "always" })`. Check 3 (module on the plan) comes from each procedure's
 `planModule` meta: `requires()` sets it from its first permission, and checks every permission's module before check
@@ -36,13 +37,15 @@ app's translated message. Unexpected errors say only "Something went wrong".
 
 `me`, `staff`, `roles`, `settings`, `subscription` (`get`: what the organization's subscription allows today, in
 every state), `organization` (`profile.get`/`update`, `branding.get`/`update`, `setup.get`, and `logo.get`,
-`requestUpload`, `confirmUpload`, `remove`: an `organization_logo` attachment, PNG or JPEG of at most 1 MB; all with
+`requestUpload`, `confirmUpload`, `remove`: an `organization_logo` attachment, PNG or JPEG of at most 1 MB, 4096 pixels
+a side and 16 megapixels, which `confirmUpload` reads from the stored file's header (`LOGO_TOO_LARGE`); all with
 `settings:manage`), `attachments` (the organization's own papers on record type `organization`: `list`,
 `requestUpload`, `confirmUpload`, `downloadLink`, `remove`), `documents` (`issueSample`, `list`, `get`,
 `downloadLink`: issued documents and their PDFs), `shareLinks` (`create`, `list`, `revoke`, for issued documents),
 `notifications` (`list`, `unreadCount`, `markRead`, `preferences.list`/`set`, `push.publicKey`/`subscribe`/
 `unsubscribe`, for any member) and `audit` (`list`, with `audit:view`: newest first or one record's history, each
-actor named on the server). A download link is a mutation of the export kind, never a cached query. Add a router in
+actor named on the server). A download link is of the export kind and never cached: `attachments.downloadLink` is a
+mutation, and `documents.downloadLink` a query the screen fetches only when pressed. Add a router in
 `src/routers/` and list it in `app-router.ts`.
 
 ## The platform console (`src/platform/`)

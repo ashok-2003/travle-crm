@@ -21,7 +21,9 @@ export interface MemberAccess extends Actor {
  * What the member must do before the organization app lets them in, or null when nothing. The setup endpoints they
  * need (Better Auth's /change-password and /two-factor/*, and me.get) stay open.
  */
-export function pendingStep(access: MemberAccess): PendingStep | null {
+export function pendingStep(
+  access: Pick<MemberAccess, "mustChangePassword" | "twoFactorEnabled" | "organizationRequiresTwoFactor">,
+): PendingStep | null {
   if (access.mustChangePassword) return "CHANGE_PASSWORD";
   if (access.organizationRequiresTwoFactor && !access.twoFactorEnabled) return "SET_UP_TWO_FACTOR";
   return null;

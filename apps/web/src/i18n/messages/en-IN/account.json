@@ -42,7 +42,7 @@
     "useBackupCode": "Use a backup code instead",
     "useAuthenticator": "Use the authenticator app instead",
     "trustDevice": "Don't ask again on this device for 30 days",
-    "trustDeviceHint": "Only on a device nobody else uses, never on a shared office computer.",
+    "trustDeviceHint": "Only on a device nobody else uses, never on a shared office computer. Platform staff are asked for their code every time.",
     "submit": "Continue",
     "submitting": "Checking",
     "startAgain": "Start signing in again"

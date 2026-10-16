@@ -7,14 +7,15 @@ export type Category = (typeof CATEGORIES)[number];
 
 /**
  * Lighthouse's phone (a mid-range phone on slow 4G) scored the sign-in page's performance 0.87 and the offline
- * page's 0.91 when these were set: the floor leaves room for slower CI machines. Accessibility is whole, as the
- * journeys' axe checks require, and best practices lose 0.04 over plain http on localhost.
+ * page's 0.91 when these were set: the floor of 0.8 leaves room for slower CI machines, and goes to 0.9 once CI's
+ * runs show the room (ADR 0027). Accessibility is whole, as the journeys' axe checks require, and best practices lose
+ * 0.04 over plain http on localhost. Both pages shift 0, so the ceiling of 0.01 allows noise but no real shift.
  */
 export const budgets: Readonly<Record<Category, number> & { layoutShift: number }> = {
   performance: 0.8,
   accessibility: 1,
   "best-practices": 0.95,
-  layoutShift: 0.1,
+  layoutShift: 0.01,
 };
 
 /** One run's numbers: each category's score (0 when Lighthouse couldn't score it), and the layout shift. */

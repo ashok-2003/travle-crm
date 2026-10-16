@@ -9,14 +9,18 @@ const STEP = 1024;
 const bytesFormat = new Intl.NumberFormat("en-IN", { style: "unit", unit: "byte", unitDisplay: "long" });
 const oneDecimal = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 1 });
 
+/** The size as shown at a step: whole KB, one decimal from MB up. */
+const shownAt = (size: number, step: number) => (step === 0 ? Math.round(size) : Math.round(size * 10) / 10);
+
 export function formatFileSize(bytes: number): string {
   if (bytes < STEP) return bytesFormat.format(bytes);
   let size = bytes / STEP;
   let step = 0;
-  while (size >= STEP && step < SYMBOLS.length - 1) {
+  // Rounded before the check, so 1,023.6 KB shows as 1 MB rather than "1,024 KB".
+  while (shownAt(size, step) >= STEP && step < SYMBOLS.length - 1) {
     size /= STEP;
     step += 1;
   }
-  const shown = step === 0 ? formatIndianNumber(Math.round(size)) : oneDecimal.format(size);
-  return `${shown} ${SYMBOLS[step] ?? "GB"}`;
+  const shown = shownAt(size, step);
+  return `${step === 0 ? formatIndianNumber(shown) : oneDecimal.format(shown)} ${SYMBOLS[step] ?? "GB"}`;
 }

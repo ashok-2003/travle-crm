@@ -3,7 +3,7 @@
 // The plans screen's calls. Each change refreshes every list of plans the console holds (this screen's, with the
 // archived ones, and onboarding's, on sale only), and says so in a toast from the hook itself, so it doesn't depend on
 // the dialog that asked still being open.
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { useConsoleTRPC } from "../data/console-trpc";
@@ -45,6 +45,14 @@ export function useUpdatePlan() {
       onSettled: refresh,
     }),
   );
+}
+
+/** Whether a plan is being saved, which the dialog showing its form waits for before it lets itself be closed. */
+export function useIsSavingPlan() {
+  const trpc = useConsoleTRPC();
+  const creating = useIsMutating({ mutationKey: trpc.plans.create.mutationKey() });
+  const updating = useIsMutating({ mutationKey: trpc.plans.update.mutationKey() });
+  return creating + updating > 0;
 }
 
 export function useArchivePlan() {

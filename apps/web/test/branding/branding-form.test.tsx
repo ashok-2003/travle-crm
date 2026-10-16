@@ -1,8 +1,8 @@
 // The branding form (spec 9.3): the brand colour, typed or picked, with its swatch, and the terms every document
 // prints, saved through organization.branding.update. A colour that isn't #rrggbb is caught before sending; before the
-// business details exist the screen sends the Owner to them first; in a read-only organization saving is disabled
-// with the reason.
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+// business details exist the screen sends the Owner to them first; a newer branding from another tab keeps what is
+// being typed; in a read-only organization saving is disabled with the reason.
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { BrandingForm } from "@/branding/branding-form";
@@ -23,8 +23,9 @@ function renderForm(answers: Record<string, Answer> = {}) {
     "subscription.get": subscriptionAnswer(),
     ...answers,
   });
-  renderWithApi(<BrandingForm />, newQueryClient(null));
-  return api;
+  const queryClient = newQueryClient(null);
+  renderWithApi(<BrandingForm />, queryClient);
+  return { ...api, queryClient };
 }
 
 afterEach(() => {
@@ -119,6 +120,24 @@ describe("BrandingForm", () => {
     const api = renderForm({ "organization.branding.get": { status: 500 } });
     await user.click(await screen.findByRole("button", { name: messages.common.tryAgain }));
     expect(api.calls.filter((path) => path === "organization.branding.get").length).toBeGreaterThan(1);
+  });
+
+  it("keeps what is being typed when a newer branding arrives from another tab", async () => {
+    const user = userEvent.setup();
+    const { queryClient } = renderForm();
+    const terms = await screen.findByLabelText(words.terms);
+    await user.clear(terms);
+    await user.type(terms, "Pay within 7 days.");
+    const [query] = queryClient.getQueryCache().findAll({
+      predicate: (each) => JSON.stringify(each.queryKey).includes("branding"),
+    });
+    act(() => {
+      queryClient.setQueryData(query?.queryKey ?? [], { ...saved, brandColour: "#6a4bbd" });
+    });
+    await waitFor(() => {
+      expect(screen.getByLabelText(words.colour)).toHaveValue("#6a4bbd");
+    });
+    expect(screen.getByLabelText(words.terms)).toHaveValue("Pay within 7 days.");
   });
 
   it("disables saving in a read-only organization, saying why", async () => {

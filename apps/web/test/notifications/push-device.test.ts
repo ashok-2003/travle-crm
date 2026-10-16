@@ -3,7 +3,11 @@
 // saved to the api, and taken back if the api refuses); turning it off (from the api and from the push service); and
 // signing out's removal, which never throws and never waits long.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FORGET_PUSH_TIME_LIMIT_MS, forgetThisDevicesPush } from "@/notifications/push/forget-push";
+import {
+  FORGET_PUSH_TIME_LIMIT_MS,
+  forgetThisBrowsersPush,
+  forgetThisDevicesPush,
+} from "@/notifications/push/forget-push";
 import type { PushApi } from "@/notifications/push/push-api";
 import { pushState, turnPushOff, turnPushOn } from "@/notifications/push/push-device";
 import { fakePushBrowser, THIS_PHONE, type FakePushBrowser } from "./fake-push-browser";
@@ -71,6 +75,27 @@ describe("turnPushOn", () => {
     ]);
   });
 
+  it("puts the browser's question before anything is awaited, as Safari and iOS need", async () => {
+    browser = fakePushBrowser();
+    const turning = turnPushOn(fakeApi());
+    expect(browser.asked).toBe(1);
+    await turning;
+  });
+
+  it("does not ask again once the person has answered", async () => {
+    browser = fakePushBrowser({ permission: "granted" });
+    expect(await turnPushOn(fakeApi())).toBe("on");
+    expect(browser.asked).toBe(0);
+  });
+
+  it("fails as the browser does when a subscription comes without its keys", async () => {
+    browser = fakePushBrowser({ keys: false });
+    const api = fakeApi();
+    await expect(turnPushOn(api)).rejects.toBeInstanceOf(DOMException);
+    expect(api.calls).toEqual([]);
+    expect(browser.subscription()).toBeNull();
+  });
+
   it("does nothing more when the person dismisses or refuses the browser's question", async () => {
     browser = fakePushBrowser({ prompt: "default" });
     expect(await turnPushOn(fakeApi())).toBe("off");
@@ -97,10 +122,54 @@ describe("turnPushOff", () => {
     expect(browser.unsubscribed).toBe(1);
   });
 
-  it("still turns this browser off when the api can't be told", async () => {
+  it("still turns this browser off when the api can't be told, and reports that", async () => {
+    const reported = vi.fn();
+    vi.stubGlobal("reportError", reported);
     browser = fakePushBrowser({ permission: "granted", subscribed: true });
-    expect(await turnPushOff(fakeApi({ unsubscribe: () => Promise.reject(new TypeError("offline")) }))).toBe("off");
+    const offline = new TypeError("offline");
+    expect(await turnPushOff(fakeApi({ unsubscribe: () => Promise.reject(offline) }))).toBe("off");
     expect(browser.subscription()).toBeNull();
+    expect(reported).toHaveBeenCalledWith(offline);
+  });
+
+  it("starts the browser's own removal before asking the api, so it doesn't depend on the network", async () => {
+    browser = fakePushBrowser({ permission: "granted", subscribed: true });
+    const atApi: (number | undefined)[] = [];
+    const api = fakeApi({
+      unsubscribe: () => {
+        atApi.push(browser?.unsubscribed);
+        return new Promise(() => undefined);
+      },
+    });
+    void turnPushOff(api);
+    await vi.waitFor(() => {
+      expect(atApi).toEqual([1]);
+    });
+  });
+
+  it("fails when the browser can't forget the subscription", async () => {
+    browser = fakePushBrowser({
+      permission: "granted",
+      subscribed: true,
+      unsubscribe: () => Promise.reject(new DOMException("no", "AbortError")),
+    });
+    await expect(turnPushOff(fakeApi())).rejects.toBeInstanceOf(DOMException);
+  });
+});
+
+describe("forgetThisBrowsersPush", () => {
+  it("removes the subscription from the push service and asks the api nothing", async () => {
+    browser = fakePushBrowser({ permission: "granted", subscribed: true });
+    await forgetThisBrowsersPush();
+    expect(browser.subscription()).toBeNull();
+    expect(browser.unsubscribed).toBe(1);
+  });
+
+  it("asks nothing of a browser without a subscription, or without push at all", async () => {
+    await forgetThisBrowsersPush();
+    browser = fakePushBrowser({ permission: "granted" });
+    await forgetThisBrowsersPush();
+    expect(browser.unsubscribed).toBe(0);
   });
 });
 

@@ -9,7 +9,9 @@ import { messages } from "@/i18n/messages";
 import { stubApi } from "../../support/api-stub";
 import { screenIs } from "../../organization/render";
 import { inputsTo, renderConsole } from "../plans/render-console";
+import { CacheProbe, mutationsHeld } from "./cache-probe";
 import { arjun, kavita, person, viewer } from "./people";
+import { heldAnswer } from "../../support/api-stub";
 
 const { staff: words } = messages.consolePlatform;
 const { levels } = messages.console;
@@ -17,7 +19,13 @@ const { levels } = messages.console;
 async function act(action: string, people = [kavita, arjun], name = "Arjun Nair") {
   screenIs("wide");
   const api = stubApi({ "platform.platformStaff.list": { data: people } });
-  renderConsole(<StaffScreen />, viewer);
+  renderConsole(
+    <>
+      <StaffScreen />
+      <CacheProbe />
+    </>,
+    viewer,
+  );
   await userEvent.click(await screen.findByRole("button", { name: words.actionsFor.replace("{name}", name) }));
   await userEvent.click(screen.getByRole("menuitem", { name: action }));
   return api;
@@ -67,6 +75,21 @@ describe("acting on platform staff", () => {
     expect(inputsTo("platformStaff.resetPassword")).toEqual([{ userId: arjun.userId }]);
     await userEvent.click(dialog.getByRole("button", { name: words.handover.done }));
     expect(screen.queryByText("New4pass8Word")).toBeNull();
+    await vi.waitFor(() => {
+      expect(mutationsHeld()).toEqual([]);
+    });
+  });
+
+  it("can't be closed while the new password is being made, and still shows it", async () => {
+    const api = await act(words.resetPassword.action);
+    const dialog = screen.getByRole("dialog", { name: words.resetPassword.title.replace("{name}", "Arjun Nair") });
+    const held = heldAnswer({ data: { temporaryPassword: "New4pass8Word" } });
+    api.answer("platform.platformStaff.resetPassword", held.answer);
+    await userEvent.click(within(dialog).getByRole("button", { name: words.resetPassword.submit }));
+    await userEvent.keyboard("{Escape}");
+    expect(dialog).toBeVisible();
+    held.release();
+    expect(await within(dialog).findByText("New4pass8Word")).toBeVisible();
   });
 
   it("removes someone once confirmed", async () => {

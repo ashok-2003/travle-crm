@@ -5,8 +5,8 @@ import { cn } from "@/lib/utils";
 
 export type StatusTone = "good" | "attention" | "bad" | "neutral";
 
-// Written out in full so Tailwind finds every class.
-const toneClasses: Record<StatusTone, { badge: string; dot: string }> = {
+/** Each tone's tint and ink, and its dot. Written out in full so Tailwind finds every class. */
+export const statusToneClasses: Record<StatusTone, { badge: string; dot: string }> = {
   good: { badge: "bg-status-good-fill text-status-good-ink", dot: "bg-status-good-dot" },
   attention: { badge: "bg-status-attention-fill text-status-attention-ink", dot: "bg-status-attention-dot" },
   bad: { badge: "bg-status-bad-fill text-status-bad-ink", dot: "bg-status-bad-dot" },
@@ -14,7 +14,7 @@ const toneClasses: Record<StatusTone, { badge: string; dot: string }> = {
 };
 
 export function StatusBadge({ tone, children }: { tone: StatusTone; children: ReactNode }) {
-  const classes = toneClasses[tone];
+  const classes = statusToneClasses[tone];
   return (
     <span
       className={cn(

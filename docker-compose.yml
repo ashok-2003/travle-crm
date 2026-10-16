@@ -1,35 +1,37 @@
 # Local services for development: Postgres, MinIO (object storage) and Mailpit (catches email). Tests don't use
-# these; they start their own throwaway containers. No fixed project name: Compose names the project after the
-# checkout's folder (or COMPOSE_PROJECT_NAME), so a second clone gets containers and volumes of its own instead of
-# taking over the first's.
+# these; they start their own throwaway containers. Run it through scripts/dev/compose.sh (`pnpm services:up`,
+# `pnpm db:down`), which names the project after the checkout, so a second clone gets containers and volumes of its
+# own instead of taking over the first's. The ports are this computer's alone (127.0.0.1): the passwords are public.
+# The images are pinned by tag and digest, as in scripts/docker/images.sh (Renovate updates both).
 services:
   postgres:
-    image: postgres:18-alpine
+    image: postgres:18.6-alpine3.24@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: travel_crm
     ports:
-      - "55432:5432"
+      - "127.0.0.1:55432:5432"
     volumes:
       # Postgres 18 images keep data under /var/lib/postgresql/18/docker, so mount the parent.
       - postgres-data:/var/lib/postgresql
       - ./packages/db/sql/bootstrap.sql:/docker-entrypoint-initdb.d/10-bootstrap.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d travel_crm"]
+      # Over TCP: while the image runs bootstrap.sql, Postgres listens on its socket only.
+      test: ["CMD", "pg_isready", "--host", "127.0.0.1", "--username", "postgres", "--dbname", "travel_crm"]
       interval: 2s
       timeout: 3s
       retries: 30
   minio:
     # MinIO no longer publishes images; this is a community build of MinIO itself (ADR 0011).
-    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z@sha256:b6bfe7239bfc83fb90d31612d9704d86039dd714f7904b3f1ad68f211e602372
     command: ["server", "/data", "--console-address", ":9001"]
     environment:
       MINIO_ROOT_USER: minio-dev
       MINIO_ROOT_PASSWORD: minio-dev-secret
     ports:
-      - "59000:9000"
-      - "59001:9001"
+      - "127.0.0.1:59000:9000"
+      - "127.0.0.1:59001:9001"
     volumes:
       - minio-data:/data
     healthcheck:
@@ -39,7 +41,7 @@ services:
       retries: 30
   # Creates the bucket once MinIO is up, then exits. The same image carries MinIO's `mc` client.
   minio-bucket:
-    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z@sha256:b6bfe7239bfc83fb90d31612d9704d86039dd714f7904b3f1ad68f211e602372
     depends_on:
       minio:
         condition: service_healthy
@@ -51,10 +53,10 @@ services:
       ]
     restart: "no"
   mailpit:
-    image: axllent/mailpit:v1.31.5
+    image: axllent/mailpit:v1.31.5@sha256:94f6b70c1436defae6799d9ac7ff0eeff9540465b842026d5cdb018f1c0234ea
     ports:
-      - "51025:1025"
-      - "58025:8025"
+      - "127.0.0.1:51025:1025"
+      - "127.0.0.1:58025:8025"
 volumes:
   postgres-data:
   minio-data:

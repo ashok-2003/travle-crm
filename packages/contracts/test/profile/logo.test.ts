@@ -1,6 +1,7 @@
-// The logo's contract: a PNG or JPEG of at most 1 MB, the only images React-PDF draws, named like any file.
+// The logo's contract: a PNG or JPEG of at most 1 MB, the only images React-PDF draws, named like any file, and of at
+// most 4096 pixels a side and 16 megapixels.
 import { describe, expect, it } from "vitest";
-import { MAX_LOGO_BYTES, logoRefInput, requestLogoUploadInput } from "../../src/profile/index.js";
+import { isLogoSizeAllowed, MAX_LOGO_BYTES, logoRefInput, requestLogoUploadInput } from "../../src/profile/index.js";
 
 const logo = { fileName: "Sharma Holidays.png", contentType: "image/png", sizeBytes: 48_213 };
 
@@ -25,6 +26,25 @@ describe("logo contracts", () => {
   it("names the file as any upload must: no folders, no direction marks", () => {
     expect(requestLogoUploadInput.safeParse({ ...logo, fileName: "../logo.png" }).success).toBe(false);
     expect(requestLogoUploadInput.safeParse({ ...logo, fileName: "logo\u202Egnp.exe" }).success).toBe(false);
+  });
+
+  it("allows at most 4096 pixels a side and 16 million in all", () => {
+    for (const [width, height] of [
+      [1, 1],
+      [4096, 3906],
+      [4000, 4000],
+      [4096, 1],
+    ] as const) {
+      expect(isLogoSizeAllowed({ width, height }), `${String(width)}×${String(height)}`).toBe(true);
+    }
+    for (const [width, height] of [
+      [4097, 1],
+      [1, 4097],
+      [4096, 4096],
+      [8000, 8000],
+    ] as const) {
+      expect(isLogoSizeAllowed({ width, height }), `${String(width)}×${String(height)}`).toBe(false);
+    }
   });
 
   it("names an uploaded logo by its attachment id alone", () => {

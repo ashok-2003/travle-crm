@@ -6,7 +6,7 @@
 import { FileTextIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { BackToSettings } from "@/branding/back-to-settings";
+import { BackToSettings } from "@/components/back-to-settings";
 import { Delayed } from "@/components/delayed";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
