@@ -74,7 +74,9 @@ home and to sign-in. Platform staff need it neither for the console nor for impe
 database columns stay; the two-factor tests turn the switch on with `vi.mock`.
 
 **The risk:** platform staff, who reach every organization's data, sign in with a password alone. Turn it back on for
-platform staff before real agencies use the product.
+platform staff before real agencies use the product. The switch is for everyone at once, and it reads what is stored:
+on again, every organization with `require_two_factor` enforces it at once, and everyone with `two_factor_enabled` is
+asked for codes from their old secret, which they may have deleted from their phone meanwhile. Check those rows first.
 
 ## Context
 

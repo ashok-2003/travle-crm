@@ -64,7 +64,9 @@ about two-factor and trusted devices hold again once it is `true`: the code, the
 prove them (they turn the switch on with `vi.mock`) all stay, and the journeys follow the constant.
 
 **The risk:** platform staff, who reach every organization's data, sign in with a password alone. Turn it back on for
-platform staff before real agencies use the product.
+platform staff before real agencies use the product. The switch is for everyone at once, and it reads what is stored:
+on again, every organization with `require_two_factor` enforces it at once, and everyone with `two_factor_enabled` is
+asked for codes from their old secret, which they may have deleted from their phone meanwhile. Check those rows first.
 
 ## Context
 

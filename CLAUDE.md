@@ -263,10 +263,12 @@ Each component without a path is in `components/`, in the file of its name (`Emp
 - Platform staff sign in on the one sign-in page and land on `/console`; the step screens bring them back with
   `?next=`. Two-factor is off (owner, 2026-10-16): `features.twoFactor` in `packages/contracts/src/features/index.ts`
   is `false`, so nobody is asked for a code, platform staff sign in with a password alone and no screen shows
-  two-factor. That is the risk: turn it back on for platform staff before real agencies. On, they must use two-factor
-  (`staffProcedure` refuses `SET_UP_TWO_FACTOR`) and never keep a trusted device: the api ignores `trustDevice` for
-  them and forgets their trusted devices at every password sign-in (ADR 0025). Tests of two-factor turn it on with
-  `vi.mock("@travel-crm/contracts/features", ...)`; journeys follow the constant.
+  two-factor. That is the risk: turn it back on for platform staff before real agencies. It turns on for everyone at
+  once from what is stored (each organization's `require_two_factor`, each person's old secret), so check those rows
+  first. On, platform staff must use two-factor (`staffProcedure` refuses `SET_UP_TWO_FACTOR`) and never keep a
+  trusted device: the api ignores `trustDevice` for them and forgets their trusted devices at every password sign-in
+  (ADR 0025). Tests of two-factor turn it on with `vi.mock("@travel-crm/contracts/features", ...)`; journeys follow
+  the constant.
 - A console screen names its title as `"<screen>"` (the layout adds "· Console · <product>"), shows times in
   `PLATFORM_TIME_ZONE`, and checks `isSuperAdmin(useStaff())` only for convenience: the api refuses support. An
   organization's page is the exception for times: its members' last activity, its onboarding day and a suspension's

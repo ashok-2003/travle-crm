@@ -12,8 +12,11 @@ export interface Features {
    * database keeps its columns and rows, and every line of the code stays.
    *
    * The risk while it is off: platform staff, who reach every organization's data, sign in with a password alone.
-   * Turn it back on (true) for them before real agencies use the product. The tests that prove what it brings back
-   * run with it on: `vi.mock("@travel-crm/contracts/features", () => ({ features: { twoFactor: true } }))`.
+   * Turn it back on (true) for them before real agencies use the product. It turns on for everyone at once, from
+   * what is stored: every organization with require_two_factor enforces it again, and everyone with
+   * two_factor_enabled is asked for codes from their old secret, which they may have deleted from their phone
+   * meanwhile. Check those rows first. The tests that prove what it brings back run with it on:
+   * `vi.mock("@travel-crm/contracts/features", () => ({ features: { twoFactor: true } }))`.
    */
   readonly twoFactor: boolean;
 }
