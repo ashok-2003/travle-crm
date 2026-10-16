@@ -21,12 +21,7 @@ export function BrandingForm() {
   const branding = useQuery(trpc.organization.branding.get.queryOptions());
 
   const body = () => {
-    if (branding.data) {
-      const { brandColour, documentTerms } = branding.data;
-      // Keyed by what is saved, so the api's answer replacing an older copy (restored after a reload, or saved in
-      // another tab) starts the form again from it. Not by updatedAt: a branding save leaves it as it was.
-      return <BrandingDetailsForm key={JSON.stringify([brandColour, documentTerms])} saved={branding.data} />;
-    }
+    if (branding.data) return <BrandingDetailsForm saved={branding.data} />;
     if (branding.data === null) {
       return (
         <div className="flex flex-col items-start gap-2">

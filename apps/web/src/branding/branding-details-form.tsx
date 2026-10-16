@@ -1,7 +1,8 @@
 "use client";
 
 // The colour and terms form: the brand colour typed as #rrggbb or picked (the picker is its swatch), and the terms
-// every document prints at its end. Checked by the api's own schema before it is sent; a blank box is no value.
+// every document prints at its end. Checked by the api's own schema before it is sent; a blank box is no value. A newer
+// branding (saved in another tab, then refreshed) updates a box not being changed and keeps what is being typed.
 import { brand } from "@travel-crm/brand";
 import { saveBrandingInput, type BrandingDetails } from "@travel-crm/contracts/profile";
 import { useTranslations } from "next-intl";
@@ -42,7 +43,11 @@ export function BrandingDetailsForm({ saved }: { saved: BrandingDetails }) {
     }
     return { values: {}, errors };
   };
-  const form = useForm<BrandingValues>({ resolver, defaultValues: valuesOf(saved) });
+  const form = useForm<BrandingValues>({
+    resolver,
+    values: valuesOf(saved),
+    resetOptions: { keepDirtyValues: true },
+  });
   const { errors } = form.formState;
   const colour = useWatch({ control: form.control, name: "brandColour" }).trim();
   // A colour input holds a colour at all times: the typed one when it is one, else the standard colour documents use.
@@ -51,7 +56,7 @@ export function BrandingDetailsForm({ saved }: { saved: BrandingDetails }) {
   const submit = form.handleSubmit((values) => {
     save.mutate(values, {
       onSuccess: (branding) => {
-        form.reset(valuesOf(branding));
+        form.reset(valuesOf(branding), { keepDirtyValues: false });
       },
     });
   });
