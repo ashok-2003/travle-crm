@@ -1,5 +1,6 @@
-// Calendar dates and time zone names as the API takes them (spec 9.6). Times themselves cross the API as ISO
-// instants in UTC; an organization's zone says how to show them.
+// Calendar dates, wall-clock times and time zone names as the API takes them (spec 9.6). Instants cross the API as ISO
+// times in UTC; an organization's zone says how to show them. A time someone picks ("16 Oct, 4:00 pm") travels as a day
+// and a time on the agency's clock, and the server turns it into an instant in the agency's zone (R25).
 import { z } from "zod";
 
 /** "Area/Location" with as many parts as IANA uses, or UTC. Offsets (+05:30) and abbreviations (IST, EST) are refused. */
@@ -38,3 +39,17 @@ export const calendarDate = z.string().refine(isCalendarDate, "Use a date like 2
  * that compares two zones should compare the names Intl resolves them to, not the strings.
  */
 export const timeZoneName = z.string().trim().max(64).refine(isValidTimeZone, "Use a time zone like Asia/Kolkata");
+
+const TIME_OF_DAY_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** True for a 24-hour time written HH:MM, such as "09:30" or "16:00". */
+export function isTimeOfDay(text: string): boolean {
+  return TIME_OF_DAY_PATTERN.test(text);
+}
+
+/** A time of day on a clock, 24-hour: "09:30". */
+export const timeOfDay = z.string().regex(TIME_OF_DAY_PATTERN, "Use a time like 09:30");
+
+/** A day and a time on the agency's clock, as someone picks a due time: { on: "2026-10-17", at: "16:00" }. */
+export const wallClockTime = z.strictObject({ on: calendarDate, at: timeOfDay });
+export type WallClockTime = z.infer<typeof wallClockTime>;

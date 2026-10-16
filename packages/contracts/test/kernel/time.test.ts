@@ -1,6 +1,13 @@
 // Calendar dates and time zone names as the API accepts them.
 import { describe, expect, it } from "vitest";
-import { calendarDate, isCalendarDate, isValidTimeZone, timeZoneName } from "../../src/kernel/index.js";
+import {
+  calendarDate,
+  isCalendarDate,
+  isValidTimeZone,
+  timeOfDay,
+  timeZoneName,
+  wallClockTime,
+} from "../../src/kernel/index.js";
 
 describe("time zone names", () => {
   it("accept IANA names and UTC", () => {
@@ -34,5 +41,16 @@ describe("calendar dates", () => {
       expect(isCalendarDate(bad), bad).toBe(false);
     }
     expect(calendarDate.safeParse("2026-02-30").success).toBe(false);
+  });
+});
+
+describe("wall-clock times", () => {
+  it("take a day and a 24-hour HH:MM time, and nothing else", () => {
+    expect(wallClockTime.parse({ on: "2026-10-17", at: "09:00" })).toEqual({ on: "2026-10-17", at: "09:00" });
+    for (const at of ["00:00", "23:59", "16:30"]) expect(timeOfDay.safeParse(at).success, at).toBe(true);
+    for (const at of ["9:00", "24:00", "12:60", "09:00:00", "4 pm"])
+      expect(timeOfDay.safeParse(at).success, at).toBe(false);
+    expect(wallClockTime.safeParse({ on: "2026-10-17", at: "09:00", zone: "UTC" }).success).toBe(false);
+    expect(wallClockTime.safeParse({ on: "17/10/2026", at: "09:00" }).success).toBe(false);
   });
 });

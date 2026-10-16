@@ -1,6 +1,6 @@
 // Time (spec 9.6): instants are stored in UTC and shown, and days counted, in the organization's time zone.
 // Departure dates are calendar dates, days with no time at all.
-import { isCalendarDate, isValidTimeZone } from "@travel-crm/contracts/kernel";
+import { isCalendarDate, isTimeOfDay, isValidTimeZone } from "@travel-crm/contracts/kernel";
 
 /** A day written YYYY-MM-DD, checked to be real. Build one with parseCalendarDate or calendarDateIn. */
 export type CalendarDate = string & { readonly __brand: "CalendarDate" };
@@ -9,6 +9,14 @@ export function parseCalendarDate(text: string): CalendarDate {
   if (!isCalendarDate(text))
     throw new RangeError(`Not a calendar date (YYYY-MM-DD): ${JSON.stringify(text.slice(0, 30))}`);
   return text as CalendarDate;
+}
+
+/** A time of day on a clock, 24-hour HH:MM, checked. Build one with parseTimeOfDay or timeOfDayIn. */
+export type TimeOfDay = string & { readonly __brand: "TimeOfDay" };
+
+export function parseTimeOfDay(text: string): TimeOfDay {
+  if (!isTimeOfDay(text)) throw new RangeError(`Not a time of day (HH:MM): ${JSON.stringify(text.slice(0, 30))}`);
+  return text as TimeOfDay;
 }
 
 function assertTimeZone(timeZone: string): void {
@@ -100,6 +108,51 @@ export function startOfDayIn(date: CalendarDate, timeZone: string): Date {
   const second = midnightAsUtc - offsetAt(first, timeZone);
   const onTheDay = [first, second].filter((candidate) => calendarDateIn(new Date(candidate), timeZone) === date);
   return new Date(onTheDay.length > 0 ? Math.min(...onTheDay) : Math.max(first, second));
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** The wall clock at an instant, to the minute, as milliseconds of the same reading in UTC. */
+function wallClockMinute(instantMs: number, timeZone: string): number {
+  const clock = wallClock(new Date(instantMs), timeZone);
+  return Date.UTC(clock.year, clock.month - 1, clock.day, clock.hour, clock.minute);
+}
+
+/**
+ * The instant clocks in timeZone show `time` on `day`: "tomorrow at 09:00" in the agency's zone. Where clocks go
+ * back and the time happens twice, the first; where they jump forward over it, the first instant after the jump
+ * (02:30 on a night New York skips 02:00-03:00 is 03:00). Offsets change at most once within a day either side.
+ */
+export function instantAt(day: CalendarDate, time: TimeOfDay, timeZone: string): Date {
+  assertTimeZone(timeZone);
+  const [year = 0, month = 1, date = 1] = day.split("-").map(Number);
+  const [hour = 0, minute = 0] = time.split(":").map(Number);
+  const wall = Date.UTC(year, month - 1, date, hour, minute);
+  // The offsets in force a day before and a day after the reading: the only two this time can have.
+  const before = wall - offsetAt(wall - DAY_MS, timeZone);
+  const after = wall - offsetAt(wall + DAY_MS, timeZone);
+  const shown = [before, after].filter((candidate) => wallClockMinute(candidate, timeZone) === wall);
+  if (shown.length > 0) return new Date(Math.min(...shown));
+  return new Date(firstInstantAfterJump(Math.min(before, after), Math.max(before, after), timeZone));
+}
+
+/** The instant the offset changes between `earlier` (old offset) and `later` (new offset), to the second. */
+function firstInstantAfterJump(earlier: number, later: number, timeZone: string): number {
+  const newOffset = offsetAt(later, timeZone);
+  let [low, high] = [earlier, later];
+  while (high - low > 1000) {
+    const middle = Math.floor((low + high) / 2000) * 1000;
+    if (offsetAt(middle, timeZone) === newOffset) high = middle;
+    else low = middle;
+  }
+  return high;
+}
+
+/** What a clock in timeZone shows at instant, HH:MM: the time a due date reads on the agency's clock. */
+export function timeOfDayIn(instant: Date, timeZone: string): TimeOfDay {
+  assertTimeZone(timeZone);
+  const { hour, minute } = wallClock(instant, timeZone);
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}` as TimeOfDay;
 }
 
 const styles: Record<"date" | "time" | "date-time", Intl.DateTimeFormatOptions> = {
