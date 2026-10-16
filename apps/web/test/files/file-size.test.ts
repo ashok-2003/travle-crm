@@ -19,4 +19,11 @@ describe("formatFileSize", () => {
     expect(formatFileSize(1023 * 1024)).toBe("1,023 KB");
     expect(formatFileSize(1024 ** 4 * 3)).toBe("3,072 GB");
   });
+
+  it("moves up a step when rounding reaches it, never showing 1,024 of one", () => {
+    expect(formatFileSize(1023.6 * 1024)).toBe("1 MB");
+    expect(formatFileSize(1024 * 1024 - 1)).toBe("1 MB");
+    expect(formatFileSize(1023.96 * 1024 * 1024)).toBe("1 GB");
+    expect(formatFileSize(1023.4 * 1024)).toBe("1,023 KB");
+  });
 });
