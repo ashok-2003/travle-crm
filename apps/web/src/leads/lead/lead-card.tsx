@@ -2,8 +2,9 @@
 
 // One part of a lead's page (spec 3.4) as the registry Card: a heading the card is named by, its one action at the
 // right (Edit, Add follow-up), and its content. ChangeButton is that action: a change, so it is off while the
-// subscription refuses changes, and says why (useWriteAccess).
-import { useId, type ReactNode } from "react";
+// subscription refuses changes, and says why (useWriteAccess); its ref takes the focus back when its dialog closes
+// (use-return-focus.ts).
+import { useId, type ReactNode, type Ref } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useWriteAccess } from "@/subscription/write-access";
@@ -28,17 +29,20 @@ export function ChangeButton({
   label,
   accessibleLabel,
   onClick,
+  ref,
 }: {
   label: string;
   /** A fuller name where the word alone is ambiguous on the page ("Edit the trip"). */
   accessibleLabel?: string;
   onClick: () => void;
+  ref?: Ref<HTMLButtonElement>;
 }) {
   const write = useWriteAccess("change");
   const hintId = useId();
   return (
     <div className="flex flex-col items-end gap-1">
       <Button
+        ref={ref}
         variant="outline"
         aria-label={accessibleLabel}
         aria-describedby={write.hint === null ? undefined : hintId}

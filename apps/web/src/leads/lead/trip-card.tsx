@@ -14,6 +14,7 @@ import { useHolds, useMe } from "@/session/me-context";
 import { useTripLine } from "../trip-line";
 import { EditTripDialog } from "./edit-trip-dialog";
 import { ChangeButton, LeadCard } from "./lead-card";
+import { useReturnFocus } from "./use-return-focus";
 
 const monthNames = {
   thisYear: new Intl.DateTimeFormat("en-IN", { month: "long", timeZone: "UTC" }),
@@ -57,6 +58,11 @@ export function TripCard({ lead }: { lead: LeadDetail }) {
   const words = useTripWords();
   const canEdit = useHolds("leads:edit");
   const [editing, setEditing] = useState(false);
+  const { ref: opener, returnFocus } = useReturnFocus();
+  const show = (open: boolean) => {
+    setEditing(open);
+    if (!open) returnFocus();
+  };
   const { trip } = lead;
   const label = (key: "destination" | "when" | "travellers" | "budget") => t(`lead.trip.labels.${key}`);
   const notAsked = <span className="text-muted-foreground">{t("lead.trip.notAsked")}</span>;
@@ -93,15 +99,16 @@ export function TripCard({ lead }: { lead: LeadDetail }) {
           <ChangeButton
             label={t("lead.edit")}
             accessibleLabel={t("lead.trip.edit")}
+            ref={opener}
             onClick={() => {
-              setEditing(true);
+              show(true);
             }}
           />
         )
       }
     >
       <Details rows={rows} />
-      {canEdit && <EditTripDialog lead={lead} dialog={{ open: editing, setOpen: setEditing }} />}
+      {canEdit && <EditTripDialog lead={lead} dialog={{ open: editing, setOpen: show }} />}
     </LeadCard>
   );
 }

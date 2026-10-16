@@ -10,20 +10,27 @@ import { Details } from "@/components/details";
 import { useHolds } from "@/session/me-context";
 import { OwnerBadge } from "../owner-badge";
 import { ChangeButton, LeadCard } from "./lead-card";
+import { useReturnFocus } from "./use-return-focus";
 import { ReassignDialog } from "./reassign-dialog";
 
 export function OwnerCard({ lead }: { lead: LeadDetail }) {
   const t = useTranslations("leads");
   const canAssign = useHolds("leads:assign");
   const [reassigning, setReassigning] = useState(false);
+  const { ref: opener, returnFocus } = useReturnFocus();
+  const show = (open: boolean) => {
+    setReassigning(open);
+    if (!open) returnFocus();
+  };
   const nameOf = (userId: string) => lead.people[userId] ?? null;
   const source = t(`sources.${lead.source}`);
   const addedBy = lead.createdBy && (nameOf(lead.createdBy) ?? t("lead.owner.formerMember"));
   const reassign = canAssign && (
     <ChangeButton
       label={t("lead.owner.reassign")}
+      ref={opener}
       onClick={() => {
-        setReassigning(true);
+        show(true);
       }}
     />
   );
@@ -48,7 +55,7 @@ export function OwnerCard({ lead }: { lead: LeadDetail }) {
           },
         ]}
       />
-      {reassigning && <ReassignDialog lead={lead} open onOpenChange={setReassigning} />}
+      {reassigning && <ReassignDialog lead={lead} open onOpenChange={show} />}
     </LeadCard>
   );
 }

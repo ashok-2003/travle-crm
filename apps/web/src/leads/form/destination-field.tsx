@@ -86,7 +86,8 @@ export function DestinationField<Values extends FieldValues>({
               variant="outline"
               role="combobox"
               aria-expanded={open}
-              className="h-auto min-h-11 w-full justify-between text-left font-normal whitespace-normal"
+              // Shaped and sized as the form's other fields (6px, 16px text), not as a pill button.
+              className="h-auto min-h-11 w-full justify-between rounded-sm text-left text-base font-normal whitespace-normal"
             >
               {chosen ? chosen.name : <span className="text-muted-foreground">{t("placeholder")}</span>}
               <ChevronsUpDownIcon aria-hidden="true" />

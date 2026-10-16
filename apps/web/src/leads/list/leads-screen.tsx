@@ -76,8 +76,8 @@ export function LeadsScreen() {
         );
         return <EmptyState icon={SearchXIcon} message={t("emptyFiltered")} action={clearButton} />;
       }
-      const message = ownOnly ? t("emptyMine") : t("empty");
-      return <EmptyState icon={ContactIcon} message={message} {...(newLead && { action: newLead })} />;
+      // The header's New lead sits just above: one primary button per screen (DESIGN.md section 6).
+      return <EmptyState icon={ContactIcon} message={ownOnly ? t("emptyMine") : t("empty")} />;
     }
     return (
       <div className="flex flex-col gap-4">

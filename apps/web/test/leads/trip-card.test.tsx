@@ -71,7 +71,7 @@ describe("TripCard", () => {
     ]);
   });
 
-  it("edits the trip with the form's own trip fields", async () => {
+  it("edits the trip with the form's own trip fields, then gives the focus back to Edit", async () => {
     stubApi({
       "leads.editTrip": { data: null },
       "destinations.search": { data: [{ id: ids.kashmir, name: "Kashmir" }] },
@@ -104,5 +104,8 @@ describe("TripCard", () => {
       });
     });
     expect(await screen.findByText(words.saved)).toBeVisible();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: words.edit })).toHaveFocus();
+    });
   });
 });

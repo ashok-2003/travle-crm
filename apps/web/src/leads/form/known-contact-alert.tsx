@@ -39,8 +39,8 @@ export function KnownContactAlert({ known, form }: { known: KnownContactResult; 
               ? t("openLead", { name: match.personName, details: details.filter(Boolean).join(", ") })
               : t("returning", { name: match.personName })}
           </AlertTitle>
-          <AlertDescription className="flex flex-col gap-2">
-            <p className="script-leading">{t("storedName", { name: match.personName })}</p>
+          <AlertDescription className="flex flex-col items-start">
+            <span className="script-leading">{t("storedName", { name: match.personName })}</span>
             {openLead?.leadId && <TextLink href={leadRoute(openLead.leadId)}>{t("openThatLead")}</TextLink>}
           </AlertDescription>
         </Alert>

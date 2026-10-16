@@ -69,13 +69,17 @@ describe("LeadMenu", () => {
     expect(await screen.findByText(words.block.done)).toBeVisible();
   });
 
-  it("lets a dialog be cancelled without a change", async () => {
+  it("lets a dialog be cancelled without a change, giving the focus back to the ⋯ button", async () => {
     renderMenu();
     await userEvent.click(within(await openMenu()).getByRole("menuitem", { name: words.menu.lost }));
     const dialog = await screen.findByRole("alertdialog");
     expect(dialog).toHaveTextContent(words.lost.description);
     await userEvent.click(within(dialog).getByRole("button", { name: messages.common.cancel }));
     expect(inputsTo("leads.moveStage")).toEqual([]);
+    // The dialog isn't the menu's own: the focus comes back to the ⋯ button, not to nowhere.
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: words.menu.label.replace("{name}", "Rahul Sharma") })).toHaveFocus();
+    });
   });
 
   it("gives a salesperson Lost and Not a lead only, and leaves out the stage the lead is in", async () => {

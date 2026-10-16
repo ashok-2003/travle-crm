@@ -3,7 +3,8 @@
 // A lead's ⋯ menu (spec 3.4, R33, P2): Reassign (leads:assign), Lost and Not a lead (leads:edit; not the stage the lead
 // is in), and Block this number (leads:assign), which blocks the phone, else the email, else the handle, and marks the
 // lead Not a lead. Lost, Not a lead and Block ask first (ConfirmDialog, held while the request is out); Reassign opens
-// its dialog. While the subscription refuses changes, the items are off and the menu says why.
+// its dialog; each gives the focus back to the ⋯ button when it closes. While the subscription refuses changes, the
+// items are off and the menu says why.
 import type { LeadDetail } from "@travel-crm/contracts/crm";
 import { EllipsisVerticalIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -22,6 +23,7 @@ import { useHolds } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { ReassignDialog } from "./reassign-dialog";
 import { useBlockContact, useMoveStage } from "./use-lead";
+import { useReturnFocus } from "./use-return-focus";
 
 type Asking = "reassign" | "lost" | "notALead" | "block" | null;
 
@@ -31,8 +33,11 @@ export function LeadMenu({ lead }: { lead: LeadDetail }) {
   const canAssign = useHolds("leads:assign");
   const write = useWriteAccess("change");
   const [asking, setAsking] = useState<Asking>(null);
+  // The dialogs aren't the menu's: closed, saved or cancelled, they give the focus back to the ⋯ button.
+  const { ref: opener, returnFocus } = useReturnFocus();
   const close = () => {
     setAsking(null);
+    returnFocus();
   };
   const move = useMoveStage(close);
   const block = useBlockContact(close);
@@ -60,11 +65,11 @@ export function LeadMenu({ lead }: { lead: LeadDetail }) {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" aria-label={t("menu.label", { name })}>
+          <Button ref={opener} variant="ghost" size="icon" aria-label={t("menu.label", { name })}>
             <EllipsisVerticalIcon aria-hidden="true" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className={write.hint === null ? undefined : "w-72"}>
+        <DropdownMenuContent align="end" className={write.hint === null ? "min-w-52" : "w-72"}>
           {write.hint !== null && (
             <DropdownMenuLabel className="text-caption font-normal">{write.hint}</DropdownMenuLabel>
           )}

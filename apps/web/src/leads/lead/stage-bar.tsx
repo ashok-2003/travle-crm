@@ -96,7 +96,8 @@ export function StageBar({ lead }: { lead: LeadDetail }) {
             ) : (
               <Button
                 variant="ghost"
-                className="h-auto min-h-11 items-start justify-start px-0 py-0 text-left text-caption font-normal whitespace-normal"
+                // text-xs, the caption's size: cn would read text-caption as a colour and drop the ghost's blue.
+                className="h-auto min-h-11 items-start justify-start px-0 py-0 text-left text-xs font-normal whitespace-normal"
                 aria-label={t("lead.moveTo", { stage: t(`stages.${stage}`) })}
                 aria-describedby={described}
                 disabled={!write.allowed || move.isPending}

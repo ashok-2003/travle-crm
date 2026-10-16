@@ -20,12 +20,18 @@ import { TaskActions } from "@/tasks/task-actions";
 import { NextStep } from "../next-step";
 import { AddFollowUpDialog } from "./add-follow-up-dialog";
 import { ChangeButton, LeadCard } from "./lead-card";
+import { useReturnFocus } from "./use-return-focus";
 
 export function WorkCard({ lead }: { lead: LeadDetail }) {
   const t = useTranslations("leads.lead.work");
   const { timeZone } = useMe().organization;
   const canEdit = useHolds("leads:edit");
   const [adding, setAdding] = useState(false);
+  const { ref: opener, returnFocus } = useReturnFocus();
+  const show = (open: boolean) => {
+    setAdding(open);
+    if (!open) returnFocus();
+  };
   return (
     <LeadCard
       title={t("title")}
@@ -33,8 +39,9 @@ export function WorkCard({ lead }: { lead: LeadDetail }) {
         canEdit && (
           <ChangeButton
             label={t("add")}
+            ref={opener}
             onClick={() => {
-              setAdding(true);
+              show(true);
             }}
           />
         )
@@ -52,8 +59,10 @@ export function WorkCard({ lead }: { lead: LeadDetail }) {
                   <ItemTitle>
                     <h3 className="script-leading">{work.title}</h3>
                   </ItemTitle>
-                  <ItemDescription className="text-label">
-                    <NextStep next={{ awaitingReplySince: null, task: work }} timeZone={timeZone} />
+                  <ItemDescription>
+                    <span className="text-label">
+                      <NextStep next={{ awaitingReplySince: null, task: work }} timeZone={timeZone} />
+                    </span>
                   </ItemDescription>
                 </ItemContent>
                 <ItemActions>
@@ -64,7 +73,7 @@ export function WorkCard({ lead }: { lead: LeadDetail }) {
           ))}
         </ItemGroup>
       )}
-      {canEdit && <AddFollowUpDialog leadId={lead.id} dialog={{ open: adding, setOpen: setAdding }} />}
+      {canEdit && <AddFollowUpDialog leadId={lead.id} dialog={{ open: adding, setOpen: show }} />}
     </LeadCard>
   );
 }
