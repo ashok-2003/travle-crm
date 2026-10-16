@@ -114,7 +114,8 @@
     "DESTINATION_NAME_TAKEN": "Another destination already has that name.",
     "INVALID_DESTINATION_NAME": "Name the destination in 1 to 80 characters.",
     "MERGE_INTO_ITSELF": "Choose a different destination to keep.",
-    "OPEN_LEAD_EXISTS": "This person already has an open lead. Add this enquiry to that lead, or make it a new trip enquiry."
+    "OPEN_LEAD_EXISTS": "This person already has an open lead. Add this enquiry to that lead, or make it a new trip enquiry.",
+    "CONTACT_ON_ANOTHER_PERSON": "Another customer already has this phone, email or Instagram handle."
   },
   "auth": {
     "INVALID_EMAIL_OR_PASSWORD": "That email and password don't match.",

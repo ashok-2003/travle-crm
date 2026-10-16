@@ -2,15 +2,39 @@
 // first, each entry with what it points to; notes added to it; and a lead out of the member's scope is "not found" from
 // every door into it.
 import { randomUUID } from "node:crypto";
-import { timelineInput } from "@travel-crm/contracts/crm";
+import { editPersonInput, editTripInput, timelineInput } from "@travel-crm/contracts/crm";
 import { createDatabase, softDeleted, type Database, type OrgTx } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { addLeadNote, getLead, listLeadTimeline, recordLeadEvent } from "../../src/crm/index.js";
+import {
+  addLeadNote,
+  editLeadPerson,
+  editLeadTrip,
+  getLead,
+  listLeadTimeline,
+  moveLeadStage,
+  reassignLead,
+  reopenLead,
+  recordLeadEvent,
+} from "../../src/crm/index.js";
 import type { MemberAccess } from "../../src/identity/index.js";
 import { memberWithStarterRole } from "../identity/rule-helpers.js";
 import { aLead, aPerson, aTask } from "./support/records.js";
+
+const noTrip = {
+  destination: null,
+  when: { kind: "unknown" },
+  adults: null,
+  childrenAges: [],
+  budget: null,
+  departureCity: null,
+  tripType: null,
+  hotelCategory: null,
+  food: null,
+  roomType: null,
+};
+const rahul = { name: "Rahul Sharma", phone: "+919876543210" };
 
 describe("a lead's page", () => {
   let platform: PlatformClient;
@@ -117,15 +141,26 @@ describe("a lead's page", () => {
       await tx.lead.update({ where: { id: removed.id }, data: softDeleted(manager.userId) });
       return { theirs: other.id, gone: removed.id };
     });
+    const everyone = { owners: new Set([salesperson.userId, asha]), now: new Date() };
     for (const leadId of [theirs, gone, randomUUID()]) {
       const doors = [
         () => inOrg((tx) => getLead(tx, salesperson, leadId)),
         () => timeline(salesperson, { leadId }),
         () => inOrg((tx) => addLeadNote(tx, salesperson, { leadId, body: "Called" })),
+        () => inOrg((tx) => moveLeadStage(tx, salesperson, { leadId, stage: "lost" }, new Date())),
+        () => inOrg((tx) => reopenLead(tx, salesperson, { leadId }, new Date())),
+        () => inOrg((tx) => editLeadTrip(tx, salesperson, editTripInput.parse({ leadId, trip: noTrip }))),
+        () => inOrg((tx) => editLeadPerson(tx, salesperson, editPersonInput.parse({ leadId, person: rahul }))),
+        () => inOrg((tx) => reassignLead(tx, salesperson, { leadId, ownerUserId: salesperson.userId }, everyone)),
       ];
       for (const door of doors) await expect(door()).rejects.toMatchObject({ code: "NOT_FOUND", reason: "NOT_FOUND" });
     }
     expect(await inOrg((tx) => tx.leadNote.count({ where: { leadId: theirs } }))).toBe(0);
+    expect(await inOrg((tx) => tx.lead.findUniqueOrThrow({ where: { id: theirs } }))).toMatchObject({
+      stage: "new",
+      ownerUserId: asha,
+      travelKind: "unknown",
+    });
     await expect(inOrg((tx) => getLead(tx, manager, gone))).rejects.toMatchObject({ reason: "NOT_FOUND" });
   });
 

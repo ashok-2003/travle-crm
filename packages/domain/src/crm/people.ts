@@ -5,6 +5,7 @@ import { openLeadStages, type ContactKind } from "@travel-crm/contracts/crm";
 import type { OrgTx } from "@travel-crm/db";
 import { publishEvent } from "../jobs/index.js";
 import type { Actor } from "../kernel/index.js";
+import { changedFields } from "./changed-fields.js";
 import { recordCrmAudit } from "./crm-audit.js";
 
 /** Contacts as the contracts hand them over, each as stored: E.164, a lower-case email, a handle without "@". */
@@ -135,25 +136,16 @@ export async function fillMissingContacts(
   return filled;
 }
 
-/** Records a change to a person, the changed fields only, and publishes person.edited. */
+/** Records a change to a person, the changed fields only, and publishes person.edited; no change records nothing. */
 export async function recordPersonEdit(
   tx: OrgTx,
   actor: Actor,
   before: PersonRow,
   after: Omit<PersonRow, "id">,
 ): Promise<void> {
-  const was: Record<string, string | null> = personSnapshot(before);
-  const now: Record<string, string | null> = personSnapshot(after);
-  const changed = Object.keys(now).filter((key) => was[key] !== now[key]);
-  const pick = (side: Record<string, string | null>) =>
-    Object.fromEntries(changed.map((key) => [key, side[key] ?? null]));
-  await recordCrmAudit(tx, actor, {
-    action: "person.edited",
-    entityType: "person",
-    entityId: before.id,
-    before: pick(was),
-    after: pick(now),
-  });
+  const changes = changedFields(personSnapshot(before), personSnapshot(after));
+  if (changes === null) return;
+  await recordCrmAudit(tx, actor, { action: "person.edited", entityType: "person", entityId: before.id, ...changes });
   await publishEvent(tx, { type: "person.edited", payload: { personId: before.id } });
 }
 
