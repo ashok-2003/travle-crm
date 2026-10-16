@@ -12,6 +12,7 @@ import {
   consoleQuery,
   createTestConsole,
   signedInPlatformStaff,
+  signInPlatformStaffAgain,
   type TestConsole,
   type TestPlatformStaff,
 } from "./support/console.js";
@@ -48,8 +49,7 @@ describe("platform staff's sessions", () => {
 
   /** The staff member, signed in a second time, impersonating the agency's Owner. */
   async function impersonatingOwner(staff: TestPlatformStaff): Promise<CookieJar> {
-    const jar = new CookieJar();
-    await signInByEmail(server, jar, staff.email, staff.password);
+    const jar = await signInPlatformStaffAgain(server, staff);
     const start = jar.absorb(
       await postJson(server, "/api/auth/admin/impersonate-user", { userId: agency.owner.userId }, jar),
     );
@@ -175,8 +175,7 @@ describe("platform staff's sessions", () => {
     });
     expect((await signInByEmail(server, new CookieJar(), forgetful.email, forgetful.password)).ok).toBe(false);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("Invalid password"));
-    const jar = new CookieJar();
-    expect((await signInByEmail(server, jar, forgetful.email, temporaryPassword)).status).toBe(200);
+    const jar = await signInPlatformStaffAgain(server, forgetful, temporaryPassword);
     expect(await refusalOf(await consoleQuery(testConsole, "whoAmI", jar))).toEqual({
       status: 403,
       reason: "CHANGE_PASSWORD",

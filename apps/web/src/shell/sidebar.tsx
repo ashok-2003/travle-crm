@@ -1,8 +1,9 @@
 "use client";
 
 // The desktop navigation (DESIGN.md section 6), the registry's Sidebar: fixed to the window at full height while the
-// page scrolls, on the surface tone, with the organization's name, the destinations (the current page in the blue
-// tint), and the person's account (a long name wraps) and sign-out at the bottom. Phones have the bottom bar instead.
+// page scrolls, on the surface tone, with the organization's name and the bell beside it, the destinations (the
+// current page in the blue tint), and the person's account (a long name wraps) and sign-out at the bottom. Phones have
+// the top bar and the bottom bar instead.
 import { LogOutIcon, UserIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -18,28 +19,34 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { routes } from "@/lib/routes";
+import { NotificationBell } from "@/notifications/bell/notification-bell";
 import { useMe } from "@/session/me-context";
-import { isCurrent, visibleNavigationItems } from "./navigation";
+import { isAtOrUnder, isCurrent } from "./navigation";
 import { prefetchHandlers, usePrefetchDestination } from "./prefetch";
 import { useSignOut } from "./sign-out";
+import { useNavigationItems } from "./use-navigation-items";
 
 export function AppSidebar() {
   const t = useTranslations("shell.navigation");
   const me = useMe();
   const signOut = useSignOut();
   const pathname = usePathname();
+  const items = useNavigationItems();
   const prefetch = usePrefetchDestination();
-  const onAccount = pathname === routes.account;
+  const onAccount = isAtOrUnder(pathname, routes.account);
   return (
     <Sidebar>
       <SidebarHeader>
-        <p className="p-2 text-section font-semibold">{me.organization.name}</p>
+        <div className="flex items-center justify-between gap-2 pl-2">
+          <p className="script-leading min-w-0 text-section font-semibold break-words">{me.organization.name}</p>
+          <NotificationBell opensAs="popover" />
+        </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
           <nav aria-label={t("label")}>
             <SidebarMenu>
-              {visibleNavigationItems(me).map((item) => {
+              {items.map((item) => {
                 const current = isCurrent(item, pathname);
                 return (
                   <SidebarMenuItem key={item.key}>

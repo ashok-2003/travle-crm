@@ -25,7 +25,8 @@ function clipboardThat(answer: () => Promise<void>) {
 async function reachScanStep(onDone: () => Promise<void> | void = vi.fn()) {
   renderScreen(
     <TwoFactorSetup
-      pending
+      askedBy="organization"
+      canLeave={false}
       onDone={onDone}
       auth={{ startTwoFactorSetup: answers(ok(setup)), confirmTwoFactor: answers(ok(null)) }}
     />,
@@ -47,6 +48,27 @@ afterEach(() => {
 });
 
 describe("TwoFactorSetup", () => {
+  it("says what is missing instead of greying the button out, and asks the api nothing", async () => {
+    const startTwoFactorSetup = answers(ok(setup));
+    renderScreen(
+      <TwoFactorSetup
+        askedBy={null}
+        canLeave={false}
+        onDone={vi.fn()}
+        auth={{ startTwoFactorSetup, confirmTwoFactor: vi.fn() }}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: account.twoFactorSetup.start }));
+    expect(await screen.findByText(account.fields.required)).toBeVisible();
+    expect(startTwoFactorSetup).not.toHaveBeenCalled();
+  });
+
+  it("gives the intro on the first step only, and the key on a line of its own", async () => {
+    await reachScanStep();
+    expect(screen.queryByText(new RegExp(account.twoFactorSetup.passwordStep))).toBeNull();
+    expect(screen.getByText("JBSW Y3DP EHPK 3PXP JBSW")).not.toHaveClass("break-all");
+  });
+
   it("walks from the password to the backup codes", async () => {
     const startTwoFactorSetup = answers(ok(setup));
     const confirmTwoFactor = vi
@@ -54,8 +76,17 @@ describe("TwoFactorSetup", () => {
       .mockResolvedValueOnce(refused(401, "INVALID_CODE"))
       .mockResolvedValueOnce(ok(null));
     const onDone = vi.fn();
-    renderScreen(<TwoFactorSetup pending onDone={onDone} auth={{ startTwoFactorSetup, confirmTwoFactor }} />);
-    expect(screen.getByText(account.twoFactorSetup.pendingIntro)).toBeVisible();
+    renderScreen(
+      <TwoFactorSetup
+        askedBy="organization"
+        canLeave={false}
+        onDone={onDone}
+        auth={{ startTwoFactorSetup, confirmTwoFactor }}
+      />,
+    );
+    expect(
+      screen.getByText(`${account.twoFactorSetup.pendingIntro} ${account.twoFactorSetup.passwordStep}`),
+    ).toBeVisible();
 
     await userEvent.type(screen.getByLabelText(account.fields.password), "owner-password-1");
     await userEvent.click(screen.getByRole("button", { name: account.twoFactorSetup.start }));
@@ -92,9 +123,14 @@ describe("TwoFactorSetup", () => {
   it("says when the password is wrong", async () => {
     const startTwoFactorSetup = answers(refused(400, "INVALID_PASSWORD"));
     renderScreen(
-      <TwoFactorSetup pending={false} onDone={vi.fn()} auth={{ startTwoFactorSetup, confirmTwoFactor: vi.fn() }} />,
+      <TwoFactorSetup
+        askedBy={null}
+        canLeave
+        onDone={vi.fn()}
+        auth={{ startTwoFactorSetup, confirmTwoFactor: vi.fn() }}
+      />,
     );
-    expect(screen.getByText(account.twoFactorSetup.intro)).toBeVisible();
+    expect(screen.getByText(`${account.twoFactorSetup.intro} ${account.twoFactorSetup.passwordStep}`)).toBeVisible();
     await userEvent.type(screen.getByLabelText(account.fields.password), "wrong");
     await userEvent.click(screen.getByRole("button", { name: account.twoFactorSetup.start }));
     expect(await screen.findByText(errors.auth.INVALID_PASSWORD)).toBeVisible();

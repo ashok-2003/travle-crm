@@ -1,0 +1,81 @@
+"use client";
+
+// Recording a payment received outside the product (spec 7.4, subscriptions.recordPayment): the rupees received, the
+// day they were paid (today in the organization's zone, until changed), the day they pay through, and a reference.
+// From today on, it makes the organization active again (a suspension by hand stays), as the api decides.
+import type { RecordPaymentInput } from "@travel-crm/contracts/subscriptions";
+import { calendarDateIn } from "@travel-crm/domain/kernel";
+import { useMutation } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
+import { TextField } from "@/components/forms/text-field";
+import { DateField } from "@/components/date-field";
+import { FormAlert, FormDialog, type Sending } from "@/components/forms/form-dialog";
+import { MoneyField } from "@/components/forms/money-field";
+import { useCheckedForm } from "@/components/forms/use-checked-form";
+import { FieldGroup } from "@/components/ui/field";
+import { useConsoleTRPC } from "../../data/console-trpc";
+import { useChangeDialog } from "../change-dialog";
+import { toRecordPaymentInput } from "./change-inputs";
+
+export function RecordPaymentDialog({ organizationId, timeZone }: { organizationId: string; timeZone: string }) {
+  const t = useTranslations("consoleOrganizations.subscription.recordPayment");
+  const trpc = useConsoleTRPC();
+  const dialog = useChangeDialog(organizationId, t("done"));
+  const record = useMutation(trpc.subscriptions.recordPayment.mutationOptions({ onSuccess: dialog.onSuccess }));
+  return (
+    <FormDialog
+      dialog={dialog}
+      sending={record}
+      trigger={{ label: t("action"), variant: "default" }}
+      title={t("title")}
+      description={t("description")}
+      submit={t("submit")}
+      submitting={t("submitting")}
+    >
+      {(formId) => (
+        <RecordPaymentForm formId={formId} organizationId={organizationId} timeZone={timeZone} record={record} />
+      )}
+    </FormDialog>
+  );
+}
+
+function RecordPaymentForm({
+  formId,
+  organizationId,
+  timeZone,
+  record,
+}: {
+  formId: string;
+  organizationId: string;
+  timeZone: string;
+  record: Sending<RecordPaymentInput>;
+}) {
+  const t = useTranslations("consoleOrganizations.subscription");
+  const { form, onSubmit, formProblem } = useCheckedForm(
+    { amount: "", paidOn: calendarDateIn(new Date(), timeZone), paidThrough: "", reference: "" },
+    (values) => toRecordPaymentInput(organizationId, values),
+    (problem) => t(`problems.${problem}`),
+  );
+  return (
+    <form id={formId} noValidate onSubmit={onSubmit(record.mutate)} className="flex flex-col gap-6">
+      <FieldGroup>
+        <MoneyField
+          control={form.control}
+          name="amount"
+          label={t("recordPayment.amount")}
+          hint={t("recordPayment.amountHint")}
+        />
+        <DateField control={form.control} name="paidOn" label={t("recordPayment.paidOn")} />
+        <DateField control={form.control} name="paidThrough" label={t("recordPayment.paidThrough")} />
+        <TextField
+          control={form.control}
+          name="reference"
+          label={t("recordPayment.reference")}
+          hint={t("recordPayment.referenceHint")}
+          autoComplete="off"
+        />
+      </FieldGroup>
+      <FormAlert sending={record} problem={formProblem} />
+    </form>
+  );
+}

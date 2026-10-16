@@ -5,26 +5,34 @@
     "staff": "Staff",
     "roles": "Roles",
     "settings": "Settings",
+    "audit": "Audit log",
     "more": "More",
     "account": "Your account",
     "signOut": "Sign out"
   },
   "home": {
     "title": "Welcome, {name}",
-    "intro": "{organization} runs here. Set it up:",
+    "intro": "Your screens:",
     "staff": "Add your staff and give each a role",
     "roles": "Decide what each role may see and do",
     "settings": "Choose how your staff sign in",
-    "nothingToSetUp": "Your organization's admins set things up. Your work will appear here as modules arrive."
+    "nothingToSetUp": "Your work will show here."
   },
   "session": {
     "loading": "Opening your organization",
     "loadFailed": "Your organization didn't load.",
     "notStaff": "This app is for the staff of an organization. Platform staff use the platform console.",
-    "noAccess": "Your role doesn't include this screen. Ask an Owner or Admin if you need it."
+    "noAccess": "Your role doesn't include this screen. Ask an Owner or Admin if you need it.",
+    "impersonatedStep": {
+      "CHANGE_PASSWORD": "{name} has to choose a new password before their organization opens. Only they can, at their next sign-in.",
+      "SET_UP_TWO_FACTOR": "{name} has to set up two-factor sign-in before their organization opens: it asks everyone to. Only they can, at their next sign-in."
+    },
+    "goHome": "Go to Home"
   },
   "banners": {
     "offline": "You're offline. You see what was last loaded, and changes wait until you're back online.",
-    "impersonated": "Support is signed in as you. Everything they do is recorded in the audit log."
+    "impersonated": "You're signed in as {name} at {organization}. Everything you do is recorded in its audit log.",
+    "stop": "Stop",
+    "stopping": "Stopping"
   }
 }

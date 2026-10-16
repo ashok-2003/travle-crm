@@ -7,6 +7,7 @@ import {
   type ShareLinkSummary,
 } from "@travel-crm/contracts/share-links";
 import type { Database, OrgTx } from "@travel-crm/db";
+import { recordAudit } from "../audit/index.js";
 import { publishEvent } from "../jobs/index.js";
 import { DomainError, isUuid, type Actor } from "../kernel/index.js";
 import { newShareLinkToken, parseShareLinkToken } from "./token.js";
@@ -50,7 +51,7 @@ const notFound = (reason: "LINK_NOT_FOUND" | "LINK_EXPIRED" | "LINK_REVOKED", me
 
 /**
  * Makes a link to a record and returns its token, which is shown once. The caller checks that the actor may share
- * the record; tx must be the actor's organization.
+ * the record; tx must be the actor's organization. Recorded in the audit log by ids: the label may name a customer.
  */
 export async function createShareLink(
   tx: OrgTx,
@@ -87,10 +88,16 @@ export async function createShareLink(
     },
     select: { id: true },
   });
+  await recordAudit(tx, actor, {
+    action: "share-link.created",
+    entityType: "share_link",
+    entityId: link.id,
+    after: { recordType: input.recordType, recordId: input.recordId, expiresAt: expiresAt?.toISOString() ?? null },
+  });
   return { shareLinkId: link.id, token, path: `/p/${token}` };
 }
 
-/** Turns a link off for good. Revoking a revoked link changes nothing. */
+/** Turns a link off for good, and records it in the audit log. Revoking a revoked link changes and records nothing. */
 export async function revokeShareLink(
   tx: OrgTx,
   actor: Actor,
@@ -103,9 +110,16 @@ export async function revokeShareLink(
   if (!link) throw notFound("LINK_NOT_FOUND", "No such link");
   if (link.revokedAt) return;
   // Only an unrevoked link is written, so two concurrent revokes write once; the database refuses any other change.
-  await tx.shareLink.updateMany({
+  const revoked = await tx.shareLink.updateMany({
     where: { id: input.shareLinkId, revokedAt: null },
     data: { revokedAt: now, revokedBy: actor.userId },
+  });
+  if (revoked.count === 0) return;
+  await recordAudit(tx, actor, {
+    action: "share-link.revoked",
+    entityType: "share_link",
+    entityId: input.shareLinkId,
+    after: { revokedAt: now.toISOString() },
   });
 }
 

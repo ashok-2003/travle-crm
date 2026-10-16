@@ -42,6 +42,15 @@ describe("ForgotPasswordForm", () => {
     expectAnnouncedOnce(account.forgotPassword.sent);
   });
 
+  it("shows the staff note only until the link is sent", async () => {
+    renderScreen(<ForgotPasswordForm auth={{ requestPasswordReset: answers(ok(null)) }} />);
+    expect(screen.getByText(account.forgotPassword.noEmail)).toBeVisible();
+    await userEvent.type(screen.getByLabelText(account.fields.email), "asha@example.in");
+    await userEvent.click(screen.getByRole("button", { name: account.forgotPassword.submit }));
+    await screen.findByText(account.forgotPassword.sent);
+    expect(screen.queryByText(account.forgotPassword.noEmail)).toBeNull();
+  });
+
   it("says reset by email isn't available while the api can't send it", async () => {
     const requestPasswordReset = answers(refused(400, "RESET_PASSWORD_DISABLED"));
     renderScreen(<ForgotPasswordForm auth={{ requestPasswordReset }} />);

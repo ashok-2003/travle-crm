@@ -13,6 +13,18 @@ export const routes = {
   staff: "/staff",
   roles: "/roles",
   settings: "/settings",
+  /** The setup checklist: what an organization does first (spec 11). */
+  setup: "/setup",
+  /** The settings screen's sections (organization/settings/settings-sections.tsx). */
+  profile: "/settings/profile",
+  branding: "/settings/branding",
+  files: "/settings/files",
+  documents: "/settings/documents",
+  audit: "/settings/audit",
+  /** Each person's own choice of what they are told, and how (spec 9.4). */
+  notificationPreferences: "/account/notifications",
+  /** The platform console's dashboard; its other screens are in src/console/routes.ts, which only it imports. */
+  console: "/console",
   /** The service worker's fallback for a page never opened before (src/service-worker/strategy.ts). */
   offline: "/offline",
 } as const;
@@ -33,14 +45,32 @@ export function isPublicRoute(path: string): boolean {
   return publicRoutes.includes(path);
 }
 
-/** Where a person goes to take the step the api insists on. */
-export function pendingStepRoute(step: PendingStep): string {
-  return step === "CHANGE_PASSWORD" ? routes.changePassword : routes.twoFactorSetup;
+/** Where a person goes to take the step the api insists on, coming back to `from` (an app path) afterwards. */
+export function pendingStepRoute(step: PendingStep, from?: string): string {
+  const route = step === "CHANGE_PASSWORD" ? routes.changePassword : routes.twoFactorSetup;
+  return from && isAppPath(from) ? `${route}?next=${encodeURIComponent(from)}` : route;
+}
+
+/** The page this tab shows, as an app path with its query, for coming back to it afterwards. */
+export function currentPage(): string {
+  return `${location.pathname}${location.search}`;
 }
 
 /** The sign-in address that brings the person back to `from` (a path in this app, with its query) afterwards. */
 export function signInRoute(from?: string): string {
   return from && isAppPath(from) ? `${routes.signIn}?next=${encodeURIComponent(from)}` : routes.signIn;
+}
+
+/**
+ * The paths the api serves on the app's address, and everything under them: its tRPC and sign-in, the share links
+ * and the webhooks. next.config.ts rewrites them to the api; the service worker stays out of them.
+ */
+export const API_PATHS = ["/api", "/p", "/webhooks"] as const;
+
+/** Whether an app path ("/console/plans?x=1") is the platform console's, where platform staff work. */
+export function isConsolePath(path: string): boolean {
+  const { pathname } = new URL(path, PATH_BASE);
+  return pathname === routes.console || pathname.startsWith(`${routes.console}/`);
 }
 
 /**

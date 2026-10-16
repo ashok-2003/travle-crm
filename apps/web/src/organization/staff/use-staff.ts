@@ -39,19 +39,18 @@ export function useResetStaffPassword() {
   return useMutation(trpc.staff.resetPassword.mutationOptions(TEMPORARY_PASSWORD_MUTATION));
 }
 
-export function useRemoveStaff(name: string) {
+/** Removing someone; `onRemoved` closes the dialog that asked, however it ends (ConfirmDialog's contract). */
+export function useRemoveStaff(name: string, onRemoved: () => void) {
   const trpc = useTRPC();
   const refresh = useRefreshStaff();
-  const { apiError } = useErrorMessage();
   const t = useTranslations("staff.remove");
   return useMutation(
     trpc.staff.remove.mutationOptions({
       onSuccess: () => {
+        onRemoved();
         toast.success(t("removed", { name }));
       },
-      onError: (error) => {
-        toast.error(apiError(error), { duration: Infinity });
-      },
+      // A refusal shows in the dialog (components/confirm-dialog.tsx).
       onSettled: refresh,
     }),
   );

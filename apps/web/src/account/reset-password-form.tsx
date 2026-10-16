@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
+import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
@@ -20,7 +21,7 @@ import { OutcomeMessage } from "./outcome-message";
 import { AuthFailureAlert, type AuthFailure } from "./form-alert";
 import { useFormResolver } from "./form-errors";
 import { useNewPasswordSchema } from "./new-password-schema";
-import { TextField } from "./text-field";
+import { TextField } from "@/components/forms/text-field";
 
 const noOtherFields = {};
 
@@ -60,7 +61,8 @@ export function ResetPasswordForm({
 
   if (outcome === "invalid") {
     return (
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-6">
+        <PageHeader title={t("resetPassword.invalidTitle")} />
         <OutcomeMessage variant="destructive">{t("resetPassword.invalidLink")}</OutcomeMessage>
         <Button asChild>
           <Link href={routes.forgotPassword}>{t("resetPassword.askAgain")}</Link>
@@ -70,7 +72,8 @@ export function ResetPasswordForm({
   }
   if (outcome === "done") {
     return (
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-6">
+        <PageHeader title={t("resetPassword.doneTitle")} />
         <OutcomeMessage>{t("resetPassword.done")}</OutcomeMessage>
         <Button asChild>
           <Link href={routes.signIn}>{t("resetPassword.signIn")}</Link>
@@ -79,29 +82,32 @@ export function ResetPasswordForm({
     );
   }
   return (
-    <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-5">
-      <FieldGroup>
-        <TextField
-          control={form.control}
-          name="newPassword"
-          label={t("fields.newPassword")}
-          hint={t("fields.newPasswordHint")}
-          type="password"
-          autoComplete="new-password"
-        />
-        <TextField
-          control={form.control}
-          name="confirmPassword"
-          label={t("fields.confirmPassword")}
-          type="password"
-          autoComplete="new-password"
-        />
-      </FieldGroup>
-      <AuthFailureAlert failure={failure} />
-      <Button type="submit" disabled={form.formState.isSubmitting}>
-        {form.formState.isSubmitting && <Spinner />}
-        {form.formState.isSubmitting ? t("resetPassword.submitting") : t("resetPassword.submit")}
-      </Button>
-    </form>
+    <div className="flex flex-col gap-6">
+      <PageHeader title={t("resetPassword.title")} />
+      <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-5">
+        <FieldGroup>
+          <TextField
+            control={form.control}
+            name="newPassword"
+            label={t("fields.newPassword")}
+            hint={t("fields.newPasswordHint")}
+            type="password"
+            autoComplete="new-password"
+          />
+          <TextField
+            control={form.control}
+            name="confirmPassword"
+            label={t("fields.confirmPassword")}
+            type="password"
+            autoComplete="new-password"
+          />
+        </FieldGroup>
+        <AuthFailureAlert failure={failure} />
+        <Button type="submit" disabled={form.formState.isSubmitting}>
+          {form.formState.isSubmitting && <Spinner />}
+          {form.formState.isSubmitting ? t("resetPassword.submitting") : t("resetPassword.submit")}
+        </Button>
+      </form>
+    </div>
   );
 }

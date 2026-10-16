@@ -1,0 +1,11 @@
+{
+  "navigation": "Change the month",
+  "previousMonth": "Previous month",
+  "nextMonth": "Next month",
+  "month": "Month",
+  "year": "Year",
+  "today": "Today, {day}",
+  "chosen": "{day}, chosen",
+  "placeholder": "dd/mm/yyyy",
+  "choose": "Choose {label} from the calendar"
+}

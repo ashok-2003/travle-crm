@@ -1,4 +1,5 @@
-// How an issued document row reads as the API's summary, and finding one in the organization.
+// How an issued document row reads as the API's summary, finding one in the organization, and refusing one whose PDF
+// can never be made.
 import { issuedDocumentSummary, type IssuedDocumentSummary } from "@travel-crm/contracts/documents";
 import type { OrgTx } from "@travel-crm/db";
 import { DomainError } from "../kernel/index.js";
@@ -45,4 +46,14 @@ export async function getIssuedDocument(tx: OrgTx, input: { documentId: string }
   const row = await tx.issuedDocument.findUnique({ where: { id: input.documentId }, select: summaryFields });
   if (!row) throw new DomainError("NOT_FOUND", "DOCUMENT_NOT_FOUND", "No such document");
   return toSummary(row);
+}
+
+/**
+ * Refuses a document whose PDF can never be made (its text holds characters the fonts can't show): there is nothing to
+ * download, share or open, now or later (`NOT_FOUND`/`DOCUMENT_UNAVAILABLE`).
+ */
+export function assertPdfCanBeMade(document: Pick<IssuedDocumentSummary, "renderFailed">): void {
+  if (document.renderFailed) {
+    throw new DomainError("NOT_FOUND", "DOCUMENT_UNAVAILABLE", "The document's PDF can't be made");
+  }
 }

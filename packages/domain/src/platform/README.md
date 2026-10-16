@@ -14,7 +14,9 @@ The platform console's work across organizations (spec sections 5 and 7). It is 
   organization, its roles, business profile, subscription and invited Owner), `resendInvite(services, staff,
 { organizationId, memberId })`, `getOrganization(services, organizationId)` (its row, profile and subscription with
   payments; the bank account by its last four digits), `updateOrganization(services, staff, input)` (name, time zone,
-  contact email; never the code).
+  contact email; never the code), `listOrganizationMembers(services, organizationId)` (its active members, oldest
+  first, with their role, real email or none, whether they have a password yet and their last activity: whom support
+  may impersonate, and an Owner a new invite may go to; `ORGANIZATION_NOT_FOUND` for none).
 - An organization's export (spec 5), super admins only, as a job: `requestOrganizationExport(services, staff,
 organizationId)` records a `platform_export` row and queues `EXPORT_ORGANIZATION_QUEUE` (`platform.export-organization`),
   whose job, `runOrganizationExport(services, { exportId }, sizes?)`, reads every table a batch at a time (each batch

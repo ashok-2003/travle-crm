@@ -1,0 +1,98 @@
+"use client";
+
+// /console/organizations/<id>: one organization as the console shows it (organizations.get): its name, sign-in code
+// and status today; just after onboarding, that the Owner's invite is on its way; its row with corrections, its
+// subscription, its business profile and its members; for super admins, the way to its data protection. An
+// organization that doesn't exist (purged, or a mistyped address) is said so, with the way back to the dashboard.
+import { useQuery } from "@tanstack/react-query";
+import { CircleCheckIcon, SearchXIcon } from "lucide-react";
+import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { Delayed } from "@/components/delayed";
+import { EmptyState } from "@/components/empty-state";
+import { ErrorState } from "@/components/error-state";
+import { PageHeader } from "@/components/page-header";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { refusalOf } from "@/data/api-error";
+import { useConsoleTRPC } from "../../data/console-trpc";
+import { consoleRoutes } from "../../routes";
+import { isSuperAdmin, useStaff } from "../../session/staff-context";
+import { SubscriptionStatusBadge } from "../../subscription-status";
+import { SubscriptionSection } from "../subscription/subscription-section";
+import { MembersSection } from "./members-section";
+import { ProfileSection, RecordSection } from "./record-and-profile";
+
+export function OrganizationScreen({ organizationId, onboarded }: { organizationId: string; onboarded: boolean }) {
+  const t = useTranslations("consoleOrganizations.organization");
+  const tCommon = useTranslations("common");
+  const trpc = useConsoleTRPC();
+  const staff = useStaff();
+  const details = useQuery(trpc.organizations.get.queryOptions({ organizationId }));
+
+  if (!details.data) {
+    const status = refusalOf(details.error)?.status;
+    // A malformed id is refused as invalid input: to the person, both are no such organization.
+    if (status === 404 || status === 400) {
+      return (
+        <EmptyState
+          icon={SearchXIcon}
+          message={t("notFound")}
+          action={
+            <Button asChild variant="outline">
+              <Link href={consoleRoutes.home}>{t("backToDashboard")}</Link>
+            </Button>
+          }
+        />
+      );
+    }
+    return details.isError ? (
+      <ErrorState
+        message={t("loadFailed")}
+        error={details.error}
+        retryLabel={tCommon("tryAgain")}
+        onRetry={() => void details.refetch()}
+      />
+    ) : (
+      <Delayed>
+        <div role="status" aria-busy="true" aria-label={t("loading")} className="flex flex-col gap-4">
+          <Skeleton className="h-9 w-64" />
+          <Skeleton className="h-40 w-full" />
+        </div>
+      </Delayed>
+    );
+  }
+
+  const { organization, profile, subscription } = details.data;
+  return (
+    <div className="flex max-w-[1200px] flex-col gap-8">
+      <PageHeader
+        title={<span className="break-words script-leading">{organization.name}</span>}
+        intro={
+          <span className="flex flex-wrap items-center gap-3">
+            <span className="numbers">{organization.code}</span>
+            <SubscriptionStatusBadge status={subscription?.subscription.status ?? null} />
+          </span>
+        }
+        action={
+          isSuperAdmin(staff) && (
+            <Button asChild variant="outline">
+              <Link href={consoleRoutes.dataProtection(organization.id)}>{t("dataProtection")}</Link>
+            </Button>
+          )
+        }
+      />
+      {onboarded && (
+        <Alert>
+          <CircleCheckIcon aria-hidden="true" />
+          <AlertDescription>{t("onboarded")}</AlertDescription>
+        </Alert>
+      )}
+      <RecordSection organization={organization} />
+      <SubscriptionSection organization={organization} subscription={subscription} />
+      <ProfileSection profile={profile} />
+      <MembersSection organization={organization} />
+    </div>
+  );
+}

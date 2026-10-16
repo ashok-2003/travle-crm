@@ -5,9 +5,9 @@ import type { PresignedUpload } from "@travel-crm/integrations/storage";
 import type { MemberAccess } from "../identity/index.js";
 import type { Actor } from "../kernel/index.js";
 import { listAttachments, removeAttachment, storageUsedBytes } from "./attachments.js";
-import type { DownloadLink, FilesDependencies, GeneratedFile } from "./dependencies.js";
-import { downloadLink, systemDownloadLink } from "./downloads.js";
-import { confirmUpload, requestUpload, storeGeneratedFile } from "./uploads.js";
+import type { DownloadLink, FilesDependencies, GeneratedFile, StoredFile } from "./dependencies.js";
+import { downloadLink, systemDownloadLink, systemFile } from "./downloads.js";
+import { confirmUpload, requestUpload, storeGeneratedFile, type StoredBytesCheck } from "./uploads.js";
 
 export interface Files {
   /**
@@ -19,10 +19,11 @@ export interface Files {
     input: RequestUploadInput,
   ): Promise<{ attachment: AttachmentSummary; upload: PresignedUpload }>;
   /**
-   * Marks the upload ready once storage holds the promised size and type. Like downloadLink and remove, it names the
-   * record the file belongs to: a file of another record is "not found".
+   * Marks the upload ready once storage holds the promised size and type, and `check` (when given) passes on the
+   * stored bytes. Like downloadLink and remove, it names the record the file belongs to: a file of another record is
+   * "not found".
    */
-  confirmUpload(actor: Actor, input: AttachmentRefInput): Promise<AttachmentSummary>;
+  confirmUpload(actor: Actor, input: AttachmentRefInput, check?: StoredBytesCheck): Promise<AttachmentSummary>;
   /** A 5-minute link to a ready file. Sensitive files need documents:view_sensitive. */
   downloadLink(actor: MemberAccess, input: AttachmentRefInput): Promise<DownloadLink>;
   /** The record's ready files, sensitive ones marked; their names only for members with documents:view_sensitive. */
@@ -33,6 +34,8 @@ export interface Files {
   storeGeneratedFile(actor: Actor, file: GeneratedFile): Promise<AttachmentSummary>;
   /** A link for trusted server code (share links) to an ordinary file; sensitive files are refused. */
   systemDownloadLink(organizationId: string, input: { attachmentId: string }): Promise<DownloadLink>;
+  /** An ordinary file's bytes, named by its record, for server code that draws it (a logo on a PDF). */
+  systemFile(organizationId: string, input: AttachmentRefInput): Promise<StoredFile>;
   /** Bytes the organization keeps in storage, deleted files included until a purge. */
   storageUsedBytes(organizationId: string): Promise<number>;
 }
@@ -40,12 +43,13 @@ export interface Files {
 export function createFiles(dependencies: FilesDependencies): Files {
   return {
     requestUpload: (actor, input) => requestUpload(dependencies, actor, input),
-    confirmUpload: (actor, input) => confirmUpload(dependencies, actor, input),
+    confirmUpload: (actor, input, check) => confirmUpload(dependencies, actor, input, check),
     downloadLink: (actor, input) => downloadLink(dependencies, actor, input),
     list: (actor, record) => listAttachments(dependencies, actor, record),
     remove: (actor, input) => removeAttachment(dependencies, actor, input),
     storeGeneratedFile: (actor, file) => storeGeneratedFile(dependencies, actor, file),
     systemDownloadLink: (organizationId, input) => systemDownloadLink(dependencies, organizationId, input),
+    systemFile: (organizationId, input) => systemFile(dependencies, organizationId, input),
     storageUsedBytes: (organizationId) => storageUsedBytes(dependencies, organizationId),
   };
 }

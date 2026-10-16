@@ -24,13 +24,23 @@ import type { FilesDependencies, GeneratedFile } from "./dependencies.js";
 /** Long enough for a slow phone connection to send 25 MB. */
 const UPLOAD_URL_SECONDS = 10 * 60;
 
+/** How long after an upload is asked for it may still be confirmed: past its link, for a retried or slow confirm. */
+const CONFIRM_WITHIN_SECONDS = 60 * 60;
+
 /**
- * Bytes the organization keeps in storage: every attachment, deleted ones too, until a purge removes them. Named, not
- * left to row-level security: the platform's own transaction sees every organization's files.
+ * Bytes the organization keeps in storage: every ready file, deleted ones too until a purge removes them, and the
+ * uploads still pending while their link lasts. One that never finished (stopped, or refused at confirm) stops
+ * counting when its link lapses, so a plan's storage never fills with files nobody can see; sweeping their rows and
+ * objects is a later plan's. Named, not left to row-level security: the platform's own transaction sees every
+ * organization's files.
  */
-export async function bytesStored(tx: OrgTx, organizationId: string): Promise<number> {
+export async function bytesStored(tx: OrgTx, organizationId: string, now: Date = new Date()): Promise<number> {
+  const linkLapsed = new Date(now.getTime() - UPLOAD_URL_SECONDS * 1000);
   const totals = await withDeleted(() =>
-    tx.attachment.aggregate({ where: { organizationId }, _sum: { sizeBytes: true } }),
+    tx.attachment.aggregate({
+      where: { organizationId, OR: [{ status: "ready" }, { status: "pending", createdAt: { gt: linkLapsed } }] },
+      _sum: { sizeBytes: true },
+    }),
   );
   return totals._sum.sizeBytes ?? 0;
 }
@@ -71,22 +81,54 @@ export async function requestUpload(
 }
 
 /**
- * Marks an upload ready once storage holds the promised file. Confirming twice is harmless, which is what a client
- * does when its retried PUT is answered 412: storage already holds the first upload.
+ * What a caller checks in the stored bytes before the file is ready, throwing a DomainError to refuse it: a logo's
+ * pixels. The file stays pending, as for a mismatch, so nobody can list or download it.
+ */
+export type StoredBytesCheck = (body: Uint8Array, declaredType: string) => void | Promise<void>;
+
+/**
+ * Marks an upload ready once storage holds the promised file, and `check` passes on its bytes. Confirming twice is
+ * harmless, which is what a client does when its retried PUT is answered 412: storage already holds the first upload.
+ *
+ * An upload stops counting toward the storage limit when its link lapses (`bytesStored`), so one confirmed after that
+ * must fit again (`LIMIT_REACHED`/`STORAGE_LIMIT_REACHED`): else uploads sent and left until their links lapsed, then
+ * confirmed after as many more, would pass the limit. Such confirms take turns, under a lock of the organization's
+ * storage, so two can't both take the last room. One asked for over an hour ago is refused outright
+ * (`NOT_FOUND`/`UPLOAD_EXPIRED`): the file is uploaded again.
  */
 export async function confirmUpload(
-  { db, storage }: FilesDependencies,
+  { db, storage, storageLimitBytes }: FilesDependencies,
   actor: Actor,
   input: AttachmentRefInput,
+  check?: StoredBytesCheck,
 ): Promise<AttachmentSummary> {
   const row = await db.forOrg(actor.organizationId, (tx) => findAttachment(tx, input));
   if (row.status === "ready") return summaryFor(actor, row);
+  const askedSeconds = (Date.now() - row.createdAt.getTime()) / 1000;
+  if (askedSeconds > CONFIRM_WITHIN_SECONDS) {
+    throw new DomainError("NOT_FOUND", "UPLOAD_EXPIRED", "The upload was asked for too long ago");
+  }
   const stored = await storage.head(storageKeyOf(row));
   if (!stored) throw new DomainError("NOT_FOUND", "UPLOAD_NOT_FOUND", "The file hasn't arrived in storage");
   if (stored.sizeBytes !== row.sizeBytes || stored.contentType !== row.contentType) {
     throw new DomainError("VALIDATION", "UPLOAD_DOES_NOT_MATCH", "The stored file isn't the one that was announced");
   }
+  if (check) {
+    const body = await storage.get(storageKeyOf(row));
+    if (!body) throw new DomainError("NOT_FOUND", "UPLOAD_NOT_FOUND", "The file hasn't arrived in storage");
+    await check(body, row.contentType);
+  }
+  const limit =
+    askedSeconds > UPLOAD_URL_SECONDS && storageLimitBytes ? await storageLimitBytes(row.organizationId) : null;
   return db.forOrg(actor.organizationId, async (tx) => {
+    if (limit !== null) {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`attachment-storage:${row.organizationId}`}, 0))`;
+      // Read again under the lock: another confirm may have made it ready, or taken the room, meanwhile.
+      const now = await findAttachment(tx, input);
+      if (now.status === "pending" && (await bytesStored(tx, row.organizationId)) + now.sizeBytes > limit) {
+        throw new DomainError("LIMIT_REACHED", "STORAGE_LIMIT_REACHED", "This organization's file storage is full");
+      }
+    }
     await tx.attachment.updateMany({
       where: { id: row.id, status: "pending" },
       data: { status: "ready", confirmedAt: new Date() },

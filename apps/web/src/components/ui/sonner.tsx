@@ -1,7 +1,8 @@
 "use client";
 
-// Toasts (DESIGN.md section 6): bottom right on desktop, full width at the bottom on phones, the overlay shadow.
-// The app has one light theme, so shadcn's next-themes lookup is left out. Errors stay until dismissed: callers pass
+// Toasts (DESIGN.md section 6): bottom right on desktop, full width at the bottom on phones, above the 56px bottom bar
+// where a page has one (a toast over it would cover its buttons; globals.css sets the gap), the overlay shadow. The
+// app has one light theme, so shadcn's next-themes lookup is left out. Errors stay until dismissed: callers pass
 // { duration: Infinity } with toast.error.
 import { CircleCheckIcon, InfoIcon, Loader2Icon, OctagonXIcon, TriangleAlertIcon } from "lucide-react";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
@@ -11,6 +12,7 @@ const Toaster = (props: ToasterProps) => {
     <Sonner
       theme="light"
       position="bottom-right"
+      mobileOffset={{ bottom: "calc(var(--toast-bottom-gap, 0px) + env(safe-area-inset-bottom))" }}
       duration={4000}
       closeButton
       className="toaster group"

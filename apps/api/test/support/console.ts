@@ -16,7 +16,8 @@ import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import type { Hono } from "hono";
 import { createConsoleApp } from "../../src/console-app.js";
 import { CookieJar } from "./cookie-jar.js";
-import { ORIGIN, signInByEmail, type TestServer } from "./test-server.js";
+import { ORIGIN, postJson, signInByEmail, type TestServer } from "./test-server.js";
+import { codeFor, enableTwoFactor } from "./two-factor.js";
 
 export interface TestConsole {
   app: Hono;
@@ -118,13 +119,18 @@ export interface TestPlatformStaff {
   email: string;
   password: string;
   jar: CookieJar;
+  /** The authenticator secret, for codes at a later sign-in; null for staff made without two-factor. */
+  secret: string | null;
 }
 
-/** Platform staff at the given level, signed in through the test server; their temporary password already replaced. */
+/**
+ * Platform staff at the given level, signed in through the test server; their temporary password already replaced,
+ * and two-factor on, which the console requires, unless the test asks for staff without it.
+ */
 export async function signedInPlatformStaff(
   server: TestServer,
   level: "support" | "super-admin" = "support",
-  options: { mustChangePassword?: boolean } = {},
+  options: { mustChangePassword?: boolean; twoFactor?: boolean } = {},
 ): Promise<TestPlatformStaff> {
   const email = `${level}-${crypto.randomUUID()}@platform.test`;
   const password = "platform-password-1";
@@ -143,5 +149,25 @@ export async function signedInPlatformStaff(
   const jar = new CookieJar();
   const response = await signInByEmail(server, jar, email, password);
   if (!response.ok) throw new Error(`platform staff sign-in failed with ${String(response.status)}`);
-  return { userId: user.id, email, password, jar };
+  const secret = options.twoFactor === false ? null : (await enableTwoFactor(server, jar, password)).secret;
+  return { userId: user.id, email, password, jar, secret };
+}
+
+/**
+ * Signs platform staff in again, as the sign-in screen does: the password (staff's own unless another is given), then
+ * the authenticator's code when two-factor is on. Returns the new session's cookie jar.
+ */
+export async function signInPlatformStaffAgain(
+  server: TestServer,
+  staff: Pick<TestPlatformStaff, "email" | "password" | "secret">,
+  password = staff.password,
+): Promise<CookieJar> {
+  const jar = new CookieJar();
+  const response = await signInByEmail(server, jar, staff.email, password);
+  if (!response.ok) throw new Error(`platform staff sign-in failed with ${String(response.status)}`);
+  if (staff.secret === null) return jar;
+  const code = await codeFor(server, staff.secret);
+  const verified = jar.absorb(await postJson(server, "/api/auth/two-factor/verify-totp", { code }, jar));
+  if (!verified.ok) throw new Error(`platform staff's code was refused with ${String(verified.status)}`);
+  return jar;
 }

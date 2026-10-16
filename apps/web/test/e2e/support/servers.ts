@@ -1,7 +1,8 @@
-// Starts the real api and the built web app for the journeys, on free ports, the way a deployment runs them: the
-// api from its source with tsx, the web app as Next.js's standalone server. The web app is built here, because its
-// /api rewrite is fixed at build time and must point at this api. If anything fails on the way, whatever already
-// started is stopped again, so a failed run leaves no process behind.
+// Starts the real api, the worker, the console and the built web app for the journeys, the way a deployment runs
+// them: the api's three commands from its source with tsx (the api and the console on free ports; the worker has
+// none), the web app as Next.js's standalone server. The web app is built here, because its rewrites are fixed at
+// build time and must point at this api and this console. If anything fails on the way, whatever already started is
+// stopped again, so a failed run leaves no process behind.
 import { spawn } from "node:child_process";
 import { generateKeyPairSync } from "node:crypto";
 import { cp } from "node:fs/promises";
@@ -68,6 +69,8 @@ interface Started {
   stop(): void;
   /** Rejects, with the process's output, if it stops before stop() is called. */
   exited: Promise<never>;
+  /** What the process has printed so far. */
+  output(): string;
 }
 
 /** Starts a long-running process. Its output is shown only if it stops before stop() is called. */
@@ -94,44 +97,59 @@ function start(command: string, args: string[], options: { cwd: string; env: Nod
       child.kill();
     },
     exited,
+    output: () => output,
   };
 }
 
-/** Waits until url answers 200, for up to a minute, failing at once if the process serving it stops. */
-async function waitUntilUp(url: string, server: Started): Promise<void> {
-  const answering = async () => {
+/** Waits until ready() holds, checking every half second for up to a minute, failing at once if the process stops. */
+async function waitUntil(what: string, ready: () => Promise<boolean>, server: Started): Promise<void> {
+  const waiting = async () => {
     for (let attempt = 0; attempt < 120; attempt += 1) {
-      try {
-        if ((await fetch(url)).ok) return;
-      } catch {
-        // Not listening yet.
-      }
+      if (await ready()) return;
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
-    throw new Error(`${url} didn't come up within a minute`);
+    throw new Error(`${what} didn't come up within a minute`);
   };
-  await Promise.race([answering(), server.exited]);
+  await Promise.race([waiting(), server.exited]);
+}
+
+/** Waits until url answers 200. */
+function waitUntilUp(url: string, server: Started): Promise<void> {
+  return waitUntil(
+    url,
+    () =>
+      fetch(url).then(
+        (response) => response.ok,
+        () => false,
+      ),
+    server,
+  );
 }
 
 export interface Servers {
   webUrl: string;
+  consoleUrl: string;
   stop(): void;
 }
 
 export async function startServers({
   databaseUrl,
+  platformDatabaseUrl,
   storage,
   email,
 }: {
   databaseUrl: string;
+  /** The platform role's connection, which only the console is given (ADR 0019). */
+  platformDatabaseUrl: string;
   /** A real bucket (support/minio.ts): the api checks it at start-up. */
   storage: StorageVariables;
   /** Mailpit's SMTP (support/mailpit.ts), where journeys read the emails the api sends. */
   email: EmailVariables;
 }): Promise<Servers> {
-  const reserved = await reservePorts(2);
-  const [apiPort = 0, webPort = 0] = reserved.ports;
+  const reserved = await reservePorts(3);
+  const [apiPort = 0, consolePort = 0, webPort = 0] = reserved.ports;
   const apiUrl = `http://127.0.0.1:${String(apiPort)}`;
+  const consoleUrl = `http://127.0.0.1:${String(consolePort)}`;
   const webUrl = `http://127.0.0.1:${String(webPort)}`;
   const started: Started[] = [];
   const stop = () => {
@@ -141,7 +159,13 @@ export async function startServers({
     // Build first, while nothing runs: a failed build has nothing to stop.
     await run(path.join(webDirectory, "node_modules/.bin/next"), ["build"], {
       cwd: webDirectory,
-      env: { ...process.env, API_ORIGIN: apiUrl },
+      env: {
+        ...process.env,
+        API_ORIGIN: apiUrl,
+        CONSOLE_ORIGIN: consoleUrl,
+        // The browser uploads to MinIO and loads images from it: the policy must allow its origin.
+        STORAGE_ORIGIN: new URL(storage.S3_ENDPOINT).origin,
+      },
     });
     // The standalone server serves .next/static and public only when they sit beside it, as a Docker image puts them.
     const standalone = path.join(webDirectory, ".next/standalone/apps/web");
@@ -149,40 +173,46 @@ export async function startServers({
     await cp(path.join(webDirectory, "public"), path.join(standalone, "public"), { recursive: true });
 
     const vapid = vapidKeys();
+    /** What the api's three commands all read (apps/api/src/environment.ts). */
+    const apiEnvironment: NodeJS.ProcessEnv = {
+      ...process.env,
+      NODE_ENV: "development",
+      PORT: String(apiPort),
+      DATABASE_URL: databaseUrl,
+      BETTER_AUTH_SECRET: "e2e-only-secret-".padEnd(48, "x"),
+      // Browsers reach the api through the web app's address (spec 3), so that is its URL and the trusted origin.
+      BETTER_AUTH_URL: webUrl,
+      APP_URL: webUrl,
+      TRUSTED_ORIGINS: "",
+      // Journeys sign in many times from one address.
+      AUTH_RATE_LIMIT: "false",
+      // Plan 3's services are configured from the environment, all of them real: the api refuses to start without
+      // a bucket it can use, and journeys read the email it sends.
+      ...storage,
+      ...email,
+      EMAIL_FROM_ADDRESS: "no-reply@travel-crm.localhost",
+      VAPID_PUBLIC_KEY: vapid.publicKey,
+      VAPID_PRIVATE_KEY: vapid.privateKey,
+      VAPID_SUBJECT: "mailto:dev@travel-crm.localhost",
+    };
+    const tsx = path.join(apiDirectory, "node_modules/.bin/tsx");
     await reserved.release();
-    started.push(
-      start(path.join(apiDirectory, "node_modules/.bin/tsx"), ["src/server.ts"], {
-        cwd: apiDirectory,
-        env: {
-          ...process.env,
-          NODE_ENV: "development",
-          PORT: String(apiPort),
-          DATABASE_URL: databaseUrl,
-          BETTER_AUTH_SECRET: "e2e-only-secret-".padEnd(48, "x"),
-          // Browsers reach the api through the web app's address (spec 3), so that is its URL and the trusted origin.
-          BETTER_AUTH_URL: webUrl,
-          APP_URL: webUrl,
-          TRUSTED_ORIGINS: "",
-          // Journeys sign in many times from one address.
-          AUTH_RATE_LIMIT: "false",
-          // Plan 3's services are configured from the environment, all of them real: the api refuses to start without
-          // a bucket it can use, and journeys read the email it sends.
-          ...storage,
-          ...email,
-          EMAIL_FROM_ADDRESS: "no-reply@travel-crm.localhost",
-          VAPID_PUBLIC_KEY: vapid.publicKey,
-          VAPID_PRIVATE_KEY: vapid.privateKey,
-          VAPID_SUBJECT: "mailto:dev@travel-crm.localhost",
-        },
-      }),
-      start(process.execPath, ["server.js"], {
-        cwd: standalone,
-        env: { ...process.env, NODE_ENV: "production", PORT: String(webPort), HOSTNAME: "127.0.0.1" },
-      }),
-    );
-    const [api, web] = started;
-    if (!api || !web) throw new Error("the servers didn't start");
+    const api = start(tsx, ["src/server.ts"], { cwd: apiDirectory, env: apiEnvironment });
+    const worker = start(tsx, ["src/worker.ts"], { cwd: apiDirectory, env: apiEnvironment });
+    const platformConsole = start(tsx, ["src/console.ts"], {
+      cwd: apiDirectory,
+      // As apps/api/src/console-environment.ts reads them.
+      env: { ...apiEnvironment, DATABASE_PLATFORM_URL: platformDatabaseUrl, CONSOLE_PORT: String(consolePort) },
+    });
+    const web = start(process.execPath, ["server.js"], {
+      cwd: standalone,
+      env: { ...process.env, NODE_ENV: "production", PORT: String(webPort), HOSTNAME: "127.0.0.1" },
+    });
+    started.push(api, worker, platformConsole, web);
     await waitUntilUp(`${apiUrl}/health`, api);
+    await waitUntilUp(`${consoleUrl}/health`, platformConsole);
+    // The worker has no port; it says when its jobs and listeners are running.
+    await waitUntil("the worker", () => Promise.resolve(worker.output().includes("worker running")), worker);
     await waitUntilUp(webUrl, web);
   } catch (error) {
     stop();
@@ -191,5 +221,5 @@ export async function startServers({
   }
   // If the runner itself is stopped, its children go with it.
   process.once("exit", stop);
-  return { webUrl, stop };
+  return { webUrl, consoleUrl, stop };
 }

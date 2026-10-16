@@ -6,13 +6,19 @@ HTTP, and the app imports the api's types, never its code.
 ## Run it
 
     pnpm db:up && pnpm db:migrate
-    pnpm --filter @travel-crm/api-server dev    # the api on http://localhost:3001
-    pnpm --filter @travel-crm/web dev           # the app on http://localhost:3000
+    pnpm --filter @travel-crm/api-server dev       # the api on http://localhost:3001
+    pnpm --filter @travel-crm/api-server worker    # PDFs, notifications, the outbox
+    pnpm --filter @travel-crm/api-server console   # the platform console's api on http://localhost:3002
+    pnpm --filter @travel-crm/web dev              # the app on http://localhost:3000, the console at /console
 
 `/api/*` reaches the api on the same address the app was loaded from (spec 3), so cookies stay first-party and the
 api needs no CORS. In development and the end-to-end tests a Next.js rewrite sends it to `API_ORIGIN` (default
-`http://localhost:3001`). Rewrites are fixed when the app is built: a deployment routes `/api/*` to the api at its
-load balancer instead, and the api's `TRUSTED_ORIGINS` (or `BETTER_AUTH_URL`) must hold the app's address.
+`http://localhost:3001`), `/p/*` and `/webhooks/*` too, and `/api/platform/*` first to `CONSOLE_ORIGIN` (default
+`http://localhost:3002`). Rewrites are fixed when the app is built: a deployment routes these paths at its load
+balancer instead, and the api's `TRUSTED_ORIGINS` (or `BETTER_AUTH_URL`) must hold the app's address.
+`STORAGE_ORIGIN` (default `http://localhost:59000` in development, docker-compose's MinIO) is fixed at build time as
+well: the Content-Security-Policy lets the browser upload to it and show the logo from it (ADR 0026). A production
+build fails without it.
 
 ## How it's put together
 
@@ -27,11 +33,23 @@ load balancer instead, and the api's `TRUSTED_ORIGINS` (or `BETTER_AUTH_URL`) mu
   signing out (`session.ts`), which wipes the cache here and in other tabs.
 - `src/session/` and `src/shell/`: the session gate (me.get, pending steps), the navigation by permission, banners.
 - `src/account/`, `src/organization/`: the account and organization screens; `src/pwa/`, `src/service-worker/`: the
-  installable app and its offline shell.
+  installable app, its offline shell and its pushes.
+- `src/console/` (routes in `src/app/console/`): the platform console, with its own query cache and tRPC client
+  (ADR 0025).
+- `src/subscription/`: the subscription's banners and locked screens, and `useWriteAccess()`; `src/business/`: the
+  business profile and the setup checklist; `src/files/`: uploads straight to storage and the reusable
+  `AttachmentsPanel`; `src/branding/`, `src/documents/`: the branding with its logo, the sample quotation, issued
+  documents and their share links; `src/notifications/`: the bell, the notification choices and push on this device;
+  `src/audit/`: the audit log viewer (ADR 0026).
 - `src/i18n/messages/en-IN/`: every word on screen, one file per feature.
 - `test/`: Vitest unit and component tests; `test/e2e/`: Playwright journeys. `pnpm --filter @travel-crm/web e2e`
-  starts a throwaway Postgres, the api and a fresh build on free ports (Docker must be running; install Chromium
-  once with `pnpm --filter @travel-crm/web exec playwright install chromium`).
+  starts a throwaway Postgres, MinIO and Mailpit, the api, the worker, the console process and a fresh build on free
+  ports (Docker must be running; install Chromium once with
+  `pnpm --filter @travel-crm/web exec playwright install chromium`).
+- `test/e2e/audit/`: the visual audit. `pnpm e2e:audit` (`playwright.audit.config.ts`) starts the same harness and
+  saves a full-page PNG of every screen on a phone and a desktop to `AUDIT_OUT` (default `test-results/audit`), as
+  `<project>/<nn>-<screen>.png` numbered by `shot-list.ts`, with an `index.md` listing each shot's screen, route and
+  person, and any not taken. `--project phone` or `--project desktop` runs one side.
 - `turbopack/workspace-imports-loader.cjs`: our packages import `./file.js` for `./file.ts`, which Turbopack can't
   map yet (vercel/next.js#82945); the loader drops the `.js` for files under `packages/*/src`. Remove it when
   Turbopack resolves such imports itself.

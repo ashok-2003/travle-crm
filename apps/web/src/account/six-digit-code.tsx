@@ -2,24 +2,26 @@
 
 // The 6-digit code from an authenticator app, one box per digit, as both the sign-in code step and two-factor setup
 // ask for it. The phone offers a code it received (one-time-code) and opens the number pad.
+import type { FieldLinks } from "@/components/form-field";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 export const CODE_LENGTH = 6;
 
 export function SixDigitCode({
-  id,
+  links,
   value,
   onChange,
   autoFocus = false,
 }: {
-  id: string;
+  /** The id, invalid state and description FormField gives, so the boxes carry the error. */
+  links: FieldLinks;
   value: string;
   onChange: (value: string) => void;
   autoFocus?: boolean;
 }) {
   return (
     <InputOTP
-      id={id}
+      {...links}
       maxLength={CODE_LENGTH}
       value={value}
       onChange={onChange}

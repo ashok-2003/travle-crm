@@ -1,11 +1,11 @@
 // Revoking access in every state an organization can still sign in to (ADR 0021): while read-only, an Owner and an
 // Admin with staff:manage may still remove staff, give a new temporary password and turn two-factor on, and nothing
-// else; while suspended, the Owner alone. Security outranks billing.
+// else; while suspended, the Owner alone, who may also list the staff to choose whom. Security outranks billing.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { CookieJar } from "./support/cookie-jar.js";
 import { addStaff, signedInOwner, signedInStaff, type TestStaff } from "./support/people.js";
 import { createTestAgency, createTestServer, type TestServer } from "./support/test-server.js";
-import { mutate, refusalOf } from "./support/trpc.js";
+import { mutate, query, refusalOf } from "./support/trpc.js";
 import { enableTwoFactor } from "./support/two-factor.js";
 
 /** Someone who can revoke access, signed in with two-factor on, and two members to cut off. */
@@ -96,6 +96,9 @@ describe("revoking access whatever the subscription", () => {
   it("lets only the Owner revoke access while suspended", async () => {
     const { owner, admin } = await agencyIn("suspended");
     const suspended = { status: 403, reason: "ORGANIZATION_SUSPENDED" };
+    // The staff list is how the Owner finds whom to remove: it is part of revoking, not a view the suspension stops.
+    expect((await query(server, "staff.list", owner.jar)).status).toBe(200);
+    expect(await refusalOf(await query(server, "staff.list", admin.jar))).toEqual(suspended);
     expect(await revocations(admin)).toEqual([suspended, suspended, suspended]);
     expect(await stillMembers(admin.toRemove)).toBe(1);
     expect(await revocations(owner)).toEqual([200, 200, 200]);

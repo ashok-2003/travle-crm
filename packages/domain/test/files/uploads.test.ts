@@ -3,7 +3,7 @@
 import { softDeleted } from "@travel-crm/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { bytesStored, createFiles } from "../../src/files/index.js";
-import { systemActor } from "../../src/kernel/index.js";
+import { DomainError, systemActor } from "../../src/kernel/index.js";
 import {
   bytes,
   createOrganization,
@@ -103,6 +103,25 @@ describe("uploading files", () => {
       code: "VALIDATION",
       reason: "UPLOAD_DOES_NOT_MATCH",
     });
+  });
+
+  it("hands the stored bytes to the caller's check, and keeps the file pending when it refuses them", async () => {
+    const sales = memberOf(organizationId, "sales");
+    const { attachment, upload } = await test.files.requestUpload(sales, passportUpload());
+    await test.storage.upload(upload, bytes("%PDF-passpt"), "application/pdf");
+    const seen: string[] = [];
+    const refusing = (body: Uint8Array, declaredType: string) => {
+      seen.push(`${new TextDecoder().decode(body)} as ${declaredType}`);
+      throw new DomainError("VALIDATION", "LOGO_TOO_LARGE", "Too many pixels");
+    };
+    await expect(test.files.confirmUpload(sales, ref(attachment), refusing)).rejects.toMatchObject({
+      reason: "LOGO_TOO_LARGE",
+    });
+    expect(seen).toEqual(["%PDF-passpt as application/pdf"]);
+    expect(
+      await test.files.list(sales, { recordType: "lead", recordId: passportUpload().recordId }),
+    ).not.toContainEqual(expect.objectContaining({ id: attachment.id }));
+    expect(await test.files.confirmUpload(sales, ref(attachment), () => undefined)).toMatchObject({ status: "ready" });
   });
 
   it("stores a file the server made once, however often the render job retries", async () => {
@@ -282,6 +301,95 @@ describe("the storage limit", () => {
     });
     const { attachment: fits } = await test.files.requestUpload(owner, passportUpload({ sizeBytes: 400 }));
     expect(fits.sizeBytes).toBe(400);
+  });
+
+  it("counts a pending upload only while its upload link lasts, and a ready file for good", async () => {
+    const organization = await createOrganization(test, "Unfinished uploads agency");
+    const owner = memberOf(organization, "org-owner");
+    const { attachment: left } = await test.files.requestUpload(owner, passportUpload({ sizeBytes: 600 }));
+    const { attachment: kept, upload } = await test.files.requestUpload(owner, passportUpload({ sizeBytes: 11 }));
+    await test.storage.upload(upload, bytes("%PDF-passpt"), "application/pdf");
+    await test.files.confirmUpload(owner, ref(kept));
+    expect(await test.files.storageUsedBytes(organization)).toBe(611);
+
+    // Eleven minutes on, the link has lapsed: an upload that never finished counts no more, a ready file still does.
+    const longAgo = new Date(Date.now() - 11 * 60 * 1000);
+    await test.platform.attachment.updateMany({
+      where: { id: { in: [left.id, kept.id] } },
+      data: { createdAt: longAgo },
+    });
+    expect(await test.files.storageUsedBytes(organization)).toBe(11);
+    const { attachment: fits } = await test.files.requestUpload(owner, passportUpload({ sizeBytes: 989 }));
+    expect(fits.sizeBytes).toBe(989);
+  });
+
+  /** Asks for a 400-byte upload and sends it, as the browser would; confirming is left to the test. */
+  async function sent(organization: string) {
+    const owner = memberOf(organization, "org-owner");
+    const { attachment, upload } = await test.files.requestUpload(owner, passportUpload({ sizeBytes: 400 }));
+    await test.storage.upload(upload, new Uint8Array(400), "application/pdf");
+    return attachment;
+  }
+
+  /** As if the upload had been asked for this long ago. */
+  const askedAgo = (attachmentIds: string[], minutes: number) =>
+    test.platform.attachment.updateMany({
+      where: { id: { in: attachmentIds } },
+      data: { createdAt: new Date(Date.now() - minutes * 60 * 1000) },
+    });
+
+  it("checks the limit again when an upload is confirmed after its link lapsed, so waiting can't double it", async () => {
+    const organization = await createOrganization(test, "Patient agency");
+    const owner = memberOf(organization, "org-owner");
+    // Two uploads sent in time, then left: once their links lapse they count no more, so two more fit.
+    const early = [await sent(organization), await sent(organization)];
+    await askedAgo(
+      early.map((attachment) => attachment.id),
+      11,
+    );
+    const late = [await sent(organization), await sent(organization)];
+    for (const attachment of late) {
+      expect(await test.files.confirmUpload(owner, ref(attachment))).toMatchObject({ status: "ready" });
+    }
+    for (const attachment of early) {
+      await expect(test.files.confirmUpload(owner, ref(attachment))).rejects.toMatchObject({
+        code: "LIMIT_REACHED",
+        reason: "STORAGE_LIMIT_REACHED",
+      });
+    }
+    expect(await test.files.storageUsedBytes(organization)).toBe(800);
+  });
+
+  it("confirms an upload whose link lapsed while it still fits, but only one of two that don't both fit", async () => {
+    const organization = await createOrganization(test, "Slow connection agency");
+    const owner = memberOf(organization, "org-owner");
+    const alone = await sent(organization);
+    await askedAgo([alone.id], 11);
+    expect(await test.files.confirmUpload(owner, ref(alone))).toMatchObject({ status: "ready" });
+    // 400 stored, room for one more 400, and two lapsed uploads confirmed at the same moment: they take turns.
+    const both = [];
+    for (let count = 0; count < 2; count++) {
+      const attachment = await sent(organization);
+      await askedAgo([attachment.id], 11);
+      both.push(attachment);
+    }
+    const answers = await Promise.allSettled(
+      both.map((attachment) => test.files.confirmUpload(owner, ref(attachment))),
+    );
+    expect(answers.map((answer) => answer.status).sort()).toEqual(["fulfilled", "rejected"]);
+    expect(await test.files.storageUsedBytes(organization)).toBe(800);
+  });
+
+  it("refuses to confirm an upload asked for over an hour ago: it has to be sent again", async () => {
+    const organization = await createOrganization(test, "Forgetful agency");
+    const owner = memberOf(organization, "org-owner");
+    const old = await sent(organization);
+    await askedAgo([old.id], 61);
+    await expect(test.files.confirmUpload(owner, ref(old))).rejects.toMatchObject({
+      code: "NOT_FOUND",
+      reason: "UPLOAD_EXPIRED",
+    });
+    expect(await test.files.storageUsedBytes(organization)).toBe(0);
   });
 
   it("counts only the organization it names, even in a transaction that sees every organization's files", async () => {

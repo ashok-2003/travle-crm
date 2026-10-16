@@ -7,11 +7,11 @@
 // copy of a page left behind while Cache Components is off (next/dist/client/components/bfcache-state-manager.js:13).
 // Turning it on keeps up to three, secrets included.
 import { useTranslations } from "next-intl";
-import { useId, useState, type SubmitEvent } from "react";
-import { PageTitle } from "@/components/page-title";
+import { useState, type SubmitEvent } from "react";
+import { FormField } from "@/components/form-field";
+import { PageHeader } from "@/components/page-header";
 import { PasswordInput } from "@/components/password-input";
 import { Button } from "@/components/ui/button";
-import { Field, FieldLabel } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { authClient, type AuthClient } from "@/data/auth-client";
 import { routes } from "@/lib/routes";
@@ -20,7 +20,7 @@ import { focusWhenShown } from "./focus";
 import { AuthFailureAlert, type AuthFailure } from "./form-alert";
 import { QrCode } from "./qr-code";
 import { CODE_LENGTH, SixDigitCode } from "./six-digit-code";
-import { TextLink } from "./text-link";
+import { TextLink } from "@/components/text-link";
 
 // Once two-factor is on, the backup step keeps only the codes: the secret has done its job.
 type Step =
@@ -43,22 +43,26 @@ function manualKey(totpUri: string): string {
 }
 
 export function TwoFactorSetup({
-  pending,
+  askedBy,
+  canLeave,
   onDone,
   auth = authClient,
 }: {
-  /** The organization requires two-factor and this is why the person is here. */
-  pending: boolean;
+  /** Who requires it: the person's organization, the console for its staff, or nobody (the person chose it). */
+  askedBy: "organization" | "console" | null;
+  /** Whether it offers the way back to the account: not when the person was sent here. */
+  canLeave: boolean;
   onDone: () => Promise<void> | void;
   auth?: Pick<AuthClient, "startTwoFactorSetup" | "confirmTwoFactor">;
 }) {
   const t = useTranslations("account");
-  const id = useId();
   const [step, setStep] = useState<Step>({ name: "password" });
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [failure, setFailure] = useState<AuthFailure | null>(null);
   const [busy, setBusy] = useState(false);
+  // The buttons stay live like every account form's; pressing one with its field empty says so.
+  const [missing, setMissing] = useState(false);
 
   const run = async (action: () => Promise<void>) => {
     setBusy(true);
@@ -75,15 +79,21 @@ export function TwoFactorSetup({
 
   const start = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setMissing(password === "");
+    if (password === "") return;
     void run(async () => {
       const result = await auth.startTwoFactorSetup({ password });
-      if (result.ok) setStep({ name: "scan", ...result.data });
-      else setFailure(result);
+      if (result.ok) {
+        setMissing(false);
+        setStep({ name: "scan", ...result.data });
+      } else setFailure(result);
     });
   };
 
   const confirm = (event: SubmitEvent<HTMLFormElement>, backupCodes: string[]) => {
     event.preventDefault();
+    setMissing(code.length !== CODE_LENGTH);
+    if (code.length !== CODE_LENGTH) return;
     void run(async () => {
       const result = await auth.confirmTwoFactor({ code });
       if (result.ok) setStep({ name: "backup", backupCodes });
@@ -91,27 +101,35 @@ export function TwoFactorSetup({
     });
   };
 
+  // Said on the first step only, with its question: the steps after it carry on from there.
+  const who =
+    askedBy === null
+      ? t("twoFactorSetup.intro")
+      : askedBy === "console"
+        ? t("twoFactorSetup.platformIntro")
+        : t("twoFactorSetup.pendingIntro");
+  const intro = `${who} ${t("twoFactorSetup.passwordStep")}`;
+
   return (
     <div className="flex flex-col gap-6">
-      <PageTitle>{t("twoFactorSetup.title")}</PageTitle>
-      <p className="text-muted-foreground">{pending ? t("twoFactorSetup.pendingIntro") : t("twoFactorSetup.intro")}</p>
+      <PageHeader title={t("twoFactorSetup.title")} {...(step.name === "password" ? { intro } : {})} />
 
       {step.name === "password" && (
         <form noValidate onSubmit={start} className="flex flex-col gap-5">
-          <p>{t("twoFactorSetup.passwordStep")}</p>
-          <Field>
-            <FieldLabel htmlFor={`${id}-password`}>{t("fields.password")}</FieldLabel>
-            <PasswordInput
-              id={`${id}-password`}
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => {
-                setPassword(event.target.value);
-              }}
-            />
-          </Field>
+          <FormField label={t("fields.password")} error={missing ? t("fields.required") : undefined}>
+            {(links) => (
+              <PasswordInput
+                {...links}
+                autoComplete="current-password"
+                value={password}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                }}
+              />
+            )}
+          </FormField>
           <AuthFailureAlert failure={failure} />
-          <Button type="submit" disabled={busy || password === ""}>
+          <Button type="submit" disabled={busy}>
             {busy && <Spinner />}
             {busy ? t("twoFactorSetup.starting") : t("twoFactorSetup.start")}
           </Button>
@@ -135,16 +153,19 @@ export function TwoFactorSetup({
             label={t("twoFactorSetup.qrLabel")}
             className="size-48 self-center text-foreground"
           />
-          <p className="text-label text-muted-foreground">
-            {t("twoFactorSetup.manualKey")}{" "}
-            <span className="numbers break-all text-foreground">{manualKey(step.totpUri)}</span>
-          </p>
-          <Field>
-            <FieldLabel htmlFor={`${id}-code`}>{t("twoFactorSetup.confirmStep")}</FieldLabel>
-            <SixDigitCode id={`${id}-code`} value={code} onChange={setCode} />
-          </Field>
+          <div className="flex flex-col gap-1 text-label text-muted-foreground">
+            {t("twoFactorSetup.manualKey")}
+            {/* On its own line and not broken inside a group of four, so it is easy to type. */}
+            <span className="numbers text-foreground">{manualKey(step.totpUri)}</span>
+          </div>
+          <FormField
+            label={t("twoFactorSetup.confirmStep")}
+            error={missing && code.length !== CODE_LENGTH ? t("fields.required") : undefined}
+          >
+            {(links) => <SixDigitCode links={links} value={code} onChange={setCode} />}
+          </FormField>
           <AuthFailureAlert failure={failure} />
-          <Button type="submit" disabled={busy || code.length !== CODE_LENGTH}>
+          <Button type="submit" disabled={busy}>
             {busy && <Spinner />}
             {busy ? t("twoFactorSetup.confirming") : t("twoFactorSetup.confirm")}
           </Button>
@@ -154,7 +175,7 @@ export function TwoFactorSetup({
       {step.name === "backup" && <BackupCodes codes={step.backupCodes} onDone={onDone} />}
 
       {/* A setup the person chose can be left until it is on; one the api insists on can't be. */}
-      {!pending && step.name !== "backup" && <TextLink href={routes.account}>{t("steps.backToAccount")}</TextLink>}
+      {canLeave && step.name !== "backup" && <TextLink href={routes.account}>{t("steps.backToAccount")}</TextLink>}
     </div>
   );
 }

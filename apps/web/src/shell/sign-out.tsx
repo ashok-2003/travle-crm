@@ -13,11 +13,11 @@ export function useSignOut(): () => void {
   return () => void page.signOut();
 }
 
-export function SignOutButton({ className }: { className?: string }) {
+export function SignOutButton() {
   const t = useTranslations("shell.navigation");
   const signOut = useSignOut();
   return (
-    <Button variant="ghost" className={className} onClick={signOut}>
+    <Button variant="ghost" onClick={signOut}>
       <LogOutIcon aria-hidden="true" />
       {t("signOut")}
     </Button>

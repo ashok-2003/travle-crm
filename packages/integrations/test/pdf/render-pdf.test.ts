@@ -1,15 +1,10 @@
 // The sample template renders the organization's branding and the document's content, pages long documents, and
-// refuses an accent colour that isn't a hex colour.
+// refuses an accent colour that isn't a hex colour, or a logo that isn't the PNG or JPEG it says it is.
 import { brand } from "@travel-crm/brand";
 import { describe, expect, it, vi } from "vitest";
 import { renderPdf, type SampleDocumentData } from "../../src/pdf/index.js";
+import { jpegFrame, jpegOf, jpegScan, jpegWithExifComponents, tinyJpeg, tinyPng } from "../testing.js";
 import { firstPageText, pdfText } from "./pdf-text.js";
-
-/** A 1x1 transparent PNG: the smallest valid logo. */
-const tinyPng = Uint8Array.from(
-  atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="),
-  (character) => character.charCodeAt(0),
-);
 
 const issuedAt = new Date("2026-10-15T05:30:00Z");
 
@@ -101,10 +96,43 @@ describe("renderPdf", () => {
       branding: { ...branding, logo: { data: tinyPng, contentType: "image/png" } },
     });
     expect(new TextDecoder("latin1").decode(withLogo)).toContain("/Subtype /Image");
+    const withJpeg = await renderPdf("sample", {
+      issuedAt,
+      data: sample,
+      branding: { ...branding, logo: { data: tinyJpeg, contentType: "image/jpeg" } },
+    });
+    // A JPEG is embedded as it is stored, compressed the way it came, without its metadata.
+    expect(new TextDecoder("latin1").decode(withJpeg)).toContain("/DCTDecode");
+    expect(new TextDecoder("latin1").decode(withJpeg)).not.toContain("JFIF");
     const plain = await pdfText(
       await renderPdf("sample", { issuedAt, data: sample, branding: { organizationName: "Goa Escapes" } }),
     );
     expect(plain.text).toContain("Goa Escapes");
+  });
+
+  it("draws a JPEG logo without its EXIF, where jay-peg would run out of memory", async () => {
+    // Read by jay-peg, eight entries of 100 million components each need gigabytes: the test run would die.
+    const started = performance.now();
+    const pdf = await renderPdf("sample", {
+      issuedAt,
+      data: sample,
+      branding: { ...branding, logo: { data: jpegWithExifComponents(100_000_000, 8), contentType: "image/jpeg" } },
+    });
+    const text = new TextDecoder("latin1").decode(pdf);
+    expect(text).toContain("/DCTDecode");
+    expect(text).not.toContain("Exif");
+    expect(performance.now() - started).toBeLessThan(10_000);
+  });
+
+  it("refuses a JPEG logo whose segments can't be drawn as they are", async () => {
+    const twoFrames = jpegOf(jpegFrame(1, 1), jpegFrame(9000, 9000), jpegScan());
+    await expect(
+      renderPdf("sample", {
+        issuedAt,
+        data: sample,
+        branding: { ...branding, logo: { data: twoFrames, contentType: "image/jpeg" } },
+      }),
+    ).rejects.toThrow(RangeError);
   });
 
   it("refuses an accent colour that isn't #rrggbb", async () => {
@@ -144,6 +172,20 @@ describe("renderPdf output", () => {
     await expect(renderPdf("sample", { issuedAt, data: sample, branding: { ...branding, logo } })).rejects.toThrow(
       RangeError,
     );
+  });
+
+  it("refuses a logo whose bytes aren't the image it says it is, which React-PDF would silently leave out", async () => {
+    const mislabelled = [
+      { data: tinyPng, contentType: "image/jpeg" as const },
+      { data: tinyJpeg, contentType: "image/png" as const },
+      { data: new TextEncoder().encode("not an image"), contentType: "image/png" as const },
+    ];
+    for (const logo of mislabelled) {
+      await expect(
+        renderPdf("sample", { issuedAt, data: sample, branding: { ...branding, logo } }),
+        logo.contentType,
+      ).rejects.toThrow(RangeError);
+    }
   });
 });
 

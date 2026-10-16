@@ -14,7 +14,7 @@ import { authClient, type AuthClient, type SignInOutcome } from "@/data/auth-cli
 import { AuthFailureAlert, type AuthFailure } from "./form-alert";
 import { useFormResolver } from "./form-errors";
 import { rememberOrganizationCode } from "./remembered-code";
-import { TextField } from "./text-field";
+import { TextField } from "@/components/forms/text-field";
 
 export function CodeSignInForm({
   rememberedCode,

@@ -15,6 +15,7 @@ import { authLogger } from "./auth-logger.js";
 import { impersonationAudit } from "./impersonation-audit.js";
 import { passwordResetSender, RESET_LINK_SECONDS, type PasswordResetSettings } from "./password-reset.js";
 import { closeSideDoors } from "./side-doors.js";
+import { noTrustedDevicesForStaff } from "./staff-trusted-devices.js";
 import { relabelTotpForStaffWithoutEmail } from "./totp-label.js";
 
 export interface AuthSettings {
@@ -95,7 +96,9 @@ export function createAuth(database: IdentityDatabase, settings: AuthSettings) {
         : { sendResetPassword: passwordResetSender(settings.passwordReset.sendEmail, settings.log) }),
     },
     verification: {
-      // A reset link's token is kept only as a hash, so the table can't be read for a working link.
+      // A reset link's token is kept only as a hash, so the table can't be read for a working link. Every other
+      // identifier stays plain: staff-trusted-devices.ts deletes platform staff's trusted devices by the plain
+      // "trust-device-" prefix, which a hashed identifier would never match (trusted-devices.test.ts would fail).
       storeIdentifier: { default: "plain", overrides: { "reset-password:": "hashed" } },
     },
     session: {
@@ -150,6 +153,8 @@ export function createAuth(database: IdentityDatabase, settings: AuthSettings) {
       }),
       // Writes "support.impersonation-started" and "-stopped" to the member's organization's audit log.
       impersonationAudit(database),
+      // Listed before twoFactor(): plugins' hooks run in this order. Platform staff never keep a trusted device.
+      noTrustedDevicesForStaff(client),
       twoFactor({ issuer: settings.appName }),
     ],
   });

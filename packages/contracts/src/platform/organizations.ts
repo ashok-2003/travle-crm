@@ -1,7 +1,7 @@
-// Organizations as the console makes and shows them (spec 7.1): onboarding's input in one go, and what the console
-// shows of one organization.
+// Organizations as the console makes and shows them (spec 7.1): onboarding's input in one go, what the console shows
+// of one organization, and its members (spec 6.1: support impersonates one of them).
 import { z } from "zod";
-import { emailAddress, organizationCode, personName, recordId } from "../identity/index.js";
+import { emailAddress, organizationCode, personName, recordId, shownEmailAddress } from "../identity/index.js";
 import { gstStateCode, gstin, phoneNumber, timeZoneName } from "../kernel/index.js";
 import { organizationProfileDetails } from "../profile/index.js";
 import { startSubscriptionInput, subscriptionWithPayments } from "../subscriptions/index.js";
@@ -68,3 +68,19 @@ export const organizationDetails = z.object({
   subscription: subscriptionWithPayments.nullable(),
 });
 export type OrganizationDetails = z.infer<typeof organizationDetails>;
+
+/** One of an organization's active members, as the console lists them; removed and banned people are left out. */
+export const organizationMember = z.object({
+  memberId: recordId,
+  userId: recordId,
+  name: z.string(),
+  roleName: z.string(),
+  isOwner: z.boolean(),
+  /** Null for staff without email: a placeholder address is never shown, and fails the response if it is. */
+  email: shownEmailAddress.nullable(),
+  /** False until an invited person (the first Owner) chooses a password from the invite. */
+  hasPassword: z.boolean(),
+  /** When they last used the app, to the day, support's impersonation aside; null before their first request. */
+  lastActiveAt: z.iso.datetime().nullable(),
+});
+export type OrganizationMember = z.infer<typeof organizationMember>;

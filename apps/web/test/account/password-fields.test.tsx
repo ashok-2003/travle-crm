@@ -32,7 +32,8 @@ const forms: [string, ReactElement, number][] = [
     "two-factor setup",
     <TwoFactorSetup
       key="setup"
-      pending={false}
+      askedBy={null}
+      canLeave
       onDone={vi.fn()}
       auth={{ startTwoFactorSetup: vi.fn(), confirmTwoFactor: vi.fn() }}
     />,

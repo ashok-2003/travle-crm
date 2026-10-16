@@ -134,7 +134,7 @@ when one is wrong), serves nothing, runs no jobs and exits (`src/console-command
 | `SMTP_PORT`, `SMTP_SECURE`                 | no       | `587`, `false`          | `SMTP_SECURE=true` for TLS from the first byte (port 465)                                 |
 | `SMTP_USER`, `SMTP_PASSWORD`               | no       | none                    | SMTP credentials                                                                          |
 | `EMAIL_FROM_ADDRESS`                       | yes      |                         | the address email comes from, on our domain                                               |
-| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`    | yes      |                         | web push keys: `pnpm --filter @travel-crm/integrations exec web-push generate-vapid-keys` |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`    | yes      |                         | a pair per environment (`web-push generate-vapid-keys`); production refuses the example's |
 | `VAPID_SUBJECT`                            | yes      |                         | `mailto:` an address, or an https URL                                                     |
 | `APP_URL`                                  | no       | `http://localhost:3000` | the web app: email links point there; a trusted origin; https in production               |
 | `PORT`                                     | no       | `3001`                  |                                                                                           |

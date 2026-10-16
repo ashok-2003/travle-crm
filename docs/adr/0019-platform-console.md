@@ -50,8 +50,9 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 4 (the `app_pla
     log as `support.impersonation-stopped`, as a stop through Better Auth is: the super admin acts (source `platform`),
     and the entry names the impersonating admin, the session's end and the reason (`removed-from-platform-staff`,
     `password-reset`). One that simply runs out its hour has no stop entry; its start entry already says when it ends.
-  - **Two-factor is required of platform staff.** Plan 5B enforces it once the console's screens can set it up, as
-    the step after a new password; the staff list shows `twoFactorEnabled` already, so nothing built now changes.
+  - **Two-factor is required of platform staff.** `staffProcedure` refuses `SET_UP_TWO_FACTOR` after
+    `CHANGE_PASSWORD`, and the impersonation side door refuses staff without it; the console sends them to set it up
+    (ADR 0025).
   - **The first super admin** comes from a one-off command run with the console's environment, never over HTTP:
     `first-super-admin -- --email <address> --name <name>`. It takes the same lock and refuses once any super admin
     exists, so two runs at once make one. It prints the temporary password to the operator's terminal (stdout), and
@@ -148,5 +149,4 @@ adminUserId)`), not as the system.
   files, so the api and the worker never load the platform's code.
 - Removed platform staff can't be restored yet: their address stays taken until a later feature brings them back.
   Their password hash stays too, refused only by the ban, so a restore must set a new temporary password (as
-  `resetPassword` does), never just lift the ban. Two-factor for platform staff is required but not yet enforced
-  (plan 5B).
+  `resetPassword` does), never just lift the ban.

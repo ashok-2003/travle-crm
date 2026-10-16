@@ -1,6 +1,10 @@
 // A fake api for the organization hooks: every call the app makes waits until the test answers it, so a test can look
-// at the screen "before the api answers", answer calls in any order, and refuse them with the api's own reasons.
+// at the screen "before the api answers", answer calls in any order, and refuse them with the api's own reasons. The
+// query cache starts with a paid subscription, so the calls a test sees are only the ones it is about.
+import type { AppRouter } from "@travel-crm/api";
+import type { SubscriptionOverview } from "@travel-crm/contracts/subscriptions";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { render } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
@@ -60,8 +64,30 @@ export function fakeApi() {
   };
 }
 
-export function newQueryClient() {
-  return new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+/** subscription.get's answer for an organization that has paid: every change goes ahead. */
+export const paidSubscription: SubscriptionOverview = {
+  status: "active",
+  access: "full",
+  planName: "Growth",
+  modules: [],
+  trialEndsOn: null,
+  paidThrough: "2027-10-15",
+  nextChangeOn: "2027-10-16",
+  limits: { seats: 10, whatsappNumbers: 1, storageBytes: 1_000_000_000 },
+};
+
+/**
+ * A query cache for these tests. The screens ask for the subscription before offering a change (useWriteAccess): it
+ * holds `subscription`, never stale, so it is never asked for; null leaves it to the api like any other call.
+ */
+export function newQueryClient(subscription: SubscriptionOverview | null = paidSubscription) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  if (subscription) {
+    const trpc = createTRPCOptionsProxy<AppRouter>({ client: createApiClient(), queryClient });
+    queryClient.setQueryDefaults(trpc.subscription.get.queryKey(), { staleTime: Infinity });
+    queryClient.setQueryData(trpc.subscription.get.queryKey(), subscription);
+  }
+  return queryClient;
 }
 
 /** The providers the app's hooks and screens need: messages, a query cache and the tRPC client. */

@@ -16,5 +16,20 @@
     "setUpYours": "Set up two-factor for yourself",
     "turnedOn": "Two-factor sign-in is now required for everyone",
     "turnedOff": "Two-factor sign-in is now optional"
+  },
+  "sections": {
+    "heading": "More settings",
+    "setup": "Setup checklist",
+    "setupHint": "What to do before your first quotation, and what's done",
+    "profile": "Business profile",
+    "profileHint": "Your business's name, address, GST and bank details",
+    "branding": "Branding",
+    "brandingHint": "Your logo, colour and terms, on the quotations and invoices you issue",
+    "files": "Business files",
+    "filesHint": "Documents your business keeps, such as its licences",
+    "documents": "Documents",
+    "documentsHint": "The documents you've issued, their PDFs and share links",
+    "audit": "Audit log",
+    "auditHint": "Who changed what in your organization, and when"
   }
 }

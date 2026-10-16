@@ -3,24 +3,21 @@
 // The last step of two-factor setup: the backup codes, shown this once, to copy or write down, then on to whatever
 // the api still asks. Nothing that fails here is silent: a browser that won't copy says so, and so does a next screen
 // that doesn't open, with the codes still on screen.
-import { CircleAlertIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
-import { useErrorMessage } from "@/lib/error-message";
 import { focusWhenShown } from "./focus";
 
 export function BackupCodes({ codes, onDone }: { codes: string[]; onDone: () => Promise<void> | void }) {
   const t = useTranslations("account.twoFactorSetup");
   const tCommon = useTranslations("common");
-  const { apiError } = useErrorMessage();
   const id = useId();
   const [copied, setCopied] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
-  const [problem, setProblem] = useState<string | null>(null);
+  const [problem, setProblem] = useState<unknown>(null);
 
   const copyCodes = async () => {
     try {
@@ -38,7 +35,7 @@ export function BackupCodes({ codes, onDone }: { codes: string[]; onDone: () => 
     try {
       await onDone();
     } catch (error) {
-      setProblem(apiError(error));
+      setProblem(error);
     } finally {
       setBusy(false);
     }
@@ -67,12 +64,7 @@ export function BackupCodes({ codes, onDone }: { codes: string[]; onDone: () => 
           {t("copyFailed")}
         </p>
       )}
-      {problem !== null && (
-        <Alert variant="destructive">
-          <CircleAlertIcon aria-hidden="true" />
-          <AlertDescription>{problem}</AlertDescription>
-        </Alert>
-      )}
+      <RefusalAlert error={problem} />
       <Button onClick={() => void done()} disabled={busy}>
         {busy && <Spinner />}
         {busy ? tCommon("continuing") : t("done")}

@@ -123,6 +123,26 @@ describe("the shadcn components", () => {
     for (const dropped of ["xs:", "icon-xs", "icon-sm"]) expect(source).not.toContain(dropped);
   });
 
+  it.each([
+    ["popover.tsx", "z-(--z-dialog)"],
+    ["tooltip.tsx", "z-(--z-tooltip)"],
+  ])("%s floats on its layer", (name, layer) => {
+    expect(ui(name)).toContain(layer);
+  });
+
+  it("the popover keeps the registry's shadow, with a hairline border instead of its ring", () => {
+    const source = ui("popover.tsx");
+    expect(source).toContain("shadow-md");
+    expect(source).not.toContain("ring-1");
+  });
+
+  it("text areas are shaped as inputs: 6px, canvas fill, 16px text at every width", () => {
+    const source = ui("textarea.tsx");
+    expect(source).toContain("rounded-sm");
+    expect(source).toContain("bg-background");
+    expect(source).not.toMatch(/md:text-sm/);
+  });
+
   it("table headers are shadcn's own, with no fill on top", () => {
     const header = /function TableHeader[\s\S]*?cn\("([^"]*)"/.exec(ui("table.tsx"))?.[1];
     expect(header).toBe("[&_tr]:border-b");

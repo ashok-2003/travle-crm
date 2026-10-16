@@ -28,7 +28,7 @@ test("a salesperson sees only what their role allows", async ({ page, addStaff, 
   const navigation = page.getByRole("navigation", { name: "Main" }).filter({ visible: true });
   await expect(navigation.getByRole("link", { name: "Home" })).toBeVisible();
   await expect(navigation.getByRole("link", { name: "Staff" })).toHaveCount(0);
-  await expect(page.getByText("Your organization's admins set things up.")).toBeVisible();
+  await expect(page.getByText("Your work will show here.")).toBeVisible();
 });
 
 test("the phone's More sheet holds the account and sign-out", async ({ page, agency }, testInfo) => {

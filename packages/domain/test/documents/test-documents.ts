@@ -1,10 +1,11 @@
 // Builds the documents module's surroundings on the test database: files on in-memory storage, a fake renderer that
-// records what it was asked to render, and the context the worker gives a listener.
+// records what it was asked to render, the context the worker gives a listener, and a logo stored for drawing.
 import type { IssueDocumentInput } from "@travel-crm/contracts/documents";
 import { createDatabase, type Database } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import type { PdfInput, PdfTemplate } from "@travel-crm/integrations/pdf";
+import { tinyPng } from "@travel-crm/integrations/testing";
 import { createMemoryStorage, type MemoryStorage } from "@travel-crm/integrations/storage";
 import { inject } from "vitest";
 import { createFiles, type Files } from "../../src/files/index.js";
@@ -53,6 +54,21 @@ export const quotation: IssueDocumentInput = {
   },
   branding: { organizationName: "Sharma Holidays", accentColour: "#034f46", terms: "50% to book." },
 };
+
+/** Stores a logo for the organization, as the branding screen's upload leaves it: ready, on the organization. */
+export async function storedLogo(
+  test: TestDocuments,
+  organizationId: string,
+  logo: { body: Uint8Array; contentType: string } = { body: tinyPng, contentType: "image/png" },
+): Promise<string> {
+  const attachment = await test.files.storeGeneratedFile(systemActor(organizationId), {
+    recordType: "organization_logo",
+    recordId: organizationId,
+    fileName: "Logo.png",
+    ...logo,
+  });
+  return attachment.id;
+}
 
 /** The document.issued event issuing wrote to the outbox, as the worker hands it to a listener. */
 export async function issuedEvent(

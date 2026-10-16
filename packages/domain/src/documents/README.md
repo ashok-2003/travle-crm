@@ -15,21 +15,33 @@ quotes and invoices bring theirs.
 - `getIssuedDocument(tx, { documentId })`: the document's summary, with `pdfAttachmentId` (null until rendered) and
   `renderFailed`.
   Another organization's document is `NOT_FOUND`/`DOCUMENT_NOT_FOUND`.
+- `assertPdfCanBeMade(document)`: refuses a document whose PDF can never be made (`NOT_FOUND`/`DOCUMENT_UNAVAILABLE`):
+  the download link, a new share link and the share link's page all ask it.
+- `listIssuedDocuments(tx, { cursor?, limit? })`: the organization's documents, newest issued first, `limit` (1-50,
+  20 unless given) at a time, with `nextCursor` for the page after (`VALIDATION`/`INVALID_PAGE` for a page it can't
+  read); a cursor the organization can't see starts an empty page.
 - `renderIssuedDocumentListener({ files, render })`: the worker's listener `documents.render-pdf`. Pass the files
-  module and `renderPdf` from `@travel-crm/integrations/pdf`.
+  module (it stores the PDF and reads the logo) and `renderPdf` from `@travel-crm/integrations/pdf`.
 - `sampleQuotation({ recipient, supplierStateCode, placeOfSupplyStateCode, lines, branding, notes? })`: the sample
   template's content as a quotation, its GST worked out by the kernel's `indiaGst` and every amount printed with
   `formatMoney`, ready for `issueDocument`.
+- `brandedSampleQuotation({ organizationName, profile, logoAttachmentId? })`: the sample an organization previews its
+  branding on: made-up lines taxed within its own GST state, its name, colour, terms and logo. Issue it with
+  `prefix: SAMPLE_DOCUMENT_PREFIX` from `@travel-crm/contracts/documents` (`"SMPL"`, which no invoice prefix may be): it
+  is kept like any document, and its number says it is a sample. Call `assertMayIssueSample(tx, now?)` first: at most
+  `SAMPLES_PER_DAY` (50, the contracts' figure, which the refusal's sentence states) in any 24 hours
+  (`LIMIT_REACHED`/`SAMPLE_LIMIT_REACHED`), as each is kept for good with its PDF.
 
-- `documentsIssuedSince(tx, since)`: a usage counter for the platform dashboard. It counts the transaction's
-  organization by row-level security, so it runs in `forOrg` or `asOrganization` and refuses the platform role
-  (`RangeError`).
+- `documentsIssuedSince(tx, since)`: a usage counter for the platform dashboard, samples left out (previews, not use).
+  It counts the transaction's organization by row-level security, so it runs in `forOrg` or `asOrganization` and
+  refuses the platform role (`RangeError`).
 
 ## Events
 
 - Publishes `document.issued` with `{ documentId }`.
-- Listens to `document.issued` (`documents.render-pdf`): renders the frozen content, stores the PDF as an attachment of
-  the document (record type `issued_document`, file name `<number>.pdf`) and records it on the document.
+- Listens to `document.issued` (`documents.render-pdf`): renders the frozen content with the logo its branding names,
+  stores the PDF as an attachment of the document (record type `issued_document`, file name `<number>.pdf`) and
+  records it on the document.
 
 ## Rules worth knowing
 
@@ -44,4 +56,14 @@ quotes and invoices bring theirs.
 - Text the fonts can't show is a permanent failure: the listener records `render_failure` (code points only) and
   finishes without retrying; the summary shows `renderFailed`. Nothing recovers such a document yet: after a renderer
   fix, the platform must clear `render_failure` and publish a new `document.issued`, and no code does that. Any other renderer error is rethrown, so the job is retried.
-- The organization's logo isn't in the frozen branding yet: it joins with plan 4's branding settings.
+- The frozen branding names the organization's logo by its attachment id (`logoAttachmentId`, an `organization_logo`
+  attachment whose record is the organization); the worker reads its bytes when it renders, through the files
+  module's `systemFile`, and draws them as the image they are (PNG or JPEG by their signature). An id that names any
+  other file is never read, so a passport scan can't be printed; a logo removed before the render, whose bytes
+  aren't a PNG or JPEG png-js reads as its headers say, whose header claims more than 4096 pixels a side or 16
+  megapixels (`isLogoSizeAllowed`: pdfkit would inflate every pixel, and a 1 MB file can claim gigabytes of them), or
+  whose pixel data inflates to more than that header's rows or has a row whose filter type png-js doesn't know
+  (`isSafeToDraw`; png-js would throw where nothing catches it), or a JPEG whose segments can't be drawn as they are,
+  is left out and the document still renders. A JPEG is drawn without its metadata (`renderPdf`).
+  `assertUsableLogo(body, declaredType)` is the same check for the logo's upload, which `confirmUpload` awaits
+  (`VALIDATION`/`UPLOAD_DOES_NOT_MATCH`, `VALIDATION`/`LOGO_TOO_LARGE`).

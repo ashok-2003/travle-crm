@@ -8,6 +8,13 @@ import { serviceVariables } from "./service-variables.js";
 /** The secret in .env.example: fine on a laptop, never in production. */
 const EXAMPLE_SECRET = "dev-only-secret-not-for-any-real-deploy";
 
+/**
+ * .env.example's VAPID public key, whose private key everyone can read. Refusing it refuses the pair: the push sender
+ * refuses a private key that isn't the public key's (integrations' web-push-sender.ts).
+ */
+const EXAMPLE_VAPID_PUBLIC_KEY =
+  "BNDwagd-1gwbRjL1o3iP9g4zUvYkczzP1yE9xNbcidEzKkDbvrHaBCyHQi8btoNnI9IMV7CoQun_1oMlSCz5lTY";
+
 /** A comma-separated list, e.g. "https://a.example,https://b.example". Empty items are dropped. */
 const commaSeparated = z
   .string()
@@ -96,6 +103,12 @@ const environmentSchema = z
     const secret = environment.BETTER_AUTH_SECRET.trim();
     if (secret === EXAMPLE_SECRET || secret.length < 32 || new Set(secret).size < 10) {
       problem("BETTER_AUTH_SECRET", "is too weak for production: use `openssl rand -base64 32`");
+    }
+    if (environment.VAPID_PUBLIC_KEY.trim() === EXAMPLE_VAPID_PUBLIC_KEY) {
+      problem(
+        "VAPID_PUBLIC_KEY",
+        "is .env.example's, whose private key is public: generate a pair for this environment and keep it",
+      );
     }
   });
 

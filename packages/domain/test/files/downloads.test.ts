@@ -85,6 +85,32 @@ describe("downloading files", () => {
     });
   });
 
+  it("gives trusted server code an ordinary file's bytes through its record, never a sensitive one's", async () => {
+    const operations = memberOf(organizationId, "operations");
+    const itinerary = await uploaded(operations, false, "Itinerary.pdf");
+    const passport = await uploaded(operations, true);
+    expect(await test.files.systemFile(organizationId, ref(itinerary))).toEqual({
+      body: bytes("%PDF-passpt"),
+      contentType: "application/pdf",
+    });
+    await expect(test.files.systemFile(organizationId, ref(passport))).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      reason: "SENSITIVE_FILE",
+    });
+    // Another record's, an unfinished upload, and another organization's are all "not found".
+    const { attachment: pending } = await test.files.requestUpload(operations, passportUpload());
+    for (const [owner, attachmentRef] of [
+      [organizationId, { ...ref(itinerary), recordType: "organization_logo" }],
+      [organizationId, ref(pending)],
+      [otherOrganizationId, ref(itinerary)],
+    ] as const) {
+      await expect(test.files.systemFile(owner, attachmentRef)).rejects.toMatchObject({
+        code: "NOT_FOUND",
+        reason: "ATTACHMENT_NOT_FOUND",
+      });
+    }
+  });
+
   it("hides a sensitive file's name from those who may not open it", async () => {
     const operations = memberOf(organizationId, "operations");
     const record = { recordType: "lead", recordId: "0199e7a0-0000-7000-8000-0000000000e2" };

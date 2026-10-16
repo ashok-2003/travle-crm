@@ -1,6 +1,7 @@
 // The business profile's contract: a GSTIN of the profile's own state, Indian bank codes and phones, a numbering
 // prefix and a colour, each in the form the database stores; blank text is no text.
 import { describe, expect, it } from "vitest";
+import { reservedDocumentPrefixes } from "../../src/documents/index.js";
 import {
   saveBrandingInput,
   saveOrganizationProfileInput,
@@ -49,6 +50,18 @@ describe("business profile contracts", () => {
     ]) {
       expect(saveOrganizationProfileInput.safeParse({ ...profile, ...bad }).success, JSON.stringify(bad)).toBe(false);
     }
+  });
+
+  it("refuses the prefixes of the platform's own documents, however they are typed", () => {
+    for (const invoicePrefix of ["SMPL", "smpl", " Doc "]) {
+      const parsed = saveOrganizationProfileInput.safeParse({ ...profile, invoicePrefix });
+      expect(
+        parsed.error?.issues.map((issue) => issue.path),
+        invoicePrefix,
+      ).toEqual([["invoicePrefix"]]);
+    }
+    expect(reservedDocumentPrefixes).toEqual(["SMPL", "DOC"]);
+    expect(saveOrganizationProfileInput.parse({ ...profile, invoicePrefix: "smp" }).invoicePrefix).toBe("SMP");
   });
 
   it("turns every blank optional field into null, as a form posting empty boxes would", () => {

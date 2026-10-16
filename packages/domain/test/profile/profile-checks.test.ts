@@ -1,5 +1,7 @@
 // The business profile's CHECK constraints, hit directly with rows that skip the contracts: the database refuses a bad
-// value whoever writes it. The state-code test also keeps the database's list the same as the kernel's.
+// value whoever writes it. The state-code test also keeps the database's list the same as the kernel's, and the
+// reserved-prefix test the same as the contracts'.
+import { reservedDocumentPrefixes } from "@travel-crm/contracts/documents";
 import { gstStates, isGstStateCode } from "@travel-crm/contracts/kernel";
 import { createDatabase, type Database } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
@@ -80,5 +82,22 @@ describe("the business profile's database checks", () => {
       expect(result === "accepted", `state ${code}`).toBe(isGstStateCode(code));
     }
     expect(gstStates.length).toBeGreaterThan(30);
+  });
+
+  it("refuses exactly the invoice prefixes the platform numbers its own documents with", async () => {
+    for (const invoicePrefix of reservedDocumentPrefixes) {
+      expect(await insert({ invoicePrefix }), invoicePrefix).toContain(
+        "organization_profile_invoice_prefix_not_reserved",
+      );
+    }
+    for (const invoicePrefix of ["SM", "SMP", "DOCS", "SH"]) {
+      expect(await insert({ invoicePrefix }), invoicePrefix).toBe("accepted");
+    }
+    // Both ways: a prefix the CHECK refuses but the contract allows would pass the form, then fail the save.
+    const [check] = await platform.$queryRaw<{ definition: string }[]>`
+      SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint
+      WHERE conname = 'organization_profile_invoice_prefix_not_reserved'`;
+    const refused = [...(check?.definition ?? "").matchAll(/'([A-Z]+)'/g)].map(([, prefix]) => prefix);
+    expect(refused.sort()).toEqual([...reservedDocumentPrefixes].sort());
   });
 });

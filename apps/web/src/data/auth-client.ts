@@ -140,6 +140,16 @@ export function createAuthClient(fetchImplementation: Fetch = (...arguments_) =>
       post("/request-password-reset", input, nothing),
     resetPassword: (input: { token: string; newPassword: string }) => post("/reset-password", input, nothing),
     /**
+     * Support signs in as an organization's member for up to an hour (spec 6.1, ADR 0019): Better Auth swaps the
+     * session cookie, keeping support's own to come back to. Like a sign-in, it waits for a sign-out being settled.
+     */
+    impersonate: async (input: { userId: string }) => {
+      await settledBeforeSigningIn();
+      return post("/admin/impersonate-user", input, nothing);
+    },
+    /** Ends support's impersonation: Better Auth gives support's own session back. */
+    stopImpersonating: () => post("/admin/stop-impersonating", {}, nothing),
+    /**
      * Kept alive, so the request still reaches the api when the page that sent it has already gone (signing out
      * leaves at once). Gives up after SIGN_OUT_TIMEOUT, answering as if the api couldn't be reached.
      */

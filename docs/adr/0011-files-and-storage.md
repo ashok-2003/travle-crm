@@ -66,6 +66,7 @@ Date: 2026-10-15 · Status: accepted · Implements spec section 9.2 and the sens
 
 ## Consequences
 
-- The bucket needs CORS rules allowing `PUT` from the web app's origin before browsers can upload (plan 5).
+- The bucket needs CORS rules allowing `PUT` from the web app's origin before browsers can upload, and the web app's
+  `STORAGE_ORIGIN` (ADR 0026): the deploy checklist (plan 5C) lists both.
 - Later: malware scanning before a file becomes ready (spec 9.2), and a job that sweeps pending uploads older than a
   day. Each attachment's record module decides who may attach and see files on its records.

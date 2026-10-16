@@ -1,13 +1,16 @@
 "use client";
 
-// "Add staff": the form, then the details to hand over once the person exists.
+// "Add staff": the form, then the details to hand over once the person exists. A new member is a change, so while the
+// subscription refuses changes the button is disabled and says why (ADR 0021).
 import type { RoleSummary, StaffMember } from "@travel-crm/contracts/identity";
 import { UserPlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useMe } from "@/session/me-context";
-import { ResponsiveDialog } from "../responsive-dialog";
+import { useWriteAccess } from "@/subscription/write-access";
+import { WriteHint } from "@/subscription/write-hint";
+import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { CreateStaffForm } from "./create-staff-form";
 import { Handover } from "./handover";
 import { handoverSignInName } from "./staff-details";
@@ -19,6 +22,8 @@ export function CreateStaffDialog({ roles }: { roles: RoleSummary[] }) {
   const [open, setOpen] = useState(false);
   const [created, setCreated] = useState<{ member: StaffMember; password: string } | null>(null);
   const create = useCreateStaff();
+  const write = useWriteAccess();
+  const formId = useId();
 
   const changeOpen = (next: boolean) => {
     setOpen(next);
@@ -31,8 +36,10 @@ export function CreateStaffDialog({ roles }: { roles: RoleSummary[] }) {
   };
 
   return (
-    <>
+    <div className="flex flex-col items-start gap-2">
       <Button
+        disabled={!write.allowed}
+        aria-describedby={write.hint === null ? undefined : "add-staff-refused"}
         onClick={() => {
           changeOpen(true);
         }}
@@ -40,31 +47,41 @@ export function CreateStaffDialog({ roles }: { roles: RoleSummary[] }) {
         <UserPlusIcon aria-hidden="true" />
         {t("add")}
       </Button>
+      <WriteHint id="add-staff-refused" hint={write.hint} />
       <ResponsiveDialog
         open={open}
         onOpenChange={changeOpen}
+        busy={create.isPending}
         title={created ? t("create.added", { name: created.member.name }) : t("create.title")}
         description={created ? t("create.temporaryPasswordHint") : t("create.description")}
-      >
-        {created ? (
-          <div className="flex flex-col gap-6">
-            <Handover
-              name={created.member.name}
-              organizationCode={created.member.username === null ? null : me.organization.code}
-              signInName={handoverSignInName(created.member)}
-              password={created.password}
-            />
+        // Once added, Done ends the dialog: there is nothing left to cancel.
+        cancel={created === null}
+        footer={
+          created ? (
             <Button
-              className="self-end"
               onClick={() => {
                 changeOpen(false);
               }}
             >
               {t("create.done")}
             </Button>
-          </div>
+          ) : (
+            <Button type="submit" form={formId} disabled={create.isPending}>
+              {create.isPending ? t("create.submitting") : t("create.submit")}
+            </Button>
+          )
+        }
+      >
+        {created ? (
+          <Handover
+            name={created.member.name}
+            organizationCode={created.member.username === null ? null : me.organization.code}
+            signInName={handoverSignInName(created.member)}
+            password={created.password}
+          />
         ) : (
           <CreateStaffForm
+            id={formId}
             roles={roles}
             create={create}
             onCreated={(member, password) => {
@@ -73,6 +90,6 @@ export function CreateStaffDialog({ roles }: { roles: RoleSummary[] }) {
           />
         )}
       </ResponsiveDialog>
-    </>
+    </div>
   );
 }

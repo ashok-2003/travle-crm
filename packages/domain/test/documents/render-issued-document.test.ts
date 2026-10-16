@@ -1,7 +1,22 @@
 // The worker renders an issued document's PDF from its frozen content, once: never again, and into one attachment
-// however many times or how many runs at once it is delivered.
+// however many times or how many runs at once it is delivered. The organization's logo frozen in its branding is
+// read from storage and drawn; one it can't draw, one of more pixels than a logo may hold, or a file that isn't the
+// organization's logo, is left out.
 import { issuedDocumentRenderInput } from "@travel-crm/contracts/documents";
 import { renderPdf, UnprintableTextError } from "@travel-crm/integrations/pdf";
+import {
+  jpegFrame,
+  jpegOf,
+  jpegScan,
+  jpegWithExifComponents,
+  narrowInterlacedPng,
+  pngOfSize,
+  pngWithFilterType,
+  pngWithOversizedPixelData,
+  pngWithSecondHeader,
+  tinyJpeg,
+  tinyPng,
+} from "@travel-crm/integrations/testing";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { getIssuedDocument, issueDocument, renderIssuedDocumentListener } from "../../src/documents/index.js";
 import { systemActor } from "../../src/kernel/index.js";
@@ -12,6 +27,7 @@ import {
   issuedEvent,
   listenerContext,
   quotation,
+  storedLogo,
   type TestDocuments,
 } from "./test-documents.js";
 
@@ -26,8 +42,20 @@ describe("rendering an issued document", () => {
     await test.close();
   });
 
-  async function issued(organizationId: string) {
-    return test.db.forOrg(organizationId, (tx) => issueDocument(tx, systemActor(organizationId), { ...quotation }));
+  async function issued(organizationId: string, logoAttachmentId?: string) {
+    const branding = logoAttachmentId === undefined ? quotation.branding : { ...quotation.branding, logoAttachmentId };
+    return test.db.forOrg(organizationId, (tx) =>
+      issueDocument(tx, systemActor(organizationId), { ...quotation, branding }),
+    );
+  }
+
+  /** What the renderer was handed for the organization's logo, after one run of the listener. */
+  async function drawnLogo(organizationId: string, documentId: string) {
+    const renderer = fakeRenderer();
+    const listener = renderIssuedDocumentListener({ files: test.files, render: renderer.render });
+    await listener.handle(await issuedEvent(test, organizationId, documentId), listenerContext(test, organizationId));
+    expect(renderer.calls).toHaveLength(1);
+    return renderer.calls[0]?.input.branding.logo;
   }
 
   it("renders the frozen content once and attaches the PDF to the document", async () => {
@@ -54,6 +82,88 @@ describe("rendering an issued document", () => {
     expect(attachments).toMatchObject([
       { id: rendered.pdfAttachmentId, fileName: `${document.number}.pdf`, contentType: "application/pdf" },
     ]);
+  });
+
+  it("draws the logo frozen in the document's branding, read from storage", async () => {
+    const organizationId = await createOrganization(test);
+    const logoAttachmentId = await storedLogo(test, organizationId);
+    const document = await issued(organizationId, logoAttachmentId);
+    const stored = await test.db.forOrg(organizationId, (tx) =>
+      tx.issuedDocument.findUniqueOrThrow({ where: { id: document.id } }),
+    );
+    expect(issuedDocumentRenderInput.parse(stored.renderInput).branding.logoAttachmentId).toBe(logoAttachmentId);
+
+    expect(await drawnLogo(organizationId, document.id)).toEqual({ data: tinyPng, contentType: "image/png" });
+  });
+
+  it("draws a logo as the image its bytes are, whatever type it was uploaded as", async () => {
+    const organizationId = await createOrganization(test);
+    const logoAttachmentId = await storedLogo(test, organizationId, { body: tinyJpeg, contentType: "image/png" });
+    const document = await issued(organizationId, logoAttachmentId);
+    expect(await drawnLogo(organizationId, document.id)).toEqual({ data: tinyJpeg, contentType: "image/jpeg" });
+  });
+
+  it("leaves out a logo it can't draw, and the document still renders", async () => {
+    const organizationId = await createOrganization(test);
+    const renamed = await storedLogo(test, organizationId, {
+      body: new TextEncoder().encode("GIF89a, renamed"),
+      contentType: "image/png",
+    });
+    const removed = await storedLogo(test, organizationId);
+    await test.files.remove(systemActor(organizationId), {
+      recordType: "organization_logo",
+      recordId: organizationId,
+      attachmentId: removed,
+    });
+    for (const logoAttachmentId of [renamed, removed]) {
+      const document = await issued(organizationId, logoAttachmentId);
+      expect(await drawnLogo(organizationId, document.id)).toBeUndefined();
+      const rendered = await test.db.forOrg(organizationId, (tx) => getIssuedDocument(tx, { documentId: document.id }));
+      expect(rendered.pdfAttachmentId).not.toBeNull();
+    }
+  });
+
+  it("leaves out a logo of more pixels than a logo may hold before anything inflates them, as a bomb", async () => {
+    const organizationId = await createOrganization(test);
+    const issuedWith = async (body: Uint8Array) =>
+      issued(organizationId, await storedLogo(test, organizationId, { body, contentType: "image/png" }));
+    const bomb = pngOfSize(8000, 8000);
+    // A few kilobytes for 64 million pixels, which pdfkit would inflate into gigabytes.
+    expect(bomb.byteLength).toBeLessThan(16 * 1024);
+    // Also a second IHDR of 20000×20000, which png-js decodes, a megabyte of pixel data for 16×16, a row with filter
+    // type 5 and a narrow interlaced file, at which png-js throws where nothing can catch it.
+    const unreadable = [
+      pngWithSecondHeader(),
+      pngWithOversizedPixelData(),
+      pngWithFilterType(5),
+      narrowInterlacedPng(),
+    ];
+    for (const body of [bomb, pngOfSize(4097, 1), ...unreadable]) {
+      expect(await drawnLogo(organizationId, (await issuedWith(body)).id)).toBeUndefined();
+    }
+    // 16 million pixels, the most a logo may hold.
+    const largest = pngOfSize(4000, 4000);
+    expect(await drawnLogo(organizationId, (await issuedWith(largest)).id)).toEqual({
+      data: largest,
+      contentType: "image/png",
+    });
+  });
+
+  it("never prints a file that isn't the organization's logo, such as a traveller's passport", async () => {
+    const organizationId = await createOrganization(test);
+    const passport = await test.files.storeGeneratedFile(systemActor(organizationId), {
+      recordType: "lead",
+      recordId: "0199e7a0-0000-7000-8000-0000000000f2",
+      fileName: "Passport.png",
+      contentType: "image/png",
+      body: tinyPng,
+    });
+    const otherOrganization = await createOrganization(test);
+    const othersLogo = await storedLogo(test, otherOrganization);
+    for (const logoAttachmentId of [passport.id, othersLogo]) {
+      const document = await issued(organizationId, logoAttachmentId);
+      expect(await drawnLogo(organizationId, document.id)).toBeUndefined();
+    }
   });
 
   it("never renders a document again once it has its PDF", async () => {
@@ -145,6 +255,63 @@ describe("rendering an issued document", () => {
       issuedAt: stored.issuedAt,
     });
     expect(Buffer.from(pdf ?? []).equals(Buffer.from(again))).toBe(true);
+  });
+
+  it("renders a real PDF with the organization's logo on it", async () => {
+    const organizationId = await createOrganization(test);
+    const document = await issued(organizationId, await storedLogo(test, organizationId));
+    const listener = renderIssuedDocumentListener({ files: test.files, render: renderPdf });
+    await listener.handle(await issuedEvent(test, organizationId, document.id), listenerContext(test, organizationId));
+    const rendered = await test.db.forOrg(organizationId, (tx) => getIssuedDocument(tx, { documentId: document.id }));
+    const pdf = await test.storage.get(`organizations/${organizationId}/attachments/${rendered.pdfAttachmentId ?? ""}`);
+    expect(new TextDecoder("latin1").decode(pdf ?? new Uint8Array())).toContain("/Subtype /Image");
+  });
+
+  it("renders a real PDF without a logo png-js would throw at, rather than stopping the worker", async () => {
+    // png-js decodes these logos' pixels in a zlib callback (pdfkit has it for their alpha), where its throw would be
+    // uncaught: the test run itself would fail on it.
+    const organizationId = await createOrganization(test);
+    const listener = renderIssuedDocumentListener({ files: test.files, render: renderPdf });
+    for (const body of [pngWithFilterType(5), narrowInterlacedPng()]) {
+      const document = await issued(
+        organizationId,
+        await storedLogo(test, organizationId, { body, contentType: "image/png" }),
+      );
+      await listener.handle(
+        await issuedEvent(test, organizationId, document.id),
+        listenerContext(test, organizationId),
+      );
+      const rendered = await test.db.forOrg(organizationId, (tx) => getIssuedDocument(tx, { documentId: document.id }));
+      const pdf = await test.storage.get(
+        `organizations/${organizationId}/attachments/${rendered.pdfAttachmentId ?? ""}`,
+      );
+      const text = new TextDecoder("latin1").decode(pdf ?? new Uint8Array());
+      expect(text.startsWith("%PDF-")).toBe(true);
+      expect(text).not.toContain("/Subtype /Image");
+    }
+  });
+
+  it("draws a JPEG logo without its EXIF, which React-PDF's parser would run out of memory on", async () => {
+    const organizationId = await createOrganization(test);
+    const listener = renderIssuedDocumentListener({ files: test.files, render: renderPdf });
+    const body = jpegWithExifComponents(100_000_000, 8);
+    const document = await issued(
+      organizationId,
+      await storedLogo(test, organizationId, { body, contentType: "image/jpeg" }),
+    );
+    await listener.handle(await issuedEvent(test, organizationId, document.id), listenerContext(test, organizationId));
+    const rendered = await test.db.forOrg(organizationId, (tx) => getIssuedDocument(tx, { documentId: document.id }));
+    const pdf = await test.storage.get(`organizations/${organizationId}/attachments/${rendered.pdfAttachmentId ?? ""}`);
+    const text = new TextDecoder("latin1").decode(pdf ?? new Uint8Array());
+    expect(text).toContain("/DCTDecode");
+    expect(text).not.toContain("Exif");
+    // One it can't draw is left out.
+    const twoFrames = jpegOf(jpegFrame(1, 1), jpegFrame(9000, 9000), jpegScan());
+    const left = await issued(
+      organizationId,
+      await storedLogo(test, organizationId, { body: twoFrames, contentType: "image/jpeg" }),
+    );
+    expect(await drawnLogo(organizationId, left.id)).toBeUndefined();
   });
 
   it("records text the fonts can't show as a permanent failure instead of retrying", async () => {

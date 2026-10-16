@@ -16,6 +16,8 @@ const app = createApp({
   profiles: services.profiles,
   db: services.db,
   files: services.files,
+  // The browser learns it from notifications.push.publicKey, so no build of the web app carries a key.
+  pushPublicKey: environment.VAPID_PUBLIC_KEY,
   queue: services.jobs,
   rateLimiter: services.rateLimiter,
   clientAddress: clientAddressFrom({

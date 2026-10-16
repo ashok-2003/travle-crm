@@ -1,8 +1,10 @@
 // Leaving a session, and forgetting what it left on this device: the query cache in memory and its saved copy, in
-// this tab and in every other tab of the app (spec 11). The service worker's page copies stay: it keeps only shells it
-// fetched itself without cookies, which hold no one's data, and the offline page must outlive a sign-out.
+// this tab and in every other tab of the app (spec 11), and on signing out this browser's push subscription. The
+// service worker's page copies stay: it keeps only shells it fetched itself without cookies, which hold no one's
+// data, and the offline page must outlive a sign-out.
 import type { QueryClient } from "@tanstack/react-query";
 import { reportProblem } from "@/lib/report-problem";
+import { forgetThisDevicesPush } from "@/notifications/push/forget-push";
 import type { AuthClient } from "./auth-client";
 import { endSession, oweSignOut } from "./owed-sign-out";
 import { deleteSavedCopies, stopSaving } from "./persistence";
@@ -76,12 +78,20 @@ export function listenForSignOut(onSignedOutElsewhere: () => void): () => void {
 }
 
 /**
- * Signs out in the order that leaves least behind: this device forgets the organization's data, the other tabs are
- * told, and a sign-out is owed (owed-sign-out.ts). Then the api is asked to end the session, without waiting: the
- * caller opens the sign-in page at once, the request outlives the page (auth-client.ts), and its answer clears what is
- * owed. A request that never lands leaves it owed, and the next page settles it first. It never rejects.
+ * Signs out in the order that leaves least behind: this browser's push subscription starts going, while the session
+ * can still say whose it is (a shared phone must not get the last person's pushes), this device forgets the
+ * organization's data, the other tabs are told, and a sign-out is owed (owed-sign-out.ts). Once the subscription has
+ * gone, or its few seconds are up (forget-push.ts), the api is asked to end the session, without waiting: the caller
+ * opens the sign-in page at once, the request outlives the page (auth-client.ts), and its answer clears what is owed.
+ * A request that never lands leaves it owed, and the next page settles it first. It never rejects.
  */
-export async function signOut(queryClient: QueryClient, auth: Pick<AuthClient, "signOut">): Promise<void> {
+export async function signOut(
+  queryClient: QueryClient,
+  auth: Pick<AuthClient, "signOut">,
+  forgetPush: () => Promise<void> = forgetThisDevicesPush,
+): Promise<void> {
+  // Best effort, and the wipe doesn't wait for it.
+  const pushForgotten = forgetPush().catch(reportProblem);
   await wipeLocalData(queryClient);
   try {
     announceSignOut();
@@ -89,5 +99,7 @@ export async function signOut(queryClient: QueryClient, auth: Pick<AuthClient, "
     reportProblem(error);
   }
   oweSignOut();
+  // The api removes a subscription only for the session it belongs to, so the session ends after.
+  await pushForgotten;
   void endSession(auth);
 }

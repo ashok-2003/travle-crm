@@ -8,20 +8,22 @@ export interface TwoFactorSetup {
   totpUri: string;
   /** The secret inside it, for generating codes. */
   secret: string;
+  /** The one-time backup codes Better Auth gave with it. */
+  backupCodes: string[];
 }
 
 /** Turns on two-factor for the signed-in person: asks for the setup link, then confirms it with a code. */
 export async function enableTwoFactor(server: TestServer, jar: CookieJar, password: string): Promise<TwoFactorSetup> {
   const enable = jar.absorb(await postJson(server, "/api/auth/two-factor/enable", { password }, jar));
   if (!enable.ok) throw new Error(`two-factor enable failed with ${String(enable.status)}`);
-  const { totpURI } = (await enable.json()) as { totpURI: string };
+  const { totpURI, backupCodes } = (await enable.json()) as { totpURI: string; backupCodes: string[] };
   const encoded = new URL(totpURI).searchParams.get("secret") ?? "";
   const secret = new TextDecoder().decode(base32.decode(encoded));
   const verify = jar.absorb(
     await postJson(server, "/api/auth/two-factor/verify-totp", { code: await codeFor(server, secret) }, jar),
   );
   if (!verify.ok) throw new Error(`two-factor verify failed with ${String(verify.status)}`);
-  return { totpUri: totpURI, secret };
+  return { totpUri: totpURI, secret, backupCodes };
 }
 
 /** The current authenticator code for a secret, as the person's phone would show it. */

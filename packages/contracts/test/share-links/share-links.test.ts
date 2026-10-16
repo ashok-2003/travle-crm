@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createShareLinkInput,
   createdShareLink,
+  listShareLinksInput,
   shareLinkOpenedEvent,
   shareLinkSummary,
 } from "../../src/share-links/index.js";
@@ -25,6 +26,14 @@ describe("share-link contracts", () => {
         expiresAt: "2026-11-15T10:00:00+05:30",
       }).expiresAt,
     ).toBe("2026-11-15T10:00:00+05:30");
+  });
+
+  it("lists one record's links, named strictly", () => {
+    const record = { recordType: "issued_document", recordId };
+    expect(listShareLinksInput.parse(record)).toEqual(record);
+    expect(listShareLinksInput.safeParse({ ...record, recordId: "42" }).success).toBe(false);
+    expect(listShareLinksInput.safeParse({ recordType: "issued_document" }).success).toBe(false);
+    expect(listShareLinksInput.safeParse({ ...record, label: "x" }).success).toBe(false);
   });
 
   it("refuses odd record types, empty or invisible labels, and unknown keys", () => {

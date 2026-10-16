@@ -21,7 +21,11 @@ export async function suspend(
   const { row, today } = await lockedSubscription(tx, input.organizationId, now);
   if (row.manualSuspensionAt !== null) return getSubscription(tx, input.organizationId, now);
   if (today.due.status === "cancelled") {
-    throw new DomainError("CONFLICT", "SUBSCRIPTION_CANCELLED", "A cancelled subscription comes back only by paying");
+    throw new DomainError(
+      "CONFLICT",
+      "SUBSCRIPTION_CANCELLED",
+      "A cancelled subscription can't be suspended: a payment or a paid-through day brings it back",
+    );
   }
   await tx.subscription.update({
     where: { organizationId: input.organizationId },

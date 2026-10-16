@@ -5,7 +5,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import { PageTitle } from "@/components/page-title";
+import { PageHeader } from "@/components/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { AuthClient, SignInOutcome } from "@/data/auth-client";
 import { routes } from "@/lib/routes";
@@ -14,7 +14,7 @@ import { EmailSignInForm } from "./email-sign-in-form";
 import { useFinishSignIn } from "./finish-sign-in";
 import { nextPath } from "./next-path";
 import { useRememberedOrganizationCode } from "./remembered-code";
-import { TextLink } from "./text-link";
+import { TextLink } from "@/components/text-link";
 
 type Way = "email" | "code";
 
@@ -35,7 +35,7 @@ export function SignInScreen({ auth }: { auth?: Pick<AuthClient, "signInWithEmai
 
   return (
     <div className="flex flex-col gap-6">
-      <PageTitle>{t("title")}</PageTitle>
+      <PageHeader title={t("title")} />
       <Tabs
         value={way}
         onValueChange={(value) => {
@@ -49,6 +49,7 @@ export function SignInScreen({ auth }: { auth?: Pick<AuthClient, "signInWithEmai
         </TabsList>
         <TabsContent value="email">
           <EmailSignInForm onSignedIn={onSignedIn} {...(auth ? { auth } : {})} />
+          <TextLink href={routes.forgotPassword}>{t("forgotPassword")}</TextLink>
         </TabsContent>
         <TabsContent value="code">
           {/* Keyed by the code, so the form starts again filled in once the browser has read it. */}
@@ -61,7 +62,6 @@ export function SignInScreen({ auth }: { auth?: Pick<AuthClient, "signInWithEmai
           <p className="mt-4 text-label text-muted-foreground">{t("noEmailHint")}</p>
         </TabsContent>
       </Tabs>
-      <TextLink href={routes.forgotPassword}>{t("forgotPassword")}</TextLink>
     </div>
   );
 }

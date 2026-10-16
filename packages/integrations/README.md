@@ -3,17 +3,30 @@
 Adapters to the outside world (spec 3): storage, jobs, email, push and PDFs. Domain code never calls a vendor SDK;
 it calls a port defined here, and the api and worker pass in the real adapter. Tests pass in the in-memory one.
 
-| Import                             | Port                | Adapters                                                                               |
-| ---------------------------------- | ------------------- | -------------------------------------------------------------------------------------- |
-| `@travel-crm/integrations/storage` | ObjectStorage       | `createS3Storage` (S3, MinIO locally), `createMemoryStorage`                           |
-| `@travel-crm/integrations/jobs`    | JobQueue, JobRunner | `createPgBossJobs`, `createMemoryJobQueue`, `createMemoryJobRunner`                    |
-| `@travel-crm/integrations/email`   | EmailSender         | `createSmtpEmailSender` (SMTP or SES's SMTP), `createMemoryEmailSender`; `renderEmail` |
-| `@travel-crm/integrations/push`    | PushSender          | `createWebPushSender`, `createMemoryPushSender`                                        |
-| `@travel-crm/integrations/pdf`     | `renderPdf`         | React-PDF with the brand's fonts; the `sample` template                                |
+| Import                             | Port                   | Adapters                                                                               |
+| ---------------------------------- | ---------------------- | -------------------------------------------------------------------------------------- |
+| `@travel-crm/integrations/storage` | ObjectStorage          | `createS3Storage` (S3, MinIO locally), `createMemoryStorage`                           |
+| `@travel-crm/integrations/jobs`    | JobQueue, JobRunner    | `createPgBossJobs`, `createMemoryJobQueue`, `createMemoryJobRunner`                    |
+| `@travel-crm/integrations/email`   | EmailSender            | `createSmtpEmailSender` (SMTP or SES's SMTP), `createMemoryEmailSender`; `renderEmail` |
+| `@travel-crm/integrations/push`    | PushSender             | `createWebPushSender`, `createMemoryPushSender`                                        |
+| `@travel-crm/integrations/pdf`     | `renderPdf`, `imageOf` | React-PDF with the brand's fonts and the organization's logo; the `sample` template    |
 
 - Only this package imports vendor SDKs (pg-boss, AWS SDK, nodemailer, web-push, React-PDF). dependency-cruiser
   enforces it, and this package imports nothing of ours except `@travel-crm/brand`.
 - Job data holds ids, never personal data: pg-boss's tables have no row-level security.
+- A logo's bytes are read before anything decodes them (`pdf/image-type.ts`, `pdf/png.ts`): `imageOf` gives a PNG's
+  or JPEG's type and size, reading a PNG as png-js reads it (React-PDF and pdfkit decode with png-js 2.0.0, which
+  sizes what it allocates from the last IHDR and the bit depth), so a second IHDR, an IHDR not 13 bytes long, a bit
+  depth PNG doesn't allow, an interlaced file (png-js misreads narrow ones) or a tRNS png-js skips makes it no image.
+  `isSafeToDraw` then counts, without keeping it, what a PNG's pixel data inflates to (no more than its header's rows)
+  and checks each row's filter type is one png-js knows: png-js throws at any other, and at a zlib error, inside a
+  callback nothing catches (fuzzed: no file both checks pass makes png-js throw). A JPEG is drawn from only the
+  segments that draw it (`pdf/jpeg.ts`, `jpegForDrawing`): React-PDF walks every marker with jay-peg, whose EXIF
+  reader a hundred bytes can take out of memory, so `renderPdf` never hands it the metadata (EXIF, XMP, ICC,
+  comments), and `isSafeToDraw` refuses a JPEG whose segments jay-peg would read otherwise.
+- `@travel-crm/integrations/testing` (`test/testing.ts`, for tests only; dependency-cruiser checks) has the test
+  images every package uses: `tinyPng`, `tinyJpeg`, `pngOfSize`, the chunks to build others, and the PNGs made to get
+  past a logo's checks.
 
 ## The in-memory jobs twin
 

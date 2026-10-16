@@ -1,0 +1,105 @@
+{
+  "title": "Audit log",
+  "intro": "Who changed what in your organization, when, and from where.",
+  "entries": "Changes",
+  "loadFailed": "The audit log didn't load.",
+  "empty": "Nothing has been recorded yet. Changes to staff, roles and settings appear here as people make them.",
+  "emptyRecord": "Nothing has been recorded about this record.",
+  "showMore": "Show older changes",
+  "moreFailed": "The older changes didn't load.",
+  "recordHistory": "{kind, select, member {This staff member's history} role {This role's history} organization {The organization's history} subscription {The subscription's history} issued_document {This document's history} other {This record's history}}",
+  "oneRecord": "{kind, select, member {The history of one staff member} role {The history of one role} organization {The organization's history} subscription {The subscription's history} issued_document {The history of one document} other {The history of one record}}",
+  "showEverything": "Show every change",
+  "change": {
+    "open": "{action}: see what changed",
+    "before": "Before",
+    "after": "After",
+    "none": "None",
+    "yes": "Yes",
+    "no": "No",
+    "added": "Added",
+    "removed": "Removed"
+  },
+  "actors": {
+    "formerMember": "A former member",
+    "supportAs": "Support, as {name}",
+    "supportAsFormerMember": "Support, as a former member",
+    "support": "Support",
+    "platform": "Platform team",
+    "system": "Automatic"
+  },
+  "sources": {
+    "web": "Web app",
+    "api": "API",
+    "job": "Scheduled job",
+    "impersonation": "Support's impersonation",
+    "platform": "Platform console"
+  },
+  "actions": {
+    "staff": {
+      "created": "Added a staff member",
+      "invited": "Invited a staff member to choose a password",
+      "role-changed": "Changed a staff member's role",
+      "password-reset": "Gave a staff member a new temporary password",
+      "removed": "Removed a staff member"
+    },
+    "role": {
+      "created": "Created a role",
+      "updated": "Changed a role",
+      "deleted": "Deleted a role"
+    },
+    "settings": {
+      "two-factor-requirement-changed": "Changed whether everyone must use two-factor sign-in"
+    },
+    "support": {
+      "impersonation-started": "Started signing in as a staff member",
+      "impersonation-stopped": "Stopped signing in as a staff member"
+    },
+    "organization": {
+      "onboarded": "Set up the organization",
+      "updated": "Corrected the organization's details"
+    },
+    "organization-profile": {
+      "saved": "Saved the business profile"
+    },
+    "subscription": {
+      "started": "Started the subscription",
+      "plan-changed": "Changed the plan",
+      "overrides-changed": "Changed the subscription's extra seats, price or modules",
+      "payment-recorded": "Recorded a payment",
+      "payment-voided": "Voided a payment",
+      "trial-end-changed": "Changed when the trial ends",
+      "paid-through-changed": "Changed the date the subscription is paid until",
+      "suspended": "Suspended the organization",
+      "suspension-lifted": "Lifted the organization's suspension",
+      "cancelled": "Cancelled the subscription",
+      "status-changed": "Moved the subscription to its next state"
+    },
+    "document": {
+      "issued": "Issued a document"
+    },
+    "share-link": {
+      "created": "Shared a document by link",
+      "revoked": "Turned off a share link"
+    },
+    "subject": {
+      "erased": "Erased a person's or record's personal data"
+    }
+  },
+  "fields": {
+    "name": "Name",
+    "permissions": "What the role allows",
+    "requireTwoFactor": "Two-factor sign-in for everyone",
+    "role": "Role",
+    "hasEmail": "Has an email",
+    "key": "Key",
+    "number": "Number",
+    "fields": "Fields saved",
+    "recordType": "Shared record",
+    "expiresAt": "Expires",
+    "revokedAt": "Turned off"
+  },
+  "recordTypes": {
+    "issued_document": "A document"
+  }
+}

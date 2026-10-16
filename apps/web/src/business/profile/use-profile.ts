@@ -1,0 +1,34 @@
+"use client";
+
+// The business profile's calls. The profile holds the bank account, so it is never kept in the device's saved copy
+// (IndexedDB) and is asked for whenever the screen opens. Saving puts the profile the api kept (GSTIN and IFSC in
+// capitals, the phone in E.164) in the cache at once, so the form shows it, and asks for the setup checklist again,
+// whose steps follow the profile.
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
+import { toast } from "sonner";
+import { useTRPC } from "@/data/trpc";
+
+export function useProfile() {
+  const trpc = useTRPC();
+  return useQuery(trpc.organization.profile.get.queryOptions(undefined, { meta: { persist: false } }));
+}
+
+export function useSaveProfile() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const t = useTranslations("business.profile");
+  return useMutation(
+    trpc.organization.profile.update.mutationOptions({
+      onSuccess: async (saved) => {
+        const key = trpc.organization.profile.get.queryKey();
+        // setQueryData carries no meta: if the screen's query is gone by now (the person left before the answer), the
+        // one it makes takes the flag from the key's defaults, so it stays out of IndexedDB too.
+        queryClient.setQueryDefaults(key, { meta: { persist: false } });
+        queryClient.setQueryData(key, saved);
+        toast.success(t("saved"));
+        await queryClient.invalidateQueries({ queryKey: trpc.organization.setup.get.queryKey() });
+      },
+    }),
+  );
+}

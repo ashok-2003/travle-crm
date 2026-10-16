@@ -38,7 +38,10 @@ Who can sign in, to which organization, and what they may do (spec section 6).
   `organizationUserIds(tx, organizationId)` and `deleteUsers(tx, userIds)` (a purge's people, with their sessions and
   memberships).
 - `memberActivity(tx, organizationIds)`: seats used and the last activity per organization, for the platform
-  dashboard. `recordMemberActivity(database, access, now?)` keeps that activity on the member: the api calls it, as
+  dashboard. `organizationMembers(tx, organizationId)`: the organization's active members (removed and banned ones
+  left out) with their role's name, whether it is the Owner's, their real email or none, whether they have a password
+  yet and their last activity, for the console's organization page; read inside the organization (`asOrganization`).
+  `recordMemberActivity(database, access, now?)` keeps that activity on the member: the api calls it, as
   `Identity.recordActivity(access)`, on each request it lets through, and it writes at most once a day, never for
   support's impersonation. Signing out keeps it.
 - `IdentityOptions.seatLimit` (a `SeatLimit`): the seats an organization's plan gives. `staff.create` refuses past them
@@ -110,4 +113,8 @@ the platform admin as both the actor and `impersonatedBy`; they are written by a
   (`access-rules.ts`).
 - Removing someone soft-deletes their membership and releases their email and username (ADR 0007).
 - Better Auth's `/admin/*` endpoints are closed over HTTP but for starting and stopping support's impersonation
-  (`auth/side-doors.ts`), and support may impersonate only an organization's active staff (ADR 0019).
+  (`auth/side-doors.ts`), and support may impersonate only an organization's active staff (ADR 0019) with no step
+  still to take: a member with a temporary password, or without the two-factor their organization requires, is
+  refused (`TARGET_HAS_PENDING_STEP`), as only they can take it. Stopping is always open.
+- Platform staff never keep a trusted device (`auth/staff-trusted-devices.ts`, ADR 0025): Better Auth's `trustDevice`
+  is ignored for them, and their trusted devices are deleted at every password sign-in.

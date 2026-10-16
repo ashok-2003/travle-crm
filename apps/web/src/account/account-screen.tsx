@@ -1,13 +1,13 @@
 "use client";
 
-// /account: who the person is (from me.get, so a placeholder email is never shown), and their password and
-// two-factor sign-in.
+// /account: who the person is (from me.get, so a placeholder email is never shown), their password and two-factor
+// sign-in, and the way to choose what notifications reach them.
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Details } from "@/components/details";
-import { PageTitle } from "@/components/page-title";
+import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { useTRPC } from "@/data/trpc";
@@ -23,6 +23,7 @@ function Name({ children }: { children: ReactNode }) {
 
 export function AccountScreen() {
   const t = useTranslations("account.account");
+  const tNotifications = useTranslations("notifications.account");
   const me = useMe();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -31,7 +32,7 @@ export function AccountScreen() {
 
   return (
     <div className="flex max-w-[720px] flex-col gap-6">
-      <PageTitle>{t("title")}</PageTitle>
+      <PageHeader title={t("title")} />
       <Details
         rows={[
           { label: t("name"), value: <Name>{user.name}</Name> },
@@ -76,6 +77,14 @@ export function AccountScreen() {
                   </Button>
                 ),
               },
+          {
+            label: tNotifications("label"),
+            action: (
+              <Button variant="outline" asChild>
+                <Link href={routes.notificationPreferences}>{tNotifications("action")}</Link>
+              </Button>
+            ),
+          },
         ]}
       />
     </div>

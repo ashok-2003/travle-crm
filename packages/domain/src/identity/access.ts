@@ -1,6 +1,6 @@
 // Who is acting, for request checks 1 and 4 (spec 6.5). Read from the database on every request, so a role change
 // or a removal takes effect on the next request rather than when the 5-minute session cookie expires.
-import type { MeOutput } from "@travel-crm/contracts/identity";
+import type { MeOutput, PendingStep } from "@travel-crm/contracts/identity";
 import type { PlatformStaffLevel } from "@travel-crm/contracts/platform";
 import { withDeleted } from "@travel-crm/db";
 import type { IdentityClient, IdentityDatabase, IdentityTx } from "@travel-crm/db/identity";
@@ -118,6 +118,8 @@ export interface PlatformStaffMember {
   level: PlatformStaffLevel;
   /** Set until they replace a temporary password; the console refuses them until then. */
   mustChangePassword: boolean;
+  /** Whether they sign in with two-factor; the console refuses them without it (after the password). */
+  twoFactorEnabled: boolean;
 }
 
 /** The level a stored role names exactly, or null. A comma-joined list of roles is no level. */
@@ -150,11 +152,17 @@ export type SignInReader = Pick<IdentityTx, "user" | "member">;
 export async function describePlatformStaff(client: SignInReader, userId: string): Promise<PlatformStaffMember | null> {
   const stored = await client.user.findUnique({
     where: { id: userId },
-    select: { name: true, role: true, mustChangePassword: true },
+    select: { name: true, role: true, mustChangePassword: true, twoFactorEnabled: true },
   });
   const level = platformStaffLevelOf(stored?.role);
   if (!stored || level === null || (await hasEverBeenMember(client, userId))) return null;
-  return { userId, name: stored.name, level, mustChangePassword: stored.mustChangePassword };
+  return {
+    userId,
+    name: stored.name,
+    level,
+    mustChangePassword: stored.mustChangePassword,
+    twoFactorEnabled: stored.twoFactorEnabled ?? false,
+  };
 }
 
 /** True for anyone who has a membership row, removed ones included (member rows are soft-deleted, never erased). */
@@ -174,4 +182,24 @@ export async function isActiveMemberUser(client: IdentityClient, userId: string)
     select: { user: { select: { banned: true, banExpires: true } } },
   });
   return member !== null && !isBannedNow(member.user);
+}
+
+/**
+ * A member's step still to take before the app lets them in (`pendingStep`), or null when there is none or no member.
+ * Support doesn't impersonate them until they have taken it: it needs their own password.
+ */
+export async function memberPendingStep(client: IdentityClient, userId: string): Promise<PendingStep | null> {
+  const member = await client.member.findUnique({
+    where: { userId },
+    select: {
+      user: { select: { mustChangePassword: true, twoFactorEnabled: true } },
+      organization: { select: { requireTwoFactor: true } },
+    },
+  });
+  if (!member) return null;
+  return pendingStep({
+    mustChangePassword: member.user.mustChangePassword,
+    twoFactorEnabled: member.user.twoFactorEnabled ?? false,
+    organizationRequiresTwoFactor: member.organization.requireTwoFactor,
+  });
 }

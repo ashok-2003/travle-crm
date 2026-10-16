@@ -69,5 +69,6 @@
     "description": "They are signed out at once and can't sign in again. What they did stays in your records.",
     "confirm": "Remove",
     "removed": "{name} was removed"
-  }
+  },
+  "emptyNoAdding": "Nobody else is here yet."
 }

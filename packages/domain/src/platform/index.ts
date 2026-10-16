@@ -7,6 +7,7 @@ export { exportSubject, hasFreshExport } from "./exports.js";
 export { listFailedJobs, listSchedules, removeSchedule, retryFailedJob } from "./failed-jobs.js";
 export { DELETE_STORED_FILES_QUEUE, storedFileDeletionsSchedule, SWEEP_STORED_FILES_QUEUE } from "./file-deletions.js";
 export { platformJobHandlers } from "./jobs.js";
+export { listOrganizationMembers } from "./members.js";
 export { onboardOrganization, resendInvite } from "./onboarding.js";
 export { downloadOrganizationExport } from "./export-download.js";
 export type { ExportSizes } from "./export-storage.js";

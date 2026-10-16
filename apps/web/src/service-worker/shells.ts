@@ -2,18 +2,21 @@
 // the shell of every static page (its HTML, which holds no one's data, as every screen loads its data in the browser),
 // keyed by path alone, and the build's files those shells name. Never an api answer, a page rendered for one request,
 // or an address's query, which can carry a reset token.
-import { routes } from "../lib/routes";
+import { isConsolePath, routes } from "../lib/routes";
 import { OFFLINE_PAGE } from "./strategy";
 
 /** Pages never kept: each handles a secret (a reset token in its address, a two-factor code or secret) and works
  * only online anyway. Offline they show the offline page. */
 const NEVER_KEPT: readonly string[] = [routes.resetPassword, routes.twoFactorChallenge, routes.twoFactorSetup];
 
-/** The pages kept as shells, from the app's pages: all but the never-kept ones and those with a dynamic segment
- * ("/roles/[key]"), which render per address and can't be fetched ahead (parentShellFor stands in); the offline page
- * always. */
+/** The pages kept as shells, from the app's pages: all but the never-kept ones, the console's (platform staff's,
+ * online only, with a query cache that is never saved: ADR 0019), and those with a
+ * dynamic segment ("/roles/[key]"), which render per address and can't be fetched ahead (parentShellFor stands in);
+ * the offline page always. */
 export function shellsToKeep(appRoutes: readonly string[]): string[] {
-  const shells = appRoutes.filter((route) => !route.includes("[") && !NEVER_KEPT.includes(route));
+  const shells = appRoutes.filter(
+    (route) => !route.includes("[") && !NEVER_KEPT.includes(route) && !isConsolePath(route),
+  );
   return [...new Set([...shells, OFFLINE_PAGE])];
 }
 

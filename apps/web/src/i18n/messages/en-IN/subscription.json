@@ -1,0 +1,31 @@
+{
+  "banner": {
+    "trialEnding": "Trial ends {date}",
+    "pastDue": "Payment due. Read-only from {date}",
+    "pastDueUndated": "Payment due",
+    "readOnly": "Read-only until paid: you can view and export",
+    "contactSupport": "Contact support"
+  },
+  "locked": {
+    "suspended": {
+      "status": "Suspended",
+      "title": "Your organization is suspended",
+      "body": "Nobody can use it until support opens it again. Its data is kept as it was.",
+      "ownerCanRevoke": "As its Owner, you can still take away someone's access (remove them, or give them a new password), download its documents and business files, and turn share links off.",
+      "toStaff": "Go to Staff",
+      "toDocuments": "Go to Documents",
+      "toFiles": "Go to business files"
+    },
+    "cancelled": {
+      "status": "Cancelled",
+      "title": "Your organization's subscription has ended",
+      "body": "Its data is kept, locked, and nobody can use it. To start again, or for a copy of your data, contact support."
+    },
+    "noSubscription": {
+      "status": "No subscription",
+      "title": "Your organization has no subscription yet",
+      "body": "Nobody can use it until support sets one up."
+    },
+    "contactHeading": "Contact support"
+  }
+}

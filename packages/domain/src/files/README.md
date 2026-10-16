@@ -12,13 +12,17 @@ documents are marked sensitive (spec 5).
     browser sends the file to, with the headers it must send unchanged. Refuses `LIMIT_REACHED`/`STORAGE_LIMIT_REACHED`
     past the storage limit, and `FORBIDDEN`/`SYSTEM_OWNED_FILE` for a system-owned record type (only
     `storeGeneratedFile` writes those);
-  - `confirmUpload(actor, { recordType, recordId, attachmentId })`: marks it ready once storage holds the promised
-    size and type (`NOT_FOUND`/`UPLOAD_NOT_FOUND`, `VALIDATION`/`UPLOAD_DOES_NOT_MATCH`); harmless to repeat, which is
-    the answer to a retried PUT that storage refuses with 412 (the first arrived). Like `list`, it shows a sensitive
-    file's real name only to members with `documents:view_sensitive`;
+  - `confirmUpload(actor, { recordType, recordId, attachmentId }, check?)`: marks it ready once storage holds the
+    promised size and type (`NOT_FOUND`/`UPLOAD_NOT_FOUND`, `VALIDATION`/`UPLOAD_DOES_NOT_MATCH`), its storage still
+    fits when its link has lapsed (`LIMIT_REACHED`/`STORAGE_LIMIT_REACHED`; `NOT_FOUND`/`UPLOAD_EXPIRED` after an
+    hour), and `check`, when given, passes on the stored bytes (a `StoredBytesCheck`, sync or async: the logo's
+    pixels); a refused file stays pending. Harmless to repeat, which is the answer to a retried PUT that storage
+    refuses with 412 (the first arrived). Like `list`, it shows a sensitive file's real name only to members with
+    `documents:view_sensitive`;
   - `downloadLink(member, { recordType, recordId, attachmentId })`: a 5-minute link that saves the file under its
     name; a sensitive file needs `documents:view_sensitive` (`FORBIDDEN`/`MISSING_PERMISSION`);
-  - `list(actor, { recordType, recordId })`: the record's ready files, sensitive ones marked; a sensitive file's name
+  - `list(actor, { recordType, recordId })`: the record's ready files, oldest first by when they arrived (confirmed),
+    sensitive ones marked; a sensitive file's name
     shows only to members with `documents:view_sensitive`, others (and the system) see "Sensitive file";
   - `remove(actor, { recordType, recordId, attachmentId })`: a soft delete; only members with
     `documents:view_sensitive` may remove a sensitive file (the system may not), and no one may remove a file of a
@@ -29,8 +33,11 @@ documents are marked sensitive (spec 5).
     size and type; the name must pass `attachmentFileName` (`VALIDATION`/`INVALID_FILE_NAME`);
   - `systemDownloadLink(organizationId, { attachmentId })`: for server code that has already decided the viewer may
     see the file (share links); refuses sensitive files (`FORBIDDEN`/`SENSITIVE_FILE`);
+  - `systemFile(organizationId, { recordType, recordId, attachmentId })`: a ready file's bytes and stored type, for
+    server code that draws it into what it makes (the worker puts the organization's logo on a PDF); named by its
+    record like `downloadLink`, and refuses sensitive files (`FORBIDDEN`/`SENSITIVE_FILE`);
   - `storageUsedBytes(organizationId)`.
-- Types: `Files`, `FilesDependencies`, `GeneratedFile`, `DownloadLink`. Inputs and outputs are in
+- Types: `Files`, `FilesDependencies`, `GeneratedFile`, `DownloadLink`, `StoredFile`. Inputs and outputs are in
   `@travel-crm/contracts/files`.
 
 - Permanent deletion, for the platform's purge and erasure (spec 5, ADR 0023), in a platform transaction. The bytes
@@ -46,9 +53,9 @@ documents are marked sensitive (spec 5).
   - for the job that empties the outbox: `dueFileDeletions(tx, { now, limit, organizationId? })`,
     `deleteQueuedFile(storage, deletion)` (the file, or the whole folder, `organizationFolder(id)`),
     `forgetFileDeletion(tx, id)` and `nextFileDeletionDue(tx, organizationId?)`. Each is safe to repeat.
-- Exports: `exportedFiles(tx, storage, where, linkSeconds)` (files with download links). `bytesStored(tx, organizationId)`:
-  the storage the organization uses, named rather than left to row-level security, so a platform transaction counts
-  that one alone.
+- Exports: `exportedFiles(tx, storage, where, linkSeconds)` (files with download links).
+  `bytesStored(tx, organizationId, now?)`: the storage the organization uses, named rather than left to row-level
+  security, so a platform transaction counts that one alone.
 
 ## Events
 
@@ -63,6 +70,11 @@ None yet.
   stored, so a row can't point at another organization's file.
 - Pending files (uploads not yet confirmed) are never listed or downloadable.
 - Deleted files stay in storage, and count toward the limit, until the platform's purge.
+- An upload counts toward the limit from the moment it is asked for, and, if it never becomes ready (stopped, or
+  refused at confirm), only while its 10-minute link lasts. Its row and any bytes that arrived stay: a sweep of old
+  pending uploads (delete the object, then the row) is a later plan's item. So an upload confirmed after its link
+  lapsed must fit again (`STORAGE_LIMIT_REACHED`), those confirms taking turns under a lock of the organization's
+  storage, and one asked for over an hour ago can't be confirmed at all (`NOT_FOUND`/`UPLOAD_EXPIRED`).
 - The outbox holds an organization's id and an attachment's id, never a key or a name: the key is made from them, as
   for any file. A row stays until storage has confirmed the delete, so a storage error or a restart after the
   platform's transaction delays a file's deletion and never forgets it.

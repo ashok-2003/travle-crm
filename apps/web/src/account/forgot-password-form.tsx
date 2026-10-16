@@ -14,7 +14,7 @@ import { routes } from "@/lib/routes";
 import { OutcomeMessage } from "./outcome-message";
 import { AuthFailureAlert, type AuthFailure } from "./form-alert";
 import { useFormResolver } from "./form-errors";
-import { TextField } from "./text-field";
+import { TextField } from "@/components/forms/text-field";
 
 const resetRequest = z.strictObject({ email: emailAddress });
 
@@ -59,6 +59,7 @@ export function ForgotPasswordForm({ auth = authClient }: { auth?: Pick<AuthClie
         {form.formState.isSubmitting && <Spinner />}
         {form.formState.isSubmitting ? t("submitting") : t("submit")}
       </Button>
+      <p className="text-label text-muted-foreground">{t("noEmail")}</p>
     </form>
   );
 }

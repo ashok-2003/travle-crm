@@ -1,6 +1,9 @@
 // The screens for a step outside the app shell (choosing a password, setting up two-factor) start from me.get: while
 // it loads they show a labelled skeleton, if it fails they say so and offer Try again, and a step the person chose
-// themselves has a way back to their account, unlike one the api insists on.
+// themselves has a way back to their account, unlike one the api insists on or one the app sent them to with ?next=.
+// What they say comes from me.get, never from ?next=, which anyone can type: platform staff, whose steps me.get doesn't
+// name, are told the console asks for two-factor while theirs is off, and of a temporary password when the console
+// sent them.
 import type { PendingStep } from "@travel-crm/contracts/identity";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -12,7 +15,12 @@ import { messages } from "@/i18n/messages";
 import { member } from "../support/members";
 import { renderScreen } from "./render";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
+const navigation = vi.hoisted(() => ({ search: "" }));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(navigation.search),
+}));
 
 const { account, common } = messages;
 
@@ -33,6 +41,7 @@ function apiAnswers(...answers: (() => Promise<Response>)[]): void {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  navigation.search = "";
 });
 
 const screens: [string, ComponentType, string, PendingStep][] = [
@@ -66,5 +75,75 @@ describe.each(screens)("%s", (_, Screen, title, step) => {
     renderScreen(<Screen />);
     expect(await screen.findByRole("heading", { level: 1, name: title })).toBeVisible();
     expect(screen.queryByRole("link", { name: account.steps.backToAccount })).toBeNull();
+  });
+
+  it("offers no way around a step the app sent the person to, to come back to ?next= afterwards", async () => {
+    navigation.search = "next=%2Fconsole";
+    apiAnswers(answering());
+    renderScreen(<Screen />);
+    expect(await screen.findByRole("heading", { level: 1, name: title })).toBeVisible();
+    expect(screen.queryByRole("link", { name: account.steps.backToAccount })).toBeNull();
+  });
+});
+
+describe("a ?next= the person was sent with, and no step me.get names", () => {
+  it("claims no temporary password", async () => {
+    navigation.search = "next=%2Fstaff";
+    apiAnswers(answering());
+    renderScreen(<ChangePasswordScreen />);
+    expect(await screen.findByText(account.changePassword.intro)).toBeVisible();
+    expect(screen.getByLabelText(account.fields.currentPassword)).toBeVisible();
+    expect(screen.queryByText(account.changePassword.pendingIntro)).toBeNull();
+  });
+
+  it("claims the organization asks for no two-factor", async () => {
+    navigation.search = "next=%2Fstaff";
+    apiAnswers(answering());
+    renderScreen(<TwoFactorSetupScreen />);
+    expect(
+      await screen.findByText(`${account.twoFactorSetup.intro} ${account.twoFactorSetup.passwordStep}`),
+    ).toBeVisible();
+    expect(screen.queryByText(account.twoFactorSetup.pendingIntro)).toBeNull();
+  });
+});
+
+describe("the step screens for platform staff", () => {
+  const staff = (twoFactorEnabled = false) => {
+    const me = member();
+    return { ...me, user: { ...me.user, twoFactorEnabled }, isPlatformAdmin: true, organization: null, member: null };
+  };
+  const answeringAs = (me: ReturnType<typeof staff>) => () =>
+    Promise.resolve(Response.json([{ result: { data: me } }]));
+
+  it("say the console asks for two-factor while theirs is off, not an organization", async () => {
+    navigation.search = "next=%2Fconsole";
+    apiAnswers(answeringAs(staff()));
+    renderScreen(<TwoFactorSetupScreen />);
+    expect(
+      await screen.findByText(`${account.twoFactorSetup.platformIntro} ${account.twoFactorSetup.passwordStep}`),
+    ).toBeVisible();
+    expect(screen.queryByText(account.twoFactorSetup.pendingIntro)).toBeNull();
+  });
+
+  it("claim nothing of two-factor that is already on", async () => {
+    navigation.search = "next=%2Fconsole";
+    apiAnswers(answeringAs(staff(true)));
+    renderScreen(<TwoFactorSetupScreen />);
+    expect(
+      await screen.findByText(`${account.twoFactorSetup.intro} ${account.twoFactorSetup.passwordStep}`),
+    ).toBeVisible();
+  });
+
+  it("ask for the temporary password when the console sent them, and only then", async () => {
+    navigation.search = "next=%2Fconsole%2Fplans";
+    apiAnswers(answeringAs(staff()));
+    const { unmount } = renderScreen(<ChangePasswordScreen />);
+    expect(await screen.findByText(account.changePassword.pendingIntro)).toBeVisible();
+    expect(screen.getByLabelText(account.fields.temporaryPassword)).toBeVisible();
+    unmount();
+
+    navigation.search = "next=%2Faccount";
+    renderScreen(<ChangePasswordScreen />);
+    expect(await screen.findByLabelText(account.fields.currentPassword)).toBeVisible();
   });
 });

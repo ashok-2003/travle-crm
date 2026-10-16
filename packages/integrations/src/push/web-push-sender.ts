@@ -59,7 +59,9 @@ export function createWebPushSender(settings: WebPushSettings): PushSender {
       const response = await fetch(request.endpoint, {
         method: request.method,
         headers: request.headers,
-        body: request.body,
+        // As a plain Uint8Array: the web app type-checks this file too (it types its calls with the api's routers,
+        // whose imports reach it), and the DOM's fetch takes no Node Buffer.
+        body: new Uint8Array(request.body),
         redirect: "error",
         signal: AbortSignal.timeout(settings.timeoutMs ?? TIMEOUT_MS),
       });

@@ -14,7 +14,7 @@
       "outputs": ["src/generated/**", "public/icons/**", "public/sw.js"]
     },
     "build": {
-      "env": ["API_ORIGIN", "CACHE_VERSION"]
+      "env": ["API_ORIGIN", "CONSOLE_ORIGIN", "STORAGE_ORIGIN", "CACHE_VERSION"]
     }
   }
 }

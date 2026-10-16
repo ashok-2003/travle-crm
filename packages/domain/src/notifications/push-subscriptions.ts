@@ -12,8 +12,11 @@ import { parseInput } from "./parse-input.js";
 import { asPerson } from "./person.js";
 
 /**
- * Saves a browser's subscription for the acting person. A browser that subscribes again, perhaps for someone else
- * on a shared tablet, moves to that person: one browser, one subscription.
+ * Saves a browser's subscription for the acting person. Within the organization a browser that subscribes again,
+ * perhaps for someone else on a shared tablet, moves to that person: one browser, one subscription. Another
+ * organization's row for the same browser is out of reach here (row-level security), so the web app drops the browser's
+ * subscription on the device at every sign-in and sign-out: the next person gets a new endpoint, and the push service
+ * answers 404 or 410 for the old one, which deletes its row.
  */
 export async function savePushSubscription(tx: OrgTx, actor: Actor, input: PushSubscriptionInput): Promise<void> {
   const person = asPerson(actor);

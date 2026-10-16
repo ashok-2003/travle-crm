@@ -156,6 +156,10 @@ describe("share-link route", () => {
     const page = await unknown.text();
     expect(page).toContain("This link doesn't work");
     expect(page).toContain(`<title>This link doesn't work · ${brand.productName}</title>`);
+    // The system's own fonts: the page's policy loads none, so a brand font named here would never show.
+    expect(page).not.toContain(brand.fonts.ui);
+    expect(page).not.toContain(brand.fonts.title);
+    expect(page).toMatch(/h1\{[^}]*font-weight:500/);
 
     const expired = await failing("LINK_EXPIRED").request("/abc");
     expect(expired.status).toBe(410);
@@ -257,7 +261,8 @@ describe("share-link route against the database", () => {
 
   it("opens a real link, records the visit with a shortened address, and refuses it once revoked", async () => {
     const organizationId = await createTestOrganization(platform, "Route agency");
-    const actor = { organizationId, userId: null, source: "web" as const, impersonatedBy: null };
+    // The system's own link (no person): making one is audited, and only the system acts without a person.
+    const actor = { organizationId, userId: null, source: "job" as const, impersonatedBy: null };
     const link = await db.forOrg(organizationId, (tx) => createShareLink(tx, actor, { ...opened, label: "Quotation" }));
     const app = routes(
       (token) => findShareLink(db, token),

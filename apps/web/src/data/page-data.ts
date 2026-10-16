@@ -1,5 +1,6 @@
 // One page's data: the query cache and the tRPC client, how the page opens and how it leaves. Opening settles a
 // sign-out the api never heard, then restores the saved copy only if it belongs to whoever me.get says is signed in.
+// Nothing is saved while support is signed in as a member (spec 6.1: support's device keeps none of the member's data).
 // Leaving stops everything rendering, wipes the device's data, then loads another page: on a 401, on another tab's
 // sign-out, on signing out here, and when me.get names someone else than the data the page holds.
 import type { AppRouter } from "@travel-crm/api";
@@ -7,7 +8,7 @@ import { hashKey, hydrate, onlineManager } from "@tanstack/react-query";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { loadPage, replacePage } from "@/lib/navigate";
 import { reportProblem } from "@/lib/report-problem";
-import { isPublicRoute, pendingStepRoute, routes, signInRoute } from "@/lib/routes";
+import { currentPage, isPublicRoute, pendingStepRoute, routes, signInRoute } from "@/lib/routes";
 import { refusalOf } from "./api-error";
 import { authClient, onSessionEnded, type AuthClient } from "./auth-client";
 import { settleOwedSignOut } from "./owed-sign-out";
@@ -25,8 +26,6 @@ function deviceIsOffline(): boolean {
   return !navigator.onLine || !onlineManager.isOnline();
 }
 
-const currentPage = () => `${window.location.pathname}${window.location.search}`;
-
 export interface PageDataOptions {
   /** The build: a copy saved by another build is never read. */
   buster: string;
@@ -39,6 +38,8 @@ export function createPageData({ buster, onLeaving, auth = authClient }: PageDat
   const apiClient = createApiClient();
   /** Whose data this page holds: set by the first me.get answer, or by a copy restored while it can't be asked. */
   let owner: CopyOwner | null = null;
+  /** Support signed in as the member, by me.get's last answer: nothing is saved, their steps aren't support's. */
+  let impersonating = false;
   let leaving = false;
   let opened: Promise<boolean> | undefined;
 
@@ -58,18 +59,21 @@ export function createPageData({ buster, onLeaving, auth = authClient }: PageDat
 
   const queryClient = createQueryClient({
     onSignedOut: sessionEnded,
-    // In place of this page, so Back doesn't return to a screen that showed data, as SessionGate does.
+    // In place of this page, so Back doesn't return to a screen that showed data, as SessionGate does. Support can't
+    // take a member's step: me.get is asked again, so SessionGate shows the step with the way to stop at once.
     onPendingStep: (step) => {
-      if (window.location.pathname !== pendingStepRoute(step)) replacePage(pendingStepRoute(step));
+      if (impersonating) void queryClient.invalidateQueries({ queryKey: meQuery.queryKey }, { cancelRefetch: false });
+      else if (window.location.pathname !== pendingStepRoute(step)) replacePage(pendingStepRoute(step));
     },
   });
   const meQuery = createTRPCOptionsProxy<AppRouter>({ client: apiClient, queryClient }).me.get.queryOptions();
   const meQueryHash = hashKey(meQuery.queryKey);
-  const copy = createQueryCopy(queryClient, { owner: () => owner, buster });
+  const copy = createQueryCopy(queryClient, { owner: () => (impersonating ? null : owner), buster });
 
   /** me.get answered from the api. The page's data is that person's; data held for anyone else goes at once. */
   function onMeAnswered(me: unknown): void {
     if (!isMeAnswer(me)) return;
+    impersonating = me.impersonatedBy !== null;
     const answer = ownerOf(me);
     if (owner === null) owner = answer;
     else if (!sameOwner(owner, answer)) void leave(routes.home);

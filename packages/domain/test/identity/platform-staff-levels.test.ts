@@ -45,6 +45,7 @@ describe("platform staff levels", () => {
       name: "Platform person",
       level: "support",
       mustChangePassword: false,
+      twoFactorEnabled: false,
     });
     expect(await test.identity.describePlatformStaff(superAdmin.userId)).toMatchObject({ level: "super-admin" });
     expect(await test.identity.isPlatformAdmin({ id: superAdmin.userId })).toBe(true);
@@ -69,9 +70,16 @@ describe("platform staff levels", () => {
     expect(await test.identity.describePlatformStaff(newcomer.userId)).toMatchObject({ mustChangePassword: true });
   });
 
+  it("says whether platform staff sign in with two-factor, which the console requires", async () => {
+    const support = await outsider("admin");
+    await platform.user.update({ where: { id: support.userId }, data: { twoFactorEnabled: true } });
+    expect(await test.identity.describePlatformStaff(support.userId)).toMatchObject({ twoFactorEnabled: true });
+  });
+
   it("refuses to make a member a super admin through Better Auth's admin endpoints", async () => {
     const superAdmin = await outsider("super-admin");
     const headers = await signInByEmail(test.identity, superAdmin.email, "platform-password-1");
+    await platform.user.update({ where: { id: superAdmin.userId }, data: { twoFactorEnabled: true } });
     await expect(
       test.identity.auth.api.setRole({ headers, body: { userId: agency.ownerUserId, role: "super-admin" } }),
     ).rejects.toMatchObject({ body: { code: "MEMBERS_CANNOT_BE_PLATFORM_STAFF" } });

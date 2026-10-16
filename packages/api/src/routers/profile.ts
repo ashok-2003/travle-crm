@@ -1,6 +1,7 @@
 // The organization's business profile, branding and setup checklist (spec 7.1), served as organization.profile,
-// organization.branding and organization.setup. Bank details are in the profile, so every procedure needs
-// settings:manage, and saving reads the session afresh. Branding and the checklist carry no account number.
+// organization.branding and organization.setup, and its logo as organization.logo (logo.ts). Bank details are in the
+// profile, so every procedure needs settings:manage, and saving reads the session afresh. Branding and the checklist
+// carry no account number.
 import {
   brandingDetails,
   businessProfileDetails,
@@ -11,6 +12,7 @@ import {
 import { setupChecklistOf } from "@travel-crm/domain/profile";
 import { freshProcedure, orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
+import { logoRouter } from "./logo.js";
 
 const profileRouter = router({
   get: orgProcedure
@@ -55,4 +57,5 @@ export const organizationRouter = router({
   profile: profileRouter,
   branding: brandingRouter,
   setup: setupRouter,
+  logo: logoRouter,
 });

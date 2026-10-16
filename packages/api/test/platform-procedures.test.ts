@@ -1,6 +1,6 @@
 // The console's procedure builders on stand-in services: staffProcedure lets in platform staff of either level with
-// no temporary password and no impersonation, and superAdminProcedure super admins only. apps/api's console tests run
-// the same checks on real sessions.
+// no temporary password, two-factor on and no impersonation, and superAdminProcedure super admins only. apps/api's
+// console tests run the same checks on real sessions.
 import type { PlatformStaffMember } from "@travel-crm/domain/identity";
 import { describe, expect, it } from "vitest";
 import type { PlatformContext } from "../src/platform/context.js";
@@ -22,7 +22,10 @@ interface Setup {
 }
 
 function callerFor(setup: Setup) {
-  const staff = setup.staff === null ? null : { userId, name: "Platform person", level: "support", ...setup.staff };
+  const staff =
+    setup.staff === null
+      ? null
+      : { userId, name: "Platform person", level: "support", twoFactorEnabled: true, ...setup.staff };
   const ctx = {
     services: { identity: { describePlatformStaff: () => Promise.resolve(staff) } },
     headers: new Headers(),
@@ -52,6 +55,16 @@ describe("the console's procedures", () => {
   it("refuse anyone who isn't platform staff, or still has a temporary password", async () => {
     expect(await outcome(callerFor({ staff: null }).staffOnly())).toBe("PLATFORM_ONLY");
     expect(await outcome(callerFor({ staff: { mustChangePassword: true } }).staffOnly())).toBe("CHANGE_PASSWORD");
+  });
+
+  it("refuse staff without two-factor until it is on, a temporary password first", async () => {
+    expect(await outcome(callerFor({ staff: { twoFactorEnabled: false } }).staffOnly())).toBe("SET_UP_TWO_FACTOR");
+    expect(
+      await outcome(callerFor({ staff: { level: "super-admin", twoFactorEnabled: false } }).superAdminOnly()),
+    ).toBe("SET_UP_TWO_FACTOR");
+    expect(await outcome(callerFor({ staff: { mustChangePassword: true, twoFactorEnabled: false } }).staffOnly())).toBe(
+      "CHANGE_PASSWORD",
+    );
   });
 
   it("refuse an impersonation session by themselves, whoever its user is", async () => {

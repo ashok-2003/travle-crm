@@ -57,7 +57,8 @@ person)` is unique, so a repeat adds no second notification. Requests pass none,
 
 ## Consequences
 
-- The routers for the bell, the settings and push subscriptions come with their screens in plan 5.
+- The routers for the bell, the settings and push subscriptions are `notifications.*` (ADR 0026); the settings page
+  is `/account/notifications`, where every email's `List-Unsubscribe` points.
 - Retention: notifications are kept; a purge, if needed, runs as the platform role.
 - A removed member's push subscriptions are deleted by the `notifications.forget-push-subscriptions` listener of
   identity's `staff.removed`, so eventually rather than in the removal's transaction (identity can't call

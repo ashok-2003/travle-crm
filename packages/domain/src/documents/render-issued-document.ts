@@ -1,13 +1,16 @@
-// The worker's listener that renders an issued document's PDF (spec 9.3): from the frozen content, once, stored as
-// the document's attachment. Rendering and storing happen outside any transaction: they are slow.
+// The worker's listener that renders an issued document's PDF (spec 9.3): from the frozen content and branding, with
+// the organization's logo read from storage, once, stored as the document's attachment. Reading, rendering and storing
+// happen outside any transaction: they are slow.
 import { documentIssuedEvent, issuedDocumentRenderInput, pdfTemplate } from "@travel-crm/contracts/documents";
 import { ownMessage } from "@travel-crm/integrations/jobs";
 import { characterLabel, type PdfInput, type PdfTemplate } from "@travel-crm/integrations/pdf";
 import type { Files } from "../files/index.js";
 import { defineListener, type EventListener } from "../jobs/index.js";
+import { documentLogo } from "./document-logo.js";
 
 export interface RenderIssuedDocumentDependencies {
-  files: Pick<Files, "storeGeneratedFile">;
+  /** Stores the PDF, and reads the logo the document's branding names. */
+  files: Pick<Files, "storeGeneratedFile" | "systemFile">;
   /** renderPdf from @travel-crm/integrations/pdf; the domain never imports React-PDF itself. */
   render: (template: PdfTemplate, input: PdfInput) => Promise<Uint8Array>;
 }
@@ -38,10 +41,14 @@ export function renderIssuedDocumentListener({ files, render }: RenderIssuedDocu
       // rendered is left alone too.
       if (document.pdfAttachmentId !== null || document.renderFailure !== null) return;
 
+      const { data, branding } = issuedDocumentRenderInput.parse(document.renderInput);
+      const { logoAttachmentId, ...printed } = branding;
+      const logo = await documentLogo(files, event.organizationId, logoAttachmentId);
       let pdf: Uint8Array;
       try {
         pdf = await render(pdfTemplate.parse(document.template), {
-          ...issuedDocumentRenderInput.parse(document.renderInput),
+          data,
+          branding: logo === undefined ? printed : { ...printed, logo },
           issuedAt: document.issuedAt,
         });
       } catch (error) {

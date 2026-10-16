@@ -1,64 +1,56 @@
 "use client";
 
-// Deleting a role: only one nobody has (the api refuses others), asked once more. Its name becomes free again.
+// Deleting a role: only one nobody has (the api refuses others), asked once more. Its name becomes free again. It is a
+// change, so it waits while the subscription refuses changes; the role editor says why (ADR 0021). The shared
+// ConfirmDialog stays until the api answers and shows a refusal's reason; the toast and the move to the roles list are
+// the hook's (use-roles.ts).
 import type { RoleSummary } from "@travel-crm/contracts/identity";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
-import { FieldDescription } from "@/components/ui/field";
+import { useWriteAccess } from "@/subscription/write-access";
 import { useDeleteRole } from "./use-roles";
 
-export function DeleteRoleDialog({ role }: { role: RoleSummary }) {
+export function DeleteRoleDialog({
+  role,
+  describedBy,
+}: {
+  role: RoleSummary;
+  /** The ids of what says why it is disabled (its members, the subscription), which the editor shows. */
+  describedBy?: string | undefined;
+}) {
   const t = useTranslations("roles.delete");
-  const tCommon = useTranslations("common");
-  const remove = useDeleteRole(role.name);
   const [open, setOpen] = useState(false);
-  const inUse = role.memberCount > 0;
+  const remove = useDeleteRole(role.name, () => {
+    setOpen(false);
+  });
+  const write = useWriteAccess();
   return (
-    <div className="flex flex-col items-start gap-2">
+    <>
       <Button
+        // It sits inside the role editor's form, which it must not submit.
+        type="button"
         variant="destructive"
-        disabled={inUse}
-        aria-describedby={inUse ? "role-in-use" : undefined}
+        disabled={role.memberCount > 0 || !write.allowed}
+        aria-describedby={describedBy}
         onClick={() => {
           setOpen(true);
         }}
       >
         {t("action")}
       </Button>
-      {inUse && <FieldDescription id="role-in-use">{t("inUse", { count: role.memberCount })}</FieldDescription>}
-      <AlertDialog open={open} onOpenChange={setOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("title", { name: role.name })}</AlertDialogTitle>
-            <AlertDialogDescription>{t("description")}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
-            <AlertDialogAction
-              // The final step of a destructive action is the one place red fills a button (DESIGN.md section 6).
-              className="bg-status-bad-ink text-on-action hover:bg-status-bad-ink/90"
-              disabled={remove.isPending}
-              onClick={(event) => {
-                event.preventDefault();
-                remove.mutate({ key: role.key });
-              }}
-            >
-              {t("confirm")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        title={t("title", { name: role.name })}
+        description={t("description")}
+        action={t("confirm")}
+        request={remove}
+        onConfirm={() => {
+          remove.mutate({ key: role.key });
+        }}
+      />
+    </>
   );
 }

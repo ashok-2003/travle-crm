@@ -27,6 +27,14 @@ describe("security headers", () => {
     expect(policy).not.toMatch(/https?:|\*/);
   });
 
+  it("let the browser reach the storage it uploads to and shows images from, and no other", () => {
+    const policy = contentSecurityPolicy({ development: false, storageOrigin: "https://files.example.in" });
+    expect(policy).toContain("connect-src 'self' https://files.example.in;");
+    expect(policy).toContain("img-src 'self' data: blob: https://files.example.in;");
+    expect(policy).toContain("default-src 'self';");
+    expect(contentSecurityPolicy({ development: false })).toContain("connect-src 'self';");
+  });
+
   it("let only development evaluate code", () => {
     expect(contentSecurityPolicy({ development: false })).not.toContain("unsafe-eval");
     expect(contentSecurityPolicy({ development: true })).toContain("'unsafe-eval'");
