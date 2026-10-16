@@ -41,6 +41,9 @@ export const createdShareLink = z.strictObject({
 
 export const revokeShareLinkInput = z.strictObject({ shareLinkId: z.uuid() });
 
+/** One record's links, for staff. */
+export const listShareLinksInput = z.strictObject({ recordType: shareableRecordType, recordId: z.uuid() });
+
 export const shareLinkSummary = z.strictObject({
   id: z.uuid(),
   recordType: shareableRecordType,
@@ -60,5 +63,6 @@ export const shareLinkOpenedEvent = z.strictObject({ shareLinkId: z.uuid(), open
 export type CreateShareLinkInput = z.infer<typeof createShareLinkInput>;
 export type CreatedShareLink = z.infer<typeof createdShareLink>;
 export type RevokeShareLinkInput = z.infer<typeof revokeShareLinkInput>;
+export type ListShareLinksInput = z.infer<typeof listShareLinksInput>;
 export type ShareLinkSummary = z.infer<typeof shareLinkSummary>;
 export type ShareLinkOpenedEvent = z.infer<typeof shareLinkOpenedEvent>;

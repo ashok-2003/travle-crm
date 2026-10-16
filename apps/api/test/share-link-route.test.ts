@@ -257,7 +257,8 @@ describe("share-link route against the database", () => {
 
   it("opens a real link, records the visit with a shortened address, and refuses it once revoked", async () => {
     const organizationId = await createTestOrganization(platform, "Route agency");
-    const actor = { organizationId, userId: null, source: "web" as const, impersonatedBy: null };
+    // The system's own link (no person): making one is audited, and only the system acts without a person.
+    const actor = { organizationId, userId: null, source: "job" as const, impersonatedBy: null };
     const link = await db.forOrg(organizationId, (tx) => createShareLink(tx, actor, { ...opened, label: "Quotation" }));
     const app = routes(
       (token) => findShareLink(db, token),
