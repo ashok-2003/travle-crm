@@ -5,7 +5,6 @@
 import { useTranslations } from "next-intl";
 import { Details } from "@/components/details";
 import { PageHeader } from "@/components/page-header";
-import { Card, CardContent } from "@/components/ui/card";
 import { useMe } from "@/session/me-context";
 import { CopyButton } from "@/components/copy-button";
 import { SettingsSections } from "./settings-sections";
@@ -27,21 +26,17 @@ export function SettingsScreen() {
             {
               label: t("organization.code"),
               value: <span className="numbers">{me.organization.code}</span>,
+              hint: t("organization.codeHint"),
               action: <CopyButton value={me.organization.code} label={t("organization.copyCode")} />,
             },
           ]}
         />
-        <p className="text-label text-muted-foreground">{t("organization.codeHint")}</p>
       </section>
       <section aria-labelledby="security-heading" className="flex flex-col gap-3">
         <h2 id="security-heading" className="text-section font-semibold">
           {t("security.heading")}
         </h2>
-        <Card>
-          <CardContent>
-            <TwoFactorRequirement />
-          </CardContent>
-        </Card>
+        <TwoFactorRequirement />
       </section>
       <SettingsSections />
     </div>

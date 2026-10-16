@@ -4,13 +4,11 @@
 // record's history when the address names one. Loading shows rows of skeleton; nothing recorded says so; a failure
 // says what failed, with a Retry, and a refusal its reason (a missing permission, a shut organization).
 import { HistoryIcon } from "lucide-react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { PageHeader } from "@/components/page-header";
-import { Button } from "@/components/ui/button";
 import { refusalOf } from "@/data/api-error";
 import { useErrorMessage } from "@/lib/error-message";
 import { routes } from "@/lib/routes";
@@ -19,6 +17,7 @@ import { recordFilterOf } from "./record-filter";
 import { useAuditLog } from "./use-audit-log";
 import { LoadingRows } from "@/components/loading-rows";
 import { ShowMoreButton } from "@/components/show-more-button";
+import { TextLink } from "@/components/text-link";
 
 export function AuditScreen() {
   const t = useTranslations("audit");
@@ -33,7 +32,8 @@ export function AuditScreen() {
   if (entries === undefined) {
     content = log.isError ? (
       <ErrorState
-        message={failure(t("loadFailed"))}
+        message={t("loadFailed")}
+        error={log.error}
         retryLabel={tCommon("tryAgain")}
         onRetry={() => void log.refetch()}
       />
@@ -57,14 +57,12 @@ export function AuditScreen() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex max-w-[720px] flex-col gap-6">
       <PageHeader title={t("title")} intro={t("intro")} />
       {record && (
         <div className="flex flex-wrap items-center gap-x-6">
           <p className="font-medium">{t("oneRecord", { kind: record.entityType })}</p>
-          <Button variant="link" className="px-0" asChild>
-            <Link href={routes.audit}>{t("showEverything")}</Link>
-          </Button>
+          <TextLink href={routes.audit}>{t("showEverything")}</TextLink>
         </div>
       )}
       {content}

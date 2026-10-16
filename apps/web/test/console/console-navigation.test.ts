@@ -51,9 +51,18 @@ describe("isCurrentConsoleItem", () => {
     return found;
   };
 
-  it("marks the dashboard only on its own page, and other items on their pages and below", () => {
+  it("marks the dashboard on its page and an organization's, and other items on their pages and below", () => {
     expect(isCurrentConsoleItem(item("home"), "/console")).toBe(true);
     expect(isCurrentConsoleItem(item("home"), "/console/plans")).toBe(false);
+    expect(isCurrentConsoleItem(item("home"), "/console/organizations/0199a000-0000-7000-8000-000000000002")).toBe(
+      true,
+    );
+    expect(
+      isCurrentConsoleItem(item("home"), "/console/organizations/0199a000-0000-7000-8000-000000000002/data-protection"),
+    ).toBe(true);
+    // Onboarding a new organization is Onboard's page, not the dashboard's.
+    expect(isCurrentConsoleItem(item("home"), "/console/organizations/new")).toBe(false);
+    expect(isCurrentConsoleItem(item("onboard"), "/console/organizations/new")).toBe(true);
     expect(isCurrentConsoleItem(item("plans"), "/console/plans")).toBe(true);
     expect(isCurrentConsoleItem(item("plans"), "/console/plans/growth")).toBe(true);
     expect(isCurrentConsoleItem(item("log"), "/console/logbook")).toBe(false);

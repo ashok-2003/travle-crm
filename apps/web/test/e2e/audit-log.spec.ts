@@ -1,6 +1,6 @@
-// The audit log (spec 9.5): an Owner changes what a role may do, and the audit log shows who did it, when, and the
-// role's permissions before and after, then that role's history alone; a role that may read the audit log but not
-// change settings reaches it from its own navigation item.
+// The audit log (spec 9.5): an Owner changes what a role may do, and the audit log shows who did it, when, and what
+// the role gained, in words, then that role's history alone; a role that may read the audit log but not change
+// settings reaches it from its own navigation item.
 import type { Page, TestInfo } from "@playwright/test";
 import { expectAccessible } from "./support/accessibility";
 import { expect, signInByCode, signInByEmail, test } from "./support/fixtures";
@@ -43,11 +43,12 @@ test("an Owner changes a role's permissions, and the audit log shows who, when, 
   // The Owner's own account came with the organization, made by no one.
   await expect(changes(page, "Added a staff member")).toContainText("Automatic ·");
 
-  await change.getByRole("button", { name: "Before and after" }).click();
-  await expect(change.getByText("permissions", { exact: true })).toBeVisible();
-  // Sales kept what it had, and gained the audit log: on the after side alone.
-  await expect(change.getByText("leads:view", { exact: true })).toHaveCount(2);
-  await expect(change.getByText("audit:view", { exact: true })).toHaveCount(1);
+  // The entry's title opens what changed, in words: Sales gained the audit log, and what it kept doesn't show.
+  await change.getByRole("button", { name: /see what changed/ }).click();
+  await expect(change.getByText("What the role allows", { exact: true })).toBeVisible();
+  await expect(change.getByText("See the audit log", { exact: true })).toBeVisible();
+  await expect(change.getByText(/leads:view|audit:view/)).toHaveCount(0);
+  await expect(change.getByText(/^See leads/)).toHaveCount(0);
   await animationsSettled(page);
   await expectAccessible(page);
 

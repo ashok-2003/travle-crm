@@ -3,6 +3,7 @@
 // as shells.ts sets out. It never answers for the api, nor for the share links and webhooks the api serves on the
 // app's address: the organization's data is kept only by the query cache, which signing out wipes, and a share link
 // redirects to storage.
+import { API_PATHS } from "../lib/routes";
 
 /** network-only: the worker stays out of it. cache-first: the build's files, whose names change with their content.
  * network-first: the icons, whose names don't. page: a page load, from the network, else the page's saved shell. */
@@ -42,14 +43,11 @@ export function strategyFor(request: RequestFacts, appOrigin: string): Strategy 
   return "network-only";
 }
 
-/** The paths rewritten to the api (next.config.ts). */
-const SERVER_PATHS = ["/api", "/p", "/webhooks"];
-
-/** /api, /p and /webhooks and everything under them, in any case: Next.js's rewrites ignore case
+/** The api's paths (lib/routes.ts) and everything under them, in any case: Next.js's rewrites ignore case
  * (caseSensitiveRoutes is off by default), so /API/trpc/... reaches the api too. */
 function isServerPath(pathname: string): boolean {
   const path = pathname.toLowerCase();
-  return SERVER_PATHS.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+  return API_PATHS.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
 }
 
 /** The caches an older version of the worker made. Only its own: other features may keep caches of theirs. */

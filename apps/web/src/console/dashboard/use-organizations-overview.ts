@@ -5,7 +5,7 @@
 import { useCursorPages } from "@/data/use-cursor-pages";
 import { useConsoleTRPC, useConsoleTRPCClient } from "../data/console-trpc";
 
-export const ORGANIZATIONS_PER_PAGE = 25;
+const ORGANIZATIONS_PER_PAGE = 25;
 
 export function useOrganizationsOverview() {
   const trpc = useConsoleTRPC();

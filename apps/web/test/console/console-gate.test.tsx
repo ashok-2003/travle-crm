@@ -81,11 +81,12 @@ describe("ConsoleGate", () => {
     expect(await screen.findByText("Console for Arjun Nair, 1 console queries, 0 app queries")).toBeVisible();
   });
 
-  it("tells anyone else the console is for platform staff, and lets them sign out", async () => {
+  it("tells anyone else the console is for platform staff, leads them to their own app, and lets them sign out", async () => {
     stubApi({ "platform.whoAmI": { status: 403, reason: "PLATFORM_ONLY" }, "me.get": { data: member() } });
     renderGate();
     expect(await screen.findByText(gate.notStaff)).toBeVisible();
-    expect(await screen.findByRole("button", { name: messages.console.navigation.signOut })).toBeVisible();
+    expect(await screen.findByRole("link", { name: gate.toYourApp })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("button", { name: messages.console.navigation.signOut })).toBeVisible();
     expect(screen.queryByText(/Console for/)).toBeNull();
   });
 

@@ -61,6 +61,12 @@ export function signInRoute(from?: string): string {
   return from && isAppPath(from) ? `${routes.signIn}?next=${encodeURIComponent(from)}` : routes.signIn;
 }
 
+/**
+ * The paths the api serves on the app's address, and everything under them: its tRPC and sign-in, the share links
+ * and the webhooks. next.config.ts rewrites them to the api; the service worker stays out of them.
+ */
+export const API_PATHS = ["/api", "/p", "/webhooks"] as const;
+
 /** Whether an app path ("/console/plans?x=1") is the platform console's, where platform staff work. */
 export function isConsolePath(path: string): boolean {
   const { pathname } = new URL(path, PATH_BASE);

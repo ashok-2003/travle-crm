@@ -2,6 +2,7 @@
 // and so does being offline (DESIGN.md); the subscription shows one in the trial's last week, while payment is due
 // (with the day read-only begins, when there is one) and while read-only (spec 7.3), counting days in the
 // organization's zone. None shows otherwise.
+import { brand } from "@travel-crm/brand";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
@@ -73,7 +74,11 @@ afterEach(() => {
 describe("Banners", () => {
   it("says so while support is signed in as the member", async () => {
     await renderBanners(member({ impersonatedBy: "0199a000-0000-7000-8000-0000000000ad" }));
-    expect(screen.getByText(banners.impersonated)).toBeVisible();
+    // To support, who reads it: whom they are signed in as, and where.
+    expect(
+      screen.getByText("You're signed in as Asha at Sharma Travels. Everything you do is recorded in its audit log."),
+    ).toBeVisible();
+    expect(screen.getByRole("alert")).toContainElement(screen.getByRole("button", { name: banners.stop }));
     expect(screen.getByRole("button", { name: banners.stop })).toBeVisible();
   });
 
@@ -118,13 +123,24 @@ describe("Banners", () => {
 
   it("shows the subscription's state in the status colours: amber while payment is due, red while read-only", async () => {
     const { unmount } = await renderBanners(member(), subscription("past_due", "full"));
-    expect(screen.getByText(banner.pastDueUndated)).toHaveClass(
+    expect(screen.getByText(banner.pastDueUndated).parentElement).toHaveClass(
       "bg-status-attention-fill",
       "text-status-attention-ink",
     );
     unmount();
     await renderBanners(member(), subscription("read_only", "read_only"));
-    expect(screen.getByText(banner.readOnly)).toHaveClass("bg-status-bad-fill", "text-status-bad-ink");
+    expect(screen.getByText(banner.readOnly).parentElement).toHaveClass("bg-status-bad-fill", "text-status-bad-ink");
+  });
+
+  it("gives the Owner, who pays, the way to contact support, and nobody else", async () => {
+    const { unmount } = await renderBanners(member({ isOwner: true }), subscription("past_due", "full"));
+    expect(screen.getByRole("link", { name: banner.contactSupport })).toHaveAttribute(
+      "href",
+      `mailto:${brand.supportEmail}`,
+    );
+    unmount();
+    await renderBanners(member(), subscription("past_due", "full"));
+    expect(screen.queryByRole("link", { name: banner.contactSupport })).toBeNull();
   });
 
   it("says a read-only organization can still view and export", async () => {

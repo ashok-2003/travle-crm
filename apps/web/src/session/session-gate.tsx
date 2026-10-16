@@ -60,11 +60,12 @@ export function SessionGate({ children }: { children: ReactNode }) {
         icon={UserLockIcon}
         message={t(`impersonatedStep.${pendingStep}`, { name: me.data.user.name })}
         action={<StopImpersonatingButton />}
+        standalone
       />
     );
   }
   if (!isSignedInMember(me.data)) {
-    return <EmptyState icon={BuildingIcon} message={t("notStaff")} action={<SignOutButton />} />;
+    return <EmptyState icon={BuildingIcon} message={t("notStaff")} action={<SignOutButton />} standalone />;
   }
   return <MeProvider me={me.data}>{children}</MeProvider>;
 }

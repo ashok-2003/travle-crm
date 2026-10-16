@@ -13,6 +13,7 @@ import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { useWriteAccess } from "@/subscription/write-access";
+import { WriteHint } from "@/subscription/write-hint";
 import { DeleteRoleDialog } from "./delete-role-dialog";
 import { toGrantInputs } from "./permission-grants";
 import { PermissionsEditor } from "./permissions-editor";
@@ -26,6 +27,11 @@ export function RoleEditor({ role, catalog }: { role: RoleSummary; catalog: Perm
   const [nameInvalid, setNameInvalid] = useState(false);
   const write = useWriteAccess();
   const refused = write.hint === null ? undefined : "role-changes-refused";
+  const inUse = role.memberCount > 0;
+  // Why Delete is disabled: the role's members, the subscription, or both.
+  const deleteReasons =
+    [inUse ? "role-in-use" : undefined, refused].filter((id) => id !== undefined).join(" ") || undefined;
+  const tDelete = useTranslations("roles.delete");
 
   if (role.isOwner) {
     return (
@@ -86,13 +92,20 @@ export function RoleEditor({ role, catalog }: { role: RoleSummary; catalog: Perm
         />
       </section>
       <RefusalAlert error={update.error} />
-      {write.hint !== null && <FieldDescription id={refused}>{write.hint}</FieldDescription>}
-      <Separator />
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <DeleteRoleDialog role={role} describedBy={refused} />
-        <Button type="submit" disabled={update.isPending || !write.allowed} aria-describedby={refused}>
-          {update.isPending ? t("editor.saving") : t("editor.save")}
-        </Button>
+      <div className="flex flex-col gap-2">
+        {/* On phones the actions stay above the bottom bar while the long list of permissions scrolls (DESIGN.md:
+            the mobile sticky action bar); Delete and Save share one row, the reasons under it. */}
+        <div className="sticky bottom-[var(--phone-navigation-height,0px)] z-(--z-sticky) -mx-4 bg-background px-4 pb-3 md:static md:mx-0 md:px-0 md:pb-0">
+          <Separator className="mb-3" />
+          <div className="flex items-center justify-between gap-4">
+            <DeleteRoleDialog role={role} describedBy={deleteReasons} />
+            <Button type="submit" disabled={update.isPending || !write.allowed} aria-describedby={refused}>
+              {update.isPending ? t("editor.saving") : t("editor.save")}
+            </Button>
+          </div>
+        </div>
+        {inUse && <FieldDescription id="role-in-use">{tDelete("inUse", { count: role.memberCount })}</FieldDescription>}
+        <WriteHint id="role-changes-refused" hint={write.hint} />
       </div>
     </form>
   );

@@ -35,9 +35,14 @@ export function visibleConsoleItems(staff: Pick<ConsoleStaff, "level">): Console
   return consoleNavigationItems.filter((item) => !item.superAdminOnly || isSuperAdmin(staff));
 }
 
-/** Whether the item is the current page: the dashboard only on its own page, the others on their path and below. */
+const isAt = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
+
+/**
+ * Whether the item is the current page: the dashboard on its own page and on an organization's, which it leads to
+ * (onboarding a new one is Onboard's), the others on their path and below.
+ */
 export function isCurrentConsoleItem(item: ConsoleNavigationItem, pathname: string): boolean {
-  return item.href === consoleRoutes.home
-    ? pathname === consoleRoutes.home
-    : pathname === item.href || pathname.startsWith(`${item.href}/`);
+  if (item.href !== consoleRoutes.home) return isAt(pathname, item.href);
+  const onAnOrganization = isAt(pathname, consoleRoutes.organizations) && !isAt(pathname, consoleRoutes.onboard);
+  return pathname === consoleRoutes.home || onAnOrganization;
 }

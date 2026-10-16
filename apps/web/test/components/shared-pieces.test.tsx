@@ -1,6 +1,6 @@
 // The small shared pieces every screen uses (P1): a refusal above a button (RefusalAlert), a list's loading rows
 // (LoadingRows), the way to a list's next page (ShowMoreButton) and the text and back links (TextLink, BackLink).
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactElement } from "react";
@@ -50,6 +50,13 @@ describe("LoadingRows", () => {
     expect(status).toHaveAttribute("aria-busy", "true");
     expect(status.children).toHaveLength(3);
     expect(status.firstElementChild).toHaveClass("h-20");
+  });
+
+  it("draws a table's header and rows when the list is a table", async () => {
+    renderWithWords(<LoadingRows shape="table" rows={2} columns={3} />);
+    const status = await screen.findByRole("status", { name: common.loading });
+    expect(within(status).getAllByRole("columnheader")).toHaveLength(3);
+    expect(within(status).getAllByRole("row")).toHaveLength(3);
   });
 
   it("says Loading by default, in four one-line rows", async () => {

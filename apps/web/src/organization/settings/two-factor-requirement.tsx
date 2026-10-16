@@ -5,28 +5,26 @@
 // takes access away, which the subscription allows where it refuses other changes; not requiring it is a change
 // (ADR 0021), so it is disabled, saying why, while those are refused.
 import { useQuery } from "@tanstack/react-query";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { ErrorState } from "@/components/error-state";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Field, FieldContent, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { refusalOf } from "@/data/api-error";
 import { useTRPC } from "@/data/trpc";
-import { useErrorMessage } from "@/lib/error-message";
 import { routes } from "@/lib/routes";
 import { useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { requirementSwitch } from "./two-factor-requirement-rules";
 import { useSetTwoFactorRequirement } from "./use-settings";
+import { RefusalAlert } from "@/components/refusal-alert";
+import { TextLink } from "@/components/text-link";
 
 export function TwoFactorRequirement() {
   const t = useTranslations("settings.security");
   const tSettings = useTranslations("settings");
   const tCommon = useTranslations("common");
   const me = useMe();
-  const { apiError } = useErrorMessage();
   const trpc = useTRPC();
   // Always asked again when the screen opens: the copy restored from IndexedDB can predate a change just made.
   const settings = useQuery(trpc.settings.get.queryOptions());
@@ -38,6 +36,7 @@ export function TwoFactorRequirement() {
     return settings.isError ? (
       <ErrorState
         message={tSettings("loadFailed")}
+        error={settings.error}
         retryLabel={tCommon("tryAgain")}
         onRetry={() => void settings.refetch()}
       />
@@ -66,17 +65,9 @@ export function TwoFactorRequirement() {
           }}
         />
       </Field>
-      {change.isError && (
-        <Alert variant="destructive">
-          <AlertDescription className="flex flex-col items-start gap-2">
-            {apiError(change.error)}
-            {refusalOf(change.error)?.reason === "ENABLE_TWO_FACTOR_FIRST" && (
-              <Link href={routes.account} className="text-primary underline underline-offset-4">
-                {t("setUpYours")}
-              </Link>
-            )}
-          </AlertDescription>
-        </Alert>
+      <RefusalAlert error={change.error} />
+      {refusalOf(change.error)?.reason === "ENABLE_TWO_FACTOR_FIRST" && (
+        <TextLink href={routes.account}>{t("setUpYours")}</TextLink>
       )}
     </div>
   );

@@ -32,7 +32,7 @@ export function StaffList({ staff, roles }: { staff: StaffMember[]; roles: RoleS
     member.mustChangePassword ? <StatusBadge tone="attention">{t("mustChangePassword")}</StatusBadge> : null;
   const actions = (member: StaffMember) =>
     isMe(member) ? (
-      <span className="text-label text-muted-foreground">{t("you")}</span>
+      <span className="inline-flex h-11 items-center text-label text-muted-foreground">{t("you")}</span>
     ) : (
       <StaffActions member={member} roles={roles} />
     );

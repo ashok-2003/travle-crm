@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { useWriteAccess } from "@/subscription/write-access";
+import { WriteHint } from "@/subscription/write-hint";
 import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { useCreateRole } from "./use-roles";
 
@@ -46,11 +47,7 @@ export function CreateRoleDialog() {
         <PlusIcon aria-hidden="true" />
         {tRoles("add")}
       </Button>
-      {write.hint !== null && (
-        <FieldDescription id="new-role-refused" className="max-w-[40ch]">
-          {write.hint}
-        </FieldDescription>
-      )}
+      <WriteHint id="new-role-refused" hint={write.hint} />
       <ResponsiveDialog
         open={open}
         onOpenChange={changeOpen}

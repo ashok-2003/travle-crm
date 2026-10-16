@@ -7,9 +7,9 @@ import { UserPlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { FieldDescription } from "@/components/ui/field";
 import { useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
+import { WriteHint } from "@/subscription/write-hint";
 import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { CreateStaffForm } from "./create-staff-form";
 import { Handover } from "./handover";
@@ -47,11 +47,7 @@ export function CreateStaffDialog({ roles }: { roles: RoleSummary[] }) {
         <UserPlusIcon aria-hidden="true" />
         {t("add")}
       </Button>
-      {write.hint !== null && (
-        <FieldDescription id="add-staff-refused" className="max-w-[40ch]">
-          {write.hint}
-        </FieldDescription>
-      )}
+      <WriteHint id="add-staff-refused" hint={write.hint} />
       <ResponsiveDialog
         open={open}
         onOpenChange={changeOpen}

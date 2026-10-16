@@ -23,7 +23,8 @@ export function ConsoleBottomBar() {
         key: item.key,
         href: item.href,
         icon: item.icon,
-        label: t(`navigation.${item.key}`),
+        // "Home" in the bar, where "Dashboard" would run to the screen's edge.
+        label: item.key === "home" ? t("navigation.homeShort") : t(`navigation.${item.key}`),
         current: isCurrentConsoleItem(item, pathname),
       }))}
       title={t("title")}

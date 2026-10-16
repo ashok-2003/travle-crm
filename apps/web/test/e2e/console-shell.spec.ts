@@ -1,7 +1,7 @@
 // The console at /console (ADR 0019): a signed-out visitor signs in and comes back to it, platform staff who sign in
-// on the one sign-in page land on its dashboard, support sees no Staff destination, an agency's Owner is told it
-// isn't theirs, and support stops impersonating from the agency's banner, back in the console. Each journey's last
-// screen also gets the automatic accessibility check (support/accessible-after-each.ts).
+// on the one sign-in page land on its dashboard, support sees no Staff destination, and an agency's Owner is told it
+// isn't theirs, with the way to their own app (console-impersonation.spec.ts has support stopping an impersonation).
+// Each journey's last screen also gets the automatic accessibility check (support/accessible-after-each.ts).
 import type { Page, TestInfo } from "@playwright/test";
 import { expect, signInToConsole, test, type PlatformStaff } from "./support/console";
 import { signInByEmail } from "./support/fixtures";
@@ -39,7 +39,7 @@ test("platform staff who sign in on the sign-in page land on the dashboard, ever
   await expect(dashboardHeading(page)).toBeVisible();
   await expect(page).toHaveURL(/\/console$/);
   // Oldest first, a page at a time: this journey's agency is among the newest. Its code tells it from the others.
-  const organization = page.getByRole("link").filter({ hasText: agency.code });
+  const organization = page.locator("tr, [role=listitem]").filter({ hasText: agency.code }).getByRole("link");
   const showMore = page.getByRole("button", { name: "Show more organizations" });
   const shown = page.getByRole("main").getByRole("link");
   await expect(showMore.or(organization).first()).toBeVisible();
@@ -52,6 +52,9 @@ test("platform staff who sign in on the sign-in page land on the dashboard, ever
   await expect(organization).toHaveAttribute("href", `/console/organizations/${agency.organizationId}`);
   await expect(organization).toContainText(agency.name);
 });
+
+/** The dashboard's name: "Home" in the phone's bar, where "Dashboard" would run to the screen's edge. */
+const home = (testInfo: TestInfo) => (isPhone(testInfo) ? "Home" : "Dashboard");
 
 async function destinations(page: Page, testInfo: TestInfo): Promise<string[]> {
   if (!isPhone(testInfo)) {
@@ -79,7 +82,7 @@ test("support sees every destination but Staff, a super admin sees Staff too", a
   await signInToConsole(page, superAdmin);
   await page.goto("/console");
   await expect(dashboardHeading(page)).toBeVisible();
-  expect(await destinations(page, testInfo)).toEqual(["Dashboard", "Onboard", "Plans", "Jobs", "Log", "Staff"]);
+  expect(await destinations(page, testInfo)).toEqual([home(testInfo), "Onboard", "Plans", "Jobs", "Log", "Staff"]);
 
   await page.context().clearCookies();
   await page.goto("/console");
@@ -87,7 +90,7 @@ test("support sees every destination but Staff, a super admin sees Staff too", a
   await signInToConsole(page, support);
   await page.goto("/console");
   await expect(dashboardHeading(page)).toBeVisible();
-  expect(await destinations(page, testInfo)).toEqual(["Dashboard", "Onboard", "Plans", "Jobs", "Log"]);
+  expect(await destinations(page, testInfo)).toEqual([home(testInfo), "Onboard", "Plans", "Jobs", "Log"]);
   // At the foot of the sidebar, or atop the phone's More sheet, which destinations() left open.
   await expect(page.getByText("Arjun Nair").filter({ visible: true })).toBeVisible();
   await expect(page.getByText("Support", { exact: true }).filter({ visible: true })).toBeVisible();
@@ -97,27 +100,7 @@ test("an agency's Owner opening the console is told it isn't theirs", async ({ p
   await signInByEmail(page, agency.owner);
   await page.goto("/console");
   await expect(page.getByText("This console is for platform staff.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Go to your organization" })).toHaveAttribute("href", "/");
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
   await expect(dashboardHeading(page)).toHaveCount(0);
-});
-
-test("support stops impersonating from the agency's banner, back in the console", async ({
-  page,
-  support,
-  agency,
-  database,
-}) => {
-  await signInToConsole(page, support);
-  const owner = await database.platform.user.findUniqueOrThrow({ where: { email: agency.owner.email } });
-  const started = await page.request.post("/api/auth/admin/impersonate-user", {
-    data: { userId: owner.id },
-    headers: { origin: process.env.E2E_BASE_URL ?? "" },
-  });
-  expect(started.ok()).toBe(true);
-  await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1, name: `Welcome, ${agency.owner.name}` })).toBeVisible();
-  await expect(page.getByText("Support is signed in as you.")).toBeVisible();
-  await page.getByRole("button", { name: "Stop" }).click();
-  await expect(dashboardHeading(page)).toBeVisible();
-  await expect(page).toHaveURL(/\/console$/);
 });

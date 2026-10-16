@@ -1,7 +1,8 @@
 "use client";
 
 // The dashboard's organizations on phones (DESIGN.md section 6): a list of items, each organization leading to its
-// page, with its name and status on the first line and its figures below. Names wrap rather than being cut off.
+// page, with its name and status on the first line and its key figures, days left and seats, below; the table and the
+// organization's page have the rest. Names wrap rather than being cut off.
 import type { OrganizationOverview } from "@travel-crm/contracts/platform";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -11,7 +12,7 @@ import { consoleRoutes } from "../routes";
 import { SubscriptionStatusBadge } from "../subscription-status";
 import { useOverviewFigures, type OverviewFigures } from "./overview-figures";
 
-const FIGURES: readonly (keyof OverviewFigures)[] = ["daysLeft", "seats", "lastActive", "changes", "documents"];
+const FIGURES: readonly (keyof OverviewFigures)[] = ["daysLeft", "seats"];
 
 export function OrganizationsList({ organizations }: { organizations: OrganizationOverview[] }) {
   const t = useTranslations("console.dashboard");
@@ -28,7 +29,7 @@ export function OrganizationsList({ organizations }: { organizations: Organizati
                 <Link href={consoleRoutes.organization(organization.organizationId)}>
                   <ItemContent>
                     <ItemTitle className="flex-wrap">
-                      <span className="text-primary wrap-anywhere script-leading">{organization.name}</span>
+                      <span className="wrap-anywhere script-leading">{organization.name}</span>
                       <SubscriptionStatusBadge status={organization.status} />
                     </ItemTitle>
                     <ItemDescription>
@@ -39,7 +40,7 @@ export function OrganizationsList({ organizations }: { organizations: Organizati
                       {FIGURES.map((figure) => (
                         <span key={figure}>
                           <span className="text-muted-foreground">{t(`columns.${figure}`)}</span>{" "}
-                          <span className="numbers">{figures[figure]}</span>
+                          <span>{figures[figure]}</span>
                         </span>
                       ))}
                     </span>

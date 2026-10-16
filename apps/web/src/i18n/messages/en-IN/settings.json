@@ -19,6 +19,8 @@
   },
   "sections": {
     "heading": "More settings",
+    "setup": "Setup checklist",
+    "setupHint": "What to do before your first quotation, and what's done",
     "profile": "Business profile",
     "profileHint": "Your business's name, address, GST and bank details",
     "branding": "Branding",

@@ -6,6 +6,7 @@ import { AppFrame } from "@/components/app-frame";
 import { SessionGate } from "@/session/session-gate";
 import { Banners } from "@/shell/banners";
 import { BottomBar } from "@/shell/bottom-bar";
+import { RefreshOnPush } from "@/shell/refresh-on-push";
 import { AppSidebar } from "@/shell/sidebar";
 import { TopBar } from "@/shell/top-bar";
 import { SubscriptionGate } from "@/subscription/subscription-gate";
@@ -17,6 +18,7 @@ export default function SignedInLayout({ children }: { children: ReactNode }) {
         sidebar={<AppSidebar />}
         above={
           <>
+            <RefreshOnPush />
             <TopBar />
             <Banners />
           </>

@@ -197,6 +197,8 @@
    (shell/phone-navigation.tsx), and at the bottom of the screen on the others (components/ui/sonner.tsx). */
 :root:has([data-phone-navigation]) {
   --toast-bottom-gap: 4rem;
+  /* The bar's height, for what sticks above it on a phone (the role editor's Save): 56px, a hairline, the indicator. */
+  --phone-navigation-height: calc(3.5rem + 1px + env(safe-area-inset-bottom));
 }
 
 @layer base {

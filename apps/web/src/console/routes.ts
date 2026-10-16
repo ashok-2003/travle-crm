@@ -4,6 +4,8 @@ import { routes } from "@/lib/routes";
 
 export const consoleRoutes = {
   home: routes.console,
+  /** Under it, each organization's pages. */
+  organizations: "/console/organizations",
   onboard: "/console/organizations/new",
   organization: (organizationId: string) => `/console/organizations/${organizationId}`,
   dataProtection: (organizationId: string) => `/console/organizations/${organizationId}/data-protection`,

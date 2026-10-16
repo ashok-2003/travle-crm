@@ -17,7 +17,7 @@ const navigation = vi.hoisted(() => ({ search: "" }));
 
 vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(navigation.search) }));
 
-const { audit, common, errors } = messages;
+const { audit, common, errors, roles } = messages;
 const viewer = member({ isOwner: true });
 /** The zone the screen shows times in: the viewer's organization's. */
 const { timeZone } = viewer.organization;
@@ -122,7 +122,13 @@ describe("AuditScreen", () => {
     expect(items[4]).toContain(audit.actors.supportAsFormerMember);
   });
 
-  it("shows a change's before and after only when asked, with its fields and values as stored", async () => {
+  /** The entry's title, which opens what changed. */
+  const opener = (action: string) =>
+    screen.getByRole("button", { name: audit.change.open.replace("{action}", action) });
+  const changeOpenedBy = (button: HTMLElement) =>
+    within(document.getElementById(button.getAttribute("aria-controls") ?? "") ?? document.body);
+
+  it("opens what changed from the entry's title, in words, a setting as before and after", async () => {
     stubApi({
       "audit.list": page([
         entry({
@@ -131,41 +137,84 @@ describe("AuditScreen", () => {
           before: { requireTwoFactor: false },
           after: { requireTwoFactor: true },
         }),
-        entry({ id: "0199a000-0000-7000-8000-0000000000a2", action: "role.created", before: null }),
       ]),
     });
     renderScreen();
     await listed();
-    const [setting, created] = screen.getAllByRole("button", { name: audit.change.show });
-    if (!setting || !created) throw new Error("expected a Before and after button on each entry");
+    const setting = opener(audit.actions.settings["two-factor-requirement-changed"]);
     expect(setting).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByText("requireTwoFactor")).toBeNull();
+    expect(screen.queryByText(audit.fields.requireTwoFactor)).toBeNull();
 
     await userEvent.click(setting);
     expect(setting).toHaveAttribute("aria-expanded", "true");
-    const settingChange = within(document.getElementById(setting.getAttribute("aria-controls") ?? "") ?? document.body);
-    expect(settingChange.getByText("requireTwoFactor")).toBeVisible();
-    expect(settingChange.getByText(audit.change.no)).toBeVisible();
-    expect(settingChange.getByText(audit.change.yes)).toBeVisible();
-
-    await userEvent.click(created);
-    const createdChange = within(document.getElementById(created.getAttribute("aria-controls") ?? "") ?? document.body);
-    expect(createdChange.getByText("permissions")).toBeVisible();
-    expect(createdChange.getByText("audit:view")).toBeVisible();
-    expect(createdChange.getAllByText("scope")).toHaveLength(2);
-    // The role didn't exist before: every field's before is None.
-    expect(createdChange.getAllByText(audit.change.none)).toHaveLength(3);
-    expect(createdChange.getAllByText(audit.change.before)).toHaveLength(2);
+    const change = changeOpenedBy(setting);
+    expect(change.getByText(audit.fields.requireTwoFactor)).toBeVisible();
+    expect(change.getByText(audit.change.no)).toBeVisible();
+    expect(change.getByText(audit.change.yes)).toBeVisible();
 
     await userEvent.click(setting);
-    expect(screen.queryByText("requireTwoFactor")).toBeNull();
+    expect(screen.queryByText(audit.fields.requireTwoFactor)).toBeNull();
   });
 
-  it("offers no before and after for a change that recorded none", async () => {
-    stubApi({ "audit.list": page([entry({ action: "staff.password-reset", before: null, after: null })]) });
+  it("shows a role's change as what it gained and lost, by the permissions' labels, and nothing unchanged", async () => {
+    stubApi({
+      "audit.list": page([
+        entry({
+          before: {
+            name: "Sales",
+            permissions: [
+              { permission: "leads:view", scope: "own" },
+              { permission: "staff:manage", scope: null },
+            ],
+          },
+          after: {
+            name: "Sales",
+            permissions: [
+              { permission: "leads:view", scope: "own" },
+              { permission: "audit:view", scope: null },
+            ],
+          },
+        }),
+      ]),
+    });
     renderScreen();
     await listed();
-    expect(screen.queryByRole("button", { name: audit.change.show })).toBeNull();
+    const updated = opener(audit.actions.role.updated);
+    await userEvent.click(updated);
+    const change = changeOpenedBy(updated);
+    expect(change.getByText(audit.fields.permissions)).toBeVisible();
+    expect(change.getByText(audit.change.added).parentElement).toHaveTextContent(roles.permissions["audit:view"]);
+    expect(change.getByText(audit.change.removed).parentElement).toHaveTextContent(roles.permissions["staff:manage"]);
+    // The name didn't change, nor did the grant both sides hold: neither shows, nor any raw key.
+    expect(change.queryByText(audit.fields.name)).toBeNull();
+    expect(change.queryByText(/leads:view|audit:view|scope/)).toBeNull();
+    expect(change.queryByText(new RegExp(roles.permissions["leads:view"]))).toBeNull();
+  });
+
+  it("names a grant's scope, and a role made from nothing as only what it was given", async () => {
+    stubApi({ "audit.list": page([entry({ action: "role.created", before: null })]) });
+    renderScreen();
+    await listed();
+    const created = opener(audit.actions.role.created);
+    await userEvent.click(created);
+    const change = changeOpenedBy(created);
+    expect(change.getByText(`${roles.permissions["leads:view"]} (${roles.editor.scopeOwn})`)).toBeVisible();
+    expect(change.queryByText(audit.change.removed)).toBeNull();
+    // A field that isn't a list, from nothing: before is None.
+    expect(change.getByText(audit.fields.name)).toBeVisible();
+    expect(change.getByText(audit.change.none)).toBeVisible();
+  });
+
+  it("offers nothing to open for a change that recorded none, or none that changed", async () => {
+    stubApi({
+      "audit.list": page([
+        entry({ action: "staff.password-reset", before: null, after: null }),
+        entry({ id: "0199a000-0000-7000-8000-0000000000a2", before: { name: "Sales" }, after: { name: "Sales" } }),
+      ]),
+    });
+    renderScreen();
+    await listed();
+    expect(screen.queryByRole("button", { name: /see what changed/ })).toBeNull();
   });
 
   it("reads an action recorded before its sentence was written as words", async () => {

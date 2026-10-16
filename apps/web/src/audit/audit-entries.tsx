@@ -1,14 +1,12 @@
 "use client";
 
-// The audit log's entries (DESIGN.md section 6): a list of items at every width, since each entry opens its before
-// and after below it (the registry's Collapsible). Each says what happened, who did it, when in the organization's
-// zone and from where, and leads to the record's whole history.
+// The audit log's entries (DESIGN.md section 6): a list of items at every width. Each says what happened, who did it,
+// when in the organization's zone and from where, and leads to the record's whole history; its title opens what
+// changed below it (the registry's Collapsible), in words (audit-words.ts).
 import type { AuditLogEntry } from "@travel-crm/contracts/audit";
 import { ChevronDownIcon } from "lucide-react";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Fragment } from "react";
-import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle } from "@/components/ui/item";
 import { formatDayTime } from "@/lib/format";
@@ -16,6 +14,7 @@ import { useMe } from "@/session/me-context";
 import { AuditChange, hasChange } from "@/components/audit-change";
 import { useAuditWords } from "./audit-words";
 import { recordHistoryHref } from "./record-filter";
+import { TextLink } from "@/components/text-link";
 
 function AuditEntry({ entry, recordLink }: { entry: AuditLogEntry; recordLink: boolean }) {
   const t = useTranslations("audit");
@@ -23,45 +22,42 @@ function AuditEntry({ entry, recordLink }: { entry: AuditLogEntry; recordLink: b
   const { timeZone } = useMe().organization;
   const instant = new Date(entry.occurredAt);
   const changed = hasChange(entry.before, entry.after);
+  const sentence = words.action(entry.action);
   return (
     <Item size="sm" role="listitem">
-      <ItemContent>
-        <ItemTitle>{words.action(entry.action)}</ItemTitle>
-        <ItemDescription>
-          <span className="break-words script-leading">{words.actor(entry.actor)}</span> ·{" "}
-          <time dateTime={entry.occurredAt} className="numbers">
-            {formatDayTime(instant, { timeZone })}
-          </time>{" "}
-          · {words.source(entry.source)}
-        </ItemDescription>
-        {(changed || recordLink) && (
-          <Collapsible className="flex flex-col">
-            <div className="flex flex-wrap gap-x-6">
-              {changed && (
-                <CollapsibleTrigger asChild>
-                  <Button variant="link" className="px-0">
-                    {t("change.show")}
-                    <ChevronDownIcon
-                      aria-hidden="true"
-                      className="motion-safe:transition-transform motion-safe:ease-out group-data-[state=open]/button:rotate-180"
-                    />
-                  </Button>
-                </CollapsibleTrigger>
-              )}
-              {recordLink && (
-                <Button variant="link" className="px-0" asChild>
-                  <Link href={recordHistoryHref(entry)}>{t("recordHistory", { kind: entry.entityType })}</Link>
-                </Button>
-              )}
-            </div>
-            {changed && (
-              <CollapsibleContent>
-                <AuditChange before={entry.before} after={entry.after} />
-              </CollapsibleContent>
+      <Collapsible asChild>
+        <ItemContent>
+          <ItemTitle className="w-full">
+            {changed ? (
+              <CollapsibleTrigger
+                aria-label={t("change.open", { action: sentence })}
+                className="group/change flex min-h-11 w-full items-center justify-between gap-2 text-left"
+              >
+                {sentence}
+                <ChevronDownIcon
+                  aria-hidden="true"
+                  className="size-4 shrink-0 motion-safe:transition-transform motion-safe:ease-out group-data-[state=open]/change:rotate-180"
+                />
+              </CollapsibleTrigger>
+            ) : (
+              sentence
             )}
-          </Collapsible>
-        )}
-      </ItemContent>
+          </ItemTitle>
+          <ItemDescription>
+            <span className="break-words script-leading">{words.actor(entry.actor)}</span> ·{" "}
+            <time dateTime={entry.occurredAt}>{formatDayTime(instant, { timeZone })}</time> ·{" "}
+            {words.source(entry.source)}
+          </ItemDescription>
+          {recordLink && (
+            <TextLink href={recordHistoryHref(entry)}>{t("recordHistory", { kind: entry.entityType })}</TextLink>
+          )}
+          {changed && (
+            <CollapsibleContent>
+              <AuditChange before={entry.before} after={entry.after} fieldName={words.field} valueText={words.value} />
+            </CollapsibleContent>
+          )}
+        </ItemContent>
+      </Collapsible>
     </Item>
   );
 }

@@ -15,6 +15,7 @@ import { useWriteAccess } from "@/subscription/write-access";
 import { CreateStaffDialog } from "./create-staff-dialog";
 import { StaffList } from "./staff-list";
 import { LoadingRows } from "@/components/loading-rows";
+import { useWideScreen } from "@/lib/use-wide-screen";
 
 export function StaffScreen() {
   const t = useTranslations("staff");
@@ -26,6 +27,7 @@ export function StaffScreen() {
   const roles = useQuery(trpc.roles.list.queryOptions());
   const rolesNeeded = useWriteAccess().allowed;
   const shownRoles = roles.data ?? (rolesNeeded ? undefined : []);
+  const wide = useWideScreen();
 
   const body = () => {
     if (staff.data && shownRoles) {
@@ -33,7 +35,9 @@ export function StaffScreen() {
       return (
         <>
           <StaffList staff={staff.data} roles={shownRoles} />
-          {staff.data.length <= 1 && <EmptyState icon={UsersIcon} message={t("empty")} />}
+          {staff.data.length <= 1 && (
+            <EmptyState icon={UsersIcon} message={rolesNeeded ? t("empty") : t("emptyNoAdding")} />
+          )}
         </>
       );
     }
@@ -41,6 +45,7 @@ export function StaffScreen() {
       return (
         <ErrorState
           message={t("loadFailed")}
+          error={staff.error ?? (rolesNeeded ? roles.error : null)}
           retryLabel={tCommon("tryAgain")}
           onRetry={() => {
             void staff.refetch();
@@ -49,7 +54,7 @@ export function StaffScreen() {
         />
       );
     }
-    return <LoadingRows />;
+    return wide ? <LoadingRows shape="table" columns={6} /> : <LoadingRows shape="twoLines" />;
   };
 
   return (

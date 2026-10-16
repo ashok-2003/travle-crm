@@ -21,6 +21,9 @@ import { StopImpersonatingButton } from "@/shell/stop-impersonating";
 import { useConsoleTRPC } from "../data/console-trpc";
 import { ConsoleSignOutButton } from "../shell/console-sign-out";
 import { StaffProvider } from "./staff-context";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { routes } from "@/lib/routes";
 
 /**
  * The console isn't theirs. Signing out would end support's impersonation and strand support's own session. me.get
@@ -33,9 +36,24 @@ function NotStaff() {
   const impersonating = Boolean(me.data?.impersonatedBy);
   let action;
   if (impersonating) action = <StopImpersonatingButton queryClient={queryClient} />;
-  else if (!me.isPending) action = <ConsoleSignOutButton />;
+  else if (!me.isPending) {
+    // Most often the wrong address: their own app is the way on, signing out the other.
+    action = (
+      <div className="flex flex-col items-center gap-2">
+        <Button asChild>
+          <Link href={routes.home}>{t("toYourApp")}</Link>
+        </Button>
+        <ConsoleSignOutButton />
+      </div>
+    );
+  }
   return (
-    <EmptyState icon={ShieldUserIcon} message={impersonating ? t("impersonating") : t("notStaff")} action={action} />
+    <EmptyState
+      icon={ShieldUserIcon}
+      message={impersonating ? t("impersonating") : t("notStaff")}
+      action={action}
+      standalone
+    />
   );
 }
 

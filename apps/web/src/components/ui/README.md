@@ -35,16 +35,16 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
 - `calendar.tsx` (`react-day-picker`, pinned): Indian unless told otherwise (`en-IN`: weeks start on Monday, a day is
   named "Friday, 16 October 2026"); days and month buttons 44px (`--cell-size`, the registry's own knob), and 40px
   on screens under 360px wide, so the calendar (seven days and its padding) fits a 320px phone; its screen-reader
-  words are the `calendar` messages. The focused day shows the global outline (the registry's ring is gone), and the range styles
-  lost their numeric z-index: a range would need its layering back first. The app picks single days only.
+  words are the `calendar` messages. The focused day shows the global outline (the registry's ring is gone), and the
+  range styles lost their numeric z-index: a range would need its layering back first. The app picks single days only.
 - `progress.tsx`: its bar moves only behind `motion-safe:`.
 - `badge.tsx`: 4px radius.
 - `tabs.tsx`: an unselected trigger is the muted ink (4.84:1 on the surface list) instead of ink at 60%, which fails
   contrast. The list is 52px around its 44px triggers; don't shrink it.
 - `dialog.tsx`, `alert-dialog.tsx`, `sheet.tsx`: the overlay is the `scrim` token, without blur. The dialog's and the
   sheet's Close words are the `common.close` message.
-- `spinner.tsx`: decoration (`aria-hidden`), without `role="status"` or a label: it sits in busy buttons, whose own label
-  says what is happening, and a status inside a button would join its name.
+- `spinner.tsx`: decoration (`aria-hidden`), without `role="status"` or a label: it sits in busy buttons, whose own
+  label says what is happening, and a status inside a button would join its name.
 - `sidebar.tsx`: 232px wide; its `--sidebar-*` colours are the brand's in `globals.css` (surface, the blue tint for the
   current page). It asks `lib/use-wide-screen.ts` whether the screen is a phone instead of shadcn's `use-mobile` hook,
   and has five small lint fixes. It has no Ctrl/Cmd+B shortcut: the app's sidebar never folds away, so the keys stay

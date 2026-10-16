@@ -28,7 +28,12 @@ export function DashboardScreen() {
   let content;
   if (organizations === undefined) {
     content = overview.isError ? (
-      <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void overview.refetch()} />
+      <ErrorState
+        message={t("loadFailed")}
+        error={overview.error}
+        retryLabel={tCommon("tryAgain")}
+        onRetry={() => void overview.refetch()}
+      />
     ) : (
       <LoadingRows rows={3} label={t("loading")} />
     );

@@ -39,6 +39,7 @@ export function RoleEditorScreen({ roleKey }: { roleKey: string }) {
       return (
         <ErrorState
           message={t("loadFailed")}
+          error={roles.error ?? catalog.error}
           retryLabel={tCommon("tryAgain")}
           onRetry={() => {
             void roles.refetch();
