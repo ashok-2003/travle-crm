@@ -13,10 +13,12 @@ documents are marked sensitive (spec 5).
     past the storage limit, and `FORBIDDEN`/`SYSTEM_OWNED_FILE` for a system-owned record type (only
     `storeGeneratedFile` writes those);
   - `confirmUpload(actor, { recordType, recordId, attachmentId }, check?)`: marks it ready once storage holds the
-    promised size and type (`NOT_FOUND`/`UPLOAD_NOT_FOUND`, `VALIDATION`/`UPLOAD_DOES_NOT_MATCH`) and `check`, when
-    given, passes on the stored bytes (a `StoredBytesCheck`, sync or async: the logo's pixels); a refused file stays
-    pending. Harmless to repeat, which is the answer to a retried PUT that storage refuses with 412 (the first
-    arrived). Like `list`, it shows a sensitive file's real name only to members with `documents:view_sensitive`;
+    promised size and type (`NOT_FOUND`/`UPLOAD_NOT_FOUND`, `VALIDATION`/`UPLOAD_DOES_NOT_MATCH`), its storage still
+    fits when its link has lapsed (`LIMIT_REACHED`/`STORAGE_LIMIT_REACHED`; `NOT_FOUND`/`UPLOAD_EXPIRED` after an
+    hour), and `check`, when given, passes on the stored bytes (a `StoredBytesCheck`, sync or async: the logo's
+    pixels); a refused file stays pending. Harmless to repeat, which is the answer to a retried PUT that storage
+    refuses with 412 (the first arrived). Like `list`, it shows a sensitive file's real name only to members with
+    `documents:view_sensitive`;
   - `downloadLink(member, { recordType, recordId, attachmentId })`: a 5-minute link that saves the file under its
     name; a sensitive file needs `documents:view_sensitive` (`FORBIDDEN`/`MISSING_PERMISSION`);
   - `list(actor, { recordType, recordId })`: the record's ready files, oldest first by when they arrived (confirmed),
@@ -70,7 +72,9 @@ None yet.
 - Deleted files stay in storage, and count toward the limit, until the platform's purge.
 - An upload counts toward the limit from the moment it is asked for, and, if it never becomes ready (stopped, or
   refused at confirm), only while its 10-minute link lasts. Its row and any bytes that arrived stay: a sweep of old
-  pending uploads (delete the object, then the row) is a later plan's item.
+  pending uploads (delete the object, then the row) is a later plan's item. So an upload confirmed after its link
+  lapsed must fit again (`STORAGE_LIMIT_REACHED`), those confirms taking turns under a lock of the organization's
+  storage, and one asked for over an hour ago can't be confirmed at all (`NOT_FOUND`/`UPLOAD_EXPIRED`).
 - The outbox holds an organization's id and an attachment's id, never a key or a name: the key is made from them, as
   for any file. A row stays until storage has confirmed the delete, so a storage error or a restart after the
   platform's transaction delays a file's deletion and never forgets it.
