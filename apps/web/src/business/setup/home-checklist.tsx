@@ -5,9 +5,8 @@
 // checklist loads, or if it didn't, that usual home shows under its place, so the way to every screen is never hidden.
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
-import { Delayed } from "@/components/delayed";
 import { ErrorState } from "@/components/error-state";
-import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingRows } from "@/components/loading-rows";
 import { useMe } from "@/session/me-context";
 import { SetupSteps, useSetupProgress } from "./setup-steps";
 import { useSetupChecklist } from "./use-setup-checklist";
@@ -47,9 +46,7 @@ export function HomeChecklist({ afterwards }: { afterwards: ReactNode }) {
   }
   return (
     <>
-      <Delayed>
-        <Skeleton role="status" aria-busy="true" aria-label={tCommon("loading")} className="h-72 w-full" />
-      </Delayed>
+      <LoadingRows rows={5} shape="twoLines" />
       {afterwards}
     </>
   );
