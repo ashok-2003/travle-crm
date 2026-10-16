@@ -1,7 +1,8 @@
 "use client";
 
 // Turning two-factor sign-in off, which Better Auth allows only with the password. Not offered while the
-// organization requires two-factor (the api would then send the person straight back to set it up).
+// organization requires two-factor (the api would then send the person straight back to set it up). Once sent, the
+// dialog stays until Better Auth answers.
 import { useTranslations } from "next-intl";
 import { useId, useState, type SubmitEvent } from "react";
 import { toast } from "sonner";
@@ -56,6 +57,7 @@ export function TurnOffTwoFactor({
     <Dialog
       open={open}
       onOpenChange={(next) => {
+        if (busy) return;
         setOpen(next);
         setPassword("");
         setFailure(null);
@@ -84,7 +86,9 @@ export function TurnOffTwoFactor({
           <AuthFailureAlert failure={failure} />
           <DialogFooter>
             <DialogClose asChild>
-              <Button variant="outline">{tCommon("cancel")}</Button>
+              <Button variant="outline" disabled={busy}>
+                {tCommon("cancel")}
+              </Button>
             </DialogClose>
             <Button type="submit" variant="destructive" disabled={busy || password === ""}>
               {busy && <Spinner />}

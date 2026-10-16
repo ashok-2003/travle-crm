@@ -1,7 +1,8 @@
 "use client";
 
 // Deleting a role: only one nobody has (the api refuses others), asked once more. Its name becomes free again. It is a
-// change, so it waits while the subscription refuses changes; the role editor says why (ADR 0021).
+// change, so it waits while the subscription refuses changes; the role editor says why (ADR 0021). Once asked, the
+// dialog stays until the api answers; the toast and the move to the roles list are the hook's (use-roles.ts).
 import type { RoleSummary } from "@travel-crm/contracts/identity";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
@@ -40,17 +41,21 @@ export function DeleteRoleDialog({ role }: { role: RoleSummary }) {
         {t("action")}
       </Button>
       {inUse && <FieldDescription id="role-in-use">{t("inUse", { count: role.memberCount })}</FieldDescription>}
-      <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialog
+        open={open}
+        onOpenChange={(next) => {
+          if (!remove.isPending) setOpen(next);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("title", { name: role.name })}</AlertDialogTitle>
             <AlertDialogDescription>{t("description")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+            <AlertDialogCancel disabled={remove.isPending}>{tCommon("cancel")}</AlertDialogCancel>
             <AlertDialogAction
-              // The final step of a destructive action is the one place red fills a button (DESIGN.md section 6).
-              className="bg-status-bad-ink text-on-action hover:bg-status-bad-ink/90"
+              variant="destructive"
               disabled={remove.isPending}
               onClick={(event) => {
                 event.preventDefault();

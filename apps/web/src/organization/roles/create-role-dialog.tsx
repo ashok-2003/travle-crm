@@ -52,7 +52,13 @@ export function CreateRoleDialog() {
           {write.hint}
         </FieldDescription>
       )}
-      <ResponsiveDialog open={open} onOpenChange={changeOpen} title={t("title")} description={t("description")}>
+      <ResponsiveDialog
+        open={open}
+        onOpenChange={changeOpen}
+        busy={create.isPending}
+        title={t("title")}
+        description={t("description")}
+      >
         <form
           noValidate
           className="flex flex-col gap-6"
