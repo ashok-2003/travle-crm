@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useWideScreen } from "@/lib/use-wide-screen";
+import { cn } from "@/lib/utils";
 
 export function ResponsiveDialog({
   open,
@@ -100,8 +101,8 @@ export function ResponsiveDialog({
           <SheetTitle>{title}</SheetTitle>
           <SheetDescription>{description}</SheetDescription>
         </SheetHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-1 pb-4">{children}</div>
-        {actions && <SheetFooter className="flex-col-reverse pt-0">{actions}</SheetFooter>}
+        <div className={cn("min-h-0 flex-1 overflow-y-auto px-4 pt-1", !actions && "pb-4")}>{children}</div>
+        {actions && <SheetFooter className="flex-col-reverse">{actions}</SheetFooter>}
       </SheetContent>
     </Sheet>
   );
