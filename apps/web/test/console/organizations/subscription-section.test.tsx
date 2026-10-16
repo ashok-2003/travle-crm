@@ -1,5 +1,5 @@
 // The organization's subscription in the console: its state today beside the recorded one, the plan, dates and
-// overrides, the price with CGST and SGST in mono, and the payments; and every change through subscriptions.*,
+// overrides, the price with GST in mono, and the payments; and every change through subscriptions.*,
 // each with what it sends and a refusal's sentence kept in its dialog. Lifting a suspension is a super admin's.
 import type { PlanSummary, SubscriptionPayment, SubscriptionWithPayments } from "@travel-crm/contracts/subscriptions";
 import { cleanup, screen, within } from "@testing-library/react";
@@ -121,8 +121,9 @@ describe("SubscriptionSection", { timeout: 20_000 }, () => {
     expect(valueOf(words.extraModules)).toHaveTextContent("Quotes");
     const price = screen.getByRole("table", { name: words.price.caption.monthly });
     expect(within(price).getByRole("row", { name: "The plan's price ₹2,500.00" })).toBeVisible();
-    expect(within(price).getByRole("row", { name: "CGST at 9% ₹225.00" })).toBeVisible();
-    expect(within(price).getByRole("row", { name: "SGST at 9% ₹225.00" })).toBeVisible();
+    // One GST row until the platform's own GST state is set, which decides between CGST with SGST, and IGST.
+    expect(within(price).getByRole("row", { name: "GST at 18% ₹450.00" })).toBeVisible();
+    expect(within(price).queryByRole("row", { name: /CGST|SGST/ })).toBeNull();
     expect(within(price).getByRole("row", { name: "Total a month ₹2,950.00" })).toBeVisible();
     expect(within(price).getByText("₹2,950.00")).toHaveClass("numbers", "text-right");
   });
