@@ -225,7 +225,10 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
    content with Card, Item/ItemGroup/ItemSeparator, Table and Separator. `test/no-hand-drawn-borders.test.ts` guards
    the classes.
 3. **Simpler is better:** fewer lines through better arrangement, no needless wrappers, no second copy of a helper.
-4. **DESIGN.md:** 44px touch targets, the brand's tokens, Indian formats (dd/mm/yyyy dates, lakh grouping).
+4. **DESIGN.md:** 44px touch targets, the brand's tokens, Indian formats: lakh grouping, and a date on screen as
+   DESIGN.md section 9's "16 Oct" ("16 Oct 2027" in another year), through `formatDay` (`lib/format.ts`) or, for a
+   stored calendar day, `formatCalendarDay` (`console/organizations/subscription/calendar-day.ts`). dd/mm/yyyy is for
+   date inputs alone (rule 5).
 5. **Dates:** every date input is `DateField` (the registry Calendar in a Popover, shown dd/mm/yyyy, value
    `yyyy-mm-dd`), never `<input type="date">`.
 6. **Tables:** the registry `Table`; TanStack Table only where the browser itself sorts or filters.
@@ -236,12 +239,14 @@ A screen builds from the shared pieces in `apps/web/src/` before writing its own
 
 - **Screens:** `PageHeader` (`components/page-header.tsx`) opens every screen; `EmptyState` and `ErrorState`;
   `RefusalAlert` for every failed request's alert; `LoadingRows` for every loading list; `Details` for labelled
-  values; `TextLink` and `BackLink` (`components/text-link.tsx`) for every link in text; `CopyButton`.
+  values; `TextLink` and `BackLink` (`components/text-link.tsx`) for every link in text, with `TextLink`'s `inline`
+  form for a link inside a sentence, a log row or a desktop table cell; `CopyButton`; `WriteHint`
+  (`subscription/write-hint.tsx`) under a button the subscription refuses, which names it as its description.
 - **Dialogs:** `ResponsiveDialog` (its `footer` holds Cancel and the main button outside the scrolling body; `busy`
   holds it open), `ConfirmDialog` (`children`, `confirmDisabled`) for every confirmation, and `FormDialog`
   (`components/forms/form-dialog.tsx`) for every form in a dialog.
 - **Forms:** `FormField`, `DateField`, and `components/forms/`: `useCheckedForm` and `checked` (the contract's checks
-  and a refusal's field errors), `MoneyField`, `SelectField`, `GstStateField`.
+  and a refusal's field errors), `TextField`, `MoneyField`, `PhoneField`, `SelectField`, `GstStateField`.
 - **Lists and records:** `useCursorPages` (`data/use-cursor-pages.ts`) with `ShowMoreButton` for every cursor list;
   `AuditChange` and `StoredValue` for an audit entry's before and after.
 - **Words:** `lib/format.ts`'s `formatDayTime` and `formatPhoneNumber`, and `useInstantText`
