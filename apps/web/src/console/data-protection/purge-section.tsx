@@ -110,12 +110,8 @@ export function PurgeSection({
         <PurgeDialog
           organization={organization}
           open
-          onOpenChange={(open) => {
-            if (!open) purge.reset();
-            setConfirming(open);
-          }}
-          pending={purge.isPending}
-          error={purge.error}
+          onOpenChange={setConfirming}
+          request={purge}
           onConfirm={(confirmation) => {
             purge.mutate({ organizationId: organization.id, confirmation });
           }}

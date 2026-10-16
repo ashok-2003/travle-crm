@@ -28,7 +28,7 @@ test("a super admin adds support, who replaces the temporary password and sets u
   await expect(handover.getByText("set up two-factor sign-in")).toBeVisible();
   await handover.getByRole("button", { name: "Done" }).click();
   const newcomer = recordWith(page, testInfo, email);
-  await expect(newcomer).toContainText("Must replace the temporary password");
+  await expect(newcomer).toContainText("Temporary password");
   await expect(newcomer).toContainText("No two-factor yet");
 
   // Neha, on her own device, signs in on the one sign-in page and is taken through both steps to the console.
@@ -50,7 +50,7 @@ test("a super admin adds support, who replaces the temporary password and sets u
 
   await page.reload();
   await expect(recordWith(page, testInfo, email)).toContainText("Two-factor on");
-  await expect(recordWith(page, testInfo, email)).not.toContainText("Must replace the temporary password");
+  await expect(recordWith(page, testInfo, email)).not.toContainText("Temporary password");
 });
 
 test("support opening the staff screen is told it is a super admin's", async ({ page, support }) => {

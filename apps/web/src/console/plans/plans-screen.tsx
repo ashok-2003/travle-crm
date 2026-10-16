@@ -5,11 +5,10 @@
 // told why (the console's api refuses support's changes anyway).
 import { LayersIcon, LockIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Delayed } from "@/components/delayed";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
-import { PageTitle } from "@/components/page-title";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PageHeader } from "@/components/page-header";
+import { LoadingRows } from "@/components/loading-rows";
 import { useWideScreen } from "@/lib/use-wide-screen";
 import { isSuperAdmin, useStaff } from "../session/staff-context";
 import { NewPlanButton } from "./plan-dialog";
@@ -56,32 +55,26 @@ export function PlansScreen() {
         <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void plans.refetch()} />
       );
     }
-    return (
-      <Delayed>
-        <div role="status" aria-busy="true" aria-label={t("loading")} className="flex flex-col gap-2">
-          {[0, 1, 2].map((row) => (
-            <Skeleton key={row} className="h-14 w-full" />
-          ))}
-        </div>
-      </Delayed>
-    );
+    return <LoadingRows rows={3} label={t("loading")} />;
   };
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex max-w-[65ch] flex-col gap-2">
-          <PageTitle>{t("title")}</PageTitle>
-          <p className="text-muted-foreground">{t("intro")}</p>
-          {!editable && (
-            <p className="flex items-center gap-2 text-label">
-              <LockIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-              {t("readOnly")}
-            </p>
-          )}
-        </div>
-        {editable && <NewPlanButton />}
-      </div>
+      <PageHeader
+        title={t("title")}
+        intro={
+          <>
+            {t("intro")}
+            {!editable && (
+              <span className="mt-2 flex items-center gap-2 text-label text-foreground">
+                <LockIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+                {t("readOnly")}
+              </span>
+            )}
+          </>
+        }
+        action={editable && <NewPlanButton />}
+      />
       <div className="flex flex-col gap-6">{body()}</div>
       <PolicySection />
     </div>

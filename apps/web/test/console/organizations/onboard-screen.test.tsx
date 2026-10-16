@@ -10,7 +10,7 @@ import { OnboardScreen } from "@/console/organizations/onboarding/onboard-screen
 import { messages } from "@/i18n/messages";
 import { stubApi, type Answer } from "../../support/api-stub";
 import { chooseDay } from "../../support/choose-day";
-import { inputsSentTo, renderConsoleScreen } from "./render";
+import { inputsTo as inputsSentTo, renderConsole as renderConsoleScreen } from "../../support/render-console";
 
 const navigation = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: navigation.push, replace: vi.fn() }) }));

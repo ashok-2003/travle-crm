@@ -8,7 +8,7 @@ import { messages } from "@/i18n/messages";
 import { stubApi, type Answer } from "../../support/api-stub";
 import { platformStaff } from "../../support/platform-staff";
 import { organizationDetails, subscriptionDetails } from "./organization-details";
-import { renderConsoleScreen } from "./render";
+import { renderConsole } from "../../support/render-console";
 
 export const words = messages.consoleOrganizations.subscription;
 const { organization } = organizationDetails();
@@ -72,7 +72,7 @@ export function renderSection(
   staff = platformStaff(),
 ) {
   const api = stubApi(answers);
-  renderConsoleScreen(<SubscriptionSection organization={organization} subscription={found} />, staff);
+  renderConsole(<SubscriptionSection organization={organization} subscription={found} />, staff);
   return api;
 }
 

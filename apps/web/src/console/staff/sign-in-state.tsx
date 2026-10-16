@@ -20,9 +20,11 @@ export function SignInState({
       </span>
     );
   }
-  return person.twoFactorEnabled ? (
-    <StatusBadge tone="good">{t("twoFactorOn")}</StatusBadge>
-  ) : (
-    <StatusBadge tone="attention">{t("twoFactorOff")}</StatusBadge>
+  return (
+    <span className="flex flex-col items-start">
+      <StatusBadge tone={person.twoFactorEnabled ? "good" : "attention"}>
+        {person.twoFactorEnabled ? t("twoFactorOn") : t("twoFactorOff")}
+      </StatusBadge>
+    </span>
   );
 }

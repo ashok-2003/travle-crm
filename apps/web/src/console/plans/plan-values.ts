@@ -10,8 +10,8 @@ import {
   type PlanSummary,
   type UpdatePlanInput,
 } from "@travel-crm/contracts/subscriptions";
-import { money } from "@travel-crm/domain/kernel";
-import { formatRupees } from "@/lib/format";
+import { checked, type Checked } from "@/components/forms/checked";
+import { rupeesFieldText } from "@/components/forms/money-field";
 
 export interface PlanValues {
   key: string;
@@ -30,17 +30,7 @@ export type PlanField = Exclude<keyof PlanValues, "modules">;
 
 /** Message keys in the "consolePlatform.planForm.problems" namespace. */
 export type PlanProblem =
-  | "keyInvalid"
-  | "nameRequired"
-  | "priceInvalid"
-  | "priceRequired"
-  | "seatsInvalid"
-  | "whatsappInvalid"
-  | "storageInvalid";
-
-export type PlanProblems = Partial<Record<PlanField, PlanProblem>>;
-
-type Result<Input> = { ok: true; input: Input } | { ok: false; problems: PlanProblems };
+  "required" | "keyInvalid" | "priceInvalid" | "priceRequired" | "seatsInvalid" | "whatsappInvalid" | "storageInvalid";
 
 /** Storage is entered in GB of 1,024 MB, as formatFileSize shows it. */
 const GIGABYTE = 1024 ** 3;
@@ -48,7 +38,7 @@ const GIGABYTE = 1024 ** 3;
 /** Each field of the api's input, with the form field it comes from and that field's problem. */
 const fieldOf = {
   key: ["key", "keyInvalid"],
-  name: ["name", "nameRequired"],
+  name: ["name", "required"],
   monthlyPricePaise: ["monthlyPrice", "priceInvalid"],
   yearlyPricePaise: ["yearlyPrice", "priceInvalid"],
   extraSeatMonthlyPricePaise: ["extraSeatMonthlyPrice", "priceInvalid"],
@@ -61,10 +51,13 @@ const fieldOf = {
 const isInputField = (value: unknown): value is keyof typeof fieldOf =>
   typeof value === "string" && Object.hasOwn(fieldOf, value);
 
-/** "12,50,000", "1,250.50" or "" for no price: an amount as the form shows it. */
-export function rupeesTextOf(paise: number | null): string {
-  return paise === null ? "" : formatRupees(money(paise)).replace("₹", "");
-}
+const formFieldOf = ([key]: readonly PropertyKey[]): PlanField | undefined =>
+  isInputField(key) ? fieldOf[key][0] : undefined;
+
+const problemOf = (field: string): PlanProblem =>
+  Object.values(fieldOf).find(([formField]) => formField === field)?.[1] ?? "required";
+
+const priceText = (paise: number | null) => (paise === null ? "" : rupeesFieldText(paise));
 
 /** "25", "2.5", "931.32": GB to two decimals at most. */
 export function gigabytesTextOf(bytes: number): string {
@@ -96,10 +89,10 @@ export function planValues(plan?: PlanSummary): PlanValues {
   return {
     key: plan.key,
     name: plan.name,
-    monthlyPrice: rupeesTextOf(plan.monthlyPricePaise),
-    yearlyPrice: rupeesTextOf(plan.yearlyPricePaise),
-    extraSeatMonthlyPrice: rupeesTextOf(plan.extraSeatMonthlyPricePaise),
-    extraSeatYearlyPrice: rupeesTextOf(plan.extraSeatYearlyPricePaise),
+    monthlyPrice: priceText(plan.monthlyPricePaise),
+    yearlyPrice: priceText(plan.yearlyPricePaise),
+    extraSeatMonthlyPrice: priceText(plan.extraSeatMonthlyPricePaise),
+    extraSeatYearlyPrice: priceText(plan.extraSeatYearlyPricePaise),
     seats: String(plan.seatLimit),
     whatsappNumbers: String(plan.whatsappNumberLimit),
     storageGigabytes: gigabytesTextOf(plan.storageLimitBytes),
@@ -145,29 +138,25 @@ function fieldsOf(values: PlanValues, original?: PlanSummary) {
  * The schema's verdict, each problem on its field. A plan priced neither monthly nor yearly is said so whatever else is
  * wrong: the schema checks that only once every field is valid.
  */
-function resultOf<Input>(
-  parsed: { success: true; data: Input } | { success: false; error: { issues: { path: PropertyKey[] }[] } },
+function verdict<Input>(
+  parsed: Parameters<typeof checked<PlanValues, Input, PlanProblem>>[0],
+  values: PlanValues,
   fields: ReturnType<typeof fieldsOf>,
-): Result<Input> {
+): Checked<PlanValues, Input, PlanProblem> {
   const unpriced = fields.monthlyPricePaise === null && fields.yearlyPricePaise === null;
-  if (parsed.success && !unpriced) return { ok: true, input: parsed.data };
-  const problems: PlanProblems = unpriced ? { monthlyPrice: "priceRequired" } : {};
-  for (const issue of parsed.success ? [] : parsed.error.issues) {
-    const field = issue.path[0];
-    if (!isInputField(field)) continue;
-    const [formField, problem] = fieldOf[field];
-    problems[formField] ??= problem;
-  }
-  return { ok: false, problems };
+  return checked(parsed, values, formFieldOf, problemOf, unpriced ? { monthlyPrice: "priceRequired" } : {});
 }
 
-export function toCreatePlanInput(values: PlanValues): Result<CreatePlanInput> {
+export function toCreatePlanInput(values: PlanValues): Checked<PlanValues, CreatePlanInput, PlanProblem> {
   const fields = fieldsOf(values);
-  return resultOf(createPlanInput.safeParse({ key: values.key.trim(), ...fields }), fields);
+  return verdict(createPlanInput.safeParse({ key: values.key.trim(), ...fields }), values, fields);
 }
 
 /** Everything but the key, which never changes. */
-export function toUpdatePlanInput(plan: PlanSummary, values: PlanValues): Result<UpdatePlanInput> {
+export function toUpdatePlanInput(
+  plan: PlanSummary,
+  values: PlanValues,
+): Checked<PlanValues, UpdatePlanInput, PlanProblem> {
   const fields = fieldsOf(values, plan);
-  return resultOf(updatePlanInput.safeParse({ planId: plan.id, ...fields }), fields);
+  return verdict(updatePlanInput.safeParse({ planId: plan.id, ...fields }), values, fields);
 }

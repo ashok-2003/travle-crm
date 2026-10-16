@@ -1,5 +1,6 @@
 // The policy form's values, as text, turned into the api's input: three whole numbers of days, checked by the api's
 // own schema (setSubscriptionPolicyInput), each problem on its field.
+import { checked, type Checked } from "@/components/forms/checked";
 import { setSubscriptionPolicyInput, type SubscriptionPolicy } from "@travel-crm/contracts/subscriptions";
 
 export type PolicyField = keyof SubscriptionPolicy;
@@ -18,16 +19,19 @@ export function policyValues(policy: SubscriptionPolicy): PolicyValues {
 
 const daysOf = (text: string) => (/^\d{1,4}$/.test(text.trim()) ? Number(text.trim()) : Number.NaN);
 
-/** The input, or the fields whose days aren't allowed (each field's message names its range). */
-export function toPolicyInput(
-  values: PolicyValues,
-): { ok: true; input: SubscriptionPolicy } | { ok: false; problems: PolicyField[] } {
+/** Message keys in "consolePlatform.policy.problems": each field's own names its range. */
+export type PolicyProblem = PolicyField | "required";
+
+export function toPolicyInput(values: PolicyValues): Checked<PolicyValues, SubscriptionPolicy, PolicyProblem> {
   const parsed = setSubscriptionPolicyInput.safeParse({
     trialDays: daysOf(values.trialDays),
     pastDueDays: daysOf(values.pastDueDays),
     readOnlyDays: daysOf(values.readOnlyDays),
   });
-  if (parsed.success) return { ok: true, input: parsed.data };
-  const problems = parsed.error.issues.map((issue) => issue.path[0]).filter(isField);
-  return { ok: false, problems: [...new Set(problems)] };
+  return checked(
+    parsed,
+    values,
+    ([key]) => (isField(key) ? key : undefined),
+    (field) => field,
+  );
 }

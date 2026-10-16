@@ -5,7 +5,7 @@ import type { SubscriptionStatus } from "@travel-crm/contracts/subscriptions";
 import { DataProtectionScreen } from "@/console/data-protection/data-protection-screen";
 import { stubApi, type Answer } from "../../support/api-stub";
 import { platformStaff } from "../../support/platform-staff";
-import { renderConsole } from "../plans/render-console";
+import { renderConsole } from "../../support/render-console";
 
 export const organizationId = "0199a000-0000-7000-8000-000000000002";
 const HOUR = 60 * 60 * 1000;

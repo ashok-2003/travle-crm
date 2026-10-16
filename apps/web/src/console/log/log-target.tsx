@@ -3,8 +3,8 @@
 // What a platform log entry was about, readably: the organization it concerns, linked to its page by its name (or
 // by the code the entry kept, once it is deleted), and the plan, person, job or record acted on.
 import type { PlatformLogEntry } from "@travel-crm/contracts/platform";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { TextLink } from "@/components/text-link";
 import { consoleRoutes } from "../routes";
 import { isNamedTarget } from "./log-actions";
 import type { LogNames } from "./use-log-names";
@@ -26,12 +26,9 @@ export function LogOrganization({ entry, names }: { entry: PlatformLogEntry; nam
   }
   return (
     <>
-      <Link
-        href={consoleRoutes.organization(organizationId)}
-        className="text-primary underline-offset-4 script-leading hover:underline"
-      >
-        {known.state === "found" ? known.name : (code ?? t("organization"))}
-      </Link>
+      <TextLink href={consoleRoutes.organization(organizationId)}>
+        <span className="script-leading">{known.state === "found" ? known.name : (code ?? t("organization"))}</span>
+      </TextLink>
       {known.state === "failed" && <span className="text-caption text-muted-foreground"> {t("nameFailed")}</span>}
     </>
   );

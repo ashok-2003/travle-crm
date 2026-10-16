@@ -55,7 +55,7 @@ export function useResetPlatformStaffPassword() {
   );
 }
 
-export function useSetPlatformStaffLevel(name: string) {
+export function useSetPlatformStaffLevel(name: string, onChanged: () => void) {
   const trpc = useConsoleTRPC();
   const refresh = useRefreshStaff();
   const t = useTranslations("consolePlatform.staff.changeLevel");
@@ -64,13 +64,14 @@ export function useSetPlatformStaffLevel(name: string) {
     trpc.platformStaff.setLevel.mutationOptions({
       onSuccess: (_answer, { level }) => {
         toast.success(t("changed", { name, level: tLevels(level) }));
+        onChanged();
       },
       onSettled: refresh,
     }),
   );
 }
 
-export function useRemovePlatformStaff(name: string) {
+export function useRemovePlatformStaff(name: string, onRemoved: () => void) {
   const trpc = useConsoleTRPC();
   const refresh = useRefreshStaff();
   const t = useTranslations("consolePlatform.staff.remove");
@@ -78,6 +79,7 @@ export function useRemovePlatformStaff(name: string) {
     trpc.platformStaff.remove.mutationOptions({
       onSuccess: () => {
         toast.success(t("removed", { name }));
+        onRemoved();
       },
       onSettled: refresh,
     }),

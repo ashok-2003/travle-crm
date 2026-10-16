@@ -12,7 +12,7 @@ export function useSchedules() {
   return useQuery(trpc.jobs.schedules.queryOptions());
 }
 
-export function useRemoveSchedule() {
+export function useRemoveSchedule(onRemoved: () => void) {
   const trpc = useConsoleTRPC();
   const queryClient = useQueryClient();
   const t = useTranslations("consolePlatform.schedules");
@@ -20,6 +20,7 @@ export function useRemoveSchedule() {
     trpc.jobs.unschedule.mutationOptions({
       onSuccess: (_answer, { queue }) => {
         toast.success(t("removed", { queue }));
+        onRemoved();
       },
       onSettled: () => queryClient.invalidateQueries({ queryKey: trpc.jobs.schedules.queryKey() }),
     }),

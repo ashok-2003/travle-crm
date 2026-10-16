@@ -3,18 +3,7 @@
 // Removing a schedule, asked once more: it is for a job the code no longer has, and one the worker or the console
 // still registers would only be back at its next start. The api refuses the console's own (SCHEDULE_IS_THE_CONSOLES).
 import { useTranslations } from "next-intl";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { useErrorMessage } from "@/lib/error-message";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useRemoveSchedule } from "./use-schedules";
 
 export function RemoveScheduleDialog({
@@ -27,48 +16,20 @@ export function RemoveScheduleDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const t = useTranslations("consolePlatform.schedules");
-  const tCommon = useTranslations("common");
-  const { apiError } = useErrorMessage();
-  const remove = useRemoveSchedule();
+  const remove = useRemoveSchedule(() => {
+    onOpenChange(false);
+  });
   return (
-    <AlertDialog
+    <ConfirmDialog
       open={open}
-      onOpenChange={(next) => {
-        if (!remove.isPending) onOpenChange(next);
+      onOpenChange={onOpenChange}
+      title={t("removeTitle", { queue })}
+      description={t("removeDescription")}
+      action={t("removeConfirm")}
+      request={remove}
+      onConfirm={() => {
+        remove.mutate({ queue });
       }}
-    >
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{t("removeTitle", { queue })}</AlertDialogTitle>
-          <AlertDialogDescription>{t("removeDescription")}</AlertDialogDescription>
-        </AlertDialogHeader>
-        {remove.isError && (
-          <Alert variant="destructive">
-            <AlertDescription>{apiError(remove.error)}</AlertDescription>
-          </Alert>
-        )}
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={remove.isPending}>{tCommon("cancel")}</AlertDialogCancel>
-          <AlertDialogAction
-            variant="destructive"
-            disabled={remove.isPending}
-            onClick={(event) => {
-              // Stay open until the api answers, so a refusal is shown here and the button can't be pressed twice.
-              event.preventDefault();
-              remove.mutate(
-                { queue },
-                {
-                  onSuccess: () => {
-                    onOpenChange(false);
-                  },
-                },
-              );
-            }}
-          >
-            {t("removeConfirm")}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    />
   );
 }

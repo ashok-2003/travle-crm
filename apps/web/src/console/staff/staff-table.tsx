@@ -46,14 +46,20 @@ export function StaffTable({ people, removed = false }: { people: PlatformStaffE
                   {isViewer && <span className="text-caption text-muted-foreground">{t("you")}</span>}
                 </span>
               </TableCell>
-              <TableCell className="whitespace-normal break-all">{person.email}</TableCell>
-              {!removed && <TableCell>{person.level === null ? null : tLevels(person.level)}</TableCell>}
+              <TableCell className="whitespace-normal break-words">{person.email}</TableCell>
+              {!removed && (
+                <TableCell className="whitespace-nowrap">
+                  {person.level === null ? null : tLevels(person.level)}
+                </TableCell>
+              )}
               {!removed && (
                 <TableCell>
                   <SignInState person={person} />
                 </TableCell>
               )}
-              <TableCell className="numbers text-right">{dayOf(person.removedAt ?? person.createdAt)}</TableCell>
+              <TableCell className="numbers text-right whitespace-nowrap">
+                {dayOf(person.removedAt ?? person.createdAt)}
+              </TableCell>
               {!removed && (
                 <TableCell className="text-right">{!isViewer && <StaffActions person={person} />}</TableCell>
               )}

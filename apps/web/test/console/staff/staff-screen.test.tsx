@@ -9,7 +9,7 @@ import { messages } from "@/i18n/messages";
 import { stubApi } from "../../support/api-stub";
 import { platformStaff } from "../../support/platform-staff";
 import { screenIs } from "../../organization/render";
-import { inputsTo, renderConsole } from "../plans/render-console";
+import { inputsTo, renderConsole } from "../../support/render-console";
 import { arjun, kavita, meena, viewer } from "./people";
 
 const { staff: words } = messages.consolePlatform;

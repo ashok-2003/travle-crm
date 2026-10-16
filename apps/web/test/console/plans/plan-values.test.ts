@@ -5,7 +5,6 @@ import { describe, expect, it } from "vitest";
 import {
   gigabytesTextOf,
   planValues,
-  rupeesTextOf,
   toCreatePlanInput,
   toUpdatePlanInput,
   type PlanValues,
@@ -95,7 +94,7 @@ describe("toCreatePlanInput", () => {
       ok: false,
       problems: {
         key: "keyInvalid",
-        name: "nameRequired",
+        name: "required",
         monthlyPrice: "priceInvalid",
         yearlyPrice: "priceInvalid",
         extraSeatMonthlyPrice: "priceInvalid",
@@ -161,13 +160,7 @@ describe("planValues", () => {
   });
 });
 
-describe("the text of amounts and sizes", () => {
-  it("shows rupees with Indian grouping, paise only when there are some", () => {
-    expect(rupeesTextOf(null)).toBe("");
-    expect(rupeesTextOf(125_000_000)).toBe("12,50,000");
-    expect(rupeesTextOf(125_050)).toBe("1,250.50");
-  });
-
+describe("the text of sizes", () => {
   it("shows GB to two decimals at most", () => {
     expect(gigabytesTextOf(25 * GIGABYTE)).toBe("25");
     expect(gigabytesTextOf(2.5 * GIGABYTE)).toBe("2.5");

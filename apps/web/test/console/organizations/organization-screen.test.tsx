@@ -10,7 +10,7 @@ import { stubApi } from "../../support/api-stub";
 import { platformStaff } from "../../support/platform-staff";
 import { screenIs } from "../../organization/render";
 import { organizationDetails, organizationId } from "./organization-details";
-import { renderConsoleScreen } from "./render";
+import { renderConsole as renderConsoleScreen } from "../../support/render-console";
 
 const { organization } = messages.consoleOrganizations;
 
@@ -50,7 +50,10 @@ describe("OrganizationScreen", () => {
       `/console/organizations/${organizationId}/data-protection`,
     );
     unmount();
-    renderConsoleScreen(<OrganizationScreen organizationId={organizationId} onboarded={false} />);
+    renderConsoleScreen(
+      <OrganizationScreen organizationId={organizationId} onboarded={false} />,
+      platformStaff("support"),
+    );
     await screen.findByRole("heading", { level: 1, name: "Kerala Trails" });
     expect(screen.queryByRole("link", { name: organization.dataProtection })).toBeNull();
   });

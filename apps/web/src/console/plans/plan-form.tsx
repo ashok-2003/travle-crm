@@ -2,99 +2,85 @@
 
 // The plan form, for a new plan or a change to one: its key (new plans only: it never changes), name, prices before
 // GST for each cycle and for an extra seat, the seats, WhatsApp numbers and storage it includes, and its modules.
-// Checked by the api's own schema before it is sent; a refusal from the api shows above the button.
-import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
+// Checked by the api's own schema before it is sent; a refusal from the api shows above the button, which is the
+// dialog's (PlanDialog), sending this form by its id.
+import type { CreatePlanInput, PlanSummary, UpdatePlanInput } from "@travel-crm/contracts/subscriptions";
 import { useTranslations } from "next-intl";
-import { useForm, type FieldErrors, type Resolver } from "react-hook-form";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+import { TextField } from "@/account/text-field";
+import { MoneyField } from "@/components/forms/money-field";
+import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { FieldDescription, FieldGroup, FieldLegend, FieldSet } from "@/components/ui/field";
-import { useErrorMessage } from "@/lib/error-message";
+import { FormRefusal } from "../form-refusal";
 import { ModulesField } from "./modules-field";
-import { PlanTextField } from "./plan-text-field";
-import { planValues, toCreatePlanInput, toUpdatePlanInput, type PlanValues } from "./plan-values";
-import { useCreatePlan, useUpdatePlan } from "./use-plans";
+import { planValues, toCreatePlanInput, toUpdatePlanInput, type PlanProblem, type PlanValues } from "./plan-values";
 
-export function PlanForm({ plan, onSaved }: { plan?: PlanSummary | undefined; onSaved: () => void }) {
+export function PlanForm({
+  id,
+  plan,
+  send,
+  error,
+}: {
+  id: string;
+  plan?: PlanSummary | undefined;
+  send: (input: CreatePlanInput | UpdatePlanInput) => void;
+  /** What the api refused with. */
+  error: unknown;
+}) {
   const t = useTranslations("consolePlatform.planForm");
-  const { apiError } = useErrorMessage();
-  const create = useCreatePlan();
-  const update = useUpdatePlan();
-  const saving = plan ? update : create;
-  const toInput = (values: PlanValues) => (plan ? toUpdatePlanInput(plan, values) : toCreatePlanInput(values));
-  const resolver: Resolver<PlanValues> = (values) => {
-    const result = toInput(values);
-    if (result.ok) return { values, errors: {} };
-    const errors: FieldErrors<PlanValues> = {};
-    for (const [field, problem] of Object.entries(result.problems)) {
-      errors[field as keyof PlanValues] = { type: "validate", message: t(`problems.${problem}`) };
-    }
-    return { values: {}, errors };
-  };
-  const form = useForm<PlanValues>({ resolver, defaultValues: planValues(plan) });
+  const { form, onSubmit, formProblem } = useCheckedForm<PlanValues, CreatePlanInput | UpdatePlanInput, PlanProblem>(
+    planValues(plan),
+    (values) => (plan ? toUpdatePlanInput(plan, values) : toCreatePlanInput(values)),
+    (problem) => t(`problems.${problem}`),
+  );
   const { control } = form;
-
-  const submit = form.handleSubmit((values) => {
-    const done = { onSuccess: onSaved };
-    if (plan) {
-      const result = toUpdatePlanInput(plan, values);
-      if (result.ok) update.mutate(result.input, done);
-    } else {
-      const result = toCreatePlanInput(values);
-      if (result.ok) create.mutate(result.input, done);
-    }
-  });
-
   return (
-    <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-6">
-      {/* The fields scroll inside the dialog, its button always in view: the form is taller than many screens. The
-          sheet on phones scrolls as a whole. The padding keeps the focus ring inside the scrolling box. */}
-      <div className="-m-1 p-1 md:max-h-[55dvh] md:overflow-x-hidden md:overflow-y-auto">
-        <FieldGroup>
-          {!plan && <PlanTextField control={control} name="key" label={t("key")} hint={t("keyHint")} kind="code" />}
-          <PlanTextField control={control} name="name" label={t("name")} />
-          <FieldSet>
-            <FieldLegend variant="label">{t("pricesLegend")}</FieldLegend>
-            <FieldDescription>{t("pricesHint")}</FieldDescription>
-            <div className="grid gap-5 sm:grid-cols-2">
-              <PlanTextField control={control} name="monthlyPrice" label={t("monthlyPrice")} kind="rupees" />
-              <PlanTextField control={control} name="yearlyPrice" label={t("yearlyPrice")} kind="rupees" />
-            </div>
-          </FieldSet>
-          <FieldSet>
-            <FieldLegend variant="label">{t("extraSeatLegend")}</FieldLegend>
-            <FieldDescription>{t("extraSeatHint")}</FieldDescription>
-            <div className="grid gap-5 sm:grid-cols-2">
-              <PlanTextField
-                control={control}
-                name="extraSeatMonthlyPrice"
-                label={t("extraSeatMonthlyPrice")}
-                kind="rupees"
-              />
-              <PlanTextField
-                control={control}
-                name="extraSeatYearlyPrice"
-                label={t("extraSeatYearlyPrice")}
-                kind="rupees"
-              />
-            </div>
-          </FieldSet>
-          <div className="grid gap-5 sm:grid-cols-3">
-            <PlanTextField control={control} name="seats" label={t("seats")} kind="number" />
-            <PlanTextField control={control} name="whatsappNumbers" label={t("whatsappNumbers")} kind="number" />
-            <PlanTextField control={control} name="storageGigabytes" label={t("storageGigabytes")} kind="number" />
+    <form id={id} noValidate onSubmit={onSubmit(send)} className="flex flex-col gap-6">
+      <FieldGroup>
+        {!plan && (
+          <TextField
+            control={control}
+            name="key"
+            label={t("key")}
+            hint={t("keyHint")}
+            autoCapitalize="none"
+            autoComplete="off"
+            spellCheck={false}
+            className="[&_input]:numbers"
+          />
+        )}
+        <TextField control={control} name="name" label={t("name")} autoComplete="off" spellCheck={false} />
+        <FieldSet>
+          <FieldLegend variant="label">{t("pricesLegend")}</FieldLegend>
+          <FieldDescription>{t("pricesHint")}</FieldDescription>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <MoneyField control={control} name="monthlyPrice" label={t("monthlyPrice")} />
+            <MoneyField control={control} name="yearlyPrice" label={t("yearlyPrice")} />
           </div>
-          <ModulesField control={control} />
-        </FieldGroup>
-      </div>
-      {saving.isError && (
-        <Alert variant="destructive">
-          <AlertDescription>{apiError(saving.error)}</AlertDescription>
-        </Alert>
-      )}
-      <Button type="submit" disabled={saving.isPending} className="self-end">
-        {t(saving.isPending ? (plan ? "saving" : "creating") : plan ? "save" : "create")}
-      </Button>
+        </FieldSet>
+        <FieldSet>
+          <FieldLegend variant="label">{t("extraSeatLegend")}</FieldLegend>
+          <FieldDescription>{t("extraSeatHint")}</FieldDescription>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <MoneyField control={control} name="extraSeatMonthlyPrice" label={t("extraSeatMonthlyPrice")} />
+            <MoneyField control={control} name="extraSeatYearlyPrice" label={t("extraSeatYearlyPrice")} />
+          </div>
+        </FieldSet>
+        <div className="grid gap-5 sm:grid-cols-3">
+          {(["seats", "whatsappNumbers", "storageGigabytes"] as const).map((name) => (
+            <TextField
+              key={name}
+              control={control}
+              name={name}
+              label={t(name)}
+              inputMode="decimal"
+              autoComplete="off"
+              className="[&_input]:numbers"
+            />
+          ))}
+        </div>
+        <ModulesField control={control} />
+      </FieldGroup>
+      <FormRefusal problem={formProblem} error={error} />
     </form>
   );
 }

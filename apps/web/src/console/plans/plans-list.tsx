@@ -17,10 +17,11 @@ import {
 import { PlanActions } from "./plan-actions";
 import { PlanStatusBadge, usePlanFigures } from "./plan-figures";
 
-function Figure({ label, value }: { label: string; value: string }) {
+function Figure({ label, value, mono = true }: { label: string; value: string; mono?: boolean }) {
   return (
     <span>
-      <span className="text-muted-foreground">{label}</span> <span className="numbers">{value}</span>
+      <span className="text-muted-foreground">{label}</span>{" "}
+      <span className={mono ? "numbers" : undefined}>{value}</span>
     </span>
   );
 }
@@ -43,8 +44,8 @@ export function PlansList({ plans, editable }: { plans: PlanSummary[]; editable:
                 </ItemTitle>
                 <ItemDescription className="numbers">{plan.key}</ItemDescription>
                 <span className="flex flex-wrap gap-x-4 gap-y-1 text-label">
-                  <Figure label={t("columns.monthly")} value={figures.monthly} />
-                  <Figure label={t("columns.yearly")} value={figures.yearly} />
+                  <Figure label={t("columns.monthly")} value={figures.monthly} mono={plan.monthlyPricePaise !== null} />
+                  <Figure label={t("columns.yearly")} value={figures.yearly} mono={plan.yearlyPricePaise !== null} />
                   {figures.extraSeatMonthly !== null && (
                     <Figure label={t("extraSeatMonthly")} value={figures.extraSeatMonthly} />
                   )}

@@ -10,7 +10,7 @@ import { chooseDay } from "../../support/choose-day";
 import { platformStaff } from "../../support/platform-staff";
 import { screenIs } from "../../organization/render";
 import { organizationId, subscriptionDetails } from "./organization-details";
-import { inputsSentTo } from "./render";
+import { inputsTo as inputsSentTo } from "../../support/render-console";
 import {
   fill,
   growth,
@@ -24,7 +24,7 @@ import {
 } from "./subscription-fixtures";
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
-vi.mock("sonner", () => ({ toast }));
+vi.mock("sonner", () => ({ toast, Toaster: () => null }));
 
 const onSale = messages.consoleOrganizations.onboard.subscription;
 

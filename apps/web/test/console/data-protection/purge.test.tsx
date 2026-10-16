@@ -7,7 +7,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { heldAnswer } from "../../support/api-stub";
 import { messages } from "@/i18n/messages";
-import { inputsTo } from "../plans/render-console";
+import { inputsTo } from "../../support/render-console";
 import { anExport, details, logged, openScreen, organizationId } from "./agency";
 
 const { dataProtection: words } = messages.consolePlatform;

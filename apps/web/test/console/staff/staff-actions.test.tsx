@@ -8,7 +8,7 @@ import { StaffScreen } from "@/console/staff/staff-screen";
 import { messages } from "@/i18n/messages";
 import { stubApi } from "../../support/api-stub";
 import { screenIs } from "../../organization/render";
-import { inputsTo, renderConsole } from "../plans/render-console";
+import { inputsTo, renderConsole } from "../../support/render-console";
 import { CacheProbe, mutationsHeld } from "./cache-probe";
 import { arjun, kavita, person, viewer } from "./people";
 import { heldAnswer } from "../../support/api-stub";

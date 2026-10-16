@@ -4,6 +4,7 @@
 // member), how many audit entries name them, and their files, each with a link that works for 15 minutes.
 import type { SubjectExport } from "@travel-crm/contracts/platform";
 import { useTranslations } from "next-intl";
+import { TextLink } from "@/components/text-link";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatFileSize } from "@/files/file-size";
 import { formatDay } from "@/lib/format";
@@ -55,9 +56,9 @@ export function SubjectExportView({ exported }: { exported: SubjectExport }) {
                 {file.downloadUrl === null ? (
                   <span className="break-all">{file.fileName}</span>
                 ) : (
-                  <a href={file.downloadUrl} className="text-primary underline-offset-4 break-all hover:underline">
-                    {file.fileName}
-                  </a>
+                  <TextLink href={file.downloadUrl}>
+                    <span className="break-all">{file.fileName}</span>
+                  </TextLink>
                 )}
                 <span className="numbers text-caption text-muted-foreground">{formatFileSize(file.sizeBytes)}</span>
                 {file.sensitive && <span className="text-caption text-muted-foreground">{t("sensitive")}</span>}
