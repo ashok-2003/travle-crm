@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # `pnpm scripts:test`: the compose helper (scripts/dev/compose.sh) gives two checkouts two project names, even in
 # folders of the same name, and the same checkout the same name each time; COMPOSE_PROJECT_NAME wins, from the
-# environment over .env, where a commented-out line counts for nothing; the product's name adds -product. It asks for
-# names only, so no container is started.
+# environment over .env, read as Compose reads it (a commented-out line counts for nothing; `export `, quotes, an
+# inline comment and CRLF line ends are not part of the name); the product's name adds -product; and plain
+# `docker compose` refuses both compose files. It asks for names and configurations only: no container is started.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 source scripts/docker/support.sh
@@ -46,4 +47,27 @@ printf 'NODE_ENV=development\nCOMPOSE_PROJECT_NAME="travel-crm"\n' >"$one/.env"
 expect_name "COMPOSE_PROJECT_NAME in .env wins" "$(name_of "$one")" travel-crm
 expect_name "the product's name adds -product to .env's" "$(product_name_of "$one")" travel-crm-product
 expect_name "the environment wins over .env" "$(name_of "$one" COMPOSE_PROJECT_NAME=mine)" mine
+printf 'export COMPOSE_PROJECT_NAME=exported\n' >"$one/.env"
+expect_name "an exported COMPOSE_PROJECT_NAME is read without its export" "$(name_of "$one")" exported
+printf 'COMPOSE_PROJECT_NAME=commented # the old containers\n' >"$one/.env"
+expect_name "an inline comment is no part of the name" "$(name_of "$one")" commented
+printf "COMPOSE_PROJECT_NAME='quoted' # the old containers\n" >"$one/.env"
+expect_name "a quoted name before an inline comment is read without either" "$(name_of "$one")" quoted
+printf 'COMPOSE_PROJECT_NAME=windows\r\nNODE_ENV=development\r\n' >"$one/.env"
+expect_name "a CRLF line end is no part of the name" "$(name_of "$one")" windows
+
+# Plain `docker compose` (which would name the project after the folder) refuses both files; the helper doesn't.
+for file in docker-compose.yml docker-compose.product.yml; do
+  refusal="$(env -u IMAGE_PREFIX docker compose --project-name "compose-test-$$" --file "$file" config 2>&1 >/dev/null ||
+    true)"
+  case "$refusal" in
+    *"required variable IMAGE_PREFIX is missing"*) ;;
+    *) fail "plain docker compose doesn't refuse $file: ${refusal:-it ran}" ;;
+  esac
+done
+COMPOSE_PROJECT_NAME="compose-test-$$" scripts/dev/compose.sh config --quiet ||
+  fail "the helper's development services don't load"
+COMPOSE_PROJECT_NAME="compose-test-$$" scripts/dev/compose.sh --product config --quiet ||
+  fail "the helper's product doesn't load"
+echo "ok: plain docker compose refuses both compose files, and the helper loads them"
 echo "The compose helper names each checkout's project."
