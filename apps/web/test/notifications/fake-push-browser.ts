@@ -10,6 +10,8 @@ export interface FakePushBrowser {
   subscription(): { endpoint: string; unsubscribe: () => Promise<boolean> } | null;
   /** The options each subscribe() was given. */
   subscribedWith: PushSubscriptionOptionsInit[];
+  /** How many times the permission prompt was asked. */
+  asked: number;
   /** How many times the browser was unsubscribed. */
   unsubscribed: number;
   restore(): void;
@@ -20,6 +22,7 @@ export function fakePushBrowser({
   prompt = "granted",
   registered = true,
   subscribed = false,
+  keys = true,
   unsubscribe = () => Promise.resolve(true),
 }: {
   permission?: NotificationPermission;
@@ -28,6 +31,8 @@ export function fakePushBrowser({
   /** False for a page no service worker controls (a development build). */
   registered?: boolean;
   subscribed?: boolean;
+  /** False for a subscription whose keys the browser can't give. */
+  keys?: boolean;
   /** What the push service does when asked to forget this browser. */
   unsubscribe?: () => Promise<boolean>;
 } = {}): FakePushBrowser {
@@ -35,6 +40,7 @@ export function fakePushBrowser({
   const browser: FakePushBrowser = {
     subscription: () => current,
     subscribedWith: [],
+    asked: 0,
     unsubscribed: 0,
     restore: () => {
       Reflect.deleteProperty(navigator, "serviceWorker");
@@ -46,7 +52,7 @@ export function fakePushBrowser({
     toJSON: () => ({
       endpoint: THIS_PHONE,
       expirationTime: null,
-      keys: { p256dh: "B".repeat(87), auth: "A".repeat(22) },
+      ...(keys ? { keys: { p256dh: "B".repeat(87), auth: "A".repeat(22) } } : {}),
     }),
     unsubscribe: async () => {
       browser.unsubscribed += 1;
@@ -69,6 +75,7 @@ export function fakePushBrowser({
   const notification = {
     permission,
     requestPermission: vi.fn(() => {
+      browser.asked += 1;
       notification.permission = prompt;
       return Promise.resolve(prompt);
     }),

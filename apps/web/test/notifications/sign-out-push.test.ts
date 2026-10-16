@@ -44,6 +44,21 @@ describe("signing out", () => {
     expect(sentInputs("notifications.push.unsubscribe")).toEqual([{ endpoint: THIS_PHONE }]);
   });
 
+  it("takes the browser's subscription away even when the api can't be reached, and reports the failure", async () => {
+    const reported = vi.fn();
+    vi.stubGlobal("reportError", reported);
+    browser = fakePushBrowser({ permission: "granted", subscribed: true });
+    const api = stubApi({ "notifications.push.unsubscribe": "offline" });
+    const auth = { signOut: vi.fn(() => Promise.resolve(answered)) };
+    await signOut(new QueryClient(), auth);
+    expect(browser.subscription()).toBeNull();
+    expect(api.calls).toEqual(["notifications.push.unsubscribe"]);
+    expect(reported).toHaveBeenCalledOnce();
+    await vi.waitFor(() => {
+      expect(auth.signOut).toHaveBeenCalledOnce();
+    });
+  });
+
   it("asks the api nothing about push for a browser without a subscription", async () => {
     browser = fakePushBrowser({ permission: "granted" });
     const api = stubApi({});
