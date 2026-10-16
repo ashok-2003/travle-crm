@@ -287,6 +287,129 @@
         "required": "Choose who works the lead.",
         "owner": "Choose who works the lead."
       }
+    },
+    "edit": "Edit",
+    "work": {
+      "title": "Next follow-up",
+      "none": "None set.",
+      "add": "Add follow-up",
+      "added": "Follow-up added",
+      "dialog": {
+        "title": "Add a follow-up",
+        "description": "It goes to the lead's owner, and shows in their Today when it is due.",
+        "what": "What to do",
+        "whatHint": "A short line, like Send the Kashmir options",
+        "due": "When",
+        "submit": "Add follow-up",
+        "submitting": "Adding",
+        "problems": {
+          "required": "Say what to do.",
+          "title": "Use at most 200 characters.",
+          "day": "Choose a day.",
+          "time": "Choose a time."
+        }
+      }
+    },
+    "person": {
+      "title": "The person",
+      "edit": "Edit the person",
+      "saved": "Saved",
+      "holder": "This {contact} is already {name}'s. A contact can be on only one person.",
+      "contactKinds": {
+        "phone": "phone number",
+        "email": "email",
+        "instagram": "Instagram handle"
+      },
+      "dialog": {
+        "title": "Edit the person",
+        "description": "Their name and how to reach them. One contact is enough.",
+        "submit": "Save",
+        "submitting": "Saving"
+      }
+    },
+    "trip": {
+      "title": "Trip",
+      "edit": "Edit the trip",
+      "saved": "Trip saved",
+      "notAsked": "Not asked yet",
+      "flexible": "Dates are open",
+      "monthNotFixed": "{month}, dates not fixed",
+      "childrenAges": "{children} ({ages})",
+      "perPerson": "<number>{amount}</number> per person",
+      "forEveryone": "<number>{amount}</number> for everyone",
+      "about": "About {amount} for everyone",
+      "labels": {
+        "destination": "Destination",
+        "when": "When",
+        "travellers": "Travellers",
+        "budget": "Budget",
+        "departureCity": "Leaving from",
+        "tripType": "Trip type",
+        "hotelCategory": "Hotel",
+        "food": "Food",
+        "roomType": "Room type"
+      },
+      "dialog": {
+        "title": "Edit the trip",
+        "description": "Everything can wait; change what you know now.",
+        "submit": "Save",
+        "submitting": "Saving"
+      }
+    },
+    "owner": {
+      "title": "Owner and source",
+      "owner": "Owner",
+      "unassigned": "Unassigned",
+      "reassign": "Reassign",
+      "source": "Source",
+      "sourceBy": "{source} · added by {name}",
+      "formerMember": "a former member"
+    },
+    "timeline": {
+      "title": "Timeline",
+      "loading": "Loading the timeline",
+      "loadFailed": "The timeline didn't load.",
+      "showMore": "Show older",
+      "addNote": "Add a note",
+      "saveNote": "Add note",
+      "noteAdded": "Note added",
+      "meta": "{actor} · {when}",
+      "system": "The system",
+      "note": "Note",
+      "moved": "Moved to {stage}",
+      "reassigned": "Assigned to {name}",
+      "unassigned": "Left without an owner",
+      "followUpAdded": "Follow-up added",
+      "taskAdded": "Task added",
+      "followUpDone": "Follow-up done",
+      "taskDone": "Task done",
+      "followUpCancelled": "Follow-up cancelled",
+      "taskCancelled": "Task cancelled",
+      "taskDue": "{title} · due {due}",
+      "due": "Due {due}",
+      "repeatEnquiry": "Asked again",
+      "sourceDetail": "{source}: {detail}",
+      "tripEdited": "Trip details changed",
+      "createdFrom": {
+        "phone_call": "Lead added from a phone call",
+        "walk_in": "Lead added from a walk-in",
+        "referral": "Lead added from a referral",
+        "instagram": "Lead added from Instagram",
+        "facebook": "Lead added from Facebook",
+        "website": "Lead added from the website",
+        "other": "Lead added",
+        "google_sheet": "Lead added from a Google Sheet",
+        "bulk_upload": "Lead added from a bulk upload",
+        "web_form": "Lead added from the website form",
+        "integration": "Lead added from another tool",
+        "meta_lead_ad": "Lead added from a Meta lead ad",
+        "whatsapp": "Lead added from WhatsApp",
+        "package_page": "Lead added from a package page"
+      },
+      "problems": {
+        "required": "Write the note.",
+        "tooLong": "Use at most 4,000 characters."
+      }
     }
   }
 }

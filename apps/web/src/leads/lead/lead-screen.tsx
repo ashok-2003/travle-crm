@@ -1,9 +1,10 @@
 "use client";
 
 // /leads/<id> (spec 3.4): one lead, a reading panel 720px wide. The way back to Leads keeps the list's filters, which
-// the list's links carry. The person and the main buttons, the stage, then the lead's cards. A lead that doesn't
-// exist, was removed or is someone else's (out of the member's scope) is "not found" alike (R26), so nothing says
-// another's lead exists; any other failure says so with Try again.
+// the list's links carry. The person and the main buttons, the stage, then the lead's cards: its open follow-ups, the
+// person, the trip, the owner and source, and the timeline. A lead that doesn't exist, was removed or is someone
+// else's (out of the member's scope) is "not found" alike (R26), so nothing says another's lead exists; any other
+// failure says so with Try again.
 import { SearchXIcon } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -16,8 +17,13 @@ import { refusalOf } from "@/data/api-error";
 import { useMe, viewScope } from "@/session/me-context";
 import { listFiltersHref, listFiltersOf } from "../list/list-filters";
 import { LeadHeader } from "./lead-header";
+import { OwnerCard } from "./owner-card";
+import { PersonCard } from "./person-card";
 import { StageBar } from "./stage-bar";
+import { Timeline } from "./timeline";
+import { TripCard } from "./trip-card";
 import { useLead } from "./use-lead";
+import { WorkCard } from "./work-card";
 
 export function LeadScreen({ leadId }: { leadId: string }) {
   const t = useTranslations("leads.lead");
@@ -32,6 +38,11 @@ export function LeadScreen({ leadId }: { leadId: string }) {
         <>
           <LeadHeader lead={lead.data} />
           <StageBar lead={lead.data} />
+          <WorkCard lead={lead.data} />
+          <PersonCard lead={lead.data} />
+          <TripCard lead={lead.data} />
+          <OwnerCard lead={lead.data} />
+          <Timeline lead={lead.data} />
         </>
       );
     }
