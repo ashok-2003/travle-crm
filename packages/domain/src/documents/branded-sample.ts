@@ -12,7 +12,7 @@ import { sampleQuotation } from "./sample-quotation.js";
  */
 export const SAMPLE_PREFIX = SAMPLE_DOCUMENT_PREFIX;
 
-export interface SampleBranding {
+interface SampleBranding {
   /** The organization's name, as its documents' header shows it. */
   organizationName: string;
   profile: Pick<OrganizationProfileDetails, "gstStateCode" | "brandColour" | "documentTerms">;
