@@ -33,7 +33,10 @@
       "outputs": []
     },
     "db:migrate:deploy": { "cache": false, "env": ["DATABASE_MIGRATOR_URL"] },
-    "dev": { "cache": false, "persistent": true },
+    // `pnpm dev` runs these three at once, after the generated code (Prisma's client, the brand's files) exists.
+    "dev": { "dependsOn": ["generate", "^generate"], "cache": false, "persistent": true },
+    "worker": { "dependsOn": ["^generate"], "cache": false, "persistent": true },
+    "console": { "dependsOn": ["^generate"], "cache": false, "persistent": true },
     "e2e": {
       "dependsOn": ["generate", "^generate", "typecheck", "lint"],
       "cache": false,

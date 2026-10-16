@@ -1,6 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended", ":semanticCommits"],
+  "extends": ["config:recommended", ":semanticCommits", "helpers:pinGitHubActionDigests", "docker:pinDigests"],
   "timezone": "Asia/Kolkata",
   "schedule": ["before 9am on monday"],
   "packageRules": [
@@ -14,6 +14,31 @@
       "description": "Stay on TypeScript 6 until typescript-eslint supports TypeScript 7 (ADR 0001).",
       "matchPackageNames": ["typescript"],
       "allowedVersions": "<7"
+    },
+    {
+      "description": "Nothing younger than a day, as pnpm's minimumReleaseAge holds packages back (ADR 0027).",
+      "matchPackageNames": ["*"],
+      "minimumReleaseAge": "1 day"
+    },
+    {
+      "description": "The images stay on Node 24 until .nvmrc moves (ADR 0001).",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["node"],
+      "allowedVersions": "<25"
+    },
+    {
+      "description": "Our own images, which docker-compose.product.yml builds from this repository: nothing to look up.",
+      "matchPackageNames": ["travel-crm-api", "travel-crm-web"],
+      "enabled": false
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "The images the scripts run (scripts/docker/images.sh), each <name>:<tag>@<digest>.",
+      "managerFilePatterns": ["/^scripts/docker/images\\.sh$/"],
+      "matchStrings": ["=\"(?<depName>[^:\"]+):(?<currentValue>[^@\"]+)@(?<currentDigest>sha256:[a-f0-9]{64})\""],
+      "datasourceTemplate": "docker"
     }
   ]
 }

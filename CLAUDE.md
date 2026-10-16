@@ -16,9 +16,19 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 | `pnpm --filter @travel-crm/api-server dev`     | run the api on http://localhost:3001 (reads `.env`)             |
 | `pnpm --filter @travel-crm/api-server worker`  | run the worker: outbox relay, listeners, jobs, schedules        |
 | `pnpm --filter @travel-crm/api-server console` | run the platform console on http://localhost:3002, and its jobs |
+| `pnpm dev`                                     | services and migrations, then api, worker, console and web      |
+| `pnpm demo`                                    | build the demo agency now (set `DEMO_*` in `.env` first)        |
+| `pnpm product:up` / `pnpm product:down`        | the whole product in Docker, at http://localhost:58080          |
 | `pnpm format`                                  | format every file with Prettier                                 |
 | `pnpm check`                                   | everything CI runs: typecheck, lint, tests, import rules        |
+| `pnpm images:smoke` / `pnpm product:smoke`     | build the images and run them as a deploy does (CI)             |
+| `pnpm lighthouse`                              | build the web app, hold its public pages to budgets (CI)        |
+| `pnpm migrations:check`                        | migrations on an empty Postgres 18, then drift check (CI)       |
+| `pnpm workflows:lint`                          | actionlint and ShellCheck on workflows and scripts (CI)         |
+| `pnpm audit --audit-level=high`                | the dependency audit (CI); exceptions: `pnpm-workspace.yaml`    |
 | `pnpm --filter @travel-crm/<package> test`     | one package's tests (most need Docker running)                  |
+
+CI runs `pnpm check`'s parts and every command marked CI, each as a job of its own (`.github/workflows/ci.yml`).
 
 ## How we write code
 
@@ -217,3 +227,19 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   `PLATFORM_TIME_ZONE`, and checks `isSuperAdmin(useStaff())` only for convenience: the api refuses support.
 - Journeys: `test/e2e/support/console.ts` gives `superAdmin` and `support` (two-factor on) and
   `signInToConsole(page, staff)`; the harness starts the api, the worker and the console process.
+
+## The release (ADR 0027)
+
+- Two images, built from the root: `apps/api/Dockerfile` (one image; its commands are `api`, `worker`, `console`,
+  `migrate`, `first-super-admin` and `demo`) and `apps/web/Dockerfile`. `docs/deploy-checklist.md` says how a deploy
+  runs them: settings per process, routes, health checks, migrations. A new environment variable goes in its table, a
+  new public path in its routing table and in `docker/Caddyfile`.
+- The api's image runs a bundle (`pnpm --filter @travel-crm/api-server build`): every third-party package is in it
+  but the integrations package's own, which the image installs as they are. A package that reads its own files at
+  run time (fonts, data) belongs in `packages/integrations`; `apps/api/test/bundle.test.ts` fails when the bundle
+  leaves out anything else.
+- Pin everything: images by tag and digest (the scripts' in `scripts/docker/images.sh`), actions by commit with their
+  version beside it. Renovate keeps them, waiting a day as pnpm does.
+- The repository's own scripts are in `scripts/` (bash, `set -euo pipefail`, checked by ShellCheck through
+  `pnpm workflows:lint`). Every CI step is a pnpm command that runs the same locally.
+- The dependency audit's fixes and exceptions are in `pnpm-workspace.yaml`, each with its advisory and the reason.

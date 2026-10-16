@@ -422,8 +422,10 @@ module.exports = {
     },
 
     // Which modules to exclude
-    // The web app's public/ holds files served as they are (icons, the bundled service worker), never imported.
-    exclude: { path: "(^|/)\\.next/|next-env\\.d\\.ts$|^apps/web/public/" },
+    // The web app's public/ holds files served as they are (icons, the bundled service worker), never imported. A
+    // package's own dist/ holds build output (the api's bundle for its image), which imports what only the image
+    // installs; node_modules' dist folders stay, so the rules still see what each package imports.
+    exclude: { path: "(^|/)\\.next/|^(apps|packages)/[^/]+/dist/|next-env\\.d\\.ts$|^apps/web/public/" },
 
     // Which modules to exclusively include (array of regular expressions in strings)
     // dependency-cruiser will skip everything that doesn't match this pattern

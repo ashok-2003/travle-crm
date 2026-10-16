@@ -31,3 +31,4 @@ The first and largest set of decisions is the Foundation spec: `docs/superpowers
 | [0024](0024-business-profile.md)             | The organization's business profile and setup checklist                                   |
 | [0025](0025-console-screens.md)              | The console's screens: a section of the web app, one sign-in page, two-factor for staff   |
 | [0026](0026-agency-screens.md)               | The agency's remaining screens: the lifecycle shown, files to storage, the logo, the bell |
+| [0027](0027-release.md)                      | The release: the images and the api's bundle, the product in Docker, CI's gates, Renovate |

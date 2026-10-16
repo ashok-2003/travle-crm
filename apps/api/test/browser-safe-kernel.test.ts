@@ -1,22 +1,14 @@
 // The domain kernel (money, GST, dates, ids) is imported by the web app's client code (plan 5A's lib/format.ts), so it
 // must bundle for a browser: no Node built-ins, no pg-boss, nothing from @travel-crm/integrations. This bundles it
-// with esbuild for the browser and expects no errors. It lives here because esbuild is reachable through tsx, this
-// package's own dependency, without adding one.
-import { createRequire } from "node:module";
+// with esbuild for the browser and expects no errors. It lives here because esbuild is this package's own dependency:
+// it bundles the api for its Docker image (scripts/bundle.ts).
 import { fileURLToPath } from "node:url";
+import { build } from "esbuild";
 import { describe, expect, it } from "vitest";
-
-/** The part of esbuild's API this uses (esbuild itself isn't this package's dependency, so neither are its types). */
-interface Esbuild {
-  build(options: Record<string, unknown>): Promise<{ errors: unknown[]; outputFiles?: { text: string }[] }>;
-}
-
-const require = createRequire(import.meta.url);
-const esbuild = createRequire(require.resolve("tsx"))("esbuild") as Esbuild;
 
 describe("the domain kernel in a browser", () => {
   it("bundles for platform browser, with no Node built-in or server-only package", async () => {
-    const result = await esbuild.build({
+    const result = await build({
       stdin: {
         contents: 'export * from "@travel-crm/domain/kernel";',
         resolveDir: fileURLToPath(new URL(".", import.meta.url)),
@@ -29,6 +21,6 @@ describe("the domain kernel in a browser", () => {
       logLevel: "silent",
     });
     expect(result.errors).toEqual([]);
-    expect(result.outputFiles?.[0]?.text).toContain("formatMoney");
+    expect(result.outputFiles[0]?.text).toContain("formatMoney");
   });
 });
