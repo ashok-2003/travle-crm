@@ -34,8 +34,10 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 2.7 (images tha
   127.0.0.1 alone, since their passwords are public.
 - **Smoke runs prove both.** `pnpm images:smoke` runs every command of the api image in production mode, read-only,
   against a throwaway Postgres, MinIO and Mailpit: health, a PDF rendered with the brand's fonts, the web app's
-  security headers and no `/api` rewrite, and every process stopping by itself on SIGTERM. `pnpm product:smoke`
-  brings the compose project up on free ports and signs the demo's Owner in through the proxy.
+  security headers and no `/api` rewrite, every process stopping by itself on SIGTERM, and no `.env` file in either
+  image. `pnpm product:smoke` brings the compose project up on free ports, checks each route through the proxy (a
+  share link's 404, a webhook's refusal, the console's and the api's tRPC) and the web app's headers passed on once
+  each, and signs the demo's Owner in.
 - **CI runs a job per gate** (`.github/workflows/ci.yml`): typecheck; lint with the import rules, the product-name
   check and actionlint with ShellCheck; the unit, integration and isolation tests on the runner's Docker; the journeys
   in Playwright's Chromium; Lighthouse; the migrations on an empty Postgres 18 with Prisma's drift check; the images
