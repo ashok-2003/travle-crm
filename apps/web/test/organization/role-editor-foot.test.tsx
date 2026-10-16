@@ -2,11 +2,12 @@
 // row, which stays above the phone's bottom bar while the permissions scroll, and the reasons a button is disabled
 // come under that row, each tied to its button.
 import type { PermissionCatalogEntry, RoleSummary } from "@travel-crm/contracts/identity";
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { messages } from "@/i18n/messages";
 import { RoleEditor } from "@/organization/roles/role-editor";
-import { newQueryClient, renderWithApi } from "./api";
+import { fakeApi, newQueryClient, renderWithApi } from "./api";
 import { screenIs } from "./render";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
@@ -25,10 +26,31 @@ describe("the role editor's foot", () => {
     const remove = screen.getByRole("button", { name: messages.roles.delete.action });
     const save = screen.getByRole("button", { name: messages.roles.editor.save });
     expect(remove.parentElement).toBe(save.parentElement);
-    expect(remove.parentElement?.parentElement).toHaveClass("sticky", "md:static");
+    // Sticky on phones, edge to edge within the page's gutter at each width (16px, then 24px).
+    expect(remove.parentElement?.parentElement).toHaveClass(
+      "sticky",
+      "-mx-4",
+      "px-4",
+      "sm:-mx-6",
+      "sm:px-6",
+      "md:static",
+    );
     expect(remove).toBeDisabled();
     expect(remove).toHaveAccessibleDescription("2 people have this role. Give them another role before deleting it.");
     const hint = document.getElementById("role-in-use");
     expect(save.compareDocumentPosition(hint ?? document.body) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("asks before deleting, inside the editor's form, without saving the role first", async () => {
+    screenIs("wide");
+    const api = fakeApi();
+    const unused: RoleSummary = { ...inUse, memberCount: 0 };
+    renderWithApi(<RoleEditor role={unused} catalog={catalog} />, newQueryClient());
+    await userEvent.click(screen.getByRole("button", { name: messages.roles.delete.action }));
+    expect(await screen.findByRole("alertdialog")).toBeVisible();
+    await waitFor(() => {
+      expect(api.calls.map((call) => call.path)).not.toContain("roles.update");
+    });
+    expect(api.calls).toEqual([]);
   });
 });

@@ -21,12 +21,16 @@ export function DeleteRoleDialog({
   describedBy?: string | undefined;
 }) {
   const t = useTranslations("roles.delete");
-  const remove = useDeleteRole(role.name);
   const [open, setOpen] = useState(false);
+  const remove = useDeleteRole(role.name, () => {
+    setOpen(false);
+  });
   const write = useWriteAccess();
   return (
     <>
       <Button
+        // It sits inside the role editor's form, which it must not submit.
+        type="button"
         variant="destructive"
         disabled={role.memberCount > 0 || !write.allowed}
         aria-describedby={describedBy}
@@ -44,14 +48,7 @@ export function DeleteRoleDialog({
         action={t("confirm")}
         request={remove}
         onConfirm={() => {
-          remove.mutate(
-            { key: role.key },
-            {
-              onSuccess: () => {
-                setOpen(false);
-              },
-            },
-          );
+          remove.mutate({ key: role.key });
         }}
       />
     </>

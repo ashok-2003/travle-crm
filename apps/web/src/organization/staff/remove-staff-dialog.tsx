@@ -18,7 +18,9 @@ export function RemoveStaffDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const t = useTranslations("staff.remove");
-  const remove = useRemoveStaff(member.name);
+  const remove = useRemoveStaff(member.name, () => {
+    onOpenChange(false);
+  });
   return (
     <ConfirmDialog
       open={open}
@@ -28,14 +30,7 @@ export function RemoveStaffDialog({
       action={t("confirm")}
       request={remove}
       onConfirm={() => {
-        remove.mutate(
-          { memberId: member.memberId },
-          {
-            onSuccess: () => {
-              onOpenChange(false);
-            },
-          },
-        );
+        remove.mutate({ memberId: member.memberId });
       }}
     />
   );

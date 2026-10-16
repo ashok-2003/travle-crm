@@ -8,12 +8,12 @@ import { useId, useState } from "react";
 import { roleName } from "@travel-crm/contracts/identity";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
 import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { useCreateRole } from "./use-roles";
+import { FormField } from "@/components/form-field";
 
 export function CreateRoleDialog() {
   const t = useTranslations("roles.create");
@@ -72,20 +72,18 @@ export function CreateRoleDialog() {
             create.mutate({ name: parsed.data, permissions: [] });
           }}
         >
-          <Field data-invalid={invalid}>
-            <FieldLabel htmlFor="role-name">{t("name")}</FieldLabel>
-            <Input
-              id="role-name"
-              value={name}
-              maxLength={40}
-              aria-invalid={invalid}
-              onChange={(event) => {
-                setName(event.target.value);
-              }}
-            />
-            <FieldDescription>{t("nameHint")}</FieldDescription>
-            {invalid && <FieldError>{t("nameRequired")}</FieldError>}
-          </Field>
+          <FormField label={t("name")} hint={t("nameHint")} error={invalid ? t("nameRequired") : undefined}>
+            {(links) => (
+              <Input
+                {...links}
+                value={name}
+                maxLength={40}
+                onChange={(event) => {
+                  setName(event.target.value);
+                }}
+              />
+            )}
+          </FormField>
           <RefusalAlert error={create.error} />
         </form>
       </ResponsiveDialog>

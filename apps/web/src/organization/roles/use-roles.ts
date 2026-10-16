@@ -49,7 +49,8 @@ export function useUpdateRole() {
   );
 }
 
-export function useDeleteRole(name: string) {
+/** Deleting a role; `onDeleted` closes the dialog that asked, however it ends (ConfirmDialog's contract). */
+export function useDeleteRole(name: string, onDeleted: () => void) {
   const trpc = useTRPC();
   const refresh = useRefreshRoles();
   const router = useRouter();
@@ -57,6 +58,7 @@ export function useDeleteRole(name: string) {
   return useMutation(
     trpc.roles.delete.mutationOptions({
       onSuccess: () => {
+        onDeleted();
         toast.success(t("deleted", { name }));
         router.push(routes.roles);
       },
