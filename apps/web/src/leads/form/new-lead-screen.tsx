@@ -2,9 +2,10 @@
 
 // /leads/new (spec 3.2, R40): one form, quick to fill on a phone; only a name and one contact are needed. Once a
 // contact is typed the form says whose it is (KnownContactAlert) and, for an open lead, asks what to do with this
-// enquiry; the api asks again (OPEN_LEAD_EXISTS) when a colleague's save got there first. Checked by the api's own
-// schema before it is sent, and held while saving. Saved, it opens the lead; added to a lead the person can't see,
-// it returns to Leads, saying whose lead it went to (R53).
+// enquiry; while that is unmade, Save focuses the choice and says so above itself. The api asks again
+// (OPEN_LEAD_EXISTS) when a colleague's save got there first. Checked by the api's own schema before it is sent, and
+// held while saving. Saved, it opens the lead; added to a lead the person can't see, it returns to Leads, saying whose
+// lead it went to (R53).
 import type { KnownContactResult } from "@travel-crm/contracts/crm";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CircleAlertIcon } from "lucide-react";
@@ -80,13 +81,19 @@ export function NewLeadScreen() {
       },
     }),
   );
+  // The choice is asked while the contact as typed has an open lead, which the form then shows with it; the api's
+  // OPEN_LEAD_EXISTS only refetches that and says why the form asks now.
+  const askOpenLead = Boolean(known.data?.match?.openLead);
   const openLeadNow = refusalOf(create.error)?.reason === "OPEN_LEAD_EXISTS";
-  const askOpenLead = Boolean(known.data?.match?.openLead) || openLeadNow;
-  // While the contact has an open lead, or the api said so, the form asks what to do with it before sending.
   const send = onSubmit((input) => {
-    if (askOpenLead && input.whenOpenLead === null) form.setError("whenOpenLead", { message: t("problems.openLead") });
-    else create.mutate(input);
+    if (askOpenLead && input.whenOpenLead === null) {
+      form.setError("whenOpenLead", { message: t("problems.openLead") }, { shouldFocus: true });
+    } else create.mutate(input);
   });
+  const choiceMissing = form.formState.errors.whenOpenLead !== undefined;
+  // Above Save, so a phone's person sees why nothing was sent, though the choice is far up the form.
+  const choiceSentence =
+    askOpenLead && (openLeadNow ? t("known.chooseThenSave") : choiceMissing && t("known.chooseFirst"));
   const saving = create.isPending;
   const legend = "text-section font-semibold";
 
@@ -110,10 +117,10 @@ export function NewLeadScreen() {
           <SourceFields form={form} disabled={saving} />
           {assigns && <OwnerField form={form} disabled={saving} />}
         </FieldSet>
-        {openLeadNow ? (
+        {choiceSentence ? (
           <Alert variant="destructive">
             <CircleAlertIcon aria-hidden="true" />
-            <AlertDescription>{t("known.chooseThenSave")}</AlertDescription>
+            <AlertDescription>{choiceSentence}</AlertDescription>
           </Alert>
         ) : (
           <FormAlert sending={create} problem={formProblem} />

@@ -162,6 +162,9 @@ describe("NewLeadScreen", () => {
     expect(screen.getByRole("link", { name: form.known.openThatLead })).toHaveAttribute("href", `/leads/${ids.rahul}`);
     await save();
     expect(await screen.findByText(form.problems.openLead)).toBeVisible();
+    // On a phone the choice is far above Save: it takes the focus, and the sentence shows above Save too.
+    expect(within(known).getByRole("radio", { name: form.known.addToIt })).toHaveFocus();
+    expect(screen.getByText(form.known.chooseFirst)).toBeVisible();
     expect(inputsTo("leads.create")).toEqual([]);
 
     await userEvent.click(within(known).getByRole("radio", { name: form.known.addToIt }));
@@ -213,6 +216,23 @@ describe("NewLeadScreen", () => {
       expect(address.href).toBe(`/leads/${ids.rahul}`);
     });
     expect(lastInputTo("leads.create")).toMatchObject({ whenOpenLead: "new-lead" });
+  });
+
+  it("isn't stuck after OPEN_LEAD_EXISTS when the open lead is gone by the time it asks again", async () => {
+    const api = renderForm({ "leads.create": { status: 409, reason: "OPEN_LEAD_EXISTS" } });
+    await fillPerson();
+    await save();
+    await waitFor(() => {
+      expect(inputsTo("leads.create")).toHaveLength(1);
+    });
+    // The colleague's lead was closed meanwhile: the known contact has no open lead, so there is nothing to choose.
+    expect(screen.queryByRole("group", { name: form.known.choice })).not.toBeInTheDocument();
+    api.answer("leads.create", created);
+    await save();
+    await waitFor(() => {
+      expect(address.href).toBe(`/leads/${ids.rahul}`);
+    });
+    expect(lastInputTo("leads.create")).toMatchObject({ whenOpenLead: null });
   });
 
   it("shows the person's stored name and says the lead will be marked returning", async () => {
@@ -267,5 +287,17 @@ describe("NewLeadScreen", () => {
     await waitFor(() => {
       expect(lastInputTo("leads.create")).toMatchObject({ trip: { destination: { kind: "new", name: "Spiti" } } });
     });
+  });
+
+  it("says when the destinations didn't load, with Try again, and still adds a new one", async () => {
+    const api = renderForm({ "destinations.search": { status: 500 } });
+    await userEvent.click(screen.getByRole("combobox", { name: form.trip.destination }));
+    expect(await screen.findByText(form.destination.loadFailed)).toBeVisible();
+    expect(screen.queryByText(form.destination.noMatch)).not.toBeInTheDocument();
+    await userEvent.type(screen.getByPlaceholderText(form.destination.searchOrAdd), "Spiti");
+    expect(await screen.findByRole("option", { name: form.destination.add.replace("{name}", "Spiti") })).toBeVisible();
+    api.answer("destinations.search", { data: [{ id: ids.goa, name: "Spiti Valley" }] });
+    await userEvent.click(screen.getByRole("button", { name: messages.common.tryAgain }));
+    expect(await screen.findByRole("option", { name: "Spiti Valley" })).toBeVisible();
   });
 });
