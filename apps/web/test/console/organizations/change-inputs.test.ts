@@ -11,7 +11,7 @@ import {
   toTrialEndInput,
   toVoidPaymentInput,
 } from "@/console/organizations/subscription/change-inputs";
-import { groupedRupees } from "@/console/organizations/fields/money-field";
+import { groupedRupees } from "@/components/forms/money-field";
 
 const organizationId = "0199a000-0000-7000-8000-000000000002";
 const paymentId = "0199a000-0000-7000-8000-0000000000f1";
