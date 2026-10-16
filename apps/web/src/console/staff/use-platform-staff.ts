@@ -33,7 +33,10 @@ export function useAddPlatformStaff(onAdded: (input: AddPlatformStaffInput, answ
       onSuccess: (answer, input) => {
         onAdded(input, answer);
       },
-      onSettled: refresh,
+      // Not awaited: the password is shown the moment the api answers, whatever the list's refresh is waiting for.
+      onSettled: () => {
+        void refresh();
+      },
     }),
   );
 }
@@ -42,7 +45,13 @@ export function useResetPlatformStaffPassword() {
   const trpc = useConsoleTRPC();
   const refresh = useRefreshStaff();
   return useMutation(
-    trpc.platformStaff.resetPassword.mutationOptions({ ...TEMPORARY_PASSWORD_MUTATION, onSettled: refresh }),
+    trpc.platformStaff.resetPassword.mutationOptions({
+      ...TEMPORARY_PASSWORD_MUTATION,
+      // Not awaited: the password is shown the moment the api answers, whatever the list's refresh is waiting for.
+      onSettled: () => {
+        void refresh();
+      },
+    }),
   );
 }
 

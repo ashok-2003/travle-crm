@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PolicySection } from "@/console/plans/policy-section";
 import { messages } from "@/i18n/messages";
-import { stubApi } from "../../support/api-stub";
+import { heldAnswer, stubApi } from "../../support/api-stub";
 import { platformStaff } from "../../support/platform-staff";
 import { screenIs } from "../../organization/render";
 import { inputsTo, renderConsole } from "./render-console";
@@ -68,5 +68,22 @@ describe("PolicySection", () => {
     api.answer("platform.plans.policy", { data: policy });
     await userEvent.click(screen.getByRole("button", { name: messages.common.tryAgain }));
     expect(await screen.findAllByText("7 days")).toHaveLength(2);
+  });
+
+  it("can't be closed while the policy is being saved", async () => {
+    screenIs("wide");
+    const api = stubApi({ "platform.plans.policy": { data: policy } });
+    renderConsole(<PolicySection />);
+    await userEvent.click(await screen.findByRole("button", { name: words.change }));
+    const dialog = screen.getByRole("dialog", { name: words.changeTitle });
+    const held = heldAnswer({ data: policy });
+    api.answer("platform.plans.setPolicy", held.answer);
+    await userEvent.click(within(dialog).getByRole("button", { name: messages.common.save }));
+    await userEvent.keyboard("{Escape}");
+    expect(dialog).toBeVisible();
+    held.release();
+    await vi.waitFor(() => {
+      expect(dialog).not.toBeVisible();
+    });
   });
 });

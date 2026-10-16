@@ -152,4 +152,12 @@ describe("the organization's exports", () => {
     expect(screen.queryByRole("button", { name: words.purge.action })).toBeNull();
     expect(screen.queryByRole("button", { name: words.subject.export })).toBeNull();
   });
+
+  it("says why Export is disabled while one is being prepared, pointing to the failed jobs", async () => {
+    openScreen({ "platform.dataProtection.exports": { data: [anExport(asked)] } });
+    const button = await screen.findByRole("button", { name: words.exports.export });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleDescription(new RegExp(`^${words.exports.preparing.slice(0, 20)}`));
+    expect(screen.getByRole("link", { name: words.exports.seeJobs })).toHaveAttribute("href", "/console/jobs");
+  });
 });

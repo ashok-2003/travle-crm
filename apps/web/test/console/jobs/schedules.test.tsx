@@ -6,7 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SchedulesSection } from "@/console/jobs/schedules-section";
 import { messages } from "@/i18n/messages";
-import { stubApi } from "../../support/api-stub";
+import { heldAnswer, stubApi } from "../../support/api-stub";
 import { platformStaff } from "../../support/platform-staff";
 import { inputsTo, renderConsole } from "../plans/render-console";
 
@@ -86,5 +86,27 @@ describe("SchedulesSection", () => {
     api.answer("platform.jobs.schedules", { data: [] });
     await userEvent.click(screen.getByRole("button", { name: messages.common.tryAgain }));
     expect(await screen.findByText(words.empty)).toBeVisible();
+  });
+
+  it("can't be closed while a schedule is being removed", async () => {
+    const api = stubApi({ "platform.jobs.schedules": { data: schedules } });
+    renderConsole(<SchedulesSection />);
+    const digest = await itemOf("reports.weekly-digest");
+    await userEvent.click(
+      digest.getByRole("button", { name: words.removeFor.replace("{queue}", "reports.weekly-digest") }),
+    );
+    const confirm = screen.getByRole("alertdialog", {
+      name: words.removeTitle.replace("{queue}", "reports.weekly-digest"),
+    });
+    const held = heldAnswer({ data: null });
+    api.answer("platform.jobs.unschedule", held.answer);
+    await userEvent.click(within(confirm).getByRole("button", { name: words.removeConfirm }));
+    expect(within(confirm).getByRole("button", { name: messages.common.cancel })).toBeDisabled();
+    await userEvent.keyboard("{Escape}");
+    expect(confirm).toBeVisible();
+    held.release();
+    await vi.waitFor(() => {
+      expect(screen.queryByRole("alertdialog")).toBeNull();
+    });
   });
 });
