@@ -33,6 +33,7 @@
     "NOT_FOUND": "This no longer exists. It may have been removed.",
     "SEAT_LIMIT_REACHED": "Every seat on your plan is taken. Remove someone, or ask for more seats.",
     "IMPERSONATING": "Only the person themselves can do this, not support signed in as them.",
+    "TARGET_HAS_PENDING_STEP": "They have to finish signing in themselves first: choose a new password or set up two-factor.",
     "NO_SUBSCRIPTION": "Your organization has no subscription yet. Ask support to set one up.",
     "ORGANIZATION_READ_ONLY": "Your organization is read-only until its payment is made. You can still view and export.",
     "ORGANIZATION_SUSPENDED": "Your organization is suspended until its payment is made. Only an Owner can export or remove staff.",

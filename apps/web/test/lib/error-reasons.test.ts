@@ -3,6 +3,7 @@
 // sentence belongs to a reason something still throws. The reasons are read from the api's sources: the second
 // argument of every `new DomainError(...)` in packages/domain, packages/api and apps/api, and, where that argument is
 // a parameter of a helper (`notFound(reason, ...)`, `parseInput(..., reason)`), what every call of the helper passes.
+// A sentence may also belong to a code Better Auth's side doors refuse with (`new APIError(..., { code })`).
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -97,6 +98,19 @@ function thrownReasons(): Set<string> {
   return reasons;
 }
 
+/** The codes of every `new APIError(status, { code: "..." })`: the side doors' refusals, which screens show too. */
+function sideDoorCodes(): Set<string> {
+  const codes = new Set<string>();
+  for (const text of sourceFiles()) {
+    for (const match of text.matchAll(/new APIError\(/g)) {
+      const options = argumentsAt(text, match.index + match[0].length - 1)[1] ?? "";
+      const code = /code:\s*"([A-Z][A-Z0-9_]*)"/.exec(options)?.[1];
+      if (code !== undefined) codes.add(code);
+    }
+  }
+  return codes;
+}
+
 describe("errors.json's reasons", () => {
   const thrown = thrownReasons();
   const sentences = Object.keys(errors.reasons);
@@ -107,12 +121,14 @@ describe("errors.json's reasons", () => {
   });
 
   it("hold no sentence for a reason nothing throws, nor for one no screen can meet", () => {
-    expect(sentences.filter((reason) => !thrown.has(reason) || NEVER_SHOWN.includes(reason)).sort()).toEqual([]);
+    const refused = new Set([...thrown, ...sideDoorCodes()]);
+    expect(sentences.filter((reason) => !refused.has(reason) || NEVER_SHOWN.includes(reason)).sort()).toEqual([]);
   });
 
   it("find the reasons wherever they are written: literally, through a helper, or by a local", () => {
     for (const reason of ["LAST_OWNER", "LINK_REVOKED", "INVALID_PREFERENCE", "SET_UP_TWO_FACTOR", "NOT_SOLD_YEARLY"]) {
       expect(thrown, reason).toContain(reason);
     }
+    expect(sideDoorCodes()).toContain("TARGET_HAS_PENDING_STEP");
   });
 });

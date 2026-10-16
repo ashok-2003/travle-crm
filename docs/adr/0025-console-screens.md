@@ -35,6 +35,9 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 6.1, 7 and 11 (
 - **Impersonation** starts on an organization's page: its active members (`organizations.members`), a confirmation
   that it is recorded in the organization's audit log and lasts at most an hour, then a full load of `/` as the
   member. The agency's banner shows a Stop button, which ends it, wipes what the device holds and opens `/console`.
+  The side door refuses a member with a step still to take, a temporary password or the two-factor their
+  organization requires (`TARGET_HAS_PENDING_STEP`): the app would hold support at the step's screen, which needs the
+  member's own password. The dialog says why and stays open.
 - **The screens:** the dashboard (every organization a page at a time: status as a dot and a word, days left, seats,
   last activity, this month's use); onboarding; an organization's page (its record and corrections, its business
   profile, its members with the Owner's invite resent, its subscription: today's state beside the recorded one, the
