@@ -2,6 +2,7 @@
 // and a member who sees only their own leads, reaching another's lead by its id from any procedure, is answered 404
 // NOT_FOUND and changes nothing.
 import type { LeadDetail, TimelinePage } from "@travel-crm/contracts/crm";
+import type { Task } from "@travel-crm/contracts/tasks";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { CookieJar } from "./support/cookie-jar.js";
 import { addStaff, ownerAccess, signedInOwner, signedInStaff, type TestStaff } from "./support/people.js";
@@ -86,12 +87,14 @@ describe("a lead", () => {
       ["leads.reopen", { leadId }],
       ["leads.editTrip", { leadId, trip: noTrip }],
       ["leads.editPerson", { leadId, person: { name: "Someone", phone: "98765 11111" } }],
+      ["leads.addWork", { leadId, kind: "follow-up", title: "Call", due: { on: "2027-01-15", at: "10:00" } }],
     ];
     for (const [path, input] of changes) {
       expect(await refusalOf(await mutate(server, path, input, salesperson)), path).toEqual(notFound);
     }
     const reassign = { leadId, ownerUserId: zara.userId };
     expect(await refusalOf(await mutate(server, "leads.reassign", reassign, teamLead))).toEqual(notFound);
+    expect(await refusalOf(await mutate(server, "leads.block", { leadId }, teamLead))).toEqual(notFound);
     expect(await dataOf<LeadDetail>(await query(server, "leads.get", owner, { leadId }))).toMatchObject({
       stage: "new",
       ownerUserId: agency.owner.userId,
@@ -99,5 +102,17 @@ describe("a lead", () => {
       trip: { when: { kind: "unknown" } },
     });
     expect(await server.db.forOrg(agency.organizationId, (tx) => tx.leadNote.count({ where: { leadId } }))).toBe(1);
+    expect(await server.db.forOrg(agency.organizationId, (tx) => tx.blockedContact.count())).toBe(0);
+  });
+
+  it("adds a follow-up for the lead's owner, whoever adds it", async () => {
+    const followUp = { leadId, kind: "follow-up", title: "Send the quote", due: { on: "2027-01-15", at: "10:00" } };
+    expect(await dataOf<Task>(await mutate(server, "leads.addWork", followUp, owner))).toMatchObject({
+      dueAt: "2027-01-15T04:30:00.000Z",
+      assigneeUserId: agency.owner.userId,
+      record: { recordType: "lead", recordId: leadId },
+    });
+    const lead = await dataOf<LeadDetail>(await query(server, "leads.get", owner, { leadId }));
+    expect(lead.work).toMatchObject([{ title: "Send the quote", assigneeUserId: agency.owner.userId }]);
   });
 });

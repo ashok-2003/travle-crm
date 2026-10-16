@@ -9,6 +9,8 @@ import { createTestOrganization } from "@travel-crm/db/testing";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import {
   addLeadNote,
+  addLeadWork,
+  blockLeadContact,
   editLeadPerson,
   editLeadTrip,
   getLead,
@@ -142,6 +144,7 @@ describe("a lead's page", () => {
       return { theirs: other.id, gone: removed.id };
     });
     const everyone = { owners: new Set([salesperson.userId, asha]), now: new Date() };
+    const due = { on: "2027-01-15", at: "10:00" };
     for (const leadId of [theirs, gone, randomUUID()]) {
       const doors = [
         () => inOrg((tx) => getLead(tx, salesperson, leadId)),
@@ -152,10 +155,15 @@ describe("a lead's page", () => {
         () => inOrg((tx) => editLeadTrip(tx, salesperson, editTripInput.parse({ leadId, trip: noTrip }))),
         () => inOrg((tx) => editLeadPerson(tx, salesperson, editPersonInput.parse({ leadId, person: rahul }))),
         () => inOrg((tx) => reassignLead(tx, salesperson, { leadId, ownerUserId: salesperson.userId }, everyone)),
+        () =>
+          inOrg((tx) => addLeadWork(tx, salesperson, { leadId, kind: "follow-up", title: "Call", due }, new Date())),
+        () => inOrg((tx) => blockLeadContact(tx, salesperson, { leadId }, new Date())),
       ];
       for (const door of doors) await expect(door()).rejects.toMatchObject({ code: "NOT_FOUND", reason: "NOT_FOUND" });
     }
     expect(await inOrg((tx) => tx.leadNote.count({ where: { leadId: theirs } }))).toBe(0);
+    expect(await inOrg((tx) => tx.task.count({ where: { recordId: theirs } }))).toBe(0);
+    expect(await inOrg((tx) => tx.blockedContact.count())).toBe(0);
     expect(await inOrg((tx) => tx.lead.findUniqueOrThrow({ where: { id: theirs } }))).toMatchObject({
       stage: "new",
       ownerUserId: asha,
