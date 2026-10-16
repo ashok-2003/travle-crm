@@ -60,8 +60,15 @@ wait_until "Postgres starting" docker exec "$run-postgres" pg_isready --host 127
 wait_until "MinIO starting" docker exec "$run-minio" mc alias set local http://localhost:9000 minio-dev minio-dev-secret
 docker exec "$run-minio" mc mb --ignore-existing local/travel-crm >/dev/null
 
-# Production settings, as a deploy sets them: https addresses, rate limiting, a strong secret made for this run.
+# Production settings, as a deploy sets them: https addresses, rate limiting, and a strong secret and a VAPID key pair
+# made for this run (production refuses .env.example's).
 secret="$(node --eval 'console.log(require("node:crypto").randomBytes(32).toString("base64"))')"
+vapid="$(node --eval '
+  const { privateKey } = require("node:crypto").generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+  const { x, y, d } = privateKey.export({ format: "jwk" });
+  const point = Buffer.concat([Buffer.of(4), Buffer.from(x, "base64url"), Buffer.from(y, "base64url")]);
+  console.log("VAPID_PUBLIC_KEY=" + point.toString("base64url") + "\nVAPID_PRIVATE_KEY=" + d);
+')"
 cat >"$work/api.env" <<EOF
 NODE_ENV=production
 DATABASE_URL=postgresql://app_runtime:runtime@postgres:5432/travel_crm
@@ -76,7 +83,8 @@ S3_FORCE_PATH_STYLE=true
 SMTP_HOST=mailpit
 SMTP_PORT=1025
 EMAIL_FROM_ADDRESS=no-reply@travel-crm.localhost
-$(grep '^VAPID_' .env.example)
+$vapid
+VAPID_SUBJECT=mailto:ops@example.test
 EOF
 cp "$work/api.env" "$work/console.env"
 cat >>"$work/console.env" <<EOF
