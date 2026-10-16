@@ -44,8 +44,8 @@ a side and 16 megapixels, which `confirmUpload` reads from the stored file's hea
 `downloadLink`: issued documents and their PDFs), `shareLinks` (`create`, `list`, `revoke`, for issued documents),
 `notifications` (`list`, `unreadCount`, `markRead`, `preferences.list`/`set`, `push.publicKey`/`subscribe`/
 `unsubscribe`, for any member) and `audit` (`list`, with `audit:view`: newest first or one record's history, each
-actor named on the server). A download link is of the export kind and never cached: `attachments.downloadLink` is a
-mutation, and `documents.downloadLink` a query the screen fetches only when pressed. Add a router in
+actor named on the server). A download link is of the export kind and never cached: `attachments.downloadLink` and
+`documents.downloadLink` are both `freshProcedure` mutations. Add a router in
 `src/routers/` and list it in `app-router.ts`.
 
 ## The platform console (`src/platform/`)

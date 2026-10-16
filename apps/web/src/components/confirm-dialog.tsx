@@ -1,12 +1,16 @@
 "use client";
 
-// Asking once more before something that can't be taken back (DESIGN.md section 6): what happens, a refusal's
+// Asking once more before something that can't be taken back (DESIGN.md section 6): what happens, anything more the
+// person must do first (children: say, the code typed to confirm, with confirmDisabled until it matches), a refusal's
 // sentence if the api gave one, then Cancel and the action. While its request is out the dialog stays open: Cancel and
-// the action are off and Escape does nothing, so the answer is always seen. The request belongs to the section that
-// opens the dialog, whose mutation options close it on success, so the success is handled however the dialog ends.
-// Closed by the person (Cancel, Escape), the request is reset, so a refusal isn't shown when it opens again; closed by a
-// success, nothing is reset, as there is no refusal to forget.
+// the action are off and Escape does nothing, so the answer is always seen.
+//
+// The one way it closes on success (Ruling P): the section that opens it owns the request, and closes it in that
+// mutation's own options, the hook's useMutation onSuccess (as useRemoveLogo(onRemoved) does), never in mutate()'s
+// callbacks, which are dropped once the calling component is gone. Closed by the person (Cancel, Escape), the request
+// is reset, so its refusal isn't shown when the dialog opens again; a success has none to forget.
 import { useTranslations } from "next-intl";
+import type { ReactNode } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -36,6 +40,9 @@ export function ConfirmDialog({
   action,
   request,
   onConfirm,
+  confirmDisabled = false,
+  refusal,
+  children,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -45,15 +52,20 @@ export function ConfirmDialog({
   action: string;
   request: ConfirmRequest;
   onConfirm: () => void;
+  /** The action waits for something the children ask, such as the typed code matching. */
+  confirmDisabled?: boolean;
+  /** The refusal's sentence where the api's own isn't the one to show; by default, the api's. */
+  refusal?: ((error: unknown) => string) | undefined;
+  children?: ReactNode;
 }) {
   const tCommon = useTranslations("common");
   const { apiError } = useErrorMessage();
+  const sentenceFor = refusal ?? apiError;
   return (
     <AlertDialog
       open={open}
       onOpenChange={(next) => {
         if (request.isPending) return;
-        // Only the person's own close comes here: a success closes the dialog through the section's state instead.
         if (!next) request.reset();
         onOpenChange(next);
       }}
@@ -63,16 +75,17 @@ export function ConfirmDialog({
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
+        {children}
         {request.isError && (
           <Alert variant="destructive">
-            <AlertDescription>{apiError(request.error)}</AlertDescription>
+            <AlertDescription>{sentenceFor(request.error)}</AlertDescription>
           </Alert>
         )}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={request.isPending}>{tCommon("cancel")}</AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"
-            disabled={request.isPending}
+            disabled={confirmDisabled || request.isPending}
             onClick={(event) => {
               // Open until the api answers, so a refusal shows here and the action can't be sent twice.
               event.preventDefault();

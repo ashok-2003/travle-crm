@@ -6,13 +6,13 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { messages } from "@/i18n/messages";
+import { loadPage } from "@/lib/navigate";
 import { inputsSentTo } from "../business/sent";
 import { heldAnswer, stubApi } from "../support/api-stub";
 import { member } from "../support/members";
 import { certificate, cheque, record, renderPanel, signed, subscription } from "./panel";
 
-const startDownload = vi.hoisted(() => vi.fn<(url: string) => void>());
-vi.mock("@/files/start-download", () => ({ startDownload }));
+vi.mock("@/lib/navigate", () => ({ loadPage: vi.fn(), replacePage: vi.fn() }));
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock("sonner", () => ({ toast }));
 
@@ -20,7 +20,7 @@ const words = messages.business.attachments;
 
 describe("AttachmentsPanel", () => {
   beforeEach(() => {
-    startDownload.mockReset();
+    vi.mocked(loadPage).mockReset();
     toast.success.mockClear();
     toast.error.mockClear();
   });
@@ -69,7 +69,7 @@ describe("AttachmentsPanel", () => {
     renderPanel();
     await userEvent.click(await screen.findByRole("button", { name: "Download GST certificate.pdf" }));
     await waitFor(() => {
-      expect(startDownload).toHaveBeenCalledWith("https://files.example/gst.pdf");
+      expect(loadPage).toHaveBeenCalledWith("https://files.example/gst.pdf");
     });
     expect(inputsSentTo("attachments.downloadLink")).toEqual([{ ...record, attachmentId: certificate.id }]);
   });

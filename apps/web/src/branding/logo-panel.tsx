@@ -1,7 +1,8 @@
 "use client";
 
 // The logo on the branding screen: the current one, shown through its short-lived link, and uploading a PNG or JPEG
-// straight to storage with its progress, or removing it. Type and size are checked here before anything is sent.
+// straight to storage with its progress (with Stop, and Try again after a failure), or removing it. Type and size are
+// checked here before anything is sent.
 import { useQuery } from "@tanstack/react-query";
 import { MAX_LOGO_BYTES, type OrganizationLogo } from "@travel-crm/contracts/profile";
 import Image from "next/image";
@@ -17,7 +18,11 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTRPC } from "@/data/trpc";
 import { formatFileSize } from "@/files/file-size";
+import { UploadError } from "@/files/upload";
+import { wasStopped } from "@/files/use-signed-upload";
+import { useErrorMessage } from "@/lib/error-message";
 import { useWriteAccess } from "@/subscription/write-access";
+import { logoUploadOf } from "./logo-file";
 import { useLogoUpload, useRemoveLogo } from "./use-logo";
 
 /** The logo as it was uploaded, contained in the space a document's header gives it. */
@@ -51,14 +56,25 @@ export function LogoPanel() {
   const logo = useQuery(
     trpc.organization.logo.get.queryOptions(undefined, { staleTime: 60_000, meta: { persist: false } }),
   );
-  const { state, start } = useLogoUpload();
+  const { upload, progress, stop } = useLogoUpload();
+  const { apiError } = useErrorMessage();
+  const [problem, setProblem] = useState<string | null>(null);
   const write = useWriteAccess();
   const fileInput = useRef<HTMLInputElement>(null);
   const [removing, setRemoving] = useState(false);
   const remove = useRemoveLogo(() => {
     setRemoving(false);
   });
-  const uploading = state.phase === "uploading";
+  const uploading = upload.isPending;
+  const size = formatFileSize(MAX_LOGO_BYTES);
+
+  const choose = (file: File) => {
+    const checked = logoUploadOf(file);
+    upload.reset();
+    setProblem(checked.ok ? null : t(checked.problem, { size }));
+    if (checked.ok) upload.mutate({ file, input: checked.input });
+  };
+  const failed = upload.isError && !wasStopped(upload.error);
 
   const preview = () => {
     if (logo.data) return <LogoImage key={logo.data.url} logo={logo.data} />;
@@ -83,12 +99,39 @@ export function LogoPanel() {
       <Card>
         <CardContent className="flex flex-col gap-4">
           {preview()}
-          <p className="text-label text-muted-foreground">{t("hint", { size: formatFileSize(MAX_LOGO_BYTES) })}</p>
-          {uploading && <Progress value={state.progress * 100} aria-label={t("uploading")} />}
-          {state.phase === "failed" && (
+          <p className="text-label text-muted-foreground">{t("hint", { size })}</p>
+          {uploading && (
+            <div className="flex flex-col gap-2">
+              <Progress value={progress * 100} aria-label={t("uploading")} />
+              <Button type="button" variant="ghost" className="self-start" onClick={stop}>
+                {t("stop")}
+              </Button>
+            </div>
+          )}
+          {problem !== null && (
             <Alert variant="destructive">
-              <AlertDescription>{state.message}</AlertDescription>
+              <AlertDescription>{problem}</AlertDescription>
             </Alert>
+          )}
+          {failed && (
+            <div className="flex flex-col items-start gap-2">
+              <Alert variant="destructive">
+                <AlertDescription>
+                  {upload.error instanceof UploadError ? t("uploadFailed") : apiError(upload.error)}
+                </AlertDescription>
+              </Alert>
+              <Button
+                type="button"
+                variant="outline"
+                aria-label={t("tryAgain")}
+                disabled={!write.allowed}
+                onClick={() => {
+                  upload.mutate(upload.variables);
+                }}
+              >
+                {tCommon("tryAgain")}
+              </Button>
+            </div>
           )}
           {/* Hidden from everyone, screen readers too: the button opens it. Labelled for tests and journeys. */}
           <input
@@ -101,7 +144,7 @@ export function LogoPanel() {
               const file = event.target.files?.[0];
               // Cleared, so choosing the same file again (after a failed upload) is a change too.
               event.target.value = "";
-              if (file) void start(file);
+              if (file) choose(file);
             }}
           />
           <div className="flex flex-wrap gap-2">

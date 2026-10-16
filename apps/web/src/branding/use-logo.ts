@@ -1,54 +1,38 @@
 "use client";
 
-// Changing the logo (spec 9.2): the api says where to upload, the browser PUTs the file straight to storage with its
-// progress, and the confirmed logo, with its link, replaces the one shown; or it is removed.
+// Changing the logo (spec 9.2): sent straight to storage like any file (useSignedUpload: progress, Stop, failing at
+// once offline, Try again picking up where it stopped), then the confirmed logo, with its link, replaces the one shown;
+// or it is removed.
+import type { RequestLogoUploadInput } from "@travel-crm/contracts/profile";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { MAX_LOGO_BYTES } from "@travel-crm/contracts/profile";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
 import { toast } from "sonner";
-import { useTRPC } from "@/data/trpc";
-import { formatFileSize } from "@/files/file-size";
-import { UploadError, uploadFile } from "@/files/upload";
-import { useErrorMessage } from "@/lib/error-message";
-import { logoUploadOf } from "./logo-file";
+import { useTRPC, useTRPCClient } from "@/data/trpc";
+import { useSignedUpload } from "@/files/use-signed-upload";
 
-export type LogoUploadState =
-  { phase: "idle" } | { phase: "uploading"; progress: number } | { phase: "failed"; message: string };
+/** A logo to send: the file, and what the api is asked to sign for it (logoUploadOf). */
+export interface LogoRequest {
+  file: File;
+  input: RequestLogoUploadInput;
+}
 
 export function useLogoUpload() {
   const trpc = useTRPC();
+  const client = useTRPCClient();
   const queryClient = useQueryClient();
   const t = useTranslations("documents.branding.logo");
-  const { apiError } = useErrorMessage();
-  const requestUpload = useMutation(trpc.organization.logo.requestUpload.mutationOptions());
-  const confirmUpload = useMutation(trpc.organization.logo.confirmUpload.mutationOptions());
-  const [state, setState] = useState<LogoUploadState>({ phase: "idle" });
-
-  const start = async (file: File): Promise<void> => {
-    const checked = logoUploadOf(file);
-    if (!checked.ok) {
-      setState({ phase: "failed", message: t(checked.problem, { size: formatFileSize(MAX_LOGO_BYTES) }) });
-      return;
-    }
-    setState({ phase: "uploading", progress: 0 });
-    try {
-      const { attachmentId, upload } = await requestUpload.mutateAsync(checked.input);
-      await uploadFile(upload, file, {
-        onProgress: (progress) => {
-          setState({ phase: "uploading", progress });
-        },
-      });
-      const logo = await confirmUpload.mutateAsync({ attachmentId });
-      queryClient.setQueryData(trpc.organization.logo.get.queryKey(), logo);
-      setState({ phase: "idle" });
+  return useSignedUpload({
+    requestUpload: ({ input }: LogoRequest) => client.organization.logo.requestUpload.mutate(input),
+    confirmUpload: (attachmentId) => client.organization.logo.confirmUpload.mutate({ attachmentId }),
+    onSuccess: (logo) => {
+      const key = trpc.organization.logo.get.queryKey();
+      // Its link lasts five minutes: setQueryData carries no meta, so should the panel's query be gone by now, the
+      // one it makes takes persist: false from the key's defaults and stays out of IndexedDB.
+      queryClient.setQueryDefaults(key, { meta: { persist: false } });
+      queryClient.setQueryData(key, logo);
       toast.success(t("saved"));
-    } catch (error) {
-      setState({ phase: "failed", message: error instanceof UploadError ? t("uploadFailed") : apiError(error) });
-    }
-  };
-
-  return { state, start };
+    },
+  });
 }
 
 /** Removing the logo; `onRemoved` closes the dialog that asked, however it is by then. */

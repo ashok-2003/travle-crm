@@ -4,15 +4,14 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { LogoPanel } from "@/branding/logo-panel";
 import type * as UploadModule from "@/files/upload";
 import { UploadError, uploadFile } from "@/files/upload";
 import { messages } from "@/i18n/messages";
-import { newQueryClient, renderWithApi } from "../organization/api";
 import { screenIs } from "../organization/render";
-import { heldAnswer, stubApi, type Answer } from "../support/api-stub";
+import { heldAnswer } from "../support/api-stub";
 import { inputsSentTo } from "../documents/sent";
 import { subscriptionAnswer } from "../documents/subscription";
+import { attachmentId, choose, logo, png, renderPanel, upload } from "./logo";
 
 vi.mock("@/files/upload", async (importOriginal) => ({
   ...(await importOriginal<typeof UploadModule>()),
@@ -20,37 +19,6 @@ vi.mock("@/files/upload", async (importOriginal) => ({
 }));
 
 const words = messages.documents.branding.logo;
-
-const attachmentId = "0199e7a0-0000-7000-8000-00000000a001";
-const logo = {
-  attachmentId,
-  fileName: "Sharma.png",
-  url: "https://files.example.test/organizations/o/attachments/a001?signature=1",
-  expiresAt: "2026-10-15T05:35:00.000Z",
-};
-const upload = {
-  url: "https://files.example.test/organizations/o/attachments/a002?signature=2",
-  method: "PUT" as const,
-  headers: { "content-type": "image/png", "content-length": "9", "if-none-match": "*" },
-  expiresAt: "2026-10-15T05:40:00.000Z",
-};
-
-function renderPanel(answers: Record<string, Answer> = {}) {
-  const api = stubApi({
-    "organization.logo.get": { data: logo },
-    "subscription.get": subscriptionAnswer(),
-    ...answers,
-  });
-  renderWithApi(<LogoPanel />, newQueryClient(null));
-  return api;
-}
-
-const png = (name = "Sharma.png", size = 9) => new File([new Uint8Array(size)], name, { type: "image/png" });
-
-/** Chooses a file as the browser's file picker would. */
-function choose(file: File) {
-  fireEvent.change(screen.getByLabelText(words.fileLabel), { target: { files: [file] } });
-}
 
 beforeEach(() => {
   screenIs("wide");
