@@ -6,9 +6,10 @@
 import { leadSource, leadStage } from "@travel-crm/contracts/crm";
 import type { CustomerExport } from "@travel-crm/contracts/platform";
 import { joinSql, sql, withDeleted, type OrgTx } from "@travel-crm/db";
+import { destinationNames } from "../catalog/index.js";
 import { DomainError } from "../kernel/index.js";
 import { listTasksOnRecord } from "../tasks/index.js";
-import { tripDetailColumns, tripDetailOf } from "./trip-record.js";
+import { tripColumnNames, tripDetailOf } from "./trip-columns.js";
 
 /** The person an erasure or export is about, in the organization it names. */
 export interface CustomerSubject {
@@ -102,10 +103,10 @@ export async function exportCustomer(tx: OrgTx, subject: CustomerSubject): Promi
         source: true,
         sourceDetail: true,
         createdAt: true,
-        ...tripDetailColumns,
+        ...tripColumnNames,
         notes: { select: { body: true, createdAt: true }, orderBy: { id: "asc" } },
         enquiries: {
-          select: { ...tripDetailColumns, source: true, sourceDetail: true, note: true, createdAt: true },
+          select: { ...tripColumnNames, source: true, sourceDetail: true, note: true, createdAt: true },
           orderBy: { id: "asc" },
         },
       },
@@ -114,6 +115,11 @@ export async function exportCustomer(tx: OrgTx, subject: CustomerSubject): Promi
       tx,
       "lead",
       leads.map((lead) => lead.id),
+    );
+    const trips = leads.flatMap((lead) => [lead, ...lead.enquiries]);
+    const names = await destinationNames(
+      tx,
+      trips.flatMap((trip) => trip.destinationId ?? []),
     );
     return {
       personId,
@@ -127,10 +133,10 @@ export async function exportCustomer(tx: OrgTx, subject: CustomerSubject): Promi
         source: leadSource.parse(lead.source),
         sourceDetail: lead.sourceDetail,
         createdAt: lead.createdAt.toISOString(),
-        trip: tripDetailOf(lead),
+        trip: tripDetailOf(lead, names),
         notes: lead.notes.map((note) => ({ body: note.body, createdAt: note.createdAt.toISOString() })),
         enquiries: lead.enquiries.map((enquiry) => ({
-          trip: tripDetailOf(enquiry),
+          trip: tripDetailOf(enquiry, names),
           source: leadSource.parse(enquiry.source),
           sourceDetail: enquiry.sourceDetail,
           note: enquiry.note,

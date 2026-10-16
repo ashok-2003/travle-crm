@@ -4,7 +4,8 @@
 import { leadSource } from "@travel-crm/contracts/crm";
 import type { LeadBrief } from "@travel-crm/contracts/today";
 import { emptySql, sql, type OrgTx, type Sql } from "@travel-crm/db";
-import { tripSummaryColumns, tripSummaryOf } from "./trip-record.js";
+import { destinationNames } from "../catalog/index.js";
+import { tripColumnNames, tripSummaryOf } from "./trip-columns.js";
 
 export interface NewLeadsWaitingFilter {
   ownerUserId: string;
@@ -47,8 +48,12 @@ export async function leadBriefs(tx: OrgTx, leadIds: readonly string[]): Promise
   if (leadIds.length === 0) return new Map();
   const leads = await tx.lead.findMany({
     where: { id: { in: [...new Set(leadIds)] } },
-    select: { id: true, source: true, person: { select: { name: true, phoneE164: true } }, ...tripSummaryColumns },
+    select: { id: true, source: true, person: { select: { name: true, phoneE164: true } }, ...tripColumnNames },
   });
+  const names = await destinationNames(
+    tx,
+    leads.flatMap((lead) => lead.destinationId ?? []),
+  );
   return new Map(
     leads.map((lead) => [
       lead.id,
@@ -56,7 +61,7 @@ export async function leadBriefs(tx: OrgTx, leadIds: readonly string[]): Promise
         id: lead.id,
         personName: lead.person.name,
         phone: lead.person.phoneE164,
-        trip: tripSummaryOf(lead),
+        trip: tripSummaryOf({ ...lead, childrenCount: lead.childrenAges.length }, names),
         source: leadSource.parse(lead.source),
       },
     ]),
