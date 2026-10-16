@@ -261,14 +261,18 @@ Each component without a path is in `components/`, in the file of its name (`Emp
   `type PlatformRouter` from `@travel-crm/api/platform` alone. `/api/platform/*` is rewritten to `CONSOLE_ORIGIN`
   (`http://localhost:3002` in development; the api's `console` command serves it) before `/api/*`.
 - Platform staff sign in on the one sign-in page and land on `/console`; the step screens bring them back with
-  `?next=`. They must use two-factor (`staffProcedure` refuses `SET_UP_TWO_FACTOR`), and never keep a trusted device:
-  the api ignores `trustDevice` for them and forgets their trusted devices at every password sign-in (ADR 0025).
+  `?next=`. Two-factor is off (owner, 2026-10-16): `features.twoFactor` in `packages/contracts/src/features/index.ts`
+  is `false`, so nobody is asked for a code, platform staff sign in with a password alone and no screen shows
+  two-factor. That is the risk: turn it back on for platform staff before real agencies. On, they must use two-factor
+  (`staffProcedure` refuses `SET_UP_TWO_FACTOR`) and never keep a trusted device: the api ignores `trustDevice` for
+  them and forgets their trusted devices at every password sign-in (ADR 0025). Tests of two-factor turn it on with
+  `vi.mock("@travel-crm/contracts/features", ...)`; journeys follow the constant.
 - A console screen names its title as `"<screen>"` (the layout adds "· Console · <product>"), shows times in
   `PLATFORM_TIME_ZONE`, and checks `isSuperAdmin(useStaff())` only for convenience: the api refuses support. An
   organization's page is the exception for times: its members' last activity, its onboarding day and a suspension's
   day show in the organization's own time zone.
-- Journeys: `test/e2e/support/console.ts` gives `superAdmin` and `support` (two-factor on) and
-  `signInToConsole(page, staff)`; the harness starts the api, the worker and the console process.
+- Journeys: `test/e2e/support/console.ts` gives `superAdmin` and `support` (two-factor on while `features.twoFactor`
+  is) and `signInToConsole(page, staff)`; the harness starts the api, the worker and the console process.
 
 ## The release (ADR 0027)
 
