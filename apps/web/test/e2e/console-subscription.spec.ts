@@ -1,7 +1,9 @@
 // An organization's subscription in the console (spec 7.3, 7.4): a past-due agency is active again once support
-// records its payment; and a suspension made by hand shows in the console while the agency's own calls are refused.
+// records its payment, its day chosen from the calendar; and a suspension made by hand shows in the console while
+// the agency's own calls are refused.
 import { addDays, calendarDateIn } from "@travel-crm/domain/kernel";
 import { expect, signInToConsole, test } from "./support/console";
+import { chooseDay } from "./support/console-organizations";
 import { signInByEmail } from "./support/fixtures";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -20,7 +22,7 @@ test("a past-due agency becomes active when support records a payment", async ({
   await subscription.getByRole("button", { name: "Record a payment" }).click();
   const dialog = page.getByRole("dialog", { name: "Record a payment" });
   await dialog.getByLabel("Amount received").fill("2950");
-  await dialog.getByLabel("Pays through").fill(addDays(calendarDateIn(new Date(), "Asia/Kolkata"), 30));
+  await chooseDay(dialog, "Pays through", addDays(calendarDateIn(new Date(), "Asia/Kolkata"), 30));
   await dialog.getByLabel("Reference").fill("NEFT UTR 412345678901");
   await dialog.getByRole("button", { name: "Record the payment" }).click();
 
