@@ -60,6 +60,7 @@ quotes and invoices bring theirs.
   other file is never read, so a passport scan can't be printed; a logo removed before the render, whose bytes
   aren't a PNG or JPEG png-js reads as its headers say, whose header claims more than 4096 pixels a side or 16
   megapixels (`isLogoSizeAllowed`: pdfkit would inflate every pixel, and a 1 MB file can claim gigabytes of them), or
-  whose pixel data inflates to more than that header's rows (`pixelDataFitsHeader`) is left out and the document still
-  renders. `assertUsableLogo(body, declaredType)` is the same check for the logo's upload, which `confirmUpload` awaits
+  whose pixel data inflates to more than that header's rows or has a row whose filter type png-js doesn't know
+  (`pixelDataFitsHeader`; png-js would throw where nothing catches it) is left out and the document still renders.
+  `assertUsableLogo(body, declaredType)` is the same check for the logo's upload, which `confirmUpload` awaits
   (`VALIDATION`/`UPLOAD_DOES_NOT_MATCH`, `VALIDATION`/`LOGO_TOO_LARGE`).

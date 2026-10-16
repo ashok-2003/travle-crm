@@ -73,9 +73,10 @@ export function imageOf(bytes: Uint8Array): ImageHeader | null {
 }
 
 /**
- * Whether the image's pixel data is no more than its header says: a PNG's inflates to at most its rows' bytes,
- * counted without keeping them. A JPEG is drawn as it is stored (DCTDecode), so nothing inflates. Check the size
- * first: a header claiming a huge size allows huge pixel data.
+ * Whether the image's pixel data is what its header says: a PNG's inflates to at most its rows' bytes, counted
+ * without keeping them, and each row starts with a filter type png-js knows (`pngPixelDataFits`). A JPEG is drawn as
+ * it is stored (DCTDecode), so nothing inflates. Check the size first: a header claiming a huge size allows huge
+ * pixel data.
  */
 export async function pixelDataFitsHeader(bytes: Uint8Array): Promise<boolean> {
   if (!startsWith(bytes, PNG_SIGNATURE)) return imageOf(bytes) !== null;

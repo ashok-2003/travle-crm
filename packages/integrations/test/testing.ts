@@ -64,6 +64,32 @@ export function pngWithSecondHeader(): Uint8Array {
   );
 }
 
+/**
+ * A 1×1 RGBA PNG whose one row starts with this filter type: above 4, png-js throws inside its zlib callback, which
+ * nothing catches, when pdfkit has it decode the pixels for their alpha.
+ */
+export function pngWithFilterType(filterType: number): Uint8Array {
+  return pngOf(
+    pngChunk("IHDR", pngHeader(1, 1, { bitDepth: 8, colourType: 6 })),
+    pngChunk("IDAT", deflateSync(new Uint8Array([filterType, 0, 0, 0, 255]))),
+    end(),
+  );
+}
+
+/**
+ * A valid 2×2 RGBA interlaced PNG with a red pixel at (1,0). png-js reads a filter byte for Adam7's empty passes too,
+ * so it takes the red pixel's 200 for a filter type and throws.
+ */
+export function narrowInterlacedPng(): Uint8Array {
+  // Adam7's three passes that hold pixels here, each row a filter byte and RGBA: (0,0); (1,0); (0,1) and (1,1).
+  const rows = [0, 0, 0, 0, 255, 0, 200, 0, 0, 255, 0, 0, 0, 0, 255, 0, 0, 0, 255];
+  return pngOf(
+    pngChunk("IHDR", pngHeader(2, 2, { bitDepth: 8, colourType: 6, interlace: 1 })),
+    pngChunk("IDAT", deflateSync(new Uint8Array(rows))),
+    end(),
+  );
+}
+
 /** A 16×16 PNG whose pixel data inflates to a megabyte rather than its 48 bytes: a gigabyte at 1 MB stored. */
 export function pngWithOversizedPixelData(): Uint8Array {
   return pngOf(pngChunk("IHDR", pngHeader(16, 16)), pngChunk("IDAT", deflateSync(new Uint8Array(1024 * 1024))), end());

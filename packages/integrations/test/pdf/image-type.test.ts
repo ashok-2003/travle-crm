@@ -1,6 +1,7 @@
 // A logo's real type comes from its bytes, not from what the browser declared (storage checks only the declared one),
 // and its size from its headers, before anything decodes it. A PNG is read as png-js reads it (React-PDF and pdfkit
-// decode with it), and one it would read otherwise is no image; its pixel data inflates to no more than its header says.
+// decode with it), and one it would read otherwise is no image; its pixel data inflates to no more than its header
+// says, every row with a filter type png-js knows.
 import { deflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { imageOf, pixelDataFitsHeader } from "../../src/pdf/index.js";
@@ -9,6 +10,8 @@ import {
   pngHeader,
   pngOf,
   pngOfSize,
+  narrowInterlacedPng,
+  pngWithFilterType,
   pngWithOversizedPixelData,
   pngWithSecondHeader,
   tinyJpeg,
@@ -87,9 +90,13 @@ describe("a PNG, read as png-js reads it", () => {
     const hidden = new Uint8Array([...pngHeader(1, 1), ...ihdr(20_000, 20_000).subarray(0, 13)]);
     expect(imageOf(pngOf(pngChunk("IHDR", hidden), idat(2), iend))).toBeNull();
     expect(imageOf(pngOf(pngChunk("tEXt", new TextEncoder().encode("a\0b")), ihdr(1, 1), idat(2), iend))).toBeNull();
+    // An IHDR of no bytes at all, in a file of 20 to 28 bytes: no image, not a read past the end.
+    for (const file of [pngOf(pngChunk("IHDR", new Uint8Array())), pngOf(pngChunk("IHDR", new Uint8Array(8)))]) {
+      expect(imageOf(file), String(file.byteLength)).toBeNull();
+    }
   });
 
-  it("is no image for a colour type, bit depth or interlace PNG doesn't allow, which png-js would size by", () => {
+  it("is no image for a colour type or bit depth PNG doesn't allow, which png-js would size by", () => {
     for (const options of [
       { bitDepth: 255, colourType: 6 },
       { bitDepth: 1, colourType: 6 },
@@ -114,20 +121,43 @@ describe("a PNG, read as png-js reads it", () => {
     expect(imageOf(pngOf(ihdr(1, 1), idat(2)))).toBeNull();
   });
 
-  it("holds pixel data that inflates to no more than its header says, interlaced or not", async () => {
+  it("is no image when interlaced, which png-js misreads for an image 4 pixels wide or narrower", () => {
+    const interlaced = narrowInterlacedPng();
+    expect(imageOf(interlaced)).toBeNull();
+    expect(imageOf(pngOf(ihdr(8, 8, { interlace: 1 }), idat(30), iend))).toBeNull();
+    expect(imageOf(pngOf(ihdr(8, 8), idat(16), iend))).toMatchObject({ width: 8, height: 8 });
+  });
+
+  it("holds pixel data that inflates to no more than its header's rows", async () => {
     expect(await pixelDataFitsHeader(tinyPng)).toBe(true);
     expect(await pixelDataFitsHeader(pngOfSize(4000, 4000))).toBe(true);
-    // 8×8, a bit a pixel: 8 rows of a filter byte and one byte; Adam7's seven passes take 30 bytes.
-    const eight = (bytes: number, interlace: number) => pngOf(ihdr(8, 8, { interlace }), idat(bytes), iend);
-    expect(await pixelDataFitsHeader(eight(16, 0))).toBe(true);
-    expect(await pixelDataFitsHeader(eight(17, 0))).toBe(false);
-    expect(await pixelDataFitsHeader(eight(30, 1))).toBe(true);
-    expect(await pixelDataFitsHeader(eight(31, 1))).toBe(false);
+    // 8×8, a bit a pixel: 8 rows of a filter byte and one byte.
+    const eight = (bytes: number) => pngOf(ihdr(8, 8), idat(bytes), iend);
+    expect(await pixelDataFitsHeader(eight(16))).toBe(true);
+    expect(await pixelDataFitsHeader(eight(17))).toBe(false);
     // A megabyte of pixel data for 16×16: from 1 MB stored, a gigabyte.
     expect(await pixelDataFitsHeader(pngWithOversizedPixelData())).toBe(false);
     expect(await pixelDataFitsHeader(pngOf(ihdr(1, 1), pngChunk("IDAT", new Uint8Array([1, 2, 3])), iend))).toBe(false);
     // A JPEG is drawn as stored; anything else is no image.
     expect(await pixelDataFitsHeader(tinyJpeg)).toBe(true);
     expect(await pixelDataFitsHeader(new TextEncoder().encode("GIF89a"))).toBe(false);
+  });
+
+  it("holds pixel data whose every row starts with a filter type png-js knows, whose others it throws at", async () => {
+    for (const filterType of [0, 1, 2, 3, 4]) {
+      expect(await pixelDataFitsHeader(pngWithFilterType(filterType)), String(filterType)).toBe(true);
+    }
+    for (const filterType of [5, 200, 255]) {
+      expect(await pixelDataFitsHeader(pngWithFilterType(filterType)), String(filterType)).toBe(false);
+    }
+    // 8×8, a bit a pixel, so a row is 2 bytes: only each row's first byte is a filter type, pixels may be anything.
+    const rows = (bytes: number[]) => pngOf(ihdr(8, 8), pngChunk("IDAT", deflateSync(new Uint8Array(bytes))), iend);
+    const fine = Array.from({ length: 8 }, (_, row) => [row % 5, 0xff]).flat();
+    expect(await pixelDataFitsHeader(rows(fine))).toBe(true);
+    const fifthBad = fine.map((byte, index) => (index === 8 ? 7 : byte));
+    expect(await pixelDataFitsHeader(rows(fifthBad))).toBe(false);
+    // A last row cut short still has its filter type read.
+    expect(await pixelDataFitsHeader(rows([...fine.slice(0, 14), 9]))).toBe(false);
+    expect(await pixelDataFitsHeader(rows(fine.slice(0, 15)))).toBe(true);
   });
 });

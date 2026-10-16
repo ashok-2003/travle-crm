@@ -26,9 +26,9 @@ export async function assertUsableLogo(body: Uint8Array, declaredType: string): 
  * The logo to draw, or undefined to leave it out. Only the organization's own logo is read (its record is the
  * organization), so a frozen id that names any other file, a passport scan, is never printed. A logo removed since
  * the document was issued, whose bytes aren't a PNG or JPEG png-js reads as their headers say (storage checks only
- * the declared type), or with more pixels or pixel data than a logo may hold (React-PDF would inflate them all,
- * stored before the upload's check) is left out, and the document still renders.
- * Anything else, storage failing, is thrown, so the job is retried.
+ * the declared type), with more pixels or pixel data than a logo may hold (React-PDF would inflate them all), or with
+ * pixel data png-js would throw at where nothing catches it (any stored before the upload's checks) is left out, and
+ * the document still renders. Anything else, storage failing, is thrown, so the job is retried.
  */
 export async function documentLogo(
   files: Pick<Files, "systemFile">,

@@ -30,9 +30,11 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 7.1, 7.3, 9.2-9
 - **The logo** is an attachment of record type `organization_logo` whose record is the organization: PNG or JPEG (what
   React-PDF draws), at most 1 MB, 4096 pixels a side and 16 megapixels; the one that arrived last is the logo
   (`organization.logo.*`). The confirm step reads the stored file's headers (a PNG's chunks as png-js reads them,
-  JPEG's frame header): bytes that aren't the image they say, or a PNG whose pixel data inflates to more than its
-  header's rows, are `UPLOAD_DOES_NOT_MATCH`, and more pixels `LOGO_TOO_LARGE`, because a 1 MB file can claim, or
-  inflate to, gigabytes of pixels, which pdfkit would allocate in the worker every organization shares. An issued
+  JPEG's frame header): bytes that aren't the image they say, an interlaced PNG, or one whose pixel data inflates to
+  more than its header's rows or has a row whose filter type png-js doesn't know, are `UPLOAD_DOES_NOT_MATCH`, and
+  more pixels `LOGO_TOO_LARGE`. A 1 MB file can claim, or inflate to, gigabytes of pixels, which pdfkit would allocate
+  in the worker every organization shares; and png-js throws at a bad filter type, or misreads a narrow interlaced
+  image, inside a zlib callback nothing can catch, which would stop that worker on every retry. An issued
   document freezes its attachment id in its branding, and the worker reads the bytes through the files module and
   draws them; a logo it can't read, or past the cap (one stored before it), is left out, and the document still
   renders.
