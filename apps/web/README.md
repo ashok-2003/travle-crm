@@ -46,6 +46,10 @@ build fails without it.
   starts a throwaway Postgres, MinIO and Mailpit, the api, the worker, the console process and a fresh build on free
   ports (Docker must be running; install Chromium once with
   `pnpm --filter @travel-crm/web exec playwright install chromium`).
+- `test/e2e/audit/`: the visual audit. `pnpm e2e:audit` (`playwright.audit.config.ts`) starts the same harness and
+  saves a full-page PNG of every screen on a phone and a desktop to `AUDIT_OUT` (default `test-results/audit`), as
+  `<project>/<nn>-<screen>.png` numbered by `shot-list.ts`, with an `index.md` listing each shot's screen, route and
+  person, and any not taken. `--project phone` or `--project desktop` runs one side.
 - `turbopack/workspace-imports-loader.cjs`: our packages import `./file.js` for `./file.ts`, which Turbopack can't
   map yet (vercel/next.js#82945); the loader drops the `.js` for files under `packages/*/src`. Remove it when
   Turbopack resolves such imports itself.
