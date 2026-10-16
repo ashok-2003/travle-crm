@@ -1,7 +1,7 @@
 // The request checks of spec 6.5 through the HTTP app: signed in (1), role permission (4), membership read on every
 // request, fresh sessions for sensitive procedures (spec 6.4), and the steps a member must take before using the app.
 import type { MeOutput } from "@travel-crm/contracts/identity";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { CookieJar } from "./support/cookie-jar.js";
 import { addStaff, signedInOwner, signedInStaff } from "./support/people.js";
 import {
@@ -14,6 +14,9 @@ import {
 } from "./support/test-server.js";
 import { dataOf, mutate, query, refusalOf } from "./support/trpc.js";
 import { enableTwoFactor } from "./support/two-factor.js";
+
+// Two-factor is off in the product (@travel-crm/contracts/features): these tests prove what turning it on brings.
+vi.mock("@travel-crm/contracts/features", () => ({ features: { twoFactor: true } }));
 
 describe("request checks", () => {
   let server: TestServer;

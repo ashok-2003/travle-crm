@@ -1,10 +1,13 @@
 // Two-factor sign-in is required of platform staff (spec 6.1: the platform's accounts reach every organization): the
 // console refuses staff without it, SET_UP_TWO_FACTOR, until it is on, and a temporary password is replaced first.
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { consoleQuery, createTestConsole, signedInPlatformStaff, type TestConsole } from "./support/console.js";
 import { createTestServer, postJson, type TestServer } from "./support/test-server.js";
 import { refusalOf } from "./support/trpc.js";
 import { enableTwoFactor } from "./support/two-factor.js";
+
+// Two-factor is off in the product (@travel-crm/contracts/features): these tests prove what turning it on brings.
+vi.mock("@travel-crm/contracts/features", () => ({ features: { twoFactor: true } }));
 
 describe("the console's two-factor requirement", () => {
   let server: TestServer;

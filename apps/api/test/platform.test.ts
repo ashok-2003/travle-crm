@@ -2,7 +2,7 @@
 // and impersonation (at most an hour) makes the admin act as the user, never as platform staff, and never as a member
 // with a step only they can take.
 import type { MeOutput } from "@travel-crm/contracts/identity";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { consoleQuery, createTestConsole, signInPlatformStaffAgain, type TestConsole } from "./support/console.js";
 import { CookieJar } from "./support/cookie-jar.js";
 import { createPlatformAdmin, ownerAccess, signedInOwner } from "./support/people.js";
@@ -16,6 +16,9 @@ import {
 } from "./support/test-server.js";
 import { dataOf, query, refusalOf } from "./support/trpc.js";
 import { enableTwoFactor } from "./support/two-factor.js";
+
+// Two-factor is off in the product (@travel-crm/contracts/features): these tests prove what turning it on brings.
+vi.mock("@travel-crm/contracts/features", () => ({ features: { twoFactor: true } }));
 
 describe("platform staff", () => {
   let server: TestServer;
