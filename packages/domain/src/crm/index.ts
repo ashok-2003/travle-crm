@@ -10,4 +10,5 @@ export { recordLeadEvent, type LeadEventEntry } from "./lead-events.js";
 export { countLeads, listLeads } from "./lead-list.js";
 export { leadCountsQuery, leadListQuery, type LeadCountsFilter, type LeadListFilter } from "./lead-list-query.js";
 export { addLeadWork } from "./lead-work.js";
+export { addPerson, type PersonRow } from "./people.js";
 export { addLeadNote, listLeadTimeline } from "./timeline.js";

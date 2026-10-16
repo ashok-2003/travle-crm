@@ -4,6 +4,12 @@ import type { LeadDetail } from "@travel-crm/contracts/crm";
 import type { OrgTx } from "@travel-crm/db";
 import type { MemberAccess } from "../identity/index.js";
 
+/** Whether the member's leads:view scope reaches a lead with this owner: all leads, or their own (R26). */
+export function isLeadInScope(access: MemberAccess, ownerUserId: string | null): boolean {
+  const scope = access.permissions.scopeOf("leads:view");
+  return scope === "all" || (scope === "own" && ownerUserId === access.userId);
+}
+
 /** The lead; the router adds the names of the people it mentions. */
 export const getLead: (tx: OrgTx, access: MemberAccess, leadId: string) => Promise<Omit<LeadDetail, "people">> = () => {
   throw new Error("Not built yet: release 1 plan, Task C4");

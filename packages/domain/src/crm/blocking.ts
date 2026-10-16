@@ -8,6 +8,17 @@ import type {
 } from "@travel-crm/contracts/crm";
 import type { OrgTx } from "@travel-crm/db";
 import type { MemberAccess } from "../identity/index.js";
+import { contactFields, type PersonContactValues } from "./people.js";
+
+/** Whether any of the contacts is on the blocked list (R33): the form warns, and saving still works (spec 4). */
+export async function isBlocked(tx: OrgTx, contacts: PersonContactValues): Promise<boolean> {
+  const given = contactFields.flatMap((field) => {
+    const value = contacts[field.key];
+    return value === undefined ? [] : [{ kind: field.kind, value }];
+  });
+  if (given.length === 0) return false;
+  return (await tx.blockedContact.count({ where: { OR: given } })) > 0;
+}
 
 /** Blocks the lead's phone, else its email, else its handle, and marks the lead Not a lead. */
 export const blockLeadContact: (
