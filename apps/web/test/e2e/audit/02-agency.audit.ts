@@ -1,7 +1,7 @@
-// The visual audit's agency screens: an Owner sets their agency up screen by screen (the checklist, settings, the
-// business profile and files, branding with a logo and the sample, documents and a share link, roles, staff), a
-// customer opens the link and the bell says so, then the notification choices, the audit log and the shell's bars;
-// and a Sales member's home, a screen their role can't open, and the console opened by an agency's Owner.
+// The visual audit's agency screens: an Owner sets their agency up screen by screen (Home's setup card, the checklist,
+// settings, the business profile and files, branding with a logo and the sample, documents and a share link, roles,
+// staff), a customer opens the link and the bell says so, then the notification choices, the audit log and the shell's
+// bars; and a Sales member's home, a screen their role can't open, and the console opened by an agency's Owner.
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type { Page } from "@playwright/test";
@@ -40,11 +40,11 @@ test("an Owner's agency, screen by screen, as it is set up", async ({ page, requ
   await saveBusinessProfile(page);
   await page.goto("/");
   const checklist = page.getByRole("region", { name: `Finish setting up ${agency.name}` });
-  await expect(checklist.getByText("4 of 5 done")).toBeVisible();
+  await expect(checklist.getByText("5 of 7 done")).toBeVisible();
   await shoot(page, "home-checklist");
   await page.goto("/setup");
   await expect(page.getByRole("heading", { level: 1, name: "Set up your organization" })).toBeVisible();
-  await expect(page.getByText("4 of 5 done")).toBeVisible();
+  await expect(page.getByText("5 of 7 done")).toBeVisible();
   await shoot(page, "setup");
 
   await page.goto("/settings");

@@ -43,7 +43,7 @@ export const SHOTS = [
   { name: "change-password", screen: "Change password, with a temporary one", as: "Meera Iyer, Operations, new" },
   ...(features.twoFactor ? TWO_FACTOR_SHOTS : []),
   { name: "account", screen: "Your account", as: features.twoFactor ? `${owner}, two-factor on` : owner },
-  { name: "home-checklist", screen: "Home with the Owner's setup checklist", as: owner },
+  { name: "home-checklist", screen: "Home with the setup card above the usual Home", as: owner },
   { name: "setup", screen: "The setup checklist", as: owner },
   { name: "settings", screen: "Settings", as: owner },
   { name: "business-profile", screen: "Business profile, the bank number masked", as: owner },

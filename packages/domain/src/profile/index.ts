@@ -6,4 +6,4 @@ export {
   updateOrganizationProfile,
 } from "./profile.js";
 export { createProfiles, type Profiles } from "./profiles.js";
-export { setupChecklistOf } from "./setup-checklist.js";
+export { setupChecklistOf, type SetupFacts } from "./setup-checklist.js";

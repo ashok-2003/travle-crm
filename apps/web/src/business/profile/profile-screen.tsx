@@ -1,7 +1,7 @@
 "use client";
 
 // The business profile screen (spec 7.1): what onboarding saved, for the Owner to complete, and what the setup
-// checklist's business details, bank details and invoice prefix steps lead to.
+// checklist's business details, contact phone, bank details and invoice prefix steps lead to, each to its section.
 import { useTranslations } from "next-intl";
 import { BackToSettings } from "@/components/back-to-settings";
 import { ErrorState } from "@/components/error-state";

@@ -1,7 +1,7 @@
 // The business profile screen (spec 7.1): the Owner sees what onboarding saved and completes it; the api's own rules
 // are checked before anything is sent, a GSTIN of another state named as such; the saved profile comes back as the api
 // keeps it and the setup checklist is asked again; a refusal shows its sentence; a read-only organization's Owner may
-// look but not save, and reads why.
+// look but not save, and reads why. A setup step's link is taken to its section.
 import { useQuery } from "@tanstack/react-query";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -138,6 +138,25 @@ describe("ProfileScreen", () => {
     const state = screen.getByRole("combobox", { name: words.gstState });
     expect(state).toBeDisabled();
     expect(state).toHaveAttribute("data-disabled");
+  });
+
+  it("takes a setup step's link to its section once the profile has loaded: scrolled to and focused", async () => {
+    const scrollIntoView = vi.fn();
+    Object.assign(Element.prototype, { scrollIntoView });
+    window.history.replaceState(null, "", `${routes.profile}#contact-phone`);
+    try {
+      stubApi({ "organization.profile.get": { data: saved }, "subscription.get": subscription("full") });
+      renderWithApi(<ProfileScreen />, newQueryClient(null), owner);
+      const contact = await screen.findByRole("region", { name: words.contact });
+      await waitFor(() => {
+        expect(contact).toHaveFocus();
+      });
+      expect(scrollIntoView).toHaveBeenCalledOnce();
+      expect(scrollIntoView.mock.contexts[0]).toBe(contact);
+    } finally {
+      window.history.replaceState(null, "", "/");
+      Reflect.deleteProperty(Element.prototype, "scrollIntoView");
+    }
   });
 
   it("says so when the profile didn't load, and tries again", async () => {

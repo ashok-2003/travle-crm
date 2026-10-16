@@ -1,13 +1,15 @@
 // The command that builds the shared demo now (`demo`), for a fresh local database that shouldn't wait for the
 // nightly reset at 02:00: the same reset, with the console's DEMO_ variables. It prints the organization code and the
-// usernames to sign in with, never a password. On a database of its own, so the demo's organization and plan touch no
-// other file's.
+// usernames to sign in with, never a password; its Owner's setup checklist has only the logo left. On a database of
+// its own, so the demo's organization and plan touch no other file's.
+import type { SetupChecklist } from "@travel-crm/contracts/profile";
 import { createIsolatedDatabase } from "@travel-crm/db/testing";
 import { describe, expect, inject, it } from "vitest";
 import { demoCommand } from "../src/console-commands.js";
 import { createTestConsole } from "./support/console.js";
 import { CookieJar } from "./support/cookie-jar.js";
 import { createTestServer, signInWithCode } from "./support/test-server.js";
+import { dataOf, query } from "./support/trpc.js";
 
 describe("the demo command", () => {
   it("builds the demo once and says how to sign in to it, or says which variables to set", async () => {
@@ -36,14 +38,16 @@ describe("the demo command", () => {
         ],
         stderr: [],
       });
+      const jars = new Map<string, CookieJar>();
       for (const username of ["asha", "ravi", "meena"]) {
-        const signIn = await signInWithCode(server, new CookieJar(), {
-          orgCode: "DEMO",
-          username,
-          password: demo.password,
-        });
+        const jar = new CookieJar();
+        const signIn = await signInWithCode(server, jar, { orgCode: "DEMO", username, password: demo.password });
         expect(signIn.status).toBe(200);
+        jars.set(username, jar);
       }
+      // What the demo's Owner sees first on Home: everything is set up but a logo (spec 7.1).
+      const checklist = await dataOf<SetupChecklist>(await query(server, "organization.setup.get", jars.get("asha")));
+      expect(checklist.steps.filter((step) => !step.done).map((step) => step.step)).toEqual(["logo"]);
     } finally {
       await testConsole.close();
       await server.close();

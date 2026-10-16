@@ -1,16 +1,16 @@
 "use client";
 
 // The home screen. Business modules (leads, quotes, bookings) arrive in later steps; until then it points those who
-// can set the organization up at what to do first: the Owner at the setup checklist until it is done (spec 7.1),
-// everyone else (and the Owner afterwards) at the screens their role may use.
+// can set the organization up at what to do first: whoever may change its settings (the Owner, Admins) sees the setup
+// card above everything else until the checklist is done (spec 7.1), and everyone the screens their role may use.
 import { ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Fragment } from "react";
-import { HomeChecklist } from "@/business/setup/home-checklist";
+import { SetupCard } from "@/business/setup/setup-card";
 import { PageHeader } from "@/components/page-header";
 import { Item, ItemContent, ItemGroup, ItemMedia, ItemSeparator, ItemTitle } from "@/components/ui/item";
-import { useMe } from "@/session/me-context";
+import { holds, useMe } from "@/session/me-context";
 import type { NavigationItem } from "@/shell/navigation";
 import { useNavigationItems } from "@/shell/use-navigation-items";
 
@@ -52,7 +52,8 @@ export default function HomePage() {
   return (
     <div className="flex max-w-[720px] flex-col gap-6">
       <PageHeader title={t("title", { name: me.user.name })} />
-      {me.member.role.isOwner ? <HomeChecklist afterwards={screens} /> : screens}
+      {holds(me, "settings:manage") && <SetupCard />}
+      {screens}
     </div>
   );
 }
