@@ -118,6 +118,27 @@ describe("MembersSection", () => {
     expect(sent?.[1]?.body).toBe(JSON.stringify({ userId: member().userId }));
   });
 
+  it("opens the agency's app even when the other tabs can't be told, reporting why", async () => {
+    screenIs("wide");
+    const reportError = vi.fn();
+    vi.stubGlobal("reportError", reportError);
+    const noChannel = new Error("BroadcastChannel is not allowed here");
+    session.announceSignOut.mockImplementationOnce(() => {
+      throw noChannel;
+    });
+    renderMembers({
+      "platform.organizations.members": { data: [member()] },
+      "auth/admin/impersonate-user": { data: {} },
+    });
+    await userEvent.click(await screen.findByRole("button", { name: "Sign in as Lakshmi Nair" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Sign in as Lakshmi Nair" }));
+    await vi.waitFor(() => {
+      expect(navigation.loadPage).toHaveBeenCalledWith("/");
+    });
+    expect(reportError).toHaveBeenCalledWith(noChannel);
+  });
+
   it("says why an impersonation was refused, and stays", async () => {
     screenIs("wide");
     renderMembers({

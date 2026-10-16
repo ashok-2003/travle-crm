@@ -32,6 +32,28 @@ test("a past-due agency becomes active when support records a payment", async ({
   await expect(subscription.getByText("NEFT UTR 412345678901")).toBeVisible();
 });
 
+test("a date field's calendar fits a 320px phone, its days still 40px at least", async ({ page, support, agency }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await signInToConsole(page, support);
+  await page.goto(`/console/organizations/${agency.organizationId}`);
+  await page.getByRole("region", { name: "Subscription" }).getByRole("button", { name: "Record a payment" }).click();
+  await page.getByRole("dialog", { name: "Record a payment" }).getByRole("button", { name: "Pays through" }).click();
+  const calendar = page.locator("[data-slot=calendar]");
+  await expect(calendar).toBeVisible();
+  // Measured once the popover's zoom-in has finished: mid-animation it is scaled down, and looks smaller than it is.
+  await page.waitForFunction(() => document.getAnimations().every((animation) => animation.playState === "finished"));
+  const box = await calendar.boundingBox();
+  // In whole pixels: a phone's device pixels leave fractions (39.99999 for 40).
+  expect(Math.round(box?.x ?? -1)).toBeGreaterThanOrEqual(0);
+  expect(Math.round((box?.x ?? 0) + (box?.width ?? Infinity))).toBeLessThanOrEqual(320);
+  const day = await calendar
+    .getByRole("button", { name: /\d{4}$/ })
+    .first()
+    .boundingBox();
+  expect(Math.round(day?.width ?? 0)).toBeGreaterThanOrEqual(40);
+  expect(Math.round(day?.height ?? 0)).toBeGreaterThanOrEqual(40);
+});
+
 test("a suspension shows in the console, and the agency's calls are refused", async ({ page, support, agency }) => {
   await signInToConsole(page, support);
   await page.goto(`/console/organizations/${agency.organizationId}`);

@@ -38,7 +38,7 @@ export function OnboardForm({ plansOnSale }: { plansOnSale: PlansOnSale }) {
       },
     }),
   );
-  const { form, onSubmit } = useCheckedForm(emptyOnboardValues(), toOnboardInput, (problem) =>
+  const { form, onSubmit, formProblem } = useCheckedForm(emptyOnboardValues(), toOnboardInput, (problem) =>
     t(`problems.${problem}`),
   );
   const ready = "plans" in plansOnSale;
@@ -56,10 +56,10 @@ export function OnboardForm({ plansOnSale }: { plansOnSale: PlansOnSale }) {
           plansOnSale.placeholder
         )}
       </FieldSet>
-      {onboard.isError && (
+      {(formProblem !== undefined || onboard.isError) && (
         <Alert variant="destructive">
           <CircleAlertIcon aria-hidden="true" />
-          <AlertDescription>{apiError(onboard.error)}</AlertDescription>
+          <AlertDescription>{formProblem ?? apiError(onboard.error)}</AlertDescription>
         </Alert>
       )}
       <Button type="submit" disabled={!ready || onboard.isPending} className="self-start">

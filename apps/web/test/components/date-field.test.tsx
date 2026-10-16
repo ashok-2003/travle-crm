@@ -31,10 +31,10 @@ function DayForm({ day, onSave }: { day: string; onSave: (day: string) => void }
   );
 }
 
-function renderField(day = "") {
+function renderField(day = "", words = messages) {
   const onSave = vi.fn();
   render(
-    <NextIntlClientProvider locale={locale} messages={messages}>
+    <NextIntlClientProvider locale={locale} messages={words}>
       <DayForm day={day} onSave={onSave} />
     </NextIntlClientProvider>,
   );
@@ -79,6 +79,12 @@ describe("DateField", () => {
     expect(targetSize(button).height).toBeGreaterThanOrEqual(44);
   });
 
+  it("shows its empty hint in the app's words, hidden from screen readers", () => {
+    renderField("", { ...messages, calendar: { ...messages.calendar, placeholder: "DD-MM-YYYY" } });
+    const hint = within(screen.getByRole("button", { name: "Paid on" })).getByText("DD-MM-YYYY");
+    expect(hint).toHaveAttribute("aria-hidden", "true");
+  });
+
   it("is named by its label alone while no day is chosen", () => {
     renderField();
     expect(screen.getByRole("button", { name: "Paid on" })).not.toHaveTextContent(/\d/);
@@ -94,7 +100,7 @@ describe("DateField", () => {
     expect(onSave).toHaveBeenCalledWith("2026-10-30");
   });
 
-  it("opens at the chosen day's month, weeks from Monday, its days 44px and named in the app's words", async () => {
+  it("opens at the chosen day's month, weeks from Monday, its days 44px (40px under 360px) and named in the app's words", async () => {
     renderField("2027-03-14");
     const popover = await openCalendar("Paid on 14/03/2027");
     expect(within(popover).getByRole("grid", { name: "March 2027" })).toBeVisible();
@@ -105,7 +111,10 @@ describe("DateField", () => {
     expect(within(popover).getByRole("combobox", { name: calendar.month })).toBeVisible();
     expect(within(popover).getByRole("button", { name: calendar.previousMonth })).toBeVisible();
     expect(within(popover).getByRole("navigation", { name: calendar.navigation })).toBeVisible();
-    expect(popover.querySelector("[data-slot=calendar]")).toHaveClass("[--cell-size:--spacing(11)]");
+    expect(popover.querySelector("[data-slot=calendar]")).toHaveClass(
+      "[--cell-size:--spacing(10)]",
+      "min-[360px]:[--cell-size:--spacing(11)]",
+    );
   });
 
   it("opens at today's month while no day is chosen, and says which day is today", async () => {

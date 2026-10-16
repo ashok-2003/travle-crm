@@ -41,7 +41,7 @@ function OverridesForm({
   save: Sending<SetOverridesInput>;
 }) {
   const t = useTranslations("consoleOrganizations.subscription");
-  const { form, onSubmit } = useCheckedForm(
+  const { form, onSubmit, formProblem } = useCheckedForm(
     {
       extraSeats: String(subscription.extraSeats),
       customPrice: subscription.customPricePaise === null ? "" : rupeesFieldText(subscription.customPricePaise),
@@ -98,7 +98,12 @@ function OverridesForm({
           )}
         />
       </FieldGroup>
-      <FormFooter sending={save} label={t("overrides.submit")} pendingLabel={t("overrides.submitting")} />
+      <FormFooter
+        sending={save}
+        problem={formProblem}
+        label={t("overrides.submit")}
+        pendingLabel={t("overrides.submitting")}
+      />
     </form>
   );
 }
