@@ -2,8 +2,8 @@
 # `pnpm images:smoke` (spec 12.1, gate 7): builds the api's and the web app's images, then runs every command of the
 # api's image as a deploy does (production settings, a read-only file system) against a throwaway Postgres, MinIO and
 # Mailpit. Expects the api and the console to answer /health, the worker to render a PDF with the brand's fonts, the
-# web app to serve /sign-in with its security headers and no /api rewrite, and each process to stop on SIGTERM by
-# itself. Everything it starts is removed again, however it ends.
+# web app to serve /sign-in with its security headers and no /api rewrite, each process to stop on SIGTERM by itself,
+# and neither image to hold a .env file. Everything it starts is removed again, however it ends.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 source scripts/docker/images.sh
@@ -21,6 +21,14 @@ trap cleanup EXIT
 echo "Building the images"
 docker build --file apps/api/Dockerfile --tag travel-crm-api:local .
 docker build --file apps/web/Dockerfile --tag travel-crm-web:local .
+# Neither image holds a .env from the checkout (.dockerignore): the web app's build reads them, and Next.js copies .env
+# and .env.production beside its server. node_modules is skipped: what a package ships is not the checkout's.
+for image in travel-crm-api:local travel-crm-web:local; do
+  found="$(docker run --rm --entrypoint find "$image" /app -name node_modules -prune -o -name '.env*' \
+    ! -name .env.example -print)"
+  [ -z "$found" ] || fail "$image holds $found"
+done
+echo "ok: neither image holds a .env file"
 
 docker network create "$run" >/dev/null
 # A container of this run, on its network, removed by cleanup.
