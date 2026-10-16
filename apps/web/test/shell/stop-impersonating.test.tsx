@@ -39,7 +39,12 @@ function otherTab() {
   channel.onmessage = (event: MessageEvent<unknown>) => {
     heard(event.data);
   };
-  return { heard, close: () => { channel.close(); } };
+  return {
+    heard,
+    close: () => {
+      channel.close();
+    },
+  };
 }
 
 afterEach(() => {
