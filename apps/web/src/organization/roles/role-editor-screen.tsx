@@ -10,6 +10,7 @@ import { Delayed } from "@/components/delayed";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { PageTitle } from "@/components/page-title";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTRPC } from "@/data/trpc";
 import { routes } from "@/lib/routes";
@@ -59,10 +60,12 @@ export function RoleEditorScreen({ roleKey }: { roleKey: string }) {
 
   return (
     <div className="flex max-w-[720px] flex-col gap-6">
-      <Link href={routes.roles} className="flex min-h-11 w-fit items-center gap-2 text-primary hover:underline">
-        <ArrowLeftIcon aria-hidden="true" className="size-4" />
-        {t("editor.back")}
-      </Link>
+      <Button variant="link" className="self-start px-0" asChild>
+        <Link href={routes.roles}>
+          <ArrowLeftIcon aria-hidden="true" />
+          {t("editor.back")}
+        </Link>
+      </Button>
       <PageTitle>{role?.name ?? t("title")}</PageTitle>
       {body()}
     </div>
