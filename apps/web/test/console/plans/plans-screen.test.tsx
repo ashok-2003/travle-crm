@@ -10,7 +10,7 @@ import { messages } from "@/i18n/messages";
 import { heldAnswer, stubApi, type Answer } from "../../support/api-stub";
 import { platformStaff } from "../../support/platform-staff";
 import { screenIs } from "../../organization/render";
-import { inputsTo, renderConsole } from "./render-console";
+import { inputsTo, renderConsole } from "../../support/render-console";
 
 const { plans: words, planForm: form } = messages.consolePlatform;
 const GIGABYTE = 1024 ** 3;
@@ -132,7 +132,7 @@ describe("PlansScreen", () => {
     const dialog = screen.getByRole("dialog", { name: form.createTitle });
     await userEvent.click(within(dialog).getByRole("button", { name: form.create }));
     expect(await within(dialog).findByText(form.problems.priceRequired)).toBeVisible();
-    expect(within(dialog).getByText(form.problems.keyInvalid)).toBeVisible();
+    expect(within(dialog).getAllByText(form.problems.required).length).toBeGreaterThan(0);
     expect(inputsTo("plans.create")).toEqual([]);
   });
 

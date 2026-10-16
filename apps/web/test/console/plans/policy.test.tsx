@@ -8,7 +8,7 @@ import { messages } from "@/i18n/messages";
 import { heldAnswer, stubApi } from "../../support/api-stub";
 import { platformStaff } from "../../support/platform-staff";
 import { screenIs } from "../../organization/render";
-import { inputsTo, renderConsole } from "./render-console";
+import { inputsTo, renderConsole } from "../../support/render-console";
 
 const { policy: words } = messages.consolePlatform;
 const policy = { trialDays: 7, pastDueDays: 7, readOnlyDays: 14 };
@@ -23,9 +23,8 @@ describe("PolicySection", () => {
     stubApi({ "platform.plans.policy": { data: policy } });
     renderConsole(<PolicySection />, platformStaff("support"));
     const trial = (await screen.findByText(words.trialDays)).closest("div");
-    expect(within(trial ?? document.body).getByText("7 days")).toBeVisible();
-    const readOnly = screen.getByText(words.readOnlyDays).closest("div");
-    expect(within(readOnly ?? document.body).getByText("14 days")).toBeVisible();
+    expect(trial).toHaveTextContent("7 days");
+    expect(screen.getByText(words.readOnlyDays).closest("div")).toHaveTextContent("14 days");
     expect(screen.queryByRole("button", { name: words.change })).toBeNull();
   });
 
@@ -43,7 +42,7 @@ describe("PolicySection", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: messages.common.save }));
     expect(await screen.findByText(words.saved)).toBeVisible();
     expect(inputsTo("plans.setPolicy")).toEqual([{ trialDays: 7, pastDueDays: 10, readOnlyDays: 14 }]);
-    expect(await screen.findByText("10 days")).toBeVisible();
+    expect(await screen.findByText("10")).toBeVisible();
   });
 
   it("says what to fix before anything is sent", async () => {
@@ -67,7 +66,8 @@ describe("PolicySection", () => {
     expect(await screen.findByText(words.loadFailed)).toBeVisible();
     api.answer("platform.plans.policy", { data: policy });
     await userEvent.click(screen.getByRole("button", { name: messages.common.tryAgain }));
-    expect(await screen.findAllByText("7 days")).toHaveLength(2);
+    await screen.findByText(words.trialDays);
+    expect(screen.getAllByText("7")).toHaveLength(2);
   });
 
   it("can't be closed while the policy is being saved", async () => {

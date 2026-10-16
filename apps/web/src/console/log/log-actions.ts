@@ -1,6 +1,7 @@
-// The platform log's actions the console has a sentence for (consolePlatform.log.actions): everything the platform
-// module records (packages/domain/src/platform). Another reads as recorded, in its own words, until it has one.
-const KNOWN_ACTIONS = [
+// The platform log's actions the console has a sentence for (consolePlatform.log.actions): every action the platform
+// module records (packages/domain/src/platform; log-actions.test.ts reads its sources to hold this list to them).
+// Another reads as recorded, in its own words, until it has one.
+export const KNOWN_ACTIONS = [
   "organization.onboarded",
   "organization.updated",
   "organization.export-requested",
@@ -20,7 +21,12 @@ const KNOWN_ACTIONS = [
   "subscription-policy.changed",
   "subscription.plan-changed",
   "subscription.paid-through-changed",
+  "subscription.payment-recorded",
   "subscription.payment-voided",
+  "subscription.overrides-changed",
+  "subscription.trial-end-changed",
+  "subscription.suspended",
+  "subscription.suspension-lifted",
   "subscription.cancelled",
   "platform-staff.added",
   "platform-staff.level-changed",

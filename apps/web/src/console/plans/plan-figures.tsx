@@ -3,12 +3,12 @@
 // One plan as the console shows it: each price before GST in Indian grouping ("Not sold" for a cycle it has no price
 // for), its seats, WhatsApp numbers and storage, its modules by name, and its state as a dot and a word.
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
-import { money } from "@travel-crm/domain/kernel";
 import { useTranslations } from "next-intl";
 import { useCallback } from "react";
 import { StatusBadge } from "@/components/status-badge";
 import { formatFileSize } from "@/files/file-size";
-import { formatCount, formatRupees } from "@/lib/format";
+import { formatCount } from "@/lib/format";
+import { rupees } from "../organizations/fields/plan-prices";
 
 export interface PlanFigures {
   monthly: string;
@@ -22,7 +22,7 @@ export interface PlanFigures {
   modules: string;
 }
 
-const priceOf = (paise: number | null) => (paise === null ? null : formatRupees(money(paise)));
+const priceOf = (paise: number | null) => (paise === null ? null : rupees(paise));
 
 export function usePlanFigures(): (plan: PlanSummary) => PlanFigures {
   const t = useTranslations("consolePlatform");

@@ -6,7 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { messages } from "@/i18n/messages";
 import { platformStaff } from "../../support/platform-staff";
-import { inputsTo } from "../plans/render-console";
+import { inputsTo } from "../../support/render-console";
 import { anExport, openScreen, organizationId } from "./agency";
 
 const { dataProtection: words } = messages.consolePlatform;
@@ -14,7 +14,9 @@ const { dataProtection: words } = messages.consolePlatform;
 /** Each Download names the export it is for, after the word. */
 const downloadName = new RegExp(`^${words.exports.download}`);
 
-const asked = { state: "requested", completedAt: null, parts: null, rows: null, people: null, files: null } as const;
+const elapsed = { state: "requested", completedAt: null, parts: null, rows: null, people: null, files: null } as const;
+/** Asked for just now, so its poll is still on. */
+const asked = () => ({ ...elapsed, requestedAt: new Date().toISOString() });
 
 const itemOf = async (state: string) =>
   within((await screen.findByText(state)).closest<HTMLElement>("[role=listitem]") ?? document.body);
@@ -88,7 +90,7 @@ describe("the organization's exports", () => {
   it("asks again every two seconds while an export is being prepared, and stops once it is ready", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
-      const api = openScreen({ "platform.dataProtection.exports": { data: [anExport(asked)] } });
+      const api = openScreen({ "platform.dataProtection.exports": { data: [anExport(asked())] } });
       await screen.findByText(words.exports.states.requested);
       const askedSoFar = () => inputsTo("dataProtection.exports").length;
       const first = askedSoFar();
@@ -105,8 +107,23 @@ describe("the organization's exports", () => {
     }
   });
 
+  it("stops asking once an export has stayed requested for ten minutes", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const old = anExport({ ...elapsed, requestedAt: new Date(Date.now() - 11 * 60 * 1000).toISOString() });
+      openScreen({ "platform.dataProtection.exports": { data: [old] } });
+      await screen.findByText(words.exports.states.requested);
+      const askedSoFar = () => inputsTo("dataProtection.exports").length;
+      const first = askedSoFar();
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(askedSoFar()).toBe(first);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("doesn't ask for a second export while one is being prepared", async () => {
-    openScreen({ "platform.dataProtection.exports": { data: [anExport(asked)] } });
+    openScreen({ "platform.dataProtection.exports": { data: [anExport(asked())] } });
     await screen.findByText(words.exports.states.requested);
     expect(screen.getByRole("button", { name: words.exports.export })).toBeDisabled();
   });
@@ -154,7 +171,7 @@ describe("the organization's exports", () => {
   });
 
   it("says why Export is disabled while one is being prepared, pointing to the failed jobs", async () => {
-    openScreen({ "platform.dataProtection.exports": { data: [anExport(asked)] } });
+    openScreen({ "platform.dataProtection.exports": { data: [anExport(asked())] } });
     const button = await screen.findByRole("button", { name: words.exports.export });
     expect(button).toBeDisabled();
     expect(button).toHaveAccessibleDescription(new RegExp(`^${words.exports.preparing.slice(0, 20)}`));

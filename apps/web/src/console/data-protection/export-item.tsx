@@ -5,12 +5,12 @@
 // logged, so the links are fetched only when asked for). Once the links lapse they are dropped, and Download is back.
 import type { OrganizationExport } from "@travel-crm/contracts/platform";
 import { useTranslations } from "next-intl";
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { RefusalAlert } from "@/components/refusal-alert";
+import { TextLink } from "@/components/text-link";
 import { Button } from "@/components/ui/button";
 import { Item, ItemContent } from "@/components/ui/item";
-import { useErrorMessage } from "@/lib/error-message";
 import { useInstantText } from "@/components/instant-text";
 import { useDownloadExport } from "./use-exports";
 
@@ -26,8 +26,9 @@ const COUNTS = ["parts", "rows", "people", "files"] as const;
 export function ExportItem({ entry }: { entry: OrganizationExport }) {
   const t = useTranslations("consolePlatform.dataProtection.exports");
   const instantText = useInstantText();
-  const { apiError } = useErrorMessage();
   const download = useDownloadExport();
+  /** The figures of a sentence in mono, the words around them not. */
+  const figures = (chunks: ReactNode) => <span className="numbers">{chunks}</span>;
   const { reset } = download;
   const linksExpireAt = download.data?.linksExpireAt;
   useEffect(() => {
@@ -43,11 +44,11 @@ export function ExportItem({ entry }: { entry: OrganizationExport }) {
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <StatusBadge tone={toneOf[entry.state]}>{t(`states.${entry.state}`)}</StatusBadge>
           <span className="flex flex-wrap gap-x-3 text-caption text-muted-foreground">
-            <span className="numbers">{t("requestedAt", { when: instantText(entry.requestedAt) })}</span>
+            <span>{t.rich("requestedAt", { when: instantText(entry.requestedAt), v: figures })}</span>
             {entry.completedAt !== null && (
-              <span className="numbers">{t("completedAt", { when: instantText(entry.completedAt) })}</span>
+              <span>{t.rich("completedAt", { when: instantText(entry.completedAt), v: figures })}</span>
             )}
-            <span className="numbers">{t("expiresAt", { when: instantText(entry.expiresAt) })}</span>
+            <span>{t.rich("expiresAt", { when: instantText(entry.expiresAt), v: figures })}</span>
           </span>
         </div>
         {entry.state === "done" && (
@@ -75,11 +76,7 @@ export function ExportItem({ entry }: { entry: OrganizationExport }) {
             {download.isPending ? t("downloading") : t("download")}
           </Button>
         )}
-        {download.isError && (
-          <Alert variant="destructive">
-            <AlertDescription>{apiError(download.error)}</AlertDescription>
-          </Alert>
-        )}
+        <RefusalAlert error={download.error} />
         {download.data && (
           <div className="flex flex-col gap-1">
             <p className="text-caption text-muted-foreground">
@@ -88,22 +85,14 @@ export function ExportItem({ entry }: { entry: OrganizationExport }) {
             <ul className="flex flex-col">
               {download.data.parts.map((part) => (
                 <li key={part.part}>
-                  <a
-                    href={part.url}
-                    className="inline-flex min-h-11 items-center text-primary underline-offset-4 hover:underline"
-                  >
-                    {t("part", { number: part.part })}
-                  </a>
+                  <TextLink href={part.url}>{t("part", { number: part.part })}</TextLink>
                 </li>
               ))}
               {download.data.files.map((file) => (
                 <li key={file.fileId}>
-                  <a
-                    href={file.url}
-                    className="inline-flex min-h-11 items-center text-primary underline-offset-4 break-all hover:underline"
-                  >
-                    <span className="numbers">{t("file", { id: file.fileId })}</span>
-                  </a>
+                  <TextLink href={file.url}>
+                    <span className="numbers break-all">{t("file", { id: file.fileId })}</span>
+                  </TextLink>
                 </li>
               ))}
             </ul>

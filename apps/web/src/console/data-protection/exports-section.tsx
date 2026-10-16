@@ -4,13 +4,13 @@
 // job of the console's, kept for 7 days, and outliving a deletion. Newest first.
 import { ArchiveIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import Link from "next/link";
 import { Fragment, useId } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { Button } from "@/components/ui/button";
 import { ItemGroup, ItemSeparator } from "@/components/ui/item";
-import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingRows } from "@/components/loading-rows";
+import { TextLink } from "@/components/text-link";
 import { consoleRoutes } from "../routes";
 import { ExportItem } from "./export-item";
 import { useExportOrganization, useExports } from "./use-exports";
@@ -42,7 +42,7 @@ export function ExportsSection({ organizationId, canExport }: { organizationId: 
         <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void exports.refetch()} />
       );
     }
-    return <Skeleton role="status" aria-busy="true" aria-label={t("loading")} className="h-24 w-full" />;
+    return <LoadingRows rows={2} shape="twoLines" label={t("loading")} />;
   };
 
   return (
@@ -68,13 +68,7 @@ export function ExportsSection({ organizationId, canExport }: { organizationId: 
       </div>
       {preparing && (
         <p id={hintId} className="max-w-[65ch] text-caption text-muted-foreground">
-          {t("preparing")}{" "}
-          <Link
-            href={consoleRoutes.jobs}
-            className="inline-flex min-h-11 items-center text-primary underline-offset-4 hover:underline"
-          >
-            {t("seeJobs")}
-          </Link>
+          {t("preparing")} <TextLink href={consoleRoutes.jobs}>{t("seeJobs")}</TextLink>
         </p>
       )}
       {body()}

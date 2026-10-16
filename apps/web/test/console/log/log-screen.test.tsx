@@ -12,7 +12,7 @@ import { messages } from "@/i18n/messages";
 import { formatDay, formatTime } from "@/lib/format";
 import { stubApi, type Answer } from "../../support/api-stub";
 import { platformStaff } from "../../support/platform-staff";
-import { inputsTo, renderConsole } from "../plans/render-console";
+import { inputsTo, renderConsole } from "../../support/render-console";
 
 const { log: words } = messages.consolePlatform;
 const viewer = platformStaff("super-admin");
@@ -124,10 +124,31 @@ describe("LogScreen", () => {
     open(page([entry()]));
     const changed = await entryOf(words.actions.plan.updated);
     await userEvent.click(changed.getByRole("button", { name: words.changes }));
-    expect(changed.getByText("monthlyPricePaise")).toBeVisible();
-    expect(changed.getByText("499900")).toBeVisible();
-    expect(changed.getByText("599900")).toBeVisible();
-    expect(changed.queryByText("name")).toBeNull();
+    expect(changed.getByText(words.fields.monthlyPricePaise)).toBeVisible();
+    expect(changed.getByText("₹4,999")).toBeVisible();
+    expect(changed.getByText("₹5,999")).toBeVisible();
+    expect(changed.queryByText(words.fields.name)).toBeNull();
+    expect(changed.queryByText("monthlyPricePaise")).toBeNull();
+    await userEvent.click(changed.getByRole("button", { name: words.hideChanges }));
+    expect(changed.queryByText("₹4,999")).toBeNull();
+  });
+
+  it("reads a payment's stored fields as dates and rupees, not as stored", async () => {
+    open(
+      page([
+        entry({
+          action: "subscription.payment-recorded",
+          before: { paidThrough: "2026-10-01", status: "past_due" },
+          after: { paidOn: "2026-10-16", amountPaise: 29_500_000, paidThrough: "2026-11-16", status: "active" },
+        }),
+      ]),
+    );
+    const recorded = await entryOf(words.actions.subscription["payment-recorded"]);
+    await userEvent.click(recorded.getByRole("button", { name: words.changes }));
+    expect(recorded.getByText("16/10/2026")).toBeVisible();
+    expect(recorded.getByText("₹2,95,000")).toBeVisible();
+    expect(recorded.getByText(words.fields.amountPaise)).toBeVisible();
+    expect(recorded.queryByText(/amountPaise|2026-10-16|29500000/)).toBeNull();
   });
 
   it("names other staff only for super admins: support sees platform staff", async () => {

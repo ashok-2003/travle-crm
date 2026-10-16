@@ -27,7 +27,7 @@ export interface JobAwaited {
   since: number | null;
 }
 
-export function outcomeIn(entries: PlatformLogEntry[], awaited: JobAwaited): PlatformLogEntry | null {
+function outcomeIn(entries: PlatformLogEntry[], awaited: JobAwaited): PlatformLogEntry | null {
   for (const entry of entries) {
     if (awaited.targetId !== undefined && entry.targetId !== awaited.targetId) continue;
     if (awaited.results.includes(entry.action)) return entry;

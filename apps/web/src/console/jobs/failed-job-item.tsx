@@ -5,7 +5,7 @@
 // which a super admin asks for again so that every check is made again. The screen says so beside the button.
 import type { FailedJobOutput } from "@travel-crm/contracts/platform";
 import { useTranslations } from "next-intl";
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Item, ItemContent } from "@/components/ui/item";
 import { useInstantText } from "@/components/instant-text";
@@ -17,6 +17,8 @@ export function FailedJobItem({ job }: { job: FailedJobOutput }) {
   const tErrors = useTranslations("errors");
   const instantText = useInstantText();
   const retry = useRetryJob();
+  /** The figures of a sentence in mono, the words around them not. */
+  const figures = (chunks: ReactNode) => <span className="numbers">{chunks}</span>;
   const reasonId = useId();
   const retryable = !ASKED_FOR_AGAIN_QUEUES.has(job.queue);
   const data = Object.entries(job.data);
@@ -26,10 +28,14 @@ export function FailedJobItem({ job }: { job: FailedJobOutput }) {
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           <span className="numbers font-medium break-all">{job.queue}</span>
           <span className="flex flex-wrap gap-x-3 text-caption text-muted-foreground">
-            <span className="numbers">
-              {job.failedAt === null ? t("noTime") : t("failedAt", { when: instantText(job.failedAt) })}
+            <span>
+              {job.failedAt === null
+                ? t("noTime")
+                : t.rich("failedAt", { when: instantText(job.failedAt), v: figures })}
             </span>
-            <span className="numbers">{t("attempts", { count: job.attempts })}</span>
+            <span>
+              <span className="numbers">{job.attempts}</span> {t("attemptsUnit", { count: job.attempts })}
+            </span>
           </span>
         </div>
         {data.length === 0 ? (

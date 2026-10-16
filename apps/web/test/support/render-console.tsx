@@ -1,5 +1,6 @@
 // Renders a console screen as platform staff see it: the console's own data layer over the stubbed api
-// (test/support/api-stub.ts), the app's words and toasts, and who is signed in; and reads back what the screen sent.
+// (test/support/api-stub.ts), the app's words and toasts, and who is signed in (a super admin, unless told); gives
+// jsdom the few browser methods Radix's selects and dialogs call; and reads back what the screen sent.
 import { render } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
@@ -8,7 +9,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { ConsoleProviders } from "@/console/data/console-providers";
 import { StaffProvider, type ConsoleStaff } from "@/console/session/staff-context";
 import { locale, messages } from "@/i18n/messages";
-import { platformStaff } from "../../support/platform-staff";
+import { platformStaff } from "./platform-staff";
 
 export function renderConsole(ui: ReactNode, staff: ConsoleStaff = platformStaff("super-admin")) {
   // Radix selects and dialogs ask for ResizeObserver, which jsdom lacks; nothing here depends on layout.
@@ -20,6 +21,9 @@ export function renderConsole(ui: ReactNode, staff: ConsoleStaff = platformStaff
       disconnect = () => undefined;
     },
   );
+  Element.prototype.hasPointerCapture = () => false;
+  Element.prototype.releasePointerCapture = () => undefined;
+  Element.prototype.scrollIntoView = () => undefined;
   return render(
     <NextIntlClientProvider locale={locale} messages={messages} timeZone="Asia/Kolkata">
       <ConsoleProviders>

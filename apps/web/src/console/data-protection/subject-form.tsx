@@ -4,11 +4,11 @@
 // api's own schema before anything is sent, each problem under its field. Erase is offered once the export shown is of
 // the very subject typed: the api refuses an erasure without it.
 import type { ErasureSubject } from "@travel-crm/contracts/platform";
-import { CircleAlertIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
+import { FormField } from "@/components/form-field";
 import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldError, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
+import { Field, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toErasureSubject, type SubjectField, type SubjectProblem, type SubjectValues } from "./subject-values";
@@ -27,32 +27,22 @@ function SubjectInput({
   onChange: (value: string) => void;
 }) {
   const t = useTranslations("consolePlatform.dataProtection.subject");
-  const id = useId();
-  const describedBy = [hint ? `${id}-hint` : null, problem ? `${id}-error` : null].filter((part) => part !== null);
   return (
-    <Field data-invalid={problem !== undefined}>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <Input
-        id={id}
-        value={value}
-        className="numbers"
-        autoCapitalize="none"
-        autoComplete="off"
-        spellCheck={false}
-        aria-invalid={problem !== undefined}
-        aria-describedby={describedBy.length > 0 ? describedBy.join(" ") : undefined}
-        onChange={(event) => {
-          onChange(event.target.value);
-        }}
-      />
-      {hint && <FieldDescription id={`${id}-hint`}>{hint}</FieldDescription>}
-      {problem && (
-        <FieldError id={`${id}-error`} className="flex items-start gap-1.5">
-          <CircleAlertIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-          {t(problem)}
-        </FieldError>
+    <FormField label={label} hint={hint} error={problem && t(problem)}>
+      {(links) => (
+        <Input
+          {...links}
+          value={value}
+          className="numbers"
+          autoCapitalize="none"
+          autoComplete="off"
+          spellCheck={false}
+          onChange={(event) => {
+            onChange(event.target.value);
+          }}
+        />
       )}
-    </Field>
+    </FormField>
   );
 }
 
@@ -86,7 +76,7 @@ export function SubjectForm({
   return (
     <form
       noValidate
-      className="flex flex-col gap-5"
+      className="flex max-w-xl flex-col gap-5"
       onSubmit={(event) => {
         event.preventDefault();
         const chosen = subject();

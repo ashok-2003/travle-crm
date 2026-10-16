@@ -9,6 +9,7 @@ import { Details } from "@/components/details";
 import { ErrorState } from "@/components/error-state";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatCount } from "@/lib/format";
 import { isSuperAdmin, useStaff } from "../session/staff-context";
 import { PolicyDialog } from "./policy-dialog";
 import type { PolicyField } from "./policy-values";
@@ -30,7 +31,11 @@ export function PolicySection() {
         <Details
           rows={FIELDS.map((field) => ({
             label: t(field),
-            value: <span className="numbers">{t("days", { count: days[field] })}</span>,
+            value: (
+              <span>
+                <span className="numbers">{formatCount(days[field])}</span> {t("daysUnit", { count: days[field] })}
+              </span>
+            ),
           }))}
         />
       );

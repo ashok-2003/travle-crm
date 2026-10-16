@@ -8,7 +8,7 @@ import { StaffScreen } from "@/console/staff/staff-screen";
 import { messages } from "@/i18n/messages";
 import { heldAnswer, stubApi } from "../../support/api-stub";
 import { screenIs } from "../../organization/render";
-import { inputsTo, renderConsole } from "../plans/render-console";
+import { inputsTo, renderConsole } from "../../support/render-console";
 import { CacheProbe, mutationsHeld } from "./cache-probe";
 import { kavita, viewer } from "./people";
 
@@ -107,7 +107,7 @@ describe("adding platform staff", () => {
     const { dialog } = await openForm();
     await fill(dialog.getByLabelText(words.addForm.email), "not-an-address");
     await userEvent.click(dialog.getByRole("button", { name: words.addForm.submit }));
-    expect(await dialog.findByText(words.addForm.problems.nameRequired)).toBeVisible();
+    expect(await dialog.findByText(words.addForm.problems.required)).toBeVisible();
     expect(dialog.getByText(words.addForm.problems.emailInvalid)).toBeVisible();
     expect(inputsTo("platformStaff.add")).toEqual([]);
   });

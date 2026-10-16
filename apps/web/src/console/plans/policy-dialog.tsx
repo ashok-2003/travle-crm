@@ -1,40 +1,40 @@
 "use client";
 
 // A super admin changes the policy: the trial's days, then the days past due and read-only, checked by the api's own
-// schema before they are sent. It closes once the api has saved them; a refusal shows above the button.
+// schema before they are sent. The save is the dialog's and closes it once the api has saved them; a refusal shows
+// above the button, which sits in the dialog's footer.
 import type { SubscriptionPolicy } from "@travel-crm/contracts/subscriptions";
 import { useTranslations } from "next-intl";
-import { useForm, type FieldErrors, type Resolver } from "react-hook-form";
+import { useId } from "react";
 import { TextField } from "@/account/text-field";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useCheckedForm } from "@/components/forms/use-checked-form";
+import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
-import { useErrorMessage } from "@/lib/error-message";
-import { ResponsiveDialog } from "@/components/responsive-dialog";
-import { policyValues, toPolicyInput, type PolicyField, type PolicyValues } from "./policy-values";
-import { useIsSavingPolicy, useSetPolicy } from "./use-policy";
+import { Spinner } from "@/components/ui/spinner";
+import { FormRefusal } from "../form-refusal";
+import { policyValues, toPolicyInput, type PolicyField } from "./policy-values";
+import { useSetPolicy } from "./use-policy";
 
 const FIELDS: readonly PolicyField[] = ["trialDays", "pastDueDays", "readOnlyDays"];
 
-function PolicyForm({ policy, onSaved }: { policy: SubscriptionPolicy; onSaved: () => void }) {
+function PolicyForm({
+  id,
+  policy,
+  send,
+  error,
+}: {
+  id: string;
+  policy: SubscriptionPolicy;
+  send: (input: SubscriptionPolicy) => void;
+  error: unknown;
+}) {
   const t = useTranslations("consolePlatform.policy");
-  const tCommon = useTranslations("common");
-  const { apiError } = useErrorMessage();
-  const save = useSetPolicy();
-  const resolver: Resolver<PolicyValues> = (values) => {
-    const result = toPolicyInput(values);
-    if (result.ok) return { values, errors: {} };
-    const errors: FieldErrors<PolicyValues> = {};
-    for (const field of result.problems) errors[field] = { type: "validate", message: t(`problems.${field}`) };
-    return { values: {}, errors };
-  };
-  const form = useForm<PolicyValues>({ resolver, defaultValues: policyValues(policy) });
-  const submit = form.handleSubmit((values) => {
-    const result = toPolicyInput(values);
-    if (result.ok) save.mutate(result.input, { onSuccess: onSaved });
-  });
+  const { form, onSubmit, formProblem } = useCheckedForm(policyValues(policy), toPolicyInput, (problem) =>
+    t(`problems.${problem}`),
+  );
   return (
-    <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-6">
+    <form id={id} noValidate onSubmit={onSubmit(send)} className="flex flex-col gap-6">
       <FieldGroup>
         {FIELDS.map((field) => (
           <TextField
@@ -48,14 +48,7 @@ function PolicyForm({ policy, onSaved }: { policy: SubscriptionPolicy; onSaved: 
           />
         ))}
       </FieldGroup>
-      {save.isError && (
-        <Alert variant="destructive">
-          <AlertDescription>{apiError(save.error)}</AlertDescription>
-        </Alert>
-      )}
-      <Button type="submit" disabled={save.isPending} className="self-end">
-        {save.isPending ? tCommon("saving") : tCommon("save")}
-      </Button>
+      <FormRefusal problem={formProblem} error={error} />
     </form>
   );
 }
@@ -70,24 +63,30 @@ export function PolicyDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const t = useTranslations("consolePlatform.policy");
-  const saving = useIsSavingPolicy();
+  const tCommon = useTranslations("common");
+  const formId = useId();
+  const save = useSetPolicy(() => {
+    onOpenChange(false);
+  });
   return (
     <ResponsiveDialog
       open={open}
       onOpenChange={(next) => {
-        if (!saving) onOpenChange(next);
+        // A refusal from an earlier try isn't the next one's.
+        if (!next) save.reset();
+        onOpenChange(next);
       }}
+      busy={save.isPending}
       title={t("changeTitle")}
       description={t("changeDescription")}
+      footer={
+        <Button type="submit" form={formId} disabled={save.isPending}>
+          {save.isPending && <Spinner />}
+          {save.isPending ? tCommon("saving") : tCommon("save")}
+        </Button>
+      }
     >
-      {open && (
-        <PolicyForm
-          policy={policy}
-          onSaved={() => {
-            onOpenChange(false);
-          }}
-        />
-      )}
+      {open && <PolicyForm id={formId} policy={policy} error={save.error} send={save.mutate} />}
     </ResponsiveDialog>
   );
 }

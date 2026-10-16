@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { useErrorMessage } from "@/lib/error-message";
 import { useConsoleTRPC, useConsoleTRPCClient } from "../data/console-trpc";
 
-export const FAILED_JOBS_PER_PAGE = 25;
+const FAILED_JOBS_PER_PAGE = 25;
 
 export function useFailedJobs(queue: string | null) {
   const trpc = useConsoleTRPC();

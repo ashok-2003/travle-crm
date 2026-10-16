@@ -3,7 +3,7 @@
 // The plans screen's calls. Each change refreshes every list of plans the console holds (this screen's, with the
 // archived ones, and onboarding's, on sale only), and says so in a toast from the hook itself, so it doesn't depend on
 // the dialog that asked still being open.
-import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { useConsoleTRPC } from "../data/console-trpc";
@@ -19,7 +19,8 @@ function useRefreshPlans() {
   return () => queryClient.invalidateQueries({ queryKey: trpc.plans.list.pathKey() });
 }
 
-export function useCreatePlan() {
+/** `onSaved` is the mutation's own, so the dialog closes whether or not the form that asked is still on screen. */
+export function useCreatePlan(onSaved: () => void) {
   const trpc = useConsoleTRPC();
   const refresh = useRefreshPlans();
   const t = useTranslations("consolePlatform.plans");
@@ -27,13 +28,14 @@ export function useCreatePlan() {
     trpc.plans.create.mutationOptions({
       onSuccess: (plan) => {
         toast.success(t("created", { name: plan.name }));
+        onSaved();
       },
       onSettled: refresh,
     }),
   );
 }
 
-export function useUpdatePlan() {
+export function useUpdatePlan(onSaved: () => void) {
   const trpc = useConsoleTRPC();
   const refresh = useRefreshPlans();
   const t = useTranslations("consolePlatform.plans");
@@ -41,21 +43,14 @@ export function useUpdatePlan() {
     trpc.plans.update.mutationOptions({
       onSuccess: (plan) => {
         toast.success(t("saved", { name: plan.name }));
+        onSaved();
       },
       onSettled: refresh,
     }),
   );
 }
 
-/** Whether a plan is being saved, which the dialog showing its form waits for before it lets itself be closed. */
-export function useIsSavingPlan() {
-  const trpc = useConsoleTRPC();
-  const creating = useIsMutating({ mutationKey: trpc.plans.create.mutationKey() });
-  const updating = useIsMutating({ mutationKey: trpc.plans.update.mutationKey() });
-  return creating + updating > 0;
-}
-
-export function useArchivePlan() {
+export function useArchivePlan(onArchived: () => void) {
   const trpc = useConsoleTRPC();
   const refresh = useRefreshPlans();
   const t = useTranslations("consolePlatform.plans");
@@ -63,6 +58,7 @@ export function useArchivePlan() {
     trpc.plans.archive.mutationOptions({
       onSuccess: (plan) => {
         toast.success(t("archivedToast", { name: plan.name }));
+        onArchived();
       },
       onSettled: refresh,
     }),

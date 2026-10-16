@@ -10,7 +10,7 @@ import { ErrorState } from "@/components/error-state";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { Item, ItemActions, ItemContent, ItemGroup, ItemSeparator, ItemTitle } from "@/components/ui/item";
-import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingRows } from "@/components/loading-rows";
 import { isSuperAdmin, useStaff } from "../session/staff-context";
 import { CONSOLE_SCHEDULES } from "./platform-queues";
 import { RemoveScheduleDialog } from "./remove-schedule-dialog";
@@ -46,11 +46,6 @@ export function SchedulesSection() {
                         <span className="text-muted-foreground">{t("timeZone")}</span> <span>{schedule.timeZone}</span>
                       </span>
                     </span>
-                    {removable && theConsoles && (
-                      <span className="max-w-[65ch] text-caption text-muted-foreground">
-                        {tErrors("reasons.SCHEDULE_IS_THE_CONSOLES")}
-                      </span>
-                    )}
                   </ItemContent>
                   {removable && !theConsoles && (
                     <ItemActions>
@@ -81,7 +76,7 @@ export function SchedulesSection() {
         />
       );
     }
-    return <Skeleton role="status" aria-busy="true" aria-label={t("loading")} className="h-32 w-full" />;
+    return <LoadingRows rows={2} shape="twoLines" label={t("loading")} />;
   };
 
   return (
@@ -91,6 +86,9 @@ export function SchedulesSection() {
           {t("title")}
         </h2>
         <p className="text-muted-foreground">{t("intro")}</p>
+        {removable && schedules.data?.some((schedule) => CONSOLE_SCHEDULES.has(schedule.queue)) && (
+          <p className="text-muted-foreground">{tErrors("reasons.SCHEDULE_IS_THE_CONSOLES")}</p>
+        )}
         {!removable && (
           <p className="flex items-center gap-2 text-label">
             <LockIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />

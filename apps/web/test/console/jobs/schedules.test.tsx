@@ -8,7 +8,7 @@ import { SchedulesSection } from "@/console/jobs/schedules-section";
 import { messages } from "@/i18n/messages";
 import { heldAnswer, stubApi } from "../../support/api-stub";
 import { platformStaff } from "../../support/platform-staff";
-import { inputsTo, renderConsole } from "../plans/render-console";
+import { inputsTo, renderConsole } from "../../support/render-console";
 
 const { schedules: words } = messages.consolePlatform;
 
@@ -31,7 +31,7 @@ describe("SchedulesSection", () => {
     const lifecycle = await itemOf("subscriptions.advance-lifecycle");
     expect(lifecycle.getByText("15 0 * * *")).toBeVisible();
     expect(lifecycle.getAllByText("Asia/Kolkata")).not.toHaveLength(0);
-    expect(lifecycle.getByText(messages.errors.reasons.SCHEDULE_IS_THE_CONSOLES)).toBeVisible();
+    expect(screen.getAllByText(messages.errors.reasons.SCHEDULE_IS_THE_CONSOLES)).toHaveLength(1);
     expect(lifecycle.queryByRole("button")).toBeNull();
     const digest = await itemOf("reports.weekly-digest");
     expect(

@@ -12,7 +12,7 @@ import { messages } from "@/i18n/messages";
 import { heldAnswer, stubApi, type Answer } from "../../support/api-stub";
 import { screenIs } from "../../organization/render";
 import { organizationDetails, organizationId } from "./organization-details";
-import { inputsSentTo, renderConsoleScreen } from "./render";
+import { inputsTo as inputsSentTo, renderConsole as renderConsoleScreen } from "../../support/render-console";
 
 const navigation = vi.hoisted(() => ({ loadPage: vi.fn() }));
 vi.mock("@/lib/navigate", () => ({ loadPage: navigation.loadPage, replacePage: vi.fn() }));
@@ -22,7 +22,7 @@ vi.mock("@/data/session", async (importOriginal) => ({
   announceSignOut: session.announceSignOut,
 }));
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
-vi.mock("sonner", () => ({ toast }));
+vi.mock("sonner", () => ({ toast, Toaster: () => null }));
 
 const { members, impersonate } = messages.consoleOrganizations;
 const { organization } = organizationDetails();

@@ -11,19 +11,19 @@ describe("changesOf", () => {
         { name: "Growth", monthlyPricePaise: 599_900, modules: ["crm", "quotes"], archived: false },
       ),
     ).toEqual([
-      { field: "monthlyPricePaise", before: "499900", after: "599900" },
-      { field: "modules", before: '["crm"]', after: '["crm","quotes"]' },
+      { field: "monthlyPricePaise", before: 499_900, after: 599_900 },
+      { field: "modules", before: ["crm"], after: ["crm", "quotes"] },
     ]);
   });
 
-  it("shows a side the other lacks whole, and a stored null as null", () => {
+  it("shows a side the other lacks as missing, and a stored null as null", () => {
     expect(changesOf(null, { code: "SHARMA", planId: null })).toEqual([
-      { field: "code", before: null, after: "SHARMA" },
-      { field: "planId", before: null, after: "null" },
+      { field: "code", before: undefined, after: "SHARMA" },
+      { field: "planId", before: undefined, after: null },
     ]);
     expect(changesOf({ level: "support" }, { level: "super-admin", nameChanged: true })).toEqual([
       { field: "level", before: "support", after: "super-admin" },
-      { field: "nameChanged", before: null, after: "true" },
+      { field: "nameChanged", before: undefined, after: true },
     ]);
   });
 

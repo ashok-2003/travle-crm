@@ -4,12 +4,11 @@
 // and one person's or record's export and erasure. Once the organization is deleted, its exports stay downloadable for
 // their 7 days, and nothing else is offered. Support is told the screen is a super admin's, and nothing is asked.
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeftIcon } from "lucide-react";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { ErrorState } from "@/components/error-state";
-import { PageTitle } from "@/components/page-title";
-import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingRows } from "@/components/loading-rows";
+import { PageHeader } from "@/components/page-header";
+import { BackLink } from "@/components/text-link";
 import { refusalOf } from "@/data/api-error";
 import { useConsoleTRPC } from "../data/console-trpc";
 import { consoleRoutes } from "../routes";
@@ -33,7 +32,7 @@ function Sections({ organizationId }: { organizationId: string }) {
     return details.isError ? (
       <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void details.refetch()} />
     ) : (
-      <Skeleton role="status" aria-busy="true" aria-label={t("loading")} className="h-40 w-full" />
+      <LoadingRows rows={2} shape="twoLines" label={t("loading")} />
     );
   }
   return (
@@ -60,17 +59,8 @@ export function DataProtectionScreen({ organizationId }: { organizationId: strin
   const superAdmin = isSuperAdmin(useStaff());
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex max-w-[65ch] flex-col gap-2">
-        <Link
-          href={consoleRoutes.organization(organizationId)}
-          className="inline-flex min-h-11 items-center gap-1 self-start text-primary underline-offset-4 hover:underline"
-        >
-          <ArrowLeftIcon aria-hidden="true" className="size-4" />
-          {t("backToOrganization")}
-        </Link>
-        <PageTitle>{t("title")}</PageTitle>
-        <p className="text-muted-foreground">{t("intro")}</p>
-      </div>
+      <BackLink href={consoleRoutes.organization(organizationId)} label={t("backToOrganization")} />
+      <PageHeader title={t("title")} intro={t("intro")} />
       {superAdmin ? <Sections organizationId={organizationId} /> : <p>{tErrors("reasons.SUPER_ADMIN_ONLY")}</p>}
     </div>
   );

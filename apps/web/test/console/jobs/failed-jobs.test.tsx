@@ -12,7 +12,7 @@ import { messages } from "@/i18n/messages";
 import { formatDay, formatTime } from "@/lib/format";
 import { stubApi, type Answer } from "../../support/api-stub";
 import { platformStaff } from "../../support/platform-staff";
-import { inputsTo, renderConsole } from "../plans/render-console";
+import { inputsTo, renderConsole } from "../../support/render-console";
 
 const { jobs: words } = messages.consolePlatform;
 /** Each Run again names the queue and job it runs again. */
@@ -51,8 +51,8 @@ describe("FailedJobsSection", () => {
     const shown = within(item ?? document.body);
     const failedAt = new Date(job().failedAt ?? "");
     const day = formatDay(failedAt, { timeZone: PLATFORM_TIME_ZONE });
-    expect(shown.getByText(`Failed ${day}, ${formatTime(failedAt, { timeZone: PLATFORM_TIME_ZONE })}`)).toBeVisible();
-    expect(shown.getByText("6 attempts")).toBeVisible();
+    expect(shown.getByText(`${day}, ${formatTime(failedAt, { timeZone: PLATFORM_TIME_ZONE })}`)).toBeVisible();
+    expect(shown.getByText("attempts", { exact: false })).toHaveTextContent("6 attempts");
     expect(shown.getByText("documentId")).toBeVisible();
     expect(shown.getByText("0199a000-0000-7000-8000-0000000000d1")).toBeVisible();
     expect(shown.getByText("StorageError: NoSuchBucket")).toBeVisible();

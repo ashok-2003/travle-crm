@@ -26,9 +26,11 @@ test("a super admin removes a schedule a job left behind, and the console's own 
   await openConsoleScreen(page, superAdmin, "/console/jobs", "Jobs");
 
   const schedules = page.getByRole("region", { name: "Schedules" });
-  await expect(schedules.getByRole("listitem").filter({ hasText: "subscriptions.advance-lifecycle" })).toContainText(
-    "The console schedules this job every time it starts",
-  );
+  // Said once, for the console's own schedules, which have no Remove.
+  await expect(schedules).toContainText("The console schedules this job every time it starts");
+  await expect(
+    schedules.getByRole("listitem").filter({ hasText: "subscriptions.advance-lifecycle" }).getByRole("button"),
+  ).toHaveCount(0);
   await schedules.getByRole("button", { name: `Remove the schedule for ${queue}` }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Remove schedule" }).click();
   await expect(page.getByText(`The schedule for ${queue} was removed`)).toBeVisible();

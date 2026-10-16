@@ -8,8 +8,7 @@ import type { ErasureSubject } from "@travel-crm/contracts/platform";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useErrorMessage } from "@/lib/error-message";
+import { RefusalAlert } from "@/components/refusal-alert";
 import { useConsoleTRPC } from "../data/console-trpc";
 import { ErasureDialog } from "./erasure-dialog";
 import { askedNow, useJobOutcome } from "./job-outcome";
@@ -23,7 +22,6 @@ const recordIdOf = (subject: ErasureSubject) => (subject.kind === "member" ? sub
 
 export function SubjectSection({ organization }: { organization: { id: string; code: string } }) {
   const t = useTranslations("consolePlatform.dataProtection.subject");
-  const { apiError } = useErrorMessage();
   const trpc = useConsoleTRPC();
   const exportSubject = useMutation(trpc.dataProtection.exportSubject.mutationOptions());
   const [erasing, setErasing] = useState<ErasureSubject | null>(null);
@@ -67,11 +65,7 @@ export function SubjectSection({ organization }: { organization: { id: string; c
         }}
         onErase={setErasing}
       />
-      {exportSubject.isError && (
-        <Alert variant="destructive">
-          <AlertDescription>{apiError(exportSubject.error)}</AlertDescription>
-        </Alert>
-      )}
+      <RefusalAlert error={exportSubject.error} />
       {exportSubject.data && <SubjectExportView exported={exportSubject.data} />}
       {requested !== null && <JobStatus result={result} queued={t("queued")} gaveUp={gaveUp} />}
       {erasing !== null && (
@@ -79,13 +73,9 @@ export function SubjectSection({ organization }: { organization: { id: string; c
           code={organization.code}
           open
           onOpenChange={(open) => {
-            if (!open) {
-              erase.reset();
-              setErasing(null);
-            }
+            if (!open) setErasing(null);
           }}
-          pending={erase.isPending}
-          error={erase.error}
+          request={erase}
           onConfirm={(confirmation) => {
             erase.mutate({ organizationId: organization.id, subject: erasing, confirmation });
           }}

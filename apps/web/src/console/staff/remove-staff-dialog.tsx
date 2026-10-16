@@ -4,18 +4,7 @@
 // impersonations they started end, and their address stays taken. The api keeps the last super admin.
 import type { PlatformStaffEntry } from "@travel-crm/contracts/platform";
 import { useTranslations } from "next-intl";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { useErrorMessage } from "@/lib/error-message";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useRemovePlatformStaff } from "./use-platform-staff";
 
 export function RemoveStaffDialog({
@@ -28,48 +17,20 @@ export function RemoveStaffDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const t = useTranslations("consolePlatform.staff.remove");
-  const tCommon = useTranslations("common");
-  const { apiError } = useErrorMessage();
-  const remove = useRemovePlatformStaff(person.name);
+  const remove = useRemovePlatformStaff(person.name, () => {
+    onOpenChange(false);
+  });
   return (
-    <AlertDialog
+    <ConfirmDialog
       open={open}
-      onOpenChange={(next) => {
-        if (!remove.isPending) onOpenChange(next);
+      onOpenChange={onOpenChange}
+      title={t("title", { name: person.name })}
+      description={t("description")}
+      action={t("confirm")}
+      request={remove}
+      onConfirm={() => {
+        remove.mutate({ userId: person.userId });
       }}
-    >
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{t("title", { name: person.name })}</AlertDialogTitle>
-          <AlertDialogDescription>{t("description")}</AlertDialogDescription>
-        </AlertDialogHeader>
-        {remove.isError && (
-          <Alert variant="destructive">
-            <AlertDescription>{apiError(remove.error)}</AlertDescription>
-          </Alert>
-        )}
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={remove.isPending}>{tCommon("cancel")}</AlertDialogCancel>
-          <AlertDialogAction
-            variant="destructive"
-            disabled={remove.isPending}
-            onClick={(event) => {
-              // Stay open until the api answers, so a refusal is shown here and the button can't be pressed twice.
-              event.preventDefault();
-              remove.mutate(
-                { userId: person.userId },
-                {
-                  onSuccess: () => {
-                    onOpenChange(false);
-                  },
-                },
-              );
-            }}
-          >
-            {t("confirm")}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    />
   );
 }
