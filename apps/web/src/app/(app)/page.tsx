@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Fragment } from "react";
 import { HomeChecklist } from "@/business/setup/home-checklist";
-import { PageTitle } from "@/components/page-title";
+import { PageHeader } from "@/components/page-header";
 import { Item, ItemContent, ItemGroup, ItemMedia, ItemSeparator, ItemTitle } from "@/components/ui/item";
 import { useMe } from "@/session/me-context";
 import type { NavigationItem } from "@/shell/navigation";
@@ -51,7 +51,7 @@ export default function HomePage() {
     );
   return (
     <div className="flex max-w-[720px] flex-col gap-6">
-      <PageTitle>{t("title", { name: me.user.name })}</PageTitle>
+      <PageHeader title={t("title", { name: me.user.name })} />
       {me.member.role.isOwner ? <HomeChecklist afterwards={screens} /> : screens}
     </div>
   );

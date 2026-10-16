@@ -8,7 +8,7 @@
 // Turning it on keeps up to three, secrets included.
 import { useTranslations } from "next-intl";
 import { useId, useState, type SubmitEvent } from "react";
-import { PageTitle } from "@/components/page-title";
+import { PageHeader } from "@/components/page-header";
 import { PasswordInput } from "@/components/password-input";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -20,7 +20,7 @@ import { focusWhenShown } from "./focus";
 import { AuthFailureAlert, type AuthFailure } from "./form-alert";
 import { QrCode } from "./qr-code";
 import { CODE_LENGTH, SixDigitCode } from "./six-digit-code";
-import { TextLink } from "./text-link";
+import { TextLink } from "@/components/text-link";
 
 // Once two-factor is on, the backup step keeps only the codes: the secret has done its job.
 type Step =
@@ -96,14 +96,16 @@ export function TwoFactorSetup({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageTitle>{t("twoFactorSetup.title")}</PageTitle>
-      <p className="text-muted-foreground">
-        {askedBy === null
-          ? t("twoFactorSetup.intro")
-          : askedBy === "console"
-            ? t("twoFactorSetup.platformIntro")
-            : t("twoFactorSetup.pendingIntro")}
-      </p>
+      <PageHeader
+        title={t("twoFactorSetup.title")}
+        intro={
+          askedBy === null
+            ? t("twoFactorSetup.intro")
+            : askedBy === "console"
+              ? t("twoFactorSetup.platformIntro")
+              : t("twoFactorSetup.pendingIntro")
+        }
+      />
 
       {step.name === "password" && (
         <form noValidate onSubmit={start} className="flex flex-col gap-5">

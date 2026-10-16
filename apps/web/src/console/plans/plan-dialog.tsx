@@ -7,7 +7,7 @@ import { PlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ResponsiveDialog } from "@/organization/responsive-dialog";
+import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { PlanForm } from "./plan-form";
 import { useIsSavingPlan } from "./use-plans";
 

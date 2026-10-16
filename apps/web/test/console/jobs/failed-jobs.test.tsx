@@ -7,7 +7,7 @@ import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FailedJobsSection } from "@/console/jobs/failed-jobs-section";
-import { PLATFORM_TIME_ZONE } from "@/console/platform-time-zone";
+import { PLATFORM_TIME_ZONE } from "@/lib/platform-time-zone";
 import { messages } from "@/i18n/messages";
 import { formatDay, formatTime } from "@/lib/format";
 import { stubApi, type Answer } from "../../support/api-stub";

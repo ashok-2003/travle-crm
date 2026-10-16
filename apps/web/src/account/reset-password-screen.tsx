@@ -5,7 +5,7 @@
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
-import { PageTitle } from "@/components/page-title";
+import { PageHeader } from "@/components/page-header";
 import type { AuthClient } from "@/data/auth-client";
 import { routes } from "@/lib/routes";
 import { ResetPasswordForm } from "./reset-password-form";
@@ -21,7 +21,7 @@ export function ResetPasswordScreen({ auth }: { auth?: Pick<AuthClient, "resetPa
   }, []);
   return (
     <div className="flex flex-col gap-6">
-      <PageTitle>{t("title")}</PageTitle>
+      <PageHeader title={t("title")} />
       <ResetPasswordForm token={token} {...(auth ? { auth } : {})} />
     </div>
   );

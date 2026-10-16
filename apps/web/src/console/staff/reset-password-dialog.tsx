@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useErrorMessage } from "@/lib/error-message";
-import { ResponsiveDialog } from "@/organization/responsive-dialog";
+import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { PasswordHandover } from "./password-handover";
 import { useResetPlatformStaffPassword } from "./use-platform-staff";
 

@@ -7,15 +7,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { UsersIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Delayed } from "@/components/delayed";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
-import { PageTitle } from "@/components/page-title";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PageHeader } from "@/components/page-header";
 import { useTRPC } from "@/data/trpc";
 import { useWriteAccess } from "@/subscription/write-access";
 import { CreateStaffDialog } from "./create-staff-dialog";
 import { StaffList } from "./staff-list";
+import { LoadingRows } from "@/components/loading-rows";
 
 export function StaffScreen() {
   const t = useTranslations("staff");
@@ -50,26 +49,16 @@ export function StaffScreen() {
         />
       );
     }
-    return (
-      <Delayed>
-        <div role="status" aria-busy="true" aria-label={tCommon("loading")} className="flex flex-col gap-2">
-          {[0, 1, 2, 3].map((row) => (
-            <Skeleton key={row} className="h-14 w-full" />
-          ))}
-        </div>
-      </Delayed>
-    );
+    return <LoadingRows />;
   };
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex max-w-[65ch] flex-col gap-2">
-          <PageTitle>{t("title")}</PageTitle>
-          <p className="text-muted-foreground">{t("intro")}</p>
-        </div>
-        {shownRoles && <CreateStaffDialog roles={shownRoles} />}
-      </div>
+      <PageHeader
+        title={t("title")}
+        intro={t("intro")}
+        action={shownRoles && <CreateStaffDialog roles={shownRoles} />}
+      />
       {body()}
     </div>
   );

@@ -11,9 +11,9 @@ import { Fragment } from "react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle } from "@/components/ui/item";
-import { formatDay, formatTime } from "@/lib/format";
+import { formatDayTime } from "@/lib/format";
 import { useMe } from "@/session/me-context";
-import { AuditChange, hasChange } from "./audit-change";
+import { AuditChange, hasChange } from "@/components/audit-change";
 import { useAuditWords } from "./audit-words";
 import { recordHistoryHref } from "./record-filter";
 
@@ -30,7 +30,7 @@ function AuditEntry({ entry, recordLink }: { entry: AuditLogEntry; recordLink: b
         <ItemDescription>
           <span className="break-words script-leading">{words.actor(entry.actor)}</span> ·{" "}
           <time dateTime={entry.occurredAt} className="numbers">
-            {t("when", { day: formatDay(instant, { timeZone }), time: formatTime(instant, { timeZone }) })}
+            {formatDayTime(instant, { timeZone })}
           </time>{" "}
           · {words.source(entry.source)}
         </ItemDescription>

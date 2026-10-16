@@ -13,7 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useErrorMessage } from "@/lib/error-message";
-import { ResponsiveDialog } from "@/organization/responsive-dialog";
+import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { useConsoleTRPC } from "../data/console-trpc";
 
 /** What a change's form and dialog use of its mutation (useMutation's result). */

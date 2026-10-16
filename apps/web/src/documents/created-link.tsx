@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { CopyButton } from "@/organization/copy-button";
+import { CopyButton } from "@/components/copy-button";
 
 export function CreatedLink({ path, onDone }: { path: string; onDone: () => void }) {
   const t = useTranslations("documents.share");
