@@ -157,12 +157,11 @@ describe("DashboardScreen", () => {
   });
 });
 
-/** The inputs the dashboard's calls sent, read from the stubbed fetch's URLs. */
+/** The inputs the dashboard's calls sent, read from the stubbed fetch's bodies: the console posts its queries. */
 function inputsSent(): unknown[] {
   const fetch = vi.mocked(globalThis.fetch);
-  return fetch.mock.calls.map(([input]) => {
-    const url = new URL(input instanceof Request ? input.url : String(input), "http://localhost");
-    const batch = JSON.parse(url.searchParams.get("input") ?? "{}") as Record<string, unknown>;
+  return fetch.mock.calls.map(([, init]) => {
+    const batch = JSON.parse(typeof init?.body === "string" ? init.body : "{}") as Record<string, unknown>;
     return batch["0"];
   });
 }

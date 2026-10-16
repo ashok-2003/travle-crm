@@ -1,7 +1,7 @@
 // Destinations (spec 3.2, 3.6): the agency's own list, found by name whatever its case, added once when two saves race,
 // renamed without clashing, and merged so leads, repeat enquiries and later typing all land on the one kept (R34).
 import { randomUUID } from "node:crypto";
-import { createDatabase, type Database, type OrgTx } from "@travel-crm/db";
+import { createDatabase, withDeleted, type Database, type OrgTx } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
@@ -128,6 +128,61 @@ describe("destinations", () => {
     await expect(
       inOrg((tx) => mergeDestinations(tx, owner, { destinationId: leh.id, intoDestinationId: ladakh.id })),
     ).rejects.toMatchObject({ reason: "NOT_FOUND" });
+  });
+
+  it("tidies a name as typed, and refuses one with nothing in it", async () => {
+    const spiti = await inOrg((tx) => findOrAddDestination(tx, owner, "  spiti   valley "));
+    expect(spiti.name).toBe("spiti valley");
+    expect(await inOrg((tx) => findOrAddDestination(tx, owner, "Spiti Valley"))).toEqual(spiti);
+    for (const name of ["   ", "x".repeat(81)]) {
+      await expect(
+        inOrg((tx) => findOrAddDestination(tx, owner, name)),
+        name,
+      ).rejects.toMatchObject({
+        code: "VALIDATION",
+        reason: "INVALID_DESTINATION_NAME",
+      });
+    }
+  });
+
+  it("merges two destinations into each other at once without a loop: the second finds its own gone", async () => {
+    const [first, second] = await inOrg(async (tx) => [
+      await findOrAddDestination(tx, owner, "Coorg"),
+      await findOrAddDestination(tx, owner, "Kodagu"),
+    ]);
+    let release: () => void = () => undefined;
+    const mayCommit = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let firstMerged: (holder: number) => void = () => undefined;
+    const merged = new Promise<number>((resolve) => {
+      firstMerged = resolve;
+    });
+    const one = inOrg(async (tx) => {
+      await mergeDestinations(tx, owner, { destinationId: first.id, intoDestinationId: second.id });
+      firstMerged(await backendPid(tx));
+      await mayCommit;
+    });
+    const holder = await merged;
+    const other = inOrg((tx) =>
+      mergeDestinations(tx, owner, { destinationId: second.id, intoDestinationId: first.id }),
+    ).then(
+      () => "merged",
+      (error: unknown) => (error as { reason?: string }).reason,
+    );
+    await waitUntilBlockedBy(platform, holder);
+    release();
+    await one;
+    expect(await other).toBe("NOT_FOUND");
+    const rows = await withDeleted(() =>
+      inOrg((tx) => tx.destination.findMany({ where: { id: { in: [first.id, second.id] } } })),
+    );
+    expect(new Map(rows.map((row) => [row.id, [row.mergedIntoId, row.deletedAt === null, row.deletedBy]]))).toEqual(
+      new Map([
+        [first.id, [second.id, false, owner.userId]],
+        [second.id, [null, true, null]],
+      ]),
+    );
   });
 
   it("searches live destinations alphabetically, forgiving a typo", async () => {

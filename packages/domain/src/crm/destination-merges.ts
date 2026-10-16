@@ -3,12 +3,12 @@
 import type { MergeDestinationsInput, MergedDestinations } from "@travel-crm/contracts/catalog";
 import { withDeleted, type OrgTx } from "@travel-crm/db";
 import { mergeDestination } from "../catalog/index.js";
-import type { Actor } from "../kernel/index.js";
+import type { MemberAccess } from "../identity/index.js";
 
 /** Merges one destination into another and moves what was on it; says how many live leads moved. */
 export async function mergeDestinations(
   tx: OrgTx,
-  actor: Actor,
+  actor: MemberAccess,
   input: MergeDestinationsInput,
 ): Promise<MergedDestinations> {
   await mergeDestination(tx, actor, input);
