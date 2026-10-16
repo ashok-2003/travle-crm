@@ -198,7 +198,7 @@ All tables are organization tables: `organization_id`, row-level security, keys 
   module map: catalog and tasks at L0, crm at L1, today at the top beside reports.
 - Permissions: the existing `leads:view` (own/all), `leads:create`, `leads:edit`, plus a new **`leads:assign`**
   (reassign, and pick another owner in the form), given to the Owner (automatically) and the Admin starter role. Tasks
-  and Today need `leads:view`. Destinations and blocked contacts are managed with `settings:manage`. All of it is on
+  and Today need `leads:view`. Destinations are managed with `settings:manage`, blocked contacts with `leads:assign`. All of it is on
   the `crm` plan module.
 - A procedure that lists the people who can own leads (names only), for the owner and assignee pickers, needs
   `leads:assign` or, for a salesperson, returns only themselves.
