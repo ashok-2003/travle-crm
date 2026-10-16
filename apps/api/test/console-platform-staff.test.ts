@@ -1,8 +1,7 @@
 // Managing platform staff from the console (spec 5, 6.1), super admins only. A newcomer gets a temporary password,
 // shown once, and must replace it and turn on two-factor before the console lets them in; nobody who is or was a
-// member of an organization
-// can become staff; and the platform log records each change by ids and levels, never a name, an address or a
-// temporary password, which appears nowhere but in its one response.
+// member of an organization can become staff; and the platform log records each change by ids and levels, never a
+// name, an address or a temporary password, which appears nowhere but in its one response.
 import type { AddedPlatformStaff, PlatformStaffEntry, TemporaryPasswordOutput } from "@travel-crm/contracts/platform";
 import { createPgBossJobs, type PgBossJobs } from "@travel-crm/integrations/jobs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
