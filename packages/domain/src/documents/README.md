@@ -26,8 +26,9 @@ quotes and invoices bring theirs.
 - `brandedSampleQuotation({ organizationName, profile, logoAttachmentId? })`: the sample an organization previews its
   branding on: made-up lines taxed within its own GST state, its name, colour, terms and logo. Issue it with
   `prefix: SAMPLE_PREFIX` (`"SMPL"`, which no invoice prefix may be): it is kept like any document, and its number
-  says it is a sample. Call `assertMayIssueSample(tx, now?)` first: at most `SAMPLES_PER_DAY` (50) in any 24 hours
-  (`LIMIT_REACHED`/`SAMPLE_LIMIT_REACHED`), as each is kept for good with its PDF.
+  says it is a sample. Call `assertMayIssueSample(tx, now?)` first: at most `SAMPLES_PER_DAY` (50, the contracts'
+  figure, which the refusal's sentence states) in any 24 hours (`LIMIT_REACHED`/`SAMPLE_LIMIT_REACHED`), as each is
+  kept for good with its PDF.
 
 - `documentsIssuedSince(tx, since)`: a usage counter for the platform dashboard, samples left out (previews, not use).
   It counts the transaction's organization by row-level security, so it runs in `forOrg` or `asOrganization` and
@@ -57,7 +58,8 @@ quotes and invoices bring theirs.
   attachment whose record is the organization); the worker reads its bytes when it renders, through the files
   module's `systemFile`, and draws them as the image they are (PNG or JPEG by their signature). An id that names any
   other file is never read, so a passport scan can't be printed; a logo removed before the render, whose bytes
-  aren't a PNG or JPEG, or whose header claims more than 4096 pixels a side or 16 megapixels (`isLogoSizeAllowed`:
-  pdfkit would inflate every pixel, and a 1 MB file can claim gigabytes of them) is left out and the document still
-  renders. `assertUsableLogo(body, declaredType)` is the same check for the logo's upload, which `confirmUpload` runs
+  aren't a PNG or JPEG png-js reads as its headers say, whose header claims more than 4096 pixels a side or 16
+  megapixels (`isLogoSizeAllowed`: pdfkit would inflate every pixel, and a 1 MB file can claim gigabytes of them), or
+  whose pixel data inflates to more than that header's rows (`pixelDataFitsHeader`) is left out and the document still
+  renders. `assertUsableLogo(body, declaredType)` is the same check for the logo's upload, which `confirmUpload` awaits
   (`VALIDATION`/`UPLOAD_DOES_NOT_MATCH`, `VALIDATION`/`LOGO_TOO_LARGE`).

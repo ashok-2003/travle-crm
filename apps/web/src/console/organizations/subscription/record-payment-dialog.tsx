@@ -45,7 +45,7 @@ function RecordPaymentForm({
   record: Sending<RecordPaymentInput>;
 }) {
   const t = useTranslations("consoleOrganizations.subscription");
-  const { form, onSubmit } = useCheckedForm(
+  const { form, onSubmit, formProblem } = useCheckedForm(
     { amount: "", paidOn: calendarDateIn(new Date(), timeZone), paidThrough: "", reference: "" },
     (values) => toRecordPaymentInput(organizationId, values),
     (problem) => t(`problems.${problem}`),
@@ -69,7 +69,12 @@ function RecordPaymentForm({
           autoComplete="off"
         />
       </FieldGroup>
-      <FormFooter sending={record} label={t("recordPayment.submit")} pendingLabel={t("recordPayment.submitting")} />
+      <FormFooter
+        sending={record}
+        problem={formProblem}
+        label={t("recordPayment.submit")}
+        pendingLabel={t("recordPayment.submitting")}
+      />
     </form>
   );
 }

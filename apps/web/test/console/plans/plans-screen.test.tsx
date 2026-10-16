@@ -226,4 +226,21 @@ describe("PlansScreen", () => {
     await userEvent.click(screen.getByRole("button", { name: messages.common.tryAgain }));
     expect(await screen.findByRole("row", { name: /Growth/ })).toBeVisible();
   });
+
+  it("can't be closed while a plan is being saved", async () => {
+    screenIs("wide");
+    const api = open({ data: [plan()] });
+    await userEvent.click(await screen.findByRole("button", { name: words.actionsFor.replace("{name}", "Growth") }));
+    await userEvent.click(screen.getByRole("menuitem", { name: words.edit }));
+    const dialog = screen.getByRole("dialog", { name: form.editTitle.replace("{name}", "Growth") });
+    const held = heldAnswer({ data: plan() });
+    api.answer("platform.plans.update", held.answer);
+    await userEvent.click(within(dialog).getByRole("button", { name: form.save }));
+    await userEvent.keyboard("{Escape}");
+    expect(dialog).toBeVisible();
+    held.release();
+    await vi.waitFor(() => {
+      expect(dialog).not.toBeVisible();
+    });
+  });
 });

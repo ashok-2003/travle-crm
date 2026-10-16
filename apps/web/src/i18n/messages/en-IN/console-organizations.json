@@ -1,4 +1,5 @@
 {
+  "formProblem": "This can't be sent as it is. Reload the page and try again.",
   "onboard": {
     "title": "Onboard an agency",
     "intro": "This creates the agency's organization, its business profile and its subscription, and emails its Owner an invite to choose a password.",

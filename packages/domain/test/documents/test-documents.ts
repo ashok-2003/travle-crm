@@ -1,11 +1,11 @@
 // Builds the documents module's surroundings on the test database: files on in-memory storage, a fake renderer that
-// records what it was asked to render, the context the worker gives a listener, and logos to draw.
-import { crc32, deflateSync } from "node:zlib";
+// records what it was asked to render, the context the worker gives a listener, and a logo stored for drawing.
 import type { IssueDocumentInput } from "@travel-crm/contracts/documents";
 import { createDatabase, type Database } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import type { PdfInput, PdfTemplate } from "@travel-crm/integrations/pdf";
+import { tinyPng } from "@travel-crm/integrations/testing";
 import { createMemoryStorage, type MemoryStorage } from "@travel-crm/integrations/storage";
 import { inject } from "vitest";
 import { createFiles, type Files } from "../../src/files/index.js";
@@ -54,39 +54,6 @@ export const quotation: IssueDocumentInput = {
   },
   branding: { organizationName: "Sharma Holidays", accentColour: "#034f46", terms: "50% to book." },
 };
-
-const bytesOf = (base64: string) => Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
-
-/** The smallest valid logos: a 1x1 transparent PNG and a 1x1 grey JPEG. */
-export const tinyPng = bytesOf(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
-);
-export const tinyJpeg = bytesOf(
-  "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////" +
-    "////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=",
-);
-
-/** A real black PNG of this size, one bit a pixel: a few kilobytes however many pixels it holds (a bomb's shape). */
-export function pngOfSize(width: number, height: number): Uint8Array {
-  const chunk = (type: string, data: Uint8Array) => {
-    const typed = Buffer.concat([Buffer.from(type, "latin1"), data]);
-    const length = Buffer.alloc(4);
-    length.writeUInt32BE(data.byteLength);
-    const crc = Buffer.alloc(4);
-    crc.writeUInt32BE(crc32(typed));
-    return Buffer.concat([length, typed, crc]);
-  };
-  // Width, height, bit depth 1, greyscale, then the default compression, filter and interlace.
-  const header = Buffer.alloc(13);
-  header.writeUInt32BE(width, 0);
-  header.writeUInt32BE(height, 4);
-  header.writeUInt8(1, 8);
-  // Each row: its filter byte, then a bit for each pixel, all zero.
-  const rows = Buffer.alloc(height * (1 + Math.ceil(width / 8)));
-  const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-  const png = [signature, chunk("IHDR", header), chunk("IDAT", deflateSync(rows)), chunk("IEND", Buffer.alloc(0))];
-  return new Uint8Array(Buffer.concat(png));
-}
 
 /** Stores a logo for the organization, as the branding screen's upload leaves it: ready, on the organization. */
 export async function storedLogo(

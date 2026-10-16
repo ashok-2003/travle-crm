@@ -82,6 +82,17 @@ describe("turnPushOn", () => {
     await turning;
   });
 
+  it("handles a failing question even when there is no worker, or pushState throws", async () => {
+    browser = fakePushBrowser({ registered: false, promptFails: true });
+    expect(await turnPushOn(fakeApi())).toBe("no-worker");
+    expect(browser.failedPromptHandled()).toBe(true);
+    browser.restore();
+    browser = fakePushBrowser({ promptFails: true });
+    vi.spyOn(navigator.serviceWorker, "getRegistration").mockRejectedValue(new Error("gone"));
+    await expect(turnPushOn(fakeApi())).rejects.toThrow("gone");
+    expect(browser.failedPromptHandled()).toBe(true);
+  });
+
   it("does not ask again once the person has answered", async () => {
     browser = fakePushBrowser({ permission: "granted" });
     expect(await turnPushOn(fakeApi())).toBe("on");

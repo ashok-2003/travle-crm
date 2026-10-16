@@ -12,6 +12,8 @@ export interface FakePushBrowser {
   subscribedWith: PushSubscriptionOptionsInit[];
   /** How many times the permission prompt was asked. */
   asked: number;
+  /** Whether anything was ever attached to the failing prompt's promise, as an unhandled rejection needs none. */
+  failedPromptHandled(): boolean;
   /** How many times the browser was unsubscribed. */
   unsubscribed: number;
   restore(): void;
@@ -21,6 +23,7 @@ export function fakePushBrowser({
   permission = "default",
   prompt = "granted",
   registered = true,
+  promptFails = false,
   subscribed = false,
   keys = true,
   unsubscribe = () => Promise.resolve(true),
@@ -28,6 +31,8 @@ export function fakePushBrowser({
   permission?: NotificationPermission;
   /** What the permission prompt answers. */
   prompt?: NotificationPermission;
+  /** True when the permission prompt itself fails. */
+  promptFails?: boolean;
   /** False for a page no service worker controls (a development build). */
   registered?: boolean;
   subscribed?: boolean;
@@ -36,11 +41,13 @@ export function fakePushBrowser({
   /** What the push service does when asked to forget this browser. */
   unsubscribe?: () => Promise<boolean>;
 } = {}): FakePushBrowser {
+  let promptHandled = false;
   let current: ReturnType<FakePushBrowser["subscription"]> = null;
   const browser: FakePushBrowser = {
     subscription: () => current,
     subscribedWith: [],
     asked: 0,
+    failedPromptHandled: () => promptHandled,
     unsubscribed: 0,
     restore: () => {
       Reflect.deleteProperty(navigator, "serviceWorker");
@@ -74,11 +81,21 @@ export function fakePushBrowser({
   };
   const notification = {
     permission,
-    requestPermission: vi.fn(() => {
+    requestPermission: () => {
       browser.asked += 1;
+      if (promptFails) {
+        const failed = Promise.reject(new Error("no prompt"));
+        const attach = failed.then.bind(failed);
+        // catch() goes through then(), so this sees anything that handles the rejection.
+        failed.then = ((...handlers: Parameters<typeof attach>) => {
+          promptHandled = true;
+          return attach(...handlers);
+        }) as typeof failed.then;
+        return failed;
+      }
       notification.permission = prompt;
       return Promise.resolve(prompt);
-    }),
+    },
   };
   vi.stubGlobal("Notification", notification);
   // Only its presence matters: the app reaches the push manager through the registration.

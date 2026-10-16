@@ -316,6 +316,8 @@
       "intro": "Everything the organization keeps, for it to take away: its tables, its people and copies of its files, as JSON lines. Each export is kept for 7 days, and outlives a deletion.",
       "export": "Export everything",
       "exporting": "Asking",
+      "preparing": "Another export is being prepared, so you can ask again once it is ready. If it stays so, look for it in the failed jobs.",
+      "seeJobs": "Open the failed jobs",
       "asked": "Export asked for. The console's job is preparing it.",
       "loading": "Loading the exports",
       "loadFailed": "The exports didn't load.",

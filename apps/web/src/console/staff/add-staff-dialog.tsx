@@ -21,9 +21,8 @@ export function AddStaffDialog() {
   });
 
   const changeOpen = (next: boolean) => {
-    // Closing would hide a request the api is already carrying out, and the password it answers with. (The call stays
-    // pending until the list is refreshed, by when the password is already shown, and Done must work.)
-    if (add.isPending && added === null) return;
+    // Closing would hide a request the api is already carrying out, and the password it answers with.
+    if (add.isPending) return;
     setOpen(next);
     if (!next) {
       // The temporary password is in the call's answer and in this state: let go of both, so it exists only while

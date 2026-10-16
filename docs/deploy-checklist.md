@@ -186,8 +186,10 @@ Secrets come from the platform's secret manager as environment variables, never 
 
       docker run --rm --network host --env-file <the console's settings> <the api image> \
         first-super-admin --email <address> --name <name>
+      rm <the console's settings>
 
-  Then sign in with the temporary password straight away and replace it. It refuses once a super admin exists.
+  The settings file holds the console's production secrets, so it goes as soon as the command has run. Then sign in
+  with the temporary password straight away and replace it. It refuses once a super admin exists.
 
 - **No plan is seeded:** the super admin creates the plans in the console before onboarding anyone.
 - **Staging's demo:** set `DEMO_ORGANIZATION_CODE` and `DEMO_PASSWORD` on the console, which rebuilds the demo every

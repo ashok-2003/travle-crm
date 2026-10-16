@@ -42,16 +42,13 @@ export function useResetStaffPassword() {
 export function useRemoveStaff(name: string) {
   const trpc = useTRPC();
   const refresh = useRefreshStaff();
-  const { apiError } = useErrorMessage();
   const t = useTranslations("staff.remove");
   return useMutation(
     trpc.staff.remove.mutationOptions({
       onSuccess: () => {
         toast.success(t("removed", { name }));
       },
-      onError: (error) => {
-        toast.error(apiError(error), { duration: Infinity });
-      },
+      // A refusal shows in the dialog (components/confirm-dialog.tsx).
       onSettled: refresh,
     }),
   );

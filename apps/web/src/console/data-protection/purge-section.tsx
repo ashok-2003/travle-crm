@@ -8,7 +8,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { OrganizationDetails, OrganizationExport } from "@travel-crm/contracts/platform";
 import { CircleCheckIcon, CircleDashedIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { formatCount } from "@/lib/format";
 import { useConsoleTRPC } from "../data/console-trpc";
@@ -48,6 +48,7 @@ export function PurgeSection({
   const [confirming, setConfirming] = useState(false);
   const [since, setSince] = useState<number | null>(null);
   const trpc = useConsoleTRPC();
+  const statusId = useId();
   const queryClient = useQueryClient();
   const purge = useMutation(
     trpc.dataProtection.requestPurge.mutationOptions({
@@ -97,13 +98,14 @@ export function PurgeSection({
         variant="destructive"
         className="self-start"
         disabled={!cancelled || !exported || since !== null}
+        aria-describedby={since === null ? undefined : statusId}
         onClick={() => {
           setConfirming(true);
         }}
       >
         {t("action")}
       </Button>
-      {since !== null && <JobStatus result={result} queued={t("queued")} gaveUp={gaveUp} />}
+      {since !== null && <JobStatus id={statusId} result={result} queued={t("queued")} gaveUp={gaveUp} />}
       {confirming && (
         <PurgeDialog
           organization={organization}

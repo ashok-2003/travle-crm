@@ -80,6 +80,19 @@ describe("acting on platform staff", () => {
     });
   });
 
+  it("shows the new password at once, though the list's refresh hasn't come back", async () => {
+    const api = await act(words.resetPassword.action);
+    const dialog = within(
+      screen.getByRole("dialog", { name: words.resetPassword.title.replace("{name}", "Arjun Nair") }),
+    );
+    api.answer("platform.platformStaff.resetPassword", { data: { temporaryPassword: "New4pass8Word" } });
+    api.answer("platform.platformStaff.list", "never");
+    await userEvent.click(dialog.getByRole("button", { name: words.resetPassword.submit }));
+    expect(await dialog.findByText("New4pass8Word")).toBeVisible();
+    await userEvent.click(dialog.getByRole("button", { name: words.handover.done }));
+    expect(screen.queryByText("New4pass8Word")).toBeNull();
+  });
+
   it("can't be closed while the new password is being made, and still shows it", async () => {
     const api = await act(words.resetPassword.action);
     const dialog = screen.getByRole("dialog", { name: words.resetPassword.title.replace("{name}", "Arjun Nair") });
@@ -105,5 +118,35 @@ describe("acting on platform staff", () => {
     expect(await screen.findByText(words.remove.removed.replace("{name}", "Arjun Nair"))).toBeVisible();
     expect(inputsTo("platformStaff.remove")).toEqual([{ userId: arjun.userId }]);
     expect(await screen.findByRole("region", { name: words.removedTitle })).toBeVisible();
+  });
+
+  it("can't be closed while a level is being changed", async () => {
+    const api = await act(words.changeLevel.action);
+    const dialog = screen.getByRole("dialog", { name: words.changeLevel.title.replace("{name}", "Arjun Nair") });
+    await userEvent.click(within(dialog).getByRole("radio", { name: levels["super-admin"] }));
+    const held = heldAnswer({ data: null });
+    api.answer("platform.platformStaff.setLevel", held.answer);
+    await userEvent.click(within(dialog).getByRole("button", { name: words.changeLevel.submit }));
+    await userEvent.keyboard("{Escape}");
+    expect(dialog).toBeVisible();
+    held.release();
+    await vi.waitFor(() => {
+      expect(dialog).not.toBeVisible();
+    });
+  });
+
+  it("can't be closed while someone is being removed", async () => {
+    const api = await act(words.remove.action);
+    const confirm = screen.getByRole("alertdialog", { name: words.remove.title.replace("{name}", "Arjun Nair") });
+    const held = heldAnswer({ data: null });
+    api.answer("platform.platformStaff.remove", held.answer);
+    await userEvent.click(within(confirm).getByRole("button", { name: words.remove.confirm }));
+    expect(within(confirm).getByRole("button", { name: messages.common.cancel })).toBeDisabled();
+    await userEvent.keyboard("{Escape}");
+    expect(confirm).toBeVisible();
+    held.release();
+    await vi.waitFor(() => {
+      expect(screen.queryByRole("alertdialog")).toBeNull();
+    });
   });
 });

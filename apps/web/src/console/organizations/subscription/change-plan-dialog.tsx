@@ -68,7 +68,7 @@ function ChangePlanForm({
 }) {
   const t = useTranslations("consoleOrganizations.subscription");
   const current = plans.find((plan) => plan.id === subscription.plan.id);
-  const { form, onSubmit } = useCheckedForm(
+  const { form, onSubmit, formProblem } = useCheckedForm(
     { planId: current?.id ?? "", billingCycle: current ? cycleFor(current, subscription.billingCycle) : "" },
     (values) => toChangePlanInput(subscription.organizationId, values),
     (problem) => t(`problems.${problem}`),
@@ -88,7 +88,12 @@ function ChangePlanForm({
           }}
         />
       </FieldGroup>
-      <FormFooter sending={change} label={t("changePlan.submit")} pendingLabel={t("changePlan.submitting")} />
+      <FormFooter
+        sending={change}
+        problem={formProblem}
+        label={t("changePlan.submit")}
+        pendingLabel={t("changePlan.submitting")}
+      />
     </form>
   );
 }

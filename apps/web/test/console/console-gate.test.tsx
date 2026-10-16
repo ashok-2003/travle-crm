@@ -1,12 +1,13 @@
 // The way into the console: whoAmI says who is signed in. Platform staff get the console, with a query cache of its
 // own that the app's saved copy never holds; anyone else is told the console isn't theirs, and support signed in as a
-// member is offered Stop. A 401 sends the person to sign in and back, a pending step to take it and back, and any
+// member is offered Stop, which, like the screen's me.get, goes through the app's cache, not the console's. A 401 sends the person to sign in and back, a pending step to take it and back, and any
 // other failure says so with a Retry.
 import "fake-indexeddb/auto";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
+import { useEffect } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ConsoleProviders } from "@/console/data/console-providers";
 import { ConsoleGate } from "@/console/session/console-gate";
@@ -34,11 +35,25 @@ function Screen() {
   );
 }
 
+/** The two caches, the app's and the console's, as the gate's screens see them. */
+const caches: { app?: QueryClient; console?: QueryClient } = {};
+
+function GrabCaches() {
+  const app = usePageData().queryClient;
+  const consoleCache = useQueryClient();
+  useEffect(() => {
+    caches.app = app;
+    caches.console = consoleCache;
+  }, [app, consoleCache]);
+  return null;
+}
+
 function renderGate() {
   return render(
     <NextIntlClientProvider locale={locale} messages={messages}>
       <DataProviders>
         <ConsoleProviders>
+          <GrabCaches />
           <ConsoleGate>
             <Screen />
           </ConsoleGate>
@@ -83,6 +98,25 @@ describe("ConsoleGate", () => {
     expect(await screen.findByText(gate.impersonating)).toBeVisible();
     expect(screen.getByRole("button", { name: messages.shell.banners.stop })).toBeVisible();
     expect(screen.queryByRole("button", { name: messages.console.navigation.signOut })).toBeNull();
+  });
+
+  it("asks me.get in the app's cache there, and Stop wipes the app's data before the console opens", async () => {
+    stubApi({
+      "platform.whoAmI": { status: 403, reason: "PLATFORM_ONLY" },
+      "me.get": { data: member({ impersonatedBy: platformStaff("support").userId }) },
+      "auth/admin/stop-impersonating": { data: {} },
+    });
+    renderGate();
+    const stop = await screen.findByRole("button", { name: messages.shell.banners.stop });
+    const isMe = (query: { queryKey: readonly unknown[] }) => JSON.stringify(query.queryKey).includes('"me","get"');
+    expect(caches.app?.getQueryCache().getAll().filter(isMe)).toHaveLength(1);
+    expect(caches.console?.getQueryCache().getAll().filter(isMe)).toEqual([]);
+    caches.app?.setQueryData(["staff", "list"], [{ name: "Ravi Kumar" }]);
+    await userEvent.click(stop);
+    await vi.waitFor(() => {
+      expect(loadPage).toHaveBeenCalledWith("/console");
+    });
+    expect(caches.app?.getQueryCache().getAll()).toEqual([]);
   });
 
   it("sends a signed-out visitor to sign in, and back to this page afterwards", async () => {

@@ -74,7 +74,7 @@ export async function requestUpload(
  * What a caller checks in the stored bytes before the file is ready, throwing a DomainError to refuse it: a logo's
  * pixels. The file stays pending, as for a mismatch, so nobody can list or download it.
  */
-export type StoredBytesCheck = (body: Uint8Array, declaredType: string) => void;
+export type StoredBytesCheck = (body: Uint8Array, declaredType: string) => void | Promise<void>;
 
 /**
  * Marks an upload ready once storage holds the promised file, and `check` passes on its bytes. Confirming twice is
@@ -96,7 +96,7 @@ export async function confirmUpload(
   if (check) {
     const body = await storage.get(storageKeyOf(row));
     if (!body) throw new DomainError("NOT_FOUND", "UPLOAD_NOT_FOUND", "The file hasn't arrived in storage");
-    check(body, row.contentType);
+    await check(body, row.contentType);
   }
   return db.forOrg(actor.organizationId, async (tx) => {
     await tx.attachment.updateMany({

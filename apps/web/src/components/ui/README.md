@@ -33,8 +33,9 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
   `input-group` brings) likewise (6px, canvas fill, 16px text at every width), at least 64px high.
 - `popover.tsx`: the registry's shadow, with a hairline border instead of its ring.
 - `calendar.tsx` (`react-day-picker`, pinned): Indian unless told otherwise (`en-IN`: weeks start on Monday, a day is
-  named "Friday, 16 October 2026"); days and month buttons 44px (`--cell-size`); its screen-reader words are the
-  `calendar` messages. The focused day shows the global outline (the registry's ring is gone), and the range styles
+  named "Friday, 16 October 2026"); days and month buttons 44px (`--cell-size`, the registry's own knob), and 40px
+  on screens under 360px wide, so the calendar (seven days and its padding) fits a 320px phone; its screen-reader
+  words are the `calendar` messages. The focused day shows the global outline (the registry's ring is gone), and the range styles
   lost their numeric z-index: a range would need its layering back first. The app picks single days only.
 - `progress.tsx`: its bar moves only behind `motion-safe:`.
 - `badge.tsx`: 4px radius.
@@ -52,7 +53,9 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
   `SidebarGroupAction` (20px, a 36px hit area on phones only), `SidebarRail` (16px wide), and the words of the trigger,
   the rail and the phone sheet ("Toggle Sidebar", the sheet's title), which are not messages. Make them 44px and
   messages before using one. `tooltip.tsx` came with it.
-- `sonner.tsx`: one light theme (no `next-themes`), bottom right, a close button with a 44px hit area.
+- `sonner.tsx`: one light theme (no `next-themes`), bottom right, a close button with a 44px hit area. On phones its
+  `mobileOffset` is `var(--toast-bottom-gap)`, which `globals.css` sets to 4rem (the 56px bottom bar and 8px more) only
+  while the page has the phone navigation, so toasts clear the bar there and sit at the bottom elsewhere.
 - `field.tsx`, `input-otp.tsx`, `progress.tsx`: small fixes the repo's strict lint rules ask for.
 
 shadcn's own `tailwind.css` is not a dependency: the state variants the components use (`data-open:`,

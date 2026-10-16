@@ -62,9 +62,11 @@ through `scripts/dev/compose.sh`, which names the project after the checkout's f
 `travel-crm-<checksum>-product` for the product. So `pnpm dev` in a second clone or worktree never recreates the
 first's containers or touches its data. `COMPOSE_PROJECT_NAME`, in the environment or in `.env`, names the project
 instead: **a checkout whose containers were made before** (`travel-crm-postgres-1` and the rest) keeps them, and their
-data, with `COMPOSE_PROJECT_NAME=travel-crm` in its `.env`. Run any other Compose command through the helper too
-(`scripts/dev/compose.sh ps`, `scripts/dev/compose.sh --product logs`). Every port is this computer's alone
-(127.0.0.1), and the same in every checkout, so stop the other checkout's services first (`pnpm db:down` there).
+data, with `COMPOSE_PROJECT_NAME=travel-crm` in its `.env`. **Never copy a `.env` with that line into another
+checkout or worktree:** the copy would share the first checkout's containers and data. Plain `docker compose` refuses
+both compose files, so run any other Compose command through the helper (`scripts/dev/compose.sh ps`,
+`scripts/dev/compose.sh --product logs`). Every port is this computer's alone (127.0.0.1), and the same in every
+checkout, so stop the other checkout's services first (`pnpm db:down` there).
 
 ### The demo agency
 

@@ -85,6 +85,20 @@ describe("a dialog with its request out", () => {
     expect(await screen.findByRole("button", { name: "Done" })).toBeVisible();
   });
 
+  it("Reset password stays open on a phone too, as a bottom sheet with no close button", async () => {
+    screenIs("phone");
+    const api = fakeApi();
+    const onOpenChange = vi.fn();
+    renderWithApi(<ResetPasswordDialog member={ravi} open onOpenChange={onOpenChange} />, newQueryClient());
+    await userEvent.click(await screen.findByRole("button", { name: "Reset password" }));
+    await stillOpenWhilePending(api, null);
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+    api.last().answer({});
+    expect(await screen.findByRole("button", { name: "Done" })).toBeVisible();
+    // Answered, the sheet closes again.
+    expect(screen.getByRole("button", { name: "Close" })).toBeVisible();
+  });
+
   it("New role stays open, then opens the new role's editor", async () => {
     const api = fakeApi();
     renderWithApi(<CreateRoleDialog />, newQueryClient());

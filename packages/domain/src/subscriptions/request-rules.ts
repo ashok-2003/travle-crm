@@ -5,7 +5,7 @@ import { DomainError } from "../kernel/index.js";
 import type { Entitlements } from "./entitlements.js";
 
 /**
- * What a call does, for the lifecycle: reads, changes, exports (download links, the list of issued documents), takes
+ * What a call does, for the lifecycle: reads, changes, exports (download links, the lists of papers and issued documents), takes
  * someone's access away or finds whom to cut off (removing staff and listing them, a new temporary password, requiring
  * two-factor, a document's share links and turning one off), or something every state allows (me.get and the
  * subscription's own status, so the app can say why the rest is refused).

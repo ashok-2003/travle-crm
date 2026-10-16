@@ -77,9 +77,8 @@ export function ChangeDialog({
       </Button>
       <ResponsiveDialog
         open={dialog.open}
-        onOpenChange={(open) => {
-          if (!sending.isPending) dialog.setOpen(open);
-        }}
+        onOpenChange={dialog.setOpen}
+        busy={sending.isPending}
         title={title}
         description={description}
       >
@@ -89,25 +88,31 @@ export function ChangeDialog({
   );
 }
 
-/** The refusal, if any, and the button that sends the form; the destructive variant as a change's last step. */
+/**
+ * The form's own problem (useCheckedForm's formProblem) or else the api's refusal, if any, and the button that sends
+ * the form; the destructive variant as a change's last step.
+ */
 export function FormFooter({
   sending,
+  problem,
   label,
   pendingLabel,
   destructive = false,
 }: {
   sending: Pick<Sending<never>, "isPending" | "error">;
+  problem: string | undefined;
   label: string;
   pendingLabel: string;
   destructive?: boolean;
 }) {
   const { apiError } = useErrorMessage();
+  const said = problem ?? (sending.error === null || sending.error === undefined ? null : apiError(sending.error));
   return (
     <>
-      {sending.error !== null && sending.error !== undefined && (
+      {said !== null && (
         <Alert variant="destructive">
           <CircleAlertIcon aria-hidden="true" />
-          <AlertDescription>{apiError(sending.error)}</AlertDescription>
+          <AlertDescription>{said}</AlertDescription>
         </Alert>
       )}
       <Button

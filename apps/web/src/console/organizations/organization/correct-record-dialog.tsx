@@ -40,7 +40,7 @@ function CorrectRecordForm({
   update: Sending<UpdateOrganizationInput>;
 }) {
   const t = useTranslations("consoleOrganizations.record");
-  const { form, onSubmit } = useCheckedForm(
+  const { form, onSubmit, formProblem } = useCheckedForm(
     { name: organization.name, timeZone: organization.timeZone, contactEmail: organization.contactEmail ?? "" },
     (values) => toUpdateInput(organization.id, values),
     (problem) => t(`problems.${problem}`),
@@ -60,7 +60,7 @@ function CorrectRecordForm({
           autoComplete="off"
         />
       </FieldGroup>
-      <FormFooter sending={update} label={t("save")} pendingLabel={t("saving")} />
+      <FormFooter sending={update} problem={formProblem} label={t("save")} pendingLabel={t("saving")} />
     </form>
   );
 }
