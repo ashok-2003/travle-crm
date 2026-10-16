@@ -40,7 +40,7 @@ import {
   reopenLead,
 } from "@travel-crm/domain/crm";
 import { z } from "zod";
-import { leadWorkerIds } from "../lead-workers.js";
+import { leadWorkerIds, leadWorkerIdsIfOther } from "../lead-workers.js";
 import { memberNames } from "../member-names.js";
 import { orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
@@ -118,7 +118,7 @@ export const leadsRouter = router({
     .input(createLeadInput)
     .output(createdLead)
     .mutation(async ({ ctx, input }) => {
-      const owners = await leadWorkerIds(ctx.identity, ctx.member, input.ownerUserId);
+      const owners = await leadWorkerIdsIfOther(ctx.identity, ctx.member, input.ownerUserId);
       return createLead(ctx.db, ctx.member, input, { owners, now: new Date() });
     }),
 
@@ -160,7 +160,7 @@ export const leadsRouter = router({
 
   /** Gives the lead, with its open tasks, to someone who can work leads. */
   reassign: assigner.input(reassignLeadInput).mutation(async ({ ctx, input }) => {
-    const owners = await leadWorkerIds(ctx.identity, ctx.member, input.ownerUserId);
+    const owners = await leadWorkerIds(ctx.identity, ctx.member.organizationId);
     return ctx.db.forOrg(ctx.member.organizationId, (tx) =>
       reassignLead(tx, ctx.member, input, { owners, now: new Date() }),
     );

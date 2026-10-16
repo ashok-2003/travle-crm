@@ -6,7 +6,7 @@ import { recordLeadEvent } from "@travel-crm/domain/crm";
 import { addStandaloneTask, completeTask, snoozeTask } from "@travel-crm/domain/tasks";
 import { orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
-import { leadWorkerIds } from "../lead-workers.js";
+import { leadWorkerIdsIfOther } from "../lead-workers.js";
 
 const worker = orgProcedure.requires("leads:view");
 
@@ -16,7 +16,7 @@ export const tasksRouter = router({
     .input(addTaskInput)
     .output(task)
     .mutation(async ({ ctx, input }) => {
-      const owners = await leadWorkerIds(ctx.identity, ctx.member, input.assigneeUserId);
+      const owners = await leadWorkerIdsIfOther(ctx.identity, ctx.member, input.assigneeUserId);
       return ctx.db.forOrg(ctx.member.organizationId, (tx) =>
         addStandaloneTask(tx, ctx.member, input, { owners, now: new Date() }),
       );
