@@ -20,11 +20,11 @@ export function useConsoleSignOut(): () => void {
   };
 }
 
-export function ConsoleSignOutButton({ className }: { className?: string }) {
+export function ConsoleSignOutButton() {
   const t = useTranslations("console.navigation");
   const signOut = useConsoleSignOut();
   return (
-    <Button variant="ghost" className={className} onClick={signOut}>
+    <Button variant="ghost" onClick={signOut}>
       <LogOutIcon aria-hidden="true" />
       {t("signOut")}
     </Button>

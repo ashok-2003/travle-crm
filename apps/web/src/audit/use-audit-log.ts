@@ -6,7 +6,7 @@ import { useTRPC, useTRPCClient } from "@/data/trpc";
 import { useCursorPages } from "@/data/use-cursor-pages";
 import type { RecordFilter } from "./record-filter";
 
-export const AUDIT_ENTRIES_PER_PAGE = 25;
+const AUDIT_ENTRIES_PER_PAGE = 25;
 
 export function useAuditLog(record: RecordFilter | null) {
   const trpc = useTRPC();

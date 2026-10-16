@@ -4,6 +4,7 @@ import path from "node:path";
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 import { securityHeaderRules } from "./security-headers";
+import { API_PATHS } from "./src/lib/routes";
 
 const production = process.env.NODE_ENV === "production";
 
@@ -73,7 +74,7 @@ function rewrites() {
   const toApi =
     apiOrigin === null
       ? []
-      : ["/api", "/p", "/webhooks"].map((prefix) => ({
+      : API_PATHS.map((prefix) => ({
           source: `${prefix}/:path*`,
           destination: `${apiOrigin}${prefix}/:path*`,
         }));

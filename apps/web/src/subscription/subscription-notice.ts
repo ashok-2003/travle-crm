@@ -5,7 +5,7 @@ import type { SubscriptionOverview } from "@travel-crm/contracts/subscriptions";
 import { addDays, parseCalendarDate, type CalendarDate } from "@travel-crm/domain/kernel";
 
 /** How many days before its end, its last day included, a trial says when it ends. */
-export const TRIAL_ENDING_DAYS = 7;
+const TRIAL_ENDING_DAYS = 7;
 
 export type SubscriptionNotice =
   { kind: "trialEnding"; on: string } | { kind: "pastDue"; readOnlyFrom: string | null } | { kind: "readOnly" };
