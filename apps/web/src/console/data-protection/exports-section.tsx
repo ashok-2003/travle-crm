@@ -4,12 +4,14 @@
 // job of the console's, kept for 7 days, and outliving a deletion. Newest first.
 import { ArchiveIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Fragment } from "react";
+import Link from "next/link";
+import { Fragment, useId } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { Button } from "@/components/ui/button";
 import { ItemGroup, ItemSeparator } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
+import { consoleRoutes } from "../routes";
 import { ExportItem } from "./export-item";
 import { useExportOrganization, useExports } from "./use-exports";
 
@@ -18,6 +20,8 @@ export function ExportsSection({ organizationId, canExport }: { organizationId: 
   const tCommon = useTranslations("common");
   const exports = useExports(organizationId);
   const ask = useExportOrganization();
+  const hintId = useId();
+  const preparing = exports.data?.some((entry) => entry.state === "requested") === true;
 
   const body = () => {
     if (exports.data) {
@@ -52,7 +56,8 @@ export function ExportsSection({ organizationId, canExport }: { organizationId: 
         </div>
         {canExport && (
           <Button
-            disabled={ask.isPending || exports.data?.some((entry) => entry.state === "requested")}
+            disabled={ask.isPending || preparing}
+            aria-describedby={preparing ? hintId : undefined}
             onClick={() => {
               ask.mutate({ organizationId });
             }}
@@ -61,6 +66,17 @@ export function ExportsSection({ organizationId, canExport }: { organizationId: 
           </Button>
         )}
       </div>
+      {preparing && (
+        <p id={hintId} className="max-w-[65ch] text-caption text-muted-foreground">
+          {t("preparing")}{" "}
+          <Link
+            href={consoleRoutes.jobs}
+            className="inline-flex min-h-11 items-center text-primary underline-offset-4 hover:underline"
+          >
+            {t("seeJobs")}
+          </Link>
+        </p>
+      )}
       {body()}
     </section>
   );

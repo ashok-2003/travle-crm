@@ -1,8 +1,8 @@
 "use client";
 
 // One labelled field of the plan form (DESIGN.md section 6: a label above, the problem below with an icon, linked by
-// aria-describedby). Numbers are mono; a rupee amount has ₹ before it (an input group), sits right-aligned, and takes Indian grouping
-// once the field is left, as text: plan-values.ts reads it into paise.
+// aria-describedby). Numbers are mono; a rupee amount has ₹ before it (an input group), sits right-aligned, and takes
+// Indian grouping once the field is left, as text: plan-values.ts reads it into paise.
 import { paiseFromRupeesText } from "@travel-crm/contracts/kernel";
 import { CircleAlertIcon } from "lucide-react";
 import { useTranslations } from "next-intl";

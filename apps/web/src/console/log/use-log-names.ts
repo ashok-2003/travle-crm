@@ -41,21 +41,17 @@ export function useLogNames(entries: PlatformLogEntry[] | undefined): LogNames {
     })),
   });
 
-  return useMemo(() => {
-    const people = new Map(staff.data?.map((person) => [person.userId, person.name]));
-    const planNames = new Map(plans.data?.map((plan) => [plan.id, plan.name]));
-    const byId = new Map(organizationIds.map((organizationId, index) => [organizationId, organizations[index]]));
-    return {
-      personName: (userId) => people.get(userId) ?? null,
-      planName: (planId) => planNames.get(planId) ?? null,
-      organization: (organizationId) => {
-        const result = byId.get(organizationId);
-        if (result?.data !== undefined) return { state: "found", name: result.data };
-        if (!result?.isError) return { state: "unknown" };
-        return refusalOf(result.error)?.reason === "ORGANIZATION_NOT_FOUND"
-          ? { state: "deleted" }
-          : { state: "failed" };
-      },
-    };
-  }, [staff.data, plans.data, organizationIds, organizations]);
+  const people = new Map(staff.data?.map((person) => [person.userId, person.name]));
+  const planNames = new Map(plans.data?.map((plan) => [plan.id, plan.name]));
+  const byId = new Map(organizationIds.map((organizationId, index) => [organizationId, organizations[index]]));
+  return {
+    personName: (userId) => people.get(userId) ?? null,
+    planName: (planId) => planNames.get(planId) ?? null,
+    organization: (organizationId) => {
+      const result = byId.get(organizationId);
+      if (result?.data !== undefined) return { state: "found", name: result.data };
+      if (!result?.isError) return { state: "unknown" };
+      return refusalOf(result.error)?.reason === "ORGANIZATION_NOT_FOUND" ? { state: "deleted" } : { state: "failed" };
+    },
+  };
 }
