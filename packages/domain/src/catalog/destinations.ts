@@ -1,9 +1,16 @@
 // Destinations (spec 3.2, 3.6): the agency's own list. A name is found whatever its case, a merged one leads to the
 // destination it was merged into (R34), and a new name is added once even when two saves race, through the live-name
-// index (destination_name_live, R2). Renames and merges need settings:manage, which the api checks.
-import type { Destination, RenameDestinationInput, SearchDestinationsInput } from "@travel-crm/contracts/catalog";
-import { sql, withDeleted, type OrgTx } from "@travel-crm/db";
+// index (destination_name_live, R2). Renames and merges need settings:manage, which the api checks; two merges at once
+// take their rows' locks in one order, so they can never point two destinations at each other.
+import {
+  destinationName,
+  type Destination,
+  type RenameDestinationInput,
+  type SearchDestinationsInput,
+} from "@travel-crm/contracts/catalog";
+import { softDeleted, sql, withDeleted, type OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
+import type { MemberAccess } from "../identity/index.js";
 import { publishEvent } from "../jobs/index.js";
 import { DomainError, type Actor } from "../kernel/index.js";
 
@@ -11,6 +18,15 @@ import { DomainError, type Actor } from "../kernel/index.js";
 const MAX_MERGE_HOPS = 10;
 
 const notFound = () => new DomainError("NOT_FOUND", "NOT_FOUND", "No such destination");
+
+/** A name as typed, trimmed with its inner spaces collapsed; one with nothing in it, or past 80, is refused. */
+function tidyName(typed: string): string {
+  const parsed = destinationName.safeParse(typed);
+  if (!parsed.success) {
+    throw new DomainError("VALIDATION", "INVALID_DESTINATION_NAME", "Name the destination in 1 to 80 characters");
+  }
+  return parsed.data;
+}
 
 /** The live destination with this name, ignoring case. */
 async function liveNamed(tx: OrgTx, name: string): Promise<Destination | null> {
@@ -51,7 +67,8 @@ function destinationRow(tx: OrgTx, id: string): Promise<DestinationRow | null> {
  * name went into, else a new one. Two saves of a new name at once add it once: the second waits on the first's
  * insert and then reads it.
  */
-export async function findOrAddDestination(tx: OrgTx, actor: Actor, name: string): Promise<Destination> {
+export async function findOrAddDestination(tx: OrgTx, actor: Actor, typed: string): Promise<Destination> {
+  const name = tidyName(typed);
   const live = await liveNamed(tx, name);
   if (live) return live;
   const merged = await tx.$queryRaw<{ id: string }[]>`
@@ -105,23 +122,38 @@ export function searchDestinations(tx: OrgTx, input: SearchDestinationsInput): P
 
 /** Renames a live destination; another live one with the name in any case refuses it. */
 export async function renameDestination(tx: OrgTx, actor: Actor, input: RenameDestinationInput): Promise<Destination> {
+  const name = tidyName(input.name);
   const current = await tx.destination.findUnique({ where: { id: input.destinationId }, select: { name: true } });
   if (current === null) throw notFound();
-  if (current.name === input.name) return { id: input.destinationId, name: input.name };
-  const holder = await liveNamed(tx, input.name);
+  if (current.name === name) return { id: input.destinationId, name };
+  const holder = await liveNamed(tx, name);
   if (holder !== null && holder.id !== input.destinationId) {
     throw new DomainError("CONFLICT", "DESTINATION_NAME_TAKEN", "Another destination has that name");
   }
-  await tx.destination.update({ where: { id: input.destinationId }, data: { name: input.name } });
+  await tx.destination.update({ where: { id: input.destinationId }, data: { name } });
   await recordAudit(tx, actor, {
     action: "destination.renamed",
     entityType: "destination",
     entityId: input.destinationId,
     before: { name: current.name },
-    after: { name: input.name },
+    after: { name },
   });
   await publishEvent(tx, { type: "destination.renamed", payload: { destinationId: input.destinationId } });
-  return { id: input.destinationId, name: input.name };
+  return { id: input.destinationId, name };
+}
+
+/**
+ * Both destinations, their rows locked in id order (so merges of A into B and B into A at once wait for each other
+ * rather than deadlock), each read after the other's change committed; null for one that is missing or deleted.
+ */
+async function lockLivePair(tx: OrgTx, ids: readonly [string, string]): Promise<Map<string, string> | null> {
+  const rows = await tx.$queryRaw<{ id: string; name: string; live: boolean }[]>`
+    SELECT id, name, deleted_at IS NULL AS live FROM destination
+    WHERE id IN (${ids[0]}::uuid, ${ids[1]}::uuid)
+    ORDER BY id
+    FOR UPDATE`;
+  const live = rows.filter((row) => row.live);
+  return live.length === 2 ? new Map(live.map((row) => [row.id, row.name])) : null;
 }
 
 /**
@@ -130,25 +162,26 @@ export async function renameDestination(tx: OrgTx, actor: Actor, input: RenameDe
  */
 export async function mergeDestination(
   tx: OrgTx,
-  actor: Actor,
+  actor: MemberAccess,
   input: { destinationId: string; intoDestinationId: string },
 ): Promise<void> {
   if (input.destinationId === input.intoDestinationId) {
     throw new DomainError("VALIDATION", "MERGE_INTO_ITSELF", "A destination can't be merged into itself");
   }
-  const merged = await tx.destination.findUnique({ where: { id: input.destinationId }, select: { name: true } });
-  const kept = await tx.destination.findUnique({ where: { id: input.intoDestinationId }, select: { name: true } });
-  if (merged === null || kept === null) throw notFound();
+  const names = await lockLivePair(tx, [input.destinationId, input.intoDestinationId]);
+  const merged = names?.get(input.destinationId);
+  const kept = names?.get(input.intoDestinationId);
+  if (merged === undefined || kept === undefined) throw notFound();
   await tx.destination.update({
     where: { id: input.destinationId },
-    data: { mergedIntoId: input.intoDestinationId, deletedAt: new Date(), deletedBy: actor.userId },
+    data: { mergedIntoId: input.intoDestinationId, ...softDeleted(actor.userId) },
   });
   await recordAudit(tx, actor, {
     action: "destination.merged",
     entityType: "destination",
     entityId: input.destinationId,
-    before: { name: merged.name },
-    after: { mergedInto: kept.name },
+    before: { name: merged },
+    after: { mergedInto: kept },
   });
   await publishEvent(tx, { type: "destination.merged", payload: input });
 }
