@@ -1,6 +1,7 @@
 // The worker renders an issued document's PDF from its frozen content, once: never again, and into one attachment
 // however many times or how many runs at once it is delivered. The organization's logo frozen in its branding is
-// read from storage and drawn; one it can't draw, or a file that isn't the organization's logo, is left out.
+// read from storage and drawn; one it can't draw, one of more pixels than a logo may hold, or a file that isn't the
+// organization's logo, is left out.
 import { issuedDocumentRenderInput } from "@travel-crm/contracts/documents";
 import { renderPdf, UnprintableTextError } from "@travel-crm/integrations/pdf";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -12,6 +13,7 @@ import {
   fakeRenderer,
   issuedEvent,
   listenerContext,
+  pngOfSize,
   quotation,
   storedLogo,
   tinyJpeg,
@@ -109,6 +111,24 @@ describe("rendering an issued document", () => {
       const rendered = await test.db.forOrg(organizationId, (tx) => getIssuedDocument(tx, { documentId: document.id }));
       expect(rendered.pdfAttachmentId).not.toBeNull();
     }
+  });
+
+  it("leaves out a logo of more pixels than a logo may hold before anything inflates them, as a bomb", async () => {
+    const organizationId = await createOrganization(test);
+    const issuedWith = async (body: Uint8Array) =>
+      issued(organizationId, await storedLogo(test, organizationId, { body, contentType: "image/png" }));
+    const bomb = pngOfSize(8000, 8000);
+    // A few kilobytes for 64 million pixels, which pdfkit would inflate into gigabytes.
+    expect(bomb.byteLength).toBeLessThan(16 * 1024);
+    for (const body of [bomb, pngOfSize(4097, 1)]) {
+      expect(await drawnLogo(organizationId, (await issuedWith(body)).id)).toBeUndefined();
+    }
+    // 16 million pixels, the most a logo may hold.
+    const largest = pngOfSize(4000, 4000);
+    expect(await drawnLogo(organizationId, (await issuedWith(largest)).id)).toEqual({
+      data: largest,
+      contentType: "image/png",
+    });
   });
 
   it("never prints a file that isn't the organization's logo, such as a traveller's passport", async () => {

@@ -1,6 +1,6 @@
 // organization.logo.*: the organization's logo, an attachment of record type organization_logo whose newest ready
-// file is the logo (PNG or JPEG, at most 1 MB), for the branding screen and the issued documents' branding. The file
-// goes straight to storage; the api hands out the links and checks what arrived.
+// file is the logo (PNG or JPEG, at most 1 MB, 4096 pixels a side and 16 megapixels), for the branding screen and the
+// issued documents' branding. The file goes straight to storage; the api hands out the links and checks what arrived.
 import type { AttachmentSummary } from "@travel-crm/contracts/files";
 import {
   LOGO_RECORD_TYPE,
@@ -10,6 +10,7 @@ import {
   requestLogoUploadInput,
   type OrganizationLogo,
 } from "@travel-crm/contracts/profile";
+import { assertUsableLogo } from "@travel-crm/domain/documents";
 import type { Files } from "@travel-crm/domain/files";
 import type { MemberAccess } from "@travel-crm/domain/identity";
 import { DomainError } from "@travel-crm/domain/kernel";
@@ -60,13 +61,16 @@ export const logoRouter = router({
       return { attachmentId: attachment.id, upload: { ...upload, expiresAt: upload.expiresAt.toISOString() } };
     }),
 
-  /** Once storage holds the promised file, it is the logo. Harmless to repeat, as after a retried PUT. */
+  /**
+   * Once storage holds the promised file, and it is the image it said it was with at most a logo's pixels
+   * (`LOGO_TOO_LARGE`), it is the logo. Harmless to repeat, as after a retried PUT.
+   */
   confirmUpload: freshProcedure
     .requires("settings:manage")
     .input(logoRefInput)
     .output(organizationLogo)
     .mutation(async ({ ctx, input }) => {
-      const logo = await ctx.files.confirmUpload(ctx.member, { ...logosOf(ctx.member), ...input });
+      const logo = await ctx.files.confirmUpload(ctx.member, { ...logosOf(ctx.member), ...input }, assertUsableLogo);
       return shown(ctx.files, ctx.member, logo);
     }),
 

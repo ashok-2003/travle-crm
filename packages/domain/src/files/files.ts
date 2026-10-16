@@ -7,7 +7,7 @@ import type { Actor } from "../kernel/index.js";
 import { listAttachments, removeAttachment, storageUsedBytes } from "./attachments.js";
 import type { DownloadLink, FilesDependencies, GeneratedFile, StoredFile } from "./dependencies.js";
 import { downloadLink, systemDownloadLink, systemFile } from "./downloads.js";
-import { confirmUpload, requestUpload, storeGeneratedFile } from "./uploads.js";
+import { confirmUpload, requestUpload, storeGeneratedFile, type StoredBytesCheck } from "./uploads.js";
 
 export interface Files {
   /**
@@ -19,10 +19,11 @@ export interface Files {
     input: RequestUploadInput,
   ): Promise<{ attachment: AttachmentSummary; upload: PresignedUpload }>;
   /**
-   * Marks the upload ready once storage holds the promised size and type. Like downloadLink and remove, it names the
-   * record the file belongs to: a file of another record is "not found".
+   * Marks the upload ready once storage holds the promised size and type, and `check` (when given) passes on the
+   * stored bytes. Like downloadLink and remove, it names the record the file belongs to: a file of another record is
+   * "not found".
    */
-  confirmUpload(actor: Actor, input: AttachmentRefInput): Promise<AttachmentSummary>;
+  confirmUpload(actor: Actor, input: AttachmentRefInput, check?: StoredBytesCheck): Promise<AttachmentSummary>;
   /** A 5-minute link to a ready file. Sensitive files need documents:view_sensitive. */
   downloadLink(actor: MemberAccess, input: AttachmentRefInput): Promise<DownloadLink>;
   /** The record's ready files, sensitive ones marked; their names only for members with documents:view_sensitive. */
@@ -42,7 +43,7 @@ export interface Files {
 export function createFiles(dependencies: FilesDependencies): Files {
   return {
     requestUpload: (actor, input) => requestUpload(dependencies, actor, input),
-    confirmUpload: (actor, input) => confirmUpload(dependencies, actor, input),
+    confirmUpload: (actor, input, check) => confirmUpload(dependencies, actor, input, check),
     downloadLink: (actor, input) => downloadLink(dependencies, actor, input),
     list: (actor, record) => listAttachments(dependencies, actor, record),
     remove: (actor, input) => removeAttachment(dependencies, actor, input),

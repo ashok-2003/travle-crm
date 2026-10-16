@@ -36,7 +36,8 @@ app's translated message. Unexpected errors say only "Something went wrong".
 
 `me`, `staff`, `roles`, `settings`, `subscription` (`get`: what the organization's subscription allows today, in
 every state), `organization` (`profile.get`/`update`, `branding.get`/`update`, `setup.get`, and `logo.get`,
-`requestUpload`, `confirmUpload`, `remove`: an `organization_logo` attachment, PNG or JPEG of at most 1 MB; all with
+`requestUpload`, `confirmUpload`, `remove`: an `organization_logo` attachment, PNG or JPEG of at most 1 MB, 4096 pixels
+a side and 16 megapixels, which `confirmUpload` reads from the stored file's header (`LOGO_TOO_LARGE`); all with
 `settings:manage`), `attachments` (the organization's own papers on record type `organization`: `list`,
 `requestUpload`, `confirmUpload`, `downloadLink`, `remove`), `documents` (`issueSample`, `list`, `get`,
 `downloadLink`: issued documents and their PDFs), `shareLinks` (`create`, `list`, `revoke`, for issued documents),

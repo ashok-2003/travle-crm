@@ -12,6 +12,7 @@ import { renderPdf } from "@travel-crm/integrations/pdf";
 import { createMemoryStorage, type MemoryStorage } from "@travel-crm/integrations/storage";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { CookieJar } from "./support/cookie-jar.js";
+import { tinyPng } from "./support/images.js";
 import { addStaff, signedInOwner, signedInStaff } from "./support/people.js";
 import { createTestAgency, createTestServer, type TestAgency, type TestServer } from "./support/test-server.js";
 import { dataOf, mutate, query, refusalOf } from "./support/trpc.js";
@@ -29,12 +30,6 @@ const profile = {
   bankName: "HDFC Bank",
   invoicePrefix: "KT",
 };
-
-/** A 1x1 PNG: a logo the PDF can draw. */
-const logoPng = Uint8Array.from(
-  atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="),
-  (character) => character.charCodeAt(0),
-);
 
 describe("issued documents", () => {
   let server: TestServer;
@@ -70,11 +65,11 @@ describe("issued documents", () => {
       await mutate(
         server,
         "organization.logo.requestUpload",
-        { fileName: "Logo.png", contentType: "image/png", sizeBytes: logoPng.byteLength },
+        { fileName: "Logo.png", contentType: "image/png", sizeBytes: tinyPng.byteLength },
         jar,
       ),
     );
-    await storage.upload({ ...upload, expiresAt: new Date(upload.expiresAt) }, logoPng, "image/png");
+    await storage.upload({ ...upload, expiresAt: new Date(upload.expiresAt) }, tinyPng, "image/png");
     return dataOf<OrganizationLogo>(await mutate(server, "organization.logo.confirmUpload", { attachmentId }, jar));
   }
 

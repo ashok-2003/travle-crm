@@ -1,17 +1,16 @@
-// The organization's logo over HTTP (spec 9.3): a PNG or JPEG of at most 1 MB, uploaded straight to storage and shown
-// through a short-lived link; the newest is the logo, and removing it takes the ones it replaced with it. Only roles
-// with settings:manage reach it, and a read-only organization's Owner may look but not change it.
+// The organization's logo over HTTP (spec 9.3): a PNG or JPEG of at most 1 MB, 4096 pixels a side and 16 megapixels,
+// uploaded straight to storage and shown through a short-lived link; the newest is the logo, and removing it takes the
+// ones it replaced with it. Only roles with settings:manage reach it, and a read-only organization's Owner may look
+// but not change it.
 import type { LogoUpload, OrganizationLogo } from "@travel-crm/contracts/profile";
 import { systemActor } from "@travel-crm/domain/kernel";
 import { createMemoryStorage, type MemoryStorage } from "@travel-crm/integrations/storage";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { CookieJar } from "./support/cookie-jar.js";
+import { pngOfSize, tinyPng } from "./support/images.js";
 import { addStaff, signedInOwner, signedInStaff } from "./support/people.js";
 import { createTestAgency, createTestServer, type TestServer } from "./support/test-server.js";
 import { dataOf, mutate, query, refusalOf } from "./support/trpc.js";
-
-/** What the browser would send: storage checks only its size and declared type. */
-const pngBytes = new TextEncoder().encode("the bytes of a logo");
 
 describe("the organization's logo", () => {
   let server: TestServer;
@@ -26,19 +25,23 @@ describe("the organization's logo", () => {
     await server.close();
   });
 
-  /** Uploads a logo as the branding screen does: ask for a link, PUT the file to storage, confirm it. */
-  async function uploadedLogo(jar: CookieJar, fileName = "Logo.png"): Promise<OrganizationLogo> {
+  /** Uploads a file as the branding screen does: ask for a link, PUT it to storage, confirm it. The confirm's answer. */
+  async function uploadLogo(jar: CookieJar, body: Uint8Array, fileName = "Logo.png"): Promise<Response> {
     const { attachmentId, upload } = await dataOf<LogoUpload>(
       await mutate(
         server,
         "organization.logo.requestUpload",
-        { fileName, contentType: "image/png", sizeBytes: pngBytes.byteLength },
+        { fileName, contentType: "image/png", sizeBytes: body.byteLength },
         jar,
       ),
     );
-    await storage.upload({ ...upload, expiresAt: new Date(upload.expiresAt) }, pngBytes, "image/png");
-    return dataOf<OrganizationLogo>(await mutate(server, "organization.logo.confirmUpload", { attachmentId }, jar));
+    // Storage checks only the size and the declared type.
+    await storage.upload({ ...upload, expiresAt: new Date(upload.expiresAt) }, body, "image/png");
+    return mutate(server, "organization.logo.confirmUpload", { attachmentId }, jar);
   }
+
+  const uploadedLogo = async (jar: CookieJar, fileName?: string) =>
+    dataOf<OrganizationLogo>(await uploadLogo(jar, tinyPng, fileName));
 
   it("lets the Owner upload a logo straight to storage, and shows it through a short-lived link", async () => {
     const agency = await createTestAgency(server);
@@ -90,6 +93,22 @@ describe("the organization's logo", () => {
     }
   });
 
+  it("refuses a file of more pixels than a logo may hold, as a bomb, or that isn't the image it says", async () => {
+    const agency = await createTestAgency(server);
+    const jar = await signedInOwner(server, agency);
+    const bomb = pngOfSize(8000, 8000);
+    // A few kilobytes for 64 million pixels, which the worker would inflate into gigabytes for every PDF.
+    expect(bomb.byteLength).toBeLessThan(16 * 1024);
+    for (const body of [bomb, pngOfSize(4097, 1)]) {
+      expect(await refusalOf(await uploadLogo(jar, body))).toEqual({ status: 400, reason: "LOGO_TOO_LARGE" });
+    }
+    const renamed = new TextEncoder().encode("GIF89a, renamed");
+    expect(await refusalOf(await uploadLogo(jar, renamed))).toEqual({ status: 400, reason: "UPLOAD_DOES_NOT_MATCH" });
+    expect(await dataOf(await query(server, "organization.logo.get", jar))).toBeNull();
+    // 16 million pixels, the most a logo may hold.
+    expect((await uploadLogo(jar, pngOfSize(4000, 4000))).status).toBe(200);
+  });
+
   it("confirms and removes only the organization's logos, never another of its files", async () => {
     const agency = await createTestAgency(server);
     const jar = await signedInOwner(server, agency);
@@ -98,7 +117,7 @@ describe("the organization's logo", () => {
       recordId: agency.organizationId,
       fileName: "Licence.png",
       contentType: "image/png",
-      body: pngBytes,
+      body: tinyPng,
     });
     for (const path of ["organization.logo.confirmUpload", "organization.logo.remove"]) {
       expect(await refusalOf(await mutate(server, path, { attachmentId: licence.id }, jar)), path).toEqual({
