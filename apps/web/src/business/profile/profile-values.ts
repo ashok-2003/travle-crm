@@ -2,12 +2,14 @@
 // (updateOrganizationProfileInput) decides what is valid; each problem is named by the field it belongs to, so the
 // form shows its message there. A GSTIN that is well formed but another state's is told apart from a mistyped one, and
 // an invoice prefix of well-formed letters that the app's own documents are numbered with (SMPL) from a mistyped one.
+import { reservedDocumentPrefixes } from "@travel-crm/contracts/documents";
 import { gstStates, gstStateCodeFromGstin, isValidGstin } from "@travel-crm/contracts/kernel";
 import {
   updateOrganizationProfileInput,
   type BusinessProfileDetails,
   type UpdateOrganizationProfileInput,
 } from "@travel-crm/contracts/profile";
+import { formatPhoneNumber } from "@/lib/format";
 
 export type ProfileField = keyof UpdateOrganizationProfileInput;
 
@@ -37,11 +39,8 @@ const FIELDS: readonly ProfileField[] = [
 const isField = (value: unknown): value is ProfileField =>
   typeof value === "string" && (FIELDS as readonly string[]).includes(value);
 
-/** India's numbers are shown after the form's own +91, grouped as people write them: "98765 43210". */
-function phoneAsTyped(e164: string): string {
-  const national = /^\+91(\d{5})(\d{5})$/.exec(e164);
-  return national ? `${national[1] ?? ""} ${national[2] ?? ""}` : e164;
-}
+/** A stored phone as the box shows it: an Indian one as formatPhoneNumber groups it, after the form's own +91. */
+const phoneAsTyped = (e164: string) => formatPhoneNumber(e164).replace(/^\+91 /, "");
 
 /** A saved account number as the screen shows it: its last four digits, as the platform console shows it. */
 export const maskedAccountNumber = (number: string) => `XXXX${number.slice(-4)}`;
@@ -76,12 +75,12 @@ export function toProfileInput(
   return { ok: false, problems };
 }
 
-/** The schema's invoice prefix before it refuses the letters the app's own documents use: 2-5 letters. */
-const WELL_FORMED_PREFIX = /^[A-Za-z]{2,5}$/;
-
 function problemOf(field: ProfileField, values: ProfileValues): ProfileProblem {
   // The schema's one rule across fields (a GSTIN starts with its state's code) is a problem of a well-formed GSTIN.
   if (field === "gstin" && stateNameOfGstin(values.gstin) !== null) return "gstinOfAnotherState";
-  if (field === "invoicePrefix" && WELL_FORMED_PREFIX.test(values.invoicePrefix.trim())) return "invoicePrefixReserved";
+  // The schema refuses the letters the app's own documents are numbered with, upper-cased as it keeps them.
+  if (field === "invoicePrefix" && reservedDocumentPrefixes.includes(values.invoicePrefix.trim().toUpperCase())) {
+    return "invoicePrefixReserved";
+  }
   return field;
 }

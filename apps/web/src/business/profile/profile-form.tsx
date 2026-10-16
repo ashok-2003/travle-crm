@@ -8,13 +8,12 @@ import type { BusinessProfileDetails } from "@travel-crm/contracts/profile";
 import { useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
 import { useForm, type FieldErrors, type Resolver } from "react-hook-form";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { GstStateField } from "@/components/forms/gst-state-field";
+import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
 import { FieldDescription, FieldGroup } from "@/components/ui/field";
-import { useErrorMessage } from "@/lib/error-message";
 import { useWriteAccess } from "@/subscription/write-access";
 import { BankAccountNumberField } from "./bank-account-number-field";
-import { GstStateSelect } from "./gst-state-select";
 import { ProfileTextField } from "./profile-text-field";
 import { profileValuesOf, stateNameOfGstin, toProfileInput, type ProfileValues } from "./profile-values";
 import { useSaveProfile } from "./use-profile";
@@ -36,7 +35,6 @@ function FormSection({ id, title, hint, children }: { id: string; title: string;
 export function ProfileForm({ profile }: { profile: BusinessProfileDetails | null }) {
   const t = useTranslations("business.profile");
   const tCommon = useTranslations("common");
-  const { apiError } = useErrorMessage();
   const write = useWriteAccess();
   const save = useSaveProfile();
   const resolver: Resolver<ProfileValues> = (values) => {
@@ -75,7 +73,13 @@ export function ProfileForm({ profile }: { profile: BusinessProfileDetails | nul
         <FormSection id="business" title={t("business")}>
           <ProfileTextField form={form} name="legalName" label={t("legalName")} hint={t("legalNameHint")} />
           <ProfileTextField form={form} name="gstin" label={t("gstin")} hint={t("gstinHint")} mono />
-          <GstStateSelect form={form} disabled={!write.allowed} />
+          <GstStateField
+            control={form.control}
+            name="gstStateCode"
+            label={t("gstState")}
+            hint={t("gstStateHint")}
+            placeholder={t("chooseState")}
+          />
           <ProfileTextField form={form} name="address" label={t("address")} autoComplete="street-address" multiline />
         </FormSection>
         <FormSection id="contact" title={t("contact")}>
@@ -111,11 +115,7 @@ export function ProfileForm({ profile }: { profile: BusinessProfileDetails | nul
           />
         </FormSection>
       </fieldset>
-      {save.isError && (
-        <Alert variant="destructive">
-          <AlertDescription>{apiError(save.error)}</AlertDescription>
-        </Alert>
-      )}
+      <RefusalAlert error={save.error} />
       <div className="flex flex-col items-end gap-2">
         <Button
           type="submit"

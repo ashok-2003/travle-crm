@@ -1,6 +1,5 @@
 // An invoice prefix the app's own documents are numbered with (SMPL for the branding's samples, Ruling D) is refused by
 // the api's own schema before anything is sent, and the form says why, not "use 2-5 letters".
-import type * as ProfileContracts from "@travel-crm/contracts/profile";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -10,20 +9,6 @@ import { messages } from "@/i18n/messages";
 import { stubApi } from "../support/api-stub";
 import { newQueryClient, renderWithApi } from "../organization/api";
 import { owner, saved, subscription } from "./profile";
-
-// The contract refuses SMPL and DOC as an invoice prefix (packages/contracts, Ruling D). The same refusal stands in
-// for it here, so the test holds whichever contract it runs against.
-vi.mock("@travel-crm/contracts/profile", async (importOriginal) => {
-  const contracts = await importOriginal<typeof ProfileContracts>();
-  return {
-    ...contracts,
-    updateOrganizationProfileInput: contracts.updateOrganizationProfileInput.superRefine((profile, context) => {
-      if (profile.invoicePrefix === "SMPL" || profile.invoicePrefix === "DOC") {
-        context.addIssue({ code: "custom", path: ["invoicePrefix"], message: "Kept for the app's own documents" });
-      }
-    }),
-  };
-});
 
 const words = messages.business.profile;
 
