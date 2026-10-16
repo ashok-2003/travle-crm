@@ -1,14 +1,21 @@
-// A plain text link ("Forgot your password?", "Back to sign in"): the registry's link Button, 44px tall so it is a
-// touch target like any other (DESIGN.md section 4), however short its text. BackLink is the way back to the screen a
-// page was opened from, with an arrow, top left as on every screen a list leads to.
+// A text link: the registry's link Button. On its own ("Forgot your password?", a name in a list) it is a 44px touch
+// target however short its text (DESIGN.md section 4), and wraps however long, so a long organization or file name
+// never runs past its row. `inline` is for a link inside a sentence, a log row or a desktop table cell: no 44px floor,
+// sitting on the text's baseline. BackLink is the way back to the screen a page was opened from, with an arrow, top
+// left as on every screen a list leads to.
 import { ArrowLeftIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
-export function TextLink({ href, children }: { href: string; children: ReactNode }) {
+export function TextLink({ href, inline = false, children }: { href: string; inline?: boolean; children: ReactNode }) {
   return (
-    <Button variant="link" className="self-start px-0" asChild>
+    <Button
+      variant="link"
+      className={cn("h-auto px-0 text-left whitespace-normal", inline ? "py-0 align-baseline" : "min-h-11 self-start")}
+      asChild
+    >
       <Link href={href}>{children}</Link>
     </Button>
   );

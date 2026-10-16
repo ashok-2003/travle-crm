@@ -26,7 +26,7 @@ export function LogOrganization({ entry, names }: { entry: PlatformLogEntry; nam
   }
   return (
     <>
-      <TextLink href={consoleRoutes.organization(organizationId)}>
+      <TextLink href={consoleRoutes.organization(organizationId)} inline>
         <span className="script-leading">{known.state === "found" ? known.name : (code ?? t("organization"))}</span>
       </TextLink>
       {known.state === "failed" && <span className="text-caption text-muted-foreground"> {t("nameFailed")}</span>}

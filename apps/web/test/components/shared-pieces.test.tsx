@@ -94,6 +94,23 @@ describe("ShowMoreButton", () => {
 });
 
 describe("TextLink and BackLink", () => {
+  it("wraps a long name rather than running past its row, keeping the 44px floor; inline, it has none", () => {
+    render(
+      <>
+        <TextLink href="/console/organizations/1">Shree Balaji Tours and Travels Private Limited</TextLink>
+        <TextLink href="/console/organizations/2" inline>
+          Sharma Travels
+        </TextLink>
+      </>,
+    );
+    const alone = screen.getByRole("link", { name: "Shree Balaji Tours and Travels Private Limited" });
+    expect(alone).toHaveClass("whitespace-normal", "h-auto", "min-h-11");
+    expect(alone).not.toHaveClass("whitespace-nowrap", "h-11");
+    const inline = screen.getByRole("link", { name: "Sharma Travels" });
+    expect(inline).toHaveClass("whitespace-normal", "align-baseline");
+    expect(inline).not.toHaveClass("min-h-11", "self-start");
+  });
+
   it("are the registry's link Button, a 44px target, BackLink with an arrow before its words", () => {
     render(
       <>
