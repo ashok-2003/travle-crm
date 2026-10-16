@@ -12,8 +12,6 @@ import { ErrorState } from "@/components/error-state";
 import { ShowMoreButton } from "@/components/show-more-button";
 import { ItemGroup, ItemSeparator } from "@/components/ui/item";
 import { LoadingRows } from "@/components/loading-rows";
-import { refusalOf } from "@/data/api-error";
-import { useErrorMessage } from "@/lib/error-message";
 import { useMe } from "@/session/me-context";
 import { NotificationItem } from "./notification-item";
 import { useMarkRead, useNotificationPages } from "./use-bell";
@@ -22,17 +20,19 @@ export function NotificationList({ open, onFollow }: { open: boolean; onFollow: 
   const t = useTranslations("notifications.bell");
   const tCommon = useTranslations("common");
   const me = useMe();
-  const { apiError } = useErrorMessage();
   const pages = useNotificationPages({ enabled: open });
   const markRead = useMarkRead();
   const canMark = me.impersonatedBy === null;
   const { items: notifications } = pages;
-  // The api's own sentence when it refused (a suspended organization, say), else that it didn't load.
-  const failure = refusalOf(pages.error) === null ? t("loadFailed") : apiError(pages.error);
 
   if (notifications === undefined) {
     return pages.isError ? (
-      <ErrorState message={failure} retryLabel={tCommon("tryAgain")} onRetry={() => void pages.refetch()} />
+      <ErrorState
+        message={t("loadFailed")}
+        error={pages.error}
+        retryLabel={tCommon("tryAgain")}
+        onRetry={() => void pages.refetch()}
+      />
     ) : (
       <LoadingRows rows={3} label={t("loading")} />
     );

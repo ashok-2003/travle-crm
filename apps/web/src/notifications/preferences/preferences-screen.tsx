@@ -6,13 +6,12 @@
 // staff who sign in without email are told why none reaches them.
 import { useTranslations } from "next-intl";
 import { Fragment, useId } from "react";
-import { Delayed } from "@/components/delayed";
 import { ErrorState } from "@/components/error-state";
+import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
 import { BackLink } from "@/components/text-link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
 import { routes } from "@/lib/routes";
 import { shownEmail } from "@/lib/shown-email";
 import { useMe } from "@/session/me-context";
@@ -24,7 +23,7 @@ import { usePreferences, useSetPreference } from "./use-preferences";
 export function NotificationPreferencesScreen() {
   const t = useTranslations("notifications.preferences");
   const tCommon = useTranslations("common");
-  const tAccount = useTranslations("account");
+  const tShell = useTranslations("shell");
   const headingId = useId();
   const me = useMe();
   const preferences = usePreferences();
@@ -37,17 +36,12 @@ export function NotificationPreferencesScreen() {
     content = preferences.isError ? (
       <ErrorState
         message={t("loadFailed")}
+        error={preferences.error}
         retryLabel={tCommon("tryAgain")}
         onRetry={() => void preferences.refetch()}
       />
     ) : (
-      <Delayed>
-        <div role="status" aria-busy="true" aria-label={t("loading")} className="flex flex-col gap-2">
-          {[0, 1].map((row) => (
-            <Skeleton key={row} className="h-16 w-full" />
-          ))}
-        </div>
-      </Delayed>
+      <LoadingRows rows={2} shape="twoLines" label={t("loading")} />
     );
   } else {
     const choices = preferences.data;
@@ -93,7 +87,7 @@ export function NotificationPreferencesScreen() {
 
   return (
     <div className="flex max-w-[720px] flex-col gap-6">
-      <BackLink href={routes.account} label={tAccount("steps.backToAccount")} />
+      <BackLink href={routes.account} label={tShell("navigation.account")} />
       <PageHeader title={t("title")} intro={t("intro")} />
       <PushOnThisDevice />
       <section aria-labelledby={headingId} className="flex flex-col gap-3">
