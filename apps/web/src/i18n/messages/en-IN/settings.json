@@ -19,10 +19,12 @@
   },
   "sections": {
     "heading": "More settings",
+    "setup": "Setup checklist",
+    "setupHint": "What to do before your first quotation, and what's done",
     "profile": "Business profile",
     "profileHint": "Your business's name, address, GST and bank details",
     "branding": "Branding",
-    "brandingHint": "Your logo, on the quotations and invoices you issue",
+    "brandingHint": "Your logo, colour and terms, on the quotations and invoices you issue",
     "files": "Business files",
     "filesHint": "Documents your business keeps, such as its licences",
     "documents": "Documents",

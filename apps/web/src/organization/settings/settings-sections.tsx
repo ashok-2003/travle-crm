@@ -8,6 +8,7 @@ import {
   FileTextIcon,
   FolderIcon,
   HistoryIcon,
+  ListChecksIcon,
   PaletteIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -28,13 +29,14 @@ import { holds, useMe } from "@/session/me-context";
 
 interface Section {
   /** Also the message key in "settings.sections", with its hint at `${key}Hint`. */
-  key: "profile" | "branding" | "files" | "documents" | "audit";
+  key: "setup" | "profile" | "branding" | "files" | "documents" | "audit";
   href: string;
   icon: LucideIcon;
   requires: string;
 }
 
 const sections: readonly Section[] = [
+  { key: "setup", href: routes.setup, icon: ListChecksIcon, requires: "settings:manage" },
   { key: "profile", href: routes.profile, icon: BuildingIcon, requires: "settings:manage" },
   { key: "branding", href: routes.branding, icon: PaletteIcon, requires: "settings:manage" },
   { key: "files", href: routes.files, icon: FolderIcon, requires: "settings:manage" },

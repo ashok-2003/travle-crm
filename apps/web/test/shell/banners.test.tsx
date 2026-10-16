@@ -74,7 +74,11 @@ afterEach(() => {
 describe("Banners", () => {
   it("says so while support is signed in as the member", async () => {
     await renderBanners(member({ impersonatedBy: "0199a000-0000-7000-8000-0000000000ad" }));
-    expect(screen.getByText(banners.impersonated)).toBeVisible();
+    // To support, who reads it: whom they are signed in as, and where.
+    expect(
+      screen.getByText("You're signed in as Asha at Sharma Travels. Everything you do is recorded in its audit log."),
+    ).toBeVisible();
+    expect(screen.getByRole("alert")).toContainElement(screen.getByRole("button", { name: banners.stop }));
     expect(screen.getByRole("button", { name: banners.stop })).toBeVisible();
   });
 

@@ -5,7 +5,6 @@
 // takes access away, which the subscription allows where it refuses other changes; not requiring it is a change
 // (ADR 0021), so it is disabled, saying why, while those are refused.
 import { useQuery } from "@tanstack/react-query";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { ErrorState } from "@/components/error-state";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -20,6 +19,7 @@ import { useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { requirementSwitch } from "./two-factor-requirement-rules";
 import { useSetTwoFactorRequirement } from "./use-settings";
+import { TextLink } from "@/components/text-link";
 
 export function TwoFactorRequirement() {
   const t = useTranslations("settings.security");
@@ -71,9 +71,7 @@ export function TwoFactorRequirement() {
           <AlertDescription className="flex flex-col items-start gap-2">
             {apiError(change.error)}
             {refusalOf(change.error)?.reason === "ENABLE_TWO_FACTOR_FIRST" && (
-              <Link href={routes.account} className="text-primary underline underline-offset-4">
-                {t("setUpYours")}
-              </Link>
+              <TextLink href={routes.account}>{t("setUpYours")}</TextLink>
             )}
           </AlertDescription>
         </Alert>

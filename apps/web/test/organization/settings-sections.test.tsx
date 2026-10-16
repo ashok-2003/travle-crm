@@ -17,6 +17,8 @@ describe("SettingsSections", () => {
   it("leads an Owner to every section", () => {
     renderAs(<SettingsSections />, member({ isOwner: true }));
     expect(links()).toEqual([
+      // The setup checklist is linked from here alone, once Home stops showing it.
+      [expect.stringContaining(sections.setup), routes.setup],
       [expect.stringContaining(sections.profile), routes.profile],
       [expect.stringContaining(sections.branding), routes.branding],
       [expect.stringContaining(sections.files), routes.files],
