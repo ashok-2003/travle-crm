@@ -1,7 +1,10 @@
 // The service worker, bundled into public/sw.js by scripts/service-worker.ts with the app's page list. It keeps an
 // offline shell: every static page (its shell), fetched by the worker itself without cookies, the build's files those
 // shells name, and the icons. A page load's own answer is never kept, and every entry is put and looked up by its
-// URL alone (shells.ts says why). strategy.ts decides how each request is answered, shells.ts what may be kept.
+// URL alone (shells.ts says why). strategy.ts decides how each request is answered, shells.ts what may be kept. It
+// also shows web pushes, and opens a push's page when its notification is tapped (push.ts).
+import { PUSH_ARRIVED } from "../notifications/push/push-message";
+import { notificationFor, openFromNotification, tapTarget } from "./push";
 import {
   fileCacheKey,
   filesNamedIn,
@@ -46,6 +49,25 @@ self.addEventListener("fetch", (event) => {
   else if (strategy === "cache-first") event.respondWith(cacheFirst(event));
   else if (strategy === "network-first") event.respondWith(networkFirst(event));
   // "network-only": not answered here, so the browser fetches as if there were no worker.
+});
+
+// A push from the api's worker (spec 9.4): show it, and tell the app's open pages, so their bell asks again at once.
+self.addEventListener("push", (event) => {
+  const shown = notificationFor(event.data?.text() ?? null);
+  event.waitUntil(
+    Promise.all([
+      self.registration.showNotification(shown.title, shown.options),
+      self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
+        for (const client of windows) client.postMessage(PUSH_ARRIVED);
+      }),
+    ]),
+  );
+});
+
+// A tap opens the push's page in the app, never another site, or brings forward a window already on it.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(openFromNotification(self.clients, tapTarget(event.notification.data, self.location.origin)));
 });
 
 const absolute = (path: string) => new URL(path, self.location.origin).href;

@@ -1,9 +1,14 @@
 "use client";
 
 // The frame around every signed-in screen: a skip link, the sidebar on desktop, the banners, the page, and the
-// bottom bar on phones (DESIGN.md sections 4 and 6). The page gutter is 16px on phones, 24px on tablets, 32px wide.
+// bottom bar on phones (DESIGN.md sections 4 and 6). Phones get a bar above the page with the organization's name and
+// the bell, so the bottom bar keeps its destinations; the bell asks again whenever a push arrives. The page gutter is
+// 16px on phones, 24px on tablets, 32px wide.
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
+import { NotificationBell } from "@/notifications/bell/notification-bell";
+import { useRefreshOnPush } from "@/notifications/bell/use-refresh-on-push";
+import { useMe } from "@/session/me-context";
 import { Banners } from "./banners";
 import { BottomBar } from "./bottom-bar";
 import { Sidebar } from "./sidebar";
@@ -12,6 +17,8 @@ export const MAIN_CONTENT_ID = "main-content";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const t = useTranslations("common");
+  const me = useMe();
+  useRefreshOnPush();
   return (
     <div className="flex min-h-dvh">
       <a
@@ -22,6 +29,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       </a>
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex min-h-14 items-center justify-between gap-2 border-b py-1 pr-2 pl-4 md:hidden">
+          <p className="script-leading min-w-0 text-section font-semibold break-words">{me.organization.name}</p>
+          <NotificationBell opensAs="sheet" />
+        </header>
         <Banners />
         <main
           id={MAIN_CONTENT_ID}
