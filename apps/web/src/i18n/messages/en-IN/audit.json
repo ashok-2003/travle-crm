@@ -98,5 +98,8 @@
     "recordType": "Shared record",
     "expiresAt": "Expires",
     "revokedAt": "Turned off"
+  },
+  "recordTypes": {
+    "issued_document": "A document"
   }
 }
