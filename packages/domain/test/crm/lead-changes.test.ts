@@ -16,8 +16,10 @@ import {
   reassignLead,
   reopenLead,
 } from "../../src/crm/index.js";
+import { changeLeadStage } from "../../src/crm/lead-core.js";
 import type { MemberAccess } from "../../src/identity/index.js";
 import { memberWithStarterRole } from "../identity/rule-helpers.js";
+import { backendPid, waitUntilBlockedBy } from "../lock-waits.js";
 import { aLead, aPerson, aTask, freshPhone, type LeadSeed } from "./support/records.js";
 
 describe("changes from a lead's page", () => {
@@ -132,6 +134,33 @@ describe("changes from a lead's page", () => {
     const neverOpen = await newLead({ stage: "not_a_lead", reopenStage: null });
     await inOrg((tx) => reopenLead(tx, salesperson, { leadId: neverOpen.id }, new Date()));
     expect((await leadRow(neverOpen.id)).stage).toBe("new");
+  });
+
+  it("changes nothing when a Reopen waited behind another tab that already reopened the lead", async () => {
+    const lead = await newLead({ stage: "lost", reopenStage: "quote_sent" });
+    let release: () => void = () => undefined;
+    const mayCommit = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let moved: (holder: number) => void = () => undefined;
+    const holding = new Promise<number>((resolve) => {
+      moved = resolve;
+    });
+    // The other tab moves the lost lead to Contacted and holds its transaction open.
+    const otherTab = inOrg(async (tx) => {
+      await changeLeadStage(tx, manager, { leadId: lead.id, stage: "contacted" }, new Date());
+      moved(await backendPid(tx));
+      await mayCommit;
+    });
+    const holder = await holding;
+    const staleReopen = inOrg((tx) => reopenLead(tx, salesperson, { leadId: lead.id }, new Date()));
+    await waitUntilBlockedBy(platform, holder);
+    release();
+    await Promise.all([otherTab, staleReopen]);
+    expect((await leadRow(lead.id)).stage).toBe("contacted");
+    expect((await auditOf(lead.id)).map((entry) => [entry.action, entry.actorUserId])).toEqual([
+      ["lead.reopened", manager.userId],
+    ]);
   });
 
   it("reassigns a lead with its open tasks, tells the new owner, and refuses an owner who can't work leads", async () => {
