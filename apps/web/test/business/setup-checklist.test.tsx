@@ -2,7 +2,7 @@
 // business profile for the details, bank account and invoice prefix; branding; staff); the Owner's home shows it until
 // everything is done, and then the home it had before; other members' homes never ask for it.
 import type { SetupChecklist } from "@travel-crm/contracts/profile";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import HomePage from "@/app/(app)/page";
@@ -94,12 +94,24 @@ describe("the home's checklist", () => {
   });
 
   it("gives way to the Owner's usual home once everything is done", async () => {
-    stubApi({ "organization.setup.get": { data: finished } });
+    const api = stubApi({ "organization.setup.get": { data: finished } });
     renderWithApi(<HomePage />, newQueryClient(), member({ isOwner: true }));
+    await waitFor(() => {
+      expect(api.calls).toContain("organization.setup.get");
+    });
     expect(
       await screen.findByText(messages.shell.home.intro.replace("{organization}", "Sharma Travels")),
     ).toBeVisible();
     expect(screen.queryByRole("region")).toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("shows the Owner's usual home under the checklist's place while it loads", async () => {
+    stubApi({ "organization.setup.get": "never" });
+    renderWithApi(<HomePage />, newQueryClient(), member({ isOwner: true }));
+    expect(await screen.findByRole("status", { name: messages.common.loading })).toBeVisible();
+    expect(screen.getByText(messages.shell.home.intro.replace("{organization}", "Sharma Travels"))).toBeVisible();
+    expect(screen.getByRole("link", { name: messages.shell.home.settings })).toBeVisible();
   });
 
   it("is never asked for on anyone else's home", () => {
