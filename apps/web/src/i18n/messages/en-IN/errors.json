@@ -47,6 +47,7 @@
     "SENSITIVE_FILE": "Your role can't open sensitive files. Ask an Owner or Admin.",
     "STORAGE_LIMIT_REACHED": "Your organization's file storage is full. Ask support for more storage.",
     "UPLOAD_NOT_FOUND": "The file didn't arrive. Upload it again.",
+    "UPLOAD_EXPIRED": "This upload was left too long to finish. Upload the file again.",
     "UPLOAD_DOES_NOT_MATCH": "The file that arrived isn't the one you chose. Upload it again.",
     "LOGO_TOO_LARGE": "This image is too large for a logo. Use one at most 4096 pixels wide and high, and 16 megapixels in all.",
     "INVALID_FILE_NAME": "This file's name can't be used. Rename it and try again.",
