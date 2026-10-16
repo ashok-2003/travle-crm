@@ -3,14 +3,15 @@
 // For the screens outside the app shell that still need a signed-in person (changing a password, setting up
 // two-factor): who they are, from me.get, and where they go once a step is done, by what the api still asks of them,
 // then back to the ?next= page they were sent from (the console sends platform staff with one).
-import type { MeOutput } from "@travel-crm/contracts/identity";
+import type { MeOutput, PendingStep } from "@travel-crm/contracts/identity";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useCallback, type ReactNode } from "react";
 import { ErrorState } from "@/components/error-state";
 import { useTRPC } from "@/data/trpc";
-import { pendingStepRoute, routes } from "@/lib/routes";
+import { isConsolePath, pendingStepRoute, routes } from "@/lib/routes";
+import { isPlatformStaff } from "@/session/me-context";
 import { AccountSkeleton } from "./account-skeleton";
 import { nextPath } from "./next-path";
 
@@ -37,6 +38,17 @@ export function CurrentPersonGate({ children }: { children: (me: MeOutput) => Re
 export function useReturnPath(): string | null {
   const searchParams = useSearchParams();
   return searchParams.has("next") ? nextPath(searchParams) : null;
+}
+
+/**
+ * Whether the api insists on the step, by me.get rather than by the address, so a typed ?next= claims nothing. A
+ * member's is the step me.get names. Platform staff's are the console api's, which me.get doesn't name: their
+ * two-factor is due while it is off, and their password when the console sent them here to replace it.
+ */
+export function isStepDue(me: MeOutput, step: PendingStep, returnPath: string | null): boolean {
+  if (!isPlatformStaff(me)) return me.pendingStep === step;
+  if (step === "SET_UP_TWO_FACTOR") return !me.user.twoFactorEnabled;
+  return returnPath !== null && isConsolePath(returnPath);
 }
 
 /** Asks me.get again, then opens the next pending step or, with none left, the ?next= page, else the home screen. */

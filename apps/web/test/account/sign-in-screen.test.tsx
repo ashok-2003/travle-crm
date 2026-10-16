@@ -6,6 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SignInScreen } from "@/account/sign-in-screen";
 import { messages } from "@/i18n/messages";
+import { targetSize } from "../components/touch-targets";
 import { answers, ok, renderScreen } from "./render";
 
 const push = vi.fn();
@@ -64,6 +65,8 @@ describe("SignInScreen", () => {
 
   it("makes the forgotten-password link a 44px touch target", () => {
     renderScreen(<SignInScreen />);
-    expect(screen.getByRole("link", { name: account.signIn.forgotPassword })).toHaveClass("min-h-11");
+    expect(targetSize(screen.getByRole("link", { name: account.signIn.forgotPassword })).height).toBeGreaterThanOrEqual(
+      44,
+    );
   });
 });

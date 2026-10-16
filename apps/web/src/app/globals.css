@@ -193,6 +193,12 @@
   --sidebar-ring: var(--brand-action);
 }
 
+/* On a phone, toasts sit above the bottom bar (56px, and 8px more) on the pages that have one
+   (shell/phone-navigation.tsx), and at the bottom of the screen on the others (components/ui/sonner.tsx). */
+:root:has([data-phone-navigation]) {
+  --toast-bottom-gap: 4rem;
+}
+
 @layer base {
   * {
     @apply border-border;

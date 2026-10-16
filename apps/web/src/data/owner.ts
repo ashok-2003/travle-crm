@@ -16,9 +16,17 @@ export function sameOwner(first: CopyOwner, second: CopyOwner): boolean {
   return first.userId === second.userId && first.organizationId === second.organizationId;
 }
 
-/** Whether data from the cache is a me.get answer, so its owner can be read. */
-export function isMeAnswer(data: unknown): data is Pick<MeOutput, "user" | "organization"> {
+/** Whether data from the cache is a me.get answer, so its owner, and whether it is support signed in, can be read. */
+export function isMeAnswer(data: unknown): data is Pick<MeOutput, "user" | "organization" | "impersonatedBy"> {
   if (data === null || typeof data !== "object") return false;
-  const { user, organization } = data as { user?: { id?: unknown }; organization?: { id?: unknown } | null };
-  return typeof user?.id === "string" && (organization === null || typeof organization?.id === "string");
+  const { user, organization, impersonatedBy } = data as {
+    user?: { id?: unknown };
+    organization?: { id?: unknown } | null;
+    impersonatedBy?: unknown;
+  };
+  return (
+    typeof user?.id === "string" &&
+    (organization === null || typeof organization?.id === "string") &&
+    (impersonatedBy === null || typeof impersonatedBy === "string")
+  );
 }

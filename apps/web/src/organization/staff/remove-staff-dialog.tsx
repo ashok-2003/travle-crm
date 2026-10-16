@@ -1,6 +1,7 @@
 "use client";
 
-// Removing someone (ADR 0007): asked once more, because they are signed out at once and can't come back.
+// Removing someone (ADR 0007): asked once more, because they are signed out at once and can't come back. Once asked,
+// the dialog stays until the api answers; the toasts are the hook's (use-staff.ts).
 import type { StaffMember } from "@travel-crm/contracts/identity";
 import { useTranslations } from "next-intl";
 import {
@@ -28,17 +29,21 @@ export function RemoveStaffDialog({
   const tCommon = useTranslations("common");
   const remove = useRemoveStaff(member.name);
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!remove.isPending) onOpenChange(next);
+      }}
+    >
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{t("title", { name: member.name })}</AlertDialogTitle>
           <AlertDialogDescription>{t("description")}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+          <AlertDialogCancel disabled={remove.isPending}>{tCommon("cancel")}</AlertDialogCancel>
           <AlertDialogAction
-            // The final step of a destructive action is the one place red fills a button (DESIGN.md section 6).
-            className="bg-status-bad-ink text-on-action hover:bg-status-bad-ink/90"
+            variant="destructive"
             disabled={remove.isPending}
             onClick={(event) => {
               // Stay open until the api answers, so the answer is shown here and the button can't be pressed twice.

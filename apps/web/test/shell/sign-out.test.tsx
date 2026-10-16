@@ -1,5 +1,6 @@
-// Signing out leaves the screen as soon as the device is wiped (N3): nothing renders, the sign-in page loads, and the
-// api is told without anyone waiting for it. The sign-out is owed from before the call goes out (N2), so a call that
+// Signing out leaves the screen as soon as the device is wiped (N3): nothing of the organization renders, the sign-in
+// page loads, and the api is told without anyone waiting for it; while this device's push subscription is still going
+// (up to 3s), the screen says it is signing out. The sign-out is owed from before the call goes out (N2), so a call that
 // never lands is settled by the next page; one that lands clears it.
 import "fake-indexeddb/auto";
 import { screen } from "@testing-library/react";
@@ -13,6 +14,7 @@ import { SignOutButton } from "@/shell/sign-out";
 import { stubApi } from "../support/api-stub";
 import { member } from "../support/members";
 import { staffNamed } from "../support/saved-copy";
+import { fakePushBrowser } from "../notifications/fake-push-browser";
 import { forgetRenders, renderApp } from "../support/staff-screen";
 
 vi.mock("@/lib/navigate", () => ({ loadPage: vi.fn(), replacePage: vi.fn() }));
@@ -68,6 +70,29 @@ describe("signing out", () => {
     // Owed while the call is still under way: if the page goes before it lands, the next page settles it.
     expect(left?.owed).toBe(true);
     expect(isSignOutOwed()).toBe(true);
+  });
+
+  it("says it is signing out while this device's push subscription takes its time to go", async () => {
+    const browser = fakePushBrowser({ subscribed: true, unsubscribe: () => new Promise<boolean>(() => undefined) });
+    stubApi({
+      "me.get": { data: member({ isOwner: true }) },
+      "staff.list": { data: [staffNamed("Ravi")] },
+      "notifications.push.unsubscribe": "never",
+      "auth/sign-out": { data: {} },
+    });
+    renderApp(<SignOutButton />);
+    expect(await screen.findByText("Asha: Ravi")).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: messages.shell.navigation.signOut }));
+    expect(await screen.findByText(messages.common.signingOut)).toBeVisible();
+    expect(screen.queryByText(/Ravi/)).toBeNull();
+    // Push gets its 3s, then the sign-in page loads anyway.
+    await vi.waitFor(
+      () => {
+        expect(loadPage).toHaveBeenCalledWith("/sign-in");
+      },
+      { timeout: 5_000 },
+    );
+    browser.restore();
   });
 
   it("clears the owed sign-out once the api has ended the session", async () => {

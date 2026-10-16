@@ -1,8 +1,10 @@
 "use client";
 
-// What a screen shows when its data didn't load (DESIGN.md section 6): what failed, and a way to try again.
+// What a screen shows when its data didn't load (DESIGN.md section 6): what failed, and a way to try again. The
+// registry's Empty.
 import { TriangleAlertIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 
 export function ErrorState({
   message,
@@ -14,12 +16,18 @@ export function ErrorState({
   onRetry: () => void;
 }) {
   return (
-    <div role="alert" className="flex flex-col items-center gap-4 px-4 py-12 text-center">
-      <TriangleAlertIcon aria-hidden="true" className="size-10 text-status-bad-ink" strokeWidth={1.25} />
-      <p className="max-w-[40ch]">{message}</p>
-      <Button variant="outline" onClick={onRetry}>
-        {retryLabel}
-      </Button>
-    </div>
+    <Empty role="alert">
+      <EmptyHeader>
+        <EmptyMedia>
+          <TriangleAlertIcon aria-hidden="true" className="size-10 text-status-bad-ink" strokeWidth={1.25} />
+        </EmptyMedia>
+        <EmptyTitle>{message}</EmptyTitle>
+      </EmptyHeader>
+      <EmptyContent>
+        <Button variant="outline" onClick={onRetry}>
+          {retryLabel}
+        </Button>
+      </EmptyContent>
+    </Empty>
   );
 }

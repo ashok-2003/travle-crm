@@ -1,22 +1,38 @@
 "use client";
 
 // The way into the console. whoAmI says who is signed in; until it answers the screen shows a skeleton. Anyone who
-// isn't platform staff (an agency's member, support while impersonating) is told the console isn't theirs. A 401 or
-// a pending step is the data layer's to act on (console-providers.tsx), so nothing shows meanwhile; any other failure
-// says so with a Retry.
+// isn't platform staff (an agency's member, support while impersonating) is told the console isn't theirs, with the
+// way out: Stop for support, which gives support's own session back, and Sign out for anyone else. A 401 or a pending
+// step is the data layer's to act on (console-providers.tsx), so nothing shows meanwhile; any other failure says so
+// with a Retry.
 import { useQuery } from "@tanstack/react-query";
+import { ShieldUserIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { Delayed } from "@/components/delayed";
+import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { refusalOf } from "@/data/api-error";
+import { refusalDestination } from "@/data/query-client";
+import { useTRPC } from "@/data/trpc";
+import { StopImpersonatingButton } from "@/shell/stop-impersonating";
 import { useConsoleTRPC } from "../data/console-trpc";
 import { ConsoleSignOutButton } from "../shell/console-sign-out";
 import { StaffProvider } from "./staff-context";
 
-/** Refusals the data layer answers by loading another page. */
-const LEAVING = new Set(["CHANGE_PASSWORD", "SET_UP_TWO_FACTOR"]);
+/** The console isn't theirs. Signing out would end support's impersonation and strand support's own session. */
+function NotStaff() {
+  const t = useTranslations("console.gate");
+  const me = useQuery(useTRPC().me.get.queryOptions());
+  const impersonating = Boolean(me.data?.impersonatedBy);
+  let action;
+  if (impersonating) action = <StopImpersonatingButton />;
+  else if (!me.isPending) action = <ConsoleSignOutButton />;
+  return (
+    <EmptyState icon={ShieldUserIcon} message={impersonating ? t("impersonating") : t("notStaff")} action={action} />
+  );
+}
 
 export function ConsoleGate({ children }: { children: ReactNode }) {
   const t = useTranslations("console.gate");
@@ -26,16 +42,8 @@ export function ConsoleGate({ children }: { children: ReactNode }) {
 
   if (whoAmI.data) return <StaffProvider staff={whoAmI.data}>{children}</StaffProvider>;
   if (whoAmI.isError) {
-    const refusal = refusalOf(whoAmI.error);
-    if (refusal?.status === 401 || LEAVING.has(refusal?.reason ?? "")) return null;
-    if (refusal?.reason === "PLATFORM_ONLY") {
-      return (
-        <div className="mx-auto flex max-w-[40ch] flex-col items-center gap-4 px-4 py-16 text-center">
-          <p>{t("notStaff")}</p>
-          <ConsoleSignOutButton />
-        </div>
-      );
-    }
+    if (refusalDestination(whoAmI.error)) return null;
+    if (refusalOf(whoAmI.error)?.reason === "PLATFORM_ONLY") return <NotStaff />;
     return (
       <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void whoAmI.refetch()} />
     );

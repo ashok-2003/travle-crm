@@ -16,12 +16,15 @@ export function PermissionsEditor({
   onChange,
   readOnly,
   disabled = false,
+  describedBy,
 }: {
   catalog: PermissionCatalogEntry[];
   grants: Grant[];
   onChange: (grants: Grant[]) => void;
   readOnly: boolean;
   disabled?: boolean;
+  /** The id of what says why the fields are disabled. */
+  describedBy?: string | undefined;
 }) {
   const t = useTranslations("roles.editor");
   const labels = usePermissionLabels();
@@ -41,6 +44,7 @@ export function PermissionsEditor({
                     id={id}
                     checked={readOnly || grant !== undefined}
                     disabled={readOnly || disabled}
+                    aria-describedby={describedBy}
                     onCheckedChange={(checked) => {
                       onChange(toggle(grants, entry, checked === true));
                     }}
@@ -60,6 +64,7 @@ export function PermissionsEditor({
                     <SelectTrigger
                       className="h-11 w-44"
                       aria-label={`${t("scope")}: ${labels.permission(entry.permission)}`}
+                      aria-describedby={describedBy}
                     >
                       <SelectValue />
                     </SelectTrigger>

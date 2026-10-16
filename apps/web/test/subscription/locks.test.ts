@@ -1,6 +1,6 @@
 // @vitest-environment node
 // Which subscriptions shut the organization's screens (spec 7.3: suspended, cancelled, and none at all), and which
-// screens stay open anyway: the person's own account, and Staff for the Owner while suspended (ADR 0021).
+// screens stay open anyway: the person's own account, and Staff and Documents for the Owner while suspended (ADR 0021).
 import type { LifecycleAccess, SubscriptionOverview } from "@travel-crm/contracts/subscriptions";
 import { describe, expect, it } from "vitest";
 import { lockOf, staysOpen } from "@/subscription/locks";
@@ -51,5 +51,14 @@ describe("staysOpen", () => {
     expect(staysOpen("suspended", { pathname: "/settings", isOwner: true })).toBe(false);
     expect(staysOpen("cancelled", { pathname: "/staff", isOwner: true })).toBe(false);
     expect(staysOpen("noSubscription", { pathname: "/staff", isOwner: true })).toBe(false);
+  });
+
+  it("lets the Owner reach Documents while suspended, to download its PDFs and turn share links off", () => {
+    expect(staysOpen("suspended", { pathname: "/settings/documents", isOwner: true })).toBe(true);
+    expect(staysOpen("suspended", { pathname: "/settings/documents", isOwner: false })).toBe(false);
+    expect(staysOpen("suspended", { pathname: "/settings/documentsx", isOwner: true })).toBe(false);
+    expect(staysOpen("cancelled", { pathname: "/settings/documents", isOwner: true })).toBe(false);
+    // Its file list is not an export yet (attachments.list), so the business files screen stays shut.
+    expect(staysOpen("suspended", { pathname: "/settings/files", isOwner: true })).toBe(false);
   });
 });
