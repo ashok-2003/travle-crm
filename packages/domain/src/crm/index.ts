@@ -3,6 +3,7 @@
 export { addBlockedContact, blockLeadContact, listBlockedContacts, unblockContact } from "./blocking.js";
 export { createLead } from "./create-lead.js";
 export { eraseCustomer, exportCustomer, type CustomerSubject, type ErasedCustomer } from "./customer-erasure.js";
+export { addDemoLeads } from "./demo-leads.js";
 export { handOverDepartingMemberListener, type DepartingMemberDependencies } from "./departing-member.js";
 export { mergeDestinations } from "./destination-merges.js";
 export { findKnownContact } from "./known-contact.js";

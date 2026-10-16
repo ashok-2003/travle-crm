@@ -1,11 +1,14 @@
 // The nightly demo reset (spec 7.4: "one shared demo with realistic sample data, reset nightly by a job"): it builds
 // the demo organization, and each night purges it and builds it again, so whatever visitors changed is gone. Its
 // staff sign in with its code, their username and the demo password. It is on the demo's own plan, never one on sale,
-// and it never touches an organization it didn't build, even one that has the demo's code.
+// and it never touches an organization it didn't build, even one that has the demo's code. Its sample leads (spec 7)
+// are in every stage, for its Owner and its salesperson, with notes, follow-ups and tasks timed from the reset.
 import { randomUUID } from "node:crypto";
+import { leadStages } from "@travel-crm/contracts/crm";
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { findOrganizationRecord } from "../../src/identity/index.js";
+import { todaySummary } from "../../src/today/index.js";
 import {
   listPlatformLog,
   onboardOrganization,
@@ -14,7 +17,7 @@ import {
 } from "../../src/platform/index.js";
 import { getOrganizationProfile } from "../../src/profile/index.js";
 import { DEMO_PLAN_KEY, getSubscription, listPlans } from "../../src/subscriptions/index.js";
-import { canSignInByUsername } from "../identity/test-identity.js";
+import { canSignInByUsername, memberAccessOf } from "../identity/test-identity.js";
 import { createTestPlan, createTestPlatform, onboardingInput, support, type TestPlatform } from "./test-platform.js";
 
 describe("the demo reset", () => {
@@ -64,6 +67,80 @@ describe("the demo reset", () => {
       invoicePrefix: "DH",
     });
     expect(await organizationEntries(organizationId)).toEqual([{ action: "demo.reset", actorUserId: null }]);
+  });
+
+  /** The demo's staff by username: their user ids. */
+  const demoUsers = (organizationId: string) =>
+    test.services.platformDb.transaction(async (tx) => {
+      const members = await tx.member.findMany({ where: { organizationId }, select: { userId: true, user: true } });
+      return new Map(members.map((member) => [member.user.displayUsername, member.userId]));
+    });
+
+  /** The demo's leads and what hangs off them, read in the demo organization. */
+  const demoData = (organizationId: string) =>
+    test.services.db.forOrg(organizationId, async (tx) => ({
+      leads: await tx.lead.findMany({
+        select: { id: true, personId: true, stage: true, ownerUserId: true, returning: true, createdAt: true },
+        orderBy: { id: "asc" },
+      }),
+      people: await tx.person.findMany({ select: { id: true, phoneE164: true } }),
+      destinations: await tx.destination.count(),
+      notedLeads: (await tx.leadNote.groupBy({ by: ["leadId"] })).length,
+      blocked: await tx.blockedContact.findMany({ select: { kind: true, value: true } }),
+      tasks: await tx.task.findMany({ select: { kind: true, recordType: true, assigneeUserId: true } }),
+    }));
+
+  it("gives the demo leads in every stage, one returning, one blocked, with notes, for Asha and Ravi", async () => {
+    const { organizationId } = await resetDemoOrganization(test.services, demoSettings());
+    const users = await demoUsers(organizationId);
+    const [asha, ravi] = [users.get("asha"), users.get("ravi")];
+    const data = await demoData(organizationId);
+
+    expect(data.leads).toHaveLength(13);
+    expect(data.people).toHaveLength(11);
+    expect(data.destinations).toBe(6);
+    expect(new Set(data.leads.map((lead) => lead.stage))).toEqual(new Set(leadStages));
+    expect(new Set(data.leads.map((lead) => lead.ownerUserId))).toEqual(new Set([asha, ravi]));
+    const wonBefore = (lead: (typeof data.leads)[number]) =>
+      data.leads.some(
+        (earlier) =>
+          earlier.personId === lead.personId && earlier.stage === "won" && earlier.createdAt < lead.createdAt,
+      );
+    expect(data.leads.filter((lead) => lead.returning && wonBefore(lead))).toHaveLength(1);
+    const blockedPhones = new Set(data.blocked.filter((entry) => entry.kind === "phone").map((entry) => entry.value));
+    const blockedLeads = data.leads.filter((lead) => {
+      const phone = data.people.find((person) => person.id === lead.personId)?.phoneE164;
+      return phone !== undefined && phone !== null && blockedPhones.has(phone);
+    });
+    expect(blockedLeads.map((lead) => lead.stage)).toEqual(["not_a_lead"]);
+    expect(data.notedLeads).toBe(4);
+    expect(data.tasks.filter((task) => task.kind === "follow-up" && task.recordType === "lead")).toHaveLength(7);
+    expect(data.tasks.filter((task) => task.recordType === null)).toHaveLength(2);
+    expect(data.tasks.every((task) => task.assigneeUserId === asha || task.assigneeUserId === ravi)).toBe(true);
+  });
+
+  it("gives Ravi's Today an overdue follow-up, a new lead and one due today", async () => {
+    // 02:00 in India, when the console's nightly job runs, and an afternoon reset run by hand.
+    for (const now of [new Date("2026-10-17T20:30:00Z"), new Date("2026-10-18T09:30:00Z")]) {
+      const { organizationId } = await resetDemoOrganization(test.services, demoSettings(), now);
+      const ravi = (await demoUsers(organizationId)).get("ravi") ?? "";
+      const access = await memberAccessOf(test.identity.identity, ravi, organizationId);
+      const today = await test.services.db.forOrg(organizationId, (tx) => todaySummary(tx, access, now));
+      expect(today.counts.overdue).toBeGreaterThanOrEqual(1);
+      expect(today.counts.newLeads).toBeGreaterThanOrEqual(1);
+      expect(today.counts.dueToday).toBeGreaterThanOrEqual(1);
+      expect(today.top.map((item) => item.kind)).toEqual(["task", "new-lead", "task"]);
+    }
+  });
+
+  it("builds again the next night without a clash", async () => {
+    const demo = demoSettings();
+    const tonight = new Date("2026-10-17T20:30:00Z");
+    await resetDemoOrganization(test.services, demo, tonight);
+    const tomorrow = new Date(tonight.getTime() + 24 * 60 * 60 * 1000);
+    const { organizationId } = await resetDemoOrganization(test.services, demo, tomorrow);
+    const data = await demoData(organizationId);
+    expect([data.leads.length, data.people.length, data.destinations, data.blocked.length]).toEqual([13, 11, 6, 1]);
   });
 
   it("purges last night's demo and builds it afresh", async () => {
