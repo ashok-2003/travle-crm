@@ -1,6 +1,6 @@
 // Labelled values, compact (DESIGN.md: labels muted, values in ink): each row holds its label and then its value, at
-// the row's end, wrapping under the label only when the row is too narrow; an action, if any, after both. No
-// separators: the rows' own spacing parts them.
+// the row's end, wrapping under the label only when the row is too narrow; an action, if any, after both, and then
+// the value always under its label. No separators: the rows' own spacing parts them.
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { Details } from "@/components/details";
@@ -27,6 +27,20 @@ describe("Details", () => {
     expect(label).toHaveClass("text-muted-foreground");
     expect(within(code).getByRole("button", { name: "Copy" })).toBeVisible();
     expect(container.querySelector("[data-slot=item-separator]")).toBeNull();
+  });
+
+  it("puts the value under its label in a row with an action, however short, so copy rows read alike", () => {
+    render(
+      <Details
+        rows={[
+          { label: "Name", value: "Sharma Travels" },
+          { label: "Username", value: "meera", action: <button>Copy</button> },
+        ]}
+      />,
+    );
+    const [name, username] = screen.getAllByRole("listitem") as [HTMLElement, HTMLElement];
+    expect(within(name).getByText("Sharma Travels")).not.toHaveClass("basis-full");
+    expect(within(username).getByText("meera")).toHaveClass("basis-full");
   });
 
   it("shows a label alone when it has no value", () => {
