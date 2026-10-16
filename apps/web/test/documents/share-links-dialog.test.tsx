@@ -4,65 +4,13 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ShareLinksDialog } from "@/documents/share-links-dialog";
 import { messages } from "@/i18n/messages";
-import { newQueryClient, renderWithApi } from "../organization/api";
 import { screenIs } from "../organization/render";
-import { stubApi, type Answer } from "../support/api-stub";
 import { inputsSentTo } from "./sent";
+import { document, forMeera, renderDialog, rowOf, token } from "./share-links";
 import { subscriptionAnswer } from "./subscription";
 
 const words = messages.documents.share;
-
-const document = {
-  id: "0199e7a0-0000-7000-8000-0000000000d1",
-  template: "sample" as const,
-  number: "SMPL-2026-0001",
-  title: "Quotation",
-  issuedAt: "2026-10-15T05:30:00.000Z",
-  issuedBy: null,
-  pdfAttachmentId: "0199e7a0-0000-7000-8000-0000000000f1",
-  renderedAt: "2026-10-15T05:30:05.000Z",
-  renderFailed: false,
-};
-
-const link = (label: string, extra: Record<string, unknown>) => ({
-  id: `0199e7a0-0000-7000-8000-00000000${String(label.length).padStart(4, "0")}`,
-  recordType: "issued_document",
-  recordId: document.id,
-  label,
-  createdBy: "0199a000-0000-7000-8000-000000000001",
-  createdAt: "2026-10-15T06:00:00.000Z",
-  expiresAt: "2099-11-14T06:00:00.000Z",
-  revokedAt: null,
-  openCount: 0,
-  lastOpenedAt: null,
-  ...extra,
-});
-
-// 18:45 UTC on 15 October is 16 October, 12:15 am, in India.
-const forMeera = link("For Meera Iyer", { openCount: 2, lastOpenedAt: "2026-10-15T18:45:00.000Z", expiresAt: null });
-const turnedOff = link("Old link", { revokedAt: "2026-10-15T07:00:00.000Z" });
-const expired = link("Last year's", { expiresAt: "2025-10-15T06:00:00.000Z" });
-const token = `${"A".repeat(22)}${"b".repeat(43)}`;
-
-function renderDialog(answers: Record<string, Answer> = {}) {
-  const api = stubApi({
-    "subscription.get": subscriptionAnswer(),
-    "shareLinks.list": { data: [forMeera, turnedOff, expired] },
-    "shareLinks.create": { data: { shareLinkId: forMeera.id, token, path: `/p/${token}` } },
-    "shareLinks.revoke": { data: null },
-    ...answers,
-  });
-  renderWithApi(<ShareLinksDialog document={document} open onOpenChange={vi.fn()} />, newQueryClient(null));
-  return api;
-}
-
-const rowOf = (label: string) => {
-  const row = screen.getByText(label).closest<HTMLElement>("[role=listitem]");
-  if (!row) throw new Error(`no row for ${label}`);
-  return row;
-};
 
 beforeEach(() => {
   screenIs("wide");

@@ -36,7 +36,7 @@ test("a super admin adds support, who replaces the temporary password and sets u
   const device = await theirs.newPage();
   await device.goto("/console");
   await device.getByRole("textbox", { name: "Email" }).fill(email);
-  await device.getByLabel("Password").fill(temporaryPassword);
+  await device.getByLabel("Password", { exact: true }).fill(temporaryPassword);
   await device.getByRole("button", { name: "Sign in" }).click();
   await expect(device).toHaveURL(/\/change-password\?next=%2Fconsole$/);
   await device.getByLabel("Temporary password").fill(temporaryPassword);

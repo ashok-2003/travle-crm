@@ -47,7 +47,6 @@ export function tapTarget(data: unknown, origin: string): string {
 interface AppWindow {
   url: string;
   focus(): Promise<unknown>;
-  navigate(url: string): Promise<{ focus(): Promise<unknown> } | null>;
 }
 
 /** The worker's clients, as far as opening a notification's page needs them. */
@@ -56,17 +55,13 @@ export interface AppWindows {
   openWindow(url: string): Promise<unknown>;
 }
 
-/** A window of the app already on the page comes forward; else one of the app's windows goes there; else one opens. */
+/**
+ * A window of the app already on the page comes forward; else a new one opens. No other window is moved: it may
+ * hold a form with unsaved work.
+ */
 export async function openFromNotification(clients: AppWindows, url: string): Promise<void> {
   const windows = await clients.matchAll({ type: "window", includeUncontrolled: true });
   const there = windows.find((client) => client.url === url);
-  if (there) {
-    await there.focus();
-    return;
-  }
-  const [other] = windows;
-  // Only a window the worker controls can be moved; any other stays as it is, and a new one opens.
-  const moved = other ? await other.navigate(url).catch(() => null) : null;
-  if (moved) await moved.focus();
+  if (there) await there.focus();
   else await clients.openWindow(url);
 }

@@ -20,33 +20,26 @@ import {
   type VoidPaymentInput,
 } from "@travel-crm/contracts/subscriptions";
 import type { z } from "zod";
+import { checked, type Checked } from "../fields/checked-form";
 
 export type SubscriptionProblem = "required" | "amountInvalid" | "dateInvalid" | "seatsInvalid" | "tooLong";
 
-export type Checked<Values, Input> =
-  { ok: true; input: Input } | { ok: false; problems: Partial<Record<keyof Values & string, SubscriptionProblem>> };
+export type CheckedChange<Values, Input> = Checked<Values, Input, SubscriptionProblem>;
 
-/**
- * Parses raw with the schema; each refused input key is put on its form field (`fields`, input key to field), as
- * "required" when the field was left blank and as the field's own problem otherwise.
- */
-function check<Values extends Record<string, unknown>, Input>(
+/** Parses raw with the schema; each refused input key is put on its form field (`fields`, input key to field). */
+function check<Values extends object, Input>(
   schema: z.ZodType<Input>,
   raw: unknown,
   values: Values,
   fields: Partial<Record<string, keyof Values & string>>,
   problemOf: Partial<Record<keyof Values & string, SubscriptionProblem>>,
-): Checked<Values, Input> {
-  const parsed = schema.safeParse(raw);
-  if (parsed.success) return { ok: true, input: parsed.data };
-  const problems: Partial<Record<keyof Values & string, SubscriptionProblem>> = {};
-  for (const issue of parsed.error.issues) {
-    const field = fields[String(issue.path[0])];
-    if (field === undefined || problems[field] !== undefined) continue;
-    const value = values[field];
-    problems[field] = typeof value === "string" && value.trim() === "" ? "required" : (problemOf[field] ?? "required");
-  }
-  return { ok: false, problems };
+): CheckedChange<Values, Input> {
+  return checked(
+    schema.safeParse(raw),
+    values,
+    ([key]) => fields[String(key)],
+    (field) => problemOf[field] ?? "required",
+  );
 }
 
 /** Paise for rupees typed, or -1 (refused by every amount's schema) for text that isn't an amount. */
@@ -57,7 +50,10 @@ export interface PlanValues extends Record<string, unknown> {
   billingCycle: string;
 }
 
-export function toChangePlanInput(organizationId: string, values: PlanValues): Checked<PlanValues, ChangePlanInput> {
+export function toChangePlanInput(
+  organizationId: string,
+  values: PlanValues,
+): CheckedChange<PlanValues, ChangePlanInput> {
   return check(
     changePlanInput,
     { organizationId, ...values },
@@ -76,7 +72,7 @@ export interface OverridesValues extends Record<string, unknown> {
 export function toOverridesInput(
   organizationId: string,
   values: OverridesValues,
-): Checked<OverridesValues, SetOverridesInput> {
+): CheckedChange<OverridesValues, SetOverridesInput> {
   const raw = {
     organizationId,
     extraSeats: /^\d+$/.test(values.extraSeats.trim()) ? Number(values.extraSeats.trim()) : -1,
@@ -99,7 +95,7 @@ export interface TrialEndValues extends Record<string, unknown> {
 export function toTrialEndInput(
   organizationId: string,
   values: TrialEndValues,
-): Checked<TrialEndValues, SetTrialEndInput> {
+): CheckedChange<TrialEndValues, SetTrialEndInput> {
   return check(
     setTrialEndInput,
     { organizationId, ...values },
@@ -119,7 +115,7 @@ export interface PaidThroughValues extends Record<string, unknown> {
 export function toPaidThroughInput(
   organizationId: string,
   values: PaidThroughValues,
-): Checked<PaidThroughValues, SetPaidThroughInput> {
+): CheckedChange<PaidThroughValues, SetPaidThroughInput> {
   return check(
     setPaidThroughInput,
     { organizationId, ...values },
@@ -139,7 +135,7 @@ export interface PaymentValues extends Record<string, unknown> {
 export function toRecordPaymentInput(
   organizationId: string,
   values: PaymentValues,
-): Checked<PaymentValues, RecordPaymentInput> {
+): CheckedChange<PaymentValues, RecordPaymentInput> {
   const raw = {
     organizationId,
     amountPaise: values.amount.trim() === "" ? undefined : paiseOrInvalid(values.amount),
@@ -161,7 +157,10 @@ export interface ReasonValues extends Record<string, unknown> {
 }
 
 /** Suspending, lifting a suspension and cancelling: the organization and why. */
-export function toEndAccessInput(organizationId: string, values: ReasonValues): Checked<ReasonValues, EndAccessInput> {
+export function toEndAccessInput(
+  organizationId: string,
+  values: ReasonValues,
+): CheckedChange<ReasonValues, EndAccessInput> {
   return check(endAccessInput, { organizationId, ...values }, values, { reason: "reason" }, { reason: "tooLong" });
 }
 
@@ -169,7 +168,7 @@ export function toVoidPaymentInput(
   organizationId: string,
   paymentId: string,
   values: ReasonValues,
-): Checked<ReasonValues, VoidPaymentInput> {
+): CheckedChange<ReasonValues, VoidPaymentInput> {
   return check(
     voidPaymentInput,
     { organizationId, paymentId, ...values },

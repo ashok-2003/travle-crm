@@ -7,7 +7,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PlansScreen } from "@/console/plans/plans-screen";
 import { messages } from "@/i18n/messages";
-import { stubApi, type Answer } from "../../support/api-stub";
+import { heldAnswer, stubApi, type Answer } from "../../support/api-stub";
 import { platformStaff } from "../../support/platform-staff";
 import { screenIs } from "../../organization/render";
 import { inputsTo, renderConsole } from "./render-console";
@@ -159,9 +159,39 @@ describe("PlansScreen", () => {
     await userEvent.click(screen.getByRole("menuitem", { name: words.archive }));
     const confirm = screen.getByRole("alertdialog", { name: words.archiveTitle.replace("{name}", "Growth") });
     api.answer("platform.plans.archive", { data: plan({ archived: true }) });
+    api.answer("platform.plans.list", { data: [plan({ archived: true })] });
     await userEvent.click(within(confirm).getByRole("button", { name: words.archiveConfirm }));
     await vi.waitFor(() => {
       expect(inputsTo("plans.archive")).toEqual([{ planId: plan().id }]);
+    });
+    expect(await screen.findByText(words.archivedToast.replace("{name}", "Growth"))).toBeVisible();
+    const archived = (await screen.findByRole("heading", { name: words.archivedTitle })).closest("section");
+    expect(within(archived ?? document.body).getByRole("row", { name: /Growth/ })).toBeVisible();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("says when nothing is on sale because every plan is archived", async () => {
+    screenIs("wide");
+    open({ data: [starter] });
+    expect(await screen.findByText(words.nothingOnSale)).toBeVisible();
+    expect(screen.getByRole("heading", { name: words.archivedTitle })).toBeVisible();
+  });
+
+  it("can't be closed while a plan is being archived", async () => {
+    screenIs("wide");
+    const api = open({ data: [plan()] });
+    await userEvent.click(await screen.findByRole("button", { name: words.actionsFor.replace("{name}", "Growth") }));
+    await userEvent.click(screen.getByRole("menuitem", { name: words.archive }));
+    const confirm = screen.getByRole("alertdialog", { name: words.archiveTitle.replace("{name}", "Growth") });
+    const held = heldAnswer({ data: plan({ archived: true }) });
+    api.answer("platform.plans.archive", held.answer);
+    await userEvent.click(within(confirm).getByRole("button", { name: words.archiveConfirm }));
+    expect(within(confirm).getByRole("button", { name: messages.common.cancel })).toBeDisabled();
+    await userEvent.keyboard("{Escape}");
+    expect(confirm).toBeVisible();
+    held.release();
+    await vi.waitFor(() => {
+      expect(screen.queryByRole("alertdialog")).toBeNull();
     });
   });
 

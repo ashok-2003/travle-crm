@@ -1,7 +1,7 @@
 // What the console's organization journeys share: a plan on sale of each journey's own (journeys run side by side on
 // one database, and the console offers every plan on sale), the Owner's invite link as Mailpit received it, and
-// choosing from the console's selects.
-import { expect, type Page } from "@playwright/test";
+// choosing from the console's selects and its date fields' calendars.
+import { expect, type Locator, type Page } from "@playwright/test";
 import { test as consoleTest } from "./console";
 
 export interface PlanOnSale {
@@ -68,4 +68,25 @@ export async function choose(page: Page, label: string, option: string | RegExp)
   await page.getByRole("combobox", { name: label }).click();
   await page.getByRole("option", { name: option }).click();
   await expect(page.getByRole("listbox")).toHaveCount(0);
+}
+
+/**
+ * Chooses a day (yyyy-mm-dd) in the date field labelled `label`, as a person does: its calendar opened, the day's
+ * year and month picked from the calendar's lists, then the day, named like "Friday, 30 October 2026".
+ */
+export async function chooseDay(within: Locator, label: string, date: string): Promise<void> {
+  const [year = 0, month = 0, day = 0] = date.split("-").map(Number);
+  await within.getByRole("button", { name: label }).click();
+  const calendar = within.page().locator("[data-slot=calendar]");
+  await calendar.getByRole("combobox", { name: "Year" }).selectOption(String(year));
+  await calendar.getByRole("combobox", { name: "Month" }).selectOption(String(month - 1));
+  const words = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "long", year: "numeric" }).format(
+    new Date(year, month - 1, day),
+  );
+  await calendar.getByRole("button", { name: new RegExp(`\\b${words}\\b`) }).click();
+  await expect(calendar).toHaveCount(0);
+  // The field shows the day chosen, Indian-style.
+  await expect(within.getByRole("button", { name: label })).toContainText(
+    `${date.slice(8)}/${date.slice(5, 7)}/${date.slice(0, 4)}`,
+  );
 }

@@ -25,7 +25,8 @@ export function useCreateShareLink() {
   );
 }
 
-export function useRevokeShareLink() {
+/** Turning a link off; `onRevoked` closes the dialog that asked, however it is by then. */
+export function useRevokeShareLink(onRevoked: () => void) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const t = useTranslations("documents.share");
@@ -33,6 +34,7 @@ export function useRevokeShareLink() {
     trpc.shareLinks.revoke.mutationOptions({
       onSuccess: () => {
         toast.success(t("revoked"));
+        onRevoked();
       },
       onSettled: () => queryClient.invalidateQueries({ queryKey: trpc.shareLinks.list.pathKey() }),
     }),

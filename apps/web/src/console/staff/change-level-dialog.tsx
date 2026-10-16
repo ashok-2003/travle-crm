@@ -28,7 +28,9 @@ export function ChangeLevelDialog({
   return (
     <ResponsiveDialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(next) => {
+        if (!change.isPending) onOpenChange(next);
+      }}
       title={t("title", { name: person.name })}
       description={t("description")}
     >

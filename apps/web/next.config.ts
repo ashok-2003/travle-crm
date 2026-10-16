@@ -38,9 +38,31 @@ const apiOrigin = originSetting("API_ORIGIN", "http://localhost:3001");
 const consoleOrigin = originSetting("CONSOLE_ORIGIN", "http://localhost:3002");
 /**
  * Object storage (spec 9.2), for the Content-Security-Policy: the browser uploads to it and loads images from it, so a
- * deployment sets it to its bucket's endpoint when the app is built. In development, docker-compose's MinIO.
+ * deployment sets it to its bucket's endpoint when the app is built. In development, docker-compose's MinIO, on the port
+ * it publishes (.env.example's S3_ENDPOINT).
  */
-const storageOrigin = originSetting("STORAGE_ORIGIN", "http://localhost:9000");
+const storageOrigin = originSetting("STORAGE_ORIGIN", "http://localhost:59000");
+
+/**
+ * The header rules, asked for by `next build` alone (not by `next typegen`, which loads this file too). Unlike the
+ * rewrites, leaving the storage out is never right in production: the policy would block every upload and logo.
+ */
+function headers() {
+  if (storageOrigin === null) {
+    throw new Error("STORAGE_ORIGIN must be set for a production build, to the bucket's origin");
+  }
+  return [
+    ...securityHeaderRules({ development: process.env.NODE_ENV === "development", storageOrigin }),
+    // The browser checks for a new worker on every visit; the worker's scope is the whole app.
+    {
+      source: "/sw.js",
+      headers: [
+        { key: "Cache-Control", value: "no-cache" },
+        { key: "Service-Worker-Allowed", value: "/" },
+      ],
+    },
+  ];
+}
 
 /** The console's rewrite comes first: /api/platform/... matches /api/:path* too, which would send it to the api. */
 function rewrites() {
@@ -81,18 +103,7 @@ const nextConfig: NextConfig = {
       },
     },
   },
-  headers: () =>
-    Promise.resolve([
-      ...securityHeaderRules({ development: process.env.NODE_ENV === "development", storageOrigin }),
-      // The browser checks for a new worker on every visit; the worker's scope is the whole app.
-      {
-        source: "/sw.js",
-        headers: [
-          { key: "Cache-Control", value: "no-cache" },
-          { key: "Service-Worker-Allowed", value: "/" },
-        ],
-      },
-    ]),
+  headers: () => Promise.resolve(headers()),
   rewrites: () => Promise.resolve(rewrites()),
 };
 

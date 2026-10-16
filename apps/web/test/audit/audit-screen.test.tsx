@@ -1,6 +1,7 @@
 // The audit log screen (spec 9.5): every change newest first, a page at a time, each with what happened as a
 // sentence, who did it (named by the api), when in the organization's zone, where from, and its before and after as
-// stored; one record's history when the address names one; and honest loading, empty and error states.
+// stored; one record's history when the address names one; and honest loading, empty and error states, a refusal
+// saying its reason.
 import type { AuditLogEntry } from "@travel-crm/contracts/audit";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -9,13 +10,17 @@ import { AuditScreen } from "@/audit/audit-screen";
 import { messages } from "@/i18n/messages";
 import { formatDay, formatTime } from "@/lib/format";
 import { stubApi } from "../support/api-stub";
+import { member } from "../support/members";
 import { newQueryClient, renderWithApi } from "../organization/api";
 
 const navigation = vi.hoisted(() => ({ search: "" }));
 
 vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(navigation.search) }));
 
-const { audit, common } = messages;
+const { audit, common, errors } = messages;
+const viewer = member({ isOwner: true });
+/** The zone the screen shows times in: the viewer's organization's. */
+const { timeZone } = viewer.organization;
 const roleId = "0199a000-0000-7000-8000-0000000000b1";
 
 function entry(overrides: Partial<AuditLogEntry> = {}): AuditLogEntry {
@@ -42,7 +47,7 @@ function entry(overrides: Partial<AuditLogEntry> = {}): AuditLogEntry {
 const page = (entries: AuditLogEntry[], nextCursor: string | null = null) => ({ data: { entries, nextCursor } });
 
 function renderScreen() {
-  return renderWithApi(<AuditScreen />, newQueryClient());
+  return renderWithApi(<AuditScreen />, newQueryClient(), viewer);
 }
 
 /** The entries as listed, each one's text. */
@@ -83,15 +88,15 @@ describe("AuditScreen", () => {
     renderScreen();
     expect(screen.getByRole("heading", { level: 1, name: audit.title })).toBeVisible();
     const [first, second] = await listed();
-    const timeZone = "Asia/Kolkata";
     const recent = new Date("2026-10-14T11:00:00.000Z");
+    const older = new Date("2025-03-01T04:00:00.000Z");
     expect(first).toContain(audit.actions.role.updated);
     expect(first).toContain("Asha Sharma");
     expect(first).toContain(`${formatDay(recent, { timeZone })}, ${formatTime(recent, { timeZone })}`);
     expect(first).toContain(audit.sources.web);
     expect(second).toContain(audit.actions.staff.removed);
     expect(second).toContain("Support, as Asha Sharma");
-    expect(second).toContain("1 Mar 2025, 9:30 am");
+    expect(second).toContain(`${formatDay(older, { timeZone })}, ${formatTime(older, { timeZone })}`);
     expect(second).toContain(audit.sources.impersonation);
     expect(document.querySelector("time")).toHaveAttribute("datetime", "2026-10-14T11:00:00.000Z");
   });
@@ -220,6 +225,23 @@ describe("AuditScreen", () => {
     expect(await screen.findByText(audit.moreFailed)).toBeVisible();
     expect(await listed()).toHaveLength(1);
     expect(screen.getByRole("button", { name: audit.showMore })).toBeEnabled();
+  });
+
+  it("says why the api refused the log, or the older changes", async () => {
+    const api = stubApi({ "audit.list": { status: 403, reason: "MISSING_PERMISSION" } });
+    const { unmount } = renderScreen();
+    expect(await screen.findByText(errors.reasons.MISSING_PERMISSION)).toBeVisible();
+    expect(screen.queryByText(audit.loadFailed)).toBeNull();
+    unmount();
+
+    const first = entry();
+    api.answer("audit.list", page([first], first.id));
+    renderScreen();
+    await listed();
+    api.answer("audit.list", { status: 403, reason: "ORGANIZATION_CANCELLED" });
+    await userEvent.click(screen.getByRole("button", { name: audit.showMore }));
+    expect(await screen.findByText(errors.reasons.ORGANIZATION_CANCELLED)).toBeVisible();
+    expect(screen.queryByText(audit.moreFailed)).toBeNull();
   });
 
   it("says when nothing has been recorded, and when one record has no history", async () => {

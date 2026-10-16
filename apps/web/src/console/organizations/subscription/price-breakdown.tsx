@@ -1,6 +1,7 @@
 // What the subscription costs per billing cycle, as the api computes it (spec 7.2): the plan's price or the agreed
-// one, the extra seats, the amount before GST, CGST and SGST at 9 % each, and the total. Amounts are mono and
-// right-aligned with ₹ and Indian grouping, paise shown (an invoice's figures), in ink: they are due, not received.
+// one, the extra seats, the amount before GST, GST at 18 %, and the total. GST is one row until the platform's own
+// GSTIN and state are set: they decide whether it splits into CGST and SGST or is IGST, which tax invoices will show.
+// Amounts are mono and right-aligned with ₹ and Indian grouping, paise shown, in ink: they are due, not received.
 import type { SubscriptionPrice } from "@travel-crm/contracts/subscriptions";
 import { money } from "@travel-crm/domain/kernel";
 import { useTranslations } from "next-intl";
@@ -17,8 +18,7 @@ export function PriceBreakdown({ price, agreed }: { price: SubscriptionPrice; ag
       ? [{ label: t("extraSeats", { count: price.extraSeats }), paise: price.extraSeatsPaise }]
       : []),
     { label: t("subtotal"), paise: price.subtotalPaise },
-    { label: t("cgst"), paise: price.cgstPaise },
-    { label: t("sgst"), paise: price.sgstPaise },
+    { label: t("gst"), paise: price.gstPaise },
     { label: t(`total.${price.cycle}`), paise: price.totalPaise, total: true },
   ];
   return (

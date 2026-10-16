@@ -5,6 +5,7 @@
 import type { ShareLinkSummary } from "@travel-crm/contracts/share-links";
 import { useTranslations } from "next-intl";
 import { Fragment, useState } from "react";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Delayed } from "@/components/delayed";
 import { ErrorState } from "@/components/error-state";
 import { StatusBadge } from "@/components/status-badge";
@@ -22,9 +23,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatDay, formatTime } from "@/lib/format";
 import { useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
-import { RevokeShareLinkDialog } from "./revoke-share-link-dialog";
 import { linkTones, shareLinkState } from "./share-link-state";
-import { useShareLinks } from "./use-share-links";
+import { useRevokeShareLink, useShareLinks } from "./use-share-links";
 
 function ShareLinkRow({ link }: { link: ShareLinkSummary }) {
   const t = useTranslations("documents.share");
@@ -32,6 +32,9 @@ function ShareLinkRow({ link }: { link: ShareLinkSummary }) {
   // Turning a link off takes a customer's access away, which read-only allows.
   const revokeAccess = useWriteAccess("revoke");
   const [revoking, setRevoking] = useState(false);
+  const revoke = useRevokeShareLink(() => {
+    setRevoking(false);
+  });
   const state = shareLinkState(link);
   const when = (instant: string) => {
     const at = new Date(instant);
@@ -60,7 +63,7 @@ function ShareLinkRow({ link }: { link: ShareLinkSummary }) {
       {state === "active" && (
         <ItemActions>
           <Button
-            variant="destructive"
+            variant="outline"
             aria-label={t("revokeNamed", { label: link.label })}
             disabled={!revokeAccess.allowed}
             onClick={() => {
@@ -69,7 +72,18 @@ function ShareLinkRow({ link }: { link: ShareLinkSummary }) {
           >
             {t("revoke")}
           </Button>
-          <RevokeShareLinkDialog link={link} open={revoking} onOpenChange={setRevoking} />
+          {/* Whoever has the link can no longer open the document, and it can't be undone. */}
+          <ConfirmDialog
+            open={revoking}
+            onOpenChange={setRevoking}
+            title={t("revokeTitle")}
+            description={t("revokeDescription")}
+            action={t("revokeConfirm")}
+            request={revoke}
+            onConfirm={() => {
+              revoke.mutate({ shareLinkId: link.id });
+            }}
+          />
         </ItemActions>
       )}
     </Item>

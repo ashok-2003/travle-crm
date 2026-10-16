@@ -15,7 +15,7 @@ const withinBudget = report({ performance: 0.91, accessibility: 1, "best-practic
 
 describe("the Lighthouse budgets", () => {
   it("are a floor for each category and a ceiling for layout shift", () => {
-    expect(budgets).toEqual({ performance: 0.8, accessibility: 1, "best-practices": 0.95, layoutShift: 0.1 });
+    expect(budgets).toEqual({ performance: 0.8, accessibility: 1, "best-practices": 0.95, layoutShift: 0.01 });
   });
 
   it("read each category's score and the layout shift from a report", () => {
@@ -50,7 +50,7 @@ describe("the Lighthouse budgets", () => {
     expect(missedBudgets("/offline", [run, run, run])).toEqual([
       "/offline: performance 0.62, below its budget of 0.8",
       "/offline: accessibility 0.97, below its budget of 1",
-      "/offline: layout shift 0.25, above its budget of 0.1",
+      "/offline: layout shift 0.25, above its budget of 0.01",
     ]);
   });
 });

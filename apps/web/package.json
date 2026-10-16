@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "generate": "tsx scripts/generate.ts",
-    "dev": "pnpm run generate && next dev --port 3000",
+    "dev": "next dev --port 3000",
     "build": "next build",
     "start": "next start --port 3000",
     "typecheck": "next typegen && tsc --noEmit && tsc --noEmit -p src/service-worker",
@@ -46,6 +46,7 @@
     "next-intl": "4.14.9",
     "radix-ui": "1.8.1",
     "react": "catalog:",
+    "react-day-picker": "10.0.2",
     "react-dom": "catalog:",
     "react-hook-form": "7.90.0",
     "sonner": "2.0.8",

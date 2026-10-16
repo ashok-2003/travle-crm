@@ -2,7 +2,6 @@
 
 // The add form: the newcomer's full name, their address (they sign in with it) and their level, checked by the api's
 // own schema before it is sent. Problems show under their fields; a refusal from the api shows above the button.
-import type { AddedPlatformStaff, AddPlatformStaffInput } from "@travel-crm/contracts/platform";
 import { useTranslations } from "next-intl";
 import { Controller, useForm, type FieldErrors, type Resolver } from "react-hook-form";
 import { TextField } from "@/account/text-field";
@@ -16,11 +15,9 @@ import type { useAddPlatformStaff } from "./use-platform-staff";
 
 export function AddStaffForm({
   add,
-  onAdded,
 }: {
   /** The add call, owned by the dialog so that it can clear it (and the password in its answer) when it closes. */
   add: ReturnType<typeof useAddPlatformStaff>;
-  onAdded: (input: AddPlatformStaffInput, added: AddedPlatformStaff) => void;
 }) {
   const t = useTranslations("consolePlatform.staff.addForm");
   const { apiError } = useErrorMessage();
@@ -37,11 +34,7 @@ export function AddStaffForm({
   const submit = form.handleSubmit((values) => {
     const result = toAddStaffInput(values);
     if (!result.ok) return;
-    add.mutate(result.input, {
-      onSuccess: (added) => {
-        onAdded(result.input, added);
-      },
-    });
+    add.mutate(result.input);
   });
   return (
     <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-6">

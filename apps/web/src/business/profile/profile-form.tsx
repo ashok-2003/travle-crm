@@ -1,17 +1,19 @@
 "use client";
 
 // The business profile form (spec 7.1): the business, its contact, its bank account and its invoice prefix, checked by
-// the api's own schema before anything is sent. Problems show under their boxes and a refusal above the button. While
+// the api's own schema before anything is sent. Problems show under their boxes and a refusal above the button. A newer
+// profile (saved elsewhere, then refreshed) updates the boxes not being changed and keeps what is being typed. While
 // the organization can't make changes (ADR 0021), the boxes are locked and the button says why.
 import type { BusinessProfileDetails } from "@travel-crm/contracts/profile";
 import { useTranslations } from "next-intl";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useForm, type FieldErrors, type Resolver } from "react-hook-form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldDescription, FieldGroup } from "@/components/ui/field";
 import { useErrorMessage } from "@/lib/error-message";
 import { useWriteAccess } from "@/subscription/write-access";
+import { BankAccountNumberField } from "./bank-account-number-field";
 import { GstStateSelect } from "./gst-state-select";
 import { ProfileTextField } from "./profile-text-field";
 import { profileValuesOf, stateNameOfGstin, toProfileInput, type ProfileValues } from "./profile-values";
@@ -49,10 +51,22 @@ export function ProfileForm({ profile }: { profile: BusinessProfileDetails | nul
     }
     return { values: {}, errors };
   };
-  const form = useForm<ProfileValues>({ resolver, defaultValues: profileValuesOf(profile) });
+  const form = useForm<ProfileValues>({
+    resolver,
+    values: profileValuesOf(profile),
+    resetOptions: { keepDirtyValues: true },
+  });
+  const [changingAccount, setChangingAccount] = useState(false);
   const submit = form.handleSubmit((values) => {
     const result = toProfileInput(values);
-    if (result.ok) save.mutate(result.input);
+    if (!result.ok) return;
+    save.mutate(result.input, {
+      // Everything as the api keeps it (GSTIN in capitals, the phone in E.164), the account number masked again.
+      onSuccess: (saved) => {
+        form.reset(profileValuesOf(saved), { keepDirtyValues: false });
+        setChangingAccount(false);
+      },
+    });
   });
 
   return (
@@ -78,12 +92,11 @@ export function ProfileForm({ profile }: { profile: BusinessProfileDetails | nul
         </FormSection>
         <FormSection id="bank" title={t("bank")} hint={t("bankHint")}>
           <ProfileTextField form={form} name="bankAccountName" label={t("bankAccountName")} />
-          <ProfileTextField
+          <BankAccountNumberField
             form={form}
-            name="bankAccountNumber"
-            label={t("bankAccountNumber")}
-            inputMode="numeric"
-            mono
+            saved={profile?.bankAccountNumber ?? null}
+            changing={changingAccount}
+            onChangingChange={setChangingAccount}
           />
           <ProfileTextField form={form} name="bankIfsc" label={t("bankIfsc")} mono />
           <ProfileTextField form={form} name="bankName" label={t("bankName")} />

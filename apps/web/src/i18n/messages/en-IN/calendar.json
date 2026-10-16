@@ -1,0 +1,9 @@
+{
+  "navigation": "Change the month",
+  "previousMonth": "Previous month",
+  "nextMonth": "Next month",
+  "month": "Month",
+  "year": "Year",
+  "today": "Today, {day}",
+  "chosen": "{day}, chosen"
+}

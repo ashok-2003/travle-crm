@@ -90,6 +90,26 @@ describe("SamplePreview", () => {
     expect(await screen.findByText(messages.errors.reasons.PROFILE_NOT_SAVED)).toBeVisible();
   });
 
+  it(
+    "says when asking after the sample fails, stops asking, and asks again when told",
+    { timeout: 15_000 },
+    async () => {
+      const user = userEvent.setup();
+      const api = renderPreview({ "documents.get": { status: 500 } });
+      await user.click(screen.getByRole("button", { name: words.issue }));
+      expect(await screen.findByText(words.checkFailed.replace("{number}", "SMPL-2026-0001"))).toBeVisible();
+      expect(screen.queryByText(words.preparing.replace("{number}", "SMPL-2026-0001"))).toBeNull();
+      const asked = api.calls.filter((path) => path === "documents.get").length;
+      // Past the screen's next ask, two seconds on: a failure is not asked after again by itself.
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+      expect(api.calls.filter((path) => path === "documents.get")).toHaveLength(asked);
+
+      api.answer("documents.get", { data: ready });
+      await user.click(screen.getByRole("button", { name: messages.common.tryAgain }));
+      expect(await screen.findByText(words.ready.replace("{number}", "SMPL-2026-0001"))).toBeVisible();
+    },
+  );
+
   it("disables the preview in a read-only organization, saying why", async () => {
     renderPreview({ "subscription.get": subscriptionAnswer("read_only") });
     expect(await screen.findByText(messages.errors.reasons.ORGANIZATION_READ_ONLY)).toBeVisible();

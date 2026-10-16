@@ -2,7 +2,6 @@
 // are checked before anything is sent, a GSTIN of another state named as such; the saved profile comes back as the api
 // keeps it and the setup checklist is asked again; a refusal shows its sentence; a read-only organization's Owner may
 // look but not save, and reads why.
-import type { BusinessProfileDetails } from "@travel-crm/contracts/profile";
 import { useQuery } from "@tanstack/react-query";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -11,8 +10,8 @@ import { ProfileScreen } from "@/business/profile/profile-screen";
 import { useTRPC } from "@/data/trpc";
 import { messages } from "@/i18n/messages";
 import { stubApi } from "../support/api-stub";
-import { member } from "../support/members";
 import { newQueryClient, renderWithApi } from "../organization/api";
+import { owner, saved, subscription } from "./profile";
 import { inputsSentTo } from "./sent";
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
@@ -20,42 +19,12 @@ vi.mock("sonner", () => ({ toast }));
 
 const words = messages.business.profile;
 
-const saved: BusinessProfileDetails = {
-  legalName: "Konkan Trails LLP",
-  gstin: "27AAPFU0939F1ZV",
-  gstStateCode: "27",
-  address: null,
-  contactName: "Lakshmi Nair",
-  contactPhone: "+919820012345",
-  bankAccountName: null,
-  bankAccountNumber: null,
-  bankIfsc: null,
-  bankName: null,
-  invoicePrefix: null,
-  updatedAt: "2026-10-16T05:00:00.000Z",
-};
-
-const subscription = (access: "full" | "read_only") => ({
-  data: {
-    status: access === "full" ? "active" : "read_only",
-    access,
-    planName: "Growth",
-    modules: [],
-    trialEndsOn: null,
-    paidThrough: null,
-    nextChangeOn: null,
-    limits: { seats: 10, whatsappNumbers: 1, storageBytes: 1000 },
-  },
-});
-
 /** Stands in for the setup checklist on another screen: it asks the api again when the profile is saved. */
 function ChecklistProbe() {
   const trpc = useTRPC();
   useQuery(trpc.organization.setup.get.queryOptions());
   return null;
 }
-
-const owner = member({ isOwner: true });
 
 describe("ProfileScreen", () => {
   beforeEach(() => {
@@ -135,8 +104,10 @@ describe("ProfileScreen", () => {
         bankAccountNumber: "001234567890",
       },
     ]);
-    // The form shows the profile as the api keeps it.
-    expect(await screen.findByDisplayValue("001234567890")).toBeVisible();
+    // The form shows the profile as the api keeps it, the account number by its last four digits only.
+    expect(await screen.findByDisplayValue("HDFC0001234")).toBeVisible();
+    expect(screen.getByLabelText(words.bankAccountNumber)).toHaveValue("XXXX7890");
+    expect(screen.queryByDisplayValue(/001234567890|0012 3456 7890/)).toBeNull();
     await waitFor(() => {
       expect(api.calls.filter((path) => path === "organization.setup.get")).toHaveLength(2);
     });

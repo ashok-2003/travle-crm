@@ -37,9 +37,6 @@ export function visibleNavigationItems(me: SignedInMember, modules?: readonly Pl
   );
 }
 
-/** How many items fit in the phone's bottom bar before the rest move to "More" (DESIGN.md: 4-5 destinations). */
-export const BOTTOM_BAR_ITEMS = 4;
-
 /**
  * Whether the item is the current page: the home item only on "/", the others on their path and below it, unless an
  * item deeper down is (the audit log, under /settings, is current on its page, not Settings).

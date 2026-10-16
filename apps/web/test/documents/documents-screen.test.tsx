@@ -1,7 +1,8 @@
 // The documents screen (spec 9.3): the organization's issued documents, newest first, a page at a time: number,
 // document, when it was issued (in the organization's zone) and whether its PDF is ready, being prepared or can never
-// be made, with the ready PDF a click away and the document's share links. A table on wide screens, a divided list on
-// phones; honest when empty or when the list didn't load.
+// be made, with the ready PDF a click away and its share links. A suspended organization's Owner may still take the
+// PDFs and turn links off. A table on wide screens, a divided list on phones; honest when empty or when the list didn't
+// load.
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -9,7 +10,7 @@ import { DocumentsScreen } from "@/documents/documents-screen";
 import { messages } from "@/i18n/messages";
 import { loadPage } from "@/lib/navigate";
 import { routes } from "@/lib/routes";
-import { newQueryClient, renderWithApi } from "../organization/api";
+import { newQueryClient, paidSubscription, renderWithApi } from "../organization/api";
 import { screenIs } from "../organization/render";
 import { stubApi, type Answer } from "../support/api-stub";
 import { inputsSentTo } from "./sent";
@@ -35,13 +36,13 @@ const latest = document("SMPL-2026-0003", "2026-10-15T18:45:00.000Z", "preparing
 const middle = document("SMPL-2026-0002", "2026-10-15T05:30:00.000Z", "failed");
 const first = document("SMPL-2026-0001", "2026-10-14T05:30:00.000Z", "ready");
 
-function renderScreen(answers: Record<string, Answer> = {}) {
+function renderScreen(answers: Record<string, Answer> = {}, subscription = paidSubscription) {
   const api = stubApi({
     "documents.list": { data: { documents: [latest, middle, first], nextCursor: null } },
     "documents.downloadLink": { data: { url: "https://files.example.test/one.pdf", expiresAt: first.issuedAt } },
     ...answers,
   });
-  renderWithApi(<DocumentsScreen />, newQueryClient());
+  renderWithApi(<DocumentsScreen />, newQueryClient(subscription));
   return api;
 }
 
@@ -89,17 +90,48 @@ describe("DocumentsScreen", () => {
     expect(inputsSentTo("documents.downloadLink")).toEqual([{ documentId: first.id }]);
   });
 
-  it("opens a document's share links, for any document whose PDF can be made", async () => {
+  it("opens a document's share links once its PDF is made, not before", async () => {
     screenIs("wide");
     const user = userEvent.setup();
     renderScreen({ "shareLinks.list": { data: [] } });
-    const failed = (await screen.findAllByRole("row"))[2];
-    if (!failed) throw new Error("the failed document's row was expected");
+    const [preparing, failed] = (await screen.findAllByRole("row")).slice(1);
+    if (!preparing || !failed) throw new Error("the preparing and failed documents' rows were expected");
+    expect(within(preparing).queryByRole("button", { name: /^Share/ })).toBeNull();
     expect(within(failed).queryByRole("button", { name: /^Share/ })).toBeNull();
     await user.click(screen.getByRole("button", { name: words.share.openNamed.replace("{number}", "SMPL-2026-0001") }));
     expect(
       await screen.findByRole("dialog", { name: words.share.title.replace("{number}", "SMPL-2026-0001") }),
     ).toBeVisible();
+  });
+
+  it("lets a suspended organization's Owner take the PDFs and turn links off, but not make new ones", async () => {
+    screenIs("wide");
+    const user = userEvent.setup();
+    const link = {
+      id: "0199e7a0-0000-7000-8000-00000000a011",
+      recordType: "issued_document",
+      recordId: first.id,
+      label: "For Meera Iyer",
+      createdBy: null,
+      createdAt: first.issuedAt,
+      expiresAt: null,
+      revokedAt: null,
+      openCount: 0,
+      lastOpenedAt: null,
+    };
+    renderScreen(
+      { "shareLinks.list": { data: [link] } },
+      { ...paidSubscription, status: "suspended", access: "export_only" },
+    );
+    const named = (pattern: string) => pattern.replace("{number}", "SMPL-2026-0001");
+    expect(await screen.findByRole("button", { name: named(words.download.named) })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: named(words.share.openNamed) }));
+    const dialog = await screen.findByRole("dialog", { name: named(words.share.title) });
+    expect(
+      await within(dialog).findByRole("button", { name: words.share.revokeNamed.replace("{label}", "For Meera Iyer") }),
+    ).toBeEnabled();
+    expect(within(dialog).getByRole("button", { name: words.share.create })).toBeDisabled();
+    expect(within(dialog).getByText(messages.errors.reasons.ORGANIZATION_SUSPENDED)).toBeVisible();
   });
 
   it("is a divided list on phones", async () => {

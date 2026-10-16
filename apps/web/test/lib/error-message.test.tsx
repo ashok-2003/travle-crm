@@ -37,6 +37,13 @@ describe("useErrorMessage", () => {
     expect(authError(failure(429, "TOO_MANY_REQUESTS"))).toBe(messages.errors.tooManyRequests);
   });
 
+  it("gives the codes our own side door adds to Better Auth's calls their reasons' sentences", () => {
+    const { authError } = errorMessage();
+    expect(authError(failure(403, "SET_UP_TWO_FACTOR"))).toBe(messages.errors.reasons.SET_UP_TWO_FACTOR);
+    expect(authError(failure(403, "CHANGE_PASSWORD"))).toBe(messages.errors.reasons.CHANGE_PASSWORD);
+    expect(authError(failure(403, "SOMETHING_NEW"))).toBe(messages.errors.forbidden);
+  });
+
   it("gives Better Auth's lockout, two-factor and reset-address codes their own sentences", () => {
     const { authError } = errorMessage();
     const statusOnly = [messages.errors.tooManyRequests, messages.errors.invalid, messages.errors.forbidden];

@@ -1,6 +1,7 @@
 // The way into the console: whoAmI says who is signed in. Platform staff get the console, with a query cache of its
-// own that the app's saved copy never holds; anyone else is told the console isn't theirs. A 401 sends the person to
-// sign in and back, a pending step to take it and back, and any other failure says so with a Retry.
+// own that the app's saved copy never holds; anyone else is told the console isn't theirs, and support signed in as a
+// member is offered Stop. A 401 sends the person to sign in and back, a pending step to take it and back, and any
+// other failure says so with a Retry.
 import "fake-indexeddb/auto";
 import { useQueryClient } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
@@ -14,6 +15,7 @@ import { DataProviders, usePageData } from "@/data/providers";
 import { locale, messages } from "@/i18n/messages";
 import { loadPage, replacePage } from "@/lib/navigate";
 import { stubApi } from "../support/api-stub";
+import { member } from "../support/members";
 import { platformStaff } from "../support/platform-staff";
 
 vi.mock("@/lib/navigate", () => ({ loadPage: vi.fn(), replacePage: vi.fn() }));
@@ -65,11 +67,22 @@ describe("ConsoleGate", () => {
   });
 
   it("tells anyone else the console is for platform staff, and lets them sign out", async () => {
-    stubApi({ "platform.whoAmI": { status: 403, reason: "PLATFORM_ONLY" } });
+    stubApi({ "platform.whoAmI": { status: 403, reason: "PLATFORM_ONLY" }, "me.get": { data: member() } });
     renderGate();
     expect(await screen.findByText(gate.notStaff)).toBeVisible();
-    expect(screen.getByRole("button", { name: messages.console.navigation.signOut })).toBeVisible();
+    expect(await screen.findByRole("button", { name: messages.console.navigation.signOut })).toBeVisible();
     expect(screen.queryByText(/Console for/)).toBeNull();
+  });
+
+  it("offers support signed in as a member Stop, not Sign out, which would strand support's own session", async () => {
+    stubApi({
+      "platform.whoAmI": { status: 403, reason: "PLATFORM_ONLY" },
+      "me.get": { data: member({ impersonatedBy: platformStaff("support").userId }) },
+    });
+    renderGate();
+    expect(await screen.findByText(gate.impersonating)).toBeVisible();
+    expect(screen.getByRole("button", { name: messages.shell.banners.stop })).toBeVisible();
+    expect(screen.queryByRole("button", { name: messages.console.navigation.signOut })).toBeNull();
   });
 
   it("sends a signed-out visitor to sign in, and back to this page afterwards", async () => {

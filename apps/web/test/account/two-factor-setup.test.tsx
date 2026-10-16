@@ -25,7 +25,8 @@ function clipboardThat(answer: () => Promise<void>) {
 async function reachScanStep(onDone: () => Promise<void> | void = vi.fn()) {
   renderScreen(
     <TwoFactorSetup
-      pending
+      askedBy="organization"
+      canLeave={false}
       onDone={onDone}
       auth={{ startTwoFactorSetup: answers(ok(setup)), confirmTwoFactor: answers(ok(null)) }}
     />,
@@ -54,7 +55,14 @@ describe("TwoFactorSetup", () => {
       .mockResolvedValueOnce(refused(401, "INVALID_CODE"))
       .mockResolvedValueOnce(ok(null));
     const onDone = vi.fn();
-    renderScreen(<TwoFactorSetup pending onDone={onDone} auth={{ startTwoFactorSetup, confirmTwoFactor }} />);
+    renderScreen(
+      <TwoFactorSetup
+        askedBy="organization"
+        canLeave={false}
+        onDone={onDone}
+        auth={{ startTwoFactorSetup, confirmTwoFactor }}
+      />,
+    );
     expect(screen.getByText(account.twoFactorSetup.pendingIntro)).toBeVisible();
 
     await userEvent.type(screen.getByLabelText(account.fields.password), "owner-password-1");
@@ -92,7 +100,12 @@ describe("TwoFactorSetup", () => {
   it("says when the password is wrong", async () => {
     const startTwoFactorSetup = answers(refused(400, "INVALID_PASSWORD"));
     renderScreen(
-      <TwoFactorSetup pending={false} onDone={vi.fn()} auth={{ startTwoFactorSetup, confirmTwoFactor: vi.fn() }} />,
+      <TwoFactorSetup
+        askedBy={null}
+        canLeave
+        onDone={vi.fn()}
+        auth={{ startTwoFactorSetup, confirmTwoFactor: vi.fn() }}
+      />,
     );
     expect(screen.getByText(account.twoFactorSetup.intro)).toBeVisible();
     await userEvent.type(screen.getByLabelText(account.fields.password), "wrong");

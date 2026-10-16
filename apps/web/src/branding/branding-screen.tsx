@@ -3,8 +3,8 @@
 // The branding screen (spec 9.3): how the organization's documents look. Its logo at the top, its colour for the title,
 // and its terms at the end, each saved on its own, and a sample quotation to see them on.
 import { useTranslations } from "next-intl";
+import { BackToSettings } from "@/components/back-to-settings";
 import { PageTitle } from "@/components/page-title";
-import { BackToSettings } from "./back-to-settings";
 import { BrandingForm } from "./branding-form";
 import { LogoPanel } from "./logo-panel";
 import { SamplePreview } from "./sample-preview";

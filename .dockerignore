@@ -1,5 +1,11 @@
 # What `docker build` leaves out of the context for both images (apps/api/Dockerfile, apps/web/Dockerfile): what the
-# build makes again (dependencies, generated code, build output), local secrets, and what no image needs.
+# build makes again (dependencies, generated code, build output), local secrets, and what no image needs. A pattern
+# without **/ matches at the context's root alone: `next build` reads apps/web/.env* and copies .env and
+# .env.production into the image, so every .env is left out at any depth (the image smoke checks that none is there).
+**/.env
+**/.env.*
+!**/.env.example
+**/*.log
 **/node_modules
 **/.next
 **/.turbo
@@ -12,11 +18,10 @@ apps/web/public/icons
 apps/web/public/sw.js
 apps/web/test-results
 apps/web/playwright-report
-.env
-.env.*
 .git
 .github
 .husky
+.vscode
 .claude
 .claude-flow
 .superpowers
