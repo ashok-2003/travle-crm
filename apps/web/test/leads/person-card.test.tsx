@@ -24,10 +24,6 @@ function renderCard(knownContact = heldBy(ids.otherPerson, "Priya Nair")) {
   return api;
 }
 
-/** The sentence the app shows for a refusal: its own, or the generic one until the api's words are in. */
-const sentenceFor = (reason: string) =>
-  (messages.errors.reasons as Record<string, string | undefined>)[reason] ?? messages.errors.generic;
-
 async function openEditor() {
   await userEvent.click(screen.getByRole("button", { name: words.edit }));
   return screen.findByRole("dialog", { name: words.dialog.title });
@@ -75,7 +71,7 @@ describe("PersonCard", () => {
 
     api.answer("leads.editPerson", { status: 409, reason: "CONTACT_ON_ANOTHER_PERSON" });
     await userEvent.click(within(dialog).getByRole("button", { name: words.dialog.submit }));
-    expect(await within(dialog).findByText(sentenceFor("CONTACT_ON_ANOTHER_PERSON"))).toBeVisible();
+    expect(await within(dialog).findByText(messages.errors.reasons.CONTACT_ON_ANOTHER_PERSON)).toBeVisible();
     expect(lastInputTo("leads.editPerson")).toEqual({
       leadId: ids.rahul,
       person: { name: "Rahul Sharma", phone: "+919845011234", email: "rahul.s@gmail.com" },
