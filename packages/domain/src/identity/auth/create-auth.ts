@@ -96,7 +96,9 @@ export function createAuth(database: IdentityDatabase, settings: AuthSettings) {
         : { sendResetPassword: passwordResetSender(settings.passwordReset.sendEmail, settings.log) }),
     },
     verification: {
-      // A reset link's token is kept only as a hash, so the table can't be read for a working link.
+      // A reset link's token is kept only as a hash, so the table can't be read for a working link. Every other
+      // identifier stays plain: staff-trusted-devices.ts deletes platform staff's trusted devices by the plain
+      // "trust-device-" prefix, which a hashed identifier would never match (trusted-devices.test.ts would fail).
       storeIdentifier: { default: "plain", overrides: { "reset-password:": "hashed" } },
     },
     session: {

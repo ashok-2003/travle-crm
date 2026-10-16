@@ -19,7 +19,10 @@ const SIGN_IN_PATHS: readonly string[] = ["/sign-in/email", "/sign-in/username",
 /** The cookie that names the sign-in waiting for its code (plugins/two-factor/constant.mjs). */
 const TWO_FACTOR_COOKIE = "two_factor";
 
-/** Every trusted device is a verification row with this prefix, valued with the user's id (verify-two-factor.mjs:49). */
+/**
+ * Every trusted device is a verification row with this prefix, valued with the user's id (verify-two-factor.mjs:49),
+ * stored plain because create-auth.ts's storeIdentifier hashes only reset tokens.
+ */
 const TRUSTED_DEVICE_PREFIX = "trust-device-";
 
 /**
