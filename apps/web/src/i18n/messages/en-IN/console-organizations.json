@@ -1,1 +1,334 @@
-{}
+{
+  "onboard": {
+    "title": "Onboard an agency",
+    "intro": "This creates the agency's organization, its business profile and its subscription, and emails its Owner an invite to choose a password.",
+    "agency": {
+      "heading": "The agency",
+      "name": "Agency name",
+      "code": "Organization code",
+      "codeHint": "3 to 12 letters or digits, like SHARMA. Staff without email sign in with it, and it never changes.",
+      "timeZone": "Time zone",
+      "contactEmail": "Contact email",
+      "contactEmailHint": "Replies to the agency's emails go here."
+    },
+    "profile": {
+      "heading": "Business profile",
+      "legalName": "Legal name",
+      "legalNameHint": "As registered for GST.",
+      "gstState": "GST state",
+      "gstin": "GSTIN",
+      "gstinHint": "Optional. Its first two digits are its state's code.",
+      "contactName": "Contact person",
+      "contactNameHint": "Optional.",
+      "contactPhone": "Contact phone",
+      "contactPhoneHint": "Optional. For example 98765 43210.",
+      "gstStatePlaceholder": "Choose the state"
+    },
+    "owner": {
+      "heading": "Owner",
+      "name": "Owner's name",
+      "email": "Owner's email",
+      "emailHint": "The invite goes here. Its link to choose a password lasts 72 hours."
+    },
+    "subscription": {
+      "heading": "Subscription",
+      "plan": "Plan",
+      "planPrices": {
+        "monthly": "{price} a month",
+        "yearly": "{price} a year"
+      },
+      "cycle": "Billing",
+      "cycles": {
+        "monthly": "Monthly, {price} before GST",
+        "yearly": "Yearly, {price} before GST"
+      },
+      "start": "How it starts",
+      "starts": {
+        "trial": "A trial of the usual length",
+        "trial-until": "A trial until a day you choose",
+        "paid": "Active, already paid through a day"
+      },
+      "trialLength": "{count, plural, one {# day} other {# days}}, today the first",
+      "trialEndsOn": "The trial's last day",
+      "paidThrough": "Paid through",
+      "loading": "Loading the plans",
+      "plansLoadFailed": "The plans didn't load.",
+      "noPlans": "No plan is on sale. A super admin adds plans on the Plans screen.",
+      "plansLink": "Open Plans",
+      "planPlaceholder": "Choose a plan"
+    },
+    "submit": "Onboard the agency",
+    "submitting": "Onboarding",
+    "problems": {
+      "required": "Fill this in.",
+      "codeInvalid": "Use 3 to 12 letters or digits, like SHARMA.",
+      "emailInvalid": "Type a real email address, like name@example.com.",
+      "nameInvalid": "Use a visible name of at most 120 characters.",
+      "gstinInvalid": "Check the GSTIN: 15 characters, ending in a check character that must match.",
+      "gstinOtherState": "This GSTIN is of another state. Its first two digits are its state's code.",
+      "phoneInvalid": "Type a phone number like 98765 43210.",
+      "timeZoneInvalid": "Choose a time zone.",
+      "dateRequired": "Choose the day.",
+      "dateInvalid": "Use a date like 2026-10-15."
+    }
+  },
+  "timeZones": {
+    "Asia/Kolkata": "India (Asia/Kolkata)",
+    "Asia/Kathmandu": "Nepal (Asia/Kathmandu)",
+    "Asia/Colombo": "Sri Lanka (Asia/Colombo)",
+    "Asia/Dhaka": "Bangladesh (Asia/Dhaka)",
+    "Asia/Thimphu": "Bhutan (Asia/Thimphu)",
+    "Indian/Maldives": "Maldives (Indian/Maldives)",
+    "Asia/Dubai": "United Arab Emirates (Asia/Dubai)",
+    "Asia/Singapore": "Singapore (Asia/Singapore)",
+    "Europe/London": "United Kingdom (Europe/London)",
+    "UTC": "Coordinated Universal Time (UTC)"
+  },
+  "organization": {
+    "title": "Organization",
+    "loading": "Loading the organization",
+    "loadFailed": "The organization didn't load.",
+    "notFound": "There is no such organization. It may have been deleted for good.",
+    "backToDashboard": "Back to the dashboard",
+    "onboarded": "The Owner has an email invite to choose a password. Its link lasts 72 hours.",
+    "dataProtection": "Data protection"
+  },
+  "record": {
+    "heading": "Organization",
+    "name": "Name",
+    "code": "Organization code",
+    "timeZone": "Time zone",
+    "contactEmail": "Contact email",
+    "noContactEmail": "None",
+    "onboardedOn": "Onboarded on",
+    "correct": "Correct details",
+    "dialogTitle": "Correct the organization's details",
+    "dialogDescription": "Its name, time zone and contact email. Its code never changes: staff usernames contain it.",
+    "contactEmailHint": "Optional. Replies to the agency's emails go here.",
+    "save": "Save",
+    "saving": "Saving",
+    "saved": "Saved",
+    "problems": {
+      "required": "Fill this in.",
+      "nameInvalid": "Use at most 120 characters.",
+      "emailInvalid": "Type a real email address, like name@example.com.",
+      "timeZoneInvalid": "Choose a time zone."
+    }
+  },
+  "profile": {
+    "heading": "Business profile",
+    "hint": "The Owner keeps it up to date from the agency's settings; the account number shows its last four digits only.",
+    "none": "No business profile yet.",
+    "legalName": "Legal name",
+    "gstin": "GSTIN",
+    "gstState": "GST state",
+    "address": "Address",
+    "contactName": "Contact person",
+    "contactPhone": "Contact phone",
+    "bankAccountName": "Account name",
+    "bankAccountNumber": "Account number",
+    "bankIfsc": "IFSC",
+    "bankName": "Bank",
+    "invoicePrefix": "Invoice prefix",
+    "notGiven": "Not given"
+  },
+  "members": {
+    "heading": "Members",
+    "loading": "Loading the members",
+    "loadFailed": "The members didn't load.",
+    "empty": "No active members.",
+    "owner": "Owner",
+    "noEmail": "No email",
+    "neverActive": "Never",
+    "invitePending": "Invite sent, no password yet",
+    "columns": {
+      "name": "Name",
+      "role": "Role",
+      "email": "Email",
+      "lastActive": "Last active",
+      "actions": "Actions"
+    },
+    "lastActive": "Last active {date}",
+    "impersonate": "Sign in as {name}",
+    "resendInvite": "Resend the invite",
+    "resending": "Sending",
+    "inviteSent": "A new invite is on its way to {email}.",
+    "neverUsed": "Hasn't used the app yet"
+  },
+  "impersonate": {
+    "title": "Sign in as {name}?",
+    "description": "You'll see {organization} as {name} does, and what you change is theirs. It is recorded in the organization's audit log and ends after an hour at most. Stop from the banner at the top.",
+    "confirm": "Sign in as {name}",
+    "starting": "Signing in",
+    "notAMember": "{name} is no longer active staff, so you can't sign in as them."
+  },
+  "subscription": {
+    "heading": "Subscription",
+    "none": "This organization has no subscription.",
+    "status": "Status today",
+    "since": "since {date}",
+    "recorded": "The nightly job last recorded {status} since {date}; it catches up tonight.",
+    "nextChange": "Next change",
+    "nextChangeOn": "{date}, if nothing is paid",
+    "noChangeDue": "None due",
+    "suspendedByHand": "Suspended by hand",
+    "suspendedOn": "On {date}: {reason}",
+    "plan": "Plan",
+    "planAndCycle": "{plan}, {cycle}",
+    "cycles": {
+      "monthly": "billed monthly",
+      "yearly": "billed yearly"
+    },
+    "trialEndsOn": "Trial's last day",
+    "paidThroughOn": "Paid through",
+    "paidThrough": {
+      "action": "Change paid-through",
+      "title": "Change the paid-through day",
+      "description": "Time given without a payment, or a correction. Today or later, it makes the organization active again.",
+      "submit": "Save",
+      "submitting": "Saving",
+      "done": "Paid-through day changed",
+      "paidThrough": "Paid through"
+    },
+    "notSet": "Not set",
+    "extraSeats": "Extra seats",
+    "customPrice": "Agreed price",
+    "customPriceNone": "None, the plan's price",
+    "extraModules": "Modules switched on early",
+    "noModules": "None",
+    "modules": {
+      "crm": "CRM",
+      "inbox": "WhatsApp inbox",
+      "catalog": "Catalog",
+      "quotes": "Quotes",
+      "bookings": "Bookings",
+      "departures": "Departures",
+      "suppliers": "Suppliers",
+      "accounts": "Accounts",
+      "reports": "Reports"
+    },
+    "price": {
+      "caption": {
+        "monthly": "What it costs a month",
+        "yearly": "What it costs a year"
+      },
+      "plan": "The plan's price",
+      "agreed": "The agreed price",
+      "extraSeats": "{count, plural, one {# extra seat} other {# extra seats}}",
+      "subtotal": "Before GST",
+      "cgst": "CGST at 9%",
+      "sgst": "SGST at 9%",
+      "total": {
+        "monthly": "Total a month",
+        "yearly": "Total a year"
+      }
+    },
+    "recordPayment": {
+      "action": "Record a payment",
+      "title": "Record a payment",
+      "description": "Money received outside the product. Paid through today or later, it makes the organization active again; a suspension by hand stays.",
+      "submit": "Record the payment",
+      "submitting": "Recording",
+      "done": "Payment recorded",
+      "amount": "Amount received",
+      "amountHint": "As received, GST included.",
+      "paidOn": "Paid on",
+      "paidThrough": "Pays through",
+      "reference": "Reference",
+      "referenceHint": "Optional. For example NEFT UTR 412345678901."
+    },
+    "changePlan": {
+      "action": "Change plan",
+      "title": "Change the plan",
+      "description": "Another plan on sale, or another billing cycle. It applies from today.",
+      "submit": "Change the plan",
+      "submitting": "Changing",
+      "done": "Plan changed",
+      "loading": "Loading the plans",
+      "plansLoadFailed": "The plans didn't load."
+    },
+    "overrides": {
+      "action": "Seats, price and modules",
+      "title": "Seats, price and modules",
+      "description": "Seats bought above the plan's, a price agreed in place of the plan's, and modules switched on early.",
+      "submit": "Save",
+      "submitting": "Saving",
+      "done": "Saved",
+      "extraSeats": "Extra seats",
+      "extraSeatsHint": "Each at the plan's price for an extra seat.",
+      "customPrice": {
+        "monthly": "Agreed price a month, before GST",
+        "yearly": "Agreed price a year, before GST"
+      },
+      "customPriceHint": "Optional. Leave it blank for the plan's own price.",
+      "modules": "Modules switched on early"
+    },
+    "trialEnd": {
+      "action": "Move the trial's end",
+      "title": "Move the trial's end",
+      "description": "The trial's last day, today or later.",
+      "submit": "Save",
+      "submitting": "Saving",
+      "done": "Trial end moved",
+      "trialEndsOn": "The trial's last day"
+    },
+    "suspend": {
+      "action": "Suspend",
+      "title": "Suspend this organization?",
+      "description": "Its staff lose access at once; only the Owner can export or pay. No payment lifts it: only a super admin does.",
+      "submit": "Suspend",
+      "submitting": "Suspending",
+      "done": "Suspended"
+    },
+    "liftSuspension": {
+      "action": "Lift the suspension",
+      "title": "Lift the suspension?",
+      "description": "The organization goes back to wherever its payments put it today.",
+      "submit": "Lift the suspension",
+      "submitting": "Lifting",
+      "done": "Suspension lifted"
+    },
+    "cancel": {
+      "action": "Cancel the subscription",
+      "title": "Cancel the subscription?",
+      "description": "Its staff lose access at once. The data is kept, locked, until a super admin deletes it; only a payment brings it back.",
+      "submit": "Cancel the subscription",
+      "submitting": "Cancelling",
+      "done": "Subscription cancelled"
+    },
+    "voidPayment": {
+      "action": "Void",
+      "title": "Void the payment of {payment}?",
+      "description": "A payment recorded by mistake is voided, never deleted. The dates and status stay as they are: correct them on their own.",
+      "submit": "Void the payment",
+      "submitting": "Voiding",
+      "done": "Payment voided",
+      "actionFor": "Void the payment of {payment}"
+    },
+    "reason": {
+      "label": "Reason",
+      "hint": "Kept in the organization's audit log."
+    },
+    "payments": {
+      "heading": "Payments",
+      "empty": "No payments recorded yet.",
+      "columns": {
+        "paidOn": "Paid on",
+        "paidThrough": "Pays through",
+        "reference": "Reference",
+        "amount": "Amount",
+        "state": "Void or voided"
+      },
+      "voided": "Voided",
+      "describedAs": "{amount} paid on {date}",
+      "paidOnThrough": "Paid on {paidOn}, through {paidThrough}"
+    },
+    "problems": {
+      "required": "Fill this in.",
+      "amountInvalid": "Type an amount like 2,950 or 2,950.50.",
+      "dateInvalid": "Use a date like 2026-10-15.",
+      "seatsInvalid": "Use a whole number from 0 to 10,000.",
+      "tooLong": "This is too long."
+    }
+  }
+}

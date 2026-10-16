@@ -79,6 +79,7 @@ describe("platform staff levels", () => {
   it("refuses to make a member a super admin through Better Auth's admin endpoints", async () => {
     const superAdmin = await outsider("super-admin");
     const headers = await signInByEmail(test.identity, superAdmin.email, "platform-password-1");
+    await platform.user.update({ where: { id: superAdmin.userId }, data: { twoFactorEnabled: true } });
     await expect(
       test.identity.auth.api.setRole({ headers, body: { userId: agency.ownerUserId, role: "super-admin" } }),
     ).rejects.toMatchObject({ body: { code: "MEMBERS_CANNOT_BE_PLATFORM_STAFF" } });

@@ -26,6 +26,7 @@ export {
   requestInvite,
   type NewOrganization,
 } from "./onboarding.js";
+export { organizationMembers, type OrganizationMemberRecord } from "./organization-members.js";
 export type { MemberContact, OrganizationProfile } from "./organization-profile.js";
 export {
   findOrganizationByCode,

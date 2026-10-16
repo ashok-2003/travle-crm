@@ -49,16 +49,21 @@ describe("Better Auth hardening", () => {
     );
   }
 
+  /** Signed in, then two-factor on, as the setup screen leaves platform staff (the side doors require it). */
   async function platformAdminHeaders(): Promise<Headers> {
-    const { email } = await createPlatformAdmin(test, "admin-password-1");
-    return signInByEmail(test.identity, email, "admin-password-1");
+    const { userId, email } = await createPlatformAdmin(test, "admin-password-1");
+    const headers = await signInByEmail(test.identity, email, "admin-password-1");
+    await test.database.client.user.update({ where: { id: userId }, data: { twoFactorEnabled: true } });
+    return headers;
   }
 
   /** A super admin's: support may only impersonate, even from the server (platform-staff-powers.test.ts). */
   async function superAdminHeaders(): Promise<Headers> {
     const { userId, email } = await createPlatformAdmin(test, "admin-password-1");
     await test.database.client.user.update({ where: { id: userId }, data: { role: "super-admin" } });
-    return signInByEmail(test.identity, email, "admin-password-1");
+    const headers = await signInByEmail(test.identity, email, "admin-password-1");
+    await test.database.client.user.update({ where: { id: userId }, data: { twoFactorEnabled: true } });
+    return headers;
   }
 
   it("refuses a member changing their username or display name, and changes nothing", async () => {

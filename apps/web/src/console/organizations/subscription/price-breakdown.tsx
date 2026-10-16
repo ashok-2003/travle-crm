@@ -1,0 +1,40 @@
+// What the subscription costs per billing cycle, as the api computes it (spec 7.2): the plan's price or the agreed
+// one, the extra seats, the amount before GST, CGST and SGST at 9 % each, and the total. Amounts are mono and
+// right-aligned with ₹ and Indian grouping, paise shown (an invoice's figures), in ink: they are due, not received.
+import type { SubscriptionPrice } from "@travel-crm/contracts/subscriptions";
+import { money } from "@travel-crm/domain/kernel";
+import { useTranslations } from "next-intl";
+import { formatRupees } from "@/lib/format";
+import { cn } from "@/lib/utils";
+
+export function PriceBreakdown({ price, agreed }: { price: SubscriptionPrice; agreed: boolean }) {
+  const t = useTranslations("consoleOrganizations.subscription.price");
+  const amount = (paise: number) => formatRupees(money(paise), { paise: "always" });
+  const lines = [
+    { label: agreed ? t("agreed") : t("plan"), paise: price.basePaise },
+    ...(price.extraSeats > 0
+      ? [{ label: t("extraSeats", { count: price.extraSeats }), paise: price.extraSeatsPaise }]
+      : []),
+    { label: t("subtotal"), paise: price.subtotalPaise },
+    { label: t("cgst"), paise: price.cgstPaise },
+    { label: t("sgst"), paise: price.sgstPaise },
+    { label: t(`total.${price.cycle}`), paise: price.totalPaise, total: true },
+  ];
+  return (
+    <table className="w-full max-w-[720px] border-collapse rounded-lg text-body">
+      <caption className="mb-2 text-left text-label text-muted-foreground">{t(`caption.${price.cycle}`)}</caption>
+      <tbody>
+        {lines.map((line) => (
+          <tr key={line.label} className="border-b last:border-b-0">
+            <th scope="row" className={cn("py-2 pr-4 text-left font-normal", line.total === true && "font-semibold")}>
+              {line.label}
+            </th>
+            <td className={cn("numbers py-2 text-right", line.total === true && "font-medium")}>
+              {amount(line.paise)}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
