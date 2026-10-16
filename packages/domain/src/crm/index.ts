@@ -11,3 +11,11 @@ export { countLeads, listLeads } from "./lead-list.js";
 export { leadCountsQuery, leadListQuery, type LeadCountsFilter, type LeadListFilter } from "./lead-list-query.js";
 export { addLeadWork } from "./lead-work.js";
 export { addLeadNote, listLeadTimeline } from "./timeline.js";
+export {
+  countNewLeadsWaiting,
+  leadBriefs,
+  newLeadsWaiting,
+  newLeadsWaitingQuery,
+  type NewLeadsWaitingFilter,
+  type NewLeadWaiting,
+} from "./work-queries.js";
