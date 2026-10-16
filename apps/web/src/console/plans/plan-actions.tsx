@@ -42,7 +42,7 @@ export function PlanActions({ plan }: { plan: PlanSummary }) {
           </DropdownMenuItem>
           {plan.forSale && (
             <DropdownMenuItem
-              className="text-destructive"
+              variant="destructive"
               onSelect={() => {
                 setOpen("archive");
               }}

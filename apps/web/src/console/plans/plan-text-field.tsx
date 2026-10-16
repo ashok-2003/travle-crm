@@ -1,7 +1,7 @@
 "use client";
 
 // One labelled field of the plan form (DESIGN.md section 6: a label above, the problem below with an icon, linked by
-// aria-describedby). Numbers are mono; a rupee amount has ₹ before it, sits right-aligned, and takes Indian grouping
+// aria-describedby). Numbers are mono; a rupee amount has ₹ before it (an input group), sits right-aligned, and takes Indian grouping
 // once the field is left, as text: plan-values.ts reads it into paise.
 import { paiseFromRupeesText } from "@travel-crm/contracts/kernel";
 import { CircleAlertIcon } from "lucide-react";
@@ -10,6 +10,7 @@ import { useId } from "react";
 import { Controller, type Control } from "react-hook-form";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
 import { cn } from "@/lib/utils";
 import { rupeesTextOf, type PlanField, type PlanValues } from "./plan-values";
 
@@ -36,36 +37,36 @@ export function PlanTextField({
         const describedBy = [hint ? `${id}-hint` : null, fieldState.error ? `${id}-error` : null].filter(
           (part) => part !== null,
         );
+        const input = {
+          id,
+          ...field,
+          autoComplete: "off",
+          spellCheck: false,
+          autoCapitalize: kind === "code" ? "none" : undefined,
+          inputMode: kind === "number" || kind === "rupees" ? ("decimal" as const) : undefined,
+          className: cn(kind !== "text" && "numbers", kind === "rupees" && "text-right"),
+          "aria-invalid": fieldState.invalid,
+          // No attribute at all rather than an empty one, which points at nothing.
+          "aria-describedby": describedBy.length > 0 ? describedBy.join(" ") : undefined,
+          onBlur: () => {
+            const paise = kind === "rupees" ? paiseFromRupeesText(field.value) : null;
+            if (paise !== null && paise >= 0) field.onChange(rupeesTextOf(paise));
+            field.onBlur();
+          },
+        };
         return (
           <Field data-invalid={fieldState.invalid}>
             <FieldLabel htmlFor={id}>{label}</FieldLabel>
-            <div className="relative">
-              {kind === "rupees" && (
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted-foreground"
-                >
-                  {t("rupeeSymbol")}
-                </span>
-              )}
-              <Input
-                id={id}
-                {...field}
-                autoComplete="off"
-                spellCheck={false}
-                autoCapitalize={kind === "code" ? "none" : undefined}
-                inputMode={kind === "number" || kind === "rupees" ? "decimal" : undefined}
-                className={cn(kind !== "text" && "numbers", kind === "rupees" && "pl-7 text-right")}
-                aria-invalid={fieldState.invalid}
-                // No attribute at all rather than an empty one, which points at nothing.
-                aria-describedby={describedBy.length > 0 ? describedBy.join(" ") : undefined}
-                onBlur={() => {
-                  const paise = kind === "rupees" ? paiseFromRupeesText(field.value) : null;
-                  if (paise !== null && paise >= 0) field.onChange(rupeesTextOf(paise));
-                  field.onBlur();
-                }}
-              />
-            </div>
+            {kind === "rupees" ? (
+              <InputGroup>
+                <InputGroupAddon>
+                  <InputGroupText aria-hidden="true">{t("rupeeSymbol")}</InputGroupText>
+                </InputGroupAddon>
+                <InputGroupInput {...input} />
+              </InputGroup>
+            ) : (
+              <Input {...input} />
+            )}
             {hint && <FieldDescription id={`${id}-hint`}>{hint}</FieldDescription>}
             {fieldState.error && (
               <FieldError id={`${id}-error`} className="flex items-start gap-1.5">

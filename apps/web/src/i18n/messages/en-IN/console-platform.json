@@ -19,6 +19,7 @@
     "loadFailed": "The plans didn't load.",
     "empty": "No plans yet. Create the first one.",
     "emptyReadOnly": "No plans yet.",
+    "nothingOnSale": "No plan is on sale. Every plan is archived, so no organization can be put on one.",
     "archivedTitle": "Archived",
     "onSale": "On sale",
     "archived": "Archived",
@@ -39,8 +40,6 @@
     "extraSeatMonthly": "Extra seat, monthly",
     "extraSeatYearly": "Extra seat, yearly",
     "coreOnly": "Core features only",
-    "seatsCount": "{count, plural, one {# seat} other {# seats}}",
-    "whatsappCount": "{count, plural, one {# WhatsApp number} other {# WhatsApp numbers}}",
     "actionsFor": "Actions for {name}",
     "edit": "Edit",
     "archive": "Archive",
@@ -130,6 +129,7 @@
     "noData": "No data",
     "error": "Error",
     "retry": "Run again",
+    "retryFor": "Run again: {queue}, job {id}",
     "retried": "Sent to run again",
     "showMore": "Show more failed jobs",
     "loadingMore": "Loading more"
@@ -163,6 +163,7 @@
     "platformStaff": "Platform staff",
     "organization": "Organization",
     "deletedOrganization": "Deleted organization {code}",
+    "nameFailed": "(its name didn't load)",
     "deletedOrganizationWithoutCode": "A deleted organization",
     "changes": "What changed",
     "hideChanges": "Hide the changes",
@@ -303,10 +304,12 @@
   },
   "dataProtection": {
     "title": "Data protection",
-    "intro": "Permanent deletion happens only here (spec 5): export first, type the organization's code to confirm, then the console's job deletes it and the platform log keeps the record.",
+    "intro": "Permanent deletion happens only here: export first, type the organization's code to confirm, then the console's job deletes it and the platform log keeps the record.",
     "loading": "Loading the organization",
     "loadFailed": "The organization didn't load.",
     "backToOrganization": "Back to the organization",
+    "waitedTooLong": "The job hasn't reported back after 10 minutes. It may have failed.",
+    "seeJobs": "Open the failed jobs",
     "deleted": "This organization has been deleted for good. Each of its exports stays for 7 days from when it was asked for.",
     "exports": {
       "title": "Exports",
@@ -331,6 +334,7 @@
       "people": "{count, plural, one {# person} other {# people}}",
       "files": "{count, plural, one {# file} other {# files}}",
       "download": "Download",
+      "downloadFor": "Download: the export asked for {when}",
       "downloading": "Getting the links",
       "linksExpire": "These links work until {when}.",
       "part": "Part {number}",
@@ -353,7 +357,8 @@
       "purged": "Deleted for good: {rows} rows, {people} people and {files} files.",
       "skipped": {
         "not-cancelled": "Kept: the organization wasn't cancelled when the job ran.",
-        "no-recent-export": "Kept: its export was over a day old, or withdrawn, when the job ran. Export again, then ask again."
+        "no-recent-export": "Kept: its export was over a day old, or withdrawn, when the job ran. Export again, then ask again.",
+        "unknown": "Kept: the job found a reason not to go ahead. The platform log has the entry."
       }
     },
     "confirmation": {
@@ -389,6 +394,8 @@
       "deletedFile": "Deleted",
       "noLink": "Never finished uploading",
       "erase": "Erase",
+      "eraseNeedsExport": "Erase is offered once the export of this same person or record is shown above.",
+      "eraseReady": "Their export is shown above. Erase also needs it to be from the last day.",
       "eraseTitle": "Erase this person or record?",
       "eraseDescription": "What the organization keeps about them goes for good: their sign-in details, files, share links, notifications, and what the audit log says of them. It needs their export from the last day.",
       "confirmErase": "Erase for good",
@@ -396,7 +403,8 @@
       "erased": "Erased: what was kept about them is gone.",
       "skipped": {
         "organization-gone": "Nothing erased: the organization was deleted.",
-        "no-recent-export": "Nothing erased: their export was over a day old when the job ran. Export again, then ask again."
+        "no-recent-export": "Nothing erased: their export was over a day old when the job ran. Export again, then ask again.",
+        "unknown": "Nothing erased: the job found a reason not to go ahead. The platform log has the entry."
       }
     }
   }

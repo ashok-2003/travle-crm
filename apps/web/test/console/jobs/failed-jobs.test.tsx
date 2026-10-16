@@ -15,6 +15,9 @@ import { platformStaff } from "../../support/platform-staff";
 import { inputsTo, renderConsole } from "../plans/render-console";
 
 const { jobs: words } = messages.consolePlatform;
+/** Each Run again names the queue and job it runs again. */
+const retryName = (queue = "documents.render-pdf", id = "0199a000-0000-7000-8000-0000000000b1") =>
+  words.retryFor.replace("{queue}", queue).replace("{id}", id);
 
 function job(overrides: Partial<FailedJobOutput> = {}): FailedJobOutput {
   return {
@@ -67,7 +70,7 @@ describe("FailedJobsSection", () => {
     await screen.findByText("documents.render-pdf");
     api.answer("platform.jobs.retry", { data: null });
     api.answer("platform.jobs.failed", { data: { jobs: [], nextCursor: null } });
-    await userEvent.click(screen.getByRole("button", { name: words.retry }));
+    await userEvent.click(screen.getByRole("button", { name: retryName() }));
     expect(await screen.findByText(words.retried)).toBeVisible();
     expect(inputsTo("jobs.retry")).toEqual([{ queue: "documents.render-pdf", jobId: job().id }]);
     expect(await screen.findByText(words.empty)).toBeVisible();
@@ -85,7 +88,12 @@ describe("FailedJobsSection", () => {
       },
     });
     await screen.findByText("platform.purge-organization");
-    for (const button of screen.getAllByRole("button", { name: words.retry })) expect(button).toBeDisabled();
+    const buttons = screen.getAllByRole("button", { name: /^Run again: / });
+    expect(buttons).toHaveLength(3);
+    for (const button of buttons) expect(button).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: retryName("platform.erase-subject", "0199a000-0000-7000-8000-0000000000b3") }),
+    ).toBeDisabled();
     expect(screen.getAllByText(messages.errors.reasons.NOT_RETRYABLE)).toHaveLength(3);
   });
 
@@ -93,7 +101,7 @@ describe("FailedJobsSection", () => {
     const api = open({ data: { jobs: [job()], nextCursor: null } });
     await screen.findByText("documents.render-pdf");
     api.answer("platform.jobs.retry", { status: 404, reason: "FAILED_JOB_NOT_FOUND" });
-    await userEvent.click(screen.getByRole("button", { name: words.retry }));
+    await userEvent.click(screen.getByRole("button", { name: retryName() }));
     expect(await screen.findByText(messages.errors.reasons.FAILED_JOB_NOT_FOUND)).toBeVisible();
   });
 

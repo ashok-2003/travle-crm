@@ -12,7 +12,7 @@ import { FieldGroup } from "@/components/ui/field";
 import { useErrorMessage } from "@/lib/error-message";
 import { ResponsiveDialog } from "@/organization/responsive-dialog";
 import { policyValues, toPolicyInput, type PolicyField, type PolicyValues } from "./policy-values";
-import { useSetPolicy } from "./use-policy";
+import { useIsSavingPolicy, useSetPolicy } from "./use-policy";
 
 const FIELDS: readonly PolicyField[] = ["trialDays", "pastDueDays", "readOnlyDays"];
 
@@ -70,10 +70,13 @@ export function PolicyDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const t = useTranslations("consolePlatform.policy");
+  const saving = useIsSavingPolicy();
   return (
     <ResponsiveDialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(next) => {
+        if (!saving) onOpenChange(next);
+      }}
       title={t("changeTitle")}
       description={t("changeDescription")}
     >

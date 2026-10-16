@@ -51,7 +51,7 @@ export function StaffActions({ person }: { person: PlatformStaffEntry }) {
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            className="text-destructive"
+            variant="destructive"
             onSelect={() => {
               setOpen("remove");
             }}
