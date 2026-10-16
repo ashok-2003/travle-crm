@@ -119,6 +119,20 @@ describe("the business profile", () => {
     ]);
   });
 
+  it("moves the profile's last change on with a branding save, as with any other", async () => {
+    const owner = await ownerOfNewOrganization();
+    const saved = await db.forOrg(owner.organizationId, (tx) => saveOrganizationProfile(tx, owner, details));
+    // Saved a moment earlier than now, so the database's clock can't give the branding save the same instant.
+    const earlier = new Date(Date.parse(saved.updatedAt) - 60_000);
+    await db.forOrg(owner.organizationId, (tx) =>
+      tx.organizationProfile.update({ where: { organizationId: owner.organizationId }, data: { updatedAt: earlier } }),
+    );
+    const branded = await db.forOrg(owner.organizationId, (tx) =>
+      saveOrganizationBranding(tx, owner, saveBrandingInput.parse({ brandColour: "#1f6f5c", documentTerms: "" })),
+    );
+    expect(Date.parse(branded.updatedAt)).toBeGreaterThan(earlier.getTime());
+  });
+
   it("serialises two saves at once: the second sees the first's row, so only one records the first save", async () => {
     // Both read "no profile" before either writes unless the saves take turns.
     for (let trial = 0; trial < 5; trial++) {
