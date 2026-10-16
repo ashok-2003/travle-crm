@@ -70,7 +70,7 @@ describe("the branding's refusals", () => {
 
   it("shows the refusal of a sample past the day's limit as its sentence", async () => {
     stubApi({
-      "documents.issueSample": { status: 429, reason: "SAMPLE_LIMIT_REACHED" },
+      "documents.issueSample": { status: 403, reason: "SAMPLE_LIMIT_REACHED" },
       "subscription.get": subscriptionAnswer(),
     });
     renderWithApi(<SamplePreview />, newQueryClient(null));
