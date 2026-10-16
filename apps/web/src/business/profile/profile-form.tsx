@@ -11,8 +11,9 @@ import { useForm, type FieldErrors, type Resolver } from "react-hook-form";
 import { GstStateField } from "@/components/forms/gst-state-field";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
-import { FieldDescription, FieldGroup } from "@/components/ui/field";
+import { FieldGroup } from "@/components/ui/field";
 import { useWriteAccess } from "@/subscription/write-access";
+import { WriteHint } from "@/subscription/write-hint";
 import { BankAccountNumberField } from "./bank-account-number-field";
 import { ProfileTextField } from "./profile-text-field";
 import { profileValuesOf, stateNameOfGstin, toProfileInput, type ProfileValues } from "./profile-values";
@@ -79,6 +80,7 @@ export function ProfileForm({ profile }: { profile: BusinessProfileDetails | nul
             label={t("gstState")}
             hint={t("gstStateHint")}
             placeholder={t("chooseState")}
+            disabled={!write.allowed}
           />
           <ProfileTextField form={form} name="address" label={t("address")} autoComplete="street-address" multiline />
         </FormSection>
@@ -124,7 +126,7 @@ export function ProfileForm({ profile }: { profile: BusinessProfileDetails | nul
         >
           {save.isPending ? tCommon("saving") : tCommon("save")}
         </Button>
-        {write.hint && <FieldDescription id="profile-write-hint">{write.hint}</FieldDescription>}
+        <WriteHint id="profile-write-hint" hint={write.hint} />
       </div>
     </form>
   );

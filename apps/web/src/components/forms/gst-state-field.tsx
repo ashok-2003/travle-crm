@@ -5,6 +5,8 @@
 // none is chosen (the placeholder):
 //
 //   <GstStateField control={form.control} name="gstStateCode" label={t("gstState")} placeholder={t("choose")} />
+//
+// `disabled` keeps the list shut, as a read-only organization's form needs: a disabled fieldset doesn't stop it.
 import { gstStates } from "@travel-crm/contracts/kernel";
 import type { Control, FieldPath, FieldValues } from "react-hook-form";
 import { SelectField } from "./select-field";
@@ -25,14 +27,24 @@ export function GstStateField<Values extends FieldValues>({
   label,
   hint,
   placeholder,
+  disabled = false,
 }: {
   control: Control<Values>;
   name: FieldPath<Values>;
   label: string;
   hint?: string | undefined;
   placeholder?: string | undefined;
+  disabled?: boolean;
 }) {
   return (
-    <SelectField control={control} name={name} label={label} hint={hint} placeholder={placeholder} options={options} />
+    <SelectField
+      control={control}
+      name={name}
+      label={label}
+      hint={hint}
+      placeholder={placeholder}
+      options={options}
+      disabled={disabled}
+    />
   );
 }
