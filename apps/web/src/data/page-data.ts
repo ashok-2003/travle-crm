@@ -8,7 +8,7 @@ import { hashKey, hydrate, onlineManager } from "@tanstack/react-query";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { loadPage, replacePage } from "@/lib/navigate";
 import { reportProblem } from "@/lib/report-problem";
-import { isPublicRoute, pendingStepRoute, routes, signInRoute } from "@/lib/routes";
+import { currentPage, isPublicRoute, pendingStepRoute, routes, signInRoute } from "@/lib/routes";
 import { refusalOf } from "./api-error";
 import { authClient, onSessionEnded, type AuthClient } from "./auth-client";
 import { settleOwedSignOut } from "./owed-sign-out";
@@ -25,8 +25,6 @@ import { createApiClient } from "./trpc";
 function deviceIsOffline(): boolean {
   return !navigator.onLine || !onlineManager.isOnline();
 }
-
-const currentPage = () => `${window.location.pathname}${window.location.search}`;
 
 export interface PageDataOptions {
   /** The build: a copy saved by another build is never read. */

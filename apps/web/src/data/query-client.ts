@@ -14,12 +14,18 @@ export interface RefusalHandlers {
   onPendingStep: (step: PendingStep) => void;
 }
 
-export function handleRefusal(error: unknown, handlers: RefusalHandlers): void {
+/** Where a refusal takes the person: to sign in (a 401), to a pending step, or nowhere (the screen says why). */
+export function refusalDestination(error: unknown): "sign-in" | PendingStep | null {
   const refusal = refusalOf(error);
-  if (refusal?.status === 401) handlers.onSignedOut();
-  else if (refusal?.reason === "CHANGE_PASSWORD" || refusal?.reason === "SET_UP_TWO_FACTOR") {
-    handlers.onPendingStep(refusal.reason);
-  }
+  if (refusal?.status === 401) return "sign-in";
+  if (refusal?.reason === "CHANGE_PASSWORD" || refusal?.reason === "SET_UP_TWO_FACTOR") return refusal.reason;
+  return null;
+}
+
+export function handleRefusal(error: unknown, handlers: RefusalHandlers): void {
+  const destination = refusalDestination(error);
+  if (destination === "sign-in") handlers.onSignedOut();
+  else if (destination) handlers.onPendingStep(destination);
 }
 
 export function createQueryClient(handlers: RefusalHandlers): QueryClient {

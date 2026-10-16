@@ -8,10 +8,8 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { createQueryClient } from "@/data/query-client";
 import { loadPage, replacePage } from "@/lib/navigate";
-import { pendingStepRoute, signInRoute } from "@/lib/routes";
+import { currentPage, pendingStepRoute, signInRoute } from "@/lib/routes";
 import { ConsoleTRPCProvider, createConsoleClient } from "./console-trpc";
-
-const currentPage = () => `${window.location.pathname}${window.location.search}`;
 
 export function ConsoleProviders({ children }: { children: ReactNode }) {
   const [consoleClient] = useState(createConsoleClient);

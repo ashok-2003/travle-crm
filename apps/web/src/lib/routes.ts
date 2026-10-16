@@ -51,6 +51,11 @@ export function pendingStepRoute(step: PendingStep, from?: string): string {
   return from && isAppPath(from) ? `${route}?next=${encodeURIComponent(from)}` : route;
 }
 
+/** The page this tab shows, as an app path with its query, for coming back to it afterwards. */
+export function currentPage(): string {
+  return `${window.location.pathname}${window.location.search}`;
+}
+
 /** The sign-in address that brings the person back to `from` (a path in this app, with its query) afterwards. */
 export function signInRoute(from?: string): string {
   return from && isAppPath(from) ? `${routes.signIn}?next=${encodeURIComponent(from)}` : routes.signIn;
