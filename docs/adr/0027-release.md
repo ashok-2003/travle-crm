@@ -45,7 +45,7 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 2.7 (images tha
   one composite setup action. CodeQL scans the code and the workflows.
 - **Lighthouse 13 directly**, three runs per public page (`/sign-in`, `/offline`) on its phone, the median held to
   budgets in a tested module: performance ≥ 0.8, accessibility 1, best practices ≥ 0.95, cumulative layout shift
-  ≤ 0.1.
+  ≤ 0.01.
 - **The dependency audit is `pnpm audit --audit-level=high`.** Its fixes are `overrides` in `pnpm-workspace.yaml`, its
   exceptions `auditConfig.ignoreGhsas`, each with its advisory and the reason beside it.
 - **Everything is pinned:** npm packages by version, images by tag and digest, actions by commit with their version
