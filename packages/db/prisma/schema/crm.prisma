@@ -131,6 +131,8 @@ model LeadTimelineEntry {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   lead           Lead         @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
 
+  /// Lets a later table point at (organization_id, id).
+  @@unique([organizationId, id])
   @@index([organizationId, leadId, id(sort: Desc)], map: "lead_timeline_entry_by_lead")
   @@map("lead_timeline_entry")
 }
@@ -148,6 +150,8 @@ model LeadNote {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   lead           Lead         @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
 
+  /// Lets a later table point at (organization_id, id).
+  @@unique([organizationId, id])
   @@index([organizationId, leadId], map: "lead_note_by_lead")
   @@map("lead_note")
 }
@@ -183,6 +187,8 @@ model LeadEnquiry {
   lead           Lead         @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
   destination    Destination? @relation(fields: [organizationId, destinationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
 
+  /// Lets a later table point at (organization_id, id).
+  @@unique([organizationId, id])
   @@index([organizationId, leadId], map: "lead_enquiry_by_lead")
   @@map("lead_enquiry")
 }
@@ -203,6 +209,8 @@ model BlockedContact {
   deletedBy      String?      @map("deleted_by") @db.Uuid
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
+  /// Lets a later table point at (organization_id, id).
+  @@unique([organizationId, id])
   @@unique([organizationId, kind, value], map: "blocked_contact_live", where: { deletedAt: null })
   @@index([organizationId, id(sort: Desc)], map: "blocked_contact_list", where: { deletedAt: null })
   @@map("blocked_contact")
