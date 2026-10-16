@@ -160,7 +160,11 @@ export function UploadControl({ record }: { record: AttachmentRecord }) {
               aria-label={t("tryAgainName", { name: upload.variables.file.name })}
               disabled={!write.allowed}
               onClick={() => {
-                send(upload.variables);
+                // The same upload, picked up where it stopped; or, if the sensitivity shown has changed since, a new
+                // one stored as the screen now says (the unfinished one stays pending, which nobody sees).
+                const { variables } = upload;
+                const shown = sensitivity === "sensitive";
+                send(variables.sensitive === shown ? variables : { ...variables, sensitive: shown });
               }}
             >
               {tCommon("tryAgain")}

@@ -39,9 +39,11 @@ export const signed = {
 
 export const requested = { data: { attachment: { ...certificate, status: "pending" }, upload: signed } };
 
-export const subscription = (access: "full" | "read_only") => ({
+const statusOf = { full: "active", read_only: "read_only", export_only: "suspended" } as const;
+
+export const subscription = (access: keyof typeof statusOf) => ({
   data: {
-    status: access === "full" ? "active" : "read_only",
+    status: statusOf[access],
     access,
     planName: "Growth",
     modules: [],

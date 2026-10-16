@@ -1,7 +1,7 @@
 // A record's files (spec 9.2): listed with their kind, size and the day they were added; a sensitive file is only a
 // "Sensitive file" to a role that may not open it; downloads go by a short-lived link; removing asks first and waits
-// for the api's answer, showing a refusal; a read-only organization may download, not change. Adding a file is in
-// upload-control.test.tsx.
+// for the api's answer, showing a refusal; a read-only organization may download, not change, and so may a suspended
+// one's Owner. Adding a file is in upload-control.test.tsx.
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -127,6 +127,15 @@ describe("AttachmentsPanel", () => {
     expect(screen.getByRole("button", { name: words.upload })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Remove GST certificate.pdf" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Download GST certificate.pdf" })).toBeEnabled();
+  });
+
+  it("lets a suspended organization's Owner take its papers away, but not change them", async () => {
+    stubApi({ "attachments.list": { data: [certificate] }, "subscription.get": subscription("export_only") });
+    renderPanel();
+    expect(await screen.findByRole("button", { name: "Download GST certificate.pdf" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Remove GST certificate.pdf" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: words.upload })).toBeDisabled();
+    expect(screen.getByText(messages.errors.reasons.ORGANIZATION_SUSPENDED)).toBeVisible();
   });
 
   it("says so when the files didn't load, and tries again", async () => {

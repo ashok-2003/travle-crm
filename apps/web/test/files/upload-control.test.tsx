@@ -1,12 +1,11 @@
 // Adding a file to a record (spec 9.2): whether it is sensitive is asked first, sensitive unless chosen otherwise and
 // for good; the file is checked before anything is sent, then goes straight to storage with its progress and is
-// confirmed; the storage limit's refusal and a storage that can't be reached say so; a failed upload is tried again
-// without choosing the file again, picking up where it stopped; and it can be stopped.
+// confirmed; the storage limit's refusal says so; and it can be stopped. Trying a failed upload again is in
+// upload-retry.test.tsx.
 import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type * as Upload from "@/files/upload";
-import { UploadError } from "@/files/upload";
 import { messages } from "@/i18n/messages";
 import { inputsSentTo } from "../business/sent";
 import { stubApi } from "../support/api-stub";
@@ -20,7 +19,6 @@ vi.mock("sonner", () => ({ toast }));
 const words = messages.business.attachments;
 const tryAgain = words.tryAgainName.replace("{name}", "GST certificate.pdf");
 const sensitive = () => screen.getByRole("radio", { name: words.sensitive });
-const countOf = (calls: string[], path: string) => calls.filter((call) => call === path).length;
 
 describe("UploadControl", () => {
   beforeEach(() => {
@@ -128,78 +126,6 @@ describe("UploadControl", () => {
     await userEvent.upload(fileInput(), pdf());
     expect(await screen.findByText(messages.errors.reasons.STORAGE_LIMIT_REACHED)).toBeVisible();
     expect(uploadFile).not.toHaveBeenCalled();
-  });
-
-  it("tries a file that didn't reach storage again on the same signed upload, without choosing it again", async () => {
-    uploadFile.mockRejectedValueOnce(new UploadError(0)).mockResolvedValueOnce();
-    const api = stubApi({
-      "attachments.list": { data: [] },
-      "attachments.requestUpload": requested,
-      "attachments.confirmUpload": { data: certificate },
-      "subscription.get": subscription("full"),
-    });
-    renderPanel();
-    await screen.findByText("No files yet.");
-    const file = pdf();
-    await userEvent.upload(fileInput(), file);
-    expect(await screen.findByText(words.storageUnreachable)).toBeVisible();
-    expect(api.calls).not.toContain("attachments.confirmUpload");
-
-    await userEvent.click(screen.getByRole("button", { name: tryAgain }));
-    await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith(words.uploaded.replace("{name}", "GST certificate.pdf"));
-    });
-    expect(uploadFile.mock.calls.map(([sentTo, sent]) => [sentTo, sent])).toEqual([
-      [signed, file],
-      [signed, file],
-    ]);
-    expect(countOf(api.calls, "attachments.requestUpload")).toBe(1);
-    expect(inputsSentTo("attachments.confirmUpload")).toEqual([{ ...record, attachmentId: certificate.id }]);
-  });
-
-  it("asks for a new signed upload when trying again after the first one expired", async () => {
-    uploadFile.mockRejectedValueOnce(new UploadError(0)).mockResolvedValueOnce();
-    const expired = { data: { ...requested.data, upload: { ...signed, expiresAt: "2026-01-01T00:00:00.000Z" } } };
-    const api = stubApi({
-      "attachments.list": { data: [] },
-      "attachments.requestUpload": expired,
-      "attachments.confirmUpload": { data: certificate },
-      "subscription.get": subscription("full"),
-    });
-    renderPanel();
-    await screen.findByText("No files yet.");
-    await userEvent.upload(fileInput(), pdf());
-    await userEvent.click(await screen.findByRole("button", { name: tryAgain }));
-    await waitFor(() => {
-      expect(toast.success).toHaveBeenCalled();
-    });
-    expect(countOf(api.calls, "attachments.requestUpload")).toBe(2);
-  });
-
-  it("once storage has the file, trying again only confirms it", async () => {
-    uploadFile.mockResolvedValue();
-    const api = stubApi({
-      "attachments.list": { data: [] },
-      "attachments.requestUpload": requested,
-      "attachments.confirmUpload": { status: 503 },
-      "subscription.get": subscription("full"),
-    });
-    renderPanel();
-    await screen.findByText("No files yet.");
-    await userEvent.upload(fileInput(), pdf());
-    expect(await screen.findByText(messages.errors.generic)).toBeVisible();
-
-    api.answer("attachments.confirmUpload", { data: certificate });
-    await userEvent.click(screen.getByRole("button", { name: tryAgain }));
-    await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith(words.uploaded.replace("{name}", "GST certificate.pdf"));
-    });
-    expect(uploadFile).toHaveBeenCalledTimes(1);
-    expect(countOf(api.calls, "attachments.requestUpload")).toBe(1);
-    expect(inputsSentTo("attachments.confirmUpload")).toEqual([
-      { ...record, attachmentId: certificate.id },
-      { ...record, attachmentId: certificate.id },
-    ]);
   });
 
   it("stops an upload when asked, without calling it a failure", async () => {

@@ -21,8 +21,11 @@ export function useSaveProfile() {
   return useMutation(
     trpc.organization.profile.update.mutationOptions({
       onSuccess: async (saved) => {
-        // Into the screen's own query, made with useProfile's meta, so the copy stays out of IndexedDB.
-        queryClient.setQueryData(trpc.organization.profile.get.queryKey(), saved);
+        const key = trpc.organization.profile.get.queryKey();
+        // setQueryData carries no meta: if the screen's query is gone by now (the person left before the answer), the
+        // one it makes takes the flag from the key's defaults, so it stays out of IndexedDB too.
+        queryClient.setQueryDefaults(key, { meta: { persist: false } });
+        queryClient.setQueryData(key, saved);
         toast.success(t("saved"));
         await queryClient.invalidateQueries({ queryKey: trpc.organization.setup.get.queryKey() });
       },
