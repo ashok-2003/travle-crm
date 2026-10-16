@@ -8,7 +8,7 @@ import { useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useErrorMessage } from "@/lib/error-message";
-import { ResponsiveDialog } from "@/organization/responsive-dialog";
+import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { LevelField } from "./level-field";
 import { useSetPlatformStaffLevel } from "./use-platform-staff";
 

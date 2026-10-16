@@ -20,7 +20,7 @@ import {
   type VoidPaymentInput,
 } from "@travel-crm/contracts/subscriptions";
 import type { z } from "zod";
-import { checked, type Checked } from "../fields/checked-form";
+import { checked, type Checked } from "@/components/forms/checked";
 
 export type SubscriptionProblem = "required" | "amountInvalid" | "dateInvalid" | "seatsInvalid" | "tooLong";
 

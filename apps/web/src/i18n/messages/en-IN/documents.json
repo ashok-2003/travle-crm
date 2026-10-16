@@ -14,6 +14,8 @@
       "remove": "Remove",
       "fileLabel": "Logo image",
       "uploading": "Uploading the logo",
+      "stop": "Stop",
+      "tryAgain": "Try again to upload the logo",
       "wrongType": "Choose a PNG or JPEG image.",
       "tooLarge": "Choose an image of up to {size}.",
       "uploadFailed": "The logo didn't reach storage. Check your connection and try again.",

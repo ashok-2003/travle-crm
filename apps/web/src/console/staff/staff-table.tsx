@@ -7,7 +7,7 @@ import type { PlatformStaffEntry } from "@travel-crm/contracts/platform";
 import { useTranslations } from "next-intl";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDay } from "@/lib/format";
-import { PLATFORM_TIME_ZONE } from "../platform-time-zone";
+import { PLATFORM_TIME_ZONE } from "@/lib/platform-time-zone";
 import { useStaff } from "../session/staff-context";
 import { SignInState } from "./sign-in-state";
 import { StaffActions } from "./staff-actions";

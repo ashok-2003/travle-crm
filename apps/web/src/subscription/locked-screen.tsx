@@ -5,7 +5,7 @@
 // to Documents, whose PDFs still download and whose share links still turn off.
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { PageTitle } from "@/components/page-title";
+import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { routes } from "@/lib/routes";
@@ -20,8 +20,7 @@ export function LockedScreen({ lock }: { lock: Lock }) {
     <div className="flex max-w-[65ch] flex-col gap-8">
       <div className="flex flex-col items-start gap-3">
         <StatusBadge tone={lock === "noSubscription" ? "neutral" : "bad"}>{t(`${lock}.status`)}</StatusBadge>
-        <PageTitle>{t(`${lock}.title`)}</PageTitle>
-        <p className="text-pretty">{t(`${lock}.body`)}</p>
+        <PageHeader title={t(`${lock}.title`)} intro={t(`${lock}.body`)} />
       </div>
       {lock === "suspended" && me.member.role.isOwner && (
         <div className="flex flex-col items-start gap-3">

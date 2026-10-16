@@ -1,7 +1,11 @@
 "use client";
 
-// One labelled select bound to a form field, as TextField is for inputs (form-field.tsx: a visible label above, the
-// hint and the error below, linked by aria-describedby; 44px options). Options' words wrap rather than being cut off.
+// One labelled select bound to a react-hook-form field, as TextField is for inputs (form-field.tsx: a visible label
+// above, the hint and the error below, linked by aria-describedby; the registry Select's 44px options, whose words
+// wrap rather than being cut off). The value is the chosen option's `value`, or "" while none is (the placeholder):
+//
+//   <SelectField control={form.control} name="planId" label={t("plan")} placeholder={t("choose")}
+//     options={plans.map((plan) => ({ value: plan.id, label: plan.name }))} onChosen={(id) => …} />
 import { type ReactNode } from "react";
 import { Controller, type Control, type FieldPath, type FieldValues } from "react-hook-form";
 import { FormField } from "@/components/form-field";
@@ -24,7 +28,7 @@ export function SelectField<Values extends FieldValues>({
   control: Control<Values>;
   name: FieldPath<Values>;
   label: string;
-  hint?: string;
+  hint?: string | undefined;
   placeholder?: string | undefined;
   options: SelectOption[];
   /** Runs after the field takes a new value, for fields that follow it. */

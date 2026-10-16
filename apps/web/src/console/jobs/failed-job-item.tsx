@@ -8,7 +8,7 @@ import { useTranslations } from "next-intl";
 import { useId } from "react";
 import { Button } from "@/components/ui/button";
 import { Item, ItemContent } from "@/components/ui/item";
-import { useInstantText } from "../log/instant";
+import { useInstantText } from "@/components/instant-text";
 import { ASKED_FOR_AGAIN_QUEUES } from "./platform-queues";
 import { useRetryJob } from "./use-failed-jobs";
 

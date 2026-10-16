@@ -6,6 +6,7 @@ import {
   issuedDocumentPage,
   issuedDocumentSummary,
   listIssuedDocumentsInput,
+  SAMPLE_DOCUMENT_PREFIX,
 } from "@travel-crm/contracts/documents";
 import { downloadLink } from "@travel-crm/contracts/files";
 import {
@@ -14,7 +15,6 @@ import {
   getIssuedDocument,
   issueDocument,
   listIssuedDocuments,
-  SAMPLE_PREFIX,
 } from "@travel-crm/domain/documents";
 import { DomainError } from "@travel-crm/domain/kernel";
 import { freshProcedure, orgProcedure } from "../procedures.js";
@@ -47,7 +47,7 @@ export const documentsRouter = router({
       });
       return ctx.db.forOrg(organizationId, async (tx) => {
         await assertMayIssueSample(tx);
-        return issueDocument(tx, ctx.member, { ...sample, prefix: SAMPLE_PREFIX });
+        return issueDocument(tx, ctx.member, { ...sample, prefix: SAMPLE_DOCUMENT_PREFIX });
       });
     }),
 
@@ -71,15 +71,15 @@ export const documentsRouter = router({
 
   /**
    * A five-minute link that downloads the rendered PDF under the document's number: an export, as the organization's
-   * papers are, so a suspended organization's Owner can still take its PDFs. A query the screen fetches when pressed,
-   * never kept in its cache.
+   * papers are, so a suspended organization's Owner can still take its PDFs. Like attachments.downloadLink, a mutation
+   * (so no link is cached or saved on the device) from a session read afresh, as every export is (spec 6.4).
    */
-  downloadLink: orgProcedure
+  downloadLink: freshProcedure
     .requires("settings:manage")
     .meta({ lifecycle: "export" })
     .input(documentRefInput)
     .output(downloadLink)
-    .query(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input }) => {
       const document = await ctx.db.forOrg(ctx.member.organizationId, (tx) => getIssuedDocument(tx, input));
       if (document.renderFailed) {
         throw new DomainError("NOT_FOUND", "DOCUMENT_UNAVAILABLE", "The document's PDF can't be made");

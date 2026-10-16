@@ -1,17 +1,18 @@
 // How to reach the platform's support (spec 10: the brand's email and phone), for an organization whose subscription
-// shuts its screens. The phone reads as Indians write it, "+91 98765 43210", in mono (DESIGN.md section 9).
+// shuts its screens. The phone reads as Indians write it, "+91 98765 43210", in mono (DESIGN.md section 9), and shows
+// only once the brand has one: a phone that isn't set is no row, never zeros.
 import { brand } from "@travel-crm/brand";
 import { MailIcon, PhoneIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Item, ItemContent, ItemGroup, ItemMedia, ItemSeparator, ItemTitle } from "@/components/ui/item";
+import { formatPhoneNumber } from "@/lib/format";
 
-/** An Indian number in E.164 ("+919876543210") as "+91 98765 43210"; any other as it is stored. */
-function formatPhone(phone: string): string {
-  return phone.replace(/^\+91(\d{5})(\d{5})$/, "+91 $1 $2");
-}
+/** The brand's support phone, which is null until the owner gives one (a function, so a set one isn't narrowed). */
+export const supportPhone = (): string | null => brand.supportPhone;
 
 export function SupportContacts() {
   const t = useTranslations("subscription.locked");
+  const phone = supportPhone();
   return (
     <section aria-labelledby="support-heading" className="flex flex-col gap-3">
       <h2 id="support-heading" className="text-section font-semibold">
@@ -30,19 +31,23 @@ export function SupportContacts() {
             </a>
           </Item>
         </div>
-        <ItemSeparator />
-        <div role="listitem">
-          <Item size="sm" asChild>
-            <a href={`tel:${brand.supportPhone}`}>
-              <ItemMedia variant="icon">
-                <PhoneIcon aria-hidden="true" />
-              </ItemMedia>
-              <ItemContent>
-                <ItemTitle className="numbers">{formatPhone(brand.supportPhone)}</ItemTitle>
-              </ItemContent>
-            </a>
-          </Item>
-        </div>
+        {phone !== null && (
+          <>
+            <ItemSeparator />
+            <div role="listitem">
+              <Item size="sm" asChild>
+                <a href={`tel:${phone}`}>
+                  <ItemMedia variant="icon">
+                    <PhoneIcon aria-hidden="true" />
+                  </ItemMedia>
+                  <ItemContent>
+                    <ItemTitle className="numbers">{formatPhoneNumber(phone)}</ItemTitle>
+                  </ItemContent>
+                </a>
+              </Item>
+            </div>
+          </>
+        )}
       </ItemGroup>
     </section>
   );

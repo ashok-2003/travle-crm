@@ -16,7 +16,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { useErrorMessage } from "@/lib/error-message";
 import { useConsoleTRPC } from "../../data/console-trpc";
 import { consoleRoutes } from "../../routes";
-import { useCheckedForm } from "../fields/checked-form";
+import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { AgencyFields, OwnerFields, ProfileFields } from "./agency-fields";
 import { emptyOnboardValues, toOnboardInput } from "./onboard-values";
 import { SubscriptionFields } from "./subscription-fields";

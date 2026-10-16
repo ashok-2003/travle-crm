@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import type { Control, FieldPath, FieldValues } from "react-hook-form";
 import { ChoiceField } from "./choice-field";
 import { cyclesOf, priceOf, rupees } from "./plan-prices";
-import { SelectField } from "./select-field";
+import { SelectField } from "@/components/forms/select-field";
 
 /** The cycle to keep when the plan changes: the one chosen if the new plan is sold that way, else its first. */
 export function cycleFor(plan: PlanSummary, current: string): BillingCycle | "" {

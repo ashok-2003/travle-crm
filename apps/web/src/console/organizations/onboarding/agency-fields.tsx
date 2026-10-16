@@ -6,7 +6,8 @@ import { useTranslations } from "next-intl";
 import type { Control } from "react-hook-form";
 import { TextField } from "@/account/text-field";
 import { FieldLegend, FieldSet } from "@/components/ui/field";
-import { GstStateField, TimeZoneField } from "../fields/zone-and-state-fields";
+import { GstStateField } from "@/components/forms/gst-state-field";
+import { TimeZoneField } from "../fields/time-zone-field";
 import type { OnboardValues } from "./onboard-values";
 
 export function AgencyFields({ control }: { control: Control<OnboardValues> }) {

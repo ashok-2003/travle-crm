@@ -3,7 +3,7 @@
 // field it belongs to, so the form shows it there before anything is sent.
 import { isValidGstin } from "@travel-crm/contracts/kernel";
 import { onboardOrganizationInput, type OnboardOrganizationInput } from "@travel-crm/contracts/platform";
-import { checked, type Checked, type Problems } from "../fields/checked-form";
+import { checked, type Checked, type Problems } from "@/components/forms/checked";
 
 /** How the subscription starts: the policy's usual trial, a trial to a chosen day, or paid through a day already. */
 export type SubscriptionStart = "trial" | "trial-until" | "paid";

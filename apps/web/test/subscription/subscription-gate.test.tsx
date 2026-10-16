@@ -9,8 +9,10 @@ import { NextIntlClientProvider } from "next-intl";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApiClient, TRPCProvider } from "@/data/trpc";
 import { locale, messages } from "@/i18n/messages";
+import { formatPhoneNumber } from "@/lib/format";
 import { MeProvider } from "@/session/me-context";
 import { SubscriptionGate } from "@/subscription/subscription-gate";
+import { supportPhone } from "@/subscription/support-contacts";
 import { stubApi, type Answer } from "../support/api-stub";
 import { member } from "../support/members";
 
@@ -86,7 +88,11 @@ describe("SubscriptionGate", () => {
       "href",
       `mailto:${brand.supportEmail}`,
     );
-    expect(screen.getByRole("link", { name: "+91 00000 00000" })).toHaveAttribute("href", `tel:${brand.supportPhone}`);
+    // The phone shows once the brand has one (support-contacts.test.tsx); the email always does.
+    const phone = supportPhone();
+    if (phone !== null) {
+      expect(screen.getByRole("link", { name: formatPhoneNumber(phone) })).toHaveAttribute("href", `tel:${phone}`);
+    }
     expect(screen.queryByRole("link", { name: locked.suspended.toStaff })).not.toBeInTheDocument();
   });
 

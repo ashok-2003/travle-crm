@@ -11,8 +11,9 @@ import { ErrorState } from "@/components/error-state";
 import { FieldGroup } from "@/components/ui/field";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useConsoleTRPC } from "../../data/console-trpc";
-import { ChangeDialog, FormFooter, useChangeDialog, type Sending } from "../change-dialog";
-import { useCheckedForm } from "../fields/checked-form";
+import { FormDialog, FormFooter, type Sending } from "@/components/forms/form-dialog";
+import { useChangeDialog } from "../change-dialog";
+import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { cycleFor, PlanFields } from "../fields/plan-fields";
 import { toChangePlanInput } from "./change-inputs";
 
@@ -22,15 +23,9 @@ export function ChangePlanDialog({ subscription }: { subscription: SubscriptionD
   const dialog = useChangeDialog(subscription.organizationId, t("done"));
   const change = useMutation(trpc.subscriptions.changePlan.mutationOptions({ onSuccess: dialog.onSuccess }));
   return (
-    <ChangeDialog
-      dialog={dialog}
-      sending={change}
-      label={t("action")}
-      title={t("title")}
-      description={t("description")}
-    >
+    <FormDialog dialog={dialog} sending={change} label={t("action")} title={t("title")} description={t("description")}>
       <PlansOnSale subscription={subscription} change={change} />
-    </ChangeDialog>
+    </FormDialog>
   );
 }
 

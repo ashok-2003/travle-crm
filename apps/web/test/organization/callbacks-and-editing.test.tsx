@@ -5,7 +5,7 @@ import type { PermissionCatalogEntry, RoleSummary } from "@travel-crm/contracts/
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CopyButton } from "@/organization/copy-button";
+import { CopyButton } from "@/components/copy-button";
 import { CreateRoleDialog } from "@/organization/roles/create-role-dialog";
 import { DeleteRoleDialog } from "@/organization/roles/delete-role-dialog";
 import { RoleEditor } from "@/organization/roles/role-editor";

@@ -7,26 +7,25 @@ import { HistoryIcon } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Delayed } from "@/components/delayed";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
-import { PageTitle } from "@/components/page-title";
+import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Spinner } from "@/components/ui/spinner";
 import { refusalOf } from "@/data/api-error";
 import { useErrorMessage } from "@/lib/error-message";
 import { routes } from "@/lib/routes";
 import { AuditEntries } from "./audit-entries";
 import { recordFilterOf } from "./record-filter";
 import { useAuditLog } from "./use-audit-log";
+import { LoadingRows } from "@/components/loading-rows";
+import { ShowMoreButton } from "@/components/show-more-button";
 
 export function AuditScreen() {
   const t = useTranslations("audit");
   const tCommon = useTranslations("common");
   const record = recordFilterOf(useSearchParams());
   const log = useAuditLog(record);
-  const { entries } = log;
+  const entries = log.items;
   const { apiError } = useErrorMessage();
   const failure = (unanswered: string) => (refusalOf(log.error)?.reason ? apiError(log.error) : unanswered);
 
@@ -39,13 +38,7 @@ export function AuditScreen() {
         onRetry={() => void log.refetch()}
       />
     ) : (
-      <Delayed>
-        <div role="status" aria-busy="true" aria-label={tCommon("loading")} className="flex flex-col gap-2">
-          {[0, 1, 2, 3].map((row) => (
-            <Skeleton key={row} className="h-20 w-full" />
-          ))}
-        </div>
-      </Delayed>
+      <LoadingRows shape="twoLines" />
     );
   } else if (entries.length === 0) {
     content = <EmptyState icon={HistoryIcon} message={record ? t("emptyRecord") : t("empty")} />;
@@ -58,27 +51,14 @@ export function AuditScreen() {
             {failure(t("moreFailed"))}
           </p>
         )}
-        {log.hasNextPage && (
-          <Button
-            variant="outline"
-            className="self-center"
-            disabled={log.isFetchingNextPage}
-            onClick={() => void log.fetchNextPage()}
-          >
-            {log.isFetchingNextPage && <Spinner />}
-            {log.isFetchingNextPage ? t("loadingMore") : t("showMore")}
-          </Button>
-        )}
+        <ShowMoreButton pages={log} label={t("showMore")} />
       </>
     );
   }
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex max-w-[65ch] flex-col gap-2">
-        <PageTitle>{t("title")}</PageTitle>
-        <p className="text-muted-foreground">{t("intro")}</p>
-      </div>
+      <PageHeader title={t("title")} intro={t("intro")} />
       {record && (
         <div className="flex flex-wrap items-center gap-x-6">
           <p className="font-medium">{t("oneRecord", { kind: record.entityType })}</p>
