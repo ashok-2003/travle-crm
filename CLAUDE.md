@@ -25,6 +25,7 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 | `pnpm lighthouse`                              | build the web app, hold its public pages to budgets (CI)        |
 | `pnpm migrations:check`                        | migrations on an empty Postgres 18, then drift check (CI)       |
 | `pnpm workflows:lint`                          | actionlint and ShellCheck on workflows and scripts (CI)         |
+| `pnpm scripts:test`                            | the compose helper's test: each checkout's project name (CI)    |
 | `pnpm audit --audit-level=high`                | the dependency audit (CI); exceptions: `pnpm-workspace.yaml`    |
 | `pnpm --filter @travel-crm/<package> test`     | one package's tests (most need Docker running)                  |
 
