@@ -108,6 +108,19 @@ describe("two-factor off", () => {
     expect(document.body).not.toHaveTextContent(TWO_FACTOR);
   });
 
+  it("shows a temporary password beside the name in the console's staff table, with no Sign-in column", async () => {
+    screenIs("wide");
+    const words = messages.consolePlatform.staff;
+    stubApi({ "platform.platformStaff.list": { data: [kavita, arjun] } });
+    renderConsole(<StaffScreen />, viewer);
+    const newcomer = await screen.findByRole("row", { name: /Arjun Nair/ });
+    expect(screen.getAllByRole("columnheader").map((header) => header.textContent)).not.toContain(words.columns.state);
+    const [nameCell] = within(newcomer).getAllByRole("cell");
+    expect(within(nameCell ?? newcomer).getByText(words.mustReplacePassword)).toBeVisible();
+    // One cell a column: the name, the address, the level, the day added and the actions.
+    expect(within(newcomer).getAllByRole("cell")).toHaveLength(5);
+  });
+
   it("hands a newcomer their details without asking them to set up two-factor", () => {
     renderConsole(<PasswordHandover email="neha@platform.test" password="temporary-1" intro="Give Neha these:" />);
     expect(screen.getByText(messages.consolePlatform.staff.handover.firstSignIn)).toBeVisible();

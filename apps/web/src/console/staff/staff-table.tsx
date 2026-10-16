@@ -2,7 +2,9 @@
 
 // Platform staff on tablets and wider (DESIGN.md section 6): a table of each person's name, address, level and whether
 // they can use the console yet, and when they were added; the removed apart, with when. The viewer is marked "You"
-// and has no actions: another super admin changes a super admin.
+// and has no actions: another super admin changes a super admin. With two-factor off (features.twoFactor) the only
+// step left is a temporary password, so it shows beside the name rather than in a column of its own.
+import { features } from "@travel-crm/contracts/features";
 import type { PlatformStaffEntry } from "@travel-crm/contracts/platform";
 import { useTranslations } from "next-intl";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -17,6 +19,7 @@ export function StaffTable({ people, removed = false }: { people: PlatformStaffE
   const tLevels = useTranslations("console.levels");
   const viewer = useStaff();
   const dayOf = (iso: string) => formatDay(new Date(iso), { timeZone: PLATFORM_TIME_ZONE });
+  const stateColumn = !removed && features.twoFactor;
   return (
     <Table>
       <TableHeader>
@@ -24,7 +27,7 @@ export function StaffTable({ people, removed = false }: { people: PlatformStaffE
           <TableHead scope="col">{t("columns.name")}</TableHead>
           <TableHead scope="col">{t("columns.email")}</TableHead>
           {!removed && <TableHead scope="col">{t("columns.level")}</TableHead>}
-          {!removed && <TableHead scope="col">{t("columns.state")}</TableHead>}
+          {stateColumn && <TableHead scope="col">{t("columns.state")}</TableHead>}
           <TableHead scope="col" className="text-right">
             {removed ? t("columns.removed") : t("columns.added")}
           </TableHead>
@@ -44,6 +47,7 @@ export function StaffTable({ people, removed = false }: { people: PlatformStaffE
                 <span className="flex flex-wrap items-center gap-2">
                   <span className="font-medium script-leading">{person.name}</span>
                   {isViewer && <span className="text-caption text-muted-foreground">{t("you")}</span>}
+                  {!removed && !stateColumn && <SignInState person={person} />}
                 </span>
               </TableCell>
               <TableCell className="whitespace-normal break-words">{person.email}</TableCell>
@@ -52,7 +56,7 @@ export function StaffTable({ people, removed = false }: { people: PlatformStaffE
                   {person.level === null ? null : tLevels(person.level)}
                 </TableCell>
               )}
-              {!removed && (
+              {stateColumn && (
                 <TableCell>
                   <SignInState person={person} />
                 </TableCell>
