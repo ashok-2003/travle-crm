@@ -1,9 +1,11 @@
 // The console's steps (spec 6.1, 6.3): platform staff with a temporary password and no two-factor sign in on the one
-// sign-in page, replace the password, set two-factor up, and land in the console, each step coming back to it.
+// sign-in page, replace the password, set two-factor up while features.twoFactor is on, and land in the console, each
+// step coming back to it. With two-factor off, the new password leads straight to the console.
+import { features } from "@travel-crm/contracts/features";
 import { setUpTwoFactor } from "./support/account-steps";
 import { expect, test } from "./support/console";
 
-test("new platform staff replace their temporary password and set up two-factor, then land in the console", async ({
+test("new platform staff replace their temporary password, set up two-factor when on, and land in the console", async ({
   page,
   newcomer,
 }) => {
@@ -21,9 +23,11 @@ test("new platform staff replace their temporary password and set up two-factor,
   await page.getByLabel("New password again").fill("newcomers-own-password");
   await page.getByRole("button", { name: "Save new password" }).click();
 
-  await expect(page).toHaveURL(/\/two-factor-setup\?next=%2Fconsole$/);
-  await expect(page.getByText("The platform console asks")).toBeVisible();
-  await setUpTwoFactor(page, "newcomers-own-password");
+  if (features.twoFactor) {
+    await expect(page).toHaveURL(/\/two-factor-setup\?next=%2Fconsole$/);
+    await expect(page.getByText("The platform console asks")).toBeVisible();
+    await setUpTwoFactor(page, "newcomers-own-password");
+  }
 
   await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
   await expect(page).toHaveURL(/\/console$/);
