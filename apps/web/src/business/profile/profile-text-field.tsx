@@ -6,6 +6,7 @@ import { CircleAlertIcon } from "lucide-react";
 import type { UseFormReturn } from "react-hook-form";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { ProfileField, ProfileValues } from "./profile-values";
@@ -44,27 +45,26 @@ export function ProfileTextField({
     "aria-describedby": describedBy.length > 0 ? describedBy.join(" ") : undefined,
     ...form.register(name),
   };
+  const line = {
+    ...box,
+    inputMode,
+    spellCheck: mono ? false : undefined,
+    autoCapitalize: mono ? "characters" : undefined,
+    className: cn(mono && "numbers"),
+  };
   return (
     <Field data-invalid={error !== undefined}>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      {multiline ? (
-        <Textarea rows={3} {...box} />
-      ) : (
-        <div className="flex">
-          {prefix && (
-            <span className="numbers flex h-11 items-center rounded-l-sm border border-r-0 border-input bg-muted px-3 text-muted-foreground">
-              {prefix}
-            </span>
-          )}
-          <Input
-            {...box}
-            inputMode={inputMode}
-            spellCheck={mono ? false : undefined}
-            autoCapitalize={mono ? "characters" : undefined}
-            className={cn(mono && "numbers", prefix && "rounded-l-none")}
-          />
-        </div>
+      {multiline && <Textarea rows={3} {...box} />}
+      {!multiline && prefix !== undefined && (
+        <InputGroup>
+          <InputGroupAddon>
+            <InputGroupText className="numbers">{prefix}</InputGroupText>
+          </InputGroupAddon>
+          <InputGroupInput {...line} />
+        </InputGroup>
       )}
+      {!multiline && prefix === undefined && <Input {...line} />}
       {hint && <FieldDescription id={`${id}-hint`}>{hint}</FieldDescription>}
       {error && (
         <FieldError id={`${id}-error`} className="flex items-start gap-1.5">

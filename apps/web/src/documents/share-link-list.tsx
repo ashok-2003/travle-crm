@@ -4,11 +4,20 @@
 // it and when last (in the organization's zone), when it expires, and the way to turn a working one off.
 import type { ShareLinkSummary } from "@travel-crm/contracts/share-links";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Delayed } from "@/components/delayed";
 import { ErrorState } from "@/components/error-state";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemSeparator,
+  ItemTitle,
+} from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDay, formatTime } from "@/lib/format";
 import { useMe } from "@/session/me-context";
@@ -29,13 +38,13 @@ function ShareLinkRow({ link }: { link: ShareLinkSummary }) {
     return t("when", { day: formatDay(at, { timeZone }), time: formatTime(at, { timeZone }) });
   };
   return (
-    <li className="flex items-start gap-3 px-4 py-3">
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="font-medium break-words script-leading">{link.label}</span>
+    <Item size="sm" role="listitem" className="items-start">
+      <ItemContent className="min-w-0">
+        <ItemTitle className="flex-wrap">
+          <span className="wrap-anywhere script-leading">{link.label}</span>
           <StatusBadge tone={linkTones[state]}>{t(`status.${state}`)}</StatusBadge>
-        </div>
-        <p className="flex flex-wrap gap-x-3 gap-y-1 text-label text-muted-foreground">
+        </ItemTitle>
+        <ItemDescription className="flex flex-wrap gap-x-3 gap-y-1">
           <span>
             {link.lastOpenedAt === null
               ? t("notOpened")
@@ -46,10 +55,10 @@ function ShareLinkRow({ link }: { link: ShareLinkSummary }) {
               ? t("neverExpires")
               : t("expires", { day: formatDay(new Date(link.expiresAt), { timeZone }) })}
           </span>
-        </p>
-      </div>
+        </ItemDescription>
+      </ItemContent>
       {state === "active" && (
-        <>
+        <ItemActions>
           <Button
             variant="destructive"
             aria-label={t("revokeNamed", { label: link.label })}
@@ -61,9 +70,9 @@ function ShareLinkRow({ link }: { link: ShareLinkSummary }) {
             {t("revoke")}
           </Button>
           <RevokeShareLinkDialog link={link} open={revoking} onOpenChange={setRevoking} />
-        </>
+        </ItemActions>
       )}
-    </li>
+    </Item>
   );
 }
 
@@ -74,11 +83,14 @@ export function ShareLinkList({ documentId }: { documentId: string }) {
   if (links.data) {
     if (links.data.length === 0) return <p className="text-muted-foreground">{t("none")}</p>;
     return (
-      <ul className="divide-y rounded-lg border">
-        {links.data.map((link) => (
-          <ShareLinkRow key={link.id} link={link} />
+      <ItemGroup>
+        {links.data.map((link, index) => (
+          <Fragment key={link.id}>
+            {index > 0 && <ItemSeparator />}
+            <ShareLinkRow link={link} />
+          </Fragment>
         ))}
-      </ul>
+      </ItemGroup>
     );
   }
   if (links.isError) {

@@ -6,7 +6,9 @@ import type { SetupChecklist, SetupStep } from "@travel-crm/contracts/profile";
 import { ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { Fragment } from "react";
 import { StatusBadge } from "@/components/status-badge";
+import { Item, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle } from "@/components/ui/item";
 import { routes } from "@/lib/routes";
 
 const whereDone: Record<SetupStep, string> = {
@@ -27,19 +29,24 @@ export function useSetupProgress() {
 export function SetupSteps({ checklist }: { checklist: SetupChecklist }) {
   const t = useTranslations("business.setup");
   return (
-    <ol className="divide-y rounded-lg border">
-      {checklist.steps.map(({ step, done }) => (
-        <li key={step}>
-          <Link href={whereDone[step]} className="flex min-h-14 items-center gap-3 px-4 py-3 hover:bg-accent">
-            <span className="flex min-w-0 flex-1 flex-col">
-              <span className="font-medium">{t(`steps.${step}.title`)}</span>
-              <span className="text-label text-muted-foreground">{t(`steps.${step}.hint`)}</span>
-            </span>
-            <StatusBadge tone={done ? "good" : "neutral"}>{done ? t("done") : t("toDo")}</StatusBadge>
-            <ChevronRightIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-          </Link>
-        </li>
+    <ItemGroup>
+      {checklist.steps.map(({ step, done }, index) => (
+        <Fragment key={step}>
+          {index > 0 && <ItemSeparator />}
+          <div role="listitem">
+            <Item size="sm" asChild>
+              <Link href={whereDone[step]}>
+                <ItemContent>
+                  <ItemTitle>{t(`steps.${step}.title`)}</ItemTitle>
+                  <ItemDescription>{t(`steps.${step}.hint`)}</ItemDescription>
+                </ItemContent>
+                <StatusBadge tone={done ? "good" : "neutral"}>{done ? t("done") : t("toDo")}</StatusBadge>
+                <ChevronRightIcon aria-hidden="true" className="size-4 shrink-0" />
+              </Link>
+            </Item>
+          </div>
+        </Fragment>
       ))}
-    </ol>
+    </ItemGroup>
   );
 }

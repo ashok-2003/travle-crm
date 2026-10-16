@@ -11,6 +11,7 @@ import { Delayed } from "@/components/delayed";
 import { ErrorState } from "@/components/error-state";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTRPC } from "@/data/trpc";
@@ -76,51 +77,53 @@ export function LogoPanel() {
       <h2 id="logo-heading" className="text-section font-semibold">
         {t("heading")}
       </h2>
-      <div className="flex flex-col gap-4 rounded-lg border p-4">
-        {preview()}
-        <p className="text-label text-muted-foreground">{t("hint", { size: formatFileSize(MAX_LOGO_BYTES) })}</p>
-        {uploading && <Progress value={state.progress * 100} aria-label={t("uploading")} />}
-        {state.phase === "failed" && (
-          <Alert variant="destructive">
-            <AlertDescription>{state.message}</AlertDescription>
-          </Alert>
-        )}
-        <input
-          ref={fileInput}
-          type="file"
-          accept="image/png,image/jpeg"
-          aria-label={t("fileLabel")}
-          tabIndex={-1}
-          className="sr-only"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            // Cleared, so choosing the same file again (after a failed upload) is a change too.
-            event.target.value = "";
-            if (file) void start(file);
-          }}
-        />
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            disabled={!write.allowed || uploading || logo.isPending}
-            onClick={() => fileInput.current?.click()}
-          >
-            {logo.data ? t("replace") : t("upload")}
-          </Button>
-          {logo.data && (
-            <Button
-              variant="destructive"
-              disabled={!write.allowed || uploading}
-              onClick={() => {
-                setRemoving(true);
-              }}
-            >
-              {t("remove")}
-            </Button>
+      <Card>
+        <CardContent className="flex flex-col gap-4">
+          {preview()}
+          <p className="text-label text-muted-foreground">{t("hint", { size: formatFileSize(MAX_LOGO_BYTES) })}</p>
+          {uploading && <Progress value={state.progress * 100} aria-label={t("uploading")} />}
+          {state.phase === "failed" && (
+            <Alert variant="destructive">
+              <AlertDescription>{state.message}</AlertDescription>
+            </Alert>
           )}
-        </div>
-        {write.hint !== null && <p className="text-label text-muted-foreground">{write.hint}</p>}
-      </div>
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/png,image/jpeg"
+            aria-label={t("fileLabel")}
+            tabIndex={-1}
+            className="sr-only"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              // Cleared, so choosing the same file again (after a failed upload) is a change too.
+              event.target.value = "";
+              if (file) void start(file);
+            }}
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              disabled={!write.allowed || uploading || logo.isPending}
+              onClick={() => fileInput.current?.click()}
+            >
+              {logo.data ? t("replace") : t("upload")}
+            </Button>
+            {logo.data && (
+              <Button
+                variant="destructive"
+                disabled={!write.allowed || uploading}
+                onClick={() => {
+                  setRemoving(true);
+                }}
+              >
+                {t("remove")}
+              </Button>
+            )}
+          </div>
+          {write.hint !== null && <p className="text-label text-muted-foreground">{write.hint}</p>}
+        </CardContent>
+      </Card>
       {logo.data && <RemoveLogoDialog logo={logo.data} open={removing} onOpenChange={setRemoving} />}
     </section>
   );

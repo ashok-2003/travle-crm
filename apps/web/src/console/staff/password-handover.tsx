@@ -4,6 +4,7 @@
 // temporary password, each with a copy button, and what they must do at first sign-in. Shown once: nothing keeps the
 // password but its hash.
 import { useTranslations } from "next-intl";
+import { Details } from "@/components/details";
 import { CopyButton } from "@/organization/copy-button";
 
 export function PasswordHandover({
@@ -24,17 +25,13 @@ export function PasswordHandover({
   return (
     <div className="flex flex-col gap-3">
       <p>{intro}</p>
-      <dl className="divide-y rounded-lg border">
-        {rows.map((row) => (
-          <div key={row.label} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
-            <dt className="w-40 text-label text-muted-foreground">{row.label}</dt>
-            <dd className="flex flex-1 flex-wrap items-center justify-between gap-2">
-              <span className="numbers break-all">{row.value}</span>
-              <CopyButton value={row.value} label={row.copy} />
-            </dd>
-          </div>
-        ))}
-      </dl>
+      <Details
+        rows={rows.map(({ label, value, copy }) => ({
+          label,
+          value: <span className="numbers">{value}</span>,
+          action: <CopyButton value={value} label={copy} />,
+        }))}
+      />
       <p className="text-label">{t("firstSignIn")}</p>
     </div>
   );

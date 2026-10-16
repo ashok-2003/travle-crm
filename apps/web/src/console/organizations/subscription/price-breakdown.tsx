@@ -4,6 +4,7 @@
 import type { SubscriptionPrice } from "@travel-crm/contracts/subscriptions";
 import { money } from "@travel-crm/domain/kernel";
 import { useTranslations } from "next-intl";
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableRow } from "@/components/ui/table";
 import { formatRupees } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -21,20 +22,20 @@ export function PriceBreakdown({ price, agreed }: { price: SubscriptionPrice; ag
     { label: t(`total.${price.cycle}`), paise: price.totalPaise, total: true },
   ];
   return (
-    <table className="w-full max-w-[720px] border-collapse rounded-lg text-body">
-      <caption className="mb-2 text-left text-label text-muted-foreground">{t(`caption.${price.cycle}`)}</caption>
-      <tbody>
+    <Table className="max-w-[720px]">
+      <TableCaption className="text-left">{t(`caption.${price.cycle}`)}</TableCaption>
+      <TableBody>
         {lines.map((line) => (
-          <tr key={line.label} className="border-b last:border-b-0">
-            <th scope="row" className={cn("py-2 pr-4 text-left font-normal", line.total === true && "font-semibold")}>
+          <TableRow key={line.label}>
+            <TableHead scope="row" className={cn("font-normal", line.total === true && "font-semibold")}>
               {line.label}
-            </th>
-            <td className={cn("numbers py-2 text-right", line.total === true && "font-medium")}>
+            </TableHead>
+            <TableCell className={cn("numbers text-right", line.total === true && "font-medium")}>
               {amount(line.paise)}
-            </td>
-          </tr>
+            </TableCell>
+          </TableRow>
         ))}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   );
 }

@@ -9,6 +9,7 @@ import { useTranslations } from "next-intl";
 import { useId, useRef, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldContent, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Progress } from "@/components/ui/progress";
@@ -54,72 +55,76 @@ export function UploadControl({ record }: { record: AttachmentRecord }) {
   const busy = upload.isPending;
 
   return (
-    <div className="flex flex-col gap-4 rounded-lg border p-4">
-      <Field orientation="horizontal" data-disabled={!write.allowed || busy}>
-        <Checkbox
-          id={`${id}-sensitive`}
-          checked={sensitive}
-          disabled={!write.allowed || busy}
-          onCheckedChange={(checked) => {
-            setSensitive(checked === true);
+    <Card>
+      <CardContent className="flex flex-col gap-4">
+        <Field orientation="horizontal" data-disabled={!write.allowed || busy}>
+          <Checkbox
+            id={`${id}-sensitive`}
+            checked={sensitive}
+            disabled={!write.allowed || busy}
+            onCheckedChange={(checked) => {
+              setSensitive(checked === true);
+            }}
+          />
+          <FieldContent>
+            <FieldLabel htmlFor={`${id}-sensitive`}>{t("sensitive")}</FieldLabel>
+            <FieldDescription>{t("sensitiveHint")}</FieldDescription>
+          </FieldContent>
+        </Field>
+        <input
+          ref={picker}
+          type="file"
+          accept={ACCEPTED_FILES}
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            // Cleared, so choosing the same file again (after a refusal) is a change too.
+            event.target.value = "";
+            if (file) choose(file);
           }}
         />
-        <FieldContent>
-          <FieldLabel htmlFor={`${id}-sensitive`}>{t("sensitive")}</FieldLabel>
-          <FieldDescription>{t("sensitiveHint")}</FieldDescription>
-        </FieldContent>
-      </Field>
-      <input
-        ref={picker}
-        type="file"
-        accept={ACCEPTED_FILES}
-        className="hidden"
-        onChange={(event) => {
-          const file = event.target.files?.[0];
-          // Cleared, so choosing the same file again (after a refusal) is a change too.
-          event.target.value = "";
-          if (file) choose(file);
-        }}
-      />
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <Button
-          type="button"
-          disabled={!write.allowed || busy}
-          aria-describedby={write.hint ? `${id}-hint` : undefined}
-          onClick={() => picker.current?.click()}
-        >
-          <UploadIcon aria-hidden="true" />
-          {t("upload")}
-        </Button>
-        <p className="text-label text-muted-foreground">{t("allowed")}</p>
-      </div>
-      {write.hint && (
-        <p id={`${id}-hint`} className="text-label text-muted-foreground">
-          {write.hint}
-        </p>
-      )}
-      {busy && (
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="min-w-0 break-words script-leading">{t("uploading", { name: upload.variables.file.name })}</p>
-            <span className="numbers">{t("progress", { percent })}</span>
-          </div>
-          <Progress value={percent} aria-label={t("uploading", { name: upload.variables.file.name })} />
-          <Button type="button" variant="ghost" className="self-start" onClick={stop}>
-            {t("stop")}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <Button
+            type="button"
+            disabled={!write.allowed || busy}
+            aria-describedby={write.hint ? `${id}-hint` : undefined}
+            onClick={() => picker.current?.click()}
+          >
+            <UploadIcon aria-hidden="true" />
+            {t("upload")}
           </Button>
+          <p className="text-label text-muted-foreground">{t("allowed")}</p>
         </div>
-      )}
-      {problem && (
-        <Alert variant="destructive">
-          <AlertDescription>{problem}</AlertDescription>
-        </Alert>
-      )}
-      {upload.isError && !wasStopped(upload.error) && (
-        <Alert variant="destructive">
-          <AlertDescription>{failure(upload.error)}</AlertDescription>
-        </Alert>
-      )}
-    </div>
+        {write.hint && (
+          <p id={`${id}-hint`} className="text-label text-muted-foreground">
+            {write.hint}
+          </p>
+        )}
+        {busy && (
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="min-w-0 break-words script-leading">
+                {t("uploading", { name: upload.variables.file.name })}
+              </p>
+              <span className="numbers">{t("progress", { percent })}</span>
+            </div>
+            <Progress value={percent} aria-label={t("uploading", { name: upload.variables.file.name })} />
+            <Button type="button" variant="ghost" className="self-start" onClick={stop}>
+              {t("stop")}
+            </Button>
+          </div>
+        )}
+        {problem && (
+          <Alert variant="destructive">
+            <AlertDescription>{problem}</AlertDescription>
+          </Alert>
+        )}
+        {upload.isError && !wasStopped(upload.error) && (
+          <Alert variant="destructive">
+            <AlertDescription>{failure(upload.error)}</AlertDescription>
+          </Alert>
+        )}
+      </CardContent>
+    </Card>
   );
 }

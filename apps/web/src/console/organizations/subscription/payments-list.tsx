@@ -2,11 +2,13 @@
 
 // The payments recorded against the subscription, newest first: the rupees received (forest: money in), the day paid,
 // the day they pay through, the reference, and a way to void one recorded by mistake; a voided one says so and why.
-// A table from tablets up, a divided list on phones.
+// A table from tablets up, a list of items on phones.
 import type { SubscriptionPayment } from "@travel-crm/contracts/subscriptions";
 import { money } from "@travel-crm/domain/kernel";
 import { useTranslations } from "next-intl";
+import { Fragment } from "react";
 import { StatusBadge } from "@/components/status-badge";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemSeparator } from "@/components/ui/item";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatRupees } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -48,23 +50,26 @@ export function PaymentsList({
   if (payments.length === 0) return <p className="text-muted-foreground">{t("empty")}</p>;
   if (!wide) {
     return (
-      <ul className="divide-y rounded-lg border">
-        {payments.map((payment) => (
-          <li key={payment.id} className="flex items-start justify-between gap-3 px-4 py-3">
-            <span className="flex min-w-0 flex-col gap-1">
-              {amount(payment)}
-              <span className="text-label text-muted-foreground">
-                {t("paidOnThrough", {
-                  paidOn: formatCalendarDay(payment.paidOn),
-                  paidThrough: formatCalendarDay(payment.paidThrough),
-                })}
-              </span>
-              {payment.reference !== null && <span className="text-label break-words">{payment.reference}</span>}
-            </span>
-            {state(payment)}
-          </li>
+      <ItemGroup>
+        {payments.map((payment, index) => (
+          <Fragment key={payment.id}>
+            {index > 0 && <ItemSeparator />}
+            <Item size="sm" role="listitem">
+              <ItemContent className="min-w-0">
+                {amount(payment)}
+                <ItemDescription>
+                  {t("paidOnThrough", {
+                    paidOn: formatCalendarDay(payment.paidOn),
+                    paidThrough: formatCalendarDay(payment.paidThrough),
+                  })}
+                </ItemDescription>
+                {payment.reference !== null && <span className="text-label break-words">{payment.reference}</span>}
+              </ItemContent>
+              <ItemActions>{state(payment)}</ItemActions>
+            </Item>
+          </Fragment>
         ))}
-      </ul>
+      </ItemGroup>
     );
   }
   return (

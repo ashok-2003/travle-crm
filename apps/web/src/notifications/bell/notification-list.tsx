@@ -6,10 +6,12 @@
 // person's own.
 import { BellIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { Fragment } from "react";
 import { Delayed } from "@/components/delayed";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { Button } from "@/components/ui/button";
+import { ItemGroup, ItemSeparator } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { useMe } from "@/session/me-context";
@@ -58,25 +60,27 @@ export function NotificationList({ open, onFollow }: { open: boolean; onFollow: 
       ) : (
         <p className="px-4 py-2 text-label text-muted-foreground">{t("impersonating", { name: me.user.name })}</p>
       )}
-      <ul className="flex flex-col divide-y">
-        {notifications.map((notification) => {
+      <ItemGroup>
+        {notifications.map((notification, index) => {
           const mark = () => {
             markRead.mutate({ notificationIds: [notification.id] });
           };
           return (
-            <NotificationItem
-              key={notification.id}
-              notification={notification}
-              canMark={canMark}
-              onMark={mark}
-              onFollow={() => {
-                if (canMark && notification.readAt === null) mark();
-                onFollow();
-              }}
-            />
+            <Fragment key={notification.id}>
+              {index > 0 && <ItemSeparator />}
+              <NotificationItem
+                notification={notification}
+                canMark={canMark}
+                onMark={mark}
+                onFollow={() => {
+                  if (canMark && notification.readAt === null) mark();
+                  onFollow();
+                }}
+              />
+            </Fragment>
           );
         })}
-      </ul>
+      </ItemGroup>
       {pages.hasNextPage && (
         <Button
           variant="outline"

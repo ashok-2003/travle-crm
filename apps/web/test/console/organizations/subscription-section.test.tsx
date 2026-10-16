@@ -45,7 +45,7 @@ function renderSection(
 }
 
 function valueOf(label: string): HTMLElement {
-  const value = screen.getByText(label, { selector: "dt" }).nextElementSibling;
+  const value = screen.getByText(label, { selector: "[data-slot=item-description]" }).nextElementSibling;
   if (!(value instanceof HTMLElement)) throw new Error(`no value for ${label}`);
   return value;
 }

@@ -62,11 +62,11 @@ export function BrandingDetailsForm({ saved }: { saved: BrandingDetails }) {
         <Field data-invalid={errors.brandColour !== undefined}>
           <FieldLabel htmlFor="brand-colour">{t("colour")}</FieldLabel>
           <div className="flex items-center gap-3">
-            <input
+            <Input
               type="color"
               aria-label={t("colourPicker")}
               value={swatch}
-              className="size-11 shrink-0 cursor-pointer rounded-sm border border-input bg-background p-1"
+              className="w-11 shrink-0 cursor-pointer p-1"
               onChange={(event) => {
                 form.setValue("brandColour", event.target.value, { shouldDirty: true, shouldValidate: true });
               }}

@@ -80,7 +80,8 @@ const organizationAnswer: Answer = {
   },
 };
 
-const entryOf = async (what: string) => within((await screen.findByText(what)).closest("li") ?? document.body);
+const entryOf = async (what: string) =>
+  within((await screen.findByText(what)).closest("[role=listitem]") ?? document.body);
 
 afterEach(() => {
   vi.unstubAllGlobals();

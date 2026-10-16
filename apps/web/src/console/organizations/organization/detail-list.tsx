@@ -1,7 +1,8 @@
-// A section of the organization's page: its heading, an action beside it, and labelled values in a divided list
+// A section of the organization's page: its heading, an action beside it, and labelled values (components/details.tsx)
 // (DESIGN.md: hairlines before cards; labels muted, values in ink; a missing value said, never blank; detail panels
 // 720px wide, lists and tables the page's width).
 import type { ReactNode } from "react";
+import { Details } from "@/components/details";
 import { cn } from "@/lib/utils";
 
 export interface Detail {
@@ -37,13 +38,8 @@ export function DetailSection({
 
 export function DetailList({ details }: { details: Detail[] }) {
   return (
-    <dl className="divide-y rounded-lg border">
-      {details.map((detail) => (
-        <div key={detail.label} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3">
-          <dt className="w-44 text-label text-muted-foreground">{detail.label}</dt>
-          <dd className="min-w-0 flex-1 break-words script-leading">{detail.value}</dd>
-        </div>
-      ))}
-    </dl>
+    <Details
+      rows={details.map(({ label, value }) => ({ label, value: <span className="script-leading">{value}</span> }))}
+    />
   );
 }

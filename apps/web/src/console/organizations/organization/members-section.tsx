@@ -2,13 +2,23 @@
 
 // The organization's active members (organizations.members): name, role (Owners marked), email or none, last activity
 // in the organization's zone, and what support may do for each: sign in as them, and resend the invite to one still
-// to choose a password. A table from tablets up, a divided list on phones; names wrap rather than being cut off.
+// to choose a password. A table from tablets up, a list of items on phones; names wrap rather than being cut off.
 import type { OrganizationMember, OrganizationRecord } from "@travel-crm/contracts/platform";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
+import { Fragment } from "react";
 import { Delayed } from "@/components/delayed";
 import { ErrorState } from "@/components/error-state";
 import { StatusBadge } from "@/components/status-badge";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemSeparator,
+  ItemTitle,
+} from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDay } from "@/lib/format";
@@ -54,25 +64,32 @@ export function MembersSection({ organization }: { organization: OrganizationRec
     content = <p className="text-muted-foreground">{t("empty")}</p>;
   } else if (!wide) {
     content = (
-      <ul className="divide-y rounded-lg border">
-        {members.data.map((member) => (
-          <li key={member.memberId} className="flex flex-col gap-1 px-4 py-3">
-            <span className="flex flex-wrap items-center gap-2">
-              <span className="font-medium break-words script-leading">{member.name}</span>
-              {invitePending(member)}
-            </span>
-            <span className="text-label break-all text-muted-foreground script-leading">
-              {member.roleName} · {email(member)}
-            </span>
-            <span className="text-label text-muted-foreground">
-              {member.lastActiveAt === null
-                ? t("neverUsed")
-                : t("lastActive", { date: lastActive(member.lastActiveAt) })}
-            </span>
-            <span className="mt-2 flex justify-start">{actions(member)}</span>
-          </li>
+      <ItemGroup>
+        {members.data.map((member, index) => (
+          <Fragment key={member.memberId}>
+            {index > 0 && <ItemSeparator />}
+            <Item size="sm" role="listitem">
+              <ItemContent>
+                <ItemTitle className="flex-wrap">
+                  <span className="script-leading">{member.name}</span>
+                  {invitePending(member)}
+                </ItemTitle>
+                <ItemDescription>
+                  <span className="break-all script-leading">
+                    {member.roleName} · {email(member)}
+                  </span>
+                </ItemDescription>
+                <ItemDescription>
+                  {member.lastActiveAt === null
+                    ? t("neverUsed")
+                    : t("lastActive", { date: lastActive(member.lastActiveAt) })}
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions>{actions(member)}</ItemActions>
+            </Item>
+          </Fragment>
         ))}
-      </ul>
+      </ItemGroup>
     );
   } else {
     content = (

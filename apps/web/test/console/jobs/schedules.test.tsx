@@ -17,7 +17,8 @@ const schedules = [
   { queue: "reports.weekly-digest", cron: "0 8 * * 1", timeZone: "Asia/Kolkata" },
 ];
 
-const itemOf = async (queue: string) => within((await screen.findByText(queue)).closest("li") ?? document.body);
+const itemOf = async (queue: string) =>
+  within((await screen.findByText(queue)).closest("[role=listitem]") ?? document.body);
 
 afterEach(() => {
   vi.unstubAllGlobals();

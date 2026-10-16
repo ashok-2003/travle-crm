@@ -7,6 +7,7 @@ import type { NotificationSummary } from "@travel-crm/contracts/notifications";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
 import { formatDay, formatTime } from "@/lib/format";
 import { isAppPath } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -33,41 +34,46 @@ export function NotificationItem({
 
   const content = (
     <>
-      <span
-        aria-hidden="true"
-        className={cn("mt-2 size-2 shrink-0 rounded-full", unread ? "bg-people" : "bg-transparent")}
-      />
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <ItemMedia>
+        <span
+          aria-hidden="true"
+          className={cn("mt-1.5 size-2 rounded-full", unread ? "bg-people" : "bg-transparent")}
+        />
+      </ItemMedia>
+      <ItemContent className="min-w-0 gap-0.5">
         {unread && <span className="sr-only">{t("unread")}</span>}
-        <span className={cn("script-leading break-words", unread ? "font-semibold" : "font-medium")}>
+        <ItemTitle className={cn("script-leading wrap-anywhere", unread && "font-semibold")}>
           {notification.title}
-        </span>
-        <span className="script-leading text-label break-words text-muted-foreground">{notification.body}</span>
+        </ItemTitle>
+        <ItemDescription className="script-leading wrap-anywhere">{notification.body}</ItemDescription>
         <span className="text-caption text-muted-foreground">
           {t("when", { day: formatDay(createdAt, { timeZone }), time: formatTime(createdAt, { timeZone }) })}
         </span>
-      </span>
+      </ItemContent>
     </>
   );
 
+  if (link !== null) {
+    return (
+      <div role="listitem">
+        <Item size="sm" asChild>
+          <Link href={link} onClick={onFollow}>
+            {content}
+          </Link>
+        </Item>
+      </div>
+    );
+  }
   return (
-    <li className="flex items-start gap-1 px-2 py-1">
-      {link === null ? (
-        <div className="flex min-w-0 flex-1 gap-3 px-2 py-2">{content}</div>
-      ) : (
-        <Link
-          href={link}
-          onClick={onFollow}
-          className="flex min-h-11 min-w-0 flex-1 gap-3 rounded-lg px-2 py-2 text-foreground hover:bg-accent"
-        >
-          {content}
-        </Link>
+    <Item size="sm" role="listitem">
+      {content}
+      {unread && canMark && (
+        <ItemActions>
+          <Button variant="ghost" onClick={onMark}>
+            {t("markRead")}
+          </Button>
+        </ItemActions>
       )}
-      {link === null && unread && canMark && (
-        <Button variant="ghost" className="shrink-0" onClick={onMark}>
-          {t("markRead")}
-        </Button>
-      )}
-    </li>
+    </Item>
   );
 }

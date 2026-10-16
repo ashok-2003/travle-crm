@@ -11,6 +11,7 @@ const sourceDirectory = path.resolve(import.meta.dirname, "../src");
 const allowed: Record<string, string> = {
   "shell/bottom-bar.tsx":
     "the phone's bottom bar has no registry component; a hairline parts it from the page under it",
+  "console/shell/console-bottom-bar.tsx": "the console's bottom bar, the same as the app's",
 };
 
 function sourceFiles(directory: string): string[] {

@@ -9,6 +9,7 @@ import { useId } from "react";
 import { Delayed } from "@/components/delayed";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { useMe } from "@/session/me-context";
@@ -64,7 +65,9 @@ export function PushOnThisDevice() {
       <h2 id={headingId} className="text-section font-semibold">
         {t("heading")}
       </h2>
-      <div className="rounded-lg border px-4 py-3">{content}</div>
+      <Card>
+        <CardContent>{content}</CardContent>
+      </Card>
     </section>
   );
 }

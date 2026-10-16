@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Delayed } from "@/components/delayed";
 import { ErrorState } from "@/components/error-state";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTRPC } from "@/data/trpc";
 import { routes } from "@/lib/routes";
@@ -60,7 +61,9 @@ export function BrandingForm() {
       <h2 id="branding-details-heading" className="text-section font-semibold">
         {t("details.heading")}
       </h2>
-      <div className="rounded-lg border p-4">{body()}</div>
+      <Card>
+        <CardContent>{body()}</CardContent>
+      </Card>
     </section>
   );
 }

@@ -5,6 +5,7 @@
 // admins change it.
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import { Details } from "@/components/details";
 import { ErrorState } from "@/components/error-state";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,14 +27,12 @@ export function PolicySection() {
     if (policy.data) {
       const days = policy.data;
       return (
-        <dl className="grid divide-y rounded-lg border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-          {FIELDS.map((field) => (
-            <div key={field} className="flex flex-col gap-1 px-4 py-3">
-              <dt className="text-label text-muted-foreground">{t(field)}</dt>
-              <dd className="numbers">{t("days", { count: days[field] })}</dd>
-            </div>
-          ))}
-        </dl>
+        <Details
+          rows={FIELDS.map((field) => ({
+            label: t(field),
+            value: <span className="numbers">{t("days", { count: days[field] })}</span>,
+          }))}
+        />
       );
     }
     if (policy.isError) {

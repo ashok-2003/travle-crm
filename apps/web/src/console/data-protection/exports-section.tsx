@@ -4,9 +4,11 @@
 // job of the console's, kept for 7 days, and outliving a deletion. Newest first.
 import { ArchiveIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { Fragment } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { Button } from "@/components/ui/button";
+import { ItemGroup, ItemSeparator } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ExportItem } from "./export-item";
 import { useExportOrganization, useExports } from "./use-exports";
@@ -21,11 +23,14 @@ export function ExportsSection({ organizationId, canExport }: { organizationId: 
     if (exports.data) {
       if (exports.data.length === 0) return <EmptyState icon={ArchiveIcon} message={t("empty")} />;
       return (
-        <ul className="divide-y rounded-lg border">
-          {exports.data.map((entry) => (
-            <ExportItem key={entry.exportId} entry={entry} />
+        <ItemGroup>
+          {exports.data.map((entry, index) => (
+            <Fragment key={entry.exportId}>
+              {index > 0 && <ItemSeparator />}
+              <ExportItem entry={entry} />
+            </Fragment>
           ))}
-        </ul>
+        </ItemGroup>
       );
     }
     if (exports.isError) {

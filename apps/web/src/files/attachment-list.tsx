@@ -1,13 +1,23 @@
 "use client";
 
-// A record's files as a divided list (DESIGN.md section 6): the name (wrapping, any script), then its kind, size and
+// A record's files as a list of items (DESIGN.md section 6): the name (wrapping, any script), then its kind, size and
 // the day it was added in the organization's zone, and Download and Remove. A sensitive file is marked; to a role
 // without documents:view_sensitive it is only a "Sensitive file", with nothing to do to it (spec 5).
 import type { AttachmentSummary } from "@travel-crm/contracts/files";
 import { DownloadIcon, FileIcon, LockIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemSeparator,
+  ItemTitle,
+} from "@/components/ui/item";
 import { formatDay } from "@/lib/format";
 import { holds, useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
@@ -72,30 +82,34 @@ function AttachmentRow({ record, attachment }: { record: AttachmentRecord; attac
   const name = hidden ? t("sensitiveFile") : attachment.fileName;
   const added = formatDay(new Date(attachment.createdAt), { timeZone: me.organization.timeZone });
   return (
-    <li className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center">
-      <div className="flex min-w-0 flex-1 items-start gap-3">
-        <FileIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
-        <div className="flex min-w-0 flex-col gap-1">
-          <span className="font-medium break-words script-leading">{name}</span>
-          <p className="flex flex-wrap items-center gap-x-1 text-label text-muted-foreground">
-            {t(`kinds.${kindOf(attachment.contentType)}`)} ·{" "}
-            <span className="numbers">{formatFileSize(attachment.sizeBytes)}</span> · {t("added", { date: added })}
-            {attachment.sensitive && (
-              <>
-                {" · "}
-                <LockIcon aria-hidden="true" className="size-3.5" />
-                {t("sensitive")}
-              </>
-            )}
-          </p>
-        </div>
-      </div>
-      {hidden ? (
-        <p className="text-label text-muted-foreground">{t("sensitiveHidden")}</p>
-      ) : (
-        <AttachmentActions record={record} attachment={attachment} name={name} />
-      )}
-    </li>
+    <Item size="sm" role="listitem">
+      <ItemMedia variant="icon">
+        <FileIcon aria-hidden="true" />
+      </ItemMedia>
+      <ItemContent className="min-w-0">
+        <ItemTitle>
+          <span className="wrap-anywhere script-leading">{name}</span>
+        </ItemTitle>
+        <ItemDescription className="flex flex-wrap items-center gap-x-1">
+          {t(`kinds.${kindOf(attachment.contentType)}`)} ·{" "}
+          <span className="numbers">{formatFileSize(attachment.sizeBytes)}</span> · {t("added", { date: added })}
+          {attachment.sensitive && (
+            <>
+              {" · "}
+              <LockIcon aria-hidden="true" className="size-3.5" />
+              {t("sensitive")}
+            </>
+          )}
+        </ItemDescription>
+      </ItemContent>
+      <ItemActions>
+        {hidden ? (
+          <p className="text-label text-muted-foreground">{t("sensitiveHidden")}</p>
+        ) : (
+          <AttachmentActions record={record} attachment={attachment} name={name} />
+        )}
+      </ItemActions>
+    </Item>
   );
 }
 
@@ -107,10 +121,13 @@ export function AttachmentList({
   attachments: AttachmentSummary[];
 }) {
   return (
-    <ul className="divide-y rounded-lg border">
-      {attachments.map((attachment) => (
-        <AttachmentRow key={attachment.id} record={record} attachment={attachment} />
+    <ItemGroup>
+      {attachments.map((attachment, index) => (
+        <Fragment key={attachment.id}>
+          {index > 0 && <ItemSeparator />}
+          <AttachmentRow record={record} attachment={attachment} />
+        </Fragment>
       ))}
-    </ul>
+    </ItemGroup>
   );
 }

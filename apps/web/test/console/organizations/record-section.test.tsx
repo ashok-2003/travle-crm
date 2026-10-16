@@ -23,7 +23,7 @@ afterEach(() => {
 });
 
 function valueOf(label: string): HTMLElement {
-  const term = screen.getByText(label, { selector: "dt" });
+  const term = screen.getByText(label, { selector: "[data-slot=item-description]" });
   const value = term.nextElementSibling;
   if (!(value instanceof HTMLElement)) throw new Error(`no value for ${label}`);
   return value;

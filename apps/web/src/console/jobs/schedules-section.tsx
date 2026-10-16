@@ -5,10 +5,11 @@
 // Support sees them all, and that only a super admin removes one.
 import { CalendarClockIcon, LockIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { ErrorState } from "@/components/error-state";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
+import { Item, ItemActions, ItemContent, ItemGroup, ItemSeparator, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { isSuperAdmin, useStaff } from "../session/staff-context";
 import { CONSOLE_SCHEDULES } from "./platform-queues";
@@ -27,46 +28,48 @@ export function SchedulesSection() {
     if (schedules.data) {
       if (schedules.data.length === 0) return <EmptyState icon={CalendarClockIcon} message={t("empty")} />;
       return (
-        <ul className="divide-y rounded-lg border">
-          {schedules.data.map((schedule) => {
+        <ItemGroup>
+          {schedules.data.map((schedule, index) => {
             const theConsoles = CONSOLE_SCHEDULES.has(schedule.queue);
             return (
-              <li
-                key={schedule.queue}
-                className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3"
-              >
-                <div className="flex min-w-0 flex-col gap-0.5">
-                  <span className="numbers font-medium break-all">{schedule.queue}</span>
-                  <span className="flex flex-wrap gap-x-3 text-caption">
-                    <span>
-                      <span className="text-muted-foreground">{t("cron")}</span>{" "}
-                      <span className="numbers">{schedule.cron}</span>
+              <Fragment key={schedule.queue}>
+                {index > 0 && <ItemSeparator />}
+                <Item size="sm" role="listitem">
+                  <ItemContent className="min-w-0">
+                    <ItemTitle className="numbers break-all">{schedule.queue}</ItemTitle>
+                    <span className="flex flex-wrap gap-x-3 text-caption">
+                      <span>
+                        <span className="text-muted-foreground">{t("cron")}</span>{" "}
+                        <span className="numbers">{schedule.cron}</span>
+                      </span>
+                      <span>
+                        <span className="text-muted-foreground">{t("timeZone")}</span> <span>{schedule.timeZone}</span>
+                      </span>
                     </span>
-                    <span>
-                      <span className="text-muted-foreground">{t("timeZone")}</span> <span>{schedule.timeZone}</span>
-                    </span>
-                  </span>
-                  {removable && theConsoles && (
-                    <span className="max-w-[65ch] text-caption text-muted-foreground">
-                      {tErrors("reasons.SCHEDULE_IS_THE_CONSOLES")}
-                    </span>
+                    {removable && theConsoles && (
+                      <span className="max-w-[65ch] text-caption text-muted-foreground">
+                        {tErrors("reasons.SCHEDULE_IS_THE_CONSOLES")}
+                      </span>
+                    )}
+                  </ItemContent>
+                  {removable && !theConsoles && (
+                    <ItemActions>
+                      <Button
+                        variant="destructive"
+                        aria-label={t("removeFor", { queue: schedule.queue })}
+                        onClick={() => {
+                          setRemoving(schedule.queue);
+                        }}
+                      >
+                        {t("remove")}
+                      </Button>
+                    </ItemActions>
                   )}
-                </div>
-                {removable && !theConsoles && (
-                  <Button
-                    variant="destructive"
-                    aria-label={t("removeFor", { queue: schedule.queue })}
-                    onClick={() => {
-                      setRemoving(schedule.queue);
-                    }}
-                  >
-                    {t("remove")}
-                  </Button>
-                )}
-              </li>
+                </Item>
+              </Fragment>
             );
           })}
-        </ul>
+        </ItemGroup>
       );
     }
     if (schedules.isError) {

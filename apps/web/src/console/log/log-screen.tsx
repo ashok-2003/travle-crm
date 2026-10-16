@@ -4,11 +4,13 @@
 // Loading shows rows of skeleton; an empty log says so; a failure says so with a Retry.
 import { ScrollTextIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { Fragment } from "react";
 import { Delayed } from "@/components/delayed";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { PageTitle } from "@/components/page-title";
 import { Button } from "@/components/ui/button";
+import { ItemGroup, ItemSeparator } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { LogEntry } from "./log-entry";
@@ -40,11 +42,14 @@ export function LogScreen() {
   } else {
     content = (
       <>
-        <ul className="divide-y rounded-lg border">
-          {entries.map((entry) => (
-            <LogEntry key={entry.id} entry={entry} names={names} />
+        <ItemGroup>
+          {entries.map((entry, index) => (
+            <Fragment key={entry.id}>
+              {index > 0 && <ItemSeparator />}
+              <LogEntry entry={entry} names={names} />
+            </Fragment>
           ))}
-        </ul>
+        </ItemGroup>
         {log.hasNextPage && (
           <Button
             variant="outline"

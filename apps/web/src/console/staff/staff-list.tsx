@@ -1,9 +1,19 @@
 "use client";
 
-// Platform staff on phones (DESIGN.md section 6): a divided list, each person's name and whether they can use the
+// Platform staff on phones (DESIGN.md section 6): a list of items, each person's name and whether they can use the
 // console yet first, then their address, level and when they were added (or removed). The viewer has no actions.
 import type { PlatformStaffEntry } from "@travel-crm/contracts/platform";
 import { useTranslations } from "next-intl";
+import { Fragment } from "react";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemSeparator,
+  ItemTitle,
+} from "@/components/ui/item";
 import { formatDay } from "@/lib/format";
 import { PLATFORM_TIME_ZONE } from "../platform-time-zone";
 import { useStaff } from "../session/staff-context";
@@ -16,29 +26,36 @@ export function StaffList({ people, removed = false }: { people: PlatformStaffEn
   const viewer = useStaff();
   const dayOf = (iso: string) => formatDay(new Date(iso), { timeZone: PLATFORM_TIME_ZONE });
   return (
-    <ul className="divide-y rounded-lg border">
-      {people.map((person) => {
+    <ItemGroup>
+      {people.map((person, index) => {
         const isViewer = person.userId === viewer.userId;
         return (
-          <li key={person.userId} className="flex items-start gap-2 px-4 py-3">
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <span className="flex flex-wrap items-center gap-2">
-                <span className="font-medium break-words script-leading">{person.name}</span>
-                {isViewer && <span className="text-caption text-muted-foreground">{t("you")}</span>}
-              </span>
-              <span className="text-label break-all">{person.email}</span>
-              <span className="text-caption text-muted-foreground">
-                {person.level !== null && `${tLevels(person.level)} · `}
-                {removed
-                  ? t("removedOn", { day: dayOf(person.removedAt ?? person.createdAt) })
-                  : t("addedOn", { day: dayOf(person.createdAt) })}
-              </span>
-              {!removed && <SignInState person={person} />}
-            </div>
-            {!removed && !isViewer && <StaffActions person={person} />}
-          </li>
+          <Fragment key={person.userId}>
+            {index > 0 && <ItemSeparator />}
+            <Item size="sm" role="listitem" className="items-start">
+              <ItemContent className="min-w-0">
+                <ItemTitle className="flex-wrap">
+                  <span className="script-leading">{person.name}</span>
+                  {isViewer && <span className="text-caption font-normal text-muted-foreground">{t("you")}</span>}
+                </ItemTitle>
+                <span className="text-label break-all">{person.email}</span>
+                <ItemDescription>
+                  {person.level !== null && `${tLevels(person.level)} · `}
+                  {removed
+                    ? t("removedOn", { day: dayOf(person.removedAt ?? person.createdAt) })
+                    : t("addedOn", { day: dayOf(person.createdAt) })}
+                </ItemDescription>
+                {!removed && <SignInState person={person} />}
+              </ItemContent>
+              {!removed && !isViewer && (
+                <ItemActions>
+                  <StaffActions person={person} />
+                </ItemActions>
+              )}
+            </Item>
+          </Fragment>
         );
       })}
-    </ul>
+    </ItemGroup>
   );
 }

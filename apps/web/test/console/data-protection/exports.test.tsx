@@ -11,7 +11,8 @@ import { anExport, openScreen, organizationId } from "./agency";
 
 const { dataProtection: words } = messages.consolePlatform;
 
-const itemOf = async (state: string) => within((await screen.findByText(state)).closest("li") ?? document.body);
+const itemOf = async (state: string) =>
+  within((await screen.findByText(state)).closest("[role=listitem]") ?? document.body);
 
 afterEach(() => {
   vi.unstubAllGlobals();

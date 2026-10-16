@@ -1,10 +1,12 @@
 "use client";
 
-// The dashboard's organizations on phones (DESIGN.md section 6): a divided list, each organization leading to its
+// The dashboard's organizations on phones (DESIGN.md section 6): a list of items, each organization leading to its
 // page, with its name and status on the first line and its figures below. Names wrap rather than being cut off.
 import type { OrganizationOverview } from "@travel-crm/contracts/platform";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { Fragment } from "react";
+import { Item, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle } from "@/components/ui/item";
 import { consoleRoutes } from "../routes";
 import { SubscriptionStatusBadge } from "../subscription-status";
 import { useOverviewFigures, type OverviewFigures } from "./overview-figures";
@@ -15,35 +17,39 @@ export function OrganizationsList({ organizations }: { organizations: Organizati
   const t = useTranslations("console.dashboard");
   const figuresOf = useOverviewFigures();
   return (
-    <ul className="divide-y rounded-lg border">
-      {organizations.map((organization) => {
+    <ItemGroup>
+      {organizations.map((organization, index) => {
         const figures = figuresOf(organization);
         return (
-          <li key={organization.organizationId}>
-            <Link
-              href={consoleRoutes.organization(organization.organizationId)}
-              className="flex flex-col gap-1 px-4 py-3 hover:bg-accent"
-            >
-              <span className="flex flex-wrap items-center gap-2">
-                <span className="font-medium text-primary break-words script-leading">{organization.name}</span>
-                <SubscriptionStatusBadge status={organization.status} />
-              </span>
-              <span className="text-caption text-muted-foreground">
-                <span className="numbers">{organization.code}</span>
-                {organization.planName !== null && ` · ${organization.planName}`}
-              </span>
-              <span className="flex flex-wrap gap-x-4 gap-y-1 text-label">
-                {FIGURES.map((figure) => (
-                  <span key={figure}>
-                    <span className="text-muted-foreground">{t(`columns.${figure}`)}</span>{" "}
-                    <span className="numbers">{figures[figure]}</span>
-                  </span>
-                ))}
-              </span>
-            </Link>
-          </li>
+          <Fragment key={organization.organizationId}>
+            {index > 0 && <ItemSeparator />}
+            <div role="listitem">
+              <Item size="sm" asChild>
+                <Link href={consoleRoutes.organization(organization.organizationId)}>
+                  <ItemContent>
+                    <ItemTitle className="flex-wrap">
+                      <span className="text-primary wrap-anywhere script-leading">{organization.name}</span>
+                      <SubscriptionStatusBadge status={organization.status} />
+                    </ItemTitle>
+                    <ItemDescription>
+                      <span className="numbers">{organization.code}</span>
+                      {organization.planName !== null && ` · ${organization.planName}`}
+                    </ItemDescription>
+                    <span className="flex flex-wrap gap-x-4 gap-y-1 text-label">
+                      {FIGURES.map((figure) => (
+                        <span key={figure}>
+                          <span className="text-muted-foreground">{t(`columns.${figure}`)}</span>{" "}
+                          <span className="numbers">{figures[figure]}</span>
+                        </span>
+                      ))}
+                    </span>
+                  </ItemContent>
+                </Link>
+              </Item>
+            </div>
+          </Fragment>
         );
       })}
-    </ul>
+    </ItemGroup>
   );
 }

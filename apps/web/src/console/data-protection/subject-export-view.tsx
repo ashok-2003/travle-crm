@@ -4,6 +4,7 @@
 // member), how many audit entries name them, and their files, each with a link that works for 15 minutes.
 import type { SubjectExport } from "@travel-crm/contracts/platform";
 import { useTranslations } from "next-intl";
+import { Card, CardContent } from "@/components/ui/card";
 import { formatFileSize } from "@/files/file-size";
 import { formatDay } from "@/lib/format";
 import { shownEmail } from "@/lib/shown-email";
@@ -27,44 +28,46 @@ export function SubjectExportView({ exported }: { exported: SubjectExport }) {
           { label: t("personFacts.removed"), value: person.removedAt === null ? null : dayOf(person.removedAt) },
         ];
   return (
-    <div className="flex flex-col gap-3 rounded-lg border px-4 py-3">
-      <p className="text-caption text-muted-foreground">
-        {t("exportedAt", { when: instantText(exported.exportedAt) })}
-      </p>
-      {facts.length > 0 && (
-        <dl className="grid gap-x-4 gap-y-1 sm:grid-cols-[max-content_1fr]">
-          {facts.map((fact) =>
-            fact.value === null ? null : (
-              <div key={fact.label} className="contents">
-                <dt className="text-label text-muted-foreground">{fact.label}</dt>
-                <dd className="break-words script-leading">{fact.value}</dd>
-              </div>
-            ),
-          )}
-        </dl>
-      )}
-      <p className="numbers text-label">{t("auditEntries", { count: exported.auditEntries.length })}</p>
-      {exported.files.length === 0 ? (
-        <p className="text-label text-muted-foreground">{t("noFiles")}</p>
-      ) : (
-        <ul className="flex flex-col">
-          {exported.files.map((file) => (
-            <li key={file.id} className="flex min-h-11 flex-wrap items-center gap-x-3">
-              {file.downloadUrl === null ? (
-                <span className="break-all">{file.fileName}</span>
-              ) : (
-                <a href={file.downloadUrl} className="text-primary underline-offset-4 break-all hover:underline">
-                  {file.fileName}
-                </a>
-              )}
-              <span className="numbers text-caption text-muted-foreground">{formatFileSize(file.sizeBytes)}</span>
-              {file.sensitive && <span className="text-caption text-muted-foreground">{t("sensitive")}</span>}
-              {file.deleted && <span className="text-caption text-muted-foreground">{t("deletedFile")}</span>}
-              {file.downloadUrl === null && <span className="text-caption text-muted-foreground">{t("noLink")}</span>}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+    <Card>
+      <CardContent className="flex flex-col gap-3">
+        <p className="text-caption text-muted-foreground">
+          {t("exportedAt", { when: instantText(exported.exportedAt) })}
+        </p>
+        {facts.length > 0 && (
+          <dl className="grid gap-x-4 gap-y-1 sm:grid-cols-[max-content_1fr]">
+            {facts.map((fact) =>
+              fact.value === null ? null : (
+                <div key={fact.label} className="contents">
+                  <dt className="text-label text-muted-foreground">{fact.label}</dt>
+                  <dd className="break-words script-leading">{fact.value}</dd>
+                </div>
+              ),
+            )}
+          </dl>
+        )}
+        <p className="numbers text-label">{t("auditEntries", { count: exported.auditEntries.length })}</p>
+        {exported.files.length === 0 ? (
+          <p className="text-label text-muted-foreground">{t("noFiles")}</p>
+        ) : (
+          <ul className="flex flex-col">
+            {exported.files.map((file) => (
+              <li key={file.id} className="flex min-h-11 flex-wrap items-center gap-x-3">
+                {file.downloadUrl === null ? (
+                  <span className="break-all">{file.fileName}</span>
+                ) : (
+                  <a href={file.downloadUrl} className="text-primary underline-offset-4 break-all hover:underline">
+                    {file.fileName}
+                  </a>
+                )}
+                <span className="numbers text-caption text-muted-foreground">{formatFileSize(file.sizeBytes)}</span>
+                {file.sensitive && <span className="text-caption text-muted-foreground">{t("sensitive")}</span>}
+                {file.deleted && <span className="text-caption text-muted-foreground">{t("deletedFile")}</span>}
+                {file.downloadUrl === null && <span className="text-caption text-muted-foreground">{t("noLink")}</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
   );
 }

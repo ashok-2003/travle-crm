@@ -13,6 +13,16 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { Fragment } from "react";
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemSeparator,
+  ItemTitle,
+} from "@/components/ui/item";
 import { routes } from "@/lib/routes";
 import { holds, useMe } from "@/session/me-context";
 
@@ -42,20 +52,27 @@ export function SettingsSections() {
       <h2 id="sections-heading" className="text-section font-semibold">
         {t("heading")}
       </h2>
-      <ul className="divide-y rounded-lg border">
-        {shown.map((section) => (
-          <li key={section.key}>
-            <Link href={section.href} className="flex min-h-14 items-center gap-3 px-4 py-3 hover:bg-accent">
-              <section.icon aria-hidden="true" className="size-5 shrink-0 text-muted-foreground" />
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="font-medium">{t(section.key)}</span>
-                <span className="text-label text-muted-foreground">{t(`${section.key}Hint`)}</span>
-              </span>
-              <ChevronRightIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-            </Link>
-          </li>
+      <ItemGroup>
+        {shown.map((section, index) => (
+          <Fragment key={section.key}>
+            {index > 0 && <ItemSeparator />}
+            <div role="listitem">
+              <Item size="sm" asChild>
+                <Link href={section.href}>
+                  <ItemMedia variant="icon">
+                    <section.icon aria-hidden="true" />
+                  </ItemMedia>
+                  <ItemContent>
+                    <ItemTitle>{t(section.key)}</ItemTitle>
+                    <ItemDescription>{t(`${section.key}Hint`)}</ItemDescription>
+                  </ItemContent>
+                  <ChevronRightIcon aria-hidden="true" className="size-4" />
+                </Link>
+              </Item>
+            </div>
+          </Fragment>
         ))}
-      </ul>
+      </ItemGroup>
     </section>
   );
 }

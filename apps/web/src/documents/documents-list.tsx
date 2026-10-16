@@ -1,9 +1,19 @@
 "use client";
 
 // The issued documents (DESIGN.md section 6): a table on tablets and wider, newest first, numbers and times mono; a
-// divided list on phones with the number and status on the first line and the document and time on the second.
+// list of items on phones with the number and status on the first line and the document and time on the second.
 import type { IssuedDocumentSummary } from "@travel-crm/contracts/documents";
 import { useTranslations } from "next-intl";
+import { Fragment } from "react";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemSeparator,
+  ItemTitle,
+} from "@/components/ui/item";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDay, formatTime } from "@/lib/format";
 import { useWideScreen } from "@/lib/use-wide-screen";
@@ -22,23 +32,28 @@ export function DocumentsList({ documents }: { documents: IssuedDocumentSummary[
 
   if (!wide) {
     return (
-      <ul className="divide-y rounded-lg border">
-        {documents.map((document) => (
-          <li key={document.id} className="flex items-start gap-3 px-4 py-3">
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="numbers font-medium">{document.number}</span>
-                <DocumentStatus document={document} />
-              </div>
-              <p className="text-label text-muted-foreground break-words script-leading">
-                {document.title} · {t(`templates.${document.template}`)} ·{" "}
-                <span className="numbers">{issued(document)}</span>
-              </p>
-            </div>
-            <DocumentActions document={document} />
-          </li>
+      <ItemGroup>
+        {documents.map((document, index) => (
+          <Fragment key={document.id}>
+            {index > 0 && <ItemSeparator />}
+            <Item size="sm" role="listitem" className="items-start">
+              <ItemContent className="min-w-0">
+                <ItemTitle className="flex-wrap">
+                  <span className="numbers">{document.number}</span>
+                  <DocumentStatus document={document} />
+                </ItemTitle>
+                <ItemDescription className="break-words script-leading">
+                  {document.title} · {t(`templates.${document.template}`)} ·{" "}
+                  <span className="numbers">{issued(document)}</span>
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                <DocumentActions document={document} />
+              </ItemActions>
+            </Item>
+          </Fragment>
         ))}
-      </ul>
+      </ItemGroup>
     );
   }
 

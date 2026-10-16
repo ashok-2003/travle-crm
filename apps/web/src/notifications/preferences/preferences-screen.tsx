@@ -5,10 +5,12 @@
 // once. Support impersonating the person sees the choices but can't change them (consent is the person's own), and
 // staff who sign in without email are told why none reaches them.
 import { useTranslations } from "next-intl";
-import { useId } from "react";
+import { Fragment, useId } from "react";
 import { Delayed } from "@/components/delayed";
 import { ErrorState } from "@/components/error-state";
 import { PageTitle } from "@/components/page-title";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { shownEmail } from "@/lib/shown-email";
 import { useMe } from "@/session/me-context";
@@ -60,20 +62,27 @@ export function NotificationPreferencesScreen() {
           <p className="text-label text-muted-foreground">{t("impersonating", { name: me.user.name })}</p>
         )}
         {!hasEmail && <p className="text-label text-muted-foreground">{t("noEmail")}</p>}
-        <div className="divide-y rounded-lg border">
-          {rows.map(({ kind, label, hint }) => (
-            <PreferenceRow
-              key={kind}
-              label={label}
-              hint={hint}
-              receives={{ email: hasEmail && reaches(choices, "email", kind), push: reaches(choices, "push", kind) }}
-              disabled={{ email: impersonated || !hasEmail, push: impersonated }}
-              onChange={(channel, receives) => {
-                change.mutate({ channel, kind, optedOut: !receives });
-              }}
-            />
-          ))}
-        </div>
+        <Card>
+          <CardContent className="flex flex-col gap-3">
+            {rows.map(({ kind, label, hint }, index) => (
+              <Fragment key={kind}>
+                {index > 0 && <Separator />}
+                <PreferenceRow
+                  label={label}
+                  hint={hint}
+                  receives={{
+                    email: hasEmail && reaches(choices, "email", kind),
+                    push: reaches(choices, "push", kind),
+                  }}
+                  disabled={{ email: impersonated || !hasEmail, push: impersonated }}
+                  onChange={(channel, receives) => {
+                    change.mutate({ channel, kind, optedOut: !receives });
+                  }}
+                />
+              </Fragment>
+            ))}
+          </CardContent>
+        </Card>
         <p className="text-label text-muted-foreground">{t("kindWins")}</p>
       </>
     );

@@ -5,11 +5,12 @@
 // says so, for the queue when one is chosen; a failure says so with a Retry.
 import { CircleCheckIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Delayed } from "@/components/delayed";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { Button } from "@/components/ui/button";
+import { ItemGroup, ItemSeparator } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { FailedJobItem } from "./failed-job-item";
@@ -41,11 +42,14 @@ export function FailedJobsSection() {
   } else {
     content = (
       <>
-        <ul className="divide-y rounded-lg border">
-          {jobs.map((job) => (
-            <FailedJobItem key={`${job.queue}:${job.id}`} job={job} />
+        <ItemGroup>
+          {jobs.map((job, index) => (
+            <Fragment key={`${job.queue}:${job.id}`}>
+              {index > 0 && <ItemSeparator />}
+              <FailedJobItem job={job} />
+            </Fragment>
           ))}
-        </ul>
+        </ItemGroup>
         {failed.hasNextPage && (
           <Button
             variant="outline"
