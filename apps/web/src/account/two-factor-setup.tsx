@@ -9,9 +9,9 @@
 import { useTranslations } from "next-intl";
 import { useId, useState, type SubmitEvent } from "react";
 import { PageTitle } from "@/components/page-title";
+import { PasswordInput } from "@/components/password-input";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { authClient, type AuthClient } from "@/data/auth-client";
 import { routes } from "@/lib/routes";
@@ -110,9 +110,8 @@ export function TwoFactorSetup({
           <p>{t("twoFactorSetup.passwordStep")}</p>
           <Field>
             <FieldLabel htmlFor={`${id}-password`}>{t("fields.password")}</FieldLabel>
-            <Input
+            <PasswordInput
               id={`${id}-password`}
-              type="password"
               autoComplete="current-password"
               value={password}
               onChange={(event) => {
@@ -143,7 +142,7 @@ export function TwoFactorSetup({
           <QrCode
             value={step.totpUri}
             label={t("twoFactorSetup.qrLabel")}
-            className="size-48 self-center rounded-lg border bg-background p-2 text-foreground"
+            className="size-48 self-center text-foreground"
           />
           <p className="text-label text-muted-foreground">
             {t("twoFactorSetup.manualKey")}{" "}

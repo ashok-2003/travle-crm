@@ -17,10 +17,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { Item } from "@/components/ui/item";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { SidebarMenuButton, SidebarProvider } from "@/components/ui/sidebar";
 import { Switch } from "@/components/ui/switch";
 import { TableHead, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -39,6 +42,8 @@ vi.stubGlobal(
   },
 );
 Object.assign(Element.prototype, { scrollIntoView: noop, hasPointerCapture: () => false });
+// The sidebar asks whether the screen is wide; this one is.
+vi.stubGlobal("matchMedia", () => ({ matches: true, addEventListener: noop, removeEventListener: noop }));
 
 function expectTarget(element: Element, { square = false } = {}) {
   const { width, height } = targetSize(element);
@@ -55,6 +60,43 @@ describe("touch targets", () => {
   it("an input", () => {
     render(<Input aria-label="Name" />);
     expectTarget(screen.getByRole("textbox"));
+  });
+
+  it("an input group's input", () => {
+    render(
+      <InputGroup>
+        <InputGroupInput aria-label="Name" />
+      </InputGroup>,
+    );
+    expectTarget(screen.getByRole("group"));
+    expectTarget(screen.getByRole("textbox"));
+  });
+
+  it.each(["sm", "icon-sm"] as const)("an input group's %s button", (size) => {
+    render(<InputGroupButton size={size} aria-label="Show" />);
+    expectTarget(screen.getByRole("button"), { square: size === "icon-sm" });
+  });
+
+  it.each(["default", "lg"] as const)(
+    "a %s sidebar menu button, at least 44px so a wrapping name can grow it",
+    (size) => {
+      render(
+        <SidebarProvider>
+          <SidebarMenuButton size={size}>Staff</SidebarMenuButton>
+        </SidebarProvider>,
+      );
+      expect(screen.getByRole("button").className).toMatch(/(^| )min-h-1[12]( |$)/);
+      expectTarget(screen.getByRole("button"));
+    },
+  );
+
+  it.each(["default", "sm"] as const)("a %s item that is a link", (size) => {
+    render(
+      <Item size={size} asChild>
+        <a href="/staff">Staff</a>
+      </Item>,
+    );
+    expectTarget(screen.getByRole("link"));
   });
 
   it("a checkbox, through its hit area", () => {

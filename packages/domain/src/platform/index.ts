@@ -55,6 +55,7 @@ export {
   cancel,
   changePlan,
   getSubscription,
+  liftSuspension,
   recordPayment,
   setOverrides,
   setPaidThrough,

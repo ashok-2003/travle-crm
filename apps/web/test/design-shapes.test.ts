@@ -53,6 +53,8 @@ describe("radii", () => {
     expect(ui("card.tsx")).not.toContain("rounded-xl");
     expect(ui("dialog.tsx")).toContain("rounded-xl");
     expect(ui("input.tsx")).toContain("rounded-sm");
+    expect(ui("input-group.tsx")).toMatch(/data-slot="input-group"[\s\S]*?rounded-sm/);
+    expect(ui("textarea.tsx")).toContain("rounded-sm");
     expect(ui("select.tsx")).toMatch(/SelectPrimitive\.Trigger[\s\S]*rounded-sm/);
   });
 });
@@ -111,7 +113,7 @@ describe("the shadcn components", () => {
     expect(source, "numeric z-index").not.toMatch(/\bz-\d+\b/);
     expect(source, "a focus ring on top of the global outline").not.toMatch(/focus-visible:(ring|outline)-/);
     expect(source, "a ring in place of the hairline border").not.toContain("ring-foreground/10");
-    if (name === "select.tsx" || name === "table.tsx") {
+    if (["select.tsx", "table.tsx", "sidebar.tsx", "item.tsx"].includes(name)) {
       expect(source, "clipped names").not.toMatch(/line-clamp|whitespace-nowrap|truncate/);
     }
   });
@@ -124,10 +126,14 @@ describe("the shadcn components", () => {
   it.each([
     ["popover.tsx", "z-(--z-dialog)"],
     ["tooltip.tsx", "z-(--z-tooltip)"],
-  ])("%s floats on its layer with the overlay shadow", (name, layer) => {
-    const source = ui(name);
-    expect(source).toContain(layer);
+  ])("%s floats on its layer", (name, layer) => {
+    expect(ui(name)).toContain(layer);
+  });
+
+  it("the popover keeps the registry's shadow, with a hairline border instead of its ring", () => {
+    const source = ui("popover.tsx");
     expect(source).toContain("shadow-md");
+    expect(source).not.toContain("ring-1");
   });
 
   it("text areas are shaped as inputs: 6px, canvas fill, 16px text at every width", () => {
@@ -137,7 +143,8 @@ describe("the shadcn components", () => {
     expect(source).not.toMatch(/md:text-sm/);
   });
 
-  it("table headers are surface-toned", () => {
-    expect(ui("table.tsx")).toContain("bg-muted");
+  it("table headers are shadcn's own, with no fill on top", () => {
+    const header = /function TableHeader[\s\S]*?cn\("([^"]*)"/.exec(ui("table.tsx"))?.[1];
+    expect(header).toBe("[&_tr]:border-b");
   });
 });

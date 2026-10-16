@@ -13,6 +13,7 @@ import { DataProviders } from "@/data/providers";
 import { locale, messages } from "@/i18n/messages";
 import { loadPage } from "@/lib/navigate";
 import { stubApi } from "../support/api-stub";
+import { screenIs } from "../organization/render";
 import { platformStaff } from "../support/platform-staff";
 
 vi.mock("@/lib/navigate", () => ({ loadPage: vi.fn(), replacePage: vi.fn() }));
@@ -21,6 +22,7 @@ vi.mock("next/navigation", () => ({ usePathname: () => "/console" }));
 const { navigation } = messages.console;
 
 function renderShell(level: "support" | "super-admin", queryClient = new QueryClient()) {
+  screenIs("wide");
   return render(
     <NextIntlClientProvider locale={locale} messages={messages}>
       <DataProviders>
@@ -36,6 +38,15 @@ function renderShell(level: "support" | "super-admin", queryClient = new QueryCl
   );
 }
 
+/** The registry's sidebar, which is a plain block rather than a landmark. */
+async function findSidebar(): Promise<HTMLElement> {
+  return vi.waitFor(() => {
+    const sidebar = document.querySelector<HTMLElement>("[data-slot=sidebar]");
+    if (!sidebar) throw new Error("the sidebar is missing");
+    return sidebar;
+  });
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.mocked(loadPage).mockReset();
@@ -45,7 +56,7 @@ describe("ConsoleShell", () => {
   it("shows a super admin every destination, the page, and who is signed in at which level", async () => {
     stubApi({});
     renderShell("super-admin");
-    const sidebar = within(await screen.findByRole("complementary"));
+    const sidebar = within(await findSidebar());
     for (const destination of ["home", "onboard", "plans", "jobs", "log", "staff"] as const) {
       expect(sidebar.getByRole("link", { name: navigation[destination] })).toBeVisible();
     }
@@ -58,7 +69,7 @@ describe("ConsoleShell", () => {
   it("shows support no Staff destination", async () => {
     stubApi({});
     renderShell("support");
-    const sidebar = within(await screen.findByRole("complementary"));
+    const sidebar = within(await findSidebar());
     expect(sidebar.queryByRole("link", { name: navigation.staff })).toBeNull();
     expect(screen.getByText(messages.console.levels.support)).toBeVisible();
   });
@@ -78,7 +89,7 @@ describe("ConsoleShell", () => {
     const queryClient = new QueryClient();
     queryClient.setQueryData(["platform", "dashboard"], { organizations: ["Sharma Travels"] });
     renderShell("support", queryClient);
-    const sidebar = await screen.findByRole("complementary");
+    const sidebar = await findSidebar();
     await userEvent.click(within(sidebar).getByRole("button", { name: navigation.signOut }));
     await vi.waitFor(() => {
       expect(loadPage).toHaveBeenCalledWith("/sign-in");

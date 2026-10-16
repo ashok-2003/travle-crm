@@ -54,8 +54,8 @@ its message or the error itself, which can quote a person's data (a Prisma valid
   (`PlatformServices.log`).
 - **An error nothing handled**, in any of the three once started (a promise rejected with no handler, an exception
   nothing caught): one line, `<process>: unhandled rejection: ...` or `<process>: uncaught exception: ...`, by names
-  and codes, never Node's default print of the whole error; then the same drain as SIGTERM, exiting 1
-  (`stopOnUnhandledErrors` in `src/start-up.ts`).
+  and codes, never Node's default print of the whole error; then the same drain as SIGTERM, exiting 1, or after 45
+  seconds exiting 1 anyway, should the drain hang (`stopOnUnhandledErrors` in `src/start-up.ts`).
 - **Start-up is the one exception.** A process that can't start prints one `<process> start-up failed` message with
   the error in full, closes its pools and exits 1. Only set-up has run by then, so the error quotes no one's data
   (`src/start-up.ts`).

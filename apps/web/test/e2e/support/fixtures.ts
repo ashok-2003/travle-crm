@@ -1,6 +1,6 @@
-// What every journey starts from: the web app's address, and a new organization of its own with an Owner who signs
-// in by email and an active subscription, made directly in the database the way onboarding (plan 4) does. Staff are
-// added the same way. Every journey also ends with an accessibility check of its last screen
+// What every journey starts from: the web app's address, and a new organization of its own, on an active
+// subscription, with an Owner who signs in by email, made directly in the database the way onboarding (plan 4) does.
+// Staff are added the same way. Every journey also ends with an accessibility check of its last screen
 // (accessible-after-each.ts).
 import { expect, type Page } from "@playwright/test";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";

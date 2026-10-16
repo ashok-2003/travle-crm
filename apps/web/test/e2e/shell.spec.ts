@@ -51,6 +51,29 @@ test("pointing at a destination loads its data before it opens", async ({ page, 
   await staffList;
 });
 
+test("on a desktop the sidebar stays put while a long page scrolls", async ({ page, agency }, testInfo) => {
+  test.skip(isPhone(testInfo), "phones have the bottom bar, which is fixed already");
+  // A short window: the account page is longer than it, and so is the sidebar, whose own content then scrolls.
+  await page.setViewportSize({ width: 1280, height: 320 });
+  await signInByEmail(page, agency.owner);
+  await page.goto("/account");
+  await expect(page.getByRole("heading", { level: 1, name: "Your account" })).toBeVisible();
+  const navigation = page.getByRole("navigation", { name: "Main" });
+  const before = await navigation.boundingBox();
+  await page.evaluate(() => {
+    window.scrollTo(0, document.documentElement.scrollHeight);
+  });
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  expect(await navigation.boundingBox()).toEqual(before);
+  expect(await page.locator("[data-slot=sidebar-container]").boundingBox()).toEqual({
+    x: 0,
+    y: 0,
+    width: 232,
+    height: 320,
+  });
+  await expect(page.getByRole("button", { name: "Sign out" })).toBeInViewport();
+});
+
 test("pages carry the security headers, and the token and offline pages send only their origin as referrer", async ({
   page,
 }) => {

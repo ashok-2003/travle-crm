@@ -18,6 +18,7 @@ import {
   cancel,
   changePlan,
   getSubscription,
+  liftSuspension,
   recordPayment,
   setOverrides,
   setPaidThrough,
@@ -25,7 +26,6 @@ import {
   suspend,
   voidPayment,
 } from "@travel-crm/domain/platform";
-import { liftSuspension } from "@travel-crm/domain/subscriptions";
 import { staffProcedure, superAdminProcedure } from "../procedures.js";
 import { platformT } from "../trpc.js";
 
@@ -66,7 +66,7 @@ export const subscriptionsRouter = platformT.router({
   liftSuspension: superAdminProcedure
     .input(endAccessInput)
     .output(subscriptionDetails)
-    .mutation(({ ctx, input }) => ctx.services.platformDb.transaction((tx) => liftSuspension(tx, ctx.staff, input))),
+    .mutation(({ ctx, input }) => liftSuspension(ctx.services, ctx.staff, input)),
   cancel: staffProcedure
     .input(endAccessInput)
     .output(subscriptionDetails)

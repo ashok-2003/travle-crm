@@ -6,11 +6,15 @@ import { render, screen, within } from "@testing-library/react";
 import { NextIntlClientProvider, createTranslator } from "next-intl";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AccountScreen } from "@/account/account-screen";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { DataProviders } from "@/data/providers";
 import { locale, messages } from "@/i18n/messages";
 import { MeProvider } from "@/session/me-context";
-import { AppShell } from "@/shell/app-shell";
+import { BottomBar } from "@/shell/bottom-bar";
+import { AppSidebar } from "@/shell/sidebar";
+import { TopBar } from "@/shell/top-bar";
 import { renderScreen } from "../account/render";
+import { screenIs } from "../organization/render";
 import { stubApi } from "../support/api-stub";
 import { member } from "../support/members";
 
@@ -25,20 +29,29 @@ afterEach(() => {
 
 describe("the bell in the app's frame", () => {
   it("sits in the sidebar and in the phone's top bar, leaving the bottom bar its destinations", async () => {
+    screenIs("wide");
     stubApi({ "notifications.unreadCount": { data: 2 } });
     render(
       <NextIntlClientProvider locale={locale} messages={messages} timeZone="Asia/Kolkata">
         <DataProviders>
           <MeProvider me={member({ isOwner: true })}>
-            <AppShell>
-              <p>The page</p>
-            </AppShell>
+            {/* The frame as (app)/layout.tsx puts it together. */}
+            <SidebarProvider>
+              <AppSidebar />
+              <SidebarInset>
+                <TopBar />
+                <p>The page</p>
+              </SidebarInset>
+              <BottomBar />
+            </SidebarProvider>
           </MeProvider>
         </DataProviders>
       </NextIntlClientProvider>,
     );
     const name = t("label", { count: 2 });
-    expect(await within(await screen.findByRole("complementary")).findByRole("button", { name })).toBeVisible();
+    const sidebar = document.querySelector<HTMLElement>("[data-slot=sidebar]");
+    if (!sidebar) throw new Error("the sidebar is missing");
+    expect(await within(sidebar).findByRole("button", { name })).toBeVisible();
     const topBar = within(screen.getByRole("banner"));
     expect(topBar.getByText("Sharma Travels")).toBeVisible();
     expect(await topBar.findByRole("button", { name })).toBeVisible();

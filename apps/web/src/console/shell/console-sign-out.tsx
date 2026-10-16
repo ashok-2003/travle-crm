@@ -8,16 +8,21 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { usePageData } from "@/data/providers";
 
-export function ConsoleSignOutButton({ className }: { className?: string }) {
-  const t = useTranslations("console.navigation");
+/** Signing out of the console, for the button here and the sidebar's menu button. */
+export function useConsoleSignOut(): () => void {
   // The console's own cache: ConsoleProviders' QueryClientProvider is the nearest.
   const queryClient = useQueryClient();
   const page = usePageData();
-  const signOut = () => {
+  return () => {
     void queryClient.cancelQueries();
     queryClient.clear();
     void page.signOut();
   };
+}
+
+export function ConsoleSignOutButton({ className }: { className?: string }) {
+  const t = useTranslations("console.navigation");
+  const signOut = useConsoleSignOut();
   return (
     <Button variant="ghost" className={className} onClick={signOut}>
       <LogOutIcon aria-hidden="true" />

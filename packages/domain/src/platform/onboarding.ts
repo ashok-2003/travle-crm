@@ -55,13 +55,21 @@ export async function onboardOrganization(
         return invited;
       });
       // A subscription is written only by the platform role, so it comes after the step back out.
-      await startSubscription(tx, staff, { organizationId: organization.id, ...input.subscription });
+      const started = await startSubscription(tx, staff, { organizationId: organization.id, ...input.subscription });
+      // The terms it starts on, for a super admin's review of what support gave: a paid-through day is free time.
       await recordPlatformAudit(tx, staff, {
         action: "organization.onboarded",
         targetType: "organization",
         targetId: organization.id,
         targetOrganizationId: organization.id,
-        after: { code: organization.code, planId: input.subscription.planId },
+        after: {
+          code: organization.code,
+          planId: started.plan.id,
+          billingCycle: started.billingCycle,
+          status: started.status,
+          trialEndsOn: started.trialEndsOn,
+          paidThrough: started.paidThrough,
+        },
       });
       return { organizationId: organization.id, code: organization.code, ownerMemberId: owner.memberId };
     },

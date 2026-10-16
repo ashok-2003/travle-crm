@@ -59,25 +59,42 @@ export async function startProcess<T>(
   }
 }
 
-/** What the last resort listens on: the process itself, unless a test gives an emitter of its own. */
-type ProcessEvents = Pick<NodeJS.EventEmitter, "on">;
+/**
+ * How long the drain after an error nothing handled may take: past pg-boss's 30 seconds for running jobs, with room to
+ * close the pools. After an uncaught exception Node calls the process's state undefined, so a drain that hangs (a
+ * stuck pool, a keep-alive the server won't close) must not leave it up and serving nothing.
+ */
+const DRAIN_LIMIT_MS = 45_000;
+
+export interface LastResortOptions {
+  /** What it listens on: the process itself, unless a test gives an emitter of its own. */
+  events?: Pick<NodeJS.EventEmitter, "on">;
+  /** How it ends the process when the drain takes too long: process.exit, unless a test gives another. */
+  exit?: (exitCode: 1) => void;
+}
 
 /**
  * A promise rejected with nothing to handle it, or an exception nothing caught, ends the process as SIGTERM does, but
  * exiting 1: one line in the process's log by names and codes (Node's default prints the error in full, with its
  * message, which can quote what the code was working on: an email address, a reset link), then `drain`, the process's
- * own shutdown. Another one while it drains is logged and drains nothing more.
+ * own shutdown, which has 45 seconds before the process exits anyway. Another one while it drains is logged and
+ * drains nothing more.
  */
 export function stopOnUnhandledErrors(
   log: ProcessLog,
   drain: (exitCode: 1) => void,
-  events: ProcessEvents = process,
+  { events = process, exit = (exitCode) => process.exit(exitCode) }: LastResortOptions = {},
 ): void {
   let draining = false;
   const stop = (what: string) => (error: unknown) => {
     log(`${what}: ${describeError(error)}`);
     if (draining) return;
     draining = true;
+    // Unref'd: a drain that finishes exits at once, never waiting on this.
+    setTimeout(() => {
+      log("the drain took over 45 seconds: exiting");
+      exit(1);
+    }, DRAIN_LIMIT_MS).unref();
     drain(1);
   };
   events.on("unhandledRejection", stop("unhandled rejection"));
