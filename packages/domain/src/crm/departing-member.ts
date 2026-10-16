@@ -1,18 +1,21 @@
-// When someone leaves (spec 4, R15, R37): on staff.removed their open leads, each with its open tasks, and then their
-// open standalone tasks go to the agency's Owner, as the system's change (audit log and timeline), telling nobody;
-// managers reassign from there. A listener's transaction has 5 seconds, so the work goes 50 at a time, each batch in
-// its own transaction; what a batch moved is no longer the member's, so a repeat or a retry after a crash moves only
-// what is left. Closed leads stay with the member, as do finished tasks.
+// When someone leaves (spec 4, R15, R37): on staff.removed their open leads, each with its open tasks, then the closed
+// leads that still hold open tasks of theirs (a Won lead keeps its follow-ups, which would otherwise sit in nobody's
+// Today), then their open standalone tasks go to the agency's Owner, as the system's change (audit log and timeline),
+// telling nobody; managers reassign from there. A listener's transaction has 5 seconds, so the work goes 50 at a time,
+// each batch in its own transaction; what a batch moved is no longer the member's, so a repeat or a retry after a crash
+// moves only what is left. Other closed leads stay with the member, as do finished tasks.
 import { openLeadStages } from "@travel-crm/contracts/crm";
 import { staffRemovedEvent } from "@travel-crm/contracts/identity";
+import { joinSql, sql, type OrgTx, type Sql } from "@travel-crm/db";
 import { ownMessage } from "@travel-crm/integrations/jobs";
+import type { Actor } from "../kernel/index.js";
 import { defineListener, type EventListener, type ListenerContext } from "../jobs/index.js";
-import { reassignOpenStandaloneTasks } from "../tasks/index.js";
+import { listOpenRecordTasksOf, reassignOpenStandaloneTasks } from "../tasks/index.js";
 import { changeLeadOwner } from "./lead-core.js";
 
 /**
- * Leads, or standalone tasks, moved in one transaction. Not R37's 200: under a loaded database one batch of 200 ran past
- * the 5 seconds, and a batch that can't finish fails again on every retry; 50 leads take about a fifth of a second on a
+ * Leads, or tasks, handled in one transaction. Not R37's 200: under a loaded database one batch of 200 ran past the 5
+ * seconds, and a batch that can't finish fails again on every retry; 50 leads take about a fifth of a second on a
  * quiet one.
  */
 const HAND_OVER_BATCH = 50;
@@ -27,23 +30,53 @@ interface HandOver {
   toUserId: string;
 }
 
-/** Moves the member's open leads, a batch a transaction, until a batch finds fewer than a full one. */
+/**
+ * Locks the member's live leads that match, in id order, and gives each to the Owner. FOR UPDATE makes Postgres check
+ * the condition again on a row another transaction was changing: a lead a manager reassigned or closed meanwhile no
+ * longer matches once that change commits, and keeps it.
+ */
+async function moveLockedLeads(tx: OrgTx, actor: Actor, handOver: HandOver, matching: Sql): Promise<number> {
+  const leads = await tx.$queryRaw<{ id: string }[]>`
+    SELECT id FROM lead
+    WHERE owner_user_id = ${handOver.fromUserId}::uuid AND deleted_at IS NULL AND ${matching}
+    ORDER BY id
+    LIMIT ${HAND_OVER_BATCH}
+    FOR UPDATE`;
+  // One at a time: each change moves its lead's open tasks with it (P9).
+  for (const lead of leads) await changeLeadOwner(tx, actor, { leadId: lead.id, ownerUserId: handOver.toUserId });
+  return leads.length;
+}
+
 async function handOverOpenLeads(context: ListenerContext, handOver: HandOver): Promise<void> {
+  const open = sql`stage IN (${joinSql(
+    openLeadStages.map((stage) => sql`${stage}`),
+    ", ",
+  )})`;
   for (;;) {
-    const found = await context.forOrg(async (tx) => {
-      const leads = await tx.lead.findMany({
-        where: { ownerUserId: handOver.fromUserId, stage: { in: [...openLeadStages] } },
-        select: { id: true },
-        orderBy: { id: "asc" },
-        take: HAND_OVER_BATCH,
+    const moved = await context.forOrg((tx) => moveLockedLeads(tx, context.actor, handOver, open));
+    if (moved < HAND_OVER_BATCH) return;
+  }
+}
+
+/** The leads still the member's that hold open tasks of theirs, a page of those tasks a transaction. */
+async function handOverLeadsWithOpenTasks(context: ListenerContext, handOver: HandOver): Promise<void> {
+  let after: string | undefined;
+  for (;;) {
+    const page = await context.forOrg(async (tx) => {
+      const tasks = await listOpenRecordTasksOf(tx, {
+        assigneeUserId: handOver.fromUserId,
+        recordType: "lead",
+        limit: HAND_OVER_BATCH,
+        ...(after === undefined ? {} : { after }),
       });
-      // One at a time: each change locks its lead and moves its open tasks with it (P9).
-      for (const lead of leads) {
-        await changeLeadOwner(tx, context.actor, { leadId: lead.id, ownerUserId: handOver.toUserId });
+      const leadIds = [...new Set(tasks.flatMap((task) => (task.record === null ? [] : [task.record.recordId])))];
+      if (leadIds.length > 0) {
+        await moveLockedLeads(tx, context.actor, handOver, sql`id = ANY(${leadIds}::uuid[])`);
       }
-      return leads.length;
+      return { found: tasks.length, last: tasks.at(-1)?.id };
     });
-    if (found < HAND_OVER_BATCH) return;
+    if (page.found < HAND_OVER_BATCH || page.last === undefined) return;
+    after = page.last;
   }
 }
 
@@ -73,6 +106,7 @@ export function handOverDepartingMemberListener(dependencies: DepartingMemberDep
       const handOver = { fromUserId: event.payload.userId, toUserId };
       if (handOver.fromUserId === toUserId) return;
       await handOverOpenLeads(context, handOver);
+      await handOverLeadsWithOpenTasks(context, handOver);
       await handOverStandaloneTasks(context, handOver);
     },
   });

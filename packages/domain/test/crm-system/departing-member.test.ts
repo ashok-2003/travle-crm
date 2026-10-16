@@ -1,15 +1,18 @@
-// When someone leaves (spec 4, R15, R37): on staff.removed, their open leads, with those leads' open tasks, and their
-// open standalone tasks go to the agency's Owner, as the system's change, 50 leads a transaction; closed leads and
-// finished tasks stay as they were, and the event coming again changes nothing more.
+// When someone leaves (spec 4, R15, R37): on staff.removed, their open leads, with those leads' open tasks, the closed
+// leads that still hold open tasks of theirs (a Won lead keeps its follow-ups), and their open standalone tasks go to
+// the agency's Owner, as the system's change, 50 a transaction; other closed leads and finished tasks stay as they
+// were, a lead a manager changes meanwhile keeps that change, and the event coming again changes nothing more.
 import { randomUUID } from "node:crypto";
 import { createDatabase, type Database, type OrgTx } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { handOverDepartingMemberListener } from "../../src/crm/index.js";
+import { changeLeadOwner, changeLeadStage } from "../../src/crm/lead-core.js";
 import type { DomainEvent, ListenerContext } from "../../src/jobs/index.js";
-import { systemActor } from "../../src/kernel/index.js";
+import { systemActor, type Actor } from "../../src/kernel/index.js";
 import { aLead, aTask } from "../crm/support/records.js";
+import { backendPid, waitUntilBlockedBy } from "../lock-waits.js";
 
 describe("a departing member's work", () => {
   let platform: PlatformClient;
@@ -62,7 +65,7 @@ describe("a departing member's work", () => {
   beforeAll(async () => {
     const urls = inject("dbUrls");
     platform = createPlatformClient(urls.platform);
-    db = createDatabase(urls.runtime, { maxConnections: 2 });
+    db = createDatabase(urls.runtime, { maxConnections: 4 });
     organizationId = await createTestOrganization(platform, "Departing member");
   });
 
@@ -130,6 +133,68 @@ describe("a departing member's work", () => {
     for (const closed of [ids.won, ids.lost, ids.notALead]) expect(await leadOwner(closed)).toBe(leaver);
     expect(await taskAssignee(ids.doneTask)).toBe(leaver);
     expect(await taskAssignee(ids.cancelledTask)).toBe(leaver);
+  });
+
+  it("moves a Won lead with an open follow-up", async () => {
+    const { leaver, owner, handOver } = departure();
+    const ids = await inOrg(async (tx) => {
+      const won = await aLead(tx, { ownerUserId: leaver, stage: "won" });
+      const followUp = await aTask(tx, {
+        kind: "follow-up",
+        assigneeUserId: leaver,
+        record: { recordType: "lead", recordId: won.id },
+      });
+      return {
+        won: won.id,
+        followUp: followUp.id,
+        wonWithout: (await aLead(tx, { ownerUserId: leaver, stage: "won" })).id,
+      };
+    });
+
+    await handOver();
+
+    expect(await leadOwner(ids.won)).toBe(owner);
+    expect(await taskAssignee(ids.followUp)).toBe(owner);
+    expect(await auditOf(ids.won)).toMatchObject([{ action: "lead.reassigned", actorUserId: null, source: "job" }]);
+    // A closed lead with nothing left to do stays as it was.
+    expect(await leadOwner(ids.wonWithout)).toBe(leaver);
+  });
+
+  it("keeps a manager's reassign or close that commits while the hand-over waits for the lead", async () => {
+    const { leaver, owner, handOver } = departure();
+    const [ravi, manager] = [randomUUID(), randomUUID()];
+    const managerActor: Actor = { organizationId, userId: manager, source: "web", impersonatedBy: null };
+    const [reassigned, lost, untouched] = await inOrg(async (tx) => [
+      (await aLead(tx, { ownerUserId: leaver })).id,
+      (await aLead(tx, { ownerUserId: leaver })).id,
+      (await aLead(tx, { ownerUserId: leaver })).id,
+    ]);
+    let holder = 0;
+    const released = Promise.withResolvers<undefined>();
+    const changesMade = Promise.withResolvers<undefined>();
+    const managersChanges = db.forOrg(
+      organizationId,
+      async (tx) => {
+        holder = await backendPid(tx);
+        await changeLeadOwner(tx, managerActor, { leadId: reassigned, ownerUserId: ravi });
+        await changeLeadStage(tx, managerActor, { leadId: lost, stage: "lost" }, new Date());
+        changesMade.resolve(undefined);
+        await released.promise;
+      },
+      { timeout: 15_000 },
+    );
+    await changesMade.promise;
+
+    const handingOver = handOver();
+    await waitUntilBlockedBy(platform, holder);
+    released.resolve(undefined);
+    await managersChanges;
+    await handingOver;
+
+    expect(await leadOwner(reassigned)).toBe(ravi);
+    expect(await leadOwner(lost)).toBe(leaver);
+    expect(await leadOwner(untouched)).toBe(owner);
+    expect((await auditOf(reassigned)).map((entry) => entry.actorUserId)).toEqual([manager]);
   });
 
   it("records each move as the system's, in the audit log and on the timeline", async () => {
@@ -204,8 +269,9 @@ describe("a departing member's work", () => {
 
     expect(await inOrg((tx) => tx.lead.count({ where: { ownerUserId: owner } }))).toBe(450);
     expect(await inOrg((tx) => tx.lead.count({ where: { ownerUserId: leaver } }))).toBe(0);
-    // Nine batches of 50 leads, a tenth that finds none left, then one for the standalone tasks.
-    expect(transactions()).toBe(11);
+    // Nine batches of 50 open leads and a tenth that finds none left, one page of closed leads' tasks, and one for
+    // the standalone tasks.
+    expect(transactions()).toBe(12);
   });
 
   it("moves nothing, and fails for the worker to retry, when the agency has no Owner", async () => {
