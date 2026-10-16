@@ -1,9 +1,8 @@
 // Whether the subscription shuts the organization's screens (spec 7.3): suspended (only the Owner's exports and
 // revocations work), cancelled (nothing works) or never set up (NO_SUBSCRIPTION); and the screens that stay open:
 // the person's own account and notification choices (their calls answer in every state), and for the Owner while
-// suspended, Staff,
-// where removing someone or giving them a new password still works, Documents, whose PDFs download and whose share
-// links turn off, and the business files, which list and download (ADR 0021).
+// suspended, Staff, where removing someone or giving them a new password still works, Documents, whose PDFs download
+// and whose share links turn off, and the business files, which list and download (ADR 0021).
 import type { SubscriptionOverview } from "@travel-crm/contracts/subscriptions";
 import { refusalOf } from "@/data/api-error";
 import { routes } from "@/lib/routes";

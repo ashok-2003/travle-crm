@@ -72,4 +72,12 @@ describe("isCurrent", () => {
     expect(isCurrent(staff, "/staff/new")).toBe(true);
     expect(isCurrent(staff, "/staffing")).toBe(false);
   });
+
+  it("marks Settings on the setup checklist, which leads back to it", () => {
+    const settings = navigationItems.find((item) => item.key === "settings");
+    if (!settings || !home) throw new Error("navigation items missing");
+    expect(isCurrent(settings, "/setup")).toBe(true);
+    expect(isCurrent(home, "/setup")).toBe(false);
+    expect(isCurrent(settings, "/setups")).toBe(false);
+  });
 });
