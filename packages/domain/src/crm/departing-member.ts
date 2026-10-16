@@ -14,9 +14,12 @@ import { listOpenRecordTasksOf, reassignOpenStandaloneTasks } from "../tasks/ind
 import { changeLeadOwner } from "./lead-core.js";
 
 /**
- * Leads, or tasks, handled in one transaction. Not R37's 200: under a loaded database one batch of 200 ran past the 5
- * seconds, and a batch that can't finish fails again on every retry; 50 leads take about a fifth of a second on a
- * quiet one.
+ * Leads, or tasks, handled in one transaction. Each loop runs until a batch selects nothing: a batch that comes back
+ * short may still leave work, since FOR UPDATE drops a row a concurrent change made stop matching, and a row that
+ * started matching meanwhile wasn't in the batch's snapshot.
+ *
+ * The size is not R37's 200: under a loaded database one batch of 200 ran past the 5 seconds, and a batch that can't
+ * finish fails again on every retry; 50 leads take about a fifth of a second on a quiet one.
  */
 const HAND_OVER_BATCH = 50;
 
@@ -53,8 +56,8 @@ async function handOverOpenLeads(context: ListenerContext, handOver: HandOver): 
     ", ",
   )})`;
   for (;;) {
-    const moved = await context.forOrg((tx) => moveLockedLeads(tx, context.actor, handOver, open));
-    if (moved < HAND_OVER_BATCH) return;
+    const selected = await context.forOrg((tx) => moveLockedLeads(tx, context.actor, handOver, open));
+    if (selected === 0) return;
   }
 }
 
@@ -73,19 +76,20 @@ async function handOverLeadsWithOpenTasks(context: ListenerContext, handOver: Ha
       if (leadIds.length > 0) {
         await moveLockedLeads(tx, context.actor, handOver, sql`id = ANY(${leadIds}::uuid[])`);
       }
-      return { found: tasks.length, last: tasks.at(-1)?.id };
+      return { last: tasks.at(-1)?.id };
     });
-    if (page.found < HAND_OVER_BATCH || page.last === undefined) return;
+    if (page.last === undefined) return;
     after = page.last;
   }
 }
 
 async function handOverStandaloneTasks(context: ListenerContext, handOver: HandOver): Promise<void> {
   for (;;) {
+    // The tasks it chose are locked, so every one it chose moves: none moved means none was left.
     const moved = await context.forOrg((tx) =>
       reassignOpenStandaloneTasks(tx, context.actor, { ...handOver, limit: HAND_OVER_BATCH }),
     );
-    if (moved < HAND_OVER_BATCH) return;
+    if (moved === 0) return;
   }
 }
 

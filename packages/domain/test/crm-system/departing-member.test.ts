@@ -197,6 +197,55 @@ describe("a departing member's work", () => {
     expect((await auditOf(reassigned)).map((entry) => entry.actorUserId)).toEqual([manager]);
   });
 
+  it("moves every lead left when some change while a batch waits on them", async () => {
+    const { leaver, owner, handOver } = departure();
+    const ravi = randomUUID();
+    const { leadIds, given } = await inOrg(async (tx) => {
+      const person = await tx.person.create({ data: { name: "Many Leads", email: `${randomUUID()}@example.test` } });
+      const made = await tx.lead.createManyAndReturn({
+        data: Array.from({ length: 80 }, () => ({ personId: person.id, source: "phone_call", ownerUserId: leaver })),
+        select: { id: true },
+      });
+      const ravisLead = await aLead(tx, { ownerUserId: ravi });
+      return { leadIds: made.map((lead) => lead.id).sort(), given: ravisLead.id };
+    });
+    // While the second batch waits on its leads, a manager gives two of them to Ravi, moves another on, and gives the
+    // leaver one of Ravi's leads: the waiting batch can't see that one, and comes back with fewer than 50.
+    const at = (index: number) => leadIds[index] ?? "";
+    let holder = 0;
+    const released = Promise.withResolvers<undefined>();
+    const changed = Promise.withResolvers<undefined>();
+    const managersChanges = db.forOrg(
+      organizationId,
+      async (tx) => {
+        holder = await backendPid(tx);
+        await tx.lead.updateMany({ where: { id: { in: [at(55), at(60)] } }, data: { ownerUserId: ravi } });
+        await tx.lead.update({ where: { id: at(70) }, data: { stage: "contacted" } });
+        await tx.lead.update({ where: { id: given }, data: { ownerUserId: leaver } });
+        changed.resolve(undefined);
+        await released.promise;
+      },
+      { timeout: 20_000 },
+    );
+    await changed.promise;
+
+    const handingOver = handOver();
+    await waitUntilBlockedBy(platform, holder);
+    released.resolve(undefined);
+    await managersChanges;
+    await handingOver;
+
+    const owners = await inOrg((tx) =>
+      tx.lead.groupBy({ by: ["ownerUserId"], where: { id: { in: [...leadIds, given] } }, _count: true }),
+    );
+    expect(new Map(owners.map((group) => [group.ownerUserId, group._count]))).toEqual(
+      new Map([
+        [owner, 79],
+        [ravi, 2],
+      ]),
+    );
+  });
+
   it("keeps a reassign of a standalone task that commits while the hand-over waits for it", async () => {
     const { leaver, owner, handOver } = departure();
     const ravi = randomUUID();
