@@ -37,7 +37,7 @@ export const SHOTS = [
   },
   { name: "two-factor-challenge", screen: "The two-factor challenge at sign-in", as: `${owner}, two-factor on` },
   { name: "account", screen: "Your account", as: `${owner}, two-factor on` },
-  { name: "home-checklist", screen: "Home with the Owner's setup checklist", as: owner },
+  { name: "home-checklist", screen: "Home with the setup card above the usual Home", as: owner },
   { name: "setup", screen: "The setup checklist", as: owner },
   { name: "settings", screen: "Settings", as: owner },
   { name: "business-profile", screen: "Business profile, the bank number masked", as: owner },

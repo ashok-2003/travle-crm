@@ -1,5 +1,6 @@
-// The business profile and the setup checklist (spec 7.1): a newly onboarded Owner lands on the checklist, completes
-// the business profile (a GSTIN of another state is refused before it is sent) and watches the steps tick.
+// The business profile and the setup checklist (spec 7.1): a newly onboarded Owner finds the setup card first on Home,
+// above the usual Home, with what onboarding left to do; completes the business profile (a GSTIN of another state is
+// refused before it is sent) and watches the steps tick, on the card and on the setup screen.
 import { expectAccessible } from "./support/accessibility";
 import { KARNATAKA_GSTIN, ONBOARDED_GSTIN, saveOnboardingProfile } from "./support/business";
 import { expect, signInByEmail, test } from "./support/fixtures";
@@ -9,7 +10,20 @@ test("a newly onboarded Owner fills the profile and watches the checklist tick",
   await signInByEmail(page, agency.owner);
   await page.goto("/");
   const checklist = page.getByRole("region", { name: "Finish setting up Sharma Travels" });
-  await expect(checklist.getByText("0 of 5 done")).toBeVisible();
+  // Onboarding saved the contact phone, but no address.
+  await expect(checklist.getByText("1 of 7 done")).toBeVisible();
+  await expect(checklist.getByRole("progressbar", { name: "1 of 7 done" })).toBeVisible();
+  await expect(checklist.getByRole("listitem")).toHaveText([
+    /^Business details/,
+    /^Logo/,
+    /^Branding/,
+    /^Bank details/,
+    /^Invoice prefix/,
+    /^Staff/,
+  ]);
+  await expect(checklist.getByRole("link", { name: "See every step" })).toHaveAttribute("href", "/setup");
+  // Above the usual Home, never instead of it.
+  await expect(page.getByText("Your screens:")).toBeVisible();
   await expectAccessible(page);
 
   await checklist.getByRole("link", { name: /^Business details/ }).click();
@@ -42,14 +56,16 @@ test("a newly onboarded Owner fills the profile and watches the checklist tick",
 
   await page.goto("/setup");
   await expect(page.getByRole("heading", { level: 1, name: "Set up your organization" })).toBeVisible();
-  await expect(page.getByText("3 of 5 done")).toBeVisible();
+  await expect(page.getByText("4 of 7 done")).toBeVisible();
   // The checklist's own links: the navigation has a Staff item too.
   const steps = page.getByRole("main").getByRole("list");
   for (const [step, status] of [
     ["Business details", "Done"],
+    ["Contact phone", "Done"],
+    ["Logo", "To do"],
+    ["Branding", "To do"],
     ["Bank details", "Done"],
     ["Invoice prefix", "Done"],
-    ["Branding", "To do"],
     ["Staff", "To do"],
   ] as const) {
     await expect(
@@ -57,5 +73,6 @@ test("a newly onboarded Owner fills the profile and watches the checklist tick",
     ).toBeVisible();
   }
   await page.goto("/");
-  await expect(checklist.getByText("3 of 5 done")).toBeVisible();
+  await expect(checklist.getByText("4 of 7 done")).toBeVisible();
+  await expect(checklist.getByRole("listitem")).toHaveText([/^Logo/, /^Branding/, /^Staff/]);
 });
