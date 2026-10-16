@@ -1,7 +1,8 @@
 // How many documents an organization issued since a day: a usage counter for the platform dashboard (spec 7.4). The
 // branding's samples are previews, not use.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { documentsIssuedSince, issueDocument, SAMPLE_PREFIX } from "../../src/documents/index.js";
+import { SAMPLE_DOCUMENT_PREFIX } from "@travel-crm/contracts/documents";
+import { documentsIssuedSince, issueDocument } from "../../src/documents/index.js";
 import { systemActor } from "../../src/kernel/index.js";
 import { createOrganization, createTestDocuments, quotation, type TestDocuments } from "./test-documents.js";
 
@@ -33,7 +34,7 @@ describe("documents issued", () => {
     const organizationId = await createOrganization(test);
     const actor = systemActor(organizationId);
     await test.db.forOrg(organizationId, async (tx) => {
-      await issueDocument(tx, actor, { ...quotation, prefix: SAMPLE_PREFIX });
+      await issueDocument(tx, actor, { ...quotation, prefix: SAMPLE_DOCUMENT_PREFIX });
       await issueDocument(tx, actor, { ...quotation });
     });
     const lastMinute = new Date(Date.now() - 60_000);

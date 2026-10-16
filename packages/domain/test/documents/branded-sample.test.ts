@@ -1,7 +1,8 @@
 // The sample quotation an organization previews its branding on: its name, colour, terms and logo, made-up lines
 // taxed in its own state, and nothing the organization didn't set.
 import { describe, expect, it } from "vitest";
-import { brandedSampleQuotation, SAMPLE_PREFIX } from "../../src/documents/index.js";
+import { SAMPLE_DOCUMENT_PREFIX } from "@travel-crm/contracts/documents";
+import { brandedSampleQuotation } from "../../src/documents/index.js";
 
 const profile = { gstStateCode: "29", brandColour: "#1f6f5c", documentTerms: "50% to book." };
 
@@ -41,7 +42,7 @@ describe("brandedSampleQuotation", () => {
   });
 
   it("is numbered with its own prefix, apart from real documents", () => {
-    expect(SAMPLE_PREFIX).toMatch(/^[A-Z]{2,5}$/);
-    expect(SAMPLE_PREFIX).toBe("SMPL");
+    expect(SAMPLE_DOCUMENT_PREFIX).toMatch(/^[A-Z]{2,5}$/);
+    expect(SAMPLE_DOCUMENT_PREFIX).toBe("SMPL");
   });
 });
