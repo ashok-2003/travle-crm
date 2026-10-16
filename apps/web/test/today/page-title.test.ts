@@ -6,6 +6,8 @@ import { locale, messages } from "@/i18n/messages";
 vi.mock("next-intl/server", () => ({
   getTranslations: (namespace: "today") => Promise.resolve(createTranslator({ locale, messages, namespace })),
 }));
+// The title alone: loading the whole screen (its dialogs, pickers and icons) only slows the import past the timeout.
+vi.mock("@/today/today-screen", () => ({ TodayScreen: () => null }));
 
 describe("the Today page", () => {
   it("is titled with its heading's message", async () => {
