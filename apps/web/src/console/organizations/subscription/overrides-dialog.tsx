@@ -3,7 +3,12 @@
 // The subscription's overrides (spec 7.2, subscriptions.setOverrides): seats bought above the plan's, an agreed price
 // before GST in place of the plan's (blank for the plan's own), and business modules switched on early. Starts from
 // the overrides as they are.
-import { planModules, type PlanModule, type SubscriptionDetails } from "@travel-crm/contracts/subscriptions";
+import {
+  planModules,
+  type PlanModule,
+  type SetOverridesInput,
+  type SubscriptionDetails,
+} from "@travel-crm/contracts/subscriptions";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { Controller } from "react-hook-form";
@@ -11,68 +16,63 @@ import { TextField } from "@/account/text-field";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { useConsoleTRPC } from "../../data/console-trpc";
+import { ChangeDialog, FormFooter, useChangeDialog, type Sending } from "../change-dialog";
+import { useCheckedForm } from "../fields/checked-form";
 import { MoneyField, rupeesFieldText } from "../fields/money-field";
-import { toOverridesInput, type OverridesValues } from "./change-inputs";
-import { ChangeDialog, FormFooter, useAfterChange, useCheckedForm } from "./change-form";
+import { toOverridesInput } from "./change-inputs";
 
 export function OverridesDialog({ subscription }: { subscription: SubscriptionDetails }) {
   const t = useTranslations("consoleOrganizations.subscription.overrides");
+  const trpc = useConsoleTRPC();
+  const dialog = useChangeDialog(subscription.organizationId, t("done"));
+  const save = useMutation(trpc.subscriptions.setOverrides.mutationOptions({ onSuccess: dialog.onSuccess }));
   return (
-    <ChangeDialog label={t("action")} title={t("title")} description={t("description")}>
-      {(close) => <OverridesForm subscription={subscription} onDone={close} />}
+    <ChangeDialog dialog={dialog} sending={save} label={t("action")} title={t("title")} description={t("description")}>
+      <OverridesForm subscription={subscription} save={save} />
     </ChangeDialog>
   );
 }
 
-function OverridesForm({ subscription, onDone }: { subscription: SubscriptionDetails; onDone: () => void }) {
-  const t = useTranslations("consoleOrganizations.subscription.overrides");
-  const tModules = useTranslations("consoleOrganizations.subscription.modules");
-  const trpc = useConsoleTRPC();
-  const afterChange = useAfterChange(subscription.organizationId);
-  const save = useMutation(
-    trpc.subscriptions.setOverrides.mutationOptions({
-      onSuccess: async () => {
-        await afterChange(t("done"));
-        onDone();
-      },
-    }),
-  );
-  const check = (values: OverridesValues) => toOverridesInput(subscription.organizationId, values);
-  const form = useCheckedForm(
+function OverridesForm({
+  subscription,
+  save,
+}: {
+  subscription: SubscriptionDetails;
+  save: Sending<SetOverridesInput>;
+}) {
+  const t = useTranslations("consoleOrganizations.subscription");
+  const { form, onSubmit } = useCheckedForm(
     {
       extraSeats: String(subscription.extraSeats),
       customPrice: subscription.customPricePaise === null ? "" : rupeesFieldText(subscription.customPricePaise),
       extraModules: subscription.extraModules,
     },
-    check,
+    (values) => toOverridesInput(subscription.organizationId, values),
+    (problem) => t(`problems.${problem}`),
   );
-  const submit = form.handleSubmit((values) => {
-    const result = check(values);
-    if (result.ok) save.mutate(result.input);
-  });
   return (
-    <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-6">
+    <form noValidate onSubmit={onSubmit(save.mutate)} className="flex flex-col gap-6">
       <FieldGroup>
         <TextField
           control={form.control}
           name="extraSeats"
-          label={t("extraSeats")}
-          hint={t("extraSeatsHint")}
+          label={t("overrides.extraSeats")}
+          hint={t("overrides.extraSeatsHint")}
           inputMode="numeric"
           className="[&_input]:numbers"
         />
         <MoneyField
           control={form.control}
           name="customPrice"
-          label={t(`customPrice.${subscription.billingCycle}`)}
-          hint={t("customPriceHint")}
+          label={t(`overrides.customPrice.${subscription.billingCycle}`)}
+          hint={t("overrides.customPriceHint")}
         />
         <Controller
           control={form.control}
           name="extraModules"
           render={({ field }) => (
             <FieldSet>
-              <FieldLegend variant="label">{t("modules")}</FieldLegend>
+              <FieldLegend variant="label">{t("overrides.modules")}</FieldLegend>
               <div className="grid grid-cols-1 gap-x-4 sm:grid-cols-2">
                 {planModules.map((module) => {
                   const chosen: PlanModule[] = field.value;
@@ -88,7 +88,7 @@ function OverridesForm({ subscription, onDone }: { subscription: SubscriptionDet
                         }}
                       />
                       <FieldLabel htmlFor={`module-${module}`} className="font-normal">
-                        {tModules(module)}
+                        {t(`modules.${module}`)}
                       </FieldLabel>
                     </Field>
                   );
@@ -98,7 +98,7 @@ function OverridesForm({ subscription, onDone }: { subscription: SubscriptionDet
           )}
         />
       </FieldGroup>
-      <FormFooter pending={save.isPending} error={save.error} label={t("submit")} pendingLabel={t("submitting")} />
+      <FormFooter sending={save} label={t("overrides.submit")} pendingLabel={t("overrides.submitting")} />
     </form>
   );
 }

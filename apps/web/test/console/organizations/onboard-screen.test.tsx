@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { OnboardScreen } from "@/console/organizations/onboarding/onboard-screen";
 import { messages } from "@/i18n/messages";
 import { stubApi, type Answer } from "../../support/api-stub";
+import { chooseDay } from "../../support/choose-day";
 import { inputsSentTo, renderConsoleScreen } from "./render";
 
 const navigation = vi.hoisted(() => ({ push: vi.fn() }));
@@ -128,7 +129,7 @@ describe("OnboardScreen", { timeout: 20_000 }, () => {
     await fillIn();
     await userEvent.click(screen.getByRole("radio", { name: "Yearly, ₹25,000 before GST" }));
     await userEvent.click(screen.getByRole("radio", { name: onboard.subscription.starts.paid }));
-    await userEvent.type(screen.getByLabelText(onboard.subscription.paidThrough), "2027-03-31");
+    await chooseDay(screen.getByLabelText(onboard.subscription.paidThrough), "2027-03-31");
     await userEvent.click(screen.getByRole("button", { name: onboard.submit }));
     await vi.waitFor(() => {
       expect(navigation.push).toHaveBeenCalled();

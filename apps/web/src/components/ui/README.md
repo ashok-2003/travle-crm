@@ -32,6 +32,10 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
 - `input.tsx`: 44px high, 16px text at every width (no iOS zoom), 6px radius, canvas fill. `textarea.tsx` (which
   `input-group` brings) likewise (6px, canvas fill, 16px text at every width), at least 64px high.
 - `popover.tsx`: the registry's shadow, with a hairline border instead of its ring.
+- `calendar.tsx` (`react-day-picker`, pinned): Indian unless told otherwise (`en-IN`: weeks start on Monday, a day is
+  named "Friday, 16 October 2026"); days and month buttons 44px (`--cell-size`); its screen-reader words are the
+  `calendar` messages. The focused day shows the global outline (the registry's ring is gone), and the range styles
+  lost their numeric z-index: a range would need its layering back first. The app picks single days only.
 - `progress.tsx`: its bar moves only behind `motion-safe:`.
 - `badge.tsx`: 4px radius.
 - `tabs.tsx`: an unselected trigger is the muted ink (4.84:1 on the surface list) instead of ink at 60%, which fails

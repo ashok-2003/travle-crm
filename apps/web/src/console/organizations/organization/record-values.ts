@@ -1,6 +1,7 @@
 // The correction form's values, as text, turned into organizations.update's input by the api's own schema
 // (updateOrganizationInput); a blank contact email is none. Each problem is named on its field.
 import { updateOrganizationInput, type UpdateOrganizationInput } from "@travel-crm/contracts/platform";
+import { checked, type Checked } from "../fields/checked-form";
 
 export interface RecordValues {
   name: string;
@@ -8,7 +9,7 @@ export interface RecordValues {
   contactEmail: string;
 }
 
-export type RecordField = keyof RecordValues;
+type RecordField = keyof RecordValues;
 
 /** Message keys in "consoleOrganizations.record.problems". */
 export type RecordProblem = "required" | "nameInvalid" | "emailInvalid" | "timeZoneInvalid";
@@ -24,19 +25,17 @@ const isField = (value: unknown): value is RecordField => typeof value === "stri
 export function toUpdateInput(
   organizationId: string,
   values: RecordValues,
-): { ok: true; input: UpdateOrganizationInput } | { ok: false; problems: Partial<Record<RecordField, RecordProblem>> } {
+): Checked<RecordValues, UpdateOrganizationInput, RecordProblem> {
   const parsed = updateOrganizationInput.safeParse({
     organizationId,
     name: values.name,
     timeZone: values.timeZone,
     contactEmail: values.contactEmail.trim() === "" ? null : values.contactEmail,
   });
-  if (parsed.success) return { ok: true, input: parsed.data };
-  const problems: Partial<Record<RecordField, RecordProblem>> = {};
-  for (const issue of parsed.error.issues) {
-    const field = issue.path[0];
-    if (!isField(field) || problems[field] !== undefined) continue;
-    problems[field] = field !== "contactEmail" && values[field].trim() === "" ? "required" : problemOf[field];
-  }
-  return { ok: false, problems };
+  return checked(
+    parsed,
+    values,
+    ([key]) => (isField(key) ? key : undefined),
+    (field) => problemOf[field],
+  );
 }

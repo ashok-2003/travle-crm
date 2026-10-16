@@ -12,7 +12,8 @@ vi.mock("next-intl/server", () => ({
 
 const { consoleOrganizations } = messages;
 
-describe("the organizations' console pages", () => {
+// The first import of a page loads its whole screen, the calendar's date library included: seconds on a busy machine.
+describe("the organizations' console pages", { timeout: 20_000 }, () => {
   it("title onboarding as its heading does", async () => {
     const { generateMetadata } = await import("@/app/console/organizations/new/page");
     expect(await generateMetadata()).toEqual({ title: consoleOrganizations.onboard.title });

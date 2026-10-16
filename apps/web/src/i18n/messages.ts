@@ -3,6 +3,7 @@
 import account from "./messages/en-IN/account.json";
 import audit from "./messages/en-IN/audit.json";
 import business from "./messages/en-IN/business.json";
+import calendar from "./messages/en-IN/calendar.json";
 import common from "./messages/en-IN/common.json";
 import consoleOrganizations from "./messages/en-IN/console-organizations.json";
 import consolePlatform from "./messages/en-IN/console-platform.json";
@@ -23,6 +24,7 @@ export const messages = {
   account,
   audit,
   business,
+  calendar,
   common,
   // "console" would shadow the global console in this module, hence the import's longer name.
   console: consoleMessages,

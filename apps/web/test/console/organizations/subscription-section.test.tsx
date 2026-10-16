@@ -1,13 +1,14 @@
 // The organization's subscription in the console: its state today beside the recorded one, the plan, dates and
-// overrides, the price with CGST and SGST in mono, and the payments; and every change through subscriptions.*,
+// overrides, the price with GST in mono, and the payments; and every change through subscriptions.*,
 // each with what it sends and a refusal's sentence kept in its dialog. Lifting a suspension is a super admin's.
-import type { SubscriptionPayment, SubscriptionWithPayments } from "@travel-crm/contracts/subscriptions";
-import { screen, within } from "@testing-library/react";
+import type { PlanSummary, SubscriptionPayment, SubscriptionWithPayments } from "@travel-crm/contracts/subscriptions";
+import { cleanup, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SubscriptionSection } from "@/console/organizations/subscription/subscription-section";
 import { messages } from "@/i18n/messages";
-import { stubApi, type Answer } from "../../support/api-stub";
+import { heldAnswer, stubApi, type Answer } from "../../support/api-stub";
+import { chooseDay } from "../../support/choose-day";
 import { platformStaff } from "../../support/platform-staff";
 import { screenIs } from "../../organization/render";
 import { organizationDetails, organizationId, subscriptionDetails } from "./organization-details";
@@ -17,7 +18,37 @@ const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock("sonner", () => ({ toast }));
 
 const { subscription: words } = messages.consoleOrganizations;
+const onSale = messages.consoleOrganizations.onboard.subscription;
 const { organization } = organizationDetails();
+
+function plan(overrides: Partial<PlanSummary>): PlanSummary {
+  return {
+    id: "0199a000-0000-7000-8000-0000000000c1",
+    key: "growth",
+    name: "Growth",
+    monthlyPricePaise: 250_000,
+    yearlyPricePaise: 2_500_000,
+    extraSeatMonthlyPricePaise: null,
+    extraSeatYearlyPricePaise: null,
+    seatLimit: 10,
+    whatsappNumberLimit: 1,
+    storageLimitBytes: 10_000_000_000,
+    modules: ["crm"],
+    forSale: true,
+    archived: false,
+    ...overrides,
+  };
+}
+
+/** The subscription's own plan (organization-details.ts), and one sold yearly only. */
+const growth = plan({});
+const pro = plan({
+  id: "0199a000-0000-7000-8000-0000000000c2",
+  key: "pro",
+  name: "Pro",
+  monthlyPricePaise: null,
+  yearlyPricePaise: 5_000_000,
+});
 
 function payment(overrides: Partial<SubscriptionPayment> = {}): SubscriptionPayment {
   return {
@@ -90,8 +121,9 @@ describe("SubscriptionSection", { timeout: 20_000 }, () => {
     expect(valueOf(words.extraModules)).toHaveTextContent("Quotes");
     const price = screen.getByRole("table", { name: words.price.caption.monthly });
     expect(within(price).getByRole("row", { name: "The plan's price ₹2,500.00" })).toBeVisible();
-    expect(within(price).getByRole("row", { name: "CGST at 9% ₹225.00" })).toBeVisible();
-    expect(within(price).getByRole("row", { name: "SGST at 9% ₹225.00" })).toBeVisible();
+    // One GST row until the platform's own GST state is set, which decides between CGST with SGST, and IGST.
+    expect(within(price).getByRole("row", { name: "GST at 18% ₹450.00" })).toBeVisible();
+    expect(within(price).queryByRole("row", { name: /CGST|SGST/ })).toBeNull();
     expect(within(price).getByRole("row", { name: "Total a month ₹2,950.00" })).toBeVisible();
     expect(within(price).getByText("₹2,950.00")).toHaveClass("numbers", "text-right");
   });
@@ -112,9 +144,8 @@ describe("SubscriptionSection", { timeout: 20_000 }, () => {
     renderSection(undefined, { "platform.subscriptions.recordPayment": { data: payment() } });
     const dialog = await openDialog(words.recordPayment.action, words.recordPayment.title);
     await fill(dialog, words.recordPayment.amount, "2950");
-    await userEvent.clear(within(dialog).getByLabelText(words.recordPayment.paidOn));
-    await userEvent.type(within(dialog).getByLabelText(words.recordPayment.paidOn), "2026-11-01");
-    await userEvent.type(within(dialog).getByLabelText(words.recordPayment.paidThrough), "2026-11-30");
+    await chooseDay(within(dialog).getByLabelText(words.recordPayment.paidOn), "2026-11-01");
+    await chooseDay(within(dialog).getByLabelText(words.recordPayment.paidThrough), "2026-11-30");
     await userEvent.click(within(dialog).getByRole("button", { name: words.recordPayment.submit }));
     await vi.waitFor(() => {
       expect(toast.success).toHaveBeenCalledWith(words.recordPayment.done);
@@ -139,9 +170,8 @@ describe("SubscriptionSection", { timeout: 20_000 }, () => {
     });
   });
 
-  it("suspends with a reason, and only a super admin lifts a suspension made by hand", async () => {
+  it("suspends with a reason", async () => {
     renderSection(undefined, { "platform.subscriptions.suspend": { data: subscriptionDetails() } });
-    expect(screen.queryByRole("button", { name: words.liftSuspension.action })).toBeNull();
     const dialog = await openDialog(words.suspend.action, words.suspend.title);
     await fill(dialog, words.reason.label, "Chargeback");
     await userEvent.click(within(dialog).getByRole("button", { name: words.suspend.submit }));
@@ -180,7 +210,7 @@ describe("SubscriptionSection", { timeout: 20_000 }, () => {
     });
   });
 
-  it("cancels after a reason, and offers no cancel once cancelled", async () => {
+  it("cancels after a reason", async () => {
     renderSection(undefined, { "platform.subscriptions.cancel": { data: subscriptionDetails() } });
     const dialog = await openDialog(words.cancel.action, words.cancel.title);
     await userEvent.click(within(dialog).getByRole("button", { name: words.cancel.submit }));
@@ -192,9 +222,50 @@ describe("SubscriptionSection", { timeout: 20_000 }, () => {
     });
   });
 
-  it("offers no trial's end outside a trial", () => {
+  it("offers neither a suspension nor a cancel once cancelled, but still the paid-through day", () => {
+    renderSection({ subscription: subscriptionDetails({ status: "cancelled", access: "locked" }), payments: [] });
+    expect(valueOf(words.status)).toHaveTextContent(messages.console.status.cancelled);
+    expect(screen.queryByRole("button", { name: words.suspend.action })).toBeNull();
+    expect(screen.queryByRole("button", { name: words.cancel.action })).toBeNull();
+    expect(screen.getByRole("button", { name: words.paidThrough.action })).toBeVisible();
+  });
+
+  it("offers no trial's end outside a trial, even suspended by hand", () => {
     renderSection();
     expect(screen.queryByRole("button", { name: words.trialEnd.action })).toBeNull();
+    cleanup();
+    renderSection(suspendedByHand);
+    expect(screen.queryByRole("button", { name: words.trialEnd.action })).toBeNull();
+  });
+
+  it("offers the trial's end while the trial lasts, a trial suspended by hand included, as the api decides", () => {
+    const trialSuspended = subscriptionDetails({
+      status: "suspended",
+      access: "export_only",
+      recorded: { status: "trial", since: "2026-10-01" },
+      manualSuspension: { at: "2026-10-16T05:00:00.000Z", by: null, reason: "Chargeback" },
+      trialEndsOn: "2099-12-31",
+      paidThrough: null,
+    });
+    renderSection({ subscription: trialSuspended, payments: [] });
+    expect(screen.getByRole("button", { name: words.trialEnd.action })).toBeVisible();
+  });
+
+  it("keeps a change's dialog open while it is sent, then closes it and says it is done", async () => {
+    const held = heldAnswer({ data: subscriptionDetails() });
+    renderSection(undefined, { "platform.subscriptions.suspend": held.answer });
+    const dialog = await openDialog(words.suspend.action, words.suspend.title);
+    await fill(dialog, words.reason.label, "Chargeback");
+    await userEvent.click(within(dialog).getByRole("button", { name: words.suspend.submit }));
+    expect(await within(dialog).findByRole("button", { name: words.suspend.submitting })).toBeDisabled();
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(within(dialog).getByRole("button", { name: messages.common.close }));
+    expect(screen.getByRole("dialog", { name: words.suspend.title })).toBeVisible();
+    held.release();
+    await vi.waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+    expect(toast.success).toHaveBeenCalledWith(words.suspend.done);
   });
 
   it("moves a trial's end, and keeps a refusal's sentence in the dialog", async () => {
@@ -206,38 +277,34 @@ describe("SubscriptionSection", { timeout: 20_000 }, () => {
       },
     );
     const dialog = await openDialog(words.trialEnd.action, words.trialEnd.title);
-    expect(within(dialog).getByLabelText(words.trialEnd.trialEndsOn)).toHaveValue("2026-10-20");
+    expect(within(dialog).getByLabelText(words.trialEnd.trialEndsOn)).toHaveAccessibleName(
+      `${words.trialEnd.trialEndsOn} 20/10/2026`,
+    );
     await userEvent.click(within(dialog).getByRole("button", { name: words.trialEnd.submit }));
     expect(await within(dialog).findByText(messages.errors.reasons.TRIAL_END_IN_PAST)).toBeVisible();
+    // Closed and opened again, it starts afresh: the refusal was the last try's.
+    await userEvent.keyboard("{Escape}");
+    const again = await openDialog(words.trialEnd.action, words.trialEnd.title);
+    expect(within(again).queryByText(messages.errors.reasons.TRIAL_END_IN_PAST)).toBeNull();
   });
 
-  it("changes the plan to another on sale, on a cycle it is sold on", async () => {
+  it("starts a change of plan from the current one, while it is on sale", async () => {
+    renderSection(undefined, { "platform.plans.list": { data: [growth, pro] } });
+    const dialog = await openDialog(words.changePlan.action, words.changePlan.title);
+    expect(await within(dialog).findByRole("combobox", { name: onSale.plan })).toHaveTextContent(/^Growth/);
+    expect(within(dialog).getByRole("radio", { name: "Monthly, ₹2,500 before GST" })).toBeChecked();
+  });
+
+  it("changes the plan to another on sale, on a cycle it is sold on, the current one no longer sold", async () => {
     renderSection(undefined, {
-      "platform.plans.list": {
-        data: [
-          {
-            id: "0199a000-0000-7000-8000-0000000000c2",
-            key: "pro",
-            name: "Pro",
-            monthlyPricePaise: null,
-            yearlyPricePaise: 5_000_000,
-            extraSeatMonthlyPricePaise: null,
-            extraSeatYearlyPricePaise: null,
-            seatLimit: 25,
-            whatsappNumberLimit: 3,
-            storageLimitBytes: 50_000_000_000,
-            modules: ["crm", "quotes"],
-            forSale: true,
-            archived: false,
-          },
-        ],
-      },
+      "platform.plans.list": { data: [pro] },
       "platform.subscriptions.changePlan": { data: subscriptionDetails() },
     });
     const dialog = await openDialog(words.changePlan.action, words.changePlan.title);
-    await userEvent.click(
-      await within(dialog).findByRole("combobox", { name: messages.consoleOrganizations.onboard.subscription.plan }),
-    );
+    const plan = await within(dialog).findByRole("combobox", { name: onSale.plan });
+    expect(plan).toHaveTextContent(onSale.planPlaceholder);
+    expect(within(dialog).queryByRole("radiogroup")).toBeNull();
+    await userEvent.click(plan);
     await userEvent.click(await screen.findByRole("option", { name: /Pro/ }));
     expect(within(dialog).getByRole("radio", { name: "Yearly, ₹50,000 before GST" })).toBeChecked();
     await userEvent.click(within(dialog).getByRole("button", { name: words.changePlan.submit }));

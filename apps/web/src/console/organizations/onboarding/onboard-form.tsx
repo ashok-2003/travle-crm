@@ -9,7 +9,6 @@ import { CircleAlertIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
-import { useForm, type FieldErrors, type Resolver } from "react-hook-form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldLegend, FieldSet } from "@/components/ui/field";
@@ -17,8 +16,9 @@ import { Spinner } from "@/components/ui/spinner";
 import { useErrorMessage } from "@/lib/error-message";
 import { useConsoleTRPC } from "../../data/console-trpc";
 import { consoleRoutes } from "../../routes";
+import { useCheckedForm } from "../fields/checked-form";
 import { AgencyFields, OwnerFields, ProfileFields } from "./agency-fields";
-import { emptyOnboardValues, toOnboardInput, type OnboardField, type OnboardValues } from "./onboard-values";
+import { emptyOnboardValues, toOnboardInput } from "./onboard-values";
 import { SubscriptionFields } from "./subscription-fields";
 
 /** The plans on sale, or what stands in for them while they load, failed or are none. */
@@ -38,24 +38,13 @@ export function OnboardForm({ plansOnSale }: { plansOnSale: PlansOnSale }) {
       },
     }),
   );
-  const resolver: Resolver<OnboardValues> = (values) => {
-    const result = toOnboardInput(values);
-    if (result.ok) return { values, errors: {} };
-    const errors: FieldErrors<OnboardValues> = {};
-    for (const [field, problem] of Object.entries(result.problems)) {
-      errors[field as OnboardField] = { type: "validate", message: t(`problems.${problem}`) };
-    }
-    return { values: {}, errors };
-  };
-  const form = useForm<OnboardValues>({ resolver, defaultValues: emptyOnboardValues() });
-  const submit = form.handleSubmit((values) => {
-    const result = toOnboardInput(values);
-    if (result.ok) onboard.mutate(result.input);
-  });
+  const { form, onSubmit } = useCheckedForm(emptyOnboardValues(), toOnboardInput, (problem) =>
+    t(`problems.${problem}`),
+  );
   const ready = "plans" in plansOnSale;
 
   return (
-    <form noValidate onSubmit={(event) => void submit(event)} className="flex max-w-xl flex-col gap-8">
+    <form noValidate onSubmit={onSubmit(onboard.mutate)} className="flex max-w-xl flex-col gap-8">
       <AgencyFields control={form.control} />
       <ProfileFields control={form.control} />
       <OwnerFields control={form.control} />
