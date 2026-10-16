@@ -39,7 +39,12 @@ export function ExportsSection({ organizationId, canExport }: { organizationId: 
     }
     if (exports.isError) {
       return (
-        <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void exports.refetch()} />
+        <ErrorState
+          message={t("loadFailed")}
+          error={exports.error}
+          retryLabel={tCommon("tryAgain")}
+          onRetry={() => void exports.refetch()}
+        />
       );
     }
     return <LoadingRows rows={2} shape="twoLines" label={t("loading")} />;

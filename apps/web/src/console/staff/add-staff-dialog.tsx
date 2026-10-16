@@ -74,7 +74,7 @@ export function AddStaffDialog() {
             intro={t("handover.intro", { name: added.input.name })}
           />
         ) : (
-          open && <AddStaffForm id={formId} error={add.error} send={add.mutate} />
+          open && <AddStaffForm id={formId} sending={add} send={add.mutate} />
         )}
       </ResponsiveDialog>
     </>

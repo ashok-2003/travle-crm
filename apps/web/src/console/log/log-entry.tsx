@@ -36,7 +36,7 @@ export function LogEntry({ entry, names }: { entry: PlatformLogEntry; names: Log
           <LogOrganization entry={entry} names={names} />
           <LogTarget entry={entry} names={names} />
         </div>
-        <LogChanges entry={entry} />
+        <LogChanges entry={entry} names={names} />
       </ItemContent>
     </Item>
   );

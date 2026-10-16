@@ -6,7 +6,6 @@
 // ten minutes, so "Show more" asks only for the ones it hasn't seen; one that fails other than by being gone says so.
 import { useQueries, useQuery } from "@tanstack/react-query";
 import type { PlatformLogEntry } from "@travel-crm/contracts/platform";
-import { useMemo } from "react";
 import { refusalOf } from "@/data/api-error";
 import { useConsoleTRPC } from "../data/console-trpc";
 import { isSuperAdmin, useStaff } from "../session/staff-context";
@@ -28,10 +27,7 @@ export function useLogNames(entries: PlatformLogEntry[] | undefined): LogNames {
   const superAdmin = isSuperAdmin(useStaff());
   const staff = useQuery(trpc.platformStaff.list.queryOptions(undefined, { enabled: superAdmin }));
   const plans = useQuery(trpc.plans.list.queryOptions({ includeArchived: true }));
-  const organizationIds = useMemo(
-    () => [...new Set(entries?.flatMap((entry) => entry.targetOrganizationId ?? []))].sort(),
-    [entries],
-  );
+  const organizationIds = [...new Set(entries?.flatMap((entry) => entry.targetOrganizationId ?? []))].sort();
   const organizations = useQueries({
     queries: organizationIds.map((organizationId) => ({
       ...trpc.organizations.get.queryOptions({ organizationId }),

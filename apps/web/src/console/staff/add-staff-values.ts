@@ -14,7 +14,7 @@ export interface AddStaffValues {
 }
 
 /** Message keys in the "consolePlatform.staff.addForm.problems" namespace. */
-export type AddStaffProblem = "required" | "emailInvalid";
+export type AddStaffProblem = "required" | "nameInvalid" | "emailInvalid";
 
 export function toAddStaffInput(
   values: AddStaffValues,
@@ -23,6 +23,6 @@ export function toAddStaffInput(
     addPlatformStaffInput.safeParse(values),
     values,
     ([key]) => (key === "name" || key === "email" ? key : undefined),
-    () => "emailInvalid",
+    (field) => (field === "name" ? "nameInvalid" : "emailInvalid"),
   );
 }

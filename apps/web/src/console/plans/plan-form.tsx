@@ -7,10 +7,10 @@
 import type { CreatePlanInput, PlanSummary, UpdatePlanInput } from "@travel-crm/contracts/subscriptions";
 import { useTranslations } from "next-intl";
 import { TextField } from "@/account/text-field";
+import { FormAlert } from "@/components/forms/form-dialog";
 import { MoneyField } from "@/components/forms/money-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { FieldDescription, FieldGroup, FieldLegend, FieldSet } from "@/components/ui/field";
-import { FormRefusal } from "../form-refusal";
 import { ModulesField } from "./modules-field";
 import { planValues, toCreatePlanInput, toUpdatePlanInput, type PlanProblem, type PlanValues } from "./plan-values";
 
@@ -18,13 +18,13 @@ export function PlanForm({
   id,
   plan,
   send,
-  error,
+  sending,
 }: {
   id: string;
   plan?: PlanSummary | undefined;
   send: (input: CreatePlanInput | UpdatePlanInput) => void;
-  /** What the api refused with. */
-  error: unknown;
+  /** The save, whose refusal is shown above the dialog's button. */
+  sending: { error: unknown };
 }) {
   const t = useTranslations("consolePlatform.planForm");
   const { form, onSubmit, formProblem } = useCheckedForm<PlanValues, CreatePlanInput | UpdatePlanInput, PlanProblem>(
@@ -80,7 +80,7 @@ export function PlanForm({
         </div>
         <ModulesField control={control} />
       </FieldGroup>
-      <FormRefusal problem={formProblem} error={error} />
+      <FormAlert sending={sending} problem={formProblem} />
     </form>
   );
 }

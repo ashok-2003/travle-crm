@@ -1,7 +1,8 @@
 "use client";
 
 // Plans on tablets and wider (DESIGN.md section 6): a table, prices and limits mono and right-aligned, an extra seat's
-// price under its cycle's. Everything stays on one line but the modules, which wrap. Super admins get each plan's actions.
+// price under its cycle's. Everything stays on one line but the modules, which wrap. Super admins get each plan's
+// actions.
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import { useTranslations } from "next-intl";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";

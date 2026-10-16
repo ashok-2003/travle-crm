@@ -52,7 +52,12 @@ export function PlansScreen() {
     }
     if (plans.isError) {
       return (
-        <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void plans.refetch()} />
+        <ErrorState
+          message={t("loadFailed")}
+          error={plans.error}
+          retryLabel={tCommon("tryAgain")}
+          onRetry={() => void plans.refetch()}
+        />
       );
     }
     return <LoadingRows rows={3} label={t("loading")} />;

@@ -78,6 +78,7 @@
     "problems": {
       "keyInvalid": "Use 2-32 lower-case letters, digits or dashes, starting with a letter.",
       "required": "Fill this in.",
+      "nameInvalid": "Use a visible name of up to 60 characters.",
       "priceInvalid": "Use an amount like 4,999 or 4,999.50, up to ₹2,00,00,000.",
       "priceRequired": "Give a monthly price, a yearly price or both.",
       "seatsInvalid": "Use a whole number from 1 to 10,000.",
@@ -105,9 +106,6 @@
       "readOnlyDays": "Use a whole number of days from 1 to 180."
     }
   },
-  "time": {
-    "dayAndTime": "{day}, {time}"
-  },
   "jobs": {
     "title": "Jobs",
     "intro": "Jobs that failed after their last retry, newest first, and the schedules that start jobs. A job holds ids, never anyone's details.",
@@ -131,8 +129,7 @@
     "retry": "Run again",
     "retryFor": "Run again: {queue}, job {id}",
     "retried": "Sent to run again",
-    "showMore": "Show more failed jobs",
-    "loadingMore": "Loading more"
+    "showMore": "Show more failed jobs"
   },
   "schedules": {
     "title": "Schedules",
@@ -142,6 +139,7 @@
     "empty": "No schedules.",
     "cron": "Cron",
     "timeZone": "Time zone",
+    "consoleOwn": "The console registers its own schedules at every start, so they have no Remove.",
     "readOnly": "Only a super admin removes a schedule.",
     "remove": "Remove",
     "removeFor": "Remove the schedule for {queue}",
@@ -157,7 +155,6 @@
     "loadFailed": "The platform log didn't load.",
     "empty": "Nothing is recorded yet.",
     "showMore": "Show older entries",
-    "loadingMore": "Loading more",
     "you": "You",
     "automatic": "Automatic",
     "platformStaff": "Platform staff",
@@ -172,7 +169,6 @@
       "amountPaise": "Amount",
       "paysThrough": "Pays through",
       "paidThrough": "Paid through",
-      "paymentId": "Payment",
       "status": "State",
       "planId": "Plan",
       "billingCycle": "Billing cycle",
@@ -306,6 +302,7 @@
       "submitting": "Adding",
       "problems": {
         "required": "Fill this in.",
+        "nameInvalid": "Use a visible name of up to 100 characters.",
         "emailInvalid": "Use a real email address."
       }
     },

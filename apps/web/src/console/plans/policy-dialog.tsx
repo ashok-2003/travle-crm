@@ -5,14 +5,10 @@
 // above the button, which sits in the dialog's footer.
 import type { SubscriptionPolicy } from "@travel-crm/contracts/subscriptions";
 import { useTranslations } from "next-intl";
-import { useId } from "react";
 import { TextField } from "@/account/text-field";
+import { FormAlert, FormDialog } from "@/components/forms/form-dialog";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
-import { ResponsiveDialog } from "@/components/responsive-dialog";
-import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
-import { Spinner } from "@/components/ui/spinner";
-import { FormRefusal } from "../form-refusal";
 import { policyValues, toPolicyInput, type PolicyField } from "./policy-values";
 import { useSetPolicy } from "./use-policy";
 
@@ -22,12 +18,12 @@ function PolicyForm({
   id,
   policy,
   send,
-  error,
+  sending,
 }: {
   id: string;
   policy: SubscriptionPolicy;
   send: (input: SubscriptionPolicy) => void;
-  error: unknown;
+  sending: { error: unknown };
 }) {
   const t = useTranslations("consolePlatform.policy");
   const { form, onSubmit, formProblem } = useCheckedForm(policyValues(policy), toPolicyInput, (problem) =>
@@ -48,7 +44,7 @@ function PolicyForm({
           />
         ))}
       </FieldGroup>
-      <FormRefusal problem={formProblem} error={error} />
+      <FormAlert sending={sending} problem={formProblem} />
     </form>
   );
 }
@@ -64,29 +60,19 @@ export function PolicyDialog({
 }) {
   const t = useTranslations("consolePlatform.policy");
   const tCommon = useTranslations("common");
-  const formId = useId();
   const save = useSetPolicy(() => {
     onOpenChange(false);
   });
   return (
-    <ResponsiveDialog
-      open={open}
-      onOpenChange={(next) => {
-        // A refusal from an earlier try isn't the next one's.
-        if (!next) save.reset();
-        onOpenChange(next);
-      }}
-      busy={save.isPending}
+    <FormDialog
+      dialog={{ open, setOpen: onOpenChange }}
+      sending={save}
       title={t("changeTitle")}
       description={t("changeDescription")}
-      footer={
-        <Button type="submit" form={formId} disabled={save.isPending}>
-          {save.isPending && <Spinner />}
-          {save.isPending ? tCommon("saving") : tCommon("save")}
-        </Button>
-      }
+      submit={tCommon("save")}
+      submitting={tCommon("saving")}
     >
-      {open && <PolicyForm id={formId} policy={policy} error={save.error} send={save.mutate} />}
-    </ResponsiveDialog>
+      {(formId) => <PolicyForm id={formId} policy={policy} sending={save} send={save.mutate} />}
+    </FormDialog>
   );
 }

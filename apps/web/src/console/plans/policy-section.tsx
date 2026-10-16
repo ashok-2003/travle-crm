@@ -8,7 +8,7 @@ import { useState } from "react";
 import { Details } from "@/components/details";
 import { ErrorState } from "@/components/error-state";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingRows } from "@/components/loading-rows";
 import { formatCount } from "@/lib/format";
 import { isSuperAdmin, useStaff } from "../session/staff-context";
 import { PolicyDialog } from "./policy-dialog";
@@ -42,10 +42,15 @@ export function PolicySection() {
     }
     if (policy.isError) {
       return (
-        <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void policy.refetch()} />
+        <ErrorState
+          message={t("loadFailed")}
+          error={policy.error}
+          retryLabel={tCommon("tryAgain")}
+          onRetry={() => void policy.refetch()}
+        />
       );
     }
-    return <Skeleton role="status" aria-busy="true" aria-label={t("loading")} className="h-16 w-full" />;
+    return <LoadingRows rows={1} label={t("loading")} />;
   };
 
   return (

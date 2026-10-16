@@ -31,7 +31,7 @@ describe("SchedulesSection", () => {
     const lifecycle = await itemOf("subscriptions.advance-lifecycle");
     expect(lifecycle.getByText("15 0 * * *")).toBeVisible();
     expect(lifecycle.getAllByText("Asia/Kolkata")).not.toHaveLength(0);
-    expect(screen.getAllByText(messages.errors.reasons.SCHEDULE_IS_THE_CONSOLES)).toHaveLength(1);
+    expect(screen.getAllByText(words.consoleOwn)).toHaveLength(1);
     expect(lifecycle.queryByRole("button")).toBeNull();
     const digest = await itemOf("reports.weekly-digest");
     expect(
