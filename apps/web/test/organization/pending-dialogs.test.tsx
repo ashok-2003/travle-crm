@@ -1,6 +1,6 @@
-// A dialog that sends a request stays open until the api answers (the fix wave's rule 7): Cancel is disabled and
-// Escape does nothing while the call is out, so its answer always lands where the person can see it: the handover of a
-// new temporary password, the new role's editor, the refusal's reason.
+// A dialog that sends a request stays open until the api answers (the fix wave's rule 7): Cancel is disabled, the
+// close button is gone and Escape does nothing while the call is out, so its answer always lands where the person can
+// see it: the handover of a new temporary password, the new role's editor, the refusal's reason.
 import type { RoleSummary, StaffMember } from "@travel-crm/contracts/identity";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -47,6 +47,7 @@ async function stillOpenWhilePending(api: ReturnType<typeof fakeApi>, cancel: st
     expect(api.calls).toHaveLength(1);
   });
   if (cancel !== null) expect(screen.getByRole("button", { name: cancel })).toBeDisabled();
+  else expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
   await userEvent.keyboard("{Escape}");
   expect(screen.getByRole(cancel === null ? "dialog" : "alertdialog")).toBeVisible();
 }

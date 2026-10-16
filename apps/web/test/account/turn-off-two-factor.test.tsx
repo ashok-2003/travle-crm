@@ -1,5 +1,6 @@
 // Turning two-factor off asks for the password, then stays open until Better Auth answers (the fix wave's rule 7):
-// Cancel is disabled and Escape does nothing meanwhile, so the answer lands where the person sees it.
+// Cancel is disabled, the close button gone and Escape does nothing meanwhile, so the answer lands where the person
+// sees it.
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -24,6 +25,7 @@ describe("TurnOffTwoFactor", () => {
 
     expect(turnOffTwoFactor).toHaveBeenCalledWith({ password: "owner-password-1" });
     expect(within(dialog).getByRole("button", { name: common.cancel })).toBeDisabled();
+    expect(within(dialog).queryByRole("button", { name: common.close })).toBeNull();
     await userEvent.keyboard("{Escape}");
     expect(screen.getByRole("dialog")).toBeVisible();
 

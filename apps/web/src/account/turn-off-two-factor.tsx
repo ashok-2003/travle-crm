@@ -66,7 +66,7 @@ export function TurnOffTwoFactor({
       <DialogTrigger asChild>
         <Button variant="destructive">{t("account.turnOff")}</Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent showCloseButton={!busy}>
         <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-5">
           <DialogHeader>
             <DialogTitle>{t("account.turnOffTitle")}</DialogTitle>
