@@ -131,7 +131,9 @@ describe("DocumentsScreen", () => {
       await within(dialog).findByRole("button", { name: words.share.revokeNamed.replace("{label}", "For Meera Iyer") }),
     ).toBeEnabled();
     expect(within(dialog).getByRole("button", { name: words.share.create })).toBeDisabled();
-    expect(within(dialog).getByText(messages.errors.reasons.ORGANIZATION_SUSPENDED)).toBeVisible();
+    expect(within(dialog).getByRole("button", { name: words.share.create })).toHaveAccessibleDescription(
+      messages.errors.reasons.ORGANIZATION_SUSPENDED,
+    );
   });
 
   it("is a divided list on phones", async () => {
@@ -161,6 +163,18 @@ describe("DocumentsScreen", () => {
     renderScreen({ "documents.list": { data: { documents: [], nextCursor: null } } });
     expect(await screen.findByText(words.list.empty)).toBeVisible();
     expect(screen.getByRole("link", { name: words.list.emptyAction })).toHaveAttribute("href", routes.branding);
+    expect(screen.getByRole("link", { name: messages.settings.title })).toHaveAttribute("href", routes.settings);
+  });
+
+  it("offers a suspended organization's Owner no way into the screens shut to them", async () => {
+    screenIs("wide");
+    renderScreen(
+      { "documents.list": { data: { documents: [], nextCursor: null } } },
+      { ...paidSubscription, status: "suspended", access: "export_only" },
+    );
+    expect(await screen.findByText(words.list.empty)).toBeVisible();
+    expect(screen.queryByRole("link", { name: words.list.emptyAction })).toBeNull();
+    expect(screen.queryByRole("link", { name: messages.settings.title })).toBeNull();
   });
 
   it("says when the documents didn't load, and tries again", async () => {

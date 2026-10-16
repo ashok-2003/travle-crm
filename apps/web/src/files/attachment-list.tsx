@@ -1,8 +1,9 @@
 "use client";
 
 // A record's files as a list of items (DESIGN.md section 6): the name (wrapping, any script), then its kind, size and
-// the day it was added in the organization's zone, and Download and Remove. A sensitive file is marked; to a role
-// without documents:view_sensitive it is only a "Sensitive file", with nothing to do to it (spec 5).
+// the day it was added in the organization's zone, and Download and Remove, under the text on phones. In the line
+// under the name only the size's figure is mono; the day reads as prose. A sensitive file is marked; to a role without
+// documents:view_sensitive it is only a "Sensitive file", with nothing to do to it (spec 5).
 import type { AttachmentSummary } from "@travel-crm/contracts/files";
 import { DownloadIcon, FileIcon, LockIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -89,6 +90,8 @@ function AttachmentRow({ record, attachment }: { record: AttachmentRecord; attac
   const hidden = attachment.sensitive && !holds(me, "documents:view_sensitive");
   const name = hidden ? t("sensitiveFile") : attachment.fileName;
   const added = formatDay(new Date(attachment.createdAt), { timeZone: me.organization.timeZone });
+  const size = formatFileSize(attachment.sizeBytes);
+  const unitAt = size.lastIndexOf(" ");
   return (
     <Item size="sm" role="listitem">
       <ItemMedia variant="icon">
@@ -100,7 +103,11 @@ function AttachmentRow({ record, attachment }: { record: AttachmentRecord; attac
         </ItemTitle>
         <ItemDescription className="flex flex-wrap items-center gap-x-1">
           {t(`kinds.${kindOf(attachment.contentType)}`)} ·{" "}
-          <span className="numbers">{formatFileSize(attachment.sizeBytes)}</span> · {t("added", { date: added })}
+          <span>
+            <span className="numbers">{size.slice(0, unitAt)}</span>
+            {size.slice(unitAt)}
+          </span>{" "}
+          · {t("added", { date: added })}
           {attachment.sensitive && (
             <>
               {" · "}
@@ -110,7 +117,7 @@ function AttachmentRow({ record, attachment }: { record: AttachmentRecord; attac
           )}
         </ItemDescription>
       </ItemContent>
-      <ItemActions>
+      <ItemActions className="basis-full sm:basis-auto">
         {hidden ? (
           <p className="text-label text-muted-foreground">{t("sensitiveHidden")}</p>
         ) : (

@@ -36,9 +36,12 @@ describe("LogoPanel", () => {
     expect(screen.getByRole("button", { name: words.replace })).toBeEnabled();
   });
 
-  it("says there is no logo yet", async () => {
+  it("says there is no logo yet, and what one may be: its size and its pixels, from the contracts' limits", async () => {
     renderPanel({ "organization.logo.get": { data: null } });
     expect(await screen.findByText(words.none)).toBeVisible();
+    expect(
+      screen.getByText(words.hint.replace("{size}", "1 MB").replace("{side}", "4,096").replace("{megapixels}", "16")),
+    ).toBeVisible();
     expect(screen.getByRole("button", { name: words.upload })).toBeEnabled();
     expect(screen.queryByRole("button", { name: words.remove })).toBeNull();
   });
@@ -159,7 +162,11 @@ describe("LogoPanel", () => {
       "subscription.get": subscriptionAnswer("read_only"),
     });
     expect(await screen.findByText(messages.errors.reasons.ORGANIZATION_READ_ONLY)).toBeVisible();
-    expect(screen.getByRole("button", { name: words.replace })).toBeDisabled();
-    expect(screen.getByRole("button", { name: words.remove })).toBeDisabled();
+    for (const name of [words.replace, words.remove]) {
+      expect(screen.getByRole("button", { name })).toBeDisabled();
+      expect(screen.getByRole("button", { name })).toHaveAccessibleDescription(
+        messages.errors.reasons.ORGANIZATION_READ_ONLY,
+      );
+    }
   });
 });

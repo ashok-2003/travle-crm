@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProfileScreen } from "@/business/profile/profile-screen";
 import { useTRPC } from "@/data/trpc";
 import { messages } from "@/i18n/messages";
+import { routes } from "@/lib/routes";
 import { stubApi } from "../support/api-stub";
 import { newQueryClient, renderWithApi } from "../organization/api";
 import { owner, saved, subscription } from "./profile";
@@ -40,6 +41,7 @@ describe("ProfileScreen", () => {
     renderWithApi(<ProfileScreen />, newQueryClient(null), owner);
     expect(await screen.findByLabelText(words.legalName)).toHaveValue("Konkan Trails LLP");
     expect(screen.getByRole("heading", { level: 1, name: words.title })).toBeVisible();
+    expect(screen.getByRole("link", { name: messages.settings.title })).toHaveAttribute("href", routes.settings);
     expect(screen.getByLabelText(words.gstin)).toHaveClass("numbers");
     expect(screen.getByLabelText(words.contactPhone)).toHaveValue("98200 12345");
     expect(screen.getByText("+91")).toBeVisible();

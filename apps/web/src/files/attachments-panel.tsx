@@ -4,10 +4,9 @@
 // honest loading, empty and error states. The api decides who may use the record's files; this shows what it says.
 import { FolderIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Delayed } from "@/components/delayed";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
-import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingRows } from "@/components/loading-rows";
 import { AttachmentList } from "./attachment-list";
 import { UploadControl } from "./upload-control";
 import { useAttachments, type AttachmentRecord } from "./use-attachments";
@@ -31,15 +30,7 @@ export function AttachmentsPanel({ record, emptyMessage }: { record: AttachmentR
         <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void files.refetch()} />
       );
     }
-    return (
-      <Delayed>
-        <div role="status" aria-busy="true" aria-label={tCommon("loading")} className="flex flex-col gap-2">
-          {[0, 1, 2].map((row) => (
-            <Skeleton key={row} className="h-16 w-full" />
-          ))}
-        </div>
-      </Delayed>
-    );
+    return <LoadingRows rows={3} shape="twoLines" />;
   };
 
   return (

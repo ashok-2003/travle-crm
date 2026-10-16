@@ -9,6 +9,7 @@
 // mutation's own options, the hook's useMutation onSuccess (as useRemoveLogo(onRemoved) does), never in mutate()'s
 // callbacks, which are dropped once the calling component is gone. Closed by the person (Cancel, Escape), the request
 // is reset, so its refusal isn't shown when the dialog opens again; a success has none to forget.
+import { CircleAlertIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -78,6 +79,7 @@ export function ConfirmDialog({
         {children}
         {request.isError && (
           <Alert variant="destructive">
+            <CircleAlertIcon aria-hidden="true" />
             <AlertDescription>{sentenceFor(request.error)}</AlertDescription>
           </Alert>
         )}

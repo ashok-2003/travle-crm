@@ -6,8 +6,8 @@ import type { ShareLinkSummary } from "@travel-crm/contracts/share-links";
 import { useTranslations } from "next-intl";
 import { Fragment, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { Delayed } from "@/components/delayed";
 import { ErrorState } from "@/components/error-state";
+import { LoadingRows } from "@/components/loading-rows";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,8 +19,7 @@ import {
   ItemSeparator,
   ItemTitle,
 } from "@/components/ui/item";
-import { Skeleton } from "@/components/ui/skeleton";
-import { formatDay, formatTime } from "@/lib/format";
+import { formatDay, formatDayTime } from "@/lib/format";
 import { useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { linkTones, shareLinkState } from "./share-link-state";
@@ -36,10 +35,6 @@ function ShareLinkRow({ link }: { link: ShareLinkSummary }) {
     setRevoking(false);
   });
   const state = shareLinkState(link);
-  const when = (instant: string) => {
-    const at = new Date(instant);
-    return t("when", { day: formatDay(at, { timeZone }), time: formatTime(at, { timeZone }) });
-  };
   return (
     <Item size="sm" role="listitem" className="items-start">
       <ItemContent className="min-w-0">
@@ -51,7 +46,7 @@ function ShareLinkRow({ link }: { link: ShareLinkSummary }) {
           <span>
             {link.lastOpenedAt === null
               ? t("notOpened")
-              : t("opened", { count: link.openCount, when: when(link.lastOpenedAt) })}
+              : t("opened", { count: link.openCount, when: formatDayTime(new Date(link.lastOpenedAt), { timeZone }) })}
           </span>
           <span>
             {link.expiresAt === null
@@ -112,9 +107,5 @@ export function ShareLinkList({ documentId }: { documentId: string }) {
       <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void links.refetch()} />
     );
   }
-  return (
-    <Delayed>
-      <Skeleton role="status" aria-label={tCommon("loading")} className="h-16 w-full" />
-    </Delayed>
-  );
+  return <LoadingRows rows={1} shape="twoLines" />;
 }

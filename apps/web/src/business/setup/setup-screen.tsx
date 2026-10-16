@@ -3,10 +3,10 @@
 // The setup checklist screen (spec 7.1, spec 11): what an organization does first, each step marked done or to do and
 // leading to where it is done, and how far along it is.
 import { useTranslations } from "next-intl";
-import { Delayed } from "@/components/delayed";
+import { BackToSettings } from "@/components/back-to-settings";
 import { ErrorState } from "@/components/error-state";
-import { PageTitle } from "@/components/page-title";
-import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingRows } from "@/components/loading-rows";
+import { PageHeader } from "@/components/page-header";
 import { SetupSteps, useSetupProgress } from "./setup-steps";
 import { useSetupChecklist } from "./use-setup-checklist";
 
@@ -35,23 +35,13 @@ export function SetupScreen() {
         />
       );
     }
-    return (
-      <Delayed>
-        <div role="status" aria-busy="true" aria-label={tCommon("loading")} className="flex flex-col gap-2">
-          {[0, 1, 2, 3, 4].map((row) => (
-            <Skeleton key={row} className="h-14 w-full" />
-          ))}
-        </div>
-      </Delayed>
-    );
+    return <LoadingRows rows={5} shape="twoLines" />;
   };
 
   return (
     <div className="flex max-w-[720px] flex-col gap-6">
-      <div className="flex max-w-[65ch] flex-col gap-2">
-        <PageTitle>{t("title")}</PageTitle>
-        <p className="text-muted-foreground">{t("intro")}</p>
-      </div>
+      <BackToSettings />
+      <PageHeader title={t("title")} intro={t("intro")} />
       {body()}
     </div>
   );

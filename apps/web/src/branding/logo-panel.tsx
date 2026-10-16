@@ -4,16 +4,22 @@
 // straight to storage with its progress (with Stop, and Try again after a failure), or removing it. Type and size are
 // checked here before anything is sent.
 import { useQuery } from "@tanstack/react-query";
-import { MAX_LOGO_BYTES, type OrganizationLogo } from "@travel-crm/contracts/profile";
+import {
+  MAX_LOGO_BYTES,
+  MAX_LOGO_PIXELS,
+  MAX_LOGO_SIDE_PIXELS,
+  type OrganizationLogo,
+} from "@travel-crm/contracts/profile";
+import { CircleAlertIcon } from "lucide-react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Delayed } from "@/components/delayed";
 import { ErrorState } from "@/components/error-state";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { FieldDescription } from "@/components/ui/field";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTRPC } from "@/data/trpc";
@@ -21,6 +27,7 @@ import { formatFileSize } from "@/files/file-size";
 import { UploadError } from "@/files/upload";
 import { wasStopped } from "@/files/use-signed-upload";
 import { useErrorMessage } from "@/lib/error-message";
+import { formatCount } from "@/lib/format";
 import { useWriteAccess } from "@/subscription/write-access";
 import { logoUploadOf } from "./logo-file";
 import { useLogoUpload, useRemoveLogo } from "./use-logo";
@@ -67,6 +74,8 @@ export function LogoPanel() {
   });
   const uploading = upload.isPending;
   const size = formatFileSize(MAX_LOGO_BYTES);
+  const hintId = useId();
+  const writeHint = write.hint === null ? undefined : hintId;
 
   const choose = (file: File) => {
     const checked = logoUploadOf(file);
@@ -92,84 +101,92 @@ export function LogoPanel() {
   };
 
   return (
-    <section aria-labelledby="logo-heading" className="flex flex-col gap-3">
-      <h2 id="logo-heading" className="text-section font-semibold">
-        {t("heading")}
-      </h2>
-      <Card>
-        <CardContent className="flex flex-col gap-4">
-          {preview()}
-          <p className="text-label text-muted-foreground">{t("hint", { size })}</p>
-          {uploading && (
-            <div className="flex flex-col gap-2">
-              <Progress value={progress * 100} aria-label={t("uploading")} />
-              <Button type="button" variant="ghost" className="self-start" onClick={stop}>
-                {t("stop")}
-              </Button>
-            </div>
-          )}
-          {problem !== null && (
-            <Alert variant="destructive">
-              <AlertDescription>{problem}</AlertDescription>
-            </Alert>
-          )}
-          {failed && (
-            <div className="flex flex-col items-start gap-2">
-              <Alert variant="destructive">
-                <AlertDescription>
-                  {upload.error instanceof UploadError ? t("uploadFailed") : apiError(upload.error)}
-                </AlertDescription>
-              </Alert>
-              <Button
-                type="button"
-                variant="outline"
-                aria-label={t("tryAgain")}
-                disabled={!write.allowed}
-                onClick={() => {
-                  upload.mutate(upload.variables);
-                }}
-              >
-                {tCommon("tryAgain")}
-              </Button>
-            </div>
-          )}
-          {/* Hidden from everyone, screen readers too: the button opens it. Labelled for tests and journeys. */}
-          <input
-            ref={fileInput}
-            type="file"
-            accept="image/png,image/jpeg"
-            aria-label={t("fileLabel")}
-            className="hidden"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              // Cleared, so choosing the same file again (after a failed upload) is a change too.
-              event.target.value = "";
-              if (file) choose(file);
+    <section aria-labelledby="logo-heading" className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1">
+        <h2 id="logo-heading" className="text-section font-semibold">
+          {t("heading")}
+        </h2>
+        <p className="text-label text-muted-foreground">
+          {t("hint", {
+            size,
+            side: formatCount(MAX_LOGO_SIDE_PIXELS),
+            megapixels: formatCount(MAX_LOGO_PIXELS / 1_000_000),
+          })}
+        </p>
+      </div>
+      {preview()}
+      {uploading && (
+        <div className="flex flex-col gap-2">
+          <Progress value={progress * 100} aria-label={t("uploading")} />
+          <Button type="button" variant="ghost" className="self-start" onClick={stop}>
+            {t("stop")}
+          </Button>
+        </div>
+      )}
+      {problem !== null && (
+        <Alert variant="destructive">
+          <CircleAlertIcon aria-hidden="true" />
+          <AlertDescription>{problem}</AlertDescription>
+        </Alert>
+      )}
+      {failed && (
+        <div className="flex flex-col items-start gap-2">
+          <Alert variant="destructive">
+            <CircleAlertIcon aria-hidden="true" />
+            <AlertDescription>
+              {upload.error instanceof UploadError ? t("uploadFailed") : apiError(upload.error)}
+            </AlertDescription>
+          </Alert>
+          <Button
+            type="button"
+            variant="outline"
+            aria-label={t("tryAgain")}
+            disabled={!write.allowed}
+            onClick={() => {
+              upload.mutate(upload.variables);
             }}
-          />
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              disabled={!write.allowed || uploading || logo.isPending}
-              onClick={() => fileInput.current?.click()}
-            >
-              {logo.data ? t("replace") : t("upload")}
-            </Button>
-            {logo.data && (
-              <Button
-                variant="outline"
-                disabled={!write.allowed || uploading}
-                onClick={() => {
-                  setRemoving(true);
-                }}
-              >
-                {t("remove")}
-              </Button>
-            )}
-          </div>
-          {write.hint !== null && <p className="text-label text-muted-foreground">{write.hint}</p>}
-        </CardContent>
-      </Card>
+          >
+            {tCommon("tryAgain")}
+          </Button>
+        </div>
+      )}
+      {/* Hidden from everyone, screen readers too: the button opens it. Labelled for tests and journeys. */}
+      <input
+        ref={fileInput}
+        type="file"
+        accept="image/png,image/jpeg"
+        aria-label={t("fileLabel")}
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          // Cleared, so choosing the same file again (after a failed upload) is a change too.
+          event.target.value = "";
+          if (file) choose(file);
+        }}
+      />
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="outline"
+          disabled={!write.allowed || uploading || logo.isPending}
+          aria-describedby={writeHint}
+          onClick={() => fileInput.current?.click()}
+        >
+          {logo.data ? t("replace") : t("upload")}
+        </Button>
+        {logo.data && (
+          <Button
+            variant="outline"
+            disabled={!write.allowed || uploading}
+            aria-describedby={writeHint}
+            onClick={() => {
+              setRemoving(true);
+            }}
+          >
+            {t("remove")}
+          </Button>
+        )}
+      </div>
+      {write.hint !== null && <FieldDescription id={hintId}>{write.hint}</FieldDescription>}
       {/* Documents issued from now on have no logo; those already issued keep theirs. */}
       {logo.data && (
         <ConfirmDialog

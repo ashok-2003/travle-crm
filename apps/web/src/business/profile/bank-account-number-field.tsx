@@ -6,13 +6,11 @@
 import { useTranslations } from "next-intl";
 import { useEffect } from "react";
 import type { UseFormReturn } from "react-hook-form";
+import { FormField } from "@/components/form-field";
 import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { ProfileTextField } from "./profile-text-field";
 import { maskedAccountNumber, type ProfileValues } from "./profile-values";
-
-const ID = "profile-bankAccountNumber";
 
 export function BankAccountNumberField({
   form,
@@ -53,29 +51,23 @@ export function BankAccountNumberField({
     );
   }
   return (
-    <Field>
-      <FieldLabel htmlFor={ID}>{t("bankAccountNumber")}</FieldLabel>
-      <InputGroup>
-        <InputGroupInput
-          id={ID}
-          readOnly
-          value={maskedAccountNumber(saved)}
-          className="numbers"
-          aria-describedby={`${ID}-hint`}
-        />
-        <InputGroupAddon align="inline-end">
-          <InputGroupButton
-            aria-label={t("changeAccountNumber")}
-            onClick={() => {
-              form.setValue("bankAccountNumber", "", { shouldDirty: true });
-              onChangingChange(true);
-            }}
-          >
-            {t("change")}
-          </InputGroupButton>
-        </InputGroupAddon>
-      </InputGroup>
-      <FieldDescription id={`${ID}-hint`}>{t("bankAccountNumberSaved")}</FieldDescription>
-    </Field>
+    <FormField label={t("bankAccountNumber")} hint={t("bankAccountNumberSaved")}>
+      {(links) => (
+        <InputGroup>
+          <InputGroupInput {...links} readOnly value={maskedAccountNumber(saved)} className="numbers" />
+          <InputGroupAddon align="inline-end">
+            <InputGroupButton
+              aria-label={t("changeAccountNumber")}
+              onClick={() => {
+                form.setValue("bankAccountNumber", "", { shouldDirty: true });
+                onChangingChange(true);
+              }}
+            >
+              {t("change")}
+            </InputGroupButton>
+          </InputGroupAddon>
+        </InputGroup>
+      )}
+    </FormField>
   );
 }
