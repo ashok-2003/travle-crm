@@ -103,6 +103,8 @@ describe("the staff screen in each state of the subscription", () => {
       expect(add).toBeDisabled();
     });
     expect(add).toHaveAccessibleDescription(reasons.ORGANIZATION_READ_ONLY);
+    // The read-only banner says it above every screen: under the button it is for screen readers only.
+    expect(document.getElementById("add-staff-refused")).toHaveClass("sr-only");
     const menu = await openActionsForRavi();
     expect(within(menu).getByText(reasons.ORGANIZATION_READ_ONLY)).toBeVisible();
     expect(within(menu).getByRole("menuitem", { name: "Change role" })).toHaveAttribute("aria-disabled", "true");
@@ -119,6 +121,21 @@ describe("the staff screen in each state of the subscription", () => {
     const menu = await openActionsForRavi();
     expect(within(menu).getByRole("menuitem", { name: "Change role" })).toHaveAttribute("aria-disabled", "true");
     expect(within(menu).getByRole("menuitem", { name: "Remove" })).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("doesn't invite adding staff while adding is refused, when nobody else is here", async () => {
+    renderStaff("read_only", { "staff.list": { data: staff.slice(0, 1) } });
+    expect(await screen.findByText(messages.staff.emptyNoAdding)).toBeVisible();
+    expect(screen.queryByText(messages.staff.empty)).toBeNull();
+  });
+
+  it("keeps the reason visible where no banner says it: the suspended Owner's Staff", async () => {
+    renderStaff("export_only", { "roles.list": { status: 403, reason: "ORGANIZATION_SUSPENDED" } });
+    const add = await screen.findByRole("button", { name: "Add staff" });
+    await waitFor(() => {
+      expect(add).toHaveAccessibleDescription(reasons.ORGANIZATION_SUSPENDED);
+    });
+    expect(document.getElementById("add-staff-refused")).not.toHaveClass("sr-only");
   });
 
   it("says why when the api refuses what the screen still offered", async () => {

@@ -9,7 +9,6 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
-import { FieldDescription } from "@/components/ui/field";
 import { useWriteAccess } from "@/subscription/write-access";
 import { useDeleteRole } from "./use-roles";
 
@@ -18,29 +17,25 @@ export function DeleteRoleDialog({
   describedBy,
 }: {
   role: RoleSummary;
-  /** The id of what says why changes are refused, when they are. */
+  /** The ids of what says why it is disabled (its members, the subscription), which the editor shows. */
   describedBy?: string | undefined;
 }) {
   const t = useTranslations("roles.delete");
   const remove = useDeleteRole(role.name);
   const [open, setOpen] = useState(false);
-  const inUse = role.memberCount > 0;
   const write = useWriteAccess();
-  // Why it is disabled: the role's members, the subscription, or both.
-  const reasons = [inUse ? "role-in-use" : undefined, describedBy].filter((id) => id !== undefined);
   return (
-    <div className="flex flex-col items-start gap-2">
+    <>
       <Button
         variant="destructive"
-        disabled={inUse || !write.allowed}
-        aria-describedby={reasons.length > 0 ? reasons.join(" ") : undefined}
+        disabled={role.memberCount > 0 || !write.allowed}
+        aria-describedby={describedBy}
         onClick={() => {
           setOpen(true);
         }}
       >
         {t("action")}
       </Button>
-      {inUse && <FieldDescription id="role-in-use">{t("inUse", { count: role.memberCount })}</FieldDescription>}
       <ConfirmDialog
         open={open}
         onOpenChange={setOpen}
@@ -59,6 +54,6 @@ export function DeleteRoleDialog({
           );
         }}
       />
-    </div>
+    </>
   );
 }

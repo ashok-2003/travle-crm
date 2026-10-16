@@ -39,7 +39,7 @@ export function RolesScreen() {
                         {role.isOwner ? t("everyPermission") : t("permissionCount", { count: role.permissions.length })}
                       </ItemDescription>
                     </ItemContent>
-                    <span className="numbers text-muted-foreground">{t("people", { count: role.memberCount })}</span>
+                    <span className="text-muted-foreground">{t("people", { count: role.memberCount })}</span>
                     <ChevronRightIcon aria-hidden="true" className="size-4" />
                   </Link>
                 </Item>
@@ -54,7 +54,7 @@ export function RolesScreen() {
         <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void roles.refetch()} />
       );
     }
-    return <LoadingRows rows={5} />;
+    return <LoadingRows rows={5} shape="twoLines" />;
   };
 
   return (
