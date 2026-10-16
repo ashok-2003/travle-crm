@@ -28,7 +28,7 @@ function ReasonForm<Input>({
   destructive?: boolean;
 }) {
   const t = useTranslations("consoleOrganizations.subscription");
-  const { form, onSubmit } = useCheckedForm({ reason: "" }, check, (problem) => t(`problems.${problem}`));
+  const { form, onSubmit, formProblem } = useCheckedForm({ reason: "" }, check, (problem) => t(`problems.${problem}`));
   return (
     <form noValidate onSubmit={onSubmit(sending.mutate)} className="flex flex-col gap-6">
       <FieldGroup>
@@ -40,7 +40,13 @@ function ReasonForm<Input>({
           autoComplete="off"
         />
       </FieldGroup>
-      <FormFooter sending={sending} label={submit} pendingLabel={submitting} destructive={destructive} />
+      <FormFooter
+        sending={sending}
+        problem={formProblem}
+        label={submit}
+        pendingLabel={submitting}
+        destructive={destructive}
+      />
     </form>
   );
 }
