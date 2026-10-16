@@ -1,18 +1,26 @@
 // The documents screen's api (spec 9.3): a sample quotation issued from the profile and branding, logo included,
 // numbered SMPL and kept like every issued document; the organization's documents newest first, a page at a time;
 // and a short-lived link to a rendered PDF. Only roles with settings:manage reach them; read-only organizations may
-// look and download, but issue nothing.
+// look and download, but issue nothing, and a suspended one's Owner may still list and download its PDFs. Samples are
+// kept for good, so an organization issues at most SAMPLES_PER_DAY in any 24 hours.
 import type { IssuedDocumentPage, IssuedDocumentSummary } from "@travel-crm/contracts/documents";
 import type { DownloadLinkOutput } from "@travel-crm/contracts/files";
 import type { LogoUpload, OrganizationLogo } from "@travel-crm/contracts/profile";
 import { issuedDocumentRenderInput } from "@travel-crm/contracts/documents";
-import { renderIssuedDocumentListener } from "@travel-crm/domain/documents";
+import {
+  brandedSampleQuotation,
+  issueDocument,
+  renderIssuedDocumentListener,
+  SAMPLE_PREFIX,
+  SAMPLES_PER_DAY,
+} from "@travel-crm/domain/documents";
 import { runListenerJob } from "@travel-crm/domain/jobs";
 import { renderPdf } from "@travel-crm/integrations/pdf";
 import { createMemoryStorage, type MemoryStorage } from "@travel-crm/integrations/storage";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { CookieJar } from "./support/cookie-jar.js";
-import { addStaff, signedInOwner, signedInStaff } from "./support/people.js";
+import { tinyPng } from "./support/images.js";
+import { addStaff, ownerAccess, signedInOwner, signedInStaff } from "./support/people.js";
 import { createTestAgency, createTestServer, type TestAgency, type TestServer } from "./support/test-server.js";
 import { dataOf, mutate, query, refusalOf } from "./support/trpc.js";
 
@@ -29,12 +37,6 @@ const profile = {
   bankName: "HDFC Bank",
   invoicePrefix: "KT",
 };
-
-/** A 1x1 PNG: a logo the PDF can draw. */
-const logoPng = Uint8Array.from(
-  atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="),
-  (character) => character.charCodeAt(0),
-);
 
 describe("issued documents", () => {
   let server: TestServer;
@@ -70,11 +72,11 @@ describe("issued documents", () => {
       await mutate(
         server,
         "organization.logo.requestUpload",
-        { fileName: "Logo.png", contentType: "image/png", sizeBytes: logoPng.byteLength },
+        { fileName: "Logo.png", contentType: "image/png", sizeBytes: tinyPng.byteLength },
         jar,
       ),
     );
-    await storage.upload({ ...upload, expiresAt: new Date(upload.expiresAt) }, logoPng, "image/png");
+    await storage.upload({ ...upload, expiresAt: new Date(upload.expiresAt) }, tinyPng, "image/png");
     return dataOf<OrganizationLogo>(await mutate(server, "organization.logo.confirmUpload", { attachmentId }, jar));
   }
 
@@ -172,6 +174,24 @@ describe("issued documents", () => {
     expect(documents).toMatchObject([{ id: sample.id, renderFailed: true }]);
   });
 
+  it("refuses a sample past the day's, as each is kept for good", async () => {
+    const { agency, jar } = await brandedAgency();
+    const owner = await ownerAccess(server, agency);
+    const sample = brandedSampleQuotation({
+      organizationName: "Test agency",
+      profile: { gstStateCode: "27", brandColour: null, documentTerms: null },
+    });
+    await server.db.forOrg(agency.organizationId, async (tx) => {
+      for (let count = 0; count < SAMPLES_PER_DAY; count++) {
+        await issueDocument(tx, owner, { ...sample, prefix: SAMPLE_PREFIX });
+      }
+    });
+    expect(await refusalOf(await mutate(server, "documents.issueSample", undefined, jar))).toEqual({
+      status: 403,
+      reason: "SAMPLE_LIMIT_REACHED",
+    });
+  });
+
   it("refuses a sample before the business details, and another organization's document", async () => {
     const agency = await createTestAgency(server);
     const jar = await signedInOwner(server, agency);
@@ -207,6 +227,35 @@ describe("issued documents", () => {
     ] as const) {
       expect(await refusalOf(await query(server, path, salesJar, input)), path).toEqual(refused);
     }
+  });
+
+  it("lets a suspended organization's Owner list and download its PDFs, as exports, and nobody else", async () => {
+    const { agency, jar } = await brandedAgency();
+    const sample = await issueSample(jar);
+    await rendered(agency, sample.id);
+    const admin = await signedInStaff(
+      server,
+      agency,
+      await addStaff(server, agency, { username: "priya", roleKey: "org-admin" }),
+    );
+    await server.platform.subscription.update({
+      where: { organizationId: agency.organizationId },
+      data: { status: "suspended", statusChangedAt: new Date(), trialEndsOn: null },
+    });
+    const ref = { documentId: sample.id };
+    expect(await dataOf<IssuedDocumentPage>(await query(server, "documents.list", jar, {}))).toMatchObject({
+      documents: [{ id: sample.id }],
+    });
+    expect((await query(server, "documents.downloadLink", jar, ref)).status).toBe(200);
+    const suspended = { status: 403, reason: "ORGANIZATION_SUSPENDED" };
+    for (const [path, input] of [
+      ["documents.list", {}],
+      ["documents.downloadLink", ref],
+    ] as const) {
+      expect(await refusalOf(await query(server, path, admin, input)), path).toEqual(suspended);
+    }
+    expect(await refusalOf(await query(server, "documents.get", jar, ref))).toEqual(suspended);
+    expect(await refusalOf(await mutate(server, "documents.issueSample", undefined, jar))).toEqual(suspended);
   });
 
   it("lets a read-only organization's Owner look and download, but issue nothing", async () => {

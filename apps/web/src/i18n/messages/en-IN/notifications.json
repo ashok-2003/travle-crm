@@ -30,7 +30,7 @@
     "kinds": {
       "shareLinkOpened": {
         "label": "A customer opens a link you shared",
-        "hint": "At most once every 10 minutes for each link."
+        "hint": "Repeat opens of the same link are held back for a while."
       }
     },
     "loading": "Loading your choices",

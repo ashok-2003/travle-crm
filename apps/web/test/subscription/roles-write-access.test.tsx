@@ -99,10 +99,17 @@ describe("the roles screens in each state of the subscription", () => {
     await waitFor(() => {
       expect(save).toBeDisabled();
     });
-    expect(save).toHaveAccessibleDescription(reasons.ORGANIZATION_READ_ONLY);
-    expect(screen.getByRole("button", { name: "Delete role" })).toBeDisabled();
-    expect(screen.getByRole("textbox", { name: "Name" })).toBeDisabled();
-    for (const permission of screen.getAllByRole("checkbox")) expect(permission).toBeDisabled();
-    expect(screen.getByRole("combobox")).toBeDisabled();
+    // Each disabled control says why, not only Save: a screen reader otherwise hears only "dimmed".
+    const disabled = [
+      save,
+      screen.getByRole("button", { name: "Delete role" }),
+      screen.getByRole("textbox", { name: "Name" }),
+      ...screen.getAllByRole("checkbox"),
+      screen.getByRole("combobox"),
+    ];
+    for (const control of disabled) {
+      expect(control).toBeDisabled();
+      expect(control).toHaveAccessibleDescription(reasons.ORGANIZATION_READ_ONLY);
+    }
   });
 });

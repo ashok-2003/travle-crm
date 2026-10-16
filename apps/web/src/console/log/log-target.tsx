@@ -25,12 +25,15 @@ export function LogOrganization({ entry, names }: { entry: PlatformLogEntry; nam
     return <span>{code === null ? t("deletedOrganizationWithoutCode") : t("deletedOrganization", { code })}</span>;
   }
   return (
-    <Link
-      href={consoleRoutes.organization(organizationId)}
-      className="text-primary underline-offset-4 script-leading hover:underline"
-    >
-      {known.state === "found" ? known.name : (code ?? t("organization"))}
-    </Link>
+    <>
+      <Link
+        href={consoleRoutes.organization(organizationId)}
+        className="text-primary underline-offset-4 script-leading hover:underline"
+      >
+        {known.state === "found" ? known.name : (code ?? t("organization"))}
+      </Link>
+      {known.state === "failed" && <span className="text-caption text-muted-foreground"> {t("nameFailed")}</span>}
+    </>
   );
 }
 

@@ -54,6 +54,7 @@ export function CreateStaffDialog({ roles }: { roles: RoleSummary[] }) {
       <ResponsiveDialog
         open={open}
         onOpenChange={changeOpen}
+        busy={create.isPending}
         title={created ? t("create.added", { name: created.member.name }) : t("create.title")}
         description={created ? t("create.temporaryPasswordHint") : t("create.description")}
       >

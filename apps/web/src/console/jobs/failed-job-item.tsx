@@ -52,6 +52,7 @@ export function FailedJobItem({ job }: { job: FailedJobOutput }) {
           <Button
             variant="outline"
             disabled={!retryable || retry.isPending}
+            aria-label={t("retryFor", { queue: job.queue, id: job.id })}
             aria-describedby={retryable ? undefined : reasonId}
             onClick={() => {
               retry.mutate({ queue: job.queue, jobId: job.id });

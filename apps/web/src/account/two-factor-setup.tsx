@@ -43,15 +43,15 @@ function manualKey(totpUri: string): string {
 }
 
 export function TwoFactorSetup({
-  pending,
-  askedBy = "organization",
+  askedBy,
+  canLeave,
   onDone,
   auth = authClient,
 }: {
-  /** The organization (or the console) requires two-factor and this is why the person is here. */
-  pending: boolean;
-  /** Who requires it: the person's organization, or the platform console, for its staff. */
-  askedBy?: "organization" | "console";
+  /** Who requires it: the person's organization, the console for its staff, or nobody (the person chose it). */
+  askedBy: "organization" | "console" | null;
+  /** Whether it offers the way back to the account: not when the person was sent here. */
+  canLeave: boolean;
   onDone: () => Promise<void> | void;
   auth?: Pick<AuthClient, "startTwoFactorSetup" | "confirmTwoFactor">;
 }) {
@@ -98,7 +98,7 @@ export function TwoFactorSetup({
     <div className="flex flex-col gap-6">
       <PageTitle>{t("twoFactorSetup.title")}</PageTitle>
       <p className="text-muted-foreground">
-        {!pending
+        {askedBy === null
           ? t("twoFactorSetup.intro")
           : askedBy === "console"
             ? t("twoFactorSetup.platformIntro")
@@ -163,7 +163,7 @@ export function TwoFactorSetup({
       {step.name === "backup" && <BackupCodes codes={step.backupCodes} onDone={onDone} />}
 
       {/* A setup the person chose can be left until it is on; one the api insists on can't be. */}
-      {!pending && step.name !== "backup" && <TextLink href={routes.account}>{t("steps.backToAccount")}</TextLink>}
+      {canLeave && step.name !== "backup" && <TextLink href={routes.account}>{t("steps.backToAccount")}</TextLink>}
     </div>
   );
 }

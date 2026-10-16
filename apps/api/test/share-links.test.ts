@@ -1,6 +1,7 @@
 // Share links over HTTP (spec 9.3): a link to an issued document, its token shown once, that opens the PDF at /p and
 // counts the open; links that never expire; revoking for good; nothing but the organization's own issued documents
-// shared. Only roles with settings:manage reach them, and a read-only organization may still turn a link off.
+// shared, and none whose PDF can never be made. Only roles with settings:manage reach them, a link is made only from a
+// session the database still holds, and a read-only organization, or a suspended one's Owner, may still turn one off.
 import type { IssuedDocumentSummary } from "@travel-crm/contracts/documents";
 import type { CreatedShareLink, ShareLinkSummary } from "@travel-crm/contracts/share-links";
 import { renderIssuedDocumentListener } from "@travel-crm/domain/documents";
@@ -132,6 +133,39 @@ describe("share links", () => {
     ).toEqual({ status: 400, reason: "INVALID_RECORD_TYPE" });
   });
 
+  it("shares no document whose PDF can never be made", async () => {
+    const agency = await createTestAgency(server);
+    const jar = await signedInOwner(server, agency);
+    await dataOf(await mutate(server, "organization.profile.update", profile, jar));
+    const sample = await dataOf<IssuedDocumentSummary>(await mutate(server, "documents.issueSample", undefined, jar));
+    // As the worker leaves a document whose text its fonts can't show.
+    await server.db.forOrg(agency.organizationId, (tx) =>
+      tx.issuedDocument.update({ where: { id: sample.id }, data: { renderFailure: "UNPRINTABLE_TEXT: U+0939" } }),
+    );
+    const create = await mutate(
+      server,
+      "shareLinks.create",
+      { recordType: "issued_document", recordId: sample.id, label: "A link" },
+      jar,
+    );
+    expect(await refusalOf(create)).toEqual({ status: 404, reason: "DOCUMENT_UNAVAILABLE" });
+    expect(await linksOf(jar, sample)).toEqual([]);
+  });
+
+  it("makes a link only from a session the database still holds, not the cookie cache alone", async () => {
+    const { agency, jar, sample } = await sharedSample();
+    await server.platform.session.deleteMany({ where: { userId: agency.owner.userId } });
+    // The cookie cache still vouches for the session, which the list accepts; making a public link doesn't.
+    expect(await linksOf(jar, sample)).toEqual([]);
+    const create = await mutate(
+      server,
+      "shareLinks.create",
+      { recordType: "issued_document", recordId: sample.id, label: "A link" },
+      jar,
+    );
+    expect(create.status).toBe(401);
+  });
+
   it("can't turn off another organization's link", async () => {
     const { jar } = await sharedSample();
     const other = await sharedSample();
@@ -178,5 +212,28 @@ describe("share links", () => {
     ).toEqual({ status: 403, reason: "ORGANIZATION_READ_ONLY" });
     // Turning a link off takes a customer's access away, which read-only allows (ADR 0021).
     expect((await mutate(server, "shareLinks.revoke", { shareLinkId: link.shareLinkId }, jar)).status).toBe(200);
+  });
+
+  it("lets a suspended organization's Owner find and turn off links, and nobody else", async () => {
+    const { agency, jar, sample } = await sharedSample();
+    const link = await linkTo(jar, sample);
+    const priya = await addStaff(server, agency, { username: "priya", roleKey: "org-admin" });
+    const admin = await signedInStaff(server, agency, priya);
+    await server.platform.subscription.update({
+      where: { organizationId: agency.organizationId },
+      data: { status: "suspended", statusChangedAt: new Date(), trialEndsOn: null },
+    });
+    const suspended = { status: 403, reason: "ORGANIZATION_SUSPENDED" };
+    const record = { recordType: "issued_document", recordId: sample.id };
+    expect(await refusalOf(await query(server, "shareLinks.list", admin, record))).toEqual(suspended);
+    expect(
+      await refusalOf(await mutate(server, "shareLinks.revoke", { shareLinkId: link.shareLinkId }, admin)),
+    ).toEqual(suspended);
+    // The list is how the Owner finds the link: part of revoking, which the suspension doesn't stop.
+    expect(await linksOf(jar, sample)).toMatchObject([{ id: link.shareLinkId, revokedAt: null }]);
+    expect((await mutate(server, "shareLinks.revoke", { shareLinkId: link.shareLinkId }, jar)).status).toBe(200);
+    expect(await refusalOf(await mutate(server, "shareLinks.create", { ...record, label: "x" }, jar))).toEqual(
+      suspended,
+    );
   });
 });

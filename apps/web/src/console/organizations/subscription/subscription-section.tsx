@@ -5,7 +5,8 @@
 // price with GST; what support may change; and the payments. Every change goes through subscriptions.*; lifting a
 // suspension is a super admin's, the others either level's.
 import type { OrganizationRecord } from "@travel-crm/contracts/platform";
-import type { SubscriptionWithPayments } from "@travel-crm/contracts/subscriptions";
+import type { SubscriptionDetails, SubscriptionWithPayments } from "@travel-crm/contracts/subscriptions";
+import { calendarDateIn } from "@travel-crm/domain/kernel";
 import { useTranslations } from "next-intl";
 import { formatDay } from "@/lib/format";
 import { isSuperAdmin, useStaff } from "../../session/staff-context";
@@ -20,6 +21,17 @@ import { PaymentsList } from "./payments-list";
 import { PriceBreakdown } from "./price-breakdown";
 import { RecordPaymentDialog } from "./record-payment-dialog";
 import { EndAccessDialog } from "./reason-dialogs";
+
+/**
+ * Whether the trial lasts today, as the api decides (subscriptions/paid-dates.ts): by the state due today, which a
+ * suspension by hand hides behind "suspended". That state is the trial recorded, until its last day has passed.
+ */
+function inTrial(subscription: SubscriptionDetails, today: string): boolean {
+  if (subscription.manualSuspension === null) return subscription.status === "trial";
+  return (
+    subscription.recorded.status === "trial" && (subscription.trialEndsOn === null || subscription.trialEndsOn >= today)
+  );
+}
 
 export function SubscriptionSection({
   organization,
@@ -118,7 +130,9 @@ export function SubscriptionSection({
       <div className="flex flex-wrap gap-2">
         <ChangePlanDialog subscription={subscription} />
         <OverridesDialog subscription={subscription} />
-        {subscription.status === "trial" && <TrialEndDialog subscription={subscription} />}
+        {inTrial(subscription, calendarDateIn(new Date(), organization.timeZone)) && (
+          <TrialEndDialog subscription={subscription} />
+        )}
         <PaidThroughDialog subscription={subscription} />
         {subscription.manualSuspension === null && subscription.status !== "cancelled" && (
           <EndAccessDialog subscription={subscription} change="suspend" />

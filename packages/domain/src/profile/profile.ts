@@ -18,9 +18,18 @@ export async function getOrganizationProfile(
   tx: OrgTx,
   organizationId: string,
 ): Promise<OrganizationProfileDetails | null> {
+  const profile = await storedProfile(tx, organizationId);
+  return profile && { ...profile.values, updatedAt: profile.updatedAt.toISOString() };
+}
+
+/** The stored values apart from when they last changed, which only the database sets. */
+async function storedProfile(
+  tx: OrgTx,
+  organizationId: string,
+): Promise<{ values: ProfileValues; updatedAt: Date } | null> {
   const row = await tx.organizationProfile.findUnique({ where: { organizationId } });
   if (!row) return null;
-  return {
+  const values: ProfileValues = {
     legalName: row.legalName,
     gstin: row.gstin,
     gstStateCode: row.gstStateCode,
@@ -34,8 +43,8 @@ export async function getOrganizationProfile(
     invoicePrefix: row.invoicePrefix,
     brandColour: row.brandColour,
     documentTerms: row.documentTerms,
-    updatedAt: row.updatedAt.toISOString(),
   };
+  return { values, updatedAt: row.updatedAt };
 }
 
 /**
@@ -70,11 +79,12 @@ export async function saveOrganizationBranding(
   input: SaveBrandingInput,
 ): Promise<OrganizationProfileDetails> {
   await lockProfile(tx, actor);
-  const before = await getOrganizationProfile(tx, actor.organizationId);
+  // The values alone: the old updatedAt written back would keep the profile's last change where it was.
+  const before = await storedProfile(tx, actor.organizationId);
   if (!before) {
     throw new DomainError("CONFLICT", "PROFILE_NOT_SAVED", "Save the business details before the branding");
   }
-  return write(tx, actor, { ...before, ...input }, Object.keys(input) as ProfileField[]);
+  return write(tx, actor, { ...before.values, ...input }, Object.keys(input) as ProfileField[]);
 }
 
 type ProfileValues = Omit<OrganizationProfileDetails, "updatedAt">;

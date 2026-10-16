@@ -2,7 +2,9 @@
 
 // One notification in the bell. An unread one carries the People violet dot and, for screen readers, the word (never
 // colour alone); then its title, its text and when, in the organization's zone. Its link is followed only when it is
-// a path in this app: the api checks links, and the bell checks them again, so nothing in it leads off the app.
+// a path in this app: the api checks links, and the bell checks them again, so nothing in it leads off the app. One
+// with a link has no "Mark read" of its own, as its whole row is the link: following it marks it read, and "Mark all
+// read" clears the rest.
 import type { NotificationSummary } from "@travel-crm/contracts/notifications";
 import Link from "next/link";
 import { useTranslations } from "next-intl";

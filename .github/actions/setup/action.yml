@@ -6,7 +6,7 @@ description: pnpm, Node 24, the locked dependencies and the generated code
 runs:
   using: composite
   steps:
-    # The version in package.json's packageManager; the store is cached by the lockfile.
+    # The version in package.json's packageManager; the store is cached by the lockfile (v6.1.0's `cache` input).
     - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       with:
         cache: true
@@ -15,5 +15,6 @@ runs:
         node-version-file: .nvmrc
     - run: pnpm install --frozen-lockfile
       shell: bash
-    - run: pnpm --filter @travel-crm/db generate && pnpm --filter @travel-crm/brand build && pnpm --filter @travel-crm/web generate
+    # Every package's generate, in turbo's order: the web app's builds the brand's icons first (apps/web/turbo.json).
+    - run: pnpm exec turbo run generate
       shell: bash

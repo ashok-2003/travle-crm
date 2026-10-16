@@ -39,6 +39,7 @@ export function ResetPasswordDialog({
     <ResponsiveDialog
       open={open}
       onOpenChange={changeOpen}
+      busy={reset.isPending}
       title={t("resetPassword.title", { name: member.name })}
       description={t("resetPassword.description")}
     >

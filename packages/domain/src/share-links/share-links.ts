@@ -3,6 +3,7 @@
 // looked; previews and prefetches are checked like any open but record nothing.
 import {
   isVisibleShareLinkText,
+  SHARE_LINK_OPENED_NOTICE_MINUTES,
   type ShareLinkOpenedEvent,
   type ShareLinkSummary,
 } from "@travel-crm/contracts/share-links";
@@ -44,7 +45,7 @@ export interface ShareLinkVisitor {
 }
 
 /** share-link.opened is published at most once per link in this long; every open is still recorded. */
-const EVENT_COALESCE_MILLISECONDS = 10 * 60 * 1000;
+const EVENT_COALESCE_MILLISECONDS = SHARE_LINK_OPENED_NOTICE_MINUTES * 60 * 1000;
 
 const notFound = (reason: "LINK_NOT_FOUND" | "LINK_EXPIRED" | "LINK_REVOKED", message: string) =>
   new DomainError("NOT_FOUND", reason, message);

@@ -3,6 +3,7 @@
 // field it belongs to, so the form shows it there before anything is sent.
 import { isValidGstin } from "@travel-crm/contracts/kernel";
 import { onboardOrganizationInput, type OnboardOrganizationInput } from "@travel-crm/contracts/platform";
+import { checked, type Checked, type Problems } from "../fields/checked-form";
 
 /** How the subscription starts: the policy's usual trial, a trial to a chosen day, or paid through a day already. */
 export type SubscriptionStart = "trial" | "trial-until" | "paid";
@@ -113,13 +114,11 @@ function subscriptionOf(values: OnboardValues) {
 
 export function toOnboardInput(
   values: OnboardValues,
-):
-  | { ok: true; input: OnboardOrganizationInput }
-  | { ok: false; problems: Partial<Record<OnboardField, OnboardProblem>> } {
-  const problems: Partial<Record<OnboardField, OnboardProblem>> = {};
-  // The day a start needs, asked for in words rather than left to the schema's "Use a date like…".
-  if (values.start === "trial-until" && values.trialEndsOn === "") problems.trialEndsOn = "dateRequired";
-  if (values.start === "paid" && values.paidThrough === "") problems.paidThrough = "dateRequired";
+): Checked<OnboardValues, OnboardOrganizationInput, OnboardProblem> {
+  const found: Problems<OnboardValues, OnboardProblem> = {};
+  // The day a start needs, asked for in words rather than left to the schema's own problem.
+  if (values.start === "trial-until" && values.trialEndsOn === "") found.trialEndsOn = "dateRequired";
+  if (values.start === "paid" && values.paidThrough === "") found.paidThrough = "dateRequired";
   const parsed = onboardOrganizationInput.safeParse({
     name: values.name,
     code: values.code,
@@ -135,18 +134,13 @@ export function toOnboardInput(
     owner: { name: values.ownerName, email: values.ownerEmail },
     subscription: subscriptionOf(values),
   });
-  if (parsed.success && Object.keys(problems).length === 0) return { ok: true, input: parsed.data };
-  for (const issue of parsed.error?.issues ?? []) {
-    const field = fieldAt[issue.path.join(".")];
-    if (field === undefined || problems[field] !== undefined) continue;
-    if (values[field].trim() === "") {
-      problems[field] = "required";
-    } else if (field === "gstin" && isValidGstin(values.gstin.trim().toUpperCase())) {
+  return checked(
+    parsed,
+    values,
+    (path) => fieldAt[path.join(".")],
+    (field) =>
       // A well-formed GSTIN refused all the same: the schema's rule that it be of the state chosen.
-      problems[field] = "gstinOtherState";
-    } else {
-      problems[field] = problemOf[field];
-    }
-  }
-  return { ok: false, problems };
+      field === "gstin" && isValidGstin(values.gstin.trim().toUpperCase()) ? "gstinOtherState" : problemOf[field],
+    found,
+  );
 }

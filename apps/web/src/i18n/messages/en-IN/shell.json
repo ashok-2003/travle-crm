@@ -22,7 +22,11 @@
     "loading": "Opening your organization",
     "loadFailed": "Your organization didn't load.",
     "notStaff": "This app is for the staff of an organization. Platform staff use the platform console.",
-    "noAccess": "Your role doesn't include this screen. Ask an Owner or Admin if you need it."
+    "noAccess": "Your role doesn't include this screen. Ask an Owner or Admin if you need it.",
+    "impersonatedStep": {
+      "CHANGE_PASSWORD": "{name} has to choose a new password before their organization opens. Only they can, at their next sign-in.",
+      "SET_UP_TWO_FACTOR": "{name} has to set up two-factor sign-in before their organization opens: it asks everyone to. Only they can, at their next sign-in."
+    }
   },
   "banners": {
     "offline": "You're offline. You see what was last loaded, and changes wait until you're back online.",

@@ -6,7 +6,7 @@
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import { useTranslations } from "next-intl";
 import { useWatch, type UseFormReturn } from "react-hook-form";
-import { TextField } from "@/account/text-field";
+import { DateField } from "@/components/date-field";
 import { ChoiceField } from "../fields/choice-field";
 import { cycleFor, PlanFields } from "../fields/plan-fields";
 import type { OnboardValues } from "./onboard-values";
@@ -51,10 +51,8 @@ export function SubscriptionFields({
           { value: "paid", label: t("starts.paid") },
         ]}
       />
-      {start === "trial-until" && (
-        <TextField control={form.control} name="trialEndsOn" label={t("trialEndsOn")} type="date" />
-      )}
-      {start === "paid" && <TextField control={form.control} name="paidThrough" label={t("paidThrough")} type="date" />}
+      {start === "trial-until" && <DateField control={form.control} name="trialEndsOn" label={t("trialEndsOn")} />}
+      {start === "paid" && <DateField control={form.control} name="paidThrough" label={t("paidThrough")} />}
     </>
   );
 }

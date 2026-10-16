@@ -9,6 +9,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ResponsiveDialog } from "@/organization/responsive-dialog";
 import { PlanForm } from "./plan-form";
+import { useIsSavingPlan } from "./use-plans";
 
 export function PlanDialog({
   plan,
@@ -21,10 +22,13 @@ export function PlanDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const t = useTranslations("consolePlatform.planForm");
+  const saving = useIsSavingPlan();
   return (
     <ResponsiveDialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(next) => {
+        if (!saving) onOpenChange(next);
+      }}
       title={plan ? t("editTitle", { name: plan.name }) : t("createTitle")}
       description={plan ? t("editDescription") : t("createDescription")}
     >

@@ -2,7 +2,7 @@
 
 // The audit log screen (spec 9.5): every change made in the organization, newest first, a page at a time, or one
 // record's history when the address names one. Loading shows rows of skeleton; nothing recorded says so; a failure
-// says what failed, with a Retry.
+// says what failed, with a Retry, and a refusal its reason (a missing permission, a shut organization).
 import { HistoryIcon } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -14,6 +14,8 @@ import { PageTitle } from "@/components/page-title";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import { refusalOf } from "@/data/api-error";
+import { useErrorMessage } from "@/lib/error-message";
 import { routes } from "@/lib/routes";
 import { AuditEntries } from "./audit-entries";
 import { recordFilterOf } from "./record-filter";
@@ -25,11 +27,17 @@ export function AuditScreen() {
   const record = recordFilterOf(useSearchParams());
   const log = useAuditLog(record);
   const { entries } = log;
+  const { apiError } = useErrorMessage();
+  const failure = (unanswered: string) => (refusalOf(log.error)?.reason ? apiError(log.error) : unanswered);
 
   let content;
   if (entries === undefined) {
     content = log.isError ? (
-      <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void log.refetch()} />
+      <ErrorState
+        message={failure(t("loadFailed"))}
+        retryLabel={tCommon("tryAgain")}
+        onRetry={() => void log.refetch()}
+      />
     ) : (
       <Delayed>
         <div role="status" aria-busy="true" aria-label={tCommon("loading")} className="flex flex-col gap-2">
@@ -47,7 +55,7 @@ export function AuditScreen() {
         <AuditEntries entries={entries} recordLinks={record === null} />
         {log.isFetchNextPageError && (
           <p role="alert" className="text-center">
-            {t("moreFailed")}
+            {failure(t("moreFailed"))}
           </p>
         )}
         {log.hasNextPage && (
@@ -74,9 +82,9 @@ export function AuditScreen() {
       {record && (
         <div className="flex flex-wrap items-center gap-x-6">
           <p className="font-medium">{t("oneRecord", { kind: record.entityType })}</p>
-          <Link href={routes.audit} className="flex min-h-11 w-fit items-center text-primary hover:underline">
-            {t("showEverything")}
-          </Link>
+          <Button variant="link" className="px-0" asChild>
+            <Link href={routes.audit}>{t("showEverything")}</Link>
+          </Button>
         </div>
       )}
       {content}

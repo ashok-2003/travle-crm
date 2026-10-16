@@ -1,6 +1,6 @@
 // Who is acting, for request checks 1 and 4 (spec 6.5). Read from the database on every request, so a role change
 // or a removal takes effect on the next request rather than when the 5-minute session cookie expires.
-import type { MeOutput } from "@travel-crm/contracts/identity";
+import type { MeOutput, PendingStep } from "@travel-crm/contracts/identity";
 import type { PlatformStaffLevel } from "@travel-crm/contracts/platform";
 import { withDeleted } from "@travel-crm/db";
 import type { IdentityClient, IdentityDatabase, IdentityTx } from "@travel-crm/db/identity";
@@ -182,4 +182,24 @@ export async function isActiveMemberUser(client: IdentityClient, userId: string)
     select: { user: { select: { banned: true, banExpires: true } } },
   });
   return member !== null && !isBannedNow(member.user);
+}
+
+/**
+ * A member's step still to take before the app lets them in (`pendingStep`), or null when there is none or no member.
+ * Support doesn't impersonate them until they have taken it: it needs their own password.
+ */
+export async function memberPendingStep(client: IdentityClient, userId: string): Promise<PendingStep | null> {
+  const member = await client.member.findUnique({
+    where: { userId },
+    select: {
+      user: { select: { mustChangePassword: true, twoFactorEnabled: true } },
+      organization: { select: { requireTwoFactor: true } },
+    },
+  });
+  if (!member) return null;
+  return pendingStep({
+    mustChangePassword: member.user.mustChangePassword,
+    twoFactorEnabled: member.user.twoFactorEnabled ?? false,
+    organizationRequiresTwoFactor: member.organization.requireTwoFactor,
+  });
 }

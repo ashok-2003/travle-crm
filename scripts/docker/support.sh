@@ -72,10 +72,13 @@ expect_status() {
   echo "ok: $url answers $expected"
 }
 
-# Expects a response header (headers as `curl --dump-header` writes them) to hold the value given.
+# Expects a response header (headers as `curl --dump-header` writes them) to be sent once, holding the value given: a
+# proxy must neither drop nor repeat it.
 expect_header() {
-  local headers="$1" name="$2" value="$3" line
-  line="$(grep --ignore-case "^$name:" "$headers" || true)"
+  local headers="$1" name="$2" value="$3" count line
+  count="$(grep --count --ignore-case "^$name:" "$headers" || true)"
+  [ "$count" = 1 ] || fail "the $name header is sent $count times, not once"
+  line="$(grep --ignore-case "^$name:" "$headers")"
   case "$line" in *"$value"*) ;; *) fail "the $name header doesn't hold \"$value\"" ;; esac
 }
 

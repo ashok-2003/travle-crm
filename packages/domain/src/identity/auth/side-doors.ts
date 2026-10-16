@@ -6,6 +6,7 @@ import {
   hasEverBeenMember,
   isActiveMemberUser,
   isPlatformAdminUser,
+  memberPendingStep,
   platformStaffLevelOf,
 } from "../access.js";
 
@@ -28,7 +29,8 @@ export interface SideDoorOptions {
  * - /admin/* over HTTP, except starting and stopping support's impersonation;
  * - /admin/* for anyone who isn't platform staff by our definition (Better Auth checks user.role alone), still has a
  *   temporary password to replace or hasn't set up two-factor, making a person with a membership a platform admin,
- *   and impersonating anyone but an organization's active staff;
+ *   and impersonating anyone but an organization's active staff, or one with a step still to take (a temporary
+ *   password, or two-factor their organization requires), which needs their own password;
  * - Better Auth's organization endpoints over HTTP (members and roles go through our own API);
  * - signing in by a placeholder ".invalid" email, which staff without an email (or removed staff) carry, over HTTP and
  *   from server-side calls alike;
@@ -111,6 +113,13 @@ export function closeSideDoors(client: IdentityClient, options: SideDoorOptions 
           throw new APIError("FORBIDDEN", {
             code: "IMPERSONATION_TARGET_NOT_A_MEMBER",
             message: "Only an organization's active staff can be impersonated",
+          });
+        }
+        // The app would hold support at the step's screen, which only the member can get past.
+        if ((await memberPendingStep(client, target)) !== null) {
+          throw new APIError("FORBIDDEN", {
+            code: "TARGET_HAS_PENDING_STEP",
+            message: "They have to finish signing in themselves first",
           });
         }
       }

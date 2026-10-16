@@ -18,4 +18,4 @@ export {
   organizationFolder,
   type StoredFileDeletion,
 } from "./stored-file-deletions.js";
-export { bytesStored } from "./uploads.js";
+export { bytesStored, type StoredBytesCheck } from "./uploads.js";

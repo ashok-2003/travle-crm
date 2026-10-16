@@ -24,6 +24,8 @@ export function ResetPasswordDialog({
   const { apiError } = useErrorMessage();
   const reset = useResetPlatformStaffPassword();
   const changeOpen = (next: boolean) => {
+    // Closing would hide a request the api is already carrying out, and the password it answers with.
+    if (reset.isPending) return;
     // The new password is in the call's answer: let go of it when the dialog closes.
     if (!next) reset.reset();
     onOpenChange(next);

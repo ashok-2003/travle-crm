@@ -71,13 +71,20 @@ export async function requestUpload(
 }
 
 /**
- * Marks an upload ready once storage holds the promised file. Confirming twice is harmless, which is what a client
- * does when its retried PUT is answered 412: storage already holds the first upload.
+ * What a caller checks in the stored bytes before the file is ready, throwing a DomainError to refuse it: a logo's
+ * pixels. The file stays pending, as for a mismatch, so nobody can list or download it.
+ */
+export type StoredBytesCheck = (body: Uint8Array, declaredType: string) => void;
+
+/**
+ * Marks an upload ready once storage holds the promised file, and `check` passes on its bytes. Confirming twice is
+ * harmless, which is what a client does when its retried PUT is answered 412: storage already holds the first upload.
  */
 export async function confirmUpload(
   { db, storage }: FilesDependencies,
   actor: Actor,
   input: AttachmentRefInput,
+  check?: StoredBytesCheck,
 ): Promise<AttachmentSummary> {
   const row = await db.forOrg(actor.organizationId, (tx) => findAttachment(tx, input));
   if (row.status === "ready") return summaryFor(actor, row);
@@ -85,6 +92,11 @@ export async function confirmUpload(
   if (!stored) throw new DomainError("NOT_FOUND", "UPLOAD_NOT_FOUND", "The file hasn't arrived in storage");
   if (stored.sizeBytes !== row.sizeBytes || stored.contentType !== row.contentType) {
     throw new DomainError("VALIDATION", "UPLOAD_DOES_NOT_MATCH", "The stored file isn't the one that was announced");
+  }
+  if (check) {
+    const body = await storage.get(storageKeyOf(row));
+    if (!body) throw new DomainError("NOT_FOUND", "UPLOAD_NOT_FOUND", "The file hasn't arrived in storage");
+    check(body, row.contentType);
   }
   return db.forOrg(actor.organizationId, async (tx) => {
     await tx.attachment.updateMany({

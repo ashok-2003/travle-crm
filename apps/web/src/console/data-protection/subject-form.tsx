@@ -1,7 +1,8 @@
 "use client";
 
 // Who or what to export and erase: a removed member by id, or a record of a person by its type and id. Checked by the
-// api's own schema before anything is sent, each problem under its field.
+// api's own schema before anything is sent, each problem under its field. Erase is offered once the export shown is of
+// the very subject typed: the api refuses an erasure without it.
 import type { ErasureSubject } from "@travel-crm/contracts/platform";
 import { CircleAlertIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -57,10 +58,13 @@ function SubjectInput({
 
 export function SubjectForm({
   busy,
+  exported,
   onExport,
   onErase,
 }: {
   busy: boolean;
+  /** The subject whose export is shown, if one is. */
+  exported: ErasureSubject | null;
   onExport: (subject: ErasureSubject) => void;
   onErase: (subject: ErasureSubject) => void;
 }) {
@@ -77,6 +81,8 @@ export function SubjectForm({
     setProblems(result.ok ? {} : result.problems);
     return result.ok ? result.subject : null;
   };
+  const typed = toErasureSubject(values);
+  const exportShown = exported !== null && typed.ok && JSON.stringify(typed.subject) === JSON.stringify(exported);
   return (
     <form
       noValidate
@@ -132,12 +138,13 @@ export function SubjectForm({
       )}
       <div className="flex flex-wrap gap-3">
         <Button type="submit" disabled={busy}>
-          {t("export")}
+          {busy ? t("exporting") : t("export")}
         </Button>
         <Button
           type="button"
           variant="destructive"
-          disabled={busy}
+          disabled={busy || !exportShown}
+          aria-describedby={`${id}-erase-hint`}
           onClick={() => {
             const chosen = subject();
             if (chosen) onErase(chosen);
@@ -146,6 +153,9 @@ export function SubjectForm({
           {t("erase")}
         </Button>
       </div>
+      <p id={`${id}-erase-hint`} className="max-w-[65ch] text-caption text-muted-foreground">
+        {exportShown ? t("eraseReady") : t("eraseNeedsExport")}
+      </p>
     </form>
   );
 }

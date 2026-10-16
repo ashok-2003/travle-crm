@@ -1,19 +1,26 @@
-// The organization's members on its console page: each with role, email or none and last activity; support signs in
-// as one after confirming (Better Auth's impersonate-user, then the agency's app with a full load), a refusal said in
-// the dialog; and an Owner still to choose a password gets a new invite.
+// The organization's members on its console page: each with role (Owners marked), email or none and last activity;
+// support signs in as one after confirming (Better Auth's impersonate-user; the device's other tabs told, then the
+// agency's app with a full load), the dialog held open meanwhile, a refusal said in it; and an Owner still to choose a
+// password gets a new invite.
 import type { OrganizationMember } from "@travel-crm/contracts/platform";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MembersSection } from "@/console/organizations/organization/members-section";
+import type * as Session from "@/data/session";
 import { messages } from "@/i18n/messages";
-import { stubApi, type Answer } from "../../support/api-stub";
+import { heldAnswer, stubApi, type Answer } from "../../support/api-stub";
 import { screenIs } from "../../organization/render";
 import { organizationDetails, organizationId } from "./organization-details";
 import { inputsSentTo, renderConsoleScreen } from "./render";
 
 const navigation = vi.hoisted(() => ({ loadPage: vi.fn() }));
 vi.mock("@/lib/navigate", () => ({ loadPage: navigation.loadPage, replacePage: vi.fn() }));
+const session = vi.hoisted(() => ({ announceSignOut: vi.fn() }));
+vi.mock("@/data/session", async (importOriginal) => ({
+  ...(await importOriginal<typeof Session>()),
+  announceSignOut: session.announceSignOut,
+}));
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock("sonner", () => ({ toast }));
 
@@ -56,6 +63,7 @@ function renderMembers(answers: Record<string, Answer>) {
 afterEach(() => {
   vi.unstubAllGlobals();
   navigation.loadPage.mockReset();
+  session.announceSignOut.mockReset();
   toast.success.mockReset();
   toast.error.mockReset();
 });
@@ -74,6 +82,18 @@ describe("MembersSection", () => {
     expect(screen.queryByRole("button", { name: members.resendInvite })).toBeNull();
   });
 
+  it("marks each Owner, under whatever name the agency gave the Owner role", async () => {
+    screenIs("wide");
+    const proprietor = member({ memberId: ravi.memberId, userId: ravi.userId, name: "Anil", roleName: "Proprietor" });
+    renderMembers({ "platform.organizations.members": { data: [member(), proprietor, ravi] } });
+    const owner = within((await screen.findByText("Lakshmi Nair")).closest("tr") ?? document.body);
+    expect(owner.getAllByText(members.owner)).toHaveLength(1);
+    const renamed = within(screen.getByText("Anil").closest("tr") ?? document.body);
+    expect(renamed.getByText("Proprietor")).toBeVisible();
+    expect(renamed.getByText(members.owner)).toBeVisible();
+    expect(within(screen.getByText("Ravi").closest("tr") ?? document.body).queryByText(members.owner)).toBeNull();
+  });
+
   it("signs support in as a member once confirmed, then opens the agency's app", async () => {
     screenIs("phone");
     renderMembers({
@@ -87,6 +107,11 @@ describe("MembersSection", () => {
     await vi.waitFor(() => {
       expect(navigation.loadPage).toHaveBeenCalledWith("/");
     });
+    // The session is the member's now: the device's other tabs drop what they hold of support's first.
+    expect(session.announceSignOut).toHaveBeenCalledOnce();
+    expect(session.announceSignOut.mock.invocationCallOrder[0]).toBeLessThan(
+      navigation.loadPage.mock.invocationCallOrder[0] ?? 0,
+    );
     const sent = vi
       .mocked(globalThis.fetch)
       .mock.calls.find(([input]) => urlOf(input).endsWith("/api/auth/admin/impersonate-user"));
@@ -104,6 +129,58 @@ describe("MembersSection", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Sign in as Lakshmi Nair" }));
     expect(await within(dialog).findByText(impersonate.notAMember.replace("{name}", "Lakshmi Nair"))).toBeVisible();
     expect(navigation.loadPage).not.toHaveBeenCalled();
+  });
+
+  /** The words the dialog shows for a refusal the side door gives, from errors.json. */
+  const sentences: Record<string, string | undefined> = { ...messages.errors.reasons, ...messages.errors.auth };
+
+  it.each(["SET_UP_TWO_FACTOR", "CHANGE_PASSWORD", "TARGET_HAS_PENDING_STEP"])(
+    "says the side door's %s refusal in its own words, and stays",
+    async (reason) => {
+      screenIs("wide");
+      renderMembers({
+        "platform.organizations.members": { data: [member()] },
+        "auth/admin/impersonate-user": { status: 403, reason },
+      });
+      await userEvent.click(await screen.findByRole("button", { name: "Sign in as Lakshmi Nair" }));
+      const dialog = await screen.findByRole("alertdialog");
+      await userEvent.click(within(dialog).getByRole("button", { name: "Sign in as Lakshmi Nair" }));
+      expect(await within(dialog).findByText(sentences[reason] ?? `${reason}'s sentence in errors.json`)).toBeVisible();
+      expect(session.announceSignOut).not.toHaveBeenCalled();
+      expect(navigation.loadPage).not.toHaveBeenCalled();
+    },
+  );
+
+  it("says when the api couldn't be reached, and stays", async () => {
+    screenIs("wide");
+    renderMembers({
+      "platform.organizations.members": { data: [member()] },
+      "auth/admin/impersonate-user": "offline",
+    });
+    await userEvent.click(await screen.findByRole("button", { name: "Sign in as Lakshmi Nair" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Sign in as Lakshmi Nair" }));
+    expect(await within(dialog).findByText(messages.errors.network)).toBeVisible();
+  });
+
+  it("keeps the confirmation open while signing in, Cancel off", async () => {
+    screenIs("wide");
+    const held = heldAnswer({ status: 403, reason: "SET_UP_TWO_FACTOR" });
+    renderMembers({
+      "platform.organizations.members": { data: [member()] },
+      "auth/admin/impersonate-user": held.answer,
+    });
+    await userEvent.click(await screen.findByRole("button", { name: "Sign in as Lakshmi Nair" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Sign in as Lakshmi Nair" }));
+    expect(within(dialog).getByRole("button", { name: impersonate.starting })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: messages.common.cancel })).toBeDisabled();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.getByRole("alertdialog")).toBeVisible();
+    held.release();
+    expect(await within(dialog).findByText(messages.errors.reasons.SET_UP_TWO_FACTOR)).toBeVisible();
+    await userEvent.click(within(dialog).getByRole("button", { name: messages.common.cancel }));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 
   it("sends a new invite to an Owner who hasn't chosen a password", async () => {

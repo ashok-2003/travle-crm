@@ -1,10 +1,8 @@
-// Every signed-in screen: the session gate, then the shell (DESIGN.md sections 4 and 6). A skip link; on desktops the
-// sidebar, which stays put while the page scrolls; on phones a bar above the page with the organization's name and the
-// bell; the banners and the page, which the subscription may shut, with a 16px gutter on phones, 24px on tablets and
-// 32px wide; and on phones the bottom bar. The sidebar is always open: nothing offers to fold it away.
-import { useTranslations } from "next-intl";
+// Every signed-in screen: the session gate, then the shell (components/app-frame.tsx). On desktops the sidebar; on
+// phones a bar above the page with the organization's name and the bell, and the bottom bar; the banners and the page,
+// which the subscription may shut. The sidebar is always open: nothing offers to fold it away.
 import type { ReactNode } from "react";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { AppFrame } from "@/components/app-frame";
 import { SessionGate } from "@/session/session-gate";
 import { Banners } from "@/shell/banners";
 import { BottomBar } from "@/shell/bottom-bar";
@@ -13,26 +11,20 @@ import { TopBar } from "@/shell/top-bar";
 import { SubscriptionGate } from "@/subscription/subscription-gate";
 
 export default function SignedInLayout({ children }: { children: ReactNode }) {
-  const t = useTranslations("common");
   return (
     <SessionGate>
-      <SidebarProvider>
-        <a
-          href="#main-content"
-          className="sr-only z-50 rounded-lg bg-background px-4 py-2 focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
-        >
-          {t("skipToContent")}
-        </a>
-        <AppSidebar />
-        <SidebarInset id="main-content" tabIndex={-1} className="min-w-0">
-          <TopBar />
-          <Banners />
-          <div className="mx-auto w-full max-w-[1200px] px-4 pt-6 pb-24 sm:px-6 md:pb-8 lg:px-8">
-            <SubscriptionGate>{children}</SubscriptionGate>
-          </div>
-        </SidebarInset>
-        <BottomBar />
-      </SidebarProvider>
+      <AppFrame
+        sidebar={<AppSidebar />}
+        above={
+          <>
+            <TopBar />
+            <Banners />
+          </>
+        }
+        bottomBar={<BottomBar />}
+      >
+        <SubscriptionGate>{children}</SubscriptionGate>
+      </AppFrame>
     </SessionGate>
   );
 }

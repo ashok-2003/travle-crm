@@ -12,14 +12,14 @@ export function PasswordHandover({
   password,
   intro,
 }: {
-  email: string | null;
+  email: string;
   password: string;
   /** "Give Neha these details to sign in:", or the like. */
   intro: string;
 }) {
   const t = useTranslations("consolePlatform.staff.handover");
   const rows = [
-    ...(email === null ? [] : [{ label: t("email"), value: email, copy: t("copyEmail") }]),
+    { label: t("email"), value: email, copy: t("copyEmail") },
     { label: t("temporaryPassword"), value: password, copy: t("copyPassword") },
   ];
   return (

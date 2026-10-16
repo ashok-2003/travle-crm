@@ -1,7 +1,7 @@
 // Push on this device, on the notification choices' page (spec 9.4): it says whether this browser gets pushes, turns
 // them on and off, says plainly why it can't where it can't (no push in this browser, no service worker, notifications
 // blocked) and when turning on failed, and offers support impersonating the person no way to turn it on.
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createTranslator } from "next-intl";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -41,6 +41,16 @@ describe("PushOnThisDevice", () => {
     expect(await screen.findByText(push.on)).toBeVisible();
     expect(screen.getByRole("button", { name: push.turnOff })).toBeVisible();
     expect(device.turnPushOn).toHaveBeenCalledOnce();
+  });
+
+  it("starts turning push on inside the click itself, so the browser's question is asked in the tap's task", async () => {
+    device.pushState.mockResolvedValue("off");
+    device.turnPushOn.mockResolvedValue("on");
+    renderPush();
+    await screen.findByText(push.off);
+    fireEvent.click(screen.getByRole("button", { name: push.turnOn }));
+    expect(device.turnPushOn).toHaveBeenCalledOnce();
+    await screen.findByText(push.on);
   });
 
   it("turns push off again", async () => {

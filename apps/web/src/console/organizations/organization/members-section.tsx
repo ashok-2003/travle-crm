@@ -39,6 +39,9 @@ export function MembersSection({ organization }: { organization: OrganizationRec
   const lastActive = (lastActiveAt: string) => formatDay(new Date(lastActiveAt), { timeZone: organization.timeZone });
   const invitePending = (member: OrganizationMember) =>
     !member.hasPassword && member.email !== null && <StatusBadge tone="attention">{t("invitePending")}</StatusBadge>;
+  // The agency may have given the Owner role another name: an Owner is marked whatever their role is called.
+  const ownerMark = (member: OrganizationMember) =>
+    member.isOwner && member.roleName !== t("owner") && <StatusBadge tone="neutral">{t("owner")}</StatusBadge>;
   const email = (member: OrganizationMember) =>
     shownEmail(member.email) ?? <span className="text-muted-foreground">{t("noEmail")}</span>;
   const actions = (member: OrganizationMember) => (
@@ -72,6 +75,7 @@ export function MembersSection({ organization }: { organization: OrganizationRec
               <ItemContent>
                 <ItemTitle className="flex-wrap">
                   <span className="script-leading">{member.name}</span>
+                  {ownerMark(member)}
                   {invitePending(member)}
                 </ItemTitle>
                 <ItemDescription>
@@ -114,6 +118,7 @@ export function MembersSection({ organization }: { organization: OrganizationRec
               <TableCell className="whitespace-normal">
                 <span className="flex flex-wrap items-center gap-2">
                   <span className="script-leading">{member.roleName}</span>
+                  {ownerMark(member)}
                   {invitePending(member)}
                 </span>
               </TableCell>

@@ -10,11 +10,14 @@ FROM node:24.21.0-trixie-slim@sha256:173f125896c3b47ddf056734c7ea789d04595a6a087
 
 FROM node AS build
 # Up to `pnpm install`, these steps are the api's (apps/api/Dockerfile) to the letter, so the two builds share layers.
-# The version package.json's packageManager names. Git hooks have no place in an image.
-RUN npm install --global pnpm@12.11.2
+# Git hooks have no place in an image.
 ENV HUSKY=0 PRISMA_HIDE_UPDATE_MESSAGE=1
 WORKDIR /repo
-# Every package the lockfile names, fetched in a layer of its own, so it is fetched again only when the lockfile is.
+# pnpm in the version package.json's packageManager names, through corepack, which checks the download's signature.
+COPY package.json ./
+RUN corepack enable && corepack install
+# Every package the lockfile names, fetched in a layer of its own, so it is fetched again only when the lockfile (or
+# package.json) is.
 COPY pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm fetch
 COPY . .
@@ -32,6 +35,9 @@ RUN pnpm --filter @travel-crm/db generate \
   && pnpm --filter @travel-crm/web build
 
 FROM node AS runtime
+# Node alone: npm, npx, corepack and yarn have no part in running the image (the same layer as the api's).
+RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+  /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-*
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=3000
 WORKDIR /app
 # Owned by root: the node user, who runs the server, can read the files but not change them.
