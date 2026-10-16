@@ -8,10 +8,12 @@ import { useTranslations } from "next-intl";
 import { Fragment, useId } from "react";
 import { Delayed } from "@/components/delayed";
 import { ErrorState } from "@/components/error-state";
-import { PageTitle } from "@/components/page-title";
+import { PageHeader } from "@/components/page-header";
+import { BackLink } from "@/components/text-link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { routes } from "@/lib/routes";
 import { shownEmail } from "@/lib/shown-email";
 import { useMe } from "@/session/me-context";
 import { PushOnThisDevice } from "../push/push-on-this-device";
@@ -22,6 +24,7 @@ import { usePreferences, useSetPreference } from "./use-preferences";
 export function NotificationPreferencesScreen() {
   const t = useTranslations("notifications.preferences");
   const tCommon = useTranslations("common");
+  const tAccount = useTranslations("account");
   const headingId = useId();
   const me = useMe();
   const preferences = usePreferences();
@@ -90,8 +93,8 @@ export function NotificationPreferencesScreen() {
 
   return (
     <div className="flex max-w-[720px] flex-col gap-6">
-      <PageTitle>{t("title")}</PageTitle>
-      <p className="text-muted-foreground">{t("intro")}</p>
+      <BackLink href={routes.account} label={tAccount("steps.backToAccount")} />
+      <PageHeader title={t("title")} intro={t("intro")} />
       <PushOnThisDevice />
       <section aria-labelledby={headingId} className="flex flex-col gap-3">
         <h2 id={headingId} className="text-section font-semibold">

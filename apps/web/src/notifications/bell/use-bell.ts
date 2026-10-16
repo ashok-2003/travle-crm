@@ -4,13 +4,14 @@
 // notifications a page at a time, newest first. Marking read is a quick action (spec 11): the list and the count
 // change at once, and go back with the reason if the api refuses.
 import type { MarkReadInput, NotificationPage } from "@travel-crm/contracts/notifications";
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { refusalOf } from "@/data/api-error";
 import { useTRPC, useTRPCClient } from "@/data/trpc";
+import { useCursorPages } from "@/data/use-cursor-pages";
 import { useErrorMessage } from "@/lib/error-message";
 
-export const NOTIFICATIONS_PER_PAGE = 20;
+const NOTIFICATIONS_PER_PAGE = 20;
 
 /** The bell is how people hear of things, so its count doesn't wait for the window to regain focus. */
 const COUNT_REFRESH_MS = 60_000;
@@ -38,18 +39,16 @@ function useListKey() {
 /** Asked only once the bell opens; each page asks for those older than the last of the page before. */
 export function useNotificationPages({ enabled }: { enabled: boolean }) {
   const client = useTRPCClient();
-  const query = useInfiniteQuery({
+  return useCursorPages({
     queryKey: useListKey(),
-    queryFn: ({ pageParam }) =>
+    page: (cursor) =>
       client.notifications.list.query({
         limit: NOTIFICATIONS_PER_PAGE,
-        ...(pageParam === null ? {} : { cursor: pageParam }),
+        ...(cursor === null ? {} : { cursor }),
       }),
-    initialPageParam: null as string | null,
-    getNextPageParam: (page: NotificationPage) => page.nextCursor,
+    items: (page: NotificationPage) => page.notifications,
     enabled,
   });
-  return { ...query, notifications: query.data?.pages.flatMap((page) => page.notifications) };
 }
 
 /** Marks some (only unread ones are passed) or all of the person's notifications read. */

@@ -63,6 +63,13 @@ describe("SignInScreen", () => {
     expect(finishSignIn).not.toHaveBeenCalled();
   });
 
+  it("offers the forgotten-password link on the email way only, as the code way has no email", async () => {
+    renderScreen(<SignInScreen />);
+    expect(screen.getByRole("link", { name: account.signIn.forgotPassword })).toBeVisible();
+    await userEvent.click(screen.getByRole("tab", { name: account.signIn.byCode }));
+    expect(screen.queryByRole("link", { name: account.signIn.forgotPassword })).toBeNull();
+  });
+
   it("makes the forgotten-password link a 44px touch target", () => {
     renderScreen(<SignInScreen />);
     expect(targetSize(screen.getByRole("link", { name: account.signIn.forgotPassword })).height).toBeGreaterThanOrEqual(

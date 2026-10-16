@@ -16,9 +16,8 @@ export default function ForgotPasswordPage() {
   const t = useTranslations("account.forgotPassword");
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title={t("title")} intro={t("intro")} />
+      <PageHeader title={t("title")} />
       <ForgotPasswordForm />
-      <p className="text-label text-muted-foreground">{t("noEmail")}</p>
       <TextLink href={routes.signIn}>{t("backToSignIn")}</TextLink>
     </div>
   );
