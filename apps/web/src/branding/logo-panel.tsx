@@ -19,7 +19,6 @@ import { Delayed } from "@/components/delayed";
 import { ErrorState } from "@/components/error-state";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { FieldDescription } from "@/components/ui/field";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTRPC } from "@/data/trpc";
@@ -29,6 +28,7 @@ import { wasStopped } from "@/files/use-signed-upload";
 import { useErrorMessage } from "@/lib/error-message";
 import { formatCount } from "@/lib/format";
 import { useWriteAccess } from "@/subscription/write-access";
+import { WriteHint } from "@/subscription/write-hint";
 import { logoUploadOf } from "./logo-file";
 import { useLogoUpload, useRemoveLogo } from "./use-logo";
 
@@ -90,7 +90,12 @@ export function LogoPanel() {
     if (logo.data === null) return <p className="text-muted-foreground">{t("none")}</p>;
     if (logo.isError) {
       return (
-        <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void logo.refetch()} />
+        <ErrorState
+          message={t("loadFailed")}
+          error={logo.error}
+          retryLabel={tCommon("tryAgain")}
+          onRetry={() => void logo.refetch()}
+        />
       );
     }
     return (
@@ -186,7 +191,7 @@ export function LogoPanel() {
           </Button>
         )}
       </div>
-      {write.hint !== null && <FieldDescription id={hintId}>{write.hint}</FieldDescription>}
+      <WriteHint id={hintId} hint={write.hint} />
       {/* Documents issued from now on have no logo; those already issued keep theirs. */}
       {logo.data && (
         <ConfirmDialog

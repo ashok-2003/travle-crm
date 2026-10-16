@@ -23,6 +23,7 @@ import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useErrorMessage } from "@/lib/error-message";
 import { useWriteAccess } from "@/subscription/write-access";
+import { WriteHint } from "@/subscription/write-hint";
 import { ACCEPTED_FILES, checkAttachmentFile } from "./attachment-file";
 import { UploadError } from "./upload";
 import type { AttachmentRecord } from "./use-attachments";
@@ -125,7 +126,7 @@ export function UploadControl({ record }: { record: AttachmentRecord }) {
         </Button>
         <p className="text-label text-muted-foreground">{t("allowed")}</p>
       </div>
-      {write.hint && <FieldDescription id={`${id}-hint`}>{write.hint}</FieldDescription>}
+      <WriteHint id={`${id}-hint`} hint={write.hint} />
       {upload.isPending && (
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center justify-between gap-2">

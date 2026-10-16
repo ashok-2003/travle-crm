@@ -9,10 +9,11 @@ import { useTranslations } from "next-intl";
 import { Controller, useForm, type Resolver } from "react-hook-form";
 import { FormField } from "@/components/form-field";
 import { RefusalAlert } from "@/components/refusal-alert";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useWriteAccess } from "@/subscription/write-access";
+import { WriteHint } from "@/subscription/write-hint";
 import { sharedDocument, type useCreateShareLink } from "./use-share-links";
 
 interface ShareLinkValues {
@@ -95,7 +96,7 @@ export function CreateShareLinkForm({
         </Field>
       </FieldGroup>
       <RefusalAlert error={create.error} />
-      {write.hint !== null && <FieldDescription id={writeHintOf(formId)}>{write.hint}</FieldDescription>}
+      <WriteHint id={writeHintOf(formId)} hint={write.hint} />
     </form>
   );
 }
