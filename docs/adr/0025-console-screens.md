@@ -25,6 +25,13 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 6.1, 7 and 11 (
 - **Two-factor is required of platform staff.** `staffProcedure` refuses `SET_UP_TWO_FACTOR` after `CHANGE_PASSWORD`,
   and Better Auth's `/admin/impersonate-user` side door refuses staff without it, so support can't impersonate around
   the console. The staff list says who still has to replace a temporary password or set up two-factor.
+- **Platform staff never keep a trusted device.** Better Auth lets anyone who ticks "Don't ask again on this device"
+  skip the code for 30 days, renewed at every sign-in. For platform staff (support and super admins) the api ignores
+  the request rather than refusing it, as the challenge screen can't know who is signing in: a plugin beside the side
+  doors (`packages/domain/src/identity/auth/staff-trusted-devices.ts`) sends `trustDevice: false` on
+  `/two-factor/verify-totp`, `/verify-backup-code` and `/verify-otp` for the person the signed `two_factor` cookie
+  names, and deletes their trusted devices at every password sign-in, so one trusted before they became staff lapses.
+  Platform staff type their code at every sign-in; an organization's members keep the 30 days.
 - **Impersonation** starts on an organization's page: its active members (`organizations.members`), a confirmation
   that it is recorded in the organization's audit log and lasts at most an hour, then a full load of `/` as the
   member. The agency's banner shows a Stop button, which ends it, wipes what the device holds and opens `/console`.
@@ -49,7 +56,10 @@ across subdomains for impersonation), a `packages/ui` for the components and a s
 - The console's bundle ships in the web image; its pages are code-split, so the agency's screens never load it.
 - Moving it to an app of its own later means moving `src/console/**` and `src/app/console/**`, the shared components
   to `packages/ui`, and sharing the session across subdomains (a few days).
-- On the way to the console the two-factor challenge never offers to trust the device, so platform staff type their
-  code at every sign-in; the api doesn't refuse a request that asks for it (Better Auth's `trustDevice` is per
-  request): a before-hook refusing it for platform staff would close that.
+- The challenge screen hides "Don't ask again" on the way to the console, but a sign-in begun at `/sign-in` can't know
+  it is platform staff's and still offers it; for them ticking it does nothing.
+- Better Auth 1.7.7 records no TOTP code as used (`plugins/two-factor/totp/index.mjs:186-194`) and accepts the steps
+  either side of now (`@better-auth/utils`'s `verifyTOTP`, window 1), so one code works again for up to about 90
+  seconds: a code seen over someone's shoulder works once more if their password is known too. It is upstream; the
+  journeys rely on it (`apps/web/test/e2e/support/console.ts`).
 - The journeys start the api, the worker and the console process, and sign platform staff in with two-factor on.
