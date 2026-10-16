@@ -34,7 +34,8 @@ describe("AttachmentsPanel", () => {
     const [first, second] = await screen.findAllByRole("listitem");
     expect(first).toHaveTextContent("GST certificate.pdf");
     expect(first).toHaveTextContent(/PDF · 1\.2 MB · Added 16 Oct/);
-    expect(within(first ?? document.body).getByText("1.2 MB")).toHaveClass("numbers");
+    // Only the figure is mono, not its unit.
+    expect(within(first ?? document.body).getByText("1.2")).toHaveClass("numbers");
     expect(second).toHaveTextContent("Cancelled cheque.jpg");
     expect(second).toHaveTextContent(/JPEG image · 860 KB · Added 16 Oct · Sensitive/);
     expect(

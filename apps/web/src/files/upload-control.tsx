@@ -5,12 +5,11 @@
 // refusal (the storage limit's among them) or a storage that can't be reached says so, and a failed upload can be tried
 // again without choosing the file again. While the organization can't make changes (ADR 0021) the control is off and
 // says why.
-import { UploadIcon } from "lucide-react";
+import { CircleAlertIcon, UploadIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useRef, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Field,
   FieldContent,
@@ -71,108 +70,103 @@ export function UploadControl({ record }: { record: AttachmentRecord }) {
   const percent = Math.round(progress * 100);
 
   return (
-    <Card>
-      <CardContent className="flex flex-col gap-4">
-        <FieldSet disabled={off}>
-          <FieldLegend variant="label">{t("sensitivity")}</FieldLegend>
-          <FieldDescription>{t("sensitivityHint")}</FieldDescription>
-          <RadioGroup
-            value={sensitivity}
-            disabled={off}
-            onValueChange={(value) => {
-              setSensitivity(value === "notSensitive" ? "notSensitive" : "sensitive");
-            }}
-          >
-            {SENSITIVITIES.map((choice) => (
-              // The whole card picks the choice; the radio is named by its title and described by its hint.
-              <FieldLabel key={choice} htmlFor={`${id}-${choice}`}>
-                <Field orientation="horizontal">
-                  <RadioGroupItem
-                    value={choice}
-                    id={`${id}-${choice}`}
-                    aria-labelledby={`${id}-${choice}-title`}
-                    aria-describedby={`${id}-${choice}-hint`}
-                  />
-                  <FieldContent>
-                    <FieldTitle id={`${id}-${choice}-title`}>{t(choice)}</FieldTitle>
-                    <FieldDescription id={`${id}-${choice}-hint`}>{t(`${choice}Hint`)}</FieldDescription>
-                  </FieldContent>
-                </Field>
-              </FieldLabel>
-            ))}
-          </RadioGroup>
-        </FieldSet>
-        <input
-          ref={picker}
-          type="file"
-          accept={ACCEPTED_FILES}
-          className="hidden"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            // Cleared, so choosing the same file again (after a refusal) is a change too.
-            event.target.value = "";
-            if (file) choose(file);
+    // Grouped by spacing, not boxed: the choice cards draw their own edges (no box in a box).
+    <div className="flex flex-col gap-4">
+      <FieldSet disabled={off}>
+        <FieldLegend variant="label">{t("sensitivity")}</FieldLegend>
+        <FieldDescription>{t("sensitivityHint")}</FieldDescription>
+        <RadioGroup
+          value={sensitivity}
+          disabled={off}
+          onValueChange={(value) => {
+            setSensitivity(value === "notSensitive" ? "notSensitive" : "sensitive");
           }}
-        />
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        >
+          {SENSITIVITIES.map((choice) => (
+            // The whole card picks the choice; the radio is named by its title and described by its hint.
+            <FieldLabel key={choice} htmlFor={`${id}-${choice}`}>
+              <Field orientation="horizontal">
+                <RadioGroupItem
+                  value={choice}
+                  id={`${id}-${choice}`}
+                  aria-labelledby={`${id}-${choice}-title`}
+                  aria-describedby={`${id}-${choice}-hint`}
+                />
+                <FieldContent>
+                  <FieldTitle id={`${id}-${choice}-title`}>{t(choice)}</FieldTitle>
+                  <FieldDescription id={`${id}-${choice}-hint`}>{t(`${choice}Hint`)}</FieldDescription>
+                </FieldContent>
+              </Field>
+            </FieldLabel>
+          ))}
+        </RadioGroup>
+      </FieldSet>
+      <input
+        ref={picker}
+        type="file"
+        accept={ACCEPTED_FILES}
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          // Cleared, so choosing the same file again (after a refusal) is a change too.
+          event.target.value = "";
+          if (file) choose(file);
+        }}
+      />
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <Button
+          type="button"
+          disabled={off}
+          aria-describedby={write.hint ? `${id}-hint` : undefined}
+          onClick={() => picker.current?.click()}
+        >
+          <UploadIcon aria-hidden="true" />
+          {t("upload")}
+        </Button>
+        <p className="text-label text-muted-foreground">{t("allowed")}</p>
+      </div>
+      {write.hint && <FieldDescription id={`${id}-hint`}>{write.hint}</FieldDescription>}
+      {upload.isPending && (
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="min-w-0 break-words script-leading">{t("uploading", { name: upload.variables.file.name })}</p>
+            <span className="numbers">{t("progress", { percent })}</span>
+          </div>
+          <Progress value={percent} aria-label={t("uploading", { name: upload.variables.file.name })} />
+          <Button type="button" variant="ghost" className="self-start" onClick={stop}>
+            {t("stop")}
+          </Button>
+        </div>
+      )}
+      {problem && (
+        <Alert variant="destructive">
+          <CircleAlertIcon aria-hidden="true" />
+          <AlertDescription>{problem}</AlertDescription>
+        </Alert>
+      )}
+      {upload.isError && !wasStopped(upload.error) && (
+        <div className="flex flex-col items-start gap-2">
+          <Alert variant="destructive">
+            <CircleAlertIcon aria-hidden="true" />
+            <AlertDescription>{failure(upload.error)}</AlertDescription>
+          </Alert>
           <Button
             type="button"
-            disabled={off}
-            aria-describedby={write.hint ? `${id}-hint` : undefined}
-            onClick={() => picker.current?.click()}
+            variant="outline"
+            aria-label={t("tryAgainName", { name: upload.variables.file.name })}
+            disabled={!write.allowed}
+            onClick={() => {
+              // The same upload, picked up where it stopped; or, if the sensitivity shown has changed since, a new
+              // one stored as the screen now says (the unfinished one stays pending, which nobody sees).
+              const { variables } = upload;
+              const shown = sensitivity === "sensitive";
+              send(variables.sensitive === shown ? variables : { ...variables, sensitive: shown });
+            }}
           >
-            <UploadIcon aria-hidden="true" />
-            {t("upload")}
+            {tCommon("tryAgain")}
           </Button>
-          <p className="text-label text-muted-foreground">{t("allowed")}</p>
         </div>
-        {write.hint && (
-          <p id={`${id}-hint`} className="text-label text-muted-foreground">
-            {write.hint}
-          </p>
-        )}
-        {upload.isPending && (
-          <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="min-w-0 break-words script-leading">
-                {t("uploading", { name: upload.variables.file.name })}
-              </p>
-              <span className="numbers">{t("progress", { percent })}</span>
-            </div>
-            <Progress value={percent} aria-label={t("uploading", { name: upload.variables.file.name })} />
-            <Button type="button" variant="ghost" className="self-start" onClick={stop}>
-              {t("stop")}
-            </Button>
-          </div>
-        )}
-        {problem && (
-          <Alert variant="destructive">
-            <AlertDescription>{problem}</AlertDescription>
-          </Alert>
-        )}
-        {upload.isError && !wasStopped(upload.error) && (
-          <div className="flex flex-col items-start gap-2">
-            <Alert variant="destructive">
-              <AlertDescription>{failure(upload.error)}</AlertDescription>
-            </Alert>
-            <Button
-              type="button"
-              variant="outline"
-              aria-label={t("tryAgainName", { name: upload.variables.file.name })}
-              disabled={!write.allowed}
-              onClick={() => {
-                // The same upload, picked up where it stopped; or, if the sensitivity shown has changed since, a new
-                // one stored as the screen now says (the unfinished one stays pending, which nobody sees).
-                const { variables } = upload;
-                const shown = sensitivity === "sensitive";
-                send(variables.sensitive === shown ? variables : { ...variables, sensitive: shown });
-              }}
-            >
-              {tCommon("tryAgain")}
-            </Button>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      )}
+    </div>
   );
 }
