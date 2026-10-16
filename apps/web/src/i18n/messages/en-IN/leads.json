@@ -238,5 +238,55 @@
       "openLead": "Choose one."
     }
   },
-  "lead": {}
+  "lead": {
+    "title": "Lead",
+    "back": "Leads",
+    "loading": "Loading the lead",
+    "loadFailed": "The lead didn't load.",
+    "notFound": "There's no lead here. It may have been removed.",
+    "stage": "Stage",
+    "tapToMove": "Tap a stage to move the lead there.",
+    "moved": "Moved to {stage}",
+    "reopen": "Reopen",
+    "reopenReturns": "Reopen returns it to {stage}.",
+    "reopened": "Reopened",
+    "menu": {
+      "label": "More for {name}",
+      "reassign": "Reassign",
+      "lost": "Lost",
+      "notALead": "Not a lead",
+      "block": "Block this number",
+      "blockContact": "Block this contact"
+    },
+    "lost": {
+      "title": "Mark {name}'s lead as Lost?",
+      "description": "Its open follow-ups and tasks are cancelled. You can reopen it later.",
+      "confirm": "Mark as Lost"
+    },
+    "notALead": {
+      "title": "Mark {name}'s lead as Not a lead?",
+      "description": "It leaves the lead lists, and its open follow-ups and tasks are cancelled. You can reopen it later.",
+      "confirm": "Mark as Not a lead"
+    },
+    "block": {
+      "title": "Block {name}'s contact?",
+      "description": "Their phone (or, without one, their email or handle) goes on the blocked list, and this lead is marked Not a lead. Their other leads stay as they are.",
+      "confirm": "Block",
+      "done": "Blocked, and marked Not a lead"
+    },
+    "reassign": {
+      "title": "Reassign",
+      "description": "Who works {name}'s lead from now on. Its open follow-ups go with it.",
+      "owner": "Owner",
+      "choose": "Choose someone",
+      "submit": "Reassign",
+      "submitting": "Reassigning",
+      "done": "Reassigned to {name}",
+      "doneSomeone": "Reassigned",
+      "problems": {
+        "required": "Choose who works the lead.",
+        "owner": "Choose who works the lead."
+      }
+    }
+  }
 }
