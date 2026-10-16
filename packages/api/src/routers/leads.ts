@@ -56,7 +56,7 @@ export const leadsRouter = router({
     .output(leadListPage)
     .query(async ({ ctx, input }) => {
       const { organizationId } = ctx.member;
-      const page = await ctx.db.forOrg(organizationId, (tx) => listLeads(tx, ctx.member, input, new Date()));
+      const page = await ctx.db.forOrg(organizationId, (tx) => listLeads(tx, ctx.member, input));
       const people = await memberNames(
         ctx.identity,
         organizationId,
