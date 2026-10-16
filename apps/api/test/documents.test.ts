@@ -19,7 +19,7 @@ import { renderPdf } from "@travel-crm/integrations/pdf";
 import { createMemoryStorage, type MemoryStorage } from "@travel-crm/integrations/storage";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { CookieJar } from "./support/cookie-jar.js";
-import { tinyPng } from "./support/images.js";
+import { tinyPng } from "@travel-crm/integrations/testing";
 import { addStaff, ownerAccess, signedInOwner, signedInStaff } from "./support/people.js";
 import { createTestAgency, createTestServer, type TestAgency, type TestServer } from "./support/test-server.js";
 import { dataOf, mutate, query, refusalOf } from "./support/trpc.js";

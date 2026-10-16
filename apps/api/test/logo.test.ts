@@ -7,7 +7,7 @@ import { systemActor } from "@travel-crm/domain/kernel";
 import { createMemoryStorage, type MemoryStorage } from "@travel-crm/integrations/storage";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { CookieJar } from "./support/cookie-jar.js";
-import { pngOfSize, tinyPng } from "./support/images.js";
+import { pngOfSize, pngWithOversizedPixelData, pngWithSecondHeader, tinyPng } from "@travel-crm/integrations/testing";
 import { addStaff, signedInOwner, signedInStaff } from "./support/people.js";
 import { createTestAgency, createTestServer, type TestServer } from "./support/test-server.js";
 import { dataOf, mutate, query, refusalOf } from "./support/trpc.js";
@@ -129,8 +129,11 @@ describe("the organization's logo", () => {
     for (const body of [bomb, pngOfSize(4097, 1)]) {
       expect(await refusalOf(await uploadLogo(jar, body))).toEqual({ status: 400, reason: "LOGO_TOO_LARGE" });
     }
+    // A renamed file; a second IHDR of 20000×20000, which png-js decodes; and a megabyte of pixel data for 16×16.
     const renamed = new TextEncoder().encode("GIF89a, renamed");
-    expect(await refusalOf(await uploadLogo(jar, renamed))).toEqual({ status: 400, reason: "UPLOAD_DOES_NOT_MATCH" });
+    for (const body of [renamed, pngWithSecondHeader(), pngWithOversizedPixelData()]) {
+      expect(await refusalOf(await uploadLogo(jar, body))).toEqual({ status: 400, reason: "UPLOAD_DOES_NOT_MATCH" });
+    }
     expect(await dataOf(await query(server, "organization.logo.get", jar))).toBeNull();
     // 16 million pixels, the most a logo may hold.
     expect((await uploadLogo(jar, pngOfSize(4000, 4000))).status).toBe(200);

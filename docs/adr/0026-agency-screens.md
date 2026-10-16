@@ -13,8 +13,8 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 7.1, 7.3, 9.2-9
   refused, is disabled with the reason's sentence as its description. Taking access away, and finding whom or what to
   cut off (removing staff and the list to choose them from, a new temporary password, requiring two-factor, a
   document's share links and turning one off), is the `revoke` kind; taking the papers away (a file's or a PDF's
-  download link, and the lists of the papers and the issued documents) is the `export` kind. Both stay open while read-only, and for the
-  Owner while suspended.
+  download link, and the lists of the papers and the issued documents) is the `export` kind. Both stay open while
+  read-only, and for the Owner while suspended.
 - **Every refusal reason has its sentence.** `errors.json` holds one for every reason a `DomainError` can carry in the
   domain, the api and the api server, and may hold one for a code Better Auth's side doors refuse with
   (`TARGET_HAS_PENDING_STEP`); a test reads the sources and fails on a reason without a sentence, or a sentence
@@ -29,11 +29,13 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 7.1, 7.3, 9.2-9
   they arrived.
 - **The logo** is an attachment of record type `organization_logo` whose record is the organization: PNG or JPEG (what
   React-PDF draws), at most 1 MB, 4096 pixels a side and 16 megapixels; the one that arrived last is the logo
-  (`organization.logo.*`). The confirm step reads the stored file's header (PNG's IHDR, JPEG's frame header): bytes
-  that aren't the image they say are `UPLOAD_DOES_NOT_MATCH`, and more pixels `LOGO_TOO_LARGE`, because a 1 MB file can
-  claim gigabytes of pixels, which pdfkit would inflate in the worker every organization shares. An issued document
-  freezes its attachment id in its branding, and the worker reads the bytes through the files module and draws them;
-  a logo it can't read, or past the cap (one stored before it), is left out, and the document still renders.
+  (`organization.logo.*`). The confirm step reads the stored file's headers (a PNG's chunks as png-js reads them,
+  JPEG's frame header): bytes that aren't the image they say, or a PNG whose pixel data inflates to more than its
+  header's rows, are `UPLOAD_DOES_NOT_MATCH`, and more pixels `LOGO_TOO_LARGE`, because a 1 MB file can claim, or
+  inflate to, gigabytes of pixels, which pdfkit would allocate in the worker every organization shares. An issued
+  document freezes its attachment id in its branding, and the worker reads the bytes through the files module and
+  draws them; a logo it can't read, or past the cap (one stored before it), is left out, and the document still
+  renders.
 - **A sample quotation** (`documents.issueSample`, numbered `SMPL-<year>-<n>`, kept as every issued document is)
   previews the branding on a real PDF, and `/settings/documents` lists the issued documents with their PDFs. It is the
   Foundation's one shareable record: staff make, list and turn off share links there (`shareLinks.*`), the whole link

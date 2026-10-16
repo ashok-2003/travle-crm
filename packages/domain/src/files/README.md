@@ -14,9 +14,9 @@ documents are marked sensitive (spec 5).
     `storeGeneratedFile` writes those);
   - `confirmUpload(actor, { recordType, recordId, attachmentId }, check?)`: marks it ready once storage holds the
     promised size and type (`NOT_FOUND`/`UPLOAD_NOT_FOUND`, `VALIDATION`/`UPLOAD_DOES_NOT_MATCH`) and `check`, when
-    given, passes on the stored bytes (a `StoredBytesCheck`: the logo's pixels); a refused file stays pending. Harmless
-    to repeat, which is the answer to a retried PUT that storage refuses with 412 (the first arrived). Like `list`, it
-    shows a sensitive file's real name only to members with `documents:view_sensitive`;
+    given, passes on the stored bytes (a `StoredBytesCheck`, sync or async: the logo's pixels); a refused file stays
+    pending. Harmless to repeat, which is the answer to a retried PUT that storage refuses with 412 (the first
+    arrived). Like `list`, it shows a sensitive file's real name only to members with `documents:view_sensitive`;
   - `downloadLink(member, { recordType, recordId, attachmentId })`: a 5-minute link that saves the file under its
     name; a sensitive file needs `documents:view_sensitive` (`FORBIDDEN`/`MISSING_PERMISSION`);
   - `list(actor, { recordType, recordId })`: the record's ready files, oldest first by when they arrived (confirmed),

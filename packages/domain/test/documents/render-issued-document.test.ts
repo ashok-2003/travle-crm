@@ -4,6 +4,13 @@
 // organization's logo, is left out.
 import { issuedDocumentRenderInput } from "@travel-crm/contracts/documents";
 import { renderPdf, UnprintableTextError } from "@travel-crm/integrations/pdf";
+import {
+  pngOfSize,
+  pngWithOversizedPixelData,
+  pngWithSecondHeader,
+  tinyJpeg,
+  tinyPng,
+} from "@travel-crm/integrations/testing";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { getIssuedDocument, issueDocument, renderIssuedDocumentListener } from "../../src/documents/index.js";
 import { systemActor } from "../../src/kernel/index.js";
@@ -13,11 +20,8 @@ import {
   fakeRenderer,
   issuedEvent,
   listenerContext,
-  pngOfSize,
   quotation,
   storedLogo,
-  tinyJpeg,
-  tinyPng,
   type TestDocuments,
 } from "./test-documents.js";
 
@@ -120,7 +124,8 @@ describe("rendering an issued document", () => {
     const bomb = pngOfSize(8000, 8000);
     // A few kilobytes for 64 million pixels, which pdfkit would inflate into gigabytes.
     expect(bomb.byteLength).toBeLessThan(16 * 1024);
-    for (const body of [bomb, pngOfSize(4097, 1)]) {
+    // Also a second IHDR of 20000×20000, which png-js decodes, and a megabyte of pixel data for 16×16.
+    for (const body of [bomb, pngOfSize(4097, 1), pngWithSecondHeader(), pngWithOversizedPixelData()]) {
       expect(await drawnLogo(organizationId, (await issuedWith(body)).id)).toBeUndefined();
     }
     // 16 million pixels, the most a logo may hold.

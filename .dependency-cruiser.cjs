@@ -126,6 +126,13 @@ module.exports = {
       to: { path: "^packages/db/test/" },
     },
     {
+      name: "integrations-testing-only-in-tests",
+      comment: "@travel-crm/integrations/testing builds images for tests (bombs among them). Only tests may use it.",
+      severity: "error",
+      from: { pathNot: "(^|/)test/" },
+      to: { path: "^packages/integrations/test/" },
+    },
+    {
       name: "raw-database-drivers-stay-in-db",
       comment:
         "Only packages/db may import the database drivers (pg, @prisma/client, @prisma/adapter-pg). " +
