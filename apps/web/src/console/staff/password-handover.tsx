@@ -3,6 +3,7 @@
 // What a super admin gives a newcomer, or someone given a new temporary password, to sign in: their address and the
 // temporary password, each with a copy button, and what they must do at first sign-in. Shown once: nothing keeps the
 // password but its hash.
+import { features } from "@travel-crm/contracts/features";
 import { useTranslations } from "next-intl";
 import { Details } from "@/components/details";
 import { CopyButton } from "@/components/copy-button";
@@ -32,7 +33,7 @@ export function PasswordHandover({
           action: <CopyButton value={value} label={copy} />,
         }))}
       />
-      <p className="text-label">{t("firstSignIn")}</p>
+      <p className="text-label">{t(features.twoFactor ? "firstSignInWithTwoFactor" : "firstSignIn")}</p>
     </div>
   );
 }

@@ -1,11 +1,16 @@
 // The console's procedure builders on stand-in services: staffProcedure lets in platform staff of either level with
-// no temporary password, two-factor on and no impersonation, and superAdminProcedure super admins only. apps/api's
-// console tests run the same checks on real sessions.
+// no temporary password, two-factor on (while features.twoFactor is) and no impersonation, and superAdminProcedure
+// super admins only. apps/api's console tests run the same checks on real sessions.
 import type { PlatformStaffMember } from "@travel-crm/domain/identity";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { PlatformContext } from "../src/platform/context.js";
 import { staffProcedure, superAdminProcedure } from "../src/platform/procedures.js";
 import { platformT } from "../src/platform/trpc.js";
+
+// Two-factor is off in the product (@travel-crm/contracts/features): these tests turn it on, to prove what turning it
+// on brings, and one turns it off. staffProcedure reads the switch on every call.
+const features = vi.hoisted(() => ({ twoFactor: true }));
+vi.mock("@travel-crm/contracts/features", () => ({ features }));
 
 const userId = "0199e7a0-0000-7000-8000-0000000000d1";
 
@@ -65,6 +70,21 @@ describe("the console's procedures", () => {
     expect(await outcome(callerFor({ staff: { mustChangePassword: true, twoFactorEnabled: false } }).staffOnly())).toBe(
       "CHANGE_PASSWORD",
     );
+  });
+
+  it("let staff without two-factor in while two-factor is off, a temporary password still first", async () => {
+    features.twoFactor = false;
+    try {
+      expect(await outcome(callerFor({ staff: { twoFactorEnabled: false } }).staffOnly())).toBe("support");
+      expect(
+        await outcome(callerFor({ staff: { level: "super-admin", twoFactorEnabled: false } }).superAdminOnly()),
+      ).toBe("done");
+      expect(
+        await outcome(callerFor({ staff: { mustChangePassword: true, twoFactorEnabled: false } }).staffOnly()),
+      ).toBe("CHANGE_PASSWORD");
+    } finally {
+      features.twoFactor = true;
+    }
   });
 
   it("refuse an impersonation session by themselves, whoever its user is", async () => {

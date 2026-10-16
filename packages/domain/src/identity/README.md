@@ -106,6 +106,14 @@ A change that changes nothing (the same role again, the same setting) records no
 the platform admin as both the actor and `impersonatedBy`; they are written by a Better Auth plugin
 (`auth/impersonation-audit.ts`) after the call succeeds.
 
+## Two-factor is off (owner, 2026-10-16)
+
+`features.twoFactor` (`@travel-crm/contracts/features`) is `false`: `createAuth` registers neither Better Auth's
+two-factor plugin nor `noTrustedDevicesForStaff`, `pendingStep` never answers `SET_UP_TWO_FACTOR`, the side doors let
+platform staff without it impersonate, and `settings.setTwoFactorRequirement` refuses with `NOT_FOUND`. The columns and
+the code stay; tests of two-factor turn the switch on with `vi.mock`. The risk: platform staff sign in with a password
+alone. Turn it back on for platform staff before real agencies (ADR 0006, ADR 0025).
+
 ## Rules worth knowing
 
 - The member table has no row-level security: every query of it filters by `organizationId` itself.

@@ -1,9 +1,10 @@
 // Signing in (spec 6.3, spec 12.1's first journey): by email, and by organization code and username, which the device
-// then remembers; a wrong password says so; with two-factor on, the code comes next. Either way the person lands on
-// the page they were sent from (?next=).
+// then remembers; a wrong password says so; with two-factor off (features.twoFactor), the password alone signs in
+// even a person whose row says two-factor is on (account-steps.spec.ts has the code, while it is on). Either way the
+// person lands on the page they were sent from (?next=).
+import { features } from "@travel-crm/contracts/features";
 import { expectAccessible } from "./support/accessibility";
-import { expect, signInByEmail, test } from "./support/fixtures";
-import { secretOf, totpCode } from "./support/totp";
+import { expect, test } from "./support/fixtures";
 
 test("an Owner signs in by email, back to the page they were sent from", async ({ page, agency }) => {
   // Before its script runs, the prerendered page shows a skeleton, not an empty column.
@@ -56,25 +57,26 @@ test("a wrong password says so, and signs nobody in", async ({ page, agency }) =
   await expect(page).toHaveURL(/\/sign-in$/);
 });
 
-test("with two-factor on, the code from the app comes after the password", async ({ page, agency }) => {
-  // Turn two-factor on through the api, as the setup screen does, and keep the secret the phone would hold.
-  await signInByEmail(page, agency.owner);
-  const origin = { origin: process.env.E2E_BASE_URL ?? "" };
-  const enable = await page.request.post("/api/auth/two-factor/enable", {
-    data: { password: agency.owner.password },
-    headers: origin,
+test("with two-factor off, the password alone signs in a person whose row says it is on", async ({
+  page,
+  agency,
+  database,
+}) => {
+  test.skip(features.twoFactor, "Two-factor is on: account-steps.spec.ts has the code.");
+  // As finishing the setup screen left it while two-factor was on.
+  const owner = await database.platform.user.update({
+    where: { email: agency.owner.email },
+    data: { twoFactorEnabled: true },
   });
-  const secret = secretOf(((await enable.json()) as { totpURI: string }).totpURI);
-  await page.request.post("/api/auth/two-factor/verify-totp", { data: { code: totpCode(secret) }, headers: origin });
-  await page.context().clearCookies();
+  await database.platform.twoFactor.create({ data: { userId: owner.id, secret: "stored", backupCodes: "stored" } });
 
+  // The code's page, opened by its address, sends people to sign in.
+  await page.goto("/sign-in/two-factor?next=%2Faccount");
+  await expect(page).toHaveURL(/\/sign-in$/);
   await page.goto("/sign-in?next=%2Faccount");
   await page.getByRole("textbox", { name: "Email" }).fill(agency.owner.email);
   await page.getByLabel("Password", { exact: true }).fill(agency.owner.password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "Enter your code" })).toBeVisible();
-  await expectAccessible(page);
-  await page.getByLabel("Code from your authenticator app").fill(totpCode(secret));
-  await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Your account" })).toBeVisible();
+  await expect(page.getByRole("main")).not.toContainText(/two-factor/i);
 });

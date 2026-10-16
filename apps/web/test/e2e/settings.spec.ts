@@ -1,50 +1,28 @@
-// Settings (spec 6.2): the organization's code to hand out, and the two-factor requirement, which an Owner can only
-// turn on once they use two-factor themselves, which sticks, and which only an Owner can turn off again.
+// Settings (spec 6.2): the organization's code to hand out, and the two-factor requirement only while features.twoFactor
+// is on. Who may switch the requirement, and what it then asks of staff, is apps/api's two-factor tests' and the
+// requirement's own unit tests'.
+import { features } from "@travel-crm/contracts/features";
 import { expectAccessible } from "./support/accessibility";
 import { expect, signInByEmail, test } from "./support/fixtures";
-import { turnOnTwoFactor } from "./support/organization-two-factor";
-import { signInWithCode } from "./support/sign-in-with-code";
 
-test("an Owner without two-factor is told to set it up before requiring it", async ({ page, agency }) => {
+test("an Owner sees the code to hand out, and the two-factor requirement only while two-factor is on", async ({
+  page,
+  agency,
+  database,
+}) => {
+  // Off, even an organization stored as requiring it, as one could be left while two-factor was on, shows none of it.
+  if (!features.twoFactor) {
+    await database.platform.organization.update({
+      where: { id: agency.organizationId },
+      data: { requireTwoFactor: true },
+    });
+  }
   await signInByEmail(page, agency.owner);
   await page.goto("/settings");
   await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
   await expect(page.getByText(agency.code, { exact: true })).toBeVisible();
+  const requirement = page.getByRole("switch", { name: "Require two-factor sign-in for everyone" });
+  if (features.twoFactor) await expect(requirement).toBeVisible();
+  else await expect(page.getByRole("main")).not.toContainText(/two-factor/i);
   await expectAccessible(page);
-
-  const requirement = page.getByRole("switch", { name: "Require two-factor sign-in for everyone" });
-  await requirement.click();
-  await expect(page.getByText("Turn on two-factor sign-in for yourself first.")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Set up two-factor for yourself" })).toBeVisible();
-  await expect(requirement).not.toBeChecked();
-});
-
-test("an Owner who uses two-factor requires it for everyone, and it sticks", async ({ page, agency }) => {
-  await signInByEmail(page, agency.owner);
-  await turnOnTwoFactor(page.request, agency.owner.password);
-  await page.goto("/settings");
-  const requirement = page.getByRole("switch", { name: "Require two-factor sign-in for everyone" });
-  await requirement.click();
-  await expect(requirement).toBeChecked();
-  await expect(page.getByText("Two-factor sign-in is now required for everyone")).toBeVisible();
-  await page.reload();
-  await expect(requirement).toBeChecked();
-  await requirement.click();
-  await expect(requirement).not.toBeChecked();
-  await expect(page.getByText("Two-factor sign-in is now optional")).toBeVisible();
-});
-
-test("an Admin can't stop requiring two-factor, and sees why", async ({ page, agency, addStaff, database }) => {
-  const admin = await addStaff({ name: "Kiran Admin", username: "kiran", roleKey: "org-admin" });
-  await signInWithCode(page.request, { orgCode: agency.code, username: admin.username, password: admin.password });
-  await turnOnTwoFactor(page.request, admin.password);
-  await database.platform.organization.update({
-    where: { id: agency.organizationId },
-    data: { requireTwoFactor: true },
-  });
-  await page.goto("/settings");
-  const requirement = page.getByRole("switch", { name: "Require two-factor sign-in for everyone" });
-  await expect(requirement).toBeChecked();
-  await expect(requirement).toBeDisabled();
-  await expect(page.getByText("Only an Owner can stop requiring two-factor sign-in.")).toBeVisible();
 });

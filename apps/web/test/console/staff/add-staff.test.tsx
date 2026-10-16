@@ -12,6 +12,9 @@ import { inputsTo, renderConsole } from "../../support/render-console";
 import { CacheProbe, mutationsHeld } from "./cache-probe";
 import { kavita, viewer } from "./people";
 
+// Two-factor is off in the product (@travel-crm/contracts/features): these tests prove what turning it on brings.
+vi.mock("@travel-crm/contracts/features", () => ({ features: { twoFactor: true } }));
+
 const { staff: words } = messages.consolePlatform;
 
 async function openForm() {
@@ -58,7 +61,7 @@ describe("adding platform staff", () => {
     expect(handover.getByText("neha@platform.test")).toBeVisible();
     expect(handover.getByText("Tmp7kQx2pLm9")).toBeVisible();
     expect(handover.getByRole("button", { name: words.handover.copyPassword })).toBeVisible();
-    expect(handover.getByText(words.handover.firstSignIn)).toBeVisible();
+    expect(handover.getByText(words.handover.firstSignInWithTwoFactor)).toBeVisible();
 
     await userEvent.click(handover.getByRole("button", { name: words.handover.done }));
     expect(screen.queryByText("Tmp7kQx2pLm9")).toBeNull();

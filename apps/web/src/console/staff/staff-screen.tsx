@@ -3,6 +3,7 @@
 // The console's platform staff (spec 5, 6.1; ADR 0019), a super admin's alone: everyone on the platform staff, with
 // their level and whether they can use the console yet, adding someone, and the removed apart. Support never sees it
 // in the navigation; opening it says it is a super admin's, and asks nothing of the api, which would refuse.
+import { features } from "@travel-crm/contracts/features";
 import { useTranslations } from "next-intl";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
@@ -56,7 +57,11 @@ export function StaffScreen() {
   const superAdmin = isSuperAdmin(useStaff());
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title={t("title")} intro={t("intro")} action={superAdmin && <AddStaffDialog />} />
+      <PageHeader
+        title={t("title")}
+        intro={t(features.twoFactor ? "introWithTwoFactor" : "intro")}
+        action={superAdmin && <AddStaffDialog />}
+      />
       {superAdmin ? <StaffLists /> : <p>{tErrors("reasons.SUPER_ADMIN_ONLY")}</p>}
     </div>
   );

@@ -62,6 +62,22 @@ Date: 2026-10-14 · Status: accepted · Implements spec sections 6.1 to 6.4
   and `/api/trpc/*` capped at 64 KB (413); trusted origins, secure cookies and the client-IP header come from the
   environment; production requires HTTPS and rate limiting.
 
+## Two-factor is off (owner, 2026-10-16)
+
+The owner turned two-factor off for now: not worth the hassle for an agency's staff yet. One code constant,
+`features.twoFactor` in `packages/contracts/src/features/index.ts`, is `false`. Off, Better Auth's two-factor plugin
+isn't registered (nobody is asked for a code, even a person whose row says it is on, and `/api/auth/two-factor/*` is
+a 404); no member's `pendingStep` is `SET_UP_TWO_FACTOR`, whatever `require_two_factor` says;
+`settings.setTwoFactorRequirement` refuses with `NOT_FOUND`; and no screen shows two-factor: Your account has no row
+for it, Settings no requirement, the staff list no column, and `/two-factor-setup` and `/sign-in/two-factor` send people
+home and to sign-in. Platform staff need it neither for the console nor for impersonation (ADR 0025). The code and the
+database columns stay; the two-factor tests turn the switch on with `vi.mock`.
+
+**The risk:** platform staff, who reach every organization's data, sign in with a password alone. Turn it back on for
+platform staff before real agencies use the product. The switch is for everyone at once, and it reads what is stored:
+on again, every organization with `require_two_factor` enforces it at once, and everyone with `two_factor_enabled` is
+asked for codes from their old secret, which they may have deleted from their phone meanwhile. Check those rows first.
+
 ## Context
 
 - **Why not Better Auth's `createUser` and `addMember`.** Two calls, not atomic: a failure between them leaves a user

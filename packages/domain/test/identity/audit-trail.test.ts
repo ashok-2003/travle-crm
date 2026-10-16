@@ -17,6 +17,9 @@ import {
   type TestIdentity,
 } from "./test-identity.js";
 
+// Two-factor is off in the product (@travel-crm/contracts/features): these tests prove what turning it on brings.
+vi.mock("@travel-crm/contracts/features", () => ({ features: { twoFactor: true } }));
+
 describe("identity's audit trail", () => {
   let platform: PlatformClient;
   let test: TestIdentity;

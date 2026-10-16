@@ -1,8 +1,10 @@
 // Platform staff for the console's journeys, made in the database as the api's tests make them (a platform role, a
 // password account, no membership), with two-factor turned on through Better Auth's own endpoints, as staff do on the
-// setup screen; and a newcomer with a temporary password and no two-factor yet. signInToConsole signs them in through
-// /api/auth as the sign-in screen does: the password, then the authenticator's code.
+// setup screen, while features.twoFactor is on; and a newcomer with a temporary password and no two-factor yet.
+// signInToConsole signs them in through /api/auth as the sign-in screen does: the password, then the authenticator's
+// code when two-factor is on.
 import { request as playwrightRequest, type Page } from "@playwright/test";
+import { features } from "@travel-crm/contracts/features";
 import type { PlatformClient } from "@travel-crm/db/platform";
 import type { Identity } from "@travel-crm/domain/identity";
 import { expect, test as base } from "./fixtures";
@@ -14,8 +16,8 @@ export interface PlatformStaff {
   email: string;
   password: string;
   level: "support" | "super-admin";
-  /** The authenticator secret: two-factor is on (the console requires it from Task G2). */
-  totpSecret: string;
+  /** The authenticator secret while two-factor is on (the console then requires it); null while it is off. */
+  totpSecret: string | null;
 }
 
 /** Better Auth's user.role for each level (packages/domain/src/identity/access.ts). */
@@ -58,6 +60,7 @@ async function createPlatformStaff(
   name: string,
 ): Promise<PlatformStaff> {
   const { userId, email, password } = await createUser(database, level, name, { mustChangePassword: false });
+  if (!features.twoFactor) return { userId, name, email, password, level, totpSecret: null };
   // Turned on in a browser context of its own, so the journey's page starts signed out.
   const api = await playwrightRequest.newContext({ baseURL });
   try {
@@ -92,8 +95,9 @@ export const test = base.extend<{ superAdmin: PlatformStaff; support: PlatformSt
 export { expect };
 
 /**
- * Signs platform staff in through the api, as the sign-in screen does: the password, which asks for a code, then the
- * authenticator's code. Better Auth 1.7.7 takes a code again within its 30 seconds, as the setup's was.
+ * Signs platform staff in through the api, as the sign-in screen does: the password, which asks for a code while
+ * two-factor is on, then the authenticator's code. Better Auth 1.7.7 takes a code again within its 30 seconds, as the
+ * setup's was.
  */
 export async function signInToConsole(page: Page, staff: PlatformStaff): Promise<void> {
   const headers = originHeader();
@@ -102,6 +106,10 @@ export async function signInToConsole(page: Page, staff: PlatformStaff): Promise
     headers,
   });
   expect(signedIn.ok()).toBe(true);
+  if (staff.totpSecret === null) {
+    expect(await signedIn.json()).not.toHaveProperty("twoFactorRedirect");
+    return;
+  }
   expect(await signedIn.json()).toMatchObject({ twoFactorRedirect: true });
   const verified = await page.request.post("/api/auth/two-factor/verify-totp", {
     data: { code: totpCode(staff.totpSecret) },

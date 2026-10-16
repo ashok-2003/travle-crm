@@ -2,6 +2,7 @@
 // sign-in cookies work here): its services, on in-memory storage and jobs unless a test passes real ones, its HTTP
 // app, and calls to a part of its router before that part joins platformRouter.
 import { createPlatformContext } from "@travel-crm/api/platform";
+import { features } from "@travel-crm/contracts/features";
 import { createDatabase } from "@travel-crm/db";
 import { createPlatformServices, type PlatformServices } from "@travel-crm/domain/platform";
 import {
@@ -125,7 +126,8 @@ export interface TestPlatformStaff {
 
 /**
  * Platform staff at the given level, signed in through the test server; their temporary password already replaced,
- * and two-factor on, which the console requires, unless the test asks for staff without it.
+ * and two-factor on, which the console then requires, while features.twoFactor is on, unless the test asks for staff
+ * without it.
  */
 export async function signedInPlatformStaff(
   server: TestServer,
@@ -149,7 +151,8 @@ export async function signedInPlatformStaff(
   const jar = new CookieJar();
   const response = await signInByEmail(server, jar, email, password);
   if (!response.ok) throw new Error(`platform staff sign-in failed with ${String(response.status)}`);
-  const secret = options.twoFactor === false ? null : (await enableTwoFactor(server, jar, password)).secret;
+  const twoFactor = options.twoFactor ?? features.twoFactor;
+  const secret = twoFactor ? (await enableTwoFactor(server, jar, password)).secret : null;
   return { userId: user.id, email, password, jar, secret };
 }
 

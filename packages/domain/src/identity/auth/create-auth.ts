@@ -1,6 +1,7 @@
 // Better Auth, configured for this product (ADR 0006): sign-in by email or by organization code and username,
-// database sessions with a 5-minute cookie cache, two-factor, platform admins and impersonation, which the audit log
-// records. No self sign-up.
+// database sessions with a 5-minute cookie cache, two-factor while features.twoFactor is on, platform admins and
+// impersonation, which the audit log records. No self sign-up.
+import { features } from "@travel-crm/contracts/features";
 import type { IdentityClient, IdentityDatabase } from "@travel-crm/db/identity";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
@@ -153,9 +154,14 @@ export function createAuth(database: IdentityDatabase, settings: AuthSettings) {
       }),
       // Writes "support.impersonation-started" and "-stopped" to the member's organization's audit log.
       impersonationAudit(database),
-      // Listed before twoFactor(): plugins' hooks run in this order. Platform staff never keep a trusted device.
-      noTrustedDevicesForStaff(client),
-      twoFactor({ issuer: settings.appName }),
+      // Off (features.twoFactor), neither is registered: nobody is asked for a code, and /two-factor/* doesn't exist.
+      ...(features.twoFactor
+        ? [
+            // Listed before twoFactor(): plugins' hooks run in this order. Platform staff never keep a trusted device.
+            noTrustedDevicesForStaff(client),
+            twoFactor({ issuer: settings.appName }),
+          ]
+        : []),
     ],
   });
 }

@@ -1,6 +1,8 @@
 // Every shot the visual audit takes, in the order it takes them: its file name, the screen it shows and who it is
 // taken as. A shot's number is its place here (camera.ts), so a re-run, whole or in parts, names each file the same;
-// write-index.ts lists them, and any the run didn't take, from here.
+// write-index.ts lists them, and any the run didn't take, from here. The two-factor screens are shot only while
+// features.twoFactor is on: off, nobody can reach them.
+import { features } from "@travel-crm/contracts/features";
 
 export interface Shot {
   name: string;
@@ -16,6 +18,17 @@ const sales = "Ravi Kumar, Sales";
 const superAdmin = "Kavita Rao, super admin";
 const support = "Arjun Nair, support";
 
+const TWO_FACTOR_SHOTS = [
+  { name: "two-factor-setup", screen: "Two-factor setup, the password step", as: `${sales}, two-factor required` },
+  { name: "two-factor-setup-qr", screen: "Two-factor setup, the QR code", as: `${sales}, two-factor required` },
+  {
+    name: "two-factor-backup-codes",
+    screen: "Two-factor setup, the backup codes",
+    as: `${sales}, two-factor required`,
+  },
+  { name: "two-factor-challenge", screen: "The two-factor challenge at sign-in", as: `${owner}, two-factor on` },
+] as const satisfies readonly Shot[];
+
 export const SHOTS = [
   { name: "sign-in-email", screen: "Sign in, the Email tab", as: signedOut },
   { name: "sign-in-code", screen: "Sign in, the Organization code tab", as: signedOut },
@@ -28,15 +41,8 @@ export const SHOTS = [
   { name: "not-found", screen: "An unknown page (404)", as: signedOut },
   { name: "share-link-not-found", screen: "A share link that doesn't work (/p/<token>)", as: "a customer, signed out" },
   { name: "change-password", screen: "Change password, with a temporary one", as: "Meera Iyer, Operations, new" },
-  { name: "two-factor-setup", screen: "Two-factor setup, the password step", as: `${sales}, two-factor required` },
-  { name: "two-factor-setup-qr", screen: "Two-factor setup, the QR code", as: `${sales}, two-factor required` },
-  {
-    name: "two-factor-backup-codes",
-    screen: "Two-factor setup, the backup codes",
-    as: `${sales}, two-factor required`,
-  },
-  { name: "two-factor-challenge", screen: "The two-factor challenge at sign-in", as: `${owner}, two-factor on` },
-  { name: "account", screen: "Your account", as: `${owner}, two-factor on` },
+  ...(features.twoFactor ? TWO_FACTOR_SHOTS : []),
+  { name: "account", screen: "Your account", as: features.twoFactor ? `${owner}, two-factor on` : owner },
   { name: "home-checklist", screen: "Home with the Owner's setup checklist", as: owner },
   { name: "setup", screen: "The setup checklist", as: owner },
   { name: "settings", screen: "Settings", as: owner },
