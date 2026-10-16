@@ -24,6 +24,30 @@
     "markedContacted": "Marked contacted"
   },
   "addTask": {
-    "action": "Add a task"
+    "action": "Add a task",
+    "title": "Add a task",
+    "description": "Something to do by a time. It shows in Today for whoever it's for.",
+    "what": "What to do",
+    "due": "Due",
+    "assignee": "For",
+    "lead": "Lead",
+    "leadHint": "Optional. A task on a lead is for the lead's owner.",
+    "noLead": "No lead",
+    "search": "Search by name or phone",
+    "searchHint": "Type at least 2 letters, or 4 digits of a phone.",
+    "searching": "Searching",
+    "noMatch": "No open lead matches.",
+    "unlink": "No lead: a task of its own",
+    "submit": "Add the task",
+    "submitting": "Adding",
+    "added": "Task added",
+    "problems": {
+      "required": "Say what to do.",
+      "title": "Keep it to 200 characters.",
+      "day": "Choose a day.",
+      "time": "Choose a time.",
+      "assignee": "Choose who it's for.",
+      "lead": "Choose the lead again."
+    }
   }
 }

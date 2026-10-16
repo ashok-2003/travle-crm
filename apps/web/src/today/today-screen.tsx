@@ -4,14 +4,14 @@
 // how many things it holds, red when some are overdue, with Add a task as the screen's action; then Overdue, New leads
 // waiting for a reply and Due today, each shown while it holds something. A quiet line says what later releases add.
 import type { TodaySectionName, TodaySummary } from "@travel-crm/contracts/today";
-import { CalendarCheckIcon, PlusIcon } from "lucide-react";
+import { CalendarCheckIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
-import { Button } from "@/components/ui/button";
+import { AddTaskDialog } from "./add-task-dialog";
 import { TodaySection } from "./today-section";
 import { useTodaySummary } from "./use-today";
 
@@ -84,12 +84,7 @@ export function TodayScreen() {
       <PageHeader
         title={t("title")}
         intro={summary.data && <DayLine summary={summary.data} />}
-        action={
-          <Button variant="outline">
-            <PlusIcon aria-hidden="true" />
-            {t("addTask.action")}
-          </Button>
-        }
+        action={<AddTaskDialog />}
       />
       {body()}
     </div>
