@@ -2,8 +2,9 @@
 
 // A record's files and what can be done to one: list them, download one by a short-lived link, remove one. A link is
 // asked for when it is needed (a mutation, so none is kept on the device) and fails at once when offline rather than
-// opening the download whenever the connection comes back. Toasts live in the hooks, not in callers' mutate() options,
-// so they don't depend on the calling component staying mounted.
+// opening the download whenever the connection comes back. Toasts, and closing the dialog that asked to remove a file,
+// live in the hooks' mutation options, not in callers' mutate() options, so they don't depend on the calling component
+// staying mounted. A refusal to remove shows in that dialog.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -44,18 +45,16 @@ export function useDownloadAttachment() {
   );
 }
 
-export function useRemoveAttachment(record: AttachmentRecord, name: string) {
+/** Removing a file; `onRemoved` closes the dialog that asked. */
+export function useRemoveAttachment(record: AttachmentRecord, name: string, onRemoved: () => void) {
   const trpc = useTRPC();
   const refresh = useRefreshAttachments(record);
-  const { apiError } = useErrorMessage();
   const t = useTranslations("business.attachments");
   return useMutation(
     trpc.attachments.remove.mutationOptions({
       onSuccess: () => {
         toast.success(t("removed", { name }));
-      },
-      onError: (error) => {
-        toast.error(apiError(error), { duration: Infinity });
+        onRemoved();
       },
       onSettled: refresh,
     }),

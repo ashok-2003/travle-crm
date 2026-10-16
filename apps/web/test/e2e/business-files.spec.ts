@@ -10,9 +10,9 @@ import { signInWithCode } from "./support/sign-in-with-code";
 
 const PDF = Buffer.from("%PDF-1.4\n% A GST registration certificate, as far as storage can tell.\n");
 
-/** Uploads a PDF through the screen, as a person picks it from their files. */
-async function uploadPdf(page: Page, name: string, { sensitive = false } = {}): Promise<void> {
-  if (sensitive) await page.getByRole("checkbox", { name: "Sensitive" }).check();
+/** Uploads a PDF through the screen, as a person picks it from their files, choosing first whether it is sensitive. */
+async function uploadPdf(page: Page, name: string, { sensitive }: { sensitive: boolean }): Promise<void> {
+  await page.getByRole("radio", { name: sensitive ? /^Sensitive/ : /^Not sensitive/ }).check();
   const chooser = page.waitForEvent("filechooser");
   await page.getByRole("button", { name: "Upload a file" }).click();
   await (await chooser).setFiles({ name, mimeType: "application/pdf", buffer: PDF });
@@ -29,7 +29,7 @@ test("an Owner uploads a PDF to storage through the browser, sees it listed and 
   await expect(page.getByText("No files yet.", { exact: false })).toBeVisible();
   await expectAccessible(page);
 
-  await uploadPdf(page, "GST certificate.pdf");
+  await uploadPdf(page, "GST certificate.pdf", { sensitive: false });
   // The screen's own list: a toast is a list item too.
   const row = page.getByRole("main").getByRole("listitem").filter({ hasText: "GST certificate.pdf" });
   await expect(row).toContainText(`PDF · ${String(PDF.byteLength)} bytes · Added`);
