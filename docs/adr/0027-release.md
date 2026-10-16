@@ -6,9 +6,11 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 2.7 (images tha
 ## Decision
 
 - **Two images from the lockfile.** `apps/api/Dockerfile` and `apps/web/Dockerfile` build from the repository's root
-  on `node:24.21.0-trixie-slim`, pinned by tag and digest: `pnpm fetch` in a layer of its own, then
-  `pnpm install --frozen-lockfile --offline`. They run as the `node` user, write nothing to their own file system and
-  hold no secret: every setting comes from the environment when a container starts.
+  on `node:24.21.0-trixie-slim`, pinned by tag and digest: pnpm from corepack in the version `packageManager` names,
+  `pnpm fetch` in a layer of its own, then `pnpm install --frozen-lockfile --offline`. They run as the `node` user,
+  with Node alone (npm, corepack and yarn removed), write nothing to their own file system and hold no secret: every
+  setting comes from the environment when a container starts, and no `.env` from the checkout reaches a build
+  (`.dockerignore`).
 - **The api runs as a bundle.** esbuild bundles each command (`server`, `worker`, `console`, `console-command`) with
   our packages and every third-party package but the integrations package's own, which the image installs with
   `pnpm deploy --prod` of that package (`apps/api/scripts/bundle.ts`). Production starts plain Node on JavaScript.
@@ -88,5 +90,6 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 2.7 (images tha
 - The product in Docker runs the api in development mode, because it serves plain http on localhost with the example
   secret; production settings are the image smoke's.
 - CodeQL's results on a private repository need GitHub Code Security.
+- The images' `corepack install` reads the root `package.json`, so a change to it fetches the packages again.
 - Each override and exception in `pnpm-workspace.yaml` goes when the package holding the old version moves past it;
   re-run the audit after every dependency change.
