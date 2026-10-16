@@ -56,6 +56,12 @@ export function signInRoute(from?: string): string {
   return from && isAppPath(from) ? `${routes.signIn}?next=${encodeURIComponent(from)}` : routes.signIn;
 }
 
+/** Whether an app path ("/console/plans?x=1") is the platform console's, where platform staff work. */
+export function isConsolePath(path: string): boolean {
+  const { pathname } = new URL(path, PATH_BASE);
+  return pathname === routes.console || pathname.startsWith(`${routes.console}/`);
+}
+
 /**
  * Any origin of our own would do: a path is checked by whether resolving it against this one stays on it, and read
  * (its pathname) by resolving it here too, as next-path.ts does.

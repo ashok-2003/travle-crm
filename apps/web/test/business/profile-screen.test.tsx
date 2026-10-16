@@ -68,7 +68,7 @@ describe("ProfileScreen", () => {
 
   it("shows the saved profile, ids and numbers mono and the phone after its +91", async () => {
     stubApi({ "organization.profile.get": { data: saved }, "subscription.get": subscription("full") });
-    renderWithApi(<ProfileScreen />, newQueryClient(), owner);
+    renderWithApi(<ProfileScreen />, newQueryClient(null), owner);
     expect(await screen.findByLabelText(words.legalName)).toHaveValue("Konkan Trails LLP");
     expect(screen.getByRole("heading", { level: 1, name: words.title })).toBeVisible();
     expect(screen.getByLabelText(words.gstin)).toHaveClass("numbers");
@@ -79,14 +79,14 @@ describe("ProfileScreen", () => {
 
   it("starts empty, with a state to choose, before any profile was saved", async () => {
     stubApi({ "organization.profile.get": { data: null }, "subscription.get": subscription("full") });
-    renderWithApi(<ProfileScreen />, newQueryClient(), owner);
+    renderWithApi(<ProfileScreen />, newQueryClient(null), owner);
     expect(await screen.findByLabelText(words.legalName)).toHaveValue("");
     expect(screen.getByRole("combobox", { name: words.gstState })).toHaveTextContent(words.chooseState);
   });
 
   it("names the state a GSTIN belongs to before sending it", async () => {
     const api = stubApi({ "organization.profile.get": { data: saved }, "subscription.get": subscription("full") });
-    renderWithApi(<ProfileScreen />, newQueryClient(), owner);
+    renderWithApi(<ProfileScreen />, newQueryClient(null), owner);
     const gstin = await screen.findByLabelText(words.gstin);
     await userEvent.clear(gstin);
     await userEvent.type(gstin, "29AAPFU0939F1ZR");
@@ -107,7 +107,7 @@ describe("ProfileScreen", () => {
         <ProfileScreen />
         <ChecklistProbe />
       </>,
-      newQueryClient(),
+      newQueryClient(null),
       owner,
     );
     await userEvent.type(await screen.findByLabelText(words.address), "12 Hill Road, Mumbai 400050");
@@ -148,7 +148,7 @@ describe("ProfileScreen", () => {
       "subscription.get": subscription("full"),
       "organization.profile.update": { status: 403, reason: "MISSING_PERMISSION" },
     });
-    renderWithApi(<ProfileScreen />, newQueryClient(), owner);
+    renderWithApi(<ProfileScreen />, newQueryClient(null), owner);
     await userEvent.type(await screen.findByLabelText(words.invoicePrefix), "kt");
     await userEvent.click(screen.getByRole("button", { name: messages.common.save }));
     expect(await screen.findByText(messages.errors.reasons.MISSING_PERMISSION)).toBeVisible();
@@ -157,7 +157,7 @@ describe("ProfileScreen", () => {
 
   it("lets a read-only organization's Owner look, but not save, and says why", async () => {
     stubApi({ "organization.profile.get": { data: saved }, "subscription.get": subscription("read_only") });
-    renderWithApi(<ProfileScreen />, newQueryClient(), owner);
+    renderWithApi(<ProfileScreen />, newQueryClient(null), owner);
     expect(await screen.findByText(messages.errors.reasons.ORGANIZATION_READ_ONLY)).toBeVisible();
     expect(screen.getByRole("button", { name: messages.common.save })).toBeDisabled();
     expect(screen.getByLabelText(words.legalName)).toBeDisabled();
@@ -165,7 +165,7 @@ describe("ProfileScreen", () => {
 
   it("says so when the profile didn't load, and tries again", async () => {
     const api = stubApi({ "organization.profile.get": { status: 500 }, "subscription.get": subscription("full") });
-    renderWithApi(<ProfileScreen />, newQueryClient(), owner);
+    renderWithApi(<ProfileScreen />, newQueryClient(null), owner);
     expect(await screen.findByText(words.loadFailed)).toBeVisible();
     api.answer("organization.profile.get", { data: saved });
     await userEvent.click(screen.getByRole("button", { name: messages.common.tryAgain }));

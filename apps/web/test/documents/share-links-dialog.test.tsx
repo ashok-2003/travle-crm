@@ -54,7 +54,7 @@ function renderDialog(answers: Record<string, Answer> = {}) {
     "shareLinks.revoke": { data: null },
     ...answers,
   });
-  renderWithApi(<ShareLinksDialog document={document} open onOpenChange={vi.fn()} />, newQueryClient());
+  renderWithApi(<ShareLinksDialog document={document} open onOpenChange={vi.fn()} />, newQueryClient(null));
   return api;
 }
 

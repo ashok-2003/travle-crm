@@ -1,15 +1,17 @@
 // The code step: six digits from the app (or a backup code), sent with the trust-device choice, which says it is for
-// a device nobody else uses; an expired first step sends the person back to sign in.
+// a device nobody else uses and is never offered on the way to the platform console; an expired first step sends the
+// person back to sign in.
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { TwoFactorChallenge } from "@/account/two-factor-challenge";
 import { messages } from "@/i18n/messages";
 import { answers, ok, refused, renderScreen } from "./render";
 
 const finishSignIn = vi.fn();
 vi.mock("@/account/finish-sign-in", () => ({ useFinishSignIn: () => finishSignIn }));
-vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams("next=/staff") }));
+const search = vi.hoisted(() => ({ query: "next=/staff" }));
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(search.query) }));
 
 const { account, errors } = messages;
 
@@ -31,6 +33,20 @@ describe("TwoFactorChallenge", () => {
     expect(screen.getByLabelText(account.twoFactor.trustDevice)).toHaveAccessibleDescription(
       account.twoFactor.trustDeviceHint,
     );
+  });
+
+  it("never offers platform staff on their way to the console to trust the device", async () => {
+    search.query = "next=/console/plans";
+    onTestFinished(() => {
+      search.query = "next=/staff";
+    });
+    const verifyTwoFactorCode = answers(ok(null));
+    renderScreen(<TwoFactorChallenge auth={{ verifyTwoFactorCode, verifyBackupCode: vi.fn() }} />);
+    expect(screen.queryByLabelText(account.twoFactor.trustDevice)).toBeNull();
+    await userEvent.type(screen.getByLabelText(account.fields.code), "123456");
+    await userEvent.click(screen.getByRole("button", { name: account.twoFactor.submit }));
+    expect(verifyTwoFactorCode).toHaveBeenCalledWith({ code: "123456", trustDevice: false });
+    expect(finishSignIn).toHaveBeenCalledWith("/console/plans");
   });
 
   it("takes a backup code instead, with the focus on its field", async () => {

@@ -44,7 +44,7 @@ in build step 2.
 - A notification about a record links to it by its id (`/travellers/<id>`), or names the event about it as
   `sourceEventId`: that is how the record's erasure finds it. One that quotes a person's data with neither is missed.
 - Email comes from our address as "<organization> via <product>", with Reply-To the organization's contact email when
-  set, and a `List-Unsubscribe` header pointing at `/settings/notifications`. Staff without email get none.
+  set, and a `List-Unsubscribe` header pointing at `/account/notifications`. Staff without email get none.
 - Delivery claims a channel (`email_claimed_at`, `push_claimed_at`) with a 5-minute lease before sending it, and
   records `emailed_at` / `pushed_at` only once a send worked. Overlapping or repeated runs of one event send once; a
   run that lost the claim asks to be retried until the other run has recorded its send or its lease has expired. A

@@ -1,7 +1,8 @@
 // Staff management (spec 6.3). Every procedure needs staff:manage and reads the session from the database, so an
 // admin whose sessions were revoked is stopped at once (spec 6.4). The identity module enforces who may change whom.
 // Removing someone and giving them a new temporary password take access away, so they work while the organization is
-// read-only, and for the Owner while it is suspended (ADR 0021); every other change waits for it to pay.
+// read-only, and for the Owner while it is suspended (ADR 0021), and so does the list the Owner chooses them from;
+// every other change waits for it to pay.
 import {
   createStaffInput,
   removeStaffInput,
@@ -16,7 +17,10 @@ import { router } from "../trpc.js";
 const staffManager = freshProcedure.requires("staff:manage");
 
 export const staffRouter = router({
-  list: staffManager.output(z.array(staffMember)).query(({ ctx }) => ctx.identity.staff.list(ctx.member)),
+  list: staffManager
+    .meta({ lifecycle: "revoke" })
+    .output(z.array(staffMember))
+    .query(({ ctx }) => ctx.identity.staff.list(ctx.member)),
 
   create: staffManager
     .input(createStaffInput)

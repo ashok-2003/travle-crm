@@ -41,7 +41,7 @@ function renderPanel(answers: Record<string, Answer> = {}) {
     "subscription.get": subscriptionAnswer(),
     ...answers,
   });
-  renderWithApi(<LogoPanel />, newQueryClient());
+  renderWithApi(<LogoPanel />, newQueryClient(null));
   return api;
 }
 

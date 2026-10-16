@@ -27,7 +27,7 @@ describe("delivering notifications", () => {
       fromName: senderNameFor("Sharma Travels"),
       replyTo: "hello@sharma.example",
       subject: "Quotation opened",
-      headers: { "List-Unsubscribe": "<https://app.example/settings/notifications>" },
+      headers: { "List-Unsubscribe": "<https://app.example/account/notifications>" },
     });
     expect(kit.email.sent[0]?.text).toContain("https://app.example/quotes/42");
     expect(kit.push.sent.map((sent) => sent.subscription.endpoint).sort()).toEqual([laptop, phone].sort());

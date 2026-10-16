@@ -60,7 +60,7 @@ async function loadDelivery(context: ListenerContext, notificationId: string) {
  */
 export function deliverNotificationListener(dependencies: DeliveryDependencies): EventListener {
   const appOrigin = webAppOrigin(dependencies.appUrl);
-  const preferencesPage = `${appOrigin}/settings/notifications`;
+  const preferencesPage = `${appOrigin}/account/notifications`;
   const { log } = dependencies;
 
   return defineListener({

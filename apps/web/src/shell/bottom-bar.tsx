@@ -11,9 +11,10 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import { useMe } from "@/session/me-context";
-import { BOTTOM_BAR_ITEMS, isCurrent, visibleNavigationItems } from "./navigation";
+import { BOTTOM_BAR_ITEMS, isCurrent } from "./navigation";
 import { prefetchHandlers, usePrefetchDestination } from "./prefetch";
 import { SignOutButton } from "./sign-out";
+import { useNavigationItems } from "./use-navigation-items";
 
 const tabClasses = "flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-caption font-medium";
 
@@ -23,7 +24,7 @@ export function BottomBar() {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
   const prefetch = usePrefetchDestination();
-  const items = visibleNavigationItems(me);
+  const items = useNavigationItems();
   const inBar = items.slice(0, BOTTOM_BAR_ITEMS);
   const inMore = items.slice(BOTTOM_BAR_ITEMS);
   return (

@@ -9,7 +9,8 @@ import { useTranslations } from "next-intl";
 import { HomeChecklist } from "@/business/setup/home-checklist";
 import { PageTitle } from "@/components/page-title";
 import { useMe } from "@/session/me-context";
-import { visibleNavigationItems, type NavigationItem } from "@/shell/navigation";
+import type { NavigationItem } from "@/shell/navigation";
+import { useNavigationItems } from "@/shell/use-navigation-items";
 
 /** The destinations that set the organization up: not home, nor the audit log, which looks back. */
 type SetUpItem = NavigationItem & { key: Exclude<NavigationItem["key"], "home" | "audit"> };
@@ -17,9 +18,7 @@ type SetUpItem = NavigationItem & { key: Exclude<NavigationItem["key"], "home" |
 export default function HomePage() {
   const t = useTranslations("shell.home");
   const me = useMe();
-  const setUp = visibleNavigationItems(me).filter(
-    (item): item is SetUpItem => item.key !== "home" && item.key !== "audit",
-  );
+  const setUp = useNavigationItems().filter((item): item is SetUpItem => item.key !== "home" && item.key !== "audit");
   const screens =
     setUp.length > 0 ? (
       <section className="flex flex-col gap-3">

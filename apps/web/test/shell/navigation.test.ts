@@ -36,7 +36,13 @@ describe("visibleNavigationItems", () => {
     expect(isOnPlan({ module: "crm" }, undefined)).toBe(true);
     expect(isOnPlan({ module: null }, [])).toBe(true);
     // The Foundation's own screens belong to no module: every plan shows them.
-    expect(keys(visibleNavigationItems(member({ isOwner: true }), []))).toEqual(["home", "staff", "roles", "settings"]);
+    expect(keys(visibleNavigationItems(member({ isOwner: true }), []))).toEqual([
+      "home",
+      "staff",
+      "roles",
+      "settings",
+      "audit",
+    ]);
   });
 
   it("names a module (none yet) and a permission the catalog knows for each item", () => {

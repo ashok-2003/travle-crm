@@ -23,7 +23,7 @@ function renderForm(answers: Record<string, Answer> = {}) {
     "subscription.get": subscriptionAnswer(),
     ...answers,
   });
-  renderWithApi(<BrandingForm />, newQueryClient());
+  renderWithApi(<BrandingForm />, newQueryClient(null));
   return api;
 }
 

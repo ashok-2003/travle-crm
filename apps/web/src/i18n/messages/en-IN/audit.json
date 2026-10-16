@@ -78,6 +78,10 @@
     "document": {
       "issued": "Issued a document"
     },
+    "share-link": {
+      "created": "Shared a document by link",
+      "revoked": "Turned off a share link"
+    },
     "subject": {
       "erased": "Erased a person's or record's personal data"
     }

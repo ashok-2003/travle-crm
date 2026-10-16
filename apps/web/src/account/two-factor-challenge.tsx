@@ -2,7 +2,8 @@
 
 // The second step of a two-factor sign-in: the 6-digit code from the authenticator app, or a backup code. Better
 // Auth remembers the first step in a short-lived cookie; if it has expired the person starts again. Switching between
-// the two kinds of code puts the focus in the new field.
+// the two kinds of code puts the focus in the new field. On the way to the platform console the device is never
+// trusted: platform staff reach every organization, so their code is asked every time.
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
@@ -14,7 +15,7 @@ import { Field, FieldContent, FieldDescription, FieldLabel } from "@/components/
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { authClient, type AuthClient } from "@/data/auth-client";
-import { routes } from "@/lib/routes";
+import { isConsolePath, routes } from "@/lib/routes";
 import { AuthFailureAlert, type AuthFailure } from "./form-alert";
 import { useFinishSignIn } from "./finish-sign-in";
 import { nextPath } from "./next-path";
@@ -27,6 +28,7 @@ export function TwoFactorChallenge({
 }) {
   const t = useTranslations("account");
   const next = nextPath(useSearchParams());
+  const offersTrust = !isConsolePath(next);
   const finishSignIn = useFinishSignIn();
   const id = useId();
   const [useBackup, setUseBackup] = useState(false);
@@ -44,7 +46,7 @@ export function TwoFactorChallenge({
     if (!ready) return;
     setSubmitting(true);
     setFailure(null);
-    const input = { code: code.trim(), trustDevice };
+    const input = { code: code.trim(), trustDevice: offersTrust && trustDevice };
     const result = useBackup ? await auth.verifyBackupCode(input) : await auth.verifyTwoFactorCode(input);
     if (result.ok) {
       await finishSignIn(next);
@@ -78,23 +80,25 @@ export function TwoFactorChallenge({
             <SixDigitCode id={`${id}-code`} value={code} onChange={setCode} autoFocus />
           )}
         </Field>
-        <Field orientation="horizontal">
-          <Checkbox
-            id={`${id}-trust`}
-            aria-describedby={`${id}-trust-hint`}
-            checked={trustDevice}
-            onCheckedChange={(checked) => {
-              setTrustDevice(checked === true);
-            }}
-          />
-          {/* Agencies share office PCs. On a trusted one, whoever learns this person's password needs no code. */}
-          <FieldContent>
-            <FieldLabel htmlFor={`${id}-trust`} className="font-normal">
-              {t("twoFactor.trustDevice")}
-            </FieldLabel>
-            <FieldDescription id={`${id}-trust-hint`}>{t("twoFactor.trustDeviceHint")}</FieldDescription>
-          </FieldContent>
-        </Field>
+        {offersTrust && (
+          <Field orientation="horizontal">
+            <Checkbox
+              id={`${id}-trust`}
+              aria-describedby={`${id}-trust-hint`}
+              checked={trustDevice}
+              onCheckedChange={(checked) => {
+                setTrustDevice(checked === true);
+              }}
+            />
+            {/* Agencies share office PCs. On a trusted one, whoever learns this person's password needs no code. */}
+            <FieldContent>
+              <FieldLabel htmlFor={`${id}-trust`} className="font-normal">
+                {t("twoFactor.trustDevice")}
+              </FieldLabel>
+              <FieldDescription id={`${id}-trust-hint`}>{t("twoFactor.trustDeviceHint")}</FieldDescription>
+            </FieldContent>
+          </Field>
+        )}
         <AuthFailureAlert failure={failure} />
         {expired ? (
           <Button asChild>

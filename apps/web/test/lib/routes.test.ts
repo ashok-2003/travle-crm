@@ -1,6 +1,6 @@
 // Redirects only ever lead to a page of this app: a ?next= naming another site, or the api, is ignored.
 import { describe, expect, it } from "vitest";
-import { isAppPath, isPublicRoute, pendingStepRoute, routes, signInRoute } from "@/lib/routes";
+import { isAppPath, isConsolePath, isPublicRoute, pendingStepRoute, routes, signInRoute } from "@/lib/routes";
 
 /** Where the browser would land if it followed path from a page of the app, as location.assign does. */
 const landsOn = (path: string) => new URL(path, "https://app.example.in/sign-in").origin;
@@ -10,6 +10,15 @@ describe("routes", () => {
     expect(signInRoute("/staff")).toBe("/sign-in?next=%2Fstaff");
     expect(signInRoute("/staff?role=sales#top")).toBe("/sign-in?next=%2Fstaff%3Frole%3Dsales%23top");
     expect(signInRoute()).toBe("/sign-in");
+  });
+
+  it("knows the platform console's pages, with or without a query", () => {
+    for (const path of ["/console", "/console/plans", "/console/organizations/1?onboarded=1", "/console?x=1"]) {
+      expect(isConsolePath(path), path).toBe(true);
+    }
+    for (const path of ["/", "/consoles", "/staff?next=/console", "/settings/console"]) {
+      expect(isConsolePath(path), path).toBe(false);
+    }
   });
 
   it("accepts this app's own pages", () => {

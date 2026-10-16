@@ -164,9 +164,9 @@ describe("AuditScreen", () => {
   });
 
   it("reads an action recorded before its sentence was written as words", async () => {
-    stubApi({ "audit.list": page([entry({ action: "share-link.revoked" })]) });
+    stubApi({ "audit.list": page([entry({ action: "booking-note.archived" })]) });
     renderScreen();
-    expect((await listed())[0]).toContain("Share link revoked");
+    expect((await listed())[0]).toContain("Booking note archived");
   });
 
   it("leads to one record's history, then shows only it, with a way back to every change", async () => {

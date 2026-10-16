@@ -11,14 +11,16 @@ import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import { NotificationBell } from "@/notifications/bell/notification-bell";
 import { useMe } from "@/session/me-context";
-import { isCurrent, visibleNavigationItems } from "./navigation";
+import { isCurrent } from "./navigation";
 import { prefetchHandlers, usePrefetchDestination } from "./prefetch";
 import { SignOutButton } from "./sign-out";
+import { useNavigationItems } from "./use-navigation-items";
 
 export function Sidebar() {
   const t = useTranslations("shell.navigation");
   const me = useMe();
   const pathname = usePathname();
+  const items = useNavigationItems();
   const prefetch = usePrefetchDestination();
   return (
     <aside className="hidden w-58 shrink-0 flex-col gap-6 border-r bg-surface px-3 py-5 md:flex">
@@ -27,7 +29,7 @@ export function Sidebar() {
         <NotificationBell opensAs="popover" />
       </div>
       <nav aria-label={t("label")} className="flex flex-1 flex-col gap-1">
-        {visibleNavigationItems(me).map((item) => {
+        {items.map((item) => {
           const current = isCurrent(item, pathname);
           return (
             <Link

@@ -75,7 +75,7 @@ function fileInput(): HTMLInputElement {
 const pdf = () => new File(["%PDF-1.4"], "GST certificate.pdf", { type: "application/pdf" });
 
 const renderPanel = (me = owner) =>
-  renderWithApi(<AttachmentsPanel record={record} emptyMessage="No files yet." />, newQueryClient(), me);
+  renderWithApi(<AttachmentsPanel record={record} emptyMessage="No files yet." />, newQueryClient(null), me);
 
 describe("AttachmentsPanel", () => {
   beforeEach(() => {

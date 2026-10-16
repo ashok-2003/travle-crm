@@ -39,7 +39,7 @@ function renderPreview(answers: Record<string, Answer> = {}) {
     "documents.downloadLink": { data: link },
     ...answers,
   });
-  renderWithApi(<SamplePreview />, newQueryClient());
+  renderWithApi(<SamplePreview />, newQueryClient(null));
   return api;
 }
 
