@@ -150,8 +150,9 @@ test("an Owner's agency, screen by screen, as it is set up", async ({ page, requ
     .getByRole("list", { name: "Changes" })
     .getByRole("listitem")
     .filter({ hasText: "Changed a role" });
-  await change.getByRole("button", { name: "Before and after" }).click();
-  await expect(change.getByText("audit:view", { exact: true })).toBeVisible();
+  // The entry's title opens what changed, in words.
+  await change.getByRole("button", { name: /see what changed/ }).click();
+  await expect(change.getByText("See the audit log", { exact: true })).toBeVisible();
   await shoot(page, "audit-log");
 
   await page.goto("/");
@@ -176,7 +177,7 @@ test("a Sales member's home and a screen their role can't open; the console, ope
   const ravi = await addStaff({ name: "Ravi Kumar", username: "ravi", roleKey: "sales" });
   await signInByCode(page, { code: agency.code, staff: ravi });
   await page.goto("/");
-  await expect(page.getByText("Your organization's admins set things up.")).toBeVisible();
+  await expect(page.getByText("Your work will show here.")).toBeVisible();
   await shoot(page, "sales-home");
   await page.goto("/staff");
   await expect(page.getByText("Your role doesn't include this screen.", { exact: false })).toBeVisible();

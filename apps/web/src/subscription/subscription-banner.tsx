@@ -50,7 +50,7 @@ export function SubscriptionBanner() {
       </p>
       {/* The next step is the Owner's, who pays: the way to support, whom the brand names. */}
       {me.member.role.isOwner && (
-        <Button variant="link" className="h-auto min-h-11 px-0 text-label" asChild>
+        <Button variant="link" className="px-0" asChild>
           <a href={`mailto:${brand.supportEmail}`}>{t("contactSupport")}</a>
         </Button>
       )}
