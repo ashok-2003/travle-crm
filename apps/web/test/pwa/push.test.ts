@@ -54,14 +54,8 @@ describe("tapTarget", () => {
 });
 
 describe("openFromNotification", () => {
-  function appWindow(url: string, { movable = true }: { movable?: boolean } = {}) {
-    const window = {
-      url,
-      focus: vi.fn(() => Promise.resolve(window)),
-      navigate: vi.fn((to: string) =>
-        movable ? Promise.resolve({ ...window, url: to }) : Promise.reject(new TypeError("not controlled")),
-      ),
-    };
+  function appWindow(url: string) {
+    const window = { url, focus: vi.fn(() => Promise.resolve(window)) };
     return window;
   }
   function clientsWith(...windows: ReturnType<typeof appWindow>[]) {
@@ -77,21 +71,17 @@ describe("openFromNotification", () => {
     expect(clients.openWindow).not.toHaveBeenCalled();
   });
 
-  it("takes another window of the app there, and brings it forward", async () => {
+  it("opens a new window rather than move another one of the app, which may hold unsaved work", async () => {
     const elsewhere = appWindow(`${ORIGIN}/staff`);
     const clients = clientsWith(elsewhere);
     await openFromNotification(clients, target);
-    expect(elsewhere.navigate).toHaveBeenCalledWith(target);
-    expect(elsewhere.focus).toHaveBeenCalledOnce();
-    expect(clients.openWindow).not.toHaveBeenCalled();
+    expect(elsewhere.focus).not.toHaveBeenCalled();
+    expect(clients.openWindow).toHaveBeenCalledWith(target);
   });
 
-  it("opens a window when the app has none, or none it can move", async () => {
+  it("opens a window when the app has none", async () => {
     const none = clientsWith();
     await openFromNotification(none, target);
     expect(none.openWindow).toHaveBeenCalledWith(target);
-    const stuck = clientsWith(appWindow(`${ORIGIN}/staff`, { movable: false }));
-    await openFromNotification(stuck, target);
-    expect(stuck.openWindow).toHaveBeenCalledWith(target);
   });
 });
