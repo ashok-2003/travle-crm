@@ -1,7 +1,9 @@
 // What a logo's bytes really are, and how many pixels they hold. Storage checks only the type the browser declared,
 // so a renamed file can arrive, and React-PDF silently leaves out an image it can't read. The size is read from the
 // headers (PNG's chunks, as png-js reads them; JPEG's frame header) before anything decodes the image: a PNG of a few
-// kilobytes can claim 16000×16000 pixels, or hold pixel data that inflates to a gigabyte, which pdfkit would allocate.
+// kilobytes can claim 16000×16000 pixels, or hold pixel data that inflates to a gigabyte, which pdfkit would allocate,
+// and a JPEG's metadata can take React-PDF's parser out of memory (jpeg.ts).
+import { isStartOfFrame, jpegForDrawing } from "./jpeg.js";
 import { pngPixelDataFits, readPng } from "./png.js";
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] as const;
@@ -21,9 +23,6 @@ interface Size {
 function startsWith(bytes: Uint8Array, signature: readonly number[]): boolean {
   return bytes.byteLength >= signature.length && signature.every((byte, index) => bytes[index] === byte);
 }
-
-/** A start-of-frame marker: C0 to CF, but for DHT (C4), JPG (C8) and DAC (CC). */
-const isStartOfFrame = (marker: number) => marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker);
 
 /** The JPEG's size from its first frame header, walking the segments before it; null without one before the scan. */
 function jpegSize(view: DataView): Size | null {
@@ -73,13 +72,14 @@ export function imageOf(bytes: Uint8Array): ImageHeader | null {
 }
 
 /**
- * Whether the image's pixel data is what its header says: a PNG's inflates to at most its rows' bytes, counted
- * without keeping them, and each row starts with a filter type png-js knows (`pngPixelDataFits`). A JPEG is drawn as
- * it is stored (DCTDecode), so nothing inflates. Check the size first: a header claiming a huge size allows huge
- * pixel data.
+ * Whether React-PDF and pdfkit can draw the image without being led past what its header says: a PNG's pixel data
+ * inflates to at most its rows' bytes, counted without keeping them, and each row starts with a filter type png-js
+ * knows (`pngPixelDataFits`); a JPEG's segments can be drawn as they are (`jpegForDrawing`: its metadata is left out,
+ * and pdfkit embeds the scans as they are stored, DCTDecode). Check the size first: a header claiming a huge size
+ * allows huge pixel data.
  */
-export async function pixelDataFitsHeader(bytes: Uint8Array): Promise<boolean> {
-  if (!startsWith(bytes, PNG_SIGNATURE)) return imageOf(bytes) !== null;
-  const png = readPng(viewOf(bytes));
+export async function isSafeToDraw(bytes: Uint8Array): Promise<boolean> {
+  if (startsWith(bytes, JPEG_SIGNATURE)) return imageOf(bytes) !== null && jpegForDrawing(bytes) !== null;
+  const png = startsWith(bytes, PNG_SIGNATURE) ? readPng(viewOf(bytes)) : null;
   return png !== null && pngPixelDataFits(png);
 }

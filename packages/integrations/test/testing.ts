@@ -1,5 +1,6 @@
 // Images for every package's tests (`@travel-crm/integrations/testing`; only tests may import it): the smallest logos a
-// PDF can draw, real PNGs of any size, the chunks to build others, and the PNGs made to get past a logo's checks.
+// PDF can draw, real PNGs of any size, the chunks and segments to build others, and the PNGs and JPEGs made to get past
+// a logo's checks.
 import { crc32, deflateSync } from "node:zlib";
 
 const bytesOf = (base64: string) => Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
@@ -93,4 +94,36 @@ export function narrowInterlacedPng(): Uint8Array {
 /** A 16×16 PNG whose pixel data inflates to a megabyte rather than its 48 bytes: a gigabyte at 1 MB stored. */
 export function pngWithOversizedPixelData(): Uint8Array {
   return pngOf(pngChunk("IHDR", pngHeader(16, 16)), pngChunk("IDAT", deflateSync(new Uint8Array(1024 * 1024))), end());
+}
+
+/** A JPEG segment: its marker, then its length (counting itself, or the one given, to lie) and its data. */
+export function jpegSegment(marker: number, data: readonly number[], length = data.length + 2): Uint8Array {
+  return Uint8Array.from([0xff, marker, length >> 8, length & 0xff, ...data]);
+}
+
+/** A JPEG of these parts after SOI. */
+export function jpegOf(...parts: Uint8Array[]): Uint8Array {
+  return new Uint8Array(Buffer.concat([Uint8Array.of(0xff, 0xd8), ...parts]));
+}
+
+/** A baseline frame (SOF0) of this size, one component. */
+export const jpegFrame = (width: number, height: number) =>
+  jpegSegment(0xc0, [8, height >> 8, height & 0xff, width >> 8, width & 0xff, 1, 1, 0x11, 0]);
+
+/** A scan of the one component, its data, then EOI. */
+export const jpegScan = (data: readonly number[] = [0x12, 0x34]) =>
+  Uint8Array.from([...jpegSegment(0xda, [1, 1, 0, 0, 63, 0]), ...data, 0xff, 0xd9]);
+
+/**
+ * A 1×1 JPEG whose EXIF (APP1) lists `entries` entries, each claiming `count` 16-bit components: jay-peg pushes one
+ * value for each into an array, so a hundred-odd bytes take a worker out of memory.
+ */
+export function jpegWithExifComponents(count: number, entries: number): Uint8Array {
+  const be16 = (value: number) => [value >> 8, value & 0xff];
+  const be32 = (value: number) => [(value >>> 24) & 0xff, (value >>> 16) & 0xff, (value >>> 8) & 0xff, value & 0xff];
+  const ifd = [...be16(entries)];
+  for (let entry = 0; entry < entries; entry++) ifd.push(...be16(0x0100), ...be16(3), ...be32(count), 0, 0, 0, 0);
+  const tiff = [0x4d, 0x4d, ...be16(42), ...be32(8), ...ifd, 0, 0, 0, 0];
+  const exif = [...Buffer.from("Exif\0\0", "latin1"), ...tiff];
+  return jpegOf(jpegSegment(0xe1, exif), jpegFrame(1, 1), jpegScan());
 }

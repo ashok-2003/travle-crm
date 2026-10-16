@@ -61,6 +61,7 @@ quotes and invoices bring theirs.
   aren't a PNG or JPEG png-js reads as its headers say, whose header claims more than 4096 pixels a side or 16
   megapixels (`isLogoSizeAllowed`: pdfkit would inflate every pixel, and a 1 MB file can claim gigabytes of them), or
   whose pixel data inflates to more than that header's rows or has a row whose filter type png-js doesn't know
-  (`pixelDataFitsHeader`; png-js would throw where nothing catches it) is left out and the document still renders.
+  (`isSafeToDraw`; png-js would throw where nothing catches it), or a JPEG whose segments can't be drawn as they are,
+  is left out and the document still renders. A JPEG is drawn without its metadata (`renderPdf`).
   `assertUsableLogo(body, declaredType)` is the same check for the logo's upload, which `confirmUpload` awaits
   (`VALIDATION`/`UPLOAD_DOES_NOT_MATCH`, `VALIDATION`/`LOGO_TOO_LARGE`).

@@ -5,6 +5,10 @@
 import { issuedDocumentRenderInput } from "@travel-crm/contracts/documents";
 import { renderPdf, UnprintableTextError } from "@travel-crm/integrations/pdf";
 import {
+  jpegFrame,
+  jpegOf,
+  jpegScan,
+  jpegWithExifComponents,
   narrowInterlacedPng,
   pngOfSize,
   pngWithFilterType,
@@ -285,6 +289,29 @@ describe("rendering an issued document", () => {
       expect(text.startsWith("%PDF-")).toBe(true);
       expect(text).not.toContain("/Subtype /Image");
     }
+  });
+
+  it("draws a JPEG logo without its EXIF, which React-PDF's parser would run out of memory on", async () => {
+    const organizationId = await createOrganization(test);
+    const listener = renderIssuedDocumentListener({ files: test.files, render: renderPdf });
+    const body = jpegWithExifComponents(100_000_000, 8);
+    const document = await issued(
+      organizationId,
+      await storedLogo(test, organizationId, { body, contentType: "image/jpeg" }),
+    );
+    await listener.handle(await issuedEvent(test, organizationId, document.id), listenerContext(test, organizationId));
+    const rendered = await test.db.forOrg(organizationId, (tx) => getIssuedDocument(tx, { documentId: document.id }));
+    const pdf = await test.storage.get(`organizations/${organizationId}/attachments/${rendered.pdfAttachmentId ?? ""}`);
+    const text = new TextDecoder("latin1").decode(pdf ?? new Uint8Array());
+    expect(text).toContain("/DCTDecode");
+    expect(text).not.toContain("Exif");
+    // One it can't draw is left out.
+    const twoFrames = jpegOf(jpegFrame(1, 1), jpegFrame(9000, 9000), jpegScan());
+    const left = await issued(
+      organizationId,
+      await storedLogo(test, organizationId, { body: twoFrames, contentType: "image/jpeg" }),
+    );
+    expect(await drawnLogo(organizationId, left.id)).toBeUndefined();
   });
 
   it("records text the fonts can't show as a permanent failure instead of retrying", async () => {

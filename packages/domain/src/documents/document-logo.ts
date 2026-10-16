@@ -1,7 +1,7 @@
 // The organization's logo for a document's PDF: the bytes of the logo frozen in its branding, read from storage
 // when the worker renders it, and drawn as the image they really are; and the check an upload passes to become it.
 import { isLogoSizeAllowed, LOGO_RECORD_TYPE } from "@travel-crm/contracts/profile";
-import { imageOf, pixelDataFitsHeader, type DocumentBranding } from "@travel-crm/integrations/pdf";
+import { imageOf, isSafeToDraw, type DocumentBranding } from "@travel-crm/integrations/pdf";
 import type { Files } from "../files/index.js";
 import { DomainError } from "../kernel/index.js";
 
@@ -19,7 +19,7 @@ export async function assertUsableLogo(body: Uint8Array, declaredType: string): 
   if (!isLogoSizeAllowed(image)) {
     throw new DomainError("VALIDATION", "LOGO_TOO_LARGE", "A logo has at most 4096 pixels a side, 16 million in all");
   }
-  if (!(await pixelDataFitsHeader(body))) throw notTheImage();
+  if (!(await isSafeToDraw(body))) throw notTheImage();
 }
 
 /**
@@ -48,6 +48,6 @@ export async function documentLogo(
     throw error;
   }
   const image = imageOf(body);
-  if (image === null || !isLogoSizeAllowed(image) || !(await pixelDataFitsHeader(body))) return undefined;
+  if (image === null || !isLogoSizeAllowed(image) || !(await isSafeToDraw(body))) return undefined;
   return { data: body, contentType: image.contentType };
 }

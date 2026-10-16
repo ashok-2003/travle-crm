@@ -8,6 +8,10 @@ import { createMemoryStorage, type MemoryStorage } from "@travel-crm/integration
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { CookieJar } from "./support/cookie-jar.js";
 import {
+  jpegFrame,
+  jpegOf,
+  jpegScan,
+  jpegWithExifComponents,
   narrowInterlacedPng,
   pngOfSize,
   pngWithFilterType,
@@ -33,17 +37,22 @@ describe("the organization's logo", () => {
   });
 
   /** Uploads a file as the branding screen does (a link, the PUT to storage, the confirm): the confirm's answer. */
-  async function uploadLogo(jar: CookieJar, body: Uint8Array, fileName = "Logo.png"): Promise<Response> {
+  async function uploadLogo(
+    jar: CookieJar,
+    body: Uint8Array,
+    fileName = "Logo.png",
+    contentType: "image/png" | "image/jpeg" = "image/png",
+  ): Promise<Response> {
     const { attachmentId, upload } = await dataOf<LogoUpload>(
       await mutate(
         server,
         "organization.logo.requestUpload",
-        { fileName, contentType: "image/png", sizeBytes: body.byteLength },
+        { fileName, contentType, sizeBytes: body.byteLength },
         jar,
       ),
     );
     // Storage checks only the size and the declared type.
-    await storage.upload({ ...upload, expiresAt: new Date(upload.expiresAt) }, body, "image/png");
+    await storage.upload({ ...upload, expiresAt: new Date(upload.expiresAt) }, body, contentType);
     return mutate(server, "organization.logo.confirmUpload", { attachmentId }, jar);
   }
 
@@ -151,6 +160,18 @@ describe("the organization's logo", () => {
     expect(await dataOf(await query(server, "organization.logo.get", jar))).toBeNull();
     // 16 million pixels, the most a logo may hold.
     expect((await uploadLogo(jar, pngOfSize(4000, 4000))).status).toBe(200);
+  });
+
+  it("takes a JPEG whose EXIF would take React-PDF's parser out of memory, and refuses one it can't draw", async () => {
+    const agency = await createTestAgency(server);
+    const jar = await signedInOwner(server, agency);
+    // The worker draws it without its metadata, which is where the danger is.
+    expect((await uploadLogo(jar, jpegWithExifComponents(100_000_000, 8), "Logo.jpg", "image/jpeg")).status).toBe(200);
+    const twoFrames = jpegOf(jpegFrame(1, 1), jpegFrame(9000, 9000), jpegScan());
+    expect(await refusalOf(await uploadLogo(jar, twoFrames, "Logo.jpg", "image/jpeg"))).toEqual({
+      status: 400,
+      reason: "UPLOAD_DOES_NOT_MATCH",
+    });
   });
 
   it("confirms and removes only the organization's logos, never another of its files", async () => {

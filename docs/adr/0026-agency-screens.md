@@ -34,7 +34,10 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 7.1, 7.3, 9.2-9
   more than its header's rows or has a row whose filter type png-js doesn't know, are `UPLOAD_DOES_NOT_MATCH`, and
   more pixels `LOGO_TOO_LARGE`. A 1 MB file can claim, or inflate to, gigabytes of pixels, which pdfkit would allocate
   in the worker every organization shares; and png-js throws at a bad filter type, or misreads a narrow interlaced
-  image, inside a zlib callback nothing can catch, which would stop that worker on every retry. An issued
+  image, inside a zlib callback nothing can catch, which would stop that worker on every retry. A JPEG is drawn from
+  only the segments that draw it: React-PDF reads every JPEG marker with jay-peg, whose EXIF reader a hundred bytes
+  can take out of memory, so no metadata (EXIF, XMP, ICC, comments) reaches it, and a JPEG whose segments it would
+  read otherwise is `UPLOAD_DOES_NOT_MATCH`. The PDF shows the logo as stored, without EXIF's rotation. An issued
   document freezes its attachment id in its branding, and the worker reads the bytes through the files module and
   draws them; a logo it can't read, or past the cap (one stored before it), is left out, and the document still
   renders.
