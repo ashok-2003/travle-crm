@@ -3,11 +3,13 @@
 // The switch that makes two-factor sign-in compulsory for the whole organization (spec 6.2). A refusal is shown
 // under it, and when the reason is that the person hasn't set it up for themselves, a link to do so. Requiring it
 // takes access away, which the subscription allows where it refuses other changes; not requiring it is a change
-// (ADR 0021), so it is disabled, saying why, while those are refused.
+// (ADR 0021), so it is disabled, saying why, while those are refused. It is an Item like the settings rows around it,
+// the reason its description.
 import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { ErrorState } from "@/components/error-state";
-import { Field, FieldContent, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { refusalOf } from "@/data/api-error";
@@ -51,20 +53,25 @@ export function TwoFactorRequirement() {
 
   return (
     <div className="flex flex-col gap-3">
-      <Field orientation="horizontal" data-disabled={disabled || !lifecycle.allowed}>
-        <FieldContent>
-          <FieldLabel htmlFor="require-two-factor">{t("requireTwoFactor")}</FieldLabel>
-          <FieldDescription>{hint}</FieldDescription>
-        </FieldContent>
-        <Switch
-          id="require-two-factor"
-          checked={required}
-          disabled={disabled || !lifecycle.allowed || change.isPending}
-          onCheckedChange={(checked) => {
-            change.mutate({ required: checked });
-          }}
-        />
-      </Field>
+      <Item size="sm">
+        <ItemContent>
+          <ItemTitle>
+            <Label htmlFor="require-two-factor">{t("requireTwoFactor")}</Label>
+          </ItemTitle>
+          <ItemDescription id="require-two-factor-hint">{hint}</ItemDescription>
+        </ItemContent>
+        <ItemActions>
+          <Switch
+            id="require-two-factor"
+            aria-describedby="require-two-factor-hint"
+            checked={required}
+            disabled={disabled || !lifecycle.allowed || change.isPending}
+            onCheckedChange={(checked) => {
+              change.mutate({ required: checked });
+            }}
+          />
+        </ItemActions>
+      </Item>
       <RefusalAlert error={change.error} />
       {refusalOf(change.error)?.reason === "ENABLE_TWO_FACTOR_FIRST" && (
         <TextLink href={routes.account}>{t("setUpYours")}</TextLink>
