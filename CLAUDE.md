@@ -20,7 +20,7 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 | `pnpm demo`                                    | build the demo agency now (set `DEMO_*` in `.env` first)        |
 | `pnpm product:up` / `pnpm product:down`        | the whole product in Docker, at http://localhost:58080          |
 | `pnpm format`                                  | format every file with Prettier                                 |
-| `pnpm check`                                   | everything CI runs: typecheck, lint, tests, import rules        |
+| `pnpm check`                                   | format, scripts:test, typecheck, lint, tests, journeys, imports |
 | `pnpm images:smoke` / `pnpm product:smoke`     | build the images and run them as a deploy does (CI)             |
 | `pnpm lighthouse`                              | build the web app, hold its public pages to budgets (CI)        |
 | `pnpm e2e:audit`                               | screenshot every screen on a phone and a desktop (`AUDIT_OUT`)  |
@@ -30,7 +30,8 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 | `pnpm audit --audit-level=high`                | the dependency audit (CI); exceptions: `pnpm-workspace.yaml`    |
 | `pnpm --filter @travel-crm/<package> test`     | one package's tests (most need Docker running)                  |
 
-CI runs `pnpm check`'s parts and every command marked CI, each as a job of its own (`.github/workflows/ci.yml`).
+`pnpm check` is not all of CI: CI runs its parts and every command marked CI, each as a job of its own
+(`.github/workflows/ci.yml`), and CodeQL (`codeql.yml`).
 
 ## How we write code
 
@@ -204,8 +205,6 @@ CI runs `pnpm check`'s parts and every command marked CI, each as a job of its o
   `brand.colours`.
 - Every word on screen is a next-intl message in the feature's file in `src/i18n/messages/en-IN/`; a refusal shows the
   sentence for its reason (`errors.json`, `useErrorMessage()`).
-- shadcn components: `pnpm dlx shadcn@4.21.4 add <name>` from `apps/web`, then the checks in
-  `src/components/ui/README.md`.
 - Never show a `.invalid` email, and never read people from Better Auth's `/get-session`: `me.get` says who is signed
   in. Hiding a button is a convenience; the api checks every call.
 - A change's button asks `useWriteAccess(kind)` (`src/subscription/write-access.ts`, mirroring check 2) and, refused,
@@ -216,6 +215,40 @@ CI runs `pnpm check`'s parts and every command marked CI, each as a job of its o
 - Files go from the browser straight to storage: `uploadFile()` (`src/files/upload.ts`) and the reusable
   `AttachmentsPanel`; the CSP allows `STORAGE_ORIGIN`, fixed at build time like `API_ORIGIN` and `CONSOLE_ORIGIN`.
 
+## The owner's UI rules (binding on every screen, the agency's and the console's)
+
+1. **shadcn/ui registry components only,** added with `pnpm dlx shadcn@4.21.4 add <name>` from `apps/web`
+   (radix-nova), then the checks in `src/components/ui/README.md`. Never hand-write a primitive the registry has
+   (table, popover, calendar, input group, sidebar, item...); our own components are thin compositions of registry ones.
+2. **No styling on top of shadcn:** no `border`, `divide-`, `ring-` or `shadow` class outside `components/ui`, and
+   no recolouring a registry component: use its variant (`<Button variant="destructive">`, `variant="link"`). Group
+   content with Card, Item/ItemGroup/ItemSeparator, Table and Separator. `test/no-hand-drawn-borders.test.ts` guards
+   the classes.
+3. **Simpler is better:** fewer lines through better arrangement, no needless wrappers, no second copy of a helper.
+4. **DESIGN.md:** 44px touch targets, the brand's tokens, Indian formats (dd/mm/yyyy dates, lakh grouping).
+5. **Dates:** every date input is `DateField` (the registry Calendar in a Popover, shown dd/mm/yyyy, value
+   `yyyy-mm-dd`), never `<input type="date">`.
+6. **Tables:** the registry `Table`; TanStack Table only where the browser itself sorts or filters.
+7. **A dialog that sends a request** disables Cancel and ignores closing while it is pending, and its success
+   handling survives a close: `ConfirmDialog`, or `ResponsiveDialog` with `busy`.
+
+A screen builds from the shared pieces in `apps/web/src/` before writing its own:
+
+- **Screens:** `PageHeader` (`components/page-header.tsx`) opens every screen; `EmptyState` and `ErrorState`;
+  `RefusalAlert` for every failed request's alert; `LoadingRows` for every loading list; `Details` for labelled
+  values; `TextLink` and `BackLink` (`components/text-link.tsx`) for every link in text; `CopyButton`.
+- **Dialogs:** `ResponsiveDialog` (its `footer` holds Cancel and the main button outside the scrolling body; `busy`
+  holds it open), `ConfirmDialog` (`children`, `confirmDisabled`) for every confirmation, and `FormDialog`
+  (`components/forms/form-dialog.tsx`) for every form in a dialog.
+- **Forms:** `FormField`, `DateField`, and `components/forms/`: `useCheckedForm` and `checked` (the contract's checks
+  and a refusal's field errors), `MoneyField`, `SelectField`, `GstStateField`.
+- **Lists and records:** `useCursorPages` (`data/use-cursor-pages.ts`) with `ShowMoreButton` for every cursor list;
+  `AuditChange` and `StoredValue` for an audit entry's before and after.
+- **Words:** `lib/format.ts`'s `formatDayTime` and `formatPhoneNumber`, and `useInstantText`
+  (`components/instant-text.ts`).
+
+Each component without a path is in `components/`, in the file of its name (`EmptyState` in `empty-state.tsx`).
+
 ## The platform console (`/console`, ADR 0025)
 
 - A section of the web app: routes in `src/app/console/**`, code in `src/console/**`, which nothing else imports. It
@@ -224,9 +257,11 @@ CI runs `pnpm check`'s parts and every command marked CI, each as a job of its o
   (`http://localhost:3002` in development; the api's `console` command serves it) before `/api/*`.
 - Platform staff sign in on the one sign-in page and land on `/console`; the step screens bring them back with
   `?next=`. They must use two-factor (`staffProcedure` refuses `SET_UP_TWO_FACTOR`), and never keep a trusted device:
-  the api ignores `trustDevice` for them and forgets their trusted devices at every sign-in (ADR 0025).
+  the api ignores `trustDevice` for them and forgets their trusted devices at every password sign-in (ADR 0025).
 - A console screen names its title as `"<screen>"` (the layout adds "· Console · <product>"), shows times in
-  `PLATFORM_TIME_ZONE`, and checks `isSuperAdmin(useStaff())` only for convenience: the api refuses support.
+  `PLATFORM_TIME_ZONE`, and checks `isSuperAdmin(useStaff())` only for convenience: the api refuses support. An
+  organization's page is the exception for times: its members' last activity, its onboarding day and a suspension's
+  day show in the organization's own time zone.
 - Journeys: `test/e2e/support/console.ts` gives `superAdmin` and `support` (two-factor on) and
   `signInToConsole(page, staff)`; the harness starts the api, the worker and the console process.
 

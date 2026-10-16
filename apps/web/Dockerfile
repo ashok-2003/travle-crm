@@ -26,7 +26,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # The browser drops a query cache saved by another build (next.config.ts): pass the commit, or the build's time is used.
 ARG CACHE_VERSION
 # Where the browser uploads files and loads logos from, which the Content-Security-Policy allows: the bucket's origin,
-# such as https://s3.ap-south-1.amazonaws.com. Plan 5B reads it in next.config.ts when the app is built, as API_ORIGIN.
+# such as https://s3.ap-south-1.amazonaws.com. next.config.ts reads it when the app is built, and refuses to build
+# without it. The image takes no API_ORIGIN or CONSOLE_ORIGIN, so it rewrites nothing (above).
 ARG STORAGE_ORIGIN
 # Prisma's client for the api's types the app checks against, then the brand's files: its icons, brand.css, sw.js.
 RUN pnpm --filter @travel-crm/db generate \

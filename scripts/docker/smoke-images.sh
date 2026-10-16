@@ -2,9 +2,10 @@
 # `pnpm images:smoke` (spec 12.1, gate 7): builds the api's and the web app's images, then runs every command of the
 # api's image as a deploy does (production settings, a read-only file system) against a throwaway Postgres, MinIO and
 # Mailpit. Expects the api and the console to answer /health, the worker to render a PDF with the brand's fonts, the
-# web app to serve /sign-in with its security headers and no /api rewrite, each process to stop on SIGTERM by itself,
-# and neither image to hold a .env file. Everything it starts is removed again, however it ends. The images are tagged
-# after this checkout's project (scripts/dev/compose.sh), so a run in another clone never retags this one's.
+# web app to serve /sign-in with its security headers and rewrite none of the api's paths, each process to stop on
+# SIGTERM by itself, and neither image to hold a .env file. Everything it starts is removed again, however it ends. The
+# images are tagged after this checkout's project (scripts/dev/compose.sh), so a run in another clone never retags
+# this one's.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 source scripts/docker/images.sh
@@ -155,8 +156,12 @@ expect_header "$work/headers" Cross-Origin-Opener-Policy same-origin
 expect_header "$work/headers" Permissions-Policy "camera=()"
 grep --quiet --ignore-case "^x-powered-by:" "$work/headers" && fail "the web app says what it runs on"
 echo "ok: /sign-in carries the security headers"
-# Built without API_ORIGIN: the load balancer routes /api, so a request that reaches the app is its 404.
+# A production build rewrites nothing (next.config.ts): the load balancer sends the console's api, the api, share links
+# and the webhook intake elsewhere, so a request for any of them that reaches the app is its own 404.
+expect_status "$web/api/platform/trpc/whoAmI" 404
 expect_status "$web/api/trpc/me.get" 404
+expect_status "$web/p/not-a-token" 404
+expect_status "$web/webhooks/not-a-provider" 404 --request POST --header "Content-Type: application/json" --data "{}"
 
 echo "SIGTERM"
 for name in api console worker; do

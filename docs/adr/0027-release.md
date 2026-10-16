@@ -35,10 +35,11 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 2.7 (images tha
   passwords are public.
 - **Smoke runs prove both.** `pnpm images:smoke` runs every command of the api image in production mode, read-only,
   against a throwaway Postgres, MinIO and Mailpit: health, a PDF rendered with the brand's fonts, the web app's
-  security headers and no `/api` rewrite, every process stopping by itself on SIGTERM, and no `.env` file in either
-  image. `pnpm product:smoke` brings the compose project up on free ports, checks each route through the proxy (a
-  share link's 404, a webhook's refusal, the console's and the api's tRPC) and the web app's headers passed on once
-  each, and signs the demo's Owner in.
+  security headers and none of the api's paths rewritten (`/api/platform/*`, `/api/*`, `/p/*` and `/webhooks/*`
+  are the web app's own 404), every process stopping by itself on SIGTERM, and no `.env` file in either image.
+  `pnpm product:smoke` brings the compose project up on free ports, checks each route through the proxy (a share
+  link's 404, a webhook's refusal, the console's and the api's tRPC) and the web app's headers passed on once each,
+  and signs the demo's Owner in.
 - **CI runs a job per gate** (`.github/workflows/ci.yml`): typecheck; lint with the import rules, the product-name
   check and actionlint with ShellCheck; the unit, integration and isolation tests on the runner's Docker; the journeys
   in Playwright's Chromium; Lighthouse; the migrations on an empty Postgres 18 with Prisma's drift check; the images
@@ -86,8 +87,10 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 2.7 (images tha
 - A package the integrations package adds is installed in the image without further change; one added anywhere else
   is bundled. One that reads its own files at run time must come through the integrations package, or the bundle
   breaks only when it runs: `apps/api/test/bundle.test.ts` and the image smoke are the guards.
-- The image smoke issues a document from the checkout (`apps/api/scripts/issue-sample-document.ts`) until an endpoint
-  issues one, so CI's images job installs the workspace.
+- The image smoke issues its document from the checkout (`apps/api/scripts/issue-sample-document.ts`), the same
+  `brandedSampleQuotation` that `documents.issueSample` issues, and keeps that script now the endpoint exists: the
+  endpoint wants a fresh session with `settings:manage` and counts against the day's samples, and in production mode
+  the session's cookies are https-only, while the smoke speaks plain http. So CI's images job installs the workspace.
 - A separate migrator image would take 325 MB off the api's image; spec 12.3 runs migrations from the api image, so it
   waits for the owner.
 - The product in Docker runs the api in development mode, because it serves plain http on localhost with the example
