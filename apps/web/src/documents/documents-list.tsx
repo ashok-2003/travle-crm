@@ -1,7 +1,8 @@
 "use client";
 
 // The issued documents (DESIGN.md section 6): a table on tablets and wider, newest first, numbers and times mono; a
-// list of items on phones with the number and status on the first line and the document and time on the second.
+// list of items on phones with the number and status on the first line, the document and when it was issued on the
+// second (the time reads as prose there, as a file's day does), and the actions under them.
 import type { IssuedDocumentSummary } from "@travel-crm/contracts/documents";
 import { useTranslations } from "next-intl";
 import { Fragment } from "react";
@@ -15,7 +16,7 @@ import {
   ItemTitle,
 } from "@/components/ui/item";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatDay, formatTime } from "@/lib/format";
+import { formatDayTime } from "@/lib/format";
 import { useWideScreen } from "@/lib/use-wide-screen";
 import { useMe } from "@/session/me-context";
 import { DocumentActions } from "./document-actions";
@@ -25,10 +26,7 @@ export function DocumentsList({ documents }: { documents: IssuedDocumentSummary[
   const t = useTranslations("documents");
   const { timeZone } = useMe().organization;
   const wide = useWideScreen();
-  const issued = (document: IssuedDocumentSummary) => {
-    const at = new Date(document.issuedAt);
-    return t("list.issuedAt", { day: formatDay(at, { timeZone }), time: formatTime(at, { timeZone }) });
-  };
+  const issued = (document: IssuedDocumentSummary) => formatDayTime(new Date(document.issuedAt), { timeZone });
 
   if (!wide) {
     return (
@@ -43,11 +41,10 @@ export function DocumentsList({ documents }: { documents: IssuedDocumentSummary[
                   <DocumentStatus document={document} />
                 </ItemTitle>
                 <ItemDescription className="break-words script-leading">
-                  {document.title} · {t(`templates.${document.template}`)} ·{" "}
-                  <span className="numbers">{issued(document)}</span>
+                  {document.title} · {t(`templates.${document.template}`)} · {issued(document)}
                 </ItemDescription>
               </ItemContent>
-              <ItemActions>
+              <ItemActions className="basis-full">
                 <DocumentActions document={document} />
               </ItemActions>
             </Item>

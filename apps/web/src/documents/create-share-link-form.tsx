@@ -1,17 +1,17 @@
 "use client";
 
 // A new link to the document: a label for staff (who it is for) and its expiry, the default 30 days or never. The
-// label is checked by the api's own rule before it is sent; a refusal shows above the button.
+// label is checked by the api's own rule before it is sent; a refusal shows under the fields. The form is sent from the
+// dialog's footer (ShareLinksDialog), whose button the write hint here describes.
 import type { IssuedDocumentSummary } from "@travel-crm/contracts/documents";
 import { shareLinkLabel } from "@travel-crm/contracts/share-links";
 import { useTranslations } from "next-intl";
 import { Controller, useForm, type Resolver } from "react-hook-form";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { FormField } from "@/components/form-field";
+import { RefusalAlert } from "@/components/refusal-alert";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { useErrorMessage } from "@/lib/error-message";
 import { useWriteAccess } from "@/subscription/write-access";
 import { sharedDocument, type useCreateShareLink } from "./use-share-links";
 
@@ -21,16 +21,21 @@ interface ShareLinkValues {
   expiry: "default" | "never";
 }
 
+/** The id of the write hint the footer's button names as its description. */
+export const writeHintOf = (formId: string) => `${formId}-hint`;
+
 export function CreateShareLinkForm({
+  formId,
   document,
   create,
 }: {
+  /** The form's id, which the footer's submit button names. */
+  formId: string;
   document: IssuedDocumentSummary;
   /** The create call, owned by the dialog so that it can let go of the token when it closes. */
   create: ReturnType<typeof useCreateShareLink>;
 }) {
   const t = useTranslations("documents.share");
-  const { apiError } = useErrorMessage();
   const write = useWriteAccess();
   const resolver: Resolver<ShareLinkValues> = (values) =>
     shareLinkLabel.safeParse(values.label).success
@@ -40,7 +45,6 @@ export function CreateShareLinkForm({
     resolver,
     defaultValues: { label: `${document.title} ${document.number}`, expiry: "default" },
   });
-  const { errors } = form.formState;
 
   const submit = form.handleSubmit((values) => {
     create.mutate({
@@ -51,38 +55,36 @@ export function CreateShareLinkForm({
   });
 
   return (
-    <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-4">
+    <form id={formId} noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-4">
       <h3 className="font-semibold">{t("newLink")}</h3>
       <FieldGroup>
-        <Field data-invalid={errors.label !== undefined}>
-          <FieldLabel htmlFor={`share-label-${document.id}`}>{t("label")}</FieldLabel>
-          <Input
-            id={`share-label-${document.id}`}
-            maxLength={200}
-            autoComplete="off"
-            className="script-leading"
-            aria-invalid={errors.label !== undefined}
-            {...form.register("label")}
-          />
-          <FieldDescription>{t("labelHint")}</FieldDescription>
-          <FieldError errors={[errors.label]} />
-        </Field>
+        <FormField label={t("label")} hint={t("labelHint")} error={form.formState.errors.label?.message}>
+          {(links) => (
+            <Input
+              {...links}
+              maxLength={200}
+              autoComplete="off"
+              className="script-leading"
+              {...form.register("label")}
+            />
+          )}
+        </FormField>
         <Field>
-          <FieldLabel id={`share-expiry-${document.id}`}>{t("expiry")}</FieldLabel>
+          <FieldLabel id={`${formId}-expiry`}>{t("expiry")}</FieldLabel>
           <Controller
             control={form.control}
             name="expiry"
             render={({ field }) => (
               <RadioGroup
-                aria-labelledby={`share-expiry-${document.id}`}
+                aria-labelledby={`${formId}-expiry`}
                 value={field.value}
                 onValueChange={field.onChange}
                 className="flex flex-wrap gap-6"
               >
                 {(["default", "never"] as const).map((expiry) => (
                   <div key={expiry} className="flex min-h-11 items-center gap-3">
-                    <RadioGroupItem value={expiry} id={`share-expiry-${document.id}-${expiry}`} />
-                    <FieldLabel htmlFor={`share-expiry-${document.id}-${expiry}`} className="font-normal">
+                    <RadioGroupItem value={expiry} id={`${formId}-expiry-${expiry}`} />
+                    <FieldLabel htmlFor={`${formId}-expiry-${expiry}`} className="font-normal">
                       {expiry === "default" ? t("expiryDefault") : t("expiryNever")}
                     </FieldLabel>
                   </div>
@@ -92,17 +94,8 @@ export function CreateShareLinkForm({
           />
         </Field>
       </FieldGroup>
-      {create.isError && (
-        <Alert variant="destructive">
-          <AlertDescription>{apiError(create.error)}</AlertDescription>
-        </Alert>
-      )}
-      <div className="flex flex-col items-end gap-2">
-        <Button type="submit" disabled={!write.allowed || create.isPending}>
-          {create.isPending ? t("creating") : t("create")}
-        </Button>
-        {write.hint !== null && <p className="text-label text-muted-foreground">{write.hint}</p>}
-      </div>
+      <RefusalAlert error={create.error} />
+      {write.hint !== null && <FieldDescription id={writeHintOf(formId)}>{write.hint}</FieldDescription>}
     </form>
   );
 }

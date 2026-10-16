@@ -62,8 +62,6 @@
     "empty": "No documents yet. Preview a sample quotation on the branding screen to issue your first.",
     "emptyAction": "Go to branding",
     "more": "Show more documents",
-    "loadingMore": "Loading more documents",
-    "issuedAt": "{day}, {time}",
     "columns": {
       "number": "Number",
       "document": "Document",
@@ -111,7 +109,6 @@
     },
     "notOpened": "Not opened yet",
     "opened": "{count, plural, one {Opened # time} other {Opened # times}}, last {when}",
-    "when": "{day}, {time}",
     "expires": "Expires {day}",
     "neverExpires": "Never expires",
     "revoke": "Turn off",
