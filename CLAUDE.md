@@ -221,8 +221,8 @@ CI runs `pnpm check`'s parts and every command marked CI, each as a job of its o
   `type PlatformRouter` from `@travel-crm/api/platform` alone. `/api/platform/*` is rewritten to `CONSOLE_ORIGIN`
   (`http://localhost:3002` in development; the api's `console` command serves it) before `/api/*`.
 - Platform staff sign in on the one sign-in page and land on `/console`; the step screens bring them back with
-  `?next=`. They must use two-factor (`staffProcedure` refuses `SET_UP_TWO_FACTOR`), and the challenge never trusts the
-  device on the way to the console.
+  `?next=`. They must use two-factor (`staffProcedure` refuses `SET_UP_TWO_FACTOR`), and never keep a trusted device:
+  the api ignores `trustDevice` for them and forgets their trusted devices at every sign-in (ADR 0025).
 - A console screen names its title as `"<screen>"` (the layout adds "· Console · <product>"), shows times in
   `PLATFORM_TIME_ZONE`, and checks `isSuperAdmin(useStaff())` only for convenience: the api refuses support.
 - Journeys: `test/e2e/support/console.ts` gives `superAdmin` and `support` (two-factor on) and
