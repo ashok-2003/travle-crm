@@ -1,6 +1,6 @@
 // When someone leaves (spec 4, R15, R37): on staff.removed their open leads, each with its open tasks, and then their
 // open standalone tasks go to the agency's Owner, as the system's change (audit log and timeline), telling nobody;
-// managers reassign from there. A listener's transaction has 5 seconds, so the work goes 200 at a time, each batch in
+// managers reassign from there. A listener's transaction has 5 seconds, so the work goes 50 at a time, each batch in
 // its own transaction; what a batch moved is no longer the member's, so a repeat or a retry after a crash moves only
 // what is left. Closed leads stay with the member, as do finished tasks.
 import { openLeadStages } from "@travel-crm/contracts/crm";
@@ -10,8 +10,12 @@ import { defineListener, type EventListener, type ListenerContext } from "../job
 import { reassignOpenStandaloneTasks } from "../tasks/index.js";
 import { changeLeadOwner } from "./lead-core.js";
 
-/** Leads, or standalone tasks, moved in one transaction. */
-export const HAND_OVER_BATCH = 200;
+/**
+ * Leads, or standalone tasks, moved in one transaction. Not R37's 200: under a loaded database one batch of 200 ran past
+ * the 5 seconds, and a batch that can't finish fails again on every retry; 50 leads take about a fifth of a second on a
+ * quiet one.
+ */
+const HAND_OVER_BATCH = 50;
 
 export interface DepartingMemberDependencies {
   /** The agency's Owner who takes the work: the earliest-joined active Owner (identity's firstOwner, R15). */

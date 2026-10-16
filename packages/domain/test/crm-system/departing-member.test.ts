@@ -1,5 +1,5 @@
 // When someone leaves (spec 4, R15, R37): on staff.removed, their open leads, with those leads' open tasks, and their
-// open standalone tasks go to the agency's Owner, as the system's change, 200 leads a transaction; closed leads and
+// open standalone tasks go to the agency's Owner, as the system's change, 50 leads a transaction; closed leads and
 // finished tasks stay as they were, and the event coming again changes nothing more.
 import { randomUUID } from "node:crypto";
 import { createDatabase, type Database, type OrgTx } from "@travel-crm/db";
@@ -189,7 +189,7 @@ describe("a departing member's work", () => {
     expect(await inOrg((tx) => tx.leadTimelineEntry.count({ where: { leadId: ids.lead } }))).toBe(1);
   });
 
-  it("moves 450 leads in batches of 200", async () => {
+  it("moves 450 leads in batches of 50", async () => {
     const { leaver, owner, transactions, handOver } = departure();
     await inOrg(async (tx) => {
       const person = await tx.person.create({
@@ -204,8 +204,8 @@ describe("a departing member's work", () => {
 
     expect(await inOrg((tx) => tx.lead.count({ where: { ownerUserId: owner } }))).toBe(450);
     expect(await inOrg((tx) => tx.lead.count({ where: { ownerUserId: leaver } }))).toBe(0);
-    // 200, 200 and 50 leads, then one for the standalone tasks.
-    expect(transactions()).toBe(4);
+    // Nine batches of 50 leads, a tenth that finds none left, then one for the standalone tasks.
+    expect(transactions()).toBe(11);
   });
 
   it("moves nothing, and fails for the worker to retry, when the agency has no Owner", async () => {
