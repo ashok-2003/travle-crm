@@ -67,6 +67,9 @@ describe("SamplePreview", () => {
     ).toBeVisible();
     expect(inputsSentTo("documents.get")).toContainEqual({ documentId: preparing.id });
     expect(screen.getByRole("link", { name: words.allDocuments })).toHaveAttribute("href", routes.documents);
+    // Once a sample exists, the same button makes a new one, rather than reading like the download.
+    expect(screen.getByRole("button", { name: words.issueAgain })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: words.issue })).toBeNull();
 
     await user.click(screen.getByRole("button", { name: words.download }));
     await waitFor(() => {
@@ -114,5 +117,8 @@ describe("SamplePreview", () => {
     renderPreview({ "subscription.get": subscriptionAnswer("read_only") });
     expect(await screen.findByText(messages.errors.reasons.ORGANIZATION_READ_ONLY)).toBeVisible();
     expect(screen.getByRole("button", { name: words.issue })).toBeDisabled();
+    expect(screen.getByRole("button", { name: words.issue })).toHaveAccessibleDescription(
+      messages.errors.reasons.ORGANIZATION_READ_ONLY,
+    );
   });
 });

@@ -146,5 +146,8 @@ describe("BrandingForm", () => {
     });
     expect(await screen.findByText(messages.errors.reasons.ORGANIZATION_READ_ONLY)).toBeVisible();
     expect(screen.getByRole("button", { name: words.save })).toBeDisabled();
+    expect(screen.getByRole("button", { name: words.save })).toHaveAccessibleDescription(
+      messages.errors.reasons.ORGANIZATION_READ_ONLY,
+    );
   });
 });

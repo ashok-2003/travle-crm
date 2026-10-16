@@ -6,13 +6,14 @@
 import { brand } from "@travel-crm/brand";
 import { saveBrandingInput, type BrandingDetails } from "@travel-crm/contracts/profile";
 import { useTranslations } from "next-intl";
+import { useId } from "react";
 import { useForm, useWatch, type FieldErrors, type Resolver } from "react-hook-form";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { FormField } from "@/components/form-field";
+import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { FieldDescription, FieldGroup } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useErrorMessage } from "@/lib/error-message";
 import { useWriteAccess } from "@/subscription/write-access";
 import { useSaveBranding } from "./use-branding";
 
@@ -30,8 +31,8 @@ const valuesOf = (branding: BrandingDetails): BrandingValues => ({
 
 export function BrandingDetailsForm({ saved }: { saved: BrandingDetails }) {
   const t = useTranslations("documents.branding.details");
-  const { apiError } = useErrorMessage();
   const write = useWriteAccess();
+  const hintId = useId();
   const save = useSaveBranding();
   const resolver: Resolver<BrandingValues> = (values) => {
     const checked = saveBrandingInput.safeParse(values);
@@ -64,56 +65,52 @@ export function BrandingDetailsForm({ saved }: { saved: BrandingDetails }) {
   return (
     <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-6">
       <FieldGroup>
-        <Field data-invalid={errors.brandColour !== undefined}>
-          <FieldLabel htmlFor="brand-colour">{t("colour")}</FieldLabel>
-          <div className="flex items-center gap-3">
-            <Input
-              type="color"
-              aria-label={t("colourPicker")}
-              value={swatch}
-              className="w-11 shrink-0 cursor-pointer p-1"
-              onChange={(event) => {
-                form.setValue("brandColour", event.target.value, { shouldDirty: true, shouldValidate: true });
-              }}
+        <FormField label={t("colour")} hint={t("colourHint")} error={errors.brandColour?.message}>
+          {(links) => (
+            <div className="flex items-center gap-3">
+              <Input
+                type="color"
+                aria-label={t("colourPicker")}
+                value={swatch}
+                className="w-11 shrink-0 cursor-pointer p-1"
+                onChange={(event) => {
+                  form.setValue("brandColour", event.target.value, { shouldDirty: true, shouldValidate: true });
+                }}
+              />
+              <Input
+                {...links}
+                className="numbers w-36"
+                maxLength={7}
+                autoComplete="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                {...form.register("brandColour")}
+              />
+            </div>
+          )}
+        </FormField>
+        <FormField label={t("terms")} hint={t("termsHint")} error={errors.documentTerms?.message}>
+          {(links) => (
+            <Textarea
+              {...links}
+              maxLength={2000}
+              rows={4}
+              className="script-leading"
+              {...form.register("documentTerms")}
             />
-            <Input
-              id="brand-colour"
-              className="numbers w-36"
-              maxLength={7}
-              autoComplete="off"
-              autoCapitalize="none"
-              spellCheck={false}
-              aria-invalid={errors.brandColour !== undefined}
-              {...form.register("brandColour")}
-            />
-          </div>
-          <FieldDescription>{t("colourHint")}</FieldDescription>
-          <FieldError errors={[errors.brandColour]} />
-        </Field>
-        <Field data-invalid={errors.documentTerms !== undefined}>
-          <FieldLabel htmlFor="document-terms">{t("terms")}</FieldLabel>
-          <Textarea
-            id="document-terms"
-            maxLength={2000}
-            rows={4}
-            className="script-leading"
-            aria-invalid={errors.documentTerms !== undefined}
-            {...form.register("documentTerms")}
-          />
-          <FieldDescription>{t("termsHint")}</FieldDescription>
-          <FieldError errors={[errors.documentTerms]} />
-        </Field>
+          )}
+        </FormField>
       </FieldGroup>
-      {save.isError && (
-        <Alert variant="destructive">
-          <AlertDescription>{apiError(save.error)}</AlertDescription>
-        </Alert>
-      )}
+      <RefusalAlert error={save.error} />
       <div className="flex flex-col items-end gap-2">
-        <Button type="submit" disabled={!write.allowed || save.isPending}>
+        <Button
+          type="submit"
+          disabled={!write.allowed || save.isPending}
+          aria-describedby={write.hint === null ? undefined : hintId}
+        >
           {save.isPending ? t("saving") : t("save")}
         </Button>
-        {write.hint !== null && <p className="text-label text-muted-foreground">{write.hint}</p>}
+        {write.hint !== null && <FieldDescription id={hintId}>{write.hint}</FieldDescription>}
       </div>
     </form>
   );

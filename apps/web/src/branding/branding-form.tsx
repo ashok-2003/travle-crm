@@ -3,12 +3,10 @@
 // The colour and terms section (organization.branding): the saved branding in its form, or, before the business
 // details exist, the way to them first (the api refuses branding until then).
 import { useQuery } from "@tanstack/react-query";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Delayed } from "@/components/delayed";
 import { ErrorState } from "@/components/error-state";
-import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingRows } from "@/components/loading-rows";
+import { TextLink } from "@/components/text-link";
 import { useTRPC } from "@/data/trpc";
 import { routes } from "@/lib/routes";
 import { BrandingDetailsForm } from "./branding-details-form";
@@ -26,9 +24,7 @@ export function BrandingForm() {
       return (
         <div className="flex flex-col items-start gap-2">
           <p>{t("profileFirst")}</p>
-          <Link href={routes.profile} className="flex min-h-11 items-center text-primary underline underline-offset-4">
-            {t("profileLink")}
-          </Link>
+          <TextLink href={routes.profile}>{t("profileLink")}</TextLink>
         </div>
       );
     }
@@ -41,14 +37,7 @@ export function BrandingForm() {
         />
       );
     }
-    return (
-      <Delayed>
-        <div role="status" aria-busy="true" aria-label={tCommon("loading")} className="flex flex-col gap-4">
-          <Skeleton className="h-11 w-48" />
-          <Skeleton className="h-28 w-full" />
-        </div>
-      </Delayed>
-    );
+    return <LoadingRows rows={2} shape="twoLines" />;
   };
 
   return (
@@ -56,9 +45,7 @@ export function BrandingForm() {
       <h2 id="branding-details-heading" className="text-section font-semibold">
         {t("details.heading")}
       </h2>
-      <Card>
-        <CardContent>{body()}</CardContent>
-      </Card>
+      {body()}
     </section>
   );
 }
