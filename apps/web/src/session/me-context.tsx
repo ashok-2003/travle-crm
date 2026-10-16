@@ -35,6 +35,20 @@ export function useHolds(permission: string): boolean {
   return holds(useMe(), permission);
 }
 
+/**
+ * The scope of a view permission the member holds: "all" records (an Owner's), "own", or null without it. For screens
+ * that differ by it, such as Mine/Everyone on the lead list; the api applies the scope itself (spec 6.5).
+ */
+export function viewScope(
+  me: SignedInMember,
+  permission: "leads:view" | "quotes:view" | "bookings:view",
+): "own" | "all" | null {
+  if (me.member.role.isOwner) return "all";
+  const grant = me.member.permissions.find((held) => held.permission === permission);
+  if (grant === undefined) return null;
+  return grant.scope === "all" ? "all" : "own";
+}
+
 /** Platform staff (spec 6.1): a platform role and no organization. The console is theirs, not the app. */
 export function isPlatformStaff(me: Pick<MeOutput, "isPlatformAdmin" | "organization">): boolean {
   return me.isPlatformAdmin && me.organization === null;

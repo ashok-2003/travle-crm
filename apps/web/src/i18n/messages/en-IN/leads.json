@@ -1,0 +1,91 @@
+{
+  "stages": {
+    "new": "New",
+    "contacted": "Contacted",
+    "quote_sent": "Quote sent",
+    "booking_requested": "Booking requested",
+    "won": "Won",
+    "lost": "Lost",
+    "not_a_lead": "Not a lead"
+  },
+  "sources": {
+    "phone_call": "Phone call",
+    "walk_in": "Walk-in",
+    "referral": "Referral",
+    "instagram": "Instagram",
+    "facebook": "Facebook",
+    "website": "Website",
+    "other": "Other",
+    "google_sheet": "Google Sheet",
+    "bulk_upload": "Bulk upload",
+    "web_form": "Website form",
+    "integration": "Another tool",
+    "meta_lead_ad": "Meta lead ad",
+    "whatsapp": "WhatsApp",
+    "package_page": "Package page"
+  },
+  "tripTypes": {
+    "family": "Family",
+    "honeymoon": "Honeymoon",
+    "friends": "Friends",
+    "solo": "Solo",
+    "corporate": "Corporate",
+    "pilgrimage": "Pilgrimage",
+    "trek": "Trek"
+  },
+  "hotelCategories": {
+    "3_star": "3 star",
+    "4_star": "4 star",
+    "5_star": "5 star",
+    "any": "Any"
+  },
+  "food": {
+    "veg": "Vegetarian",
+    "jain": "Jain",
+    "non_veg": "Non-vegetarian"
+  },
+  "budgetBasis": {
+    "per_person": "per person",
+    "for_everyone": "for everyone"
+  },
+  "trip": {
+    "datesOpen": "dates open",
+    "range": "{from} – {to}",
+    "adults": "{count, plural, one {# adult} other {# adults}}",
+    "children": "{count, plural, one {# child} other {# children}}",
+    "travellers": "{adults}, {children}",
+    "none": "No trip details yet"
+  },
+  "next": {
+    "waiting": "{elapsed} ago · no reply yet",
+    "elapsed": {
+      "minute": "{count} min",
+      "hour": "{count} hr",
+      "day": "{count, plural, one {# day} other {# days}}"
+    },
+    "followUpOverdue": "Follow-up overdue · {when}",
+    "taskOverdue": "Task overdue · {when}",
+    "followUpToday": "Follow up today, {time}",
+    "taskToday": "Task due today, {time}",
+    "followUpTomorrow": "Follow up tomorrow, {time}",
+    "taskTomorrow": "Task due tomorrow, {time}",
+    "followUpLater": "Follow up {day}",
+    "taskLater": "Task due {day}",
+    "yesterday": "yesterday, {time}",
+    "today": "today, {time}",
+    "none": "No follow-up yet"
+  },
+  "contact": {
+    "call": "Call",
+    "callPerson": "Call {name}",
+    "callFrom": "Call {name} from your phone:",
+    "copyNumber": "Copy {name}'s number",
+    "whatsApp": "WhatsApp",
+    "whatsAppPerson": "WhatsApp {name}"
+  },
+  "returning": "Returning",
+  "formerMember": "A former member",
+  "list": {},
+  "form": {},
+  "lead": {}
+}

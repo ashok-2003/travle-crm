@@ -13,9 +13,12 @@ export function usePrefetchDestination(): (key: NavigationItem["key"]) => void {
   const queryClient = useQueryClient();
   return useCallback(
     (key) => {
-      // A failed prefetch is ignored: the screen asks again when it opens, and shows the failure then.
+      // A failed prefetch is ignored: the screen asks again when it opens, and shows the failure then. Leads loads
+      // its owner names, which its filters and form share: the list's pages are keyed by the screen's own filters.
       const ignore = () => undefined;
-      if (key === "staff") queryClient.query(trpc.staff.list.queryOptions()).catch(ignore);
+      if (key === "today") queryClient.query(trpc.today.summary.queryOptions()).catch(ignore);
+      else if (key === "leads") queryClient.query(trpc.leads.owners.queryOptions()).catch(ignore);
+      else if (key === "staff") queryClient.query(trpc.staff.list.queryOptions()).catch(ignore);
       else if (key === "roles") queryClient.query(trpc.roles.list.queryOptions()).catch(ignore);
       else if (key === "settings") queryClient.query(trpc.settings.get.queryOptions()).catch(ignore);
     },

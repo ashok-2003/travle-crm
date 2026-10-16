@@ -1,3 +1,7 @@
 {
-  "formProblem": "This can't be sent as it is. Reload the page and try again."
+  "formProblem": "This can't be sent as it is. Reload the page and try again.",
+  "due": {
+    "day": "Day",
+    "time": "Time"
+  }
 }

@@ -108,6 +108,26 @@ export const SHOTS = [
   { name: "console-empty", screen: "An empty list (Jobs, a queue with no failures)", as: superAdmin },
   { name: "console-error", screen: "An error with Try again (Plans, its calls refused)", as: superAdmin },
   { name: "console-skeleton", screen: "A skeleton (the platform log, its call held)", as: superAdmin },
+  // Release 1, leads by hand: the lead screens (06-leads.audit.ts) and the work screens (07-work.audit.ts).
+  { name: "leads", screen: "Leads, Mine · open", as: owner },
+  { name: "leads-everyone", screen: "Leads, Everyone, filtered by stage", as: owner },
+  { name: "leads-sales", screen: "Leads, a salesperson's own", as: sales },
+  { name: "leads-filters", screen: "Leads, the Filters dialog", as: owner },
+  { name: "leads-empty", screen: "Leads, none yet", as: owner },
+  { name: "lead-new", screen: "New lead, the form filled in", as: owner },
+  { name: "lead-new-known-contact", screen: "New lead, a known contact with an open lead", as: owner },
+  { name: "lead", screen: "A lead", as: owner },
+  { name: "lead-menu", screen: "A lead, the ⋯ menu open", as: owner },
+  { name: "lead-lost", screen: "A lost lead, with Reopen", as: owner },
+  { name: "lead-follow-up", screen: "A lead, the Add follow-up dialog", as: owner },
+  { name: "lead-edit-trip", screen: "A lead, the trip editor", as: owner },
+  { name: "today", screen: "Today, with overdue, new leads and due today", as: owner },
+  { name: "today-empty", screen: "Today, nothing to do", as: sales },
+  { name: "today-snooze", screen: "Today, the Snooze dialog", as: owner },
+  { name: "today-add-task", screen: "Today, the Add a task dialog", as: owner },
+  { name: "home-today", screen: "Home with the day's nudge", as: owner },
+  { name: "settings-destinations", screen: "Settings, destinations", as: owner },
+  { name: "settings-blocked-contacts", screen: "Settings, blocked contacts", as: owner },
 ] as const satisfies readonly Shot[];
 
 export type ShotName = (typeof SHOTS)[number]["name"];

@@ -12,6 +12,11 @@ export const routes = {
   account: "/account",
   staff: "/staff",
   roles: "/roles",
+  /** The signed-in person's day (release 1): overdue, new leads waiting, due today. */
+  today: "/today",
+  /** The lead list (release 1); a lead's own page is leadRoute(leadId). */
+  leads: "/leads",
+  newLead: "/leads/new",
   settings: "/settings",
   /** The setup checklist: what an organization does first (spec 11). */
   setup: "/setup",
@@ -21,6 +26,8 @@ export const routes = {
   files: "/settings/files",
   documents: "/settings/documents",
   audit: "/settings/audit",
+  destinations: "/settings/destinations",
+  blockedContacts: "/settings/blocked-contacts",
   /** Each person's own choice of what they are told, and how (spec 9.4). */
   notificationPreferences: "/account/notifications",
   /** The platform console's dashboard; its other screens are in src/console/routes.ts, which only it imports. */
@@ -28,6 +35,11 @@ export const routes = {
   /** The service worker's fallback for a page never opened before (src/service-worker/strategy.ts). */
   offline: "/offline",
 } as const;
+
+/** A lead's page. */
+export function leadRoute(leadId: string): string {
+  return `${routes.leads}/${encodeURIComponent(leadId)}`;
+}
 
 /**
  * Screens that need no one signed in. Nothing sends anyone away from these, neither a refused call nor another tab

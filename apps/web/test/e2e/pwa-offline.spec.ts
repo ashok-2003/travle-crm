@@ -81,7 +81,7 @@ test("screens open offline by the app's links, opened before or not, with their 
   page,
   context,
   agency,
-}) => {
+}, testInfo) => {
   // Many page loads, each quick.
   test.slow();
   await signInByEmail(page, agency.owner);
@@ -92,10 +92,19 @@ test("screens open offline by the app's links, opened before or not, with their 
   const main = page.getByRole("main");
   const heading = (name: string) => page.getByRole("heading", { level: 1, name });
   const banner = page.getByText("You're offline. You see what was last loaded");
+  /** A destination's link: in the sidebar, or the phone's bar, whose first four are Home, Today, Leads and Staff. */
+  const open = async (name: string) => {
+    if (testInfo.project.name === "phone" && name !== "Staff") {
+      await navigation.getByRole("button", { name: "More" }).click();
+      await page.getByRole("dialog", { name: agency.name }).getByRole("link", { name }).click();
+    } else {
+      await navigation.getByRole("link", { name }).click();
+    }
+  };
 
-  await navigation.getByRole("link", { name: "Staff" }).click();
+  await open("Staff");
   await expect(main.getByText(agency.owner.name, { exact: true })).toBeVisible();
-  await navigation.getByRole("link", { name: "Roles" }).click();
+  await open("Roles");
   await expect(main.getByRole("link", { name: /Sales/ })).toBeVisible();
   // The query cache saves itself to IndexedDB within a second of changing.
   await expect
@@ -104,11 +113,11 @@ test("screens open offline by the app's links, opened before or not, with their 
 
   await context.setOffline(true);
   // Never opened: its shell was kept when the worker installed, and its data comes with me.get.
-  await navigation.getByRole("link", { name: "Settings" }).click();
+  await open("Settings");
   await expect(heading("Settings")).toBeVisible();
   await expect(main.getByText(agency.code, { exact: true })).toBeVisible();
   await expect(banner).toBeVisible();
-  await navigation.getByRole("link", { name: "Staff" }).click();
+  await open("Staff");
   await expect(heading("Staff")).toBeVisible();
   await expect(main.getByText(agency.owner.name, { exact: true })).toBeVisible();
   await expect(banner).toBeVisible();
@@ -119,7 +128,7 @@ test("screens open offline by the app's links, opened before or not, with their 
   // This page loaded offline, so the router could prefetch nothing: the link's fetch fails, Next loads the page
   // itself (a new document, hence the load event), and the worker answers it from the kept shell.
   const loaded = page.waitForEvent("load");
-  await navigation.getByRole("link", { name: "Roles" }).click();
+  await open("Roles");
   await loaded;
   await expect(main.getByRole("link", { name: /Sales/ })).toBeVisible();
   await expect(banner).toBeVisible();

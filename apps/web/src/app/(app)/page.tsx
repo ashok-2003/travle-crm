@@ -14,13 +14,15 @@ import { holds, useMe } from "@/session/me-context";
 import type { NavigationItem } from "@/shell/navigation";
 import { useNavigationItems } from "@/shell/use-navigation-items";
 
-/** The destinations that set the organization up: not home, nor the audit log, which looks back. */
-type SetUpItem = NavigationItem & { key: Exclude<NavigationItem["key"], "home" | "audit"> };
+/** The destinations that set the organization up: not home, Today or Leads (daily work), nor the audit log. */
+type SetUpItem = NavigationItem & { key: Exclude<NavigationItem["key"], "home" | "today" | "leads" | "audit"> };
+
+const notSetUp: readonly NavigationItem["key"][] = ["home", "today", "leads", "audit"];
 
 export default function HomePage() {
   const t = useTranslations("shell.home");
   const me = useMe();
-  const setUp = useNavigationItems().filter((item): item is SetUpItem => item.key !== "home" && item.key !== "audit");
+  const setUp = useNavigationItems().filter((item): item is SetUpItem => !notSetUp.includes(item.key));
   const screens =
     setUp.length > 0 ? (
       <section className="flex flex-col gap-3">

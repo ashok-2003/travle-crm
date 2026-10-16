@@ -11,6 +11,7 @@ import consoleMessages from "./messages/en-IN/console.json";
 import documents from "./messages/en-IN/documents.json";
 import errors from "./messages/en-IN/errors.json";
 import forms from "./messages/en-IN/forms.json";
+import leads from "./messages/en-IN/leads.json";
 import notifications from "./messages/en-IN/notifications.json";
 import pwa from "./messages/en-IN/pwa.json";
 import roles from "./messages/en-IN/roles.json";
@@ -18,6 +19,8 @@ import settings from "./messages/en-IN/settings.json";
 import shell from "./messages/en-IN/shell.json";
 import staff from "./messages/en-IN/staff.json";
 import subscription from "./messages/en-IN/subscription.json";
+import tasks from "./messages/en-IN/tasks.json";
+import today from "./messages/en-IN/today.json";
 
 export const locale = "en-IN";
 
@@ -34,6 +37,7 @@ export const messages = {
   documents,
   errors,
   forms,
+  leads,
   notifications,
   pwa,
   roles,
@@ -41,6 +45,8 @@ export const messages = {
   shell,
   staff,
   subscription,
+  tasks,
+  today,
 };
 
 export type Messages = typeof messages;

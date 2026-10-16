@@ -26,7 +26,7 @@ test("an Owner changes a role's permissions, and the audit log shows who, when, 
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Sales was saved")).toBeVisible();
 
-  // An Owner's bottom bar is full (Home, Staff, Roles, Settings): on a phone the audit log is under More.
+  // An Owner's bottom bar is full (Home, Today, Leads, Staff): on a phone the audit log is under More.
   if (isPhone(testInfo)) {
     await navigation(page).getByRole("button", { name: "More" }).click();
     await page.getByRole("dialog", { name: agency.name }).getByRole("link", { name: "Audit log" }).click();

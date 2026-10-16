@@ -57,6 +57,15 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
   `mobileOffset` is `var(--toast-bottom-gap)`, which `globals.css` sets to 4rem (the 56px bottom bar and 8px more) only
   while the page has the phone navigation, so toasts clear the bar there and sit at the bottom elsewhere.
 - `field.tsx`, `input-otp.tsx`, `progress.tsx`: small fixes the repo's strict lint rules ask for.
+- `toggle.tsx` and `toggle-group.tsx` (release 1's quick filters, R42): pills (`rounded-full`), the filter chips of
+  DESIGN.md section 6; `default` 44px and `lg` 48px, the `sm` size gone; the selected chip in the action tint with its
+  dark blue (`accent`), the `outline` variant a hairline border; no focus ring (the global outline instead), and the
+  items' numeric `z-10` gone; `??` for the group's variant and size, as the lint rules ask. The CLI also wanted to overwrite `button`, `input`, `textarea`, `dialog` and
+  `input-group` with the registry's own: ours were put back as they were.
+- `command.tsx` (`cmdk`, pinned; the destination and lead pickers, R45, as a Command in a Popover): its search is the
+  app's 44px input group with 16px text, the input marked as the group's control so the global outline goes round the
+  group; items at least 44px; its icons decoration. `CommandDialog` isn't used and isn't yet DESIGN.md's: its title and
+  description ("Command Palette") are not messages. Make them messages before using it.
 
 shadcn's own `tailwind.css` is not a dependency: the state variants the components use (`data-open:`,
 `data-checked:`...) are copied into `globals.css`. Add to that list when a new component needs another.

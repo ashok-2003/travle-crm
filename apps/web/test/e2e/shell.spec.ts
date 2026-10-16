@@ -1,7 +1,7 @@
-// The app shell: a signed-in member lands in their organization with the navigation their role allows (Sales without
-// the setup card), every page carries the security headers, and signing out leaves no organization data on the device,
-// offline too. Each journey's last screen also gets the automatic accessibility check
-// (support/accessible-after-each.ts).
+// The app shell: a signed-in member lands in their organization with the navigation their role allows (Home, Today and
+// Leads for Sales, without the setup card; an Owner's phone bar is Home, Today, Leads, Staff and More), every page
+// carries the security headers, and signing out leaves no organization data on the device, offline too. Each journey's
+// last screen also gets the automatic accessibility check (support/accessible-after-each.ts).
 import type { Page, TestInfo } from "@playwright/test";
 import { expect, signInByCode, signInByEmail, test } from "./support/fixtures";
 
@@ -13,8 +13,8 @@ test("an Owner sees their organization and every destination", async ({ page, ag
   await expect(page.getByRole("heading", { level: 1, name: `Welcome, ${agency.owner.name}` })).toBeVisible();
   const navigation = page.getByRole("navigation", { name: "Main" }).filter({ visible: true });
   for (const destination of isPhone(testInfo)
-    ? ["Home", "Staff", "Roles", "Settings", "More"]
-    : ["Home", "Staff", "Roles", "Settings"]) {
+    ? ["Home", "Today", "Leads", "Staff", "More"]
+    : ["Home", "Today", "Leads", "Staff", "Roles", "Settings", "Audit log"]) {
     await expect(
       navigation.getByRole(isPhone(testInfo) && destination === "More" ? "button" : "link", { name: destination }),
     ).toBeVisible();
@@ -31,7 +31,9 @@ test("a salesperson sees only what their role allows", async ({ page, addStaff, 
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1, name: "Welcome, Ravi Kumar" })).toBeVisible();
   const navigation = page.getByRole("navigation", { name: "Main" }).filter({ visible: true });
-  await expect(navigation.getByRole("link", { name: "Home" })).toBeVisible();
+  for (const destination of ["Home", "Today", "Leads"]) {
+    await expect(navigation.getByRole("link", { name: destination })).toBeVisible();
+  }
   await expect(navigation.getByRole("link", { name: "Staff" })).toHaveCount(0);
   await expect(page.getByText("Your work will show here.")).toBeVisible();
   // The setup card is for those who may change the settings: Sales never even asks for it.
