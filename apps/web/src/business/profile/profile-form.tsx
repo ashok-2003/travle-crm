@@ -3,7 +3,8 @@
 // The business profile form (spec 7.1): the business, its contact, its bank account and its invoice prefix, checked by
 // the api's own schema before anything is sent. Problems show under their boxes and a refusal above the button. A newer
 // profile (saved elsewhere, then refreshed) updates the boxes not being changed and keeps what is being typed. While
-// the organization can't make changes (ADR 0021), the boxes are locked and the button says why.
+// the organization can't make changes (ADR 0021), the boxes are locked and the button says why. Each section's id is
+// the setup checklist's step it completes, so a step's link (/settings/profile#contact-phone) is taken to it.
 import type { BusinessProfileDetails } from "@travel-crm/contracts/profile";
 import { useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
@@ -12,6 +13,7 @@ import { GstStateField } from "@/components/forms/gst-state-field";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
+import { useHashSection } from "@/components/use-hash-section";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
 import { BankAccountNumberField } from "./bank-account-number-field";
@@ -21,7 +23,7 @@ import { useSaveProfile } from "./use-profile";
 
 function FormSection({ id, title, hint, children }: { id: string; title: string; hint?: string; children: ReactNode }) {
   return (
-    <section aria-labelledby={`${id}-heading`} className="flex flex-col gap-4">
+    <section id={id} tabIndex={-1} aria-labelledby={`${id}-heading`} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <h2 id={`${id}-heading`} className="text-section font-semibold">
           {title}
@@ -56,6 +58,7 @@ export function ProfileForm({ profile }: { profile: BusinessProfileDetails | nul
     resetOptions: { keepDirtyValues: true },
   });
   const [changingAccount, setChangingAccount] = useState(false);
+  useHashSection();
   const submit = form.handleSubmit((values) => {
     const result = toProfileInput(values);
     if (!result.ok) return;
@@ -71,7 +74,7 @@ export function ProfileForm({ profile }: { profile: BusinessProfileDetails | nul
   return (
     <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-8">
       <fieldset disabled={!write.allowed} className="flex flex-col gap-8">
-        <FormSection id="business" title={t("business")}>
+        <FormSection id="business-details" title={t("business")}>
           <ProfileTextField form={form} name="legalName" label={t("legalName")} hint={t("legalNameHint")} />
           <ProfileTextField form={form} name="gstin" label={t("gstin")} hint={t("gstinHint")} mono />
           <GstStateField
@@ -84,7 +87,7 @@ export function ProfileForm({ profile }: { profile: BusinessProfileDetails | nul
           />
           <ProfileTextField form={form} name="address" label={t("address")} autoComplete="street-address" multiline />
         </FormSection>
-        <FormSection id="contact" title={t("contact")}>
+        <FormSection id="contact-phone" title={t("contact")}>
           <ProfileTextField form={form} name="contactName" label={t("contactName")} autoComplete="name" />
           <ProfileTextField
             form={form}
@@ -96,7 +99,7 @@ export function ProfileForm({ profile }: { profile: BusinessProfileDetails | nul
             mono
           />
         </FormSection>
-        <FormSection id="bank" title={t("bank")} hint={t("bankHint")}>
+        <FormSection id="bank-details" title={t("bank")} hint={t("bankHint")}>
           <ProfileTextField form={form} name="bankAccountName" label={t("bankAccountName")} />
           <BankAccountNumberField
             form={form}
@@ -107,7 +110,7 @@ export function ProfileForm({ profile }: { profile: BusinessProfileDetails | nul
           <ProfileTextField form={form} name="bankIfsc" label={t("bankIfsc")} mono />
           <ProfileTextField form={form} name="bankName" label={t("bankName")} />
         </FormSection>
-        <FormSection id="invoices" title={t("invoices")}>
+        <FormSection id="invoice-prefix" title={t("invoices")}>
           <ProfileTextField
             form={form}
             name="invoicePrefix"
