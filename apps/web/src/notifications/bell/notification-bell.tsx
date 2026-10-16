@@ -67,7 +67,7 @@ export function NotificationBell({ opensAs }: { opensAs: "popover" | "sheet" }) 
         className="max-h-[90dvh] gap-0 overflow-y-auto rounded-t-xl pb-[env(safe-area-inset-bottom)]"
       >
         <SheetHeader>
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center justify-between gap-2 pr-10">
             <SheetTitle>{t("title")}</SheetTitle>
             <MarkAllRead />
           </div>
