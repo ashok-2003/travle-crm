@@ -8,7 +8,6 @@ import { calendarDateIn } from "@travel-crm/domain/kernel";
 import { brand } from "@travel-crm/brand";
 import { useTranslations } from "next-intl";
 import { statusToneClasses, type StatusTone } from "@/components/status-badge";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useMe } from "@/session/me-context";
 import { formatCalendarDate } from "./calendar-date";
@@ -48,11 +47,15 @@ export function SubscriptionBanner() {
         <span aria-hidden="true" className={cn("size-1.5 shrink-0 rounded-full", tone.dot)} />
         {words()}
       </p>
-      {/* The next step is the Owner's, who pays: the way to support, whom the brand names. */}
+      {/* The next step is the Owner's, who pays: the way to support, whom the brand names. A link in the banner's
+          own words' colour, underlined, as a link in a sentence is: the link blue fails contrast on the status tints. */}
       {me.member.role.isOwner && (
-        <Button variant="link" className="px-0" asChild>
-          <a href={`mailto:${brand.supportEmail}`}>{t("contactSupport")}</a>
-        </Button>
+        <a
+          href={`mailto:${brand.supportEmail}`}
+          className="inline-flex min-h-11 items-center font-medium underline underline-offset-4"
+        >
+          {t("contactSupport")}
+        </a>
       )}
     </div>
   );
