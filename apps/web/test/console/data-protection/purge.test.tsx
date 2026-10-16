@@ -139,6 +139,7 @@ describe("deleting the organization for good", () => {
     api.answer("platform.organizations.get", { status: 404, reason: "ORGANIZATION_NOT_FOUND" });
     await userEvent.click(confirm.getByRole("button", { name: words.purge.confirm }));
     expect(await screen.findByText(words.deleted)).toBeVisible();
+    expect(screen.getByText(/^Deleted for good: /)).toBeVisible();
     expect(inputsTo("organizations.get").length).toBeGreaterThan(1);
     expect(screen.queryByRole("button", { name: words.subject.export })).toBeNull();
   });

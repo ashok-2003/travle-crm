@@ -47,7 +47,8 @@ function Sections({ organizationId }: { organizationId: string }) {
         <p role="status">{t("deleted")}</p>
       )}
       <ExportsSection organizationId={organizationId} canExport={!deleted} />
-      {organization && <PurgeSection details={organization} exports={exports.data} />}
+      {/* Kept once deleted, for its result to be read; its button is spent by then. */}
+      {details.data && <PurgeSection details={details.data} exports={exports.data} />}
       {organization && <SubjectSection organization={organization.organization} />}
     </>
   );
