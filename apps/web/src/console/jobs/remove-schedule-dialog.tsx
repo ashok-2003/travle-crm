@@ -31,7 +31,12 @@ export function RemoveScheduleDialog({
   const { apiError } = useErrorMessage();
   const remove = useRemoveSchedule();
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!remove.isPending) onOpenChange(next);
+      }}
+    >
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{t("removeTitle", { queue })}</AlertDialogTitle>
@@ -43,10 +48,9 @@ export function RemoveScheduleDialog({
           </Alert>
         )}
         <AlertDialogFooter>
-          <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+          <AlertDialogCancel disabled={remove.isPending}>{tCommon("cancel")}</AlertDialogCancel>
           <AlertDialogAction
-            // The final step of a destructive action is the one place red fills a button (DESIGN.md section 6).
-            className="bg-status-bad-ink text-on-action hover:bg-status-bad-ink/90"
+            variant="destructive"
             disabled={remove.isPending}
             onClick={(event) => {
               // Stay open until the api answers, so a refusal is shown here and the button can't be pressed twice.

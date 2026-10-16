@@ -16,9 +16,13 @@ export function AddStaffDialog() {
   const t = useTranslations("consolePlatform.staff");
   const [open, setOpen] = useState(false);
   const [added, setAdded] = useState<{ input: AddPlatformStaffInput; answer: AddedPlatformStaff } | null>(null);
-  const add = useAddPlatformStaff();
+  const add = useAddPlatformStaff((input, answer) => {
+    setAdded({ input, answer });
+  });
 
   const changeOpen = (next: boolean) => {
+    // Closing would hide a request the api is already carrying out, and the password it answers with.
+    if (add.isPending) return;
     setOpen(next);
     if (!next) {
       // The temporary password is in the call's answer and in this state: let go of both, so it exists only while
@@ -61,14 +65,7 @@ export function AddStaffDialog() {
             </Button>
           </div>
         ) : (
-          open && (
-            <AddStaffForm
-              add={add}
-              onAdded={(input, answer) => {
-                setAdded({ input, answer });
-              }}
-            />
-          )
+          open && <AddStaffForm add={add} />
         )}
       </ResponsiveDialog>
     </>

@@ -5,6 +5,7 @@
 // after its dialog lets go of it, so the password lives only while the dialog shows it. Every change refreshes the
 // list; a level change and a removal say so in a toast from the hook itself.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { AddedPlatformStaff, AddPlatformStaffInput } from "@travel-crm/contracts/platform";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { useConsoleTRPC } from "../data/console-trpc";
@@ -22,10 +23,19 @@ function useRefreshStaff() {
   return () => queryClient.invalidateQueries({ queryKey: trpc.platformStaff.list.queryKey() });
 }
 
-export function useAddPlatformStaff() {
+/** `onAdded` is the mutation's own, so it runs whether or not the form that asked is still on screen. */
+export function useAddPlatformStaff(onAdded: (input: AddPlatformStaffInput, answer: AddedPlatformStaff) => void) {
   const trpc = useConsoleTRPC();
   const refresh = useRefreshStaff();
-  return useMutation(trpc.platformStaff.add.mutationOptions({ ...TEMPORARY_PASSWORD_MUTATION, onSettled: refresh }));
+  return useMutation(
+    trpc.platformStaff.add.mutationOptions({
+      ...TEMPORARY_PASSWORD_MUTATION,
+      onSuccess: (answer, input) => {
+        onAdded(input, answer);
+      },
+      onSettled: refresh,
+    }),
+  );
 }
 
 export function useResetPlatformStaffPassword() {
