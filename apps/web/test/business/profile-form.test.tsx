@@ -1,12 +1,14 @@
 // The business profile's careful parts (Ruling B): a saved bank account number shows only by its last four digits and
 // goes back to the api unchanged, Change gives an empty box and Keep the saved number again; the profile, bank details
-// and all, never goes into the device's saved copy; a newer profile from elsewhere doesn't wipe what is being typed; and
-// +91 shows only before a number without its own country code.
+// and all, never goes into the device's saved copy, however its query is made; a newer profile from elsewhere doesn't
+// wipe what is being typed; and +91 shows only before a number without its own country code.
 import { dehydrate, type QueryClient } from "@tanstack/react-query";
 import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ProfileScreen } from "@/business/profile/profile-screen";
+import { profileValuesOf, toProfileInput } from "@/business/profile/profile-values";
+import { useSaveProfile } from "@/business/profile/use-profile";
 import { dehydrateOptions } from "@/data/persistence";
 import { messages } from "@/i18n/messages";
 import { stubApi } from "../support/api-stub";
@@ -44,6 +46,22 @@ const profileQueryOf = (queryClient: QueryClient) => {
   if (!query) throw new Error("the profile was never asked for");
   return query.queryKey;
 };
+
+/** A save with no profile screen asking for the profile: as when the person left it before the api answered. */
+function SaveWithoutTheScreen() {
+  const save = useSaveProfile();
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        const result = toProfileInput(profileValuesOf(banked));
+        if (result.ok) save.mutate(result.input);
+      }}
+    >
+      Save
+    </button>
+  );
+}
 
 describe("the business profile form", () => {
   afterEach(() => {
@@ -96,6 +114,17 @@ describe("the business profile form", () => {
     await userEvent.click(screen.getByRole("button", { name: messages.common.save }));
     await waitFor(() => {
       expect(inputsSentTo("organization.profile.update")).toHaveLength(1);
+    });
+    expect(savedCopyOf(queryClient).some((key) => key.includes("profile"))).toBe(false);
+  });
+
+  it("keeps the profile a save puts in the cache off the device, even with no screen asking for it", async () => {
+    stubApi({ "organization.profile.update": { data: banked } });
+    const queryClient = newQueryClient();
+    renderWithApi(<SaveWithoutTheScreen />, queryClient, owner);
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => {
+      expect(queryClient.getQueryData(profileQueryOf(queryClient))).toEqual(banked);
     });
     expect(savedCopyOf(queryClient).some((key) => key.includes("profile"))).toBe(false);
   });
