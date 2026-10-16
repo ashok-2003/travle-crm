@@ -35,7 +35,11 @@ export function PlansScreen() {
       }
       return (
         <>
-          {current.length > 0 && <Plans plans={current} editable={editable} />}
+          {current.length > 0 ? (
+            <Plans plans={current} editable={editable} />
+          ) : (
+            <EmptyState icon={LayersIcon} message={t("nothingOnSale")} />
+          )}
           {archived.length > 0 && (
             <section aria-labelledby="archived-plans" className="flex flex-col gap-3">
               <h2 id="archived-plans" className="text-section font-semibold">
