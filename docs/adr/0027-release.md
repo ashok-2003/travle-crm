@@ -30,8 +30,9 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 2.7 (images tha
   `travel-crm-<the checksum of the checkout's full path>`, with `-product` for the product; the images are tagged
   after that name too. A second clone or worktree, even in a folder of the same name, never recreates the first's
   containers or its volumes, and a checkout with containers from before keeps them with
-  `COMPOSE_PROJECT_NAME=travel-crm`. Neither compose file names its project, and both publish their ports on
-  127.0.0.1 alone, since their passwords are public.
+  `COMPOSE_PROJECT_NAME=travel-crm`. Neither compose file names its project, and plain `docker compose` refuses both,
+  as they need `IMAGE_PREFIX`, which only the helper sets. Both publish their ports on 127.0.0.1 alone, since their
+  passwords are public.
 - **Smoke runs prove both.** `pnpm images:smoke` runs every command of the api image in production mode, read-only,
   against a throwaway Postgres, MinIO and Mailpit: health, a PDF rendered with the brand's fonts, the web app's
   security headers and no `/api` rewrite, every process stopping by itself on SIGTERM, and no `.env` file in either
