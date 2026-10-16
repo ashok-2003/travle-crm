@@ -1,6 +1,7 @@
 # Local services for development: Postgres, MinIO (object storage) and Mailpit (catches email). Tests don't use
-# these; they start their own throwaway containers.
-name: travel-crm
+# these; they start their own throwaway containers. No fixed project name: Compose names the project after the
+# checkout's folder (or COMPOSE_PROJECT_NAME), so a second clone gets containers and volumes of its own instead of
+# taking over the first's.
 services:
   postgres:
     image: postgres:18-alpine

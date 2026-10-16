@@ -32,7 +32,7 @@ Open http://localhost:3000, choose "Organization code", and sign in with code `D
 (Owner), `ravi` (Sales) or `meena` (Operations), and the password in `DEMO_PASSWORD`. Emails the app sends (password
 resets, invites) land in Mailpit at http://localhost:58025.
 
-To make the first platform super admin (for the console's api; its screens come in plan 5B):
+To make the first platform super admin, who signs in at http://localhost:3000/sign-in and lands on the console:
 
     pnpm --filter @travel-crm/api-server first-super-admin -- --email you@example.com --name "Your Name"
 
@@ -54,6 +54,11 @@ services with `pnpm db:down`.
 starts Postgres, MinIO and Mailpit (Docker), applies the migrations, then runs the api (http://localhost:3001), the
 worker, the console (http://localhost:3002) and the web app (http://localhost:3000) together, their output side by
 side. Ctrl+C stops the four; `pnpm db:down` stops the services.
+
+Compose names the services' project after the checkout's folder (`travel-crm-postgres-1` in a `travel-crm` folder), or
+after `COMPOSE_PROJECT_NAME` when it is set, so `pnpm dev` in a second clone or worktree never recreates the first's
+containers or touches its data. The ports are the same, though, so stop the other clone's services first
+(`pnpm db:down` there).
 
 ### The demo agency
 
