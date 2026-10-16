@@ -6,7 +6,7 @@
 import type { SubscriptionPolicy } from "@travel-crm/contracts/subscriptions";
 import { useTranslations } from "next-intl";
 import { useId } from "react";
-import { TextField } from "@/account/text-field";
+import { TextField } from "@/components/forms/text-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { Button } from "@/components/ui/button";

@@ -6,7 +6,7 @@
 import type { AddPlatformStaffInput } from "@travel-crm/contracts/platform";
 import { Controller } from "react-hook-form";
 import { useTranslations } from "next-intl";
-import { TextField } from "@/account/text-field";
+import { TextField } from "@/components/forms/text-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { FieldGroup } from "@/components/ui/field";
 import { FormRefusal } from "../form-refusal";

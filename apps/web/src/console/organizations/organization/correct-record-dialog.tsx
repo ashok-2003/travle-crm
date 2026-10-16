@@ -6,7 +6,7 @@
 import type { OrganizationRecord, UpdateOrganizationInput } from "@travel-crm/contracts/platform";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { TextField } from "@/account/text-field";
+import { TextField } from "@/components/forms/text-field";
 import { FormAlert, FormDialog, type Sending } from "@/components/forms/form-dialog";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { FieldGroup } from "@/components/ui/field";

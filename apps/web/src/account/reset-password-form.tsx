@@ -21,7 +21,7 @@ import { OutcomeMessage } from "./outcome-message";
 import { AuthFailureAlert, type AuthFailure } from "./form-alert";
 import { useFormResolver } from "./form-errors";
 import { useNewPasswordSchema } from "./new-password-schema";
-import { TextField } from "./text-field";
+import { TextField } from "@/components/forms/text-field";
 
 const noOtherFields = {};
 

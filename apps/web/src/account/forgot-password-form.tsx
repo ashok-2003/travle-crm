@@ -14,7 +14,7 @@ import { routes } from "@/lib/routes";
 import { OutcomeMessage } from "./outcome-message";
 import { AuthFailureAlert, type AuthFailure } from "./form-alert";
 import { useFormResolver } from "./form-errors";
-import { TextField } from "./text-field";
+import { TextField } from "@/components/forms/text-field";
 
 const resetRequest = z.strictObject({ email: emailAddress });
 

@@ -12,7 +12,7 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { Controller } from "react-hook-form";
-import { TextField } from "@/account/text-field";
+import { TextField } from "@/components/forms/text-field";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FormAlert, FormDialog, type OpenState, type Sending } from "@/components/forms/form-dialog";
 import { MoneyField, rupeesFieldText } from "@/components/forms/money-field";
