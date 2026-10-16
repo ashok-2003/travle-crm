@@ -1,1 +1,29 @@
-{}
+{
+  "title": "Today",
+  "intro": "{weekday} {day} · {count, plural, one {# thing} other {# things}}",
+  "overdueCount": "{count} overdue",
+  "loadFailed": "Today didn't load.",
+  "nothing": "Nothing for today",
+  "later": "Later, Today also shows quotes opened but not answered, payments due, departures and pickups, and travellers with missing details.",
+  "sections": {
+    "overdue": "Overdue",
+    "new-leads": "New leads waiting for a reply",
+    "due-today": "Due today"
+  },
+  "sectionLoadFailed": "This part of Today didn't load.",
+  "more": {
+    "overdue": "Show more overdue",
+    "new-leads": "Show more new leads",
+    "due-today": "Show more due today"
+  },
+  "item": {
+    "yesterday": "Yesterday, {time}",
+    "today": "Today, {time}",
+    "markContacted": "Mark contacted",
+    "markContactedPerson": "Mark {name} contacted",
+    "markedContacted": "Marked contacted"
+  },
+  "addTask": {
+    "action": "Add a task"
+  }
+}
