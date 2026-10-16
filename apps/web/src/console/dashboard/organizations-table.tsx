@@ -3,12 +3,12 @@
 // The dashboard's organizations on tablets and wider (DESIGN.md section 6): a table, numbers mono and right-aligned,
 // each organization's name leading to its page. Names wrap rather than being cut off.
 import type { OrganizationOverview } from "@travel-crm/contracts/platform";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { consoleRoutes } from "../routes";
 import { SubscriptionStatusBadge } from "../subscription-status";
 import { useOverviewFigures } from "./overview-figures";
+import { TextLink } from "@/components/text-link";
 
 export function OrganizationsTable({ organizations }: { organizations: OrganizationOverview[] }) {
   const t = useTranslations("console.dashboard");
@@ -42,25 +42,24 @@ export function OrganizationsTable({ organizations }: { organizations: Organizat
           return (
             <TableRow key={organization.organizationId}>
               <TableCell className="whitespace-normal">
-                <Link
-                  href={consoleRoutes.organization(organization.organizationId)}
-                  className="flex flex-col py-1 hover:underline"
-                >
-                  <span className="font-medium text-primary script-leading">{organization.name}</span>
+                <div className="flex flex-col">
+                  <TextLink href={consoleRoutes.organization(organization.organizationId)}>
+                    <span className="script-leading">{organization.name}</span>
+                  </TextLink>
                   <span className="text-caption text-muted-foreground">
                     <span className="numbers">{organization.code}</span>
                     {organization.planName !== null && ` · ${organization.planName}`}
                   </span>
-                </Link>
+                </div>
               </TableCell>
               <TableCell>
                 <SubscriptionStatusBadge status={organization.status} />
               </TableCell>
-              <TableCell className="numbers text-right">{figures.daysLeft}</TableCell>
-              <TableCell className="numbers text-right">{figures.seats}</TableCell>
-              <TableCell className="numbers text-right">{figures.lastActive}</TableCell>
-              <TableCell className="numbers text-right">{figures.changes}</TableCell>
-              <TableCell className="numbers text-right">{figures.documents}</TableCell>
+              <TableCell className="text-right">{figures.daysLeft}</TableCell>
+              <TableCell className="text-right">{figures.seats}</TableCell>
+              <TableCell className="text-right">{figures.lastActive}</TableCell>
+              <TableCell className="text-right">{figures.changes}</TableCell>
+              <TableCell className="text-right">{figures.documents}</TableCell>
             </TableRow>
           );
         })}

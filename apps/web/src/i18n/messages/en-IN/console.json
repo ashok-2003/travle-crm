@@ -48,10 +48,10 @@
       "changes": "Changes this month",
       "documents": "Documents this month"
     },
-    "daysLeft": "{count, plural, one {# day} other {# days}}",
+    "daysLeft": "{count, plural, one {<n>#</n> day} other {<n>#</n> days}}",
     "noChangeDue": "No change due",
-    "seats": "{used} of {limit}",
-    "seatsNoLimit": "{used}, no limit",
+    "seats": "<n>{used}</n> of <n>{limit}</n>",
+    "seatsNoLimit": "<n>{used}</n>, no limit",
     "neverActive": "Never"
   }
 }

@@ -39,7 +39,7 @@ test("platform staff who sign in on the sign-in page land on the dashboard, ever
   await expect(dashboardHeading(page)).toBeVisible();
   await expect(page).toHaveURL(/\/console$/);
   // Oldest first, a page at a time: this journey's agency is among the newest. Its code tells it from the others.
-  const organization = page.getByRole("link").filter({ hasText: agency.code });
+  const organization = page.locator("tr, [role=listitem]").filter({ hasText: agency.code }).getByRole("link");
   const showMore = page.getByRole("button", { name: "Show more organizations" });
   const shown = page.getByRole("main").getByRole("link");
   await expect(showMore.or(organization).first()).toBeVisible();

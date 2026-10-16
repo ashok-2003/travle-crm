@@ -59,8 +59,11 @@ describe("DashboardScreen", () => {
     const row = within(link.closest("tr") ?? document.body);
     expect(row.getByText("SHARMA")).toBeVisible();
     expect(row.getByText(status.active)).toBeVisible();
-    expect(row.getByText("12 days")).toBeVisible();
-    expect(row.getByText("3 of 10")).toBeVisible();
+    expect(row.getByRole("cell", { name: "12 days" })).toBeVisible();
+    expect(row.getByRole("cell", { name: "3 of 10" })).toBeVisible();
+    // The numbers alone are mono, the words around them in the text's face.
+    expect(row.getByText("12")).toHaveClass("numbers");
+    expect(row.getByRole("cell", { name: "12 days" })).not.toHaveClass("numbers");
     expect(row.getByText(formatDay(new Date(lastActiveAt), { timeZone: PLATFORM_TIME_ZONE }))).toBeVisible();
     expect(row.getByText("1,234")).toBeVisible();
     expect(row.getByText("5")).toBeVisible();
@@ -82,7 +85,8 @@ describe("DashboardScreen", () => {
     const row = within((await screen.findByRole("link", { name: /Sharma Travels/ })).closest("tr") ?? document.body);
     expect(row.getByText(status.none)).toBeVisible();
     expect(row.getByText(dashboard.noChangeDue)).toBeVisible();
-    expect(row.getByText("1, no limit")).toBeVisible();
+    expect(row.getByRole("cell", { name: "1, no limit" })).toBeVisible();
+    expect(row.getByText(dashboard.noChangeDue)).not.toHaveClass("numbers");
     expect(row.getByText(dashboard.neverActive)).toBeVisible();
   });
 
@@ -93,7 +97,10 @@ describe("DashboardScreen", () => {
     const link = await screen.findByRole("link", { name: /Sharma Travels/ });
     expect(link).toHaveAttribute("href", "/console/organizations/0199a000-0000-7000-8000-000000000002");
     expect(within(link).getByText(status.active)).toBeVisible();
-    expect(within(link).getByText("3 of 10")).toBeVisible();
+    // On a phone, the key figures alone: days left and seats.
+    expect(link).toHaveTextContent("3 of 10");
+    expect(link).toHaveTextContent("12 days");
+    expect(within(link).queryByText("1,234")).toBeNull();
     expect(screen.queryByRole("table")).toBeNull();
   });
 
