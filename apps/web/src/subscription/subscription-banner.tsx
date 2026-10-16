@@ -1,0 +1,47 @@
+"use client";
+
+// The subscription's banner above every screen (spec 7.3): the trial's last week, payment due with the day read-only
+// begins, and read-only itself, each in DESIGN.md's status style (a dot and the words, on the status tint) with the
+// organization's calendar days. Nothing while subscription.get loads or fails: its refusals speak for themselves.
+import { calendarDateIn } from "@travel-crm/domain/kernel";
+import { useTranslations } from "next-intl";
+import { cn } from "@/lib/utils";
+import { useMe } from "@/session/me-context";
+import { formatCalendarDate } from "./calendar-date";
+import { noticeOf, type SubscriptionNotice } from "./subscription-notice";
+import { useSubscription } from "./use-subscription";
+
+// Written out in full so Tailwind finds every class. Neutral for a trial ending, amber for payment due, red for
+// read-only (DESIGN.md's status vocabulary).
+const tones: Record<SubscriptionNotice["kind"], { strip: string; dot: string }> = {
+  trialEnding: { strip: "bg-status-neutral-fill text-status-neutral-ink", dot: "bg-status-neutral-dot" },
+  pastDue: { strip: "bg-status-attention-fill text-status-attention-ink", dot: "bg-status-attention-dot" },
+  readOnly: { strip: "bg-status-bad-fill text-status-bad-ink", dot: "bg-status-bad-dot" },
+};
+
+export function SubscriptionBanner() {
+  const t = useTranslations("subscription.banner");
+  const me = useMe();
+  const { data } = useSubscription();
+  const { timeZone } = me.organization;
+  const notice = data ? noticeOf(data, calendarDateIn(new Date(), timeZone)) : null;
+  if (!notice) return null;
+
+  const day = (date: string) => formatCalendarDate(date, { timeZone });
+  const words = () => {
+    switch (notice.kind) {
+      case "trialEnding":
+        return t("trialEnding", { date: day(notice.on) });
+      case "pastDue":
+        return notice.readOnlyFrom === null ? t("pastDueUndated") : t("pastDue", { date: day(notice.readOnlyFrom) });
+      case "readOnly":
+        return t("readOnly");
+    }
+  };
+  return (
+    <p className={cn("flex items-center gap-2 px-4 py-2 text-label", tones[notice.kind].strip)}>
+      <span aria-hidden="true" className={cn("size-1.5 shrink-0 rounded-full", tones[notice.kind].dot)} />
+      {words()}
+    </p>
+  );
+}

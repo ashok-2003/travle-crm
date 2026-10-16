@@ -1,7 +1,9 @@
 "use client";
 
 // The switch that makes two-factor sign-in compulsory for the whole organization (spec 6.2). A refusal is shown
-// under it, and when the reason is that the person hasn't set it up for themselves, a link to do so.
+// under it, and when the reason is that the person hasn't set it up for themselves, a link to do so. Requiring it
+// takes access away, which the subscription allows where it refuses other changes; not requiring it is a change
+// (ADR 0021), so it is disabled, saying why, while those are refused.
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -15,6 +17,7 @@ import { useTRPC } from "@/data/trpc";
 import { useErrorMessage } from "@/lib/error-message";
 import { routes } from "@/lib/routes";
 import { useMe } from "@/session/me-context";
+import { useWriteAccess } from "@/subscription/write-access";
 import { requirementSwitch } from "./two-factor-requirement-rules";
 import { useSetTwoFactorRequirement } from "./use-settings";
 
@@ -28,6 +31,8 @@ export function TwoFactorRequirement() {
   // Always asked again when the screen opens: the copy restored from IndexedDB can predate a change just made.
   const settings = useQuery(trpc.settings.get.queryOptions());
   const change = useSetTwoFactorRequirement();
+  const turnOn = useWriteAccess("revoke");
+  const turnOff = useWriteAccess("change");
 
   if (!settings.data) {
     return settings.isError ? (
@@ -42,18 +47,20 @@ export function TwoFactorRequirement() {
   }
   const required = settings.data.requireTwoFactor;
   const { disabled, reason } = requirementSwitch({ required, isOwner: me.member.role.isOwner });
+  const lifecycle = required ? turnOff : turnOn;
+  const hint = reason === null ? (lifecycle.hint ?? t("requireTwoFactorHint")) : t(reason);
 
   return (
     <div className="flex flex-col gap-3">
-      <Field orientation="horizontal" data-disabled={disabled}>
+      <Field orientation="horizontal" data-disabled={disabled || !lifecycle.allowed}>
         <FieldContent>
           <FieldLabel htmlFor="require-two-factor">{t("requireTwoFactor")}</FieldLabel>
-          <FieldDescription>{reason === null ? t("requireTwoFactorHint") : t(reason)}</FieldDescription>
+          <FieldDescription>{hint}</FieldDescription>
         </FieldContent>
         <Switch
           id="require-two-factor"
           checked={required}
-          disabled={disabled || change.isPending}
+          disabled={disabled || !lifecycle.allowed || change.isPending}
           onCheckedChange={(checked) => {
             change.mutate({ required: checked });
           }}

@@ -1,6 +1,7 @@
 "use client";
 
-// "New role": a name first, with no permissions; the editor it opens is where permissions are chosen.
+// "New role": a name first, with no permissions; the editor it opens is where permissions are chosen. A new role is
+// a change, so while the subscription refuses changes the button is disabled and says why (ADR 0021).
 import { PlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
@@ -10,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { useErrorMessage } from "@/lib/error-message";
+import { useWriteAccess } from "@/subscription/write-access";
 import { ResponsiveDialog } from "../responsive-dialog";
 import { useCreateRole } from "./use-roles";
 
@@ -18,6 +20,7 @@ export function CreateRoleDialog() {
   const tRoles = useTranslations("roles");
   const { apiError } = useErrorMessage();
   const create = useCreateRole();
+  const write = useWriteAccess();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [invalid, setInvalid] = useState(false);
@@ -33,8 +36,10 @@ export function CreateRoleDialog() {
   };
 
   return (
-    <>
+    <div className="flex flex-col items-start gap-2">
       <Button
+        disabled={!write.allowed}
+        aria-describedby={write.hint === null ? undefined : "new-role-refused"}
         onClick={() => {
           setOpen(true);
         }}
@@ -42,6 +47,11 @@ export function CreateRoleDialog() {
         <PlusIcon aria-hidden="true" />
         {tRoles("add")}
       </Button>
+      {write.hint !== null && (
+        <FieldDescription id="new-role-refused" className="max-w-[40ch]">
+          {write.hint}
+        </FieldDescription>
+      )}
       <ResponsiveDialog open={open} onOpenChange={changeOpen} title={t("title")} description={t("description")}>
         <form
           noValidate
@@ -78,6 +88,6 @@ export function CreateRoleDialog() {
           </Button>
         </form>
       </ResponsiveDialog>
-    </>
+    </div>
   );
 }

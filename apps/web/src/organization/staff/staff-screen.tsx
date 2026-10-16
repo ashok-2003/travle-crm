@@ -1,7 +1,9 @@
 "use client";
 
 // The staff screen (spec 6.3): who signs in to the organization and with which role, and adding, changing and
-// removing them. It asks for the same staff list the navigation prefetches, so it usually opens with it.
+// removing them. It asks for the same staff list the navigation prefetches, so it usually opens with it. The roles are
+// for adding staff and changing a role, both changes: where the subscription refuses changes (suspended, where the
+// roles list is refused too), the list shows without them, for the Owner to take someone's access away (ADR 0021).
 import { useQuery } from "@tanstack/react-query";
 import { UsersIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -11,6 +13,7 @@ import { ErrorState } from "@/components/error-state";
 import { PageTitle } from "@/components/page-title";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTRPC } from "@/data/trpc";
+import { useWriteAccess } from "@/subscription/write-access";
 import { CreateStaffDialog } from "./create-staff-dialog";
 import { StaffList } from "./staff-list";
 
@@ -22,18 +25,20 @@ export function StaffScreen() {
   // made a moment earlier, such as someone just removed.
   const staff = useQuery(trpc.staff.list.queryOptions());
   const roles = useQuery(trpc.roles.list.queryOptions());
+  const rolesNeeded = useWriteAccess().allowed;
+  const shownRoles = roles.data ?? (rolesNeeded ? undefined : []);
 
   const body = () => {
-    if (staff.data && roles.data) {
+    if (staff.data && shownRoles) {
       // The person looking is always on the list: with nobody else on it, the screen says what belongs here.
       return (
         <>
-          <StaffList staff={staff.data} roles={roles.data} />
+          <StaffList staff={staff.data} roles={shownRoles} />
           {staff.data.length <= 1 && <EmptyState icon={UsersIcon} message={t("empty")} />}
         </>
       );
     }
-    if (staff.isError || roles.isError) {
+    if (staff.isError || (rolesNeeded && roles.isError)) {
       return (
         <ErrorState
           message={t("loadFailed")}
@@ -63,7 +68,7 @@ export function StaffScreen() {
           <PageTitle>{t("title")}</PageTitle>
           <p className="text-muted-foreground">{t("intro")}</p>
         </div>
-        {roles.data && <CreateStaffDialog roles={roles.data} />}
+        {shownRoles && <CreateStaffDialog roles={shownRoles} />}
       </div>
       {body()}
     </div>

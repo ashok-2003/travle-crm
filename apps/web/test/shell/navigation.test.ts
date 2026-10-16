@@ -1,10 +1,11 @@
-// The navigation follows the member's permissions: an Owner sees every destination, a salesperson only Home. Tests
-// may read the domain's permission catalog (only src is kept to the api's types), and this needs no DOM.
+// The navigation follows the member's permissions (an Owner sees every destination, a salesperson only Home) and the
+// organization's plan (an item of a module the plan lacks is hidden). Tests may read the domain's permission catalog
+// (only src is kept to the api's types), and this needs no DOM.
 // @vitest-environment node
 import { isPermission } from "@travel-crm/domain/identity";
 import { describe, expect, it } from "vitest";
 import { holds } from "@/session/me-context";
-import { isCurrent, navigationItems, visibleNavigationItems } from "@/shell/navigation";
+import { isCurrent, isOnPlan, navigationItems, visibleNavigationItems } from "@/shell/navigation";
 import { member } from "../support/members";
 
 const keys = (items: { key: string }[]) => items.map((item) => item.key);
@@ -21,6 +22,15 @@ describe("visibleNavigationItems", () => {
       "staff",
       "settings",
     ]);
+  });
+
+  it("hides an item whose module isn't on the plan, and nothing while the plan is unknown", () => {
+    expect(isOnPlan({ module: "crm" }, ["crm", "quotes"])).toBe(true);
+    expect(isOnPlan({ module: "crm" }, ["quotes"])).toBe(false);
+    expect(isOnPlan({ module: "crm" }, undefined)).toBe(true);
+    expect(isOnPlan({ module: null }, [])).toBe(true);
+    // The Foundation's own screens belong to no module: every plan shows them.
+    expect(keys(visibleNavigationItems(member({ isOwner: true }), []))).toEqual(["home", "staff", "roles", "settings"]);
   });
 
   it("names a module (none yet) and a permission the catalog knows for each item", () => {
