@@ -1,7 +1,8 @@
 "use client";
 
 // The add-staff form: name, an email or a username (or both), a role and a temporary password, checked by the api's
-// own schema before it is sent. Problems show under their fields; a refusal from the api shows above the buttons.
+// own schema before it is sent. Problems show under their fields; a refusal from the api shows at the end. Its submit
+// button is the dialog's, in the dialog's footer (`form={id}`).
 import type { RoleSummary, StaffMember } from "@travel-crm/contracts/identity";
 import { useTranslations } from "next-intl";
 import { Controller, useForm, type FieldErrors, type Resolver } from "react-hook-form";
@@ -21,10 +22,13 @@ export function assignableRoles(roles: RoleSummary[]): RoleSummary[] {
 }
 
 export function CreateStaffForm({
+  id,
   roles,
   create,
   onCreated,
 }: {
+  /** The form's id, which the dialog's submit button names. */
+  id: string;
   roles: RoleSummary[];
   /** The add call, owned by the dialog so that it can clear it (and the password in it) when it closes. */
   create: ReturnType<typeof useCreateStaff>;
@@ -64,7 +68,7 @@ export function CreateStaffForm({
   });
 
   return (
-    <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-6">
+    <form id={id} noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-6">
       <FieldGroup>
         <Field data-invalid={errors.name !== undefined}>
           <FieldLabel htmlFor="staff-name">{t("create.name")}</FieldLabel>
@@ -154,9 +158,6 @@ export function CreateStaffForm({
           <AlertDescription>{apiError(create.error)}</AlertDescription>
         </Alert>
       )}
-      <Button type="submit" disabled={create.isPending} className="self-end">
-        {create.isPending ? t("create.submitting") : t("create.submit")}
-      </Button>
     </form>
   );
 }

@@ -4,7 +4,7 @@
 // a change, so while the subscription refuses changes the button is disabled and says why (ADR 0021).
 import { PlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { roleName } from "@travel-crm/contracts/identity";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ export function CreateRoleDialog() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [invalid, setInvalid] = useState(false);
+  const formId = useId();
 
   const changeOpen = (next: boolean) => {
     setOpen(next);
@@ -58,8 +59,14 @@ export function CreateRoleDialog() {
         busy={create.isPending}
         title={t("title")}
         description={t("description")}
+        footer={
+          <Button type="submit" form={formId} disabled={create.isPending}>
+            {create.isPending ? t("submitting") : t("submit")}
+          </Button>
+        }
       >
         <form
+          id={formId}
           noValidate
           className="flex flex-col gap-6"
           onSubmit={(event) => {
@@ -89,9 +96,6 @@ export function CreateRoleDialog() {
               <AlertDescription>{apiError(create.error)}</AlertDescription>
             </Alert>
           )}
-          <Button type="submit" disabled={create.isPending} className="self-end">
-            {create.isPending ? t("submitting") : t("submit")}
-          </Button>
         </form>
       </ResponsiveDialog>
     </div>

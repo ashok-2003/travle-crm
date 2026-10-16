@@ -5,7 +5,7 @@
 import type { RoleSummary, StaffMember } from "@travel-crm/contracts/identity";
 import { UserPlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FieldDescription } from "@/components/ui/field";
 import { useMe } from "@/session/me-context";
@@ -23,6 +23,7 @@ export function CreateStaffDialog({ roles }: { roles: RoleSummary[] }) {
   const [created, setCreated] = useState<{ member: StaffMember; password: string } | null>(null);
   const create = useCreateStaff();
   const write = useWriteAccess();
+  const formId = useId();
 
   const changeOpen = (next: boolean) => {
     setOpen(next);
@@ -57,26 +58,34 @@ export function CreateStaffDialog({ roles }: { roles: RoleSummary[] }) {
         busy={create.isPending}
         title={created ? t("create.added", { name: created.member.name }) : t("create.title")}
         description={created ? t("create.temporaryPasswordHint") : t("create.description")}
-      >
-        {created ? (
-          <div className="flex flex-col gap-6">
-            <Handover
-              name={created.member.name}
-              organizationCode={created.member.username === null ? null : me.organization.code}
-              signInName={handoverSignInName(created.member)}
-              password={created.password}
-            />
+        // Once added, Done ends the dialog: there is nothing left to cancel.
+        cancel={created === null}
+        footer={
+          created ? (
             <Button
-              className="self-end"
               onClick={() => {
                 changeOpen(false);
               }}
             >
               {t("create.done")}
             </Button>
-          </div>
+          ) : (
+            <Button type="submit" form={formId} disabled={create.isPending}>
+              {create.isPending ? t("create.submitting") : t("create.submit")}
+            </Button>
+          )
+        }
+      >
+        {created ? (
+          <Handover
+            name={created.member.name}
+            organizationCode={created.member.username === null ? null : me.organization.code}
+            signInName={handoverSignInName(created.member)}
+            password={created.password}
+          />
         ) : (
           <CreateStaffForm
+            id={formId}
             roles={roles}
             create={create}
             onCreated={(member, password) => {
