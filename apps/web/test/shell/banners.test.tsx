@@ -1,6 +1,7 @@
 // The banners above every screen: support impersonating the member always shows one (spec 6.1), with the way to stop,
 // and so does being offline (DESIGN.md); the subscription shows one in the trial's last week, while payment is due
-// (with the day read-only begins) and while read-only (spec 7.3). None shows otherwise.
+// (with the day read-only begins, when there is one) and while read-only (spec 7.3), counting days in the
+// organization's zone. None shows otherwise.
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
@@ -94,9 +95,36 @@ describe("Banners", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it("counts the trial's days in the organization's zone, not the device's or UTC's", async () => {
+    // 15 Oct in UTC and in India, but already 16 Oct in Auckland: the trial's last week has begun there.
+    vi.setSystemTime(new Date("2026-10-15T12:00:00Z"));
+    const asha = member();
+    const inAuckland = { ...asha, organization: { ...asha.organization, timeZone: "Pacific/Auckland" } };
+    await renderBanners(inAuckland, subscription("trial", "full", { trialEndsOn: "2026-10-22" }));
+    expect(screen.getByText("Trial ends 22 Oct")).toBeVisible();
+    const { container } = await renderBanners(asha, subscription("trial", "full", { trialEndsOn: "2026-10-22" }));
+    expect(container).toBeEmptyDOMElement();
+  });
+
   it("says payment is due, and the day the organization becomes read-only", async () => {
     await renderBanners(member(), subscription("past_due", "full", { nextChangeOn: "2026-10-22" }));
     expect(screen.getByText("Payment due. Read-only from 22 Oct")).toBeVisible();
+  });
+
+  it("says payment is due, with no day, when none is set for read-only", async () => {
+    await renderBanners(member(), subscription("past_due", "full"));
+    expect(screen.getByText(banner.pastDueUndated, { exact: true })).toBeVisible();
+  });
+
+  it("shows the subscription's state in the status colours: amber while payment is due, red while read-only", async () => {
+    const { unmount } = await renderBanners(member(), subscription("past_due", "full"));
+    expect(screen.getByText(banner.pastDueUndated)).toHaveClass(
+      "bg-status-attention-fill",
+      "text-status-attention-ink",
+    );
+    unmount();
+    await renderBanners(member(), subscription("read_only", "read_only"));
+    expect(screen.getByText(banner.readOnly)).toHaveClass("bg-status-bad-fill", "text-status-bad-ink");
   });
 
   it("says a read-only organization can still view and export", async () => {

@@ -1,7 +1,8 @@
 "use client";
 
 // What a member sees in place of a screen the subscription shuts: what happened, as a status, and how to reach
-// support. While suspended, the Owner is shown the way to Staff, where taking someone's access away still works.
+// support. While suspended, the Owner is shown the way to Staff, where taking someone's access away still works, and
+// to Documents, whose PDFs still download and whose share links still turn off.
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { PageTitle } from "@/components/page-title";
@@ -25,9 +26,14 @@ export function LockedScreen({ lock }: { lock: Lock }) {
       {lock === "suspended" && me.member.role.isOwner && (
         <div className="flex flex-col items-start gap-3">
           <p className="text-pretty">{t("suspended.ownerCanRevoke")}</p>
-          <Button asChild variant="outline">
-            <Link href={routes.staff}>{t("suspended.toStaff")}</Link>
-          </Button>
+          <div className="flex flex-wrap gap-3">
+            <Button asChild variant="outline">
+              <Link href={routes.staff}>{t("suspended.toStaff")}</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href={routes.documents}>{t("suspended.toDocuments")}</Link>
+            </Button>
+          </div>
         </div>
       )}
       <SupportContacts />

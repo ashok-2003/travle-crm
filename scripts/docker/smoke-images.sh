@@ -24,7 +24,8 @@ trap cleanup EXIT
 
 echo "Building the images"
 docker build --file apps/api/Dockerfile --tag "$api_tag" .
-docker build --file apps/web/Dockerfile --tag "$web_tag" .
+# A production build needs a storage origin for its CSP. Nothing here uploads, so the local one serves.
+docker build --file apps/web/Dockerfile --build-arg STORAGE_ORIGIN=http://localhost:59000 --tag "$web_tag" .
 # Neither image holds a .env from the checkout (.dockerignore): the web app's build reads them, and Next.js copies .env
 # and .env.production beside its server. node_modules is skipped: what a package ships is not the checkout's.
 for image in "$api_tag" "$web_tag"; do

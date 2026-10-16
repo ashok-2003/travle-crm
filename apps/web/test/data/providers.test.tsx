@@ -1,6 +1,7 @@
 // The data layer as the app runs it, DataProviders over IndexedDB: a saved copy shows only for the person it was saved
-// for, then refreshes; a copy saved for anyone else is wiped and never rendered; a 401 wipes, then sends the person to
-// sign in and back; another tab's sign-out wipes this tab too, but never moves a signed-out screen, and a page's own
+// for, then refreshes; a copy saved for anyone else is wiped and never rendered; nothing is saved while support is
+// signed in as a member, nor is support sent to the member's pending step; a 401 wipes, then sends the person to sign
+// in and back; another tab's sign-out wipes this tab too, but never moves a signed-out screen, and a page's own
 // announcement moves nothing; an owed sign-out is settled before me.get is asked.
 import "fake-indexeddb/auto";
 import { onlineManager } from "@tanstack/react-query";
@@ -157,6 +158,31 @@ describe("DataProviders", () => {
       expect(replacePage).toHaveBeenCalledWith("/change-password");
     });
     expect(loadPage).not.toHaveBeenCalled();
+  });
+
+  it("saves nothing on support's device while support is signed in as the member", async () => {
+    stubApi({
+      "me.get": { data: member({ isOwner: true, impersonatedBy: kiran.user.id }) },
+      "staff.list": { data: [staffNamed("Meera")] },
+    });
+    renderApp();
+    expect(await screen.findByText("Asha: Meera")).toBeVisible();
+    // Past the throttle's second, when a save would have landed.
+    await pause(1_200);
+    expect(await hasPersistedQueries()).toBe(false);
+  });
+
+  it("doesn't send support to the member's pending step, which only the member can take", async () => {
+    const api = stubApi({
+      "me.get": { data: { ...member({ impersonatedBy: kiran.user.id }), pendingStep: "SET_UP_TWO_FACTOR" } },
+      "staff.list": { status: 403, reason: "SET_UP_TWO_FACTOR" },
+    });
+    renderApp();
+    await vi.waitFor(() => {
+      expect(api.calls).toContain("staff.list");
+    });
+    await pause(50);
+    expect(replacePage).not.toHaveBeenCalled();
   });
 
   it("settles an owed sign-out before asking who is signed in", async () => {

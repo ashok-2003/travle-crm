@@ -1,30 +1,26 @@
 "use client";
 
 // The audit log's entries (DESIGN.md section 6): a list of items at every width, since each entry opens its before
-// and after below it. Each says what happened, who did it, when in the organization's zone and from where, and leads to
-// the record's whole history.
+// and after below it (the registry's Collapsible). Each says what happened, who did it, when in the organization's
+// zone and from where, and leads to the record's whole history.
 import type { AuditLogEntry } from "@travel-crm/contracts/audit";
 import { ChevronDownIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Fragment, useId, useState } from "react";
+import { Fragment } from "react";
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle } from "@/components/ui/item";
 import { formatDay, formatTime } from "@/lib/format";
-import { cn } from "@/lib/utils";
 import { useMe } from "@/session/me-context";
 import { AuditChange, hasChange } from "./audit-change";
 import { useAuditWords } from "./audit-words";
 import { recordHistoryHref } from "./record-filter";
 
-/** A text-sized action with a 44px target, aligned with the entry's words. */
-const entryAction = "flex min-h-11 w-fit items-center gap-1.5 font-medium text-primary hover:underline";
-
 function AuditEntry({ entry, recordLink }: { entry: AuditLogEntry; recordLink: boolean }) {
   const t = useTranslations("audit");
   const words = useAuditWords();
   const { timeZone } = useMe().organization;
-  const [open, setOpen] = useState(false);
-  const changeId = useId();
   const instant = new Date(entry.occurredAt);
   const changed = hasChange(entry.before, entry.after);
   return (
@@ -39,32 +35,32 @@ function AuditEntry({ entry, recordLink }: { entry: AuditLogEntry; recordLink: b
           · {words.source(entry.source)}
         </ItemDescription>
         {(changed || recordLink) && (
-          <div className="flex flex-wrap gap-x-6">
+          <Collapsible className="flex flex-col">
+            <div className="flex flex-wrap gap-x-6">
+              {changed && (
+                <CollapsibleTrigger asChild>
+                  <Button variant="link" className="px-0">
+                    {t("change.show")}
+                    <ChevronDownIcon
+                      aria-hidden="true"
+                      className="motion-safe:transition-transform motion-safe:ease-out group-data-[state=open]/button:rotate-180"
+                    />
+                  </Button>
+                </CollapsibleTrigger>
+              )}
+              {recordLink && (
+                <Button variant="link" className="px-0" asChild>
+                  <Link href={recordHistoryHref(entry)}>{t("recordHistory", { kind: entry.entityType })}</Link>
+                </Button>
+              )}
+            </div>
             {changed && (
-              <button
-                type="button"
-                aria-expanded={open}
-                aria-controls={open ? changeId : undefined}
-                onClick={() => {
-                  setOpen(!open);
-                }}
-                className={entryAction}
-              >
-                {t("change.show")}
-                <ChevronDownIcon
-                  aria-hidden="true"
-                  className={cn("size-4 motion-safe:transition-transform motion-safe:ease-out", open && "rotate-180")}
-                />
-              </button>
+              <CollapsibleContent>
+                <AuditChange before={entry.before} after={entry.after} />
+              </CollapsibleContent>
             )}
-            {recordLink && (
-              <Link href={recordHistoryHref(entry)} className={entryAction}>
-                {t("recordHistory", { kind: entry.entityType })}
-              </Link>
-            )}
-          </div>
+          </Collapsible>
         )}
-        {changed && open && <AuditChange id={changeId} before={entry.before} after={entry.after} />}
       </ItemContent>
     </Item>
   );

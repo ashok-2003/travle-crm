@@ -16,8 +16,9 @@ api needs no CORS. In development and the end-to-end tests a Next.js rewrite sen
 `http://localhost:3001`), `/p/*` and `/webhooks/*` too, and `/api/platform/*` first to `CONSOLE_ORIGIN` (default
 `http://localhost:3002`). Rewrites are fixed when the app is built: a deployment routes these paths at its load
 balancer instead, and the api's `TRUSTED_ORIGINS` (or `BETTER_AUTH_URL`) must hold the app's address.
-`STORAGE_ORIGIN` (default `http://localhost:9000` in development) is fixed at build time as well: the
-Content-Security-Policy lets the browser upload to it and show the logo from it (ADR 0026).
+`STORAGE_ORIGIN` (default `http://localhost:59000` in development, docker-compose's MinIO) is fixed at build time as
+well: the Content-Security-Policy lets the browser upload to it and show the logo from it (ADR 0026). A production
+build fails without it.
 
 ## How it's put together
 
@@ -43,8 +44,8 @@ Content-Security-Policy lets the browser upload to it and show the logo from it 
 - `src/i18n/messages/en-IN/`: every word on screen, one file per feature.
 - `test/`: Vitest unit and component tests; `test/e2e/`: Playwright journeys. `pnpm --filter @travel-crm/web e2e`
   starts a throwaway Postgres, MinIO and Mailpit, the api, the worker, the console process and a fresh build on free
-  ports (Docker must be running; install Chromium once with `pnpm --filter @travel-crm/web exec playwright install
-chromium`).
+  ports (Docker must be running; install Chromium once with
+  `pnpm --filter @travel-crm/web exec playwright install chromium`).
 - `test/e2e/audit/`: the visual audit. `pnpm e2e:audit` (`playwright.audit.config.ts`) starts the same harness and
   saves a full-page PNG of every screen on a phone and a desktop to `AUDIT_OUT` (default `test-results/audit`), as
   `<project>/<nn>-<screen>.png` numbered by `shot-list.ts`, with an `index.md` listing each shot's screen, route and

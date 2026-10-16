@@ -25,7 +25,7 @@ export function SupportContacts() {
                 <MailIcon aria-hidden="true" />
               </ItemMedia>
               <ItemContent>
-                <ItemTitle className="text-primary break-all">{brand.supportEmail}</ItemTitle>
+                <ItemTitle className="break-all">{brand.supportEmail}</ItemTitle>
               </ItemContent>
             </a>
           </Item>
@@ -38,7 +38,7 @@ export function SupportContacts() {
                 <PhoneIcon aria-hidden="true" />
               </ItemMedia>
               <ItemContent>
-                <ItemTitle className="numbers text-primary">{formatPhone(brand.supportPhone)}</ItemTitle>
+                <ItemTitle className="numbers">{formatPhone(brand.supportPhone)}</ItemTitle>
               </ItemContent>
             </a>
           </Item>

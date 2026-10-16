@@ -7,12 +7,8 @@ import { describe, expect, it } from "vitest";
 
 const sourceDirectory = path.resolve(import.meta.dirname, "../src");
 
-/** The files that may draw an edge of their own, and why. */
-const allowed: Record<string, string> = {
-  "shell/bottom-bar.tsx":
-    "the phone's bottom bar has no registry component; a hairline parts it from the page under it",
-  "console/shell/console-bottom-bar.tsx": "the console's bottom bar, the same as the app's",
-};
+/** The files that may draw an edge of their own, and why. None does now: even the phone's bottom bar has a Separator. */
+const allowed: Record<string, string> = {};
 
 function sourceFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {

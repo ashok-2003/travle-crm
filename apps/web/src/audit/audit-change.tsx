@@ -1,9 +1,11 @@
 "use client";
 
 // A change's before and after (spec 9.5), field by field under the names they were recorded with, each side's value as
-// stored. A side with no state (the record didn't exist yet, or no longer does) shows None for every field.
+// stored, on the registry's Card. A side with no state (the record didn't exist yet, or no longer does) shows None
+// for every field.
 import type { AuditLogEntry } from "@travel-crm/contracts/audit";
 import { useTranslations } from "next-intl";
+import { Card, CardContent } from "@/components/ui/card";
 import { StoredValue } from "./stored-value";
 
 type Snapshot = AuditLogEntry["before"];
@@ -22,20 +24,24 @@ function Side({ label, value }: { label: string; value: unknown }) {
   );
 }
 
-export function AuditChange({ id, before, after }: { id: string; before: Snapshot; after: Snapshot }) {
+export function AuditChange({ before, after }: { before: Snapshot; after: Snapshot }) {
   const t = useTranslations("audit.change");
   return (
-    <dl id={id} className="flex flex-col gap-3 rounded-lg bg-surface p-3">
-      {fieldsOf(before, after).map((field) => (
-        <div key={field} className="flex flex-col gap-1">
-          <dt className="text-label font-medium break-words">{field}</dt>
-          <dd className="grid gap-2 sm:grid-cols-2">
-            <Side label={t("before")} value={before?.[field]} />
-            <Side label={t("after")} value={after?.[field]} />
-          </dd>
-        </div>
-      ))}
-    </dl>
+    <Card size="sm">
+      <CardContent>
+        <dl className="flex flex-col gap-3">
+          {fieldsOf(before, after).map((field) => (
+            <div key={field} className="flex flex-col gap-1">
+              <dt className="text-label font-medium break-words">{field}</dt>
+              <dd className="grid gap-2 sm:grid-cols-2">
+                <Side label={t("before")} value={before?.[field]} />
+                <Side label={t("after")} value={after?.[field]} />
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </CardContent>
+    </Card>
   );
 }
 

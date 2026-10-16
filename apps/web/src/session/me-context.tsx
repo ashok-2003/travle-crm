@@ -35,6 +35,11 @@ export function useHolds(permission: string): boolean {
   return holds(useMe(), permission);
 }
 
+/** Platform staff (spec 6.1): a platform role and no organization. The console is theirs, not the app. */
+export function isPlatformStaff(me: Pick<MeOutput, "isPlatformAdmin" | "organization">): boolean {
+  return me.isPlatformAdmin && me.organization === null;
+}
+
 /** Narrows me.get's answer to a member of an organization. */
 export function isSignedInMember(me: MeOutput): me is SignedInMember {
   return me.member !== null && me.organization !== null;

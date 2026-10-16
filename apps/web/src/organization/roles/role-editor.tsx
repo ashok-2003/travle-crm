@@ -1,7 +1,8 @@
 "use client";
 
 // One role's name and permissions, saved together. The Owner role is shown read-only: it holds every permission. While
-// the subscription refuses changes, the fields, saving and deleting are disabled, and the editor says why (ADR 0021).
+// the subscription refuses changes, the fields, saving and deleting are disabled, and the editor says why (ADR 0021),
+// which each of them names as its description.
 import { roleName, type PermissionCatalogEntry, type RoleSummary } from "@travel-crm/contracts/identity";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
@@ -25,6 +26,7 @@ export function RoleEditor({ role, catalog }: { role: RoleSummary; catalog: Perm
   const { name, setName, grants, setGrants, changedUnderYou, loadSaved } = useEditableRole(role);
   const [nameInvalid, setNameInvalid] = useState(false);
   const write = useWriteAccess();
+  const refused = write.hint === null ? undefined : "role-changes-refused";
 
   if (role.isOwner) {
     return (
@@ -64,6 +66,7 @@ export function RoleEditor({ role, catalog }: { role: RoleSummary; catalog: Perm
           value={name}
           maxLength={40}
           aria-invalid={nameInvalid}
+          aria-describedby={refused}
           disabled={!write.allowed}
           onChange={(event) => {
             setName(event.target.value);
@@ -80,6 +83,7 @@ export function RoleEditor({ role, catalog }: { role: RoleSummary; catalog: Perm
           onChange={setGrants}
           readOnly={false}
           disabled={!write.allowed}
+          describedBy={refused}
         />
       </section>
       {update.isError && (
@@ -87,15 +91,11 @@ export function RoleEditor({ role, catalog }: { role: RoleSummary; catalog: Perm
           <AlertDescription>{apiError(update.error)}</AlertDescription>
         </Alert>
       )}
-      {write.hint !== null && <FieldDescription id="role-changes-refused">{write.hint}</FieldDescription>}
+      {write.hint !== null && <FieldDescription id={refused}>{write.hint}</FieldDescription>}
       <Separator />
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <DeleteRoleDialog role={role} />
-        <Button
-          type="submit"
-          disabled={update.isPending || !write.allowed}
-          aria-describedby={write.hint === null ? undefined : "role-changes-refused"}
-        >
+        <DeleteRoleDialog role={role} describedBy={refused} />
+        <Button type="submit" disabled={update.isPending || !write.allowed} aria-describedby={refused}>
           {update.isPending ? t("editor.saving") : t("editor.save")}
         </Button>
       </div>
