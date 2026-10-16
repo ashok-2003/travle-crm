@@ -42,6 +42,7 @@ export function ChangePlanDialog({ subscription, state }: { subscription: Subscr
         return plans.isError ? (
           <ErrorState
             message={t("plansLoadFailed")}
+            error={plans.error}
             retryLabel={tCommon("tryAgain")}
             onRetry={() => void plans.refetch()}
           />

@@ -48,7 +48,12 @@ export function OrganizationScreen({ organizationId, onboarded }: { organization
       );
     }
     return details.isError ? (
-      <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void details.refetch()} />
+      <ErrorState
+        message={t("loadFailed")}
+        error={details.error}
+        retryLabel={tCommon("tryAgain")}
+        onRetry={() => void details.refetch()}
+      />
     ) : (
       <Delayed>
         <div role="status" aria-busy="true" aria-label={t("loading")} className="flex flex-col gap-4">

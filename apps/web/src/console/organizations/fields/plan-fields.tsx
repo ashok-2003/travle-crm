@@ -6,7 +6,8 @@ import type { BillingCycle, PlanSummary } from "@travel-crm/contracts/subscripti
 import { useTranslations } from "next-intl";
 import type { Control, FieldPath, FieldValues } from "react-hook-form";
 import { ChoiceField } from "./choice-field";
-import { cyclesOf, priceOf, rupees } from "./plan-prices";
+import { rupees } from "@/components/forms/money-field";
+import { cyclesOf, priceOf } from "./plan-prices";
 import { SelectField } from "@/components/forms/select-field";
 
 /** The cycle to keep when the plan changes: the one chosen if the new plan is sold that way, else its first. */

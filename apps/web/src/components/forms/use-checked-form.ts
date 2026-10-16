@@ -1,11 +1,11 @@
 // A react-hook-form form checked before anything is sent, by a `check` built on checked() (checked.ts): each problem
 // shown on its field in the form's own words, a refusal no field explains as `formProblem` (the `forms` message, for
-// the form's alert: FormFooter in form-dialog.tsx shows it), and an onSubmit that sends the input the check made, so
+// the form's alert: FormAlert in form-dialog.tsx shows it), and an onSubmit that sends the input the check made, so
 // the form checks once. Fields take `form.control` (TextField, SelectField, MoneyField, DateField):
 //
 //   const { form, onSubmit, formProblem } = useCheckedForm(defaults, (values) => toThingInput(values), (problem) =>
 //     t(`problems.${problem}`));
-//   <form noValidate onSubmit={onSubmit(save.mutate)}>…<FormFooter sending={save} problem={formProblem} …/></form>
+//   <form noValidate onSubmit={onSubmit(save.mutate)}>…<FormAlert sending={save} problem={formProblem} /></form>
 import { useTranslations } from "next-intl";
 import { useRef, type SubmitEvent, type SubmitEventHandler } from "react";
 import {

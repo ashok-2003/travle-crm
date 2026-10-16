@@ -10,7 +10,7 @@ import type { SubscriptionWithPayments } from "@travel-crm/contracts/subscriptio
 import { useTranslations } from "next-intl";
 import { formatDay } from "@/lib/format";
 import { SubscriptionStatusBadge } from "../../subscription-status";
-import { rupees } from "../fields/plan-prices";
+import { rupees } from "@/components/forms/money-field";
 import { DetailList, DetailSection, type Detail } from "../organization/detail-list";
 import { formatCalendarDay } from "./calendar-day";
 import { PaymentsList } from "./payments-list";
