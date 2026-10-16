@@ -8,7 +8,7 @@ import { useCallback } from "react";
 import { StatusBadge } from "@/components/status-badge";
 import { formatFileSize } from "@/files/file-size";
 import { formatCount } from "@/lib/format";
-import { rupees } from "../organizations/fields/plan-prices";
+import { rupees } from "@/components/forms/money-field";
 
 export interface PlanFigures {
   monthly: string;

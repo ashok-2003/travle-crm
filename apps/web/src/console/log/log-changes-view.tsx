@@ -12,7 +12,7 @@ import { indianDate } from "@/components/date-field";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { formatFileSize } from "@/files/file-size";
-import { rupees } from "../organizations/fields/plan-prices";
+import { rupees } from "@/components/forms/money-field";
 import { changesOf, isNamedField, snapshotsOf } from "./log-changes";
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;

@@ -7,11 +7,18 @@
 //
 // The field's value is the text as typed ("2,950.50"); read it into paise with the contracts' paiseFromRupeesText
 // when the form is checked. Start it from paise with rupeesFieldText ("2,950", the symbol and ".00" left out).
+// rupees() shows an amount in paise anywhere else ("₹2,950").
 import { paiseFromRupeesText } from "@travel-crm/contracts/kernel";
 import { formatMoney, money } from "@travel-crm/domain/kernel";
 import { Controller, type Control, type FieldPath, type FieldValues } from "react-hook-form";
 import { FormField } from "@/components/form-field";
+import { formatRupees } from "@/lib/format";
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
+
+/** An amount in paise as screens show it: "₹2,500", "₹1,250.50" (paise only when there are some). */
+export function rupees(paise: number): string {
+  return formatRupees(money(paise));
+}
 
 /** An amount as the field shows it: "2,950", "1,250.50", without the symbol the field puts beside it. */
 export function rupeesFieldText(paise: number): string {

@@ -53,7 +53,12 @@ export function MembersSection({ organization }: { organization: OrganizationRec
   let content;
   if (!members.data) {
     content = members.isError ? (
-      <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void members.refetch()} />
+      <ErrorState
+        message={t("loadFailed")}
+        error={members.error}
+        retryLabel={tCommon("tryAgain")}
+        onRetry={() => void members.refetch()}
+      />
     ) : (
       <LoadingRows rows={2} shape="twoLines" label={t("loading")} />
     );

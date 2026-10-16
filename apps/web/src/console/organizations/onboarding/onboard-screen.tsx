@@ -41,6 +41,7 @@ export function OnboardScreen() {
       placeholder: (
         <ErrorState
           message={t("subscription.plansLoadFailed")}
+          error={plans.error}
           retryLabel={tCommon("tryAgain")}
           onRetry={() => void plans.refetch()}
         />

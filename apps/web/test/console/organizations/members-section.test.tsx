@@ -238,6 +238,13 @@ describe("MembersSection", () => {
     });
   });
 
+  it("says a refusal's own reason when the members are refused, rather than that they didn't load", async () => {
+    screenIs("wide");
+    renderMembers({ "platform.organizations.members": { status: 403, reason: "SET_UP_TWO_FACTOR" } });
+    expect(await screen.findByText(messages.errors.reasons.SET_UP_TWO_FACTOR)).toBeVisible();
+    expect(screen.queryByText(members.loadFailed)).toBeNull();
+  });
+
   it("says when the members didn't load, and loads them on Try again", async () => {
     screenIs("wide");
     const api = renderMembers({ "platform.organizations.members": { status: 403 } });
