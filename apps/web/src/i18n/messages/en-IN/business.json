@@ -41,7 +41,8 @@
       "bankAccountNumber": "Use the account's 9 to 18 digits.",
       "bankIfsc": "Check the IFSC: 11 characters, the fifth a zero.",
       "bankName": "Use up to 120 characters.",
-      "invoicePrefix": "Use 2-5 letters."
+      "invoicePrefix": "Use 2-5 letters.",
+      "invoicePrefixReserved": "These letters number the app's own documents, such as its samples. Choose others."
     }
   },
   "setup": {

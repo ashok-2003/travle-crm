@@ -1,6 +1,7 @@
 // The business profile form's values, as text, and the api's input made from them. The api's own schema
 // (updateOrganizationProfileInput) decides what is valid; each problem is named by the field it belongs to, so the
-// form shows its message there, and a GSTIN that is well formed but another state's is told apart from a mistyped one.
+// form shows its message there. A GSTIN that is well formed but another state's is told apart from a mistyped one, and
+// an invoice prefix of well-formed letters that the app's own documents are numbered with (SMPL) from a mistyped one.
 import { gstStates, gstStateCodeFromGstin, isValidGstin } from "@travel-crm/contracts/kernel";
 import {
   updateOrganizationProfileInput,
@@ -13,8 +14,11 @@ export type ProfileField = keyof UpdateOrganizationProfileInput;
 /** Every box of the form, as typed. A blank box is no value: the api's schema turns "" into null. */
 export type ProfileValues = Record<ProfileField, string>;
 
-/** Message keys in "business.profile.problems": the field's own, or a GSTIN of another state than the one chosen. */
-export type ProfileProblem = ProfileField | "gstinOfAnotherState";
+/**
+ * Message keys in "business.profile.problems": the field's own, a GSTIN of another state than the one chosen, or an
+ * invoice prefix kept for the app's own documents.
+ */
+export type ProfileProblem = ProfileField | "gstinOfAnotherState" | "invoicePrefixReserved";
 
 const FIELDS: readonly ProfileField[] = [
   "legalName",
@@ -67,8 +71,17 @@ export function toProfileInput(
   for (const issue of parsed.error.issues) {
     const field = issue.path[0];
     if (!isField(field) || problems[field] !== undefined) continue;
-    // The schema's one rule across fields (a GSTIN starts with its state's code) is a problem of a well-formed GSTIN.
-    problems[field] = field === "gstin" && stateNameOfGstin(values.gstin) !== null ? "gstinOfAnotherState" : field;
+    problems[field] = problemOf(field, values);
   }
   return { ok: false, problems };
+}
+
+/** The schema's invoice prefix before it refuses the letters the app's own documents use: 2-5 letters. */
+const WELL_FORMED_PREFIX = /^[A-Za-z]{2,5}$/;
+
+function problemOf(field: ProfileField, values: ProfileValues): ProfileProblem {
+  // The schema's one rule across fields (a GSTIN starts with its state's code) is a problem of a well-formed GSTIN.
+  if (field === "gstin" && stateNameOfGstin(values.gstin) !== null) return "gstinOfAnotherState";
+  if (field === "invoicePrefix" && WELL_FORMED_PREFIX.test(values.invoicePrefix.trim())) return "invoicePrefixReserved";
+  return field;
 }
