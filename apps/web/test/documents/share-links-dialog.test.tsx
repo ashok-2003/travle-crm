@@ -59,7 +59,7 @@ function renderDialog(answers: Record<string, Answer> = {}) {
 }
 
 const rowOf = (label: string) => {
-  const row = screen.getByText(label).closest("[role=listitem]");
+  const row = screen.getByText(label).closest<HTMLElement>("[role=listitem]");
   if (!row) throw new Error(`no row for ${label}`);
   return row;
 };

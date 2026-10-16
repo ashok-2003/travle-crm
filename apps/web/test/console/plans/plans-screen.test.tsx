@@ -79,7 +79,7 @@ describe("PlansScreen", () => {
   it("lists each plan with its figures on a phone", async () => {
     screenIs("phone");
     open({ data: [plan()] });
-    const item = (await screen.findByText("Growth")).closest("[role=listitem]");
+    const item = (await screen.findByText("Growth")).closest<HTMLElement>("[role=listitem]");
     expect(item).not.toBeNull();
     expect(within(item ?? document.body).getByText(/₹4,999/)).toBeVisible();
     expect(screen.queryByRole("table")).toBeNull();

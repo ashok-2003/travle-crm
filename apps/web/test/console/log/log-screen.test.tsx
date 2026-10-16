@@ -81,7 +81,7 @@ const organizationAnswer: Answer = {
 };
 
 const entryOf = async (what: string) =>
-  within((await screen.findByText(what)).closest("[role=listitem]") ?? document.body);
+  within((await screen.findByText(what)).closest<HTMLElement>("[role=listitem]") ?? document.body);
 
 afterEach(() => {
   vi.unstubAllGlobals();

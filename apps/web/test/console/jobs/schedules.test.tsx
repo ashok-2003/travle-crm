@@ -18,7 +18,7 @@ const schedules = [
 ];
 
 const itemOf = async (queue: string) =>
-  within((await screen.findByText(queue)).closest("[role=listitem]") ?? document.body);
+  within((await screen.findByText(queue)).closest<HTMLElement>("[role=listitem]") ?? document.body);
 
 afterEach(() => {
   vi.unstubAllGlobals();
