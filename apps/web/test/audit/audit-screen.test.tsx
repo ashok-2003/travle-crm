@@ -58,11 +58,11 @@ async function listed(): Promise<string[]> {
     .map((item) => item.textContent);
 }
 
-/** The inputs the screen's calls sent, read from the stubbed fetch's URLs. */
+/** The inputs the screen's calls sent, read from the stubbed fetch's bodies: the app posts its queries. */
 function inputsSent(): unknown[] {
-  return vi.mocked(globalThis.fetch).mock.calls.map(([input]) => {
-    const url = new URL(input instanceof Request ? input.url : String(input), "http://localhost");
-    return (JSON.parse(url.searchParams.get("input") ?? "{}") as Record<string, unknown>)["0"];
+  return vi.mocked(globalThis.fetch).mock.calls.map(([, init]) => {
+    const body = typeof init?.body === "string" ? init.body : "{}";
+    return (JSON.parse(body) as Record<string, unknown>)["0"];
   });
 }
 

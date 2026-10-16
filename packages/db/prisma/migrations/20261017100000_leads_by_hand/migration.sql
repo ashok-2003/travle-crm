@@ -238,6 +238,21 @@ CREATE INDEX "task_open_by_record" ON "task"("organization_id", "record_type", "
 -- CreateIndex
 CREATE INDEX "task_by_record" ON "task"("organization_id", "record_type", "record_id");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "lead_timeline_entry_organization_id_id_key" ON "lead_timeline_entry"("organization_id", "id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "lead_note_organization_id_id_key" ON "lead_note"("organization_id", "id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "lead_enquiry_organization_id_id_key" ON "lead_enquiry"("organization_id", "id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "blocked_contact_organization_id_id_key" ON "blocked_contact"("organization_id", "id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "task_organization_id_id_key" ON "task"("organization_id", "id");
+
 -- AddForeignKey
 ALTER TABLE "destination" ADD CONSTRAINT "destination_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organization"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 

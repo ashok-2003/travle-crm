@@ -28,6 +28,8 @@ model Task {
   updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
+  /// Lets a later table point at (organization_id, id).
+  @@unique([organizationId, id])
   /// Open tasks by assignee and due time (Today), and by record (a lead's next follow-up); every task of a record.
   @@index([organizationId, assigneeUserId, dueAt, id], map: "task_open_by_assignee", where: raw("((done_at IS NULL) AND (cancelled_at IS NULL))"))
   @@index([organizationId, recordType, recordId, dueAt], map: "task_open_by_record", where: raw("((done_at IS NULL) AND (cancelled_at IS NULL))"))
