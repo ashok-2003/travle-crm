@@ -2,6 +2,8 @@
 
 Subscription CRM and operations platform for Indian travel agencies. Each agency is an **organization**.
 The design is in `docs/superpowers/specs/`, the build plans in `docs/superpowers/plans/`, and decisions in `docs/adr/`.
+**Before any work, read [docs/agent-playbook.md](docs/agent-playbook.md)** (how agents plan, build in parallel, review
+and verify here, and the lessons that cost us time), and for screens [docs/ui-build-loop.md](docs/ui-build-loop.md).
 
 ## Commands (always under Node 24)
 
