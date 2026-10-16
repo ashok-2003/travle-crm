@@ -53,6 +53,19 @@ describe("trusted devices", () => {
     }
   });
 
+  it("never trusts a device for platform staff who sign in with a backup code either", async () => {
+    const staff = await signedInPlatformStaff(server, "support", { twoFactor: false });
+    const { backupCodes } = await enableTwoFactor(server, staff.jar, staff.password);
+    const jar = new CookieJar();
+    expect(await asksForCode(jar, staff.email, staff.password)).toBe(true);
+    const body = { code: backupCodes[0] ?? "", trustDevice: true };
+    expect(jar.absorb(await postJson(server, "/api/auth/two-factor/verify-backup-code", body, jar)).status).toBe(200);
+    expect((await query(server, "me.get", jar)).status).toBe(200);
+    expect(jar.names()).not.toContain(TRUST_COOKIE);
+    expect(await trustRowsOf(staff.userId)).toBe(0);
+    expect(await asksForCode(jar, staff.email, staff.password)).toBe(true);
+  });
+
   it("still lets an organization's member skip the code on a trusted device", async () => {
     const agency = await createTestAgency(server);
     const { secret } = await enableTwoFactor(server, await signedInOwner(server, agency), agency.owner.password);

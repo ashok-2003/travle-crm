@@ -24,7 +24,8 @@ export const brand = {
   legalName: "Travel Agency OS (legal name to be confirmed)",
   website: "https://travel-agency-os.example",
   supportEmail: "support@travel-agency-os.example",
-  supportPhone: "+910000000000",
+  /** E.164, or null until the product owner gives one (an owner item): screens leave out a contact that is null. */
+  supportPhone: null as string | null,
   /** The sender name on email the product sends for an organization: "<organization> via <this>". */
   emailSenderName: "Travel Agency OS",
 

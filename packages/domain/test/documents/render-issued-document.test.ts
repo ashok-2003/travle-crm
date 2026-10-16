@@ -5,7 +5,13 @@
 import { issuedDocumentRenderInput } from "@travel-crm/contracts/documents";
 import { renderPdf, UnprintableTextError } from "@travel-crm/integrations/pdf";
 import {
+  jpegFrame,
+  jpegOf,
+  jpegScan,
+  jpegWithExifComponents,
+  narrowInterlacedPng,
   pngOfSize,
+  pngWithFilterType,
   pngWithOversizedPixelData,
   pngWithSecondHeader,
   tinyJpeg,
@@ -124,8 +130,15 @@ describe("rendering an issued document", () => {
     const bomb = pngOfSize(8000, 8000);
     // A few kilobytes for 64 million pixels, which pdfkit would inflate into gigabytes.
     expect(bomb.byteLength).toBeLessThan(16 * 1024);
-    // Also a second IHDR of 20000×20000, which png-js decodes, and a megabyte of pixel data for 16×16.
-    for (const body of [bomb, pngOfSize(4097, 1), pngWithSecondHeader(), pngWithOversizedPixelData()]) {
+    // Also a second IHDR of 20000×20000, which png-js decodes, a megabyte of pixel data for 16×16, a row with filter
+    // type 5 and a narrow interlaced file, at which png-js throws where nothing can catch it.
+    const unreadable = [
+      pngWithSecondHeader(),
+      pngWithOversizedPixelData(),
+      pngWithFilterType(5),
+      narrowInterlacedPng(),
+    ];
+    for (const body of [bomb, pngOfSize(4097, 1), ...unreadable]) {
       expect(await drawnLogo(organizationId, (await issuedWith(body)).id)).toBeUndefined();
     }
     // 16 million pixels, the most a logo may hold.
@@ -252,6 +265,53 @@ describe("rendering an issued document", () => {
     const rendered = await test.db.forOrg(organizationId, (tx) => getIssuedDocument(tx, { documentId: document.id }));
     const pdf = await test.storage.get(`organizations/${organizationId}/attachments/${rendered.pdfAttachmentId ?? ""}`);
     expect(new TextDecoder("latin1").decode(pdf ?? new Uint8Array())).toContain("/Subtype /Image");
+  });
+
+  it("renders a real PDF without a logo png-js would throw at, rather than stopping the worker", async () => {
+    // png-js decodes these logos' pixels in a zlib callback (pdfkit has it for their alpha), where its throw would be
+    // uncaught: the test run itself would fail on it.
+    const organizationId = await createOrganization(test);
+    const listener = renderIssuedDocumentListener({ files: test.files, render: renderPdf });
+    for (const body of [pngWithFilterType(5), narrowInterlacedPng()]) {
+      const document = await issued(
+        organizationId,
+        await storedLogo(test, organizationId, { body, contentType: "image/png" }),
+      );
+      await listener.handle(
+        await issuedEvent(test, organizationId, document.id),
+        listenerContext(test, organizationId),
+      );
+      const rendered = await test.db.forOrg(organizationId, (tx) => getIssuedDocument(tx, { documentId: document.id }));
+      const pdf = await test.storage.get(
+        `organizations/${organizationId}/attachments/${rendered.pdfAttachmentId ?? ""}`,
+      );
+      const text = new TextDecoder("latin1").decode(pdf ?? new Uint8Array());
+      expect(text.startsWith("%PDF-")).toBe(true);
+      expect(text).not.toContain("/Subtype /Image");
+    }
+  });
+
+  it("draws a JPEG logo without its EXIF, which React-PDF's parser would run out of memory on", async () => {
+    const organizationId = await createOrganization(test);
+    const listener = renderIssuedDocumentListener({ files: test.files, render: renderPdf });
+    const body = jpegWithExifComponents(100_000_000, 8);
+    const document = await issued(
+      organizationId,
+      await storedLogo(test, organizationId, { body, contentType: "image/jpeg" }),
+    );
+    await listener.handle(await issuedEvent(test, organizationId, document.id), listenerContext(test, organizationId));
+    const rendered = await test.db.forOrg(organizationId, (tx) => getIssuedDocument(tx, { documentId: document.id }));
+    const pdf = await test.storage.get(`organizations/${organizationId}/attachments/${rendered.pdfAttachmentId ?? ""}`);
+    const text = new TextDecoder("latin1").decode(pdf ?? new Uint8Array());
+    expect(text).toContain("/DCTDecode");
+    expect(text).not.toContain("Exif");
+    // One it can't draw is left out.
+    const twoFrames = jpegOf(jpegFrame(1, 1), jpegFrame(9000, 9000), jpegScan());
+    const left = await issued(
+      organizationId,
+      await storedLogo(test, organizationId, { body: twoFrames, contentType: "image/jpeg" }),
+    );
+    expect(await drawnLogo(organizationId, left.id)).toBeUndefined();
   });
 
   it("records text the fonts can't show as a permanent failure instead of retrying", async () => {

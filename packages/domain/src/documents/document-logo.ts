@@ -1,7 +1,7 @@
 // The organization's logo for a document's PDF: the bytes of the logo frozen in its branding, read from storage
 // when the worker renders it, and drawn as the image they really are; and the check an upload passes to become it.
 import { isLogoSizeAllowed, LOGO_RECORD_TYPE } from "@travel-crm/contracts/profile";
-import { imageOf, pixelDataFitsHeader, type DocumentBranding } from "@travel-crm/integrations/pdf";
+import { imageOf, isSafeToDraw, type DocumentBranding } from "@travel-crm/integrations/pdf";
 import type { Files } from "../files/index.js";
 import { DomainError } from "../kernel/index.js";
 
@@ -19,16 +19,16 @@ export async function assertUsableLogo(body: Uint8Array, declaredType: string): 
   if (!isLogoSizeAllowed(image)) {
     throw new DomainError("VALIDATION", "LOGO_TOO_LARGE", "A logo has at most 4096 pixels a side, 16 million in all");
   }
-  if (!(await pixelDataFitsHeader(body))) throw notTheImage();
+  if (!(await isSafeToDraw(body))) throw notTheImage();
 }
 
 /**
  * The logo to draw, or undefined to leave it out. Only the organization's own logo is read (its record is the
  * organization), so a frozen id that names any other file, a passport scan, is never printed. A logo removed since
  * the document was issued, whose bytes aren't a PNG or JPEG png-js reads as their headers say (storage checks only
- * the declared type), or with more pixels or pixel data than a logo may hold (React-PDF would inflate them all,
- * stored before the upload's check) is left out, and the document still renders.
- * Anything else, storage failing, is thrown, so the job is retried.
+ * the declared type), with more pixels or pixel data than a logo may hold (React-PDF would inflate them all), or with
+ * pixel data png-js would throw at where nothing catches it (any stored before the upload's checks) is left out, and
+ * the document still renders. Anything else, storage failing, is thrown, so the job is retried.
  */
 export async function documentLogo(
   files: Pick<Files, "systemFile">,
@@ -48,6 +48,6 @@ export async function documentLogo(
     throw error;
   }
   const image = imageOf(body);
-  if (image === null || !isLogoSizeAllowed(image) || !(await pixelDataFitsHeader(body))) return undefined;
+  if (image === null || !isLogoSizeAllowed(image) || !(await isSafeToDraw(body))) return undefined;
   return { data: body, contentType: image.contentType };
 }

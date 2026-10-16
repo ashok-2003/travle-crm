@@ -4,7 +4,7 @@
 import type { IdentityTx } from "@travel-crm/db/identity";
 import { shownEmail } from "./sign-in-names.js";
 
-export interface OrganizationMemberRecord {
+interface OrganizationMemberRecord {
   memberId: string;
   userId: string;
   name: string;

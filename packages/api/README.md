@@ -15,14 +15,15 @@ The web app imports the `AppRouter` type only, and the console screens the `Plat
 Check 2 (organization active) reads the organization's subscription with the member, and refuses by what the call
 does: a query views, a mutation changes. A procedure that exports data says so with `.meta({ lifecycle: "export" })`
 (allowed while read-only, and to the Owner while suspended: `attachments.list`, `attachments.downloadLink`,
-`documents.list` and `documents.downloadLink`); one that takes someone's access away, with `.meta({ lifecycle: "revoke" })` (allowed the
-same way: `staff.list`, `staff.remove`, `staff.resetPassword`, `shareLinks.list`, `shareLinks.revoke`, and
-`settings.setTwoFactorRequirement`, which checks again as a change when it turns two-factor off); one every state must
-allow, so the app can say why the rest is refused, with `.meta({ lifecycle: "always" })`. Check 3 (module on the plan) comes from each procedure's
-`planModule` meta: `requires()` sets it from its first permission, and checks every permission's module before check
-4; any other organization procedure declares `.meta({ planModule: "core" })` or its business module, and one that
-declares nothing refuses every call. Check 5 (own or all records) is the handler's job, with
-`scopeFilter()` from `@travel-crm/domain/identity`. Support's impersonation session is always read from the database,
+`documents.list` and `documents.downloadLink`); one that takes someone's access away, with
+`.meta({ lifecycle: "revoke" })` (allowed the same way: `staff.list`, `staff.remove`, `staff.resetPassword`,
+`shareLinks.list`, `shareLinks.revoke`, and `settings.setTwoFactorRequirement`, which checks again as a change when it
+turns two-factor off); one every state must allow, so the app can say why the rest is refused, with
+`.meta({ lifecycle: "always" })`. Check 3 (module on the plan) comes from each procedure's `planModule` meta:
+`requires()` sets it from its first permission, and checks every permission's module before check 4; any other
+organization procedure declares `.meta({ planModule: "core" })` or its business module, and one that declares nothing
+refuses every call. Check 5 (own or all records) is the handler's job, with `scopeFilter()` from
+`@travel-crm/domain/identity`. Support's impersonation session is always read from the database,
 and its admin re-checked, so it ends the moment the session does, not when the cookie cache expires. Once a member
 passes their pending steps, their last activity is noted for the platform dashboard (`identity.recordActivity`): at
 most one write a day per member, and none for support's impersonation.
@@ -44,9 +45,9 @@ a side and 16 megapixels, which `confirmUpload` reads from the stored file's hea
 `downloadLink`: issued documents and their PDFs), `shareLinks` (`create`, `list`, `revoke`, for issued documents),
 `notifications` (`list`, `unreadCount`, `markRead`, `preferences.list`/`set`, `push.publicKey`/`subscribe`/
 `unsubscribe`, for any member) and `audit` (`list`, with `audit:view`: newest first or one record's history, each
-actor named on the server). A download link is of the export kind and never cached: `attachments.downloadLink` and
-`documents.downloadLink` are both `freshProcedure` mutations. Add a router in
-`src/routers/` and list it in `app-router.ts`.
+actor named on the server). A download link (`attachments.downloadLink`, `documents.downloadLink`) is a
+`freshProcedure` mutation of the export kind, never a cached query. Add a router in `src/routers/` and list it in
+`app-router.ts`.
 
 ## The platform console (`src/platform/`)
 

@@ -1,7 +1,8 @@
 // The branding's samples an organization may issue: SAMPLES_PER_DAY in any 24 hours, as each is kept for good with
 // its PDF. Real documents and other organizations' samples don't count.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { assertMayIssueSample, issueDocument, SAMPLE_PREFIX, SAMPLES_PER_DAY } from "../../src/documents/index.js";
+import { SAMPLE_DOCUMENT_PREFIX, SAMPLES_PER_DAY } from "@travel-crm/contracts/documents";
+import { assertMayIssueSample, issueDocument } from "../../src/documents/index.js";
 import { systemActor } from "../../src/kernel/index.js";
 import { createOrganization, createTestDocuments, quotation, type TestDocuments } from "./test-documents.js";
 
@@ -21,10 +22,12 @@ describe("the samples' limit", () => {
     const actor = systemActor(organizationId);
     const mayIssue = (now?: Date) => test.db.forOrg(organizationId, (tx) => assertMayIssueSample(tx, now));
     const sample = () =>
-      test.db.forOrg(organizationId, (tx) => issueDocument(tx, actor, { ...quotation, prefix: SAMPLE_PREFIX }));
+      test.db.forOrg(organizationId, (tx) =>
+        issueDocument(tx, actor, { ...quotation, prefix: SAMPLE_DOCUMENT_PREFIX }),
+      );
     await test.db.forOrg(organizationId, async (tx) => {
       for (let count = 1; count < SAMPLES_PER_DAY; count++) {
-        await issueDocument(tx, actor, { ...quotation, prefix: SAMPLE_PREFIX });
+        await issueDocument(tx, actor, { ...quotation, prefix: SAMPLE_DOCUMENT_PREFIX });
       }
       await issueDocument(tx, actor, quotation);
     });

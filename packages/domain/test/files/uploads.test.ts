@@ -303,6 +303,26 @@ describe("the storage limit", () => {
     expect(fits.sizeBytes).toBe(400);
   });
 
+  it("counts a pending upload only while its upload link lasts, and a ready file for good", async () => {
+    const organization = await createOrganization(test, "Unfinished uploads agency");
+    const owner = memberOf(organization, "org-owner");
+    const { attachment: left } = await test.files.requestUpload(owner, passportUpload({ sizeBytes: 600 }));
+    const { attachment: kept, upload } = await test.files.requestUpload(owner, passportUpload({ sizeBytes: 11 }));
+    await test.storage.upload(upload, bytes("%PDF-passpt"), "application/pdf");
+    await test.files.confirmUpload(owner, ref(kept));
+    expect(await test.files.storageUsedBytes(organization)).toBe(611);
+
+    // Eleven minutes on, the link has lapsed: an upload that never finished counts no more, a ready file still does.
+    const longAgo = new Date(Date.now() - 11 * 60 * 1000);
+    await test.platform.attachment.updateMany({
+      where: { id: { in: [left.id, kept.id] } },
+      data: { createdAt: longAgo },
+    });
+    expect(await test.files.storageUsedBytes(organization)).toBe(11);
+    const { attachment: fits } = await test.files.requestUpload(owner, passportUpload({ sizeBytes: 989 }));
+    expect(fits.sizeBytes).toBe(989);
+  });
+
   it("counts only the organization it names, even in a transaction that sees every organization's files", async () => {
     const other = await createOrganization(test, "Other agency");
     await test.files.requestUpload(memberOf(other, "org-owner"), passportUpload({ sizeBytes: 7 }));

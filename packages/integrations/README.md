@@ -17,8 +17,13 @@ it calls a port defined here, and the api and worker pass in the real adapter. T
 - A logo's bytes are read before anything decodes them (`pdf/image-type.ts`, `pdf/png.ts`): `imageOf` gives a PNG's
   or JPEG's type and size, reading a PNG as png-js reads it (React-PDF and pdfkit decode with png-js 2.0.0, which
   sizes what it allocates from the last IHDR and the bit depth), so a second IHDR, an IHDR not 13 bytes long, a bit
-  depth PNG doesn't allow or a tRNS png-js skips makes it no image. `pixelDataFitsHeader` then counts, without keeping
-  it, what a PNG's pixel data inflates to: no more than its header's rows.
+  depth PNG doesn't allow, an interlaced file (png-js misreads narrow ones) or a tRNS png-js skips makes it no image.
+  `isSafeToDraw` then counts, without keeping it, what a PNG's pixel data inflates to (no more than its header's rows)
+  and checks each row's filter type is one png-js knows: png-js throws at any other, and at a zlib error, inside a
+  callback nothing catches (fuzzed: no file both checks pass makes png-js throw). A JPEG is drawn from only the
+  segments that draw it (`pdf/jpeg.ts`, `jpegForDrawing`): React-PDF walks every marker with jay-peg, whose EXIF
+  reader a hundred bytes can take out of memory, so `renderPdf` never hands it the metadata (EXIF, XMP, ICC,
+  comments), and `isSafeToDraw` refuses a JPEG whose segments jay-peg would read otherwise.
 - `@travel-crm/integrations/testing` (`test/testing.ts`, for tests only; dependency-cruiser checks) has the test
   images every package uses: `tinyPng`, `tinyJpeg`, `pngOfSize`, the chunks to build others, and the PNGs made to get
   past a logo's checks.

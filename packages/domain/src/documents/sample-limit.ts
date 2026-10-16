@@ -1,17 +1,16 @@
 // How many branding samples an organization may issue: each is kept for good, with its PDF in storage, so a button
 // pressed over and over must not pile them up without end.
-import { SAMPLES_PER_DAY } from "@travel-crm/contracts/documents";
+import { SAMPLE_DOCUMENT_PREFIX, SAMPLES_PER_DAY } from "@travel-crm/contracts/documents";
 import type { OrgTx } from "@travel-crm/db";
 import { DomainError } from "../kernel/index.js";
-import { SAMPLE_PREFIX } from "./branded-sample.js";
-
-export { SAMPLES_PER_DAY };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** The organization's samples issued since `since`, in the transaction's organization (row-level security). */
 export function samplesIssuedSince(tx: OrgTx, since: Date): Promise<number> {
-  return tx.issuedDocument.count({ where: { issuedAt: { gte: since }, number: { startsWith: `${SAMPLE_PREFIX}-` } } });
+  return tx.issuedDocument.count({
+    where: { issuedAt: { gte: since }, number: { startsWith: `${SAMPLE_DOCUMENT_PREFIX}-` } },
+  });
 }
 
 /**

@@ -80,13 +80,19 @@ type PageReason = keyof typeof pages;
 
 const isPageReason = (reason: string): reason is PageReason => Object.hasOwn(pages, reason);
 
+/**
+ * The device's own fonts: the page's policy loads nothing (`default-src 'none'`), so a brand font named here would
+ * only ever fall back to a serif or sans the page didn't choose.
+ */
+const SYSTEM_FONTS = 'system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
+
 /** Text content needs only these escaped. */
 const escapeHtml = (text: string) => text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
 function errorPage(reason: PageReason, retryAfterSeconds?: number): Response {
   const { status, heading, advice } = pages[reason];
   const retryAfter = retryAfterSeconds ?? (status === 503 ? NOT_READY_RETRY_SECONDS : undefined);
-  const { colours, fonts } = brand;
+  const { colours } = brand;
   const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -95,9 +101,9 @@ function errorPage(reason: PageReason, retryAfterSeconds?: number): Response {
 <meta name="robots" content="noindex">
 <title>${escapeHtml(heading)} · ${escapeHtml(brand.productName)}</title>
 <style>
-body{margin:0;min-height:100vh;display:grid;place-items:center;background:${colours.canvas};color:${colours.ink};font-family:"${fonts.ui}",system-ui,sans-serif}
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:${colours.canvas};color:${colours.ink};font-family:${SYSTEM_FONTS}}
 main{max-width:28rem;padding:2rem 1.5rem}
-h1{font-family:"${fonts.title}",Georgia,serif;font-weight:600;font-size:1.6rem;margin:0 0 .5rem}
+h1{font-weight:500;font-size:1.6rem;margin:0 0 .5rem}
 p{color:${colours.muted};line-height:1.5;margin:0}
 </style>
 </head>

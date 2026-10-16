@@ -51,9 +51,9 @@ documents are marked sensitive (spec 5).
   - for the job that empties the outbox: `dueFileDeletions(tx, { now, limit, organizationId? })`,
     `deleteQueuedFile(storage, deletion)` (the file, or the whole folder, `organizationFolder(id)`),
     `forgetFileDeletion(tx, id)` and `nextFileDeletionDue(tx, organizationId?)`. Each is safe to repeat.
-- Exports: `exportedFiles(tx, storage, where, linkSeconds)` (files with download links). `bytesStored(tx, organizationId)`:
-  the storage the organization uses, named rather than left to row-level security, so a platform transaction counts
-  that one alone.
+- Exports: `exportedFiles(tx, storage, where, linkSeconds)` (files with download links).
+  `bytesStored(tx, organizationId, now?)`: the storage the organization uses, named rather than left to row-level
+  security, so a platform transaction counts that one alone.
 
 ## Events
 
@@ -68,6 +68,9 @@ None yet.
   stored, so a row can't point at another organization's file.
 - Pending files (uploads not yet confirmed) are never listed or downloadable.
 - Deleted files stay in storage, and count toward the limit, until the platform's purge.
+- An upload counts toward the limit from the moment it is asked for, and, if it never becomes ready (stopped, or
+  refused at confirm), only while its 10-minute link lasts. Its row and any bytes that arrived stay: a sweep of old
+  pending uploads (delete the object, then the row) is a later plan's item.
 - The outbox holds an organization's id and an attachment's id, never a key or a name: the key is made from them, as
   for any file. A row stays until storage has confirmed the delete, so a storage error or a restart after the
   platform's transaction delays a file's deletion and never forgets it.

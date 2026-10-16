@@ -25,12 +25,19 @@ import type { FilesDependencies, GeneratedFile } from "./dependencies.js";
 const UPLOAD_URL_SECONDS = 10 * 60;
 
 /**
- * Bytes the organization keeps in storage: every attachment, deleted ones too, until a purge removes them. Named, not
- * left to row-level security: the platform's own transaction sees every organization's files.
+ * Bytes the organization keeps in storage: every ready file, deleted ones too until a purge removes them, and the
+ * uploads still pending while their link lasts. One that never finished (stopped, or refused at confirm) stops
+ * counting when its link lapses, so a plan's storage never fills with files nobody can see; sweeping their rows and
+ * objects is a later plan's. Named, not left to row-level security: the platform's own transaction sees every
+ * organization's files.
  */
-export async function bytesStored(tx: OrgTx, organizationId: string): Promise<number> {
+export async function bytesStored(tx: OrgTx, organizationId: string, now: Date = new Date()): Promise<number> {
+  const linkLapsed = new Date(now.getTime() - UPLOAD_URL_SECONDS * 1000);
   const totals = await withDeleted(() =>
-    tx.attachment.aggregate({ where: { organizationId }, _sum: { sizeBytes: true } }),
+    tx.attachment.aggregate({
+      where: { organizationId, OR: [{ status: "ready" }, { status: "pending", createdAt: { gt: linkLapsed } }] },
+      _sum: { sizeBytes: true },
+    }),
   );
   return totals._sum.sizeBytes ?? 0;
 }
