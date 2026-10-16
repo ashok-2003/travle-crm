@@ -9,8 +9,10 @@
 
 ## 1. Scope at a glance
 
-- **Step 2, CRM + WhatsApp inbox:** leads from everywhere, assignment rules, Today's work list, calling from the PC
-  with a recorded or spoken note, message templates, AI form filling, WhatsApp leads that fill themselves in.
+- **Step 2, CRM + WhatsApp inbox:** leads from everywhere (leads arriving by themselves, from the agency's Google
+  Sheet both ways and from Meta lead ads, are the product's main selling point), assignment rules, Today's work list,
+  calling from the PC with a recorded or spoken note, message templates, AI form filling, WhatsApp leads that fill
+  themselves in.
 - **Step 3, catalog + quotes:** itinerary templates, package pages, the live quote page, "quote opened" alerts,
   margins, cancellation policies, AI itinerary drafts, suppliers' rate sheets read by AI.
 - **Step 4, bookings + departures:** booking requests, payment schedules, paying by UPI, one trip page, travellers'
@@ -24,8 +26,19 @@
 **Phase 2** (not now): staff performance, repeat-customer features (the person record itself is Phase 1), "ask your
 reports in plain words".
 
-**Delivery:** Phase 1 ships in several smaller phases, agreed between the owner and the development agent. The first
-is simple lead functionality, without a WhatsApp inbox (3.8).
+**Delivery:** Phase 1 ships as small releases, each usable by the pilot on its own. Nothing that waits on someone else
+goes first. The order the owner agreed with the development lead:
+
+1. Leads by hand.
+2. Google Sheets both ways, plus bulk CSV and Excel upload.
+3. The website form, and the link for other tools.
+4. Automatic assignment.
+5. Calling without AI, message templates, the morning push.
+6. Meta lead ads, then WhatsApp, as Meta approves us. The pilot can use lead ads as a tester during Meta's app review.
+7. Quotes, bookings and the rest of steps 3-7.
+8. The AI features, last of all.
+
+The WhatsApp inbox comes in a later release (3.8).
 
 ## 2. Rules that cover every feature
 
@@ -51,17 +64,20 @@ is simple lead functionality, without a WhatsApp inbox (3.8).
 Every enquiry lands in one list within seconds, with its source and an owner.
 
 - Sources in Phase 1:
+  - **the agency's Google Sheet, both ways**: leads the agency keeps in a sheet arrive by themselves, and changes in
+    the product show in the sheet. The release's spec settles which columns sync and which side wins a conflict;
+  - **Meta lead ads** (Facebook and Instagram), directly. Meta notifies us of each new lead, and a regular re-check
+    catches any notification that never came (they stop silently when an access token expires);
   - WhatsApp;
   - a website form (a snippet for the agency's own site, plus a hosted link);
   - package-page enquiries (step 3);
   - quick add (by hand, by voice, or by pasting text or a screenshot);
-  - Excel/CSV import;
+  - bulk upload of a CSV or Excel file;
   - a secure link per agency that other tools can post leads to (Pabbly Connect, Zapier, Make).
-- Not in Phase 1: Meta lead ads, leads from phone calls, email and lead portals, Instagram DMs. Instagram and
-  Facebook still arrive three ways:
-  - a pasted DM screenshot;
-  - lead ads routed through Pabbly or Zapier to the agency's link;
-  - the Instagram bio pointing at the agency's package pages.
+- Leads that arrive by themselves (the Google Sheet and Meta lead ads) are the product's main selling point, on top of
+  adding leads by hand.
+- Not in Phase 1: leads from phone calls, email and lead portals, Instagram DMs. Instagram messages still arrive two
+  ways: a pasted DM screenshot, and the Instagram bio pointing at the agency's package pages.
 - **One person, many enquiries.** A person is one record per agency, matched by phone number (+91 international
   format), with email and Instagram handle as extra matches. Each trip enquiry is its own lead.
 - **A repeat enquiry** from someone with an open lead goes on that lead's timeline and its owner is told. With no
@@ -346,7 +362,7 @@ outside the product and marked Refunded. No credit notes. Travellers cancel thro
 - a trip leader's view and cash expenses during a trip;
 - teams and team permissions;
 - phone-provider calling;
-- lead ads, phone-call, email and Instagram-DM lead sources;
+- phone-call, email and Instagram-DM lead sources;
 - creating Meta templates inside the product;
 - trip-anniversary reminders;
 - AI that reads whole conversations: summaries, intent labels, follow-up nudges, upset-customer alerts, suggested
@@ -380,8 +396,15 @@ outside the product and marked Refunded. No credit notes. Travellers cancel thro
 
 ## 9. What the owner has to do (outside the code)
 
-- Start Meta's paperwork now (tech-provider registration or a WhatsApp partner, business verification: Q7). WhatsApp
-  leads, templates and reminders depend on it and it takes weeks.
+- Start Meta's paperwork now; it takes weeks.
+  - Business verification and tech-provider registration (or a WhatsApp partner), Q7: WhatsApp leads, templates and
+    reminders depend on them.
+  - **App review for lead ads** (the `leads_retrieval` permission and the page permissions that go with it), with a
+    screencast of the working flow: direct lead ads depend on it. The pilot can use lead ads as a tester while the
+    review runs.
+- Check Google's rules for reading and writing agencies' sheets. Apps that ask for access to people's spreadsheets can
+  need Google's verification of the app; the Google Sheets release's spec chooses the permission and says whether it
+  does.
 - Set up the OpenRouter account with zero data retention enforced.
 - Get the pilot agency's permission to use anonymised messages and calls for the AI test sets.
 - Ask the pilot agency the package-page question (4.2).
