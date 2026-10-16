@@ -1,7 +1,7 @@
 // The documents screen's api (spec 9.3): a sample quotation issued from the profile and branding, logo included,
 // numbered SMPL and kept like every issued document; the organization's documents newest first, a page at a time;
 // and a short-lived link to a rendered PDF. Only roles with settings:manage reach them; read-only organizations may
-// look and download, but issue nothing.
+// look and download, but issue nothing, and a suspended one's Owner may still list and download its PDFs.
 import type { IssuedDocumentPage, IssuedDocumentSummary } from "@travel-crm/contracts/documents";
 import type { DownloadLinkOutput } from "@travel-crm/contracts/files";
 import type { LogoUpload, OrganizationLogo } from "@travel-crm/contracts/profile";
@@ -202,6 +202,35 @@ describe("issued documents", () => {
     ] as const) {
       expect(await refusalOf(await query(server, path, salesJar, input)), path).toEqual(refused);
     }
+  });
+
+  it("lets a suspended organization's Owner list and download its PDFs, as exports, and nobody else", async () => {
+    const { agency, jar } = await brandedAgency();
+    const sample = await issueSample(jar);
+    await rendered(agency, sample.id);
+    const admin = await signedInStaff(
+      server,
+      agency,
+      await addStaff(server, agency, { username: "priya", roleKey: "org-admin" }),
+    );
+    await server.platform.subscription.update({
+      where: { organizationId: agency.organizationId },
+      data: { status: "suspended", statusChangedAt: new Date(), trialEndsOn: null },
+    });
+    const ref = { documentId: sample.id };
+    expect(await dataOf<IssuedDocumentPage>(await query(server, "documents.list", jar, {}))).toMatchObject({
+      documents: [{ id: sample.id }],
+    });
+    expect((await query(server, "documents.downloadLink", jar, ref)).status).toBe(200);
+    const suspended = { status: 403, reason: "ORGANIZATION_SUSPENDED" };
+    for (const [path, input] of [
+      ["documents.list", {}],
+      ["documents.downloadLink", ref],
+    ] as const) {
+      expect(await refusalOf(await query(server, path, admin, input)), path).toEqual(suspended);
+    }
+    expect(await refusalOf(await query(server, "documents.get", jar, ref))).toEqual(suspended);
+    expect(await refusalOf(await mutate(server, "documents.issueSample", undefined, jar))).toEqual(suspended);
   });
 
   it("lets a read-only organization's Owner look and download, but issue nothing", async () => {

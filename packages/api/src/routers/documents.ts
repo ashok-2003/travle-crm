@@ -47,8 +47,13 @@ export const documentsRouter = router({
       return ctx.db.forOrg(organizationId, (tx) => issueDocument(tx, ctx.member, { ...sample, prefix: SAMPLE_PREFIX }));
     }),
 
+  /**
+   * The organization's documents, newest first. It is how the Owner finds the PDFs to take away and the links to turn
+   * off, so it is of the export kind: allowed while read-only, and to the Owner while suspended (ADR 0021).
+   */
   list: orgProcedure
     .requires("settings:manage")
+    .meta({ lifecycle: "export" })
     .input(listIssuedDocumentsInput)
     .output(issuedDocumentPage)
     .query(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => listIssuedDocuments(tx, input))),
@@ -60,9 +65,14 @@ export const documentsRouter = router({
     .output(issuedDocumentSummary)
     .query(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => getIssuedDocument(tx, input))),
 
-  /** A five-minute link that downloads the rendered PDF under the document's number. */
+  /**
+   * A five-minute link that downloads the rendered PDF under the document's number: an export, as the organization's
+   * papers are, so a suspended organization's Owner can still take its PDFs. A query the screen fetches when pressed,
+   * never kept in its cache.
+   */
   downloadLink: orgProcedure
     .requires("settings:manage")
+    .meta({ lifecycle: "export" })
     .input(documentRefInput)
     .output(downloadLink)
     .query(async ({ ctx, input }) => {
