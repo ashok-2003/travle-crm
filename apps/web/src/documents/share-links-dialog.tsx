@@ -20,17 +20,16 @@ export function ShareLinksDialog({
 }) {
   const t = useTranslations("documents.share");
   const create = useCreateShareLink();
-  const changeOpen = (next: boolean) => {
-    // Open while a link is being made, so its whole address, shown once, is never missed.
-    if (create.isPending) return;
-    // The token is in the call's answer: let go of it when the dialog closes.
-    if (!next) create.reset();
-    onOpenChange(next);
-  };
   return (
     <ResponsiveDialog
       open={open}
-      onOpenChange={changeOpen}
+      onOpenChange={(next) => {
+        // The token is in the call's answer: let go of it when the dialog closes.
+        if (!next) create.reset();
+        onOpenChange(next);
+      }}
+      // Open while a link is being made, so its whole address, shown once, is never missed.
+      busy={create.isPending}
       title={t("title", { number: document.number })}
       description={t("description")}
     >
