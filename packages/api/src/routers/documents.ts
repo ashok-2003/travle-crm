@@ -6,6 +6,7 @@ import {
   issuedDocumentPage,
   issuedDocumentSummary,
   listIssuedDocumentsInput,
+  SAMPLE_DOCUMENT_PREFIX,
 } from "@travel-crm/contracts/documents";
 import { downloadLink } from "@travel-crm/contracts/files";
 import {
@@ -14,7 +15,6 @@ import {
   getIssuedDocument,
   issueDocument,
   listIssuedDocuments,
-  SAMPLE_PREFIX,
 } from "@travel-crm/domain/documents";
 import { DomainError } from "@travel-crm/domain/kernel";
 import { freshProcedure, orgProcedure } from "../procedures.js";
@@ -47,7 +47,7 @@ export const documentsRouter = router({
       });
       return ctx.db.forOrg(organizationId, async (tx) => {
         await assertMayIssueSample(tx);
-        return issueDocument(tx, ctx.member, { ...sample, prefix: SAMPLE_PREFIX });
+        return issueDocument(tx, ctx.member, { ...sample, prefix: SAMPLE_DOCUMENT_PREFIX });
       });
     }),
 

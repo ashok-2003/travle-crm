@@ -7,14 +7,8 @@
 import type { IssuedDocumentPage, IssuedDocumentSummary } from "@travel-crm/contracts/documents";
 import type { DownloadLinkOutput } from "@travel-crm/contracts/files";
 import type { LogoUpload, OrganizationLogo } from "@travel-crm/contracts/profile";
-import { issuedDocumentRenderInput } from "@travel-crm/contracts/documents";
-import {
-  brandedSampleQuotation,
-  issueDocument,
-  renderIssuedDocumentListener,
-  SAMPLE_PREFIX,
-  SAMPLES_PER_DAY,
-} from "@travel-crm/domain/documents";
+import { issuedDocumentRenderInput, SAMPLE_DOCUMENT_PREFIX, SAMPLES_PER_DAY } from "@travel-crm/contracts/documents";
+import { brandedSampleQuotation, issueDocument, renderIssuedDocumentListener } from "@travel-crm/domain/documents";
 import { runListenerJob } from "@travel-crm/domain/jobs";
 import { renderPdf } from "@travel-crm/integrations/pdf";
 import { createMemoryStorage, type MemoryStorage } from "@travel-crm/integrations/storage";
@@ -194,7 +188,7 @@ describe("issued documents", () => {
     });
     await server.db.forOrg(agency.organizationId, async (tx) => {
       for (let count = 0; count < SAMPLES_PER_DAY; count++) {
-        await issueDocument(tx, owner, { ...sample, prefix: SAMPLE_PREFIX });
+        await issueDocument(tx, owner, { ...sample, prefix: SAMPLE_DOCUMENT_PREFIX });
       }
     });
     expect(await refusalOf(await mutate(server, "documents.issueSample", undefined, jar))).toEqual({
