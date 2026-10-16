@@ -33,7 +33,7 @@ const finished: SetupChecklist = {
 
 /** Each step's link: where it leads, and whether it says Done or To do. */
 const steps = () =>
-  screen
+  within(screen.getByRole("list"))
     .getAllByRole("link")
     .map((link) => [
       link.getAttribute("href"),
@@ -50,6 +50,7 @@ describe("SetupScreen", () => {
     renderWithApi(<SetupScreen />, newQueryClient());
     expect(await screen.findByRole("link", { name: new RegExp(words.steps["invoice-prefix"].title) })).toBeVisible();
     expect(screen.getByRole("heading", { level: 1, name: words.title })).toBeVisible();
+    expect(screen.getByRole("link", { name: messages.settings.title })).toHaveAttribute("href", routes.settings);
     expect(screen.getByText(/3 of 5 done/)).toBeVisible();
     expect(steps()).toEqual([
       [routes.profile, "done"],
