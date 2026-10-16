@@ -23,6 +23,7 @@
     "db:down": "scripts/dev/compose.sh down",
     "db:migrate": "pnpm --filter @travel-crm/db db:migrate:deploy",
     "e2e": "turbo run e2e",
+    "e2e:audit": "pnpm --filter @travel-crm/web e2e:audit",
     "images:smoke": "scripts/docker/smoke-images.sh",
     "product:up": "scripts/dev/compose.sh --product up --detach --build --wait && scripts/dev/compose.sh --product run --rm --no-deps console demo",
     "product:down": "scripts/dev/compose.sh --product down",

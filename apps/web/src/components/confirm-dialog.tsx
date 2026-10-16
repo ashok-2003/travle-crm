@@ -4,6 +4,8 @@
 // sentence if the api gave one, then Cancel and the action. While its request is out the dialog stays open: Cancel and
 // the action are off and Escape does nothing, so the answer is always seen. The request belongs to the section that
 // opens the dialog, whose mutation options close it on success, so the success is handled however the dialog ends.
+// Closed by the person (Cancel, Escape), the request is reset, so a refusal isn't shown when it opens again; closed by a
+// success, nothing is reset, as there is no refusal to forget.
 import { useTranslations } from "next-intl";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -51,7 +53,7 @@ export function ConfirmDialog({
       open={open}
       onOpenChange={(next) => {
         if (request.isPending) return;
-        // Opened again, it starts without the last refusal.
+        // Only the person's own close comes here: a success closes the dialog through the section's state instead.
         if (!next) request.reset();
         onOpenChange(next);
       }}

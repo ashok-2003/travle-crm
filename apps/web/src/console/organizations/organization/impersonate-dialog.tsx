@@ -26,6 +26,7 @@ import { authClient, type AuthResult } from "@/data/auth-client";
 import { announceSignOut } from "@/data/session";
 import { useErrorMessage } from "@/lib/error-message";
 import { loadPage } from "@/lib/navigate";
+import { reportProblem } from "@/lib/report-problem";
 import { routes } from "@/lib/routes";
 
 type Failure = Extract<AuthResult<unknown>, { ok: false }>;
@@ -50,7 +51,12 @@ export function ImpersonateDialog({
     setFailure(null);
     const result = await authClient.impersonate({ userId: member.userId });
     if (result.ok) {
-      announceSignOut();
+      // As signOut does: the session has changed already, so a tab left untold mustn't stop the page load.
+      try {
+        announceSignOut();
+      } catch (error) {
+        reportProblem(error);
+      }
       loadPage(routes.home);
       return;
     }

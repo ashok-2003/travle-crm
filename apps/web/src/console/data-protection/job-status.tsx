@@ -6,10 +6,21 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { consoleRoutes } from "../routes";
 
-export function JobStatus({ result, queued, gaveUp }: { result: string | null; queued: string; gaveUp: boolean }) {
+export function JobStatus({
+  id,
+  result,
+  queued,
+  gaveUp,
+}: {
+  /** For a button that is disabled meanwhile to point at, as its reason. */
+  id?: string;
+  result: string | null;
+  queued: string;
+  gaveUp: boolean;
+}) {
   const t = useTranslations("consolePlatform.dataProtection");
   return (
-    <p role="status" className="max-w-[65ch]">
+    <p id={id} role="status" className="max-w-[65ch]">
       {result ?? (gaveUp ? t("waitedTooLong") : queued)}{" "}
       {result === null && gaveUp && (
         <Link

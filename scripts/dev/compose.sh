@@ -6,13 +6,16 @@
 #   scripts/dev/compose.sh [--product] --print-name the project's name, without running Compose
 # The name is COMPOSE_PROJECT_NAME from the environment or .env, else travel-crm-<the checksum of the checkout's full
 # path> (a folder's name is not enough: scratch clones are called travel-crm too); the product's adds -product. Both
-# stacks' images are tagged after the first name (IMAGE_PREFIX): <name>-api:local and <name>-web:local.
+# stacks' images are tagged after the first name (IMAGE_PREFIX): <name>-api:local and <name>-web:local. Both compose
+# files need IMAGE_PREFIX, so plain `docker compose`, which would name the project after the folder, refuses them.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 name="${COMPOSE_PROJECT_NAME:-}"
 if [ -z "$name" ] && [ -f .env ]; then
-  name="$(sed -n 's/^COMPOSE_PROJECT_NAME=//p' .env | tail -n 1 | tr -d "\"'")"
+  # The last COMPOSE_PROJECT_NAME line, as Compose reads it: without CRs, `export `, an inline ` # comment` or quotes.
+  name="$(tr -d '\r' <.env | sed -n -E 's/^[[:space:]]*(export[[:space:]]+)?COMPOSE_PROJECT_NAME=//p' | tail -n 1 |
+    sed -E 's/[[:space:]]+#.*$//; s/[[:space:]]+$//' | tr -d "\"'")"
 fi
 [ -n "$name" ] || name="travel-crm-$(pwd -P | cksum | cut -d ' ' -f 1)"
 

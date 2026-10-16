@@ -61,7 +61,7 @@ export function StaffActions({ member, roles }: { member: StaffMember; roles: Ro
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            className="text-destructive"
+            variant="destructive"
             disabled={!revoke.allowed}
             onSelect={() => {
               setOpen("remove");

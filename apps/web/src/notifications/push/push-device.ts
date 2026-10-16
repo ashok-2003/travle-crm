@@ -47,6 +47,9 @@ function inputOf(subscription: PushSubscription): PushSubscriptionInput {
 export async function turnPushOn(api: PushApi): Promise<PushState> {
   // The question comes first, before any await: Safari and iOS allow it only inside the tap's own task.
   const asked = hasPush() && Notification.permission === "default" ? Notification.requestPermission() : null;
+  // Handled at once, so an early return or a throwing pushState() never leaves it an unhandled rejection; when the
+  // flow goes on, the await below still sees its failure.
+  asked?.catch(() => undefined);
   const state = await pushState();
   if (state !== "off" && state !== "on") return state;
   const permission = asked === null ? Notification.permission : await asked;

@@ -41,9 +41,13 @@ test("platform staff who sign in on the sign-in page land on the dashboard, ever
   // Oldest first, a page at a time: this journey's agency is among the newest. Its code tells it from the others.
   const organization = page.getByRole("link").filter({ hasText: agency.code });
   const showMore = page.getByRole("button", { name: "Show more organizations" });
+  const shown = page.getByRole("main").getByRole("link");
+  await expect(showMore.or(organization).first()).toBeVisible();
   while (!(await organization.isVisible())) {
-    await expect(showMore.or(organization)).toBeVisible();
-    if (await showMore.isVisible()) await showMore.click();
+    const before = await shown.count();
+    await showMore.click();
+    // Each page lands before the next look: meanwhile the button says "Loading more", and after the last it is gone.
+    await expect.poll(() => shown.count()).toBeGreaterThan(before);
   }
   await expect(organization).toHaveAttribute("href", `/console/organizations/${agency.organizationId}`);
   await expect(organization).toContainText(agency.name);

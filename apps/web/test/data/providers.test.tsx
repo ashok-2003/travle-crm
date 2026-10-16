@@ -185,6 +185,16 @@ describe("DataProviders", () => {
     expect(replacePage).not.toHaveBeenCalled();
   });
 
+  it("asks me.get again when a call is refused with a step that appeared, so its screen shows at once", async () => {
+    const support = member({ impersonatedBy: kiran.user.id });
+    const api = stubApi({ "me.get": { data: support }, "staff.list": { status: 403, reason: "SET_UP_TWO_FACTOR" } });
+    renderApp();
+    await vi.waitFor(() => {
+      expect(api.calls.filter((call) => call === "me.get")).toHaveLength(2);
+    });
+    expect(replacePage).not.toHaveBeenCalled();
+  });
+
   it("settles an owed sign-out before asking who is signed in", async () => {
     window.localStorage.setItem("travel-crm.sign-out-owed", "1");
     const api = stubApi({ "auth/sign-out": { data: {} }, "me.get": { status: 401 }, "staff.list": { status: 401 } });

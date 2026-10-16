@@ -28,7 +28,7 @@ export function TrialEndDialog({ subscription }: { subscription: SubscriptionDet
 
 function TrialEndForm({ subscription, save }: { subscription: SubscriptionDetails; save: Sending<SetTrialEndInput> }) {
   const t = useTranslations("consoleOrganizations.subscription");
-  const { form, onSubmit } = useCheckedForm(
+  const { form, onSubmit, formProblem } = useCheckedForm(
     { trialEndsOn: subscription.trialEndsOn ?? "" },
     (values) => toTrialEndInput(subscription.organizationId, values),
     (problem) => t(`problems.${problem}`),
@@ -38,7 +38,12 @@ function TrialEndForm({ subscription, save }: { subscription: SubscriptionDetail
       <FieldGroup>
         <DateField control={form.control} name="trialEndsOn" label={t("trialEnd.trialEndsOn")} />
       </FieldGroup>
-      <FormFooter sending={save} label={t("trialEnd.submit")} pendingLabel={t("trialEnd.submitting")} />
+      <FormFooter
+        sending={save}
+        problem={formProblem}
+        label={t("trialEnd.submit")}
+        pendingLabel={t("trialEnd.submitting")}
+      />
     </form>
   );
 }
@@ -63,7 +68,7 @@ function PaidThroughForm({
   save: Sending<SetPaidThroughInput>;
 }) {
   const t = useTranslations("consoleOrganizations.subscription");
-  const { form, onSubmit } = useCheckedForm(
+  const { form, onSubmit, formProblem } = useCheckedForm(
     { paidThrough: subscription.paidThrough ?? "", reason: "" },
     (values) => toPaidThroughInput(subscription.organizationId, values),
     (problem) => t(`problems.${problem}`),
@@ -74,7 +79,12 @@ function PaidThroughForm({
         <DateField control={form.control} name="paidThrough" label={t("paidThrough.paidThrough")} />
         <TextField control={form.control} name="reason" label={t("reason.label")} hint={t("reason.hint")} />
       </FieldGroup>
-      <FormFooter sending={save} label={t("paidThrough.submit")} pendingLabel={t("paidThrough.submitting")} />
+      <FormFooter
+        sending={save}
+        problem={formProblem}
+        label={t("paidThrough.submit")}
+        pendingLabel={t("paidThrough.submitting")}
+      />
     </form>
   );
 }

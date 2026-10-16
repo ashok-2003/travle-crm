@@ -185,6 +185,9 @@ describe("deleting the organization for good", () => {
       await vi.advanceTimersByTimeAsync(10 * 60 * 1000 + 3000);
       expect(await screen.findByText(new RegExp(words.waitedTooLong))).toBeVisible();
       expect(screen.getByRole("link", { name: words.seeJobs })).toHaveAttribute("href", "/console/jobs");
+      expect(screen.getByRole("button", { name: words.purge.action })).toHaveAccessibleDescription(
+        new RegExp(words.waitedTooLong),
+      );
       const asked = inputsTo("log.list").length;
       await vi.advanceTimersByTimeAsync(60_000);
       expect(inputsTo("log.list").length).toBe(asked);

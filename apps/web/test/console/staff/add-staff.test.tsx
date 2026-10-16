@@ -87,6 +87,21 @@ describe("adding platform staff", () => {
     expect(await screen.findByText("Tmp7kQx2pLm9")).toBeVisible();
   });
 
+  it("shows the password, and lets Done close, though the list's refresh hasn't come back", async () => {
+    screenIs("wide");
+    const { api, dialog } = await openForm();
+    await fill(dialog.getByLabelText(words.addForm.name), "Neha Joshi");
+    await fill(dialog.getByLabelText(words.addForm.email), "neha@platform.test");
+    api.answer("platform.platformStaff.add", {
+      data: { userId: "0199a000-0000-7000-8000-0000000000b0", temporaryPassword: "Tmp7kQx2pLm9" },
+    });
+    api.answer("platform.platformStaff.list", "never");
+    await userEvent.click(dialog.getByRole("button", { name: words.addForm.submit }));
+    expect(await screen.findByText("Tmp7kQx2pLm9")).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: words.handover.done }));
+    expect(screen.queryByText("Tmp7kQx2pLm9")).toBeNull();
+  });
+
   it("says what to fix before anything is sent", async () => {
     screenIs("wide");
     const { dialog } = await openForm();

@@ -4,15 +4,16 @@
 // upload, the browser PUTs the file straight to storage with its progress (uploadFile), then the api confirms it
 // arrived. It fails at once when offline rather than waiting at 0%, and can be stopped; the record's list is asked
 // for again however it ends. Trying a failed upload again picks up where it stopped: once storage has the file only
-// the confirmation is sent again (it is harmless to repeat), and before that the same signed upload while it lasts,
-// so a retry never leaves another record behind. A stopped upload leaves only a pending record, which nobody sees.
+// the confirmation is sent again (it is harmless to repeat), and before that the same signed upload while it lasts
+// and storage hasn't refused it, so a retry doesn't leave another record behind. A stopped or abandoned upload leaves
+// only a pending record, which nobody sees.
 import type { AttachmentContentType, PresignedUploadOutput } from "@travel-crm/contracts/files";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { useTRPCClient } from "@/data/trpc";
-import { uploadFile } from "./upload";
+import { UploadError, uploadFile } from "./upload";
 import { useRefreshAttachments, type AttachmentRecord } from "./use-attachments";
 
 export interface UploadRequest {
@@ -64,7 +65,14 @@ export function useUploadAttachment(record: AttachmentRecord) {
       }
       if (!sent.arrived) {
         setProgress(0);
-        await uploadFile(sent.signed, request.file, { onProgress: setProgress, signal: controller.signal });
+        try {
+          await uploadFile(sent.signed, request.file, { onProgress: setProgress, signal: controller.signal });
+        } catch (error) {
+          // Storage refused the signed upload (expired by its clock, which may be ahead of this device's): the next
+          // try signs a new one rather than being refused again.
+          if (error instanceof UploadError && error.status !== 0) unfinished.current = null;
+          throw error;
+        }
         sent.arrived = true;
       }
       return client.attachments.confirmUpload.mutate({ ...record, attachmentId: sent.attachmentId });
