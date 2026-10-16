@@ -33,8 +33,12 @@ const papersViewer = orgProcedure.requires("settings:manage");
 const papersEditor = freshProcedure.requires("settings:manage");
 
 export const attachmentsRouter = router({
-  /** The record's ready files, oldest first; a sensitive file's name only for documents:view_sensitive. */
+  /**
+   * The record's ready files, oldest first by arrival; a sensitive file's name only for documents:view_sensitive. It
+   * is how the Owner finds the papers to take away, so it is an export, as their download links are (ADR 0021).
+   */
   list: papersViewer
+    .meta({ lifecycle: "export" })
     .input(recordInput)
     .output(z.array(attachmentSummary))
     .query(({ ctx, input }) => {

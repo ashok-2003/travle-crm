@@ -1,7 +1,8 @@
 // The agency's own papers over HTTP (spec 9.2): files on its organization record, uploaded straight to storage and
 // confirmed, listed, downloaded by a short-lived link and removed, with settings:manage. Any other record is "not
 // found"; a sensitive file's name, download and removal are for documents:view_sensitive; the storage limit refuses
-// with its reason; a read-only organization may list and download but not upload or remove.
+// with its reason; a read-only organization may list and download but not upload or remove, and a suspended one's
+// Owner may still list and download.
 import type { AttachmentSummary, DownloadLinkOutput, PresignedUploadOutput } from "@travel-crm/contracts/files";
 import { createMemoryStorage, type MemoryStorage } from "@travel-crm/integrations/storage";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -218,5 +219,27 @@ describe("attachments", () => {
         reason: "ORGANIZATION_READ_ONLY",
       });
     }
+  });
+
+  it("lets a suspended organization's Owner list and download its papers, as exports, and nobody else", async () => {
+    const agency = await createTestAgency(server);
+    const jar = await signedInOwner(server, agency);
+    const licence = await uploaded(agency, jar, { fileName: "Tour operator licence.pdf" });
+    const file = { ...papers(agency), attachmentId: licence.id };
+    const admin = await signedInStaff(
+      server,
+      agency,
+      await addStaff(server, agency, { username: "priya", roleKey: "org-admin" }),
+    );
+    await server.platform.subscription.update({
+      where: { organizationId: agency.organizationId },
+      data: { status: "suspended", statusChangedAt: new Date(), trialEndsOn: null },
+    });
+    expect(await dataOf(await query(server, "attachments.list", jar, papers(agency)))).toEqual([licence]);
+    expect((await mutate(server, "attachments.downloadLink", file, jar)).status).toBe(200);
+    const suspended = { status: 403, reason: "ORGANIZATION_SUSPENDED" };
+    expect(await refusalOf(await query(server, "attachments.list", admin, papers(agency)))).toEqual(suspended);
+    expect(await refusalOf(await mutate(server, "attachments.downloadLink", file, admin))).toEqual(suspended);
+    expect(await refusalOf(await mutate(server, "attachments.remove", file, jar))).toEqual(suspended);
   });
 });

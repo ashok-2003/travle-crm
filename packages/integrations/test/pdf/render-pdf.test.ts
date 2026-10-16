@@ -3,7 +3,7 @@
 import { brand } from "@travel-crm/brand";
 import { describe, expect, it, vi } from "vitest";
 import { renderPdf, type SampleDocumentData } from "../../src/pdf/index.js";
-import { tinyJpeg, tinyPng } from "./logos.js";
+import { tinyJpeg, tinyPng } from "../testing.js";
 import { firstPageText, pdfText } from "./pdf-text.js";
 
 const issuedAt = new Date("2026-10-15T05:30:00Z");

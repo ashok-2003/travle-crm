@@ -115,7 +115,7 @@ and to. Changing something to what it already is records nothing.
   Calls of kind `revoke` take someone's access away (removing staff, a new temporary password, requiring two-factor,
   turning a share link off) or find whom to cut off (the staff list, a document's share links): security outranks
   billing (ADR 0021). Calls of kind `export` take the organization's data away (a file's or a PDF's download link, the
-  list of issued documents). Calls of kind `always` (me.get, `subscription.get`) work in every state, so
+  lists of the organization's papers and of its issued documents). Calls of kind `always` (me.get, `subscription.get`) work in every state, so
   the app can say why the rest are refused.
 - Check 3 applies to every procedure: each declares its plan module (`requires()` does it from its first permission)
   or `"core"`. A permission's module maps to a plan module (`leads` to `crm`; `staff`, `roles`, `settings`, `audit`,

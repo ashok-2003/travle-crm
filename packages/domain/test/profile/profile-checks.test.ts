@@ -93,5 +93,11 @@ describe("the business profile's database checks", () => {
     for (const invoicePrefix of ["SM", "SMP", "DOCS", "SH"]) {
       expect(await insert({ invoicePrefix }), invoicePrefix).toBe("accepted");
     }
+    // Both ways: a prefix the CHECK refuses but the contract allows would pass the form, then fail the save.
+    const [check] = await platform.$queryRaw<{ definition: string }[]>`
+      SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint
+      WHERE conname = 'organization_profile_invoice_prefix_not_reserved'`;
+    const refused = [...(check?.definition ?? "").matchAll(/'([A-Z]+)'/g)].map(([, prefix]) => prefix);
+    expect(refused.sort()).toEqual([...reservedDocumentPrefixes].sort());
   });
 });
