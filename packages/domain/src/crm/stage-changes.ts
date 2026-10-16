@@ -21,11 +21,19 @@ export async function moveLeadStage(tx: OrgTx, access: MemberAccess, input: Move
   await changeLeadStage(tx, access, { leadId: lead.id, stage: input.stage }, now);
 }
 
-/** Returns a closed lead to the open stage it left, or New (R30); an open lead changes nothing. */
+/**
+ * Returns a closed lead to the open stage it left, or New (R30); an open lead changes nothing (R31). The stage is read
+ * under the row's lock, so a reopen that waited behind another tab's change sees that change, not what it first read.
+ */
 export async function reopenLead(tx: OrgTx, access: MemberAccess, input: LeadIdInput, now: Date): Promise<void> {
   const lead = await findLeadInScope(tx, access, input.leadId);
-  if (isOpenStage(leadStage.parse(lead.stage))) return;
-  const stage = lead.reopenStage === null ? "new" : openLeadStage.parse(lead.reopenStage);
+  const [locked] = await tx.$queryRaw<{ stage: string; reopenStage: string | null }[]>`
+    SELECT stage, reopen_stage AS "reopenStage" FROM lead
+    WHERE id = ${lead.id}::uuid AND deleted_at IS NULL
+    FOR UPDATE`;
+  if (locked === undefined) throw new DomainError("NOT_FOUND", "NOT_FOUND", "No such lead");
+  if (isOpenStage(leadStage.parse(locked.stage))) return;
+  const stage = locked.reopenStage === null ? "new" : openLeadStage.parse(locked.reopenStage);
   await changeLeadStage(tx, access, { leadId: lead.id, stage }, now);
 }
 

@@ -42,10 +42,15 @@ export interface LeadRow extends TripColumns {
   createdAt: Date;
 }
 
-/** Whether the member's leads:view scope reaches a lead with this owner: all leads, or their own (R26). */
+/** Whether the member's leads:view scope reaches a lead with this owner: identity's rule, asked without throwing. */
 export function isLeadInScope(access: MemberAccess, ownerUserId: string | null): boolean {
-  const scope = access.permissions.scopeOf("leads:view");
-  return scope === "all" || (scope === "own" && ownerUserId === access.userId);
+  try {
+    assertRecordInScope(access, "leads:view", ownerUserId);
+    return true;
+  } catch (error) {
+    if (error instanceof DomainError && error.reason === "NOT_FOUND") return false;
+    throw error;
+  }
 }
 
 /** The live lead, if the member may see it; NOT_FOUND otherwise, whatever the reason (R26). */
