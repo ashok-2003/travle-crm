@@ -14,5 +14,3 @@ export const {
 export function createConsoleClient() {
   return createTRPCClient<PlatformRouter>({ links: [httpBatchLink({ url: "/api/platform/trpc" })] });
 }
-
-export type ConsoleClient = ReturnType<typeof createConsoleClient>;

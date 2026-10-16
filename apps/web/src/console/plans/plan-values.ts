@@ -30,7 +30,14 @@ export type PlanField = Exclude<keyof PlanValues, "modules">;
 
 /** Message keys in the "consolePlatform.planForm.problems" namespace. */
 export type PlanProblem =
-  "required" | "keyInvalid" | "priceInvalid" | "priceRequired" | "seatsInvalid" | "whatsappInvalid" | "storageInvalid";
+  | "required"
+  | "nameInvalid"
+  | "keyInvalid"
+  | "priceInvalid"
+  | "priceRequired"
+  | "seatsInvalid"
+  | "whatsappInvalid"
+  | "storageInvalid";
 
 /** Storage is entered in GB of 1,024 MB, as formatFileSize shows it. */
 const GIGABYTE = 1024 ** 3;
@@ -38,7 +45,7 @@ const GIGABYTE = 1024 ** 3;
 /** Each field of the api's input, with the form field it comes from and that field's problem. */
 const fieldOf = {
   key: ["key", "keyInvalid"],
-  name: ["name", "required"],
+  name: ["name", "nameInvalid"],
   monthlyPricePaise: ["monthlyPrice", "priceInvalid"],
   yearlyPricePaise: ["yearlyPrice", "priceInvalid"],
   extraSeatMonthlyPricePaise: ["extraSeatMonthlyPrice", "priceInvalid"],

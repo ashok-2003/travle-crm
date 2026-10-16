@@ -30,7 +30,12 @@ function Sections({ organizationId }: { organizationId: string }) {
 
   if (!organization && !deleted) {
     return details.isError ? (
-      <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void details.refetch()} />
+      <ErrorState
+        message={t("loadFailed")}
+        error={details.error}
+        retryLabel={tCommon("tryAgain")}
+        onRetry={() => void details.refetch()}
+      />
     ) : (
       <LoadingRows rows={2} shape="twoLines" label={t("loading")} />
     );

@@ -7,21 +7,21 @@ import type { AddPlatformStaffInput } from "@travel-crm/contracts/platform";
 import { Controller } from "react-hook-form";
 import { useTranslations } from "next-intl";
 import { TextField } from "@/account/text-field";
+import { FormAlert } from "@/components/forms/form-dialog";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { FieldGroup } from "@/components/ui/field";
-import { FormRefusal } from "../form-refusal";
 import { toAddStaffInput } from "./add-staff-values";
 import { LevelField } from "./level-field";
 
 export function AddStaffForm({
   id,
   send,
-  error,
+  sending,
 }: {
   id: string;
   send: (input: AddPlatformStaffInput) => void;
-  /** What the api refused with. */
-  error: unknown;
+  /** The add, whose refusal is shown above the dialog's button. */
+  sending: { error: unknown };
 }) {
   const t = useTranslations("consolePlatform.staff.addForm");
   const { form, onSubmit, formProblem } = useCheckedForm(
@@ -47,7 +47,7 @@ export function AddStaffForm({
           render={({ field }) => <LevelField value={field.value} onChange={field.onChange} />}
         />
       </FieldGroup>
-      <FormRefusal problem={formProblem} error={error} />
+      <FormAlert sending={sending} problem={formProblem} />
     </form>
   );
 }

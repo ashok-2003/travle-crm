@@ -145,10 +145,10 @@ describe("LogScreen", () => {
     );
     const recorded = await entryOf(words.actions.subscription["payment-recorded"]);
     await userEvent.click(recorded.getByRole("button", { name: words.changes }));
-    expect(recorded.getByText("16/10/2026")).toBeVisible();
+    expect(recorded.getByText("16 Oct")).toBeVisible();
     expect(recorded.getByText("₹2,95,000")).toBeVisible();
     expect(recorded.getByText(words.fields.amountPaise)).toBeVisible();
-    expect(recorded.queryByText(/amountPaise|2026-10-16|29500000/)).toBeNull();
+    expect(recorded.queryByText(/amountPaise|2026-10-16|29500000|16\/10/)).toBeNull();
   });
 
   it("names other staff only for super admins: support sees platform staff", async () => {

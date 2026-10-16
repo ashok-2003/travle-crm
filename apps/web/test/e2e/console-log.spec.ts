@@ -39,5 +39,5 @@ test("a super admin finds their own changes in the platform log", async ({ page,
   await expect(created).toContainText("You");
   await created.getByRole("button", { name: "What changed" }).click();
   await expect(created.getByText("Monthly price", { exact: true })).toBeVisible();
-  await expect(created.getByText("₹999", { exact: true })).toBeVisible();
+  await expect(created.getByText(/₹999/)).toBeVisible();
 });

@@ -19,7 +19,6 @@ import { useSchedules } from "./use-schedules";
 export function SchedulesSection() {
   const t = useTranslations("consolePlatform.schedules");
   const tCommon = useTranslations("common");
-  const tErrors = useTranslations("errors");
   const removable = isSuperAdmin(useStaff());
   const schedules = useSchedules();
   const [removing, setRemoving] = useState<string | null>(null);
@@ -71,6 +70,7 @@ export function SchedulesSection() {
       return (
         <ErrorState
           message={t("loadFailed")}
+          error={schedules.error}
           retryLabel={tCommon("tryAgain")}
           onRetry={() => void schedules.refetch()}
         />
@@ -87,7 +87,7 @@ export function SchedulesSection() {
         </h2>
         <p className="text-muted-foreground">{t("intro")}</p>
         {removable && schedules.data?.some((schedule) => CONSOLE_SCHEDULES.has(schedule.queue)) && (
-          <p className="text-muted-foreground">{tErrors("reasons.SCHEDULE_IS_THE_CONSOLES")}</p>
+          <p className="text-muted-foreground">{t("consoleOwn")}</p>
         )}
         {!removable && (
           <p className="flex items-center gap-2 text-label">

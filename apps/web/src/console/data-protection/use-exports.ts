@@ -1,7 +1,8 @@
 "use client";
 
 // An organization's exports (dataProtection.exports), asked again every two seconds while one is being prepared by
-// the console's job, for ten minutes at most; asking for one, which refreshes them and says so in a toast; and a done one's download links.
+// the console's job, for ten minutes at most; asking for one, which refreshes them and says so in a toast; and a done
+// one's download links.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";

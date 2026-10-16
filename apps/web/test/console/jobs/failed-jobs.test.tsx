@@ -11,6 +11,7 @@ import { PLATFORM_TIME_ZONE } from "@/lib/platform-time-zone";
 import { messages } from "@/i18n/messages";
 import { formatDay, formatTime } from "@/lib/format";
 import { stubApi, type Answer } from "../../support/api-stub";
+import { screenIs } from "../../organization/render";
 import { platformStaff } from "../../support/platform-staff";
 import { inputsTo, renderConsole } from "../../support/render-console";
 
@@ -35,6 +36,7 @@ function job(overrides: Partial<FailedJobOutput> = {}): FailedJobOutput {
 }
 
 function open(failed: Answer) {
+  screenIs("wide");
   const api = stubApi({ "platform.jobs.failed": failed });
   renderConsole(<FailedJobsSection />, platformStaff("support"));
   return api;

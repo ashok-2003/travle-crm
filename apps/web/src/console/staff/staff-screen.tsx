@@ -39,7 +39,12 @@ function StaffLists() {
   }
   if (staff.isError) {
     return (
-      <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void staff.refetch()} />
+      <ErrorState
+        message={t("loadFailed")}
+        error={staff.error}
+        retryLabel={tCommon("tryAgain")}
+        onRetry={() => void staff.refetch()}
+      />
     );
   }
   return <LoadingRows rows={3} label={t("loading")} />;

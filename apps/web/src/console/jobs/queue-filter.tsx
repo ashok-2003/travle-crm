@@ -4,13 +4,16 @@
 // it is asked for), and back to every queue.
 import { queueName } from "@travel-crm/contracts/platform";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useState, type ChangeEvent } from "react";
+import { useWideScreen } from "@/lib/use-wide-screen";
 import { FormField } from "@/components/form-field";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 
 export function QueueFilter({ queue, onChange }: { queue: string | null; onChange: (queue: string | null) => void }) {
   const t = useTranslations("consolePlatform.jobs");
+  const wide = useWideScreen();
   const [text, setText] = useState(queue ?? "");
   const [invalid, setInvalid] = useState(false);
   return (
@@ -31,26 +34,35 @@ export function QueueFilter({ queue, onChange }: { queue: string | null; onChang
           error={invalid ? t("queueInvalid") : undefined}
           className="max-w-sm flex-1"
         >
-          {(links) => (
-            <InputGroup>
-              <InputGroupInput
-                {...links}
-                value={text}
-                className="numbers"
-                autoCapitalize="none"
-                autoComplete="off"
-                spellCheck={false}
-                onChange={(event) => {
-                  setText(event.target.value);
-                }}
-              />
-              <InputGroupAddon align="inline-end">
-                <InputGroupButton type="submit" variant="outline">
+          {(links) => {
+            const input = {
+              ...links,
+              value: text,
+              className: "numbers",
+              autoCapitalize: "none",
+              autoComplete: "off",
+              spellCheck: false,
+              onChange: (event: ChangeEvent<HTMLInputElement>) => {
+                setText(event.target.value);
+              },
+            };
+            // Beside the input where there is room, on a row of its own on phones, where it would clip the name.
+            return wide ? (
+              <InputGroup>
+                <InputGroupInput {...input} />
+                <InputGroupAddon align="inline-end">
+                  <InputGroupButton type="submit">{t("filter")}</InputGroupButton>
+                </InputGroupAddon>
+              </InputGroup>
+            ) : (
+              <>
+                <Input {...input} />
+                <Button type="submit" variant="ghost" className="self-start px-0">
                   {t("filter")}
-                </InputGroupButton>
-              </InputGroupAddon>
-            </InputGroup>
-          )}
+                </Button>
+              </>
+            );
+          }}
         </FormField>
       </form>
       {queue !== null && (

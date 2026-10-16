@@ -27,7 +27,7 @@ test("a super admin removes a schedule a job left behind, and the console's own 
 
   const schedules = page.getByRole("region", { name: "Schedules" });
   // Said once, for the console's own schedules, which have no Remove.
-  await expect(schedules).toContainText("The console schedules this job every time it starts");
+  await expect(schedules).toContainText("The console registers its own schedules at every start");
   await expect(
     schedules.getByRole("listitem").filter({ hasText: "subscriptions.advance-lifecycle" }).getByRole("button"),
   ).toHaveCount(0);

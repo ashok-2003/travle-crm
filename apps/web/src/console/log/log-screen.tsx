@@ -25,7 +25,12 @@ export function LogScreen() {
   let content;
   if (entries === undefined) {
     content = log.isError ? (
-      <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void log.refetch()} />
+      <ErrorState
+        message={t("loadFailed")}
+        error={log.error}
+        retryLabel={tCommon("tryAgain")}
+        onRetry={() => void log.refetch()}
+      />
     ) : (
       <LoadingRows rows={4} shape="twoLines" label={t("loading")} />
     );

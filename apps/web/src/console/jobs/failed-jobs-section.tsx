@@ -25,7 +25,12 @@ export function FailedJobsSection() {
   let content;
   if (jobs === undefined) {
     content = failed.isError ? (
-      <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void failed.refetch()} />
+      <ErrorState
+        message={t("loadFailed")}
+        error={failed.error}
+        retryLabel={tCommon("tryAgain")}
+        onRetry={() => void failed.refetch()}
+      />
     ) : (
       <LoadingRows rows={3} shape="twoLines" label={t("loading")} />
     );
