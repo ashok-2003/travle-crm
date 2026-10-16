@@ -70,8 +70,6 @@ test("a super admin's console, screen by screen", async ({
   await shoot(page, "console-record-payment");
   await payment.getByRole("button", { name: "Record the payment" }).click();
   await expect(payment).toHaveCount(0);
-  // The pointer would rest on the toast that comes up where the footer's button was, and hold it open.
-  await page.mouse.move(0, 0);
   await expect(subscription.getByText("NEFT UTR 412345678901")).toBeVisible();
   await shoot(page, "console-organization");
   await subscription.getByRole("button", { name: "Change", exact: true }).click();
