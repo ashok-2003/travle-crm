@@ -156,6 +156,10 @@ describe("share-link route", () => {
     const page = await unknown.text();
     expect(page).toContain("This link doesn't work");
     expect(page).toContain(`<title>This link doesn't work · ${brand.productName}</title>`);
+    // The system's own fonts: the page's policy loads none, so a brand font named here would never show.
+    expect(page).not.toContain(brand.fonts.ui);
+    expect(page).not.toContain(brand.fonts.title);
+    expect(page).toMatch(/h1\{[^}]*font-weight:500/);
 
     const expired = await failing("LINK_EXPIRED").request("/abc");
     expect(expired.status).toBe(410);
