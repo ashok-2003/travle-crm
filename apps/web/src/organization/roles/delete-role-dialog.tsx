@@ -21,19 +21,28 @@ import { FieldDescription } from "@/components/ui/field";
 import { useWriteAccess } from "@/subscription/write-access";
 import { useDeleteRole } from "./use-roles";
 
-export function DeleteRoleDialog({ role }: { role: RoleSummary }) {
+export function DeleteRoleDialog({
+  role,
+  describedBy,
+}: {
+  role: RoleSummary;
+  /** The id of what says why changes are refused, when they are. */
+  describedBy?: string | undefined;
+}) {
   const t = useTranslations("roles.delete");
   const tCommon = useTranslations("common");
   const remove = useDeleteRole(role.name);
   const [open, setOpen] = useState(false);
   const inUse = role.memberCount > 0;
   const write = useWriteAccess();
+  // Why it is disabled: the role's members, the subscription, or both.
+  const reasons = [inUse ? "role-in-use" : undefined, describedBy].filter((id) => id !== undefined);
   return (
     <div className="flex flex-col items-start gap-2">
       <Button
         variant="destructive"
         disabled={inUse || !write.allowed}
-        aria-describedby={inUse ? "role-in-use" : undefined}
+        aria-describedby={reasons.length > 0 ? reasons.join(" ") : undefined}
         onClick={() => {
           setOpen(true);
         }}
