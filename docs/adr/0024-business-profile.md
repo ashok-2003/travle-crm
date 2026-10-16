@@ -29,5 +29,5 @@ and the setup checklist), with spec 10's "an organization's own branding … sto
   state codes (a test compares the database's list with the kernel's, so a new state needs a migration).
 - **Saves take turns** (a transaction-scoped advisory lock per organization), so the audit log's changed-field lists
   are accurate when two saves race.
-- Documents' frozen branding (ADR 0012) can read the colour and terms from here when quotes arrive; the logo comes with
-  uploads (plan 5).
+- Documents' frozen branding (ADR 0012) reads the colour and terms from here; the logo is an `organization_logo`
+  attachment (ADR 0026).

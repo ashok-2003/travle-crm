@@ -196,3 +196,24 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   `src/components/ui/README.md`.
 - Never show a `.invalid` email, and never read people from Better Auth's `/get-session`: `me.get` says who is signed
   in. Hiding a button is a convenience; the api checks every call.
+- A change's button asks `useWriteAccess(kind)` (`src/subscription/write-access.ts`, mirroring check 2) and, refused,
+  is disabled with the hint as its description; taking access away is kind `"revoke"`, open while read-only (ADR 0026).
+- A new `DomainError` reason needs its sentence in `errors.json`, a new audit action its sentence in `audit.json`
+  (`actions.<entity>.<what happened>`), a new notification kind its entry in `src/notifications/preferences/kinds.ts`:
+  a test fails otherwise.
+- Files go from the browser straight to storage: `uploadFile()` (`src/files/upload.ts`) and the reusable
+  `AttachmentsPanel`; the CSP allows `STORAGE_ORIGIN`, fixed at build time like `API_ORIGIN` and `CONSOLE_ORIGIN`.
+
+## The platform console (`/console`, ADR 0025)
+
+- A section of the web app: routes in `src/app/console/**`, code in `src/console/**`, which nothing else imports. It
+  has its own query cache (memory only, never IndexedDB) and its own tRPC hooks (`useConsoleTRPC()`), typed by
+  `type PlatformRouter` from `@travel-crm/api/platform` alone. `/api/platform/*` is rewritten to `CONSOLE_ORIGIN`
+  (`http://localhost:3002` in development; the api's `console` command serves it) before `/api/*`.
+- Platform staff sign in on the one sign-in page and land on `/console`; the step screens bring them back with
+  `?next=`. They must use two-factor (`staffProcedure` refuses `SET_UP_TWO_FACTOR`), and the challenge never trusts the
+  device on the way to the console.
+- A console screen names its title as `"<screen>"` (the layout adds "· Console · <product>"), shows times in
+  `PLATFORM_TIME_ZONE`, and checks `isSuperAdmin(useStaff())` only for convenience: the api refuses support.
+- Journeys: `test/e2e/support/console.ts` gives `superAdmin` and `support` (two-factor on) and
+  `signInToConsole(page, staff)`; the harness starts the api, the worker and the console process.

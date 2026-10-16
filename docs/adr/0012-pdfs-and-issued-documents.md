@@ -54,8 +54,8 @@ issuedAt })` returns the PDF's bytes. Templates are plain functions that build R
 - `issued_document (organization_id, pdf_attachment_id)` refers to `attachment (organization_id, id)`. The key came
   in plan 3's Integration task, with every plan 3 table's organization key, because the attachment model's
   back-relation lives in the files module's schema file.
-- The organization's logo joins the frozen branding when plan 4 stores branding settings; the renderer already draws
-  one (PNG or JPEG).
+- The organization's logo joins the frozen branding as its attachment id (`organization_logo`, ADR 0026); the worker
+  reads its bytes through the files module and draws it, and a logo it can't read is left out.
 - The PDF can't be removed or replaced through the generic Files API, which would leave the document without it or
   with another file: the files module treats `issued_document` as a system-owned record type, and `requestUpload` and
   `remove` refuse its files to everyone (`FORBIDDEN`/`SYSTEM_OWNED_FILE`). Only `storeGeneratedFile` writes them.

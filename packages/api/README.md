@@ -15,7 +15,7 @@ The web app imports the `AppRouter` type only, and the console screens the `Plat
 Check 2 (organization active) reads the organization's subscription with the member, and refuses by what the call
 does: a query views, a mutation changes. A procedure that exports data says so with `.meta({ lifecycle: "export" })`
 (allowed while read-only, and to the Owner while suspended); one that takes someone's access away, with
-`.meta({ lifecycle: "revoke" })` (allowed the same way: `staff.remove`, `staff.resetPassword`, and
+`.meta({ lifecycle: "revoke" })` (allowed the same way: `staff.list`, `staff.remove`, `staff.resetPassword`, and
 `settings.setTwoFactorRequirement`, which checks again as a change when it turns two-factor off); one every state must
 allow, so the app can say why the rest is refused, with `.meta({ lifecycle: "always" })`. Check 3 (module on the plan) comes from each procedure's
 `planModule` meta: `requires()` sets it from its first permission, and checks every permission's module before check
@@ -35,8 +35,15 @@ app's translated message. Unexpected errors say only "Something went wrong".
 ## Routers
 
 `me`, `staff`, `roles`, `settings`, `subscription` (`get`: what the organization's subscription allows today, in
-every state), `profile` (`get`, `save`, `checklist`: the business profile and the setup checklist, all three needing
-`settings:manage`). Add a router in `src/routers/` and list it in `app-router.ts`.
+every state), `organization` (`profile.get`/`update`, `branding.get`/`update`, `setup.get`, and `logo.get`,
+`requestUpload`, `confirmUpload`, `remove`: an `organization_logo` attachment, PNG or JPEG of at most 1 MB; all with
+`settings:manage`), `attachments` (the organization's own papers on record type `organization`: `list`,
+`requestUpload`, `confirmUpload`, `downloadLink`, `remove`), `documents` (`issueSample`, `list`, `get`,
+`downloadLink`: issued documents and their PDFs), `shareLinks` (`create`, `list`, `revoke`, for issued documents),
+`notifications` (`list`, `unreadCount`, `markRead`, `preferences.list`/`set`, `push.publicKey`/`subscribe`/
+`unsubscribe`, for any member) and `audit` (`list`, with `audit:view`: newest first or one record's history, each
+actor named on the server). A download link is a mutation of the export kind, never a cached query. Add a router in
+`src/routers/` and list it in `app-router.ts`.
 
 ## The platform console (`src/platform/`)
 
@@ -46,10 +53,10 @@ files import (dependency-cruiser checks that nothing the api server or the worke
 loads them. They have their own tRPC instance (`platformT`), context (`createPlatformContext(services, request,
 resHeaders)`, which always reads the session from the database) and builders:
 
-| Builder               | Checks                                                                                | Use for                                   |
-| --------------------- | ------------------------------------------------------------------------------------- | ----------------------------------------- |
-| `staffProcedure`      | signed in, platform staff of either level (no membership ever), no temporary password | everything support does                   |
-| `superAdminProcedure` | the same, and the super-admin level                                                   | plans, platform staff, permanent deletion |
+| Builder               | Checks                                                                                               | Use for                                   |
+| --------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| `staffProcedure`      | signed in, platform staff of either level (no membership ever), no temporary password, two-factor on | everything support does                   |
+| `superAdminProcedure` | the same, and the super-admin level                                                                  | plans, platform staff, permanent deletion |
 
 `platformRouter` (`src/platform/platform-router.ts`) lists them, the routers in `src/platform/routers/`:
 
@@ -57,7 +64,7 @@ resHeaders)`, which always reads the session from the database) and builders:
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | (top level)      | `whoAmI`                                                                                                                                                  |
 | `dashboard`      | `organizations`: every organization's status, plan, days left, seats, storage and this month's use                                                        |
-| `organizations`  | `onboard`, `get`, `update`, `resendInvite`                                                                                                                |
+| `organizations`  | `onboard`, `get`, `update`, `resendInvite`, `members` (the active members, for impersonation and the Owner's invite)                                      |
 | `plans`          | `list`, `policy`; super admins: `create`, `update`, `archive`, `setPolicy`                                                                                |
 | `subscriptions`  | `get`, `changePlan`, `setOverrides`, `setTrialEnd`, `setPaidThrough`, `recordPayment`, `voidPayment`, `suspend`, `cancel`; super admins: `liftSuspension` |
 | `dataProtection` | super admins: `exportOrganization` (queues it), `exports`, `downloadExport`, `requestPurge`, `exportSubject`, `requestErasure`                            |

@@ -29,3 +29,5 @@ The first and largest set of decisions is the Foundation spec: `docs/superpowers
 | [0022](0022-onboarding.md)                   | Onboarding in one transaction, the Owner's invite, and the nightly demo                   |
 | [0023](0023-permanent-deletion.md)           | Permanent deletion: purging an organization, erasing one person or record                 |
 | [0024](0024-business-profile.md)             | The organization's business profile and setup checklist                                   |
+| [0025](0025-console-screens.md)              | The console's screens: a section of the web app, one sign-in page, two-factor for staff   |
+| [0026](0026-agency-screens.md)               | The agency's remaining screens: the lifecycle shown, files to storage, the logo, the bell |

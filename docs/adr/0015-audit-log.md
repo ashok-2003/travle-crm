@@ -30,7 +30,8 @@ Date: 2026-10-15 · Status: accepted · Implements spec section 9.5, and closes 
   fields gated by a narrower permission are never recorded by value. Identity's staff entries hold ids, role keys and
   flags: no name, username or email address, and the member id leads to the user row, which erasure clears.
 - **Reading:** `listAuditEntries(tx, input)`, newest first with a cursor, or one record's history. The API checks
-  `audit:view` (Owner and Admin hold it); the router comes with the audit log viewer (plan 5).
+  `audit:view` (Owner and Admin hold it) at `audit.list`, which names each actor on the server; the viewer is
+  `/settings/audit` (ADR 0026).
 
 ## Context
 

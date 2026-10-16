@@ -58,4 +58,4 @@ in build step 2.
   `excludeUserIds` to leave out the person who acted. A request-time caller is left out automatically.
 - `setPreference` and `markRead` are refused to an impersonating actor (`FORBIDDEN`/`IMPERSONATING`): consent and
   reading are the person's own.
-- The tRPC routers for the bell and the settings come with their screens (plan 5).
+- The tRPC routers are `notifications.*` (`packages/api/src/routers/notifications.ts`).
