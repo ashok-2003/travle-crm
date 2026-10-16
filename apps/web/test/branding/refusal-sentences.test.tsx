@@ -1,8 +1,11 @@
 // The api's refusals for the documents' branding (Ruling D) show their own sentences through the usual error path: a
-// logo with more pixels than a document's header may hold, refused once storage has it.
+// logo with more pixels than a document's header may hold, refused once storage has it, and a sample past the day's
+// limit.
 import { fireEvent, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LogoPanel } from "@/branding/logo-panel";
+import { SamplePreview } from "@/branding/sample-preview";
 import type * as UploadModule from "@/files/upload";
 import { uploadFile } from "@/files/upload";
 import { messages } from "@/i18n/messages";
@@ -20,7 +23,11 @@ vi.mock("@/files/upload", async (importOriginal) => ({
 // this checks that a refusal's own sentence is shown, whatever its words.
 vi.mock("@/i18n/messages/en-IN/errors.json", async (importOriginal) => {
   const errors = await importOriginal<{ default: { reasons: Record<string, string> } }>();
-  const reasons = { LOGO_TOO_LARGE: "This image is too large for a logo.", ...errors.default.reasons };
+  const reasons = {
+    LOGO_TOO_LARGE: "This image is too large for a logo.",
+    SAMPLE_LIMIT_REACHED: "Enough samples for today.",
+    ...errors.default.reasons,
+  };
   return { ...errors, default: { ...errors.default, reasons } };
 });
 
@@ -59,5 +66,16 @@ describe("the branding's refusals", () => {
     fireEvent.change(screen.getByLabelText(messages.documents.branding.logo.fileLabel), { target: { files: [huge] } });
     expect(await screen.findByText(sentenceFor("LOGO_TOO_LARGE"))).toBeVisible();
     expect(sentenceFor("LOGO_TOO_LARGE")).not.toBe("");
+  });
+
+  it("shows the refusal of a sample past the day's limit as its sentence", async () => {
+    stubApi({
+      "documents.issueSample": { status: 429, reason: "SAMPLE_LIMIT_REACHED" },
+      "subscription.get": subscriptionAnswer(),
+    });
+    renderWithApi(<SamplePreview />, newQueryClient(null));
+    await userEvent.click(screen.getByRole("button", { name: messages.documents.sample.issue }));
+    expect(await screen.findByText(sentenceFor("SAMPLE_LIMIT_REACHED"))).toBeVisible();
+    expect(sentenceFor("SAMPLE_LIMIT_REACHED")).not.toBe("");
   });
 });
