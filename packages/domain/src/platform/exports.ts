@@ -5,7 +5,7 @@ import type { ErasureSubject, SubjectExport } from "@travel-crm/contracts/platfo
 import { asOrganization, type PlatformTx } from "@travel-crm/db/platform";
 import { auditEntriesAbout } from "../audit/index.js";
 import { exportCustomer } from "../crm/index.js";
-import { exportedFiles } from "../files/index.js";
+import { exportedFiles, type ExportedFile } from "../files/index.js";
 import { findOrganizationRecord, personExport } from "../identity/index.js";
 import { recordPlatformAudit, type PlatformActor } from "./platform-log.js";
 import type { PlatformServices } from "./services.js";
@@ -45,7 +45,15 @@ export async function exportSubject(
         entityId: record.recordId,
       }),
     }));
-    const files = await exportedFiles(tx, services.storage, { organizationId, ...record }, EXPORT_LINK_SECONDS);
+    // The record's own files, and a customer's leads' files: the erasure deletes both.
+    const records = [
+      record,
+      ...(customer?.leads ?? []).map(({ leadId }) => ({ recordType: "lead", recordId: leadId })),
+    ];
+    const files: ExportedFile[] = [];
+    for (const each of records) {
+      files.push(...(await exportedFiles(tx, services.storage, { organizationId, ...each }, EXPORT_LINK_SECONDS)));
+    }
     await recordPlatformAudit(tx, staff, {
       action: "subject.exported",
       targetType: record.recordType,
@@ -78,17 +86,18 @@ export async function hasFreshExport(tx: PlatformTx, organizationId: string, now
 }
 
 /**
- * Whether `action` was logged for the target, in the organization, within the last day: an export counts only for the
- * organization it was of, so a record's id typed for another organization finds nothing.
+ * Whether `action` was logged for the target, its type and id, in the organization, within the last day: an export
+ * counts only for the organization it was of and for the very record it was of, so a record's id typed for another
+ * organization, or under another record type (a "traveller" export of a person's id), finds nothing.
  */
 export async function exportedRecently(
   tx: PlatformTx,
   action: string,
-  targetId: string,
+  target: { targetType: string; targetId: string },
   now: Date,
   organizationId: string,
 ): Promise<boolean> {
   const since = new Date(now.getTime() - EXPORT_VALID_FOR_MS);
-  const where = { action, targetId, targetOrganizationId: organizationId, occurredAt: { gte: since } };
+  const where = { action, ...target, targetOrganizationId: organizationId, occurredAt: { gte: since } };
   return (await tx.platformAuditEntry.count({ where })) > 0;
 }

@@ -10,11 +10,14 @@ import { exportedRecently } from "./exports.js";
 /** Why an erasure can't go ahead now: the request refuses, and the job skips and logs it. */
 export type ErasureBlocker = "organization-gone" | "no-recent-export";
 
-/** What stands in an erasure's way: its organization must still exist, and the subject be exported within a day. */
+/**
+ * What stands in an erasure's way: its organization must still exist, and the subject (its record type and id) be
+ * exported within a day.
+ */
 export async function erasureBlocker(
   tx: PlatformTx,
   organizationId: string,
-  record: { recordId: string },
+  record: { recordType: string; recordId: string },
   now: Date,
 ): Promise<ErasureBlocker | null> {
   try {
@@ -23,7 +26,8 @@ export async function erasureBlocker(
     if (error instanceof DomainError && error.reason === "ORGANIZATION_NOT_FOUND") return "organization-gone";
     throw error;
   }
-  const exported = await exportedRecently(tx, "subject.exported", record.recordId, now, organizationId);
+  const target = { targetType: record.recordType, targetId: record.recordId };
+  const exported = await exportedRecently(tx, "subject.exported", target, now, organizationId);
   return exported ? null : "no-recent-export";
 }
 

@@ -190,7 +190,7 @@ describe("erasing a record", () => {
 
   it("checks again on the platform transaction, whatever ran in an organization's step before", async () => {
     const agency = await deletionAgency(test, plan);
-    const record = { recordId: traveller };
+    const record = { recordType: "traveller", recordId: traveller };
     const afterAStep = (now: Date) =>
       test.services.platformDb.transaction(async (tx) => {
         // Earlier work in a step sees only this organization: none of it may carry into the check.
@@ -378,6 +378,10 @@ describe("erasing a customer", () => {
     expect(exported.customer).toMatchObject({ personId: customer.person.id, name: "Neha Joshi" });
     expect(exported.customer?.leads.map((lead) => lead.notes.length)).toEqual([1, 0]);
     expect(exported.auditEntries.map((entry) => entry.action)).toEqual(["person.added"]);
+    // The erasure deletes the files on their leads, so the export holds them.
+    expect(exported.files.map((file) => [file.recordType, file.recordId, file.fileName])).toEqual([
+      ["lead", customer.leadIds[0], "Neha Joshi.pdf"],
+    ]);
     const traveller = await exportSubject(test.services, support, {
       organizationId,
       subject: { kind: "record", recordType: "traveller", recordId: customer.person.id },
@@ -386,6 +390,32 @@ describe("erasing a customer", () => {
     const logged = await platform.platformAuditEntry.findFirstOrThrow({
       where: { action: "subject.exported", targetOrganizationId: organizationId, targetType: "person" },
     });
-    expect(logged.after).toEqual({ auditEntries: 1, files: 0, leads: 2 });
+    expect(logged.after).toEqual({ auditEntries: 1, files: 1, leads: 2 });
+  });
+
+  it("erases a customer only after an export of them, not of another record type with their id", async () => {
+    const agency = await deletionAgency(test, plan);
+    const customer = await aCustomer(agency, "Ishaan Das");
+    const { organizationId, code } = agency;
+    const recordId = customer.person.id;
+    const person = { kind: "record" as const, recordType: "person", recordId };
+    await exportSubject(test.services, support, {
+      organizationId,
+      subject: { kind: "record", recordType: "traveller", recordId },
+    });
+
+    await expect(
+      requestErasure(test.services, support, { organizationId, subject: person, confirmation: code }),
+    ).rejects.toMatchObject({ reason: "EXPORT_FIRST" });
+    await eraseSubject(test.services, { organizationId, subject: person, requestedBy: supportUserId });
+
+    expect(await platform.person.findUniqueOrThrow({ where: { id: recordId } })).toMatchObject({
+      name: "Ishaan Das",
+      erasedAt: null,
+    });
+    const skipped = await platform.platformAuditEntry.findFirstOrThrow({
+      where: { action: "subject.erasure-skipped", targetOrganizationId: organizationId },
+    });
+    expect(skipped).toMatchObject({ targetType: "person", after: { reason: "no-recent-export" } });
   });
 });

@@ -5,18 +5,16 @@
 import { randomUUID } from "node:crypto";
 import type { ErasureSubject, QueuedJob, RequestErasureInput } from "@travel-crm/contracts/platform";
 import { erasureSubject } from "@travel-crm/contracts/platform";
-import { asOrganization, type PlatformTx } from "@travel-crm/db/platform";
 import { ownMessage, type JobData } from "@travel-crm/integrations/jobs";
 import { recordAudit, redactAuditEntries } from "../audit/index.js";
-import { eraseCustomer, type CustomerSubject } from "../crm/index.js";
 import { deleteRecordFiles } from "../files/index.js";
 import { erasePerson, findOrganizationRecord, personExport } from "../identity/index.js";
-import { DomainError, isUuid, platformActor, systemActor, type Actor } from "../kernel/index.js";
+import { DomainError, isUuid, platformActor, systemActor } from "../kernel/index.js";
 import { forgetRecipient, forgetRecordNotifications } from "../notifications/index.js";
 import { forgetRecordShareLinks } from "../share-links/index.js";
-import { cancelOpenTasks, redactTaskTitles } from "../tasks/index.js";
 import { tombstoneWebhookEvents } from "../webhooks/index.js";
 import { assertErasableRecordType, erasedFor, erasureBlocker } from "./deletion-checks.js";
+import { eraseCustomerParts } from "./erase-customer.js";
 import { subjectRecord } from "./exports.js";
 import { deleteFilesAfterCommit } from "./file-deletions.js";
 import { expireOrganizationExports } from "./organization-export-expiry.js";
@@ -105,36 +103,6 @@ export async function requestErasure(
     id: jobId,
   });
   return { jobId };
-}
-
-/**
- * A customer's part (R38): crm empties and soft-deletes them and their leads, with the leads' notes, repeat enquiries
- * and blocked contacts. Each lead's open tasks are cancelled, since a task on an erased lead would sit in someone's
- * Today for ever, and every one of their titles emptied; the notifications and files about each lead go. Counts only,
- * for the platform log.
- */
-async function eraseCustomerParts(tx: PlatformTx, actor: Actor, subject: CustomerSubject, now: Date) {
-  const { organizationId } = subject;
-  const { leadIds, ...erased } = await eraseCustomer(tx, subject);
-  const leads = leadIds.map((recordId) => ({ organizationId, recordType: "lead", recordId }));
-  // Module code for one organization runs in a step, as the runtime role: its audit entries and events name it.
-  const tasksCancelled = await asOrganization(tx, organizationId, async (orgTx) => {
-    let cancelled = 0;
-    for (const lead of leads) cancelled += (await cancelOpenTasks(orgTx, actor, lead, now)).length;
-    return cancelled;
-  });
-  const taskTitles = await redactTaskTitles(tx, { organizationId, recordType: "lead", recordIds: leadIds });
-  let notifications = 0;
-  let files = 0;
-  for (const lead of leads) {
-    notifications += await forgetRecordNotifications(tx, {
-      organizationId,
-      recordId: lead.recordId,
-      sourceEventIds: [],
-    });
-    files += await deleteRecordFiles(tx, lead, now);
-  }
-  return { leads: leadIds.length, ...erased, tasksCancelled, taskTitles, notifications, files };
 }
 
 /**
