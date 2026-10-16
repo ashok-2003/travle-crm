@@ -9,7 +9,6 @@ import { addLeadWorkInput, type AddLeadWorkInput } from "@travel-crm/contracts/c
 import { addTaskInput, type AddTaskInput } from "@travel-crm/contracts/tasks";
 import { calendarDateIn } from "@travel-crm/domain/kernel";
 import { useTranslations } from "next-intl";
-import { useEffect } from "react";
 import { Controller, type Control } from "react-hook-form";
 import type { z } from "zod";
 import { FormField } from "@/components/form-field";
@@ -20,11 +19,10 @@ import { SelectField } from "@/components/forms/select-field";
 import { TextField } from "@/components/forms/text-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { FieldGroup } from "@/components/ui/field";
-import { refusalOf } from "@/data/api-error";
 import { useLeadOwners } from "@/leads/use-lead-owners";
-import { useErrorMessage } from "@/lib/error-message";
 import { useHolds, useMe } from "@/session/me-context";
 import { LeadPicker, type PickedLead } from "./lead-picker";
+import { useRefusalOnField } from "./use-refusal-on-field";
 
 /** What the form sends: a task on a lead, or one standing alone. */
 export type NewTask = { on: "lead"; work: AddLeadWorkInput } | { on: null; task: AddTaskInput };
@@ -89,7 +87,6 @@ export function AddTaskForm({ formId, add }: { formId: string; add: Sending<NewT
   const me = useMe();
   const mayLink = useHolds("leads:edit");
   const mayAssign = useHolds("leads:assign");
-  const { apiError } = useErrorMessage();
   const { form, onSubmit, formProblem } = useCheckedForm<TaskValues, NewTask, Problem | "required">(
     {
       title: "",
@@ -102,10 +99,7 @@ export function AddTaskForm({ formId, add }: { formId: string; add: Sending<NewT
     (problem) => t(`problems.${problem}`),
   );
   const lead = form.watch("lead");
-  const pastDue = refusalOf(add.error)?.reason === "DUE_IN_THE_PAST";
-  useEffect(() => {
-    if (pastDue) form.setError("time", { message: apiError(add.error) });
-  }, [pastDue, add.error, form, apiError]);
+  const refusal = useRefusalOnField(form, add.error, { DUE_IN_THE_PAST: "time" });
   return (
     <form id={formId} noValidate onSubmit={onSubmit(add.mutate)} className="flex flex-col gap-4">
       <FieldGroup>
@@ -124,8 +118,7 @@ export function AddTaskForm({ formId, add }: { formId: string; add: Sending<NewT
         )}
         {mayAssign && lead === null && <AssigneeField control={form.control} />}
       </FieldGroup>
-      {/* A time already past is said on the time field, not again here. */}
-      <FormAlert sending={pastDue ? { error: null } : add} problem={formProblem} />
+      <FormAlert sending={{ error: refusal }} problem={formProblem} />
     </form>
   );
 }
