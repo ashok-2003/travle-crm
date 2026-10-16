@@ -18,7 +18,7 @@ import { replacePage } from "@/lib/navigate";
 import { pendingStepRoute, routes } from "@/lib/routes";
 import { SignOutButton } from "@/shell/sign-out";
 import { StopImpersonatingButton } from "@/shell/stop-impersonating";
-import { isSignedInMember, MeProvider } from "./me-context";
+import { isPlatformStaff, isSignedInMember, MeProvider } from "./me-context";
 
 export function SessionGate({ children }: { children: ReactNode }) {
   const t = useTranslations("shell.session");
@@ -28,7 +28,7 @@ export function SessionGate({ children }: { children: ReactNode }) {
   const pendingStep = me.data?.pendingStep ?? null;
   // Only the member can take their step: support signed in as them is shown it instead.
   const stepToTake = me.data?.impersonatedBy ? null : pendingStep;
-  const platformStaff = me.data?.isPlatformAdmin === true && me.data.organization === null;
+  const platformStaff = me.data !== undefined && isPlatformStaff(me.data);
 
   useEffect(() => {
     if (stepToTake) replacePage(pendingStepRoute(stepToTake));
