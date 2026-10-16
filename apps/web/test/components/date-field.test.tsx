@@ -100,7 +100,7 @@ describe("DateField", () => {
     expect(onSave).toHaveBeenCalledWith("2026-10-30");
   });
 
-  it("opens at the chosen day's month, weeks from Monday, its days 44px and named in the app's words", async () => {
+  it("opens at the chosen day's month, weeks from Monday, its days 44px (40px under 360px) and named in the app's words", async () => {
     renderField("2027-03-14");
     const popover = await openCalendar("Paid on 14/03/2027");
     expect(within(popover).getByRole("grid", { name: "March 2027" })).toBeVisible();
@@ -111,7 +111,10 @@ describe("DateField", () => {
     expect(within(popover).getByRole("combobox", { name: calendar.month })).toBeVisible();
     expect(within(popover).getByRole("button", { name: calendar.previousMonth })).toBeVisible();
     expect(within(popover).getByRole("navigation", { name: calendar.navigation })).toBeVisible();
-    expect(popover.querySelector("[data-slot=calendar]")).toHaveClass("[--cell-size:--spacing(11)]");
+    expect(popover.querySelector("[data-slot=calendar]")).toHaveClass(
+      "[--cell-size:--spacing(10)]",
+      "min-[360px]:[--cell-size:--spacing(11)]",
+    );
   });
 
   it("opens at today's month while no day is chosen, and says which day is today", async () => {
