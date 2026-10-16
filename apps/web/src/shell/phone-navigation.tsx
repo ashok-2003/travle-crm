@@ -57,6 +57,7 @@ export function PhoneNavigation({
   return (
     <nav
       aria-label={label}
+      data-phone-navigation
       className="fixed inset-x-0 bottom-0 z-(--z-sticky) bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       <Separator />
