@@ -50,15 +50,18 @@
     "intro": "A few things to do before your first quotation. Each step opens the screen where it is done.",
     "homeHeading": "Finish setting up {organization}",
     "progress": "{done} of {total} done",
+    "everyStep": "See every step",
     "allDone": "Everything is set up.",
     "loadFailed": "The setup checklist didn't load.",
     "done": "Done",
     "toDo": "To do",
     "steps": {
-      "business-details": { "title": "Business details", "hint": "Your address and a contact phone" },
+      "business-details": { "title": "Business details", "hint": "Your legal name and address" },
+      "contact-phone": { "title": "Contact phone", "hint": "The number your customers and your documents show" },
+      "logo": { "title": "Logo", "hint": "Your logo, on your quotations and invoices" },
+      "branding": { "title": "Branding", "hint": "Your colour and terms, on the documents you issue" },
       "bank-details": { "title": "Bank details", "hint": "The account your customers pay into" },
       "invoice-prefix": { "title": "Invoice prefix", "hint": "The letters your invoice numbers start with" },
-      "branding": { "title": "Branding", "hint": "Your colour and terms, on the documents you issue" },
       "staff": { "title": "Staff", "hint": "Add your staff and give each a role" }
     }
   },

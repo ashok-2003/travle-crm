@@ -1,7 +1,7 @@
 // Two-factor sign-in (spec 6.2): optional per person, required for everyone when an owner says so, with the setup
 // endpoints left open to those who still need them, and no placeholder email shown in the authenticator app.
 import type { MeOutput } from "@travel-crm/contracts/identity";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { CookieJar } from "./support/cookie-jar.js";
 import { addStaff, signedInOwner, signedInStaff } from "./support/people.js";
 import {
@@ -14,6 +14,9 @@ import {
 } from "./support/test-server.js";
 import { dataOf, mutate, query, refusalOf } from "./support/trpc.js";
 import { codeFor, enableTwoFactor } from "./support/two-factor.js";
+
+// Two-factor is off in the product (@travel-crm/contracts/features): these tests prove what turning it on brings.
+vi.mock("@travel-crm/contracts/features", () => ({ features: { twoFactor: true } }));
 
 describe("two-factor sign-in", () => {
   let server: TestServer;

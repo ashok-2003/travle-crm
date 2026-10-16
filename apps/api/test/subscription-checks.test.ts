@@ -14,7 +14,7 @@ import {
   type TestServer,
 } from "./support/test-server.js";
 import { dataOf, mutate, query, refusalOf } from "./support/trpc.js";
-import { enableTwoFactor } from "./support/two-factor.js";
+import { enableTwoFactorIfOn } from "./support/two-factor.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -43,13 +43,13 @@ describe("the subscription's request check", () => {
     return { agency, owner: await signedInOwner(server, agency) };
   }
 
-  const changeTwoFactor = (jar: CookieJar) =>
-    mutate(server, "settings.setTwoFactorRequirement", { required: false }, jar);
+  /** A change like any other. */
+  const renameRole = (jar: CookieJar) => mutate(server, "roles.update", { key: "sales", name: "Sales team" }, jar);
 
   it("lets a read-only organization's staff look but not change anything, and says until when", async () => {
     const { owner } = await agencyWith({ status: "read_only" });
     expect((await query(server, "settings.get", owner)).status).toBe(200);
-    expect(await refusalOf(await changeTwoFactor(owner))).toEqual({ status: 403, reason: "ORGANIZATION_READ_ONLY" });
+    expect(await refusalOf(await renameRole(owner))).toEqual({ status: 403, reason: "ORGANIZATION_READ_ONLY" });
     const overview = await dataOf<SubscriptionOverview>(await query(server, "subscription.get", owner));
     expect(overview).toMatchObject({ status: "read_only", access: "read_only", planName: "Everything (tests)" });
     expect(overview.nextChangeOn).not.toBeNull();
@@ -76,7 +76,7 @@ describe("the subscription's request check", () => {
       status: "past_due",
       access: "full",
     });
-    expect((await changeTwoFactor(owner)).status).toBe(200);
+    expect((await renameRole(owner)).status).toBe(200);
   });
 
   it("ends support's impersonation the moment its session is gone, though the cookie cache still holds it", async () => {
@@ -84,8 +84,8 @@ describe("the subscription's request check", () => {
     const admin = await createPlatformAdmin(server);
     const jar = new CookieJar();
     await signInByEmail(server, jar, admin.email, admin.password);
-    // Support impersonates only with two-factor on (impersonation-two-factor.test.ts in the domain).
-    await enableTwoFactor(server, jar, admin.password);
+    // Support impersonates only with two-factor on, while it is (impersonation-two-factor.test.ts in the domain).
+    await enableTwoFactorIfOn(server, jar, admin.password);
     jar.absorb(await postJson(server, "/api/auth/admin/impersonate-user", { userId: agency.owner.userId }, jar));
     expect((await query(server, "settings.get", jar)).status).toBe(200);
     await server.platform.session.deleteMany({ where: { impersonatedBy: admin.userId } });

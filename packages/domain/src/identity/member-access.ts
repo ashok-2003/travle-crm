@@ -1,4 +1,5 @@
 // Who is acting in an organization: their membership, role and permissions, read from the database on every request.
+import { features } from "@travel-crm/contracts/features";
 import type { PendingStep } from "@travel-crm/contracts/identity";
 import type { Actor } from "../kernel/index.js";
 import type { PermissionSet } from "./permission-set.js";
@@ -19,12 +20,15 @@ export interface MemberAccess extends Actor {
 
 /**
  * What the member must do before the organization app lets them in, or null when nothing. The setup endpoints they
- * need (Better Auth's /change-password and /two-factor/*, and me.get) stay open.
+ * need (Better Auth's /change-password and /two-factor/*, and me.get) stay open. With features.twoFactor off, never
+ * two-factor, whatever the organization's stored requirement says.
  */
 export function pendingStep(
   access: Pick<MemberAccess, "mustChangePassword" | "twoFactorEnabled" | "organizationRequiresTwoFactor">,
 ): PendingStep | null {
   if (access.mustChangePassword) return "CHANGE_PASSWORD";
-  if (access.organizationRequiresTwoFactor && !access.twoFactorEnabled) return "SET_UP_TWO_FACTOR";
+  if (features.twoFactor && access.organizationRequiresTwoFactor && !access.twoFactorEnabled) {
+    return "SET_UP_TWO_FACTOR";
+  }
   return null;
 }

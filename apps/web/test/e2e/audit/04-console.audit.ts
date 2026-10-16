@@ -1,4 +1,4 @@
-// The visual audit's console screens: a super admin's (two-factor on) dashboard, onboarding with the calendar open, an
+// The visual audit's console screens: a super admin's dashboard, onboarding with the calendar open, an
 // organization's page with a payment recorded and its dialogs, plans and the policy, jobs with a failed job and a
 // leftover schedule, the platform log, platform staff and the password handover, and data protection with an
 // export; then support's dashboard and organization page, and support signed in as the agency's Owner.

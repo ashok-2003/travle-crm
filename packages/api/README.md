@@ -62,6 +62,8 @@ resHeaders)`, which always reads the session from the database) and builders:
 | `staffProcedure`      | signed in, platform staff of either level (no membership ever), no temporary password, two-factor on | everything support does                   |
 | `superAdminProcedure` | the same, and the super-admin level                                                                  | plans, platform staff, permanent deletion |
 
+While `features.twoFactor` is off (owner, 2026-10-16; ADR 0025), `staffProcedure` doesn't ask for two-factor.
+
 `platformRouter` (`src/platform/platform-router.ts`) lists them, the routers in `src/platform/routers/`:
 
 | Router           | Procedures                                                                                                                                                |

@@ -1,8 +1,8 @@
 # profile
 
 An organization's business profile (spec 7.1): what the platform enters at onboarding (legal name, GSTIN, the GST
-state, a contact) and what its Owner completes on the setup checklist (address, bank details, invoice prefix,
-branding for its documents).
+state, a contact) and what its Owner completes on the setup checklist (address, contact phone, logo, branding for its
+documents, bank details, invoice prefix).
 
 ## Public functions and values (`index.ts`)
 
@@ -15,8 +15,10 @@ branding for its documents).
   `PROFILE_NOT_SAVED` (CONFLICT) before a profile exists.
 - `createProfiles({ db })`: the api's `Profiles`, `get(organizationId)`, `save`, `update` and `saveBranding`, each in
   the organization's own transaction.
-- `setupChecklistOf(profile, activeStaff)`: the checklist's steps (`business-details`, `bank-details`,
-  `invoice-prefix`, `branding`, `staff`) and whether each is done.
+- `setupChecklistOf({ profile, activeStaff, hasLogo })`: the checklist's steps, in the order an Owner takes them, and
+  whether each is done: `business-details` (the legal name and the address), `contact-phone`, `logo` (one confirmed),
+  `branding` (the colour or the terms), `bank-details` (the account number and the IFSC), `invoice-prefix` and `staff`
+  (someone besides the Owner).
 
 ## Events
 

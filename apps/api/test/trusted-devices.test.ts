@@ -2,13 +2,16 @@
 // (ADR 0025): platform staff type their code at every sign-in, whatever they ticked, and a device trusted before they
 // became platform staff lapses at their next sign-in. The api ignores the request rather than refusing it, as the
 // challenge screen can't know who is signing in.
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { signedInPlatformStaff } from "./support/console.js";
 import { CookieJar } from "./support/cookie-jar.js";
 import { signedInOwner } from "./support/people.js";
 import { createTestAgency, createTestServer, postJson, signInByEmail, type TestServer } from "./support/test-server.js";
 import { query } from "./support/trpc.js";
 import { codeFor, enableTwoFactor } from "./support/two-factor.js";
+
+// Two-factor is off in the product (@travel-crm/contracts/features): these tests prove what turning it on brings.
+vi.mock("@travel-crm/contracts/features", () => ({ features: { twoFactor: true } }));
 
 const TRUST_COOKIE = "better-auth.trust_device";
 

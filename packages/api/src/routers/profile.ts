@@ -12,7 +12,7 @@ import {
 import { setupChecklistOf } from "@travel-crm/domain/profile";
 import { freshProcedure, orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
-import { logoRouter } from "./logo.js";
+import { currentLogo, logoRouter } from "./logo.js";
 
 const profileRouter = router({
   get: orgProcedure
@@ -45,11 +45,12 @@ const setupRouter = router({
     .requires("settings:manage")
     .output(setupChecklist)
     .query(async ({ ctx }) => {
-      const [profile, staff] = await Promise.all([
+      const [profile, staff, logo] = await Promise.all([
         ctx.profiles.get(ctx.member.organizationId),
         ctx.identity.staff.list(ctx.member),
+        currentLogo(ctx.files, ctx.member),
       ]);
-      return setupChecklistOf(profile, staff.length);
+      return setupChecklistOf({ profile, activeStaff: staff.length, hasLogo: logo !== undefined });
     }),
 });
 

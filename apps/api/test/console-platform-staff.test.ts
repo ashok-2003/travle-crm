@@ -4,7 +4,7 @@
 // name, an address or a temporary password, which appears nowhere but in its one response.
 import type { AddedPlatformStaff, PlatformStaffEntry, TemporaryPasswordOutput } from "@travel-crm/contracts/platform";
 import { createPgBossJobs, type PgBossJobs } from "@travel-crm/integrations/jobs";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   consoleMutate,
   consoleQuery,
@@ -25,6 +25,9 @@ import {
 } from "./support/test-server.js";
 import { dataOf, refusalOf } from "./support/trpc.js";
 import { enableTwoFactor } from "./support/two-factor.js";
+
+// Two-factor is off in the product (@travel-crm/contracts/features): these tests prove what turning it on brings.
+vi.mock("@travel-crm/contracts/features", () => ({ features: { twoFactor: true } }));
 
 const newAddress = (who: string) => `${who}-${crypto.randomUUID()}@platform.test`;
 

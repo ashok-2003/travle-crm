@@ -3,6 +3,7 @@
 // "Add platform staff": the form, then the details to hand over once the person exists: their address and the
 // temporary password the api made, shown this once. The request is the dialog's (its success is the mutation's own),
 // and while it is out nothing closes the dialog.
+import { features } from "@travel-crm/contracts/features";
 import type { AddedPlatformStaff, AddPlatformStaffInput } from "@travel-crm/contracts/platform";
 import { UserPlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -48,7 +49,11 @@ export function AddStaffDialog() {
         onOpenChange={changeOpen}
         busy={add.isPending}
         title={added ? t("handover.added", { name: added.input.name }) : t("addForm.title")}
-        description={added ? t("handover.shownOnce") : t("addForm.description")}
+        description={
+          added
+            ? t("handover.shownOnce")
+            : t(features.twoFactor ? "addForm.descriptionWithTwoFactor" : "addForm.description")
+        }
         cancel={added === null}
         footer={
           added ? (

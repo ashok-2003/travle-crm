@@ -1,8 +1,11 @@
 // The organization's two-factor requirement (spec 6.2) against Postgres: who may switch it, and what it asks of members.
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
-import { afterAll, beforeAll, beforeEach, describe, expect, inject, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, inject, it, vi } from "vitest";
 import type { MemberAccess } from "../../src/identity/member-access.js";
 import { createTestAgency, createTestIdentity, type TestAgency, type TestIdentity } from "./test-identity.js";
+
+// Two-factor is off in the product (@travel-crm/contracts/features): these tests prove what turning it on brings.
+vi.mock("@travel-crm/contracts/features", () => ({ features: { twoFactor: true } }));
 
 describe("two-factor requirement", () => {
   let platform: PlatformClient;

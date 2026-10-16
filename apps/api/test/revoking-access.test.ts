@@ -1,12 +1,15 @@
 // Revoking access in every state an organization can still sign in to (ADR 0021): while read-only, an Owner and an
 // Admin with staff:manage may still remove staff, give a new temporary password and turn two-factor on, and nothing
 // else; while suspended, the Owner alone, who may also list the staff to choose whom. Security outranks billing.
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { CookieJar } from "./support/cookie-jar.js";
 import { addStaff, signedInOwner, signedInStaff, type TestStaff } from "./support/people.js";
 import { createTestAgency, createTestServer, type TestServer } from "./support/test-server.js";
 import { mutate, query, refusalOf } from "./support/trpc.js";
 import { enableTwoFactor } from "./support/two-factor.js";
+
+// Two-factor is off in the product (@travel-crm/contracts/features): these tests prove what turning it on brings.
+vi.mock("@travel-crm/contracts/features", () => ({ features: { twoFactor: true } }));
 
 /** Someone who can revoke access, signed in with two-factor on, and two members to cut off. */
 interface Revoker {

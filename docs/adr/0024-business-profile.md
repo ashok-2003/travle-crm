@@ -12,8 +12,9 @@ and the setup checklist), with spec 10's "an organization's own branding … sto
 - **Not on the `organization` table.** That table has no row-level security (sign-in reads it), so every
   organization's bank details there would be readable by any query of it. The organization's name, code, time zone and
   contact email stay where sign-in and email need them.
-- **The setup checklist is computed**, from the profile and the active staff count: business details, bank details,
-  invoice prefix, branding, staff. The logo, WhatsApp and lead import join when their steps exist.
+- **The setup checklist is computed**, from the profile, the logo and the active staff count: business details (legal
+  name and address), contact phone, logo, branding, bank details, invoice prefix, staff. WhatsApp and lead import join
+  when their steps exist.
 - **The audit log names the fields that changed**, never their values.
 
 ## Consequences

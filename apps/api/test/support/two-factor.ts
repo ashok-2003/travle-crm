@@ -1,5 +1,6 @@
 // Two-factor sign-in for tests: turn it on through Better Auth's own endpoints and produce valid authenticator codes.
 import { base32 } from "@better-auth/utils/base32";
+import { features } from "@travel-crm/contracts/features";
 import type { CookieJar } from "./cookie-jar.js";
 import { postJson, type TestServer } from "./test-server.js";
 
@@ -24,6 +25,18 @@ export async function enableTwoFactor(server: TestServer, jar: CookieJar, passwo
   );
   if (!verify.ok) throw new Error(`two-factor verify failed with ${String(verify.status)}`);
   return { totpUri: totpURI, secret, backupCodes };
+}
+
+/**
+ * Turns on two-factor for platform staff who need it while features.twoFactor is on (the console and support's
+ * impersonation require it then). Off, the endpoints don't exist and nothing needs it: null.
+ */
+export async function enableTwoFactorIfOn(
+  server: TestServer,
+  jar: CookieJar,
+  password: string,
+): Promise<TwoFactorSetup | null> {
+  return features.twoFactor ? enableTwoFactor(server, jar, password) : null;
 }
 
 /** The current authenticator code for a secret, as the person's phone would show it. */

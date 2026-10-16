@@ -1,6 +1,7 @@
-// The app shell: a signed-in member lands in their organization with the navigation their role allows, every page
-// carries the security headers, and signing out leaves no organization data on the device, offline too. Each
-// journey's last screen also gets the automatic accessibility check (support/accessible-after-each.ts).
+// The app shell: a signed-in member lands in their organization with the navigation their role allows (Sales without
+// the setup card), every page carries the security headers, and signing out leaves no organization data on the device,
+// offline too. Each journey's last screen also gets the automatic accessibility check
+// (support/accessible-after-each.ts).
 import type { Page, TestInfo } from "@playwright/test";
 import { expect, signInByCode, signInByEmail, test } from "./support/fixtures";
 
@@ -23,12 +24,20 @@ test("an Owner sees their organization and every destination", async ({ page, ag
 test("a salesperson sees only what their role allows", async ({ page, addStaff, agency }) => {
   const ravi = await addStaff({ name: "Ravi Kumar", username: "ravi", roleKey: "sales" });
   await signInByCode(page, { code: agency.code, staff: ravi });
+  const setupAsked: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("organization.setup.get")) setupAsked.push(request.url());
+  });
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1, name: "Welcome, Ravi Kumar" })).toBeVisible();
   const navigation = page.getByRole("navigation", { name: "Main" }).filter({ visible: true });
   await expect(navigation.getByRole("link", { name: "Home" })).toBeVisible();
   await expect(navigation.getByRole("link", { name: "Staff" })).toHaveCount(0);
   await expect(page.getByText("Your work will show here.")).toBeVisible();
+  // The setup card is for those who may change the settings: Sales never even asks for it.
+  await page.waitForLoadState("networkidle");
+  expect(setupAsked).toEqual([]);
+  await expect(page.getByRole("region", { name: /^Finish setting up/ })).toHaveCount(0);
 });
 
 test("the phone's More sheet holds the account and sign-out", async ({ page, agency }, testInfo) => {

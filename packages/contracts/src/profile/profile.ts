@@ -116,8 +116,19 @@ export const brandingDetails = organizationProfileDetails.pick({
 });
 export type BrandingDetails = z.infer<typeof brandingDetails>;
 
-/** The setup checklist an Owner lands on after onboarding (spec 7.1), as far as the Foundation has its steps. */
-export const setupStep = z.enum(["business-details", "bank-details", "invoice-prefix", "branding", "staff"]);
+/**
+ * The setup checklist an Owner lands on after onboarding (spec 7.1), as far as the Foundation has its steps: in the
+ * order they are taken, which is the order the checklist lists them.
+ */
+export const setupStep = z.enum([
+  "business-details",
+  "contact-phone",
+  "logo",
+  "branding",
+  "bank-details",
+  "invoice-prefix",
+  "staff",
+]);
 export type SetupStep = z.infer<typeof setupStep>;
 
 export const setupChecklist = z.object({

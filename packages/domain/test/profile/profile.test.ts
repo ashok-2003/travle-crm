@@ -1,7 +1,6 @@
 // An organization's business profile (spec 7.1): saved whole in its own organization, the changed fields recorded by
-// name and never by value, and the setup checklist read from it.
+// name and never by value. The setup checklist read from it is in setup-checklist.test.ts.
 import {
-  type OrganizationProfileDetails,
   saveBrandingInput,
   saveOrganizationProfileInput,
   updateOrganizationProfileInput,
@@ -15,7 +14,6 @@ import {
   getOrganizationProfile,
   saveOrganizationBranding,
   saveOrganizationProfile,
-  setupChecklistOf,
   updateOrganizationProfile,
 } from "../../src/profile/index.js";
 
@@ -144,69 +142,5 @@ describe("the business profile", () => {
       const entries = await db.forOrg(owner.organizationId, (tx) => tx.auditEntry.findMany());
       expect(entries, `trial ${String(trial)}`).toHaveLength(1);
     }
-  });
-
-  describe("the setup checklist", () => {
-    const complete: OrganizationProfileDetails = {
-      ...details,
-      address: "Fort Kochi",
-      contactPhone: "+919876543210",
-      bankAccountNumber: "001234567890",
-      bankIfsc: "HDFC0001234",
-      invoicePrefix: "KT",
-      brandColour: "#1f6f5c",
-      documentTerms: "Payment due on booking.",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-    };
-
-    const doneSteps = (profile: OrganizationProfileDetails | null, staff: number) =>
-      setupChecklistOf(profile, staff)
-        .steps.filter((step) => step.done)
-        .map((step) => step.step);
-
-    it("is done when every step is", () => {
-      expect(setupChecklistOf(complete, 2)).toMatchObject({ done: true });
-      expect(doneSteps(complete, 2)).toHaveLength(5);
-    });
-
-    // Each row misses one field of a step that needs several: an && turned || would call the step done.
-    it.each([
-      ["business-details", { address: null }],
-      ["business-details", { contactPhone: null }],
-      ["bank-details", { bankAccountNumber: null }],
-      ["bank-details", { bankIfsc: null }],
-      ["invoice-prefix", { invoicePrefix: null }],
-    ] as const)("does not call %s done when %o is missing", (step, missing) => {
-      expect(doneSteps({ ...complete, ...missing }, 2)).not.toContain(step);
-      expect(setupChecklistOf({ ...complete, ...missing }, 2).done).toBe(false);
-    });
-
-    // Branding needs only one of its two fields: an || turned && would refuse a colour alone.
-    it.each([
-      [{ brandColour: null }, true],
-      [{ documentTerms: null }, true],
-      [{ brandColour: null, documentTerms: null }, false],
-    ] as const)("calls branding done for %o: %s", (missing, done) => {
-      expect(doneSteps({ ...complete, ...missing }, 2).includes("branding")).toBe(done);
-    });
-
-    it("counts the Owner alone as no staff yet", () => {
-      expect(doneSteps(complete, 1)).not.toContain("staff");
-      expect(doneSteps(complete, 2)).toContain("staff");
-    });
-  });
-
-  it("lists the setup steps done and to do", () => {
-    const empty = setupChecklistOf(null, 1);
-    expect(empty).toEqual({
-      steps: [
-        { step: "business-details", done: false },
-        { step: "bank-details", done: false },
-        { step: "invoice-prefix", done: false },
-        { step: "branding", done: false },
-        { step: "staff", done: false },
-      ],
-      done: false,
-    });
   });
 });

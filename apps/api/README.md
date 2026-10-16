@@ -15,6 +15,8 @@ The api: one Hono app on Node. Settings come from environment variables (`src/en
 | `GET /p/<token>`             | a share link (ADR 0013): an issued document's PDF; 30 requests a minute per address              |
 | `POST /webhooks/<provider>`  | the webhook intake (ADR 0013): verify, store, 200, queue; 600 a minute per address               |
 
+`/api/auth/two-factor/*` exists only while `features.twoFactor` is on; it is off (owner, 2026-10-16; ADR 0006).
+
 ## The worker
 
 `pnpm --filter @travel-crm/api-server worker` starts the worker from the same code and image (spec 9.1). It needs the

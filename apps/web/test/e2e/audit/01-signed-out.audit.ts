@@ -1,7 +1,8 @@
 // The visual audit's signed-out screens and the steps the api can insist on: sign-in on both tabs, a forgotten
 // password reset from the link Mailpit received, the offline and unknown pages, a share link that doesn't work, a
-// temporary password to replace, two-factor set up because the organization requires it, the two-factor challenge
-// and the account it leads to.
+// temporary password to replace, and Your account. While features.twoFactor is on, also two-factor set up because the
+// organization requires it, and the two-factor challenge that leads to the account.
+import { features } from "@travel-crm/contracts/features";
 import { signInWithCode } from "../support/account-steps";
 import { expect, signInByEmail, test } from "../support/fixtures";
 import { resetLinkSentTo } from "../support/mailpit";
@@ -52,12 +53,7 @@ test("signed out: sign-in, a password reset, the offline and unknown pages", asy
   await shoot(page, "share-link-not-found");
 });
 
-test("the steps the api insists on: a temporary password, two-factor the organization requires", async ({
-  page,
-  agency,
-  addStaff,
-  database,
-}) => {
+test("the step the api insists on first: a temporary password", async ({ page, agency, addStaff }) => {
   const meera = await addStaff({
     name: "Meera Iyer",
     username: "meera",
@@ -68,8 +64,15 @@ test("the steps the api insists on: a temporary password, two-factor the organiz
   await expect(page).toHaveURL(/\/change-password$/);
   await expect(page.getByText("Your admin gave you a temporary password.")).toBeVisible();
   await shoot(page, "change-password");
+});
 
-  await page.context().clearCookies();
+test("the step an organization can insist on, while two-factor is on: two-factor set up", async ({
+  page,
+  agency,
+  addStaff,
+  database,
+}) => {
+  test.skip(!features.twoFactor, "Two-factor is off: nobody reaches its screens.");
   const ravi = await addStaff({ name: "Ravi Kumar", username: "ravi", roleKey: "sales" });
   await database.platform.organization.update({
     where: { id: agency.organizationId },
@@ -91,19 +94,23 @@ test("the steps the api insists on: a temporary password, two-factor the organiz
   await shoot(page, "two-factor-backup-codes");
 });
 
-test("an Owner with two-factor on: the challenge at sign-in, then the account", async ({ page, agency }) => {
+test("an Owner's account, after the challenge at sign-in while two-factor is on", async ({ page, agency }) => {
   await signInByEmail(page, agency.owner);
-  const secret = await turnOnTwoFactor(page.request, agency.owner.password);
-  await page.context().clearCookies();
-  await page.goto("/sign-in?next=%2Faccount");
-  await page.getByRole("textbox", { name: "Email" }).fill(agency.owner.email);
-  await page.getByLabel("Password", { exact: true }).fill(agency.owner.password);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "Enter your code" })).toBeVisible();
-  await shoot(page, "two-factor-challenge");
-  // The next 30-second code: the one that turned two-factor on was just used.
-  await page.getByLabel("Code from your authenticator app").fill(totpCode(secret, Date.now() + 30_000));
-  await page.getByRole("button", { name: "Continue" }).click();
+  if (features.twoFactor) {
+    const secret = await turnOnTwoFactor(page.request, agency.owner.password);
+    await page.context().clearCookies();
+    await page.goto("/sign-in?next=%2Faccount");
+    await page.getByRole("textbox", { name: "Email" }).fill(agency.owner.email);
+    await page.getByLabel("Password", { exact: true }).fill(agency.owner.password);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Enter your code" })).toBeVisible();
+    await shoot(page, "two-factor-challenge");
+    // The next 30-second code: the one that turned two-factor on was just used.
+    await page.getByLabel("Code from your authenticator app").fill(totpCode(secret, Date.now() + 30_000));
+    await page.getByRole("button", { name: "Continue" }).click();
+  } else {
+    await page.goto("/account");
+  }
   await expect(page.getByRole("heading", { level: 1, name: "Your account" })).toBeVisible();
   await shoot(page, "account");
 });

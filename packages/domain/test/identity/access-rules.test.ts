@@ -1,5 +1,5 @@
 // Nobody hands out more than they hold, changes their own access, or touches an Owner unless they are one.
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   assertMayHandleRole,
   assertMayManageMember,
@@ -9,6 +9,9 @@ import {
 import { pendingStep } from "../../src/identity/member-access.js";
 import { PermissionSet } from "../../src/identity/permission-set.js";
 import { memberWithStarterRole, refusalOf } from "./rule-helpers.js";
+
+// Two-factor is off in the product (@travel-crm/contracts/features): these tests prove what turning it on brings.
+vi.mock("@travel-crm/contracts/features", () => ({ features: { twoFactor: true } }));
 
 const ownerRole = { isOwner: true, permissions: PermissionSet.everything() };
 const salesRole = {

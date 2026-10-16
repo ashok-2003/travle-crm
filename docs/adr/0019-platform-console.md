@@ -52,7 +52,7 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 4 (the `app_pla
     `password-reset`). One that simply runs out its hour has no stop entry; its start entry already says when it ends.
   - **Two-factor is required of platform staff.** `staffProcedure` refuses `SET_UP_TWO_FACTOR` after
     `CHANGE_PASSWORD`, and the impersonation side door refuses staff without it; the console sends them to set it up
-    (ADR 0025).
+    (ADR 0025). Off since 2026-10-16 behind `features.twoFactor` (ADR 0025's "Two-factor is off").
   - **The first super admin** comes from a one-off command run with the console's environment, never over HTTP:
     `first-super-admin -- --email <address> --name <name>`. It takes the same lock and refuses once any super admin
     exists, so two runs at once make one. It prints the temporary password to the operator's terminal (stdout), and

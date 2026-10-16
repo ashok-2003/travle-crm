@@ -2,7 +2,7 @@
 
 // Changing the logo (spec 9.2): sent straight to storage like any file (useSignedUpload: progress, Stop, failing at
 // once offline, Try again picking up where it stopped), then the confirmed logo, with its link, replaces the one shown;
-// or it is removed.
+// or it is removed. Either way the setup checklist, whose logo step it ticks, is asked again.
 import type { RequestLogoUploadInput } from "@travel-crm/contracts/profile";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
@@ -30,6 +30,7 @@ export function useLogoUpload() {
       // one it makes takes persist: false from the key's defaults and stays out of IndexedDB.
       queryClient.setQueryDefaults(key, { meta: { persist: false } });
       queryClient.setQueryData(key, logo);
+      void queryClient.invalidateQueries({ queryKey: trpc.organization.setup.get.queryKey() });
       toast.success(t("saved"));
     },
   });
@@ -46,7 +47,11 @@ export function useRemoveLogo(onRemoved: () => void) {
         toast.success(t("removed"));
         onRemoved();
       },
-      onSettled: () => queryClient.invalidateQueries({ queryKey: trpc.organization.logo.get.queryKey() }),
+      onSettled: () =>
+        Promise.all([
+          queryClient.invalidateQueries({ queryKey: trpc.organization.logo.get.queryKey() }),
+          queryClient.invalidateQueries({ queryKey: trpc.organization.setup.get.queryKey() }),
+        ]),
     }),
   );
 }

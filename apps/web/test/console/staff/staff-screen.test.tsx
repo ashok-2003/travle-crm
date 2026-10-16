@@ -12,6 +12,9 @@ import { screenIs } from "../../organization/render";
 import { inputsTo, renderConsole } from "../../support/render-console";
 import { arjun, kavita, meena, viewer } from "./people";
 
+// Two-factor is off in the product (@travel-crm/contracts/features): these tests prove what turning it on brings.
+vi.mock("@travel-crm/contracts/features", () => ({ features: { twoFactor: true } }));
+
 const { staff: words } = messages.consolePlatform;
 const { levels } = messages.console;
 

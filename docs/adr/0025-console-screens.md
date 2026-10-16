@@ -53,6 +53,21 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 6.1, 7 and 11 (
   onboarded and a suspension's day. The subscription's days (trial end, paid-through, payments) are calendar days of
   the organization, shown as they are, never moved by a zone; a schedule shows its own zone beside it.
 
+## Two-factor is off (owner, 2026-10-16)
+
+The owner turned two-factor off for now: not worth the hassle for an agency's staff yet. One code constant,
+`features.twoFactor` in `packages/contracts/src/features/index.ts`, is `false`. Off, Better Auth's two-factor plugin
+and the staff trusted-device plugin aren't registered, so nobody is asked for a code and `/api/auth/two-factor/*` is a
+404; `staffProcedure` and the impersonation side door don't ask for two-factor; a newcomer goes from the temporary
+password straight to the console; and the console's staff list and its words don't mention it. The decisions above
+about two-factor and trusted devices hold again once it is `true`: the code, the database columns and the tests that
+prove them (they turn the switch on with `vi.mock`) all stay, and the journeys follow the constant.
+
+**The risk:** platform staff, who reach every organization's data, sign in with a password alone. Turn it back on for
+platform staff before real agencies use the product. The switch is for everyone at once, and it reads what is stored:
+on again, every organization with `require_two_factor` enforces it at once, and everyone with `two_factor_enabled` is
+asked for codes from their old secret, which they may have deleted from their phone meanwhile. Check those rows first.
+
 ## Context
 
 ADR 0019 made the console its own process with its own tRPC and left its screens to plan 5. Spec 11 lists them; spec
@@ -71,4 +86,5 @@ across subdomains for impersonation), a `packages/ui` for the components and a s
   either side of now (`@better-auth/utils`'s `verifyTOTP`, window 1), so one code works again for up to about 90
   seconds: a code seen over someone's shoulder works once more if their password is known too. It is upstream; the
   journeys rely on it (`apps/web/test/e2e/support/console.ts`).
-- The journeys start the api, the worker and the console process, and sign platform staff in with two-factor on.
+- The journeys start the api, the worker and the console process, and sign platform staff in with two-factor on
+  while it is on.

@@ -267,7 +267,8 @@
   },
   "staff": {
     "title": "Platform staff",
-    "intro": "Who works on the platform. Support works with organizations; a super admin also manages plans, platform staff and permanent deletion. Everyone signs in with two-factor.",
+    "intro": "Who works on the platform. Support works with organizations; a super admin also manages plans, platform staff and permanent deletion.",
+    "introWithTwoFactor": "Who works on the platform. Support works with organizations; a super admin also manages plans, platform staff and permanent deletion. Everyone signs in with two-factor.",
     "add": "Add platform staff",
     "loading": "Loading the platform staff",
     "loadFailed": "The platform staff didn't load.",
@@ -294,7 +295,8 @@
     },
     "addForm": {
       "title": "Add platform staff",
-      "description": "They sign in by email with a temporary password, then choose their own and set up two-factor sign-in.",
+      "description": "They sign in by email with a temporary password, then choose their own.",
+      "descriptionWithTwoFactor": "They sign in by email with a temporary password, then choose their own and set up two-factor sign-in.",
       "name": "Full name",
       "email": "Email",
       "level": "Level",
@@ -314,7 +316,8 @@
       "temporaryPassword": "Temporary password",
       "copyEmail": "Copy the email",
       "copyPassword": "Copy the temporary password",
-      "firstSignIn": "At their first sign-in they replace this password and set up two-factor sign-in.",
+      "firstSignIn": "At their first sign-in they replace this password.",
+      "firstSignInWithTwoFactor": "At their first sign-in they replace this password and set up two-factor sign-in.",
       "done": "Done"
     },
     "changeLevel": {

@@ -1,4 +1,5 @@
 // A Better Auth hooks.before middleware that refuses what Better Auth's own endpoints would allow but our rules don't.
+import { features } from "@travel-crm/contracts/features";
 import type { IdentityClient } from "@travel-crm/db/identity";
 import { APIError, createAuthMiddleware, getAuthoritativeSessionFromCtx } from "better-auth/api";
 import {
@@ -28,9 +29,9 @@ export interface SideDoorOptions {
  *   and probing which usernames exist;
  * - /admin/* over HTTP, except starting and stopping support's impersonation;
  * - /admin/* for anyone who isn't platform staff by our definition (Better Auth checks user.role alone), still has a
- *   temporary password to replace or hasn't set up two-factor, making a person with a membership a platform admin,
- *   and impersonating anyone but an organization's active staff, or one with a step still to take (a temporary
- *   password, or two-factor their organization requires), which needs their own password;
+ *   temporary password to replace or hasn't set up two-factor (while features.twoFactor is on), making a person with
+ *   a membership a platform admin, and impersonating anyone but an organization's active staff, or one with a step
+ *   still to take (a temporary password, or two-factor their organization requires), which needs their own password;
  * - Better Auth's organization endpoints over HTTP (members and roles go through our own API);
  * - signing in by a placeholder ".invalid" email, which staff without an email (or removed staff) carry, over HTTP and
  *   from server-side calls alike;
@@ -102,7 +103,7 @@ export function closeSideDoors(client: IdentityClient, options: SideDoorOptions 
           throw new APIError("FORBIDDEN", { code: "CHANGE_PASSWORD", message: "Choose a new password first" });
         }
         // Then two-factor, also as in the console: the platform's accounts reach every organization's data.
-        if (!staff.twoFactorEnabled) {
+        if (features.twoFactor && !staff.twoFactorEnabled) {
           throw new APIError("FORBIDDEN", { code: "SET_UP_TWO_FACTOR", message: "Set up two-factor sign-in first" });
         }
       }

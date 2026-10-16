@@ -1,11 +1,13 @@
 // Platform staff (spec 5, 6.1; ADR 0019): a super admin adds support, who signs in on their own device with the
-// temporary password, replaces it, sets up two-factor (the console requires it) and lands on the dashboard, while the
-// super admin's list follows. Support opening the staff screen is told it is a super admin's.
+// temporary password, replaces it, sets up two-factor (the console requires it while features.twoFactor is on) and
+// lands on the dashboard, while the super admin's list follows. With two-factor off, nothing on the way mentions it.
+// Support opening the staff screen is told it is a super admin's.
+import { features } from "@travel-crm/contracts/features";
 import { setUpTwoFactor } from "./support/account-steps";
 import { expect, test } from "./support/console";
 import { openConsoleScreen, recordWith, uniqueSuffix } from "./support/console-platform";
 
-test("a super admin adds support, who replaces the temporary password and sets up two-factor", async ({
+test("a super admin adds support, who replaces the temporary password (and sets up two-factor, when on)", async ({
   page,
   browser,
   superAdmin,
@@ -25,11 +27,13 @@ test("a super admin adds support, who replaces the temporary password and sets u
   const { temporaryPassword } = answer.result.data;
   const handover = page.getByRole("dialog", { name: "Neha Joshi was added" });
   await expect(handover.getByText(temporaryPassword, { exact: true })).toBeVisible();
-  await expect(handover.getByText("set up two-factor sign-in")).toBeVisible();
+  if (features.twoFactor) await expect(handover.getByText("set up two-factor sign-in")).toBeVisible();
+  else await expect(handover).not.toContainText(/two-factor/i);
   await handover.getByRole("button", { name: "Done" }).click();
   const newcomer = recordWith(page, testInfo, email);
   await expect(newcomer).toContainText("Temporary password");
-  await expect(newcomer).toContainText("No two-factor yet");
+  if (features.twoFactor) await expect(newcomer).toContainText("No two-factor yet");
+  else await expect(page.getByRole("main")).not.toContainText(/two-factor/i);
 
   // Neha, on her own device, signs in on the one sign-in page and is taken through both steps to the console.
   const theirs = await browser.newContext({ baseURL: process.env.E2E_BASE_URL ?? "" });
@@ -43,13 +47,15 @@ test("a super admin adds support, who replaces the temporary password and sets u
   await device.getByLabel("New password", { exact: true }).fill("nehas-own-password");
   await device.getByLabel("New password again").fill("nehas-own-password");
   await device.getByRole("button", { name: "Save new password" }).click();
-  await expect(device).toHaveURL(/\/two-factor-setup\?next=%2Fconsole$/);
-  await setUpTwoFactor(device, "nehas-own-password");
+  if (features.twoFactor) {
+    await expect(device).toHaveURL(/\/two-factor-setup\?next=%2Fconsole$/);
+    await setUpTwoFactor(device, "nehas-own-password");
+  }
   await expect(device.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
   await theirs.close();
 
   await page.reload();
-  await expect(recordWith(page, testInfo, email)).toContainText("Two-factor on");
+  if (features.twoFactor) await expect(recordWith(page, testInfo, email)).toContainText("Two-factor on");
   await expect(recordWith(page, testInfo, email)).not.toContainText("Temporary password");
 });
 
