@@ -44,12 +44,12 @@ async function newLeadItems(tx: OrgTx, waiting: NewLeadWaiting[]): Promise<Today
   });
 }
 
-/** A section's items in order, up to the limit, after the cursor. */
+/** A section's items in order, up to the limit, after the cursor; due today ends at the agency's midnight, endsAt. */
 async function sectionItems(
   tx: OrgTx,
   access: MemberAccess,
   page: { section: TodaySectionName; after?: string | undefined; limit: number },
-  now: Date,
+  { now, endsAt }: { now: Date; endsAt: Date },
 ): Promise<TodayItem[]> {
   const { section, after, limit } = page;
   const cursor = { limit, ...(after === undefined ? {} : { after }) };
@@ -59,10 +59,8 @@ async function sectionItems(
       return taskItems(tx, await listOpenTasks(tx, { assigneeUserId, dueBefore: now, ...cursor }));
     case "new-leads":
       return newLeadItems(tx, await newLeadsWaiting(tx, { ownerUserId: access.userId, ...cursor }));
-    case "due-today": {
-      const { endsAt } = await dayAt(tx, access, now);
+    case "due-today":
       return taskItems(tx, await listOpenTasks(tx, { assigneeUserId, dueFrom: now, dueBefore: endsAt, ...cursor }));
-    }
   }
 }
 
@@ -79,7 +77,7 @@ export async function todaySummary(tx: OrgTx, access: MemberAccess, now: Date): 
   };
   const top: TodayItem[] = [];
   for (const section of ["overdue", "new-leads", "due-today"] as const) {
-    top.push(...(await sectionItems(tx, access, { section, limit: 1 }, now)));
+    top.push(...(await sectionItems(tx, access, { section, limit: 1 }, { now, endsAt })));
   }
   return { day, counts, top };
 }
@@ -91,8 +89,9 @@ export async function todaySection(
   input: TodaySectionInput,
   now: Date,
 ): Promise<TodaySectionPage> {
+  const { endsAt } = await dayAt(tx, access, now);
   // One more than a page says whether another page follows.
-  const found = await sectionItems(tx, access, { ...input, limit: input.limit + 1 }, now);
+  const found = await sectionItems(tx, access, { ...input, limit: input.limit + 1 }, { now, endsAt });
   const items = found.slice(0, input.limit);
   const last = items.at(-1);
   return { items, nextCursor: found.length > input.limit && last !== undefined ? itemId(last) : null };
