@@ -48,6 +48,7 @@
     "preparing": "{number} is being prepared. This takes a few seconds.",
     "ready": "{number} is ready.",
     "failed": "{number} can't be made into a PDF: its text has characters the PDF can't show yet.",
+    "checkFailed": "{number} was issued, but whether its PDF is ready didn't load.",
     "download": "Download the PDF",
     "allDocuments": "All documents"
   },
