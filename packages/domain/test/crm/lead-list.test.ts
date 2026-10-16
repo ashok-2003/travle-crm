@@ -130,6 +130,14 @@ describe("the lead list", () => {
     expect(await search("55555")).toEqual([]);
   });
 
+  it("counts a search's digits as typed, so a leading zero still makes it a phone search", async () => {
+    const owner = randomUUID();
+    const [rahul, zeros] = await leadsOf(owner, [{ phone: "+919876512345" }, { phone: "+919123500000" }]);
+    const search = (text: string) => ids(manager, { view: "everyone", ownerUserId: owner, search: text });
+    expect(await search("0987")).toEqual([rahul]);
+    expect(await search("0000")).toEqual([zeros]);
+  });
+
   it("finds राहुल शर्मा by राहुल", async () => {
     const owner = randomUUID();
     const [rahul] = await leadsOf(owner, [{ name: "राहुल शर्मा" }, { name: "प्रिया पटेल" }]);
@@ -239,5 +247,40 @@ describe("the lead list", () => {
       booking_requested: 0,
     });
     expect(await counts(manager)).toEqual({ open: 0, new: 0, contacted: 0, quote_sent: 0, booking_requested: 0 });
+  });
+
+  it("keeps a salesperson's search to their own leads, by name or by digits", async () => {
+    const asha = randomUUID();
+    const [mine] = await leadsOf(salesperson.userId, [{ name: "Kavya Menon", phone: "+919845011111" }]);
+    const [theirs] = await leadsOf(asha, [{ name: "Kavya Menon", phone: "+919845022222" }]);
+    for (const search of ["Kavya", "Kavya Menn", "98450"]) {
+      for (const view of [{}, { view: "everyone" }, { view: "everyone", ownerUserId: asha }]) {
+        expect(await ids(salesperson, { ...view, search })).toEqual([mine]);
+        expect((await counts(salesperson, { ...view, search })).open).toBe(1);
+      }
+    }
+    expect(await ids(manager, { view: "everyone", search: "98450" })).toEqual([theirs, mine]);
+  });
+
+  it("pages a filtered, searched list with no duplicates and no gaps", async () => {
+    const owner = randomUUID();
+    const made = await leadsOf(
+      owner,
+      Array.from({ length: 15 }, (_, index) => ({
+        name: index % 5 === 4 ? `Other ${String(index)}` : `Meera ${String(index)}`,
+        source: index % 3 === 0 ? "walk_in" : "referral",
+      })),
+    );
+    const wanted = newestFirst(made.filter((_, index) => index % 3 !== 0 && index % 5 !== 4));
+    const filter = { view: "everyone", ownerUserId: owner, source: "referral", search: "Meera", limit: 3 };
+    const seen: string[] = [];
+    let before: string | null | undefined;
+    do {
+      const page = await list(manager, { ...filter, ...(before ? { before } : {}) });
+      seen.push(...page.items.map((item) => item.id));
+      before = page.nextCursor;
+    } while (before !== null);
+    expect(seen).toEqual(wanted);
+    expect(new Set(seen).size).toBe(seen.length);
   });
 });

@@ -14,8 +14,7 @@ import {
 import type { Task } from "@travel-crm/contracts/tasks";
 import type { OrgTx } from "@travel-crm/db";
 import { destinationNames } from "../catalog/index.js";
-import type { MemberAccess } from "../identity/index.js";
-import { DomainError } from "../kernel/index.js";
+import { scopeFilter, type MemberAccess } from "../identity/index.js";
 import { nextOpenTasks } from "../tasks/index.js";
 import { leadCountsQuery, leadListQuery, type LeadCountsFilter } from "./lead-list-query.js";
 import { budgetOf, tripSummaryOf, type TripColumns } from "./trip-columns.js";
@@ -43,23 +42,27 @@ interface LeadListRow extends Pick<
   personPhone: string | null;
 }
 
-/** Whose leads: a salesperson's own always; a manager's own for "mine", else the owner asked for or everyone's. */
+/**
+ * Whose leads: the scope's rule first (scopeFilter: a salesperson's own, whatever they ask for), then for everyone
+ * else their own for "mine", or the owner asked for, or everyone's.
+ */
 function ownerFor(access: MemberAccess, input: LeadCountsInput): string | null {
-  const scope = access.permissions.scopeOf("leads:view");
-  if (scope === null) throw new DomainError("FORBIDDEN", "MISSING_PERMISSION", "Requires leads:view");
-  if (scope === "own" || input.view === "mine") return access.userId;
-  return input.ownerUserId ?? null;
+  const scoped = scopeFilter(access, "leads:view", "ownerUserId").ownerUserId;
+  if (scoped !== undefined) return scoped;
+  return input.view === "mine" ? access.userId : (input.ownerUserId ?? null);
 }
 
 /**
- * A search with four or more digits and no letters is a phone search (R5); leading zeros (a trunk "0", an
- * international "00") are dropped, since stored numbers are E.164. Anything else is a name.
+ * A search of four or more digits, counted as typed, with no letters is a phone search (R5). Leading zeros (a trunk
+ * "0", an international "00") are then dropped, since stored numbers are E.164; all zeros stay as typed. Anything
+ * else is a name.
  */
 function searchFor(text: string | undefined): LeadCountsFilter["search"] {
   if (text === undefined) return undefined;
-  const digits = text.replace(/\D/g, "").replace(/^0+/, "");
-  if (digits.length >= 4 && !/\p{L}/u.test(text)) return { kind: "digits", digits };
-  return { kind: "name", text };
+  const typed = text.replace(/\D/g, "");
+  if (typed.length < 4 || /\p{L}/u.test(text)) return { kind: "name", text };
+  const digits = typed.replace(/^0+/, "");
+  return { kind: "digits", digits: digits === "" ? typed : digits };
 }
 
 function filterFor(access: MemberAccess, input: LeadCountsInput): LeadCountsFilter {
