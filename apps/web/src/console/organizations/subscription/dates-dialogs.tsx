@@ -3,87 +3,78 @@
 // The subscription's two days a person sets: a trial's last day (subscriptions.setTrialEnd, while the trial lasts),
 // and the day it is paid through without a payment, time given or a correction, with the reason kept in the
 // organization's audit log (subscriptions.setPaidThrough).
-import type { SubscriptionDetails } from "@travel-crm/contracts/subscriptions";
+import type { SetPaidThroughInput, SetTrialEndInput, SubscriptionDetails } from "@travel-crm/contracts/subscriptions";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { TextField } from "@/account/text-field";
+import { DateField } from "@/components/date-field";
 import { FieldGroup } from "@/components/ui/field";
 import { useConsoleTRPC } from "../../data/console-trpc";
-import { toPaidThroughInput, toTrialEndInput, type PaidThroughValues, type TrialEndValues } from "./change-inputs";
-import { ChangeDialog, FormFooter, useAfterChange, useCheckedForm } from "./change-form";
+import { ChangeDialog, FormFooter, useChangeDialog, type Sending } from "../change-dialog";
+import { useCheckedForm } from "../fields/checked-form";
+import { toPaidThroughInput, toTrialEndInput } from "./change-inputs";
 
 export function TrialEndDialog({ subscription }: { subscription: SubscriptionDetails }) {
   const t = useTranslations("consoleOrganizations.subscription.trialEnd");
+  const trpc = useConsoleTRPC();
+  const dialog = useChangeDialog(subscription.organizationId, t("done"));
+  const save = useMutation(trpc.subscriptions.setTrialEnd.mutationOptions({ onSuccess: dialog.onSuccess }));
   return (
-    <ChangeDialog label={t("action")} title={t("title")} description={t("description")}>
-      {(close) => <TrialEndForm subscription={subscription} onDone={close} />}
+    <ChangeDialog dialog={dialog} sending={save} label={t("action")} title={t("title")} description={t("description")}>
+      <TrialEndForm subscription={subscription} save={save} />
     </ChangeDialog>
   );
 }
 
-function TrialEndForm({ subscription, onDone }: { subscription: SubscriptionDetails; onDone: () => void }) {
-  const t = useTranslations("consoleOrganizations.subscription.trialEnd");
-  const trpc = useConsoleTRPC();
-  const afterChange = useAfterChange(subscription.organizationId);
-  const save = useMutation(
-    trpc.subscriptions.setTrialEnd.mutationOptions({
-      onSuccess: async () => {
-        await afterChange(t("done"));
-        onDone();
-      },
-    }),
+function TrialEndForm({ subscription, save }: { subscription: SubscriptionDetails; save: Sending<SetTrialEndInput> }) {
+  const t = useTranslations("consoleOrganizations.subscription");
+  const { form, onSubmit } = useCheckedForm(
+    { trialEndsOn: subscription.trialEndsOn ?? "" },
+    (values) => toTrialEndInput(subscription.organizationId, values),
+    (problem) => t(`problems.${problem}`),
   );
-  const check = (values: TrialEndValues) => toTrialEndInput(subscription.organizationId, values);
-  const form = useCheckedForm({ trialEndsOn: subscription.trialEndsOn ?? "" }, check);
-  const submit = form.handleSubmit((values) => {
-    const result = check(values);
-    if (result.ok) save.mutate(result.input);
-  });
   return (
-    <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-6">
+    <form noValidate onSubmit={onSubmit(save.mutate)} className="flex flex-col gap-6">
       <FieldGroup>
-        <TextField control={form.control} name="trialEndsOn" label={t("trialEndsOn")} type="date" />
+        <DateField control={form.control} name="trialEndsOn" label={t("trialEnd.trialEndsOn")} />
       </FieldGroup>
-      <FormFooter pending={save.isPending} error={save.error} label={t("submit")} pendingLabel={t("submitting")} />
+      <FormFooter sending={save} label={t("trialEnd.submit")} pendingLabel={t("trialEnd.submitting")} />
     </form>
   );
 }
 
 export function PaidThroughDialog({ subscription }: { subscription: SubscriptionDetails }) {
   const t = useTranslations("consoleOrganizations.subscription.paidThrough");
+  const trpc = useConsoleTRPC();
+  const dialog = useChangeDialog(subscription.organizationId, t("done"));
+  const save = useMutation(trpc.subscriptions.setPaidThrough.mutationOptions({ onSuccess: dialog.onSuccess }));
   return (
-    <ChangeDialog label={t("action")} title={t("title")} description={t("description")}>
-      {(close) => <PaidThroughForm subscription={subscription} onDone={close} />}
+    <ChangeDialog dialog={dialog} sending={save} label={t("action")} title={t("title")} description={t("description")}>
+      <PaidThroughForm subscription={subscription} save={save} />
     </ChangeDialog>
   );
 }
 
-function PaidThroughForm({ subscription, onDone }: { subscription: SubscriptionDetails; onDone: () => void }) {
-  const t = useTranslations("consoleOrganizations.subscription.paidThrough");
-  const tReason = useTranslations("consoleOrganizations.subscription.reason");
-  const trpc = useConsoleTRPC();
-  const afterChange = useAfterChange(subscription.organizationId);
-  const save = useMutation(
-    trpc.subscriptions.setPaidThrough.mutationOptions({
-      onSuccess: async () => {
-        await afterChange(t("done"));
-        onDone();
-      },
-    }),
+function PaidThroughForm({
+  subscription,
+  save,
+}: {
+  subscription: SubscriptionDetails;
+  save: Sending<SetPaidThroughInput>;
+}) {
+  const t = useTranslations("consoleOrganizations.subscription");
+  const { form, onSubmit } = useCheckedForm(
+    { paidThrough: subscription.paidThrough ?? "", reason: "" },
+    (values) => toPaidThroughInput(subscription.organizationId, values),
+    (problem) => t(`problems.${problem}`),
   );
-  const check = (values: PaidThroughValues) => toPaidThroughInput(subscription.organizationId, values);
-  const form = useCheckedForm({ paidThrough: subscription.paidThrough ?? "", reason: "" }, check);
-  const submit = form.handleSubmit((values) => {
-    const result = check(values);
-    if (result.ok) save.mutate(result.input);
-  });
   return (
-    <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-6">
+    <form noValidate onSubmit={onSubmit(save.mutate)} className="flex flex-col gap-6">
       <FieldGroup>
-        <TextField control={form.control} name="paidThrough" label={t("paidThrough")} type="date" />
-        <TextField control={form.control} name="reason" label={tReason("label")} hint={tReason("hint")} />
+        <DateField control={form.control} name="paidThrough" label={t("paidThrough.paidThrough")} />
+        <TextField control={form.control} name="reason" label={t("reason.label")} hint={t("reason.hint")} />
       </FieldGroup>
-      <FormFooter pending={save.isPending} error={save.error} label={t("submit")} pendingLabel={t("submitting")} />
+      <FormFooter sending={save} label={t("paidThrough.submit")} pendingLabel={t("paidThrough.submitting")} />
     </form>
   );
 }
