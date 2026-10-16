@@ -19,10 +19,17 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 2.7 (images tha
 - **The web image is Next.js's standalone server**, built without `API_ORIGIN`, so it rewrites nothing. Its build
   arguments are `CACHE_VERSION` and `STORAGE_ORIGIN`, the bucket's origin its Content-Security-Policy allows, so one
   build serves every environment whose files are at the same origin (path-style URLs on one regional endpoint).
-- **The whole product in Docker** is a compose file of its own (`docker-compose.product.yml`, project
-  `travel-crm-product`): Postgres with `bootstrap.sql`'s roles and grant, MinIO and its bucket, Mailpit, a one-off
-  `migrate`, the four services, and Caddy routing as the load balancer will (`docker/Caddyfile`). Files are stored at
-  `storage.localhost`, which reaches MinIO from the containers and from the browser. `pnpm product:up` runs it.
+- **The whole product in Docker** is a compose file of its own (`docker-compose.product.yml`): Postgres with
+  `bootstrap.sql`'s roles and grant, MinIO and its bucket, Mailpit, a one-off `migrate`, the four services, and Caddy
+  routing as the load balancer will (`docker/Caddyfile`). Files are stored at `storage.localhost`, which reaches MinIO
+  from the containers and from the browser. `pnpm product:up` runs it.
+- **Each checkout's own Compose projects.** Every script that runs Compose goes through `scripts/dev/compose.sh`,
+  which names the project `COMPOSE_PROJECT_NAME` (from the environment or `.env`), else
+  `travel-crm-<the checksum of the checkout's full path>`, with `-product` for the product; the images are tagged
+  after that name too. A second clone or worktree, even in a folder of the same name, never recreates the first's
+  containers or its volumes, and a checkout with containers from before keeps them with
+  `COMPOSE_PROJECT_NAME=travel-crm`. Neither compose file names its project, and both publish their ports on
+  127.0.0.1 alone, since their passwords are public.
 - **Smoke runs prove both.** `pnpm images:smoke` runs every command of the api image in production mode, read-only,
   against a throwaway Postgres, MinIO and Mailpit: health, a PDF rendered with the brand's fonts, the web app's
   security headers and no `/api` rewrite, and every process stopping by itself on SIGTERM. `pnpm product:smoke`

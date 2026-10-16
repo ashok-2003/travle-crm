@@ -3,12 +3,16 @@
 # api's image as a deploy does (production settings, a read-only file system) against a throwaway Postgres, MinIO and
 # Mailpit. Expects the api and the console to answer /health, the worker to render a PDF with the brand's fonts, the
 # web app to serve /sign-in with its security headers and no /api rewrite, each process to stop on SIGTERM by itself,
-# and neither image to hold a .env file. Everything it starts is removed again, however it ends.
+# and neither image to hold a .env file. Everything it starts is removed again, however it ends. The images are tagged
+# after this checkout's project (scripts/dev/compose.sh), so a run in another clone never retags this one's.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 source scripts/docker/images.sh
 source scripts/docker/support.sh
 
+prefix="$(scripts/dev/compose.sh --print-name)"
+api_tag="$prefix-api:local"
+web_tag="$prefix-web:local"
 run="travel-crm-smoke-$$"
 work="$(mktemp -d)"
 cleanup() {
@@ -19,11 +23,11 @@ cleanup() {
 trap cleanup EXIT
 
 echo "Building the images"
-docker build --file apps/api/Dockerfile --tag travel-crm-api:local .
-docker build --file apps/web/Dockerfile --tag travel-crm-web:local .
+docker build --file apps/api/Dockerfile --tag "$api_tag" .
+docker build --file apps/web/Dockerfile --tag "$web_tag" .
 # Neither image holds a .env from the checkout (.dockerignore): the web app's build reads them, and Next.js copies .env
 # and .env.production beside its server. node_modules is skipped: what a package ships is not the checkout's.
-for image in travel-crm-api:local travel-crm-web:local; do
+for image in "$api_tag" "$web_tag"; do
   found="$(docker run --rm --entrypoint find "$image" /app -name node_modules -prune -o -name '.env*' \
     ! -name .env.example -print)"
   [ -z "$found" ] || fail "$image holds $found"
@@ -87,21 +91,21 @@ api_image() {
 
 echo "migrate, first-super-admin and demo, once each"
 api_image --rm --env DATABASE_MIGRATOR_URL=postgresql://app_migrator:migrator@postgres:5432/travel_crm \
-  travel-crm-api:local migrate | tee "$work/migrate.log"
+  "$api_tag" migrate | tee "$work/migrate.log"
 grep --quiet "All migrations have been successfully applied" "$work/migrate.log" || fail "migrate applied nothing"
-password="$(api_image --rm --env-file "$work/console.env" travel-crm-api:local \
+password="$(api_image --rm --env-file "$work/console.env" "$api_tag" \
   first-super-admin --email ops@example.test --name "Smoke Admin")"
 [ -n "$password" ] || fail "first-super-admin printed no temporary password"
 echo "ok: first-super-admin made the first super admin"
-api_image --rm --env-file "$work/console.env" travel-crm-api:local demo | grep --fixed-strings "The demo is ready" ||
+api_image --rm --env-file "$work/console.env" "$api_tag" demo | grep --fixed-strings "The demo is ready" ||
   fail "demo didn't build the demo"
 
 echo "api, console and worker"
 api_image --detach --name "$run-api" --env-file "$work/api.env" --publish 127.0.0.1::3001 \
-  travel-crm-api:local >/dev/null
+  "$api_tag" >/dev/null
 api_image --detach --name "$run-console" --env-file "$work/console.env" --publish 127.0.0.1::3002 \
-  travel-crm-api:local console >/dev/null
-api_image --detach --name "$run-worker" --env-file "$work/api.env" travel-crm-api:local worker >/dev/null
+  "$api_tag" console >/dev/null
+api_image --detach --name "$run-worker" --env-file "$work/api.env" "$api_tag" worker >/dev/null
 wait_for_status "http://127.0.0.1:$(port_of api 3001)/health" 200 "$run-api"
 echo "ok: the api answers /health"
 wait_for_status "http://127.0.0.1:$(port_of console 3002)/health" 200 "$run-console"
@@ -128,7 +132,7 @@ echo "ok: the PDF embeds EB Garamond, Figtree and IBM Plex Mono"
 
 echo "web"
 docker run --detach --name "$run-web" --label "$run" --read-only --tmpfs /tmp --publish 127.0.0.1::3000 \
-  travel-crm-web:local >/dev/null
+  "$web_tag" >/dev/null
 web="http://127.0.0.1:$(port_of web 3000)"
 wait_for_status "$web/sign-in" 200 "$run-web"
 curl --silent --fail --dump-header "$work/headers" --output /dev/null "$web/sign-in"

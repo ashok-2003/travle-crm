@@ -7,7 +7,10 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 source scripts/docker/support.sh
 
-export COMPOSE_PROJECT_NAME="travel-crm-product-smoke-$$"
+# A project of its own, never this checkout's product (whose data the cleanup's `down --volumes` would drop), with
+# the images tagged as this checkout's (scripts/dev/compose.sh), so a run in another clone never retags them.
+IMAGE_PREFIX="$(scripts/dev/compose.sh --print-name)"
+export IMAGE_PREFIX COMPOSE_PROJECT_NAME="travel-crm-product-smoke-$$"
 PRODUCT_PORT="$(free_port)"
 PRODUCT_MAIL_PORT="$(free_port)"
 PRODUCT_STORAGE_PORT="$(free_port)"

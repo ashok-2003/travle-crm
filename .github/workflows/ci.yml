@@ -47,6 +47,7 @@ jobs:
       - run: pnpm run depcruise
       - run: pnpm --filter @travel-crm/brand exec vitest run test/product-name.test.ts
       - run: pnpm workflows:lint
+      - run: pnpm scripts:test
 
   test:
     # The isolation suite and the RLS schema check are the db package's tests.

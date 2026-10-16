@@ -1,7 +1,7 @@
 # Local services for development: Postgres, MinIO (object storage) and Mailpit (catches email). Tests don't use
-# these; they start their own throwaway containers. No fixed project name: Compose names the project after the
-# checkout's folder (or COMPOSE_PROJECT_NAME), so a second clone gets containers and volumes of its own instead of
-# taking over the first's.
+# these; they start their own throwaway containers. Run it through scripts/dev/compose.sh (`pnpm services:up`,
+# `pnpm db:down`), which names the project after the checkout, so a second clone gets containers and volumes of its
+# own instead of taking over the first's. The ports are this computer's alone (127.0.0.1): the passwords are public.
 services:
   postgres:
     image: postgres:18-alpine
@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: travel_crm
     ports:
-      - "55432:5432"
+      - "127.0.0.1:55432:5432"
     volumes:
       # Postgres 18 images keep data under /var/lib/postgresql/18/docker, so mount the parent.
       - postgres-data:/var/lib/postgresql
@@ -28,8 +28,8 @@ services:
       MINIO_ROOT_USER: minio-dev
       MINIO_ROOT_PASSWORD: minio-dev-secret
     ports:
-      - "59000:9000"
-      - "59001:9001"
+      - "127.0.0.1:59000:9000"
+      - "127.0.0.1:59001:9001"
     volumes:
       - minio-data:/data
     healthcheck:
@@ -53,8 +53,8 @@ services:
   mailpit:
     image: axllent/mailpit:v1.31.5
     ports:
-      - "51025:1025"
-      - "58025:8025"
+      - "127.0.0.1:51025:1025"
+      - "127.0.0.1:58025:8025"
 volumes:
   postgres-data:
   minio-data:

@@ -38,7 +38,7 @@ To make the first platform super admin, who signs in at http://localhost:3000/si
 
 A database created before plan 4 lacks the grant the console needs to step into one organization. Add it once:
 
-    docker compose exec postgres psql -U postgres -d travel_crm -c "GRANT app_runtime TO app_platform WITH INHERIT FALSE, SET TRUE;"
+    scripts/dev/compose.sh exec postgres psql -U postgres -d travel_crm -c "GRANT app_runtime TO app_platform WITH INHERIT FALSE, SET TRUE;"
 
 To run every check (format, typecheck, lint, tests, journeys, import rules):
 
@@ -55,10 +55,16 @@ starts Postgres, MinIO and Mailpit (Docker), applies the migrations, then runs t
 worker, the console (http://localhost:3002) and the web app (http://localhost:3000) together, their output side by
 side. Ctrl+C stops the four; `pnpm db:down` stops the services.
 
-Compose names the services' project after the checkout's folder (`travel-crm-postgres-1` in a `travel-crm` folder), or
-after `COMPOSE_PROJECT_NAME` when it is set, so `pnpm dev` in a second clone or worktree never recreates the first's
-containers or touches its data. The ports are the same, though, so stop the other clone's services first
-(`pnpm db:down` there).
+### Each checkout's own containers
+
+Every script that runs Compose (`pnpm dev`, `services:up`, `db:up`, `db:down`, `product:up`, `product:down`) goes
+through `scripts/dev/compose.sh`, which names the project after the checkout's full path: `travel-crm-<checksum>`, and
+`travel-crm-<checksum>-product` for the product. So `pnpm dev` in a second clone or worktree never recreates the
+first's containers or touches its data. `COMPOSE_PROJECT_NAME`, in the environment or in `.env`, names the project
+instead: **a checkout whose containers were made before** (`travel-crm-postgres-1` and the rest) keeps them, and their
+data, with `COMPOSE_PROJECT_NAME=travel-crm` in its `.env`. Run any other Compose command through the helper too
+(`scripts/dev/compose.sh ps`, `scripts/dev/compose.sh --product logs`). Every port is this computer's alone
+(127.0.0.1), and the same in every checkout, so stop the other checkout's services first (`pnpm db:down` there).
 
 ### The demo agency
 
@@ -78,7 +84,7 @@ Owner, `ravi` in Sales or `meena` in Operations) and `DEMO_PASSWORD`. Run it aga
 
 runs the images CI builds, routed as a deploy's load balancer will (`docker-compose.product.yml`), at
 http://localhost:58080: sign in with `DEMO`, `asha` and `demo-only-password`. It is a project of its own, so it runs
-beside `pnpm dev`; `docker compose --file docker-compose.product.yml down --volumes` drops its data too.
+beside `pnpm dev`; `pnpm product:down --volumes` drops its data too.
 `pnpm images:smoke` and `pnpm product:smoke` check the images and the product end to end, as CI does.
 
 ### Mail and files
