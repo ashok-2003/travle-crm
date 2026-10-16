@@ -7,5 +7,5 @@ import { useDownload } from "@/files/use-download";
 
 export function useDownloadPdf() {
   const client = useTRPCClient();
-  return useDownload((documentId: string) => client.documents.downloadLink.query({ documentId }));
+  return useDownload((documentId: string) => client.documents.downloadLink.mutate({ documentId }));
 }

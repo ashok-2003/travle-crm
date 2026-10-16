@@ -24,8 +24,8 @@ Date: 2026-10-16 · Status: accepted · Implements spec sections 7.1, 7.3, 9.2-9
   arrived), then confirms it. The Content-Security-Policy allows `STORAGE_ORIGIN` in `connect-src` and `img-src`,
   fixed when the app is built; the bucket needs a CORS rule for the app's origin. `AttachmentsPanel` is the files UI
   any record's screen reuses; the Foundation's `attachments` router serves the organization's own papers (record type
-  `organization`) with `settings:manage`. A download link is of the export kind and never cached: the papers' one is a
-  mutation, an issued document's a query the screen fetches only when pressed. A record's files are listed by when
+  `organization`) with `settings:manage`. A download link is of the export kind and never cached: the papers' one and an issued
+  document's are both mutations, from a session read afresh. A record's files are listed by when
   they arrived.
 - **The logo** is an attachment of record type `organization_logo` whose record is the organization: PNG or JPEG (what
   React-PDF draws), at most 1 MB, 4096 pixels a side and 16 megapixels; the one that arrived last is the logo

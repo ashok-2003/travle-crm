@@ -1,8 +1,9 @@
 // The documents screen's api (spec 9.3): a sample quotation issued from the profile and branding, logo included,
 // numbered SMPL and kept like every issued document; the organization's documents newest first, a page at a time;
-// and a short-lived link to a rendered PDF. Only roles with settings:manage reach them; read-only organizations may
-// look and download, but issue nothing, and a suspended one's Owner may still list and download its PDFs. Samples are
-// kept for good, so an organization issues at most SAMPLES_PER_DAY in any 24 hours.
+// and a short-lived link to a rendered PDF, asked for by a mutation from a session the database still holds, as every
+// export is. Only roles with settings:manage reach them; read-only organizations may look and download, but issue
+// nothing, and a suspended one's Owner may still list and download its PDFs. Samples are kept for good, so an
+// organization issues at most SAMPLES_PER_DAY in any 24 hours.
 import type { IssuedDocumentPage, IssuedDocumentSummary } from "@travel-crm/contracts/documents";
 import type { DownloadLinkOutput } from "@travel-crm/contracts/files";
 import type { LogoUpload, OrganizationLogo } from "@travel-crm/contracts/profile";
@@ -127,7 +128,7 @@ describe("issued documents", () => {
     const { agency, jar } = await brandedAgency();
     await uploadedLogo(jar);
     const sample = await issueSample(jar);
-    expect(await refusalOf(await query(server, "documents.downloadLink", jar, { documentId: sample.id }))).toEqual({
+    expect(await refusalOf(await mutate(server, "documents.downloadLink", { documentId: sample.id }, jar))).toEqual({
       status: 404,
       reason: "DOCUMENT_NOT_READY",
     });
@@ -138,7 +139,7 @@ describe("issued documents", () => {
     );
     expect(ready.pdfAttachmentId).not.toBeNull();
     const link = await dataOf<DownloadLinkOutput>(
-      await query(server, "documents.downloadLink", jar, { documentId: sample.id }),
+      await mutate(server, "documents.downloadLink", { documentId: sample.id }, jar),
     );
     const key = `organizations/${agency.organizationId}/attachments/${ready.pdfAttachmentId ?? ""}`;
     expect(link.url).toContain(encodeURIComponent(key));
@@ -147,6 +148,16 @@ describe("issued documents", () => {
     const pdf = new TextDecoder("latin1").decode(storage.objects.get(key)?.body);
     expect(pdf.startsWith("%PDF-")).toBe(true);
     expect(pdf).toContain("/Subtype /Image");
+  });
+
+  it("gives a PDF's link only to a session the database still holds, not the cookie cache alone", async () => {
+    const { agency, jar } = await brandedAgency();
+    const sample = await issueSample(jar);
+    await rendered(agency, sample.id);
+    await server.platform.session.deleteMany({ where: { userId: agency.owner.userId } });
+    // The cookie cache still vouches for the session, which the list accepts; handing out the PDF doesn't.
+    expect((await query(server, "documents.list", jar, {})).status).toBe(200);
+    expect((await mutate(server, "documents.downloadLink", { documentId: sample.id }, jar)).status).toBe(401);
   });
 
   it("lists the organization's documents newest first, a page at a time", async () => {
@@ -166,7 +177,7 @@ describe("issued documents", () => {
     await server.db.forOrg(agency.organizationId, (tx) =>
       tx.issuedDocument.update({ where: { id: sample.id }, data: { renderFailure: "UNPRINTABLE_TEXT: U+0939" } }),
     );
-    expect(await refusalOf(await query(server, "documents.downloadLink", jar, { documentId: sample.id }))).toEqual({
+    expect(await refusalOf(await mutate(server, "documents.downloadLink", { documentId: sample.id }, jar))).toEqual({
       status: 404,
       reason: "DOCUMENT_UNAVAILABLE",
     });
@@ -201,12 +212,11 @@ describe("issued documents", () => {
     });
     const { jar: otherJar } = await brandedAgency();
     const theirs = await issueSample(otherJar);
-    for (const path of ["documents.get", "documents.downloadLink"]) {
-      expect(await refusalOf(await query(server, path, jar, { documentId: theirs.id })), path).toEqual({
-        status: 404,
-        reason: "DOCUMENT_NOT_FOUND",
-      });
-    }
+    const notFound = { status: 404, reason: "DOCUMENT_NOT_FOUND" };
+    expect(await refusalOf(await query(server, "documents.get", jar, { documentId: theirs.id }))).toEqual(notFound);
+    expect(await refusalOf(await mutate(server, "documents.downloadLink", { documentId: theirs.id }, jar))).toEqual(
+      notFound,
+    );
     expect(await dataOf<IssuedDocumentPage>(await query(server, "documents.list", jar, {}))).toEqual({
       documents: [],
       nextCursor: null,
@@ -223,10 +233,12 @@ describe("issued documents", () => {
     for (const [path, input] of [
       ["documents.list", {}],
       ["documents.get", { documentId: sample.id }],
-      ["documents.downloadLink", { documentId: sample.id }],
     ] as const) {
       expect(await refusalOf(await query(server, path, salesJar, input)), path).toEqual(refused);
     }
+    expect(
+      await refusalOf(await mutate(server, "documents.downloadLink", { documentId: sample.id }, salesJar)),
+    ).toEqual(refused);
   });
 
   it("lets a suspended organization's Owner list and download its PDFs, as exports, and nobody else", async () => {
@@ -246,14 +258,10 @@ describe("issued documents", () => {
     expect(await dataOf<IssuedDocumentPage>(await query(server, "documents.list", jar, {}))).toMatchObject({
       documents: [{ id: sample.id }],
     });
-    expect((await query(server, "documents.downloadLink", jar, ref)).status).toBe(200);
+    expect((await mutate(server, "documents.downloadLink", ref, jar)).status).toBe(200);
     const suspended = { status: 403, reason: "ORGANIZATION_SUSPENDED" };
-    for (const [path, input] of [
-      ["documents.list", {}],
-      ["documents.downloadLink", ref],
-    ] as const) {
-      expect(await refusalOf(await query(server, path, admin, input)), path).toEqual(suspended);
-    }
+    expect(await refusalOf(await query(server, "documents.list", admin, {}))).toEqual(suspended);
+    expect(await refusalOf(await mutate(server, "documents.downloadLink", ref, admin))).toEqual(suspended);
     expect(await refusalOf(await query(server, "documents.get", jar, ref))).toEqual(suspended);
     expect(await refusalOf(await mutate(server, "documents.issueSample", undefined, jar))).toEqual(suspended);
   });
@@ -267,7 +275,7 @@ describe("issued documents", () => {
       data: { status: "read_only", statusChangedAt: new Date() },
     });
     expect((await query(server, "documents.list", jar, {})).status).toBe(200);
-    expect((await query(server, "documents.downloadLink", jar, { documentId: sample.id })).status).toBe(200);
+    expect((await mutate(server, "documents.downloadLink", { documentId: sample.id }, jar)).status).toBe(200);
     expect(await refusalOf(await mutate(server, "documents.issueSample", undefined, jar))).toEqual({
       status: 403,
       reason: "ORGANIZATION_READ_ONLY",
