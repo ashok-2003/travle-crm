@@ -40,12 +40,14 @@ A database created before plan 4 lacks the grant the console needs to step into 
 
     scripts/dev/compose.sh exec postgres psql -U postgres -d travel_crm -c "GRANT app_runtime TO app_platform WITH INHERIT FALSE, SET TRUE;"
 
-To run every check (format, typecheck, lint, tests, journeys, import rules):
+To run the code's checks (format, the compose helper's test, typecheck, lint, tests, journeys, import rules):
 
     pnpm check
 
 `pnpm check` needs Docker running: the tests start throwaway containers with Testcontainers. Stop the local
-services with `pnpm db:down`.
+services with `pnpm db:down`. CI runs these and more, each as a job of its own: Lighthouse, the migrations on an empty
+Postgres, the images and the whole product, the workflows' lint, the dependency audit and CodeQL (CLAUDE.md lists
+their commands).
 
 ### Everything at once
 
