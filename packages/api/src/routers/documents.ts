@@ -9,6 +9,7 @@ import {
 } from "@travel-crm/contracts/documents";
 import { downloadLink } from "@travel-crm/contracts/files";
 import {
+  assertMayIssueSample,
   brandedSampleQuotation,
   getIssuedDocument,
   issueDocument,
@@ -23,7 +24,7 @@ import { currentLogo } from "./logo.js";
 export const documentsRouter = router({
   /**
    * Issues a sample quotation with the branding as saved now, logo included, numbered SMPL-<year>-<n>. It is kept like
-   * every issued document: what was issued is never removed.
+   * every issued document: what was issued is never removed. So at most SAMPLES_PER_DAY in any 24 hours.
    */
   issueSample: freshProcedure
     .requires("settings:manage")
@@ -44,7 +45,10 @@ export const documentsRouter = router({
         profile,
         logoAttachmentId: logo?.id,
       });
-      return ctx.db.forOrg(organizationId, (tx) => issueDocument(tx, ctx.member, { ...sample, prefix: SAMPLE_PREFIX }));
+      return ctx.db.forOrg(organizationId, async (tx) => {
+        await assertMayIssueSample(tx);
+        return issueDocument(tx, ctx.member, { ...sample, prefix: SAMPLE_PREFIX });
+      });
     }),
 
   /**

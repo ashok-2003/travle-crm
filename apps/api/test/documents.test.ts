@@ -1,19 +1,26 @@
 // The documents screen's api (spec 9.3): a sample quotation issued from the profile and branding, logo included,
 // numbered SMPL and kept like every issued document; the organization's documents newest first, a page at a time;
 // and a short-lived link to a rendered PDF. Only roles with settings:manage reach them; read-only organizations may
-// look and download, but issue nothing, and a suspended one's Owner may still list and download its PDFs.
+// look and download, but issue nothing, and a suspended one's Owner may still list and download its PDFs. Samples are
+// kept for good, so an organization issues at most SAMPLES_PER_DAY in any 24 hours.
 import type { IssuedDocumentPage, IssuedDocumentSummary } from "@travel-crm/contracts/documents";
 import type { DownloadLinkOutput } from "@travel-crm/contracts/files";
 import type { LogoUpload, OrganizationLogo } from "@travel-crm/contracts/profile";
 import { issuedDocumentRenderInput } from "@travel-crm/contracts/documents";
-import { renderIssuedDocumentListener } from "@travel-crm/domain/documents";
+import {
+  brandedSampleQuotation,
+  issueDocument,
+  renderIssuedDocumentListener,
+  SAMPLE_PREFIX,
+  SAMPLES_PER_DAY,
+} from "@travel-crm/domain/documents";
 import { runListenerJob } from "@travel-crm/domain/jobs";
 import { renderPdf } from "@travel-crm/integrations/pdf";
 import { createMemoryStorage, type MemoryStorage } from "@travel-crm/integrations/storage";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { CookieJar } from "./support/cookie-jar.js";
 import { tinyPng } from "./support/images.js";
-import { addStaff, signedInOwner, signedInStaff } from "./support/people.js";
+import { addStaff, ownerAccess, signedInOwner, signedInStaff } from "./support/people.js";
 import { createTestAgency, createTestServer, type TestAgency, type TestServer } from "./support/test-server.js";
 import { dataOf, mutate, query, refusalOf } from "./support/trpc.js";
 
@@ -165,6 +172,24 @@ describe("issued documents", () => {
     });
     const { documents } = await dataOf<IssuedDocumentPage>(await query(server, "documents.list", jar, {}));
     expect(documents).toMatchObject([{ id: sample.id, renderFailed: true }]);
+  });
+
+  it("refuses a sample past the day's, as each is kept for good", async () => {
+    const { agency, jar } = await brandedAgency();
+    const owner = await ownerAccess(server, agency);
+    const sample = brandedSampleQuotation({
+      organizationName: "Test agency",
+      profile: { gstStateCode: "27", brandColour: null, documentTerms: null },
+    });
+    await server.db.forOrg(agency.organizationId, async (tx) => {
+      for (let count = 0; count < SAMPLES_PER_DAY; count++) {
+        await issueDocument(tx, owner, { ...sample, prefix: SAMPLE_PREFIX });
+      }
+    });
+    expect(await refusalOf(await mutate(server, "documents.issueSample", undefined, jar))).toEqual({
+      status: 403,
+      reason: "SAMPLE_LIMIT_REACHED",
+    });
   });
 
   it("refuses a sample before the business details, and another organization's document", async () => {

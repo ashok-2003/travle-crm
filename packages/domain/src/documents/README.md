@@ -25,11 +25,13 @@ quotes and invoices bring theirs.
   `formatMoney`, ready for `issueDocument`.
 - `brandedSampleQuotation({ organizationName, profile, logoAttachmentId? })`: the sample an organization previews its
   branding on: made-up lines taxed within its own GST state, its name, colour, terms and logo. Issue it with
-  `prefix: SAMPLE_PREFIX` (`"SMPL"`): it is kept like any document, and its number says it is a sample.
+  `prefix: SAMPLE_PREFIX` (`"SMPL"`, which no invoice prefix may be): it is kept like any document, and its number
+  says it is a sample. Call `assertMayIssueSample(tx, now?)` first: at most `SAMPLES_PER_DAY` (50) in any 24 hours
+  (`LIMIT_REACHED`/`SAMPLE_LIMIT_REACHED`), as each is kept for good with its PDF.
 
-- `documentsIssuedSince(tx, since)`: a usage counter for the platform dashboard. It counts the transaction's
-  organization by row-level security, so it runs in `forOrg` or `asOrganization` and refuses the platform role
-  (`RangeError`).
+- `documentsIssuedSince(tx, since)`: a usage counter for the platform dashboard, samples left out (previews, not use).
+  It counts the transaction's organization by row-level security, so it runs in `forOrg` or `asOrganization` and
+  refuses the platform role (`RangeError`).
 
 ## Events
 

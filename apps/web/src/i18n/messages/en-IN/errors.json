@@ -53,6 +53,7 @@
     "DOCUMENT_NOT_FOUND": "This document no longer exists.",
     "DOCUMENT_NOT_READY": "The document is still being prepared. Try again in a minute.",
     "DOCUMENT_UNAVAILABLE": "This document can't be shown.",
+    "SAMPLE_LIMIT_REACHED": "You've made 50 samples in the last 24 hours. Try again later.",
     "INVALID_DOCUMENT": "This document can't be issued as it is. Check its details.",
     "UNPRINTABLE_CHARACTERS": "The document has characters its PDF can't show yet. Remove them and try again.",
     "INVALID_RECORD_TYPE": "This can't be shared by link.",
