@@ -48,7 +48,7 @@ test("support onboards an agency, whose Owner chooses a password from the invite
 
   await page.getByRole("link", { name: "Sign in" }).click();
   await page.getByRole("textbox", { name: "Email" }).fill(owner.email);
-  await page.getByLabel("Password").fill("lakshmi-password-1");
+  await page.getByLabel("Password", { exact: true }).fill("lakshmi-password-1");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("heading", { level: 1, name: `Welcome, ${owner.name}` })).toBeVisible();
 });

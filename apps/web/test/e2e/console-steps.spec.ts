@@ -10,7 +10,7 @@ test("new platform staff replace their temporary password and set up two-factor,
   await page.goto("/console");
   await expect(page).toHaveURL(/\/sign-in\?next=%2Fconsole$/);
   await page.getByRole("textbox", { name: "Email" }).fill(newcomer.email);
-  await page.getByLabel("Password").fill(newcomer.password);
+  await page.getByLabel("Password", { exact: true }).fill(newcomer.password);
   await page.getByRole("button", { name: "Sign in" }).click();
 
   await expect(page).toHaveURL(/\/change-password\?next=%2Fconsole$/);

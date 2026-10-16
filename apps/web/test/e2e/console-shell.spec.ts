@@ -12,7 +12,7 @@ const isPhone = (testInfo: TestInfo) => testInfo.project.name === "phone";
 /** Signs in on the sign-in screen: the email and password, then the code from the authenticator app. */
 async function signInOnScreen(page: Page, staff: PlatformStaff): Promise<void> {
   await page.getByRole("textbox", { name: "Email" }).fill(staff.email);
-  await page.getByLabel("Password").fill(staff.password);
+  await page.getByLabel("Password", { exact: true }).fill(staff.password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.getByLabel("Code from your authenticator app").fill(totpCode(staff.totpSecret));
   await page.getByRole("button", { name: "Continue" }).click();
