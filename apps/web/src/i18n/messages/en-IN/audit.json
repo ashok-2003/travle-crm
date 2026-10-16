@@ -11,12 +11,14 @@
   "oneRecord": "{kind, select, member {The history of one staff member} role {The history of one role} organization {The organization's history} subscription {The subscription's history} issued_document {The history of one document} other {The history of one record}}",
   "showEverything": "Show every change",
   "change": {
-    "show": "Before and after",
+    "open": "{action}: see what changed",
     "before": "Before",
     "after": "After",
     "none": "None",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "added": "Added",
+    "removed": "Removed"
   },
   "actors": {
     "formerMember": "A former member",
@@ -83,5 +85,18 @@
     "subject": {
       "erased": "Erased a person's or record's personal data"
     }
+  },
+  "fields": {
+    "name": "Name",
+    "permissions": "What the role allows",
+    "requireTwoFactor": "Two-factor sign-in for everyone",
+    "role": "Role",
+    "hasEmail": "Has an email",
+    "key": "Key",
+    "number": "Number",
+    "fields": "Fields saved",
+    "recordType": "Shared record",
+    "expiresAt": "Expires",
+    "revokedAt": "Turned off"
   }
 }
