@@ -23,6 +23,7 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 | `pnpm check`                                   | everything CI runs: typecheck, lint, tests, import rules        |
 | `pnpm images:smoke` / `pnpm product:smoke`     | build the images and run them as a deploy does (CI)             |
 | `pnpm lighthouse`                              | build the web app, hold its public pages to budgets (CI)        |
+| `pnpm e2e:audit`                               | screenshot every screen on a phone and a desktop (`AUDIT_OUT`)  |
 | `pnpm migrations:check`                        | migrations on an empty Postgres 18, then drift check (CI)       |
 | `pnpm workflows:lint`                          | actionlint and ShellCheck on workflows and scripts (CI)         |
 | `pnpm scripts:test`                            | the compose helper's test: each checkout's project name (CI)    |
