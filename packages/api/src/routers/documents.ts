@@ -11,6 +11,7 @@ import {
 import { downloadLink } from "@travel-crm/contracts/files";
 import {
   assertMayIssueSample,
+  assertPdfCanBeMade,
   brandedSampleQuotation,
   getIssuedDocument,
   issueDocument,
@@ -81,9 +82,7 @@ export const documentsRouter = router({
     .output(downloadLink)
     .mutation(async ({ ctx, input }) => {
       const document = await ctx.db.forOrg(ctx.member.organizationId, (tx) => getIssuedDocument(tx, input));
-      if (document.renderFailed) {
-        throw new DomainError("NOT_FOUND", "DOCUMENT_UNAVAILABLE", "The document's PDF can't be made");
-      }
+      assertPdfCanBeMade(document);
       if (document.pdfAttachmentId === null) {
         throw new DomainError("NOT_FOUND", "DOCUMENT_NOT_READY", "The document is still being prepared");
       }
