@@ -112,6 +112,17 @@ describe("attachments", () => {
         expect(await refusalOf(response), record.recordType).toEqual({ status: 404, reason: "NOT_FOUND" });
       }
     }
+    // The member's own record, with another organization's file: row-level security finds no such file.
+    const crossed = { ...papers(agency), attachmentId: theirs.id };
+    for (const path of ["attachments.confirmUpload", "attachments.downloadLink", "attachments.remove"]) {
+      expect(await refusalOf(await mutate(server, path, crossed, jar)), path).toEqual({
+        status: 404,
+        reason: "ATTACHMENT_NOT_FOUND",
+      });
+    }
+    expect(
+      await dataOf(await query(server, "attachments.list", await signedInOwner(server, other), papers(other))),
+    ).toEqual([theirs]);
   });
 
   it("refuses staff without settings:manage", async () => {
@@ -152,6 +163,13 @@ describe("attachments", () => {
     }
     expect(await dataOf(await query(server, "attachments.list", ownerJar, papers(agency)))).toEqual([cheque]);
     expect((await mutate(server, "attachments.remove", file, ownerJar)).status).toBe(200);
+
+    // A sensitive file the manager uploads is theirs to add, not to read back: the confirm hides its name too.
+    const pan = await uploaded(agency, managerJar, { fileName: "PAN card.pdf", sensitive: true });
+    expect(pan).toMatchObject({ fileName: "Sensitive file", sensitive: true, status: "ready" });
+    expect(await dataOf(await query(server, "attachments.list", ownerJar, papers(agency)))).toEqual([
+      { ...pan, fileName: "PAN card.pdf" },
+    ]);
   });
 
   it("refuses an upload past the plan's storage limit, with its reason", async () => {

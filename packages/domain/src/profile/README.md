@@ -32,4 +32,7 @@ records nothing.
   another organization or delete it; the platform's purge deletes it with the organization.
 - A GSTIN's first two digits are its state's code, and the database checks that too. An agency not registered for GST
   has no GSTIN but still a state: it decides whether a supply is intra-state.
+- The invoice prefix is never one the platform numbers its own documents with (`reservedDocumentPrefixes` in
+  `@travel-crm/contracts/documents`: `SMPL` for samples, `DOC`), in the contract and by a CHECK, so no invoice shares
+  their number series.
 - The organization's colours and terms are its own, on its documents; the product's brand is `@travel-crm/brand`.

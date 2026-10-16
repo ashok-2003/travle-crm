@@ -123,7 +123,7 @@ can't be used further or committed (`PlatformTransactionAbortedError`). The swit
 `GRANT app_runtime TO app_platform WITH INHERIT FALSE, SET TRUE` (in `sql/bootstrap.sql`); a local database made before
 it needs that line run once as the `postgres` superuser:
 
-    docker compose exec postgres psql -U postgres -d travel_crm -c "GRANT app_runtime TO app_platform WITH INHERIT FALSE, SET TRUE"
+    scripts/dev/compose.sh exec postgres psql -U postgres -d travel_crm -c "GRANT app_runtime TO app_platform WITH INHERIT FALSE, SET TRUE"
 
 Platform transactions also reach the tables without `organization_id` through their entry points
 (`webhookEvents(tx)`); a transaction stepped into an organization does not.

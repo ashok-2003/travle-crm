@@ -60,6 +60,12 @@ export const shareLinkSummary = z.strictObject({
 /** The payload of "share-link.opened", published when a customer opens a link. */
 export const shareLinkOpenedEvent = z.strictObject({ shareLinkId: z.uuid(), openId: z.uuid() });
 
+/**
+ * share-link.opened is published at most once per link in this many minutes, though every open is recorded: so
+ * staff are told of a customer looking at most this often. The notification choices' copy says the same.
+ */
+export const SHARE_LINK_OPENED_NOTICE_MINUTES = 10;
+
 export type CreateShareLinkInput = z.infer<typeof createShareLinkInput>;
 export type CreatedShareLink = z.infer<typeof createdShareLink>;
 export type RevokeShareLinkInput = z.infer<typeof revokeShareLinkInput>;

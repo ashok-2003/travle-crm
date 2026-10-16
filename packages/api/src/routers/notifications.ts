@@ -49,8 +49,10 @@ const pushRouter = router({
   publicKey: ownRows.output(z.string()).query(({ ctx }) => ctx.pushPublicKey),
 
   /**
-   * Saves this browser's subscription for the person (a shared browser moves to whoever subscribes last). Refused to
-   * support impersonating them: the person's pushes would reach support's browser.
+   * Saves this browser's subscription for the person: within the organization, a shared browser moves to whoever
+   * subscribes last; across organizations, the web app drops the browser's subscription at every sign-in and sign-out,
+   * and the push service's 404 or 410 then removes the old row. Refused to support impersonating them: the person's
+   * pushes would reach support's browser.
    */
   subscribe: ownRows
     .input(pushSubscriptionInput)

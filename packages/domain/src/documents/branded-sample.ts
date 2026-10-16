@@ -1,13 +1,16 @@
 // The sample quotation an organization previews its branding on (spec 9.3): made-up lines taxed in its own state,
 // with its name, colour, terms and logo, ready for issueDocument with the samples' own prefix. A sample is issued and
 // kept like any document; its number says what it is.
-import type { IssueDocumentInput } from "@travel-crm/contracts/documents";
+import { SAMPLE_DOCUMENT_PREFIX, type IssueDocumentInput } from "@travel-crm/contracts/documents";
 import type { OrganizationProfileDetails } from "@travel-crm/contracts/profile";
 import { isGstStateCode, money } from "../kernel/index.js";
 import { sampleQuotation } from "./sample-quotation.js";
 
-/** Samples are numbered apart from real documents: SMPL-2026-0001. Prefixes are 2-5 capital letters. */
-export const SAMPLE_PREFIX = "SMPL";
+/**
+ * Samples are numbered apart from real documents: SMPL-2026-0001. No organization may choose it for its invoices
+ * (the contracts' reservedDocumentPrefixes, and a CHECK in the database).
+ */
+export const SAMPLE_PREFIX = SAMPLE_DOCUMENT_PREFIX;
 
 export interface SampleBranding {
   /** The organization's name, as its documents' header shows it. */

@@ -1,6 +1,7 @@
 // An organization's business profile (spec 7.1): onboarding's GSTIN, state and contact, and the setup checklist's bank
 // details, invoice prefix and branding. Each value is checked here as the database checks it.
 import { z } from "zod";
+import { reservedDocumentPrefixes } from "../documents/index.js";
 import { personName } from "../identity/index.js";
 import { gstStateCode, gstin, phoneNumber } from "../kernel/index.js";
 
@@ -20,8 +21,11 @@ const optionalText = (max: number) => optional(z.string().trim().max(max));
 /** Checked before upper-casing: Unicode case mapping turns some letters into ASCII capitals. */
 const capitals = (pattern: RegExp, message: string) => z.string().trim().regex(pattern, message).toUpperCase();
 
-/** 2-5 letters invoices are numbered with, e.g. "SH" for SH-2026-0042. */
-export const invoicePrefix = capitals(/^[A-Za-z]{2,5}$/, "Use 2-5 letters");
+/** 2-5 letters invoices are numbered with, e.g. "SH" for SH-2026-0042; never those of the platform's own documents. */
+export const invoicePrefix = capitals(/^[A-Za-z]{2,5}$/, "Use 2-5 letters").refine(
+  (prefix) => !reservedDocumentPrefixes.includes(prefix),
+  "These letters number the app's own documents. Choose others",
+);
 
 /** An Indian bank branch's IFSC: four letters, a zero, six letters or digits. */
 export const bankIfsc = capitals(/^[A-Za-z]{4}0[A-Za-z0-9]{6}$/, "Check the IFSC: 11 characters, the fifth a zero");

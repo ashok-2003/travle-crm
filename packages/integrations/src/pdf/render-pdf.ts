@@ -1,6 +1,6 @@
 // Renders a document to PDF bytes. The worker calls it (spec 9.3); an issued document's PDF is rendered once.
 import type { PdfInput, PdfTemplate } from "./document-input.js";
-import { imageTypeOf } from "./image-type.js";
+import { imageOf } from "./image-type.js";
 import { normalisedText, UnprintableTextError, unprintableCharactersIn } from "./printable-text.js";
 
 // React-PDF, the fonts and the templates are loaded when a document is first rendered, not when this module is
@@ -25,7 +25,7 @@ function normalised<T>(value: T): T {
  */
 export async function renderPdf(template: PdfTemplate, rawInput: PdfInput): Promise<Uint8Array> {
   const { logo } = rawInput.branding;
-  if (logo !== undefined && imageTypeOf(logo.data) !== logo.contentType) {
+  if (logo !== undefined && imageOf(logo.data)?.contentType !== logo.contentType) {
     throw new RangeError("Logos are PNG or JPEG images, and their bytes must be the type they say");
   }
   const input = normalised(rawInput);

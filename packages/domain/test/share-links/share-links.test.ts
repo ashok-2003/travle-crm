@@ -1,5 +1,6 @@
 // Share links (spec 9.3) against Postgres: a link opens one record, expires, can be revoked, records every open and
 // publishes share-link.opened, never opens another organization's record, and making or revoking one is audited.
+import { SHARE_LINK_OPENED_NOTICE_MINUTES } from "@travel-crm/contracts/share-links";
 import { createDatabase, type Database } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
@@ -212,6 +213,8 @@ describe("share links", () => {
   });
 
   it("records every open but publishes share-link.opened at most once per link in 10 minutes", async () => {
+    // The contracts' figure, which the notification choices' copy states.
+    expect(SHARE_LINK_OPENED_NOTICE_MINUTES).toBe(10);
     const link = await share();
     const opened = await findShareLink(db, link.token);
     const start = new Date();
