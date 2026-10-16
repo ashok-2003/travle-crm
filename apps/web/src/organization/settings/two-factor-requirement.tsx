@@ -38,6 +38,7 @@ export function TwoFactorRequirement() {
     return settings.isError ? (
       <ErrorState
         message={tSettings("loadFailed")}
+        error={settings.error}
         retryLabel={tCommon("tryAgain")}
         onRetry={() => void settings.refetch()}
       />

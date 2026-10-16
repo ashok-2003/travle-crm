@@ -26,7 +26,14 @@ export function CurrentPersonGate({ children }: { children: (me: MeOutput) => Re
   const me = useQuery(trpc.me.get.queryOptions());
   if (me.data !== undefined) return children(me.data);
   if (me.isError) {
-    return <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void me.refetch()} />;
+    return (
+      <ErrorState
+        message={t("loadFailed")}
+        error={me.error}
+        retryLabel={tCommon("tryAgain")}
+        onRetry={() => void me.refetch()}
+      />
+    );
   }
   return <AccountSkeleton />;
 }

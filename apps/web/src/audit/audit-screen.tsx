@@ -32,7 +32,8 @@ export function AuditScreen() {
   if (entries === undefined) {
     content = log.isError ? (
       <ErrorState
-        message={failure(t("loadFailed"))}
+        message={t("loadFailed")}
+        error={log.error}
         retryLabel={tCommon("tryAgain")}
         onRetry={() => void log.refetch()}
       />

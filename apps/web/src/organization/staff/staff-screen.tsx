@@ -45,6 +45,7 @@ export function StaffScreen() {
       return (
         <ErrorState
           message={t("loadFailed")}
+          error={staff.error ?? (rolesNeeded ? roles.error : null)}
           retryLabel={tCommon("tryAgain")}
           onRetry={() => {
             void staff.refetch();

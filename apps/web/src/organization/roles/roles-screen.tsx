@@ -51,7 +51,12 @@ export function RolesScreen() {
     }
     if (roles.isError) {
       return (
-        <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void roles.refetch()} />
+        <ErrorState
+          message={t("loadFailed")}
+          error={roles.error}
+          retryLabel={tCommon("tryAgain")}
+          onRetry={() => void roles.refetch()}
+        />
       );
     }
     return <LoadingRows rows={5} shape="twoLines" />;
