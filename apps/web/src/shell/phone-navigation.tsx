@@ -55,6 +55,9 @@ export function PhoneNavigation({
   signOut: { label: string; onClick: () => void };
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
+  const inMore = [...destinations.slice(IN_BAR), ...moreOnly];
+  // The page is one of More's: the bar shows where the person is all the same.
+  const moreCurrent = inMore.some((destination) => destination.current);
   return (
     <nav
       aria-label={label}
@@ -74,7 +77,10 @@ export function PhoneNavigation({
           </Link>
         ))}
         <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
-          <SheetTrigger className={cn(tabClasses, "text-muted-foreground")}>
+          <SheetTrigger
+            aria-current={moreCurrent ? "true" : undefined}
+            className={cn(tabClasses, moreCurrent ? "text-primary" : "text-muted-foreground")}
+          >
             <EllipsisIcon aria-hidden="true" className="size-5" />
             {moreLabel}
           </SheetTrigger>
@@ -85,8 +91,8 @@ export function PhoneNavigation({
                 <div>{description}</div>
               </SheetDescription>
             </SheetHeader>
-            <SidebarMenu className="px-4 pb-4">
-              {[...destinations.slice(IN_BAR), ...moreOnly].map((destination) => (
+            <SidebarMenu className="px-2 pb-4">
+              {inMore.map((destination) => (
                 <SidebarMenuItem key={destination.key}>
                   <SidebarMenuButton asChild isActive={destination.current}>
                     <Link

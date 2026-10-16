@@ -30,9 +30,16 @@ export function AppFrame({
         {t("skipToContent")}
       </a>
       {sidebar}
-      <SidebarInset id={MAIN_CONTENT_ID} tabIndex={-1} className="min-w-0">
+      <SidebarInset className="min-w-0">
         {above}
-        <div className="mx-auto w-full max-w-[1200px] px-4 pt-6 pb-24 sm:px-6 md:pb-8 lg:px-8">{children}</div>
+        {/* The skip link lands here, past the phone's top bar and the banners, on the page itself. */}
+        <div
+          id={MAIN_CONTENT_ID}
+          tabIndex={-1}
+          className="mx-auto w-full max-w-[1200px] px-4 pt-6 pb-24 sm:px-6 md:pb-8 lg:px-8"
+        >
+          {children}
+        </div>
       </SidebarInset>
       {bottomBar}
     </SidebarProvider>

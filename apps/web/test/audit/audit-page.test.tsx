@@ -34,6 +34,7 @@ describe("/settings/audit", () => {
     const api = stubApi({});
     renderWithApi(<AuditPage />, newQueryClient(), member({ permissions: ["settings:manage"] }));
     expect(screen.getByText(messages.shell.session.noAccess)).toBeVisible();
+    expect(screen.getByRole("link", { name: messages.shell.session.goHome })).toHaveAttribute("href", "/");
     expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
     expect(api.calls).toEqual([]);
   });

@@ -74,6 +74,26 @@ describe("ConsoleShell", () => {
     expect(screen.getByText(messages.console.levels.support)).toBeVisible();
   });
 
+  it("lets the skip link land on the page itself, past what sits above it", async () => {
+    stubApi({});
+    renderShell("support");
+    await findSidebar();
+    const skip = screen.getByRole("link", { name: messages.common.skipToContent });
+    const target = document.getElementById((skip.getAttribute("href") ?? "").slice(1));
+    expect(target).toHaveTextContent("The page");
+    expect(target?.contains(skip)).toBe(false);
+    expect(target).toHaveAttribute("tabindex", "-1");
+  });
+
+  it("names the dashboard Home in the phone's bar", async () => {
+    stubApi({});
+    renderShell("support");
+    await findSidebar();
+    const bar = document.querySelector<HTMLElement>("[data-phone-navigation]");
+    if (!bar) throw new Error("the phone's bar is missing");
+    expect(within(bar).getByRole("link", { name: navigation.homeShort })).toHaveAttribute("href", "/console");
+  });
+
   it("keeps the rest in More on a phone, Staff among them for a super admin", async () => {
     stubApi({});
     renderShell("super-admin");

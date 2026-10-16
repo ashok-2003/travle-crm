@@ -24,7 +24,7 @@ export default function HomePage() {
   const screens =
     setUp.length > 0 ? (
       <section className="flex flex-col gap-3">
-        <p className="text-muted-foreground">{t("intro", { organization: me.organization.name })}</p>
+        <p className="text-muted-foreground">{t("intro")}</p>
         <ItemGroup>
           {setUp.map((item, index) => (
             <Fragment key={item.key}>

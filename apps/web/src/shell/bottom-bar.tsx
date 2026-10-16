@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { routes } from "@/lib/routes";
 import { useMe } from "@/session/me-context";
-import { isCurrent } from "./navigation";
+import { isAtOrUnder, isCurrent } from "./navigation";
 import { PhoneNavigation } from "./phone-navigation";
 import { usePrefetchDestination } from "./prefetch";
 import { useSignOut } from "./sign-out";
@@ -40,7 +40,7 @@ export function BottomBar() {
           href: routes.account,
           icon: UserIcon,
           label: t("account"),
-          current: pathname === routes.account,
+          current: isAtOrUnder(pathname, routes.account),
         },
       ]}
       title={me.organization.name}

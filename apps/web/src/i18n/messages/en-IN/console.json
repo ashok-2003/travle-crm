@@ -9,7 +9,8 @@
     "log": "Log",
     "staff": "Staff",
     "more": "More",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "homeShort": "Home"
   },
   "levels": {
     "support": "Support",
@@ -19,7 +20,8 @@
     "loading": "Opening the console",
     "loadFailed": "The console didn't open.",
     "notStaff": "This console is for platform staff.",
-    "impersonating": "You're signed in as a member of an organization. Stop to come back to the console."
+    "impersonating": "You're signed in as a member of an organization. Stop to come back to the console.",
+    "toYourApp": "Go to your organization"
   },
   "status": {
     "trial": "Trial",

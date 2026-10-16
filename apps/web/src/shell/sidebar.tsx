@@ -21,7 +21,7 @@ import {
 import { routes } from "@/lib/routes";
 import { NotificationBell } from "@/notifications/bell/notification-bell";
 import { useMe } from "@/session/me-context";
-import { isCurrent } from "./navigation";
+import { isAtOrUnder, isCurrent } from "./navigation";
 import { prefetchHandlers, usePrefetchDestination } from "./prefetch";
 import { useSignOut } from "./sign-out";
 import { useNavigationItems } from "./use-navigation-items";
@@ -33,7 +33,7 @@ export function AppSidebar() {
   const pathname = usePathname();
   const items = useNavigationItems();
   const prefetch = usePrefetchDestination();
-  const onAccount = pathname === routes.account;
+  const onAccount = isAtOrUnder(pathname, routes.account);
   return (
     <Sidebar>
       <SidebarHeader>

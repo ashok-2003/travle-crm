@@ -41,9 +41,14 @@ export function visibleNavigationItems(me: SignedInMember, modules?: readonly Pl
  * Whether the item is the current page: the home item only on "/", the others on their path and below it, unless an
  * item deeper down is (the audit log, under /settings, is current on its page, not Settings).
  */
+/** Whether the page at `pathname` is `href` or below it ("/account/notifications" is under "/account"). */
+export function isAtOrUnder(pathname: string, href: string): boolean {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function isCurrent(item: NavigationItem, pathname: string): boolean {
   if (item.href === routes.home) return pathname === routes.home;
-  const isAt = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  const isAt = (href: string) => isAtOrUnder(pathname, href);
   return (
     isAt(item.href) && !navigationItems.some((deeper) => deeper.href.startsWith(`${item.href}/`) && isAt(deeper.href))
   );
