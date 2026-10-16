@@ -37,10 +37,11 @@ describe("lockOf", () => {
 });
 
 describe("staysOpen", () => {
-  it("keeps the person's own account open in every lock, but not the screens below it", () => {
+  it("keeps the person's own account and notification choices open in every lock: the unsubscribe link opens them", () => {
     for (const lock of ["suspended", "cancelled", "noSubscription"] as const) {
       expect(staysOpen(lock, { pathname: "/account", isOwner: false }), lock).toBe(true);
-      expect(staysOpen(lock, { pathname: "/account/notifications", isOwner: true }), lock).toBe(false);
+      expect(staysOpen(lock, { pathname: "/account/notifications", isOwner: false }), lock).toBe(true);
+      expect(staysOpen(lock, { pathname: "/accounting", isOwner: true }), lock).toBe(false);
     }
   });
 

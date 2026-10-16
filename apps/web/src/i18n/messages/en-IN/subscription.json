@@ -3,16 +3,18 @@
     "trialEnding": "Trial ends {date}",
     "pastDue": "Payment due. Read-only from {date}",
     "pastDueUndated": "Payment due",
-    "readOnly": "Read-only until paid: you can view and export"
+    "readOnly": "Read-only until paid: you can view and export",
+    "contactSupport": "Contact support"
   },
   "locked": {
     "suspended": {
       "status": "Suspended",
       "title": "Your organization is suspended",
       "body": "Nobody can use it until support opens it again. Its data is kept as it was.",
-      "ownerCanRevoke": "As its Owner, you can still take away someone's access (remove them, or give them a new password), download its documents and turn their share links off.",
+      "ownerCanRevoke": "As its Owner, you can still take away someone's access (remove them, or give them a new password), download its documents and business files, and turn share links off.",
       "toStaff": "Go to Staff",
-      "toDocuments": "Go to Documents"
+      "toDocuments": "Go to Documents",
+      "toFiles": "Go to business files"
     },
     "cancelled": {
       "status": "Cancelled",

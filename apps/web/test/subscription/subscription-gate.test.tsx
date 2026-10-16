@@ -96,7 +96,7 @@ describe("SubscriptionGate", () => {
     expect(screen.queryByRole("link", { name: locked.suspended.toStaff })).not.toBeInTheDocument();
   });
 
-  it("points the Owner of a suspended organization to Staff and Documents, which stay open to them", async () => {
+  it("points the Owner of a suspended organization to Staff, Documents and the files, which stay open to them", async () => {
     await renderGate(subscription("export_only"), { path: "/settings", isOwner: true });
     expect(screen.getByText(locked.suspended.ownerCanRevoke)).toBeVisible();
     expect(screen.getByRole("link", { name: locked.suspended.toStaff })).toHaveAttribute("href", "/staff");
@@ -104,6 +104,7 @@ describe("SubscriptionGate", () => {
       "href",
       "/settings/documents",
     );
+    expect(screen.getByRole("link", { name: locked.suspended.toFiles })).toHaveAttribute("href", "/settings/files");
     await renderGate(subscription("export_only"), { path: "/staff", isOwner: true });
     expect(screen.getByText("The screen")).toBeVisible();
   });
