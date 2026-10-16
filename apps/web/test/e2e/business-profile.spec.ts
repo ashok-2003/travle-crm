@@ -1,6 +1,7 @@
 // The business profile and the setup checklist (spec 7.1): a newly onboarded Owner finds the setup card first on Home,
-// above the usual Home, with what onboarding left to do; completes the business profile (a GSTIN of another state is
-// refused before it is sent) and watches the steps tick, on the card and on the setup screen.
+// above the usual Home, with what onboarding left to do; follows a step to its section of the business profile,
+// completes it (a GSTIN of another state is refused before it is sent) and watches the steps tick, on the card and on
+// the setup screen.
 import { expectAccessible } from "./support/accessibility";
 import { KARNATAKA_GSTIN, ONBOARDED_GSTIN, saveOnboardingProfile } from "./support/business";
 import { expect, signInByEmail, test } from "./support/fixtures";
@@ -28,6 +29,11 @@ test("a newly onboarded Owner fills the profile and watches the checklist tick",
 
   await checklist.getByRole("link", { name: /^Business details/ }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Business profile" })).toBeVisible();
+  // The step's own section, scrolled to and focused.
+  await expect(page).toHaveURL(/\/settings\/profile#business-details$/);
+  const business = page.getByRole("region", { name: "Business", exact: true });
+  await expect(business).toBeFocused();
+  await expect(business).toBeInViewport();
   await expect(page.getByLabel("Legal name")).toHaveValue("Sharma Travels Private Limited");
   await expect(page.getByLabel("GSTIN")).toHaveValue(ONBOARDED_GSTIN);
   await expect(page.getByLabel("Contact phone")).toHaveValue("98200 12345");

@@ -1,7 +1,7 @@
 "use client";
 
 // The setup checklist's pieces (spec 7.1), shared by Home's card and the setup screen: how far along it is, and one row
-// a step, leading to the screen where it is done (the business profile for the details, the contact phone, the bank
+// a step, leading to where it is done (the business profile's section for the details, the contact phone, the bank
 // account and the invoice prefix; branding for the logo, the colour and the terms; staff). Where done and to-do steps
 // mix, each row says which, as a dot and a word (DESIGN.md).
 import type { SetupChecklist, SetupStep } from "@travel-crm/contracts/profile";
@@ -12,17 +12,7 @@ import { Fragment, useId } from "react";
 import { StatusBadge } from "@/components/status-badge";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle } from "@/components/ui/item";
 import { Progress } from "@/components/ui/progress";
-import { routes } from "@/lib/routes";
-
-const whereDone: Record<SetupStep, string> = {
-  "business-details": routes.profile,
-  "contact-phone": routes.profile,
-  logo: routes.branding,
-  branding: routes.branding,
-  "bank-details": routes.profile,
-  "invoice-prefix": routes.profile,
-  staff: routes.staff,
-};
+import { stepScreens } from "./use-setup-checklist";
 
 /** "5 of 7 done", and the bar that shows it. */
 export function SetupProgress({ checklist }: { checklist: SetupChecklist }) {
@@ -46,7 +36,7 @@ function SetupStepRow({ step, done, status }: { step: SetupStep; done: boolean; 
   return (
     <div role="listitem">
       <Item size="sm" asChild>
-        <Link href={whereDone[step]}>
+        <Link href={stepScreens[step].href}>
           <ItemContent>
             <ItemTitle>{t(`steps.${step}.title`)}</ItemTitle>
             <ItemDescription>{t(`steps.${step}.hint`)}</ItemDescription>
