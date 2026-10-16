@@ -1,5 +1,5 @@
 // Share links (spec 9.3) against Postgres: a link opens one record, expires, can be revoked, records every open and
-// publishes share-link.opened, and never opens another organization's record.
+// publishes share-link.opened, never opens another organization's record, and making or revoking one is audited.
 import { createDatabase, type Database } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
@@ -112,6 +112,32 @@ describe("share links", () => {
       tx.shareLink.findUniqueOrThrow({ where: { id: link.shareLinkId } }),
     );
     expect(stored.revokedBy).toBe(agent.userId);
+  });
+
+  it("records making a link and turning it off in the audit log, by ids, never its label", async () => {
+    const link = await share({ label: "Quotation for Asha Mehta" });
+    await db.forOrg(agent.organizationId, (tx) => revokeShareLink(tx, agent, { shareLinkId: link.shareLinkId }));
+    // Revoking again changes nothing, so it records nothing.
+    await db.forOrg(agent.organizationId, (tx) => revokeShareLink(tx, agent, { shareLinkId: link.shareLinkId }));
+    const entries = await db.forOrg(agent.organizationId, (tx) =>
+      tx.auditEntry.findMany({
+        where: { entityType: "share_link", entityId: link.shareLinkId },
+        orderBy: { id: "asc" },
+      }),
+    );
+    expect(entries.map(({ action, actorUserId, after }) => ({ action, actorUserId, after }))).toEqual([
+      {
+        action: "share-link.created",
+        actorUserId: agent.userId,
+        after: { ...record, expiresAt: expect.any(String) as unknown },
+      },
+      {
+        action: "share-link.revoked",
+        actorUserId: agent.userId,
+        after: { revokedAt: expect.any(String) as unknown },
+      },
+    ]);
+    expect(JSON.stringify(entries)).not.toContain("Asha");
   });
 
   it("finds nothing for unknown, malformed or altered tokens", async () => {

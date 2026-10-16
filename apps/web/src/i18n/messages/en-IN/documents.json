@@ -80,5 +80,42 @@
   "download": {
     "named": "Download {number} as a PDF",
     "label": "PDF"
+  },
+  "share": {
+    "openNamed": "Share {number}",
+    "open": "Share",
+    "title": "Share {number}",
+    "description": "Anyone with a link can open this document's PDF until the link expires or you turn it off. You're told when it's opened.",
+    "loadFailed": "The links didn't load.",
+    "none": "No links yet.",
+    "newLink": "New link",
+    "label": "Label",
+    "labelHint": "For you and your staff, such as who the link is for. Customers don't see it.",
+    "labelInvalid": "Give the link a label of up to 200 characters, with letters or digits and no hidden characters.",
+    "expiry": "Expires",
+    "expiryDefault": "In 30 days",
+    "expiryNever": "Never",
+    "create": "Create link",
+    "creating": "Creating the link",
+    "linkLabel": "The link",
+    "copyLink": "Copy the link",
+    "onlyOnce": "This is the only time the whole link is shown. Copy it now and send it to your customer.",
+    "done": "Done",
+    "status": {
+      "active": "Active",
+      "expired": "Expired",
+      "revoked": "Turned off"
+    },
+    "notOpened": "Not opened yet",
+    "opened": "{count, plural, one {Opened # time} other {Opened # times}}, last {when}",
+    "when": "{day}, {time}",
+    "expires": "Expires {day}",
+    "neverExpires": "Never expires",
+    "revoke": "Turn off",
+    "revokeNamed": "Turn off {label}",
+    "revokeTitle": "Turn off this link?",
+    "revokeDescription": "Whoever has it can no longer open the document. This can't be undone: make a new link to share it again.",
+    "revokeConfirm": "Turn off the link",
+    "revoked": "Link turned off"
   }
 }

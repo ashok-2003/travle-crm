@@ -1,7 +1,7 @@
 // The documents screen (spec 9.3): the organization's issued documents, newest first, a page at a time: number,
 // document, when it was issued (in the organization's zone) and whether its PDF is ready, being prepared or can never
-// be made, with the ready PDF a click away. A table on wide screens, a divided list on phones; honest when empty or
-// when the list didn't load.
+// be made, with the ready PDF a click away and the document's share links. A table on wide screens, a divided list on
+// phones; honest when empty or when the list didn't load.
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -89,6 +89,19 @@ describe("DocumentsScreen", () => {
     expect(inputsSentTo("documents.downloadLink")).toEqual([{ documentId: first.id }]);
   });
 
+  it("opens a document's share links, for any document whose PDF can be made", async () => {
+    screenIs("wide");
+    const user = userEvent.setup();
+    renderScreen({ "shareLinks.list": { data: [] } });
+    const failed = (await screen.findAllByRole("row"))[2];
+    if (!failed) throw new Error("the failed document's row was expected");
+    expect(within(failed).queryByRole("button", { name: /^Share/ })).toBeNull();
+    await user.click(screen.getByRole("button", { name: words.share.openNamed.replace("{number}", "SMPL-2026-0001") }));
+    expect(
+      await screen.findByRole("dialog", { name: words.share.title.replace("{number}", "SMPL-2026-0001") }),
+    ).toBeVisible();
+  });
+
   it("is a divided list on phones", async () => {
     screenIs("phone");
     renderScreen();
@@ -100,7 +113,9 @@ describe("DocumentsScreen", () => {
   it("shows more documents a page at a time, after the last one shown", async () => {
     screenIs("wide");
     const user = userEvent.setup();
-    const api = renderScreen({ "documents.list": { data: { documents: [latest, middle], nextCursor: middle.id } } });
+    // Every PDF settled, so the list isn't asking again on its own while the test changes the answer.
+    const settled = { ...latest, pdfAttachmentId: first.pdfAttachmentId, renderedAt: latest.issuedAt };
+    const api = renderScreen({ "documents.list": { data: { documents: [settled, middle], nextCursor: middle.id } } });
     await screen.findByText("SMPL-2026-0002");
     api.answer("documents.list", { data: { documents: [first], nextCursor: null } });
     await user.click(screen.getByRole("button", { name: words.list.more }));

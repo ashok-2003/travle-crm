@@ -7,8 +7,10 @@ Links that open one record for someone who isn't signed in (spec 9.3), such as a
 
 - `createShareLink(tx, actor, { recordType, recordId, label, expiresAt? })`: makes a link and returns
   `{ shareLinkId, token, path }`. The token is shown once. Expires in 30 days unless `expiresAt` says otherwise;
-  `null` never expires. The caller checks the actor may share the record.
-- `revokeShareLink(tx, actor, { shareLinkId })`: turns the link off for good.
+  `null` never expires. The caller checks the actor may share the record. Records `share-link.created` in the audit
+  log (record type and id, expiry; never the label, which may name a customer).
+- `revokeShareLink(tx, actor, { shareLinkId })`: turns the link off for good, recording `share-link.revoked`;
+  revoking it again changes and records nothing.
 - `findShareLink(db, token, now?)`: checks the link and returns the `OpenedShareLink` (organization, record, label, who
   made it), recording nothing. Unknown, expired and revoked links are `NOT_FOUND` with reason `LINK_NOT_FOUND`,
   `LINK_EXPIRED` or `LINK_REVOKED`.

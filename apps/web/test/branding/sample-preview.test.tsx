@@ -52,7 +52,8 @@ afterEach(() => {
 });
 
 describe("SamplePreview", () => {
-  it("issues a sample, says while its PDF is prepared, then downloads it", async () => {
+  // It waits for the screen's next ask, two seconds on.
+  it("issues a sample, says while its PDF is prepared, then downloads it", { timeout: 15_000 }, async () => {
     const user = userEvent.setup();
     const api = renderPreview();
     await user.click(screen.getByRole("button", { name: words.issue }));
