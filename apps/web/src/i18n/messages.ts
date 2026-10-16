@@ -10,6 +10,7 @@ import consolePlatform from "./messages/en-IN/console-platform.json";
 import consoleMessages from "./messages/en-IN/console.json";
 import documents from "./messages/en-IN/documents.json";
 import errors from "./messages/en-IN/errors.json";
+import forms from "./messages/en-IN/forms.json";
 import notifications from "./messages/en-IN/notifications.json";
 import pwa from "./messages/en-IN/pwa.json";
 import roles from "./messages/en-IN/roles.json";
@@ -32,6 +33,7 @@ export const messages = {
   consolePlatform,
   documents,
   errors,
+  forms,
   notifications,
   pwa,
   roles,

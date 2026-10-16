@@ -5,7 +5,7 @@
 // password but its hash.
 import { useTranslations } from "next-intl";
 import { Details } from "@/components/details";
-import { CopyButton } from "@/organization/copy-button";
+import { CopyButton } from "@/components/copy-button";
 
 export function PasswordHandover({
   email,

@@ -1,8 +1,8 @@
-// Indian formats (DESIGN.md section 9): lakh and crore grouping, paise only when there are some, and dates in the
-// organization's zone, where 18:30 UTC is already the next day.
+// Indian formats (DESIGN.md section 9): lakh and crore grouping, paise only when there are some, dates in the
+// organization's zone, where 18:30 UTC is already the next day, and phone numbers as Indians write them.
 import { money } from "@travel-crm/domain/kernel";
 import { describe, expect, it } from "vitest";
-import { formatCount, formatDay, formatRupees, formatTime } from "@/lib/format";
+import { formatCount, formatDay, formatDayTime, formatPhoneNumber, formatRupees, formatTime } from "@/lib/format";
 
 describe("formatRupees", () => {
   it("groups by lakh and crore, and shows paise only when there are some", () => {
@@ -51,5 +51,22 @@ describe("formatDay", () => {
 describe("formatTime", () => {
   it("uses the 12-hour clock in the organization's zone", () => {
     expect(formatTime(new Date("2026-10-15T11:00:00Z"), { timeZone: "Asia/Kolkata" })).toBe("4:30 pm");
+  });
+});
+
+describe("formatDayTime", () => {
+  it("is the day, then the time, both in the organization's zone", () => {
+    const now = new Date("2026-10-15T06:00:00Z");
+    expect(formatDayTime(new Date("2026-10-15T18:45:00Z"), { timeZone: "Asia/Kolkata", now })).toBe("16 Oct, 12:15 am");
+    expect(formatDayTime(new Date("2027-03-01T04:00:00Z"), { timeZone: "Asia/Kolkata", now })).toBe(
+      "1 Mar 2027, 9:30 am",
+    );
+  });
+});
+
+describe("formatPhoneNumber", () => {
+  it("writes an Indian number as +91 and two groups of five, and any other as it is stored", () => {
+    expect(formatPhoneNumber("+919876543210")).toBe("+91 98765 43210");
+    expect(formatPhoneNumber("+14155550123")).toBe("+14155550123");
   });
 });

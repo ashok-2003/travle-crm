@@ -7,11 +7,11 @@ import { roleName, type PermissionCatalogEntry, type RoleSummary } from "@travel
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { useErrorMessage } from "@/lib/error-message";
 import { useWriteAccess } from "@/subscription/write-access";
 import { DeleteRoleDialog } from "./delete-role-dialog";
 import { toGrantInputs } from "./permission-grants";
@@ -21,7 +21,6 @@ import { useUpdateRole } from "./use-roles";
 
 export function RoleEditor({ role, catalog }: { role: RoleSummary; catalog: PermissionCatalogEntry[] }) {
   const t = useTranslations("roles");
-  const { apiError } = useErrorMessage();
   const update = useUpdateRole();
   const { name, setName, grants, setGrants, changedUnderYou, loadSaved } = useEditableRole(role);
   const [nameInvalid, setNameInvalid] = useState(false);
@@ -86,11 +85,7 @@ export function RoleEditor({ role, catalog }: { role: RoleSummary; catalog: Perm
           describedBy={refused}
         />
       </section>
-      {update.isError && (
-        <Alert variant="destructive">
-          <AlertDescription>{apiError(update.error)}</AlertDescription>
-        </Alert>
-      )}
+      <RefusalAlert error={update.error} />
       {write.hint !== null && <FieldDescription id={refused}>{write.hint}</FieldDescription>}
       <Separator />
       <div className="flex flex-wrap items-start justify-between gap-4">

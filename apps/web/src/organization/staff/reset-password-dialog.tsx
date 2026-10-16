@@ -3,14 +3,13 @@
 // Resetting someone's password: a new temporary one, which signs them out everywhere and which they replace at sign-in.
 import type { StaffMember } from "@travel-crm/contracts/identity";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useId, useState } from "react";
+import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { useErrorMessage } from "@/lib/error-message";
 import { useMe } from "@/session/me-context";
-import { ResponsiveDialog } from "../responsive-dialog";
+import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { Handover } from "./handover";
 import { handoverSignInName } from "./staff-details";
 import { temporaryPassword } from "./temporary-password";
@@ -27,9 +26,9 @@ export function ResetPasswordDialog({
 }) {
   const t = useTranslations("staff");
   const me = useMe();
-  const { apiError } = useErrorMessage();
   const [password, setPassword] = useState(temporaryPassword);
   const reset = useResetStaffPassword();
+  const formId = useId();
   const changeOpen = (next: boolean) => {
     // The new password is in the call's variables: let go of it when the dialog closes.
     if (!next) reset.reset();
@@ -42,26 +41,34 @@ export function ResetPasswordDialog({
       busy={reset.isPending}
       title={t("resetPassword.title", { name: member.name })}
       description={t("resetPassword.description")}
-    >
-      {reset.isSuccess ? (
-        <div className="flex flex-col gap-6">
-          <Handover
-            name={member.name}
-            organizationCode={member.username === null ? null : me.organization.code}
-            signInName={handoverSignInName(member)}
-            password={password}
-          />
+      // Once reset, Done ends the dialog: there is nothing left to cancel.
+      cancel={!reset.isSuccess}
+      footer={
+        reset.isSuccess ? (
           <Button
-            className="self-end"
             onClick={() => {
               changeOpen(false);
             }}
           >
             {t("create.done")}
           </Button>
-        </div>
+        ) : (
+          <Button type="submit" form={formId} disabled={reset.isPending || password.length < 10}>
+            {reset.isPending ? t("resetPassword.submitting") : t("resetPassword.submit")}
+          </Button>
+        )
+      }
+    >
+      {reset.isSuccess ? (
+        <Handover
+          name={member.name}
+          organizationCode={member.username === null ? null : me.organization.code}
+          signInName={handoverSignInName(member)}
+          password={password}
+        />
       ) : (
         <form
+          id={formId}
           className="flex flex-col gap-6"
           onSubmit={(event) => {
             event.preventDefault();
@@ -83,14 +90,7 @@ export function ResetPasswordDialog({
               }}
             />
           </Field>
-          {reset.isError && (
-            <Alert variant="destructive">
-              <AlertDescription>{apiError(reset.error)}</AlertDescription>
-            </Alert>
-          )}
-          <Button type="submit" disabled={reset.isPending || password.length < 10} className="self-end">
-            {reset.isPending ? t("resetPassword.submitting") : t("resetPassword.submit")}
-          </Button>
+          <RefusalAlert error={reset.error} />
         </form>
       )}
     </ResponsiveDialog>

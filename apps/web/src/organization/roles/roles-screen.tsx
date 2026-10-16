@@ -6,14 +6,13 @@ import { ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Fragment } from "react";
-import { Delayed } from "@/components/delayed";
 import { ErrorState } from "@/components/error-state";
-import { PageTitle } from "@/components/page-title";
+import { PageHeader } from "@/components/page-header";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle } from "@/components/ui/item";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useTRPC } from "@/data/trpc";
 import { routes } from "@/lib/routes";
 import { CreateRoleDialog } from "./create-role-dialog";
+import { LoadingRows } from "@/components/loading-rows";
 
 export function RolesScreen() {
   const t = useTranslations("roles");
@@ -55,26 +54,12 @@ export function RolesScreen() {
         <ErrorState message={t("loadFailed")} retryLabel={tCommon("tryAgain")} onRetry={() => void roles.refetch()} />
       );
     }
-    return (
-      <Delayed>
-        <div role="status" aria-busy="true" aria-label={tCommon("loading")} className="flex flex-col gap-2">
-          {[0, 1, 2, 3, 4].map((row) => (
-            <Skeleton key={row} className="h-14 w-full" />
-          ))}
-        </div>
-      </Delayed>
-    );
+    return <LoadingRows rows={5} />;
   };
 
   return (
     <div className="flex max-w-[720px] flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex max-w-[65ch] flex-col gap-2">
-          <PageTitle>{t("title")}</PageTitle>
-          <p className="text-muted-foreground">{t("intro")}</p>
-        </div>
-        <CreateRoleDialog />
-      </div>
+      <PageHeader title={t("title")} intro={t("intro")} action={<CreateRoleDialog />} />
       {body()}
     </div>
   );

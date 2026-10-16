@@ -16,9 +16,10 @@ import { TextField } from "@/account/text-field";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { useConsoleTRPC } from "../../data/console-trpc";
-import { ChangeDialog, FormFooter, useChangeDialog, type Sending } from "../change-dialog";
-import { useCheckedForm } from "../fields/checked-form";
-import { MoneyField, rupeesFieldText } from "../fields/money-field";
+import { FormDialog, FormFooter, type Sending } from "@/components/forms/form-dialog";
+import { useChangeDialog } from "../change-dialog";
+import { useCheckedForm } from "@/components/forms/use-checked-form";
+import { MoneyField, rupeesFieldText } from "@/components/forms/money-field";
 import { toOverridesInput } from "./change-inputs";
 
 export function OverridesDialog({ subscription }: { subscription: SubscriptionDetails }) {
@@ -27,9 +28,9 @@ export function OverridesDialog({ subscription }: { subscription: SubscriptionDe
   const dialog = useChangeDialog(subscription.organizationId, t("done"));
   const save = useMutation(trpc.subscriptions.setOverrides.mutationOptions({ onSuccess: dialog.onSuccess }));
   return (
-    <ChangeDialog dialog={dialog} sending={save} label={t("action")} title={t("title")} description={t("description")}>
+    <FormDialog dialog={dialog} sending={save} label={t("action")} title={t("title")} description={t("description")}>
       <OverridesForm subscription={subscription} save={save} />
-    </ChangeDialog>
+    </FormDialog>
   );
 }
 

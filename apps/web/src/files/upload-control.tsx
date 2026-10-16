@@ -27,7 +27,8 @@ import { useWriteAccess } from "@/subscription/write-access";
 import { ACCEPTED_FILES, checkAttachmentFile } from "./attachment-file";
 import { UploadError } from "./upload";
 import type { AttachmentRecord } from "./use-attachments";
-import { useUploadAttachment, wasStopped, type UploadRequest } from "./use-upload-attachment";
+import { wasStopped } from "./use-signed-upload";
+import { useUploadAttachment, type UploadRequest } from "./use-upload-attachment";
 
 /** Message keys in "business.attachments", each with its "…Hint". */
 const SENSITIVITIES = ["sensitive", "notSensitive"] as const;

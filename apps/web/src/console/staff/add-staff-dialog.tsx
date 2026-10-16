@@ -7,7 +7,7 @@ import { UserPlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ResponsiveDialog } from "@/organization/responsive-dialog";
+import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { AddStaffForm } from "./add-staff-form";
 import { PasswordHandover } from "./password-handover";
 import { useAddPlatformStaff } from "./use-platform-staff";

@@ -10,8 +10,9 @@ import { TextField } from "@/account/text-field";
 import { DateField } from "@/components/date-field";
 import { FieldGroup } from "@/components/ui/field";
 import { useConsoleTRPC } from "../../data/console-trpc";
-import { ChangeDialog, FormFooter, useChangeDialog, type Sending } from "../change-dialog";
-import { useCheckedForm } from "../fields/checked-form";
+import { FormDialog, FormFooter, type Sending } from "@/components/forms/form-dialog";
+import { useChangeDialog } from "../change-dialog";
+import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { toPaidThroughInput, toTrialEndInput } from "./change-inputs";
 
 export function TrialEndDialog({ subscription }: { subscription: SubscriptionDetails }) {
@@ -20,9 +21,9 @@ export function TrialEndDialog({ subscription }: { subscription: SubscriptionDet
   const dialog = useChangeDialog(subscription.organizationId, t("done"));
   const save = useMutation(trpc.subscriptions.setTrialEnd.mutationOptions({ onSuccess: dialog.onSuccess }));
   return (
-    <ChangeDialog dialog={dialog} sending={save} label={t("action")} title={t("title")} description={t("description")}>
+    <FormDialog dialog={dialog} sending={save} label={t("action")} title={t("title")} description={t("description")}>
       <TrialEndForm subscription={subscription} save={save} />
-    </ChangeDialog>
+    </FormDialog>
   );
 }
 
@@ -54,9 +55,9 @@ export function PaidThroughDialog({ subscription }: { subscription: Subscription
   const dialog = useChangeDialog(subscription.organizationId, t("done"));
   const save = useMutation(trpc.subscriptions.setPaidThrough.mutationOptions({ onSuccess: dialog.onSuccess }));
   return (
-    <ChangeDialog dialog={dialog} sending={save} label={t("action")} title={t("title")} description={t("description")}>
+    <FormDialog dialog={dialog} sending={save} label={t("action")} title={t("title")} description={t("description")}>
       <PaidThroughForm subscription={subscription} save={save} />
-    </ChangeDialog>
+    </FormDialog>
   );
 }
 

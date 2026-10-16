@@ -6,7 +6,7 @@ import type { OrganizationOverview } from "@travel-crm/contracts/platform";
 import { useTranslations } from "next-intl";
 import { useCallback } from "react";
 import { formatCount, formatDay } from "@/lib/format";
-import { PLATFORM_TIME_ZONE } from "../platform-time-zone";
+import { PLATFORM_TIME_ZONE } from "@/lib/platform-time-zone";
 
 export interface OverviewFigures {
   daysLeft: string;

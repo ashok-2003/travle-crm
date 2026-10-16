@@ -3,11 +3,11 @@
 // Changing someone's role: pick it and the list shows it at once; the api's answer confirms it or puts it back.
 import type { RoleSummary, StaffMember } from "@travel-crm/contracts/identity";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ResponsiveDialog } from "../responsive-dialog";
+import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { useChangeStaffRole } from "./use-staff";
 
 export function ChangeRoleDialog({
@@ -24,14 +24,21 @@ export function ChangeRoleDialog({
   const t = useTranslations("staff");
   const [roleKey, setRoleKey] = useState(member.role.key);
   const changeRole = useChangeStaffRole();
+  const formId = useId();
   return (
     <ResponsiveDialog
       open={open}
       onOpenChange={onOpenChange}
       title={t("changeRole.title", { name: member.name })}
       description={t("changeRole.description")}
+      footer={
+        <Button type="submit" form={formId}>
+          {t("changeRole.submit")}
+        </Button>
+      }
     >
       <form
+        id={formId}
         className="flex flex-col gap-6"
         onSubmit={(event) => {
           event.preventDefault();
@@ -54,9 +61,6 @@ export function ChangeRoleDialog({
             </SelectContent>
           </Select>
         </Field>
-        <Button type="submit" className="self-end">
-          {t("changeRole.submit")}
-        </Button>
       </form>
     </ResponsiveDialog>
   );

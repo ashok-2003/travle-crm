@@ -1,20 +1,13 @@
 "use client";
 
-// Uploading one file to a record (spec 9.2: file bytes never pass through the api): the api records it and signs an
-// upload, the browser PUTs the file straight to storage with its progress (uploadFile), then the api confirms it
-// arrived. It fails at once when offline rather than waiting at 0%, and can be stopped; the record's list is asked
-// for again however it ends. Trying a failed upload again picks up where it stopped: once storage has the file only
-// the confirmation is sent again (it is harmless to repeat), and before that the same signed upload while it lasts
-// and storage hasn't refused it, so a retry doesn't leave another record behind. A stopped or abandoned upload leaves
-// only a pending record, which nobody sees.
-import type { AttachmentContentType, PresignedUploadOutput } from "@travel-crm/contracts/files";
-import { useMutation } from "@tanstack/react-query";
+// Uploading one file to a record (useSignedUpload): the api records it with whether it is sensitive and signs the
+// upload, storage takes the file, and the api confirms it. The record's list is asked for again however it ends.
+import type { AttachmentContentType } from "@travel-crm/contracts/files";
 import { useTranslations } from "next-intl";
-import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { useTRPCClient } from "@/data/trpc";
-import { UploadError, uploadFile } from "./upload";
 import { useRefreshAttachments, type AttachmentRecord } from "./use-attachments";
+import { useSignedUpload } from "./use-signed-upload";
 
 export interface UploadRequest {
   file: File;
@@ -23,72 +16,25 @@ export interface UploadRequest {
   sensitive: boolean;
 }
 
-/** How far an upload got: the record the api made for it, the upload it signed, and whether storage has the file. */
-interface Progressed {
-  request: UploadRequest;
-  attachmentId: string;
-  signed: PresignedUploadOutput;
-  arrived: boolean;
-}
-
-/** An upload the person stopped: not a failure to report. */
-export function wasStopped(error: unknown): boolean {
-  return error instanceof DOMException && error.name === "AbortError";
-}
-
 export function useUploadAttachment(record: AttachmentRecord) {
   const client = useTRPCClient();
   const refresh = useRefreshAttachments(record);
   const t = useTranslations("business.attachments");
-  const [progress, setProgress] = useState(0);
-  const stopper = useRef<AbortController | null>(null);
-  /** The last upload that didn't finish, for trying the same request again. */
-  const unfinished = useRef<Progressed | null>(null);
-  const upload = useMutation({
-    networkMode: "always",
-    mutationFn: async (request: UploadRequest) => {
-      const controller = new AbortController();
-      stopper.current = controller;
-      const last = unfinished.current;
-      let sent =
-        last?.request === request && (last.arrived || Date.parse(last.signed.expiresAt) > Date.now()) ? last : null;
-      if (!sent) {
-        const { attachment, upload: signed } = await client.attachments.requestUpload.mutate({
-          ...record,
-          fileName: request.file.name,
-          contentType: request.contentType,
-          sizeBytes: request.file.size,
-          sensitive: request.sensitive,
-        });
-        sent = { request, attachmentId: attachment.id, signed, arrived: false };
-        unfinished.current = sent;
-      }
-      if (!sent.arrived) {
-        setProgress(0);
-        try {
-          await uploadFile(sent.signed, request.file, { onProgress: setProgress, signal: controller.signal });
-        } catch (error) {
-          // Storage refused the signed upload (expired by its clock, which may be ahead of this device's): the next
-          // try signs a new one rather than being refused again.
-          if (error instanceof UploadError && error.status !== 0) unfinished.current = null;
-          throw error;
-        }
-        sent.arrived = true;
-      }
-      return client.attachments.confirmUpload.mutate({ ...record, attachmentId: sent.attachmentId });
+  return useSignedUpload({
+    requestUpload: async ({ file, contentType, sensitive }: UploadRequest) => {
+      const { attachment, upload } = await client.attachments.requestUpload.mutate({
+        ...record,
+        fileName: file.name,
+        contentType,
+        sizeBytes: file.size,
+        sensitive,
+      });
+      return { attachmentId: attachment.id, upload };
     },
+    confirmUpload: (attachmentId) => client.attachments.confirmUpload.mutate({ ...record, attachmentId }),
     onSuccess: (_attachment, { file }) => {
-      unfinished.current = null;
       toast.success(t("uploaded", { name: file.name }));
     },
     onSettled: refresh,
   });
-  return {
-    upload,
-    /** How much of the file storage has, from 0 to 1. */
-    progress,
-    stop: () => {
-      stopper.current?.abort();
-    },
-  };
 }

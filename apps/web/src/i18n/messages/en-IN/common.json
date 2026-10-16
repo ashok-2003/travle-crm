@@ -12,5 +12,11 @@
   "showPassword": "Show password",
   "hidePassword": "Hide password",
   "offline": "You're offline. Showing what was last loaded; changes wait until you're back online.",
-  "signingOut": "Signing out"
+  "signingOut": "Signing out",
+  "notFound": {
+    "title": "This page doesn't exist",
+    "body": "The address may be mistyped, or the page has moved.",
+    "home": "Go to the home screen"
+  },
+  "loadingMore": "Loading more"
 }

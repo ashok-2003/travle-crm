@@ -8,8 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { formatFileSize } from "@/files/file-size";
 import { formatDay } from "@/lib/format";
 import { shownEmail } from "@/lib/shown-email";
-import { useInstantText } from "../log/instant";
-import { PLATFORM_TIME_ZONE } from "../platform-time-zone";
+import { useInstantText } from "@/components/instant-text";
+import { PLATFORM_TIME_ZONE } from "@/lib/platform-time-zone";
 
 export function SubjectExportView({ exported }: { exported: SubjectExport }) {
   const t = useTranslations("consolePlatform.dataProtection.subject");

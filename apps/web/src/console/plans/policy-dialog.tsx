@@ -10,7 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
 import { useErrorMessage } from "@/lib/error-message";
-import { ResponsiveDialog } from "@/organization/responsive-dialog";
+import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { policyValues, toPolicyInput, type PolicyField, type PolicyValues } from "./policy-values";
 import { useIsSavingPolicy, useSetPolicy } from "./use-policy";
 

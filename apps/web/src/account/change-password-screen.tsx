@@ -7,11 +7,11 @@
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { PageTitle } from "@/components/page-title";
+import { PageHeader } from "@/components/page-header";
 import { routes } from "@/lib/routes";
 import { ChangePasswordForm } from "./change-password-form";
 import { CurrentPersonGate, isStepDue, useContinueAfterStep, useReturnPath } from "./current-person";
-import { TextLink } from "./text-link";
+import { TextLink } from "@/components/text-link";
 
 export function ChangePasswordScreen() {
   const t = useTranslations("account");
@@ -26,10 +26,10 @@ export function ChangePasswordScreen() {
         const sent = due || returnPath !== null;
         return (
           <div className="flex flex-col gap-6">
-            <PageTitle>{t("changePassword.title")}</PageTitle>
-            <p className="text-muted-foreground">
-              {due ? t("changePassword.pendingIntro") : t("changePassword.intro")}
-            </p>
+            <PageHeader
+              title={t("changePassword.title")}
+              intro={due ? t("changePassword.pendingIntro") : t("changePassword.intro")}
+            />
             <ChangePasswordForm
               temporary={due}
               onChanged={async () => {

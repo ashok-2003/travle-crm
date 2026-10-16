@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Details } from "@/components/details";
-import { PageTitle } from "@/components/page-title";
+import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { useTRPC } from "@/data/trpc";
@@ -32,7 +32,7 @@ export function AccountScreen() {
 
   return (
     <div className="flex max-w-[720px] flex-col gap-6">
-      <PageTitle>{t("title")}</PageTitle>
+      <PageHeader title={t("title")} />
       <Details
         rows={[
           { label: t("name"), value: <Name>{user.name}</Name> },

@@ -10,8 +10,9 @@ import { useTranslations } from "next-intl";
 import { TextField } from "@/account/text-field";
 import { FieldGroup } from "@/components/ui/field";
 import { useConsoleTRPC } from "../../data/console-trpc";
-import { ChangeDialog, FormFooter, useChangeDialog, type Sending } from "../change-dialog";
-import { useCheckedForm } from "../fields/checked-form";
+import { FormDialog, FormFooter, type Sending } from "@/components/forms/form-dialog";
+import { useChangeDialog } from "../change-dialog";
+import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { toEndAccessInput, toVoidPaymentInput, type CheckedChange, type ReasonValues } from "./change-inputs";
 
 function ReasonForm<Input>({
@@ -64,7 +65,7 @@ export function EndAccessDialog({
   const dialog = useChangeDialog(subscription.organizationId, t("done"));
   const mutation = useMutation(trpc.subscriptions[change].mutationOptions({ onSuccess: dialog.onSuccess }));
   return (
-    <ChangeDialog
+    <FormDialog
       dialog={dialog}
       sending={mutation}
       label={t("action")}
@@ -78,7 +79,7 @@ export function EndAccessDialog({
         submitting={t("submitting")}
         destructive={change !== "liftSuspension"}
       />
-    </ChangeDialog>
+    </FormDialog>
   );
 }
 
@@ -97,7 +98,7 @@ export function VoidPaymentDialog({
   const dialog = useChangeDialog(organizationId, t("done"));
   const voidPayment = useMutation(trpc.subscriptions.voidPayment.mutationOptions({ onSuccess: dialog.onSuccess }));
   return (
-    <ChangeDialog
+    <FormDialog
       dialog={dialog}
       sending={voidPayment}
       label={t("action")}
@@ -112,6 +113,6 @@ export function VoidPaymentDialog({
         submitting={t("submitting")}
         destructive
       />
-    </ChangeDialog>
+    </FormDialog>
   );
 }

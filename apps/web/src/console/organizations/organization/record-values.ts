@@ -1,7 +1,7 @@
 // The correction form's values, as text, turned into organizations.update's input by the api's own schema
 // (updateOrganizationInput); a blank contact email is none. Each problem is named on its field.
 import { updateOrganizationInput, type UpdateOrganizationInput } from "@travel-crm/contracts/platform";
-import { checked, type Checked } from "../fields/checked-form";
+import { checked, type Checked } from "@/components/forms/checked";
 
 export interface RecordValues {
   name: string;

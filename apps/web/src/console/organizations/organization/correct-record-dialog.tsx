@@ -9,9 +9,10 @@ import { useTranslations } from "next-intl";
 import { TextField } from "@/account/text-field";
 import { FieldGroup } from "@/components/ui/field";
 import { useConsoleTRPC } from "../../data/console-trpc";
-import { ChangeDialog, FormFooter, useChangeDialog, type Sending } from "../change-dialog";
-import { useCheckedForm } from "../fields/checked-form";
-import { TimeZoneField } from "../fields/zone-and-state-fields";
+import { FormDialog, FormFooter, type Sending } from "@/components/forms/form-dialog";
+import { useChangeDialog } from "../change-dialog";
+import { useCheckedForm } from "@/components/forms/use-checked-form";
+import { TimeZoneField } from "../fields/time-zone-field";
 import { toUpdateInput } from "./record-values";
 
 export function CorrectRecordDialog({ organization }: { organization: OrganizationRecord }) {
@@ -20,7 +21,7 @@ export function CorrectRecordDialog({ organization }: { organization: Organizati
   const dialog = useChangeDialog(organization.id, t("saved"));
   const update = useMutation(trpc.organizations.update.mutationOptions({ onSuccess: dialog.onSuccess }));
   return (
-    <ChangeDialog
+    <FormDialog
       dialog={dialog}
       sending={update}
       label={t("correct")}
@@ -28,7 +29,7 @@ export function CorrectRecordDialog({ organization }: { organization: Organizati
       description={t("dialogDescription")}
     >
       <CorrectRecordForm organization={organization} update={update} />
-    </ChangeDialog>
+    </FormDialog>
   );
 }
 

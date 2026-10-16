@@ -1,8 +1,12 @@
 "use client";
 
-// A rupee amount bound to a form field (DESIGN.md: a ₹ prefix, mono, right-aligned, Indian grouping once the person
-// moves on): the text as typed, read into paise by the contracts' own parser when the form is checked. Labelled as
-// every field is (form-field.tsx); the ₹ is the registry input group's addon.
+// A rupee amount bound to a react-hook-form field (DESIGN.md: a ₹ prefix, mono, right-aligned, Indian grouping once
+// the person moves on), labelled as every field is (form-field.tsx), the ₹ the registry input group's addon:
+//
+//   <MoneyField control={form.control} name="amount" label={t("amount")} hint={t("amountHint")} />
+//
+// The field's value is the text as typed ("2,950.50"); read it into paise with the contracts' paiseFromRupeesText
+// when the form is checked. Start it from paise with rupeesFieldText ("2,950", the symbol and ".00" left out).
 import { paiseFromRupeesText } from "@travel-crm/contracts/kernel";
 import { formatMoney, money } from "@travel-crm/domain/kernel";
 import { Controller, type Control, type FieldPath, type FieldValues } from "react-hook-form";

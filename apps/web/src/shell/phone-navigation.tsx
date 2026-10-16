@@ -10,6 +10,7 @@ import { useState, type ReactNode } from "react";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
+import { BOTTOM_SHEET_CLASSES } from "@/components/responsive-dialog";
 import { cn } from "@/lib/utils";
 import { prefetchHandlers } from "./prefetch";
 
@@ -77,7 +78,7 @@ export function PhoneNavigation({
             <EllipsisIcon aria-hidden="true" className="size-5" />
             {moreLabel}
           </SheetTrigger>
-          <SheetContent side="bottom" className="rounded-t-xl pb-[env(safe-area-inset-bottom)]">
+          <SheetContent side="bottom" className={BOTTOM_SHEET_CLASSES}>
             <SheetHeader>
               <SheetTitle>{title}</SheetTitle>
               <SheetDescription asChild>

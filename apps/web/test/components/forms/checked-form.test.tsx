@@ -1,12 +1,13 @@
-// How the console's organization forms are checked: each schema refusal goes on the field it came from, and one no
+// How a form is checked (components/forms): each schema refusal goes on the field it came from, and one no
 // field explains is the form's own problem, said in the form's alert. A form never sends nothing and says nothing.
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { FormFooter } from "@/console/organizations/change-dialog";
-import { checked, useCheckedForm } from "@/console/organizations/fields/checked-form";
+import { checked } from "@/components/forms/checked";
+import { FormFooter } from "@/components/forms/form-dialog";
+import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { locale, messages } from "@/i18n/messages";
 
 interface Values {
@@ -64,7 +65,7 @@ describe("useCheckedForm", () => {
       </NextIntlClientProvider>,
     );
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent(messages.consoleOrganizations.formProblem);
+    expect(await screen.findByRole("alert")).toHaveTextContent(messages.forms.formProblem);
     expect(send).not.toHaveBeenCalled();
   });
 });

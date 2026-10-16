@@ -9,7 +9,7 @@ import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Item, ItemContent } from "@/components/ui/item";
 import { useStaff } from "../session/staff-context";
-import { useInstantText } from "./instant";
+import { useInstantText } from "@/components/instant-text";
 import { isKnownAction } from "./log-actions";
 import { changesOf } from "./log-changes";
 import { LogOrganization, LogTarget } from "./log-target";
