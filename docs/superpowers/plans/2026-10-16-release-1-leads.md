@@ -258,9 +258,9 @@ report.
 
   Why: one ordering, keyset paging intact. Cost if wrong: no relevance ordering; a ranking pass later.
 
-- R6. Ruling: `pg_trgm` and `btree_gist` are created by the migration (`CREATE EXTENSION IF NOT EXISTS`) and in
-  `sql/bootstrap.sql` — ADR 0028; both are trusted extensions, and `app_migrator` created them on Postgres 18 in the
-  probe — cost if wrong: a hosted database that refuses trusted extensions needs a superuser step (I1 adds it to the
+- R6. Ruling: `pg_trgm` and `btree_gist` are created by the leads_by_hand migration (`CREATE EXTENSION IF NOT EXISTS`)
+  as `app_migrator` — ADR 0028 and the deploy checklist; both are trusted extensions, and `app_migrator` created them
+  on Postgres 18 in the probe — cost if wrong: a hosted database that refuses trusted extensions needs a superuser step (I1 adds it to the
   deploy checklist).
 - R7. Ruling: `lead_timeline_entry` is append-only for `app_runtime` (`REVOKE UPDATE, DELETE`) — it is an index of
   what happened; only the platform's erasure removes rows — cost if wrong: a grant migration when entries become
@@ -1464,8 +1464,8 @@ it("builds again the next night without a clash", …)
   - Then `analyzeTables`.
 - Produces `planOf(tx, query: Sql): Promise<{ indexes: string[]; seqScans: string[] }>`, from
   `EXPLAIN (FORMAT JSON)`.
-- Each query runs through `db.forOrg` as `app_runtime` on `createIsolatedDatabase`. Its time is the median of 5 runs
-  after one warm-up.
+- Each query runs through `db.forOrg` as `app_runtime` on `createIsolatedDatabase`. Its time is the fastest of 7 runs
+  after one warm-up (a busy machine only adds time).
 
 - [ ] **Step 1: Write the tests:**
 

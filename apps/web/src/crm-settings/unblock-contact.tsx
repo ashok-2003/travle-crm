@@ -1,8 +1,8 @@
 "use client";
 
 // Unblock on one blocked contact (spec 3.6, R33): asks first (ConfirmDialog, which holds while the request is out),
-// then takes it off the list, which loads again with the rest of the work (the new-lead form's warning about it). A change the subscription may refuse: then the button is off and says
-// why (ADR 0021).
+// then takes it off the list, which loads again with the rest of the work (the new-lead form's warning about it). A
+// change the subscription may refuse: then the button is off and says why (ADR 0021).
 import { useMutation } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useId, useRef, useState } from "react";

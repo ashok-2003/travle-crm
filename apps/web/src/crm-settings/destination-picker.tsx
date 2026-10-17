@@ -4,13 +4,10 @@
 // anything is typed and by part of a name (forgiving of typos) after, so a destination past the first page is found by
 // searching. The one being merged is never offered.
 import type { Destination } from "@travel-crm/contracts/catalog";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import type { FieldLinks } from "@/components/form-field";
 import { SearchCombobox, useComboboxSearch } from "@/components/search-combobox";
-import { useTRPC } from "@/data/trpc";
-
-const RESULTS = 20;
+import { useDestinationOptions } from "@/data/use-destination-options";
 
 export function DestinationPicker({
   links,
@@ -25,19 +22,9 @@ export function DestinationPicker({
   without: string;
 }) {
   const t = useTranslations("settings.destinations.merge");
-  const trpc = useTRPC();
   // destinations.search lists them all without a query, so every length searches.
   const search = useComboboxSearch(0);
-  const found = useQuery(
-    trpc.destinations.search.queryOptions(
-      { ...(search.query === "" ? {} : { query: search.query }), limit: RESULTS },
-      {
-        enabled: search.open,
-        placeholderData: keepPreviousData,
-        select: (destinations) => destinations.filter((destination) => destination.id !== without),
-      },
-    ),
-  );
+  const found = useDestinationOptions(search, without);
   return (
     <SearchCombobox
       links={links}

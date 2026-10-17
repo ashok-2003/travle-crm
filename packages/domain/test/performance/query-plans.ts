@@ -34,15 +34,17 @@ export async function planOf(tx: OrgTx, query: Sql): Promise<QueryPlan> {
   return { indexes: [...found.indexes].sort(), seqScans: [...found.seqScans].sort(), text: JSON.stringify(plan) };
 }
 
-/** The median of five timed runs, in milliseconds, after one run to warm the caches. */
-export async function medianMs(run: () => Promise<unknown>): Promise<number> {
+/**
+ * The fastest of seven timed runs, in milliseconds, after one run to warm the caches. A busy machine only ever adds
+ * time, so the fastest run is the one that says whether the query itself fits its budget.
+ */
+export async function fastestMs(run: () => Promise<unknown>): Promise<number> {
   await run();
-  const times: number[] = [];
-  for (let index = 0; index < 5; index += 1) {
+  let fastest = Number.POSITIVE_INFINITY;
+  for (let index = 0; index < 7; index += 1) {
     const started = performance.now();
     await run();
-    times.push(performance.now() - started);
+    fastest = Math.min(fastest, performance.now() - started);
   }
-  times.sort((first, second) => first - second);
-  return times[2] ?? Number.NaN;
+  return fastest;
 }

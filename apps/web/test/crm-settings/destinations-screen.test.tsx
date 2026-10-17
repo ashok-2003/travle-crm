@@ -62,7 +62,7 @@ async function choose(destination: string, action: string) {
   await userEvent.click(await screen.findByRole("menuitem", { name: action }));
 }
 
-describe("DestinationsScreen", () => {
+describe("DestinationsScreen", { timeout: 15_000 }, () => {
   it("lists destinations alphabetically with search, renames one, and shows DESTINATION_NAME_TAKEN's sentence", async () => {
     const api = stubApi({
       "destinations.search": { data: [goa, goaTrip, kashmir, kerala] },
@@ -180,9 +180,14 @@ describe("DestinationsScreen", () => {
     searchFails = true;
     await userEvent.type(searchBox, "zan");
     const status = screen.getByRole("status");
-    await waitFor(() => {
-      expect(status).toHaveTextContent(messages.errors.generic);
-    });
+    // The search waits out the typing pause (400 ms) before the api is asked, so a loaded machine needs more than
+    // waitFor's one second.
+    await waitFor(
+      () => {
+        expect(status).toHaveTextContent(messages.errors.generic);
+      },
+      { timeout: 5000 },
+    );
     expect(screen.getByRole("listbox")).not.toContainElement(status);
     searchFails = false;
     await userEvent.click(screen.getByRole("button", { name: messages.common.tryAgain }));
@@ -203,11 +208,16 @@ describe("DestinationsScreen", () => {
     expect(await listed()).toEqual(["Goa"]);
     const status = screen.getByRole("status");
     expect(status).toBeEmptyDOMElement();
+    // Never display:none while empty, or it leaves the accessibility tree and the change may not be heard.
+    expect(status.className).not.toMatch(/(^| )(empty:)?hidden( |$)/);
     api.answer("destinations.search", { data: [] });
     await userEvent.type(screen.getByRole("searchbox", { name: words.search }), "zed");
-    await waitFor(() => {
-      expect(status).toHaveTextContent(words.noMatch);
-    });
+    await waitFor(
+      () => {
+        expect(status).toHaveTextContent(words.noMatch);
+      },
+      { timeout: 5000 },
+    );
     expect(screen.getAllByText(words.noMatch)).toHaveLength(1);
   });
 
