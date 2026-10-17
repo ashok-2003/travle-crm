@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { InputGroup, InputGroupButton } from "@/components/ui/input-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
 import { useErrorMessage } from "@/lib/error-message";
 
 /** The picker's search: open or not, what is typed, and whether it is long enough to ask the api with. */
@@ -20,7 +21,7 @@ export interface ComboboxSearch {
   setOpen: (open: boolean) => void;
   typed: string;
   setTyped: (typed: string) => void;
-  /** What is typed, trimmed. */
+  /** What is typed, trimmed, once the typing pauses: what the api is asked with. */
   query: string;
   /** The query is long enough to search with. */
   searching: boolean;
@@ -30,7 +31,7 @@ export interface ComboboxSearch {
 export function useComboboxSearch(shortest: number): ComboboxSearch {
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
-  const query = typed.trim();
+  const query = useDebouncedValue(typed.trim());
   return { open, setOpen, typed, setTyped, query, searching: query.length >= shortest };
 }
 
