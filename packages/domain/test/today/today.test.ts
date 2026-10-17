@@ -259,4 +259,18 @@ describe("today", () => {
       },
     });
   });
+
+  it("leaves out the brief of a lead the person can't see, beside a task of theirs on it", async () => {
+    const me = aSalesperson();
+    const now = at("2026-10-17T06:30:00Z");
+    const onTheirLead = await inOrg(async (tx) => {
+      const theirs = await aLead(tx, { ownerUserId: randomUUID(), stage: "contacted" });
+      const record = { recordType: "lead", recordId: theirs.id };
+      return aTask(tx, { kind: "follow-up", assigneeUserId: me.userId, record, dueAt: at("2026-10-17T10:00:00Z") });
+    });
+    expect((await sectionOf(me, "due-today", now)).items).toMatchObject([
+      { kind: "task", task: { id: onTheirLead.id }, lead: null },
+    ]);
+    expect((await summaryOf(me, now)).top).toMatchObject([{ kind: "task", lead: null }]);
+  });
 });

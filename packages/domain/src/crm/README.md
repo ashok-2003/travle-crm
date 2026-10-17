@@ -56,7 +56,8 @@ below it, never today above it (`business-modules-call-down`).
 ## Today, a member leaving, erasure and the demo
 
 - `work-queries.ts`: what Today reads: `newLeadsWaitingQuery` and `newLeadsWaiting` (one person's leads still in New,
-  oldest first), `countNewLeadsWaiting`, and `leadBriefs` (a lead's name and trip line for Today's rows).
+  oldest first), `countNewLeadsWaiting`, and `leadBriefs` (a lead's name and trip line for Today's rows, for leads in
+  the member's scope only).
 - `departing-member.ts`: `handOverDepartingMemberListener` on `staff.removed` (`crm.hand-over-departing-member`): the
   leaver's open leads, then their closed leads that still hold open work, then their standalone tasks go to the first
   Owner, 50 in a locked batch, until a batch selects none; the system's change, telling nobody (R27, R37).
