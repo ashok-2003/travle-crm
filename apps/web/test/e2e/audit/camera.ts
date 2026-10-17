@@ -1,21 +1,15 @@
 // The visual audit's camera: shoot() waits until a screen has settled (no skeleton, no toast, fonts and images
 // loaded, animations over), then saves a full-page PNG of it, or of one element, as
-// ${AUDIT_OUT}/<project>/<nn>-<name>.png, nn being the shot's place in shot-list.ts, and notes the route it was on
-// for write-index.ts. Also the steps every audit file shares: no accessibility check, and reaching a destination
-// from the navigation as the person would, through More on a phone when it isn't in the bottom bar.
+// ${AUDIT_OUT}/<project>/<nn>-<name>.png (audit-out.ts), nn being the shot's place in shot-list.ts, and notes the
+// route it was on for write-index.ts. Also the steps every audit file shares: no accessibility check, and reaching a
+// destination from the navigation as the person would, through More on a phone when it isn't in the bottom bar.
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { skipAccessibilityCheck } from "../support/fixtures";
 import { animationsSettled } from "../support/settled";
+import { auditOut } from "./audit-out";
 import { SHOTS, type ShotName } from "./shot-list";
-
-const webDirectory = path.resolve(import.meta.dirname, "../../..");
-
-/** Where the shots go: AUDIT_OUT, or test-results/audit in the web app (the config keeps Playwright's own out of it). */
-export function auditOut(): string {
-  return path.resolve(webDirectory, process.env.AUDIT_OUT ?? "test-results/audit");
-}
 
 /** The shot's number, two digits: its place in the list. */
 export function shotNumber(index: number): string {

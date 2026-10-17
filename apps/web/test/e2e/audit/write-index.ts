@@ -6,7 +6,8 @@ import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { FullConfig } from "@playwright/test";
-import { auditOut, ROUTES_FILE, shotNumber } from "./camera";
+import { auditOut } from "./audit-out";
+import { ROUTES_FILE, shotNumber } from "./camera";
 import { SHOTS } from "./shot-list";
 
 async function routesOf(directory: string): Promise<Record<string, string>> {
