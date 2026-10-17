@@ -7,7 +7,7 @@
 import { calendarDateIn } from "@travel-crm/domain/kernel";
 import { brand } from "@travel-crm/brand";
 import { useTranslations } from "next-intl";
-import { statusToneClasses, type StatusTone } from "@/components/status-badge";
+import { StatusDot, statusToneClasses, type StatusTone } from "@/components/status-badge";
 import { cn } from "@/lib/utils";
 import { useMe } from "@/session/me-context";
 import { formatCalendarDate } from "./calendar-date";
@@ -44,7 +44,7 @@ export function SubscriptionBanner() {
   return (
     <div className={cn("flex flex-wrap items-center gap-x-3 px-4 text-label", tone.badge)}>
       <p className="flex items-center gap-2 py-2">
-        <span aria-hidden="true" className={cn("size-1.5 shrink-0 rounded-full", tone.dot)} />
+        <StatusDot tone={tones[notice.kind]} />
         {words()}
       </p>
       {/* The next step is the Owner's, who pays: the way to support, whom the brand names. A link in the banner's

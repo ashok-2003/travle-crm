@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { ErrorState } from "@/components/error-state";
 import { checked } from "@/components/forms/checked";
 import { FormAlert, FormDialog, type Sending } from "@/components/forms/form-dialog";
+import type { ReturnFocusTo } from "@/components/return-focus";
 import { SelectField } from "@/components/forms/select-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { useTRPC } from "@/data/trpc";
@@ -74,10 +75,13 @@ export function ReassignDialog({
   lead,
   open,
   onOpenChange,
+  returnFocusTo,
 }: {
   lead: LeadDetail;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The button that opened it (Reassign, or the ⋯ menu's), which takes the focus back. */
+  returnFocusTo: ReturnFocusTo;
 }) {
   const t = useTranslations("leads.lead.reassign");
   const trpc = useTRPC();
@@ -96,6 +100,7 @@ export function ReassignDialog({
   return (
     <FormDialog
       dialog={{ open, setOpen: onOpenChange }}
+      returnFocusTo={returnFocusTo}
       sending={reassign}
       title={t("title")}
       description={t("description", { name: lead.person.name })}

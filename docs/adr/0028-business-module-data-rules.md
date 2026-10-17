@@ -82,3 +82,12 @@ features and the rest).
   so the conversion checks its range at the edge.
 - The large seeded agency makes the test suite slower; it runs in the performance tests' own database
   (`createIsolatedDatabase`), not in every package's tests.
+- **Release 1's search runs under plain row-level security, so its trigram indexes go unused by design.** Under row-level
+  security Postgres uses an index condition only with leakproof operators, and `LIKE`, `ILIKE` and pg_trgm's
+  similarity operators are not leakproof (reproduced on Postgres 18.6). A search therefore scans the organization's
+  index and filters: 35-104 ms at 50,000 leads, inside its 250 ms budget, and it grows with the agency. Marking the
+  operators `LEAKPROOF` needs a superuser that hosted Postgres doesn't give, and a `SECURITY DEFINER` search function
+  would step around the isolation. Both wait for a planned ADR on fast trigram search under row-level security, before
+  agencies near that size. The indexes stay, ready for it. Plan checks (`EXPLAIN`) run as `app_runtime` inside
+  `forOrg`, because row-level security changes the plans; the lists, counts and Today use their indexes, and search
+  holds a time budget instead.

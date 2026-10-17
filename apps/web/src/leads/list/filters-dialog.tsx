@@ -5,10 +5,9 @@
 // either way, or cancelled, the dialog gives the focus back to Filters.
 import { SlidersHorizontalIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { Button } from "@/components/ui/button";
-import { useReturnFocus } from "../lead/use-return-focus";
 import { FiltersForm } from "./filters-form";
 import type { ListFilters } from "./list-filters";
 
@@ -31,13 +30,8 @@ export function FiltersDialog({
   onApply: (filters: ListFilters) => void;
 }) {
   const t = useTranslations("leads.list");
-  const [open, setOpenState] = useState(false);
-  // The dialog isn't opened by its own Radix trigger: closed, it gives the focus back to Filters.
-  const { ref: opener, returnFocus } = useReturnFocus();
-  const setOpen = (next: boolean) => {
-    setOpenState(next);
-    if (!next) returnFocus();
-  };
+  const [open, setOpen] = useState(false);
+  const opener = useRef<HTMLButtonElement>(null);
   const formId = useId();
   const chosen = chosenCount(filters, chipShown);
   const apply = (next: ListFilters) => {
@@ -61,6 +55,7 @@ export function FiltersDialog({
       <ResponsiveDialog
         open={open}
         onOpenChange={setOpen}
+        returnFocusTo={opener}
         title={t("filtersDialog.title")}
         description={t("filtersDialog.description")}
         footer={

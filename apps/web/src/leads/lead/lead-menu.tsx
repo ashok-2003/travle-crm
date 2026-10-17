@@ -8,7 +8,7 @@
 import type { LeadDetail } from "@travel-crm/contracts/crm";
 import { EllipsisVerticalIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,7 +23,6 @@ import { useHolds } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { ReassignDialog } from "./reassign-dialog";
 import { useBlockContact, useMoveStage } from "./use-lead";
-import { useReturnFocus } from "./use-return-focus";
 
 type Asking = "reassign" | "lost" | "notALead" | "block" | null;
 
@@ -34,10 +33,9 @@ export function LeadMenu({ lead }: { lead: LeadDetail }) {
   const write = useWriteAccess("change");
   const [asking, setAsking] = useState<Asking>(null);
   // The dialogs aren't the menu's: closed, saved or cancelled, they give the focus back to the ⋯ button.
-  const { ref: opener, returnFocus } = useReturnFocus();
+  const opener = useRef<HTMLButtonElement>(null);
   const close = () => {
     setAsking(null);
-    returnFocus();
   };
   const move = useMoveStage(close);
   const block = useBlockContact(close);
@@ -80,11 +78,12 @@ export function LeadMenu({ lead }: { lead: LeadDetail }) {
           {canAssign && item("block", lead.person.phone ? t("menu.block") : t("menu.blockContact"), true)}
         </DropdownMenuContent>
       </DropdownMenu>
-      {asking === "reassign" && <ReassignDialog lead={lead} open onOpenChange={onOpenChange} />}
+      {asking === "reassign" && <ReassignDialog lead={lead} open onOpenChange={onOpenChange} returnFocusTo={opener} />}
       {(asking === "lost" || asking === "notALead") && (
         <ConfirmDialog
           open
           onOpenChange={onOpenChange}
+          returnFocusTo={opener}
           title={t(`${asking}.title`, { name })}
           description={t(`${asking}.description`)}
           action={t(`${asking}.confirm`)}
@@ -98,6 +97,7 @@ export function LeadMenu({ lead }: { lead: LeadDetail }) {
         <ConfirmDialog
           open
           onOpenChange={onOpenChange}
+          returnFocusTo={opener}
           title={t("block.title", { name })}
           description={t("block.description")}
           action={t("block.confirm")}

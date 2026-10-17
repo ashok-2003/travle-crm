@@ -18,17 +18,28 @@ import { FormAlert, FormDialog, type OpenState, type Sending } from "@/component
 import { MoneyField, rupeesFieldText } from "@/components/forms/money-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
+import type { ReturnFocusTo } from "@/components/return-focus";
 import { useConsoleTRPC } from "../../data/console-trpc";
 import { useChangeDialog } from "../change-dialog";
 import { toOverridesInput } from "./change-inputs";
 
-export function OverridesDialog({ subscription, state }: { subscription: SubscriptionDetails; state: OpenState }) {
+export function OverridesDialog({
+  subscription,
+  state,
+  returnFocusTo,
+}: {
+  subscription: SubscriptionDetails;
+  state: OpenState;
+  /** The Change menu's button, which takes the focus back when it closes. */
+  returnFocusTo: ReturnFocusTo;
+}) {
   const t = useTranslations("consoleOrganizations.subscription.overrides");
   const trpc = useConsoleTRPC();
   const dialog = useChangeDialog(subscription.organizationId, t("done"), state);
   const save = useMutation(trpc.subscriptions.setOverrides.mutationOptions({ onSuccess: dialog.onSuccess }));
   return (
     <FormDialog
+      returnFocusTo={returnFocusTo}
       dialog={dialog}
       sending={save}
       title={t("title")}

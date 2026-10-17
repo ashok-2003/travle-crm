@@ -1,8 +1,9 @@
 "use client";
 
 // A trip in one line, for the list, Today and the known contact (spec 3.3): "Kashmir · Dec · 2 adults, 1 child". A
-// month reads "Dec" this year and "Jan 2027" another; dates read "14 – 20 Nov"; flexible dates read "dates open".
-// Travel dates are days with no time, so they are written as they are; only "this year" is the agency's.
+// month reads "Dec" this year and "Jan 2027" another; dates read "14 – 20 Nov" (useTravelDates alone, for the lead
+// page's trip); flexible dates read "dates open". Travel dates are days with no time, so they are written as they are;
+// only "this year" is the agency's.
 import type { TravelWhen, TripSummary } from "@travel-crm/contracts/crm";
 import { yearIn } from "@travel-crm/domain/kernel";
 import { useTranslations } from "next-intl";
@@ -22,7 +23,20 @@ const formatters = {
 
 type TripWords = ReturnType<typeof useTranslations<"leads.trip">>;
 
-/** "Dec", "Jan 2027", "14 – 20 Nov", "28 Nov – 3 Dec", "28 Dec 2026 – 3 Jan 2027", "dates open", or nothing. */
+type TravelDates = Extract<TravelWhen, { kind: "dates" }>;
+
+/** "14 – 20 Nov", "28 Nov – 3 Dec", "28 Dec 2026 – 3 Jan 2027", or "14 Nov" for one day. */
+function datesOf(dates: Pick<TravelDates, "from" | "to">, thisYear: number, t: TripWords): string {
+  const [from, to] = [dayOf(dates.from), dayOf(dates.to)];
+  const sameYear = from.getUTCFullYear() === to.getUTCFullYear();
+  const end = (to.getUTCFullYear() === thisYear ? formatters.dayMonth : formatters.dayMonthYear).format(to);
+  if (dates.from === dates.to) return end;
+  if (!sameYear) return t("range", { from: formatters.dayMonthYear.format(from), to: end });
+  const sameMonth = from.getUTCMonth() === to.getUTCMonth();
+  return t("range", { from: (sameMonth ? formatters.day : formatters.dayMonth).format(from), to: end });
+}
+
+/** "Dec", "Jan 2027", the dates (datesOf), "dates open", or nothing. */
 function whenOf(when: TravelWhen, thisYear: number, t: TripWords): string | null {
   switch (when.kind) {
     case "unknown":
@@ -33,15 +47,8 @@ function whenOf(when: TravelWhen, thisYear: number, t: TripWords): string | null
       const month = dayOf(`${when.month}-01`);
       return (month.getUTCFullYear() === thisYear ? formatters.month : formatters.monthYear).format(month);
     }
-    case "dates": {
-      const [from, to] = [dayOf(when.from), dayOf(when.to)];
-      const sameYear = from.getUTCFullYear() === to.getUTCFullYear();
-      const end = (to.getUTCFullYear() === thisYear ? formatters.dayMonth : formatters.dayMonthYear).format(to);
-      if (when.from === when.to) return end;
-      if (!sameYear) return t("range", { from: formatters.dayMonthYear.format(from), to: end });
-      const sameMonth = from.getUTCMonth() === to.getUTCMonth();
-      return t("range", { from: (sameMonth ? formatters.day : formatters.dayMonth).format(from), to: end });
-    }
+    case "dates":
+      return datesOf(when, thisYear, t);
   }
 }
 
@@ -66,4 +73,11 @@ export function useTripLine(): (trip: TripSummary) => string {
     },
     [t, timeZone],
   );
+}
+
+/** Exact travel dates as the line writes them ("14 – 20 Nov"), for a screen that words the rest its own way. */
+export function useTravelDates(): (dates: Pick<TravelDates, "from" | "to">) => string {
+  const t = useTranslations("leads.trip");
+  const { timeZone } = useMe().organization;
+  return useCallback((dates) => datesOf(dates, yearIn(new Date(), timeZone), t), [t, timeZone]);
 }

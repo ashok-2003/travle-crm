@@ -9,7 +9,7 @@ import {
   type BusinessProfileDetails,
   type UpdateOrganizationProfileInput,
 } from "@travel-crm/contracts/profile";
-import { formatPhoneNumber } from "@/lib/format";
+import { phoneAsTyped } from "@/components/forms/phone-field";
 
 export type ProfileField = keyof UpdateOrganizationProfileInput;
 
@@ -38,9 +38,6 @@ const FIELDS: readonly ProfileField[] = [
 
 const isField = (value: unknown): value is ProfileField =>
   typeof value === "string" && (FIELDS as readonly string[]).includes(value);
-
-/** A stored phone as the box shows it: an Indian one as formatPhoneNumber groups it, after the form's own +91. */
-const phoneAsTyped = (e164: string) => formatPhoneNumber(e164).replace(/^\+91 /, "");
 
 /** A saved account number as the screen shows it: its last four digits, as the platform console shows it. */
 export const maskedAccountNumber = (number: string) => `XXXX${number.slice(-4)}`;

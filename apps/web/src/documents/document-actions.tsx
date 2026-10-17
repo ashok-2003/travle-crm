@@ -5,7 +5,7 @@
 import type { IssuedDocumentSummary } from "@travel-crm/contracts/documents";
 import { Share2Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { documentState } from "./document-state";
 import { DownloadPdfButton } from "./download-pdf-button";
@@ -14,6 +14,7 @@ import { ShareLinksDialog } from "./share-links-dialog";
 export function DocumentActions({ document }: { document: IssuedDocumentSummary }) {
   const t = useTranslations("documents.share");
   const [sharing, setSharing] = useState(false);
+  const shareButton = useRef<HTMLButtonElement>(null);
   const state = documentState(document);
   return (
     <div className="flex flex-wrap justify-end gap-2">
@@ -21,6 +22,7 @@ export function DocumentActions({ document }: { document: IssuedDocumentSummary 
         <>
           <DownloadPdfButton document={document} />
           <Button
+            ref={shareButton}
             variant="outline"
             aria-label={t("openNamed", { number: document.number })}
             onClick={() => {
@@ -30,7 +32,7 @@ export function DocumentActions({ document }: { document: IssuedDocumentSummary 
             <Share2Icon aria-hidden="true" />
             {t("open")}
           </Button>
-          <ShareLinksDialog document={document} open={sharing} onOpenChange={setSharing} />
+          <ShareLinksDialog document={document} open={sharing} onOpenChange={setSharing} returnFocusTo={shareButton} />
         </>
       )}
     </div>

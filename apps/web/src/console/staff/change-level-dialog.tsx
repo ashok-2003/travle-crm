@@ -7,6 +7,7 @@ import type { PlatformStaffEntry, PlatformStaffLevel } from "@travel-crm/contrac
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { FormAlert, FormDialog } from "@/components/forms/form-dialog";
+import type { ReturnFocusTo } from "@/components/return-focus";
 import { LevelField } from "./level-field";
 import { useSetPlatformStaffLevel } from "./use-platform-staff";
 
@@ -14,10 +15,13 @@ export function ChangeLevelDialog({
   person,
   open,
   onOpenChange,
+  returnFocusTo,
 }: {
   person: PlatformStaffEntry;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The button that opened it, which takes the focus back when it closes. */
+  returnFocusTo: ReturnFocusTo;
 }) {
   const t = useTranslations("consolePlatform.staff.changeLevel");
   const [level, setLevel] = useState<PlatformStaffLevel>(person.level ?? "support");
@@ -26,6 +30,7 @@ export function ChangeLevelDialog({
   });
   return (
     <FormDialog
+      returnFocusTo={returnFocusTo}
       dialog={{ open, setOpen: onOpenChange }}
       sending={change}
       title={t("title", { name: person.name })}

@@ -132,7 +132,21 @@
     "assigneeUserId": "Assigned to",
     "dueAt": "Due",
     "kind": "Kind",
-    "mergedInto": "Merged into"
+    "mergedInto": "Merged into",
+    "phone": "Phone",
+    "email": "Email",
+    "instagramHandle": "Instagram handle",
+    "source": "Source",
+    "destination": "Destination",
+    "when": "When",
+    "adults": "Adults",
+    "childrenAges": "Children's ages",
+    "budget": "Budget",
+    "departureCity": "Leaving from",
+    "tripType": "Trip type",
+    "hotelCategory": "Hotel",
+    "food": "Food",
+    "roomType": "Room type"
   },
   "recordTypes": {
     "issued_document": "A document",

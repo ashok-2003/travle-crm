@@ -5,16 +5,20 @@
 import type { PlatformStaffEntry } from "@travel-crm/contracts/platform";
 import { useTranslations } from "next-intl";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import type { ReturnFocusTo } from "@/components/return-focus";
 import { useRemovePlatformStaff } from "./use-platform-staff";
 
 export function RemoveStaffDialog({
   person,
   open,
   onOpenChange,
+  returnFocusTo,
 }: {
   person: PlatformStaffEntry;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The button that opened it, which takes the focus back when it closes. */
+  returnFocusTo: ReturnFocusTo;
 }) {
   const t = useTranslations("consolePlatform.staff.remove");
   const remove = useRemovePlatformStaff(person.name, () => {
@@ -22,6 +26,7 @@ export function RemoveStaffDialog({
   });
   return (
     <ConfirmDialog
+      returnFocusTo={returnFocusTo}
       open={open}
       onOpenChange={onOpenChange}
       title={t("title", { name: person.name })}

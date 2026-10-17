@@ -5,7 +5,7 @@
 import type { RoleSummary, StaffMember } from "@travel-crm/contracts/identity";
 import { UserPlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
@@ -20,6 +20,7 @@ export function CreateStaffDialog({ roles }: { roles: RoleSummary[] }) {
   const t = useTranslations("staff");
   const me = useMe();
   const [open, setOpen] = useState(false);
+  const opener = useRef<HTMLButtonElement>(null);
   const [created, setCreated] = useState<{ member: StaffMember; password: string } | null>(null);
   const create = useCreateStaff();
   const write = useWriteAccess();
@@ -38,6 +39,7 @@ export function CreateStaffDialog({ roles }: { roles: RoleSummary[] }) {
   return (
     <div className="flex flex-col items-start gap-2">
       <Button
+        ref={opener}
         disabled={!write.allowed}
         aria-describedby={write.hint === null ? undefined : "add-staff-refused"}
         onClick={() => {
@@ -50,6 +52,7 @@ export function CreateStaffDialog({ roles }: { roles: RoleSummary[] }) {
       <WriteHint id="add-staff-refused" hint={write.hint} />
       <ResponsiveDialog
         open={open}
+        returnFocusTo={opener}
         onOpenChange={changeOpen}
         busy={create.isPending}
         title={created ? t("create.added", { name: created.member.name }) : t("create.title")}

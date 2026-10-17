@@ -10,10 +10,7 @@ import { expectAccessible } from "./support/accessibility";
 import { expect, signInByEmail, test } from "./support/fixtures";
 import { addFollowUpThroughApi, addLeadThroughApi, dayInIndia, leadInput, moveStageThroughApi } from "./support/leads";
 import { animationsSettled } from "./support/settled";
-import { laterToday, timeInIndia } from "./support/work";
-
-/** "2026-10-19" as the date field takes it: "19/10/2026". */
-const typedDay = (day: string) => day.split("-").reverse().join("/");
+import { fillDue, laterToday, timeInIndia, typedDay } from "./support/work";
 
 /** "9:15 am", as the screens show a time of day ("HH:MM" on the agency's clock). */
 const shownTime = (time: string) => {
@@ -29,7 +26,7 @@ test("a follow-up added on a lead shows in Today and, done there, on the lead's 
   await page.getByRole("button", { name: "Add follow-up" }).click();
   const adding = page.getByRole("dialog", { name: "Add a follow-up" });
   await adding.getByLabel("What to do").fill("Send the Kashmir options");
-  await adding.getByLabel("Time").fill((await laterToday(page, 90)).at);
+  await fillDue(adding, await laterToday(page, 90));
   await adding.getByRole("button", { name: "Add follow-up" }).click();
   await expect(adding).toBeHidden();
 
@@ -88,7 +85,7 @@ test("Add a task puts one on a lead found by search, and one standing alone, und
   await page.getByRole("button", { name: "Add a task" }).click();
   const adding = page.getByRole("dialog", { name: "Add a task" });
   await adding.getByLabel("What to do").fill("Send the Kashmir quote");
-  await adding.getByLabel("Time").fill(due.at);
+  await fillDue(adding, due);
   await adding.getByRole("combobox", { name: "Lead" }).click();
   await page.getByRole("combobox", { name: "Search by name or phone" }).fill("Rahul");
   await page.getByRole("option", { name: /Rahul Sharma/ }).click();
@@ -105,7 +102,7 @@ test("Add a task puts one on a lead found by search, and one standing alone, und
 
   await page.getByRole("button", { name: "Add a task" }).click();
   await adding.getByLabel("What to do").fill("Renew the IATA licence");
-  await adding.getByLabel("Time").fill(due.at);
+  await fillDue(adding, due);
   await expect(adding.getByRole("combobox", { name: "For" })).toHaveText(/Asha Sharma/);
   await adding.getByRole("button", { name: "Add the task" }).click();
   await expect(adding).toBeHidden();

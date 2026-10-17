@@ -1,9 +1,11 @@
 // ResponsiveDialog's footer (DESIGN.md: the main action stays on screen, stacked full width on phones): it renders in
 // the registry's DialogFooter or SheetFooter, outside the body that scrolls, starting with Cancel, which closes the
-// dialog and is disabled while the request is out; a form in the body submits from it through the form attribute.
-import { render, screen, within } from "@testing-library/react";
+// dialog and is disabled while the request is out; a form in the body submits from it through the form attribute. The
+// body leaves room round its fields for their focus outline, and a closed dialog gives the focus back to its opener.
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
+import { useRef, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Button } from "@/components/ui/button";
 import { locale, messages } from "@/i18n/messages";
@@ -91,7 +93,57 @@ describe.each([
     renderDialog({ busy: true });
     expect(screen.getByRole("button", { name: common.cancel })).toBeDisabled();
   });
+
+  it("leaves room above and below the body's fields, so a focus outline isn't cut off", () => {
+    screenIs(width);
+    const dialog = renderDialog();
+    const body = within(dialog).getByRole("textbox", { name: "Name" }).closest(".overflow-y-auto");
+    expect(body).toHaveClass("py-1");
+  });
+
+  it("gives the focus back to the button that opened it, which isn't a Radix trigger", async () => {
+    screenIs(width);
+    render(
+      <NextIntlClientProvider locale={locale} messages={messages}>
+        <OpenedByAButton />
+      </NextIntlClientProvider>,
+    );
+    const opener = screen.getByRole("button", { name: "Edit the name" });
+    await userEvent.click(opener);
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: common.cancel }));
+    await waitFor(() => {
+      expect(opener).toHaveFocus();
+    });
+  });
 });
+
+/** A dialog opened by a plain button, as a card's Edit or a menu's item opens one. */
+function OpenedByAButton() {
+  const [open, setOpen] = useState(false);
+  const opener = useRef<HTMLButtonElement>(null);
+  return (
+    <>
+      <Button
+        ref={opener}
+        onClick={() => {
+          setOpen(true);
+        }}
+      >
+        Edit the name
+      </Button>
+      <ResponsiveDialog
+        open={open}
+        onOpenChange={setOpen}
+        returnFocusTo={opener}
+        title="Edit the name"
+        description="Who they are"
+        footer={<Button>Save</Button>}
+      >
+        <p>The form</p>
+      </ResponsiveDialog>
+    </>
+  );
+}
 
 it("leaves Cancel out when asked: a footer that ends the dialog itself", () => {
   screenIs("wide");

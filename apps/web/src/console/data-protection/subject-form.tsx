@@ -5,7 +5,7 @@
 // the very subject typed: the api refuses an erasure without it.
 import type { ErasureSubject } from "@travel-crm/contracts/platform";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useId, useState, type Ref } from "react";
 import { FormField } from "@/components/form-field";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
@@ -51,12 +51,15 @@ export function SubjectForm({
   exported,
   onExport,
   onErase,
+  eraseButton,
 }: {
   busy: boolean;
   /** The subject whose export is shown, if one is. */
   exported: ErasureSubject | null;
   onExport: (subject: ErasureSubject) => void;
   onErase: (subject: ErasureSubject) => void;
+  /** Erase, which takes the focus back when its confirmation closes. */
+  eraseButton: Ref<HTMLButtonElement>;
 }) {
   const t = useTranslations("consolePlatform.dataProtection.subject");
   const id = useId();
@@ -131,6 +134,7 @@ export function SubjectForm({
           {busy ? t("exporting") : t("export")}
         </Button>
         <Button
+          ref={eraseButton}
           type="button"
           variant="destructive"
           disabled={busy || !exportShown}

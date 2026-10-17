@@ -69,6 +69,7 @@ export function LogoPanel() {
   const write = useWriteAccess();
   const fileInput = useRef<HTMLInputElement>(null);
   const [removing, setRemoving] = useState(false);
+  const removeButton = useRef<HTMLButtonElement>(null);
   const remove = useRemoveLogo(() => {
     setRemoving(false);
   });
@@ -180,6 +181,7 @@ export function LogoPanel() {
         </Button>
         {logo.data && (
           <Button
+            ref={removeButton}
             variant="outline"
             disabled={!write.allowed || uploading}
             aria-describedby={writeHint}
@@ -197,6 +199,7 @@ export function LogoPanel() {
         <ConfirmDialog
           open={removing}
           onOpenChange={setRemoving}
+          returnFocusTo={removeButton}
           title={t("removeTitle")}
           description={t("removeDescription")}
           action={t("removeConfirm")}

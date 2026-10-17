@@ -4,7 +4,7 @@
 // a change, so while the subscription refuses changes the button is disabled and says why (ADR 0021).
 import { PlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { roleName } from "@travel-crm/contracts/identity";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ export function CreateRoleDialog() {
   const create = useCreateRole();
   const write = useWriteAccess();
   const [open, setOpen] = useState(false);
+  const opener = useRef<HTMLButtonElement>(null);
   const [name, setName] = useState("");
   const [invalid, setInvalid] = useState(false);
   const formId = useId();
@@ -38,6 +39,7 @@ export function CreateRoleDialog() {
   return (
     <div className="flex flex-col items-start gap-2">
       <Button
+        ref={opener}
         disabled={!write.allowed}
         aria-describedby={write.hint === null ? undefined : "new-role-refused"}
         onClick={() => {
@@ -50,6 +52,7 @@ export function CreateRoleDialog() {
       <WriteHint id="new-role-refused" hint={write.hint} />
       <ResponsiveDialog
         open={open}
+        returnFocusTo={opener}
         onOpenChange={changeOpen}
         busy={create.isPending}
         title={t("title")}

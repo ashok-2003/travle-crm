@@ -45,6 +45,9 @@ describe("TripCard", () => {
       `Hotel${messages.leads.hotelCategories["4_star"]}`,
       "FoodVegetarian",
     ]);
+    // Both amounts are numbers, in the mono numbers style (DESIGN.md).
+    expect(screen.getByText("₹60,000")).toHaveClass("numbers");
+    expect(screen.getByText("₹1,80,000")).toHaveClass("numbers");
   });
 
   it("says what isn't asked yet, and gives exact dates as a range", () => {

@@ -9,6 +9,7 @@ import { TextField } from "@/components/forms/text-field";
 import { FormAlert, FormDialog } from "@/components/forms/form-dialog";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { FieldGroup } from "@/components/ui/field";
+import type { ReturnFocusTo } from "@/components/return-focus";
 import { policyValues, toPolicyInput, type PolicyField } from "./policy-values";
 import { useSetPolicy } from "./use-policy";
 
@@ -53,10 +54,13 @@ export function PolicyDialog({
   policy,
   open,
   onOpenChange,
+  returnFocusTo,
 }: {
   policy: SubscriptionPolicy;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The button that opened it, which takes the focus back when it closes. */
+  returnFocusTo: ReturnFocusTo;
 }) {
   const t = useTranslations("consolePlatform.policy");
   const tCommon = useTranslations("common");
@@ -65,6 +69,7 @@ export function PolicyDialog({
   });
   return (
     <FormDialog
+      returnFocusTo={returnFocusTo}
       dialog={{ open, setOpen: onOpenChange }}
       sending={save}
       title={t("changeTitle")}

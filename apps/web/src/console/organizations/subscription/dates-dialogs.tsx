@@ -11,17 +11,28 @@ import { DateField } from "@/components/date-field";
 import { FormAlert, FormDialog, type OpenState, type Sending } from "@/components/forms/form-dialog";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { FieldGroup } from "@/components/ui/field";
+import type { ReturnFocusTo } from "@/components/return-focus";
 import { useConsoleTRPC } from "../../data/console-trpc";
 import { useChangeDialog } from "../change-dialog";
 import { toPaidThroughInput, toTrialEndInput } from "./change-inputs";
 
-export function TrialEndDialog({ subscription, state }: { subscription: SubscriptionDetails; state: OpenState }) {
+export function TrialEndDialog({
+  subscription,
+  state,
+  returnFocusTo,
+}: {
+  subscription: SubscriptionDetails;
+  state: OpenState;
+  /** The Change menu's button, which takes the focus back when it closes. */
+  returnFocusTo: ReturnFocusTo;
+}) {
   const t = useTranslations("consoleOrganizations.subscription.trialEnd");
   const trpc = useConsoleTRPC();
   const dialog = useChangeDialog(subscription.organizationId, t("done"), state);
   const save = useMutation(trpc.subscriptions.setTrialEnd.mutationOptions({ onSuccess: dialog.onSuccess }));
   return (
     <FormDialog
+      returnFocusTo={returnFocusTo}
       dialog={dialog}
       sending={save}
       title={t("title")}
@@ -59,13 +70,23 @@ function TrialEndForm({
   );
 }
 
-export function PaidThroughDialog({ subscription, state }: { subscription: SubscriptionDetails; state: OpenState }) {
+export function PaidThroughDialog({
+  subscription,
+  state,
+  returnFocusTo,
+}: {
+  subscription: SubscriptionDetails;
+  state: OpenState;
+  /** The Change menu's button, which takes the focus back when it closes. */
+  returnFocusTo: ReturnFocusTo;
+}) {
   const t = useTranslations("consoleOrganizations.subscription.paidThrough");
   const trpc = useConsoleTRPC();
   const dialog = useChangeDialog(subscription.organizationId, t("done"), state);
   const save = useMutation(trpc.subscriptions.setPaidThrough.mutationOptions({ onSuccess: dialog.onSuccess }));
   return (
     <FormDialog
+      returnFocusTo={returnFocusTo}
       dialog={dialog}
       sending={save}
       title={t("title")}

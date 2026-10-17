@@ -6,16 +6,20 @@
 import type { StaffMember } from "@travel-crm/contracts/identity";
 import { useTranslations } from "next-intl";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import type { ReturnFocusTo } from "@/components/return-focus";
 import { useRemoveStaff } from "./use-staff";
 
 export function RemoveStaffDialog({
   member,
   open,
   onOpenChange,
+  returnFocusTo,
 }: {
   member: StaffMember;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The button that opened it, which takes the focus back when it closes. */
+  returnFocusTo: ReturnFocusTo;
 }) {
   const t = useTranslations("staff.remove");
   const remove = useRemoveStaff(member.name, () => {
@@ -23,6 +27,7 @@ export function RemoveStaffDialog({
   });
   return (
     <ConfirmDialog
+      returnFocusTo={returnFocusTo}
       open={open}
       onOpenChange={onOpenChange}
       title={t("title", { name: member.name })}

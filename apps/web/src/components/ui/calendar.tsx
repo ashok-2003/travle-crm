@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { cn } from "cn";
+import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { DateLib, DayPicker, getDefaultClassNames, type DayButton, type Locale } from "react-day-picker";
 import { enIN } from "react-day-picker/locale";

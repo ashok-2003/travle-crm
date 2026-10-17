@@ -10,7 +10,9 @@ import { useMutation } from "@tanstack/react-query";
 import { TriangleAlertIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { checked } from "@/components/forms/checked";
+import { phoneAsTyped } from "@/components/forms/phone-field";
 import { FormAlert, FormDialog, useFormDialog, type OpenState, type Sending } from "@/components/forms/form-dialog";
+import type { ReturnFocusTo } from "@/components/return-focus";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useTRPC } from "@/data/trpc";
@@ -26,10 +28,6 @@ import {
 import { PersonFields } from "../form/person-fields";
 import { knownContactsOf, useKnownContact } from "../form/use-known-contact";
 import { useRefreshLeads } from "./use-lead";
-
-/** A stored number as the phone field shows it: an Indian one after its +91, any other whole. */
-const phoneFieldText = (e164: string | null) =>
-  e164 === null ? "" : /^\+91\d{10}$/.test(e164) ? `${e164.slice(3, 8)} ${e164.slice(8)}` : e164;
 
 /** Who else holds a contact typed here: the one kind asked about, if it changed and isn't this person's own. */
 function useHolder(person: LeadDetail["person"], kind: ContactKind, typed: string) {
@@ -48,7 +46,7 @@ function PersonForm({ formId, lead, save }: { formId: string; lead: LeadDetail; 
     {
       ...emptyLeadValues(""),
       name: person.name,
-      phone: phoneFieldText(person.phone),
+      phone: phoneAsTyped(person.phone),
       email: person.email ?? "",
       instagramHandle: person.instagramHandle ?? "",
     },
@@ -84,7 +82,16 @@ function PersonForm({ formId, lead, save }: { formId: string; lead: LeadDetail; 
   );
 }
 
-export function EditPersonDialog({ lead, dialog }: { lead: LeadDetail; dialog: OpenState }) {
+export function EditPersonDialog({
+  lead,
+  dialog,
+  returnFocusTo,
+}: {
+  lead: LeadDetail;
+  dialog: OpenState;
+  /** The card's Edit, which takes the focus back. */
+  returnFocusTo: ReturnFocusTo;
+}) {
   const t = useTranslations("leads.lead.person");
   const trpc = useTRPC();
   const refresh = useRefreshLeads();
@@ -93,6 +100,7 @@ export function EditPersonDialog({ lead, dialog }: { lead: LeadDetail; dialog: O
   return (
     <FormDialog
       dialog={held}
+      returnFocusTo={returnFocusTo}
       sending={save}
       title={t("dialog.title")}
       description={t("dialog.description")}

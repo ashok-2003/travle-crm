@@ -4,16 +4,16 @@
 // day and time (DueField), as the api takes them (snoozeTaskInput, checked before it is sent). A FormDialog: it holds
 // while the request is out (rule 7), and what follows success lands even once it closes.
 import { snoozeTaskInput, type SnoozeUntil } from "@travel-crm/contracts/tasks";
-import { calendarDateIn } from "@travel-crm/domain/kernel";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { Controller } from "react-hook-form";
 import { checked } from "@/components/forms/checked";
-import { DueField } from "@/components/forms/due-field";
+import { DueField, suggestedDue } from "@/components/forms/due-field";
 import { FormAlert, FormDialog, useFormDialog, type Sending } from "@/components/forms/form-dialog";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import type { ReturnFocusTo } from "@/components/return-focus";
 import { useTRPC } from "@/data/trpc";
 import { useMe } from "@/session/me-context";
 import { useRefreshWork } from "./use-refresh-work";
@@ -61,7 +61,7 @@ function SnoozeForm({
   const t = useTranslations("tasks.snooze");
   const { timeZone } = useMe().organization;
   const { form, onSubmit, formProblem } = useCheckedForm<SnoozeValues, { taskId: string; until: SnoozeUntil }, Problem>(
-    { choice: "one-hour", day: calendarDateIn(new Date(), timeZone), time: "" },
+    { choice: "one-hour", ...suggestedDue(timeZone) },
     (values) => toSnoozeInput(taskId, values),
     (problem) => t(`problems.${problem}`),
   );
@@ -99,10 +99,13 @@ export function SnoozeDialog({
   taskId,
   open,
   onOpenChange,
+  returnFocusTo,
 }: {
   taskId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The button that opened it, which takes the focus back when it closes. */
+  returnFocusTo: ReturnFocusTo;
 }) {
   const t = useTranslations("tasks.snooze");
   const trpc = useTRPC();
@@ -111,6 +114,7 @@ export function SnoozeDialog({
   const snooze = useMutation(trpc.tasks.snooze.mutationOptions({ onSuccess: dialog.onSuccess }));
   return (
     <FormDialog
+      returnFocusTo={returnFocusTo}
       dialog={dialog}
       sending={snooze}
       title={t("title")}

@@ -20,11 +20,11 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWideScreen } from "@/lib/use-wide-screen";
 import { useHolds, useMe, viewScope } from "@/session/me-context";
+import { NewLeadButton } from "../new-lead-button";
 import { FiltersDialog } from "./filters-dialog";
 import { LeadRows } from "./lead-rows";
-import { LeadsTable } from "./leads-table";
+import { LeadsTable, tableColumns } from "./leads-table";
 import { isFiltered, listFiltersHref, listFiltersOf, type FiltersToShow } from "./list-filters";
-import { NewLeadButton } from "./new-lead-button";
 import { SearchField } from "./search-field";
 import { isChipStage, StageChips } from "./stage-chips";
 import { useLeadCounts, useLeads } from "./use-leads";
@@ -41,6 +41,8 @@ export function LeadsScreen() {
   const newLead = useHolds("leads:create") && <NewLeadButton />;
   // Clear filters empties the search box too, by giving it a fresh start.
   const [searchBox, setSearchBox] = useState(0);
+  // With no leads at all, a chip row of zeros says nothing the empty list doesn't: the chips go without counts.
+  const noLeadsAtAll = leads.items?.length === 0 && !isFiltered(input);
 
   const show = (filters: FiltersToShow) => {
     router.replace(listFiltersHref(filters));
@@ -66,7 +68,9 @@ export function LeadsScreen() {
           />
         );
       }
-      return <LoadingRows shape={wide ? "table" : "twoLines"} columns={7} label={t("loading")} />;
+      return (
+        <LoadingRows shape={wide ? "table" : "twoLines"} columns={tableColumns(!ownOnly).length} label={t("loading")} />
+      );
     }
     if (leads.items.length === 0) {
       if (isFiltered(input)) {
@@ -106,7 +110,7 @@ export function LeadsScreen() {
       <div className="-m-1 flex items-center gap-2 overflow-x-auto p-1 md:flex-wrap md:overflow-visible">
         <StageChips
           stage={input.stage}
-          counts={counts.data}
+          counts={noLeadsAtAll ? undefined : counts.data}
           ownOnly={ownOnly}
           onChoose={(stage) => {
             show({ ...input, stage });

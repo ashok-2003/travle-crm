@@ -7,7 +7,7 @@ import { SearchIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
-import { useDebouncedValue } from "../form/use-debounced-value";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
 
 export function SearchField({ initial, onSearch }: { initial: string; onSearch: (text: string) => void }) {
   const t = useTranslations("leads.list");

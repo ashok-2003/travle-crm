@@ -129,6 +129,21 @@ describe("LeadsScreen", () => {
     expect(inputsTo("leads.counts")).toEqual([{ view: "mine" }]);
   });
 
+  it("leaves the counts off the chips while there are no leads at all: a row of zeros says nothing", async () => {
+    const none = { open: 0, new: 0, contacted: 0, quote_sent: 0, booking_requested: 0 };
+    const api = renderLeads({ "leads.list": aPage([]), "leads.counts": { data: none } });
+    expect(await screen.findByText(list.empty)).toBeVisible();
+    await waitFor(() => {
+      expect(api.calls).toContain("leads.counts");
+    });
+    const chips = screen.getByRole("radiogroup", { name: list.chips });
+    expect(
+      within(chips)
+        .getAllByRole("radio")
+        .map((chip) => chip.textContent),
+    ).toEqual(["Open", "New", "Contacted", "Quote sent", "Booking requested"]);
+  });
+
   it("searches by name or phone after a pause; the field has a label for screen readers", async () => {
     renderLeads();
     await rows();
@@ -155,7 +170,7 @@ describe("LeadsScreen", () => {
       expect(lastInputTo("leads.list")).toEqual({ view: "mine", stage: "open", limit: 25 });
     });
     expect(await screen.findByText(list.empty)).toBeVisible();
-    expect(screen.getAllByRole("link", { name: list.newLead }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: messages.leads.newLead }).length).toBeGreaterThan(0);
   });
 
   it("reads a row: name, ↺ Returning, trip line, stage badge and next step; on a computer the Table's seven columns", async () => {
@@ -258,6 +273,18 @@ describe("LeadsScreen", () => {
         .getAllByRole("columnheader")
         .map((header) => header.textContent),
     ).toEqual(Object.values(list.columns).filter((column) => column !== list.columns.owner));
+  });
+
+  it("draws the table's skeleton with as many columns as the table will have: six for a salesperson", async () => {
+    renderLeads({ "leads.list": "never" }, { me: salesperson, width: "wide" });
+    const loading = await screen.findByRole("status", { name: list.loading });
+    expect(within(loading).getAllByRole("columnheader")).toHaveLength(6);
+  });
+
+  it("draws seven skeleton columns for a manager, whose table has Owner", async () => {
+    renderLeads({ "leads.list": "never" }, { width: "wide" });
+    const loading = await screen.findByRole("status", { name: list.loading });
+    expect(within(loading).getAllByRole("columnheader")).toHaveLength(7);
   });
 
   it("shows the skeleton, the error with Try again, and a refusal's sentence", async () => {

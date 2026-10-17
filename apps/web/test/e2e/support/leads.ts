@@ -82,7 +82,6 @@ export function dayInIndia(days = 0): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(day);
 }
 
-/** The agency's people who work leads: its Owner and Ravi Kumar, a salesperson (starter role Sales), with his id. */
 /** The id of the lead worker named `name`, as leads.owners lists them to the signed-in Owner. */
 function workerId(workers: { userId: string; name: string }[], name: string): string {
   const userId = workers.find((worker) => worker.name === name)?.userId;

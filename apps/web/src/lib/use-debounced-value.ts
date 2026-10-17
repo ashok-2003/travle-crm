@@ -1,8 +1,8 @@
 "use client";
 
 // A text once it has stopped changing for a moment, for asking the api only after a pause in typing: the lead
-// search, the destination picker, the known-contact check. Text only: a string compares by its content, so a value
-// built afresh on every render can't restart the wait forever.
+// search, the destination field, the search comboboxes (search-combobox.tsx), the known-contact check. Text only: a
+// string compares by its content, so a value built afresh on every render can't restart the wait forever.
 import { useEffect, useState } from "react";
 
 /** How long typing pauses before the api is asked. */

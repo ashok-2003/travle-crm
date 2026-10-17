@@ -4,7 +4,7 @@
 // it no end, and how many days an unpaid organization stays past due, then read-only, before it is suspended. Super
 // admins change it.
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Details } from "@/components/details";
 import { ErrorState } from "@/components/error-state";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ export function PolicySection() {
   const editable = isSuperAdmin(useStaff());
   const policy = usePolicy();
   const [changing, setChanging] = useState(false);
+  const changeButton = useRef<HTMLButtonElement>(null);
 
   const body = () => {
     if (policy.data) {
@@ -64,6 +65,7 @@ export function PolicySection() {
         </div>
         {editable && policy.data && (
           <Button
+            ref={changeButton}
             variant="outline"
             onClick={() => {
               setChanging(true);
@@ -74,7 +76,9 @@ export function PolicySection() {
         )}
       </div>
       {body()}
-      {policy.data && <PolicyDialog policy={policy.data} open={changing} onOpenChange={setChanging} />}
+      {policy.data && (
+        <PolicyDialog policy={policy.data} open={changing} onOpenChange={setChanging} returnFocusTo={changeButton} />
+      )}
     </section>
   );
 }

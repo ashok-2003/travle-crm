@@ -10,10 +10,10 @@ import {
   type TimelineInput,
   type TimelinePage,
 } from "@travel-crm/contracts/crm";
-import { taskKind } from "@travel-crm/contracts/tasks";
 import type { OrgTx } from "@travel-crm/db";
 import { destinationNames } from "../catalog/index.js";
 import type { MemberAccess } from "../identity/index.js";
+import { listTasksOnRecord } from "../tasks/index.js";
 import { recordCrmAudit } from "./crm-audit.js";
 import { findLeadInScope } from "./lead-detail.js";
 import { recordLeadEvent } from "./lead-events.js";
@@ -30,8 +30,8 @@ interface EntryRow {
   ownerUserId: string | null;
 }
 
-/** The notes, repeat enquiries and tasks a page of entries points to, by id. */
-async function pointedAt(tx: OrgTx, rows: readonly EntryRow[]) {
+/** The notes, repeat enquiries and tasks a page of the lead's entries points to, by id. */
+async function pointedAt(tx: OrgTx, leadId: string, rows: readonly EntryRow[]) {
   const idsOf = (recordType: string) =>
     rows.flatMap((row) => (row.recordType === recordType && row.recordId !== null ? [row.recordId] : []));
   const notes = await tx.leadNote.findMany({
@@ -46,11 +46,11 @@ async function pointedAt(tx: OrgTx, rows: readonly EntryRow[]) {
     tx,
     enquiries.flatMap((enquiry) => (enquiry.destinationId === null ? [] : [enquiry.destinationId])),
   );
-  // Done and cancelled tasks too, which the tasks module's reads leave out: the timeline tells what happened to them.
-  const tasks = await tx.task.findMany({
-    where: { id: { in: idsOf("task") } },
-    select: { id: true, kind: true, title: true, dueAt: true },
-  });
+  // Done and cancelled tasks too: the timeline tells what happened to them. Its tasks are all on the lead (a follow-up
+  // stays on its lead whoever owns it), read through the tasks module, which alone reads the task table.
+  const taskIds = new Set(idsOf("task"));
+  const tasks =
+    taskIds.size === 0 ? [] : (await listTasksOnRecord(tx, "lead", [leadId])).filter((task) => taskIds.has(task.id));
   return {
     notes: new Map(notes.map((note) => [note.id, note.body])),
     enquiries: new Map(
@@ -64,12 +64,7 @@ async function pointedAt(tx: OrgTx, rows: readonly EntryRow[]) {
         },
       ]),
     ),
-    tasks: new Map(
-      tasks.map((task) => [
-        task.id,
-        { kind: taskKind.parse(task.kind), title: task.title, dueAt: task.dueAt.toISOString() },
-      ]),
-    ),
+    tasks: new Map(tasks.map((task) => [task.id, { kind: task.kind, title: task.title, dueAt: task.dueAt }])),
   };
 }
 
@@ -132,7 +127,7 @@ export async function listLeadTimeline(
     },
   });
   const page = rows.slice(0, input.limit);
-  const pointed = await pointedAt(tx, page);
+  const pointed = await pointedAt(tx, lead.id, page);
   return {
     entries: page.flatMap((row) => entryOf(row, lead.source, pointed) ?? []),
     nextCursor: rows.length > input.limit ? (page.at(-1)?.id ?? null) : null,

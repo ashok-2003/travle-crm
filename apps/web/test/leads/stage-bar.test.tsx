@@ -111,6 +111,12 @@ describe("StageBar", () => {
     renderBar({ stage: "contacted" }, { me: viewer });
     expect(screen.getByText(stages.contacted)).toHaveAttribute("aria-current", "step");
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
-    expect(screen.queryByText(words.tapToMove)).not.toBeInTheDocument();
+    expect(screen.queryByText(words.chooseToMove)).not.toBeInTheDocument();
+  });
+
+  it("says how to move the lead in words for a mouse as for a finger, never 'Tap'", () => {
+    renderBar({ stage: "contacted" });
+    expect(screen.getByText(words.chooseToMove)).toBeVisible();
+    expect(screen.queryByText(/\btap\b/i)).not.toBeInTheDocument();
   });
 });

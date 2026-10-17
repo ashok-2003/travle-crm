@@ -5,7 +5,7 @@
 import type { Destination } from "@travel-crm/contracts/catalog";
 import { EllipsisVerticalIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -23,6 +23,8 @@ type OpenDialog = "rename" | "merge" | null;
 export function DestinationActions({ destination }: { destination: Destination }) {
   const t = useTranslations("settings.destinations");
   const [open, setOpen] = useState<OpenDialog>(null);
+  // The dialogs aren't the menu's: closed, they give the focus back to its button.
+  const menu = useRef<HTMLButtonElement>(null);
   const write = useWriteAccess();
   const closeWhen = (dialog: Exclude<OpenDialog, null>) => (next: boolean) => {
     setOpen(next ? dialog : null);
@@ -31,7 +33,7 @@ export function DestinationActions({ destination }: { destination: Destination }
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" aria-label={t("actionsFor", { name: destination.name })}>
+          <Button ref={menu} variant="ghost" size="icon" aria-label={t("actionsFor", { name: destination.name })}>
             <EllipsisVerticalIcon aria-hidden="true" />
           </Button>
         </DropdownMenuTrigger>
@@ -58,9 +60,21 @@ export function DestinationActions({ destination }: { destination: Destination }
         </DropdownMenuContent>
       </DropdownMenu>
       {open === "rename" && (
-        <RenameDestinationDialog destination={destination} open onOpenChange={closeWhen("rename")} />
+        <RenameDestinationDialog
+          destination={destination}
+          open
+          onOpenChange={closeWhen("rename")}
+          returnFocusTo={menu}
+        />
       )}
-      {open === "merge" && <MergeDestinationsDialog destination={destination} open onOpenChange={closeWhen("merge")} />}
+      {open === "merge" && (
+        <MergeDestinationsDialog
+          destination={destination}
+          open
+          onOpenChange={closeWhen("merge")}
+          returnFocusTo={menu}
+        />
+      )}
     </>
   );
 }

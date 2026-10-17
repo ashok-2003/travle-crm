@@ -147,8 +147,9 @@ describe("AddTaskDialog", () => {
     await userEvent.click(within(dialog).getByRole("combobox", { name: words.lead }));
     await userEvent.type(await screen.findByRole("combobox", { name: words.search }), "Rahul");
     await userEvent.click(await screen.findByRole("option", { name: /Rahul Sharma/ }));
+    // Asked once the typing paused, not once a letter.
     await waitFor(() => {
-      expect(inputsSentTo("leads.list")).toContainEqual({ view: "everyone", search: "Rahul", limit: 10 });
+      expect(inputsSentTo("leads.list")).toEqual([{ view: "everyone", search: "Rahul", limit: 10 }]);
     });
     expect(within(dialog).getByRole("combobox", { name: words.lead })).toHaveTextContent("Rahul Sharma");
     // The task goes to the lead's owner, so there is no one to choose.

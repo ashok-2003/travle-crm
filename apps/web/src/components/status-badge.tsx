@@ -1,5 +1,6 @@
 // A record's status (DESIGN.md section 6): always a dot and a word, never colour alone. Status colours mean status
-// only: good (Confirmed, Paid), attention (Payment due, Pending), bad (Overdue, Lost), neutral (Draft, New).
+// only: good (Confirmed, Paid), attention (Payment due, Pending), bad (Overdue, Lost), neutral (Draft, New). The dot
+// alone (StatusDot) goes before a status's words where they sit inline without a badge, as in a dense list.
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
@@ -13,16 +14,22 @@ export const statusToneClasses: Record<StatusTone, { badge: string; dot: string 
   neutral: { badge: "bg-status-neutral-fill text-status-neutral-ink", dot: "bg-status-neutral-dot" },
 };
 
+/** A status's 6px dot, decoration beside the words that say it. */
+export function StatusDot({ tone, className }: { tone: StatusTone; className?: string }) {
+  return (
+    <span aria-hidden="true" className={cn("size-1.5 shrink-0 rounded-full", statusToneClasses[tone].dot, className)} />
+  );
+}
+
 export function StatusBadge({ tone, children }: { tone: StatusTone; children: ReactNode }) {
-  const classes = statusToneClasses[tone];
   return (
     <span
       className={cn(
         "inline-flex h-6 items-center gap-1.5 rounded-badge px-2 text-caption font-medium whitespace-nowrap",
-        classes.badge,
+        statusToneClasses[tone].badge,
       )}
     >
-      <span aria-hidden="true" className={cn("size-1.5 shrink-0 rounded-full", classes.dot)} />
+      <StatusDot tone={tone} />
       {children}
     </span>
   );

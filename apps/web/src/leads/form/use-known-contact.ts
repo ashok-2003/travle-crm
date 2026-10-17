@@ -9,7 +9,7 @@ import { skipToken, useQuery } from "@tanstack/react-query";
 import type { z } from "zod";
 import { useTRPC } from "@/data/trpc";
 import type { PersonValues } from "./lead-form-values";
-import { useDebouncedValue } from "./use-debounced-value";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
 
 /** A contact as the api keeps it (E.164, lower case), or nothing when blank or not a contact at all. */
 function contactOf<Output>(schema: z.ZodType<Output>, text: string): Output | undefined {

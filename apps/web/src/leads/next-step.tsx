@@ -1,21 +1,24 @@
 "use client";
 
 // What's next about a lead (R43), in one line whose colour carries the urgency: an overdue task in red, then a new lead
-// still waiting for a reply in amber, then the next task in violet when it is due today, and quiet grey when it is
-// later or there is none. Days and times are the agency's (its zone), however the device is set.
+// still waiting for a reply in amber, each a status with its dot before the words (DESIGN.md: Dot Plus Word); then the
+// next task in violet when it is due today, and quiet grey when it is later or there is none. Days and times are the
+// agency's (its zone), however the device is set.
 import type { LeadNextStep } from "@travel-crm/contracts/crm";
 import { useTranslations } from "next-intl";
+import { StatusDot, type StatusTone } from "@/components/status-badge";
 import { formatDay, formatDayTime, formatTime } from "@/lib/format";
 import { dayRelation, elapsed } from "@/lib/relative-time";
 import { useNow } from "@/lib/use-now";
 
-type Tone = "overdue" | "waiting" | "today" | "quiet";
+export type Tone = "overdue" | "waiting" | "today" | "quiet";
 
-const toneClasses: Record<Tone, string> = {
-  overdue: "text-status-bad-ink",
-  waiting: "text-status-attention-ink",
-  today: "text-people-tint-ink",
-  quiet: "text-muted-foreground",
+/** Each tone's ink, and the status of the two that are one (shown by its dot): Today's WhenMark shares them. */
+export const tones: Record<Tone, { ink: string; status: StatusTone | null }> = {
+  overdue: { ink: "text-status-bad-ink", status: "bad" },
+  waiting: { ink: "text-status-attention-ink", status: "attention" },
+  today: { ink: "text-people-tint-ink", status: null },
+  quiet: { ink: "text-muted-foreground", status: null },
 };
 
 export function NextStep({ next, timeZone }: { next: LeadNextStep; timeZone: string }) {
@@ -50,5 +53,11 @@ export function NextStep({ next, timeZone }: { next: LeadNextStep; timeZone: str
     return { tone: "quiet", text: t(isFollowUp ? "followUpLater" : "taskLater", { day: formatDay(due, clock) }) };
   };
   const { tone, text } = describe();
-  return <span className={toneClasses[tone]}>{text}</span>;
+  const { ink, status } = tones[tone];
+  return (
+    <span className={ink}>
+      {status && <StatusDot tone={status} className="me-1.5 inline-block align-middle" />}
+      {text}
+    </span>
+  );
 }

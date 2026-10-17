@@ -80,7 +80,8 @@ Who can sign in, to which organization, and what they may do (spec section 6).
 
 - Publishes `staff.removed` (`{ memberId, userId }`, `staffRemovedEvent` in `@travel-crm/contracts/identity`) when
   someone is removed, in the removal's transaction. Notifications listens (`notifications.forget-push-subscriptions`)
-  and forgets the person's browsers.
+  and forgets the person's browsers; crm listens (`crm.hand-over-departing-member`) and hands the person's open leads,
+  their closed leads with open work, and their standalone tasks to the first Owner.
 - Publishes `staff.invited` (`{ memberId, userId }`, `staffInvitedEvent`) when an invite is asked for. Its own
   listener, `identity.send-invite`, emails a link to choose a password: a Better Auth reset token, kept only as a hash
   as Better Auth keeps its own, that lasts 72 hours, at `<APP_URL>/reset-password?token=<token>`, the page Better

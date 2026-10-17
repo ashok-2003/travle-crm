@@ -30,8 +30,7 @@
     "waiting": "New lead, no reply yet",
     "ago": "{elapsed} ago",
     "open": "Open Today",
-    "loadFailed": "Today's work didn't load.",
-    "newLead": "New lead"
+    "loadFailed": "Today's work didn't load."
   },
   "addTask": {
     "action": "Add a task",

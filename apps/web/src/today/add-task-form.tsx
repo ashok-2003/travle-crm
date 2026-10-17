@@ -7,22 +7,21 @@
 // on the time field, where it is fixed.
 import { addLeadWorkInput, type AddLeadWorkInput } from "@travel-crm/contracts/crm";
 import { addTaskInput, type AddTaskInput } from "@travel-crm/contracts/tasks";
-import { calendarDateIn } from "@travel-crm/domain/kernel";
 import { useTranslations } from "next-intl";
 import { Controller, type Control } from "react-hook-form";
 import type { z } from "zod";
 import { FormField } from "@/components/form-field";
 import { checked, type Checked } from "@/components/forms/checked";
-import { DueField } from "@/components/forms/due-field";
+import { DueField, suggestedDue } from "@/components/forms/due-field";
 import { FormAlert, type Sending } from "@/components/forms/form-dialog";
 import { SelectField } from "@/components/forms/select-field";
 import { TextField } from "@/components/forms/text-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
+import { useRefusalOnField } from "@/components/forms/use-refusal-on-field";
 import { FieldGroup } from "@/components/ui/field";
 import { useLeadOwners } from "@/leads/use-lead-owners";
 import { useHolds, useMe } from "@/session/me-context";
 import { LeadPicker, type PickedLead } from "./lead-picker";
-import { useRefusalOnField } from "./use-refusal-on-field";
 
 /** What the form sends: a task on a lead, or one standing alone. */
 export type NewTask = { on: "lead"; work: AddLeadWorkInput } | { on: null; task: AddTaskInput };
@@ -90,8 +89,7 @@ export function AddTaskForm({ formId, add }: { formId: string; add: Sending<NewT
   const { form, onSubmit, formProblem } = useCheckedForm<TaskValues, NewTask, Problem | "required">(
     {
       title: "",
-      day: calendarDateIn(new Date(), me.organization.timeZone),
-      time: "",
+      ...suggestedDue(me.organization.timeZone),
       assignee: me.user.id,
       lead: null,
     },

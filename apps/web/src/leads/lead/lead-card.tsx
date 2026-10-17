@@ -2,8 +2,8 @@
 
 // One part of a lead's page (spec 3.4) as the registry Card: a heading the card is named by, its one action at the
 // right (Edit, Add follow-up), and its content. ChangeButton is that action: a change, so it is off while the
-// subscription refuses changes, and says why (useWriteAccess); its ref takes the focus back when its dialog closes
-// (use-return-focus.ts).
+// subscription refuses changes, and says why (useWriteAccess); its ref is its dialog's returnFocusTo, which takes the
+// focus back when the dialog closes.
 import { useId, type ReactNode, type Ref } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

@@ -5,7 +5,7 @@
 // when there is none. Add follow-up is for whoever can edit the lead.
 import type { LeadDetail } from "@travel-crm/contracts/crm";
 import { useTranslations } from "next-intl";
-import { Fragment, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import {
   Item,
   ItemActions,
@@ -20,18 +20,13 @@ import { TaskActions } from "@/tasks/task-actions";
 import { NextStep } from "../next-step";
 import { AddFollowUpDialog } from "./add-follow-up-dialog";
 import { ChangeButton, LeadCard } from "./lead-card";
-import { useReturnFocus } from "./use-return-focus";
 
 export function WorkCard({ lead }: { lead: LeadDetail }) {
   const t = useTranslations("leads.lead.work");
   const { timeZone } = useMe().organization;
   const canEdit = useHolds("leads:edit");
   const [adding, setAdding] = useState(false);
-  const { ref: opener, returnFocus } = useReturnFocus();
-  const show = (open: boolean) => {
-    setAdding(open);
-    if (!open) returnFocus();
-  };
+  const opener = useRef<HTMLButtonElement>(null);
   return (
     <LeadCard
       title={t("title")}
@@ -41,7 +36,7 @@ export function WorkCard({ lead }: { lead: LeadDetail }) {
             label={t("add")}
             ref={opener}
             onClick={() => {
-              show(true);
+              setAdding(true);
             }}
           />
         )
@@ -73,7 +68,9 @@ export function WorkCard({ lead }: { lead: LeadDetail }) {
           ))}
         </ItemGroup>
       )}
-      {canEdit && <AddFollowUpDialog leadId={lead.id} dialog={{ open: adding, setOpen: show }} />}
+      {canEdit && (
+        <AddFollowUpDialog leadId={lead.id} dialog={{ open: adding, setOpen: setAdding }} returnFocusTo={opener} />
+      )}
     </LeadCard>
   );
 }

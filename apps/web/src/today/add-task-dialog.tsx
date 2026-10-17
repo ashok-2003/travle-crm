@@ -7,7 +7,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { PlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId } from "react";
+import { useId, useRef } from "react";
 import { FormDialog, useFormDialog } from "@/components/forms/form-dialog";
 import { Button } from "@/components/ui/button";
 import { useTRPCClient } from "@/data/trpc";
@@ -22,6 +22,7 @@ export function AddTaskDialog() {
   const refresh = useRefreshWork();
   const write = useWriteAccess();
   const hintId = useId();
+  const opener = useRef<HTMLButtonElement>(null);
   const dialog = useFormDialog(t("added"), refresh);
   const add = useMutation({
     mutationFn: (task: NewTask) =>
@@ -31,6 +32,7 @@ export function AddTaskDialog() {
   return (
     <div className="flex flex-col items-start gap-2">
       <Button
+        ref={opener}
         variant="outline"
         disabled={!write.allowed}
         aria-describedby={write.hint === null ? undefined : hintId}
@@ -44,6 +46,7 @@ export function AddTaskDialog() {
       <WriteHint id={hintId} hint={write.hint} />
       <FormDialog
         dialog={dialog}
+        returnFocusTo={opener}
         sending={add}
         title={t("title")}
         description={t("description")}

@@ -77,7 +77,7 @@ describe("Home", () => {
 
   it("gives New lead as the header's outline action to leads:create", async () => {
     renderHome(ofStarterRole("sales"));
-    const newLead = screen.getByRole("link", { name: words.newLead });
+    const newLead = screen.getByRole("link", { name: messages.leads.newLead });
     expect(newLead).toHaveAttribute("href", routes.newLead);
     expect(newLead.dataset.variant).toBe("outline");
     expect(await nudge()).toBeVisible();
@@ -86,12 +86,12 @@ describe("Home", () => {
   it("gives no New lead to a role that only sees leads, nor off the crm plan", async () => {
     const viewer = renderHome(member({ permissions: ["leads:view"] }));
     expect(await nudge()).toBeVisible();
-    expect(screen.queryByRole("link", { name: words.newLead })).toBeNull();
+    expect(screen.queryByRole("link", { name: messages.leads.newLead })).toBeNull();
     viewer.unmount();
 
     const api = renderHome(member({ isOwner: true }), { crm: false });
     expect(await screen.findByRole("region", { name: setupCardName })).toBeVisible();
-    expect(screen.queryByRole("link", { name: words.newLead })).toBeNull();
+    expect(screen.queryByRole("link", { name: messages.leads.newLead })).toBeNull();
     expect(screen.queryByRole("region", { name: /things today/ })).toBeNull();
     expect(api.calls).not.toContain("today.summary");
   });

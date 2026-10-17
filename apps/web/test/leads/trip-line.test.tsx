@@ -1,8 +1,9 @@
 // A trip in one line, as the list, Today and the known contact show it (spec 3.3): destination · when · travellers,
-// a month as "Dec" this year and "Jan 2027" another, a range as "14 – 20 Nov", flexible dates as "dates open".
+// a month as "Dec" this year and "Jan 2027" another, a range as "14 – 20 Nov", flexible dates as "dates open". The
+// lead page's trip writes exact dates the same way (useTravelDates).
 import type { TripSummary } from "@travel-crm/contracts/crm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useTripLine } from "@/leads/trip-line";
+import { useTravelDates, useTripLine } from "@/leads/trip-line";
 import { renderPieceHook } from "./render";
 
 const trip = (summary: Partial<TripSummary>): TripSummary => ({
@@ -59,5 +60,16 @@ describe("useTripLine", () => {
     expect(line(trip({ when: { kind: "dates", from: "2026-11-14", to: "2026-11-14" } }))).toBe("14 Nov");
     expect(line(trip({ destinationName: "Bali", childrenCount: 2 }))).toBe("Bali · 2 children");
     expect(line(trip({}))).toBe("No trip details yet");
+  });
+});
+
+describe("useTravelDates", () => {
+  it("writes exact dates as the line does: 14 – 20 Nov, 28 Nov – 3 Dec, 28 Dec 2026 – 3 Jan 2027, 14 Nov", () => {
+    const dates = renderPieceHook(() => useTravelDates()).result.current;
+    expect(dates({ from: "2026-11-14", to: "2026-11-20" })).toBe("14 – 20 Nov");
+    expect(dates({ from: "2026-11-28", to: "2026-12-03" })).toBe("28 Nov – 3 Dec");
+    expect(dates({ from: "2026-12-28", to: "2027-01-03" })).toBe("28 Dec 2026 – 3 Jan 2027");
+    expect(dates({ from: "2027-01-10", to: "2027-01-16" })).toBe("10 – 16 Jan 2027");
+    expect(dates({ from: "2026-11-14", to: "2026-11-14" })).toBe("14 Nov");
   });
 });

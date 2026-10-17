@@ -8,7 +8,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { OrganizationDetails, OrganizationExport } from "@travel-crm/contracts/platform";
 import { CircleCheckIcon, CircleDashedIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { formatCount } from "@/lib/format";
 import { useConsoleTRPC } from "../data/console-trpc";
@@ -46,6 +46,7 @@ export function PurgeSection({
   const t = useTranslations("consolePlatform.dataProtection.purge");
   const { organization } = details;
   const [confirming, setConfirming] = useState(false);
+  const purgeButton = useRef<HTMLButtonElement>(null);
   const [since, setSince] = useState<number | null>(null);
   const trpc = useConsoleTRPC();
   const statusId = useId();
@@ -95,6 +96,7 @@ export function PurgeSection({
         <Condition met={exported} done={t("exported")} toDo={t("notExported")} />
       </ul>
       <Button
+        ref={purgeButton}
         variant="destructive"
         className="self-start"
         disabled={!cancelled || !exported || since !== null}
@@ -109,6 +111,7 @@ export function PurgeSection({
       {confirming && (
         <PurgeDialog
           organization={organization}
+          returnFocusTo={purgeButton}
           open
           onOpenChange={setConfirming}
           request={purge}

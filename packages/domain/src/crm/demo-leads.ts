@@ -1,5 +1,5 @@
 // The demo agency's sample leads (spec 7), built inside the nightly reset's transaction in the demo organization, from
-// demo-lead-data.ts: destinations, people, leads with their notes and follow-ups, a blocked number and two standalone
+// demo-lead-data.ts: destinations, people, leads with their notes and follow-ups, a blocked email and two standalone
 // tasks. Built through the same cores the screens use, so the timeline, the audit log and the events read as they
 // would for leads added by hand; nobody is notified.
 import type { OrgTx } from "@travel-crm/db";

@@ -7,12 +7,14 @@
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import type { ReturnFocusTo } from "@/components/return-focus";
 import { TypedConfirmation } from "./typed-confirmation";
 
 export function ErasureDialog({
   code,
   open,
   onOpenChange,
+  returnFocusTo,
   request,
   onConfirm,
 }: {
@@ -20,6 +22,8 @@ export function ErasureDialog({
   code: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The button that opened it, which takes the focus back when it closes. */
+  returnFocusTo: ReturnFocusTo;
   /** The erasure's request, owned by the section. */
   request: Parameters<typeof ConfirmDialog>[0]["request"];
   onConfirm: (confirmation: string) => void;
@@ -28,6 +32,7 @@ export function ErasureDialog({
   const [typed, setTyped] = useState("");
   return (
     <ConfirmDialog
+      returnFocusTo={returnFocusTo}
       open={open}
       onOpenChange={onOpenChange}
       title={t("eraseTitle")}

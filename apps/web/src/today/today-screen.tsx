@@ -6,13 +6,13 @@
 import type { TodaySectionName, TodaySummary } from "@travel-crm/contracts/today";
 import { parseCalendarDate, startOfDayIn } from "@travel-crm/domain/kernel";
 import { CalendarCheckIcon } from "lucide-react";
-import { useFormatter, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
-import { formatDay } from "@/lib/format";
+import { formatDay, formatWeekday } from "@/lib/format";
 import { useMe } from "@/session/me-context";
 import { AddTaskDialog } from "./add-task-dialog";
 import { TodaySection } from "./today-section";
@@ -26,12 +26,10 @@ const sections: readonly { name: TodaySectionName; count: keyof TodaySummary["co
 
 /**
  * "Fri 16 Oct · 8 things", and "2 overdue" in red when some are. The day is the agency's (the api's), shown by the
- * shared formatDay from its first moment in the agency's zone; lib/format.ts has no weekday, so next-intl's formatter
- * gives it, in the same zone.
+ * shared formatWeekday and formatDay from its first moment in the agency's zone.
  */
 function DayLine({ summary }: { summary: TodaySummary }) {
   const t = useTranslations("today");
-  const format = useFormatter();
   const { timeZone } = useMe().organization;
   const start = startOfDayIn(parseCalendarDate(summary.day), timeZone);
   const { overdue, newLeads, dueToday } = summary.counts;
@@ -39,7 +37,7 @@ function DayLine({ summary }: { summary: TodaySummary }) {
     <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
       <span>
         {t("intro", {
-          weekday: format.dateTime(start, { weekday: "short", timeZone }),
+          weekday: formatWeekday(start, { timeZone }),
           day: formatDay(start, { timeZone }),
           count: overdue + newLeads + dueToday,
         })}

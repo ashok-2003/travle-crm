@@ -6,7 +6,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { AlarmClockIcon, CheckIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -25,6 +25,7 @@ export function TaskActions({ task }: { task: { id: string; title: string } }) {
   const write = useWriteAccess();
   const hintId = useId();
   const [snoozing, setSnoozing] = useState(false);
+  const snoozeButton = useRef<HTMLButtonElement>(null);
   const complete = useMutation(
     trpc.tasks.complete.mutationOptions({
       onSuccess: async () => {
@@ -53,6 +54,7 @@ export function TaskActions({ task }: { task: { id: string; title: string } }) {
           {t("done")}
         </Button>
         <Button
+          ref={snoozeButton}
           variant="ghost"
           aria-label={t("snoozeTask", { title: task.title })}
           aria-describedby={described}
@@ -66,7 +68,7 @@ export function TaskActions({ task }: { task: { id: string; title: string } }) {
         </Button>
       </div>
       <WriteHint id={hintId} hint={write.hint} />
-      <SnoozeDialog taskId={task.id} open={snoozing} onOpenChange={setSnoozing} />
+      <SnoozeDialog taskId={task.id} open={snoozing} onOpenChange={setSnoozing} returnFocusTo={snoozeButton} />
     </div>
   );
 }
