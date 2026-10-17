@@ -11,6 +11,7 @@ import { TriangleAlertIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { checked } from "@/components/forms/checked";
 import { FormAlert, FormDialog, useFormDialog, type OpenState, type Sending } from "@/components/forms/form-dialog";
+import type { ReturnFocusTo } from "@/components/return-focus";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useTRPC } from "@/data/trpc";
@@ -84,7 +85,16 @@ function PersonForm({ formId, lead, save }: { formId: string; lead: LeadDetail; 
   );
 }
 
-export function EditPersonDialog({ lead, dialog }: { lead: LeadDetail; dialog: OpenState }) {
+export function EditPersonDialog({
+  lead,
+  dialog,
+  returnFocusTo,
+}: {
+  lead: LeadDetail;
+  dialog: OpenState;
+  /** The card's Edit, which takes the focus back. */
+  returnFocusTo: ReturnFocusTo;
+}) {
   const t = useTranslations("leads.lead.person");
   const trpc = useTRPC();
   const refresh = useRefreshLeads();
@@ -93,6 +103,7 @@ export function EditPersonDialog({ lead, dialog }: { lead: LeadDetail; dialog: O
   return (
     <FormDialog
       dialog={held}
+      returnFocusTo={returnFocusTo}
       sending={save}
       title={t("dialog.title")}
       description={t("dialog.description")}

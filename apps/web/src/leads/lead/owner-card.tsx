@@ -5,23 +5,18 @@
 // the page didn't carry is a former member's; a lead with no owner is unassigned (release 4's queue).
 import type { LeadDetail } from "@travel-crm/contracts/crm";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Details } from "@/components/details";
 import { useHolds } from "@/session/me-context";
 import { OwnerBadge } from "../owner-badge";
 import { ChangeButton, LeadCard } from "./lead-card";
-import { useReturnFocus } from "./use-return-focus";
 import { ReassignDialog } from "./reassign-dialog";
 
 export function OwnerCard({ lead }: { lead: LeadDetail }) {
   const t = useTranslations("leads");
   const canAssign = useHolds("leads:assign");
   const [reassigning, setReassigning] = useState(false);
-  const { ref: opener, returnFocus } = useReturnFocus();
-  const show = (open: boolean) => {
-    setReassigning(open);
-    if (!open) returnFocus();
-  };
+  const opener = useRef<HTMLButtonElement>(null);
   const nameOf = (userId: string) => lead.people[userId] ?? null;
   const source = t(`sources.${lead.source}`);
   const addedBy = lead.createdBy && (nameOf(lead.createdBy) ?? t("lead.owner.formerMember"));
@@ -30,7 +25,7 @@ export function OwnerCard({ lead }: { lead: LeadDetail }) {
       label={t("lead.owner.reassign")}
       ref={opener}
       onClick={() => {
-        show(true);
+        setReassigning(true);
       }}
     />
   );
@@ -55,7 +50,7 @@ export function OwnerCard({ lead }: { lead: LeadDetail }) {
           },
         ]}
       />
-      {reassigning && <ReassignDialog lead={lead} open onOpenChange={show} />}
+      {reassigning && <ReassignDialog lead={lead} open onOpenChange={setReassigning} returnFocusTo={opener} />}
     </LeadCard>
   );
 }

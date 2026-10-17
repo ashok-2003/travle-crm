@@ -7,7 +7,7 @@
 import type { ErasureSubject } from "@travel-crm/contracts/platform";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { useConsoleTRPC } from "../data/console-trpc";
 import { ErasureDialog } from "./erasure-dialog";
@@ -25,6 +25,7 @@ export function SubjectSection({ organization }: { organization: { id: string; c
   const trpc = useConsoleTRPC();
   const exportSubject = useMutation(trpc.dataProtection.exportSubject.mutationOptions());
   const [erasing, setErasing] = useState<ErasureSubject | null>(null);
+  const eraseButton = useRef<HTMLButtonElement>(null);
   const [requested, setRequested] = useState<{ subject: ErasureSubject; since: number } | null>(null);
   const erase = useMutation(
     trpc.dataProtection.requestErasure.mutationOptions({
@@ -64,6 +65,7 @@ export function SubjectSection({ organization }: { organization: { id: string; c
           exportSubject.mutate({ organizationId: organization.id, subject });
         }}
         onErase={setErasing}
+        eraseButton={eraseButton}
       />
       <RefusalAlert error={exportSubject.error} />
       {exportSubject.data && <SubjectExportView exported={exportSubject.data} />}
@@ -71,6 +73,7 @@ export function SubjectSection({ organization }: { organization: { id: string; c
       {erasing !== null && (
         <ErasureDialog
           code={organization.code}
+          returnFocusTo={eraseButton}
           open
           onOpenChange={(open) => {
             if (!open) setErasing(null);

@@ -10,6 +10,7 @@ import { useTranslations } from "next-intl";
 import { checked } from "@/components/forms/checked";
 import { DueField } from "@/components/forms/due-field";
 import { FormAlert, FormDialog, useFormDialog, type OpenState, type Sending } from "@/components/forms/form-dialog";
+import type { ReturnFocusTo } from "@/components/return-focus";
 import { TextField } from "@/components/forms/text-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { useTRPC } from "@/data/trpc";
@@ -62,7 +63,16 @@ function FollowUpForm({ formId, leadId, add }: { formId: string; leadId: string;
   );
 }
 
-export function AddFollowUpDialog({ leadId, dialog }: { leadId: string; dialog: OpenState }) {
+export function AddFollowUpDialog({
+  leadId,
+  dialog,
+  returnFocusTo,
+}: {
+  leadId: string;
+  dialog: OpenState;
+  /** The card's Add follow-up, which takes the focus back. */
+  returnFocusTo: ReturnFocusTo;
+}) {
   const t = useTranslations("leads.lead.work");
   const trpc = useTRPC();
   const refresh = useRefreshLeads();
@@ -71,6 +81,7 @@ export function AddFollowUpDialog({ leadId, dialog }: { leadId: string; dialog: 
   return (
     <FormDialog
       dialog={held}
+      returnFocusTo={returnFocusTo}
       sending={add}
       title={t("dialog.title")}
       description={t("dialog.description")}

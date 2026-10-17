@@ -26,7 +26,10 @@ function renderDialog() {
   screenIs("wide");
   const api = fakeApi();
   const onOpenChange = vi.fn();
-  renderWithApi(<SnoozeDialog taskId={taskId} open onOpenChange={onOpenChange} />, newQueryClient());
+  renderWithApi(
+    <SnoozeDialog taskId={taskId} open onOpenChange={onOpenChange} returnFocusTo={{ current: null }} />,
+    newQueryClient(),
+  );
   return { api, onOpenChange };
 }
 

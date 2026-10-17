@@ -10,7 +10,7 @@ import type { SubscriptionDetails } from "@travel-crm/contracts/subscriptions";
 import { calendarDateIn } from "@travel-crm/domain/kernel";
 import { ChevronDownIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { OpenState } from "@/components/forms/form-dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,6 +49,8 @@ export function SubscriptionChanges({
   const t = useTranslations("consoleOrganizations.subscription");
   const staff = useStaff();
   const [opened, setOpened] = useState<Change | null>(null);
+  // The dialogs aren't the menu's: closed, they give the focus back to Change.
+  const menu = useRef<HTMLButtonElement>(null);
   const state = (change: Change): OpenState => ({
     open: opened === change,
     setOpen: (open) => {
@@ -76,7 +78,7 @@ export function SubscriptionChanges({
       {/* Not modal: the dialog an item opens takes the page over itself. */}
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline">
+          <Button ref={menu} variant="outline">
             {t("change")}
             <ChevronDownIcon aria-hidden="true" />
           </Button>
@@ -92,15 +94,24 @@ export function SubscriptionChanges({
           {offered.cancel && item("cancel", true)}
         </DropdownMenuContent>
       </DropdownMenu>
-      <ChangePlanDialog subscription={subscription} state={state("changePlan")} />
-      <OverridesDialog subscription={subscription} state={state("overrides")} />
-      {offered.trialEnd && <TrialEndDialog subscription={subscription} state={state("trialEnd")} />}
-      <PaidThroughDialog subscription={subscription} state={state("paidThrough")} />
-      {offered.suspend && <EndAccessDialog subscription={subscription} change="suspend" state={state("suspend")} />}
-      {offered.liftSuspension && (
-        <EndAccessDialog subscription={subscription} change="liftSuspension" state={state("liftSuspension")} />
+      <ChangePlanDialog subscription={subscription} state={state("changePlan")} returnFocusTo={menu} />
+      <OverridesDialog subscription={subscription} state={state("overrides")} returnFocusTo={menu} />
+      {offered.trialEnd && (
+        <TrialEndDialog subscription={subscription} state={state("trialEnd")} returnFocusTo={menu} />
       )}
-      {offered.cancel && <EndAccessDialog subscription={subscription} change="cancel" state={state("cancel")} />}
+      <PaidThroughDialog subscription={subscription} state={state("paidThrough")} returnFocusTo={menu} />
+      {(["suspend", "liftSuspension", "cancel"] as const).map(
+        (change) =>
+          offered[change] && (
+            <EndAccessDialog
+              key={change}
+              subscription={subscription}
+              change={change}
+              state={state(change)}
+              returnFocusTo={menu}
+            />
+          ),
+      )}
     </>
   );
 }

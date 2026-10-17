@@ -87,7 +87,10 @@ describe("the temporary password's lifetime", () => {
     const api = fakeApi();
     const queryClient = newQueryClient();
     const onOpenChange = vi.fn();
-    renderWithApi(<ResetPasswordDialog member={ravi} open onOpenChange={onOpenChange} />, queryClient);
+    renderWithApi(
+      <ResetPasswordDialog member={ravi} open onOpenChange={onOpenChange} returnFocusTo={{ current: null }} />,
+      queryClient,
+    );
     await userEvent.click(await screen.findByRole("button", { name: "Reset password" }));
     await waitFor(() => {
       expect(api.calls).toHaveLength(1);

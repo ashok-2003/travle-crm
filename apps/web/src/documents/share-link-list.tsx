@@ -4,7 +4,7 @@
 // it and when last (in the organization's zone), when it expires, and the way to turn a working one off.
 import type { ShareLinkSummary } from "@travel-crm/contracts/share-links";
 import { useTranslations } from "next-intl";
-import { Fragment, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
@@ -31,6 +31,7 @@ function ShareLinkRow({ link }: { link: ShareLinkSummary }) {
   // Turning a link off takes a customer's access away, which read-only allows.
   const revokeAccess = useWriteAccess("revoke");
   const [revoking, setRevoking] = useState(false);
+  const revokeButton = useRef<HTMLButtonElement>(null);
   const revoke = useRevokeShareLink(() => {
     setRevoking(false);
   });
@@ -58,6 +59,7 @@ function ShareLinkRow({ link }: { link: ShareLinkSummary }) {
       {state === "active" && (
         <ItemActions>
           <Button
+            ref={revokeButton}
             variant="outline"
             aria-label={t("revokeNamed", { label: link.label })}
             disabled={!revokeAccess.allowed}
@@ -71,6 +73,7 @@ function ShareLinkRow({ link }: { link: ShareLinkSummary }) {
           <ConfirmDialog
             open={revoking}
             onOpenChange={setRevoking}
+            returnFocusTo={revokeButton}
             title={t("revokeTitle")}
             description={t("revokeDescription")}
             action={t("revokeConfirm")}

@@ -7,7 +7,7 @@ import { features } from "@travel-crm/contracts/features";
 import type { AddedPlatformStaff, AddPlatformStaffInput } from "@travel-crm/contracts/platform";
 import { UserPlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -19,6 +19,7 @@ export function AddStaffDialog() {
   const t = useTranslations("consolePlatform.staff");
   const formId = useId();
   const [open, setOpen] = useState(false);
+  const opener = useRef<HTMLButtonElement>(null);
   const [added, setAdded] = useState<{ input: AddPlatformStaffInput; answer: AddedPlatformStaff } | null>(null);
   const add = useAddPlatformStaff((input, answer) => {
     setAdded({ input, answer });
@@ -37,6 +38,7 @@ export function AddStaffDialog() {
   return (
     <>
       <Button
+        ref={opener}
         onClick={() => {
           changeOpen(true);
         }}
@@ -46,6 +48,7 @@ export function AddStaffDialog() {
       </Button>
       <ResponsiveDialog
         open={open}
+        returnFocusTo={opener}
         onOpenChange={changeOpen}
         busy={add.isPending}
         title={added ? t("handover.added", { name: added.input.name }) : t("addForm.title")}

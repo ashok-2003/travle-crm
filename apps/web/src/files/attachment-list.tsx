@@ -7,7 +7,7 @@
 import type { AttachmentSummary } from "@travel-crm/contracts/files";
 import { DownloadIcon, FileIcon, LockIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Fragment, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,6 +41,7 @@ function AttachmentActions({
   const take = useWriteAccess("export");
   const download = useDownloadAttachment();
   const [removing, setRemoving] = useState(false);
+  const removeButton = useRef<HTMLButtonElement>(null);
   const remove = useRemoveAttachment(record, name, () => {
     setRemoving(false);
   });
@@ -58,6 +59,7 @@ function AttachmentActions({
         {t("download")}
       </Button>
       <Button
+        ref={removeButton}
         variant="outline"
         aria-label={t("removeName", { name })}
         disabled={!change.allowed}
@@ -71,6 +73,7 @@ function AttachmentActions({
       <ConfirmDialog
         open={removing}
         onOpenChange={setRemoving}
+        returnFocusTo={removeButton}
         title={t("removeTitle", { name })}
         description={t("removeDescription")}
         action={t("remove")}

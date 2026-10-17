@@ -6,7 +6,7 @@
 import type { LeadDetail, TravelWhen, TripDetail } from "@travel-crm/contracts/crm";
 import { multiply, money, yearIn } from "@travel-crm/domain/kernel";
 import { useTranslations } from "next-intl";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Details, type Detail } from "@/components/details";
 import { rupees } from "@/components/forms/money-field";
 import { formatRupees } from "@/lib/format";
@@ -14,7 +14,6 @@ import { useHolds, useMe } from "@/session/me-context";
 import { useTripLine } from "../trip-line";
 import { EditTripDialog } from "./edit-trip-dialog";
 import { ChangeButton, LeadCard } from "./lead-card";
-import { useReturnFocus } from "./use-return-focus";
 
 const monthNames = {
   thisYear: new Intl.DateTimeFormat("en-IN", { month: "long", timeZone: "UTC" }),
@@ -58,11 +57,7 @@ export function TripCard({ lead }: { lead: LeadDetail }) {
   const words = useTripWords();
   const canEdit = useHolds("leads:edit");
   const [editing, setEditing] = useState(false);
-  const { ref: opener, returnFocus } = useReturnFocus();
-  const show = (open: boolean) => {
-    setEditing(open);
-    if (!open) returnFocus();
-  };
+  const opener = useRef<HTMLButtonElement>(null);
   const { trip } = lead;
   const label = (key: "destination" | "when" | "travellers" | "budget") => t(`lead.trip.labels.${key}`);
   const notAsked = <span className="text-muted-foreground">{t("lead.trip.notAsked")}</span>;
@@ -101,14 +96,14 @@ export function TripCard({ lead }: { lead: LeadDetail }) {
             accessibleLabel={t("lead.trip.edit")}
             ref={opener}
             onClick={() => {
-              show(true);
+              setEditing(true);
             }}
           />
         )
       }
     >
       <Details rows={rows} />
-      {canEdit && <EditTripDialog lead={lead} dialog={{ open: editing, setOpen: show }} />}
+      {canEdit && <EditTripDialog lead={lead} dialog={{ open: editing, setOpen: setEditing }} returnFocusTo={opener} />}
     </LeadCard>
   );
 }

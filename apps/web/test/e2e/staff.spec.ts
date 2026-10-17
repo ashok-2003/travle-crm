@@ -82,6 +82,35 @@ test("a role change shows at once and sticks", async ({ page, agency, addStaff }
   await expect(page.getByText("Sales", { exact: true })).toHaveCount(0);
 });
 
+test("a dialog opened from a row's menu gives the focus back to the menu's button", async ({
+  page,
+  agency,
+  addStaff,
+}) => {
+  await addStaff({ name: "Ravi Kumar", username: "ravi", roleKey: "sales" });
+  await signInByEmail(page, agency.owner);
+  await page.goto("/staff");
+  const menu = page.getByRole("button", { name: "Actions for Ravi Kumar" });
+  await menu.click();
+  await page.getByRole("menuitem", { name: "Change role" }).click();
+  const dialog = page.getByRole("dialog", { name: "Change Ravi Kumar's role" });
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(menu).toBeFocused();
+
+  // From the keyboard too: the menu's last item asks first, and Escape puts the focus back where it started.
+  await menu.press("Enter");
+  await page.getByRole("menuitem", { name: "Change role" }).waitFor();
+  await page.keyboard.press("End");
+  await expect(page.getByRole("menuitem", { name: "Remove" })).toBeFocused();
+  await page.keyboard.press("Enter");
+  const confirm = page.getByRole("alertdialog", { name: "Remove Ravi Kumar?" });
+  await expect(confirm).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(confirm).toBeHidden();
+  await expect(menu).toBeFocused();
+});
+
 test("removing someone takes them off the list", async ({ page, agency, addStaff }) => {
   await addStaff({ name: "Ravi Kumar", username: "ravi", roleKey: "sales" });
   await signInByEmail(page, agency.owner);

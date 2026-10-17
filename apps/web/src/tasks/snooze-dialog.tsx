@@ -14,6 +14,7 @@ import { FormAlert, FormDialog, useFormDialog, type Sending } from "@/components
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import type { ReturnFocusTo } from "@/components/return-focus";
 import { useTRPC } from "@/data/trpc";
 import { useMe } from "@/session/me-context";
 import { useRefreshWork } from "./use-refresh-work";
@@ -99,10 +100,13 @@ export function SnoozeDialog({
   taskId,
   open,
   onOpenChange,
+  returnFocusTo,
 }: {
   taskId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The button that opened it, which takes the focus back when it closes. */
+  returnFocusTo: ReturnFocusTo;
 }) {
   const t = useTranslations("tasks.snooze");
   const trpc = useTRPC();
@@ -111,6 +115,7 @@ export function SnoozeDialog({
   const snooze = useMutation(trpc.tasks.snooze.mutationOptions({ onSuccess: dialog.onSuccess }));
   return (
     <FormDialog
+      returnFocusTo={returnFocusTo}
       dialog={dialog}
       sending={snooze}
       title={t("title")}

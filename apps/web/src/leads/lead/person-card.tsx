@@ -4,23 +4,18 @@
 // edit the lead. Contacts they don't have are left out.
 import type { LeadDetail } from "@travel-crm/contracts/crm";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Details, type Detail } from "@/components/details";
 import { formatPhoneNumber } from "@/lib/format";
 import { useHolds } from "@/session/me-context";
 import { EditPersonDialog } from "./edit-person-dialog";
 import { ChangeButton, LeadCard } from "./lead-card";
-import { useReturnFocus } from "./use-return-focus";
 
 export function PersonCard({ lead }: { lead: LeadDetail }) {
   const t = useTranslations("leads");
   const canEdit = useHolds("leads:edit");
   const [editing, setEditing] = useState(false);
-  const { ref: opener, returnFocus } = useReturnFocus();
-  const show = (open: boolean) => {
-    setEditing(open);
-    if (!open) returnFocus();
-  };
+  const opener = useRef<HTMLButtonElement>(null);
   const { name, phone, email, instagramHandle } = lead.person;
   const rows: Detail[] = [
     { label: t("form.person.name"), value: <span className="script-leading">{name}</span> },
@@ -40,14 +35,16 @@ export function PersonCard({ lead }: { lead: LeadDetail }) {
             accessibleLabel={t("lead.person.edit")}
             ref={opener}
             onClick={() => {
-              show(true);
+              setEditing(true);
             }}
           />
         )
       }
     >
       <Details rows={rows} />
-      {canEdit && <EditPersonDialog lead={lead} dialog={{ open: editing, setOpen: show }} />}
+      {canEdit && (
+        <EditPersonDialog lead={lead} dialog={{ open: editing, setOpen: setEditing }} returnFocusTo={opener} />
+      )}
     </LeadCard>
   );
 }

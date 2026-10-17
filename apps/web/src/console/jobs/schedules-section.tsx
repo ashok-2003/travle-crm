@@ -5,7 +5,7 @@
 // Support sees them all, and that only a super admin removes one.
 import { CalendarClockIcon, LockIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Fragment, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { ErrorState } from "@/components/error-state";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,8 @@ export function SchedulesSection() {
   const removable = isSuperAdmin(useStaff());
   const schedules = useSchedules();
   const [removing, setRemoving] = useState<string | null>(null);
+  // The row's Remove that opened the confirmation, which takes the focus back.
+  const opener = useRef<HTMLButtonElement | null>(null);
 
   const body = () => {
     if (schedules.data) {
@@ -51,7 +53,8 @@ export function SchedulesSection() {
                       <Button
                         variant="destructive"
                         aria-label={t("removeFor", { queue: schedule.queue })}
-                        onClick={() => {
+                        onClick={(event) => {
+                          opener.current = event.currentTarget;
                           setRemoving(schedule.queue);
                         }}
                       >
@@ -100,6 +103,7 @@ export function SchedulesSection() {
       {removing !== null && (
         <RemoveScheduleDialog
           queue={removing}
+          returnFocusTo={opener}
           open
           onOpenChange={(open) => {
             if (!open) setRemoving(null);

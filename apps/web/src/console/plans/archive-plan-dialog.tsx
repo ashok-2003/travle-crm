@@ -4,16 +4,20 @@
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import { useTranslations } from "next-intl";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import type { ReturnFocusTo } from "@/components/return-focus";
 import { useArchivePlan } from "./use-plans";
 
 export function ArchivePlanDialog({
   plan,
   open,
   onOpenChange,
+  returnFocusTo,
 }: {
   plan: PlanSummary;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The button that opened it, which takes the focus back when it closes. */
+  returnFocusTo: ReturnFocusTo;
 }) {
   const t = useTranslations("consolePlatform.plans");
   const archive = useArchivePlan(() => {
@@ -21,6 +25,7 @@ export function ArchivePlanDialog({
   });
   return (
     <ConfirmDialog
+      returnFocusTo={returnFocusTo}
       open={open}
       onOpenChange={onOpenChange}
       title={t("archiveTitle", { name: plan.name })}

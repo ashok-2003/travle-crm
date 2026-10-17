@@ -11,6 +11,7 @@ import { TextField } from "@/components/forms/text-field";
 import { FormAlert, FormDialog, type OpenState, type Sending } from "@/components/forms/form-dialog";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { FieldGroup } from "@/components/ui/field";
+import type { ReturnFocusTo } from "@/components/return-focus";
 import { useConsoleTRPC } from "../../data/console-trpc";
 import { useChangeDialog } from "../change-dialog";
 import { toEndAccessInput, toVoidPaymentInput, type CheckedChange, type ReasonValues } from "./change-inputs";
@@ -47,10 +48,13 @@ export function EndAccessDialog({
   subscription,
   change,
   state,
+  returnFocusTo,
 }: {
   subscription: SubscriptionDetails;
   change: "suspend" | "liftSuspension" | "cancel";
   state: OpenState;
+  /** The Change menu's button, which takes the focus back when it closes. */
+  returnFocusTo: ReturnFocusTo;
 }) {
   const t = useTranslations(`consoleOrganizations.subscription.${change}`);
   const trpc = useConsoleTRPC();
@@ -58,6 +62,7 @@ export function EndAccessDialog({
   const mutation = useMutation(trpc.subscriptions[change].mutationOptions({ onSuccess: dialog.onSuccess }));
   return (
     <FormDialog
+      returnFocusTo={returnFocusTo}
       dialog={dialog}
       sending={mutation}
       title={t("title")}

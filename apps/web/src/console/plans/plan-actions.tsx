@@ -5,7 +5,7 @@
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import { EllipsisVerticalIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -21,6 +21,8 @@ type OpenDialog = "edit" | "archive" | null;
 export function PlanActions({ plan }: { plan: PlanSummary }) {
   const t = useTranslations("consolePlatform.plans");
   const [open, setOpen] = useState<OpenDialog>(null);
+  // The dialogs aren't the menu's: closed, they give the focus back to its button.
+  const menu = useRef<HTMLButtonElement>(null);
   const closeWhen = (dialog: Exclude<OpenDialog, null>) => (next: boolean) => {
     setOpen(next ? dialog : null);
   };
@@ -28,7 +30,7 @@ export function PlanActions({ plan }: { plan: PlanSummary }) {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" aria-label={t("actionsFor", { name: plan.name })}>
+          <Button ref={menu} variant="ghost" size="icon" aria-label={t("actionsFor", { name: plan.name })}>
             <EllipsisVerticalIcon aria-hidden="true" />
           </Button>
         </DropdownMenuTrigger>
@@ -52,8 +54,10 @@ export function PlanActions({ plan }: { plan: PlanSummary }) {
           )}
         </DropdownMenuContent>
       </DropdownMenu>
-      {open === "edit" && <PlanDialog plan={plan} open onOpenChange={closeWhen("edit")} />}
-      {open === "archive" && <ArchivePlanDialog plan={plan} open onOpenChange={closeWhen("archive")} />}
+      {open === "edit" && <PlanDialog plan={plan} open onOpenChange={closeWhen("edit")} returnFocusTo={menu} />}
+      {open === "archive" && (
+        <ArchivePlanDialog plan={plan} open onOpenChange={closeWhen("archive")} returnFocusTo={menu} />
+      )}
     </>
   );
 }

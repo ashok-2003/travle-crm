@@ -9,6 +9,7 @@ import { RefusalAlert } from "@/components/refusal-alert";
 import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import type { ReturnFocusTo } from "@/components/return-focus";
 import { PasswordHandover } from "./password-handover";
 import { useResetPlatformStaffPassword } from "./use-platform-staff";
 
@@ -16,10 +17,13 @@ export function ResetPasswordDialog({
   person,
   open,
   onOpenChange,
+  returnFocusTo,
 }: {
   person: PlatformStaffEntry;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The button that opened it, which takes the focus back when it closes. */
+  returnFocusTo: ReturnFocusTo;
 }) {
   const t = useTranslations("consolePlatform.staff");
   const reset = useResetPlatformStaffPassword();
@@ -30,6 +34,7 @@ export function ResetPasswordDialog({
   };
   return (
     <ResponsiveDialog
+      returnFocusTo={returnFocusTo}
       open={open}
       onOpenChange={changeOpen}
       busy={reset.isPending}

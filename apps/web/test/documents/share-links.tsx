@@ -60,7 +60,7 @@ function Sharing() {
       >
         {SHARE_AGAIN}
       </button>
-      <ShareLinksDialog document={document} open={open} onOpenChange={setOpen} />
+      <ShareLinksDialog document={document} open={open} onOpenChange={setOpen} returnFocusTo={{ current: null }} />
     </>
   );
 }
