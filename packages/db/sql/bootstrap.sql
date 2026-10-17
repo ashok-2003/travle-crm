@@ -27,7 +27,5 @@ ALTER DEFAULT PRIVILEGES FOR ROLE app_migrator IN SCHEMA public
 -- read by the next organization's transaction. Nobody gets to create them.
 DO $$ BEGIN EXECUTE format('REVOKE TEMPORARY ON DATABASE %I FROM PUBLIC', current_database()); END $$;
 
--- Trigram search on names and phone digits, and btree_gist for step 3's exclusion constraints (ADR 0028). The
--- leads_by_hand migration creates them too, for a database bootstrapped before it.
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
-CREATE EXTENSION IF NOT EXISTS btree_gist;
+-- No extensions here: pg_trgm and btree_gist are trusted, so the leads_by_hand migration creates them as app_migrator,
+-- which owns the database, as it does on a hosted one; local and test databases run that same statement.
