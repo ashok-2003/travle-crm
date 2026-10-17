@@ -83,7 +83,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("NewLeadScreen", () => {
+// The longest form in the app, typed through in each test: under a loaded machine a test took over the 5 s default.
+describe("NewLeadScreen", { timeout: 15_000 }, () => {
   it("needs a name and one contact, and saves with only those, opening the new lead", async () => {
     renderForm();
     await save();
