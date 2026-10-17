@@ -11,17 +11,15 @@ import { formatDay, formatDayTime, formatTime } from "@/lib/format";
 import { dayRelation, elapsed } from "@/lib/relative-time";
 import { useNow } from "@/lib/use-now";
 
-type Tone = "overdue" | "waiting" | "today" | "quiet";
+export type Tone = "overdue" | "waiting" | "today" | "quiet";
 
-const toneClasses: Record<Tone, string> = {
-  overdue: "text-status-bad-ink",
-  waiting: "text-status-attention-ink",
-  today: "text-people-tint-ink",
-  quiet: "text-muted-foreground",
+/** Each tone's ink, and the status of the two that are one (shown by its dot): Today's WhenMark shares them. */
+export const tones: Record<Tone, { ink: string; status: StatusTone | null }> = {
+  overdue: { ink: "text-status-bad-ink", status: "bad" },
+  waiting: { ink: "text-status-attention-ink", status: "attention" },
+  today: { ink: "text-people-tint-ink", status: null },
+  quiet: { ink: "text-muted-foreground", status: null },
 };
-
-/** The statuses among the tones, which show their dot. */
-const statusTones: Partial<Record<Tone, StatusTone>> = { overdue: "bad", waiting: "attention" };
 
 export function NextStep({ next, timeZone }: { next: LeadNextStep; timeZone: string }) {
   const t = useTranslations("leads.next");
@@ -55,9 +53,9 @@ export function NextStep({ next, timeZone }: { next: LeadNextStep; timeZone: str
     return { tone: "quiet", text: t(isFollowUp ? "followUpLater" : "taskLater", { day: formatDay(due, clock) }) };
   };
   const { tone, text } = describe();
-  const status = statusTones[tone];
+  const { ink, status } = tones[tone];
   return (
-    <span className={toneClasses[tone]}>
+    <span className={ink}>
       {status && <StatusDot tone={status} className="me-1.5 inline-block align-middle" />}
       {text}
     </span>
