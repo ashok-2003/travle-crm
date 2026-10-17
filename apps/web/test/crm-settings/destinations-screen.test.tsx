@@ -203,6 +203,8 @@ describe("DestinationsScreen", () => {
     expect(await listed()).toEqual(["Goa"]);
     const status = screen.getByRole("status");
     expect(status).toBeEmptyDOMElement();
+    // Never display:none while empty, or it leaves the accessibility tree and the change may not be heard.
+    expect(status.className).not.toMatch(/(^| )(empty:)?hidden( |$)/);
     api.answer("destinations.search", { data: [] });
     await userEvent.type(screen.getByRole("searchbox", { name: words.search }), "zed");
     await waitFor(() => {

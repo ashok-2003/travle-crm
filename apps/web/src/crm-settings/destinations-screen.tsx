@@ -90,8 +90,8 @@ export function DestinationsScreen() {
           </InputGroup>
         )}
       </FormField>
-      {/* Always there, so a change in it is heard. */}
-      <p role="status" className="text-muted-foreground empty:hidden">
+      {/* Always in the accessibility tree, so a change in it is heard; empty, it takes no room. */}
+      <p role="status" className={noMatch ? "text-muted-foreground" : "sr-only"}>
         {noMatch && t("noMatch")}
       </p>
       {body()}
