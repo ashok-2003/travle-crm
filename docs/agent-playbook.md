@@ -70,6 +70,13 @@ before a feature, a fix wave or a review, together with `CLAUDE.md`, `DESIGN.md`
   - Once, a clone's `pnpm dev --help` recreated the owner's Postgres. Never `--help` an unknown pnpm script.
 - **Running one journey:** `pnpm --filter @travel-crm/web e2e -- <spec>` runs every journey. Use
   `./node_modules/.bin/playwright test test/e2e/<spec>` from `apps/web`.
+- **A Playwright run empties its output folder as it starts.** Until release 1 the journeys wrote to
+  `apps/web/test-results`, the visual audit's default `AUDIT_OUT` lived inside it, and one journey run wiped a round
+  of shots before its review. The journeys now write to `test-results/journeys`; still keep each audit round in a
+  folder of its own (`AUDIT_OUT=test-results/audit/round-2`).
+- **Never `git stash`.** The stash is one stack shared by every worktree of the repository, so two builders' stashes
+  cross: in release 1, G's pop took C's entry and C's took G's. lint-staged's pre-commit backup uses git's stash too,
+  so commits in two worktrees at once can meet there. Set a file aside by copying it to the scratchpad, or commit.
 - **A fresh worktree** needs `pnpm install`, `pnpm --filter @travel-crm/db generate`,
   `pnpm --filter @travel-crm/brand build` and `pnpm --filter @travel-crm/web generate` before a journey. A failed
   first build leaves a `.next` that keeps failing until it's removed.
@@ -110,6 +117,12 @@ before a feature, a fix wave or a review, together with `CLAUDE.md`, `DESIGN.md`
 ## 5. Product rules agents keep forgetting
 
 - **Organization data:** stays inside `db.forOrg()` and RLS. Soft delete only; permanent deletion is the platform's.
+- **Query plans under RLS:**
+  - Check a plan with `EXPLAIN` as `app_runtime` inside `forOrg()` (with `app.org_id` set), never as the migrator or
+    the platform role. Row-level security changes the plans, so a plan read as a privileged role proves nothing.
+  - Under row-level security Postgres makes an index condition only of a leakproof operator. `LIKE`, `ILIKE` and
+    pg_trgm's similarity operators are not, so a trigram index can't serve a search there (ADR 0028). Test such a
+    query against a time budget at the seeded size instead of asserting its index.
 - **Product identity:** the name, contacts and colours come from `@travel-crm/brand`. The support email is the
   owner's for now; the phone is `null` until given, and `null` contacts are hidden.
 - **Dates:** a displayed date reads "16 Oct" (`formatDay` / `formatCalendarDay`); dd/mm/yyyy appears only in date
