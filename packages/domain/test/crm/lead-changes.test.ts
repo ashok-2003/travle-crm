@@ -16,7 +16,7 @@ import {
   reassignLead,
   reopenLead,
 } from "../../src/crm/index.js";
-import { changeLeadStage } from "../../src/crm/lead-core.js";
+import { changeLeadOwner, changeLeadStage } from "../../src/crm/lead-core.js";
 import type { MemberAccess } from "../../src/identity/index.js";
 import { memberWithStarterRole } from "../identity/rule-helpers.js";
 import { backendPid, waitUntilBlockedBy } from "../lock-waits.js";
@@ -161,6 +161,32 @@ describe("changes from a lead's page", () => {
     expect((await auditOf(lead.id)).map((entry) => [entry.action, entry.actorUserId])).toEqual([
       ["lead.reopened", manager.userId],
     ]);
+  });
+
+  it("refuses a salesperson's Reopen that waited while the lead was given to someone else", async () => {
+    const lead = await newLead({ stage: "lost", reopenStage: "quote_sent" });
+    let release: () => void = () => undefined;
+    const mayCommit = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let reassigned: (holder: number) => void = () => undefined;
+    const holding = new Promise<number>((resolve) => {
+      reassigned = resolve;
+    });
+    // A manager gives the lead to Asha and holds the transaction open.
+    const managerTab = inOrg(async (tx) => {
+      await changeLeadOwner(tx, manager, { leadId: lead.id, ownerUserId: asha });
+      reassigned(await backendPid(tx));
+      await mayCommit;
+    });
+    const holder = await holding;
+    const staleReopen = inOrg((tx) => reopenLead(tx, salesperson, { leadId: lead.id }, new Date()));
+    await waitUntilBlockedBy(platform, holder);
+    release();
+    await managerTab;
+    // Whose lead it is was decided under the row's lock: no longer the salesperson's, so not theirs to reopen.
+    await expect(staleReopen).rejects.toMatchObject({ reason: "NOT_FOUND" });
+    expect(await leadRow(lead.id)).toMatchObject({ stage: "lost", ownerUserId: asha });
   });
 
   it("reassigns a lead with its open tasks, tells the new owner, and refuses an owner who can't work leads", async () => {
