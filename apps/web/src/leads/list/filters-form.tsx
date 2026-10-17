@@ -2,7 +2,7 @@
 
 // The Filters dialog's form (spec 3.3): stage (Won, Lost and Not a lead live here), owner for managers, source,
 // destination and trip type, started from the list's filters. Choosing an owner shows everyone's leads, since an owner
-// is a filter on them; the list's search stays as it is.
+// is a filter on them; the list's search, which isn't one of these, stays as it is.
 import {
   leadSources,
   leadStages,
@@ -85,7 +85,6 @@ export function FiltersForm({
             ...(values.source !== ANY && { source: values.source }),
             ...(values.destination?.kind === "existing" && { destinationId: values.destination.destinationId }),
             ...(values.tripType !== ANY && { tripType: values.tripType }),
-            ...(filters.search && { search: filters.search }),
           });
         })(event);
       }}

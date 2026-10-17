@@ -126,7 +126,10 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   codes and answered generically (`apps/api/src/error-handler.ts`).
 - The web app sends every tRPC call, queries included, as a JSON POST (`methodOverride: "POST"`, agency and console
   alike), so no input (a phone, a searched name) is ever in a URL, where access logs keep it; a unit test reads a
-  query's input from the request's body. The api still takes GETs (tests, curl).
+  query's input from the request's body. The api still takes GETs (tests, curl). No page address carries one either:
+  a screen keeps only ids and fixed values there (the lead list's filters), and a search's text in the tab
+  (`apps/web/src/lib/tab-storage.ts`, wiped with the rest at sign-out), since a page's URL also reaches the web
+  server's logs, Next's own fetches and the Referer.
 - Over HTTP, tRPC requests and `/api/auth/sign-in/org`, other than GET/HEAD, must name a trusted origin and
   send JSON (`apps/api/src/trusted-origin.ts`); other `/api/auth/*` POSTs use Better Auth's own origin check. Better Auth's `/api/auth/organization/*` endpoints are closed (404):
   members and roles go through tRPC. So are its `/admin/*` endpoints, but support's `/admin/impersonate-user` and

@@ -2,7 +2,7 @@
 
 // The lead list a page at a time (leads.list, data/use-cursor-pages.ts), newest first: each page asks for the leads
 // before the last one of the page before. Its pages are keyed under the procedure's path, so a change made anywhere
-// (useRefreshWork, a stage moved) reaches them. The open leads' counts by stage are for the same view and filters.
+// (a stage moved, a task done) reaches them. The open leads' counts by stage are for the same view and filters.
 import type { ListLeadsInput, PeopleNames } from "@travel-crm/contracts/crm";
 import { useQuery } from "@tanstack/react-query";
 import { useTRPC, useTRPCClient } from "@/data/trpc";

@@ -1,8 +1,8 @@
 "use client";
 
 // The list's Filters (spec 3.3): a button saying how many filters narrow the list, and its dialog (a sheet on phones)
-// with the form (filters-form.tsx). Show leads puts the choice in the address (R41), Clear all empties it; closed
-// either way, or cancelled, the dialog gives the focus back to Filters.
+// with the form (filters-form.tsx). Show leads puts the choice in the address (R41), Clear all empties it; the search
+// box keeps its text either way. Closed, or cancelled, the dialog gives the focus back to Filters.
 import { SlidersHorizontalIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useRef, useState } from "react";
@@ -63,7 +63,7 @@ export function FiltersDialog({
             <Button
               variant="outline"
               onClick={() => {
-                apply({ view: filters.view, stage: "open", ...(filters.search && { search: filters.search }) });
+                apply({ view: filters.view, stage: "open" });
               }}
             >
               {t("filtersDialog.clear")}

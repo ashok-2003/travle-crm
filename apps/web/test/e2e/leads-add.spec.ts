@@ -1,11 +1,28 @@
 // Adding a lead by hand (spec 3.2, 3.3): an Owner, from an empty Leads, adds a lead with only a name and a phone,
-// lands on it, and finds it in Leads again, by name or by part of the phone, typed with spaces; the lists' Tabs, chips
-// and table pass axe, and a phone's chip row scrolls sideways without the page itself scrolling sideways.
+// lands on it, and finds it in Leads again, by name or by part of the phone, typed with spaces; the search is found
+// again on the way back from the lead, and no URL the browser asks for, nor any Referer, ever carries it (W1); the
+// lists' Tabs, chips and table pass axe, and a phone's chip row scrolls sideways without the page itself doing so.
+import type { Page } from "@playwright/test";
 import { expectAccessible } from "./support/accessibility";
 import { expect, signInByEmail, test } from "./support/fixtures";
 import { animationsSettled } from "./support/settled";
 
+/** Waits for the list's answer to a search: the text travels in the request's body, never its URL. */
+function searchAnswered(page: Page, text: string) {
+  return page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/trpc/") &&
+      response.url().includes("leads.list") &&
+      (response.request().postData() ?? "").includes(JSON.stringify(text)),
+  );
+}
+
 test("an Owner adds a lead with a name and a phone, and finds it in Leads", async ({ page, agency }, testInfo) => {
+  // Every address the browser asks for, and every Referer it sends: pages, Next's own fetches, the api's calls.
+  const addresses: string[] = [];
+  page.on("request", (request) => {
+    addresses.push(request.url(), request.headers().referer ?? "");
+  });
   await signInByEmail(page, agency.owner);
   await page.goto("/leads");
   await expect(page.getByRole("heading", { level: 1, name: "Leads" })).toBeVisible();
@@ -33,17 +50,31 @@ test("an Owner adds a lead with a name and a phone, and finds it in Leads", asyn
   await expect(page.getByRole("radio", { name: /^Open/ })).toHaveAttribute("aria-checked", "true");
 
   const search = page.getByRole("searchbox", { name: "Search leads by name or phone" });
+  const byPhone = searchAnswered(page, "43 210");
   await search.fill("43 210");
-  await expect(page).toHaveURL(/q=43\+210/);
+  await byPhone;
   await expect(lead).toBeVisible();
+  const byName = searchAnswered(page, "Rahul Shrma");
   await search.fill("Rahul Shrma");
-  await expect(page).toHaveURL(/q=Rahul\+Shrma/);
+  await byName;
   await expect(lead).toBeVisible();
+  await expect(page).toHaveURL(/\/leads$/);
+
+  // Back from the lead, the list has its search again.
+  await lead.click();
+  await expect(page.getByRole("heading", { level: 1, name: "Rahul Sharma" })).toBeVisible();
+  await page.getByRole("main").getByRole("link", { name: "Leads", exact: true }).click();
+  await expect(search).toHaveValue("Rahul Shrma");
+  await expect(lead).toBeVisible();
+
   await search.fill("Meera");
   await expect(page.getByText("No results for these filters")).toBeVisible();
   await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(page).toHaveURL(/\/leads$/);
   await expect(lead).toBeVisible();
+  await expect(search).toHaveValue("");
+  const searched = /43(\+|%20| )210|shrma|meera/i;
+  expect(addresses.filter((address) => searched.test(address))).toEqual([]);
 
   if (testInfo.project.name === "phone") {
     // The chips scroll sideways in their own row (R42): Filters, at its end, starts past the screen's edge, and

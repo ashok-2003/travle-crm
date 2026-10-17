@@ -1,7 +1,7 @@
 // Signing out leaves nothing to restore, with the cache saved exactly as the app saves it: saving stops before
-// anything is deleted, so no save can land afterwards; the cache and its saved copy go (the service worker's cookie-less
-// shells stay); other tabs are told; only then is the api asked. Offline, the device is still wiped and the sign-out
-// is owed.
+// anything is deleted, so no save can land afterwards; the cache, its saved copy and what the tab kept go (the service
+// worker's cookie-less shells stay); other tabs are told; only then is the api asked. Offline, the device is still
+// wiped and the sign-out is owed.
 import "fake-indexeddb/auto";
 import { QueryClient } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -9,6 +9,7 @@ import type { AuthClient } from "@/data/auth-client";
 import { isSignOutOwed } from "@/data/owed-sign-out";
 import { createQueryCopy, deleteSavedCopies, hasPersistedQueries } from "@/data/persistence";
 import { announceSignOut, listenForSignOut, signOut, wipeLocalData } from "@/data/session";
+import { keepTabValue, readTabValue } from "@/lib/tab-storage";
 import { pause, savingClient, TEST_BUILD } from "../support/saved-copy";
 
 const owner = { userId: "user-a", organizationId: "org-a" };
@@ -62,6 +63,12 @@ describe("wipeLocalData", () => {
     await wipeLocalData(queryClient);
     await pause(1_200);
     expect(await hasPersistedQueries()).toBe(false);
+  });
+
+  it("forgets what the tab kept between screens: the lead list's search may name a customer", async () => {
+    keepTabValue("leads.search", "Rahul Sharma");
+    await wipeLocalData(new QueryClient());
+    expect(readTabValue("leads.search")).toBeNull();
   });
 
   it("leaves the service worker's caches alone, so the offline page outlives a sign-out", async () => {

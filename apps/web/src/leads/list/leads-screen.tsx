@@ -3,8 +3,9 @@
 // Leads (spec 3.3): everyone who asked about a trip, newest first, a page at a time. Mine · open by default; managers
 // (leads:view on everyone's) switch Mine and Everyone with Tabs and filter by owner; everyone searches by name or
 // phone, picks a stage chip, or opens Filters. The filters live in the address (R41), and each row's link carries them
-// for the way back. A phone gets a divided list, a computer the Table (R44); loading shows skeleton rows, a failure
-// says so with Try again (a refusal its reason), and an empty list says what belongs here or that nothing matches.
+// for the way back; the search never does, as a name or a phone in a URL reaches the access logs (use-list-search.ts).
+// A phone gets a divided list, a computer the Table (R44); loading shows skeleton rows, a failure says so with Try
+// again (a refusal its reason), and an empty list says what belongs here or that nothing matches.
 import { ContactIcon, SearchXIcon, TriangleAlertIcon } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -28,13 +29,16 @@ import { isFiltered, listFiltersHref, listFiltersOf, type FiltersToShow } from "
 import { SearchField } from "./search-field";
 import { isChipStage, StageChips } from "./stage-chips";
 import { useLeadCounts, useLeads } from "./use-leads";
+import { useListSearch } from "./use-list-search";
 
 export function LeadsScreen() {
   const t = useTranslations("leads.list");
   const tCommon = useTranslations("common");
   const ownOnly = viewScope(useMe(), "leads:view") !== "all";
   const router = useRouter();
-  const input = listFiltersOf(useSearchParams(), ownOnly ? "own" : "all");
+  const filters = listFiltersOf(useSearchParams(), ownOnly ? "own" : "all");
+  const [search, setSearch] = useListSearch();
+  const input = { ...filters, ...(search !== "" && { search }) };
   const leads = useLeads(input);
   const counts = useLeadCounts(input);
   const wide = useWideScreen();
@@ -44,15 +48,12 @@ export function LeadsScreen() {
   // With no leads at all, a chip row of zeros says nothing the empty list doesn't: the chips go without counts.
   const noLeadsAtAll = leads.items?.length === 0 && !isFiltered(input);
 
-  const show = (filters: FiltersToShow) => {
-    router.replace(listFiltersHref(filters));
-  };
-  // The search keeps every other filter as the address has it when the typing pauses.
-  const onSearch = (search: string) => {
-    show({ ...input, search });
+  const show = (next: FiltersToShow) => {
+    router.replace(listFiltersHref(next));
   };
   const clear = () => {
-    show({ view: input.view });
+    show({ view: filters.view });
+    setSearch("");
     setSearchBox((box) => box + 1);
   };
 
@@ -87,9 +88,9 @@ export function LeadsScreen() {
     return (
       <div className="flex flex-col gap-4">
         {wide ? (
-          <LeadsTable leads={leads.items} people={leads.people} filters={input} showOwner={!ownOnly} />
+          <LeadsTable leads={leads.items} people={leads.people} filters={filters} showOwner={!ownOnly} />
         ) : (
-          <LeadRows leads={leads.items} filters={input} />
+          <LeadRows leads={leads.items} filters={filters} />
         )}
         {leads.isFetchNextPageError && <RefusalAlert error={leads.error} />}
         <ShowMoreButton pages={leads} label={t("showMore")} />
@@ -105,18 +106,18 @@ export function LeadsScreen() {
           <TabsTrigger value="everyone">{t("everyone")}</TabsTrigger>
         </TabsList>
       )}
-      <SearchField key={searchBox} initial={input.search ?? ""} onSearch={onSearch} />
+      <SearchField key={searchBox} initial={search} onSearch={setSearch} />
       {/* The chips scroll sideways on a phone (R42); the padding keeps their focus outline in view. */}
       <div className="-m-1 flex items-center gap-2 overflow-x-auto p-1 md:flex-wrap md:overflow-visible">
         <StageChips
-          stage={input.stage}
+          stage={filters.stage}
           counts={noLeadsAtAll ? undefined : counts.data}
           ownOnly={ownOnly}
           onChoose={(stage) => {
-            show({ ...input, stage });
+            show({ ...filters, stage });
           }}
         />
-        <FiltersDialog filters={input} chipShown={isChipStage(input.stage)} ownOnly={ownOnly} onApply={show} />
+        <FiltersDialog filters={filters} chipShown={isChipStage(filters.stage)} ownOnly={ownOnly} onApply={show} />
       </div>
       {counts.isError && (
         // The chips still filter without their counts; a line says they didn't load, with Try again. A refusal would
@@ -144,14 +145,14 @@ export function LeadsScreen() {
         </div>
       ) : (
         <Tabs
-          value={input.view}
+          value={filters.view}
           onValueChange={(view) => {
-            show({ ...input, view: view === "everyone" ? "everyone" : "mine", ownerUserId: undefined });
+            show({ ...filters, view: view === "everyone" ? "everyone" : "mine", ownerUserId: undefined });
           }}
           className="gap-6"
         >
           {toolbar}
-          <TabsContent value={input.view} className="text-base">
+          <TabsContent value={filters.view} className="text-base">
             {body()}
           </TabsContent>
         </Tabs>

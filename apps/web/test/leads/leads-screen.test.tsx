@@ -1,10 +1,12 @@
 // The Leads list (spec 3.3, R41-R44): Mine · open by default, newest first with Show more; managers switch Mine and
-// Everyone and filter by owner; a search by name or phone after a pause; quick stage chips with counts; each row's
-// name, trip, stage and what's next, and the Table on a computer; honest loading, empty, error and refusal states.
-import { screen, waitFor, within } from "@testing-library/react";
+// Everyone and filter by owner; a search by name or phone after a pause, never in an address and found again on the
+// way back; quick stage chips with counts; each row's name, trip, stage and what's next, and the Table on a computer;
+// honest loading, empty, error and refusal states.
+import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { messages } from "@/i18n/messages";
+import { forgetTabValues, keepTabValue, readTabValue } from "@/lib/tab-storage";
 import { LeadsScreen } from "@/leads/list/leads-screen";
 import { heldAnswer, stubApi, type Answer } from "../support/api-stub";
 import { address } from "./navigation";
@@ -44,6 +46,7 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(NOW);
   address.set("/leads");
+  forgetTabValues();
 });
 
 afterEach(() => {
@@ -153,19 +156,46 @@ describe("LeadsScreen", () => {
     await waitFor(() => {
       expect(lastInputTo("leads.list")).toEqual({ view: "mine", stage: "open", search: "98765 43", limit: 25 });
     });
-    expect(address.href).toBe("/leads?q=98765+43");
     expect(lastInputTo("leads.counts")).toEqual({ view: "mine", search: "98765 43" });
     expect(search).toHaveValue("98765 43");
   });
 
-  it("says 'No results for these filters' with Clear filters", async () => {
-    address.set("/leads?stage=won&q=zed");
+  it("keeps the search out of every address, and finds it again on the way back from a lead", async () => {
+    address.set("/leads?view=everyone");
+    renderLeads();
+    await rows();
+    await userEvent.type(screen.getByRole("searchbox", { name: list.search }), "Rahul 98765");
+    await waitFor(() => {
+      expect(lastInputTo("leads.list")).toMatchObject({ view: "everyone", search: "Rahul 98765" });
+    });
+    // Not the page's address, nor a row's link, nor any request's URL (queries are posted, data/trpc.ts).
+    expect(address.href).toBe("/leads?view=everyone");
+    const links = within(screen.getByRole("list", { name: list.leads })).getAllByRole("link");
+    expect(links.map((link) => link.getAttribute("href"))).toEqual([`/leads/${ids.rahul}?view=everyone`]);
+    const urls = vi
+      .mocked(globalThis.fetch)
+      .mock.calls.map(([input]) => (input instanceof Request ? input.url : String(input)));
+    expect(urls.filter((url) => /rahul|98765/i.test(decodeURIComponent(url)))).toEqual([]);
+
+    // Back from the lead, the list opens again with its search.
+    cleanup();
+    renderLeads();
+    expect(await screen.findByRole("searchbox", { name: list.search })).toHaveValue("Rahul 98765");
+    await waitFor(() => {
+      expect(inputsTo("leads.list").at(-1)).toMatchObject({ view: "everyone", search: "Rahul 98765" });
+    });
+  });
+
+  it("says 'No results for these filters' with Clear filters, which forgets the search", async () => {
+    address.set("/leads?stage=won");
+    keepTabValue("leads.search", "zed");
     renderLeads({ "leads.list": aPage([]) });
     expect(await screen.findByText(list.emptyFiltered)).toBeVisible();
     expect(screen.getByRole("searchbox", { name: list.search })).toHaveValue("zed");
     await userEvent.click(screen.getByRole("button", { name: list.clearFilters }));
     expect(address.href).toBe("/leads");
     expect(screen.getByRole("searchbox", { name: list.search })).toHaveValue("");
+    expect(readTabValue("leads.search")).toBeNull();
     await waitFor(() => {
       expect(lastInputTo("leads.list")).toEqual({ view: "mine", stage: "open", limit: 25 });
     });

@@ -260,6 +260,9 @@ deploy (Q6, Q11). Everything above holds on both; this is what differs.
 - **Access logs must not record query strings for `/api/trpc/*` and `/api/platform/trpc/*`.** The web app posts every
   call, queries included, so a customer's phone, email or searched name stays in the body; a GET (tRPC's default, and
   what a test or a curl may still send) carries its input in the URL, where no erasure reaches it.
+- **The web app's own page addresses hold no customer data,** so its access logs need no stripping for that: the lead
+  list keeps its filters (ids and fixed values) in the address and its search text in the browser tab, never `?q=`
+  (`apps/web/test/e2e/leads-add.spec.ts` checks every URL and Referer the browser sends).
 
 ## Still open before launch
 

@@ -1,17 +1,18 @@
-// The lead list's filters, kept in the address (R41: ?view=&stage=&owner=&source=&destination=&tripType=&q=) so Back
+// The lead list's filters, kept in the address (R41: ?view=&stage=&owner=&source=&destination=&tripType=) so Back
 // from a lead and a shared link keep them. They are read with the api's own rules: a value it would refuse is left
-// out, and a salesperson, who only ever sees their own leads, has no view or owner to choose.
-import { leadSource, leadStage, listLeadsInput, tripType, type ListLeadsInput } from "@travel-crm/contracts/crm";
+// out, and a salesperson, who only ever sees their own leads, has no view or owner to choose. Only ids and fixed values
+// go there: the search, a name or a phone, never does (use-list-search.ts keeps it in the tab).
+import { leadSource, leadStage, tripType, type ListLeadsInput } from "@travel-crm/contracts/crm";
 import { recordId } from "@travel-crm/contracts/identity";
 import type { z } from "zod";
 import { leadRoute, routes } from "@/lib/routes";
 
 export const LEADS_PER_PAGE = 25;
 
-/** What the address says: the list's input without its paging. */
-export type ListFilters = Omit<ListLeadsInput, "before" | "limit">;
+/** What the address says: the list's input without its paging or its search. */
+export type ListFilters = Omit<ListLeadsInput, "before" | "limit" | "search">;
 
-/** Filters to write into an address: any may be left out, or given as nothing (undefined, or an empty search). */
+/** Filters to write into an address: any may be left out, or given as nothing (undefined). */
 export type FiltersToShow = { [Key in keyof ListFilters]?: ListFilters[Key] | undefined };
 
 /** Each filter's name in the address. */
@@ -22,12 +23,12 @@ const names = {
   source: "source",
   destinationId: "destination",
   tripType: "tripType",
-  search: "q",
 } as const satisfies Record<keyof ListFilters, string>;
 
-const searchText = listLeadsInput.shape.search.unwrap();
+/** The list's first page as the address asks for it. */
+export type AddressedList = ListFilters & Pick<ListLeadsInput, "limit">;
 
-export function listFiltersOf(search: Pick<URLSearchParams, "get">, scope: "own" | "all"): ListLeadsInput {
+export function listFiltersOf(search: Pick<URLSearchParams, "get">, scope: "own" | "all"): AddressedList {
   const read = <Output>(schema: z.ZodType<Output>, name: keyof ListFilters): Output | undefined => {
     const parsed = schema.safeParse(search.get(names[name]));
     return parsed.success ? parsed.data : undefined;
@@ -37,7 +38,6 @@ export function listFiltersOf(search: Pick<URLSearchParams, "get">, scope: "own"
   const source = read(leadSource, "source");
   const destinationId = read(recordId, "destinationId");
   const kind = read(tripType, "tripType");
-  const text = read(searchText, "search");
   return {
     view: everyone ? "everyone" : "mine",
     stage: search.get(names.stage) === "open" ? "open" : (read(leadStage, "stage") ?? "open"),
@@ -45,7 +45,6 @@ export function listFiltersOf(search: Pick<URLSearchParams, "get">, scope: "own"
     ...(source && { source }),
     ...(destinationId && { destinationId }),
     ...(kind && { tripType: kind }),
-    ...(text && { search: text }),
     limit: LEADS_PER_PAGE,
   };
 }
@@ -74,7 +73,7 @@ export function leadHref(leadId: string, filters: FiltersToShow): string {
 }
 
 /** Whether the list shows less than all of the view's open leads. */
-export function isFiltered(filters: ListFilters): boolean {
+export function isFiltered(filters: ListFilters & { search?: string }): boolean {
   const { ownerUserId, source, destinationId, tripType: kind, search } = filters;
   return filters.stage !== "open" || [ownerUserId, source, destinationId, kind, search].some(Boolean);
 }

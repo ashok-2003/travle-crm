@@ -409,6 +409,8 @@ report.
   dialog — cost if wrong: moving the form into `ResponsiveDialog`.
 - R41. Ruling: the list's filters live in the address (`?view=&stage=&owner=&source=&destination=&tripType=&q=`) —
   back from a lead keeps them — cost if wrong: none.
+  - Amended by the final review (W1): the search (`q`) left the address, since a name or a phone in a URL reaches the
+    access logs and the Referer. The tab keeps it (sessionStorage), so the way back still finds it.
 - R42. Ruling: the quick filters are a registry `ToggleGroup` (single): Open, New, Contacted, Quote sent, Booking
   requested, each with its count, scrolling sideways on phones.
   - Won, Lost and Not a lead are under Filters' Stage.
