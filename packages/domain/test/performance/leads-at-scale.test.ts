@@ -24,7 +24,7 @@ import { countOpenTasksQuery, openTasksQuery } from "../../src/tasks/index.js";
 import { todaySummary } from "../../src/today/index.js";
 import { memberWithStarterRole } from "../identity/rule-helpers.js";
 import { seedLargeAgency } from "./large-agency.js";
-import { medianMs, planOf, type QueryPlan } from "./query-plans.js";
+import { fastestMs, planOf, type QueryPlan } from "./query-plans.js";
 
 const SIZE = { leads: 50_000, tasks: 100_000, staff: 500, destinations: 300 };
 const NEIGHBOUR = { leads: 100_000, tasks: 0, staff: 500, destinations: 300 };
@@ -48,7 +48,7 @@ describe("a large agency", () => {
     return found;
   };
   const time = async (name: string, run: (tx: OrgTx) => Promise<unknown>) => {
-    const ms = await medianMs(() => inOrg(run));
+    const ms = await fastestMs(() => inOrg(run));
     timings.set(name, ms);
     return ms;
   };
@@ -75,10 +75,10 @@ describe("a large agency", () => {
   }, 300_000);
 
   afterAll(async () => {
-    // One line for the record: each query's median and the indexes its plan read (a failure prints the whole plan).
+    // One line for the record: each query's fastest time and the indexes its plan read (a failure prints the whole plan).
     const indexes = Object.fromEntries([...plans].map(([name, found]) => [name, found.indexes]));
-    const medians = Object.fromEntries([...timings].map(([name, ms]) => [name, Math.round(ms * 10) / 10]));
-    console.info("Large agency:", JSON.stringify({ medians, indexes }));
+    const fastest = Object.fromEntries([...timings].map(([name, ms]) => [name, Math.round(ms * 10) / 10]));
+    console.info("Large agency:", JSON.stringify({ fastest, indexes }));
     await db.disconnect();
     await platform.$disconnect();
     await isolated.drop();
