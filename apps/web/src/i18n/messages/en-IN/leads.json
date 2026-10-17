@@ -107,6 +107,7 @@
     "emptyMine": "You have no open leads. Add one when someone asks about a trip.",
     "emptyFiltered": "No results for these filters",
     "clearFilters": "Clear filters",
+    "blockedContacts": "Blocked contacts",
     "unassigned": "Unassigned",
     "noBudget": "Not given",
     "columns": {

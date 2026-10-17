@@ -10,6 +10,7 @@ import { forgetTabValues, keepTabValue, readTabValue } from "@/lib/tab-storage";
 import { LeadsScreen } from "@/leads/list/leads-screen";
 import { heldAnswer, stubApi, type Answer } from "../support/api-stub";
 import { address } from "./navigation";
+import { member } from "../support/members";
 import { aListItem, aPage, counts, ids } from "./records";
 import { inputsTo, lastInputTo, owner, renderScreen, salesperson } from "./screen";
 
@@ -293,6 +294,21 @@ describe("LeadsScreen", () => {
       expect(within(chips).getByRole("radio", { name: /^New/ })).toHaveTextContent("New3");
     });
     expect(screen.queryByText(list.countsFailed)).not.toBeInTheDocument();
+  });
+
+  it("leads those who may block contacts to Blocked contacts, Settings or not", async () => {
+    const assigner = member({ name: "Meera Iyer", permissions: ["leads:view", "leads:create", "leads:assign"] });
+    renderLeads({}, { me: assigner });
+    await rows();
+    expect(screen.getByRole("link", { name: list.blockedContacts })).toHaveAttribute(
+      "href",
+      "/settings/blocked-contacts",
+    );
+    cleanup();
+
+    renderLeads({}, { me: salesperson });
+    await rows();
+    expect(screen.queryByRole("link", { name: list.blockedContacts })).not.toBeInTheDocument();
   });
 
   it("leaves the Owner column out of a salesperson's table: every lead there is theirs", async () => {

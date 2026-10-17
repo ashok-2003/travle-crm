@@ -1,6 +1,7 @@
 // Blocked contacts in Settings (spec 3.6, R33): the phones, emails and Instagram handles blocked from leads, newest
 // first and a page at a time, each as people read it (+91 98765 43210, @handle), with who blocked it and when in the
-// agency's zone; Unblock asks first, then takes it off the list. Needs leads:assign.
+// agency's zone; Unblock asks first, then takes it off the list. Needs leads:assign; the way back is to Settings for
+// those who manage it, and to Leads, where they came in, for those who don't.
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -10,6 +11,7 @@ import { messages } from "@/i18n/messages";
 import { inputsSentTo } from "../documents/sent";
 import { renderAs, screenIs } from "../organization/render";
 import { stubApi } from "../support/api-stub";
+import { member } from "../support/members";
 
 const words = messages.settings.blockedContacts;
 const asha = "0199a000-0000-7000-8000-000000000001";
@@ -51,12 +53,13 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function renderScreen() {
+function renderScreen(me = member({ isOwner: true })) {
   return renderAs(
     <>
       <BlockedContactsScreen />
       <Toaster />
     </>,
+    me,
   );
 }
 
@@ -111,6 +114,17 @@ describe("BlockedContactsScreen", () => {
       expect(await listed()).toHaveLength(3);
     });
     expect(inputsSentTo("blockedContacts.list").at(-1)).toEqual({ before: email.id });
+  });
+
+  it("leads back to Settings for those who manage it, and to Leads for those who only assign leads", async () => {
+    stubApi({ "blockedContacts.list": page([]) });
+    const owner = renderScreen();
+    expect(await screen.findByRole("link", { name: messages.settings.title })).toHaveAttribute("href", "/settings");
+    owner.unmount();
+
+    renderScreen(member({ permissions: ["leads:view", "leads:assign"] }));
+    expect(await screen.findByRole("link", { name: messages.leads.lead.back })).toHaveAttribute("href", "/leads");
+    expect(screen.queryByRole("link", { name: messages.settings.title })).not.toBeInTheDocument();
   });
 
   it("says when nothing is blocked, and when the list didn't load, with Try again", async () => {

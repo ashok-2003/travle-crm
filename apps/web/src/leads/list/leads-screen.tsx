@@ -5,7 +5,8 @@
 // phone, picks a stage chip, or opens Filters. The filters live in the address (R41), and each row's link carries them
 // for the way back; the search never does, as a name or a phone in a URL reaches the access logs (use-list-search.ts).
 // A phone gets a divided list, a computer the Table (R44); loading shows skeleton rows, a failure says so with Try
-// again (a refusal its reason), and an empty list says what belongs here or that nothing matches.
+// again (a refusal its reason), and an empty list says what belongs here or that nothing matches. Whoever may block a
+// contact finds Blocked contacts at the end, whether or not they may open Settings, which also leads there.
 import { ContactIcon, SearchXIcon, TriangleAlertIcon } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -16,9 +17,11 @@ import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { ShowMoreButton } from "@/components/show-more-button";
+import { TextLink } from "@/components/text-link";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { routes } from "@/lib/routes";
 import { useWideScreen } from "@/lib/use-wide-screen";
 import { useHolds, useMe, viewScope } from "@/session/me-context";
 import { NewLeadButton } from "../new-lead-button";
@@ -43,6 +46,9 @@ export function LeadsScreen() {
   const counts = useLeadCounts(input);
   const wide = useWideScreen();
   const newLead = useHolds("leads:create") && <NewLeadButton />;
+  const blockedContacts = useHolds("leads:assign") && (
+    <TextLink href={routes.blockedContacts}>{t("blockedContacts")}</TextLink>
+  );
   // Clear filters empties the search box too, by giving it a fresh start.
   const [searchBox, setSearchBox] = useState(0);
   // With no leads at all, a chip row of zeros says nothing the empty list doesn't: the chips go without counts.
@@ -157,6 +163,7 @@ export function LeadsScreen() {
           </TabsContent>
         </Tabs>
       )}
+      {blockedContacts}
     </div>
   );
 }
