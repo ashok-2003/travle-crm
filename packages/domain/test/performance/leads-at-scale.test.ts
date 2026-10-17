@@ -176,7 +176,14 @@ describe("a large agency", () => {
       expect((await plan(name, query)).indexes, name).toContain("task_open_by_assignee");
     }
     const newLeadsCount = countNewLeadsWaitingQuery(salesperson.userId);
-    expect((await plan("today-new-leads-count", newLeadsCount)).indexes).toContain("lead_new_by_owner");
+    // Either partial index holds exactly the owner's leads in New for a count; the planner picks by its sampled
+    // statistics, and both runs have been seen.
+    const countPlan = await plan("today-new-leads-count", newLeadsCount);
+    const ownersNewLeads = ["lead_new_by_owner", "lead_open_stage_counts"];
+    expect(
+      countPlan.indexes.filter((name) => ownersNewLeads.includes(name)),
+      countPlan.text,
+    ).not.toEqual([]);
     const summary = await inOrg((tx) => todaySummary(tx, salesperson, now));
     expect(summary.counts.newLeads).toBe(SIZE.leads / 10 / SIZE.staff);
     expect(summary.counts.overdue).toBeGreaterThan(0);
