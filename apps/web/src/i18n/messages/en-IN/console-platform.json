@@ -207,7 +207,8 @@
       "platform_staff": "Platform staff",
       "job": "Job",
       "member": "Member",
-      "traveller": "Traveller"
+      "traveller": "Traveller",
+      "person": "Customer"
     },
     "actions": {
       "organization": {

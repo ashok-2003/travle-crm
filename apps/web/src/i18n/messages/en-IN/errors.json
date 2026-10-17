@@ -101,7 +101,7 @@
     "REMOVE_FIRST": "Remove this person from the organization before erasing them.",
     "EXPORT_FIRST": "Export it first: a purge or an erasure needs an export from the last day.",
     "KEPT_BY_LAW": "Issued documents are kept as issued, as the law requires. Erase the person they're about instead.",
-    "NOT_PERSONAL_DATA": "Only a record of a person, such as a traveller, can be erased.",
+    "NOT_PERSONAL_DATA": "Only a record of a person can be erased, such as a customer (record type person).",
     "EXPORT_NOT_FOUND": "This export no longer exists.",
     "EXPORT_NOT_READY": "This export isn't finished yet. Try again in a few minutes.",
     "EXPORT_EXPIRED": "This export has expired. Ask for a new one.",
