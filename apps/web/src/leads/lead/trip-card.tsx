@@ -11,7 +11,7 @@ import { Details, type Detail } from "@/components/details";
 import { rupees } from "@/components/forms/money-field";
 import { formatRupees } from "@/lib/format";
 import { useHolds, useMe } from "@/session/me-context";
-import { useTripLine } from "../trip-line";
+import { useTravelDates } from "../trip-line";
 import { EditTripDialog } from "./edit-trip-dialog";
 import { ChangeButton, LeadCard } from "./lead-card";
 
@@ -22,7 +22,7 @@ const monthNames = {
 
 function useTripWords() {
   const t = useTranslations("leads");
-  const tripLine = useTripLine();
+  const travelDates = useTravelDates();
   const thisYear = yearIn(new Date(), useMe().organization.timeZone);
   const when = (travel: TravelWhen): string | null => {
     switch (travel.kind) {
@@ -36,7 +36,7 @@ function useTripWords() {
         return t("lead.trip.monthNotFixed", { month: name });
       }
       case "dates":
-        return tripLine({ destinationName: null, when: travel, adults: null, childrenCount: 0 });
+        return travelDates(travel);
     }
   };
   /** "2 adults, 1 child (7)". */
