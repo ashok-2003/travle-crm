@@ -6,7 +6,8 @@
 // for the way back; the search never does, as a name or a phone in a URL reaches the access logs (use-list-search.ts).
 // A phone gets a divided list, a computer the Table (R44); loading shows skeleton rows, a failure says so with Try
 // again (a refusal its reason), and an empty list says what belongs here or that nothing matches. Whoever may block a
-// contact finds Blocked contacts at the end, whether or not they may open Settings, which also leads there.
+// contact finds Blocked contacts at the end, whether or not they may open Settings, which also leads there. A polite
+// status says how many leads are shown, or that a search or filter found none, so screen readers hear each answer.
 import { ContactIcon, SearchXIcon } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -53,6 +54,14 @@ export function LeadsScreen() {
   const [searchBox, setSearchBox] = useState(0);
   // With no leads at all, a chip row of zeros says nothing the empty list doesn't: the chips go without counts.
   const noLeadsAtAll = leads.items?.length === 0 && !isFiltered(input);
+  const shown =
+    leads.items === undefined
+      ? null
+      : leads.items.length > 0
+        ? t("found", { count: leads.items.length, more: leads.hasNextPage ? "yes" : "no" })
+        : isFiltered(input)
+          ? t("emptyFiltered")
+          : null;
 
   const show = (next: FiltersToShow) => {
     router.replace(listFiltersHref(next));
@@ -113,6 +122,10 @@ export function LeadsScreen() {
         </TabsList>
       )}
       <SearchField key={searchBox} initial={search} onSearch={setSearch} />
+      {/* Always there, so a change in it is heard; the list itself says it to the eye. */}
+      <p role="status" className="sr-only">
+        {shown}
+      </p>
       {/* The chips scroll sideways on a phone (R42); the padding keeps their focus outline in view. */}
       <div className="-m-1 flex items-center gap-2 overflow-x-auto p-1 md:flex-wrap md:overflow-visible">
         <StageChips

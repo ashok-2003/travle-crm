@@ -197,6 +197,20 @@ describe("DestinationsScreen", () => {
     expect(await screen.findByText("Merged. 1 lead moved to Zanzibar.")).toBeVisible();
   });
 
+  it("says a search that matches nothing in a polite status, which screen readers hear as it changes", async () => {
+    const api = stubApi({ "destinations.search": { data: [goa] } });
+    renderScreen();
+    expect(await listed()).toEqual(["Goa"]);
+    const status = screen.getByRole("status");
+    expect(status).toBeEmptyDOMElement();
+    api.answer("destinations.search", { data: [] });
+    await userEvent.type(screen.getByRole("searchbox", { name: words.search }), "zed");
+    await waitFor(() => {
+      expect(status).toHaveTextContent(words.noMatch);
+    });
+    expect(screen.getAllByText(words.noMatch)).toHaveLength(1);
+  });
+
   it("says when there are none yet, and when the list didn't load, with Try again", async () => {
     const api = stubApi({ "destinations.search": { data: [] } });
     const first = renderScreen();

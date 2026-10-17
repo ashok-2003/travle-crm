@@ -68,7 +68,9 @@ test("an Owner adds a lead with a name and a phone, and finds it in Leads", asyn
   await expect(lead).toBeVisible();
 
   await search.fill("Meera");
-  await expect(page.getByText("No results for these filters")).toBeVisible();
+  // Said in the list's place, and to screen readers in the list's status.
+  await expect(page.locator("[data-slot=empty]").getByText("No results for these filters")).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "No results for these filters" })).toBeAttached();
   await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(page).toHaveURL(/\/leads$/);
   await expect(lead).toBeVisible();

@@ -179,6 +179,18 @@ describe("LeadsScreen", () => {
     expect(search).toHaveValue("98765 43");
   });
 
+  it("says how many leads a search found, or that it found none, in a polite status for screen readers", async () => {
+    const api = renderLeads({ "leads.list": aPage([aListItem()], ids.rahul) });
+    await rows();
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("1 lead shown, more below");
+    api.answer("leads.list", aPage([]));
+    await userEvent.type(screen.getByRole("searchbox", { name: list.search }), "zed");
+    await waitFor(() => {
+      expect(status).toHaveTextContent(list.emptyFiltered);
+    });
+  });
+
   it("keeps the search out of every address, and finds it again on the way back from a lead", async () => {
     address.set("/leads?view=everyone");
     renderLeads();
@@ -209,7 +221,8 @@ describe("LeadsScreen", () => {
     address.set("/leads?stage=won");
     keepTabValue("leads.search", "zed");
     renderLeads({ "leads.list": aPage([]) });
-    expect(await screen.findByText(list.emptyFiltered)).toBeVisible();
+    // Said to the eye in the list's place, and to screen readers in the status.
+    expect(await screen.findAllByText(list.emptyFiltered)).toHaveLength(2);
     expect(screen.getByRole("searchbox", { name: list.search })).toHaveValue("zed");
     await userEvent.click(screen.getByRole("button", { name: list.clearFilters }));
     expect(address.href).toBe("/leads");

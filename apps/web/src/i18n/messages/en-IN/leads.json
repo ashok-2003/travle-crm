@@ -107,6 +107,7 @@
     "empty": "No open leads yet. Add one when someone asks about a trip.",
     "emptyMine": "You have no open leads. Add one when someone asks about a trip.",
     "emptyFiltered": "No results for these filters",
+    "found": "{count, plural, one {# lead} other {# leads}} shown{more, select, yes {, more below} other {}}",
     "clearFilters": "Clear filters",
     "blockedContacts": "Blocked contacts",
     "unassigned": "Unassigned",
