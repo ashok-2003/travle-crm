@@ -88,6 +88,11 @@ Screens are mobile-first: a bottom bar on phones, the registry Sidebar fixed on 
      because a toast pauses under the pointer), and fonts and images loaded. Then it saves
      `AUDIT_OUT/<project>/<nn>-<screen>.png` and writes an `index.md` (shot, screen, route, person).
    - Run it with `pnpm e2e:audit` (`AUDIT_OUT=… --project phone|desktop --grep <screen>`).
+   - The shots go to `apps/web/test-results/audit` unless `AUDIT_OUT` says otherwise. Playwright empties a run's
+     output folder as it starts, so each config has its own: the journeys `test-results/journeys`, the audit run
+     `test-results/audit-run`. A journey run no longer wipes the shots a review is reading
+     (`test/playwright-output.test.ts` keeps the folders apart). Keep a round's shots in their own folder
+     (`AUDIT_OUT=test-results/audit/round-2`) so the next round doesn't overwrite them.
 2. **Round 1 review:**
    - Three reviewers, each on a range of shots, open every PNG in both projects. They use a vision model; Opus was
      used.
