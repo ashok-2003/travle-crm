@@ -17,7 +17,8 @@ export default defineConfig({
   workers: 1,
   forbidOnly: Boolean(process.env.CI),
   reporter: [["list"]],
-  use: { trace: "retain-on-failure" },
+  // UTC, far from the agencies' Asia/Kolkata: a shot shows a time in the agency's zone only if the screen put it there.
+  use: { trace: "retain-on-failure", timezoneId: "UTC" },
   projects: [
     {
       name: "phone",
