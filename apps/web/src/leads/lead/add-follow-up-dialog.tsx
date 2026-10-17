@@ -13,8 +13,8 @@ import type { ReturnFocusTo } from "@/components/return-focus";
 import { TextField } from "@/components/forms/text-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { useTRPC } from "@/data/trpc";
+import { useRefreshWork } from "@/data/use-refresh-work";
 import { useMe } from "@/session/me-context";
-import { useRefreshLeads } from "./use-lead";
 
 interface FollowUpValues {
   title: string;
@@ -74,7 +74,7 @@ export function AddFollowUpDialog({
 }) {
   const t = useTranslations("leads.lead.work");
   const trpc = useTRPC();
-  const refresh = useRefreshLeads();
+  const refresh = useRefreshWork();
   const held = useFormDialog(t("added"), refresh, dialog);
   const add = useMutation(trpc.leads.addWork.mutationOptions({ onSuccess: held.onSuccess }));
   return (

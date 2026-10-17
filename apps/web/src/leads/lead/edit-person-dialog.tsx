@@ -16,6 +16,7 @@ import type { ReturnFocusTo } from "@/components/return-focus";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useTRPC } from "@/data/trpc";
+import { useRefreshWork } from "@/data/use-refresh-work";
 import {
   emptyLeadValues,
   leadFieldAt,
@@ -27,7 +28,6 @@ import {
 } from "../form/lead-form-values";
 import { PersonFields } from "../form/person-fields";
 import { knownContactsOf, useKnownContact } from "../form/use-known-contact";
-import { useRefreshLeads } from "./use-lead";
 
 /** Who else holds a contact typed here: the one kind asked about, if it changed and isn't this person's own. */
 function useHolder(person: LeadDetail["person"], kind: ContactKind, typed: string) {
@@ -94,7 +94,7 @@ export function EditPersonDialog({
 }) {
   const t = useTranslations("leads.lead.person");
   const trpc = useTRPC();
-  const refresh = useRefreshLeads();
+  const refresh = useRefreshWork();
   const held = useFormDialog(t("saved"), refresh, dialog);
   const save = useMutation(trpc.leads.editPerson.mutationOptions({ onSuccess: held.onSuccess }));
   return (

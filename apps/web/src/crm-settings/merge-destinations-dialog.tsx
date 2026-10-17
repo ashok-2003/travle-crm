@@ -17,8 +17,8 @@ import { FormAlert, FormDialog, type Sending } from "@/components/forms/form-dia
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import type { ReturnFocusTo } from "@/components/return-focus";
 import { useTRPCClient } from "@/data/trpc";
+import { useRefreshWork } from "@/data/use-refresh-work";
 import { DestinationPicker } from "./destination-picker";
-import { useRefreshDestinations } from "./use-destinations";
 
 interface MergeValues {
   keep: Destination | null;
@@ -88,7 +88,7 @@ export function MergeDestinationsDialog({
 }) {
   const t = useTranslations("settings.destinations.merge");
   const client = useTRPCClient();
-  const refresh = useRefreshDestinations();
+  const refresh = useRefreshWork();
   const merge = useMutation({
     mutationFn: ({ input }: Merge) => client.destinations.merge.mutate(input),
     onSuccess: async ({ leadsMoved }, { keptName }) => {

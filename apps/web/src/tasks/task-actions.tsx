@@ -15,7 +15,7 @@ import { useErrorMessage } from "@/lib/error-message";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
 import { SnoozeDialog } from "./snooze-dialog";
-import { useRefreshWork } from "./use-refresh-work";
+import { useRefreshWork } from "@/data/use-refresh-work";
 
 export function TaskActions({ task }: { task: { id: string; title: string } }) {
   const t = useTranslations("tasks.actions");

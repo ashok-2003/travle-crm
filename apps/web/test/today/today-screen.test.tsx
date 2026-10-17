@@ -1,13 +1,15 @@
 // Today (spec 3.5, R35): the day in the agency's zone and how many things it holds, then Overdue, New leads waiting for
 // a reply and Due today, each with its count and a page at a time; Add a task as the screen's action; a new lead marked
-// contacted leaves its section; a quiet line about what later releases add; and the skeleton, the error with Try
-// again, and a refusal's own sentence.
+// contacted leaves its section, and the Leads chips' counts load again; a quiet line about what later releases add; and
+// the skeleton, the error with Try again, and a refusal's own sentence.
 import type { TodayItem, TodaySectionName, TodaySummary } from "@travel-crm/contracts/today";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Toaster } from "@/components/ui/sonner";
 import { messages } from "@/i18n/messages";
+import { useLeadCounts } from "@/leads/list/use-leads";
 import { TodayScreen } from "@/today/today-screen";
 import { renderAs, screenIs } from "../organization/render";
 import { stubCalls, type Call, type Reply } from "./api";
@@ -66,6 +68,9 @@ function answer(call: Call): Reply {
     const last = items.at(-1);
     return { data: { items, nextCursor: next && last ? idOf(last) : null } };
   }
+  if (call.path === "leads.counts") {
+    return { data: { open: 3, new: day.summary.counts.newLeads, contacted: 0, quote_sent: 0, booking_requested: 0 } };
+  }
   if (call.path === "leads.moveStage") {
     const { leadId } = call.input as { leadId: string };
     day.sections["new-leads"] = day.sections["new-leads"].filter((item) => item.lead?.id !== leadId);
@@ -87,11 +92,18 @@ function busy(summary: TodaySummary = busyDay): Day {
   };
 }
 
-function renderToday() {
+/** The Leads chips' counts, held in the cache as when the list was opened before Today. */
+function ChipCounts() {
+  useLeadCounts({ view: "mine", stage: "open", limit: 25 });
+  return null;
+}
+
+function renderToday(alongside: ReactNode = null) {
   const api = stubCalls(answer);
   const { unmount } = renderAs(
     <>
       <TodayScreen />
+      {alongside}
       <Toaster />
     </>,
   );
@@ -149,9 +161,12 @@ describe("TodayScreen", () => {
     expect(within(dueToday).queryByRole("button", { name: words.more["due-today"] })).toBeNull();
   });
 
-  it("marks a new lead contacted, and it leaves the section", async () => {
-    const api = renderToday();
+  it("marks a new lead contacted, and it leaves the section and the chips' counts load again", async () => {
+    const api = renderToday(<ChipCounts />);
     const newLeads = await region(words.sections["new-leads"]);
+    await waitFor(() => {
+      expect(api.calls.filter((call) => call.path === "leads.counts")).toHaveLength(1);
+    });
     await userEvent.click(await within(newLeads).findByRole("button", { name: "Mark Rahul Sharma contacted" }));
     await waitFor(() => {
       expect(api.calls.find((call) => call.path === "leads.moveStage")?.input).toEqual({
@@ -159,10 +174,11 @@ describe("TodayScreen", () => {
         stage: "contacted",
       });
     });
-    expect(await screen.findByText(words.item.markedContacted)).toBeVisible();
+    expect(await screen.findByText(messages.leads.lead.moved.replace("{stage}", "Contacted"))).toBeVisible();
     await waitFor(() => {
       expect(within(newLeads).queryByRole("link", { name: "Rahul Sharma" })).toBeNull();
     });
+    expect(api.calls.filter((call) => call.path === "leads.counts")).toHaveLength(2);
     expect(within(newLeads).getByRole("link", { name: "Arjun Mehta" })).toBeVisible();
     expect(within(newLeads).getByText("2")).toBeVisible();
   });

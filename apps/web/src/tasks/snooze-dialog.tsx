@@ -15,8 +15,8 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { ReturnFocusTo } from "@/components/return-focus";
 import { useTRPC } from "@/data/trpc";
+import { useRefreshWork } from "@/data/use-refresh-work";
 import { useMe } from "@/session/me-context";
-import { useRefreshWork } from "./use-refresh-work";
 
 const choices = ["one-hour", "tomorrow-morning", "at"] as const;
 

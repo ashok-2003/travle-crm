@@ -15,8 +15,8 @@ import type { ReturnFocusTo } from "@/components/return-focus";
 import { SelectField } from "@/components/forms/select-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { useTRPC } from "@/data/trpc";
+import { useRefreshWork } from "@/data/use-refresh-work";
 import { useLeadOwners } from "../use-lead-owners";
-import { useRefreshLeads } from "./use-lead";
 
 interface ReassignValues {
   ownerUserId: string;
@@ -86,7 +86,7 @@ export function ReassignDialog({
   const t = useTranslations("leads.lead.reassign");
   const trpc = useTRPC();
   const owners = useLeadOwners();
-  const refresh = useRefreshLeads();
+  const refresh = useRefreshWork();
   const reassign = useMutation(
     trpc.leads.reassign.mutationOptions({
       onSuccess: async (_, { ownerUserId }) => {

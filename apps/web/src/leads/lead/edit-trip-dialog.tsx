@@ -12,6 +12,7 @@ import type { ReturnFocusTo } from "@/components/return-focus";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { FieldGroup } from "@/components/ui/field";
 import { useTRPC } from "@/data/trpc";
+import { useRefreshWork } from "@/data/use-refresh-work";
 import {
   emptyLeadValues,
   leadFieldAt,
@@ -21,7 +22,6 @@ import {
 } from "../form/lead-form-values";
 import { TripFields } from "../form/trip-fields";
 import { tripInputOf, tripProblems, tripValuesOf } from "../form/trip-values";
-import { useRefreshLeads } from "./use-lead";
 
 function TripForm({ formId, lead, save }: { formId: string; lead: LeadDetail; save: Sending<EditTripInput> }) {
   const t = useTranslations("leads.form");
@@ -59,7 +59,7 @@ export function EditTripDialog({
 }) {
   const t = useTranslations("leads.lead.trip");
   const trpc = useTRPC();
-  const refresh = useRefreshLeads();
+  const refresh = useRefreshWork();
   const held = useFormDialog(t("saved"), refresh, dialog);
   const save = useMutation(trpc.leads.editTrip.mutationOptions({ onSuccess: held.onSuccess }));
   return (

@@ -14,7 +14,7 @@ import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { useRefusalOnField } from "@/components/forms/use-refusal-on-field";
 import type { ReturnFocusTo } from "@/components/return-focus";
 import { useTRPC } from "@/data/trpc";
-import { useRefreshDestinations } from "./use-destinations";
+import { useRefreshWork } from "@/data/use-refresh-work";
 
 interface RenameValues {
   name: string;
@@ -67,7 +67,7 @@ export function RenameDestinationDialog({
 }) {
   const t = useTranslations("settings.destinations.rename");
   const trpc = useTRPC();
-  const refresh = useRefreshDestinations();
+  const refresh = useRefreshWork();
   const dialog = useFormDialog(t("done"), refresh, { open, setOpen: onOpenChange });
   const rename = useMutation(trpc.destinations.rename.mutationOptions({ onSuccess: dialog.onSuccess }));
   return (

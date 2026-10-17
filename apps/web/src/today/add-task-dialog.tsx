@@ -11,9 +11,9 @@ import { useId, useRef } from "react";
 import { FormDialog, useFormDialog } from "@/components/forms/form-dialog";
 import { Button } from "@/components/ui/button";
 import { useTRPCClient } from "@/data/trpc";
+import { useRefreshWork } from "@/data/use-refresh-work";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
-import { useRefreshWork } from "@/tasks/use-refresh-work";
 import { AddTaskForm, type NewTask } from "./add-task-form";
 
 export function AddTaskDialog() {

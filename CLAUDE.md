@@ -269,7 +269,8 @@ A screen builds from the shared pieces in `apps/web/src/` before writing its own
   Popover, for every search-as-you-type picker (a lead, a destination, a destination to keep); `clearLabel` offers
   choosing nothing again, and `extraOption` one option of the caller's own (a destination's 'Add "Spiti"').
 - **Lists and records:** `useCursorPages` (`data/use-cursor-pages.ts`) with `ShowMoreButton` for every cursor list;
-  `AuditChange` and `StoredValue` for an audit entry's before and after.
+  `AuditChange` and `StoredValue` for an audit entry's before and after; `useRefreshWork` (`data/use-refresh-work.ts`)
+  after every change to leads, tasks, blocked contacts or destinations, so each list that shows them loads again.
 - **Words:** `lib/format.ts`'s `formatDayTime` and `formatPhoneNumber`, and `useInstantText`
   (`components/instant-text.ts`).
 - **Classes:** `cn` from `lib/utils.ts` alone, which knows the theme's type sizes (`text-caption`...); never the `cn`
