@@ -1,0 +1,26 @@
+{
+  "actions": {
+    "done": "Done",
+    "doneTask": "Done: {title}",
+    "marked": "Marked done",
+    "snooze": "Snooze",
+    "snoozeTask": "Snooze: {title}"
+  },
+  "snooze": {
+    "title": "Snooze",
+    "description": "When should this come back? When it was first due stays on record.",
+    "choice": "Bring it back",
+    "oneHour": "In an hour",
+    "tomorrowMorning": "Tomorrow morning, 9:00 am",
+    "choose": "Choose a time",
+    "when": "When",
+    "submit": "Snooze",
+    "submitting": "Snoozing",
+    "snoozed": "Snoozed",
+    "problems": {
+      "day": "Choose a day.",
+      "time": "Choose a time.",
+      "required": "Choose a day and a time."
+    }
+  }
+}

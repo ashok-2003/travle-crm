@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ResponsiveDialog } from "@/components/responsive-dialog";
+import type { ReturnFocusTo } from "@/components/return-focus";
 import { useChangeStaffRole } from "./use-staff";
 
 export function ChangeRoleDialog({
@@ -15,11 +16,14 @@ export function ChangeRoleDialog({
   roles,
   open,
   onOpenChange,
+  returnFocusTo,
 }: {
   member: StaffMember;
   roles: RoleSummary[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The button that opened it, which takes the focus back when it closes. */
+  returnFocusTo: ReturnFocusTo;
 }) {
   const t = useTranslations("staff");
   const [roleKey, setRoleKey] = useState(member.role.key);
@@ -27,6 +31,7 @@ export function ChangeRoleDialog({
   const formId = useId();
   return (
     <ResponsiveDialog
+      returnFocusTo={returnFocusTo}
       open={open}
       onOpenChange={onOpenChange}
       title={t("changeRole.title", { name: member.name })}

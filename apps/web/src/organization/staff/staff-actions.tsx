@@ -6,7 +6,7 @@
 import type { RoleSummary, StaffMember } from "@travel-crm/contracts/identity";
 import { EllipsisVerticalIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -26,6 +26,8 @@ type OpenDialog = "role" | "password" | "remove" | null;
 export function StaffActions({ member, roles }: { member: StaffMember; roles: RoleSummary[] }) {
   const t = useTranslations("staff");
   const [open, setOpen] = useState<OpenDialog>(null);
+  // The dialogs aren't the menu's: closed, they give the focus back to its button.
+  const menu = useRef<HTMLButtonElement>(null);
   const change = useWriteAccess("change");
   const revoke = useWriteAccess("revoke");
   const closeWhen = (dialog: Exclude<OpenDialog, null>) => (next: boolean) => {
@@ -35,7 +37,7 @@ export function StaffActions({ member, roles }: { member: StaffMember; roles: Ro
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" aria-label={t("actionsFor", { name: member.name })}>
+          <Button ref={menu} variant="ghost" size="icon" aria-label={t("actionsFor", { name: member.name })}>
             <EllipsisVerticalIcon aria-hidden="true" />
           </Button>
         </DropdownMenuTrigger>
@@ -71,9 +73,15 @@ export function StaffActions({ member, roles }: { member: StaffMember; roles: Ro
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      {open === "role" && <ChangeRoleDialog member={member} roles={roles} open onOpenChange={closeWhen("role")} />}
-      {open === "password" && <ResetPasswordDialog member={member} open onOpenChange={closeWhen("password")} />}
-      {open === "remove" && <RemoveStaffDialog member={member} open onOpenChange={closeWhen("remove")} />}
+      {open === "role" && (
+        <ChangeRoleDialog member={member} roles={roles} open onOpenChange={closeWhen("role")} returnFocusTo={menu} />
+      )}
+      {open === "password" && (
+        <ResetPasswordDialog member={member} open onOpenChange={closeWhen("password")} returnFocusTo={menu} />
+      )}
+      {open === "remove" && (
+        <RemoveStaffDialog member={member} open onOpenChange={closeWhen("remove")} returnFocusTo={menu} />
+      )}
     </>
   );
 }

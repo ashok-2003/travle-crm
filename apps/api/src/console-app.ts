@@ -21,7 +21,8 @@ export function createConsoleApp(services: PlatformServices, log: ProcessLog): H
 
   app.get("/health", (c) => c.json({ status: "ok" }));
 
-  // The same rules as the api's tRPC: mutations come from the web app as JSON, and bodies are small.
+  // The same rules as the api's tRPC: posts (every call, queries included) come from the web app as JSON, and bodies
+  // are small.
   app.use("/api/platform/trpc/*", requireTrustedJson(services.identity));
   app.use("/api/platform/trpc/*", limitBody(BODY_LIMIT));
   app.use(
@@ -29,6 +30,8 @@ export function createConsoleApp(services: PlatformServices, log: ProcessLog): H
     trpcServer({
       router: platformRouter,
       endpoint: "/api/platform/trpc",
+      // As the api's: queries come as POSTs too, so no input is ever in a URL.
+      allowMethodOverride: true,
       createContext: ({ resHeaders }, c) => createPlatformContext(services, c.req.raw, resHeaders),
       onError: ({ error, path }) => {
         // Refusals are answers, not faults. Only unexpected errors are logged, by names and codes: tRPC copies the

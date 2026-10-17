@@ -29,6 +29,14 @@
       "shareLinkOpened": {
         "label": "A customer opens a link you shared",
         "hint": "Repeat opens of the same link are held back for a while."
+      },
+      "leadAssigned": {
+        "label": "A lead is given to you",
+        "hint": "When someone else makes you a lead's owner."
+      },
+      "leadRepeatEnquiry": {
+        "label": "A customer asks again",
+        "hint": "When a repeat enquiry is added to one of your open leads."
       }
     },
     "loading": "Loading your choices",

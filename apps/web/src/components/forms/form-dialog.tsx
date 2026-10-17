@@ -17,12 +17,14 @@
 //
 // and ThingForm is <form id={formId} noValidate onSubmit={onSubmit(save.mutate)}>…<FormAlert sending={save}
 // problem={formProblem} /></form>. A dialog opened from elsewhere (one item of a menu) has no trigger: give
-// useFormDialog the open state held where the menu is.
+// useFormDialog the open state held where the menu is, and `returnFocusTo` the menu's button, which takes the focus
+// back when the dialog closes (its own trigger does that by itself).
 import { CircleAlertIcon } from "lucide-react";
-import { useId, useState, type ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { ResponsiveDialog } from "@/components/responsive-dialog";
+import type { ReturnFocusTo } from "@/components/return-focus";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -70,6 +72,7 @@ export function FormDialog({
   submitting,
   destructive = false,
   canSubmit = true,
+  returnFocusTo,
   children,
 }: {
   dialog: OpenState;
@@ -91,14 +94,18 @@ export function FormDialog({
   destructive?: boolean;
   /** False while the form can't be sent yet (what it needs is loading). */
   canSubmit?: boolean;
+  /** Without a trigger, the button that opened it, which takes the focus back when it closes. */
+  returnFocusTo?: ReturnFocusTo | undefined;
   /** The form, given the id the submit button sends it by, mounted while the dialog is open. */
   children: (formId: string) => ReactNode;
 }) {
   const formId = useId();
+  const triggerButton = useRef<HTMLButtonElement>(null);
   return (
     <>
       {trigger && (
         <Button
+          ref={triggerButton}
           variant={trigger.variant ?? "outline"}
           aria-label={trigger.accessibleLabel}
           onClick={() => {
@@ -116,6 +123,7 @@ export function FormDialog({
           dialog.setOpen(open);
         }}
         busy={sending.isPending}
+        returnFocusTo={trigger ? triggerButton : returnFocusTo}
         title={title}
         description={description}
         footer={

@@ -29,10 +29,14 @@ export {
   addDays,
   calendarDateIn,
   formatDateTime,
+  instantAt,
   parseCalendarDate,
+  parseTimeOfDay,
   startOfDayIn,
+  timeOfDayIn,
   yearIn,
   type CalendarDate,
+  type TimeOfDay,
 } from "./time.js";
 export { isUuid } from "./uuid.js";
 // GST facts and time zone names live with the API's field rules, so forms and the kernel share one copy.

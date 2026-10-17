@@ -6,6 +6,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Command, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -28,6 +29,7 @@ import { Switch } from "@/components/ui/switch";
 import { TableHead, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { locale, messages } from "@/i18n/messages";
 import { targetSize } from "./touch-targets";
 
@@ -151,6 +153,30 @@ describe("touch targets", () => {
     );
     expect(targetSize(screen.getByRole("checkbox")).height).toBe(20);
     expect(targetSize(screen.getByTestId("unpositioned")).height).toBe(20);
+  });
+
+  it.each(["default", "lg"] as const)("a %s toggle group item, a filter chip", (size) => {
+    render(
+      <ToggleGroup type="single" size={size} aria-label="Stage">
+        <ToggleGroupItem value="new">New</ToggleGroupItem>
+      </ToggleGroup>,
+    );
+    expectTarget(screen.getByRole("radio"), { square: true });
+  });
+
+  it("the command picker's search and its items", () => {
+    render(
+      <Command label="Destination">
+        <CommandInput aria-label="Search" />
+        <CommandList>
+          <CommandItem>Goa</CommandItem>
+        </CommandList>
+      </Command>,
+    );
+    const search = screen.getByRole("combobox").closest("[data-slot=input-group]");
+    if (!search) throw new Error("the search box is not in an input group");
+    expectTarget(search);
+    expectTarget(screen.getByRole("option"));
   });
 
   it("tab triggers", () => {

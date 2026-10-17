@@ -24,7 +24,9 @@ import {
   type SignedInSession,
 } from "./access.js";
 import { createAuth, type Auth, type AuthSettings } from "./auth/create-auth.js";
+import type { LeadWorker } from "@travel-crm/contracts/crm";
 import type { EventListener } from "../jobs/index.js";
+import { firstOwner, leadWorkers } from "./lead-workers.js";
 import type { MemberAccess } from "./member-access.js";
 import { recordMemberActivity } from "./member-activity.js";
 import {
@@ -74,6 +76,10 @@ export interface Identity {
   organizationProfile(organizationId: string): Promise<OrganizationProfile | null>;
   /** Names and real email addresses of the organization's active members among userIds, for notifications. */
   memberContacts(organizationId: string, userIds: readonly string[]): Promise<MemberContact[]>;
+  /** Active members whose role is the Owner's or sees leads, by name: who may own a lead or be given a task (R14). */
+  leadWorkers(organizationId: string): Promise<LeadWorker[]>;
+  /** The earliest-joined active Owner's user id, who receives a departing member's work (R15); null if none. */
+  firstOwner(organizationId: string): Promise<string | null>;
   /**
    * Notes that the member is using the app, for the platform dashboard: the api calls it on each request it lets
    * through. It writes at most once a day per member, and never for support's impersonation.
@@ -123,6 +129,8 @@ export function createIdentity(options: IdentityOptions): Identity {
     describeSignedInPerson: (session) => describeSignedInPerson(database, session),
     organizationProfile: (organizationId) => organizationProfile(database, organizationId),
     memberContacts: (organizationId, userIds) => memberContacts(database, organizationId, userIds),
+    leadWorkers: (organizationId) => leadWorkers(database, organizationId),
+    firstOwner: (organizationId) => firstOwner(database, organizationId),
     recordActivity: (access) => recordMemberActivity(database, access),
     isPlatformAdmin: (user) => isPlatformAdmin(database, user),
     describePlatformStaff: (userId) => describePlatformStaff(database.client, userId),

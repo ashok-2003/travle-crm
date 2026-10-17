@@ -1,9 +1,11 @@
 // The shared demo organization (spec 7.4: "one shared demo with realistic sample data, reset nightly by a job"). The
 // console's nightly job purges last night's demo and builds it again: its business profile, the starter roles, and
 // staff in three roles who sign in with its code, their username and the demo password, on the demo's own plan, which
-// is never for sale. The modules that keep leads, quotes and bookings add their sample data here when they arrive.
+// is never for sale. The modules that keep leads, quotes and bookings add their sample data here: crm's leads for the
+// Owner (Asha) and the salesperson (Ravi), timed from the reset.
 import { saveOrganizationProfileInput } from "@travel-crm/contracts/profile";
 import { asOrganization, type PlatformTx } from "@travel-crm/db/platform";
+import { addDemoLeads } from "../crm/index.js";
 import {
   addStaffWithPassword,
   createOrganizationRecord,
@@ -47,7 +49,8 @@ const DEMO_PROFILE = saveOrganizationProfileInput.parse({
   gstStateCode: "27",
   address: "4th floor, Sea View Chambers, Linking Road, Bandra West, Mumbai 400050",
   contactName: "Asha Mehta",
-  contactPhone: "+91 98200 12345",
+  // The owner's own number, as on the demo's one customer with a phone: no demo screen shows a stranger's.
+  contactPhone: "+918538953742",
   bankAccountName: "Demo Holidays Private Limited",
   bankAccountNumber: "000123456789",
   bankIfsc: "HDFC0000001",
@@ -90,7 +93,13 @@ export async function resetDemoOrganization(
       await asOrganization(tx, organization.id, async (orgTx) => {
         await insertStarterRoles(orgTx);
         await saveOrganizationProfile(orgTx, actor, DEMO_PROFILE);
-        for (const staff of demoStaff) await addStaffWithPassword(orgTx, actor, { ...staff, passwordHash });
+        const userIds = new Map<string, string>();
+        for (const staff of demoStaff) {
+          userIds.set(staff.username, (await addStaffWithPassword(orgTx, actor, { ...staff, passwordHash })).userId);
+        }
+        const [ownerUserId, salesUserId] = [userIds.get("asha"), userIds.get("ravi")];
+        if (ownerUserId === undefined || salesUserId === undefined) throw new Error("The demo's staff were not added");
+        await addDemoLeads(orgTx, actor, { ownerUserId, salesUserId }, now);
       });
       await startSubscription(
         tx,
@@ -117,7 +126,7 @@ export async function resetDemoOrganization(
       );
       return { organizationId: organization.id };
     },
-    // A dozen statements and three accounts, as onboarding.
+    // Three accounts, as onboarding, and the sample leads: a few hundred statements in all.
     { timeout: 20_000 },
   );
 }

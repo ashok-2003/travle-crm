@@ -17,6 +17,8 @@ export const permissions = [
   ...scopedPermissions,
   "leads:create",
   "leads:edit",
+  // Reassign a lead, choose its owner in the form, give a task to someone else, and block or unblock a contact
+  "leads:assign",
   "quotes:create",
   "quotes:edit",
   "bookings:create",

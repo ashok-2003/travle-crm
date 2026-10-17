@@ -134,6 +134,27 @@ describe("one person's or record's export and erasure", () => {
     await userEvent.click(confirm.getByRole("button", { name: words.subject.confirmErase }));
     expect(await confirm.findByText(messages.errors.reasons.REMOVE_FIRST)).toBeVisible();
   });
+
+  it("says, refusing a record that holds no one's data, that a customer's (person) is one to erase", async () => {
+    const api = openScreen({});
+    await exportMember(api);
+    await userEvent.click(screen.getByRole("button", { name: words.subject.erase }));
+    const confirm = within(screen.getByRole("alertdialog", { name: words.subject.eraseTitle }));
+    await userEvent.type(confirm.getByLabelText(words.confirmation.label.replace("{code}", "SHARMA")), "SHARMA");
+    api.answer("platform.dataProtection.requestErasure", { status: 422, reason: "NOT_PERSONAL_DATA" });
+    await userEvent.click(confirm.getByRole("button", { name: words.subject.confirmErase }));
+    expect(await confirm.findByText(/customer \(record type person\)/)).toBeVisible();
+  });
+  it("says where the export is: below the form, where it shows", async () => {
+    const api = openScreen({});
+    await exportMember(api);
+    const hint = screen.getByText(words.subject.eraseReady);
+    expect(hint).toHaveTextContent(/below/);
+    const shown = screen.getByText("Ravi Kumar");
+    expect(hint.compareDocumentPosition(shown) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(words.subject.eraseNeedsExport).toMatch(/below/);
+  });
+
   it("offers Erase only once the export shown is of the very person typed", async () => {
     const api = openScreen({});
     await screen.findByText("Sharma Travels");

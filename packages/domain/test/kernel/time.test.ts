@@ -5,8 +5,11 @@ import {
   addDays,
   calendarDateIn,
   formatDateTime,
+  instantAt,
   parseCalendarDate,
+  parseTimeOfDay,
   startOfDayIn,
+  timeOfDayIn,
   yearIn,
 } from "../../src/kernel/index.js";
 
@@ -55,6 +58,43 @@ describe("calendar dates", () => {
     expect(addDays(parseCalendarDate("2026-12-25"), 14)).toBe("2027-01-08");
     expect(addDays(parseCalendarDate("2026-03-01"), -1)).toBe("2026-02-28");
     expect(() => addDays(parseCalendarDate("2026-03-01"), 1.5)).toThrow(RangeError);
+  });
+});
+
+describe("a wall-clock time in a time zone", () => {
+  const on = parseCalendarDate;
+  const time = parseTimeOfDay;
+
+  it("puts 09:00 on 17 Oct 2026 in Asia/Kolkata at 03:30 UTC", () => {
+    expect(instantAt(on("2026-10-17"), time("09:00"), "Asia/Kolkata")).toEqual(at("2026-10-17T03:30:00Z"));
+    expect(instantAt(on("2026-10-17"), time("00:10"), "Asia/Kolkata")).toEqual(at("2026-10-16T18:40:00Z"));
+  });
+
+  it("moves a time that a spring-forward skips to the first instant after it", () => {
+    // New York's clocks jump from 02:00 to 03:00 on 8 March 2026: 02:30 never shows, 03:00 EDT (07:00Z) comes next.
+    expect(instantAt(on("2026-03-08"), time("02:30"), "America/New_York")).toEqual(at("2026-03-08T07:00:00Z"));
+    // Cuba skips midnight on 8 March 2026: the day's first instant is 01:00 CDT.
+    expect(instantAt(on("2026-03-08"), time("00:00"), "America/Havana")).toEqual(at("2026-03-08T05:00:00Z"));
+  });
+
+  it("takes the first of a time that happens twice", () => {
+    // New York's clocks go back from 02:00 to 01:00 on 1 November 2026: 01:30 EDT (05:30Z) comes first.
+    expect(instantAt(on("2026-11-01"), time("01:30"), "America/New_York")).toEqual(at("2026-11-01T05:30:00Z"));
+    // London's go back from 02:00 to 01:00 on 25 October 2026: 01:30 BST (00:30Z) comes first.
+    expect(instantAt(on("2026-10-25"), time("01:30"), "Europe/London")).toEqual(at("2026-10-25T00:30:00Z"));
+  });
+
+  it("reads the wall clock back", () => {
+    expect(timeOfDayIn(at("2026-10-17T03:30:00Z"), "Asia/Kolkata")).toBe("09:00");
+    expect(timeOfDayIn(at("2026-10-16T18:29:59Z"), "Asia/Kolkata")).toBe("23:59");
+    expect(timeOfDayIn(at("2026-11-01T06:30:00Z"), "America/New_York")).toBe("01:30");
+  });
+
+  it("refuses a time that isn't HH:MM, and a zone that isn't an IANA name", () => {
+    for (const bad of ["9:00", "24:00", "12:60", "09:00:00", " 09:00"]) {
+      expect(() => parseTimeOfDay(bad), bad).toThrow(RangeError);
+    }
+    expect(() => instantAt(on("2026-10-17"), time("09:00"), "IST")).toThrow(RangeError);
   });
 });
 

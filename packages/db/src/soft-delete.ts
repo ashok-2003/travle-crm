@@ -7,6 +7,10 @@ export const softDeleteModels: readonly string[] = [
   Prisma.ModelName.Role,
   Prisma.ModelName.Member,
   Prisma.ModelName.Attachment,
+  Prisma.ModelName.Person,
+  Prisma.ModelName.Lead,
+  Prisma.ModelName.Destination,
+  Prisma.ModelName.BlockedContact,
 ];
 
 /** Operations that must neither see nor change deleted rows. Creates are unaffected; deletes and upserts are refused. */

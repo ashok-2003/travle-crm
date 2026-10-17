@@ -13,6 +13,10 @@ Who can sign in, to which organization, and what they may do (spec section 6).
     `super-admin`), name and pending password change, or null for anyone who isn't platform staff;
   - `organizationProfile(organizationId)` and `memberContacts(organizationId, userIds)`: what other modules may know
     about an organization and its people (they can't read the sign-in tables);
+  - `leadWorkers(organizationId)`: the people who can work leads (R14), active members whose role is the Owner's or
+    grants `leads:view` (any scope), by name, for the owner and assignee pickers; and `firstOwner(organizationId)`:
+    the earliest-joined active Owner (R15), who receives a departing member's leads and tasks. Both are also exported
+    as functions taking the identity database;
   - `staff.list / create / updateRole / resetPassword / remove`;
   - with `auth.passwordReset` set (the api passes its email sender and the web app's reset page), Better Auth's
     password reset by email link; staff without email are never emailed, a link may lead back only to the reset page,
@@ -76,7 +80,8 @@ Who can sign in, to which organization, and what they may do (spec section 6).
 
 - Publishes `staff.removed` (`{ memberId, userId }`, `staffRemovedEvent` in `@travel-crm/contracts/identity`) when
   someone is removed, in the removal's transaction. Notifications listens (`notifications.forget-push-subscriptions`)
-  and forgets the person's browsers.
+  and forgets the person's browsers; crm listens (`crm.hand-over-departing-member`) and hands the person's open leads,
+  their closed leads with open work, and their standalone tasks to the first Owner.
 - Publishes `staff.invited` (`{ memberId, userId }`, `staffInvitedEvent`) when an invite is asked for. Its own
   listener, `identity.send-invite`, emails a link to choose a password: a Better Auth reset token, kept only as a hash
   as Better Auth keeps its own, that lasts 72 hours, at `<APP_URL>/reset-password?token=<token>`, the page Better

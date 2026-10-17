@@ -10,6 +10,7 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { useMe } from "@/session/me-context";
 import { ResponsiveDialog } from "@/components/responsive-dialog";
+import type { ReturnFocusTo } from "@/components/return-focus";
 import { Handover } from "./handover";
 import { handoverSignInName } from "./staff-details";
 import { temporaryPassword } from "./temporary-password";
@@ -19,10 +20,13 @@ export function ResetPasswordDialog({
   member,
   open,
   onOpenChange,
+  returnFocusTo,
 }: {
   member: StaffMember;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The button that opened it, which takes the focus back when it closes. */
+  returnFocusTo: ReturnFocusTo;
 }) {
   const t = useTranslations("staff");
   const me = useMe();
@@ -36,6 +40,7 @@ export function ResetPasswordDialog({
   };
   return (
     <ResponsiveDialog
+      returnFocusTo={returnFocusTo}
       open={open}
       onOpenChange={changeOpen}
       busy={reset.isPending}

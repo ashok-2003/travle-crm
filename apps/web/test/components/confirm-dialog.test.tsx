@@ -2,10 +2,10 @@
 // it; while the request is out nothing closes the dialog; a refusal shows the api's sentence, or the section's own
 // wording of it; the person's close forgets the refusal; a success is closed by the section's mutation options.
 import { QueryClient, QueryClientProvider, useMutation } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { describe, expect, it } from "vitest";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { locale, messages } from "@/i18n/messages";
@@ -23,6 +23,7 @@ function Section({
 }) {
   const [open, setOpen] = useState(true);
   const [typed, setTyped] = useState("");
+  const openAgain = useRef<HTMLButtonElement>(null);
   const request = useMutation({
     mutationFn: answer,
     onSuccess: () => {
@@ -33,6 +34,7 @@ function Section({
     <>
       <p>{open ? "open" : "closed"}</p>
       <button
+        ref={openAgain}
         type="button"
         onClick={() => {
           setOpen(true);
@@ -43,6 +45,7 @@ function Section({
       <ConfirmDialog
         open={open}
         onOpenChange={setOpen}
+        returnFocusTo={openAgain}
         title="Remove the logo?"
         description="Documents issued from now on have no logo."
         action="Remove the logo"
@@ -112,6 +115,21 @@ describe("ConfirmDialog", () => {
     await userEvent.click(screen.getByRole("button", { name: "Open again" }));
     expect(await screen.findByRole("alertdialog")).toBeVisible();
     expect(screen.queryByText(messages.errors.reasons.MISSING_PERMISSION)).toBeNull();
+  });
+
+  it("gives the focus back to the button that opened it, which isn't a Radix trigger", async () => {
+    renderSection({ answer: () => Promise.resolve() });
+    await userEvent.click(screen.getByRole("button", { name: messages.common.cancel }));
+    const openAgain = screen.getByRole("button", { name: "Open again" });
+    await waitFor(() => {
+      expect(openAgain).toHaveFocus();
+    });
+    await userEvent.click(openAgain);
+    await userEvent.keyboard("{Escape}");
+    expect(await screen.findByText("closed")).toBeVisible();
+    await waitFor(() => {
+      expect(openAgain).toHaveFocus();
+    });
   });
 
   it("words a refusal as the section asks", async () => {

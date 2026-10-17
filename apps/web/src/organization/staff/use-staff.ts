@@ -1,7 +1,8 @@
 "use client";
 
 // The staff screen's calls. Each change refreshes exactly what it affects: the staff list, the roles list whose
-// member counts move with it, and the setup checklist whose staff step counts them. A role change is a quick action:
+// member counts move with it, the setup checklist whose staff step counts them, and the people who may own a lead
+// (the owner pickers). A role change is a quick action:
 // the list shows the new role at once and goes back if the api refuses (spec 11: optimistic updates for quick
 // actions). Toasts live in the hooks' own callbacks, not in the callers' mutate() options, so they don't depend on the
 // calling component still being mounted.
@@ -21,6 +22,7 @@ function useRefreshStaff() {
       queryClient.invalidateQueries({ queryKey: trpc.staff.list.queryKey() }),
       queryClient.invalidateQueries({ queryKey: trpc.roles.list.queryKey() }),
       queryClient.invalidateQueries({ queryKey: trpc.organization.setup.get.queryKey() }),
+      queryClient.invalidateQueries({ queryKey: trpc.leads.owners.queryKey() }),
     ]);
   };
 }

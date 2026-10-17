@@ -36,6 +36,14 @@ model Organization {
   pushSubscriptions       PushSubscription[]
   auditEntries            AuditEntry[]
   profile                 OrganizationProfile?
+  destinations            Destination[]
+  people                  Person[]
+  leads                   Lead[]
+  leadTimelineEntries     LeadTimelineEntry[]
+  leadNotes               LeadNote[]
+  leadEnquiries           LeadEnquiry[]
+  blockedContacts         BlockedContact[]
+  tasks                   Task[]
 
   @@map("organization")
 }

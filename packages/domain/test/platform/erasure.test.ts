@@ -1,15 +1,18 @@
 // Erasing one record (spec 5): only a record that holds a person's data, never what the law keeps; its files, share
 // links with their opens, and the notifications about it all go; its stored files outlive no storage failure; the job
 // checks its export again on the platform transaction; and a repeated run of a finished erasure changes and records
-// nothing more.
+// nothing more. A customer (a "person" record, R38) also takes crm's part: their leads' notes, enquiries, task titles
+// and notifications, and what the audit log says of them; nobody else's.
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
+import type { OrgTx } from "@travel-crm/db";
 import { asOrganization, createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import { recordAudit } from "../../src/audit/index.js";
 import { systemActor } from "../../src/kernel/index.js";
 import { notify } from "../../src/notifications/index.js";
 import { erasureBlocker } from "../../src/platform/deletion-checks.js";
 import { deleteDueFiles } from "../../src/platform/file-deletions.js";
-import { eraseSubject, ERASE_SUBJECT_QUEUE, requestErasure } from "../../src/platform/index.js";
+import { eraseSubject, ERASE_SUBJECT_QUEUE, exportSubject, requestErasure } from "../../src/platform/index.js";
 import { erasureJobOf } from "../../src/platform/erasure.js";
 import { createShareLink, findShareLink, recordShareLinkOpen } from "../../src/share-links/index.js";
 import {
@@ -22,6 +25,7 @@ import {
   type DeletionAgency,
 } from "./test-deletion.js";
 import { createTestPlan, createTestPlatform, support, supportUserId, type TestPlatform } from "./test-platform.js";
+import { aLead, aPerson, aTask } from "../crm/support/records.js";
 
 const otherTraveller = "0199e7a0-0000-7000-8000-0000000000ab";
 const subject = { kind: "record" as const, recordType: "traveller", recordId: traveller };
@@ -186,7 +190,7 @@ describe("erasing a record", () => {
 
   it("checks again on the platform transaction, whatever ran in an organization's step before", async () => {
     const agency = await deletionAgency(test, plan);
-    const record = { recordId: traveller };
+    const record = { recordType: "traveller", recordId: traveller };
     const afterAStep = (now: Date) =>
       test.services.platformDb.transaction(async (tx) => {
         // Earlier work in a step sees only this organization: none of it may carry into the check.
@@ -207,5 +211,211 @@ describe("erasing a record", () => {
       requestId: otherTraveller,
       subject,
     });
+  });
+});
+
+describe("erasing a customer", () => {
+  let test: TestPlatform;
+  let plan: PlanSummary;
+  let platform: PlatformClient;
+
+  beforeAll(async () => {
+    test = createTestPlatform();
+    plan = await createTestPlan(test);
+    platform = createPlatformClient(inject("dbUrls").platform);
+  });
+
+  afterAll(async () => {
+    await platform.$disconnect();
+    await test.close();
+  });
+
+  /** A customer with an open and a won lead, a note, tasks, a file, a notification and an audit entry about them. */
+  const aCustomer = (agency: DeletionAgency, name: string) =>
+    test.services.db.forOrg(agency.organizationId, async (tx: OrgTx) => {
+      const person = await aPerson(tx, { name });
+      await recordAudit(tx, agency.owner, {
+        action: "person.added",
+        entityType: "person",
+        entityId: person.id,
+        after: { name },
+      });
+      const lead = await aLead(tx, { personId: person.id, ownerUserId: agency.owner.userId });
+      const won = await aLead(tx, { personId: person.id, stage: "won", ownerUserId: agency.owner.userId });
+      const note = await tx.leadNote.create({ data: { leadId: lead.id, body: `${name} wants a houseboat` } });
+      await tx.leadTimelineEntry.create({
+        data: { leadId: lead.id, kind: "note", recordType: "lead_note", recordId: note.id },
+      });
+      const task = (leadId: string, title: string, doneAt: Date | null = null) =>
+        aTask(tx, {
+          title,
+          record: { recordType: "lead", recordId: leadId },
+          assigneeUserId: agency.owner.userId,
+          doneAt,
+        });
+      const tasks = [await task(lead.id, `Call ${name}`), await task(won.id, `Quote for ${name}`, new Date())];
+      await tx.attachment.create({
+        data: {
+          recordType: "lead",
+          recordId: lead.id,
+          fileName: `${name}.pdf`,
+          contentType: "application/pdf",
+          sizeBytes: 3,
+        },
+      });
+      await notify(tx, systemActor(agency.organizationId), {
+        recipientUserIds: [agency.owner.userId],
+        kind: "lead.assigned",
+        title: "New lead assigned to you",
+        body: `${name} · Kashmir`,
+        link: `/leads/${lead.id}`,
+        channels: [],
+      });
+      return { person, leadIds: [lead.id, won.id], tasks };
+    });
+
+  /** Exports the customer, asks for their erasure, and runs the console's job. */
+  async function erase(agency: DeletionAgency, personId: string): Promise<void> {
+    const subject = { kind: "record" as const, recordType: "person", recordId: personId };
+    const { organizationId, code } = agency;
+    await exportSubject(test.services, support, { organizationId, subject });
+    await requestErasure(test.services, support, { organizationId, subject, confirmation: code });
+    const sent = test.queue.sent.at(-1);
+    if (sent?.queue !== ERASE_SUBJECT_QUEUE) throw new Error("no erasure job was queued");
+    await eraseSubject(test.services, erasureJobOf(sent.data));
+  }
+
+  /** What the agency keeps about one customer's leads, read as the platform. */
+  const keptAbout = (organizationId: string, leadIds: string[]) =>
+    Promise.all([
+      platform.leadNote.count({ where: { organizationId, leadId: { in: leadIds } } }),
+      platform.leadTimelineEntry.count({ where: { organizationId, leadId: { in: leadIds }, kind: "note" } }),
+      platform.task.findMany({
+        where: { organizationId, recordId: { in: leadIds } },
+        select: { title: true, cancelledAt: true, doneAt: true },
+        orderBy: { id: "asc" },
+      }),
+      platform.notification.count({ where: { organizationId, link: { contains: leadIds[0] ?? "" } } }),
+      platform.attachment.count({ where: { organizationId, recordId: { in: leadIds } } }),
+    ]);
+
+  it("deletes their leads' notes and repeat enquiries with those timeline entries, and empties their task titles", async () => {
+    const agency = await deletionAgency(test, plan);
+    const customer = await aCustomer(agency, "Priya Nair");
+
+    await erase(agency, customer.person.id);
+
+    const [notes, noteEntries, tasks, notifications, files] = await keptAbout(agency.organizationId, customer.leadIds);
+    expect([notes, noteEntries, notifications, files]).toEqual([0, 0, 0, 0]);
+    // A task on an erased lead would sit in Today forever: the open one is cancelled, the done one stays done.
+    expect(tasks.map((task) => [task.title, task.cancelledAt !== null, task.doneAt !== null])).toEqual([
+      ["", true, false],
+      ["", false, true],
+    ]);
+    const entry = await platform.platformAuditEntry.findFirstOrThrow({
+      where: { action: "subject.erased", targetOrganizationId: agency.organizationId },
+    });
+    expect(entry).toMatchObject({ targetType: "person", targetId: customer.person.id });
+    expect(entry.after).toMatchObject({
+      customer: {
+        leads: 2,
+        notes: 1,
+        enquiries: 0,
+        timelineEntries: 1,
+        blockedContacts: 0,
+        tasksCancelled: 1,
+        taskTitles: 2,
+        notifications: 1,
+        files: 1,
+      },
+    });
+  });
+
+  it("forgets notifications linking to their leads, and redacts their person audit entries", async () => {
+    const agency = await deletionAgency(test, plan);
+    const customer = await aCustomer(agency, "Kabir Rao");
+
+    await erase(agency, customer.person.id);
+
+    const where = { organizationId: agency.organizationId };
+    expect(await platform.notification.count({ where: { ...where, body: { contains: "Kabir" } } })).toBe(0);
+    const audit = await platform.auditEntry.findMany({
+      where: { ...where, entityId: customer.person.id },
+      orderBy: { id: "asc" },
+    });
+    expect(audit.map((entry) => [entry.action, entry.after])).toEqual([
+      ["person.added", { redacted: true }],
+      ["subject.erased", null],
+    ]);
+  });
+
+  it("leaves another person's leads, notes and tasks untouched", async () => {
+    const agency = await deletionAgency(test, plan);
+    const customer = await aCustomer(agency, "Ravi Kumar");
+    const other = await aCustomer(agency, "Asha Mehta");
+    const before = await keptAbout(agency.organizationId, other.leadIds);
+
+    await erase(agency, customer.person.id);
+
+    expect(await keptAbout(agency.organizationId, other.leadIds)).toEqual(before);
+    expect(before[2].map((task) => task.title)).toEqual(["Call Asha Mehta", "Quote for Asha Mehta"]);
+    expect(await platform.person.findUniqueOrThrow({ where: { id: other.person.id } })).toMatchObject({
+      name: "Asha Mehta",
+      deletedAt: null,
+    });
+  });
+
+  it("exports a customer's contacts and leads with what the audit log says of them", async () => {
+    const agency = await deletionAgency(test, plan);
+    const customer = await aCustomer(agency, "Neha Joshi");
+    const { organizationId } = agency;
+
+    const exported = await exportSubject(test.services, support, {
+      organizationId,
+      subject: { kind: "record", recordType: "person", recordId: customer.person.id },
+    });
+
+    expect(exported.customer).toMatchObject({ personId: customer.person.id, name: "Neha Joshi" });
+    expect(exported.customer?.leads.map((lead) => lead.notes.length)).toEqual([1, 0]);
+    expect(exported.auditEntries.map((entry) => entry.action)).toEqual(["person.added"]);
+    // The erasure deletes the files on their leads, so the export holds them.
+    expect(exported.files.map((file) => [file.recordType, file.recordId, file.fileName])).toEqual([
+      ["lead", customer.leadIds[0], "Neha Joshi.pdf"],
+    ]);
+    const traveller = await exportSubject(test.services, support, {
+      organizationId,
+      subject: { kind: "record", recordType: "traveller", recordId: customer.person.id },
+    });
+    expect(traveller.customer).toBeNull();
+    const logged = await platform.platformAuditEntry.findFirstOrThrow({
+      where: { action: "subject.exported", targetOrganizationId: organizationId, targetType: "person" },
+    });
+    expect(logged.after).toEqual({ auditEntries: 1, files: 1, leads: 2 });
+  });
+
+  it("erases a customer only after an export of them, not of another record type with their id", async () => {
+    const agency = await deletionAgency(test, plan);
+    const customer = await aCustomer(agency, "Ishaan Das");
+    const { organizationId, code } = agency;
+    const recordId = customer.person.id;
+    const person = { kind: "record" as const, recordType: "person", recordId };
+    await exportSubject(test.services, support, {
+      organizationId,
+      subject: { kind: "record", recordType: "traveller", recordId },
+    });
+
+    await expect(
+      requestErasure(test.services, support, { organizationId, subject: person, confirmation: code }),
+    ).rejects.toMatchObject({ reason: "EXPORT_FIRST" });
+    await eraseSubject(test.services, { organizationId, subject: person, requestedBy: supportUserId });
+
+    expect(await platform.person.findUniqueOrThrow({ where: { id: recordId } })).toMatchObject({
+      name: "Ishaan Das",
+      erasedAt: null,
+    });
+    const skipped = await platform.platformAuditEntry.findFirstOrThrow({
+      where: { action: "subject.erasure-skipped", targetOrganizationId: organizationId },
+    });
+    expect(skipped).toMatchObject({ targetType: "person", after: { reason: "no-recent-export" } });
   });
 });

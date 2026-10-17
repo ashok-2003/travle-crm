@@ -13,12 +13,22 @@ import { FormAlert, FormDialog, type OpenState, type Sending } from "@/component
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { LoadingRows } from "@/components/loading-rows";
 import { FieldGroup } from "@/components/ui/field";
+import type { ReturnFocusTo } from "@/components/return-focus";
 import { useConsoleTRPC } from "../../data/console-trpc";
 import { useChangeDialog } from "../change-dialog";
 import { cycleFor, PlanFields } from "../fields/plan-fields";
 import { toChangePlanInput } from "./change-inputs";
 
-export function ChangePlanDialog({ subscription, state }: { subscription: SubscriptionDetails; state: OpenState }) {
+export function ChangePlanDialog({
+  subscription,
+  state,
+  returnFocusTo,
+}: {
+  subscription: SubscriptionDetails;
+  state: OpenState;
+  /** The Change menu's button, which takes the focus back when it closes. */
+  returnFocusTo: ReturnFocusTo;
+}) {
   const t = useTranslations("consoleOrganizations.subscription.changePlan");
   const tCommon = useTranslations("common");
   const trpc = useConsoleTRPC();
@@ -28,6 +38,7 @@ export function ChangePlanDialog({ subscription, state }: { subscription: Subscr
   const onSale = plans.data?.filter((plan) => plan.forSale && !plan.archived);
   return (
     <FormDialog
+      returnFocusTo={returnFocusTo}
       dialog={dialog}
       sending={change}
       title={t("title")}

@@ -33,6 +33,13 @@ describe("starter roles", () => {
     expect(PermissionSet.everything().covers(admin)).toBe(true);
   });
 
+  it("gives the Owner and the Admin starter role leads:assign, and Sales none", () => {
+    expect(PermissionSet.everything().has("leads:assign")).toBe(true);
+    expect(roleNamed("Admin").has("leads:assign")).toBe(true);
+    for (const name of ["Sales", "Operations", "Accounts"])
+      expect(roleNamed(name).has("leads:assign"), name).toBe(false);
+  });
+
   it("keep Sales to their own records and away from margins, staff and settings", () => {
     const sales = roleNamed("Sales");
     expect(sales.scopeOf("leads:view")).toBe("own");

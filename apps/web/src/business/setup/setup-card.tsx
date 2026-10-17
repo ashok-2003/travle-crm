@@ -2,8 +2,9 @@
 
 // Home's setup card (spec 7.1): for whoever may change the organization's settings, the first thing on Home, above the
 // usual Home, until every step of the setup checklist is done. It says how far along the organization is, lists the
-// steps still to do, each leading to where it is done, and leads to the whole checklist. It has no dismiss: it goes
-// once everything is done. While the checklist loads, or if it didn't, that shows in its place.
+// next two steps still to do (the owner's choice: short enough that what follows it, Today's nudge, is on a phone's
+// first screen), each leading to where it is done, and leads to the whole checklist, which lists every step. It has
+// no dismiss: it goes once everything is done. While the checklist loads, or if it didn't, that shows in its place.
 import { useTranslations } from "next-intl";
 import { Fragment, useId } from "react";
 import { Delayed } from "@/components/delayed";
@@ -16,6 +17,9 @@ import { routes } from "@/lib/routes";
 import { useMe } from "@/session/me-context";
 import { SetupProgress, SetupSteps } from "./setup-steps";
 import { useSetupChecklist } from "./use-setup-checklist";
+
+/** How many of the steps still to do the card lists; the setup screen lists them all. */
+const STEPS_SHOWN = 2;
 
 export function SetupCard() {
   const t = useTranslations("business.setup");
@@ -35,7 +39,7 @@ export function SetupCard() {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <SetupProgress checklist={checklist.data} />
-          <SetupSteps checklist={checklist.data} toDoOnly />
+          <SetupSteps checklist={checklist.data} nextToDo={STEPS_SHOWN} />
           <TextLink href={routes.setup}>{t("everyStep")}</TextLink>
         </CardContent>
       </Card>

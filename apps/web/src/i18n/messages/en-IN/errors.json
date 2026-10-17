@@ -101,13 +101,21 @@
     "REMOVE_FIRST": "Remove this person from the organization before erasing them.",
     "EXPORT_FIRST": "Export it first: a purge or an erasure needs an export from the last day.",
     "KEPT_BY_LAW": "Issued documents are kept as issued, as the law requires. Erase the person they're about instead.",
-    "NOT_PERSONAL_DATA": "Only a record of a person, such as a traveller, can be erased.",
+    "NOT_PERSONAL_DATA": "Only a record of a person can be erased, such as a customer (record type person).",
     "EXPORT_NOT_FOUND": "This export no longer exists.",
     "EXPORT_NOT_READY": "This export isn't finished yet. Try again in a few minutes.",
     "EXPORT_EXPIRED": "This export has expired. Ask for a new one.",
     "FAILED_JOB_NOT_FOUND": "This job is no longer in the failed list. It may have run again.",
     "NOT_RETRYABLE": "A deletion, erasure or export isn't run again: ask for it again, so every check is made again.",
-    "SCHEDULE_IS_THE_CONSOLES": "The console schedules this job every time it starts, so it can't be removed."
+    "SCHEDULE_IS_THE_CONSOLES": "The console schedules this job every time it starts, so it can't be removed.",
+    "NOT_A_LEAD_WORKER": "That person can't work leads. Choose someone whose role sees leads.",
+    "DUE_IN_THE_PAST": "That time has already passed. Choose a later time.",
+    "TASK_CLOSED": "This is already done or cancelled.",
+    "DESTINATION_NAME_TAKEN": "Another destination already has that name.",
+    "INVALID_DESTINATION_NAME": "Name the destination in 1 to 80 characters.",
+    "MERGE_INTO_ITSELF": "Choose a different destination to keep.",
+    "OPEN_LEAD_EXISTS": "This person already has an open lead. Add this enquiry to that lead, or make it a new trip enquiry.",
+    "CONTACT_ON_ANOTHER_PERSON": "Another customer already has this phone, email or Instagram handle."
   },
   "auth": {
     "INVALID_EMAIL_OR_PASSWORD": "That email and password don't match.",

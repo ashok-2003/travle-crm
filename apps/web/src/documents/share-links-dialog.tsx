@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { useId } from "react";
 import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { Button } from "@/components/ui/button";
+import type { ReturnFocusTo } from "@/components/return-focus";
 import { useWriteAccess } from "@/subscription/write-access";
 import { CreateShareLinkForm, writeHintOf } from "./create-share-link-form";
 import { CreatedLink } from "./created-link";
@@ -17,10 +18,13 @@ export function ShareLinksDialog({
   document,
   open,
   onOpenChange,
+  returnFocusTo,
 }: {
   document: IssuedDocumentSummary;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The button that opened it, which takes the focus back when it closes. */
+  returnFocusTo: ReturnFocusTo;
 }) {
   const t = useTranslations("documents.share");
   const create = useCreateShareLink();
@@ -28,6 +32,7 @@ export function ShareLinksDialog({
   const formId = useId();
   return (
     <ResponsiveDialog
+      returnFocusTo={returnFocusTo}
       open={open}
       onOpenChange={(next) => {
         // The token is in the call's answer: let go of it when the dialog closes.

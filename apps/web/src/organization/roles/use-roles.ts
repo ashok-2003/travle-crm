@@ -1,8 +1,9 @@
 "use client";
 
-// The roles screens' calls. A change to a role refreshes the roles list, and the staff list, which shows role names.
-// The toasts and the moves to another page are in the hooks' own callbacks, so they don't depend on the calling
-// component still being mounted (a deleted role's editor, a re-keyed one).
+// The roles screens' calls. A change to a role refreshes the roles list, the staff list, which shows role names, and
+// the people who may own a lead (the owner pickers), as a role's permissions decide who works leads. The toasts and
+// the moves to another page are in the hooks' own callbacks, so they don't depend on the calling component still
+// being mounted (a deleted role's editor, a re-keyed one).
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -17,6 +18,7 @@ function useRefreshRoles() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: trpc.roles.list.queryKey() }),
       queryClient.invalidateQueries({ queryKey: trpc.staff.list.queryKey() }),
+      queryClient.invalidateQueries({ queryKey: trpc.leads.owners.queryKey() }),
     ]);
   };
 }

@@ -32,3 +32,5 @@ The first and largest set of decisions is the Foundation spec: `docs/superpowers
 | [0025](0025-console-screens.md)              | The console's screens: a section of the web app, one sign-in page, two-factor for staff   |
 | [0026](0026-agency-screens.md)               | The agency's remaining screens: the lifecycle shown, files to storage, the logo, the bell |
 | [0027](0027-release.md)                      | The release: the images and the api's bundle, the product in Docker, CI's gates, Renovate |
+| [0028](0028-business-module-data-rules.md)   | Business-module data rules: normalise, snapshot, summarise; seasons; BigInt money         |
+| [0029](0029-ai-features.md)                  | AI features: language only, people apply, small-model rules, the OpenRouter adapter       |

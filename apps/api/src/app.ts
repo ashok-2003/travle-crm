@@ -96,6 +96,9 @@ export function createApp(dependencies: ServerDependencies): Hono {
     trpcServer({
       router: appRouter,
       endpoint: "/api/trpc",
+      // The web app sends queries as POSTs too, so their input (a phone, a searched name) is never in a URL. They stay
+      // queries: what a call does, for the lifecycle, is its procedure's type, not the HTTP method.
+      allowMethodOverride: true,
       createContext: ({ resHeaders }, c) =>
         createContext({ identity, subscriptions, profiles, db, files, pushPublicKey }, c.req.raw, resHeaders),
       onError: ({ error, path }) => {

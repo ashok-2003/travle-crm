@@ -6,7 +6,7 @@
 // the hook's (use-roles.ts).
 import type { RoleSummary } from "@travel-crm/contracts/identity";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { useWriteAccess } from "@/subscription/write-access";
@@ -22,6 +22,7 @@ export function DeleteRoleDialog({
 }) {
   const t = useTranslations("roles.delete");
   const [open, setOpen] = useState(false);
+  const opener = useRef<HTMLButtonElement>(null);
   const remove = useDeleteRole(role.name, () => {
     setOpen(false);
   });
@@ -29,6 +30,7 @@ export function DeleteRoleDialog({
   return (
     <>
       <Button
+        ref={opener}
         // It sits inside the role editor's form, which it must not submit.
         type="button"
         variant="destructive"
@@ -42,6 +44,7 @@ export function DeleteRoleDialog({
       </Button>
       <ConfirmDialog
         open={open}
+        returnFocusTo={opener}
         onOpenChange={setOpen}
         title={t("title", { name: role.name })}
         description={t("description")}

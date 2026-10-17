@@ -13,7 +13,7 @@ export interface Detail {
   label: string;
   value?: ReactNode;
   /** More about the row, under it ("Staff without email sign in with this code"). */
-  hint?: string;
+  hint?: ReactNode;
   action?: ReactNode;
 }
 

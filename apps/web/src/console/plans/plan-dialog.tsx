@@ -5,9 +5,10 @@
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import { PlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { FormDialog } from "@/components/forms/form-dialog";
 import { Button } from "@/components/ui/button";
+import type { ReturnFocusTo } from "@/components/return-focus";
 import { PlanForm } from "./plan-form";
 import { useCreatePlan, useUpdatePlan } from "./use-plans";
 
@@ -15,11 +16,14 @@ export function PlanDialog({
   plan,
   open,
   onOpenChange,
+  returnFocusTo,
 }: {
   /** The plan to change; none for a new plan. */
   plan?: PlanSummary;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The button that opened it, which takes the focus back when it closes. */
+  returnFocusTo: ReturnFocusTo;
 }) {
   const t = useTranslations("consolePlatform.planForm");
   const close = () => {
@@ -30,6 +34,7 @@ export function PlanDialog({
   const saving = plan ? update : create;
   return (
     <FormDialog
+      returnFocusTo={returnFocusTo}
       dialog={{ open, setOpen: onOpenChange }}
       sending={saving}
       title={plan ? t("editTitle", { name: plan.name }) : t("createTitle")}
@@ -55,9 +60,11 @@ export function PlanDialog({
 export function NewPlanButton() {
   const t = useTranslations("consolePlatform.plans");
   const [open, setOpen] = useState(false);
+  const button = useRef<HTMLButtonElement>(null);
   return (
     <>
       <Button
+        ref={button}
         onClick={() => {
           setOpen(true);
         }}
@@ -65,7 +72,7 @@ export function NewPlanButton() {
         <PlusIcon aria-hidden="true" />
         {t("add")}
       </Button>
-      <PlanDialog open={open} onOpenChange={setOpen} />
+      <PlanDialog open={open} onOpenChange={setOpen} returnFocusTo={button} />
     </>
   );
 }

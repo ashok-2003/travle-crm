@@ -29,7 +29,73 @@
     "filesHint": "Documents your business keeps, such as its licences",
     "documents": "Documents",
     "documentsHint": "The documents you've issued, their PDFs and share links",
+    "destinations": "Destinations",
+    "destinationsHint": "Your agency's destinations: rename one, or merge two into one",
+    "blockedContacts": "Blocked contacts",
+    "blockedContactsHint": "Phone numbers, emails and Instagram handles blocked from leads",
     "audit": "Audit log",
     "auditHint": "Who changed what in your organization, and when"
+  },
+  "destinations": {
+    "title": "Destinations",
+    "intro": "Your agency's own list, which grows as leads name new places. Rename one, or merge two into one: their leads move to the one you keep.",
+    "search": "Search destinations",
+    "listLabel": "Destinations",
+    "actionsFor": "Actions for {name}",
+    "empty": "No destinations yet. Each new lead's destination is added here.",
+    "noMatch": "No destination matches that.",
+    "firstOnly": "These are the first 100. Search to find the others.",
+    "loadFailed": "The destinations didn't load.",
+    "rename": {
+      "action": "Rename",
+      "title": "Rename {name}",
+      "description": "Its leads show the new name.",
+      "name": "Name",
+      "submit": "Rename",
+      "submitting": "Renaming",
+      "done": "Destination renamed",
+      "problems": {
+        "required": "Name the destination.",
+        "name": "Use at most 80 characters."
+      }
+    },
+    "merge": {
+      "action": "Merge into another",
+      "title": "Merge {name} into another",
+      "description": "{name}'s leads move to the destination you keep, and {name} leaves the list. Typing {name} later finds the one you keep. This can't be undone.",
+      "keep": "Keep",
+      "choose": "Choose a destination",
+      "search": "Search destinations",
+      "searching": "Searching",
+      "noMatch": "No other destination matches that.",
+      "submit": "Merge",
+      "submitting": "Merging",
+      "done": "{count, plural, =0 {Merged. No leads moved to {name}.} one {Merged. 1 lead moved to {name}.} other {Merged. # leads moved to {name}.}}",
+      "problems": {
+        "required": "Choose the destination to keep.",
+        "keep": "Choose another destination to keep."
+      }
+    }
+  },
+  "blockedContacts": {
+    "title": "Blocked contacts",
+    "intro": "Phone numbers, emails and Instagram handles blocked from a lead. The lead form warns when one comes back.",
+    "listLabel": "Blocked contacts",
+    "kinds": {
+      "phone": "Phone",
+      "email": "Email",
+      "instagram": "Instagram"
+    },
+    "blockedBy": "Blocked by {name}, {day}",
+    "empty": "Nothing is blocked. A contact blocked from a lead shows here.",
+    "loadFailed": "The blocked contacts didn't load.",
+    "more": "Show more blocked contacts",
+    "unblock": {
+      "action": "Unblock",
+      "actionFor": "Unblock {value}",
+      "title": "Unblock {value}?",
+      "description": "The lead form stops warning about it. You can block it again from a lead.",
+      "done": "Unblocked"
+    }
   }
 }

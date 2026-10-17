@@ -77,7 +77,10 @@ describe("a dialog with its request out", () => {
   it("Reset password stays open, then hands the new temporary password over", async () => {
     const api = fakeApi();
     const onOpenChange = vi.fn();
-    renderWithApi(<ResetPasswordDialog member={ravi} open onOpenChange={onOpenChange} />, newQueryClient());
+    renderWithApi(
+      <ResetPasswordDialog member={ravi} open onOpenChange={onOpenChange} returnFocusTo={{ current: null }} />,
+      newQueryClient(),
+    );
     await userEvent.click(await screen.findByRole("button", { name: "Reset password" }));
     await stillOpenWhilePending(api, null);
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
@@ -89,7 +92,10 @@ describe("a dialog with its request out", () => {
     screenIs("phone");
     const api = fakeApi();
     const onOpenChange = vi.fn();
-    renderWithApi(<ResetPasswordDialog member={ravi} open onOpenChange={onOpenChange} />, newQueryClient());
+    renderWithApi(
+      <ResetPasswordDialog member={ravi} open onOpenChange={onOpenChange} returnFocusTo={{ current: null }} />,
+      newQueryClient(),
+    );
     await userEvent.click(await screen.findByRole("button", { name: "Reset password" }));
     await stillOpenWhilePending(api, null);
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
@@ -116,7 +122,10 @@ describe("a dialog with its request out", () => {
   it("Remove stays open, with Cancel disabled, until the api answers", async () => {
     const api = fakeApi();
     const onOpenChange = vi.fn();
-    renderWithApi(<RemoveStaffDialog member={ravi} open onOpenChange={onOpenChange} />, newQueryClient());
+    renderWithApi(
+      <RemoveStaffDialog member={ravi} open onOpenChange={onOpenChange} returnFocusTo={{ current: null }} />,
+      newQueryClient(),
+    );
     await userEvent.click(screen.getByRole("button", { name: "Remove" }));
     await stillOpenWhilePending(api, "Cancel");
     expect(onOpenChange).not.toHaveBeenCalled();

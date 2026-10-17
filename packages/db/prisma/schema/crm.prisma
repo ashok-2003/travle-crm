@@ -1,0 +1,217 @@
+// People and their leads (release 1, spec 5; ADR 0028): the crm module's tables. Organization-owned: row-level security
+// applies (the migration calls app_enable_org_rls on each). "Open" stages are new, contacted, quote_sent and
+// booking_requested; partial-index predicates are written as Postgres prints them (pg_get_expr), so the drift check
+// reads them as equal.
+
+/// Someone who enquired, found again by their phone, email or Instagram handle (spec 3.2). Soft-deleted.
+model Person {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId  String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id              String       @id @default(uuid(7)) @db.Uuid
+  /// As the person gave it, 1-120 characters; empty only once erased (CHECK person_name_length).
+  name            String
+  /// E.164, e.g. "+919876543210" (CHECK person_phone_format). Unique among live people, like the email and handle.
+  phoneE164       String?      @map("phone_e164")
+  /// In lower case (CHECK person_email_lower).
+  email           String?
+  /// Without the "@", in lower case (CHECK person_instagram_format).
+  instagramHandle String?      @map("instagram_handle")
+  /// The member who added them; null when the system did.
+  createdBy       String?      @map("created_by") @db.Uuid
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// When their personal data was erased (ADR 0023): name and contacts emptied, the row soft-deleted. Until then at
+  /// least one contact is set (CHECK person_has_contact).
+  erasedAt        DateTime?    @map("erased_at") @db.Timestamptz(6)
+  deletedAt       DateTime?    @map("deleted_at") @db.Timestamptz(6)
+  deletedBy       String?      @map("deleted_by") @db.Uuid
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  leads           Lead[]
+
+  /// Lets lead point at (organization_id, id).
+  @@unique([organizationId, id])
+  /// One live person per phone, email and handle: a repeat enquiry finds them (spec 3.2, R3).
+  @@unique([organizationId, phoneE164], map: "person_phone_live", where: { deletedAt: null })
+  @@unique([organizationId, email], map: "person_email_live", where: { deletedAt: null })
+  @@unique([organizationId, instagramHandle], map: "person_instagram_live", where: { deletedAt: null })
+  /// Search: typo-tolerant names, and any part of the phone's digits (R5).
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "person_name_trgm")
+  @@index([phoneE164(ops: raw("gin_trgm_ops"))], type: Gin, map: "person_phone_trgm")
+  @@map("person")
+}
+
+/// One trip enquiry by one person, worked from New to Won, Lost or Not a lead (spec 4). Soft-deleted.
+model Lead {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String              @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String              @id @default(uuid(7)) @db.Uuid
+  personId       String              @map("person_id") @db.Uuid
+  /// new, contacted, quote_sent, booking_requested, won, lost or not_a_lead (CHECK lead_stage_value).
+  stage          String              @default("new")
+  /// The last open stage it left, where reopening returns it (R30; CHECK lead_reopen_stage_open).
+  reopenStage    String?             @map("reopen_stage")
+  stageChangedAt DateTime            @default(now()) @map("stage_changed_at") @db.Timestamptz(6)
+  /// The first time it left New for any stage but Not a lead (spec 4), for later releases' alerts and reports.
+  firstReplyAt   DateTime?           @map("first_reply_at") @db.Timestamptz(6)
+  /// The person had an earlier lead when this one was made (spec 4): a marker, not a stage.
+  returning      Boolean             @default(false)
+  /// A member's user id; null only for release 4's Unassigned queue.
+  ownerUserId    String?             @map("owner_user_id") @db.Uuid
+  destinationId  String?             @map("destination_id") @db.Uuid
+  /// dates, month, flexible or unknown; the dates and month columns fit it (CHECK lead_travel_fits_kind).
+  travelKind     String              @default("unknown") @map("travel_kind")
+  travelStart    DateTime?           @map("travel_start") @db.Date
+  travelEnd      DateTime?           @map("travel_end") @db.Date
+  /// The month's first day.
+  travelMonth    DateTime?           @map("travel_month") @db.Date
+  adults         Int?
+  /// Each child's age, 0-17; the count is the array's length (CHECK lead_children_ages).
+  childrenAges   Int[]               @default([]) @map("children_ages")
+  /// INR in paise, with its basis: per_person or for_everyone (CHECKs lead_budget_*).
+  budgetPaise    BigInt?             @map("budget_paise")
+  budgetBasis    String?             @map("budget_basis")
+  departureCity  String?             @map("departure_city")
+  /// family, honeymoon, friends, solo, corporate, pilgrimage or trek: one list for every agency, so reports compare.
+  tripType       String?             @map("trip_type")
+  /// 3_star, 4_star, 5_star or any.
+  hotelCategory  String?             @map("hotel_category")
+  /// veg, jain or non_veg.
+  food           String?
+  roomType       String?             @map("room_type")
+  /// Where it came from: the form's seven, and later releases' (CHECK lead_source_value).
+  source         String
+  sourceDetail   String?             @map("source_detail")
+  createdBy      String?             @map("created_by") @db.Uuid
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?           @map("deleted_at") @db.Timestamptz(6)
+  deletedBy      String?             @map("deleted_by") @db.Uuid
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  person         Person              @relation(fields: [organizationId, personId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  destination    Destination?        @relation(fields: [organizationId, destinationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  timeline       LeadTimelineEntry[]
+  notes          LeadNote[]
+  enquiries      LeadEnquiry[]
+
+  /// Lets the timeline, notes and enquiries point at (organization_id, id).
+  @@unique([organizationId, id])
+  /// The hot sets (ADR 0028): open leads by owner and for everyone, their counts by stage, and New leads by owner.
+  @@index([organizationId, ownerUserId, id(sort: Desc)], map: "lead_open_by_owner", where: raw("((deleted_at IS NULL) AND (stage = ANY (ARRAY['new'::text, 'contacted'::text, 'quote_sent'::text, 'booking_requested'::text])))"))
+  @@index([organizationId, id(sort: Desc)], map: "lead_open", where: raw("((deleted_at IS NULL) AND (stage = ANY (ARRAY['new'::text, 'contacted'::text, 'quote_sent'::text, 'booking_requested'::text])))"))
+  @@index([organizationId, stage, ownerUserId], map: "lead_open_stage_counts", where: raw("((deleted_at IS NULL) AND (stage = ANY (ARRAY['new'::text, 'contacted'::text, 'quote_sent'::text, 'booking_requested'::text])))"))
+  @@index([organizationId, ownerUserId, id], map: "lead_new_by_owner", where: raw("((deleted_at IS NULL) AND (stage = 'new'::text))"))
+  /// Every live lead, for the lists filtered by a closed stage.
+  @@index([organizationId, id(sort: Desc)], map: "lead_live", where: { deletedAt: null })
+  @@index([organizationId, ownerUserId, id(sort: Desc)], map: "lead_live_by_owner", where: { deletedAt: null })
+  @@index([organizationId, personId], map: "lead_person")
+  @@index([organizationId, destinationId], map: "lead_destination")
+  @@map("lead")
+}
+
+/// One thing that happened to a lead, newest first on its page (spec 3.4). A slim index: notes and repeat enquiries
+/// keep their text in their own tables, tasks in theirs. Append-only for the runtime role (R7).
+model LeadTimelineEntry {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  leadId         String       @map("lead_id") @db.Uuid
+  /// created, note, stage-changed, reassigned, follow-up-added, follow-up-done, follow-up-cancelled, repeat-enquiry or
+  /// trip-edited (CHECK lead_timeline_entry_kind_value).
+  kind           String
+  occurredAt     DateTime     @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  /// Who did it; null for the system.
+  actorUserId    String?      @map("actor_user_id") @db.Uuid
+  /// The row it points to: a lead_note, a lead_enquiry or a task.
+  recordType     String?      @map("record_type")
+  recordId       String?      @map("record_id") @db.Uuid
+  /// The stage it moved to, for stage-changed.
+  stage          String?
+  /// The new owner, for reassigned.
+  ownerUserId    String?      @map("owner_user_id") @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  lead           Lead         @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  /// Lets a later table point at (organization_id, id).
+  @@unique([organizationId, id])
+  @@index([organizationId, leadId, id(sort: Desc)], map: "lead_timeline_entry_by_lead")
+  @@map("lead_timeline_entry")
+}
+
+/// A note on a lead, from the form or the lead's page. Its text is never copied into the audit log (R28).
+model LeadNote {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  leadId         String       @map("lead_id") @db.Uuid
+  /// 1-4000 characters (CHECK lead_note_body_length).
+  body           String
+  createdBy      String?      @map("created_by") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  lead           Lead         @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  /// Lets a later table point at (organization_id, id).
+  @@unique([organizationId, id])
+  @@index([organizationId, leadId], map: "lead_note_by_lead")
+  @@map("lead_note")
+}
+
+/// A repeat enquiry added to an open lead: what the customer asked this time, kept as asked, in the lead's own typed
+/// trip columns (R8).
+model LeadEnquiry {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  leadId         String       @map("lead_id") @db.Uuid
+  destinationId  String?      @map("destination_id") @db.Uuid
+  travelKind     String       @default("unknown") @map("travel_kind")
+  travelStart    DateTime?    @map("travel_start") @db.Date
+  travelEnd      DateTime?    @map("travel_end") @db.Date
+  travelMonth    DateTime?    @map("travel_month") @db.Date
+  adults         Int?
+  childrenAges   Int[]        @default([]) @map("children_ages")
+  budgetPaise    BigInt?      @map("budget_paise")
+  budgetBasis    String?      @map("budget_basis")
+  departureCity  String?      @map("departure_city")
+  tripType       String?      @map("trip_type")
+  hotelCategory  String?      @map("hotel_category")
+  food           String?
+  roomType       String?      @map("room_type")
+  source         String
+  sourceDetail   String?      @map("source_detail")
+  /// The note that came with it, 1-4000 characters.
+  note           String?
+  createdBy      String?      @map("created_by") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  lead           Lead         @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  destination    Destination? @relation(fields: [organizationId, destinationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  /// Lets a later table point at (organization_id, id).
+  @@unique([organizationId, id])
+  @@index([organizationId, leadId], map: "lead_enquiry_by_lead")
+  @@map("lead_enquiry")
+}
+
+/// A phone, email or handle staff blocked from a lead (spec 4). In release 1 it only warns the form. Soft-deleted:
+/// unblocking deletes the entry, so the value can be blocked again.
+model BlockedContact {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  /// phone, email or instagram (CHECK blocked_contact_kind_value).
+  kind           String
+  /// Stored as the person's contact is: E.164, lower-case email, or handle without "@".
+  value          String
+  blockedBy      String?      @map("blocked_by") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
+  deletedBy      String?      @map("deleted_by") @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  /// Lets a later table point at (organization_id, id).
+  @@unique([organizationId, id])
+  @@unique([organizationId, kind, value], map: "blocked_contact_live", where: { deletedAt: null })
+  @@index([organizationId, id(sort: Desc)], map: "blocked_contact_list", where: { deletedAt: null })
+  @@map("blocked_contact")
+}

@@ -1,0 +1,61 @@
+{
+  "title": "Today",
+  "intro": "{count, plural, =0 {{weekday} {day}} one {{weekday} {day} · # thing} other {{weekday} {day} · # things}}",
+  "overdueCount": "{count} overdue",
+  "loadFailed": "Today didn't load.",
+  "nothing": "Nothing for today",
+  "later": "Later, Today also shows quotes opened but not answered, payments due, departures and pickups, and travellers with missing details.",
+  "sections": {
+    "overdue": "Overdue",
+    "new-leads": "New leads waiting for a reply",
+    "due-today": "Due today"
+  },
+  "sectionLoadFailed": "This part of Today didn't load.",
+  "more": {
+    "overdue": "Show more overdue",
+    "new-leads": "Show more new leads",
+    "due-today": "Show more due today"
+  },
+  "item": {
+    "yesterday": "Yesterday, {time}",
+    "today": "Today, {time}",
+    "markContacted": "Mark contacted",
+    "markContactedPerson": "Mark {name} contacted"
+  },
+  "nudge": {
+    "count": "{count, plural, one {# thing today} other {# things today}}",
+    "nothing": "Nothing for today",
+    "overdue": "Overdue",
+    "waiting": "New lead, no reply yet",
+    "ago": "{elapsed} ago",
+    "open": "Open Today",
+    "loadFailed": "Today's work didn't load."
+  },
+  "addTask": {
+    "action": "Add a task",
+    "title": "Add a task",
+    "description": "Something to do by a time. It shows in Today for whoever it's for.",
+    "what": "What to do",
+    "due": "Due",
+    "assignee": "For",
+    "lead": "Lead",
+    "leadHint": "Optional. A task on a lead is for the lead's owner.",
+    "noLead": "No lead",
+    "search": "Search by name or phone",
+    "searchHint": "Type at least 2 letters, or 4 digits of a phone.",
+    "searching": "Searching",
+    "noMatch": "No open lead matches.",
+    "unlink": "No lead: a task of its own",
+    "submit": "Add the task",
+    "submitting": "Adding",
+    "added": "Task added",
+    "problems": {
+      "required": "Say what to do.",
+      "title": "Keep it to 200 characters.",
+      "day": "Choose a day.",
+      "time": "Choose a time.",
+      "assignee": "Choose who it's for.",
+      "lead": "Choose the lead again."
+    }
+  }
+}

@@ -1,7 +1,7 @@
 // The business profile and the setup checklist (spec 7.1): a newly onboarded Owner finds the setup card first on Home,
-// above the usual Home, with what onboarding left to do; follows a step to its section of the business profile,
-// completes it (a GSTIN of another state is refused before it is sent) and watches the steps tick, on the card and on
-// the setup screen.
+// above the usual Home, with the next two steps onboarding left to do; follows a step to its section of the business
+// profile, completes it (a GSTIN of another state is refused before it is sent) and watches the steps tick, on the
+// card and on the setup screen, which lists every step.
 import { expectAccessible } from "./support/accessibility";
 import { KARNATAKA_GSTIN, ONBOARDED_GSTIN, saveOnboardingProfile } from "./support/business";
 import { expect, signInByEmail, test } from "./support/fixtures";
@@ -14,14 +14,8 @@ test("a newly onboarded Owner fills the profile and watches the checklist tick",
   // Onboarding saved the contact phone, but no address.
   await expect(checklist.getByText("1 of 7 done")).toBeVisible();
   await expect(checklist.getByRole("progressbar", { name: "1 of 7 done" })).toBeVisible();
-  await expect(checklist.getByRole("listitem")).toHaveText([
-    /^Business details/,
-    /^Logo/,
-    /^Branding/,
-    /^Bank details/,
-    /^Invoice prefix/,
-    /^Staff/,
-  ]);
+  // The next two of the six left; the setup screen has them all.
+  await expect(checklist.getByRole("listitem")).toHaveText([/^Business details/, /^Logo/]);
   await expect(checklist.getByRole("link", { name: "See every step" })).toHaveAttribute("href", "/setup");
   // Above the usual Home, never instead of it.
   await expect(page.getByText("Your screens:")).toBeVisible();
@@ -80,5 +74,5 @@ test("a newly onboarded Owner fills the profile and watches the checklist tick",
   }
   await page.goto("/");
   await expect(checklist.getByText("4 of 7 done")).toBeVisible();
-  await expect(checklist.getByRole("listitem")).toHaveText([/^Logo/, /^Branding/, /^Staff/]);
+  await expect(checklist.getByRole("listitem")).toHaveText([/^Logo/, /^Branding/]);
 });

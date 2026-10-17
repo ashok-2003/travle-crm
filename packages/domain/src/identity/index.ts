@@ -17,6 +17,7 @@ export type { Auth, AuthSettings } from "./auth/create-auth.js";
 export type { PasswordResetEmail, PasswordResetSettings, SendPasswordResetEmail } from "./auth/password-reset.js";
 export { deleteUsers, erasePerson, organizationUserIds, personExport, type PersonExport } from "./erasure.js";
 export { createIdentity, type Identity, type IdentityOptions, type NewOwner } from "./identity.js";
+export { firstOwner, leadWorkers } from "./lead-workers.js";
 export { pendingStep, type MemberAccess } from "./member-access.js";
 export { memberActivity, recordMemberActivity, type MemberActivity } from "./member-activity.js";
 export {

@@ -1,8 +1,10 @@
 "use client";
 
-// The home screen. Business modules (leads, quotes, bookings) arrive in later steps; until then it points those who
-// can set the organization up at what to do first: whoever may change its settings (the Owner, Admins) sees the setup
-// card above everything else until the checklist is done (spec 7.1), and everyone the screens their role may use.
+// The home screen. Whoever may change the organization's settings (the Owner, Admins) sees the setup card above
+// everything else until the checklist is done (spec 7.1); right under it, whoever's role sees leads on a plan with them
+// sees the day's nudge (spec 3.1: a count, three things, Open Today), never Today's long list; then the screens their
+// role may use to set the organization up. New lead is the header's action, an outline button, so Open Today stays the
+// main one.
 import { ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -10,17 +12,25 @@ import { Fragment } from "react";
 import { SetupCard } from "@/business/setup/setup-card";
 import { PageHeader } from "@/components/page-header";
 import { Item, ItemContent, ItemGroup, ItemMedia, ItemSeparator, ItemTitle } from "@/components/ui/item";
+import { NewLeadButton } from "@/leads/new-lead-button";
 import { holds, useMe } from "@/session/me-context";
 import type { NavigationItem } from "@/shell/navigation";
 import { useNavigationItems } from "@/shell/use-navigation-items";
+import { TodayNudge } from "@/today/today-nudge";
 
-/** The destinations that set the organization up: not home, nor the audit log, which looks back. */
-type SetUpItem = NavigationItem & { key: Exclude<NavigationItem["key"], "home" | "audit"> };
+/** The destinations that set the organization up: not home, Today or Leads (daily work), nor the audit log. */
+type SetUpItem = NavigationItem & { key: Exclude<NavigationItem["key"], "home" | "today" | "leads" | "audit"> };
+
+const notSetUp: readonly NavigationItem["key"][] = ["home", "today", "leads", "audit"];
 
 export default function HomePage() {
   const t = useTranslations("shell.home");
   const me = useMe();
-  const setUp = useNavigationItems().filter((item): item is SetUpItem => item.key !== "home" && item.key !== "audit");
+  const items = useNavigationItems();
+  // Today and Leads show where the role sees leads, on a plan with them, and the subscription keeps them open.
+  const showsToday = items.some((item) => item.key === "today");
+  const addsLeads = items.some((item) => item.key === "leads") && holds(me, "leads:create");
+  const setUp = items.filter((item): item is SetUpItem => !notSetUp.includes(item.key));
   const screens =
     setUp.length > 0 ? (
       <section className="flex flex-col gap-3">
@@ -51,8 +61,12 @@ export default function HomePage() {
     );
   return (
     <div className="flex max-w-[720px] flex-col gap-6">
-      <PageHeader title={t("title", { name: me.user.name })} />
+      <PageHeader
+        title={t("title", { name: me.user.name })}
+        action={addsLeads && <NewLeadButton variant="outline" />}
+      />
       {holds(me, "settings:manage") && <SetupCard />}
+      {showsToday && <TodayNudge />}
       {screens}
     </div>
   );

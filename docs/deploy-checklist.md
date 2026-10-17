@@ -8,8 +8,16 @@ logs, and what is still open.
 
 ## The database (ADRs 0002, 0019)
 
-- **Postgres 16 or later.** The platform role's membership of the runtime role is granted
-  `WITH INHERIT FALSE, SET TRUE`, which Postgres 16 introduced.
+- **Postgres 18.** Release 1's catalog adds a destination with Postgres 18's `uuidv7()` (in an `INSERT … ON
+CONFLICT` Prisma can't write), and CI applies every migration to Postgres 18. The platform role's membership of the
+  runtime role is granted `WITH INHERIT FALSE, SET TRUE`, which Postgres 16 introduced.
+- **The trusted extensions `pg_trgm` and `btree_gist`** (release 1, R6; ADR 0028). The `leads_by_hand` migration
+  creates them as `app_migrator` (`CREATE EXTENSION IF NOT EXISTS`). Postgres allows that to a role with `CREATE`
+  on the database because both are trusted. `sql/bootstrap.sql` doesn't create them, so local databases, the
+  tests and `pnpm migrations:check` run that same statement as the migrator. A hosted Postgres must offer them
+  (Cloud SQL and RDS do): check `SELECT name FROM pg_available_extensions WHERE name IN ('pg_trgm', 'btree_gist')`
+  before the first `migrate`. If the service doesn't let the migrator create them, create them once as its admin
+  user before that `migrate`.
 - **The three roles**, as `packages/db/sql/bootstrap.sql` creates them locally, with strong passwords of their own:
   `app_migrator` (owns the tables, runs migrations), `app_runtime` (the api and the worker), `app_platform` (the
   console alone). None may bypass row-level security.
@@ -251,6 +259,12 @@ deploy (Q6, Q11). Everything above holds on both; this is what differs.
   (`apps/api/README.md`, "The log"), and its start-up line to stdout. The platform keeps both.
 - **The load balancer's access logs** keep the request's path, which for a password reset holds its token: keep them
   short-lived or strip that path (above).
+- **Access logs must not record query strings for `/api/trpc/*` and `/api/platform/trpc/*`.** The web app posts every
+  call, queries included, so a customer's phone, email or searched name stays in the body; a GET (tRPC's default, and
+  what a test or a curl may still send) carries its input in the URL, where no erasure reaches it.
+- **The web app's own page addresses hold no customer data,** so its access logs need no stripping for that: the lead
+  list keeps its filters (ids and fixed values) in the address and its search text in the browser tab, never `?q=`
+  (`apps/web/test/e2e/leads-add.spec.ts` checks every URL and Referer the browser sends).
 
 ## Still open before launch
 

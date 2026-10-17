@@ -1,8 +1,9 @@
 "use client";
 
-// A choice of a few options bound to a form field: radio buttons under a legend, each labelled and optionally
-// explained (DESIGN.md: 20px radios in 44px rows, labels always visible). The error is the group's, read out with it,
-// and the form can focus the group to show it.
+// A choice of a few options bound to a form field (a lead's hotel, food and open-lead choice; a plan's billing and how a
+// subscription starts): the registry RadioGroup under a legend, each option labelled and optionally explained
+// (DESIGN.md: 20px radios in 44px rows, labels always visible); side by side when `inline`. The error is the group's,
+// read out with it, and the form can focus the group, which passes the focus to its chosen radio, or the first.
 import { useId } from "react";
 import { Controller, type Control, type FieldPath, type FieldValues } from "react-hook-form";
 import { FieldProblem } from "@/components/form-field";
@@ -20,11 +21,14 @@ export function ChoiceField<Values extends FieldValues>({
   name,
   legend,
   options,
+  inline = false,
 }: {
   control: Control<Values>;
   name: FieldPath<Values>;
   legend: string;
   options: ChoiceOption[];
+  /** The options side by side, wrapping, rather than one under another. */
+  inline?: boolean;
 }) {
   const id = useId();
   const label = (option: ChoiceOption) => (
@@ -51,9 +55,10 @@ export function ChoiceField<Values extends FieldValues>({
               name={field.name}
               value={typeof field.value === "string" ? field.value : ""}
               onValueChange={field.onChange}
+              className={inline ? "flex flex-wrap gap-x-6 gap-y-0" : undefined}
             >
               {options.map((option) => (
-                <Field key={option.value} orientation="horizontal" className="min-h-11">
+                <Field key={option.value} orientation="horizontal" className={inline ? "min-h-11 w-auto" : "min-h-11"}>
                   <RadioGroupItem id={`${id}-${option.value}`} value={option.value} />
                   {/* A label alone sits in the row's middle; one with words under it, at its top. */}
                   {option.description ? (

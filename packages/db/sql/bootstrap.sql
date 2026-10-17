@@ -26,3 +26,6 @@ ALTER DEFAULT PRIVILEGES FOR ROLE app_migrator IN SCHEMA public
 -- Temp tables outlive a transaction on a pooled connection, so one organization's rows copied into one could be
 -- read by the next organization's transaction. Nobody gets to create them.
 DO $$ BEGIN EXECUTE format('REVOKE TEMPORARY ON DATABASE %I FROM PUBLIC', current_database()); END $$;
+
+-- No extensions here: pg_trgm and btree_gist are trusted, so the leads_by_hand migration creates them as app_migrator,
+-- which owns the database, as it does on a hosted one; local and test databases run that same statement.

@@ -7,6 +7,7 @@
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import type { ReturnFocusTo } from "@/components/return-focus";
 import { refusalOf } from "@/data/api-error";
 import { useErrorMessage } from "@/lib/error-message";
 import { TypedConfirmation } from "./typed-confirmation";
@@ -15,12 +16,15 @@ export function PurgeDialog({
   organization,
   open,
   onOpenChange,
+  returnFocusTo,
   request,
   onConfirm,
 }: {
   organization: { name: string; code: string };
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The button that opened it, which takes the focus back when it closes. */
+  returnFocusTo: ReturnFocusTo;
   /** The deletion's request, owned by the section. */
   request: Parameters<typeof ConfirmDialog>[0]["request"];
   onConfirm: (confirmation: string) => void;
@@ -30,6 +34,7 @@ export function PurgeDialog({
   const [typed, setTyped] = useState("");
   return (
     <ConfirmDialog
+      returnFocusTo={returnFocusTo}
       open={open}
       onOpenChange={onOpenChange}
       title={t("confirmTitle", { name: organization.name })}

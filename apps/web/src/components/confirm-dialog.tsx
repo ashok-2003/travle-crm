@@ -8,7 +8,8 @@
 // The one way it closes on success (Ruling P): the section that opens it owns the request, and closes it in that
 // mutation's own options, the hook's useMutation onSuccess (as useRemoveLogo(onRemoved) does), never in mutate()'s
 // callbacks, which are dropped once the calling component is gone. Closed by the person (Cancel, Escape), the request
-// is reset, so its refusal isn't shown when the dialog opens again; a success has none to forget.
+// is reset, so its refusal isn't shown when the dialog opens again; a success has none to forget. Closed either way, it
+// gives the focus back to `returnFocusTo`, the button that opened it (return-focus.ts).
 import { CircleAlertIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
@@ -24,6 +25,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useErrorMessage } from "@/lib/error-message";
+import { focusBackTo, type ReturnFocusTo } from "./return-focus";
 
 /** The dialog's request: a mutation, as useMutation returns it. */
 interface ConfirmRequest {
@@ -43,6 +45,7 @@ export function ConfirmDialog({
   onConfirm,
   confirmDisabled = false,
   refusal,
+  returnFocusTo,
   children,
 }: {
   open: boolean;
@@ -57,6 +60,8 @@ export function ConfirmDialog({
   confirmDisabled?: boolean;
   /** The refusal's sentence where the api's own isn't the one to show; by default, the api's. */
   refusal?: ((error: unknown) => string) | undefined;
+  /** The button that opened it, which takes the focus back when it closes. */
+  returnFocusTo?: ReturnFocusTo | undefined;
   children?: ReactNode;
 }) {
   const tCommon = useTranslations("common");
@@ -71,7 +76,7 @@ export function ConfirmDialog({
         onOpenChange(next);
       }}
     >
-      <AlertDialogContent>
+      <AlertDialogContent onCloseAutoFocus={focusBackTo(returnFocusTo)}>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>

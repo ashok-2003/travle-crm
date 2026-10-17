@@ -1,0 +1,38 @@
+// Follow-ups and tasks (spec 3.5, 5): the tasks module's one table. A task may point at any record, as attachments do
+// (record_type and record_id, no foreign key); a follow-up always does. Organization-owned: row-level security applies.
+// Tasks are never deleted: they end done or cancelled (R9).
+
+/// Something to do by a time: a follow-up on a lead, or a task linked to a record or standing alone.
+model Task {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  /// follow-up or task (CHECK task_kind_value).
+  kind           String
+  /// What to do, at most 200 characters; empty only once erasure has emptied it (CHECK task_title_length).
+  title          String
+  /// When it is due; snoozing moves it and keeps first_due_at.
+  dueAt          DateTime     @map("due_at") @db.Timestamptz(6)
+  firstDueAt     DateTime     @map("first_due_at") @db.Timestamptz(6)
+  /// A member's user id. A lead's tasks are its owner's and move with it (R21).
+  assigneeUserId String?      @map("assignee_user_id") @db.Uuid
+  /// The record it is about, e.g. "lead", with its id; both or neither (CHECK task_record_pair).
+  recordType     String?      @map("record_type")
+  recordId       String?      @map("record_id") @db.Uuid
+  /// Done or cancelled, never both (CHECK task_done_or_cancelled).
+  doneAt         DateTime?    @map("done_at") @db.Timestamptz(6)
+  doneBy         String?      @map("done_by") @db.Uuid
+  cancelledAt    DateTime?    @map("cancelled_at") @db.Timestamptz(6)
+  createdBy      String?      @map("created_by") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  /// Lets a later table point at (organization_id, id).
+  @@unique([organizationId, id])
+  /// Open tasks by assignee and due time (Today), and by record (a lead's next follow-up); every task of a record.
+  @@index([organizationId, assigneeUserId, dueAt, id], map: "task_open_by_assignee", where: raw("((done_at IS NULL) AND (cancelled_at IS NULL))"))
+  @@index([organizationId, recordType, recordId, dueAt], map: "task_open_by_record", where: raw("((done_at IS NULL) AND (cancelled_at IS NULL))"))
+  @@index([organizationId, recordType, recordId], map: "task_by_record")
+  @@map("task")
+}

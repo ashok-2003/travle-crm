@@ -1,7 +1,8 @@
 // The setup checklist (spec 7.1), from organization.setup.get: the setup screen lists every step, done or to do, each
 // leading to where it is done (the business profile's steps to their section); Home's setup card, for whoever may
-// change the settings (the Owner, an Admin), sits above the usual Home with the steps still to do until everything is
-// done; a step whose screen the member's role can't open isn't theirs, on either; other members never ask for it.
+// change the settings (the Owner, an Admin), sits above the usual Home with the next two steps still to do (so what
+// follows it is on a phone's first screen) until everything is done; a step whose screen the member's role can't open
+// isn't theirs, on either; other members never ask for it.
 import type { SetupChecklist, SetupStep } from "@travel-crm/contracts/profile";
 import { starterRoles } from "@travel-crm/domain/identity";
 import { screen, waitFor, within } from "@testing-library/react";
@@ -56,7 +57,7 @@ describe("SetupScreen", () => {
     vi.unstubAllGlobals();
   });
 
-  it("leads to where each step is done, in order, and says which are", async () => {
+  it("leads to where each step is done, in order, and says which are: every step, as many as are left", async () => {
     stubApi({ "organization.setup.get": { data: halfway } });
     renderWithApi(<SetupScreen />, newQueryClient());
     expect(await screen.findByRole("progressbar", { name: "4 of 7 done" })).toBeVisible();
@@ -103,17 +104,16 @@ describe("Home's setup card", () => {
     vi.unstubAllGlobals();
   });
 
-  it("comes first on the Owner's Home, above the usual Home, with the steps still to do and the way to all", async () => {
+  it("comes first on the Owner's Home, above the usual Home, with the next two steps to do and the way to all", async () => {
     stubApi({ "organization.setup.get": { data: halfway } });
     renderWithApi(<HomePage />, newQueryClient(), member({ isOwner: true }));
     const card = await screen.findByRole("region", { name: cardName });
     expect(within(card).getByRole("heading", { level: 2, name: cardName })).toBeVisible();
     expect(within(card).getByRole("progressbar", { name: "4 of 7 done" })).toBeVisible();
-    // Only what is left, so no row needs a status.
+    // Only the next two of the three left, so no row needs a status; the third is on the setup screen.
     expect(stepsIn(card)).toEqual([
       [words.steps.logo.title, routes.branding, ""],
       [words.steps["invoice-prefix"].title, profileSection("invoice-prefix"), ""],
-      [words.steps.staff.title, routes.staff, ""],
     ]);
     expect(within(card).getByText(words.steps.logo.hint)).toBeVisible();
     expect(within(card).getByRole("link", { name: words.everyStep })).toHaveAttribute("href", routes.setup);
