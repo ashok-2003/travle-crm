@@ -3,6 +3,7 @@
 // platform's own jobs, which need the platform role (the subscription lifecycle among them), run in the console
 // process instead (console-jobs.ts).
 import type { Database } from "@travel-crm/db";
+import { handOverDepartingMemberListener } from "@travel-crm/domain/crm";
 import { renderIssuedDocumentListener } from "@travel-crm/domain/documents";
 import type { Files } from "@travel-crm/domain/files";
 import type { Identity } from "@travel-crm/domain/identity";
@@ -17,7 +18,7 @@ import type { PushSender } from "@travel-crm/integrations/push";
 
 export interface WorkerJobDependencies {
   db: Database;
-  identity: Pick<Identity, "organizationProfile" | "memberContacts" | "inviteListener">;
+  identity: Pick<Identity, "organizationProfile" | "memberContacts" | "inviteListener" | "firstOwner">;
   files: Files;
   email: EmailSender;
   push: PushSender;
@@ -56,6 +57,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       }),
       forgetPushSubscriptionsListener,
       identity.inviteListener({ email, appUrl, limiter: rateLimiter }),
+      handOverDepartingMemberListener({ firstOwner: (organizationId) => identity.firstOwner(organizationId) }),
     ],
     handlers: [
       {

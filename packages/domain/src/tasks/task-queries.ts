@@ -48,12 +48,16 @@ export async function listOpenTasks(tx: OrgTx, filter: OpenTasksFilter): Promise
   return rows.map(taskFromRow);
 }
 
+/** The count of the person's open tasks, within the window if one is given, as composable SQL (R11). */
+export function countOpenTasksQuery(filter: Pick<OpenTasksFilter, "assigneeUserId" | "dueFrom" | "dueBefore">): Sql {
+  return sql`SELECT count(*)::int AS n FROM task WHERE ${openTasksOfAssignee(filter)}`;
+}
+
 /** How many open tasks the person has, within the window if one is given. */
 export async function countOpenTasks(
   tx: OrgTx,
   filter: Pick<OpenTasksFilter, "assigneeUserId" | "dueFrom" | "dueBefore">,
 ): Promise<number> {
-  const [row] = await tx.$queryRaw<{ n: number }[]>`
-    SELECT count(*)::int AS n FROM task WHERE ${openTasksOfAssignee(filter)}`;
+  const [row] = await tx.$queryRaw<{ n: number }[]>(countOpenTasksQuery(filter));
   return row?.n ?? 0;
 }

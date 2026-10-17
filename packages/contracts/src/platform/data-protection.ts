@@ -3,7 +3,10 @@
 // itself a job, which stores the export for 7 days; the console fetches short-lived links to it.
 import { z } from "zod";
 import { auditEntityType, auditEntry } from "../audit/index.js";
+import { leadSource, leadStage } from "../crm/fields.js";
+import { tripDetail } from "../crm/trip.js";
 import { recordId } from "../identity/index.js";
+import { taskKind } from "../tasks/tasks.js";
 
 /** Who or what an erasure is about: a removed member, or one record of a module (a traveller, later). */
 export const erasureSubject = z.discriminatedUnion("kind", [
@@ -87,10 +90,56 @@ export type OrganizationExportDownload = z.infer<typeof organizationExportDownlo
 export const exportSubjectInput = z.strictObject({ organizationId: recordId, subject: erasureSubject });
 export type ExportSubjectInput = z.infer<typeof exportSubjectInput>;
 
+/** One of a customer's leads as the export gives it: its stage, trip and source, and what was written on it. */
+export const exportedLead = z.object({
+  leadId: recordId,
+  stage: leadStage,
+  source: leadSource,
+  sourceDetail: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+  trip: tripDetail,
+  notes: z.array(z.object({ body: z.string(), createdAt: z.iso.datetime() })),
+  /** Repeat enquiries added to the lead, each as the customer asked it. */
+  enquiries: z.array(
+    z.object({
+      trip: tripDetail,
+      source: leadSource,
+      sourceDetail: z.string().nullable(),
+      note: z.string().nullable(),
+      createdAt: z.iso.datetime(),
+    }),
+  ),
+  /** Its follow-ups and tasks, done and cancelled ones too, earliest due first. */
+  tasks: z.array(
+    z.object({
+      kind: taskKind,
+      title: z.string(),
+      dueAt: z.iso.datetime(),
+      doneAt: z.iso.datetime().nullable(),
+      cancelledAt: z.iso.datetime().nullable(),
+    }),
+  ),
+});
+export type ExportedLead = z.infer<typeof exportedLead>;
+
+/** What the organization keeps about one customer (a "person" record, R39): their contacts and every lead of theirs. */
+export const customerExport = z.object({
+  personId: recordId,
+  /** Empty once erased. */
+  name: z.string(),
+  phone: z.string().nullable(),
+  email: z.string().nullable(),
+  instagramHandle: z.string().nullable(),
+  leads: z.array(exportedLead),
+});
+export type CustomerExport = z.infer<typeof customerExport>;
+
 /** What the organization keeps about one person or record, for the person before an erasure. */
 export const subjectExport = z.object({
   exportedAt: z.iso.datetime(),
   person: exportedPerson.nullable(),
+  /** A customer's contacts and leads, for a "person" record; null for anything else. */
+  customer: customerExport.nullable(),
   auditEntries: z.array(auditEntry),
   files: z.array(exportedFile),
 });
