@@ -170,7 +170,7 @@ describe("LeadsScreen", () => {
       expect(lastInputTo("leads.list")).toEqual({ view: "mine", stage: "open", limit: 25 });
     });
     expect(await screen.findByText(list.empty)).toBeVisible();
-    expect(screen.getAllByRole("link", { name: list.newLead }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: messages.leads.newLead }).length).toBeGreaterThan(0);
   });
 
   it("reads a row: name, ↺ Returning, trip line, stage badge and next step; on a computer the Table's seven columns", async () => {
