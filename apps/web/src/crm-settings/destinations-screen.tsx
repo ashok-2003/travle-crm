@@ -38,12 +38,13 @@ export function DestinationsScreen() {
       }
       return (
         <div className="flex flex-col gap-3">
-          {/* 44px rows, as a table's (DESIGN.md: dense lists): one name and its ⋯ need no more. */}
+          {/* 44px rows, as a table's (DESIGN.md: dense lists): one name and its ⋯ need no more. The items keep the
+              default size, so the group's gap for small items stays out of it. */}
           <ItemGroup aria-label={t("listLabel")} className="gap-0">
             {listed.data.map((destination, index) => (
               <Fragment key={destination.id}>
                 {index > 0 && <ItemSeparator className="my-0" />}
-                <Item size="sm" role="listitem" className="py-0">
+                <Item role="listitem" className="py-0">
                   <ItemContent className="min-w-0">
                     <ItemTitle className="break-words script-leading">{destination.name}</ItemTitle>
                   </ItemContent>
