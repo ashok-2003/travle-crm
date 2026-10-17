@@ -279,7 +279,8 @@
     },
     "reassign": {
       "title": "Reassign",
-      "description": "Who works {name}'s lead from now on. Its open follow-ups go with it.",
+      "description": "{owner} works {name}'s lead now. Who works it from now on? Its open follow-ups go with it.",
+      "descriptionNoOwner": "Who works {name}'s lead from now on? Its open follow-ups go with it.",
       "owner": "Owner",
       "choose": "Choose someone",
       "submit": "Reassign",
