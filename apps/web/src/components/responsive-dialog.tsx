@@ -81,7 +81,8 @@ export function ResponsiveDialog({
     </>
   );
 
-  // The scrolling body runs edge to edge with its own padding, so its fields' focus outlines aren't clipped.
+  // The scrolling body runs edge to edge with its own padding, above and below too, so its fields' focus outlines
+  // aren't clipped.
   if (wide) {
     return (
       <Dialog open={open} onOpenChange={changeOpen}>
@@ -112,7 +113,7 @@ export function ResponsiveDialog({
           <SheetTitle>{title}</SheetTitle>
           <SheetDescription>{description}</SheetDescription>
         </SheetHeader>
-        <div className={cn("min-h-0 flex-1 overflow-y-auto px-4 pt-1", !actions && "pb-4")}>{children}</div>
+        <div className={cn("min-h-0 flex-1 overflow-y-auto px-4 py-1", !actions && "pb-4")}>{children}</div>
         {actions && <SheetFooter className="flex-col-reverse">{actions}</SheetFooter>}
       </SheetContent>
     </Sheet>
