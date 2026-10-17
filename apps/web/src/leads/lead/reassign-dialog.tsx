@@ -33,6 +33,7 @@ function ReassignForm({
   reassign: Sending<ReassignLeadInput>;
 }) {
   const t = useTranslations("leads.lead.reassign");
+  const tLeads = useTranslations("leads");
   const tCommon = useTranslations("common");
   const owners = useLeadOwners();
   const { form, onSubmit, formProblem } = useCheckedForm<ReassignValues, ReassignLeadInput, "required" | "owner">(
@@ -50,7 +51,7 @@ function ReassignForm({
   if (owners.isError) {
     return (
       <ErrorState
-        message={t("ownersFailed")}
+        message={tLeads("ownersFailed")}
         error={owners.error}
         retryLabel={tCommon("tryAgain")}
         onRetry={() => void owners.refetch()}

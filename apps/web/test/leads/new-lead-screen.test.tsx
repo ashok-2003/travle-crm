@@ -266,6 +266,25 @@ describe("NewLeadScreen", () => {
     });
   });
 
+  it("says when the people who can own the lead didn't load, with Try again; it is the adder's meanwhile", async () => {
+    const api = renderForm({ "leads.owners": { status: 500 } });
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(messages.leads.ownersFailed);
+    expect(screen.getByRole("combobox", { name: form.owner })).toHaveTextContent(
+      form.me.replace("{name}", "Asha Sharma"),
+    );
+    api.answer("leads.owners", {
+      data: [
+        { userId: owner.user.id, name: "Asha Sharma" },
+        { userId: salesperson.user.id, name: "Ravi Kumar" },
+      ],
+    });
+    await userEvent.click(within(alert).getByRole("button", { name: messages.common.tryAgain }));
+    await choose(form.owner, "Ravi Kumar");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(inputsTo("leads.create")).toEqual([]);
+  });
+
   it("gives a salesperson no owner picker: the lead is theirs", async () => {
     renderForm({}, salesperson);
     await fillPerson();

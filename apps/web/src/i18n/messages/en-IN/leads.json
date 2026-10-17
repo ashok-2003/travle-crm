@@ -85,6 +85,7 @@
   },
   "returning": "Returning",
   "formerMember": "A former member",
+  "ownersFailed": "The people who can work leads didn't load.",
   "newLead": "New lead",
   "list": {
     "title": "Leads",
@@ -291,8 +292,7 @@
       "problems": {
         "required": "Choose who works the lead.",
         "owner": "Choose who works the lead."
-      },
-      "ownersFailed": "The people who can work leads didn't load."
+      }
     },
     "edit": "Edit",
     "work": {

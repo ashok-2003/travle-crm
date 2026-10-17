@@ -7,18 +7,18 @@
 // A phone gets a divided list, a computer the Table (R44); loading shows skeleton rows, a failure says so with Try
 // again (a refusal its reason), and an empty list says what belongs here or that nothing matches. Whoever may block a
 // contact finds Blocked contacts at the end, whether or not they may open Settings, which also leads there.
-import { ContactIcon, SearchXIcon, TriangleAlertIcon } from "lucide-react";
+import { ContactIcon, SearchXIcon } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
+import { LoadFailedAlert } from "@/components/load-failed-alert";
 import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { ShowMoreButton } from "@/components/show-more-button";
 import { TextLink } from "@/components/text-link";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { routes } from "@/lib/routes";
@@ -128,15 +128,7 @@ export function LeadsScreen() {
       {counts.isError && (
         // The chips still filter without their counts; a line says they didn't load, with Try again. A refusal would
         // refuse the list too, whose own error says its reason.
-        <Alert>
-          <TriangleAlertIcon aria-hidden="true" />
-          <AlertDescription className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-            {t("countsFailed")}
-            <Button variant="outline" onClick={() => void counts.refetch()}>
-              {tCommon("tryAgain")}
-            </Button>
-          </AlertDescription>
-        </Alert>
+        <LoadFailedAlert message={t("countsFailed")} error={null} onRetry={() => void counts.refetch()} />
       )}
     </div>
   );

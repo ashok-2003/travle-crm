@@ -2,7 +2,8 @@
 
 // The Filters dialog's form (spec 3.3): stage (Won, Lost and Not a lead live here), owner for managers, source,
 // destination and trip type, started from the list's filters. Choosing an owner shows everyone's leads, since an owner
-// is a filter on them; the list's search, which isn't one of these, stays as it is.
+// is a filter on them; the list's search, which isn't one of these, stays as it is. Owners that didn't load say so
+// with Try again, and Anyone still filters.
 import {
   leadSources,
   leadStages,
@@ -18,6 +19,7 @@ import { useForm } from "react-hook-form";
 import { SelectField } from "@/components/forms/select-field";
 import { useTRPC } from "@/data/trpc";
 import { DestinationField, type DestinationValue } from "../form/destination-field";
+import { OwnersFailed } from "../owners-failed";
 import { useLeadOwners } from "../use-lead-owners";
 import type { ListFilters } from "./list-filters";
 
@@ -99,15 +101,18 @@ export function FiltersForm({
         ]}
       />
       {!ownOnly && (
-        <SelectField
-          control={control}
-          name="owner"
-          label={words("owner")}
-          options={[
-            { value: ANY, label: words("anyone") },
-            ...(owners.data ?? []).map((worker) => ({ value: worker.userId, label: worker.name })),
-          ]}
-        />
+        <>
+          <SelectField
+            control={control}
+            name="owner"
+            label={words("owner")}
+            options={[
+              { value: ANY, label: words("anyone") },
+              ...(owners.data ?? []).map((worker) => ({ value: worker.userId, label: worker.name })),
+            ]}
+          />
+          <OwnersFailed owners={owners} />
+        </>
       )}
       <SelectField
         control={control}

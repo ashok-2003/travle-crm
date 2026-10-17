@@ -101,6 +101,24 @@ describe("LeadsScreen", () => {
     });
   });
 
+  it("says in Filters when the owners didn't load, with Try again", async () => {
+    const api = renderLeads({ "leads.owners": { status: 500 } });
+    await userEvent.click(await screen.findByRole("button", { name: list.filters }));
+    const filters = await screen.findByRole("dialog", { name: list.filtersDialog.title });
+    const alert = await within(filters).findByRole("alert");
+    expect(alert).toHaveTextContent(messages.leads.ownersFailed);
+    api.answer("leads.owners", owners);
+    await userEvent.click(within(alert).getByRole("button", { name: messages.common.tryAgain }));
+    await waitFor(() => {
+      expect(within(filters).queryByRole("alert")).not.toBeInTheDocument();
+    });
+    // Try again only asked again: the dialog is still open, its choice not applied.
+    expect(screen.getByRole("dialog", { name: list.filtersDialog.title })).toBeVisible();
+    expect(address.href).toBe("/leads");
+    await userEvent.click(within(filters).getByRole("combobox", { name: list.filtersDialog.owner }));
+    expect(await screen.findByRole("option", { name: "Ravi Kumar" })).toBeVisible();
+  });
+
   it("gives a salesperson no tabs, no owner filter and the 'Mine · open' chip", async () => {
     address.set(`/leads?view=everyone&owner=${owner.user.id}`);
     renderLeads({}, { me: salesperson });
