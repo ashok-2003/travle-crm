@@ -3,7 +3,6 @@
 // lead (R26), and a stale tap from a second tab changes nothing (R31).
 import {
   isOpenStage,
-  leadStage,
   openLeadStage,
   type LeadIdInput,
   type MoveStageInput,
@@ -12,7 +11,7 @@ import {
 import type { OrgTx } from "@travel-crm/db";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
-import { changeLeadOwner, changeLeadStage } from "./lead-core.js";
+import { changeLeadOwner, changeLeadStage, lockLead } from "./lead-core.js";
 import { findLeadInScope } from "./lead-detail.js";
 
 /** Moves the lead to a stage, forwards or back; the stage it is in already changes nothing (R31). */
@@ -27,14 +26,10 @@ export async function moveLeadStage(tx: OrgTx, access: MemberAccess, input: Move
  * tab's move or a manager's reassign sees that change, not what it would have read first.
  */
 export async function reopenLead(tx: OrgTx, access: MemberAccess, input: LeadIdInput, now: Date): Promise<void> {
-  const [locked] = await tx.$queryRaw<{ stage: string; reopenStage: string | null }[]>`
-    SELECT stage, reopen_stage AS "reopenStage" FROM lead
-    WHERE id = ${input.leadId}::uuid AND deleted_at IS NULL
-    FOR UPDATE`;
-  if (locked === undefined) throw new DomainError("NOT_FOUND", "NOT_FOUND", "No such lead");
+  const locked = await lockLead(tx, input.leadId);
   // Whose lead it is, read under the lock: a reassign that committed while this waited decides it.
   const lead = await findLeadInScope(tx, access, input.leadId);
-  if (isOpenStage(leadStage.parse(locked.stage))) return;
+  if (isOpenStage(locked.stage)) return;
   const stage = locked.reopenStage === null ? "new" : openLeadStage.parse(locked.reopenStage);
   await changeLeadStage(tx, access, { leadId: lead.id, stage }, now);
 }

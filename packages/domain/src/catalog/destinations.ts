@@ -143,15 +143,17 @@ export async function renameDestination(tx: OrgTx, actor: Actor, input: RenameDe
 }
 
 /**
- * Both destinations, their rows locked in id order (so merges of A into B and B into A at once wait for each other
- * rather than deadlock), each read after the other's change committed; null for one that is missing or deleted.
+ * Locks both destinations, in id order (so merges of A into B and B into A at once wait for each other rather than
+ * deadlock), each read after the other's change committed, and gives their names by id; null when either is missing
+ * or deleted. FOR NO KEY UPDATE, not FOR UPDATE: a trip that names one of them takes KEY SHARE on it, which this lets
+ * through, so a trip edit holding a lead the merge must move never deadlocks with the merge.
  */
-async function lockLivePair(tx: OrgTx, ids: readonly [string, string]): Promise<Map<string, string> | null> {
+async function lockBothLive(tx: OrgTx, ids: readonly [string, string]): Promise<Map<string, string> | null> {
   const rows = await tx.$queryRaw<{ id: string; name: string; live: boolean }[]>`
     SELECT id, name, deleted_at IS NULL AS live FROM destination
     WHERE id IN (${ids[0]}::uuid, ${ids[1]}::uuid)
     ORDER BY id
-    FOR UPDATE`;
+    FOR NO KEY UPDATE`;
   const live = rows.filter((row) => row.live);
   return live.length === 2 ? new Map(live.map((row) => [row.id, row.name])) : null;
 }
@@ -168,7 +170,7 @@ export async function mergeDestination(
   if (input.destinationId === input.intoDestinationId) {
     throw new DomainError("VALIDATION", "MERGE_INTO_ITSELF", "A destination can't be merged into itself");
   }
-  const names = await lockLivePair(tx, [input.destinationId, input.intoDestinationId]);
+  const names = await lockBothLive(tx, [input.destinationId, input.intoDestinationId]);
   const merged = names?.get(input.destinationId);
   const kept = names?.get(input.intoDestinationId);
   if (merged === undefined || kept === undefined) throw notFound();

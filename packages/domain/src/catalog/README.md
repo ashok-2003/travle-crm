@@ -16,7 +16,8 @@ module above it.
   (`DESTINATION_NAME_TAKEN`); a missing one is `NOT_FOUND`. Records `destination.renamed`.
 - `mergeDestination(tx, actor, { destinationId, intoDestinationId })`: deletes the first and points it at the second
   (`MERGE_INTO_ITSELF`, `NOT_FOUND`). Records `destination.merged`. Call crm's `mergeDestinations`, which also moves
-  the leads and repeat enquiries.
+  the leads and repeat enquiries. Both rows are locked `FOR NO KEY UPDATE`, in id order: a trip naming one of them
+  (its key check takes `KEY SHARE`) goes through rather than deadlock with the merge moving its lead.
 - `destinationNames(tx, ids)`: names by id, deleted and merged ones included, for pages that show old records.
 
 Renaming and merging need `settings:manage`; searching needs `leads:view` (the api checks both).

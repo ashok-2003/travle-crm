@@ -15,7 +15,7 @@ import { changeLeadOwner } from "./lead-core.js";
 
 /**
  * Leads, or tasks, handled in one transaction. Each loop runs until a batch selects nothing: a batch that comes back
- * short may still leave work, since FOR UPDATE drops a row a concurrent change made stop matching, and a row that
+ * short may still leave work, since the row lock drops a row a concurrent change made stop matching, and a row that
  * started matching meanwhile wasn't in the batch's snapshot.
  *
  * The size is not R37's 200: under a loaded database one batch of 200 ran past the 5 seconds, and a batch that can't
@@ -34,9 +34,10 @@ interface HandOver {
 }
 
 /**
- * Locks the member's live leads that match, in id order, and gives each to the Owner. FOR UPDATE makes Postgres check
+ * Locks the member's live leads that match, in id order, and gives each to the Owner. The lock makes Postgres check
  * the condition again on a row another transaction was changing: a lead a manager reassigned or closed meanwhile no
- * longer matches once that change commits, and keeps it.
+ * longer matches once that change commits, and keeps it. FOR NO KEY UPDATE, as lead-core's lockLead, so a Done
+ * writing a timeline entry on one of these leads isn't blocked while the hand-over waits for its task.
  */
 async function moveLockedLeads(tx: OrgTx, actor: Actor, handOver: HandOver, matching: Sql): Promise<number> {
   const leads = await tx.$queryRaw<{ id: string }[]>`
@@ -44,7 +45,7 @@ async function moveLockedLeads(tx: OrgTx, actor: Actor, handOver: HandOver, matc
     WHERE owner_user_id = ${handOver.fromUserId}::uuid AND deleted_at IS NULL AND ${matching}
     ORDER BY id
     LIMIT ${HAND_OVER_BATCH}
-    FOR UPDATE`;
+    FOR NO KEY UPDATE`;
   // One at a time: each change moves its lead's open tasks with it (P9).
   for (const lead of leads) await changeLeadOwner(tx, actor, { leadId: lead.id, ownerUserId: handOver.toUserId });
   return leads.length;

@@ -12,12 +12,20 @@ import { cancelOpenTasks, reassignOpenTasks } from "../tasks/index.js";
 import { recordCrmAudit } from "./crm-audit.js";
 import { recordLeadEvent } from "./lead-events.js";
 
-/** The live lead, its row locked until the transaction ends, so two changes at once apply one after the other. */
-async function lockLead(tx: OrgTx, leadId: string) {
-  const [lead] = await tx.$queryRaw<{ stage: string; firstReplyAt: Date | null; ownerUserId: string | null }[]>`
-    SELECT stage, first_reply_at AS "firstReplyAt", owner_user_id AS "ownerUserId"
+/**
+ * The live lead, its row locked until the transaction ends, so two changes at once apply one after the other, each
+ * reading the lead only once it holds it. FOR NO KEY UPDATE, not FOR UPDATE: every row inserted that points at the
+ * lead (a timeline entry, a note, a repeat enquiry) takes KEY SHARE on it, which this lets through. Done on a lead's
+ * task changes the task, then writes the timeline; a reassign or a close holding the lead FOR UPDATE, waiting for that
+ * task, would deadlock with it.
+ */
+export async function lockLead(tx: OrgTx, leadId: string) {
+  const [lead] = await tx.$queryRaw<
+    { stage: string; reopenStage: string | null; firstReplyAt: Date | null; ownerUserId: string | null }[]
+  >`
+    SELECT stage, reopen_stage AS "reopenStage", first_reply_at AS "firstReplyAt", owner_user_id AS "ownerUserId"
     FROM lead WHERE id = ${leadId}::uuid AND deleted_at IS NULL
-    FOR UPDATE`;
+    FOR NO KEY UPDATE`;
   if (lead === undefined) throw new DomainError("NOT_FOUND", "NOT_FOUND", "No such lead");
   return { ...lead, stage: leadStage.parse(lead.stage) };
 }
