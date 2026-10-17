@@ -171,7 +171,9 @@ describe("TodayScreen", () => {
     day = { ...busy(quietDay), sections: { overdue: [], "new-leads": [], "due-today": [] } };
     const api = renderToday();
     expect(await screen.findByText(words.nothing)).toBeVisible();
-    expect(screen.getByText("Fri 16 Oct · 0 things")).toBeVisible();
+    // The day alone: "0 things" right above "Nothing for today" would say it twice.
+    expect(screen.getByText("Fri 16 Oct")).toBeVisible();
+    expect(screen.queryByText(/0 things/)).toBeNull();
     expect(screen.queryByText(/overdue$/)).toBeNull();
     expect(screen.getByText(words.later)).toBeVisible();
     for (const section of Object.values(words.sections)) {

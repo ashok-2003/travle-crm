@@ -1,7 +1,7 @@
 "use client";
 
-// A search-as-you-type picker (R45): the registry combobox, a Command in a Popover, whose options the caller asks the
-// api for as the person types. What the search is doing (a hint before typing, searching, nothing found, or a
+// A search-as-you-type picker (R45): the registry combobox, a Command in a Popover opened from a field shaped as every
+// input, whose options the caller asks the api for as the person types. What the search is doing (a hint before typing, searching, nothing found, or a
 // refusal's sentence with Try again) is said in a status outside the listbox, so screen readers hear it change. The
 // caller holds the search (useComboboxSearch), asks the api with its query while it is open, and gives what came back.
 import { ChevronsUpDownIcon } from "lucide-react";
@@ -10,6 +10,7 @@ import { useState, type ReactNode } from "react";
 import type { FieldLinks } from "@/components/form-field";
 import { Button } from "@/components/ui/button";
 import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { InputGroup, InputGroupButton } from "@/components/ui/input-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useErrorMessage } from "@/lib/error-message";
 
@@ -83,18 +84,22 @@ export function SearchCombobox<Option>({
   };
   return (
     <Popover open={search.open} onOpenChange={search.setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          {...links}
-          variant="outline"
-          role="combobox"
-          aria-expanded={search.open}
-          className="h-auto min-h-11 w-full justify-between text-left font-normal whitespace-normal"
-        >
-          {chosen?.name ?? words.none}
-          <ChevronsUpDownIcon aria-hidden="true" />
-        </Button>
-      </PopoverTrigger>
+      {/* Shaped as every input (the registry InputGroup, as DateField is), so it reads as a field, not a button; the
+          trigger is the group's control, so the focus outline goes round the whole field. */}
+      <InputGroup>
+        <PopoverTrigger asChild>
+          <InputGroupButton
+            {...links}
+            data-slot="input-group-control"
+            role="combobox"
+            aria-expanded={search.open}
+            className="h-full flex-1 justify-between rounded-sm px-3 text-left text-base font-normal whitespace-normal"
+          >
+            <span className={chosen === null ? "text-muted-foreground" : undefined}>{chosen?.name ?? words.none}</span>
+            <ChevronsUpDownIcon aria-hidden="true" />
+          </InputGroupButton>
+        </PopoverTrigger>
+      </InputGroup>
       <PopoverContent align="start" className="w-(--radix-popover-trigger-width) p-0">
         <Command shouldFilter={false} label={words.search}>
           <CommandInput value={search.typed} onValueChange={search.setTyped} placeholder={words.search} />

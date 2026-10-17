@@ -58,8 +58,9 @@ export function TodayScreen() {
     if (summary.data) {
       const { counts } = summary.data;
       const shown = sections.filter((section) => counts[section.count] > 0);
+      // Sections stand further apart than the things inside them, so a section's title never reads as one more row.
       return (
-        <>
+        <div className="flex flex-col gap-10">
           {shown.length === 0 ? (
             <EmptyState icon={CalendarCheckIcon} message={t("nothing")} />
           ) : (
@@ -68,7 +69,7 @@ export function TodayScreen() {
             ))
           )}
           <p className="text-label text-muted-foreground">{t("later")}</p>
-        </>
+        </div>
       );
     }
     if (summary.isError) {

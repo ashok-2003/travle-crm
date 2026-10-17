@@ -78,7 +78,7 @@ export function TodayItem({ item }: { item: TodayItemData }) {
         </div>
         {description !== "" && <ItemDescription className="break-words script-leading">{description}</ItemDescription>}
       </ItemContent>
-      <ItemActions className="basis-full flex-col items-start gap-2 md:flex-row md:items-center">
+      <ItemActions className="basis-full flex-col items-start gap-2 md:flex-row md:items-start">
         {lead !== null && phone !== null && (
           <div className="flex flex-wrap gap-2">
             <CallButton phone={phone} name={lead.personName} variant="outline" />

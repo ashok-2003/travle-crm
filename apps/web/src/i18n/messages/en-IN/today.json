@@ -1,6 +1,6 @@
 {
   "title": "Today",
-  "intro": "{weekday} {day} · {count, plural, one {# thing} other {# things}}",
+  "intro": "{count, plural, =0 {{weekday} {day}} one {{weekday} {day} · # thing} other {{weekday} {day} · # things}}",
   "overdueCount": "{count} overdue",
   "loadFailed": "Today didn't load.",
   "nothing": "Nothing for today",
