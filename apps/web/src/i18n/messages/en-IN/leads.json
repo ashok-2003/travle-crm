@@ -249,7 +249,7 @@
     "notFound": "There's no lead here. It may have been removed.",
     "stageNamed": "Stage: {stage}",
     "moveTo": "Move to {stage}",
-    "tapToMove": "Tap a stage to move the lead there.",
+    "chooseToMove": "Choose a stage to move the lead there.",
     "moved": "Moved to {stage}",
     "reopen": "Reopen",
     "reopenReturns": "Reopen returns it to {stage}.",
@@ -342,7 +342,7 @@
       "childrenAges": "{children} ({ages})",
       "perPerson": "<number>{amount}</number> per person",
       "forEveryone": "<number>{amount}</number> for everyone",
-      "about": "About {amount} for everyone",
+      "about": "About <number>{amount}</number> for everyone",
       "labels": {
         "destination": "Destination",
         "when": "When",

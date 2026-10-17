@@ -1,7 +1,7 @@
 "use client";
 
 // A lead's stage (spec 3.4, R30, R31, P2): the bar New → Contacted → Quote sent → Booking requested → Won, five 44px
-// steps each over its segment of Progress, filled up to the current one, which is marked as the step. Tapping another
+// steps each over its segment of Progress, filled up to the current one, which is marked as the step. Choosing another
 // moves the lead there, forwards or back (Won is on the bar, so a won lead moves freely). A Lost or Not a lead lead
 // shows its badge and Reopen in place of the bar, which returns it to the open stage it had before. The section is named
 // with the current stage and each step says where it moves the lead, for screen readers. A refusal shows its sentence
@@ -113,7 +113,7 @@ export function StageBar({ lead }: { lead: LeadDetail }) {
           </li>
         ))}
       </ol>
-      {canEdit && <p className="text-caption text-muted-foreground">{t("lead.tapToMove")}</p>}
+      {canEdit && <p className="text-caption text-muted-foreground">{t("lead.chooseToMove")}</p>}
       <WriteHint id={hintId} hint={canEdit ? write.hint : null} />
       {refusal}
     </section>

@@ -69,9 +69,12 @@ export function TripCard({ lead }: { lead: LeadDetail }) {
         number: (chunks) => <span className="numbers">{chunks}</span>,
       })
     : notAsked;
-  const everyone =
+  const everyone: ReactNode =
     budget?.basis === "per_person" && headcount > 0
-      ? t("lead.trip.about", { amount: formatRupees(multiply(money(budget.amount.amountPaise), headcount)) })
+      ? t.rich("lead.trip.about", {
+          amount: formatRupees(multiply(money(budget.amount.amountPaise), headcount)),
+          number: (chunks) => <span className="numbers">{chunks}</span>,
+        })
       : undefined;
   const asked = (key: "departureCity" | "tripType" | "hotelCategory" | "food" | "roomType", value: string | null) =>
     value === null ? [] : [{ label: t(`lead.trip.labels.${key}`), value }];
@@ -79,7 +82,7 @@ export function TripCard({ lead }: { lead: LeadDetail }) {
     { label: label("destination"), value: trip.destination?.name ?? notAsked },
     { label: label("when"), value: words.when(trip.when) ?? notAsked },
     { label: label("travellers"), value: words.travellers(trip) ?? notAsked },
-    { label: label("budget"), value: budgetValue, ...(everyone && { hint: everyone }) },
+    { label: label("budget"), value: budgetValue, ...(everyone === undefined ? {} : { hint: everyone }) },
     ...asked("departureCity", trip.departureCity),
     ...asked("tripType", trip.tripType && t(`tripTypes.${trip.tripType}`)),
     ...asked("hotelCategory", trip.hotelCategory && t(`hotelCategories.${trip.hotelCategory}`)),
