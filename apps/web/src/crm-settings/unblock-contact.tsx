@@ -1,0 +1,59 @@
+"use client";
+
+// Unblock on one blocked contact (spec 3.6, R33): asks first (ConfirmDialog, which holds while the request is out),
+// then takes it off the list, which loads again. A change the subscription may refuse: then the button is off and says
+// why (ADR 0021).
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
+import { useId, useState } from "react";
+import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { Button } from "@/components/ui/button";
+import { useTRPC } from "@/data/trpc";
+import { useWriteAccess } from "@/subscription/write-access";
+import { WriteHint } from "@/subscription/write-hint";
+
+export function UnblockContact({ contactId, shown }: { contactId: string; shown: string }) {
+  const t = useTranslations("settings.blockedContacts.unblock");
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const write = useWriteAccess();
+  const hintId = useId();
+  const [open, setOpen] = useState(false);
+  const unblock = useMutation(
+    trpc.blockedContacts.unblock.mutationOptions({
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: trpc.blockedContacts.pathKey() });
+        toast.success(t("done"));
+        setOpen(false);
+      },
+    }),
+  );
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <Button
+        variant="outline"
+        aria-label={t("actionFor", { value: shown })}
+        aria-describedby={write.hint === null ? undefined : hintId}
+        disabled={!write.allowed}
+        onClick={() => {
+          setOpen(true);
+        }}
+      >
+        {t("action")}
+      </Button>
+      <WriteHint id={hintId} hint={write.hint} />
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        title={t("title", { value: shown })}
+        description={t("description")}
+        action={t("action")}
+        request={unblock}
+        onConfirm={() => {
+          unblock.mutate({ blockedContactId: contactId });
+        }}
+      />
+    </div>
+  );
+}
