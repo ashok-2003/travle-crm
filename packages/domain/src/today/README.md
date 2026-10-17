@@ -14,4 +14,5 @@ Both need `leads:view` (the api checks) and show the person's own items, whateve
 due before now; due today runs from now to the agency's next midnight (`organizationTimeZone`), so at 00:05
 yesterday's undone follow-up is overdue and at 23:50 one due at 00:10 is not today's. New leads are the person's
 leads in New, oldest first (crm's `newLeadsWaiting`, over `lead_new_by_owner`); each task on a lead brings the lead in
-brief (crm's `leadBriefs`). Every section pages by the last item's id, never by offset.
+brief (crm's `leadBriefs`), unless it is a lead the person's scope doesn't reach. Every section pages by the last
+item's id, never by offset.

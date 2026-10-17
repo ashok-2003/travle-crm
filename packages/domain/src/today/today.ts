@@ -22,20 +22,22 @@ async function dayAt(tx: OrgTx, access: MemberAccess, now: Date): Promise<{ day:
   return { day, endsAt: startOfDayIn(addDays(day, 1), timeZone) };
 }
 
-/** Each task with its lead in brief, when it is on a lead that is still there. */
-async function taskItems(tx: OrgTx, tasks: Task[]): Promise<TodayItem[]> {
+/** Each task with its lead in brief, when it is on a lead that is still there and the member may see. */
+async function taskItems(tx: OrgTx, access: MemberAccess, tasks: Task[]): Promise<TodayItem[]> {
   const leadIdOf = (task: Task) => (task.record?.recordType === "lead" ? task.record.recordId : null);
   const leads = await leadBriefs(
     tx,
+    access,
     tasks.flatMap((task) => leadIdOf(task) ?? []),
   );
   return tasks.map((task) => ({ kind: "task", task, lead: leads.get(leadIdOf(task) ?? "") ?? null }));
 }
 
 /** New leads in brief, each with the moment it came in. */
-async function newLeadItems(tx: OrgTx, waiting: NewLeadWaiting[]): Promise<TodayItem[]> {
+async function newLeadItems(tx: OrgTx, access: MemberAccess, waiting: NewLeadWaiting[]): Promise<TodayItem[]> {
   const leads = await leadBriefs(
     tx,
+    access,
     waiting.map(({ leadId }) => leadId),
   );
   return waiting.flatMap(({ leadId, waitingSince }) => {
@@ -56,11 +58,13 @@ async function sectionItems(
   const assigneeUserId = access.userId;
   switch (section) {
     case "overdue":
-      return taskItems(tx, await listOpenTasks(tx, { assigneeUserId, dueBefore: now, ...cursor }));
+      return taskItems(tx, access, await listOpenTasks(tx, { assigneeUserId, dueBefore: now, ...cursor }));
     case "new-leads":
-      return newLeadItems(tx, await newLeadsWaiting(tx, { ownerUserId: access.userId, ...cursor }));
-    case "due-today":
-      return taskItems(tx, await listOpenTasks(tx, { assigneeUserId, dueFrom: now, dueBefore: endsAt, ...cursor }));
+      return newLeadItems(tx, access, await newLeadsWaiting(tx, { ownerUserId: access.userId, ...cursor }));
+    case "due-today": {
+      const dueToday = { assigneeUserId, dueFrom: now, dueBefore: endsAt, ...cursor };
+      return taskItems(tx, access, await listOpenTasks(tx, dueToday));
+    }
   }
 }
 

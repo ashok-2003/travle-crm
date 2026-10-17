@@ -18,6 +18,12 @@ export interface OrgTableFixture {
    */
   appendOnly?: boolean;
   /**
+   * For a table whose rows the runtime role may change but never delete, though it isn't soft-deleted: they end some
+   * other way (a task done or cancelled) or stay, and only the platform role's erasure and purge remove them. The
+   * isolation suite then expects a DELETE to be refused outright.
+   */
+  undeletable?: boolean;
+  /**
    * For a table whose organization_id the runtime role may not update (column-level grants), a column it may update:
    * the isolation suite checks another organization can't update that one, and can't move the row at all.
    */

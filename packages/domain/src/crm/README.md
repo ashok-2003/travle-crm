@@ -11,7 +11,9 @@ below it, never today above it (`business-modules-call-down`).
   owner, R21), the timeline entry, the audit entry (`lead.stage-changed`, or `lead.reopened` for a closed lead moved to
   an open stage; `lead.reassigned`), the event, and "New lead assigned to you" when a person, not the system, makes
   someone else the owner (`notifyLeadAssigned`, R27). Each returns false and records nothing when nothing changes
-  (R31). The caller checks who may make the change.
+  (R31). The caller checks who may make the change. Both hold the lead with `lockLead`, which Reopen and a new
+  follow-up use too: `FOR NO KEY UPDATE`, never `FOR UPDATE`, which would block the `KEY SHARE` every row pointing at
+  the lead takes as it is inserted, and deadlock with a Done that changed the task first.
 - `crm-audit.ts`: `recordCrmAudit(tx, actor, change)`, with every action crm records, by record kind: `person.*`,
   `lead.*` and `blocked-contact.*`. Snapshots never hold note text, task titles or a blocked contact's value (R28).
 - `lead-events.ts`: `recordLeadEvent(tx, actor, entry)`, one timeline entry. The api writes "follow-up done" through
@@ -46,15 +48,16 @@ below it, never today above it (`business-modules-call-down`).
   `reassignLead`, through `lead-core.ts`.
 - `lead-edits.ts`: `editLeadTrip` (replaced whole, "trip edited" on the timeline) and `editLeadPerson`
   (`CONTACT_ON_ANOTHER_PERSON` for a contact another person holds).
-- `lead-work.ts`: `addLeadWork`, a follow-up or task on the lead, always its owner's (R21), at a time on the agency's
-  clock, never in the past.
+- `lead-work.ts`: `addLeadWork`, a follow-up or task on the lead, always its owner's (R21, read under the lead's lock),
+  at a time on the agency's clock, never in the past.
 - `blocking.ts`: `blockLeadContact` (the phone, else the email, else the handle, and the lead becomes Not a lead,
   R33), `addBlockedContact`, `listBlockedContacts`, `unblockContact`, `isBlocked`.
 
 ## Today, a member leaving, erasure and the demo
 
 - `work-queries.ts`: what Today reads: `newLeadsWaitingQuery` and `newLeadsWaiting` (one person's leads still in New,
-  oldest first), `countNewLeadsWaiting`, and `leadBriefs` (a lead's name and trip line for Today's rows).
+  oldest first), `countNewLeadsWaiting`, and `leadBriefs` (a lead's name and trip line for Today's rows, for leads in
+  the member's scope only).
 - `departing-member.ts`: `handOverDepartingMemberListener` on `staff.removed` (`crm.hand-over-departing-member`): the
   leaver's open leads, then their closed leads that still hold open work, then their standalone tasks go to the first
   Owner, 50 in a locked batch, until a batch selects none; the system's change, telling nobody (R27, R37).

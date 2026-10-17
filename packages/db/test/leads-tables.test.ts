@@ -50,9 +50,17 @@ describe("the leads tables", () => {
     await platform.$disconnect();
   });
 
-  it("creates pg_trgm and btree_gist", async () => {
-    const rows = await platform.$queryRaw<{ extname: string }[]>`SELECT extname FROM pg_extension`;
-    expect(rows.map((row) => row.extname)).toEqual(expect.arrayContaining(["btree_gist", "pg_trgm"]));
+  it("creates pg_trgm and btree_gist in the migration, as the migrator", async () => {
+    // bootstrap.sql leaves them to the leads_by_hand migration, so tests run the CREATE EXTENSION a hosted database's
+    // first migrate runs, as app_migrator: an extension belongs to the role that created it.
+    const rows = await platform.$queryRaw<{ extname: string; owner: string }[]>`
+      SELECT e.extname, r.rolname AS owner FROM pg_extension e JOIN pg_roles r ON r.oid = e.extowner
+      WHERE e.extname IN ('btree_gist', 'pg_trgm')
+      ORDER BY e.extname`;
+    expect(rows).toEqual([
+      { extname: "btree_gist", owner: "app_migrator" },
+      { extname: "pg_trgm", owner: "app_migrator" },
+    ]);
   });
 
   it("gives each table a unique (organization_id, id), for keys from later tables", async () => {

@@ -1,10 +1,12 @@
 // What Today reads from crm (spec 3.5, R35): one person's leads still in New, oldest first, as composable SQL over
 // lead_new_by_owner (R11: the performance tests EXPLAIN the exact query), and the brief line each lead shows beside
-// its task: the person's name and phone, the trip in one line and the source.
+// its task: the person's name and phone, the trip in one line and the source, for the leads the member may see.
 import { leadSource } from "@travel-crm/contracts/crm";
 import type { LeadBrief } from "@travel-crm/contracts/today";
 import { emptySql, sql, type OrgTx, type Sql } from "@travel-crm/db";
 import { destinationNames } from "../catalog/index.js";
+import type { MemberAccess } from "../identity/index.js";
+import { isLeadInScope } from "./lead-detail.js";
 import { tripColumnNames, tripSummaryOf } from "./trip-columns.js";
 
 export interface NewLeadsWaitingFilter {
@@ -47,13 +49,28 @@ export async function countNewLeadsWaiting(tx: OrgTx, ownerUserId: string): Prom
   return row?.n ?? 0;
 }
 
-/** The live leads among the ids, each in brief; a lead that is gone (erased) is left out. */
-export async function leadBriefs(tx: OrgTx, leadIds: readonly string[]): Promise<Map<string, LeadBrief>> {
+/**
+ * The live leads among the ids that the member's leads:view scope reaches, each in brief. A lead that is gone (erased)
+ * is left out, and so is one the member can't see (R26): a task of theirs may sit on someone else's lead, and its
+ * person's name and phone are not theirs to read.
+ */
+export async function leadBriefs(
+  tx: OrgTx,
+  access: MemberAccess,
+  leadIds: readonly string[],
+): Promise<Map<string, LeadBrief>> {
   if (leadIds.length === 0) return new Map();
-  const leads = await tx.lead.findMany({
+  const found = await tx.lead.findMany({
     where: { id: { in: [...new Set(leadIds)] } },
-    select: { id: true, source: true, person: { select: { name: true, phoneE164: true } }, ...tripColumnNames },
+    select: {
+      id: true,
+      ownerUserId: true,
+      source: true,
+      person: { select: { name: true, phoneE164: true } },
+      ...tripColumnNames,
+    },
   });
+  const leads = found.filter((lead) => isLeadInScope(access, lead.ownerUserId));
   const names = await destinationNames(
     tx,
     leads.flatMap((lead) => lead.destinationId ?? []),

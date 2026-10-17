@@ -100,6 +100,34 @@ describe("destinations", () => {
     ).rejects.toMatchObject({ code: "NOT_FOUND", reason: "NOT_FOUND" });
   });
 
+  it("refuses the second of two renames to one name at once: DESTINATION_NAME_TAKEN", async () => {
+    const [pahalgam, sonamarg] = await inOrg(async (tx) => [
+      await findOrAddDestination(tx, owner, "Pahalgam"),
+      await findOrAddDestination(tx, owner, "Sonamarg"),
+    ]);
+    let release: () => void = () => undefined;
+    const mayCommit = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let firstRenamed: (holder: number) => void = () => undefined;
+    const renamed = new Promise<number>((resolve) => {
+      firstRenamed = resolve;
+    });
+    const first = inOrg(async (tx) => {
+      await renameDestination(tx, owner, { destinationId: pahalgam.id, name: "Betaab Valley" });
+      firstRenamed(await backendPid(tx));
+      await mayCommit;
+    });
+    const holder = await renamed;
+    // The second read no live "Betaab Valley" before the first committed, so its save meets the live-name index.
+    const second = inOrg((tx) => renameDestination(tx, owner, { destinationId: sonamarg.id, name: "betaab valley" }));
+    await waitUntilBlockedBy(platform, holder);
+    release();
+    await first;
+    await expect(second).rejects.toMatchObject({ code: "CONFLICT", reason: "DESTINATION_NAME_TAKEN" });
+    expect(await inOrg((tx) => destinationById(tx, sonamarg.id))).toEqual(sonamarg);
+  });
+
   it("merges: leads and repeat enquiries move, the old one is gone from search", async () => {
     const ladakh = await inOrg((tx) => findOrAddDestination(tx, owner, "Ladakh"));
     const leh = await inOrg((tx) => findOrAddDestination(tx, owner, "Leh Ladakh"));

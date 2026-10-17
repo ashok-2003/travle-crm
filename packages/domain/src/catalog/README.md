@@ -13,10 +13,12 @@ module above it.
 - `searchDestinations(tx, { query?, limit })`: live destinations alphabetically, by part of the name or a near miss
   (`pg_trgm`'s word similarity, `<%`); `%` and `_` are letters.
 - `renameDestination(tx, actor, { destinationId, name })`: refuses a name another live destination has in any case
-  (`DESTINATION_NAME_TAKEN`); a missing one is `NOT_FOUND`. Records `destination.renamed`.
+  (`DESTINATION_NAME_TAKEN`), also when another destination is renamed to it at the same moment; a missing one is
+  `NOT_FOUND`. Records `destination.renamed`.
 - `mergeDestination(tx, actor, { destinationId, intoDestinationId })`: deletes the first and points it at the second
   (`MERGE_INTO_ITSELF`, `NOT_FOUND`). Records `destination.merged`. Call crm's `mergeDestinations`, which also moves
-  the leads and repeat enquiries.
+  the leads and repeat enquiries. Both rows are locked `FOR NO KEY UPDATE`, in id order: a trip naming one of them
+  (its key check takes `KEY SHARE`) goes through rather than deadlock with the merge moving its lead.
 - `destinationNames(tx, ids)`: names by id, deleted and merged ones included, for pages that show old records.
 
 Renaming and merging need `settings:manage`; searching needs `leads:view` (the api checks both).
