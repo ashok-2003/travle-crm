@@ -219,8 +219,7 @@
       "searching": "Searching",
       "noMatch": "No destination matches.",
       "add": "Add “{name}”",
-      "clear": "No destination",
-      "loadFailed": "The destinations didn't load."
+      "clear": "No destination"
     },
     "problems": {
       "required": "Fill this in.",

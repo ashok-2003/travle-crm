@@ -266,7 +266,8 @@ A screen builds from the shared pieces in `apps/web/src/` before writing its own
   `SelectField`, `ChoiceField` (a few radios, `inline` side by side), `GstStateField`, `DueField`; and
   `useRefusalOnField`, which says a refusal about one field (a time already past) on that field.
 - **Pickers:** `SearchCombobox` with `useComboboxSearch` (`components/search-combobox.tsx`), the registry Command in a
-  Popover, for every search-as-you-type picker (a lead, a destination to keep).
+  Popover, for every search-as-you-type picker (a lead, a destination, a destination to keep); `clearLabel` offers
+  choosing nothing again, and `extraOption` one option of the caller's own (a destination's 'Add "Spiti"').
 - **Lists and records:** `useCursorPages` (`data/use-cursor-pages.ts`) with `ShowMoreButton` for every cursor list;
   `AuditChange` and `StoredValue` for an audit entry's before and after.
 - **Words:** `lib/format.ts`'s `formatDayTime` and `formatPhoneNumber`, and `useInstantText`
