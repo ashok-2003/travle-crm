@@ -1,6 +1,6 @@
 // The demo agency's sample data (spec 7): its six destinations, eleven people and thirteen leads, each lead timed from
 // the reset's `now` on the agency's clock. Every stage is here; Priya Nair returns after a Won trip to Kerala, Arjun
-// Reddy after a Lost one, and the Quick Loans Desk is Not a lead with its phone blocked. Notes on four leads;
+// Reddy after a Lost one, and the Quick Loans Desk is Not a lead with its email blocked. Notes on four leads;
 // follow-ups two overdue, three due today, two later. demo-leads.ts builds them.
 import type { LeadSource, LeadStage, TripInput } from "@travel-crm/contracts/crm";
 import { addDays, calendarDateIn, instantAt, parseTimeOfDay, startOfDayIn } from "../kernel/index.js";
@@ -8,18 +8,26 @@ import { addDays, calendarDateIn, instantAt, parseTimeOfDay, startOfDayIn } from
 export const DESTINATIONS = ["Kashmir", "Goa", "Kerala", "Manali", "Andaman", "Rajasthan"] as const;
 type DemoDestination = (typeof DESTINATIONS)[number];
 
+/** The spam caller's contact, which the demo blocks. */
+export const BLOCKED_EMAIL = "loans.desk@example.com";
+
+/**
+ * The demo's customers. One phone only, the owner's own (their choice), on the customer the demo shows most: a
+ * returning customer with an open lead and a follow-up due today. Everyone else has an email on example.com or an
+ * Instagram handle, so no demo screen shows, calls or messages a stranger's number.
+ */
 export const PEOPLE = [
-  { name: "Rahul Sharma", phone: "+919811023402" },
+  { name: "Rahul Sharma", email: "rahul.sharma@example.com" },
   { name: "Kavya Menon", email: "kavya.menon@example.com" },
-  { name: "Sneha Patel", phone: "+919825034503", instagramHandle: "sneha.travels" },
-  { name: "Vikram Singh", phone: "+919810056705" },
-  { name: "Priya Nair", phone: "+919845012301", email: "priya.nair@example.com" },
-  { name: "Ananya Iyer", phone: "+919840067806" },
-  { name: "Rohan Gupta", phone: "+919820078907" },
-  { name: "Arjun Reddy", phone: "+919849045604" },
+  { name: "Sneha Patel", instagramHandle: "sneha.travels" },
+  { name: "Vikram Singh", email: "vikram.singh@example.com" },
+  { name: "Priya Nair", phone: "+918538953742", email: "priya.nair@example.com" },
+  { name: "Ananya Iyer", email: "ananya.iyer@example.com" },
+  { name: "Rohan Gupta", instagramHandle: "rohan.goa.trips" },
+  { name: "Arjun Reddy", email: "arjun.reddy@example.com" },
   { name: "Meera Joshi", instagramHandle: "meera.wanders" },
-  { name: "Farhan Qureshi", phone: "+919830089008" },
-  { name: "Quick Loans Desk", phone: "+919999012345" },
+  { name: "Farhan Qureshi", email: "farhan.qureshi@example.com" },
+  { name: "Quick Loans Desk", email: BLOCKED_EMAIL },
 ] as const;
 type DemoPerson = (typeof PEOPLE)[number]["name"];
 

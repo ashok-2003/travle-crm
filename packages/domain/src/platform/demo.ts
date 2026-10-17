@@ -49,7 +49,8 @@ const DEMO_PROFILE = saveOrganizationProfileInput.parse({
   gstStateCode: "27",
   address: "4th floor, Sea View Chambers, Linking Road, Bandra West, Mumbai 400050",
   contactName: "Asha Mehta",
-  contactPhone: "+91 98200 12345",
+  // The owner's own number, as on the demo's one customer with a phone: no demo screen shows a stranger's.
+  contactPhone: "+918538953742",
   bankAccountName: "Demo Holidays Private Limited",
   bankAccountNumber: "000123456789",
   bankIfsc: "HDFC0000001",

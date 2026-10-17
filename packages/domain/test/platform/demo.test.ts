@@ -9,6 +9,7 @@ import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { findOrganizationRecord } from "../../src/identity/index.js";
 import { addDays, calendarDateIn, startOfDayIn } from "../../src/kernel/index.js";
+import { findKnownContact } from "../../src/crm/index.js";
 import { todaySummary } from "../../src/today/index.js";
 import {
   listPlatformLog,
@@ -84,7 +85,9 @@ describe("the demo reset", () => {
         select: { id: true, personId: true, stage: true, ownerUserId: true, returning: true, createdAt: true },
         orderBy: { id: "asc" },
       }),
-      people: await tx.person.findMany({ select: { id: true, phoneE164: true } }),
+      people: await tx.person.findMany({
+        select: { id: true, name: true, phoneE164: true, email: true, instagramHandle: true },
+      }),
       destinations: await tx.destination.count(),
       notedLeads: (await tx.leadNote.groupBy({ by: ["leadId"] })).length,
       blocked: await tx.blockedContact.findMany({ select: { kind: true, value: true } }),
@@ -108,16 +111,64 @@ describe("the demo reset", () => {
           earlier.personId === lead.personId && earlier.stage === "won" && earlier.createdAt < lead.createdAt,
       );
     expect(data.leads.filter((lead) => lead.returning && wonBefore(lead))).toHaveLength(1);
-    const blockedPhones = new Set(data.blocked.filter((entry) => entry.kind === "phone").map((entry) => entry.value));
-    const blockedLeads = data.leads.filter((lead) => {
-      const phone = data.people.find((person) => person.id === lead.personId)?.phoneE164;
-      return phone !== undefined && phone !== null && blockedPhones.has(phone);
-    });
+    // The blocked customer is found by the contact they gave: an email, as they have no phone.
+    const contactsOf = (personId: string) => {
+      const person = data.people.find((candidate) => candidate.id === personId);
+      return [
+        ["phone", person?.phoneE164],
+        ["email", person?.email],
+        ["instagram", person?.instagramHandle],
+      ].flatMap(([kind, value]) => (value === null || value === undefined ? [] : [`${kind ?? ""}:${value}`]));
+    };
+    const blocked = new Set(data.blocked.map((entry) => `${entry.kind}:${entry.value}`));
+    const blockedLeads = data.leads.filter((lead) => contactsOf(lead.personId).some((contact) => blocked.has(contact)));
     expect(blockedLeads.map((lead) => lead.stage)).toEqual(["not_a_lead"]);
+    expect([...blocked]).toEqual([expect.stringMatching(/^email:.+@example\.com$/) as unknown]);
     expect(data.notedLeads).toBe(4);
     expect(data.tasks.filter((task) => task.kind === "follow-up" && task.recordType === "lead")).toHaveLength(7);
     expect(data.tasks.filter((task) => task.recordType === null)).toHaveLength(2);
     expect(data.tasks.every((task) => task.assigneeUserId === asha || task.assigneeUserId === ravi)).toBe(true);
+  });
+
+  it("gives the owner's own number to one customer with an open lead and follow-ups, and no phone to anyone else", async () => {
+    const { organizationId } = await resetDemoOrganization(test.services, demoSettings());
+    const data = await demoData(organizationId);
+    const withPhones = data.people.filter((person) => person.phoneE164 !== null);
+    expect(withPhones.map((person) => [person.name, person.phoneE164])).toEqual([["Priya Nair", "+918538953742"]]);
+    const priyasOpenLeads = data.leads.filter(
+      (lead) => lead.personId === withPhones[0]?.id && !["won", "lost", "not_a_lead"].includes(lead.stage),
+    );
+    expect(priyasOpenLeads).toHaveLength(1);
+    const followUps = await test.services.db.forOrg(organizationId, (tx) =>
+      tx.task.count({ where: { recordId: priyasOpenLeads[0]?.id ?? "", kind: "follow-up", doneAt: null } }),
+    );
+    expect(followUps).toBeGreaterThan(0);
+    for (const person of data.people.filter((candidate) => candidate.phoneE164 === null)) {
+      const email = person.email === null || person.email.endsWith("@example.com");
+      expect(email && (person.email !== null || person.instagramHandle !== null), person.name).toBe(true);
+    }
+    const profile = await test.services.db.forOrg(organizationId, (tx) => getOrganizationProfile(tx, organizationId));
+    expect(profile?.contactPhone).toBe("+918538953742");
+  });
+
+  it("finds the returning and the blocked customers by their email, as the new-lead form asks", async () => {
+    const { organizationId } = await resetDemoOrganization(test.services, demoSettings());
+    const ravi = (await demoUsers(organizationId)).get("ravi") ?? "";
+    const access = await memberAccessOf(test.identity.identity, ravi, organizationId);
+    const known = (email: string) =>
+      test.services.db.forOrg(organizationId, (tx) => findKnownContact(tx, access, { email }));
+    expect(await known("priya.nair@example.com")).toMatchObject({
+      blocked: false,
+      match: { personName: "Priya Nair", matchedBy: "email", openLead: { destinationName: "Kashmir" } },
+    });
+    expect(await known("arjun.reddy@example.com")).toMatchObject({
+      blocked: false,
+      match: { personName: "Arjun Reddy", matchedBy: "email", openLead: { destinationName: "Andaman" } },
+    });
+    expect(await known("loans.desk@example.com")).toMatchObject({
+      blocked: true,
+      match: { personName: "Quick Loans Desk", matchedBy: "email", openLead: null },
+    });
   });
 
   it("gives Ravi's Today an overdue follow-up, a new lead and one due today", async () => {

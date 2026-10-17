@@ -9,7 +9,7 @@ import { addDays, calendarDateIn, instantAt, parseTimeOfDay, type Actor } from "
 import { createTask } from "../tasks/index.js";
 import { addBlockedContact } from "./blocking.js";
 import { addLeadInTransaction } from "./create-lead.js";
-import { DESTINATIONS, PEOPLE, demoLeads } from "./demo-lead-data.js";
+import { BLOCKED_EMAIL, DESTINATIONS, PEOPLE, demoLeads } from "./demo-lead-data.js";
 import { recordLeadEvent } from "./lead-events.js";
 import { addPerson } from "./people.js";
 
@@ -31,8 +31,7 @@ export async function addDemoLeads(
   for (const name of DESTINATIONS) destinations.set(name, (await findOrAddDestination(tx, actor, name)).id);
   const people = new Map<string, string>();
   for (const person of PEOPLE) people.set(person.name, (await addPerson(tx, actor, person)).id);
-  const spam = PEOPLE.find((person) => person.name === "Quick Loans Desk");
-  if (spam !== undefined) await addBlockedContact(tx, actor, { kind: "phone", value: spam.phone });
+  await addBlockedContact(tx, actor, { kind: "email", value: BLOCKED_EMAIL });
 
   // Oldest first: Today lists new leads in the order they were made.
   const leads = demoLeads(now, timeZone).sort(
