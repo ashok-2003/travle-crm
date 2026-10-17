@@ -13,7 +13,7 @@ import {
   leadWorkerAgency,
   moveStageThroughApi,
 } from "../support/leads";
-import { addOverdueFollowUp, laterToday } from "../support/work";
+import { addOverdueFollowUp, fillDue, laterToday } from "../support/work";
 import { openFromNavigation, screenshotsOnly, shoot } from "./camera";
 
 test.beforeEach(screenshotsOnly);
@@ -138,7 +138,7 @@ test("an Owner's day, its dialogs and Settings, and a salesperson's empty Today"
   await page.getByRole("button", { name: "Add a task" }).click();
   const adding = page.getByRole("dialog", { name: "Add a task" });
   await adding.getByLabel("What to do").fill("Collect the passport copies");
-  await adding.getByLabel("Time").fill((await laterToday(page, 180)).at);
+  await fillDue(adding, await laterToday(page, 180));
   await shoot(page, "today-add-task");
   await adding.getByRole("button", { name: "Cancel" }).click();
 
