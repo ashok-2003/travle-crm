@@ -11,6 +11,7 @@ import { checked } from "@/components/forms/checked";
 import { FormAlert, FormDialog, useFormDialog, type Sending } from "@/components/forms/form-dialog";
 import { TextField } from "@/components/forms/text-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
+import type { ReturnFocusTo } from "@/components/return-focus";
 import { useTRPC } from "@/data/trpc";
 import { useRefusalOnField } from "@/today/use-refusal-on-field";
 import { useRefreshDestinations } from "./use-destinations";
@@ -56,10 +57,13 @@ export function RenameDestinationDialog({
   destination,
   open,
   onOpenChange,
+  returnFocusTo,
 }: {
   destination: Destination;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The button that opened it, which takes the focus back when it closes. */
+  returnFocusTo: ReturnFocusTo;
 }) {
   const t = useTranslations("settings.destinations.rename");
   const trpc = useTRPC();
@@ -68,6 +72,7 @@ export function RenameDestinationDialog({
   const rename = useMutation(trpc.destinations.rename.mutationOptions({ onSuccess: dialog.onSuccess }));
   return (
     <FormDialog
+      returnFocusTo={returnFocusTo}
       dialog={dialog}
       sending={rename}
       title={t("title", { name: destination.name })}

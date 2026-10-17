@@ -15,6 +15,7 @@ import { FormField } from "@/components/form-field";
 import { checked, type Checked } from "@/components/forms/checked";
 import { FormAlert, FormDialog, type Sending } from "@/components/forms/form-dialog";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
+import type { ReturnFocusTo } from "@/components/return-focus";
 import { useTRPCClient } from "@/data/trpc";
 import { DestinationPicker } from "./destination-picker";
 import { useRefreshDestinations } from "./use-destinations";
@@ -77,10 +78,13 @@ export function MergeDestinationsDialog({
   destination,
   open,
   onOpenChange,
+  returnFocusTo,
 }: {
   destination: Destination;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The button that opened it, which takes the focus back when it closes. */
+  returnFocusTo: ReturnFocusTo;
 }) {
   const t = useTranslations("settings.destinations.merge");
   const client = useTRPCClient();
@@ -95,6 +99,7 @@ export function MergeDestinationsDialog({
   });
   return (
     <FormDialog
+      returnFocusTo={returnFocusTo}
       dialog={{ open, setOpen: onOpenChange }}
       sending={merge}
       title={t("title", { name: destination.name })}

@@ -5,7 +5,7 @@
 // why (ADR 0021).
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ export function UnblockContact({ contactId, shown }: { contactId: string; shown:
   const write = useWriteAccess();
   const hintId = useId();
   const [open, setOpen] = useState(false);
+  const opener = useRef<HTMLButtonElement>(null);
   const unblock = useMutation(
     trpc.blockedContacts.unblock.mutationOptions({
       onSuccess: async () => {
@@ -32,6 +33,7 @@ export function UnblockContact({ contactId, shown }: { contactId: string; shown:
   return (
     <div className="flex flex-col items-end gap-1">
       <Button
+        ref={opener}
         variant="outline"
         aria-label={t("actionFor", { value: shown })}
         aria-describedby={write.hint === null ? undefined : hintId}
@@ -46,6 +48,7 @@ export function UnblockContact({ contactId, shown }: { contactId: string; shown:
       <ConfirmDialog
         open={open}
         onOpenChange={setOpen}
+        returnFocusTo={opener}
         title={t("title", { value: shown })}
         description={t("description")}
         action={t("action")}
