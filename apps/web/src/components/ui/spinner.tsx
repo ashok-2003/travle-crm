@@ -1,4 +1,4 @@
-import { cn } from "cn";
+import { cn } from "@/lib/utils";
 import { Loader2Icon } from "lucide-react";
 
 // Decoration only: the app shows it inside busy buttons, whose own label says what is happening ("Signing in"). A

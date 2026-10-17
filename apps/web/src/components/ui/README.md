@@ -67,6 +67,11 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
   group; items at least 44px; its icons decoration. `CommandDialog` isn't used and isn't yet DESIGN.md's: its title and
   description ("Command Palette") are not messages. Make them messages before using it.
 
+- Class merging: every component imports `cn` from `@/lib/utils`, which knows the theme's own type sizes
+  (`text-caption`, `text-label`...), never from the `cn` package the CLI writes in; without them a size reads as a
+  colour and the colour beside it is dropped. Change the import after each `shadcn add`
+  (`test/lib/class-names.test.ts` fails until it is).
+
 shadcn's own `tailwind.css` is not a dependency: the state variants the components use (`data-open:`,
 `data-checked:`...) are copied into `globals.css`. Add to that list when a new component needs another.
 
