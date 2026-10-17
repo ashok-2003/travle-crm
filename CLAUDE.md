@@ -260,7 +260,10 @@ A screen builds from the shared pieces in `apps/web/src/` before writing its own
   and Radix returns the focus only to its own (`components/return-focus.ts`). FormDialog's own `trigger` needs none.
 - **Forms:** `FormField`, `DateField`, and `components/forms/`: `useCheckedForm` and `checked` (the contract's checks
   and a refusal's field errors), `TextField`, `MoneyField`, `PhoneField` (with `phoneAsTyped` for a stored number),
-  `SelectField`, `ChoiceField` (a few radios, `inline` side by side), `GstStateField`.
+  `SelectField`, `ChoiceField` (a few radios, `inline` side by side), `GstStateField`, `DueField`; and
+  `useRefusalOnField`, which says a refusal about one field (a time already past) on that field.
+- **Pickers:** `SearchCombobox` with `useComboboxSearch` (`components/search-combobox.tsx`), the registry Command in a
+  Popover, for every search-as-you-type picker (a lead, a destination to keep).
 - **Lists and records:** `useCursorPages` (`data/use-cursor-pages.ts`) with `ShowMoreButton` for every cursor list;
   `AuditChange` and `StoredValue` for an audit entry's before and after.
 - **Words:** `lib/format.ts`'s `formatDayTime` and `formatPhoneNumber`, and `useInstantText`

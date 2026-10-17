@@ -11,9 +11,9 @@ import { checked } from "@/components/forms/checked";
 import { FormAlert, FormDialog, useFormDialog, type Sending } from "@/components/forms/form-dialog";
 import { TextField } from "@/components/forms/text-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
+import { useRefusalOnField } from "@/components/forms/use-refusal-on-field";
 import type { ReturnFocusTo } from "@/components/return-focus";
 import { useTRPC } from "@/data/trpc";
-import { useRefusalOnField } from "@/today/use-refusal-on-field";
 import { useRefreshDestinations } from "./use-destinations";
 
 interface RenameValues {

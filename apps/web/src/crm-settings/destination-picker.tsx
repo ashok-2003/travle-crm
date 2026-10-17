@@ -7,8 +7,8 @@ import type { Destination } from "@travel-crm/contracts/catalog";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import type { FieldLinks } from "@/components/form-field";
+import { SearchCombobox, useComboboxSearch } from "@/components/search-combobox";
 import { useTRPC } from "@/data/trpc";
-import { SearchCombobox, useComboboxSearch } from "@/today/search-combobox";
 
 const RESULTS = 20;
 
