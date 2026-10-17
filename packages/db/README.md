@@ -67,6 +67,8 @@ gives the same roles' URLs for it; `drop()` it afterwards.
    the table's rows (like `outbox_event`): the suite then expects those statements to be refused outright. When the
    role may update only some columns (granted by name, like `outbox_event.relayed_at`), name one as `updatableColumn`,
    so another organization's update is tested on it. The suite reads the grants and fails when that is missing.
+   Mark it `undeletable: true` when the role may change the rows but not delete them, though the table isn't
+   soft-deleted (`task`, `lead_note`, `lead_enquiry`: their migration revokes DELETE from `app_runtime`).
 6. `pnpm check`. The isolation suite now covers the new table.
 
 Steps 3 and 5 are enforced: the tests fail if either is missing. Keys are checked too:

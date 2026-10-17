@@ -130,11 +130,11 @@ describe("organization isolation", () => {
     });
 
     it("cannot be deleted by another organization", async () => {
-      // Soft-delete and append-only tables give app_runtime no DELETE grant at all (ADR 0004), which is stronger than
-      // row-level security. The lists are fixed, not read from the grants, so a mistaken REVOKE on an ordinary table
-      // still fails here.
+      // Soft-delete, append-only and undeletable tables give app_runtime no DELETE grant at all (ADR 0004), which is
+      // stronger than row-level security. The lists are fixed, not read from the grants, so a mistaken REVOKE on an
+      // ordinary table still fails here.
       const deleteAsOtherOrganization = db.forOrg(orgB, (tx) => tx.$executeRaw`DELETE FROM ${table}`);
-      if (softDeleteTables.includes(tableName) || appendOnly) {
+      if (softDeleteTables.includes(tableName) || appendOnly || fixture?.undeletable === true) {
         await expect(deleteAsOtherOrganization).rejects.toThrow(/permission denied/i);
       } else {
         expect(await deleteAsOtherOrganization).toBe(0);

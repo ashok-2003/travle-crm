@@ -1,5 +1,6 @@
 // Isolation fixtures for the crm module: people, leads, a lead's timeline, notes and repeat enquiries, and blocked
-// contacts. People, leads and blocked contacts are soft-deleted; the timeline is append-only for the runtime role.
+// contacts. People, leads and blocked contacts are soft-deleted; the timeline is append-only for the runtime role, and
+// it can't delete notes or repeat enquiries either: only the platform's erasure removes them.
 import { randomUUID } from "node:crypto";
 import type { OrgTx } from "../../src/for-org.js";
 import type { OrgTableFixtures } from "../org-table-fixture.js";
@@ -19,9 +20,11 @@ export const fixtures: OrgTableFixtures = {
   },
   lead_note: {
     create: async (tx) => tx.leadNote.create({ data: { leadId: (await aLead(tx)).id, body: "Isolation note" } }),
+    undeletable: true,
   },
   lead_enquiry: {
     create: async (tx) => tx.leadEnquiry.create({ data: { leadId: (await aLead(tx)).id, source: "referral" } }),
+    undeletable: true,
   },
   blocked_contact: {
     create: (tx) =>
