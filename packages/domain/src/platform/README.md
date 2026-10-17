@@ -42,15 +42,20 @@ organizationId)` records a `platform_export` row and queues `EXPORT_ORGANIZATION
   carries its `requestId`, so a repeat run only finishes the files. `purgeOrganization` and `eraseSubject`, the jobs,
   check again on the platform transaction: a purge is skipped as `organization.purge-skipped` (`not-cancelled`,
   `no-recent-export`), an erasure as `subject.erasure-skipped` (`organization-gone`, `no-recent-export`). An erasure
-  also withdraws the organization's exports. Stored files go after the commit, through the deletions' outbox:
+  also withdraws the organization's exports. A `person` record (one of the agency's customers, from a lead's address)
+  is erasable: its subject export has a `customer` part (R39: the person and their leads, with the leads' files), and
+  `subject.exported` logs `leads`; an export counts only for the very record type and id it was of. Its erasure runs
+  `erase-customer.ts`: crm's `eraseCustomer`, then the leads' open tasks cancelled and every task title emptied, their
+  notifications and their files, and `subject.erased` logs the `customer` counts. Stored files go after the commit,
+  through the deletions' outbox:
   `DELETE_STORED_FILES_QUEUE` (`platform.delete-stored-files`) retries until it is empty, and
   `storedFileDeletionsSchedule(services)` (`SWEEP_STORED_FILES_QUEUE`, hourly), which the console must schedule,
   catches what no job will. `platformJobHandlers(services)`, for the console process's job runner.
 - The shared demo (spec 7.4): `resetDemoOrganization(services, { code, password }, now?)`, the console's nightly
   `RESET_DEMO_QUEUE` (`platform.reset-demo`) job: purges last night's demo (only an organization a reset built, as the
   platform log shows) and builds it again with its profile and three staff who sign in with the code (`demoStaff`),
-  on the demo's own plan (the subscriptions module's `demoPlan`, never for sale). apps/api's `demo` command runs it
-  once, at once.
+  on the demo's own plan (the subscriptions module's `demoPlan`, never for sale), and its sample leads from crm's
+  `addDemoLeads`. apps/api's `demo` command runs it once, at once.
 - Plans and the policy: `listPlans(services, input)`, `createPlan`, `updatePlan`, `archivePlan(services, staff, …)`,
   `getSubscriptionPolicy(services)`, `setSubscriptionPolicy(services, staff, policy)`. Plans belong to no organization,
   so each change is recorded in the platform log.

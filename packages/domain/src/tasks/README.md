@@ -24,8 +24,9 @@ owner's: the crm module moves them with the lead.
   time. The first due time stays. A closed task is `TASK_CLOSED`.
 - `cancelOpenTasks(tx, actor, record, now)` and `reassignOpenTasks(tx, actor, record, assigneeUserId)`: a record's
   open tasks, together; done ones stay. They return the tasks changed.
-- `reassignOpenStandaloneTasks(tx, actor, { fromUserId, toUserId, limit? })`: a departing member's standalone tasks;
-  returns how many moved.
+- `reassignOpenStandaloneTasks(tx, actor, { fromUserId, toUserId, limit? })`: a departing member's standalone tasks,
+  each batch locked as it is chosen (`FOR UPDATE`), so a reassign that commits meanwhile keeps its change; returns how
+  many moved.
 - `openTasksOf(tx, record)` (earliest due first) and `nextOpenTasks(tx, recordType, recordIds)` (each record's
   earliest open task).
 - `openTasksQuery(filter)` and `countOpenTasksQuery(filter)` (composable SQL, R11), `listOpenTasks(tx, filter)` and

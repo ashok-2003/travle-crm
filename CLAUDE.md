@@ -124,6 +124,9 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   Business rule failures throw `DomainError` from `@travel-crm/domain/kernel`, which the API turns into an HTTP status.
   Plain HTTP routes answer in their own way (the share link's pages); an error nothing handled is logged by names and
   codes and answered generically (`apps/api/src/error-handler.ts`).
+- The web app sends every tRPC call, queries included, as a JSON POST (`methodOverride: "POST"`, agency and console
+  alike), so no input (a phone, a searched name) is ever in a URL, where access logs keep it; a unit test reads a
+  query's input from the request's body. The api still takes GETs (tests, curl).
 - Over HTTP, tRPC requests and `/api/auth/sign-in/org`, other than GET/HEAD, must name a trusted origin and
   send JSON (`apps/api/src/trusted-origin.ts`); other `/api/auth/*` POSTs use Better Auth's own origin check. Better Auth's `/api/auth/organization/*` endpoints are closed (404):
   members and roles go through tRPC. So are its `/admin/*` endpoints, but support's `/admin/impersonate-user` and
@@ -173,7 +176,8 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   super admin comes from `pnpm --filter @travel-crm/api-server run first-super-admin -- --email <e> --name <n>`.
 - **Permanent deletion** (spec 5) happens only in the console's jobs. A new organization table is purged with the rest
   (`deleteOrganizationRows` reads the catalog); a module that keeps files or personal data about a person or record
-  adds its step to `packages/domain/src/platform/erasure.ts`.
+  adds its step to `packages/domain/src/platform/erasure.ts` (a member's and a customer's are there: crm's people,
+  through `platform/erase-customer.ts`).
 - **The demo** is rebuilt every night by `resetDemoOrganization`; a module with sample data adds it there. Locally,
   `pnpm --filter @travel-crm/api-server run demo` builds it at once.
 
@@ -186,12 +190,16 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - `packages/contracts`: Zod schemas for every API input and output.
 - `packages/domain`: business rules, one folder per module (`identity`, `kernel`, `jobs`, `files`, `documents`,
   `notifications`, `audit`, `share-links`, `webhooks`, `rate-limits`, `subscriptions`, `profile`, `platform`; listed in
-  `packages/domain/README.md`).
+  `packages/domain/README.md`). The business modules are layered and call only down (dependency-cruiser's
+  `business-modules-call-down`): `catalog` (destinations) and `tasks` (follow-ups and tasks) at L0, `crm` (people,
+  leads, their timeline, blocked contacts) at L1, `today` (the signed-in person's day) above them. Search on names
+  and phone digits runs under plain row-level security, so its trigram indexes go unused by design (ADR 0028).
   `@travel-crm/domain/<module>`, `@travel-crm/contracts/<module>` and `@travel-crm/integrations/<adapter>` each resolve
   to `src/<name>/index.ts`, so a new module needs no `package.json` change.
 - `packages/integrations`: adapters to the outside world, each a port plus a real and an in-memory adapter.
 - `packages/brand`: the product's name, colours, fonts and contacts (spec 10).
-- `packages/db`: Prisma schema, migrations, RLS, `forOrg`, soft delete, document numbers.
+- `packages/db`: Prisma schema, migrations, RLS, `forOrg`, soft delete, document numbers. The migrations need
+  Postgres 18 and its trusted extensions `pg_trgm` and `btree_gist` (`docs/deploy-checklist.md`).
 - `packages/tsconfig`, `packages/eslint-config`: shared settings (the ESLint config holds the raw-SQL guard).
 
 ## The web app (`apps/web`, ADR 0018)
@@ -243,16 +251,22 @@ A screen builds from the shared pieces in `apps/web/src/` before writing its own
   `RefusalAlert` for every failed request's alert; `LoadingRows` for every loading list; `Details` for labelled
   values; `TextLink` and `BackLink` (`components/text-link.tsx`) for every link in text, with `TextLink`'s `inline`
   form for a link inside a sentence, a log row or a desktop table cell; `CopyButton`; `WriteHint`
-  (`subscription/write-hint.tsx`) under a button the subscription refuses, which names it as its description.
+  (`subscription/write-hint.tsx`) under a button the subscription refuses, which names it as its description;
+  `StatusBadge`, and `StatusDot` before a status's words inline (`components/status-badge.tsx`).
 - **Dialogs:** `ResponsiveDialog` (its `footer` holds Cancel and the main button outside the scrolling body; `busy`
   holds it open), `ConfirmDialog` (`children`, `confirmDisabled`) for every confirmation, and `FormDialog`
-  (`components/forms/form-dialog.tsx`) for every form in a dialog.
+  (`components/forms/form-dialog.tsx`) for every form in a dialog. Each takes `returnFocusTo`, a ref to the button
+  that opened it (for a menu's item, the menu's button), which gets the focus back: no dialog here has a Radix trigger,
+  and Radix returns the focus only to its own (`components/return-focus.ts`). FormDialog's own `trigger` needs none.
 - **Forms:** `FormField`, `DateField`, and `components/forms/`: `useCheckedForm` and `checked` (the contract's checks
-  and a refusal's field errors), `TextField`, `MoneyField`, `PhoneField`, `SelectField`, `GstStateField`.
+  and a refusal's field errors), `TextField`, `MoneyField`, `PhoneField` (with `phoneAsTyped` for a stored number),
+  `SelectField`, `ChoiceField` (a few radios, `inline` side by side), `GstStateField`.
 - **Lists and records:** `useCursorPages` (`data/use-cursor-pages.ts`) with `ShowMoreButton` for every cursor list;
   `AuditChange` and `StoredValue` for an audit entry's before and after.
 - **Words:** `lib/format.ts`'s `formatDayTime` and `formatPhoneNumber`, and `useInstantText`
   (`components/instant-text.ts`).
+- **Classes:** `cn` from `lib/utils.ts` alone, which knows the theme's type sizes (`text-caption`...); never the `cn`
+  package itself, which reads them as colours (`test/lib/class-names.test.ts`).
 
 Each component without a path is in `components/`, in the file of its name (`EmptyState` in `empty-state.tsx`).
 

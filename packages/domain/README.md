@@ -19,6 +19,14 @@ Business rules, one folder per module (spec section 8). A module's public API is
 | `subscriptions` | plans, each organization's subscription and payments, the lifecycle, request checks 2 and 3 ([README](src/subscriptions/README.md))   |
 | `profile`       | an organization's business profile and setup checklist ([README](src/profile/README.md))                                              |
 | `platform`      | the platform console's work across organizations: onboarding, deletion, the demo, the platform log ([README](src/platform/README.md)) |
+| `catalog`       | the agency's own catalog: destinations, searched, found or added by name, renamed, merged ([README](src/catalog/README.md))           |
+| `tasks`         | follow-ups and tasks on any record, or standing alone ([README](src/tasks/README.md))                                                 |
+| `crm`           | people, leads, the lead timeline and blocked contacts ([README](src/crm/README.md))                                                   |
+| `today`         | the signed-in person's day, composed from crm's and tasks' public queries ([README](src/today/README.md))                             |
+
+The business modules (release 1 on) are layered, and call only down (dependency-cruiser's `business-modules-call-down`,
+spec 6 and 8): `catalog` and `tasks` at L0, `crm` at L1, `today` at the top. An action spanning two modules is the
+higher one's, or its router calls both.
 
 Business rule failures throw `DomainError(code, reason, message)`; the API turns the code into an HTTP status and passes
 the reason to the web app.

@@ -8,8 +8,14 @@ logs, and what is still open.
 
 ## The database (ADRs 0002, 0019)
 
-- **Postgres 16 or later.** The platform role's membership of the runtime role is granted
-  `WITH INHERIT FALSE, SET TRUE`, which Postgres 16 introduced.
+- **Postgres 18.** Release 1's catalog adds a destination with Postgres 18's `uuidv7()` (in an `INSERT … ON
+CONFLICT` Prisma can't write), and CI applies every migration to Postgres 18. The platform role's membership of the
+  runtime role is granted `WITH INHERIT FALSE, SET TRUE`, which Postgres 16 introduced.
+- **The trusted extensions `pg_trgm` and `btree_gist`** (release 1, R6; ADR 0028). The `leads_by_hand` migration
+  creates them as `app_migrator` (`CREATE EXTENSION IF NOT EXISTS`), which Postgres allows a role with `CREATE` on the
+  database because both are trusted. A hosted Postgres must offer them (Cloud SQL and RDS do): check
+  `SELECT name FROM pg_available_extensions WHERE name IN ('pg_trgm', 'btree_gist')` before the first `migrate`, or
+  create them once as the service's admin user.
 - **The three roles**, as `packages/db/sql/bootstrap.sql` creates them locally, with strong passwords of their own:
   `app_migrator` (owns the tables, runs migrations), `app_runtime` (the api and the worker), `app_platform` (the
   console alone). None may bypass row-level security.
