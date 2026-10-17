@@ -2,7 +2,15 @@
 // organization's zone, where 18:30 UTC is already the next day, and phone numbers as Indians write them.
 import { money } from "@travel-crm/domain/kernel";
 import { describe, expect, it } from "vitest";
-import { formatCount, formatDay, formatDayTime, formatPhoneNumber, formatRupees, formatTime } from "@/lib/format";
+import {
+  formatCount,
+  formatDay,
+  formatDayTime,
+  formatPhoneNumber,
+  formatRupees,
+  formatTime,
+  formatWeekday,
+} from "@/lib/format";
 
 describe("formatRupees", () => {
   it("groups by lakh and crore, and shows paise only when there are some", () => {
@@ -45,6 +53,16 @@ describe("formatDay", () => {
     expect(formatDay(newYearInIndia, { timeZone: "Asia/Kolkata", now: new Date("2027-01-02T00:00:00Z") })).toBe(
       "1 Jan",
     );
+  });
+});
+
+describe("formatWeekday", () => {
+  it("names the day of the week in short, as the organization's clocks show it", () => {
+    expect(formatWeekday(new Date("2026-10-16T06:00:00Z"), { timeZone: "Asia/Kolkata" })).toBe("Fri");
+    // 10:30 pm on Thursday in UTC is already Friday in India.
+    const lateEvening = new Date("2026-10-15T22:30:00Z");
+    expect(formatWeekday(lateEvening, { timeZone: "Asia/Kolkata" })).toBe("Fri");
+    expect(formatWeekday(lateEvening, { timeZone: "UTC" })).toBe("Thu");
   });
 });
 

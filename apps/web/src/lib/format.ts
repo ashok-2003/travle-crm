@@ -1,5 +1,5 @@
 // Money, counts and dates the Indian way (spec 9.6, DESIGN.md section 9), built on the kernel's formatting so the app,
-// the PDFs and the emails agree: ₹12,50,000, 1,23,456, "16 Oct" in the organization's time zone.
+// the PDFs and the emails agree: ₹12,50,000, 1,23,456, "Fri", "16 Oct" in the organization's time zone.
 import { formatDateTime, formatIndianNumber, formatMoney, yearIn, type Money } from "@travel-crm/domain/kernel";
 
 /** "₹12,50,000", "₹1,250.50", "-₹4,500". Paise only when there are some, unless always is asked for (invoices). */
@@ -24,6 +24,18 @@ export function formatDay(instant: Date, { timeZone, now = new Date() }: { timeZ
   if (!formatter) {
     formatter = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone });
     dayMonthFormatters.set(timeZone, formatter);
+  }
+  return formatter.format(instant);
+}
+
+const weekdayFormatters = new Map<string, Intl.DateTimeFormat>();
+
+/** "Fri", the day of the week as the organization's clocks show it ("Fri 16 Oct" with formatDay). */
+export function formatWeekday(instant: Date, { timeZone }: { timeZone: string }): string {
+  let formatter = weekdayFormatters.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-IN", { weekday: "short", timeZone });
+    weekdayFormatters.set(timeZone, formatter);
   }
   return formatter.format(instant);
 }
