@@ -242,6 +242,90 @@ describe("AuditScreen", () => {
     expect(link.queryByText("issued_document")).toBeNull();
   });
 
+  it("names the fields a customer's and a lead's changes hold in words, never their keys", async () => {
+    stubApi({
+      "audit.list": page([
+        entry({
+          action: "person.edited",
+          entityType: "person",
+          before: { name: "Rahul", phone: null, email: null, instagramHandle: null },
+          after: { name: "Rahul Sharma", phone: "+919876543210", email: "rahul@example.com", instagramHandle: "rahul" },
+        }),
+        entry({
+          id: "0199a000-0000-7000-8000-0000000000a2",
+          action: "lead.trip-edited",
+          entityType: "lead",
+          before: {
+            destination: null,
+            when: { kind: "unknown" },
+            adults: null,
+            childrenAges: [],
+            budget: null,
+            departureCity: null,
+            tripType: null,
+            hotelCategory: null,
+            food: null,
+            roomType: null,
+          },
+          after: {
+            destination: "Goa",
+            when: { kind: "flexible" },
+            adults: 2,
+            childrenAges: [7],
+            budget: { amountPaise: 5_000_000, basis: "per_person" },
+            departureCity: "Pune",
+            tripType: "honeymoon",
+            hotelCategory: "four_star",
+            food: "veg",
+            roomType: "Sea view",
+          },
+        }),
+        entry({
+          id: "0199a000-0000-7000-8000-0000000000a3",
+          action: "lead.added",
+          entityType: "lead",
+          before: null,
+          after: { stage: "new", source: "walk_in" },
+        }),
+      ]),
+    });
+    renderScreen();
+    await listed();
+    const changeOf = async (action: string) => {
+      const button = opener(action);
+      await userEvent.click(button);
+      return changeOpenedBy(button);
+    };
+    const person = await changeOf(audit.actions.person.edited);
+    for (const key of ["name", "phone", "email", "instagramHandle"] as const) {
+      expect(person.getByText(audit.fields[key])).toBeVisible();
+    }
+    expect(person.queryByText(/^(phone|email|instagramHandle)$/)).toBeNull();
+
+    const trip = await changeOf(audit.actions.lead["trip-edited"]);
+    const tripKeys = [
+      "destination",
+      "when",
+      "adults",
+      "childrenAges",
+      "budget",
+      "departureCity",
+      "tripType",
+      "hotelCategory",
+      "food",
+      "roomType",
+    ] as const;
+    for (const key of tripKeys) {
+      expect(trip.getByText(audit.fields[key])).toBeVisible();
+      expect(trip.queryByText(key)).toBeNull();
+    }
+
+    const added = await changeOf(audit.actions.lead.added);
+    expect(added.getByText(audit.fields.stage)).toBeVisible();
+    expect(added.getByText(audit.fields.source)).toBeVisible();
+    expect(added.queryByText("source")).toBeNull();
+  });
+
   it("offers nothing to open for a change that recorded none, or none that changed", async () => {
     stubApi({
       "audit.list": page([
