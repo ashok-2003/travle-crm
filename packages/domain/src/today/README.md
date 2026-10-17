@@ -10,4 +10,8 @@ public queries of crm and tasks below it, and later releases add their own items
 - `todaySection(tx, access, { section, after?, limit }, now)`: one section (`overdue`, `new-leads`, `due-today`), a
   page at a time.
 
-Both need `leads:view` (the api checks) and show the person's own items, whatever their scope.
+Both need `leads:view` (the api checks) and show the person's own items, whatever their scope. Overdue is open work
+due before now; due today runs from now to the agency's next midnight (`organizationTimeZone`), so at 00:05
+yesterday's undone follow-up is overdue and at 23:50 one due at 00:10 is not today's. New leads are the person's
+leads in New, oldest first (crm's `newLeadsWaiting`, over `lead_new_by_owner`); each task on a lead brings the lead in
+brief (crm's `leadBriefs`). Every section pages by the last item's id, never by offset.

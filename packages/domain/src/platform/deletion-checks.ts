@@ -10,11 +10,14 @@ import { exportedRecently } from "./exports.js";
 /** Why an erasure can't go ahead now: the request refuses, and the job skips and logs it. */
 export type ErasureBlocker = "organization-gone" | "no-recent-export";
 
-/** What stands in an erasure's way: its organization must still exist, and the subject be exported within a day. */
+/**
+ * What stands in an erasure's way: its organization must still exist, and the subject (its record type and id) be
+ * exported within a day.
+ */
 export async function erasureBlocker(
   tx: PlatformTx,
   organizationId: string,
-  record: { recordId: string },
+  record: { recordType: string; recordId: string },
   now: Date,
 ): Promise<ErasureBlocker | null> {
   try {
@@ -23,7 +26,8 @@ export async function erasureBlocker(
     if (error instanceof DomainError && error.reason === "ORGANIZATION_NOT_FOUND") return "organization-gone";
     throw error;
   }
-  const exported = await exportedRecently(tx, "subject.exported", record.recordId, now, organizationId);
+  const target = { targetType: record.recordType, targetId: record.recordId };
+  const exported = await exportedRecently(tx, "subject.exported", target, now, organizationId);
   return exported ? null : "no-recent-export";
 }
 
@@ -41,9 +45,10 @@ export async function erasedFor(tx: PlatformTx, organizationId: string, requestI
 
 /**
  * The record types an erasure may name (a member is erased as a member): the records that hold a person's data. Spec
- * 5 names the traveller. A module whose records hold personal data adds its type here with its own erasure step.
+ * 5 names the traveller; release 1 adds crm's customer, the "person" (its erasure step is crm's eraseCustomer). A
+ * module whose records hold personal data adds its type here with its own erasure step.
  */
-const PERSONAL_RECORD_TYPES: readonly string[] = ["traveller"];
+const PERSONAL_RECORD_TYPES: readonly string[] = ["traveller", "person"];
 
 /** Records the system keeps as they were made, by law: an issued document is a GST invoice or its like (ADR 0012). */
 const KEPT_BY_LAW_RECORD_TYPES: readonly string[] = ["issued_document"];

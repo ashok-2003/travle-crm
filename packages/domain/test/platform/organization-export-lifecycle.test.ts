@@ -157,7 +157,7 @@ describe("an export's life", () => {
     await exportOrganizationNow(test.services, organizationId);
     const counts = (targetId: string, of: string) =>
       test.services.platformDb.transaction((tx) =>
-        exportedRecently(tx, "organization.exported", targetId, new Date(), of),
+        exportedRecently(tx, "organization.exported", { targetType: "organization", targetId }, new Date(), of),
       );
     expect(await counts(organizationId, organizationId)).toBe(true);
     expect(await counts(organizationId, other)).toBe(false);

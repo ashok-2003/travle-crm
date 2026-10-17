@@ -1,7 +1,7 @@
 // A record's open tasks, changed together: a lost lead's are cancelled (R29), a reassigned lead's follow its owner
 // (R21), and a departing member's standalone tasks go to the agency's Owner (R37). Done tasks stay as they were.
 import type { Task } from "@travel-crm/contracts/tasks";
-import type { OrgTx } from "@travel-crm/db";
+import { emptySql, sql, type OrgTx } from "@travel-crm/db";
 import type { Actor } from "../kernel/index.js";
 import { auditTask } from "./task-changes.js";
 import { openTask, taskColumns, taskFromRow, type TaskRecordLink } from "./task-record.js";
@@ -34,17 +34,28 @@ export async function reassignOpenTasks(
   return moveTasks(tx, actor, others.map(taskFromRow), assigneeUserId);
 }
 
-/** Gives one person's open standalone tasks to another, `limit` at most; returns how many moved. */
+/**
+ * Gives one person's open standalone tasks to another, `limit` at most; returns how many moved. The tasks are locked
+ * as they are chosen (FOR UPDATE): Postgres checks the condition again on a task another transaction was changing, so
+ * one reassigned or finished meanwhile no longer matches and keeps that change.
+ */
 export async function reassignOpenStandaloneTasks(
   tx: OrgTx,
   actor: Actor,
   handOver: { fromUserId: string; toUserId: string; limit?: number },
 ): Promise<number> {
+  const limit = handOver.limit === undefined ? emptySql : sql`LIMIT ${handOver.limit}`;
+  const locked = await tx.$queryRaw<{ id: string }[]>`
+    SELECT id FROM task
+    WHERE assignee_user_id = ${handOver.fromUserId}::uuid AND record_type IS NULL
+      AND done_at IS NULL AND cancelled_at IS NULL
+    ORDER BY id ${limit}
+    FOR UPDATE`;
+  if (locked.length === 0) return 0;
   const theirs = await tx.task.findMany({
-    where: { assigneeUserId: handOver.fromUserId, recordType: null, ...openTask },
+    where: { id: { in: locked.map((task) => task.id) } },
     select: taskColumns,
     orderBy: { id: "asc" },
-    ...(handOver.limit === undefined ? {} : { take: handOver.limit }),
   });
   return (await moveTasks(tx, actor, theirs.map(taskFromRow), handOver.toUserId)).length;
 }
