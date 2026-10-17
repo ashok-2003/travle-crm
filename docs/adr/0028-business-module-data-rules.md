@@ -70,8 +70,8 @@ features and the rest).
 
 ## Consequences
 
-- Migrations add the `pg_trgm` and `btree_gist` extensions (created by `app_migrator`, in `sql/bootstrap.sql` for
-  local and test databases).
+- Migrations add the `pg_trgm` and `btree_gist` extensions (created by `app_migrator` in the `leads_by_hand`
+  migration, on every database: `sql/bootstrap.sql` doesn't create them).
 - Exclusion constraints and trigram indexes Prisma can't express are written into the migration's SQL by hand, and
   the schema-drift test must keep passing.
 - Summary tables lag a change by the time the worker takes to run the listener (seconds). Screens that must be exact
