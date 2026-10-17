@@ -8,11 +8,11 @@ import type { KnownContactResult } from "@travel-crm/contracts/crm";
 import { InfoIcon, TriangleAlertIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { UseFormReturn } from "react-hook-form";
+import { ChoiceField } from "@/components/forms/choice-field";
 import { TextLink } from "@/components/text-link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { leadRoute } from "@/lib/routes";
 import type { LeadFormValues } from "./lead-form-values";
-import { RadioField } from "./radio-field";
 
 export function KnownContactAlert({ known, form }: { known: KnownContactResult; form: UseFormReturn<LeadFormValues> }) {
   const t = useTranslations("leads.form.known");
@@ -46,7 +46,7 @@ export function KnownContactAlert({ known, form }: { known: KnownContactResult; 
         </Alert>
       )}
       {openLead && (
-        <RadioField
+        <ChoiceField
           control={form.control}
           name="whenOpenLead"
           legend={t("choice")}

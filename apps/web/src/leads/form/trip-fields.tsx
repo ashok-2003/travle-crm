@@ -6,12 +6,12 @@
 import { foodPreferences, hotelCategories, tripTypes } from "@travel-crm/contracts/crm";
 import { useTranslations } from "next-intl";
 import type { UseFormReturn } from "react-hook-form";
+import { ChoiceField } from "@/components/forms/choice-field";
 import { SelectField } from "@/components/forms/select-field";
 import { TextField } from "@/components/forms/text-field";
 import { BudgetField } from "./budget-field";
 import { DestinationField } from "./destination-field";
 import type { LeadFormValues } from "./lead-form-values";
-import { RadioField } from "./radio-field";
 import { TravellersField } from "./travellers-field";
 import { NOT_ASKED } from "./trip-values";
 import { WhenField } from "./when-field";
@@ -35,7 +35,7 @@ export function TripFields({ form, disabled = false }: { form: UseFormReturn<Lea
         disabled={disabled}
         options={[notAsked, ...tripTypes.map((kind) => ({ value: kind, label: t(`tripTypes.${kind}`) }))]}
       />
-      <RadioField
+      <ChoiceField
         control={control}
         name="hotelCategory"
         legend={words("hotelCategory")}
@@ -45,7 +45,7 @@ export function TripFields({ form, disabled = false }: { form: UseFormReturn<Lea
           ...hotelCategories.map((category) => ({ value: category, label: t(`hotelCategories.${category}`) })),
         ]}
       />
-      <RadioField
+      <ChoiceField
         control={control}
         name="food"
         legend={words("food")}

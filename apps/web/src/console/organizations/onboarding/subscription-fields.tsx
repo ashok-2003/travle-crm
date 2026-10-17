@@ -7,7 +7,7 @@ import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import { useTranslations } from "next-intl";
 import { useWatch, type UseFormReturn } from "react-hook-form";
 import { DateField } from "@/components/date-field";
-import { ChoiceField } from "../fields/choice-field";
+import { ChoiceField } from "@/components/forms/choice-field";
 import { cycleFor, PlanFields } from "../fields/plan-fields";
 import type { OnboardValues } from "./onboard-values";
 
