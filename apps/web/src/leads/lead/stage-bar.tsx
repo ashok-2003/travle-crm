@@ -4,12 +4,13 @@
 // steps each over its segment of Progress, filled up to the current one, which is marked as the step. Choosing another
 // moves the lead there, forwards or back (Won is on the bar, so a won lead moves freely). A Lost or Not a lead lead
 // shows its badge and Reopen in place of the bar, which returns it to the open stage it had before. The section is named
-// with the current stage and each step says where it moves the lead, for screen readers. A refusal shows its sentence
-// in the bar until the next tap. Someone who can't edit leads sees the stage only; while the subscription refuses
-// changes the steps are off and say why.
+// with the current stage and each step says where it moves the lead, for screen readers. After a move or a Reopen,
+// whose button is then gone, the focus goes to the new current stage rather than dropping to the page. A refusal shows
+// its sentence in the bar until the next tap. Someone who can't edit leads sees the stage only; while the subscription
+// refuses changes the steps are off and say why.
 import { stageBarStages, type LeadDetail, type LeadStage } from "@travel-crm/contracts/crm";
 import { useTranslations } from "next-intl";
-import { useId } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -29,6 +30,17 @@ export function StageBar({ lead }: { lead: LeadDetail }) {
   const hintId = useId();
   const move = useMoveStage();
   const reopen = useReopenLead();
+  const currentStage = useRef<HTMLSpanElement>(null);
+  // Counts the changes that landed (the lead then shows its new stage), so the focus follows each one.
+  const [landings, setLandings] = useState(0);
+  useEffect(() => {
+    if (landings > 0) currentStage.current?.focus();
+  }, [landings]);
+  const landed = {
+    onSuccess: () => {
+      setLandings((count) => count + 1);
+    },
+  };
   const described = write.hint === null ? undefined : hintId;
   const changeable = canEdit && write.allowed;
   const named = t("lead.stageNamed", { stage: t(`stages.${lead.stage}`) });
@@ -60,7 +72,7 @@ export function StageBar({ lead }: { lead: LeadDetail }) {
               disabled={!changeable || reopen.isPending}
               onClick={() => {
                 tap(() => {
-                  reopen.mutate({ leadId: lead.id });
+                  reopen.mutate({ leadId: lead.id }, landed);
                 });
               }}
             >
@@ -84,6 +96,8 @@ export function StageBar({ lead }: { lead: LeadDetail }) {
             <Progress value={index <= current ? 100 : 0} aria-hidden="true" />
             {stage === lead.stage || !canEdit ? (
               <span
+                ref={stage === lead.stage ? currentStage : undefined}
+                tabIndex={stage === lead.stage ? -1 : undefined}
                 aria-current={stage === lead.stage ? "step" : undefined}
                 className={
                   stage === lead.stage
@@ -96,14 +110,13 @@ export function StageBar({ lead }: { lead: LeadDetail }) {
             ) : (
               <Button
                 variant="ghost"
-                // text-xs, the caption's size: cn would read text-caption as a colour and drop the ghost's blue.
-                className="h-auto min-h-11 items-start justify-start px-0 py-0 text-left text-xs font-normal whitespace-normal"
+                className="h-auto min-h-11 items-start justify-start px-0 py-0 text-left text-caption font-normal whitespace-normal"
                 aria-label={t("lead.moveTo", { stage: t(`stages.${stage}`) })}
                 aria-describedby={described}
                 disabled={!write.allowed || move.isPending}
                 onClick={() => {
                   tap(() => {
-                    move.mutate({ leadId: lead.id, stage });
+                    move.mutate({ leadId: lead.id, stage }, landed);
                   });
                 }}
               >
