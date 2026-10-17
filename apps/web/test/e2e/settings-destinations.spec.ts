@@ -1,6 +1,6 @@
 // Merging destinations (spec 3.6, R34): an Owner reaches Destinations from Settings, finds the one to keep by searching
 // in the merge dialog, and merges "Goa trip" into "Goa"; the toast says one lead moved, "Goa trip" leaves the list, and
-// its lead now reads Goa. axe checks the screen and the merge dialog.
+// its lead now reads Goa. axe checks the Destinations screen itself and the merge dialog.
 import { expectAccessible } from "./support/accessibility";
 import { expect, signInByEmail, test } from "./support/fixtures";
 import { addLeadThroughApi, leadInput } from "./support/leads";
@@ -22,6 +22,8 @@ test("merging two destinations moves the lead", async ({ page, agency }) => {
   await expect(page.getByRole("heading", { level: 1, name: "Destinations" })).toBeVisible();
   const list = page.getByRole("list", { name: "Destinations" });
   await expect(list.getByRole("listitem")).toHaveCount(2);
+  await animationsSettled(page);
+  await expectAccessible(page);
 
   await page.getByRole("button", { name: "Actions for Goa trip" }).click();
   await page.getByRole("menuitem", { name: "Merge into another" }).click();

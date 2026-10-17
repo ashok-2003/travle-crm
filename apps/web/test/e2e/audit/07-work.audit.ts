@@ -40,7 +40,8 @@ async function contactedWithFollowUp(
   );
   await moveStageThroughApi(page, leadId, "contacted");
   if (followUp.minutes === "overdue") await addOverdueFollowUp(page, leadId, followUp.title);
-  else await addFollowUpThroughApi(page, leadId, { title: followUp.title, ...laterToday(followUp.minutes) });
+  else
+    await addFollowUpThroughApi(page, leadId, { title: followUp.title, ...(await laterToday(page, followUp.minutes)) });
 }
 
 /** The mockup's day for the signed-in Owner: 8 things, 2 overdue; and two contacts blocked. */
@@ -89,7 +90,7 @@ async function theMockupsDay(page: Page): Promise<void> {
   );
   await callApi(page, "tasks.add", {
     title: "Renew the IATA licence",
-    due: laterToday(300),
+    due: await laterToday(page, 300),
     assigneeUserId: null,
   });
   // A destination the agency typed twice ("Goa trip"), to merge; its lead is answered, so the day stays the mockup's.
@@ -137,7 +138,7 @@ test("an Owner's day, its dialogs and Settings, and a salesperson's empty Today"
   await page.getByRole("button", { name: "Add a task" }).click();
   const adding = page.getByRole("dialog", { name: "Add a task" });
   await adding.getByLabel("What to do").fill("Collect the passport copies");
-  await adding.getByLabel("Time").fill(laterToday(180).at);
+  await adding.getByLabel("Time").fill((await laterToday(page, 180)).at);
   await shoot(page, "today-add-task");
   await adding.getByRole("button", { name: "Cancel" }).click();
 
