@@ -333,6 +333,9 @@ describe("NewLeadScreen", { timeout: 15_000 }, () => {
     await choose(form.trip.destination, "Kashmir");
     const trigger = screen.getByRole("combobox", { name: form.trip.destination });
     expect(trigger).toHaveTextContent("Kashmir");
+    // A chosen value reads as every field's does, not in the action blue of the group's button.
+    expect(within(trigger).getByText("Kashmir")).toHaveClass("text-foreground");
+    expect(trigger.querySelector("svg")).toHaveClass("text-muted-foreground");
     await choose(form.trip.destination, form.destination.clear);
     expect(trigger).toHaveTextContent(form.destination.placeholder);
   });

@@ -99,7 +99,8 @@ export function SearchCombobox<Option>({
   return (
     <Popover open={search.open} onOpenChange={search.setOpen}>
       {/* Shaped as every input (the registry InputGroup, as DateField is), so it reads as a field, not a button; the
-          trigger is the group's control, so the focus outline goes round the whole field. */}
+          trigger is the group's control, so the focus outline goes round the whole field. Its words and chevron are
+          coloured as a Select's are, not in the group button's action blue. */}
       <InputGroup>
         <PopoverTrigger asChild>
           <InputGroupButton
@@ -110,8 +111,10 @@ export function SearchCombobox<Option>({
             aria-expanded={search.open}
             className="h-full flex-1 justify-between rounded-sm px-3 text-left text-base font-normal whitespace-normal"
           >
-            <span className={chosen === null ? "text-muted-foreground" : undefined}>{chosen?.name ?? words.none}</span>
-            <ChevronsUpDownIcon aria-hidden="true" />
+            <span className={chosen === null ? "text-muted-foreground" : "text-foreground"}>
+              {chosen?.name ?? words.none}
+            </span>
+            <ChevronsUpDownIcon aria-hidden="true" className="text-muted-foreground" />
           </InputGroupButton>
         </PopoverTrigger>
       </InputGroup>
