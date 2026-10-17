@@ -225,9 +225,21 @@ describe("LeadsScreen", () => {
     });
   });
 
+  it("gives the focus back to Filters when its dialog closes", async () => {
+    renderLeads();
+    const button = await screen.findByRole("button", { name: list.filters });
+    await userEvent.click(button);
+    const filters = await screen.findByRole("dialog", { name: list.filtersDialog.title });
+    await userEvent.click(within(filters).getByRole("button", { name: messages.common.cancel }));
+    await waitFor(() => {
+      expect(button).toHaveFocus();
+    });
+  });
+
   it("says when the chips' counts didn't load, with Try again, and keeps the list", async () => {
     const api = renderLeads({ "leads.counts": { status: 500 } });
     expect(await screen.findByText(list.countsFailed)).toBeVisible();
+    expect(screen.getByRole("alert")).toHaveTextContent(list.countsFailed);
     expect(await rows()).toHaveLength(1);
     api.answer("leads.counts", { data: counts });
     await userEvent.click(screen.getByRole("button", { name: messages.common.tryAgain }));

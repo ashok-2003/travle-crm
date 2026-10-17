@@ -148,7 +148,7 @@ describe("Timeline", () => {
     errors.mockRestore();
   });
 
-  it("holds the note box while the note is being sent", async () => {
+  it("holds the note box while the note is being sent, then gives it the focus back", async () => {
     const sending = heldAnswer({ data: null });
     stubApi({ "leads.timeline": aTimeline(entries()), "leads.addNote": sending.answer });
     renderScreen(<Timeline lead={aLead()} />);
@@ -163,5 +163,9 @@ describe("Timeline", () => {
       expect(box).toBeEnabled();
     });
     expect(box).toHaveValue("");
+    // Ready for the next note: the focus is back in the box, not on the page.
+    await waitFor(() => {
+      expect(box).toHaveFocus();
+    });
   });
 });

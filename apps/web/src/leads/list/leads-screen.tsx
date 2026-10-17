@@ -5,7 +5,7 @@
 // phone, picks a stage chip, or opens Filters. The filters live in the address (R41), and each row's link carries them
 // for the way back. A phone gets a divided list, a computer the Table (R44); loading shows skeleton rows, a failure
 // says so with Try again (a refusal its reason), and an empty list says what belongs here or that nothing matches.
-import { ContactIcon, SearchXIcon } from "lucide-react";
+import { ContactIcon, SearchXIcon, TriangleAlertIcon } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
@@ -15,6 +15,7 @@ import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { ShowMoreButton } from "@/components/show-more-button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWideScreen } from "@/lib/use-wide-screen";
@@ -116,12 +117,15 @@ export function LeadsScreen() {
       {counts.isError && (
         // The chips still filter without their counts; a line says they didn't load, with Try again. A refusal would
         // refuse the list too, whose own error says its reason.
-        <div role="alert" className="flex flex-wrap items-center gap-x-2 text-label text-muted-foreground">
-          {t("countsFailed")}
-          <Button variant="link" className="h-auto min-h-11 px-0" onClick={() => void counts.refetch()}>
-            {tCommon("tryAgain")}
-          </Button>
-        </div>
+        <Alert>
+          <TriangleAlertIcon aria-hidden="true" />
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            {t("countsFailed")}
+            <Button variant="outline" onClick={() => void counts.refetch()}>
+              {tCommon("tryAgain")}
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
     </div>
   );

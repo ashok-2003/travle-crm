@@ -101,17 +101,7 @@ export function DestinationField<Values extends FieldValues>({
                 placeholder={allowNew ? t("searchOrAdd") : t("search")}
               />
               <CommandList>
-                {found.isError ? (
-                  // Not "no match": the list didn't load. A new name can still be added meanwhile.
-                  <ErrorState
-                    message={t("loadFailed")}
-                    error={found.error}
-                    retryLabel={tCommon("tryAgain")}
-                    onRetry={() => void found.refetch()}
-                  />
-                ) : (
-                  <CommandEmpty>{found.isPending ? t("searching") : t("noMatch")}</CommandEmpty>
-                )}
+                {!found.isError && <CommandEmpty>{found.isPending ? t("searching") : t("noMatch")}</CommandEmpty>}
                 <CommandGroup>
                   {found.data?.map((destination) => (
                     <CommandItem
@@ -149,6 +139,16 @@ export function DestinationField<Values extends FieldValues>({
                 </CommandGroup>
               </CommandList>
             </Command>
+            {found.isError && (
+              // Not "no match": the list didn't load; a new name can still be added meanwhile. Outside the Command,
+              // whose keys would take Enter on Try again for the highlighted option, and outside its listbox.
+              <ErrorState
+                message={t("loadFailed")}
+                error={found.error}
+                retryLabel={tCommon("tryAgain")}
+                onRetry={() => void found.refetch()}
+              />
+            )}
           </PopoverContent>
         </Popover>
       )}

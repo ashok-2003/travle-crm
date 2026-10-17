@@ -289,15 +289,23 @@ describe("NewLeadScreen", () => {
     });
   });
 
-  it("says when the destinations didn't load, with Try again, and still adds a new one", async () => {
+  it("says when the destinations didn't load, with Try again by Enter too, and still adds a new one", async () => {
     const api = renderForm({ "destinations.search": { status: 500 } });
     await userEvent.click(screen.getByRole("combobox", { name: form.trip.destination }));
     expect(await screen.findByText(form.destination.loadFailed)).toBeVisible();
     expect(screen.queryByText(form.destination.noMatch)).not.toBeInTheDocument();
     await userEvent.type(screen.getByPlaceholderText(form.destination.searchOrAdd), "Spiti");
     expect(await screen.findByRole("option", { name: form.destination.add.replace("{name}", "Spiti") })).toBeVisible();
+    // Enter on Try again asks again; it never picks the highlighted option, and the failure isn't in the listbox.
     api.answer("destinations.search", { data: [{ id: ids.goa, name: "Spiti Valley" }] });
-    await userEvent.click(screen.getByRole("button", { name: messages.common.tryAgain }));
+    const asked = inputsTo("destinations.search").length;
+    const retry = screen.getByRole("button", { name: messages.common.tryAgain });
+    expect(screen.getByRole("listbox")).not.toContainElement(retry);
+    retry.focus();
+    await userEvent.keyboard("{Enter}");
     expect(await screen.findByRole("option", { name: "Spiti Valley" })).toBeVisible();
+    expect(inputsTo("destinations.search").length).toBeGreaterThan(asked);
+    const [trigger] = screen.getAllByRole("combobox", { name: form.trip.destination });
+    expect(trigger).toHaveTextContent(form.destination.placeholder);
   });
 });

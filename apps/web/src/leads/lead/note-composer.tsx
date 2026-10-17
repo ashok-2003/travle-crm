@@ -1,8 +1,8 @@
 "use client";
 
 // Add a note, at the top of a lead's timeline (spec 3.4): a few lines, checked by the api's schema (addNoteInput)
-// before they are sent, the box held meanwhile; saved, the box empties and the note shows first. A change, so it is
-// off while the subscription refuses changes, and says why; a refusal shows its sentence.
+// before they are sent, the box held meanwhile; saved, the box empties, takes the focus back and the note shows first.
+// A change, so it is off while the subscription refuses changes, and says why; a refusal shows its sentence.
 import { addNoteInput, type AddNoteInput } from "@travel-crm/contracts/crm";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
@@ -41,6 +41,10 @@ export function NoteComposer({ leadId }: { leadId: string }) {
         form.reset({ body: "" });
         await queryClient.invalidateQueries({ queryKey: trpc.leads.timeline.pathKey() });
         toast.success(t("noteAdded"));
+        // Held while sending, the box lost the focus: give it back once it is open again, for the next note.
+        requestAnimationFrame(() => {
+          form.setFocus("body");
+        });
       },
     }),
   );
