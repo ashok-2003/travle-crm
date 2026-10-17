@@ -7,13 +7,12 @@
 // on the time field, where it is fixed.
 import { addLeadWorkInput, type AddLeadWorkInput } from "@travel-crm/contracts/crm";
 import { addTaskInput, type AddTaskInput } from "@travel-crm/contracts/tasks";
-import { calendarDateIn } from "@travel-crm/domain/kernel";
 import { useTranslations } from "next-intl";
 import { Controller, type Control } from "react-hook-form";
 import type { z } from "zod";
 import { FormField } from "@/components/form-field";
 import { checked, type Checked } from "@/components/forms/checked";
-import { DueField } from "@/components/forms/due-field";
+import { DueField, suggestedDue } from "@/components/forms/due-field";
 import { FormAlert, type Sending } from "@/components/forms/form-dialog";
 import { SelectField } from "@/components/forms/select-field";
 import { TextField } from "@/components/forms/text-field";
@@ -90,8 +89,7 @@ export function AddTaskForm({ formId, add }: { formId: string; add: Sending<NewT
   const { form, onSubmit, formProblem } = useCheckedForm<TaskValues, NewTask, Problem | "required">(
     {
       title: "",
-      day: calendarDateIn(new Date(), me.organization.timeZone),
-      time: "",
+      ...suggestedDue(me.organization.timeZone),
       assignee: me.user.id,
       lead: null,
     },

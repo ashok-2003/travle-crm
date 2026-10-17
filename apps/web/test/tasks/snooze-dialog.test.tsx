@@ -1,5 +1,5 @@
-// Snoozing a follow-up or task (spec 3.5): one hour, tomorrow morning at 9:00, or a chosen day and time, sent as the
-// api takes them; the dialog holds while the request is out (rule 7) and closes once it is done.
+// Snoozing a follow-up or task (spec 3.5): one hour, tomorrow morning at 9:00, or a chosen day and time (opening on a
+// sensible one), sent as the api takes them; the dialog holds while the request is out (rule 7) and closes once done.
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fireEvent } from "@testing-library/react";
@@ -72,9 +72,14 @@ describe("SnoozeDialog", () => {
     expect(api.last().input).toEqual({ taskId, until: { choice: "at", due: { on: "2026-10-18", at: "16:30" } } });
   });
 
-  it("names a missing time instead of sending", async () => {
+  it("opens Choose a time on a sensible time, and names a missing one instead of sending", async () => {
     const { api } = renderDialog();
     await userEvent.click(screen.getByRole("radio", { name: words.choose }));
+    // 11:00 am in India: the next whole hour at least half an hour away, today.
+    const time = screen.getByLabelText(messages.forms.due.time);
+    expect(time).toHaveValue("12:00");
+    expect(screen.getByRole("textbox", { name: messages.forms.due.day })).toHaveValue("16/10/2026");
+    fireEvent.change(time, { target: { value: "" } });
     await userEvent.click(screen.getByRole("button", { name: words.submit }));
     expect(await screen.findByText(words.problems.time)).toBeVisible();
     expect(api.calls).toEqual([]);
