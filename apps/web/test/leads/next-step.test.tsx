@@ -1,5 +1,6 @@
 // What's next about a lead (R43): an overdue task in red, then a new lead still waiting in amber, then the next task
-// in violet when it is due today and quiet grey when later or none, each in words, by the agency's clocks.
+// in violet when it is due today and quiet grey when later or none, each in words, by the agency's clocks. The two
+// statuses, overdue and waiting, carry their dot beside the words (DESIGN.md: Dot Plus Word).
 import type { LeadNextStep } from "@travel-crm/contracts/crm";
 import { screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -32,6 +33,9 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+/** The status dot before the words, if the line has one: decoration, hidden from screen readers. */
+const dotOf = (line: HTMLElement) => line.querySelector("[aria-hidden=true].rounded-full");
+
 describe("NextStep", () => {
   it("reads 'Follow-up overdue · yesterday, 5:00 pm' in the bad ink, '12 min ago · no reply yet' in the attention ink, 'Follow up today, 4:00 pm' in the people ink", () => {
     const overdue = shows({
@@ -51,6 +55,15 @@ describe("NextStep", () => {
     const today = shows({ awaitingReplySince: null, task: task("follow-up", "2026-10-16T10:30:00Z") });
     expect(today).toHaveTextContent("Follow up today, 4:00 pm");
     expect(today).toHaveClass("text-people-tint-ink");
+  });
+
+  it("puts a status dot before the overdue and waiting words, and none before the others", () => {
+    const overdue = shows({ awaitingReplySince: null, task: task("follow-up", "2026-10-15T11:30:00Z") });
+    expect(dotOf(overdue)).toHaveClass("bg-status-bad-dot");
+    const waiting = shows({ awaitingReplySince: "2026-10-16T05:18:00Z", task: null });
+    expect(dotOf(waiting)).toHaveClass("bg-status-attention-dot");
+    expect(dotOf(shows({ awaitingReplySince: null, task: task("follow-up", "2026-10-16T10:30:00Z") }))).toBeNull();
+    expect(dotOf(shows({ awaitingReplySince: null, task: null }))).toBeNull();
   });
 
   it("is quiet for later and for nothing, and names a task as a task", () => {
