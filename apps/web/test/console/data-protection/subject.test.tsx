@@ -145,6 +145,16 @@ describe("one person's or record's export and erasure", () => {
     await userEvent.click(confirm.getByRole("button", { name: words.subject.confirmErase }));
     expect(await confirm.findByText(/customer \(record type person\)/)).toBeVisible();
   });
+  it("says where the export is: below the form, where it shows", async () => {
+    const api = openScreen({});
+    await exportMember(api);
+    const hint = screen.getByText(words.subject.eraseReady);
+    expect(hint).toHaveTextContent(/below/);
+    const shown = screen.getByText("Ravi Kumar");
+    expect(hint.compareDocumentPosition(shown) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(words.subject.eraseNeedsExport).toMatch(/below/);
+  });
+
   it("offers Erase only once the export shown is of the very person typed", async () => {
     const api = openScreen({});
     await screen.findByText("Sharma Travels");
