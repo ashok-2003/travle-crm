@@ -21,6 +21,9 @@ import { ReturningBadge } from "./returning-badge";
 const columns = ["name", "trip", "stage", "next", "owner", "budget", "added"] as const;
 const numeric = new Set<string>(["budget", "added"]);
 
+/** The table's columns: Owner only for whoever sees others' leads. Its skeleton draws as many. */
+export const tableColumns = (showOwner: boolean) => columns.filter((column) => showOwner || column !== "owner");
+
 export function LeadsTable({
   leads,
   people,
@@ -41,13 +44,11 @@ export function LeadsTable({
     <Table aria-label={t("list.leads")}>
       <TableHeader>
         <TableRow>
-          {columns
-            .filter((column) => showOwner || column !== "owner")
-            .map((column) => (
-              <TableHead key={column} scope="col" className={numeric.has(column) ? "text-right" : undefined}>
-                {t(`list.columns.${column}`)}
-              </TableHead>
-            ))}
+          {tableColumns(showOwner).map((column) => (
+            <TableHead key={column} scope="col" className={numeric.has(column) ? "text-right" : undefined}>
+              {t(`list.columns.${column}`)}
+            </TableHead>
+          ))}
         </TableRow>
       </TableHeader>
       <TableBody>
