@@ -143,8 +143,9 @@ describe("a lead's page", () => {
       await tx.lead.update({ where: { id: removed.id }, data: softDeleted(manager.userId) });
       return { theirs: other.id, gone: removed.id };
     });
-    const everyone = { owners: new Set([salesperson.userId, asha]), now: new Date() };
-    const due = { on: "2027-01-15", at: "10:00" };
+    const now = new Date("2026-10-17T05:00:00Z");
+    const everyone = { owners: new Set([salesperson.userId, asha]), now };
+    const due = { on: "2026-10-18", at: "10:00" };
     for (const leadId of [theirs, gone, randomUUID()]) {
       const doors = [
         () => inOrg((tx) => getLead(tx, salesperson, leadId)),
@@ -155,8 +156,7 @@ describe("a lead's page", () => {
         () => inOrg((tx) => editLeadTrip(tx, salesperson, editTripInput.parse({ leadId, trip: noTrip }))),
         () => inOrg((tx) => editLeadPerson(tx, salesperson, editPersonInput.parse({ leadId, person: rahul }))),
         () => inOrg((tx) => reassignLead(tx, salesperson, { leadId, ownerUserId: salesperson.userId }, everyone)),
-        () =>
-          inOrg((tx) => addLeadWork(tx, salesperson, { leadId, kind: "follow-up", title: "Call", due }, new Date())),
+        () => inOrg((tx) => addLeadWork(tx, salesperson, { leadId, kind: "follow-up", title: "Call", due }, now)),
         () => inOrg((tx) => blockLeadContact(tx, salesperson, { leadId }, new Date())),
       ];
       for (const door of doors) await expect(door()).rejects.toMatchObject({ code: "NOT_FOUND", reason: "NOT_FOUND" });

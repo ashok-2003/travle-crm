@@ -3,11 +3,15 @@
 // NOT_FOUND and changes nothing.
 import type { LeadDetail, TimelinePage } from "@travel-crm/contracts/crm";
 import type { Task } from "@travel-crm/contracts/tasks";
+import { addDays, calendarDateIn } from "@travel-crm/domain/kernel";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { CookieJar } from "./support/cookie-jar.js";
 import { addStaff, ownerAccess, signedInOwner, signedInStaff, type TestStaff } from "./support/people.js";
 import { createTestAgency, createTestServer, type TestAgency, type TestServer } from "./support/test-server.js";
 import { dataOf, mutate, query, refusalOf } from "./support/trpc.js";
+
+/** A day a month on in the agency's zone: the server checks a follow-up's time against its own clock. */
+const inAMonth = addDays(calendarDateIn(new Date(), "Asia/Kolkata"), 30);
 
 const noTrip = {
   destination: null,
@@ -87,7 +91,7 @@ describe("a lead", () => {
       ["leads.reopen", { leadId }],
       ["leads.editTrip", { leadId, trip: noTrip }],
       ["leads.editPerson", { leadId, person: { name: "Someone", phone: "98765 11111" } }],
-      ["leads.addWork", { leadId, kind: "follow-up", title: "Call", due: { on: "2027-01-15", at: "10:00" } }],
+      ["leads.addWork", { leadId, kind: "follow-up", title: "Call", due: { on: inAMonth, at: "10:00" } }],
     ];
     for (const [path, input] of changes) {
       expect(await refusalOf(await mutate(server, path, input, salesperson)), path).toEqual(notFound);
@@ -106,9 +110,9 @@ describe("a lead", () => {
   });
 
   it("adds a follow-up for the lead's owner, whoever adds it", async () => {
-    const followUp = { leadId, kind: "follow-up", title: "Send the quote", due: { on: "2027-01-15", at: "10:00" } };
+    const followUp = { leadId, kind: "follow-up", title: "Send the quote", due: { on: inAMonth, at: "10:00" } };
     expect(await dataOf<Task>(await mutate(server, "leads.addWork", followUp, owner))).toMatchObject({
-      dueAt: "2027-01-15T04:30:00.000Z",
+      dueAt: `${inAMonth}T04:30:00.000Z`,
       assigneeUserId: agency.owner.userId,
       record: { recordType: "lead", recordId: leadId },
     });
