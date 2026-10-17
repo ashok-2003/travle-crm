@@ -39,7 +39,9 @@ test("a repeat enquiry goes on the open lead's timeline, or makes a new trip enq
   await page.getByLabel("Phone", { exact: true }).fill("+91 98765 43210");
   await page.getByRole("radio", { name: "New trip enquiry" }).check();
   await page.getByRole("button", { name: "Save lead" }).click();
-  await expect(page).not.toHaveURL(new RegExp(`/leads/${kashmir}$`));
+  // A lead of its own: the address names a lead, and not the Kashmir one.
+  await expect(page).toHaveURL(/\/leads\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+  expect(new URL(page.url()).pathname).not.toBe(`/leads/${kashmir}`);
   await expect(page.getByRole("heading", { level: 1, name: "Rahul Sharma" })).toBeVisible();
   await expect(page.getByRole("main").getByText("Returning").first()).toBeVisible();
 

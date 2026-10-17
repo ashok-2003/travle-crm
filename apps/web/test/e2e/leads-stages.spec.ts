@@ -21,10 +21,15 @@ test("a lead moves forward and back, is marked Lost after asking, and reopens to
   const bar = () => page.getByRole("region", { name: /^Stage: / });
   await expect(bar()).toHaveAccessibleName("Stage: New");
   if (testInfo.project.name === "phone") {
-    const steps = bar().getByRole("listitem");
-    await expect(steps).toHaveCount(5);
-    for (const step of await steps.all()) {
-      const box = await step.locator("span, button").last().boundingBox();
+    await expect(bar().getByRole("listitem")).toHaveCount(5);
+    // The current stage, as text, and the four others, each a button saying where it moves the lead.
+    const others = ["Contacted", "Quote sent", "Booking requested", "Won"];
+    const steps = [
+      bar().getByText("New", { exact: true }),
+      ...others.map((stage) => bar().getByRole("button", { name: `Move to ${stage}` })),
+    ];
+    for (const step of steps) {
+      const box = await step.boundingBox();
       expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
     }
     // The words wrap onto two lines in their fifth of the row, rather than running past it.

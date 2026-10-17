@@ -1,8 +1,8 @@
 // What the lead journeys and the camera start from (R54): leads made through the api as the signed-in person, so every
 // rule runs (known contacts, owners, the timeline, the audit), never by writing rows; a lead's input with only what a
-// journey says, the rest not asked yet; follow-ups and stage moves the same way; and an agency with a salesperson,
-// Ravi, beside its Owner.
-import { expect, type Page } from "@playwright/test";
+// journey says, the rest not asked yet; follow-ups and stage moves the same way; an agency with a salesperson, Ravi,
+// beside its Owner; and a second person's browser on the journey's own kind of device.
+import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import type { CreateLeadInput, LeadStage } from "@travel-crm/contracts/crm";
 import type { Agency, Staff } from "./fixtures";
 
@@ -83,16 +83,38 @@ export function dayInIndia(days = 0): string {
 }
 
 /** The agency's people who work leads: its Owner and Ravi Kumar, a salesperson (starter role Sales), with his id. */
+/** The id of the lead worker named `name`, as leads.owners lists them to the signed-in Owner. */
+function workerId(workers: { userId: string; name: string }[], name: string): string {
+  const userId = workers.find((worker) => worker.name === name)?.userId;
+  if (userId === undefined) throw new Error(`${name} isn't among the people who can work leads`);
+  return userId;
+}
+
+/** The agency's people who work leads, with their ids: its Owner and Ravi Kumar, a salesperson (starter role Sales). */
 export async function leadWorkerAgency(
   page: Page,
   {
     agency,
     addStaff,
   }: { agency: Agency; addStaff: (options: { name: string; username: string; roleKey: string }) => Promise<Staff> },
-): Promise<{ owner: Agency["owner"]; ravi: Staff & { userId: string } }> {
+): Promise<{ owner: Agency["owner"] & { userId: string }; ravi: Staff & { userId: string } }> {
   const ravi = await addStaff({ name: "Ravi Kumar", username: "ravi", roleKey: "sales" });
   const workers = await callApi<{ userId: string; name: string }[]>(page, "leads.owners", {});
-  const userId = workers.find((worker) => worker.name === ravi.name)?.userId;
-  if (userId === undefined) throw new Error("Ravi isn't among the people who can work leads");
-  return { owner: agency.owner, ravi: { ...ravi, userId } };
+  return {
+    owner: { ...agency.owner, userId: workerId(workers, agency.owner.name) },
+    ravi: { ...ravi, userId: workerId(workers, ravi.name) },
+  };
+}
+
+/** A second person's browser on the same kind of device as the journey's project (a phone, or a desktop). */
+export async function anotherPersonsDevice(browser: Browser): Promise<BrowserContext> {
+  const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = test.info().project.use;
+  return browser.newContext({
+    baseURL: appOrigin(),
+    ...(viewport && { viewport }),
+    ...(userAgent !== undefined && { userAgent }),
+    ...(deviceScaleFactor !== undefined && { deviceScaleFactor }),
+    ...(isMobile !== undefined && { isMobile }),
+    ...(hasTouch !== undefined && { hasTouch }),
+  });
 }

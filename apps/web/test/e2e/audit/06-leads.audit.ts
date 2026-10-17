@@ -19,6 +19,12 @@ test.beforeEach(screenshotsOnly);
 /** A month two months from now, as the api takes one ("2026-12"). */
 const soon = () => dayInIndia(60).slice(0, 7);
 
+/** "2026-12" as the form's month list names it, "December 2026". */
+const monthName = (month: string) =>
+  new Intl.DateTimeFormat("en-IN", { month: "long", year: "numeric", timeZone: "UTC" }).format(
+    new Date(`${month}-01T00:00:00Z`),
+  );
+
 /** The leads of the mockup's list, the Owner's and Ravi's; gives Rahul Sharma's lead and the lost one. */
 async function aWeekOfLeads(page: Page, raviId: string): Promise<{ rahul: string; lost: string }> {
   const rahul = await addLeadThroughApi(
@@ -144,7 +150,7 @@ test("an Owner's leads, a lead and its dialogs, and a salesperson's own list", a
   await page.getByRole("combobox", { name: "When" }).click();
   await page.getByRole("option", { name: "A month" }).click();
   await page.getByRole("combobox", { name: "Month" }).click();
-  await page.getByRole("option").nth(2).click();
+  await page.getByRole("option", { name: monthName(soon()) }).click();
   await page.getByLabel("Adults", { exact: true }).fill("2");
   await page.getByLabel("Budget", { exact: true }).fill("320000");
   await page.getByLabel("Notes", { exact: true }).fill("Two children; wants Universal Studios and a night safari.");

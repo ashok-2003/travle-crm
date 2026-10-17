@@ -46,11 +46,15 @@ test("an Owner adds a lead with a name and a phone, and finds it in Leads", asyn
   await expect(lead).toBeVisible();
 
   if (testInfo.project.name === "phone") {
-    // The chips scroll sideways in their own row (R42); the page itself never does.
-    const chips = page.getByRole("radiogroup", { name: "Show" });
-    const row = chips.locator("..");
-    const overflow = await row.evaluate((element) => element.scrollWidth > element.clientWidth);
-    expect(overflow).toBe(true);
+    // The chips scroll sideways in their own row (R42): Filters, at its end, starts past the screen's edge, and
+    // scrolls into view; the page itself never scrolls sideways.
+    const filters = page.getByRole("button", { name: "Filters" });
+    const width = page.viewportSize()?.width ?? 0;
+    const before = await filters.boundingBox();
+    expect((before?.x ?? 0) + (before?.width ?? 0)).toBeGreaterThan(width);
+    await filters.scrollIntoViewIfNeeded();
+    const after = await filters.boundingBox();
+    expect((after?.x ?? width) + (after?.width ?? 0)).toBeLessThanOrEqual(width);
     const pageScrolls = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
     expect(pageScrolls).toBe(false);
   }
