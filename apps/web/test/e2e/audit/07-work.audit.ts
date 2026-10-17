@@ -1,7 +1,7 @@
 // The visual audit's work screens (release 1): the mockup's day, made through the api (R54): two follow-ups overdue
 // (due this very minute), three new leads waiting and three things due later today, one a task on no lead. Home with
-// its nudge under the setup card, Today, its Snooze and Add a task dialogs, Settings' destinations and blocked
-// contacts, and a salesperson's empty Today.
+// its nudge under the setup card, Today, its Snooze and Add a task dialogs, Settings' destinations with Rename and
+// Merge, blocked contacts with Unblock's confirmation, and a salesperson's empty Today.
 import type { Page } from "@playwright/test";
 import { expect, signInByCode, signInByEmail, test } from "../support/fixtures";
 import {
@@ -145,10 +145,31 @@ test("an Owner's day, its dialogs and Settings, and a salesperson's empty Today"
   await page.goto("/settings/destinations");
   await expect(page.getByRole("list", { name: "Destinations" }).getByText("Goa trip")).toBeVisible();
   await shoot(page, "settings-destinations");
+  await page.getByRole("button", { name: "Actions for Goa trip" }).click();
+  await page.getByRole("menuitem", { name: "Rename" }).click();
+  const rename = page.getByRole("dialog", { name: "Rename Goa trip" });
+  await expect(rename.getByLabel("Name", { exact: true })).toBeVisible();
+  await shoot(page, "settings-destination-rename");
+  await rename.getByRole("button", { name: "Cancel" }).click();
+  await expect(rename).toBeHidden();
+  await page.getByRole("button", { name: "Actions for Goa trip" }).click();
+  await page.getByRole("menuitem", { name: "Merge into another" }).click();
+  const merge = page.getByRole("dialog", { name: "Merge Goa trip into another" });
+  await merge.getByRole("combobox", { name: "Keep" }).click();
+  await page.getByRole("option", { name: "Goa", exact: true }).click();
+  await expect(merge.getByRole("combobox", { name: "Keep" })).toHaveText(/Goa/);
+  await shoot(page, "settings-destination-merge");
+  await merge.getByRole("button", { name: "Cancel" }).click();
+  await expect(merge).toBeHidden();
 
   await page.goto("/settings/blocked-contacts");
   await expect(page.getByRole("list", { name: "Blocked contacts" }).getByRole("listitem")).toHaveCount(2);
   await shoot(page, "settings-blocked-contacts");
+  await page.getByRole("button", { name: "Unblock +91 90000 11122" }).click();
+  const unblock = page.getByRole("alertdialog", { name: "Unblock +91 90000 11122?" });
+  await expect(unblock).toBeVisible();
+  await shoot(page, "settings-unblock");
+  await unblock.getByRole("button", { name: "Cancel" }).click();
 
   // Ravi on the same device, with nothing to do yet: the Owner signs out first.
   await page.context().clearCookies();
