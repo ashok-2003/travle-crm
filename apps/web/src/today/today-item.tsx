@@ -1,9 +1,10 @@
 "use client";
 
 // One thing on Today (spec 3.5, the mockup): the person it is about, leading to their lead (a task on no lead shows its
-// title), when it is due in its urgency's colour, what to do and the trip in a line, then two rows of buttons, since
-// four 44px buttons don't fit one row on a phone: how to reach them (Call and WhatsApp, both outline, when they have a
-// phone), then how to close it (Done and Snooze), or Mark contacted for a new lead. Times are the agency's.
+// title), when it is due in its urgency's colour, what to do and the trip in a line, then its buttons: how to reach
+// them (Call and WhatsApp, both outline, when they have a phone), then how to close it (Done and Snooze), or Mark
+// contacted for a new lead. Four 44px buttons don't fit one row on a phone, so there they take two; from a tablet up,
+// one. Times are the agency's.
 import type { TripSummary } from "@travel-crm/contracts/crm";
 import type { TodayItem as TodayItemData } from "@travel-crm/contracts/today";
 import { useTranslations } from "next-intl";
@@ -77,7 +78,7 @@ export function TodayItem({ item }: { item: TodayItemData }) {
         </div>
         {description !== "" && <ItemDescription className="break-words script-leading">{description}</ItemDescription>}
       </ItemContent>
-      <ItemActions className="basis-full flex-col items-start gap-2">
+      <ItemActions className="basis-full flex-col items-start gap-2 md:flex-row md:items-center">
         {lead !== null && phone !== null && (
           <div className="flex flex-wrap gap-2">
             <CallButton phone={phone} name={lead.personName} variant="outline" />

@@ -5,7 +5,7 @@
 // that, the screen says to search.
 import { MapPinIcon, SearchIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { BackToSettings } from "@/components/back-to-settings";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
@@ -13,7 +13,7 @@ import { FormField } from "@/components/form-field";
 import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
-import { Item, ItemActions, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
+import { Item, ItemActions, ItemContent, ItemGroup, ItemSeparator, ItemTitle } from "@/components/ui/item";
 import { DestinationActions } from "./destination-actions";
 import { LISTED, useDestinations } from "./use-destinations";
 
@@ -39,15 +39,18 @@ export function DestinationsScreen() {
       return (
         <div className="flex flex-col gap-3">
           <ItemGroup aria-label={t("listLabel")}>
-            {listed.data.map((destination) => (
-              <Item key={destination.id} size="sm" role="listitem">
-                <ItemContent className="min-w-0">
-                  <ItemTitle className="break-words script-leading">{destination.name}</ItemTitle>
-                </ItemContent>
-                <ItemActions>
-                  <DestinationActions destination={destination} />
-                </ItemActions>
-              </Item>
+            {listed.data.map((destination, index) => (
+              <Fragment key={destination.id}>
+                {index > 0 && <ItemSeparator />}
+                <Item size="sm" role="listitem">
+                  <ItemContent className="min-w-0">
+                    <ItemTitle className="break-words script-leading">{destination.name}</ItemTitle>
+                  </ItemContent>
+                  <ItemActions>
+                    <DestinationActions destination={destination} />
+                  </ItemActions>
+                </Item>
+              </Fragment>
             ))}
           </ItemGroup>
           {listed.data.length === LISTED && <p className="text-label text-muted-foreground">{t("firstOnly")}</p>}
