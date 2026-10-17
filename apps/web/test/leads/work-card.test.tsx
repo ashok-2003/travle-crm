@@ -96,15 +96,20 @@ describe("WorkCard", () => {
     expect(await screen.findByText(words.added)).toBeVisible();
   });
 
-  it("shows the api's refusal of a time already past", async () => {
+  it("says the api's refusal of a time already past on the time, where it is fixed", async () => {
     const api = renderCard();
     api.answer("leads.addWork", { status: 422, reason: "DUE_IN_THE_PAST" });
     await userEvent.click(screen.getByRole("button", { name: words.add }));
     const dialog = await screen.findByRole("dialog", { name: words.dialog.title });
     await userEvent.type(within(dialog).getByLabelText(words.dialog.what), "Call back");
-    fireEvent.change(within(dialog).getByLabelText(messages.forms.due.time), { target: { value: "09:00" } });
+    const time = within(dialog).getByLabelText(messages.forms.due.time);
+    fireEvent.change(time, { target: { value: "09:00" } });
     await userEvent.click(within(dialog).getByRole("button", { name: words.dialog.submit }));
     expect(await within(dialog).findByText(messages.errors.reasons.DUE_IN_THE_PAST)).toBeVisible();
+    expect(time).toHaveAttribute("aria-invalid", "true");
+    expect(time).toHaveAccessibleDescription(messages.errors.reasons.DUE_IN_THE_PAST);
+    // Said once, on the time, not again at the end of the form.
+    expect(within(dialog).getAllByText(messages.errors.reasons.DUE_IN_THE_PAST)).toHaveLength(1);
   });
 
   it("offers no Add follow-up to someone who can't edit leads", () => {

@@ -2,7 +2,8 @@
 
 // Adding a follow-up to a lead (spec 3.4, R25, R50): a short line of what to do and a due day and time on the agency's
 // clock, checked by the api's own schema (addLeadWorkInput) before it is sent. It goes to the lead's owner, whoever
-// adds it. A FormDialog: held while the request is out, a time already past refused with its sentence.
+// adds it. A FormDialog: held while the request is out; a time the api finds already past is said on the time field,
+// where it is fixed.
 import { addLeadWorkInput, type AddLeadWorkInput } from "@travel-crm/contracts/crm";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
@@ -12,6 +13,7 @@ import { FormAlert, FormDialog, useFormDialog, type OpenState, type Sending } fr
 import type { ReturnFocusTo } from "@/components/return-focus";
 import { TextField } from "@/components/forms/text-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
+import { useRefusalOnField } from "@/components/forms/use-refusal-on-field";
 import { useTRPC } from "@/data/trpc";
 import { useRefreshWork } from "@/data/use-refresh-work";
 import { useMe } from "@/session/me-context";
@@ -53,11 +55,12 @@ function FollowUpForm({ formId, leadId, add }: { formId: string; leadId: string;
     (values) => toAddWorkInput(leadId, values),
     (problem) => t(`problems.${problem}`),
   );
+  const refusal = useRefusalOnField(form, add.error, { DUE_IN_THE_PAST: "time" });
   return (
     <form id={formId} noValidate onSubmit={onSubmit(add.mutate)} className="flex flex-col gap-4">
       <TextField control={form.control} name="title" label={t("what")} hint={t("whatHint")} autoComplete="off" />
       <DueField control={form.control} dayName="day" timeName="time" label={t("due")} />
-      <FormAlert sending={add} problem={formProblem} />
+      <FormAlert sending={{ error: refusal }} problem={formProblem} />
     </form>
   );
 }

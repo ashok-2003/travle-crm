@@ -97,4 +97,21 @@ describe("SnoozeDialog", () => {
     expect(await screen.findByText(words.problems.time)).toBeVisible();
     expect(api.calls).toEqual([]);
   });
+
+  it("says the api's refusal of a chosen time already past on the time, where it is fixed", async () => {
+    const { api } = renderDialog();
+    await userEvent.click(screen.getByRole("radio", { name: words.choose }));
+    await userEvent.click(screen.getByRole("button", { name: words.submit }));
+    await waitFor(() => {
+      expect(api.calls).toHaveLength(1);
+    });
+    api.last().refuse(400, "DUE_IN_THE_PAST");
+    const time = screen.getByLabelText(messages.forms.due.time);
+    await waitFor(() => {
+      expect(time).toHaveAttribute("aria-invalid", "true");
+    });
+    expect(time).toHaveAccessibleDescription(messages.errors.reasons.DUE_IN_THE_PAST);
+    // Said once, on the time, not again at the end of the form.
+    expect(screen.getAllByText(messages.errors.reasons.DUE_IN_THE_PAST)).toHaveLength(1);
+  });
 });

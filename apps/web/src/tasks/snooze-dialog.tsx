@@ -3,7 +3,7 @@
 // Snoozing a follow-up or task (spec 3.5): one hour on, tomorrow morning at 9:00 on the agency's clock, or a chosen
 // day and time (DueField), asked in the shared ChoiceField and sent as the api takes them (snoozeTaskInput, checked
 // before it is sent). A FormDialog: it holds while the request is out (rule 7), and what follows success lands even
-// once it closes.
+// once it closes. A chosen time the api finds already past is said on the time field, where it is fixed.
 import { snoozeTaskInput, type SnoozeUntil } from "@travel-crm/contracts/tasks";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
@@ -12,6 +12,7 @@ import { ChoiceField } from "@/components/forms/choice-field";
 import { DueField, suggestedDue } from "@/components/forms/due-field";
 import { FormAlert, FormDialog, useFormDialog, type Sending } from "@/components/forms/form-dialog";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
+import { useRefusalOnField } from "@/components/forms/use-refusal-on-field";
 import { FieldGroup } from "@/components/ui/field";
 import type { ReturnFocusTo } from "@/components/return-focus";
 import { useTRPC } from "@/data/trpc";
@@ -66,6 +67,7 @@ function SnoozeForm({
     (problem) => t(`problems.${problem}`),
   );
   const choice = form.watch("choice");
+  const refusal = useRefusalOnField(form, snooze.error, { DUE_IN_THE_PAST: "time" });
   return (
     <form id={formId} noValidate onSubmit={onSubmit(snooze.mutate)} className="flex flex-col gap-4">
       <FieldGroup>
@@ -77,7 +79,7 @@ function SnoozeForm({
         />
         {choice === "at" && <DueField control={form.control} dayName="day" timeName="time" label={t("when")} />}
       </FieldGroup>
-      <FormAlert sending={snooze} problem={formProblem} />
+      <FormAlert sending={{ error: refusal }} problem={formProblem} />
     </form>
   );
 }
