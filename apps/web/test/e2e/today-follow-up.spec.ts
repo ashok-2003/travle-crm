@@ -124,7 +124,8 @@ test("a new lead is marked contacted; one thing is snoozed for an hour, another 
   await page.goto("/today");
   const newLeads = page.getByRole("region", { name: "New leads waiting for a reply" });
   await newLeads.getByRole("button", { name: "Mark Arjun Mehta contacted" }).click();
-  await expect(page.getByText("Marked contacted")).toBeVisible();
+  // As the lead's own stage bar says it: Mark contacted is that same move.
+  await expect(page.getByText("Moved to Contacted")).toBeVisible();
   await expect(newLeads).toBeHidden();
   await animationsSettled(page);
   await expectAccessible(page);

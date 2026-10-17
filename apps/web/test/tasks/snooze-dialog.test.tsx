@@ -1,6 +1,7 @@
 // Snoozing a follow-up or task (spec 3.5): one hour, tomorrow morning at 9:00, or a chosen day and time (opening on a
-// sensible one), sent as the api takes them; the dialog holds while the request is out (rule 7) and closes once done.
-import { screen, waitFor } from "@testing-library/react";
+// sensible one), asked in the shared ChoiceField and sent as the api takes them; the dialog holds while the request is
+// out (rule 7) and closes once done; a chosen time already past is said on the time.
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fireEvent } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -39,6 +40,18 @@ async function snoozeWith(choice: string) {
 }
 
 describe("SnoozeDialog", () => {
+  it("asks its three choices as every choice is asked: a group named by its legend (ChoiceField)", () => {
+    renderDialog();
+    const group = screen.getByRole("group", { name: words.choice });
+    const choices = within(group).getByRole("radiogroup", { name: words.choice });
+    expect(
+      within(choices)
+        .getAllByRole("radio")
+        .map((radio) => radio.getAttribute("value")),
+    ).toEqual(["one-hour", "tomorrow-morning", "at"]);
+    expect(within(choices).getByRole("radio", { name: words.oneHour })).toBeChecked();
+  });
+
   it("sends one-hour, tomorrow-morning and { choice: 'at', due: { on, at } }, and holds while pending", async () => {
     const { api, onOpenChange } = renderDialog();
     await snoozeWith(words.oneHour);
@@ -83,5 +96,22 @@ describe("SnoozeDialog", () => {
     await userEvent.click(screen.getByRole("button", { name: words.submit }));
     expect(await screen.findByText(words.problems.time)).toBeVisible();
     expect(api.calls).toEqual([]);
+  });
+
+  it("says the api's refusal of a chosen time already past on the time, where it is fixed", async () => {
+    const { api } = renderDialog();
+    await userEvent.click(screen.getByRole("radio", { name: words.choose }));
+    await userEvent.click(screen.getByRole("button", { name: words.submit }));
+    await waitFor(() => {
+      expect(api.calls).toHaveLength(1);
+    });
+    api.last().refuse(400, "DUE_IN_THE_PAST");
+    const time = screen.getByLabelText(messages.forms.due.time);
+    await waitFor(() => {
+      expect(time).toHaveAttribute("aria-invalid", "true");
+    });
+    expect(time).toHaveAccessibleDescription(messages.errors.reasons.DUE_IN_THE_PAST);
+    // Said once, on the time, not again at the end of the form.
+    expect(screen.getAllByText(messages.errors.reasons.DUE_IN_THE_PAST)).toHaveLength(1);
   });
 });

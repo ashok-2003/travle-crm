@@ -99,12 +99,34 @@ describe("LeadMenu", () => {
     expect(within(await openMenu()).getByRole("menuitem", { name: words.menu.blockContact })).toBeVisible();
   });
 
+  it("starts with no one chosen, names the lead's owner and leaves them out: nothing to reassign to", async () => {
+    renderMenu();
+    await userEvent.click(within(await openMenu()).getByRole("menuitem", { name: words.menu.reassign }));
+    const dialog = await screen.findByRole("dialog", { name: words.reassign.title });
+    const described = words.reassign.description.replace("{name}", "Rahul Sharma").replace("{owner}", "Asha Sharma");
+    expect(within(dialog).getByText(described)).toBeVisible();
+    const picker = within(dialog).getByRole("combobox", { name: words.reassign.owner });
+    expect(picker).toHaveTextContent(words.reassign.choose);
+    await userEvent.click(within(dialog).getByRole("button", { name: words.reassign.submit }));
+    expect(await within(dialog).findByText(words.reassign.problems.required)).toBeVisible();
+    expect(inputsTo("leads.reassign")).toEqual([]);
+    await userEvent.click(picker);
+    expect(await screen.findByRole("option", { name: "Ravi Kumar" })).toBeVisible();
+    expect(screen.queryByRole("option", { name: "Asha Sharma" })).not.toBeInTheDocument();
+  });
+
+  it("says whose the lead was without a name it doesn't know", async () => {
+    renderMenu(owner, { people: {} });
+    await userEvent.click(within(await openMenu()).getByRole("menuitem", { name: words.menu.reassign }));
+    const dialog = await screen.findByRole("dialog", { name: words.reassign.title });
+    expect(within(dialog).getByText(words.reassign.descriptionNoOwner.replace("{name}", "Rahul Sharma"))).toBeVisible();
+  });
+
   it("reassigns to a lead worker from the owner list", async () => {
     renderMenu();
     await userEvent.click(within(await openMenu()).getByRole("menuitem", { name: words.menu.reassign }));
     const dialog = await screen.findByRole("dialog", { name: words.reassign.title });
     const picker = within(dialog).getByRole("combobox", { name: words.reassign.owner });
-    expect(picker).toHaveTextContent("Asha Sharma");
     await userEvent.click(picker);
     await userEvent.click(await screen.findByRole("option", { name: "Ravi Kumar" }));
     await userEvent.click(within(dialog).getByRole("button", { name: words.reassign.submit }));
@@ -133,7 +155,7 @@ describe("LeadMenu", () => {
     api.answer("leads.owners", { status: 500 });
     await userEvent.click(within(await openMenu()).getByRole("menuitem", { name: words.menu.reassign }));
     const dialog = await screen.findByRole("dialog", { name: words.reassign.title });
-    expect(await within(dialog).findByText(words.reassign.ownersFailed)).toBeVisible();
+    expect(await within(dialog).findByText(messages.leads.ownersFailed)).toBeVisible();
     expect(within(dialog).getByRole("button", { name: words.reassign.submit })).toBeDisabled();
     api.answer("leads.owners", { data: [{ userId: salesperson.user.id, name: "Ravi Kumar" }] });
     await userEvent.click(within(dialog).getByRole("button", { name: messages.common.tryAgain }));

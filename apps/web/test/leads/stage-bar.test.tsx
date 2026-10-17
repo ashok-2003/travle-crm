@@ -1,13 +1,15 @@
 // A lead's stage bar (spec 3.4, R30, R31, P2): New → Contacted → Quote sent → Booking requested → Won, five 44px steps
 // over their Progress, the current one marked as the step; tapping another moves the lead there, forwards or back. A
 // Lost or Not a lead lead shows its badge and Reopen in place of the bar. A refusal shows its sentence until the next
-// tap. Screen readers hear the current stage in the bar's name and where each step moves the lead. Without leads:edit
-// the bar only shows.
+// tap. Screen readers hear the current stage in the bar's name and where each step moves the lead; after a move or a
+// Reopen, whose button is gone, the focus is on the new current stage. Without leads:edit the bar only shows.
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { toast } from "sonner";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { messages } from "@/i18n/messages";
 import { StageBar } from "@/leads/lead/stage-bar";
+import { useLead } from "@/leads/lead/use-lead";
 import { stubApi } from "../support/api-stub";
 import { member } from "../support/members";
 import { targetSize } from "../components/touch-targets";
@@ -25,8 +27,26 @@ function renderBar(...[changes, me]: [Parameters<typeof aLead>[0], Parameters<ty
   return api;
 }
 
+/** The bar as the lead's page shows it: over leads.get, so a move shows the lead as the api then has it. */
+function BarOnPage() {
+  const lead = useLead(ids.rahul);
+  return lead.data ? <StageBar lead={lead.data} /> : null;
+}
+
+function renderBarOnPage(stage: Parameters<typeof aLead>[0]) {
+  const api = stubApi({
+    "leads.get": { data: aLead(stage) },
+    "leads.moveStage": { data: null },
+    "leads.reopen": { data: null },
+  });
+  renderScreen(<BarOnPage />);
+  return api;
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
+  // Sonner keeps its toasts beyond a test, and the next test's Toaster would show them again.
+  toast.dismiss();
 });
 
 describe("StageBar", () => {
@@ -55,6 +75,34 @@ describe("StageBar", () => {
       expect(inputsTo("leads.moveStage")).toEqual([{ leadId: ids.rahul, stage: "quote_sent" }]);
     });
     expect(await screen.findByText(words.moved.replace("{stage}", stages.quote_sent))).toBeVisible();
+  });
+
+  it("puts the focus on the new current stage after a move, the tapped step being gone", async () => {
+    const api = renderBarOnPage({ stage: "contacted" });
+    const bar = await screen.findByRole("region", barNamed("contacted"));
+    api.answer("leads.get", { data: aLead({ stage: "quote_sent" }) });
+    await userEvent.click(within(bar).getByRole("button", moveTo("quote_sent")));
+    const moved = await screen.findByRole("region", barNamed("quote_sent"));
+    await waitFor(() => {
+      expect(within(moved).getByText(stages.quote_sent)).toHaveFocus();
+    });
+  });
+
+  it("puts the focus on the stage a Reopen returned the lead to", async () => {
+    const api = renderBarOnPage({ stage: "lost", reopenStage: "quote_sent" });
+    const bar = await screen.findByRole("region", barNamed("lost"));
+    api.answer("leads.get", { data: aLead({ stage: "quote_sent" }) });
+    await userEvent.click(within(bar).getByRole("button", { name: words.reopen }));
+    const reopened = await screen.findByRole("region", barNamed("quote_sent"));
+    await waitFor(() => {
+      expect(within(reopened).getByText(stages.quote_sent)).toHaveFocus();
+    });
+  });
+
+  it("writes its steps at the caption's size in the ghost button's own blue", () => {
+    renderBar({ stage: "contacted" });
+    const step = screen.getByRole("button", moveTo("quote_sent"));
+    expect(step).toHaveClass("text-caption", "text-primary");
   });
 
   it("moves a lead back, and a Won lead to any stage", async () => {

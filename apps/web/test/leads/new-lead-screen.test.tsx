@@ -1,14 +1,14 @@
 // The new-lead form (spec 3.2, R24, R53): a name and one contact save a lead and open it; the trip's month, budget and
 // children's ages travel as the api takes them; a known contact is named before saving, with the choice for an open
 // lead (only its destination and owner when the salesperson can't see it); a blocked number warns and still saves;
-// the owner picker is for leads:assign; a new destination is added by typing its name.
+// the owner picker is for leads:assign; a new destination is added by typing its name, in the shared search picker.
 import type { KnownContactResult } from "@travel-crm/contracts/crm";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { messages } from "@/i18n/messages";
 import { NewLeadScreen } from "@/leads/form/new-lead-screen";
-import { stubApi, type Answer } from "../support/api-stub";
+import { heldAnswer, stubApi, type Answer } from "../support/api-stub";
 import { address } from "./navigation";
 import { ids } from "./records";
 import { inputsTo, lastInputTo, owner, renderScreen, salesperson } from "./screen";
@@ -83,7 +83,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("NewLeadScreen", () => {
+// The longest form in the app, typed through in each test: under a loaded machine a test took over the 5 s default.
+describe("NewLeadScreen", { timeout: 15_000 }, () => {
   it("needs a name and one contact, and saves with only those, opening the new lead", async () => {
     renderForm();
     await save();
@@ -266,6 +267,25 @@ describe("NewLeadScreen", () => {
     });
   });
 
+  it("says when the people who can own the lead didn't load, with Try again; it is the adder's meanwhile", async () => {
+    const api = renderForm({ "leads.owners": { status: 500 } });
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(messages.leads.ownersFailed);
+    expect(screen.getByRole("combobox", { name: form.owner })).toHaveTextContent(
+      form.me.replace("{name}", "Asha Sharma"),
+    );
+    api.answer("leads.owners", {
+      data: [
+        { userId: owner.user.id, name: "Asha Sharma" },
+        { userId: salesperson.user.id, name: "Ravi Kumar" },
+      ],
+    });
+    await userEvent.click(within(alert).getByRole("button", { name: messages.common.tryAgain }));
+    await choose(form.owner, "Ravi Kumar");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(inputsTo("leads.create")).toEqual([]);
+  });
+
   it("gives a salesperson no owner picker: the lead is theirs", async () => {
     renderForm({}, salesperson);
     await fillPerson();
@@ -289,10 +309,41 @@ describe("NewLeadScreen", () => {
     });
   });
 
+  it("says what the destination search is doing in a status outside the list, as every search picker does", async () => {
+    const found = heldAnswer({ data: [{ id: ids.kashmir, name: "Kashmir" }] });
+    const api = renderForm({ "destinations.search": found.answer });
+    await userEvent.click(screen.getByRole("combobox", { name: form.trip.destination }));
+    const status = await screen.findByRole("status");
+    expect(screen.getByRole("listbox")).not.toContainElement(status);
+    expect(status).toHaveTextContent(form.destination.searching);
+    found.release();
+    expect(await screen.findByRole("option", { name: "Kashmir" })).toBeVisible();
+    expect(status).toBeEmptyDOMElement();
+    api.answer("destinations.search", { data: [] });
+    await userEvent.type(screen.getByPlaceholderText(form.destination.searchOrAdd), "Spiti");
+    await waitFor(() => {
+      expect(status).toHaveTextContent(form.destination.noMatch);
+    });
+    // A name that isn't on the list can still be added.
+    expect(screen.getByRole("option", { name: form.destination.add.replace("{name}", "Spiti") })).toBeVisible();
+  });
+
+  it("offers No destination once one is chosen, which empties the field again", async () => {
+    renderForm();
+    await choose(form.trip.destination, "Kashmir");
+    const trigger = screen.getByRole("combobox", { name: form.trip.destination });
+    expect(trigger).toHaveTextContent("Kashmir");
+    // A chosen value reads as every field's does, not in the action blue of the group's button.
+    expect(within(trigger).getByText("Kashmir")).toHaveClass("text-foreground");
+    expect(trigger.querySelector("svg")).toHaveClass("text-muted-foreground");
+    await choose(form.trip.destination, form.destination.clear);
+    expect(trigger).toHaveTextContent(form.destination.placeholder);
+  });
+
   it("says when the destinations didn't load, with Try again by Enter too, and still adds a new one", async () => {
     const api = renderForm({ "destinations.search": { status: 500 } });
     await userEvent.click(screen.getByRole("combobox", { name: form.trip.destination }));
-    expect(await screen.findByText(form.destination.loadFailed)).toBeVisible();
+    expect(await screen.findByRole("status")).toHaveTextContent(messages.errors.generic);
     expect(screen.queryByText(form.destination.noMatch)).not.toBeInTheDocument();
     await userEvent.type(screen.getByPlaceholderText(form.destination.searchOrAdd), "Spiti");
     expect(await screen.findByRole("option", { name: form.destination.add.replace("{name}", "Spiti") })).toBeVisible();

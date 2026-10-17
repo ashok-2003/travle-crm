@@ -126,7 +126,10 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   codes and answered generically (`apps/api/src/error-handler.ts`).
 - The web app sends every tRPC call, queries included, as a JSON POST (`methodOverride: "POST"`, agency and console
   alike), so no input (a phone, a searched name) is ever in a URL, where access logs keep it; a unit test reads a
-  query's input from the request's body. The api still takes GETs (tests, curl).
+  query's input from the request's body. The api still takes GETs (tests, curl). No page address carries one either:
+  a screen keeps only ids and fixed values there (the lead list's filters), and a search's text in the tab
+  (`apps/web/src/lib/tab-storage.ts`, wiped with the rest at sign-out), since a page's URL also reaches the web
+  server's logs, Next's own fetches and the Referer.
 - Over HTTP, tRPC requests and `/api/auth/sign-in/org`, other than GET/HEAD, must name a trusted origin and
   send JSON (`apps/api/src/trusted-origin.ts`); other `/api/auth/*` POSTs use Better Auth's own origin check. Better Auth's `/api/auth/organization/*` endpoints are closed (404):
   members and roles go through tRPC. So are its `/admin/*` endpoints, but support's `/admin/impersonate-user` and
@@ -248,7 +251,8 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 A screen builds from the shared pieces in `apps/web/src/` before writing its own:
 
 - **Screens:** `PageHeader` (`components/page-header.tsx`) opens every screen; `EmptyState` and `ErrorState`;
-  `RefusalAlert` for every failed request's alert; `LoadingRows` for every loading list; `Details` for labelled
+  `LoadFailedAlert`, with Try again, for a part that didn't load while the rest works on (a list of people to choose
+  from, the Leads chips' counts); `RefusalAlert` for every failed request's alert; `LoadingRows` for every loading list; `Details` for labelled
   values; `TextLink` and `BackLink` (`components/text-link.tsx`) for every link in text, with `TextLink`'s `inline`
   form for a link inside a sentence, a log row or a desktop table cell; `CopyButton`; `WriteHint`
   (`subscription/write-hint.tsx`) under a button the subscription refuses, which names it as its description;
@@ -263,9 +267,11 @@ A screen builds from the shared pieces in `apps/web/src/` before writing its own
   `SelectField`, `ChoiceField` (a few radios, `inline` side by side), `GstStateField`, `DueField`; and
   `useRefusalOnField`, which says a refusal about one field (a time already past) on that field.
 - **Pickers:** `SearchCombobox` with `useComboboxSearch` (`components/search-combobox.tsx`), the registry Command in a
-  Popover, for every search-as-you-type picker (a lead, a destination to keep).
+  Popover, for every search-as-you-type picker (a lead, a destination, a destination to keep); `clearLabel` offers
+  choosing nothing again, and `extraOption` one option of the caller's own (a destination's 'Add "Spiti"').
 - **Lists and records:** `useCursorPages` (`data/use-cursor-pages.ts`) with `ShowMoreButton` for every cursor list;
-  `AuditChange` and `StoredValue` for an audit entry's before and after.
+  `AuditChange` and `StoredValue` for an audit entry's before and after; `useRefreshWork` (`data/use-refresh-work.ts`)
+  after every change to leads, tasks, blocked contacts or destinations, so each list that shows them loads again.
 - **Words:** `lib/format.ts`'s `formatDayTime` and `formatPhoneNumber`, and `useInstantText`
   (`components/instant-text.ts`).
 - **Classes:** `cn` from `lib/utils.ts` alone, which knows the theme's type sizes (`text-caption`...); never the `cn`

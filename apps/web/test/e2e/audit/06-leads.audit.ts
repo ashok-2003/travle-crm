@@ -1,7 +1,7 @@
 // The visual audit's lead screens (release 1): Leads empty, then an agency's week of leads as the mockup draws them
 // (trips, budgets, a returning customer, follow-ups, two of them Ravi's), Everyone filtered by a stage, the Filters
-// dialog, the new-lead form filled in and with a known contact, a lead with its menu, follow-up dialog and trip
-// editor, a lost lead with Reopen, and a salesperson's own list. Every lead is made through the api (R54).
+// dialog, the new-lead form filled in and with a known contact, a lead with its menu, Reassign and Block, follow-up
+// dialog and trip editor, a lost lead with Reopen, and a salesperson's own list. Every lead is made through the api (R54).
 import type { Page } from "@playwright/test";
 import { expect, signInByCode, signInByEmail, test } from "../support/fixtures";
 import {
@@ -169,7 +169,19 @@ test("an Owner's leads, a lead and its dialogs, and a salesperson's own list", a
   await page.getByRole("button", { name: "More for Rahul Sharma" }).click();
   await expect(page.getByRole("menu")).toBeVisible();
   await shoot(page, "lead-menu");
-  await page.keyboard.press("Escape");
+  await page.getByRole("menuitem", { name: "Reassign" }).click();
+  const reassign = page.getByRole("dialog", { name: "Reassign" });
+  await expect(reassign.getByRole("combobox", { name: "Owner" })).toBeVisible();
+  await shoot(page, "lead-reassign");
+  await reassign.getByRole("button", { name: "Cancel" }).click();
+  await expect(reassign).toBeHidden();
+  await page.getByRole("button", { name: "More for Rahul Sharma" }).click();
+  await page.getByRole("menuitem", { name: "Block this number" }).click();
+  const block = page.getByRole("alertdialog", { name: "Block Rahul Sharma's contact?" });
+  await expect(block).toBeVisible();
+  await shoot(page, "lead-block");
+  await block.getByRole("button", { name: "Cancel" }).click();
+  await expect(block).toBeHidden();
   await page.getByRole("button", { name: "Add follow-up" }).click();
   const followUp = page.getByRole("dialog", { name: "Add a follow-up" });
   await followUp.getByLabel("What to do").fill("Send the Kashmir houseboat options");

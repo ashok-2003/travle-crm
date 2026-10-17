@@ -2,7 +2,8 @@
 
 // Blocked contacts in Settings (spec 3.6, R33): the phones, emails and Instagram handles blocked from leads, newest
 // first, a page at a time, each as people read it (+91 98765 43210, @handle), with who blocked it and on what day in
-// the agency's zone, and Unblock. For leads:assign; the way back to Settings shows only to those who may open it.
+// the agency's zone, and Unblock. For leads:assign; the way back is to Settings for those who may open it, and to Leads,
+// whose link brought them, for those who may not.
 import type { BlockedContact } from "@travel-crm/contracts/crm";
 import { BanIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -12,6 +13,7 @@ import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
+import { BackLink } from "@/components/text-link";
 import { ShowMoreButton } from "@/components/show-more-button";
 import {
   Item,
@@ -25,6 +27,7 @@ import {
 import { useCursorPages } from "@/data/use-cursor-pages";
 import { useTRPC, useTRPCClient } from "@/data/trpc";
 import { formatDay, formatPhoneNumber } from "@/lib/format";
+import { routes } from "@/lib/routes";
 import { useHolds, useMe } from "@/session/me-context";
 import { UnblockContact } from "./unblock-contact";
 
@@ -80,6 +83,7 @@ function BlockedContactRow({ contact }: { contact: ListedContact }) {
 export function BlockedContactsScreen() {
   const t = useTranslations("settings.blockedContacts");
   const tCommon = useTranslations("common");
+  const tLeads = useTranslations("leads.list");
   const opensSettings = useHolds("settings:manage");
   const blocked = useBlockedContacts();
 
@@ -115,7 +119,7 @@ export function BlockedContactsScreen() {
 
   return (
     <div className="flex max-w-[720px] flex-col gap-6">
-      {opensSettings && <BackToSettings />}
+      {opensSettings ? <BackToSettings /> : <BackLink href={routes.leads} label={tLeads("title")} />}
       <PageHeader title={t("title")} intro={t("intro")} />
       {body()}
     </div>

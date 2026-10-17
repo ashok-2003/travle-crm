@@ -99,6 +99,7 @@ export const SHOTS = [
     screen: "Data protection: an export, the purge, the subject form",
     as: superAdmin,
   },
+  { name: "console-customer-export", screen: "Data protection, a customer's export (person)", as: superAdmin },
   { name: "console-dashboard-support", screen: "Console dashboard", as: support },
   { name: "console-organization-support", screen: "Organization, no super-admin actions", as: support },
   { name: "impersonating", screen: "Home while impersonating, the banner and Stop", as: `${support}, as Asha Sharma` },
@@ -118,6 +119,8 @@ export const SHOTS = [
   { name: "lead-new-known-contact", screen: "New lead, a known contact with an open lead", as: owner },
   { name: "lead", screen: "A lead", as: owner },
   { name: "lead-menu", screen: "A lead, the ⋯ menu open", as: owner },
+  { name: "lead-reassign", screen: "A lead, the Reassign dialog", as: owner },
+  { name: "lead-block", screen: "A lead, the Block this number confirmation", as: owner },
   { name: "lead-lost", screen: "A lost lead, with Reopen", as: owner },
   { name: "lead-follow-up", screen: "A lead, the Add follow-up dialog", as: owner },
   { name: "lead-edit-trip", screen: "A lead, the trip editor", as: owner },
@@ -127,7 +130,10 @@ export const SHOTS = [
   { name: "today-add-task", screen: "Today, the Add a task dialog", as: owner },
   { name: "home-today", screen: "Home with the day's nudge", as: owner },
   { name: "settings-destinations", screen: "Settings, destinations", as: owner },
+  { name: "settings-destination-rename", screen: "Settings, destinations, the Rename dialog", as: owner },
+  { name: "settings-destination-merge", screen: "Settings, destinations, the Merge dialog, one chosen", as: owner },
   { name: "settings-blocked-contacts", screen: "Settings, blocked contacts", as: owner },
+  { name: "settings-unblock", screen: "Settings, blocked contacts, the Unblock confirmation", as: owner },
 ] as const satisfies readonly Shot[];
 
 export type ShotName = (typeof SHOTS)[number]["name"];

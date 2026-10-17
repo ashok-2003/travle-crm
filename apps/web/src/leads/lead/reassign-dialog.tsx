@@ -1,7 +1,8 @@
 "use client";
 
-// Giving a lead to someone else (spec 3.4, 4, R14, R21): one of the people who can work leads (leads.owners), the
-// lead's open follow-ups going with it. A FormDialog: it holds while the request is out, and a refusal (someone who
+// Giving a lead to someone else (spec 3.4, 4, R14, R21): one of the other people who can work leads (leads.owners),
+// the lead's open follow-ups going with it. It names who works it now and starts with no one chosen, so it never
+// "reassigns" a lead to its own owner. A FormDialog: it holds while the request is out, and a refusal (someone who
 // can't work leads any more) shows its sentence in it; a list of people that didn't load says so, with Try again.
 // Opened from the ⋯ menu or the owner card.
 import { reassignLeadInput, type LeadDetail, type ReassignLeadInput } from "@travel-crm/contracts/crm";
@@ -15,8 +16,8 @@ import type { ReturnFocusTo } from "@/components/return-focus";
 import { SelectField } from "@/components/forms/select-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { useTRPC } from "@/data/trpc";
+import { useRefreshWork } from "@/data/use-refresh-work";
 import { useLeadOwners } from "../use-lead-owners";
-import { useRefreshLeads } from "./use-lead";
 
 interface ReassignValues {
   ownerUserId: string;
@@ -32,10 +33,11 @@ function ReassignForm({
   reassign: Sending<ReassignLeadInput>;
 }) {
   const t = useTranslations("leads.lead.reassign");
+  const tLeads = useTranslations("leads");
   const tCommon = useTranslations("common");
   const owners = useLeadOwners();
   const { form, onSubmit, formProblem } = useCheckedForm<ReassignValues, ReassignLeadInput, "required" | "owner">(
-    { ownerUserId: lead.ownerUserId ?? "" },
+    { ownerUserId: "" },
     (values) =>
       checked(
         reassignLeadInput.safeParse({ leadId: lead.id, ownerUserId: values.ownerUserId }),
@@ -49,7 +51,7 @@ function ReassignForm({
   if (owners.isError) {
     return (
       <ErrorState
-        message={t("ownersFailed")}
+        message={tLeads("ownersFailed")}
         error={owners.error}
         retryLabel={tCommon("tryAgain")}
         onRetry={() => void owners.refetch()}
@@ -64,7 +66,9 @@ function ReassignForm({
         label={t("owner")}
         placeholder={t("choose")}
         disabled={reassign.isPending}
-        options={(owners.data ?? []).map((worker) => ({ value: worker.userId, label: worker.name }))}
+        options={(owners.data ?? [])
+          .filter((worker) => worker.userId !== lead.ownerUserId)
+          .map((worker) => ({ value: worker.userId, label: worker.name }))}
       />
       <FormAlert sending={reassign} problem={formProblem} />
     </form>
@@ -86,7 +90,8 @@ export function ReassignDialog({
   const t = useTranslations("leads.lead.reassign");
   const trpc = useTRPC();
   const owners = useLeadOwners();
-  const refresh = useRefreshLeads();
+  const refresh = useRefreshWork();
+  const ownerName = lead.ownerUserId === null ? undefined : lead.people[lead.ownerUserId];
   const reassign = useMutation(
     trpc.leads.reassign.mutationOptions({
       onSuccess: async (_, { ownerUserId }) => {
@@ -103,7 +108,11 @@ export function ReassignDialog({
       returnFocusTo={returnFocusTo}
       sending={reassign}
       title={t("title")}
-      description={t("description", { name: lead.person.name })}
+      description={
+        ownerName === undefined
+          ? t("descriptionNoOwner", { name: lead.person.name })
+          : t("description", { name: lead.person.name, owner: ownerName })
+      }
       submit={t("submit")}
       submitting={t("submitting")}
       canSubmit={owners.data !== undefined}

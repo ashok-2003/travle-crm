@@ -45,8 +45,11 @@ export function isKnownAction(action: string): action is KnownAction {
   return (KNOWN_ACTIONS as readonly string[]).includes(action);
 }
 
-/** The kinds of target the log names by a word (consolePlatform.log.targets); others show their own name. */
-const NAMED_TARGETS = ["plan", "platform_staff", "job", "member", "traveller"] as const;
+/**
+ * The kinds of target the log names by a word (consolePlatform.log.targets); others show their own name. Every record
+ * type an erasure may act on is one: a traveller, and crm's customer, the "person".
+ */
+const NAMED_TARGETS = ["plan", "platform_staff", "job", "member", "traveller", "person"] as const;
 
 export type NamedTarget = (typeof NAMED_TARGETS)[number];
 

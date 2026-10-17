@@ -1,22 +1,23 @@
 "use client";
 
 // Snoozing a follow-up or task (spec 3.5): one hour on, tomorrow morning at 9:00 on the agency's clock, or a chosen
-// day and time (DueField), as the api takes them (snoozeTaskInput, checked before it is sent). A FormDialog: it holds
-// while the request is out (rule 7), and what follows success lands even once it closes.
+// day and time (DueField), asked in the shared ChoiceField and sent as the api takes them (snoozeTaskInput, checked
+// before it is sent). A FormDialog: it holds while the request is out (rule 7), and what follows success lands even
+// once it closes. A chosen time the api finds already past is said on the time field, where it is fixed.
 import { snoozeTaskInput, type SnoozeUntil } from "@travel-crm/contracts/tasks";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { Controller } from "react-hook-form";
 import { checked } from "@/components/forms/checked";
+import { ChoiceField } from "@/components/forms/choice-field";
 import { DueField, suggestedDue } from "@/components/forms/due-field";
 import { FormAlert, FormDialog, useFormDialog, type Sending } from "@/components/forms/form-dialog";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useRefusalOnField } from "@/components/forms/use-refusal-on-field";
+import { FieldGroup } from "@/components/ui/field";
 import type { ReturnFocusTo } from "@/components/return-focus";
 import { useTRPC } from "@/data/trpc";
+import { useRefreshWork } from "@/data/use-refresh-work";
 import { useMe } from "@/session/me-context";
-import { useRefreshWork } from "./use-refresh-work";
 
 const choices = ["one-hour", "tomorrow-morning", "at"] as const;
 
@@ -66,31 +67,19 @@ function SnoozeForm({
     (problem) => t(`problems.${problem}`),
   );
   const choice = form.watch("choice");
+  const refusal = useRefusalOnField(form, snooze.error, { DUE_IN_THE_PAST: "time" });
   return (
     <form id={formId} noValidate onSubmit={onSubmit(snooze.mutate)} className="flex flex-col gap-4">
       <FieldGroup>
-        <Field>
-          <FieldLabel id={`${formId}-choice`}>{t("choice")}</FieldLabel>
-          <Controller
-            control={form.control}
-            name="choice"
-            render={({ field }) => (
-              <RadioGroup aria-labelledby={`${formId}-choice`} value={field.value} onValueChange={field.onChange}>
-                {choices.map((value) => (
-                  <div key={value} className="flex min-h-11 items-center gap-3">
-                    <RadioGroupItem value={value} id={`${formId}-${value}`} />
-                    <FieldLabel htmlFor={`${formId}-${value}`} className="font-normal">
-                      {t(choiceWords[value])}
-                    </FieldLabel>
-                  </div>
-                ))}
-              </RadioGroup>
-            )}
-          />
-        </Field>
+        <ChoiceField
+          control={form.control}
+          name="choice"
+          legend={t("choice")}
+          options={choices.map((value) => ({ value, label: t(choiceWords[value]) }))}
+        />
         {choice === "at" && <DueField control={form.control} dayName="day" timeName="time" label={t("when")} />}
       </FieldGroup>
-      <FormAlert sending={snooze} problem={formProblem} />
+      <FormAlert sending={{ error: refusal }} problem={formProblem} />
     </form>
   );
 }

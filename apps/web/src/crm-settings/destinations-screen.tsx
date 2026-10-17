@@ -2,7 +2,7 @@
 
 // Destinations in Settings (spec 3.6): the agency's own list, alphabetically, searched by part of a name (forgiving of
 // typos, as the api searches), each with its actions: rename, or merge into another. The api lists 100 at once; past
-// that, the screen says to search.
+// that, the screen says to search. A search that matches nothing says so in a polite status, heard as it changes.
 import { MapPinIcon, SearchIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Fragment, useState } from "react";
@@ -26,16 +26,12 @@ export function DestinationsScreen() {
   const [search, setSearch] = useState("");
   const query = search.trim();
   const listed = useDestinations(query);
+  const noMatch = query !== "" && listed.data?.length === 0;
 
   const body = () => {
     if (listed.data) {
-      if (listed.data.length === 0) {
-        return query === "" ? (
-          <EmptyState icon={MapPinIcon} message={t("empty")} />
-        ) : (
-          <p className="text-muted-foreground">{t("noMatch")}</p>
-        );
-      }
+      // A search that matched nothing is said in the status above.
+      if (listed.data.length === 0) return query === "" && <EmptyState icon={MapPinIcon} message={t("empty")} />;
       return (
         <div className="flex flex-col gap-3">
           {/* 44px rows, as a table's (DESIGN.md: dense lists): one name and its ⋯ need no more. The items keep the
@@ -94,6 +90,10 @@ export function DestinationsScreen() {
           </InputGroup>
         )}
       </FormField>
+      {/* Always there, so a change in it is heard. */}
+      <p role="status" className="text-muted-foreground empty:hidden">
+        {noMatch && t("noMatch")}
+      </p>
       {body()}
     </div>
   );

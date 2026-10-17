@@ -7,7 +7,7 @@
 // held while saving. Saved, it opens the lead; added to a lead the person can't see, it returns to Leads, saying whose
 // lead it went to (R53).
 import type { KnownContactResult } from "@travel-crm/contracts/crm";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { CircleAlertIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -23,6 +23,7 @@ import { FieldLegend, FieldSet } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { refusalOf } from "@/data/api-error";
 import { useTRPC } from "@/data/trpc";
+import { useRefreshWork } from "@/data/use-refresh-work";
 import { leadRoute, routes } from "@/lib/routes";
 import { useHolds, useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
@@ -47,7 +48,7 @@ export function NewLeadScreen() {
   const me = useMe();
   const router = useRouter();
   const trpc = useTRPC();
-  const queryClient = useQueryClient();
+  const refresh = useRefreshWork();
   const assigns = useHolds("leads:assign");
   const write = useWriteAccess("change");
   const hintId = useId();
@@ -63,9 +64,8 @@ export function NewLeadScreen() {
   const create = useMutation(
     trpc.leads.create.mutationOptions({
       onSuccess: async (created) => {
-        await Promise.all(
-          [trpc.leads.pathKey(), trpc.today.pathKey()].map((queryKey) => queryClient.invalidateQueries({ queryKey })),
-        );
+        // A destination typed in is on the agency's list now, and the lists show it.
+        await refresh();
         if (created.leadId === null) {
           const owner = openLeadOwner(known.data);
           toast.success(owner === null ? t("addedToOpenLead") : t("addedToTheirLead", { owner }));

@@ -85,6 +85,7 @@
   },
   "returning": "Returning",
   "formerMember": "A former member",
+  "ownersFailed": "The people who can work leads didn't load.",
   "newLead": "New lead",
   "list": {
     "title": "Leads",
@@ -106,7 +107,9 @@
     "empty": "No open leads yet. Add one when someone asks about a trip.",
     "emptyMine": "You have no open leads. Add one when someone asks about a trip.",
     "emptyFiltered": "No results for these filters",
+    "found": "{count, plural, one {# lead} other {# leads}} shown{more, select, yes {, more below} other {}}",
     "clearFilters": "Clear filters",
+    "blockedContacts": "Blocked contacts",
     "unassigned": "Unassigned",
     "noBudget": "Not given",
     "columns": {
@@ -219,8 +222,7 @@
       "searching": "Searching",
       "noMatch": "No destination matches.",
       "add": "Add “{name}”",
-      "clear": "No destination",
-      "loadFailed": "The destinations didn't load."
+      "clear": "No destination"
     },
     "problems": {
       "required": "Fill this in.",
@@ -280,7 +282,8 @@
     },
     "reassign": {
       "title": "Reassign",
-      "description": "Who works {name}'s lead from now on. Its open follow-ups go with it.",
+      "description": "{owner} works {name}'s lead now. Who works it from now on? Its open follow-ups go with it.",
+      "descriptionNoOwner": "Who works {name}'s lead from now on? Its open follow-ups go with it.",
       "owner": "Owner",
       "choose": "Choose someone",
       "submit": "Reassign",
@@ -290,8 +293,7 @@
       "problems": {
         "required": "Choose who works the lead.",
         "owner": "Choose who works the lead."
-      },
-      "ownersFailed": "The people who can work leads didn't load."
+      }
     },
     "edit": "Edit",
     "work": {

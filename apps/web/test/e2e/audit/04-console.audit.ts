@@ -1,11 +1,14 @@
 // The visual audit's console screens: a super admin's dashboard, onboarding with the calendar open, an
 // organization's page with a payment recorded and its dialogs, plans and the policy, jobs with a failed job and a
 // leftover schedule, the platform log, platform staff and the password handover, and data protection with an
-// export; then support's dashboard and organization page, and support signed in as the agency's Owner.
+// export and a customer's own export (the agency's Owner adds the customer's lead through the api first); then
+// support's dashboard and organization page, and support signed in as the agency's Owner.
 import type { TestInfo } from "@playwright/test";
 import { addDays, calendarDateIn } from "@travel-crm/domain/kernel";
 import { saveOnboardingProfile } from "../support/business";
 import { signInToConsole } from "../support/console";
+import { signInByEmail } from "../support/fixtures";
+import { addLeadThroughApi, anotherPersonsDevice, callApi, leadInput } from "../support/leads";
 import { chooseDay, expect, test } from "../support/console-organizations";
 import { addFailedJob, addLeftoverSchedule, recordWith, uniqueSuffix } from "../support/console-platform";
 import { screenshotsOnly, shoot } from "./camera";
@@ -16,6 +19,7 @@ const isPhone = (testInfo: TestInfo) => testInfo.project.name === "phone";
 
 test("a super admin's console, screen by screen", async ({
   page,
+  browser,
   superAdmin,
   agency,
   addStaff,
@@ -135,6 +139,20 @@ test("a super admin's console, screen by screen", async ({
     timeout: 60_000,
   });
   await shoot(page, "console-data-protection");
+
+  // A customer of the agency's, as its Owner adds them: their export is the customer part (R39).
+  const ownersDevice = await anotherPersonsDevice(browser);
+  const ownersPage = await ownersDevice.newPage();
+  await signInByEmail(ownersPage, agency.owner);
+  const leadId = await addLeadThroughApi(ownersPage, leadInput());
+  const { person } = await callApi<{ person: { id: string } }>(ownersPage, "leads.get", { leadId });
+  await ownersDevice.close();
+  await page.getByRole("radio", { name: "A record of a person" }).check();
+  await page.getByLabel("Record type", { exact: true }).fill("person");
+  await page.getByLabel("Record id", { exact: true }).fill(person.id);
+  await page.getByRole("button", { name: "Export what is kept" }).click();
+  await expect(page.getByRole("button", { name: "Copy as JSON" })).toBeVisible();
+  await shoot(page, "console-customer-export");
 });
 
 test("support's console, and support signed in as the agency's Owner", async ({ page, support, agency }) => {

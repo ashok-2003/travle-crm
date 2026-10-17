@@ -1,13 +1,16 @@
 // The Leads list (spec 3.3, R41-R44): Mine · open by default, newest first with Show more; managers switch Mine and
-// Everyone and filter by owner; a search by name or phone after a pause; quick stage chips with counts; each row's
-// name, trip, stage and what's next, and the Table on a computer; honest loading, empty, error and refusal states.
-import { screen, waitFor, within } from "@testing-library/react";
+// Everyone and filter by owner; a search by name or phone after a pause, never in an address and found again on the
+// way back; quick stage chips with counts; each row's name, trip, stage and what's next, and the Table on a computer;
+// honest loading, empty, error and refusal states.
+import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { messages } from "@/i18n/messages";
+import { forgetTabValues, keepTabValue, readTabValue } from "@/lib/tab-storage";
 import { LeadsScreen } from "@/leads/list/leads-screen";
 import { heldAnswer, stubApi, type Answer } from "../support/api-stub";
 import { address } from "./navigation";
+import { member } from "../support/members";
 import { aListItem, aPage, counts, ids } from "./records";
 import { inputsTo, lastInputTo, owner, renderScreen, salesperson } from "./screen";
 
@@ -44,6 +47,7 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(NOW);
   address.set("/leads");
+  forgetTabValues();
 });
 
 afterEach(() => {
@@ -95,6 +99,24 @@ describe("LeadsScreen", () => {
         limit: 25,
       });
     });
+  });
+
+  it("says in Filters when the owners didn't load, with Try again", async () => {
+    const api = renderLeads({ "leads.owners": { status: 500 } });
+    await userEvent.click(await screen.findByRole("button", { name: list.filters }));
+    const filters = await screen.findByRole("dialog", { name: list.filtersDialog.title });
+    const alert = await within(filters).findByRole("alert");
+    expect(alert).toHaveTextContent(messages.leads.ownersFailed);
+    api.answer("leads.owners", owners);
+    await userEvent.click(within(alert).getByRole("button", { name: messages.common.tryAgain }));
+    await waitFor(() => {
+      expect(within(filters).queryByRole("alert")).not.toBeInTheDocument();
+    });
+    // Try again only asked again: the dialog is still open, its choice not applied.
+    expect(screen.getByRole("dialog", { name: list.filtersDialog.title })).toBeVisible();
+    expect(address.href).toBe("/leads");
+    await userEvent.click(within(filters).getByRole("combobox", { name: list.filtersDialog.owner }));
+    expect(await screen.findByRole("option", { name: "Ravi Kumar" })).toBeVisible();
   });
 
   it("gives a salesperson no tabs, no owner filter and the 'Mine · open' chip", async () => {
@@ -153,19 +175,59 @@ describe("LeadsScreen", () => {
     await waitFor(() => {
       expect(lastInputTo("leads.list")).toEqual({ view: "mine", stage: "open", search: "98765 43", limit: 25 });
     });
-    expect(address.href).toBe("/leads?q=98765+43");
     expect(lastInputTo("leads.counts")).toEqual({ view: "mine", search: "98765 43" });
     expect(search).toHaveValue("98765 43");
   });
 
-  it("says 'No results for these filters' with Clear filters", async () => {
-    address.set("/leads?stage=won&q=zed");
+  it("says how many leads a search found, or that it found none, in a polite status for screen readers", async () => {
+    const api = renderLeads({ "leads.list": aPage([aListItem()], ids.rahul) });
+    await rows();
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("1 lead shown, more below");
+    api.answer("leads.list", aPage([]));
+    await userEvent.type(screen.getByRole("searchbox", { name: list.search }), "zed");
+    await waitFor(() => {
+      expect(status).toHaveTextContent(list.emptyFiltered);
+    });
+  });
+
+  it("keeps the search out of every address, and finds it again on the way back from a lead", async () => {
+    address.set("/leads?view=everyone");
+    renderLeads();
+    await rows();
+    await userEvent.type(screen.getByRole("searchbox", { name: list.search }), "Rahul 98765");
+    await waitFor(() => {
+      expect(lastInputTo("leads.list")).toMatchObject({ view: "everyone", search: "Rahul 98765" });
+    });
+    // Not the page's address, nor a row's link, nor any request's URL (queries are posted, data/trpc.ts).
+    expect(address.href).toBe("/leads?view=everyone");
+    const links = within(screen.getByRole("list", { name: list.leads })).getAllByRole("link");
+    expect(links.map((link) => link.getAttribute("href"))).toEqual([`/leads/${ids.rahul}?view=everyone`]);
+    const urls = vi
+      .mocked(globalThis.fetch)
+      .mock.calls.map(([input]) => (input instanceof Request ? input.url : String(input)));
+    expect(urls.filter((url) => /rahul|98765/i.test(decodeURIComponent(url)))).toEqual([]);
+
+    // Back from the lead, the list opens again with its search.
+    cleanup();
+    renderLeads();
+    expect(await screen.findByRole("searchbox", { name: list.search })).toHaveValue("Rahul 98765");
+    await waitFor(() => {
+      expect(inputsTo("leads.list").at(-1)).toMatchObject({ view: "everyone", search: "Rahul 98765" });
+    });
+  });
+
+  it("says 'No results for these filters' with Clear filters, which forgets the search", async () => {
+    address.set("/leads?stage=won");
+    keepTabValue("leads.search", "zed");
     renderLeads({ "leads.list": aPage([]) });
-    expect(await screen.findByText(list.emptyFiltered)).toBeVisible();
+    // Said to the eye in the list's place, and to screen readers in the status.
+    expect(await screen.findAllByText(list.emptyFiltered)).toHaveLength(2);
     expect(screen.getByRole("searchbox", { name: list.search })).toHaveValue("zed");
     await userEvent.click(screen.getByRole("button", { name: list.clearFilters }));
     expect(address.href).toBe("/leads");
     expect(screen.getByRole("searchbox", { name: list.search })).toHaveValue("");
+    expect(readTabValue("leads.search")).toBeNull();
     await waitFor(() => {
       expect(lastInputTo("leads.list")).toEqual({ view: "mine", stage: "open", limit: 25 });
     });
@@ -263,6 +325,21 @@ describe("LeadsScreen", () => {
       expect(within(chips).getByRole("radio", { name: /^New/ })).toHaveTextContent("New3");
     });
     expect(screen.queryByText(list.countsFailed)).not.toBeInTheDocument();
+  });
+
+  it("leads those who may block contacts to Blocked contacts, Settings or not", async () => {
+    const assigner = member({ name: "Meera Iyer", permissions: ["leads:view", "leads:create", "leads:assign"] });
+    renderLeads({}, { me: assigner });
+    await rows();
+    expect(screen.getByRole("link", { name: list.blockedContacts })).toHaveAttribute(
+      "href",
+      "/settings/blocked-contacts",
+    );
+    cleanup();
+
+    renderLeads({}, { me: salesperson });
+    await rows();
+    expect(screen.queryByRole("link", { name: list.blockedContacts })).not.toBeInTheDocument();
   });
 
   it("leaves the Owner column out of a salesperson's table: every lead there is theirs", async () => {

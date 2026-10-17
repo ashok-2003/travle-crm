@@ -20,8 +20,7 @@
     "yesterday": "Yesterday, {time}",
     "today": "Today, {time}",
     "markContacted": "Mark contacted",
-    "markContactedPerson": "Mark {name} contacted",
-    "markedContacted": "Marked contacted"
+    "markContactedPerson": "Mark {name} contacted"
   },
   "nudge": {
     "count": "{count, plural, one {# thing today} other {# things today}}",

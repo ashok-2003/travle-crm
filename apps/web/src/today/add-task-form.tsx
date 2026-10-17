@@ -19,6 +19,7 @@ import { TextField } from "@/components/forms/text-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { useRefusalOnField } from "@/components/forms/use-refusal-on-field";
 import { FieldGroup } from "@/components/ui/field";
+import { OwnersFailed } from "@/leads/owners-failed";
 import { useLeadOwners } from "@/leads/use-lead-owners";
 import { useHolds, useMe } from "@/session/me-context";
 import { LeadPicker, type PickedLead } from "./lead-picker";
@@ -65,19 +66,22 @@ function toNewTask(values: TaskValues, myUserId: string): Checked<TaskValues, Ne
   return result.ok ? { ok: true, input: { on: null, task: result.input } } : result;
 }
 
-/** Who the task is for: the people who can work leads, the member first chosen. */
+/** Who the task is for: the people who can work leads, the member first chosen; while they didn't load, the member. */
 function AssigneeField({ control }: { control: Control<TaskValues> }) {
   const t = useTranslations("today.addTask");
   const me = useMe();
   const owners = useLeadOwners();
   const people = owners.data ?? [{ userId: me.user.id, name: me.user.name }];
   return (
-    <SelectField
-      control={control}
-      name="assignee"
-      label={t("assignee")}
-      options={people.map((person) => ({ value: person.userId, label: person.name }))}
-    />
+    <>
+      <SelectField
+        control={control}
+        name="assignee"
+        label={t("assignee")}
+        options={people.map((person) => ({ value: person.userId, label: person.name }))}
+      />
+      <OwnersFailed owners={owners} />
+    </>
   );
 }
 

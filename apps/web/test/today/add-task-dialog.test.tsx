@@ -105,6 +105,21 @@ describe("AddTaskDialog", () => {
     });
   });
 
+  it("says when the people to assign to didn't load, with Try again, which sends nothing", async () => {
+    const api = stubApi({ "leads.owners": { status: 500 }, "tasks.add": { data: task } });
+    renderDialog(asha);
+    const dialog = await openDialog();
+    const alert = await within(dialog).findByRole("alert");
+    expect(alert).toHaveTextContent(messages.leads.ownersFailed);
+    api.answer("leads.owners", { data: [{ userId: ravi, name: "Ravi" }] });
+    await userEvent.click(within(alert).getByRole("button", { name: messages.common.tryAgain }));
+    await userEvent.click(within(dialog).getByRole("combobox", { name: words.assignee }));
+    expect(await screen.findByRole("option", { name: "Ravi" })).toBeVisible();
+    expect(within(dialog).queryByRole("alert")).toBeNull();
+    // Try again only asked again: it didn't send the form.
+    expect(api.calls).not.toContain("tasks.add");
+  });
+
   it("offers an assignee only with leads:assign", async () => {
     const api = stubApi({
       "leads.owners": {

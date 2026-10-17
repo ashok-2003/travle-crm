@@ -1,22 +1,23 @@
 "use client";
 
 // Unblock on one blocked contact (spec 3.6, R33): asks first (ConfirmDialog, which holds while the request is out),
-// then takes it off the list, which loads again. A change the subscription may refuse: then the button is off and says
+// then takes it off the list, which loads again with the rest of the work (the new-lead form's warning about it). A change the subscription may refuse: then the button is off and says
 // why (ADR 0021).
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { useTRPC } from "@/data/trpc";
+import { useRefreshWork } from "@/data/use-refresh-work";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
 
 export function UnblockContact({ contactId, shown }: { contactId: string; shown: string }) {
   const t = useTranslations("settings.blockedContacts.unblock");
   const trpc = useTRPC();
-  const queryClient = useQueryClient();
+  const refresh = useRefreshWork();
   const write = useWriteAccess();
   const hintId = useId();
   const [open, setOpen] = useState(false);
@@ -24,7 +25,7 @@ export function UnblockContact({ contactId, shown }: { contactId: string; shown:
   const unblock = useMutation(
     trpc.blockedContacts.unblock.mutationOptions({
       onSuccess: async () => {
-        await queryClient.invalidateQueries({ queryKey: trpc.blockedContacts.pathKey() });
+        await refresh();
         toast.success(t("done"));
         setOpen(false);
       },
