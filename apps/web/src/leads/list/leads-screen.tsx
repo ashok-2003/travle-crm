@@ -83,7 +83,7 @@ export function LeadsScreen() {
     return (
       <div className="flex flex-col gap-4">
         {wide ? (
-          <LeadsTable leads={leads.items} people={leads.people} filters={input} />
+          <LeadsTable leads={leads.items} people={leads.people} filters={input} showOwner={!ownOnly} />
         ) : (
           <LeadRows leads={leads.items} filters={input} />
         )}

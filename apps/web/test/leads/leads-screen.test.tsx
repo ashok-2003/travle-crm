@@ -250,6 +250,16 @@ describe("LeadsScreen", () => {
     expect(screen.queryByText(list.countsFailed)).not.toBeInTheDocument();
   });
 
+  it("leaves the Owner column out of a salesperson's table: every lead there is theirs", async () => {
+    renderLeads({}, { me: salesperson, width: "wide" });
+    const table = await screen.findByRole("table");
+    expect(
+      within(table)
+        .getAllByRole("columnheader")
+        .map((header) => header.textContent),
+    ).toEqual(Object.values(list.columns).filter((column) => column !== list.columns.owner));
+  });
+
   it("shows the skeleton, the error with Try again, and a refusal's sentence", async () => {
     const api = renderLeads({ "leads.list": "never", "leads.counts": "never" });
     expect(await screen.findByRole("status", { name: list.loading })).toBeVisible();

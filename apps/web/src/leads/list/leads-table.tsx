@@ -1,8 +1,9 @@
 "use client";
 
 // The lead list on a computer (R44): the registry Table from 768px, with the mockup's seven columns: the name (a link,
-// ↺ Returning beside it) over the phone; the trip over its source; the stage; what's next; the owner; the budget over
-// its basis; the day it came in. Numbers are mono and right-aligned; names wrap.
+// ↺ Returning beside it) over the phone; the trip over its source; the stage; what's next; the owner (not for a
+// salesperson, whose every lead is theirs); the budget over its basis; the day it came in. Numbers are mono and
+// right-aligned; names wrap.
 import type { LeadListItem, PeopleNames } from "@travel-crm/contracts/crm";
 import { useTranslations } from "next-intl";
 import { rupees } from "@/components/forms/money-field";
@@ -24,10 +25,13 @@ export function LeadsTable({
   leads,
   people,
   filters,
+  showOwner,
 }: {
   leads: LeadListItem[];
   people: PeopleNames;
   filters: ListFilters;
+  /** False for a salesperson, who sees only their own leads. */
+  showOwner: boolean;
 }) {
   const t = useTranslations("leads");
   const tripLine = useTripLine();
@@ -37,11 +41,13 @@ export function LeadsTable({
     <Table aria-label={t("list.leads")}>
       <TableHeader>
         <TableRow>
-          {columns.map((column) => (
-            <TableHead key={column} scope="col" className={numeric.has(column) ? "text-right" : undefined}>
-              {t(`list.columns.${column}`)}
-            </TableHead>
-          ))}
+          {columns
+            .filter((column) => showOwner || column !== "owner")
+            .map((column) => (
+              <TableHead key={column} scope="col" className={numeric.has(column) ? "text-right" : undefined}>
+                {t(`list.columns.${column}`)}
+              </TableHead>
+            ))}
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -74,13 +80,15 @@ export function LeadsTable({
             <TableCell className="whitespace-normal text-label">
               <NextStep next={lead.next} timeZone={timeZone} />
             </TableCell>
-            <TableCell className="whitespace-normal">
-              {lead.ownerUserId === null ? (
-                caption(t("list.unassigned"))
-              ) : (
-                <OwnerBadge name={people[lead.ownerUserId] ?? null} />
-              )}
-            </TableCell>
+            {showOwner && (
+              <TableCell className="whitespace-normal">
+                {lead.ownerUserId === null ? (
+                  caption(t("list.unassigned"))
+                ) : (
+                  <OwnerBadge name={people[lead.ownerUserId] ?? null} />
+                )}
+              </TableCell>
+            )}
             <TableCell className="text-right">
               {lead.budget ? (
                 <div className="flex flex-col items-end gap-0.5">
