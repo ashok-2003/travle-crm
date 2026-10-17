@@ -49,9 +49,10 @@ function SetupStepRow({ step, done, status }: { step: SetupStep; done: boolean; 
   );
 }
 
-/** Every step with its status, or (`toDoOnly`) the steps still to do, which need none. */
-export function SetupSteps({ checklist, toDoOnly = false }: { checklist: SetupChecklist; toDoOnly?: boolean }) {
-  const steps = toDoOnly ? checklist.steps.filter((step) => !step.done) : checklist.steps;
+/** Every step with its status, or (`nextToDo`) at most that many of the steps still to do, which need none. */
+export function SetupSteps({ checklist, nextToDo }: { checklist: SetupChecklist; nextToDo?: number }) {
+  const toDoOnly = nextToDo !== undefined;
+  const steps = toDoOnly ? checklist.steps.filter((step) => !step.done).slice(0, nextToDo) : checklist.steps;
   return (
     <ItemGroup>
       {steps.map(({ step, done }, index) => (
