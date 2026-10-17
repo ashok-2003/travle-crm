@@ -1,0 +1,102 @@
+"use client";
+
+// One entry of a lead's timeline (spec 3.4, R36) as a sentence: the lead's creation and where it came from, a note
+// (its words under it), a stage change, a reassignment, a follow-up or task added (what and when it is due), done or
+// cancelled, a repeat enquiry (its trip, source and note) and a trip edit; then who did it and when, in the agency's
+// zone. Nobody is "The system"; a name the page didn't carry is a former member's.
+import type { PeopleNames, TimelineEntry } from "@travel-crm/contracts/crm";
+import { useTranslations } from "next-intl";
+import type { ReactNode } from "react";
+import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
+import { formatDayTime } from "@/lib/format";
+import { useMe } from "@/session/me-context";
+import { useTripLine } from "../trip-line";
+
+const taskWords = {
+  "follow-up-added": { "follow-up": "followUpAdded", task: "taskAdded" },
+  "follow-up-done": { "follow-up": "followUpDone", task: "taskDone" },
+  "follow-up-cancelled": { "follow-up": "followUpCancelled", task: "taskCancelled" },
+} as const;
+
+export function TimelineEntryItem({ entry, people }: { entry: TimelineEntry; people: PeopleNames }) {
+  const t = useTranslations("leads");
+  const tripLine = useTripLine();
+  const { timeZone } = useMe().organization;
+  const at = (instant: string) => formatDayTime(new Date(instant), { timeZone });
+  const nameOf = (userId: string) => people[userId] ?? t("formerMember");
+  const lines = (...texts: (string | null)[]) =>
+    texts
+      .filter((text) => text !== null && text !== "")
+      .map((text, index) => (
+        // Two lines may read alike (a note that repeats the trip), so each is keyed by its entry and its place.
+        <p key={`${entry.id}-${String(index)}`} className="whitespace-pre-line script-leading">
+          {text}
+        </p>
+      ));
+
+  const describe = (): { title: string; detail?: ReactNode } => {
+    switch (entry.kind) {
+      case "created":
+        return { title: t(`lead.timeline.createdFrom.${entry.source}`) };
+      case "note":
+        return { title: t("lead.timeline.note"), detail: lines(entry.body) };
+      case "stage-changed":
+        return { title: t("lead.timeline.moved", { stage: t(`stages.${entry.stage}`) }) };
+      case "reassigned":
+        return {
+          title:
+            entry.ownerUserId === null
+              ? t("lead.timeline.unassigned")
+              : t("lead.timeline.reassigned", { name: nameOf(entry.ownerUserId) }),
+        };
+      case "follow-up-added":
+      case "follow-up-done":
+      case "follow-up-cancelled": {
+        const { task } = entry;
+        const due = entry.kind === "follow-up-added" ? at(task.dueAt) : null;
+        const what = due === null ? task.title : t("lead.timeline.taskDue", { title: task.title, due });
+        return {
+          title: t(`lead.timeline.${taskWords[entry.kind][task.kind]}`),
+          detail: lines(task.title === "" && due !== null ? t("lead.timeline.due", { due }) : what),
+        };
+      }
+      case "repeat-enquiry": {
+        const { enquiry } = entry;
+        const { trip } = enquiry;
+        const summary = {
+          destinationName: trip.destination?.name ?? null,
+          when: trip.when,
+          adults: trip.adults,
+          childrenCount: trip.childrenAges.length,
+        };
+        const source = t(`sources.${enquiry.source}`);
+        return {
+          title: t("lead.timeline.repeatEnquiry"),
+          detail: lines(
+            tripLine(summary),
+            enquiry.sourceDetail ? t("lead.timeline.sourceDetail", { source, detail: enquiry.sourceDetail }) : source,
+            enquiry.note,
+          ),
+        };
+      }
+      case "trip-edited":
+        return { title: t("lead.timeline.tripEdited") };
+    }
+  };
+
+  const { title, detail } = describe();
+  const actor = entry.actorUserId === null ? t("lead.timeline.system") : nameOf(entry.actorUserId);
+  return (
+    <Item size="sm" role="listitem" className="px-0">
+      <ItemContent>
+        <ItemTitle>
+          <h3>{title}</h3>
+        </ItemTitle>
+        <ItemDescription className="script-leading">
+          {t("lead.timeline.meta", { actor, when: at(entry.occurredAt) })}
+        </ItemDescription>
+        {detail}
+      </ItemContent>
+    </Item>
+  );
+}

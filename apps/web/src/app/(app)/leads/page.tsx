@@ -1,20 +1,22 @@
-// /leads: the lead list (release 1). Track L builds its screen; until then the address answers with the screen's
-// title, so the navigation's link, which Next prefetches while it is in view, finds a page.
+// /leads: the lead list (spec 3.3), for members whose role sees leads (their own or everyone's).
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
-import { PageHeader } from "@/components/page-header";
+import { Suspense } from "react";
+import { LeadsScreen } from "@/leads/list/leads-screen";
 import { RequirePermission } from "@/session/require-permission";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations("shell.navigation");
-  return { title: t("leads") };
+  const t = await getTranslations("leads.list");
+  return { title: t("title") };
 }
 
-export default async function LeadsPage() {
-  const t = await getTranslations("shell.navigation");
+export default function LeadsPage() {
   return (
     <RequirePermission permission="leads:view">
-      <PageHeader title={t("leads")} />
+      {/* The filters are in the address, which only the browser knows. */}
+      <Suspense>
+        <LeadsScreen />
+      </Suspense>
     </RequirePermission>
   );
 }
