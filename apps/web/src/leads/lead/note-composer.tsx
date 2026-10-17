@@ -6,7 +6,7 @@
 import { addNoteInput, type AddNoteInput } from "@travel-crm/contracts/crm";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { useId } from "react";
+import { useEffect, useId } from "react";
 import { toast } from "sonner";
 import { checked } from "@/components/forms/checked";
 import { FormAlert } from "@/components/forms/form-dialog";
@@ -41,13 +41,14 @@ export function NoteComposer({ leadId }: { leadId: string }) {
         form.reset({ body: "" });
         await queryClient.invalidateQueries({ queryKey: trpc.leads.timeline.pathKey() });
         toast.success(t("noteAdded"));
-        // Held while sending, the box lost the focus: give it back once it is open again, for the next note.
-        requestAnimationFrame(() => {
-          form.setFocus("body");
-        });
       },
     }),
   );
+  // Held while sending, the box lost the focus: give it back once a note is saved and the box is open again (this
+  // effect runs after the render that opened it), for the next note.
+  useEffect(() => {
+    if (add.isSuccess) form.setFocus("body");
+  }, [add.isSuccess, form]);
   return (
     <form noValidate onSubmit={onSubmit(add.mutate)} className="flex flex-col gap-3">
       {/* Held while sending, so nothing typed meanwhile is lost when the box empties on success. */}
