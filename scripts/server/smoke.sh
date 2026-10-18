@@ -3,7 +3,8 @@
 # do: the certificate and the http redirect, the routes as docs/deploy-checklist.md has them, the web app's security
 # headers coming through once, and the sign-in rate limit refusing a burst of wrong passwords. From any computer:
 #   scripts/server/smoke.sh https://<host>
-# deploy.sh adds --local on the server: the same requests, sent to this server's Caddy whatever DNS says.
+# deploy.sh adds --local on the server: the same requests, sent to this server's Caddy whatever DNS says. Where the
+# address doesn't route /health to the api (Vercel, docs/serverless.md), HEALTH_URL names the api's own.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 source scripts/docker/support.sh
@@ -20,7 +21,7 @@ trap 'rm -rf "$work"' EXIT
 
 echo "HTTPS, with a certificate curl trusts"
 expect_status "http://$host/sign-in" 308 "${curl_options[@]}"
-expect_status "$app/health" 200 "${curl_options[@]}"
+expect_status "${HEALTH_URL:-$app/health}" 200 "${curl_options[@]}"
 
 echo "Routes, as docs/deploy-checklist.md has them"
 expect_status "$app/sign-in" 200 --dump-header "$work/sign-in" "${curl_options[@]}"
