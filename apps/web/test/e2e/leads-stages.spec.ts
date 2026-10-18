@@ -2,7 +2,7 @@
 // on the lead (two, listed earliest first) and one marked done; the trip edited and a note added; marked Lost after
 // asking (focus back on the ⋯ button when the dialog is cancelled), which cancels its open follow-ups; reopened from
 // where the bar sat to the stage it had. The timeline reads every kind as its sentence; on a phone the five steps are
-// 44px and "Booking requested" wraps.
+// 44px, each over its segment and word, and "Booking requested" wraps.
 import { expectAccessible } from "./support/accessibility";
 import { expect, signInByEmail, test } from "./support/fixtures";
 import { addFollowUpThroughApi, addLeadThroughApi, dayInIndia, leadInput } from "./support/leads";
@@ -22,21 +22,23 @@ test("a lead moves forward and back, is marked Lost after asking, and reopens to
   await expect(bar()).toHaveAccessibleName("Stage: New");
   if (testInfo.project.name === "phone") {
     await expect(bar().getByRole("listitem")).toHaveCount(5);
-    // The current stage, as text, and the four others, each a button saying where it moves the lead.
+    // The current stage, marked as the step, and the four others, each a button saying where it moves the lead; each
+    // one 44px target over its segment and its word.
     const others = ["Contacted", "Quote sent", "Booking requested", "Won"];
     const steps = [
-      bar().getByText("New", { exact: true }),
+      bar().locator("[aria-current=step]"),
       ...others.map((stage) => bar().getByRole("button", { name: `Move to ${stage}` })),
     ];
     for (const step of steps) {
       const box = await step.boundingBox();
       expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+      await expect(step.locator("[data-segment]")).toHaveCount(1);
     }
     // The words wrap onto two lines in their fifth of the row, rather than running past it.
     const booking = bar().getByRole("button", { name: "Move to Booking requested" });
-    const lines = await booking.evaluate((button) => {
+    const lines = await booking.getByText("Booking requested").evaluate((words) => {
       const range = document.createRange();
-      range.selectNodeContents(button);
+      range.selectNodeContents(words);
       return new Set([...range.getClientRects()].map((rect) => Math.round(rect.top))).size;
     });
     expect(lines).toBe(2);

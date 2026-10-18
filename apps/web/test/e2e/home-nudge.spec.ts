@@ -33,7 +33,7 @@ test("Home shows the count and three things, and Open Today opens Today", async 
   await expect(things.nth(0).getByText("Send the Goa options", { exact: true })).toBeVisible();
   await expect(things.nth(0).getByText("Overdue", { exact: true })).toBeVisible();
   await expect(things.nth(1).getByRole("link")).toHaveAttribute("href", `/leads/${rahul}`);
-  await expect(things.nth(1).getByText("New lead, no reply yet", { exact: true })).toBeVisible();
+  await expect(things.nth(1).getByText("New lead, not contacted yet", { exact: true })).toBeVisible();
   await expect(things.nth(2).getByRole("link")).toHaveAttribute("href", `/leads/${priya}`);
   await expect(things.nth(2).getByText("Confirm the Kedarnath dates", { exact: true })).toBeVisible();
   // The second overdue isn't among them.
@@ -51,7 +51,7 @@ test("Home shows the count and three things, and Open Today opens Today", async 
   ).toBeVisible();
   await expect(
     page
-      .getByRole("region", { name: "New leads waiting for a reply" })
+      .getByRole("region", { name: "New leads not contacted yet" })
       .getByRole("link", { name: "Rahul Sharma", exact: true }),
   ).toBeVisible();
   await page.goto("/");

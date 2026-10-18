@@ -1,6 +1,7 @@
 "use client";
 
-// The roles screen (spec 6.5): every role, how many people have it and how much it allows, each opening its editor.
+// The roles screen (spec 6.5): every role as a badge in its own colour (DESIGN.md "Role Badges", as on Staff), how many
+// people have it and how much it allows, each opening its editor.
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
@@ -12,6 +13,7 @@ import { Item, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle
 import { useTRPC } from "@/data/trpc";
 import { routes } from "@/lib/routes";
 import { CreateRoleDialog } from "./create-role-dialog";
+import { RoleBadge } from "./role-badge";
 import { LoadingRows } from "@/components/loading-rows";
 
 export function RolesScreen() {
@@ -33,7 +35,7 @@ export function RolesScreen() {
                   <Link href={`${routes.roles}/${role.key}`}>
                     <ItemContent>
                       <ItemTitle>
-                        <span className="script-leading">{role.name}</span>
+                        <RoleBadge role={role} isOwner={role.isOwner} className="text-sm" />
                       </ItemTitle>
                       <ItemDescription>
                         {role.isOwner ? t("everyPermission") : t("permissionCount", { count: role.permissions.length })}

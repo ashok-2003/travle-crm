@@ -1,5 +1,5 @@
-// Today (spec 3.5, R35): the day in the agency's zone and how many things it holds, then Overdue, New leads waiting for
-// a reply and Due today, each with its count and a page at a time; Add a task as the screen's action; a new lead marked
+// Today (spec 3.5, R35): the day in the agency's zone and how many things it holds, then Overdue, New leads not contacted
+// yet and Due today, each with its count and a page at a time; Add a task as the screen's action; a new lead marked
 // contacted leaves its section, and the Leads chips' counts load again; a quiet line about what later releases add; and
 // the skeleton, the error with Try again, and a refusal's own sentence.
 import type { TodayItem, TodaySectionName, TodaySummary } from "@travel-crm/contracts/today";
@@ -135,7 +135,7 @@ describe("TodayScreen", () => {
     expect(screen.getByRole("button", { name: words.addTask.action })).toBeVisible();
   });
 
-  it("shows Overdue, New leads waiting for a reply and Due today, each with its count and Show more", async () => {
+  it("shows Overdue, New leads not contacted yet and Due today, each with its count and Show more", async () => {
     day.nextPages["due-today"] = [rohanDue];
     const api = renderToday();
     const overdue = await region(words.sections.overdue);

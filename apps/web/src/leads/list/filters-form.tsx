@@ -1,9 +1,9 @@
 "use client";
 
-// The Filters dialog's form (spec 3.3): stage (Won, Lost and Not a lead live here), owner for managers, source,
-// destination and trip type, started from the list's filters. Choosing an owner shows everyone's leads, since an owner
-// is a filter on them; the list's search, which isn't one of these, stays as it is. Owners that didn't load say so
-// with Try again, and Anyone still filters.
+// The Filters dialog's form (spec 3.3): stage (Won, Lost and Not a lead live here; each stage with its dot), owner for
+// managers, source, destination and trip type, started from the list's filters. Choosing an owner shows everyone's
+// leads, since an owner is a filter on them; the list's search, which isn't one of these, stays as it is. Owners that
+// didn't load say so with Try again, and Anyone still filters.
 import {
   leadSources,
   leadStages,
@@ -20,6 +20,7 @@ import { SelectField } from "@/components/forms/select-field";
 import { useTRPC } from "@/data/trpc";
 import { DestinationField, type DestinationValue } from "../form/destination-field";
 import { OwnersFailed } from "../owners-failed";
+import { StageDot } from "../stage-badge";
 import { useLeadOwners } from "../use-lead-owners";
 import type { ListFilters } from "./list-filters";
 
@@ -97,7 +98,15 @@ export function FiltersForm({
         label={words("stage")}
         options={[
           { value: "open", label: words("openStages") },
-          ...leadStages.map((stage) => ({ value: stage, label: t(`stages.${stage}`) })),
+          ...leadStages.map((stage) => ({
+            value: stage,
+            label: (
+              <span className="inline-flex items-center gap-2">
+                <StageDot stage={stage} />
+                {t(`stages.${stage}`)}
+              </span>
+            ),
+          })),
         ]}
       />
       {!ownOnly && (

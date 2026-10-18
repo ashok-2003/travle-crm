@@ -7,7 +7,7 @@
   "later": "Later, Today also shows quotes opened but not answered, payments due, departures and pickups, and travellers with missing details.",
   "sections": {
     "overdue": "Overdue",
-    "new-leads": "New leads waiting for a reply",
+    "new-leads": "New leads not contacted yet",
     "due-today": "Due today"
   },
   "sectionLoadFailed": "This part of Today didn't load.",
@@ -26,7 +26,7 @@
     "count": "{count, plural, one {# thing today} other {# things today}}",
     "nothing": "Nothing for today",
     "overdue": "Overdue",
-    "waiting": "New lead, no reply yet",
+    "waiting": "New lead, not contacted yet",
     "ago": "{elapsed} ago",
     "open": "Open Today",
     "loadFailed": "Today's work didn't load."

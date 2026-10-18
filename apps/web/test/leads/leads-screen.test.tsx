@@ -151,6 +151,32 @@ describe("LeadsScreen", () => {
     expect(inputsTo("leads.counts")).toEqual([{ view: "mine" }]);
   });
 
+  it("marks each stage chip with its stage's dot, the chosen one with a check instead", async () => {
+    address.set("/leads?stage=quote_sent");
+    renderLeads();
+    const chips = await screen.findByRole("radiogroup", { name: list.chips });
+    const dotOf = (name: RegExp) => within(chips).getByRole("radio", { name }).querySelector("span[aria-hidden=true]");
+    expect(dotOf(/^Open/)).toBeNull();
+    expect(dotOf(/^New/)).toHaveClass("bg-stage-new-dot");
+    expect(dotOf(/^Contacted/)).toHaveClass("bg-stage-contacted-dot");
+    expect(dotOf(/^Booking requested/)).toHaveClass("bg-stage-booking-requested-dot");
+    const chosen = within(chips).getByRole("radio", { name: /^Quote sent/ });
+    expect(chosen).toBeChecked();
+    expect(chosen.querySelector("span[aria-hidden=true]")).toBeNull();
+    expect(chosen.querySelector("svg")).not.toBeNull();
+  });
+
+  it("shows each stage in Filters' stage list with its dot", async () => {
+    renderLeads();
+    await userEvent.click(await screen.findByRole("button", { name: list.filters }));
+    const filters = await screen.findByRole("dialog", { name: list.filtersDialog.title });
+    await userEvent.click(within(filters).getByRole("combobox", { name: list.filtersDialog.stage }));
+    const won = await screen.findByRole("option", { name: messages.leads.stages.won });
+    expect(won.querySelector("span[aria-hidden=true]")).toHaveClass("bg-status-good-dot");
+    const open = screen.getByRole("option", { name: list.filtersDialog.openStages });
+    expect(open.querySelector("span[aria-hidden=true].rounded-full")).toBeNull();
+  });
+
   it("leaves the counts off the chips while there are no leads at all: a row of zeros says nothing", async () => {
     const none = { open: 0, new: 0, contacted: 0, quote_sent: 0, booking_requested: 0 };
     const api = renderLeads({ "leads.list": aPage([]), "leads.counts": { data: none } });
@@ -277,7 +303,7 @@ describe("LeadsScreen", () => {
       "Rahul Sharma+91 98765 43210",
       "Kashmir · Dec · 2 adults, 1 childPhone call",
       "New",
-      "12 min ago · no reply yet",
+      "12 min ago · not contacted yet",
       "Asha Sharma",
       "₹60,000per person",
       "16 Oct",

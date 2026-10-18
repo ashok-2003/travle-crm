@@ -30,7 +30,7 @@ afterEach(() => {
 });
 
 describe("LeadHeader", () => {
-  it("shows Call and WhatsApp only with a phone, and the email and handle under the name", () => {
+  it("shows Call and WhatsApp only with a phone, the email and handle under the name, and Returning with its hint", async () => {
     stubApi({});
     const withPhone = aLead({
       returning: true,
@@ -48,6 +48,11 @@ describe("LeadHeader", () => {
     expect(screen.getByText("rahul.s@gmail.com")).toBeVisible();
     expect(screen.getByText("@rahul.travels")).toBeVisible();
     expect(screen.getByText(messages.leads.returning)).toBeVisible();
+    // Returning is a term a first-time user may not know: its info hint says what it means.
+    await userEvent.click(screen.getByRole("button", { name: "What does Returning mean?" }));
+    expect(await screen.findByRole("dialog", { name: messages.leads.returning })).toHaveAccessibleDescription(
+      messages.leads.hints.returning,
+    );
     expect(screen.getByRole("link", { name: "Call Rahul Sharma" })).toHaveAttribute("href", "tel:+919876543210");
     expect(screen.getByRole("link", { name: "WhatsApp Rahul Sharma" })).toHaveAttribute(
       "href",
@@ -71,6 +76,7 @@ describe("LeadHeader", () => {
     expect(screen.getByText("rahul.s@gmail.com")).toBeVisible();
     expect(screen.queryByRole("link", { name: /Call/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /WhatsApp/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "What does Returning mean?" })).not.toBeInTheDocument();
   });
 });
 

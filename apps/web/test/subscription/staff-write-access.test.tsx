@@ -32,8 +32,8 @@ const person = (memberId: string, name: string, role: StaffMember["role"]): Staf
 });
 
 const staff = [
-  person(owner.member.memberId, "Asha Sharma", { key: "org-owner", name: "Owner" }),
-  person("0199a000-0000-7000-8000-00000000000a", "Ravi Kumar", { key: "sales", name: "Sales" }),
+  person(owner.member.memberId, "Asha Sharma", { key: "org-owner", name: "Owner", isOwner: true }),
+  person("0199a000-0000-7000-8000-00000000000a", "Ravi Kumar", { key: "sales", name: "Sales", isOwner: false }),
 ];
 const roles: RoleSummary[] = [
   { key: "org-owner", name: "Owner", isOwner: true, permissions: [], memberCount: 1 },

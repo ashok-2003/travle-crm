@@ -53,7 +53,8 @@ export const staffMember = z.object({
   email: shownEmailAddress.nullable(),
   /** As the person typed it, e.g. "Ravi". Null for staff who sign in only by email. */
   username: z.string().nullable(),
-  role: z.object({ key: z.string(), name: z.string() }),
+  /** isOwner: the Owner role, which screens colour as theirs even where the roles list is refused (suspended). */
+  role: z.object({ key: z.string(), name: z.string(), isOwner: z.boolean() }),
   twoFactorEnabled: z.boolean(),
   /** True until the person replaces the temporary password an admin gave them. */
   mustChangePassword: z.boolean(),

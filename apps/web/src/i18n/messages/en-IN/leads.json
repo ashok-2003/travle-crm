@@ -57,7 +57,7 @@
     "none": "No trip details yet"
   },
   "next": {
-    "waiting": "{elapsed} ago · no reply yet",
+    "waiting": "{elapsed} ago · not contacted yet",
     "elapsed": {
       "minute": "{count} min",
       "hour": "{count} hr",
@@ -84,6 +84,14 @@
     "whatsAppPerson": "WhatsApp {name}"
   },
   "returning": "Returning",
+  "hints": {
+    "returning": "This person has enquired with your agency before, so this is a repeat enquiry. Their earlier leads stay as they are.",
+    "owner": "The team member who works this lead. Its follow-ups are theirs and show in their Today.",
+    "source": "Where the enquiry came from, such as a phone call, a walk-in or Instagram. Filter Leads by source to see which channels bring you customers.",
+    "blockedTerm": "blocked",
+    "blocked": "Someone at your agency blocked this contact, usually as spam or a wrong number. A manager can remove the block in Settings, under Blocked contacts.",
+    "notALead": "For spam, a wrong number, a supplier, or someone not planning a trip. It leaves your open leads (Filters, Stage still finds it), and Reopen brings it back."
+  },
   "formerMember": "A former member",
   "ownersFailed": "The people who can work leads didn't load.",
   "newLead": "New lead",
@@ -271,12 +279,12 @@
     },
     "notALead": {
       "title": "Mark {name}'s lead as Not a lead?",
-      "description": "It leaves the lead lists, and its open follow-ups and tasks are cancelled. You can reopen it later.",
+      "description": "For spam, a wrong number, a supplier, or someone not planning a trip. It leaves your open leads, and its open follow-ups and tasks are cancelled. You can reopen it later.",
       "confirm": "Mark as Not a lead"
     },
     "block": {
       "title": "Block {name}'s contact?",
-      "description": "Their phone (or, without one, their email or handle) goes on the blocked list, and this lead is marked Not a lead. Their other leads stay as they are.",
+      "description": "Their phone (or, without one, their email or handle) goes on the blocked list, and this lead is marked Not a lead. Their other leads stay as they are. If they enquire again, the lead form warns you; you can unblock them in Settings, under Blocked contacts.",
       "confirm": "Block",
       "done": "Blocked, and marked Not a lead"
     },

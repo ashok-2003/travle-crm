@@ -2,7 +2,7 @@
 
 // Today (spec 3.5): the signed-in person's own day, whatever their scope (R35). The header says the agency's day and
 // how many things it holds, red when some are overdue, with Add a task as the screen's action; then Overdue, New leads
-// waiting for a reply and Due today, each shown while it holds something. A quiet line says what later releases add.
+// not contacted yet and Due today, each shown while it holds something. A quiet line says what later releases add.
 import type { TodaySectionName, TodaySummary } from "@travel-crm/contracts/today";
 import { parseCalendarDate, startOfDayIn } from "@travel-crm/domain/kernel";
 import { CalendarCheckIcon } from "lucide-react";

@@ -1,13 +1,15 @@
 "use client";
 
 // The list's quick filters (R42): the registry ToggleGroup as filter chips, Open (a salesperson's reads "Mine · open")
-// and each open stage, each with its count; the chosen one in the action tint with a check. Won, Lost and Not a lead
-// are under Filters' Stage, when no chip is chosen.
+// and each open stage, each with its count; a stage's chip carries its stage's dot (DESIGN.md "Stage Colours"); the
+// chosen one is in the action tint with a check in the dot's place. Won, Lost and Not a lead are under Filters' Stage,
+// when no chip is chosen.
 import { openLeadStages, type LeadCounts } from "@travel-crm/contracts/crm";
 import { CheckIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { formatCount } from "@/lib/format";
+import { StageDot } from "../stage-badge";
 
 const chips = ["open", ...openLeadStages] as const;
 export type ChipStage = (typeof chips)[number];
@@ -47,7 +49,7 @@ export function StageChips({
     >
       {chips.map((chip) => (
         <ToggleGroupItem key={chip} value={chip}>
-          {chip === stage && <CheckIcon aria-hidden="true" />}
+          {chip === stage ? <CheckIcon aria-hidden="true" /> : chip !== "open" && <StageDot stage={chip} />}
           {words(chip)}
           {counts && (
             // Muted beside an unchosen chip's word; on the chosen chip's tint, its dark ink (DESIGN.md section 2).
