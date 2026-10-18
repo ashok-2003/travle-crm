@@ -1,8 +1,8 @@
 // The visual audit's stage colours (owner feedback round 1): a lead at every stage, so Everyone's open list shows each
 // open stage's badge and the chips their dots, Filters' stage list every stage's dot; a lead at Quote sent, its bar
 // with the passed steps ticked and its timeline's dots (two stage changes, a follow-up done); one of its steps focused
-// from the keyboard, to see the outline sit on the whole step; and a won lead's bar, its last step green. Every lead is
-// made through the api (R54).
+// from the keyboard, to see the outline sit on the whole step; a won lead's bar, its last step green; and a Not a lead
+// lead, its info hint open. Every lead is made through the api (R54).
 import { expect, signInByEmail, test } from "../support/fixtures";
 import { addFollowUpThroughApi, addLeadThroughApi, dayInIndia, leadInput, moveStageThroughApi } from "../support/leads";
 import { screenshotsOnly, shoot } from "./camera";
@@ -22,7 +22,7 @@ test("each stage's colour in the list, Filters, the stage bar and the timeline",
   await at("Arjun Mehta", "+919769023418", ["contacted", "quote_sent", "booking_requested"]);
   const priya = await at("Priya Nair", "+919847031905", ["contacted", "quote_sent", "booking_requested", "won"]);
   await at("Kiran Joshi", "+919004066321", ["contacted", "lost"]);
-  await at("Deepa Krishnan", "+919444087612", ["not_a_lead"]);
+  const deepa = await at("Deepa Krishnan", "+919444087612", ["not_a_lead"]);
   await addFollowUpThroughApi(page, amit, { title: "Send the Manali options", on: dayInIndia(1), at: "11:00" });
 
   await page.goto("/leads?view=everyone");
@@ -49,4 +49,9 @@ test("each stage's colour in the list, Filters, the stage bar and the timeline",
   await page.goto(`/leads/${priya}`);
   await expect(page.getByRole("region", { name: "Stage: Won" })).toBeVisible();
   await shoot(page, "lead-won");
+
+  await page.goto(`/leads/${deepa}`);
+  await page.getByRole("button", { name: "What does Not a lead mean?" }).click();
+  await expect(page.getByText("For spam, a wrong number, a supplier", { exact: false }).first()).toBeVisible();
+  await shoot(page, "lead-not-a-lead");
 });

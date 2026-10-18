@@ -143,6 +143,7 @@ export const SHOTS = [
   { name: "lead-stage-midway", screen: "A lead at Quote sent: passed steps ticked, the timeline's dots", as: owner },
   { name: "lead-stage-focus", screen: "A lead's stage bar, a step focused from the keyboard (the element)", as: owner },
   { name: "lead-won", screen: "A won lead: its stage bar's last step green", as: owner },
+  { name: "lead-not-a-lead", screen: "A Not a lead lead, its info hint open", as: owner },
 ] as const satisfies readonly Shot[];
 
 export type ShotName = (typeof SHOTS)[number]["name"];
