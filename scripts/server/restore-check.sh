@@ -8,6 +8,9 @@
 # - Then it deletes all of it. No console or api starts on the copy: their jobs would act on the real bucket and mail.
 # From the owner's computer, as docs/runbook.md shows:
 #   ssh ubuntu@<server> sudo /srv/travel-crm/app/scripts/server/restore-check.sh [<backup name>] < <the age key file>
+# or, for the serverless pilot, on the owner's computer itself (docs/serverless.md), with the backups' settings in a
+# file of their own and the api's image built there:
+#   TRAVEL_CRM_SETTINGS=<file> API_IMAGE=<image> scripts/server/restore-check.sh [<backup name>] < <the age key file>
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 source scripts/server/paths.sh
@@ -50,7 +53,7 @@ age --decrypt --identity <(printf '%s\n' "$identity") "$work/$name" |
 echo "Running the release's migrate on the copy: nothing should be pending"
 docker run --rm --network "$throwaway" --read-only --tmpfs /tmp \
   --env DATABASE_MIGRATOR_URL="postgresql://app_migrator:migrator@$throwaway:5432/travel_crm" \
-  "travel-crm-api:$(cut -c 1-12 "$release_file")" migrate | tee "$work/migrate.log"
+  "${API_IMAGE:-travel-crm-api:$(cut -c 1-12 "$release_file")}" migrate | tee "$work/migrate.log"
 grep --quiet "No pending migrations" "$work/migrate.log" || fail "the copy had migrations pending"
 
 query() {
@@ -66,10 +69,11 @@ counts="SELECT (SELECT count(*) FROM organization) || ' organizations, ' || (SEL
 echo "The copy:        $(query "$throwaway" "$counts")"
 if uses_local_database; then
   echo "Production now:  $(query "$(scripts/server/compose.sh ps --quiet postgres)" "$counts")"
-else
-  production="$(DATABASE_ADMIN_URL="$DATABASE_ADMIN_URL" docker run --rm --env DATABASE_ADMIN_URL \
-    --env counts="$counts" "$postgres_image" \
-    sh -c 'exec psql --tuples-only --no-align --dbname "$DATABASE_ADMIN_URL" --command "$counts"')"
+elif [ -n "${DATABASE_ADMIN_URL:-}" ]; then
+  production="$(DATABASE_ADMIN_URL="$DATABASE_ADMIN_URL" DATABASE_ADMIN_ROLE="${DATABASE_ADMIN_ROLE:-}" \
+    docker run --rm --env DATABASE_ADMIN_URL --env DATABASE_ADMIN_ROLE --env counts="$counts" "$postgres_image" \
+    sh -c 'exec psql --quiet --tuples-only ${DATABASE_ADMIN_ROLE:+--command="SET ROLE $DATABASE_ADMIN_ROLE"} \
+      --no-align --dbname "$DATABASE_ADMIN_URL" --command "$counts"')"
   echo "Production now:  $production"
 fi
 echo "Restored $name and checked it in $((SECONDS - started)) seconds; the copy is deleted."

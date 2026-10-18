@@ -1,0 +1,42 @@
+# The serverless pilot's nightly database backup (docs/serverless.md): scripts/server/backup.sh, run here because
+# Render's free plan runs no jobs and Neon's free plan keeps six hours of history. The dump is encrypted to the
+# owner's age key before it leaves the runner, which holds the public key alone. It runs only where the owner has
+# turned it on (the repository variable BACKUP_ENABLED), so a fork or a fresh clone backs nothing up.
+name: Database backup
+
+on:
+  schedule:
+    # 01:30 India time.
+    - cron: "0 20 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: database-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Back up the database to R2
+    if: vars.BACKUP_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install age
+        run: sudo apt-get update --quiet && sudo apt-get install --yes --quiet --no-install-recommends age
+      - name: Back up
+        run: scripts/server/backup.sh
+        env:
+          DATABASE_ADMIN_URL: ${{ secrets.DATABASE_ADMIN_URL }}
+          DATABASE_ADMIN_ROLE: ${{ vars.DATABASE_ADMIN_ROLE }}
+          S3_ENDPOINT: ${{ vars.S3_ENDPOINT }}
+          BACKUP_S3_BUCKET: ${{ vars.BACKUP_S3_BUCKET }}
+          BACKUP_S3_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+          BACKUP_S3_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+          BACKUP_AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+          BACKUP_HEARTBEAT_URL: ${{ secrets.BACKUP_HEARTBEAT_URL }}
