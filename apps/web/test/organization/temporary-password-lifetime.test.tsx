@@ -24,7 +24,7 @@ const ravi: StaffMember = {
   name: "Ravi",
   email: null,
   username: "ravi",
-  role: { key: "sales", name: "Sales" },
+  role: { key: "sales", name: "Sales", isOwner: false },
   twoFactorEnabled: false,
   mustChangePassword: true,
   joinedAt: "2026-10-15T18:45:00.000Z",

@@ -17,7 +17,7 @@ const person = (id: string, name: string, roleKey: string, roleName: string): St
   name,
   email: null,
   username: name.toLowerCase(),
-  role: { key: roleKey, name: roleName },
+  role: { key: roleKey, name: roleName, isOwner: false },
   twoFactorEnabled: false,
   mustChangePassword: false,
   joinedAt: "2026-01-02T05:00:00.000Z",

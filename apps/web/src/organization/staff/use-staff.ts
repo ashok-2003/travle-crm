@@ -77,7 +77,10 @@ export function useChangeStaffRole() {
         const role = queryClient.getQueryData(trpc.roles.list.queryKey())?.find((entry) => entry.key === roleKey);
         const previous = list?.find((member) => member.memberId === memberId)?.role;
         if (list && role) {
-          queryClient.setQueryData(staffKey, withRole(list, memberId, { key: role.key, name: role.name }));
+          queryClient.setQueryData(
+            staffKey,
+            withRole(list, memberId, { key: role.key, name: role.name, isOwner: role.isOwner }),
+          );
         }
         return { previous };
       },

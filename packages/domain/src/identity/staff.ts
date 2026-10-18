@@ -34,14 +34,18 @@ export async function listStaff(database: IdentityDatabase, actor: MemberAccess)
       include: { user: true },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     });
-    const roleNames = new Map((await tx.role.findMany()).map((role) => [role.key, role.name]));
+    const roles = new Map((await tx.role.findMany()).map((role) => [role.key, role]));
     return members.map((member) => ({
       memberId: member.id,
       userId: member.userId,
       name: member.user.name,
       email: shownEmail(member.user.email),
       username: member.user.displayUsername,
-      role: { key: member.role, name: roleNames.get(member.role) ?? member.role },
+      role: {
+        key: member.role,
+        name: roles.get(member.role)?.name ?? member.role,
+        isOwner: roles.get(member.role)?.isOwner ?? false,
+      },
       twoFactorEnabled: member.user.twoFactorEnabled ?? false,
       mustChangePassword: member.user.mustChangePassword,
       joinedAt: member.createdAt.toISOString(),

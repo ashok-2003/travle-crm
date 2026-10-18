@@ -32,10 +32,7 @@ export function StaffList({ staff, roles }: { staff: StaffMember[]; roles: RoleS
   const wide = useWideScreen();
   const joined = (member: StaffMember) => formatDay(new Date(member.joinedAt), { timeZone: me.organization.timeZone });
   const isMe = (member: StaffMember) => member.memberId === me.member.memberId;
-  // The Owner role's key, from the roles; where the subscription refuses that list (suspended, when it is the Owner
-  // who looks), from the viewer's own role.
-  const ownerKey = roles.find((role) => role.isOwner)?.key ?? (me.member.role.isOwner ? me.member.role.key : null);
-  const role = (member: StaffMember) => <RoleBadge role={member.role} isOwner={member.role.key === ownerKey} />;
+  const role = (member: StaffMember) => <RoleBadge role={member.role} isOwner={member.role.isOwner} />;
   const status = (member: StaffMember) =>
     member.mustChangePassword ? <StatusBadge tone="attention">{t("mustChangePassword")}</StatusBadge> : null;
   const actions = (member: StaffMember) =>

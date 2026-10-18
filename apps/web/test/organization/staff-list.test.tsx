@@ -18,7 +18,7 @@ const staff: StaffMember[] = [
     name: "Asha",
     email: "asha@sharma.in",
     username: null,
-    role: { key: "org-owner", name: "Owner" },
+    role: { key: "org-owner", name: "Owner", isOwner: true },
     twoFactorEnabled: true,
     mustChangePassword: false,
     joinedAt: "2026-01-02T05:00:00.000Z",
@@ -29,7 +29,7 @@ const staff: StaffMember[] = [
     name: "रवि कुमार",
     email: null,
     username: "ravi",
-    role: { key: "sales", name: "Sales" },
+    role: { key: "sales", name: "Sales", isOwner: false },
     twoFactorEnabled: false,
     mustChangePassword: true,
     // 18:45 UTC on 15 October is already 16 October in India.
@@ -69,9 +69,10 @@ describe("StaffList", () => {
     expect(within(ravi).getByText("Sales")).toHaveClass(...tintOf("sales"));
   });
 
-  it("keeps the Owner's orchid where the subscription refuses the roles list, from the viewer's own role", () => {
+  it("knows the Owner's role from the staff list itself, with no roles list and whoever looks", () => {
+    // Suspended, the roles list is refused; a manager who isn't the Owner still sees the Owner's orchid.
     screenIs("wide");
-    renderAs(<StaffList staff={staff} roles={[]} />, owner);
+    renderAs(<StaffList staff={staff} roles={[]} />, member({ permissions: ["staff:manage"] }));
     expect(screen.getByText("Owner")).toHaveClass(...tintOf("org-owner", true));
     expect(screen.getByText("Sales")).toHaveClass(...tintOf("sales"));
   });
