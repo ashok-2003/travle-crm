@@ -27,7 +27,7 @@ describe("brand", () => {
     const { colours } = brand;
     const values = (palette: Record<string, object>) =>
       new Set(Object.values(palette).flatMap((colour) => leaves(colour).map(([, value]) => value)));
-    const reserved = new Set([
+    const reserved = new Set<string>([
       colours.action,
       colours.actionPressed,
       colours.actionTint,
