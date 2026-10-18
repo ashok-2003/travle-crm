@@ -136,6 +136,7 @@ export const SHOTS = [
   { name: "settings-unblock", screen: "Settings, blocked contacts, the Unblock confirmation", as: owner },
   { name: "lead-hint", screen: "A returning customer's lead, Returning's info hint open", as: owner },
   { name: "lead-new-blocked", screen: "New lead, a blocked number, with its info hint", as: owner },
+  { name: "lead-1280", screen: "A lead at 1280px, the narrowest with two columns", as: owner, only: "desktop" },
 ] as const satisfies readonly Shot[];
 
 export type ShotName = (typeof SHOTS)[number]["name"];

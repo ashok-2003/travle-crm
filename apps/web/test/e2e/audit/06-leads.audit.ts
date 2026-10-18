@@ -1,8 +1,9 @@
 // The visual audit's lead screens (release 1): Leads empty, then an agency's week of leads as the mockup draws them
 // (trips, budgets, a returning customer, follow-ups, two of them Ravi's), Everyone filtered by a stage, the Filters
-// dialog, the new-lead form filled in and with a known contact, a lead with its menu, Reassign and Block, follow-up
-// dialog and trip editor, a returning customer's lead with Returning's info hint open, a lost lead with Reopen, the
-// form warning of a blocked number, and a salesperson's own list. Every lead is made through the api (R54).
+// dialog, the new-lead form filled in and with a known contact, a lead (on a computer also at 1280px, the narrowest
+// with the timeline beside the cards) with its menu, Reassign and Block, follow-up dialog and trip editor, a returning
+// customer's lead with Returning's info hint open, a lost lead with Reopen, the form warning of a blocked number, and
+// a salesperson's own list. Every lead is made through the api (R54).
 import type { Page } from "@playwright/test";
 import { expect, signInByCode, signInByEmail, test } from "../support/fixtures";
 import {
@@ -168,6 +169,13 @@ test("an Owner's leads, a lead and its dialogs, and a salesperson's own list", a
   await expect(page.getByRole("heading", { level: 1, name: "Rahul Sharma" })).toBeVisible();
   await expect(page.getByRole("list", { name: "Timeline" }).getByText("Note")).toBeVisible();
   await shoot(page, "lead");
+  if (test.info().project.name === "desktop") {
+    // The narrowest computer that gets two columns: the cards and the timeline must both still read well.
+    const viewport = page.viewportSize();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await shoot(page, "lead-1280");
+    if (viewport) await page.setViewportSize(viewport);
+  }
   await page.getByRole("button", { name: "More for Rahul Sharma" }).click();
   await expect(page.getByRole("menu")).toBeVisible();
   await shoot(page, "lead-menu");
