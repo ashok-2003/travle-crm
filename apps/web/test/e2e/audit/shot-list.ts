@@ -134,6 +134,9 @@ export const SHOTS = [
   { name: "settings-destination-merge", screen: "Settings, destinations, the Merge dialog, one chosen", as: owner },
   { name: "settings-blocked-contacts", screen: "Settings, blocked contacts", as: owner },
   { name: "settings-unblock", screen: "Settings, blocked contacts, the Unblock confirmation", as: owner },
+  { name: "lead-hint", screen: "A returning customer's lead, Returning's info hint open", as: owner },
+  { name: "lead-new-blocked", screen: "New lead, a blocked number, with its info hint", as: owner },
+  { name: "lead-1280", screen: "A lead at 1280px, the narrowest with two columns", as: owner, only: "desktop" },
   // Owner feedback round 1, colours: every stage's colour (08-stages.audit.ts).
   { name: "stages-leads", screen: "Leads, Everyone: each open stage's badge, the chips' dots", as: owner },
   { name: "stages-filter-list", screen: "Leads, Filters' stage list open: every stage's dot", as: owner },

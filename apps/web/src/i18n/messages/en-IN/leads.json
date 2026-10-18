@@ -84,6 +84,14 @@
     "whatsAppPerson": "WhatsApp {name}"
   },
   "returning": "Returning",
+  "hints": {
+    "returning": "This person has enquired with your agency before, so they are a repeat customer. This lead is their new enquiry.",
+    "owner": "The team member who works this lead. Its follow-ups are theirs and show in their Today.",
+    "source": "Where the enquiry came from, such as a phone call, a walk-in or Instagram. Filter Leads by source to see which channels bring you customers.",
+    "blockedTerm": "blocked",
+    "blocked": "Someone at your agency blocked this contact, usually as spam or a wrong number. If this enquiry is genuine, save it; the block can be removed in Settings, under Blocked contacts.",
+    "notALead": "For spam, a wrong number, a supplier, or someone not planning a trip. It leaves the lead lists, and Reopen brings it back."
+  },
   "formerMember": "A former member",
   "ownersFailed": "The people who can work leads didn't load.",
   "newLead": "New lead",
@@ -276,7 +284,7 @@
     },
     "block": {
       "title": "Block {name}'s contact?",
-      "description": "Their phone (or, without one, their email or handle) goes on the blocked list, and this lead is marked Not a lead. Their other leads stay as they are.",
+      "description": "Their phone (or, without one, their email or handle) goes on the blocked list, and this lead is marked Not a lead. Their other leads stay as they are. If they enquire again, the lead form warns you; you can unblock them in Settings, under Blocked contacts.",
       "confirm": "Block",
       "done": "Blocked, and marked Not a lead"
     },

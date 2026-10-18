@@ -1,9 +1,14 @@
 // Labelled values, compact (DESIGN.md: labels muted, values in ink): each row holds its label and then its value, at
 // the row's end, wrapping under the label only when the row is too narrow; an action, if any, after both, and then
-// the value always under its label. No separators: the rows' own spacing parts them.
+// the value always under its label. No separators: the rows' own spacing parts them. A label a first-time user may not
+// know carries its info hint.
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { NextIntlClientProvider } from "next-intl";
+import { describe, expect, it, vi } from "vitest";
 import { Details } from "@/components/details";
+import { locale, messages } from "@/i18n/messages";
+
+const noop = () => undefined;
 
 describe("Details", () => {
   it("puts each label and its value on one row, the value at the end, with no separators between rows", () => {
@@ -46,5 +51,17 @@ describe("Details", () => {
   it("shows a label alone when it has no value", () => {
     render(<Details rows={[{ label: "Temporary password" }]} />);
     expect(screen.getByRole("listitem")).toHaveTextContent("Temporary password");
+  });
+
+  it("puts a label's info hint right after the label, asking what the label means", () => {
+    vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener: noop, removeEventListener: noop }));
+    render(
+      <NextIntlClientProvider locale={locale} messages={messages}>
+        <Details rows={[{ label: "Source", value: "Phone call", info: "Where the enquiry came from." }]} />
+      </NextIntlClientProvider>,
+    );
+    const hint = screen.getByRole("button", { name: "What does Source mean?" });
+    expect(screen.getByText("Source")).toContainElement(hint);
+    vi.unstubAllGlobals();
   });
 });
