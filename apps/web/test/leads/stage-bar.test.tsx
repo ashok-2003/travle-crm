@@ -175,6 +175,19 @@ describe("StageBar", () => {
     expect(screen.getByText(words.reopenReturns.replace("{stage}", stages.new))).toBeVisible();
   });
 
+  it("says what Not a lead means beside its badge, a term a first-time user may not know", async () => {
+    renderBar({ stage: "not_a_lead", reopenStage: "contacted" });
+    await userEvent.click(screen.getByRole("button", { name: "What does Not a lead mean?" }));
+    expect(await screen.findByRole("dialog", { name: stages.not_a_lead })).toHaveAccessibleDescription(
+      messages.leads.hints.notALead,
+    );
+  });
+
+  it("gives Lost no such hint: its word says it", () => {
+    renderBar({ stage: "lost", reopenStage: "contacted" });
+    expect(screen.queryByRole("button", { name: /^What does/ })).not.toBeInTheDocument();
+  });
+
   it("shows a refused move's sentence in the bar, and clears it on the next tap", async () => {
     const api = renderBar({ stage: "contacted" });
     api.answer("leads.moveStage", { status: 409, reason: "TASK_CLOSED" });

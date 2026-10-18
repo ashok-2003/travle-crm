@@ -6,7 +6,8 @@
 // step; earlier stages show a lighter tint of theirs and, wider than a phone, a check; later ones are grey. Words are
 // ink, not link blue.
 // Choosing another step moves the lead there, forwards or back (Won is on the bar, so a won lead moves freely). A Lost
-// or Not a lead lead shows its badge and Reopen in place of the bar, which returns it to the open stage it had before.
+// or Not a lead lead shows its badge (Not a lead with an info hint saying what it means) and Reopen in place of the bar,
+// which returns it to the open stage it had before.
 // The section is named with the current stage and each step says where it moves the lead, for screen readers. After a
 // move or a Reopen, whose button is then gone, the focus goes to the new current stage rather than dropping to the
 // page. A refusal shows its sentence in the bar until the next tap. Someone who can't edit leads sees the stage only;
@@ -15,6 +16,7 @@ import { stageBarStages, type LeadDetail, type LeadStage } from "@travel-crm/con
 import { CheckIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useRef, useState } from "react";
+import { InfoHint } from "@/components/info-hint";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -94,7 +96,10 @@ export function StageBar({ lead }: { lead: LeadDetail }) {
     return (
       <section aria-label={named} className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <StageBadge stage={lead.stage} />
+          <span className="inline-flex items-center gap-1">
+            <StageBadge stage={lead.stage} />
+            {lead.stage === "not_a_lead" && <InfoHint term={t("stages.not_a_lead")}>{t("hints.notALead")}</InfoHint>}
+          </span>
           {canEdit && (
             <p className="text-muted-foreground">
               {t("lead.reopenReturns", { stage: t(`stages.${lead.reopenStage ?? "new"}`) })}
