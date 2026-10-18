@@ -12,7 +12,7 @@ import { isUniqueViolation, softDeleted, sql, withDeleted, type OrgTx } from "@t
 import { recordAudit } from "../audit/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { publishEvent } from "../jobs/index.js";
-import { DomainError, type Actor } from "../kernel/index.js";
+import { DomainError, newUuidV7, type Actor } from "../kernel/index.js";
 
 /** How far a chain of merges is followed: merges of merges are rare, and a loop must not hang. */
 const MAX_MERGE_HOPS = 10;
@@ -82,7 +82,7 @@ export async function findOrAddDestination(tx: OrgTx, actor: Actor, typed: strin
   }
   const [added] = await tx.$queryRaw<Destination[]>`
     INSERT INTO destination (id, name, created_by, updated_at)
-    VALUES (uuidv7(), ${name}, ${actor.userId}::uuid, now())
+    VALUES (${newUuidV7()}::uuid, ${name}, ${actor.userId}::uuid, now())
     ON CONFLICT (organization_id, lower(name)) WHERE deleted_at IS NULL DO NOTHING
     RETURNING id, name`;
   if (added === undefined) {

@@ -1,4 +1,5 @@
-// Starts a throwaway Postgres 18 once per test run, creates the roles, applies the migrations,
+// Starts a throwaway Postgres 18 once per test run (TEST_POSTGRES_IMAGE picks another, such as postgres:17-alpine, to
+// check the product still runs there), creates the roles, applies the migrations,
 // checks the Prisma schema matches them, keeps a copy for createIsolatedDatabase, and hands connection URLs to the
 // tests via inject("dbUrls").
 import { execFile } from "node:child_process";
@@ -25,7 +26,7 @@ declare module "vitest" {
 let container: StartedPostgreSqlContainer | undefined;
 
 export async function setup(project: TestProject): Promise<void> {
-  container = await new PostgreSqlContainer("postgres:18-alpine")
+  container = await new PostgreSqlContainer(process.env.TEST_POSTGRES_IMAGE ?? "postgres:18-alpine")
     .withDatabase("app")
     .withUsername("postgres")
     .withPassword("postgres")

@@ -1,0 +1,38 @@
+# The server's reverse proxy (docker-compose.server.yml): docker/Caddyfile with HTTPS. It routes as a deploy's load
+# balancer does (docs/deploy-checklist.md): the console's api to the console, the api's paths to the api, every other
+# path to the web app. Caddy, with no trusted proxies of its own, replaces X-Forwarded-For with the one address the
+# request came from, whatever the request said, so the api's rate limits need no AUTH_TRUSTED_PROXIES. It writes no
+# access log, so a password reset's token (in its path) is never kept.
+{
+	# The ACME account's address: expiry warnings, and ZeroSSL's account when Let's Encrypt refuses.
+	email {$ACME_EMAIL}
+	admin off
+	# Only TCP 80 and 443 are open, so no HTTP/3 (UDP) is offered.
+	servers {
+		protocols h1 h2
+	}
+}
+
+# The one address (APP_HOST in the server's settings). Plain http on 80 redirects here.
+{$APP_HOST} {
+	# Caddy tries the most specific path first, so the console's /api/platform/* never reaches the api.
+	handle /api/platform/* {
+		reverse_proxy console:3002
+	}
+	handle /api/* {
+		reverse_proxy api:3001
+	}
+	handle /p/* {
+		reverse_proxy api:3001
+	}
+	handle /webhooks/* {
+		reverse_proxy api:3001
+	}
+	# For the uptime monitor: the api's {"status":"ok"}.
+	handle /health {
+		reverse_proxy api:3001
+	}
+	handle {
+		reverse_proxy web:3000
+	}
+}
