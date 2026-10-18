@@ -165,6 +165,8 @@ Build on shadcn/ui; restyle with the tokens. Define colours as CSS variables on 
 
 **Navigation.** Desktop: 232px left sidebar on surface tone, grouped items (Leads, Inbox, Quotes, Departures, Bookings, Suppliers, Accounts). Active item: blue tint bg, blue ink, no side stripe. The Inbox item carries a violet count; the Accounts item uses forest only on its icon when active. Mobile: bottom nav with 4-5 destinations (Leads, Inbox, Departures, Accounts, More), 56px high, 44px+ targets, labels always visible, active item blue. "More" opens a drawer for the rest plus organization switcher.
 
+**Info hints.** "What does this mean?" beside a term a first-time user may not know (Returning, Not a lead, Owner, Source, a blocked contact): `InfoHint`, a small ⓘ ghost button, 20px to see with a 44px hit area, named "What does <term> mean?". With a mouse it is the registry Tooltip, on hover and on keyboard focus (a click keeps it open); on a touch screen, which can't hover, a tap opens the registry Popover. The words are a sentence or two of plain Indian English, announced with the button; Escape closes them. Hints are for the terms that truly need one: fewer than ten in the whole product, never one on every label.
+
 **KPI / stat.** A label, a mono value, and an **info hint** (an "i" button, 44px hit area, opens a tooltip or popover explaining how the figure is computed and its period). Every KPI has one, no exceptions. Value uses `number-lg`; money KPIs in forest. Optional delta line in muted ink with sign. No hero-metric template: no oversized number with gradient or accent decoration; KPIs sit in a hairline-divided strip, not a row of identical boxes.
 
 **Toasts and dialogs.** Toasts bottom-center on mobile, bottom-right on desktop, overlay shadow, 4s (errors persist with a dismiss button), `role="status"` (errors `role="alert"`), include Undo where possible. Dialogs: 14px radius, scrim, focus trapped, Escape closes, Figtree title, primary action on the right (desktop) or stacked full-width (mobile). On mobile, prefer bottom sheets for forms and pickers.
@@ -245,7 +247,7 @@ Requirements:
 - Visible focus on every interactive element (2px blue ring, 2px offset); never remove outlines.
 - Full keyboard operation; logical tab order; skip-to-content link; dialogs trap and restore focus.
 - Semantic landmarks (`nav`, `main`), one `h1` per screen, tables with proper `th` scope.
-- Icon-only buttons have accessible names; the KPI info hint is a real `button` with `aria-label="How is this calculated?"`.
+- Icon-only buttons have accessible names; an info hint is a real `button` named by its question, "What does <term> mean?" (a KPI's: "How is this calculated?"), its words announced with it (its tooltip as the button's description, or a popover named by the term), and Escape closes them.
 - Live regions for toasts and new inbox messages (polite); errors announced.
 - Respect `prefers-reduced-motion`; support 200% zoom and text scaling without clipped content; set `lang` per record where known (`lang="hi"` etc.) so screen readers and font fallbacks pick the right script.
 - Never convey meaning by colour alone (status, unread, direction of money).
