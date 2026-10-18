@@ -1,10 +1,11 @@
 // A lead's stage bar (spec 3.4, R30, R31, P2; DESIGN.md "Stage bar"): New → Contacted → Quote sent → Booking requested
-// → Won as a stepper, five 44px steps each covering its segment and its word, the current one marked as the step and
-// filled in its stage's colour, earlier ones in a lighter tint with a check, later ones grey; words in ink. Tapping
-// another step moves the lead there, forwards or back. A Lost or Not a lead lead shows its badge and Reopen in place of
-// the bar. A refusal shows its sentence until the next tap. Screen readers hear the current stage in the bar's name and
-// where each step moves the lead; after a move or a Reopen, whose button is gone, the focus is on the new current stage.
-// Without leads:edit the bar only shows.
+// → Won as one progress bar with the stages' words under it, five 44px steps each covering its fifth of the bar and its
+// word, the current one marked as the step. The bar fills from its start to the end of the current stage's fifth, in
+// that stage's colour, and is decoration (the region's name and the step say the stage); passed words carry a check,
+// later ones are muted; words in ink. Tapping another step moves the lead there, forwards or back. A Lost or Not a lead
+// lead shows its badge and Reopen in place of the bar. A refusal shows its sentence until the next tap. Screen readers
+// hear the current stage in the bar's name and where each step moves the lead; after a move or a Reopen, whose button
+// is gone, the focus is on the new current stage. Without leads:edit the bar only shows.
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { toast } from "sonner";
@@ -29,7 +30,12 @@ const stepOf = (stage: keyof typeof stages) => {
   if (step === null) throw new Error(`No step for ${stage}`);
   return step;
 };
-const segmentOf = (stage: keyof typeof stages) => stepOf(stage).querySelector("[data-segment]");
+/** The bar's fill: where it reaches, as its shift left of full, and its colour. */
+const fill = () => {
+  const element = document.querySelector<HTMLElement>("[data-track] > [data-fill]");
+  if (element === null) throw new Error("No fill");
+  return element;
+};
 
 function renderBar(...[changes, me]: [Parameters<typeof aLead>[0], Parameters<typeof renderScreen>[1]?]) {
   const api = stubApi({ "leads.moveStage": { data: null }, "leads.reopen": { data: null } });
@@ -60,7 +66,7 @@ afterEach(() => {
 });
 
 describe("StageBar", () => {
-  it("shows five 44px steps, each one target over its segment and word; the current is the step; tapping Quote sent moves the lead", async () => {
+  it("shows one bar over five 44px steps, each one target over its fifth and its word; the current is the step; tapping Quote sent moves the lead", async () => {
     renderBar({ stage: "contacted" });
     const bar = screen.getByRole("region", barNamed("contacted"));
     const steps = within(bar).getAllByRole("listitem");
@@ -73,14 +79,19 @@ describe("StageBar", () => {
     ]);
     expect(stepOf("contacted")).toHaveAttribute("aria-current", "step");
     for (const step of steps) {
-      // One target per step, holding the segment and the word, so hover and focus sit on the whole stage.
+      // One target per step, so hover and focus sit on the whole stage; the bar runs across them, not inside them.
       const targets = step.querySelectorAll<HTMLElement>("button, [data-step]");
       expect(targets).toHaveLength(1);
       const [target] = targets;
       if (target === undefined) continue;
       expect(targetSize(target).height).toBeGreaterThanOrEqual(44);
-      expect(target.querySelector("[data-segment]")).toHaveAttribute("aria-hidden", "true");
+      expect(target.querySelector("[data-track]")).toBeNull();
     }
+    // One bar, decoration: the region's name and the current step already say the stage.
+    const tracks = bar.querySelectorAll("[data-track]");
+    expect(tracks).toHaveLength(1);
+    expect(tracks[0]).toHaveAttribute("aria-hidden", "true");
+    expect(within(bar).queryByRole("progressbar")).not.toBeInTheDocument();
     expect(within(bar).queryByRole("button", moveTo("contacted"))).not.toBeInTheDocument();
 
     await userEvent.click(within(bar).getByRole("button", moveTo("quote_sent")));
@@ -90,31 +101,42 @@ describe("StageBar", () => {
     expect(await screen.findByText(words.moved.replace("{stage}", stages.quote_sent))).toBeVisible();
   });
 
-  it("fills the current stage in its colour, earlier stages in a lighter tint with a check, later ones grey", () => {
+  it("fills the bar to the end of the current stage's fifth in its colour; passed words have a check, later ones are muted", () => {
     renderBar({ stage: "quote_sent" });
-    expect(segmentOf("new")).toHaveAttribute("data-segment", "passed");
-    expect(segmentOf("new")).toHaveClass("bg-stage-new-dot/40");
-    expect(segmentOf("contacted")).toHaveClass("bg-stage-contacted-dot/40");
-    expect(stepOf("new").querySelector("svg")).not.toBeNull();
-    expect(stepOf("contacted").querySelector("svg")).not.toBeNull();
+    expect(fill()).toHaveClass("bg-status-attention-dot");
+    expect(fill()).toHaveStyle({ transform: "translateX(-40%)" });
 
-    expect(segmentOf("quote_sent")).toHaveAttribute("data-segment", "current");
-    expect(segmentOf("quote_sent")).toHaveClass("bg-status-attention-dot");
+    for (const stage of ["new", "contacted"] as const) {
+      expect(stepOf(stage).querySelector("svg"), stage).not.toBeNull();
+      expect(screen.getByText(stages[stage]), stage).not.toHaveClass("text-muted-foreground");
+    }
     expect(screen.getByText(stages.quote_sent)).toHaveClass("font-semibold");
     expect(stepOf("quote_sent").querySelector("svg")).toBeNull();
-
     for (const stage of ["booking_requested", "won"] as const) {
-      expect(segmentOf(stage)).toHaveAttribute("data-segment", "later");
-      expect(segmentOf(stage)).toHaveClass("bg-hairline");
-      expect(screen.getByText(stages[stage])).toHaveClass("text-muted-foreground");
-      expect(stepOf(stage).querySelector("svg")).toBeNull();
+      expect(screen.getByText(stages[stage]), stage).toHaveClass("text-muted-foreground");
+      expect(stepOf(stage).querySelector("svg"), stage).toBeNull();
     }
   });
 
-  it("fills a Won lead's last step in status green, done", () => {
+  it("fills a New lead's first fifth in its colour", () => {
+    renderBar({ stage: "new" });
+    expect(fill()).toHaveClass("bg-stage-new-dot");
+    expect(fill()).toHaveStyle({ transform: "translateX(-80%)" });
+  });
+
+  it("fills a Won lead's whole bar in status green, done", () => {
     renderBar({ stage: "won" });
-    expect(segmentOf("won")).toHaveClass("bg-status-good-dot");
-    expect(segmentOf("booking_requested")).toHaveClass("bg-stage-booking-requested-dot/40");
+    expect(fill()).toHaveClass("bg-status-good-dot");
+    expect(fill()).toHaveStyle({ transform: "translateX(0%)" });
+    for (const stage of ["new", "contacted", "quote_sent", "booking_requested"] as const) {
+      expect(stepOf(stage).querySelector("svg"), stage).not.toBeNull();
+    }
+  });
+
+  it("slides the fill to a new stage only where motion is welcome", () => {
+    renderBar({ stage: "contacted" });
+    expect(fill()).toHaveClass("motion-safe:transition-transform");
+    expect(fill()).not.toHaveClass("transition-transform");
   });
 
   it("writes its steps in ink at the caption's size (the label's on a wide screen), not the link blue, blue on hover", () => {
@@ -213,8 +235,8 @@ describe("StageBar", () => {
     const viewer = member({ permissions: ["leads:view"] });
     renderBar({ stage: "contacted" }, { me: viewer });
     expect(stepOf("contacted")).toHaveAttribute("aria-current", "step");
-    expect(segmentOf("contacted")).toHaveClass("bg-stage-contacted-dot");
-    expect(segmentOf("new")).toHaveClass("bg-stage-new-dot/40");
+    expect(fill()).toHaveClass("bg-stage-contacted-dot");
+    expect(fill()).toHaveStyle({ transform: "translateX(-60%)" });
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.queryByText(words.chooseToMove)).not.toBeInTheDocument();
   });

@@ -35,9 +35,9 @@ describe("StageBadge", () => {
     }
   });
 
-  it("gives every stage a different colour, its badge, its dot and its passed segment", () => {
+  it("gives every stage a different colour, its badge and its dot", () => {
     const tones = leadStages.map((stage) => stageTones[stage]);
-    for (const part of ["badge", "dot", "passed"] as const) {
+    for (const part of ["badge", "dot"] as const) {
       expect(new Set(tones.map((tone) => tone[part])).size, part).toBe(leadStages.length);
     }
   });

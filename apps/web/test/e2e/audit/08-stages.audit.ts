@@ -1,8 +1,9 @@
 // The visual audit's stage colours (owner feedback round 1): a lead at every stage, so Everyone's open list shows each
-// open stage's badge and the chips their dots, Filters' stage list every stage's dot; a lead at Quote sent, its bar
-// with the passed steps ticked and its timeline's dots (two stage changes, a follow-up done); one of its steps focused
-// from the keyboard, to see the outline sit on the whole step; a won lead's bar, its last step green; and a Not a lead
-// lead, its info hint open. Every lead is made through the api (R54).
+// open stage's badge and the chips their dots, Filters' stage list every stage's dot; a new lead's stage bar, one fifth
+// filled; a lead at Quote sent, its bar filled three fifths with the passed words ticked, and its timeline's dots (two
+// stage changes, a follow-up done); one of its steps focused from the keyboard, to see the outline sit whole on the
+// step over the bar; that bar on a 360px phone, the lead at 1280px, and a step under a mouse's pointer; a won lead's
+// bar, full and green; and a Not a lead lead, its info hint open. Every lead is made through the api (R54).
 import { expect, signInByEmail, test } from "../support/fixtures";
 import { addFollowUpThroughApi, addLeadThroughApi, dayInIndia, leadInput, moveStageThroughApi } from "../support/leads";
 import { screenshotsOnly, shoot } from "./camera";
@@ -16,7 +17,7 @@ test("each stage's colour in the list, Filters, the stage bar and the timeline",
     for (const stage of stages) await moveStageThroughApi(page, leadId, stage);
     return leadId;
   };
-  await at("Rahul Sharma", "+919876543210", []);
+  const rahul = await at("Rahul Sharma", "+919876543210", []);
   await at("Sneha Iyer", "+919845011234", ["contacted"]);
   const amit = await at("Amit Verma", "+919811045526", ["contacted", "quote_sent"]);
   await at("Arjun Mehta", "+919769023418", ["contacted", "quote_sent", "booking_requested"]);
@@ -34,6 +35,9 @@ test("each stage's colour in the list, Filters, the stage bar and the timeline",
   await expect(page.getByRole("option", { name: "Not a lead" })).toBeVisible();
   await shoot(page, "stages-filter-list");
 
+  await page.goto(`/leads/${rahul}`);
+  await shoot(page, "lead-stage-new", { element: page.getByRole("region", { name: "Stage: New" }) });
+
   await page.goto(`/leads/${amit}`);
   await page.getByRole("button", { name: "Done: Send the Manali options" }).click();
   const timeline = page.getByRole("list", { name: "Timeline" });
@@ -45,6 +49,21 @@ test("each stage's colour in the list, Filters, the stage bar and the timeline",
   await page.keyboard.press("Shift+Tab");
   await page.keyboard.press("Tab");
   await shoot(page, "lead-stage-focus", { element: bar });
+  // The narrowest phone the product serves, and the narrowest computer with two columns.
+  const viewport = page.viewportSize();
+  if (test.info().project.name === "phone") {
+    await page.setViewportSize({ width: 360, height: 780 });
+    await shoot(page, "lead-stage-360", { element: bar });
+  } else {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await shoot(page, "lead-stage-1280");
+  }
+  if (viewport) await page.setViewportSize(viewport);
+  if (test.info().project.name === "desktop") {
+    // The pointer over Won, a mouse's: its tint wraps the step, under the bar.
+    await bar.getByRole("button", { name: "Move to Booking requested" }).blur();
+    await shoot(page, "lead-stage-hover", { element: bar, hover: bar.getByRole("button", { name: "Move to Won" }) });
+  }
 
   await page.goto(`/leads/${priya}`);
   await expect(page.getByRole("region", { name: "Stage: Won" })).toBeVisible();
