@@ -1,5 +1,6 @@
 // The headers every response carries (spec 12.4: strict security headers). Kept apart from next.config.ts so a test
 // can read them.
+import { API_PATHS } from "./src/lib/routes";
 
 /** What the policy depends on: development's needs, and the storage the browser uploads to (spec 9.2), if any. */
 export interface PolicySettings {
@@ -63,12 +64,19 @@ export function securityHeaders(settings: PolicySettings): { key: string; value:
 export const TOKEN_PAGES = ["/reset-password", "/sign-in/two-factor", "/two-factor-setup", "/offline"] as const;
 
 /**
+ * Every path but the ones the app hands on to the api (API_PATHS) and everything under them. Where the app itself
+ * rewrites those (Vercel, docs/serverless.md), its headers would otherwise replace the api's on the way out: a share
+ * link's page would lose its no-referrer and its stricter policy. Behind a load balancer they never reach the app.
+ */
+const PAGES = `/:path((?!(?:${API_PATHS.map((prefix) => prefix.slice(1)).join("|")})(?:/|$)).*)`;
+
+/**
  * The header rules for next.config.ts. Next.js applies every matching rule in order and a later value wins
  * (next/dist/server/lib/router-utils/resolve-routes.js), so the pages' own Referrer-Policy comes after the catch-all.
  */
 export function securityHeaderRules(settings: PolicySettings) {
   return [
-    { source: "/:path*", headers: securityHeaders(settings) },
+    { source: PAGES, headers: securityHeaders(settings) },
     ...TOKEN_PAGES.map((source) => ({ source, headers: [{ key: "Referrer-Policy", value: "strict-origin" }] })),
   ];
 }
