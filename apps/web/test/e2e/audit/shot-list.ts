@@ -134,6 +134,12 @@ export const SHOTS = [
   { name: "settings-destination-merge", screen: "Settings, destinations, the Merge dialog, one chosen", as: owner },
   { name: "settings-blocked-contacts", screen: "Settings, blocked contacts", as: owner },
   { name: "settings-unblock", screen: "Settings, blocked contacts, the Unblock confirmation", as: owner },
+  // Owner feedback round 1, colours: every stage's colour (08-stages.audit.ts).
+  { name: "stages-leads", screen: "Leads, Everyone: each open stage's badge, the chips' dots", as: owner },
+  { name: "stages-filter-list", screen: "Leads, Filters' stage list open: every stage's dot", as: owner },
+  { name: "lead-stage-midway", screen: "A lead at Quote sent: passed steps ticked, the timeline's dots", as: owner },
+  { name: "lead-stage-focus", screen: "A lead's stage bar, a step focused from the keyboard (the element)", as: owner },
+  { name: "lead-won", screen: "A won lead: its stage bar's last step green", as: owner },
 ] as const satisfies readonly Shot[];
 
 export type ShotName = (typeof SHOTS)[number]["name"];
