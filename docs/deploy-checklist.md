@@ -206,7 +206,9 @@ Secrets come from the platform's secret manager as environment variables, never 
 ## Hosting: a serverless container platform in Mumbai (spec 12.3)
 
 The owner chooses Google Cloud Run (`asia-south1`) or AWS ECS on Fargate (`ap-south-1`) before the first staging
-deploy (Q6, Q11). Everything above holds on both; this is what differs.
+deploy (Q6, Q11). Everything above holds on both; this is what differs. Until then, the pilot runs on one Oracle Cloud
+server in Mumbai, with the same images under Docker Compose (`docker-compose.server.yml`), as
+[runbook.md](runbook.md) describes.
 
 |                     | Cloud Run (`asia-south1`)                                                                           | ECS on Fargate (`ap-south-1`)                                               |
 | ------------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
