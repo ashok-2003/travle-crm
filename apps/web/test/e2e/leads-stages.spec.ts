@@ -1,8 +1,9 @@
 // A lead's stages and its work (spec 3.4, 4, R29-R31, P2): tapped forward and back on the stage bar; a follow-up added
 // on the lead (two, listed earliest first) and one marked done; the trip edited and a note added; marked Lost after
 // asking (focus back on the ⋯ button when the dialog is cancelled), which cancels its open follow-ups; reopened from
-// where the bar sat to the stage it had. The timeline reads every kind as its sentence; on a phone the five steps are
-// 44px, each over its segment and word, and "Booking requested" wraps.
+// where the bar sat to the stage it had. The timeline reads every kind as its sentence. The five steps are 44px, each
+// over its fifth of the one bar and its word, a tap on the bar itself moves the lead, and on a phone "Booking
+// requested" wraps.
 import { expectAccessible } from "./support/accessibility";
 import { expect, signInByEmail, test } from "./support/fixtures";
 import { addFollowUpThroughApi, addLeadThroughApi, dayInIndia, leadInput } from "./support/leads";
@@ -20,20 +21,30 @@ test("a lead moves forward and back, is marked Lost after asking, and reopens to
 
   const bar = () => page.getByRole("region", { name: /^Stage: / });
   await expect(bar()).toHaveAccessibleName("Stage: New");
+  await expect(bar().getByRole("listitem")).toHaveCount(5);
+  // The current stage, marked as the step, and the four others, each a button saying where it moves the lead; each one
+  // 44px target over its fifth of the one bar and its word. The fill reaches the end of New's fifth.
+  const others = ["Contacted", "Quote sent", "Booking requested", "Won"];
+  const steps = [
+    bar().locator("[aria-current=step]"),
+    ...others.map((stage) => bar().getByRole("button", { name: `Move to ${stage}` })),
+  ];
+  await expect(bar().locator("[data-track]")).toHaveCount(1);
+  const track = await bar().locator("[data-track]").boundingBox();
+  if (track === null) throw new Error("The bar isn't drawn");
+  for (const [index, step] of steps.entries()) {
+    const box = await step.boundingBox();
+    if (box === null) throw new Error(`Step ${String(index)} isn't drawn`);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.y).toBeLessThanOrEqual(track.y);
+    expect(box.y + box.height).toBeGreaterThanOrEqual(track.y + track.height);
+    const middleOfFifth = track.x + (track.width * (index + 0.5)) / 5;
+    expect(box.x).toBeLessThan(middleOfFifth);
+    expect(box.x + box.width).toBeGreaterThan(middleOfFifth);
+  }
+  const fill = await bar().locator("[data-fill]").boundingBox();
+  expect(Math.abs((fill?.x ?? 0) + (fill?.width ?? 0) - (track.x + track.width / 5))).toBeLessThanOrEqual(1);
   if (testInfo.project.name === "phone") {
-    await expect(bar().getByRole("listitem")).toHaveCount(5);
-    // The current stage, marked as the step, and the four others, each a button saying where it moves the lead; each
-    // one 44px target over its segment and its word.
-    const others = ["Contacted", "Quote sent", "Booking requested", "Won"];
-    const steps = [
-      bar().locator("[aria-current=step]"),
-      ...others.map((stage) => bar().getByRole("button", { name: `Move to ${stage}` })),
-    ];
-    for (const step of steps) {
-      const box = await step.boundingBox();
-      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
-      await expect(step.locator("[data-segment]")).toHaveCount(1);
-    }
     // The words wrap onto two lines in their fifth of the row, rather than running past it.
     const booking = bar().getByRole("button", { name: "Move to Booking requested" });
     const lines = await booking.getByText("Booking requested").evaluate((words) => {
@@ -51,7 +62,10 @@ test("a lead moves forward and back, is marked Lost after asking, and reopens to
   await page.getByRole("button", { name: "Done: Ask for passports" }).click();
   await expect(work.getByRole("heading")).toHaveText(["Send the Goa options"]);
 
-  await bar().getByRole("button", { name: "Move to Contacted" }).click();
+  // A tap on the bar itself, over Contacted's fifth (the bar lies 8 to 14px down each step), moves the lead there.
+  await bar()
+    .getByRole("button", { name: "Move to Contacted" })
+    .click({ position: { x: 12, y: 11 } });
   await expect(bar()).toHaveAccessibleName("Stage: Contacted");
   await bar().getByRole("button", { name: "Move to Quote sent" }).click();
   await expect(bar()).toHaveAccessibleName("Stage: Quote sent");

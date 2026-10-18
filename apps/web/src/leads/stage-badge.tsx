@@ -8,28 +8,18 @@ import type { LeadStage } from "@travel-crm/contracts/crm";
 import { useTranslations } from "next-intl";
 import { StatusBadge, StatusDot, statusToneClasses, type ToneClasses } from "@/components/status-badge";
 
-/** A stage's badge and dot, and its stage bar segment once the lead has passed it: the dot's colour, lighter. */
-export interface StageTone extends ToneClasses {
-  passed: string;
-}
-
-/** Each stage's colours. Written out in full so Tailwind finds every class. */
-export const stageTones: Record<LeadStage, StageTone> = {
-  new: { badge: "bg-stage-new-fill text-stage-new-ink", dot: "bg-stage-new-dot", passed: "bg-stage-new-dot/40" },
-  contacted: {
-    badge: "bg-stage-contacted-fill text-stage-contacted-ink",
-    dot: "bg-stage-contacted-dot",
-    passed: "bg-stage-contacted-dot/40",
-  },
-  quote_sent: { ...statusToneClasses.attention, passed: "bg-status-attention-dot/40" },
+/** Each stage's colours: its badge, and its dot (also the stage bar's fill). Written out in full so Tailwind finds them. */
+export const stageTones: Record<LeadStage, ToneClasses> = {
+  new: { badge: "bg-stage-new-fill text-stage-new-ink", dot: "bg-stage-new-dot" },
+  contacted: { badge: "bg-stage-contacted-fill text-stage-contacted-ink", dot: "bg-stage-contacted-dot" },
+  quote_sent: statusToneClasses.attention,
   booking_requested: {
     badge: "bg-stage-booking-requested-fill text-stage-booking-requested-ink",
     dot: "bg-stage-booking-requested-dot",
-    passed: "bg-stage-booking-requested-dot/40",
   },
-  won: { ...statusToneClasses.good, passed: "bg-status-good-dot/40" },
-  lost: { ...statusToneClasses.bad, passed: "bg-status-bad-dot/40" },
-  not_a_lead: { ...statusToneClasses.neutral, passed: "bg-status-neutral-dot/40" },
+  won: statusToneClasses.good,
+  lost: statusToneClasses.bad,
+  not_a_lead: statusToneClasses.neutral,
 };
 
 export function StageBadge({ stage }: { stage: LeadStage }) {
