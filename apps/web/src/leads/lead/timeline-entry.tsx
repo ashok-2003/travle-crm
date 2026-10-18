@@ -38,8 +38,8 @@ export function TimelineEntryItem({ entry, people }: { entry: TimelineEntry; peo
         </p>
       ));
 
-  // A dot that sits inline before a title's first word.
-  const inline = "me-1.5 inline-block align-middle";
+  // A dot that hangs in the margin before a title's first word, so every title starts at the same place.
+  const inline = "-ms-3 me-1.5 inline-block align-middle";
 
   const describe = (): { title: string; detail?: ReactNode; mark?: ReactNode } => {
     switch (entry.kind) {

@@ -35,7 +35,7 @@ export function RolesScreen() {
                   <Link href={`${routes.roles}/${role.key}`}>
                     <ItemContent>
                       <ItemTitle>
-                        <RoleBadge role={role} isOwner={role.isOwner} />
+                        <RoleBadge role={role} isOwner={role.isOwner} className="text-sm" />
                       </ItemTitle>
                       <ItemDescription>
                         {role.isOwner ? t("everyPermission") : t("permissionCount", { count: role.permissions.length })}

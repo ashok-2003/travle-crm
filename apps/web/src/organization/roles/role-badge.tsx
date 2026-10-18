@@ -25,12 +25,22 @@ export function roleTint(role: { key: string; isOwner: boolean }): string {
   return roleTints[(hash >>> 0) % roleTints.length] ?? roleTints[0];
 }
 
-export function RoleBadge({ role, isOwner }: { role: { key: string; name: string }; isOwner: boolean }) {
+export function RoleBadge({
+  role,
+  isOwner,
+  className,
+}: {
+  role: { key: string; name: string };
+  isOwner: boolean;
+  /** Its size where it is a title (Roles' list), never its colours. */
+  className?: string;
+}) {
   return (
     <span
       className={cn(
         "inline-flex min-h-6 items-center rounded-badge px-2 text-caption font-medium wrap-anywhere script-leading",
         roleTint({ key: role.key, isOwner }),
+        className,
       )}
     >
       {role.name}

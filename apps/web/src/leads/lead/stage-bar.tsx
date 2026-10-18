@@ -3,7 +3,8 @@
 // A lead's stage (spec 3.4, R30, R31, P2; DESIGN.md "Stage bar"): the stepper New → Contacted → Quote sent → Booking
 // requested → Won, five 44px steps, each one target over its segment and its word, so hover and focus sit on the whole
 // stage. The current stage's segment is filled in its stage colour (Won's in status green: done) and marked as the
-// step; earlier stages show a lighter tint of theirs and a check; later ones are grey. Words are ink, not link blue.
+// step; earlier stages show a lighter tint of theirs and, wider than a phone, a check; later ones are grey. Words are
+// ink, not link blue.
 // Choosing another step moves the lead there, forwards or back (Won is on the bar, so a won lead moves freely). A Lost
 // or Not a lead lead shows its badge and Reopen in place of the bar, which returns it to the open stage it had before.
 // The section is named with the current stage and each step says where it moves the lead, for screen readers. After a
@@ -29,9 +30,12 @@ const onBar = (stage: LeadStage) => (stageBarStages as readonly string[]).includ
 /** Where a step stands against the lead's stage. */
 type Place = "passed" | "current" | "later";
 
-/** Every step's shape, a button or not: one 44px target, its segment above its word. */
+/**
+ * Every step's shape, a button or not: one 44px target, its segment above its word. On a phone a fifth of the row is
+ * narrow, so the steps sit closer and "Contacted" or "requested" still fits its line.
+ */
 const stepShape =
-  "flex h-auto min-h-11 w-full min-w-0 flex-col items-stretch justify-start gap-1.5 rounded-lg px-1 pt-2 pb-1.5 text-left text-caption font-normal whitespace-normal";
+  "flex h-auto min-h-11 w-full min-w-0 flex-col items-stretch justify-start gap-1.5 rounded-lg px-0.5 pt-2 pb-1.5 text-left text-caption font-normal whitespace-normal sm:px-1";
 
 /** A step's segment, in its stage's colour up to the current one, and its word, with a check once passed. */
 function StepMark({ stage, place }: { stage: LeadStage; place: Place }) {
@@ -42,13 +46,15 @@ function StepMark({ stage, place }: { stage: LeadStage; place: Place }) {
       <span data-segment={place} aria-hidden="true" className={cn("h-1.5 rounded-full", segment)} />
       <span
         className={cn(
-          "flex items-start gap-1",
+          // A word too long for its fifth breaks rather than running into the next step.
+          "flex items-start gap-1 wrap-break-word",
           place === "current" && "font-semibold",
           // Muted until hovered, when the step's own blue (One Action Colour) shows through.
           place === "later" && "text-muted-foreground group-hover/button:text-current",
         )}
       >
-        {place === "passed" && <CheckIcon aria-hidden="true" className="mt-0.5 size-3 shrink-0" />}
+        {/* On a phone the lighter tint alone says passed: a check beside the word would push it past its fifth. */}
+        {place === "passed" && <CheckIcon aria-hidden="true" className="mt-0.5 hidden size-3 shrink-0 sm:block" />}
         {t(stage)}
       </span>
     </>
@@ -123,7 +129,7 @@ export function StageBar({ lead }: { lead: LeadDetail }) {
   return (
     <section aria-label={named} className="flex flex-col gap-2">
       {/* The steps' own padding spaces the segments; the list reaches out by as much, so they line up with the page. */}
-      <ol className="-mx-1 grid grid-cols-5">
+      <ol className="-mx-0.5 grid grid-cols-5 sm:-mx-1">
         {stageBarStages.map((stage, index) => {
           const place: Place = index < current ? "passed" : index === current ? "current" : "later";
           return (
