@@ -11,6 +11,12 @@ export interface StatusColour {
   readonly ink: string;
 }
 
+/** A staff role's badge (DESIGN.md "Role badges"): a tinted background and the dark text on it, with no dot. */
+export interface RoleColour {
+  readonly fill: string;
+  readonly ink: string;
+}
+
 export const brand = {
   /** The working name (spec open item Q8). Code reads it from here; a check refuses it anywhere else. */
   productName: "Travel Agency OS",
@@ -69,6 +75,30 @@ export const brand = {
       bad: { dot: "#d92d20", fill: "#fdecea", ink: "#9b1c1c" },
       neutral: { dot: "#6b6b6b", fill: "#ecebe6", ink: "#4a4a4a" },
     } satisfies Record<string, StatusColour>,
+    /**
+     * The open lead stages' own colours (DESIGN.md "Stage colours"), calm hues in the order a lead moves: sky, teal,
+     * then indigo, never the action blue or money's forest. Quote sent is status amber (awaiting a reply), Won status
+     * green, Lost status red and Not a lead status neutral, so those have no colour of their own here.
+     */
+    stage: {
+      new: { dot: "#058ac5", fill: "#e2f3ff", ink: "#03567d" },
+      contacted: { dot: "#029393", fill: "#dcf6f6", ink: "#055959" },
+      bookingRequested: { dot: "#7173d7", fill: "#edeffe", ink: "#45468a" },
+    } satisfies Record<string, StatusColour>,
+    /**
+     * Staff role badges (DESIGN.md "Role badges"): the Owner role's fixed plum, and seven tints a role is given by its
+     * key, so the same role always shows in the same colour. Not status colours, nor the stages' tints.
+     */
+    role: {
+      owner: { fill: "#f9eafc", ink: "#6a3975" },
+      pink: { fill: "#ffe9f3", ink: "#7a3258" },
+      iris: { fill: "#efeefe", ink: "#504387" },
+      olive: { fill: "#f3f1dc", ink: "#595101" },
+      cyan: { fill: "#dcf5fc", ink: "#025767" },
+      clay: { fill: "#feece5", ink: "#803717" },
+      lime: { fill: "#ebf4e0", ink: "#3b5700" },
+      teal: { fill: "#ddf7f0", ink: "#045a4d" },
+    } satisfies Record<string, RoleColour>,
   },
 
   /** Font families. Every number (rupees, counts, dates in tables) uses the monospace one, so columns line up. */

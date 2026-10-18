@@ -23,6 +23,22 @@ describe("brand", () => {
     for (const [path, colour] of colours) expect(colour, path).toMatch(/^#[0-9a-f]{6}$/);
   });
 
+  it("keeps stages off the action and money colours, and roles off the status and stage colours", () => {
+    const { colours } = brand;
+    const values = (palette: Record<string, object>) =>
+      new Set(Object.values(palette).flatMap((colour) => leaves(colour).map(([, value]) => value)));
+    const reserved = new Set([
+      colours.action,
+      colours.actionPressed,
+      colours.actionTint,
+      colours.money,
+      colours.moneyTint,
+    ]);
+    for (const value of values(colours.stage)) expect(reserved.has(value), value).toBe(false);
+    const statusAndStage = new Set([...values(colours.status), ...values(colours.stage)]);
+    for (const value of values(colours.role)) expect(statusAndStage.has(value), value).toBe(false);
+  });
+
   it("has contacts that parse, and no phone until the owner gives a real one", () => {
     expect(new URL(brand.website).protocol).toBe("https:");
     expect(brand.supportEmail).toMatch(/^[^@\s]+@[^@\s]+\.[a-z]+$/);

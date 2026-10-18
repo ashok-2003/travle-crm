@@ -43,21 +43,34 @@ describe("contrast", () => {
         status.ink,
         status.fill,
       ]),
+      ...Object.entries(colours.stage).map(([name, stage]): [string, string, string] => [
+        `${name} stage`,
+        stage.ink,
+        stage.fill,
+      ]),
+      ...Object.entries(colours.role).map(([name, role]): [string, string, string] => [
+        `${name} role`,
+        role.ink,
+        role.fill,
+      ]),
     ];
     for (const [name, foreground, background] of textPairs) {
       expect(contrast(foreground, background), name).toBeGreaterThanOrEqual(4.5);
     }
   });
 
-  it("gives input borders and status dots 3:1 on canvas, as control edges and graphics need", () => {
+  // A stage is a lead's status: its dot (and the stage bar's segment) is drawn like a status dot.
+  const dotted = { ...colours.status, ...colours.stage };
+
+  it("gives input borders and status and stage dots 3:1 on canvas, as control edges and graphics need", () => {
     expect(contrast(colours.inputBorder, colours.canvas)).toBeGreaterThanOrEqual(3);
-    for (const [name, status] of Object.entries(colours.status)) {
+    for (const [name, status] of Object.entries(dotted)) {
       expect(contrast(status.dot, colours.canvas), name).toBeGreaterThanOrEqual(3);
     }
   });
 
-  it("gives status dots 3:1 on their own badge fill, where StatusBadge draws them", () => {
-    for (const [name, status] of Object.entries(colours.status)) {
+  it("gives status and stage dots 3:1 on their own badge fill, where StatusBadge draws them", () => {
+    for (const [name, status] of Object.entries(dotted)) {
       expect(contrast(status.dot, status.fill), name).toBeGreaterThanOrEqual(3);
     }
   });
