@@ -202,7 +202,7 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - `packages/integrations`: adapters to the outside world, each a port plus a real and an in-memory adapter.
 - `packages/brand`: the product's name, colours, fonts and contacts (spec 10).
 - `packages/db`: Prisma schema, migrations, RLS, `forOrg`, soft delete, document numbers. The migrations need
-  Postgres 18 and its trusted extensions `pg_trgm` and `btree_gist` (`docs/deploy-checklist.md`).
+  Postgres 17 or 18 (CI runs 18) and its trusted extensions `pg_trgm` and `btree_gist` (`docs/deploy-checklist.md`).
 - `packages/tsconfig`, `packages/eslint-config`: shared settings (the ESLint config holds the raw-SQL guard).
 
 ## The web app (`apps/web`, ADR 0018)

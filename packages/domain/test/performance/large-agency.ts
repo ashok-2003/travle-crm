@@ -7,6 +7,15 @@
 import { randomUUID } from "node:crypto";
 import type { PlatformClient } from "@travel-crm/db/platform";
 import { analyzeTables, type DbUrls } from "@travel-crm/db/testing";
+import { newUuidV7 } from "../../src/kernel/index.js";
+
+/**
+ * Ids for rows made in one statement, ascending, so ORDER BY id keeps the order the rows were made in, as Postgres 18's
+ * uuidv7() does within a statement, and the seed runs on Postgres 17 too.
+ */
+function orderedIds(count: number): string[] {
+  return Array.from({ length: count }, () => newUuidV7()).sort();
+}
 
 export interface LargeAgencySize {
   leads: number;
@@ -70,12 +79,12 @@ export async function seedLargeAgency(
   const ownerUserIds = Array.from({ length: size.staff }, () => randomUUID());
   await platform.$executeRaw`
     INSERT INTO destination (organization_id, id, name, updated_at)
-    SELECT ${organizationId}::uuid, uuidv7(), 'Destination ' || n, now()
+    SELECT ${organizationId}::uuid, (${orderedIds(size.destinations)}::uuid[])[n], 'Destination ' || n, now()
     FROM generate_series(1, ${size.destinations}) AS n`;
   // One person a lead, made in the order of their leads, so each lead's person is the person of its number.
   await platform.$executeRaw`
     INSERT INTO person (organization_id, id, name, phone_e164, created_at, updated_at)
-    SELECT ${organizationId}::uuid, uuidv7(),
+    SELECT ${organizationId}::uuid, (${orderedIds(size.leads)}::uuid[])[n],
       (${FIRST_NAMES}::text[])[1 + n % 20] || ' ' || (${LAST_NAMES}::text[])[1 + (n / 20) % 20],
       '+9198' || lpad(n::text, 8, '0'), now(), now()
     FROM generate_series(1, ${size.leads}) AS n`;
@@ -88,7 +97,7 @@ export async function seedLargeAgency(
     )
     INSERT INTO lead (organization_id, id, person_id, stage, owner_user_id, destination_id, source, created_at,
       updated_at)
-    SELECT ${organizationId}::uuid, uuidv7(), people.id,
+    SELECT ${organizationId}::uuid, (${orderedIds(size.leads)}::uuid[])[people.n], people.id,
       (ARRAY['new', 'contacted', 'quote_sent', 'booking_requested', 'contacted', 'won', 'lost', 'not_a_lead', 'won',
         'lost'])[1 + people.n % 10],
       (${ownerUserIds}::uuid[])[1 + ((people.n - 1) * ${size.staff}) / ${size.leads}],
@@ -107,8 +116,8 @@ export async function seedLargeAgency(
     )
     INSERT INTO task (organization_id, id, kind, title, due_at, first_due_at, assignee_user_id, record_type, record_id,
       done_at, done_by, cancelled_at, updated_at)
-    SELECT ${organizationId}::uuid, uuidv7(), 'follow-up', 'Call back ' || t, due_at, due_at, owner_user_id, 'lead',
-      lead_id,
+    SELECT ${organizationId}::uuid, (${orderedIds(size.tasks)}::uuid[])[t], 'follow-up', 'Call back ' || t, due_at,
+      due_at, owner_user_id, 'lead', lead_id,
       CASE WHEN t % 20 < 12 THEN due_at END,
       CASE WHEN t % 20 < 12 THEN owner_user_id END,
       CASE WHEN t % 20 = 12 THEN due_at END,

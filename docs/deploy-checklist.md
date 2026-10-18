@@ -8,8 +8,9 @@ logs, and what is still open.
 
 ## The database (ADRs 0002, 0019)
 
-- **Postgres 18.** Release 1's catalog adds a destination with Postgres 18's `uuidv7()` (in an `INSERT … ON
-CONFLICT` Prisma can't write), and CI applies every migration to Postgres 18. The platform role's membership of the
+- **Postgres 17 or 18.** CI applies every migration to Postgres 18, and the suites also pass on 17
+  (`TEST_POSTGRES_IMAGE=postgres:17-alpine pnpm --filter @travel-crm/db test`, and the same for the domain): ids raw SQL
+  inserts are made in code (`newUuidV7`), not with Postgres 18's `uuidv7()`. The platform role's membership of the
   runtime role is granted `WITH INHERIT FALSE, SET TRUE`, which Postgres 16 introduced.
 - **The trusted extensions `pg_trgm` and `btree_gist`** (release 1, R6; ADR 0028). The `leads_by_hand` migration
   creates them as `app_migrator` (`CREATE EXTENSION IF NOT EXISTS`). Postgres allows that to a role with `CREATE`
