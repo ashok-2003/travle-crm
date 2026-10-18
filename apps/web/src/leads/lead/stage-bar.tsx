@@ -34,10 +34,11 @@ type Place = "passed" | "current" | "later";
 
 /**
  * Every step's shape, a button or not: one 44px target, its segment above its word. On a phone a fifth of the row is
- * narrow, so the steps sit closer and "Contacted" or "requested" still fits its line.
+ * narrow, so the steps sit closer and "Contacted" or "requested" still fits its line; on a wide screen the bar spans
+ * the page, and its words grow from the caption's 12px to the label's 13px.
  */
 const stepShape =
-  "flex h-auto min-h-11 w-full min-w-0 flex-col items-stretch justify-start gap-1.5 rounded-lg px-0.5 pt-2 pb-1.5 text-left text-caption font-normal whitespace-normal sm:px-1";
+  "flex h-auto min-h-11 w-full min-w-0 flex-col items-stretch justify-start gap-1.5 rounded-lg px-0.5 pt-2 pb-1.5 text-left text-caption font-normal whitespace-normal sm:px-1 lg:text-label";
 
 /** A step's segment, in its stage's colour up to the current one, and its word, with a check once passed. */
 function StepMark({ stage, place }: { stage: LeadStage; place: Place }) {

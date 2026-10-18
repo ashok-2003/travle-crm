@@ -117,10 +117,10 @@ describe("StageBar", () => {
     expect(segmentOf("booking_requested")).toHaveClass("bg-stage-booking-requested-dot/40");
   });
 
-  it("writes its steps in ink at the caption's size, not the link blue, taking the blue tint on hover", () => {
+  it("writes its steps in ink at the caption's size (the label's on a wide screen), not the link blue, blue on hover", () => {
     renderBar({ stage: "contacted" });
     const step = screen.getByRole("button", moveTo("new"));
-    expect(step).toHaveClass("text-caption", "text-foreground", "hover:bg-accent");
+    expect(step).toHaveClass("text-caption", "lg:text-label", "text-foreground", "hover:bg-accent");
     expect(step).not.toHaveClass("text-primary");
   });
 
