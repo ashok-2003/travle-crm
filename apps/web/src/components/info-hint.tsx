@@ -16,6 +16,9 @@ import { useMediaQuery } from "@/lib/use-media-query";
 /** A mouse or a trackpad, which can hover. */
 const hovers = "(hover: hover) and (pointer: fine)";
 
+/** The page's phone gutter: the words never sit flush against the screen's edge. */
+const EDGE_GAP = 16;
+
 export function InfoHint({ term, children }: { term: string; children: ReactNode }) {
   const t = useTranslations("common");
   const canHover = useMediaQuery(hovers);
@@ -47,7 +50,9 @@ export function InfoHint({ term, children }: { term: string; children: ReactNode
           >
             {button}
           </TooltipTrigger>
-          <TooltipContent className="text-pretty">{children}</TooltipContent>
+          <TooltipContent collisionPadding={EDGE_GAP} className="text-pretty">
+            {children}
+          </TooltipContent>
         </Tooltip>
       </TooltipProvider>
     );
@@ -55,7 +60,7 @@ export function InfoHint({ term, children }: { term: string; children: ReactNode
   return (
     <Popover>
       <PopoverTrigger asChild>{button}</PopoverTrigger>
-      <PopoverContent aria-label={term} aria-describedby={wordsId}>
+      <PopoverContent collisionPadding={EDGE_GAP} aria-label={term} aria-describedby={wordsId}>
         <p id={wordsId} className="text-pretty">
           {children}
         </p>
