@@ -1,0 +1,10 @@
+# The nightly database backup (scripts/server/backup.sh), started by travel-crm-backup.timer. Installed by
+# scripts/server/setup.sh. Its log: journalctl -u travel-crm-backup
+[Unit]
+Description=travel-crm nightly database backup
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/srv/travel-crm/app/scripts/server/backup.sh
