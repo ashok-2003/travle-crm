@@ -47,7 +47,7 @@ test("a repeat enquiry goes on the open lead's timeline, or makes a new trip enq
   await expect(page.getByRole("main").getByText("Returning").first()).toBeVisible();
   const returning = page.getByRole("button", { name: "What does Returning mean?" });
   const meaning =
-    "This person has enquired with your agency before, so they are a repeat customer. This lead is their new enquiry.";
+    "This person has enquired with your agency before, so this is a repeat enquiry. Their earlier leads stay as they are.";
   if (testInfo.project.name === "phone") {
     await returning.tap();
     await expect(page.getByRole("dialog", { name: "Returning" })).toHaveAccessibleDescription(meaning);

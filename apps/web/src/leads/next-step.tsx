@@ -1,7 +1,7 @@
 "use client";
 
 // What's next about a lead (R43), in one line whose colour carries the urgency: an overdue task in red, then a new lead
-// still waiting for a reply in amber, each a status with its dot before the words (DESIGN.md: Dot Plus Word); then the
+// not contacted yet in amber, each a status with its dot before the words (DESIGN.md: Dot Plus Word); then the
 // next task in violet when it is due today, and quiet grey when it is later or there is none. Days and times are the
 // agency's (its zone), however the device is set.
 import type { LeadNextStep } from "@travel-crm/contracts/crm";

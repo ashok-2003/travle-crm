@@ -303,7 +303,7 @@ describe("LeadsScreen", () => {
       "Rahul Sharma+91 98765 43210",
       "Kashmir · Dec · 2 adults, 1 childPhone call",
       "New",
-      "12 min ago · no reply yet",
+      "12 min ago · not contacted yet",
       "Asha Sharma",
       "₹60,000per person",
       "16 Oct",

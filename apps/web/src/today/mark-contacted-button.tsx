@@ -1,8 +1,8 @@
 "use client";
 
 // Mark contacted on a new lead in Today (spec 3.5): moves the lead to Contacted as the lead's own stage bar does
-// (useMoveStage), so Today, the Leads list and its chips' counts load again and the lead leaves New leads waiting for a
-// reply. It goes once; a refusal (a second tab moved it first) shows its own sentence. A change the subscription may
+// (useMoveStage), so Today, the Leads list and its chips' counts load again and the lead leaves New leads not contacted
+// yet. It goes once; a refusal (a second tab moved it first) shows its own sentence. A change the subscription may
 // refuse (useWriteAccess).
 import type { LeadBrief } from "@travel-crm/contracts/today";
 import { CheckIcon } from "lucide-react";
