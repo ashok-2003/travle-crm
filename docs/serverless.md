@@ -112,14 +112,16 @@ settings on GitHub. Keep every value the steps make in your password manager, an
 2. **New → Web Service**, from the GitHub repository, for the api:
    - name `travel-crm-api`, region **Singapore**, branch `main`, instance type **Free**;
    - language **Docker**, Dockerfile path `apps/api/Dockerfile`, build context `.` (the repository's root);
-   - **Docker Command** `api-and-worker`, **Health Check Path** `/health`;
+   - **Docker Command** `/app/apps/api/docker-entrypoint.sh api-and-worker` (Render's Docker Command replaces the
+     image's entrypoint, not just its arguments: plain `api-and-worker` exits 128 without a word), **Health Check
+     Path** `/health`;
    - link the environment group, and add `DATABASE_MIGRATOR_URL` (from setup-values) to this service alone: with it,
      every start applies pending migrations first, so a deploy is just a push.
 3. **New → Web Service** again, for the console: the same, but name `travel-crm-console`, **Docker Command**
-   `console`, and its own variables beside the group: `DATABASE_PLATFORM_URL` (from setup-values) and
+   `/app/apps/api/docker-entrypoint.sh console`, and its own variables beside the group: `DATABASE_PLATFORM_URL` (from setup-values) and
    `CONSOLE_PORT` = `10000` (the port Render sends traffic to).
-4. Wait for both to be **Live**. Their addresses are `https://travel-crm-api.onrender.com` and
-   `https://travel-crm-console.onrender.com` (Render adds a suffix if a name is taken: use what it shows).
+4. Wait for both to be **Live**, and use the addresses Render shows: a name someone else holds gets a suffix
+   (`travel-crm-api.onrender.com` was taken on 2026-10-19). Vercel's `API_ORIGIN` and `CONSOLE_ORIGIN` are those.
 
 ### 5. Vercel: the web app
 
