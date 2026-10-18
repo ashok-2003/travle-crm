@@ -1,8 +1,10 @@
-// The staff list shows each person by name, how they sign in, their role and when they joined (in the
-// organization's zone), flags a temporary password still to change, and offers no actions on the viewer's own row.
+// The staff list shows each person by name, how they sign in, their role as a badge in the role's own colour
+// (DESIGN.md "Role Badges") and when they joined (in the organization's zone), flags a temporary password still to
+// change, and offers no actions on the viewer's own row.
 import type { RoleSummary, StaffMember } from "@travel-crm/contracts/identity";
 import { screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { roleTint } from "@/organization/roles/role-badge";
 import { StaffList } from "@/organization/staff/staff-list";
 import { member } from "../support/members";
 import { renderAs, screenIs } from "./render";
@@ -35,6 +37,8 @@ const staff: StaffMember[] = [
   },
 ];
 
+const tintOf = (key: string, isOwner = false) => roleTint({ key, isOwner }).split(" ");
+
 const roles: RoleSummary[] = [
   { key: "org-owner", name: "Owner", isOwner: true, permissions: [], memberCount: 1 },
   { key: "sales", name: "Sales", isOwner: false, permissions: [], memberCount: 1 },
@@ -56,6 +60,22 @@ describe("StaffList", () => {
     expect(within(ravi).getByRole("button", { name: "Actions for रवि कुमार" })).toBeVisible();
   });
 
+  it("shows each role as a badge in its colour, the Owner's plum", () => {
+    screenIs("wide");
+    renderAs(<StaffList staff={staff} roles={roles} />, owner);
+    const asha = screen.getByRole("row", { name: /Asha/ });
+    expect(within(asha).getByText("Owner")).toHaveClass(...tintOf("org-owner", true));
+    const ravi = screen.getByRole("row", { name: /रवि कुमार/ });
+    expect(within(ravi).getByText("Sales")).toHaveClass(...tintOf("sales"));
+  });
+
+  it("keeps the Owner's plum where the subscription refuses the roles list, from the viewer's own role", () => {
+    screenIs("wide");
+    renderAs(<StaffList staff={staff} roles={[]} />, owner);
+    expect(screen.getByText("Owner")).toHaveClass(...tintOf("org-owner", true));
+    expect(screen.getByText("Sales")).toHaveClass(...tintOf("sales"));
+  });
+
   it("offers no actions on the viewer's own row", () => {
     screenIs("wide");
     renderAs(<StaffList staff={staff} roles={roles} />, owner);
@@ -69,7 +89,8 @@ describe("StaffList", () => {
     renderAs(<StaffList staff={staff} roles={roles} />, owner);
     expect(screen.queryByRole("table")).toBeNull();
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
-    expect(screen.getByText(/Sales · ravi · Joined 16 Oct/)).toBeVisible();
+    expect(screen.getByText("Sales")).toHaveClass(...tintOf("sales"));
+    expect(screen.getByText(/^ravi · Joined 16 Oct/)).toBeVisible();
   });
 
   it("gives names room for Indian scripts, in the table and on phones", () => {
@@ -83,7 +104,7 @@ describe("StaffList", () => {
     screenIs("phone");
     renderAs(<StaffList staff={staff} roles={roles} />, owner);
     expect(screen.getByText("रवि कुमार")).toHaveClass("script-leading");
-    expect(screen.getByText(/Sales · ravi · Joined 16 Oct/)).toHaveClass("script-leading");
+    expect(screen.getByText("Sales")).toHaveClass("script-leading");
   });
 
   it("never shows a placeholder address", () => {
@@ -102,6 +123,6 @@ describe("StaffList", () => {
     );
     const { container } = renderAs(<StaffList staff={leaked} roles={roles} />, owner);
     expect(container.textContent).not.toMatch(/\.invalid/i);
-    expect(screen.getByText(/Sales · ravi · Joined/)).toBeVisible();
+    expect(screen.getByText(/^ravi · Joined/)).toBeVisible();
   });
 });
