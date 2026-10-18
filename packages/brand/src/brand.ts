@@ -76,28 +76,29 @@ export const brand = {
       neutral: { dot: "#6b6b6b", fill: "#ecebe6", ink: "#4a4a4a" },
     } satisfies Record<string, StatusColour>,
     /**
-     * The open lead stages' own colours (DESIGN.md "Stage colours"), calm hues in the order a lead moves: sky, teal,
-     * then indigo, never the action blue or money's forest. Quote sent is status amber (awaiting a reply), Won status
-     * green, Lost status red and Not a lead status neutral, so those have no colour of their own here.
+     * The open lead stages' own colours (DESIGN.md "Stage Colours"), subtle hues in the order a lead moves: sky, teal,
+     * then lime on its way to Won's green. Quote sent is status amber (awaiting a reply), Won status green, Lost status
+     * red and Not a lead status neutral, so those have no colour of their own here. Every value keeps a ΔE76 of 8 from
+     * the action, people, money and status colours and from the other stages (test/brand.test.ts).
      */
     stage: {
-      new: { dot: "#058ac5", fill: "#e2f3ff", ink: "#03567d" },
-      contacted: { dot: "#029393", fill: "#dcf6f6", ink: "#055959" },
-      bookingRequested: { dot: "#7173d7", fill: "#edeffe", ink: "#45468a" },
+      new: { dot: "#0c8bbb", fill: "#d3eefd", ink: "#04516f" },
+      contacted: { dot: "#0b959b", fill: "#d5fcfe", ink: "#045b5f" },
+      bookingRequested: { dot: "#719427", fill: "#edf9dc", ink: "#415a03" },
     } satisfies Record<string, StatusColour>,
     /**
-     * Staff role badges (DESIGN.md "Role badges"): the Owner role's fixed plum, and seven tints a role is given by its
-     * key, so the same role always shows in the same colour. Not status colours, nor the stages' tints.
+     * Staff role badges (DESIGN.md "Role Badges"): the Owner role's fixed orchid, and five tints a role is given by its
+     * key, so the same role always shows in the same colour. Each keeps a ΔE76 of 8 from the action, people, money,
+     * status and stage colours, so a role never looks like a state. The web app picks by the tints' order and count:
+     * adding, removing or reordering one recolours the agencies' own roles.
      */
     role: {
-      owner: { fill: "#f9eafc", ink: "#6a3975" },
-      pink: { fill: "#ffe9f3", ink: "#7a3258" },
-      iris: { fill: "#efeefe", ink: "#504387" },
-      olive: { fill: "#f3f1dc", ink: "#595101" },
-      cyan: { fill: "#dcf5fc", ink: "#025767" },
-      clay: { fill: "#feece5", ink: "#803717" },
-      lime: { fill: "#ebf4e0", ink: "#3b5700" },
-      teal: { fill: "#ddf7f0", ink: "#045a4d" },
+      owner: { fill: "#f9dfff", ink: "#693375" },
+      rose: { fill: "#fee0eb", ink: "#802e53" },
+      peach: { fill: "#fee3d4", ink: "#6f3f20" },
+      gold: { fill: "#f7f7cc", ink: "#595501" },
+      fern: { fill: "#d6f8d8", ink: "#36563a" },
+      mint: { fill: "#d3fff2", ink: "#035e4d" },
     } satisfies Record<string, RoleColour>,
   },
 

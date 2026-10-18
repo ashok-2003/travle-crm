@@ -22,17 +22,15 @@ colors:
   status-amber: { dot: "#c2680a", bg: "#fff3d6", ink: "#7a4100" }
   status-green: { dot: "#168f43", bg: "#e3f4e7", ink: "#14532d" }
   status-neutral: { dot: "#6b6b6b", bg: "#ecebe6", ink: "#4a4a4a" }
-  stage-new: { dot: "#058ac5", bg: "#e2f3ff", ink: "#03567d" }
-  stage-contacted: { dot: "#029393", bg: "#dcf6f6", ink: "#055959" }
-  stage-booking-requested: { dot: "#7173d7", bg: "#edeffe", ink: "#45468a" }
-  role-owner: { bg: "#f9eafc", ink: "#6a3975" }
-  role-pink: { bg: "#ffe9f3", ink: "#7a3258" }
-  role-iris: { bg: "#efeefe", ink: "#504387" }
-  role-olive: { bg: "#f3f1dc", ink: "#595101" }
-  role-cyan: { bg: "#dcf5fc", ink: "#025767" }
-  role-clay: { bg: "#feece5", ink: "#803717" }
-  role-lime: { bg: "#ebf4e0", ink: "#3b5700" }
-  role-teal: { bg: "#ddf7f0", ink: "#045a4d" }
+  stage-new: { dot: "#0c8bbb", bg: "#d3eefd", ink: "#04516f" }
+  stage-contacted: { dot: "#0b959b", bg: "#d5fcfe", ink: "#045b5f" }
+  stage-booking-requested: { dot: "#719427", bg: "#edf9dc", ink: "#415a03" }
+  role-owner: { bg: "#f9dfff", ink: "#693375" }
+  role-rose: { bg: "#fee0eb", ink: "#802e53" }
+  role-peach: { bg: "#fee3d4", ink: "#6f3f20" }
+  role-gold: { bg: "#f7f7cc", ink: "#595501" }
+  role-fern: { bg: "#d6f8d8", ink: "#36563a" }
+  role-mint: { bg: "#d3fff2", ink: "#035e4d" }
 typography:
   page-title: { family: "EB Garamond", size: 30px, weight: 500, lineHeight: 36px, tracking: "-0.01em" }
   section-title: { family: "Figtree", size: 16px, weight: 600, lineHeight: 24px, tracking: "0" }
@@ -88,8 +86,8 @@ Strategy: **Full palette with strict roles.** Neutral ink on warm canvas, plus t
 | **People (violet)** | `#6a4bbd`, pressed `#5b3fa6`, tint `#efe7fd`, tint ink `#4c2f97` | WhatsApp inbox, unread messages and counts, follow-ups and reminders, assignment and assignee avatars, later AI helpers |
 | **Money (forest)**  | `#034f46`, pressed `#07352f`, tint `#e3f1ee`                     | Amounts received, profit and margin, invoices, the Accounts area                                                        |
 | **Status**          | red / amber / green / neutral                                    | State of a record only: confirmed, payment due, overdue, lost                                                           |
-| **Stage**           | sky, teal, indigo, plus status amber, green, red, neutral        | A lead's stage, wherever it shows (see Stage Colours)                                                                   |
-| **Role badge**      | plum for Owner, seven tints for the other roles                  | A staff role on Staff and Roles (see Role Badges)                                                                       |
+| **Stage**           | sky, teal, lime, plus status amber, green, red, neutral          | A lead's stage, wherever it shows (see Stage Colours)                                                                   |
+| **Role badge**      | orchid for Owner, five tints for the other roles                 | A staff role on Staff and Roles (see Role Badges)                                                                       |
 
 Named rules:
 
@@ -100,8 +98,8 @@ Named rules:
 - **Tint Surfaces Carry Dark Ink.** Text on a role tint uses the role's dark ink (`#4c2f97`, `#034f46`, `#1d4ed8`), never muted grey.
 - Money direction is shown by sign and label ("Received", "Due"), not by red/green on the amount itself. Overdue is a status badge next to the amount.
 - **Green Is Done.** Something finished (a Won lead, a follow-up marked Done, a step completed) is status green, as a subtle tint or a dot beside its words. Nothing that isn't a state turns green.
-- **Stage Colours.** A lead's stage is its status, so it is a badge of the status shape (tint, dark ink, dot plus word) wherever it shows: the Leads list, the stage chips and the Filters' stage list (the dot), the stage bar (the segment), the lead page and its timeline. Each stage has one subtle colour, fixed by meaning: New sky, Contacted teal, Quote sent status amber (awaiting the customer's reply), Booking requested indigo, Won status green, Lost status red, Not a lead status neutral. The open stages' hues are tints, never fills; none is the action blue (a stage is never a button) or money's forest. Colour never stands alone: the word is always there.
-- **Role Badges.** A staff role shows as a badge in its own tint (dark ink on the tint, 4px radius, no dot: a role is a kind of person, not a state). The Owner role is always plum; every other role takes one of seven tints (pink, iris, olive, cyan, clay, lime, teal) from its stable key, so the same role is the same colour on every screen and every load, and the starter roles (Admin, Sales, Operations, Accounts) all differ. Role tints are never status colours or the stages' tints, and they appear only where roles do (Staff, Roles).
+- **Stage Colours.** A lead's stage is its status, so it is a badge of the status shape (tint, dark ink, dot plus word) wherever it shows: the Leads list, the stage chips and the Filters' stage list (the dot), the stage bar (the segment), the lead page and its timeline. Each stage has one subtle colour, fixed by meaning: New sky, Contacted teal, Quote sent status amber (awaiting the customer's reply), Booking requested lime (on its way to Won's green), Won status green, Lost status red, Not a lead status neutral. The open stages' hues are tints, never fills; none passes for the action blue (a stage is never a button), the people violet, money's forest, a status or another stage: every stage colour keeps a ΔE76 of at least 8 from each of them (`packages/brand/test/palette-distance.test.ts`). Colour never stands alone: the word is always there.
+- **Role Badges.** A staff role shows as a badge in its own tint (dark ink on the tint, 4px radius, no dot: a role is a kind of person, not a state). The Owner role is always orchid; every other role takes one of five tints (rose, peach, gold, fern, mint) picked by a hash of its stable key, so the same role is the same colour on every screen and every load, and the Owner and the four starter roles (Admin, Sales, Operations, Accounts) all differ. The pick depends on the tints' order and count: adding, removing or reordering a tint recolours the agencies' own roles, so change the list only on purpose. Role tints keep a ΔE76 of at least 8 from the action, people, money, status and stage colours, so a role never looks like a state, and they appear only where roles do (Staff, Roles).
 
 Status vocabulary (extend, do not reinvent):
 
@@ -235,10 +233,10 @@ Target WCAG 2.2 AA. Contrast checked with the WCAG relative-luminance formula (c
 | Input border `#8a8a82` on canvas                                                      | 3.42:1 | UI boundary (needs 3:1)                                 |
 | Status dots on canvas: red `#d92d20` 4.76, amber `#c2680a` 3.92, green `#168f43` 4.10 | n/a    | Non-text, meets 3:1                                     |
 | Status dots on their badge fill: red 4.22, amber 3.61, green 3.64, neutral 4.46       | n/a    | Non-text, meets 3:1; the word still carries the meaning |
-| Stage inks on their tints: New 7.03, Contacted 7.19, Booking requested 7.36           | ≥ 7:1  | Stage badges                                            |
-| Stage dots on canvas: New 3.79, Contacted 3.69, Booking requested 4.02                | n/a    | Non-text (dots, the stage bar's segment), meets 3:1     |
-| Stage dots on their tints: New 3.40, Contacted 3.32, Booking requested 3.58           | n/a    | Non-text, meets 3:1; the word still carries the meaning |
-| Role inks on their tints: Owner 7.41, the seven tints 7.08 to 7.51                    | ≥ 7:1  | Role badges                                             |
+| Stage inks on their tints: New 7.22, Contacted 7.19, Booking requested 7.14           | ≥ 7:1  | Stage badges                                            |
+| Stage dots on canvas: New 3.81, Contacted 3.57, Booking requested 3.46                | n/a    | Non-text (dots, the stage bar's segment), meets 3:1     |
+| Stage dots on their tints: New 3.21, Contacted 3.32, Booking requested 3.21           | n/a    | Non-text, meets 3:1; the word still carries the meaning |
+| Role inks on their tints: Owner 7.30, the five tints 7.02 to 7.17                     | ≥ 7:1  | Role badges                                             |
 
 Hairline `#e6e3dc` (1.26:1) is decorative only; never the sole indicator of an input, button or selected state.
 
