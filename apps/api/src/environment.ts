@@ -65,6 +65,12 @@ const environmentSchema = z
     /** Postgres, connecting as the app_runtime role. */
     DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/, message: "must be a postgresql:// URL" }),
     DATABASE_POOL_SIZE: z.coerce.number().int().min(1).max(100).default(10),
+    /**
+     * Each database transaction's longest wait for a connection and longest run, in milliseconds, where the code names
+     * none: Prisma's own 2 s and 5 s by default. A slow host needs more (a tenth of a CPU, docs/serverless.md).
+     */
+    DATABASE_TRANSACTION_MAX_WAIT_MS: z.coerce.number().int().min(1).default(2000),
+    DATABASE_TRANSACTION_TIMEOUT_MS: z.coerce.number().int().min(1).default(5000),
     /** Signs and encrypts cookies and two-factor secrets. Generate with `openssl rand -base64 32`. */
     BETTER_AUTH_SECRET: z.string().min(32, "must be at least 32 characters"),
     /** Where browsers reach the api, e.g. https://app.example.in. */

@@ -1,7 +1,12 @@
 // What the platform console runs on, built once by the console process (apps/api's `console` command): the only
 // process that holds DATABASE_PLATFORM_URL.
 import type { Database } from "@travel-crm/db";
-import { asOrganization, createPlatformDatabase, type PlatformDatabase } from "@travel-crm/db/platform";
+import {
+  asOrganization,
+  createPlatformDatabase,
+  type ForOrgOptions,
+  type PlatformDatabase,
+} from "@travel-crm/db/platform";
 import type { JobAdministration, JobQueue } from "@travel-crm/integrations/jobs";
 import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import type { Identity } from "../identity/index.js";
@@ -31,14 +36,16 @@ export interface PlatformServicesOptions extends Omit<PlatformServices, "platfor
   platformDatabaseUrl: string;
   /** Size of the platform role's connection pool. A handful is plenty: few people use the console. */
   maxConnections?: number;
+  /** Each platform transaction's limits when the call names none (the api's DATABASE_TRANSACTION_* settings). */
+  transactionLimits?: ForOrgOptions;
 }
 
 /** Connects the platform role. Close it with `services.platformDb.disconnect()`; the rest belong to the caller. */
 export function createPlatformServices(options: PlatformServicesOptions): PlatformServices {
-  const { platformDatabaseUrl, maxConnections, ...shared } = options;
+  const { platformDatabaseUrl, maxConnections, transactionLimits, ...shared } = options;
   return {
     ...shared,
-    platformDb: createPlatformDatabase(platformDatabaseUrl, { maxConnections: maxConnections ?? 3 }),
+    platformDb: createPlatformDatabase(platformDatabaseUrl, { maxConnections: maxConnections ?? 3, transactionLimits }),
   };
 }
 

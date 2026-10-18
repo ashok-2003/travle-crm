@@ -2,7 +2,7 @@
 // adapters (S3, SMTP, web push, pg-boss) and the services made from them, held to each organization's plan limits.
 // close() releases every pool.
 import { hkdfSync } from "node:crypto";
-import { createDatabase, type Database } from "@travel-crm/db";
+import { createDatabase, type Database, type ForOrgOptions } from "@travel-crm/db";
 import { createFiles, type Files } from "@travel-crm/domain/files";
 import { createIdentity, type Identity } from "@travel-crm/domain/identity";
 import { createProfiles, type Profiles } from "@travel-crm/domain/profile";
@@ -44,9 +44,20 @@ export function rateLimitKeySecret(betterAuthSecret: string): Uint8Array {
   return new Uint8Array(hkdfSync("sha256", betterAuthSecret, "", "rate-limit-keys", 32));
 }
 
+/** The limits every database transaction of the process takes where the code names none (DATABASE_TRANSACTION_*). */
+export function transactionLimitsOf(environment: Environment): ForOrgOptions {
+  return {
+    maxWait: environment.DATABASE_TRANSACTION_MAX_WAIT_MS,
+    timeout: environment.DATABASE_TRANSACTION_TIMEOUT_MS,
+  };
+}
+
 /** `log` is the process's one log: pg-boss's problems go there, as ids and codes. */
 export function createServices(environment: Environment, log: ProcessLog): Services {
-  const db = createDatabase(environment.DATABASE_URL, { maxConnections: environment.DATABASE_POOL_SIZE });
+  const db = createDatabase(environment.DATABASE_URL, {
+    maxConnections: environment.DATABASE_POOL_SIZE,
+    transactionLimits: transactionLimitsOf(environment),
+  });
   const rateLimiter = createRateLimiter(db, { keySecret: rateLimitKeySecret(environment.BETTER_AUTH_SECRET) });
   // Seats and storage are the plan's (spec 7.2): identity refuses staff past them, the files module uploads. The api's
   // request checks read the same entitlements through an access of their own (server.ts).
@@ -62,6 +73,7 @@ export function createServices(environment: Environment, log: ProcessLog): Servi
   const identity = createIdentity({
     databaseUrl: environment.DATABASE_URL,
     maxConnections: environment.DATABASE_POOL_SIZE,
+    transactionLimits: transactionLimitsOf(environment),
     auth: {
       ...authSettingsFrom(environment),
       log,

@@ -21,11 +21,19 @@ export interface Database {
 export interface DatabaseOptions {
   /** Largest number of open connections. Keep it small behind a transaction-mode pooler. */
   maxConnections?: number;
+  /**
+   * Each transaction's limits when the call names none (Prisma's own: wait 2 s for a connection, run 5 s). A slow host
+   * needs longer ones: a tenth of a CPU takes longer than 2 s to open its first connection.
+   */
+  transactionLimits?: ForOrgOptions | undefined;
 }
 
 /** Connects as the app_runtime role, the role every api request and job uses. */
 export function createDatabase(url: string, options: DatabaseOptions = {}): Database {
-  const client = createPrismaClient(url, { max: options.maxConnections ?? 10 });
+  const client = createPrismaClient(url, {
+    max: options.maxConnections ?? 10,
+    transactionLimits: options.transactionLimits,
+  });
   return {
     forOrg: (orgId, fn, options) => forOrg(client, orgId, fn, options),
     withoutOrg: (fn, options) => withoutOrg(client, fn, options),
