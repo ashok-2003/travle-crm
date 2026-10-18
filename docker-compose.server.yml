@@ -1,15 +1,17 @@
 # The product on one server, for the pilot (docs/runbook.md): docker-compose.product.yml made production. The same
-# images and the same routes (docker/server/Caddyfile, docs/deploy-checklist.md), with Postgres's roles given strong
-# passwords, files in Cloudflare R2 and email through Brevo instead of MinIO and Mailpit, and Caddy ending HTTPS at
-# the server's one address. Run it only through scripts/server/compose.sh, which names the project, reads the
-# server's root-only settings (/srv/travel-crm/production.env: every secret, generated on the server, never in git)
-# and says which release's images run (RELEASE, the commit). Only Caddy publishes ports: 80 and 443.
+# images and the same routes (docker/server/Caddyfile, docs/deploy-checklist.md), with the database reached through
+# three connection strings (the server's own Postgres, with strong passwords, or a managed one), files in Cloudflare R2
+# and email through Brevo instead of MinIO and Mailpit, and Caddy ending HTTPS at the server's one address. Run it only
+# through scripts/server/compose.sh, which names the project, reads the server's root-only settings
+# (/srv/travel-crm/production.env: every secret, generated on the server, never in git) and says which release's
+# images run (RELEASE, the commit). Only Caddy publishes ports: 80 and 443.
 
 # What the api, the worker and the console share. NODE_ENV is production (the image's), so each refuses to start on
 # an http address, an off rate limit, a weak secret or .env.example's VAPID pair. AUTH_TRUSTED_PROXIES stays empty:
 # Caddy replaces X-Forwarded-For with the one address the request came from (docker/server/Caddyfile).
 x-api-environment: &api-environment
-  DATABASE_URL: postgresql://app_runtime:${RUNTIME_DB_PASSWORD:?}@postgres:5432/travel_crm
+  DATABASE_URL: ${DATABASE_URL:?}
+  DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-10}
   BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?}
   BETTER_AUTH_URL: https://${APP_HOST:?}
   APP_URL: https://${APP_HOST:?}
@@ -44,20 +46,23 @@ x-api-depends-on: &api-depends-on
     condition: service_completed_successfully
 
 services:
+  # The server's own Postgres. It runs while the settings' connection strings name the host `postgres`
+  # (scripts/server/compose.sh turns this profile on); pointed at a managed database, it doesn't.
   postgres:
     image: postgres:18.6-alpine3.24@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+    profiles: [local-database]
     restart: unless-stopped
-    # A quarter of the server's memory for shared buffers, in the huge pages scripts/server/setup.sh reserves (the
-    # deploy warns when Postgres starts without them). It also keeps Oracle from reclaiming the server as idle (memory
-    # under 20% for a week, docs/runbook.md).
+    # A quarter of the server's memory for shared buffers (POSTGRES_SHARED_BUFFERS, from its size), in the huge pages
+    # scripts/server/setup.sh reserves; the deploy warns when Postgres starts without them. It also keeps Oracle from
+    # reclaiming the server as idle (memory under 20% for a week, docs/runbook.md).
     command:
       - postgres
       - -c
-      - shared_buffers=3GB
+      - shared_buffers=${POSTGRES_SHARED_BUFFERS:?}
       - -c
       - huge_pages=try
       - -c
-      - effective_cache_size=6GB
+      - effective_cache_size=4GB
       - -c
       - work_mem=16MB
       - -c
@@ -91,10 +96,11 @@ services:
     <<: *api-image
     command: ["migrate"]
     environment:
-      DATABASE_MIGRATOR_URL: postgresql://app_migrator:${MIGRATOR_DB_PASSWORD:?}@postgres:5432/travel_crm
+      DATABASE_MIGRATOR_URL: ${DATABASE_MIGRATOR_URL:?}
     depends_on:
       postgres:
         condition: service_healthy
+        required: false
     restart: "no"
 
   api:
@@ -133,7 +139,7 @@ services:
     stop_grace_period: 35s
     environment:
       <<: *api-environment
-      DATABASE_PLATFORM_URL: postgresql://app_platform:${PLATFORM_DB_PASSWORD:?}@postgres:5432/travel_crm
+      DATABASE_PLATFORM_URL: ${DATABASE_PLATFORM_URL:?}
     depends_on: *api-depends-on
     healthcheck:
       test:

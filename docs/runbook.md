@@ -5,14 +5,16 @@ How the product runs for the pilot, and what to do when something has to change 
 
 ## What runs where
 
-- **The server:** Oracle Cloud Always Free in Mumbai (`ap-mumbai-1`). It's a `VM.Standard.A1.Flex` with 2 ARM cores
-  and 12 GB, running Ubuntu 24.04, with a 100 GB boot volume.
+- **The server:** Oracle Cloud Always Free in Mumbai (`ap-mumbai-1`). It's a `VM.Standard.A1.Flex` running Ubuntu
+  24.04, with a 100 GB boot volume. The free allowance is 2 ARM cores and 12 GB; the server starts at 1 core and 6 GB
+  while Mumbai has no room for more, and grows later ("Resize the server").
   - Reach it with `ssh -i ~/.ssh/travel-crm-oracle ubuntu@<ip>`. The key is on the owner's Mac.
   - SSH takes keys only. Only 22, 80 and 443 are open, in Oracle's security list and the server's own firewall.
 - **The address:** `https://<ip>.sslip.io` until a real domain comes. It's `APP_HOST` in the server's settings.
 - **The product:** `docker-compose.server.yml`, run as the Compose project `travel-crm` through
   `scripts/server/compose.sh`:
-  - Postgres 18, never published outside the server;
+  - Postgres 18, never published outside the server, unless the settings point at a managed one ("Use a managed
+    database");
   - the one-off `migrate`, then the api, worker, console and web app;
   - Caddy, which ends HTTPS and routes as the checklist's table says.
   - Every container restarts on its own and keeps at most 50 MB of rotated logs.
@@ -136,14 +138,62 @@ Set the new value with `secrets.sh set`, either typed or piped in, then restart:
 `sudo scripts/server/compose.sh up --detach --wait` (in `/srv/travel-crm/app`). Compose recreates every service whose
 settings changed.
 
-| Secret                                                                       | How                                                                                                                                                                                                                    | What it costs           |
-| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| `BETTER_AUTH_SECRET`                                                         | `openssl rand -base64 32 \| sudo scripts/server/secrets.sh set BETTER_AUTH_SECRET`                                                                                                                                     | everyone signs in again |
-| A database role's password (`RUNTIME_`, `PLATFORM_`, `MIGRATOR_DB_PASSWORD`) | pick `NEW=$(openssl rand -hex 32)`, run `ALTER ROLE app_runtime PASSWORD '<new>'` through `compose.sh exec -T postgres psql -U postgres`, then `echo "$NEW" \| sudo scripts/server/secrets.sh set RUNTIME_DB_PASSWORD` | a restart               |
-| R2 tokens, Brevo's SMTP key                                                  | make the new one in its dashboard, `secrets.sh set` it, restart, then revoke the old one                                                                                                                               | a restart               |
-| The VAPID pair                                                               | never, unless it leaked: a new pair silently drops every browser's push subscription                                                                                                                                   | every subscription      |
-| The backup key                                                               | make a new one with `age-keygen`, then `secrets.sh set BACKUP_AGE_RECIPIENT` to its public key. Keep the old private key until the old backups expire, 14 days later.                                                  | nothing                 |
-| The SSH key                                                                  | add the new public key to `~/.ssh/authorized_keys` on the server, check that it works, then remove the old one                                                                                                         | nothing                 |
+| Secret                                                 | How                                                                                                                                                                                                                                    | What it costs           |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| `BETTER_AUTH_SECRET`                                   | `openssl rand -base64 32 \| sudo scripts/server/secrets.sh set BETTER_AUTH_SECRET`                                                                                                                                                     | everyone signs in again |
+| A database role's password (the server's own Postgres) | pick `NEW=$(openssl rand -hex 32)`, run `ALTER ROLE app_runtime PASSWORD '<new>'` through `compose.sh exec -T postgres psql -U postgres`, then `secrets.sh set` both `RUNTIME_DB_PASSWORD` and `DATABASE_URL` (the password inside it) | a restart               |
+| R2 tokens, Brevo's SMTP key                            | make the new one in its dashboard, `secrets.sh set` it, restart, then revoke the old one                                                                                                                                               | a restart               |
+| The VAPID pair                                         | never, unless it leaked: a new pair silently drops every browser's push subscription                                                                                                                                                   | every subscription      |
+| The backup key                                         | make a new one with `age-keygen`, then `secrets.sh set BACKUP_AGE_RECIPIENT` to its public key. Keep the old private key until the old backups expire, 14 days later.                                                                  | nothing                 |
+| The SSH key                                            | add the new public key to `~/.ssh/authorized_keys` on the server, check that it works, then remove the old one                                                                                                                         | nothing                 |
+
+## Resize the server
+
+The allowance is 2 cores and 12 GB. To grow a smaller server once Oracle has room (a few minutes down):
+
+1. On the instance's page: **Edit → Edit shape**, set the OCPUs and memory, then **Save changes**. Oracle reboots it.
+   If it says out of capacity, try again later; the server keeps running as it was.
+2. Give Postgres a quarter of the new memory, and reserve its huge pages, on the server:
+
+       cd /srv/travel-crm/app
+       echo "$(( $(awk '/^MemTotal:/ { print $2 }' /proc/meminfo) / 4096 ))MB" | sudo scripts/server/secrets.sh set POSTGRES_SHARED_BUFFERS
+       sudo scripts/server/setup.sh && sudo reboot
+
+3. After the reboot, Docker starts everything. Run `scripts/server/smoke.sh https://<APP_HOST>` and check that
+   `sudo scripts/server/compose.sh exec postgres psql -U postgres -c 'SHOW huge_pages_status'` says `on`.
+
+## Use a managed database
+
+The database is three connection strings in the settings (`DATABASE_URL`, `DATABASE_PLATFORM_URL`,
+`DATABASE_MIGRATOR_URL`). While they name the host `postgres`, the server runs its own Postgres. Point them at a
+managed Postgres and it stops being started. What the provider must offer (the checklist's "The database"):
+
+- Postgres 18, with `pg_trgm` and `btree_gist`;
+- the three roles, without BYPASSRLS, and the grant;
+- enough connections for three processes: each opens up to `2 × DATABASE_POOL_SIZE + 5`;
+- a compute that stays on, because the worker and the console use it all day. Neon's free compute runs out mid-month
+  for that reason, and Supabase offers Postgres 17 (October 2026).
+
+1. **On the provider:** create a database `travel_crm`. Connected to it as the provider's admin role, run
+   `packages/db/sql/bootstrap.sql` with each `PASSWORD '…'` replaced by a strong one (`openssl rand -hex 32`). Add
+   `ALTER ROLE app_migrator NOCREATEDB;` at the end. If the admin role can't hand the database to `app_migrator`,
+   first run `GRANT app_migrator TO <admin role>;`.
+2. **On the server:** `sudo scripts/server/secrets.sh set` each of these (add `?sslmode=require` where the provider
+   asks for it):
+   - `DATABASE_URL` and `DATABASE_PLATFORM_URL`: `app_runtime` and `app_platform`, through the provider's pooler if it
+     has one;
+   - `DATABASE_MIGRATOR_URL`: `app_migrator`, connected directly, never through a transaction pooler;
+   - `DATABASE_ADMIN_URL`: the provider's admin role, for the backups (every organization table forces row-level
+     security, so only a role that bypasses it dumps everything);
+   - `DATABASE_POOL_SIZE`: lower it if the plan allows few connections.
+3. **Move the data:**
+   - Run `sudo scripts/server/backup.sh` first, then stop the product: `sudo scripts/server/compose.sh stop proxy api
+worker console`.
+   - Restore the newest backup into the provider as in "Restoring production's database" (steps 1, 2 and 4), with
+     `pg_restore --dbname "$DATABASE_ADMIN_URL"` run from the Postgres image in place of `compose.sh exec`.
+4. **Start on it:** `sudo scripts/server/compose.sh up --detach --wait`, then
+   `sudo scripts/server/compose.sh --profile local-database stop postgres`, then the smoke check. Keep the old
+   Postgres's volume until the restore drill has passed against the new database's backups.
 
 ## Switch to a real domain
 
@@ -167,8 +217,8 @@ settings changed.
 - **Backups:** the heartbeat or the backup's log (above). Run the restore drill every quarter.
 - **Oracle reclaiming the server:** Oracle reclaims an Always Free server whose CPU, network and memory all stay
   under 20% for a week.
-  - The product alone uses about 6% of the memory. Postgres's 3 GB of huge pages bring it to about 35%, and memory
-    is what keeps the server safe.
+  - The product alone uses under 1 GB. Postgres's huge pages, a quarter of the memory, bring the total to about 35%
+    to 45%, and memory is what keeps the server safe.
   - Check the instance's **Metrics → Memory utilization** weekly in the first month.
   - A deploy that warns "Postgres runs without huge pages" needs fixing at once (`setup.sh` reserves them).
 - **Disk:** check `df -h /` and `sudo docker system df`. Deploys keep two releases' images and two weeks of build
@@ -198,8 +248,8 @@ What the owner does in the dashboards:
 
 1. **Oracle:**
    - Sign up with home region Mumbai.
-   - Create the instance: Ubuntu 24.04, `VM.Standard.A1.Flex` with 2 cores and 12 GB, a public IPv4 address, the SSH
-     public key, and a 100 GB boot volume.
+   - Create the instance: Ubuntu 24.04, `VM.Standard.A1.Flex` with 2 cores and 12 GB (or 1 and 6 when Mumbai is
+     out of capacity), a public IPv4 address, the SSH public key, and a 100 GB boot volume.
    - Open TCP 80 and 443 in the subnet's default security list.
    - Give the boot volume a weekly backup policy that keeps at most 4 backups (5 are free).
 2. **Cloudflare R2:**

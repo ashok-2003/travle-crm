@@ -17,4 +17,8 @@ if [ -z "${RELEASE:-}" ] && [ -f "$release_file" ]; then
 fi
 # Before the first deploy there is no release: `ps` and `logs` still work.
 export RELEASE="${RELEASE:-none}"
+# The server's own Postgres runs only while the settings point the database at it.
+if uses_local_database; then
+  export COMPOSE_PROFILES=local-database
+fi
 exec docker compose --project-name travel-crm --file docker-compose.server.yml --env-file "$settings_file" "$@"

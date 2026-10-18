@@ -10,6 +10,7 @@
 #   sudo /srv/travel-crm/app/scripts/server/setup.sh
 set -euo pipefail
 cd "$(dirname "$0")/../.."
+source scripts/server/postgres-memory.sh
 [ "$(id -u)" = 0 ] || {
   echo "Run it as root (sudo)." >&2
   exit 1
@@ -84,9 +85,11 @@ fi
 systemctl enable --quiet docker
 
 echo "Huge pages for Postgres, and swap"
-# 3.4 GB of huge pages: Postgres's 3 GB of shared buffers and the rest of its shared memory (docker-compose.server.yml).
+# Huge pages for Postgres's shared buffers (a quarter of the memory, scripts/server/postgres-memory.sh) and the rest of
+# its shared memory: a tenth more, and 64 MB.
 page_kb="$(awk '/^Hugepagesize:/ { print $2 }' /proc/meminfo)"
-echo "vm.nr_hugepages = $(((3400 * 1024 + page_kb - 1) / page_kb))" >/etc/sysctl.d/60-travel-crm.conf
+huge_mb="$(($(postgres_shared_buffers_mb) * 11 / 10 + 64))"
+echo "vm.nr_hugepages = $(((huge_mb * 1024 + page_kb - 1) / page_kb))" >/etc/sysctl.d/60-travel-crm.conf
 echo "vm.swappiness = 10" >>/etc/sysctl.d/60-travel-crm.conf
 sysctl --quiet --system
 if ! swapon --show=NAME --noheadings | grep -q -x /swapfile; then

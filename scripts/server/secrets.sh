@@ -12,6 +12,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 source scripts/server/paths.sh
 source scripts/docker/images.sh
+source scripts/server/postgres-memory.sh
 
 fail() {
   echo "$*" >&2
@@ -69,11 +70,23 @@ APP_HOST=''
 # The certificate authority's account: expiry warnings, and ZeroSSL's account when Let's Encrypt refuses.
 ACME_EMAIL=''
 
-# Postgres's superuser and the three roles' passwords (made by init).
+# The database: one connection string per role (docs/deploy-checklist.md, "The database"). init points them at the
+# server's own Postgres (the host `postgres`). For a managed Postgres 18, set all three, the migrator's connected
+# directly rather than through a transaction pooler, and DATABASE_ADMIN_URL, a role that bypasses row-level security,
+# for the backups (docs/runbook.md, "Use a managed database"). A small plan may need a smaller DATABASE_POOL_SIZE.
+DATABASE_URL=''
+DATABASE_PLATFORM_URL=''
+DATABASE_MIGRATOR_URL=''
+DATABASE_ADMIN_URL=''
+DATABASE_POOL_SIZE='10'
+
+# The server's own Postgres: its superuser's and the three roles' passwords, and its shared buffers, a quarter of the
+# server's memory (all made by init; docs/runbook.md, "Resize the server").
 POSTGRES_PASSWORD=''
 MIGRATOR_DB_PASSWORD=''
 RUNTIME_DB_PASSWORD=''
 PLATFORM_DB_PASSWORD=''
+POSTGRES_SHARED_BUFFERS=''
 
 # Signs and encrypts sessions; one value for the api, the worker and the console (made by init).
 BETTER_AUTH_SECRET=''
@@ -109,12 +122,17 @@ EOF
   fill_once APP_HOST "$host"
   fill_once ACME_EMAIL "$acme_email"
   fill_once VAPID_SUBJECT "mailto:$acme_email"
+  fill_once POSTGRES_SHARED_BUFFERS "$(postgres_shared_buffers_mb)MB"
   # Hex, so a password needs no escaping in a postgresql:// URL.
   local name
   for name in POSTGRES_PASSWORD MIGRATOR_DB_PASSWORD RUNTIME_DB_PASSWORD PLATFORM_DB_PASSWORD; do
     fill_once "$name" "$(openssl rand -hex 32)"
   done
   fill_once BETTER_AUTH_SECRET "$(openssl rand -base64 32)"
+  local local_database="@postgres:5432/travel_crm"
+  fill_once DATABASE_URL "postgresql://app_runtime:$(value_of RUNTIME_DB_PASSWORD)$local_database"
+  fill_once DATABASE_PLATFORM_URL "postgresql://app_platform:$(value_of PLATFORM_DB_PASSWORD)$local_database"
+  fill_once DATABASE_MIGRATOR_URL "postgresql://app_migrator:$(value_of MIGRATOR_DB_PASSWORD)$local_database"
   if [ -z "$(value_of VAPID_PUBLIC_KEY)" ]; then
     local pair
     pair="$(vapid_pair)"
@@ -147,9 +165,11 @@ set_one() {
   echo "Set $name."
 }
 
-# The settings still empty, one per line, but the optional heartbeat.
+# The settings still empty, one per line, but the optional ones: the heartbeat, and the admin connection string the
+# server's own Postgres doesn't need.
 empty_settings() {
-  sed -n -E "s/^([A-Z0-9_]+)=''\$/\1/p" "$settings_file" | grep -v -x BACKUP_HEARTBEAT_URL || true
+  sed -n -E "s/^([A-Z0-9_]+)=''\$/\1/p" "$settings_file" | grep -v -x -E 'BACKUP_HEARTBEAT_URL|DATABASE_ADMIN_URL' ||
+    true
 }
 
 # Asks for every empty setting in turn; one left empty is skipped.

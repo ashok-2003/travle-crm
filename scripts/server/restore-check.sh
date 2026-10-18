@@ -64,5 +64,12 @@ counts="SELECT (SELECT count(*) FROM organization) || ' organizations, ' || (SEL
   ' people who sign in, ' || (SELECT count(*) FROM lead) || ' leads, ' || (SELECT count(*) FROM _prisma_migrations) ||
   ' migrations'"
 echo "The copy:        $(query "$throwaway" "$counts")"
-echo "Production now:  $(query "$(scripts/server/compose.sh ps --quiet postgres)" "$counts")"
+if uses_local_database; then
+  echo "Production now:  $(query "$(scripts/server/compose.sh ps --quiet postgres)" "$counts")"
+else
+  production="$(DATABASE_ADMIN_URL="$DATABASE_ADMIN_URL" docker run --rm --env DATABASE_ADMIN_URL \
+    --env counts="$counts" "$postgres_image" \
+    sh -c 'exec psql --tuples-only --no-align --dbname "$DATABASE_ADMIN_URL" --command "$counts"')"
+  echo "Production now:  $production"
+fi
 echo "Restored $name and checked it in $((SECONDS - started)) seconds; the copy is deleted."

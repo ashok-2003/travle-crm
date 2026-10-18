@@ -34,7 +34,9 @@ else
 fi
 
 echo "Applying the migrations, as app_migrator, while the running release serves"
-compose up --detach --wait postgres
+if uses_local_database; then
+  compose up --detach --wait postgres
+fi
 compose run --rm migrate
 
 echo "Starting release $release"
@@ -50,10 +52,12 @@ if [ -f "$release_file" ] && [ "$(cat "$release_file")" != "$commit" ]; then
 fi
 echo "$commit" >"$release_file"
 
-huge_pages="$(compose exec -T postgres psql --username postgres --tuples-only --no-align \
-  --command 'SHOW huge_pages_status')"
-if [ "$huge_pages" != "on" ]; then
-  echo "WARNING: Postgres runs without huge pages: check vm.nr_hugepages (scripts/server/setup.sh)" >&2
+if uses_local_database; then
+  huge_pages="$(compose exec -T postgres psql --username postgres --tuples-only --no-align \
+    --command 'SHOW huge_pages_status')"
+  if [ "$huge_pages" != "on" ]; then
+    echo "WARNING: Postgres runs without huge pages: check vm.nr_hugepages (scripts/server/setup.sh)" >&2
+  fi
 fi
 
 # Old releases' images, but this one's and the one before's, and build cache older than two weeks.
