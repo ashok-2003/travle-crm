@@ -72,6 +72,8 @@ settings on GitHub. Keep every value the steps make in your password manager, an
 2. **Databases → New database** `travel_crm`, owner `neondb_owner`.
 3. **Connect**, with database `travel_crm` and **Connection pooling off**: note the host (`ep-…….aws.neon.tech`, no
    `-pooler`) and `neondb_owner`'s connection string. That string is `DATABASE_ADMIN_URL`, for the backups (step 8).
+   Neon's `neondb_owner` can create databases and roles and bypasses row-level security, without being a superuser:
+   all the steps below need.
 4. On your Mac, in a checkout of the repository (in your own terminal, not a chat):
 
    ```sh
@@ -82,40 +84,46 @@ settings on GitHub. Keep every value the steps make in your password manager, an
    strings, `BETTER_AUTH_SECRET` and the web push pair. Save all of it in your password manager.
 
 5. **SQL Editor**, database `travel_crm`: paste the SQL, **Run**.
+6. Apply the migrations (and before every release that brings new ones, "Day to day"):
+   `docker run --rm --env DATABASE_MIGRATOR_URL='<from setup-values>' <the api image> migrate`.
 
 ### 4. Render: the api (with the worker) and the console
 
 1. **Environment Groups → New** `travel-crm-shared`, with what both services share:
 
-   | Variable                                   | Value                                                    |
-   | ------------------------------------------ | -------------------------------------------------------- |
-   | `DATABASE_URL`                             | from setup-values                                        |
-   | `DATABASE_POOL_SIZE`                       | `5`                                                      |
-   | `BETTER_AUTH_SECRET`                       | from setup-values                                        |
-   | `BETTER_AUTH_URL`, `APP_URL`               | the Vercel address, e.g. `https://travel-crm.vercel.app` |
-   | `S3_ENDPOINT`                              | R2's endpoint                                            |
-   | `S3_REGION`                                | `auto`                                                   |
-   | `S3_BUCKET`                                | `travel-crm-files`                                       |
-   | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | the `travel-crm-app` token's                             |
-   | `S3_FORCE_PATH_STYLE`                      | `true`                                                   |
-   | `SMTP_HOST`                                | `smtp-relay.brevo.com`                                   |
-   | `SMTP_PORT`                                | `2525`                                                   |
-   | `SMTP_USER`, `SMTP_PASSWORD`               | Brevo's login and SMTP key                               |
-   | `EMAIL_FROM_ADDRESS`                       | the sender Brevo verified                                |
-   | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`    | from setup-values                                        |
-   | `VAPID_SUBJECT`                            | `mailto:` and your email                                 |
+   | Variable                                   | Value                                                        |
+   | ------------------------------------------ | ------------------------------------------------------------ |
+   | `DATABASE_URL`                             | from setup-values                                            |
+   | `DATABASE_POOL_SIZE`                       | `5`                                                          |
+   | `DATABASE_TRANSACTION_MAX_WAIT_MS`         | `20000` (a tenth of a CPU opens its first connection slowly) |
+   | `DATABASE_TRANSACTION_TIMEOUT_MS`          | `30000`                                                      |
+   | `BETTER_AUTH_SECRET`                       | from setup-values                                            |
+   | `BETTER_AUTH_URL`, `APP_URL`               | the Vercel address, e.g. `https://travel-crm.vercel.app`     |
+   | `S3_ENDPOINT`                              | R2's endpoint                                                |
+   | `S3_REGION`                                | `auto`                                                       |
+   | `S3_BUCKET`                                | `travel-crm-files`                                           |
+   | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | the `travel-crm-app` token's                                 |
+   | `S3_FORCE_PATH_STYLE`                      | `true`                                                       |
+   | `SMTP_HOST`                                | `smtp-relay.brevo.com`                                       |
+   | `SMTP_PORT`                                | `2525`                                                       |
+   | `SMTP_USER`, `SMTP_PASSWORD`               | Brevo's login and SMTP key                                   |
+   | `EMAIL_FROM_ADDRESS`                       | the sender Brevo verified                                    |
+   | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`    | from setup-values                                            |
+   | `VAPID_SUBJECT`                            | `mailto:` and your email                                     |
 
 2. **New → Web Service**, from the GitHub repository, for the api:
    - name `travel-crm-api`, region **Singapore**, branch `main`, instance type **Free**;
    - language **Docker**, Dockerfile path `apps/api/Dockerfile`, build context `.` (the repository's root);
-   - **Docker Command** `api-and-worker`, **Health Check Path** `/health`;
-   - link the environment group, and add `DATABASE_MIGRATOR_URL` (from setup-values) to this service alone: with it,
-     every start applies pending migrations first, so a deploy is just a push.
+   - **Docker Command** `/app/apps/api/docker-entrypoint.sh api-and-worker` (Render's Docker Command replaces the
+     image's entrypoint, not just its arguments: plain `api-and-worker` exits 128 without a word), **Health Check
+     Path** `/health`;
+   - link the environment group. Leave `DATABASE_MIGRATOR_URL` out: the api would apply migrations on every start,
+     and on a tenth of a CPU that adds about 25 seconds to each cold start (step 3 applies them instead).
 3. **New → Web Service** again, for the console: the same, but name `travel-crm-console`, **Docker Command**
-   `console`, and its own variables beside the group: `DATABASE_PLATFORM_URL` (from setup-values) and
+   `/app/apps/api/docker-entrypoint.sh console`, and its own variables beside the group: `DATABASE_PLATFORM_URL` (from setup-values) and
    `CONSOLE_PORT` = `10000` (the port Render sends traffic to).
-4. Wait for both to be **Live**. Their addresses are `https://travel-crm-api.onrender.com` and
-   `https://travel-crm-console.onrender.com` (Render adds a suffix if a name is taken: use what it shows).
+4. Wait for both to be **Live**, and use the addresses Render shows: a name someone else holds gets a suffix
+   (`travel-crm-api.onrender.com` was taken on 2026-10-19). Vercel's `API_ORIGIN` and `CONSOLE_ORIGIN` are those.
 
 ### 5. Vercel: the web app
 
@@ -157,16 +165,17 @@ The workflow is on `main`. In the repository's **Settings → Secrets and variab
 
 - **Secrets:** `DATABASE_ADMIN_URL` (`neondb_owner`'s connection string from step 3), `BACKUP_S3_ACCESS_KEY_ID` and
   `BACKUP_S3_SECRET_ACCESS_KEY` (the `travel-crm-backups` token's), and optionally `BACKUP_HEARTBEAT_URL`.
-- **Variables:** `BACKUP_ENABLED` = `true`, `DATABASE_ADMIN_ROLE` = `neon_superuser` (on Neon the owner bypasses
-  row-level security only through it), `S3_ENDPOINT`, `BACKUP_S3_BUCKET` = `travel-crm-backups`, and
+- **Variables:** `BACKUP_ENABLED` = `true`, `S3_ENDPOINT`, `BACKUP_S3_BUCKET` = `travel-crm-backups`, and
   `BACKUP_AGE_RECIPIENT` = the public half of your backup key (`age-keygen -y ~/.config/travel-crm/backup-key.txt`).
+  Neon's owner bypasses row-level security itself (checked on 2026-10-18), so `DATABASE_ADMIN_ROLE` stays unset; a
+  provider whose admin bypasses it only through another role names that role there.
 
 Then **Actions → Database backup → Run workflow**, and check the dump lands in R2 under `db/`.
 
 **The restore drill** (once now, then every quarter), on your Mac. Put the backups' settings in
 `~/.config/travel-crm/backups.env` (`chmod 600`), one `NAME='value'` per line: `S3_ENDPOINT`, `BACKUP_S3_BUCKET`,
 `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`, and for production's counts beside the copy's,
-`DATABASE_ADMIN_URL` and `DATABASE_ADMIN_ROLE`. Then:
+`DATABASE_ADMIN_URL`. Then:
 
 ```sh
 TRAVEL_CRM_SETTINGS=~/.config/travel-crm/backups.env API_IMAGE=travel-crm-api \
@@ -185,9 +194,9 @@ mid-month, and the database would stop until the next month.
 
 ## Day to day
 
-- **Deploy:** push to `main` (merge the release). Render rebuilds the api and the console, the api applies the
-  migrations as it starts, and Vercel rebuilds the web app. Migrations must suit the old release too (the checklist's
-  "Migrations").
+- **Deploy:** when the release brings migrations, apply them first (step 3's `migrate`, from a Mac with the release's
+  image). Then push to `main` (merge the release): Render rebuilds the api and the console, and Vercel the web app.
+  Migrations must suit the old release too (the checklist's "Migrations"), since it serves while they apply.
 - **Roll back:** Render: the service's **Events → Rollback** to the deploy before. Vercel: **Deployments → … →
   Promote** the one before. Never undo a migration; the old release still works with the new schema.
 - **Logs:** each Render service's **Logs**, and Vercel's **Logs**. The processes log ids and codes, never a person's

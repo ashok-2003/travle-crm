@@ -117,30 +117,32 @@ when one is wrong), serves nothing, runs no jobs and exits (`src/console-command
 
 ## Environment
 
-| Variable                                   | Required | Default                 | Meaning                                                                                   |
-| ------------------------------------------ | -------- | ----------------------- | ----------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                             | yes      |                         | Postgres as the `app_runtime` role                                                        |
-| `BETTER_AUTH_SECRET`                       | yes      |                         | at least 32 characters; `openssl rand -base64 32`                                         |
-| `BETTER_AUTH_URL`                          | yes      |                         | where browsers reach the api; https in production                                         |
-| `TRUSTED_ORIGINS`                          | no       | none                    | other origins allowed to call with cookies, comma-separated                               |
-| `AUTH_RATE_LIMIT`                          | no       | `true`                  | sign-in rate limiting; off only in development and test                                   |
-| `AUTH_IP_ADDRESS_HEADERS`                  | no       | `x-forwarded-for`       | header(s) the load balancer puts the client's IP in                                       |
-| `AUTH_TRUSTED_PROXIES`                     | no       | none                    | proxy IPs/CIDRs in front of the api; see `.env.example`                                   |
-| `DATABASE_POOL_SIZE`                       | no       | `10`                    | the size of each of the process's two database pools (see below)                          |
-| `S3_BUCKET`                                | yes      |                         | the bucket files and PDFs are stored in; checked at start-up                              |
-| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | yes      |                         | object storage credentials                                                                |
-| `S3_ENDPOINT`                              | no       | AWS S3                  | an S3-compatible server, e.g. MinIO's `http://localhost:59000`                            |
-| `S3_REGION`                                | no       | `ap-south-1`            | the bucket's region                                                                       |
-| `S3_FORCE_PATH_STYLE`                      | no       | `false`                 | `true` for MinIO                                                                          |
-| `SMTP_HOST`                                | yes      |                         | SMTP, or Amazon SES's SMTP endpoint; Mailpit locally                                      |
-| `SMTP_PORT`, `SMTP_SECURE`                 | no       | `587`, `false`          | `SMTP_SECURE=true` for TLS from the first byte (port 465)                                 |
-| `SMTP_USER`, `SMTP_PASSWORD`               | no       | none                    | SMTP credentials                                                                          |
-| `EMAIL_FROM_ADDRESS`                       | yes      |                         | the address email comes from, on our domain                                               |
-| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`    | yes      |                         | a pair per environment (`web-push generate-vapid-keys`); production refuses the example's |
-| `VAPID_SUBJECT`                            | yes      |                         | `mailto:` an address, or an https URL                                                     |
-| `APP_URL`                                  | no       | `http://localhost:3000` | the web app: email links point there; a trusted origin; https in production               |
-| `PORT`                                     | no       | `3001`                  |                                                                                           |
-| `NODE_ENV`                                 | no       | `production`            | production needs https, rate limiting and a strong secret                                 |
+| Variable                                   | Required | Default                 | Meaning                                                                                      |
+| ------------------------------------------ | -------- | ----------------------- | -------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                             | yes      |                         | Postgres as the `app_runtime` role                                                           |
+| `BETTER_AUTH_SECRET`                       | yes      |                         | at least 32 characters; `openssl rand -base64 32`                                            |
+| `BETTER_AUTH_URL`                          | yes      |                         | where browsers reach the api; https in production                                            |
+| `TRUSTED_ORIGINS`                          | no       | none                    | other origins allowed to call with cookies, comma-separated                                  |
+| `AUTH_RATE_LIMIT`                          | no       | `true`                  | sign-in rate limiting; off only in development and test                                      |
+| `AUTH_IP_ADDRESS_HEADERS`                  | no       | `x-forwarded-for`       | header(s) the load balancer puts the client's IP in                                          |
+| `AUTH_TRUSTED_PROXIES`                     | no       | none                    | proxy IPs/CIDRs in front of the api; see `.env.example`                                      |
+| `DATABASE_POOL_SIZE`                       | no       | `10`                    | the size of each of the process's two database pools (see below)                             |
+| `DATABASE_TRANSACTION_MAX_WAIT_MS`         | no       | `2000`                  | a transaction's longest wait for a connection where the code names none; more on a slow host |
+| `DATABASE_TRANSACTION_TIMEOUT_MS`          | no       | `5000`                  | a transaction's longest run where the code names none; more on a slow host                   |
+| `S3_BUCKET`                                | yes      |                         | the bucket files and PDFs are stored in; checked at start-up                                 |
+| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | yes      |                         | object storage credentials                                                                   |
+| `S3_ENDPOINT`                              | no       | AWS S3                  | an S3-compatible server, e.g. MinIO's `http://localhost:59000`                               |
+| `S3_REGION`                                | no       | `ap-south-1`            | the bucket's region                                                                          |
+| `S3_FORCE_PATH_STYLE`                      | no       | `false`                 | `true` for MinIO                                                                             |
+| `SMTP_HOST`                                | yes      |                         | SMTP, or Amazon SES's SMTP endpoint; Mailpit locally                                         |
+| `SMTP_PORT`, `SMTP_SECURE`                 | no       | `587`, `false`          | `SMTP_SECURE=true` for TLS from the first byte (port 465)                                    |
+| `SMTP_USER`, `SMTP_PASSWORD`               | no       | none                    | SMTP credentials                                                                             |
+| `EMAIL_FROM_ADDRESS`                       | yes      |                         | the address email comes from, on our domain                                                  |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`    | yes      |                         | a pair per environment (`web-push generate-vapid-keys`); production refuses the example's    |
+| `VAPID_SUBJECT`                            | yes      |                         | `mailto:` an address, or an https URL                                                        |
+| `APP_URL`                                  | no       | `http://localhost:3000` | the web app: email links point there; a trusted origin; https in production                  |
+| `PORT`                                     | no       | `3001`                  |                                                                                              |
+| `NODE_ENV`                                 | no       | `production`            | production needs https, rate limiting and a strong secret                                    |
 
 A process opens up to `2 × DATABASE_POOL_SIZE + 5` connections: one pool for the database, one for identity, and
 pg-boss's 5. That is 25 by default, and Postgres allows 100; the console adds its platform pool of 3. For more than 3

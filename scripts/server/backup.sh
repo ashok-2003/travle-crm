@@ -28,7 +28,7 @@ trap 'rm -rf "$work"' EXIT
 
 # The whole database, as a role row-level security doesn't hide rows from (every organization table forces it, even
 # for its owner): the server's own Postgres's superuser, or a managed one's admin role. DATABASE_ADMIN_ROLE names a
-# role to switch to first, where the admin bypasses row-level security only through one (Neon: neon_superuser).
+# role to switch to first, where the admin bypasses row-level security only through one (Neon's owner needs none).
 dump() {
   if uses_local_database; then
     scripts/server/compose.sh exec -T postgres pg_dump --username postgres --dbname travel_crm --format custom

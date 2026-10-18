@@ -11,6 +11,8 @@ export interface ClientOptions {
   max?: number;
   /** Check once, on the first query, that the connection is the app_runtime role. For clients that skip forOrg(). */
   requireRuntimeRole?: boolean;
+  /** Each transaction's limits when the call names none, in milliseconds (Prisma's own: wait 2 s, run 5 s). */
+  transactionLimits?: { maxWait?: number; timeout?: number } | undefined;
 }
 
 /** Each client's cached role check, when it has one. */
@@ -26,7 +28,7 @@ export async function ensureRuntimeRole(client: DatabaseClient): Promise<void> {
 
 export function createPrismaClient(connectionString: string, options: ClientOptions = {}) {
   const adapter = new PrismaPg({ connectionString, max: options.max ?? 10 });
-  const base = new PrismaClient({ adapter });
+  const base = new PrismaClient({ adapter, transactionOptions: options.transactionLimits ?? {} });
   let roleCheck: Promise<void> | undefined;
   const checkRole = (): Promise<void> => {
     // Cached, so a wrong role keeps failing instead of passing on the second query. Other failures (a dropped
