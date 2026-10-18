@@ -1,13 +1,18 @@
 // Every page is sent with the strict headers spec 12.4 asks for, and the policy allows only our own origin. The pages
-// whose address can hold a secret send only their origin as Referer, never the path or query.
+// whose address can hold a secret send only their origin as Referer, never the path or query. What the app hands on to
+// the api keeps the api's own headers.
+import { buildCustomRoute } from "next/dist/lib/build-custom-route";
 import { describe, expect, it } from "vitest";
 import { contentSecurityPolicy, securityHeaderRules, securityHeaders } from "../security-headers";
 
-/** The headers a page gets, applying the rules as Next.js does: in order, a later rule's value winning. */
+/**
+ * The headers a path gets, applying the rules as Next.js does: each rule's source made into the regex the build writes
+ * to its routes manifest (which Vercel serves from too), in order, a later value winning.
+ */
 function headersFor(path: string): Record<string, string> {
   const headers: Record<string, string> = {};
   for (const rule of securityHeaderRules({ development: false })) {
-    if (rule.source === "/:path*" || rule.source === path) {
+    if (new RegExp(buildCustomRoute("header", rule).regex).test(path)) {
       for (const { key, value } of rule.headers) headers[key] = value;
     }
   }
@@ -58,5 +63,26 @@ describe("security headers", () => {
   it("send only the origin from the offline page too, which the service worker shows at any address", () => {
     // Offline at /reset-password?token=..., the worker answers with the stored /offline page, headers and all.
     expect(headersFor("/offline")["Referrer-Policy"]).toBe("strict-origin");
+  });
+
+  it("go on every page, the home page and the service worker included", () => {
+    for (const path of [
+      "/",
+      "/sign-in",
+      "/leads/0192f2c4-0000-7000-8000-000000000000",
+      "/pricing",
+      "/apiary",
+      "/sw.js",
+    ]) {
+      expect(headersFor(path)["Content-Security-Policy"], path).toContain("default-src 'self'");
+    }
+  });
+
+  it("leave what the app hands on to the api with the api's own headers, as a load balancer does", () => {
+    // Where the app itself rewrites /api, /p and /webhooks (Vercel, docs/serverless.md), its headers would otherwise
+    // replace the api's: a share link's page would lose its no-referrer and its stricter policy.
+    for (const path of ["/p/a-token", "/p", "/api/trpc/me.get", "/api/platform/trpc/whoAmI", "/webhooks/meta"]) {
+      expect(headersFor(path), path).toEqual({});
+    }
   });
 });
