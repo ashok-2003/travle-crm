@@ -1,0 +1,203 @@
+# The product on one server, for the pilot (docs/runbook.md): docker-compose.product.yml made production. The same
+# images and the same routes (docker/server/Caddyfile, docs/deploy-checklist.md), with Postgres's roles given strong
+# passwords, files in Cloudflare R2 and email through Brevo instead of MinIO and Mailpit, and Caddy ending HTTPS at
+# the server's one address. Run it only through scripts/server/compose.sh, which names the project, reads the
+# server's root-only settings (/srv/travel-crm/production.env: every secret, generated on the server, never in git)
+# and says which release's images run (RELEASE, the commit). Only Caddy publishes ports: 80 and 443.
+
+# What the api, the worker and the console share. NODE_ENV is production (the image's), so each refuses to start on
+# an http address, an off rate limit, a weak secret or .env.example's VAPID pair. AUTH_TRUSTED_PROXIES stays empty:
+# Caddy replaces X-Forwarded-For with the one address the request came from (docker/server/Caddyfile).
+x-api-environment: &api-environment
+  DATABASE_URL: postgresql://app_runtime:${RUNTIME_DB_PASSWORD:?}@postgres:5432/travel_crm
+  BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?}
+  BETTER_AUTH_URL: https://${APP_HOST:?}
+  APP_URL: https://${APP_HOST:?}
+  # R2's S3 endpoint, path-style, so the web image's STORAGE_ORIGIN is this one origin.
+  S3_ENDPOINT: ${S3_ENDPOINT:?}
+  S3_REGION: auto
+  S3_BUCKET: ${S3_BUCKET:?}
+  S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?}
+  S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?}
+  S3_FORCE_PATH_STYLE: "true"
+  SMTP_HOST: ${SMTP_HOST:?}
+  SMTP_PORT: ${SMTP_PORT:-587}
+  SMTP_USER: ${SMTP_USER:?}
+  SMTP_PASSWORD: ${SMTP_PASSWORD:?}
+  EMAIL_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS:?}
+  VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:?}
+  VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:?}
+  VAPID_SUBJECT: ${VAPID_SUBJECT:?}
+
+# One build of the api's image, tagged with the release, for the four services that run it. Old releases' images
+# stay on the server, so a rollback starts them again without a build.
+x-api-image: &api-image
+  image: travel-crm-api:${RELEASE:?run it with scripts/server/compose.sh}
+  build:
+    context: .
+    dockerfile: apps/api/Dockerfile
+  read_only: true
+  tmpfs: [/tmp]
+
+x-api-depends-on: &api-depends-on
+  migrate:
+    condition: service_completed_successfully
+
+services:
+  postgres:
+    image: postgres:18.6-alpine3.24@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+    restart: unless-stopped
+    # A quarter of the server's memory for shared buffers, in the huge pages scripts/server/setup.sh reserves (the
+    # deploy warns when Postgres starts without them). It also keeps Oracle from reclaiming the server as idle (memory
+    # under 20% for a week, docs/runbook.md).
+    command:
+      - postgres
+      - -c
+      - shared_buffers=3GB
+      - -c
+      - huge_pages=try
+      - -c
+      - effective_cache_size=6GB
+      - -c
+      - work_mem=16MB
+      - -c
+      - maintenance_work_mem=256MB
+      - -c
+      - max_connections=150
+    shm_size: 256m
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: travel_crm
+      # Read once, when the database is first made, by docker/server/postgres-role-passwords.sh.
+      MIGRATOR_DB_PASSWORD: ${MIGRATOR_DB_PASSWORD:?}
+      RUNTIME_DB_PASSWORD: ${RUNTIME_DB_PASSWORD:?}
+      PLATFORM_DB_PASSWORD: ${PLATFORM_DB_PASSWORD:?}
+    volumes:
+      # Postgres 18 images keep data under /var/lib/postgresql/18/docker, so mount the parent.
+      - postgres-data:/var/lib/postgresql
+      # The three roles and the platform role's grant (packages/db/sql/bootstrap.sql), then their real passwords.
+      - ./packages/db/sql/bootstrap.sql:/docker-entrypoint-initdb.d/10-bootstrap.sql:ro
+      - ./docker/server/postgres-role-passwords.sh:/docker-entrypoint-initdb.d/20-role-passwords.sh:ro
+    healthcheck:
+      # Over TCP: while the image runs the init scripts, Postgres listens on its socket only.
+      test: ["CMD", "pg_isready", "--host", "127.0.0.1", "--username", "postgres", "--dbname", "travel_crm"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # The migrations, once per release, as app_migrator, before anything else starts (spec 12.3).
+  migrate:
+    <<: *api-image
+    command: ["migrate"]
+    environment:
+      DATABASE_MIGRATOR_URL: postgresql://app_migrator:${MIGRATOR_DB_PASSWORD:?}@postgres:5432/travel_crm
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    <<: *api-image
+    command: ["api"]
+    restart: unless-stopped
+    environment: *api-environment
+    depends_on: *api-depends-on
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "--eval",
+          "fetch(process.argv[1]).then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+          "http://127.0.0.1:3001/health",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  # The worker and the console let running jobs finish for up to 30 seconds on SIGTERM (docs/deploy-checklist.md).
+  worker:
+    <<: *api-image
+    command: ["worker"]
+    restart: unless-stopped
+    environment: *api-environment
+    depends_on: *api-depends-on
+    stop_grace_period: 35s
+
+  # The only service with the platform role's URL. No DEMO_* settings: the demo agency never runs beside real ones.
+  console:
+    <<: *api-image
+    command: ["console"]
+    restart: unless-stopped
+    stop_grace_period: 35s
+    environment:
+      <<: *api-environment
+      DATABASE_PLATFORM_URL: postgresql://app_platform:${PLATFORM_DB_PASSWORD:?}@postgres:5432/travel_crm
+    depends_on: *api-depends-on
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "--eval",
+          "fetch(process.argv[1]).then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+          "http://127.0.0.1:3002/health",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  web:
+    image: travel-crm-web:${RELEASE:?run it with scripts/server/compose.sh}
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # Browsers drop a query cache saved by another build.
+        CACHE_VERSION: ${RELEASE:?}
+        # The storage address the browser uploads to and loads logos from, which its Content-Security-Policy allows.
+        STORAGE_ORIGIN: ${S3_ENDPOINT:?}
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "--eval",
+          "fetch(process.argv[1]).then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+          "http://127.0.0.1:3000/sign-in",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  # The product's one address. Caddy gets and renews the certificate for APP_HOST (Let's Encrypt, or ZeroSSL when
+  # that refuses) and keeps it in caddy-data, so a restart never asks again.
+  proxy:
+    image: caddy:2.11.7-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      APP_HOST: ${APP_HOST:?}
+      ACME_EMAIL: ${ACME_EMAIL:?}
+    volumes:
+      - ./docker/server/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      console:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  caddy-data:
+  caddy-config:
