@@ -60,7 +60,7 @@ describe("StaffList", () => {
     expect(within(ravi).getByRole("button", { name: "Actions for रवि कुमार" })).toBeVisible();
   });
 
-  it("shows each role as a badge in its colour, the Owner's plum", () => {
+  it("shows each role as a badge in its colour, the Owner's orchid", () => {
     screenIs("wide");
     renderAs(<StaffList staff={staff} roles={roles} />, owner);
     const asha = screen.getByRole("row", { name: /Asha/ });
@@ -69,7 +69,7 @@ describe("StaffList", () => {
     expect(within(ravi).getByText("Sales")).toHaveClass(...tintOf("sales"));
   });
 
-  it("keeps the Owner's plum where the subscription refuses the roles list, from the viewer's own role", () => {
+  it("keeps the Owner's orchid where the subscription refuses the roles list, from the viewer's own role", () => {
     screenIs("wide");
     renderAs(<StaffList staff={staff} roles={[]} />, owner);
     expect(screen.getByText("Owner")).toHaveClass(...tintOf("org-owner", true));

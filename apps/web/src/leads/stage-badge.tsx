@@ -2,7 +2,7 @@
 
 // A lead's stage as a badge (DESIGN.md "Stage Colours"): each stage in its own subtle colour, so stages are told apart
 // at a glance, always a dot and the stage's word. The open stages have hues of their own (New sky, Contacted teal,
-// Booking requested indigo); Quote sent is status amber (awaiting the customer's reply), Won status green (done), Lost
+// Booking requested lime); Quote sent is status amber (awaiting the customer's reply), Won status green (done), Lost
 // status red and Not a lead status neutral. StageDot is the dot alone, before a stage's words elsewhere.
 import type { LeadStage } from "@travel-crm/contracts/crm";
 import { useTranslations } from "next-intl";

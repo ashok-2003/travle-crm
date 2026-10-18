@@ -26,7 +26,7 @@ describe("RolesScreen", () => {
     expect(await screen.findByText("बिक्री")).toHaveClass("script-leading");
   });
 
-  it("shows each role as a badge in its colour, the Owner's plum", async () => {
+  it("shows each role as a badge in its colour, the Owner's orchid", async () => {
     screenIs("wide");
     const api = fakeApi();
     renderWithApi(<RolesScreen />, newQueryClient());

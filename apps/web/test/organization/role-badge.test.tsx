@@ -1,14 +1,16 @@
-// A staff role as a badge (DESIGN.md "Role Badges"): the Owner role always plum, every other role one of seven tints
-// picked by its key, so a role is the same colour on every screen and every load, and the starter roles all differ.
+// A staff role as a badge (DESIGN.md "Role Badges"): the Owner role always orchid, every other role one of five tints
+// picked by its key, so a role is the same colour on every screen and every load, and the Owner and the starter roles
+// all differ.
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { RoleBadge, roleTint, roleTints } from "@/organization/roles/role-badge";
 import { renderPiece } from "../leads/render";
 
 const ownerTint = "bg-role-owner-fill text-role-owner-ink";
+const tint = (name: string) => `bg-role-${name}-fill text-role-${name}-ink`;
 
 describe("roleTint", () => {
-  it("gives the Owner role plum, whatever its key", () => {
+  it("gives the Owner role orchid, whatever its key", () => {
     expect(roleTint({ key: "org-owner", isOwner: true })).toBe(ownerTint);
     expect(roleTint({ key: "sales", isOwner: true })).toBe(ownerTint);
   });
@@ -19,10 +21,18 @@ describe("roleTint", () => {
     expect(roleTints).toContain(first);
   });
 
-  it("gives the four starter roles four different tints, none of them the Owner's", () => {
-    const starters = ["org-admin", "sales", "operations", "accounts"].map((key) => roleTint({ key, isOwner: false }));
-    expect(new Set(starters).size).toBe(4);
-    expect(starters).not.toContain(ownerTint);
+  it("gives the Owner and the four starter roles five different colours, and keeps them so", () => {
+    // Pinned: a change to the tints' order or count would recolour every agency's roles (DESIGN.md "Role Badges").
+    const starters = Object.fromEntries(
+      ["org-admin", "sales", "operations", "accounts"].map((key) => [key, roleTint({ key, isOwner: false })]),
+    );
+    expect(starters).toEqual({
+      "org-admin": tint("rose"),
+      sales: tint("peach"),
+      operations: tint("mint"),
+      accounts: tint("gold"),
+    });
+    expect(new Set([ownerTint, ...Object.values(starters)]).size).toBe(5);
   });
 
   it("spreads the roles an agency adds over the tints", () => {

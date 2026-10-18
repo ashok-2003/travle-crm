@@ -1,23 +1,25 @@
 // A staff role as a badge (DESIGN.md "Role Badges"), so people are told apart by role at a glance: the role's name in
-// dark ink on its tint, with no dot (a role is a kind of person, not a state). The Owner role is always plum; roles are
-// the agency's own, so every other role takes one of seven tints picked by its stable key: the same role is the same
-// colour on every screen and every load, and the four starter roles each get a different one (a test holds that).
+// dark ink on its tint, with no dot (a role is a kind of person, not a state). The Owner role is always orchid; roles
+// are the agency's own, so every other role takes one of five tints picked by its stable key: the same role is the
+// same colour on every screen and every load, and the Owner and the four starter roles all differ (a test pins them).
 import { cn } from "@/lib/utils";
 
-/** The seven tints, in the order a key picks from. Written out in full so Tailwind finds every class. */
+/**
+ * The five tints, in the order a key picks from. Written out in full so Tailwind finds every class. A role's tint is its
+ * key's hash modulo this list's length, so adding, removing or reordering a tint recolours the agencies' own roles:
+ * change it only on purpose. In this order the starters are Admin rose, Sales peach, Accounts gold, Operations mint.
+ */
 export const roleTints = [
-  "bg-role-pink-fill text-role-pink-ink",
-  "bg-role-iris-fill text-role-iris-ink",
-  "bg-role-olive-fill text-role-olive-ink",
-  "bg-role-cyan-fill text-role-cyan-ink",
-  "bg-role-clay-fill text-role-clay-ink",
-  "bg-role-lime-fill text-role-lime-ink",
-  "bg-role-teal-fill text-role-teal-ink",
+  "bg-role-rose-fill text-role-rose-ink",
+  "bg-role-peach-fill text-role-peach-ink",
+  "bg-role-gold-fill text-role-gold-ink",
+  "bg-role-fern-fill text-role-fern-ink",
+  "bg-role-mint-fill text-role-mint-ink",
 ] as const;
 
 const ownerTint = "bg-role-owner-fill text-role-owner-ink";
 
-/** A role's tint: the Owner's plum, or the one its key's string hash (31 × hash + each character) picks. */
+/** A role's tint: the Owner's orchid, or the one its key's string hash (31 × hash + each character) picks. */
 export function roleTint(role: { key: string; isOwner: boolean }): string {
   if (role.isOwner) return ownerTint;
   let hash = 0;
