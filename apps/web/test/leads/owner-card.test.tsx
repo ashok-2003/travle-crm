@@ -24,6 +24,9 @@ describe("OwnerCard", () => {
     expect(badge).toHaveClass("bg-people-tint", "text-people-tint-ink");
     expect(within(card).getByText("Referral · added by Ravi Kumar")).toBeVisible();
     expect(within(card).getByText("Priya Nair")).toBeVisible();
+    // The owner of a lead isn't the agency's Owner role, and the source is a new word to some: each says what it means.
+    expect(within(card).getByRole("button", { name: `What does ${words.owner} mean?` })).toBeVisible();
+    expect(within(card).getByRole("button", { name: `What does ${words.source} mean?` })).toBeVisible();
     await userEvent.click(within(card).getByRole("button", { name: words.reassign }));
     expect(await screen.findByRole("dialog", { name: messages.leads.lead.reassign.title })).toBeVisible();
   });

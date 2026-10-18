@@ -43,7 +43,11 @@ describe("staff", () => {
       roleKey: "sales",
       temporaryPassword: "temporary-pass-1",
     });
-    expect(ravi).toMatchObject({ email: null, username: "Ravi", role: { key: "sales", name: "Sales" } });
+    expect(ravi).toMatchObject({
+      email: null,
+      username: "Ravi",
+      role: { key: "sales", name: "Sales", isOwner: false },
+    });
     expect(ravi.mustChangePassword).toBe(true);
     expect(await canSignIn(agency.code, "RAVI", "temporary-pass-1")).toBe(true);
   });
@@ -77,6 +81,8 @@ describe("staff", () => {
     });
     const staff = await test.identity.staff.list(ownOwner);
     expect(staff.map((member) => member.name)).toEqual(["Asha Owner", "Ravi Kumar", "Meera"]);
+    // Whose role is the Owner's, from the role itself: screens colour it so even where they can't read the roles.
+    expect(staff.map((member) => member.role.isOwner)).toEqual([true, false, false]);
     expect(staff.some((member) => member.userId === other.ownerUserId)).toBe(false);
     expect(staff.every((member) => !member.email?.endsWith(".invalid"))).toBe(true);
   });
@@ -231,7 +237,7 @@ describe("staff", () => {
       temporaryPassword: "temporary-pass-8",
     });
     const moved = await test.identity.staff.updateRole(owner, { memberId: tara.memberId, roleKey: "accounts" });
-    expect(moved.role).toEqual({ key: "accounts", name: "Accounts" });
+    expect(moved.role).toEqual({ key: "accounts", name: "Accounts", isOwner: false });
     expect((await accessOf(tara.userId)).permissions.has("money:view_margin")).toBe(true);
   });
 

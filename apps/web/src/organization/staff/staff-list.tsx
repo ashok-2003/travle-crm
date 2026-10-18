@@ -1,8 +1,9 @@
 "use client";
 
 // The staff list (DESIGN.md section 6): a table on tablets and wider, a list of items on phones with the name and
-// status on the first line and the details on the second. Names wrap rather than being cut off. The table's
-// two-factor column shows only while features.twoFactor is on.
+// status on the first line and the details on the second. Each role is a badge in its own colour (DESIGN.md "Role
+// Badges"), so people are told apart by role at a glance. Names wrap rather than being cut off. The table's two-factor
+// column shows only while features.twoFactor is on.
 import { features } from "@travel-crm/contracts/features";
 import type { RoleSummary, StaffMember } from "@travel-crm/contracts/identity";
 import { useTranslations } from "next-intl";
@@ -21,6 +22,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatDay } from "@/lib/format";
 import { useMe } from "@/session/me-context";
 import { useWideScreen } from "@/lib/use-wide-screen";
+import { RoleBadge } from "../roles/role-badge";
 import { StaffActions } from "./staff-actions";
 import { signInName } from "./staff-details";
 
@@ -30,6 +32,7 @@ export function StaffList({ staff, roles }: { staff: StaffMember[]; roles: RoleS
   const wide = useWideScreen();
   const joined = (member: StaffMember) => formatDay(new Date(member.joinedAt), { timeZone: me.organization.timeZone });
   const isMe = (member: StaffMember) => member.memberId === me.member.memberId;
+  const role = (member: StaffMember) => <RoleBadge role={member.role} isOwner={member.role.isOwner} />;
   const status = (member: StaffMember) =>
     member.mustChangePassword ? <StatusBadge tone="attention">{t("mustChangePassword")}</StatusBadge> : null;
   const actions = (member: StaffMember) =>
@@ -51,9 +54,10 @@ export function StaffList({ staff, roles }: { staff: StaffMember[]; roles: RoleS
                   <span className="script-leading">{member.name}</span>
                   {status(member)}
                 </ItemTitle>
-                <ItemDescription>
+                <ItemDescription className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  {role(member)}
                   <span className="wrap-anywhere script-leading">
-                    {member.role.name} · {signInName(member)} · {t("joinedOn", { date: joined(member) })}
+                    {signInName(member)} · {t("joinedOn", { date: joined(member) })}
                   </span>
                 </ItemDescription>
               </ItemContent>
@@ -91,7 +95,7 @@ export function StaffList({ staff, roles }: { staff: StaffMember[]; roles: RoleS
               </div>
             </TableCell>
             <TableCell className="whitespace-normal break-all">{signInName(member)}</TableCell>
-            <TableCell className="whitespace-normal script-leading">{member.role.name}</TableCell>
+            <TableCell className="whitespace-normal">{role(member)}</TableCell>
             {features.twoFactor && (
               <TableCell>{member.twoFactorEnabled ? t("twoFactorOn") : t("twoFactorOff")}</TableCell>
             )}

@@ -108,15 +108,18 @@ export function withApp(queryClient: QueryClient) {
 /** Renders a screen or dialog as a signed-in member sees it, with a query cache the test can look into. */
 export function renderWithApi(ui: ReactNode, queryClient: QueryClient, me: SignedInMember = member({ isOwner: true })) {
   // Radix selects and dialogs ask for ResizeObserver, which jsdom lacks; nothing here depends on layout. Stubbed per
-  // render because tests unstub their globals after each test.
-  vi.stubGlobal(
-    "ResizeObserver",
-    class {
-      observe = () => undefined;
-      unobserve = () => undefined;
-      disconnect = () => undefined;
-    },
-  );
+  // render because tests unstub their globals after each test, and only when the test brought none of its own (one
+  // that plays the browser's resizes, as the lead page's sticky timeline needs).
+  if (!("ResizeObserver" in globalThis)) {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe = () => undefined;
+        unobserve = () => undefined;
+        disconnect = () => undefined;
+      },
+    );
+  }
   const Providers = withApp(queryClient);
   // As a wrapper, so a rerender keeps the providers.
   return render(ui, {

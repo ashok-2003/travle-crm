@@ -1,5 +1,5 @@
 // Adding a lead by hand (spec 3.2, 3.3): an Owner, from an empty Leads, adds a lead with only a name and a phone,
-// lands on it, and finds it in Leads again, by name or by part of the phone, typed with spaces; the search is found
+// lands on it (its timeline beside its cards on a computer, under them on a phone), and finds it in Leads again, by name or by part of the phone, typed with spaces; the search is found
 // again on the way back from the lead, and no URL the browser asks for, nor any Referer, ever carries it (W1); the
 // lists' Tabs, chips and table pass axe, and a phone's chip row scrolls sideways without the page itself doing so.
 import type { Page } from "@playwright/test";
@@ -42,6 +42,17 @@ test("an Owner adds a lead with a name and a phone, and finds it in Leads", asyn
   const timeline = page.getByRole("list", { name: "Timeline" });
   await expect(timeline.getByText("Lead added from a phone call")).toBeVisible();
   await expectAccessible(page);
+  // A computer (1280px here) has room beside the lead's cards: the timeline sits there, level with the first card. A
+  // phone reads it under them.
+  const firstCard = await page.getByRole("region", { name: "Next follow-up" }).boundingBox();
+  const history = await page.getByRole("region", { name: "Timeline" }).boundingBox();
+  if (firstCard === null || history === null) throw new Error("The lead's cards aren't on the page.");
+  if (testInfo.project.name === "phone") {
+    expect(history.y).toBeGreaterThan(firstCard.y + firstCard.height);
+  } else {
+    expect(history.x).toBeGreaterThanOrEqual(firstCard.x + firstCard.width);
+    expect(Math.abs(history.y - firstCard.y)).toBeLessThan(1);
+  }
 
   await page.getByRole("main").getByRole("link", { name: "Leads", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Leads" })).toBeVisible();

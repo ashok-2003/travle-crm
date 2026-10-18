@@ -22,6 +22,15 @@ colors:
   status-amber: { dot: "#c2680a", bg: "#fff3d6", ink: "#7a4100" }
   status-green: { dot: "#168f43", bg: "#e3f4e7", ink: "#14532d" }
   status-neutral: { dot: "#6b6b6b", bg: "#ecebe6", ink: "#4a4a4a" }
+  stage-new: { dot: "#0c8bbb", bg: "#d3eefd", ink: "#04516f" }
+  stage-contacted: { dot: "#0b959b", bg: "#d5fcfe", ink: "#045b5f" }
+  stage-booking-requested: { dot: "#719427", bg: "#edf9dc", ink: "#415a03" }
+  role-owner: { bg: "#f9dfff", ink: "#693375" }
+  role-rose: { bg: "#fee0eb", ink: "#802e53" }
+  role-peach: { bg: "#fee3d4", ink: "#6f3f20" }
+  role-gold: { bg: "#f7f7cc", ink: "#595501" }
+  role-fern: { bg: "#d6f8d8", ink: "#36563a" }
+  role-mint: { bg: "#d3fff2", ink: "#035e4d" }
 typography:
   page-title: { family: "EB Garamond", size: 30px, weight: 500, lineHeight: 36px, tracking: "-0.01em" }
   section-title: { family: "Figtree", size: 16px, weight: 600, lineHeight: 24px, tracking: "0" }
@@ -77,6 +86,8 @@ Strategy: **Full palette with strict roles.** Neutral ink on warm canvas, plus t
 | **People (violet)** | `#6a4bbd`, pressed `#5b3fa6`, tint `#efe7fd`, tint ink `#4c2f97` | WhatsApp inbox, unread messages and counts, follow-ups and reminders, assignment and assignee avatars, later AI helpers |
 | **Money (forest)**  | `#034f46`, pressed `#07352f`, tint `#e3f1ee`                     | Amounts received, profit and margin, invoices, the Accounts area                                                        |
 | **Status**          | red / amber / green / neutral                                    | State of a record only: confirmed, payment due, overdue, lost                                                           |
+| **Stage**           | sky, teal, lime, plus status amber, green, red, neutral          | A lead's stage, wherever it shows (see Stage Colours)                                                                   |
+| **Role badge**      | orchid for Owner, five tints for the other roles                 | A staff role on Staff and Roles (see Role Badges)                                                                       |
 
 Named rules:
 
@@ -86,13 +97,16 @@ Named rules:
 - **Forest Is Not Green.** Status green is a bright, light-bodied green (`#168f43` dot, `#e3f4e7` bg); forest is a deep blue-green used for money text and Accounts chrome. Never use forest for a status badge or green for a money total.
 - **Tint Surfaces Carry Dark Ink.** Text on a role tint uses the role's dark ink (`#4c2f97`, `#034f46`, `#1d4ed8`), never muted grey.
 - Money direction is shown by sign and label ("Received", "Due"), not by red/green on the amount itself. Overdue is a status badge next to the amount.
+- **Green Is Done.** Something finished (a Won lead, a follow-up marked Done, a step completed) is status green, as a subtle tint or a dot beside its words. Nothing that isn't a state turns green.
+- **Stage Colours.** A lead's stage is its status, so it is a badge of the status shape (tint, dark ink, dot plus word) wherever it shows: the Leads list, the stage chips and the Filters' stage list (the dot), the stage bar (its fill), the lead page and its timeline. Each stage has one subtle colour, fixed by meaning: New sky, Contacted teal, Quote sent status amber (awaiting the customer's reply), Booking requested lime (on its way to Won's green), Won status green, Lost status red, Not a lead status neutral. The open stages' hues are tints, never fills; none passes for the action blue (a stage is never a button), the people violet, money's forest, a status or another stage: every stage colour keeps a ΔE76 of at least 8 from each of them (`packages/brand/test/palette-distance.test.ts`). Colour never stands alone: the word is always there.
+- **Role Badges.** A staff role shows as a badge in its own tint (dark ink on the tint, 4px radius, no dot: a role is a kind of person, not a state). The Owner role is always orchid; every other role takes one of five tints (rose, peach, gold, fern, mint) picked by a hash of its stable key, so the same role is the same colour on every screen and every load, and the Owner and the four starter roles (Admin, Sales, Operations, Accounts) all differ. The pick depends on the tints' order and count: adding, removing or reordering a tint recolours the agencies' own roles, so change the list only on purpose. Role tints keep a ΔE76 of at least 8 from the action, people, money, status and stage colours, so a role never looks like a state, and they appear only where roles do (Staff, Roles).
 
 Status vocabulary (extend, do not reinvent):
 
-- Green: Confirmed, Paid, Completed
-- Amber: Payment due, Pending, On hold, Awaiting reply
+- Green: Confirmed, Paid, Completed, Done, Won
+- Amber: Payment due, Pending, On hold, Awaiting reply, Quote sent
 - Red: Overdue, Lost, Cancelled, Failed
-- Neutral: Draft, New, Archived
+- Neutral: Draft, Archived, Not a lead
 
 ## 3. Typography
 
@@ -141,13 +155,17 @@ Build on shadcn/ui; restyle with the tokens. Define colours as CSS variables on 
 
 **Inputs.** 44px high (16px text), 6px radius, 1px border `#8a8a82` (3.4:1 as a UI boundary), canvas fill, visible label above (never placeholder-only). Placeholder is ink muted. Focus: 2px blue ring with 2px offset. Error: red border plus message below with an icon, `aria-describedby` linked. Phone fields use `+91` prefix and mono digits. Money fields show `₹` prefix, mono, right-aligned, Indian grouping on blur.
 
-**Badges and chips.** Status badge: 4px radius, tinted bg, dark ink, a 6px dot in the status colour, then the word (12-13px, weight 500). Example: green dot + "Confirmed" on `#e3f4e7` with `#14532d` text. Role badges (violet "Unread 3", forest "Invoice") follow the same shape using role tint + tint ink. Filter chips are pills: unselected hairline border; selected blue tint `#eef2ff` with blue ink and a check icon.
+**Badges and chips.** Status badge: 4px radius, tinted bg, dark ink, a 6px dot in the status colour, then the word (12-13px, weight 500). Example: green dot + "Confirmed" on `#e3f4e7` with `#14532d` text. A lead's stage badge is this shape in the stage's colour. Badges in the people or money colour (violet "Unread 3", forest "Invoice") follow the same shape using that colour's tint + tint ink; a staff role's badge (Role Badges) is its tint and ink with no dot. Filter chips are pills: unselected hairline border; selected blue tint `#eef2ff` with blue ink and a check icon. A stage chip carries its stage's dot before the word while unselected; selected, the check takes the dot's place.
+
+**Stage bar.** A lead's stages as one progress bar with their words under it. The bar spans the full width, 6px high with rounded ends, on a hairline track, and fills from its start to the end of the current stage's fifth (New one fifth, Quote sent three, Won all of it) in that stage's colour (its dot; Won's is status green). When the stage changes the fill slides there (200ms ease-out, behind `motion-safe`). The bar is decoration, hidden from screen readers: the section's name and the current step (`aria-current="step"`) say the stage. Under it, one 44px button per stage covers its fifth of the bar and its word together, so a tap on the bar moves the lead there, and hover (the action tint, as a ghost button's) and the focus outline sit on the whole stage; the bar lies over the hover tint and under a focused step's outline. Words in ink, never link blue: a passed stage's word has a check wider than a phone (on a phone a fifth of the row has no room for it, and the fill says passed), the current stage's is semibold, later stages' are muted. A closed lead (Lost, Not a lead) shows its stage badge and Reopen instead.
 
 **Cards.** Canvas fill, 1px hairline, 10px radius, no shadow, 16px padding. Use cards only for self-contained objects (a lead on mobile, a departure, a supplier). Lists of homogeneous rows are tables or divided lists, not card grids.
 
 **Tables.** Dense desktop default: 44px rows (40px dense option), shadcn's default header with no fill of its own (owner-confirmed: no extra styling on shadcn), hairline row dividers, no zebra. Numeric columns are right-aligned, mono, tabular. Sortable headers show a direction icon. Row hover is the surface tone; selected row is blue tint. Sticky header and sticky first column on horizontal scroll. Footer totals use mono at weight 500 in forest if money. Below 768px, tables become divided lists (name and status on line one, key numbers on line two) or cards.
 
 **Navigation.** Desktop: 232px left sidebar on surface tone, grouped items (Leads, Inbox, Quotes, Departures, Bookings, Suppliers, Accounts). Active item: blue tint bg, blue ink, no side stripe. The Inbox item carries a violet count; the Accounts item uses forest only on its icon when active. Mobile: bottom nav with 4-5 destinations (Leads, Inbox, Departures, Accounts, More), 56px high, 44px+ targets, labels always visible, active item blue. "More" opens a drawer for the rest plus organization switcher.
+
+**Info hints.** "What does this mean?" beside a term a first-time user may not know (Returning, Not a lead, Owner, Source, a blocked contact): `InfoHint`, a small ⓘ ghost button, 20px to see with a 44px hit area, named "What does <term> mean?". With a mouse it is the registry Tooltip, on hover and on keyboard focus (a click keeps it open); on a touch screen, which can't hover, a tap opens the registry Popover. The words are a sentence or two of plain Indian English, announced with the button; Escape closes them. Hints are for the terms that truly need one: fewer than ten in the whole product, never one on every label.
 
 **KPI / stat.** A label, a mono value, and an **info hint** (an "i" button, 44px hit area, opens a tooltip or popover explaining how the figure is computed and its period). Every KPI has one, no exceptions. Value uses `number-lg`; money KPIs in forest. Optional delta line in muted ink with sign. No hero-metric template: no oversized number with gradient or accent decoration; KPIs sit in a hairline-divided strip, not a row of identical boxes.
 
@@ -159,7 +177,7 @@ Build on shadcn/ui; restyle with the tokens. Define colours as CSS variables on 
 
 **Money display.** Always `₹` plus Indian grouping, mono, tabular, right-aligned in columns: `₹12,50,000`. Paise only when non-zero or on invoices (`₹1,250.50`). Negative as `-₹4,500` (minus sign, not parentheses). Large KPIs may use `₹12.5 L` / `₹1.2 Cr` with the full value in the info hint or tooltip. Money text is forest only for received/profit/margin/Accounts; amounts due use ink, with a status badge for state.
 
-**Status display.** Badge as above, always dot plus word. In dense lists, the dot plus word may sit inline without background. Do not use colour-only icons, row tints or progress bars to signal status. A record has one primary status badge; secondary facts are plain text.
+**Status display.** Badge as above, always dot plus word. In dense lists, the dot plus word may sit inline without background. Do not use colour-only icons, row tints or progress bars to signal status (the stage bar's fill sits over the stages' words, never in place of them). A record has one primary status badge; secondary facts are plain text.
 
 **Mobile patterns.**
 
@@ -217,6 +235,10 @@ Target WCAG 2.2 AA. Contrast checked with the WCAG relative-luminance formula (c
 | Input border `#8a8a82` on canvas                                                      | 3.42:1 | UI boundary (needs 3:1)                                 |
 | Status dots on canvas: red `#d92d20` 4.76, amber `#c2680a` 3.92, green `#168f43` 4.10 | n/a    | Non-text, meets 3:1                                     |
 | Status dots on their badge fill: red 4.22, amber 3.61, green 3.64, neutral 4.46       | n/a    | Non-text, meets 3:1; the word still carries the meaning |
+| Stage inks on their tints: New 7.22, Contacted 7.19, Booking requested 7.14           | ≥ 7:1  | Stage badges                                            |
+| Stage dots on canvas: New 3.81, Contacted 3.57, Booking requested 3.46                | n/a    | Non-text (dots, the stage bar's fill), meets 3:1        |
+| Stage dots on their tints: New 3.21, Contacted 3.32, Booking requested 3.21           | n/a    | Non-text, meets 3:1; the word still carries the meaning |
+| Role inks on their tints: Owner 7.30, the five tints 7.02 to 7.17                     | ≥ 7:1  | Role badges                                             |
 
 Hairline `#e6e3dc` (1.26:1) is decorative only; never the sole indicator of an input, button or selected state.
 
@@ -225,7 +247,7 @@ Requirements:
 - Visible focus on every interactive element (2px blue ring, 2px offset); never remove outlines.
 - Full keyboard operation; logical tab order; skip-to-content link; dialogs trap and restore focus.
 - Semantic landmarks (`nav`, `main`), one `h1` per screen, tables with proper `th` scope.
-- Icon-only buttons have accessible names; the KPI info hint is a real `button` with `aria-label="How is this calculated?"`.
+- Icon-only buttons have accessible names; an info hint is a real `button` named by its question, "What does <term> mean?" (a KPI's: "How is this calculated?"), its words announced with it (its tooltip as the button's description, or a popover named by the term), and Escape closes them.
 - Live regions for toasts and new inbox messages (polite); errors announced.
 - Respect `prefers-reduced-motion`; support 200% zoom and text scaling without clipped content; set `lang` per record where known (`lang="hi"` etc.) so screen readers and font fallbacks pick the right script.
 - Never convey meaning by colour alone (status, unread, direction of money).

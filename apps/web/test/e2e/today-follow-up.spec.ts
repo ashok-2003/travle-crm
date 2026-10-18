@@ -35,7 +35,7 @@ test("a follow-up added on a lead shows in Today and, done there, on the lead's 
   await expect(dueToday.getByRole("link", { name: "Rahul Sharma", exact: true })).toBeVisible();
   await expect(dueToday.getByText("Send the Kashmir options · Kashmir")).toBeVisible();
   // The new lead waits for a reply too.
-  await expect(page.getByRole("region", { name: "New leads waiting for a reply" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "New leads not contacted yet" })).toBeVisible();
   await animationsSettled(page);
   await expectAccessible(page);
 
@@ -44,7 +44,7 @@ test("a follow-up added on a lead shows in Today and, done there, on the lead's 
   await expect(page.getByRole("region", { name: "Due today" })).toBeHidden();
 
   await page
-    .getByRole("region", { name: "New leads waiting for a reply" })
+    .getByRole("region", { name: "New leads not contacted yet" })
     .getByRole("link", { name: "Rahul Sharma", exact: true })
     .click();
   await expect(page.getByRole("heading", { level: 1, name: "Rahul Sharma" })).toBeVisible();
@@ -122,7 +122,7 @@ test("a new lead is marked contacted; one thing is snoozed for an hour, another 
   await addFollowUpThroughApi(page, priya, { title: "Send the itinerary", ...(await laterToday(page, 45)) });
 
   await page.goto("/today");
-  const newLeads = page.getByRole("region", { name: "New leads waiting for a reply" });
+  const newLeads = page.getByRole("region", { name: "New leads not contacted yet" });
   await newLeads.getByRole("button", { name: "Mark Arjun Mehta contacted" }).click();
   // As the lead's own stage bar says it: Mark contacted is that same move.
   await expect(page.getByText("Moved to Contacted")).toBeVisible();

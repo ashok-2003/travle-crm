@@ -41,7 +41,7 @@ export function staffNamed(name: string): StaffMember {
     name,
     email: null,
     username: name.toLowerCase(),
-    role: { key: "sales", name: "Sales" },
+    role: { key: "sales", name: "Sales", isOwner: false },
     twoFactorEnabled: false,
     mustChangePassword: false,
     joinedAt: "2026-01-02T05:00:00.000Z",

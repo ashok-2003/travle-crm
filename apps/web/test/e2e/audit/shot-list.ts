@@ -134,6 +134,34 @@ export const SHOTS = [
   { name: "settings-destination-merge", screen: "Settings, destinations, the Merge dialog, one chosen", as: owner },
   { name: "settings-blocked-contacts", screen: "Settings, blocked contacts", as: owner },
   { name: "settings-unblock", screen: "Settings, blocked contacts, the Unblock confirmation", as: owner },
+  { name: "lead-hint", screen: "A returning customer's lead, Returning's info hint open", as: owner },
+  { name: "lead-new-blocked", screen: "New lead, a blocked number, with its info hint", as: owner },
+  { name: "lead-1280", screen: "A lead at 1280px, the narrowest with two columns", as: owner, only: "desktop" },
+  // Owner feedback round 1, colours: every stage's colour (08-stages.audit.ts).
+  { name: "stages-leads", screen: "Leads, Everyone: each open stage's badge, the chips' dots", as: owner },
+  { name: "stages-filter-list", screen: "Leads, Filters' stage list open: every stage's dot", as: owner },
+  { name: "lead-stage-new", screen: "A new lead's stage bar, its first fifth filled (the element)", as: owner },
+  {
+    name: "lead-stage-midway",
+    screen: "A lead at Quote sent: its bar filled three fifths, the timeline's dots",
+    as: owner,
+  },
+  { name: "lead-stage-focus", screen: "A lead's stage bar, a step focused from the keyboard (the element)", as: owner },
+  { name: "lead-stage-360", screen: "A lead's stage bar on a 360px phone (the element)", as: owner, only: "phone" },
+  {
+    name: "lead-stage-1280",
+    screen: "A lead at Quote sent at 1280px, its stage bar beside the sidebar",
+    as: owner,
+    only: "desktop",
+  },
+  {
+    name: "lead-stage-hover",
+    screen: "A lead's stage bar, a step under the pointer (the element)",
+    as: owner,
+    only: "desktop",
+  },
+  { name: "lead-won", screen: "A won lead: its stage bar full, in green", as: owner },
+  { name: "lead-not-a-lead", screen: "A Not a lead lead, its info hint open", as: owner },
 ] as const satisfies readonly Shot[];
 
 export type ShotName = (typeof SHOTS)[number]["name"];

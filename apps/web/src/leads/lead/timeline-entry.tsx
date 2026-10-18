@@ -3,13 +3,17 @@
 // One entry of a lead's timeline (spec 3.4, R36) as a sentence: the lead's creation and where it came from, a note
 // (its words under it), a stage change, a reassignment, a follow-up or task added (what and when it is due), done or
 // cancelled, a repeat enquiry (its trip, source and note) and a trip edit; then who did it and when, in the agency's
-// zone. Nobody is "The system"; a name the page didn't carry is a former member's.
+// zone. Nobody is "The system"; a name the page didn't carry is a former member's. A stage change carries its stage's
+// dot and a finished follow-up or task status green's (DESIGN.md "Stage Colours", "Green Is Done"); nothing else is
+// coloured.
 import type { PeopleNames, TimelineEntry } from "@travel-crm/contracts/crm";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
+import { StatusDot } from "@/components/status-badge";
 import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { formatDayTime } from "@/lib/format";
 import { useMe } from "@/session/me-context";
+import { StageDot } from "../stage-badge";
 import { useTripLine } from "../trip-line";
 
 const taskWords = {
@@ -34,14 +38,20 @@ export function TimelineEntryItem({ entry, people }: { entry: TimelineEntry; peo
         </p>
       ));
 
-  const describe = (): { title: string; detail?: ReactNode } => {
+  // A dot that hangs in the margin before a title's first word, so every title starts at the same place.
+  const inline = "-ms-3 me-1.5 inline-block align-middle";
+
+  const describe = (): { title: string; detail?: ReactNode; mark?: ReactNode } => {
     switch (entry.kind) {
       case "created":
         return { title: t(`lead.timeline.createdFrom.${entry.source}`) };
       case "note":
         return { title: t("lead.timeline.note"), detail: lines(entry.body) };
       case "stage-changed":
-        return { title: t("lead.timeline.moved", { stage: t(`stages.${entry.stage}`) }) };
+        return {
+          title: t("lead.timeline.moved", { stage: t(`stages.${entry.stage}`) }),
+          mark: <StageDot stage={entry.stage} className={inline} />,
+        };
       case "reassigned":
         return {
           title:
@@ -58,6 +68,7 @@ export function TimelineEntryItem({ entry, people }: { entry: TimelineEntry; peo
         return {
           title: t(`lead.timeline.${taskWords[entry.kind][task.kind]}`),
           detail: lines(task.title === "" && due !== null ? t("lead.timeline.due", { due }) : what),
+          ...(entry.kind === "follow-up-done" && { mark: <StatusDot tone="good" className={inline} /> }),
         };
       }
       case "repeat-enquiry": {
@@ -84,13 +95,16 @@ export function TimelineEntryItem({ entry, people }: { entry: TimelineEntry; peo
     }
   };
 
-  const { title, detail } = describe();
+  const { title, detail, mark } = describe();
   const actor = entry.actorUserId === null ? t("lead.timeline.system") : nameOf(entry.actorUserId);
   return (
     <Item size="sm" role="listitem" className="px-0">
       <ItemContent>
         <ItemTitle>
-          <h3>{title}</h3>
+          <h3>
+            {mark}
+            {title}
+          </h3>
         </ItemTitle>
         <ItemDescription className="script-leading">
           {t("lead.timeline.meta", { actor, when: at(entry.occurredAt) })}

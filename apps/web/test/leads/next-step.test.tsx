@@ -37,7 +37,7 @@ afterEach(() => {
 const dotOf = (line: HTMLElement) => line.querySelector("[aria-hidden=true].rounded-full");
 
 describe("NextStep", () => {
-  it("reads 'Follow-up overdue · yesterday, 5:00 pm' in the bad ink, '12 min ago · no reply yet' in the attention ink, 'Follow up today, 4:00 pm' in the people ink", () => {
+  it("reads 'Follow-up overdue · yesterday, 5:00 pm' in the bad ink, '12 min ago · not contacted yet' in the attention ink, 'Follow up today, 4:00 pm' in the people ink", () => {
     const overdue = shows({
       awaitingReplySince: "2026-10-16T05:18:00Z",
       task: task("follow-up", "2026-10-15T11:30:00Z"),
@@ -49,7 +49,7 @@ describe("NextStep", () => {
       awaitingReplySince: "2026-10-16T05:18:00Z",
       task: task("follow-up", "2026-10-16T10:30:00Z"),
     });
-    expect(waiting).toHaveTextContent("12 min ago · no reply yet");
+    expect(waiting).toHaveTextContent("12 min ago · not contacted yet");
     expect(waiting).toHaveClass("text-status-attention-ink");
 
     const today = shows({ awaitingReplySince: null, task: task("follow-up", "2026-10-16T10:30:00Z") });
@@ -81,7 +81,7 @@ describe("NextStep", () => {
     );
     expect(screen.getByText("Task overdue · 14 Oct, 11:00 am")).toHaveClass("text-status-bad-ink");
     expect(shows({ awaitingReplySince: "2026-10-15T20:00:00Z", task: null })).toHaveTextContent(
-      "9 hr ago · no reply yet",
+      "9 hr ago · not contacted yet",
     );
   });
 });

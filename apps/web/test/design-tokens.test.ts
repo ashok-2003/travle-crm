@@ -55,6 +55,25 @@ const brandValueOf: Record<string, string> = {
       [`${name}.ink`, status.ink],
     ]),
   ),
+  ...Object.fromEntries(
+    (
+      [
+        ["stage-new", colours.stage.new],
+        ["stage-contacted", colours.stage.contacted],
+        ["stage-booking-requested", colours.stage.bookingRequested],
+      ] as const
+    ).flatMap(([name, stage]) => [
+      [`${name}.dot`, stage.dot],
+      [`${name}.bg`, stage.fill],
+      [`${name}.ink`, stage.ink],
+    ]),
+  ),
+  ...Object.fromEntries(
+    Object.entries(colours.role).flatMap(([name, role]) => [
+      [`role-${name}.bg`, role.fill],
+      [`role-${name}.ink`, role.ink],
+    ]),
+  ),
 };
 
 describe("DESIGN.md and the brand package", () => {

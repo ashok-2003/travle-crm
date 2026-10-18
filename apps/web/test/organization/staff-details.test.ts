@@ -9,7 +9,7 @@ const ravi: StaffMember = {
   name: "Ravi Kumar",
   email: null,
   username: "ravi",
-  role: { key: "sales", name: "Sales" },
+  role: { key: "sales", name: "Sales", isOwner: false },
   twoFactorEnabled: false,
   mustChangePassword: true,
   joinedAt: "2026-10-15T06:00:00.000Z",
@@ -42,8 +42,8 @@ describe("handoverSignInName", () => {
 describe("withRole", () => {
   it("changes one person's role and leaves the rest as they were", () => {
     const meera = { ...ravi, memberId: "0199a000-0000-7000-8000-00000000000c", name: "Meera" };
-    const changed = withRole([ravi, meera], ravi.memberId, { key: "operations", name: "Operations" });
-    expect(changed[0]?.role).toEqual({ key: "operations", name: "Operations" });
+    const changed = withRole([ravi, meera], ravi.memberId, { key: "operations", name: "Operations", isOwner: false });
+    expect(changed[0]?.role).toEqual({ key: "operations", name: "Operations", isOwner: false });
     expect(changed[1]).toBe(meera);
     expect(ravi.role.key).toBe("sales");
   });

@@ -245,10 +245,15 @@ describe("NewLeadScreen", { timeout: 15_000 }, () => {
     expect(screen.queryByRole("group", { name: form.known.choice })).not.toBeInTheDocument();
   });
 
-  it("warns that a number is blocked and still saves", async () => {
+  it("warns that a number is blocked, says what blocked means, and still saves", async () => {
     renderForm({ "leads.knownContact": { data: { ...noMatch, blocked: true } } });
     await fillPerson();
     expect(await screen.findByText(form.known.blocked)).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: `What does ${messages.leads.hints.blockedTerm} mean?` }));
+    expect(await screen.findByRole("dialog", { name: messages.leads.hints.blockedTerm })).toHaveAccessibleDescription(
+      messages.leads.hints.blocked,
+    );
+    await userEvent.keyboard("{Escape}");
     await save();
     await waitFor(() => {
       expect(address.href).toBe(`/leads/${ids.rahul}`);

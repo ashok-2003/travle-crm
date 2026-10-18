@@ -112,6 +112,20 @@ describe("Timeline", () => {
     expect(screen.getByLabelText(words.addNote)).toHaveValue("");
   });
 
+  it("marks a stage change with its stage's dot and a finished follow-up with status green, and nothing else", async () => {
+    stubApi({ "leads.timeline": aTimeline(entries(), entryId(8)) });
+    renderScreen(<Timeline lead={aLead()} />);
+    await sentences();
+    const dots = within(screen.getByRole("list", { name: words.title }))
+      .getAllByRole("heading")
+      .map((heading) => heading.querySelector("span[aria-hidden=true]")?.className ?? null);
+    const [, , moved, , done, ...rest] = dots;
+    expect(moved).toContain("bg-stage-contacted-dot");
+    expect(done).toContain("bg-status-good-dot");
+    expect(dots.filter((dot) => dot !== null)).toHaveLength(2);
+    expect(rest.every((dot) => dot === null)).toBe(true);
+  });
+
   it("asks for the note's words before sending, and offers no note to someone who can't edit leads", async () => {
     stubApi({ "leads.timeline": aTimeline(entries()) });
     const { unmount } = renderScreen(<Timeline lead={aLead()} />);

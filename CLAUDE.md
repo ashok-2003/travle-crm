@@ -253,7 +253,10 @@ A screen builds from the shared pieces in `apps/web/src/` before writing its own
 - **Screens:** `PageHeader` (`components/page-header.tsx`) opens every screen; `EmptyState` and `ErrorState`;
   `LoadFailedAlert`, with Try again, for a part that didn't load while the rest works on (a list of people to choose
   from, the Leads chips' counts); `RefusalAlert` for every failed request's alert; `LoadingRows` for every loading
-  list; `Details` for labelled values; `TextLink` and `BackLink` (`components/text-link.tsx`) for every link in text,
+  list; `Details` for labelled values (a row's `info` gives its label an `InfoHint`); `InfoHint` (`term`, and the
+  meaning as children, a sentence or two in the feature's messages) beside a term a first-time user may not know: a
+  ⓘ with a 44px hit area, a tooltip with a mouse and a popover on a touch screen, named "What does <term> mean?";
+  `TextLink` and `BackLink` (`components/text-link.tsx`) for every link in text,
   with `TextLink`'s `inline` form for a link inside a sentence, a log row or a desktop table cell; `CopyButton`;
   `WriteHint`
   (`subscription/write-hint.tsx`) under a button the subscription refuses, which names it as its description;
