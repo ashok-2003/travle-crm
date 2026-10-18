@@ -1,12 +1,14 @@
 // The visual audit's lead screens (release 1): Leads empty, then an agency's week of leads as the mockup draws them
 // (trips, budgets, a returning customer, follow-ups, two of them Ravi's), Everyone filtered by a stage, the Filters
 // dialog, the new-lead form filled in and with a known contact, a lead with its menu, Reassign and Block, follow-up
-// dialog and trip editor, a lost lead with Reopen, and a salesperson's own list. Every lead is made through the api (R54).
+// dialog and trip editor, a returning customer's lead with Returning's info hint open, a lost lead with Reopen, the
+// form warning of a blocked number, and a salesperson's own list. Every lead is made through the api (R54).
 import type { Page } from "@playwright/test";
 import { expect, signInByCode, signInByEmail, test } from "../support/fixtures";
 import {
   addFollowUpThroughApi,
   addLeadThroughApi,
+  callApi,
   dayInIndia,
   leadInput,
   leadWorkerAgency,
@@ -25,8 +27,8 @@ const monthName = (month: string) =>
     new Date(`${month}-01T00:00:00Z`),
   );
 
-/** The leads of the mockup's list, the Owner's and Ravi's; gives Rahul Sharma's lead and the lost one. */
-async function aWeekOfLeads(page: Page, raviId: string): Promise<{ rahul: string; lost: string }> {
+/** The mockup's leads, the Owner's and Ravi's; gives Rahul Sharma's lead, Amit's returning one and the lost one. */
+async function aWeekOfLeads(page: Page, raviId: string): Promise<{ rahul: string; returning: string; lost: string }> {
   const rahul = await addLeadThroughApi(
     page,
     leadInput({
@@ -121,7 +123,7 @@ async function aWeekOfLeads(page: Page, raviId: string): Promise<{ rahul: string
   );
   await moveStageThroughApi(page, lost, "contacted");
   await moveStageThroughApi(page, lost, "lost");
-  return { rahul, lost };
+  return { rahul, returning: again, lost };
 }
 
 test("an Owner's leads, a lead and its dialogs, and a salesperson's own list", async ({ page, agency, addStaff }) => {
@@ -131,7 +133,7 @@ test("an Owner's leads, a lead and its dialogs, and a salesperson's own list", a
   await shoot(page, "leads-empty");
 
   const { ravi } = await leadWorkerAgency(page, { agency, addStaff });
-  const { rahul, lost } = await aWeekOfLeads(page, ravi.userId);
+  const { rahul, returning, lost } = await aWeekOfLeads(page, ravi.userId);
   await page.goto("/leads");
   await expect(page.getByRole("main").getByText("Sneha Iyer").first()).toBeVisible();
   await shoot(page, "leads");
@@ -192,9 +194,25 @@ test("an Owner's leads, a lead and its dialogs, and a salesperson's own list", a
   await expect(page.getByRole("dialog", { name: "Edit the trip" })).toBeVisible();
   await shoot(page, "lead-edit-trip");
 
+  await page.goto(`/leads/${returning}`);
+  const hint = page.getByRole("button", { name: "What does Returning mean?" });
+  // A tap on a phone; on a computer the keyboard's focus, which (unlike a hover) the camera's pointer can't close.
+  const phone = test.info().project.name === "phone";
+  await (phone ? hint.tap() : hint.focus());
+  await expect(page.getByRole(phone ? "dialog" : "tooltip")).toBeVisible();
+  await shoot(page, "lead-hint");
+
   await page.goto(`/leads/${lost}`);
   await expect(page.getByRole("button", { name: "Reopen" })).toBeVisible();
   await shoot(page, "lead-lost");
+
+  // Kiran's number, blocked from that lead, comes back with a new enquiry: the form warns, and says what blocked means.
+  await callApi(page, "leads.block", { leadId: lost });
+  await page.goto("/leads/new");
+  await page.getByLabel("Name", { exact: true }).fill("Kiran Joshi");
+  await page.getByLabel("Phone", { exact: true }).fill("90040 66321");
+  await expect(page.getByRole("button", { name: "What does blocked mean?" })).toBeVisible();
+  await shoot(page, "lead-new-blocked");
 
   // Ravi on the same device: the Owner signs out first.
   await page.context().clearCookies();

@@ -1,6 +1,7 @@
 // A repeat enquiry (spec 3.2, R24): the same number typed again is named before saving, with its open lead's
 // destination and owner. Added to that lead, the enquiry and its note land on its timeline; as a new trip enquiry it
-// makes a second lead for the same person, marked Returning. A number with no open lead just makes its lead.
+// makes a second lead for the same person, marked Returning, whose info hint says what that means: a popover tapped
+// open on a phone, a tooltip on hover with a mouse. A number with no open lead just makes its lead.
 import { expectAccessible } from "./support/accessibility";
 import { expect, signInByEmail, test } from "./support/fixtures";
 import { addLeadThroughApi, callApi, leadInput } from "./support/leads";
@@ -9,7 +10,7 @@ import { animationsSettled } from "./support/settled";
 test("a repeat enquiry goes on the open lead's timeline, or makes a new trip enquiry marked returning", async ({
   page,
   agency,
-}) => {
+}, testInfo) => {
   await signInByEmail(page, agency.owner);
   const kashmir = await addLeadThroughApi(page, leadInput({ trip: { destination: { kind: "new", name: "Kashmir" } } }));
 
@@ -44,6 +45,22 @@ test("a repeat enquiry goes on the open lead's timeline, or makes a new trip enq
   expect(new URL(page.url()).pathname).not.toBe(`/leads/${kashmir}`);
   await expect(page.getByRole("heading", { level: 1, name: "Rahul Sharma" })).toBeVisible();
   await expect(page.getByRole("main").getByText("Returning").first()).toBeVisible();
+  const returning = page.getByRole("button", { name: "What does Returning mean?" });
+  const meaning =
+    "This person has enquired with your agency before, so they are a repeat customer. This lead is their new enquiry.";
+  if (testInfo.project.name === "phone") {
+    await returning.tap();
+    await expect(page.getByRole("dialog", { name: "Returning" })).toHaveAccessibleDescription(meaning);
+  } else {
+    await returning.hover();
+    await expect(page.getByRole("tooltip")).toHaveText(meaning);
+    await expect(returning).toHaveAccessibleDescription(meaning);
+  }
+  await animationsSettled(page);
+  await expectAccessible(page);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Returning" })).toBeHidden();
+  await expect(page.getByRole("tooltip")).toBeHidden();
 
   // With no open lead, whatever the form had chosen, the lead is simply made.
   const fresh = await callApi<{ outcome: string; leadId: string | null }>(

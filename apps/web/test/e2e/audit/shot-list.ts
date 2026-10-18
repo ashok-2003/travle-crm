@@ -134,6 +134,8 @@ export const SHOTS = [
   { name: "settings-destination-merge", screen: "Settings, destinations, the Merge dialog, one chosen", as: owner },
   { name: "settings-blocked-contacts", screen: "Settings, blocked contacts", as: owner },
   { name: "settings-unblock", screen: "Settings, blocked contacts, the Unblock confirmation", as: owner },
+  { name: "lead-hint", screen: "A returning customer's lead, Returning's info hint open", as: owner },
+  { name: "lead-new-blocked", screen: "New lead, a blocked number, with its info hint", as: owner },
 ] as const satisfies readonly Shot[];
 
 export type ShotName = (typeof SHOTS)[number]["name"];
