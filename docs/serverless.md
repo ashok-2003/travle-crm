@@ -72,6 +72,8 @@ settings on GitHub. Keep every value the steps make in your password manager, an
 2. **Databases → New database** `travel_crm`, owner `neondb_owner`.
 3. **Connect**, with database `travel_crm` and **Connection pooling off**: note the host (`ep-…….aws.neon.tech`, no
    `-pooler`) and `neondb_owner`'s connection string. That string is `DATABASE_ADMIN_URL`, for the backups (step 8).
+   Neon's `neondb_owner` can create databases and roles and bypasses row-level security, without being a superuser:
+   all the steps below need.
 4. On your Mac, in a checkout of the repository (in your own terminal, not a chat):
 
    ```sh
@@ -82,6 +84,8 @@ settings on GitHub. Keep every value the steps make in your password manager, an
    strings, `BETTER_AUTH_SECRET` and the web push pair. Save all of it in your password manager.
 
 5. **SQL Editor**, database `travel_crm`: paste the SQL, **Run**.
+6. Apply the migrations once, so the first start is quick (the api also applies them as it starts):
+   `docker run --rm --env DATABASE_MIGRATOR_URL='<from setup-values>' <the api image> migrate`.
 
 ### 4. Render: the api (with the worker) and the console
 
@@ -157,16 +161,17 @@ The workflow is on `main`. In the repository's **Settings → Secrets and variab
 
 - **Secrets:** `DATABASE_ADMIN_URL` (`neondb_owner`'s connection string from step 3), `BACKUP_S3_ACCESS_KEY_ID` and
   `BACKUP_S3_SECRET_ACCESS_KEY` (the `travel-crm-backups` token's), and optionally `BACKUP_HEARTBEAT_URL`.
-- **Variables:** `BACKUP_ENABLED` = `true`, `DATABASE_ADMIN_ROLE` = `neon_superuser` (on Neon the owner bypasses
-  row-level security only through it), `S3_ENDPOINT`, `BACKUP_S3_BUCKET` = `travel-crm-backups`, and
+- **Variables:** `BACKUP_ENABLED` = `true`, `S3_ENDPOINT`, `BACKUP_S3_BUCKET` = `travel-crm-backups`, and
   `BACKUP_AGE_RECIPIENT` = the public half of your backup key (`age-keygen -y ~/.config/travel-crm/backup-key.txt`).
+  Neon's owner bypasses row-level security itself (checked on 2026-10-18), so `DATABASE_ADMIN_ROLE` stays unset; a
+  provider whose admin bypasses it only through another role names that role there.
 
 Then **Actions → Database backup → Run workflow**, and check the dump lands in R2 under `db/`.
 
 **The restore drill** (once now, then every quarter), on your Mac. Put the backups' settings in
 `~/.config/travel-crm/backups.env` (`chmod 600`), one `NAME='value'` per line: `S3_ENDPOINT`, `BACKUP_S3_BUCKET`,
 `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`, and for production's counts beside the copy's,
-`DATABASE_ADMIN_URL` and `DATABASE_ADMIN_ROLE`. Then:
+`DATABASE_ADMIN_URL`. Then:
 
 ```sh
 TRAVEL_CRM_SETTINGS=~/.config/travel-crm/backups.env API_IMAGE=travel-crm-api \
