@@ -79,12 +79,13 @@ async function shootWholePage(page: Page, file: string): Promise<void> {
 
 /**
  * Takes the shot `name` of the page, or of `element` alone. With `skeleton`, the screen is expected to be loading,
- * and is taken as it is.
+ * and is taken as it is. With `hover`, the pointer goes back over that once the screen has settled (settling moves it
+ * to the corner), for a hover state.
  */
 export async function shoot(
   page: Page,
   name: ShotName,
-  { element, skeleton = false }: { element?: Locator; skeleton?: boolean } = {},
+  { element, skeleton = false, hover }: { element?: Locator; skeleton?: boolean; hover?: Locator } = {},
 ): Promise<void> {
   const project = test.info().project.name;
   const index = SHOTS.findIndex((shot) => shot.name === name);
@@ -92,6 +93,10 @@ export async function shoot(
   if (shot && "only" in shot && shot.only !== project) throw new Error(`${name} is a shot of the ${shot.only} only`);
   await test.step(`shoot ${name}`, async () => {
     await settled(page, { skeleton });
+    if (hover) {
+      await hover.hover();
+      await animationsSettled(page);
+    }
     const directory = path.join(auditOut(), project);
     await mkdir(directory, { recursive: true });
     const file = path.join(directory, `${shotNumber(index)}-${name}.png`);
