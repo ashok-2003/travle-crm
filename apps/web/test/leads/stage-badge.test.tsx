@@ -5,7 +5,7 @@ import { leadStages, type LeadStage } from "@travel-crm/contracts/crm";
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { messages } from "@/i18n/messages";
-import { StageBadge, StageDot } from "@/leads/stage-badge";
+import { StageBadge, StageDot, stageTones } from "@/leads/stage-badge";
 import { renderPiece } from "./render";
 
 const colours: Record<LeadStage, { fill: string; dot: string }> = {
@@ -35,8 +35,11 @@ describe("StageBadge", () => {
     }
   });
 
-  it("gives every stage a different colour", () => {
-    expect(new Set(Object.values(colours).map((colour) => colour.fill)).size).toBe(leadStages.length);
+  it("gives every stage a different colour, its badge, its dot and its passed segment", () => {
+    const tones = leadStages.map((stage) => stageTones[stage]);
+    for (const part of ["badge", "dot", "passed"] as const) {
+      expect(new Set(tones.map((tone) => tone[part])).size, part).toBe(leadStages.length);
+    }
   });
 });
 
