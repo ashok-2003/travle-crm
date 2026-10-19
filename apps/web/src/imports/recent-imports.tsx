@@ -51,7 +51,11 @@ export function RecentImports({
                   <span>{formatDay(new Date(item.createdAt), { timeZone })}</span>
                   <span aria-hidden="true">·</span>
                   <span className="numbers">
-                    {t("rows", { rows: item.rowsTotal, added: formatCount(item.rowsAdded) })}
+                    {t("rows", {
+                      rows: item.rowsTotal,
+                      total: formatCount(item.rowsTotal),
+                      added: formatCount(item.rowsAdded),
+                    })}
                   </span>
                 </ItemDescription>
               </ItemContent>

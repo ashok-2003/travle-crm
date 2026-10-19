@@ -52,8 +52,6 @@
     "chooseAnother": "Choose another file"
   },
   "columns": {
-    "title": "Match your columns",
-    "intro": "Tell us what each column holds. We guessed from their names: check them.",
     "column": "Column in your file",
     "samples": "Sample values",
     "importAs": "Import as",
@@ -98,17 +96,12 @@
     }
   },
   "values": {
-    "heading": "Its {count, plural, one {# value} other {# values}}",
-    "value": "Value in your file",
-    "rows": "Rows",
-    "matchTo": "Goes to",
     "targetFor": "Where {value} goes"
   },
   "progress": {
     "rows": "{done} of {total} rows",
     "aboutAMinute": "About a minute left",
-    "aboutMinutes": "About {minutes} minutes left",
-    "percent": "{percent}%"
+    "aboutMinutes": "About {minutes} minutes left"
   },
   "reasons": {
     "no_name": "No name",
@@ -146,7 +139,6 @@
   },
   "recent": {
     "title": "Recent imports",
-    "rows": "{rows, plural, one {# row} other {# rows}} · {added} added",
-    "started": "{day}"
+    "rows": "{rows, plural, one {{total} row} other {{total} rows}} · {added} added"
   }
 }
