@@ -27,6 +27,7 @@ export interface BatchSeed {
   addBlocked?: boolean;
   addAlreadyImported?: boolean;
   addInCrm?: boolean;
+  /** Stop asked for: a stop request beside the batch (X7). */
   stopRequested?: boolean;
   reportAttachmentId?: string | null;
   impersonatedBy?: string | null;
@@ -39,8 +40,8 @@ export interface BatchSeed {
 }
 
 /** An import of leads, checked and waiting for Add, started by `startedBy`. */
-export async function aBatch(tx: OrgTx, seed: BatchSeed): Promise<{ id: string }> {
-  return tx.importBatch.create({
+export async function aBatch(tx: OrgTx, { stopRequested = false, ...seed }: BatchSeed): Promise<{ id: string }> {
+  const batch = await tx.importBatch.create({
     data: {
       kind: "leads",
       status: "checked",
@@ -52,6 +53,8 @@ export async function aBatch(tx: OrgTx, seed: BatchSeed): Promise<{ id: string }
     },
     select: { id: true },
   });
+  if (stopRequested) await tx.importStopRequest.create({ data: { batchId: batch.id } });
+  return batch;
 }
 
 export interface RowSeed {

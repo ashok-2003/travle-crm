@@ -1,6 +1,6 @@
 // Domain events and their listeners (spec 9.1): the contract between the modules that publish events and the worker
 // that runs listeners. Calls go down the layers; events go up through the outbox (spec 8).
-import type { OrgTx } from "@travel-crm/db";
+import type { ForOrgOptions, OrgTx } from "@travel-crm/db";
 import type { Actor } from "../kernel/index.js";
 
 /** A JSON value, as an event payload holds it. */
@@ -24,9 +24,10 @@ export interface ListenerContext {
   readonly actor: Actor;
   /**
    * Runs fn in one transaction in the event's organization. Keep slow work (rendering, uploading, sending) outside
-   * it: a transaction holds a database connection while it runs.
+   * it: a transaction holds a database connection while it runs. A listener whose one transaction must run longer
+   * than the database's limit (a lead add's batch of 50 rows) asks for its own (X1).
    */
-  forOrg<T>(fn: (tx: OrgTx) => Promise<T>): Promise<T>;
+  forOrg<T>(fn: (tx: OrgTx) => Promise<T>, options?: ForOrgOptions): Promise<T>;
 }
 
 /**

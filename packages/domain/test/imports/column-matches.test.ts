@@ -11,6 +11,7 @@ import {
   findImport,
   guessFields,
   headerKey,
+  holdImport,
   importDetail,
   matchImportColumns,
   rememberedFields,
@@ -296,29 +297,72 @@ describe("matching an import's columns", () => {
     expect(await inOrg((tx) => tx.importRow.count({ where: { batchId: id } }))).toBe(0);
   });
 
-  it("takes two presses, or a press and a Cancel, in turn: one matches, the other finds it moved on", async () => {
+  /**
+   * Holds the import's row in a transaction of its own, after `first` ran in it, until released: whatever presses
+   * start meanwhile are certainly at the same time, each waiting its turn (M2, item 8).
+   */
+  async function holding(importId: string, first: (tx: OrgTx) => Promise<void> = () => Promise.resolve()) {
+    const turns: { held?: () => void; release?: () => void } = {};
+    const held = new Promise<void>((resolve) => (turns.held = resolve));
+    const released = new Promise<void>((resolve) => (turns.release = resolve));
+    const done = inOrg(async (tx) => {
+      await holdImport(tx, importId);
+      await first(tx);
+      turns.held?.();
+      await released;
+    });
+    await held;
+    return async () => {
+      turns.release?.();
+      await done;
+    };
+  }
+
+  /** Whether a press is still waiting after a fifth of a second. */
+  const waiting = (presses: Promise<unknown>) =>
+    Promise.race([
+      presses.then(() => false),
+      new Promise<boolean>((resolve) => {
+        setTimeout(() => {
+          resolve(true);
+        }, 200);
+      }),
+    ]);
+
+  /** The import.columns-matched events published for this import. */
+  const matchedEventsOf = async (importId: string) =>
+    (await eventsOf(test, organizationId, ["import.columns-matched"])).filter(([, payload]) =>
+      JSON.stringify(payload).includes(importId),
+    );
+
+  it("takes two presses at once in turn: one matches, the other finds it moved on (M2)", async () => {
     const id = await aMatchingImport(["Name", "Mobile"]);
     const input = leadInput(id, ["name", "phone"]);
-    const both = await Promise.allSettled([match(input), match(input)]);
-    expect(both.filter((result) => result.status === "fulfilled")).toHaveLength(1);
-    expect(both.find((result) => result.status === "rejected")).toMatchObject({
+    const release = await holding(id);
+    const both = Promise.allSettled([match(input), match(input)]);
+    expect(await waiting(both)).toBe(true);
+    await release();
+    const results = await both;
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.find((result) => result.status === "rejected")).toMatchObject({
       reason: { reason: "IMPORT_NOT_READY" },
     });
-    const matched = await eventsOf(test, organizationId, ["import.columns-matched"]);
-    expect(matched.filter(([, payload]) => JSON.stringify(payload).includes(id))).toHaveLength(1);
+    expect(await matchedEventsOf(id)).toHaveLength(1);
+  });
 
-    const cancelled = await aMatchingImport(["Name", "Mobile"]);
-    const raced = await Promise.allSettled([
-      inOrg((tx) => cancelImport(tx, importer, "leads", cancelled, new Date())),
-      match(leadInput(cancelled, ["name", "phone"])),
-    ]);
-    const batch = await inOrg((tx) => findImport(tx, importer, "leads", cancelled));
-    // Whichever came first, a cancelled import never goes on to a check.
-    if (raced[1].status === "fulfilled") expect(batch.status).toBe("cancelled");
-    else expect(raced[1]).toMatchObject({ reason: { reason: "IMPORT_NOT_READY" } });
-    const checks = await eventsOf(test, organizationId, ["import.columns-matched"]);
-    const published = checks.some(([, payload]) => JSON.stringify(payload).includes(cancelled));
-    expect(published).toBe(raced[1].status === "fulfilled");
+  it("lets a Cancel made while a press waits win: the press finds it cancelled and publishes nothing (M2)", async () => {
+    const id = await aMatchingImport(["Name", "Mobile"]);
+    const release = await holding(id, (tx) => cancelImport(tx, importer, "leads", id, new Date()));
+    const press = match(leadInput(id, ["name", "phone"]));
+    const settled = press.then(
+      () => null,
+      (error: unknown) => error,
+    );
+    expect(await waiting(settled)).toBe(true);
+    await release();
+    expect(await settled).toMatchObject({ reason: "IMPORT_NOT_READY" });
+    expect((await inOrg((tx) => findImport(tx, importer, "leads", id))).status).toBe("cancelled");
+    expect(await matchedEventsOf(id)).toEqual([]);
   });
 
   it("stores every field of both kinds' lists", async () => {

@@ -2,9 +2,10 @@
 
 // Choosing an import's file (spec 3.2 step 1, B1, B2, B7): the file button, what a file may be, a sample to start from,
 // and the file's way straight to storage, as the files panel's upload (UploadControl): checked first, then its
-// progress with Stop, a refusal's own sentence (the agency's storage full among them), and Try again without choosing
-// the file again. The import's own calls record it and confirm it; the screen then follows the import's address. While
-// the agency can't make changes (ADR 0021) the button is off and says why.
+// progress with Stop, which cancels the import (X3), a refusal's own sentence (the agency's storage full among them),
+// and Try again without choosing the file again. The import's own calls record it, confirm it and cancel it; the
+// screen then follows the import's address. While the agency can't make changes (ADR 0021) the button is off and says
+// why.
 import type { SpreadsheetContentType } from "@travel-crm/contracts/files";
 import type { StartedImport } from "@travel-crm/contracts/imports";
 import { CircleAlertIcon, UploadIcon } from "lucide-react";
@@ -33,6 +34,7 @@ export function ImportFileStep({
   sampleHref,
   start,
   confirm,
+  cancel,
   onUploaded,
 }: {
   /** The kind's row limit (B2): 10,000 for leads, 500 for staff. */
@@ -42,6 +44,8 @@ export function ImportFileStep({
   start: (file: { fileName: string; contentType: SpreadsheetContentType; sizeBytes: number }) => Promise<StartedImport>;
   /** Tells the api the file has arrived (the kind's confirmUpload procedure). */
   confirm: (importId: string) => Promise<unknown>;
+  /** Ends an import whose upload the person stopped (the kind's cancel procedure), so it doesn't wait as Uploading. */
+  cancel: (importId: string) => Promise<unknown>;
   /** The import, its file in storage: the screen goes to its address. */
   onUploaded: (importId: string) => void;
 }) {
@@ -68,6 +72,10 @@ export function ImportFileStep({
     },
     onSuccess: (importId) => {
       onUploaded(importId);
+    },
+    onStopped: (attachmentId) => {
+      // Nothing to tell the person if it fails: they stopped it, and the import expires in a week regardless.
+      cancel(imports.current.importFor(attachmentId)).catch(() => undefined);
     },
   });
   const off = !write.allowed || upload.isPending;

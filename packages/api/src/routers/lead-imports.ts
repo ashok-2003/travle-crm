@@ -67,11 +67,13 @@ export const leadImportsRouter = router({
     ),
 
   /** Add: from the preview only; a second press answers IMPORT_NOT_READY. */
-  add: freshImporter
-    .input(importIdInput)
-    .mutation(({ ctx, input }) =>
-      requestImportAdd(ctx.db, ctx.member, "leads", input.importId, new Date(), ctx.addGuards),
-    ),
+  add: freshImporter.input(importIdInput).mutation(({ ctx, input }) => {
+    const now = new Date();
+    // The guards (a Google Sheet's check that is saving) run once the import is held, in the transaction that moves it.
+    return requestImportAdd(ctx.db, ctx.member, "leads", input.importId, now, async (tx) => {
+      for (const guard of ctx.addGuards) await guard(tx, now);
+    });
+  }),
 
   /** Stop: the batch under way finishes and the import ends stopped. Again, nothing. */
   stop: importer

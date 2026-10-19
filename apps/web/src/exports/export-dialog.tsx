@@ -15,7 +15,7 @@ import { exportFormats } from "@travel-crm/contracts/exports";
 import { CircleAlertIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useState, type ReactNode } from "react";
-import { Details } from "@/components/details";
+import { Details, type Detail } from "@/components/details";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -68,6 +68,14 @@ export function ExportDialog({
   const file = status === "ready" ? (shown?.file ?? null) : null;
   const problem = choosing ? failure(shown) : null;
   const hint = write.hint ? `${id}-hint` : undefined;
+  // What it holds, then the file once it's ready: one list, so its rows are spaced alike (W11).
+  const details: Detail[] = [{ label: t("dialog.holds"), value: holds }];
+  if (file) {
+    details.push(
+      { label: t("page.file"), value: file.fileName },
+      { label: t("page.size"), value: formatFileSize(file.sizeBytes) },
+    );
+  }
   // Closed while the file is made, it shows its progress again on opening; closed after, it starts afresh.
   const changeOpen = (next: boolean) => {
     if (!next && status !== "making") reset();
@@ -126,8 +134,8 @@ export function ExportDialog({
             <AlertDescription>{problem}</AlertDescription>
           </Alert>
         )}
-        <Details rows={[{ label: t("dialog.holds"), value: holds }]} />
-        {choosing ? (
+        <Details rows={details} />
+        {choosing && (
           <>
             <FieldSet disabled={start.isPending}>
               <FieldLegend variant="label">{t("dialog.format")}</FieldLegend>
@@ -159,14 +167,8 @@ export function ExportDialog({
             <p className="text-muted-foreground">{t("dialog.privacy")}</p>
             <RefusalAlert error={start.error} />
           </>
-        ) : file ? (
-          <Details
-            rows={[
-              { label: t("page.file"), value: file.fileName },
-              { label: t("page.size"), value: formatFileSize(file.sizeBytes) },
-            ]}
-          />
-        ) : (
+        )}
+        {!choosing && file === null && (
           <div className="flex flex-col gap-2">
             <ExportProgress detail={shown} rowsWord={rowsWord} />
             <p className="text-label text-muted-foreground">{t("dialog.closeHint")}</p>

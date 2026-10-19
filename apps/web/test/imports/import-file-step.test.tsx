@@ -1,5 +1,5 @@
 // Choosing an import's file (spec 3.2 step 1, B2, B7): the file is checked first, then goes straight to storage with
-// its progress and a way to stop; a failed upload is tried again without choosing the file again; the agency's full
+// its progress and a way to stop, which cancels its import (X3); a failed upload is tried again without choosing the file again; the agency's full
 // storage is refused with the files module's own sentence; and while the agency can't make changes the button is off
 // and says why.
 import { act, screen, waitFor } from "@testing-library/react";
@@ -36,10 +36,11 @@ const fileInput = () => {
 
 type FileStep = Parameters<typeof ImportFileStep>[0];
 
-function step(calls: Partial<Pick<FileStep, "start" | "confirm" | "onUploaded">>) {
+function step(calls: Partial<Pick<FileStep, "start" | "confirm" | "cancel" | "onUploaded">>) {
   return {
     start: vi.fn<FileStep["start"]>(calls.start ?? (() => Promise.resolve(started))),
     confirm: vi.fn<FileStep["confirm"]>(calls.confirm ?? (() => Promise.resolve(null))),
+    cancel: vi.fn<FileStep["cancel"]>(calls.cancel ?? (() => Promise.resolve(null))),
     onUploaded: vi.fn<FileStep["onUploaded"]>(calls.onUploaded ?? (() => undefined)),
   };
 }
@@ -53,7 +54,7 @@ afterEach(() => {
 });
 
 describe("ImportFileStep", () => {
-  it("uploads with its progress, stops, and tries again without choosing the file again", async () => {
+  it("uploads with its progress, stops and cancels its import, and tries again without choosing the file again", async () => {
     const calls = step({});
     let progressed: (fraction: number) => void = () => undefined;
     uploadFile.mockImplementationOnce(
@@ -86,6 +87,8 @@ describe("ImportFileStep", () => {
     await waitFor(() => {
       expect(screen.queryByText("64%")).toBeNull();
     });
+    // Its import goes too, rather than showing Uploading in Recent imports until it expires.
+    expect(calls.cancel).toHaveBeenCalledWith(importId);
 
     uploadFile.mockRejectedValueOnce(new UploadError(0));
     await userEvent.upload(fileInput(), csv());
@@ -98,6 +101,7 @@ describe("ImportFileStep", () => {
       expect(calls.onUploaded).toHaveBeenCalledWith(importId);
     });
     expect(calls.confirm).toHaveBeenCalledWith(importId);
+    expect(calls.cancel).toHaveBeenCalledTimes(1);
   });
 
   it("says to save an .xls file as .xlsx or CSV, and sends nothing", async () => {

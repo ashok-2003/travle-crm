@@ -1,6 +1,6 @@
-// Reads an .xlsx (B3-B5, D1, D10, D12): the signature first (an old .xls or a protected workbook is a compound file),
-// then the bounded pre-inflate, the first sheet's name and size from the workbook's own parts, all read as the reader's
-// own parser reads them, and only then read-excel-file on that one sheet.
+// Reads an .xlsx (B3-B5, D1, D10, D12), in the thread xlsx-thread.ts runs: the signature first (an old .xls or a
+// protected workbook is a compound file), then the bounded pre-inflate, the first sheet's name and size from the
+// workbook's own parts, all read as the reader's copy of saxen reads them, and only then read-excel-file on that sheet.
 import { readSheet } from "read-excel-file/node";
 import { unpackWorkbook, type UnpackedWorkbook } from "./bounded-unzip.js";
 import { cellText, type RawCell } from "./cell-text.js";
@@ -28,14 +28,12 @@ const worksheetTypes = new Set([
  * meet under one name (two ids) is refused: which one the reader keeps depends on its copy of the parser.
  */
 function firstSheetOf(unpacked: UnpackedWorkbook) {
-  const sheets = readerElementsOf(unpacked.workbook ?? "")?.filter(
-    (element) => element.name === "sheet" && Boolean(element.attributes.name),
+  const sheets = readerElementsOf(unpacked.workbook ?? "", new Set(["sheet"]))?.filter((element) =>
+    Boolean(element.attributes.name),
   );
-  const relations = readerElementsOf(unpacked.workbookRelations ?? "")?.filter(
-    (element) => element.name === "Relationship",
-  );
+  const relations = readerElementsOf(unpacked.workbookRelations ?? "", new Set(["Relationship"]));
   const first = sheets?.[0];
-  if (sheets === undefined || relations === undefined || first === undefined || first.ambiguous) {
+  if (sheets === undefined || relations === null || first === undefined || first.ambiguous) {
     throw new SpreadsheetUnreadableError("not_a_spreadsheet");
   }
   const relation = relations

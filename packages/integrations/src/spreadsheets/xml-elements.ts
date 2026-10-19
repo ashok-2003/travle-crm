@@ -1,6 +1,7 @@
-// An .xlsx part's elements as read-excel-file sees them (D1): it parses with saxen, drops every namespace prefix from
-// element and attribute names (but `xmlns:` declarations) and decodes entities in attribute values. The sizing and
-// the first sheet's lookup read the parts the same way, so no markup the reader understands differently slips past.
+// An .xlsx part's elements as read-excel-file sees them (D1): it parses with its own copy of saxen, drops every
+// namespace prefix from element and attribute names (but `xmlns:` declarations) and decodes entities in attribute
+// values. The sizing and the first sheet's lookup read the parts the same way with saxen from npm, so no markup the
+// reader understands differently slips past (xml-elements.test.ts holds the two parsers to the same events).
 import { Parser } from "saxen";
 
 /** The name the reader gives an element or attribute: what follows its first prefix. */
@@ -14,9 +15,12 @@ export function readerName(name: string, isAttribute = false): string {
   return name.slice(colon + 1);
 }
 
-/** Whether a raw element or attribute name is `local` under any prefix, for counting: every name the reader might read. */
-export function isNamed(name: string, local: string): boolean {
-  return (name === local || name.endsWith(`:${local}`)) && !name.startsWith("xmlns:");
+/**
+ * Whether a raw element or attribute name may be `local` to the reader, for counting: under any prefix, `xmlns:` ones
+ * too, which the reader drops from elements and from attributes with a second prefix ("xmlns:x:r" is its "r").
+ */
+export function isNamed(name: string, local: string, isAttribute = false): boolean {
+  return name === local || name.endsWith(`:${local}`) || readerName(name, isAttribute) === local;
 }
 
 /** A part's element, its attributes named and decoded as the reader keeps them; `ambiguous` when two raw names meet. */
@@ -26,8 +30,11 @@ export interface ReaderElement {
   ambiguous: boolean;
 }
 
-/** Every element of a whole part, in document order; null when the part isn't XML the parser can read. */
-export function readerElementsOf(xml: string): ReaderElement[] | null {
+/**
+ * A whole part's elements of the names asked for, in document order; null when the part isn't XML the parser can
+ * read. Only those are kept: a part may hold millions of others (item 3).
+ */
+export function readerElementsOf(xml: string, names: ReadonlySet<string>): ReaderElement[] | null {
   const parser = new Parser();
   const elements: ReaderElement[] = [];
   // An object, not a variable: the callbacks set it, and TypeScript narrows a variable only callbacks change.
@@ -37,7 +44,9 @@ export function readerElementsOf(xml: string): ReaderElement[] | null {
     parser.stop();
   };
   parser.on("error", stop);
-  parser.on("openTag", (name, attributesOf, decode) => {
+  parser.on("openTag", (rawName, attributesOf, decode) => {
+    const name = readerName(rawName);
+    if (!names.has(name)) return;
     const raw = attributesOf();
     if (raw === false) {
       stop();
@@ -46,13 +55,13 @@ export function readerElementsOf(xml: string): ReaderElement[] | null {
     const attributes: Record<string, string> = {};
     const seen = new Set<string>();
     let ambiguous = false;
-    for (const [rawName, value] of Object.entries(raw)) {
-      const named = readerName(rawName, true);
+    for (const [rawAttribute, value] of Object.entries(raw)) {
+      const named = readerName(rawAttribute, true);
       if (seen.has(named)) ambiguous = true;
       seen.add(named);
       attributes[named] = decode(value);
     }
-    elements.push({ name: readerName(name), attributes, ambiguous });
+    elements.push({ name, attributes, ambiguous });
   });
   parser.parse(xml);
   return state.broken ? null : elements;

@@ -2,7 +2,7 @@
 // SAX parser, so a sheet that a pattern would misread (a ">" or single quotes in an attribute, a namespace prefix, a
 // comment, CDATA, a processing instruction, an entity in a cell's address) must still be refused before the reader
 // pads it out, and quickly, with little memory. The first sheet is found the same way the reader finds it.
-import { strToU8, zipSync } from "fflate";
+import { strToU8, Zip, ZipPassThrough, zipSync } from "fflate";
 import { describe, expect, it } from "vitest";
 import {
   createSpreadsheets,
@@ -10,6 +10,7 @@ import {
   SpreadsheetUnreadableError,
   type UnreadableReason,
 } from "../../src/spreadsheets/index.js";
+import { sheetSizer } from "../../src/spreadsheets/sheet-sizer.js";
 import { rowOf, textCell, workbookOf, workbookParts } from "./sample-files.js";
 
 const spreadsheets = createSpreadsheets();
@@ -30,6 +31,16 @@ async function reasonOf(bytes: Uint8Array): Promise<UnreadableReason | "read"> {
 
 /** A one-sheet workbook whose sheetData is this XML after the header row. */
 const sheetOf = (rows: string) => workbookOf([{ name: "Leads", sheetData: header + rows }]);
+
+/** The sizer's own verdict on a sheet part's XML, before the reader is asked (as the pre-inflate sizes it). */
+function sizerRefusal(sheetData: string): UnreadableReason | null {
+  const sizer = sheetSizer({ maxRowNumber: limits.maxRows * 2 + 1, maxColumn: limits.maxColumns });
+  sizer.push(
+    strToU8(`<worksheet xmlns="${spreadsheetNamespace}"><sheetData>${sheetData}</sheetData></worksheet>`),
+    true,
+  );
+  return sizer.size.refusal;
+}
 
 /** Refused for `reason` within two seconds. */
 async function expectRefused(bytes: Uint8Array, reason: UnreadableReason) {
@@ -111,5 +122,78 @@ describe("sizing a workbook as an XML parser reads it", () => {
       withWorkbook(`<sheet name="Small" sheetId="2" r:id="rId2" xmlns:q="urn:q" q:id="rId1"/>`),
       "not_a_spreadsheet",
     );
+  });
+
+  it("reads names under an xmlns: prefix as the reader does, which drops the prefix too (round 2)", () => {
+    expect(sizerRefusal(`<row r="2"><c xmlns:x:r="XFD2"><v>1</v></c></row>`)).toBe("too_many_columns");
+    expect(sizerRefusal(`<row r="2"><xmlns:c r="XFD2"><v>1</v></xmlns:c></row>`)).toBe("too_many_columns");
+    expect(sizerRefusal(`<row xmlns:x:r="400000"><c><v>1</v></c></row>`)).toBe("too_many_rows");
+    expect(sizerRefusal(`<xmlns:row r="400000"><c><v>1</v></c></xmlns:row>`)).toBe("too_many_rows");
+  });
+
+  it("refuses the re-reviewer's 15 KB file of 3,000 prefixed rows, fast and with little memory", async () => {
+    const rows = Array.from(
+      { length: 3000 },
+      (_, index) => `<row r="${String(index + 2)}"><c xmlns:x:r="XFD${String(index + 2)}"><v>1</v></c></row>`,
+    ).join("");
+    const before = process.memoryUsage().heapUsed;
+    await expectRefused(sheetOf(rows), "too_many_columns");
+    expect((process.memoryUsage().heapUsed - before) / (1024 * 1024)).toBeLessThan(64);
+  });
+
+  it("refuses elements nested past a hundred deep, as no sheet nests them, before they cost memory (item 4)", () => {
+    expect(sizerRefusal(`${"<a>".repeat(95)}${"</a>".repeat(95)}${rowOf(2, textCell("A2", "Asha"))}`)).toBeNull();
+    expect(sizerRefusal("<a>".repeat(101))).toBe("not_a_spreadsheet");
+    const nested = "<a>".repeat(2_000_000);
+    const before = process.memoryUsage().heapUsed;
+    expect(sizerRefusal(nested)).toBe("not_a_spreadsheet");
+    expect((process.memoryUsage().heapUsed - before) / (1024 * 1024)).toBeLessThan(32);
+  });
+
+  it("counts a number the reader decodes twice, when a prefixed name comes before the plain one", () => {
+    // The reader decodes x:r's value into r, then decodes r once more: its row 400,000, its column XFD.
+    expect(sizerRefusal(`<row x:r="&amp;#52;00000" r="2"><c r="A2"><v>1</v></c></row>`)).toBe("too_many_rows");
+    expect(sizerRefusal(`<row r="2"><c x:r="&amp;#88;FD2" r="A2"><v>1</v></c></row>`)).toBe("too_many_columns");
+  });
+
+  it("refuses an archive holding a part twice, whichever copy the reader would take (item 11)", async () => {
+    const parts = workbookParts([{ name: "Leads", sheetData: header + rowOf(2, textCell("A2", "Asha")) }]);
+    const chunks: Uint8Array[] = [];
+    const zip = new Zip((error, chunk) => {
+      if (error) throw error;
+      chunks.push(chunk);
+    });
+    const add = (name: string, bytes: Uint8Array) => {
+      const entry = new ZipPassThrough(name);
+      zip.add(entry);
+      entry.push(bytes, true);
+    };
+    for (const [name, bytes] of Object.entries(parts)) add(name, bytes);
+    add("xl/worksheets/sheet1.xml", strToU8(`<worksheet><sheetData>${rowOf(1_048_576, "")}</sheetData></worksheet>`));
+    zip.end();
+    await expectRefused(Buffer.concat(chunks), "not_a_spreadsheet");
+  });
+
+  it("reads a sheet spaced out over megabytes, and refuses a megabyte of nothing but space (item 11)", async () => {
+    const spacious = Array.from({ length: 2000 }, (_, index) =>
+      rowOf(index + 2, `${" ".repeat(500)}${textCell(`A${String(index + 2)}`, "Asha")}${" ".repeat(500)}`),
+    ).join("\n".repeat(100));
+    expect(await reasonOf(sheetOf(spacious))).toBe("read");
+    await expectRefused(
+      sheetOf(`${rowOf(2, textCell("A2", "Asha"))}${" ".repeat(2 * 1024 * 1024)}`),
+      "not_a_spreadsheet",
+    );
+  });
+
+  it("sizes the first sheet where its part really is, not where a first sheet usually is (item 11)", async () => {
+    const workbook = (first: string, second: string) =>
+      workbookOf([
+        { name: "First", part: "worksheets/sheet3.xml", sheetData: header + first },
+        { name: "Second", part: "worksheets/sheet1.xml", sheetData: header + second },
+      ]);
+    const far = rowOf(1_048_576, textCell("A1048576", "x"));
+    const near = rowOf(2, textCell("A2", "Asha"));
+    await expectRefused(workbook(far, near), "too_many_rows");
+    expect(await reasonOf(workbook(near, far))).toBe("read");
   });
 });

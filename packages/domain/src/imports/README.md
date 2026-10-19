@@ -32,7 +32,9 @@ week after its last change (D5), deleting its file and report and emptying what 
 - `requestImportAdd(db, access, kind, importId, now)`: Add, from `checked` only: `adding`, `import.started`
   (`{ kind, rowsToAdd }`) and `import.add-requested` (`{ importId, kind }`). A second press is `IMPORT_NOT_READY`;
   while another import of the agency adds, `IMPORT_ALREADY_RUNNING` (`import_batch_one_adding`, B29, D35).
-- `stopImport(tx, access, kind, importId)`: while adding, asks the add to stop after its batch; again, nothing.
+- `stopImport(tx, access, kind, importId)`: while adding, asks the add to stop after its batch; again, nothing. The
+  request is a row of its own (`import_stop_request`), so Stop never waits behind the batch holding the import (X7);
+  every read of an import says `stopRequested`.
 - `cancelImport(tx, access, kind, importId, now)`: from a waiting status, `cancelled` and `import.cancelled`
   (`{ kind, status }`).
 - `decideLeadImport(tx, access, input)`: at the preview, whether the add takes blocked contacts' rows, rows

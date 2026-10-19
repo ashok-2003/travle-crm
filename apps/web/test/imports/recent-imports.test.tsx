@@ -40,7 +40,13 @@ describe("RecentImports", () => {
     expect(first).toHaveAttribute("href", "/leads/import/0199e7a0-0000-7000-8000-0000000000c1");
     const items = screen.getAllByRole("listitem");
     expect(within(items[0] ?? document.body).getByText(/12 Sept|12 Sep/)).toBeVisible();
-    expect(within(items[0] ?? document.body).getByText("1,286 rows · 1,094 added")).toBeVisible();
+    // The words in sans, only the numbers in mono (X5).
+    const meta = within(items[0] ?? document.body).getByText(
+      (_, element) => element?.tagName === "SPAN" && element.textContent === "1,286 rows · 1,094 added",
+    );
+    expect(meta).not.toHaveClass("numbers");
+    expect(within(meta).getByText("1,286")).toHaveClass("numbers");
+    expect(within(meta).getByText("1,094")).toHaveClass("numbers");
     expect(within(items[0] ?? document.body).getByText("Done")).toBeVisible();
     expect(within(items[1] ?? document.body).getByText("Waiting for you")).toBeVisible();
   });
