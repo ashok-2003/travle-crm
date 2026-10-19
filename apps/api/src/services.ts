@@ -7,6 +7,7 @@ import { createFiles, type Files } from "@travel-crm/domain/files";
 import { createIdentity, type Identity, type SeatLimit } from "@travel-crm/domain/identity";
 import { createProfiles, type Profiles } from "@travel-crm/domain/profile";
 import { createRateLimiter, type RateLimiter } from "@travel-crm/domain/rate-limits";
+import { createSheetsHashes, type SheetsHashes } from "@travel-crm/domain/sheets";
 import { createSubscriptionAccess, planLimits, type SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { createSmtpEmailSender, type EmailSender } from "@travel-crm/integrations/email";
 import { createRealGoogleSheets, type GoogleSheets } from "@travel-crm/integrations/google-sheets";
@@ -30,6 +31,8 @@ export interface Services {
   spreadsheets: Spreadsheets;
   /** Reads Google Sheets, read only (ADR 0031); null when no service account is set: Google Sheets is off. */
   google: GoogleSheets | null;
+  /** Keys the spreadsheet claim and the erasure tombstones; null when SHEETS_HASH_KEY is not set (S4, S43). */
+  sheetsHashes: SheetsHashes | null;
   /** What each organization's plan allows today, for the jobs that act for a person (an import's add). */
   subscriptions: SubscriptionAccess;
   /** The seats each organization's plan gives, for the staff import's add. */
@@ -135,6 +138,7 @@ export function createServices(environment: Environment, log: ProcessLog): Servi
     files: createFiles({ db, storage, storageLimitBytes: limits.storageBytes }),
     spreadsheets: createSpreadsheets(),
     google: googleSheetsOf(environment),
+    sheetsHashes: environment.SHEETS_HASH_KEY === undefined ? null : createSheetsHashes(environment.SHEETS_HASH_KEY),
     subscriptions,
     seatLimit: limits.seats,
     jobs,

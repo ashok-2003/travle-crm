@@ -179,12 +179,21 @@ module.exports = {
     {
       name: "business-modules-call-down",
       comment:
-        "The business modules are layered (spec 6, 8): catalog, tasks, imports and exports at L0, crm at L1, today " +
-        "above them. A module calls only down: the L0 modules never call crm or today, and crm never calls today. An " +
-        "action spanning two modules is the higher one's, or its router calls both (R22).",
+        "The business modules are layered (spec 6, 8): catalog, tasks, imports, exports and sheets at L0, crm at L1, " +
+        "today above them. A module calls only down: the L0 modules never call crm or today, and crm never calls " +
+        "today. An action spanning two modules is the higher one's, or its router calls both (R22).",
       severity: "error",
-      from: { path: "^packages/domain/src/(catalog|tasks|imports|exports|crm)/" },
+      from: { path: "^packages/domain/src/(catalog|tasks|imports|exports|sheets|crm)/" },
       to: { path: "^packages/domain/src/(crm|today)/", pathNot: "^packages/domain/src/$1/" },
+    },
+    {
+      name: "imports-and-exports-never-call-sheets",
+      comment:
+        "The Sheets sync stands on imports (headerKey, guessFields, rowFingerprint), never the other way: crm unions " +
+        "the sheets' fingerprints with imports' own (spec 6.2), so imports and exports never call sheets.",
+      severity: "error",
+      from: { path: "^packages/domain/src/(imports|exports)/" },
+      to: { path: "^packages/domain/src/sheets/" },
     },
     {
       name: "kernel-depends-on-no-module",

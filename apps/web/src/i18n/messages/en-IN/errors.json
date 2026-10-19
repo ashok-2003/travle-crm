@@ -123,7 +123,16 @@
     "INVALID_DESTINATION_NAME": "Name the destination in 1 to 80 characters.",
     "MERGE_INTO_ITSELF": "Choose a different destination to keep.",
     "OPEN_LEAD_EXISTS": "This person already has an open lead. Add this enquiry to that lead, or make it a new trip enquiry.",
-    "CONTACT_ON_ANOTHER_PERSON": "Another customer already has this phone, email or Instagram handle."
+    "CONTACT_ON_ANOTHER_PERSON": "Another customer already has this phone, email or Instagram handle.",
+    "SHEET_NOT_SHARED": "We can't open that sheet yet. Share it with the address above as a Viewer, then check again.",
+    "SHEET_NOT_GOOGLE_SHEET": "That is an Excel file kept in Google Drive. Open it in Google Sheets, choose Save as Google Sheets, and paste the new link.",
+    "SHEET_CLAIMED_ELSEWHERE": "This sheet is already connected elsewhere.",
+    "SHEET_EMPTY": "The first row of this tab is empty. Put your column names in the first row.",
+    "SHEET_ALREADY_CONNECTED": "This sheet is already connected here.",
+    "SHEET_LIMIT_REACHED": "You can connect up to 5 sheets. Disconnect one to connect another.",
+    "SHEETS_NOT_SET_UP": "Google Sheets isn't set up on this server.",
+    "SHEET_NOT_READY": "This sheet has moved on. Reload to see where it is.",
+    "SHEETS_UNAVAILABLE": "Google isn't answering. Try again in a minute."
   },
   "auth": {
     "INVALID_EMAIL_OR_PASSWORD": "That email and password don't match.",
