@@ -3,11 +3,11 @@
 // adapter's reason. A run for an import no longer reading does nothing.
 import { createHash } from "node:crypto";
 import { unreadableReasons as contractReasons } from "@travel-crm/contracts/imports";
-import { unreadableReasons as adapterReasons } from "@travel-crm/integrations/spreadsheets";
+import { unreadableReasons as adapterReasons, createSpreadsheets } from "@travel-crm/integrations/spreadsheets";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { DomainEvent } from "../../src/jobs/index.js";
 import type { MemberAccess } from "../../src/identity/index.js";
-import { findImport, importDetail, readImportFileListener } from "../../src/imports/index.js";
+import { findImport, importDetail, matchImportColumns, readImportFileListener } from "../../src/imports/index.js";
 import { aBatch } from "./support/batches.js";
 import {
   anAgency,
@@ -100,6 +100,33 @@ describe("reading an import's file", () => {
     expect(column?.header).toHaveLength(200);
     expect(column?.values).toBeNull();
     expect(column?.samples).toEqual(["Lead 0", "Lead 1", "Lead 2"]);
+  });
+
+  it("reads a 4,000-character header through the real reader, keeps it cut to 200, and matches it (D3)", async () => {
+    const header = "Remarks ".repeat(500);
+    const csv = new TextEncoder().encode(`Name,Mobile,"${header}"\nAsha,98765 43210,Goa\n`);
+    const { id } = await anImportWithFile(test, importer, csv);
+    const real = { ...jobDependencies(test, fakeIdentity()), spreadsheets: createSpreadsheets() };
+    await readImportFileListener(real).handle(uploaded(organizationId, id), listenerContext(test, organizationId));
+    const detail = await detailOf(id);
+    expect(detail.status).toBe("matching");
+    expect(detail.columns[2]?.header).toHaveLength(200);
+    await expect(
+      test.db.forOrg(organizationId, (tx) =>
+        matchImportColumns(
+          tx,
+          importer,
+          "leads",
+          {
+            importId: id,
+            columns: (["name", "phone", "note"] as const).map((field, position) => ({ position, field })),
+            values: [],
+            defaults: { stage: "new", ownerUserId: null, budgetBasis: null },
+          },
+          { owners: new Set(), roleKeys: new Set(), now: new Date() },
+        ),
+      ),
+    ).resolves.toBeUndefined();
   });
 
   it("ends an unreadable file as unreadable with its reason, and a good one as matching", async () => {

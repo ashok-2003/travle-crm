@@ -57,7 +57,9 @@ week after its last change (D5), deleting its file and report and emptying what 
 - Guesses (B9, D13, D14): `headerKey(header)`, `guessFields(kind, headers, remembered, { wordsInHeader })` (on for a
   Google Sheet's leads only: Google Forms' own headers, then a word inside the header, S12), and the agency's memory,
   `rememberedFields(tx, kind, keys)`, `rememberedHeaderFields(tx, kind)` (all of a kind's) and
-  `rememberHeaderFields(tx, kind, matches, now)` (by header key, the last match winning, safe two at once, B10).
+  `rememberHeaderFields(tx, kind, matches, now)` (each header by its key, the last match winning, safe two at once,
+  B10). A header that reads as a customer's details (`isPlausibleHeader`: four digits or more, an @, a + before digits,
+  or more than five words: a file with no header row) is never remembered (D2), and an erasure forgets them all (M3).
 - Matching (B8, B10-B13): `matchImportColumns(tx, access, kind, input, { owners, roleKeys, now })`, from `matching`
   or `checked`: refuses a field on two columns but Note (`FIELD_MATCHED_TWICE`), a lead file without Name and a
   phone, email or Instagram (`IMPORT_NEEDS_NAME_AND_CONTACT`), a staff file without Name, a Username or Email and a
