@@ -50,6 +50,8 @@ describe("adding a lead import", () => {
     ...listenerContext(test, organizationId),
     forOrg: (work) => test.db.forOrg(organizationId, work, { timeout: 60_000 }),
   });
+  // A whole batch of 50: the clock must not end it sooner on a slow machine.
+  const whole = { timeBoxMs: 60_000 };
   const row = (name: string | null, phone: string | null, extra: (string | null)[] = []) => [name, phone, ...extra];
 
   /** An import checked and ready: Add pressed, so it is adding. */
@@ -329,9 +331,9 @@ describe("adding a lead import", () => {
       rows: Array.from({ length: 120 }, (_, index) => row(`Stoppable ${String(index)}`, freshPhone())),
     });
     const { batch, file } = await readFor(id);
-    expect(await addLeadBatch(context(), dependencies(), batch, file)).toBe("more");
+    expect(await addLeadBatch(context(), dependencies(), batch, file, whole)).toBe("more");
     await inOrg((tx) => stopImport(tx, importer, "leads", id));
-    expect(await addLeadBatch(context(), dependencies(), batch, file)).toBe("stopped");
+    expect(await addLeadBatch(context(), dependencies(), batch, file, whole)).toBe("stopped");
     await finishImport(context(), dependencies(), id, {
       status: "stopped",
       sourceEventId: randomUUID(),
@@ -360,16 +362,16 @@ describe("adding a lead import", () => {
       rows: Array.from({ length: 70 }, (_, index) => row(`Access ${String(index)}`, freshPhone())),
     });
     const { batch, file } = await readFor(id);
-    expect(await addLeadBatch(context(), dependencies(), batch, file)).toBe("more");
-    expect(await addLeadBatch(context(), dependencies(identityOf({ asha }, null)), batch, file)).toEqual({
+    expect(await addLeadBatch(context(), dependencies(), batch, file, whole)).toBe("more");
+    expect(await addLeadBatch(context(), dependencies(identityOf({ asha }, null)), batch, file, whole)).toEqual({
       failed: "no_longer_a_member",
     });
     const sales = memberOf(organizationId, "sales", { userId: importer.userId });
-    expect(await addLeadBatch(context(), dependencies(identityOf({ asha }, sales)), batch, file)).toEqual({
+    expect(await addLeadBatch(context(), dependencies(identityOf({ asha }, sales)), batch, file, whole)).toEqual({
       failed: "lost_permission",
     });
     const frozen = leadJobDependencies(test, identityOf(), "read_only");
-    expect(await addLeadBatch(context(), frozen, batch, file)).toEqual({ failed: "organization_cannot_change" });
+    expect(await addLeadBatch(context(), frozen, batch, file, whole)).toEqual({ failed: "organization_cannot_change" });
     await runAdd(id, identityOf({ asha }, null));
     const after = await batchOf(id);
     expect([after.status, after.failureReason, after.rowsAdded]).toEqual(["failed", "no_longer_a_member", 50]);
@@ -568,7 +570,7 @@ describe("adding a lead import", () => {
     const batch = await batchOf(id);
     const events = () => inOrg((tx) => tx.outboxEvent.count({ where: { type: "import.add-requested" } }));
     const before = await events();
-    await addLeadImport(context(), dependencies(), batch, randomUUID(), { runMs: 0 });
+    await addLeadImport(context(), dependencies(), batch, randomUUID(), { runMs: 0, batch: whole });
     // One batch added, the import still adding, and a run of its own asked for with only the import's id.
     expect(await batchOf(id)).toMatchObject({ status: "adding", rowsAdded: 50 });
     expect(await events()).toBe(before + 1);
