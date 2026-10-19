@@ -40,7 +40,7 @@ team works them in the CRM. The sheet stays the agency's own: we only read it.
 - A plan limit by tier: the limit of 5 sheets is one constant, ready to become a plan limit later (S8).
 
 **Anti-goals:** a second lead for a person who already has an open one; a row added twice because the sheet was sorted;
-a key or token in a log; one agency reading another agency's sheet through our service account (S4); a sheet of
+a key or token in a log; a sheet connected to two agencies at once (S4); a sheet of
 10,000 rows that brings the worker to a halt.
 
 ## 2. Who uses it
@@ -78,19 +78,16 @@ the button is off (S9).
 ### 3.2 Connect a sheet
 
 One address (`/settings/lead-sources/sheets/<sheetId>/connect`) once the link is checked, so leaving and coming back
-finds the same step (as an import does). Steps are a caption under the title ("Step 2 of 4 · Match columns").
+finds the same step (as an import does). Steps are a caption under the title ("Step 2 of 3 · Match columns").
 
-1. **Share and paste** (`/settings/lead-sources/sheets/connect`). Three numbered `Item`s:
+1. **Share and paste** (`/settings/lead-sources/sheets/connect`). Two numbered `Item`s:
    1. "Share your sheet with this address" with the address in a read-only `InputGroup` and a `CopyButton`, and a line
       under it: "In your sheet, press Share, paste the address and choose Viewer. We can only read, never change."
    2. "Paste the sheet's link" with a text field (link of the sheet from the browser's address bar; a link to one tab
       picks that tab).
-   3. "Prove it's yours": "Add this code to the end of the sheet's name: TC-7F3K9Q" with a `CopyButton`; "Change it
-      in the sheet's title at the top left. You can delete the code as soon as the sheet is connected."
    Then **Check the sheet** (primary). Each way it can fail has its own sentence under the field (S5): not shared yet
    ("We can't open that sheet yet. Share it with <address> as a Viewer, then check again."), a link that isn't a
-   Google Sheet, an Excel file kept in Drive, the code missing ("We found the sheet but not the code. Add TC-7F3K9Q to
-   the end of its name."), already connected here, and the limit.
+   Google Sheet, an Excel file kept in Drive, already connected here, already connected elsewhere ("This sheet is already connected elsewhere."), and the limit.
 2. **Tab and columns.** "Sheet 'Goa Diwali campaign (Responses)'" and a `Select` of its tabs when it has more than
    one (the link's tab first). Then the bulk spec's **Match columns** step, unchanged: `ColumnMatcher` with each of
    the sheet's headers, up to three sample values and a `Select` of what it holds ("Don't import" first), the guesses
@@ -184,20 +181,24 @@ entry.
 - **S3. The link.** Only `https://docs.google.com/spreadsheets/d/<id>/...` is accepted, by one contract schema
   (`sheetLink`) that extracts the spreadsheet id (letters, digits, `-` and `_`, 20 to 80 characters) and the optional
   `gid` of a tab. The URL is never fetched: the id alone goes to Google's API, as an encoded path segment.
-- **S4. Proof that it is theirs.** The service account can read every sheet any agency shared with it. Without a check,
-  a former employee or a contractor holding a sheet's link could connect it to their own agency and read it through
-  us. So the connector adds a code to the sheet's name (3.2): `TC-` and six characters of an HMAC of the organization
-  id, the spreadsheet id and the day (both today's and yesterday's are accepted), keyed with `SHEETS_HASH_KEY` (section 14). Renaming a sheet needs edit access, which a link-holder with view access doesn't have. The
-  code is checked once, when connecting, and the agency may remove it after. The sentence that explains it says
-  nothing of other agencies.
+- **S4. One spreadsheet, one agency at a time (owner: no proof step).** Connecting is sharing and pasting, nothing
+  more (owner, 2026-10-19). The owner accepted the risk that someone holding a sheet's link could connect it to their
+  own agency, since one service account can read every sheet shared with it. One quiet safeguard adds no step: a
+  spreadsheet can be connected to only one agency at a time. `sheet_spreadsheet_claim` (section 5) holds
+  `HMAC-SHA256(SHEETS_HASH_KEY, spreadsheet id)`, unique across all agencies. Connecting takes the claim (the
+  agency's own second tab of the same spreadsheet finds it already theirs); a second agency finds it taken and is
+  refused with one generic sentence, `SHEET_CLAIMED_ELSEWHERE`: "This sheet is already connected elsewhere." It
+  says nothing of who, when or what. A lost race (two claims at once) is the same unique violation and the same
+  sentence. The claim is released when the agency's last connection to that spreadsheet is disconnected or its
+  draft deleted. What the safeguard doesn't stop: whoever connects a sheet first, if they hold its link, gets it.
 - **S5. What "Check the sheet" does.** One `describe` call (title, locale, time zone, tabs with their `gid` and
   titles, whether each is a grid, and the first row of the chosen tab and three rows below it for the samples). It
   fails with one reason, each with its sentence in `errors.json`: `SHEET_LINK_INVALID`, `SHEET_NOT_SHARED` (Google
   answers 403 or 404 and we can't tell which: both say "share it"), `SHEET_NOT_GOOGLE_SHEET` (Google answers "not
-  supported for this document": an Excel file in Drive), `SHEET_CODE_MISSING`, `SHEET_ALREADY_CONNECTED`,
+  supported for this document": an Excel file in Drive), `SHEET_ALREADY_CONNECTED`, `SHEET_CLAIMED_ELSEWHERE`,
   `SHEET_LIMIT_REACHED`, `SHEETS_NOT_SET_UP`, `SHEET_EMPTY` (no header row).
 - **S6. A draft connection** (`connecting`) is made at the first good check and keeps the step the person is at. It
-  counts toward the limit (S8). The console's sweep deletes a draft untouched for 24 hours.
+  counts toward the limit (S8). The console's sweep deletes a draft untouched for 24 hours and releases its claim (S4).
 - **S7. The same sheet and tab once per agency.** A second connection to the same spreadsheet and tab is refused
   (`SHEET_ALREADY_CONNECTED`: "This sheet is already connected as 'Goa Diwali campaign'.") by a partial unique index
   on `(organization_id, spreadsheet_id, tab_gid)` over connections not disconnected. Different tabs of one
@@ -320,7 +321,7 @@ Each new row goes through the bulk release's `readLeadRow` (B14, B19-B23) and cr
   characters, the name when matched) and shown on the sheet's page (3.4). The reasons are B24's that apply to a
   single row: no name; no phone, email or Instagram we can use; notes over 4,000 characters; plus blocked contact
   and erased customer (S23). A value we can't read does not stop a row: it goes into the note (B21).
-- **S28. Edits are new rows.** A row edited after it was read has a new hash and is read as a new row. If it names a
+- **S28. Edits are new rows (owner confirmed).** A row edited after it was read has a new hash and is read as a new row. If it names a
   person with an open lead it becomes a repeat enquiry on that lead, never a second lead; if the edit fixed a row that
   couldn't be added, the old entry clears itself (S31). The sheet's page says so under "Counts" ("Changing a row
   after it was added adds a repeat enquiry"). Following edits into the lead is out of scope.
@@ -407,7 +408,7 @@ Each new row goes through the bulk release's `readLeadRow` (B14, B19-B23) and cr
 
 ## 5. Data
 
-Every new table has `organization_id`; all but `sheet_check_schedule` (an explicit exemption, last in this list) are organization tables under row-level security (ADR 0028, bulk section 5): `organization_id` referring to `organization`
+Every new table has `organization_id`; all but `sheet_check_schedule` and `sheet_spreadsheet_claim` (explicit exemptions, last in this list) are organization tables under row-level security (ADR 0028, bulk section 5): `organization_id` referring to `organization`
 with `ON DELETE RESTRICT ON UPDATE RESTRICT`, `SELECT app_enable_org_rls('<table>');` in the migration that creates
 it, UUID v7 ids, keys and unique constraints that include `organization_id`, CHECK lists for fixed values, and a
 row-creating fixture in `packages/db/test/org-table-fixtures/sheets.ts`. None is soft-deleted; the runtime role updates
@@ -443,6 +444,12 @@ plain uuids. No migration seeds anything; `deleteOrganizationRows` purges them w
   `lead.source` gains `google_sheet` (the source filter, the Leads list, the export and the audit words gain it).
 - **Files:** the connect-time import's CSV is stored as an `import_batch` file (bulk section 5), under the bulk rules,
   and goes with the import's seven days.
+- **sheet_spreadsheet_claim** (sheets; the second exempt table, S4): `id`, `organization_id`, `spreadsheet_hash`
+  (bytea, unique across all agencies: the keyed hash, never the spreadsheet id), `created_at`. Ids and a hash only.
+  It must be unique across organizations, which row-level security would hide, so it is exempt and reached only
+  through `@travel-crm/db/sheet-schedule` (`spreadsheetClaims(tx)`) inside `db.withoutOrg`, by the same rules as
+  the schedule below; the claim is taken and released inside `withoutOrg` transactions the sheets module opens
+  around the connection's own.
 - **sheet_check_schedule** (sheets; the one table of this feature **outside row-level security**, an explicit and
   reviewed exemption): `id` (the connection's own id, the primary key), `organization_id` (named as every
   organization table's is, restricting deletion like the others, so the keys test still covers it),
@@ -451,12 +458,12 @@ plain uuids. No migration seeds anything; `deleteOrganizationRows` purges them w
   without entering one, so the table can't be under row-level security; therefore it can't be reachable from an
   organization transaction. How the guards treat it:
   - `packages/db/test/org-table-fixtures.ts` gains a second named list beside `signInTables`:
-    `unscopedScheduleTables = ["sheet_check_schedule"]`, with the comment "ids and times only, no organization
+    `unscopedScheduleTables = ["sheet_check_schedule", "sheet_spreadsheet_claim"]`, with the comment "ids and times only, no organization
     data; reached only through @travel-crm/db/sheet-schedule inside db.withoutOrg()". `isolation.test.ts`'s
     `tablesWithOrganizationId` filters it out (so it needs no `app_enable_org_rls` and no row-creating fixture), exactly
     as it filters `signInTables`. Nothing else is exempted: `organization-keys.test.ts` still demands its foreign
     key to `organization` and its unique constraints with `organization_id`.
-  - A new test, `packages/db/test/schedule-table.test.ts`, keeps the exemption honest: the listed table exists and
+  - A new test, `packages/db/test/schedule-table.test.ts`, keeps the exemption honest: each listed table exists and
     has `organization_id`; it has no row-level security and no other table is exempted by this list; its columns
     are exactly those above (so nobody adds personal data to an exempt table); `OrgTx`, `IdentityTx` and the identity
     client don't expose `sheetCheckSchedule` (`@ts-expect-error`, as `unscoped-tables.test.ts` does for webhook events)
@@ -516,8 +523,8 @@ A port and two adapters (ADR 0008), the only code that imports `google-auth-libr
 ### 6.2 sheets (a new domain module, L0)
 
 At L0 beside `imports` and `exports`, so crm (L1) may call it and it never calls crm or today
-(`business-modules-call-down` gains it). It holds: the limits (`limits.ts`), the link and the proof code (`sheet-link`,
-`proof-code`), connections and their steps, the columns, the baseline, the check engine that reads the sheet and decides
+(`business-modules-call-down` gains it). It holds: the limits (`limits.ts`), the link, the spreadsheet claim (`sheet-link`,
+`spreadsheet-claim`), connections and their steps, the columns, the baseline, the check engine that reads the sheet and decides
 which rows are new (cursor, window, hashes, S17-S20, S29, S31), the ledger, the attention states and their notices,
 the erasure step (`withdrawSheetRows`), and the sweep's steps. It calls identity below it (`firstOwner`,
 `resolveAccess`, `matchLeadWorkers`) and imports (`headerKey`, `guessFields`, `rowFingerprint`,
@@ -552,7 +559,7 @@ a sheet by id only (the link only in `begin`, through `sheetLink`):
 
 A sheet of another organization or one disconnected is `NOT_FOUND`; a step asked out of turn is
 `CONFLICT`/`SHEET_NOT_READY`. New reasons, each with its sentence in `errors.json`: `SHEET_LINK_INVALID`,
-`SHEET_NOT_SHARED`, `SHEET_NOT_GOOGLE_SHEET`, `SHEET_CODE_MISSING`, `SHEET_EMPTY`, `SHEET_ALREADY_CONNECTED`,
+`SHEET_NOT_SHARED`, `SHEET_NOT_GOOGLE_SHEET`, `SHEET_CLAIMED_ELSEWHERE`, `SHEET_EMPTY`, `SHEET_ALREADY_CONNECTED`,
 `SHEET_LIMIT_REACHED`, `SHEETS_NOT_SET_UP`, `SHEET_NOT_READY`, `SHEET_BUSY`. Reasons of the bulk release are reused
 (`IMPORT_NEEDS_NAME_AND_CONTACT`, `FIELD_MATCHED_TWICE`).
 
@@ -604,7 +611,7 @@ listener does nothing for a connection no longer at its step.
   - the leads a sheet makes are audited exactly as by hand (`person.added`, `person.edited`, `lead.added`,
     `lead.repeat-enquiry`, the destination added), the connector as the actor with source `job`, with the connection's
     id as the detail.
-  Snapshots never hold a cell's value, a header, the sheet's title, a link or the proof code.
+  Snapshots never hold a cell's value, a header, the sheet's title, or a link.
 - **Notifications** (`notify()`, bell, push and email, opt-outs apply), each kind in `kinds.ts` with its words:
   - `sheet.needs-attention` to the agency Owner, once per change into an attention state (S45): "We can't open your
     sheet 'Goa Diwali campaign'. Share it with <address> again.", "The tab ... isn't there any more", "Columns are
@@ -672,7 +679,7 @@ connections:
 **Journeys** on phone and desktop, with axe after each, against the in-memory Google (the harness gives a `fakeGoogle`
 the journeys script):
 
-1. An Owner connects a sheet: shares with the shown address, pastes the link, adds the code, matches columns, chooses
+1. An Owner connects a sheet: shares with the shown address, pastes the link, matches columns, chooses
    "Only new rows from now on"; the existing rows are not added; the form adds a row (the fake appends it); within
    one check the lead shows with source Google Sheet, its owner and its notice.
 2. Connect with "Also check the rows already there": the preview shows Already in your CRM with the open and closed
@@ -690,13 +697,13 @@ the journeys script):
 7. Sync now, twice in a row: the second is refused with its sentence; Pause and Resume; Disconnect; connecting
    again asks about the rows again and adds nothing twice.
 8. The sixth sheet is refused with its sentence; a second connection to the same tab is refused; a link to an Excel
-   file is refused; a sheet without the code is refused.
+   file is refused; a sheet already connected to another agency is refused with the generic sentence, which names nothing of the other agency; disconnecting it there frees it here.
 9. Erase a customer: their row is read again by a full read and is not added; a different row naming their phone is
    left out during the hold.
 10. A read-only agency: the sheets are paused with their sentence, Sync now is off, Pause and Disconnect still work.
 
 **Tests the builders write first** (besides each rule's own): the port has no write method (S1); the link schema
-(accepted and refused links, the id only); the proof code (today, yesterday, another organization's code); the
+(accepted and refused links, the id only); the spreadsheet claim (taken, own second tab, lost race, release on disconnect, the sentence naming nothing); the
 adapter's mapping of Google's answers to reasons (a recorded 403, 404, 400, 429 with `Retry-After`, 5xx); the cursor,
 window and full-read decisions; row hashes and occurrences under sort, insert, delete and edit; the order of S23 case
 by case; the plan of two rows of one check; resuming after a crash and two overlapping checks adding each row once;
@@ -712,7 +719,7 @@ One branch, `sheets/sync`, after the bulk release's shared pieces and lead impor
 `ColumnMatcher`, `readLeadRow`, `saveEnquiry`, `rowFingerprint` and the import pipeline. Inside it:
 
 1. **Port and adapters** (6.1), the configuration, the dependency rule and ADR 0031 (Google Sheets sync: a service
-   account, read only, polling, the proof code). It needs nothing from bulk and may start first.
+   account, read only, polling, the spreadsheet claim and the exempt tables). It needs nothing from bulk and may start first.
 2. **Tables, the sheets module, contracts** (sections 5 and 6.2): connect, steps, baseline, the engine.
 3. **crm's side:** the check, the plan of S23, the notify option, the `in_crm` plan and `google_sheet` source.
 4. **The worker's dispatcher, the schedule table with its module, and the sweep** (S36, section 7).
@@ -749,7 +756,7 @@ Before the first agency connects a sheet:
    - **On Render:** open `travel-crm-api`, Environment, add the variable as a secret, paste the base64 text, save and let
      the service redeploy; check its log for the start-up line that says how many service accounts were read.
    - `SHEETS_HASH_KEY`: at least 32 random characters (`openssl rand -base64 32`), required when the service
-     accounts are set, api and worker. It keys the proof code (S4) and the erasure tombstones (S43). It lives in the
+     accounts are set, api and worker. It keys the spreadsheet claim (S4) and the erasure tombstones (S43). It lives in the
      environment only, never in the database or a log, and is not rotated: changing it makes old tombstones stop
      matching, so keep it with the secrets that are never changed.
 6. **The worker may sleep** (S36): it wakes when staff use the app, and its first tick checks every sheet. A sheet is
@@ -769,9 +776,10 @@ The owner settled ten (one way only; sharing with our address; deleted, sorted o
 duplicates; the existing-rows question; stage and owner; 5 sheets; 2-minute checks and Sync now; rows that can't be
 added listed; lost access noticed once; managers connect). These calls are mine, each open to change:
 
-1. **A code in the sheet's name proves the agency owns the sheet (S4):** one service account reads every shared sheet,
-   so without proof anyone holding a link could connect another agency's sheet to their own. Renaming needs edit
-   access. It adds one step to the owner's simple flow; it is the only guard that needs no new Google permission.
+1. **No proof step: share and paste only, with one quiet safeguard (owner, 2026-10-19):** a spreadsheet can belong to
+   one agency at a time, by a keyed hash of its id (S4), and a second agency gets a generic refusal. The owner
+   accepts the remaining risk: a leaked link lets its holder connect the sheet first, since one service account reads
+   every sheet shared with it.
 2. **The worker dispatches the checks from a small schedule table outside row-level security (S36):** the console sleeps
    in the pilot, so it can't; the table holds ids and times only and is reached through its own module, as webhook
    events are.
@@ -789,7 +797,7 @@ added listed; lost access noticed once; managers connect). These calls are mine,
    come with a file import or the connect-time preview's default.
 9. **A finished row is added at once; an unfinished one waits one check (S29):** the first reply clock matters more
    than a row someone is typing.
-10. **An edited row is read as a new row (S28):** following edits is out of scope; the cost is a repeat enquiry on
+10. **An edited row is read as a new row (S28), owner confirmed:** following edits is out of scope; the cost is a repeat enquiry on
     an open lead, never a second lead.
 11. **The sheet acts as the member who connected it, with Take over (S10, S34):** the same rule as an import, with a
     way out when they leave.
