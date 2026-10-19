@@ -29,8 +29,11 @@ export interface ReaderElement {
   ambiguous: boolean;
 }
 
-/** Every element of a whole part, in document order; null when the part isn't XML the parser can read. */
-export function readerElementsOf(xml: string): ReaderElement[] | null {
+/**
+ * A whole part's elements of the names asked for, in document order; null when the part isn't XML the parser can
+ * read. Only those are kept: a part may hold millions of others (item 3).
+ */
+export function readerElementsOf(xml: string, names: ReadonlySet<string>): ReaderElement[] | null {
   const parser = new Parser();
   const elements: ReaderElement[] = [];
   // An object, not a variable: the callbacks set it, and TypeScript narrows a variable only callbacks change.
@@ -40,7 +43,9 @@ export function readerElementsOf(xml: string): ReaderElement[] | null {
     parser.stop();
   };
   parser.on("error", stop);
-  parser.on("openTag", (name, attributesOf, decode) => {
+  parser.on("openTag", (rawName, attributesOf, decode) => {
+    const name = readerName(rawName);
+    if (!names.has(name)) return;
     const raw = attributesOf();
     if (raw === false) {
       stop();
@@ -49,13 +54,13 @@ export function readerElementsOf(xml: string): ReaderElement[] | null {
     const attributes: Record<string, string> = {};
     const seen = new Set<string>();
     let ambiguous = false;
-    for (const [rawName, value] of Object.entries(raw)) {
-      const named = readerName(rawName, true);
+    for (const [rawAttribute, value] of Object.entries(raw)) {
+      const named = readerName(rawAttribute, true);
       if (seen.has(named)) ambiguous = true;
       seen.add(named);
       attributes[named] = decode(value);
     }
-    elements.push({ name: readerName(name), attributes, ambiguous });
+    elements.push({ name, attributes, ambiguous });
   });
   parser.parse(xml);
   return state.broken ? null : elements;

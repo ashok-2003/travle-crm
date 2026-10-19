@@ -28,14 +28,12 @@ const worksheetTypes = new Set([
  * meet under one name (two ids) is refused: which one the reader keeps depends on its copy of the parser.
  */
 function firstSheetOf(unpacked: UnpackedWorkbook) {
-  const sheets = readerElementsOf(unpacked.workbook ?? "")?.filter(
-    (element) => element.name === "sheet" && Boolean(element.attributes.name),
+  const sheets = readerElementsOf(unpacked.workbook ?? "", new Set(["sheet"]))?.filter((element) =>
+    Boolean(element.attributes.name),
   );
-  const relations = readerElementsOf(unpacked.workbookRelations ?? "")?.filter(
-    (element) => element.name === "Relationship",
-  );
+  const relations = readerElementsOf(unpacked.workbookRelations ?? "", new Set(["Relationship"]));
   const first = sheets?.[0];
-  if (sheets === undefined || relations === undefined || first === undefined || first.ambiguous) {
+  if (sheets === undefined || relations === null || first === undefined || first.ambiguous) {
     throw new SpreadsheetUnreadableError("not_a_spreadsheet");
   }
   const relation = relations
