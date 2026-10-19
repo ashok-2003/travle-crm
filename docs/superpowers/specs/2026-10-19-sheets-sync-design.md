@@ -187,8 +187,7 @@ entry.
 - **S4. Proof that it is theirs.** The service account can read every sheet any agency shared with it. Without a check,
   a former employee or a contractor holding a sheet's link could connect it to their own agency and read it through
   us. So the connector adds a code to the sheet's name (3.2): `TC-` and six characters of an HMAC of the organization
-  id, the spreadsheet id and the day (both today's and yesterday's are accepted), keyed from the api's secret by HKDF
-  (so no new setting). Renaming a sheet needs edit access, which a link-holder with view access doesn't have. The
+  id, the spreadsheet id and the day (both today's and yesterday's are accepted), keyed with `SHEETS_HASH_KEY` (section 14). Renaming a sheet needs edit access, which a link-holder with view access doesn't have. The
   code is checked once, when connecting, and the agency may remove it after. The sentence that explains it says
   nothing of other agencies.
 - **S5. What "Check the sheet" does.** One `describe` call (title, locale, time zone, tabs with their `gid` and
@@ -356,21 +355,22 @@ Each new row goes through the bulk release's `readLeadRow` (B14, B19-B23) and cr
   about 120 sheets at a 2-minute interval (one read each, S17). `maxReadsPerMinutePerAccount = 50` leaves room for
   connects and Sync now. Past that the dispatcher (S36) checks the most overdue first, so the interval stretches and
   no sheet starves; the owner is told to add an account at 80 sheets for one (section 14).
-- **S36. Every 2 minutes while the process that dispatches is awake (owner).** The dispatcher is a scheduled job of the
-  console process (`platform.dispatch-sheet-checks`, every minute, the finest granularity pg-boss schedules have):
-  the only process that may read connections of every organization (`CLAUDE.md`'s platform rules). It picks the
-  connections that are `running`, whose `last_checked_at` is 120 seconds or more ago (or never), and for each
-  publishes `sheet.check-due` in that organization (`asOrganization`, `publishEvent`), at most
-  `maxReadsPerMinutePerAccount` per account, most overdue first, and marks `check_requested_at` so a sheet already
-  waiting for a worker is not requested again. The checks themselves are the worker's: a listener of the
-  event. A worker that sleeps (Render's free tier) finds the events waiting, and when it wakes it works through
-  every connected sheet's pending check at once, a few at a time (`concurrency` 4 on the queue) and within S35's
-  budget. Missed ticks are not replayed (S18's cursor makes that harmless), and Google calls made by a check do not keep a sleeping
-  Render service awake: only an incoming request or the schedule does. If the console sleeps as well, nothing is requested until it wakes; section 14 asks for it to run all the
-  time.
+- **S36. Every 2 minutes while the worker is awake (owner).** The worker holds the schedule. A scheduled job of the
+  worker (`sheets.dispatch-checks`, every minute, the finest granularity pg-boss schedules have) claims the due rows
+  of `sheet_check_schedule` (section 5) and queues one `sheets.check` job for each, with ids only. The schedule is a
+  small table without `organization_id`, so the worker can find due sheets of every organization without reading any
+  organization's data; the job then runs the check in its organization through `forOrg`. The claim is
+  `SELECT ... WHERE next_check_at <= now() AND (claimed_until IS NULL OR claimed_until < now()) ORDER BY
+  next_check_at FOR UPDATE SKIP LOCKED LIMIT n`, at most `maxReadsPerMinutePerAccount` per account, most overdue
+  first (S35), setting `claimed_until` five minutes ahead so a sheet already queued is not queued again. A check's
+  end sets `next_check_at = now + 120 seconds` and clears the claim. The queue runs four checks at a time
+  (`concurrency` 4). The worker sleeps on Render's free tier and wakes when agency staff use the app: pg-boss does
+  not replay ticks missed while asleep, and the first tick after waking finds every sheet overdue, so all connected
+  sheets are checked at once, within S35's budget (S18's cursor makes the gap harmless). Google calls made by a
+  check do not keep a sleeping Render service awake: only an incoming request does. The console takes no part
+  (in the pilot it sleeps until platform staff use it).
 - **S37. Backing off.** A 429 from Google ends the check without a fault: the connection's next request is held for
-  Google's `Retry-After` (60 seconds when absent, doubling to 10 minutes while it keeps happening), and the
-  dispatcher skips that account's connections until then. A timeout, a 5xx or a network error is the same: retried at the
+  Google's `Retry-After` (60 seconds when absent, doubling to 10 minutes while it keeps happening), and the schedule's claim skips that account's connections until then. A timeout, a 5xx or a network error is the same: retried at the
   next dispatch, "Last checked" keeps the last good time, and nothing is shown to the agency. A request has a 20-second
   timeout.
 - **S38. Sync now** (`leadSheets.syncNow`) publishes `sheet.sync-requested` for one connection: a full read (S18) that
@@ -407,7 +407,7 @@ Each new row goes through the bulk release's `readLeadRow` (B14, B19-B23) and cr
 
 ## 5. Data
 
-Every new table is an organization table (ADR 0028, bulk section 5): `organization_id` referring to `organization`
+Every new table but one (`sheet_check_schedule`, last in this list) is an organization table (ADR 0028, bulk section 5): `organization_id` referring to `organization`
 with `ON DELETE RESTRICT ON UPDATE RESTRICT`, `SELECT app_enable_org_rls('<table>');` in the migration that creates
 it, UUID v7 ids, keys and unique constraints that include `organization_id`, CHECK lists for fixed values, and a
 row-creating fixture in `packages/db/test/org-table-fixtures/sheets.ts`. None is soft-deleted; the runtime role updates
@@ -420,10 +420,10 @@ plain uuids. No migration seeds anything; `deleteOrganizationRows` purges them w
   `service_account_index`; `step` (share, tab, columns, existing, done) for the connect screens; `existing_rows`
   (only_new, check); `cursor_row`; `rows_seen`; `header_hash`; `connected_by`, `impersonated_by`; `rows_added`,
   `rows_merged`, `rows_duplicate`; `consecutive_failures`; `attention_since`; `last_checked_at`, `last_ok_at`,
-  `last_full_read_at`; `check_requested_at`, `check_started_at`; `hold_until` (S37); `created_at`, `connected_at`,
+  `last_full_read_at`; `check_started_at`; `hold_until` (S37); `created_at`, `connected_at`,
   `disconnected_at`. Unique `(organization_id, id)`; partial unique
   `(organization_id, spreadsheet_id, tab_gid)` where `status <> 'disconnected'` (S7); index
-  `(status, last_checked_at)` for the dispatcher; index `(organization_id, id DESC)` for the list.
+  `(organization_id, id DESC)` for the list.
 - **sheet_column**: the connection, `header_key`, `header` (as read), `field` (null: don't import; a CHECK list of the
   lead import's fields). Unique `(organization_id, connection_id, header_key)`.
 - **sheet_value_match**: the connection, `field` (owner), `value`, `target` (a user id), `matched_by` (chosen). Only
@@ -436,15 +436,28 @@ plain uuids. No migration seeds anything; `deleteOrganizationRows` purges them w
   where it is set (S23, read with `= ANY`); a partial index on `(organization_id, connection_id, row_number)` where
   `status = 'not_added' AND resolved_at IS NULL` for the problem list; one on `(organization_id, person_id)` for
   erasure. A sheet of 20,000 rows holds 20,000 small rows.
-- **sheet_erased_contact**: `contact_hash` (bytea: HMAC-SHA256 of an E.164 phone, an email or an Instagram handle, S43),
-  `erased_at`, `hold_until`. Unique `(organization_id, contact_hash)`.
+- **sheet_erased_contact**: `contact_hash` (bytea: HMAC-SHA256, keyed with `SHEETS_HASH_KEY`, of a normalised phone, email or Instagram handle, S43),
+  `erased_at`. Unique `(organization_id, contact_hash)`.
 - **import_batch** (the bulk release's) gains `source_sheet_id` (a sheet connection, nullable: the connect-time import)
   and `add_in_crm` (boolean, default false, the choice for the new group); `import_row.plan` gains `in_crm`;
   `lead.source` gains `google_sheet` (the source filter, the Leads list, the export and the audit words gain it).
 - **Files:** the connect-time import's CSV is stored as an `import_batch` file (bulk section 5), under the bulk rules,
   and goes with the import's seven days.
-- **The platform's and the console's** reading of `sheet_connection` goes through `@travel-crm/db/platform`, in
-  `packages/domain/src/platform/sheet-dispatch.ts` only.
+- **sheet_check_schedule** (sheets; the one table of this feature **without `organization_id`**, like webhook events and
+  rate-limit counters, `CLAUDE.md`): `connection_id` (primary key), `for_organization` (a plain uuid, so the table has
+  no `organization_id` column and no row-level security: the job needs it to know which organization to enter),
+  `service_account_index`, `next_check_at`, `claimed_until`. Ids and times only, no personal data, no title, no
+  link. An index on `(next_check_at)` for the claim. It is reached only through `@travel-crm/db/sheet-schedule`
+  (a third entry point beside `webhooks` and `rate-limits`) inside `db.withoutOrg(tx => ...)`: `OrgTx` hides its
+  model and every transaction refuses it at run time; dependency-cruiser keeps the entry point to the sheets
+  module's `schedule.ts`; the ESLint raw-SQL guard (`rawSqlSelectorsAllowing`) flags SQL naming the table anywhere
+  else. The runtime role may select, insert, update and delete it and nothing else of it. It is **written after the
+  connection's own transaction**, by a listener of `sheet.schedule-changed` (published in that transaction, so it
+  is never lost and its upsert or delete is safe to run twice): a connection that is `running`, `lost_access`,
+  `tab_missing`, `columns_missing` or `needs_manager` has a row; one that is `connecting`, `paused` or
+  `disconnected` has none. A stale row is harmless: the check re-reads the connection under `forOrg` and does
+  nothing, and removes the row, when the connection isn't due. The erasure and the purge delete an
+  organization's rows from it (by `for_organization`) with the rest.
 
 ## 6. Modules, the port, permissions and api
 
@@ -506,7 +519,7 @@ has any lead, open or closed, and `add_in_crm` is false.
 
 - identity: nothing new beyond the bulk release's `matchLeadWorkers` and `firstOwner`.
 - notifications: kinds `sheet.needs-attention` and `lead.sheet-added` (section 8).
-- platform: `sheet-dispatch.ts` (S36) and the sweep's steps (section 7).
+- sheets also owns `schedule.ts` (S36, the one reader of `sheet_check_schedule`); platform: the sweep's steps (section 7).
 
 ### 6.5 Permissions and procedures
 
@@ -544,7 +557,7 @@ listener does nothing for a connection no longer at its step.
 - `sheet.baseline-requested` (`{ sheetId }`) → `sheets.baseline`: S14. Reads the whole tab, writes the ledger rows
   (`before_connect`, 1,000 to a transaction), sets the cursor and `connected_at`, moves the connection to `running`;
   with `existing_rows = check`, also writes the CSV and publishes `import.uploaded` for the import it creates.
-- `sheet.check-due` and `sheet.sync-requested` (`{ sheetId }`) → `crm.check-lead-sheet`: S17-S32, in this order: claim
+- `sheet.check-due` (from the schedule's job) and `sheet.sync-requested` (`{ sheetId }`) → `crm.check-lead-sheet`: S17-S32, in this order: claim
   the connection (a transaction that sets `check_started_at`, and does nothing when a check started less than 5
   minutes ago, when the sheet is not `running` or an import is adding); read Google outside any transaction; then
   the 50-row transactions; then close the check (`last_checked_at`, `consecutive_failures`, the cursor, counters, the
@@ -552,9 +565,13 @@ listener does nothing for a connection no longer at its step.
 - `sheet.attention` (`{ sheetId, state }`): the state change of S45; its listener sends the one notice.
 - The listeners are added to `apps/api/src/worker-jobs.ts`; the Google adapter is built in `apps/api/src/services.ts`
   from `GOOGLE_SHEETS_SERVICE_ACCOUNTS`.
-- **The console's jobs** (`apps/api/src/console-jobs.ts`): `platform.dispatch-sheet-checks` every minute (S36), and
-  the existing hourly sweep gains: drafts untouched 24 hours deleted (S6), resolved problems older than 7 days
-  deleted, and contact tombstones past `hold_until` deleted.
+- **The worker's schedule:** `sheets.dispatch-checks` every minute (S36), queueing `sheets.check` (`{ sheetId,
+  organizationId }`), whose handler enters the organization with `forOrg` and publishes `sheet.check-due` there, so
+  the check is the listener `crm.check-lead-sheet` above, run once per event. `sheet.schedule-changed` (`{ sheetId }`)
+  → `sheets.update-schedule`: the upsert or delete of the connection's schedule row.
+- **The console's sweep** (`apps/api/src/console-jobs.ts`, hourly; not time-critical, so it may sleep) gains: drafts
+  untouched 24 hours deleted (S6), resolved problems older than 7 days deleted, and schedule rows with no live
+  connection deleted.
 - Job data and errors hold ids and reason codes only, never a sheet's content or its title.
 
 ## 8. Audit and notifications
@@ -584,15 +601,16 @@ listener does nothing for a connection no longer at its step.
   which we never change, so the erasure must outlive it. Erasing a customer (`eraseCustomerParts`) calls the sheets
   module's `withdrawSheetRows(tx, organizationId, personId, contacts, now)` in the erasure's platform transaction:
   1. the person's `sheet_row` rows (by `person_id`) keep their `raw_hash` and `fingerprint`, **rewritten as an
-     HMAC-SHA256 keyed from the api's secret (HKDF)**, so a hash that could be tested against guessed phone numbers
+     HMAC-SHA256 keyed with `SHEETS_HASH_KEY`** (section 14: an environment setting, never stored in the database), so a hash that could be tested against guessed phone numbers
      becomes one that can't; their `lead_id`, `person_id`, `example_name` and `example_value` are emptied; their
      status becomes `erased`. A known row stays known (S19: the lookup tries the plain hash and the keyed one), so
      the same row, whenever it is read again, is skipped.
-  2. each of the person's contacts (phone, email, Instagram handle, as stored) is written to `sheet_erased_contact`
-     as a keyed hash with `hold_until = now + 90 days` (`erasedContactHoldDays`), so a different row of the same
-     person (another form fill from before the erasure, not yet read) is left out as "A customer who asked to be
-     erased" (S23) while the hold lasts. After it, a new enquiry from that person is a new person: erasing a customer is
-     not a ban, and the hash is deleted by the sweep.
+  2. each of the person's contacts (phone, email, Instagram handle) is **normalised** (E.164, lower-case email, handle
+     without "@", as B14 reads them), hashed and written to `sheet_erased_contact` as an HMAC-SHA256 and nothing
+     else: no plaintext of the contact is kept anywhere, and the person's own rows lose theirs as above. A different
+     row of the same person (another form fill from before the erasure, not yet read) is then left out as "A
+     customer who asked to be erased" (S23). The tombstone has no expiry, because "never come back" is the
+     rule; a person who really wants to enquire again asks the agency, who can have platform support remove it.
   3. every `sheet_row`'s `example_name` and `example_value` in the organization are emptied (a problem row can't be
      tied to one person), as the bulk spec empties every import's examples (section 9 there).
   The erasure's confirmation tells the agency to also delete the person's rows from its own sheet.
@@ -678,7 +696,7 @@ One branch, `sheets/sync`, after the bulk release's shared pieces and lead impor
    account, read only, polling, the proof code). It needs nothing from bulk and may start first.
 2. **Tables, the sheets module, contracts** (sections 5 and 6.2): connect, steps, baseline, the engine.
 3. **crm's side:** the check, the plan of S23, the notify option, the `in_crm` plan and `google_sheet` source.
-4. **The console's dispatcher and the sweep** (S36, section 7).
+4. **The worker's dispatcher, the schedule table with its module, and the sweep** (S36, section 7).
 5. **The screens** (section 3) and their words, then the journeys.
 
 **Changes to the bulk release's pieces,** each small and made in this branch: `import_batch.source_sheet_id` and
@@ -701,7 +719,7 @@ Before the first agency connects a sheet:
 4. **Create a key** for it (Keys, Add key, JSON) and download the file once. Google can't show it again. It is a
    secret like the database password.
 5. **Put the key in the deploy's settings** (`docs/deploy-checklist.md` gets this row in its settings table and its
-   notes: the api and the worker, never the console, which only decides which sheet is due):
+   notes: the api and the worker, never the console):
    - `GOOGLE_SHEETS_SERVICE_ACCOUNTS`: one variable holding the key file's JSON, or a JSON list of several, either
      base64 encoded (`base64 -i key.json`, one line, easy to paste) or as single-line JSON. Absent, Google Sheets is
      off and the page says so. Decoded and validated at start-up (`apps/api/src/environment.ts`): valid base64 or
@@ -711,9 +729,13 @@ Before the first agency connects a sheet:
      The same row goes in `docs/deploy-checklist.md`'s settings table (process: api and worker; secret: yes).
    - **On Render:** open `travel-crm-api`, Environment, add the variable as a secret, paste the base64 text, save and let
      the service redeploy; check its log for the start-up line that says how many service accounts were read.
-   No other new setting: the proof code and the erasure hashes are keyed from `BETTER_AUTH_SECRET`.
-6. **Keep the console running** (S36): it decides which sheet is due every minute. If it sleeps, sheets are not
-   checked until it wakes. The worker may sleep; it works the waiting checks when it wakes.
+   - `SHEETS_HASH_KEY`: at least 32 random characters (`openssl rand -base64 32`), required when the service
+     accounts are set, api and worker. It keys the proof code (S4) and the erasure tombstones (S43). It lives in the
+     environment only, never in the database or a log, and is not rotated: changing it makes old tombstones stop
+     matching, so keep it with the secrets that are never changed.
+6. **The worker may sleep** (S36): it wakes when staff use the app, and its first tick checks every sheet. A sheet is
+   therefore as fresh as the worker is awake; Sync now checks at once. Keeping the worker awake all day (a paid plan or
+   an uptime pinger) makes it the promised 2 minutes. The console plays no part in checking sheets.
 7. **Add a second service account** when a single one has about 80 connected sheets: repeat steps 3-4 and add its key
    to the list. Nothing else changes; existing sheets stay with their first address. Google's limits to watch
    (Cloud console, Quotas): 300 reads a minute for the project and 60 a minute per service account.
@@ -731,8 +753,9 @@ added listed; lost access noticed once; managers connect). These calls are mine,
 1. **A code in the sheet's name proves the agency owns the sheet (S4):** one service account reads every shared sheet,
    so without proof anyone holding a link could connect another agency's sheet to their own. Renaming needs edit
    access. It adds one step to the owner's simple flow; it is the only guard that needs no new Google permission.
-2. **The dispatcher is a console job; the worker does the checks (S36):** only the console may read connections of every
-   organization, so the worker can't find due sheets itself. The sleeping worker still catches up when it wakes.
+2. **The worker dispatches the checks from a small schedule table without `organization_id` (S36):** the console sleeps
+   in the pilot, so it can't; the table holds ids and times only and is reached through its own module, as webhook
+   events are.
 3. **Plain `fetch` with `google-auth-library`, not `googleapis` (6.1):** two endpoints need no giant package, and the
    OAuth client is there for "Sign in with Google" later.
 4. **Rows already in the sheet become an ordinary import (3.3):** the preview, matching, report and fingerprints
@@ -759,7 +782,7 @@ added listed; lost access noticed once; managers connect). These calls are mine,
     grow a list nobody can fix.
 15. **Disconnect deletes the rows' record and keeps the counters (S42):** connecting again asks again, and no old hash
     can leave a sheet half-read.
-16. **Erasure keeps a keyed hash of the erased person's rows, and their contacts for 90 days (S43):** a row in a
+16. **Erasure keeps only keyed hashes, of the erased person's rows and contacts, with no expiry (S43):** a row in a
     sheet we don't own can't be deleted, so the memory of it must outlast the erasure, in a form that can't be
     guessed back.
 17. **Read the tab the link names, else the first (S3, 3.2):** pasting a tab's link is the natural way to pick it.
