@@ -12,7 +12,7 @@ import { ErrorState } from "@/components/error-state";
 import { PageHeader } from "@/components/page-header";
 import { useTRPC } from "@/data/trpc";
 import { useWriteAccess } from "@/subscription/write-access";
-import { CreateStaffDialog } from "./create-staff-dialog";
+import { StaffHeaderActions } from "./staff-header-actions";
 import { StaffList } from "./staff-list";
 import { LoadingRows } from "@/components/loading-rows";
 import { useWideScreen } from "@/lib/use-wide-screen";
@@ -62,7 +62,7 @@ export function StaffScreen() {
       <PageHeader
         title={t("title")}
         intro={t("intro")}
-        action={shownRoles && <CreateStaffDialog roles={shownRoles} />}
+        action={shownRoles && staff.data && <StaffHeaderActions roles={shownRoles} count={staff.data.length} />}
       />
       {body()}
     </div>
