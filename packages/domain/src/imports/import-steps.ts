@@ -87,6 +87,12 @@ export async function confirmImportUpload(
 }
 
 /**
+ * A check the Add request runs in its own transaction, before the import moves to adding; one that throws (a Google
+ * Sheet's check that is saving, S26) refuses the Add and leaves the import at its preview.
+ */
+export type AddGuard = (tx: OrgTx, now: Date) => Promise<void>;
+
+/**
  * Add (B26, B29): from the preview only, so a second press, or one in another tab, answers IMPORT_NOT_READY and
  * queues nothing. One import of an agency adds at a time (import_batch_one_adding): IMPORT_ALREADY_RUNNING.
  */
@@ -96,6 +102,7 @@ export async function requestImportAdd(
   kind: ImportKind,
   importId: string,
   now: Date,
+  guards: readonly AddGuard[] = [],
 ): Promise<void> {
   try {
     await db.forOrg(access.organizationId, async (tx) => {
@@ -103,6 +110,7 @@ export async function requestImportAdd(
       // Held, so two presses take turns and the second finds it adding.
       const batch = await holdImport(tx, importId);
       if (batch?.status !== "checked") throw notReady();
+      for (const guard of guards) await guard(tx, now);
       await moveImport(tx, importId, ["checked"], "adding", now, { addRequestedAt: now, rowsDone: 0 });
       await recordAudit(tx, access, {
         action: "import.started",

@@ -15,7 +15,7 @@ import {
   startImportFromBytes,
   stopImport,
 } from "../../src/imports/index.js";
-import { systemActor } from "../../src/kernel/index.js";
+import { DomainError, systemActor } from "../../src/kernel/index.js";
 import { aBatch } from "./support/batches.js";
 import {
   anAgency,
@@ -142,6 +142,31 @@ describe("an import's steps", () => {
       status: "checked",
     });
     expect(await auditOf(test, organization, id)).toEqual([]);
+  });
+
+  it("runs the Add's guards in its transaction: one that throws refuses the Add and leaves the import checked (N9)", async () => {
+    const organization = await anAgency(test, "Guarded");
+    const person = memberOf(organization);
+    const { id } = await test.db.forOrg(organization, (tx) => aBatch(tx, { startedBy: person.userId }));
+    const saving = () =>
+      Promise.reject(new DomainError("CONFLICT", "IMPORT_ALREADY_RUNNING", "A sheet's check is saving"));
+    await expect(requestImportAdd(test.db, person, "leads", id, new Date(), [saving])).rejects.toMatchObject({
+      reason: "IMPORT_ALREADY_RUNNING",
+    });
+    expect(await test.db.forOrg(organization, (tx) => findImport(tx, person, "leads", id))).toMatchObject({
+      status: "checked",
+    });
+    expect(await eventsOf(test, organization, ["import.add-requested"])).toEqual([]);
+    const seen: Date[] = [];
+    const quiet = (_tx: unknown, now: Date) => {
+      seen.push(now);
+      return Promise.resolve();
+    };
+    await requestImportAdd(test.db, person, "leads", id, new Date(), [quiet]);
+    expect(seen).toHaveLength(1);
+    expect(await test.db.forOrg(organization, (tx) => findImport(tx, person, "leads", id))).toMatchObject({
+      status: "adding",
+    });
   });
 
   it("changes nothing on a second Stop, and refuses Cancel while adding", async () => {
