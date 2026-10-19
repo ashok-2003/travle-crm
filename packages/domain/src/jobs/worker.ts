@@ -117,21 +117,27 @@ export async function startWorker(dependencies: WorkerDependencies): Promise<Wor
   // Schedules first: when the runner refuses one, no listener or relay has started.
   await registerSchedules(runner, schedules);
   for (const listener of listeners) {
-    await runner.work(listener.name, async (job) => {
-      const outcome = await runListenerJob({ db, listener, data: job.data });
-      // Not retried (the event won't appear), but not silent either. Ids only: this may reach logs.
-      if (outcome === "event-not-found") {
-        try {
-          dependencies.onError?.(
-            new Error(
-              `${listener.name}: event ${String(job.data.eventId)} not found in organization ${String(job.data.organizationId)}`,
-            ),
-          );
-        } catch {
-          // A broken logger must not turn "not found, don't retry" into a retry.
+    // One job of a listener at a time in a worker: an import's read peaks at about 344 MB in its process (X10), so
+    // two at once could pass a small host's memory. More workers run more.
+    await runner.work(
+      listener.name,
+      async (job) => {
+        const outcome = await runListenerJob({ db, listener, data: job.data });
+        // Not retried (the event won't appear), but not silent either. Ids only: this may reach logs.
+        if (outcome === "event-not-found") {
+          try {
+            dependencies.onError?.(
+              new Error(
+                `${listener.name}: event ${String(job.data.eventId)} not found in organization ${String(job.data.organizationId)}`,
+              ),
+            );
+          } catch {
+            // A broken logger must not turn "not found, don't retry" into a retry.
+          }
         }
-      }
-    });
+      },
+      { concurrency: 1 },
+    );
   }
   for (const handler of handlers) {
     await runner.work(handler.queue, (job) => handler.handle(job.data));
