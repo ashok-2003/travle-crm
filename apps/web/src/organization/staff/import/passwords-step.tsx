@@ -45,11 +45,13 @@ function saveSheet(blob: Blob, fileName: string): void {
 
 export function PasswordsStep({ importId, page }: { importId: string; page: StaffImportPage }) {
   const t = useTranslations("staff.import.done");
+  const tLost = useTranslations("staff.import.lost");
   const me = useMe();
   const wide = useWideScreen();
   const [downloaded, setDownloaded] = useState(false);
   // The store isn't React state: asking again after the new passwords are made.
   const [, setVersion] = useState(0);
+  const [skipped, setSkipped] = useState(0);
   const passwords = passwordStore.get(importId);
   const shown = page.added.filter((person) => passwords?.has(person.rowNumber));
   const passwordOf = (person: StaffImportedPerson) => passwords?.get(person.rowNumber) ?? "";
@@ -87,7 +89,8 @@ export function PasswordsStep({ importId, page }: { importId: string; page: Staf
         <LostPasswords
           importId={importId}
           waiting={page.added.filter((person) => person.mustChangePassword)}
-          onMade={() => {
+          onMade={(left) => {
+            setSkipped(left);
             setVersion((version) => version + 1);
           }}
         />
@@ -154,6 +157,7 @@ export function PasswordsStep({ importId, page }: { importId: string; page: Staf
               ))}
             </ItemGroup>
           )}
+          {skipped > 0 && <p className="text-muted-foreground">{tLost("skipped", { count: skipped })}</p>}
           <p className="text-muted-foreground">{t("firstSignIn", { code: me.organization.code })}</p>
         </>
       )}

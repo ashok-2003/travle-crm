@@ -120,18 +120,16 @@ describe("PasswordsStep", () => {
     renderWithApi(<StaffImportScreen importId={importId} />, queryClient);
     expect(await screen.findByText(/These passwords were shown once/)).toBeVisible();
     expect(screen.queryByText("h7Kq3mPx9Tzc")).toBeNull();
-    await userEvent.click(
-      screen.getByRole("button", { name: "Make new passwords for the 2 people who haven't signed in yet" }),
-    );
+    await userEvent.click(screen.getByRole("button", { name: "Make new passwords for 2 people" }));
     // One person at a time, each with a password made here.
     await waitFor(() => {
       expect(api.calls).toHaveLength(1);
     });
-    expect(api.last().path).toBe("staff.resetPassword");
+    expect(api.last().path).toBe("staff.resetTemporaryPassword");
     expect(api.last().input).toMatchObject({ memberId: added[0]?.memberId });
     const first = (api.last().input as { temporaryPassword: string }).temporaryPassword;
     await act(async () => {
-      api.last().answer({});
+      api.last().answer({ reset: true });
       await Promise.resolve();
     });
     await waitFor(() => {
@@ -139,12 +137,35 @@ describe("PasswordsStep", () => {
     });
     expect(api.last().input).toMatchObject({ memberId: added[1]?.memberId });
     await act(async () => {
-      api.last().answer({});
+      api.last().answer({ reset: true });
       await Promise.resolve();
     });
     // Farah Khan chose her own password and is left alone; the two others have new ones on the screen.
     expect(await screen.findByText(first)).toBeVisible();
     expect(screen.queryByRole("row", { name: /Farah Khan/ })).toBeNull();
     expect(screen.getByText("Download these passwords now")).toBeVisible();
+  });
+
+  it("leaves alone, and says so, someone who chose their own password while the new ones were made", async () => {
+    const api = fakeApi();
+    const queryClient = newQueryClient();
+    const trpcKey = [["staffImports", "get"], { input: { importId }, type: "query" }];
+    queryClient.setQueryDefaults(trpcKey, { staleTime: Infinity });
+    queryClient.setQueryData(trpcKey, done());
+    renderWithApi(<StaffImportScreen importId={importId} />, queryClient);
+    await userEvent.click(await screen.findByRole("button", { name: "Make new passwords for 2 people" }));
+    for (const reset of [true, false]) {
+      await waitFor(() => {
+        expect(api.calls.length).toBeGreaterThan(reset ? 0 : 1);
+      });
+      await act(async () => {
+        api.last().answer({ reset });
+        await Promise.resolve();
+      });
+    }
+    expect(await screen.findByText("Download these passwords now")).toBeVisible();
+    expect(screen.getByRole("row", { name: /Kavita Rao/ })).toBeVisible();
+    expect(screen.queryByRole("row", { name: /Deepak Nair/ })).toBeNull();
+    expect(screen.getByText("1 person chose their own password meanwhile and was left alone.")).toBeVisible();
   });
 });

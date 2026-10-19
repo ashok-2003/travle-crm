@@ -163,7 +163,8 @@
     "lost": {
       "shownOnce": "These passwords were shown once. If the sheet was lost, give new ones to everyone who hasn't signed in yet.",
       "everyoneSignedIn": "These passwords were shown once. Everyone added has signed in and chosen their own.",
-      "make": "Make new passwords for the {count, plural, one {# person who hasn't} other {# people who haven't}} signed in yet"
+      "make": "Make new passwords for {count, plural, one {# person} other {# people}}",
+      "skipped": "{count, plural, one {# person} other {# people}} chose their own password meanwhile and {count, plural, one {was} other {were}} left alone."
     }
   },
   "export": {

@@ -27,7 +27,8 @@ export function LostPasswords({
   importId: string;
   /** The people who still have the temporary password, which no one can see now. */
   waiting: readonly StaffImportedPerson[];
-  onMade: () => void;
+  /** How many were left alone, having chosen their own password meanwhile. */
+  onMade: (skipped: number) => void;
 }) {
   const t = useTranslations("staff.import.lost");
   const hintId = useId();
@@ -37,14 +38,24 @@ export function LostPasswords({
     networkMode: "always",
     gcTime: 0,
     mutationFn: async (people: readonly StaffImportedPerson[]) => {
+      let left = 0;
       for (const person of people) {
         const password = temporaryPassword();
-        await client.staff.resetPassword.mutate({ memberId: person.memberId, temporaryPassword: password });
-        passwordStore.add(importId, new Map([[person.rowNumber, password]]));
+        // The api resets only someone still on the temporary password: a person who chose their own meanwhile is left.
+        const { reset } = await client.staff.resetTemporaryPassword.mutate({
+          memberId: person.memberId,
+          temporaryPassword: password,
+        });
+        if (reset) passwordStore.add(importId, new Map([[person.rowNumber, password]]));
+        else left += 1;
       }
+      return left;
+    },
+    onSuccess: onMade,
+    onError: () => {
+      onMade(0);
     },
     // Whoever was done before a failure keeps the new password already shown.
-    onSettled: onMade,
   });
   return (
     <div className="flex flex-col gap-4">
@@ -55,6 +66,7 @@ export function LostPasswords({
       {waiting.length > 0 && (
         <div className="flex flex-col items-start gap-2">
           <Button
+            variant="outline"
             disabled={!write.allowed || make.isPending}
             aria-describedby={write.hint ? hintId : undefined}
             onClick={() => {
