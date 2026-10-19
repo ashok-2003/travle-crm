@@ -50,3 +50,5 @@ export {
   type DispatchDependencies,
 } from "./dispatch.js";
 export { finishScheduledCheck } from "./schedule.js";
+export { sweepSheets, type SheetsSwept } from "./sweep.js";
+export { type ErasedContacts, type SheetsWithdrawn, withdrawSheetRows } from "./erasure.js";

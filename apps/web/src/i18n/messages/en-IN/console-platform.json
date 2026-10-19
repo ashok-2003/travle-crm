@@ -452,7 +452,7 @@
       "eraseNeedsExport": "Erase is offered once the export of this same person or record is shown below.",
       "eraseReady": "Their export is shown below. Erase also needs it to be from the last day.",
       "eraseTitle": "Erase this person or record?",
-      "eraseDescription": "What the organization keeps about them goes for good: a member's sign-in details, or a customer's contacts and leads, with the notes and task titles on those leads; their files, share links, notifications, and what the audit log says of them. It needs their export from the last day.",
+      "eraseDescription": "What the organization keeps about them goes for good: a member's sign-in details, or a customer's contacts and leads, with the notes and task titles on those leads; their files, share links, notifications, and what the audit log says of them. Rows naming a customer in an agency's Google Sheet stay in the sheet: ask the agency to delete them too. They won't be added again. It needs their export from the last day.",
       "confirmErase": "Erase for good",
       "queued": "Asked for. The console's job checks again, then erases.",
       "erased": "Erased: what was kept about them is gone.",

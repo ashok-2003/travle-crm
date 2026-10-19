@@ -2,7 +2,7 @@
 // due sheets of every organization without entering one, and the spreadsheet claim, which keeps a spreadsheet to one
 // agency at a time. Both hold ids, times and a keyed hash only, and are reached in db.withoutOrg(). The ESLint raw-SQL
 // guard allows their names in this file alone.
-import { type Database, isUniqueViolation } from "@travel-crm/db";
+import { type Database, isUniqueViolation, type OrgTx } from "@travel-crm/db";
 import { sheetSchedule, spreadsheetClaims } from "@travel-crm/db/sheet-schedule";
 import type { Bytes } from "./hashes.js";
 
@@ -117,4 +117,22 @@ export async function finishScheduledCheck(
       data: { nextCheckAt, claimedUntil: null },
     }),
   );
+}
+
+/** Schedule rows of connections that are not checked any more (the sweep): none live, so none needed. */
+export async function dropStaleScheduleRows(tx: OrgTx): Promise<number> {
+  return tx.$executeRaw`
+    DELETE FROM sheet_check_schedule s
+    WHERE NOT EXISTS (
+      SELECT 1 FROM sheet_connection c
+      WHERE c.id = s.id AND c.status IN ('running', 'lost_access', 'tab_missing', 'columns_missing', 'needs_manager'))`;
+}
+
+/** Claims no live connection holds, made before `before`: an hour old at least, so a connect in progress keeps its own. */
+export async function dropUnusedClaims(tx: OrgTx, before: Date): Promise<number> {
+  return tx.$executeRaw`
+    DELETE FROM sheet_spreadsheet_claim k
+    WHERE k.created_at < ${before}
+      AND NOT EXISTS (
+        SELECT 1 FROM sheet_connection c WHERE c.claim_id = k.id AND c.status <> 'disconnected')`;
 }

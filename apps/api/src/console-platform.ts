@@ -1,6 +1,7 @@
 // The console's platform services on a started process (ADR 0019): its own settings, and the platform role's
 // connection, checked before anything uses it. The console process and its one-off commands start the same way.
 import { checkPlatformConnection, createPlatformServices, type PlatformServices } from "@travel-crm/domain/platform";
+import { createSheetsHashes } from "@travel-crm/domain/sheets";
 import { loadConsoleSettings, type ConsoleSettings } from "./console-environment.js";
 import { transactionLimitsOf } from "./services.js";
 import type { ProcessBase } from "./start-up.js";
@@ -24,6 +25,8 @@ export async function startConsolePlatform({ environment, services, log }: Proce
     storage: services.storage,
     queue: services.jobs,
     jobs: services.jobs,
+    // The erasure of a customer of an agency with sheets keeps keyed hashes of their rows and contacts (S43, S6).
+    sheetsHashes: settings.sheetsHashKey === null ? null : createSheetsHashes(settings.sheetsHashKey),
     log,
   });
   try {

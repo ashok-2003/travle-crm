@@ -14,5 +14,6 @@ export const CONSOLE_SCHEDULES: ReadonlySet<string> = new Set([
   "platform.sweep-stored-files",
   "platform.sweep-expired-exports",
   "platform.sweep-bulk-files",
+  "platform.sweep-sheets",
   "platform.reset-demo",
 ]);

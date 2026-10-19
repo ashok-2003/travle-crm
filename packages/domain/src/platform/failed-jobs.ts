@@ -13,6 +13,7 @@ import { SWEEP_STORED_FILES_QUEUE } from "./file-deletions.js";
 import { EXPORT_ORGANIZATION_QUEUE, SWEEP_EXPIRED_EXPORTS_QUEUE } from "./organization-export.js";
 import { recordPlatformAudit, type PlatformChange } from "./platform-log.js";
 import { PURGE_ORGANIZATION_QUEUE } from "./purge.js";
+import { SWEEP_SHEETS_QUEUE } from "./sheets-sweep.js";
 import type { PlatformServices } from "./services.js";
 
 /**
@@ -35,6 +36,7 @@ const CONSOLE_SCHEDULES: ReadonlySet<string> = new Set([
   SWEEP_STORED_FILES_QUEUE,
   SWEEP_EXPIRED_EXPORTS_QUEUE,
   SWEEP_BULK_FILES_QUEUE,
+  SWEEP_SHEETS_QUEUE,
   RESET_DEMO_QUEUE,
 ]);
 

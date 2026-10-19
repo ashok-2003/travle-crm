@@ -150,7 +150,13 @@ export async function eraseSubject(services: PlatformServices, job: ErasureJob, 
     }
     const customer =
       record.recordType === "person"
-        ? await eraseCustomerParts(tx, actor, { organizationId, personId: record.recordId }, now)
+        ? await eraseCustomerParts(
+            tx,
+            actor,
+            { organizationId, personId: record.recordId },
+            now,
+            services.sheetsHashes ?? null,
+          )
         : null;
     const files = await deleteRecordFiles(tx, { organizationId, ...record }, now);
     const shareLinks = await forgetRecordShareLinks(tx, { organizationId, ...record });

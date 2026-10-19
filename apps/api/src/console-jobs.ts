@@ -10,6 +10,7 @@ import {
   platformJobHandlers,
   RESET_DEMO_QUEUE,
   resetDemoOrganization,
+  sheetsSweepSchedule,
   storedFileDeletionsSchedule,
   type DemoSettings,
   type PlatformServices,
@@ -66,9 +67,11 @@ export function consoleJobs(services: PlatformServices, demo: DemoSettings | nul
   const expiredExportsSweep = expiredExportsSchedule(services);
   // Imports' and exports' files past their time (B53, B54): no job of their own deletes them.
   const bulkFilesSweep = bulkFilesSweepSchedule(services);
+  // The Sheets sync's drafts, resolved problems, schedule rows and claims past their time (S5, S6, S31).
+  const sheetsSweep = sheetsSweepSchedule(services);
   return {
     handlers: platformJobHandlers(services),
-    schedules: [lifecycle, storedFilesSweep, expiredExportsSweep, bulkFilesSweep, ...demoReset],
+    schedules: [lifecycle, storedFilesSweep, expiredExportsSweep, bulkFilesSweep, sheetsSweep, ...demoReset],
   };
 }
 

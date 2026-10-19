@@ -61,6 +61,12 @@ organizationId)` records a `platform_export` row and queues `EXPORT_ORGANIZATION
   short platform transaction (`sweepImport`, `sweepExport`; one a job holds is skipped for the next hour). One that
   fails is left for the next run, and the run ends with `BulkFilesSweepFailedError` (counts only). Then it deletes each
   swept organization's queued files at once.
+- The Sheets sync's leftovers (ADR 0031): `sheetsSweepSchedule(services)` (`SWEEP_SHEETS_QUEUE`, `platform.sweep-sheets`,
+  hourly at 41 past), which the console must schedule: `sweepSheetsNow(services, now)` deletes drafts untouched for 24
+  hours with what they read, problems resolved for 7 days, schedule rows no live connection holds and claims none holds
+  (an hour old at least), a page at a time. Erasing a customer also keeps, for their sheet rows, only keyed hashes
+  (`withdrawSheetRows`, with `services.sheetsHashes`, SHEETS_HASH_KEY): without the key it fails for an organization
+  that has sheets, rather than skip the step.
 - The shared demo (spec 7.4): `resetDemoOrganization(services, { code, password }, now?)`, the console's nightly
   `RESET_DEMO_QUEUE` (`platform.reset-demo`) job: purges last night's demo (only an organization a reset built, as the
   platform log shows) and builds it again with its profile and three staff who sign in with the code (`demoStaff`),

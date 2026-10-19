@@ -2,10 +2,11 @@
 // erasure takes, inside the erasure job's platform transaction. crm erases its own rows; the leads' tasks,
 // notifications and files go through their modules, and the counts go in the platform log.
 import { asOrganization, type PlatformTx } from "@travel-crm/db/platform";
-import { eraseCustomer, type CustomerSubject } from "../crm/index.js";
+import { customerContacts, eraseCustomer, type CustomerSubject } from "../crm/index.js";
 import { deleteRecordFiles } from "../files/index.js";
 import type { Actor } from "../kernel/index.js";
 import { forgetRecordNotifications } from "../notifications/index.js";
+import { type SheetsHashes, withdrawSheetRows } from "../sheets/index.js";
 import { cancelOpenTasks, redactTaskTitles } from "../tasks/index.js";
 
 /**
@@ -14,8 +15,16 @@ import { cancelOpenTasks, redactTaskTitles } from "../tasks/index.js";
  * Today for ever, and every one of their titles emptied; the notifications and files about each lead go. Counts only,
  * for the platform log.
  */
-export async function eraseCustomerParts(tx: PlatformTx, actor: Actor, subject: CustomerSubject, now: Date) {
+export async function eraseCustomerParts(
+  tx: PlatformTx,
+  actor: Actor,
+  subject: CustomerSubject,
+  now: Date,
+  sheetsHashes: SheetsHashes | null = null,
+) {
   const { organizationId } = subject;
+  // Their contacts are read before the erasure empties them, for the sheets' tombstones (S43).
+  const contacts = await customerContacts(tx, subject);
   const { leadIds, ...erased } = await eraseCustomer(tx, subject);
   const leads = leadIds.map((recordId) => ({ organizationId, recordType: "lead", recordId }));
   // Module code for one organization runs in a step, as the runtime role: its audit entries and events name it.
@@ -35,5 +44,19 @@ export async function eraseCustomerParts(tx: PlatformTx, actor: Actor, subject: 
     });
     files += await deleteRecordFiles(tx, lead, now);
   }
-  return { leads: leadIds.length, ...erased, tasksCancelled, taskTitles, notifications, files };
+  const sheets = await withdrawSheetRows(tx, sheetsHashes, {
+    organizationId,
+    personId: subject.personId,
+    contacts,
+    now,
+  });
+  return {
+    leads: leadIds.length,
+    ...erased,
+    tasksCancelled,
+    taskTitles,
+    notifications,
+    files,
+    sheetRowsWithdrawn: sheets.rowsWithdrawn,
+  };
 }

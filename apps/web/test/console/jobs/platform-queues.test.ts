@@ -10,6 +10,7 @@ import {
   RESET_DEMO_QUEUE,
   SWEEP_BULK_FILES_QUEUE,
   SWEEP_EXPIRED_EXPORTS_QUEUE,
+  SWEEP_SHEETS_QUEUE,
   SWEEP_STORED_FILES_QUEUE,
 } from "@travel-crm/domain/platform";
 import { describe, expect, it } from "vitest";
@@ -29,6 +30,7 @@ describe("the platform's queues", () => {
         SWEEP_STORED_FILES_QUEUE,
         SWEEP_EXPIRED_EXPORTS_QUEUE,
         SWEEP_BULK_FILES_QUEUE,
+        SWEEP_SHEETS_QUEUE,
         RESET_DEMO_QUEUE,
       ].sort(),
     );

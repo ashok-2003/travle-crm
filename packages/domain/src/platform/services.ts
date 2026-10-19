@@ -1,5 +1,6 @@
 // What the platform console runs on, built once by the console process (apps/api's `console` command): the only
 // process that holds DATABASE_PLATFORM_URL.
+import type { SheetsHashes } from "../sheets/index.js";
 import type { Database } from "@travel-crm/db";
 import {
   asOrganization,
@@ -24,6 +25,11 @@ export interface PlatformServices {
   queue: JobQueue;
   /** Every process's failed jobs and schedules, for the console's failed-jobs list (spec 9.1). */
   jobs: JobAdministration;
+  /**
+   * Keys the Sheets sync's erasure tombstones (SHEETS_HASH_KEY, S6); null or absent when no sheets are set up. A customer
+   * of an organization that has sheets cannot be erased without it.
+   */
+  sheetsHashes?: SheetsHashes | null;
   /**
    * The console process's log, a line each, ids and codes only (errors as describeError gives them), for what goes
    * wrong after a commit with no one to tell. Required, so a process can't forget it; tests pass a collector.
