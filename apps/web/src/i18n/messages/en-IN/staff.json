@@ -87,5 +87,90 @@
     "confirm": "Remove",
     "removed": "{name} was removed"
   },
-  "emptyNoAdding": "Nobody else is here yet."
+  "emptyNoAdding": "Nobody else is here yet.",
+  "header": {
+    "import": "Import",
+    "export": "Export"
+  },
+  "import": {
+    "back": "Staff",
+    "title": "Import staff",
+    "intro": "Each row becomes a person who can sign in. Nothing is added until you press Add.",
+    "recentFailed": "Your recent imports didn't load.",
+    "loadFailed": "This import didn't load.",
+    "checking": "Checking {name}…",
+    "checkingLabel": "Checking the rows",
+    "adding": {
+      "title": "Adding people",
+      "intro": "Adding the people from {name}. It takes a few seconds.",
+      "label": "Adding people"
+    },
+    "ended": {
+      "failed": "This import stopped",
+      "over": "This import is over"
+    },
+    "startAnother": "Import another file",
+    "match": {
+      "needName": "A name",
+      "needSignIn": "A username or an email",
+      "needRole": "A role for everyone",
+      "matched": "Matched",
+      "needed": "Needed",
+      "manyRoleValues": "{column} has more than 50 different values. We match them to your roles by name; any we can't match aren't added.",
+      "roleValues": "{column}'s values, as roles",
+      "roleNotMatched": "Not matched: these rows aren't added",
+      "roleForAll": "Give everyone the role",
+      "roleForAllHint": "The file has no Role column, so everyone gets this role.",
+      "roleForBlank": "Rows with no role get",
+      "roleForBlankHint": "Optional. A row with an empty Role cell gets this role.",
+      "chooseRole": "Choose a role",
+      "check": "Check the rows",
+      "checking": "Checking"
+    },
+    "check": {
+      "intro": "Here's what will happen to each of the {count} rows. Nothing is added until you press Add.",
+      "willBeAdded": "Will be added",
+      "leftOut": "Left out",
+      "alreadyOnStaff": "Already on your staff",
+      "row": "Row {row}",
+      "andMore": "and {count} more",
+      "nothingToAdd": "No row can be added. Change the columns, or fix the file and choose it again.",
+      "rowsFailed": "These rows didn't load.",
+      "seats": "Adds {count, plural, one {# person} other {# people}}: your plan has {free} seats free.",
+      "overSeats": "This file adds {count} people, and your plan has {free} seats free. Leave some rows out, or <link>ask us about more seats</link>.",
+      "add": "Add {count, plural, one {# person} other {# people}}",
+      "confirmTitle": "Add {count, plural, one {# person} other {# people}}?",
+      "confirmBody": "Each gets a temporary password, shown once on the next screen.",
+      "changeColumns": "Change the columns",
+      "cancelImport": "Cancel this import",
+      "returned": "Nobody was added: {reason}. Check the list and press Add again."
+    },
+    "done": {
+      "title": "{count, plural, one {# person added} other {# people added}}",
+      "downloadNow": "Download these passwords now",
+      "neverKept": "They can't be shown again: we never keep them.",
+      "download": "Download the passwords (.csv)",
+      "downloaded": "Downloaded",
+      "name": "Name",
+      "username": "Username",
+      "email": "Email",
+      "password": "Temporary password",
+      "copy": "Copy",
+      "copyFor": "Copy {name}'s password",
+      "none": "None",
+      "firstSignIn": "Each person chooses their own password when they first sign in, with the organization code {code}."
+    },
+    "lost": {
+      "shownOnce": "These passwords were shown once. If the sheet was lost, give new ones to everyone who hasn't signed in yet.",
+      "everyoneSignedIn": "These passwords were shown once. Everyone added has signed in and chosen their own.",
+      "make": "Make new passwords for the {count, plural, one {# person who hasn't} other {# people who haven't}} signed in yet"
+    }
+  },
+  "export": {
+    "title": "Export staff",
+    "intro": "{count, plural, one {# person} other {# people}}, with their roles and joined dates.",
+    "holds": "Your staff",
+    "back": "Staff",
+    "pageTitle": "Staff export"
+  }
 }

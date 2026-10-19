@@ -81,7 +81,8 @@ export function planStaffRows(rows: readonly StaffRowReading[], facts: StaffRowF
       noted: false,
       newDestination: null,
       exampleName: row.values.name,
-      exampleValue: null,
+      // What the preview shows beside the name: how they will sign in.
+      exampleValue: row.values.username ?? row.values.email ?? null,
     };
   });
 }
