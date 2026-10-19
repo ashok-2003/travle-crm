@@ -53,11 +53,25 @@ describe("file inputs", () => {
     }
   });
 
-  it("takes PDFs and photos only", () => {
-    for (const contentType of ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/heic"]) {
+  it("takes PDFs, photos and spreadsheets only, the files module choosing which a record takes", () => {
+    const spreadsheets = ["text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"];
+    for (const contentType of [
+      "application/pdf",
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/heic",
+      ...spreadsheets,
+    ]) {
       expect(requestUploadInput.safeParse({ ...passport, contentType }).success, contentType).toBe(true);
     }
-    for (const contentType of ["text/html", "image/svg+xml", "application/octet-stream", "APPLICATION/PDF"]) {
+    for (const contentType of [
+      "text/html",
+      "image/svg+xml",
+      "application/octet-stream",
+      "APPLICATION/PDF",
+      "application/vnd.ms-excel",
+    ]) {
       expect(requestUploadInput.safeParse({ ...passport, contentType }).success, contentType).toBe(false);
     }
   });

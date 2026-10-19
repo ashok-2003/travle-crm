@@ -52,6 +52,7 @@
     "LOGO_TOO_LARGE": "This image is too large for a logo. Use one at most 4096 pixels wide and high, and 16 megapixels in all.",
     "INVALID_FILE_NAME": "This file's name can't be used. Rename it and try again.",
     "EMPTY_FILE": "This file is empty. Choose another.",
+    "CONTENT_TYPE_NOT_ALLOWED": "This file can't go here. Choose another.",
     "DOCUMENT_NOT_FOUND": "This document no longer exists.",
     "DOCUMENT_NOT_READY": "The document is still being prepared. Try again in a minute.",
     "DOCUMENT_UNAVAILABLE": "This document can't be shown.",

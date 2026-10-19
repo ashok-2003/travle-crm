@@ -6,7 +6,8 @@ import type { OrgTx } from "@travel-crm/db";
 import { withDeleted } from "@travel-crm/db";
 import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import { DomainError } from "../kernel/index.js";
-import { isSystemOwnedRecordType, storageKeyOf } from "./attachment-row.js";
+import { storageKeyOf } from "./attachment-row.js";
+import { isShortLivedRecordType, isSystemOwnedRecordType } from "./record-types.js";
 
 /** One record whose files an erasure deletes, e.g. a traveller. */
 export interface FileRecord {
@@ -68,10 +69,11 @@ export async function queueOrganizationFileDeletion(tx: OrgTx, organizationId: s
 /**
  * Deletes one record's attachment rows, removed ones included, and queues their bytes' deletion in the same
  * transaction, due at `now` (the caller's clock, which also decides what is due). Returns how many files went. A
- * system-owned record's files (an issued document's PDF) are refused: they go only with their record, in a purge.
+ * system-owned record's files (an issued document's PDF) are refused: they go only with their record, in a purge. The
+ * short-lived ones, an import's report and an export, are the exception: the sweep and erasure delete them (B53-B55).
  */
 export async function deleteRecordFiles(tx: OrgTx, record: FileRecord, now: Date): Promise<number> {
-  if (isSystemOwnedRecordType(record.recordType)) {
+  if (isSystemOwnedRecordType(record.recordType) && !isShortLivedRecordType(record.recordType)) {
     throw new DomainError("FORBIDDEN", "SYSTEM_OWNED_FILE", "These files belong to their record and go only with it");
   }
   // A plain DELETE: soft delete refuses Prisma's, and only the platform role has the right to it here.

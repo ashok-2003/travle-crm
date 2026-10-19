@@ -18,4 +18,11 @@ export {
   organizationFolder,
   type StoredFileDeletion,
 } from "./stored-file-deletions.js";
+export {
+  allowedContentTypes,
+  DATA_EXPORT_RECORD_TYPE,
+  IMPORT_FILE_RECORD_TYPE,
+  IMPORT_REPORT_RECORD_TYPE,
+  isShortLivedRecordType,
+} from "./record-types.js";
 export { bytesStored, type StoredBytesCheck } from "./uploads.js";

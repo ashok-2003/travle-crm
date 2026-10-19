@@ -14,12 +14,22 @@ import {
   attachmentFields,
   type AttachmentRow,
   findAttachment,
-  isSystemOwnedRecordType,
   storageKeyOf,
   summaryFor,
   toSummary,
 } from "./attachment-row.js";
 import type { FilesDependencies, GeneratedFile } from "./dependencies.js";
+import { allowedContentTypes, isSystemOwnedRecordType } from "./record-types.js";
+
+/**
+ * Refuses a file whose type its record doesn't take: an import's file is CSV or .xlsx, and those two go nowhere else
+ * (spec 5).
+ */
+function assertTypeAllowed(recordType: string, contentType: string): void {
+  if (!allowedContentTypes(recordType).includes(contentType)) {
+    throw new DomainError("VALIDATION", "CONTENT_TYPE_NOT_ALLOWED", "This record doesn't take files of this type");
+  }
+}
 
 /** Long enough for a slow phone connection to send 25 MB. */
 const UPLOAD_URL_SECONDS = 10 * 60;
@@ -53,6 +63,7 @@ export async function requestUpload(
   if (isSystemOwnedRecordType(input.recordType)) {
     throw new DomainError("FORBIDDEN", "SYSTEM_OWNED_FILE", "Only the system stores files of this record");
   }
+  assertTypeAllowed(input.recordType, input.contentType);
   const limit = storageLimitBytes ? await storageLimitBytes(actor.organizationId) : null;
   // A pending upload counts at once, so a burst of uploads can't overshoot the limit by much. Two requests at the
   // same moment may both pass: the limit is a plan's, not a safety rule.
@@ -152,6 +163,7 @@ export async function storeGeneratedFile(
 ): Promise<AttachmentSummary> {
   const name = attachmentFileName.safeParse(file.fileName);
   if (!name.success) throw new DomainError("VALIDATION", "INVALID_FILE_NAME", "The file name can't be used");
+  assertTypeAllowed(file.recordType, file.contentType);
   if (file.body.byteLength === 0) throw new DomainError("VALIDATION", "EMPTY_FILE", "The file is empty");
   const inUse = () => new DomainError("CONFLICT", "ATTACHMENT_ID_IN_USE", "That file id is already used");
   /** A row already stored under the chosen id: ours to continue if it is this record's and not deleted. */

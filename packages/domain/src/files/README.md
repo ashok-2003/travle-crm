@@ -10,8 +10,9 @@ documents are marked sensitive (spec 5).
   gives an organization's limit (plan 4 passes its plan's), and without it there is none. The `Files` it returns has:
   - `requestUpload(actor, input)`: records a pending file and returns it with the presigned upload (10 minutes) the
     browser sends the file to, with the headers it must send unchanged. Refuses `LIMIT_REACHED`/`STORAGE_LIMIT_REACHED`
-    past the storage limit, and `FORBIDDEN`/`SYSTEM_OWNED_FILE` for a system-owned record type (only
-    `storeGeneratedFile` writes those);
+    past the storage limit, `FORBIDDEN`/`SYSTEM_OWNED_FILE` for a system-owned record type (only
+    `storeGeneratedFile` writes those), and `VALIDATION`/`CONTENT_TYPE_NOT_ALLOWED` for a type the record doesn't take
+    (`allowedContentTypes`: CSV and .xlsx for an import's file and nowhere else);
   - `confirmUpload(actor, { recordType, recordId, attachmentId }, check?)`: marks it ready once storage holds the
     promised size and type (`NOT_FOUND`/`UPLOAD_NOT_FOUND`, `VALIDATION`/`UPLOAD_DOES_NOT_MATCH`), its storage still
     fits when its link has lapsed (`LIMIT_REACHED`/`STORAGE_LIMIT_REACHED`; `NOT_FOUND`/`UPLOAD_EXPIRED` after an
@@ -26,11 +27,12 @@ documents are marked sensitive (spec 5).
     shows only to members with `documents:view_sensitive`, others (and the system) see "Sensitive file";
   - `remove(actor, { recordType, recordId, attachmentId })`: a soft delete; only members with
     `documents:view_sensitive` may remove a sensitive file (the system may not), and no one may remove a file of a
-    system-owned record type, today `issued_document` (`FORBIDDEN`/`SYSTEM_OWNED_FILE`);
+    system-owned record type: `issued_document`, `import_report` and `data_export` (`FORBIDDEN`/`SYSTEM_OWNED_FILE`);
   - `storeGeneratedFile(actor, file)`: stores a file the server made (a rendered PDF) and returns it ready. With a
     chosen `attachmentId` a retry stores it once (`CONFLICT`/`ATTACHMENT_ID_IN_USE` if the id belongs to another
     record, organization or a deleted file); a retry after a failed upload completes the pending row with its own
-    size and type; the name must pass `attachmentFileName` (`VALIDATION`/`INVALID_FILE_NAME`);
+    size and type; the name must pass `attachmentFileName` (`VALIDATION`/`INVALID_FILE_NAME`), and the type must be one
+    the record takes (`VALIDATION`/`CONTENT_TYPE_NOT_ALLOWED`);
   - `systemDownloadLink(organizationId, { attachmentId })`: for server code that has already decided the viewer may
     see the file (share links); refuses sensitive files (`FORBIDDEN`/`SENSITIVE_FILE`);
   - `systemFile(organizationId, { recordType, recordId, attachmentId })`: a ready file's bytes and stored type, for
@@ -49,13 +51,18 @@ documents are marked sensitive (spec 5).
     included;
   - `deleteRecordFiles(tx, { organizationId, recordType, recordId }, now)`: an erasure's. Deletes the record's rows,
     removed ones included, queues each file's bytes due at `now`, and returns how many went. A system-owned record's
-    files are refused (`FORBIDDEN`/`SYSTEM_OWNED_FILE`);
+    files are refused (`FORBIDDEN`/`SYSTEM_OWNED_FILE`), but the short-lived ones (`isShortLivedRecordType`:
+    `import_batch`, `import_report`, `data_export`), which the sweep and erasure delete for good;
   - for the job that empties the outbox: `dueFileDeletions(tx, { now, limit, organizationId? })`,
     `deleteQueuedFile(storage, deletion)` (the file, or the whole folder, `organizationFolder(id)`),
     `forgetFileDeletion(tx, id)` and `nextFileDeletionDue(tx, organizationId?)`. Each is safe to repeat.
 - Exports: `exportedFiles(tx, storage, where, linkSeconds)` (files with download links).
   `bytesStored(tx, organizationId, now?)`: the storage the organization uses, named rather than left to row-level
   security, so a platform transaction counts that one alone.
+
+- Record types (`record-types.ts`): `IMPORT_FILE_RECORD_TYPE` (`import_batch`), `IMPORT_REPORT_RECORD_TYPE`
+  (`import_report`) and `DATA_EXPORT_RECORD_TYPE` (`data_export`), `allowedContentTypes(recordType)` and
+  `isShortLivedRecordType(recordType)`.
 
 ## Events
 

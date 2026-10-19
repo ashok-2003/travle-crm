@@ -1,0 +1,40 @@
+// Bulk exports (release 2, spec 5): one requested file of an agency's leads or staff, made by the worker and kept 24
+// hours for its requester. Organization-owned: row-level security applies. Not soft-deleted; the runtime role never
+// deletes one (the console's sweep marks it expired).
+
+/// One export, from its request to its file's deletion (B41, B42, B54).
+model DataExport {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId   String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id               String       @id @default(uuid(7)) @db.Uuid
+  /// leads or staff (CHECK data_export_kind_value).
+  kind             String
+  /// xlsx or csv.
+  format           String
+  /// making, ready, failed or expired.
+  status           String       @default("making")
+  /// The list's input as the person sent it, validated by its contract when read; the search emptied once the file
+  /// is made (ADR 0028's "payload kept as received").
+  filter           Json
+  failureReason    String?      @map("failure_reason")
+  rowsTotal        Int          @default(0) @map("rows_total")
+  rowsDone         Int          @default(0) @map("rows_done")
+  /// The file (record type data_export, the export's id as both its record and its attachment id).
+  fileAttachmentId String?      @map("file_attachment_id") @db.Uuid
+  /// Only the requester sees or downloads it.
+  requestedBy      String       @map("requested_by") @db.Uuid
+  impersonatedBy   String?      @map("impersonated_by") @db.Uuid
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  readyAt          DateTime?    @map("ready_at") @db.Timestamptz(6)
+  /// 24 hours after readyAt; the sweep deletes the file after it.
+  expiresAt        DateTime?    @map("expires_at") @db.Timestamptz(6)
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  fileAttachment   Attachment?  @relation(fields: [organizationId, fileAttachmentId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  /// The requester's own exports.
+  @@index([organizationId, requestedBy, id(sort: Desc)], map: "data_export_by_requester")
+  /// The console's sweep, across organizations.
+  @@index([expiresAt], map: "data_export_due", where: raw("(status <> 'expired'::text)"))
+  @@map("data_export")
+}
