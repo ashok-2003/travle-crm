@@ -2,13 +2,22 @@
 // the worker reads it, the importer matches the columns, the worker checks it and, on Add, adds it, makes the report
 // and tells the owners. Real Postgres, pg-boss and MinIO.
 import type { ImportDetail, StartedImport } from "@travel-crm/contracts/imports";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createIsolatedDatabase, type IsolatedDatabase } from "@travel-crm/db/testing";
+import { startWorker, type Worker } from "@travel-crm/domain/jobs";
+import { createRateLimiter } from "@travel-crm/domain/rate-limits";
+import { createMemoryEmailSender } from "@travel-crm/integrations/email";
+import { createPgBossJobs, type PgBossJobs } from "@travel-crm/integrations/jobs";
+import { createMemoryPushSender } from "@travel-crm/integrations/push";
+import { createS3Storage } from "@travel-crm/integrations/storage";
+import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import { workerProblemLine } from "../src/process-log.js";
+import { workerJobs } from "../src/worker-jobs.js";
 import { eventually } from "./support/eventually.js";
+import { startMinio, type TestMinio } from "./support/minio.js";
 import { addStaff, signedInOwner } from "./support/people.js";
 import type { CookieJar } from "./support/cookie-jar.js";
+import { createTestAgency, createTestServer, type TestAgency, type TestServer } from "./support/test-server.js";
 import { dataOf, mutate, query } from "./support/trpc.js";
-import { countingWebhookProvider } from "./support/webhook-provider.js";
-import { startWorkerFlow, stopWorkerFlow, type Running, type WorkerFlow } from "./support/worker-flow.js";
 
 const CSV = [
   "Name,Phone,Email,Destination,Owner,Status",
@@ -18,21 +27,76 @@ const CSV = [
   ",98765 43213,,Goa,,",
 ].join("\n");
 
+/**
+ * The api and a worker on a database of this file's own, so another file's worker, on the shared database's pg-boss
+ * queues, never takes this import's jobs with its own storage.
+ */
+interface Flow {
+  server: TestServer;
+  agency: TestAgency;
+}
+
 describe("a lead import through the worker", () => {
   const reported: string[] = [];
-  const running: Running = {};
-  let flow: WorkerFlow;
+  let isolated: IsolatedDatabase | undefined;
+  let minio: TestMinio | undefined;
+  let jobs: PgBossJobs | undefined;
+  let server: TestServer | undefined;
+  let worker: Worker | undefined;
+  let flow: Flow;
   let owner: CookieJar;
   let zara: string;
 
   beforeAll(async () => {
-    flow = await startWorkerFlow(running, reported, countingWebhookProvider("lead-import-flow-secret"));
-    owner = await signedInOwner(flow.server, flow.agency);
-    zara = (await addStaff(flow.server, flow.agency, { username: "zara", roleKey: "sales" })).userId;
+    isolated = await createIsolatedDatabase(inject("dbUrls"));
+    minio = await startMinio();
+    jobs = createPgBossJobs({
+      connectionString: isolated.urls.runtime,
+      maxConnections: 3,
+      pollingIntervalSeconds: 0.5,
+      retryPolicy: { retryLimit: 1, retryDelaySeconds: 1, retryDelayMaxSeconds: 1 },
+      log: (line) => reported.push(`pg-boss: ${line}`),
+    });
+    await jobs.start();
+    server = createTestServer({}, { storage: createS3Storage(minio.settings), queue: jobs, dbUrls: isolated.urls });
+    const agency = await createTestAgency(server);
+    await server.platform.organization.update({
+      where: { id: agency.organizationId },
+      data: { timeZone: "Asia/Kolkata" },
+    });
+    flow = { server, agency };
+    const work = workerJobs({
+      db: server.db,
+      identity: server.identity,
+      files: server.files,
+      spreadsheets: server.spreadsheets,
+      subscriptions: server.subscriptions,
+      seatLimit: server.seatLimit,
+      email: createMemoryEmailSender(),
+      push: createMemoryPushSender(),
+      appUrl: "https://app.example.in",
+      webhookProviders: [],
+      rateLimiter: createRateLimiter(server.db, { keySecret: "lead-import-flow-rate-limit-secret-of-32-bytes" }),
+      log: (line) => reported.push(line),
+    });
+    worker = await startWorker({
+      db: server.db,
+      runner: jobs,
+      queue: jobs,
+      ...work,
+      relay: { intervalMs: 100, organizationIds: [agency.organizationId] },
+      onError: (problem) => reported.push(`relay: ${workerProblemLine(problem)}`),
+    });
+    owner = await signedInOwner(server, agency);
+    zara = (await addStaff(server, agency, { username: "zara", roleKey: "sales" })).userId;
   }, 180_000);
 
   afterAll(async () => {
-    await stopWorkerFlow(running);
+    await worker?.stop();
+    await jobs?.stop();
+    await server?.close();
+    await minio?.stop();
+    await isolated?.drop();
     expect(reported).toEqual([]);
   });
 
