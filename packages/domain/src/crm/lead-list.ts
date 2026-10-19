@@ -65,7 +65,7 @@ function searchFor(text: string | undefined): LeadCountsFilter["search"] {
   return { kind: "digits", digits: digits === "" ? typed : digits };
 }
 
-function filterFor(access: MemberAccess, input: LeadCountsInput): LeadCountsFilter {
+export function filterFor(access: MemberAccess, input: LeadCountsInput): LeadCountsFilter {
   const search = searchFor(input.search);
   return {
     ownerUserId: ownerFor(access, input),

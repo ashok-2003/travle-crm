@@ -428,5 +428,16 @@
       }
     }
   },
-  "export": {}
+  "export": {
+    "button": "Export",
+    "title": "Leads export",
+    "back": "Back to Leads",
+    "dialog": {
+      "title": "Export leads",
+      "intro": "Download the leads this list shows."
+    },
+    "holds": {
+      "matching": "matching \"{search}\""
+    }
+  }
 }
