@@ -16,7 +16,7 @@ import {
   stopImport,
 } from "../../src/imports/index.js";
 import { systemActor } from "../../src/kernel/index.js";
-import { aBatch } from "./support/batches.js";
+import { aBatch, aRow } from "./support/batches.js";
 import {
   anAgency,
   auditOf,
@@ -126,6 +126,36 @@ describe("an import's steps", () => {
     ]);
   });
 
+  it("asks a kind's own condition with the import held, in the move's transaction; its refusal moves nothing", async () => {
+    const organization = await anAgency(test, "Its own condition");
+    const person = memberOf(organization);
+    const seen: string[] = [];
+    // What the condition writes stands or falls with the move: it is the move's own transaction.
+    const condition = (refuse: boolean) => async (tx: OrgTx, batch: { id: string; status: string }) => {
+      seen.push(batch.status);
+      await tx.importBatch.update({ where: { id: batch.id }, data: { addBlocked: true } });
+      if (refuse) throw new Error("The kind refuses");
+    };
+    const { id: refused } = await test.db.forOrg(organization, (tx) => aBatch(tx, { startedBy: person.userId }));
+    await expect(requestImportAdd(test.db, person, "leads", refused, new Date(), condition(true))).rejects.toThrow(
+      "The kind refuses",
+    );
+    expect(await test.db.forOrg(organization, (tx) => findImport(tx, person, "leads", refused))).toMatchObject({
+      status: "checked",
+      addBlocked: false,
+    });
+    expect(await eventsOf(test, organization, ["import.add-requested"])).toEqual([]);
+    expect(await auditOf(test, organization, refused)).toEqual([]);
+
+    const { id: allowed } = await test.db.forOrg(organization, (tx) => aBatch(tx, { startedBy: person.userId }));
+    await requestImportAdd(test.db, person, "leads", allowed, new Date(), condition(false));
+    expect(await test.db.forOrg(organization, (tx) => findImport(tx, person, "leads", allowed))).toMatchObject({
+      status: "adding",
+      addBlocked: true,
+    });
+    expect(seen).toEqual(["checked", "checked"]);
+  });
+
   it("answers IMPORT_ALREADY_RUNNING while another import of the agency is adding", async () => {
     const organization = await anAgency(test, "One at a time");
     const person = memberOf(organization);
@@ -167,6 +197,17 @@ describe("an import's steps", () => {
       expect(JSON.stringify(audit)).not.toContain("enquiries");
       await expect(inOrg((tx) => cancelImport(tx, importer, "leads", id, new Date()))).rejects.toMatchObject(notReady);
     }
+  });
+
+  it("forgets a cancelled staff import's password hashes at once, not with the sweep (B53)", async () => {
+    const { id } = await inOrg((tx) => aBatch(tx, { startedBy: importer.userId, kind: "staff" }));
+    await inOrg(async (tx) => {
+      await aRow(tx, { batchId: id, rowNumber: 2, passwordHash: "hash" });
+      await aRow(tx, { batchId: id, rowNumber: 3 });
+    });
+    await inOrg((tx) => cancelImport(tx, importer, "staff", id, new Date()));
+    const rows = await inOrg((tx) => tx.importRow.findMany({ where: { batchId: id }, select: { passwordHash: true } }));
+    expect(rows).toEqual([{ passwordHash: null }, { passwordHash: null }]);
   });
 
   it("keeps the importer's choices for blocked and already imported rows at the preview, and nowhere else", async () => {

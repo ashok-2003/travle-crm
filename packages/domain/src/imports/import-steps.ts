@@ -10,6 +10,7 @@ import { type Files, IMPORT_FILE_RECORD_TYPE } from "../files/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { publishEvent } from "../jobs/index.js";
 import { DomainError } from "../kernel/index.js";
+import type { ImportBatchRow } from "./batch-row.js";
 import { findImport, holdImport, keepUntilFrom, moveImport, notReady } from "./batches.js";
 
 /**
@@ -96,6 +97,8 @@ export async function requestImportAdd(
   kind: ImportKind,
   importId: string,
   now: Date,
+  /** A kind's own condition, asked once the import is held, in the same transaction that moves it (it throws to refuse). */
+  whileHeld?: (tx: OrgTx, batch: ImportBatchRow) => Promise<void>,
 ): Promise<void> {
   try {
     await db.forOrg(access.organizationId, async (tx) => {
@@ -103,6 +106,7 @@ export async function requestImportAdd(
       // Held, so two presses take turns and the second finds it adding.
       const batch = await holdImport(tx, importId);
       if (batch?.status !== "checked") throw notReady();
+      await whileHeld?.(tx, batch);
       await moveImport(tx, importId, ["checked"], "adding", now, { addRequestedAt: now, rowsDone: 0 });
       await recordAudit(tx, access, {
         action: "import.started",
@@ -137,6 +141,11 @@ export async function cancelImport(
 ): Promise<void> {
   const batch = await findImport(tx, access, kind, importId);
   if (!(await moveImport(tx, importId, waitingImportStatuses, "cancelled", now, { finishedAt: now }))) throw notReady();
+  // A staff import's password hashes have no use once it is cancelled: they go now, not with the sweep (B53).
+  await tx.importRow.updateMany({
+    where: { batchId: importId, passwordHash: { not: null } },
+    data: { passwordHash: null },
+  });
   // The kind and the step it left, never the file's name: it may name a customer.
   await recordAudit(tx, access, {
     action: "import.cancelled",
