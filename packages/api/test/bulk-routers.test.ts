@@ -7,9 +7,14 @@ import { appRouter } from "../src/routers/app-router.js";
 const record = (appRouter as unknown as { _def: { record: Record<string, Record<string, unknown>> } })._def.record;
 
 describe("the bulk routers", () => {
-  it("serves leadImports, leadExports, staffImports and staffExports, empty until their features", () => {
-    for (const name of ["leadImports", "leadExports", "staffImports", "staffExports"]) {
-      expect(record[name], name).toEqual({});
-    }
+  it("serves leadImports and leadExports, empty until their features", () => {
+    for (const name of ["leadImports", "leadExports"]) expect(record[name], name).toEqual({});
+  });
+
+  it("serves the staff import's and export's procedures", () => {
+    expect(Object.keys(record.staffImports ?? {}).sort()).toEqual(
+      ["add", "cancel", "confirmUpload", "get", "match", "recent", "rows", "setPasswords", "start"].sort(),
+    );
+    expect(Object.keys(record.staffExports ?? {}).sort()).toEqual(["downloadLink", "get", "start"]);
   });
 });
