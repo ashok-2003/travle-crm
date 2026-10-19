@@ -17,6 +17,10 @@ import { importerAccess } from "../importer-access.js";
 import { readImportFile } from "../read-file.js";
 import { planStaffFile } from "./staff-file.js";
 
+/** Whether any of the import's rows has been added: another run of this add got there first. */
+const someAdded = (context: ListenerContext, importId: string) =>
+  context.forOrg(async (tx) => (await tx.importRow.count({ where: { batchId: importId, outcome: "added" } })) > 0);
+
 /** The import back at its preview: some rows marked, every hash cleared (the browser drops its passwords too). */
 async function returnToPreview(
   context: ListenerContext,
@@ -91,6 +95,9 @@ export async function addStaffImport(
       rows.push({ ...reading.values, passwordHash: row.passwordHash });
     }
     if (changed.length > 0 || rows.length !== waiting.length) {
+      // A run beside this one added the people already: the import is done, never back at a preview that is gone.
+      if (await someAdded(context, batch.id))
+        return finishImport(context, dependencies, batch.id, { ...end, status: "done" });
       await returnToPreview(context, batch.id, "row_changed", changed);
       return;
     }
@@ -103,6 +110,9 @@ export async function addStaffImport(
         ),
       );
     } catch (error) {
+      if (await someAdded(context, batch.id)) {
+        return finishImport(context, dependencies, batch.id, { ...end, status: "done" });
+      }
       if (error instanceof ImportedStaffRowError) {
         await returnToPreview(context, batch.id, "row_changed", [
           { rowNumber: error.rowNumber, reason: { code: error.reason } },

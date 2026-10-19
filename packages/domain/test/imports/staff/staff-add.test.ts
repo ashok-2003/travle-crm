@@ -269,4 +269,27 @@ describe("the staff import's passwords and add", () => {
     await run(checked.id);
     expect(await staffCount()).toBe(before);
   });
+
+  it("ends as done, never back at the preview, when a run beside it added the people first", async () => {
+    const one = person("One");
+    const checked = await withPasswords([one.row, person("Two").row]);
+    await requestStaffImportAdd(world.test.db, world.identity, world.admin, checked.id, new Date());
+    // The other run commits its accounts and their links while this one is between its look and its write.
+    const beside = {
+      ...world.identity,
+      staff: {
+        ...world.identity.staff,
+        addImported: async (...given: Parameters<typeof world.identity.staff.addImported>) => {
+          await world.identity.staff.addImported(...given);
+          throw new ImportedStaffRowError(2, "taken_meanwhile");
+        },
+      },
+    };
+    const before = await staffCount();
+    await run(checked.id, beside);
+    const after = await readImport(world, checked.id);
+    expect(after.batch.status).toBe("done");
+    expect(after.rows.map((row) => row.outcome)).toEqual(["added", "added"]);
+    expect(await staffCount()).toBe(before + 2);
+  });
 });
