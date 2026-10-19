@@ -8,7 +8,7 @@ import { organizationTimeZone } from "../identity/index.js";
 import { addDays, calendarDateIn, instantAt, parseTimeOfDay, type Actor } from "../kernel/index.js";
 import { createTask } from "../tasks/index.js";
 import { addBlockedContact } from "./blocking.js";
-import { addLeadInTransaction } from "./create-lead.js";
+import { addLeadInTransaction } from "./add-lead.js";
 import { BLOCKED_EMAIL, DESTINATIONS, PEOPLE, demoLeads } from "./demo-lead-data.js";
 import { recordLeadEvent } from "./lead-events.js";
 import { addPerson } from "./people.js";
