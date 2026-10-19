@@ -6,6 +6,7 @@ import type { OrgTx } from "@travel-crm/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { MemberAccess } from "../../src/identity/index.js";
 import {
+  cancelImport,
   columnMatchesOf,
   findImport,
   guessFields,
@@ -266,6 +267,31 @@ describe("matching an import's columns", () => {
     const batch = await inOrg((tx) => findImport(tx, importer, "leads", id));
     expect(batch).toMatchObject({ status: "checking", checkedAt: null, rowsToAdd: 0 });
     expect(await inOrg((tx) => tx.importRow.count({ where: { batchId: id } }))).toBe(0);
+  });
+
+  it("takes two presses, or a press and a Cancel, in turn: one matches, the other finds it moved on", async () => {
+    const id = await aMatchingImport(["Name", "Mobile"]);
+    const input = leadInput(id, ["name", "phone"]);
+    const both = await Promise.allSettled([match(input), match(input)]);
+    expect(both.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(both.find((result) => result.status === "rejected")).toMatchObject({
+      reason: { reason: "IMPORT_NOT_READY" },
+    });
+    const matched = await eventsOf(test, organizationId, ["import.columns-matched"]);
+    expect(matched.filter(([, payload]) => JSON.stringify(payload).includes(id))).toHaveLength(1);
+
+    const cancelled = await aMatchingImport(["Name", "Mobile"]);
+    const raced = await Promise.allSettled([
+      inOrg((tx) => cancelImport(tx, importer, "leads", cancelled, new Date())),
+      match(leadInput(cancelled, ["name", "phone"])),
+    ]);
+    const batch = await inOrg((tx) => findImport(tx, importer, "leads", cancelled));
+    // Whichever came first, a cancelled import never goes on to a check.
+    if (raced[1].status === "fulfilled") expect(batch.status).toBe("cancelled");
+    else expect(raced[1]).toMatchObject({ reason: { reason: "IMPORT_NOT_READY" } });
+    const checks = await eventsOf(test, organizationId, ["import.columns-matched"]);
+    const published = checks.some(([, payload]) => JSON.stringify(payload).includes(cancelled));
+    expect(published).toBe(raced[1].status === "fulfilled");
   });
 
   it("stores every field of both kinds' lists", async () => {

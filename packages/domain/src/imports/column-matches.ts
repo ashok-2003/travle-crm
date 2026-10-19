@@ -7,7 +7,7 @@ import type { OrgTx } from "@travel-crm/db";
 import type { MemberAccess } from "../identity/index.js";
 import { publishEvent } from "../jobs/index.js";
 import { DomainError } from "../kernel/index.js";
-import { findImport, moveImport, notReady } from "./batches.js";
+import { findImport, holdImport, moveImport, notReady } from "./batches.js";
 import { headerKey, rememberHeaderFields } from "./header-memory.js";
 
 export interface ColumnMatchInput {
@@ -75,8 +75,10 @@ export async function matchImportColumns(
   input: ColumnMatchInput,
   context: MatchContext,
 ): Promise<void> {
-  const batch = await findImport(tx, access, kind, input.importId);
-  if (batch.status !== "matching" && batch.status !== "checked") throw notReady();
+  const found = await findImport(tx, access, kind, input.importId);
+  // Held, so a second press or a Cancel takes its turn and finds the import moved on (M2).
+  const batch = await holdImport(tx, found.id);
+  if (batch === null || (batch.status !== "matching" && batch.status !== "checked")) throw notReady();
   const columns = await tx.importColumn.findMany({ where: { batchId: batch.id }, orderBy: { position: "asc" } });
   const chosen = new Map(input.columns.map((column) => [column.position, column.field]));
   const fieldOf = (position: number) => chosen.get(position) ?? null;
@@ -123,7 +125,7 @@ export async function matchImportColumns(
   );
   // The last check's plans no longer hold.
   await tx.importRow.deleteMany({ where: { batchId: batch.id } });
-  await moveImport(tx, batch.id, ["matching", "checked"], "checking", context.now, {
+  const moved = await moveImport(tx, batch.id, ["matching", "checked"], "checking", context.now, {
     defaultStage: input.defaults.stage ?? "new",
     defaultOwnerUserId: input.defaults.ownerUserId ?? null,
     budgetBasis: input.defaults.budgetBasis ?? null,
@@ -133,6 +135,7 @@ export async function matchImportColumns(
     rowsDone: 0,
     rowsNewStage: 0,
   });
+  if (!moved) throw notReady();
   await publishEvent(tx, { type: "import.columns-matched", payload: { importId: batch.id, kind } });
 }
 
