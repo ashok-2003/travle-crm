@@ -51,6 +51,13 @@ model Organization {
   importHeaderMatches     ImportHeaderMatch[]
   importStopRequests      ImportStopRequest[]
   dataExports             DataExport[]
+  sheetConnections        SheetConnection[]
+  sheetColumns            SheetColumn[]
+  sheetValueMatches       SheetValueMatch[]
+  sheetRows               SheetRow[]
+  sheetErasedContacts     SheetErasedContact[]
+  sheetCheckSchedules     SheetCheckSchedule[]
+  sheetSpreadsheetClaims  SheetSpreadsheetClaim[]
 
   @@map("organization")
 }

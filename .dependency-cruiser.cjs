@@ -5,13 +5,14 @@ module.exports = {
       name: "db-internals-stay-in-db",
       comment:
         "Other packages reach @travel-crm/db only through its entry points (index, identity, platform, webhooks, " +
-        "rate-limits, and the test-only testing files), so the raw Prisma client and the generated code never leak " +
+        "rate-limits, sheet-schedule, and the test-only testing files), so the raw Prisma client and the generated code never leak " +
         "out of the package.",
       severity: "error",
       from: { path: "^(apps|packages)/", pathNot: "^packages/db/" },
       to: {
         path: "^packages/db/(src|test)/",
-        pathNot: "^packages/db/(src/(index|identity|platform|webhooks|rate-limits)|test/(testing|global-setup))\\.ts$",
+        pathNot:
+          "^packages/db/(src/(index|identity|platform|webhooks|rate-limits|sheet-schedule)|test/(testing|global-setup))\\.ts$",
       },
     },
     {
@@ -40,6 +41,18 @@ module.exports = {
       severity: "error",
       from: { pathNot: ["^packages/db/", "^packages/domain/(src|test)/rate-limits/"] },
       to: { path: "^packages/db/src/rate-limits\\.ts$" },
+    },
+    {
+      name: "sheet-schedule-only-in-sheets",
+      comment:
+        "@travel-crm/db/sheet-schedule reaches sheet_check_schedule and sheet_spreadsheet_claim, which carry " +
+        "organization_id but have no row-level security (ids, times and a keyed hash only; ADR 0031). Only the " +
+        "sheets module's schedule.ts may use it, and the tests that arrange or read those tables.",
+      severity: "error",
+      from: {
+        pathNot: ["^packages/db/", "^packages/domain/(src/sheets/schedule\\.ts|test/(sheets|performance|platform)/)"],
+      },
+      to: { path: "^packages/db/src/sheet-schedule\\.ts$" },
     },
     {
       name: "platform-database-only-in-platform",

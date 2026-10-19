@@ -10,7 +10,7 @@ import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { createPrismaClient } from "../src/client.js";
 import type { Prisma } from "../src/generated/prisma/client.js";
 import { createPlatformClient, type PlatformClient } from "../src/platform.js";
-import { signInTables } from "./org-table-fixtures.js";
+import { crossOrganizationUniques, signInTables } from "./org-table-fixtures.js";
 
 type Queryable = Pick<Prisma.TransactionClient, "$queryRaw">;
 
@@ -54,7 +54,10 @@ async function uniqueKeysWithoutOrganization(client: Queryable): Promise<string[
       AND NOT (x.indisprimary AND x.indnatts = 1 AND EXISTS (
         SELECT 1 FROM pg_attribute a WHERE a.attrelid = t.oid AND a.attnum = x.indkey[0] AND a.attname = 'id'))
     ORDER BY name`;
-  return rows.filter((row) => !signInTables.includes(row.table_name)).map((row) => row.name);
+  return rows
+    .filter((row) => !signInTables.includes(row.table_name))
+    .map((row) => row.name)
+    .filter((name) => !crossOrganizationUniques.some((unique) => name.endsWith(`.${unique}`)));
 }
 
 /** Tables with organization_id that have no foreign key from that column to organization. */

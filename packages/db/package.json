@@ -8,6 +8,7 @@
     "./identity": "./src/identity.ts",
     "./platform": "./src/platform.ts",
     "./rate-limits": "./src/rate-limits.ts",
+    "./sheet-schedule": "./src/sheet-schedule.ts",
     "./webhooks": "./src/webhooks.ts",
     "./testing": "./test/testing.ts",
     "./testing/global-setup": "./test/global-setup.ts"

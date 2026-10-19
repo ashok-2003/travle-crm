@@ -11,7 +11,7 @@ import {
   type PlatformDatabase,
 } from "../src/platform.js";
 import { createTestOrganization } from "./helpers.js";
-import { orgTableFixtures, signInTables } from "./org-table-fixtures.js";
+import { orgTableFixtures, signInTables, unscopedScheduleTables } from "./org-table-fixtures.js";
 
 const softDeleteTables = softDeleteModels.map((model) =>
   model.replaceAll(/[A-Z]/g, (letter, index: number) => (index ? "_" : "") + letter.toLowerCase()),
@@ -26,7 +26,9 @@ async function tablesWithOrganizationId(platform: PlatformClient): Promise<strin
     JOIN information_schema.tables t ON t.table_schema = c.table_schema AND t.table_name = c.table_name
     WHERE c.table_schema = 'public' AND c.column_name = 'organization_id' AND t.table_type = 'BASE TABLE'
     ORDER BY c.table_name`;
-  return rows.map((row) => row.table_name).filter((name) => !signInTables.includes(name));
+  return rows
+    .map((row) => row.table_name)
+    .filter((name) => !signInTables.includes(name) && !unscopedScheduleTables.includes(name));
 }
 
 /** The columns app_runtime may UPDATE, by table, as the grants say (table-wide or column by column). */
