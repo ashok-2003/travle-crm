@@ -23,3 +23,8 @@ export { followUpFullRead, dailyReadDue, decideRead, type CheckMode, type ReadPl
 export { numberRows, type ReadRow } from "./numbered-rows.js";
 export { clearVanishedRows, firstPendingRow, isKnown, ledgerKey, lookUpLedger, type LedgerEntry } from "./ledger.js";
 export { headerHashOf, matchHeader, stopsTheCheck, type HeaderMatch, type SheetColumnRow } from "./header-match.js";
+export { baselineListener } from "./baseline.js";
+export { matchSheetImportListener } from "./match-connect-import.js";
+export { hasScheduleRow, scheduleListener } from "./update-schedule.js";
+export { enterAttention } from "./attention.js";
+export type { SheetsJobDependencies } from "./job-dependencies.js";

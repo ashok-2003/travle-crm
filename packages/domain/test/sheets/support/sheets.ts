@@ -5,6 +5,9 @@ import { randomUUID } from "node:crypto";
 import type { OrgTx } from "@travel-crm/db";
 import { createMemoryGoogleSheets, type MemoryGoogleSheets } from "@travel-crm/integrations/google-sheets";
 import type { MemberAccess } from "../../../src/identity/index.js";
+import type { DomainEvent, EventListener } from "../../../src/jobs/index.js";
+import type { Entitlements } from "../../../src/subscriptions/index.js";
+import { newUuidV7 } from "../../../src/kernel/index.js";
 import {
   beginSheet,
   createSheetsHashes,
@@ -12,7 +15,14 @@ import {
   type SheetsDependencies,
   type SheetsHashes,
 } from "../../../src/sheets/index.js";
-import { createTestImports, type TestImports } from "../../imports/support/test-imports.js";
+import { nameColumns } from "../../../src/sheets/header-keys.js";
+import type { SheetsJobDependencies } from "../../../src/sheets/job-dependencies.js";
+import {
+  createTestImports,
+  fakeIdentity,
+  listenerContext,
+  type TestImports,
+} from "../../imports/support/test-imports.js";
 
 export { anAgency, auditOf, eventsOf, memberOf } from "../../imports/support/test-imports.js";
 
@@ -188,4 +198,112 @@ export async function aDraftSheet(
   const id = aGoogleSheet(test, { id: aSpreadsheetId(), rows: [formHeader], ...sheet });
   const { sheetId } = await beginSheet(test.db, test.dependencies, importer, { spreadsheetId: id, gid: null }, now);
   return { sheetId, spreadsheetId: id };
+}
+
+/** What an agency on a plan with the CRM is entitled to: full access, or read-only (suspended or lapsed). */
+export function crmEntitlements(access: Entitlements["access"] = "full"): Entitlements {
+  return {
+    status: access === "full" ? "active" : "read_only",
+    access,
+    planName: "Growth",
+    modules: new Set(["crm"]),
+    limits: { seats: 10, whatsappNumbers: 1, storageBytes: 1_000_000 },
+    trialEndsOn: null,
+    paidThrough: null,
+    nextChangeOn: null,
+  };
+}
+
+/** The job dependencies of the sheets module on the test's database, Google, files and spreadsheets. */
+export function jobDependencies(
+  test: TestSheets,
+  identity: SheetsJobDependencies["identity"] = fakeIdentity(),
+  access: Entitlements["access"] = "full",
+): SheetsJobDependencies {
+  return {
+    ...test.dependencies,
+    db: test.db,
+    files: test.files,
+    spreadsheets: test.spreadsheets,
+    identity,
+    subscriptions: { entitlementsOf: () => Promise.resolve(crmEntitlements(access)) },
+    log: () => undefined,
+  };
+}
+
+/** Runs a listener on an event as the worker would, in the organization. */
+export function runListener(
+  test: TestSheets,
+  listener: EventListener,
+  organizationId: string,
+  event: { type: string; payload: Record<string, string> },
+): Promise<void> {
+  const domainEvent: DomainEvent = {
+    id: newUuidV7(),
+    organizationId,
+    type: event.type,
+    payload: event.payload,
+    occurredAt: new Date(),
+  };
+  return listener.handle(domainEvent, listenerContext(test, organizationId));
+}
+
+/** The matched fields a Google Form's responses sheet is given when it is connected. */
+export const formFields: Record<string, string> = {
+  timestamp: "enquiry_date",
+  fullname: "name",
+  phonenumber: "phone",
+  emailaddress: "email",
+};
+
+/**
+ * A sheet whose person pressed Connect: in the memory Google, shared, with its tab's columns matched, waiting for the
+ * baseline (status connecting, step done).
+ */
+export async function aConfirmedSheet(
+  test: TestSheets,
+  importer: MemberAccess,
+  options: {
+    rows?: string[][];
+    existingRows?: "only_new" | "check";
+    fields?: Record<string, string>;
+    more?: SharedSheet["more"];
+  } = {},
+): Promise<{ sheetId: string; spreadsheetId: string; organizationId: string }> {
+  const rows = options.rows ?? [formHeader];
+  const spreadsheetId = aGoogleSheet(test, {
+    id: aSpreadsheetId(),
+    rows,
+    ...(options.more === undefined ? {} : { more: options.more }),
+  });
+  const fields = options.fields ?? formFields;
+  const id = newUuidV7();
+  await test.db.forOrg(importer.organizationId, async (tx) => {
+    await tx.sheetConnection.create({
+      data: {
+        id,
+        status: "connecting",
+        step: "done",
+        existingRows: options.existingRows ?? "only_new",
+        spreadsheetId,
+        tabGid: "0",
+        tabTitle: "Form responses 1",
+        sheetTitle: "Goa Diwali campaign (Responses)",
+        sheetLocale: "en_IN",
+        sheetTimeZone: "Asia/Kolkata",
+        serviceAccountIndex: 0,
+        connectedBy: importer.userId,
+        impersonatedBy: importer.impersonatedBy,
+      },
+    });
+    await tx.sheetColumn.createMany({
+      data: nameColumns(rows[0] ?? []).map(({ header, key }) => ({
+        connectionId: id,
+        headerKey: key,
+        header,
+        field: fields[key] ?? null,
+      })),
+    });
+  });
+  return { sheetId: id, spreadsheetId, organizationId: importer.organizationId };
 }

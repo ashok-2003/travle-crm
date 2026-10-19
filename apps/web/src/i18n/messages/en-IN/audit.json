@@ -127,7 +127,11 @@
     },
     "sheet": {
       "connected": "Connected a Google Sheet",
-      "columns-changed": "Matched a Google Sheet's columns again"
+      "columns-changed": "Matched a Google Sheet's columns again",
+      "access-lost": "Lost access to a Google Sheet",
+      "tab-missing": "Found a Google Sheet's tab missing",
+      "columns-missing": "Found columns missing from a Google Sheet",
+      "needs-manager": "Found a Google Sheet without a manager"
     }
   },
   "fields": {
