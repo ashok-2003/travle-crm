@@ -1,6 +1,13 @@
 // Public API of the imports module: bringing leads and staff in from a CSV or .xlsx file (release 2, spec 6.2, L0).
 export type { ImportBatchRow } from "./batch-row.js";
 export { findImport, holdImport, IMPORT_KEPT_MS, recentImports } from "./batches.js";
+export {
+  columnMatchesOf,
+  matchImportColumns,
+  type ColumnMatches,
+  type ColumnMatchInput,
+  type MatchContext,
+} from "./column-matches.js";
 export { summariseColumns, type ColumnSummary } from "./columns.js";
 export type { ImportIdentity, ImportJobDependencies } from "./dependencies.js";
 export { guessFields, type FieldGuess } from "./guesses.js";

@@ -49,6 +49,14 @@ week after its last change (D5), deleting its file and report and emptying what 
   withdrawn.
 - Guesses (B9, D13, D14): `headerKey(header)`, `guessFields(kind, headers, remembered)`, and the agency's memory,
   `rememberedFields(tx, kind, keys)` and `rememberFields(tx, organizationId, kind, matches)` (upserts, B10).
+- Matching (B8, B10-B13): `matchImportColumns(tx, access, kind, input, { owners, roleKeys, now })`, from `matching`
+  or `checked`: refuses a field on two columns but Note (`FIELD_MATCHED_TWICE`), a lead file without Name and a
+  phone, email or Instagram (`IMPORT_NEEDS_NAME_AND_CONTACT`), a staff file without Name, a Username or Email and a
+  Role column or role (`IMPORT_NEEDS_SIGN_IN_NAME_AND_ROLE`), an owner who can't work leads (`NOT_A_LEAD_WORKER`)
+  and a role the agency hasn't (`ROLE_NOT_FOUND`). It keeps each column's field (a changed one loses its guess),
+  each changed value as `chosen` and every listed value's row count from the column matched to its field, the
+  defaults, every header for next month's file; empties the last check's rows, and moves to `checking` with
+  `import.columns-matched` (`{ importId, kind }`). `columnMatchesOf(tx, importId)`: the fields by position.
 - Values (B11): `suggestValueMatches(identity, batch, columns)` (made outside the transaction: identity runs its own),
   `writeValueMatches(tx, batchId, suggestions)`, and `valueTargetsFor(context, identity, batch, field, values)`: each
   value's stored target, else its automatic one (a column of more than fifty values is matched here), else null. A
