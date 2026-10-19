@@ -19,7 +19,7 @@ import {
   type TestImports,
 } from "../../imports/support/test-imports.js";
 import { aLead, aPerson, freshPhone } from "../support/records.js";
-import { aLeadImport, stepEvent, type LeadFileSeed } from "./support/lead-imports.js";
+import { aLeadImport, leadJobDependencies, stepEvent, type LeadFileSeed } from "./support/lead-imports.js";
 
 const HEADER = ["Name", "Phone", "Email", "Destination", "Stage", "Owner"];
 const FIELDS: LeadFileSeed["fields"] = ["name", "phone", "email", "destination", "stage", "owner"];
@@ -281,7 +281,7 @@ describe("checking a lead import", () => {
     if (batch === null) throw new Error("no batch");
     const file = await readLeadFile(
       listenerContext(test, organizationId),
-      jobDependencies(test, fakeIdentity({ access: importer, workers, firstOwner: owner })),
+      leadJobDependencies(test, fakeIdentity({ access: importer, workers, firstOwner: owner })),
       batch,
     );
     const owners = file.rows.map((reading) => (reading.kind === "enquiry" ? reading.ownerUserId : null));

@@ -1,8 +1,10 @@
 // A lead import for the check's and the add's tests: its file in storage, its columns matched to fields, and the
 // listener events that drive them.
 import type { ImportField } from "@travel-crm/contracts/imports";
+import type { Entitlements } from "../../../../src/subscriptions/index.js";
+import type { ImportIdentity, ImportJobDependencies } from "../../../../src/imports/index.js";
 import type { BatchSeed } from "../../../imports/support/batches.js";
-import { anImportWithFile, type TestImports } from "../../../imports/support/test-imports.js";
+import { anImportWithFile, jobDependencies, type TestImports } from "../../../imports/support/test-imports.js";
 import type { MemberAccess } from "../../../../src/identity/index.js";
 import type { DomainEvent } from "../../../../src/jobs/index.js";
 
@@ -43,5 +45,31 @@ export function stepEvent(organizationId: string, type: string, importId: string
     type,
     payload: { importId, kind: "leads" },
     occurredAt: new Date(),
+  };
+}
+
+/** What a plan with the CRM allows: full access, or read-only for an agency that may no longer change things. */
+export function crmEntitlements(access: Entitlements["access"] = "full"): Entitlements {
+  return {
+    status: access === "full" ? "active" : "read_only",
+    access,
+    planName: "Growth",
+    modules: new Set(["crm"]),
+    limits: { seats: 10, whatsappNumbers: 1, storageBytes: 1_000_000 },
+    trialEndsOn: null,
+    paidThrough: null,
+    nextChangeOn: null,
+  };
+}
+
+/** The listeners' dependencies for an agency whose subscription allows the CRM's changes (unless told otherwise). */
+export function leadJobDependencies(
+  test: TestImports,
+  identity: ImportIdentity,
+  access: Entitlements["access"] = "full",
+): ImportJobDependencies {
+  return {
+    ...jobDependencies(test, identity),
+    subscriptions: { entitlementsOf: () => Promise.resolve(crmEntitlements(access)) },
   };
 }
