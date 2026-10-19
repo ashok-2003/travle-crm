@@ -40,7 +40,10 @@ describe("ValueMatcher", () => {
         defaultLabel="Asha Sharma (Owner), the default"
       />,
     );
-    expect(screen.getByRole("heading", { name: "Assigned To" })).toBeVisible();
+    // A section of the page, like the others under its h1 (X4).
+    const heading = screen.getByRole("heading", { level: 2, name: "Assigned To" });
+    expect(heading).toBeVisible();
+    expect(heading).toHaveClass("text-section");
     const count = screen.getByText("1,512");
     expect(count).toHaveClass("numbers");
     const vikas = screen.getByRole("combobox", { name: words.targetFor.replace("{value}", "Vikas") });

@@ -53,10 +53,10 @@ export function ValueMatcher({
   const headingId = useId();
   return (
     <section className="flex flex-col gap-2" aria-labelledby={headingId}>
-      {/* Its words start where its rows' do, past the registry Item's own inset. */}
-      <h3 id={headingId} className="px-3 text-label font-semibold">
+      {/* A section of the page, under its h1 (X4); its words start where its rows' do, past the Item's own inset. */}
+      <h2 id={headingId} className="px-3 text-section font-semibold">
         {heading}
-      </h3>
+      </h2>
       <ItemGroup>
         {values.map(({ value, rows }, index) => (
           <Fragment key={value}>
