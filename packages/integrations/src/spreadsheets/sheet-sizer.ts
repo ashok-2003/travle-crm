@@ -1,13 +1,17 @@
 // Sizes a sheet's part as read-excel-file will read it (B4, D1), while it inflates: saxen, the reader's own SAX parser,
 // is fed the XML a piece at a time and counts the rows, the furthest row number and the furthest column holding a cell
 // that isn't self-closing, whatever the quoting, prefixes, comments, CDATA or entities. Every number a row or cell
-// could be read as counts, and rows without one follow on. The first limit passed stops the parse.
+// could be read as counts, and rows without one follow on. Elements nested past a hundred deep are refused. The first
+// limit passed stops the parse.
 import { Parser } from "saxen";
 import type { UnreadableReason } from "./spreadsheets.js";
 import { cellAddressOf, isNamed } from "./xml-elements.js";
 
 /** Markup this long with no tag, text or comment finished is no spreadsheet's (Excel's cell holds 32,767 characters). */
 const MAX_QUIET_CHARACTERS = 1024 * 1024;
+
+/** Elements open at once past this are no spreadsheet's (a cell's text is about six deep), and the parser keeps each. */
+const MAX_DEPTH = 100;
 
 /** Text goes to the parser in pieces this long, so what it buffers stays under a piece and the quiet bound. */
 const PIECE_CHARACTERS = 64 * 1024;
@@ -32,6 +36,7 @@ export function sheetSizer(limits: { maxRowNumber: number; maxColumn: number }) 
   const decoder = new TextDecoder();
   let pending = "";
   let quiet = 0;
+  let depth = 0;
   const refuse = (reason: UnreadableReason) => {
     size.refusal ??= reason;
     parser.stop();
@@ -47,6 +52,12 @@ export function sheetSizer(limits: { maxRowNumber: number; maxColumn: number }) 
   };
   parser.on("openTag", (name, attributesOf, decode, selfClosing) => {
     heard();
+    // A self-closing element closes too (closeTag), so it never adds to the depth.
+    depth += 1;
+    if (depth > MAX_DEPTH) {
+      refuse("not_a_spreadsheet");
+      return;
+    }
     const isRow = isNamed(name, "row");
     if (!isRow && !isNamed(name, "c")) return;
     const attributes = attributesOf();
@@ -69,7 +80,10 @@ export function sheetSizer(limits: { maxRowNumber: number; maxColumn: number }) 
     }
     check();
   });
-  parser.on("closeTag", heard);
+  parser.on("closeTag", () => {
+    heard();
+    depth -= 1;
+  });
   parser.on("text", heard);
   parser.on("comment", heard);
   parser.on("cdata", heard);

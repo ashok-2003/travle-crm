@@ -140,4 +140,13 @@ describe("sizing a workbook as an XML parser reads it", () => {
     await expectRefused(sheetOf(rows), "too_many_columns");
     expect((process.memoryUsage().heapUsed - before) / (1024 * 1024)).toBeLessThan(64);
   });
+
+  it("refuses elements nested past a hundred deep, as no sheet nests them, before they cost memory (item 4)", () => {
+    expect(sizerRefusal(`${"<a>".repeat(95)}${"</a>".repeat(95)}${rowOf(2, textCell("A2", "Asha"))}`)).toBeNull();
+    expect(sizerRefusal("<a>".repeat(101))).toBe("not_a_spreadsheet");
+    const nested = "<a>".repeat(2_000_000);
+    const before = process.memoryUsage().heapUsed;
+    expect(sizerRefusal(nested)).toBe("not_a_spreadsheet");
+    expect((process.memoryUsage().heapUsed - before) / (1024 * 1024)).toBeLessThan(32);
+  });
 });
