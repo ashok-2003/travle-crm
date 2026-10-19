@@ -8,8 +8,7 @@ import { importUploadedEvent } from "@travel-crm/contracts/imports";
 import { type ReadSheet, SpreadsheetUnreadableError } from "@travel-crm/integrations/spreadsheets";
 import { defineListener, type EventListener, publishEvent } from "../jobs/index.js";
 import { DomainError } from "../kernel/index.js";
-import { toBatchRow } from "./batch-row.js";
-import { holdImport, moveImport } from "./batches.js";
+import { holdImport, importBatchOf, moveImport } from "./batches.js";
 import { summariseColumns } from "./columns.js";
 import type { ImportJobDependencies } from "./dependencies.js";
 import { guessFields } from "./guesses.js";
@@ -26,8 +25,7 @@ export function readImportFileListener(dependencies: ImportJobDependencies): Eve
     eventType: "import.uploaded",
     payload: importUploadedEvent,
     handle: async (event, context) => {
-      const found = await context.forOrg((tx) => tx.importBatch.findUnique({ where: { id: event.payload.importId } }));
-      const batch = found === null ? null : toBatchRow(found);
+      const batch = await context.forOrg((tx) => importBatchOf(tx, event.payload.importId));
       if (batch?.status !== "reading") return;
       let bytes: Uint8Array;
       try {

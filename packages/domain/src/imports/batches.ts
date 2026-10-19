@@ -26,6 +26,12 @@ export async function findImport(
   return toBatchRow(row);
 }
 
+/** The import as it stands, for a job's first look; null when there's none. A plain read: nothing is held (M10). */
+export async function importBatchOf(tx: OrgTx, importId: string): Promise<ImportBatchRow | null> {
+  const row = await tx.importBatch.findUnique({ where: { id: importId } });
+  return row === null ? null : toBatchRow(row);
+}
+
 /** Whether any import of the agency is adding (B29, on import_batch_one_adding): a Google Sheet's check waits for it. */
 export async function isAnyImportAdding(tx: OrgTx): Promise<boolean> {
   return (await tx.importBatch.findFirst({ where: { status: "adding" }, select: { id: true } })) !== null;

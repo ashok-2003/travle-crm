@@ -4,6 +4,7 @@ export {
   findImport,
   holdImport,
   IMPORT_KEPT_MS,
+  importBatchOf,
   isAnyImportAdding,
   recentImports,
   recentImportsQuery,
