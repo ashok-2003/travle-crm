@@ -3,6 +3,7 @@
 import type { Database } from "@travel-crm/db";
 import type { Files } from "@travel-crm/domain/files";
 import type { Identity } from "@travel-crm/domain/identity";
+import type { AddGuard } from "@travel-crm/domain/imports";
 import type { Profiles } from "@travel-crm/domain/profile";
 import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 
@@ -21,6 +22,11 @@ export interface ApiDependencies {
    * (notifications.push.publicKey), so one build serves every environment.
    */
   pushPublicKey: string;
+  /**
+   * Checks the Add of a lead import runs in its own transaction (a Google Sheet's check that is saving refuses it,
+   * S26). None unless the server passes some.
+   */
+  addGuards?: readonly AddGuard[];
 }
 
 /**
@@ -28,7 +34,7 @@ export interface ApiDependencies {
  * cookie, a longer expiry), and those Set-Cookie headers must reach the browser.
  */
 export async function createContext(
-  { identity, subscriptions, profiles, db, files, pushPublicKey }: ApiDependencies,
+  { identity, subscriptions, profiles, db, files, pushPublicKey, addGuards = [] }: ApiDependencies,
   request: Request,
   resHeaders: Headers,
 ) {
@@ -44,6 +50,7 @@ export async function createContext(
     db,
     files,
     pushPublicKey,
+    addGuards,
     headers: request.headers,
     resHeaders,
     session: response?.session ?? null,
