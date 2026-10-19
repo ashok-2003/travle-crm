@@ -10,6 +10,7 @@ import {
   SpreadsheetUnreadableError,
   type UnreadableReason,
 } from "../../src/spreadsheets/index.js";
+import { sheetSizer } from "../../src/spreadsheets/sheet-sizer.js";
 import { rowOf, textCell, workbookOf, workbookParts } from "./sample-files.js";
 
 const spreadsheets = createSpreadsheets();
@@ -30,6 +31,16 @@ async function reasonOf(bytes: Uint8Array): Promise<UnreadableReason | "read"> {
 
 /** A one-sheet workbook whose sheetData is this XML after the header row. */
 const sheetOf = (rows: string) => workbookOf([{ name: "Leads", sheetData: header + rows }]);
+
+/** The sizer's own verdict on a sheet part's XML, before the reader is asked (as the pre-inflate sizes it). */
+function sizerRefusal(sheetData: string): UnreadableReason | null {
+  const sizer = sheetSizer({ maxRowNumber: limits.maxRows * 2 + 1, maxColumn: limits.maxColumns });
+  sizer.push(
+    strToU8(`<worksheet xmlns="${spreadsheetNamespace}"><sheetData>${sheetData}</sheetData></worksheet>`),
+    true,
+  );
+  return sizer.size.refusal;
+}
 
 /** Refused for `reason` within two seconds. */
 async function expectRefused(bytes: Uint8Array, reason: UnreadableReason) {
@@ -111,5 +122,22 @@ describe("sizing a workbook as an XML parser reads it", () => {
       withWorkbook(`<sheet name="Small" sheetId="2" r:id="rId2" xmlns:q="urn:q" q:id="rId1"/>`),
       "not_a_spreadsheet",
     );
+  });
+
+  it("reads names under an xmlns: prefix as the reader does, which drops the prefix too (round 2)", () => {
+    expect(sizerRefusal(`<row r="2"><c xmlns:x:r="XFD2"><v>1</v></c></row>`)).toBe("too_many_columns");
+    expect(sizerRefusal(`<row r="2"><xmlns:c r="XFD2"><v>1</v></xmlns:c></row>`)).toBe("too_many_columns");
+    expect(sizerRefusal(`<row xmlns:x:r="400000"><c><v>1</v></c></row>`)).toBe("too_many_rows");
+    expect(sizerRefusal(`<xmlns:row r="400000"><c><v>1</v></c></xmlns:row>`)).toBe("too_many_rows");
+  });
+
+  it("refuses the re-reviewer's 15 KB file of 3,000 prefixed rows, fast and with little memory", async () => {
+    const rows = Array.from(
+      { length: 3000 },
+      (_, index) => `<row r="${String(index + 2)}"><c xmlns:x:r="XFD${String(index + 2)}"><v>1</v></c></row>`,
+    ).join("");
+    const before = process.memoryUsage().heapUsed;
+    await expectRefused(sheetOf(rows), "too_many_columns");
+    expect((process.memoryUsage().heapUsed - before) / (1024 * 1024)).toBeLessThan(64);
   });
 });

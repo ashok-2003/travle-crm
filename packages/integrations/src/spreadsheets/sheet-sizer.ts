@@ -23,7 +23,7 @@ export interface SheetPartSize {
 
 /** Every value an element's attributes give `local` under any prefix, decoded: the reader keeps one of them. */
 function valuesOf(attributes: Record<string, string>, decode: (text: string) => string, local: string): string[] {
-  return Object.entries(attributes).flatMap(([name, value]) => (isNamed(name, local) ? [decode(value)] : []));
+  return Object.entries(attributes).flatMap(([name, value]) => (isNamed(name, local, true) ? [decode(value)] : []));
 }
 
 export function sheetSizer(limits: { maxRowNumber: number; maxColumn: number }) {

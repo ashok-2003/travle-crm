@@ -14,9 +14,12 @@ export function readerName(name: string, isAttribute = false): string {
   return name.slice(colon + 1);
 }
 
-/** Whether a raw element or attribute name is `local` under any prefix, for counting: every name the reader might read. */
-export function isNamed(name: string, local: string): boolean {
-  return (name === local || name.endsWith(`:${local}`)) && !name.startsWith("xmlns:");
+/**
+ * Whether a raw element or attribute name may be `local` to the reader, for counting: under any prefix, `xmlns:` ones
+ * too, which the reader drops from elements and from attributes with a second prefix ("xmlns:x:r" is its "r").
+ */
+export function isNamed(name: string, local: string, isAttribute = false): boolean {
+  return name === local || name.endsWith(`:${local}`) || readerName(name, isAttribute) === local;
 }
 
 /** A part's element, its attributes named and decoded as the reader keeps them; `ambiguous` when two raw names meet. */
