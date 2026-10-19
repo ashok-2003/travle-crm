@@ -6,7 +6,7 @@
 // returns to its preview.
 import { CircleAlertIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
@@ -50,6 +50,19 @@ export function StaffImportScreen({ importId }: { importId: string }) {
   const detail = useStaffImport(importId);
   const [changing, setChanging] = useState(false);
   const status = detail.data?.status;
+  // A step is a new page to someone who can't see it change: focus goes to its h1 when the step does, and the end of the
+  // add is announced.
+  const screen = useRef<HTMLDivElement>(null);
+  const steppedFrom = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (status === undefined) return;
+    const before = steppedFrom.current;
+    steppedFrom.current = status;
+    if (before === undefined || before === status) return;
+    const heading = screen.current?.querySelector("h1");
+    heading?.setAttribute("tabindex", "-1");
+    heading?.focus();
+  }, [status]);
   // Leaving forgets the passwords, and so does the import coming back to its preview (a row changed, too few seats).
   useEffect(
     () => () => {
@@ -142,7 +155,10 @@ export function StaffImportScreen({ importId }: { importId: string }) {
   };
 
   return (
-    <div className="flex max-w-[720px] flex-col gap-6">
+    <div ref={screen} className="flex max-w-[720px] flex-col gap-6">
+      <p role="status" className="sr-only">
+        {detail.data?.status === "done" ? t("done.title", { count: detail.data.progress.rowsAdded }) : ""}
+      </p>
       <BackLink href={routes.staff} label={t("back")} />
       {detail.data ? (
         <>

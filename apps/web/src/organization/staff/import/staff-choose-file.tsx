@@ -31,6 +31,7 @@ export function StaffChooseFile() {
         sampleHref="/samples/staff-sample.csv"
         start={(file) => client.staffImports.start.mutate(file)}
         confirm={(importId) => client.staffImports.confirmUpload.mutate({ importId })}
+        cancel={(importId) => client.staffImports.cancel.mutate({ importId })}
         onUploaded={(importId) => {
           router.push(staffImportRoute(importId));
         }}

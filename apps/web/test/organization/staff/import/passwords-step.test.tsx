@@ -200,4 +200,22 @@ describe("PasswordsStep", () => {
     // The second failed after the first was left alone: that one is still counted, and the button can be pressed again.
     expect(await screen.findByRole("button", { name: "Make new passwords for 2 people" })).toBeEnabled();
   });
+
+  it("moves focus to the step's heading when the step changes, and announces the end of the add", async () => {
+    const queryClient = newQueryClient();
+    const trpcKey = [["staffImports", "get"], { input: { importId }, type: "query" }];
+    queryClient.setQueryDefaults(trpcKey, { staleTime: Infinity });
+    queryClient.setQueryData(trpcKey, aPage({ status: "adding" }));
+    renderWithApi(<StaffImportScreen importId={importId} />, queryClient);
+    await screen.findByRole("heading", { level: 1, name: "Adding people" });
+    passwordStore.keep(importId, new Map([[2, "h7Kq3mPx9Tzc"]]));
+    act(() => {
+      queryClient.setQueryData(trpcKey, done());
+    });
+    const heading = await screen.findByRole("heading", { level: 1, name: /3 people added/ });
+    await waitFor(() => {
+      expect(heading).toHaveFocus();
+    });
+    expect(screen.getAllByRole("status").some((live) => live.textContent === "3 people added")).toBe(true);
+  });
 });

@@ -202,6 +202,7 @@ export function StaffCheckStep({ page, onChangeColumns }: { page: StaffImportPag
         title={t("confirmTitle", { count })}
         description={t("confirmBody")}
         action={t("add", { count })}
+        destructive={false}
         request={adding}
         returnFocusTo={addButton}
         onConfirm={() => {

@@ -116,23 +116,32 @@ export function StaffMatchStep({
               setTargets(new Map(targets).set(value, target));
             }}
             defaultLabel={t("roleNotMatched")}
+            blank={{
+              label: t("roleForBlank"),
+              hint: t("roleForBlankHint"),
+              chosen: fileRole,
+              noneLabel: t("roleNotMatched"),
+              onChoose: setFileRole,
+            }}
             disabled={match.isPending}
           />
         ) : (
           <LoadingRows rows={3} />
         ))}
-      <Field>
-        <FieldTitle>{roleColumn === undefined ? t("roleForAll") : t("roleForBlank")}</FieldTitle>
-        <MatchSelect
-          label={roleColumn === undefined ? t("roleForAll") : t("roleForBlank")}
-          value={fileRole}
-          noneLabel={roleColumn === undefined ? t("chooseRole") : t("roleNotMatched")}
-          options={assignable.map((role) => ({ value: role.key, label: role.name }))}
-          disabled={match.isPending || !roles.data}
-          onChange={setFileRole}
-        />
-        <FieldDescription>{roleColumn === undefined ? t("roleForAllHint") : t("roleForBlankHint")}</FieldDescription>
-      </Field>
+      {roleColumn === undefined && (
+        <Field>
+          <FieldTitle>{t("roleForAll")}</FieldTitle>
+          <MatchSelect
+            label={t("roleForAll")}
+            value={fileRole}
+            noneLabel={t("chooseRole")}
+            options={assignable.map((role) => ({ value: role.key, label: role.name }))}
+            disabled={match.isPending || !roles.data}
+            onChange={setFileRole}
+          />
+          <FieldDescription>{t("roleForAllHint")}</FieldDescription>
+        </Field>
+      )}
       <RefusalAlert error={match.error} />
       <div className="flex flex-col items-start gap-2">
         <div className="flex flex-wrap gap-2">
