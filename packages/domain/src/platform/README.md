@@ -57,7 +57,10 @@ organizationId)` records a `platform_export` row and queues `EXPORT_ORGANIZATION
 - The bulk files (B53, B54): `bulkFilesSweepSchedule(services)` (`SWEEP_BULK_FILES_QUEUE`,
   `platform.sweep-bulk-files`, hourly at 17 past), which the console must schedule: `sweepBulkFiles(services, now)`
   takes imports a week past their last change and exports a day past ready (and any file stored late under an expired
-  one), a batch at a time in platform transactions, then deletes each swept organization's queued files at once.
+  one), listing a page at a time (imports' `importsToSweep`, exports' `exportsToSweep`) and sweeping each in its own
+  short platform transaction (`sweepImport`, `sweepExport`; one a job holds is skipped for the next hour). One that
+  fails is left for the next run, and the run ends with `BulkFilesSweepFailedError` (counts only). Then it deletes each
+  swept organization's queued files at once.
 - The shared demo (spec 7.4): `resetDemoOrganization(services, { code, password }, now?)`, the console's nightly
   `RESET_DEMO_QUEUE` (`platform.reset-demo`) job: purges last night's demo (only an organization a reset built, as the
   platform log shows) and builds it again with its profile and three staff who sign in with the code (`demoStaff`),

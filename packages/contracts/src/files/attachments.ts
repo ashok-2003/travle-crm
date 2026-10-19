@@ -24,6 +24,12 @@ export const spreadsheetContentTypes = [
 ] as const;
 export type SpreadsheetContentType = (typeof spreadsheetContentTypes)[number];
 
+/** Each spreadsheet kind's type, by name rather than by its place in the list (W8). */
+export const spreadsheetContentTypeOf = {
+  csv: "text/csv",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+} as const satisfies Record<"csv" | "xlsx", SpreadsheetContentType>;
+
 /** The largest file an import takes: 10 MB. */
 export const MAX_IMPORT_BYTES = 10 * 1024 * 1024;
 

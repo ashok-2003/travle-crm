@@ -98,8 +98,8 @@ export async function importRowsPage(
   return { items, nextCursor: rows.length > input.limit ? (items.at(-1)?.rowNumber ?? null) : null };
 }
 
-/** Plans the add saves or leaves out; not_added rows are never saved. */
-const addablePlans: readonly RowPlan[] = ["new", "returning", "enquiry", "blocked", "already_imported"];
+/** Plans the add saves or leaves out by the importer's choices; not_added rows are never saved. */
+const addablePlans: readonly RowPlan[] = ["new", "returning", "enquiry", "blocked", "already_imported", "in_crm"];
 
 /** The next rows the add takes: no outcome yet, a plan to add, in row order. */
 export async function rowsToAdd(

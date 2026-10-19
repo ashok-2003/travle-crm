@@ -9,7 +9,7 @@ import { createMemorySpreadsheets, type MemorySpreadsheets } from "@travel-crm/i
 import { createMemoryStorage, type MemoryStorage } from "@travel-crm/integrations/storage";
 import { inject } from "vitest";
 import { createFiles, type Files } from "../../../src/files/index.js";
-import type { MemberAccess } from "../../../src/identity/index.js";
+import { type MemberAccess, PermissionSet } from "../../../src/identity/index.js";
 import type { ImportIdentity, ImportJobDependencies } from "../../../src/imports/index.js";
 import type { ListenerContext } from "../../../src/jobs/index.js";
 import { systemActor } from "../../../src/kernel/index.js";
@@ -109,7 +109,12 @@ export function fakeIdentity(
     matchLeadWorkers: (_organizationId, values) =>
       lookUp(options.workers ?? {}, values, (userId) => ({ userId, matchedBy: "name" as const })),
     matchRoles: (_organizationId, values) =>
-      lookUp(options.roles ?? {}, values, (roleKey) => ({ roleKey, matchedBy: "name" as const })),
+      lookUp(options.roles ?? {}, values, (roleKey) => ({
+        roleKey,
+        matchedBy: "name" as const,
+        isOwner: roleKey === "org-owner",
+        permissions: roleKey === "org-owner" ? PermissionSet.everything() : PermissionSet.of([]),
+      })),
     staff: {
       list: unexpected,
       create: unexpected,

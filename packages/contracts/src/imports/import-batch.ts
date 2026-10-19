@@ -41,8 +41,7 @@ export const waitingImportStatuses = ["uploading", "reading", "matching", "check
 export const importRowLimits: Readonly<Record<ImportKind, number>> = { leads: 10_000, staff: 500 };
 export const MAX_IMPORT_COLUMNS = 50;
 export const MAX_CELL_LENGTH = 4000;
-/** A column with at most this many different values lists them with their counts (B11). */
-export const MAX_LISTED_VALUES = 50;
+export { MAX_LISTED_VALUES } from "./listed-values.js";
 
 /** Why a file can't be read (B5): the spreadsheets port's eight. A domain test holds the two lists equal. */
 export const unreadableReasons = [
@@ -96,6 +95,8 @@ export const importCounts = z.object({
   newStage: z.int(),
   /** The rows not added, by their first reason. */
   notAdded: z.array(z.object({ reason: rowReasonCode, rows: z.int() })),
+  /** A sheet's rows for people who already have a lead (plan in_crm), by whether one is open; zero for a file. */
+  inCrm: z.object({ open: z.int(), closed: z.int() }),
   /** Destinations the import adds to the agency's list. */
   newDestinations: z.array(z.string()),
   outcomes: z.record(rowOutcome, z.int()),
@@ -122,7 +123,9 @@ export const importDetail = z.object({
     budgetBasis: budgetBasis.nullable(),
     roleKey: roleKey.nullable(),
   }),
-  choices: z.object({ addBlocked: z.boolean(), addAlreadyImported: z.boolean() }),
+  choices: z.object({ addBlocked: z.boolean(), addAlreadyImported: z.boolean(), addInCrm: z.boolean() }),
+  /** The Google Sheet connection the import reads (the Sheets sync's connect-time import); null for a file. */
+  sourceSheet: z.object({ sheetId: recordId }).nullable(),
   /** Null until the check has run. */
   counts: importCounts.nullable(),
   progress: z.object({

@@ -8,7 +8,7 @@ import type { PlatformClient } from "@travel-crm/db/platform";
 import { createPlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization, type DbUrls } from "@travel-crm/db/testing";
 import { createFiles, type Files } from "@travel-crm/domain/files";
-import { createIdentity, type AuthSettings, type Identity } from "@travel-crm/domain/identity";
+import { createIdentity, type AuthSettings, type Identity, type SeatLimit } from "@travel-crm/domain/identity";
 import { createProfiles } from "@travel-crm/domain/profile";
 import { createRateLimiter } from "@travel-crm/domain/rate-limits";
 import { createSubscriptionAccess, planLimits, type SubscriptionAccess } from "@travel-crm/domain/subscriptions";
@@ -49,7 +49,7 @@ export interface TestServer {
   /** What a worker beside it is built from too (worker-jobs.ts): the real spreadsheets, the plans' access and seats. */
   spreadsheets: Spreadsheets;
   subscriptions: SubscriptionAccess;
-  seatLimit: (organizationId: string) => Promise<number | null>;
+  seatLimit: SeatLimit;
   platform: PlatformClient;
   /** The database it runs on, for a console beside it. */
   urls: DbUrls;

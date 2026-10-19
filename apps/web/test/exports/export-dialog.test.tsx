@@ -1,7 +1,7 @@
 // The export dialog (spec 3.3, 3.5, B39, B41, B42): what the file will hold, Excel or CSV (Excel chosen), the sentence
 // on phones and the 24 hours, Prepare the file held while it is asked for, then the job's progress, which the dialog
 // may be closed during, and the file's name and size with Download: an export, so a read-only agency may take it.
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ExportDetail } from "@travel-crm/contracts/exports";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -127,6 +127,12 @@ describe("ExportDialog", () => {
     await act(() => queryClient.invalidateQueries({ queryKey: ["export", exportId] }));
     expect(await screen.findByText("leads-20-oct-2026.xlsx")).toBeVisible();
     expect(screen.getByText("47 KB")).toBeVisible();
+    // What it holds, the file and its size are one list, spaced alike (W11).
+    expect(
+      within(screen.getByRole("list"))
+        .getAllByRole("listitem")
+        .map((row) => row.textContent),
+    ).toEqual(["What it holdsEveryone · Open · Goa", "Fileleads-20-oct-2026.xlsx", "Size47 KB"]);
     const download = screen.getByRole("button", { name: words.dialog.download });
     expect(download).toBeEnabled();
     expect(screen.queryByText(messages.errors.reasons.ORGANIZATION_READ_ONLY)).toBeNull();

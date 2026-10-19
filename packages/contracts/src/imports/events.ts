@@ -7,6 +7,9 @@ import { importKind } from "./import-batch.js";
 export const importUploadedEvent = z.strictObject({ importId: recordId });
 export type ImportUploadedEvent = z.infer<typeof importUploadedEvent>;
 
-/** import.columns-matched, import.add-requested and import.finished: each kind's listener acts on its own kind. */
+/**
+ * import.read (the file is read and the import waits at matching), import.columns-matched, import.add-requested and
+ * import.finished: each kind's listener acts on its own kind.
+ */
 export const importStepEvent = z.strictObject({ importId: recordId, kind: importKind });
 export type ImportStepEvent = z.infer<typeof importStepEvent>;

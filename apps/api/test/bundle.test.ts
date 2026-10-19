@@ -1,10 +1,13 @@
-// The bundle the api's Docker image runs (scripts/bundle.ts, ADR 0027): one entry per command, our code and every
-// third-party package in it but the integrations package's own, which the image installs from the lockfile, and none
-// of the tests' code.
-import { mkdtemp, rm } from "node:fs/promises";
+// The bundle the api's Docker image runs (scripts/bundle.ts, ADR 0027): one entry per command and the .xlsx reader's
+// thread (ADR 0030), our code and every third-party package in it but the integrations package's own, which the image
+// installs from the lockfile, and none of the tests' code. It is built as the image lays it out (/app/apps/api: dist/
+// beside the integrations package's node_modules), so the thread runs as it will there.
+import { mkdtemp, rm, symlink } from "node:fs/promises";
 import { builtinModules } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { createSpreadsheets } from "@travel-crm/integrations/spreadsheets";
 import type { Metafile } from "esbuild";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { bundleApi, runtimePackages } from "../scripts/bundle.js";
@@ -24,16 +27,22 @@ function installedPackageOf(input: string): string | null {
 }
 
 describe("the api's bundle", () => {
+  let root = "";
   let outdir = "";
   let metafile: Metafile;
 
   beforeAll(async () => {
-    outdir = await mkdtemp(path.join(tmpdir(), "api-bundle-"));
+    root = await mkdtemp(path.join(tmpdir(), "api-bundle-"));
+    outdir = path.join(root, "dist");
+    await symlink(
+      path.resolve(apiDirectory, "../../packages/integrations/node_modules"),
+      path.join(root, "node_modules"),
+    );
     metafile = await bundleApi({ apiDirectory, outdir });
   });
 
   afterAll(async () => {
-    await rm(outdir, { recursive: true, force: true });
+    await rm(root, { recursive: true, force: true });
   });
 
   it("has a file for each of the image's commands", () => {
@@ -45,7 +54,23 @@ describe("the api's bundle", () => {
       "worker.mjs": "src/worker.ts",
       "console.mjs": "src/console.ts",
       "console-command.mjs": "src/console-command.ts",
+      "xlsx-thread.mjs": "../../packages/integrations/src/spreadsheets/xlsx-thread.ts",
     });
+  });
+
+  it("reads an .xlsx in its own thread, from the bundle's xlsx-thread.mjs and the installed packages", async () => {
+    const spreadsheets = createSpreadsheets({
+      xlsxThread: { file: pathToFileURL(path.join(outdir, "xlsx-thread.mjs")) },
+    });
+    const writer = spreadsheets.writer({
+      kind: "xlsx",
+      sheetName: "Leads",
+      columns: [{ header: "Name", kind: "text" }],
+    });
+    writer.write([["Asha Sharma"]]);
+    const limits = { kind: "xlsx", maxRows: 10, maxColumns: 5, maxCellLength: 100 } as const;
+    const sheet = await spreadsheets.read(await writer.finish(), limits);
+    expect(sheet.rows).toEqual([{ rowNumber: 2, cells: ["Asha Sharma"] }]);
   });
 
   it("leaves out only Node's own modules, the integrations package's vendor packages and pg's native driver", async () => {

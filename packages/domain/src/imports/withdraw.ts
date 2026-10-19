@@ -1,8 +1,8 @@
 // Withdrawing an organization's import files (B53, B55, D7, D32), in a platform transaction: the erasure's for every
 // import at once, the sweep's for those past their week. Each query names the organization, since the platform role
-// sees them all. The files go for good through the deletions' outbox; what the imports keep of rows and values is
-// emptied; the counts and outcomes stay.
-import { type OrgTx, withDeleted } from "@travel-crm/db";
+// sees them all. The files go for good through the deletions' outbox; what the imports keep of rows, values and
+// headers is emptied; the counts and outcomes stay. An erasure also forgets the agency's header memory (M3).
+import { type OrgTx, sql, withDeleted } from "@travel-crm/db";
 import { deleteRecordFiles, IMPORT_FILE_RECORD_TYPE, IMPORT_REPORT_RECORD_TYPE } from "../files/index.js";
 
 /** Who an erasure forgets: a customer (crm's person) or a removed member. */
@@ -16,10 +16,19 @@ type Imports = readonly string[] | "every";
 const whereImports = (organizationId: string, imports: Imports) =>
   imports === "every" ? { organizationId } : { organizationId, batchId: { in: [...imports] } };
 
-/** Empties what the imports keep of a file's contents: samples, listed values, value matches, examples, hashes. */
+/**
+ * Empties what the imports keep of a file's contents: samples, listed values, value matches, examples, hashes, and
+ * each column's header, which in a file with no header row is its first row of data (M3): a column keeps only its
+ * letter ("Column C", positions 0-49).
+ */
 export async function emptyKeptValues(tx: OrgTx, organizationId: string, imports: Imports): Promise<void> {
   const where = whereImports(organizationId, imports);
-  await tx.importColumn.updateMany({ where, data: { samples: [], distinctValues: [], distinctCounts: [] } });
+  const theirs = imports === "every" ? sql`TRUE` : sql`batch_id = ANY(${[...imports]}::uuid[])`;
+  await tx.$executeRaw`
+    UPDATE import_column
+    SET header = 'Column ' || CASE WHEN position < 26 THEN chr(65 + position) ELSE 'A' || chr(39 + position) END,
+      samples = '{}', distinct_values = '{}', distinct_counts = '{}'
+    WHERE organization_id = ${organizationId}::uuid AND ${theirs}`;
   await tx.importValueMatch.deleteMany({ where });
   await tx.importRow.updateMany({
     where: {
@@ -83,6 +92,8 @@ export async function withdrawImportFiles(
     where: { organizationId, status: { not: "expired" } },
     data: { status: "expired", keepUntil: now, fileAttachmentId: null, reportAttachmentId: null },
   });
+  // The agency's memory of its headers may hold a headerless file's first row; losing "As last time" is no loss.
+  await tx.importHeaderMatch.deleteMany({ where: { organizationId } });
   if (forget !== null) {
     await tx.importRow.updateMany({
       where: { organizationId, ...forget },

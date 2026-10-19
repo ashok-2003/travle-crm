@@ -69,6 +69,15 @@ describe("writing", () => {
     expect(sheet).toContain("<t>'@SUM(1)</t>");
   });
 
+  it("neutralises a date or time column's text in CSV, and a phone column's that isn't a number in .xlsx (D4, D10)", async () => {
+    const row: WrittenCell[] = ["Asha", "=HYPERLINK(1)", null, "=SUM(1)", "@cmd"];
+    const csv = new TextDecoder().decode(await fileOf("csv", [row]));
+    expect(csv).toContain(`"'=SUM(1)","'@cmd"`);
+    const sheet = partsOf(await fileOf("xlsx", [row]))["xl/worksheets/sheet1.xml"] ?? "";
+    expect(sheet).toContain("<t>'=HYPERLINK(1)</t>");
+    expect(sheet).toContain("<t>'=SUM(1)</t>");
+  });
+
   it("keeps an .xlsx phone cell as +91 98765 43210, and gives the CSV's the apostrophe", async () => {
     const row: WrittenCell[] = ["Asha", "+91 98765 43210", null, null, null];
     expect(partsOf(await fileOf("xlsx", [row]))["xl/worksheets/sheet1.xml"]).toContain("<t>+91 98765 43210</t>");

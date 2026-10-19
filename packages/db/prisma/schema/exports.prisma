@@ -36,5 +36,7 @@ model DataExport {
   @@index([organizationId, requestedBy, id(sort: Desc)], map: "data_export_by_requester")
   /// The console's sweep, across organizations.
   @@index([expiresAt], map: "data_export_due", where: raw("(status <> 'expired'::text)"))
+  /// The sweep's exports still making a day after they were asked for (M6).
+  @@index([createdAt], map: "data_export_making", where: raw("(status = 'making'::text)"))
   @@map("data_export")
 }

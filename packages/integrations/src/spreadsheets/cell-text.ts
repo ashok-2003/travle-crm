@@ -20,7 +20,8 @@ export function cellText(value: RawCell, maxCellLength: number): string | null {
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : dayOf(value);
   // Cut first, so trimming a 10 MB cell never copies it whole.
   const trimmed = value.slice(0, maxCellLength + 2).trim();
-  // One apostrophe goes: Excel's way of keeping text as text, and B40's prefix on what this product exports.
-  const text = trimmed.startsWith("'") ? trimmed.slice(1) : trimmed;
+  // One apostrophe goes: Excel's way of keeping text as text, and B40's prefix on what this product exports. What it
+  // kept from being a formula (a tab) is trimmed after it (D9).
+  const text = trimmed.startsWith("'") ? trimmed.slice(1).trim() : trimmed;
   return text === "" ? null : text.slice(0, maxCellLength + 1);
 }

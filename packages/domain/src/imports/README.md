@@ -26,29 +26,43 @@ week after its last change (D5), deleting its file and report and emptying what 
   upload (storage full) leaves it `cancelled`.
 - `confirmImportUpload(db, files, access, kind, importId, now)`: once storage holds the file, `reading` and
   `import.uploaded` (`{ importId }`); asked again while reading, nothing.
+- `startImportFromBytes(db, files, input, now)`: a Google Sheet's rows as CSV bytes (the Sheets sync's connect-time
+  import), stored by the system as the import's file, the import `reading` for `startedBy` with its
+  `source_sheet_id`, and `import.uploaded`. Asked again with the same `importId`, it stores and publishes once.
 - `requestImportAdd(db, access, kind, importId, now)`: Add, from `checked` only: `adding`, `import.started`
   (`{ kind, rowsToAdd }`) and `import.add-requested` (`{ importId, kind }`). A second press is `IMPORT_NOT_READY`;
   while another import of the agency adds, `IMPORT_ALREADY_RUNNING` (`import_batch_one_adding`, B29, D35).
-- `stopImport(tx, access, kind, importId)`: while adding, asks the add to stop after its batch; again, nothing.
+- `stopImport(tx, access, kind, importId)`: while adding, asks the add to stop after its batch; again, nothing. The
+  request is a row of its own (`import_stop_request`), so Stop never waits behind the batch holding the import (X7);
+  every read of an import says `stopRequested`.
 - `cancelImport(tx, access, kind, importId, now)`: from a waiting status, `cancelled` and `import.cancelled`
   (`{ kind, status }`).
-- `decideLeadImport(tx, access, input)`: at the preview, whether the add takes blocked contacts' rows and rows
-  already imported (B16, B33).
+- `decideLeadImport(tx, access, input)`: at the preview, whether the add takes blocked contacts' rows, rows
+  already imported (B16, B33) and a Google Sheet's rows for people who already have a lead (`addInCrm`, plan `in_crm`,
+  off unless sent).
 - `findImport(tx, access, kind, importId)`, `importDetail(tx, access, kind, importId)` and
-  `recentImports(tx, access, kind)` (the person's last ten). `importCounts(tx, batch)`: the preview's counts.
-- `holdImport(tx, importId)`: the batch's row locked, so two runs of a job take turns (B26).
-- `importerAccess({ identity, subscriptions }, batch, required)`: the starter's access afresh for a job (B31), or
-  `no_longer_a_member`, `lost_permission` or `organization_cannot_change`.
+  `recentImports(tx, access, kind)` (the person's last ten). `importCounts(tx, batch)`: the preview's counts,
+  with a sheet's `in_crm` rows by whether the lead is open. The detail names a sheet's connection (`sourceSheet`).
+- `holdImport(tx, importId)`: the batch's row locked (FOR NO KEY UPDATE), so two runs of a job take turns (B26);
+  `importBatchOf(tx, importId)`: the batch as it stands, a plain read for a job's first look.
+  `isAnyImportAdding(tx)`: whether any import of the agency is adding (B29), which a sheet's check waits for.
+- `jobMemberAccess({ identity, subscriptions }, { organizationId, userId, impersonatedBy }, required)`: a member's
+  access afresh for a job, or `no_longer_a_member`, `lost_permission` or `organization_cannot_change`;
+  `importerAccess(dependencies, batch, required)` is it for the import's starter (B31).
 - `encodeRowReason(reason)` and `decodeRowReason(text)`: a row's reasons as `import_row.reasons` keeps them (D8).
 - Reading (B1-B6, B9-B11): `readImportFileListener(dependencies)` (`imports.read-file` on `import.uploaded`) reads the
-  file outside any transaction, keeps its SHA-256, sheet and `rows_total`, and each column's header (cut to 200),
-  three samples and, for at most fifty different values, the values with their counts (`summariseColumns`); it
-  guesses each column's field and suggests a target for every listed value, then moves to `matching`, or to
-  `unreadable` with the adapter's reason. `readImportFile(dependencies, batch)` is the check's and the add's one
-  reader, with the kind's limits (`readLimitsOf`); `importFileBytes` fails `ATTACHMENT_NOT_FOUND` once the file is
-  withdrawn.
-- Guesses (B9, D13, D14): `headerKey(header)`, `guessFields(kind, headers, remembered)`, and the agency's memory,
-  `rememberedFields(tx, kind, keys)` and `rememberFields(tx, organizationId, kind, matches)` (upserts, B10).
+  file outside any transaction, keeps its SHA-256, sheet and `rows_total`, and each column's header (cut to 200), three
+  samples and, for at most fifty different values, the values with their counts (`summariseColumns`); it guesses each
+  column's field and suggests a target for every listed value, then moves to `matching` and publishes `import.read`
+  (`{ importId, kind }`), or to `unreadable` with the adapter's reason. `readImportFile(dependencies, batch)` is the
+  check's and the add's one reader, with the kind's limits (`readLimitsOf`); `importFileBytes` fails
+  `ATTACHMENT_NOT_FOUND` once the file is withdrawn.
+- Guesses (B9, D13, D14): `headerKey(header)`, `guessFields(kind, headers, remembered, { wordsInHeader })` (on for a
+  Google Sheet's leads only: Google Forms' own headers, then a word inside the header, S12), and the agency's memory,
+  `rememberedFields(tx, kind, keys)`, `rememberedHeaderFields(tx, kind)` (all of a kind's) and
+  `rememberHeaderFields(tx, kind, matches, now)` (each header by its key, the last match winning, safe two at once,
+  B10). A header that reads as a customer's details (`isPlausibleHeader`: four digits or more, an @, a + before digits,
+  or more than five words: a file with no header row) is never remembered (D2), and an erasure forgets them all (M3).
 - Matching (B8, B10-B13): `matchImportColumns(tx, access, kind, input, { owners, roleKeys, now })`, from `matching`
   or `checked`: refuses a field on two columns but Note (`FIELD_MATCHED_TWICE`), a lead file without Name and a
   phone, email or Instagram (`IMPORT_NEEDS_NAME_AND_CONTACT`), a staff file without Name, a Username or Email and a
@@ -77,7 +91,10 @@ week after its last change (D5), deleting its file and report and emptying what 
   `writeValueMatches(tx, batchId, suggestions)`, and `valueTargetsFor(context, identity, batch, field, values)`: each
   value's stored target, else its automatic one (a column of more than fifty values is matched here), else null. A
   value over 200 characters is never listed. `valueFieldsOf[kind]`: owner and stage for leads, role for staff.
-- Types: `ImportBatchRow`, `ImportIdentity`, `ImportJobDependencies`.
+- Keeping (B53, B55): `importsToSweep(tx, now, limit, visited)` and `sweepImport(tx, item, now)`, the console's
+  hourly sweep, one import a platform transaction (a held one skipped); `withdrawImportFiles(tx, organizationId, now,
+forget)`, an erasure's step; `deleteImportFiles` and `emptyKeptValues`, which both use.
+- Types: `ImportBatchRow`, `ImportIdentity`, `ImportJobDependencies`, `SweepItem`.
 
 ## Rules worth knowing
 

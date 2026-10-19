@@ -3,7 +3,7 @@
 import { importStepEvent } from "@travel-crm/contracts/imports";
 import { defineListener, type EventListener, type ListenerContext } from "../../jobs/index.js";
 import type { ImportBatchRow } from "../batch-row.js";
-import { holdImport } from "../batches.js";
+import { importBatchOf } from "../batches.js";
 import type { ImportJobDependencies } from "../dependencies.js";
 import { addStaffImport } from "./staff-add.js";
 import { checkStaffImport } from "./staff-check.js";
@@ -14,7 +14,7 @@ async function staffImportAt(
   importId: string,
   status: string,
 ): Promise<ImportBatchRow | null> {
-  const batch = await context.forOrg((tx) => holdImport(tx, importId));
+  const batch = await context.forOrg((tx) => importBatchOf(tx, importId));
   return batch?.kind === "staff" && batch.status === status ? batch : null;
 }
 

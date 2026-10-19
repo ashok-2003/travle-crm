@@ -4,7 +4,7 @@
 // Select of what it holds, "Don't import" first; "As last time" beside a field the agency matched to a column of this
 // name before. A field another column holds is shown as "Phone · matched to 'Mobile No'" and can't be picked: each
 // field takes one column, but Note takes several. A Table on a computer, an ItemGroup on a phone.
-import type { ImportColumn, ImportField } from "@travel-crm/contracts/imports";
+import { type ImportColumn, type ImportField, importField } from "@travel-crm/contracts/imports";
 import { useTranslations } from "next-intl";
 import { Fragment } from "react";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle } from "@/components/ui/item";
@@ -55,8 +55,10 @@ export function ColumnMatcher({
       noneLabel={t("dontImport")}
       options={optionsFor(column)}
       disabled={disabled}
-      onChange={(field) => {
-        onChoose(column.position, field as ImportField | null);
+      onChange={(chosenField) => {
+        // The Select's values are this kind's fields: anything else (none) chooses Don't import.
+        const field = importField.safeParse(chosenField);
+        onChoose(column.position, field.success ? field.data : null);
       }}
     />
   );

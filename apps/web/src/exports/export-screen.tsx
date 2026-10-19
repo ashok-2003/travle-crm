@@ -4,6 +4,11 @@
 // and state, its progress while the worker makes it, and the file with Download until it is deleted 24 hours after it
 // was ready; then "This file was deleted after 24 hours.", and a failed export says why. A way back to the list
 // opens it. Downloading is an export (ADR 0021): a read-only agency may, a cancelled one may not.
+//
+// For a feature (W1, W2): `back` is required, the list the export came from (a BackLink, as every page's). `holds`
+// comes from the feature, since ExportDetail has no filter: the lead export extends its own `get` output with the
+// filter the domain's exportDetail returns (ExportDetail & { filter }) and builds the line from it as the dialog did;
+// the staff export, which has no filter, shows a fixed "Your staff".
 import { CircleAlertIcon, InfoIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, type ReactNode } from "react";
@@ -30,7 +35,10 @@ export function ExportScreen({
   back,
 }: {
   title: string;
-  /** What the file holds, as the list showed it when it was asked for. */
+  /**
+   * What the file holds, as the list showed it when it was asked for: from the lead export's own `get` output, which
+   * adds the export's filter; "Your staff" for the staff export (W1).
+   */
   holds: ReactNode;
   calls: ExportCalls;
   exportId: string;

@@ -2,7 +2,7 @@
 // access afresh (B41), the count first (the progress, and the kind's row limit), then a page at a time into one file,
 // stored once under the export's id; then, in one transaction, ready for 24 hours, export.made in the audit log and the
 // outbox, the search emptied, and the requester told. Only a making export is worked on, so a repeat is harmless.
-import { spreadsheetContentTypes } from "@travel-crm/contracts/files";
+import { spreadsheetContentTypeOf } from "@travel-crm/contracts/files";
 import type {
   ExportFailureReason,
   ExportFormat,
@@ -126,7 +126,7 @@ export async function runExport<Filter>(
     // The export's own id: a retried job stores its file once.
     attachmentId: exportId,
     fileName: source.fileName(stamp, row.format),
-    contentType: row.format === "csv" ? spreadsheetContentTypes[0] : spreadsheetContentTypes[1],
+    contentType: spreadsheetContentTypeOf[row.format],
     body: await writer.finish(),
   });
 

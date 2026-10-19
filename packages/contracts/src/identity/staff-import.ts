@@ -3,6 +3,7 @@
 // what a staff import's page shows beyond any import's. The page's whole shape is built in the api from the shared
 // importDetail (imports/import-batch.ts imports this file, so this one can't import it back).
 import { z } from "zod";
+import { MAX_LISTED_VALUES } from "../imports/listed-values.js";
 import { newPassword, recordId, roleKey } from "./fields.js";
 
 export const staffImportFields = ["name", "username", "email", "phone", "role"] as const;
@@ -12,10 +13,10 @@ export type StaffImportField = z.infer<typeof staffImportField>;
 export const matchStaffColumnsInput = z.strictObject({
   importId: recordId,
   columns: z.array(z.strictObject({ position: z.int().min(0).max(49), field: staffImportField.nullable() })).max(50),
-  /** The Role values the importer changed, each to a role or null (unmatched: those rows aren't added). */
+  /** The Role values the importer changed, each to a role or null (unmatched: those rows aren't added); 50 at most. */
   values: z
     .array(z.strictObject({ field: z.literal("role"), value: z.string().min(1).max(200), target: roleKey.nullable() }))
-    .max(2500),
+    .max(MAX_LISTED_VALUES),
   /** The role for every row when the file has no Role column. */
   defaults: z.strictObject({ roleKey: roleKey.nullable() }),
 });

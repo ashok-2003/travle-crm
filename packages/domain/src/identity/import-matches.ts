@@ -3,6 +3,7 @@
 // trimmed, in lower case, with its spaces collapsed; one that matches nothing, or more than one person, is absent.
 import type { IdentityDatabase } from "@travel-crm/db/identity";
 import { notBanned, roleKeys } from "./lead-workers.js";
+import { PermissionSet } from "./permission-set.js";
 import { isPlaceholderEmail } from "./sign-in-names.js";
 
 export interface LeadWorkerMatch {
@@ -10,9 +11,15 @@ export interface LeadWorkerMatch {
   matchedBy: "name" | "username" | "email" | "first_name";
 }
 
+/**
+ * A role a value names, with whether it is the Owner's and what it allows, so an import can refuse the Owner role and
+ * a role above the importer's (B44, B45; M5) as Add staff does.
+ */
 export interface RoleMatch {
   roleKey: string;
   matchedBy: "name" | "word";
+  isOwner: boolean;
+  permissions: PermissionSet;
 }
 
 const comparable = (text: string) => text.trim().toLowerCase().replace(/\s+/g, " ");
@@ -95,7 +102,19 @@ export async function matchRoles(
   values: readonly string[],
 ): Promise<Map<string, RoleMatch>> {
   const roles = await database.forOrg(organizationId, (tx) =>
-    tx.role.findMany({ where: { organizationId }, select: { key: true, name: true } }),
+    tx.role.findMany({
+      where: { organizationId },
+      select: { key: true, name: true, isOwner: true, permissions: { select: { permission: true, scope: true } } },
+    }),
+  );
+  const factsOf = new Map(
+    roles.map((role) => [
+      role.key,
+      {
+        isOwner: role.isOwner,
+        permissions: role.isOwner ? PermissionSet.everything() : PermissionSet.fromStored(role.permissions),
+      },
+    ]),
   );
   const byName = indexBy(
     roles,
@@ -111,8 +130,10 @@ export async function matchRoles(
   for (const value of values) {
     const named = onlyOne(byName, comparable(value));
     const keyed = onlyOne(byKey, comparable(value));
-    if (named !== null) matches.set(value, { roleKey: named, matchedBy: "name" });
-    else if (keyed !== null) matches.set(value, { roleKey: keyed, matchedBy: "word" });
+    const roleKey = named ?? keyed;
+    const facts = roleKey === null ? undefined : factsOf.get(roleKey);
+    if (roleKey === null || facts === undefined) continue;
+    matches.set(value, { roleKey, matchedBy: named === null ? "word" : "name", ...facts });
   }
   return matches;
 }

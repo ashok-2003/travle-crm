@@ -20,7 +20,9 @@ Who can sign in, to which organization, and what they may do (spec section 6).
   - `matchLeadWorkers(organizationId, values)` and `matchRoles(organizationId, values)`: an import's Owner and Role
     values (spec B11) matched, case and spaces ignored, to a lead worker by full name, username, email or a first name
     only one of them has (`name`, `username`, `email`, `first_name`), and to a role by its name or key (`name`,
-    `word`). A value naming nobody, or more than one person, is absent; only ids and role keys come out;
+    `word`), each role with whether it is the Owner's and what it allows (`isOwner`, `permissions`, M5), for the staff
+    import to refuse both as Add staff does. A value naming nobody, or more than one person, is absent; only ids, role
+    keys and permissions come out;
   - `staff.list / create / updateRole / resetPassword / remove`;
   - with `auth.passwordReset` set (the api passes its email sender and the web app's reset page), Better Auth's
     password reset by email link; staff without email are never emailed, a link may lead back only to the reset page,

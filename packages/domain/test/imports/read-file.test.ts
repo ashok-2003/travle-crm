@@ -3,16 +3,17 @@
 // adapter's reason. A run for an import no longer reading does nothing.
 import { createHash } from "node:crypto";
 import { unreadableReasons as contractReasons } from "@travel-crm/contracts/imports";
-import { unreadableReasons as adapterReasons } from "@travel-crm/integrations/spreadsheets";
+import { unreadableReasons as adapterReasons, createSpreadsheets } from "@travel-crm/integrations/spreadsheets";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { DomainEvent } from "../../src/jobs/index.js";
 import type { MemberAccess } from "../../src/identity/index.js";
-import { findImport, importDetail, readImportFileListener } from "../../src/imports/index.js";
+import { findImport, importDetail, matchImportColumns, readImportFileListener } from "../../src/imports/index.js";
 import { aBatch } from "./support/batches.js";
 import {
   anAgency,
   anImportWithFile,
   createTestImports,
+  eventsOf,
   fakeIdentity,
   jobDependencies,
   listenerContext,
@@ -101,6 +102,33 @@ describe("reading an import's file", () => {
     expect(column?.samples).toEqual(["Lead 0", "Lead 1", "Lead 2"]);
   });
 
+  it("reads a 4,000-character header through the real reader, keeps it cut to 200, and matches it (D3)", async () => {
+    const header = "Remarks ".repeat(500);
+    const csv = new TextEncoder().encode(`Name,Mobile,"${header}"\nAsha,98765 43210,Goa\n`);
+    const { id } = await anImportWithFile(test, importer, csv);
+    const real = { ...jobDependencies(test, fakeIdentity()), spreadsheets: createSpreadsheets() };
+    await readImportFileListener(real).handle(uploaded(organizationId, id), listenerContext(test, organizationId));
+    const detail = await detailOf(id);
+    expect(detail.status).toBe("matching");
+    expect(detail.columns[2]?.header).toHaveLength(200);
+    await expect(
+      test.db.forOrg(organizationId, (tx) =>
+        matchImportColumns(
+          tx,
+          importer,
+          "leads",
+          {
+            importId: id,
+            columns: (["name", "phone", "note"] as const).map((field, position) => ({ position, field })),
+            values: [],
+            defaults: { stage: "new", ownerUserId: null, budgetBasis: null },
+          },
+          { owners: new Set(), roleKeys: new Set(), now: new Date() },
+        ),
+      ),
+    ).resolves.toBeUndefined();
+  });
+
   it("ends an unreadable file as unreadable with its reason, and a good one as matching", async () => {
     const { id } = await anImportWithFile(
       test,
@@ -138,6 +166,21 @@ describe("reading an import's file", () => {
     expect((await detailOf(id)).sameFile).toEqual({ importedAt: finishedAt.toISOString(), rowsAdded: 1094 });
   });
 
+  it("ends as failed, file withdrawn, when its file went while it waited to be read (M8)", async () => {
+    const { id } = await anImportWithFile(
+      test,
+      importer,
+      test.spreadsheets.bytesOf({ header: ["Name"], rows: [["Asha"]] }),
+    );
+    // An erasure or the sweep took the file: the import no longer names it.
+    await test.db.forOrg(organizationId, (tx) =>
+      tx.importBatch.update({ where: { id }, data: { fileAttachmentId: null } }),
+    );
+    await expect(read(id)).resolves.toBeUndefined();
+    expect(await detailOf(id)).toMatchObject({ status: "failed", failureReason: "file_withdrawn", columns: [] });
+    expect((await detailOf(id)).finishedAt).not.toBeNull();
+  });
+
   it("does nothing for an import no longer reading", async () => {
     const { id } = await anImportWithFile(
       test,
@@ -158,6 +201,21 @@ describe("reading an import's file", () => {
     await read(twice);
     await read(twice);
     expect((await detailOf(twice)).columns).toHaveLength(1);
+  });
+
+  it("publishes import.read once as it moves the import to matching, and not for an unreadable file", async () => {
+    const file = test.spreadsheets.bytesOf({ header: ["Name"], rows: [["Asha"]] });
+    const { id } = await anImportWithFile(test, importer, file);
+    await read(id);
+    await read(id);
+    const { id: unreadable } = await anImportWithFile(test, importer, file);
+    test.spreadsheets.failNextRead("no_rows");
+    await read(unreadable);
+    const events = await eventsOf(test, organizationId, ["import.read"]);
+    expect(events.filter(([, payload]) => JSON.stringify(payload).includes(id))).toEqual([
+      ["import.read", { importId: id, kind: "leads" }],
+    ]);
+    expect(JSON.stringify(events)).not.toContain(unreadable);
   });
 
   it("holds the contract's unreadable reasons equal to the adapter's", () => {

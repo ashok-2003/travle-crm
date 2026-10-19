@@ -9,6 +9,12 @@ import { build, type Metafile } from "esbuild";
 const ENTRY_POINTS = ["server", "worker", "console", "console-command"] as const;
 
 /**
+ * The .xlsx reader's thread (ADR 0030), an entry of its own: the worker starts it from xlsx-thread.mjs beside the
+ * chunk holding its reader (packages/integrations/src/spreadsheets/read-xlsx-in-thread.ts).
+ */
+const XLSX_THREAD = { in: "../../packages/integrations/src/spreadsheets/xlsx-thread.ts", out: "xlsx-thread" };
+
+/**
  * The integrations package's vendor packages, left out of the bundle and installed as they are (`pnpm deploy` of that
  * package, in the Dockerfile). React-PDF and the fonts read files of their own at run time: pdfkit its standard fonts
  * and colour profile, the PDF fonts their woff files (packages/integrations/src/pdf/fonts.ts). React must be the copy
@@ -20,12 +26,12 @@ export async function runtimePackages(apiDirectory: string): Promise<string[]> {
   return Object.keys(dependencies).filter((name) => !name.startsWith("@travel-crm/"));
 }
 
-/** Writes the bundle to outdir: <command>.mjs for each command, and the chunks they share. */
+/** Writes the bundle to outdir: <command>.mjs for each command, xlsx-thread.mjs, and the chunks they share. */
 export async function bundleApi({ apiDirectory, outdir }: { apiDirectory: string; outdir: string }): Promise<Metafile> {
   const leftOut = await runtimePackages(apiDirectory);
   const result = await build({
     absWorkingDir: apiDirectory,
-    entryPoints: ENTRY_POINTS.map((name) => `src/${name}.ts`),
+    entryPoints: [...ENTRY_POINTS.map((name) => `src/${name}.ts`), XLSX_THREAD],
     outdir,
     outExtension: { ".js": ".mjs" },
     bundle: true,

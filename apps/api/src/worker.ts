@@ -3,19 +3,21 @@
 // to go faster: pg-boss gives each job to one of them.
 import { startWorker } from "@travel-crm/domain/jobs";
 import { describeError } from "@travel-crm/integrations/jobs";
+import { checkXlsxReading } from "@travel-crm/integrations/spreadsheets";
 import { workerProblemLine } from "./process-log.js";
 import { startProcess, stopOnUnhandledErrors } from "./start-up.js";
 import { webhookProviders } from "./webhook-providers.js";
 import { workerJobs } from "./worker-jobs.js";
 
-// The worker's own start runs inside the start-up guard too: a repeated queue name or a schedule pg-boss refuses ends
-// in one "worker start-up failed" message, with the pools closed.
+// The worker's own start runs inside the start-up guard too: an .xlsx thread that can't run (ADR 0030), a repeated
+// queue name or a schedule pg-boss refuses ends in one "worker start-up failed" message, with the pools closed.
 const {
   services,
   log,
   running: worker,
-} = await startProcess("worker", ({ environment, services, log }) =>
-  startWorker({
+} = await startProcess("worker", async ({ environment, services, log }) => {
+  await checkXlsxReading(services.spreadsheets);
+  return startWorker({
     db: services.db,
     runner: services.jobs,
     queue: services.jobs,
@@ -25,8 +27,8 @@ const {
     onError: (problem) => {
       log(workerProblemLine(problem));
     },
-  }),
-);
+  });
+});
 console.log("worker running");
 
 // Container platforms send SIGTERM before stopping an instance: stop relaying, let running jobs finish, close the

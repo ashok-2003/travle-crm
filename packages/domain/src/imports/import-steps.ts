@@ -123,12 +123,15 @@ export async function requestImportAdd(
   }
 }
 
-/** Stop (B28): the add finishes the batch under way and ends stopped. A second Stop changes nothing. */
+/**
+ * Stop (B28): the add finishes the batch under way and ends stopped. It never waits for that batch, which holds the
+ * import's row: the request is a row of its own, whose key only key-shares the import's (X7). A second Stop changes
+ * nothing.
+ */
 export async function stopImport(tx: OrgTx, access: MemberAccess, kind: ImportKind, importId: string): Promise<void> {
   const batch = await findImport(tx, access, kind, importId);
   if (batch.status !== "adding") throw notReady();
-  if (batch.stopRequested) return;
-  await tx.importBatch.update({ where: { id: importId }, data: { stopRequested: true } });
+  await tx.importStopRequest.createMany({ data: [{ batchId: importId }], skipDuplicates: true });
 }
 
 /** Cancel this import: from a step it waits at only, never while it adds. */
@@ -155,12 +158,19 @@ export async function cancelImport(
   });
 }
 
-/** The preview's choices (B16, B30, B33): kept on the import for the add, without a new check. */
+/**
+ * The preview's choices (B16, B30, B33, and a sheet's rows already in the CRM): kept on the import for the add,
+ * without a new check. A preview that doesn't ask about the CRM's rows (a file's) leaves them out.
+ */
 export async function decideLeadImport(tx: OrgTx, access: MemberAccess, input: DecideLeadImportInput): Promise<void> {
   const batch = await findImport(tx, access, "leads", input.importId);
   if (batch.status !== "checked") throw notReady();
   await tx.importBatch.update({
     where: { id: input.importId },
-    data: { addBlocked: input.addBlocked, addAlreadyImported: input.addAlreadyImported },
+    data: {
+      addBlocked: input.addBlocked,
+      addAlreadyImported: input.addAlreadyImported,
+      addInCrm: input.addInCrm ?? false,
+    },
   });
 }
