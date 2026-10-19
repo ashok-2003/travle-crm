@@ -111,7 +111,7 @@ describe("ColumnsStep", () => {
       ),
       ownerValues: [
         { value: "Asha", rows: 41, target: asha, matchedBy: "name" },
-        { value: "Neha", rows: 63, target: null, matchedBy: "default" },
+        { value: "Neha", rows: 63, target: null, matchedBy: "none" },
       ],
     });
     renderStep(view);
