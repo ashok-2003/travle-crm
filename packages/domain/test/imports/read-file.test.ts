@@ -1,0 +1,166 @@
+// Reading an import's file in the worker (spec B1-B6, B11): its sheet, its columns with three samples and up to fifty
+// values each with its count, the guesses and value suggestions, and then the matching step, or unreadable with the
+// adapter's reason. A run for an import no longer reading does nothing.
+import { createHash } from "node:crypto";
+import { unreadableReasons as contractReasons } from "@travel-crm/contracts/imports";
+import { unreadableReasons as adapterReasons } from "@travel-crm/integrations/spreadsheets";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { DomainEvent } from "../../src/jobs/index.js";
+import type { MemberAccess } from "../../src/identity/index.js";
+import { findImport, importDetail, readImportFileListener } from "../../src/imports/index.js";
+import { aBatch } from "./support/batches.js";
+import {
+  anAgency,
+  anImportWithFile,
+  createTestImports,
+  fakeIdentity,
+  jobDependencies,
+  listenerContext,
+  memberOf,
+  type TestImports,
+} from "./support/test-imports.js";
+
+const uploaded = (organizationId: string, importId: string): DomainEvent => ({
+  id: "0199e7a0-0000-7000-8000-00000000e0e1",
+  organizationId,
+  type: "import.uploaded",
+  payload: { importId },
+  occurredAt: new Date(),
+});
+
+describe("reading an import's file", () => {
+  let test: TestImports;
+  let organizationId: string;
+  let importer: MemberAccess;
+  const asha = "0199e7a0-0000-7000-8000-00000000a5a1";
+  const detailOf = (id: string) => test.db.forOrg(organizationId, (tx) => importDetail(tx, importer, "leads", id));
+  const read = (id: string) =>
+    readImportFileListener(jobDependencies(test, fakeIdentity({ workers: { asha: asha } }))).handle(
+      uploaded(organizationId, id),
+      listenerContext(test, organizationId),
+    );
+
+  beforeAll(async () => {
+    test = createTestImports();
+    organizationId = await anAgency(test);
+    importer = memberOf(organizationId);
+  });
+
+  afterAll(async () => {
+    await test.close();
+  });
+
+  it("reads a CSV's columns: their names, three samples, and up to fifty values with their counts", async () => {
+    const owners = ["Asha", "Ravi", "Asha", "", "Asha"];
+    const file = test.spreadsheets.bytesOf({
+      header: ["Customer Name", "Mobile No", "Assigned To", "Ref"],
+      rows: owners.map((owner, index) => [`Lead ${String(index)}`, null, owner, `R${String(index)}`]),
+    });
+    const { id } = await anImportWithFile(test, importer, file);
+    await read(id);
+    const detail = await detailOf(id);
+    // A CSV has no sheet to name.
+    expect(detail).toMatchObject({ status: "matching", sheet: null, progress: { rowsTotal: 5 } });
+    expect(detail.columns).toEqual([
+      {
+        position: 0,
+        header: "Customer Name",
+        samples: ["Lead 0", "Lead 1", "Lead 2"],
+        values: [0, 1, 2, 3, 4].map((index) => ({ value: `Lead ${String(index)}`, rows: 1 })),
+        field: "name",
+        guessedBy: "common-name",
+      },
+      { position: 1, header: "Mobile No", samples: [], values: [], field: "phone", guessedBy: "common-name" },
+      {
+        position: 2,
+        header: "Assigned To",
+        samples: ["Asha", "Ravi", "Asha"],
+        values: [
+          { value: "Asha", rows: 3 },
+          { value: "Ravi", rows: 1 },
+        ],
+        field: "owner",
+        guessedBy: "common-name",
+      },
+      expect.objectContaining({ header: "Ref", field: null, guessedBy: null }),
+    ]);
+    const batch = await test.db.forOrg(organizationId, (tx) => findImport(tx, importer, "leads", id));
+    expect(Buffer.from(batch.fileSha256 ?? []).toString("hex")).toBe(createHash("sha256").update(file).digest("hex"));
+  });
+
+  it("lists no values for a column of more than fifty, and cuts a long header", async () => {
+    const file = test.spreadsheets.bytesOf({
+      header: ["Name".padEnd(300, "x")],
+      rows: Array.from({ length: 51 }, (_, index) => [`Lead ${String(index)}`]),
+    });
+    const { id } = await anImportWithFile(test, importer, file);
+    await read(id);
+    const [column] = (await detailOf(id)).columns;
+    expect(column?.header).toHaveLength(200);
+    expect(column?.values).toBeNull();
+    expect(column?.samples).toEqual(["Lead 0", "Lead 1", "Lead 2"]);
+  });
+
+  it("ends an unreadable file as unreadable with its reason, and a good one as matching", async () => {
+    const { id } = await anImportWithFile(
+      test,
+      importer,
+      test.spreadsheets.bytesOf({ header: ["Name"], rows: [["Asha"]] }),
+    );
+    test.spreadsheets.failNextRead("protected");
+    await read(id);
+    expect(await detailOf(id)).toMatchObject({ status: "unreadable", unreadableReason: "protected", columns: [] });
+    const { id: good } = await anImportWithFile(
+      test,
+      importer,
+      test.spreadsheets.bytesOf({ header: ["Name"], rows: [["Asha"]] }),
+    );
+    await read(good);
+    expect(await detailOf(good)).toMatchObject({ status: "matching", unreadableReason: null });
+  });
+
+  it("says the agency imported the same file before, and how many rows that added", async () => {
+    const file = test.spreadsheets.bytesOf({ header: ["Name", "Phone"], rows: [["Asha", "98765 43210"]] });
+    const sha = Uint8Array.from(createHash("sha256").update(file).digest());
+    const finishedAt = new Date("2026-10-12T09:00:00Z");
+    await test.db.forOrg(organizationId, (tx) =>
+      aBatch(tx, {
+        startedBy: memberOf(organizationId).userId,
+        status: "done",
+        fileSha256: sha,
+        rowsAdded: 1094,
+        finishedAt,
+      }),
+    );
+    const { id } = await anImportWithFile(test, importer, file);
+    expect((await detailOf(id)).sameFile).toBeNull();
+    await read(id);
+    expect((await detailOf(id)).sameFile).toEqual({ importedAt: finishedAt.toISOString(), rowsAdded: 1094 });
+  });
+
+  it("does nothing for an import no longer reading", async () => {
+    const { id } = await anImportWithFile(
+      test,
+      importer,
+      test.spreadsheets.bytesOf({ header: ["Name"], rows: [["Asha"]] }),
+      {
+        status: "cancelled",
+      },
+    );
+    await read(id);
+    expect(await detailOf(id)).toMatchObject({ status: "cancelled", columns: [], progress: { rowsTotal: 0 } });
+    // A second run after the first finished leaves its columns as they were.
+    const { id: twice } = await anImportWithFile(
+      test,
+      importer,
+      test.spreadsheets.bytesOf({ header: ["Name"], rows: [["Asha"]] }),
+    );
+    await read(twice);
+    await read(twice);
+    expect((await detailOf(twice)).columns).toHaveLength(1);
+  });
+
+  it("holds the contract's unreadable reasons equal to the adapter's", () => {
+    expect([...contractReasons]).toEqual([...adapterReasons]);
+  });
+});

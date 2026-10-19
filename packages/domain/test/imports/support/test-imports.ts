@@ -10,9 +10,11 @@ import { createMemoryStorage, type MemoryStorage } from "@travel-crm/integration
 import { inject } from "vitest";
 import { createFiles, type Files } from "../../../src/files/index.js";
 import type { MemberAccess } from "../../../src/identity/index.js";
+import type { ImportIdentity, ImportJobDependencies } from "../../../src/imports/index.js";
 import type { ListenerContext } from "../../../src/jobs/index.js";
 import { systemActor } from "../../../src/kernel/index.js";
 import { memberWithStarterRole } from "../../identity/rule-helpers.js";
+import { aBatch, type BatchSeed } from "./batches.js";
 
 export interface TestImports {
   db: Database;
@@ -76,3 +78,78 @@ export function auditOf(test: TestImports, organizationId: string, entityId: str
 }
 
 export const bytes = (text: string) => new TextEncoder().encode(text);
+
+/**
+ * An identity for the listeners' tests: lead workers and roles found by their exact names in lower case, and the
+ * importer's access as given. Anything else it is asked throws.
+ */
+export function fakeIdentity(
+  options: {
+    workers?: Record<string, string>;
+    roles?: Record<string, string>;
+    access?: MemberAccess | null;
+    firstOwner?: string | null;
+  } = {},
+): ImportIdentity {
+  const lookUp = <Match>(names: Record<string, string>, values: readonly string[], match: (id: string) => Match) =>
+    Promise.resolve(
+      new Map(
+        values.flatMap((value) => {
+          const id = names[value.trim().toLowerCase()];
+          return id === undefined ? [] : [[value, match(id)] as const];
+        }),
+      ),
+    );
+  const unexpected = () => Promise.reject(new Error("Not part of this test"));
+  return {
+    resolveAccess: () => Promise.resolve(options.access ?? null),
+    firstOwner: () => Promise.resolve(options.firstOwner ?? null),
+    leadWorkers: () =>
+      Promise.resolve(Object.entries(options.workers ?? {}).map(([name, userId]) => ({ userId, name }))),
+    matchLeadWorkers: (_organizationId, values) =>
+      lookUp(options.workers ?? {}, values, (userId) => ({ userId, matchedBy: "name" as const })),
+    matchRoles: (_organizationId, values) =>
+      lookUp(options.roles ?? {}, values, (roleKey) => ({ roleKey, matchedBy: "name" as const })),
+    staff: {
+      list: unexpected,
+      create: unexpected,
+      updateRole: unexpected,
+      resetPassword: unexpected,
+      remove: unexpected,
+    },
+  };
+}
+
+/** The listeners' dependencies: the test's files and spreadsheets, an identity, an agency that may change, no seats. */
+export function jobDependencies(test: TestImports, identity: ImportIdentity = fakeIdentity()): ImportJobDependencies {
+  return {
+    files: test.files,
+    spreadsheets: test.spreadsheets,
+    identity,
+    subscriptions: { entitlementsOf: () => Promise.resolve(null) },
+    seatLimit: () => Promise.resolve(null),
+  };
+}
+
+/** An import waiting at `status` (reading unless told) whose file, these JSON-sheet bytes, is in storage. */
+export async function anImportWithFile(
+  test: TestImports,
+  importer: MemberAccess,
+  file: Uint8Array,
+  seed: Partial<BatchSeed> = {},
+): Promise<{ id: string; attachmentId: string }> {
+  const { id } = await test.db.forOrg(importer.organizationId, (tx) =>
+    aBatch(tx, { status: "reading", checkedAt: null, ...seed, startedBy: importer.userId }),
+  );
+  const stored = await test.files.storeGeneratedFile(importer, {
+    recordType: "import_batch",
+    recordId: id,
+    fileName: "enquiries-oct-2026.csv",
+    contentType: "text/csv",
+    body: file,
+  });
+  await test.db.forOrg(importer.organizationId, (tx) =>
+    tx.importBatch.update({ where: { id }, data: { fileAttachmentId: stored.id } }),
+  );
+  return { id, attachmentId: stored.id };
+}

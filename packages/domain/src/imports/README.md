@@ -40,6 +40,19 @@ week after its last change (D5), deleting its file and report and emptying what 
 - `importerAccess({ identity, subscriptions }, batch, required)`: the starter's access afresh for a job (B31), or
   `no_longer_a_member`, `lost_permission` or `organization_cannot_change`.
 - `encodeRowReason(reason)` and `decodeRowReason(text)`: a row's reasons as `import_row.reasons` keeps them (D8).
+- Reading (B1-B6, B9-B11): `readImportFileListener(dependencies)` (`imports.read-file` on `import.uploaded`) reads the
+  file outside any transaction, keeps its SHA-256, sheet and `rows_total`, and each column's header (cut to 200),
+  three samples and, for at most fifty different values, the values with their counts (`summariseColumns`); it
+  guesses each column's field and suggests a target for every listed value, then moves to `matching`, or to
+  `unreadable` with the adapter's reason. `readImportFile(dependencies, batch)` is the check's and the add's one
+  reader, with the kind's limits (`readLimitsOf`); `importFileBytes` fails `ATTACHMENT_NOT_FOUND` once the file is
+  withdrawn.
+- Guesses (B9, D13, D14): `headerKey(header)`, `guessFields(kind, headers, remembered)`, and the agency's memory,
+  `rememberedFields(tx, kind, keys)` and `rememberFields(tx, organizationId, kind, matches)` (upserts, B10).
+- Values (B11): `suggestValueMatches(identity, batch, columns)` (made outside the transaction: identity runs its own),
+  `writeValueMatches(tx, batchId, suggestions)`, and `valueTargetsFor(context, identity, batch, field, values)`: each
+  value's stored target, else its automatic one (a column of more than fifty values is matched here), else null. A
+  value over 200 characters is never listed. `valueFieldsOf[kind]`: owner and stage for leads, role for staff.
 - Types: `ImportBatchRow`, `ImportIdentity`, `ImportJobDependencies`.
 
 ## Rules worth knowing

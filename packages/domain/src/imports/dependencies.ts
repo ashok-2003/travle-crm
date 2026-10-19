@@ -5,8 +5,14 @@ import type { Files } from "../files/index.js";
 import type { Identity, SeatLimit } from "../identity/index.js";
 import type { SubscriptionAccess } from "../subscriptions/index.js";
 
-/** The parts of identity an import needs: the importer's access afresh, the lead workers and the agency's staff. */
-export type ImportIdentity = Pick<Identity, "resolveAccess" | "firstOwner" | "leadWorkers" | "staff">;
+/**
+ * The parts of identity an import needs: the importer's access afresh, the lead workers, the agency's staff, and its
+ * people and roles matched to a file's words.
+ */
+export type ImportIdentity = Pick<
+  Identity,
+  "resolveAccess" | "firstOwner" | "leadWorkers" | "staff" | "matchLeadWorkers" | "matchRoles"
+>;
 
 export interface ImportJobDependencies {
   files: Files;
