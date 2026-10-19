@@ -196,4 +196,21 @@ describe("sizing a workbook as an XML parser reads it", () => {
     await expectRefused(workbook(far, near), "too_many_rows");
     expect(await reasonOf(workbook(near, far))).toBe("read");
   });
+
+  it("reads at most 10,000 elements of workbook.xml and of its relationships, and no cap on a sheet (X8)", async () => {
+    const parts = workbookParts([{ name: "Leads", sheetData: header + rowOf(2, textCell("A2", "Asha")) }]);
+    const crowded = (name: string, closing: string) => {
+      const text = new TextDecoder().decode(parts[name]);
+      return { ...parts, [name]: strToU8(text.replace(closing, `${"<a/>".repeat(10_000)}${closing}`)) };
+    };
+    await expectRefused(zipSync(crowded("xl/workbook.xml", "</workbook>")), "not_a_spreadsheet");
+    await expectRefused(zipSync(crowded("xl/_rels/workbook.xml.rels", "</Relationships>")), "not_a_spreadsheet");
+    const busy = Array.from({ length: 2000 }, (_, index) =>
+      rowOf(
+        index + 2,
+        [0, 1, 2, 3, 4].map((column) => textCell(`${"ABCDE"[column] ?? "A"}${String(index + 2)}`, "x")).join(""),
+      ),
+    ).join("");
+    expect(await reasonOf(sheetOf(busy))).toBe("read");
+  });
 });
