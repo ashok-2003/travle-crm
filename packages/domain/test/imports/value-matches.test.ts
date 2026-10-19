@@ -24,7 +24,7 @@ describe("matching a file's values", () => {
   let importer: MemberAccess;
   const identity = fakeIdentity({
     workers: { asha, "ravi kumar": ravi },
-    roles: { sales: "sales", admin: "org-admin" },
+    roles: { sales: "sales", admin: "org-admin", owner: "org-owner" },
   });
   const uploaded = (importId: string): DomainEvent => ({
     id: "0199e7a0-0000-7000-8000-00000000e0e2",
@@ -85,6 +85,7 @@ describe("matching a file's values", () => {
       rows: [
         ["Ravi", "Sales"],
         ["Om", "Driver"],
+        ["Kiran", "Owner"],
       ],
     });
     const { id: staffImport } = await anImportWithFile(test, importer, staffFile, { kind: "staff" });
@@ -99,6 +100,8 @@ describe("matching a file's values", () => {
       expect.arrayContaining([
         { field: "role", value: "Sales", target: "sales", matchedBy: "name" },
         { field: "role", value: "Driver", target: null, matchedBy: "none" },
+        // An import never gives the Owner role (B45): its value is never matched to it automatically (M5).
+        { field: "role", value: "Owner", target: null, matchedBy: "none" },
       ]),
     );
     expect(staffMatches.every((match) => match.field === "role")).toBe(true);

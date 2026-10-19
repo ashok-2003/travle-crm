@@ -79,7 +79,7 @@ describe("matching a file's owners and roles", () => {
     expect((await test.identity.matchLeadWorkers(other.organizationId, ["Meera Sharma"])).size).toBe(0);
   });
 
-  it("matches a role by its name or its key, the Owner's included", async () => {
+  it("matches a role by its name or its key, the Owner's included, saying which is the Owner's and what each allows", async () => {
     const matches = await test.identity.matchRoles(agency.organizationId, [
       "Sales",
       " SALES ",
@@ -87,11 +87,16 @@ describe("matching a file's owners and roles", () => {
       "owner",
       "Manager",
     ]);
-    expect(Object.fromEntries(matches)).toEqual({
-      Sales: { roleKey: "sales", matchedBy: "name" },
-      " SALES ": { roleKey: "sales", matchedBy: "name" },
-      "org-admin": { roleKey: "org-admin", matchedBy: "word" },
-      owner: { roleKey: "org-owner", matchedBy: "name" },
-    });
+    const shown = [...matches].map(([value, match]) => [value, match.roleKey, match.matchedBy, match.isOwner]);
+    expect(shown).toEqual([
+      ["Sales", "sales", "name", false],
+      [" SALES ", "sales", "name", false],
+      ["org-admin", "org-admin", "word", false],
+      ["owner", "org-owner", "name", true],
+    ]);
+    // What each allows, for the staff import to refuse a role above the importer's (M5).
+    expect(matches.get("owner")?.permissions.has("staff:manage")).toBe(true);
+    expect(matches.get("Sales")?.permissions.has("staff:manage")).toBe(false);
+    expect(matches.get("Sales")?.permissions.has("leads:create")).toBe(true);
   });
 });
