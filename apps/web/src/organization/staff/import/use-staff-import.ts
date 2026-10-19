@@ -11,6 +11,7 @@ import {
   type StaffImportSeats,
 } from "@travel-crm/contracts/identity";
 import type { ImportDetail } from "@travel-crm/contracts/imports";
+import { refusalOf } from "@/data/api-error";
 import { useTRPC, useTRPCClient } from "@/data/trpc";
 import { importRefetchInterval } from "@/imports/import-refetch";
 import { temporaryPassword } from "../temporary-password";
@@ -78,8 +79,10 @@ export function useAddStaffImport(importId: string, onAdded: () => void) {
       await client.staffImports.add.mutate({ importId });
     },
     onSuccess: onAdded,
-    onError: () => {
-      passwordStore.forget(importId);
+    onError: (error) => {
+      // Only the api's refusal says nothing was added. A lost answer may hide an Add that landed: the passwords stay
+      // until the import's own status says (the screen forgets them if it returns to its preview).
+      if (refusalOf(error) !== null) passwordStore.forget(importId);
     },
     onSettled: refresh,
   });

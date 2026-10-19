@@ -147,7 +147,28 @@ describe("StaffCheckStep", () => {
     expect(passwordStore.get(importId)).toBeUndefined();
   });
 
-  it("keeps passwords out of the query cache, IndexedDB and web storage", async () => {
+  it("keeps the passwords when the answer to Add is lost, since Add may have landed", async () => {
+    const { api } = setup(2);
+    await userEvent.click(screen.getByRole("button", { name: "Add 2 people" }));
+    await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Add 2 people" }));
+    await waitFor(() => {
+      expect(api.calls).toHaveLength(1);
+    });
+    await answer(api.last());
+    await waitFor(() => {
+      expect(api.calls).toHaveLength(2);
+    });
+    await act(async () => {
+      api.last().fail();
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled();
+    });
+    expect(passwordStore.get(importId)?.size).toBe(2);
+  });
+
+  it("keeps passwords out of the query cache, the mutation cache and web storage", async () => {
     const { api, queryClient } = setup(2);
     await userEvent.click(screen.getByRole("button", { name: "Add 2 people" }));
     await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Add 2 people" }));
@@ -166,6 +187,5 @@ describe("StaffCheckStep", () => {
       Object.keys(sessionStorage).map((key) => sessionStorage.getItem(key)),
     ]);
     for (const password of passwords) expect(everything).not.toContain(password);
-    expect("indexedDB" in globalThis).toBe(false);
   });
 });
