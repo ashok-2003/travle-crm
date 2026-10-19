@@ -788,6 +788,9 @@ importers:
       '@types/react':
         specifier: 'catalog:'
         version: 19.3.0
+      '@types/saxen':
+        specifier: link:types/saxen
+        version: link:types/saxen
       '@types/web-push':
         specifier: 3.6.4
         version: 3.6.4

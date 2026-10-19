@@ -36,6 +36,7 @@
     "@travel-crm/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
+    "@types/saxen": "link:types/saxen",
     "@types/web-push": "3.6.4",
     "eslint": "catalog:",
     "testcontainers": "12.2.1",
