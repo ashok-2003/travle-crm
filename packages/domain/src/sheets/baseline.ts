@@ -12,7 +12,7 @@ import { holdSheet, sheetOf } from "./connection-row.js";
 import { uuidFromText } from "./hashes.js";
 import { headerHashOf } from "./header-match.js";
 import type { SheetsJobDependencies } from "./job-dependencies.js";
-import { baselineRowsPerTransaction } from "./limits.js";
+import { baselineRowsPerTransaction, maxSheetRows } from "./limits.js";
 import { numberRows } from "./numbered-rows.js";
 import { readSheetTab } from "./read-tab.js";
 
@@ -102,7 +102,8 @@ export function baselineListener(dependencies: SheetsJobDependencies): EventList
             status: "running",
             tabTitle: read.tabTitle.slice(0, 100),
             cursorRow: read.read.lastRow,
-            rowsSeen: rows.length,
+            // More than the limit says the tab holds more rows than are read (S15).
+            rowsSeen: read.read.truncated ? maxSheetRows + 1 : rows.length,
             headerHash: headerHashOf(read.read.header),
             connectedAt: now,
             lastCheckedAt: now,

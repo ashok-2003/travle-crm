@@ -167,7 +167,7 @@ describe("the Google Sheets tables", () => {
       addRow({
         rawHash: nextHash(),
         status: "not_added",
-        reasons: ["no_name", "no_contact", "notes_too_long", "blocked", "erased"],
+        reasons: ["no_name", "no_contact", "notes_too_long", "blocked", "erased", "could_not_add"],
       }),
     ).resolves.toBeDefined();
   });

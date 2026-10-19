@@ -127,7 +127,7 @@ model SheetRow {
   rowNumber      Int             @map("row_number")
   /// before_connect, pending, added, merged, duplicate, not_added or erased.
   status         String
-  /// Problem codes as text: no_name, no_contact, notes_too_long, blocked, erased.
+  /// Problem codes as text: no_name, no_contact, notes_too_long, blocked, erased, could_not_add.
   reasons        String[]        @default([])
   /// The row's fingerprint (the lead import's), on an added, merged, duplicate or erased row only (S23).
   fingerprint    Bytes?

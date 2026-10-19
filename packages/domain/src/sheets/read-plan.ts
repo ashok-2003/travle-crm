@@ -13,7 +13,7 @@ export interface ReadPlan {
   /** The first data row to read: 2 for a full read. */
   fromRow: number;
   full: boolean;
-  reason: "sync-now" | "recheck" | "daily" | "window";
+  reason: "sync-now" | "recheck" | "daily" | "window" | "header-changed" | "rows-deleted";
 }
 
 const dailyReadTime = parseTimeOfDay(`${String(dailyFullReadHour).padStart(2, "0")}:00`);

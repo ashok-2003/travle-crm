@@ -2,8 +2,18 @@
 import { z } from "zod";
 import { recordId } from "../identity/fields.js";
 
-/** The reasons of a single row (B24's that apply) plus a blocked contact and an erased customer (S23). */
-export const sheetProblemReasons = ["no_name", "no_contact", "notes_too_long", "blocked", "erased"] as const;
+/**
+ * The reasons of a single row (B24's that apply) plus a blocked contact and an erased customer (S23), and a row that
+ * fails whenever it is tried alone (as the lead import's), which is set aside so the rows after it go through.
+ */
+export const sheetProblemReasons = [
+  "no_name",
+  "no_contact",
+  "notes_too_long",
+  "blocked",
+  "erased",
+  "could_not_add",
+] as const;
 export const sheetProblemReason = z.enum(sheetProblemReasons);
 export type SheetProblemReason = z.infer<typeof sheetProblemReason>;
 

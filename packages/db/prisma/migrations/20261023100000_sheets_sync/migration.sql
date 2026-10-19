@@ -239,7 +239,7 @@ ALTER TABLE "sheet_row"
     'before_connect', 'pending', 'added', 'merged', 'duplicate', 'not_added', 'erased')),
   ADD CONSTRAINT sheet_row_reasons_value CHECK (
     reasons IS NOT NULL AND cardinality(reasons) <= 10
-    AND reasons <@ ARRAY['no_name', 'no_contact', 'notes_too_long', 'blocked', 'erased']::text[]),
+    AND reasons <@ ARRAY['no_name', 'no_contact', 'notes_too_long', 'blocked', 'erased', 'could_not_add']::text[]),
   ADD CONSTRAINT sheet_row_hash_length CHECK (
     octet_length(raw_hash) = 32 AND (fingerprint IS NULL OR octet_length(fingerprint) = 32)),
   ADD CONSTRAINT sheet_row_fingerprint_status CHECK (

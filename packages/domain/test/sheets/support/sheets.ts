@@ -7,9 +7,13 @@ import { createMemoryGoogleSheets, type MemoryGoogleSheets } from "@travel-crm/i
 import type { MemberAccess } from "../../../src/identity/index.js";
 import type { DomainEvent, EventListener } from "../../../src/jobs/index.js";
 import type { Entitlements } from "../../../src/subscriptions/index.js";
+import type { Database } from "@travel-crm/db";
 import { newUuidV7 } from "../../../src/kernel/index.js";
 import {
+  baselineListener,
   beginSheet,
+  type CheckDependencies,
+  createAccountHolds,
   createSheetsHashes,
   rowHash,
   type SheetsDependencies,
@@ -306,4 +310,42 @@ export async function aConfirmedSheet(
     });
   });
   return { sheetId: id, spreadsheetId, organizationId: importer.organizationId };
+}
+
+/** The dependencies of a check: the job dependencies with the worker's holds and the usual two-minute interval. */
+export function checkDependencies(
+  test: TestSheets,
+  options: {
+    identity?: SheetsJobDependencies["identity"];
+    access?: Entitlements["access"];
+    holds?: CheckDependencies["holds"];
+    db?: Database;
+  } = {},
+): CheckDependencies {
+  return {
+    ...jobDependencies(test, options.identity ?? fakeIdentity(), options.access ?? "full"),
+    ...(options.db === undefined ? {} : { db: options.db }),
+    holds: options.holds ?? createAccountHolds(),
+    checkIntervalSeconds: 120,
+  };
+}
+
+/**
+ * A sheet that is running: connected, its baseline read (every row of `rows` after the header is before_connect), shared
+ * with the test's service account. `fields` say what each header holds, by header key.
+ */
+export async function aRunningSheet(
+  test: TestSheets,
+  importer: MemberAccess,
+  options: { rows?: string[][]; fields?: Record<string, string>; identity?: SheetsJobDependencies["identity"] } = {},
+) {
+  const confirmed = await aConfirmedSheet(test, importer, {
+    ...(options.rows === undefined ? {} : { rows: options.rows }),
+    ...(options.fields === undefined ? {} : { fields: options.fields }),
+  });
+  await runListener(test, baselineListener(jobDependencies(test, options.identity)), importer.organizationId, {
+    type: "sheet.baseline-requested",
+    payload: { sheetId: confirmed.sheetId },
+  });
+  return confirmed;
 }

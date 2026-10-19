@@ -44,3 +44,41 @@ export async function enterAttention(
   await publishEvent(tx, { type: "sheet.schedule-changed", payload: { sheetId: sheet.id } });
   return true;
 }
+
+/** What leaving a state records: access restored for lost access, a plain recovery for the others. */
+const left: Record<AttentionState, { action: "sheet.access-restored" | "sheet.recovered" }> = {
+  lost_access: { action: "sheet.access-restored" },
+  tab_missing: { action: "sheet.recovered" },
+  columns_missing: { action: "sheet.recovered" },
+  needs_manager: { action: "sheet.recovered" },
+};
+
+const attentionStates: ReadonlySet<string> = new Set([
+  "lost_access",
+  "tab_missing",
+  "columns_missing",
+  "needs_manager",
+]);
+
+/**
+ * Back to running after a check succeeds (S39): one audit entry by the system, no notice. Nothing when the sheet was
+ * not in an attention state.
+ */
+export async function leaveAttention(
+  tx: OrgTx,
+  sheet: Pick<SheetConnectionRow, "id" | "organizationId" | "status">,
+): Promise<boolean> {
+  if (!attentionStates.has(sheet.status)) return false;
+  const state = sheet.status as AttentionState;
+  await tx.sheetConnection.update({
+    where: { id: sheet.id },
+    data: { status: "running", attentionSince: null, consecutiveFailures: 0 },
+  });
+  await recordAudit(tx, systemActor(sheet.organizationId), {
+    action: left[state].action,
+    entityType: "sheet_connection",
+    entityId: sheet.id,
+    after: { status: "running" },
+  });
+  return true;
+}
