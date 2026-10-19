@@ -28,11 +28,12 @@ describe("ImportStepCaption", () => {
       expect(captionOf(status)).toBe("Step 4 of 4 · Add");
     }
     expect(captionOf("cancelled")).toBe("");
-    render(
+    const shown = render(
       <NextIntlClientProvider locale={locale} messages={messages}>
         <ImportStepCaption status="matching" />
       </NextIntlClientProvider>,
     );
     expect(screen.getByText("Step 2 of 4 · Match columns")).toBeVisible();
+    shown.unmount();
   });
 });

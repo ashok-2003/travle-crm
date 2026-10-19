@@ -10,10 +10,12 @@ export function ExportProgress({ detail, rowsWord }: { detail: ExportDetail | un
   const t = useTranslations("exports.dialog");
   const counted = detail !== undefined && detail.rowsTotal > 0;
   const words = counted ? t(`preparing.${rowsWord}`, { count: detail.rowsTotal }) : t("preparingFile");
+  // Rows added after the count may be written too, so what's done can pass what was counted (W12).
+  const percent = counted ? Math.min(100, Math.round((detail.rowsDone / detail.rowsTotal) * 100)) : 0;
   return (
     <div className="flex flex-col gap-2">
       <p>{words}</p>
-      <Progress value={counted ? Math.round((detail.rowsDone / detail.rowsTotal) * 100) : 0} aria-label={words} />
+      <Progress value={percent} aria-label={words} />
     </div>
   );
 }

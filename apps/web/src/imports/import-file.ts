@@ -4,17 +4,15 @@
 import {
   attachmentFileName,
   MAX_IMPORT_BYTES,
-  spreadsheetContentTypes,
+  spreadsheetContentTypeOf,
   type SpreadsheetContentType,
 } from "@travel-crm/contracts/files";
 
 /** Message keys in "imports.problems". */
 export type ImportFileProblem = "type" | "old" | "size" | "empty" | "name";
 
-const byExtension: Readonly<Record<string, SpreadsheetContentType>> = {
-  csv: spreadsheetContentTypes[0],
-  xlsx: spreadsheetContentTypes[1],
-};
+/** Each extension's type, by name (W8). */
+const byExtension: Readonly<Record<string, SpreadsheetContentType>> = spreadsheetContentTypeOf;
 
 /** Files Excel or Numbers save that an import can't read, but can once saved again. */
 const savedOtherwise = new Set(["xls", "numbers"]);

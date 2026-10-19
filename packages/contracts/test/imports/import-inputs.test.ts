@@ -1,15 +1,21 @@
 // The imports' and exports' inputs (spec 6.5): a file is named by its type and size alone, an import or export by its
-// id alone, unknown keys are refused, and each kind's fields and value targets are its own.
+// id alone, unknown keys are refused, and each kind's fields and value targets are its own. A Google Sheet's import
+// (the Sheets sync) adds the in_crm plan and its two reasons, the sheet on the detail and the in-CRM choice, all off by
+// default.
 import { describe, expect, it } from "vitest";
 import { decideLeadImportInput, leadImportFields, matchLeadColumnsInput } from "../../src/crm/index.js";
 import { exportIdInput, startStaffExportInput } from "../../src/exports/index.js";
 import { matchStaffColumnsInput, staffImportFields } from "../../src/identity/index.js";
 import {
+  importDetail,
   importField,
   importIdInput,
   importRowsInput,
   importStatuses,
+  rowPlans,
   rowReason,
+  rowReasonCodes,
+  type SheetOrigin,
   startImportInput,
   waitingImportStatuses,
 } from "../../src/imports/index.js";
@@ -117,11 +123,61 @@ describe("import and export inputs", () => {
     ).toBe(false);
   });
 
+  it("takes at most the values a file lists: 50 an Owner and 50 a Stage column, 50 a Role column (D6)", () => {
+    const owners = (count: number) =>
+      Array.from({ length: count }, (_, index) => ({ field: "owner", value: `Owner ${String(index)}`, target: null }));
+    const leads = (count: number) => ({ importId, columns: [], values: owners(count), defaults: leadDefaults });
+    expect(matchLeadColumnsInput.safeParse(leads(100)).success).toBe(true);
+    expect(matchLeadColumnsInput.safeParse(leads(101)).success).toBe(false);
+    const roles = (count: number) => ({
+      importId,
+      columns: [],
+      values: Array.from({ length: count }, (_, index) => ({
+        field: "role",
+        value: `Role ${String(index)}`,
+        target: null,
+      })),
+      defaults: { roleKey: null },
+    });
+    expect(matchStaffColumnsInput.safeParse(roles(50)).success).toBe(true);
+    expect(matchStaffColumnsInput.safeParse(roles(51)).success).toBe(false);
+  });
+
   it("knows the waiting statuses among the twelve, and a reason by its code, field, row and day", () => {
     expect(importStatuses).toHaveLength(12);
     expect(waitingImportStatuses.every((status) => importStatuses.includes(status))).toBe(true);
     expect(rowReason.parse({ code: "same_as_row", row: 12 })).toEqual({ code: "same_as_row", row: 12 });
     expect(rowReason.safeParse({ code: "already_imported", on: "2026-10-12" }).success).toBe(true);
     expect(rowReason.safeParse({ code: "lost_my_way" }).success).toBe(false);
+  });
+
+  it("plans a sheet's row in_crm with an open or closed lead, and decides it off unless ticked", () => {
+    expect(rowPlans).toEqual(["new", "returning", "enquiry", "blocked", "already_imported", "in_crm", "not_added"]);
+    expect(rowReasonCodes).toEqual(expect.arrayContaining(["in_crm_open", "in_crm_closed"]));
+    expect(rowReason.parse({ code: "in_crm_closed" })).toEqual({ code: "in_crm_closed" });
+    expect(importRowsInput.safeParse({ importId, plan: "in_crm", reason: "in_crm_open" }).success).toBe(true);
+    const decided = { importId, addBlocked: false, addAlreadyImported: false };
+    expect(decideLeadImportInput.parse(decided)).toEqual({ ...decided, addInCrm: false });
+    expect(decideLeadImportInput.parse({ ...decided, addInCrm: true }).addInCrm).toBe(true);
+    const origin: SheetOrigin = {
+      detail: "Goa Diwali campaign · Form responses 1",
+      timeZone: "Asia/Kolkata",
+      monthFirstDates: false,
+    };
+    expect(origin.monthFirstDates).toBe(false);
+  });
+
+  it("shows a sheet's import with its sheet and the in-CRM choice, and a file's with neither", () => {
+    const sheetId = "0199e7a0-0000-7000-8000-0000000000a3";
+    const shape = importDetail.shape;
+    expect(shape.sourceSheet.parse(null)).toBeNull();
+    expect(shape.sourceSheet.parse({ sheetId })).toEqual({ sheetId });
+    expect(shape.choices.parse({ addBlocked: false, addAlreadyImported: true, addInCrm: false })).toEqual({
+      addBlocked: false,
+      addAlreadyImported: true,
+      addInCrm: false,
+    });
+    expect(shape.choices.safeParse({ addBlocked: false, addAlreadyImported: true }).success).toBe(false);
+    expect(shape.counts.unwrap().shape.byPlan.safeParse({ new: 1 }).success).toBe(false);
   });
 });

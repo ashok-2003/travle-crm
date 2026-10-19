@@ -4,7 +4,7 @@
 // erased person's rows lose their ids and fingerprints.
 import { createPlatformDatabase, type PlatformDatabase } from "@travel-crm/db/platform";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { sweepExpiredImports, withdrawImportFiles } from "../../src/imports/index.js";
+import { importsToSweep, rememberHeaderFields, sweepImport, withdrawImportFiles } from "../../src/imports/index.js";
 import { systemActor } from "../../src/kernel/index.js";
 import { aRow } from "./support/batches.js";
 import {
@@ -89,6 +89,12 @@ describe("keeping and deleting an import's files", () => {
       valueMatches: await tx.importValueMatch.count({ where: { batchId: id } }),
       rows: await tx.importRow.findMany({ where: { batchId: id }, orderBy: { rowNumber: "asc" } }),
     }));
+  /** The sweep as the console runs it: a page of imports to visit, each swept in its own transaction. */
+  async function sweep(now: Date) {
+    const items = await platformDb.transaction((tx) => importsToSweep(tx, now, 100, []));
+    for (const item of items) await platformDb.transaction((tx) => sweepImport(tx, item, now));
+    return items;
+  }
   const attachmentsOf = (id: string) => test.platform.attachment.count({ where: { recordId: id } });
   const queuedFor = (attachmentIds: string[]) =>
     test.platform.storedFileDeletion.count({ where: { attachmentId: { in: attachmentIds } } });
@@ -98,8 +104,8 @@ describe("keeping and deleting an import's files", () => {
     const now = new Date();
     const old = await aKeptImport(organizationId, new Date(now.getTime() - 1000));
     const recent = await aKeptImport(organizationId, new Date(now.getTime() + DAY_MS));
-    const swept = await platformDb.transaction((tx) => sweepExpiredImports(tx, now, 100));
-    expect(swept.organizationIds).toContain(organizationId);
+    const swept = await sweep(now);
+    expect(swept.map((item) => item.organizationId)).toContain(organizationId);
     expect(await attachmentsOf(old.id)).toBe(0);
     expect(await queuedFor(old.files)).toBe(2);
     const kept = await keptOf(organizationId, old.id);
@@ -110,9 +116,10 @@ describe("keeping and deleting an import's files", () => {
       rowsAdded: 1,
       fileName: "enquiries-oct-2026.csv",
     });
+    // A headerless file's header row is its first row of data: the column keeps only its letter (M3).
     expect(
       kept.columns.map((column) => [column.header, column.samples, column.distinctValues, column.distinctCounts]),
-    ).toEqual([["Name", [], [], []]]);
+    ).toEqual([["Column A", [], [], []]]);
     expect(kept.valueMatches).toBe(0);
     expect(kept.rows.map((row) => [row.outcome, row.exampleName, row.exampleValue, row.fingerprint !== null])).toEqual([
       ["added", null, null, true],
@@ -128,7 +135,7 @@ describe("keeping and deleting an import's files", () => {
     const organizationId = await anAgency(test, "Late report");
     const { id } = await aKeptImport(organizationId, new Date(Date.now() + DAY_MS), "expired");
     expect(await attachmentsOf(id)).toBe(2);
-    await platformDb.transaction((tx) => sweepExpiredImports(tx, new Date(), 100));
+    await sweep(new Date());
     expect(await attachmentsOf(id)).toBe(0);
   });
 
@@ -142,6 +149,12 @@ describe("keeping and deleting an import's files", () => {
     );
     const elsewhere = await anAgency(test, "Not erased");
     const untouched = await aKeptImport(elsewhere, new Date(now.getTime() + DAY_MS));
+    // The agency's memory of its headers may hold a headerless file's first row: it goes with the erasure (M3).
+    for (const agency of [organizationId, elsewhere]) {
+      await test.db.forOrg(agency, (tx) =>
+        rememberHeaderFields(tx, "leads", [{ header: "Priya Sharma", field: "name" }], now),
+      );
+    }
     const withdrawn = await platformDb.transaction((tx) => withdrawImportFiles(tx, organizationId, now, { personId }));
     expect(withdrawn).toEqual({ imports: 2, files: 4 });
     for (const { id } of [done, waiting]) {
@@ -163,5 +176,7 @@ describe("keeping and deleting an import's files", () => {
     );
     expect(await attachmentsOf(untouched.id)).toBe(2);
     expect((await keptOf(elsewhere, untouched.id)).rows[0]?.personId).toBe(personId);
+    expect(await test.platform.importHeaderMatch.count({ where: { organizationId } })).toBe(0);
+    expect(await test.platform.importHeaderMatch.count({ where: { organizationId: elsewhere } })).toBe(1);
   });
 });

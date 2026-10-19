@@ -6,13 +6,17 @@ import type { OrgTx } from "@travel-crm/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { MemberAccess } from "../../src/identity/index.js";
 import {
+  cancelImport,
   columnMatchesOf,
   findImport,
   guessFields,
   headerKey,
+  holdImport,
   importDetail,
   matchImportColumns,
   rememberedFields,
+  rememberedHeaderFields,
+  rememberHeaderFields,
   type ColumnMatchInput,
 } from "../../src/imports/index.js";
 import { aBatch, aRow } from "./support/batches.js";
@@ -164,6 +168,67 @@ describe("matching an import's columns", () => {
     expect((await inOrg((tx) => rememberedFields(tx, "staff", keys))).size).toBe(0);
   });
 
+  it("remembers a sheet's header matches by key, the last match winning, and reads a kind's whole memory", async () => {
+    const agency = await anAgency(test, "Header memory");
+    const inAgency = <T>(work: (tx: OrgTx) => Promise<T>) => test.db.forOrg(agency, work);
+    const now = new Date("2026-10-22T08:00:00Z");
+    await inAgency((tx) =>
+      rememberHeaderFields(
+        tx,
+        "leads",
+        [
+          { header: "Timestamp", field: "enquiry_date" },
+          { header: "Which place?", field: "destination" },
+          { header: "Anything else", field: null },
+        ],
+        now,
+      ),
+    );
+    // Two at once, as a sheet's connect and a file's match might: both land, neither fails.
+    await Promise.all([
+      inAgency((tx) => rememberHeaderFields(tx, "leads", [{ header: "Which place", field: "note" }], now)),
+      inAgency((tx) => rememberHeaderFields(tx, "leads", [{ header: "Your city", field: "departure_city" }], now)),
+    ]);
+    expect(Object.fromEntries(await inAgency((tx) => rememberedHeaderFields(tx, "leads")))).toEqual({
+      timestamp: "enquiry_date",
+      whichplace: "note",
+      anythingelse: null,
+      yourcity: "departure_city",
+    });
+    expect((await inAgency((tx) => rememberedHeaderFields(tx, "staff"))).size).toBe(0);
+    // A file's guesses read the same memory.
+    expect(Object.fromEntries(await inAgency((tx) => rememberedFields(tx, "leads", ["timestamp"])))).toEqual({
+      timestamp: "enquiry_date",
+    });
+  });
+
+  it("never remembers a header that looks like a customer's details: a file whose first row is data (D2)", async () => {
+    const agency = await anAgency(test, "Headerless file");
+    const inAgency = <T>(work: (tx: OrgTx) => Promise<T>) => test.db.forOrg(agency, work);
+    await inAgency((tx) =>
+      rememberHeaderFields(
+        tx,
+        "leads",
+        [
+          { header: "Priya Sharma", field: "name" },
+          { header: "9876543210", field: "phone" },
+          { header: "+91 98765", field: "phone" },
+          { header: "priya@example.com", field: "email" },
+          { header: "Wants a five night trip to Goa", field: "note" },
+          { header: "Mobile No", field: "phone" },
+          { header: "Do you need a visa?", field: "note" },
+        ],
+        new Date(),
+      ),
+    );
+    // A name is a plausible label: nothing tells it from "Customer Name". Digits, an @, a number and a sentence aren't.
+    expect(Object.fromEntries(await inAgency((tx) => rememberedHeaderFields(tx, "leads")))).toEqual({
+      priyasharma: "name",
+      mobileno: "phone",
+      doyouneedavisa: "note",
+    });
+  });
+
   it("saves the importer's value choices and the file's defaults, and starts the check", async () => {
     const id = await aMatchingImport(["Name", "Mobile", "Owner"]);
     const now = new Date("2026-10-20T08:00:00Z");
@@ -230,6 +295,74 @@ describe("matching an import's columns", () => {
     const batch = await inOrg((tx) => findImport(tx, importer, "leads", id));
     expect(batch).toMatchObject({ status: "checking", checkedAt: null, rowsToAdd: 0 });
     expect(await inOrg((tx) => tx.importRow.count({ where: { batchId: id } }))).toBe(0);
+  });
+
+  /**
+   * Holds the import's row in a transaction of its own, after `first` ran in it, until released: whatever presses
+   * start meanwhile are certainly at the same time, each waiting its turn (M2, item 8).
+   */
+  async function holding(importId: string, first: (tx: OrgTx) => Promise<void> = () => Promise.resolve()) {
+    const turns: { held?: () => void; release?: () => void } = {};
+    const held = new Promise<void>((resolve) => (turns.held = resolve));
+    const released = new Promise<void>((resolve) => (turns.release = resolve));
+    const done = inOrg(async (tx) => {
+      await holdImport(tx, importId);
+      await first(tx);
+      turns.held?.();
+      await released;
+    });
+    await held;
+    return async () => {
+      turns.release?.();
+      await done;
+    };
+  }
+
+  /** Whether a press is still waiting after a fifth of a second. */
+  const waiting = (presses: Promise<unknown>) =>
+    Promise.race([
+      presses.then(() => false),
+      new Promise<boolean>((resolve) => {
+        setTimeout(() => {
+          resolve(true);
+        }, 200);
+      }),
+    ]);
+
+  /** The import.columns-matched events published for this import. */
+  const matchedEventsOf = async (importId: string) =>
+    (await eventsOf(test, organizationId, ["import.columns-matched"])).filter(([, payload]) =>
+      JSON.stringify(payload).includes(importId),
+    );
+
+  it("takes two presses at once in turn: one matches, the other finds it moved on (M2)", async () => {
+    const id = await aMatchingImport(["Name", "Mobile"]);
+    const input = leadInput(id, ["name", "phone"]);
+    const release = await holding(id);
+    const both = Promise.allSettled([match(input), match(input)]);
+    expect(await waiting(both)).toBe(true);
+    await release();
+    const results = await both;
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.find((result) => result.status === "rejected")).toMatchObject({
+      reason: { reason: "IMPORT_NOT_READY" },
+    });
+    expect(await matchedEventsOf(id)).toHaveLength(1);
+  });
+
+  it("lets a Cancel made while a press waits win: the press finds it cancelled and publishes nothing (M2)", async () => {
+    const id = await aMatchingImport(["Name", "Mobile"]);
+    const release = await holding(id, (tx) => cancelImport(tx, importer, "leads", id, new Date()));
+    const press = match(leadInput(id, ["name", "phone"]));
+    const settled = press.then(
+      () => null,
+      (error: unknown) => error,
+    );
+    expect(await waiting(settled)).toBe(true);
+    await release();
+    expect(await settled).toMatchObject({ reason: "IMPORT_NOT_READY" });
+    expect((await inOrg((tx) => findImport(tx, importer, "leads", id))).status).toBe("cancelled");
+    expect(await matchedEventsOf(id)).toEqual([]);
   });
 
   it("stores every field of both kinds' lists", async () => {

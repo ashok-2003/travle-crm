@@ -49,6 +49,7 @@ model Organization {
   importValueMatches      ImportValueMatch[]
   importRows              ImportRow[]
   importHeaderMatches     ImportHeaderMatch[]
+  importStopRequests      ImportStopRequest[]
   dataExports             DataExport[]
 
   @@map("organization")

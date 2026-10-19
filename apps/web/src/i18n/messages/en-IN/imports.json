@@ -98,17 +98,12 @@
     }
   },
   "values": {
-    "heading": "Its {count, plural, one {# value} other {# values}}",
-    "value": "Value in your file",
-    "rows": "Rows",
-    "matchTo": "Goes to",
     "targetFor": "Where {value} goes"
   },
   "progress": {
-    "rows": "{done} of {total} rows",
+    "rows": "<n>{done}</n> of <n>{total}</n> rows",
     "aboutAMinute": "About a minute left",
-    "aboutMinutes": "About {minutes} minutes left",
-    "percent": "{percent}%"
+    "aboutMinutes": "About {minutes} minutes left"
   },
   "reasons": {
     "no_name": "No name",
@@ -118,6 +113,8 @@
     "same_as_row": "Same as row {row}",
     "blocked": "A blocked contact",
     "already_imported": "Already imported on {on}",
+    "in_crm_open": "Has an open lead with you",
+    "in_crm_closed": "Has a closed lead with you",
     "not_reached": "Stopped before this row",
     "invalid_name": "The name can't be used",
     "no_sign_in_name": "No username or email",
@@ -144,7 +141,6 @@
   },
   "recent": {
     "title": "Recent imports",
-    "rows": "{rows, plural, one {# row} other {# rows}} · {added} added",
-    "started": "{day}"
+    "rows": "{rows, plural, one {<n>{total}</n> row} other {<n>{total}</n> rows}} · <n>{added}</n> added"
   }
 }

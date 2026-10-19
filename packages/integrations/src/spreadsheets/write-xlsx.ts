@@ -29,6 +29,9 @@ export function serialDays(text: string): number | null {
   return (days * 1440 + Number(hours) * 60 + Number(minutes)) / 1440;
 }
 
+/** What a formatted phone number looks like: digits and spaces after an optional +, nothing a formula could be. */
+const phoneShape = /^\+?[\d ]+$/;
+
 /** Space at either end, or a line break, needs xml:space; leaving it off elsewhere keeps 50,000 rows under 50 MB. */
 const needsPreserve = /^\s|\s$|[\n\r]/;
 
@@ -44,8 +47,9 @@ function cellXml(column: WriterColumn, reference: string, value: WrittenCell): s
     const style = column.kind === "date" ? dateStyle : dateTimeStyle;
     if (serial !== null) return `<c r="${reference}" s="${String(style)}"><v>${String(serial)}</v></c>`;
   }
-  // A phone is written by our own code from a validated number, so it stays "+91 98765 43210" (B40's exception).
-  return textCell(reference, column.kind === "phone" ? value : neutraliseFormula(value));
+  // A phone our own code wrote from a valid number stays "+91 98765 43210" (B40's exception); anything else in a phone
+  // column is text like any other (D10).
+  return textCell(reference, column.kind === "phone" && phoneShape.test(value) ? value : neutraliseFormula(value));
 }
 
 export function xlsxWriter(sheetName: string, columns: readonly WriterColumn[]): SheetWriter {

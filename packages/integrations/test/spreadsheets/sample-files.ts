@@ -1,5 +1,6 @@
 // Workbooks built byte by byte for the spreadsheets tests: small ones whose XML each test writes, a zip bomb, a sheet of
-// a million rows, and the compound-file headers of an old .xls and a password-protected workbook.
+// a million rows, parts of millions of elements that only the reading thread's limits stop, and the compound-file
+// headers of an old .xls and a password-protected workbook.
 import { Zip, ZipDeflate, strToU8, zipSync } from "fflate";
 
 const spreadsheetNamespace = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
@@ -87,7 +88,10 @@ export const numberCell = (reference: string, value: string, style?: number) =>
 export const rowOf = (rowNumber: number, cells: string, attributes = "") =>
   `<row r="${String(rowNumber)}"${attributes}>${cells}</row>`;
 
-/** A workbook streamed through fflate, the sheet's XML pushed a chunk at a time so the test never holds it whole. */
+/**
+ * A workbook streamed through fflate, the sheet's XML pushed a chunk at a time so the test never holds it whole; extra
+ * parts are streamed too, in place of the ordinary part of their name.
+ */
 function streamedWorkbook(
   sheetChunks: () => Iterable<string>,
   extraParts: Record<string, () => Iterable<string>> = {},
@@ -106,7 +110,7 @@ function streamedWorkbook(
   };
   const parts = workbookParts([{ name: "Sheet1", sheetData: "" }]);
   for (const [name, bytes] of Object.entries(parts)) {
-    if (name === "xl/worksheets/sheet1.xml") continue;
+    if (name === "xl/worksheets/sheet1.xml" || name in extraParts) continue;
     const entry = new ZipDeflate(name);
     zip.add(entry);
     entry.push(bytes, true);
@@ -138,6 +142,50 @@ export function millionRowWorkbook(): Buffer {
     for (let row = 1; row <= 1_000_000; row += 1)
       yield `<row r="${String(row)}"><c r="A${String(row)}"><v>1</v></c></row>`;
     yield `</sheetData></worksheet>`;
+  });
+}
+
+/** `count` copies of `element`, a megabyte or so at a time. */
+function* repeated(element: string, count: number) {
+  const perChunk = Math.ceil((1024 * 1024) / element.length);
+  for (let done = 0; done < count; done += perChunk) yield element.repeat(Math.min(perChunk, count - done));
+}
+
+/** An ordinary sheet of a header and one row, for workbooks whose trouble is in another part. */
+function* oneRowSheet() {
+  yield `<worksheet xmlns="${spreadsheetNamespace}"><sheetData>`;
+  yield `<row r="1"><c r="A1" t="inlineStr"><is><t>Name</t></is></c></row><row r="2"><c r="A2"><v>1</v></c></row>`;
+  yield `</sheetData></worksheet>`;
+}
+
+/** A workbook whose workbook.xml holds its one sheet and then `count` empty elements (item 2: 12 million). */
+export function crowdedWorkbookXml(count: number): Buffer {
+  return streamedWorkbook(oneRowSheet, {
+    "xl/workbook.xml": function* () {
+      yield `<workbook xmlns="${spreadsheetNamespace}" xmlns:r="${relationshipNamespace}"><sheets>`;
+      yield `<sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets>`;
+      yield* repeated("<a/>", count);
+      yield "</workbook>";
+    },
+  });
+}
+
+/** A workbook whose sheet nests `depth` elements in its sheetData (item 2: 16 million), never closed. */
+export function deeplyNestedWorkbook(depth: number): Buffer {
+  return streamedWorkbook(function* () {
+    yield `<worksheet xmlns="${spreadsheetNamespace}"><sheetData>`;
+    yield* repeated("<a>", depth);
+  });
+}
+
+/** A workbook whose shared strings are `count` copies of `item` (item 10: 9 million empty ones). */
+export function crowdedSharedStrings(count: number, item = "<si/>"): Buffer {
+  return streamedWorkbook(oneRowSheet, {
+    "xl/sharedStrings.xml": function* () {
+      yield `<sst xmlns="${spreadsheetNamespace}">`;
+      yield* repeated(item, count);
+      yield "</sst>";
+    },
   });
 }
 

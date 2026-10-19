@@ -5,8 +5,11 @@
 // not to be picked. The registry's 44px options; their words wrap.
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-/** The Select's value for the first choice: Radix keeps "" for "nothing chosen yet". */
-const NONE = "none";
+/**
+ * The Select's value for the first choice: Radix keeps "" for "nothing chosen yet", and no target (a user id, a
+ * stage, a role key, which is letters, digits and dashes) can be this (W4).
+ */
+const NONE = "__none__";
 
 export interface MatchOption {
   value: string;
@@ -16,6 +19,7 @@ export interface MatchOption {
 
 export function MatchSelect({
   label,
+  describedBy,
   value,
   noneLabel,
   options,
@@ -24,6 +28,8 @@ export function MatchSelect({
 }: {
   /** The Select's accessible name. */
   label: string;
+  /** The id of a hint that says more about the choice. */
+  describedBy?: string | undefined;
   value: string | null;
   noneLabel: string;
   options: readonly MatchOption[];
@@ -38,7 +44,7 @@ export function MatchSelect({
         onChange(chosen === NONE ? null : chosen);
       }}
     >
-      <SelectTrigger aria-label={label} className="h-auto w-full">
+      <SelectTrigger aria-label={label} aria-describedby={describedBy} className="h-auto w-full">
         <SelectValue />
       </SelectTrigger>
       <SelectContent position="popper">

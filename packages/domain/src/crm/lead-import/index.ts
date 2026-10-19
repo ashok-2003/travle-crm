@@ -3,7 +3,7 @@
 // listeners, takes its first step, and refuses a lead import.
 import { importStepEvent } from "@travel-crm/contracts/imports";
 import {
-  holdImport,
+  importBatchOf,
   importerAccess,
   readImportFile,
   type ImportBatchRow,
@@ -19,7 +19,7 @@ async function leadImportAt(
   importId: string,
   status: string,
 ): Promise<ImportBatchRow | null> {
-  const batch = await context.forOrg((tx) => holdImport(tx, importId));
+  const batch = await context.forOrg((tx) => importBatchOf(tx, importId));
   return batch?.kind === "leads" && batch.status === status ? batch : null;
 }
 

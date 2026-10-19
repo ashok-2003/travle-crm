@@ -61,15 +61,32 @@ A file is read only in the worker (ADR 0030), and every read is bounded before a
 - **CSV** (`read-csv.ts`): decoded as UTF-8 (with or without a byte-order mark), UTF-16 with one, or Windows-1252; the
   delimiter is the one the first record uses most; each record goes to the shaper as it is parsed, so a row past the
   limit stops the parse, and a text with a NUL byte is a binary file under a .csv name.
-- **.xlsx** (`read-xlsx.ts`, `bounded-unzip.ts`): a compound file is an old .xls, or a protected workbook when it holds
-  `EncryptedPackage`. Every XML part read-excel-file would inflate first streams through fflate's `Unzip`, 4 KB of
-  compressed bytes a push, against a 50 MB running total. The same pass measures each sheet: read-excel-file keeps an
-  array for every row number up to the last and pads each to the widest non-empty column, so a sheet whose last row
-  passes twice the row limit, or with a non-empty cell past the column limit, is refused before it runs.
+- **.xlsx** (`read-xlsx.ts`, `bounded-unzip.ts`, `sheet-sizer.ts`, `xml-elements.ts`): a compound file is an old
+  .xls, or a protected workbook when it holds `EncryptedPackage`. Every XML part read-excel-file would inflate first
+  streams through fflate's `Unzip`, 4 KB of compressed bytes a push, against a 50 MB running total. The same pass
+  sizes each part with saxen 11.2.0 from npm (pinned, D1), of which read-excel-file vendors a copy, reading names and
+  attributes as the reader does (every prefix dropped, `xmlns:` ones too, entities decoded, any quoting, comments,
+  CDATA and processing instructions skipped; `xml-elements.test.ts` holds the two parsers to the same events):
+  read-excel-file keeps an array for every row number up to the last and pads each to the widest non-empty column, so
+  a sheet with more rows, or a row or cell numbered past twice the row limit, or a cell that isn't self-closing past
+  the column limit, is refused before it runs; so is markup a megabyte long with nothing finished in it, and elements
+  nested over a hundred deep. The first sheet is found as the reader finds it, keeping only the workbook's `sheet`
+  and `Relationship` elements, and a sheet or relationship whose attributes meet under one name is refused.
+- **Its own thread** (`read-xlsx-in-thread.ts`, `xlsx-thread.ts`): all of that, and read-excel-file, runs in a
+  `worker_threads` thread with a 128 MB heap, a 16 MB young generation, a 4 MB stack and a minute, so whatever the
+  sizing doesn't foresee costs that thread alone. Running any of them out is `too_large_unpacked`; a thread that can't
+  run is a plain error naming its code. The bytes are handed over (transferred), and only the bounded rows come back.
+  From the source (development and tests), plain Node runs the thread's TypeScript, finding `.ts` files by the `.js`
+  names our imports use through a resolve hook; the api's bundle runs its own `xlsx-thread.mjs` entry, beside the
+  chunk that starts it (`apps/api/scripts/bundle.ts`). The worker reads a one-cell workbook this way before it starts
+  (`checkXlsxReading`).
 - **Column names** (`sheet-shape.ts`): the first non-empty row names the columns through `nameHeaders`, exported with
   `columnLetters` so a Google Sheet's header is named the same way: a blank is "Column C", a repeat gains "(2)".
 - **Cells** (`cell-text.ts`): a whole number keeps every digit (`919876543210`, never `9.19876543210E+11`), a date cell
   is its day in UTC, one leading apostrophe is dropped, and a cell is cut one character past the limit.
 - **Writing** (`write-xlsx.ts`, `write-csv.ts`): values only, never a formula; text starting with `=`, `+`, `-`, `@`, a
-  tab or a carriage return gets an apostrophe (`neutraliseFormula`), but an .xlsx phone cell. The .xlsx writer deflates
-  each batch into the sheet's entry as it comes and keeps only the compressed output.
+  tab or a carriage return gets an apostrophe (`neutraliseFormula`), dates and times in CSV included, but an .xlsx
+  phone cell that is digits and spaces after an optional `+`. The .xlsx writer deflates each batch into the sheet's
+  entry as it comes and keeps only the compressed output.
+- **The in-memory twin** (`memory-spreadsheets.ts`) keeps sheets as JSON and neutralises nothing: the formula rule
+  is the real adapter's, and its tests (`write.test.ts`) carry it (D8).

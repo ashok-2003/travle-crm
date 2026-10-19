@@ -67,6 +67,25 @@ describe("which files a record takes", () => {
     ).rejects.toMatchObject(refused);
   });
 
+  it("refuses an import's file over 10 MB however it is asked for, while other files take 25 MB (D11)", async () => {
+    const owner = memberOf(organizationId, "org-owner");
+    const importFile = {
+      recordType: "import_batch",
+      recordId: importId,
+      fileName: "big.csv",
+      contentType: "text/csv" as const,
+    };
+    await expect(
+      test.files.requestUpload(owner, passportUpload({ ...importFile, sizeBytes: 10 * 1024 * 1024 + 1 })),
+    ).rejects.toMatchObject({ code: "VALIDATION", reason: "IMPORT_FILE_TOO_LARGE" });
+    await expect(
+      test.files.requestUpload(owner, passportUpload({ ...importFile, sizeBytes: 10 * 1024 * 1024 })),
+    ).resolves.toMatchObject({ attachment: { status: "pending" } });
+    await expect(
+      test.files.requestUpload(owner, passportUpload({ recordType: "lead", sizeBytes: 20 * 1024 * 1024 })),
+    ).resolves.toMatchObject({ attachment: { status: "pending" } });
+  });
+
   it("refuses an upload under an import report or an export: SYSTEM_OWNED_FILE", async () => {
     const owner = memberOf(organizationId, "org-owner");
     for (const recordType of ["import_report", "data_export"]) {

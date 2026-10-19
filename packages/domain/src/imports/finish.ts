@@ -23,11 +23,15 @@ export interface ImportEnd {
   report: boolean;
 }
 
-/** The rows the add never got to, and those the importer left out. */
+/** The rows the add never got to, and those the importer left out, each with the reason its check gave it. */
 async function giveRemainingRowsOutcomes(tx: OrgTx, batch: ImportBatchRow): Promise<void> {
   const remaining = { batchId: batch.id, outcome: null };
   await tx.importRow.updateMany({ where: { ...remaining, plan: "not_added" }, data: { outcome: "not_added" } });
-  const leftOut = [...(batch.addBlocked ? [] : ["blocked"]), ...(batch.addAlreadyImported ? [] : ["already_imported"])];
+  const leftOut = [
+    ...(batch.addBlocked ? [] : ["blocked"]),
+    ...(batch.addAlreadyImported ? [] : ["already_imported"]),
+    ...(batch.addInCrm ? [] : ["in_crm"]),
+  ];
   await tx.importRow.updateMany({ where: { ...remaining, plan: { in: leftOut } }, data: { outcome: "left_out" } });
   await tx.importRow.updateMany({
     where: remaining,

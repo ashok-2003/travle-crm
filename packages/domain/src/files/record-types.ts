@@ -1,7 +1,12 @@
 // Which record types take which files (spec 5): an import's file is CSV or .xlsx and nothing else is; issued
 // documents, import reports and exports are the system's alone; and the bulk files are short-lived, so the platform's
 // sweep and erasure delete them for good.
-import { attachmentContentTypes, spreadsheetContentTypes } from "@travel-crm/contracts/files";
+import {
+  attachmentContentTypes,
+  MAX_ATTACHMENT_BYTES,
+  MAX_IMPORT_BYTES,
+  spreadsheetContentTypes,
+} from "@travel-crm/contracts/files";
 
 /** An import's uploaded file. */
 export const IMPORT_FILE_RECORD_TYPE = "import_batch";
@@ -34,6 +39,11 @@ export function isSystemOwnedRecordType(recordType: string): boolean {
 /** Files kept for days at most (B53, B54): the platform deletes them for good, system-owned or not. */
 export function isShortLivedRecordType(recordType: string): boolean {
   return spreadsheetRecordTypes.includes(recordType);
+}
+
+/** The largest file a record takes: an import's 10 MB (B2), however its upload is asked for (D11); others 25 MB. */
+export function maxUploadBytes(recordType: string): number {
+  return recordType === IMPORT_FILE_RECORD_TYPE ? MAX_IMPORT_BYTES : MAX_ATTACHMENT_BYTES;
 }
 
 /** The content types a record's files may have: spreadsheets for the bulk files, documents and photos elsewhere. */

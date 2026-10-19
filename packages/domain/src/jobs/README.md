@@ -30,7 +30,7 @@ Domain events and the work the worker does after a change commits (spec 9.1).
   handlers and schedules, and no relay. The worker's relay is the only one: a relay that knew no listeners would mark
   every event relayed with nothing queued for it.
 - Types: `DomainEvent`, `EventListener`, `ListenerContext` (the worker's actor and a `forOrg` for the event's
-  organization), `EventPayload`, `JsonValue`, `PayloadSchema`, `ListenerJobData`, `RelayDependencies`, `OutboxRelay`,
+  organization, which takes a transaction's own `{ timeout, maxWait }` when one must run longer), `EventPayload`, `JsonValue`, `PayloadSchema`, `ListenerJobData`, `RelayDependencies`, `OutboxRelay`,
   `ListenerRunOutcome`, `JobHandler`, `ScheduledJob`, `Worker`, `WorkerDependencies`, `JobHandlerDependencies`.
 
 ## Adding a listener

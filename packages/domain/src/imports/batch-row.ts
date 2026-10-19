@@ -28,10 +28,15 @@ export interface ImportBatchRow {
   defaultRoleKey: string | null;
   addBlocked: boolean;
   addAlreadyImported: boolean;
+  /** Whether the add takes rows planned in_crm: a sheet's import asks (the Sheets sync). */
+  addInCrm: boolean;
+  /** Stop was asked for (import_stop_request, X7): the add ends at its next batch. */
   stopRequested: boolean;
   reportAttachmentId: string | null;
   startedBy: string;
   impersonatedBy: string | null;
+  /** The Google Sheet connection the import reads, or null for a file. */
+  sourceSheetId: string | null;
   createdAt: Date;
   checkedAt: Date | null;
   addRequestedAt: Date | null;
@@ -39,11 +44,17 @@ export interface ImportBatchRow {
   keepUntil: Date;
 }
 
-type StoredBatch = NonNullable<Awaited<ReturnType<OrgTx["importBatch"]["findFirst"]>>>;
+/** What every read of a batch includes: whether Stop was asked for, kept in a row of its own (X7). */
+export const withStopRequest = { stopRequest: { select: { id: true } } } as const;
 
-export function toBatchRow(row: StoredBatch): ImportBatchRow {
+type StoredBatch = NonNullable<
+  Awaited<ReturnType<OrgTx["importBatch"]["findFirst"]>> & { stopRequest: { id: string } | null }
+>;
+
+export function toBatchRow({ stopRequest, ...row }: StoredBatch): ImportBatchRow {
   return {
     ...row,
+    stopRequested: stopRequest !== null,
     kind: row.kind as ImportKind,
     status: row.status as ImportStatus,
     fileKind: row.fileKind as "csv" | "xlsx",

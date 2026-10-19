@@ -79,10 +79,15 @@ describe("an import's rows", () => {
       plan(7, { plan: "not_added", reasons: [{ code: "no_contact" }, { code: "no_name" }] }),
       plan(8, { plan: "not_added", reasons: [{ code: "no_contact" }] }),
       plan(9, { plan: "not_added", reasons: [{ code: "same_as_row", row: 2 }] }),
+      plan(10, { plan: "in_crm", reasons: [{ code: "in_crm_open" }] }),
+      plan(11, { plan: "in_crm", reasons: [{ code: "in_crm_closed" }] }),
+      plan(12, { plan: "in_crm", reasons: [{ code: "in_crm_open" }] }),
     ]);
     const counts = await inOrg((tx) => importCounts(tx, { id, rowsNewStage: 2 }));
     expect(counts).toEqual({
-      byPlan: { new: 2, returning: 1, enquiry: 1, blocked: 1, already_imported: 0, not_added: 3 },
+      byPlan: { new: 2, returning: 1, enquiry: 1, blocked: 1, already_imported: 0, in_crm: 3, not_added: 3 },
+      // A sheet's rows for people with a lead, by whether that lead is open (the Sheets sync).
+      inCrm: { open: 2, closed: 1 },
       returning: 1,
       noted: 1,
       newStage: 2,
@@ -133,6 +138,7 @@ describe("an import's rows", () => {
         [4, "blocked", null],
         [6, "already_imported", null],
         [7, "returning", null],
+        [8, "in_crm", null],
       ] as const) {
         await aRow(tx, {
           batchId: id,
@@ -155,9 +161,11 @@ describe("an import's rows", () => {
         { rowNumber: 5, outcome: "added", leadId: importer.userId, personId: importer.memberId, fingerprint },
       ]),
     );
+    // A sheet's row for someone already in the CRM goes to the add too, which leaves it out unless it was ticked.
     expect(await inOrg((tx) => rowsToAdd(tx, id, 10))).toEqual([
       { rowNumber: 6, plan: "already_imported" },
       { rowNumber: 7, plan: "returning" },
+      { rowNumber: 8, plan: "in_crm" },
     ]);
     expect(await inOrg((tx) => findImport(tx, importer, "leads", id))).toMatchObject({ rowsDone: 2, rowsAdded: 1 });
     const row = await inOrg((tx) => tx.importRow.findFirstOrThrow({ where: { batchId: id, rowNumber: 5 } }));

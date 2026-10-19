@@ -9,11 +9,15 @@ import {
   confirmImportUpload,
   decideLeadImport,
   findImport,
+  holdImport,
+  importDetail,
   requestImportAdd,
   startImport,
+  startImportFromBytes,
   stopImport,
 } from "../../src/imports/index.js";
-import { aBatch } from "./support/batches.js";
+import { systemActor } from "../../src/kernel/index.js";
+import { aBatch, aRow } from "./support/batches.js";
 import {
   anAgency,
   auditOf,
@@ -123,6 +127,36 @@ describe("an import's steps", () => {
     ]);
   });
 
+  it("asks a kind's own condition with the import held, in the move's transaction; its refusal moves nothing", async () => {
+    const organization = await anAgency(test, "Its own condition");
+    const person = memberOf(organization);
+    const seen: string[] = [];
+    // What the condition writes stands or falls with the move: it is the move's own transaction.
+    const condition = (refuse: boolean) => async (tx: OrgTx, batch: { id: string; status: string }) => {
+      seen.push(batch.status);
+      await tx.importBatch.update({ where: { id: batch.id }, data: { addBlocked: true } });
+      if (refuse) throw new Error("The kind refuses");
+    };
+    const { id: refused } = await test.db.forOrg(organization, (tx) => aBatch(tx, { startedBy: person.userId }));
+    await expect(requestImportAdd(test.db, person, "leads", refused, new Date(), condition(true))).rejects.toThrow(
+      "The kind refuses",
+    );
+    expect(await test.db.forOrg(organization, (tx) => findImport(tx, person, "leads", refused))).toMatchObject({
+      status: "checked",
+      addBlocked: false,
+    });
+    expect(await eventsOf(test, organization, ["import.add-requested"])).toEqual([]);
+    expect(await auditOf(test, organization, refused)).toEqual([]);
+
+    const { id: allowed } = await test.db.forOrg(organization, (tx) => aBatch(tx, { startedBy: person.userId }));
+    await requestImportAdd(test.db, person, "leads", allowed, new Date(), condition(false));
+    expect(await test.db.forOrg(organization, (tx) => findImport(tx, person, "leads", allowed))).toMatchObject({
+      status: "adding",
+      addBlocked: true,
+    });
+    expect(seen).toEqual(["checked", "checked"]);
+  });
+
   it("answers IMPORT_ALREADY_RUNNING while another import of the agency is adding", async () => {
     const organization = await anAgency(test, "One at a time");
     const person = memberOf(organization);
@@ -152,6 +186,31 @@ describe("an import's steps", () => {
     expect(await auditOf(test, organizationId, id)).toEqual([]);
   });
 
+  it("takes Stop at once while a batch of the add holds the import, for the add to read after it (X7)", async () => {
+    // An agency of its own: one import of an agency adds at a time.
+    const organization = await anAgency(test, "Stop while a batch adds");
+    const person = memberOf(organization);
+    const inAgency = <T>(work: (tx: OrgTx) => Promise<T>) => test.db.forOrg(organization, work);
+    const { id } = await inAgency((tx) => aBatch(tx, { startedBy: person.userId, status: "adding" }));
+    // A batch of the add, holding the import as it adds its rows.
+    const turns: { held?: () => void; release?: () => void } = {};
+    const held = new Promise<void>((resolve) => (turns.held = resolve));
+    const released = new Promise<void>((resolve) => (turns.release = resolve));
+    const batch = inAgency(async (tx) => {
+      expect((await holdImport(tx, id))?.stopRequested).toBe(false);
+      turns.held?.();
+      await released;
+    });
+    await held;
+    const started = performance.now();
+    await inAgency((tx) => stopImport(tx, person, "leads", id));
+    expect(performance.now() - started).toBeLessThan(1000);
+    turns.release?.();
+    await batch;
+    // The add's next batch holds the import and finds Stop.
+    expect(await inAgency((tx) => holdImport(tx, id))).toMatchObject({ status: "adding", stopRequested: true });
+  }, 10_000);
+
   it("cancels a waiting import and records import.cancelled with no file name", async () => {
     for (const status of ["uploading", "reading", "matching", "checking", "checked"]) {
       const { id } = await inOrg((tx) => aBatch(tx, { startedBy: importer.userId, status }));
@@ -166,13 +225,80 @@ describe("an import's steps", () => {
     }
   });
 
+  it("forgets a cancelled staff import's password hashes at once, not with the sweep (B53)", async () => {
+    const { id } = await inOrg((tx) => aBatch(tx, { startedBy: importer.userId, kind: "staff" }));
+    await inOrg(async (tx) => {
+      await aRow(tx, { batchId: id, rowNumber: 2, passwordHash: "hash" });
+      await aRow(tx, { batchId: id, rowNumber: 3 });
+    });
+    await inOrg((tx) => cancelImport(tx, importer, "staff", id, new Date()));
+    const rows = await inOrg((tx) => tx.importRow.findMany({ where: { batchId: id }, select: { passwordHash: true } }));
+    expect(rows).toEqual([{ passwordHash: null }, { passwordHash: null }]);
+  });
+
   it("keeps the importer's choices for blocked and already imported rows at the preview, and nowhere else", async () => {
     const { id } = await inOrg((tx) => aBatch(tx, { startedBy: importer.userId }));
     await inOrg((tx) => decideLeadImport(tx, importer, { importId: id, addBlocked: true, addAlreadyImported: false }));
     expect(await batchOf(id)).toMatchObject({ addBlocked: true, addAlreadyImported: false, status: "checked" });
+    // A file's preview never asks about rows already in the CRM: off.
+    expect(await batchOf(id)).toMatchObject({ addInCrm: false });
     const { id: adding } = await inOrg((tx) => aBatch(tx, { startedBy: importer.userId, status: "done" }));
     await expect(
       inOrg((tx) => decideLeadImport(tx, importer, { importId: adding, addBlocked: true, addAlreadyImported: true })),
     ).rejects.toMatchObject(notReady);
+  });
+
+  it("keeps a sheet's in-CRM choice, and shows the import's sheet and choices", async () => {
+    const sheetId = "0199e7a0-0000-7000-8000-0000000000c3";
+    const { id } = await inOrg((tx) => aBatch(tx, { startedBy: importer.userId, sourceSheetId: sheetId }));
+    await inOrg((tx) =>
+      decideLeadImport(tx, importer, { importId: id, addBlocked: false, addAlreadyImported: false, addInCrm: true }),
+    );
+    const detail = await inOrg((tx) => importDetail(tx, importer, "leads", id));
+    expect(detail).toMatchObject({
+      sourceSheet: { sheetId },
+      choices: { addBlocked: false, addAlreadyImported: false, addInCrm: true },
+    });
+    const file = await inOrg((tx) => aBatch(tx, { startedBy: importer.userId }));
+    expect(await inOrg((tx) => importDetail(tx, importer, "leads", file.id))).toMatchObject({
+      sourceSheet: null,
+      choices: { addInCrm: false },
+    });
+  });
+
+  it("starts a sheet's import from its rows' bytes once, however often asked, for the worker to read", async () => {
+    const importId = "0199e7a0-0000-7000-8000-0000000000c4";
+    const sourceSheetId = "0199e7a0-0000-7000-8000-0000000000c5";
+    const now = new Date("2026-10-22T08:00:00Z");
+    const input = {
+      importId,
+      organizationId,
+      startedBy: importer.userId,
+      impersonatedBy: null,
+      fileName: "Goa Diwali campaign.csv",
+      bytes: bytes("Name,Phone\nAsha,98765 43210\n"),
+      sourceSheetId,
+    };
+    await expect(startImportFromBytes(test.db, test.files, input, now)).resolves.toEqual({ importId });
+    await expect(startImportFromBytes(test.db, test.files, input, now)).resolves.toEqual({ importId });
+    expect(await batchOf(importId)).toMatchObject({
+      kind: "leads",
+      status: "reading",
+      fileName: "Goa Diwali campaign.csv",
+      fileKind: "csv",
+      sourceSheetId,
+      addInCrm: false,
+      keepUntil: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+    });
+    const uploaded = await eventsOf(test, organizationId, ["import.uploaded"]);
+    expect(uploaded.filter(([, payload]) => JSON.stringify(payload).includes(importId))).toEqual([
+      ["import.uploaded", { importId }],
+    ]);
+    const files = await test.files.list(systemActor(organizationId), {
+      recordType: "import_batch",
+      recordId: importId,
+    });
+    expect(files).toEqual([expect.objectContaining({ contentType: "text/csv", sizeBytes: input.bytes.byteLength })]);
+    expect((await batchOf(importId)).fileAttachmentId).toBe(files[0]?.id);
   });
 });

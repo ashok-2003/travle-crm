@@ -19,7 +19,7 @@ import {
   toSummary,
 } from "./attachment-row.js";
 import type { FilesDependencies, GeneratedFile } from "./dependencies.js";
-import { allowedContentTypes, isSystemOwnedRecordType } from "./record-types.js";
+import { allowedContentTypes, isSystemOwnedRecordType, maxUploadBytes } from "./record-types.js";
 
 /**
  * Refuses a file whose type its record doesn't take: an import's file is CSV or .xlsx, and those two go nowhere else
@@ -64,6 +64,9 @@ export async function requestUpload(
     throw new DomainError("FORBIDDEN", "SYSTEM_OWNED_FILE", "Only the system stores files of this record");
   }
   assertTypeAllowed(input.recordType, input.contentType);
+  if (input.sizeBytes > maxUploadBytes(input.recordType)) {
+    throw new DomainError("VALIDATION", "IMPORT_FILE_TOO_LARGE", "An import's file is at most 10 MB");
+  }
   const limit = storageLimitBytes ? await storageLimitBytes(actor.organizationId) : null;
   // A pending upload counts at once, so a burst of uploads can't overshoot the limit by much. Two requests at the
   // same moment may both pass: the limit is a plan's, not a safety rule.

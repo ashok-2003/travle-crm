@@ -1,5 +1,6 @@
-// Isolation fixtures for the imports module: a batch, a column, a value match, a row and a remembered header match.
-// The runtime role deletes rows and value matches when a check runs again, never batches, columns or header matches.
+// Isolation fixtures for the imports module: a batch, a column, a value match, a row, a remembered header match and a
+// stop request. The runtime role deletes rows and value matches when a check runs again, never batches, columns or
+// header matches, and only adds stop requests.
 import { randomUUID } from "node:crypto";
 import type { OrgTx } from "../../src/for-org.js";
 import type { OrgTableFixtures } from "../org-table-fixture.js";
@@ -36,5 +37,9 @@ export const fixtures: OrgTableFixtures = {
     create: (tx) =>
       tx.importHeaderMatch.create({ data: { kind: "leads", headerKey: `isolation${randomUUID()}`, field: "name" } }),
     undeletable: true,
+  },
+  import_stop_request: {
+    create: async (tx) => tx.importStopRequest.create({ data: { batchId: (await aBatch(tx)).id } }),
+    appendOnly: true,
   },
 };

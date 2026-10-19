@@ -45,8 +45,11 @@ async function automaticTargets(
     }
     case "role": {
       const found = await identity.matchRoles(organizationId, values);
+      // An import never gives the Owner role (B45): an Owner value is never matched to it automatically (M5).
       return new Map(
-        [...found].map(([value, match]) => [value, { target: match.roleKey, matchedBy: match.matchedBy }]),
+        [...found]
+          .filter(([, match]) => !match.isOwner)
+          .map(([value, match]) => [value, { target: match.roleKey, matchedBy: match.matchedBy }]),
       );
     }
     case "stage":

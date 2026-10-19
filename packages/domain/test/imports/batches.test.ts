@@ -9,6 +9,8 @@ import {
   encodeRowReason,
   findImport,
   importerAccess,
+  isAnyImportAdding,
+  jobMemberAccess,
   recentImports,
 } from "../../src/imports/index.js";
 import type { MemberAccess } from "../../src/identity/index.js";
@@ -53,6 +55,20 @@ describe("an import's batch", () => {
   });
 
   const inOrg = <T>(work: (tx: OrgTx) => Promise<T>) => test.db.forOrg(organizationId, work);
+
+  it("reads a sheet's import with its connection and in-CRM choice, and a file's as before", async () => {
+    const sheetId = "0199e7a0-0000-7000-8000-0000000000c2";
+    const fromSheet = await inOrg((tx) => aBatch(tx, { startedBy: importer.userId, sourceSheetId: sheetId }));
+    await expect(inOrg((tx) => findImport(tx, importer, "leads", fromSheet.id))).resolves.toMatchObject({
+      sourceSheetId: sheetId,
+      addInCrm: false,
+    });
+    const file = await inOrg((tx) => aBatch(tx, { startedBy: importer.userId }));
+    await expect(inOrg((tx) => findImport(tx, importer, "leads", file.id))).resolves.toMatchObject({
+      sourceSheetId: null,
+      addInCrm: false,
+    });
+  });
 
   it("answers NOT_FOUND for another person's import, another kind's, or another organization's", async () => {
     const { id } = await inOrg((tx) => aBatch(tx, { startedBy: importer.userId }));
@@ -126,6 +142,34 @@ describe("an import's batch", () => {
     expect(await importerAccess(jobWith(importer), impersonated, ["leads:create"])).toEqual({
       access: { ...importer, source: "impersonation", impersonatedBy: supportUserId },
     });
+  });
+
+  it("resolves any member's access for a job afresh, as it does an importer's", async () => {
+    const who = { organizationId, userId: importer.userId, impersonatedBy: null };
+    const required = ["leads:create", "leads:assign"] as const;
+    expect(await jobMemberAccess(jobWith(null), who, required)).toEqual({ failure: "no_longer_a_member" });
+    const sales = memberOf(organizationId, "sales", { userId: importer.userId });
+    expect(await jobMemberAccess(jobWith(sales), who, required)).toEqual({ failure: "lost_permission" });
+    expect(await jobMemberAccess(jobWith(importer, entitlements("read_only")), who, required)).toEqual({
+      failure: "organization_cannot_change",
+    });
+    const support = "0199e7a0-0000-7000-8000-0000000000d9";
+    const granted = await jobMemberAccess(jobWith(importer), { ...who, impersonatedBy: support }, required);
+    expect(granted).toMatchObject({
+      access: { userId: importer.userId, source: "impersonation", impersonatedBy: support },
+    });
+  });
+
+  it("says whether any import of the agency is adding, whoever started it", async () => {
+    const agency = await anAgency(test, "Adding agency");
+    const inAgency = <T>(work: (tx: OrgTx) => Promise<T>) => test.db.forOrg(agency, work);
+    await inAgency((tx) => aBatch(tx, { startedBy: memberOf(agency).userId, status: "checked" }));
+    expect(await inAgency((tx) => isAnyImportAdding(tx))).toBe(false);
+    // Another agency's adding import is no business of this one.
+    await inOrg((tx) => aBatch(tx, { startedBy: importer.userId, status: "adding" }));
+    expect(await inAgency((tx) => isAnyImportAdding(tx))).toBe(false);
+    await inAgency((tx) => aBatch(tx, { startedBy: memberOf(agency).userId, status: "adding", kind: "staff" }));
+    expect(await inAgency((tx) => isAnyImportAdding(tx))).toBe(true);
   });
 
   it("writes a row's reasons as text and reads them back", () => {
