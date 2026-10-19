@@ -1,5 +1,5 @@
-// Release 2's routers are served from Part 0 on, each at its one place, empty until its feature fills it: a feature
-// then edits only its own router's file (bulk plan, D1).
+// Release 2's routers are served from Part 0 on, each at its one place: a feature then edits only its own router's file
+// (bulk plan, D1). Each feature's own test says which procedures its router holds.
 import { describe, expect, it } from "vitest";
 import { appRouter } from "../src/routers/app-router.js";
 
@@ -7,13 +7,9 @@ import { appRouter } from "../src/routers/app-router.js";
 const record = (appRouter as unknown as { _def: { record: Record<string, Record<string, unknown>> } })._def.record;
 
 describe("the bulk routers", () => {
-  it("serves leadImports, staffImports and staffExports, empty until their features", () => {
-    for (const name of ["leadImports", "staffImports", "staffExports"]) {
-      expect(record[name], name).toEqual({});
+  it("serves leadImports, leadExports, staffImports and staffExports", () => {
+    for (const name of ["leadImports", "leadExports", "staffImports", "staffExports"]) {
+      expect(record[name], name).toBeDefined();
     }
-  });
-
-  it("serves leadExports with its three procedures", () => {
-    expect(Object.keys(record.leadExports ?? {}).sort()).toEqual(["downloadLink", "get", "start"]);
   });
 });
