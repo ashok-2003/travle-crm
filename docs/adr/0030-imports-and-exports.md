@@ -29,8 +29,9 @@ staff export; spec `docs/superpowers/specs/2026-10-19-bulk-in-and-out-design.md`
   the fast first refusal, not the only one: the unpack, the first sheet's lookup, the sizing and read-excel-file all
   run in a `worker_threads` thread with a 128 MB heap, a 16 MB young generation, a 4 MB stack and a minute. Running
   out of any of them is `too_large_unpacked` ("too large once opened", whose advice to save a smaller copy or a CSV
-  holds); a thread that can't run is our error, named by its code, and the worker reads a one-cell workbook this way
-  before it starts, so a deploy without the thread's module refuses to start. The largest file the limits take
+  holds); a thread that throws or ends without an answer read a damaged file, `not_a_spreadsheet`, never a job
+  retried (X9). A thread whose module can't be found is our error, named by its code, and the worker reads a one-cell
+  workbook this way before it starts, so a deploy without the thread's module refuses to start. The largest file the limits take
   (10,000 rows of 50 columns) reads in about 1.5 seconds on a laptop, so ten times that or more on the pilot's tenth
   of a CPU: the round's suggested 20 seconds would refuse it there, hence a minute. The bytes are transferred in, and
   only the bounded rows come back. The api's bundle carries the thread as an entry of its own, `xlsx-thread.mjs`.
@@ -46,8 +47,8 @@ staff export; spec `docs/superpowers/specs/2026-10-19-bulk-in-and-out-design.md`
 
 - The browser sends the file straight to storage (a presigned upload of the files module, ADR 0011) as an attachment
   of the import (`import_batch`), which takes the two spreadsheet types alone, at most 10 MB. The api never opens it.
-- The worker reads it when `import.uploaded` arrives, in its own memory (a 10 MB file, under 20 MB parsed), and reads
-  it again from storage at every later step. Only a column's samples and listed values and a not-added row's examples
+- The worker reads it when `import.uploaded` arrives, an .xlsx in a thread of its own (one file at a time, see
+  Consequences), and reads it again from storage at every later step. Only a column's samples and listed values and a not-added row's examples
   are stored, never the file's rows.
 - One reader serves the preview and the add; a zip bomb hurts a job, never a phone or the api; the web app carries no
   spreadsheet library.
@@ -124,7 +125,10 @@ may still export).
 ## Consequences
 
 - Five new packages, pinned and covered by `pnpm audit`.
-- The worker holds an import's file and its parsed rows in memory (under 20 MB), and an export streams in pages of
+- The worker reads an import's file in its .xlsx thread, and the worst file within the limits peaks at about 344 MB
+  resident in one process (the re-review's measure; the thread's heap is capped at 128 MB, the inflated parts at
+  50 MB). So a worker reads one file at a time: every listener's queue runs one job at a time (`{ concurrency: 1 }`
+  in `startWorker`, pinned by a test, X10), and more files at once take more workers. An export streams in pages of
   1,000 (resident memory under 200 MB). No new environment variable.
 - The console must keep running for the sweep, as it already must for the nightly jobs (`docs/deploy-checklist.md`).
 - Seven new organization tables (`import_batch`, `import_column`, `import_value_match`, `import_row`,

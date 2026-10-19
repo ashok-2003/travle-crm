@@ -1,7 +1,8 @@
 // Reads an .xlsx in a thread of its own (D1, ADR 0030), so no file can take down the worker every agency shares: the
 // sizing refuses what it foresees fast, and whatever it doesn't foresee runs out this thread's heap (128 MB), stack or
-// time (a minute) alone. Either is "too large once opened"; a thread that can't run at all is our error, named by its
-// code alone (a job's error is shown to platform staff, and an error's message may quote the file).
+// time (a minute) alone. Either is "too large once opened"; a thread that throws or ends without an answer read a
+// damaged file (X9), which a retry would only read again. One whose module can't be found is our deploy's error,
+// named by its code alone (a job's error is shown to platform staff), and the worker refuses to start on it.
 import { Worker } from "node:worker_threads";
 import { type ReadLimits, type ReadSheet, SpreadsheetUnreadableError } from "./spreadsheets.js";
 import type { XlsxThreadAnswer, XlsxThreadInput } from "./xlsx-thread-messages.js";
@@ -30,6 +31,9 @@ const resourceLimits = { maxOldGenerationSizeMb: 128, maxYoungGenerationSizeMb: 
 const codeOf = (error: unknown) =>
   error instanceof Error && "code" in error && typeof error.code === "string" ? error.code : "unknown";
 
+/** The thread's module isn't where it should be: no file's doing. */
+const missingModule = new Set(["MODULE_NOT_FOUND", "ERR_MODULE_NOT_FOUND"]);
+
 export function readXlsxInThread(
   bytes: Uint8Array,
   limits: ReadLimits,
@@ -52,6 +56,9 @@ export function readXlsxInThread(
     const tooLarge = () => {
       reject(new SpreadsheetUnreadableError("too_large_unpacked"));
     };
+    const damaged = () => {
+      reject(new SpreadsheetUnreadableError("not_a_spreadsheet"));
+    };
     const timer = setTimeout(() => {
       settle(tooLarge);
     }, options.timeoutMs);
@@ -65,13 +72,12 @@ export function readXlsxInThread(
       settle(() => {
         const code = codeOf(error);
         if (code === "ERR_WORKER_OUT_OF_MEMORY") tooLarge();
-        else reject(new Error(`The .xlsx reader's thread failed: ${code}`));
+        else if (missingModule.has(code)) reject(new Error(`The .xlsx reader's thread failed: ${code}`));
+        else damaged();
       });
     });
-    worker.on("exit", (exitCode) => {
-      settle(() => {
-        reject(new Error(`The .xlsx reader's thread ended without an answer: ${String(exitCode)}`));
-      });
+    worker.on("exit", () => {
+      settle(damaged);
     });
   });
 }

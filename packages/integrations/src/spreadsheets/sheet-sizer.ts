@@ -1,8 +1,8 @@
 // Sizes a sheet's part as read-excel-file will read it (B4, D1), while it inflates: saxen from npm, of which the reader
 // vendors a copy, is fed the XML a piece at a time and counts the rows, the furthest row number and the furthest column holding a cell
 // that isn't self-closing, whatever the quoting, prefixes, comments, CDATA or entities. Every number a row or cell
-// could be read as counts, and rows without one follow on. Elements nested past a hundred deep are refused. The first
-// limit passed stops the parse.
+// could be read as counts, and rows without one follow on. Elements nested past a hundred deep are refused, and so are
+// more elements than a part may hold (the workbook's own two parts, X8). The first limit passed stops the parse.
 import { Parser } from "saxen";
 import type { UnreadableReason } from "./spreadsheets.js";
 import { cellAddressOf, isNamed } from "./xml-elements.js";
@@ -38,13 +38,14 @@ function valuesOf(attributes: Record<string, string>, decode: (text: string) => 
   });
 }
 
-export function sheetSizer(limits: { maxRowNumber: number; maxColumn: number }) {
+export function sheetSizer(limits: { maxRowNumber: number; maxColumn: number; maxElements?: number | undefined }) {
   const size: SheetPartSize = { rows: 0, lastRowNumber: 0, lastColumn: 0, refusal: null };
   const parser = new Parser();
   const decoder = new TextDecoder();
   let pending = "";
   let quiet = 0;
   let depth = 0;
+  let elements = 0;
   const refuse = (reason: UnreadableReason) => {
     size.refusal ??= reason;
     parser.stop();
@@ -62,7 +63,8 @@ export function sheetSizer(limits: { maxRowNumber: number; maxColumn: number }) 
     heard();
     // A self-closing element closes too (closeTag), so it never adds to the depth.
     depth += 1;
-    if (depth > MAX_DEPTH) {
+    elements += 1;
+    if (depth > MAX_DEPTH || elements > (limits.maxElements ?? Number.POSITIVE_INFINITY)) {
       refuse("not_a_spreadsheet");
       return;
     }
