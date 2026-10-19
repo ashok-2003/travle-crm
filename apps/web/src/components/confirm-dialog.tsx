@@ -2,8 +2,9 @@
 
 // Asking once more before something that can't be taken back (DESIGN.md section 6): what happens, anything more the
 // person must do first (children: say, the code typed to confirm, with confirmDisabled until it matches), a refusal's
-// sentence if the api gave one, then Cancel and the action. While its request is out the dialog stays open: Cancel and
-// the action are off and Escape does nothing, so the answer is always seen.
+// sentence if the api gave one, then Cancel and the action: destructive, unless the section says the action takes
+// nothing away ("Add 12 people?", W13). While its request is out the dialog stays open: Cancel and the action are off
+// and Escape does nothing, so the answer is always seen.
 //
 // The one way it closes on success (Ruling P): the section that opens it owns the request, and closes it in that
 // mutation's own options, the hook's useMutation onSuccess (as useRemoveLogo(onRemoved) does), never in mutate()'s
@@ -44,6 +45,7 @@ export function ConfirmDialog({
   request,
   onConfirm,
   confirmDisabled = false,
+  destructive = true,
   refusal,
   returnFocusTo,
   children,
@@ -58,6 +60,8 @@ export function ConfirmDialog({
   onConfirm: () => void;
   /** The action waits for something the children ask, such as the typed code matching. */
   confirmDisabled?: boolean;
+  /** The action takes something away (the default), so its button is the destructive one. */
+  destructive?: boolean | undefined;
   /** The refusal's sentence where the api's own isn't the one to show; by default, the api's. */
   refusal?: ((error: unknown) => string) | undefined;
   /** The button that opened it, which takes the focus back when it closes. */
@@ -91,7 +95,7 @@ export function ConfirmDialog({
         <AlertDialogFooter>
           <AlertDialogCancel disabled={request.isPending}>{tCommon("cancel")}</AlertDialogCancel>
           <AlertDialogAction
-            variant="destructive"
+            variant={destructive ? "destructive" : "default"}
             disabled={confirmDisabled || request.isPending}
             onClick={(event) => {
               // Open until the api answers, so a refusal shows here and the action can't be sent twice.
