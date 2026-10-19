@@ -229,14 +229,48 @@ describe("beginSheet", () => {
         await begin(agency, id);
       })(),
     ];
-    for (const failure of failures) {
-      const error = (await failure.then(
-        () => null,
-        (caught: unknown) => caught,
-      )) as Error;
+    for (const outcome of await Promise.allSettled(failures)) {
+      const error = (outcome.status === "rejected" ? outcome.reason : null) as Error;
       for (const secret of [secretTitle, id, "docs.google.com", "Rahul", test.accountEmail, agency]) {
         expect(error.message).not.toContain(secret);
       }
+    }
+  });
+
+  it("opens a sheet shared with any of the service accounts, and keeps the one that opened it", async () => {
+    const two = createTestSheets({ accounts: 2 });
+    try {
+      const agency = await anAgency(two);
+      for (const [shareWith, expected] of [
+        [1, 1],
+        [0, 0],
+      ] as const) {
+        const id = aGoogleSheet(two, { id: aSpreadsheetId() }, false);
+        two.google.share(id, two.google.accounts()[shareWith]?.email ?? "");
+        const { sheetId } = await beginSheet(
+          two.db,
+          two.dependencies,
+          memberOf(agency),
+          { spreadsheetId: id, gid: null },
+          now,
+        );
+        const stored = await two.db.forOrg(agency, (tx) =>
+          tx.sheetConnection.findUniqueOrThrow({ where: { id: sheetId } }),
+        );
+        expect(stored.serviceAccountIndex).toBe(expected);
+      }
+      // Shared with neither: the one refusal.
+      const neither = aGoogleSheet(two, { id: aSpreadsheetId() }, false);
+      const refusal = beginSheet(
+        two.db,
+        two.dependencies,
+        memberOf(agency),
+        { spreadsheetId: neither, gid: null },
+        now,
+      );
+      expect(await reasonOf(refusal)).toBe("SHEET_NOT_SHARED");
+    } finally {
+      await two.close();
     }
   });
 });

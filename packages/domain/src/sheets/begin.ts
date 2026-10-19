@@ -2,6 +2,7 @@
 // on the spreadsheet is taken and a draft connection is made under the agency's limit, with the tab's headers as its
 // columns. Each way it can fail has its own reason.
 import { type Database, isUniqueViolation } from "@travel-crm/db";
+import { GoogleSheetsError, type GoogleSheets } from "@travel-crm/integrations/google-sheets";
 import { isOnDemoPlan } from "../subscriptions/index.js";
 import type { ParsedSheetLink } from "@travel-crm/contracts/sheets";
 import type { MemberAccess } from "../identity/index.js";
@@ -14,6 +15,32 @@ import { maxSheetColumns, sheetLimitFor } from "./limits.js";
 import { releaseClaimIfUnused, takeSpreadsheetClaim } from "./claim.js";
 
 const empty = () => new DomainError("VALIDATION", "SHEET_EMPTY", "The first row of this tab is empty");
+
+/**
+ * Opens the sheet with the account its id hashes to, then with the others if that one isn't shared with it: the agency
+ * shared it with an address we showed, and with more than one account any of them may be the one it chose.
+ */
+async function describeOnAnyAccount(google: GoogleSheets, sheetId: string, input: ParsedSheetLink) {
+  const count = Math.max(google.accounts().length, 1);
+  const first = accountIndexFor(sheetId, count);
+  let refused: unknown = null;
+  for (let tried = 0; tried < count; tried += 1) {
+    const serviceAccountIndex = (first + tried) % count;
+    try {
+      const description = await google.describe(
+        serviceAccountIndex,
+        input.spreadsheetId,
+        input.gid === null ? {} : { tabGid: input.gid },
+      );
+      return { description, serviceAccountIndex };
+    } catch (error) {
+      refused = refusalFor(error);
+      const notShared = error instanceof GoogleSheetsError && ["not_shared", "not_found"].includes(error.reason);
+      if (!notShared) throw refused;
+    }
+  }
+  throw refused;
+}
 
 /** A new draft's tab, title and headers, as Google described the sheet. */
 export async function beginSheet(
@@ -30,13 +57,8 @@ export async function beginSheet(
     throw new DomainError("CONFLICT", "SHEETS_NOT_IN_DEMO", "Google Sheets is not available in the demo");
   }
   const sheetId = newUuidV7();
-  const serviceAccountIndex = accountIndexFor(sheetId, Math.max(google.accounts().length, 1));
   // Outside any transaction: a request to Google must not hold a database connection.
-  const description = await google
-    .describe(serviceAccountIndex, input.spreadsheetId, input.gid === null ? {} : { tabGid: input.gid })
-    .catch((error: unknown) => {
-      throw refusalFor(error);
-    });
+  const { description, serviceAccountIndex } = await describeOnAnyAccount(google, sheetId, input);
   const tab = description.chosenTab;
   if (tab === null || description.header.every((cell) => cell.trim() === "")) throw empty();
 
