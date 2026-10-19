@@ -122,15 +122,22 @@ export async function resetStaffPassword(
   hashPassword: PasswordHasher,
   actor: MemberAccess,
   input: ResetStaffPasswordInput,
-): Promise<void> {
+  options: { onlyWhileTemporary?: boolean } = {},
+): Promise<{ reset: boolean }> {
   const passwordHash = await hashPassword(input.temporaryPassword);
-  await database.forOrg(actor.organizationId, async (tx) => {
+  return database.forOrg(actor.organizationId, async (tx) => {
     const target = await findMember(tx, actor, input.memberId);
     const targetRole = await findCurrentRole(tx, target.role);
     assertMayManageMember(actor, { userId: target.userId, role: targetRole });
     // Locked in the same order as the other staff changes, so a promotion or removal landing now can't slip past.
     if (targetRole.isOwner) await lockOwners(tx, actor, target.id, targetRole.key);
     await lockMember(tx, target);
+    if (options.onlyWhileTemporary === true) {
+      // The user's row is held, so a password the person is choosing now is either theirs first (and kept) or ours.
+      await tx.$queryRaw`SELECT id FROM "user" WHERE id = ${target.userId}::uuid FOR UPDATE`;
+      const user = await tx.user.findUniqueOrThrow({ where: { id: target.userId } });
+      if (!user.mustChangePassword) return { reset: false };
+    }
     const { count } = await tx.account.updateMany({
       where: { userId: target.userId, providerId: "credential" },
       data: { password: passwordHash },
@@ -140,6 +147,7 @@ export async function resetStaffPassword(
     await tx.user.update({ where: { id: target.userId }, data: { mustChangePassword: true } });
     await tx.session.deleteMany({ where: { userId: target.userId } });
     await recordAudit(tx, actor, { action: "staff.password-reset", entityType: "member", entityId: target.id });
+    return { reset: true };
   });
 }
 

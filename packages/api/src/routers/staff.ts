@@ -47,6 +47,13 @@ export const staffRouter = router({
       await ctx.identity.staff.resetPassword(ctx.member, input);
     }),
 
+  /** For a lost sheet (B50): a new temporary password only while the person still has the old one; a changed person is skipped. */
+  resetTemporaryPassword: staffManager
+    .meta({ lifecycle: "revoke" })
+    .input(resetStaffPasswordInput)
+    .output(z.object({ reset: z.boolean() }))
+    .mutation(({ ctx, input }) => ctx.identity.staff.resetTemporaryPassword(ctx.member, input)),
+
   /** Removes the person: their sessions end and their email and username are released (ADR 0007). */
   remove: staffManager
     .meta({ lifecycle: "revoke" })

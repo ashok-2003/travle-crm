@@ -121,6 +121,7 @@ export function fakeIdentity(
       exportRows: unexpected,
       updateRole: unexpected,
       resetPassword: unexpected,
+      resetTemporaryPassword: unexpected,
       remove: unexpected,
     },
   };

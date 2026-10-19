@@ -142,6 +142,8 @@ export interface Identity {
     changePhone(actor: MemberAccess, input: ChangeStaffPhoneInput): Promise<StaffMember>;
     updateRole(actor: MemberAccess, input: UpdateStaffRoleInput): Promise<StaffMember>;
     resetPassword(actor: MemberAccess, input: ResetStaffPasswordInput): Promise<void>;
+    /** Like resetPassword, but only while the person still has the temporary one (B50): a changed person is skipped. */
+    resetTemporaryPassword(actor: MemberAccess, input: ResetStaffPasswordInput): Promise<{ reset: boolean }>;
     remove(actor: MemberAccess, input: RemoveStaffInput): Promise<void>;
   };
   /** The actor's organization's roles. Changing them needs roles:manage, which the API checks. */
@@ -197,7 +199,11 @@ export function createIdentity(options: IdentityOptions): Identity {
         addImportedStaff(database, options.seatLimit ?? noSeatLimit, actor, rows, importId, afterwards),
       changePhone: (actor, input) => changeStaffPhone(database, actor, input),
       updateRole: (actor, input) => updateStaffRole(database, actor, input),
-      resetPassword: (actor, input) => resetStaffPassword(database, hashPassword, actor, input),
+      resetPassword: async (actor, input) => {
+        await resetStaffPassword(database, hashPassword, actor, input);
+      },
+      resetTemporaryPassword: (actor, input) =>
+        resetStaffPassword(database, hashPassword, actor, input, { onlyWhileTemporary: true }),
       remove: (actor, input) => removeStaff(database, actor, input),
     },
     roles: {

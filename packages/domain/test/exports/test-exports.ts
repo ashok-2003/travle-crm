@@ -69,6 +69,7 @@ export function fakeExportIdentity(access: MemberAccess | null): ExportIdentity 
       exportRows: unexpected,
       updateRole: unexpected,
       resetPassword: unexpected,
+      resetTemporaryPassword: unexpected,
       remove: unexpected,
     },
   };
