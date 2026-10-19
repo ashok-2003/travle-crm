@@ -10,9 +10,13 @@ import { useNow } from "@/lib/use-now";
 /** The pace isn't worth telling before this much of it is known. */
 const PACE_KNOWN_MS = 5000;
 
-/** What's left at the pace so far, in whole minutes, or null while too little is known. */
+/**
+ * What's left at the pace so far, in whole minutes, or null while too little is known or nothing is left. The pace is
+ * measured from the add's request (addRequestedAt), the one time the import keeps: its first row's time isn't, and
+ * the gap is the queue's few seconds (W6).
+ */
 function minutesLeft(done: number, total: number, since: string | null, now: number): number | null {
-  if (since === null || done === 0) return null;
+  if (since === null || done === 0 || done >= total) return null;
   const elapsed = now - Date.parse(since);
   if (elapsed < PACE_KNOWN_MS) return null;
   const leftMs = ((total - done) * elapsed) / done;

@@ -42,6 +42,14 @@ describe("an import's progress", () => {
     expect(screen.queryByText(/left$/)).toBeNull();
   });
 
+  it("says nothing of time left once every row is done (W6)", () => {
+    renderAs(
+      <ImportProgress done={1157} total={1157} since={new Date(Date.now() - 60_000).toISOString()} label="Adding" />,
+    );
+    expect(screen.getByText("1,157 of 1,157 rows")).toBeVisible();
+    expect(screen.queryByText(/left$/)).toBeNull();
+  });
+
   it("shows counts as labelled values, the numbers in mono", () => {
     renderAs(
       <ImportCounts
