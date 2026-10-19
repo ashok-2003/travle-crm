@@ -81,3 +81,25 @@ export function leadCountsQuery(filter: LeadCountsFilter): Sql {
     WHERE ${filterConditions(filter)} AND ${OPEN_STAGES}
     GROUP BY lead.stage`;
 }
+
+/** The leads a list holds across all its pages (B41's count): the same conditions as leadListQuery, on live people. */
+export function exportCountQuery(filter: LeadCountsFilter & { stages: readonly LeadStage[] }): Sql {
+  return sql`
+    SELECT count(*)::int AS n
+    FROM lead ${PERSON}
+    WHERE ${filterConditions(filter)} ${stageCondition(filter.stages)}`;
+}
+
+/**
+ * What an export writes that the list's page doesn't select, for the page's leads: by id under the organization's row-level
+ * security, so the (organization_id, id) key serves it, in no order (the caller keeps the page's).
+ */
+export function leadExportRowsQuery(leadIds: readonly string[]): Sql {
+  return sql`
+    SELECT lead.id, person.email, person.instagram_handle AS "instagramHandle",
+      lead.children_ages AS "childrenAges", lead.departure_city AS "departureCity", lead.trip_type AS "tripType",
+      lead.hotel_category AS "hotelCategory", lead.food, lead.room_type AS "roomType",
+      lead.source_detail AS "sourceDetail"
+    FROM lead ${PERSON}
+    WHERE lead.id = ANY(${[...leadIds]}::uuid[])`;
+}

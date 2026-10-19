@@ -1,5 +1,29 @@
 // A lead export's columns (spec B38): the header row, in order. The import's guesses know every one, so an export
-// imports back. Lead export adds its own shapes here later.
+// imports back. And what is asked for and followed: the Leads list's filter as the person saw it (B37), the format,
+// and the export's page, which names the owner and the destination the filter holds.
+import { z } from "zod";
+import { exportDetail, exportFormat } from "../exports/data-export.js";
+import { listLeadsInput } from "./leads.js";
+import { peopleNames } from "./fields.js";
+
+/** At most 1,00,000 leads in one file (B37): more stops the export. */
+export const MAX_LEAD_EXPORT_ROWS = 100_000;
+
+/** The list as the person sees it, without its paging: the export reads every page. */
+export const leadExportFilter = listLeadsInput.omit({ before: true, limit: true });
+export type LeadExportFilter = z.infer<typeof leadExportFilter>;
+
+export const startLeadExportInput = z.strictObject({ filter: leadExportFilter, format: exportFormat });
+export type StartLeadExportInput = z.infer<typeof startLeadExportInput>;
+
+/** An export's page: its state, and the filter it was asked for (the search is emptied once the file is made). */
+export const leadExportDetail = exportDetail.extend({
+  filter: leadExportFilter,
+  /** The owner the filter names. */
+  people: peopleNames,
+  destinationName: z.string().nullable(),
+});
+export type LeadExportDetail = z.infer<typeof leadExportDetail>;
 
 export const leadExportHeaders = [
   "Name",
