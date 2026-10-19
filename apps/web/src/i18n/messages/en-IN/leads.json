@@ -166,7 +166,8 @@
       "confirmTitle": "{leads, plural, one {Add # lead} other {Add # leads}} and {repeats, plural, one {# repeat enquiry} other {# repeat enquiries}}?",
       "confirmBody": "Imported leads can't be removed in bulk later. Rows not added come back as a file you can fix.",
       "confirmExtra": "Plus {count, plural, one {# row} other {# rows}} you chose to add anyway.",
-      "confirmAction": "Add the rows"
+      "confirmAction": "Add the rows",
+      "sameAsEarlier": "Same as an earlier row"
     },
     "adding": {
       "title": "Adding leads",
@@ -519,7 +520,7 @@
         "website": "Lead added from the website",
         "other": "Lead added",
         "google_sheet": "Lead added from a Google Sheet",
-        "bulk_upload": "Lead added from a bulk upload",
+        "bulk_upload": "Lead added from an import",
         "web_form": "Lead added from the website form",
         "integration": "Lead added from another tool",
         "meta_lead_ad": "Lead added from a Meta lead ad",

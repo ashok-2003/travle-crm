@@ -71,6 +71,8 @@ describe("CheckStep", () => {
     expect(screen.getByText("Row 87")).toBeVisible();
     expect(screen.getByText("and 69 more")).toBeVisible();
     expect(lastInputTo("leadImports.rows")).toEqual({ importId, plan: "not_added", reason: "no_contact", limit: 5 });
+    // A group of rows that repeat an earlier one names no row.
+    expect(screen.getByRole("button", { name: /Same as an earlier row/ })).toBeVisible();
     expect(screen.getByText(words.fixThem)).toBeVisible();
     expect(
       screen.getByText("Gulmarg, Pahalgam, Coorg, Spiti and Rann of Kutch will be added to your destinations."),

@@ -54,11 +54,14 @@ function Examples({ importId, reason, rows }: { importId: string; reason: RowRea
 function ReasonLine({ importId, reason, rows }: { importId: string; reason: RowReasonCode; rows: number }) {
   const [open, setOpen] = useState(false);
   const reasonText = useRowReasonText();
+  const t = useTranslations("leads.import.check");
+  // "Same as row 12" names a row; the group of them says "an earlier row".
+  const words = reason === "same_as_row" ? t("sameAsEarlier") : reasonText({ code: reason });
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger asChild>
         <Button variant="ghost" className="h-auto min-h-11 w-full justify-between whitespace-normal text-left">
-          <span className="wrap-anywhere">{reasonText({ code: reason })}</span>
+          <span className="wrap-anywhere">{words}</span>
           <span className="flex items-center gap-2">
             <span className="numbers">{formatCount(rows)}</span>
             <ChevronDownIcon
