@@ -114,6 +114,14 @@ export async function addStaffImport(
       if (await someAdded(context, batch.id)) {
         return finishImport(context, dependencies, batch.id, { ...end, status: "done" });
       }
+      if (error instanceof DomainError && error.reason === "STAFF_CHANGED") {
+        await finishImport(context, dependencies, batch.id, {
+          ...end,
+          status: "failed",
+          failureReason: "lost_permission",
+        });
+        return;
+      }
       if (error instanceof ImportedStaffRowError) {
         await returnToPreview(context, batch.id, "row_changed", [
           { rowNumber: error.rowNumber, reason: { code: error.reason } },

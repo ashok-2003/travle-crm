@@ -136,6 +136,22 @@ describe("adding an imported team", () => {
     expect(await staffCount()).toBe(before);
   });
 
+  it("fails when the importer was demoted or removed after their access was resolved", async () => {
+    const made = await test.identity.staff.create(owner, {
+      name: "Soon demoted",
+      username: `soon-${agency.code.toLowerCase()}`,
+      roleKey: "org-admin",
+      temporaryPassword: "temporary-pass-1",
+    });
+    const stale = await memberAccessOf(test.identity, made.userId, agency.organizationId);
+    await test.identity.staff.updateRole(owner, { memberId: made.memberId, roleKey: "sales" });
+    const before = await staffCount();
+    await expect(test.identity.staff.addImported(stale, [await row(2)], importId, noLinks)).rejects.toMatchObject({
+      reason: "STAFF_CHANGED",
+    });
+    expect(await staffCount()).toBe(before);
+  });
+
   it("undoes the accounts when what the import does in the same transaction fails", async () => {
     const before = await staffCount();
     await expect(

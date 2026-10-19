@@ -10,6 +10,7 @@ import { assertMayHandleRole } from "./access-rules.js";
 import type { MemberAccess } from "./member-access.js";
 import type { FoundRole } from "./role-lookup.js";
 import { findRoleToGive } from "./role-lookup.js";
+import { staffChanged } from "./staff-locks.js";
 import { assertSeatsFree, insertStaffAccount, type AccountLookups } from "./staff-accounts.js";
 import type { SeatLimit } from "./staff.js";
 
@@ -82,6 +83,14 @@ export async function addImportedStaff(
   return database.forOrg(
     actor.organizationId,
     async (tx) => {
+      // The importer is held, with the role their access was resolved on, until the add ends: a demotion or removal
+      // that lands first fails the add, and one that comes after waits for it.
+      const held = await tx.$queryRaw<{ id: string }[]>`
+        SELECT id FROM member
+        WHERE user_id = ${actor.userId}::uuid AND organization_id = ${actor.organizationId}::uuid
+          AND role = ${actor.role.key} AND deleted_at IS NULL
+        FOR SHARE`;
+      if (held.length === 0) throw staffChanged();
       if (seats !== null) {
         try {
           await assertSeatsFree(tx, actor.organizationId, seats, rows.length);
