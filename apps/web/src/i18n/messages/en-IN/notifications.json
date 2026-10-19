@@ -41,6 +41,10 @@
       "importFinished": {
         "label": "An import of yours ends",
         "hint": "When the rows of a file you imported have been added, or the import stopped."
+      },
+      "exportReady": {
+        "label": "An export you asked for is ready",
+        "hint": "When the file of leads or staff you asked for can be downloaded."
       }
     },
     "loading": "Loading your choices",

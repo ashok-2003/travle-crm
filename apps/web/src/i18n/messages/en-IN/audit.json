@@ -119,6 +119,10 @@
       "cancelled": "Cancelled an import",
       "finished": "Finished adding the rows of an import",
       "report-downloaded": "Downloaded an import's rows not added"
+    },
+    "export": {
+      "made": "Made an export file",
+      "downloaded": "Downloaded an export file"
     }
   },
   "fields": {
@@ -160,6 +164,7 @@
     "person": "A customer",
     "task": "A follow-up or task",
     "destination": "A destination",
-    "import_batch": "An import"
+    "import_batch": "An import",
+    "data_export": "An export"
   }
 }
