@@ -62,6 +62,7 @@ export function ExportDialog({
   const status = exportId === null ? null : shown?.status;
   const choosing = status === null || status === "failed" || status === "expired";
   const file = status === "ready" ? (shown?.file ?? null) : null;
+  const problem = choosing ? failure(shown) : null;
   const hint = write.hint ? `${id}-hint` : undefined;
   // Closed while the file is made, it shows its progress again on opening; closed after, it starts afresh.
   const changeOpen = (next: boolean) => {
@@ -115,10 +116,10 @@ export function ExportDialog({
       footer={footer}
     >
       <div className="flex flex-col gap-4">
-        {choosing && failure(shown) !== null && (
+        {problem !== null && (
           <Alert variant="destructive">
             <CircleAlertIcon aria-hidden="true" />
-            <AlertDescription>{failure(shown)}</AlertDescription>
+            <AlertDescription>{problem}</AlertDescription>
           </Alert>
         )}
         <Details rows={[{ label: t("dialog.holds"), value: holds }]} />
@@ -165,6 +166,7 @@ export function ExportDialog({
           <div className="flex flex-col gap-2">
             <ExportProgress detail={shown} rowsWord={rowsWord} />
             <p className="text-label text-muted-foreground">{t("dialog.closeHint")}</p>
+            <RefusalAlert error={detail.error} />
           </div>
         )}
         <WriteHint id={`${id}-hint`} hint={write.hint} />
