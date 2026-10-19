@@ -3,7 +3,7 @@
 // Lead import adds its own shapes here later.
 import { z } from "zod";
 import { recordId } from "../identity/fields.js";
-import { MAX_LISTED_VALUES } from "../imports/import-batch.js";
+import { MAX_LISTED_VALUES } from "../imports/listed-values.js";
 import { budgetBasis, leadStage, openLeadStages } from "./fields.js";
 
 /** What a column of a lead file may hold. Name and one of phone, email or Instagram are needed. */

@@ -1,7 +1,7 @@
 // A staff import's fields and its match input (spec B43): Name, Username, Email, Phone and Role, with a Role column's
 // values matched to the agency's roles, or one role for the whole file. The staff import adds its own shapes here later.
 import { z } from "zod";
-import { MAX_LISTED_VALUES } from "../imports/import-batch.js";
+import { MAX_LISTED_VALUES } from "../imports/listed-values.js";
 import { recordId, roleKey } from "./fields.js";
 
 export const staffImportFields = ["name", "username", "email", "phone", "role"] as const;

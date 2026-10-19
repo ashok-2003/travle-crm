@@ -41,8 +41,7 @@ export const waitingImportStatuses = ["uploading", "reading", "matching", "check
 export const importRowLimits: Readonly<Record<ImportKind, number>> = { leads: 10_000, staff: 500 };
 export const MAX_IMPORT_COLUMNS = 50;
 export const MAX_CELL_LENGTH = 4000;
-/** A column with at most this many different values lists them with their counts (B11). */
-export const MAX_LISTED_VALUES = 50;
+export { MAX_LISTED_VALUES } from "./listed-values.js";
 
 /** Why a file can't be read (B5): the spreadsheets port's eight. A domain test holds the two lists equal. */
 export const unreadableReasons = [
