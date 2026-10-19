@@ -170,6 +170,8 @@ model ImportRow {
   @@index([organizationId, fingerprint], map: "import_row_fingerprint", where: raw("(fingerprint IS NOT NULL)"))
   /// Erasure finds a person's rows.
   @@index([organizationId, personId], map: "import_row_person")
+  /// Erasure finds a removed member's rows (M7).
+  @@index([organizationId, memberId], map: "import_row_member", where: raw("(member_id IS NOT NULL)"))
   @@map("import_row")
 }
 

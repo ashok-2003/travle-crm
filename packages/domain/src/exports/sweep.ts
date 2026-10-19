@@ -2,11 +2,45 @@
 // its file deleted for good and is marked expired; so does one still making a day after it was asked for (its job
 // gave up); and a file stored late under an export already expired or failed goes too. The sweep lists a page of
 // them, each case on its own index, then sweeps each in its own short transaction.
-import { type OrgTx, sql } from "@travel-crm/db";
+import { type OrgTx, sql, type Sql } from "@travel-crm/db";
 import { DATA_EXPORT_RECORD_TYPE } from "../files/index.js";
 import type { SweepItem } from "../imports/index.js";
 import { EXPORT_KEPT_MS } from "./export-runner.js";
 import { expireExports } from "./withdraw.js";
+
+/**
+ * The sweep's three queries, each on its own index: ready ones past their 24 hours (data_export_due, its predicate
+ * written out so the planner sees it serves them), ones still making a day after they were asked for
+ * (data_export_making, M6), and expired or failed ones holding a late file.
+ */
+export function exportSweepQueries(
+  now: Date,
+  limit: number,
+  visited: readonly string[],
+): { ready: Sql; stuck: Sql; late: Sql } {
+  const abandoned = new Date(now.getTime() - EXPORT_KEPT_MS);
+  const unvisited = sql`NOT (e.id = ANY(${[...visited]}::uuid[]))`;
+  return {
+    ready: sql`
+      SELECT e.id, e.organization_id AS "organizationId"
+      FROM data_export e
+      WHERE e.status <> 'expired' AND e.status = 'ready' AND e.expires_at < ${now} AND ${unvisited}
+      ORDER BY e.expires_at
+      LIMIT ${limit}`,
+    stuck: sql`
+      SELECT e.id, e.organization_id AS "organizationId"
+      FROM data_export e
+      WHERE e.status = 'making' AND e.created_at < ${abandoned} AND ${unvisited}
+      ORDER BY e.created_at
+      LIMIT ${limit}`,
+    late: sql`
+      SELECT DISTINCT e.id, e.organization_id AS "organizationId"
+      FROM attachment a
+      JOIN data_export e ON e.organization_id = a.organization_id AND e.id = a.record_id
+      WHERE a.record_type = ${DATA_EXPORT_RECORD_TYPE} AND e.status IN ('expired', 'failed') AND ${unvisited}
+      LIMIT ${limit}`,
+  };
+}
 
 /** The next exports to sweep, leaving out those this run already visited. */
 export async function exportsToSweep(
@@ -15,29 +49,11 @@ export async function exportsToSweep(
   limit: number,
   visited: readonly string[],
 ): Promise<SweepItem[]> {
-  const abandoned = new Date(now.getTime() - EXPORT_KEPT_MS);
-  const unvisited = sql`NOT (e.id = ANY(${[...visited]}::uuid[]))`;
-  // On data_export_due: its predicate written out, so the planner sees the index serves it.
-  const ready = await tx.$queryRaw<SweepItem[]>`
-    SELECT e.id, e.organization_id AS "organizationId"
-    FROM data_export e
-    WHERE e.status <> 'expired' AND e.status = 'ready' AND e.expires_at < ${now} AND ${unvisited}
-    ORDER BY e.expires_at
-    LIMIT ${limit}`;
-  // On data_export_making.
-  const stuck = await tx.$queryRaw<SweepItem[]>`
-    SELECT e.id, e.organization_id AS "organizationId"
-    FROM data_export e
-    WHERE e.status = 'making' AND e.created_at < ${abandoned} AND ${unvisited}
-    ORDER BY e.created_at
-    LIMIT ${limit}`;
-  const late = await tx.$queryRaw<SweepItem[]>`
-    SELECT DISTINCT e.id, e.organization_id AS "organizationId"
-    FROM attachment a
-    JOIN data_export e ON e.organization_id = a.organization_id AND e.id = a.record_id
-    WHERE a.record_type = ${DATA_EXPORT_RECORD_TYPE} AND e.status IN ('expired', 'failed') AND ${unvisited}
-    LIMIT ${limit}`;
-  return [...ready, ...stuck, ...late];
+  const found: SweepItem[] = [];
+  for (const query of Object.values(exportSweepQueries(now, limit, visited))) {
+    found.push(...(await tx.$queryRaw<SweepItem[]>(query)));
+  }
+  return found;
 }
 
 /**
