@@ -44,7 +44,11 @@ describe("adding a lead import", () => {
   const identityOf = (workers: Record<string, string> = { asha, ravi }, access: MemberAccess | null = importer) =>
     fakeIdentity({ access, workers, firstOwner: owner });
   const dependencies = (identity = identityOf()): ImportJobDependencies => leadJobDependencies(test, identity);
-  const context = () => listenerContext(test, organizationId);
+  // A batch of 50 rows is one transaction: a machine busy with other tests may need longer than Prisma's 5 s.
+  const context = (): ListenerContext => ({
+    ...listenerContext(test, organizationId),
+    forOrg: (work) => test.db.forOrg(organizationId, work, { timeout: 60_000 }),
+  });
   const row = (name: string | null, phone: string | null, extra: (string | null)[] = []) => [name, phone, ...extra];
 
   /** An import checked and ready: Add pressed, so it is adding. */

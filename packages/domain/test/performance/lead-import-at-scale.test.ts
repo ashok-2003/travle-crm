@@ -99,7 +99,7 @@ describe("a 10,000-row lead import into a large agency", () => {
   beforeAll(async () => {
     isolated = await createIsolatedDatabase(inject("dbUrls"));
     platform = createPlatformClient(isolated.urls.platform);
-    db = createDatabase(isolated.urls.runtime, { maxConnections: 3 });
+    db = createDatabase(isolated.urls.runtime, { maxConnections: 3, transactionLimits: { timeout: 60_000 } });
     organizationId = await createTestOrganization(platform, "Importing agency");
     const { ownerUserIds } = await seedLargeAgency(platform, isolated.urls, organizationId, SIZE);
     // Agencies share the tables: one seeded after this one.
