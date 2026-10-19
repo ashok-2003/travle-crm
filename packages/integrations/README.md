@@ -61,11 +61,15 @@ A file is read only in the worker (ADR 0030), and every read is bounded before a
 - **CSV** (`read-csv.ts`): decoded as UTF-8 (with or without a byte-order mark), UTF-16 with one, or Windows-1252; the
   delimiter is the one the first record uses most; each record goes to the shaper as it is parsed, so a row past the
   limit stops the parse, and a text with a NUL byte is a binary file under a .csv name.
-- **.xlsx** (`read-xlsx.ts`, `bounded-unzip.ts`): a compound file is an old .xls, or a protected workbook when it holds
-  `EncryptedPackage`. Every XML part read-excel-file would inflate first streams through fflate's `Unzip`, 4 KB of
-  compressed bytes a push, against a 50 MB running total. The same pass measures each sheet: read-excel-file keeps an
-  array for every row number up to the last and pads each to the widest non-empty column, so a sheet whose last row
-  passes twice the row limit, or with a non-empty cell past the column limit, is refused before it runs.
+- **.xlsx** (`read-xlsx.ts`, `bounded-unzip.ts`, `sheet-sizer.ts`, `xml-elements.ts`): a compound file is an old
+  .xls, or a protected workbook when it holds `EncryptedPackage`. Every XML part read-excel-file would inflate first
+  streams through fflate's `Unzip`, 4 KB of compressed bytes a push, against a 50 MB running total. The same pass
+  sizes each part with saxen, read-excel-file's own SAX parser (pinned, D1), reading names and attributes as the
+  reader does (prefixes dropped, entities decoded, any quoting, comments, CDATA and processing instructions skipped):
+  read-excel-file keeps an array for every row number up to the last and pads each to the widest non-empty column, so
+  a sheet with more rows, or a row or cell numbered past twice the row limit, or a cell that isn't self-closing past
+  the column limit, is refused before it runs; so is markup a megabyte long with nothing finished in it. The first
+  sheet is found as the reader finds it, and a sheet or relationship whose attributes meet under one name is refused.
 - **Column names** (`sheet-shape.ts`): the first non-empty row names the columns through `nameHeaders`, exported with
   `columnLetters` so a Google Sheet's header is named the same way: a blank is "Column C", a repeat gains "(2)".
 - **Cells** (`cell-text.ts`): a whole number keeps every digit (`919876543210`, never `9.19876543210E+11`), a date cell

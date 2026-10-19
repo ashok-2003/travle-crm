@@ -1,7 +1,8 @@
-// The workbook's bounded pre-inflate (B4, D12): every XML part read-excel-file would inflate goes through fflate's Unzip
-// against a running total, before the reader sees the file. It keeps the workbook's two small parts and, for each
-// sheet, what the reader would allocate: its rows, its last row number and its last non-empty column.
+// The workbook's bounded pre-inflate (B4, D1, D12): every XML part read-excel-file would inflate goes through fflate's
+// Unzip against a running total, before the reader sees the file. It keeps the workbook's two small parts and sizes
+// every part as the reader would read it (sheet-sizer.ts), so whichever part is the first sheet is known to fit.
 import { Unzip, UnzipInflate, type UnzipFile } from "fflate";
+import { type SheetPartSize, sheetSizer } from "./sheet-sizer.js";
 import { SpreadsheetUnreadableError } from "./spreadsheets.js";
 
 /** The most XML a workbook may inflate to, all parts together. */
@@ -13,68 +14,20 @@ const PUSH_BYTES = 4096;
 /** The parts read-excel-file unpacks: the same filter, so the bound covers exactly what it will inflate. */
 const isXmlPart = (name: string) => name.endsWith(".xml") || name.endsWith(".xml.rels");
 
-/** What a sheet's part makes read-excel-file allocate: a row for every row number, a cell up to the widest. */
-export interface SheetPartSize {
-  rowElements: number;
-  lastRowNumber: number;
-  /** The last column (1-based) holding a cell that isn't self-closing, so not empty. */
-  lastColumn: number;
-}
-
 export interface UnpackedWorkbook {
   /** The text of xl/workbook.xml and xl/_rels/workbook.xml.rels, when the file has them. */
   workbook: string | null;
   workbookRelations: string | null;
+  /** Every XML part's size as the reader would read it, by the part's name. */
   sheetSizes: ReadonlyMap<string, SheetPartSize>;
-}
-
-/** A column's 1-based number from its letters: A is 1, Z 26, AA 27. */
-function columnNumber(letters: string): number {
-  let number = 0;
-  for (let index = 0; index < letters.length; index += 1) number = number * 26 + letters.charCodeAt(index) - 64;
-  return number;
-}
-
-/** Counts a sheet part's rows and cells as its XML streams past, a chunk at a time, keeping only an unfinished tag. */
-function sheetSizer() {
-  const size: SheetPartSize = { rowElements: 0, lastRowNumber: 0, lastColumn: 0 };
-  const decoder = new TextDecoder();
-  let rest = "";
-  const tag = /<(?:[\w.-]+:)?(row|c)\b([^>]*)>/g;
-  const consume = (text: string) => {
-    tag.lastIndex = 0;
-    for (let match = tag.exec(text); match !== null; match = tag.exec(text)) {
-      const attributes = match[2] ?? "";
-      if (match[1] === "row") {
-        size.rowElements += 1;
-        const number = /\br="(\d+)"/.exec(attributes)?.[1];
-        size.lastRowNumber = Math.max(size.lastRowNumber, number === undefined ? size.rowElements : Number(number));
-      } else {
-        const reference = /\br="([A-Z]{1,3})(\d+)"/.exec(attributes);
-        if (reference !== null) {
-          size.lastRowNumber = Math.max(size.lastRowNumber, Number(reference[2]));
-          if (!attributes.trimEnd().endsWith("/"))
-            size.lastColumn = Math.max(size.lastColumn, columnNumber(reference[1] ?? ""));
-        }
-      }
-    }
-    // Only a tag the chunk cut off carries over to the next one.
-    const open = text.lastIndexOf("<");
-    rest = open !== -1 && !text.includes(">", open) ? text.slice(open) : "";
-    // A tag longer than this is no spreadsheet's.
-    if (rest.length > 65_536) throw new SpreadsheetUnreadableError("not_a_spreadsheet");
-  };
-  return {
-    size,
-    push(chunk: Uint8Array, final: boolean) {
-      consume(rest + decoder.decode(chunk, { stream: !final }));
-    },
-  };
 }
 
 const keptParts = new Set(["xl/workbook.xml", "xl/_rels/workbook.xml.rels"]);
 
-export function unpackWorkbook(bytes: Uint8Array): UnpackedWorkbook {
+export function unpackWorkbook(
+  bytes: Uint8Array,
+  limits: { maxRowNumber: number; maxColumn: number },
+): UnpackedWorkbook {
   let unpacked = 0;
   // An object, not a variable: the callbacks set it, and TypeScript narrows a variable only callbacks change to null.
   const state: { failure: SpreadsheetUnreadableError | null } = { failure: null };
@@ -90,10 +43,15 @@ export function unpackWorkbook(bytes: Uint8Array): UnpackedWorkbook {
       fail(file, "not_a_spreadsheet");
       return;
     }
+    // Which copy of a part twice in the archive the reader takes is its unzipper's business: no workbook has one.
+    if (sheetSizes.has(file.name)) {
+      fail(file, "not_a_spreadsheet");
+      return;
+    }
     const keep = keptParts.has(file.name);
     const keptChunks: Uint8Array[] = [];
-    const sizer = file.name.startsWith("xl/worksheets/") ? sheetSizer() : null;
-    if (sizer !== null) sheetSizes.set(file.name, sizer.size);
+    const sizer = sheetSizer(limits);
+    sheetSizes.set(file.name, sizer.size);
     file.ondata = (error, chunk, final) => {
       if (state.failure !== null) return;
       if (error !== null) {
@@ -105,13 +63,7 @@ export function unpackWorkbook(bytes: Uint8Array): UnpackedWorkbook {
         fail(file, "too_large_unpacked");
         return;
       }
-      try {
-        sizer?.push(chunk, final);
-      } catch (caught) {
-        if (!(caught instanceof SpreadsheetUnreadableError)) throw caught;
-        fail(file, caught.reason);
-        return;
-      }
+      sizer.push(chunk, final);
       if (keep) keptChunks.push(chunk);
       if (keep && final) kept.set(file.name, Buffer.concat(keptChunks).toString("utf8"));
     };

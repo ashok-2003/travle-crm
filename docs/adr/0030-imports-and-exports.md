@@ -16,9 +16,11 @@ staff export; spec `docs/superpowers/specs/2026-10-19-bulk-in-and-out-design.md`
   date-time).
 - **The real adapter** reads CSV with `csv-parse` and writes it with `csv-stringify` (the `csv` project: maintained,
   MIT, no dependencies); reads .xlsx with `read-excel-file`, only after a bounded pre-inflate with `fflate` (at most
-  50 MB unpacked, and the sheet's rows and columns counted before it is parsed); writes .xlsx with our own small
-  streaming writer on `fflate`'s `Zip` (one sheet of values, a bold frozen header row, date styles). All four are
-  pinned exactly (`csv-parse` 7.0.3, `csv-stringify` 6.9.0, `read-excel-file` 9.3.12, `fflate` 0.8.3), and
+  50 MB unpacked, and the sheet's rows and columns counted before it is parsed, by `saxen`, the SAX parser
+  read-excel-file itself uses, so the count reads the XML exactly as the reader will: never with patterns, which a
+  `>` inside an attribute or single quotes would fool); writes .xlsx with our own small streaming writer on
+  `fflate`'s `Zip` (one sheet of values, a bold frozen header row, date styles). All five are pinned exactly
+  (`csv-parse` 7.0.3, `csv-stringify` 6.9.0, `read-excel-file` 9.3.12, `fflate` 0.8.3, `saxen` 11.2.0), and
   dependency-cruiser's `vendor-sdks-only-in-integrations` names them. **The in-memory adapter** keeps sheets as JSON
   bytes and can fail the next read with any reason.
 - **Why these:** SheetJS's npm package `xlsx` stops at 0.18.5 with published advisories, and newer versions come only
@@ -95,7 +97,7 @@ may still export).
 
 ## Consequences
 
-- Four new packages, pinned and covered by `pnpm audit`.
+- Five new packages, pinned and covered by `pnpm audit`.
 - The worker holds an import's file and its parsed rows in memory (under 20 MB), and an export streams in pages of
   1,000 (resident memory under 200 MB). No new environment variable.
 - The console must keep running for the sweep, as it already must for the nightly jobs (`docs/deploy-checklist.md`).
