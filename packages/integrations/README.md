@@ -75,5 +75,8 @@ A file is read only in the worker (ADR 0030), and every read is bounded before a
 - **Cells** (`cell-text.ts`): a whole number keeps every digit (`919876543210`, never `9.19876543210E+11`), a date cell
   is its day in UTC, one leading apostrophe is dropped, and a cell is cut one character past the limit.
 - **Writing** (`write-xlsx.ts`, `write-csv.ts`): values only, never a formula; text starting with `=`, `+`, `-`, `@`, a
-  tab or a carriage return gets an apostrophe (`neutraliseFormula`), but an .xlsx phone cell. The .xlsx writer deflates
-  each batch into the sheet's entry as it comes and keeps only the compressed output.
+  tab or a carriage return gets an apostrophe (`neutraliseFormula`), dates and times in CSV included, but an .xlsx
+  phone cell that is digits and spaces after an optional `+`. The .xlsx writer deflates each batch into the sheet's
+  entry as it comes and keeps only the compressed output.
+- **The in-memory twin** (`memory-spreadsheets.ts`) keeps sheets as JSON and neutralises nothing: the formula rule
+  is the real adapter's, and its tests (`write.test.ts`) carry it (D8).
