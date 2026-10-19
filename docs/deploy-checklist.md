@@ -101,26 +101,27 @@ Checked at start-up by `apps/api/src/environment.ts` (with `service-variables.ts
 process refuses to start on a missing or wrong one, naming it. ● needed, ○ optional, blank: never given to it.
 Secrets come from the platform's secret manager as environment variables, never in an image (spec 12.3).
 
-| Variable                                                        | api | worker | console | migrate | Secret |
-| --------------------------------------------------------------- | --- | ------ | ------- | ------- | ------ |
-| `DATABASE_URL` (as `app_runtime`)                               | ●   | ●      | ●       |         | yes    |
-| `DATABASE_PLATFORM_URL` (as `app_platform`)                     |     |        | ●       |         | yes    |
-| `DATABASE_MIGRATOR_URL` (as `app_migrator`)                     |     |        |         | ●       | yes    |
-| `DATABASE_POOL_SIZE`                                            | ○   | ○      | ○       |         |        |
-| `BETTER_AUTH_SECRET`: one value for all three                   | ●   | ●      | ●       |         | yes    |
-| `BETTER_AUTH_URL`, `APP_URL`: both the app's https address      | ●   | ●      | ●       |         |        |
-| `TRUSTED_ORIGINS`                                               | ○   | ○      | ○       |         |        |
-| `AUTH_RATE_LIMIT`, `AUTH_IP_ADDRESS_HEADERS`                    | ○   | ○      | ○       |         |        |
-| `AUTH_TRUSTED_PROXIES`: the load balancer's addresses (Hosting) | ●   | ●      | ●       |         |        |
-| `S3_BUCKET`, `S3_REGION` (`S3_ENDPOINT`, `S3_FORCE_PATH_STYLE`) | ●   | ●      | ●       |         |        |
-| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` (the console's own)  | ●   | ●      | ●       |         | yes    |
-| `SMTP_HOST`, `EMAIL_FROM_ADDRESS` (`SMTP_PORT`, `SMTP_SECURE`)  | ●   | ●      | ●       |         |        |
-| `SMTP_USER`, `SMTP_PASSWORD`                                    | ○   | ○      | ○       |         | yes    |
-| `VAPID_PUBLIC_KEY`, `VAPID_SUBJECT`                             | ●   | ●      | ●       |         |        |
-| `VAPID_PRIVATE_KEY`: the public key's pair (below)              | ●   | ●      | ●       |         | yes    |
-| `PORT` (3001)                                                   | ○   |        |         |         |        |
-| `CONSOLE_PORT` (3002)                                           |     |        | ○       |         |        |
-| `DEMO_ORGANIZATION_CODE`, `DEMO_PASSWORD`: both or neither      |     |        | ○       |         | yes    |
+| Variable                                                         | api | worker | console | migrate | Secret |
+| ---------------------------------------------------------------- | --- | ------ | ------- | ------- | ------ |
+| `DATABASE_URL` (as `app_runtime`)                                | ●   | ●      | ●       |         | yes    |
+| `DATABASE_PLATFORM_URL` (as `app_platform`)                      |     |        | ●       |         | yes    |
+| `DATABASE_MIGRATOR_URL` (as `app_migrator`)                      |     |        |         | ●       | yes    |
+| `DATABASE_POOL_SIZE`                                             | ○   | ○      | ○       |         |        |
+| `DATABASE_TRANSACTION_MAX_WAIT_MS`, `..._TIMEOUT_MS` (slow host) | ○   | ○      | ○       |         |        |
+| `BETTER_AUTH_SECRET`: one value for all three                    | ●   | ●      | ●       |         | yes    |
+| `BETTER_AUTH_URL`, `APP_URL`: both the app's https address       | ●   | ●      | ●       |         |        |
+| `TRUSTED_ORIGINS`                                                | ○   | ○      | ○       |         |        |
+| `AUTH_RATE_LIMIT`, `AUTH_IP_ADDRESS_HEADERS`                     | ○   | ○      | ○       |         |        |
+| `AUTH_TRUSTED_PROXIES`: the load balancer's addresses (Hosting)  | ●   | ●      | ●       |         |        |
+| `S3_BUCKET`, `S3_REGION` (`S3_ENDPOINT`, `S3_FORCE_PATH_STYLE`)  | ●   | ●      | ●       |         |        |
+| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` (the console's own)   | ●   | ●      | ●       |         | yes    |
+| `SMTP_HOST`, `EMAIL_FROM_ADDRESS` (`SMTP_PORT`, `SMTP_SECURE`)   | ●   | ●      | ●       |         |        |
+| `SMTP_USER`, `SMTP_PASSWORD`                                     | ○   | ○      | ○       |         | yes    |
+| `VAPID_PUBLIC_KEY`, `VAPID_SUBJECT`                              | ●   | ●      | ●       |         |        |
+| `VAPID_PRIVATE_KEY`: the public key's pair (below)               | ●   | ●      | ●       |         | yes    |
+| `PORT` (3001)                                                    | ○   |        |         |         |        |
+| `CONSOLE_PORT` (3002)                                            |     |        | ○       |         |        |
+| `DEMO_ORGANIZATION_CODE`, `DEMO_PASSWORD`: both or neither       |     |        | ○       |         | yes    |
 
 - **`NODE_ENV`** is `production` when unset, and production refuses http addresses, an off rate limit and a weak
   secret. Never set it to `development` in a deploy.

@@ -13,7 +13,7 @@ import type {
   UpdateRoleInput,
   UpdateStaffRoleInput,
 } from "@travel-crm/contracts/identity";
-import { createIdentityDatabase } from "@travel-crm/db/identity";
+import { createIdentityDatabase, type ForOrgOptions } from "@travel-crm/db/identity";
 import {
   describePlatformStaff,
   describeSignedInPerson,
@@ -48,6 +48,8 @@ export interface IdentityOptions {
   databaseUrl: string;
   /** Size of the identity module's connection pool. */
   maxConnections?: number;
+  /** Each transaction's limits when the call names none (the api's DATABASE_TRANSACTION_* settings). */
+  transactionLimits?: ForOrgOptions;
   auth: AuthSettings;
   /** The seats each organization's plan gives; adding staff past them is refused. Unset: no limit. */
   seatLimit?: SeatLimit | undefined;
@@ -119,7 +121,10 @@ export interface Identity {
 }
 
 export function createIdentity(options: IdentityOptions): Identity {
-  const database = createIdentityDatabase(options.databaseUrl, { maxConnections: options.maxConnections ?? 10 });
+  const database = createIdentityDatabase(options.databaseUrl, {
+    maxConnections: options.maxConnections ?? 10,
+    transactionLimits: options.transactionLimits,
+  });
   const auth = createAuth(database, options.auth);
   const hashPassword: PasswordHasher = async (password) => (await auth.$context).password.hash(password);
 

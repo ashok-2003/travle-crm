@@ -82,8 +82,8 @@ describe("the storage origin", () => {
   const policyWith = async (env: Record<string, string | undefined>) => {
     const config = await configWith(env);
     const rules = config.headers ? await config.headers() : [];
-    const all = rules.find((rule) => rule.source === "/:path*");
-    return all?.headers.find((header) => header.key === "Content-Security-Policy")?.value ?? "";
+    const pages = rules.find((rule) => rule.headers.some((header) => header.key === "Content-Security-Policy"));
+    return pages?.headers.find((header) => header.key === "Content-Security-Policy")?.value ?? "";
   };
 
   it("joins the policy's connect-src and img-src, for uploads and images straight from storage", async () => {

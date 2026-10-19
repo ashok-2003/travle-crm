@@ -64,7 +64,11 @@ export interface IdentityDatabase {
 
 /** Connects as the app_runtime role, like createDatabase(). */
 export function createIdentityDatabase(url: string, options: DatabaseOptions = {}): IdentityDatabase {
-  const client = createPrismaClient(url, { max: options.maxConnections ?? 10, requireRuntimeRole: true });
+  const client = createPrismaClient(url, {
+    max: options.maxConnections ?? 10,
+    requireRuntimeRole: true,
+    transactionLimits: options.transactionLimits,
+  });
   return {
     // Better Auth touches only its own models. The role check and forOrg() below keep the unwrapped client: the check
     // is looked up by the client itself.

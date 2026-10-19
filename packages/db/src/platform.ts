@@ -82,7 +82,10 @@ const openTransactions = new WeakMap<object, OpenTransaction>();
 
 /** Connects as the app_platform role. Only the platform console holds this URL; the api and worker never do. */
 export function createPlatformDatabase(url: string, options: DatabaseOptions = {}): PlatformDatabase {
-  const client = createPrismaClient(url, { max: options.maxConnections ?? 5 });
+  const client = createPrismaClient(url, {
+    max: options.maxConnections ?? 5,
+    transactionLimits: options.transactionLimits,
+  });
   return {
     transaction: (fn, transactionOptions = {}) =>
       enterTransaction(() =>

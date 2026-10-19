@@ -2,6 +2,7 @@
 // connection, checked before anything uses it. The console process and its one-off commands start the same way.
 import { checkPlatformConnection, createPlatformServices, type PlatformServices } from "@travel-crm/domain/platform";
 import { loadConsoleSettings, type ConsoleSettings } from "./console-environment.js";
+import { transactionLimitsOf } from "./services.js";
 import type { ProcessBase } from "./start-up.js";
 
 export interface ConsolePlatform {
@@ -17,6 +18,7 @@ export async function startConsolePlatform({ environment, services, log }: Proce
   const settings = loadConsoleSettings(process.env, environment);
   const platform = createPlatformServices({
     platformDatabaseUrl: settings.platformDatabaseUrl,
+    transactionLimits: transactionLimitsOf(environment),
     db: services.db,
     identity: services.identity,
     storage: services.storage,
