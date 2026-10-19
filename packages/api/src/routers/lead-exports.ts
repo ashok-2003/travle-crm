@@ -1,7 +1,13 @@
 // The lead export's procedures (spec 6.5), served at leadExports.*: asking for the Leads list as a file, following it,
 // and downloading it. All are exports (ADR 0021), so a read-only agency, and a suspended one's Owner, still take their
 // leads out. An export is its requester's alone: another person's, or a staff export, is not found.
-import { leadExportDetail, leadExportFilter, startLeadExportInput } from "@travel-crm/contracts/crm";
+import {
+  leadExportDetail,
+  leadExportFilter,
+  leadExportNames,
+  leadExportNamesInput,
+  startLeadExportInput,
+} from "@travel-crm/contracts/crm";
 import { exportIdInput, startedExport } from "@travel-crm/contracts/exports";
 import { downloadLink } from "@travel-crm/contracts/files";
 import { destinationNames } from "@travel-crm/domain/catalog";
@@ -51,6 +57,21 @@ export const leadExportsRouter = router({
         ...detail,
         people: await memberNames(ctx.identity, organizationId, [ownerUserId]),
         destinationName: destinationId === undefined ? null : (destinations.get(destinationId) ?? null),
+      };
+    }),
+
+  /** The owner's and the destination's names for the dialog's "What it holds", by id: any destination, not a first page. */
+  names: follower
+    .input(leadExportNamesInput)
+    .output(leadExportNames)
+    .query(async ({ ctx, input }) => {
+      const { organizationId } = ctx.member;
+      const destinations = await ctx.db.forOrg(organizationId, (tx) =>
+        destinationNames(tx, input.destinationId === undefined ? [] : [input.destinationId]),
+      );
+      return {
+        people: await memberNames(ctx.identity, organizationId, [input.ownerUserId]),
+        destinationName: input.destinationId === undefined ? null : (destinations.get(input.destinationId) ?? null),
       };
     }),
 

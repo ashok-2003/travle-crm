@@ -4,6 +4,7 @@
 import { z } from "zod";
 import { exportDetail, exportFormat } from "../exports/data-export.js";
 import { listLeadsInput } from "./leads.js";
+import { recordId } from "../identity/fields.js";
 import { peopleNames } from "./fields.js";
 
 /** At most 1,00,000 leads in one file (B37): more stops the export. */
@@ -54,3 +55,13 @@ export const leadExportHeaders = [
   "Lead link",
 ] as const;
 export type LeadExportHeader = (typeof leadExportHeaders)[number];
+
+/** The names the dialog says what the file holds with: the owner and the destination a list's address names by id. */
+export const leadExportNamesInput = z.strictObject({
+  ownerUserId: recordId.optional(),
+  destinationId: recordId.optional(),
+});
+export type LeadExportNamesInput = z.infer<typeof leadExportNamesInput>;
+
+export const leadExportNames = z.object({ people: peopleNames, destinationName: z.string().nullable() });
+export type LeadExportNames = z.infer<typeof leadExportNames>;

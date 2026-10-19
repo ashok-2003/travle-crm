@@ -111,6 +111,28 @@ describe("the lead export", () => {
     });
   });
 
+  it("names an owner and any destination by id, however many destinations there are", async () => {
+    const places = await server.db.forOrg(agency.organizationId, async (tx) => {
+      for (let number = 0; number < 120; number++)
+        await tx.destination.create({ data: { name: `Aaa ${String(number)}` } });
+      return tx.destination.create({ data: { name: "Zanzibar" }, select: { id: true } });
+    });
+    const names = await dataOf<{ people: Record<string, string>; destinationName: string | null }>(
+      await query(server, "leadExports.names", sales, { ownerUserId: agency.owner.userId, destinationId: places.id }),
+    );
+    expect(names).toEqual({ people: { [agency.owner.userId]: "Asha Owner" }, destinationName: "Zanzibar" });
+    expect(await dataOf(await query(server, "leadExports.names", owner, {}))).toEqual({
+      people: {},
+      destinationName: null,
+    });
+  });
+
+  it("serves exactly start, get, names and downloadLink", async () => {
+    const { appRouter } = await import("@travel-crm/api");
+    const record = (appRouter as unknown as { _def: { record: Record<string, Record<string, unknown>> } })._def.record;
+    expect(Object.keys(record.leadExports ?? {}).sort()).toEqual(["downloadLink", "get", "names", "start"]);
+  });
+
   it("answers NOT_FOUND for another person's export or a staff export", async () => {
     const exportId = await start(owner);
     expect(await refusalOf(await query(server, "leadExports.get", sales, { exportId }))).toEqual({

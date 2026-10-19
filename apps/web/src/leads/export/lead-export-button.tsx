@@ -39,10 +39,16 @@ export function LeadExportButton() {
   const [open, setOpen] = useState(false);
   const calls = useLeadExportCalls(asked);
   const holds = useLeadExportHolds();
-  // The owner and the destination are ids in the address; their names come from the agency's lists, once asked.
-  const owners = useQuery(trpc.leads.owners.queryOptions(undefined, { enabled: asked.ownerUserId !== undefined }));
-  const destinations = useQuery(
-    trpc.destinations.search.queryOptions({ limit: 100 }, { enabled: asked.destinationId !== undefined }),
+  // The owner and the destination are ids in the address; the api names them by id, whichever destination it is.
+  const named = asked.ownerUserId !== undefined || asked.destinationId !== undefined;
+  const names = useQuery(
+    trpc.leadExports.names.queryOptions(
+      {
+        ...(asked.ownerUserId && { ownerUserId: asked.ownerUserId }),
+        ...(asked.destinationId && { destinationId: asked.destinationId }),
+      },
+      { enabled: named },
+    ),
   );
   if (!mayExport) return null;
   return (
@@ -62,8 +68,8 @@ export function LeadExportButton() {
         title={t("dialog.title")}
         intro={t("dialog.intro")}
         holds={holds(asked, {
-          ownerName: owners.data?.find((worker) => worker.userId === asked.ownerUserId)?.name ?? null,
-          destinationName: destinations.data?.find((place) => place.id === asked.destinationId)?.name ?? null,
+          ownerName: asked.ownerUserId === undefined ? null : (names.data?.people[asked.ownerUserId] ?? null),
+          destinationName: names.data?.destinationName ?? null,
         })}
         rowsWord="leads"
         calls={calls}

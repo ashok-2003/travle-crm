@@ -14,7 +14,7 @@ import { screenIs } from "../../organization/render";
 import { stubApi } from "../../support/api-stub";
 import { member } from "../../support/members";
 import { address } from "../navigation";
-import { inputsTo, owner, renderScreen, salesperson } from "../screen";
+import { inputsTo, renderScreen, salesperson } from "../screen";
 
 vi.mock("next/navigation", () => import("../navigation"));
 vi.mock("@/lib/navigate", () => ({ loadPage: vi.fn(), replacePage: vi.fn() }));
@@ -42,8 +42,8 @@ const ready: LeadExportDetail = {
 
 function apiWith(answers: Record<string, Parameters<typeof stubApi>[0][string]> = {}) {
   return stubApi({
-    "leads.owners": { data: [{ userId: owner.user.id, name: "Asha Sharma" }] },
-    "destinations.search": { data: [{ id: goaId, name: "Goa" }] },
+    // The api names any destination by id, not only the first hundred the picker lists.
+    "leadExports.names": { data: { people: {}, destinationName: "Goa" } },
     "leadExports.start": { data: { exportId } },
     "leadExports.get": { data: ready },
     "leadExports.downloadLink": { data: link },
@@ -91,6 +91,7 @@ describe("LeadExportButton", () => {
     const { unmount } = renderScreen(<LeadExportButton />);
     await userEvent.click(screen.getByRole("button", { name: messages.leads.export.button }));
     expect(await screen.findByText('Everyone · Open · Goa · matching "Sharma"')).toBeVisible();
+    expect(inputsTo("leadExports.names")).toContainEqual({ destinationId: goaId });
     unmount();
 
     forgetTabValues();
