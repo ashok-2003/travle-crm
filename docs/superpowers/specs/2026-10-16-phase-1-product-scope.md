@@ -10,7 +10,7 @@
 ## 1. Scope at a glance
 
 - **Step 2, CRM + WhatsApp inbox:** leads from everywhere (leads arriving by themselves, from the agency's Google
-  Sheet both ways and from Meta lead ads, are the product's main selling point), assignment rules, Today's work list,
+  Sheet and from Meta lead ads, are the product's main selling point), assignment rules, Today's work list,
   calling from the PC with a recorded or spoken note, message templates, AI form filling, WhatsApp leads that fill
   themselves in.
 - **Step 3, catalog + quotes:** itinerary templates, package pages, the live quote page, "quote opened" alerts,
@@ -30,7 +30,7 @@ reports in plain words".
 goes first. The order the owner agreed with the development lead:
 
 1. Leads by hand.
-2. Google Sheets both ways, plus bulk CSV and Excel upload.
+2. Leads from the agency's Google Sheet (one way, into the product), plus bulk CSV and Excel upload.
 3. The website form, and the link for other tools.
 4. Automatic assignment.
 5. Calling without AI, message templates, the morning push.
@@ -64,8 +64,9 @@ The WhatsApp inbox comes in a later release (3.8).
 Every enquiry lands in one list within seconds, with its source and an owner.
 
 - Sources in Phase 1:
-  - **the agency's Google Sheet, both ways**: leads the agency keeps in a sheet arrive by themselves, and changes in
-    the product show in the sheet. The release's spec settles which columns sync and which side wins a conflict;
+  - **the agency's Google Sheet, one way**: leads the agency collects in a sheet (usually from Google Forms) arrive by
+    themselves; staff work them in the product and nothing is written back to the sheet. The release's spec
+    (`2026-10-19-sheets-sync-design.md`) settles how the sheet is connected and how duplicates are kept out;
   - **Meta lead ads** (Facebook and Instagram), directly. Meta notifies us of each new lead, and a regular re-check
     catches any notification that never came (they stop silently when an access token expires);
   - WhatsApp;
