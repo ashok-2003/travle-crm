@@ -39,7 +39,12 @@ logs, and what is still open.
 ## The processes (ADR 0019)
 
 - **Three services from one image:** `api`, `worker` and `console`. One console instance is enough, and it must stay
-  up: it runs the nightly lifecycle, the sweeps of stored files and exports, and the demo reset.
+  up: it runs the nightly lifecycle, the sweeps of stored files and exports (the hourly `platform.sweep-bulk-files`
+  among them, which deletes an import's file 7 days after it ends and an export's 24 hours after it is ready), and the
+  demo reset.
+- **The worker's memory** (ADR 0030). It reads an import's file, at most 10 MB, and holds its parsed rows in its own
+  memory (under 20 MB at the limits), and it streams an export in pages of 1,000 rows (under 200 MB resident). The api
+  never reads a file. Imports and exports add no environment variable.
 - **Routing.** The load balancer sends `/api/platform/*` to the console and everything else under `/api` to the api.
   The console can be locked down further (an IP allow-list) without touching the api.
 - **Stopping.** Each process drains on SIGTERM; the console waits 30 seconds for its jobs, so allow it that long

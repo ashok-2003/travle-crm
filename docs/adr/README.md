@@ -34,3 +34,4 @@ The first and largest set of decisions is the Foundation spec: `docs/superpowers
 | [0027](0027-release.md)                      | The release: the images and the api's bundle, the product in Docker, CI's gates, Renovate |
 | [0028](0028-business-module-data-rules.md)   | Business-module data rules: normalise, snapshot, summarise; seasons; BigInt money         |
 | [0029](0029-ai-features.md)                  | AI features: language only, people apply, small-model rules, the OpenRouter adapter       |
+| [0030](0030-imports-and-exports.md)          | Imports and exports: the spreadsheets port, the worker reads, step events, keeping times  |

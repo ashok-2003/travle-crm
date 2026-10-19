@@ -44,7 +44,7 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - **Ports and adapters (ADR 0008).** Domain code never imports a vendor SDK. It takes a port from
   `@travel-crm/integrations/<adapter>` (`ObjectStorage`, `JobQueue`, …) as a parameter; the api and worker pass the real
   adapter, tests pass the in-memory one. Only `packages/integrations` imports pg-boss, the AWS SDK, nodemailer,
-  web-push and React-PDF, and it imports nothing of ours but `@travel-crm/brand`.
+  web-push, React-PDF and the spreadsheet libraries, and it imports nothing of ours but `@travel-crm/brand`.
 - **The product's name, colours and contacts** come from `@travel-crm/brand`, never typed elsewhere.
 - **Pinned versions.** Shared tool versions live in the `catalog:` in `pnpm-workspace.yaml`. Prisma is pinned to 7.10.0;
   npm's `latest` for `prisma` is an 8.0 release candidate. Never install "latest" without checking.
@@ -159,6 +159,12 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   `apps/api/src/share-link-resolvers.ts`, a new provider goes in `apps/api/src/webhook-providers.ts`.
 - **Job data and errors** hold ids, never personal data: pg-boss's tables have no row-level security, and a failed
   job's error is shown to platform staff.
+- **Bulk files** (ADR 0030): every CSV and .xlsx goes through the `Spreadsheets` port
+  (`@travel-crm/integrations/spreadsheets`), read only in the worker, never in the browser or the api; a cell is
+  always a value, never a formula. A file the system makes (an import's report, an export) is stored with files'
+  `storeGeneratedFile` under its record type, never uploaded. The console's hourly `platform.sweep-bulk-files` deletes
+  an import's file and report 7 days after it ends and an export's file 24 hours after it is ready; an erasure
+  withdraws them all at once.
 
 ## Platform and subscriptions (spec 7; ADRs 0019-0024)
 
@@ -194,12 +200,15 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - `packages/domain`: business rules, one folder per module (`identity`, `kernel`, `jobs`, `files`, `documents`,
   `notifications`, `audit`, `share-links`, `webhooks`, `rate-limits`, `subscriptions`, `profile`, `platform`; listed in
   `packages/domain/README.md`). The business modules are layered and call only down (dependency-cruiser's
-  `business-modules-call-down`): `catalog` (destinations) and `tasks` (follow-ups and tasks) at L0, `crm` (people,
-  leads, their timeline, blocked contacts) at L1, `today` (the signed-in person's day) above them. Search on names
-  and phone digits runs under plain row-level security, so its trigram indexes go unused by design (ADR 0028).
+  `business-modules-call-down`): `catalog` (destinations), `tasks` (follow-ups and tasks), `imports` (an import's
+  steps, for leads and staff alike) and `exports` (an export's file and download) at L0, `crm` (people, leads, their
+  timeline, blocked contacts, and the lead import's and export's rows) at L1, `today` (the signed-in person's day)
+  above them. Search on names and phone digits runs under plain row-level security, so its trigram indexes go unused
+  by design (ADR 0028).
   `@travel-crm/domain/<module>`, `@travel-crm/contracts/<module>` and `@travel-crm/integrations/<adapter>` each resolve
   to `src/<name>/index.ts`, so a new module needs no `package.json` change.
-- `packages/integrations`: adapters to the outside world, each a port plus a real and an in-memory adapter.
+- `packages/integrations`: adapters to the outside world (`storage`, `email`, `push`, `jobs`, `pdf`, `spreadsheets`),
+  each a port plus a real and an in-memory adapter.
 - `packages/brand`: the product's name, colours, fonts and contacts (spec 10).
 - `packages/db`: Prisma schema, migrations, RLS, `forOrg`, soft delete, document numbers. The migrations need
   Postgres 17 or 18 (CI runs 18) and its trusted extensions `pg_trgm` and `btree_gist` (`docs/deploy-checklist.md`).
