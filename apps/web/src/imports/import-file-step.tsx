@@ -21,6 +21,7 @@ import { formatCount } from "@/lib/format";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
 import { ACCEPTED_IMPORT_FILES, checkImportFile } from "./import-file";
+import { uploadedImports } from "./uploaded-imports";
 
 interface FileRequest {
   file: File;
@@ -53,15 +54,15 @@ export function ImportFileStep({
   const id = useId();
   const [problem, setProblem] = useState<string | null>(null);
   /** Each signed upload's import, for confirming it: the upload knows only its attachment. */
-  const importOf = useRef(new Map<string, string>());
+  const imports = useRef(uploadedImports());
   const { upload, progress, stop } = useSignedUpload<FileRequest, string>({
     requestUpload: async ({ file, contentType }) => {
       const started = await start({ fileName: file.name, contentType, sizeBytes: file.size });
-      importOf.current.set(started.attachmentId, started.importId);
+      imports.current.remember(started.attachmentId, started.importId);
       return { attachmentId: started.attachmentId, upload: started.upload };
     },
     confirmUpload: async (attachmentId) => {
-      const importId = importOf.current.get(attachmentId) ?? "";
+      const importId = imports.current.importFor(attachmentId);
       await confirm(importId);
       return importId;
     },
