@@ -24,6 +24,12 @@ export interface UnpackedWorkbook {
 
 const keptParts = new Set(["xl/workbook.xml", "xl/_rels/workbook.xml.rels"]);
 
+/**
+ * The most elements the workbook's two kept parts may hold: a sheet, a name or a relationship each, so thousands at
+ * most. Past it the file is refused at once, rather than its parts read for seconds (X8).
+ */
+const MAX_WORKBOOK_ELEMENTS = 10_000;
+
 export function unpackWorkbook(
   bytes: Uint8Array,
   limits: { maxRowNumber: number; maxColumn: number },
@@ -50,7 +56,7 @@ export function unpackWorkbook(
     }
     const keep = keptParts.has(file.name);
     const keptChunks: Uint8Array[] = [];
-    const sizer = sheetSizer(limits);
+    const sizer = sheetSizer({ ...limits, maxElements: keep ? MAX_WORKBOOK_ELEMENTS : undefined });
     sheetSizes.set(file.name, sizer.size);
     file.ondata = (error, chunk, final) => {
       if (state.failure !== null) return;
@@ -64,6 +70,11 @@ export function unpackWorkbook(
         return;
       }
       sizer.push(chunk, final);
+      // Every read needs the workbook's own parts: one the sizing refuses refuses the file, without reading on.
+      if (keep && sizer.size.refusal !== null) {
+        fail(file, sizer.size.refusal);
+        return;
+      }
       if (keep) keptChunks.push(chunk);
       if (keep && final) kept.set(file.name, Buffer.concat(keptChunks).toString("utf8"));
     };

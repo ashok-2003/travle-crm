@@ -284,6 +284,7 @@ module.exports = {
           "(^|/)src/(index|platform)\\.ts$", // a package's public entry point is never imported inside the package
           "^apps/web/turbopack/", // Turbopack loaders, named in next.config.ts
           "^apps/web/src/app/", // Next.js loads the app's routes, layouts and special files by their names
+          "^packages/integrations/test/spreadsheets/threads/", // the .xlsx thread's tests start these by their URL
         ],
       },
       to: {},
