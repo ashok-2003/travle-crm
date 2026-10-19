@@ -133,9 +133,9 @@
     },
     "check": {
       "title": "Check before adding",
-      "checking": "Checking {total} rows…",
+      "checking": "{total, plural, one {Checking # row…} other {Checking # rows…}}",
       "checkingLabel": "Checking the rows",
-      "intro": "Here's what will happen to each of the {total} rows. Nothing is added until you press Add.",
+      "intro": "{total, plural, one {Here's what will happen to the # row. Nothing is added until you press Add.} other {Here's what will happen to each of the # rows. Nothing is added until you press Add.}}",
       "willBeAdded": "Will be added",
       "newLeads": "New leads",
       "returningNote": "{count} of them returning customers",

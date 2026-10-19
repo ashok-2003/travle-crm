@@ -94,10 +94,7 @@ export function CheckStep({ detail, onChangeColumns }: { detail: ImportDetail; o
   if (detail.status === "checking" || counts === null) {
     return (
       <div className="flex max-w-[720px] flex-col gap-6">
-        <PageHeader
-          title={t("check.title")}
-          intro={t("check.checking", { total: formatCount(detail.progress.rowsTotal) })}
-        />
+        <PageHeader title={t("check.title")} intro={t("check.checking", { total: detail.progress.rowsTotal })} />
         <ImportStepCaption status={detail.status} />
         <ImportProgress
           done={detail.progress.rowsDone}
@@ -119,10 +116,7 @@ export function CheckStep({ detail, onChangeColumns }: { detail: ImportDetail; o
 
   return (
     <div className="flex max-w-[720px] flex-col gap-6">
-      <PageHeader
-        title={t("check.title")}
-        intro={t("check.intro", { total: formatCount(detail.progress.rowsTotal) })}
-      />
+      <PageHeader title={t("check.title")} intro={t("check.intro", { total: detail.progress.rowsTotal })} />
       <div className="flex flex-col gap-1">
         <ImportStepCaption status={detail.status} />
         {fromSheet && <p className="text-label text-muted-foreground">{t("fromSheet")}</p>}
