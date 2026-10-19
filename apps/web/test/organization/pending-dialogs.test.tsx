@@ -35,6 +35,7 @@ const ravi: StaffMember = {
   name: "Ravi",
   email: null,
   username: "ravi",
+  phone: null,
   role: { key: "sales", name: "Sales", isOwner: false },
   twoFactorEnabled: false,
   mustChangePassword: true,

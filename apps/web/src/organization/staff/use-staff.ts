@@ -14,7 +14,7 @@ import { useTRPC } from "@/data/trpc";
 import { useErrorMessage } from "@/lib/error-message";
 import { withRole } from "./staff-details";
 
-function useRefreshStaff() {
+export function useRefreshStaff() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   return async () => {

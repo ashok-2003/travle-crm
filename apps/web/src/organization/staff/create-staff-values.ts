@@ -6,6 +6,7 @@ export interface CreateStaffValues {
   name: string;
   email: string;
   username: string;
+  phone: string;
   roleKey: string;
   temporaryPassword: string;
 }
@@ -14,12 +15,19 @@ export type CreateStaffField = keyof CreateStaffValues;
 
 /** Message keys in the "staff.form" namespace. */
 export type CreateStaffProblem =
-  "nameRequired" | "emailInvalid" | "usernameInvalid" | "emailOrUsername" | "roleRequired" | "passwordTooShort";
+  | "nameRequired"
+  | "emailInvalid"
+  | "usernameInvalid"
+  | "emailOrUsername"
+  | "phoneInvalid"
+  | "roleRequired"
+  | "passwordTooShort";
 
 const problemOf: Record<CreateStaffField, CreateStaffProblem> = {
   name: "nameRequired",
   email: "emailInvalid",
   username: "usernameInvalid",
+  phone: "phoneInvalid",
   roleKey: "roleRequired",
   temporaryPassword: "passwordTooShort",
 };
@@ -34,6 +42,7 @@ export function toCreateStaffInput(
   | { ok: false; problems: Partial<Record<CreateStaffField, CreateStaffProblem>> } {
   const email = values.email.trim();
   const username = values.username.trim();
+  const phone = values.phone.trim();
   const parsed = createStaffInput.safeParse({
     name: values.name,
     roleKey: values.roleKey,
@@ -41,6 +50,7 @@ export function toCreateStaffInput(
     // A blank field is one the admin left out: staff may have an email, a username or both.
     ...(email === "" ? {} : { email }),
     ...(username === "" ? {} : { username }),
+    ...(phone === "" ? {} : { phone }),
   });
   if (parsed.success) return { ok: true, input: parsed.data };
   const problems: Partial<Record<CreateStaffField, CreateStaffProblem>> = {};

@@ -8,6 +8,7 @@
   "columns": {
     "name": "Name",
     "signIn": "Signs in with",
+    "phone": "Phone",
     "role": "Role",
     "twoFactor": "Two-factor",
     "joined": "Joined",
@@ -26,6 +27,8 @@
     "emailHint": "Optional. They can sign in with it and reset their own password.",
     "username": "Username",
     "usernameHint": "Optional. 2-32 letters, digits, dots, dashes or underscores.",
+    "phone": "Phone",
+    "phoneHint": "Optional. Only for your own records and exports: it is not a sign-in name.",
     "role": "Role",
     "temporaryPassword": "Temporary password",
     "temporaryPasswordHint": "They choose their own password the first time they sign in.",
@@ -45,6 +48,7 @@
     "emailInvalid": "Use a real email address.",
     "usernameInvalid": "Use 2-32 letters, digits, dots, dashes or underscores.",
     "emailOrUsername": "Give an email, a username or both.",
+    "phoneInvalid": "Use a phone number like 98765 43210.",
     "roleRequired": "Choose a role.",
     "passwordTooShort": "Use at least 10 characters."
   },
@@ -54,6 +58,19 @@
     "description": "The new role applies from their next action.",
     "submit": "Change role",
     "changed": "{name} is now {role}"
+  },
+  "changePhone": {
+    "action": "Change phone",
+    "title": "Change {name}'s phone",
+    "description": "Leave it empty to remove the number. It is not a sign-in name, and the audit log never keeps it.",
+    "label": "Phone",
+    "submit": "Save",
+    "submitting": "Saving",
+    "changed": "{name}'s phone was saved",
+    "problems": {
+      "required": "Use a phone number like 98765 43210, or leave it empty.",
+      "invalid": "Use a phone number like 98765 43210, or leave it empty."
+    }
   },
   "resetPassword": {
     "action": "Reset password",

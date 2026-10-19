@@ -61,6 +61,7 @@ export function fakeExportIdentity(access: MemberAccess | null): ExportIdentity 
     staff: {
       list: unexpected,
       create: unexpected,
+      changePhone: unexpected,
       updateRole: unexpected,
       resetPassword: unexpected,
       remove: unexpected,

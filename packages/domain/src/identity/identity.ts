@@ -1,6 +1,7 @@
 // Builds the identity module: Better Auth plus the operations the API and onboarding call. One per process.
 import type {
   CreateRoleInput,
+  ChangeStaffPhoneInput,
   CreateStaffInput,
   DeleteRoleInput,
   MeOutput,
@@ -40,6 +41,7 @@ import { createRole, deleteRole, listRoles, updateRole } from "./roles.js";
 import { seedStarterRoles } from "./seed-starter-roles.js";
 import { setTwoFactorRequirement } from "./settings.js";
 import { createStaffAccount, type CreatedStaff, type PasswordHasher } from "./staff-accounts.js";
+import { changeStaffPhone } from "./staff-phone.js";
 import { staffInviteListener, type InviteDependencies } from "./staff-invites.js";
 import { createStaff, listStaff, removeStaff, resetStaffPassword, updateStaffRole, type SeatLimit } from "./staff.js";
 import { OWNER_ROLE_KEY } from "./starter-roles.js";
@@ -103,6 +105,8 @@ export interface Identity {
   readonly staff: {
     list(actor: MemberAccess): Promise<StaffMember[]>;
     create(actor: MemberAccess, input: CreateStaffInput): Promise<StaffMember>;
+    /** Sets or clears a person's phone (B51). */
+    changePhone(actor: MemberAccess, input: ChangeStaffPhoneInput): Promise<StaffMember>;
     updateRole(actor: MemberAccess, input: UpdateStaffRoleInput): Promise<StaffMember>;
     resetPassword(actor: MemberAccess, input: ResetStaffPasswordInput): Promise<void>;
     remove(actor: MemberAccess, input: RemoveStaffInput): Promise<void>;
@@ -152,6 +156,7 @@ export function createIdentity(options: IdentityOptions): Identity {
     staff: {
       list: (actor) => listStaff(database, actor),
       create: (actor, input) => createStaff(database, hashPassword, actor, input, options.seatLimit),
+      changePhone: (actor, input) => changeStaffPhone(database, actor, input),
       updateRole: (actor, input) => updateStaffRole(database, actor, input),
       resetPassword: (actor, input) => resetStaffPassword(database, hashPassword, actor, input),
       remove: (actor, input) => removeStaff(database, actor, input),

@@ -76,6 +76,7 @@ describe("two-factor off", () => {
         name: "Asha",
         email: "asha@sharma.in",
         username: null,
+        phone: null,
         role: { key: "org-owner", name: "Owner", isOwner: true },
         twoFactorEnabled: true,
         mustChangePassword: false,

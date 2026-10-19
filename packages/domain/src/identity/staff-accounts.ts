@@ -26,6 +26,8 @@ export interface NewStaffAccount {
   actor?: Actor | undefined;
   /** The organization's seats (spec 7.2), or null or left out for no limit. */
   seatLimit?: number | null | undefined;
+  /** In E.164 (B51). Kept on the membership, never in the audit log. */
+  phone?: string | undefined;
 }
 
 export interface CreatedStaff {
@@ -101,7 +103,12 @@ export async function insertStaffAccount(
       });
     }
     const member = await tx.member.create({
-      data: { userId: user.id, organizationId: account.organizationId, role: role.key },
+      data: {
+        userId: user.id,
+        organizationId: account.organizationId,
+        role: role.key,
+        phoneE164: account.phone ?? null,
+      },
     });
     // No name, username or address: the log outlives the account, and erasure clears those on the user row (ADR 0007).
     // The member id leads to the person.

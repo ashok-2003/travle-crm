@@ -4,6 +4,7 @@
 // read-only, and for the Owner while it is suspended (ADR 0021), and so does the list the Owner chooses them from;
 // every other change waits for it to pay.
 import {
+  changeStaffPhoneInput,
   createStaffInput,
   removeStaffInput,
   resetStaffPasswordInput,
@@ -26,6 +27,12 @@ export const staffRouter = router({
     .input(createStaffInput)
     .output(staffMember)
     .mutation(({ ctx, input }) => ctx.identity.staff.create(ctx.member, input)),
+
+  /** Sets or clears the person's phone (B51). */
+  changePhone: staffManager
+    .input(changeStaffPhoneInput)
+    .output(staffMember)
+    .mutation(({ ctx, input }) => ctx.identity.staff.changePhone(ctx.member, input)),
 
   updateRole: staffManager
     .input(updateStaffRoleInput)

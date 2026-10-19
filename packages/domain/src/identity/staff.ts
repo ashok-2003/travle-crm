@@ -41,6 +41,7 @@ export async function listStaff(database: IdentityDatabase, actor: MemberAccess)
       name: member.user.name,
       email: shownEmail(member.user.email),
       username: member.user.displayUsername,
+      phone: member.phoneE164,
       role: {
         key: member.role,
         name: roles.get(member.role)?.name ?? member.role,
@@ -74,6 +75,7 @@ export async function createStaff(
       email: input.email,
       username: input.username,
       roleKey: input.roleKey,
+      phone: input.phone,
       password: input.temporaryPassword,
       mustChangePassword: true,
       actor,
@@ -187,13 +189,17 @@ export async function removeStaff(
 }
 
 /** An active member of the actor's organization. Members of other organizations are "not found". */
-async function findMember(tx: IdentityTx, actor: MemberAccess, memberId: string) {
+export async function findMember(tx: IdentityTx, actor: MemberAccess, memberId: string) {
   const member = await tx.member.findFirst({ where: { id: memberId, organizationId: actor.organizationId } });
   if (!member) throw new DomainError("NOT_FOUND", "MEMBER_NOT_FOUND", "No such staff member");
   return member;
 }
 
-async function staffMember(database: IdentityDatabase, actor: MemberAccess, memberId: string): Promise<StaffMember> {
+export async function staffMember(
+  database: IdentityDatabase,
+  actor: MemberAccess,
+  memberId: string,
+): Promise<StaffMember> {
   const member = (await listStaff(database, actor)).find((staff) => staff.memberId === memberId);
   if (!member) throw new DomainError("NOT_FOUND", "MEMBER_NOT_FOUND", "No such staff member");
   return member;

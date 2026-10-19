@@ -25,6 +25,7 @@ const person = (memberId: string, name: string, role: StaffMember["role"]): Staf
   name,
   email: null,
   username: name.split(" ")[0]?.toLowerCase() ?? null,
+  phone: null,
   role,
   twoFactorEnabled: false,
   mustChangePassword: false,

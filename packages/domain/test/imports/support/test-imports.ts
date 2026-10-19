@@ -113,6 +113,7 @@ export function fakeIdentity(
     staff: {
       list: unexpected,
       create: unexpected,
+      changePhone: unexpected,
       updateRole: unexpected,
       resetPassword: unexpected,
       remove: unexpected,

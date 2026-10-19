@@ -6,6 +6,7 @@
 import type { RoleSummary, StaffMember } from "@travel-crm/contracts/identity";
 import { useTranslations } from "next-intl";
 import { Controller, useForm, type FieldErrors, type Resolver } from "react-hook-form";
+import { PhoneField } from "@/components/forms/phone-field";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -49,6 +50,7 @@ export function CreateStaffForm({
       name: "",
       email: "",
       username: "",
+      phone: "",
       roleKey: assignableRoles(roles).find((role) => role.key === "sales")?.key ?? "",
       temporaryPassword: temporaryPassword(),
     },
@@ -104,6 +106,7 @@ export function CreateStaffForm({
           <FieldDescription>{t("create.usernameHint")}</FieldDescription>
           <FieldError errors={[errors.username]} />
         </Field>
+        <PhoneField control={form.control} name="phone" label={t("create.phone")} hint={t("create.phoneHint")} />
         <Field data-invalid={errors.roleKey !== undefined}>
           <FieldLabel htmlFor="staff-role">{t("create.role")}</FieldLabel>
           <Controller

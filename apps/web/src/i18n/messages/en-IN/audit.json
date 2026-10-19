@@ -40,6 +40,7 @@
       "created": "Added a staff member",
       "invited": "Invited a staff member to choose a password",
       "role-changed": "Changed a staff member's role",
+      "phone-changed": "Changed a staff member's phone",
       "password-reset": "Gave a staff member a new temporary password",
       "removed": "Removed a staff member"
     },
