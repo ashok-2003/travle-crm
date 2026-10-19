@@ -39,6 +39,7 @@ export { makeImportReport, reportContentType, reportFileName } from "./report.js
 export { importReportLink } from "./report-link.js";
 export { reportDay, reportSentence } from "./report-words.js";
 export { decodeRowReason, encodeRowReason } from "./row-reasons.js";
+export { sweepExpiredImports, type SweptOrganizations } from "./sweep.js";
 export {
   suggestValueMatches,
   valueFieldsOf,
@@ -47,3 +48,4 @@ export {
   type ImportColumnValues,
   type SuggestedMatch,
 } from "./value-matches.js";
+export { deleteImportFiles, emptyKeptValues, withdrawImportFiles, type ForgottenSubject } from "./withdraw.js";

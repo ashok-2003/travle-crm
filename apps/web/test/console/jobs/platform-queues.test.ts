@@ -8,6 +8,7 @@ import {
   EXPORT_ORGANIZATION_QUEUE,
   PURGE_ORGANIZATION_QUEUE,
   RESET_DEMO_QUEUE,
+  SWEEP_BULK_FILES_QUEUE,
   SWEEP_EXPIRED_EXPORTS_QUEUE,
   SWEEP_STORED_FILES_QUEUE,
 } from "@travel-crm/domain/platform";
@@ -23,7 +24,13 @@ describe("the platform's queues", () => {
 
   it("are the schedules the console registers at every start", () => {
     expect([...CONSOLE_SCHEDULES].sort()).toEqual(
-      [ADVANCE_SUBSCRIPTIONS_QUEUE, SWEEP_STORED_FILES_QUEUE, SWEEP_EXPIRED_EXPORTS_QUEUE, RESET_DEMO_QUEUE].sort(),
+      [
+        ADVANCE_SUBSCRIPTIONS_QUEUE,
+        SWEEP_STORED_FILES_QUEUE,
+        SWEEP_EXPIRED_EXPORTS_QUEUE,
+        SWEEP_BULK_FILES_QUEUE,
+        RESET_DEMO_QUEUE,
+      ].sort(),
     );
   });
 });

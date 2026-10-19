@@ -419,3 +419,121 @@ describe("erasing a customer", () => {
     expect(skipped).toMatchObject({ targetType: "person", after: { reason: "no-recent-export" } });
   });
 });
+
+describe("erasing someone an import or an export holds", () => {
+  let test: TestPlatform;
+  let plan: PlanSummary;
+  let platform: PlatformClient;
+
+  beforeAll(async () => {
+    test = createTestPlatform();
+    plan = await createTestPlan(test);
+    platform = createPlatformClient(inject("dbUrls").platform);
+  });
+
+  afterAll(async () => {
+    await platform.$disconnect();
+    await test.close();
+  });
+
+  /** An import whose file and row hold the subject, and an export's file: what the organization keeps in bulk. */
+  async function bulkFilesHolding(agency: DeletionAgency, row: { personId?: string; memberId?: string }) {
+    return test.services.db.forOrg(agency.organizationId, async (tx: OrgTx) => {
+      const file = (recordType: string, recordId: string) =>
+        tx.attachment.create({
+          data: {
+            recordType,
+            recordId,
+            fileName: "f.csv",
+            contentType: "text/csv",
+            sizeBytes: 3,
+            status: "ready",
+            confirmedAt: new Date(),
+          },
+        });
+      const batch = await tx.importBatch.create({
+        data: {
+          kind: "leads",
+          status: "done",
+          fileName: "enquiries.csv",
+          fileKind: "csv",
+          startedBy: agency.owner.userId,
+          keepUntil: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        },
+      });
+      await tx.importBatch.update({
+        where: { id: batch.id },
+        data: { fileAttachmentId: (await file("import_batch", batch.id)).id },
+      });
+      await tx.importRow.create({
+        data: {
+          batchId: batch.id,
+          rowNumber: 2,
+          plan: "new",
+          outcome: "added",
+          fingerprint: new Uint8Array(32).fill(5),
+          ...row,
+        },
+      });
+      const made = await tx.dataExport.create({
+        data: { kind: "leads", format: "csv", status: "ready", filter: {}, requestedBy: agency.owner.userId },
+      });
+      await tx.dataExport.update({
+        where: { id: made.id },
+        data: { fileAttachmentId: (await file("data_export", made.id)).id },
+      });
+      return { importId: batch.id, exportId: made.id };
+    });
+  }
+
+  async function erase(agency: DeletionAgency, subject: Parameters<typeof exportSubject>[2]["subject"]) {
+    const { organizationId, code } = agency;
+    await exportSubject(test.services, support, { organizationId, subject });
+    await requestErasure(test.services, support, { organizationId, subject, confirmation: code });
+    const sent = test.queue.sent.at(-1);
+    if (sent?.queue !== ERASE_SUBJECT_QUEUE) throw new Error("no erasure job was queued");
+    await eraseSubject(test.services, erasureJobOf(sent.data));
+  }
+
+  it("erases a customer and a removed member with an import and an export holding them", async () => {
+    const agency = await deletionAgency(test, plan);
+    const customer = await test.services.db.forOrg(agency.organizationId, (tx: OrgTx) =>
+      aPerson(tx, { name: "Asha Mehta" }),
+    );
+    const held = await bulkFilesHolding(agency, { personId: customer.id });
+    await erase(agency, { kind: "record", recordType: "person", recordId: customer.id });
+    expect(await platform.attachment.count({ where: { recordId: { in: [held.importId, held.exportId] } } })).toBe(0);
+    expect(await platform.importRow.findFirstOrThrow({ where: { batchId: held.importId } })).toMatchObject({
+      outcome: "added",
+      personId: null,
+      fingerprint: null,
+    });
+    expect(await platform.importBatch.findUniqueOrThrow({ where: { id: held.importId } })).toMatchObject({
+      status: "expired",
+    });
+    expect(await platform.dataExport.findUniqueOrThrow({ where: { id: held.exportId } })).toMatchObject({
+      status: "expired",
+    });
+    const logged = await platform.platformAuditEntry.findFirstOrThrow({
+      where: { action: "subject.erased", targetOrganizationId: agency.organizationId, targetType: "person" },
+    });
+    expect(logged.after).toMatchObject({ importsWithdrawn: 1, exportsWithdrawn: 1, bulkFiles: 2 });
+
+    const ravi = await test.identity.identity.staff.create(agency.owner, {
+      name: "Ravi Kumar",
+      username: "ravi.k",
+      roleKey: "sales",
+      temporaryPassword: "temporary-pass-1",
+    });
+    const staffImport = await bulkFilesHolding(agency, { memberId: ravi.memberId });
+    await test.identity.identity.staff.remove(agency.owner, { memberId: ravi.memberId });
+    await erase(agency, { kind: "member", memberId: ravi.memberId });
+    expect(await platform.importRow.findFirstOrThrow({ where: { batchId: staffImport.importId } })).toMatchObject({
+      memberId: null,
+      fingerprint: null,
+    });
+    expect(
+      await platform.attachment.count({ where: { recordId: { in: [staffImport.importId, staffImport.exportId] } } }),
+    ).toBe(0);
+  });
+});

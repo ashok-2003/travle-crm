@@ -6,6 +6,7 @@ import type { FailedJobsPage, ListFailedJobsInput, RetryFailedJobInput } from "@
 import { describeError } from "@travel-crm/integrations/jobs";
 import { DomainError } from "../kernel/index.js";
 import { ADVANCE_SUBSCRIPTIONS_QUEUE } from "../subscriptions/index.js";
+import { SWEEP_BULK_FILES_QUEUE } from "./bulk-files-sweep.js";
 import { RESET_DEMO_QUEUE } from "./demo.js";
 import { ERASE_SUBJECT_QUEUE } from "./erasure.js";
 import { SWEEP_STORED_FILES_QUEUE } from "./file-deletions.js";
@@ -33,6 +34,7 @@ const CONSOLE_SCHEDULES: ReadonlySet<string> = new Set([
   ADVANCE_SUBSCRIPTIONS_QUEUE,
   SWEEP_STORED_FILES_QUEUE,
   SWEEP_EXPIRED_EXPORTS_QUEUE,
+  SWEEP_BULK_FILES_QUEUE,
   RESET_DEMO_QUEUE,
 ]);
 
