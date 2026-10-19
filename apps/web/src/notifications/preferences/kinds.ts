@@ -11,6 +11,7 @@ export const notificationKinds = [
   { kind: "share-link.opened", messageKey: "shareLinkOpened" },
   { kind: "lead.assigned", messageKey: "leadAssigned" },
   { kind: "lead.repeat-enquiry", messageKey: "leadRepeatEnquiry" },
+  { kind: "lead.imported", messageKey: "leadImported" },
   { kind: "import.finished", messageKey: "importFinished" },
   { kind: "export.ready", messageKey: "exportReady" },
 ] as const;

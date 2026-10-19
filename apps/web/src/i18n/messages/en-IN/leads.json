@@ -95,6 +95,7 @@
   "formerMember": "A former member",
   "ownersFailed": "The people who can work leads didn't load.",
   "newLead": "New lead",
+  "import": {},
   "list": {
     "title": "Leads",
     "intro": "Everyone who asked about a trip, and the next thing to do for each.",
@@ -426,5 +427,6 @@
         "tooLong": "Use at most 4,000 characters."
       }
     }
-  }
+  },
+  "export": {}
 }

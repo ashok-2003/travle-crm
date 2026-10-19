@@ -38,6 +38,10 @@
         "label": "A customer asks again",
         "hint": "When a repeat enquiry is added to one of your open leads."
       },
+      "leadImported": {
+        "label": "Leads from an import are given to you",
+        "hint": "When someone else imports a file that makes you the owner of some of its leads."
+      },
       "importFinished": {
         "label": "An import of yours ends",
         "hint": "When the rows of a file you imported have been added, or the import stopped."

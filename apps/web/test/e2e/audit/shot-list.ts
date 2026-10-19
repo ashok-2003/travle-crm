@@ -162,6 +162,39 @@ export const SHOTS = [
   },
   { name: "lead-won", screen: "A won lead: its stage bar full, in green", as: owner },
   { name: "lead-not-a-lead", screen: "A Not a lead lead, its info hint open", as: owner },
+  // Release 2, bulk in and out: the lead import (bulk plan, Part 1).
+  { name: "lead-import-choose", screen: "Import leads, step 1: choose a file, with Recent imports", as: owner },
+  { name: "lead-import-uploading", screen: "Import leads, step 1: the file uploading, with Stop", as: owner },
+  { name: "lead-import-unreadable", screen: "Import leads, a file we can't read", as: owner },
+  { name: "lead-import-match", screen: "Import leads, step 2: the columns matched", as: owner },
+  { name: "lead-import-match-values", screen: "Import leads, step 2: an Owner column's values matched", as: owner },
+  { name: "lead-import-check", screen: "Import leads, step 3: the preview's counts", as: owner },
+  { name: "lead-import-check-examples", screen: "Import leads, step 3: rows not added, examples open", as: owner },
+  { name: "lead-import-confirm", screen: "Import leads, step 3: the Add confirmation", as: owner },
+  { name: "lead-import-adding", screen: "Import leads, step 4: adding, its progress and Stop", as: owner },
+  { name: "lead-import-done", screen: "Import leads, done: what was added, the report's download", as: owner },
+  { name: "lead-import-read-only", screen: "Leads while read-only: Import off with its hint", as: owner },
+  // Release 2: the lead export (bulk plan, Part 2).
+  { name: "leads-header", screen: "Leads, the header's New lead, Import and Export", as: owner },
+  { name: "lead-export-dialog", screen: "Leads, the Export dialog: what it holds, the format", as: owner },
+  { name: "lead-export-preparing", screen: "Leads, the Export dialog preparing the file", as: owner },
+  { name: "lead-export-ready", screen: "Leads, the Export dialog with the file and Download", as: owner },
+  { name: "lead-export-page", screen: "A leads export's page, from the bell", as: owner },
+  { name: "lead-export-sales", screen: "Leads, the Export dialog of a salesperson's own leads", as: sales },
+  // Release 2: staff import and export (bulk plan, Part 3).
+  { name: "staff-header", screen: "Staff, the header's Add staff, Import and Export", as: owner },
+  { name: "staff-add-with-phone", screen: "Staff, the Add staff dialog with a phone", as: owner },
+  { name: "staff-change-phone", screen: "Staff, the Change phone dialog", as: owner },
+  { name: "staff-import-match", screen: "Import staff, step 2: the columns and the role", as: owner },
+  { name: "staff-import-check", screen: "Import staff, step 3: the preview with the seats", as: owner },
+  { name: "staff-import-over-seats", screen: "Import staff, step 3: more people than seats, Add off", as: owner },
+  { name: "staff-import-passwords", screen: "Import staff, done: the passwords shown once", as: owner },
+  {
+    name: "staff-import-passwords-lost",
+    screen: "Import staff, done again: the passwords gone, Make new passwords",
+    as: owner,
+  },
+  { name: "staff-export-dialog", screen: "Staff, the Export dialog", as: owner },
 ] as const satisfies readonly Shot[];
 
 export type ShotName = (typeof SHOTS)[number]["name"];

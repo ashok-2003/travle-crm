@@ -482,6 +482,9 @@ importers:
       '@travel-crm/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
+      '@travel-crm/integrations':
+        specifier: workspace:*
+        version: link:../../packages/integrations
       '@travel-crm/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig

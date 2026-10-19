@@ -67,6 +67,7 @@
     "@travel-crm/api": "workspace:*",
     "@travel-crm/db": "workspace:*",
     "@travel-crm/eslint-config": "workspace:*",
+    "@travel-crm/integrations": "workspace:*",
     "@travel-crm/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "@types/react": "catalog:",

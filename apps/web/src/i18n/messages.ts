@@ -10,6 +10,7 @@ import consolePlatform from "./messages/en-IN/console-platform.json";
 import consoleMessages from "./messages/en-IN/console.json";
 import documents from "./messages/en-IN/documents.json";
 import errors from "./messages/en-IN/errors.json";
+import exportsMessages from "./messages/en-IN/exports.json";
 import forms from "./messages/en-IN/forms.json";
 import imports from "./messages/en-IN/imports.json";
 import leads from "./messages/en-IN/leads.json";
@@ -37,6 +38,8 @@ export const messages = {
   consolePlatform,
   documents,
   errors,
+  // "exports" is CommonJS's module object, hence this import's longer name too.
+  exports: exportsMessages,
   forms,
   imports,
   leads,
