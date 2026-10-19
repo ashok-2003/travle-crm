@@ -124,6 +124,10 @@
     "export": {
       "made": "Made an export file",
       "downloaded": "Downloaded an export file"
+    },
+    "sheet": {
+      "connected": "Connected a Google Sheet",
+      "columns-changed": "Matched a Google Sheet's columns again"
     }
   },
   "fields": {
@@ -157,7 +161,9 @@
     "tripType": "Trip type",
     "hotelCategory": "Hotel",
     "food": "Food",
-    "roomType": "Room type"
+    "roomType": "Room type",
+    "existingRows": "Rows already in the sheet",
+    "columnsMatched": "Columns matched"
   },
   "recordTypes": {
     "issued_document": "A document",
@@ -166,6 +172,7 @@
     "task": "A follow-up or task",
     "destination": "A destination",
     "import_batch": "An import",
-    "data_export": "An export"
+    "data_export": "An export",
+    "sheet_connection": "A Google Sheet"
   }
 }

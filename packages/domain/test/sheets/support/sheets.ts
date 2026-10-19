@@ -4,8 +4,14 @@
 import { randomUUID } from "node:crypto";
 import type { OrgTx } from "@travel-crm/db";
 import { createMemoryGoogleSheets, type MemoryGoogleSheets } from "@travel-crm/integrations/google-sheets";
-import { createSheetsHashes, rowHash, type SheetsHashes } from "../../../src/sheets/index.js";
-import type { SheetsDependencies } from "../../../src/sheets/index.js";
+import type { MemberAccess } from "../../../src/identity/index.js";
+import {
+  beginSheet,
+  createSheetsHashes,
+  rowHash,
+  type SheetsDependencies,
+  type SheetsHashes,
+} from "../../../src/sheets/index.js";
 import { createTestImports, type TestImports } from "../../imports/support/test-imports.js";
 
 export { anAgency, auditOf, eventsOf, memberOf } from "../../imports/support/test-imports.js";
@@ -167,4 +173,19 @@ export async function aSheetRow(
     },
     select: { id: true },
   });
+}
+
+/** A Google Form's header: what its answers and a team's own columns look like. */
+export const formHeader = ["Timestamp", "Full name", "Phone number", "Email Address", "Where do you want to go?"];
+
+/** A sheet checked by `beginSheet`, as a person's first step leaves it: a draft at the tab step. */
+export async function aDraftSheet(
+  test: TestSheets,
+  importer: MemberAccess,
+  sheet: Partial<SharedSheet> = {},
+  now = new Date("2026-10-19T10:00:00Z"),
+): Promise<{ sheetId: string; spreadsheetId: string }> {
+  const id = aGoogleSheet(test, { id: aSpreadsheetId(), rows: [formHeader], ...sheet });
+  const { sheetId } = await beginSheet(test.db, test.dependencies, importer, { spreadsheetId: id, gid: null }, now);
+  return { sheetId, spreadsheetId: id };
 }
