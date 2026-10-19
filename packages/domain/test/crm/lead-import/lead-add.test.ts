@@ -447,4 +447,54 @@ describe("adding a lead import", () => {
       [importer.userId, "Your import is done", "1 new lead. 2 rows weren't added."],
     ]);
   });
+
+  it("leaves a Google Sheet's rows for people already in the CRM out, then adds them when ticked (N6)", async () => {
+    const [openPhone, closedPhone] = [freshPhone(), freshPhone()] as [string, string];
+    const people = await inOrg(async (tx) => {
+      const open = await aPerson(tx, { phoneE164: openPhone });
+      const openLead = await aLead(tx, { personId: open.id, ownerUserId: asha });
+      const closed = await aPerson(tx, { phoneE164: closedPhone });
+      await aLead(tx, { personId: closed.id, stage: "won" });
+      return { openLead, closed };
+    });
+    const origin = {
+      detail: "Goa Diwali campaign · Form responses 1",
+      timeZone: "Asia/Kolkata",
+      monthFirstDates: false,
+    };
+    const sheet = { ...dependencies(), sheetOrigin: () => Promise.resolve(origin) };
+    const sheetImport = async (addInCrm: boolean) => {
+      const { id } = await aLeadImport(test, importer, {
+        header: HEADER,
+        fields: FIELDS,
+        rows: [
+          row("Open", openPhone, [null, "Goa"]),
+          row("Closed", closedPhone, [null, "Goa"]),
+          row("Fresh", freshPhone()),
+        ],
+        seed: { sourceSheetId: randomUUID() },
+      });
+      await checkLeadImportListener(sheet).handle(stepEvent(organizationId, "import.columns-matched", id), context());
+      await inOrg((tx) => tx.importBatch.update({ where: { id }, data: { addInCrm } }));
+      await requestImportAdd(test.db, importer, "leads", id, new Date());
+      await addLeadImportListener(sheet).handle(stepEvent(organizationId, "import.add-requested", id), context());
+      return id;
+    };
+    const left = await sheetImport(false);
+    expect((await rowsOf(left)).map((stored) => [stored.plan, stored.outcome, stored.reasons[0] ?? null])).toEqual([
+      ["in_crm", "left_out", "in_crm_open"],
+      ["in_crm", "left_out", "in_crm_closed"],
+      ["new", "added", null],
+    ]);
+    const added = await sheetImport(true);
+    const rows = await rowsOf(added);
+    expect(rows.map((stored) => [stored.plan, stored.outcome])).toEqual([
+      ["in_crm", "merged"],
+      ["in_crm", "added"],
+      ["new", "added"],
+    ]);
+    expect(rows[0]?.leadId).toBe(people.openLead.id);
+    const lead = await inOrg((tx) => tx.lead.findUniqueOrThrow({ where: { id: rows[1]?.leadId ?? "" } }));
+    expect([lead.source, lead.sourceDetail, lead.returning]).toEqual(["google_sheet", origin.detail, true]);
+  });
 });

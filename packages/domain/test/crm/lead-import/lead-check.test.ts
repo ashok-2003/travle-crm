@@ -329,4 +329,47 @@ describe("checking a lead import", () => {
     );
     expect(await planOf(id)).toEqual([]);
   });
+
+  it("plans a Google Sheet's rows for people who already have a lead as in_crm, open or closed (N6)", async () => {
+    const [openPhone, closedPhone, newPhone] = [freshPhone(), freshPhone(), freshPhone()] as [string, string, string];
+    await inOrg(async (tx) => {
+      const open = await aPerson(tx, { phoneE164: openPhone });
+      await aLead(tx, { personId: open.id });
+      const closed = await aPerson(tx, { phoneE164: closedPhone });
+      await aLead(tx, { personId: closed.id, stage: "lost" });
+    });
+    const { id } = await aLeadImport(test, importer, {
+      header: HEADER,
+      fields: FIELDS,
+      rows: [row("Open", openPhone), row("Closed", closedPhone), row("Fresh", newPhone)],
+      seed: { sourceSheetId: randomUUID() },
+    });
+    const origin = {
+      detail: "Goa Diwali campaign · Form responses 1",
+      timeZone: "Asia/Kolkata",
+      monthFirstDates: false,
+    };
+    const withSheet = { ...jobDependencies(test, identity()), sheetOrigin: () => Promise.resolve(origin) };
+    await checkLeadImportListener(withSheet).handle(
+      stepEvent(organizationId, "import.columns-matched", id),
+      listenerContext(test, organizationId),
+    );
+    expect(await planOf(id)).toEqual([
+      [2, "in_crm", "in_crm_open"],
+      [3, "in_crm", "in_crm_closed"],
+      [4, "new", null],
+    ]);
+    const counts = await inOrg((tx) => importCounts(tx, { id, rowsNewStage: 0 }));
+    expect(counts.inCrm).toEqual({ open: 1, closed: 1 });
+    // A file's rows for the same people are planned as a repeat enquiry and a returning lead, never in_crm.
+    const file = await check({
+      header: HEADER,
+      fields: FIELDS,
+      rows: [row("Open", openPhone), row("Closed", closedPhone)],
+    });
+    expect((await planOf(file)).map(([number, plan]) => [number, plan])).toEqual([
+      [2, "enquiry"],
+      [3, "returning"],
+    ]);
+  });
 });
