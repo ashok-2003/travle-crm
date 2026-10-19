@@ -13,6 +13,12 @@ import { runListenerJob } from "./run-listener.js";
  */
 export interface JobHandler {
   readonly queue: string;
+  /**
+   * How many of its jobs the worker runs at once; one unless named. A listener's queue always runs one job at a time
+   * (an import's read peaks high in memory, X10), so only a plain handler whose job is light and bounded asks for more
+   * (the Sheets sync's checks, which read Google and write fifty rows at a time).
+   */
+  readonly concurrency?: number;
   handle(data: JobData): Promise<void>;
 }
 
@@ -100,6 +106,14 @@ async function registerSchedules(runner: JobRunner, schedules: readonly Schedule
   }
 }
 
+/** Works a handler's queue, at the concurrency it names (one by default). */
+function workHandler(runner: JobRunner, handler: JobHandler): Promise<void> {
+  const handle = (job: { data: JobData }) => handler.handle(job.data);
+  return handler.concurrency === undefined
+    ? runner.work(handler.queue, handle)
+    : runner.work(handler.queue, handle, { concurrency: handler.concurrency });
+}
+
 /**
  * Starts everything. The runner (pg-boss) keeps its queues and schedules after a restart: a listener or schedule
  * removed from the code leaves its queue, jobs and schedule behind until a super admin removes it in the console.
@@ -139,9 +153,7 @@ export async function startWorker(dependencies: WorkerDependencies): Promise<Wor
       { concurrency: 1 },
     );
   }
-  for (const handler of handlers) {
-    await runner.work(handler.queue, (job) => handler.handle(job.data));
-  }
+  for (const handler of handlers) await workHandler(runner, handler);
 
   const relay = startOutboxRelay({
     db,
@@ -168,7 +180,5 @@ export async function startJobHandlers(dependencies: JobHandlerDependencies): Pr
     schedules,
   );
   await registerSchedules(runner, schedules);
-  for (const handler of handlers) {
-    await runner.work(handler.queue, (job) => handler.handle(job.data));
-  }
+  for (const handler of handlers) await workHandler(runner, handler);
 }

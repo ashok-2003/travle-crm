@@ -5,3 +5,4 @@ export { lookUpSheetRows, type SheetLookups } from "./sheet-lookups.js";
 export { readSheetRow, sheetLeadContext, type SheetLeadContextInput } from "./sheet-rows.js";
 export { checkLeadSheet, checkLeadSheetListener, type CheckLeadSheetDependencies } from "./check-lead-sheet.js";
 export { noticeSheetOwners, ownersToSummarise } from "./sheet-notices.js";
+export { sheetsCheckHandler } from "./check-job.js";

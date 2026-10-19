@@ -23,7 +23,24 @@ const {
     db: services.db,
     runner: services.jobs,
     queue: services.jobs,
-    ...workerJobs({ ...services, appUrl: environment.APP_URL, webhookProviders, log }),
+    ...workerJobs({
+      ...services,
+      appUrl: environment.APP_URL,
+      webhookProviders,
+      log,
+      ...(services.google === null || services.sheetsHashes === null
+        ? {}
+        : {
+            sheets: {
+              google: services.google,
+              hashes: services.sheetsHashes,
+              queue: services.jobs,
+              ...(environment.SHEETS_CHECK_INTERVAL_SECONDS === undefined
+                ? {}
+                : { checkIntervalSeconds: environment.SHEETS_CHECK_INTERVAL_SECONDS }),
+            },
+          }),
+    }),
     // The relay's errors, and jobs whose event wasn't found: the one log, a line each. pg-boss's problems and failing
     // jobs reach the same log through the services.
     onError: (problem) => {

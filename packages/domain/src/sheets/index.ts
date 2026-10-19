@@ -42,3 +42,11 @@ export { hideProblem, sheetProblems } from "./problems.js";
 export { takeOverSheet } from "./take-over.js";
 export { readSheetTab, rowsFrom, type TabRead } from "./read-tab.js";
 export { storedColumns, type StoredColumn } from "./verify.js";
+export {
+  dispatchDueChecks,
+  SHEETS_CHECK_QUEUE,
+  SHEETS_DISPATCH_QUEUE,
+  sheetsDispatchSchedule,
+  type DispatchDependencies,
+} from "./dispatch.js";
+export { finishScheduledCheck } from "./schedule.js";

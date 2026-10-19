@@ -225,6 +225,21 @@ describe("checking a sheet", () => {
     expect(await crashing.state()).toMatchObject({ rowsAdded: 120 });
   });
 
+  it("reads every row since the cursor on the next check after a sleep of an hour", async () => {
+    const slept = await setup();
+    // The worker is asleep for an hour; forty answers arrive; no tick ran. The next check starts from the cursor.
+    for (let index = 0; index < 40; index += 1) slept.append(answer(`Slept ${String(index)}`, freshPhone(), index));
+    expect(await slept.leads()).toHaveLength(0);
+    const hourLater = () => new Date(Date.now() + 60 * 60_000);
+    expect(await slept.check("scheduled", {}, hourLater)).toMatchObject({ result: "checked" });
+    expect((await slept.leads()).map((lead) => lead.person.name).sort()).toEqual(
+      Array.from({ length: 40 }, (_, index) => `Slept ${String(index)}`).sort(),
+    );
+    await slept.check("scheduled", {}, hourLater);
+    expect(await slept.leads()).toHaveLength(40);
+    expect(await slept.state()).toMatchObject({ rowsAdded: 40, cursorRow: 41 });
+  });
+
   it("holds an unfinished row one check, then lists it; the fixed row adds one lead and clears the line", async () => {
     const typing = await setup();
     typing.append(["19/10/2026 14:40:00", "Rahul Sharma", "", ""]);

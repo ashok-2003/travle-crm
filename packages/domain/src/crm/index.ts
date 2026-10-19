@@ -10,7 +10,12 @@ export { findKnownContact } from "./known-contact.js";
 export { getLead } from "./lead-detail.js";
 export { makeLeadExportListener } from "./lead-export/index.js";
 export { addLeadImportListener, checkLeadImportListener } from "./lead-import/index.js";
-export { checkLeadSheet, checkLeadSheetListener, type CheckLeadSheetDependencies } from "./lead-sheets/index.js";
+export {
+  checkLeadSheet,
+  checkLeadSheetListener,
+  type CheckLeadSheetDependencies,
+  sheetsCheckHandler,
+} from "./lead-sheets/index.js";
 export { editLeadPerson, editLeadTrip } from "./lead-edits.js";
 export { recordLeadEvent, type LeadEventEntry } from "./lead-events.js";
 export { countLeads, listLeads } from "./lead-list.js";
