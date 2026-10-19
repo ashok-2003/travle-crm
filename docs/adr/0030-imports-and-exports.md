@@ -90,7 +90,9 @@ strand an import:
 - **An erasure** (a customer's or a removed member's) withdraws every import and export file of the organization at
   once, in the erasure's transaction, empties the erased person's import rows and forgets the agency's header memory
   (a header may have been a customer's details). A file can't be searched for one person, and it is a week's worth at
-  most. The memory never takes a header that reads as data: four digits, an @, a + before digits, or six words.
+  most. The memory never takes a header that reads as data: four digits, an @, a + before digits, or six words. A
+  plausible one may still be data, a customer's name from a file with no header row ("Priya Sharma"): accepted, as it
+  stays in the agency's own table under row-level security, and any erasure forgets every remembered header.
 - The files module knows the three record types (`import_batch`, `import_report`, `data_export`): the last two are
   made by the system (`storeGeneratedFile`), never uploaded, and are short-lived, so their files are deleted with
   their record.
