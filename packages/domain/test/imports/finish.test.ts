@@ -140,6 +140,28 @@ describe("an import's end", () => {
     expect(await inOrg((tx) => findImport(tx, importer, "leads", checked))).toMatchObject({ status: "checked" });
   });
 
+  it("leaves a sheet's un-ticked rows already in the CRM out with their reason, and a ticked one not reached (X2)", async () => {
+    for (const addInCrm of [false, true]) {
+      const { id } = await inOrg((tx) => aBatch(tx, { startedBy: importer.userId, status: "adding", addInCrm }));
+      await inOrg(async (tx) => {
+        await aRow(tx, { batchId: id, rowNumber: 2, plan: "in_crm", reasons: ["in_crm_open"] });
+        await aRow(tx, { batchId: id, rowNumber: 3, plan: "in_crm", reasons: ["in_crm_closed"] });
+      });
+      await finish(id, { status: "stopped" });
+      expect(await outcomesOf(id), String(addInCrm)).toEqual(
+        addInCrm
+          ? [
+              [2, "not_added", ["not_reached"]],
+              [3, "not_added", ["not_reached"]],
+            ]
+          : [
+              [2, "left_out", ["in_crm_open"]],
+              [3, "left_out", ["in_crm_closed"]],
+            ],
+      );
+    }
+  });
+
   it("downloads the report through a 5-minute link, recording import.report-downloaded", async () => {
     const file = test.spreadsheets.bytesOf({ header: ["Name", "Mobile"], rows: [["Asha", null]] });
     const { id } = await anImportWithFile(test, importer, file, { status: "adding" });
