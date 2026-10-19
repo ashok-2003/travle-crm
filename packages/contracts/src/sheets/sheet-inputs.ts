@@ -4,13 +4,16 @@ import { z } from "zod";
 import { recordId } from "../identity/fields.js";
 import { MAX_MATCHED_VALUE_LENGTH } from "../crm/lead-import.js";
 import { existingRowChoice, sheetField } from "./sheet-connection.js";
-import { sheetLink } from "./sheet-link.js";
 
 export const sheetIdInput = z.strictObject({ sheetId: recordId });
 export type SheetIdInput = z.infer<typeof sheetIdInput>;
 
-export const beginSheetInput = z.strictObject({ link: sheetLink });
-export type BeginSheetInput = z.input<typeof beginSheetInput>;
+/**
+ * The pasted address, as typed. The procedure reads it with parseSheetLink and refuses a bad one with the reason
+ * SHEET_LINK_INVALID, so the screen shows that reason's own sentence; sheetLink does the same check for a form.
+ */
+export const beginSheetInput = z.strictObject({ link: z.string().trim().min(1).max(2000) });
+export type BeginSheetInput = z.infer<typeof beginSheetInput>;
 
 const headerKey = z.string().min(1).max(200);
 

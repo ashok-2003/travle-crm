@@ -53,8 +53,7 @@ describe("sheetLink", () => {
     expect(Object.keys(parsed).sort()).toEqual(["gid", "spreadsheetId"]);
     expect(JSON.stringify(parsed)).not.toContain("secret");
     expect(parseSheetLink(`${base}/edit`)).toEqual({ spreadsheetId: id, gid: null });
-    expect(beginSheetInput.parse({ link: `${base}/edit#gid=5` })).toEqual({
-      link: { spreadsheetId: id, gid: "5" },
-    });
+    // begin takes the address as typed; the procedure parses it, so a bad one is refused with its own reason.
+    expect(beginSheetInput.parse({ link: ` ${base}/edit#gid=5 ` })).toEqual({ link: `${base}/edit#gid=5` });
   });
 });
