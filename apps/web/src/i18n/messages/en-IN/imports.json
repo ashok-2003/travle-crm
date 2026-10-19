@@ -128,7 +128,8 @@
     "owner_role": "Add an Owner from Add staff, one at a time",
     "role_above_yours": "A role above yours",
     "already_on_staff": "Already on your staff",
-    "taken_meanwhile": "Taken by someone added meanwhile"
+    "taken_meanwhile": "Taken by someone added meanwhile",
+    "could_not_add": "Couldn't be added: try this row in a new import"
   },
   "failures": {
     "stopped": "This import stopped: {reason}. The rows added before it stay.",

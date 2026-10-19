@@ -1,7 +1,7 @@
 // What each owner is told when an import ends (spec 8, B18, D20, D21): the importer is told by the import's own notice,
 // and an owner other than the importer once, however many batches added their leads, with the count of leads that
 // came to them and of repeat enquiries on theirs.
-import type { OrgTx } from "@travel-crm/db";
+import { sql, type OrgTx, type Sql } from "@travel-crm/db";
 import { formatIndianNumber, type Actor } from "../../kernel/index.js";
 import { notify } from "../../notifications/index.js";
 import type { ImportBatchRow } from "../../imports/index.js";
@@ -10,8 +10,8 @@ const counted = (count: number, one: string, many: string) =>
   `${formatIndianNumber(count)} ${count === 1 ? one : many}`;
 
 /** The owners of the import's added and merged leads, with how many of each, from the leads as they are now. */
-async function leadsByOwner(tx: OrgTx, importId: string) {
-  return tx.$queryRaw<{ ownerUserId: string; added: number; merged: number }[]>`
+export function leadsByOwnerQuery(importId: string): Sql {
+  return sql`
     SELECT lead.owner_user_id AS "ownerUserId",
       count(*) FILTER (WHERE import_row.outcome = 'added')::int AS added,
       count(*) FILTER (WHERE import_row.outcome = 'merged')::int AS merged
@@ -32,7 +32,9 @@ export async function noticeImportedOwners(
   batch: Pick<ImportBatchRow, "id" | "startedBy">,
   sourceEventId: string,
 ): Promise<void> {
-  for (const owner of await leadsByOwner(tx, batch.id)) {
+  for (const owner of await tx.$queryRaw<{ ownerUserId: string; added: number; merged: number }[]>(
+    leadsByOwnerQuery(batch.id),
+  )) {
     if (owner.ownerUserId === batch.startedBy) continue;
     const added = owner.added;
     const repeats = counted(owner.merged, "repeat enquiry", "repeat enquiries");

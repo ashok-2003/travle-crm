@@ -206,6 +206,11 @@ describe("reading a lead row", () => {
     expect([unknown.stage, unknown.ownerUserId]).toEqual(["new", OWNER]);
   });
 
+  it("drops a NUL, which text can't hold, from a cell", () => {
+    const reading = enquiryOf(read(["name", "phone"], ["Asha\u0000 Rao", "9876543210"]));
+    expect(reading.enquiry.person.name).toBe("Asha Rao");
+  });
+
   it("treats a dash or n/a as an empty cell", () => {
     const reading = enquiryOf(read(["name", "phone", "email", "budget"], ["Asha", "9876543210", "-", "N/A"]));
     expect(reading.enquiry.note).toBeNull();

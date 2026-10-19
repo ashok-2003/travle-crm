@@ -70,7 +70,8 @@ const MAX_SOURCE_DETAIL = 120;
 const EMPTY_WORDS = new Set(["-", "--", "n/a", "na", "nil", "null", "none"]);
 
 function cellText(row: SheetRow, position: number): string | null {
-  const text = row.cells[position]?.trim() ?? "";
+  // A NUL can't be stored in text: it would fail the check's and the add's writes, so it is dropped as it is read.
+  const text = row.cells[position]?.replaceAll("\u0000", "").trim() ?? "";
   return text === "" || EMPTY_WORDS.has(text.toLowerCase()) ? null : text;
 }
 

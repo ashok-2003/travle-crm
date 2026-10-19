@@ -4,7 +4,7 @@
 // 3 minutes, 50 rows to a transaction, the progress moving by 50 and no transaction longer than a batch. Everything
 // runs as app_runtime inside forOrg, so the plans are the runtime's under row-level security.
 import { randomUUID } from "node:crypto";
-import { createDatabase, type Database, type OrgTx, type Sql } from "@travel-crm/db";
+import { createDatabase, sql, type Database, type OrgTx, type Sql } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { createIsolatedDatabase, createTestOrganization, type IsolatedDatabase } from "@travel-crm/db/testing";
 import { createSpreadsheets } from "@travel-crm/integrations/spreadsheets";
@@ -19,6 +19,7 @@ import {
   openLeadsOfQuery,
   personContactsQuery,
 } from "../../src/crm/lead-import/lead-lookups.js";
+import { leadsByOwnerQuery } from "../../src/crm/lead-import/owner-notices.js";
 import { readLeadFile } from "../../src/crm/lead-import/lead-read.js";
 import { createFiles } from "../../src/files/index.js";
 import type { MemberAccess } from "../../src/identity/index.js";
@@ -40,7 +41,6 @@ import { planOf, type QueryPlan } from "./query-plans.js";
 
 const SIZE = { leads: 50_000, tasks: 0, staff: 500, destinations: 300 };
 const ROWS = 10_000;
-const BATCH = 50;
 
 describe("a 10,000-row lead import into a large agency", () => {
   let isolated: IsolatedDatabase;
@@ -99,7 +99,7 @@ describe("a 10,000-row lead import into a large agency", () => {
   beforeAll(async () => {
     isolated = await createIsolatedDatabase(inject("dbUrls"));
     platform = createPlatformClient(isolated.urls.platform);
-    db = createDatabase(isolated.urls.runtime, { maxConnections: 3, transactionLimits: { timeout: 60_000 } });
+    db = createDatabase(isolated.urls.runtime, { maxConnections: 3 });
     organizationId = await createTestOrganization(platform, "Importing agency");
     const { ownerUserIds } = await seedLargeAgency(platform, isolated.urls, organizationId, SIZE);
     // Agencies share the tables: one seeded after this one.
@@ -205,6 +205,25 @@ describe("a 10,000-row lead import into a large agency", () => {
       expect(read.seqScans, name).not.toContain("person");
       expect(read.seqScans, name).not.toContain("lead");
     }
+    // What the add reads and writes a batch at a time and at its end, as the runtime's Prisma sends them.
+    const rowsToAddQuery = sql`
+      SELECT row_number, plan FROM import_row
+      WHERE batch_id = ${importId}::uuid AND outcome IS NULL
+        AND plan = ANY(ARRAY['new', 'returning', 'enquiry', 'blocked', 'already_imported', 'in_crm'])
+      ORDER BY row_number LIMIT 50`;
+    const outcomeUpdate = sql`
+      SELECT id FROM import_row WHERE batch_id = ${importId}::uuid AND row_number = 5000 AND outcome IS NULL`;
+    for (const [name, query, index] of [
+      ["rows-to-add", rowsToAddQuery, /import_row_(by_plan|number)/],
+      ["record-outcome", outcomeUpdate, /import_row_number/],
+      ["owners-of-added", leadsByOwnerQuery(importId), /import_row_(by_plan|number)/],
+    ] as const) {
+      const read = await plan(name, query);
+      expect(
+        read.indexes.some((found) => index.test(found)),
+        `${name}: ${read.text}`,
+      ).toBe(true);
+    }
     // The agency's destinations are a few hundred rows: the planner reads them whole, and that is the right plan.
     await plan("destinations", destinationsNamedQuery(["destination 1", "brand new 3"]));
     await timed("check", async () => {
@@ -247,9 +266,10 @@ describe("a 10,000-row lead import into a large agency", () => {
     expect(timings.get("add")).toBeLessThan(180_000);
     const done = await batchOf();
     expect([done.status, done.rowsAdded]).toEqual(["done", ROWS]);
-    expect([...seen].every((rows) => rows % BATCH === 0)).toBe(true);
+    // A reader saw it move batch by batch (a batch is at most 50 rows, fewer when the clock ends it sooner).
+    expect([...seen].every((rows) => rows <= ROWS)).toBe(true);
     expect(seen.size).toBeGreaterThan(5);
-    // A batch is 50 rows; a transaction of the end (the report, the notices) is no longer than a few of them.
-    expect(longest.ms).toBeLessThan(15_000);
+    // On the production default limit of 5 s for a transaction, no transaction nears it: under half.
+    expect(longest.ms).toBeLessThan(2500);
   }, 400_000);
 });

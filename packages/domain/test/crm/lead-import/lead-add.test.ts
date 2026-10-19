@@ -6,6 +6,7 @@ import type { OrgTx } from "@travel-crm/db";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { addLeadImportListener, checkLeadImportListener } from "../../../src/crm/index.js";
 import { addLeadBatch } from "../../../src/crm/lead-import/lead-add.js";
+import { addLeadImport } from "../../../src/crm/lead-import/lead-add-job.js";
 import { readLeadFile } from "../../../src/crm/lead-import/lead-read.js";
 import type { MemberAccess } from "../../../src/identity/index.js";
 import {
@@ -108,12 +109,14 @@ describe("adding a lead import", () => {
       });
       const { batch, file } = await readFor(id);
       const results: unknown[] = [];
-      for (let step = 0; step < 4; step += 1) {
+      for (let step = 0; step < 30; step += 1) {
         const result = await addLeadBatch(context(), dependencies(), batch, file);
         results.push(result);
         if (result !== "more") break;
       }
-      expect(results).toEqual(["more", "more", "done"]);
+      // Batches of 50, 50 and 20; a slow machine's clock may end one early, and then there are more of them.
+      expect(results.at(-1)).toBe("done");
+      expect(results.length).toBeGreaterThanOrEqual(3);
       const rows = await rowsOf(id);
       expect(
         rows.every((stored) => stored.outcome === "added" && stored.leadId !== null && stored.personId !== null),
@@ -500,5 +503,81 @@ describe("adding a lead import", () => {
     expect(rows[0]?.leadId).toBe(people.openLead.id);
     const lead = await inOrg((tx) => tx.lead.findUniqueOrThrow({ where: { id: rows[1]?.leadId ?? "" } }));
     expect([lead.source, lead.sourceDetail, lead.returning]).toEqual(["google_sheet", origin.detail, true]);
+  });
+
+  it("ends a batch by the clock as well as by its rows, so no transaction nears the database's limit (I1x)", async () => {
+    const id = await adding({
+      rows: Array.from({ length: 4 }, (_, index) => row(`Timed ${String(index)}`, freshPhone())),
+    });
+    const { batch, file } = await readFor(id);
+    // A time box already past: each batch takes its one row and commits.
+    const results = [];
+    for (let step = 0; step < 4; step += 1) {
+      results.push(await addLeadBatch(context(), dependencies(), batch, file, { timeBoxMs: 0 }));
+    }
+    expect(results).toEqual(["more", "more", "more", "done"]);
+    expect((await batchOf(id)).rowsAdded).toBe(4);
+  });
+
+  it("records a row that always fails as not added and adds the rest (I2x)", async () => {
+    const id = await adding({
+      rows: [row("Good One", freshPhone()), row("Poison Row", freshPhone()), row("Good Two", freshPhone())],
+    });
+    // Saving this person fails whenever it is tried, alone or in a batch.
+    const failing: ListenerContext = {
+      ...context(),
+      forOrg: (work, options) =>
+        test.db.forOrg(
+          organizationId,
+          (tx) =>
+            work(
+              new Proxy(tx, {
+                get: (target, property, receiver) => {
+                  const value: unknown = Reflect.get(target, property, receiver);
+                  if (property !== "person") return value;
+                  return new Proxy(value as object, {
+                    get: (people, method, peopleReceiver) => {
+                      const original: unknown = Reflect.get(people, method, peopleReceiver);
+                      if (method !== "create" || typeof original !== "function") return original;
+                      return (args: { data: { name: string } }) =>
+                        args.data.name === "Poison Row"
+                          ? Promise.reject(new Error("This row can't be saved"))
+                          : (original as (inner: unknown) => Promise<unknown>).call(people, args);
+                    },
+                  });
+                },
+              }),
+            ),
+          options,
+        ),
+    };
+    await runAdd(id, identityOf(), failing);
+    const rows = await rowsOf(id);
+    expect(rows.map((stored) => [stored.outcome, stored.reasons[0] ?? null])).toEqual([
+      ["added", null],
+      ["not_added", "could_not_add"],
+      ["added", null],
+    ]);
+    expect((await batchOf(id)).status).toBe("done");
+  });
+
+  it("hands the rest to a run of its own after its time, which picks up where it stopped (I3x)", async () => {
+    const id = await adding({
+      rows: Array.from({ length: 120 }, (_, index) => row(`Continued ${String(index)}`, freshPhone())),
+    });
+    const batch = await batchOf(id);
+    const events = () => inOrg((tx) => tx.outboxEvent.count({ where: { type: "import.add-requested" } }));
+    const before = await events();
+    await addLeadImport(context(), dependencies(), batch, randomUUID(), { runMs: 0 });
+    // One batch added, the import still adding, and a run of its own asked for with only the import's id.
+    expect(await batchOf(id)).toMatchObject({ status: "adding", rowsAdded: 50 });
+    expect(await events()).toBe(before + 1);
+    const queued = await inOrg((tx) =>
+      tx.outboxEvent.findFirst({ where: { type: "import.add-requested" }, orderBy: { id: "desc" } }),
+    );
+    expect(queued?.payload).toEqual({ importId: id, kind: "leads" });
+    await runAdd(id);
+    expect(await batchOf(id)).toMatchObject({ status: "done", rowsAdded: 120 });
+    expect(new Set((await rowsOf(id)).map((stored) => stored.leadId)).size).toBe(120);
   });
 });

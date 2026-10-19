@@ -18,11 +18,10 @@ import type { PlannableRow } from "./lead-plan.js";
 
 export interface LeadFile {
   rows: PlannableRow[];
+  /** The rows by their number in the file. */
+  byRow: ReadonlyMap<number, PlannableRow>;
   timeZone: string;
   fromSheet: boolean;
-  /** The lead workers now, for an owner who left since the matches were made (D19). */
-  workers: ReadonlySet<string>;
-  defaultOwnerUserId: string;
 }
 
 /** The owner rows with no (or an unknown) owner go to: the importer's pick, else the agency's Owner (B12). */
@@ -99,11 +98,11 @@ export async function readLeadFile(
     timeZone,
     ...(origin === null ? {} : { origin }),
   };
+  const rows = sheet.rows.map((row) => ({ ...readLeadRow(row, rowContext), rowNumber: row.rowNumber }));
   return {
-    rows: sheet.rows.map((row) => ({ ...readLeadRow(row, rowContext), rowNumber: row.rowNumber })),
+    rows,
+    byRow: new Map(rows.map((row) => [row.rowNumber, row])),
     timeZone,
     fromSheet: batch.sourceSheetId !== null,
-    workers,
-    defaultOwnerUserId,
   };
 }

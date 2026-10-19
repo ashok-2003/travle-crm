@@ -30,6 +30,7 @@ export const rowReasonCodes = [
   "in_crm_open",
   "in_crm_closed",
   "not_reached",
+  "could_not_add",
   "invalid_name",
   "no_sign_in_name",
   "invalid_username",
