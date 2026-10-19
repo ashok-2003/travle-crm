@@ -114,8 +114,15 @@ export function wallClockOf(instant: Date, timeZone: string): string {
   return clock.format(instant).replace(/\s+/, "T");
 }
 
+/**
+ * Paise as rupees, whole rupees plus the paise's hundredths, from the bigint: the cell is a number (B38) so a sheet can
+ * add and sort it, which a text cell would stop.
+ */
+const rupees = (paise: bigint) => Number(paise / 100n) + Number(paise % 100n) / 100;
+
 const wordOrNull = (field: FileWordField, key: string | null) => (key === null ? null : wordOf(field, key));
 
+/** An owner who is no longer an active member (removed or banned) shows as "Former member" (B38). */
 export function exportRowOf(lead: ExportedLead, context: ExportContext): WrittenCell[] {
   const { timeZone, nextTask } = context;
   const owner = lead.ownerUserId === null ? null : (context.ownerNames.get(lead.ownerUserId) ?? "Former member");
@@ -132,7 +139,7 @@ export function exportRowOf(lead: ExportedLead, context: ExportContext): Written
     travelMonthOf(lead),
     lead.adults,
     lead.childrenAges.length === 0 ? null : lead.childrenAges.join(", "),
-    lead.budgetPaise === null ? null : Number(lead.budgetPaise) / 100,
+    lead.budgetPaise === null ? null : rupees(lead.budgetPaise),
     wordOrNull("budgetBasis", lead.budgetBasis),
     lead.departureCity,
     wordOrNull("tripType", lead.tripType),
