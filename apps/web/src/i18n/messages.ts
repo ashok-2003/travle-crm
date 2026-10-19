@@ -11,6 +11,7 @@ import consoleMessages from "./messages/en-IN/console.json";
 import documents from "./messages/en-IN/documents.json";
 import errors from "./messages/en-IN/errors.json";
 import forms from "./messages/en-IN/forms.json";
+import imports from "./messages/en-IN/imports.json";
 import leads from "./messages/en-IN/leads.json";
 import notifications from "./messages/en-IN/notifications.json";
 import pwa from "./messages/en-IN/pwa.json";
@@ -37,6 +38,7 @@ export const messages = {
   documents,
   errors,
   forms,
+  imports,
   leads,
   notifications,
   pwa,
