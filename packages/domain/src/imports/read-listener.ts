@@ -1,11 +1,13 @@
 // imports.read-file (spec 7): on import.uploaded, the worker reads the file outside any transaction, keeps its SHA-256
 // (B6), sheet and columns, guesses each column's field and suggests each value's target, then moves the import to
 // matching, publishing import.read for whatever follows a read (a Google Sheet's connect-time import), or to
-// unreadable with the adapter's reason. An import no longer reading is left alone, so a repeat is harmless.
+// unreadable with the adapter's reason. An import no longer reading is left alone, so a repeat is harmless; one whose
+// file went meanwhile (an erasure, the sweep) ends failed, file withdrawn, rather than failing the job (M8).
 import { createHash } from "node:crypto";
 import { importUploadedEvent } from "@travel-crm/contracts/imports";
 import { type ReadSheet, SpreadsheetUnreadableError } from "@travel-crm/integrations/spreadsheets";
 import { defineListener, type EventListener, publishEvent } from "../jobs/index.js";
+import { DomainError } from "../kernel/index.js";
 import { toBatchRow } from "./batch-row.js";
 import { holdImport, moveImport } from "./batches.js";
 import { summariseColumns } from "./columns.js";
@@ -27,7 +29,21 @@ export function readImportFileListener(dependencies: ImportJobDependencies): Eve
       const found = await context.forOrg((tx) => tx.importBatch.findUnique({ where: { id: event.payload.importId } }));
       const batch = found === null ? null : toBatchRow(found);
       if (batch?.status !== "reading") return;
-      const bytes = await importFileBytes(dependencies.files, batch);
+      let bytes: Uint8Array;
+      try {
+        bytes = await importFileBytes(dependencies.files, batch);
+      } catch (error) {
+        if (!(error instanceof DomainError && error.reason === "ATTACHMENT_NOT_FOUND")) throw error;
+        const ended = new Date();
+        await context.forOrg(async (tx) => {
+          if ((await holdImport(tx, batch.id))?.status !== "reading") return;
+          await moveImport(tx, batch.id, ["reading"], "failed", ended, {
+            failureReason: "file_withdrawn",
+            finishedAt: ended,
+          });
+        });
+        return;
+      }
       const fileSha256 = Uint8Array.from(createHash("sha256").update(bytes).digest());
       const now = new Date();
       let sheet: ReadSheet;

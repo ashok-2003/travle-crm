@@ -166,6 +166,21 @@ describe("reading an import's file", () => {
     expect((await detailOf(id)).sameFile).toEqual({ importedAt: finishedAt.toISOString(), rowsAdded: 1094 });
   });
 
+  it("ends as failed, file withdrawn, when its file went while it waited to be read (M8)", async () => {
+    const { id } = await anImportWithFile(
+      test,
+      importer,
+      test.spreadsheets.bytesOf({ header: ["Name"], rows: [["Asha"]] }),
+    );
+    // An erasure or the sweep took the file: the import no longer names it.
+    await test.db.forOrg(organizationId, (tx) =>
+      tx.importBatch.update({ where: { id }, data: { fileAttachmentId: null } }),
+    );
+    await expect(read(id)).resolves.toBeUndefined();
+    expect(await detailOf(id)).toMatchObject({ status: "failed", failureReason: "file_withdrawn", columns: [] });
+    expect((await detailOf(id)).finishedAt).not.toBeNull();
+  });
+
   it("does nothing for an import no longer reading", async () => {
     const { id } = await anImportWithFile(
       test,
