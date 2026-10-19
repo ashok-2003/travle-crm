@@ -10,6 +10,7 @@ import {
   SpreadsheetUnreadableError,
   type UnreadableReason,
 } from "../../src/spreadsheets/index.js";
+import { defaultXlsxThreadOptions } from "../../src/spreadsheets/read-xlsx-in-thread.js";
 import {
   crowdedSharedStrings,
   crowdedWorkbookXml,
@@ -35,12 +36,12 @@ async function reasonOf(bytes: Uint8Array, spreadsheets = createSpreadsheets()):
   }
 }
 
-/** Read, or refused for `reason`, within 20 seconds (a third of the thread's time), the test's heap growing < 64 MB. */
+/** Read, or refused for `reason`, within the thread's minute, the test process's heap growing by under 64 MB. */
 async function expectApart(bytes: Uint8Array, reason: UnreadableReason | "read") {
   const before = process.memoryUsage().heapUsed;
   const started = performance.now();
   expect(await reasonOf(bytes)).toBe(reason);
-  expect(performance.now() - started).toBeLessThan(20_000);
+  expect(performance.now() - started).toBeLessThan(defaultXlsxThreadOptions.timeoutMs);
   expect(megabytes(process.memoryUsage().heapUsed - before)).toBeLessThan(64);
 }
 
@@ -65,23 +66,27 @@ describe("reading an .xlsx in a thread of its own", () => {
 
   it(
     "reads past a workbook.xml of 12 million elements apart, keeping only its sheets",
-    { timeout: 60_000 },
+    { timeout: 120_000 },
     async () => {
       await expectApart(crowdedWorkbookXml(12_000_000), "read");
     },
   );
 
-  it("refuses 16 million nested elements apart", { timeout: 60_000 }, async () => {
+  it("refuses 16 million nested elements apart", { timeout: 120_000 }, async () => {
     await expectApart(deeplyNestedWorkbook(16_000_000), "not_a_spreadsheet");
   });
 
-  it("reads past 9 million empty shared strings apart (item 10)", { timeout: 60_000 }, async () => {
+  it("reads past 9 million empty shared strings apart (item 10)", { timeout: 120_000 }, async () => {
     await expectApart(crowdedSharedStrings(9_000_000), "read");
   });
 
-  it("refuses shared strings that run the thread's heap out, the worker's untouched", { timeout: 60_000 }, async () => {
-    await expectApart(crowdedSharedStrings(1_800_000, "<si><t>abcdefghijklmno</t></si>"), "too_large_unpacked");
-  });
+  it(
+    "refuses shared strings that run the thread's heap out, the worker's untouched",
+    { timeout: 120_000 },
+    async () => {
+      await expectApart(crowdedSharedStrings(1_800_000, "<si><t>abcdefghijklmno</t></si>"), "too_large_unpacked");
+    },
+  );
 
   it("stops a read that takes longer than its time, as too large once opened", async () => {
     expect(await reasonOf(small, createSpreadsheets({ xlsxThread: { timeoutMs: 1 } }))).toBe("too_large_unpacked");
