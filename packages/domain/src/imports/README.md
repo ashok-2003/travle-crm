@@ -41,7 +41,8 @@ week after its last change (D5), deleting its file and report and emptying what 
 - `findImport(tx, access, kind, importId)`, `importDetail(tx, access, kind, importId)` and
   `recentImports(tx, access, kind)` (the person's last ten). `importCounts(tx, batch)`: the preview's counts,
   with a sheet's `in_crm` rows by whether the lead is open. The detail names a sheet's connection (`sourceSheet`).
-- `holdImport(tx, importId)`: the batch's row locked, so two runs of a job take turns (B26).
+- `holdImport(tx, importId)`: the batch's row locked (FOR NO KEY UPDATE), so two runs of a job take turns (B26);
+  `importBatchOf(tx, importId)`: the batch as it stands, a plain read for a job's first look.
   `isAnyImportAdding(tx)`: whether any import of the agency is adding (B29), which a sheet's check waits for.
 - `jobMemberAccess({ identity, subscriptions }, { organizationId, userId, impersonatedBy }, required)`: a member's
   access afresh for a job, or `no_longer_a_member`, `lost_permission` or `organization_cannot_change`;
