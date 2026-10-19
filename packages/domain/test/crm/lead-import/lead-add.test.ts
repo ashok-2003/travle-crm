@@ -570,7 +570,7 @@ describe("adding a lead import", () => {
     const batch = await batchOf(id);
     const events = () => inOrg((tx) => tx.outboxEvent.count({ where: { type: "import.add-requested" } }));
     const before = await events();
-    await addLeadImport(context(), dependencies(), batch, randomUUID(), { runMs: 0 });
+    await addLeadImport(context(), dependencies(), batch, randomUUID(), { runMs: 0, batch: whole });
     // One batch added, the import still adding, and a run of its own asked for with only the import's id.
     expect(await batchOf(id)).toMatchObject({ status: "adding", rowsAdded: 50 });
     expect(await events()).toBe(before + 1);
