@@ -100,8 +100,8 @@ describe("the demo reset", () => {
     const [asha, ravi] = [users.get("asha"), users.get("ravi")];
     const data = await demoData(organizationId);
 
-    expect(data.leads).toHaveLength(13);
-    expect(data.people).toHaveLength(11);
+    expect(data.leads).toHaveLength(17);
+    expect(data.people).toHaveLength(15);
     expect(data.destinations).toBe(6);
     expect(new Set(data.leads.map((lead) => lead.stage))).toEqual(new Set(leadStages));
     expect(new Set(data.leads.map((lead) => lead.ownerUserId))).toEqual(new Set([asha, ravi]));
@@ -128,6 +128,34 @@ describe("the demo reset", () => {
     expect(data.tasks.filter((task) => task.kind === "follow-up" && task.recordType === "lead")).toHaveLength(7);
     expect(data.tasks.filter((task) => task.recordType === null)).toHaveLength(2);
     expect(data.tasks.every((task) => task.assigneeUserId === asha || task.assigneeUserId === ravi)).toBe(true);
+  });
+
+  it("gives the demo two leads from an import, september-enquiries.xlsx, and keeps no import batch", async () => {
+    const { organizationId } = await resetDemoOrganization(test.services, demoSettings());
+    const users = await demoUsers(organizationId);
+    const { leads, batches } = await test.services.db.forOrg(organizationId, async (tx) => ({
+      leads: await tx.lead.findMany({
+        where: { source: "bulk_upload" },
+        select: { sourceDetail: true, ownerUserId: true },
+      }),
+      batches: await tx.importBatch.count(),
+    }));
+    expect(leads.map((lead) => lead.sourceDetail)).toEqual(["september-enquiries.xlsx", "september-enquiries.xlsx"]);
+    expect(new Set(leads.map((lead) => lead.ownerUserId))).toEqual(new Set([users.get("asha"), users.get("ravi")]));
+    expect(batches).toBe(0);
+  });
+
+  it("gives the demo two leads from a Google Sheet, one each for Asha and Ravi (N11)", async () => {
+    const { organizationId } = await resetDemoOrganization(test.services, demoSettings());
+    const users = await demoUsers(organizationId);
+    const leads = await test.services.db.forOrg(organizationId, (tx) =>
+      tx.lead.findMany({ where: { source: "google_sheet" }, select: { sourceDetail: true, ownerUserId: true } }),
+    );
+    expect(leads.map((lead) => lead.sourceDetail)).toEqual([
+      "Goa Diwali campaign · Form responses 1",
+      "Goa Diwali campaign · Form responses 1",
+    ]);
+    expect(new Set(leads.map((lead) => lead.ownerUserId))).toEqual(new Set([users.get("asha"), users.get("ravi")]));
   });
 
   it("gives the owner's own number to one customer with an open lead and follow-ups, and no phone to anyone else", async () => {
@@ -236,7 +264,7 @@ describe("the demo reset", () => {
     const tomorrow = new Date(tonight.getTime() + 24 * 60 * 60 * 1000);
     const { organizationId } = await resetDemoOrganization(test.services, demo, tomorrow);
     const data = await demoData(organizationId);
-    expect([data.leads.length, data.people.length, data.destinations, data.blocked.length]).toEqual([13, 11, 6, 1]);
+    expect([data.leads.length, data.people.length, data.destinations, data.blocked.length]).toEqual([17, 15, 6, 1]);
   });
 
   it("purges last night's demo and builds it afresh", async () => {

@@ -1,6 +1,7 @@
-// The demo agency's sample data (spec 7): its six destinations, eleven people and thirteen leads, each lead timed from
+// The demo agency's sample data (spec 7): its six destinations, fifteen people and seventeen leads, each lead timed from
 // the reset's `now` on the agency's clock. Every stage is here; Priya Nair returns after a Won trip to Kerala, Arjun
-// Reddy after a Lost one, and the Quick Loans Desk is Not a lead with its email blocked. Notes on four leads;
+// Reddy after a Lost one, and the Quick Loans Desk is Not a lead with its email blocked. Two leads came from an import and two from a Google Sheet,
+// so the source shows in the list and on a lead. Notes on four leads;
 // follow-ups two overdue, three due today, two later. demo-leads.ts builds them.
 import type { LeadSource, LeadStage, TripInput } from "@travel-crm/contracts/crm";
 import { addDays, calendarDateIn, instantAt, parseTimeOfDay, startOfDayIn } from "../kernel/index.js";
@@ -28,6 +29,10 @@ export const PEOPLE = [
   { name: "Meera Joshi", instagramHandle: "meera.wanders" },
   { name: "Farhan Qureshi", email: "farhan.qureshi@example.com" },
   { name: "Quick Loans Desk", email: BLOCKED_EMAIL },
+  { name: "Divya Menon", email: "divya.menon@example.com" },
+  { name: "Karan Malhotra", instagramHandle: "karan.rides" },
+  { name: "Nisha Rao", email: "nisha.rao@example.com" },
+  { name: "Suresh Pillai", email: "suresh.pillai@example.com" },
 ] as const;
 type DemoPerson = (typeof PEOPLE)[number]["name"];
 
@@ -50,7 +55,7 @@ const rupees = (amount: number, basis: "per_person" | "for_everyone") => ({
   basis,
 });
 
-/** The thirteen leads, each timed from now on the agency's clock. */
+/** The seventeen leads, each timed from now on the agency's clock. */
 export function demoLeads(now: Date, timeZone: string): DemoLead[] {
   const today = calendarDateIn(now, timeZone);
   const ago = (minutes: number) => new Date(now.getTime() - minutes * 60_000);
@@ -235,6 +240,48 @@ export function demoLeads(now: Date, timeZone: string): DemoLead[] {
       source: "phone_call",
       createdAt: ago(12),
       note: "Wants a houseboat stay in Srinagar.",
+    },
+    // Two leads an import brought and two a Google Sheet's connection did, one each for Asha and Ravi (no import
+    // batch and no connection is kept: the nightly reset would only delete them again).
+    {
+      person: "Divya Menon",
+      owner: "sales",
+      stage: "new",
+      destination: "Kerala",
+      trip: { when: month(70), adults: 2 },
+      source: "bulk_upload",
+      sourceDetail: "september-enquiries.xlsx",
+      createdAt: daysAgo(30),
+    },
+    {
+      person: "Karan Malhotra",
+      owner: "owner",
+      stage: "new",
+      destination: "Manali",
+      trip: { when: { kind: "flexible" }, adults: 3, tripType: "friends" },
+      source: "bulk_upload",
+      sourceDetail: "september-enquiries.xlsx",
+      createdAt: daysAgo(30),
+    },
+    {
+      person: "Nisha Rao",
+      owner: "owner",
+      stage: "new",
+      destination: "Goa",
+      trip: { when: month(30), adults: 2, tripType: "honeymoon" },
+      source: "google_sheet",
+      sourceDetail: "Goa Diwali campaign · Form responses 1",
+      createdAt: daysAgo(3),
+    },
+    {
+      person: "Suresh Pillai",
+      owner: "sales",
+      stage: "new",
+      destination: "Goa",
+      trip: { when: month(30), adults: 4, tripType: "family" },
+      source: "google_sheet",
+      sourceDetail: "Goa Diwali campaign · Form responses 1",
+      createdAt: daysAgo(2),
     },
   ];
 }
