@@ -82,7 +82,7 @@ test("coming back without the passwords offers new ones for the people who haven
   await expect(page.getByText(/These passwords were shown once/)).toBeVisible();
   await animationsSettled(page);
   await expectAccessible(page);
-  await page.getByRole("button", { name: "Make new passwords for the 5 people who haven't signed in yet" }).click();
+  await page.getByRole("button", { name: "Make new passwords for 5 people" }).click();
   await expect(page.getByText("Download these passwords now")).toBeVisible();
   const second = await shownPasswords(page);
   expect(second).toHaveLength(5);
