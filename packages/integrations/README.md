@@ -3,15 +3,16 @@
 Adapters to the outside world (spec 3): storage, jobs, email, push and PDFs. Domain code never calls a vendor SDK;
 it calls a port defined here, and the api and worker pass in the real adapter. Tests pass in the in-memory one.
 
-| Import                             | Port                   | Adapters                                                                               |
-| ---------------------------------- | ---------------------- | -------------------------------------------------------------------------------------- |
-| `@travel-crm/integrations/storage` | ObjectStorage          | `createS3Storage` (S3, MinIO locally), `createMemoryStorage`                           |
-| `@travel-crm/integrations/jobs`    | JobQueue, JobRunner    | `createPgBossJobs`, `createMemoryJobQueue`, `createMemoryJobRunner`                    |
-| `@travel-crm/integrations/email`   | EmailSender            | `createSmtpEmailSender` (SMTP or SES's SMTP), `createMemoryEmailSender`; `renderEmail` |
-| `@travel-crm/integrations/push`    | PushSender             | `createWebPushSender`, `createMemoryPushSender`                                        |
-| `@travel-crm/integrations/pdf`     | `renderPdf`, `imageOf` | React-PDF with the brand's fonts and the organization's logo; the `sample` template    |
+| Import                                  | Port                   | Adapters                                                                                                                 |
+| --------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `@travel-crm/integrations/storage`      | ObjectStorage          | `createS3Storage` (S3, MinIO locally), `createMemoryStorage`                                                             |
+| `@travel-crm/integrations/jobs`         | JobQueue, JobRunner    | `createPgBossJobs`, `createMemoryJobQueue`, `createMemoryJobRunner`                                                      |
+| `@travel-crm/integrations/email`        | EmailSender            | `createSmtpEmailSender` (SMTP or SES's SMTP), `createMemoryEmailSender`; `renderEmail`                                   |
+| `@travel-crm/integrations/push`         | PushSender             | `createWebPushSender`, `createMemoryPushSender`                                                                          |
+| `@travel-crm/integrations/pdf`          | `renderPdf`, `imageOf` | React-PDF with the brand's fonts and the organization's logo; the `sample` template                                      |
+| `@travel-crm/integrations/spreadsheets` | Spreadsheets           | `createSpreadsheets` (csv-parse, read-excel-file; csv-stringify, our .xlsx writer on fflate), `createMemorySpreadsheets` |
 
-- Only this package imports vendor SDKs (pg-boss, AWS SDK, nodemailer, web-push, React-PDF). dependency-cruiser
+- Only this package imports vendor SDKs (pg-boss, AWS SDK, nodemailer, web-push, React-PDF, the spreadsheet libraries). dependency-cruiser
   enforces it, and this package imports nothing of ours except `@travel-crm/brand`.
 - Job data holds ids, never personal data: pg-boss's tables have no row-level security.
 - A logo's bytes are read before anything decodes them (`pdf/image-type.ts`, `pdf/png.ts`): `imageOf` gives a PNG's
@@ -52,3 +53,21 @@ pg-boss:
 - **Cron expressions aren't read.** pg-boss refuses one it can't parse when `schedule()` is called; the twin keeps
   whatever it is given. The worker checks each expression's shape before scheduling it.
 - **A second `work()` on a queue replaces the handler;** pg-boss adds a second worker.
+
+## Reading spreadsheets within bounds
+
+A file is read only in the worker (ADR 0030), and every read is bounded before a library sees it:
+
+- **CSV** (`read-csv.ts`): decoded as UTF-8 (with or without a byte-order mark), UTF-16 with one, or Windows-1252; the
+  delimiter is the one the first record uses most; each record goes to the shaper as it is parsed, so a row past the
+  limit stops the parse, and a text with a NUL byte is a binary file under a .csv name.
+- **.xlsx** (`read-xlsx.ts`, `bounded-unzip.ts`): a compound file is an old .xls, or a protected workbook when it holds
+  `EncryptedPackage`. Every XML part read-excel-file would inflate first streams through fflate's `Unzip`, 4 KB of
+  compressed bytes a push, against a 50 MB running total. The same pass measures each sheet: read-excel-file keeps an
+  array for every row number up to the last and pads each to the widest non-empty column, so a sheet whose last row
+  passes twice the row limit, or with a non-empty cell past the column limit, is refused before it runs.
+- **Cells** (`cell-text.ts`): a whole number keeps every digit (`919876543210`, never `9.19876543210E+11`), a date cell
+  is its day in UTC, one leading apostrophe is dropped, and a cell is cut one character past the limit.
+- **Writing** (`write-xlsx.ts`, `write-csv.ts`): values only, never a formula; text starting with `=`, `+`, `-`, `@`, a
+  tab or a carriage return gets an apostrophe (`neutraliseFormula`), but an .xlsx phone cell. The .xlsx writer deflates
+  each batch into the sheet's entry as it comes and keeps only the compressed output.
