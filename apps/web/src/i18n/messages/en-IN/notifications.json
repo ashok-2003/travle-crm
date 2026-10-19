@@ -37,6 +37,10 @@
       "leadRepeatEnquiry": {
         "label": "A customer asks again",
         "hint": "When a repeat enquiry is added to one of your open leads."
+      },
+      "importFinished": {
+        "label": "An import of yours ends",
+        "hint": "When the rows of a file you imported have been added, or the import stopped."
       }
     },
     "loading": "Loading your choices",

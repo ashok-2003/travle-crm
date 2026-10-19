@@ -57,6 +57,22 @@ week after its last change (D5), deleting its file and report and emptying what 
   each changed value as `chosen` and every listed value's row count from the column matched to its field, the
   defaults, every header for next month's file; empties the last check's rows, and moves to `checking` with
   `import.columns-matched` (`{ importId, kind }`). `columnMatchesOf(tx, importId)`: the fields by position.
+- Rows (B25-B27): `replaceImportRows(context, importId, plans)` (1,000 a transaction, moving `rows_done`, while the
+  import is checking), `markImportChecked(tx, importId, summary, now)`, `importRowsPage(tx, access, kind, input)`
+  (examples by plan and first reason, a page after a row number), `rowsToAdd(tx, importId, limit)` (no outcome, a
+  plan to add, in row order) and `recordRowOutcomes(tx, importId, outcomes)` (each row once, clearing its password
+  hash, moving `rows_done` and `rows_added`).
+- Fingerprints (B33, D9): `rowFingerprint(kind, values)`, the SHA-256 of `[kind, ...values]`;
+  `earlierFingerprints(tx, kind, fingerprints, exceptImportId)` (by `fingerprintHex`, with when they were added) and
+  its `earlierFingerprintsQuery`, `= ANY` on `import_row_fingerprint`.
+- The end (B28, B34): `finishImport(context, dependencies, importId, end, alsoInTransaction?)`, only while adding:
+  rows never reached become `not_added` with `not_reached`, un-ticked blocked and already imported rows `left_out`;
+  with `report`, the report of rows not added (`makeImportReport`: the uploaded format, "Why it wasn't added", "Row",
+  then the file's columns, `reportFileName`, stored under the import's id as `import_report`); then one transaction:
+  the status, `finished_at`, `import.finished` in the audit log (as the system) and the outbox, the importer's
+  notice (`import.finished`, D20) and `alsoInTransaction`. `reportSentence(reason, today)`: the report's words.
+- `importReportLink(db, files, access, kind, importId)`: a 5-minute link, recording `import.report-downloaded`;
+  `EXPORT_NOT_READY` before the report exists, `EXPORT_EXPIRED` once swept (D33).
 - Values (B11): `suggestValueMatches(identity, batch, columns)` (made outside the transaction: identity runs its own),
   `writeValueMatches(tx, batchId, suggestions)`, and `valueTargetsFor(context, identity, batch, field, values)`: each
   value's stored target, else its automatic one (a column of more than fifty values is matched here), else null. A

@@ -153,3 +153,16 @@ export async function anImportWithFile(
   );
   return { id, attachmentId: stored.id };
 }
+
+/** The context, counting the transactions it opens. */
+export function countingContext(test: TestImports, organizationId: string) {
+  const counted = { transactions: 0 };
+  const context: ListenerContext = {
+    actor: systemActor(organizationId),
+    forOrg: (fn) => {
+      counted.transactions += 1;
+      return test.db.forOrg(organizationId, fn);
+    },
+  };
+  return { context, counted };
+}

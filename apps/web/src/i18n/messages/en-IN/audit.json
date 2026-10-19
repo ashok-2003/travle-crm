@@ -116,7 +116,9 @@
     },
     "import": {
       "started": "Started adding the rows of an import",
-      "cancelled": "Cancelled an import"
+      "cancelled": "Cancelled an import",
+      "finished": "Finished adding the rows of an import",
+      "report-downloaded": "Downloaded an import's rows not added"
     }
   },
   "fields": {

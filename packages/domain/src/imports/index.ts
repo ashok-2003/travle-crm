@@ -10,6 +10,8 @@ export {
 } from "./column-matches.js";
 export { summariseColumns, type ColumnSummary } from "./columns.js";
 export type { ImportIdentity, ImportJobDependencies } from "./dependencies.js";
+export { earlierFingerprints, earlierFingerprintsQuery, fingerprintHex, rowFingerprint } from "./fingerprints.js";
+export { finishImport, type ImportEnd } from "./finish.js";
 export { guessFields, type FieldGuess } from "./guesses.js";
 export { headerKey, rememberedFields, rememberFields } from "./header-memory.js";
 export { importCounts, importDetail } from "./import-detail.js";
@@ -21,9 +23,21 @@ export {
   startImport,
   stopImport,
 } from "./import-steps.js";
+export {
+  importRowsPage,
+  markImportChecked,
+  recordRowOutcomes,
+  replaceImportRows,
+  rowsToAdd,
+  type ImportRowPlan,
+  type RowOutcomeRecord,
+} from "./import-rows.js";
 export { importerAccess } from "./importer-access.js";
 export { importFileBytes, readImportFile, readLimitsOf } from "./read-file.js";
 export { readImportFileListener } from "./read-listener.js";
+export { makeImportReport, reportContentType, reportFileName } from "./report.js";
+export { importReportLink } from "./report-link.js";
+export { reportDay, reportSentence } from "./report-words.js";
 export { decodeRowReason, encodeRowReason } from "./row-reasons.js";
 export {
   suggestValueMatches,
