@@ -3,7 +3,12 @@
 // permission end the add without a half-added team.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ImportedStaffRowError } from "../../../src/identity/index.js";
-import { addStaffImportListener, requestStaffImportAdd, setStaffImportPasswords } from "../../../src/imports/index.js";
+import {
+  addStaffImportListener,
+  cancelImport,
+  requestStaffImportAdd,
+  setStaffImportPasswords,
+} from "../../../src/imports/index.js";
 import { addStaffMember, canSignInByUsername, memberAccessOf } from "../../identity/test-identity.js";
 import { listenerContext } from "../support/test-imports.js";
 import {
@@ -215,7 +220,12 @@ describe("the staff import's passwords and add", () => {
     await expect(
       requestStaffImportAdd(world.test.db, identityOn(members + 1), world.admin, checked.id, ATTEMPT, new Date()),
     ).rejects.toMatchObject({ reason: "IMPORT_OVER_SEAT_LIMIT" });
-    // The seats go between Add and the job.
+    // The browser makes new passwords for its next try; then the seats go between Add and the job.
+    await setStaffImportPasswords(world.test.db, world.identity, world.admin, {
+      importId: checked.id,
+      attemptId: ATTEMPT,
+      passwords: [2, 3].map((rowNumber) => ({ rowNumber, password: passwordOf(rowNumber) })),
+    });
     const tight = identityOn(members + 1);
     await requestStaffImportAdd(world.test.db, world.identity, world.admin, checked.id, ATTEMPT, new Date());
     await run(checked.id, tight);
@@ -325,5 +335,28 @@ describe("the staff import's passwords and add", () => {
     await requestStaffImportAdd(world.test.db, world.identity, world.admin, checked.id, other, new Date());
     await run(checked.id);
     expect((await readImport(world, checked.id)).batch.status).toBe("done");
+  });
+
+  it("clears the password hashes when the import is cancelled, and when Add is refused", async () => {
+    const hashes = async (id: string) =>
+      (await readImport(world, id)).rows.filter((row) => row.passwordHash !== null).length;
+    const cancelled = await withPasswords([person("One").row]);
+    expect(await hashes(cancelled.id)).toBe(1);
+    await world.test.db.forOrg(world.agency.organizationId, (tx) =>
+      cancelImport(tx, world.admin, "staff", cancelled.id, new Date()),
+    );
+    expect(await hashes(cancelled.id)).toBe(0);
+    const refused = await withPasswords([person("One").row, person("Two").row]);
+    await expect(
+      requestStaffImportAdd(world.test.db, identityOn(1), world.admin, refused.id, ATTEMPT, new Date()),
+    ).rejects.toMatchObject({ reason: "IMPORT_OVER_SEAT_LIMIT" });
+    expect(await hashes(refused.id)).toBe(0);
+    // An import already adding keeps the hashes its job needs, whatever a second press is told.
+    const running = await withPasswords([person("One").row]);
+    await requestStaffImportAdd(world.test.db, world.identity, world.admin, running.id, ATTEMPT, new Date());
+    await expect(
+      requestStaffImportAdd(world.test.db, world.identity, world.admin, running.id, ATTEMPT, new Date()),
+    ).rejects.toMatchObject({ reason: "IMPORT_NOT_READY" });
+    expect(await hashes(running.id)).toBe(1);
   });
 });

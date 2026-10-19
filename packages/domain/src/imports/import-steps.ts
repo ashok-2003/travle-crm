@@ -137,6 +137,8 @@ export async function cancelImport(
 ): Promise<void> {
   const batch = await findImport(tx, access, kind, importId);
   if (!(await moveImport(tx, importId, waitingImportStatuses, "cancelled", now, { finishedAt: now }))) throw notReady();
+  // A staff import's password hashes have no use once it is cancelled: they go now, not with the sweep (B53).
+  await tx.importRow.updateMany({ where: { batchId: importId }, data: { passwordHash: null } });
   // The kind and the step it left, never the file's name: it may name a customer.
   await recordAudit(tx, access, {
     action: "import.cancelled",

@@ -54,20 +54,35 @@ export async function requestStaffImportAdd(
 ): Promise<void> {
   const batch = await db.forOrg(access.organizationId, (tx) => findImport(tx, access, "staff", importId));
   if (batch.status !== "checked") throw notReady();
-  const free = await identity.staff.seatsFree(access.organizationId);
-  if (free !== null && batch.rowsToAdd > free) {
-    throw new DomainError(
-      "LIMIT_REACHED",
-      "IMPORT_OVER_SEAT_LIMIT",
-      "The file adds more people than the plan has seats free",
+  try {
+    const free = await identity.staff.seatsFree(access.organizationId);
+    if (free !== null && batch.rowsToAdd > free) {
+      throw new DomainError(
+        "LIMIT_REACHED",
+        "IMPORT_OVER_SEAT_LIMIT",
+        "The file adds more people than the plan has seats free",
+      );
+    }
+    // Only this attempt's hashes count: rows another tab's attempt wrote are passwords this one doesn't know.
+    const withHash = await db.forOrg(access.organizationId, (tx) =>
+      tx.importRow.count({
+        where: { batchId: importId, plan: "new", outcome: null, passwordHash: { startsWith: `${attemptId}|` } },
+      }),
     );
+    if (withHash !== batch.rowsToAdd) throw notReady();
+    await requestImportAdd(db, access, "staff", importId, now);
+  } catch (error) {
+    // A refused Add leaves the hashes of passwords the browser is about to forget: they go now, not with the sweep.
+    if (error instanceof DomainError) await clearPasswordHashes(db, access.organizationId, importId);
+    throw error;
   }
-  // Only this attempt's hashes count: rows another tab's attempt wrote are passwords this one doesn't know.
-  const withHash = await db.forOrg(access.organizationId, (tx) =>
-    tx.importRow.count({
-      where: { batchId: importId, plan: "new", outcome: null, passwordHash: { startsWith: `${attemptId}|` } },
-    }),
-  );
-  if (withHash !== batch.rowsToAdd) throw notReady();
-  await requestImportAdd(db, access, "staff", importId, now);
+}
+
+/** Drops the hashes of an import that is still waiting at its preview. */
+async function clearPasswordHashes(db: Database, organizationId: string, importId: string): Promise<void> {
+  await db.forOrg(organizationId, async (tx) => {
+    if ((await holdImport(tx, importId))?.status === "checked") {
+      await tx.importRow.updateMany({ where: { batchId: importId }, data: { passwordHash: null } });
+    }
+  });
 }
