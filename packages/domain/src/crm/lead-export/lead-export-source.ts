@@ -66,12 +66,19 @@ function fixedValues(filter: LeadExportFilter): Record<string, string> {
   };
 }
 
-/** maxRows defaults to MAX_LEAD_EXPORT_ROWS; a test passes a small one. */
+/** No lead has an id this low: a bound that holds nothing, for an agency with no leads to export. */
+const NO_LEAD = "00000000-0000-0000-0000-000000000000";
+
+/** maxRows defaults to MAX_LEAD_EXPORT_ROWS and pageSize to a page of 1,000; a test passes small ones. */
 export function leadExportSource(
   dependencies: ExportJobDependencies,
-  options: { timeZone: string; maxRows?: number },
+  options: { timeZone: string; maxRows?: number; pageSize?: number },
 ): ExportSource<LeadExportFilter> {
   const { timeZone } = options;
+  const pageSize = options.pageSize ?? PAGE_SIZE;
+  // The newest lead the count saw: every page stops at it, so leads added while the file is made stay out of it, and the
+  // file holds exactly the leads counted (and the row limit holds). The source is made for one run.
+  let newest: string | null = null;
   return {
     kind: "leads",
     requires: "leads:view",
@@ -81,10 +88,16 @@ export function leadExportSource(
     filterOf: (stored) => leadExportFilter.parse(stored),
     maxRows: options.maxRows ?? MAX_LEAD_EXPORT_ROWS,
     count: async (context, access, filter) => {
-      const [counted] = await context.forOrg((tx) =>
-        tx.$queryRaw<{ n: number }[]>(exportCountQuery(listFilter(access, filter))),
-      );
-      return counted?.n ?? 0;
+      return context.forOrg(async (tx) => {
+        const [latest] = await tx.$queryRaw<{ id: string }[]>(
+          leadListQuery({ ...listFilter(access, filter), limit: 1 }),
+        );
+        newest = latest?.id ?? NO_LEAD;
+        const [counted] = await tx.$queryRaw<{ n: number }[]>(
+          exportCountQuery({ ...listFilter(access, filter), through: newest }),
+        );
+        return counted?.n ?? 0;
+      });
     },
     page: async (context, access, filter, after) => {
       const { listed, extras, names, next } = await context.forOrg(async (tx) => {
@@ -93,10 +106,11 @@ export function leadExportSource(
           leadListQuery({
             ...listFilter(access, filter),
             ...(after === null ? {} : { before: after }),
-            limit: PAGE_SIZE + 1,
+            ...(newest === null ? {} : { through: newest }),
+            limit: pageSize + 1,
           }),
         );
-        const listed = found.slice(0, PAGE_SIZE);
+        const listed = found.slice(0, pageSize);
         const ids = listed.map((lead) => lead.id);
         const extras = await tx.$queryRaw<ExtraColumns[]>(leadExportRowsQuery(ids));
         const destinationIds = new Set(
@@ -109,7 +123,7 @@ export function leadExportSource(
             destinations: await destinationNames(tx, [...destinationIds]),
             tasks: await nextOpenTasks(tx, "lead", ids),
           },
-          next: found.length > PAGE_SIZE ? (listed.at(-1)?.id ?? null) : null,
+          next: found.length > pageSize ? (listed.at(-1)?.id ?? null) : null,
         };
       });
       const ownerIds = [...new Set(listed.flatMap((lead) => (lead.ownerUserId === null ? [] : [lead.ownerUserId])))];

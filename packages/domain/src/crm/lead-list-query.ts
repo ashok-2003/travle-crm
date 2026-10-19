@@ -17,6 +17,8 @@ export interface LeadListFilter {
   search?: { kind: "name"; text: string } | { kind: "digits"; digits: string };
   /** The last lead id of the previous page. */
   before?: string;
+  /** The newest lead id the list may hold: an export's bound, so leads added while it runs stay out of it. */
+  through?: string;
   limit: number;
 }
 
@@ -69,6 +71,7 @@ export function leadListQuery(filter: LeadListFilter): Sql {
     FROM lead ${PERSON}
     WHERE ${filterConditions(filter)} ${stageCondition(filter.stages)}
       ${filter.before === undefined ? emptySql : sql`AND lead.id < ${filter.before}::uuid`}
+      ${filter.through === undefined ? emptySql : sql`AND lead.id <= ${filter.through}::uuid`}
     ORDER BY lead.id DESC
     LIMIT ${filter.limit}`;
 }
@@ -83,11 +86,12 @@ export function leadCountsQuery(filter: LeadCountsFilter): Sql {
 }
 
 /** The leads a list holds across all its pages (B41's count): the same conditions as leadListQuery, on live people. */
-export function exportCountQuery(filter: LeadCountsFilter & { stages: readonly LeadStage[] }): Sql {
+export function exportCountQuery(filter: LeadCountsFilter & { stages: readonly LeadStage[]; through?: string }): Sql {
   return sql`
     SELECT count(*)::int AS n
     FROM lead ${PERSON}
-    WHERE ${filterConditions(filter)} ${stageCondition(filter.stages)}`;
+    WHERE ${filterConditions(filter)} ${stageCondition(filter.stages)}
+      ${filter.through === undefined ? emptySql : sql`AND lead.id <= ${filter.through}::uuid`}`;
 }
 
 /**
