@@ -1,6 +1,7 @@
-// An .xlsx part's elements as read-excel-file sees them (D1): it parses with saxen, drops every namespace prefix from
-// element and attribute names (but `xmlns:` declarations) and decodes entities in attribute values. The sizing and
-// the first sheet's lookup read the parts the same way, so no markup the reader understands differently slips past.
+// An .xlsx part's elements as read-excel-file sees them (D1): it parses with its own copy of saxen, drops every
+// namespace prefix from element and attribute names (but `xmlns:` declarations) and decodes entities in attribute
+// values. The sizing and the first sheet's lookup read the parts the same way with saxen from npm, so no markup the
+// reader understands differently slips past (xml-elements.test.ts holds the two parsers to the same events).
 import { Parser } from "saxen";
 
 /** The name the reader gives an element or attribute: what follows its first prefix. */

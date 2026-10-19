@@ -1,5 +1,5 @@
-// Sizes a sheet's part as read-excel-file will read it (B4, D1), while it inflates: saxen, the reader's own SAX parser,
-// is fed the XML a piece at a time and counts the rows, the furthest row number and the furthest column holding a cell
+// Sizes a sheet's part as read-excel-file will read it (B4, D1), while it inflates: saxen from npm, of which the reader
+// vendors a copy, is fed the XML a piece at a time and counts the rows, the furthest row number and the furthest column holding a cell
 // that isn't self-closing, whatever the quoting, prefixes, comments, CDATA or entities. Every number a row or cell
 // could be read as counts, and rows without one follow on. Elements nested past a hundred deep are refused. The first
 // limit passed stops the parse.
@@ -25,9 +25,17 @@ export interface SheetPartSize {
   refusal: UnreadableReason | null;
 }
 
-/** Every value an element's attributes give `local` under any prefix, decoded: the reader keeps one of them. */
+/**
+ * Every value an element's attributes might give `local` to the reader, which keeps one of them: each decoded once,
+ * and twice, as the reader decodes a prefixed name's value into the plain name and then decodes that again when the
+ * plain name follows (xml-elements.test.ts).
+ */
 function valuesOf(attributes: Record<string, string>, decode: (text: string) => string, local: string): string[] {
-  return Object.entries(attributes).flatMap(([name, value]) => (isNamed(name, local, true) ? [decode(value)] : []));
+  return Object.entries(attributes).flatMap(([name, value]) => {
+    if (!isNamed(name, local, true)) return [];
+    const once = decode(value);
+    return [once, decode(once)];
+  });
 }
 
 export function sheetSizer(limits: { maxRowNumber: number; maxColumn: number }) {

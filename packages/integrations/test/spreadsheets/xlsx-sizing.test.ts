@@ -149,4 +149,10 @@ describe("sizing a workbook as an XML parser reads it", () => {
     expect(sizerRefusal(nested)).toBe("not_a_spreadsheet");
     expect((process.memoryUsage().heapUsed - before) / (1024 * 1024)).toBeLessThan(32);
   });
+
+  it("counts a number the reader decodes twice, when a prefixed name comes before the plain one", () => {
+    // The reader decodes x:r's value into r, then decodes r once more: its row 400,000, its column XFD.
+    expect(sizerRefusal(`<row x:r="&amp;#52;00000" r="2"><c r="A2"><v>1</v></c></row>`)).toBe("too_many_rows");
+    expect(sizerRefusal(`<row r="2"><c x:r="&amp;#88;FD2" r="A2"><v>1</v></c></row>`)).toBe("too_many_columns");
+  });
 });
