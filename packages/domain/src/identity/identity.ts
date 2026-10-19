@@ -44,6 +44,7 @@ import { setTwoFactorRequirement } from "./settings.js";
 import { createStaffAccount, type CreatedStaff, type PasswordHasher } from "./staff-accounts.js";
 import { addImportedStaff, hashTemporaryPasswords, type AddedStaff, type ImportedStaffRow } from "./imported-staff.js";
 import { changeStaffPhone } from "./staff-phone.js";
+import { staffExportRows, type StaffExportRow } from "./staff-export-rows.js";
 import { staffRowFacts, staffSeatsFree, type StaffRowFacts } from "./staff-row-facts.js";
 import { staffInviteListener, type InviteDependencies } from "./staff-invites.js";
 import {
@@ -123,6 +124,8 @@ export interface Identity {
     ): Promise<StaffRowFacts>;
     /** The seats the plan has left, or null for no limit (B45). */
     seatsFree(organizationId: string): Promise<number | null>;
+    /** The active staff for the staff export, oldest first (B52). */
+    exportRows(actor: MemberAccess): Promise<StaffExportRow[]>;
     /** Hashes temporary passwords made in the browser, one after another, as Better Auth checks them (B46). */
     hashTemporaryPasswords(passwords: readonly string[]): Promise<string[]>;
     /**
@@ -188,6 +191,7 @@ export function createIdentity(options: IdentityOptions): Identity {
       create: (actor, input) => createStaff(database, hashPassword, actor, input, options.seatLimit),
       rowFacts: (actor, names) => staffRowFacts(database, actor, names),
       seatsFree: (organizationId) => staffSeatsFree(database, options.seatLimit ?? noSeatLimit, organizationId),
+      exportRows: (actor) => staffExportRows(database, actor),
       hashTemporaryPasswords: (passwords) => hashTemporaryPasswords(hashPassword, passwords),
       addImported: (actor, rows, importId, afterwards) =>
         addImportedStaff(database, options.seatLimit ?? noSeatLimit, actor, rows, importId, afterwards),
