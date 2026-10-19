@@ -5,6 +5,7 @@ import { startWorker } from "@travel-crm/domain/jobs";
 import { describeError } from "@travel-crm/integrations/jobs";
 import { checkXlsxReading } from "@travel-crm/integrations/spreadsheets";
 import { workerProblemLine } from "./process-log.js";
+import { sheetsStartUpLine } from "./sheets-settings.js";
 import { startProcess, stopOnUnhandledErrors } from "./start-up.js";
 import { webhookProviders } from "./webhook-providers.js";
 import { workerJobs } from "./worker-jobs.js";
@@ -12,6 +13,7 @@ import { workerJobs } from "./worker-jobs.js";
 // The worker's own start runs inside the start-up guard too: an .xlsx thread that can't run (ADR 0030), a repeated
 // queue name or a schedule pg-boss refuses ends in one "worker start-up failed" message, with the pools closed.
 const {
+  environment,
   services,
   log,
   running: worker,
@@ -30,6 +32,7 @@ const {
   });
 });
 console.log("worker running");
+console.log(sheetsStartUpLine(environment.GOOGLE_SHEETS_SERVICE_ACCOUNTS?.length ?? 0));
 
 // Container platforms send SIGTERM before stopping an instance: stop relaying, let running jobs finish, close the
 // pools. Exit 0 only when that went well, so the platform can tell a clean stop from a failed one; 1 after an error

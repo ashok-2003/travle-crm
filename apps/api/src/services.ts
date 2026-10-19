@@ -9,6 +9,7 @@ import { createProfiles, type Profiles } from "@travel-crm/domain/profile";
 import { createRateLimiter, type RateLimiter } from "@travel-crm/domain/rate-limits";
 import { createSubscriptionAccess, planLimits, type SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { createSmtpEmailSender, type EmailSender } from "@travel-crm/integrations/email";
+import { createRealGoogleSheets, type GoogleSheets } from "@travel-crm/integrations/google-sheets";
 import { createPgBossJobs, type PgBossJobs } from "@travel-crm/integrations/jobs";
 import { createWebPushSender, type PushSender } from "@travel-crm/integrations/push";
 import { createSpreadsheets, type Spreadsheets } from "@travel-crm/integrations/spreadsheets";
@@ -27,6 +28,8 @@ export interface Services {
   files: Files;
   /** Reads and writes CSV and .xlsx files: only the worker reads one (ADR 0030). */
   spreadsheets: Spreadsheets;
+  /** Reads Google Sheets, read only (ADR 0031); null when no service account is set: Google Sheets is off. */
+  google: GoogleSheets | null;
   /** What each organization's plan allows today, for the jobs that act for a person (an import's add). */
   subscriptions: SubscriptionAccess;
   /** The seats each organization's plan gives, for the staff import's add. */
@@ -57,6 +60,17 @@ export function transactionLimitsOf(environment: Environment): ForOrgOptions {
     maxWait: environment.DATABASE_TRANSACTION_MAX_WAIT_MS,
     timeout: environment.DATABASE_TRANSACTION_TIMEOUT_MS,
   };
+}
+
+/** The real Google adapter for the service accounts the environment holds, or none when it holds none. */
+export function googleSheetsOf(environment: Environment): GoogleSheets | null {
+  const accounts = environment.GOOGLE_SHEETS_SERVICE_ACCOUNTS;
+  if (accounts === undefined) return null;
+  const testServer = environment.GOOGLE_SHEETS_TEST_SERVER_URL;
+  // The journeys' fake Google takes any token and any key: a fixed token spares signing one (development and tests only).
+  return testServer === undefined
+    ? createRealGoogleSheets({ accounts })
+    : createRealGoogleSheets({ accounts, apiBaseUrl: testServer, accessToken: () => Promise.resolve("test-token") });
 }
 
 /** `log` is the process's one log: pg-boss's problems go there, as ids and codes. */
@@ -120,6 +134,7 @@ export function createServices(environment: Environment, log: ProcessLog): Servi
     storage,
     files: createFiles({ db, storage, storageLimitBytes: limits.storageBytes }),
     spreadsheets: createSpreadsheets(),
+    google: googleSheetsOf(environment),
     subscriptions,
     seatLimit: limits.seats,
     jobs,

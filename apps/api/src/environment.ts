@@ -99,7 +99,17 @@ const environmentSchema = z
     if (environment.SMTP_PASSWORD !== undefined && environment.SMTP_USER === undefined) {
       problem("SMTP_USER", "is needed with SMTP_PASSWORD");
     }
+    // Signing the claim and the tombstones needs the key wherever the sheets are read (spec 14).
+    if (environment.GOOGLE_SHEETS_SERVICE_ACCOUNTS !== undefined && environment.SHEETS_HASH_KEY === undefined) {
+      problem("SHEETS_HASH_KEY", "is needed (at least 32 characters) with GOOGLE_SHEETS_SERVICE_ACCOUNTS");
+    }
     if (developmentLike(environment.NODE_ENV)) return;
+    if (environment.GOOGLE_SHEETS_TEST_SERVER_URL !== undefined) {
+      problem("GOOGLE_SHEETS_TEST_SERVER_URL", "is for development and tests only: unset it in production");
+    }
+    if (environment.SHEETS_CHECK_INTERVAL_SECONDS !== undefined) {
+      problem("SHEETS_CHECK_INTERVAL_SECONDS", "is for development and tests only: unset it in production");
+    }
     if (!environment.BETTER_AUTH_URL.startsWith("https://")) problem("BETTER_AUTH_URL", "must be https in production");
     if (!environment.APP_URL.startsWith("https://")) problem("APP_URL", "must be https in production");
     if (!environment.AUTH_RATE_LIMIT) problem("AUTH_RATE_LIMIT", "cannot be off in production");

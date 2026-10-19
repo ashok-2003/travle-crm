@@ -4,6 +4,7 @@ import { createSubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { describeError } from "@travel-crm/integrations/jobs";
 import { createApp } from "./app.js";
 import { clientAddressFrom } from "./rate-limit.js";
+import { sheetsStartUpLine } from "./sheets-settings.js";
 import { startProcess, stopOnUnhandledErrors } from "./start-up.js";
 import { webhookProviders } from "./webhook-providers.js";
 
@@ -30,6 +31,7 @@ const app = createApp({
 
 const server = serve({ fetch: app.fetch, port: environment.PORT }, (address) => {
   console.log(`api listening on port ${String(address.port)}`);
+  console.log(sheetsStartUpLine(environment.GOOGLE_SHEETS_SERVICE_ACCOUNTS?.length ?? 0));
 });
 
 // Container platforms send SIGTERM before stopping an instance: finish open requests, then close the pools.

@@ -17,12 +17,29 @@ describe("the console's settings", () => {
       platformDatabaseUrl: platform.DATABASE_PLATFORM_URL,
       port: 3002,
       demo: null,
+      sheetsHashKey: null,
     });
     expect(loadConsoleSettings({ ...platform, ...demo, CONSOLE_PORT: "4002" }, environment)).toEqual({
       platformDatabaseUrl: platform.DATABASE_PLATFORM_URL,
       port: 4002,
       demo: { code: "DEMO", password: "demo-password-123" },
+      sheetsHashKey: null,
     });
+  });
+
+  it("lets the console read SHEETS_HASH_KEY, and never the service accounts", () => {
+    const key = "k".repeat(40);
+    expect(loadConsoleSettings({ ...platform, SHEETS_HASH_KEY: key }, environment).sheetsHashKey).toBe(key);
+    expect(loadConsoleSettings({ ...platform, SHEETS_HASH_KEY: "" }, environment).sheetsHashKey).toBeNull();
+    expect(() => loadConsoleSettings({ ...platform, SHEETS_HASH_KEY: "short" }, environment)).toThrow(
+      /SHEETS_HASH_KEY: must be at least 32 characters/,
+    );
+    // Its settings have no field for the accounts, whatever the process was given.
+    const settings = loadConsoleSettings(
+      { ...platform, SHEETS_HASH_KEY: key, GOOGLE_SHEETS_SERVICE_ACCOUNTS: "secret-key-text" },
+      environment,
+    );
+    expect(JSON.stringify(settings)).not.toContain("secret-key-text");
   });
 
   it("refuses to start without its own connection, or with the api's in its place", () => {

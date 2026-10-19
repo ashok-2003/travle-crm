@@ -14,6 +14,14 @@ const consoleSchema = z.object({
   DEMO_ORGANIZATION_CODE: organizationCode.optional(),
   /** Every demo account's password. Sales staff share it, so it is never a real person's. */
   DEMO_PASSWORD: z.string().min(8, "must be at least 8 characters").optional(),
+  /**
+   * Keys the erasure's tombstones of a customer's sheet rows (S43, S6): the console's erasure job writes them. The same
+   * value as the api's and the worker's, at least 32 characters. The console never takes the service accounts.
+   */
+  SHEETS_HASH_KEY: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().min(32, "must be at least 32 characters").optional(),
+  ),
 });
 
 export interface ConsoleSettings {
@@ -21,6 +29,8 @@ export interface ConsoleSettings {
   port: number;
   /** Null when no demo is set: the nightly reset doesn't run. */
   demo: DemoSettings | null;
+  /** SHEETS_HASH_KEY, or null when no sheets are set up. Only the erasure of a customer who has sheet rows needs it. */
+  sheetsHashKey: string | null;
 }
 
 const DEMO_VARIABLES = ["DEMO_ORGANIZATION_CODE", "DEMO_PASSWORD"] as const;
@@ -54,5 +64,6 @@ export function loadConsoleSettings(
     platformDatabaseUrl: settings.DATABASE_PLATFORM_URL,
     port: settings.CONSOLE_PORT,
     demo: code === undefined || password === undefined ? null : { code, password },
+    sheetsHashKey: settings.SHEETS_HASH_KEY ?? null,
   };
 }

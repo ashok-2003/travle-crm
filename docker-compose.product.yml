@@ -28,6 +28,10 @@ x-api-environment: &api-environment
   VAPID_PUBLIC_KEY: BNDwagd-1gwbRjL1o3iP9g4zUvYkczzP1yE9xNbcidEzKkDbvrHaBCyHQi8btoNnI9IMV7CoQun_1oMlSCz5lTY
   VAPID_PRIVATE_KEY: UrS7-d1PFp4TPIVRSD5qGMXmRPN_NbpYvsJxhc6j3nU
   VAPID_SUBJECT: mailto:dev@travel-crm.localhost
+  # Google Sheets (ADR 0031) is off unless these are set in the environment or the checkout's .env (see .env.example):
+  # blank here is the same as unset. The console is never given the service accounts, only the hash key.
+  GOOGLE_SHEETS_SERVICE_ACCOUNTS: ${GOOGLE_SHEETS_SERVICE_ACCOUNTS:-}
+  SHEETS_HASH_KEY: ${SHEETS_HASH_KEY:-}
 
 # One build of the api's image for the four services that run it.
 x-api-image: &api-image
@@ -153,6 +157,7 @@ services:
     environment:
       <<: *api-environment
       DATABASE_PLATFORM_URL: postgresql://app_platform:platform@postgres:5432/travel_crm
+      GOOGLE_SHEETS_SERVICE_ACCOUNTS: ""
       DEMO_ORGANIZATION_CODE: DEMO
       DEMO_PASSWORD: demo-only-password
     depends_on: *api-depends-on
