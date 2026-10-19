@@ -149,4 +149,21 @@ describe("verifySheet", () => {
     await expect(verify()).rejects.toMatchObject({ reason: "SHEET_NOT_SHARED" });
     expect(importer.userId).toBeTruthy();
   });
+
+  it("lists the tabs there are now for a sheet whose tab has gone, with no columns", async () => {
+    const { agency, draft, verify } = await setup([
+      ["Name", "Phone"],
+      ["Asha", "1"],
+    ]);
+    await test.db.forOrg(agency, (tx) =>
+      tx.sheetConnection.update({ where: { id: draft.sheetId }, data: { status: "tab_missing" } }),
+    );
+    await expect(verify()).resolves.toMatchObject({
+      tabs: [{ gid: "0", title: "Form responses 1" }],
+      tabGid: "",
+      rowCount: 0,
+      columns: [],
+      ownerValues: null,
+    });
+  });
 });

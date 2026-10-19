@@ -114,6 +114,24 @@ export async function verifySheet(
   now: Date,
 ): Promise<SheetColumnsView> {
   const sheet = await db.forOrg(access.organizationId, (tx) => findSheet(tx, input.sheetId));
+  // The tab is gone: the tabs there are now, for the person to choose from (S40); there are no columns to describe.
+  if (sheet.status === "tab_missing") {
+    const { google } = dependencies;
+    if (google === null) throw notSetUp();
+    const description = await google
+      .describe(sheet.serviceAccountIndex, sheet.spreadsheetId, {})
+      .catch((error: unknown) => {
+        throw refusalFor(error);
+      });
+    return {
+      sheetTitle: description.title,
+      tabs: description.tabs.filter((tab) => tab.isGrid).map((tab) => ({ gid: tab.gid, title: tab.title })),
+      tabGid: "",
+      rowCount: 0,
+      columns: [],
+      ownerValues: null,
+    };
+  }
   const reading = await readTab(dependencies, sheet, sheet.tabGid);
   const named = nameColumns(reading.header);
   const running = sheet.status !== "connecting";
