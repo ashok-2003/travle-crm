@@ -58,31 +58,32 @@ describe("resetting a temporary password only while it is temporary", () => {
     expect(await canSignInByUsername(test.identity, agency.code, "chosen", "second-pass-123")).toBe(false);
   });
 
-  it("skips someone whose own password is being saved at the same moment", async () => {
+  it("skips someone whose own password is committed but whose flag isn't yet cleared, in Better Auth's real order", async () => {
     const racing = await person("racing");
-    let release: () => void = () => undefined;
-    const held = new Promise<void>((resolve) => {
-      release = resolve;
+    // Better Auth's change-password writes the credential account first, and a database hook clears the flag after.
+    const context = await test.identity.auth.$context;
+    await platform.account.updateMany({
+      where: { userId: racing.userId, providerId: "credential" },
+      data: { password: await context.password.hash("their-own-pass-1") },
     });
-    let locked: () => void = () => undefined;
-    const lockTaken = new Promise<void>((resolve) => {
-      locked = resolve;
-    });
-    // The person's own change: their row updated, and not yet committed.
-    const choosing = test.database.forOrg(agency.organizationId, async (tx) => {
-      await tx.user.update({ where: { id: racing.userId }, data: { mustChangePassword: false } });
-      locked();
-      await held;
-    });
-    await lockTaken;
-    const reset = test.identity.staff.resetTemporaryPassword(owner, {
+    const reset = await test.identity.staff.resetTemporaryPassword(owner, {
       memberId: racing.memberId,
       temporaryPassword: "second-pass-123",
     });
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    release();
-    await choosing;
-    expect(await reset).toEqual({ reset: false });
-    expect(await canSignInByUsername(test.identity, agency.code, "racing", "first-pass-123")).toBe(true);
+    await platform.user.update({ where: { id: racing.userId }, data: { mustChangePassword: false } });
+    expect(reset).toEqual({ reset: false });
+    expect(await canSignInByUsername(test.identity, agency.code, "racing", "their-own-pass-1")).toBe(true);
+    expect(await canSignInByUsername(test.identity, agency.code, "racing", "second-pass-123")).toBe(false);
+  });
+
+  it("still resets someone whose temporary password was itself reset, and who hasn't signed in", async () => {
+    const again = await person("again");
+    await test.identity.staff.resetPassword(owner, { memberId: again.memberId, temporaryPassword: "second-pass-123" });
+    expect(
+      await test.identity.staff.resetTemporaryPassword(owner, {
+        memberId: again.memberId,
+        temporaryPassword: "third-pass-123",
+      }),
+    ).toEqual({ reset: true });
   });
 });

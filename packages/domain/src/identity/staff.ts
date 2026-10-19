@@ -17,7 +17,7 @@ import { assertMayHandleRole, assertMayManageMember } from "./access-rules.js";
 import type { MemberAccess } from "./member-access.js";
 import { findCurrentRole, findRoleToGive } from "./role-lookup.js";
 import { isPlaceholderEmail, removedPersonEmail, shownEmail } from "./sign-in-names.js";
-import { createStaffAccount, type PasswordHasher } from "./staff-accounts.js";
+import { createStaffAccount, TEMPORARY_PASSWORD_STAMP, type PasswordHasher } from "./staff-accounts.js";
 import { changeMember, lockMember, lockOwners } from "./staff-locks.js";
 
 /** How many seats an organization's plan gives (spec 7.2), or null for no limit. */
@@ -133,14 +133,19 @@ export async function resetStaffPassword(
     if (targetRole.isOwner) await lockOwners(tx, actor, target.id, targetRole.key);
     await lockMember(tx, target);
     if (options.onlyWhileTemporary === true) {
-      // The user's row is held, so a password the person is choosing now is either theirs first (and kept) or ours.
-      await tx.$queryRaw`SELECT id FROM "user" WHERE id = ${target.userId}::uuid FOR UPDATE`;
+      // The credential account's row is held, so a password the person is choosing now is either written first (and
+      // kept) or after ours (and theirs). Better Auth writes the account before it clears the flag, so the flag alone
+      // can't say: the account's update time can (TEMPORARY_PASSWORD_STAMP).
+      const held = await tx.$queryRaw<{ updated_at: Date }[]>`
+        SELECT updated_at FROM account WHERE user_id = ${target.userId}::uuid AND provider_id = 'credential' FOR UPDATE`;
       const user = await tx.user.findUniqueOrThrow({ where: { id: target.userId } });
-      if (!user.mustChangePassword) return { reset: false };
+      if (!user.mustChangePassword || held[0]?.updated_at.getTime() !== TEMPORARY_PASSWORD_STAMP.getTime()) {
+        return { reset: false };
+      }
     }
     const { count } = await tx.account.updateMany({
       where: { userId: target.userId, providerId: "credential" },
-      data: { password: passwordHash },
+      data: { password: passwordHash, updatedAt: TEMPORARY_PASSWORD_STAMP },
     });
     if (count !== 1)
       throw new Error(`Expected one credential account for user ${target.userId}, found ${String(count)}`);

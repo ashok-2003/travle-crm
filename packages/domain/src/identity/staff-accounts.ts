@@ -8,6 +8,14 @@ import { DomainError, systemActor, type Actor } from "../kernel/index.js";
 import { findRoleToGive, type FoundRole } from "./role-lookup.js";
 import { INTERNAL_USERNAME_PATTERN, internalUsername, placeholderEmail } from "./sign-in-names.js";
 
+/**
+ * The update time a credential account has while its password is still the one an admin gave: the epoch, written by
+ * every one of our writes of a temporary password. Any other write, Better Auth's change or reset included, stamps the
+ * real time, so "still temporary" is exact and needs no clock: a reset that finds anything else leaves the person's own
+ * password alone, even in the moment between Better Auth's two writes of a change.
+ */
+export const TEMPORARY_PASSWORD_STAMP = new Date(0);
+
 /** Hashes a password the way Better Auth checks it at sign-in. */
 export type PasswordHasher = (password: string) => Promise<string>;
 
@@ -113,7 +121,14 @@ export async function insertStaffAccount(
     // there is none yet: Better Auth's password reset creates it when the invited person chooses their password.
     if (account.passwordHash !== null) {
       await tx.account.create({
-        data: { userId: user.id, accountId: user.id, providerId: "credential", password: account.passwordHash },
+        data: {
+          userId: user.id,
+          accountId: user.id,
+          providerId: "credential",
+          password: account.passwordHash,
+          // A temporary password's account carries the epoch as its update time (see TEMPORARY_PASSWORD_STAMP).
+          ...(account.mustChangePassword && { updatedAt: TEMPORARY_PASSWORD_STAMP }),
+        },
       });
     }
     const member = await tx.member.create({
