@@ -70,7 +70,8 @@ describe("making an export's file", () => {
         ["Meera", null],
       ],
     });
-    expect(source.pagesAsked.slice(0, 2)).toEqual([null, "2"]);
+    // Each run asks the first page, then the one after the cursor: two at once may both ask the first.
+    expect([...new Set(source.pagesAsked)]).toEqual([null, "2"]);
     // The worker's progress moves a page at a time.
     const { context, counted } = countingContext(test, organizationId);
     const { exportId: another } = await anExport();
