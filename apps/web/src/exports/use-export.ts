@@ -4,6 +4,9 @@
 // 2 seconds while the worker makes the file, and its download through a short-lived link (useDownload). Each kind
 // passes its own router's calls; `detailOptions` is `{ queryKey: trpc.<kind>.get.queryKey({ exportId }), queryFn: () =>
 // client.<kind>.get.query({ exportId }) }`, since tRPC's own queryOptions carry its error type, not TanStack's.
+//
+// For a feature (W2): beside the plan's `useExport(calls)`, a page passes the export it shows as `shown`, and a dialog
+// gets `reset`, back to choosing, for another export.
 import { useMutation, useQuery, type UseQueryOptions } from "@tanstack/react-query";
 import type { ExportDetail, ExportFormat } from "@travel-crm/contracts/exports";
 import type { DownloadLinkOutput } from "@travel-crm/contracts/files";

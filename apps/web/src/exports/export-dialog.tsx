@@ -6,6 +6,10 @@
 // says when it's ready, and it shows here again on opening). Then the file's name and size, with Download. A failed or
 // deleted export says why above the choice, to prepare it again. Preparing and downloading are exports (ADR 0021): a
 // read-only agency may, a cancelled one may not.
+//
+// For a feature (W2): the export it asked for lives in this component's state, so the progress shows again on
+// reopening only while it stays mounted: keep the Export button, which renders this dialog, mounted while the dialog is
+// closed. Closing it once the file is ready or the export failed starts afresh next time (R44).
 import type { ExportFormat } from "@travel-crm/contracts/exports";
 import { exportFormats } from "@travel-crm/contracts/exports";
 import { CircleAlertIcon } from "lucide-react";
