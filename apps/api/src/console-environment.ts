@@ -13,7 +13,7 @@ const consoleSchema = z.object({
   /** The shared demo (spec 7.4), both or neither: its organization code and its password. It is on its own plan. */
   DEMO_ORGANIZATION_CODE: organizationCode.optional(),
   /** Every demo account's password. Sales staff share it, so it is never a real person's. */
-  DEMO_PASSWORD: z.string().min(12, "must be at least 12 characters").optional(),
+  DEMO_PASSWORD: z.string().min(8, "must be at least 8 characters").optional(),
 });
 
 export interface ConsoleSettings {

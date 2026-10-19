@@ -126,8 +126,10 @@ export async function resetDemoOrganization(
       );
       return { organizationId: organization.id };
     },
-    // Three accounts, as onboarding, and the sample leads: a few hundred statements in all.
-    { timeout: 20_000 },
+    // Three accounts, as onboarding, and the sample leads: a few hundred statements in all. Two minutes, so it also
+    // finishes when run from an operator's computer far from the database (each statement a round trip away), or on a
+    // host with a tenth of a CPU (docs/serverless.md); beside the database it takes seconds.
+    { timeout: 120_000 },
   );
 }
 
