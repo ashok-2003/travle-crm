@@ -73,7 +73,7 @@ the same step. A caption under the title says the step: "Step 2 of 4 · Match co
 
 1. **Choose a file** (`/leads/import`, `/staff/import`). `PageHeader` "Import leads", a sentence on what happens
    ("Each row goes through the same checks as a lead you add by hand. Nothing is added until you press Add."), the
-   file button with "Excel (.xlsx) or CSV, up to 5,000 rows and 5 MB. We read the first sheet; its first row must
+   file button with "Excel (.xlsx) or CSV, up to 10,000 rows and 10 MB. We read the first sheet; its first row must
    name the columns.", a **Download a sample file** link (a static file with the right headers and three example rows),
    and **Recent imports**: the last ten, each with its file name, day, counts and status badge (Waiting for you in
    amber; Adding and Stopped in neutral; Done in green; Failed and Can't read in red), linking to its page.
@@ -161,7 +161,7 @@ and joined dates", the format, **Prepare the file**, then **Download**.
 - **B1. The worker reads every file; the browser never parses one.** The browser sends the file straight to storage
   (a presigned upload, as attachments do); the api records it and publishes `import.uploaded`; the worker reads it
   through the spreadsheets port (section 6.1). One reader serves the preview and the import, so they can't disagree.
-- **B2. What a file may be:** `.xlsx` or `.csv`, at most 5 MB; at most 5,000 data rows for leads and 500 for staff;
+- **B2. What a file may be:** `.xlsx` or `.csv`, at most 10 MB; at most 10,000 data rows for leads and 500 for staff;
   at most 50 columns; a cell at most 4,000 characters. The web picks the content type from the extension (Windows
   reports a CSV as `application/vnd.ms-excel`). `.xls`, `.numbers` and password-protected files are refused with what
   to do: "Save it as an Excel Workbook (.xlsx) or CSV and choose it again."
@@ -433,7 +433,7 @@ people, members) are plain uuids, as `attachment.record_id` is, with no foreign 
   An index on `(organization_id, requested_by, id DESC)`.
 - **member.phone_e164** (identity, a sign-in table: no row-level security; only identity reaches it): nullable E.164.
 - **Files:** three record types. `import_batch` accepts only `text/csv` and
-  `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`, at most 5 MB, and those two types go nowhere
+  `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`, at most 10 MB, and those two types go nowhere
   else (`VALIDATION`/`CONTENT_TYPE_NOT_ALLOWED`). `import_report` and `data_export` are system-made and short-lived:
   only `storeGeneratedFile` writes them, nobody removes them by hand, and the platform's sweep deletes them for good
   (section 9).
@@ -551,8 +551,8 @@ second run is harmless.
 - `export.requested` (`{ exportId, kind }`) → `crm.make-lead-export` or `exports.make-staff-export`: the file (B41).
 - `import.finished` and `export.made` (the same payloads): no listener yet; later releases' summary tables follow them.
 
-- The listeners are added to `apps/api/src/worker-jobs.ts`. The lead add fits pg-boss's 15-minute attempt (about three
-  minutes for 5,000 rows); a re-dispatch after an expiry takes turns on the import's row (B26) and finds the rows done.
+- The listeners are added to `apps/api/src/worker-jobs.ts`. The lead add fits pg-boss's 15-minute attempt (about six
+  minutes for 10,000 rows); a re-dispatch after an expiry takes turns on the import's row (B26) and finds the rows done.
 - The worker acts as the importer or requester: `{ organizationId, userId, source: "job", impersonatedBy }`, with
   their access resolved afresh (B31, B41).
 - **The console's sweep:** `platform.sweep-bulk-files`, hourly, a schedule in `apps/api/src/console-jobs.ts`: imports
@@ -609,7 +609,7 @@ second run is harmless.
 
 In the performance tests' own database, with the seeded large agency (50,000 leads, 500 staff):
 
-- **Import of 5,000 rows:** reading within 2 s (measured: `read-excel-file` read 5,000 rows of 16 columns in 0.1 s,
+- **Import of 10,000 rows:** reading within 2 s (measured: `read-excel-file` read 5,000 rows of 16 columns in 0.1 s,
   `csv-parse` in 0.02 s); the check within 15 s, its lookups one query per kind with `= ANY` on the live unique indexes,
   checked with `EXPLAIN` as `app_runtime` inside `forOrg` (a plan read as another role proves nothing); the add within
   3 minutes, with progress at least every 50 rows and no transaction longer than one batch. The parsed file is held in
@@ -696,19 +696,19 @@ on a one-time sheet; every export in the audit log). These calls are mine, each 
 
 1. **The worker reads every file, never the browser:** one reader for preview and import, a zip bomb hurts a job and
    not a phone or the api, and the web app stays free of a spreadsheet library.
-2. **5,000 rows and 5 MB per lead file, 500 per staff file:** a whole agency sheet fits, a file checks in seconds and
-   adds in about three minutes; a bigger one splits.
+2. **10,000 rows and 10 MB per lead file (owner, 2026-10-19), 500 per staff file:** a whole agency sheet fits, a file checks in seconds and
+   adds in about six minutes; a bigger one splits.
 3. **Stage defaults to New, or one stage the importer picks for the file:** the owner's default, with a way to keep
    2,000 old enquiries off everyone's Today.
 4. **Owner, Stage and Role values are matched one value at a time** ("Booked" → Won, "Asha" → Asha Sharma): sheets
    use their own words, and one choice fixes a thousand rows.
 5. **Owners not on the staff go to the agency Owner, and the importer may pick another person per name:** your rule
    by default; the importer holds `leads:assign` and could reassign them anyway.
-6. **Importing leads needs `leads:create` and `leads:assign`:** an import decides other people's leads; salespeople add
+6. **Importing leads needs `leads:create` and `leads:assign` (owner confirmed, 2026-10-19):** an import decides other people's leads; salespeople add
    theirs by hand.
 7. **A row fails only for no name, no usable contact, Not a lead, overlong notes or being a repeat; a value we can't
    read goes into the note:** messy rows shouldn't be lost over a typo.
-8. **Blocked contacts' rows are left out unless the importer ticks "Add them anyway":** nobody reads each imported row,
+8. **Blocked contacts' rows are left out unless the importer ticks "Add them anyway" (owner confirmed, 2026-10-19):** nobody reads each imported row,
    and release 1 already drops blocked contacts' leads that arrive by themselves.
 9. **Rows already imported are recognised by fingerprint and left out:** the same file, or the original with a few
    fixes, adds only what's new.
