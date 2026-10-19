@@ -66,16 +66,29 @@ strand an import:
 
 - **An import's file and its report** are kept 7 days after the import's last change (`keep_until`). The console's
   hourly `platform.sweep-bulk-files` (`apps/api/src/console-jobs.ts`) then deletes them for good through the
-  deletions' outbox, empties what the import kept of its rows (samples, values, examples, password hashes) and marks
-  it expired. Its counts, outcomes and fingerprints stay, so a file imported again is still "Already imported".
+  deletions' outbox, empties what the import kept of its rows and columns (samples, values, examples, password
+  hashes, and each column's header, which a file with no header row fills with its first row of data) and marks it
+  expired, each import in its own short transaction. Its counts, outcomes and fingerprints stay, so a file imported
+  again is still "Already imported".
+- **Fingerprints are kept, not deleted with the rest (M9).** B53 lists "hashes" among what the sweep empties; a row's
+  fingerprint is what B33's "Already imported" reads, so it stays. It is a SHA-256 of the row's values, scoped to the
+  organization under row-level security, never leaves the database, and an erasure empties the erased person's. If
+  that changes, keyed hashes would mean fingerprinting every kept row again.
 - **An export's file** is kept 24 hours after it is ready (`expires_at`), for its requester alone, then the same sweep
   deletes it and forgets the search text. An export still being made a day after it was asked for expires too.
 - **An erasure** (a customer's or a removed member's) withdraws every import and export file of the organization at
-  once, in the erasure's transaction, and empties the erased person's import rows. A file can't be searched for one
-  person, and it is a week's worth at most.
+  once, in the erasure's transaction, empties the erased person's import rows and forgets the agency's header memory
+  (a header may have been a customer's details). A file can't be searched for one person, and it is a week's worth at
+  most. The memory never takes a header that reads as data: four digits, an @, a + before digits, or six words.
 - The files module knows the three record types (`import_batch`, `import_report`, `data_export`): the last two are
   made by the system (`storeGeneratedFile`), never uploaded, and are short-lived, so their files are deleted with
   their record.
+
+### Recent imports are the person's own (D5)
+
+The spec and the plan name `import_batch_recent` on `(organization_id, kind, id DESC)`. It is `(organization_id,
+started_by, kind, id DESC)`: Recent imports lists the person's own imports (D6), and on the spec's key the planner
+rightly prefers the organization's id index and filters the person (the plan's R33).
 
 ### The shared pieces land first, with stubs (the plan's D1)
 
