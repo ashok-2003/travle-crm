@@ -18,6 +18,7 @@ import notifications from "./messages/en-IN/notifications.json";
 import pwa from "./messages/en-IN/pwa.json";
 import roles from "./messages/en-IN/roles.json";
 import settings from "./messages/en-IN/settings.json";
+import sheets from "./messages/en-IN/sheets.json";
 import shell from "./messages/en-IN/shell.json";
 import staff from "./messages/en-IN/staff.json";
 import subscription from "./messages/en-IN/subscription.json";
@@ -47,6 +48,7 @@ export const messages = {
   pwa,
   roles,
   settings,
+  sheets,
   shell,
   staff,
   subscription,

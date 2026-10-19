@@ -32,6 +32,8 @@ export const routes = {
   audit: "/settings/audit",
   destinations: "/settings/destinations",
   blockedContacts: "/settings/blocked-contacts",
+  /** Google Sheets whose rows become leads; a sheet's own page is sheetRoute(sheetId). */
+  leadSources: "/settings/lead-sources",
   /** Each person's own choice of what they are told, and how (spec 9.4). */
   notificationPreferences: "/account/notifications",
   /** The platform console's dashboard; its other screens are in src/console/routes.ts, which only it imports. */
@@ -53,6 +55,24 @@ export function leadImportRoute(importId: string): string {
 /** A lead export's page, where the bell's "Your leads export is ready" leads. */
 export function leadExportRoute(exportId: string): string {
   return `${routes.leads}/exports/${encodeURIComponent(exportId)}`;
+}
+
+/** The first step of connecting a Google Sheet: share it and paste its link. */
+export const sheetConnectRoute = `${routes.leadSources}/sheets/connect`;
+
+/** A connected sheet's page. */
+export function sheetRoute(sheetId: string): string {
+  return `${routes.leadSources}/sheets/${encodeURIComponent(sheetId)}`;
+}
+
+/** A sheet's connect steps, wherever it stopped (match columns, then the rows already there). */
+export function sheetConnectStepRoute(sheetId: string): string {
+  return `${sheetRoute(sheetId)}/connect`;
+}
+
+/** Matching a connected sheet's columns again. */
+export function sheetMatchRoute(sheetId: string): string {
+  return `${sheetRoute(sheetId)}/match`;
 }
 
 /** A staff import's page, at whichever step it is. */

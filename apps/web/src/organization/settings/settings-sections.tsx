@@ -8,6 +8,7 @@ import {
   BanIcon,
   BuildingIcon,
   ChevronRightIcon,
+  FileSpreadsheetIcon,
   FileTextIcon,
   FolderIcon,
   HistoryIcon,
@@ -35,10 +36,20 @@ import { useSubscription } from "@/subscription/use-subscription";
 
 interface Section {
   /** Also the message key in "settings.sections", with its hint at `${key}Hint`. */
-  key: "setup" | "profile" | "branding" | "files" | "documents" | "destinations" | "blockedContacts" | "audit";
+  key:
+    | "setup"
+    | "profile"
+    | "branding"
+    | "files"
+    | "documents"
+    | "destinations"
+    | "blockedContacts"
+    | "leadSources"
+    | "audit";
   href: string;
   icon: LucideIcon;
-  requires: string;
+  /** Every permission it needs: Lead sources adds leads and reassigns them. */
+  requires: string | readonly string[];
   /** The plan module it belongs to, if any (spec 7.2). */
   module?: PlanModule;
 }
@@ -51,6 +62,13 @@ const sections: readonly Section[] = [
   { key: "documents", href: routes.documents, icon: FileTextIcon, requires: "settings:manage" },
   { key: "destinations", href: routes.destinations, icon: MapPinIcon, requires: "settings:manage", module: "crm" },
   { key: "blockedContacts", href: routes.blockedContacts, icon: BanIcon, requires: "leads:assign", module: "crm" },
+  {
+    key: "leadSources",
+    href: routes.leadSources,
+    icon: FileSpreadsheetIcon,
+    requires: ["leads:create", "leads:assign"],
+    module: "crm",
+  },
   { key: "audit", href: routes.audit, icon: HistoryIcon, requires: "audit:view" },
 ];
 
@@ -59,7 +77,9 @@ export function SettingsSections() {
   const me = useMe();
   const modules = useSubscription().data?.modules;
   const shown = sections.filter(
-    (section) => holds(me, section.requires) && isOnPlan({ module: section.module ?? null }, modules),
+    (section) =>
+      [section.requires].flat().every((permission) => holds(me, permission)) &&
+      isOnPlan({ module: section.module ?? null }, modules),
   );
   if (shown.length === 0) return null;
   return (
