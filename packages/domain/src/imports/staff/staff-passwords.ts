@@ -10,7 +10,10 @@ import { requestImportAdd } from "../import-steps.js";
 
 /** A hash is kept with the attempt that made its password, so a mix of two attempts is told apart (B46). */
 const ATTEMPT_SEPARATOR = "|";
-const tagHash = (attemptId: string, hash: string) => `${attemptId}${ATTEMPT_SEPARATOR}${hash}`;
+const tagHash = (attemptId: string, hash: string) => {
+  if (hash === "") throw new Error("A password's hash is missing");
+  return `${attemptId}${ATTEMPT_SEPARATOR}${hash}`;
+};
 /** The hash without its attempt's tag. */
 export const untagHash = (tagged: string) => tagged.slice(tagged.indexOf(ATTEMPT_SEPARATOR) + 1);
 
@@ -63,14 +66,14 @@ export async function requestStaffImportAdd(
         "The file adds more people than the plan has seats free",
       );
     }
-    // Only this attempt's hashes count: rows another tab's attempt wrote are passwords this one doesn't know.
-    const withHash = await db.forOrg(access.organizationId, (tx) =>
-      tx.importRow.count({
+    // Only this attempt's hashes count, asked with the import held: rows another tab's attempt wrote are passwords this
+    // one doesn't know, and nobody can write more between the count and the move to adding.
+    await requestImportAdd(db, access, "staff", importId, now, async (tx, held) => {
+      const withHash = await tx.importRow.count({
         where: { batchId: importId, plan: "new", outcome: null, passwordHash: { startsWith: `${attemptId}|` } },
-      }),
-    );
-    if (withHash !== batch.rowsToAdd) throw notReady();
-    await requestImportAdd(db, access, "staff", importId, now);
+      });
+      if (withHash !== held.rowsToAdd) throw notReady();
+    });
   } catch (error) {
     // A refused Add leaves the hashes of passwords the browser is about to forget: they go now, not with the sweep.
     if (error instanceof DomainError) await clearPasswordHashes(db, access.organizationId, importId);

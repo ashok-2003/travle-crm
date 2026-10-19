@@ -359,4 +359,19 @@ describe("the staff import's passwords and add", () => {
     ).rejects.toMatchObject({ reason: "IMPORT_NOT_READY" });
     expect(await hashes(running.id)).toBe(1);
   });
+
+  it("refuses to keep a password whose hash is missing, rather than keep nothing in its place", async () => {
+    const checked = await checkedStaffImport(world, { ...standard, rows: [person("One").row] });
+    const broken = {
+      staff: { ...world.identity.staff, hashTemporaryPasswords: () => Promise.resolve([] as string[]) },
+    };
+    await expect(
+      setStaffImportPasswords(world.test.db, broken, world.admin, {
+        importId: checked.id,
+        attemptId: ATTEMPT,
+        passwords: [{ rowNumber: 2, password: passwordOf(2) }],
+      }),
+    ).rejects.toThrow("hash is missing");
+    expect((await readImport(world, checked.id)).rows[0]?.passwordHash).toBeNull();
+  });
 });
