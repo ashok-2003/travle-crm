@@ -39,3 +39,12 @@ export async function demoPlan(tx: OrgTx): Promise<PlanSummary> {
   }
   return plan;
 }
+
+/** Whether the organization is the shared demo: the one on the demo's own plan (spec 7.4). */
+export async function isOnDemoPlan(tx: OrgTx, organizationId: string): Promise<boolean> {
+  const row = await tx.subscription.findUnique({
+    where: { organizationId },
+    select: { plan: { select: { key: true } } },
+  });
+  return row?.plan.key === DEMO_PLAN_KEY;
+}

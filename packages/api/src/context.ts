@@ -5,6 +5,7 @@ import type { Files } from "@travel-crm/domain/files";
 import type { Identity } from "@travel-crm/domain/identity";
 import type { AddGuard } from "@travel-crm/domain/imports";
 import type { Profiles } from "@travel-crm/domain/profile";
+import type { SheetsDependencies } from "@travel-crm/domain/sheets";
 import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 
 export interface ApiDependencies {
@@ -27,6 +28,10 @@ export interface ApiDependencies {
    * S26). None unless the server passes some.
    */
   addGuards?: readonly AddGuard[];
+  /** Reads Google Sheets, read only (ADR 0031); null or absent when no service account is set: Google Sheets is off. */
+  google?: SheetsDependencies["google"];
+  /** Keys the spreadsheet claim; null or absent when SHEETS_HASH_KEY is not set. */
+  sheetsHashes?: SheetsDependencies["hashes"];
 }
 
 /**
@@ -34,7 +39,17 @@ export interface ApiDependencies {
  * cookie, a longer expiry), and those Set-Cookie headers must reach the browser.
  */
 export async function createContext(
-  { identity, subscriptions, profiles, db, files, pushPublicKey, addGuards = [] }: ApiDependencies,
+  {
+    identity,
+    subscriptions,
+    profiles,
+    db,
+    files,
+    pushPublicKey,
+    addGuards = [],
+    google = null,
+    sheetsHashes = null,
+  }: ApiDependencies,
   request: Request,
   resHeaders: Headers,
 ) {
@@ -51,6 +66,8 @@ export async function createContext(
     files,
     pushPublicKey,
     addGuards,
+    google,
+    sheetsHashes,
     headers: request.headers,
     resHeaders,
     session: response?.session ?? null,

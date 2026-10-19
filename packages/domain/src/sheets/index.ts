@@ -25,7 +25,14 @@ export { clearVanishedRows, firstPendingRow, isKnown, ledgerKey, lookUpLedger, t
 export { nameColumns, type HeaderName } from "./header-keys.js";
 export { earlierSheetFingerprints } from "./fingerprints.js";
 export { monthFirstLocale, sheetOrigin, sheetOriginOf } from "./origin.js";
-export { headerHashOf, matchHeader, stopsTheCheck, type HeaderMatch, type SheetColumnRow } from "./header-match.js";
+export {
+  headerHashOf,
+  matchHeader,
+  recordMissingColumns,
+  stopsTheCheck,
+  type HeaderMatch,
+  type SheetColumnRow,
+} from "./header-match.js";
 export { baselineListener } from "./baseline.js";
 export { matchSheetImportListener } from "./match-connect-import.js";
 export { hasScheduleRow, scheduleListener } from "./update-schedule.js";
@@ -52,3 +59,5 @@ export {
 export { finishScheduledCheck } from "./schedule.js";
 export { sweepSheets, type SheetsSwept } from "./sweep.js";
 export { type ErasedContacts, type SheetsWithdrawn, withdrawSheetRows } from "./erasure.js";
+export { assertNoSheetCheckSaving } from "./guards.js";
+export { listSheets, sheetDetailOf, type SheetDetailFacts } from "./views.js";

@@ -45,6 +45,7 @@ CREATE TABLE "sheet_column" (
     "header" TEXT NOT NULL,
     "field" TEXT,
     "is_new" BOOLEAN NOT NULL DEFAULT false,
+    "is_missing" BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT "sheet_column_pkey" PRIMARY KEY ("id")
 );

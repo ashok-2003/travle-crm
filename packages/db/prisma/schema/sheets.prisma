@@ -84,6 +84,8 @@ model SheetColumn {
   field          String?
   /// A header the sheet gained that nobody has seen (S15).
   isNew          Boolean         @default(false) @map("is_new")
+  /// A matched column the sheet no longer has, as the last check found it: the page names it without asking Google.
+  isMissing      Boolean         @default(false) @map("is_missing")
   organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   connection     SheetConnection @relation(fields: [organizationId, connectionId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
 

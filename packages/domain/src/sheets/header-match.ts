@@ -1,6 +1,7 @@
 // Finding a sheet's matched columns by their header, never by position (S11, S15): a column inserted or moved changes
 // nothing; a matched column that has gone stops the check only when it leaves no name, or no phone, email or Instagram.
 import type { ImportField } from "@travel-crm/contracts/imports";
+import type { OrgTx } from "@travel-crm/db";
 import type { SheetField } from "@travel-crm/contracts/sheets";
 import type { ColumnMatches } from "../imports/index.js";
 import { matchedFields } from "./columns.js";
@@ -65,4 +66,33 @@ export function stopsTheCheck(match: HeaderMatch, columns: readonly SheetColumnR
   if (matchedFields(present).complete) return null;
   const gone = match.missing.filter((column) => column.field !== null && needed.has(column.field));
   return { columns: gone.map((column) => column.header) };
+}
+
+/**
+ * Writes down which matched columns the last check did not find, so the sheet's page can name them without asking Google.
+ * Only what changed is written, so a check that finds nothing different writes nothing.
+ */
+export async function recordMissingColumns(
+  tx: OrgTx,
+  sheetId: string,
+  columns: readonly (SheetColumnRow & { isMissing?: boolean })[],
+  match: Pick<HeaderMatch, "missing">,
+): Promise<void> {
+  const gone = new Set(match.missing.map((column) => column.headerKey));
+  const mark = [...gone].filter((key) => columns.find((column) => column.headerKey === key)?.isMissing !== true);
+  const clear = columns
+    .filter((column) => column.isMissing === true && !gone.has(column.headerKey))
+    .map((c) => c.headerKey);
+  if (mark.length > 0) {
+    await tx.sheetColumn.updateMany({
+      where: { connectionId: sheetId, headerKey: { in: mark } },
+      data: { isMissing: true },
+    });
+  }
+  if (clear.length > 0) {
+    await tx.sheetColumn.updateMany({
+      where: { connectionId: sheetId, headerKey: { in: clear } },
+      data: { isMissing: false },
+    });
+  }
 }

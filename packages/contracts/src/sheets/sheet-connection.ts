@@ -68,6 +68,8 @@ export const sheetList = z.object({
   serviceAccountEmails: z.array(z.string()),
   /** False when Google Sheets isn't set up on this server (S9). */
   configured: z.boolean(),
+  /** The agency is the shared demo: Connect a sheet is off there (spec 10). */
+  demo: z.boolean(),
 });
 export type SheetList = z.infer<typeof sheetList>;
 

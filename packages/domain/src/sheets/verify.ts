@@ -89,6 +89,8 @@ export interface StoredColumn {
   header: string;
   field: SheetField | null;
   isNew: boolean;
+  /** A matched column the last check did not find in the sheet. */
+  isMissing: boolean;
 }
 
 export async function storedColumns(tx: OrgTx, sheetId: string): Promise<StoredColumn[]> {
@@ -98,6 +100,7 @@ export async function storedColumns(tx: OrgTx, sheetId: string): Promise<StoredC
     header: row.header,
     field: asSheetField(row.field as ImportField | null),
     isNew: row.isNew,
+    isMissing: row.isMissing,
   }));
 }
 

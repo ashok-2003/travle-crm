@@ -22,6 +22,7 @@ import {
   matchHeader,
   maxSheetRows,
   readSheetTab,
+  recordMissingColumns,
   stopsTheCheck,
   storedColumns,
   type ReadPlan,
@@ -138,6 +139,7 @@ async function runCheck(
   const columns = await db.forOrg(organizationId, (tx) => storedColumns(tx, sheet.id));
   const match = matchHeader(read.header, columns);
   const stop = stopsTheCheck(match, columns);
+  await db.forOrg(organizationId, (tx) => recordMissingColumns(tx, sheet.id, columns, match));
   if (stop !== null) {
     await db.forOrg(organizationId, async (tx) => {
       const held = await holdSheet(tx, sheet.id);

@@ -8,6 +8,7 @@ import { destinationsRouter } from "./destinations.js";
 import { documentsRouter } from "./documents.js";
 import { leadExportsRouter } from "./lead-exports.js";
 import { leadImportsRouter } from "./lead-imports.js";
+import { leadSheetsRouter } from "./lead-sheets.js";
 import { leadsRouter } from "./leads.js";
 import { meRouter } from "./me.js";
 import { notificationsRouter } from "./notifications.js";
@@ -40,6 +41,7 @@ export const appRouter = router({
   tasks: tasksRouter,
   today: todayRouter,
   leadImports: leadImportsRouter,
+  leadSheets: leadSheetsRouter,
   leadExports: leadExportsRouter,
   staffImports: staffImportsRouter,
   staffExports: staffExportsRouter,

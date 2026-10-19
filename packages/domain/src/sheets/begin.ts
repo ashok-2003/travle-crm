@@ -2,6 +2,7 @@
 // on the spreadsheet is taken and a draft connection is made under the agency's limit, with the tab's headers as its
 // columns. Each way it can fail has its own reason.
 import { type Database, isUniqueViolation } from "@travel-crm/db";
+import { isOnDemoPlan } from "../subscriptions/index.js";
 import type { ParsedSheetLink } from "@travel-crm/contracts/sheets";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError, newUuidV7 } from "../kernel/index.js";
@@ -24,6 +25,10 @@ export async function beginSheet(
 ): Promise<{ sheetId: string }> {
   const { google, hashes } = dependencies;
   if (google === null || hashes === null) throw notSetUp();
+  // The shared demo only shows the product: it never reads a real agency's sheet (spec 10).
+  if (await db.forOrg(access.organizationId, (tx) => isOnDemoPlan(tx, access.organizationId))) {
+    throw new DomainError("CONFLICT", "SHEETS_NOT_IN_DEMO", "Google Sheets is not available in the demo");
+  }
   const sheetId = newUuidV7();
   const serviceAccountIndex = accountIndexFor(sheetId, Math.max(google.accounts().length, 1));
   // Outside any transaction: a request to Google must not hold a database connection.
