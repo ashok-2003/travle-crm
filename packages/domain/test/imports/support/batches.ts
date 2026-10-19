@@ -26,9 +26,11 @@ export interface BatchSeed {
   defaultRoleKey?: string | null;
   addBlocked?: boolean;
   addAlreadyImported?: boolean;
+  addInCrm?: boolean;
   stopRequested?: boolean;
   reportAttachmentId?: string | null;
   impersonatedBy?: string | null;
+  sourceSheetId?: string | null;
   createdAt?: Date;
   checkedAt?: Date | null;
   addRequestedAt?: Date | null;

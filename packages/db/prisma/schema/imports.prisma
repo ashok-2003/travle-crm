@@ -40,6 +40,8 @@ model ImportBatch {
   defaultRoleKey     String?            @map("default_role_key")
   addBlocked         Boolean            @default(false) @map("add_blocked")
   addAlreadyImported Boolean            @default(false) @map("add_already_imported")
+  /// Whether the add takes the rows of people who already have a lead (plan in_crm): a sheet's import asks.
+  addInCrm           Boolean            @default(false) @map("add_in_crm")
   stopRequested      Boolean            @default(false) @map("stop_requested")
   /// The report of rows not added (record type import_report), once the add ends.
   reportAttachmentId String?            @map("report_attachment_id") @db.Uuid
@@ -47,6 +49,9 @@ model ImportBatch {
   startedBy          String             @map("started_by") @db.Uuid
   /// The platform admin's user id when support started it while impersonating.
   impersonatedBy     String?            @map("impersonated_by") @db.Uuid
+  /// The Google Sheet connection whose rows this import reads (the Sheets sync's connect-time import); null for a
+  /// file. A plain uuid, as the other modules' ids are.
+  sourceSheetId      String?            @map("source_sheet_id") @db.Uuid
   createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   checkedAt          DateTime?          @map("checked_at") @db.Timestamptz(6)
   addRequestedAt     DateTime?          @map("add_requested_at") @db.Timestamptz(6)
@@ -67,6 +72,8 @@ model ImportBatch {
   @@index([organizationId, startedBy, kind, id(sort: Desc)], map: "import_batch_recent")
   /// The same file again (B6).
   @@index([organizationId, fileSha256], map: "import_batch_file")
+  /// A sheet's imports.
+  @@index([organizationId, sourceSheetId], map: "import_batch_by_sheet", where: raw("(source_sheet_id IS NOT NULL)"))
   /// The console's sweep, across organizations.
   @@index([keepUntil], map: "import_batch_due", where: raw("(status <> 'expired'::text)"))
   @@map("import_batch")
@@ -132,7 +139,7 @@ model ImportRow {
   batchId        String       @map("batch_id") @db.Uuid
   /// Its row in the file; the header is row 1.
   rowNumber      Int          @map("row_number")
-  /// new, returning, enquiry, blocked, already_imported or not_added.
+  /// new, returning, enquiry, blocked, already_imported, in_crm (a sheet's row for someone with a lead) or not_added.
   plan           String
   /// Reason codes as text: "code", "code:field", "same_as_row:12", "already_imported:2026-10-12" (D8).
   reasons        String[]     @default([])

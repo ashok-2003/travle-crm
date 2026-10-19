@@ -28,10 +28,14 @@ export interface ImportBatchRow {
   defaultRoleKey: string | null;
   addBlocked: boolean;
   addAlreadyImported: boolean;
+  /** Whether the add takes rows planned in_crm: a sheet's import asks (the Sheets sync). */
+  addInCrm: boolean;
   stopRequested: boolean;
   reportAttachmentId: string | null;
   startedBy: string;
   impersonatedBy: string | null;
+  /** The Google Sheet connection the import reads, or null for a file. */
+  sourceSheetId: string | null;
   createdAt: Date;
   checkedAt: Date | null;
   addRequestedAt: Date | null;

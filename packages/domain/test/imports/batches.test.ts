@@ -54,6 +54,20 @@ describe("an import's batch", () => {
 
   const inOrg = <T>(work: (tx: OrgTx) => Promise<T>) => test.db.forOrg(organizationId, work);
 
+  it("reads a sheet's import with its connection and in-CRM choice, and a file's as before", async () => {
+    const sheetId = "0199e7a0-0000-7000-8000-0000000000c2";
+    const fromSheet = await inOrg((tx) => aBatch(tx, { startedBy: importer.userId, sourceSheetId: sheetId }));
+    await expect(inOrg((tx) => findImport(tx, importer, "leads", fromSheet.id))).resolves.toMatchObject({
+      sourceSheetId: sheetId,
+      addInCrm: false,
+    });
+    const file = await inOrg((tx) => aBatch(tx, { startedBy: importer.userId }));
+    await expect(inOrg((tx) => findImport(tx, importer, "leads", file.id))).resolves.toMatchObject({
+      sourceSheetId: null,
+      addInCrm: false,
+    });
+  });
+
   it("answers NOT_FOUND for another person's import, another kind's, or another organization's", async () => {
     const { id } = await inOrg((tx) => aBatch(tx, { startedBy: importer.userId }));
     await expect(inOrg((tx) => findImport(tx, importer, "leads", id))).resolves.toMatchObject({ id, kind: "leads" });

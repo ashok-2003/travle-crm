@@ -167,6 +167,21 @@ describe("the import and export tables", () => {
     ).resolves.toBeDefined();
   });
 
+  it("keeps a Google Sheet's id and the in-CRM choice on a batch, plans a row in_crm, and finds a sheet's imports", async () => {
+    const sheetId = "0199e7a0-0000-7000-8000-0000000000c1";
+    const fromSheet = await addBatch({ sourceSheetId: sheetId });
+    expect(fromSheet).toMatchObject({ sourceSheetId: sheetId, addInCrm: false });
+    // A file's import is as it always was.
+    expect(await addBatch({})).toMatchObject({ sourceSheetId: null, addInCrm: false });
+    await expect(addBatch({ sourceSheetId: sheetId, addInCrm: true })).resolves.toMatchObject({ addInCrm: true });
+    await expect(
+      inOrg((tx) => tx.importRow.create({ data: { batchId: fromSheet.id, rowNumber: 2, plan: "in_crm" } })),
+    ).resolves.toMatchObject({ plan: "in_crm" });
+    const [index] = await platform.$queryRaw<{ indexdef: string }[]>`
+      SELECT indexdef FROM pg_indexes WHERE indexname = 'import_batch_by_sheet'`;
+    expect(index?.indexdef).toContain("(organization_id, source_sheet_id) WHERE (source_sheet_id IS NOT NULL)");
+  });
+
   it("lets one import of an organization be adding at a time", async () => {
     const organization = await createTestOrganization(platform, "One adding");
     await addBatch({ status: "adding" }, organization);
