@@ -13,6 +13,8 @@ import {
   importDetail,
   matchImportColumns,
   rememberedFields,
+  rememberedHeaderFields,
+  rememberHeaderFields,
   type ColumnMatchInput,
 } from "../../src/imports/index.js";
 import { aBatch, aRow } from "./support/batches.js";
@@ -162,6 +164,40 @@ describe("matching an import's columns", () => {
     ]);
     // Staff imports remember their own.
     expect((await inOrg((tx) => rememberedFields(tx, "staff", keys))).size).toBe(0);
+  });
+
+  it("remembers a sheet's header matches by key, the last match winning, and reads a kind's whole memory", async () => {
+    const agency = await anAgency(test, "Header memory");
+    const inAgency = <T>(work: (tx: OrgTx) => Promise<T>) => test.db.forOrg(agency, work);
+    const now = new Date("2026-10-22T08:00:00Z");
+    await inAgency((tx) =>
+      rememberHeaderFields(
+        tx,
+        "leads",
+        [
+          { headerKey: "timestamp", field: "enquiry_date" },
+          { headerKey: "whichplace", field: "destination" },
+          { headerKey: "anythingelse", field: null },
+        ],
+        now,
+      ),
+    );
+    // Two at once, as a sheet's connect and a file's match might: both land, neither fails.
+    await Promise.all([
+      inAgency((tx) => rememberHeaderFields(tx, "leads", [{ headerKey: "whichplace", field: "note" }], now)),
+      inAgency((tx) => rememberHeaderFields(tx, "leads", [{ headerKey: "yourcity", field: "departure_city" }], now)),
+    ]);
+    expect(Object.fromEntries(await inAgency((tx) => rememberedHeaderFields(tx, "leads")))).toEqual({
+      timestamp: "enquiry_date",
+      whichplace: "note",
+      anythingelse: null,
+      yourcity: "departure_city",
+    });
+    expect((await inAgency((tx) => rememberedHeaderFields(tx, "staff"))).size).toBe(0);
+    // A file's guesses read the same memory.
+    expect(Object.fromEntries(await inAgency((tx) => rememberedFields(tx, "leads", ["timestamp"])))).toEqual({
+      timestamp: "enquiry_date",
+    });
   });
 
   it("saves the importer's value choices and the file's defaults, and starts the check", async () => {

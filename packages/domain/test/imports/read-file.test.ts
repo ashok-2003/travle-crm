@@ -13,6 +13,7 @@ import {
   anAgency,
   anImportWithFile,
   createTestImports,
+  eventsOf,
   fakeIdentity,
   jobDependencies,
   listenerContext,
@@ -158,6 +159,21 @@ describe("reading an import's file", () => {
     await read(twice);
     await read(twice);
     expect((await detailOf(twice)).columns).toHaveLength(1);
+  });
+
+  it("publishes import.read once as it moves the import to matching, and not for an unreadable file", async () => {
+    const file = test.spreadsheets.bytesOf({ header: ["Name"], rows: [["Asha"]] });
+    const { id } = await anImportWithFile(test, importer, file);
+    await read(id);
+    await read(id);
+    const { id: unreadable } = await anImportWithFile(test, importer, file);
+    test.spreadsheets.failNextRead("no_rows");
+    await read(unreadable);
+    const events = await eventsOf(test, organizationId, ["import.read"]);
+    expect(events.filter(([, payload]) => JSON.stringify(payload).includes(id))).toEqual([
+      ["import.read", { importId: id, kind: "leads" }],
+    ]);
+    expect(JSON.stringify(events)).not.toContain(unreadable);
   });
 
   it("holds the contract's unreadable reasons equal to the adapter's", () => {

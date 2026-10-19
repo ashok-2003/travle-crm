@@ -1,11 +1,11 @@
 // imports.read-file (spec 7): on import.uploaded, the worker reads the file outside any transaction, keeps its SHA-256
 // (B6), sheet and columns, guesses each column's field and suggests each value's target, then moves the import to
-// matching, or to unreadable with the adapter's reason. An import no longer reading is left alone, so a repeat is
-// harmless.
+// matching, publishing import.read for whatever follows a read (a Google Sheet's connect-time import), or to
+// unreadable with the adapter's reason. An import no longer reading is left alone, so a repeat is harmless.
 import { createHash } from "node:crypto";
 import { importUploadedEvent } from "@travel-crm/contracts/imports";
 import { type ReadSheet, SpreadsheetUnreadableError } from "@travel-crm/integrations/spreadsheets";
-import { defineListener, type EventListener } from "../jobs/index.js";
+import { defineListener, type EventListener, publishEvent } from "../jobs/index.js";
 import { toBatchRow } from "./batch-row.js";
 import { holdImport, moveImport } from "./batches.js";
 import { summariseColumns } from "./columns.js";
@@ -80,6 +80,7 @@ export function readImportFileListener(dependencies: ImportJobDependencies): Eve
           sheetCount: sheet.sheetName === null ? null : sheet.sheetCount,
           rowsTotal: sheet.rows.length,
         });
+        await publishEvent(tx, { type: "import.read", payload: { importId: batch.id, kind: batch.kind } });
       });
     },
   });

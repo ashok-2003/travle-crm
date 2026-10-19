@@ -26,6 +26,11 @@ export async function findImport(
   return toBatchRow(row);
 }
 
+/** Whether any import of the agency is adding (B29, on import_batch_one_adding): a Google Sheet's check waits for it. */
+export async function isAnyImportAdding(tx: OrgTx): Promise<boolean> {
+  return (await tx.importBatch.findFirst({ where: { status: "adding" }, select: { id: true } })) !== null;
+}
+
 /** The import's row, locked (FOR UPDATE) until the transaction ends, so two runs of one step take turns (B26). */
 export async function holdImport(tx: OrgTx, importId: string): Promise<ImportBatchRow | null> {
   await tx.$queryRaw`SELECT id FROM import_batch WHERE id = ${importId}::uuid FOR UPDATE`;

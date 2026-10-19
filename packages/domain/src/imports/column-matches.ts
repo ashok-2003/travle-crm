@@ -8,7 +8,7 @@ import type { MemberAccess } from "../identity/index.js";
 import { publishEvent } from "../jobs/index.js";
 import { DomainError } from "../kernel/index.js";
 import { findImport, moveImport, notReady } from "./batches.js";
-import { rememberFields } from "./header-memory.js";
+import { headerKey, rememberHeaderFields } from "./header-memory.js";
 
 export interface ColumnMatchInput {
   importId: string;
@@ -115,11 +115,11 @@ export async function matchImportColumns(
       });
     }
   }
-  await rememberFields(
+  await rememberHeaderFields(
     tx,
-    access.organizationId,
     kind,
-    columns.map((column) => ({ header: column.header, field: fieldOf(column.position) })),
+    columns.map((column) => ({ headerKey: headerKey(column.header), field: fieldOf(column.position) })),
+    context.now,
   );
   // The last check's plans no longer hold.
   await tx.importRow.deleteMany({ where: { batchId: batch.id } });

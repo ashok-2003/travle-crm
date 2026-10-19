@@ -12,8 +12,10 @@ import {
   importDetail,
   requestImportAdd,
   startImport,
+  startImportFromBytes,
   stopImport,
 } from "../../src/imports/index.js";
+import { systemActor } from "../../src/kernel/index.js";
 import { aBatch } from "./support/batches.js";
 import {
   anAgency,
@@ -195,5 +197,41 @@ describe("an import's steps", () => {
       sourceSheet: null,
       choices: { addInCrm: false },
     });
+  });
+
+  it("starts a sheet's import from its rows' bytes once, however often asked, for the worker to read", async () => {
+    const importId = "0199e7a0-0000-7000-8000-0000000000c4";
+    const sourceSheetId = "0199e7a0-0000-7000-8000-0000000000c5";
+    const now = new Date("2026-10-22T08:00:00Z");
+    const input = {
+      importId,
+      organizationId,
+      startedBy: importer.userId,
+      impersonatedBy: null,
+      fileName: "Goa Diwali campaign.csv",
+      bytes: bytes("Name,Phone\nAsha,98765 43210\n"),
+      sourceSheetId,
+    };
+    await expect(startImportFromBytes(test.db, test.files, input, now)).resolves.toEqual({ importId });
+    await expect(startImportFromBytes(test.db, test.files, input, now)).resolves.toEqual({ importId });
+    expect(await batchOf(importId)).toMatchObject({
+      kind: "leads",
+      status: "reading",
+      fileName: "Goa Diwali campaign.csv",
+      fileKind: "csv",
+      sourceSheetId,
+      addInCrm: false,
+      keepUntil: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+    });
+    const uploaded = await eventsOf(test, organizationId, ["import.uploaded"]);
+    expect(uploaded.filter(([, payload]) => JSON.stringify(payload).includes(importId))).toEqual([
+      ["import.uploaded", { importId }],
+    ]);
+    const files = await test.files.list(systemActor(organizationId), {
+      recordType: "import_batch",
+      recordId: importId,
+    });
+    expect(files).toEqual([expect.objectContaining({ contentType: "text/csv", sizeBytes: input.bytes.byteLength })]);
+    expect((await batchOf(importId)).fileAttachmentId).toBe(files[0]?.id);
   });
 });
