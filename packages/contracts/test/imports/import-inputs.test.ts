@@ -123,6 +123,26 @@ describe("import and export inputs", () => {
     ).toBe(false);
   });
 
+  it("takes at most the values a file lists: 50 an Owner and 50 a Stage column, 50 a Role column (D6)", () => {
+    const owners = (count: number) =>
+      Array.from({ length: count }, (_, index) => ({ field: "owner", value: `Owner ${String(index)}`, target: null }));
+    const leads = (count: number) => ({ importId, columns: [], values: owners(count), defaults: leadDefaults });
+    expect(matchLeadColumnsInput.safeParse(leads(100)).success).toBe(true);
+    expect(matchLeadColumnsInput.safeParse(leads(101)).success).toBe(false);
+    const roles = (count: number) => ({
+      importId,
+      columns: [],
+      values: Array.from({ length: count }, (_, index) => ({
+        field: "role",
+        value: `Role ${String(index)}`,
+        target: null,
+      })),
+      defaults: { roleKey: null },
+    });
+    expect(matchStaffColumnsInput.safeParse(roles(50)).success).toBe(true);
+    expect(matchStaffColumnsInput.safeParse(roles(51)).success).toBe(false);
+  });
+
   it("knows the waiting statuses among the twelve, and a reason by its code, field, row and day", () => {
     expect(importStatuses).toHaveLength(12);
     expect(waitingImportStatuses.every((status) => importStatuses.includes(status))).toBe(true);

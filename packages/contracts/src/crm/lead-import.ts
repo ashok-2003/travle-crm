@@ -3,6 +3,7 @@
 // Lead import adds its own shapes here later.
 import { z } from "zod";
 import { recordId } from "../identity/fields.js";
+import { MAX_LISTED_VALUES } from "../imports/import-batch.js";
 import { budgetBasis, leadStage, openLeadStages } from "./fields.js";
 
 /** What a column of a lead file may hold. Name and one of phone, email or Instagram are needed. */
@@ -46,7 +47,10 @@ const matchedValue = z.string().min(1).max(MAX_MATCHED_VALUE_LENGTH);
 export const matchLeadColumnsInput = z.strictObject({
   importId: recordId,
   columns: z.array(z.strictObject({ position: z.int().min(0).max(49), field: leadImportField.nullable() })).max(50),
-  /** The values the importer changed: an Owner value to a lead worker, a Stage value to a stage; null for the default. */
+  /**
+   * The values the importer changed: an Owner value to a lead worker, a Stage value to a stage; null for the default.
+   * A column lists at most 50 values (MAX_LISTED_VALUES), so 100 at most: an Owner and a Stage column's (D6).
+   */
   values: z
     .array(
       z.discriminatedUnion("field", [
@@ -54,7 +58,7 @@ export const matchLeadColumnsInput = z.strictObject({
         z.strictObject({ field: z.literal("stage"), value: matchedValue, target: leadStage.nullable() }),
       ]),
     )
-    .max(5000),
+    .max(MAX_LISTED_VALUES * 2),
   defaults: z.strictObject({
     stage: leadImportStage,
     ownerUserId: recordId.nullable(),
