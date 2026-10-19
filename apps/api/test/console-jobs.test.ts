@@ -1,7 +1,8 @@
 // The console process's jobs (ADR 0019): the platform's purge and erasure jobs, the nightly subscription lifecycle at
 // 00:15 India time, as the platform role, the hourly sweep of the stored files still to delete, the daily sweep of
 // exports past their time, the hourly sweep of imports' and exports' files past theirs, and, when a demo is set, the
-// nightly demo reset at 02:00; with the demo switched off, the schedule an earlier start left in pg-boss goes. A super admin can't remove any of these schedules from the console.
+// nightly demo reset at 02:00; with the demo switched off, the schedule an earlier start left in pg-boss goes. A super
+// admin can't remove any of these schedules from the console.
 import { randomUUID } from "node:crypto";
 import {
   PURGE_ORGANIZATION_QUEUE,
@@ -114,7 +115,7 @@ describe("the console's jobs", () => {
     ).toMatchObject({ state: "expired", clearedAt: expect.any(Date) as Date });
   });
 
-  it("deletes every hour an import's file a week after its last change and an export's a day after ready (A5)", async () => {
+  it("deletes hourly an import's file a week after its last change, an export's a day after ready (A5)", async () => {
     const queue = createMemoryJobQueue();
     const runner = createMemoryJobRunner(queue);
     const agency = await createTestAgency(server);
