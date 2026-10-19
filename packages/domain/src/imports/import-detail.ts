@@ -43,6 +43,7 @@ export async function importCounts(
   const byPlan = zeroFor(rowPlans);
   const outcomes = zeroFor(rowOutcomes);
   const notAdded = new Map<RowReasonCode, number>();
+  const inCrm = { open: 0, closed: 0 };
   let noted = 0;
   for (const group of groups) {
     byPlan[group.plan] += group.rows;
@@ -51,6 +52,7 @@ export async function importCounts(
     if (group.plan === "not_added" && group.reason !== null) {
       notAdded.set(group.reason, (notAdded.get(group.reason) ?? 0) + group.rows);
     }
+    if (group.plan === "in_crm") inCrm[group.reason === "in_crm_open" ? "open" : "closed"] += group.rows;
   }
   // Each destination once, whatever its case: the first spelling the file used.
   const destinations = await tx.$queryRaw<{ name: string }[]>`
@@ -65,6 +67,7 @@ export async function importCounts(
     noted,
     newStage: batch.rowsNewStage,
     notAdded: [...notAdded].map(([reason, rows]) => ({ reason, rows })).sort((a, b) => b.rows - a.rows),
+    inCrm,
     newDestinations: destinations.map((destination) => destination.name),
     outcomes,
   };
@@ -143,7 +146,12 @@ export async function importDetail(
       budgetBasis: batch.budgetBasis,
       roleKey: batch.defaultRoleKey,
     },
-    choices: { addBlocked: batch.addBlocked, addAlreadyImported: batch.addAlreadyImported },
+    choices: {
+      addBlocked: batch.addBlocked,
+      addAlreadyImported: batch.addAlreadyImported,
+      addInCrm: batch.addInCrm,
+    },
+    sourceSheet: batch.sourceSheetId === null ? null : { sheetId: batch.sourceSheetId },
     counts: batch.checkedAt === null ? null : await importCounts(tx, batch),
     progress: {
       rowsTotal: batch.rowsTotal,

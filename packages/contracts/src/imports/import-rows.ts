@@ -5,8 +5,11 @@ import { recordId } from "../identity/fields.js";
 import { calendarDate } from "../kernel/time.js";
 import { importField } from "./import-columns.js";
 
-/** What the check plans for a row: a new lead, a returning customer's, a repeat enquiry, or one of the rest. */
-export const rowPlans = ["new", "returning", "enquiry", "blocked", "already_imported", "not_added"] as const;
+/**
+ * What the check plans for a row: a new lead, a returning customer's, a repeat enquiry, or one of the rest. in_crm is
+ * a Google Sheet's row for someone who already has a lead (the Sheets sync), left out unless the importer ticks it.
+ */
+export const rowPlans = ["new", "returning", "enquiry", "blocked", "already_imported", "in_crm", "not_added"] as const;
 export const rowPlan = z.enum(rowPlans);
 export type RowPlan = z.infer<typeof rowPlan>;
 
@@ -15,7 +18,7 @@ export const rowOutcomes = ["added", "merged", "left_out", "not_added"] as const
 export const rowOutcome = z.enum(rowOutcomes);
 export type RowOutcome = z.infer<typeof rowOutcome>;
 
-/** Why a row isn't added: a lead row's reasons (B24), then a staff row's (B44, D23). */
+/** Why a row isn't added: a lead row's reasons (B24, and a sheet's in_crm two), then a staff row's (B44, D23). */
 export const rowReasonCodes = [
   "no_name",
   "no_contact",
@@ -24,6 +27,8 @@ export const rowReasonCodes = [
   "same_as_row",
   "blocked",
   "already_imported",
+  "in_crm_open",
+  "in_crm_closed",
   "not_reached",
   "invalid_name",
   "no_sign_in_name",

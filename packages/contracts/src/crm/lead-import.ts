@@ -63,10 +63,14 @@ export const matchLeadColumnsInput = z.strictObject({
 });
 export type MatchLeadColumnsInput = z.infer<typeof matchLeadColumnsInput>;
 
-/** Whether the add takes the blocked contacts' rows and the rows already imported (B16, B33). */
+/**
+ * Whether the add takes the blocked contacts' rows and the rows already imported (B16, B33), and a sheet's rows for
+ * people who already have a lead (in_crm, the Sheets sync): off when not sent, as a file's preview never asks.
+ */
 export const decideLeadImportInput = z.strictObject({
   importId: recordId,
   addBlocked: z.boolean(),
   addAlreadyImported: z.boolean(),
+  addInCrm: z.boolean().default(false),
 });
-export type DecideLeadImportInput = z.infer<typeof decideLeadImportInput>;
+export type DecideLeadImportInput = z.input<typeof decideLeadImportInput>;

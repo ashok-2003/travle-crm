@@ -95,5 +95,7 @@ describe("the report of rows not added", () => {
     expect(reportSentence({ code: "not_reached" }, today)).toBe("Stopped before this row");
     expect(reportSentence({ code: "notes_too_long" }, today)).toBe("Notes over 4,000 characters");
     expect(reportSentence({ code: "same_username_as_row", row: 4 }, today)).toBe("Same username as row 4");
+    expect(reportSentence({ code: "in_crm_open" }, today)).toBe("Has an open lead with you");
+    expect(reportSentence({ code: "in_crm_closed" }, today)).toBe("Has a closed lead with you");
   });
 });

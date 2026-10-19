@@ -32,10 +32,12 @@ week after its last change (D5), deleting its file and report and emptying what 
 - `stopImport(tx, access, kind, importId)`: while adding, asks the add to stop after its batch; again, nothing.
 - `cancelImport(tx, access, kind, importId, now)`: from a waiting status, `cancelled` and `import.cancelled`
   (`{ kind, status }`).
-- `decideLeadImport(tx, access, input)`: at the preview, whether the add takes blocked contacts' rows and rows
-  already imported (B16, B33).
+- `decideLeadImport(tx, access, input)`: at the preview, whether the add takes blocked contacts' rows, rows
+  already imported (B16, B33) and a Google Sheet's rows for people who already have a lead (`addInCrm`, plan `in_crm`,
+  off unless sent).
 - `findImport(tx, access, kind, importId)`, `importDetail(tx, access, kind, importId)` and
-  `recentImports(tx, access, kind)` (the person's last ten). `importCounts(tx, batch)`: the preview's counts.
+  `recentImports(tx, access, kind)` (the person's last ten). `importCounts(tx, batch)`: the preview's counts,
+  with a sheet's `in_crm` rows by whether the lead is open. The detail names a sheet's connection (`sourceSheet`).
 - `holdImport(tx, importId)`: the batch's row locked, so two runs of a job take turns (B26).
 - `importerAccess({ identity, subscriptions }, batch, required)`: the starter's access afresh for a job (B31), or
   `no_longer_a_member`, `lost_permission` or `organization_cannot_change`.

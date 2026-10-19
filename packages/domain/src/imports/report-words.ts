@@ -21,6 +21,8 @@ const sentences: Record<RowReasonCode, (reason: RowReason, today: string) => str
   blocked: () => "A blocked contact",
   already_imported: (reason, today) =>
     reason.on === undefined ? "Already imported" : `Already imported on ${reportDay(reason.on, today)}`,
+  in_crm_open: () => "Has an open lead with you",
+  in_crm_closed: () => "Has a closed lead with you",
   not_reached: () => "Stopped before this row",
   invalid_name: () => "The name can't be used",
   no_sign_in_name: () => "No username or email",

@@ -9,6 +9,7 @@ import {
   confirmImportUpload,
   decideLeadImport,
   findImport,
+  importDetail,
   requestImportAdd,
   startImport,
   stopImport,
@@ -170,9 +171,29 @@ describe("an import's steps", () => {
     const { id } = await inOrg((tx) => aBatch(tx, { startedBy: importer.userId }));
     await inOrg((tx) => decideLeadImport(tx, importer, { importId: id, addBlocked: true, addAlreadyImported: false }));
     expect(await batchOf(id)).toMatchObject({ addBlocked: true, addAlreadyImported: false, status: "checked" });
+    // A file's preview never asks about rows already in the CRM: off.
+    expect(await batchOf(id)).toMatchObject({ addInCrm: false });
     const { id: adding } = await inOrg((tx) => aBatch(tx, { startedBy: importer.userId, status: "done" }));
     await expect(
       inOrg((tx) => decideLeadImport(tx, importer, { importId: adding, addBlocked: true, addAlreadyImported: true })),
     ).rejects.toMatchObject(notReady);
+  });
+
+  it("keeps a sheet's in-CRM choice, and shows the import's sheet and choices", async () => {
+    const sheetId = "0199e7a0-0000-7000-8000-0000000000c3";
+    const { id } = await inOrg((tx) => aBatch(tx, { startedBy: importer.userId, sourceSheetId: sheetId }));
+    await inOrg((tx) =>
+      decideLeadImport(tx, importer, { importId: id, addBlocked: false, addAlreadyImported: false, addInCrm: true }),
+    );
+    const detail = await inOrg((tx) => importDetail(tx, importer, "leads", id));
+    expect(detail).toMatchObject({
+      sourceSheet: { sheetId },
+      choices: { addBlocked: false, addAlreadyImported: false, addInCrm: true },
+    });
+    const file = await inOrg((tx) => aBatch(tx, { startedBy: importer.userId }));
+    expect(await inOrg((tx) => importDetail(tx, importer, "leads", file.id))).toMatchObject({
+      sourceSheet: null,
+      choices: { addInCrm: false },
+    });
   });
 });

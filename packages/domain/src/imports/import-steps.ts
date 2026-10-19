@@ -146,12 +146,19 @@ export async function cancelImport(
   });
 }
 
-/** The preview's choices (B16, B30, B33): kept on the import for the add, without a new check. */
+/**
+ * The preview's choices (B16, B30, B33, and a sheet's rows already in the CRM): kept on the import for the add,
+ * without a new check. A preview that doesn't ask about the CRM's rows (a file's) leaves them out.
+ */
 export async function decideLeadImport(tx: OrgTx, access: MemberAccess, input: DecideLeadImportInput): Promise<void> {
   const batch = await findImport(tx, access, "leads", input.importId);
   if (batch.status !== "checked") throw notReady();
   await tx.importBatch.update({
     where: { id: input.importId },
-    data: { addBlocked: input.addBlocked, addAlreadyImported: input.addAlreadyImported },
+    data: {
+      addBlocked: input.addBlocked,
+      addAlreadyImported: input.addAlreadyImported,
+      addInCrm: input.addInCrm ?? false,
+    },
   });
 }
