@@ -37,6 +37,7 @@ export async function staffImportDetail(
             name: member.name,
             username: member.username,
             email: member.email,
+            roleName: member.role.name,
             mustChangePassword: member.mustChangePassword,
           },
         ];

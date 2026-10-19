@@ -40,7 +40,10 @@ function saveSheet(blob: Blob, fileName: string): void {
   document.body.append(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(url);
+  // Revoked later, not at once: a browser that is still fetching the blob would find nothing.
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 60_000);
 }
 
 export function PasswordsStep({ importId, page }: { importId: string; page: StaffImportPage }) {
@@ -78,6 +81,14 @@ export function PasswordsStep({ importId, page }: { importId: string; page: Staf
     <>
       <PageHeader
         title={t("title", { count: page.progress.rowsAdded })}
+        action={
+          shown.length > 0 && (
+            <Button onClick={download}>
+              {downloaded ? <CheckIcon aria-hidden="true" /> : <DownloadIcon aria-hidden="true" />}
+              {downloaded ? t("downloaded") : t("download")}
+            </Button>
+          )
+        }
         intro={
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <ImportStatusBadge status="done" />
@@ -101,12 +112,6 @@ export function PasswordsStep({ importId, page }: { importId: string; page: Staf
             <AlertTitle>{t("downloadNow")}</AlertTitle>
             <AlertDescription>{t("neverKept")}</AlertDescription>
           </Alert>
-          <div>
-            <Button disabled={downloaded} onClick={download}>
-              {downloaded ? <CheckIcon aria-hidden="true" /> : <DownloadIcon aria-hidden="true" />}
-              {downloaded ? t("downloaded") : t("download")}
-            </Button>
-          </div>
           {wide ? (
             <Table>
               <TableHeader>
@@ -114,10 +119,8 @@ export function PasswordsStep({ importId, page }: { importId: string; page: Staf
                   <TableHead scope="col">{t("name")}</TableHead>
                   <TableHead scope="col">{t("username")}</TableHead>
                   <TableHead scope="col">{t("email")}</TableHead>
+                  <TableHead scope="col">{t("role")}</TableHead>
                   <TableHead scope="col">{t("password")}</TableHead>
-                  <TableHead scope="col">
-                    <span className="sr-only">{t("copy")}</span>
-                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -126,11 +129,12 @@ export function PasswordsStep({ importId, page }: { importId: string; page: Staf
                     <TableCell className="whitespace-normal script-leading">{person.name}</TableCell>
                     <TableCell className="whitespace-normal break-all">{none(person.username)}</TableCell>
                     <TableCell className="whitespace-normal break-all">{none(person.email)}</TableCell>
+                    <TableCell className="whitespace-normal">{person.roleName}</TableCell>
                     <TableCell>
-                      <span className="numbers">{passwordOf(person)}</span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <CopyButton value={passwordOf(person)} label={t("copyFor", { name: person.name })} />
+                      <span className="flex items-center gap-2">
+                        <span className="numbers">{passwordOf(person)}</span>
+                        <CopyButton iconOnly value={passwordOf(person)} label={t("copyFor", { name: person.name })} />
+                      </span>
                     </TableCell>
                   </TableRow>
                 ))}

@@ -154,6 +154,7 @@
       "name": "Name",
       "username": "Username",
       "email": "Email",
+      "role": "Role",
       "password": "Temporary password",
       "copy": "Copy",
       "copyFor": "Copy {name}'s password",

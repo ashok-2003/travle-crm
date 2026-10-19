@@ -48,6 +48,8 @@ export const staffImportedPerson = z.object({
   name: z.string(),
   username: z.string().nullable(),
   email: z.string().nullable(),
+  /** The role they were added with, by its name. */
+  roleName: z.string(),
   /** True until they choose their own password: B50's new passwords go only to these. */
   mustChangePassword: z.boolean(),
 });

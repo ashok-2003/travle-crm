@@ -20,6 +20,7 @@ const added = [
     name: "Kavita Rao",
     username: "kavita",
     email: null,
+    roleName: "Sales",
     mustChangePassword: true,
   },
   {
@@ -28,6 +29,7 @@ const added = [
     name: "Deepak Nair",
     username: null,
     email: "deepak@sharma.in",
+    roleName: "Sales",
     mustChangePassword: true,
   },
   {
@@ -36,6 +38,7 @@ const added = [
     name: "Farah Khan",
     username: "farah",
     email: null,
+    roleName: "Sales",
     mustChangePassword: false,
   },
 ];
@@ -89,9 +92,12 @@ describe("PasswordsStep", () => {
     expect(copy).toHaveBeenCalledWith("h7Kq3mPx9Tzc");
 
     await userEvent.click(screen.getByRole("button", { name: "Download the passwords (.csv)" }));
-    expect(click).toHaveBeenCalledOnce();
-    expect(screen.getByRole("button", { name: "Downloaded" })).toBeDisabled();
+    expect(click).toHaveBeenCalledTimes(1);
     expect(saved).toHaveLength(1);
+    // Still there to press again, should the browser have lost the file.
+    expect(screen.getByRole("button", { name: "Downloaded" })).toBeEnabled();
+    await userEvent.click(screen.getByRole("button", { name: "Downloaded" }));
+    expect(click).toHaveBeenCalledTimes(2);
     const blob = saved[0];
     if (blob === undefined) throw new Error("no sheet was saved");
     const text = await new Promise<string>((resolve) => {

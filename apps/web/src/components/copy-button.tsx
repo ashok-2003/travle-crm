@@ -6,12 +6,13 @@ import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
-export function CopyButton({ value, label }: { value: string; label: string }) {
+export function CopyButton({ value, label, iconOnly = false }: { value: string; label: string; iconOnly?: boolean }) {
   const t = useTranslations("staff.create");
   return (
     <Button
       type="button"
       variant="outline"
+      size={iconOnly ? "icon" : "default"}
       aria-label={label}
       onClick={() => {
         // Clipboard access can be refused (no permission, an insecure page): say so rather than appear to work.
@@ -26,7 +27,7 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
       }}
     >
       <CopyIcon aria-hidden="true" />
-      {t("copy")}
+      {!iconOnly && t("copy")}
     </Button>
   );
 }

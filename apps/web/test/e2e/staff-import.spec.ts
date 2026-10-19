@@ -44,7 +44,7 @@ test("import five staff with roles, download the passwords; one signs in with th
   expect(sheet).toContain(`"Kavita Rao","kavita","kavita.rao.${agency.code.toLowerCase()}@example.test"`);
   for (const password of passwords) expect(sheet).toContain(`"${password}"`);
   expect(sheet).toContain(`"${agency.code}"`);
-  await expect(page.getByRole("button", { name: "Downloaded" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Downloaded" })).toBeEnabled();
 
   // Kavita, on her own device, signs in with the code and her username, and must choose a password first.
   const kavitasPassword = await page
