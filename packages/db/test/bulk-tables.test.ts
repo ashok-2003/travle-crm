@@ -68,8 +68,11 @@ describe("the import and export tables", () => {
         },
       }),
     );
-  const addColumn = (data: Partial<Prisma.ImportColumnUncheckedCreateInput>) =>
-    inOrg((tx) => tx.importColumn.create({ data: { batchId, position: 0, header: "Name", ...data } }));
+  /** A column at position 0 of a batch of its own, so no test depends on another's positions (D7). */
+  const addColumn = async (data: Partial<Prisma.ImportColumnUncheckedCreateInput>) => {
+    const batch = await addBatch({});
+    return inOrg((tx) => tx.importColumn.create({ data: { batchId: batch.id, position: 0, header: "Name", ...data } }));
+  };
   const addRow = (data: Partial<Prisma.ImportRowUncheckedCreateInput>) =>
     inOrg((tx) => tx.importRow.create({ data: { batchId, rowNumber: 2, plan: "new", ...data } }));
   const addExport = (data: Partial<Prisma.DataExportUncheckedCreateInput>) =>
@@ -78,9 +81,6 @@ describe("the import and export tables", () => {
     );
   let rowNumber = 100;
   const nextRow = () => (rowNumber += 1);
-  // Columns sit at 0-49, one to a position in the batch; the fixture's own batch holds none.
-  let position = 0;
-  const nextPosition = () => (position += 1);
 
   beforeAll(async () => {
     platform = createPlatformClient(urls.platform);
@@ -109,9 +109,9 @@ describe("the import and export tables", () => {
       [() => addBatch({ budgetBasis: "per_family" }), "import_batch_budget_basis_value"],
       [() => addBatch({ rowsDone: -1 }), "import_batch_counts"],
       [() => addBatch({ fileName: "" }), "import_batch_text_lengths"],
-      [() => addColumn({ position: nextPosition(), field: "passport" }), "import_column_field_value"],
-      [() => addColumn({ position: nextPosition(), header: "x".repeat(201) }), "import_column_header_length"],
-      [() => addColumn({ position: nextPosition(), guessedBy: "a hunch" }), "import_column_guessed_by_value"],
+      [() => addColumn({ field: "passport" }), "import_column_field_value"],
+      [() => addColumn({ header: "x".repeat(201) }), "import_column_header_length"],
+      [() => addColumn({ guessedBy: "a hunch" }), "import_column_guessed_by_value"],
       [
         () =>
           inOrg((tx) =>
@@ -138,6 +138,31 @@ describe("the import and export tables", () => {
       [() => addRow({ rowNumber: nextRow(), plan: "maybe" }), "import_row_plan_value"],
       [() => addRow({ rowNumber: nextRow(), outcome: "skipped" }), "import_row_outcome_value"],
       [() => addRow({ rowNumber: nextRow(), exampleName: "x".repeat(121) }), "import_row_text_lengths"],
+      // The rest of the CHECKs each table keeps (D7).
+      [() => addColumn({ position: 50 }), "import_column_position_range"],
+      [() => addBatch({ sheetCount: 0 }), "import_batch_counts"],
+      [
+        () => addRow({ rowNumber: nextRow(), reasons: Array.from({ length: 21 }, () => "no_name") }),
+        "import_row_reasons",
+      ],
+      [() => addRow({ rowNumber: nextRow(), newDestination: "x".repeat(81) }), "import_row_text_lengths"],
+      [() => addRow({ rowNumber: nextRow(), newDestination: "" }), "import_row_text_lengths"],
+      [
+        () =>
+          inOrg((tx) =>
+            tx.importHeaderMatch.create({ data: { kind: "leads", headerKey: "x".repeat(201), field: null } }),
+          ),
+        "import_header_match_key_length",
+      ],
+      [
+        () =>
+          inOrg((tx) =>
+            tx.importValueMatch.create({
+              data: { batchId, field: "owner", value: "Ravi", matchedBy: "none", rows: -1 },
+            }),
+          ),
+        "import_value_match_rows",
+      ],
       [
         () =>
           inOrg((tx) =>
@@ -160,8 +185,7 @@ describe("the import and export tables", () => {
     await expect(
       addBatch({ status: "failed", failureReason: "over_seat_limit", defaultStage: "lost" }),
     ).resolves.toBeDefined();
-    for (const field of fields)
-      await expect(addColumn({ position: nextPosition(), field }), field).resolves.toBeDefined();
+    for (const field of fields) await expect(addColumn({ field }), field).resolves.toBeDefined();
     await expect(
       addExport({ kind: "staff", format: "csv", status: "failed", failureReason: "too_many_rows" }),
     ).resolves.toBeDefined();
@@ -197,21 +221,19 @@ describe("the import and export tables", () => {
     const values = Array.from({ length: 50 }, (_, index) => `Value ${String(index)}`);
     const counts = values.map((_, index) => index + 1);
     await expect(
-      addColumn({ position: nextPosition(), samples: ["a", "b", "c"], distinctValues: values, distinctCounts: counts }),
+      addColumn({ samples: ["a", "b", "c"], distinctValues: values, distinctCounts: counts }),
     ).resolves.toBeDefined();
-    await expect(addColumn({ position: nextPosition(), samples: ["a", "b", "c", "d"] })).rejects.toThrow(
-      /import_column_samples/,
+    await expect(addColumn({ samples: ["a", "b", "c", "d"] })).rejects.toThrow(/import_column_samples/);
+    await expect(
+      addColumn({ distinctValues: [...values, "one more"], distinctCounts: [...counts, 1] }),
+    ).rejects.toThrow(/import_column_values/);
+    await expect(addColumn({ distinctValues: ["a", "b"], distinctCounts: [1] })).rejects.toThrow(
+      /import_column_values/,
     );
-    await expect(
-      addColumn({ position: nextPosition(), distinctValues: [...values, "one more"], distinctCounts: [...counts, 1] }),
-    ).rejects.toThrow(/import_column_values/);
-    await expect(
-      addColumn({ position: nextPosition(), distinctValues: ["a", "b"], distinctCounts: [1] }),
-    ).rejects.toThrow(/import_column_values/);
     await expect(
       inOrg(
         (tx) => tx.$executeRaw`INSERT INTO import_column (id, batch_id, position, header, samples)
-        VALUES (gen_random_uuid(), ${batchId}::uuid, ${nextPosition()}, 'Name', NULL)`,
+        VALUES (gen_random_uuid(), ${batchId}::uuid, 0, 'Name', NULL)`,
       ),
     ).rejects.toThrow(/import_column_samples/);
   });
