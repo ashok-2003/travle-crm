@@ -36,8 +36,13 @@ describe("the console's settings", () => {
     expect(() => loadConsoleSettings({ ...platform, ...without(demo, "DEMO_PASSWORD") }, environment)).toThrow(
       /DEMO_PASSWORD: is needed with DEMO_ORGANIZATION_CODE/,
     );
-    expect(() => loadConsoleSettings({ ...platform, ...demo, DEMO_PASSWORD: "short" }, environment)).toThrow(
-      /DEMO_PASSWORD/,
+    expect(() => loadConsoleSettings({ ...platform, ...demo, DEMO_PASSWORD: "demo123" }, environment)).toThrow(
+      /DEMO_PASSWORD: must be at least 8 characters/,
+    );
+    // The owner's choice (2026-10-19): eight characters, easy to hand a prospect; the demo is walled off by row-level
+    // security like any organization.
+    expect(loadConsoleSettings({ ...platform, ...demo, DEMO_PASSWORD: "demo1234" }, environment).demo?.password).toBe(
+      "demo1234",
     );
     expect(() =>
       loadConsoleSettings({ ...platform, ...demo, DEMO_ORGANIZATION_CODE: "no spaces" }, environment),
