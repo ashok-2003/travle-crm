@@ -53,10 +53,7 @@ describe("the lead import's listeners", () => {
     await expect(
       check.handle(step("import.columns-matched", staff.id, "staff"), listenerContext(test, organizationId)),
     ).resolves.toBeUndefined();
-    const checking = await anImportWithFile(test, importer, file, { status: "checking" });
-    await expect(
-      check.handle(step("import.columns-matched", checking.id, "leads"), listenerContext(test, organizationId)),
-    ).rejects.toThrow("Not built yet: bulk plan, Task 1.3");
+    const checking = await anImportWithFile(test, importer, file, { status: "checked" });
     const adding = await anImportWithFile(test, importer, file, { status: "adding" });
     await expect(
       add.handle(step("import.add-requested", adding.id, "leads"), listenerContext(test, organizationId)),
