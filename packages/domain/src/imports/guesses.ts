@@ -1,6 +1,8 @@
 // Guessing each column's field (B9, D13, D14): the agency's last match of the header first ("As last time"), then
 // the common names, each field's own label and our exports' headers, which import back; else nothing. Our report's
-// "Why it wasn't added" and "Row" are never guessed, and a field goes to one column only, Note excepted.
+// "Why it wasn't added" and "Row" are never guessed, and a field goes to one column only, Note excepted. A Google
+// Sheet's leads also try Google Forms' own headers and, when no name fits, a word inside the header (the Sheets sync's
+// S12): `wordsInHeader`, off for files.
 import { leadExportHeaders } from "@travel-crm/contracts/crm";
 import { staffExportHeaders } from "@travel-crm/contracts/identity";
 import type { GuessSource, ImportField, ImportKind } from "@travel-crm/contracts/imports";
@@ -58,6 +60,35 @@ function byKey(names: readonly [ImportField | null, readonly string[]][], export
   return map;
 }
 
+/** The headers Google Forms writes itself, guessed for a sheet's leads only. */
+const formNames = byKey(
+  [
+    ["enquiry_date", ["Timestamp"]],
+    ["email", ["Email Address"]],
+    ["name", ["Full name", "Your name"]],
+    ["phone", ["Phone number", "Mobile number", "WhatsApp number", "Contact number"]],
+  ],
+  [],
+);
+
+/** Words inside a sheet's header, tried in this order when no name fits it (S12). */
+const headerWords: [ImportField, readonly string[]][] = [
+  ["phone", ["phone", "mobile", "whatsapp"]],
+  ["email", ["email", "mail"]],
+  ["name", ["name"]],
+  ["destination", ["destination", "place", "package"]],
+  ["adults", ["adults", "persons", "pax"]],
+  ["budget", ["budget"]],
+  ["travel_from", ["date", "when"]],
+  ["note", ["message", "remarks", "requirement"]],
+];
+
+/** The field of the first of S12's words the header holds as a word of its own ("Which place?" is Destination). */
+function fieldOfWords(header: string): ImportField | undefined {
+  const words = new Set(header.toLowerCase().split(/[^\p{L}\p{N}]+/u));
+  return headerWords.find(([, choices]) => choices.some((word) => words.has(word)))?.[0];
+}
+
 const commonNames: Record<ImportKind, ReadonlyMap<string, ImportField | null>> = {
   leads: byKey(leadNames, leadExportHeaders),
   staff: byKey(staffNames, staffExportHeaders),
@@ -72,12 +103,15 @@ export function guessFields(
   kind: ImportKind,
   headers: readonly string[],
   remembered: ReadonlyMap<string, ImportField | null>,
+  options: { wordsInHeader?: boolean } = {},
 ): FieldGuess[] {
+  const sheetWords = options.wordsInHeader === true && kind === "leads";
   const taken = new Set<ImportField>();
   return headers.map((header) => {
     const key = headerKey(header);
     if (neverGuessed.has(key)) return noGuess;
-    const known = commonNames[kind].get(key);
+    const named = (sheetWords ? formNames.get(key) : undefined) ?? commonNames[kind].get(key);
+    const known = named === undefined && sheetWords ? fieldOfWords(header) : named;
     const guess: FieldGuess = remembered.has(key)
       ? { field: remembered.get(key) ?? null, guessedBy: "last-time" }
       : known === undefined || known === null

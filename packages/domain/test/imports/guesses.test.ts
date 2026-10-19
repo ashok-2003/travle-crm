@@ -1,6 +1,7 @@
 // Guessing what each column holds (spec B9, B10, D13, D14): the agency's last match of a column of the same name, then
 // the common names, each field's own label and our exports' headers; never our report's two columns; one column a
-// field, Note excepted.
+// field, Note excepted. A Google Sheet's columns also try Google Forms' own headers and the words inside a header (the
+// Sheets sync's S12), which a file never does.
 import { leadExportHeaders } from "@travel-crm/contracts/crm";
 import { staffExportHeaders } from "@travel-crm/contracts/identity";
 import type { ImportField } from "@travel-crm/contracts/imports";
@@ -106,5 +107,55 @@ describe("guessing a file's columns", () => {
     ]);
     // A lead field isn't a staff file's.
     expect(fieldsOf(guessFields("staff", ["Budget", "Destination"], none))).toEqual([null, null]);
+  });
+
+  it("reads Google Forms' headers and the words inside a header only when asked, after the agency's own match", () => {
+    const headers = [
+      "Timestamp",
+      "Email Address",
+      "Full name",
+      "WhatsApp number",
+      "Which place?",
+      "Number of persons",
+      "Your budget (₹)",
+      "Preferred date of travel",
+      "Any message for us?",
+      "Where do you want to go?",
+    ];
+    const guesses = guessFields("leads", headers, none, { wordsInHeader: true });
+    expect(fieldsOf(guesses)).toEqual([
+      "enquiry_date",
+      "email",
+      "name",
+      "phone",
+      "destination",
+      "adults",
+      "budget",
+      "travel_from",
+      "note",
+      null,
+    ]);
+    expect(guesses.slice(0, 9).every((guess) => guess.guessedBy === "common-name")).toBe(true);
+    // Off, as for a file: none of these is a common name.
+    expect(fieldsOf(guessFields("leads", headers, none))).toEqual(headers.map(() => null));
+    expect(fieldsOf(guessFields("leads", ["Timestamp", "Email Address"], none, {}))).toEqual([null, null]);
+  });
+
+  it("lets a common name and the agency's last match win over a word, and gives a word's field to one column", () => {
+    const remembered = new Map<string, ImportField | null>([["timestamp", null]]);
+    const guesses = guessFields(
+      "leads",
+      ["Timestamp", "Date", "Travel date", "Full name", "Name of your travel partner", "E-mail"],
+      remembered,
+      { wordsInHeader: true },
+    );
+    expect(guesses).toEqual([
+      { field: null, guessedBy: "last-time" },
+      { field: "enquiry_date", guessedBy: "common-name" },
+      { field: "travel_from", guessedBy: "common-name" },
+      { field: "name", guessedBy: "common-name" },
+      { field: null, guessedBy: null },
+      { field: "email", guessedBy: "common-name" },
+    ]);
   });
 });

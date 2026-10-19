@@ -47,7 +47,8 @@ week after its last change (D5), deleting its file and report and emptying what 
   `unreadable` with the adapter's reason. `readImportFile(dependencies, batch)` is the check's and the add's one
   reader, with the kind's limits (`readLimitsOf`); `importFileBytes` fails `ATTACHMENT_NOT_FOUND` once the file is
   withdrawn.
-- Guesses (B9, D13, D14): `headerKey(header)`, `guessFields(kind, headers, remembered)`, and the agency's memory,
+- Guesses (B9, D13, D14): `headerKey(header)`, `guessFields(kind, headers, remembered, { wordsInHeader })` (on for a
+  Google Sheet's leads only: Google Forms' own headers, then a word inside the header, S12), and the agency's memory,
   `rememberedFields(tx, kind, keys)` and `rememberFields(tx, organizationId, kind, matches)` (upserts, B10).
 - Matching (B8, B10-B13): `matchImportColumns(tx, access, kind, input, { owners, roleKeys, now })`, from `matching`
   or `checked`: refuses a field on two columns but Note (`FIELD_MATCHED_TWICE`), a lead file without Name and a
