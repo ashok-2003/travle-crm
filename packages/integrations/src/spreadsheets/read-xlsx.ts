@@ -1,6 +1,6 @@
-// Reads an .xlsx (B3-B5, D1, D10, D12): the signature first (an old .xls or a protected workbook is a compound file),
-// then the bounded pre-inflate, the first sheet's name and size from the workbook's own parts, all read as the reader's
-// own parser reads them, and only then read-excel-file on that one sheet.
+// Reads an .xlsx (B3-B5, D1, D10, D12), in the thread xlsx-thread.ts runs: the signature first (an old .xls or a
+// protected workbook is a compound file), then the bounded pre-inflate, the first sheet's name and size from the
+// workbook's own parts, all read as the reader's copy of saxen reads them, and only then read-excel-file on that sheet.
 import { readSheet } from "read-excel-file/node";
 import { unpackWorkbook, type UnpackedWorkbook } from "./bounded-unzip.js";
 import { cellText, type RawCell } from "./cell-text.js";

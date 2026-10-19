@@ -2,10 +2,10 @@
 # `pnpm images:smoke` (spec 12.1, gate 7): builds the api's and the web app's images, then runs every command of the
 # api's image as a deploy does (production settings, a read-only file system) against a throwaway Postgres, MinIO and
 # Mailpit. Expects the api, the console and api-and-worker (both in one container) to answer /health, the worker to
-# render a PDF with the brand's fonts, the web app to serve /sign-in with its security headers and rewrite none of the
-# api's paths, each process to stop on SIGTERM by itself, and neither image to hold a .env file. Everything it starts
-# is removed again, however it ends. The images are tagged after this checkout's project (scripts/dev/compose.sh), so
-# a run in another clone never retags this one's.
+# start (which reads an .xlsx in its own thread first, ADR 0030) and render a PDF with the brand's fonts, the web app
+# to serve /sign-in with its security headers and rewrite none of the api's paths, each process to stop on SIGTERM by
+# itself, and neither image to hold a .env file. Everything it starts is removed again, however it ends. The images
+# are tagged after this checkout's project (scripts/dev/compose.sh), so a run in another clone never retags this one's.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 source scripts/docker/images.sh
@@ -121,6 +121,7 @@ echo "ok: the api answers /health"
 wait_for_status "http://127.0.0.1:$(port_of console 3002)/health" 200 "$run-console"
 echo "ok: the console answers /health"
 wait_for_log "$run-worker" "worker running"
+echo "ok: the worker runs, having read an .xlsx in its own thread from the image's xlsx-thread.mjs"
 # The api and the worker in one container, as a host without background workers runs them (docs/serverless.md).
 api_image --detach --name "$run-both" --env-file "$work/api.env" --publish 127.0.0.1::3001 \
   "$api_tag" api-and-worker >/dev/null

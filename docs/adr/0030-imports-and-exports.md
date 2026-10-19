@@ -16,13 +16,24 @@ staff export; spec `docs/superpowers/specs/2026-10-19-bulk-in-and-out-design.md`
   date-time).
 - **The real adapter** reads CSV with `csv-parse` and writes it with `csv-stringify` (the `csv` project: maintained,
   MIT, no dependencies); reads .xlsx with `read-excel-file`, only after a bounded pre-inflate with `fflate` (at most
-  50 MB unpacked, and the sheet's rows and columns counted before it is parsed, by `saxen`, the SAX parser
-  read-excel-file itself uses, so the count reads the XML exactly as the reader will: never with patterns, which a
-  `>` inside an attribute or single quotes would fool); writes .xlsx with our own small streaming writer on
+  50 MB unpacked, and the sheet's rows and columns counted before it is parsed, by `saxen` from npm, of which
+  read-excel-file vendors a copy, with the names read as the reader reads them and a test holding the two to the same
+  events: never with patterns, which a `>` inside an attribute or single quotes would fool); writes .xlsx with our own
+  small streaming writer on
   `fflate`'s `Zip` (one sheet of values, a bold frozen header row, date styles). All five are pinned exactly
   (`csv-parse` 7.0.3, `csv-stringify` 6.9.0, `read-excel-file` 9.3.12, `fflate` 0.8.3, `saxen` 11.2.0), and
   dependency-cruiser's `vendor-sdks-only-in-integrations` names them. **The in-memory adapter** keeps sheets as JSON
   bytes and can fail the next read with any reason.
+- **An .xlsx is read in a thread of its own (D1, fix round 2).** One staff member's file reaches a worker every agency
+  shares, and two rounds of review each found markup the sizing read differently from the reader. So the sizing is
+  the fast first refusal, not the only one: the unpack, the first sheet's lookup, the sizing and read-excel-file all
+  run in a `worker_threads` thread with a 128 MB heap, a 16 MB young generation, a 4 MB stack and a minute. Running
+  out of any of them is `too_large_unpacked` ("too large once opened", whose advice to save a smaller copy or a CSV
+  holds); a thread that can't run is our error, named by its code, and the worker reads a one-cell workbook this way
+  before it starts, so a deploy without the thread's module refuses to start. The largest file the limits take
+  (10,000 rows of 50 columns) reads in about 1.5 seconds on a laptop, so ten times that or more on the pilot's tenth
+  of a CPU: the round's suggested 20 seconds would refuse it there, hence a minute. The bytes are transferred in, and
+  only the bounded rows come back. The api's bundle carries the thread as an entry of its own, `xlsx-thread.mjs`.
 - **Why these:** SheetJS's npm package `xlsx` stops at 0.18.5 with published advisories, and newer versions come only
   from its own CDN; ExcelJS has had no release since October 2023; `write-excel-file` builds the whole sheet in memory.
   Measured for 50,000 leads of 16 columns, it grew the process from 64 MB to 430 MB against 130 MB for the streaming

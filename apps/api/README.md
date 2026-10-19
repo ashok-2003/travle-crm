@@ -20,7 +20,9 @@ The api: one Hono app on Node. Settings come from environment variables (`src/en
 ## The worker
 
 `pnpm --filter @travel-crm/api-server worker` starts the worker from the same code and image (spec 9.1). It needs the
-same environment as the api, connects as `app_runtime` too and opens no port. `src/worker-jobs.ts` lists what it runs:
+same environment as the api, connects as `app_runtime` too and opens no port. It first reads a one-cell .xlsx in the
+.xlsx reader's own thread, and refuses to start when it can't (ADR 0030): the bundle's `xlsx-thread.mjs` must sit beside
+the rest. `src/worker-jobs.ts` lists what it runs:
 
 | Queue                                     | What it does                                                              |
 | ----------------------------------------- | ------------------------------------------------------------------------- |
