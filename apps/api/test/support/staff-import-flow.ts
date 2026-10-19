@@ -76,16 +76,18 @@ export async function sendPasswords(
   importId: string,
   rowNumbers: readonly number[],
   passwordOf: (rowNumber: number) => string,
-): Promise<void> {
+  attemptId: string = crypto.randomUUID(),
+): Promise<string> {
   for (let start = 0; start < rowNumbers.length; start += 25) {
     const batch = rowNumbers.slice(start, start + 25);
     await dataOf(
       await mutate(
         server,
         "staffImports.setPasswords",
-        { importId, passwords: batch.map((rowNumber) => ({ rowNumber, password: passwordOf(rowNumber) })) },
+        { importId, attemptId, passwords: batch.map((rowNumber) => ({ rowNumber, password: passwordOf(rowNumber) })) },
         jar,
       ),
     );
   }
+  return attemptId;
 }

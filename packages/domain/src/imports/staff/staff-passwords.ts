@@ -8,6 +8,12 @@ import { DomainError } from "../../kernel/index.js";
 import { findImport, holdImport, notReady } from "../batches.js";
 import { requestImportAdd } from "../import-steps.js";
 
+/** A hash is kept with the attempt that made its password, so a mix of two attempts is told apart (B46). */
+const ATTEMPT_SEPARATOR = "|";
+const tagHash = (attemptId: string, hash: string) => `${attemptId}${ATTEMPT_SEPARATOR}${hash}`;
+/** The hash without its attempt's tag. */
+export const untagHash = (tagged: string) => tagged.slice(tagged.indexOf(ATTEMPT_SEPARATOR) + 1);
+
 /**
  * Keeps the hash of each password on its row. Hashing is slow on purpose and happens outside any transaction; a row
  * sent again takes the new hash in place of the first, and a row that isn't to be added takes none. A try the add sent
@@ -27,7 +33,7 @@ export async function setStaffImportPasswords(
     for (const [index, entry] of input.passwords.entries()) {
       await tx.importRow.updateMany({
         where: { batchId: input.importId, rowNumber: entry.rowNumber, plan: "new", outcome: null },
-        data: { passwordHash: hashes[index] ?? null },
+        data: { passwordHash: tagHash(input.attemptId, hashes[index] ?? "") },
       });
     }
     await tx.importBatch.update({ where: { id: input.importId }, data: { failureReason: null } });
@@ -43,6 +49,7 @@ export async function requestStaffImportAdd(
   identity: Pick<Identity, "staff">,
   access: MemberAccess,
   importId: string,
+  attemptId: string,
   now: Date,
 ): Promise<void> {
   const batch = await db.forOrg(access.organizationId, (tx) => findImport(tx, access, "staff", importId));
@@ -55,8 +62,11 @@ export async function requestStaffImportAdd(
       "The file adds more people than the plan has seats free",
     );
   }
+  // Only this attempt's hashes count: rows another tab's attempt wrote are passwords this one doesn't know.
   const withHash = await db.forOrg(access.organizationId, (tx) =>
-    tx.importRow.count({ where: { batchId: importId, plan: "new", outcome: null, passwordHash: { not: null } } }),
+    tx.importRow.count({
+      where: { batchId: importId, plan: "new", outcome: null, passwordHash: { startsWith: `${attemptId}|` } },
+    }),
   );
   if (withHash !== batch.rowsToAdd) throw notReady();
   await requestImportAdd(db, access, "staff", importId, now);

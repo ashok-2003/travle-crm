@@ -30,12 +30,18 @@ export const MAX_PASSWORDS_PER_CALL = 25;
  */
 export const setStaffPasswordsInput = z.strictObject({
   importId: recordId,
+  /** One id for each press of Add, made in the browser: Add then takes only the hashes of its own attempt (B46). */
+  attemptId: recordId,
   passwords: z
     .array(z.strictObject({ rowNumber: z.int().min(1), password: newPassword }))
     .min(1)
     .max(MAX_PASSWORDS_PER_CALL),
 });
 export type SetStaffPasswordsInput = z.infer<typeof setStaffPasswordsInput>;
+
+/** Add: the attempt whose passwords were sent, so a mix of two tabs' passwords is refused. */
+export const addStaffImportInput = z.strictObject({ importId: recordId, attemptId: recordId });
+export type AddStaffImportInput = z.infer<typeof addStaffImportInput>;
 
 /** The seats the plan has left for the people this file adds (B45); null for no limit. */
 export const staffImportSeats = z.object({ free: z.int().nullable() });

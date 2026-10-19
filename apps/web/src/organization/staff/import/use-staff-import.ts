@@ -67,16 +67,18 @@ export function useAddStaffImport(importId: string, onAdded: () => void) {
     networkMode: "always",
     gcTime: 0,
     mutationFn: async (rowNumbers: readonly number[]) => {
+      const attemptId = crypto.randomUUID();
       passwordStore.keep(importId, new Map(rowNumbers.map((rowNumber) => [rowNumber, temporaryPassword()])));
       const made = [...(passwordStore.get(importId) ?? [])];
       for (let start = 0; start < made.length; start += MAX_PASSWORDS_PER_CALL) {
         const batch = made.slice(start, start + MAX_PASSWORDS_PER_CALL);
         await client.staffImports.setPasswords.mutate({
           importId,
+          attemptId,
           passwords: batch.map(([rowNumber, password]) => ({ rowNumber, password })),
         });
       }
-      await client.staffImports.add.mutate({ importId });
+      await client.staffImports.add.mutate({ importId, attemptId });
     },
     onSuccess: onAdded,
     onError: (error) => {

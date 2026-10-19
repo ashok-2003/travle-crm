@@ -60,8 +60,14 @@ describe("the staff import never keeps a password", () => {
     ].join("\n");
     const importId = await uploadStaffFile(server, owner, csv);
     await matchAsGuessed(server, owner, importId);
-    await sendPasswords(server, owner, importId, [2, 3, 4], (rowNumber) => passwords[rowNumber - 2] ?? "");
-    await dataOf(await mutate(server, "staffImports.add", { importId }, owner));
+    const attemptId = await sendPasswords(
+      server,
+      owner,
+      importId,
+      [2, 3, 4],
+      (rowNumber) => passwords[rowNumber - 2] ?? "",
+    );
+    await dataOf(await mutate(server, "staffImports.add", { importId, attemptId }, owner));
     await waitForStatus(server, owner, importId, "done");
 
     // Sign-in with each password works: the hashes are there.
@@ -98,14 +104,14 @@ describe("the staff import never keeps a password", () => {
     const refused = await mutate(
       server,
       "staffImports.setPasswords",
-      { importId, passwords: [{ rowNumber: 2, password: "Tiny-SECR" }] },
+      { importId, attemptId, passwords: [{ rowNumber: 2, password: "Tiny-SECR" }] },
       owner,
     );
     expect(refused.status).toBe(400);
     const late = await mutate(
       server,
       "staffImports.setPasswords",
-      { importId, passwords: [{ rowNumber: 2, password: "Late-Plain-Secret-9" }] },
+      { importId, attemptId, passwords: [{ rowNumber: 2, password: "Late-Plain-Secret-9" }] },
       owner,
     );
     expect(late.status).toBe(409);

@@ -40,7 +40,7 @@ test("a staff file over the seat limit: Add is off with the sentence, and the ap
 
   // The same refusal from the api, for a call that doesn't come from the screen.
   const refused = await page.request.post("/api/trpc/staffImports.add", {
-    data: { importId },
+    data: { importId, attemptId: crypto.randomUUID() },
     headers: { origin: process.env.E2E_BASE_URL ?? "" },
   });
   expect(refused.ok()).toBe(false);

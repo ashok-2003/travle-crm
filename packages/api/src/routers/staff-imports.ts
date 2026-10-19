@@ -2,7 +2,12 @@
 // in the core plan module, so an admin whose sessions were revoked is stopped at once. The steps are changes; the
 // import's page, its rows and Recent imports are views. An import is its starter's alone (D6). There is no `decide`
 // (a staff preview has no choices, D22) and no Stop (the add is all or nothing, B45).
-import { setStaffPasswordsInput, staffImportedPerson, staffImportSeats } from "@travel-crm/contracts/identity";
+import {
+  addStaffImportInput,
+  setStaffPasswordsInput,
+  staffImportedPerson,
+  staffImportSeats,
+} from "@travel-crm/contracts/identity";
 import { matchStaffColumnsInput } from "@travel-crm/contracts/identity";
 import {
   importDetail,
@@ -77,8 +82,8 @@ export const staffImportsRouter = router({
   }),
 
   /** Add: from the preview only, within the seats free, once every row to add has its password's hash. */
-  add: importer.input(importIdInput).mutation(async ({ ctx, input }) => {
-    await requestStaffImportAdd(ctx.db, ctx.identity, ctx.member, input.importId, new Date());
+  add: importer.input(addStaffImportInput).mutation(async ({ ctx, input }) => {
+    await requestStaffImportAdd(ctx.db, ctx.identity, ctx.member, input.importId, input.attemptId, new Date());
   }),
 
   /** Cancel: from a step it waits at, never while it adds. */

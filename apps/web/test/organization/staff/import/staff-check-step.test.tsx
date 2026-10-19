@@ -118,7 +118,7 @@ describe("StaffCheckStep", () => {
       expect(api.calls).toHaveLength(3);
     });
     expect(api.last().path).toBe("staffImports.add");
-    expect(api.last().input).toEqual({ importId });
+    expect(api.last().input).toEqual({ importId, attemptId: expect.any(String) as string });
     expect(passwordStore.get(importId)?.size).toBe(30);
   });
 

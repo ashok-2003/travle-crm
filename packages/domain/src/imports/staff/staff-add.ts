@@ -16,6 +16,7 @@ import { recordRowOutcomes } from "../import-rows.js";
 import { importerAccess } from "../importer-access.js";
 import { readImportFile } from "../read-file.js";
 import { planStaffFile } from "./staff-file.js";
+import { untagHash } from "./staff-passwords.js";
 
 /** Whether any of the import's rows has been added: another run of this add got there first. */
 const someAdded = (context: ListenerContext, importId: string) =>
@@ -92,7 +93,7 @@ export async function addStaffImport(
         (candidate) => candidate.kind === "ready" && candidate.values.rowNumber === row.rowNumber,
       );
       if (reading?.kind !== "ready" || row.passwordHash === null) continue;
-      rows.push({ ...reading.values, passwordHash: row.passwordHash });
+      rows.push({ ...reading.values, passwordHash: untagHash(row.passwordHash) });
     }
     if (changed.length > 0 || rows.length !== waiting.length) {
       // A run beside this one added the people already: the import is done, never back at a preview that is gone.

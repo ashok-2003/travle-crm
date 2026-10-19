@@ -43,10 +43,10 @@ describe("the staff import's procedures", () => {
       ["staffImports.match", { importId: someId, columns: [], values: [], defaults: { roleKey: null } }, "mutation"],
       [
         "staffImports.setPasswords",
-        { importId: someId, passwords: [{ rowNumber: 2, password: "x".repeat(12) }] },
+        { importId: someId, attemptId: someId, passwords: [{ rowNumber: 2, password: "x".repeat(12) }] },
         "mutation",
       ],
-      ["staffImports.add", { importId: someId }, "mutation"],
+      ["staffImports.add", { importId: someId, attemptId: someId }, "mutation"],
       ["staffImports.cancel", { importId: someId }, "mutation"],
       ["staffImports.get", { importId: someId }, "query"],
       ["staffImports.rows", { importId: someId, plan: "not_added" }, "query"],
@@ -71,12 +71,12 @@ describe("the staff import's procedures", () => {
     const importId = await uploadStaffFile(server, owner, "Name,Username,Role\nSeat Taker,seat.taker,Sales\n");
     const checked = await matchAsGuessed(server, owner, importId);
     expect(checked.counts?.byPlan.new).toBe(1);
-    await sendPasswords(server, owner, importId, [2], () => "Seat-pass-12345");
+    const attemptId = await sendPasswords(server, owner, importId, [2], () => "Seat-pass-12345");
     // The plan's seats are far away, so the file is made to add more people than the agency has seats free.
     await server.db.forOrg(agency.organizationId, (tx) =>
       tx.importBatch.update({ where: { id: importId }, data: { rowsToAdd: 5000 } }),
     );
-    expect(await refusalOf(await mutate(server, "staffImports.add", { importId }, owner))).toMatchObject({
+    expect(await refusalOf(await mutate(server, "staffImports.add", { importId, attemptId }, owner))).toMatchObject({
       reason: "IMPORT_OVER_SEAT_LIMIT",
     });
     expect((await viewOf(server, owner, importId)).status).toBe("checked");
@@ -85,12 +85,14 @@ describe("the staff import's procedures", () => {
 
   it("refuses setPasswords for more than 25 at once", async () => {
     const passwords = Array.from({ length: 26 }, (_, index) => ({ rowNumber: index + 2, password: "x".repeat(12) }));
-    expect((await mutate(server, "staffImports.setPasswords", { importId: someId, passwords }, owner)).status).toBe(
-      400,
-    );
-    expect((await mutate(server, "staffImports.setPasswords", { importId: someId, passwords: [] }, owner)).status).toBe(
-      400,
-    );
+    expect(
+      (await mutate(server, "staffImports.setPasswords", { importId: someId, attemptId: someId, passwords }, owner))
+        .status,
+    ).toBe(400);
+    expect(
+      (await mutate(server, "staffImports.setPasswords", { importId: someId, attemptId: someId, passwords: [] }, owner))
+        .status,
+    ).toBe(400);
   });
 
   it("imports five staff with roles through the worker; each signs in with the organization code and must choose a password", async () => {
@@ -108,8 +110,8 @@ describe("the staff import's procedures", () => {
     const preview = await matchAsGuessed(server, owner, importId);
     expect(preview.counts?.byPlan.new).toBe(5);
     const passwordOf = (rowNumber: number) => people[rowNumber - 2]?.password ?? "";
-    await sendPasswords(server, owner, importId, [2, 3, 4, 5, 6], passwordOf);
-    await dataOf(await mutate(server, "staffImports.add", { importId }, owner));
+    const attemptId = await sendPasswords(server, owner, importId, [2, 3, 4, 5, 6], passwordOf);
+    await dataOf(await mutate(server, "staffImports.add", { importId, attemptId }, owner));
     const done = await waitForStatus(server, owner, importId, "done");
     expect(done.added.map((person) => person.name)).toEqual(people.map((person) => person.name));
     for (const [index, person] of people.entries()) {

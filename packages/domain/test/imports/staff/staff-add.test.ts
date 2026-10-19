@@ -18,6 +18,9 @@ import {
   type StaffWorld,
 } from "./support.js";
 
+/** The attempt every press of Add is made by, unless a test makes two. */
+const ATTEMPT = "0199e7a0-0000-7000-8000-0000000000a1";
+
 describe("the staff import's passwords and add", () => {
   let world: StaffWorld;
   let code: string;
@@ -37,12 +40,13 @@ describe("the staff import's passwords and add", () => {
     const toAdd = checked.rows.filter((row) => row.plan === "new").map((row) => row.rowNumber);
     await setStaffImportPasswords(world.test.db, world.identity, world.admin, {
       importId: checked.id,
+      attemptId: ATTEMPT,
       passwords: (sentFor ?? toAdd).map((rowNumber) => ({ rowNumber, password: passwordOf(rowNumber) })),
     });
     return checked;
   }
   const add = async (id: string, identity = world.identity) => {
-    await requestStaffImportAdd(world.test.db, identity, world.admin, id, new Date());
+    await requestStaffImportAdd(world.test.db, identity, world.admin, id, ATTEMPT, new Date());
     await run(id, identity);
   };
   const run = (id: string, identity = world.identity) =>
@@ -70,6 +74,7 @@ describe("the staff import's passwords and add", () => {
     });
     await setStaffImportPasswords(world.test.db, world.identity, world.admin, {
       importId: checked.id,
+      attemptId: ATTEMPT,
       passwords: [2, 3, 4].map((rowNumber) => ({ rowNumber, password: passwordOf(rowNumber) })),
     });
     const { rows } = await readImport(world, checked.id);
@@ -83,6 +88,7 @@ describe("the staff import's passwords and add", () => {
     const send = (password: string) =>
       setStaffImportPasswords(world.test.db, world.identity, world.admin, {
         importId: checked.id,
+        attemptId: ATTEMPT,
         passwords: [{ rowNumber: 2, password }],
       });
     await send("First-pass-111");
@@ -97,14 +103,15 @@ describe("the staff import's passwords and add", () => {
   it("refuses passwords for an import that isn't at its preview, and Add until every row has its password", async () => {
     const checked = await checkedStaffImport(world, { ...standard, rows: [person("One").row, person("Two").row] });
     await expect(
-      requestStaffImportAdd(world.test.db, world.identity, world.admin, checked.id, new Date()),
+      requestStaffImportAdd(world.test.db, world.identity, world.admin, checked.id, ATTEMPT, new Date()),
     ).rejects.toMatchObject({ reason: "IMPORT_NOT_READY" });
     await setStaffImportPasswords(world.test.db, world.identity, world.admin, {
       importId: checked.id,
+      attemptId: ATTEMPT,
       passwords: [{ rowNumber: 2, password: passwordOf(2) }],
     });
     await expect(
-      requestStaffImportAdd(world.test.db, world.identity, world.admin, checked.id, new Date()),
+      requestStaffImportAdd(world.test.db, world.identity, world.admin, checked.id, ATTEMPT, new Date()),
     ).rejects.toMatchObject({ reason: "IMPORT_NOT_READY" });
     await world.test.db.forOrg(world.agency.organizationId, (tx) =>
       tx.importBatch.update({ where: { id: checked.id }, data: { status: "done" } }),
@@ -112,6 +119,7 @@ describe("the staff import's passwords and add", () => {
     await expect(
       setStaffImportPasswords(world.test.db, world.identity, world.admin, {
         importId: checked.id,
+        attemptId: ATTEMPT,
         passwords: [{ rowNumber: 3, password: passwordOf(3) }],
       }),
     ).rejects.toMatchObject({ reason: "IMPORT_NOT_READY" });
@@ -177,6 +185,7 @@ describe("the staff import's passwords and add", () => {
     // Pressing Add again with new passwords adds the one left.
     await setStaffImportPasswords(world.test.db, world.identity, world.admin, {
       importId: checked.id,
+      attemptId: ATTEMPT,
       passwords: [{ rowNumber: 2, password: passwordOf(2) }],
     });
     expect((await readImport(world, checked.id)).batch.failureReason).toBeNull();
@@ -204,11 +213,11 @@ describe("the staff import's passwords and add", () => {
     const checked = await withPasswords([person("One").row, person("Two").row]);
     const members = await staffCount();
     await expect(
-      requestStaffImportAdd(world.test.db, identityOn(members + 1), world.admin, checked.id, new Date()),
+      requestStaffImportAdd(world.test.db, identityOn(members + 1), world.admin, checked.id, ATTEMPT, new Date()),
     ).rejects.toMatchObject({ reason: "IMPORT_OVER_SEAT_LIMIT" });
     // The seats go between Add and the job.
     const tight = identityOn(members + 1);
-    await requestStaffImportAdd(world.test.db, world.identity, world.admin, checked.id, new Date());
+    await requestStaffImportAdd(world.test.db, world.identity, world.admin, checked.id, ATTEMPT, new Date());
     await run(checked.id, tight);
     const after = await readImport(world, checked.id);
     expect(after.batch).toMatchObject({ status: "checked", failureReason: "over_seat_limit", rowsToAdd: 2 });
@@ -224,9 +233,10 @@ describe("the staff import's passwords and add", () => {
     const checked = await checkedStaffImport(world, { ...standard, importer, rows: [one.row] });
     await setStaffImportPasswords(world.test.db, world.identity, importer, {
       importId: checked.id,
+      attemptId: ATTEMPT,
       passwords: [{ rowNumber: 2, password: passwordOf(2) }],
     });
-    await requestStaffImportAdd(world.test.db, world.identity, importer, checked.id, new Date());
+    await requestStaffImportAdd(world.test.db, world.identity, importer, checked.id, ATTEMPT, new Date());
     await world.identity.staff.updateRole(world.owner, { memberId: lead.memberId, roleKey: "sales" });
     const before = await staffCount();
     await run(checked.id);
@@ -239,7 +249,7 @@ describe("the staff import's passwords and add", () => {
   it("only ends an import whose accounts were already written, and ignores a repeat", async () => {
     const one = person("One");
     const checked = await withPasswords([one.row]);
-    await requestStaffImportAdd(world.test.db, world.identity, world.admin, checked.id, new Date());
+    await requestStaffImportAdd(world.test.db, world.identity, world.admin, checked.id, ATTEMPT, new Date());
     // The accounts and their links were committed, then the job died before it ended the import.
     const waiting = await world.test.db.forOrg(world.agency.organizationId, (tx) =>
       tx.importRow.findFirstOrThrow({ where: { batchId: checked.id } }),
@@ -273,7 +283,7 @@ describe("the staff import's passwords and add", () => {
   it("ends as done, never back at the preview, when a run beside it added the people first", async () => {
     const one = person("One");
     const checked = await withPasswords([one.row, person("Two").row]);
-    await requestStaffImportAdd(world.test.db, world.identity, world.admin, checked.id, new Date());
+    await requestStaffImportAdd(world.test.db, world.identity, world.admin, checked.id, ATTEMPT, new Date());
     // The other run commits its accounts and their links while this one is between its look and its write.
     const beside = {
       ...world.identity,
@@ -291,5 +301,29 @@ describe("the staff import's passwords and add", () => {
     expect(after.batch.status).toBe("done");
     expect(after.rows.map((row) => row.outcome)).toEqual(["added", "added"]);
     expect(await staffCount()).toBe(before + 2);
+  });
+
+  it("refuses an Add made of two attempts' passwords, as when two tabs send theirs between each other", async () => {
+    const checked = await checkedStaffImport(world, { ...standard, rows: [person("One").row, person("Two").row] });
+    const send = (attemptId: string, rowNumbers: number[]) =>
+      setStaffImportPasswords(world.test.db, world.identity, world.admin, {
+        importId: checked.id,
+        attemptId,
+        passwords: rowNumbers.map((rowNumber) => ({ rowNumber, password: passwordOf(rowNumber) })),
+      });
+    const other = "0199e7a0-0000-7000-8000-0000000000b2";
+    await send(ATTEMPT, [2, 3]);
+    // The other tab sends one of the rows again, with passwords this tab never saw.
+    await send(other, [3]);
+    for (const attempt of [ATTEMPT, other]) {
+      await expect(
+        requestStaffImportAdd(world.test.db, world.identity, world.admin, checked.id, attempt, new Date()),
+      ).rejects.toMatchObject({ reason: "IMPORT_NOT_READY" });
+    }
+    // Either tab then sends all of its own again, and its Add goes through.
+    await send(other, [2, 3]);
+    await requestStaffImportAdd(world.test.db, world.identity, world.admin, checked.id, other, new Date());
+    await run(checked.id);
+    expect((await readImport(world, checked.id)).batch.status).toBe("done");
   });
 });
