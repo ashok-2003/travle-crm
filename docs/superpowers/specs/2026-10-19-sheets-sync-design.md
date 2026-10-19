@@ -358,7 +358,7 @@ Each new row goes through the bulk release's `readLeadRow` (B14, B19-B23) and cr
 - **S36. Every 2 minutes while the worker is awake (owner).** The worker holds the schedule. A scheduled job of the
   worker (`sheets.dispatch-checks`, every minute, the finest granularity pg-boss schedules have) claims the due rows
   of `sheet_check_schedule` (section 5) and queues one `sheets.check` job for each, with ids only. The schedule is a
-  small table without `organization_id`, so the worker can find due sheets of every organization without reading any
+  small table outside row-level security, so the worker can find due sheets of every organization without reading any
   organization's data; the job then runs the check in its organization through `forOrg`. The claim is
   `SELECT ... WHERE next_check_at <= now() AND (claimed_until IS NULL OR claimed_until < now()) ORDER BY
   next_check_at FOR UPDATE SKIP LOCKED LIMIT n`, at most `maxReadsPerMinutePerAccount` per account, most overdue
@@ -407,7 +407,7 @@ Each new row goes through the bulk release's `readLeadRow` (B14, B19-B23) and cr
 
 ## 5. Data
 
-Every new table but one (`sheet_check_schedule`, last in this list) is an organization table (ADR 0028, bulk section 5): `organization_id` referring to `organization`
+Every new table has `organization_id`; all but `sheet_check_schedule` (an explicit exemption, last in this list) are organization tables under row-level security (ADR 0028, bulk section 5): `organization_id` referring to `organization`
 with `ON DELETE RESTRICT ON UPDATE RESTRICT`, `SELECT app_enable_org_rls('<table>');` in the migration that creates
 it, UUID v7 ids, keys and unique constraints that include `organization_id`, CHECK lists for fixed values, and a
 row-creating fixture in `packages/db/test/org-table-fixtures/sheets.ts`. None is soft-deleted; the runtime role updates
@@ -443,21 +443,40 @@ plain uuids. No migration seeds anything; `deleteOrganizationRows` purges them w
   `lead.source` gains `google_sheet` (the source filter, the Leads list, the export and the audit words gain it).
 - **Files:** the connect-time import's CSV is stored as an `import_batch` file (bulk section 5), under the bulk rules,
   and goes with the import's seven days.
-- **sheet_check_schedule** (sheets; the one table of this feature **without `organization_id`**, like webhook events and
-  rate-limit counters, `CLAUDE.md`): `connection_id` (primary key), `for_organization` (a plain uuid, so the table has
-  no `organization_id` column and no row-level security: the job needs it to know which organization to enter),
-  `service_account_index`, `next_check_at`, `claimed_until`. Ids and times only, no personal data, no title, no
-  link. An index on `(next_check_at)` for the claim. It is reached only through `@travel-crm/db/sheet-schedule`
-  (a third entry point beside `webhooks` and `rate-limits`) inside `db.withoutOrg(tx => ...)`: `OrgTx` hides its
-  model and every transaction refuses it at run time; dependency-cruiser keeps the entry point to the sheets
-  module's `schedule.ts`; the ESLint raw-SQL guard (`rawSqlSelectorsAllowing`) flags SQL naming the table anywhere
-  else. The runtime role may select, insert, update and delete it and nothing else of it. It is **written after the
-  connection's own transaction**, by a listener of `sheet.schedule-changed` (published in that transaction, so it
-  is never lost and its upsert or delete is safe to run twice): a connection that is `running`, `lost_access`,
-  `tab_missing`, `columns_missing` or `needs_manager` has a row; one that is `connecting`, `paused` or
-  `disconnected` has none. A stale row is harmless: the check re-reads the connection under `forOrg` and does
-  nothing, and removes the row, when the connection isn't due. The erasure and the purge delete an
-  organization's rows from it (by `for_organization`) with the rest.
+- **sheet_check_schedule** (sheets; the one table of this feature **outside row-level security**, an explicit and
+  reviewed exemption): `id` (the connection's own id, the primary key), `organization_id` (named as every
+  organization table's is, restricting deletion like the others, so the keys test still covers it),
+  `service_account_index`, `next_check_at`, `claimed_until`. Ids and times only: no personal data, no title, no
+  link. An index on `(next_check_at)` for the claim. The worker has to find due sheets of every organization
+  without entering one, so the table can't be under row-level security; therefore it can't be reachable from an
+  organization transaction. How the guards treat it:
+  - `packages/db/test/org-table-fixtures.ts` gains a second named list beside `signInTables`:
+    `unscopedScheduleTables = ["sheet_check_schedule"]`, with the comment "ids and times only, no organization
+    data; reached only through @travel-crm/db/sheet-schedule inside db.withoutOrg()". `isolation.test.ts`'s
+    `tablesWithOrganizationId` filters it out (so it needs no `app_enable_org_rls` and no row-creating fixture), exactly
+    as it filters `signInTables`. Nothing else is exempted: `organization-keys.test.ts` still demands its foreign
+    key to `organization` and its unique constraints with `organization_id`.
+  - A new test, `packages/db/test/schedule-table.test.ts`, keeps the exemption honest: the listed table exists and
+    has `organization_id`; it has no row-level security and no other table is exempted by this list; its columns
+    are exactly those above (so nobody adds personal data to an exempt table); `OrgTx`, `IdentityTx` and the identity
+    client don't expose `sheetCheckSchedule` (`@ts-expect-error`, as `unscoped-tables.test.ts` does for webhook events)
+    and a cast past the types is refused at run time (`UnscopedModelError`); `app_runtime` holds select, insert,
+    update and delete on it and nothing else.
+  - It is reached only through `@travel-crm/db/sheet-schedule` (`sheetSchedule(tx)`, a third entry point beside
+    `webhooks` and `rate-limits`) inside `db.withoutOrg(tx => ...)`; dependency-cruiser keeps the entry point to the
+    sheets module's `schedule.ts`; the ESLint raw-SQL guard (`rawSqlSelectorsAllowing` in
+    `packages/domain/eslint.config.js`) flags SQL naming the table anywhere else.
+  - The db README's table of entry points and its paragraph on `withoutOrg` gain the row, and ADR 0031 records the
+    exemption and why it is safe: the table holds no organization data, and the job that reads it enters the
+    organization through `forOrg` for everything that does.
+  - **If the guards can't take it** (the isolation test discovering tables by column name would otherwise demand a
+    fixture and RLS): the plan must add the named list to that test as above, nothing more; no column is renamed.
+  - It is **written after the connection's own transaction**, by a listener of `sheet.schedule-changed` (published in
+    that transaction, so it is never lost and its upsert or delete is safe to run twice): a connection that is
+    `running`, `lost_access`, `tab_missing`, `columns_missing` or `needs_manager` has a row; one that is
+    `connecting`, `paused` or `disconnected` has none. A stale row is harmless: the check re-reads the connection
+    under `forOrg` and does nothing, and removes the row, when the connection isn't due. The erasure and the purge
+    delete an organization's rows from it with the rest.
 
 ## 6. Modules, the port, permissions and api
 
@@ -753,7 +772,7 @@ added listed; lost access noticed once; managers connect). These calls are mine,
 1. **A code in the sheet's name proves the agency owns the sheet (S4):** one service account reads every shared sheet,
    so without proof anyone holding a link could connect another agency's sheet to their own. Renaming needs edit
    access. It adds one step to the owner's simple flow; it is the only guard that needs no new Google permission.
-2. **The worker dispatches the checks from a small schedule table without `organization_id` (S36):** the console sleeps
+2. **The worker dispatches the checks from a small schedule table outside row-level security (S36):** the console sleeps
    in the pilot, so it can't; the table holds ids and times only and is reached through its own module, as webhook
    events are.
 3. **Plain `fetch` with `google-auth-library`, not `googleapis` (6.1):** two endpoints need no giant package, and the
