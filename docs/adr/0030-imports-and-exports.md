@@ -127,7 +127,12 @@ may still export).
 - The worker holds an import's file and its parsed rows in memory (under 20 MB), and an export streams in pages of
   1,000 (resident memory under 200 MB). No new environment variable.
 - The console must keep running for the sweep, as it already must for the nightly jobs (`docs/deploy-checklist.md`).
-- Six new organization tables (`import_batch`, `import_column`, `import_value_match`, `import_row`,
-  `import_header_match`, `data_export`), each with row-level security and CHECK constraints for its values; the
-  runtime role can't delete an import, its columns, its remembered headers or an export.
+- Seven new organization tables (`import_batch`, `import_column`, `import_value_match`, `import_row`,
+  `import_header_match`, `import_stop_request`, `data_export`), each with row-level security and CHECK constraints
+  for its values; the runtime role can't delete an import, its columns, its remembered headers or an export, and only
+  adds stop requests.
+- Stop is a row of its own (`import_stop_request`, X7), not a column of the import: the add holds the import's row
+  for a whole batch of rows, and an update of that row would wait behind it, perhaps past its own time, just when
+  batches are slow. The request's key on the import only key-shares the held row, so Stop never waits, and the add
+  reads it at its next batch (`stopRequested` on every read of an import).
 - A failed job's error names the import or export by id, never a file's content (spec 9's job data rule).

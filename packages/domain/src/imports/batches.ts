@@ -4,7 +4,7 @@ import type { ImportKind, ImportStatus, RecentImport } from "@travel-crm/contrac
 import { type OrgTx, sql, type Sql } from "@travel-crm/db";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
-import { type ImportBatchRow, toBatchRow } from "./batch-row.js";
+import { type ImportBatchRow, toBatchRow, withStopRequest } from "./batch-row.js";
 
 /** How long an import's file, report and kept values stay after its last change (B53). */
 export const IMPORT_KEPT_MS = 7 * 24 * 60 * 60 * 1000;
@@ -21,14 +21,17 @@ export async function findImport(
   kind: ImportKind,
   importId: string,
 ): Promise<ImportBatchRow> {
-  const row = await tx.importBatch.findFirst({ where: { id: importId, kind, startedBy: access.userId } });
+  const row = await tx.importBatch.findFirst({
+    where: { id: importId, kind, startedBy: access.userId },
+    include: withStopRequest,
+  });
   if (!row) throw new DomainError("NOT_FOUND", "NOT_FOUND", "No such import");
   return toBatchRow(row);
 }
 
 /** The import as it stands, for a job's first look; null when there's none. A plain read: nothing is held (M10). */
 export async function importBatchOf(tx: OrgTx, importId: string): Promise<ImportBatchRow | null> {
-  const row = await tx.importBatch.findUnique({ where: { id: importId } });
+  const row = await tx.importBatch.findUnique({ where: { id: importId }, include: withStopRequest });
   return row === null ? null : toBatchRow(row);
 }
 
@@ -43,7 +46,7 @@ export async function isAnyImportAdding(tx: OrgTx): Promise<boolean> {
  */
 export async function holdImport(tx: OrgTx, importId: string): Promise<ImportBatchRow | null> {
   await tx.$queryRaw`SELECT id FROM import_batch WHERE id = ${importId}::uuid FOR NO KEY UPDATE`;
-  const row = await tx.importBatch.findUnique({ where: { id: importId } });
+  const row = await tx.importBatch.findUnique({ where: { id: importId }, include: withStopRequest });
   return row === null ? null : toBatchRow(row);
 }
 

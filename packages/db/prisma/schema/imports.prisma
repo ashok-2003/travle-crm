@@ -42,7 +42,6 @@ model ImportBatch {
   addAlreadyImported Boolean            @default(false) @map("add_already_imported")
   /// Whether the add takes the rows of people who already have a lead (plan in_crm): a sheet's import asks.
   addInCrm           Boolean            @default(false) @map("add_in_crm")
-  stopRequested      Boolean            @default(false) @map("stop_requested")
   /// The report of rows not added (record type import_report), once the add ends.
   reportAttachmentId String?            @map("report_attachment_id") @db.Uuid
   /// The importer's user id: the import is theirs alone (D6), and the job acts as them (B31).
@@ -63,6 +62,7 @@ model ImportBatch {
   columns            ImportColumn[]
   valueMatches       ImportValueMatch[]
   rows               ImportRow[]
+  stopRequest        ImportStopRequest?
 
   /// Lets the columns, value matches and rows point at (organization_id, id).
   @@unique([organizationId, id])
@@ -191,4 +191,21 @@ model ImportHeaderMatch {
   @@unique([organizationId, id])
   @@unique([organizationId, kind, headerKey], map: "import_header_match_key")
   @@map("import_header_match")
+}
+
+/// Stop, asked for while the import adds (B28, X7): a row of its own beside the import, so asking never waits behind
+/// the add, which holds the import's row for a whole batch of rows and reads this at its next. Added once, then kept.
+model ImportStopRequest {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  batchId        String       @map("batch_id") @db.Uuid
+  requestedAt    DateTime     @default(now()) @map("requested_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  batch          ImportBatch  @relation(fields: [organizationId, batchId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  /// One stop request an import: a second Stop adds nothing.
+  @@unique([organizationId, batchId], map: "import_stop_request_batch")
+  @@map("import_stop_request")
 }

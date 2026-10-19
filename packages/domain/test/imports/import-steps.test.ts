@@ -9,6 +9,7 @@ import {
   confirmImportUpload,
   decideLeadImport,
   findImport,
+  holdImport,
   importDetail,
   requestImportAdd,
   startImport,
@@ -184,6 +185,31 @@ describe("an import's steps", () => {
     await expect(inOrg((tx) => stopImport(tx, importer, "leads", waiting))).rejects.toMatchObject(notReady);
     expect(await auditOf(test, organizationId, id)).toEqual([]);
   });
+
+  it("takes Stop at once while a batch of the add holds the import, for the add to read after it (X7)", async () => {
+    // An agency of its own: one import of an agency adds at a time.
+    const organization = await anAgency(test, "Stop while a batch adds");
+    const person = memberOf(organization);
+    const inAgency = <T>(work: (tx: OrgTx) => Promise<T>) => test.db.forOrg(organization, work);
+    const { id } = await inAgency((tx) => aBatch(tx, { startedBy: person.userId, status: "adding" }));
+    // A batch of the add, holding the import as it adds its rows.
+    const turns: { held?: () => void; release?: () => void } = {};
+    const held = new Promise<void>((resolve) => (turns.held = resolve));
+    const released = new Promise<void>((resolve) => (turns.release = resolve));
+    const batch = inAgency(async (tx) => {
+      expect((await holdImport(tx, id))?.stopRequested).toBe(false);
+      turns.held?.();
+      await released;
+    });
+    await held;
+    const started = performance.now();
+    await inAgency((tx) => stopImport(tx, person, "leads", id));
+    expect(performance.now() - started).toBeLessThan(1000);
+    turns.release?.();
+    await batch;
+    // The add's next batch holds the import and finds Stop.
+    expect(await inAgency((tx) => holdImport(tx, id))).toMatchObject({ status: "adding", stopRequested: true });
+  }, 10_000);
 
   it("cancels a waiting import and records import.cancelled with no file name", async () => {
     for (const status of ["uploading", "reading", "matching", "checking", "checked"]) {
