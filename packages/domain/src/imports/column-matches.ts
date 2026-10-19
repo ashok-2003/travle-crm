@@ -8,7 +8,7 @@ import type { MemberAccess } from "../identity/index.js";
 import { publishEvent } from "../jobs/index.js";
 import { DomainError } from "../kernel/index.js";
 import { findImport, holdImport, moveImport, notReady } from "./batches.js";
-import { headerKey, rememberHeaderFields } from "./header-memory.js";
+import { rememberHeaderFields } from "./header-memory.js";
 
 export interface ColumnMatchInput {
   importId: string;
@@ -120,7 +120,7 @@ export async function matchImportColumns(
   await rememberHeaderFields(
     tx,
     kind,
-    columns.map((column) => ({ headerKey: headerKey(column.header), field: fieldOf(column.position) })),
+    columns.map((column) => ({ header: column.header, field: fieldOf(column.position) })),
     context.now,
   );
   // The last check's plans no longer hold.

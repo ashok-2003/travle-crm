@@ -31,17 +31,35 @@ export async function rememberedHeaderFields(
 }
 
 /**
- * Remembers each confirmed header key's field (B10), the last match winning. New keys are inserted first, skipping
- * any another transaction inserted meanwhile, then every key is set: two at once both land, and neither fails.
+ * Whether a header reads as a column's label rather than a customer's details (D2): a file with no header row makes
+ * its first row of data the header ("9876543210", "priya@example.com"), which the memory, kept for good, must not
+ * hold. Four digits or more, an @, a + before digits, or more than five words is no label.
+ */
+export function isPlausibleHeader(header: string): boolean {
+  const digits = header.replace(/\D/g, "").length;
+  const words = header
+    .trim()
+    .split(/\s+/)
+    .filter((word) => word !== "").length;
+  return digits < 4 && !header.includes("@") && !/\+\s*\d/.test(header) && words <= 5;
+}
+
+/**
+ * Remembers each confirmed header's field by its key (B10), the last match winning; a header that isn't a plausible
+ * label is never remembered. New keys are inserted first, skipping any another transaction inserted meanwhile, then
+ * every key is set: two at once both land, and neither fails.
  */
 export async function rememberHeaderFields(
   tx: OrgTx,
   kind: ImportKind,
-  matches: readonly { headerKey: string; field: ImportField | null }[],
+  matches: readonly { header: string; field: ImportField | null }[],
   now: Date,
 ): Promise<void> {
   const fieldOf = new Map(
-    matches.filter((match) => match.headerKey !== "").map((match) => [match.headerKey, match.field]),
+    matches
+      .filter((match) => isPlausibleHeader(match.header))
+      .map((match) => [headerKey(match.header), match.field] as const)
+      .filter(([key]) => key !== ""),
   );
   if (fieldOf.size === 0) return;
   await tx.importHeaderMatch.createMany({

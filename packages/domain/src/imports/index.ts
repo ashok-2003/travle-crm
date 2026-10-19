@@ -20,7 +20,13 @@ export type { ImportIdentity, ImportJobDependencies } from "./dependencies.js";
 export { earlierFingerprints, earlierFingerprintsQuery, fingerprintHex, rowFingerprint } from "./fingerprints.js";
 export { finishImport, type ImportEnd } from "./finish.js";
 export { guessFields, type FieldGuess } from "./guesses.js";
-export { headerKey, rememberedFields, rememberedHeaderFields, rememberHeaderFields } from "./header-memory.js";
+export {
+  headerKey,
+  isPlausibleHeader,
+  rememberedFields,
+  rememberedHeaderFields,
+  rememberHeaderFields,
+} from "./header-memory.js";
 export { importCounts, importCountsQuery, importDetail } from "./import-detail.js";
 export { startImportFromBytes, type StartImportFromBytesInput } from "./import-from-bytes.js";
 export {

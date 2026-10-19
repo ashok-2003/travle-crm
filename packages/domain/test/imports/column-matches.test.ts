@@ -176,17 +176,17 @@ describe("matching an import's columns", () => {
         tx,
         "leads",
         [
-          { headerKey: "timestamp", field: "enquiry_date" },
-          { headerKey: "whichplace", field: "destination" },
-          { headerKey: "anythingelse", field: null },
+          { header: "Timestamp", field: "enquiry_date" },
+          { header: "Which place?", field: "destination" },
+          { header: "Anything else", field: null },
         ],
         now,
       ),
     );
     // Two at once, as a sheet's connect and a file's match might: both land, neither fails.
     await Promise.all([
-      inAgency((tx) => rememberHeaderFields(tx, "leads", [{ headerKey: "whichplace", field: "note" }], now)),
-      inAgency((tx) => rememberHeaderFields(tx, "leads", [{ headerKey: "yourcity", field: "departure_city" }], now)),
+      inAgency((tx) => rememberHeaderFields(tx, "leads", [{ header: "Which place", field: "note" }], now)),
+      inAgency((tx) => rememberHeaderFields(tx, "leads", [{ header: "Your city", field: "departure_city" }], now)),
     ]);
     expect(Object.fromEntries(await inAgency((tx) => rememberedHeaderFields(tx, "leads")))).toEqual({
       timestamp: "enquiry_date",
@@ -198,6 +198,33 @@ describe("matching an import's columns", () => {
     // A file's guesses read the same memory.
     expect(Object.fromEntries(await inAgency((tx) => rememberedFields(tx, "leads", ["timestamp"])))).toEqual({
       timestamp: "enquiry_date",
+    });
+  });
+
+  it("never remembers a header that looks like a customer's details: a file whose first row is data (D2)", async () => {
+    const agency = await anAgency(test, "Headerless file");
+    const inAgency = <T>(work: (tx: OrgTx) => Promise<T>) => test.db.forOrg(agency, work);
+    await inAgency((tx) =>
+      rememberHeaderFields(
+        tx,
+        "leads",
+        [
+          { header: "Priya Sharma", field: "name" },
+          { header: "9876543210", field: "phone" },
+          { header: "+91 98765", field: "phone" },
+          { header: "priya@example.com", field: "email" },
+          { header: "Wants a five night trip to Goa", field: "note" },
+          { header: "Mobile No", field: "phone" },
+          { header: "Do you need a visa?", field: "note" },
+        ],
+        new Date(),
+      ),
+    );
+    // A name is a plausible label: nothing tells it from "Customer Name". Digits, an @, a number and a sentence aren't.
+    expect(Object.fromEntries(await inAgency((tx) => rememberedHeaderFields(tx, "leads")))).toEqual({
+      priyasharma: "name",
+      mobileno: "phone",
+      doyouneedavisa: "note",
     });
   });
 
