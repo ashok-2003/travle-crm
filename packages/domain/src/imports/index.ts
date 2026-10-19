@@ -48,7 +48,7 @@ export { importReportLink } from "./report-link.js";
 export { reportDay, reportSentence } from "./report-words.js";
 export { decodeRowReason, encodeRowReason } from "./row-reasons.js";
 export { addStaffImportListener, checkStaffImportListener } from "./staff/index.js";
-export { sweepExpiredImports, type SweptOrganizations } from "./sweep.js";
+export { importsToSweep, sweepImport, type SweepItem } from "./sweep.js";
 export {
   suggestValueMatches,
   valueFieldsOf,

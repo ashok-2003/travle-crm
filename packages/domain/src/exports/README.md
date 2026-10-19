@@ -22,6 +22,9 @@ time and keeps it 24 hours for its requester alone. crm (L1) supplies the lead e
   log and the outbox, and `export.ready` to the requester, as the system (D20). A failure empties the search too.
 - `makeStaffExportListener(dependencies)`: `exports.make-staff-export` on `export.requested`, the staff export's;
   until the staff branch builds it, it ignores the leads' exports and refuses a staff one.
+- Keeping (B54, B55): `exportsToSweep(tx, now, limit, visited)` and `sweepExport(tx, item, now)`, the console's
+  hourly sweep, one export a platform transaction (a held one skipped); `withdrawExportFiles(tx, organizationId, now)`,
+  an erasure's step; `expireExports`, which both use.
 - `findExport`, `holdExport`, `EXPORT_KEPT_MS`. Types: `ExportSource`, `ExportIdentity`, `ExportJobDependencies`,
   `DataExportRow`.
 

@@ -86,7 +86,10 @@ week after its last change (D5), deleting its file and report and emptying what 
   `writeValueMatches(tx, batchId, suggestions)`, and `valueTargetsFor(context, identity, batch, field, values)`: each
   value's stored target, else its automatic one (a column of more than fifty values is matched here), else null. A
   value over 200 characters is never listed. `valueFieldsOf[kind]`: owner and stage for leads, role for staff.
-- Types: `ImportBatchRow`, `ImportIdentity`, `ImportJobDependencies`.
+- Keeping (B53, B55): `importsToSweep(tx, now, limit, visited)` and `sweepImport(tx, item, now)`, the console's
+  hourly sweep, one import a platform transaction (a held one skipped); `withdrawImportFiles(tx, organizationId, now,
+forget)`, an erasure's step; `deleteImportFiles` and `emptyKeptValues`, which both use.
+- Types: `ImportBatchRow`, `ImportIdentity`, `ImportJobDependencies`, `SweepItem`.
 
 ## Rules worth knowing
 

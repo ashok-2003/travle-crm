@@ -5,5 +5,5 @@ export { exportDetail, startExport } from "./export-requests.js";
 export { findExport, holdExport, type DataExportRow } from "./export-row.js";
 export { EXPORT_KEPT_MS, runExport, type ExportSource } from "./export-runner.js";
 export { makeStaffExportListener } from "./staff-export.js";
-export { sweepExpiredExports, type SweptExports } from "./sweep.js";
+export { exportsToSweep, sweepExport } from "./sweep.js";
 export { expireExports, withdrawExportFiles } from "./withdraw.js";

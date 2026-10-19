@@ -3,7 +3,7 @@
 // never finished; an erasure withdraws every export file of the organization at once. The search is never kept.
 import { createPlatformDatabase, type PlatformDatabase } from "@travel-crm/db/platform";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { sweepExpiredExports, withdrawExportFiles } from "../../src/exports/index.js";
+import { exportsToSweep, sweepExport, withdrawExportFiles } from "../../src/exports/index.js";
 import { systemActor } from "../../src/kernel/index.js";
 import { anAgency, bytes, createTestImports, memberOf, type TestImports } from "../imports/support/test-imports.js";
 
@@ -54,6 +54,12 @@ describe("keeping and deleting an export's file", () => {
     return row.id;
   }
 
+  /** The sweep as the console runs it: a page of exports to visit, each swept in its own transaction. */
+  async function sweep(now: Date) {
+    const items = await platformDb.transaction((tx) => exportsToSweep(tx, now, 100, []));
+    for (const item of items) await platformDb.transaction((tx) => sweepExport(tx, item, now));
+    return items;
+  }
   const exportOf = (id: string) => test.platform.dataExport.findUniqueOrThrow({ where: { id } });
   const filesOf = (id: string) => test.platform.attachment.count({ where: { recordId: id } });
 
@@ -62,8 +68,8 @@ describe("keeping and deleting an export's file", () => {
     const now = new Date();
     const old = await anExport(organizationId, "ready", new Date(now.getTime() - DAY_MS - 1000));
     const fresh = await anExport(organizationId, "ready", new Date(now.getTime() - 1000));
-    const swept = await platformDb.transaction((tx) => sweepExpiredExports(tx, now, 100));
-    expect(swept.organizationIds).toContain(organizationId);
+    const swept = await sweep(now);
+    expect(swept.map((item) => item.organizationId)).toContain(organizationId);
     expect(await filesOf(old)).toBe(0);
     expect(await exportOf(old)).toMatchObject({
       status: "expired",
@@ -81,7 +87,7 @@ describe("keeping and deleting an export's file", () => {
     const late = await anExport(organizationId, "expired", now);
     const stuck = await anExport(organizationId, "making", new Date(now.getTime() - DAY_MS - 1000));
     const making = await anExport(organizationId, "making", now);
-    await platformDb.transaction((tx) => sweepExpiredExports(tx, now, 100));
+    await sweep(now);
     expect(await filesOf(late)).toBe(0);
     expect(await filesOf(stuck)).toBe(0);
     expect(await exportOf(stuck)).toMatchObject({ status: "expired", filter: { view: "everyone", search: null } });
