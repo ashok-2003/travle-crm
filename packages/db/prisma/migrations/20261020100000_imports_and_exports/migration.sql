@@ -68,6 +68,7 @@ CREATE TABLE "import_column" (
     "distinct_values" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "distinct_counts" INTEGER[] DEFAULT ARRAY[]::INTEGER[],
     "field" TEXT,
+    "guessed_by" TEXT,
 
     CONSTRAINT "import_column_pkey" PRIMARY KEY ("id")
 );
@@ -254,7 +255,8 @@ ALTER TABLE "import_column"
   ADD CONSTRAINT import_column_values CHECK (
     distinct_values IS NOT NULL AND distinct_counts IS NOT NULL AND cardinality(distinct_values) <= 50
     AND cardinality(distinct_counts) = cardinality(distinct_values)),
-  ADD CONSTRAINT import_column_position_range CHECK (position BETWEEN 0 AND 49);
+  ADD CONSTRAINT import_column_position_range CHECK (position BETWEEN 0 AND 49),
+  ADD CONSTRAINT import_column_guessed_by_value CHECK (guessed_by IN ('last-time', 'common-name'));
 
 -- A value match is an Owner, Stage or Role value, short enough to index (longer values aren't listed).
 ALTER TABLE "import_value_match"

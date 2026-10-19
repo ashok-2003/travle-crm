@@ -111,6 +111,7 @@ describe("the import and export tables", () => {
       [() => addBatch({ fileName: "" }), "import_batch_text_lengths"],
       [() => addColumn({ position: nextPosition(), field: "passport" }), "import_column_field_value"],
       [() => addColumn({ position: nextPosition(), header: "x".repeat(201) }), "import_column_header_length"],
+      [() => addColumn({ position: nextPosition(), guessedBy: "a hunch" }), "import_column_guessed_by_value"],
       [
         () =>
           inOrg((tx) =>

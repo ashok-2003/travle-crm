@@ -89,6 +89,9 @@ model ImportColumn {
   distinctCounts Int[]        @default([]) @map("distinct_counts")
   /// The field it is matched to, of either kind's list; null for Don't import.
   field          String?
+  /// Where the reader's guess of the field came from: last-time (the agency's last match of the header) or
+  /// common-name; null once the importer chose otherwise, or for no guess (B9).
+  guessedBy      String?      @map("guessed_by")
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   batch          ImportBatch  @relation(fields: [organizationId, batchId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
 
