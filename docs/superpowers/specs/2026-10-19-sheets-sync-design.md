@@ -257,7 +257,9 @@ entry.
   reads from `cursor_row - 100` (`lookbackRows`), so rows inserted or edited just above the end are met again. A
   **full read** (from row 2) happens when the person presses Sync now, on the first check after 03:00 in the agency's
   zone each day, after a header change, when the sheet has fewer rows than the cursor (rows were deleted), and at
-  connect. A form appends at the end, so the normal check reads a few dozen rows however long the sheet is; a sort or
+  connect. Every read starts from the stored cursor, never from "the last two minutes": pg-boss doesn't run the ticks it missed
+  while a process slept, so after a sleep of an hour the next check reads every row since the last one read, and
+  nothing is skipped. Sync now reads from the top, which includes everything the cursor would. A form appends at the end, so the normal check reads a few dozen rows however long the sheet is; a sort or
   an insert in the middle is met by the daily full read, at the latest.
 - **S19. A row's identity is its hash.** `raw_hash` is the SHA-256 of the JSON array of the row's cell texts (each
   trimmed, trailing empty cells dropped), with `occurrence` counting identical rows in the sheet (two exact copies
@@ -363,7 +365,8 @@ Each new row goes through the bulk release's `readLeadRow` (B14, B19-B23) and cr
   waiting for a worker is not requested again. The checks themselves are the worker's: a listener of the
   event. A worker that sleeps (Render's free tier) finds the events waiting, and when it wakes it works through
   every connected sheet's pending check at once, a few at a time (`concurrency` 4 on the queue) and within S35's
-  budget. If the console sleeps as well, nothing is requested until it wakes; section 14 asks for it to run all the
+  budget. Missed ticks are not replayed (S18's cursor makes that harmless), and Google calls made by a check do not keep a sleeping
+  Render service awake: only an incoming request or the schedule does. If the console sleeps as well, nothing is requested until it wakes; section 14 asks for it to run all the
   time.
 - **S37. Backing off.** A 429 from Google ends the check without a fault: the connection's next request is held for
   Google's `Retry-After` (60 seconds when absent, doubling to 10 minutes while it keeps happening), and the
@@ -699,9 +702,15 @@ Before the first agency connects a sheet:
    secret like the database password.
 5. **Put the key in the deploy's settings** (`docs/deploy-checklist.md` gets this row in its settings table and its
    notes: the api and the worker, never the console, which only decides which sheet is due):
-   - `GOOGLE_SHEETS_SERVICE_ACCOUNTS`: the key file's JSON, or a JSON list of several, base64 encoded
-     (`base64 -i key.json`). Absent, Google Sheets is off and the page says so. Checked at start-up
-     (`apps/api/src/environment.ts`): valid base64 and JSON, each with a `client_email` and a `private_key`.
+   - `GOOGLE_SHEETS_SERVICE_ACCOUNTS`: one variable holding the key file's JSON, or a JSON list of several, either
+     base64 encoded (`base64 -i key.json`, one line, easy to paste) or as single-line JSON. Absent, Google Sheets is
+     off and the page says so. Decoded and validated at start-up (`apps/api/src/environment.ts`): valid base64 or
+     JSON, each with a `client_email` and a `private_key`; a bad value stops the process with a message that names
+     the variable and never prints it. The worker runs inside the `travel-crm-api` service on Render, so this one
+     setting reaches the api and the worker together; the console never gets it.
+     The same row goes in `docs/deploy-checklist.md`'s settings table (process: api and worker; secret: yes).
+   - **On Render:** open `travel-crm-api`, Environment, add the variable as a secret, paste the base64 text, save and let
+     the service redeploy; check its log for the start-up line that says how many service accounts were read.
    No other new setting: the proof code and the erasure hashes are keyed from `BETTER_AUTH_SECRET`.
 6. **Keep the console running** (S36): it decides which sheet is due every minute. If it sleeps, sheets are not
    checked until it wakes. The worker may sleep; it works the waiting checks when it wakes.
