@@ -113,6 +113,10 @@
     "blocked-contact": {
       "added": "Blocked a contact",
       "removed": "Unblocked a contact"
+    },
+    "import": {
+      "started": "Started adding the rows of an import",
+      "cancelled": "Cancelled an import"
     }
   },
   "fields": {
@@ -153,6 +157,7 @@
     "lead": "A lead",
     "person": "A customer",
     "task": "A follow-up or task",
-    "destination": "A destination"
+    "destination": "A destination",
+    "import_batch": "An import"
   }
 }

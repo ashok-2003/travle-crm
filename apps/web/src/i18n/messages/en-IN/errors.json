@@ -53,6 +53,8 @@
     "INVALID_FILE_NAME": "This file's name can't be used. Rename it and try again.",
     "EMPTY_FILE": "This file is empty. Choose another.",
     "CONTENT_TYPE_NOT_ALLOWED": "This file can't go here. Choose another.",
+    "IMPORT_NOT_READY": "This import has moved on. Reload to see where it is.",
+    "IMPORT_ALREADY_RUNNING": "Another import is being added. Try again when it's done.",
     "DOCUMENT_NOT_FOUND": "This document no longer exists.",
     "DOCUMENT_NOT_READY": "The document is still being prepared. Try again in a minute.",
     "DOCUMENT_UNAVAILABLE": "This document can't be shown.",
