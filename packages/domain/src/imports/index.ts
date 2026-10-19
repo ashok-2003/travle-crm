@@ -44,10 +44,13 @@ export {
   checkStaffImportListener,
   planStaffRows,
   readStaffRow,
+  requestStaffImportAdd,
+  setStaffImportPasswords,
+  staffImportDetail,
+  type StaffImportDetail,
   type StaffRowReading,
   type StaffRowValues,
 } from "./staff/index.js";
-export { staffImportDetail, type StaffImportDetail } from "./staff/staff-detail.js";
 export { sweepExpiredImports, type SweptOrganizations } from "./sweep.js";
 export {
   suggestValueMatches,

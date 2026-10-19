@@ -6,14 +6,11 @@ import { DomainError } from "../../kernel/index.js";
 import type { ListenerContext } from "../../jobs/index.js";
 import type { ImportBatchRow } from "../batch-row.js";
 import { holdImport, moveImport } from "../batches.js";
-import { columnMatchesOf } from "../column-matches.js";
 import type { ImportJobDependencies } from "../dependencies.js";
 import { markImportChecked, replaceImportRows } from "../import-rows.js";
 import { importerAccess } from "../importer-access.js";
 import { readImportFile } from "../read-file.js";
-import { valueTargetsFor } from "../value-matches.js";
-import { namesOfReadyRows, planStaffRows } from "./staff-plan.js";
-import { readStaffRow } from "./staff-row.js";
+import { planStaffFile } from "./staff-file.js";
 
 /** Ends a check that can't go on: only an import still checking moves. */
 async function failCheck(context: ListenerContext, importId: string, reason: ImportFailureReason): Promise<void> {
@@ -29,6 +26,8 @@ export async function checkStaffImport(
   dependencies: ImportJobDependencies,
   batch: ImportBatchRow,
 ): Promise<void> {
+  // A try the add sent back to the preview (D24) leaves its reason on the import: this check starts afresh.
+  await context.forOrg((tx) => tx.importBatch.update({ where: { id: batch.id }, data: { failureReason: null } }));
   const importer = await importerAccess(dependencies, batch, ["staff:manage"]);
   if ("failure" in importer) return failCheck(context, batch.id, importer.failure);
   let sheet;
@@ -40,25 +39,7 @@ export async function checkStaffImport(
     }
     throw error;
   }
-  const columns = await context.forOrg((tx) => columnMatchesOf(tx, batch.id));
-  const rolePosition = columns.positionsOf("role")[0];
-  const roleCells = rolePosition === undefined ? [] : sheet.rows.map((row) => row.cells[rolePosition] ?? null);
-  const roleTargets = await valueTargetsFor(
-    context,
-    dependencies.identity,
-    batch,
-    "role",
-    roleCells.filter((cell): cell is string => cell !== null && cell.trim() !== ""),
-  );
-  const readings = sheet.rows.map((row) =>
-    readStaffRow(row, {
-      columns,
-      roleOf: (value) => roleTargets.get(value) ?? null,
-      defaultRoleKey: batch.defaultRoleKey,
-    }),
-  );
-  const facts = await dependencies.identity.staff.rowFacts(importer.access, namesOfReadyRows(readings));
-  const plans = planStaffRows(readings, facts);
+  const { plans } = await planStaffFile(context, dependencies, batch, importer.access, sheet);
   await replaceImportRows(context, batch.id, plans);
   await context.forOrg((tx) =>
     markImportChecked(

@@ -1,9 +1,7 @@
 // The staff import's check (B43-B45, D23): a dry run over a staff file against the agency's staff, roles and seats, on
 // the real identity. Each row is planned new, or not added with its reasons; nothing is added.
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { ImportField } from "@travel-crm/contracts/imports";
-import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
-import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { createIdentity, type Identity, type MemberAccess } from "../../../src/identity/index.js";
 import {
   checkStaffImportListener,
   importRowsPage,
@@ -11,137 +9,35 @@ import {
   staffImportDetail,
   type ColumnMatches,
 } from "../../../src/imports/index.js";
-import type { DomainEvent } from "../../../src/jobs/index.js";
-import type { Entitlements } from "../../../src/subscriptions/index.js";
+import { addStaffMember, createTestAgency, memberAccessOf } from "../../identity/test-identity.js";
+import { anImportWithFile, listenerContext } from "../support/test-imports.js";
 import {
-  addStaffMember,
-  createTestAgency,
-  memberAccessOf,
-  testAuthSettings,
-  type TestAgency,
-} from "../../identity/test-identity.js";
-import {
-  anImportWithFile,
-  createTestImports,
-  jobDependencies,
-  listenerContext,
-  type TestImports,
-} from "../support/test-imports.js";
-
-type Cell = string | null;
-
-/** An agency on a paid plan: the job may change things. */
-const paid: Entitlements = {
-  status: "active",
-  access: "full",
-  planName: "Growth",
-  modules: new Set(["crm"]),
-  limits: { seats: 10, whatsappNumbers: 1, storageBytes: 1_000_000 },
-  trialEndsOn: null,
-  paidThrough: null,
-  nextChangeOn: null,
-};
-
-/** The listeners' dependencies on the real identity, in an agency that has paid. */
-const dependenciesOn = (test: TestImports, identity: Identity) => ({
-  ...jobDependencies(test, identity),
-  subscriptions: { entitlementsOf: () => Promise.resolve(paid) },
-});
+  checkedStaffImport,
+  createStaffWorld,
+  dependenciesOn,
+  identityOn,
+  standardFile as standard,
+  stepEvent,
+  type StaffFile,
+  type StaffWorld,
+} from "./support.js";
 
 describe("the staff import's check", () => {
-  let test: TestImports;
-  let platform: PlatformClient;
-  let identity: Identity;
-  let agency: TestAgency;
-  let owner: MemberAccess;
-  let admin: MemberAccess;
-  let above: string;
+  let world: StaffWorld;
 
-  const event = (importId: string, kind: "staff" | "leads" = "staff"): DomainEvent => ({
-    id: crypto.randomUUID(),
-    organizationId: agency.organizationId,
-    type: "import.columns-matched",
-    payload: { importId, kind },
-    occurredAt: new Date(),
-  });
-
-  /** Runs the check over a file whose columns are matched to `fields`, and reads back every row. */
-  async function checked(options: {
-    header: string[];
-    fields: (ImportField | null)[];
-    rows: Cell[][];
-    defaultRoleKey?: string;
-    roles?: Record<string, string | null>;
-    importer?: MemberAccess;
-  }) {
-    const importer = options.importer ?? admin;
-    const file = test.spreadsheets.bytesOf({ header: options.header, rows: options.rows });
-    const { id } = await anImportWithFile(test, importer, file, {
-      kind: "staff",
-      status: "checking",
-      checkedAt: null,
-      defaultRoleKey: options.defaultRoleKey ?? null,
-    });
-    await test.db.forOrg(agency.organizationId, async (tx) => {
-      await tx.importColumn.createMany({
-        data: options.header.map((header, position) => ({
-          batchId: id,
-          position,
-          header,
-          field: options.fields[position] ?? null,
-        })),
-      });
-      await tx.importValueMatch.createMany({
-        data: Object.entries(options.roles ?? {}).map(([value, target]) => ({
-          batchId: id,
-          field: "role",
-          value,
-          target,
-          matchedBy: "name",
-        })),
-      });
-    });
-    await checkStaffImportListener(dependenciesOn(test, identity)).handle(
-      event(id),
-      listenerContext(test, agency.organizationId),
-    );
-    const rows = await test.db.forOrg(agency.organizationId, (tx) =>
-      tx.importRow.findMany({ where: { batchId: id }, orderBy: { rowNumber: "asc" } }),
-    );
-    const batch = await test.db.forOrg(agency.organizationId, (tx) =>
-      tx.importBatch.findUniqueOrThrow({ where: { id } }),
-    );
-    return { id, batch, rows, byRow: (n: number) => rows.find((row) => row.rowNumber === n) };
-  }
-
-  const standard = {
-    header: ["Name", "Username", "Email", "Phone", "Role"],
-    fields: ["name", "username", "email", "phone", "role"] as ImportField[],
-    roles: { Sales: "sales", Operations: "operations", Owner: "org-owner" } as Record<string, string | null>,
-  };
+  /** Runs the check over a file, and reads back every row. */
+  const checked = (file: Omit<StaffFile, "fields"> & { fields?: StaffFile["fields"] }) =>
+    checkedStaffImport(world, { fields: standard.fields, roles: standard.roles, ...file }).then((result) => ({
+      ...result,
+    }));
 
   beforeAll(async () => {
-    test = createTestImports();
-    platform = createPlatformClient(inject("dbUrls").platform);
-    identity = createIdentity({ databaseUrl: inject("dbUrls").runtime, maxConnections: 3, auth: testAuthSettings });
-    agency = await createTestAgency(identity, platform);
-    owner = await memberAccessOf(identity, agency.ownerUserId, agency.organizationId);
-    const made = await identity.staff.create(owner, {
-      name: "Admin",
-      username: "the-admin",
-      roleKey: "org-admin",
-      temporaryPassword: "temporary-pass-5",
-    });
-    admin = await memberAccessOf(identity, made.userId, agency.organizationId);
-    above = (await identity.roles.create(owner, { name: "Directors", permissions: [{ permission: "roles:manage" }] }))
-      .key;
-    await addStaffMember(identity, owner, "existing", "sales");
+    world = await createStaffWorld();
+    await addStaffMember(world.identity, world.owner, "existing", "sales");
   });
 
   afterAll(async () => {
-    await identity.disconnect();
-    await platform.$disconnect();
-    await test.close();
+    await world.close();
   });
 
   it("reads Name, Username, Email, Phone and Role with Add staff's own schemas", () => {
@@ -193,18 +89,13 @@ describe("the staff import's check", () => {
       [3, "new"],
     ]);
     expect(batch).toMatchObject({ status: "checked", rowsTotal: 2, rowsToAdd: 2 });
-    const detail = await staffImportDetail(test.db, identity, admin, id);
+    const detail = await staffImportDetail(world.test.db, world.identity, world.admin, id);
     expect(detail.counts?.byPlan.new).toBe(2);
     expect(detail.seats).toEqual({ free: null });
-    const limited = createIdentity({
-      databaseUrl: inject("dbUrls").runtime,
-      maxConnections: 2,
-      auth: testAuthSettings,
-      seatLimit: () => Promise.resolve(14),
-    });
+    const limited = identityOn(14);
     try {
-      const members = (await limited.staff.list(admin)).length;
-      expect((await staffImportDetail(test.db, limited, admin, id)).seats).toEqual({ free: 14 - members });
+      const members = (await limited.staff.list(world.admin)).length;
+      expect((await staffImportDetail(world.test.db, limited, world.admin, id)).seats).toEqual({ free: 14 - members });
     } finally {
       await limited.disconnect();
     }
@@ -230,7 +121,7 @@ describe("the staff import's check", () => {
   });
 
   it("leaves out an email on another organization's account, a bad username, email or phone, and a role unmatched", async () => {
-    const other = await createTestAgency(identity, platform);
+    const other = await createTestAgency(world.identity, world.platform);
     const { byRow } = await checked({
       ...standard,
       rows: [
@@ -255,7 +146,7 @@ describe("the staff import's check", () => {
     expect(byRow(9)?.plan).toBe("new");
   });
 
-  it("leaves out the Owner role and a role above the importer's", async () => {
+  it("leaves out the Owner role and a role world.above the importer's", async () => {
     const { byRow } = await checked({
       ...standard,
       rows: [
@@ -263,7 +154,7 @@ describe("the staff import's check", () => {
         ["Director", "a.director", null, null, "Directors"],
         ["Fine", "just.fine", null, null, "Sales"],
       ],
-      roles: { ...standard.roles, Directors: above },
+      roles: { ...standard.roles, Directors: world.above },
     });
     expect(byRow(2)?.reasons).toEqual(["owner_role:role"]);
     expect(byRow(3)?.reasons).toEqual(["role_above_yours:role"]);
@@ -271,7 +162,7 @@ describe("the staff import's check", () => {
     // The Owner role is refused even to an Owner: it is added one at a time, from Add staff.
     const ownersCheck = await checked({
       ...standard,
-      importer: owner,
+      importer: world.owner,
       rows: [["Boss", "the.boss2", null, null, "Owner"]],
     });
     expect(ownersCheck.byRow(2)?.reasons).toEqual(["owner_role:role"]);
@@ -282,15 +173,20 @@ describe("the staff import's check", () => {
       ...standard,
       rows: [
         ["Existing again", "EXISTING", null, null, "Sales"],
-        ["Owner again", null, agency.ownerEmail, null, "Sales"],
+        ["Owner again", null, world.agency.ownerEmail, null, "Sales"],
         ["New", "brand.new", null, null, "Sales"],
       ],
     });
     expect(byRow(2)?.reasons).toEqual(["already_on_staff"]);
     expect(byRow(3)?.reasons).toEqual(["already_on_staff"]);
     expect(byRow(4)?.plan).toBe("new");
-    const page = await test.db.forOrg(agency.organizationId, (tx) =>
-      importRowsPage(tx, admin, "staff", { importId: id, plan: "not_added", reason: "already_on_staff", limit: 5 }),
+    const page = await world.test.db.forOrg(world.agency.organizationId, (tx) =>
+      importRowsPage(tx, world.admin, "staff", {
+        importId: id,
+        plan: "not_added",
+        reason: "already_on_staff",
+        limit: 5,
+      }),
     );
     expect(page.items.map((row) => row.rowNumber)).toEqual([2, 3]);
   });
@@ -317,19 +213,19 @@ describe("the staff import's check", () => {
 
   it("ends the import failed when the importer lost staff:manage, and leaves a lead import alone", async () => {
     const sales = await memberAccessOf(
-      identity,
-      (await addStaffMember(identity, owner, "no-manage", "sales")).userId,
-      agency.organizationId,
+      world.identity,
+      (await addStaffMember(world.identity, world.owner, "no-manage", "sales")).userId,
+      world.agency.organizationId,
     );
     const lost = await checked({ ...standard, importer: sales, rows: [["Ravi", "r.avi", null, null, "Sales"]] });
     expect(lost.batch).toMatchObject({ status: "failed", failureReason: "lost_permission" });
     expect(lost.rows).toHaveLength(0);
-    const file = test.spreadsheets.bytesOf({ header: ["Name"], rows: [["Ravi"]] });
-    const lead = await anImportWithFile(test, admin, file, { status: "checking" });
+    const file = world.test.spreadsheets.bytesOf({ header: ["Name"], rows: [["Ravi"]] });
+    const lead = await anImportWithFile(world.test, world.admin, file, { status: "checking" });
     await expect(
-      checkStaffImportListener(dependenciesOn(test, identity)).handle(
-        event(lead.id, "leads"),
-        listenerContext(test, agency.organizationId),
+      checkStaffImportListener(dependenciesOn(world, world.identity)).handle(
+        stepEvent(world, "import.columns-matched", lead.id, "leads"),
+        listenerContext(world.test, world.agency.organizationId),
       ),
     ).resolves.toBeUndefined();
   });
@@ -337,12 +233,14 @@ describe("the staff import's check", () => {
   it("does nothing for an import no longer checking, so a repeat is harmless", async () => {
     const first = await checked({ ...standard, rows: [["Ravi", "repeat.me", null, null, "Sales"]] });
     expect(first.batch.status).toBe("checked");
-    await checkStaffImportListener(dependenciesOn(test, identity)).handle(
-      event(first.id),
-      listenerContext(test, agency.organizationId),
+    await checkStaffImportListener(dependenciesOn(world, world.identity)).handle(
+      stepEvent(world, "import.columns-matched", first.id),
+      listenerContext(world.test, world.agency.organizationId),
     );
     expect(
-      await test.db.forOrg(agency.organizationId, (tx) => tx.importRow.count({ where: { batchId: first.id } })),
+      await world.test.db.forOrg(world.agency.organizationId, (tx) =>
+        tx.importRow.count({ where: { batchId: first.id } }),
+      ),
     ).toBe(1);
   });
 });

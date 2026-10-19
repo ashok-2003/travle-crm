@@ -18,6 +18,7 @@ export type { PasswordResetEmail, PasswordResetSettings, SendPasswordResetEmail 
 export { deleteUsers, erasePerson, organizationUserIds, personExport, type PersonExport } from "./erasure.js";
 export { createIdentity, type Identity, type IdentityOptions, type NewOwner } from "./identity.js";
 export type { LeadWorkerMatch, RoleMatch } from "./import-matches.js";
+export { ImportedStaffRowError, type AddedStaff, type ImportedStaffRow } from "./imported-staff.js";
 export { firstOwner, leadWorkers } from "./lead-workers.js";
 export { pendingStep, type MemberAccess } from "./member-access.js";
 export { memberActivity, recordMemberActivity, type MemberActivity } from "./member-activity.js";

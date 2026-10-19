@@ -116,6 +116,8 @@ export function fakeIdentity(
       changePhone: unexpected,
       rowFacts: unexpected,
       seatsFree: unexpected,
+      hashTemporaryPasswords: unexpected,
+      addImported: unexpected,
       updateRole: unexpected,
       resetPassword: unexpected,
       remove: unexpected,

@@ -5,10 +5,8 @@ import { defineListener, type EventListener, type ListenerContext } from "../../
 import type { ImportBatchRow } from "../batch-row.js";
 import { holdImport } from "../batches.js";
 import type { ImportJobDependencies } from "../dependencies.js";
-import { importerAccess } from "../importer-access.js";
+import { addStaffImport } from "./staff-add.js";
 import { checkStaffImport } from "./staff-check.js";
-
-const notBuilt = (task: string) => new Error(`Not built yet: bulk plan, Task ${task}`);
 
 /** The staff import at `status`, or null for another kind's or one moved on. */
 async function staffImportAt(
@@ -43,11 +41,12 @@ export function addStaffImportListener(dependencies: ImportJobDependencies): Eve
       if (event.payload.kind !== "staff") return;
       const batch = await staffImportAt(context, event.payload.importId, "adding");
       if (batch === null) return;
-      await importerAccess(dependencies, batch, ["staff:manage"]);
-      throw notBuilt("3.3");
+      await addStaffImport(event, context, dependencies, batch);
     },
   });
 }
 
+export { staffImportDetail, type StaffImportDetail } from "./staff-detail.js";
 export { planStaffRows } from "./staff-plan.js";
+export { requestStaffImportAdd, setStaffImportPasswords } from "./staff-passwords.js";
 export { readStaffRow, type StaffRowReading, type StaffRowValues } from "./staff-row.js";

@@ -28,6 +28,8 @@ export interface NewStaffAccount {
   seatLimit?: number | null | undefined;
   /** In E.164 (B51). Kept on the membership, never in the audit log. */
   phone?: string | undefined;
+  /** The import that added them (B47): the audit entry keeps its id, so the entry leads back to it. */
+  importId?: string | undefined;
 }
 
 export interface CreatedStaff {
@@ -73,7 +75,7 @@ export async function insertStaffAccount(
   try {
     const organization = await tx.organization.findUniqueOrThrow({ where: { id: account.organizationId } });
     if (account.seatLimit !== undefined && account.seatLimit !== null) {
-      await assertSeatFree(tx, account.organizationId, account.seatLimit);
+      await assertSeatsFree(tx, account.organizationId, account.seatLimit, 1);
     }
     const role = await findRoleToGive(tx, account.roleKey);
     checkRole?.(role);
@@ -116,7 +118,11 @@ export async function insertStaffAccount(
       action: "staff.created",
       entityType: "member",
       entityId: member.id,
-      after: { role: role.key, hasEmail: account.email !== undefined },
+      after: {
+        role: role.key,
+        hasEmail: account.email !== undefined,
+        ...(account.importId !== undefined && { importId: account.importId }),
+      },
     });
     return { userId: user.id, memberId: member.id };
   } catch (error) {
@@ -135,15 +141,21 @@ function assertHasSignInName(account: { email?: string | undefined; username?: s
 }
 
 /**
- * Refuses a new member once the organization's active members fill its seats. The organization's row is held until
- * the transaction ends, so two people added at once can't both take the last seat: NO KEY UPDATE conflicts with itself.
- * Not FOR UPDATE, which also conflicts with the KEY SHARE that every insert of a row keyed to the organization takes:
- * an updateRole holding the role this addition then waits for, while inserting permissions, would deadlock with it.
+ * Refuses `adding` new members once the organization's active members fill its seats. The organization's row is held
+ * until the transaction ends, so two people added at once, or an import and a person, can't both take the last seat:
+ * NO KEY UPDATE conflicts with itself. Not FOR UPDATE, which also conflicts with the KEY SHARE that every insert of a
+ * row keyed to the organization takes: an updateRole holding the role this addition then waits for, while inserting
+ * permissions, would deadlock with it.
  */
-async function assertSeatFree(tx: IdentityTx, organizationId: string, seatLimit: number): Promise<void> {
+export async function assertSeatsFree(
+  tx: IdentityTx,
+  organizationId: string,
+  seatLimit: number,
+  adding: number,
+): Promise<void> {
   await tx.$queryRaw`SELECT id FROM organization WHERE id = ${organizationId}::uuid FOR NO KEY UPDATE`;
   // Soft delete leaves removed members out: they free their seat.
-  if ((await tx.member.count({ where: { organizationId } })) >= seatLimit) {
+  if ((await tx.member.count({ where: { organizationId } })) + adding > seatLimit) {
     throw new DomainError("LIMIT_REACHED", "SEAT_LIMIT_REACHED", "Every seat on this organization's plan is taken");
   }
 }

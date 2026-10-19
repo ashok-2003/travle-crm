@@ -14,6 +14,7 @@ import type {
   UpdateRoleInput,
   UpdateStaffRoleInput,
 } from "@travel-crm/contracts/identity";
+import type { OrgTx } from "@travel-crm/db";
 import { createIdentityDatabase, type ForOrgOptions } from "@travel-crm/db/identity";
 import {
   describePlatformStaff,
@@ -41,6 +42,7 @@ import { createRole, deleteRole, listRoles, updateRole } from "./roles.js";
 import { seedStarterRoles } from "./seed-starter-roles.js";
 import { setTwoFactorRequirement } from "./settings.js";
 import { createStaffAccount, type CreatedStaff, type PasswordHasher } from "./staff-accounts.js";
+import { addImportedStaff, hashTemporaryPasswords, type AddedStaff, type ImportedStaffRow } from "./imported-staff.js";
 import { changeStaffPhone } from "./staff-phone.js";
 import { staffRowFacts, staffSeatsFree, type StaffRowFacts } from "./staff-row-facts.js";
 import { staffInviteListener, type InviteDependencies } from "./staff-invites.js";
@@ -121,6 +123,18 @@ export interface Identity {
     ): Promise<StaffRowFacts>;
     /** The seats the plan has left, or null for no limit (B45). */
     seatsFree(organizationId: string): Promise<number | null>;
+    /** Hashes temporary passwords made in the browser, one after another, as Better Auth checks them (B46). */
+    hashTemporaryPasswords(passwords: readonly string[]): Promise<string[]>;
+    /**
+     * Adds an imported team in one transaction, or none (B45, B47); `afterwards` runs in it, to link the import's rows.
+     * Throws IMPORT_OVER_SEAT_LIMIT past the seats, or an ImportedStaffRowError naming a row that can't be added now.
+     */
+    addImported(
+      actor: MemberAccess,
+      rows: readonly ImportedStaffRow[],
+      importId: string,
+      afterwards: (tx: OrgTx, added: readonly AddedStaff[]) => Promise<void>,
+    ): Promise<AddedStaff[]>;
     /** Sets or clears a person's phone (B51). */
     changePhone(actor: MemberAccess, input: ChangeStaffPhoneInput): Promise<StaffMember>;
     updateRole(actor: MemberAccess, input: UpdateStaffRoleInput): Promise<StaffMember>;
@@ -174,6 +188,9 @@ export function createIdentity(options: IdentityOptions): Identity {
       create: (actor, input) => createStaff(database, hashPassword, actor, input, options.seatLimit),
       rowFacts: (actor, names) => staffRowFacts(database, actor, names),
       seatsFree: (organizationId) => staffSeatsFree(database, options.seatLimit ?? noSeatLimit, organizationId),
+      hashTemporaryPasswords: (passwords) => hashTemporaryPasswords(hashPassword, passwords),
+      addImported: (actor, rows, importId, afterwards) =>
+        addImportedStaff(database, options.seatLimit ?? noSeatLimit, actor, rows, importId, afterwards),
       changePhone: (actor, input) => changeStaffPhone(database, actor, input),
       updateRole: (actor, input) => updateStaffRole(database, actor, input),
       resetPassword: (actor, input) => resetStaffPassword(database, hashPassword, actor, input),
