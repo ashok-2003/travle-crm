@@ -75,5 +75,6 @@ export {
 export { insertStarterRoles } from "./seed-starter-roles.js";
 export type { CreatedStaff } from "./staff-accounts.js";
 export type { SeatLimit } from "./staff.js";
+export type { StaffRowFacts } from "./staff-row-facts.js";
 export { INVITE_LINK_HOURS, SEND_INVITE_LISTENER, type InviteDependencies } from "./staff-invites.js";
 export { OWNER_ROLE_KEY, starterRoles, type StarterRole } from "./starter-roles.js";

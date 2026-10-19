@@ -39,7 +39,15 @@ export { makeImportReport, reportContentType, reportFileName } from "./report.js
 export { importReportLink } from "./report-link.js";
 export { reportDay, reportSentence } from "./report-words.js";
 export { decodeRowReason, encodeRowReason } from "./row-reasons.js";
-export { addStaffImportListener, checkStaffImportListener } from "./staff/index.js";
+export {
+  addStaffImportListener,
+  checkStaffImportListener,
+  planStaffRows,
+  readStaffRow,
+  type StaffRowReading,
+  type StaffRowValues,
+} from "./staff/index.js";
+export { staffImportDetail, type StaffImportDetail } from "./staff/staff-detail.js";
 export { sweepExpiredImports, type SweptOrganizations } from "./sweep.js";
 export {
   suggestValueMatches,

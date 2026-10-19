@@ -62,6 +62,8 @@ export function fakeExportIdentity(access: MemberAccess | null): ExportIdentity 
       list: unexpected,
       create: unexpected,
       changePhone: unexpected,
+      rowFacts: unexpected,
+      seatsFree: unexpected,
       updateRole: unexpected,
       resetPassword: unexpected,
       remove: unexpected,

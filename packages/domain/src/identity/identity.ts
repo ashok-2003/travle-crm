@@ -42,8 +42,17 @@ import { seedStarterRoles } from "./seed-starter-roles.js";
 import { setTwoFactorRequirement } from "./settings.js";
 import { createStaffAccount, type CreatedStaff, type PasswordHasher } from "./staff-accounts.js";
 import { changeStaffPhone } from "./staff-phone.js";
+import { staffRowFacts, staffSeatsFree, type StaffRowFacts } from "./staff-row-facts.js";
 import { staffInviteListener, type InviteDependencies } from "./staff-invites.js";
-import { createStaff, listStaff, removeStaff, resetStaffPassword, updateStaffRole, type SeatLimit } from "./staff.js";
+import {
+  createStaff,
+  listStaff,
+  noSeatLimit,
+  removeStaff,
+  resetStaffPassword,
+  updateStaffRole,
+  type SeatLimit,
+} from "./staff.js";
 import { OWNER_ROLE_KEY } from "./starter-roles.js";
 
 export interface IdentityOptions {
@@ -105,6 +114,13 @@ export interface Identity {
   readonly staff: {
     list(actor: MemberAccess): Promise<StaffMember[]>;
     create(actor: MemberAccess, input: CreateStaffInput): Promise<StaffMember>;
+    /** What the staff import's check needs of the agency for a file's usernames, emails and roles (B44). */
+    rowFacts(
+      actor: MemberAccess,
+      names: { usernames: readonly string[]; emails: readonly string[] },
+    ): Promise<StaffRowFacts>;
+    /** The seats the plan has left, or null for no limit (B45). */
+    seatsFree(organizationId: string): Promise<number | null>;
     /** Sets or clears a person's phone (B51). */
     changePhone(actor: MemberAccess, input: ChangeStaffPhoneInput): Promise<StaffMember>;
     updateRole(actor: MemberAccess, input: UpdateStaffRoleInput): Promise<StaffMember>;
@@ -156,6 +172,8 @@ export function createIdentity(options: IdentityOptions): Identity {
     staff: {
       list: (actor) => listStaff(database, actor),
       create: (actor, input) => createStaff(database, hashPassword, actor, input, options.seatLimit),
+      rowFacts: (actor, names) => staffRowFacts(database, actor, names),
+      seatsFree: (organizationId) => staffSeatsFree(database, options.seatLimit ?? noSeatLimit, organizationId),
       changePhone: (actor, input) => changeStaffPhone(database, actor, input),
       updateRole: (actor, input) => updateStaffRole(database, actor, input),
       resetPassword: (actor, input) => resetStaffPassword(database, hashPassword, actor, input),

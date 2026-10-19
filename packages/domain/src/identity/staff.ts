@@ -23,7 +23,7 @@ import { changeMember, lockMember, lockOwners } from "./staff-locks.js";
 /** How many seats an organization's plan gives (spec 7.2), or null for no limit. */
 export type SeatLimit = (organizationId: string) => Promise<number | null>;
 
-const noSeatLimit: SeatLimit = () => Promise.resolve(null);
+export const noSeatLimit: SeatLimit = () => Promise.resolve(null);
 
 /** The organization's active staff, oldest first. Placeholder emails are never shown. */
 export async function listStaff(database: IdentityDatabase, actor: MemberAccess): Promise<StaffMember[]> {

@@ -1,13 +1,12 @@
-// The staff import's listeners (spec 7): the check against the agency's staff, roles and seats (bulk plan, Task 3.2)
-// and the all-or-nothing add (Task 3.3). The staff branch builds them; until then each leaves lead imports to their
-// own listeners, takes its first step, and refuses a staff import.
+// The staff import's listeners (spec 7): the check against the agency's staff, roles and seats (Task 3.2) and the
+// all-or-nothing add (Task 3.3). Each acts only on a staff import at its own step, so a repeat is harmless.
 import { importStepEvent } from "@travel-crm/contracts/imports";
 import { defineListener, type EventListener, type ListenerContext } from "../../jobs/index.js";
 import type { ImportBatchRow } from "../batch-row.js";
 import { holdImport } from "../batches.js";
 import type { ImportJobDependencies } from "../dependencies.js";
 import { importerAccess } from "../importer-access.js";
-import { readImportFile } from "../read-file.js";
+import { checkStaffImport } from "./staff-check.js";
 
 const notBuilt = (task: string) => new Error(`Not built yet: bulk plan, Task ${task}`);
 
@@ -30,8 +29,7 @@ export function checkStaffImportListener(dependencies: ImportJobDependencies): E
       if (event.payload.kind !== "staff") return;
       const batch = await staffImportAt(context, event.payload.importId, "checking");
       if (batch === null) return;
-      await readImportFile(dependencies, batch);
-      throw notBuilt("3.2");
+      await checkStaffImport(context, dependencies, batch);
     },
   });
 }
@@ -50,3 +48,6 @@ export function addStaffImportListener(dependencies: ImportJobDependencies): Eve
     },
   });
 }
+
+export { planStaffRows } from "./staff-plan.js";
+export { readStaffRow, type StaffRowReading, type StaffRowValues } from "./staff-row.js";
