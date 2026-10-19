@@ -1,5 +1,6 @@
 // The CSV writer (B39, B40, D28): UTF-8 with a byte-order mark so Excel shows every script, CRLF line ends, every
-// cell quoted, a date as yyyy-mm-dd and a time as yyyy-mm-dd HH:MM, and the formula rule on text and phones alike.
+// cell quoted, a date as yyyy-mm-dd and a time as yyyy-mm-dd HH:MM, and the formula rule on every text cell, dates and
+// phones alike.
 import { stringify } from "csv-stringify/sync";
 import { neutraliseFormula } from "./formula-safety.js";
 import type { SheetWriter, WriterColumn, WrittenCell } from "./spreadsheets.js";
@@ -9,10 +10,9 @@ const byteOrderMark = new Uint8Array([0xef, 0xbb, 0xbf]);
 function cellOf(column: WriterColumn, value: WrittenCell): string {
   if (value === null) return "";
   if (typeof value === "number") return Number.isFinite(value) ? String(value) : "";
-  if (column.kind === "date-time") return value.replace("T", " ");
-  if (column.kind === "date") return value;
-  // In CSV the phone gets the apostrophe too: Excel would read "+91 98765 43210" as a sum (B40).
-  return neutraliseFormula(value);
+  // A date or time is our own yyyy-mm-dd, but the rule holds whatever a cell is given (D4); in CSV the phone gets the
+  // apostrophe too: Excel would read "+91 98765 43210" as a sum (B40).
+  return neutraliseFormula(column.kind === "date-time" ? value.replace("T", " ") : value);
 }
 
 export function csvWriter(columns: readonly WriterColumn[]): SheetWriter {

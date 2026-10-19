@@ -62,5 +62,8 @@ describe("reading a CSV", () => {
   it("drops one leading apostrophe", async () => {
     const sheet = await read(utf8("Phone,Note,Plain\n'+91 98765 43210,''x,  spaced  \n"));
     expect(sheet.rows[0]?.cells).toEqual(["+91 98765 43210", "'x", "spaced"]);
+    // The apostrophe goes first, then the space behind it: a neutralised tab reads back as its text (D9).
+    const tabbed = await read(utf8("Name,Note\nAsha,'\tfoo\n"));
+    expect(tabbed.rows[0]?.cells).toEqual(["Asha", "foo"]);
   });
 });
