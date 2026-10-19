@@ -1,5 +1,6 @@
 // The staff export (B52): the active staff oldest first as the Staff screen lists them, named staff-yyyy-mm-dd on the
 // agency's clock, one export.made entry, and only for someone who may manage staff. On the real identity.
+import { createSpreadsheets } from "@travel-crm/integrations/spreadsheets";
 import { calendarDateIn } from "../../src/kernel/index.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { exportDetail, makeStaffExportListener, startExport } from "../../src/exports/index.js";
@@ -119,6 +120,28 @@ describe("the staff export", () => {
     expect(entries.map((entry) => [entry.action, entry.after])).toEqual([
       ["export.made", { kind: "staff", format: "csv", rows: 3, filter: null }],
     ]);
+  });
+
+  it("writes a name that starts with = as text, never as a formula", async () => {
+    const cheeky = await world.identity.staff.create(world.owner, {
+      name: "=HYPERLINK(1)",
+      username: "cheeky.export",
+      roleKey: "sales",
+      temporaryPassword: "temporary-pass-1",
+    });
+    expect(cheeky.name).toBe("=HYPERLINK(1)");
+    const exportId = await exportBy(world.admin, "staff", "csv");
+    expect(exportId).toBeTruthy();
+    const written = world.test.spreadsheets.written.at(-1);
+    expect(written?.rows.some((row) => row[0] === "=HYPERLINK(1)")).toBe(true);
+    // The real writer is what makes it text: the cell reaches it as typed, and the adapter's rule is pinned there.
+    const bytes = createSpreadsheets().writer({
+      kind: "csv",
+      sheetName: "Staff",
+      columns: [{ header: "Name", kind: "text" }],
+    });
+    bytes.write([["=HYPERLINK(1)"]]);
+    expect(new TextDecoder().decode(await bytes.finish())).toContain(`"'=HYPERLINK(1)"`);
   });
 
   it("fails for a requester who may not manage staff, and leaves a lead export alone", async () => {

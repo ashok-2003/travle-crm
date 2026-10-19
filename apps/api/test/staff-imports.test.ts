@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { CookieJar } from "./support/cookie-jar.js";
 import { addStaff, signedInOwner, signedInStaff } from "./support/people.js";
 import { matchAsGuessed, sendPasswords, uploadStaffFile, viewOf, waitForStatus } from "./support/staff-import-flow.js";
-import { signInWithCode, type TestAgency, type TestServer } from "./support/test-server.js";
+import { createTestAgency, signInWithCode, type TestAgency, type TestServer } from "./support/test-server.js";
 import { dataOf, mutate, query, refusalOf } from "./support/trpc.js";
 import { startWorkerFlow, stopWorkerFlow, type Running, type WorkerFlow } from "./support/worker-flow.js";
 import { countingWebhookProvider } from "./support/webhook-provider.js";
@@ -65,6 +65,37 @@ describe("the staff import's procedures", () => {
       status: 404,
       reason: "NOT_FOUND",
     });
+  });
+
+  it("reads the session from the database: a revoked session is refused, though its cookie is still good", async () => {
+    const own = await createTestAgency(server);
+    const jar = await signedInOwner(server, own);
+    expect((await query(server, "staffImports.recent", jar)).status).toBe(200);
+    await server.platform.session.deleteMany({ where: { userId: own.owner.userId } });
+    expect((await query(server, "staffImports.recent", jar)).status).toBe(401);
+    expect((await mutate(server, "staffImports.cancel", { importId: someId }, jar)).status).toBe(401);
+  });
+
+  it("is part of the core plan: an agency whose plan has no business modules still imports staff", async () => {
+    const own = await createTestAgency(server);
+    const plan = await server.platform.plan.create({
+      data: {
+        key: `core-only-${own.code.toLowerCase()}`,
+        name: "Core only (tests)",
+        monthlyPricePaise: 0,
+        seatLimit: 10,
+        whatsappNumberLimit: 1,
+        storageLimitBytes: 1_000_000_000n,
+        modules: [],
+      },
+    });
+    await server.platform.subscription.update({
+      where: { organizationId: own.organizationId },
+      data: { planId: plan.id },
+    });
+    const jar = await signedInOwner(server, own);
+    expect((await query(server, "staffImports.recent", jar)).status).toBe(200);
+    expect((await mutate(server, "staffExports.start", { format: "csv" }, jar)).status).toBe(200);
   });
 
   it("refuses Add over the seat limit: IMPORT_OVER_SEAT_LIMIT", async () => {

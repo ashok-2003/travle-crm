@@ -146,7 +146,7 @@ describe("the staff import's check", () => {
     expect(byRow(9)?.plan).toBe("new");
   });
 
-  it("leaves out the Owner role and a role world.above the importer's", async () => {
+  it("leaves out the Owner role and a role above the importer's", async () => {
     const { byRow } = await checked({
       ...standard,
       rows: [

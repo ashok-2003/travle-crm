@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { ExportDetail } from "@travel-crm/contracts/exports";
 import type { CookieJar } from "./support/cookie-jar.js";
 import { eventually } from "./support/eventually.js";
-import { addStaff, signedInOwner, signedInStaff } from "./support/people.js";
+import { addStaff, ownerAccess, signedInOwner, signedInStaff } from "./support/people.js";
 import type { TestAgency, TestServer } from "./support/test-server.js";
 import { dataOf, mutate, query, refusalOf } from "./support/trpc.js";
 import { countingWebhookProvider } from "./support/webhook-provider.js";
@@ -75,5 +75,30 @@ describe("the staff export's procedures", () => {
       expect(await refusalOf(response)).toEqual({ status: 403, reason: "MISSING_PERMISSION" });
     }
     expect((await mutate(server, "staffExports.start", { format: "pdf" }, owner)).status).toBe(400);
+  }, 120_000);
+
+  it("writes a name that starts with = as text in the file, never as a formula", async () => {
+    await server.identity.staff.create(await ownerAccess(server, agency), {
+      name: "=HYPERLINK(1)",
+      username: "cheeky.name",
+      roleKey: "sales",
+      temporaryPassword: "cheeky-pass-123",
+    });
+    const started = await dataOf<{ exportId: string }>(
+      await mutate(server, "staffExports.start", { format: "csv" }, owner),
+    );
+    await eventually(
+      () =>
+        query(server, "staffExports.get", owner, { exportId: started.exportId }).then((r) => dataOf<ExportDetail>(r)),
+      (detail) => detail.status === "ready",
+      "the staff export",
+      30_000,
+    );
+    const link = await dataOf<{ url: string }>(
+      await mutate(server, "staffExports.downloadLink", { exportId: started.exportId }, owner),
+    );
+    const text = await (await fetch(link.url)).text();
+    expect(text).toContain(`"'=HYPERLINK(1)"`);
+    expect(text).not.toContain(`"=HYPERLINK(1)"`);
   }, 120_000);
 });
