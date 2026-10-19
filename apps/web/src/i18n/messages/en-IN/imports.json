@@ -101,7 +101,7 @@
     "targetFor": "Where {value} goes"
   },
   "progress": {
-    "rows": "{done} of {total} rows",
+    "rows": "<n>{done}</n> of <n>{total}</n> rows",
     "aboutAMinute": "About a minute left",
     "aboutMinutes": "About {minutes} minutes left"
   },
@@ -141,6 +141,6 @@
   },
   "recent": {
     "title": "Recent imports",
-    "rows": "{rows, plural, one {{total} row} other {{total} rows}} · {added} added"
+    "rows": "{rows, plural, one {<n>{total}</n> row} other {<n>{total}</n> rows}} · <n>{added}</n> added"
   }
 }

@@ -5,7 +5,7 @@
 // when there are none.
 import type { RecentImport } from "@travel-crm/contracts/imports";
 import { useTranslations } from "next-intl";
-import { Fragment, useId } from "react";
+import { Fragment, type ReactNode, useId } from "react";
 import { TextLink } from "@/components/text-link";
 import {
   Item,
@@ -19,6 +19,9 @@ import {
 import { formatCount, formatDay } from "@/lib/format";
 import { useMe } from "@/session/me-context";
 import { ImportStatusBadge } from "./import-status-badge";
+
+/** The numbers alone in mono, the words around them in sans (X5). */
+const numbers = (chunks: ReactNode) => <span className="numbers">{chunks}</span>;
 
 export function RecentImports({
   imports,
@@ -50,11 +53,12 @@ export function RecentImports({
                 <ItemDescription className="flex flex-wrap gap-x-2">
                   <span>{formatDay(new Date(item.createdAt), { timeZone })}</span>
                   <span aria-hidden="true">·</span>
-                  <span className="numbers">
-                    {t("rows", {
+                  <span>
+                    {t.rich("rows", {
                       rows: item.rowsTotal,
                       total: formatCount(item.rowsTotal),
                       added: formatCount(item.rowsAdded),
+                      n: numbers,
                     })}
                   </span>
                 </ItemDescription>
