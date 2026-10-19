@@ -131,7 +131,14 @@
       "access-lost": "Lost access to a Google Sheet",
       "tab-missing": "Found a Google Sheet's tab missing",
       "columns-missing": "Found columns missing from a Google Sheet",
-      "needs-manager": "Found a Google Sheet without a manager"
+      "needs-manager": "Found a Google Sheet without a manager",
+      "paused": "Paused a Google Sheet",
+      "resumed": "Resumed a Google Sheet",
+      "taken-over": "Took over a Google Sheet",
+      "disconnected": "Disconnected a Google Sheet",
+      "access-restored": "Regained access to a Google Sheet",
+      "recovered": "A Google Sheet is working again",
+      "problem-hidden": "Hid a row a Google Sheet couldn't add"
     }
   },
   "fields": {
@@ -167,7 +174,12 @@
     "food": "Food",
     "roomType": "Room type",
     "existingRows": "Rows already in the sheet",
-    "columnsMatched": "Columns matched"
+    "columnsMatched": "Columns matched",
+    "rowsAdded": "Leads added",
+    "rowsMerged": "Added to an existing lead",
+    "rowsDuplicate": "Left out as duplicates",
+    "rowNumber": "Row",
+    "status": "Status"
   },
   "recordTypes": {
     "issued_document": "A document",

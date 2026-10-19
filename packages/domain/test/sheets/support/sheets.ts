@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import type { OrgTx } from "@travel-crm/db";
 import { createMemoryGoogleSheets, type MemoryGoogleSheets } from "@travel-crm/integrations/google-sheets";
 import type { MemberAccess } from "../../../src/identity/index.js";
+import type { ImportIdentity } from "../../../src/imports/index.js";
 import type { DomainEvent, EventListener } from "../../../src/jobs/index.js";
 import type { Entitlements } from "../../../src/subscriptions/index.js";
 import type { Database } from "@travel-crm/db";
@@ -221,7 +222,7 @@ export function crmEntitlements(access: Entitlements["access"] = "full"): Entitl
 /** The job dependencies of the sheets module on the test's database, Google, files and spreadsheets. */
 export function jobDependencies(
   test: TestSheets,
-  identity: SheetsJobDependencies["identity"] = fakeIdentity(),
+  identity: ImportIdentity | SheetsJobDependencies["identity"] = fakeIdentity(),
   access: Entitlements["access"] = "full",
 ): SheetsJobDependencies {
   return {
@@ -229,7 +230,8 @@ export function jobDependencies(
     db: test.db,
     files: test.files,
     spreadsheets: test.spreadsheets,
-    identity,
+    // Nobody has a name unless the identity says so.
+    identity: { memberContacts: () => Promise.resolve([]), ...identity },
     subscriptions: { entitlementsOf: () => Promise.resolve(crmEntitlements(access)) },
     log: () => undefined,
   };
@@ -316,7 +318,7 @@ export async function aConfirmedSheet(
 export function checkDependencies(
   test: TestSheets,
   options: {
-    identity?: SheetsJobDependencies["identity"];
+    identity?: ImportIdentity | SheetsJobDependencies["identity"];
     access?: Entitlements["access"];
     holds?: CheckDependencies["holds"];
     db?: Database;
@@ -337,7 +339,11 @@ export function checkDependencies(
 export async function aRunningSheet(
   test: TestSheets,
   importer: MemberAccess,
-  options: { rows?: string[][]; fields?: Record<string, string>; identity?: SheetsJobDependencies["identity"] } = {},
+  options: {
+    rows?: string[][];
+    fields?: Record<string, string>;
+    identity?: ImportIdentity | SheetsJobDependencies["identity"];
+  } = {},
 ) {
   const confirmed = await aConfirmedSheet(test, importer, {
     ...(options.rows === undefined ? {} : { rows: options.rows }),

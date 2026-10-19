@@ -46,6 +46,10 @@
         "label": "Many leads from a Google Sheet are given to you",
         "hint": "When a connected sheet brings you more than five leads at once, in one message. Fewer arrive one by one, as \"A lead is given to you\"."
       },
+      "sheetNeedsAttention": {
+        "label": "A Google Sheet needs attention",
+        "hint": "When a connected sheet can't be opened, has lost its tab or its columns, or needs a manager. Told once for each change."
+      },
       "importFinished": {
         "label": "An import of yours ends",
         "hint": "When the rows of a file you imported have been added, or the import stopped."

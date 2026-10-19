@@ -4,7 +4,11 @@
 import type { AttentionState } from "@travel-crm/contracts/sheets";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
-import { publishEvent } from "../jobs/index.js";
+import { sheetAttentionEvent } from "@travel-crm/contracts/sheets";
+import { defineListener, type EventListener, publishEvent } from "../jobs/index.js";
+import { notify } from "../notifications/index.js";
+import type { SheetsJobDependencies } from "./job-dependencies.js";
+import { sheetOf } from "./connection-row.js";
 import { systemActor } from "../kernel/index.js";
 import type { SheetConnectionRow } from "./connection-row.js";
 
@@ -81,4 +85,73 @@ export async function leaveAttention(
     after: { status: "running" },
   });
   return true;
+}
+
+/** What the Owner reads for each state (spec 8): what happened, and what to do. Titles may name the sheet, as the spec shows. */
+function wordsFor(
+  state: AttentionState,
+  sheet: Pick<SheetConnectionRow, "sheetTitle" | "tabTitle">,
+  facts: { address: string | null; connector: string | null },
+): { title: string; body: string } {
+  const name = `'${sheet.sheetTitle.slice(0, 80)}'`;
+  switch (state) {
+    case "lost_access":
+      return {
+        title: `We can't open your sheet ${name}`,
+        body: facts.address === null ? "Share it with us again." : `Share it with ${facts.address} again.`,
+      };
+    case "tab_missing":
+      return {
+        title: `The tab '${sheet.tabTitle.slice(0, 60)}' isn't in ${name} any more`,
+        body: "Choose another tab on the sheet's page.",
+      };
+    case "columns_missing":
+      return {
+        title: `Columns are missing from ${name}`,
+        body: "Put them back, or match other columns on the sheet's page.",
+      };
+    case "needs_manager":
+      return {
+        title: `${facts.connector ?? "Whoever connected this sheet"} can't manage lead sources any more`,
+        body: `Take over ${name} to keep it running.`,
+      };
+  }
+}
+
+/**
+ * sheets.notify-attention: on sheet.attention, the agency Owner is told once for the change into the state (S45), even when
+ * someone else connected the sheet; the event's id is the notice's source, so a repeat adds nothing. A sheet that has left
+ * the state by the time the listener runs is not told.
+ */
+export function attentionListener(dependencies: Pick<SheetsJobDependencies, "identity" | "google">): EventListener {
+  return defineListener({
+    name: "sheets.notify-attention",
+    eventType: "sheet.attention",
+    payload: sheetAttentionEvent,
+    handle: async (event, context) => {
+      const { sheetId, state } = event.payload;
+      const sheet = await context.forOrg((tx) => sheetOf(tx, sheetId));
+      if (sheet?.status !== state) return;
+      const { organizationId } = sheet;
+      const owner = await dependencies.identity.firstOwner(organizationId);
+      if (owner === null) return;
+      const connector =
+        state === "needs_manager"
+          ? ((await dependencies.identity.memberContacts(organizationId, [sheet.connectedBy]))[0]?.name ?? null)
+          : null;
+      const address = dependencies.google?.accounts()[sheet.serviceAccountIndex]?.email ?? null;
+      const words = wordsFor(state, sheet, { address, connector });
+      await context.forOrg((tx) =>
+        notify(tx, context.actor, {
+          recipientUserIds: [owner],
+          sourceEventId: event.id,
+          kind: "sheet.needs-attention",
+          title: words.title,
+          body: words.body,
+          link: `/settings/lead-sources/sheets/${sheet.id}`,
+          channels: ["push"],
+        }),
+      );
+    },
+  });
 }

@@ -12,7 +12,7 @@ export interface SheetsJobDependencies extends SheetsDependencies {
   db: Database;
   files: Files;
   spreadsheets: Spreadsheets;
-  identity: Pick<Identity, "resolveAccess" | "firstOwner" | "leadWorkers" | "matchLeadWorkers">;
+  identity: Pick<Identity, "resolveAccess" | "firstOwner" | "leadWorkers" | "matchLeadWorkers" | "memberContacts">;
   subscriptions: Pick<SubscriptionAccess, "entitlementsOf">;
   /** The process's one log: ids and codes only. */
   log: (line: string) => void;

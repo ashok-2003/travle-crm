@@ -13,6 +13,7 @@ export const notificationKinds = [
   { kind: "lead.repeat-enquiry", messageKey: "leadRepeatEnquiry" },
   { kind: "lead.imported", messageKey: "leadImported" },
   { kind: "lead.sheet-added", messageKey: "leadSheetAdded" },
+  { kind: "sheet.needs-attention", messageKey: "sheetNeedsAttention" },
   { kind: "import.finished", messageKey: "importFinished" },
   { kind: "export.ready", messageKey: "exportReady" },
 ] as const;
