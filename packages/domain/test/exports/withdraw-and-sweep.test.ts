@@ -3,9 +3,17 @@
 // never finished; an erasure withdraws every export file of the organization at once. The search is never kept.
 import { createPlatformDatabase, type PlatformDatabase } from "@travel-crm/db/platform";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { exportsToSweep, sweepExport, withdrawExportFiles } from "../../src/exports/index.js";
+import { exportsToSweep, runExport, startExport, sweepExport, withdrawExportFiles } from "../../src/exports/index.js";
 import { systemActor } from "../../src/kernel/index.js";
-import { anAgency, bytes, createTestImports, memberOf, type TestImports } from "../imports/support/test-imports.js";
+import {
+  anAgency,
+  bytes,
+  createTestImports,
+  listenerContext,
+  memberOf,
+  type TestImports,
+} from "../imports/support/test-imports.js";
+import { exportDependencies, requested, testSource } from "./test-exports.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -112,5 +120,32 @@ describe("keeping and deleting an export's file", () => {
     expect((await exportOf(making)).status).toBe("expired");
     expect((await exportOf(failed)).status).toBe("failed");
     expect(await filesOf(elsewhere)).toBe(1);
+  });
+
+  it("deletes the file of an export an erasure expired while its job ran, at the next sweep (M11)", async () => {
+    const organizationId = await anAgency(test, "Expired mid-run");
+    const requester = memberOf(organizationId, "sales");
+    const { exportId } = await test.db.forOrg(organizationId, (tx) =>
+      startExport(tx, requester, "leads", { format: "csv", filter: { search: "Sharma" } }, new Date()),
+    );
+    const base = testSource();
+    // An erasure lands between the job's pages.
+    const source = testSource({
+      page: async (context, access, filter, after) => {
+        if (after !== null) await platformDb.transaction((tx) => withdrawExportFiles(tx, organizationId, new Date()));
+        return base.page(context, access, filter, after);
+      },
+    });
+    await runExport(
+      requested(organizationId, exportId),
+      listenerContext(test, organizationId),
+      exportDependencies(test, requester),
+      source,
+    );
+    expect(await exportOf(exportId)).toMatchObject({ status: "expired", fileAttachmentId: null });
+    // The job stored its file after all: a late file, under an expired export.
+    expect(await filesOf(exportId)).toBe(1);
+    await sweep(new Date());
+    expect(await filesOf(exportId)).toBe(0);
   });
 });
