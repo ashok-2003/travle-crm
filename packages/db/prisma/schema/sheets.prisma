@@ -148,6 +148,8 @@ model SheetRow {
   @@index([organizationId, fingerprint], map: "sheet_row_fingerprint", where: raw("(fingerprint IS NOT NULL)"))
   /// The sheet's page: its unresolved problems by row number.
   @@index([organizationId, connectionId, rowNumber], map: "sheet_row_problems", where: raw("((status = 'not_added'::text) AND (resolved_at IS NULL))"))
+  /// A check's first look: the earliest row still waiting, so a half-typed row is never left behind the window (S11).
+  @@index([organizationId, connectionId, rowNumber], map: "sheet_row_pending", where: raw("(status = 'pending'::text)"))
   /// Erasure finds a person's rows.
   @@index([organizationId, personId], map: "sheet_row_person", where: raw("(person_id IS NOT NULL)"))
   @@map("sheet_row")

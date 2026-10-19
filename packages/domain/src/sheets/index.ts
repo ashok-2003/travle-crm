@@ -19,3 +19,7 @@ export * from "./limits.js";
 export { matchedFields } from "./columns.js";
 export { chooseExistingRows, chooseSheetTab, matchSheetColumns } from "./steps.js";
 export { verifySheet } from "./verify.js";
+export { followUpFullRead, dailyReadDue, decideRead, type CheckMode, type ReadPlan } from "./read-plan.js";
+export { numberRows, type ReadRow } from "./numbered-rows.js";
+export { clearVanishedRows, firstPendingRow, isKnown, ledgerKey, lookUpLedger, type LedgerEntry } from "./ledger.js";
+export { headerHashOf, matchHeader, stopsTheCheck, type HeaderMatch, type SheetColumnRow } from "./header-match.js";

@@ -143,6 +143,9 @@ CREATE INDEX "sheet_row_fingerprint" ON "sheet_row"("organization_id", "fingerpr
 CREATE INDEX "sheet_row_problems" ON "sheet_row"("organization_id", "connection_id", "row_number") WHERE ((status = 'not_added'::text) AND (resolved_at IS NULL));
 
 -- CreateIndex
+CREATE INDEX "sheet_row_pending" ON "sheet_row"("organization_id", "connection_id", "row_number") WHERE (status = 'pending'::text);
+
+-- CreateIndex
 CREATE INDEX "sheet_row_person" ON "sheet_row"("organization_id", "person_id") WHERE (person_id IS NOT NULL);
 
 -- CreateIndex
