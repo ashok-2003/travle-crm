@@ -2,6 +2,7 @@
 export { neutraliseFormula } from "./formula-safety.js";
 export { createMemorySpreadsheets, type MemorySpreadsheets } from "./memory-spreadsheets.js";
 export { createSpreadsheets } from "./real-spreadsheets.js";
+export { columnLetters, nameHeaders } from "./sheet-shape.js";
 export {
   type ColumnKind,
   type ReadLimits,

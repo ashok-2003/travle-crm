@@ -23,10 +23,14 @@ function widthOf(cells: readonly (string | null)[]): number {
   return 0;
 }
 
-function nameColumns(cells: readonly (string | null)[], width: number): string[] {
+/**
+ * A sheet's column names as both readers, and the Sheets sync, give them (D13, S11): trimmed; a blank one named by its
+ * letter ("Column C"); a repeat, whatever its case, gaining "(2)", "(3)".
+ */
+export function nameHeaders(raw: readonly string[]): string[] {
   const seen = new Map<string, number>();
-  return Array.from({ length: width }, (_, index) => {
-    const name = cells[index] ?? `Column ${columnLetters(index)}`;
+  return raw.map((header, index) => {
+    const name = header.trim() === "" ? `Column ${columnLetters(index)}` : header.trim();
     const times = (seen.get(name.toLowerCase()) ?? 0) + 1;
     seen.set(name.toLowerCase(), times);
     return times === 1 ? name : `${name} (${String(times)})`;
@@ -57,7 +61,7 @@ export function sheetShaper(limits: ReadLimits, sheet: { sheetName: string | nul
         Array.from({ length: width }, (_, index) => cells[index] ?? null);
       return {
         ...sheet,
-        header: nameColumns(header.cells, width),
+        header: nameHeaders(padded(header.cells).map((cell) => cell ?? "")),
         rows: rows.map((row): SheetRow => ({ rowNumber: row.rowNumber, cells: padded(row.cells) })),
       };
     },
