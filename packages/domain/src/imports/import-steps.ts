@@ -88,6 +88,12 @@ export async function confirmImportUpload(
 }
 
 /**
+ * A check the Add request runs in its own transaction, before the import moves to adding; one that throws (a Google
+ * Sheet's check that is saving, S26) refuses the Add and leaves the import at its preview.
+ */
+export type AddGuard = (tx: OrgTx, now: Date) => Promise<void>;
+
+/**
  * Add (B26, B29): from the preview only, so a second press, or one in another tab, answers IMPORT_NOT_READY and
  * queues nothing. One import of an agency adds at a time (import_batch_one_adding): IMPORT_ALREADY_RUNNING.
  */

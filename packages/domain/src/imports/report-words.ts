@@ -24,6 +24,7 @@ const sentences: Record<RowReasonCode, (reason: RowReason, today: string) => str
   in_crm_open: () => "Has an open lead with you",
   in_crm_closed: () => "Has a closed lead with you",
   not_reached: () => "Stopped before this row",
+  could_not_add: () => "Couldn't be added: try this row in a new import",
   invalid_name: () => "The name can't be used",
   no_sign_in_name: () => "No username or email",
   invalid_username: () => "The username can't be used",

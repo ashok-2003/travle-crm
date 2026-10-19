@@ -1,5 +1,7 @@
 // What the imports module's listeners are built from: the files and spreadsheets ports, identity's people and roles,
 // the subscription (may the agency still change things?) and the plan's seats.
+import type { SheetOrigin } from "@travel-crm/contracts/imports";
+import type { OrgTx } from "@travel-crm/db";
 import type { Spreadsheets } from "@travel-crm/integrations/spreadsheets";
 import type { Files } from "../files/index.js";
 import type { Identity, SeatLimit } from "../identity/index.js";
@@ -20,4 +22,9 @@ export interface ImportJobDependencies {
   identity: ImportIdentity;
   subscriptions: Pick<SubscriptionAccess, "entitlementsOf">;
   seatLimit: SeatLimit;
+  /**
+   * Where a Google Sheet's rows came from, for an import that reads a sheet (the Sheets sync, N6): its source detail,
+   * time zone and date locale. Null when the connection is gone. A file import never asks.
+   */
+  sheetOrigin?: (tx: OrgTx, sheetId: string) => Promise<SheetOrigin | null>;
 }

@@ -31,6 +31,7 @@ export {
 export { importCounts, importCountsQuery, importDetail } from "./import-detail.js";
 export { startImportFromBytes, type StartImportFromBytesInput } from "./import-from-bytes.js";
 export {
+  type AddGuard,
   cancelImport,
   confirmImportUpload,
   decideLeadImport,
