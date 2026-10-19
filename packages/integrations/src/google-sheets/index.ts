@@ -14,3 +14,4 @@ export {
 } from "./google-sheets.js";
 export { createMemoryGoogleSheets, type MemoryGoogleSheets } from "./memory-google-sheets.js";
 export { shapeRows } from "./shape-rows.js";
+export { createRealGoogleSheets, type RealGoogleSheetsOptions, type ServiceAccountKey } from "./real-google-sheets.js";

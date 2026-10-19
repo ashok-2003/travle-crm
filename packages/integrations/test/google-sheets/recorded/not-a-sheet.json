@@ -1,0 +1,10 @@
+{
+  "status": 400,
+  "body": {
+    "error": {
+      "code": 400,
+      "message": "This operation is not supported for this document",
+      "status": "FAILED_PRECONDITION"
+    }
+  }
+}
