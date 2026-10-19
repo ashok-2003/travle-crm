@@ -40,7 +40,14 @@ test("a CSV of 20 leads with guessed columns and an Owner column: added with sou
   await expect(countOf(page, "Rows not added")).toContainText("0");
 
   await page.getByRole("link", { name: "See the imported leads" }).click();
-  await expect(page).toHaveURL(/\/leads\?source=bulk_upload/);
+  await expect(page).toHaveURL(/\/leads\?view=everyone&source=bulk_upload/);
+  // Everyone's leads: Ravi's are in it beside the Owner's.
+  await expect(
+    page
+      .getByRole("main")
+      .getByRole("link", { name: /Customer 2\b/ })
+      .first(),
+  ).toBeVisible();
   await expect(
     page
       .getByRole("main")

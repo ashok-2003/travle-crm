@@ -174,6 +174,8 @@ export const SHOTS = [
   { name: "lead-import-adding", screen: "Import leads, step 4: adding, its progress and Stop", as: owner },
   { name: "lead-import-done", screen: "Import leads, done: what was added, the report's download", as: owner },
   { name: "lead-import-read-only", screen: "Leads while read-only: Import off with its hint", as: owner },
+  { name: "lead-import-read-only-choose", screen: "Import leads while read-only: Choose a file off", as: owner },
+  { name: "lead-import-read-only-check", screen: "A checked import while read-only: Add and Cancel off", as: owner },
   // Release 2: the lead export (bulk plan, Part 2).
   { name: "leads-header", screen: "Leads, the header's New lead, Import and Export", as: owner },
   { name: "lead-export-dialog", screen: "Leads, the Export dialog: what it holds, the format", as: owner },

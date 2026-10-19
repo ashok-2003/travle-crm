@@ -1,6 +1,7 @@
 // An import stopped halfway (spec 3.2 step 4, B28, B34, 12.1): the add of a big file is stopped from its progress
 // screen; the rows already added stay, the batch under way finishes, and the report holds the rest as "Stopped before
 // this row".
+import { expectAccessible } from "./support/accessibility";
 import { expect, signInByEmail, test } from "./support/fixtures";
 import {
   checkTheRows,
@@ -29,9 +30,11 @@ test("an import stopped halfway: the report holds the rest as Stopped before thi
   // Some rows are added before Stop is pressed, and most are not.
   await expect(page.getByText(/^[1-9][\d,]* of 6,000 rows$/)).toBeVisible({ timeout: WORKER_STEP_MS });
   await expect(page.getByText("You can leave this screen: we'll tell you when it's done.")).toBeVisible();
+  await expectAccessible(page);
   await page.getByRole("button", { name: "Stop", exact: true }).click();
   const dialog = page.getByRole("alertdialog");
   await expect(dialog.getByText("Stop the import?")).toBeVisible();
+  await expectAccessible(page);
   await dialog.getByRole("button", { name: "Stop the import" }).click();
   await expect(page.getByText(/Stopping after the rows being added now/)).toBeVisible();
   await expect(page.getByRole("heading", { level: 1, name: "Import stopped" })).toBeVisible({

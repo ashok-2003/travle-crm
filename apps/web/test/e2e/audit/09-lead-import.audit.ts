@@ -180,4 +180,12 @@ test("the lead import, from choosing a file to the end", async ({ page, agency, 
   await page.goto("/leads");
   await expect(page.getByRole("main").getByRole("button", { name: "Import" })).toBeDisabled();
   await shoot(page, "lead-import-read-only");
+  await page.goto("/leads/import");
+  await expect(page.getByRole("button", { name: "Choose a file" })).toBeDisabled();
+  await shoot(page, "lead-import-read-only-choose");
+  // The import left waiting at its preview: Add and Cancel are off.
+  await page.getByRole("link", { name: "goa-leads.csv" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Check before adding" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Cancel this import" })).toBeDisabled();
+  await shoot(page, "lead-import-read-only-check");
 });
