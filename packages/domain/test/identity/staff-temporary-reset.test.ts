@@ -86,4 +86,32 @@ describe("resetting a temporary password only while it is temporary", () => {
       }),
     ).toEqual({ reset: true });
   });
+
+  it("skips someone who changed their password through Better Auth itself", async () => {
+    const real = await person("realchange");
+    const stamped = () =>
+      platform.account.findFirstOrThrow({ where: { userId: real.userId, providerId: "credential" } });
+    expect((await stamped()).updatedAt.getTime()).toBe(0);
+    const response = await test.identity.auth.api.signInUsername({
+      body: { username: `${agency.code}:realchange`.toLowerCase(), password: "first-pass-123" },
+      asResponse: true,
+    });
+    const cookie = response.headers
+      .getSetCookie()
+      .map((setCookie) => setCookie.split(";")[0])
+      .join("; ");
+    // The app's first-sign-in change: Better Auth's own endpoint, with the session.
+    await test.identity.auth.api.changePassword({
+      headers: new Headers({ cookie }),
+      body: { currentPassword: "first-pass-123", newPassword: "their-own-pass-2" },
+    });
+    expect((await stamped()).updatedAt.getTime()).toBeGreaterThan(0);
+    expect(
+      await test.identity.staff.resetTemporaryPassword(owner, {
+        memberId: real.memberId,
+        temporaryPassword: "second-pass-123",
+      }),
+    ).toEqual({ reset: false });
+    expect(await canSignInByUsername(test.identity, agency.code, "realchange", "their-own-pass-2")).toBe(true);
+  });
 });
