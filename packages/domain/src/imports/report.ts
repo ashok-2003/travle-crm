@@ -1,7 +1,7 @@
 // The report of rows not added (B34, B35): the uploaded format, two first columns, "Why it wasn't added" (the first
 // reason's sentence) and "Row" (its row in the file), then the file's own columns as they were, so the importer fixes
 // the rows in Excel and uploads the report as it is. Stored as the system's file under the import's id, once.
-import { spreadsheetContentTypes } from "@travel-crm/contracts/files";
+import { spreadsheetContentTypeOf } from "@travel-crm/contracts/files";
 import type { RowReasonCode } from "@travel-crm/contracts/imports";
 import type { WriterColumn, WrittenCell } from "@travel-crm/integrations/spreadsheets";
 import { IMPORT_REPORT_RECORD_TYPE } from "../files/index.js";
@@ -25,8 +25,7 @@ export function reportFileName(fileName: string, kind: "csv" | "xlsx"): string {
   return `${base.slice(0, MAX_FILE_NAME - reportSuffix.length - extension.length)}${reportSuffix}${extension}`;
 }
 
-export const reportContentType = (kind: "csv" | "xlsx") =>
-  kind === "csv" ? spreadsheetContentTypes[0] : spreadsheetContentTypes[1];
+export const reportContentType = (kind: "csv" | "xlsx") => spreadsheetContentTypeOf[kind];
 
 /** A row the check gave no reason: what its plan says (a row left out), else the add never reached it. */
 const reasonOfPlan: Readonly<Partial<Record<string, RowReasonCode>>> = {
