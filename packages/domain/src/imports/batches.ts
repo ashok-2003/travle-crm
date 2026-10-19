@@ -31,9 +31,12 @@ export async function isAnyImportAdding(tx: OrgTx): Promise<boolean> {
   return (await tx.importBatch.findFirst({ where: { status: "adding" }, select: { id: true } })) !== null;
 }
 
-/** The import's row, locked (FOR UPDATE) until the transaction ends, so two runs of one step take turns (B26). */
+/**
+ * The import's row, locked until the transaction ends, so two runs of one step take turns (B26). FOR NO KEY UPDATE,
+ * not FOR UPDATE: a row of the import or its column inserted meanwhile key-shares the batch, and needn't wait (M4).
+ */
 export async function holdImport(tx: OrgTx, importId: string): Promise<ImportBatchRow | null> {
-  await tx.$queryRaw`SELECT id FROM import_batch WHERE id = ${importId}::uuid FOR UPDATE`;
+  await tx.$queryRaw`SELECT id FROM import_batch WHERE id = ${importId}::uuid FOR NO KEY UPDATE`;
   const row = await tx.importBatch.findUnique({ where: { id: importId } });
   return row === null ? null : toBatchRow(row);
 }

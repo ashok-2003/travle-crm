@@ -46,9 +46,9 @@ export async function findExport(
   return toExportRow(row);
 }
 
-/** The export's row, locked (FOR UPDATE) until the transaction ends, so two runs of its job take turns. */
+/** The export's row, locked (FOR NO KEY UPDATE, M4) until the transaction ends, so two runs of its job take turns. */
 export async function holdExport(tx: OrgTx, exportId: string): Promise<DataExportRow | null> {
-  await tx.$queryRaw`SELECT id FROM data_export WHERE id = ${exportId}::uuid FOR UPDATE`;
+  await tx.$queryRaw`SELECT id FROM data_export WHERE id = ${exportId}::uuid FOR NO KEY UPDATE`;
   const row = await tx.dataExport.findUnique({ where: { id: exportId } });
   return row === null ? null : toExportRow(row);
 }
