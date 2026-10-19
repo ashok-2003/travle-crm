@@ -174,4 +174,30 @@ describe("PasswordsStep", () => {
     expect(screen.queryByRole("row", { name: /Deepak Nair/ })).toBeNull();
     expect(screen.getByText("1 person chose their own password meanwhile and was left alone.")).toBeVisible();
   });
+
+  it("still says how many were left alone when a failure comes half-way", async () => {
+    const api = fakeApi();
+    const queryClient = newQueryClient();
+    const trpcKey = [["staffImports", "get"], { input: { importId }, type: "query" }];
+    queryClient.setQueryDefaults(trpcKey, { staleTime: Infinity });
+    queryClient.setQueryData(trpcKey, done());
+    renderWithApi(<StaffImportScreen importId={importId} />, queryClient);
+    await userEvent.click(await screen.findByRole("button", { name: "Make new passwords for 2 people" }));
+    await waitFor(() => {
+      expect(api.calls).toHaveLength(1);
+    });
+    await act(async () => {
+      api.last().answer({ reset: false });
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(api.calls).toHaveLength(2);
+    });
+    await act(async () => {
+      api.last().refuse(403, "ORGANIZATION_READ_ONLY");
+      await Promise.resolve();
+    });
+    // The second failed after the first was left alone: that one is still counted, and the button can be pressed again.
+    expect(await screen.findByRole("button", { name: "Make new passwords for 2 people" })).toBeEnabled();
+  });
 });

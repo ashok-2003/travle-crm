@@ -8,7 +8,7 @@ import { useMutation } from "@tanstack/react-query";
 import type { StaffImportedPerson } from "@travel-crm/contracts/identity";
 import { InfoIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId } from "react";
+import { useId, useRef } from "react";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -34,11 +34,13 @@ export function LostPasswords({
   const hintId = useId();
   const write = useWriteAccess("revoke");
   const client = useTRPCClient();
+  /** How many were left alone, kept apart from the call so a failure half-way still reports them. */
+  const left = useRef(0);
   const make = useMutation({
     networkMode: "always",
     gcTime: 0,
     mutationFn: async (people: readonly StaffImportedPerson[]) => {
-      let left = 0;
+      left.current = 0;
       for (const person of people) {
         const password = temporaryPassword();
         // The api resets only someone still on the temporary password: a person who chose their own meanwhile is left.
@@ -47,15 +49,13 @@ export function LostPasswords({
           temporaryPassword: password,
         });
         if (reset) passwordStore.add(importId, new Map([[person.rowNumber, password]]));
-        else left += 1;
+        else left.current += 1;
       }
-      return left;
     },
-    onSuccess: onMade,
-    onError: () => {
-      onMade(0);
+    // Whoever was done before a failure keeps the new password already shown, and the count of those left alone.
+    onSettled: () => {
+      onMade(left.current);
     },
-    // Whoever was done before a failure keeps the new password already shown.
   });
   return (
     <div className="flex flex-col gap-4">
