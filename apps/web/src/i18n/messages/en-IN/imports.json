@@ -52,6 +52,8 @@
     "chooseAnother": "Choose another file"
   },
   "columns": {
+    "title": "Match your columns",
+    "intro": "Tell us what each column holds. We guessed from their names: check them.",
     "column": "Column in your file",
     "samples": "Sample values",
     "importAs": "Import as",
