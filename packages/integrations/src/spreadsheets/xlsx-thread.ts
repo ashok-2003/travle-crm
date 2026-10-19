@@ -34,5 +34,6 @@ try {
   if (error instanceof SpreadsheetUnreadableError) answer({ unreadable: error.reason });
   // The stack ran out, or an array or string grew past what V8 allows: the file is too much to open.
   else if (error instanceof RangeError) answer({ unreadable: "too_large_unpacked" });
-  else throw error;
+  // Anything else unforeseen came of reading this file: it's damaged, and reading it again won't change that (X9).
+  else answer({ unreadable: "not_a_spreadsheet" });
 }

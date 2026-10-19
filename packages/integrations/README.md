@@ -74,8 +74,8 @@ A file is read only in the worker (ADR 0030), and every read is bounded before a
   and `Relationship` elements (either of its two parts holding over 10,000 elements is refused at once, X8), and a sheet or relationship whose attributes meet under one name is refused.
 - **Its own thread** (`read-xlsx-in-thread.ts`, `xlsx-thread.ts`): all of that, and read-excel-file, runs in a
   `worker_threads` thread with a 128 MB heap, a 16 MB young generation, a 4 MB stack and a minute, so whatever the
-  sizing doesn't foresee costs that thread alone. Running any of them out is `too_large_unpacked`; a thread that can't
-  run is a plain error naming its code. The bytes are handed over (transferred), and only the bounded rows come back.
+  sizing doesn't foresee costs that thread alone. Running any of them out is `too_large_unpacked`; a thread that throws
+  or ends without an answer is `not_a_spreadsheet` (X9); one whose module is missing is a plain error naming its code. The bytes are handed over (transferred), and only the bounded rows come back.
   From the source (development and tests), plain Node runs the thread's TypeScript, finding `.ts` files by the `.js`
   names our imports use through a resolve hook; the api's bundle runs its own `xlsx-thread.mjs` entry, beside the
   chunk that starts it (`apps/api/scripts/bundle.ts`). The worker reads a one-cell workbook this way before it starts

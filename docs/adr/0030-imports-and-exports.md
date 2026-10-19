@@ -29,8 +29,9 @@ staff export; spec `docs/superpowers/specs/2026-10-19-bulk-in-and-out-design.md`
   the fast first refusal, not the only one: the unpack, the first sheet's lookup, the sizing and read-excel-file all
   run in a `worker_threads` thread with a 128 MB heap, a 16 MB young generation, a 4 MB stack and a minute. Running
   out of any of them is `too_large_unpacked` ("too large once opened", whose advice to save a smaller copy or a CSV
-  holds); a thread that can't run is our error, named by its code, and the worker reads a one-cell workbook this way
-  before it starts, so a deploy without the thread's module refuses to start. The largest file the limits take
+  holds); a thread that throws or ends without an answer read a damaged file, `not_a_spreadsheet`, never a job
+  retried (X9). A thread whose module can't be found is our error, named by its code, and the worker reads a one-cell
+  workbook this way before it starts, so a deploy without the thread's module refuses to start. The largest file the limits take
   (10,000 rows of 50 columns) reads in about 1.5 seconds on a laptop, so ten times that or more on the pilot's tenth
   of a CPU: the round's suggested 20 seconds would refuse it there, hence a minute. The bytes are transferred in, and
   only the bounded rows come back. The api's bundle carries the thread as an entry of its own, `xlsx-thread.mjs`.

@@ -90,6 +90,13 @@ describe("reading an .xlsx in a thread of its own", () => {
     expect(await reasonOf(small, createSpreadsheets({ xlsxThread: { timeoutMs: 1 } }))).toBe("too_large_unpacked");
   });
 
+  it("says a file is damaged when its thread throws or ends without an answer, never retrying it (X9)", async () => {
+    for (const thread of ["throws.ts", "exits.ts"]) {
+      const broken = createSpreadsheets({ xlsxThread: { file: new URL(`./threads/${thread}`, import.meta.url) } });
+      expect(await reasonOf(small, broken), thread).toBe("not_a_spreadsheet");
+    }
+  });
+
   it("fails plainly, naming no file's content, when the thread can't run", async () => {
     const broken = createSpreadsheets({ xlsxThread: { file: new URL("./no-such-thread.mjs", import.meta.url) } });
     const failure = await broken.read(small, limits).then(
