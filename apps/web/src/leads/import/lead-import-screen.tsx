@@ -3,10 +3,11 @@
 // /leads/import/<importId> (spec 3.2): one lead import at whichever step its status says (D37), so leaving and coming
 // back finds it where it was: reading, can't be read, matching the columns, checking and the preview, adding, and
 // the end. From the preview, Change the columns goes back to matching (B13) and runs the check again.
+import type { ImportDetail } from "@travel-crm/contracts/imports";
 import { FileXIcon, LoaderCircleIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
@@ -25,7 +26,6 @@ import { useLeadImport } from "./use-lead-import";
 export function LeadImportScreen({ importId }: { importId: string }) {
   const t = useTranslations("leads.import");
   const tCommon = useTranslations("common");
-  const tUnreadable = useTranslations("imports.unreadable");
   const { data: detail, isError, error, refetch } = useLeadImport(importId);
   const [changing, setChanging] = useState(false);
 
@@ -43,6 +43,38 @@ export function LeadImportScreen({ importId }: { importId: string }) {
     return <LoadingRows rows={4} shape="twoLines" />;
   }
 
+  return (
+    <FocusedStep stepKey={`${detail.status}-${String(changing)}`}>
+      <Step detail={detail} changing={changing} setChanging={setChanging} />
+    </FocusedStep>
+  );
+}
+
+/**
+ * Each step swaps the screen, so the focus is left on a button that is gone: it moves to the new step's heading, which
+ * a screen reader then reads, and a keyboard starts from.
+ */
+function FocusedStep({ stepKey, children }: { stepKey: string; children: ReactNode }) {
+  const wrapper = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const heading = wrapper.current?.querySelector("h1");
+    heading?.setAttribute("tabindex", "-1");
+    heading?.focus({ preventScroll: true });
+  }, [stepKey]);
+  return <div ref={wrapper}>{children}</div>;
+}
+
+function Step({
+  detail,
+  changing,
+  setChanging,
+}: {
+  detail: ImportDetail;
+  changing: boolean;
+  setChanging: (changing: boolean) => void;
+}) {
+  const t = useTranslations("leads.import");
+  const tUnreadable = useTranslations("imports.unreadable");
   switch (detail.status) {
     case "uploading":
     case "reading":
@@ -79,7 +111,7 @@ export function LeadImportScreen({ importId }: { importId: string }) {
     case "matching":
       return <MatchStep detail={detail} />;
     case "checking":
-      return <CheckStep detail={detail} onChangeColumns={() => undefined} />;
+      return <CheckStep detail={detail} />;
     case "checked":
       return changing ? (
         <MatchStep

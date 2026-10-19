@@ -177,4 +177,43 @@ describe("CheckStep", () => {
     expect(screen.queryByText(messages.leads.import.fromSheet)).toBeNull();
     expect(screen.queryByRole("combobox", { name: messages.leads.import.match.stageQuestion })).toBeNull();
   });
+
+  it("leaves out a zero in the confirmation's title, and asks in the plain style, not the destructive (I10, I11)", async () => {
+    const only = (byPlan: Partial<typeof counts.byPlan>, rowsToAdd: number) =>
+      aCheckedImport({
+        counts: { ...counts, byPlan: { ...counts.byPlan, ...byPlan } },
+        progress: { rowsTotal: 100, rowsToAdd, rowsDone: 100, rowsAdded: 0, addRequestedAt: null },
+      });
+    renderCheck(only({ new: 4, returning: 1, enquiry: 0, blocked: 0, already_imported: 0 }, 5));
+    await userEvent.click(screen.getByRole("button", { name: "Add 5 rows" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText("Add 5 leads?")).toBeVisible();
+    expect(within(dialog).getByRole("button", { name: words.confirmAction }).dataset.variant).not.toBe("destructive");
+  });
+
+  it("asks only about repeat enquiries when no lead is new", async () => {
+    renderCheck(
+      aCheckedImport({
+        counts: {
+          ...counts,
+          byPlan: { ...counts.byPlan, new: 0, returning: 0, enquiry: 3, blocked: 0, already_imported: 0 },
+        },
+        progress: { rowsTotal: 3, rowsToAdd: 3, rowsDone: 3, rowsAdded: 0, addRequestedAt: null },
+      }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Add 3 rows" }));
+    expect(await screen.findByText("Add 3 repeat enquiries?")).toBeVisible();
+  });
+
+  it("offers no Change the columns while the rows are still being checked (I15)", () => {
+    renderCheck(
+      anImport({
+        status: "checking",
+        progress: { rowsTotal: 10, rowsToAdd: 0, rowsDone: 3, rowsAdded: 0, addRequestedAt: null },
+      }),
+      {},
+      undefined,
+    );
+    expect(screen.queryByRole("button", { name: words.changeColumns })).toBeNull();
+  });
 });

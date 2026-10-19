@@ -4,7 +4,7 @@
 // the person may leave ("we'll tell you when it's done"), and Stop, which asks first. Stop finishes the batch under way:
 // the rows already added stay, and the rest are in the report as "Stopped before this row".
 import { useMutation } from "@tanstack/react-query";
-import type { ImportCounts, ImportDetail } from "@travel-crm/contracts/imports";
+import type { ImportDetail } from "@travel-crm/contracts/imports";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -13,17 +13,13 @@ import { Button } from "@/components/ui/button";
 import { useTRPC } from "@/data/trpc";
 import { ImportProgress } from "@/imports/import-progress";
 import { ImportStepCaption } from "@/imports/import-step-caption";
+import { useMe } from "@/session/me-context";
+import { rowsToBeAdded } from "./check-step";
 import { useRefreshLeadImports } from "./use-lead-import";
-
-/** Every row the add takes a decision on: those it adds and those the importer's choices may leave out. */
-export function rowsInTheAdd(counts: ImportCounts | null, rowsToAdd: number): number {
-  if (counts === null) return rowsToAdd;
-  const { byPlan } = counts;
-  return byPlan.new + byPlan.returning + byPlan.enquiry + byPlan.blocked + byPlan.already_imported + byPlan.in_crm;
-}
 
 export function AddingStep({ detail }: { detail: ImportDetail }) {
   const t = useTranslations("leads.import");
+  const me = useMe();
   const trpc = useTRPC();
   const refresh = useRefreshLeadImports();
   const [asking, setAsking] = useState(false);
@@ -39,11 +35,16 @@ export function AddingStep({ detail }: { detail: ImportDetail }) {
   );
   return (
     <div className="flex max-w-[720px] flex-col gap-6">
-      <PageHeader title={t("adding.title")} intro={t("adding.from", { name: detail.fileName })} />
+      <PageHeader title={t("adding.title")} intro={t("adding.from", { name: detail.fileName, person: me.user.name })} />
       <ImportStepCaption status={detail.status} />
       <ImportProgress
-        done={detail.progress.rowsDone}
-        total={rowsInTheAdd(detail.counts, detail.progress.rowsToAdd)}
+        // What the importer's choices will add: rows they left out are neither in the total nor counted as done.
+        done={detail.progress.rowsAdded}
+        total={
+          detail.counts === null
+            ? detail.progress.rowsToAdd
+            : rowsToBeAdded(detail.counts, detail.progress.rowsToAdd, detail.choices)
+        }
         since={detail.progress.addRequestedAt}
         label={t("adding.label")}
       />

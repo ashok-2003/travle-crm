@@ -17,10 +17,12 @@ import { ImportCounts } from "@/imports/import-counts";
 import { ImportStatusBadge } from "@/imports/import-status-badge";
 import { formatCount, formatDay, formatDayTime } from "@/lib/format";
 import { routes } from "@/lib/routes";
+import { listFiltersHref } from "../list/list-filters";
 import { useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
 
+const summaryOf = { done: "summaryDone", stopped: "summaryStopped", failed: "summaryFailed" } as const;
 const titleOf = { done: "title", stopped: "titleStopped", failed: "titleFailed" } as const;
 
 export function DoneStep({ detail }: { detail: ImportDetail }) {
@@ -44,6 +46,15 @@ export function DoneStep({ detail }: { detail: ImportDetail }) {
         intro={t("file", { name: detail.fileName, day: formatDayTime(finished, { timeZone }) })}
         action={<ImportStatusBadge status={detail.status} />}
       />
+      {/* Said to a screen reader as the add ends, wherever the importer's attention was. */}
+      <p role="status" className="sr-only">
+        {t("summary", {
+          status: t(summaryOf[status]),
+          added: outcomes?.added ?? 0,
+          merged: outcomes?.merged ?? 0,
+          notAdded,
+        })}
+      </p>
       {status !== "done" && reason !== null && (
         <Alert variant={status === "failed" ? "destructive" : "default"}>
           <AlertDescription>{tFailures("stopped", { reason })}</AlertDescription>
@@ -83,7 +94,7 @@ export function DoneStep({ detail }: { detail: ImportDetail }) {
       )}
       <div className="flex flex-wrap gap-2">
         <Button asChild variant="outline">
-          <Link href={`${routes.leads}?source=bulk_upload`}>{t("see")}</Link>
+          <Link href={listFiltersHref({ view: "everyone", source: "bulk_upload" })}>{t("see")}</Link>
         </Button>
         <Button asChild variant="outline">
           <Link href={routes.leadImport}>{t("importAnother")}</Link>

@@ -33,13 +33,13 @@ describe("MatchStep", () => {
       columnWords.dontImport,
     );
     expect(screen.getAllByText(columnWords.asLastTime)).toHaveLength(1);
-    const stage = screen.getByRole("region", { name: "Status's values, as stages" });
+    const stage = screen.getByRole("region", { name: "Status's 3 values, as stages" });
     expect(within(stage).getByText("612")).toBeVisible();
     expect(within(stage).getByText("Booked")).toBeVisible();
     expect(
       within(stage).getByRole("combobox", { name: messages.imports.values.targetFor.replace("{value}", "Booked") }),
     ).toHaveTextContent("Won");
-    const owner = screen.getByRole("region", { name: "Assigned To's values, as owners" });
+    const owner = screen.getByRole("region", { name: "Assigned To's 2 values, as owners" });
     // The lead workers arrive after the screen does.
     await waitFor(() => {
       expect(
@@ -79,7 +79,7 @@ describe("MatchStep", () => {
 
   it("sends match with the columns, the values changed and the defaults when Check the rows is pressed", async () => {
     renderStep();
-    const owner = screen.getByRole("region", { name: "Assigned To's values, as owners" });
+    const owner = screen.getByRole("region", { name: "Assigned To's 2 values, as owners" });
     await userEvent.click(
       within(owner).getByRole("combobox", { name: messages.imports.values.targetFor.replace("{value}", "Vikas") }),
     );

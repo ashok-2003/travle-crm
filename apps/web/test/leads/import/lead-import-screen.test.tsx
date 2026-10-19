@@ -1,6 +1,6 @@
 // A lead import's own address (spec 3.2): the step its status says, so leaving and coming back finds it where it was:
 // reading, a file that can't be read, the columns, the preview and changing the columns from it, adding, and the end.
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { messages } from "@/i18n/messages";
@@ -8,7 +8,7 @@ import { LeadImportScreen } from "@/leads/import/lead-import-screen";
 import { routes } from "@/lib/routes";
 import { stubApi } from "../../support/api-stub";
 import { renderScreen } from "../screen";
-import { aCheckedImport, anImport, importId, workers } from "./records";
+import { aCheckedImport, anImport, asha, columns, importId, ravi, workers } from "./records";
 
 vi.mock("next/navigation", () => import("../navigation"));
 
@@ -64,5 +64,49 @@ describe("LeadImportScreen", () => {
     stubApi({ "leadImports.get": { status: 404, reason: "NOT_FOUND" } });
     renderScreen(<LeadImportScreen importId={importId} />);
     expect(await screen.findByRole("alert")).toHaveTextContent(messages.errors.reasons.NOT_FOUND);
+  });
+
+  it("moves the focus to each step's heading as the step changes (I3)", async () => {
+    const api = stubApi({
+      "leadImports.get": { data: anImport({ status: "reading" }) },
+      "leads.owners": { data: workers },
+    });
+    renderScreen(<LeadImportScreen importId={importId} />);
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { level: 1 })).toHaveFocus();
+    });
+    api.answer("leadImports.get", { data: aCheckedImport() });
+    await userEvent.click(document.body);
+    // A new answer is a new step: the screen asks again every 2 seconds while the worker reads.
+    await waitFor(
+      () => {
+        expect(screen.getByRole("heading", { level: 1, name: words.check.title })).toHaveFocus();
+      },
+      { timeout: 5000 },
+    );
+  });
+
+  it("keeps the matches chosen when the columns are changed from the preview (I15)", async () => {
+    renderImport(
+      aCheckedImport({
+        columns: columns.map((column) => (column.position === 4 ? { ...column, field: "note" as const } : column)),
+        defaults: { stage: "contacted", ownerUserId: asha, budgetBasis: null, roleKey: null },
+        valueMatches: [
+          { field: "owner", value: "Vikas", target: ravi, matchedBy: "chosen" },
+          { field: "owner", value: "Asha", target: asha, matchedBy: "first_name" },
+        ],
+      }),
+    );
+    await userEvent.click(await screen.findByRole("button", { name: words.check.changeColumns }));
+    expect(await screen.findByRole("combobox", { name: "What Sr No holds" })).toHaveTextContent("Note");
+    expect(screen.getByRole("combobox", { name: words.match.stageQuestion })).toHaveTextContent("Contacted");
+    await waitFor(() => {
+      expect(screen.getByRole("combobox", { name: "Where Vikas goes" })).toHaveTextContent("Ravi Kumar");
+    });
+  });
+
+  it("says an expired import's file was deleted", async () => {
+    renderImport(anImport({ status: "expired" }));
+    expect(await screen.findByText(words.gone.expired)).toBeVisible();
   });
 });

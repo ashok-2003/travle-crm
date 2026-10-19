@@ -61,7 +61,7 @@ export function rowsToBeAdded(counts: ImportCounts, rowsToAdd: number, choices: 
   );
 }
 
-export function CheckStep({ detail, onChangeColumns }: { detail: ImportDetail; onChangeColumns: () => void }) {
+export function CheckStep({ detail, onChangeColumns }: { detail: ImportDetail; onChangeColumns?: () => void }) {
   const t = useTranslations("leads.import");
   const trpc = useTRPC();
   const router = useRouter();
@@ -193,7 +193,7 @@ export function CheckStep({ detail, onChangeColumns }: { detail: ImportDetail; o
       {counts.newStage >= MANY_NEW && (
         <p className="text-label text-muted-foreground">{t("check.manyNew", { count: counts.newStage })}</p>
       )}
-      <div className="flex flex-col items-start gap-2">
+      <div className="flex flex-col items-start gap-2 md:flex-row md:flex-wrap md:items-center md:gap-3">
         <Button
           disabled={rows === 0 || busy || !write.allowed}
           aria-describedby={write.hint ? hintId : undefined}
@@ -204,9 +204,11 @@ export function CheckStep({ detail, onChangeColumns }: { detail: ImportDetail; o
           {t("check.add", { rows })}
         </Button>
         <WriteHint id={hintId} hint={write.hint} />
-        <Button variant="outline" disabled={busy} onClick={onChangeColumns}>
-          {t("check.changeColumns")}
-        </Button>
+        {onChangeColumns !== undefined && (
+          <Button variant="outline" disabled={busy} onClick={onChangeColumns}>
+            {t("check.changeColumns")}
+          </Button>
+        )}
         <Button
           variant="link"
           className="h-auto min-h-11 px-0"
@@ -223,6 +225,7 @@ export function CheckStep({ detail, onChangeColumns }: { detail: ImportDetail; o
         open={confirming}
         onOpenChange={setConfirming}
         title={t("check.confirmTitle", { leads, repeats: counts.byPlan.enquiry })}
+        destructive={false}
         description={`${t("check.confirmBody")}${ticked > 0 ? ` ${t("check.confirmExtra", { count: ticked })}` : ""}`}
         action={t("check.confirmAction")}
         request={add}

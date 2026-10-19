@@ -131,12 +131,19 @@ export function MatchStep({
       return (
         <ValueMatcher
           key={`${field}-${String(column.position)}`}
-          heading={t(field === "owner" ? "match.ownerValues" : "match.stageValues", { column: column.header })}
+          heading={t(field === "owner" ? "match.ownerValues" : "match.stageValues", {
+            column: column.header,
+            count: column.values.length,
+          })}
           values={column.values}
           targets={
             field === "owner"
               ? (owners.data ?? []).map((owner) => ({ value: owner.userId, label: owner.name }))
-              : matchableStages.map((option) => ({ value: option, label: tStages(option) }))
+              : matchableStages.map((option) => ({
+                  value: option,
+                  // A Not a lead row is never added: the list says so where it is chosen (I9).
+                  label: option === "not_a_lead" ? t("match.notALeadLeftOut") : tStages(option),
+                }))
           }
           chosen={chosen}
           onChoose={(value, target) => {

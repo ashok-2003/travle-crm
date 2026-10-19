@@ -63,6 +63,7 @@ describe("ChooseFileScreen", () => {
     renderScreen(<ChooseFileScreen />);
     expect(screen.getByRole("heading", { level: 1, name: words.title })).toBeVisible();
     expect(screen.getByText(words.intro)).toBeVisible();
+    expect(screen.getByText("Step 1 of 4 · Choose a file")).toBeVisible();
     expect(screen.getByRole("link", { name: messages.imports.file.sample })).toHaveAttribute(
       "href",
       "/samples/leads-sample.csv",
@@ -90,7 +91,7 @@ describe("ChooseFileScreen", () => {
     );
     expect(within(section).getByText(messages.imports.statuses.done)).toBeVisible();
     expect(within(section).getByText(messages.imports.statuses.checked)).toBeVisible();
-    expect(within(section).getByText(/842 added/)).toBeVisible();
+    expect(section).toHaveTextContent(/842 added/);
   });
 
   it("says when the recent imports didn't load, with Try again", async () => {

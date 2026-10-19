@@ -31,7 +31,7 @@ describe("AddingStep", () => {
     stubApi({});
     renderScreen(<AddingStep detail={addingImport(642, "2026-10-19T10:40:00.000Z")} />);
     expect(screen.getByRole("heading", { level: 1, name: words.title })).toBeVisible();
-    expect(screen.getByText("From enquiries-oct-2026.xlsx.")).toBeVisible();
+    expect(screen.getByText("From enquiries-oct-2026.xlsx, as Asha Sharma.")).toBeVisible();
     expect(screen.getByText("642 of 1,157 rows")).toBeVisible();
     expect(screen.getByText(messages.imports.progress.aboutAMinute)).toBeVisible();
     expect(screen.getByText(words.leave)).toBeVisible();
@@ -49,5 +49,37 @@ describe("AddingStep", () => {
     });
     expect(await screen.findByText(words.stopping)).toBeVisible();
     expect(screen.getByRole("button", { name: words.stop })).toBeDisabled();
+  });
+
+  it("counts what the importer's choices will add, not the rows left out (I1)", () => {
+    stubApi({});
+    // 53 blocked rows and 13 already imported are left out: the preview said Add 1,157, and so does the bar.
+    renderScreen(
+      <AddingStep
+        detail={aCheckedImport({
+          status: "adding",
+          counts: {
+            ...counts,
+            byPlan: {
+              new: 1053,
+              returning: 41,
+              enquiry: 63,
+              blocked: 53,
+              already_imported: 13,
+              in_crm: 0,
+              not_added: 129,
+            },
+          },
+          progress: {
+            rowsTotal: 1352,
+            rowsToAdd: 1157,
+            rowsDone: 400,
+            rowsAdded: 150,
+            addRequestedAt: "2026-10-19T10:40:00.000Z",
+          },
+        })}
+      />,
+    );
+    expect(screen.getByText("150 of 1,157 rows")).toBeVisible();
   });
 });

@@ -50,7 +50,10 @@ describe("DoneStep", () => {
     }
     expect(screen.getByText("129 rows weren't added")).toBeVisible();
     expect(screen.getByText(/kept until 26 Oct/)).toBeVisible();
-    expect(screen.getByRole("link", { name: words.see })).toHaveAttribute("href", "/leads?source=bulk_upload");
+    expect(screen.getByRole("link", { name: words.see })).toHaveAttribute(
+      "href",
+      "/leads?view=everyone&source=bulk_upload",
+    );
     await userEvent.click(screen.getByRole("button", { name: "Download the 129 rows not added" }));
     await waitFor(() => {
       expect(loadPage).toHaveBeenCalledWith("https://files.example/report.xlsx");
@@ -89,5 +92,21 @@ describe("DoneStep", () => {
       member({ isOwner: true }),
     );
     expect(screen.getByRole("button", { name: "Download the 129 rows not added" })).toBeEnabled();
+  });
+
+  it("says in a status line, for a screen reader, how the add ended (I2)", () => {
+    stubApi({});
+    renderScreen(<DoneStep detail={finished()} />);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Import done. 1,094 new leads, 63 repeat enquiries, 129 rows not added.",
+    );
+  });
+
+  it("shows a stopped import's counts, the reason and the download", () => {
+    stubApi({});
+    renderScreen(<DoneStep detail={finished({ status: "stopped" })} />);
+    expect(screen.getByRole("heading", { level: 1, name: words.titleStopped })).toBeVisible();
+    expect(screen.getByRole("status")).toHaveTextContent("Import stopped.");
+    expect(screen.getByRole("button", { name: "Download the 129 rows not added" })).toBeVisible();
   });
 });

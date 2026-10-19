@@ -113,8 +113,8 @@
       "needs": "Needed",
       "needName": "Name",
       "needContact": "A phone, email or Instagram",
-      "ownerValues": "{column}''s values, as owners",
-      "stageValues": "{column}''s values, as stages",
+      "ownerValues": "{column}''s {count, plural, one {# value} other {# values}}, as owners",
+      "stageValues": "{column}''s {count, plural, one {# value} other {# values}}, as stages",
       "manyValues": "{column} has more than 50 different values. They are matched by name when the rows are checked.",
       "openTitle": "What the file leaves open",
       "stageQuestion": "Rows with no stage get",
@@ -128,7 +128,8 @@
       "chooseAnother": "Choose another file",
       "perPerson": "Per person",
       "forEveryone": "For everyone",
-      "sameFile": "You imported this file on {day} ({count, plural, one {# lead} other {# leads}} added). Rows already added will be left out."
+      "sameFile": "You imported this file on {day} ({count, plural, one {# lead} other {# leads}} added). Rows already added will be left out.",
+      "notALeadLeftOut": "Not a lead · left out"
     },
     "check": {
       "title": "Check before adding",
@@ -163,7 +164,7 @@
       "changeColumns": "Change the columns",
       "cancelImport": "Cancel this import",
       "cancelled": "Import cancelled.",
-      "confirmTitle": "{leads, plural, one {Add # lead} other {Add # leads}} and {repeats, plural, one {# repeat enquiry} other {# repeat enquiries}}?",
+      "confirmTitle": "{repeats, plural, =0 {Add {leads, plural, one {# lead} other {# leads}}?} other {{leads, plural, =0 {Add {repeats, plural, one {# repeat enquiry} other {# repeat enquiries}}?} other {Add {leads, plural, one {# lead} other {# leads}} and {repeats, plural, one {# repeat enquiry} other {# repeat enquiries}}?}}}}",
       "confirmBody": "Imported leads can't be removed in bulk later. Rows not added come back as a file you can fix.",
       "confirmExtra": "Plus {count, plural, one {# row} other {# rows}} you chose to add anyway.",
       "confirmAction": "Add the rows",
@@ -171,7 +172,7 @@
     },
     "adding": {
       "title": "Adding leads",
-      "from": "From {name}.",
+      "from": "From {name}, as {person}.",
       "label": "Adding leads",
       "leave": "You can leave this screen: we'll tell you when it's done.",
       "stop": "Stop",
@@ -193,7 +194,11 @@
       "download": "{count, plural, one {Download the # row not added} other {Download the # rows not added}}",
       "kept": "{name} · kept until {day}",
       "see": "See the imported leads",
-      "importAnother": "Import another file"
+      "importAnother": "Import another file",
+      "summary": "{status}. {added, plural, one {# new lead} other {# new leads}}, {merged, plural, one {# repeat enquiry} other {# repeat enquiries}}, {notAdded, plural, one {# row} other {# rows}} not added.",
+      "summaryDone": "Import done",
+      "summaryStopped": "Import stopped",
+      "summaryFailed": "Import failed"
     },
     "gone": {
       "cancelled": "This import was cancelled.",
