@@ -1,7 +1,7 @@
 // The console process's jobs (ADR 0019): the platform's purge and erasure jobs, the nightly subscription lifecycle at
 // 00:15 India time, as the platform role, the hourly sweep of the stored files still to delete, the daily sweep of
-// exports past their time, the hourly sweep of imports' and exports' files past theirs, and, when a demo is set, the nightly demo reset at 02:00; with the demo switched off, the
-// schedule an earlier start left in pg-boss goes. A super admin can't remove any of these schedules from the console.
+// exports past their time, the hourly sweep of imports' and exports' files past theirs, and, when a demo is set, the
+// nightly demo reset at 02:00; with the demo switched off, the schedule an earlier start left in pg-boss goes. A super admin can't remove any of these schedules from the console.
 import { randomUUID } from "node:crypto";
 import {
   PURGE_ORGANIZATION_QUEUE,
@@ -114,7 +114,7 @@ describe("the console's jobs", () => {
     ).toMatchObject({ state: "expired", clearedAt: expect.any(Date) as Date });
   });
 
-  it("deletes every hour an import's file a week after its last change, from storage too", async () => {
+  it("deletes every hour an import's file a week after its last change and an export's a day after ready (A5)", async () => {
     const queue = createMemoryJobQueue();
     const runner = createMemoryJobRunner(queue);
     const agency = await createTestAgency(server);
@@ -146,6 +146,34 @@ describe("the console's jobs", () => {
     await server.platform.importBatch.update({ where: { id: batch.id }, data: { fileAttachmentId: file.id } });
     const key = `organizations/${organizationId}/attachments/${file.id}`;
     await storage.put({ key, contentType: "text/csv", body: new Uint8Array([1]) });
+    const ready = new Date(Date.now() - DAY_MS - 1000);
+    const made = await server.platform.dataExport.create({
+      data: {
+        organizationId,
+        kind: "leads",
+        format: "csv",
+        status: "ready",
+        filter: { search: "Sharma" },
+        requestedBy: randomUUID(),
+        readyAt: ready,
+        expiresAt: new Date(ready.getTime() + DAY_MS),
+      },
+    });
+    const exported = await server.platform.attachment.create({
+      data: {
+        organizationId,
+        recordType: "data_export",
+        recordId: made.id,
+        fileName: "leads.csv",
+        contentType: "text/csv",
+        sizeBytes: 1,
+        status: "ready",
+        confirmedAt: new Date(),
+      },
+    });
+    await server.platform.dataExport.update({ where: { id: made.id }, data: { fileAttachmentId: exported.id } });
+    const exportKey = `organizations/${organizationId}/attachments/${exported.id}`;
+    await storage.put({ key: exportKey, contentType: "text/csv", body: new Uint8Array([1]) });
     await startConsoleJobs(runner, testConsole.services, null);
     await runner.fireSchedule(SWEEP_BULK_FILES_QUEUE);
     expect(await runner.runQueued()).toBeGreaterThanOrEqual(1);
@@ -154,6 +182,12 @@ describe("the console's jobs", () => {
     expect(await server.platform.importBatch.findUniqueOrThrow({ where: { id: batch.id } })).toMatchObject({
       status: "expired",
       fileAttachmentId: null,
+    });
+    expect(await storage.head(exportKey)).toBeNull();
+    expect(await server.platform.dataExport.findUniqueOrThrow({ where: { id: made.id } })).toMatchObject({
+      status: "expired",
+      fileAttachmentId: null,
+      filter: { search: null },
     });
   });
 
