@@ -26,6 +26,7 @@ import {
 import { createAuth, type Auth, type AuthSettings } from "./auth/create-auth.js";
 import type { LeadWorker } from "@travel-crm/contracts/crm";
 import type { EventListener } from "../jobs/index.js";
+import { matchLeadWorkers, matchRoles, type LeadWorkerMatch, type RoleMatch } from "./import-matches.js";
 import { firstOwner, leadWorkers } from "./lead-workers.js";
 import type { MemberAccess } from "./member-access.js";
 import { recordMemberActivity } from "./member-activity.js";
@@ -83,6 +84,13 @@ export interface Identity {
   /** The earliest-joined active Owner's user id, who receives a departing member's work (R15); null if none. */
   firstOwner(organizationId: string): Promise<string | null>;
   /**
+   * A file's Owner values matched to lead workers by full name, username, email or a first name only one has (B11).
+   * A value that names nobody, or more than one person, is absent.
+   */
+  matchLeadWorkers(organizationId: string, values: readonly string[]): Promise<Map<string, LeadWorkerMatch>>;
+  /** A file's Role values matched to the organization's roles by name or key (B11). */
+  matchRoles(organizationId: string, values: readonly string[]): Promise<Map<string, RoleMatch>>;
+  /**
    * Notes that the member is using the app, for the platform dashboard: the api calls it on each request it lets
    * through. It writes at most once a day per member, and never for support's impersonation.
    */
@@ -136,6 +144,8 @@ export function createIdentity(options: IdentityOptions): Identity {
     memberContacts: (organizationId, userIds) => memberContacts(database, organizationId, userIds),
     leadWorkers: (organizationId) => leadWorkers(database, organizationId),
     firstOwner: (organizationId) => firstOwner(database, organizationId),
+    matchLeadWorkers: (organizationId, values) => matchLeadWorkers(database, organizationId, values),
+    matchRoles: (organizationId, values) => matchRoles(database, organizationId, values),
     recordActivity: (access) => recordMemberActivity(database, access),
     isPlatformAdmin: (user) => isPlatformAdmin(database, user),
     describePlatformStaff: (userId) => describePlatformStaff(database.client, userId),

@@ -8,12 +8,15 @@ import { PermissionSet } from "./permission-set.js";
 const byName = new Intl.Collator("en-IN", { sensitivity: "base" });
 
 /** Banned as resolveAccess sees it: banned, and the ban has no end or hasn't ended yet. */
-const notBanned = () => ({
+export const notBanned = () => ({
   NOT: { user: { banned: true, OR: [{ banExpires: null }, { banExpires: { gt: new Date() } }] } },
 });
 
 /** The keys of the organization's roles that are the Owner's, and of those that grant leads:view. */
-async function roleKeys(tx: IdentityTx, organizationId: string): Promise<{ owner: Set<string>; leads: Set<string> }> {
+export async function roleKeys(
+  tx: IdentityTx,
+  organizationId: string,
+): Promise<{ owner: Set<string>; leads: Set<string> }> {
   const roles = await tx.role.findMany({ where: { organizationId }, include: { permissions: true } });
   const owner = new Set(roles.filter((role) => role.isOwner).map((role) => role.key));
   const leads = new Set(
