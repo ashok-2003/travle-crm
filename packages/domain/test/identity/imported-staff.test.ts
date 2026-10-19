@@ -162,9 +162,12 @@ describe("adding an imported team", () => {
   it("lets only one of two imports racing for the last seats add, and an Add staff racing them", async () => {
     const used = await staffCount();
     const identity = limitedTo(used + 2);
+    // Every row is made before the three start, so the calls really overlap.
+    const first = [await row(2), await row(3)];
+    const second = [await row(4), await row(5)];
     const [one, two, single] = await Promise.allSettled([
-      identity.staff.addImported(admin, [await row(2), await row(3)], importId, noLinks),
-      identity.staff.addImported(admin, [await row(4), await row(5)], importId, noLinks),
+      identity.staff.addImported(admin, first, importId, noLinks),
+      identity.staff.addImported(admin, second, importId, noLinks),
       identity.staff.create(admin, {
         name: "By hand",
         username: `by-hand-${agency.code.toLowerCase()}`,
