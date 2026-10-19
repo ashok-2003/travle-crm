@@ -9,7 +9,8 @@ import { DomainError } from "../kernel/index.js";
 import { assertMayHandleRole } from "./access-rules.js";
 import type { MemberAccess } from "./member-access.js";
 import type { FoundRole } from "./role-lookup.js";
-import { assertSeatsFree, insertStaffAccount } from "./staff-accounts.js";
+import { findRoleToGive } from "./role-lookup.js";
+import { assertSeatsFree, insertStaffAccount, type AccountLookups } from "./staff-accounts.js";
 import type { SeatLimit } from "./staff.js";
 
 /** 500 accounts in one transaction need longer than the 5 seconds a transaction gets by default (D25). */
@@ -95,6 +96,17 @@ export async function addImportedStaff(
           throw error;
         }
       }
+      // The organization and each role are looked up once for the whole file, the roles held until the end.
+      const organization = await tx.organization.findUniqueOrThrow({ where: { id: actor.organizationId } });
+      const roles = new Map<string, ReturnType<typeof findRoleToGive>>();
+      const lookups: AccountLookups = {
+        organization: () => Promise.resolve(organization),
+        role: (key) => {
+          const found = roles.get(key) ?? findRoleToGive(tx, key);
+          roles.set(key, found);
+          return found;
+        },
+      };
       const added: AddedStaff[] = [];
       for (const row of rows) {
         try {
@@ -115,6 +127,7 @@ export async function addImportedStaff(
             (role) => {
               assertMayGive(actor, role);
             },
+            lookups,
           );
           added.push({ rowNumber: row.rowNumber, ...created });
         } catch (error) {

@@ -75,13 +75,13 @@ export function PasswordsStep({ importId, page }: { importId: string; page: Staf
   return (
     <>
       <PageHeader
-        title={
+        title={t("title", { count: page.progress.rowsAdded })}
+        intro={
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            {t("title", { count: page.progress.rowsAdded })}
             <ImportStatusBadge status="done" />
+            {`${page.fileName}${when === "" ? "" : ` · ${when}`}`}
           </span>
         }
-        intro={`${page.fileName}${when === "" ? "" : ` · ${when}`}`}
       />
       {shown.length === 0 ? (
         <LostPasswords

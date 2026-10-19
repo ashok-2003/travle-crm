@@ -62,6 +62,15 @@ export async function createStaffAccount(
 }
 
 /**
+ * What an account's insert looks up about its organization and its role. A caller adding many accounts in one
+ * transaction (an import) answers from what it already holds, instead of asking the database for each.
+ */
+export interface AccountLookups {
+  organization(): Promise<{ code: string }>;
+  role(key: string): Promise<FoundRole>;
+}
+
+/**
  * Writes the account in the caller's transaction, in the account's organization: the user, a password account when
  * there is a hash, the membership, and the audit entry. Onboarding calls it inside the platform's transaction, stepped
  * into the new organization.
@@ -70,14 +79,17 @@ export async function insertStaffAccount(
   tx: IdentityTx,
   account: StaffAccountRecord,
   checkRole?: (role: FoundRole) => void,
+  lookups?: AccountLookups,
 ): Promise<CreatedStaff> {
   assertHasSignInName(account);
   try {
-    const organization = await tx.organization.findUniqueOrThrow({ where: { id: account.organizationId } });
+    const organization = await (lookups
+      ? lookups.organization()
+      : tx.organization.findUniqueOrThrow({ where: { id: account.organizationId } }));
     if (account.seatLimit !== undefined && account.seatLimit !== null) {
       await assertSeatsFree(tx, account.organizationId, account.seatLimit, 1);
     }
-    const role = await findRoleToGive(tx, account.roleKey);
+    const role = await (lookups ? lookups.role(account.roleKey) : findRoleToGive(tx, account.roleKey));
     checkRole?.(role);
     const username = account.username === undefined ? null : internalUsername(organization.code, account.username);
     if (username !== null && !INTERNAL_USERNAME_PATTERN.test(username)) {
