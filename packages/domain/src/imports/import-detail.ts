@@ -15,13 +15,22 @@ import {
   type ValueField,
   type ValueMatchedBy,
 } from "@travel-crm/contracts/imports";
-import type { OrgTx } from "@travel-crm/db";
+import { type OrgTx, sql, type Sql } from "@travel-crm/db";
 import type { MemberAccess } from "../identity/index.js";
 import type { ImportBatchRow } from "./batch-row.js";
 import { findImport } from "./batches.js";
 
 const zeroFor = <Key extends string>(keys: readonly Key[]) =>
   Object.fromEntries(keys.map((key) => [key, 0])) as Record<Key, number>;
+
+/** The import's rows by plan, outcome, first reason and whether a value went to the note: one GROUP BY. */
+export function importCountsQuery(importId: string): Sql {
+  return sql`
+    SELECT plan, outcome, NULLIF(split_part(reasons[1], ':', 1), '') AS reason, noted, count(*)::int AS rows
+    FROM import_row
+    WHERE batch_id = ${importId}::uuid
+    GROUP BY plan, outcome, reason, noted`;
+}
 
 /** What the check found and the add did, counted in one pass over the import's rows. */
 export async function importCounts(
@@ -30,11 +39,7 @@ export async function importCounts(
 ): Promise<ImportCounts> {
   const groups = await tx.$queryRaw<
     { plan: RowPlan; outcome: RowOutcome | null; reason: RowReasonCode | null; noted: boolean; rows: number }[]
-  >`
-    SELECT plan, outcome, NULLIF(split_part(reasons[1], ':', 1), '') AS reason, noted, count(*)::int AS rows
-    FROM import_row
-    WHERE batch_id = ${batch.id}::uuid
-    GROUP BY plan, outcome, reason, noted`;
+  >(importCountsQuery(batch.id));
   const byPlan = zeroFor(rowPlans);
   const outcomes = zeroFor(rowOutcomes);
   const notAdded = new Map<RowReasonCode, number>();

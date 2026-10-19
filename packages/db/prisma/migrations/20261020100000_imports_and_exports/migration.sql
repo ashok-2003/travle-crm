@@ -131,7 +131,7 @@ CREATE INDEX "data_export_due" ON "data_export"("expires_at") WHERE (status <> '
 CREATE UNIQUE INDEX "data_export_organization_id_id_key" ON "data_export"("organization_id", "id");
 
 -- CreateIndex
-CREATE INDEX "import_batch_recent" ON "import_batch"("organization_id", "kind", "id" DESC);
+CREATE INDEX "import_batch_recent" ON "import_batch"("organization_id", "started_by", "kind", "id" DESC);
 
 -- CreateIndex
 CREATE INDEX "import_batch_file" ON "import_batch"("organization_id", "file_sha256");

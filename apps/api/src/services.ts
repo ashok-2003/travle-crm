@@ -4,13 +4,14 @@
 import { hkdfSync } from "node:crypto";
 import { createDatabase, type Database, type ForOrgOptions } from "@travel-crm/db";
 import { createFiles, type Files } from "@travel-crm/domain/files";
-import { createIdentity, type Identity } from "@travel-crm/domain/identity";
+import { createIdentity, type Identity, type SeatLimit } from "@travel-crm/domain/identity";
 import { createProfiles, type Profiles } from "@travel-crm/domain/profile";
 import { createRateLimiter, type RateLimiter } from "@travel-crm/domain/rate-limits";
-import { createSubscriptionAccess, planLimits } from "@travel-crm/domain/subscriptions";
+import { createSubscriptionAccess, planLimits, type SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { createSmtpEmailSender, type EmailSender } from "@travel-crm/integrations/email";
 import { createPgBossJobs, type PgBossJobs } from "@travel-crm/integrations/jobs";
 import { createWebPushSender, type PushSender } from "@travel-crm/integrations/push";
+import { createSpreadsheets, type Spreadsheets } from "@travel-crm/integrations/spreadsheets";
 import { createS3Storage, type ObjectStorage } from "@travel-crm/integrations/storage";
 import { authSettingsFrom, type Environment } from "./environment.js";
 import { passwordResetEmails, resetPasswordPageOf } from "./password-reset-email.js";
@@ -24,6 +25,12 @@ export interface Services {
   profiles: Profiles;
   storage: ObjectStorage;
   files: Files;
+  /** Reads and writes CSV and .xlsx files: only the worker reads one (ADR 0030). */
+  spreadsheets: Spreadsheets;
+  /** What each organization's plan allows today, for the jobs that act for a person (an import's add). */
+  subscriptions: SubscriptionAccess;
+  /** The seats each organization's plan gives, for the staff import's add. */
+  seatLimit: SeatLimit;
   /** pg-boss: the api sends jobs to it (webhooks), the worker also runs them. */
   jobs: PgBossJobs;
   email: EmailSender;
@@ -61,7 +68,8 @@ export function createServices(environment: Environment, log: ProcessLog): Servi
   const rateLimiter = createRateLimiter(db, { keySecret: rateLimitKeySecret(environment.BETTER_AUTH_SECRET) });
   // Seats and storage are the plan's (spec 7.2): identity refuses staff past them, the files module uploads. The api's
   // request checks read the same entitlements through an access of their own (server.ts).
-  const limits = planLimits(createSubscriptionAccess({ db }));
+  const subscriptions = createSubscriptionAccess({ db });
+  const limits = planLimits(subscriptions);
   const email = createSmtpEmailSender({
     host: environment.SMTP_HOST,
     port: environment.SMTP_PORT,
@@ -111,6 +119,9 @@ export function createServices(environment: Environment, log: ProcessLog): Servi
     profiles: createProfiles({ db }),
     storage,
     files: createFiles({ db, storage, storageLimitBytes: limits.storageBytes }),
+    spreadsheets: createSpreadsheets(),
+    subscriptions,
+    seatLimit: limits.seats,
     jobs,
     email,
     push,

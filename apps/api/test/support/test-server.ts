@@ -11,9 +11,10 @@ import { createFiles, type Files } from "@travel-crm/domain/files";
 import { createIdentity, type AuthSettings, type Identity } from "@travel-crm/domain/identity";
 import { createProfiles } from "@travel-crm/domain/profile";
 import { createRateLimiter } from "@travel-crm/domain/rate-limits";
-import { createSubscriptionAccess, planLimits } from "@travel-crm/domain/subscriptions";
+import { createSubscriptionAccess, planLimits, type SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import type { WebhookProvider } from "@travel-crm/domain/webhooks";
 import { createMemoryJobQueue, type JobQueue } from "@travel-crm/integrations/jobs";
+import { createSpreadsheets, type Spreadsheets } from "@travel-crm/integrations/spreadsheets";
 import { createMemoryStorage, type ObjectStorage } from "@travel-crm/integrations/storage";
 import type { Hono } from "hono";
 import { inject } from "vitest";
@@ -45,6 +46,10 @@ export interface TestServer {
   identity: Identity;
   db: Database;
   files: Files;
+  /** What a worker beside it is built from too (worker-jobs.ts): the real spreadsheets, the plans' access and seats. */
+  spreadsheets: Spreadsheets;
+  subscriptions: SubscriptionAccess;
+  seatLimit: (organizationId: string) => Promise<number | null>;
   platform: PlatformClient;
   /** The database it runs on, for a console beside it. */
   urls: DbUrls;
@@ -98,6 +103,9 @@ export function createTestServer(settings: Partial<AuthSettings> = {}, options: 
     identity,
     db,
     files,
+    spreadsheets: createSpreadsheets(),
+    subscriptions,
+    seatLimit: limits.seats,
     platform,
     urls,
     close: async () => {

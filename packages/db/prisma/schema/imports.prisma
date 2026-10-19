@@ -63,8 +63,8 @@ model ImportBatch {
   @@unique([organizationId, id])
   /// One import of an agency adds at a time (B29, D35).
   @@unique([organizationId], map: "import_batch_one_adding", where: raw("(status = 'adding'::text)"))
-  /// Recent imports: the person's last ten of a kind.
-  @@index([organizationId, kind, id(sort: Desc)], map: "import_batch_recent")
+  /// Recent imports: the person's last ten of a kind (D6: an import is its starter's).
+  @@index([organizationId, startedBy, kind, id(sort: Desc)], map: "import_batch_recent")
   /// The same file again (B6).
   @@index([organizationId, fileSha256], map: "import_batch_file")
   /// The console's sweep, across organizations.

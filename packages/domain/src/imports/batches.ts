@@ -1,7 +1,7 @@
 // Finding an import and keeping it: an import is its starter's alone (D6), held in turn by the jobs that work on it,
 // kept a week from its last change (D5, B53), and listed among its starter's last ten.
 import type { ImportKind, ImportStatus, RecentImport } from "@travel-crm/contracts/imports";
-import type { OrgTx } from "@travel-crm/db";
+import { type OrgTx, sql, type Sql } from "@travel-crm/db";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
 import { type ImportBatchRow, toBatchRow } from "./batch-row.js";
@@ -52,17 +52,21 @@ export async function moveImport(
   return count === 1;
 }
 
+/** The person's last ten imports of the kind, newest first, on import_batch_recent. */
+export function recentImportsQuery(kind: ImportKind, startedBy: string): Sql {
+  return sql`
+    SELECT id, file_name AS "fileName", created_at AS "createdAt", status, rows_total AS "rowsTotal",
+      rows_added AS "rowsAdded"
+    FROM import_batch
+    WHERE kind = ${kind} AND started_by = ${startedBy}::uuid
+    ORDER BY id DESC
+    LIMIT 10`;
+}
+
 /** The person's last ten imports of the kind, newest first (Recent imports). */
 export async function recentImports(tx: OrgTx, access: MemberAccess, kind: ImportKind): Promise<RecentImport[]> {
-  const rows = await tx.importBatch.findMany({
-    where: { kind, startedBy: access.userId },
-    orderBy: { id: "desc" },
-    take: 10,
-    select: { id: true, fileName: true, createdAt: true, status: true, rowsTotal: true, rowsAdded: true },
-  });
-  return rows.map((row) => ({
-    ...row,
-    status: row.status as ImportStatus,
-    createdAt: row.createdAt.toISOString(),
-  }));
+  const rows = await tx.$queryRaw<
+    { id: string; fileName: string; createdAt: Date; status: ImportStatus; rowsTotal: number; rowsAdded: number }[]
+  >(recentImportsQuery(kind, access.userId));
+  return rows.map((row) => ({ ...row, createdAt: row.createdAt.toISOString() }));
 }

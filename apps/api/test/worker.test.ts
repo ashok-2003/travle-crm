@@ -128,6 +128,22 @@ describe("the api and the worker, end to end", () => {
     expect(failed.map((job) => job.queue)).toEqual([]);
   }, 90_000);
 
+  it("runs imports.read-file, the two lead import listeners, the two staff import listeners and both export listeners", () => {
+    const names = flow.work.listeners.map((listener) => listener.name);
+    expect(names).toEqual(
+      expect.arrayContaining([
+        "imports.read-file",
+        "crm.check-lead-import",
+        "crm.add-lead-import",
+        "imports.check-staff-import",
+        "imports.add-staff-import",
+        "crm.make-lead-export",
+        "exports.make-staff-export",
+      ]),
+    );
+    expect(new Set(names).size).toBe(names.length);
+  });
+
   it("processes a webhook once, however often the provider delivers it", async () => {
     const eventId = `evt_${randomUUID()}`;
     const body = JSON.stringify({ id: eventId });

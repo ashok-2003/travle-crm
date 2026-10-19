@@ -4,7 +4,7 @@
 import type { OrgTx } from "@travel-crm/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { MemberAccess } from "../../src/identity/index.js";
-import { exportDetail, makeStaffExportListener, runExport, startExport } from "../../src/exports/index.js";
+import { exportDetail, runExport, startExport } from "../../src/exports/index.js";
 import {
   anAgency,
   auditOf,
@@ -143,21 +143,5 @@ describe("making an export's file", () => {
     expect(notices.map((notice) => [notice.recipientUserId, notice.kind, notice.title, notice.body])).toEqual([
       [requester.userId, "export.ready", "Your leads export is ready", "3 leads, kept for 24 hours."],
     ]);
-  });
-
-  it("leaves another kind's export to its own listener, until the staff export is built", async () => {
-    const listener = makeStaffExportListener(exportDependencies(test, requester));
-    expect([listener.name, listener.eventType]).toEqual(["exports.make-staff-export", "export.requested"]);
-    const { exportId } = await anExport();
-    await expect(
-      listener.handle(requested(organizationId, exportId), listenerContext(test, organizationId)),
-    ).resolves.toBeUndefined();
-    expect(await detailOf(exportId)).toMatchObject({ status: "making" });
-    const { exportId: staffExport } = await inOrg((tx) =>
-      startExport(tx, requester, "staff", { format: "xlsx", filter: {} }, new Date()),
-    );
-    await expect(
-      listener.handle(requested(organizationId, staffExport, "staff"), listenerContext(test, organizationId)),
-    ).rejects.toThrow("Not built yet: bulk plan, Task 3.5");
   });
 });
