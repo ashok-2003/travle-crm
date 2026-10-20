@@ -32,6 +32,7 @@ import {
   checkIntervalSeconds as defaultCheckIntervalSeconds,
   createAccountHolds,
   earlierSheetFingerprints,
+  findTombstones,
   matchSheetImportListener,
   scheduleListener,
   sheetOriginOf,
@@ -116,6 +117,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
   // A file imported after a sheet meets the rows the sheet added (SD15).
   if (sheets !== undefined) {
     importJobs.sheetFingerprints = (tx, fingerprints) => earlierSheetFingerprints(tx, fingerprints, sheets.hashes);
+    importJobs.sheetErasedContacts = (tx, contacts) => findTombstones(tx, sheets.hashes, contacts);
   }
   // The Google Sheets sync's side: the checks, their dispatcher and the listeners around them, only when Google is set up.
   const sheetsJobs =

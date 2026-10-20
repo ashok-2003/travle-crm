@@ -105,6 +105,20 @@ export function planLeadRows(
 
   for (const row of rows) {
     const { rowNumber } = row;
+    // A Google Sheet's row for a customer erased since its baseline is left out whatever else is wrong with it, and
+    // shows none of what it holds (M6, SD1, SD10).
+    if (context.fromSheet && lookups.isErased(row.contacts)) {
+      plans.push({
+        rowNumber,
+        plan: "not_added",
+        reasons: [{ code: "erased" }],
+        noted: false,
+        newDestination: null,
+        exampleName: null,
+        exampleValue: null,
+      });
+      continue;
+    }
     if (row.kind === "not_added") {
       plans.push({
         rowNumber,

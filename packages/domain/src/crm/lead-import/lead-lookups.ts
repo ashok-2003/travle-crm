@@ -3,6 +3,7 @@
 // all the rows, `= ANY` on the live unique indexes. Raw SQL names deleted_at itself: soft-delete filtering is Prisma's.
 import type { ContactKind } from "@travel-crm/contracts/crm";
 import { sql, type OrgTx, type Sql } from "@travel-crm/db";
+import type { ImportJobDependencies } from "../../imports/index.js";
 import type { LeadRowContacts, LeadRowReading } from "./lead-row.js";
 
 const COLUMN_OF: Readonly<Record<ContactKind, Sql>> = {
@@ -71,6 +72,8 @@ export interface LeadLookups {
   hasLead(personId: string): boolean;
   isBlocked(contacts: LeadRowContacts): boolean;
   hasDestination(name: string): boolean;
+  /** Whether the contacts are an erased customer's: only a Google Sheet's import asks (M6). */
+  isErased(contacts: LeadRowContacts): boolean;
 }
 
 const KINDS: readonly { kind: ContactKind; key: keyof LeadRowContacts }[] = [
@@ -87,7 +90,12 @@ interface StoredPerson {
 }
 
 /** Everything the rows' contacts, leads and destinations need, in one query per kind for all of them. */
-export async function lookUpLeadRows(tx: OrgTx, rows: readonly LeadRowReading[]): Promise<LeadLookups> {
+export async function lookUpLeadRows(
+  tx: OrgTx,
+  rows: readonly LeadRowReading[],
+  /** Given for a Google Sheet's import: which of the rows' contacts are an erased customer's (M6). */
+  findErased?: ImportJobDependencies["sheetErasedContacts"],
+): Promise<LeadLookups> {
   const enquiries = rows.flatMap((row) => (row.kind === "enquiry" ? [row] : []));
   const valuesOf = (key: keyof LeadRowContacts) => [...new Set(enquiries.flatMap((row) => row.contacts[key] ?? []))];
   const people = new Map<string, StoredPerson>();
@@ -120,6 +128,11 @@ export async function lookUpLeadRows(tx: OrgTx, rows: readonly LeadRowReading[])
           (contact) => `${contact.kind}:${contact.value}`,
         ),
   );
+  const allContacts = KINDS.flatMap(({ kind, key }) =>
+    [...new Set(rows.flatMap((row) => row.contacts[key] ?? []))].map((value) => ({ kind, value })),
+  );
+  const erased =
+    findErased === undefined || allContacts.length === 0 ? new Set<string>() : await findErased(tx, allContacts);
   const destinationNames = [
     ...new Set(enquiries.flatMap((row) => (row.destinationName === null ? [] : [row.destinationName.toLowerCase()]))),
   ];
@@ -150,5 +163,7 @@ export async function lookUpLeadRows(tx: OrgTx, rows: readonly LeadRowReading[])
     isBlocked: (contacts) =>
       KINDS.some(({ kind, key }) => contacts[key] !== null && blocked.has(`${kind}:${contacts[key]}`)),
     hasDestination: (name) => destinations.has(name.toLowerCase()),
+    isErased: (contacts) =>
+      KINDS.some(({ kind, key }) => contacts[key] !== null && erased.has(`${kind}:${contacts[key]}`)),
   };
 }

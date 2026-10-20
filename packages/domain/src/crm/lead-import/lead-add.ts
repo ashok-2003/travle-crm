@@ -44,6 +44,7 @@ interface Who {
   access: MemberAccess;
   defaultOwner: string;
   sheetFingerprints: ImportJobDependencies["sheetFingerprints"];
+  sheetErasedContacts: ImportJobDependencies["sheetErasedContacts"];
 }
 
 /** Decides and saves up to `limit` rows, stopping early once the time box has passed. */
@@ -71,7 +72,7 @@ async function addRows(
       const decision = {
         ...who,
         batch,
-        lookups: await lookUpLeadRows(tx, readings),
+        lookups: await lookUpLeadRows(tx, readings, file.fromSheet ? who.sheetErasedContacts : undefined),
         earlier: await earlierAnywhere(tx, who.sheetFingerprints, fingerprints, importId),
         timeZone: file.timeZone,
         now: new Date(),
@@ -141,6 +142,7 @@ export async function addLeadBatch(
     access: resolved.access,
     defaultOwner: await defaultOwnerOf(dependencies, batch, workers),
     sheetFingerprints: dependencies.sheetFingerprints,
+    sheetErasedContacts: dependencies.sheetErasedContacts,
   };
   const run = () => addRows(context, batch.id, file, who, ROWS_PER_BATCH, options.timeBoxMs ?? BATCH_TIME_BOX_MS);
   try {

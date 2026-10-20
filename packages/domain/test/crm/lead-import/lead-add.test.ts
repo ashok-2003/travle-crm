@@ -18,6 +18,7 @@ import {
 } from "../../../src/imports/index.js";
 import type { ListenerContext } from "../../../src/jobs/index.js";
 import { systemActor } from "../../../src/kernel/index.js";
+import { createSheetsHashes, findTombstones } from "../../../src/sheets/index.js";
 import { aRow } from "../../imports/support/batches.js";
 import {
   anAgency,
@@ -505,6 +506,46 @@ describe("adding a lead import", () => {
     expect(rows[0]?.leadId).toBe(people.openLead.id);
     const lead = await inOrg((tx) => tx.lead.findUniqueOrThrow({ where: { id: rows[1]?.leadId ?? "" } }));
     expect([lead.source, lead.sourceDetail, lead.returning]).toEqual(["google_sheet", origin.detail, true]);
+  });
+
+  it("leaves a Google Sheet's row for an erased customer out, even when they were erased between the check and the add (M6)", async () => {
+    const hashes = createSheetsHashes("m6-test-key-m6-test-key-m6-test-key");
+    const [erasedPhone, lateErasedPhone] = [freshPhone(), freshPhone()] as [string, string];
+    const erase = (phone: string) =>
+      inOrg((tx) => tx.sheetErasedContact.create({ data: { contactHash: hashes.contactHash("phone", phone) } }));
+    await erase(erasedPhone);
+    const origin = {
+      detail: "Goa Diwali campaign · Form responses 1",
+      timeZone: "Asia/Kolkata",
+      monthFirstDates: false,
+    };
+    const sheet: ImportJobDependencies = {
+      ...dependencies(),
+      sheetOrigin: () => Promise.resolve(origin),
+      sheetErasedContacts: (tx, contacts) => findTombstones(tx, hashes, contacts),
+    };
+    const { id } = await aLeadImport(test, importer, {
+      header: HEADER,
+      fields: FIELDS,
+      rows: [row("Erased", erasedPhone), row("Late", lateErasedPhone), row("Fresh", freshPhone())],
+      seed: { sourceSheetId: randomUUID() },
+    });
+    await checkLeadImportListener(sheet).handle(stepEvent(organizationId, "import.columns-matched", id), context());
+    expect((await rowsOf(id)).map((stored) => [stored.plan, stored.reasons[0] ?? null])).toEqual([
+      ["not_added", "erased"],
+      ["new", null],
+      ["new", null],
+    ]);
+    await erase(lateErasedPhone);
+    await requestImportAdd(test.db, importer, "leads", id, new Date());
+    await addLeadImportListener(sheet).handle(stepEvent(organizationId, "import.add-requested", id), context());
+    expect((await rowsOf(id)).map((stored) => [stored.outcome, stored.reasons[0] ?? null])).toEqual([
+      ["not_added", "erased"],
+      ["left_out", "erased"],
+      ["added", null],
+    ]);
+    const leads = await inOrg((tx) => tx.lead.findMany({ include: { person: true } }));
+    expect(leads.map((lead) => lead.person.name)).not.toContain("Late");
   });
 
   it("ends a batch by the clock as well as by its rows, so no transaction nears the database's limit (I1x)", async () => {
