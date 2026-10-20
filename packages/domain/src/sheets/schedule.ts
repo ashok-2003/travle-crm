@@ -60,6 +60,7 @@ export interface ScheduleRow {
   sheetId: string;
   organizationId: string;
   serviceAccountIndex: number;
+  serviceAccountEmail?: string | null;
   nextCheckAt: Date;
 }
 
@@ -72,9 +73,10 @@ export async function upsertScheduleRow(db: Database, row: ScheduleRow): Promise
         id: row.sheetId,
         organizationId: row.organizationId,
         serviceAccountIndex: row.serviceAccountIndex,
+        serviceAccountEmail: row.serviceAccountEmail ?? null,
         nextCheckAt: row.nextCheckAt,
       },
-      update: { serviceAccountIndex: row.serviceAccountIndex },
+      update: { serviceAccountIndex: row.serviceAccountIndex, serviceAccountEmail: row.serviceAccountEmail ?? null },
     });
   });
 }
@@ -163,4 +165,28 @@ export async function dropUnusedClaims(tx: OrgTx, before: Date): Promise<number>
     WHERE k.created_at < ${before}
       AND NOT EXISTS (
         SELECT 1 FROM sheet_connection c WHERE c.claim_id = k.id AND c.status <> 'disconnected')`;
+}
+
+/**
+ * The scheduled sheets whose service account is not where it was when they were connected: the list was reordered, or an
+ * account taken out (SC9). Each is the address and the place it was given and now holds, so the worker can refuse to
+ * start with a message that names them, instead of finding sheets it can no longer open. Rows made before the address
+ * was kept have none and are not asked.
+ */
+export async function strandedServiceAccounts(
+  db: Database,
+  accounts: readonly { index: number; email: string }[],
+): Promise<{ email: string; index: number; nowThere: string | null }[]> {
+  const rows = await db.withoutOrg((tx) =>
+    sheetSchedule(tx).findMany({
+      where: { serviceAccountEmail: { not: null } },
+      distinct: ["serviceAccountIndex", "serviceAccountEmail"],
+      select: { serviceAccountIndex: true, serviceAccountEmail: true },
+    }),
+  );
+  return rows.flatMap((row) => {
+    const email = row.serviceAccountEmail ?? "";
+    const nowThere = accounts.find((account) => account.index === row.serviceAccountIndex)?.email ?? null;
+    return nowThere === email ? [] : [{ email, index: row.serviceAccountIndex, nowThere }];
+  });
 }

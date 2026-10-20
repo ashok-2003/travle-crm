@@ -1,5 +1,7 @@
 // The Google Sheets settings (spec 14): the service accounts' keys, decoded from GOOGLE_SHEETS_SERVICE_ACCOUNTS. Nothing
 // in an error or a log ever holds a part of the value: it is a secret.
+import type { Database } from "@travel-crm/db";
+import { strandedServiceAccounts } from "@travel-crm/domain/sheets";
 import type { ServiceAccountKey } from "@travel-crm/integrations/google-sheets";
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
@@ -44,4 +46,24 @@ export function decodeServiceAccounts(text: string): ServiceAccountKey[] | null 
 export function sheetsStartUpLine(accountCount: number): string {
   if (accountCount === 0) return "Google Sheets: not set up";
   return `Google Sheets: ${String(accountCount)} service account${accountCount === 1 ? "" : "s"}`;
+}
+
+/**
+ * Refuses to start when the list of accounts is no longer the one the connected sheets were shared with (SC9): an account
+ * reordered or taken out would leave sheets that can't be opened, found only as Lost access. The message names the
+ * addresses, never a key. Add accounts at the end of the list only.
+ */
+export async function assertServiceAccountsInPlace(
+  db: Database,
+  accounts: readonly { index: number; email: string }[],
+): Promise<void> {
+  const stranded = await strandedServiceAccounts(db, accounts);
+  if (stranded.length === 0) return;
+  const lines = stranded.map(
+    ({ email, index, nowThere }) =>
+      `${email} was account ${String(index + 1)} and ${nowThere === null ? "is gone" : `is now ${nowThere}`}`,
+  );
+  throw new Error(
+    `GOOGLE_SHEETS_SERVICE_ACCOUNTS no longer matches the sheets connected: ${lines.join("; ")}. Put the list back as it was and add accounts at its end.`,
+  );
 }

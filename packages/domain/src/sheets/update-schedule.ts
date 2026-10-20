@@ -42,6 +42,7 @@ export function scheduleListener(dependencies: {
         sheetId: sheet.id,
         organizationId: sheet.organizationId,
         serviceAccountIndex: sheet.serviceAccountIndex,
+        serviceAccountEmail: sheet.serviceAccountEmail,
         // The first check is at a random moment within the first interval, so connections never all read at once.
         nextCheckAt: new Date(
           Date.now() + firstCheckSeconds(dependencies.checkIntervalSeconds, dependencies.random) * 1000,

@@ -5,7 +5,7 @@ import { startWorker } from "@travel-crm/domain/jobs";
 import { describeError } from "@travel-crm/integrations/jobs";
 import { checkXlsxReading } from "@travel-crm/integrations/spreadsheets";
 import { workerProblemLine } from "./process-log.js";
-import { sheetsStartUpLine } from "./sheets-settings.js";
+import { assertServiceAccountsInPlace, sheetsStartUpLine } from "./sheets-settings.js";
 import { startProcess, stopOnUnhandledErrors } from "./start-up.js";
 import { webhookProviders } from "./webhook-providers.js";
 import { workerJobs } from "./worker-jobs.js";
@@ -19,6 +19,7 @@ const {
   running: worker,
 } = await startProcess("worker", async ({ environment, services, log }) => {
   await checkXlsxReading(services.spreadsheets);
+  if (services.google !== null) await assertServiceAccountsInPlace(services.db, services.google.accounts());
   return startWorker({
     db: services.db,
     runner: services.jobs,

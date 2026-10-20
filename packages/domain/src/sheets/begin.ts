@@ -96,6 +96,7 @@ export async function beginSheet(
           sheetLocale: description.locale.slice(0, 20),
           sheetTimeZone: description.timeZone.slice(0, 64),
           serviceAccountIndex,
+          serviceAccountEmail: google.accounts()[serviceAccountIndex]?.email ?? null,
           connectedBy: access.userId,
           impersonatedBy: access.impersonatedBy,
           claimId,

@@ -1,11 +1,13 @@
 // The check schedule (S36, spec 5): a row for a sheet that is checked, none for one that is not, the same when run twice;
 // the dispatcher's claim takes the most overdue first, skips what is claimed and what is another account's, and holds
 // what it takes for five minutes.
+import { randomUUID } from "node:crypto";
 import { afterAll, describe, expect, it } from "vitest";
 import {
   claimDueSheets,
   finishScheduledCheck,
   removeScheduleRow,
+  strandedServiceAccounts,
   scheduleRowOf,
   upsertScheduleRow,
 } from "../../src/sheets/schedule.js";
@@ -153,5 +155,37 @@ describe("claimDueSheets", () => {
       expect(wait).toBeGreaterThanOrEqual(low - 1_000);
       expect(wait).toBeLessThanOrEqual(high + 5_000);
     }
+  });
+});
+
+describe("the service accounts in place", () => {
+  it("names the sheets whose account was reordered or taken out, and nothing for a list as it was or an append", async () => {
+    const agency = await anAgency(test, "Accounts agency");
+    const a = "sheets-1@travel-crm-test.iam.gserviceaccount.com";
+    const b = "sheets-2@travel-crm-test.iam.gserviceaccount.com";
+    const c = "sheets-3@travel-crm-test.iam.gserviceaccount.com";
+    const sheetId = randomUUID();
+    await upsertScheduleRow(test.db, {
+      sheetId,
+      organizationId: agency,
+      serviceAccountIndex: 1,
+      serviceAccountEmail: b,
+      nextCheckAt: new Date(),
+    });
+    // Another row from before the address was kept is not asked.
+    await upsertScheduleRow(test.db, {
+      sheetId: randomUUID(),
+      organizationId: agency,
+      serviceAccountIndex: 5,
+      nextCheckAt: new Date(),
+    });
+    const list = (...emails: string[]) => emails.map((email, index) => ({ index, email }));
+    // Other files' rows share the table: only this row's address is looked at.
+    const mine = async (...emails: string[]) =>
+      (await strandedServiceAccounts(test.db, list(...emails))).filter((row) => row.email === b);
+    expect(await mine(a, b)).toEqual([]);
+    expect(await mine(a, b, c)).toEqual([]);
+    expect(await mine(b, a)).toEqual([{ email: b, index: 1, nowThere: a }]);
+    expect(await mine(a)).toEqual([{ email: b, index: 1, nowThere: null }]);
   });
 });

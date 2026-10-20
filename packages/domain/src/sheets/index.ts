@@ -66,7 +66,7 @@ export {
   sheetsDispatchSchedule,
   type DispatchDependencies,
 } from "./dispatch.js";
-export { finishScheduledCheck } from "./schedule.js";
+export { finishScheduledCheck, strandedServiceAccounts } from "./schedule.js";
 export { sweepSheets, type SheetsSwept } from "./sweep.js";
 export { type ErasedContacts, lockSheetConnections, type SheetsWithdrawn, withdrawSheetRows } from "./erasure.js";
 export { assertNoSheetCheckSaving, lockAddAgainstChecks } from "./guards.js";
