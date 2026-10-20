@@ -11,7 +11,7 @@ import { createFiles, type Files } from "@travel-crm/domain/files";
 import { createIdentity, type AuthSettings, type Identity, type SeatLimit } from "@travel-crm/domain/identity";
 import { createProfiles } from "@travel-crm/domain/profile";
 import type { SheetsHashes } from "@travel-crm/domain/sheets";
-import { createRateLimiter } from "@travel-crm/domain/rate-limits";
+import { createRateLimiter, type RateLimiter } from "@travel-crm/domain/rate-limits";
 import { createSubscriptionAccess, planLimits, type SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import type { WebhookProvider } from "@travel-crm/domain/webhooks";
 import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
@@ -69,6 +69,8 @@ export interface TestServerOptions {
   /** Google Sheets for the sheet sync's procedures: off unless given (with the hashes). */
   google?: GoogleSheets;
   sheetsHashes?: SheetsHashes;
+  /** The rate limiter the app counts with; the real one on the database unless a file needs another. */
+  rateLimiter?: RateLimiter;
   /** The database to run on: the test run's shared one, unless a file needs one of its own (createIsolatedDatabase). */
   dbUrls?: DbUrls;
 }
@@ -100,7 +102,8 @@ export function createTestServer(settings: Partial<AuthSettings> = {}, options: 
     google: options.google ?? null,
     sheetsHashes: options.sheetsHashes ?? null,
     queue: options.queue ?? createMemoryJobQueue(),
-    rateLimiter: createRateLimiter(db, { keySecret: "test-server-rate-limit-secret-of-32-bytes" }),
+    rateLimiter:
+      options.rateLimiter ?? createRateLimiter(db, { keySecret: "test-server-rate-limit-secret-of-32-bytes" }),
     clientAddress: clientAddressFrom({ headerNames: ["x-forwarded-for"], trustedProxies: [] }),
     webhookProviders: options.webhookProviders ?? [],
     log: options.log ?? processLog("api"),

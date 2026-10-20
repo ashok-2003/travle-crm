@@ -27,6 +27,7 @@ import {
   confirmSheet,
   disconnectSheet,
   hideProblem,
+  limitSheetReads,
   listSheets,
   matchSheetColumns,
   pauseSheet,
@@ -105,6 +106,7 @@ export const leadSheetsRouter = router({
     .input(beginSheetInput)
     .output(started)
     .mutation(async ({ ctx, input }) => {
+      await limitSheetReads(ctx.rateLimiter, ctx.member.organizationId);
       const link = parseSheetLink(input.link);
       if (link === null)
         throw new DomainError("VALIDATION", "SHEET_LINK_INVALID", "That is not a link to a Google Sheet");
@@ -115,22 +117,22 @@ export const leadSheetsRouter = router({
   verify: manager
     .input(verifySheetInput)
     .output(sheetColumnsView)
-    .mutation(({ ctx, input }) =>
-      verifySheet(
+    .mutation(async ({ ctx, input }) => {
+      await limitSheetReads(ctx.rateLimiter, ctx.member.organizationId);
+      return verifySheet(
         ctx.db,
         { google: ctx.google, hashes: ctx.sheetsHashes },
         ctx.identity,
         ctx.member,
         input,
         new Date(),
-      ),
-    ),
+      );
+    }),
 
-  chooseTab: manager
-    .input(chooseSheetTabInput)
-    .mutation(({ ctx, input }) =>
-      chooseSheetTab(ctx.db, { google: ctx.google, hashes: ctx.sheetsHashes }, ctx.member, input, new Date()),
-    ),
+  chooseTab: manager.input(chooseSheetTabInput).mutation(async ({ ctx, input }) => {
+    await limitSheetReads(ctx.rateLimiter, ctx.member.organizationId);
+    return chooseSheetTab(ctx.db, { google: ctx.google, hashes: ctx.sheetsHashes }, ctx.member, input, new Date());
+  }),
 
   /** Step 2's Next: the columns' fields and the Owner values matched by hand. */
   match: manager.input(matchSheetColumnsInput).mutation(async ({ ctx, input }) => {
@@ -159,11 +161,10 @@ export const leadSheetsRouter = router({
     ),
 
   /** Check again, for Lost access or Tab missing, on another tab if asked (S39, S40). */
-  recheck: manager
-    .input(recheckSheetInput)
-    .mutation(({ ctx, input }) =>
-      recheckSheet(ctx.db, { google: ctx.google, hashes: ctx.sheetsHashes }, ctx.member, input, new Date()),
-    ),
+  recheck: manager.input(recheckSheetInput).mutation(async ({ ctx, input }) => {
+    await limitSheetReads(ctx.rateLimiter, ctx.member.organizationId);
+    return recheckSheet(ctx.db, { google: ctx.google, hashes: ctx.sheetsHashes }, ctx.member, input, new Date());
+  }),
 
   hideProblem: manager
     .input(hideProblemInput)

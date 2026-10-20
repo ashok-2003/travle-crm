@@ -166,4 +166,29 @@ describe("verifySheet", () => {
       ownerValues: null,
     });
   });
+
+  it("reads only the header and a few rows, and one column for the number of rows and one for the Owner values, never the tab", async () => {
+    const rows = [
+      ["Name", "Phone", "Handled by"],
+      ...Array.from({ length: 300 }, (_, index) => [
+        `Person ${String(index)}`,
+        `98765${String(10000 + index)}`,
+        index % 2 === 0 ? "Asha" : "Neha",
+      ]),
+    ];
+    const { verify } = await setup(rows, { asha: "0199a000-0000-7000-8000-000000000001" });
+    const before = { ...test.google.calls };
+    const view = await verify();
+    expect(view.rowCount).toBe(300);
+    // One describe (its rows are the samples), one read of the first column, and one of the Owner column that
+    // "Handled by" was guessed to be: single columns, not the tab.
+    expect(test.google.calls.reads - before.reads).toBe(2);
+    const withOwner = await verify("handledby");
+    expect(withOwner.ownerValues?.map(({ value, rows: count }) => [value, count])).toEqual([
+      ["Asha", 150],
+      ["Neha", 150],
+    ]);
+    expect(test.google.calls.reads - before.reads).toBe(4);
+    expect(view.columns[0]?.samples).toEqual(["Person 0", "Person 1", "Person 2"]);
+  });
 });

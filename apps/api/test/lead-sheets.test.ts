@@ -3,6 +3,7 @@
 // not being set up. The worker's work is run by hand in lead-sheets-flow.test.ts.
 import { randomUUID } from "node:crypto";
 import type { SheetColumnsView, SheetDetail, SheetList } from "@travel-crm/contracts/sheets";
+import type { RateLimiter } from "@travel-crm/domain/rate-limits";
 import { createSheetsHashes, maxSheetsPerOrganization } from "@travel-crm/domain/sheets";
 import { createMemoryGoogleSheets, type MemoryGoogleSheets } from "@travel-crm/integrations/google-sheets";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -14,6 +15,9 @@ import { dataOf, mutate, query, refusalOf } from "./support/trpc.js";
 const spreadsheetId = () => `${randomUUID().replaceAll("-", "")}-sheet_${randomUUID().slice(0, 6)}`;
 const linkTo = (id: string, gid?: string) =>
   `https://docs.google.com/spreadsheets/d/${id}/edit${gid === undefined ? "" : `#gid=${gid}`}`;
+const unlimited: RateLimiter = {
+  hit: () => Promise.resolve({ allowed: true, remaining: 99, retryAfterSeconds: 0 }),
+};
 const header = ["Timestamp", "Full name", "Phone number", "Email Address"];
 
 describe("the Google Sheets sync over HTTP", () => {
@@ -28,7 +32,11 @@ describe("the Google Sheets sync over HTTP", () => {
   beforeAll(async () => {
     google = createMemoryGoogleSheets();
     accountEmail = google.accounts()[0]?.email ?? "";
-    server = createTestServer({}, { google, sheetsHashes: createSheetsHashes("test-sheets-hash-key-0123456789-abc") });
+    // The steps of many tests run in a minute: the limit has its own test below.
+    server = createTestServer(
+      {},
+      { google, sheetsHashes: createSheetsHashes("test-sheets-hash-key-0123456789-abc"), rateLimiter: unlimited },
+    );
     agency = await createTestAgency(server);
     owner = await signedInOwner(server, agency);
     admin = await signedInStaff(
@@ -312,5 +320,32 @@ describe("the Google Sheets sync over HTTP", () => {
       ),
     );
     expect((await detail(sheetId)).counts.couldntBeAdded).toBe(0);
+  });
+
+  it("limits how often an agency may make us read Google by hand, and counts each agency alone", async () => {
+    const limited = createTestServer(
+      {},
+      { google, sheetsHashes: createSheetsHashes("test-sheets-hash-key-0123456789-abc") },
+    );
+    try {
+      const own = await createTestAgency(limited);
+      const jar = await signedInOwner(limited, own);
+      const other = await createTestAgency(limited);
+      const otherJar = await signedInOwner(limited, other);
+      const id = aSheet();
+      let refused = 0;
+      for (let call = 0; call < 20; call += 1) {
+        const response = await mutate(limited, "leadSheets.begin", { link: linkTo(id) }, jar);
+        const refusal = response.ok ? null : await refusalOf(response);
+        if (refusal?.reason === "SHEETS_TOO_FAST") refused += 1;
+      }
+      // 15 reads a minute are allowed; the rest are told to wait.
+      expect(refused).toBe(5);
+      // Another agency is not held back by it.
+      const fine = await mutate(limited, "leadSheets.begin", { link: linkTo(aSheet()) }, otherJar);
+      expect(fine.ok).toBe(true);
+    } finally {
+      await limited.close();
+    }
   });
 });

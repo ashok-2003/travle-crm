@@ -118,6 +118,7 @@ export function createApp(dependencies: ServerDependencies): Hono {
             pushPublicKey,
             google,
             sheetsHashes,
+            rateLimiter,
             // An import's Add waits while a sheet's check is saving rows (S26).
             addGuards: [assertNoSheetCheckSaving],
           },

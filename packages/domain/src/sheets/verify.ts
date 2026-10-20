@@ -13,7 +13,7 @@ import { findSheet, type SheetConnectionRow, sheetNotReady } from "./connection-
 import type { SheetsDependencies } from "./dependencies.js";
 import { notSetUp, refusalFor } from "./google-refusals.js";
 import { nameColumns } from "./header-keys.js";
-import { maxCellLength, maxSheetColumns, maxSheetRows } from "./limits.js";
+import { maxCellLength, maxSheetRows } from "./limits.js";
 
 type OwnerMatcher = Pick<Identity, "matchLeadWorkers">;
 
@@ -25,10 +25,17 @@ interface TabReading {
   tab: { gid: string; title: string };
   sheetTitle: string;
   header: readonly string[];
-  rows: readonly (readonly string[])[];
+  /** The first few rows, which describe gives with the header. */
+  sampleRows: readonly (readonly string[])[];
+  /** One column's cells below the header, to the row limit: asked for alone, never the whole tab (SC2). */
+  column(index: number): Promise<string[]>;
 }
 
-/** The tab as Google shows it now: its tabs, its header, and its rows to the limit. The tab named must still exist. */
+/**
+ * The tab as Google shows it now: its tabs, its header and its first rows (one describe), and a way to read a single
+ * column of it. The tab named must still exist. The whole tab is never read here: the api's request is a person's, on the
+ * shared account's quota.
+ */
 export async function readTab(
   dependencies: SheetsDependencies,
   sheet: Pick<SheetConnectionRow, "spreadsheetId" | "serviceAccountIndex">,
@@ -40,19 +47,27 @@ export async function readTab(
     const description = await google.describe(sheet.serviceAccountIndex, sheet.spreadsheetId, { tabGid });
     const chosen = description.chosenTab;
     if (chosen?.gid !== tabGid) throw sheetNotReady();
-    const read = await google.readRows(sheet.serviceAccountIndex, sheet.spreadsheetId, {
-      tabTitle: chosen.title,
-      fromRow: 2,
-      maxRows: maxSheetRows,
-      maxColumns: maxSheetColumns,
-      maxCellLength,
-    });
     return {
       tabs: description.tabs.filter((tab) => tab.isGrid).map((tab) => ({ gid: tab.gid, title: tab.title })),
       tab: { gid: chosen.gid, title: chosen.title },
       sheetTitle: description.title,
-      header: read.header,
-      rows: read.rows.map((row) => row.cells).filter((cells) => cells.some((cell) => cell.trim() !== "")),
+      header: description.header,
+      sampleRows: description.sampleRows,
+      column: async (index) => {
+        try {
+          const read = await google.readRows(sheet.serviceAccountIndex, sheet.spreadsheetId, {
+            tabTitle: chosen.title,
+            fromRow: 2,
+            maxRows: maxSheetRows,
+            fromColumn: index,
+            maxColumns: 1,
+            maxCellLength,
+          });
+          return read.rows.map((row) => row.cells[0] ?? "");
+        } catch (error) {
+          throw refusalFor(error);
+        }
+      },
     };
   } catch (error) {
     throw refusalFor(error);
@@ -174,7 +189,7 @@ export async function verifySheet(
     );
     const keptFields = new Set(columns.flatMap((column) => (nothingMatched ? [] : (column.field ?? []))));
     const taken = new Set<SheetField>(keptFields);
-    const samples = samplesOf(reading.rows, named.length);
+    const samples = samplesOf(reading.sampleRows, named.length);
     const view = named.map(({ header, key }, index) => {
       const column = byKey.get(key);
       const guess = toGuess[index] === true ? guesses[index] : undefined;
@@ -197,7 +212,14 @@ export async function verifySheet(
 
   const ownerKey = input.valuesOf ?? view.find((column) => column.field === "owner")?.headerKey ?? null;
   const ownerColumn = ownerKey === null ? undefined : view.find((column) => column.headerKey === ownerKey);
-  const listed = ownerColumn === undefined ? null : valuesOf(reading.rows, ownerColumn.index);
+  // Only the Owner column is read whole, and the first column for the number of rows: one column each, not the tab.
+  const listed =
+    ownerColumn === undefined
+      ? null
+      : valuesOf(
+          (await reading.column(ownerColumn.index)).map((cell) => [cell]),
+          0,
+        );
   const ownerValues =
     listed === null ? null : await ownerValuesFor(db, identity, access.organizationId, sheet.id, listed);
 
@@ -205,7 +227,7 @@ export async function verifySheet(
     sheetTitle: reading.sheetTitle,
     tabs: reading.tabs,
     tabGid: reading.tab.gid,
-    rowCount: reading.rows.length,
+    rowCount: (await reading.column(0)).filter((cell) => cell.trim() !== "").length,
     columns: view.map(({ headerKey, header, samples, field, guessedBy, isNew }) => ({
       headerKey,
       header,

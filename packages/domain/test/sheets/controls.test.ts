@@ -28,6 +28,8 @@ const test = createTestSheets();
 afterAll(() => test.close());
 const setup = () => setupSheet(test);
 const now = new Date();
+/** A minute on: the earlier requests of a test are no longer within half a minute. */
+const later = new Date(Date.now() + 60_000);
 
 describe("Sync now", () => {
   it("refuses Sync now within 30 seconds of the last check or while one runs, with SHEET_BUSY", async () => {
@@ -219,9 +221,9 @@ describe("Check again", () => {
     await lost.check("sync-now");
     expect((await lost.state()).status).toBe("tab_missing");
     await expect(
-      recheckSheet(test.db, test.dependencies, manager, { sheetId: lost.sheet.sheetId, tabGid: "404" }, now),
+      recheckSheet(test.db, test.dependencies, manager, { sheetId: lost.sheet.sheetId, tabGid: "404" }, later),
     ).rejects.toMatchObject({ reason: "SHEET_NOT_READY" });
-    await recheckSheet(test.db, test.dependencies, manager, { sheetId: lost.sheet.sheetId, tabGid: "9" }, now);
+    await recheckSheet(test.db, test.dependencies, manager, { sheetId: lost.sheet.sheetId, tabGid: "9" }, later);
     expect(await lost.state()).toMatchObject({ tabGid: "9", tabTitle: "Renamed answers", status: "connecting" });
     // The chosen tab is baselined as at connect (its rows are never added); then the sheet runs on it.
     await runListener(test, baselineListener(jobDependencies(test, lost.identity)), lost.agency, {
@@ -249,7 +251,7 @@ describe("Check again", () => {
     test.google.share(id, test.accountEmail);
     await running.check("sync-now");
     expect((await running.state()).status).toBe("tab_missing");
-    await recheckSheet(test.db, test.dependencies, manager, { sheetId: running.sheet.sheetId, tabGid: "9" }, now);
+    await recheckSheet(test.db, test.dependencies, manager, { sheetId: running.sheet.sheetId, tabGid: "9" }, later);
     await runListener(test, baselineListener(jobDependencies(test, running.identity)), running.agency, {
       type: "sheet.baseline-requested",
       payload: { sheetId: running.sheet.sheetId },
@@ -264,6 +266,25 @@ describe("Check again", () => {
     test.google.append(id, "Archive", answer("Fresh", freshPhone(), 9));
     await running.check("sync-now");
     expect((await running.leads()).map((lead) => lead.person.name)).toEqual(["Fresh"]);
+  });
+
+  it("refuses Check again twice within half a minute, and while a check runs, with SHEET_BUSY, as Sync now is", async () => {
+    const lost = await setup();
+    const manager = memberOf(lost.agency);
+    await lost.inOrg((tx) =>
+      tx.sheetConnection.update({ where: { id: lost.sheet.sheetId }, data: { status: "lost_access" } }),
+    );
+    await recheckSheet(test.db, test.dependencies, manager, { sheetId: lost.sheet.sheetId }, new Date());
+    await expect(
+      recheckSheet(test.db, test.dependencies, manager, { sheetId: lost.sheet.sheetId }, new Date()),
+    ).rejects.toMatchObject({ reason: "SHEET_BUSY" });
+    // A check running holds it too, however long ago a request went out.
+    await lost.inOrg((tx) =>
+      tx.sheetConnection.update({ where: { id: lost.sheet.sheetId }, data: { checkStartedAt: new Date() } }),
+    );
+    await expect(
+      recheckSheet(test.db, test.dependencies, manager, { sheetId: lost.sheet.sheetId }, later),
+    ).rejects.toMatchObject({ reason: "SHEET_BUSY" });
   });
 
   it("asks for the baseline again for a sheet that never got one", async () => {

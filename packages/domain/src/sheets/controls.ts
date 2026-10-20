@@ -110,15 +110,10 @@ export async function disconnectSheet(db: Database, access: MemberAccess, sheetI
   if (claimId !== null) await releaseClaimIfUnused(db, access.organizationId, claimId);
 }
 
-/**
- * Sync now (S38): a full read, ending the wait of S29, for a running sheet. Refused with SHEET_BUSY within 30 seconds of
- * the last check, while one runs, or when a request is already on its way.
- */
-export async function requestSyncNow(tx: OrgTx, sheetId: string, now: Date): Promise<void> {
-  const sheet = await heldAt(tx, sheetId, ["running"]);
-  const cooling =
-    sheet.lastCheckedAt !== null && now.getTime() - sheet.lastCheckedAt.getTime() < syncCooldownSeconds * 1000;
+/** A check is running (its lease is fresh), or a request for one went out in the last half minute (S38, SD4). */
+async function checkIsUnderWay(tx: OrgTx, sheet: SheetConnectionRow, now: Date): Promise<boolean> {
   const running = sheet.checkStartedAt !== null && now.getTime() - sheet.checkStartedAt.getTime() < claimSeconds * 1000;
+  if (running) return true;
   const asked = await tx.outboxEvent.findFirst({
     where: {
       type: "sheet.sync-requested",
@@ -128,7 +123,18 @@ export async function requestSyncNow(tx: OrgTx, sheetId: string, now: Date): Pro
     },
     select: { id: true },
   });
-  if (cooling || running || asked !== null) throw busy();
+  return asked !== null;
+}
+
+/**
+ * Sync now (S38): a full read, ending the wait of S29, for a running sheet. Refused with SHEET_BUSY within 30 seconds of
+ * the last check, while one runs, or when a request is already on its way.
+ */
+export async function requestSyncNow(tx: OrgTx, sheetId: string, now: Date): Promise<void> {
+  const sheet = await heldAt(tx, sheetId, ["running"]);
+  const cooling =
+    sheet.lastCheckedAt !== null && now.getTime() - sheet.lastCheckedAt.getTime() < syncCooldownSeconds * 1000;
+  if (cooling || (await checkIsUnderWay(tx, sheet, now))) throw busy();
   await publishEvent(tx, { type: "sheet.sync-requested", payload: { sheetId: sheet.id, mode: "sync-now" } });
 }
 
@@ -160,6 +166,8 @@ export async function recheckSheet(
   }
   await db.forOrg(access.organizationId, async (tx) => {
     const held = await heldAt(tx, input.sheetId, ["lost_access", "tab_missing"]);
+    // Check again is no way round Sync now's rule: not while a check runs, nor twice within half a minute.
+    if (await checkIsUnderWay(tx, held, now)) throw busy();
     if (tab !== null && tab.gid !== held.tabGid) {
       const taken = await tx.sheetConnection.findFirst({
         where: {

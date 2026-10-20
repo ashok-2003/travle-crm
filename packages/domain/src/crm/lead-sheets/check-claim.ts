@@ -41,7 +41,7 @@ export async function claimCheck(
   now: Date,
 ): Promise<Claim> {
   const { db, holds, checkIntervalSeconds } = dependencies;
-  const { organizationId, sheetId, mode } = input;
+  const { organizationId, sheetId } = input;
   const skip = (nextCheckInSeconds: number, keepSchedule = true): Claim => ({
     kind: "skip",
     outcome: { result: "skipped", nextCheckInSeconds, keepSchedule },
@@ -56,7 +56,8 @@ export async function claimCheck(
     until !== null && until > now ? [until] : [],
   );
   if (waits.length > 0) return skip(secondsUntil(now, new Date(Math.max(...waits.map((until) => until.getTime())))));
-  if (mode === "scheduled" && startedRecently(sheet, now)) return skip(checkIntervalSeconds);
+  // A check whose lease is fresh is the only one: a person's Sync now or Check again waits for it, as the schedule does.
+  if (startedRecently(sheet, now)) return skip(checkIntervalSeconds);
   if (await db.forOrg(organizationId, (tx) => isAnyImportAdding(tx))) return skip(IMPORT_WAIT_SECONDS);
 
   const resolved = await connectorAccess(dependencies, sheet);
@@ -76,7 +77,7 @@ export async function claimCheck(
   const claimed = await db.forOrg(organizationId, async (tx) => {
     const held = await holdSheet(tx, sheetId);
     if (held === null || !checkable.has(held.status)) return null;
-    if (mode === "scheduled" && startedRecently(held, now)) return null;
+    if (startedRecently(held, now)) return null;
     await tx.sheetConnection.update({ where: { id: sheetId }, data: { checkStartedAt: now } });
     // The connector can act again: the sheet needs no manager (S34).
     if (held.status === "needs_manager") await leaveAttention(tx, held);

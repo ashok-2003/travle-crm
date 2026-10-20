@@ -17,9 +17,10 @@ export function refusalFor(error: unknown): unknown {
       return new DomainError("VALIDATION", "SHEET_NOT_GOOGLE_SHEET", "The file is not a Google Sheet");
     case "tab_missing":
       return new DomainError("CONFLICT", "SHEET_NOT_READY", "The sheet's tab is not there any more");
+    case "too_large":
+      return new DomainError("VALIDATION", "SHEET_TOO_LARGE", "The sheet is too large to read");
     case "rate_limited":
     case "unavailable":
-    case "too_large":
       return new DomainError("CONFLICT", "SHEETS_UNAVAILABLE", "Google is not answering");
   }
 }

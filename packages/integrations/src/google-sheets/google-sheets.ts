@@ -38,6 +38,8 @@ export interface ReadRowsOptions {
   fromRow: number;
   /** At most this many rows from `fromRow`; `truncated` says the tab held more. */
   maxRows: number;
+  /** The first column to give, 0 for A (the default): a read of one column asks for that column alone (SC2). */
+  fromColumn?: number;
   maxColumns: number;
   maxCellLength: number;
 }

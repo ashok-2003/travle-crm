@@ -151,7 +151,11 @@ export function createMemoryGoogleSheets(options: { accountEmails?: readonly str
         const available = lastRowWithValue(tab.rows, fromRow, tab.rows.length);
         const last = Math.min(available, lastWanted);
         const wanted = tab.rows.slice(fromRow - 1, last);
-        const shaped = shapeRows([tab.rows[0] ?? [], ...wanted], limits);
+        const fromColumn = readOptions.fromColumn ?? 0;
+        const shaped = shapeRows(
+          [tab.rows[0] ?? [], ...wanted].map((cells) => cells.slice(fromColumn)),
+          limits,
+        );
         const header = shaped[0] ?? [];
         const rows = shaped.slice(1).map((cells, index) => ({ rowNumber: fromRow + index, cells }));
         return {

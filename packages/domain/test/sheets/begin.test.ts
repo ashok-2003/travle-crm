@@ -134,10 +134,13 @@ describe("beginSheet", () => {
     expect(await reasonOf(begin(agency, noRows))).toBe("SHEET_EMPTY");
 
     const busy = aGoogleSheet(test, { id: aSpreadsheetId() });
-    for (const reason of ["rate_limited", "unavailable", "too_large"] as const) {
+    for (const reason of ["rate_limited", "unavailable"] as const) {
       test.google.failNext(reason);
       expect(await reasonOf(begin(agency, busy)), reason).toBe("SHEETS_UNAVAILABLE");
     }
+    // A sheet past what we read has its own sentence.
+    test.google.failNext("too_large");
+    expect(await reasonOf(begin(agency, busy))).toBe("SHEET_TOO_LARGE");
     // Nothing was kept by a failure: no claim, no draft.
     const count = await test.db.forOrg(agency, (tx) => tx.sheetConnection.count());
     expect(count).toBe(0);

@@ -165,12 +165,14 @@ export function createRealGoogleSheets(options: RealGoogleSheetsOptions): Google
 
     async readRows(accountIndex, spreadsheetId, readOptions: ReadRowsOptions): Promise<SheetRead> {
       const fromRow = Math.max(2, readOptions.fromRow);
-      const last = columnLetters(readOptions.maxColumns - 1);
+      const firstIndex = readOptions.fromColumn ?? 0;
+      const first = columnLetters(firstIndex);
+      const last = columnLetters(firstIndex + readOptions.maxColumns - 1);
       const tab = quoted(readOptions.tabTitle);
       // One row past what is wanted tells whether the tab holds more, without fetching a million rows.
       const [headerRows, dataRows] = await valuesOf(accountIndex, spreadsheetId, [
-        `${tab}!A1:${last}1`,
-        `${tab}!A${String(fromRow)}:${last}${String(fromRow + readOptions.maxRows)}`,
+        `${tab}!${first}1:${last}1`,
+        `${tab}!${first}${String(fromRow)}:${last}${String(fromRow + readOptions.maxRows)}`,
       ]);
       const wanted = (dataRows ?? []).slice(0, readOptions.maxRows);
       const shaped = shapeRows([headerRows?.[0] ?? [], ...wanted], readOptions);
