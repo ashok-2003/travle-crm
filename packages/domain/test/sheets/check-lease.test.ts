@@ -2,7 +2,7 @@
 // schedule does, so a person cannot start a second read of the same sheet beside it.
 import { afterAll, describe, expect, it } from "vitest";
 import { answer, setup as setupSheet } from "./support/running.js";
-import { createTestSheets } from "./support/sheets.js";
+import { auditOf, createTestSheets } from "./support/sheets.js";
 import { freshPhone } from "../crm/support/records.js";
 
 const test = createTestSheets();
@@ -22,5 +22,22 @@ describe("a check's lease", () => {
     }
     expect(test.google.calls.reads).toBe(reads);
     expect(await running.leads()).toHaveLength(0);
+  });
+
+  it("runs as the connector, never as support who connected the sheet while impersonating them (SD16)", async () => {
+    const running = await setupSheet(test);
+    await running.inOrg((tx) =>
+      tx.sheetConnection.update({
+        where: { id: running.sheet.sheetId },
+        data: { impersonatedBy: "0199a000-0000-7000-8000-0000000000aa" },
+      }),
+    );
+    running.append(answer("Asha", freshPhone(), 1));
+    await running.check("sync-now");
+    const [lead] = await running.leads();
+    expect(lead).toBeDefined();
+    const entries = await auditOf(test, running.agency, lead?.id ?? "");
+    expect(entries.length).toBeGreaterThan(0);
+    expect(entries.every((entry) => entry.impersonatedBy === null)).toBe(true);
   });
 });

@@ -3,7 +3,7 @@
 // notify the same way; a connector who can no longer manage lead sources makes the sheet need a manager, once.
 import { randomUUID } from "node:crypto";
 import { afterAll, describe, expect, it } from "vitest";
-import { attentionListener } from "../../src/sheets/index.js";
+import { attentionListener, enterAttention } from "../../src/sheets/index.js";
 import { fakeIdentity } from "../imports/support/test-imports.js";
 import { setup as setupSheet } from "./support/running.js";
 import { auditOf, createTestSheets, jobDependencies } from "./support/sheets.js";
@@ -144,5 +144,22 @@ describe("entering an attention state", () => {
     };
     await demoted.check("scheduled", { identity: noPermissions });
     expect((await demoted.state()).status).toBe("needs_manager");
+  });
+
+  it("never undoes a Pause or a Disconnect that came while a check was reading: the failure that follows leaves the sheet as it is", async () => {
+    for (const status of ["paused", "disconnected"] as const) {
+      const sheet = await setupSheet(test);
+      await sheet.inOrg((tx) => tx.sheetConnection.update({ where: { id: sheet.sheet.sheetId }, data: { status } }));
+      const entered = await sheet.inOrg((tx) =>
+        enterAttention(tx, {
+          sheet: { id: sheet.sheet.sheetId, organizationId: sheet.agency, status },
+          state: "lost_access",
+          now: new Date(),
+        }),
+      );
+      expect(entered, status).toBe(false);
+      expect((await sheet.state()).status, status).toBe(status);
+      expect(await sheet.inOrg<number>((tx) => tx.outboxEvent.count({ where: { type: "sheet.attention" } }))).toBe(0);
+    }
   });
 });

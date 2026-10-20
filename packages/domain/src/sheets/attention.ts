@@ -26,14 +26,15 @@ const entered: Record<
 /**
  * Moves the sheet into the attention state, records it by the system actor, and publishes sheet.attention (the notice)
  * and sheet.schedule-changed (it keeps being checked, so sharing again fixes it). False, and nothing recorded, when it
- * is in that state already: the same state twice notifies once (S45).
+ * is in that state already: the same state twice notifies once (S45). A paused or disconnected sheet stays so.
  */
 export async function enterAttention(
   tx: OrgTx,
   input: { sheet: Pick<SheetConnectionRow, "id" | "organizationId" | "status">; state: AttentionState; now: Date },
 ): Promise<boolean> {
   const { sheet, state, now } = input;
-  if (sheet.status === state) return false;
+  // A person's Pause (or Disconnect) that came while a check was reading is never undone by that check's failure (SD8).
+  if (sheet.status === state || sheet.status === "paused" || sheet.status === "disconnected") return false;
   await tx.sheetConnection.update({
     where: { id: sheet.id },
     data: { status: state, attentionSince: now, checkStartedAt: null },

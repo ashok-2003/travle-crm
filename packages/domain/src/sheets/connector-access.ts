@@ -19,7 +19,9 @@ export function connectorAccess(
     {
       organizationId: connection.organizationId,
       userId: connection.connectedBy,
-      impersonatedBy: connection.impersonatedBy,
+      // Support who connected a sheet while signed in as the member did so once, in the audit entries of that day; the
+      // checks that follow, for as long as the sheet runs, are the member's own (SD16).
+      impersonatedBy: null,
     },
     required,
   );
