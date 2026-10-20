@@ -7,7 +7,7 @@ test("Sync now twice is refused; Pause and Resume; Disconnect; connecting again 
   page,
   agency,
 }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(420_000);
   const google = fakeGoogle();
   await signInByEmail(page, agency.owner);
   const form = await aGoogleForm(google, { rows: [answer("Priya Nair", "98450 12345")] });
@@ -42,6 +42,8 @@ test("Sync now twice is refused; Pause and Resume; Disconnect; connecting again 
   await expect(page).toHaveURL(/\/settings\/lead-sources$/);
   await expect(page.getByRole("link", { name: form.title })).toHaveCount(0);
 
+  // The presses of Sync now spent the minute's Google requests (three each, twenty an agency): the next connect waits it out.
+  await page.waitForTimeout(61_000);
   // Connected again, it asks about its rows once more; "only new" adds nothing, and the lead is not made twice.
   await connectSheet(page, { link: form.link, existing: "only_new" });
   await page.goto("/leads?view=everyone&source=google_sheet");
