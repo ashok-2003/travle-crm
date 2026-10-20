@@ -36,6 +36,7 @@ export function sheetsCheckHandler(dependencies: CheckDependencies): JobHandler 
           : outcome.nextCheckInSeconds;
       await finishScheduledCheck(dependencies.db, {
         sheetId,
+        organizationId,
         nextCheckAt: outcome.keepSchedule ? new Date(Date.now() + seconds * 1000) : null,
       });
     },

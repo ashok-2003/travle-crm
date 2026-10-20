@@ -12,7 +12,7 @@ import { notSetUp, refusalFor } from "./google-refusals.js";
 import { accountIndexFor } from "./hashes.js";
 import { nameColumns } from "./header-keys.js";
 import { maxSheetColumns, sheetLimitFor } from "./limits.js";
-import { releaseClaimIfUnused, takeSpreadsheetClaim } from "./claim.js";
+import { assertNotClaimedElsewhere, releaseClaimIfUnused, takeSpreadsheetClaim } from "./claim.js";
 
 const empty = () => new DomainError("VALIDATION", "SHEET_EMPTY", "The first row of this tab is empty");
 
@@ -57,17 +57,15 @@ export async function beginSheet(
     throw new DomainError("CONFLICT", "SHEETS_NOT_IN_DEMO", "Google Sheets is not available in the demo");
   }
   const sheetId = newUuidV7();
+  // A spreadsheet another agency holds is refused before Google is asked, so it says nothing of whether it is shared (SD7).
+  const spreadsheetHash = hashes.spreadsheetHash(input.spreadsheetId);
+  await assertNotClaimedElsewhere(db, access.organizationId, spreadsheetHash);
   // Outside any transaction: a request to Google must not hold a database connection.
   const { description, serviceAccountIndex } = await describeOnAnyAccount(google, sheetId, input);
   const tab = description.chosenTab;
   if (tab === null || description.header.every((cell) => cell.trim() === "")) throw empty();
 
-  const { claimId, created } = await takeSpreadsheetClaim(
-    db,
-    access.organizationId,
-    hashes.spreadsheetHash(input.spreadsheetId),
-    now,
-  );
+  const { claimId, created } = await takeSpreadsheetClaim(db, access.organizationId, spreadsheetHash, now);
   try {
     await db.forOrg(access.organizationId, async (tx) => {
       // The agency's count and its inserts take turns: two people connecting at once can't both take the last place.
@@ -119,6 +117,26 @@ export async function beginSheet(
     if (isUniqueViolation(error)) {
       throw new DomainError("CONFLICT", "SHEET_ALREADY_CONNECTED", "This sheet is already connected here");
     }
+    throw error;
+  }
+  // Another tab's disconnect may have let the claim go between taking it and this draft (SD6): take it again now the draft
+  // is there. Another agency may hold it by now: then the draft goes and the refusal is the generic one.
+  try {
+    const again = await takeSpreadsheetClaim(db, access.organizationId, spreadsheetHash, now);
+    if (again.claimId !== claimId) {
+      await db.forOrg(access.organizationId, (tx) =>
+        tx.sheetConnection.update({ where: { id: sheetId }, data: { claimId: again.claimId } }),
+      );
+    }
+  } catch (error) {
+    await db.forOrg(access.organizationId, async (tx) => {
+      await tx.sheetColumn.deleteMany({ where: { connectionId: sheetId } });
+      // The runtime role never deletes a connection: the draft is let go as a disconnected one, which frees its place.
+      await tx.sheetConnection.update({
+        where: { id: sheetId },
+        data: { status: "disconnected", disconnectedAt: now, claimId: null },
+      });
+    });
     throw error;
   }
   return { sheetId };

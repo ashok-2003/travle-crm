@@ -68,7 +68,7 @@ describe("the schedule listener", () => {
     expect(await scheduleRowOf(test.db, sheetId)).toBeNull();
     // A sheet that is gone has nothing to schedule, and removing a row that isn't there is harmless.
     await changed(agency, newUuidV7());
-    await removeScheduleRow(test.db, sheetId);
+    await removeScheduleRow(test.db, { sheetId, organizationId: agency });
   });
 });
 
@@ -123,9 +123,14 @@ describe("claimDueSheets", () => {
     const agency = await anAgency(test, "Finishing agency");
     const sheetId = await due(agency, minutes(-1), 3);
     await claimDueSheets(test.db, { now, accountIndex: 3, limit: 5, claimSeconds: 300 });
-    await finishScheduledCheck(test.db, { sheetId, nextCheckAt: minutes(2) });
+    await finishScheduledCheck(test.db, { sheetId, organizationId: agency, nextCheckAt: minutes(2) });
     expect(await scheduleRowOf(test.db, sheetId)).toMatchObject({ nextCheckAt: minutes(2), claimedUntil: null });
-    await finishScheduledCheck(test.db, { sheetId, nextCheckAt: null });
+    // Another organization's name does not reach this row, to finish it or to remove it.
+    const other = await anAgency(test, "Other finishing agency");
+    await finishScheduledCheck(test.db, { sheetId, organizationId: other, nextCheckAt: null });
+    await removeScheduleRow(test.db, { sheetId, organizationId: other });
+    expect(await scheduleRowOf(test.db, sheetId)).toMatchObject({ nextCheckAt: minutes(2) });
+    await finishScheduledCheck(test.db, { sheetId, organizationId: agency, nextCheckAt: null });
     expect(await scheduleRowOf(test.db, sheetId)).toBeNull();
   });
 

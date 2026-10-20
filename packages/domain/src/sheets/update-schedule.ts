@@ -32,7 +32,10 @@ export function scheduleListener(dependencies: {
     handle: async (event, context) => {
       const sheet = await context.forOrg((tx) => sheetOf(tx, event.payload.sheetId));
       if (sheet === null || !hasScheduleRow(sheet.status)) {
-        await removeScheduleRow(dependencies.db, event.payload.sheetId);
+        await removeScheduleRow(dependencies.db, {
+          sheetId: event.payload.sheetId,
+          organizationId: event.organizationId,
+        });
         return;
       }
       await upsertScheduleRow(dependencies.db, {
