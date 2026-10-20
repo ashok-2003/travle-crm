@@ -100,7 +100,11 @@ describe("Google Sheets sync in a large agency", () => {
   beforeAll(async () => {
     isolated = await createIsolatedDatabase(inject("dbUrls"));
     platform = createPlatformClient(isolated.urls.platform);
-    db = createDatabase(isolated.urls.runtime, { maxConnections: 5 });
+    // The production defaults: a transaction past five seconds is cut (DATABASE_TRANSACTION_TIMEOUT_MS).
+    db = createDatabase(isolated.urls.runtime, {
+      maxConnections: 5,
+      transactionLimits: { timeout: 5_000, maxWait: 2_000 },
+    });
     organizationId = await createTestOrganization(platform, "Sheets agency");
     const { ownerUserIds } = await seedLargeAgency(platform, isolated.urls, organizationId, SIZE);
     // Agencies share the tables: one seeded after this one.
@@ -246,6 +250,33 @@ describe("Google Sheets sync in a large agency", () => {
     );
     expect(read.indexes, read.text).toContain("sheet_row_hash");
     expect(read.seqScans, "ledger").not.toContain("sheet_row");
+  }, 400_000);
+
+  it("re-plans a 20,000-row sheet whose column was inserted within 60 seconds, a thousand rows to a transaction on the default limits, and adds none", async () => {
+    const rows = [HEADER, ...Array.from({ length: 20_000 }, (_, index) => row(index + 1, "9189"))];
+    const { sheetId, spreadsheetId } = await aSheetOfRows(rows);
+    // The sheet gains a column in front of the answers: every row's hash is new, none of its content.
+    test.google.deleteSpreadsheet(spreadsheetId);
+    test.google.addSpreadsheet({
+      id: spreadsheetId,
+      title: "Goa Diwali campaign (Responses)",
+      tabs: [
+        {
+          gid: "0",
+          title: "Form responses 1",
+          rows: rows.map((cells, index) => [cells[0] ?? "", index === 0 ? "Budget" : "50000", ...cells.slice(1)]),
+        },
+      ],
+    });
+    test.google.share(spreadsheetId, test.accountEmail);
+    const leadsBefore = await inOrg((tx) => tx.lead.count());
+    await timed("column-inserted-20000", () => checkOf(checkDependencies(test, { identity }), sheetId, "recheck"));
+    expect(timings.get("column-inserted-20000")).toBeLessThan(60_000);
+    expect(await inOrg((tx) => tx.lead.count())).toBe(leadsBefore);
+    const known = await inOrg((tx) =>
+      tx.sheetRow.count({ where: { connectionId: sheetId, status: "before_connect" } }),
+    );
+    expect(known).toBe(40_000);
   }, 400_000);
 
   it("serves a sheet's page, its counters and 50 problems from sheet_row_problems, within 150 ms", async () => {

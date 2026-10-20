@@ -33,6 +33,8 @@ export interface CheckPlan {
 }
 
 const MAX_LISTED_VALUE = 200;
+/** Rows planned to a transaction: their lookups are a handful of queries each of this many values. */
+const ROWS_PER_PLANNING = 1_000;
 
 export async function planCheck(
   dependencies: CheckDependencies,
@@ -100,32 +102,43 @@ export async function planCheck(
     agencyTimeZone: timeZone,
   });
   const items = unknown.map((row) => ({ row, reading: readSheetRow(row, context) }));
-  const decisions = await db.forOrg(organizationId, async (tx) => {
-    const lookups = await lookUpSheetRows(
-      tx,
-      items.map(({ reading }) => reading),
-      hashes,
-      sheet.id,
-    );
-    const planned = planSheetRows(
-      items.map(({ row, reading }) => ({
-        row,
-        reading,
-        ledger: ledger.get(ledgerKey(row.hash, row.occurrence)),
-        mode,
-        isErased: (contacts) => lookups.isErased(contacts),
-        isBlocked: (contacts) => lookups.lookups.isBlocked(contacts),
-        earlier: lookups.earlier,
-        baseline: lookups.baseline,
-      })),
-    );
-    // Problems fixed, edited or deleted in the sheet clear themselves at the read that covers their place (S31).
-    await clearVanishedRows(tx, sheet.id, { read: rows, fromRow: plan.fromRow, full: plan.full }, now);
-    return planned.flatMap((decision, index) => {
-      const item = items[index];
-      return item === undefined ? [] : [{ row: item.row, decision }];
+  // The lookups are one query a kind, but for a thousand rows at a time: a column inserted into a sheet of twenty thousand
+  // rows re-plans them all, and one transaction for them would run past its limit for ever (SD5). The fingerprints met in
+  // one chunk are carried to the next, so two equal rows in different chunks are still one.
+  const decisions: PlannedRow[] = [];
+  const seen = new Set<string>();
+  for (let start = 0; start < items.length; start += ROWS_PER_PLANNING) {
+    const chunk = items.slice(start, start + ROWS_PER_PLANNING);
+    const planned = await db.forOrg(organizationId, async (tx) => {
+      const lookups = await lookUpSheetRows(
+        tx,
+        chunk.map(({ reading }) => reading),
+        hashes,
+        sheet.id,
+      );
+      return planSheetRows(
+        chunk.map(({ row, reading }) => ({
+          row,
+          reading,
+          ledger: ledger.get(ledgerKey(row.hash, row.occurrence)),
+          mode,
+          isErased: (contacts) => lookups.isErased(contacts),
+          isBlocked: (contacts) => lookups.lookups.isBlocked(contacts),
+          earlier: lookups.earlier,
+          baseline: lookups.baseline,
+        })),
+        seen,
+      );
     });
-  });
+    planned.forEach((decision, index) => {
+      const item = chunk[index];
+      if (item !== undefined) decisions.push({ row: item.row, decision });
+    });
+  }
+  // Problems fixed, edited or deleted in the sheet clear themselves at the read that covers their place (S31).
+  await db.forOrg(organizationId, (tx) =>
+    clearVanishedRows(tx, sheet.id, { read: rows, fromRow: plan.fromRow, full: plan.full }, now),
+  );
   const candidates = new Map<string, number>();
   for (const { decision } of decisions) {
     if (decision.kind !== "save") continue;

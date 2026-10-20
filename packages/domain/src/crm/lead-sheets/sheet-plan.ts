@@ -51,8 +51,7 @@ function decideUnreadable(
   return { kind: "not_added", reasons, exampleName: reading.exampleName, exampleValue: reading.exampleValue };
 }
 
-export function planSheetRows(rows: readonly SheetPlanInput[]): SheetRowDecision[] {
-  const seen = new Set<string>();
+export function planSheetRows(rows: readonly SheetPlanInput[], seen = new Set<string>()): SheetRowDecision[] {
   return rows.map((input): SheetRowDecision => {
     const { reading } = input;
     if (reading.kind === "not_added") return decideUnreadable(input, reading);
