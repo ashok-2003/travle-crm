@@ -6,11 +6,31 @@ import { recordAudit } from "../audit/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { publishEvent } from "../jobs/index.js";
 import { DomainError } from "../kernel/index.js";
+import { repairClaim } from "./claim.js";
+import type { SheetsHashes } from "./hashes.js";
 import { matchedFields } from "./columns.js";
 import { holdSheet, sheetNotReady } from "./connection-row.js";
 import { storedColumns } from "./verify.js";
 
-export async function confirmSheet(db: Database, access: MemberAccess, sheetId: string, now: Date): Promise<void> {
+export async function confirmSheet(
+  db: Database,
+  access: MemberAccess,
+  sheetId: string,
+  now: Date,
+  hashes: SheetsHashes | null = null,
+): Promise<void> {
+  // A draft whose claim was let go meanwhile takes it again first, or is refused when another agency holds the sheet (M8).
+  if (hashes !== null) {
+    const draft = await db.forOrg(access.organizationId, (tx) =>
+      tx.sheetConnection.findUnique({
+        where: { id: sheetId },
+        select: { id: true, spreadsheetId: true, claimId: true, status: true },
+      }),
+    );
+    if (draft !== null && draft.status === "connecting") {
+      await repairClaim(db, hashes, access.organizationId, draft, now);
+    }
+  }
   await db.forOrg(access.organizationId, async (tx) => {
     // Held, so a second press takes its turn and finds the sheet moved on.
     const sheet = await holdSheet(tx, sheetId);

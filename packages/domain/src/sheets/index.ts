@@ -2,7 +2,7 @@
 // ADR 0031, L0). crm turns the rows it finds into leads; this module never calls crm or today.
 export { beginSheet } from "./begin.js";
 export { confirmSheet } from "./confirm.js";
-export { releaseClaimIfUnused, takeSpreadsheetClaim } from "./claim.js";
+export { releaseClaimIfUnused, repairClaim, takeSpreadsheetClaim } from "./claim.js";
 export type { SheetsDependencies } from "./dependencies.js";
 export {
   accountIndexFor,
