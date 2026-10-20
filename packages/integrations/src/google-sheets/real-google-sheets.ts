@@ -25,7 +25,7 @@ export interface RealGoogleSheetsOptions {
   /** Default: google-auth-library's JWT for the account, with the readonly scope. */
   accessToken?: (accountIndex: number) => Promise<string>;
   /** Default: `new JWT(options)`; a test passes its own to see the scope asked for. */
-  createJwt?: (options: { email: string; key: string; scopes: string[] }) => {
+  createJwt?: (options: { email: string; key: string; scopes: string[]; transporterOptions: { timeout: number } }) => {
     getAccessToken(): Promise<{ token?: string | null }>;
   };
   fetch?: typeof fetch;
@@ -41,8 +41,8 @@ const describeCellLength = 4_000;
 const metadataFields =
   "properties(title,locale,timeZone),sheets(properties(sheetId,title,sheetType,gridProperties(rowCount)))";
 
-/** One path segment: every character that could end it, or climb out of it, is encoded (S3). */
-const pathSegment = (id: string) => encodeURIComponent(id).replaceAll(".", "%2E");
+/** What a spreadsheet id looks like; anything else never reaches a URL (S3, SC7). */
+const spreadsheetIdPattern = /^[A-Za-z0-9_-]{20,80}$/;
 const quoted = (tabTitle: string) => `'${tabTitle.replaceAll("'", "''")}'`;
 
 export function createRealGoogleSheets(options: RealGoogleSheetsOptions): GoogleSheets {
@@ -53,16 +53,27 @@ export function createRealGoogleSheets(options: RealGoogleSheetsOptions): Google
   const createJwt = options.createJwt ?? ((jwtOptions) => new JWT(jwtOptions));
   const jwts = new Map<number, ReturnType<typeof createJwt>>();
 
-  async function token(accountIndex: number): Promise<string> {
+  async function token(accountIndex: number, signal: AbortSignal): Promise<string> {
     if (options.accessToken !== undefined) return options.accessToken(accountIndex);
     const key = options.accounts[accountIndex];
     if (key === undefined) throw new RangeError("No such service account");
     let jwt = jwts.get(accountIndex);
     if (jwt === undefined) {
-      jwt = createJwt({ email: key.client_email, key: key.private_key, scopes: [GOOGLE_SHEETS_SCOPE] });
+      jwt = createJwt({
+        email: key.client_email,
+        key: key.private_key,
+        scopes: [GOOGLE_SHEETS_SCOPE],
+        transporterOptions: { timeout: timeoutMs },
+      });
       jwts.set(accountIndex, jwt);
     }
-    const { token: value } = await jwt.getAccessToken();
+    // The library's own timeout covers its request; racing the signal covers everything else (SC6).
+    const aborted = new Promise<never>((_resolve, reject) => {
+      signal.addEventListener("abort", () => {
+        reject(new GoogleSheetsError("unavailable"));
+      });
+    });
+    const { token: value } = await Promise.race([jwt.getAccessToken(), aborted]);
     if (typeof value !== "string" || value === "") throw new GoogleSheetsError("unavailable");
     return value;
   }
@@ -96,7 +107,10 @@ export function createRealGoogleSheets(options: RealGoogleSheetsOptions): Google
     try {
       const response = await send(url, {
         method: "GET",
-        headers: { authorization: `Bearer ${await token(accountIndex)}`, accept: "application/json" },
+        headers: {
+          authorization: `Bearer ${await token(accountIndex, controller.signal)}`,
+          accept: "application/json",
+        },
         redirect: "manual",
         signal: controller.signal,
       });
@@ -118,8 +132,10 @@ export function createRealGoogleSheets(options: RealGoogleSheetsOptions): Google
     }
   }
 
-  const spreadsheetUrl = (spreadsheetId: string, suffix: string) =>
-    new URL(`/v4/spreadsheets/${pathSegment(spreadsheetId)}${suffix}`, base);
+  const spreadsheetUrl = (spreadsheetId: string, suffix: string) => {
+    if (!spreadsheetIdPattern.test(spreadsheetId)) throw new GoogleSheetsError("not_found");
+    return new URL(`/v4/spreadsheets/${spreadsheetId}${suffix}`, base);
+  };
 
   async function metadataOf(accountIndex: number, spreadsheetId: string): Promise<SpreadsheetMetadata> {
     const url = spreadsheetUrl(spreadsheetId, "");
