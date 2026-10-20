@@ -5,7 +5,7 @@ import type { RateLimiter } from "../rate-limits/index.js";
 import { DomainError } from "../kernel/index.js";
 
 /** Reads of Google an organization's people may start in a minute, across begin, verify, choosing a tab and Check again. */
-export const sheetReadsPerMinute = 15;
+export const sheetReadsPerMinute = 30;
 
 export async function limitSheetReads(
   limiter: Pick<RateLimiter, "hit"> | undefined,

@@ -334,13 +334,13 @@ describe("the Google Sheets sync over HTTP", () => {
       const otherJar = await signedInOwner(limited, other);
       const id = aSheet();
       let refused = 0;
-      for (let call = 0; call < 20; call += 1) {
+      for (let call = 0; call < 40; call += 1) {
         const response = await mutate(limited, "leadSheets.begin", { link: linkTo(id) }, jar);
         const refusal = response.ok ? null : await refusalOf(response);
         if (refusal?.reason === "SHEETS_TOO_FAST") refused += 1;
       }
-      // 15 reads a minute are allowed; the rest are told to wait.
-      expect(refused).toBe(5);
+      // 30 reads a minute are allowed; the rest are told to wait.
+      expect(refused).toBe(10);
       // Another agency is not held back by it.
       const fine = await mutate(limited, "leadSheets.begin", { link: linkTo(aSheet()) }, otherJar);
       expect(fine.ok).toBe(true);

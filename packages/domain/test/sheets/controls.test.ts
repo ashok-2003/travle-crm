@@ -12,6 +12,7 @@ import {
   requestSyncNow,
   resumeSheet,
 } from "../../src/sheets/index.js";
+import { publishEvent } from "../../src/jobs/index.js";
 import { answer, setup as setupSheet } from "./support/running.js";
 import {
   anAgency,
@@ -273,6 +274,10 @@ describe("Check again", () => {
     const manager = memberOf(lost.agency);
     await lost.inOrg((tx) =>
       tx.sheetConnection.update({ where: { id: lost.sheet.sheetId }, data: { status: "lost_access" } }),
+    );
+    // The Sync now that lost it a moment ago does not count: it is another request, not this one pressed twice.
+    await lost.inOrg((tx) =>
+      publishEvent(tx, { type: "sheet.sync-requested", payload: { sheetId: lost.sheet.sheetId, mode: "sync-now" } }),
     );
     await recheckSheet(test.db, test.dependencies, manager, { sheetId: lost.sheet.sheetId }, new Date());
     await expect(
