@@ -74,9 +74,9 @@ export function sheetsStartUpLine(accountCount: number): string {
 }
 
 /**
- * Refuses to start when the list of accounts is no longer the one the connected sheets were shared with (SC9): an account
- * reordered or taken out would leave sheets that can't be opened, found only as Lost access. The message names the
- * addresses, never a key. Add accounts at the end of the list only.
+ * Refuses to start when an account the connected sheets were shared with is no longer in the list (SC9): a sheet could not
+ * be opened by any other, and would be found only as Lost access. The message names the addresses, never a key. A list
+ * that was reordered is not a problem: sheets are found by address.
  */
 export async function assertServiceAccountsInPlace(
   db: Database,
@@ -84,11 +84,7 @@ export async function assertServiceAccountsInPlace(
 ): Promise<void> {
   const stranded = await strandedServiceAccounts(db, accounts);
   if (stranded.length === 0) return;
-  const lines = stranded.map(
-    ({ email, index, nowThere }) =>
-      `${email} was account ${String(index + 1)} and ${nowThere === null ? "is gone" : `is now ${nowThere}`}`,
-  );
   throw new Error(
-    `GOOGLE_SHEETS_SERVICE_ACCOUNTS no longer matches the sheets connected: ${lines.join("; ")}. Put the list back as it was and add accounts at its end.`,
+    `GOOGLE_SHEETS_SERVICE_ACCOUNTS no longer holds ${stranded.map(({ email }) => email).join(", ")}, which connected sheets were shared with. Put the account back.`,
   );
 }

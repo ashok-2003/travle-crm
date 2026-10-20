@@ -66,8 +66,9 @@ export {
   sheetsDispatchSchedule,
   type DispatchDependencies,
 } from "./dispatch.js";
-export { finishScheduledCheck, strandedServiceAccounts } from "./schedule.js";
+export { finishScheduledCheck, reconcileScheduleAccounts, strandedServiceAccounts } from "./schedule.js";
 export { sweepSheets, type SheetsSwept } from "./sweep.js";
 export { type ErasedContacts, lockSheetConnections, type SheetsWithdrawn, withdrawSheetRows } from "./erasure.js";
+export { accountAddressOf, accountIndexOf } from "./account-index.js";
 export { assertNoSheetCheckSaving, lockAddAgainstChecks } from "./guards.js";
 export { listSheets, sheetDetailOf, type SheetDetailFacts } from "./views.js";

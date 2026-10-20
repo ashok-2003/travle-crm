@@ -5,6 +5,7 @@
 import type { MemberAccess } from "../../identity/index.js";
 import { isAnyImportAdding } from "../../imports/index.js";
 import {
+  accountIndexOf,
   type CheckDependencies,
   type CheckMode,
   type CheckOutcome,
@@ -52,7 +53,7 @@ export async function claimCheck(
   if (sheet === null || !checkable.has(sheet.status) || sheet.connectedAt === null)
     return skip(checkIntervalSeconds, false);
 
-  const waits = [sheet.holdUntil, holds.heldUntil(sheet.serviceAccountIndex, now)].flatMap((until) =>
+  const waits = [sheet.holdUntil, holds.heldUntil(accountIndexOf(dependencies.google, sheet), now)].flatMap((until) =>
     until !== null && until > now ? [until] : [],
   );
   if (waits.length > 0) return skip(secondsUntil(now, new Date(Math.max(...waits.map((until) => until.getTime())))));

@@ -8,6 +8,7 @@ import type { Database, OrgTx } from "@travel-crm/db";
 import type { MemberAccess } from "../identity/index.js";
 import type { Identity } from "../identity/index.js";
 import { guessFields, rememberedHeaderFields } from "../imports/index.js";
+import { accountIndexOf } from "./account-index.js";
 import { asSheetField } from "./columns.js";
 import { findSheet, type SheetConnectionRow, sheetNotReady } from "./connection-row.js";
 import type { SheetsDependencies } from "./dependencies.js";
@@ -38,13 +39,13 @@ interface TabReading {
  */
 export async function readTab(
   dependencies: SheetsDependencies,
-  sheet: Pick<SheetConnectionRow, "spreadsheetId" | "serviceAccountIndex">,
+  sheet: Pick<SheetConnectionRow, "spreadsheetId" | "serviceAccountIndex" | "serviceAccountEmail">,
   tabGid: string,
 ): Promise<TabReading> {
   const { google } = dependencies;
   if (google === null) throw notSetUp();
   try {
-    const description = await google.describe(sheet.serviceAccountIndex, sheet.spreadsheetId, { tabGid });
+    const description = await google.describe(accountIndexOf(google, sheet), sheet.spreadsheetId, { tabGid });
     const chosen = description.chosenTab;
     if (chosen?.gid !== tabGid) throw sheetNotReady();
     return {
@@ -55,7 +56,7 @@ export async function readTab(
       sampleRows: description.sampleRows,
       column: async (index) => {
         try {
-          const read = await google.readRows(sheet.serviceAccountIndex, sheet.spreadsheetId, {
+          const read = await google.readRows(accountIndexOf(google, sheet), sheet.spreadsheetId, {
             tabTitle: chosen.title,
             fromRow: 2,
             maxRows: maxSheetRows,
@@ -134,7 +135,7 @@ export async function verifySheet(
     const { google } = dependencies;
     if (google === null) throw notSetUp();
     const description = await google
-      .describe(sheet.serviceAccountIndex, sheet.spreadsheetId, {})
+      .describe(accountIndexOf(google, sheet), sheet.spreadsheetId, {})
       .catch((error: unknown) => {
         throw refusalFor(error);
       });

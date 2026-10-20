@@ -3,6 +3,7 @@
 // a tab whose gid is gone is a missing tab. The check always lets go of its claim, and "Last checked" keeps the last
 // good time.
 import type { GoogleSheetsError } from "@travel-crm/integrations/google-sheets";
+import { accountIndexOf } from "./account-index.js";
 import { enterAttention } from "./attention.js";
 import type { CheckDependencies, CheckOutcome } from "./check-outcome.js";
 import { holdSheet, type SheetConnectionRow } from "./connection-row.js";
@@ -13,7 +14,7 @@ const seconds = (from: Date, to: Date) => Math.max(1, Math.ceil((to.getTime() - 
 
 export async function handleReadFailure(
   dependencies: CheckDependencies,
-  sheet: Pick<SheetConnectionRow, "id" | "organizationId" | "serviceAccountIndex">,
+  sheet: Pick<SheetConnectionRow, "id" | "organizationId" | "serviceAccountIndex" | "serviceAccountEmail">,
   error: GoogleSheetsError,
   mode: CheckMode,
   now: Date,
@@ -22,7 +23,7 @@ export async function handleReadFailure(
   const interval = { nextCheckInSeconds: checkIntervalSeconds, keepSchedule: true };
 
   if (error.reason === "rate_limited") {
-    const until = holds.backOff(sheet.serviceAccountIndex, now, error.retryAfterSeconds);
+    const until = holds.backOff(accountIndexOf(dependencies.google, sheet), now, error.retryAfterSeconds);
     await db.forOrg(sheet.organizationId, (tx) =>
       tx.sheetConnection.update({ where: { id: sheet.id }, data: { checkStartedAt: null, holdUntil: until } }),
     );

@@ -28,6 +28,7 @@ import {
   confirmSheet,
   disconnectSheet,
   hideProblem,
+  accountAddressOf,
   limitSheetReads,
   listSheets,
   matchSheetColumns,
@@ -78,7 +79,7 @@ export const leadSheetsRouter = router({
       const connection = await ctx.db.forOrg(organizationId, (tx) =>
         tx.sheetConnection.findFirst({
           where: { id: input.sheetId, status: { not: "disconnected" } },
-          select: { connectedBy: true, serviceAccountIndex: true },
+          select: { connectedBy: true, serviceAccountIndex: true, serviceAccountEmail: true },
         }),
       );
       if (connection === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "No such sheet");
@@ -86,7 +87,7 @@ export const leadSheetsRouter = router({
       const names = await memberNames(ctx.identity, organizationId, [connection.connectedBy, owner]);
       return ctx.db.forOrg(organizationId, (tx) =>
         sheetDetailOf(tx, input.sheetId, new Date(), {
-          serviceAccountEmail: ctx.google?.accounts()[connection.serviceAccountIndex]?.email ?? "",
+          serviceAccountEmail: accountAddressOf(ctx.google, connection) ?? "",
           connectedByName: names[connection.connectedBy] ?? null,
           defaultOwnerName: owner === null ? null : (names[owner] ?? null),
           readOnly: ctx.entitlements?.access !== "full",

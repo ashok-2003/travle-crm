@@ -11,6 +11,7 @@ import {
   closeCheck,
   type CheckDependencies,
   type CheckMode,
+  accountIndexOf,
   type CheckOutcome,
   decideRead,
   enterAttention,
@@ -113,7 +114,7 @@ async function readForCheck(dependencies: CheckDependencies, sheet: SheetConnect
   // The sheet's name is a cache a full read refreshes; Google not answering this once is no reason to fail the check.
   const sheetTitle = plan.full
     ? await google
-        .describe(sheet.serviceAccountIndex, sheet.spreadsheetId, { tabGid: sheet.tabGid })
+        .describe(accountIndexOf(google, sheet), sheet.spreadsheetId, { tabGid: sheet.tabGid })
         .then((description) => description.title)
         .catch(() => null)
     : null;
@@ -142,7 +143,7 @@ async function runCheck(
     input.mode,
     startedAt,
   );
-  holds.recovered(sheet.serviceAccountIndex);
+  holds.recovered(accountIndexOf(dependencies.google, sheet));
 
   // Columns are found by their header (S11); a gap that leaves no name or no contact stops the check, consuming no row.
   const columns = await db.forOrg(organizationId, (tx) => storedColumns(tx, sheet.id));

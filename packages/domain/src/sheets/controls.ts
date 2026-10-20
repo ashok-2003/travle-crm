@@ -11,6 +11,7 @@ import { releaseClaimIfUnused } from "./claim.js";
 import { holdSheet, type SheetConnectionRow, sheetNotReady } from "./connection-row.js";
 import type { SheetsDependencies } from "./dependencies.js";
 import { notSetUp, refusalFor } from "./google-refusals.js";
+import { accountIndexOf } from "./account-index.js";
 import { claimSeconds, syncCooldownSeconds } from "./limits.js";
 
 const busy = () => new DomainError("CONFLICT", "SHEET_BUSY", "The sheet was checked a moment ago");
@@ -177,7 +178,7 @@ export async function recheckSheet(
     const { google } = dependencies;
     if (google === null) throw notSetUp();
     const description = await google
-      .describe(sheet.serviceAccountIndex, sheet.spreadsheetId, { tabGid: input.tabGid })
+      .describe(accountIndexOf(google, sheet), sheet.spreadsheetId, { tabGid: input.tabGid })
       .catch((error: unknown) => {
         throw refusalFor(error);
       });

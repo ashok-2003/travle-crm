@@ -11,6 +11,7 @@ import { recordAudit } from "../audit/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { rememberHeaderFields } from "../imports/index.js";
 import { DomainError } from "../kernel/index.js";
+import { accountIndexOf } from "./account-index.js";
 import { matchedFields } from "./columns.js";
 import { findSheet, holdSheet, type SheetConnectionRow, sheetNotReady } from "./connection-row.js";
 import type { SheetsDependencies } from "./dependencies.js";
@@ -52,7 +53,7 @@ export async function chooseSheetTab(
   const { google } = dependencies;
   if (google === null) throw notSetUp();
   const description = await google
-    .describe(draft.serviceAccountIndex, draft.spreadsheetId, { tabGid: input.tabGid })
+    .describe(accountIndexOf(google, draft), draft.spreadsheetId, { tabGid: input.tabGid })
     .catch((error: unknown) => {
       throw refusalFor(error);
     });

@@ -7,11 +7,12 @@ import {
   claimDueSheets,
   finishScheduledCheck,
   removeScheduleRow,
+  reconcileScheduleAccounts,
   strandedServiceAccounts,
   scheduleRowOf,
   upsertScheduleRow,
 } from "../../src/sheets/schedule.js";
-import { hasScheduleRow, scheduleListener } from "../../src/sheets/index.js";
+import { accountAddressOf, accountIndexOf, hasScheduleRow, scheduleListener } from "../../src/sheets/index.js";
 import { newUuidV7 } from "../../src/kernel/index.js";
 import { aSheet, anAgency, createTestSheets, memberOf, runListener } from "./support/sheets.js";
 
@@ -159,11 +160,31 @@ describe("claimDueSheets", () => {
 });
 
 describe("the service accounts in place", () => {
-  it("names the sheets whose account was reordered or taken out, and nothing for a list as it was or an append", async () => {
+  const a = "sheets-1@travel-crm-test.iam.gserviceaccount.com";
+  const b = "sheets-2@travel-crm-test.iam.gserviceaccount.com";
+  const c = "sheets-3@travel-crm-test.iam.gserviceaccount.com";
+  const list = (...emails: string[]) => emails.map((email, index) => ({ index, email }));
+
+  it("finds a sheet's account by the address it was shared with, whatever the list's order, and its place when none was kept", () => {
+    const sheet = { serviceAccountIndex: 1, serviceAccountEmail: b };
+    expect(accountIndexOf({ accounts: () => list(a, b) }, sheet)).toBe(1);
+    // The list was reordered: the address is where it now is, not where it was.
+    expect(accountIndexOf({ accounts: () => list(b, a) }, sheet)).toBe(0);
+    // An account taken out can open nothing.
+    expect(() => accountIndexOf({ accounts: () => list(a, c) }, sheet)).toThrow("unavailable");
+    // A sheet from before the address was kept has only its place; no Google, only its place.
+    expect(accountIndexOf({ accounts: () => list(c, a) }, { serviceAccountIndex: 1, serviceAccountEmail: null })).toBe(
+      1,
+    );
+    expect(accountIndexOf(null, sheet)).toBe(1);
+    expect(
+      accountAddressOf({ accounts: () => list(c, a) }, { serviceAccountIndex: 1, serviceAccountEmail: null }),
+    ).toBe(a);
+    expect(accountAddressOf(null, sheet)).toBe(b);
+  });
+
+  it("puts scheduled sheets on their account's place in a reordered list, and names an account that was taken out", async () => {
     const agency = await anAgency(test, "Accounts agency");
-    const a = "sheets-1@travel-crm-test.iam.gserviceaccount.com";
-    const b = "sheets-2@travel-crm-test.iam.gserviceaccount.com";
-    const c = "sheets-3@travel-crm-test.iam.gserviceaccount.com";
     const sheetId = randomUUID();
     await upsertScheduleRow(test.db, {
       sheetId,
@@ -179,13 +200,15 @@ describe("the service accounts in place", () => {
       serviceAccountIndex: 5,
       nextCheckAt: new Date(),
     });
-    const list = (...emails: string[]) => emails.map((email, index) => ({ index, email }));
     // Other files' rows share the table: only this row's address is looked at.
     const mine = async (...emails: string[]) =>
       (await strandedServiceAccounts(test.db, list(...emails))).filter((row) => row.email === b);
     expect(await mine(a, b)).toEqual([]);
-    expect(await mine(a, b, c)).toEqual([]);
-    expect(await mine(b, a)).toEqual([{ email: b, index: 1, nowThere: a }]);
-    expect(await mine(a)).toEqual([{ email: b, index: 1, nowThere: null }]);
+    expect(await mine(b, a, c)).toEqual([]);
+    expect(await mine(a, c)).toEqual([{ email: b }]);
+    await reconcileScheduleAccounts(test.db, list(b, a));
+    expect(await scheduleRowOf(test.db, sheetId)).toMatchObject({ serviceAccountIndex: 0 });
+    await reconcileScheduleAccounts(test.db, list(a, b));
+    expect(await scheduleRowOf(test.db, sheetId)).toMatchObject({ serviceAccountIndex: 1 });
   });
 });
