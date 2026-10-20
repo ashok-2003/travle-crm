@@ -21,7 +21,7 @@ test("an Owner connects a sheet; a new row becomes a lead with its source, owner
   agency,
   addStaff,
 }) => {
-  test.slow();
+  test.setTimeout(240_000);
   const google = fakeGoogle();
   await signInByEmail(page, agency.owner);
   const { ravi } = await leadWorkerAgency(page, { agency, addStaff });

@@ -11,7 +11,10 @@ import {
 } from "@travel-crm/integrations/google-sheets";
 
 type NewSpreadsheet = Parameters<MemoryGoogleSheets["addSpreadsheet"]>[0];
-interface FailOptions { retryAfterSeconds?: number; times?: number }
+interface FailOptions {
+  retryAfterSeconds?: number;
+  times?: number;
+}
 
 /** What the journeys do to the fake, each a call to its control surface. */
 export interface FakeGoogleClient {
@@ -197,9 +200,13 @@ export async function startFakeGoogle(): Promise<FakeGoogle> {
         const control = /^\/control\/(\w+)$/.exec(url.pathname);
         if (control !== null && request.method === "POST") {
           const handler = controls[control[1] ?? ""];
-          if (handler === undefined) { send(response, 404, { error: "no such control" }); return; }
+          if (handler === undefined) {
+            send(response, 404, { error: "no such control" });
+            return;
+          }
           const result = handler(...((await bodyOf(request)) as never[]));
-          send(response, 200, result ?? null); return;
+          send(response, 200, result ?? null);
+          return;
         }
         const values = /^\/v4\/spreadsheets\/([^/]+)\/values:batchGet$/.exec(url.pathname);
         if (values !== null && request.method === "GET") {
@@ -207,7 +214,8 @@ export async function startFakeGoogle(): Promise<FakeGoogle> {
           const ranges = await Promise.all(
             url.searchParams.getAll("ranges").map((range) => valuesOfRange(google, id, range)),
           );
-          send(response, 200, { spreadsheetId: id, valueRanges: ranges }); return;
+          send(response, 200, { spreadsheetId: id, valueRanges: ranges });
+          return;
         }
         const metadata = /^\/v4\/spreadsheets\/([^/]+)$/.exec(url.pathname);
         if (metadata !== null && request.method === "GET") {
@@ -223,12 +231,15 @@ export async function startFakeGoogle(): Promise<FakeGoogle> {
                 gridProperties: { rowCount: tab.rowCount },
               },
             })),
-          }); return;
+          });
+          return;
         }
-        send(response, 404, { error: { code: 404, status: "NOT_FOUND", message: "No such endpoint" } }); return;
+        send(response, 404, { error: { code: 404, status: "NOT_FOUND", message: "No such endpoint" } });
+        return;
       } catch (error) {
         const answer = errorAnswer(error);
-        send(response, answer.status, answer.body, answer.headers); return;
+        send(response, answer.status, answer.body, answer.headers);
+        return;
       }
     })();
   });

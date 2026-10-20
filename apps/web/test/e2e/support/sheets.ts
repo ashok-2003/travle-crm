@@ -103,13 +103,32 @@ export async function connectSheet(
   }
 }
 
-/** Sync now on the sheet's page: pressed, and the check done (the button is back and the page says when). */
+/**
+ * Sync now on the sheet's page: pressed, and the check done (the button is back and the page says when). A press within
+ * 30 seconds of the last check is refused (the connect's own check counts), so it waits that out and presses again.
+ */
 export async function syncNow(page: Page): Promise<void> {
   const button = page.getByRole("button", { name: "Sync now" });
-  await expect(button).toBeEnabled({ timeout: WORKER_STEP_MS });
-  await button.click();
-  await expect(page.getByRole("button", { name: "Checking…" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Sync now" })).toBeVisible({ timeout: WORKER_STEP_MS });
+  const busy = page.getByText("Just checked. Try again in a few seconds.");
+  const google = fakeGoogle();
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await expect(button).toBeEnabled({ timeout: WORKER_STEP_MS });
+    const before = (await google.calls()).reads;
+    await button.click();
+    const refused = await busy.waitFor({ timeout: 3_000 }).then(
+      () => true,
+      () => false,
+    );
+    if (!refused) {
+      // The check read the sheet; it saves its rows a moment later, and the page asks again every 2 seconds meanwhile.
+      await expect.poll(async () => (await google.calls()).reads, { timeout: WORKER_STEP_MS }).toBeGreaterThan(before);
+      await page.waitForTimeout(3_000);
+      break;
+    }
+    await page.waitForTimeout(31_000);
+    await page.reload();
+  }
+  await expect(page.getByRole("button", { name: "Checking…" })).toHaveCount(0, { timeout: WORKER_STEP_MS });
 }
 
 /** A lead of this name, in Leads (everyone's), once the sync has added it. */

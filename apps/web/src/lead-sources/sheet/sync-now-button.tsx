@@ -5,7 +5,7 @@
 import { useMutation } from "@tanstack/react-query";
 import type { SheetDetail } from "@travel-crm/contracts/sheets";
 import { useTranslations } from "next-intl";
-import { useId } from "react";
+import { useEffect, useId, useState } from "react";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -20,7 +20,30 @@ export function SyncNowButton({ detail }: { detail: SheetDetail }) {
   const write = useWriteAccess("change");
   const hintId = useId();
   const refresh = useRefreshLeadSheets();
-  const sync = useMutation(trpc.leadSheets.syncNow.mutationOptions({ onSuccess: refresh }));
+  // The check is the worker's, and may start and end between two of the page's own refreshes: after a press the page
+  // asks every 2 seconds, up to ten times, until the sheet's last check is a new one.
+  const [pressed, setPressed] = useState<{ checkedAt: string | null } | null>(null);
+  const sync = useMutation(
+    trpc.leadSheets.syncNow.mutationOptions({
+      onSuccess: async () => {
+        setPressed({ checkedAt: detail.lastCheckedAt });
+        await refresh();
+      },
+    }),
+  );
+  const polling = pressed !== null && pressed.checkedAt === detail.lastCheckedAt;
+  useEffect(() => {
+    if (!polling) return;
+    let asked = 0;
+    const timer = setInterval(() => {
+      asked += 1;
+      if (asked > 10) setPressed(null);
+      else void refresh();
+    }, 2000);
+    return () => {
+      clearInterval(timer);
+    };
+  }, [polling, refresh]);
   const checking = sync.isPending || detail.checkRunning;
   return (
     <div className="flex flex-col items-start gap-2">

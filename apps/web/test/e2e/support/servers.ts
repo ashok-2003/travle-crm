@@ -169,6 +169,8 @@ export async function startServers({
   const webUrl = `http://127.0.0.1:${String(webPort)}`;
   const started: Started[] = [];
   const stop = () => {
+    // E2E_SERVER_LOGS=1 shows what the servers printed, for finding why a journey's worker step did not happen.
+    if (process.env.E2E_SERVER_LOGS) for (const server of started) console.error(server.output());
     for (const server of started) server.stop();
   };
   try {
