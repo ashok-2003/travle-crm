@@ -15,6 +15,7 @@ export {
   checkLeadSheet,
   checkLeadSheetListener,
   type CheckLeadSheetDependencies,
+  leadSheetBaselineFingerprints,
   sheetsCheckHandler,
 } from "./lead-sheets/index.js";
 export { editLeadPerson, editLeadTrip } from "./lead-edits.js";

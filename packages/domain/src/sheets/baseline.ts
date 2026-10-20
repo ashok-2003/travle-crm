@@ -26,6 +26,12 @@ function importFileName(sheetTitle: string, now: Date, timeZone: string): string
   return `${title.slice(0, 150)} · ${day}.csv`;
 }
 
+function keyedFingerprint(hashes: SheetsJobDependencies["hashes"], fingerprint: Uint8Array | null | undefined) {
+  return hashes === null || fingerprint === null || fingerprint === undefined
+    ? null
+    : new Uint8Array(hashes.rekey(fingerprint));
+}
+
 export function baselineListener(dependencies: SheetsJobDependencies): EventListener {
   const { db, google } = dependencies;
   return defineListener({
@@ -52,13 +58,19 @@ export function baselineListener(dependencies: SheetsJobDependencies): EventList
         return;
       }
       const rows = numberRows(read.read.rows);
+      // What each row holds, as a fingerprint kept keyed: a column added later changes every row's hash, not this.
+      const fingerprints =
+        dependencies.baselineFingerprints === undefined || dependencies.hashes === null
+          ? []
+          : await dependencies.baselineFingerprints(sheet, { header: read.read.header, rows });
       for (let start = 0; start < rows.length; start += baselineRowsPerTransaction) {
         const chunk = rows.slice(start, start + baselineRowsPerTransaction);
         await context.forOrg(
           (tx) =>
             tx.sheetRow.createMany({
-              data: chunk.map((row) => ({
+              data: chunk.map((row, index) => ({
                 connectionId: sheetId,
+                fingerprint: keyedFingerprint(dependencies.hashes, fingerprints[start + index]),
                 rawHash: row.hash,
                 occurrence: row.occurrence,
                 rowNumber: row.rowNumber,

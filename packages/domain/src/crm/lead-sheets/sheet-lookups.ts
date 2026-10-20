@@ -3,7 +3,12 @@
 // fingerprints already added anywhere (imports' and the sheets'), and the erased customers' contacts.
 import { type OrgTx } from "@travel-crm/db";
 import { earlierFingerprints, fingerprintHex, rowFingerprint } from "../../imports/index.js";
-import { type ContactKind, earlierSheetFingerprints, type SheetsHashes } from "../../sheets/index.js";
+import {
+  baselineSheetFingerprints,
+  type ContactKind,
+  earlierSheetFingerprints,
+  type SheetsHashes,
+} from "../../sheets/index.js";
 import { lookUpLeadRows, type LeadLookups } from "../lead-import/lead-lookups.js";
 import type { LeadRowContacts, LeadRowReading } from "../lead-import/lead-row.js";
 
@@ -15,6 +20,8 @@ export interface SheetLookups {
   isErased(contacts: LeadRowContacts): boolean;
   /** Fingerprints already added by an import or a sheet, by hex, with when. */
   earlier: Map<string, Date>;
+  /** Fingerprints (hex) of rows of this sheet that were there at connect: a row read again that holds one is known. */
+  baseline: Set<string>;
 }
 
 const KINDS: readonly { kind: ContactKind; key: keyof LeadRowContacts }[] = [
@@ -27,6 +34,7 @@ export async function lookUpSheetRows(
   tx: OrgTx,
   readings: readonly LeadRowReading[],
   hashes: SheetsHashes | null,
+  connectionId: string,
 ): Promise<SheetLookups> {
   const enquiries = readings.flatMap((reading) => (reading.kind === "enquiry" ? [reading] : []));
   const lookups = await lookUpLeadRows(tx, readings);
@@ -36,6 +44,7 @@ export async function lookUpSheetRows(
     const before = earlier.get(fingerprint);
     if (before === undefined || addedAt < before) earlier.set(fingerprint, addedAt);
   }
+  const baseline = await baselineSheetFingerprints(tx, connectionId, fingerprints, hashes);
   const tombstones = new Set<string>();
   if (hashes !== null) {
     const asked = new Map<string, Uint8Array<ArrayBuffer>>();
@@ -57,6 +66,7 @@ export async function lookUpSheetRows(
   return {
     lookups,
     earlier,
+    baseline,
     isErased: (contacts) =>
       KINDS.some(({ kind, key }) => contacts[key] !== null && tombstones.has(`${kind}:${contacts[key]}`)),
   };

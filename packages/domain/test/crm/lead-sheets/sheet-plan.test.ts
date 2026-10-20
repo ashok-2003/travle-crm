@@ -1,10 +1,10 @@
 // S23 case by case: erased, blocked, the same as a row added anywhere, then saved; an unfinished row waits one check; rows
 // in one check meet each other.
 import { describe, expect, it } from "vitest";
-import { fingerprintHex, rowFingerprint } from "../../../src/imports/index.js";
 import { readLeadRow } from "../../../src/crm/lead-import/lead-row.js";
 import { planSheetRows, type SheetPlanInput } from "../../../src/crm/lead-sheets/index.js";
 import { nameColumns } from "../../../src/sheets/header-keys.js";
+import { fingerprintHex, rowFingerprint } from "../../../src/imports/index.js";
 import { matchHeader } from "../../../src/sheets/header-match.js";
 import { parseCalendarDate } from "../../../src/kernel/index.js";
 import { formHeader, goaOrigin, readFormRow } from "./support.js";
@@ -22,6 +22,7 @@ function input(cells: string[], options: Partial<Omit<SheetPlanInput, "row" | "r
     isErased: () => false,
     isBlocked: () => false,
     earlier: new Map(),
+    baseline: new Set(),
     ...options,
   };
 }
@@ -142,5 +143,24 @@ describe("planSheetRows", () => {
       input(answer("Asha Sharma", "98765 43210", { 4: "Kerala" })),
     ]);
     expect(decisions.map((decision) => decision.kind)).toEqual(["save", "save"]);
+  });
+
+  it("knows a row that holds what a row there at connect held, before erased, blocked or earlier rows, and counts it nowhere", () => {
+    const cells = answer("Asha Sharma", "98765 43210");
+    const { reading } = readFormRow(cells);
+    if (reading.kind !== "enquiry") throw new Error("not an enquiry");
+    const fingerprint = rowFingerprint("leads", reading.fingerprintValues);
+    const baseline = new Set([fingerprintHex(fingerprint)]);
+    const decision = planOne(
+      input(cells, {
+        baseline,
+        isErased: () => true,
+        isBlocked: () => true,
+        earlier: new Map([[fingerprintHex(fingerprint), new Date()]]),
+      }),
+    );
+    expect(decision).toEqual({ kind: "known", fingerprint });
+    // Another person's row is not known.
+    expect(planOne(input(answer("Ravi Kumar", "98100 00000"), { baseline }))?.kind).toBe("save");
   });
 });

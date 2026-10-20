@@ -105,6 +105,7 @@ export async function planCheck(
       tx,
       items.map(({ reading }) => reading),
       hashes,
+      sheet.id,
     );
     const planned = planSheetRows(
       items.map(({ row, reading }) => ({
@@ -115,6 +116,7 @@ export async function planCheck(
         isErased: (contacts) => lookups.isErased(contacts),
         isBlocked: (contacts) => lookups.lookups.isBlocked(contacts),
         earlier: lookups.earlier,
+        baseline: lookups.baseline,
       })),
     );
     // Problems fixed, edited or deleted in the sheet clear themselves at the read that covers their place (S31).

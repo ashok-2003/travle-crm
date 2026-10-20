@@ -13,6 +13,8 @@ export type SheetRowDecision =
   | { kind: "pending" }
   | { kind: "not_added"; reasons: SheetProblemReason[]; exampleName: string | null; exampleValue: string | null }
   | { kind: "duplicate"; fingerprint: Uint8Array }
+  /** The same row as one that was there at connect, moved by a column or a sort: known, never added, never counted. */
+  | { kind: "known"; fingerprint: Uint8Array }
   | { kind: "save"; reading: SavableReading; fingerprint: Uint8Array };
 
 export interface SheetPlanInput {
@@ -25,6 +27,8 @@ export interface SheetPlanInput {
   isBlocked(contacts: LeadRowContacts): boolean;
   /** Fingerprints already added anywhere, by hex (S23.4). */
   earlier: ReadonlyMap<string, Date>;
+  /** Fingerprints of this sheet's rows that were there at connect, by hex. */
+  baseline: ReadonlySet<string>;
 }
 
 /** The reason codes of a single row that a sheet lists (S27); any other the lead import's reading gives is dropped. */
@@ -51,6 +55,10 @@ export function planSheetRows(rows: readonly SheetPlanInput[]): SheetRowDecision
   return rows.map((input): SheetRowDecision => {
     const { reading } = input;
     if (reading.kind === "not_added") return decideUnreadable(input, reading);
+    // Before the rest: an old row that was blocked or erased then is not a new problem now.
+    const known = fingerprintHex(rowFingerprint("leads", reading.fingerprintValues));
+    if (input.baseline.has(known))
+      return { kind: "known", fingerprint: rowFingerprint("leads", reading.fingerprintValues) };
     if (input.isErased(reading.contacts)) {
       return { kind: "not_added", reasons: ["erased"], exampleName: null, exampleValue: null };
     }

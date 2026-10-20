@@ -131,7 +131,7 @@ model SheetRow {
   status         String
   /// Problem codes as text: no_name, no_contact, notes_too_long, blocked, erased, could_not_add.
   reasons        String[]        @default([])
-  /// The row's fingerprint (the lead import's), on an added, merged, duplicate or erased row only (S23).
+  /// The row's fingerprint (the lead import's), on an added, merged, duplicate or erased row, and, keyed with SHEETS_HASH_KEY, on one that was there at connect (S23).
   fingerprint    Bytes?
   leadId         String?         @map("lead_id") @db.Uuid
   personId       String?         @map("person_id") @db.Uuid

@@ -9,6 +9,7 @@ import type { ImportIdentity } from "../../../src/imports/index.js";
 import type { DomainEvent, EventListener } from "../../../src/jobs/index.js";
 import type { Entitlements } from "../../../src/subscriptions/index.js";
 import type { Database } from "@travel-crm/db";
+import { leadSheetBaselineFingerprints } from "../../../src/crm/index.js";
 import { newUuidV7 } from "../../../src/kernel/index.js";
 import {
   baselineListener,
@@ -234,6 +235,8 @@ export function jobDependencies(
     identity: { memberContacts: () => Promise.resolve([]), ...identity },
     subscriptions: { entitlementsOf: () => Promise.resolve(crmEntitlements(access)) },
     log: () => undefined,
+    // As the worker builds it: the baseline keeps what each old row holds.
+    baselineFingerprints: leadSheetBaselineFingerprints(test.db),
   };
 }
 

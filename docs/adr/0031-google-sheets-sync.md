@@ -68,3 +68,11 @@ numbers no longer can), empties their ids and examples, and writes each of their
 keyed hash and nothing else. The key lives in the environment, never in the database or a log, and is never rotated. The
 console's erasure job holds it (the key, not the service-account key) and fails loudly rather than skip the step when it
 is missing.
+
+## Rows already there keep a keyed fingerprint
+
+A row's identity is a hash of its cells, so a column inserted, deleted or moved changes every row's hash. The rows there
+at connect therefore keep the lead import's fingerprint of what they hold too, stored keyed with `SHEETS_HASH_KEY` and
+never plain. A row read again that holds one of them is recorded as it was at connect, counted nowhere and never added.
+Rows the sync added are met by their own fingerprints as duplicates (so a column move adds nothing, though it counts them
+as duplicates). A row edited in the sheet is still read as a new enquiry.

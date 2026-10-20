@@ -9,6 +9,7 @@ import {
   checkLeadSheetListener,
   handOverDepartingMemberListener,
   makeLeadExportListener,
+  leadSheetBaselineFingerprints,
   sheetsCheckHandler,
 } from "@travel-crm/domain/crm";
 import { renderIssuedDocumentListener } from "@travel-crm/domain/documents";
@@ -126,6 +127,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
           hashes: sheets.hashes,
           holds: createAccountHolds(),
           checkIntervalSeconds: sheets.checkIntervalSeconds ?? defaultCheckIntervalSeconds,
+          baselineFingerprints: leadSheetBaselineFingerprints(db),
         };
   const exportJobs: ExportJobDependencies = { files, spreadsheets, identity, appUrl };
   return {

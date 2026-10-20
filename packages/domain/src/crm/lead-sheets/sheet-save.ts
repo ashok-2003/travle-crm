@@ -59,6 +59,7 @@ async function replan(
     tx,
     saves.map(({ decision }) => decision.reading),
     context.hashes,
+    context.sheetId,
   );
   const again = planSheetRows(
     saves.map(({ row, decision }) => ({
@@ -69,6 +70,7 @@ async function replan(
       isErased: (contacts) => lookups.isErased(contacts),
       isBlocked: (contacts) => lookups.lookups.isBlocked(contacts),
       earlier: lookups.earlier,
+      baseline: lookups.baseline,
     })),
   );
   return new Map(
@@ -118,7 +120,7 @@ export async function saveSheetBatch(
     const { row } = planned;
     const existing = entryOf(row);
     const write = async (data: {
-      status: "pending" | "added" | "merged" | "duplicate" | "not_added";
+      status: "pending" | "added" | "merged" | "duplicate" | "not_added" | "before_connect";
       reasons?: string[];
       fingerprint?: Uint8Array<ArrayBuffer> | null;
       leadId?: string | null;
@@ -161,6 +163,13 @@ export async function saveSheetBatch(
       case "duplicate":
         counts.duplicate += 1;
         await write({ status: "duplicate", fingerprint: new Uint8Array(decision.fingerprint) });
+        break;
+      case "known":
+        // Moved by a column or a sort, not new: it is as it was at connect, and counted nowhere.
+        await write({
+          status: "before_connect",
+          fingerprint: context.hashes === null ? null : new Uint8Array(context.hashes.rekey(decision.fingerprint)),
+        });
         break;
       case "save": {
         const { reading } = decision;

@@ -24,6 +24,7 @@ function decide(read: ReturnType<typeof readFormRow>): SheetRowDecision {
       isErased: () => false,
       isBlocked: () => false,
       earlier: new Map(),
+      baseline: new Set(),
     },
   ]);
   if (decision === undefined) throw new Error("No decision");

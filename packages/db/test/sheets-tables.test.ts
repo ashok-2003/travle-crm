@@ -184,12 +184,12 @@ describe("the Google Sheets tables", () => {
     await expect(addConnection({ spreadsheetId, tabGid: "7" })).resolves.toBeDefined();
   });
 
-  it("keeps a fingerprint only on an added, merged, duplicate or erased row", async () => {
+  it("keeps a fingerprint only on a row there at connect, added, merged, duplicate or erased", async () => {
     const fingerprint = hash(9);
-    for (const status of ["added", "merged", "duplicate", "erased"]) {
+    for (const status of ["before_connect", "added", "merged", "duplicate", "erased"]) {
       await expect(addRow({ rawHash: nextHash(), status, fingerprint }), status).resolves.toBeDefined();
     }
-    for (const status of ["before_connect", "pending", "not_added"]) {
+    for (const status of ["pending", "not_added"]) {
       await expect(addRow({ rawHash: nextHash(), status, fingerprint }), status).rejects.toThrow(
         /sheet_row_fingerprint_status/,
       );

@@ -33,3 +33,23 @@ export async function earlierSheetFingerprints(
   }
   return found;
 }
+
+/**
+ * Which of these fingerprints (plain, as hex) a row of this connection that was there at connect holds. They are stored
+ * keyed, so the question is asked keyed; without the key nothing is known.
+ */
+export async function baselineSheetFingerprints(
+  tx: OrgTx,
+  connectionId: string,
+  fingerprints: readonly Uint8Array[],
+  hashes: SheetsHashes | null,
+): Promise<Set<string>> {
+  if (fingerprints.length === 0 || hashes === null) return new Set();
+  const plainOf = new Map(fingerprints.map((fingerprint) => [hex(hashes.rekey(fingerprint)), hex(fingerprint)]));
+  const rows = await tx.$queryRaw<{ fingerprint: string }[]>(sql`
+    SELECT DISTINCT encode(fingerprint, 'hex') AS fingerprint
+    FROM sheet_row
+    WHERE connection_id = ${connectionId}::uuid AND status = 'before_connect'
+      AND fingerprint = ANY(${[...plainOf.keys()].map((keyed) => Buffer.from(keyed, "hex"))}::bytea[])`);
+  return new Set(rows.flatMap((row) => plainOf.get(row.fingerprint) ?? []));
+}
