@@ -55,7 +55,10 @@ export function ChangePasswordForm({
 
   const submit = form.handleSubmit(async ({ currentPassword, newPassword: chosen }) => {
     setFailure(null);
-    const result = await auth.changePassword({ currentPassword, newPassword: chosen });
+    // A call that throws is shown like one the api refused, so the button never stays on "Saving".
+    const result = await auth
+      .changePassword({ currentPassword, newPassword: chosen })
+      .catch((): AuthFailure => ({ ok: false, status: 500, code: "UNKNOWN", retryAfterSeconds: null }));
     if (result.ok) await goOn();
     else setFailure(result);
   });
