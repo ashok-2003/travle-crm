@@ -2,7 +2,7 @@
 // due sheets of every organization without entering one, and the spreadsheet claim, which keeps a spreadsheet to one
 // agency at a time. Both hold ids, times and a keyed hash only, and are reached in db.withoutOrg(). The ESLint raw-SQL
 // guard allows their names in this file alone.
-import { type Database, isUniqueViolation, type OrgTx } from "@travel-crm/db";
+import { type Database, insideOrganization, isUniqueViolation, type OrgTx } from "@travel-crm/db";
 import { sheetSchedule, spreadsheetClaims } from "@travel-crm/db/sheet-schedule";
 import type { Bytes } from "./hashes.js";
 
@@ -134,8 +134,20 @@ export async function finishScheduledCheck(
   );
 }
 
+/**
+ * The sweeps below delete from tables with no row-level security, by what the organization tables show: they are the
+ * platform's, run outside any organization. Inside one, where those tables show only its own rows, they would delete
+ * what belongs to others (SD14).
+ */
+async function refuseInsideAnOrganization(tx: OrgTx): Promise<void> {
+  if (await insideOrganization(tx)) {
+    throw new Error("The sheets' schedule and claims are swept outside any organization only");
+  }
+}
+
 /** Schedule rows of connections that are not checked any more (the sweep): none live, so none needed. */
 export async function dropStaleScheduleRows(tx: OrgTx): Promise<number> {
+  await refuseInsideAnOrganization(tx);
   return tx.$executeRaw`
     DELETE FROM sheet_check_schedule s
     WHERE NOT EXISTS (
@@ -145,6 +157,7 @@ export async function dropStaleScheduleRows(tx: OrgTx): Promise<number> {
 
 /** Claims no live connection holds, made before `before`: an hour old at least, so a connect in progress keeps its own. */
 export async function dropUnusedClaims(tx: OrgTx, before: Date): Promise<number> {
+  await refuseInsideAnOrganization(tx);
   return tx.$executeRaw`
     DELETE FROM sheet_spreadsheet_claim k
     WHERE k.created_at < ${before}

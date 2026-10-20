@@ -9,6 +9,7 @@ export {
   type ForOrgOptions,
   type OrgTx,
 } from "./for-org.js";
+export { insideOrganization } from "./session.js";
 export { SignInRelationError } from "./sign-in-guard.js";
 export { emptySql, joinSql, sql, type Sql } from "./sql.js";
 export { HardDeleteError, SoftDeleteUpsertError, softDeleted, withDeleted } from "./soft-delete.js";

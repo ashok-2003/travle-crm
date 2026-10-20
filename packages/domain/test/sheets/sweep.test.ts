@@ -13,7 +13,12 @@ import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { sweepSheetsNow, SWEEP_SHEETS_QUEUE, sheetsSweepSchedule } from "../../src/platform/index.js";
 import type { PlatformServices } from "../../src/platform/index.js";
 import { createSheetsHashes, sweepSheets } from "../../src/sheets/index.js";
-import { scheduleRowOf, upsertScheduleRow } from "../../src/sheets/schedule.js";
+import {
+  dropStaleScheduleRows,
+  dropUnusedClaims,
+  scheduleRowOf,
+  upsertScheduleRow,
+} from "../../src/sheets/schedule.js";
 import { takeSpreadsheetClaim } from "../../src/sheets/index.js";
 import { aSheet, aSheetColumn, aSheetRow, aSpreadsheetId, sheetsHashKey } from "./support/sheets.js";
 
@@ -166,5 +171,17 @@ describe("the sheets sweep", () => {
         where: { organizationId, status: "connecting", touchedAt: { lt: new Date(Date.now() - DAY) } },
       }),
     ).toBe(0);
+  });
+
+  it("refuses to sweep inside an organization, whose view of the other tables would make it delete what is others'", async () => {
+    await expect(db.forOrg(organizationId, (tx) => dropStaleScheduleRows(tx))).rejects.toThrow(
+      "outside any organization",
+    );
+    await expect(db.forOrg(organizationId, (tx) => dropUnusedClaims(tx, now))).rejects.toThrow(
+      "outside any organization",
+    );
+    await expect(db.forOrg(organizationId, (tx) => sweepSheets(tx, now, 10))).rejects.toThrow(
+      "outside any organization",
+    );
   });
 });
