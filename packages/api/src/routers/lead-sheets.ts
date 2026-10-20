@@ -65,7 +65,8 @@ export const leadSheetsRouter = router({
       items,
       limit,
       serviceAccountEmails: ctx.google?.accounts().map((account) => account.email) ?? [],
-      configured: ctx.google !== null && ctx.sheetsHashes !== null && !demo,
+      // Whether this server has Google set up; the demo agency is told apart by `demo`, so its screen says why.
+      configured: ctx.google !== null && ctx.sheetsHashes !== null,
       demo,
     };
   }),
