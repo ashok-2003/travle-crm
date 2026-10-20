@@ -5,7 +5,9 @@
 import { sheetScheduleChangedEvent, type SheetStatus } from "@travel-crm/contracts/sheets";
 import type { Database } from "@travel-crm/db";
 import { defineListener, type EventListener } from "../jobs/index.js";
-import { sheetOf } from "./connection-row.js";
+import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
+import { accountIndexOf } from "./account-index.js";
+import { type SheetConnectionRow, sheetOf } from "./connection-row.js";
 import { firstCheckSeconds } from "./limits.js";
 import { removeScheduleRow, upsertScheduleRow } from "./schedule.js";
 
@@ -17,11 +19,22 @@ const scheduled: ReadonlySet<SheetStatus> = new Set([
   "needs_manager",
 ]);
 
+/** Its account's place now; where it was kept when the account is no longer there (the start-up check says so loudly). */
+function indexIn(google: Pick<GoogleSheets, "accounts"> | null, sheet: SheetConnectionRow): number {
+  try {
+    return accountIndexOf(google, sheet);
+  } catch {
+    return sheet.serviceAccountIndex;
+  }
+}
+
 /** Whether a sheet in this status has a schedule row. */
 export const hasScheduleRow = (status: SheetStatus): boolean => scheduled.has(status);
 
 export function scheduleListener(dependencies: {
   db: Database;
+  /** The accounts as they are now: a sheet goes to its account by the address it was shared with. */
+  google?: Pick<GoogleSheets, "accounts"> | null;
   checkIntervalSeconds?: number;
   random?: () => number;
 }): EventListener {
@@ -41,7 +54,7 @@ export function scheduleListener(dependencies: {
       await upsertScheduleRow(dependencies.db, {
         sheetId: sheet.id,
         organizationId: sheet.organizationId,
-        serviceAccountIndex: sheet.serviceAccountIndex,
+        serviceAccountIndex: indexIn(dependencies.google ?? null, sheet),
         serviceAccountEmail: sheet.serviceAccountEmail,
         // The first check is at a random moment within the first interval, so connections never all read at once.
         nextCheckAt: new Date(

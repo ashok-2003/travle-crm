@@ -65,14 +65,26 @@ const projectReasons = new Set([
 ]);
 
 /** Everything Google says about an error that decides its reason: status text, reasons and message, in lower case. */
-function errorWords(body: unknown): { status: string; reasons: string[]; message: string } {
+function errorWords(body: unknown): { status: string; reasons: string[]; message: string; errorInfo: string | null } {
   const error = isRecord(body) && isRecord(body.error) ? body.error : {};
   const reasons: string[] = [];
   for (const list of [error.errors, error.details]) {
     if (Array.isArray(list))
       for (const item of list) if (isRecord(item) && typeof item.reason === "string") reasons.push(item.reason);
   }
-  return { status: text(error.status), reasons, message: text(error.message).toLowerCase() };
+  // An ErrorInfo in the details is Google naming the cause of a refusal itself (the project, the API, a policy): not a
+  // sheet that is unshared, whose 403 comes with none.
+  const details: unknown[] = Array.isArray(error.details) ? (error.details as unknown[]) : [];
+  const info: unknown = details.find(
+    (item) => isRecord(item) && typeof item["@type"] === "string" && item["@type"].endsWith("ErrorInfo"),
+  );
+  const errorInfo =
+    isRecord(info) && typeof info.reason === "string"
+      ? info.reason.slice(0, 60)
+      : info === undefined
+        ? null
+        : "ERROR_INFO";
+  return { status: text(error.status), reasons, message: text(error.message).toLowerCase(), errorInfo };
 }
 
 /** Seconds from a Retry-After header, null when absent or not a number (an HTTP date is not used). */
@@ -90,8 +102,11 @@ export function mapGoogleError(status: number, body: unknown, retryAfter: string
   if (status === 429 || (status === 403 && quota))
     return new GoogleSheetsError("rate_limited", retryAfterSecondsOf(retryAfter));
   if (status === 403) {
-    const ours = words.reasons.some((reason) => projectReasons.has(reason.toLowerCase()));
-    return new GoogleSheetsError(ours ? "unavailable" : "not_shared");
+    // Only a 403 with no cause named is the sheet not being shared; any ErrorInfo, or a reason of our project's, is ours (M5).
+    const ours = words.errorInfo !== null || words.reasons.some((reason) => projectReasons.has(reason.toLowerCase()));
+    return ours
+      ? new GoogleSheetsError("unavailable", null, words.errorInfo ?? words.reasons[0]?.slice(0, 60) ?? null)
+      : new GoogleSheetsError("not_shared");
   }
   if (status === 404) return new GoogleSheetsError("not_found");
   if (status === 400 || status === 412) {

@@ -70,12 +70,19 @@ export type GoogleSheetsErrorReason = (typeof googleSheetsErrorReasons)[number];
 export class GoogleSheetsError extends Error {
   readonly reason: GoogleSheetsErrorReason;
   readonly retryAfterSeconds: number | null;
+  /** The ErrorInfo reason code Google gave (SERVICE_DISABLED, ...): a code of its own, never a sheet's content. */
+  readonly googleReason: string | null;
 
-  constructor(reason: GoogleSheetsErrorReason, retryAfterSeconds: number | null = null) {
+  constructor(
+    reason: GoogleSheetsErrorReason,
+    retryAfterSeconds: number | null = null,
+    googleReason: string | null = null,
+  ) {
     super(`Google Sheets: ${reason}`);
     this.name = "GoogleSheetsError";
     this.reason = reason;
     this.retryAfterSeconds = retryAfterSeconds;
+    this.googleReason = googleReason;
   }
 }
 

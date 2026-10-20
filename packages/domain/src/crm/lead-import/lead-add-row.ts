@@ -29,6 +29,8 @@ function leftOutReason(
   reading: Extract<PlannableRow, { kind: "enquiry" }>,
 ): RowReason | "plan" | null {
   const { batch, lookups, earlier, timeZone } = decision;
+  // Erased since the check: the row is left out whatever the importer ticked (M6).
+  if (lookups.isErased(reading.contacts)) return { code: "erased" };
   if (lookups.isBlocked(reading.contacts) && !batch.addBlocked) return { code: "blocked" };
   const addedAt = earlier.get(fingerprintHex(rowFingerprint("leads", reading.fingerprintValues)));
   if (addedAt !== undefined && !batch.addAlreadyImported) {

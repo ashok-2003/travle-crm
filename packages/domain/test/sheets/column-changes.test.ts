@@ -116,4 +116,40 @@ describe("a sheet whose columns change", () => {
     // The copy is its own entry, the second of its cells, instead of being taken for the first.
     expect(copies.map((row) => row.occurrence)).toEqual([2]);
   });
+
+  it("knows a row that could not be read as an enquiry (no contact, a bad phone) after a column is inserted, and keeps the ledger as long as the sheet", async () => {
+    const readable = answer("Old Customer", freshPhone(), 1);
+    const noContact = ["19/10/2026 14:02:00", "No Contact Person", "", ""];
+    const badPhone = ["19/10/2026 14:03:00", "Bad Phone Person", "12", ""];
+    const rows = [HEADER, readable, noContact, badPhone];
+    const running = await setupSheet(test, { rows });
+    const before = await running.ledger();
+    expect(before.every((row) => row.status === "before_connect" && row.fingerprint !== null)).toBe(true);
+    // The new column is blank, as a column just inserted is.
+    const blankColumn = (cells: string[], index: number) => [
+      cells[0] ?? "",
+      index === 0 ? "Budget" : "",
+      ...cells.slice(1),
+    ];
+    rewrite(running, rows.map(blankColumn));
+    await running.check("scheduled");
+    // No old row comes back as a problem or a lead, and the ledger holds each row once, not twice.
+    expect(await running.leads()).toHaveLength(0);
+    expect((await running.ledger()).map((row) => row.status)).toEqual([
+      "before_connect",
+      "before_connect",
+      "before_connect",
+    ]);
+    rewrite(
+      running,
+      rows.map((cells, index) => [index === 0 ? "Extra" : "", ...cells]),
+    );
+    await running.check("sync-now");
+    expect((await running.ledger()).map((row) => row.status)).toEqual([
+      "before_connect",
+      "before_connect",
+      "before_connect",
+    ]);
+    expect(await running.leads()).toHaveLength(0);
+  });
 });

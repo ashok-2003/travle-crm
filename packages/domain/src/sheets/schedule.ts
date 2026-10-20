@@ -168,25 +168,43 @@ export async function dropUnusedClaims(tx: OrgTx, before: Date): Promise<number>
 }
 
 /**
- * The scheduled sheets whose service account is not where it was when they were connected: the list was reordered, or an
- * account taken out (SC9). Each is the address and the place it was given and now holds, so the worker can refuse to
- * start with a message that names them, instead of finding sheets it can no longer open. Rows made before the address
- * was kept have none and are not asked.
+ * Puts each scheduled sheet on the place its account has in the list now, found by the address it was shared with (SC9,
+ * M3): a list that was reordered then costs nothing. Rows from before the address was kept keep the place they had.
+ */
+export async function reconcileScheduleAccounts(
+  db: Database,
+  accounts: readonly { index: number; email: string }[],
+): Promise<void> {
+  await db.withoutOrg(async (tx) => {
+    for (const { index, email } of accounts) {
+      await sheetSchedule(tx).updateMany({
+        where: { serviceAccountEmail: email, NOT: { serviceAccountIndex: index } },
+        data: { serviceAccountIndex: index },
+      });
+    }
+  });
+}
+
+/**
+ * The addresses of scheduled sheets that are no longer anywhere in the list: an account was taken out (SC9). The worker and
+ * the api refuse to start with a message that names them, instead of finding sheets nothing can open. Rows made before
+ * the address was kept have none and are not asked.
  */
 export async function strandedServiceAccounts(
   db: Database,
   accounts: readonly { index: number; email: string }[],
-): Promise<{ email: string; index: number; nowThere: string | null }[]> {
+): Promise<{ email: string }[]> {
   const rows = await db.withoutOrg((tx) =>
     sheetSchedule(tx).findMany({
       where: { serviceAccountEmail: { not: null } },
-      distinct: ["serviceAccountIndex", "serviceAccountEmail"],
-      select: { serviceAccountIndex: true, serviceAccountEmail: true },
+      distinct: ["serviceAccountEmail"],
+      select: { serviceAccountEmail: true },
     }),
   );
-  return rows.flatMap((row) => {
-    const email = row.serviceAccountEmail ?? "";
-    const nowThere = accounts.find((account) => account.index === row.serviceAccountIndex)?.email ?? null;
-    return nowThere === email ? [] : [{ email, index: row.serviceAccountIndex, nowThere }];
-  });
+  const present = new Set(accounts.map((account) => account.email));
+  return rows.flatMap((row) =>
+    row.serviceAccountEmail === null || present.has(row.serviceAccountEmail)
+      ? []
+      : [{ email: row.serviceAccountEmail }],
+  );
 }

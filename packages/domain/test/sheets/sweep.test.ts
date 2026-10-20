@@ -82,6 +82,28 @@ describe("the sheets sweep", () => {
     expect(await platform.sheetRow.count({ where: { connectionId: ids.old } })).toBe(0);
   });
 
+  it("leaves a connected sheet that waits for a new tab's baseline alone, however long, and still sweeps a draft that never ran", async () => {
+    const ids = await db.forOrg(organizationId, async (tx) => {
+      const waiting = await aSheet(tx, {
+        connectedBy: userId,
+        status: "connecting",
+        connectedAt: new Date(now.getTime() - 20 * DAY),
+        touchedAt: new Date(now.getTime() - 3 * DAY),
+      });
+      const draft = await aSheet(tx, {
+        connectedBy: userId,
+        status: "connecting",
+        step: "columns",
+        connectedAt: null,
+        touchedAt: new Date(now.getTime() - 3 * DAY),
+      });
+      return { waiting: waiting.id, draft: draft.id };
+    });
+    await run();
+    const left = await platform.sheetConnection.findMany({ where: { id: { in: [ids.waiting, ids.draft] } } });
+    expect(left.map((sheet) => sheet.id)).toEqual([ids.waiting]);
+  });
+
   it("never drops a problem the agency hid: it stays until its row leaves the sheet", async () => {
     const sheetId = await db.forOrg(organizationId, async (tx) => {
       const sheet = await aSheet(tx, { connectedBy: userId });

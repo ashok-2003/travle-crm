@@ -25,7 +25,7 @@ export async function checkLeadImport(
     row.kind === "enquiry" ? [rowFingerprint("leads", row.fingerprintValues)] : [],
   );
   const { lookups, earlier } = await context.forOrg(async (tx) => ({
-    lookups: await lookUpLeadRows(tx, file.rows),
+    lookups: await lookUpLeadRows(tx, file.rows, file.fromSheet ? dependencies.sheetErasedContacts : undefined),
     earlier: await earlierAnywhere(tx, dependencies.sheetFingerprints, fingerprints, batch.id),
   }));
   const { plans, rowsToAdd, rowsNewStage } = planLeadRows(file.rows, lookups, earlier, {

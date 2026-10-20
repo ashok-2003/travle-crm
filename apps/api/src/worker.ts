@@ -3,6 +3,7 @@
 // to go faster: pg-boss gives each job to one of them.
 import { startWorker } from "@travel-crm/domain/jobs";
 import { describeError } from "@travel-crm/integrations/jobs";
+import { reconcileScheduleAccounts } from "@travel-crm/domain/sheets";
 import { checkXlsxReading } from "@travel-crm/integrations/spreadsheets";
 import { workerProblemLine } from "./process-log.js";
 import { assertServiceAccountsInPlace, sheetsStartUpLine } from "./sheets-settings.js";
@@ -19,7 +20,11 @@ const {
   running: worker,
 } = await startProcess("worker", async ({ environment, services, log }) => {
   await checkXlsxReading(services.spreadsheets);
-  if (services.google !== null) await assertServiceAccountsInPlace(services.db, services.google.accounts());
+  if (services.google !== null) {
+    // A reordered list is followed by address; an account taken out stops the worker here.
+    await reconcileScheduleAccounts(services.db, services.google.accounts());
+    await assertServiceAccountsInPlace(services.db, services.google.accounts());
+  }
   return startWorker({
     db: services.db,
     runner: services.jobs,

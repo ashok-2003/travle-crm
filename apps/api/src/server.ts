@@ -5,10 +5,15 @@ import { describeError } from "@travel-crm/integrations/jobs";
 import { createApp } from "./app.js";
 import { clientAddressFrom } from "./rate-limit.js";
 import { sheetsStartUpLine } from "./sheets-settings.js";
+import { assertServiceAccountsInPlace } from "./sheets-settings.js";
 import { startProcess, stopOnUnhandledErrors } from "./start-up.js";
 import { webhookProviders } from "./webhook-providers.js";
 
-const { environment, services, log } = await startProcess("api", () => undefined);
+const { environment, services, log } = await startProcess("api", async ({ services }) => {
+  // The list of service accounts is the worker's to follow, but the api shows the address sheets are shared with: it
+  // refuses a list that no longer holds one (SC9).
+  if (services.google !== null) await assertServiceAccountsInPlace(services.db, services.google.accounts());
+});
 
 const app = createApp({
   identity: services.identity,

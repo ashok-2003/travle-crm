@@ -1,8 +1,10 @@
 // The rows a sheet couldn't add (S27, S31): listed by row number with their reason, name or value, and first seen, fifty
 // to a page; Hide resolves one by hand.
+import { softDeleted } from "@travel-crm/db";
 import { afterAll, describe, expect, it } from "vitest";
 import { hideProblem, sheetProblems } from "../../src/sheets/index.js";
-import { setup as setupSheet } from "./support/running.js";
+import { freshPhone } from "../crm/support/records.js";
+import { answer, setup as setupSheet } from "./support/running.js";
 import { aSheetRow, auditOf, createTestSheets, memberOf } from "./support/sheets.js";
 
 const test = createTestSheets();
@@ -129,5 +131,32 @@ describe("sheetProblems", () => {
     const [row] = await running.ledger();
     expect(row).toMatchObject({ id: shown?.id, status: "not_added" });
     expect(row?.resolvedAt).not.toBeNull();
+  });
+
+  it("re-plans a hidden problem only on Sync now, not on a scheduled check (M7)", async () => {
+    const running = await setupSheet(test);
+    const phone = freshPhone();
+    const e164 = phone;
+    await running.inOrg((tx) => tx.blockedContact.create({ data: { kind: "phone", value: e164 } }));
+    running.append(answer("Blocked Person", phone, 1));
+    await running.check("sync-now");
+    const listed = await running.inOrg((tx) => sheetProblems(tx, { sheetId: running.sheet.sheetId }));
+    const [shown] = (listed as { items: { id: string }[] }).items;
+    expect(shown).toBeDefined();
+    await running.inOrg((tx) =>
+      hideProblem(tx, memberOf(running.agency), { sheetId: running.sheet.sheetId, rowId: shown?.id ?? "" }, new Date()),
+    );
+    // Unblocked: a scheduled check does not look at the hidden line again.
+    await running.inOrg((tx) =>
+      tx.blockedContact.updateMany({
+        where: { kind: "phone", value: e164 },
+        data: softDeleted(memberOf(running.agency).userId),
+      }),
+    );
+    await running.check("scheduled");
+    expect(await running.leads()).toHaveLength(0);
+    // Sync now does.
+    await running.check("sync-now");
+    expect(await running.leads()).toHaveLength(1);
   });
 });

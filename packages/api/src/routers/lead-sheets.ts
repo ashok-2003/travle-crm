@@ -28,11 +28,13 @@ import {
   confirmSheet,
   disconnectSheet,
   hideProblem,
+  accountAddressOf,
   limitSheetReads,
   listSheets,
   matchSheetColumns,
   pauseSheet,
   recheckSheet,
+  requestsOf,
   requestSyncNow,
   resumeSheet,
   sheetDetailOf,
@@ -77,7 +79,7 @@ export const leadSheetsRouter = router({
       const connection = await ctx.db.forOrg(organizationId, (tx) =>
         tx.sheetConnection.findFirst({
           where: { id: input.sheetId, status: { not: "disconnected" } },
-          select: { connectedBy: true, serviceAccountIndex: true },
+          select: { connectedBy: true, serviceAccountIndex: true, serviceAccountEmail: true },
         }),
       );
       if (connection === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "No such sheet");
@@ -85,7 +87,7 @@ export const leadSheetsRouter = router({
       const names = await memberNames(ctx.identity, organizationId, [connection.connectedBy, owner]);
       return ctx.db.forOrg(organizationId, (tx) =>
         sheetDetailOf(tx, input.sheetId, new Date(), {
-          serviceAccountEmail: ctx.google?.accounts()[connection.serviceAccountIndex]?.email ?? "",
+          serviceAccountEmail: accountAddressOf(ctx.google, connection) ?? "",
           connectedByName: names[connection.connectedBy] ?? null,
           defaultOwnerName: owner === null ? null : (names[owner] ?? null),
           readOnly: ctx.entitlements?.access !== "full",
@@ -104,7 +106,11 @@ export const leadSheetsRouter = router({
     .input(beginSheetInput)
     .output(sheetStarted)
     .mutation(async ({ ctx, input }) => {
-      await limitSheetReads(ctx.rateLimiter, ctx.member.organizationId);
+      await limitSheetReads(
+        ctx.rateLimiter,
+        ctx.member.organizationId,
+        requestsOf.begin(ctx.google?.accounts().length ?? 1),
+      );
       const link = parseSheetLink(input.link);
       if (link === null)
         throw new DomainError("VALIDATION", "SHEET_LINK_INVALID", "That is not a link to a Google Sheet");
@@ -116,7 +122,7 @@ export const leadSheetsRouter = router({
     .input(verifySheetInput)
     .output(sheetColumnsView)
     .mutation(async ({ ctx, input }) => {
-      await limitSheetReads(ctx.rateLimiter, ctx.member.organizationId);
+      await limitSheetReads(ctx.rateLimiter, ctx.member.organizationId, requestsOf.verify);
       return verifySheet(
         ctx.db,
         { google: ctx.google, hashes: ctx.sheetsHashes },
@@ -128,7 +134,7 @@ export const leadSheetsRouter = router({
     }),
 
   chooseTab: manager.input(chooseSheetTabInput).mutation(async ({ ctx, input }) => {
-    await limitSheetReads(ctx.rateLimiter, ctx.member.organizationId);
+    await limitSheetReads(ctx.rateLimiter, ctx.member.organizationId, requestsOf.chooseTab);
     return chooseSheetTab(ctx.db, { google: ctx.google, hashes: ctx.sheetsHashes }, ctx.member, input, new Date());
   }),
 
@@ -152,15 +158,15 @@ export const leadSheetsRouter = router({
     .mutation(({ ctx, input }) => confirmSheet(ctx.db, ctx.member, input.sheetId, new Date())),
 
   /** Sync now: a full read at once; SHEET_BUSY within 30 seconds of the last check or while one runs (S38). */
-  syncNow: manager
-    .input(sheetIdInput)
-    .mutation(({ ctx, input }) =>
-      ctx.db.forOrg(ctx.member.organizationId, (tx) => requestSyncNow(tx, input.sheetId, new Date())),
-    ),
+  syncNow: manager.input(sheetIdInput).mutation(async ({ ctx, input }) => {
+    // The check it asks for reads a whole tab: it is spent from the same budget (R3).
+    await limitSheetReads(ctx.rateLimiter, ctx.member.organizationId, requestsOf.syncNow);
+    await ctx.db.forOrg(ctx.member.organizationId, (tx) => requestSyncNow(tx, input.sheetId, new Date()));
+  }),
 
   /** Check again, for Lost access or Tab missing, on another tab if asked (S39, S40). */
   recheck: manager.input(recheckSheetInput).mutation(async ({ ctx, input }) => {
-    await limitSheetReads(ctx.rateLimiter, ctx.member.organizationId);
+    await limitSheetReads(ctx.rateLimiter, ctx.member.organizationId, requestsOf.recheck);
     return recheckSheet(ctx.db, { google: ctx.google, hashes: ctx.sheetsHashes }, ctx.member, input, new Date());
   }),
 

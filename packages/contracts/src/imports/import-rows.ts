@@ -26,6 +26,7 @@ export const rowReasonCodes = [
   "notes_too_long",
   "same_as_row",
   "blocked",
+  "erased",
   "already_imported",
   "in_crm_open",
   "in_crm_closed",

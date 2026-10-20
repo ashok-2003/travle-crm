@@ -191,4 +191,13 @@ describe("verifySheet", () => {
     expect(test.google.calls.reads - before.reads).toBe(4);
     expect(view.columns[0]?.samples).toEqual(["Person 0", "Person 1", "Person 2"]);
   });
+
+  it("counts a sheet's rows down a column they have, not column A: a blank A1 or a blank column A is not an empty sheet", async () => {
+    const rows = [
+      ["", "Full name", "Phone number"],
+      ...Array.from({ length: 4 }, (_, index) => ["", `Person ${String(index)}`, `98765${String(10000 + index)}`]),
+    ];
+    const { verify } = await setup(rows);
+    expect((await verify()).rowCount).toBe(4);
+  });
 });

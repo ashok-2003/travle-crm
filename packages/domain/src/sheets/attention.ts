@@ -8,6 +8,7 @@ import { sheetAttentionEvent } from "@travel-crm/contracts/sheets";
 import { defineListener, type EventListener, publishEvent } from "../jobs/index.js";
 import { notify } from "../notifications/index.js";
 import type { SheetsJobDependencies } from "./job-dependencies.js";
+import { accountAddressOf } from "./account-index.js";
 import { sheetOf } from "./connection-row.js";
 import { systemActor } from "../kernel/index.js";
 import type { SheetConnectionRow } from "./connection-row.js";
@@ -140,7 +141,7 @@ export function attentionListener(dependencies: Pick<SheetsJobDependencies, "ide
         state === "needs_manager"
           ? ((await dependencies.identity.memberContacts(organizationId, [sheet.connectedBy]))[0]?.name ?? null)
           : null;
-      const address = dependencies.google?.accounts()[sheet.serviceAccountIndex]?.email ?? null;
+      const address = accountAddressOf(dependencies.google, sheet);
       const words = wordsFor(state, sheet, { address, connector });
       await context.forOrg((tx) =>
         notify(tx, context.actor, {

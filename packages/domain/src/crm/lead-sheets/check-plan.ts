@@ -8,6 +8,8 @@ import {
   type CheckDependencies,
   type CheckMode,
   clearVanishedRows,
+  refreshRowNumbers,
+  contentFingerprint,
   type HeaderMatch,
   isKnown,
   ledgerKey,
@@ -53,7 +55,13 @@ export async function planCheck(
   const { organizationId } = sheet;
   const rows = numberRows(read.rows);
   const ledger = await db.forOrg(organizationId, (tx) => lookUpLedger(tx, sheet.id, rows, hashes));
-  const unknown = rows.filter((row) => !isKnown(ledger.get(ledgerKey(row.hash, row.occurrence))));
+  // A full read numbers the rows truly: the ledger's numbers are brought to them (M2).
+  if (plan.full) await db.forOrg(organizationId, (tx) => refreshRowNumbers(tx, sheet.id, rows, ledger));
+  const unknown = rows.filter((row) => {
+    const entry = ledger.get(ledgerKey(row.hash, row.occurrence));
+    // A problem hidden by hand is planned again only when someone asks with Sync now or Check again (M7).
+    return !isKnown(entry) && !(mode === "scheduled" && entry?.hidden === true);
+  });
 
   // Who the Owner column's values are: the person's own matches, else identity's, else the agency Owner.
   const ownerValues = [
@@ -101,7 +109,15 @@ export async function planCheck(
     today: calendarDateIn(now, timeZone),
     agencyTimeZone: timeZone,
   });
-  const items = unknown.map((row) => ({ row, reading: readSheetRow(row, context) }));
+  const items = unknown.map((row) => {
+    const reading = readSheetRow(row, context);
+    // A row that is no enquiry is known, if it was there at connect, by its cells under their headers (M1).
+    return {
+      row,
+      reading,
+      content: reading.kind === "enquiry" ? undefined : contentFingerprint(read.header, row.cells),
+    };
+  });
   // The lookups are one query a kind, but for a thousand rows at a time: a column inserted into a sheet of twenty thousand
   // rows re-plans them all, and one transaction for them would run past its limit for ever (SD5). The fingerprints met in
   // one chunk are carried to the next, so two equal rows in different chunks are still one.
@@ -115,11 +131,13 @@ export async function planCheck(
         chunk.map(({ reading }) => reading),
         hashes,
         sheet.id,
+        chunk.flatMap(({ content }) => content ?? []),
       );
       return planSheetRows(
-        chunk.map(({ row, reading }) => ({
+        chunk.map(({ row, reading, content }) => ({
           row,
           reading,
+          ...(content === undefined ? {} : { contentFingerprint: content }),
           ledger: ledger.get(ledgerKey(row.hash, row.occurrence)),
           mode,
           isErased: (contacts) => lookups.isErased(contacts),

@@ -292,6 +292,56 @@ describe("Check again", () => {
     ).rejects.toMatchObject({ reason: "SHEET_BUSY" });
   });
 
+  it("refuses a busy Check again on another tab before asking Google anything (M4)", async () => {
+    const lost = await setup();
+    const manager = memberOf(lost.agency);
+    await lost.inOrg((tx) =>
+      tx.sheetConnection.update({
+        where: { id: lost.sheet.sheetId },
+        data: { status: "lost_access", checkStartedAt: new Date() },
+      }),
+    );
+    const before = test.google.calls.total;
+    await expect(
+      recheckSheet(test.db, test.dependencies, manager, { sheetId: lost.sheet.sheetId, tabGid: "9" }, new Date()),
+    ).rejects.toMatchObject({ reason: "SHEET_BUSY" });
+    expect(test.google.calls.total).toBe(before);
+  });
+
+  it("lets a connected sheet that waits for a new tab's baseline ask for it again", async () => {
+    const running = await setup();
+    const manager = memberOf(running.agency);
+    const id = running.sheet.spreadsheetId;
+    test.google.deleteSpreadsheet(id);
+    test.google.addSpreadsheet({
+      id,
+      title: "Goa Diwali campaign (Responses)",
+      tabs: [
+        {
+          gid: "9",
+          title: "Archive",
+          rows: [["Timestamp", "Full name", "Phone number", "Email Address"], answer("Old", freshPhone(), 1)],
+        },
+      ],
+    });
+    test.google.share(id, test.accountEmail);
+    await running.check("sync-now");
+    await recheckSheet(test.db, test.dependencies, manager, { sheetId: running.sheet.sheetId, tabGid: "9" }, later);
+    // The baseline did not finish: the sheet waits in connecting, connected before.
+    expect(await running.state()).toMatchObject({ status: "connecting", lastFullReadAt: null });
+    expect((await running.state()).connectedAt).not.toBeNull();
+    // Check again asks for the baseline once more.
+    const events = await eventsOf(test, running.agency, ["sheet.baseline-requested"]);
+    await recheckSheet(
+      test.db,
+      test.dependencies,
+      manager,
+      { sheetId: running.sheet.sheetId },
+      new Date(Date.now() + 120_000),
+    );
+    expect(await eventsOf(test, running.agency, ["sheet.baseline-requested"])).toHaveLength(events.length + 1);
+  });
+
   it("asks for the baseline again for a sheet that never got one", async () => {
     const never = await setup();
     await never.inOrg((tx) =>

@@ -27,11 +27,12 @@ export {
   isKnown,
   ledgerKey,
   lookUpLedger,
+  refreshRowNumbers,
   repeatsAboveWindow,
   type LedgerEntry,
 } from "./ledger.js";
 export { nameColumns, type HeaderName } from "./header-keys.js";
-export { limitSheetReads, sheetReadsPerMinute } from "./read-limits.js";
+export { limitSheetReads, requestsOf, sheetRequestsPerMinute } from "./read-limits.js";
 export { findTombstones, type ContactToCheck } from "./tombstones.js";
 export { baselineSheetFingerprints, earlierSheetFingerprints } from "./fingerprints.js";
 export { monthFirstLocale, sheetOrigin, sheetOriginOf } from "./origin.js";
@@ -66,8 +67,10 @@ export {
   sheetsDispatchSchedule,
   type DispatchDependencies,
 } from "./dispatch.js";
-export { finishScheduledCheck, strandedServiceAccounts } from "./schedule.js";
+export { finishScheduledCheck, reconcileScheduleAccounts, strandedServiceAccounts } from "./schedule.js";
 export { sweepSheets, type SheetsSwept } from "./sweep.js";
 export { type ErasedContacts, lockSheetConnections, type SheetsWithdrawn, withdrawSheetRows } from "./erasure.js";
+export { contentFingerprint } from "./content-fingerprint.js";
+export { accountAddressOf, accountIndexOf } from "./account-index.js";
 export { assertNoSheetCheckSaving, lockAddAgainstChecks } from "./guards.js";
 export { listSheets, sheetDetailOf, type SheetDetailFacts } from "./views.js";

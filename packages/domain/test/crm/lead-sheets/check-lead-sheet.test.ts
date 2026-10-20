@@ -254,9 +254,11 @@ describe("checking a sheet", () => {
     test.google.editCell(typing.sheet.spreadsheetId, "Form responses 1", 2, 2, freshPhone());
     await typing.check();
     expect(await typing.leads()).toHaveLength(1);
-    const ledger = await typing.ledger();
-    // The line for the edited row's old cells is gone with them.
-    expect(ledger.map((row) => row.status)).toEqual(["added"]);
+    // A window can not tell that the old cells left the sheet (rows moved above would leave stale numbers): the line
+    // clears at the next full read (M2).
+    expect((await typing.ledger()).map((row) => row.status).sort()).toEqual(["added", "not_added"]);
+    await typing.check("sync-now");
+    expect((await typing.ledger()).map((row) => row.status)).toEqual(["added"]);
     expect(await typing.state()).toMatchObject({ rowsAdded: 1 });
   });
 

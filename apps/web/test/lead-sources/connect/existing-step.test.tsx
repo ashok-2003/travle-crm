@@ -47,35 +47,20 @@ describe("ExistingStep", () => {
     expect(await screen.findByText("Your sheet has 14,200 rows; the newest 10,000 can be checked.")).toBeVisible();
   });
 
-  it("skips the step for an empty sheet, and connects it as it is", async () => {
+  it("shows an empty sheet's step, never connecting it by itself, and connects it as it is once asked", async () => {
     renderStep(0);
+    expect(await screen.findByText(words.noRows)).toBeVisible();
+    // Nothing to choose among, and nothing sent until the person presses Connect.
+    expect(screen.queryByRole("radio")).toBeNull();
+    expect(inputsTo("leadSheets.confirm")).toEqual([]);
+    await userEvent.click(screen.getByRole("button", { name: words.connect }));
+    await userEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", { name: words.confirmAction }),
+    );
     await waitFor(() => {
       expect(inputsTo("leadSheets.confirm")).toEqual([{ sheetId }]);
     });
     expect(inputsTo("leadSheets.chooseExisting")).toEqual([{ sheetId, existingRows: "only_new" }]);
-    expect(screen.queryByRole("radio")).toBeNull();
-  });
-
-  it("shows why an empty sheet could not be connected, and tries again on request", async () => {
-    renderStep(0, { "leadSheets.confirm": { status: 409, reason: "SHEET_NOT_READY" } });
-    expect(await screen.findByText(messages.errors.reasons.SHEET_NOT_READY)).toBeVisible();
-    expect(screen.queryByText(words.reading)).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: messages.common.tryAgain }));
-    await waitFor(() => {
-      expect(inputsTo("leadSheets.confirm")).toHaveLength(2);
-    });
-  });
-
-  it("does not connect an empty sheet by itself while the agency is read-only", async () => {
-    stubApi({ "leadSheets.verify": { data: aColumnsView({ rowCount: 0 }) } });
-    screenIs("phone");
-    renderWithApi(
-      <ExistingStep detail={detail} />,
-      newQueryClient({ ...paidSubscription, status: "read_only", access: "read_only" }),
-    );
-    expect(await screen.findByText(messages.errors.reasons.ORGANIZATION_READ_ONLY)).toBeVisible();
-    expect(inputsTo("leadSheets.chooseExisting")).toEqual([]);
-    expect(inputsTo("leadSheets.confirm")).toEqual([]);
   });
 
   it("says the sheet's rows could not be read, with Try again, when reading fails", async () => {

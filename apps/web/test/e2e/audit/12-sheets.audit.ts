@@ -142,6 +142,8 @@ test("Google Sheets: Lead sources, connecting, a sheet's page and each state tha
   });
 
   // The list, with a second sheet being set up through the preview of its rows, and a third that lost access.
+  // The steps above asked Google for most of an agency's minute (twenty requests): the next connect waits it out.
+  await page.waitForTimeout(61_000);
   const second = await aGoogleForm(google, {
     title: "Rows already there (Responses)",
     rows: [

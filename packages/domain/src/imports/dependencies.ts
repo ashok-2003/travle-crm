@@ -32,4 +32,12 @@ export interface ImportJobDependencies {
    * already added reads it as "already imported" (SD15). A function handed in: imports never calls sheets.
    */
   sheetFingerprints?: (tx: OrgTx, fingerprints: readonly Uint8Array[]) => Promise<Map<string, Date>>;
+  /**
+   * The `${kind}:${value}` of each of these contacts that is an erased customer's, so a Google Sheet's import leaves
+   * their row out when the erasure came after the sheet's baseline (M6). A function handed in: imports never calls sheets.
+   */
+  sheetErasedContacts?: (
+    tx: OrgTx,
+    contacts: readonly { kind: "phone" | "email" | "instagram"; value: string }[],
+  ) => Promise<Set<string>>;
 }

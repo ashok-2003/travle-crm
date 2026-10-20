@@ -70,6 +70,7 @@
     "existing": {
       "title": "Rows already in the sheet",
       "question": "{count, plural, one {Your sheet already has # row. What should we do with it?} other {Your sheet already has # rows. What should we do with them?}}",
+      "noRows": "Your sheet has no rows yet. Each new answer becomes a lead.",
       "capped": "Your sheet has {count} rows; the newest {limit} can be checked.",
       "onlyNew": "Only new rows from now on",
       "onlyNewHint": "Nothing already in the sheet is added. New answers become leads.",

@@ -1,24 +1,42 @@
-// How often an agency may make us read Google by hand (SD4, SC2): the connect steps and Check again each read the sheet in
-// the api's request, on the shared service account's quota (60 reads a minute for it). A person connecting reads a few times
-// a minute at most; an agency past that is told to wait, so one cannot push every agency into Google's 429.
+// How much an agency may make us ask Google by hand (SD4, SC2, R3): the connect steps, Check again and Sync now each read the
+// sheet on the one shared service account, whose quota is 60 requests a minute. So the budget counts Google's requests,
+// not calls: each call costs what it will ask Google for, and an agency may spend a share of the account's minute. Past it
+// the agency is told to wait, and no agency can push every other into Google's 429.
 import type { RateLimiter } from "../rate-limits/index.js";
 import { DomainError } from "../kernel/index.js";
 
-/** Reads of Google an organization's people may start in a minute, across begin, verify, choosing a tab and Check again. */
-export const sheetReadsPerMinute = 30;
+/** A third of an account's 60 requests a minute: the rest is for the checks of the schedule and for other agencies. */
+export const sheetRequestsPerMinute = 20;
+
+/** What each by-hand call asks Google for, at most (a describe is two requests, a column read one, a full read three). */
+export const requestsOf = {
+  /** One describe on each account tried in turn. */
+  begin: (accounts: number) => 2 * Math.max(1, accounts),
+  chooseTab: 2,
+  /** A describe, a column to count the rows, a column of the Owner's values. */
+  verify: 4,
+  /** A describe of another tab, and the full read of its check. */
+  recheck: 5,
+  /** The full read of its check. */
+  syncNow: 3,
+} as const;
 
 export async function limitSheetReads(
   limiter: Pick<RateLimiter, "hit"> | undefined,
   organizationId: string,
+  requests: number,
   now: Date = new Date(),
 ): Promise<void> {
   if (limiter === undefined) return;
-  const result = await limiter.hit(
-    `sheet-reads:${organizationId}`,
-    { limit: sheetReadsPerMinute, windowSeconds: 60 },
-    now,
-  );
-  if (!result.allowed) {
-    throw new DomainError("CONFLICT", "SHEETS_TOO_FAST", "Too many sheet checks in a minute: wait a little");
+  // One hit for each request: the limiter counts hits. A refusal stops at once, with what was counted kept.
+  for (let request = 0; request < requests; request += 1) {
+    const result = await limiter.hit(
+      `sheet-reads:${organizationId}`,
+      { limit: sheetRequestsPerMinute, windowSeconds: 60 },
+      now,
+    );
+    if (!result.allowed) {
+      throw new DomainError("CONFLICT", "SHEETS_TOO_FAST", "Too many sheet checks in a minute: wait a little");
+    }
   }
 }

@@ -71,6 +71,9 @@ export async function pasteSheetLink(page: Page, link: string): Promise<void> {
   await page.getByRole("button", { name: "Check the sheet" }).click();
 }
 
+/** When this page last began connecting a sheet. */
+const connectedAt = new WeakMap<Page, number>();
+
 /**
  * Connects a sheet as guessed: share, paste, Next on the columns, the choice for the rows already there, Connect. Ends on
  * the sheet's page for "only new rows", or the import's preview for "check".
@@ -79,6 +82,13 @@ export async function connectSheet(
   page: Page,
   options: { link: string; existing: "only_new" | "check" },
 ): Promise<void> {
+  // An agency may ask Google for twenty requests a minute and a connect takes twelve: the next waits out the minute.
+  const before = connectedAt.get(page);
+  if (before !== undefined) {
+    const wait = 61_000 - (Date.now() - before);
+    if (wait > 0) await page.waitForTimeout(wait);
+  }
+  connectedAt.set(page, Date.now());
   await pasteSheetLink(page, options.link);
   await expect(page.getByRole("heading", { level: 1, name: "Match columns" })).toBeVisible({ timeout: WORKER_STEP_MS });
   await page.getByRole("button", { name: "Next" }).click();

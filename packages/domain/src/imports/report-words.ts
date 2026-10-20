@@ -19,6 +19,7 @@ const sentences: Record<RowReasonCode, (reason: RowReason, today: string) => str
   notes_too_long: () => "Notes over 4,000 characters",
   same_as_row: (reason) => `Same as row ${String(reason.row ?? "")}`,
   blocked: () => "A blocked contact",
+  erased: () => "A customer who asked to be erased",
   already_imported: (reason, today) =>
     reason.on === undefined ? "Already imported" : `Already imported on ${reportDay(reason.on, today)}`,
   in_crm_open: () => "Has an open lead with you",

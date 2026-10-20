@@ -113,6 +113,7 @@
     "notes_too_long": "Notes over 4,000 characters",
     "same_as_row": "Same as row {row}",
     "blocked": "A blocked contact",
+    "erased": "A customer who asked to be erased",
     "already_imported": "Already imported on {on}",
     "in_crm_open": "Has an open lead with you",
     "in_crm_closed": "Has a closed lead with you",

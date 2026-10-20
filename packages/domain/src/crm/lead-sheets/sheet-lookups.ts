@@ -36,6 +36,8 @@ export async function lookUpSheetRows(
   readings: readonly LeadRowReading[],
   hashes: SheetsHashes | null,
   connectionId: string,
+  /** The content fingerprints of rows that are no enquiry: they are known by them too (M1). */
+  contentFingerprints: readonly Uint8Array[] = [],
 ): Promise<SheetLookups> {
   const enquiries = readings.flatMap((reading) => (reading.kind === "enquiry" ? [reading] : []));
   // Rows that are no enquiry have contacts too, and an erased customer is known by them (SD10).
@@ -47,7 +49,7 @@ export async function lookUpSheetRows(
     const before = earlier.get(fingerprint);
     if (before === undefined || addedAt < before) earlier.set(fingerprint, addedAt);
   }
-  const baseline = await baselineSheetFingerprints(tx, connectionId, fingerprints, hashes);
+  const baseline = await baselineSheetFingerprints(tx, connectionId, [...fingerprints, ...contentFingerprints], hashes);
   const tombstones = await findTombstones(
     tx,
     hashes,

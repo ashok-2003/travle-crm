@@ -1,7 +1,15 @@
 // The ledger: a row is known whatever row it moved to, by its hash and occurrence, plain or re-keyed; waiting rows are read
 // again; problems and waiting rows that left the sheet are cleared at the read that covers their place.
 import { afterAll, describe, expect, it } from "vitest";
-import { clearVanishedRows, isKnown, ledgerKey, lookUpLedger, numberRows, rowHash } from "../../src/sheets/index.js";
+import {
+  clearVanishedRows,
+  isKnown,
+  ledgerKey,
+  lookUpLedger,
+  numberRows,
+  refreshRowNumbers,
+  rowHash,
+} from "../../src/sheets/index.js";
 import { aSheet, aSheetRow, anAgency, createTestSheets, memberOf } from "./support/sheets.js";
 
 const test = createTestSheets();
@@ -143,19 +151,42 @@ describe("clearVanishedRows", () => {
     ]);
   });
 
-  it("leaves a not_added row alone when the read does not cover its place", async () => {
+  it("never clears a problem or a waiting row on a window read, only on a full one (M2)", async () => {
     const { agency, sheetId } = await sheetWithRows([
       { cells: ["problem row 12"], status: "not_added", rowNumber: 12 },
       { cells: ["waiting row 12"], status: "pending", rowNumber: 13 },
     ]);
-    const result = await test.db.forOrg(agency, (tx) =>
-      clearVanishedRows(tx, sheetId, { read: read([["newest"]], 300), fromRow: 300, full: false }),
-    );
-    expect(result).toEqual({ resolved: 0, dropped: 0 });
-    // A window that covers them clears both.
-    const covering = await test.db.forOrg(agency, (tx) =>
+    // Rows sorted or inserted above leave stale numbers, so a window can not tell what left the sheet.
+    const window = await test.db.forOrg(agency, (tx) =>
       clearVanishedRows(tx, sheetId, { read: read([["newest"]], 300), fromRow: 10, full: false }),
     );
-    expect(covering).toEqual({ resolved: 1, dropped: 1 });
+    expect(window).toEqual({ resolved: 0, dropped: 0 });
+    const full = await test.db.forOrg(agency, (tx) =>
+      clearVanishedRows(tx, sheetId, { read: read([["newest"]], 2), fromRow: 2, full: true }),
+    );
+    expect(full).toEqual({ resolved: 1, dropped: 1 });
+  });
+});
+
+describe("refreshRowNumbers", () => {
+  it("brings the numbers of known rows to where a full read found them, in one statement a thousand", async () => {
+    const { agency, sheetId } = await sheetWithRows([
+      { cells: ["Asha"], status: "added", rowNumber: 2 },
+      { cells: ["Ravi"], status: "before_connect", rowNumber: 3 },
+      { cells: ["Meena"], status: "added", rowNumber: 4 },
+    ]);
+    // Sorted, with one row inserted above: every number moved.
+    const rows = read([["Zoya"], ["Meena"], ["Asha"], ["Ravi"]]);
+    await test.db.forOrg(agency, async (tx) => {
+      const ledger = await lookUpLedger(tx, sheetId, rows, test.hashes);
+      await refreshRowNumbers(tx, sheetId, rows, ledger);
+    });
+    const stored = await test.db.forOrg(agency, (tx) => tx.sheetRow.findMany({ where: { connectionId: sheetId } }));
+    const numberOf = (cells: string[]) => {
+      const row = numberRows([{ rowNumber: 1, cells }])[0];
+      return stored.find((entry) => row !== undefined && Buffer.from(entry.rawHash).equals(Buffer.from(row.hash)))
+        ?.rowNumber;
+    };
+    expect([numberOf(["Meena"]), numberOf(["Asha"]), numberOf(["Ravi"])]).toEqual([3, 4, 5]);
   });
 });
