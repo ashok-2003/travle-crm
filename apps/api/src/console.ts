@@ -5,9 +5,13 @@
 import { serve } from "@hono/node-server";
 import { describeError } from "@travel-crm/integrations/jobs";
 import { createConsoleApp } from "./console-app.js";
+import { forgetServiceAccounts } from "./console-environment.js";
 import { startConsoleJobs } from "./console-jobs.js";
 import { startConsolePlatform } from "./console-platform.js";
 import { startProcess, stopOnUnhandledErrors } from "./start-up.js";
+
+// The console never holds the Google service accounts (SC5): dropped before anything reads the environment.
+forgetServiceAccounts();
 
 // The console's own start runs inside the start-up guard: its settings, the platform role's connection and its jobs.
 // A missing DATABASE_PLATFORM_URL, a connection that isn't the platform role, or a schedule pg-boss refuses ends in

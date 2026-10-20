@@ -4,6 +4,7 @@
 // nothing and runs no jobs. Never over HTTP: only whoever can run the console's image with its environment can run it.
 import { describeError } from "@travel-crm/integrations/jobs";
 import { demoCommand, firstSuperAdminCommand, type CommandOutput } from "./console-commands.js";
+import { forgetServiceAccounts } from "./console-environment.js";
 import { startConsolePlatform, type ConsolePlatform } from "./console-platform.js";
 import { startProcess } from "./start-up.js";
 
@@ -34,6 +35,9 @@ async function usage(): Promise<never> {
   output.stderr(`Usage: console-command <${Object.keys(commands).join(" | ")}> [arguments]`);
   return exitWhenPrinted(1);
 }
+
+// The console never holds the Google service accounts (SC5).
+forgetServiceAccounts();
 
 const [name = "", ...args] = process.argv.slice(2);
 const command = commands[name] ?? (await usage());

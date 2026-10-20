@@ -5,6 +5,12 @@
 # `api-and-worker` runs the api and the worker in one container, for a host without background workers.
 set -eu
 
+# The console never holds the Google service accounts, whatever the host hands the container (the console's own code
+# drops them too).
+case "${1:-}" in
+  console | first-super-admin | demo) unset GOOGLE_SHEETS_SERVICE_ACCOUNTS ;;
+esac
+
 command="${1:-}"
 if [ "$#" -gt 0 ]; then shift; fi
 
