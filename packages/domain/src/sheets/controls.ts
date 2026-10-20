@@ -82,7 +82,8 @@ export async function disconnectSheet(db: Database, access: MemberAccess, sheetI
       const sheet = await holdSheet(tx, sheetId);
       if (sheet === null || sheet.status === "disconnected")
         throw new DomainError("NOT_FOUND", "NOT_FOUND", "No such sheet");
-      await tx.sheetRow.deleteMany({ where: { connectionId: sheet.id } });
+      // An erased customer's rows stay (keyed hashes only): connecting the sheet again must not bring them back (S43).
+      await tx.sheetRow.deleteMany({ where: { connectionId: sheet.id, status: { not: "erased" } } });
       await tx.sheetColumn.deleteMany({ where: { connectionId: sheet.id } });
       await tx.sheetValueMatch.deleteMany({ where: { connectionId: sheet.id } });
       await tx.sheetConnection.update({

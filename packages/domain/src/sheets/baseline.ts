@@ -9,7 +9,7 @@ import { startImportFromBytes } from "../imports/index.js";
 import { enterAttention } from "./attention.js";
 import { connectImportCsv } from "./connect-import-file.js";
 import { holdSheet, sheetOf } from "./connection-row.js";
-import { uuidFromText } from "./hashes.js";
+import { hex, uuidFromText } from "./hashes.js";
 import { headerHashOf } from "./header-match.js";
 import type { SheetsJobDependencies } from "./job-dependencies.js";
 import { baselineRowsPerTransaction, maxSheetRows } from "./limits.js";
@@ -58,25 +58,49 @@ export function baselineListener(dependencies: SheetsJobDependencies): EventList
         return;
       }
       const rows = numberRows(read.read.rows);
-      // What each row holds, as a fingerprint kept keyed: a column added later changes every row's hash, not this.
-      const fingerprints =
-        dependencies.baselineFingerprints === undefined || dependencies.hashes === null
+      // What each row holds, as a fingerprint kept keyed (a column added later changes every row's hash, not this), and
+      // whether it is an erased customer's: by contact, or by the same cells as a row of any sheet erased before (S43).
+      const { hashes } = dependencies;
+      const held =
+        dependencies.baselineFingerprints === undefined || hashes === null
           ? []
           : await dependencies.baselineFingerprints(sheet, { header: read.read.header, rows });
+      const keyedHashes = rows.map((row) => (hashes === null ? null : hashes.rekey(row.hash)));
+      const erasedBefore = new Set<string>();
+      const asked = keyedHashes.flatMap((hash) => hash ?? []);
+      if (asked.length > 0) {
+        await context.forOrg(async (tx) => {
+          for (let start = 0; start < asked.length; start += baselineRowsPerTransaction) {
+            const found = await tx.sheetRow.findMany({
+              where: { status: "erased", rawHash: { in: asked.slice(start, start + baselineRowsPerTransaction) } },
+              select: { rawHash: true },
+            });
+            for (const row of found) erasedBefore.add(hex(row.rawHash));
+          }
+        });
+      }
+      const erasedAt = (index: number) =>
+        held[index]?.erased === true || erasedBefore.has(hex(keyedHashes[index] ?? new Uint8Array()));
       for (let start = 0; start < rows.length; start += baselineRowsPerTransaction) {
         const chunk = rows.slice(start, start + baselineRowsPerTransaction);
         await context.forOrg(
           (tx) =>
             tx.sheetRow.createMany({
-              data: chunk.map((row, index) => ({
-                connectionId: sheetId,
-                fingerprint: keyedFingerprint(dependencies.hashes, fingerprints[start + index]),
-                rawHash: row.hash,
-                occurrence: row.occurrence,
-                rowNumber: row.rowNumber,
-                status: "before_connect",
-                processedAt: new Date(),
-              })),
+              data: chunk.map((row, index) => {
+                const at = start + index;
+                const erased = erasedAt(at);
+                const fingerprint = held[at]?.fingerprint ?? null;
+                return {
+                  connectionId: sheetId,
+                  // An erased customer's row keeps only keyed hashes, here as everywhere (S43).
+                  rawHash: erased ? (keyedHashes[at] ?? row.hash) : row.hash,
+                  occurrence: row.occurrence,
+                  rowNumber: row.rowNumber,
+                  status: erased ? "erased" : "before_connect",
+                  fingerprint: keyedFingerprint(hashes, fingerprint),
+                  processedAt: new Date(),
+                };
+              }),
               skipDuplicates: true,
             }),
           { timeout: 30_000, maxWait: 10_000 },
@@ -84,7 +108,12 @@ export function baselineListener(dependencies: SheetsJobDependencies): EventList
       }
 
       if (sheet.existingRows === "check" && rows.length > 0) {
-        const file = await connectImportCsv(dependencies.spreadsheets, read.read);
+        // The rows of erased customers never reach the import.
+        const erasedRows = new Set(rows.flatMap((row, index) => (erasedAt(index) ? [row.rowNumber] : [])));
+        const file = await connectImportCsv(dependencies.spreadsheets, {
+          header: read.read.header,
+          rows: read.read.rows.filter((row) => !erasedRows.has(row.rowNumber)),
+        });
         const now = new Date();
         const timeZone = sheet.sheetTimeZone;
         await startImportFromBytes(

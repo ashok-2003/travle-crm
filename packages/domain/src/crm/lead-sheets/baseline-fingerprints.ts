@@ -6,12 +6,19 @@ import type { Database } from "@travel-crm/db";
 import { organizationTimeZone } from "../../identity/index.js";
 import { rowFingerprint } from "../../imports/index.js";
 import { calendarDateIn } from "../../kernel/index.js";
-import { matchHeader, sheetOrigin, storedColumns, type SheetsJobDependencies } from "../../sheets/index.js";
+import {
+  findTombstones,
+  matchHeader,
+  sheetOrigin,
+  storedColumns,
+  type SheetsHashes,
+  type SheetsJobDependencies,
+} from "../../sheets/index.js";
 import { readSheetRow, sheetLeadContext } from "./sheet-rows.js";
 
 type BaselineFingerprints = NonNullable<SheetsJobDependencies["baselineFingerprints"]>;
 
-export function leadSheetBaselineFingerprints(db: Database): BaselineFingerprints {
+export function leadSheetBaselineFingerprints(db: Database, hashes: SheetsHashes | null): BaselineFingerprints {
   return async (sheet, read) => {
     const { columns, timeZone } = await db.forOrg(sheet.organizationId, async (tx) => ({
       columns: await storedColumns(tx, sheet.id),
@@ -26,9 +33,33 @@ export function leadSheetBaselineFingerprints(db: Database): BaselineFingerprint
       today: calendarDateIn(new Date(), timeZone),
       agencyTimeZone: timeZone,
     });
-    return read.rows.map((row) => {
-      const reading = readSheetRow(row, context);
-      return reading.kind === "enquiry" ? rowFingerprint("leads", reading.fingerprintValues) : null;
+    const readings = read.rows.map((row) => readSheetRow(row, context));
+    // An erased customer's contact comes back as nothing: the row is known as erased, and no lead is ever made of it (S43).
+    const erasedKeys = await db.forOrg(sheet.organizationId, (tx) =>
+      findTombstones(
+        tx,
+        hashes,
+        readings.flatMap((reading) =>
+          reading.kind === "enquiry"
+            ? [
+                ...(reading.contacts.phone === null ? [] : [{ kind: "phone" as const, value: reading.contacts.phone }]),
+                ...(reading.contacts.email === null ? [] : [{ kind: "email" as const, value: reading.contacts.email }]),
+                ...(reading.contacts.instagramHandle === null
+                  ? []
+                  : [{ kind: "instagram" as const, value: reading.contacts.instagramHandle }]),
+              ]
+            : [],
+        ),
+      ),
+    );
+    return readings.map((reading) => {
+      if (reading.kind !== "enquiry") return { fingerprint: null, erased: false };
+      const { phone, email, instagramHandle } = reading.contacts;
+      const erased =
+        (phone !== null && erasedKeys.has(`phone:${phone}`)) ||
+        (email !== null && erasedKeys.has(`email:${email}`)) ||
+        (instagramHandle !== null && erasedKeys.has(`instagram:${instagramHandle}`));
+      return { fingerprint: rowFingerprint("leads", reading.fingerprintValues), erased };
     });
   };
 }

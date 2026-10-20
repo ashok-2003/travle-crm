@@ -23,6 +23,7 @@ export { followUpFullRead, dailyReadDue, decideRead, type CheckMode, type ReadPl
 export { numberRows, type ReadRow } from "./numbered-rows.js";
 export { clearVanishedRows, firstPendingRow, isKnown, ledgerKey, lookUpLedger, type LedgerEntry } from "./ledger.js";
 export { nameColumns, type HeaderName } from "./header-keys.js";
+export { findTombstones, type ContactToCheck } from "./tombstones.js";
 export { baselineSheetFingerprints, earlierSheetFingerprints } from "./fingerprints.js";
 export { monthFirstLocale, sheetOrigin, sheetOriginOf } from "./origin.js";
 export {

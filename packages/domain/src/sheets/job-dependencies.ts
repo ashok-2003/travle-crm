@@ -17,13 +17,14 @@ export interface SheetsJobDependencies extends SheetsDependencies {
   identity: Pick<Identity, "resolveAccess" | "firstOwner" | "leadWorkers" | "matchLeadWorkers" | "memberContacts">;
   subscriptions: Pick<SubscriptionAccess, "entitlementsOf">;
   /**
-   * The fingerprint of each row of a sheet's first read, as the lead reading makes it, null for a row that is no enquiry:
-   * crm's, passed in so that sheets never import it. Without it the baseline keeps no fingerprints.
+   * Each row of a sheet's first read as the lead reading makes it: its fingerprint (null for a row that is no enquiry)
+   * and whether its contact is an erased customer's. crm's, passed in so that sheets never import it; without it the
+   * baseline keeps no fingerprints and knows no erased customer by contact.
    */
   baselineFingerprints?: (
     sheet: SheetConnectionRow,
     read: { header: readonly string[]; rows: readonly ReadRow[] },
-  ) => Promise<(Uint8Array | null)[]>;
+  ) => Promise<{ fingerprint: Uint8Array | null; erased: boolean }[]>;
   /** The process's one log: ids and codes only. */
   log: (line: string) => void;
 }

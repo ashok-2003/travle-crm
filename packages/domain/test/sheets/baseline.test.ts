@@ -2,7 +2,15 @@
 // the last row, the sheet starts running; with "also check" the newest rows become an ordinary lead import's file.
 import { afterAll, describe, expect, it } from "vitest";
 import { createSpreadsheets } from "@travel-crm/integrations/spreadsheets";
-import { baselineListener, connectImportMaxRows, hex, uuidFromText } from "../../src/sheets/index.js";
+import { storageKeyOf } from "../../src/files/attachment-row.js";
+import {
+  baselineListener,
+  connectImportMaxRows,
+  disconnectSheet,
+  hex,
+  rowHash,
+  uuidFromText,
+} from "../../src/sheets/index.js";
 import { connectImportCsv } from "../../src/sheets/connect-import-file.js";
 import {
   anAgency,
@@ -60,7 +68,8 @@ describe("the baseline", () => {
       },
       context,
     );
-    expect(counted.transactions).toBe(5);
+    // The tab read, one look for erased customers, three chunks of ledger rows, and the last.
+    expect(counted.transactions).toBe(6);
     const { sheet: connection, rows: ledger } = await stored();
     expect(ledger).toHaveLength(2500);
     expect(new Set(ledger.map((row) => row.status))).toEqual(new Set(["before_connect"]));
@@ -204,5 +213,53 @@ describe("the baseline", () => {
     await baseline(paused.agency, paused.sheet.sheetId);
     expect(test.google.calls.total).toBe(callsBefore);
     expect((await paused.stored()).rows).toHaveLength(0);
+  });
+
+  it("marks a row of an erased customer erased, by contact, keeps no plain hash of it, and leaves it out of the connect-time import", async () => {
+    const rows = [formHeader, formRow(1), formRow(2), formRow(3)];
+    const { agency, sheet, stored } = await setup(rows, "check");
+    await test.db.forOrg(agency, (tx) =>
+      tx.sheetErasedContact.create({ data: { contactHash: test.hashes.contactHash("phone", "+919876510002") } }),
+    );
+    await baseline(agency, sheet.sheetId);
+    const { rows: ledger, imports } = await stored();
+    expect(ledger.map((row) => row.status)).toEqual(["before_connect", "erased", "before_connect"]);
+    expect(Buffer.from(ledger[1]?.rawHash ?? []).equals(Buffer.from(rowHash(formRow(2))))).toBe(false);
+    // The import was started from the file without that row.
+    expect(imports).toHaveLength(1);
+    const attachment = await test.db.forOrg(agency, (tx) =>
+      tx.attachment.findFirstOrThrow({ where: { recordId: imports[0]?.id ?? "" }, select: { id: true } }),
+    );
+    const object = test.storage.objects.get(storageKeyOf({ organizationId: agency, id: attachment.id }));
+    const text = new TextDecoder().decode(object?.body);
+    expect(text).toContain("Person 1");
+    expect(text).not.toContain("Person 2");
+    expect(text).toContain("Person 3");
+  });
+
+  it("marks a row erased when the same cells were erased on another sheet, and disconnecting keeps erased rows", async () => {
+    const rows = [formHeader, formRow(1), formRow(2)];
+    const first = await setup(rows);
+    await baseline(first.agency, first.sheet.sheetId);
+    // The first sheet's row 2 is erased as the erasure leaves it: keyed hashes, status erased.
+    await test.db.forOrg(first.agency, async (tx) => {
+      const row = await tx.sheetRow.findFirstOrThrow({ where: { connectionId: first.sheet.sheetId, rowNumber: 3 } });
+      await tx.sheetRow.update({
+        where: { id: row.id },
+        data: { status: "erased", rawHash: new Uint8Array(test.hashes.rekey(row.rawHash)) },
+      });
+    });
+    const second = await aConfirmedSheet(test, first.importer, { rows });
+    await baseline(first.agency, second.sheetId);
+    const ledger = await test.db.forOrg(first.agency, (tx) =>
+      tx.sheetRow.findMany({ where: { connectionId: second.sheetId }, orderBy: { rowNumber: "asc" } }),
+    );
+    expect(ledger.map((row) => row.status)).toEqual(["before_connect", "erased"]);
+    // Disconnecting the first sheet drops its ledger but not its erased rows.
+    await disconnectSheet(test.db, first.importer, first.sheet.sheetId, new Date());
+    const left = await test.db.forOrg(first.agency, (tx) =>
+      tx.sheetRow.findMany({ where: { connectionId: first.sheet.sheetId } }),
+    );
+    expect(left.map((row) => row.status)).toEqual(["erased"]);
   });
 });

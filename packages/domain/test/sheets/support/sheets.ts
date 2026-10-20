@@ -236,7 +236,7 @@ export function jobDependencies(
     subscriptions: { entitlementsOf: () => Promise.resolve(crmEntitlements(access)) },
     log: () => undefined,
     // As the worker builds it: the baseline keeps what each old row holds.
-    baselineFingerprints: leadSheetBaselineFingerprints(test.db),
+    baselineFingerprints: leadSheetBaselineFingerprints(test.db, test.hashes),
   };
 }
 

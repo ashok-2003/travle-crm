@@ -2,11 +2,12 @@
 // rows' contacts, their open leads, the blocked contacts and destinations (the lead import's own lookups), the
 // fingerprints already added anywhere (imports' and the sheets'), and the erased customers' contacts.
 import { type OrgTx } from "@travel-crm/db";
-import { earlierFingerprints, fingerprintHex, rowFingerprint } from "../../imports/index.js";
+import { earlierFingerprints, rowFingerprint } from "../../imports/index.js";
 import {
   baselineSheetFingerprints,
   type ContactKind,
   earlierSheetFingerprints,
+  findTombstones,
   type SheetsHashes,
 } from "../../sheets/index.js";
 import { lookUpLeadRows, type LeadLookups } from "../lead-import/lead-lookups.js";
@@ -45,24 +46,16 @@ export async function lookUpSheetRows(
     if (before === undefined || addedAt < before) earlier.set(fingerprint, addedAt);
   }
   const baseline = await baselineSheetFingerprints(tx, connectionId, fingerprints, hashes);
-  const tombstones = new Set<string>();
-  if (hashes !== null) {
-    const asked = new Map<string, Uint8Array<ArrayBuffer>>();
-    for (const reading of enquiries) {
-      for (const { kind, key } of KINDS) {
+  const tombstones = await findTombstones(
+    tx,
+    hashes,
+    enquiries.flatMap((reading) =>
+      KINDS.flatMap(({ kind, key }) => {
         const value = reading.contacts[key];
-        if (value !== null) asked.set(`${kind}:${value}`, hashes.contactHash(kind, value));
-      }
-    }
-    if (asked.size > 0) {
-      const found = await tx.sheetErasedContact.findMany({
-        where: { contactHash: { in: [...asked.values()] } },
-        select: { contactHash: true },
-      });
-      const foundHex = new Set(found.map((row) => fingerprintHex(row.contactHash)));
-      for (const [contact, hash] of asked) if (foundHex.has(fingerprintHex(hash))) tombstones.add(contact);
-    }
-  }
+        return value === null ? [] : [{ kind, value }];
+      }),
+    ),
+  );
   return {
     lookups,
     earlier,

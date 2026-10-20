@@ -127,7 +127,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
           hashes: sheets.hashes,
           holds: createAccountHolds(),
           checkIntervalSeconds: sheets.checkIntervalSeconds ?? defaultCheckIntervalSeconds,
-          baselineFingerprints: leadSheetBaselineFingerprints(db),
+          baselineFingerprints: leadSheetBaselineFingerprints(db, sheets.hashes),
         };
   const exportJobs: ExportJobDependencies = { files, spreadsheets, identity, appUrl };
   return {
