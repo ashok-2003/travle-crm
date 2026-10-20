@@ -111,7 +111,9 @@ export function createRealGoogleSheets(options: RealGoogleSheetsOptions): Google
         error instanceof GoogleSheetsError && (error.reason === "unavailable" || error.reason === "rate_limited");
       if (down && !failing.has(accountIndex)) {
         failing.add(accountIndex);
-        options.log?.(`sheets: Google account ${String(accountIndex)} failed: ${error.reason}`);
+        options.log?.(
+          `sheets: Google account ${String(accountIndex)} failed: ${error.reason}${error.googleReason === null ? "" : ` (${error.googleReason})`}`,
+        );
       } else if (!down) failing.delete(accountIndex);
       throw error;
     }

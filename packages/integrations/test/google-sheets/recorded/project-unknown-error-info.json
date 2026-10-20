@@ -1,0 +1,17 @@
+{
+  "status": 403,
+  "body": {
+    "error": {
+      "code": 403,
+      "message": "Some new policy of the project refuses this.",
+      "status": "PERMISSION_DENIED",
+      "details": [
+        {
+          "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+          "reason": "SOME_NEW_POLICY",
+          "domain": "googleapis.com"
+        }
+      ]
+    }
+  }
+}

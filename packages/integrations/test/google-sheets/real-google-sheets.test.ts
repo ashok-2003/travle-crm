@@ -206,6 +206,7 @@ describe("createRealGoogleSheets", () => {
     ["not-a-sheet", "not_a_sheet", null],
     ["quota-403", "rate_limited", null],
     ["project-service-disabled", "unavailable", null],
+    ["project-unknown-error-info", "unavailable", null],
     ["project-scope-insufficient", "unavailable", null],
     ["project-suspended", "unavailable", null],
     ["project-user-denied", "unavailable", null],
@@ -215,6 +216,19 @@ describe("createRealGoogleSheets", () => {
   it.each(cases)("maps the recorded %s to %s", async (name, reason, retryAfterSeconds) => {
     const { send } = fakeFetch(() => asResponse(recorded(name)));
     await expect(adapterWith(send).readRows(0, id, read)).rejects.toMatchObject({ reason, retryAfterSeconds });
+  });
+
+  it("keeps the ErrorInfo reason code of a 403 that is not a sheet's sharing, and none for a plain 403", async () => {
+    const { send } = fakeFetch(() => asResponse(recorded("project-unknown-error-info")));
+    await expect(adapterWith(send).readRows(0, id, read)).rejects.toMatchObject({
+      reason: "unavailable",
+      googleReason: "SOME_NEW_POLICY",
+    });
+    const plain = fakeFetch(() => asResponse(recorded("forbidden")));
+    await expect(adapterWith(plain.send).readRows(0, id, read)).rejects.toMatchObject({
+      reason: "not_shared",
+      googleReason: null,
+    });
   });
 
   it("maps a 429 without Retry-After, a 500 and a 401 to reasons", async () => {
@@ -277,8 +291,8 @@ describe("createRealGoogleSheets", () => {
     for (let attempt = 0; attempt < 3; attempt += 1) await google.readRows(0, id, read).catch(() => undefined);
     await google.readRows(1, id, read).catch(() => undefined);
     expect(lines).toEqual([
-      "sheets: Google account 0 failed: unavailable",
-      "sheets: Google account 1 failed: unavailable",
+      "sheets: Google account 0 failed: unavailable (SERVICE_DISABLED)",
+      "sheets: Google account 1 failed: unavailable (SERVICE_DISABLED)",
     ]);
     // A sheet-level answer (not shared) is Google answering normally: it ends the streak, and is not logged.
     answer = () => asResponse(recorded("forbidden"));
