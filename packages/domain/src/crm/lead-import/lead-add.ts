@@ -6,7 +6,6 @@
 import type { ImportFailureReason } from "@travel-crm/contracts/imports";
 import { isUniqueViolation } from "@travel-crm/db";
 import {
-  earlierFingerprints,
   holdImport,
   importerAccess,
   recordRowOutcomes,
@@ -17,6 +16,7 @@ import {
 } from "../../imports/index.js";
 import type { MemberAccess } from "../../identity/index.js";
 import type { ListenerContext } from "../../jobs/index.js";
+import { earlierAnywhere } from "./earlier-anywhere.js";
 import { addRow } from "./lead-add-row.js";
 import { lookUpLeadRows } from "./lead-lookups.js";
 import { defaultOwnerOf, type LeadFile } from "./lead-read.js";
@@ -43,6 +43,7 @@ interface Who {
   workers: ReadonlySet<string>;
   access: MemberAccess;
   defaultOwner: string;
+  sheetFingerprints: ImportJobDependencies["sheetFingerprints"];
 }
 
 /** Decides and saves up to `limit` rows, stopping early once the time box has passed. */
@@ -71,7 +72,7 @@ async function addRows(
         ...who,
         batch,
         lookups: await lookUpLeadRows(tx, readings),
-        earlier: await earlierFingerprints(tx, "leads", fingerprints, importId),
+        earlier: await earlierAnywhere(tx, who.sheetFingerprints, fingerprints, importId),
         timeZone: file.timeZone,
         now: new Date(),
       };
@@ -135,7 +136,12 @@ export async function addLeadBatch(
   const workers = new Set(
     (await dependencies.identity.leadWorkers(batch.organizationId)).map((worker) => worker.userId),
   );
-  const who = { workers, access: resolved.access, defaultOwner: await defaultOwnerOf(dependencies, batch, workers) };
+  const who = {
+    workers,
+    access: resolved.access,
+    defaultOwner: await defaultOwnerOf(dependencies, batch, workers),
+    sheetFingerprints: dependencies.sheetFingerprints,
+  };
   const run = () => addRows(context, batch.id, file, who, ROWS_PER_BATCH, options.timeBoxMs ?? BATCH_TIME_BOX_MS);
   try {
     return await run();

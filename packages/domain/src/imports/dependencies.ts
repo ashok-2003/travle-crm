@@ -27,4 +27,9 @@ export interface ImportJobDependencies {
    * time zone and date locale. Null when the connection is gone. A file import never asks.
    */
   sheetOrigin?: (tx: OrgTx, sheetId: string) => Promise<SheetOrigin | null>;
+  /**
+   * The fingerprints (hex, with when) that the Google Sheets' ledgers hold among these, so a file holding a row a sheet
+   * already added reads it as "already imported" (SD15). A function handed in: imports never calls sheets.
+   */
+  sheetFingerprints?: (tx: OrgTx, fingerprints: readonly Uint8Array[]) => Promise<Map<string, Date>>;
 }
