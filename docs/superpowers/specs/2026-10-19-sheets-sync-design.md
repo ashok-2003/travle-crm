@@ -353,7 +353,7 @@ Each new row goes through the bulk release's `readLeadRow` (B14, B19-B23) and cr
   connection is given `service_account_index = hash(connection id) mod number of accounts`, and keeps it for life
   because the agency shared the sheet with that address; adding an account only changes where later connections go.
   Google allows 300 reads a minute for the project and 60 a minute for one user, so one service account serves
-  about 300 sheets at the 15-minute pace (a check is one request, or three for a full read that also asks the sheet's title, S17; the dispatcher queues 18 checks a minute for an account, so a minute stays at 54 requests). `maxReadsPerMinutePerAccount = 50` leaves room for
+  about 300 sheets at the 15-minute pace (a check is one request, or three for a full read that also asks the sheet's title, S17; the dispatcher queues 18 checks a minute for an account, so a minute stays at 54 requests). `maxReadsPerMinutePerAccount = 18` checks leaves room for
   connects and Sync now. Past that the dispatcher (S36) checks the most overdue first, so the interval stretches and
   no sheet starves; the owner is told to add an account at about 250 sheets for one (section 14).
 - **S36. About every 15 minutes while the worker is awake (owner, changed 2026-10-20 from 2).** Each check's next time is the interval plus a random 0 to 5 minutes (`spreadCheckSeconds`), and a new connection's first scheduled check is at a random moment within its first interval (`firstCheckSeconds`), so agencies' sheets never all read Google in the same minute. A wait Google asked for (a hold) is kept as it is. Sync now is the way to get rows at once. "Late" is after 30 minutes.  The worker holds the schedule. A scheduled job of the

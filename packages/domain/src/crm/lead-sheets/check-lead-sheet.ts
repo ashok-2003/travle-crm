@@ -20,6 +20,8 @@ import {
   headerHashOf,
   holdSheet,
   matchHeader,
+  numberRows,
+  repeatsAboveWindow,
   maxSheetRows,
   readSheetTab,
   recordMissingColumns,
@@ -96,7 +98,14 @@ async function readForCheck(dependencies: CheckDependencies, sheet: SheetConnect
   let plan: ReadPlan = decideRead({ connection: sheet, mode, now, timeZone, firstPendingRow: pending });
   let { read, tabTitle } = await readSheetTab(google, sheet, plan.fromRow);
   const headerHash = headerHashOf(read.header);
-  const follow = plan.full ? null : followUpFullRead(sheet, headerHash, read);
+  let follow: ReadPlan["reason"] | null = plan.full ? null : followUpFullRead(sheet, headerHash, read);
+  if (follow === null && !plan.full) {
+    // A copy of a row met above the window is numbered as the first in it: the whole tab is read, where it is true (SD12).
+    const repeats = await db.forOrg(sheet.organizationId, (tx) =>
+      repeatsAboveWindow(tx, sheet.id, numberRows(read.rows), plan.fromRow),
+    );
+    if (repeats) follow = "repeated-row";
+  }
   if (follow !== null) {
     plan = { fromRow: 2, full: true, reason: follow };
     ({ read, tabTitle } = await readSheetTab(google, sheet, 2));

@@ -99,6 +99,28 @@ export async function clearVanishedRows(
   return { resolved: resolved.length, dropped: dropped.length };
 }
 
+/**
+ * Whether any row of this windowed read has cells the ledger already holds at a row above the window (SD12). Identical
+ * rows are numbered 1, 2, … within the rows read, so a window that holds a later copy would number it 1 and take it for
+ * the earlier one: the whole tab is read instead, where the numbering is true.
+ */
+export async function repeatsAboveWindow(
+  tx: OrgTx,
+  connectionId: string,
+  rows: readonly ReadRow[],
+  fromRow: number,
+): Promise<boolean> {
+  if (fromRow <= 2) return false;
+  const hashes = [...new Map(rows.map((row) => [hex(row.hash), row.hash])).values()];
+  for (let start = 0; start < hashes.length; start += rowsPerLookup) {
+    const found = await tx.sheetRow.count({
+      where: { connectionId, rawHash: { in: hashes.slice(start, start + rowsPerLookup) }, rowNumber: { lt: fromRow } },
+    });
+    if (found > 0) return true;
+  }
+  return false;
+}
+
 /** The smallest row number of a row still waiting, so the window never leaves a half-typed row behind (S11). */
 export async function firstPendingRow(tx: OrgTx, connectionId: string): Promise<number | null> {
   const row = await tx.sheetRow.findFirst({

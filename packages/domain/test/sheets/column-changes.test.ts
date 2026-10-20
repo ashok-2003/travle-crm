@@ -104,4 +104,16 @@ describe("a sheet whose columns change", () => {
     const state = await running.state();
     expect(state.rowsAdded).toBe(1);
   });
+
+  it("numbers a later copy of an old row as its second occurrence, though the window holds only the copy", async () => {
+    // 150 rows: the window of a normal check starts at row 51, so the first row is above it.
+    const old = Array.from({ length: 150 }, (_, index) => answer(`Old ${String(index)}`, freshPhone(), index));
+    const running = await setupSheet(test, { rows: [HEADER, ...old] });
+    running.append(old[0] ?? []);
+    await running.check("scheduled");
+    expect(await running.leads()).toHaveLength(0);
+    const copies = (await running.ledger()).filter((row) => row.rowNumber === 152);
+    // The copy is its own entry, the second of its cells, instead of being taken for the first.
+    expect(copies.map((row) => row.occurrence)).toEqual([2]);
+  });
 });
