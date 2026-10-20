@@ -125,7 +125,7 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `VAPID_PUBLIC_KEY`, `VAPID_SUBJECT`                              | ●   | ●      | ●       |         |        |
 | `VAPID_PRIVATE_KEY`: the public key's pair (below)               | ●   | ●      | ●       |         | yes    |
 | `GOOGLE_SHEETS_SERVICE_ACCOUNTS`: the Sheets sync's keys (below) | ●   | ●      |         |         | yes    |
-| `SHEETS_HASH_KEY`: 32+ characters, never changed (below)         | ○   | ○      | ○       |         | yes    |
+| `SHEETS_HASH_KEY`: 32+ characters, never changed (below)         | ●   | ●      | ●       |         | yes    |
 | `PORT` (3001)                                                    | ○   |        |         |         |        |
 | `CONSOLE_PORT` (3002)                                            |     |        | ○       |         |        |
 | `DEMO_ORGANIZATION_CODE`, `DEMO_PASSWORD`: both or neither       |     |        | ○       |         | yes    |
@@ -145,12 +145,20 @@ Secrets come from the platform's secret manager as environment variables, never 
   - `GOOGLE_SHEETS_SERVICE_ACCOUNTS` holds that key file as base64 on one line (`base64 -i key.json`), single-line JSON,
     or a list of several, on the api and the worker, never the console. Unset, the app says "Google Sheets isn't set up
     on this server" and the Connect button is off. A bad value stops the process with a message naming the variable.
-  - `SHEETS_HASH_KEY` is at least 32 random characters (`openssl rand -base64 32`), required whenever the accounts are
-    set, and given to the console as well (its erasure job writes the tombstones of a customer's sheet rows). It lives in
+  - `SHEETS_HASH_KEY` is at least 32 random characters (`openssl rand -base64 32`), required (●) whenever the accounts
+    are set, and given to the console as well (its erasure job writes the tombstones of a customer's sheet rows). It lives in
     the environment only, never in the database or a log, and is **never rotated**: changing it makes the claims and the
-    tombstones stop matching, so keep it with the secrets that never change.
+    tombstones stop matching, so keep it with the secrets that never change. The first process to start stores an HMAC of a constant under it
+    (`sheets_key_check`); every later start of the api, the worker or the console compares and refuses to start,
+    naming `SHEETS_HASH_KEY`, when its key differs.
+  - On the pilot server: `secrets.sh init` makes `SHEETS_HASH_KEY`; set the accounts with
+    `base64 -w0 key.json | sudo scripts/server/secrets.sh set GOOGLE_SHEETS_SERVICE_ACCOUNTS` (docs/runbook.md, "Turn
+    on Google Sheets"). `docker-compose.server.yml` gives the key to all three processes and the accounts to the api and
+    the worker only. In production the key must have at least 10 different characters; the process names the variable
+    and refuses to start otherwise.
   - On Render: open `travel-crm-api`, Environment, add the variable as a secret, paste the base64 text, save and let
-    the service redeploy; the api's and the worker's log say `Google Sheets: 1 service account` when it was read.
+    the service redeploy (the one `travel-crm-api` service runs both, so set it there, not in the shared group, which
+    the console also reads; the console drops the variable anyway); the api's and the worker's log say `Google Sheets: 1 service account` when it was read.
   - The worker may sleep (Render's free tier): it wakes when staff use the app and its first tick checks every sheet,
     so a sheet is as fresh as the worker is awake; **Sync now** checks at once. Keeping the worker awake makes it the
     promised fifteen minutes. The console plays no part in checking sheets.

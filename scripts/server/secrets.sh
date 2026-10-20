@@ -104,6 +104,12 @@ SMTP_USER=''
 SMTP_PASSWORD=''
 EMAIL_FROM_ADDRESS=''
 
+# Google Sheets (docs/runbook.md, "Turn on Google Sheets"). The key is made by init and never changed. The accounts are
+# the service account key file as base64 on one line (`base64 -w0 key.json`), set with `secrets.sh set`; blank leaves
+# Google Sheets off, and `check` does not ask for it.
+SHEETS_HASH_KEY=''
+GOOGLE_SHEETS_SERVICE_ACCOUNTS=''
+
 # Web push: one pair for good (made by init); a new pair silently drops every browser's subscription.
 VAPID_PUBLIC_KEY=''
 VAPID_PRIVATE_KEY=''
@@ -129,6 +135,8 @@ EOF
     fill_once "$name" "$(openssl rand -hex 32)"
   done
   fill_once BETTER_AUTH_SECRET "$(openssl rand -base64 32)"
+  # Never changed: the sheets' claims and an erased customer's tombstones are keyed with it.
+  fill_once SHEETS_HASH_KEY "$(openssl rand -base64 32)"
   local local_database="@postgres:5432/travel_crm"
   fill_once DATABASE_URL "postgresql://app_runtime:$(value_of RUNTIME_DB_PASSWORD)$local_database"
   fill_once DATABASE_PLATFORM_URL "postgresql://app_platform:$(value_of PLATFORM_DB_PASSWORD)$local_database"
@@ -166,9 +174,9 @@ set_one() {
 }
 
 # The settings still empty, one per line, but the optional ones: the heartbeat, and the admin connection string the
-# server's own Postgres doesn't need.
+# server's own Postgres doesn't need, and the Google service accounts, which leave Google Sheets off while blank.
 empty_settings() {
-  sed -n -E "s/^([A-Z0-9_]+)=''\$/\1/p" "$settings_file" | grep -v -x -E 'BACKUP_HEARTBEAT_URL|DATABASE_ADMIN_URL' ||
+  sed -n -E "s/^([A-Z0-9_]+)=''\$/\1/p" "$settings_file" | grep -v -x -E 'BACKUP_HEARTBEAT_URL|DATABASE_ADMIN_URL|GOOGLE_SHEETS_SERVICE_ACCOUNTS' ||
     true
 }
 

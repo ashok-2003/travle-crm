@@ -231,6 +231,19 @@ worker console`.
 - **Security updates:** they install themselves, and a reboot happens at 03:30 India time when one is needed. Their
   log is `/var/log/unattended-upgrades/`.
 
+## Turn on Google Sheets
+
+The sync is off until the server holds a service account (the checklist's "Google Sheets" has the Google Cloud steps).
+
+1. `secrets.sh init` already made `SHEETS_HASH_KEY` on a server set up after this change. On an older server, make it
+   once with `openssl rand -base64 32 | sudo scripts/server/secrets.sh set SHEETS_HASH_KEY` after adding the line
+   `SHEETS_HASH_KEY=''` (and `GOOGLE_SHEETS_SERVICE_ACCOUNTS=''`) to `/srv/travel-crm/production.env`. Never change it.
+2. Set the accounts from the key file: `base64 -w0 key.json | sudo scripts/server/secrets.sh set
+GOOGLE_SHEETS_SERVICE_ACCOUNTS`, from a terminal of your own so the key doesn't pass through a chat. Keep the
+   private key's newlines as the file has them; a key pasted with `\n` typed for its newlines is refused at start-up.
+3. Release again (`scripts/server/release.sh`). The api's and the worker's log say `Google Sheets: 1 service account`;
+   the console's does not and never holds the accounts.
+
 ## Before the next agency
 
 - **Turn two-factor sign-in on** (the owner, 2026-10-18), platform staff included: `features.twoFactor` in

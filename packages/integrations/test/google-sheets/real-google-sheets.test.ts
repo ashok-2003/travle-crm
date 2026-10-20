@@ -81,15 +81,22 @@ describe("createRealGoogleSheets", () => {
     );
     const google = adapterWith(send);
     await google.describe(0, id);
-    await google.describe(0, "../x").catch(() => undefined);
     expect(calls.every((call) => call.init?.method === "GET")).toBe(true);
     expect(calls.map((call) => call.url.pathname)).toEqual([
       `/v4/spreadsheets/${id}`,
       `/v4/spreadsheets/${id}/values:batchGet`,
-      "/v4/spreadsheets/%2E%2E%2Fx",
-      "/v4/spreadsheets/%2E%2E%2Fx/values:batchGet",
     ]);
     expect(new Set(calls.map((call) => call.url.origin))).toEqual(new Set(["https://sheets.googleapis.com"]));
+  });
+
+  it("refuses an id that is not 20 to 80 letters, digits, dashes and underscores, without a request (SC7)", async () => {
+    const { calls, send } = fakeFetch(() => asResponse({ status: 200, body: metadataBody }));
+    const google = adapterWith(send);
+    for (const bad of ["../x", "a".repeat(19), "a".repeat(81), `${id}.`, `${id}/..`, `${id}%2E`, `${id}?x=1`, ""]) {
+      await expect(google.describe(0, bad), bad).rejects.toMatchObject({ reason: "not_found" });
+      await expect(google.readRows(0, bad, read), bad).rejects.toMatchObject({ reason: "not_found" });
+    }
+    expect(calls).toHaveLength(0);
   });
 
   it("asks for FORMATTED_VALUE and only the fields describe needs", async () => {
@@ -165,7 +172,7 @@ describe("createRealGoogleSheets", () => {
   });
 
   it("builds the default token source with the readonly scope", async () => {
-    const created: { email: string; key: string; scopes: string[] }[] = [];
+    const created: { email: string; key: string; scopes: string[]; transporterOptions: { timeout: number } }[] = [];
     const { calls, send } = fakeFetch(() => asResponse({ status: 200, body: { valueRanges: [{}, {}] } }));
     const google = createRealGoogleSheets({
       accounts,
@@ -177,7 +184,14 @@ describe("createRealGoogleSheets", () => {
     });
     await google.readRows(1, id, read);
     await google.readRows(1, id, read);
-    expect(created).toEqual([{ email: accounts[1]?.client_email, key: "k2", scopes: [GOOGLE_SHEETS_SCOPE] }]);
+    expect(created).toEqual([
+      {
+        email: accounts[1]?.client_email,
+        key: "k2",
+        scopes: [GOOGLE_SHEETS_SCOPE],
+        transporterOptions: { timeout: 20_000 },
+      },
+    ]);
     expect(new Headers(calls[0]?.init?.headers).get("authorization")).toBe("Bearer jwt-token");
     expect(google.accounts()).toEqual([
       { index: 0, email: accounts[0]?.client_email },
@@ -191,6 +205,10 @@ describe("createRealGoogleSheets", () => {
     ["bad-range", "tab_missing", null],
     ["not-a-sheet", "not_a_sheet", null],
     ["quota-403", "rate_limited", null],
+    ["project-service-disabled", "unavailable", null],
+    ["project-scope-insufficient", "unavailable", null],
+    ["project-suspended", "unavailable", null],
+    ["project-user-denied", "unavailable", null],
     ["rate-limited", "rate_limited", 120],
     ["unavailable", "unavailable", null],
   ];
@@ -235,6 +253,40 @@ describe("createRealGoogleSheets", () => {
     const outcome = expect(pending).rejects.toMatchObject({ reason: "unavailable" });
     await vi.advanceTimersByTimeAsync(20_000);
     await outcome;
+  });
+
+  it("gives up on a token request that hangs past the timeout (SC6)", async () => {
+    vi.useFakeTimers();
+    const { calls, send } = fakeFetch(() => asResponse({ status: 200, body: metadataBody }));
+    const google = createRealGoogleSheets({
+      accounts,
+      fetch: send,
+      createJwt: () => ({ getAccessToken: () => new Promise(() => undefined) }),
+    });
+    const outcome = expect(google.describe(0, id)).rejects.toMatchObject({ reason: "unavailable" });
+    await vi.advanceTimersByTimeAsync(20_000);
+    await outcome;
+    expect(calls).toHaveLength(0);
+  });
+
+  it("logs a Google failure once per account per streak, as the account and the reason alone (SC4)", async () => {
+    const lines: string[] = [];
+    let answer: () => Response = () => asResponse(recorded("project-service-disabled"));
+    const { send } = fakeFetch(() => answer());
+    const google = adapterWith(send, { log: (line: string) => lines.push(line) });
+    for (let attempt = 0; attempt < 3; attempt += 1) await google.readRows(0, id, read).catch(() => undefined);
+    await google.readRows(1, id, read).catch(() => undefined);
+    expect(lines).toEqual([
+      "sheets: Google account 0 failed: unavailable",
+      "sheets: Google account 1 failed: unavailable",
+    ]);
+    // A sheet-level answer (not shared) is Google answering normally: it ends the streak, and is not logged.
+    answer = () => asResponse(recorded("forbidden"));
+    await google.readRows(0, id, read).catch(() => undefined);
+    answer = () => asResponse(recorded("rate-limited"));
+    await google.readRows(0, id, read).catch(() => undefined);
+    expect(lines.slice(2)).toEqual(["sheets: Google account 0 failed: rate_limited"]);
+    expect(lines.join("\n")).not.toMatch(/project|1AbCd|token/);
   });
 
   it("never puts a sheet's content, a title or a token in an error's message", async () => {

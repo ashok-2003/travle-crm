@@ -55,6 +55,15 @@ const quotaReasons = new Set([
   "RESOURCE_EXHAUSTED",
 ]);
 
+// A 403 caused by our own Google project, not by the sheet's sharing: it must never read as "not shared" (SC1).
+const projectReasons = new Set([
+  "service_disabled",
+  "accessnotconfigured",
+  "access_token_scope_insufficient",
+  "consumer_suspended",
+  "user_project_denied",
+]);
+
 /** Everything Google says about an error that decides its reason: status text, reasons and message, in lower case. */
 function errorWords(body: unknown): { status: string; reasons: string[]; message: string } {
   const error = isRecord(body) && isRecord(body.error) ? body.error : {};
@@ -80,7 +89,10 @@ export function mapGoogleError(status: number, body: unknown, retryAfter: string
   );
   if (status === 429 || (status === 403 && quota))
     return new GoogleSheetsError("rate_limited", retryAfterSecondsOf(retryAfter));
-  if (status === 403) return new GoogleSheetsError("not_shared");
+  if (status === 403) {
+    const ours = words.reasons.some((reason) => projectReasons.has(reason.toLowerCase()));
+    return new GoogleSheetsError(ours ? "unavailable" : "not_shared");
+  }
   if (status === 404) return new GoogleSheetsError("not_found");
   if (status === 400 || status === 412) {
     if (words.message.includes("not supported for this document")) return new GoogleSheetsError("not_a_sheet");

@@ -18,6 +18,7 @@ import { createS3Storage, type ObjectStorage } from "@travel-crm/integrations/st
 import { authSettingsFrom, type Environment } from "./environment.js";
 import { passwordResetEmails, resetPasswordPageOf } from "./password-reset-email.js";
 import type { ProcessLog } from "./process-log.js";
+import { verifySheetsKey } from "./sheets-key-check.js";
 
 export interface Services {
   environment: Environment;
@@ -66,14 +67,19 @@ export function transactionLimitsOf(environment: Environment): ForOrgOptions {
 }
 
 /** The real Google adapter for the service accounts the environment holds, or none when it holds none. */
-export function googleSheetsOf(environment: Environment): GoogleSheets | null {
+export function googleSheetsOf(environment: Environment, log: ProcessLog): GoogleSheets | null {
   const accounts = environment.GOOGLE_SHEETS_SERVICE_ACCOUNTS;
   if (accounts === undefined) return null;
   const testServer = environment.GOOGLE_SHEETS_TEST_SERVER_URL;
   // The journeys' fake Google takes any token and any key: a fixed token spares signing one (development and tests only).
   return testServer === undefined
-    ? createRealGoogleSheets({ accounts })
-    : createRealGoogleSheets({ accounts, apiBaseUrl: testServer, accessToken: () => Promise.resolve("test-token") });
+    ? createRealGoogleSheets({ accounts, log })
+    : createRealGoogleSheets({
+        accounts,
+        log,
+        apiBaseUrl: testServer,
+        accessToken: () => Promise.resolve("test-token"),
+      });
 }
 
 /** `log` is the process's one log: pg-boss's problems go there, as ids and codes. */
@@ -137,7 +143,7 @@ export function createServices(environment: Environment, log: ProcessLog): Servi
     storage,
     files: createFiles({ db, storage, storageLimitBytes: limits.storageBytes }),
     spreadsheets: createSpreadsheets(),
-    google: googleSheetsOf(environment),
+    google: googleSheetsOf(environment, log),
     sheetsHashes: environment.SHEETS_HASH_KEY === undefined ? null : createSheetsHashes(environment.SHEETS_HASH_KEY),
     subscriptions,
     seatLimit: limits.seats,
@@ -149,6 +155,8 @@ export function createServices(environment: Environment, log: ProcessLog): Servi
       // A DATABASE_URL for the wrong role (app_migrator, say) would otherwise fail every request and job while the
       // process looked healthy: the first query checks the role, so make one now.
       await db.withoutOrg(() => Promise.resolve());
+      // Every process that holds the sheets hash key holds the same one (SC8): a different key quietly breaks the claims.
+      if (environment.SHEETS_HASH_KEY !== undefined) await verifySheetsKey(db, environment.SHEETS_HASH_KEY);
       // A wrong bucket name or credentials would otherwise surface only at the first upload: refuse to start.
       await s3.checkBucket();
       await jobs.start();

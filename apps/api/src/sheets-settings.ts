@@ -1,5 +1,6 @@
 // The Google Sheets settings (spec 14): the service accounts' keys, decoded from GOOGLE_SHEETS_SERVICE_ACCOUNTS. Nothing
 // in an error or a log ever holds a part of the value: it is a secret.
+import { createHmac, createPrivateKey } from "node:crypto";
 import type { ServiceAccountKey } from "@travel-crm/integrations/google-sheets";
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
@@ -9,9 +10,33 @@ function keyOf(value: unknown): ServiceAccountKey | null {
   if (!isRecord(value)) return null;
   const { client_email: email, private_key: key } = value;
   if (typeof email !== "string" || typeof key !== "string") return null;
-  return /^[^\s@]+@[^\s@]+$/.test(email.trim()) && key.trim() !== ""
-    ? { client_email: email.trim(), private_key: key }
-    : null;
+  if (!/^[^\s@]+@[^\s@]+$/.test(email.trim()) || !canSign(key)) return null;
+  return { client_email: email.trim(), private_key: key };
+}
+
+/** Whether the key parses as a private key now, not at the first signing: a pasted "\\n" for a newline fails here (SC4). */
+function canSign(key: string): boolean {
+  try {
+    createPrivateKey(key);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** SC8: a key a person typed or copied from an example is no key: fewer than 10 different characters, or too short. */
+export function sheetsHashKeyIsWeak(key: string): boolean {
+  const trimmed = key.trim();
+  return trimmed.length < 32 || new Set(trimmed).size < 10;
+}
+
+/**
+ * SC8: a value every process derives from SHEETS_HASH_KEY alone and compares with the one stored when the first process
+ * started, so a console and a worker holding different keys are caught at start-up. It is an HMAC of a constant: it
+ * says nothing of the key, and holds no personal data.
+ */
+export function sheetsHashKeyCheckValue(key: string): Buffer {
+  return createHmac("sha256", key).update("travel-crm sheets hash key check v1").digest();
 }
 
 function parseJson(text: string): unknown {

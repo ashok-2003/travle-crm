@@ -30,6 +30,10 @@ x-api-environment: &api-environment
   VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:?}
   VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:?}
   VAPID_SUBJECT: ${VAPID_SUBJECT:?}
+  # The Google Sheets sync (docs/runbook.md, "Turn on Google Sheets"): blank leaves it off. The key is for every process
+  # (the console's erasure job writes tombstones with it); the accounts are for the api and the worker alone.
+  SHEETS_HASH_KEY: ${SHEETS_HASH_KEY:-}
+  GOOGLE_SHEETS_SERVICE_ACCOUNTS: ${GOOGLE_SHEETS_SERVICE_ACCOUNTS:-}
 
 # One build of the api's image, tagged with the release, for the four services that run it. Old releases' images
 # stay on the server, so a rollback starts them again without a build.
@@ -140,6 +144,8 @@ services:
     environment:
       <<: *api-environment
       DATABASE_PLATFORM_URL: ${DATABASE_PLATFORM_URL:?}
+      # The console never holds the service accounts (the image drops them too).
+      GOOGLE_SHEETS_SERVICE_ACCOUNTS: ""
     depends_on: *api-depends-on
     healthcheck:
       test:

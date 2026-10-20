@@ -1,10 +1,17 @@
 // The services build the Google adapter from the service accounts, and none without them.
-import { describe, expect, it } from "vitest";
+import { generateKeyPairSync } from "node:crypto";
+import { createIsolatedDatabase } from "@travel-crm/db/testing";
+import { describe, expect, inject, it } from "vitest";
+import { forgetServiceAccounts } from "../src/console-environment.js";
+import { loadEnvironment } from "../src/environment.js";
 import { processLog } from "../src/process-log.js";
 import { createServices } from "../src/services.js";
-import { testEnvironment } from "./support/environment.js";
+import { testEnvironment, testEnvironmentVariables } from "./support/environment.js";
 
-const key = (name: string) => ({ client_email: `${name}@project.iam.gserviceaccount.com`, private_key: "PEM" });
+const pem = generateKeyPairSync("ec", { namedCurve: "P-256" })
+  .privateKey.export({ type: "pkcs8", format: "pem" })
+  .toString();
+const key = (name: string) => ({ client_email: `${name}@project.iam.gserviceaccount.com`, private_key: pem });
 
 describe("the Google Sheets adapter in the services", () => {
   it("builds no Google adapter without accounts, and the real one with them", async () => {
@@ -25,6 +32,36 @@ describe("the Google Sheets adapter in the services", () => {
     } finally {
       await without.close();
       await withAccounts.close();
+    }
+  });
+
+  it("builds no Google adapter in the console, though the host handed it the accounts (SC5)", async () => {
+    const variables = testEnvironmentVariables({
+      GOOGLE_SHEETS_SERVICE_ACCOUNTS: JSON.stringify(key("one")),
+      SHEETS_HASH_KEY: "k".repeat(40),
+    });
+    const services = createServices(loadEnvironment(forgetServiceAccounts(variables)), processLog("console"));
+    try {
+      expect(services.google).toBeNull();
+    } finally {
+      await services.close();
+    }
+  });
+
+  it("refuses to start with a SHEETS_HASH_KEY that differs from the stored one, before any other check (SC8)", async () => {
+    const isolated = await createIsolatedDatabase(inject("dbUrls"));
+    const environment = (hashKey: string) =>
+      testEnvironment({ DATABASE_URL: isolated.urls.runtime, SHEETS_HASH_KEY: hashKey });
+    const first = createServices(environment("rQ7vK2mXz9LpT4wNb8Ys5HdJ3cFe6UgA"), processLog("api"));
+    const second = createServices(environment("wB7qk2Rz9XvLm4TnY8cPa5HdJ3sFe6Ug"), processLog("worker"));
+    try {
+      // The bucket is not reachable in these tests, so the first start fails there, after storing the check value.
+      await expect(first.start()).rejects.not.toThrow(/SHEETS_HASH_KEY/);
+      await expect(second.start()).rejects.toThrow(/SHEETS_HASH_KEY: differs/);
+    } finally {
+      await first.close();
+      await second.close();
+      await isolated.drop();
     }
   });
 

@@ -5,14 +5,14 @@ module.exports = {
       name: "db-internals-stay-in-db",
       comment:
         "Other packages reach @travel-crm/db only through its entry points (index, identity, platform, webhooks, " +
-        "rate-limits, sheet-schedule, and the test-only testing files), so the raw Prisma client and the generated code never leak " +
+        "rate-limits, sheet-schedule, sheets-key-check, and the test-only testing files), so the raw Prisma client and the generated code never leak " +
         "out of the package.",
       severity: "error",
       from: { path: "^(apps|packages)/", pathNot: "^packages/db/" },
       to: {
         path: "^packages/db/(src|test)/",
         pathNot:
-          "^packages/db/(src/(index|identity|platform|webhooks|rate-limits|sheet-schedule)|test/(testing|global-setup))\\.ts$",
+          "^packages/db/(src/(index|identity|platform|webhooks|rate-limits|sheet-schedule|sheets-key-check)|test/(testing|global-setup))\\.ts$",
       },
     },
     {
@@ -53,6 +53,16 @@ module.exports = {
         pathNot: ["^packages/db/", "^packages/domain/(src/sheets/schedule\\.ts|test/(sheets|performance|platform)/)"],
       },
       to: { path: "^packages/db/src/sheet-schedule\\.ts$" },
+    },
+    {
+      name: "sheets-key-check-only-in-the-api-start-up",
+      comment:
+        "@travel-crm/db/sheets-key-check reaches sheets_key_check, which has no organization_id and no row-level " +
+        "security (one keyed hash of a constant, SC8). Only the api's sheets-key-check.ts, which every process runs at " +
+        "start-up, and its test may use it.",
+      severity: "error",
+      from: { pathNot: ["^packages/db/", "^apps/api/(src|test)/sheets-key-check(\\.test)?\\.ts$"] },
+      to: { path: "^packages/db/src/sheets-key-check\\.ts$" },
     },
     {
       name: "platform-database-only-in-platform",

@@ -205,3 +205,19 @@ model SheetSpreadsheetClaim {
   @@unique([spreadsheetHash], map: "sheet_spreadsheet_claim_hash")
   @@map("sheet_spreadsheet_claim")
 }
+
+/// The one row that proves every process holds the same SHEETS_HASH_KEY (SC8): HMAC-SHA256(SHEETS_HASH_KEY, a fixed
+/// constant), written by the first process that starts with a key and compared by every process after it. No
+/// organization_id, so it has no row-level security: OrgTx leaves the model out and only the api's sheets-key-check.ts
+/// reaches it, in db.withoutOrg(), through @travel-crm/db/sheets-key-check. Holds no personal data and reveals nothing
+/// of the key.
+model SheetsKeyCheck {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  /// Always true (CHECK sheets_key_check_singleton) and unique, so there is one row at most.
+  singleton  Boolean  @default(true)
+  checkValue Bytes    @map("check_value")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([singleton], map: "sheets_key_check_singleton_key")
+  @@map("sheets_key_check")
+}
