@@ -33,11 +33,13 @@ const insideWebhooks = "src/webhooks/sample.ts";
 const insideRateLimits = "src/rate-limits/sample.ts";
 
 describe("raw database access guard", () => {
-  it("reads the domain package's three module overrides", () => {
+  it("reads the domain package's four overrides", () => {
     expect(domainOverrides.map((config) => config.files)).toEqual([
       ["src/identity/**", "test/identity/**"],
       ["src/webhooks/**", "test/webhooks/**"],
       ["src/rate-limits/**", "test/rate-limits/**"],
+      // The sheets' schedule is one file, with the tests of the module and of its scale.
+      ["src/sheets/schedule.ts", "test/sheets/**", "test/performance/sheets-*"],
     ]);
   });
 
