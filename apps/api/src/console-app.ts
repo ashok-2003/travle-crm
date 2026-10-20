@@ -20,6 +20,10 @@ export function createConsoleApp(services: PlatformServices, log: ProcessLog): H
   app.onError(apiErrorHandler(log));
 
   app.get("/health", (c) => c.json({ status: "ok" }));
+  // The same, through the web app's address, which hands on only /api/platform to the console: on Render's free plan
+  // a sleeping service wakes for a call that comes that way, not for a pinger's call to its own address
+  // (docs/serverless.md, step 9).
+  app.get("/api/platform/health", (c) => c.json({ status: "ok" }));
 
   // The same rules as the api's tRPC: posts (every call, queries included) come from the web app as JSON, and bodies
   // are small.

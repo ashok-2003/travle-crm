@@ -185,12 +185,23 @@ TRAVEL_CRM_SETTINGS=~/.config/travel-crm/backups.env API_IMAGE=travel-crm-api \
 It restores the newest backup into a throwaway Postgres on your Mac, runs the migrations there, checks the console's
 grant, counts what came back, and deletes the copy.
 
-### 9. Optional: warm during working hours
+### 9. Wake-ups: working hours, and the console's night
 
-A free job on cron-job.org calling `https://travel-crm-api.onrender.com/health` every 10 minutes, 09:00 to 19:00 India
-time, Monday to Saturday, spares the agency cold starts. That keeps Neon at about 65 of its 100 free compute-hours a
-month, and Render well inside its 750 hours. Don't keep it awake around the clock: Neon's free compute would run out
-mid-month, and the database would stop until the next month.
+Two free jobs on cron-job.org, in the time zone Asia/Kolkata, both calling **through the Vercel address**. Render wakes
+a sleeping free service for a call that comes that way, but answers a pinger calling its own `onrender.com` address
+with a page of its own (cron-job.org: "output too large") and leaves it asleep:
+
+| Job                   | URL                                    | Crontab              |
+| --------------------- | -------------------------------------- | -------------------- |
+| api, working hours    | `<Vercel address>/api/auth/ok`         | `*/10 11-19 * * 1-6` |
+| console, demo rebuild | `<Vercel address>/api/platform/health` | `55,57 1 * * *`      |
+
+The api's job spares the agency cold starts from 11:00 to about 20:05, Monday to Saturday. The console's wakes it for its
+02:00 demo rebuild, which otherwise never runs while it sleeps. The first call of a wake fails on cron-job.org's 30-second
+timeout while the service starts, and the next one answers; cron-job.org switches off a job after many failures in a
+row, hence the console's second call. Together they keep Neon at about 60 of its 100 free compute-hours a month, and
+Render well inside its 750 hours. Don't keep either awake around the clock: Neon's free compute would run out mid-month,
+and the database would stop until the next month.
 
 ## Day to day
 
