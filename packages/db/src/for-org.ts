@@ -20,15 +20,18 @@ type RawStringMethod = "$executeRawUnsafe" | "$queryRawUnsafe";
 /**
  * The tables without row-level security: webhook events and rate-limit counters (no organization_id), and the Sheets
  * sync's check schedule and spreadsheet claim (an organization_id, but ids, times and a keyed hash only). Every
- * transaction hides them; only their own modules reach them, in db.withoutOrg(), through @travel-crm/db/webhooks,
- * @travel-crm/db/rate-limits and @travel-crm/db/sheet-schedule.
+ * transaction hides them, and so the sheets hash key's check row (no organization_id); only their own modules reach
+ * them, in db.withoutOrg(), through @travel-crm/db/webhooks, @travel-crm/db/rate-limits, @travel-crm/db/sheet-schedule
+ * and @travel-crm/db/sheets-key-check.
  */
-export type UnscopedModel = "webhookEvent" | "rateLimitCounter" | "sheetCheckSchedule" | "sheetSpreadsheetClaim";
+export type UnscopedModel =
+  "webhookEvent" | "rateLimitCounter" | "sheetCheckSchedule" | "sheetSpreadsheetClaim" | "sheetsKeyCheck";
 const unscopedModels: readonly string[] = [
   "webhookEvent",
   "rateLimitCounter",
   "sheetCheckSchedule",
   "sheetSpreadsheetClaim",
+  "sheetsKeyCheck",
 ] satisfies UnscopedModel[];
 
 /** A transaction with every model, which this package's entry points unwrap. */

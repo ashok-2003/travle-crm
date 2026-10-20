@@ -54,6 +54,11 @@ const unscopedTableSelectors = {
     selector: rawSqlNaming(["rate_limit_counter"]),
     message: "Only the rate-limits module queries rate_limit_counter: it has no row-level security.",
   },
+  sheetsKeyCheck: {
+    selector: rawSqlNaming(["sheets_key_check"]),
+    message:
+      "Only the api's sheets-key-check.ts reaches sheets_key_check, and through Prisma: it has no row-level security.",
+  },
   sheetSchedule: {
     selector: rawSqlNaming(["sheet_check_schedule", "sheet_spreadsheet_claim"]),
     message:

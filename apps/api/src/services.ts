@@ -18,6 +18,7 @@ import { createS3Storage, type ObjectStorage } from "@travel-crm/integrations/st
 import { authSettingsFrom, type Environment } from "./environment.js";
 import { passwordResetEmails, resetPasswordPageOf } from "./password-reset-email.js";
 import type { ProcessLog } from "./process-log.js";
+import { verifySheetsKey } from "./sheets-key-check.js";
 
 export interface Services {
   environment: Environment;
@@ -154,6 +155,8 @@ export function createServices(environment: Environment, log: ProcessLog): Servi
       // A DATABASE_URL for the wrong role (app_migrator, say) would otherwise fail every request and job while the
       // process looked healthy: the first query checks the role, so make one now.
       await db.withoutOrg(() => Promise.resolve());
+      // Every process that holds the sheets hash key holds the same one (SC8): a different key quietly breaks the claims.
+      if (environment.SHEETS_HASH_KEY !== undefined) await verifySheetsKey(db, environment.SHEETS_HASH_KEY);
       // A wrong bucket name or credentials would otherwise surface only at the first upload: refuse to start.
       await s3.checkBucket();
       await jobs.start();

@@ -148,7 +148,9 @@ Secrets come from the platform's secret manager as environment variables, never 
   - `SHEETS_HASH_KEY` is at least 32 random characters (`openssl rand -base64 32`), required (●) whenever the accounts
     are set, and given to the console as well (its erasure job writes the tombstones of a customer's sheet rows). It lives in
     the environment only, never in the database or a log, and is **never rotated**: changing it makes the claims and the
-    tombstones stop matching, so keep it with the secrets that never change.
+    tombstones stop matching, so keep it with the secrets that never change. The first process to start stores an HMAC of a constant under it
+    (`sheets_key_check`); every later start of the api, the worker or the console compares and refuses to start,
+    naming `SHEETS_HASH_KEY`, when its key differs.
   - On the pilot server: `secrets.sh init` makes `SHEETS_HASH_KEY`; set the accounts with
     `base64 -w0 key.json | sudo scripts/server/secrets.sh set GOOGLE_SHEETS_SERVICE_ACCOUNTS` (docs/runbook.md, "Turn
     on Google Sheets"). `docker-compose.server.yml` gives the key to all three processes and the accounts to the api and

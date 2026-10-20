@@ -164,6 +164,18 @@ describe("raw database access guard", () => {
     expect(await rulesReportedFor("await tx.$queryRaw`" + sql + "`;", "test/rate-limits/sample.test.ts")).toEqual([]);
   });
 
+  const sheetsKeyCheckQueries = [
+    "SELECT check_value FROM sheets_key_check",
+    'INSERT INTO "public"."sheets_key_check" (check_value) VALUES (${value})',
+  ];
+
+  it.each(sheetsKeyCheckQueries)("reports %s in every module: only Prisma reaches the table", async (sql) => {
+    const insideSchedule = "src/sheets/schedule.ts";
+    for (const filePath of [undefined, insideIdentity, insideWebhooks, insideRateLimits, insideSchedule]) {
+      expect(await rulesReportedFor("await tx.$queryRaw`" + sql + "`;", filePath)).toEqual(["no-restricted-syntax"]);
+    }
+  });
+
   it("keeps the sign-in tables and the organization switch refused inside the webhooks and rate-limits modules", async () => {
     for (const filePath of [insideWebhooks, insideRateLimits]) {
       expect(await rulesReportedFor('await tx.$queryRaw`SELECT * FROM "user"`;', filePath)).toEqual([
