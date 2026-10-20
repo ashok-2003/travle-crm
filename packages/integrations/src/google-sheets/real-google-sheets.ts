@@ -29,6 +29,8 @@ export interface RealGoogleSheetsOptions {
     getAccessToken(): Promise<{ token?: string | null }>;
   };
   fetch?: typeof fetch;
+  /** Where an account's failures go, as `sheets: Google account <index> failed: <reason>`, once per streak (SC4). */
+  log?: (line: string) => void;
   /** 20 seconds. */
   timeoutMs?: number;
   /** 25 MB. */
@@ -51,6 +53,7 @@ export function createRealGoogleSheets(options: RealGoogleSheetsOptions): Google
   const timeoutMs = options.timeoutMs ?? 20_000;
   const maxBytes = options.maxResponseBytes ?? 25 * 1024 * 1024;
   const createJwt = options.createJwt ?? ((jwtOptions) => new JWT(jwtOptions));
+  const failing = new Set<number>();
   const jwts = new Map<number, ReturnType<typeof createJwt>>();
 
   async function token(accountIndex: number, signal: AbortSignal): Promise<string> {
@@ -97,8 +100,25 @@ export function createRealGoogleSheets(options: RealGoogleSheetsOptions): Google
     return new TextDecoder().decode(Buffer.concat(chunks));
   }
 
-  /** One GET with the account's token: the parsed JSON body, or the reason it failed. */
+  /** Google being down for an account (not a sheet's answer) is logged when it starts, not at every check (SC4). */
   async function get(accountIndex: number, url: URL): Promise<unknown> {
+    try {
+      const body = await fetchBody(accountIndex, url);
+      failing.delete(accountIndex);
+      return body;
+    } catch (error) {
+      const down =
+        error instanceof GoogleSheetsError && (error.reason === "unavailable" || error.reason === "rate_limited");
+      if (down && !failing.has(accountIndex)) {
+        failing.add(accountIndex);
+        options.log?.(`sheets: Google account ${String(accountIndex)} failed: ${error.reason}`);
+      } else if (!down) failing.delete(accountIndex);
+      throw error;
+    }
+  }
+
+  /** One GET with the account's token: the parsed JSON body, or the reason it failed. */
+  async function fetchBody(accountIndex: number, url: URL): Promise<unknown> {
     if (options.accounts[accountIndex] === undefined) throw new RangeError("No such service account");
     const controller = new AbortController();
     const timer = setTimeout(() => {

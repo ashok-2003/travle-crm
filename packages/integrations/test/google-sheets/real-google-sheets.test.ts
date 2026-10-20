@@ -269,6 +269,26 @@ describe("createRealGoogleSheets", () => {
     expect(calls).toHaveLength(0);
   });
 
+  it("logs a Google failure once per account per streak, as the account and the reason alone (SC4)", async () => {
+    const lines: string[] = [];
+    let answer: () => Response = () => asResponse(recorded("project-service-disabled"));
+    const { send } = fakeFetch(() => answer());
+    const google = adapterWith(send, { log: (line: string) => lines.push(line) });
+    for (let attempt = 0; attempt < 3; attempt += 1) await google.readRows(0, id, read).catch(() => undefined);
+    await google.readRows(1, id, read).catch(() => undefined);
+    expect(lines).toEqual([
+      "sheets: Google account 0 failed: unavailable",
+      "sheets: Google account 1 failed: unavailable",
+    ]);
+    // A sheet-level answer (not shared) is Google answering normally: it ends the streak, and is not logged.
+    answer = () => asResponse(recorded("forbidden"));
+    await google.readRows(0, id, read).catch(() => undefined);
+    answer = () => asResponse(recorded("rate-limited"));
+    await google.readRows(0, id, read).catch(() => undefined);
+    expect(lines.slice(2)).toEqual(["sheets: Google account 0 failed: rate_limited"]);
+    expect(lines.join("\n")).not.toMatch(/project|1AbCd|token/);
+  });
+
   it("never puts a sheet's content, a title or a token in an error's message", async () => {
     const leaky = {
       error: { code: 403, message: "Secret Sheet Title token-0 for secret@x.test", status: "PERMISSION_DENIED" },

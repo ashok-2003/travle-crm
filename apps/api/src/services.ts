@@ -66,14 +66,19 @@ export function transactionLimitsOf(environment: Environment): ForOrgOptions {
 }
 
 /** The real Google adapter for the service accounts the environment holds, or none when it holds none. */
-export function googleSheetsOf(environment: Environment): GoogleSheets | null {
+export function googleSheetsOf(environment: Environment, log: ProcessLog): GoogleSheets | null {
   const accounts = environment.GOOGLE_SHEETS_SERVICE_ACCOUNTS;
   if (accounts === undefined) return null;
   const testServer = environment.GOOGLE_SHEETS_TEST_SERVER_URL;
   // The journeys' fake Google takes any token and any key: a fixed token spares signing one (development and tests only).
   return testServer === undefined
-    ? createRealGoogleSheets({ accounts })
-    : createRealGoogleSheets({ accounts, apiBaseUrl: testServer, accessToken: () => Promise.resolve("test-token") });
+    ? createRealGoogleSheets({ accounts, log })
+    : createRealGoogleSheets({
+        accounts,
+        log,
+        apiBaseUrl: testServer,
+        accessToken: () => Promise.resolve("test-token"),
+      });
 }
 
 /** `log` is the process's one log: pg-boss's problems go there, as ids and codes. */
@@ -137,7 +142,7 @@ export function createServices(environment: Environment, log: ProcessLog): Servi
     storage,
     files: createFiles({ db, storage, storageLimitBytes: limits.storageBytes }),
     spreadsheets: createSpreadsheets(),
-    google: googleSheetsOf(environment),
+    google: googleSheetsOf(environment, log),
     sheetsHashes: environment.SHEETS_HASH_KEY === undefined ? null : createSheetsHashes(environment.SHEETS_HASH_KEY),
     subscriptions,
     seatLimit: limits.seats,
