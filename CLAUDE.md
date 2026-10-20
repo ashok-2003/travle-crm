@@ -65,8 +65,9 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   their models and every transaction refuses them at run time; only their own modules reach them, inside
   `db.withoutOrg(tx => …)` (where every organization table shows no rows), through `@travel-crm/db/webhooks` and
   `@travel-crm/db/rate-limits`. dependency-cruiser keeps each entry point to its module, and ESLint flags raw SQL naming
-  either table outside it (`rawSqlSelectorsAllowing` in `packages/domain/eslint.config.js`). The Google Sheets schedule
-  and claim tables are two more, through `@travel-crm/db/sheet-schedule` (see Google Sheets below).
+  either table outside it (`rawSqlSelectorsAllowing` in `packages/domain/eslint.config.js`). The Google Sheets key
+  check (`sheets_key_check`, through `@travel-crm/db/sheets-key-check`, read only at start-up) is one more; the
+  Sheets schedule and claim tables are the named exception below (see Google Sheets).
 - A foreign key between two organization tables includes `organization_id`, and so does every unique constraint on an
   organization table (except a primary key on `id`). Every organization table's `organization_id` refers to
   `organization`: plan 3's keys, and every new one, are `ON DELETE RESTRICT ON UPDATE RESTRICT`
@@ -169,8 +170,8 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - **Google Sheets** (ADR 0031, `packages/domain/src/sheets` and `crm/lead-sheets`): an agency shares a sheet with our
   service account (Viewer) and its new rows become leads; one way, we never write to a sheet. Only the
   `GoogleSheets` port (`@travel-crm/integrations/google-sheets`, read-only: describe and read rows) reaches Google. A
-  sheet's schedule (`sheet_check_schedule`) and the spreadsheet claim (`sheet_spreadsheet_claim`) have no
-  `organization_id` and no row-level security: only `packages/domain/src/sheets/schedule.ts` reaches them, through
+  sheet's schedule (`sheet_check_schedule`) and the spreadsheet claim (`sheet_spreadsheet_claim`) carry
+  `organization_id` but have no row-level security, by a named, tested exemption (`unscopedScheduleTables`): only `packages/domain/src/sheets/schedule.ts` reaches them, through
   `@travel-crm/db/sheet-schedule` inside `db.withoutOrg` (dependency-cruiser and ESLint hold the line). A row's
   identity is a hash of its cells; the claim, the erasure tombstones and re-keyed hashes are HMACs with
   `SHEETS_HASH_KEY`, which is never rotated. Imports and exports never call `sheets`; crm does.
