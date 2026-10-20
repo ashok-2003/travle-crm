@@ -1,5 +1,5 @@
-// About a sheet in labelled values: that new leads come in as New, who owns them when no Owner column is matched (the
-// agency Owner), and how many columns are matched.
+// About a sheet in labelled values: that new leads come in as New, and who owns them when no Owner column is matched (the
+// agency Owner). How many columns are matched is the Columns section's.
 import type { SheetDetail } from "@travel-crm/contracts/sheets";
 import { useTranslations } from "next-intl";
 import { Details } from "@/components/details";
@@ -13,17 +13,13 @@ export function SheetDetails({ detail }: { detail: SheetDetail }) {
       </h2>
       <Details
         rows={[
-          { label: t("stage"), value: undefined },
+          { label: t("stage"), value: t("stageValue") },
           {
             label: t("owner"),
             value:
               detail.defaultOwnerName === null
                 ? t("ownerValueUnknown")
                 : t("ownerValue", { name: detail.defaultOwnerName }),
-          },
-          {
-            label: t("columns"),
-            value: t("columnsValue", { matched: detail.columns.matched, total: detail.columns.total }),
           },
         ]}
       />

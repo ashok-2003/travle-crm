@@ -25,8 +25,9 @@ const toneOf: Record<Shown, StatusTone> = {
   connecting: "neutral",
 };
 
-export function SheetStatusBadge({ status }: { status: SheetStatus }) {
+export function SheetStatusBadge({ status, readOnly = false }: { status: SheetStatus; readOnly?: boolean }) {
   const t = useTranslations("sheets.statuses");
-  const shown = shownOf[status];
+  // A running sheet of a read-only agency reads nothing: it shows as paused, not as running.
+  const shown = readOnly && status === "running" ? "paused" : shownOf[status];
   return <StatusBadge tone={toneOf[shown]}>{t(shown)}</StatusBadge>;
 }

@@ -8,7 +8,7 @@ import { messages } from "@/i18n/messages";
 import { AttentionAlert } from "@/lead-sources/sheet/attention-alert";
 import { sheetMatchRoute } from "@/lib/routes";
 import { renderScreen, inputsTo } from "../../leads/screen";
-import { stubApi } from "../../support/api-stub";
+import { heldAnswer, stubApi } from "../../support/api-stub";
 import { aColumnsView, aSheetDetail, address, sheetId } from "../records";
 
 afterEach(() => {
@@ -18,8 +18,9 @@ afterEach(() => {
 const words = messages.sheets.sheet.attention;
 
 function renderAlert(detail = aSheetDetail(), answers: Parameters<typeof stubApi>[0] = {}) {
-  stubApi({ "leadSheets.get": { data: detail }, ...answers });
-  return renderScreen(<AttentionAlert detail={detail} />, { width: "wide" });
+  const api = stubApi({ "leadSheets.get": { data: detail }, ...answers });
+  renderScreen(<AttentionAlert detail={detail} />, { width: "wide" });
+  return api;
 }
 
 describe("AttentionAlert", () => {
@@ -33,9 +34,8 @@ describe("AttentionAlert", () => {
     renderAlert(detail, { "leadSheets.recheck": { data: null } });
     const alert = await screen.findByRole("alert");
     expect(within(alert).getByText(words.lost_access.title)).toBeVisible();
-    expect(
-      within(alert).getByText(/Last checked 18 Oct, 10:42 am\. It may have been unshared or deleted/),
-    ).toBeVisible();
+    expect(within(alert).getByText(/^It may have been unshared or deleted/)).toBeVisible();
+    expect(within(alert).queryByText(/Last checked/)).toBeNull();
     expect(within(alert).getByText("Since 18 Oct.")).toBeVisible();
     expect(within(alert).getByRole("textbox", { name: messages.sheets.connect.share.addressLabel })).toHaveValue(
       address,
@@ -81,11 +81,33 @@ describe("AttentionAlert", () => {
         columns: { matched: 3, total: 4, newUnmatched: [], missing: ["Full name", "Phone number"] },
       }),
     );
-    expect(await screen.findByText(/no longer has Full name, Phone number\./)).toBeVisible();
+    expect(await screen.findByText(/no longer has Full name and Phone number\./)).toBeVisible();
     expect(screen.getByRole("link", { name: words.columns_missing.action })).toHaveAttribute(
       "href",
       sheetMatchRoute(sheetId),
     );
+  });
+
+  it("shows Checking… on Check again while it is out", async () => {
+    const held = heldAnswer({ data: null });
+    renderAlert(aSheetDetail({ status: "lost_access", attentionState: "lost_access" }), {
+      "leadSheets.recheck": held.answer,
+    });
+    await userEvent.click(await screen.findByRole("button", { name: words.lost_access.action }));
+    expect(await screen.findByRole("button", { name: messages.sheets.sheet.checking })).toBeDisabled();
+    held.release();
+  });
+
+  it("tries the tabs again when asking Google for them failed", async () => {
+    const api = renderAlert(aSheetDetail({ status: "tab_missing", attentionState: "tab_missing" }), {
+      "leadSheets.verify": { status: 502 },
+    });
+    const again = await screen.findByRole("button", { name: messages.common.tryAgain });
+    api.answer("leadSheets.verify", { data: aColumnsView({ tabs: [{ gid: "7", title: "Enquiries" }], columns: [] }) });
+    await userEvent.click(again);
+    await userEvent.click(await screen.findByRole("combobox", { name: words.tab_missing.label }));
+    expect(await screen.findByRole("option", { name: "Enquiries" })).toBeVisible();
+    expect(inputsTo("leadSheets.verify")).toHaveLength(2);
   });
 
   it("offers Take over for a sheet that needs a manager", async () => {
