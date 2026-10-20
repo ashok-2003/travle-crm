@@ -45,6 +45,24 @@ describe("ChangePasswordForm", () => {
     expect(onChanged).not.toHaveBeenCalled();
   });
 
+  it("shows the api's failure when it answers 500, and lets the person try again", async () => {
+    const changePassword = answers(refused(500, "UNKNOWN"));
+    const onChanged = vi.fn();
+    renderScreen(<ChangePasswordForm temporary onChanged={onChanged} auth={{ changePassword }} />);
+    await fill("temporary-1", "my-own-password", "my-own-password");
+    expect(await screen.findByText(errors.generic)).toBeVisible();
+    expect(screen.getByRole("button", { name: account.changePassword.submit })).toBeEnabled();
+    expect(onChanged).not.toHaveBeenCalled();
+  });
+
+  it("shows a failure, and leaves Saving, when the call itself throws", async () => {
+    const changePassword = vi.fn().mockRejectedValue(new Error("boom"));
+    renderScreen(<ChangePasswordForm temporary onChanged={vi.fn()} auth={{ changePassword }} />);
+    await fill("temporary-1", "my-own-password", "my-own-password");
+    expect(await screen.findByText(errors.generic)).toBeVisible();
+    expect(screen.getByRole("button", { name: account.changePassword.submit })).toBeEnabled();
+  });
+
   it("says the password is saved when the next screen doesn't open, and continues from there", async () => {
     const changePassword = answers(ok(null));
     let goOn: () => void = () => undefined;
