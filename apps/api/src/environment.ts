@@ -4,6 +4,7 @@ import { brand } from "@travel-crm/brand";
 import type { AuthSettings } from "@travel-crm/domain/identity";
 import { z } from "zod";
 import { serviceVariables } from "./service-variables.js";
+import { sheetsHashKeyIsWeak } from "./sheets-settings.js";
 
 /** The secret in .env.example: fine on a laptop, never in production. */
 const EXAMPLE_SECRET = "dev-only-secret-not-for-any-real-deploy";
@@ -119,6 +120,9 @@ const environmentSchema = z
     const secret = environment.BETTER_AUTH_SECRET.trim();
     if (secret === EXAMPLE_SECRET || secret.length < 32 || new Set(secret).size < 10) {
       problem("BETTER_AUTH_SECRET", "is too weak for production: use `openssl rand -base64 32`");
+    }
+    if (environment.SHEETS_HASH_KEY !== undefined && sheetsHashKeyIsWeak(environment.SHEETS_HASH_KEY)) {
+      problem("SHEETS_HASH_KEY", "is too weak for production: use `openssl rand -base64 32`");
     }
     if (environment.VAPID_PUBLIC_KEY.trim() === EXAMPLE_VAPID_PUBLIC_KEY) {
       problem(

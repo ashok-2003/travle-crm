@@ -51,7 +51,8 @@ export const serviceVariables = {
         if (accounts === null) {
           context.addIssue({
             code: "custom",
-            message: "must be a service account's key file as JSON or base64, or a list of them",
+            message:
+              "must be a service account's key file as JSON or base64, or a list of them, each with a private_key that parses (keep its newlines as they are in the file)",
           });
           return z.NEVER;
         }
