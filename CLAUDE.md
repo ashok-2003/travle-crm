@@ -65,7 +65,8 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   their models and every transaction refuses them at run time; only their own modules reach them, inside
   `db.withoutOrg(tx => …)` (where every organization table shows no rows), through `@travel-crm/db/webhooks` and
   `@travel-crm/db/rate-limits`. dependency-cruiser keeps each entry point to its module, and ESLint flags raw SQL naming
-  either table outside it (`rawSqlSelectorsAllowing` in `packages/domain/eslint.config.js`).
+  either table outside it (`rawSqlSelectorsAllowing` in `packages/domain/eslint.config.js`). The Google Sheets schedule
+  and claim tables are two more, through `@travel-crm/db/sheet-schedule` (see Google Sheets below).
 - A foreign key between two organization tables includes `organization_id`, and so does every unique constraint on an
   organization table (except a primary key on `id`). Every organization table's `organization_id` refers to
   `organization`: plan 3's keys, and every new one, are `ON DELETE RESTRICT ON UPDATE RESTRICT`
@@ -165,6 +166,14 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   `storeGeneratedFile` under its record type, never uploaded. The console's hourly `platform.sweep-bulk-files` deletes
   an import's file and report 7 days after it ends and an export's file 24 hours after it is ready; an erasure
   withdraws them all at once.
+- **Google Sheets** (ADR 0031, `packages/domain/src/sheets` and `crm/lead-sheets`): an agency shares a sheet with our
+  service account (Viewer) and its new rows become leads; one way, we never write to a sheet. Only the
+  `GoogleSheets` port (`@travel-crm/integrations/google-sheets`, read-only: describe and read rows) reaches Google. A
+  sheet's schedule (`sheet_check_schedule`) and the spreadsheet claim (`sheet_spreadsheet_claim`) have no
+  `organization_id` and no row-level security: only `packages/domain/src/sheets/schedule.ts` reaches them, through
+  `@travel-crm/db/sheet-schedule` inside `db.withoutOrg` (dependency-cruiser and ESLint hold the line). A row's
+  identity is a hash of its cells; the claim, the erasure tombstones and re-keyed hashes are HMACs with
+  `SHEETS_HASH_KEY`, which is never rotated. Imports and exports never call `sheets`; crm does.
 
 ## Platform and subscriptions (spec 7; ADRs 0019-0024)
 
@@ -207,7 +216,7 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   by design (ADR 0028).
   `@travel-crm/domain/<module>`, `@travel-crm/contracts/<module>` and `@travel-crm/integrations/<adapter>` each resolve
   to `src/<name>/index.ts`, so a new module needs no `package.json` change.
-- `packages/integrations`: adapters to the outside world (`storage`, `email`, `push`, `jobs`, `pdf`, `spreadsheets`),
+- `packages/integrations`: adapters to the outside world (`storage`, `email`, `push`, `jobs`, `pdf`, `spreadsheets`, `google-sheets`),
   each a port plus a real and an in-memory adapter.
 - `packages/brand`: the product's name, colours, fonts and contacts (spec 10).
 - `packages/db`: Prisma schema, migrations, RLS, `forOrg`, soft delete, document numbers. The migrations need
