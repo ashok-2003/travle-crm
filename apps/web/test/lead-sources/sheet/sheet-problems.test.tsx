@@ -50,6 +50,9 @@ describe("SheetProblems", () => {
       expect(inputsTo("leadSheets.hideProblem")).toEqual([{ sheetId, rowId: "a" }]);
     });
     await waitFor(() => {
+      expect(screen.getByRole("heading", { name: words.heading })).toHaveFocus();
+    });
+    await waitFor(() => {
       expect(screen.queryByRole("button", { name: "Hide row 87" })).toBeNull();
     });
   });

@@ -108,6 +108,7 @@ export function ColumnsStep({ detail, matchingAgain = false }: { detail: SheetDe
     chooseTab.mutate({ sheetId, tabGid: detail.tabGid });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- chooseTab is a new object every render
   }, [tabConfirmed, sheetId, detail.tabGid]);
+  /** What the sheet was last read for: its tab and the Owner column whose values were asked. */
   const asked = useRef<string | null>(null);
   useEffect(() => {
     if (!tabConfirmed) return;
@@ -115,7 +116,12 @@ export function ColumnsStep({ detail, matchingAgain = false }: { detail: SheetDe
     const key = `${detail.tabGid}|${ownerKey ?? ""}`;
     if (asked.current === key) return;
     asked.current = key;
-    verify.mutate(ownerKey === undefined ? { sheetId } : { sheetId, valuesOf: ownerKey });
+    verify.mutate(ownerKey === undefined ? { sheetId } : { sheetId, valuesOf: ownerKey }, {
+      // The read already lists the values of the Owner column it guessed: the screen does not ask again for the same.
+      onSuccess: (read) => {
+        asked.current = `${detail.tabGid}|${read.columns.find((column) => column.field === "owner")?.headerKey ?? ""}`;
+      },
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- verify is a new object every render
   }, [tabConfirmed, sheetId, detail.tabGid, ownerKey]);
 
@@ -192,6 +198,7 @@ export function ColumnsStep({ detail, matchingAgain = false }: { detail: SheetDe
           )}
         </FormField>
       )}
+      <FieldChecklist hasName={hasName} hasContact={hasContact} />
       <ColumnMatcher
         columns={columns}
         fields={fieldOptions}
@@ -201,6 +208,7 @@ export function ColumnsStep({ detail, matchingAgain = false }: { detail: SheetDe
           if (column !== undefined) setFields(new Map(fields).set(column.headerKey, sheetFieldOf(field)));
         }}
         disabled={busy}
+        markGuesses
       />
       {ownerColumn !== undefined &&
         (view.ownerValues === null ? (
@@ -218,7 +226,6 @@ export function ColumnsStep({ detail, matchingAgain = false }: { detail: SheetDe
             disabled={busy}
           />
         ))}
-      <FieldChecklist hasName={hasName} hasContact={hasContact} />
       <RefusalAlert error={match.error ?? chooseTab.error} />
       <div className="flex flex-col items-start gap-2">
         <Button

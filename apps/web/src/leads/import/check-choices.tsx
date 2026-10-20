@@ -109,7 +109,7 @@ export function CheckChoices({
             </CardTitle>
             <CardDescription>
               {t("alreadyInCrmBody", {
-                count: formatCount(inCrm),
+                count: inCrm,
                 open: formatCount(counts.inCrm.open),
                 closed: formatCount(counts.inCrm.closed),
               })}

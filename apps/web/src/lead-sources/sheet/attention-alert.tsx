@@ -14,22 +14,27 @@ import { FormField } from "@/components/form-field";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTRPC } from "@/data/trpc";
 import { formatDay } from "@/lib/format";
+import { focusPageHeading } from "@/lib/focus-page-heading";
 import { sheetMatchRoute } from "@/lib/routes";
 import { useMe } from "@/session/me-context";
 import { useWriteAccess, type WriteKind } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
-import { lastCheckedText } from "../last-checked";
 import { SheetAddress } from "../sheet-address";
 import { useRefreshLeadSheets } from "../use-lead-sheets";
 
-/** The alert's one button, off with its reason while the subscription refuses it. */
+/**
+ * The alert's one button, off with its reason while the subscription refuses it. Matching the columns again leaves the
+ * page, so it is a link, drawn as the same outline button.
+ */
 function AlertAction({
   kind,
   label,
   pending,
+  pendingLabel,
   onClick,
   asLink,
   disabled = false,
@@ -37,6 +42,8 @@ function AlertAction({
   kind: WriteKind;
   label: string;
   pending?: boolean;
+  /** What the button says while its request is out, when that is more than its label ("Checking…"). */
+  pendingLabel?: string;
   onClick?: () => void;
   asLink?: string;
   disabled?: boolean;
@@ -56,7 +63,8 @@ function AlertAction({
           aria-describedby={write.hint ? hintId : undefined}
           onClick={onClick}
         >
-          {label}
+          {pending === true && <Spinner />}
+          {pending === true && pendingLabel !== undefined ? pendingLabel : label}
         </Button>
       )}
       <WriteHint id={hintId} hint={write.hint} />
@@ -75,17 +83,27 @@ function AlertFrame({ tone, title, children }: { tone: "info" | "problem"; title
   );
 }
 
+/** What every alert button does when its request ends: loads the sheet again, and moves the focus off the button that goes. */
+function useAlertDone() {
+  const refresh = useRefreshLeadSheets();
+  return async () => {
+    await refresh();
+    focusPageHeading();
+  };
+}
+
 export function AttentionAlert({ detail }: { detail: SheetDetail }) {
   const t = useTranslations("sheets.sheet.attention");
+  const tSheet = useTranslations("sheets.sheet");
   const trpc = useTRPC();
-  const refresh = useRefreshLeadSheets();
+  const done = useAlertDone();
   const { timeZone } = useMe().organization;
   const input = { sheetId: detail.id };
-  const recheck = useMutation(trpc.leadSheets.recheck.mutationOptions({ onSuccess: refresh }));
-  const takeOver = useMutation(trpc.leadSheets.takeOver.mutationOptions({ onSuccess: refresh }));
-  const resume = useMutation(trpc.leadSheets.resume.mutationOptions({ onSuccess: refresh }));
-  const checkedAt = detail.lastCheckedAt ?? detail.connectedAt;
-  const when = checkedAt === null ? "" : lastCheckedText(new Date(checkedAt), { timeZone });
+  const recheck = useMutation(trpc.leadSheets.recheck.mutationOptions({ onSuccess: done }));
+  const takeOver = useMutation(trpc.leadSheets.takeOver.mutationOptions({ onSuccess: done }));
+  // Resume gives reading back, but it is the "revoke" kind (S41, S44): like Pause and Disconnect it undoes a stop the
+  // person asked for, so it stays open while the subscription is read-only.
+  const resume = useMutation(trpc.leadSheets.resume.mutationOptions({ onSuccess: done }));
   const since =
     detail.attentionSince === null
       ? null
@@ -96,7 +114,7 @@ export function AttentionAlert({ detail }: { detail: SheetDetail }) {
       return (
         <div className="flex flex-col gap-3">
           <AlertFrame tone="problem" title={t("lost_access.title")}>
-            <p>{t("lost_access.body", { when })}</p>
+            <p>{t("lost_access.body")}</p>
             {since !== null && <p>{since}</p>}
             <div className="mt-3">
               <SheetAddress emails={[detail.serviceAccountEmail]} />
@@ -105,6 +123,7 @@ export function AttentionAlert({ detail }: { detail: SheetDetail }) {
               kind="change"
               label={t("lost_access.action")}
               pending={recheck.isPending}
+              pendingLabel={tSheet("checking")}
               onClick={() => {
                 recheck.mutate(input);
               }}
@@ -118,7 +137,11 @@ export function AttentionAlert({ detail }: { detail: SheetDetail }) {
     case "columns_missing":
       return (
         <AlertFrame tone="problem" title={t("columns_missing.title")}>
-          <p>{t("columns_missing.body", { columns: detail.columns.missing.join(", ") })}</p>
+          <p>
+            {t("columns_missing.body", {
+              columns: new Intl.ListFormat("en-IN", { type: "conjunction" }).format(detail.columns.missing),
+            })}
+          </p>
           {since !== null && <p>{since}</p>}
           <AlertAction kind="change" label={t("columns_missing.action")} asLink={sheetMatchRoute(detail.id)} />
         </AlertFrame>
@@ -171,10 +194,12 @@ export function AttentionAlert({ detail }: { detail: SheetDetail }) {
 function TabMissing({ detail, since }: { detail: SheetDetail; since: string | null }) {
   const t = useTranslations("sheets.sheet.attention.tab_missing");
   const trpc = useTRPC();
-  const refresh = useRefreshLeadSheets();
+  const tCommon = useTranslations("common");
+  const done = useAlertDone();
   const [tabGid, setTabGid] = useState("");
   const verify = useMutation(trpc.leadSheets.verify.mutationOptions());
-  const recheck = useMutation(trpc.leadSheets.recheck.mutationOptions({ onSuccess: refresh }));
+  const recheck = useMutation(trpc.leadSheets.recheck.mutationOptions({ onSuccess: done }));
+  // Google is asked once per visit, when the screen opens, and again only when the person asks (Try again).
   const asked = useRef(false);
   useEffect(() => {
     if (asked.current) return;
@@ -206,6 +231,18 @@ function TabMissing({ detail, since }: { detail: SheetDetail; since: string | nu
             )}
           </FormField>
         </div>
+        {verify.isError && (
+          <Button
+            variant="outline"
+            className="mt-3"
+            disabled={verify.isPending}
+            onClick={() => {
+              verify.mutate({ sheetId: detail.id });
+            }}
+          >
+            {tCommon("tryAgain")}
+          </Button>
+        )}
         <AlertAction
           kind="change"
           label={t("action")}

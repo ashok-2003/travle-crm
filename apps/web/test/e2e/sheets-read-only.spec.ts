@@ -24,6 +24,12 @@ test("a read-only agency: Sync now and Connect are off with the hint; Pause and 
   const sync = page.getByRole("button", { name: "Sync now" });
   await expect(sync).toBeDisabled();
   await expect(sync).toHaveAccessibleDescription(HINT);
+  // The sentence is on the page for everyone to read, beside the button, not hidden for screen readers alone.
+  const hint = page.locator(`[id="${(await sync.getAttribute("aria-describedby")) ?? ""}"]`);
+  await expect(hint).toHaveText(HINT);
+  expect((await hint.boundingBox())?.width ?? 0).toBeGreaterThan(100);
+  await expect(page.getByText("Running", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Paused", { exact: true })).toBeVisible();
   await page.goto("/settings/lead-sources");
   await expect(page.getByRole("button", { name: "Connect a sheet" })).toBeDisabled();
 

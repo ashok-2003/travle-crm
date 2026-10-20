@@ -56,12 +56,13 @@
       "tab": "Tab",
       "tabHint": "The tab whose rows become leads.",
       "ready": "Ready to read",
+      "readyBody": "A name and a phone, email or Instagram are matched.",
       "notReady": "Still needed",
       "needName": "A name is matched",
       "needContact": "A phone, email or Instagram is matched",
       "ownerValues": "Values of ‘{column}’ ({count, plural, one {# different value} other {# different values}})",
-      "ownerDefault": "the agency Owner",
-      "manyValues": "‘{column}’ has too many different values to match one by one. Every row goes to the agency Owner.",
+      "ownerDefault": "The agency's Owner",
+      "manyValues": "‘{column}’ has too many different values to match one by one. Every row goes to the agency's Owner.",
       "next": "Next",
       "reading": "Reading your sheet…",
       "loadFailed": "We couldn't read this sheet's columns."
@@ -81,6 +82,8 @@
       "confirmDescription": "New rows will become leads about every 15 minutes. Sync now brings them at once. We never change your sheet.",
       "confirmAction": "Connect",
       "reading": "Reading your sheet…",
+      "loadFailed": "We couldn't read this sheet's rows.",
+      "connectFailed": "We couldn't connect this sheet.",
       "readingWait": "This takes a moment for a long sheet. You can leave this page: it carries on."
     }
   },
@@ -95,6 +98,7 @@
     "late": "Checks are running late. Sync now checks it at once.",
     "syncNow": "Sync now",
     "checking": "Checking…",
+    "checkedAt": "Checked at {when}",
     "menu": "More actions for this sheet",
     "matchAgain": "Match columns again",
     "pause": "Pause",
@@ -107,7 +111,7 @@
       "mergedIntoExisting": "Added to an existing lead",
       "duplicates": "Left out as duplicates",
       "couldntBeAdded": "Couldn't be added",
-      "notes": "Rows already in the sheet when you connected are not counted. Changing a row after it was added adds a repeat enquiry.",
+      "notes": "Rows already in the sheet when you connected are not counted, and a row you change after it was added counts as a repeat enquiry.",
       "truncated": "Only the first 20,000 rows are read. Move older rows to another tab."
     },
     "problems": {
@@ -118,7 +122,7 @@
       "hide": "Hide",
       "hideRow": "Hide row {number}",
       "hidden": "Hidden",
-      "help": "Fix the row in your sheet. The next check adds it and clears this line. We never change your sheet.",
+      "help": "Fix the row in your sheet: the next check adds it and clears this line.",
       "more": "Show more rows",
       "loadFailed": "We couldn't load the rows.",
       "noName": "(no name)",
@@ -139,18 +143,17 @@
     },
     "details": {
       "heading": "About this sheet",
-      "stage": "New leads are New",
+      "stage": "New leads arrive as",
+      "stageValue": "New",
       "owner": "Owner",
-      "ownerValue": "The agency Owner, {name}",
-      "ownerValueUnknown": "The agency Owner",
-      "columns": "Columns",
-      "columnsValue": "{matched} of {total} matched"
+      "ownerValue": "{name} (agency Owner)",
+      "ownerValueUnknown": "The agency's Owner"
     },
     "attention": {
       "since": "Since {when}.",
       "lost_access": {
         "title": "We can't open this sheet any more",
-        "body": "Last checked {when}. It may have been unshared or deleted. Share it again with this address as a Viewer, then check again. Rows that arrive meanwhile wait in the sheet and are added once we can open it.",
+        "body": "It may have been unshared or deleted. Share it again with this address as a Viewer, then check again. Rows that arrive meanwhile wait in the sheet and are added once we can open it.",
         "action": "Check again"
       },
       "tab_missing": {
@@ -187,7 +190,7 @@
     },
     "disconnectDialog": {
       "title": "Disconnect ‘{sheet}’?",
-      "description": "Leads already added stay. We stop reading the sheet and forget its rows' record, so connecting it again asks about its rows once more. Nothing in your sheet changes; you may also remove {address} from its sharing.",
+      "description": "Leads already added stay. We stop reading the sheet and forget its rows' record, so connecting it again asks about its rows once more. Nothing in your sheet changes; you may also remove <email>{address}</email> from its sharing.",
       "action": "Disconnect"
     }
   },

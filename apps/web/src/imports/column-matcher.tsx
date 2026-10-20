@@ -18,6 +18,7 @@ export function ColumnMatcher({
   chosen,
   onChoose,
   disabled = false,
+  markGuesses = false,
 }: {
   columns: readonly ImportColumn[];
   /** The kind's fields with their words, in the order the Select offers them. */
@@ -26,6 +27,8 @@ export function ColumnMatcher({
   chosen: ReadonlyMap<number, ImportField | null>;
   onChoose: (position: number, field: ImportField | null) => void;
   disabled?: boolean;
+  /** Say "(guessed)" beside a column still matched as its name was guessed, as "As last time" is said for the last match. */
+  markGuesses?: boolean;
 }) {
   const t = useTranslations("imports.columns");
   const wide = useWideScreen();
@@ -62,8 +65,12 @@ export function ColumnMatcher({
       }}
     />
   );
-  const lastTime = (column: ImportColumn) =>
-    asLastTime(column) && <span className="text-label text-muted-foreground">{t("asLastTime")}</span>;
+  const guessed = (column: ImportColumn) =>
+    markGuesses && column.guessedBy === "common-name" && (chosen.get(column.position) ?? null) === column.field;
+  const lastTime = (column: ImportColumn) => {
+    const note = asLastTime(column) ? t("asLastTime") : guessed(column) ? t("guessed") : null;
+    return note !== null && <span className="text-label text-muted-foreground">{note}</span>;
+  };
 
   if (!wide) {
     return (

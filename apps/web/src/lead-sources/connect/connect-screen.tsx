@@ -6,8 +6,9 @@
 // choice, to the import's preview. Each step swaps the screen, so the focus moves to the new step's heading.
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect } from "react";
 import { ErrorState } from "@/components/error-state";
+import { FocusedStep } from "@/components/focused-step";
 import { LoadingRows } from "@/components/loading-rows";
 import { leadImportRoute, sheetRoute } from "@/lib/routes";
 import { useLeadSheet } from "../use-lead-sheets";
@@ -55,30 +56,23 @@ function ConnectingSheet({ sheetId, matchingAgain }: { sheetId: string; matching
   switch (step) {
     case "columns":
       return (
-        <FocusedStep stepKey="columns">
+        <FocusedStep>
           <ColumnsStep detail={detail} matchingAgain={matchingAgain} />
         </FocusedStep>
       );
     case "existing":
       return (
-        <FocusedStep stepKey="existing">
+        <FocusedStep>
           <ExistingStep detail={detail} />
         </FocusedStep>
       );
     case "reading":
-      return <ReadingSheet />;
+      return (
+        <FocusedStep>
+          <ReadingSheet />
+        </FocusedStep>
+      );
     default:
       return <LoadingRows rows={2} shape="twoLines" />;
   }
-}
-
-/** The focus is left on a button that is gone when a step swaps the screen: it moves to the new step's heading. */
-function FocusedStep({ stepKey, children }: { stepKey: string; children: ReactNode }) {
-  const wrapper = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const heading = wrapper.current?.querySelector("h1");
-    heading?.setAttribute("tabindex", "-1");
-    heading?.focus({ preventScroll: true });
-  }, [stepKey]);
-  return <div ref={wrapper}>{children}</div>;
 }

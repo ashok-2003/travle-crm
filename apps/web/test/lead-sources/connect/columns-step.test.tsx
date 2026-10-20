@@ -61,6 +61,27 @@ describe("ColumnsStep", () => {
     ).toBeVisible();
   });
 
+  it("says (guessed) beside a column matched by its name", async () => {
+    renderStep();
+    await screen.findByRole("combobox", { name: fieldFor("Full name") });
+    expect(screen.getAllByText(columnWords.guessed)).toHaveLength(3);
+  });
+
+  it("reads the sheet once, also when it guesses an Owner column", async () => {
+    renderStep(
+      aColumnsView({
+        columns: aColumnsView().columns.map((column) =>
+          column.headerKey === "handledby"
+            ? { ...column, field: "owner" as const, guessedBy: "common-name" as const }
+            : column,
+        ),
+        ownerValues: [{ value: "Asha", rows: 41, target: null, matchedBy: "none" as const }],
+      }),
+    );
+    await screen.findByRole("combobox", { name: fieldFor("Full name") });
+    expect(inputsTo("leadSheets.verify")).toHaveLength(1);
+  });
+
   it("never offers Stage, and checks off Name and a phone, keeping Next off until both are matched", async () => {
     renderStep(
       aColumnsView({
@@ -77,7 +98,7 @@ describe("ColumnsStep", () => {
     expect(options.map((option) => option.textContent)).not.toContain(messages.imports.fields.leads.stage);
     await userEvent.click(screen.getByRole("option", { name: messages.imports.fields.leads.phone }));
     expect(next).toBeEnabled();
-    expect(screen.getByRole("heading", { level: 2, name: words.ready })).toBeVisible();
+    expect(screen.getByRole("status")).toHaveTextContent(words.ready);
   });
 
   it("lists the tabs of a sheet with several, and not for one", async () => {
@@ -149,8 +170,17 @@ describe("ColumnsStep", () => {
         values: [{ value: "Neha", target: ravi }],
       });
     });
-    // The Owner column's values were asked for by its key.
-    expect(inputsTo("leadSheets.verify").at(-1)).toEqual({ sheetId, valuesOf: "handledby" });
+    // The first read listed the guessed Owner column's values: nothing asks again.
+    expect(inputsTo("leadSheets.verify")).toEqual([{ sheetId }]);
+  });
+
+  it("asks for an Owner column's values by its key when the person matches that column", async () => {
+    renderStep();
+    await userEvent.click(await screen.findByRole("combobox", { name: fieldFor("Handled by") }));
+    await userEvent.click(await screen.findByRole("option", { name: messages.imports.fields.leads.owner }));
+    await waitFor(() => {
+      expect(inputsTo("leadSheets.verify").at(-1)).toEqual({ sheetId, valuesOf: "handledby" });
+    });
   });
 
   it("says a column of too many values goes to the agency Owner", async () => {

@@ -6,11 +6,13 @@
 import { useMutation } from "@tanstack/react-query";
 import { importRowLimits } from "@travel-crm/contracts/imports";
 import type { ExistingRowChoice, SheetColumnsView, SheetDetail } from "@travel-crm/contracts/sheets";
+import { InfoIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ErrorState } from "@/components/error-state";
 import { PageHeader } from "@/components/page-header";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldContent, FieldDescription, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -62,19 +64,21 @@ export function ExistingStep({ detail }: { detail: SheetDetail }) {
     },
   };
 
-  // A sheet with no rows has nothing to decide: it is connected as it is.
+  // A sheet with no rows has nothing to decide: it is connected as it is, once, and only when the subscription lets it.
+  const empty = view !== null && view.rowCount === 0;
+  const connectedEmpty = useRef(false);
   useEffect(() => {
-    if (view !== null && view.rowCount === 0 && !request.isPending && !request.isError) {
-      void send("only_new").catch(() => undefined);
-    }
+    if (!empty || !write.allowed || connectedEmpty.current) return;
+    connectedEmpty.current = true;
+    void send("only_new").catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the empty sheet is known
-  }, [view]);
+  }, [empty, write.allowed]);
 
   if (view === null) {
     if (verify.isError) {
       return (
         <ErrorState
-          message={tConnect("columns.loadFailed")}
+          message={t("loadFailed")}
           error={verify.error}
           retryLabel={tCommon("tryAgain")}
           onRetry={() => {
@@ -85,7 +89,30 @@ export function ExistingStep({ detail }: { detail: SheetDetail }) {
     }
     return <ReadingSheet />;
   }
-  if (view.rowCount === 0) return <ReadingSheet />;
+  if (empty) {
+    if (request.isError) {
+      return (
+        <ErrorState
+          message={t("connectFailed")}
+          error={request.error}
+          retryLabel={tCommon("tryAgain")}
+          onRetry={() => {
+            request.reset();
+            void send("only_new").catch(() => undefined);
+          }}
+        />
+      );
+    }
+    if (!write.allowed && write.hint !== null) {
+      return (
+        <Alert>
+          <InfoIcon aria-hidden="true" />
+          <AlertDescription>{write.hint}</AlertDescription>
+        </Alert>
+      );
+    }
+    return <ReadingSheet />;
+  }
 
   const limit = importRowLimits.leads;
   const count = formatCount(view.rowCount);

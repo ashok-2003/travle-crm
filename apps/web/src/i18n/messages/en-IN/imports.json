@@ -60,6 +60,7 @@
     "noSamples": "Empty",
     "dontImport": "Don't import",
     "asLastTime": "As last time",
+    "guessed": "(guessed)",
     "matchedTo": "{field} · matched to ''{column}''",
     "fieldFor": "What {column} holds"
   },
