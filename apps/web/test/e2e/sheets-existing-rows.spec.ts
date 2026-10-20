@@ -31,7 +31,12 @@ test("the rows already there go through the preview; someone already in the CRM 
 
   // The sync that follows takes only what arrives now.
   await google.append(form.id, FORM_TAB, answer("Kavya Rao", "98111 11111"));
+  // The sheet runs once the import it waited for is done: its row in the list says so before it is opened.
   await page.goto("/settings/lead-sources");
+  await expect(async () => {
+    await page.reload();
+    await expect(page.getByText("Running", { exact: true })).toBeVisible({ timeout: 3_000 });
+  }).toPass({ timeout: 60_000 });
   await page.getByRole("link", { name: form.title }).click();
   await syncNow(page);
   await waitForLead(page, "Kavya Rao");

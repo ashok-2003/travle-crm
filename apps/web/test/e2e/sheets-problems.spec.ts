@@ -22,7 +22,7 @@ test("a row with no contact is listed with its reason; fixing the cell adds the 
   await expect(problems.getByText("Aditi Rao")).toBeVisible();
   await expect(problems.getByText("Suresh Menon")).toBeVisible();
   await expect(problems.getByText("No phone, email or Instagram we can use").first()).toBeVisible();
-  await expect(page.getByText("Fix the row in your sheet.")).toBeVisible();
+  await expect(page.getByText("Fix the row in your sheet:")).toBeVisible();
   await expectAccessible(page);
 
   // Row 3 is Aditi's: the form's owner fixes the cell.
