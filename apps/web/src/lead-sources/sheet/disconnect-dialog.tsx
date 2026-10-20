@@ -42,7 +42,11 @@ export function DisconnectDialog({
       onOpenChange={onOpenChange}
       returnFocusTo={returnFocusTo}
       title={t("title", { sheet: detail.sheetTitle })}
-      description={t("description", { address: detail.serviceAccountEmail })}
+      description={t.rich("description", {
+        address: detail.serviceAccountEmail,
+        // The address breaks anywhere when it must, never at its hyphen alone.
+        email: (chunks) => <span className="numbers break-all">{chunks}</span>,
+      })}
       action={t("action")}
       request={disconnect}
       onConfirm={() => {

@@ -190,7 +190,7 @@
     },
     "disconnectDialog": {
       "title": "Disconnect ‘{sheet}’?",
-      "description": "Leads already added stay. We stop reading the sheet and forget its rows' record, so connecting it again asks about its rows once more. Nothing in your sheet changes; you may also remove {address} from its sharing.",
+      "description": "Leads already added stay. We stop reading the sheet and forget its rows' record, so connecting it again asks about its rows once more. Nothing in your sheet changes; you may also remove <email>{address}</email> from its sharing.",
       "action": "Disconnect"
     }
   },
