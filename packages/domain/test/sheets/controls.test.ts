@@ -292,6 +292,22 @@ describe("Check again", () => {
     ).rejects.toMatchObject({ reason: "SHEET_BUSY" });
   });
 
+  it("refuses a busy Check again on another tab before asking Google anything (M4)", async () => {
+    const lost = await setup();
+    const manager = memberOf(lost.agency);
+    await lost.inOrg((tx) =>
+      tx.sheetConnection.update({
+        where: { id: lost.sheet.sheetId },
+        data: { status: "lost_access", checkStartedAt: new Date() },
+      }),
+    );
+    const before = test.google.calls.total;
+    await expect(
+      recheckSheet(test.db, test.dependencies, manager, { sheetId: lost.sheet.sheetId, tabGid: "9" }, new Date()),
+    ).rejects.toMatchObject({ reason: "SHEET_BUSY" });
+    expect(test.google.calls.total).toBe(before);
+  });
+
   it("lets a connected sheet that waits for a new tab's baseline ask for it again", async () => {
     const running = await setup();
     const manager = memberOf(running.agency);

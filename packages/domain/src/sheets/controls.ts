@@ -172,7 +172,12 @@ export async function recheckSheet(
   input: RecheckSheetInput,
   now: Date,
 ): Promise<void> {
-  const sheet = await db.forOrg(access.organizationId, (tx) => heldForRecheck(tx, input.sheetId));
+  const sheet = await db.forOrg(access.organizationId, async (tx) => {
+    const held = await heldForRecheck(tx, input.sheetId);
+    // Busy is refused before Google is asked anything: a press that will be refused costs no request (M4).
+    if (await checkIsUnderWay(tx, held, now, "recheck")) throw busy();
+    return held;
+  });
   let tab: { gid: string; title: string } | null = null;
   if (input.tabGid !== undefined) {
     const { google } = dependencies;
