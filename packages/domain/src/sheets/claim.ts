@@ -69,3 +69,19 @@ export async function assertNotClaimedElsewhere(
   const held = await claimOf(db, spreadsheetHash);
   if (held !== null && held.organizationId !== organizationId) throw claimedElsewhere();
 }
+
+/**
+ * M8: a draft whose claim is gone (the release and a new connection crossed, or the repair after a release failed) takes
+ * the claim again before it is confirmed. Another agency may hold the spreadsheet by now: then the refusal is the generic one.
+ */
+export async function repairClaim(
+  db: Database,
+  hashes: { spreadsheetHash(spreadsheetId: string): Bytes },
+  organizationId: string,
+  sheet: { id: string; spreadsheetId: string; claimId: string | null },
+  now: Date,
+): Promise<void> {
+  if (sheet.claimId !== null && (await claimById(db, organizationId, sheet.claimId)) !== null) return;
+  const { claimId } = await takeSpreadsheetClaim(db, organizationId, hashes.spreadsheetHash(sheet.spreadsheetId), now);
+  await db.forOrg(organizationId, (tx) => tx.sheetConnection.update({ where: { id: sheet.id }, data: { claimId } }));
+}

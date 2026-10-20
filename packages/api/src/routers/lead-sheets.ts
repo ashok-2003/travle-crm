@@ -155,7 +155,7 @@ export const leadSheetsRouter = router({
   /** Connect the sheet: asks the worker to read its rows (S14). From the last step only; a second press is SHEET_NOT_READY. */
   confirm: freshManager
     .input(sheetIdInput)
-    .mutation(({ ctx, input }) => confirmSheet(ctx.db, ctx.member, input.sheetId, new Date())),
+    .mutation(({ ctx, input }) => confirmSheet(ctx.db, ctx.member, input.sheetId, new Date(), ctx.sheetsHashes)),
 
   /** Sync now: a full read at once; SHEET_BUSY within 30 seconds of the last check or while one runs (S38). */
   syncNow: manager.input(sheetIdInput).mutation(async ({ ctx, input }) => {

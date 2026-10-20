@@ -1,6 +1,13 @@
 // "Connect the sheet": once, from the last step with the fields complete, as the confirming member.
 import { afterAll, describe, expect, it } from "vitest";
-import { chooseExistingRows, chooseSheetTab, confirmSheet, matchSheetColumns } from "../../src/sheets/index.js";
+import {
+  chooseExistingRows,
+  chooseSheetTab,
+  confirmSheet,
+  matchSheetColumns,
+  takeSpreadsheetClaim,
+} from "../../src/sheets/index.js";
+import { deleteClaim } from "../../src/sheets/schedule.js";
 import { aDraftSheet, anAgency, auditOf, createTestSheets, eventsOf, memberOf } from "./support/sheets.js";
 
 const test = createTestSheets();
@@ -91,6 +98,31 @@ describe("confirmSheet", () => {
     });
     await expect(confirmSheet(test.db, starter, "0199e7a0-0000-7000-8000-0000000000ff", now)).rejects.toMatchObject({
       code: "NOT_FOUND",
+    });
+  });
+
+  it("takes the claim again for a draft whose claim is gone, and refuses when another agency holds the sheet now (M8)", async () => {
+    const { agency, confirmer, made } = await readyToConfirm();
+    const claimOf = async () =>
+      (await test.db.forOrg(agency, (tx) => tx.sheetConnection.findUniqueOrThrow({ where: { id: made.sheetId } })))
+        .claimId;
+    const gone = await claimOf();
+    expect(gone).not.toBeNull();
+    await deleteClaim(test.db, agency, gone ?? "");
+    await confirmSheet(test.db, confirmer, made.sheetId, now, test.hashes);
+    const after = await claimOf();
+    expect(after).not.toBeNull();
+    expect(after).not.toBe(gone);
+
+    const other = await readyToConfirm();
+    const lost = await test.db.forOrg(other.agency, (tx) =>
+      tx.sheetConnection.findUniqueOrThrow({ where: { id: other.made.sheetId } }),
+    );
+    await deleteClaim(test.db, other.agency, lost.claimId ?? "");
+    const thief = await anAgency(test);
+    await takeSpreadsheetClaim(test.db, thief, test.hashes.spreadsheetHash(other.made.spreadsheetId), now);
+    await expect(confirmSheet(test.db, other.confirmer, other.made.sheetId, now, test.hashes)).rejects.toMatchObject({
+      reason: "SHEET_CLAIMED_ELSEWHERE",
     });
   });
 

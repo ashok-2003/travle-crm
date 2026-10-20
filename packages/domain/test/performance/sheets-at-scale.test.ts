@@ -277,7 +277,8 @@ describe("Google Sheets sync in a large agency", () => {
     const known = await inOrg((tx) =>
       tx.sheetRow.count({ where: { connectionId: sheetId, status: "before_connect" } }),
     );
-    expect(known).toBe(40_000);
+    // Each row is in the ledger once: the old row is let go when the same row is met under its new cells (M1).
+    expect(known).toBe(20_000);
   }, 400_000);
 
   it("serves a sheet's page, its counters and 50 problems from sheet_row_problems, within 150 ms", async () => {

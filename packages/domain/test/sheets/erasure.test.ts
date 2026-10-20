@@ -1,13 +1,14 @@
 // Erasing a customer who is in a sheet (S43, spec 9): their rows keep only keyed hashes and lose their ids, their contacts
 // become tombstones and nothing else, every example in the organization is emptied, a row of theirs read after the erasure
 // is not added, a different row naming their phone is left out, and a missing key fails the job loudly rather than skip.
+import type { OrgTx } from "@travel-crm/db";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { checkLeadSheet } from "../../src/crm/index.js";
 import { exportSubject, eraseSubject, requestErasure, ERASE_SUBJECT_QUEUE } from "../../src/platform/index.js";
 import { erasureJobOf } from "../../src/platform/erasure.js";
-import { createSheetsHashes, hex, rowHash, withdrawSheetRows } from "../../src/sheets/index.js";
+import { createSheetsHashes, hex, lockSheetConnections, rowHash, withdrawSheetRows } from "../../src/sheets/index.js";
 import { aLead, aPerson, freshPhone } from "../crm/support/records.js";
 import { deletionAgency, type DeletionAgency } from "../platform/test-deletion.js";
 import { createTestPlan, createTestPlatform, support, type TestPlatform } from "../platform/test-platform.js";
@@ -231,5 +232,20 @@ describe("erasing a customer who is in a sheet", () => {
     const left = await sheets.platform.sheetRow.findMany({ where: { organizationId: agency, status: "not_added" } });
     expect(left).toHaveLength(1);
     expect(left[0]).toMatchObject({ reasons: ["erased"], exampleName: null });
+  });
+});
+
+describe("locking an organization's sheet connections", () => {
+  it("takes them in id order, so two erasures and a check never wait on each other in a circle (M9)", async () => {
+    const statements: string[] = [];
+    const recorder = {
+      $queryRaw: (strings: TemplateStringsArray) => {
+        statements.push(strings.join("?"));
+        return Promise.resolve([]);
+      },
+    } as unknown as OrgTx;
+    await lockSheetConnections(recorder, "00000000-0000-7000-8000-000000000000");
+    expect(statements).toHaveLength(1);
+    expect(statements[0]).toMatch(/ORDER BY id\s+FOR NO KEY UPDATE/);
   });
 });
