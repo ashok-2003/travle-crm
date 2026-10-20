@@ -62,7 +62,14 @@ export type LeadRowReading =
       fingerprintValues: readonly (string | null)[];
       exampleName: string;
     }
-  | { kind: "not_added"; reasons: RowReason[]; exampleName: string | null; exampleValue: string | null };
+  | {
+      kind: "not_added";
+      reasons: RowReason[];
+      exampleName: string | null;
+      exampleValue: string | null;
+      /** What contacts the row has that we can use, though it was not read as an enquiry: an erased customer's is known by them. */
+      contacts: LeadRowContacts;
+    };
 
 const MAX_NOTE = 4000;
 const MAX_SOURCE_DETAIL = 120;
@@ -165,7 +172,7 @@ export function readLeadRow(row: SheetRow, context: LeadRowContext): LeadRowRead
 
   if (reasons.length > 0 || name === null) {
     const rejected = unusable[0]?.text ?? stageText;
-    return { kind: "not_added", reasons, exampleName: name, exampleValue: rejected };
+    return { kind: "not_added", reasons, exampleName: name, exampleValue: rejected, contacts };
   }
   const { source, detail } = sourceOf(context, cell("their_source"));
   const ownerText = cell("owner");

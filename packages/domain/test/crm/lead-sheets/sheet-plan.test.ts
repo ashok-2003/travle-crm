@@ -172,4 +172,13 @@ describe("planSheetRows", () => {
       expect(planOne(input(unfinished, { ledger: { id: "x", status, rowNumber: 3 } }))?.kind, status).toBe("not_added");
     }
   });
+
+  it("leaves out as erased a row of an erased customer's phone even when it has no name, and shows nothing it holds", () => {
+    const decision = planOne(
+      input(answer("", "98765 43210"), { isErased: (contacts) => contacts.phone === "+919876543210" }),
+    );
+    expect(decision).toEqual({ kind: "not_added", reasons: ["erased"], exampleName: null, exampleValue: null });
+    // Without the phone being theirs it is the usual unfinished row.
+    expect(planOne(input(answer("", "98765 43210")))).toEqual({ kind: "pending" });
+  });
 });
