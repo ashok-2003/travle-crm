@@ -28,7 +28,8 @@ const none: SheetsWithdrawn = { rowsWithdrawn: 0, contactsKept: 0, examplesEmpti
  * other instead of crossing (SD9).
  */
 export async function lockSheetConnections(tx: OrgTx, organizationId: string): Promise<void> {
-  await tx.$queryRaw`SELECT id FROM sheet_connection WHERE organization_id = ${organizationId}::uuid FOR NO KEY UPDATE`;
+  // In id order, so two erasures of one organization never wait on each other's rows in a circle (M9).
+  await tx.$queryRaw`SELECT id FROM sheet_connection WHERE organization_id = ${organizationId}::uuid ORDER BY id FOR NO KEY UPDATE`;
 }
 
 /**
