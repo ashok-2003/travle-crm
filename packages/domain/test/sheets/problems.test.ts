@@ -97,9 +97,12 @@ describe("sheetProblems", () => {
       ),
     );
     // Later checks read the row again, still unfixed: it stays hidden.
+    await running.check("scheduled");
     await running.check("sync-now");
+    await running.check("scheduled");
     await running.check("recheck");
     const [again] = await running.ledger();
+    expect(again).toMatchObject({ status: "not_added" });
     expect(again?.resolvedAt).not.toBeNull();
     const list = await running.inOrg((tx) => sheetProblems(tx, { sheetId: running.sheet.sheetId }));
     expect((list as { items: unknown[] }).items).toHaveLength(0);

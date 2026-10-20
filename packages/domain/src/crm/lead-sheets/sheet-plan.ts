@@ -45,7 +45,8 @@ function decideUnreadable(
 ): SheetRowDecision {
   const reasons = reading.reasons.flatMap((reason) => problemReasonOf(reason.code) ?? []);
   const waits = reasons.length > 0 && reasons.every((reason) => unfinished.has(reason));
-  const waited = input.ledger?.status === "pending" || input.mode !== "scheduled";
+  // A row seen before (it waited, or was listed as a problem) does not wait again: a problem stays one, and stays hidden if hidden.
+  const waited = input.ledger !== undefined || input.mode !== "scheduled";
   if (waits && !waited) return { kind: "pending" };
   return { kind: "not_added", reasons, exampleName: reading.exampleName, exampleValue: reading.exampleValue };
 }

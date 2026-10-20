@@ -126,9 +126,10 @@ describe("planSheetRows", () => {
       expect(planOne(input(cells, { mode }))).toMatchObject({ kind: "not_added", reasons: ["no_contact"] });
     }
     expect(planOne(input(answer("", "98765 43210")))).toEqual({ kind: "pending" });
-    // A row that was listed before and is read again keeps its place in the list while it is unfinished.
-    expect(planOne(input(cells, { ledger: { id: "r", status: "not_added", rowNumber: 2 } }))).toEqual({
-      kind: "pending",
+    // The same cells, listed before and read again, are the same problem: it does not wait anew, so it stays in the list.
+    expect(planOne(input(cells, { ledger: { id: "r", status: "not_added", rowNumber: 2 } }))).toMatchObject({
+      kind: "not_added",
+      reasons: ["no_contact"],
     });
   });
 
@@ -162,5 +163,13 @@ describe("planSheetRows", () => {
     expect(decision).toEqual({ kind: "known", fingerprint });
     // Another person's row is not known.
     expect(planOne(input(answer("Ravi Kumar", "98100 00000"), { baseline }))?.kind).toBe("save");
+  });
+
+  it("keeps a row already listed as a problem a problem when a scheduled check reads it again, instead of making it wait anew", () => {
+    const unfinished = answer("Aditi Rao", "");
+    expect(planOne(input(unfinished))?.kind).toBe("pending");
+    for (const status of ["pending", "not_added"] as const) {
+      expect(planOne(input(unfinished, { ledger: { id: "x", status, rowNumber: 3 } }))?.kind, status).toBe("not_added");
+    }
   });
 });
