@@ -56,6 +56,33 @@ describe("ExistingStep", () => {
     expect(screen.queryByRole("radio")).toBeNull();
   });
 
+  it("shows why an empty sheet could not be connected, and tries again on request", async () => {
+    renderStep(0, { "leadSheets.confirm": { status: 409, reason: "SHEET_NOT_READY" } });
+    expect(await screen.findByText(messages.errors.reasons.SHEET_NOT_READY)).toBeVisible();
+    expect(screen.queryByText(words.reading)).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: messages.common.tryAgain }));
+    await waitFor(() => {
+      expect(inputsTo("leadSheets.confirm")).toHaveLength(2);
+    });
+  });
+
+  it("does not connect an empty sheet by itself while the agency is read-only", async () => {
+    stubApi({ "leadSheets.verify": { data: aColumnsView({ rowCount: 0 }) } });
+    screenIs("phone");
+    renderWithApi(
+      <ExistingStep detail={detail} />,
+      newQueryClient({ ...paidSubscription, status: "read_only", access: "read_only" }),
+    );
+    expect(await screen.findByText(messages.errors.reasons.ORGANIZATION_READ_ONLY)).toBeVisible();
+    expect(inputsTo("leadSheets.chooseExisting")).toEqual([]);
+    expect(inputsTo("leadSheets.confirm")).toEqual([]);
+  });
+
+  it("says the sheet's rows could not be read, with Try again, when reading fails", async () => {
+    renderStep(1, { "leadSheets.verify": { status: 502 } });
+    expect(await screen.findByText(words.loadFailed)).toBeVisible();
+  });
+
   it("asks once before connecting, then sends the choice and the confirmation", async () => {
     renderStep();
     await userEvent.click(await screen.findByRole("radio", { name: words.check.replace("{count}", "1,286") }));

@@ -81,6 +81,8 @@
       "confirmDescription": "New rows will become leads about every 15 minutes. Sync now brings them at once. We never change your sheet.",
       "confirmAction": "Connect",
       "reading": "Reading your sheet…",
+      "loadFailed": "We couldn't read this sheet's rows.",
+      "connectFailed": "We couldn't connect this sheet.",
       "readingWait": "This takes a moment for a long sheet. You can leave this page: it carries on."
     }
   },

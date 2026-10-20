@@ -52,8 +52,18 @@ describe("ConnectScreen", () => {
 
   it("says Reading your sheet… once it is confirmed", async () => {
     renderAt(aSheetDetail({ status: "connecting", step: "done" }));
-    expect(await screen.findByText(words.existing.reading)).toBeVisible();
+    const heading = await screen.findByRole("heading", { level: 1, name: words.existing.reading });
+    expect(heading).toBeVisible();
+    expect(heading).toHaveFocus();
     expect(routerCalls.replace).not.toHaveBeenCalled();
+  });
+
+  it("moves the focus to the heading of the step that appears", async () => {
+    renderAt(aSheetDetail({ status: "connecting", step: "existing" }));
+    const heading = await screen.findByRole("heading", { level: 1, name: words.existing.title });
+    await waitFor(() => {
+      expect(heading).toHaveFocus();
+    });
   });
 
   it("goes to the sheet's page once it runs, and to the import's preview for the second choice", async () => {

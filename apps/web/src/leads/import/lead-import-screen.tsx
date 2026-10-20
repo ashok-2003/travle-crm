@@ -7,8 +7,9 @@ import type { ImportDetail } from "@travel-crm/contracts/imports";
 import { FileXIcon, LoaderCircleIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useState } from "react";
 import { EmptyState } from "@/components/empty-state";
+import { FocusedStep } from "@/components/focused-step";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
@@ -48,20 +49,6 @@ export function LeadImportScreen({ importId }: { importId: string }) {
       <Step detail={detail} changing={changing} setChanging={setChanging} />
     </FocusedStep>
   );
-}
-
-/**
- * Each step swaps the screen, so the focus is left on a button that is gone: it moves to the new step's heading, which
- * a screen reader then reads, and a keyboard starts from.
- */
-function FocusedStep({ stepKey, children }: { stepKey: string; children: ReactNode }) {
-  const wrapper = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const heading = wrapper.current?.querySelector("h1");
-    heading?.setAttribute("tabindex", "-1");
-    heading?.focus({ preventScroll: true });
-  }, [stepKey]);
-  return <div ref={wrapper}>{children}</div>;
 }
 
 function Step({
