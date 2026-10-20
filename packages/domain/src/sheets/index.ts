@@ -69,6 +69,7 @@ export {
 export { finishScheduledCheck, reconcileScheduleAccounts, strandedServiceAccounts } from "./schedule.js";
 export { sweepSheets, type SheetsSwept } from "./sweep.js";
 export { type ErasedContacts, lockSheetConnections, type SheetsWithdrawn, withdrawSheetRows } from "./erasure.js";
+export { contentFingerprint } from "./content-fingerprint.js";
 export { accountAddressOf, accountIndexOf } from "./account-index.js";
 export { assertNoSheetCheckSaving, lockAddAgainstChecks } from "./guards.js";
 export { listSheets, sheetDetailOf, type SheetDetailFacts } from "./views.js";

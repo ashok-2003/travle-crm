@@ -9,6 +9,7 @@ import { startImportFromBytes } from "../imports/index.js";
 import { enterAttention } from "./attention.js";
 import { connectImportCsv } from "./connect-import-file.js";
 import { holdSheet, sheetOf } from "./connection-row.js";
+import { contentFingerprint } from "./content-fingerprint.js";
 import { hex, uuidFromText } from "./hashes.js";
 import { headerHashOf } from "./header-match.js";
 import type { SheetsJobDependencies } from "./job-dependencies.js";
@@ -89,7 +90,9 @@ export function baselineListener(dependencies: SheetsJobDependencies): EventList
               data: chunk.map((row, index) => {
                 const at = start + index;
                 const erased = erasedAt(at);
-                const fingerprint = held[at]?.fingerprint ?? null;
+                // An enquiry by what it holds; a row that is no enquiry by its cells under their headers (M1).
+                const fingerprint =
+                  hashes === null ? null : (held[at]?.fingerprint ?? contentFingerprint(read.read.header, row.cells));
                 return {
                   connectionId: sheetId,
                   // An erased customer's row keeps only keyed hashes, here as everywhere (S43).

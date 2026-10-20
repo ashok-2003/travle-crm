@@ -173,10 +173,24 @@ export async function saveSheetBatch(
         break;
       case "known":
         // Moved by a column or a sort, not new: it is as it was at connect, and counted nowhere.
-        await write({
-          status: "before_connect",
-          fingerprint: context.hashes === null ? null : new Uint8Array(context.hashes.rekey(decision.fingerprint)),
-        });
+        {
+          const fingerprint =
+            context.hashes === null ? null : new Uint8Array(context.hashes.rekey(decision.fingerprint));
+          await write({ status: "before_connect", fingerprint });
+          // The row it was before the columns changed is the same row on the same line of the sheet: it goes, so the
+          // ledger does not hold every row twice, then four times, as columns come and go (M1).
+          if (fingerprint !== null) {
+            await tx.sheetRow.deleteMany({
+              where: {
+                connectionId: sheet.id,
+                status: "before_connect",
+                rowNumber: row.rowNumber,
+                fingerprint,
+                NOT: { rawHash: row.hash },
+              },
+            });
+          }
+        }
         break;
       case "save": {
         const { reading } = decision;

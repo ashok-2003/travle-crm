@@ -29,6 +29,8 @@ export interface SheetPlanInput {
   earlier: ReadonlyMap<string, Date>;
   /** Fingerprints of this sheet's rows that were there at connect, by hex. */
   baseline: ReadonlySet<string>;
+  /** The row's content fingerprint, for a row that is no enquiry: it is known by it, as an enquiry is by its own. */
+  contentFingerprint?: Uint8Array;
 }
 
 /** The reason codes of a single row that a sheet lists (S27); any other the lead import's reading gives is dropped. */
@@ -57,6 +59,14 @@ export function planSheetRows(rows: readonly SheetPlanInput[], seen = new Set<st
     // An erased customer's row is left out whatever else is wrong with it, and shows none of what it holds (S43, SD10).
     if (reading.kind === "not_added" && input.isErased(reading.contacts)) {
       return { kind: "not_added", reasons: ["erased"], exampleName: null, exampleValue: null };
+    }
+    // A row there at connect that no one could read as an enquiry is still that row after a column moved (M1).
+    if (
+      reading.kind === "not_added" &&
+      input.contentFingerprint !== undefined &&
+      input.baseline.has(fingerprintHex(input.contentFingerprint))
+    ) {
+      return { kind: "known", fingerprint: input.contentFingerprint };
     }
     if (reading.kind === "not_added") return decideUnreadable(input, reading);
     // Before the rest: an old row that was blocked or erased then is not a new problem now.

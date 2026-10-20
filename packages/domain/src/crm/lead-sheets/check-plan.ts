@@ -8,6 +8,7 @@ import {
   type CheckDependencies,
   type CheckMode,
   clearVanishedRows,
+  contentFingerprint,
   type HeaderMatch,
   isKnown,
   ledgerKey,
@@ -101,7 +102,15 @@ export async function planCheck(
     today: calendarDateIn(now, timeZone),
     agencyTimeZone: timeZone,
   });
-  const items = unknown.map((row) => ({ row, reading: readSheetRow(row, context) }));
+  const items = unknown.map((row) => {
+    const reading = readSheetRow(row, context);
+    // A row that is no enquiry is known, if it was there at connect, by its cells under their headers (M1).
+    return {
+      row,
+      reading,
+      content: reading.kind === "enquiry" ? undefined : contentFingerprint(read.header, row.cells),
+    };
+  });
   // The lookups are one query a kind, but for a thousand rows at a time: a column inserted into a sheet of twenty thousand
   // rows re-plans them all, and one transaction for them would run past its limit for ever (SD5). The fingerprints met in
   // one chunk are carried to the next, so two equal rows in different chunks are still one.
@@ -115,11 +124,13 @@ export async function planCheck(
         chunk.map(({ reading }) => reading),
         hashes,
         sheet.id,
+        chunk.flatMap(({ content }) => content ?? []),
       );
       return planSheetRows(
-        chunk.map(({ row, reading }) => ({
+        chunk.map(({ row, reading, content }) => ({
           row,
           reading,
+          ...(content === undefined ? {} : { contentFingerprint: content }),
           ledger: ledger.get(ledgerKey(row.hash, row.occurrence)),
           mode,
           isErased: (contacts) => lookups.isErased(contacts),
