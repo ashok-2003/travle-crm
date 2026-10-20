@@ -4,6 +4,7 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { takeSpreadsheetClaim } from "../../src/sheets/index.js";
 import {
+  baselineListener,
   beginSheet,
   disconnectSheet,
   pauseSheet,
@@ -12,7 +13,15 @@ import {
   resumeSheet,
 } from "../../src/sheets/index.js";
 import { answer, setup as setupSheet } from "./support/running.js";
-import { anAgency, auditOf, createTestSheets, eventsOf, memberOf } from "./support/sheets.js";
+import {
+  anAgency,
+  auditOf,
+  createTestSheets,
+  eventsOf,
+  jobDependencies,
+  memberOf,
+  runListener,
+} from "./support/sheets.js";
 import { freshPhone } from "../crm/support/records.js";
 
 const test = createTestSheets();
@@ -213,9 +222,48 @@ describe("Check again", () => {
       recheckSheet(test.db, test.dependencies, manager, { sheetId: lost.sheet.sheetId, tabGid: "404" }, now),
     ).rejects.toMatchObject({ reason: "SHEET_NOT_READY" });
     await recheckSheet(test.db, test.dependencies, manager, { sheetId: lost.sheet.sheetId, tabGid: "9" }, now);
-    expect(await lost.state()).toMatchObject({ tabGid: "9", tabTitle: "Renamed answers" });
-    await lost.check("recheck");
+    expect(await lost.state()).toMatchObject({ tabGid: "9", tabTitle: "Renamed answers", status: "connecting" });
+    // The chosen tab is baselined as at connect (its rows are never added); then the sheet runs on it.
+    await runListener(test, baselineListener(jobDependencies(test, lost.identity)), lost.agency, {
+      type: "sheet.baseline-requested",
+      payload: { sheetId: lost.sheet.sheetId },
+    });
     expect((await lost.state()).status).toBe("running");
+    await lost.check("recheck");
+    expect(await lost.leads()).toHaveLength(1);
+  });
+
+  it("brings none of another tab's rows in as leads: they are baselined, and only a row added after is a lead", async () => {
+    const running = await setup();
+    const manager = memberOf(running.agency);
+    const id = running.sheet.spreadsheetId;
+    const old = [1, 2, 3].map((index) => answer(`Old ${String(index)}`, freshPhone(), index));
+    test.google.deleteSpreadsheet(id);
+    test.google.addSpreadsheet({
+      id,
+      title: "Goa Diwali campaign (Responses)",
+      tabs: [
+        { gid: "9", title: "Archive", rows: [["Timestamp", "Full name", "Phone number", "Email Address"], ...old] },
+      ],
+    });
+    test.google.share(id, test.accountEmail);
+    await running.check("sync-now");
+    expect((await running.state()).status).toBe("tab_missing");
+    await recheckSheet(test.db, test.dependencies, manager, { sheetId: running.sheet.sheetId, tabGid: "9" }, now);
+    await runListener(test, baselineListener(jobDependencies(test, running.identity)), running.agency, {
+      type: "sheet.baseline-requested",
+      payload: { sheetId: running.sheet.sheetId },
+    });
+    await running.check("sync-now");
+    expect(await running.leads()).toHaveLength(0);
+    expect((await running.ledger()).map((row) => row.status)).toEqual([
+      "before_connect",
+      "before_connect",
+      "before_connect",
+    ]);
+    test.google.append(id, "Archive", answer("Fresh", freshPhone(), 9));
+    await running.check("sync-now");
+    expect((await running.leads()).map((lead) => lead.person.name)).toEqual(["Fresh"]);
   });
 
   it("asks for the baseline again for a sheet that never got one", async () => {

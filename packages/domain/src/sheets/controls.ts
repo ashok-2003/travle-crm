@@ -187,11 +187,25 @@ export async function recheckSheet(
       await publishEvent(tx, { type: "sheet.baseline-requested", payload: { sheetId: held.id } });
       return;
     }
-    if (tab !== null) {
+    if (tab !== null && tab.gid !== held.tabGid) {
+      // Another tab is another sheet of rows: those present now are baselined (never added), as at connect, so that
+      // choosing a tab that is full of old rows does not pour them in as leads. The old tab's ledger goes; erased stays.
+      await tx.sheetRow.deleteMany({ where: { connectionId: held.id, status: { not: "erased" } } });
       await tx.sheetConnection.update({
         where: { id: held.id },
-        data: { tabGid: tab.gid, tabTitle: tab.title.slice(0, 100), holdUntil: null },
+        data: {
+          tabGid: tab.gid,
+          tabTitle: tab.title.slice(0, 100),
+          holdUntil: null,
+          status: "connecting",
+          step: "done",
+          existingRows: "only_new",
+          attentionSince: null,
+          touchedAt: now,
+        },
       });
+      await publishEvent(tx, { type: "sheet.baseline-requested", payload: { sheetId: held.id } });
+      return;
     }
     await publishEvent(tx, { type: "sheet.sync-requested", payload: { sheetId: held.id, mode: "recheck" } });
   });
