@@ -65,7 +65,8 @@ its message or the error itself, which can quote a person's data (a Prisma valid
 ## The console
 
 `pnpm --filter @travel-crm/api-server console` starts the platform console's process from the same code and image
-(ADR 0019): the console's tRPC at `/api/platform/trpc` on `CONSOLE_PORT`, which the load balancer (and the web app's
+(ADR 0019): its health check at `/health` and, for a pinger that reaches it through the web app's address,
+`/api/platform/health`; the console's tRPC at `/api/platform/trpc` on `CONSOLE_PORT`, which the load balancer (and the web app's
 development server) routes there, and the platform's own jobs, from `src/console-jobs.ts`:
 
 | Queue                             | What it does                                                                                 |
