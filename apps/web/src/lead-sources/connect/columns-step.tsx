@@ -99,15 +99,25 @@ export function ColumnsStep({ detail, matchingAgain = false }: { detail: SheetDe
   );
 
   const ownerKey = fields === null ? undefined : [...fields].find(([, field]) => field === "owner")?.[0];
+  // A draft is at its tab step until the tab is confirmed: the link's own tab is, here, before its columns are read.
+  const tabConfirmed = detail.step !== "tab";
+  const confirmedTab = useRef(false);
+  useEffect(() => {
+    if (tabConfirmed || confirmedTab.current) return;
+    confirmedTab.current = true;
+    chooseTab.mutate({ sheetId, tabGid: detail.tabGid });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- chooseTab is a new object every render
+  }, [tabConfirmed, sheetId, detail.tabGid]);
   const asked = useRef<string | null>(null);
   useEffect(() => {
+    if (!tabConfirmed) return;
     // Google is read when the tab or the Owner column changes, not for every Select the person touches.
     const key = `${detail.tabGid}|${ownerKey ?? ""}`;
     if (asked.current === key) return;
     asked.current = key;
     verify.mutate(ownerKey === undefined ? { sheetId } : { sheetId, valuesOf: ownerKey });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- verify is a new object every render
-  }, [sheetId, detail.tabGid, ownerKey]);
+  }, [tabConfirmed, sheetId, detail.tabGid, ownerKey]);
 
   if (view === null || fields === null) {
     if (verify.isError) {

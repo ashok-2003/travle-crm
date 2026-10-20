@@ -14,16 +14,18 @@ export function SheetCounts({ detail }: { detail: SheetDetail }) {
       <h2 id="sheet-counts" className="text-section font-semibold">
         {t("heading")}
       </h2>
-      <dl className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <ul className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {kinds.map((kind) => (
-          <Card key={kind} size="sm">
-            <CardContent className="flex flex-col gap-1">
-              <dd className="numbers text-2xl font-semibold">{formatCount(detail.counts[kind])}</dd>
-              <dt className="text-label text-muted-foreground">{t(kind)}</dt>
-            </CardContent>
-          </Card>
+          <li key={kind}>
+            <Card size="sm">
+              <CardContent className="flex flex-col gap-1">
+                <span className="numbers text-2xl font-semibold">{formatCount(detail.counts[kind])}</span>
+                <span className="text-label text-muted-foreground">{t(kind)}</span>
+              </CardContent>
+            </Card>
+          </li>
         ))}
-      </dl>
+      </ul>
       <p className="text-label text-muted-foreground">{t("notes")}</p>
       {detail.rowsTruncated && <p className="text-label text-muted-foreground">{t("truncated")}</p>}
     </section>

@@ -98,6 +98,15 @@ describe("ColumnsStep", () => {
     api.answer("leadSheets.verify", { data: aColumnsView() });
   });
 
+  it("confirms the link's own tab first when the draft is still at its tab step, then reads the columns", async () => {
+    renderStep(aColumnsView(), { detail: aSheetDetail({ status: "connecting", step: "tab" }) });
+    await waitFor(() => {
+      expect(inputsTo("leadSheets.chooseTab")).toEqual([{ sheetId, tabGid: "0" }]);
+    });
+    // The columns are read once the tab is confirmed and the sheet has moved on.
+    expect(inputsTo("leadSheets.verify")).toEqual([]);
+  });
+
   it("does not show the tab choice for one tab", async () => {
     renderStep();
     await screen.findByRole("button", { name: words.next });
