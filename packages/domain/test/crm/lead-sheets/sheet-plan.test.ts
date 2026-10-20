@@ -47,7 +47,7 @@ describe("planSheetRows", () => {
     });
     const later = input(cells, {
       mode: "sync-now",
-      ledger: { id: "row-1", status: "not_added", rowNumber: 2 },
+      ledger: { id: "row-1", status: "not_added", rowNumber: 2, hidden: false },
       isBlocked: () => false,
     });
     expect(planOne(later)).toMatchObject({ kind: "save" });
@@ -117,7 +117,9 @@ describe("planSheetRows", () => {
   it("holds a row without a name or contact one check, then lists it with its reason; at once for Sync now", () => {
     const cells = answer("Asha Sharma", "");
     expect(planOne(input(cells))).toEqual({ kind: "pending" });
-    expect(planOne(input(cells, { ledger: { id: "r", status: "pending", rowNumber: 2 } }))).toMatchObject({
+    expect(
+      planOne(input(cells, { ledger: { id: "r", status: "pending", rowNumber: 2, hidden: false } })),
+    ).toMatchObject({
       kind: "not_added",
       reasons: ["no_contact"],
       exampleName: "Asha Sharma",
@@ -127,7 +129,9 @@ describe("planSheetRows", () => {
     }
     expect(planOne(input(answer("", "98765 43210")))).toEqual({ kind: "pending" });
     // The same cells, listed before and read again, are the same problem: it does not wait anew, so it stays in the list.
-    expect(planOne(input(cells, { ledger: { id: "r", status: "not_added", rowNumber: 2 } }))).toMatchObject({
+    expect(
+      planOne(input(cells, { ledger: { id: "r", status: "not_added", rowNumber: 2, hidden: false } })),
+    ).toMatchObject({
       kind: "not_added",
       reasons: ["no_contact"],
     });
@@ -169,7 +173,10 @@ describe("planSheetRows", () => {
     const unfinished = answer("Aditi Rao", "");
     expect(planOne(input(unfinished))?.kind).toBe("pending");
     for (const status of ["pending", "not_added"] as const) {
-      expect(planOne(input(unfinished, { ledger: { id: "x", status, rowNumber: 3 } }))?.kind, status).toBe("not_added");
+      expect(
+        planOne(input(unfinished, { ledger: { id: "x", status, rowNumber: 3, hidden: false } }))?.kind,
+        status,
+      ).toBe("not_added");
     }
   });
 

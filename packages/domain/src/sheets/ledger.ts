@@ -10,6 +10,8 @@ export interface LedgerEntry {
   id: string;
   status: SheetRowStatus;
   rowNumber: number;
+  /** A problem hidden by hand (S31): a scheduled check leaves it alone, Sync now plans it again (M7). */
+  hidden: boolean;
 }
 
 const rowsPerLookup = 1_000;
@@ -27,6 +29,7 @@ interface StoredLedgerRow {
   occurrence: number;
   status: string;
   rowNumber: number;
+  resolvedAt: Date | null;
 }
 
 /**
@@ -54,7 +57,7 @@ export async function lookUpLedger(
     }
     const stored = await tx.sheetRow.findMany({
       where: { connectionId, rawHash: { in: [...asked.values()] } },
-      select: { id: true, rawHash: true, occurrence: true, status: true, rowNumber: true },
+      select: { id: true, rawHash: true, occurrence: true, status: true, rowNumber: true, resolvedAt: true },
     });
     for (const row of stored satisfies StoredLedgerRow[]) {
       const asHex = hex(row.rawHash);
@@ -63,6 +66,7 @@ export async function lookUpLedger(
         id: row.id,
         status: row.status as SheetRowStatus,
         rowNumber: row.rowNumber,
+        hidden: row.status === "not_added" && row.resolvedAt !== null,
       });
     }
   }

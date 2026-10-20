@@ -57,7 +57,11 @@ export async function planCheck(
   const ledger = await db.forOrg(organizationId, (tx) => lookUpLedger(tx, sheet.id, rows, hashes));
   // A full read numbers the rows truly: the ledger's numbers are brought to them (M2).
   if (plan.full) await db.forOrg(organizationId, (tx) => refreshRowNumbers(tx, sheet.id, rows, ledger));
-  const unknown = rows.filter((row) => !isKnown(ledger.get(ledgerKey(row.hash, row.occurrence))));
+  const unknown = rows.filter((row) => {
+    const entry = ledger.get(ledgerKey(row.hash, row.occurrence));
+    // A problem hidden by hand is planned again only when someone asks with Sync now or Check again (M7).
+    return !isKnown(entry) && !(mode === "scheduled" && entry?.hidden === true);
+  });
 
   // Who the Owner column's values are: the person's own matches, else identity's, else the agency Owner.
   const ownerValues = [
