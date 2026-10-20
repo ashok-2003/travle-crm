@@ -191,6 +191,10 @@ describe("createRealGoogleSheets", () => {
     ["bad-range", "tab_missing", null],
     ["not-a-sheet", "not_a_sheet", null],
     ["quota-403", "rate_limited", null],
+    ["project-service-disabled", "unavailable", null],
+    ["project-scope-insufficient", "unavailable", null],
+    ["project-suspended", "unavailable", null],
+    ["project-user-denied", "unavailable", null],
     ["rate-limited", "rate_limited", 120],
     ["unavailable", "unavailable", null],
   ];
