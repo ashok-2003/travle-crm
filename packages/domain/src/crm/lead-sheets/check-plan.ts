@@ -8,6 +8,7 @@ import {
   type CheckDependencies,
   type CheckMode,
   clearVanishedRows,
+  refreshRowNumbers,
   contentFingerprint,
   type HeaderMatch,
   isKnown,
@@ -54,6 +55,8 @@ export async function planCheck(
   const { organizationId } = sheet;
   const rows = numberRows(read.rows);
   const ledger = await db.forOrg(organizationId, (tx) => lookUpLedger(tx, sheet.id, rows, hashes));
+  // A full read numbers the rows truly: the ledger's numbers are brought to them (M2).
+  if (plan.full) await db.forOrg(organizationId, (tx) => refreshRowNumbers(tx, sheet.id, rows, ledger));
   const unknown = rows.filter((row) => !isKnown(ledger.get(ledgerKey(row.hash, row.occurrence))));
 
   // Who the Owner column's values are: the person's own matches, else identity's, else the agency Owner.

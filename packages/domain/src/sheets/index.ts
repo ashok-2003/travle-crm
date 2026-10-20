@@ -27,6 +27,7 @@ export {
   isKnown,
   ledgerKey,
   lookUpLedger,
+  refreshRowNumbers,
   repeatsAboveWindow,
   type LedgerEntry,
 } from "./ledger.js";

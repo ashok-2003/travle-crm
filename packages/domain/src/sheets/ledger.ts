@@ -1,7 +1,7 @@
 // The ledger of a connection's rows (S9, S19, S31): which rows of a read are known, and which problems and waiting rows
 // have left the sheet. A row is looked up by its hash and occurrence, plain or re-keyed (an erased customer's row is
 // known by the keyed one), a thousand rows to a statement.
-import type { OrgTx } from "@travel-crm/db";
+import { type OrgTx, sql } from "@travel-crm/db";
 import type { SheetRowStatus } from "@travel-crm/contracts/sheets";
 import { type Bytes, hex, type SheetsHashes } from "./hashes.js";
 import type { ReadRow } from "./numbered-rows.js";
@@ -70,20 +70,20 @@ export async function lookUpLedger(
 }
 
 /**
- * S31, S9: the problems (hidden or not) whose hash the read no longer holds, and the waiting rows, are deleted, at the read that covers their place (a full read always does; a window from `fromRow` covers the rows
- * from there on). A row outside the window is left alone.
+ * S31, S9: the problems (hidden or not) whose hash the read no longer holds, and the waiting rows, are deleted, at a full
+ * read only. A window can not tell what left the sheet: rows sorted or inserted above leave the stored numbers stale (M2),
+ * so a window read clears nothing and the next full read does.
  */
 export async function clearVanishedRows(
   tx: OrgTx,
   connectionId: string,
   input: { read: readonly ReadRow[]; fromRow: number; full: boolean },
 ): Promise<{ resolved: number; dropped: number }> {
+  if (!input.full) return { resolved: 0, dropped: 0 };
   const present = new Set(input.read.map((row) => ledgerKey(row.hash, row.occurrence)));
-  const covered = input.full ? 0 : input.fromRow;
   const candidates = await tx.sheetRow.findMany({
     where: {
       connectionId,
-      rowNumber: { gte: covered },
       // A problem hidden by hand stays until its row leaves the sheet (SD2); then it goes with the rest.
       OR: [{ status: "not_added" }, { status: "pending" }],
     },
@@ -97,6 +97,30 @@ export async function clearVanishedRows(
     await tx.sheetRow.deleteMany({ where: { id: { in: [...resolved, ...dropped] } } });
   }
   return { resolved: resolved.length, dropped: dropped.length };
+}
+
+/**
+ * M2: at a full read, where the numbering is true, the known rows are given the numbers they have now, so a sort or an
+ * insert leaves them current and a window's check of rows above it (`repeatsAboveWindow`) does not force a full read each time.
+ */
+export async function refreshRowNumbers(
+  tx: OrgTx,
+  connectionId: string,
+  rows: readonly ReadRow[],
+  ledger: ReadonlyMap<string, LedgerEntry>,
+): Promise<void> {
+  const moved = rows.flatMap((row) => {
+    const entry = ledger.get(ledgerKey(row.hash, row.occurrence));
+    return entry !== undefined && entry.rowNumber !== row.rowNumber ? [{ id: entry.id, rowNumber: row.rowNumber }] : [];
+  });
+  for (let start = 0; start < moved.length; start += rowsPerLookup) {
+    const chunk = moved.slice(start, start + rowsPerLookup);
+    await tx.$executeRaw(sql`
+      UPDATE sheet_row SET row_number = moved.row_number
+      FROM unnest(${chunk.map(({ id }) => id)}::uuid[], ${chunk.map(({ rowNumber }) => rowNumber)}::int[])
+        AS moved(id, row_number)
+      WHERE sheet_row.id = moved.id AND sheet_row.connection_id = ${connectionId}::uuid`);
+  }
 }
 
 /**
