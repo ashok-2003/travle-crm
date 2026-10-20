@@ -154,7 +154,7 @@ test("the lead import, from choosing a file to the end", async ({ page, agency, 
   });
   await shoot(page, "lead-import-match");
   await shoot(page, "lead-import-match-values", {
-    element: page.getByRole("region", { name: "Assigned To's values, as owners" }),
+    element: page.getByRole("region", { name: "Assigned To's 3 values, as owners" }),
   });
   await checkTheRows(page);
   await shoot(page, "lead-import-check");
