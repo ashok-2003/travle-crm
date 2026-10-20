@@ -158,7 +158,7 @@ describe("CheckStep", () => {
     expect(screen.getByText(messages.leads.import.fromSheet)).toBeVisible();
     expect(
       screen.getByText(
-        "212 rows are for people who already have a lead with you (140 with an open lead, 72 with only closed leads). Left out unless you tick them.",
+        "212 rows are for people who already have a lead with you (140 with an open lead, 72 with only closed leads).",
       ),
     ).toBeVisible();
     await userEvent.click(screen.getByRole("checkbox", { name: "Add the 212 rows for people already in your CRM" }));
@@ -170,6 +170,16 @@ describe("CheckStep", () => {
       values: [],
       defaults: { stage: "contacted", ownerUserId: null, budgetBasis: null },
     });
+  });
+
+  it("says '1 row is' for one row already in the CRM", () => {
+    renderCheck(
+      aCheckedImport({
+        sourceSheet: { sheetId: "0199e7a0-0000-7000-8000-0000000000f1" },
+        counts: { ...counts, byPlan: { ...counts.byPlan, in_crm: 1 }, inCrm: { open: 1, closed: 0 } },
+      }),
+    );
+    expect(screen.getByText(/^1 row is for people who already have a lead with you/)).toBeVisible();
   });
 
   it("leaves the sheet's extras out of a file's preview", () => {
