@@ -40,58 +40,61 @@ async function aSheet(
 
 describe("the fake Google", () => {
   it("describes a sheet and reads its rows as the real adapter asks for them", async () => {
-    await aSheet("sheet-one");
-    const described = await google.describe(0, "sheet-one", {});
+    await aSheet("sheet-one-0123456789ab");
+    const described = await google.describe(0, "sheet-one-0123456789ab", {});
     expect(described).toMatchObject({ title: "Goa", chosenTab: { gid: "0", title: "Form responses 1" }, header });
     expect(described.sampleRows).toEqual([["19/10/2026 14:00:00", "Asha", "+919876500101"]]);
-    const read = await google.readRows(0, "sheet-one", tabOptions());
+    const read = await google.readRows(0, "sheet-one-0123456789ab", tabOptions());
     expect(read.header).toEqual(header);
     expect(read.rows).toEqual([{ rowNumber: 2, cells: ["19/10/2026 14:00:00", "Asha", "+919876500101"] }]);
     expect(read.lastRow).toBe(2);
   });
 
   it("shows rows appended, inserted, edited, sorted and deleted, with true row numbers", async () => {
-    await aSheet("sheet-two", [header, ["t", "Zed", "1"], ["t", "Amy", "2"]]);
-    await fake.client.append("sheet-two", "Form responses 1", ["t", "Bo", "3"]);
-    await fake.client.insertAt("sheet-two", "Form responses 1", 3, ["t", "Mid", "4"]);
-    await fake.client.editCell("sheet-two", "Form responses 1", 2, 2, "99");
-    const names = async () => (await google.readRows(0, "sheet-two", tabOptions())).rows.map((row) => row.cells[1]);
+    await aSheet("sheet-two-0123456789ab", [header, ["t", "Zed", "1"], ["t", "Amy", "2"]]);
+    await fake.client.append("sheet-two-0123456789ab", "Form responses 1", ["t", "Bo", "3"]);
+    await fake.client.insertAt("sheet-two-0123456789ab", "Form responses 1", 3, ["t", "Mid", "4"]);
+    await fake.client.editCell("sheet-two-0123456789ab", "Form responses 1", 2, 2, "99");
+    const names = async () =>
+      (await google.readRows(0, "sheet-two-0123456789ab", tabOptions())).rows.map((row) => row.cells[1]);
     expect(await names()).toEqual(["Zed", "Mid", "Amy", "Bo"]);
-    await fake.client.sort("sheet-two", "Form responses 1", { column: 1 });
+    await fake.client.sort("sheet-two-0123456789ab", "Form responses 1", { column: 1 });
     expect(await names()).toEqual(["Amy", "Bo", "Mid", "Zed"]);
-    await fake.client.deleteAt("sheet-two", "Form responses 1", 2);
+    await fake.client.deleteAt("sheet-two-0123456789ab", "Form responses 1", 2);
     expect(await names()).toEqual(["Bo", "Mid", "Zed"]);
-    const tail = await google.readRows(0, "sheet-two", tabOptions(3));
+    const tail = await google.readRows(0, "sheet-two-0123456789ab", tabOptions(3));
     expect(tail.rows.map((row) => row.rowNumber)).toEqual([3, 4]);
   });
 
   it("answers each of Google's refusals as its reason", async () => {
-    await aSheet("sheet-three", undefined, false);
-    await expect(google.describe(0, "sheet-three", {})).rejects.toMatchObject({ reason: "not_shared" });
+    await aSheet("sheet-three-0123456789", undefined, false);
+    await expect(google.describe(0, "sheet-three-0123456789", {})).rejects.toMatchObject({ reason: "not_shared" });
     await expect(google.describe(0, "no-such-sheet", {})).rejects.toMatchObject({ reason: "not_found" });
-    await fake.client.share("sheet-three");
-    await expect(google.readRows(0, "sheet-three", { ...tabOptions(), tabTitle: "Gone" })).rejects.toMatchObject({
+    await fake.client.share("sheet-three-0123456789");
+    await expect(
+      google.readRows(0, "sheet-three-0123456789", { ...tabOptions(), tabTitle: "Gone" }),
+    ).rejects.toMatchObject({
       reason: "tab_missing",
     });
-    await fake.client.addSpreadsheet({ id: "excel", title: "Leads.xlsx", kind: "excel", tabs: [] });
-    await fake.client.share("excel");
-    await expect(google.describe(0, "excel", {})).rejects.toMatchObject({ reason: "not_a_sheet" });
+    await fake.client.addSpreadsheet({ id: "excel-file-0123456789", title: "Leads.xlsx", kind: "excel", tabs: [] });
+    await fake.client.share("excel-file-0123456789");
+    await expect(google.describe(0, "excel-file-0123456789", {})).rejects.toMatchObject({ reason: "not_a_sheet" });
     await fake.client.failNext("rate_limited", { retryAfterSeconds: 7 });
-    await expect(google.describe(0, "sheet-three", {})).rejects.toMatchObject({
+    await expect(google.describe(0, "sheet-three-0123456789", {})).rejects.toMatchObject({
       reason: "rate_limited",
       retryAfterSeconds: 7,
     });
     await fake.client.failNext("unavailable");
-    await expect(google.describe(0, "sheet-three", {})).rejects.toBeInstanceOf(GoogleSheetsError);
-    await fake.client.unshare("sheet-three");
-    await expect(google.describe(0, "sheet-three", {})).rejects.toMatchObject({ reason: "not_shared" });
-    await fake.client.deleteSpreadsheet("sheet-three");
+    await expect(google.describe(0, "sheet-three-0123456789", {})).rejects.toBeInstanceOf(GoogleSheetsError);
+    await fake.client.unshare("sheet-three-0123456789");
+    await expect(google.describe(0, "sheet-three-0123456789", {})).rejects.toMatchObject({ reason: "not_shared" });
+    await fake.client.deleteSpreadsheet("sheet-three-0123456789");
   });
 
   it("counts the calls it answered", async () => {
     const before = await fake.client.calls();
-    await aSheet("sheet-four");
-    await google.describe(0, "sheet-four", {});
+    await aSheet("sheet-four-0123456789");
+    await google.describe(0, "sheet-four-0123456789", {});
     const after = await fake.client.calls();
     expect(after.total).toBeGreaterThan(before.total);
     expect(after.describes).toBeGreaterThan(before.describes);
