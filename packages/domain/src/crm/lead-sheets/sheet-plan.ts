@@ -54,6 +54,10 @@ function decideUnreadable(
 export function planSheetRows(rows: readonly SheetPlanInput[], seen = new Set<string>()): SheetRowDecision[] {
   return rows.map((input): SheetRowDecision => {
     const { reading } = input;
+    // An erased customer's row is left out whatever else is wrong with it, and shows none of what it holds (S43, SD10).
+    if (reading.kind === "not_added" && input.isErased(reading.contacts)) {
+      return { kind: "not_added", reasons: ["erased"], exampleName: null, exampleValue: null };
+    }
     if (reading.kind === "not_added") return decideUnreadable(input, reading);
     // Before the rest: an old row that was blocked or erased then is not a new problem now.
     const known = fingerprintHex(rowFingerprint("leads", reading.fingerprintValues));

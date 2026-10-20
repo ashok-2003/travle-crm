@@ -76,7 +76,8 @@ const headerWords: [ImportField, readonly string[]][] = [
   ["phone", ["phone", "mobile", "whatsapp"]],
   ["email", ["email", "mail"]],
   ["name", ["name"]],
-  ["destination", ["destination", "place", "package"]],
+  // "go" and "going" are Google Forms' usual ask: "Where do you want to go?".
+  ["destination", ["destination", "place", "package", "go", "going", "visit"]],
   ["adults", ["adults", "persons", "pax"]],
   ["budget", ["budget"]],
   ["travel_from", ["date", "when"]],

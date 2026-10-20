@@ -111,13 +111,23 @@ export async function disconnectSheet(db: Database, access: MemberAccess, sheetI
 }
 
 /** A check is running (its lease is fresh), or a request for one went out in the last half minute (S38, SD4). */
-async function checkIsUnderWay(tx: OrgTx, sheet: SheetConnectionRow, now: Date): Promise<boolean> {
+async function checkIsUnderWay(
+  tx: OrgTx,
+  sheet: SheetConnectionRow,
+  now: Date,
+  mode?: "sync-now" | "recheck",
+): Promise<boolean> {
   const running = sheet.checkStartedAt !== null && now.getTime() - sheet.checkStartedAt.getTime() < claimSeconds * 1000;
   if (running) return true;
   const asked = await tx.outboxEvent.findFirst({
     where: {
       type: "sheet.sync-requested",
-      payload: { path: ["sheetId"], equals: sheet.id },
+      // A person who has just seen a sheet go lost by their own Sync now may press Check again: only another Check again
+      // within the half minute is the same press twice.
+      AND: [
+        { payload: { path: ["sheetId"], equals: sheet.id } },
+        ...(mode === undefined ? [] : [{ payload: { path: ["mode"], equals: mode } }]),
+      ],
       // UUID v7 ids sort by time: only the events of the last half minute are looked at, on the primary key.
       id: { gt: newUuidV7(now.getTime() - syncCooldownSeconds * 1000) },
     },
@@ -167,7 +177,7 @@ export async function recheckSheet(
   await db.forOrg(access.organizationId, async (tx) => {
     const held = await heldAt(tx, input.sheetId, ["lost_access", "tab_missing"]);
     // Check again is no way round Sync now's rule: not while a check runs, nor twice within half a minute.
-    if (await checkIsUnderWay(tx, held, now)) throw busy();
+    if (await checkIsUnderWay(tx, held, now, "recheck")) throw busy();
     if (tab !== null && tab.gid !== held.tabGid) {
       const taken = await tx.sheetConnection.findFirst({
         where: {

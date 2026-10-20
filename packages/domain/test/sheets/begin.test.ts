@@ -276,4 +276,74 @@ describe("beginSheet", () => {
       await two.close();
     }
   });
+
+  it("refuses a spreadsheet another agency holds before asking Google, so it says nothing of whether it is shared", async () => {
+    const first = await anAgency(test);
+    const second = await anAgency(test);
+    const id = aGoogleSheet(test, { id: aSpreadsheetId() });
+    await begin(first, id);
+    // Gone from Google, or not shared: the second agency is still told only that it is connected elsewhere.
+    test.google.unshare(id, test.accountEmail);
+    const calls = test.google.calls.total;
+    expect(await reasonOf(begin(second, id))).toBe("SHEET_CLAIMED_ELSEWHERE");
+    expect(test.google.calls.total).toBe(calls);
+  });
+
+  it("takes the claim again once the draft is made: a claim let go meanwhile comes back, one another agency took refuses", async () => {
+    const agency = await anAgency(test);
+    const rival = await anAgency(test);
+    // The draft's own transaction is the second the agency opens (the demo check is the first).
+    const racing = (between: () => Promise<void>): typeof test.db => {
+      let opened = 0;
+      return {
+        ...test.db,
+        forOrg: async (organizationId: string, work: never, options?: never) => {
+          opened += 1;
+          if (organizationId === agency && opened === 2) await between();
+          return test.db.forOrg(organizationId, work, options);
+        },
+      };
+    };
+    const beginOn = (db: typeof test.db, id: string) =>
+      beginSheet(db, test.dependencies, memberOf(agency), { spreadsheetId: id, gid: null }, now);
+
+    // Let go by another tab's disconnect: the claim is made again, for the draft.
+    const letGo = aGoogleSheet(test, { id: aSpreadsheetId() });
+    const { sheetId } = await beginOn(
+      racing(async () => {
+        await test.platform.sheetSpreadsheetClaim.deleteMany({
+          where: { spreadsheetHash: test.hashes.spreadsheetHash(letGo) },
+        });
+      }),
+      letGo,
+    );
+    const claim = await test.platform.sheetSpreadsheetClaim.findFirstOrThrow({
+      where: { spreadsheetHash: test.hashes.spreadsheetHash(letGo) },
+    });
+    expect(claim.organizationId).toBe(agency);
+    const held = await test.db.forOrg(agency, (tx) => tx.sheetConnection.findUniqueOrThrow({ where: { id: sheetId } }));
+    expect(held.claimId).toBe(claim.id);
+
+    // Taken by another agency in the gap: the draft goes, and nothing says who.
+    const taken = aGoogleSheet(test, { id: aSpreadsheetId() });
+    const before = await test.db.forOrg(agency, (tx) =>
+      tx.sheetConnection.count({ where: { status: { not: "disconnected" } } }),
+    );
+    const refusal = beginOn(
+      racing(async () => {
+        await test.platform.sheetSpreadsheetClaim.deleteMany({
+          where: { spreadsheetHash: test.hashes.spreadsheetHash(taken) },
+        });
+        await test.platform.sheetSpreadsheetClaim.create({
+          data: { organizationId: rival, spreadsheetHash: test.hashes.spreadsheetHash(taken) },
+        });
+      }),
+      taken,
+    );
+    expect(await reasonOf(refusal)).toBe("SHEET_CLAIMED_ELSEWHERE");
+    // The draft is let go: nothing of the agency's is live on it.
+    expect(
+      await test.db.forOrg(agency, (tx) => tx.sheetConnection.count({ where: { status: { not: "disconnected" } } })),
+    ).toBe(before);
+  });
 });

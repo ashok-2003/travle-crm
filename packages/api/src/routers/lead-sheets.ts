@@ -17,6 +17,7 @@ import {
   sheetList,
   sheetProblemsInput,
   sheetProblemsPage,
+  sheetStarted,
   verifySheetInput,
 } from "@travel-crm/contracts/sheets";
 import { DomainError } from "@travel-crm/domain/kernel";
@@ -41,7 +42,6 @@ import {
   verifySheet,
 } from "@travel-crm/domain/sheets";
 import { isOnDemoPlan } from "@travel-crm/domain/subscriptions";
-import { z } from "zod";
 import { leadWorkerIds } from "../lead-workers.js";
 import { memberNames } from "../member-names.js";
 import { freshProcedure, orgProcedure } from "../procedures.js";
@@ -49,8 +49,6 @@ import { router } from "../trpc.js";
 
 const manager = orgProcedure.requires("leads:create", "leads:assign");
 const freshManager = freshProcedure.requires("leads:create", "leads:assign");
-
-const started = z.object({ sheetId: z.string() });
 
 export const leadSheetsRouter = router({
   /** The agency's sheets, the limit, the addresses to share a sheet with, and whether Google is set up here (S9, S24). */
@@ -104,7 +102,7 @@ export const leadSheetsRouter = router({
   /** Step 1, "Check the sheet": reads the pasted link, opens the sheet once, and makes the draft (S5). */
   begin: manager
     .input(beginSheetInput)
-    .output(started)
+    .output(sheetStarted)
     .mutation(async ({ ctx, input }) => {
       await limitSheetReads(ctx.rateLimiter, ctx.member.organizationId);
       const link = parseSheetLink(input.link);

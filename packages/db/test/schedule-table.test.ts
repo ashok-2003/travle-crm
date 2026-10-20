@@ -19,7 +19,14 @@ import { crossOrganizationUniques, signInTables, unscopedScheduleTables } from "
 const reachFor = (tx: object, model: string) => Promise.resolve(Reflect.get(tx, model) as unknown);
 
 const exactColumns: Record<string, string[]> = {
-  sheet_check_schedule: ["claimed_until", "id", "next_check_at", "organization_id", "service_account_index"],
+  sheet_check_schedule: [
+    "claimed_until",
+    "id",
+    "next_check_at",
+    "organization_id",
+    "service_account_email",
+    "service_account_index",
+  ],
   sheet_spreadsheet_claim: ["created_at", "id", "organization_id", "spreadsheet_hash"],
 };
 

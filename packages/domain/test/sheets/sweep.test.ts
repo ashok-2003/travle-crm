@@ -1,5 +1,4 @@
-// The console's sweep of the Sheets sync (S5, S6, S31): drafts untouched for a day go with what they read, resolved problems
-// after a week, schedule rows and claims nothing live holds; a fresh draft, a connected sheet and an unresolved problem stay.
+// The console's sweep of the Sheets sync (S5, S6, S31): drafts untouched for a day go with what they read, schedule rows and claims nothing live holds; a fresh draft, a connected sheet and an unresolved problem stay.
 // It runs on a database of its own: the sweep reads across every organization.
 import { randomUUID } from "node:crypto";
 import { createDatabase, type Database } from "@travel-crm/db";
@@ -14,7 +13,12 @@ import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { sweepSheetsNow, SWEEP_SHEETS_QUEUE, sheetsSweepSchedule } from "../../src/platform/index.js";
 import type { PlatformServices } from "../../src/platform/index.js";
 import { createSheetsHashes, sweepSheets } from "../../src/sheets/index.js";
-import { scheduleRowOf, upsertScheduleRow } from "../../src/sheets/schedule.js";
+import {
+  dropStaleScheduleRows,
+  dropUnusedClaims,
+  scheduleRowOf,
+  upsertScheduleRow,
+} from "../../src/sheets/schedule.js";
 import { takeSpreadsheetClaim } from "../../src/sheets/index.js";
 import { aSheet, aSheetColumn, aSheetRow, aSpreadsheetId, sheetsHashKey } from "./support/sheets.js";
 
@@ -78,28 +82,20 @@ describe("the sheets sweep", () => {
     expect(await platform.sheetRow.count({ where: { connectionId: ids.old } })).toBe(0);
   });
 
-  it("drops resolved problems after 7 days and keeps unresolved ones", async () => {
+  it("never drops a problem the agency hid: it stays until its row leaves the sheet", async () => {
     const sheetId = await db.forOrg(organizationId, async (tx) => {
       const sheet = await aSheet(tx, { connectedBy: userId });
       await aSheetRow(tx, {
         connectionId: sheet.id,
         status: "not_added",
-        cells: ["old resolved"],
-        resolvedAt: new Date(now.getTime() - 8 * DAY),
-      });
-      await aSheetRow(tx, {
-        connectionId: sheet.id,
-        status: "not_added",
-        cells: ["new resolved"],
-        resolvedAt: new Date(now.getTime() - 6 * DAY),
+        cells: ["hidden long ago"],
+        resolvedAt: new Date(now.getTime() - 30 * DAY),
       });
       await aSheetRow(tx, { connectionId: sheet.id, status: "not_added", cells: ["unresolved"] });
-      await aSheetRow(tx, { connectionId: sheet.id, status: "added", cells: ["added"] });
       return sheet.id;
     });
-    const swept = await run();
-    expect(swept.problemsDropped).toBe(1);
-    expect(await platform.sheetRow.count({ where: { connectionId: sheetId } })).toBe(3);
+    await run();
+    expect(await platform.sheetRow.count({ where: { connectionId: sheetId } })).toBe(2);
   });
 
   it("drops schedule rows with no live connection and claims with none, only after an hour", async () => {
@@ -175,5 +171,17 @@ describe("the sheets sweep", () => {
         where: { organizationId, status: "connecting", touchedAt: { lt: new Date(Date.now() - DAY) } },
       }),
     ).toBe(0);
+  });
+
+  it("refuses to sweep inside an organization, whose view of the other tables would make it delete what is others'", async () => {
+    await expect(db.forOrg(organizationId, (tx) => dropStaleScheduleRows(tx))).rejects.toThrow(
+      "outside any organization",
+    );
+    await expect(db.forOrg(organizationId, (tx) => dropUnusedClaims(tx, now))).rejects.toThrow(
+      "outside any organization",
+    );
+    await expect(db.forOrg(organizationId, (tx) => sweepSheets(tx, now, 10))).rejects.toThrow(
+      "outside any organization",
+    );
   });
 });

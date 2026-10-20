@@ -38,6 +38,8 @@ export async function lookUpSheetRows(
   connectionId: string,
 ): Promise<SheetLookups> {
   const enquiries = readings.flatMap((reading) => (reading.kind === "enquiry" ? [reading] : []));
+  // Rows that are no enquiry have contacts too, and an erased customer is known by them (SD10).
+  const withContacts = readings.map((reading) => reading.contacts);
   const lookups = await lookUpLeadRows(tx, readings);
   const fingerprints = enquiries.map((reading) => rowFingerprint("leads", reading.fingerprintValues));
   const earlier = await earlierFingerprints(tx, "leads", fingerprints, NO_IMPORT);
@@ -49,9 +51,9 @@ export async function lookUpSheetRows(
   const tombstones = await findTombstones(
     tx,
     hashes,
-    enquiries.flatMap((reading) =>
+    withContacts.flatMap((contacts) =>
       KINDS.flatMap(({ kind, key }) => {
-        const value = reading.contacts[key];
+        const value = contacts[key];
         return value === null ? [] : [{ kind, value }];
       }),
     ),

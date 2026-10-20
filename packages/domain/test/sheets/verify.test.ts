@@ -42,7 +42,7 @@ describe("verifySheet", () => {
       ["Full name", "name", "common-name"],
       ["Phone number", "phone", "common-name"],
       ["Email Address", "email", "common-name"],
-      ["Where do you want to go?", null, null],
+      ["Where do you want to go?", "destination", "common-name"],
     ]);
     expect(view.columns[1]?.samples).toEqual(["Asha Sharma", "Ravi Kumar"]);
     expect(view.columns[3]?.samples).toEqual(["asha@example.test"]);

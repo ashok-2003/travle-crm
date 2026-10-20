@@ -7,8 +7,6 @@ import { aSheet, aSheetRow, anAgency, createTestSheets, memberOf } from "./suppo
 const test = createTestSheets();
 afterAll(() => test.close());
 
-const now = new Date("2026-10-19T10:00:00Z");
-
 async function sheetWithRows(
   rows: { cells: string[]; status: string; rowNumber: number; occurrence?: number; resolvedAt?: Date | null }[],
 ) {
@@ -120,17 +118,23 @@ describe("lookUpLedger", () => {
 });
 
 describe("clearVanishedRows", () => {
-  it("marks a vanished not_added row resolved at the read that covers its place, and drops a vanished pending row", async () => {
+  it("drops a vanished problem, hidden or not, and a vanished waiting row at the read that covers their place", async () => {
     const { agency, sheetId } = await sheetWithRows([
       { cells: ["gone problem"], status: "not_added", rowNumber: 5 },
+      { cells: ["gone hidden problem"], status: "not_added", rowNumber: 4, resolvedAt: new Date() },
+      { cells: ["still hidden"], status: "not_added", rowNumber: 3, resolvedAt: new Date() },
       { cells: ["still here"], status: "not_added", rowNumber: 6 },
       { cells: ["gone waiting"], status: "pending", rowNumber: 7 },
       { cells: ["added row"], status: "added", rowNumber: 8 },
     ]);
     const result = await test.db.forOrg(agency, (tx) =>
-      clearVanishedRows(tx, sheetId, { read: read([["still here"], ["added row"]], 6), fromRow: 2, full: true }, now),
+      clearVanishedRows(tx, sheetId, {
+        read: read([["still here"], ["added row"], ["still hidden"]], 6),
+        fromRow: 2,
+        full: true,
+      }),
     );
-    expect(result).toEqual({ resolved: 1, dropped: 1 });
+    expect(result).toEqual({ resolved: 2, dropped: 1 });
     const rows = await test.db.forOrg(agency, (tx) => tx.sheetRow.findMany({ where: { connectionId: sheetId } }));
     expect(rows.map((row) => [row.status, row.resolvedAt !== null]).sort()).toEqual([
       ["added", false],
@@ -145,12 +149,12 @@ describe("clearVanishedRows", () => {
       { cells: ["waiting row 12"], status: "pending", rowNumber: 13 },
     ]);
     const result = await test.db.forOrg(agency, (tx) =>
-      clearVanishedRows(tx, sheetId, { read: read([["newest"]], 300), fromRow: 300, full: false }, now),
+      clearVanishedRows(tx, sheetId, { read: read([["newest"]], 300), fromRow: 300, full: false }),
     );
     expect(result).toEqual({ resolved: 0, dropped: 0 });
     // A window that covers them clears both.
     const covering = await test.db.forOrg(agency, (tx) =>
-      clearVanishedRows(tx, sheetId, { read: read([["newest"]], 300), fromRow: 10, full: false }, now),
+      clearVanishedRows(tx, sheetId, { read: read([["newest"]], 300), fromRow: 10, full: false }),
     );
     expect(covering).toEqual({ resolved: 1, dropped: 1 });
   });

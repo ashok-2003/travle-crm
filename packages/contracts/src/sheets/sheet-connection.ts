@@ -117,6 +117,10 @@ export const sheetDetail = z.object({
 });
 export type SheetDetail = z.infer<typeof sheetDetail>;
 
+/** What begin answers: the draft's id, which the next steps name. */
+export const sheetStarted = z.object({ sheetId: recordId });
+export type SheetStarted = z.infer<typeof sheetStarted>;
+
 export const sheetColumnView = z.object({
   headerKey: z.string(),
   header: z.string(),

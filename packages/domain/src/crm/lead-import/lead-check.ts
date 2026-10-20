@@ -3,7 +3,6 @@
 // for the whole file, plans each row and writes the plans, then moves the import to its preview. It changes no lead,
 // person or destination, so a second run writes the same rows.
 import {
-  earlierFingerprints,
   markImportChecked,
   replaceImportRows,
   rowFingerprint,
@@ -12,6 +11,7 @@ import {
 } from "../../imports/index.js";
 import type { ListenerContext } from "../../jobs/index.js";
 import { lookUpLeadRows } from "./lead-lookups.js";
+import { earlierAnywhere } from "./earlier-anywhere.js";
 import { planLeadRows } from "./lead-plan.js";
 import { readLeadFile } from "./lead-read.js";
 
@@ -26,7 +26,7 @@ export async function checkLeadImport(
   );
   const { lookups, earlier } = await context.forOrg(async (tx) => ({
     lookups: await lookUpLeadRows(tx, file.rows),
-    earlier: await earlierFingerprints(tx, "leads", fingerprints, batch.id),
+    earlier: await earlierAnywhere(tx, dependencies.sheetFingerprints, fingerprints, batch.id),
   }));
   const { plans, rowsToAdd, rowsNewStage } = planLeadRows(file.rows, lookups, earlier, {
     timeZone: file.timeZone,

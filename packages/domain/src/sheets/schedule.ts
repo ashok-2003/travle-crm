@@ -2,7 +2,7 @@
 // due sheets of every organization without entering one, and the spreadsheet claim, which keeps a spreadsheet to one
 // agency at a time. Both hold ids, times and a keyed hash only, and are reached in db.withoutOrg(). The ESLint raw-SQL
 // guard allows their names in this file alone.
-import { type Database, isUniqueViolation, type OrgTx } from "@travel-crm/db";
+import { type Database, insideOrganization, isUniqueViolation, type OrgTx } from "@travel-crm/db";
 import { sheetSchedule, spreadsheetClaims } from "@travel-crm/db/sheet-schedule";
 import type { Bytes } from "./hashes.js";
 
@@ -14,6 +14,18 @@ export async function claimOf(
   return db.withoutOrg((tx) =>
     spreadsheetClaims(tx).findUnique({ where: { spreadsheetHash }, select: { id: true, organizationId: true } }),
   );
+}
+
+/** An agency's claim by its id: the spreadsheet's keyed hash it holds, or null when it is gone. */
+export async function claimById(
+  db: Database,
+  organizationId: string,
+  claimId: string,
+): Promise<{ spreadsheetHash: Bytes } | null> {
+  const row = await db.withoutOrg((tx) =>
+    spreadsheetClaims(tx).findFirst({ where: { id: claimId, organizationId }, select: { spreadsheetHash: true } }),
+  );
+  return row === null ? null : { spreadsheetHash: new Uint8Array(row.spreadsheetHash) };
 }
 
 /** Records the claim; false when another claim for the spreadsheet exists (a unique violation, S4's lost race). */
@@ -48,6 +60,7 @@ export interface ScheduleRow {
   sheetId: string;
   organizationId: string;
   serviceAccountIndex: number;
+  serviceAccountEmail?: string | null;
   nextCheckAt: Date;
 }
 
@@ -60,16 +73,20 @@ export async function upsertScheduleRow(db: Database, row: ScheduleRow): Promise
         id: row.sheetId,
         organizationId: row.organizationId,
         serviceAccountIndex: row.serviceAccountIndex,
+        serviceAccountEmail: row.serviceAccountEmail ?? null,
         nextCheckAt: row.nextCheckAt,
       },
-      update: { serviceAccountIndex: row.serviceAccountIndex },
+      update: { serviceAccountIndex: row.serviceAccountIndex, serviceAccountEmail: row.serviceAccountEmail ?? null },
     });
   });
 }
 
 /** Removes the connection's schedule row; nothing when it has none. */
-export async function removeScheduleRow(db: Database, sheetId: string): Promise<void> {
-  await db.withoutOrg((tx) => sheetSchedule(tx).deleteMany({ where: { id: sheetId } }));
+export async function removeScheduleRow(db: Database, row: { sheetId: string; organizationId: string }): Promise<void> {
+  // The organization is named as well as the id: the schedule has no row-level security to hold another agency's row off.
+  await db.withoutOrg((tx) =>
+    sheetSchedule(tx).deleteMany({ where: { id: row.sheetId, organizationId: row.organizationId } }),
+  );
 }
 
 /** The connection's schedule row, for a test. */
@@ -107,20 +124,32 @@ export async function claimDueSheets(
 /** A check's end (S19): the next time it is due and its claim released, or, with null, the row removed. */
 export async function finishScheduledCheck(
   db: Database,
-  input: { sheetId: string; nextCheckAt: Date | null },
+  input: { sheetId: string; organizationId: string; nextCheckAt: Date | null },
 ): Promise<void> {
-  if (input.nextCheckAt === null) return removeScheduleRow(db, input.sheetId);
+  if (input.nextCheckAt === null) return removeScheduleRow(db, input);
   const { nextCheckAt } = input;
   await db.withoutOrg((tx) =>
     sheetSchedule(tx).updateMany({
-      where: { id: input.sheetId },
+      where: { id: input.sheetId, organizationId: input.organizationId },
       data: { nextCheckAt, claimedUntil: null },
     }),
   );
 }
 
+/**
+ * The sweeps below delete from tables with no row-level security, by what the organization tables show: they are the
+ * platform's, run outside any organization. Inside one, where those tables show only its own rows, they would delete
+ * what belongs to others (SD14).
+ */
+async function refuseInsideAnOrganization(tx: OrgTx): Promise<void> {
+  if (await insideOrganization(tx)) {
+    throw new Error("The sheets' schedule and claims are swept outside any organization only");
+  }
+}
+
 /** Schedule rows of connections that are not checked any more (the sweep): none live, so none needed. */
 export async function dropStaleScheduleRows(tx: OrgTx): Promise<number> {
+  await refuseInsideAnOrganization(tx);
   return tx.$executeRaw`
     DELETE FROM sheet_check_schedule s
     WHERE NOT EXISTS (
@@ -130,9 +159,34 @@ export async function dropStaleScheduleRows(tx: OrgTx): Promise<number> {
 
 /** Claims no live connection holds, made before `before`: an hour old at least, so a connect in progress keeps its own. */
 export async function dropUnusedClaims(tx: OrgTx, before: Date): Promise<number> {
+  await refuseInsideAnOrganization(tx);
   return tx.$executeRaw`
     DELETE FROM sheet_spreadsheet_claim k
     WHERE k.created_at < ${before}
       AND NOT EXISTS (
         SELECT 1 FROM sheet_connection c WHERE c.claim_id = k.id AND c.status <> 'disconnected')`;
+}
+
+/**
+ * The scheduled sheets whose service account is not where it was when they were connected: the list was reordered, or an
+ * account taken out (SC9). Each is the address and the place it was given and now holds, so the worker can refuse to
+ * start with a message that names them, instead of finding sheets it can no longer open. Rows made before the address
+ * was kept have none and are not asked.
+ */
+export async function strandedServiceAccounts(
+  db: Database,
+  accounts: readonly { index: number; email: string }[],
+): Promise<{ email: string; index: number; nowThere: string | null }[]> {
+  const rows = await db.withoutOrg((tx) =>
+    sheetSchedule(tx).findMany({
+      where: { serviceAccountEmail: { not: null } },
+      distinct: ["serviceAccountIndex", "serviceAccountEmail"],
+      select: { serviceAccountIndex: true, serviceAccountEmail: true },
+    }),
+  );
+  return rows.flatMap((row) => {
+    const email = row.serviceAccountEmail ?? "";
+    const nowThere = accounts.find((account) => account.index === row.serviceAccountIndex)?.email ?? null;
+    return nowThere === email ? [] : [{ email, index: row.serviceAccountIndex, nowThere }];
+  });
 }

@@ -21,7 +21,15 @@ export { chooseExistingRows, chooseSheetTab, matchSheetColumns } from "./steps.j
 export { verifySheet } from "./verify.js";
 export { followUpFullRead, dailyReadDue, decideRead, type CheckMode, type ReadPlan } from "./read-plan.js";
 export { numberRows, type ReadRow } from "./numbered-rows.js";
-export { clearVanishedRows, firstPendingRow, isKnown, ledgerKey, lookUpLedger, type LedgerEntry } from "./ledger.js";
+export {
+  clearVanishedRows,
+  firstPendingRow,
+  isKnown,
+  ledgerKey,
+  lookUpLedger,
+  repeatsAboveWindow,
+  type LedgerEntry,
+} from "./ledger.js";
 export { nameColumns, type HeaderName } from "./header-keys.js";
 export { limitSheetReads, sheetReadsPerMinute } from "./read-limits.js";
 export { findTombstones, type ContactToCheck } from "./tombstones.js";
@@ -58,8 +66,8 @@ export {
   sheetsDispatchSchedule,
   type DispatchDependencies,
 } from "./dispatch.js";
-export { finishScheduledCheck } from "./schedule.js";
+export { finishScheduledCheck, strandedServiceAccounts } from "./schedule.js";
 export { sweepSheets, type SheetsSwept } from "./sweep.js";
-export { type ErasedContacts, type SheetsWithdrawn, withdrawSheetRows } from "./erasure.js";
-export { assertNoSheetCheckSaving } from "./guards.js";
+export { type ErasedContacts, lockSheetConnections, type SheetsWithdrawn, withdrawSheetRows } from "./erasure.js";
+export { assertNoSheetCheckSaving, lockAddAgainstChecks } from "./guards.js";
 export { listSheets, sheetDetailOf, type SheetDetailFacts } from "./views.js";

@@ -148,8 +148,9 @@ describe("Google Sheets sync in a large agency", () => {
     expect(fastest).toBeLessThan(150);
     const checks = 8;
     expect(test.google.calls.reads - readsBefore).toBe(checks);
-    // Ten short read transactions (the sheet, the claim, the ledger, the lookups, the close...), none held across Google.
-    expect((quiet.transactions() - transactionsBefore) / checks).toBeLessThanOrEqual(10);
+    // A dozen short read transactions (the sheet, the claim, the ledger, the copies above the window, the close...), none
+    // held across Google.
+    expect((quiet.transactions() - transactionsBefore) / checks).toBeLessThanOrEqual(12);
     const written = await inOrg((tx) => tx.sheetRow.count({ where: { connectionId: sheetId } }));
     expect(written).toBe(300);
   }, 120_000);

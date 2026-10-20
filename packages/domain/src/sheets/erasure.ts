@@ -23,6 +23,15 @@ export interface SheetsWithdrawn {
 const none: SheetsWithdrawn = { rowsWithdrawn: 0, contactsKept: 0, examplesEmptied: 0 };
 
 /**
+ * Takes the organization's sheet connections for the erasure, before it touches a person or a lead: a check's batch holds
+ * its connection first and then the people it saves, and the erasure must come in the same order, so the two wait for each
+ * other instead of crossing (SD9).
+ */
+export async function lockSheetConnections(tx: OrgTx, organizationId: string): Promise<void> {
+  await tx.$queryRaw`SELECT id FROM sheet_connection WHERE organization_id = ${organizationId}::uuid FOR NO KEY UPDATE`;
+}
+
+/**
  * Runs in the erasure's platform transaction, naming the organization in every query. Without the hash key it can't be
  * done: for an organization with sheets it fails the job, loudly, naming the setting, rather than skip a step the law
  * asks for (S6); an organization with none needs nothing.

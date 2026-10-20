@@ -29,6 +29,8 @@ model SheetConnection {
   sheetTimeZone       String            @map("sheet_time_zone")
   /// Which of the server's service accounts the agency shared the sheet with; kept for life (S35).
   serviceAccountIndex Int               @map("service_account_index")
+  /// The address of that service account, so a list that was reordered or shortened is met loudly at start-up, not by sheets stranded (SC9).
+  serviceAccountEmail String?           @map("service_account_email")
   /// The last row number read; a normal check reads from here less the lookback (S18).
   cursorRow           Int               @default(1) @map("cursor_row")
   rowsSeen            Int               @default(0) @map("rows_seen")
@@ -182,6 +184,7 @@ model SheetCheckSchedule {
   /// Named as every organization table's is, restricting deletion, but written outside an organization: no default.
   organizationId      String       @map("organization_id") @db.Uuid
   serviceAccountIndex Int          @map("service_account_index")
+  serviceAccountEmail String?      @map("service_account_email")
   nextCheckAt         DateTime     @map("next_check_at") @db.Timestamptz(6)
   /// A dispatched or running check holds the sheet until here (five minutes).
   claimedUntil        DateTime?    @map("claimed_until") @db.Timestamptz(6)

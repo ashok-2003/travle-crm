@@ -107,4 +107,27 @@ describe("sheetProblems", () => {
     const list = await running.inOrg((tx) => sheetProblems(tx, { sheetId: running.sheet.sheetId }));
     expect((list as { items: unknown[] }).items).toHaveLength(0);
   });
+
+  it("hides the row by the id the list showed, after Sync now, a scheduled check and a recheck read it again: the id is stable", async () => {
+    const running = await setupSheet(test);
+    running.append(["19/10/2026 14:00:00", "Suresh Menon", "", ""]);
+    await running.check("scheduled");
+    await running.check("sync-now");
+    const listed = await running.inOrg((tx) => sheetProblems(tx, { sheetId: running.sheet.sheetId }));
+    const [shown] = (listed as { items: { id: string; rowNumber: number }[] }).items;
+    expect(shown).toBeDefined();
+    await running.check("sync-now");
+    await running.check("scheduled");
+    await running.check("recheck");
+    await running.inOrg((tx) =>
+      hideProblem(tx, memberOf(running.agency), { sheetId: running.sheet.sheetId, rowId: shown?.id ?? "" }, new Date()),
+    );
+    const after = await running.inOrg((tx) => sheetProblems(tx, { sheetId: running.sheet.sheetId }));
+    expect((after as { items: unknown[] }).items).toHaveLength(0);
+    // It stays hidden a week later: nothing sweeps it away.
+    await running.check("sync-now");
+    const [row] = await running.ledger();
+    expect(row).toMatchObject({ id: shown?.id, status: "not_added" });
+    expect(row?.resolvedAt).not.toBeNull();
+  });
 });

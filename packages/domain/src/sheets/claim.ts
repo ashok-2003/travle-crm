@@ -4,7 +4,7 @@
 import type { Database } from "@travel-crm/db";
 import { DomainError } from "../kernel/index.js";
 import type { Bytes } from "./hashes.js";
-import { claimOf, deleteClaim, insertClaim } from "./schedule.js";
+import { claimById, claimOf, deleteClaim, insertClaim } from "./schedule.js";
 
 const claimedElsewhere = () =>
   new DomainError("CONFLICT", "SHEET_CLAIMED_ELSEWHERE", "This sheet is already connected elsewhere");
@@ -37,10 +37,35 @@ export async function takeSpreadsheetClaim(
  * or the draft deleted). True when it was released.
  */
 export async function releaseClaimIfUnused(db: Database, organizationId: string, claimId: string): Promise<boolean> {
-  const holders = await db.forOrg(organizationId, (tx) =>
-    tx.sheetConnection.count({ where: { claimId, status: { not: "disconnected" } } }),
-  );
-  if (holders > 0) return false;
+  const holders = () =>
+    db.forOrg(organizationId, (tx) =>
+      tx.sheetConnection.count({ where: { claimId, status: { not: "disconnected" } } }),
+    );
+  if ((await holders()) > 0) return false;
+  const claim = await claimById(db, organizationId, claimId);
   await deleteClaim(db, organizationId, claimId);
+  // A connection made while the claim was let go holds it again: the claim goes back for it (SD6), with its new id.
+  if (claim !== null && (await holders()) > 0) {
+    const back = await insertClaim(db, { organizationId, spreadsheetHash: claim.spreadsheetHash, now: new Date() });
+    if (back !== null) {
+      await db.forOrg(organizationId, (tx) =>
+        tx.sheetConnection.updateMany({
+          where: { claimId, status: { not: "disconnected" } },
+          data: { claimId: back.id },
+        }),
+      );
+    }
+    return false;
+  }
   return true;
+}
+
+/** Refuses with the one generic sentence, before Google is asked, when another agency holds the spreadsheet (SD7). */
+export async function assertNotClaimedElsewhere(
+  db: Database,
+  organizationId: string,
+  spreadsheetHash: Bytes,
+): Promise<void> {
+  const held = await claimOf(db, spreadsheetHash);
+  if (held !== null && held.organizationId !== organizationId) throw claimedElsewhere();
 }

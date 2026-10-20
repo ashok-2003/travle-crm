@@ -39,27 +39,25 @@ export function leadSheetBaselineFingerprints(db: Database, hashes: SheetsHashes
       findTombstones(
         tx,
         hashes,
-        readings.flatMap((reading) =>
-          reading.kind === "enquiry"
-            ? [
-                ...(reading.contacts.phone === null ? [] : [{ kind: "phone" as const, value: reading.contacts.phone }]),
-                ...(reading.contacts.email === null ? [] : [{ kind: "email" as const, value: reading.contacts.email }]),
-                ...(reading.contacts.instagramHandle === null
-                  ? []
-                  : [{ kind: "instagram" as const, value: reading.contacts.instagramHandle }]),
-              ]
-            : [],
-        ),
+        readings.flatMap(({ contacts }) => [
+          ...(contacts.phone === null ? [] : [{ kind: "phone" as const, value: contacts.phone }]),
+          ...(contacts.email === null ? [] : [{ kind: "email" as const, value: contacts.email }]),
+          ...(contacts.instagramHandle === null
+            ? []
+            : [{ kind: "instagram" as const, value: contacts.instagramHandle }]),
+        ]),
       ),
     );
     return readings.map((reading) => {
-      if (reading.kind !== "enquiry") return { fingerprint: null, erased: false };
       const { phone, email, instagramHandle } = reading.contacts;
       const erased =
         (phone !== null && erasedKeys.has(`phone:${phone}`)) ||
         (email !== null && erasedKeys.has(`email:${email}`)) ||
         (instagramHandle !== null && erasedKeys.has(`instagram:${instagramHandle}`));
-      return { fingerprint: rowFingerprint("leads", reading.fingerprintValues), erased };
+      return {
+        fingerprint: reading.kind === "enquiry" ? rowFingerprint("leads", reading.fingerprintValues) : null,
+        erased,
+      };
     });
   };
 }

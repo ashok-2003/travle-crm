@@ -17,6 +17,7 @@ export interface SheetConnectionRow {
   sheetLocale: string;
   sheetTimeZone: string;
   serviceAccountIndex: number;
+  serviceAccountEmail: string | null;
   cursorRow: number;
   rowsSeen: number;
   headerHash: Uint8Array | null;

@@ -31,6 +31,7 @@ import {
   baselineListener,
   checkIntervalSeconds as defaultCheckIntervalSeconds,
   createAccountHolds,
+  earlierSheetFingerprints,
   matchSheetImportListener,
   scheduleListener,
   sheetOriginOf,
@@ -112,6 +113,10 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
     sheetOrigin: sheetOriginOf,
   };
   const { sheets } = dependencies;
+  // A file imported after a sheet meets the rows the sheet added (SD15).
+  if (sheets !== undefined) {
+    importJobs.sheetFingerprints = (tx, fingerprints) => earlierSheetFingerprints(tx, fingerprints, sheets.hashes);
+  }
   // The Google Sheets sync's side: the checks, their dispatcher and the listeners around them, only when Google is set up.
   const sheetsJobs =
     sheets === undefined

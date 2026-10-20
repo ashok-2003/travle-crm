@@ -70,15 +70,13 @@ export async function lookUpLedger(
 }
 
 /**
- * S31, S9: the unresolved problems whose hash the read no longer holds are marked resolved, and the waiting rows
- * dropped, at the read that covers their place (a full read always does; a window from `fromRow` covers the rows
+ * S31, S9: the problems (hidden or not) whose hash the read no longer holds, and the waiting rows, are deleted, at the read that covers their place (a full read always does; a window from `fromRow` covers the rows
  * from there on). A row outside the window is left alone.
  */
 export async function clearVanishedRows(
   tx: OrgTx,
   connectionId: string,
   input: { read: readonly ReadRow[]; fromRow: number; full: boolean },
-  now: Date,
 ): Promise<{ resolved: number; dropped: number }> {
   const present = new Set(input.read.map((row) => ledgerKey(row.hash, row.occurrence)));
   const covered = input.full ? 0 : input.fromRow;
@@ -86,18 +84,41 @@ export async function clearVanishedRows(
     where: {
       connectionId,
       rowNumber: { gte: covered },
-      OR: [{ status: "not_added", resolvedAt: null }, { status: "pending" }],
+      // A problem hidden by hand stays until its row leaves the sheet (SD2); then it goes with the rest.
+      OR: [{ status: "not_added" }, { status: "pending" }],
     },
     select: { id: true, rawHash: true, occurrence: true, status: true },
   });
   const gone = candidates.filter((row) => !present.has(ledgerKey(row.rawHash, row.occurrence)));
   const resolved = gone.filter((row) => row.status === "not_added").map((row) => row.id);
   const dropped = gone.filter((row) => row.status === "pending").map((row) => row.id);
-  if (resolved.length > 0) {
-    await tx.sheetRow.updateMany({ where: { id: { in: resolved } }, data: { resolvedAt: now } });
+  // A problem whose row is gone (fixed, edited or deleted) leaves the list, hidden or not; a waiting row is dropped too.
+  if (resolved.length + dropped.length > 0) {
+    await tx.sheetRow.deleteMany({ where: { id: { in: [...resolved, ...dropped] } } });
   }
-  if (dropped.length > 0) await tx.sheetRow.deleteMany({ where: { id: { in: dropped } } });
   return { resolved: resolved.length, dropped: dropped.length };
+}
+
+/**
+ * Whether any row of this windowed read has cells the ledger already holds at a row above the window (SD12). Identical
+ * rows are numbered 1, 2, … within the rows read, so a window that holds a later copy would number it 1 and take it for
+ * the earlier one: the whole tab is read instead, where the numbering is true.
+ */
+export async function repeatsAboveWindow(
+  tx: OrgTx,
+  connectionId: string,
+  rows: readonly ReadRow[],
+  fromRow: number,
+): Promise<boolean> {
+  if (fromRow <= 2) return false;
+  const hashes = [...new Map(rows.map((row) => [hex(row.hash), row.hash])).values()];
+  for (let start = 0; start < hashes.length; start += rowsPerLookup) {
+    const found = await tx.sheetRow.count({
+      where: { connectionId, rawHash: { in: hashes.slice(start, start + rowsPerLookup) }, rowNumber: { lt: fromRow } },
+    });
+    if (found > 0) return true;
+  }
+  return false;
 }
 
 /** The smallest row number of a row still waiting, so the window never leaves a half-typed row behind (S11). */

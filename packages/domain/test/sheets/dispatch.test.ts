@@ -11,6 +11,8 @@ import {
   createAccountHolds,
   dispatchDueChecks,
   maxReadsPerMinutePerAccount,
+  maxRequestsPerMinutePerAccount,
+  requestsPerCheck,
   SHEETS_CHECK_QUEUE,
   sheetsDispatchSchedule,
 } from "../../src/sheets/index.js";
@@ -80,19 +82,22 @@ describe("the dispatcher", () => {
     expect(queue.sent.every((job) => job.options.expireInSeconds === 3600)).toBe(true);
   });
 
-  it("queues the most overdue first, and at most 50 per account per tick", async () => {
+  it("queues the most overdue first, and at most the budget per account per tick (three requests a check)", async () => {
     const queue = createMemoryJobQueue();
-    const ids = await due(120, 0);
+    // A claim holds five minutes, so six ticks are what one claim covers.
+    const ids = await due(100, 0);
     const counts: number[] = [];
-    for (const tick of [0, 1, 2, 3]) {
+    for (const tick of [0, 1, 2, 3, 4, 5]) {
       const before = queue.sent.length;
       await dispatchDueChecks(dispatcher(queue, 1), minutes(tick));
       counts.push(queue.sent.length - before);
     }
-    expect(counts).toEqual([maxReadsPerMinutePerAccount, 50, 20, 0]);
-    // The first fifty were the most overdue: due() makes later indexes more overdue.
-    expect(queuedIds(queue).slice(0, 50)).toEqual(ids.toReversed().slice(0, 50));
-    expect(new Set(queuedIds(queue)).size).toBe(120);
+    const full = maxReadsPerMinutePerAccount;
+    expect(full * requestsPerCheck).toBeLessThanOrEqual(maxRequestsPerMinutePerAccount);
+    expect(counts).toEqual([full, full, full, full, full, 100 - 5 * full]);
+    // The first ones were the most overdue: due() makes later indexes more overdue.
+    expect(queuedIds(queue).slice(0, full)).toEqual(ids.toReversed().slice(0, full));
+    expect(new Set(queuedIds(queue)).size).toBe(100);
   });
 
   it("queues nothing for a sheet claimed under five minutes ago, and again once the claim lapses", async () => {
@@ -125,23 +130,26 @@ describe("the dispatcher", () => {
 
   it("finds every sheet overdue after the worker slept, and queues them within the budget over the next ticks", async () => {
     const queue = createMemoryJobQueue();
-    // An hour of ticks that never ran: 130 sheets on an account are all overdue by 60 minutes.
-    const ids = await due(130, 0, 60);
+    // An hour of ticks that never ran: 90 sheets on an account are all overdue by 60 minutes.
+    const ids = await due(90, 0, 60);
     const perTick: number[] = [];
-    for (const tick of [0, 1, 2, 3]) {
+    for (const tick of [0, 1, 2, 3, 4, 5]) {
       const before = queue.sent.length;
       await dispatchDueChecks(dispatcher(queue, 1), minutes(tick));
       perTick.push(queue.sent.length - before);
     }
-    expect(perTick).toEqual([50, 50, 30, 0]);
+    // Never past the budget in a minute; every sheet within the ticks the budget needs; none after.
+    expect(Math.max(...perTick)).toBe(maxReadsPerMinutePerAccount);
+    expect(perTick.reduce((sum, count) => sum + count, 0)).toBe(90);
+    expect(perTick.at(-1)).toBe(0);
     expect(new Set(queuedIds(queue))).toEqual(new Set(ids));
   });
 
   it("keeps the interval at 120 seconds, and stretches it past the budget with no sheet starved", async () => {
     const queue = createMemoryJobQueue();
-    const ids = await due(120, 0, 0);
+    const ids = await due(90, 0, 0);
     // The checks of the first tick finish and are due again two minutes later: every sheet is queued within three ticks.
-    for (const tick of [0, 1, 2]) await dispatchDueChecks(dispatcher(queue, 1), minutes(tick));
+    for (const tick of [0, 1, 2, 3, 4, 5]) await dispatchDueChecks(dispatcher(queue, 1), minutes(tick));
     expect(new Set(queuedIds(queue))).toEqual(new Set(ids));
   });
 

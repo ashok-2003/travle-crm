@@ -108,6 +108,36 @@ describe("erasing a customer who is in a sheet", () => {
     expect(log.after).toMatchObject({ customer: { sheetRowsWithdrawn: 1 } });
   });
 
+  it("waits for a check holding the sheet's connection, taking the connections before the people (no crossing)", async () => {
+    const agency = await deletionAgency(platformTest, plan);
+    const seeded = await inASheet(agency);
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let held: () => void = () => undefined;
+    const holding = new Promise<void>((resolve) => {
+      held = resolve;
+    });
+    // A check's batch: the connection locked first, then a person's lead.
+    const check = platformTest.services.db.forOrg(agency.organizationId, async (tx) => {
+      await tx.$queryRaw`SELECT id FROM sheet_connection WHERE organization_id = ${agency.organizationId}::uuid FOR NO KEY UPDATE`;
+      held();
+      await gate;
+    });
+    await holding;
+    let erased = false;
+    const erasing = erase(agency, seeded.person.id).then(() => {
+      erased = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    expect(erased).toBe(false);
+    release();
+    await check;
+    await erasing;
+    expect(erased).toBe(true);
+  });
+
   it("keeps only keyed hashes of the contacts, and no plaintext anywhere", async () => {
     const agency = await deletionAgency(platformTest, plan);
     const seeded = await inASheet(agency);

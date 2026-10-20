@@ -32,13 +32,17 @@ export function scheduleListener(dependencies: {
     handle: async (event, context) => {
       const sheet = await context.forOrg((tx) => sheetOf(tx, event.payload.sheetId));
       if (sheet === null || !hasScheduleRow(sheet.status)) {
-        await removeScheduleRow(dependencies.db, event.payload.sheetId);
+        await removeScheduleRow(dependencies.db, {
+          sheetId: event.payload.sheetId,
+          organizationId: event.organizationId,
+        });
         return;
       }
       await upsertScheduleRow(dependencies.db, {
         sheetId: sheet.id,
         organizationId: sheet.organizationId,
         serviceAccountIndex: sheet.serviceAccountIndex,
+        serviceAccountEmail: sheet.serviceAccountEmail,
         // The first check is at a random moment within the first interval, so connections never all read at once.
         nextCheckAt: new Date(
           Date.now() + firstCheckSeconds(dependencies.checkIntervalSeconds, dependencies.random) * 1000,
