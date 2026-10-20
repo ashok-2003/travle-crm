@@ -33,10 +33,12 @@ describe("the platform console", () => {
     await server.close();
   });
 
-  it("answers its health check", async () => {
-    const response = await testConsole.app.request("/health");
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ status: "ok" });
+  it("answers its health check, also under /api/platform where the web app's address reaches it", async () => {
+    for (const path of ["/health", "/api/platform/health"]) {
+      const response = await testConsole.app.request(path);
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ status: "ok" });
+    }
   });
 
   it("tells platform staff who they are, at their level", async () => {
