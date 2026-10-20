@@ -6,13 +6,11 @@
 import { useMutation } from "@tanstack/react-query";
 import { importRowLimits } from "@travel-crm/contracts/imports";
 import type { ExistingRowChoice, SheetColumnsView, SheetDetail } from "@travel-crm/contracts/sheets";
-import { InfoIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ErrorState } from "@/components/error-state";
 import { PageHeader } from "@/components/page-header";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldContent, FieldDescription, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -64,16 +62,6 @@ export function ExistingStep({ detail }: { detail: SheetDetail }) {
     },
   };
 
-  // A sheet with no rows has nothing to decide: it is connected as it is, once, and only when the subscription lets it.
-  const empty = view !== null && view.rowCount === 0;
-  const connectedEmpty = useRef(false);
-  useEffect(() => {
-    if (!empty || !write.allowed || connectedEmpty.current) return;
-    connectedEmpty.current = true;
-    void send("only_new").catch(() => undefined);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the empty sheet is known
-  }, [empty, write.allowed]);
-
   if (view === null) {
     if (verify.isError) {
       return (
@@ -89,68 +77,48 @@ export function ExistingStep({ detail }: { detail: SheetDetail }) {
     }
     return <ReadingSheet />;
   }
-  if (empty) {
-    if (request.isError) {
-      return (
-        <ErrorState
-          message={t("connectFailed")}
-          error={request.error}
-          retryLabel={tCommon("tryAgain")}
-          onRetry={() => {
-            request.reset();
-            void send("only_new").catch(() => undefined);
-          }}
-        />
-      );
-    }
-    if (!write.allowed && write.hint !== null) {
-      return (
-        <Alert>
-          <InfoIcon aria-hidden="true" />
-          <AlertDescription>{write.hint}</AlertDescription>
-        </Alert>
-      );
-    }
-    return <ReadingSheet />;
-  }
-
   const limit = importRowLimits.leads;
   const count = formatCount(view.rowCount);
   return (
     <div className="flex max-w-[720px] flex-col gap-6">
       <BackLink href={routes.leadSources} label={tConnect("back")} />
-      <PageHeader title={t("title")} intro={t("question", { count: view.rowCount })} />
+      <PageHeader
+        title={t("title")}
+        intro={view.rowCount === 0 ? t("noRows") : t("question", { count: view.rowCount })}
+      />
       <ConnectCaption step="existing" />
       {view.rowCount > limit && (
         <p className="text-label text-muted-foreground">{t("capped", { count, limit: formatCount(limit) })}</p>
       )}
-      <FieldSet>
-        <FieldLegend variant="label">{t("legend")}</FieldLegend>
-        <RadioGroup
-          value={choice}
-          onValueChange={(value) => {
-            setChoice(value === "check" ? "check" : "only_new");
-          }}
-        >
-          {(
-            [
-              { value: "only_new", label: t("onlyNew"), hint: t("onlyNewHint") },
-              { value: "check", label: t("check", { count }), hint: t("checkHint") },
-            ] as const
-          ).map((option) => (
-            <Field key={option.value} orientation="horizontal" className="min-h-11">
-              <RadioGroupItem id={`existing-${option.value}`} value={option.value} />
-              <FieldContent>
-                <FieldLabel htmlFor={`existing-${option.value}`} className="font-normal">
-                  {option.label}
-                </FieldLabel>
-                <FieldDescription>{option.hint}</FieldDescription>
-              </FieldContent>
-            </Field>
-          ))}
-        </RadioGroup>
-      </FieldSet>
-      <p className="text-label text-muted-foreground">{t("note")}</p>
+      {view.rowCount > 0 && (
+        <FieldSet>
+          <FieldLegend variant="label">{t("legend")}</FieldLegend>
+          <RadioGroup
+            value={choice}
+            onValueChange={(value) => {
+              setChoice(value === "check" ? "check" : "only_new");
+            }}
+          >
+            {(
+              [
+                { value: "only_new", label: t("onlyNew"), hint: t("onlyNewHint") },
+                { value: "check", label: t("check", { count }), hint: t("checkHint") },
+              ] as const
+            ).map((option) => (
+              <Field key={option.value} orientation="horizontal" className="min-h-11">
+                <RadioGroupItem id={`existing-${option.value}`} value={option.value} />
+                <FieldContent>
+                  <FieldLabel htmlFor={`existing-${option.value}`} className="font-normal">
+                    {option.label}
+                  </FieldLabel>
+                  <FieldDescription>{option.hint}</FieldDescription>
+                </FieldContent>
+              </Field>
+            ))}
+          </RadioGroup>
+        </FieldSet>
+      )}
+      {view.rowCount > 0 && <p className="text-label text-muted-foreground">{t("note")}</p>}
       <div className="flex flex-col items-start gap-2">
         <Button
           disabled={request.isPending || !write.allowed}

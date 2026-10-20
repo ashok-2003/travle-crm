@@ -227,7 +227,7 @@ export async function verifySheet(
     sheetTitle: reading.sheetTitle,
     tabs: reading.tabs,
     tabGid: reading.tab.gid,
-    rowCount: (await reading.column(0)).filter((cell) => cell.trim() !== "").length,
+    rowCount: await countRows(reading, view),
     columns: view.map(({ headerKey, header, samples, field, guessedBy, isNew }) => ({
       headerKey,
       header,
@@ -238,6 +238,22 @@ export async function verifySheet(
     })),
     ownerValues,
   };
+}
+
+/**
+ * How many rows the tab holds below its header, counted down one column that a row cannot go without: the one matched to
+ * the name or the phone, else any matched, else the first. A blank column A, or a blank A1, then counts rows all the same
+ * (R2); and the screen never connects a sheet on this number alone.
+ */
+async function countRows(
+  reading: TabReading,
+  view: readonly { field: SheetField | null; index: number }[],
+): Promise<number> {
+  const column =
+    view.find((entry) => entry.field === "name" || entry.field === "phone") ??
+    view.find((entry) => entry.field !== null) ??
+    view[0];
+  return (await reading.column(column?.index ?? 0)).filter((cell) => cell.trim() !== "").length;
 }
 
 /** Each listed value's target: the agency's hand-made match, else the automatic one, else the agency Owner (null). */
