@@ -158,4 +158,16 @@ describe("guessing a file's columns", () => {
       { field: "email", guessedBy: "common-name" },
     ]);
   });
+
+  it("guesses a Google Form's 'Where do you want to go?' as Destination for a sheet's leads, and not for a file's", () => {
+    const headers = ["Where do you want to go?", "Where are you going", "Places to visit"];
+    const sheet = guessFields("leads", headers, none, { wordsInHeader: true });
+    // A field goes to one column: the first takes it.
+    expect(sheet.map((guess) => guess.field)).toEqual(["destination", null, null]);
+    for (const header of headers.slice(1)) {
+      expect(guessFields("leads", [header], none, { wordsInHeader: true })[0]?.field, header).toBe("destination");
+    }
+    // A file's guesses are unchanged: these headers are nothing to it.
+    expect(guessFields("leads", headers, none).map((guess) => guess.field)).toEqual([null, null, null]);
+  });
 });
