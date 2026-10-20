@@ -9,8 +9,9 @@ export default defineConfig({
   // Playwright empties this folder as a run starts: a folder of the journeys' own, so the visual audit's shots
   // (test-results/audit) outlive a journey run (test/playwright-configs.test.ts).
   outputDir: "test-results/journeys",
-  // Building the app and starting Postgres takes a while; each journey itself is quick.
-  globalTimeout: 10 * 60_000,
+  // Building the app and starting Postgres takes a while; each journey itself is quick. Twenty minutes, not ten: with the
+  // Google Sheets journeys a whole project took 9.6 minutes on a busy machine, too close to the old limit for CI.
+  globalTimeout: 20 * 60_000,
   timeout: 30_000,
   workers: 2,
   // A test.only left in by mistake fails CI; locally it focuses a run.
