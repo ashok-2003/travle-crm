@@ -157,6 +157,7 @@
         "title": "This sheet's tab is gone",
         "body": "‘{tab}’ isn't in the sheet any more. Choose the tab that holds your rows now. Rows already added are not added again.",
         "label": "Tab",
+        "placeholder": "Choose a tab",
         "action": "Use this tab"
       },
       "columns_missing": {

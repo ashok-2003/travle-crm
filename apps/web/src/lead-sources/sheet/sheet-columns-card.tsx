@@ -14,7 +14,7 @@ export function SheetColumnsCard({ detail }: { detail: SheetDetail }) {
       <h2 id="sheet-columns" className="text-section font-semibold">
         {t("heading")}
       </h2>
-      <p className="numbers">{t("summary", { matched, total })}</p>
+      <p>{t("summary", { matched, total })}</p>
       {newUnmatched.length > 0 && (
         <p className="text-label text-muted-foreground">
           {newUnmatched.length === 1 && only !== undefined

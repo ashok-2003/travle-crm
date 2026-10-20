@@ -74,7 +74,7 @@ export function SheetScreen({ sheetId }: { sheetId: string }) {
         }
       />
       <div className="flex flex-col gap-1">
-        <p className="numbers text-label text-muted-foreground">{checked}</p>
+        <p className="text-label text-muted-foreground">{checked}</p>
         {detail.late && <p className="text-label text-muted-foreground">{t("late")}</p>}
       </div>
       <AttentionAlert detail={detail} />

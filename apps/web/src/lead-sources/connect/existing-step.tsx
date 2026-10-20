@@ -14,6 +14,8 @@ import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Field, FieldContent, FieldDescription, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { BackLink } from "@/components/text-link";
+import { routes } from "@/lib/routes";
 import { useTRPC } from "@/data/trpc";
 import { formatCount } from "@/lib/format";
 import { useWriteAccess } from "@/subscription/write-access";
@@ -89,6 +91,7 @@ export function ExistingStep({ detail }: { detail: SheetDetail }) {
   const count = formatCount(view.rowCount);
   return (
     <div className="flex max-w-[720px] flex-col gap-6">
+      <BackLink href={routes.leadSources} label={tConnect("back")} />
       <PageHeader title={t("title")} intro={t("question", { count: view.rowCount })} />
       <ConnectCaption step="existing" />
       {view.rowCount > limit && (

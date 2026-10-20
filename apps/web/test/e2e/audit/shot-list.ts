@@ -27,6 +27,51 @@ const TWO_FACTOR_SHOTS = [
     as: `${sales}, two-factor required`,
   },
   { name: "two-factor-challenge", screen: "The two-factor challenge at sign-in", as: `${owner}, two-factor on` },
+  // Release 2: Google Sheets sync (sheets plan, Task 21).
+  { name: "lead-sources-empty", screen: "Lead sources with no sheet: the empty state and Connect a sheet", as: owner },
+  {
+    name: "lead-sources-list",
+    screen: "Lead sources with three sheets: Running, Needs attention, Lost access",
+    as: owner,
+  },
+  { name: "lead-sources-limit", screen: "Lead sources at five sheets: Connect a sheet off with its hint", as: owner },
+  { name: "sheet-connect-share", screen: "Connect a sheet, step 1: the address, Copy and the link field", as: owner },
+  {
+    name: "sheet-connect-not-shared",
+    screen: "Connect a sheet, step 1: a sheet not shared yet, its sentence under the field",
+    as: owner,
+  },
+  {
+    name: "sheet-connect-columns",
+    screen: "Connect a sheet, step 2: the columns guessed and the Owner column's values",
+    as: owner,
+  },
+  { name: "sheet-connect-existing", screen: "Connect a sheet, step 3: the rows already in the sheet", as: owner },
+  { name: "sheet-connect-confirm", screen: "Connect a sheet, step 3: the confirmation", as: owner },
+  { name: "sheet-connect-reading", screen: "Connect a sheet: Reading your sheet…", as: owner },
+  {
+    name: "sheet-import-check-in-crm",
+    screen: "The import's preview for a sheet, with the group Already in your CRM",
+    as: owner,
+  },
+  { name: "sheet-page", screen: "A running sheet's page: the counts, the columns, Sync now", as: owner },
+  { name: "sheet-page-problems", screen: "A sheet's page with the rows that couldn't be added", as: owner },
+  { name: "sheet-page-late", screen: "A sheet's page when checks are running late", as: owner },
+  {
+    name: "sheet-lost-access",
+    screen: "A sheet that lost access: the alert with the address and Check again",
+    as: owner,
+  },
+  { name: "sheet-tab-missing", screen: "A sheet whose tab is gone: the tab Select", as: owner },
+  {
+    name: "sheet-columns-missing",
+    screen: "A sheet with columns gone: the columns named, Match columns again",
+    as: owner,
+  },
+  { name: "sheet-needs-manager", screen: "A sheet that needs a manager: Take over", as: owner },
+  { name: "sheet-read-only", screen: "A sheet while the subscription is read-only", as: owner },
+  { name: "sheet-paused", screen: "A paused sheet with Resume", as: owner },
+  { name: "sheet-disconnect", screen: "A sheet's Disconnect confirmation", as: owner },
 ] as const satisfies readonly Shot[];
 
 export const SHOTS = [
@@ -197,6 +242,51 @@ export const SHOTS = [
     as: owner,
   },
   { name: "staff-export-dialog", screen: "Staff, the Export dialog", as: owner },
+  // Release 2: Google Sheets sync (sheets plan, Task 21).
+  { name: "lead-sources-empty", screen: "Lead sources with no sheet: the empty state and Connect a sheet", as: owner },
+  {
+    name: "lead-sources-list",
+    screen: "Lead sources with three sheets: Running, Needs attention, Lost access",
+    as: owner,
+  },
+  { name: "lead-sources-limit", screen: "Lead sources at five sheets: Connect a sheet off with its hint", as: owner },
+  { name: "sheet-connect-share", screen: "Connect a sheet, step 1: the address, Copy and the link field", as: owner },
+  {
+    name: "sheet-connect-not-shared",
+    screen: "Connect a sheet, step 1: a sheet not shared yet, its sentence under the field",
+    as: owner,
+  },
+  {
+    name: "sheet-connect-columns",
+    screen: "Connect a sheet, step 2: the columns guessed and the Owner column's values",
+    as: owner,
+  },
+  { name: "sheet-connect-existing", screen: "Connect a sheet, step 3: the rows already in the sheet", as: owner },
+  { name: "sheet-connect-confirm", screen: "Connect a sheet, step 3: the confirmation", as: owner },
+  { name: "sheet-connect-reading", screen: "Connect a sheet: Reading your sheet…", as: owner },
+  {
+    name: "sheet-import-check-in-crm",
+    screen: "The import's preview for a sheet, with the group Already in your CRM",
+    as: owner,
+  },
+  { name: "sheet-page", screen: "A running sheet's page: the counts, the columns, Sync now", as: owner },
+  { name: "sheet-page-problems", screen: "A sheet's page with the rows that couldn't be added", as: owner },
+  { name: "sheet-page-late", screen: "A sheet's page when checks are running late", as: owner },
+  {
+    name: "sheet-lost-access",
+    screen: "A sheet that lost access: the alert with the address and Check again",
+    as: owner,
+  },
+  { name: "sheet-tab-missing", screen: "A sheet whose tab is gone: the tab Select", as: owner },
+  {
+    name: "sheet-columns-missing",
+    screen: "A sheet with columns gone: the columns named, Match columns again",
+    as: owner,
+  },
+  { name: "sheet-needs-manager", screen: "A sheet that needs a manager: Take over", as: owner },
+  { name: "sheet-read-only", screen: "A sheet while the subscription is read-only", as: owner },
+  { name: "sheet-paused", screen: "A paused sheet with Resume", as: owner },
+  { name: "sheet-disconnect", screen: "A sheet's Disconnect confirmation", as: owner },
 ] as const satisfies readonly Shot[];
 
 export type ShotName = (typeof SHOTS)[number]["name"];

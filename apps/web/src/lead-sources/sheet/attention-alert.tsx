@@ -193,7 +193,7 @@ function TabMissing({ detail, since }: { detail: SheetDetail; since: string | nu
             {(links) => (
               <Select value={tabGid} onValueChange={setTabGid} disabled={tabs.length === 0}>
                 <SelectTrigger {...links} className="h-auto w-full">
-                  <SelectValue />
+                  <SelectValue placeholder={t("placeholder")} />
                 </SelectTrigger>
                 <SelectContent position="popper">
                   {tabs.map((tab) => (
