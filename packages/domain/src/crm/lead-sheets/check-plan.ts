@@ -137,7 +137,7 @@ export async function planCheck(
   }
   // Problems fixed, edited or deleted in the sheet clear themselves at the read that covers their place (S31).
   await db.forOrg(organizationId, (tx) =>
-    clearVanishedRows(tx, sheet.id, { read: rows, fromRow: plan.fromRow, full: plan.full }, now),
+    clearVanishedRows(tx, sheet.id, { read: rows, fromRow: plan.fromRow, full: plan.full }),
   );
   const candidates = new Map<string, number>();
   for (const { decision } of decisions) {

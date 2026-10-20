@@ -1,5 +1,4 @@
-// The console's sweep of the Sheets sync (S5, S6, S31): drafts untouched for a day go with what they read, resolved problems
-// after a week, schedule rows and claims nothing live holds; a fresh draft, a connected sheet and an unresolved problem stay.
+// The console's sweep of the Sheets sync (S5, S6, S31): drafts untouched for a day go with what they read, schedule rows and claims nothing live holds; a fresh draft, a connected sheet and an unresolved problem stay.
 // It runs on a database of its own: the sweep reads across every organization.
 import { randomUUID } from "node:crypto";
 import { createDatabase, type Database } from "@travel-crm/db";
@@ -78,28 +77,20 @@ describe("the sheets sweep", () => {
     expect(await platform.sheetRow.count({ where: { connectionId: ids.old } })).toBe(0);
   });
 
-  it("drops resolved problems after 7 days and keeps unresolved ones", async () => {
+  it("never drops a problem the agency hid: it stays until its row leaves the sheet", async () => {
     const sheetId = await db.forOrg(organizationId, async (tx) => {
       const sheet = await aSheet(tx, { connectedBy: userId });
       await aSheetRow(tx, {
         connectionId: sheet.id,
         status: "not_added",
-        cells: ["old resolved"],
-        resolvedAt: new Date(now.getTime() - 8 * DAY),
-      });
-      await aSheetRow(tx, {
-        connectionId: sheet.id,
-        status: "not_added",
-        cells: ["new resolved"],
-        resolvedAt: new Date(now.getTime() - 6 * DAY),
+        cells: ["hidden long ago"],
+        resolvedAt: new Date(now.getTime() - 30 * DAY),
       });
       await aSheetRow(tx, { connectionId: sheet.id, status: "not_added", cells: ["unresolved"] });
-      await aSheetRow(tx, { connectionId: sheet.id, status: "added", cells: ["added"] });
       return sheet.id;
     });
-    const swept = await run();
-    expect(swept.problemsDropped).toBe(1);
-    expect(await platform.sheetRow.count({ where: { connectionId: sheetId } })).toBe(3);
+    await run();
+    expect(await platform.sheetRow.count({ where: { connectionId: sheetId } })).toBe(2);
   });
 
   it("drops schedule rows with no live connection and claims with none, only after an hour", async () => {

@@ -2,15 +2,13 @@
 // they read, problems resolved for seven days are dropped, schedule rows of connections that are no longer checked go,
 // and so do claims no live connection holds. Runs in a platform transaction, a page of each at a time.
 import type { OrgTx } from "@travel-crm/db";
-import { draftKeptHours, resolvedProblemKeptDays, unusedClaimKeptHours } from "./limits.js";
+import { draftKeptHours, unusedClaimKeptHours } from "./limits.js";
 import { dropStaleScheduleRows, dropUnusedClaims } from "./schedule.js";
 
 const HOUR_MS = 60 * 60 * 1000;
-const DAY_MS = 24 * HOUR_MS;
 
 export interface SheetsSwept {
   draftsDeleted: number;
-  problemsDropped: number;
   scheduleRowsDropped: number;
   claimsDropped: number;
 }
@@ -34,16 +32,8 @@ export async function sweepSheets(tx: OrgTx, now: Date, limit: number): Promise<
     await tx.sheetValueMatch.deleteMany({ where: { connectionId: { in: ids } } });
     await tx.sheetConnection.deleteMany({ where: { id: { in: ids } } });
   }
-  const problems = await tx.sheetRow.findMany({
-    where: { status: "not_added", resolvedAt: { lt: new Date(now.getTime() - resolvedProblemKeptDays * DAY_MS) } },
-    select: { id: true },
-    take: limit,
-    orderBy: { id: "asc" },
-  });
-  if (problems.length > 0) await tx.sheetRow.deleteMany({ where: { id: { in: problems.map((row) => row.id) } } });
   return {
     draftsDeleted: ids.length,
-    problemsDropped: problems.length,
     scheduleRowsDropped: await dropStaleScheduleRows(tx),
     claimsDropped: await dropUnusedClaims(tx, new Date(now.getTime() - unusedClaimKeptHours * HOUR_MS)),
   };

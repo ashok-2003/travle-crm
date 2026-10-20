@@ -255,8 +255,8 @@ describe("checking a sheet", () => {
     await typing.check();
     expect(await typing.leads()).toHaveLength(1);
     const ledger = await typing.ledger();
-    expect(ledger.map((row) => row.status).sort()).toEqual(["added", "not_added"]);
-    expect(ledger.find((row) => row.status === "not_added")?.resolvedAt).not.toBeNull();
+    // The line for the edited row's old cells is gone with them.
+    expect(ledger.map((row) => row.status)).toEqual(["added"]);
     expect(await typing.state()).toMatchObject({ rowsAdded: 1 });
   });
 

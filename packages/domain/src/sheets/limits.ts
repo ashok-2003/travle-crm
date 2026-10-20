@@ -60,7 +60,6 @@ export const googleRequestTimeoutSeconds = 20;
 
 /** A draft untouched this many hours is deleted (S6); resolved problems are dropped after this many days (S31). */
 export const draftKeptHours = 24;
-export const resolvedProblemKeptDays = 7;
 /** A claim no live connection holds is dropped after this many hours (S5). */
 export const unusedClaimKeptHours = 1;
 

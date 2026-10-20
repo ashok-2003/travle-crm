@@ -70,15 +70,13 @@ export async function lookUpLedger(
 }
 
 /**
- * S31, S9: the unresolved problems whose hash the read no longer holds are marked resolved, and the waiting rows
- * dropped, at the read that covers their place (a full read always does; a window from `fromRow` covers the rows
+ * S31, S9: the problems (hidden or not) whose hash the read no longer holds, and the waiting rows, are deleted, at the read that covers their place (a full read always does; a window from `fromRow` covers the rows
  * from there on). A row outside the window is left alone.
  */
 export async function clearVanishedRows(
   tx: OrgTx,
   connectionId: string,
   input: { read: readonly ReadRow[]; fromRow: number; full: boolean },
-  now: Date,
 ): Promise<{ resolved: number; dropped: number }> {
   const present = new Set(input.read.map((row) => ledgerKey(row.hash, row.occurrence)));
   const covered = input.full ? 0 : input.fromRow;
@@ -86,17 +84,18 @@ export async function clearVanishedRows(
     where: {
       connectionId,
       rowNumber: { gte: covered },
-      OR: [{ status: "not_added", resolvedAt: null }, { status: "pending" }],
+      // A problem hidden by hand stays until its row leaves the sheet (SD2); then it goes with the rest.
+      OR: [{ status: "not_added" }, { status: "pending" }],
     },
     select: { id: true, rawHash: true, occurrence: true, status: true },
   });
   const gone = candidates.filter((row) => !present.has(ledgerKey(row.rawHash, row.occurrence)));
   const resolved = gone.filter((row) => row.status === "not_added").map((row) => row.id);
   const dropped = gone.filter((row) => row.status === "pending").map((row) => row.id);
-  if (resolved.length > 0) {
-    await tx.sheetRow.updateMany({ where: { id: { in: resolved } }, data: { resolvedAt: now } });
+  // A problem whose row is gone (fixed, edited or deleted) leaves the list, hidden or not; a waiting row is dropped too.
+  if (resolved.length + dropped.length > 0) {
+    await tx.sheetRow.deleteMany({ where: { id: { in: [...resolved, ...dropped] } } });
   }
-  if (dropped.length > 0) await tx.sheetRow.deleteMany({ where: { id: { in: dropped } } });
   return { resolved: resolved.length, dropped: dropped.length };
 }
 
