@@ -53,7 +53,7 @@ export function ConfirmDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
-  description: string;
+  description: ReactNode;
   /** The action's button, such as "Remove the logo". */
   action: string;
   request: ConfirmRequest;

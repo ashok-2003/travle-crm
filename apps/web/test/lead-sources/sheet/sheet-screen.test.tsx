@@ -76,6 +76,16 @@ describe("SheetScreen", () => {
     expect(await screen.findByText(messages.errors.reasons.SHEET_BUSY)).toBeVisible();
   });
 
+  it("says Checking… in a status line while the request is out", async () => {
+    const held = heldAnswer({ data: null });
+    renderSheet(aSheetDetail(), { "leadSheets.syncNow": held.answer });
+    await userEvent.click(await screen.findByRole("button", { name: words.syncNow }));
+    await waitFor(() => {
+      expect(screen.getByRole("status")).toHaveTextContent(words.checking);
+    });
+    held.release();
+  });
+
   it("says Checking… while a check runs on its own", async () => {
     renderSheet(aSheetDetail({ checkRunning: true }));
     expect(await screen.findByRole("button", { name: words.checking })).toBeDisabled();
@@ -110,7 +120,10 @@ describe("SheetScreen", () => {
       sheetMatchRoute(sheetId),
     );
     expect(screen.getByText(words.details.stage)).toBeVisible();
-    expect(screen.getByText("The agency Owner, Asha Sharma")).toBeVisible();
+    expect(screen.getByText(words.details.stage)).toHaveTextContent("New leads arrive as");
+    expect(screen.getByText("Asha Sharma (agency Owner)")).toBeVisible();
+    // The matched count is said once, in the Columns section.
+    expect(screen.queryByText("6 of 9 matched")).toBeNull();
   });
 
   it("pauses and resumes from the menu", async () => {
@@ -152,10 +165,40 @@ describe("SheetScreen", () => {
     expect(sync).toBeDisabled();
     expect(sync).toHaveAccessibleDescription(messages.errors.reasons.ORGANIZATION_READ_ONLY);
     expect(screen.getByText(words.attention.readOnly.title)).toBeVisible();
+    // The hint is on the page for everyone, not for screen readers alone, and the badge does not say Running.
+    expect(screen.getByText(messages.errors.reasons.ORGANIZATION_READ_ONLY, { selector: "p, div" })).not.toHaveClass(
+      "sr-only",
+    );
+    expect(screen.queryByText(messages.sheets.statuses.running)).toBeNull();
+    expect(screen.getByText(messages.sheets.statuses.paused)).toBeVisible();
     await userEvent.click(screen.getByRole("button", { name: words.menu }));
     expect(await screen.findByRole("menuitem", { name: words.pause })).not.toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("menuitem", { name: words.disconnect })).not.toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("menuitem", { name: words.matchAgain })).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("moves the focus to the page's heading when taking over removes the alert", async () => {
+    const api = renderSheet(aSheetDetail({ status: "needs_manager", attentionState: "needs_manager" }), {
+      "leadSheets.takeOver": { data: null },
+    });
+    const take = await screen.findByRole("button", { name: words.attention.needs_manager.action });
+    api.answer("leadSheets.get", { data: aSheetDetail() });
+    await userEvent.click(take);
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { level: 1, name: "Goa Diwali campaign" })).toHaveFocus();
+    });
+  });
+
+  it("does not repeat Match columns again under Columns while the alert offers it", async () => {
+    renderSheet(
+      aSheetDetail({
+        status: "columns_missing",
+        attentionState: "columns_missing",
+        columns: { matched: 3, total: 4, newUnmatched: [], missing: ["Full name"] },
+      }),
+    );
+    await screen.findByText(words.attention.columns_missing.title);
+    expect(screen.getAllByRole("link", { name: words.matchAgain })).toHaveLength(1);
   });
 
   it("shows the error with Try again when the sheet can't be loaded", async () => {

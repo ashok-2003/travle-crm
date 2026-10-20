@@ -62,7 +62,7 @@ export function SheetScreen({ sheetId }: { sheetId: string }) {
         title={detail.sheetTitle}
         intro={
           <span className="flex flex-col items-start gap-2">
-            <SheetStatusBadge status={detail.status} />
+            <SheetStatusBadge status={detail.status} readOnly={detail.readOnly} />
             <span>{subtitle}</span>
           </span>
         }

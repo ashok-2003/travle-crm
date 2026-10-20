@@ -24,6 +24,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useCursorPages } from "@/data/use-cursor-pages";
 import { useTRPC, useTRPCClient } from "@/data/trpc";
+import { focusPageHeading } from "@/lib/focus-page-heading";
 import { formatDay } from "@/lib/format";
 import { useWideScreen } from "@/lib/use-wide-screen";
 import { useMe } from "@/session/me-context";
@@ -45,7 +46,17 @@ export function SheetProblems({ sheetId }: { sheetId: string }) {
     page: (cursor) => client.leadSheets.problems.query(cursor === null ? { sheetId } : { sheetId, after: cursor }),
     items: (page) => page.items,
   });
-  const hide = useMutation(trpc.leadSheets.hideProblem.mutationOptions({ onSuccess: refresh }));
+  // A hidden row takes its Hide button with it: the focus goes to this list's heading, or, with no rows left, the page's.
+  const hide = useMutation(
+    trpc.leadSheets.hideProblem.mutationOptions({
+      onSuccess: async () => {
+        if ((problems.items?.length ?? 0) > 1)
+          document.getElementById("sheet-problems")?.focus({ preventScroll: true });
+        else focusPageHeading();
+        await refresh();
+      },
+    }),
+  );
 
   const day = (problem: SheetProblem) => formatDay(new Date(problem.firstSeenAt), { timeZone });
   const who = (problem: SheetProblem) => problem.name ?? problem.value ?? t("noName");
@@ -128,7 +139,7 @@ export function SheetProblems({ sheetId }: { sheetId: string }) {
 
   return (
     <section className="flex flex-col gap-3" aria-labelledby="sheet-problems">
-      <h2 id="sheet-problems" className="text-section font-semibold">
+      <h2 id="sheet-problems" tabIndex={-1} className="text-section font-semibold">
         {t("heading")}
       </h2>
       {body()}

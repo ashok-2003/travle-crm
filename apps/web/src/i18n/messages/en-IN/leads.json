@@ -148,7 +148,7 @@
       "addAlreadyImported": "{count, plural, one {Add the # row already imported again} other {Add the # rows already imported again}}",
       "leftOutUnlessTicked": "Left out unless you tick this.",
       "alreadyInCrm": "Already in your CRM",
-      "alreadyInCrmBody": "{count} rows are for people who already have a lead with you ({open} with an open lead, {closed} with only closed leads). Left out unless you tick them.",
+      "alreadyInCrmBody": "{count, plural, one {# row is} other {# rows are}} for people who already have a lead with you ({open} with an open lead, {closed} with only closed leads).",
       "addInCrm": "{count, plural, one {Add the # row for a person already in your CRM} other {Add the # rows for people already in your CRM}}",
       "wontBeAdded": "Won't be added",
       "rowExample": "Row {row} · {name}",
