@@ -51,7 +51,7 @@ export interface WorkerSheets {
   hashes: SheetsHashes;
   /** Where the dispatcher queues the checks: the same pg-boss. */
   queue: JobQueue;
-  /** How often a sheet is checked, in seconds: 120 unless the journeys shorten it (SHEETS_CHECK_INTERVAL_SECONDS). */
+  /** How often a sheet is checked, in seconds: 900 (with up to a third more at random) unless the journeys shorten it (SHEETS_CHECK_INTERVAL_SECONDS). */
   checkIntervalSeconds?: number;
 }
 
@@ -157,7 +157,10 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
         : [
             baselineListener(sheetsJobs),
             matchSheetImportListener(sheetsJobs),
-            scheduleListener(sheetsJobs),
+            scheduleListener({
+              ...sheetsJobs,
+              checkIntervalSeconds: sheets?.checkIntervalSeconds ?? defaultCheckIntervalSeconds,
+            }),
             attentionListener(sheetsJobs),
             checkLeadSheetListener(sheetsJobs),
           ]),

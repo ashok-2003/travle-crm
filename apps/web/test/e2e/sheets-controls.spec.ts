@@ -14,10 +14,18 @@ test("Sync now twice is refused; Pause and Resume; Disconnect; connecting again 
   await connectSheet(page, { link: form.link, existing: "only_new" });
   await google.append(form.id, FORM_TAB, answer("Rahul Sharma", "98200 98200"));
   await syncNow(page);
-  // Pressed again at once, it is refused with its sentence.
+  // Pressed again at once, it is refused with its sentence: twice through the api, then by the button.
+  const sheetPage = page.url();
+  const sheetId = sheetPage.split("/").at(-1) ?? "";
+  const origin = new URL(sheetPage).origin;
+  for (let press = 0; press < 2; press += 1) {
+    await page.request.post("/api/trpc/leadSheets.syncNow", { data: { sheetId }, headers: { origin } });
+  }
+  const again = await page.request.post("/api/trpc/leadSheets.syncNow", { data: { sheetId }, headers: { origin } });
+  expect(again.status()).toBe(409);
+  await page.reload();
   await page.getByRole("button", { name: "Sync now" }).click();
   await expect(page.getByText("Just checked. Try again in a few seconds.")).toBeVisible();
-  const sheetPage = page.url();
   await waitForLead(page, "Rahul Sharma");
   await page.goto(sheetPage);
 

@@ -128,4 +128,25 @@ describe("claimDueSheets", () => {
     await finishScheduledCheck(test.db, { sheetId, nextCheckAt: null });
     expect(await scheduleRowOf(test.db, sheetId)).toBeNull();
   });
+
+  it("sets a new connection's first check at a random moment within the first interval, and never earlier than now", async () => {
+    for (const [random, low, high] of [
+      [0, 0, 1_000],
+      [0.5, 449_000, 451_000],
+      [0.999, 898_000, 900_000],
+    ] as const) {
+      const { agency, sheetId } = await sheetIn("running");
+      const before = Date.now();
+      await runListener(
+        test,
+        scheduleListener({ db: test.db, checkIntervalSeconds: 900, random: () => random }),
+        agency,
+        { type: "sheet.schedule-changed", payload: { sheetId } },
+      );
+      const row = await scheduleRowOf(test.db, sheetId);
+      const wait = (row?.nextCheckAt.getTime() ?? 0) - before;
+      expect(wait).toBeGreaterThanOrEqual(low - 1_000);
+      expect(wait).toBeLessThanOrEqual(high + 5_000);
+    }
+  });
 });

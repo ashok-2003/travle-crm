@@ -47,7 +47,7 @@ describe("SheetScreen", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Goa Diwali campaign" })).toBeVisible();
     expect(screen.getByText(messages.sheets.statuses.running)).toBeVisible();
     expect(screen.getByText("Tab ‘Form responses 1’ · connected by Asha Sharma on 12 Oct")).toBeVisible();
-    expect(screen.getByText("Last checked 10:42 am · checks about every 2 minutes")).toBeVisible();
+    expect(screen.getByText("Last checked 10:42 am · checks about every 15 minutes")).toBeVisible();
     expect(screen.getByRole("link", { name: messages.sheets.list.title })).toHaveAttribute("href", routes.leadSources);
   });
 
@@ -57,7 +57,7 @@ describe("SheetScreen", () => {
     expect(screen.getByText(words.notChecked)).toBeVisible();
   });
 
-  it("says 'Checks are running late' after ten minutes", async () => {
+  it("says 'Checks are running late' after thirty minutes", async () => {
     renderSheet(aSheetDetail({ late: true }));
     expect(await screen.findByText(words.late)).toBeVisible();
   });

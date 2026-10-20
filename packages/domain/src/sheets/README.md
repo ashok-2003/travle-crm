@@ -5,7 +5,7 @@ Connecting an agency's Google Sheet and finding which of its rows are new (Sheet
 it never calls crm or today. crm (`crm/lead-sheets/`) turns the rows this module finds into leads.
 
 - **Limits** (`limits.ts`) are the only place a number is written: five sheets, 20,000 rows, 50 columns, 4,000
-  characters a cell, the check every 120 seconds, 50 reads a minute for an account.
+  characters a cell, the check every 900 seconds plus up to a third at random, 50 reads a minute for an account.
 - **A sheet is read through the `GoogleSheets` port** (`@travel-crm/integrations/google-sheets`), read only. `google` and
   `hashes` are null when Google Sheets is not set up (`SHEETS_NOT_SET_UP`).
 - **A row is known by its hash, never its place** (`hashes.ts`, `sheet_row`): `(raw_hash, occurrence)`.

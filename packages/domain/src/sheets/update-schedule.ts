@@ -1,11 +1,12 @@
 // sheets.update-schedule (spec 5, 7): on sheet.schedule-changed, a connection that is running, has lost access, has no
-// tab, lacks columns or needs a manager has a row in the check schedule (due now when it has none); one that is
+// tab, lacks columns or needs a manager has a row in the check schedule (due at a random moment within the first interval when it has none); one that is
 // connecting, paused or disconnected has none. Run twice it is the same, and a stale row is harmless: the check
 // re-reads the connection and does nothing.
 import { sheetScheduleChangedEvent, type SheetStatus } from "@travel-crm/contracts/sheets";
 import type { Database } from "@travel-crm/db";
 import { defineListener, type EventListener } from "../jobs/index.js";
 import { sheetOf } from "./connection-row.js";
+import { firstCheckSeconds } from "./limits.js";
 import { removeScheduleRow, upsertScheduleRow } from "./schedule.js";
 
 const scheduled: ReadonlySet<SheetStatus> = new Set([
@@ -19,7 +20,11 @@ const scheduled: ReadonlySet<SheetStatus> = new Set([
 /** Whether a sheet in this status has a schedule row. */
 export const hasScheduleRow = (status: SheetStatus): boolean => scheduled.has(status);
 
-export function scheduleListener(dependencies: { db: Database }): EventListener {
+export function scheduleListener(dependencies: {
+  db: Database;
+  checkIntervalSeconds?: number;
+  random?: () => number;
+}): EventListener {
   return defineListener({
     name: "sheets.update-schedule",
     eventType: "sheet.schedule-changed",
@@ -34,7 +39,10 @@ export function scheduleListener(dependencies: { db: Database }): EventListener 
         sheetId: sheet.id,
         organizationId: sheet.organizationId,
         serviceAccountIndex: sheet.serviceAccountIndex,
-        nextCheckAt: new Date(),
+        // The first check is at a random moment within the first interval, so connections never all read at once.
+        nextCheckAt: new Date(
+          Date.now() + firstCheckSeconds(dependencies.checkIntervalSeconds, dependencies.random) * 1000,
+        ),
       });
     },
   });

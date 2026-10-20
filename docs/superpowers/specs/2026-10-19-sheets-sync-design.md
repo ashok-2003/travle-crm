@@ -21,7 +21,7 @@ team works them in the CRM. The sheet stays the agency's own: we only read it.
 **Goals**
 
 - An Owner connects a sheet in about three minutes, with a link and one share, and a new form answer is a lead within
-  about two minutes (when our servers are awake), with an owner and a notice.
+  about fifteen minutes (when our servers are awake; Sync now at once), with an owner and a notice.
 - **No duplicates, whatever the agency does:** several campaign sheets with the same people in them, people already
   handled by hand, rows sorted, inserted, deleted or the sheet connected twice by mistake. A person is one person and
   has one open lead.
@@ -99,7 +99,7 @@ finds the same step (as an import does). Steps are a caption under the title ("S
    added. New answers become leads.") and **Also check the 1,286 rows already there** ("You'll see a preview first.
    Anyone who already has a lead with you is left out unless you tick them."). A sheet with no rows skips this
    step. **Connect the sheet** (primary) asks once (`ConfirmDialog`): "Connect 'Goa Diwali campaign'? New rows will
-   become leads about every 2 minutes. We never change your sheet." Then "Reading your sheet…" and, for the first
+   become leads about every 15 minutes. Sync now brings them at once. We never change your sheet." Then "Reading your sheet…" and, for the first
    choice, the sheet's page; for the second, the import's preview (3.3).
 
 ### 3.3 Rows already in the sheet: the import's preview with one more group
@@ -353,10 +353,10 @@ Each new row goes through the bulk release's `readLeadRow` (B14, B19-B23) and cr
   connection is given `service_account_index = hash(connection id) mod number of accounts`, and keeps it for life
   because the agency shared the sheet with that address; adding an account only changes where later connections go.
   Google allows 300 reads a minute for the project and 60 a minute for one user, so one service account serves
-  about 120 sheets at a 2-minute interval (one read each, S17). `maxReadsPerMinutePerAccount = 50` leaves room for
+  about 800 sheets at the 15-minute pace (a check is one or two reads, S17, at 50 a minute). `maxReadsPerMinutePerAccount = 50` leaves room for
   connects and Sync now. Past that the dispatcher (S36) checks the most overdue first, so the interval stretches and
-  no sheet starves; the owner is told to add an account at 80 sheets for one (section 14).
-- **S36. Every 2 minutes while the worker is awake (owner).** The worker holds the schedule. A scheduled job of the
+  no sheet starves; the owner is told to add an account at about 400 sheets for one (section 14).
+- **S36. About every 15 minutes while the worker is awake (owner, changed 2026-10-20 from 2).** Each check's next time is the interval plus a random 0 to 5 minutes (`spreadCheckSeconds`), and a new connection's first scheduled check is at a random moment within its first interval (`firstCheckSeconds`), so agencies' sheets never all read Google in the same minute. A wait Google asked for (a hold) is kept as it is. Sync now is the way to get rows at once. "Late" is after 30 minutes.  The worker holds the schedule. A scheduled job of the
   worker (`sheets.dispatch-checks`, every minute, the finest granularity pg-boss schedules have) claims the due rows
   of `sheet_check_schedule` (section 5) and queues one `sheets.check` job for each, with ids only. The schedule is a
   small table outside row-level security, so the worker can find due sheets of every organization without reading any
@@ -386,7 +386,7 @@ Each new row goes through the bulk release's `readLeadRow` (B14, B19-B23) and cr
   deleted. The first such answer from a scheduled check only counts (`consecutive_failures`, so a blip doesn't alarm);
   the third in a row, or one from **Sync now** or **Check again**, sets `status = lost_access` with `attention_since`.
   The page says so with the fix (3.5), and the agency Owner gets **one** notice for the change into that state
-  (S45). Checks continue at the normal pace so that sharing again fixes it by itself within two minutes; each
+  (S45). Checks continue at the normal pace so that sharing again fixes it by itself within fifteen minutes; each
   failure after the first doesn't notify. When a check succeeds the sheet is `running` again (an audit entry,
   no notice).
 - **S40. Tab missing.** Google answers 400 "Unable to parse range" for a renamed tab. The check calls `describe` once,
@@ -651,7 +651,7 @@ listener does nothing for a connection no longer at its step.
 ## 10. The demo
 
 The demo organization has no Google configured, so **Connect a sheet** is off with the hint "Not available in the demo",
-and no connection is seeded (it would read Google every two minutes for a night's life). `resetDemoOrganization`'s
+and no connection is seeded (it would read Google every fifteen minutes for a night's life). `resetDemoOrganization`'s
 sample leads gain two with source Google Sheet and the detail "Goa Diwali campaign · Form responses 1", so the source
 shows in the list and on a lead.
 
@@ -761,8 +761,8 @@ Before the first agency connects a sheet:
      matching, so keep it with the secrets that are never changed.
 6. **The worker may sleep** (S36): it wakes when staff use the app, and its first tick checks every sheet. A sheet is
    therefore as fresh as the worker is awake; Sync now checks at once. Keeping the worker awake all day (a paid plan or
-   an uptime pinger) makes it the promised 2 minutes. The console plays no part in checking sheets.
-7. **Add a second service account** when a single one has about 80 connected sheets: repeat steps 3-4 and add its key
+   an uptime pinger) makes it the promised 15 minutes. The console plays no part in checking sheets.
+7. **Add a second service account** when a single one has about 400 connected sheets: repeat steps 3-4 and add its key
    to the list. Nothing else changes; existing sheets stay with their first address. Google's limits to watch
    (Cloud console, Quotas): 300 reads a minute for the project and 60 a minute per service account.
 8. **Before real agencies** (not for the pilot): Google may ask the project to be verified only if we later add OAuth
@@ -816,4 +816,4 @@ added listed; lost access noticed once; managers connect). These calls are mine,
 18. **At most 20,000 rows read, 10,000 offered to the connect-time import (S15):** a sheet is a working document; past
     that, a tab should be archived.
 19. **Service account per connection, kept for life (S35):** the agency shared with that address.
-20. **Pilot: no sheet in the demo (section 10):** it would read Google every two minutes for a night's life.
+20. **Pilot: no sheet in the demo (section 10):** it would read Google every fifteen minutes for a night's life.

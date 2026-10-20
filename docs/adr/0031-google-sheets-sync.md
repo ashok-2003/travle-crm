@@ -15,7 +15,7 @@ way only; spec `docs/superpowers/specs/2026-10-19-sheets-sync-design.md`)
   can read every sheet shared with it, so anyone holding a sheet's link could connect it first (accepted by the owner,
   2026-10-19, and softened by the claim below). A second implementation of the same port, taking an OAuth credential
   in place of an account index, can replace the share step later without touching the checks, the rows or the screens.
-- **Polling.** A check every two minutes while the worker is awake. Google Drive push notifications carry no detail and
+- **Polling.** A check about every fifteen minutes (plus a random 0 to 5) while the worker is awake, and Sync now at once. Google Drive push notifications carry no detail and
   their channels expire within a day, so they would still need polling.
 - **`google-auth-library` with plain `fetch`.** Two GET endpoints (`spreadsheets.get` with `fields`, and
   `spreadsheets.values.batchGet` with `FORMATTED_VALUE`) need no `googleapis` package, which is every Google API. The

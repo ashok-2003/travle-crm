@@ -89,7 +89,7 @@ export const sheetDetail = z.object({
   lastCheckedAt: timestamp.nullable(),
   /** A check is running now, so the page asks again soon. */
   checkRunning: z.boolean(),
-  /** The last check is more than ten minutes old, though the sheet is running. */
+  /** The last check is more than thirty minutes old, though the sheet is running. */
   late: z.boolean(),
   /** The agency can't change anything today (suspended or lapsed). */
   readOnly: z.boolean(),

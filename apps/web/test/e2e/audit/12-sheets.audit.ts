@@ -101,10 +101,10 @@ test("Google Sheets: Lead sources, connecting, a sheet's page and each state tha
   await expect(page.getByRole("region", { name: "Couldn't be added" })).toBeVisible();
   await shoot(page, "sheet-page-problems");
 
-  // Checks running late: the last one is twenty minutes old.
+  // Checks running late: the last one is forty minutes old.
   await database.platform.sheetConnection.update({
     where: { id: sheetId },
-    data: { lastCheckedAt: new Date(Date.now() - 20 * 60_000) },
+    data: { lastCheckedAt: new Date(Date.now() - 40 * 60_000) },
   });
   await page.goto(sheetUrl);
   await expect(page.getByText(/Checks are running late/)).toBeVisible();

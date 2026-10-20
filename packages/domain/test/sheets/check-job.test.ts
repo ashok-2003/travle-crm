@@ -13,7 +13,7 @@ const test = createTestSheets();
 afterAll(() => test.close());
 
 describe("sheetsCheckHandler", () => {
-  it("runs a check and sets the next time 120 seconds on, clearing the claim", async () => {
+  it("runs a check and sets the next time one interval on plus a random spread of up to a third, clearing the claim", async () => {
     const running = await setupSheet(test);
     running.append(answer("Asha", freshPhone()));
     await upsertScheduleRow(test.db, {
@@ -22,15 +22,16 @@ describe("sheetsCheckHandler", () => {
       serviceAccountIndex: 0,
       nextCheckAt: new Date(Date.now() - 1000),
     });
-    const handler = sheetsCheckHandler(running.dependencies());
+    const handler = sheetsCheckHandler({ ...running.dependencies(), random: () => 0.99 });
     expect(handler).toMatchObject({ queue: SHEETS_CHECK_QUEUE, concurrency: 4 });
     const before = Date.now();
     await handler.handle({ sheetId: running.sheet.sheetId, organizationId: running.agency });
     expect(await running.leads()).toHaveLength(1);
     const row = await scheduleRowOf(test.db, running.sheet.sheetId);
     expect(row?.claimedUntil).toBeNull();
-    expect(row?.nextCheckAt.getTime()).toBeGreaterThanOrEqual(before + 119_000);
-    expect(row?.nextCheckAt.getTime()).toBeLessThanOrEqual(Date.now() + 121_000);
+    // The interval of these tests is 120 seconds; at its most, a third more (39 of 40) is added.
+    expect(row?.nextCheckAt.getTime()).toBeGreaterThanOrEqual(before + 158_000);
+    expect(row?.nextCheckAt.getTime()).toBeLessThanOrEqual(Date.now() + 160_000);
   });
 
   it("removes the schedule row when the sheet is disconnected, paused or gone", async () => {

@@ -15,4 +15,6 @@ export interface CheckDependencies extends SheetsJobDependencies {
   /** One per worker process, shared by the dispatcher and the checks. */
   holds: AccountHolds;
   checkIntervalSeconds: number;
+  /** The spread of the next check's time, Math.random unless a test sets it. */
+  random?: () => number;
 }

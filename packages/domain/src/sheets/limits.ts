@@ -19,8 +19,23 @@ export const lookbackRows = 100;
 /** The daily full read is the first check after this hour in the agency's zone. */
 export const dailyFullReadHour = 3;
 
-/** A sheet is checked every this many seconds while the worker is awake (S36). */
-export const checkIntervalSeconds = 120;
+/** A sheet is checked about every this many seconds while the worker is awake (S36, owner 2026-10-20: 15 minutes). */
+export const checkIntervalSeconds = 900;
+/** Each check is put off by up to this share of the interval more (5 of 15 minutes), so agencies' checks never line up. */
+export const checkSpreadShare = 1 / 3;
+
+/** When a check's next one is due: the interval and a random spread after it, in seconds. */
+export function spreadCheckSeconds(
+  interval: number = checkIntervalSeconds,
+  random: () => number = Math.random,
+): number {
+  return interval + Math.floor(random() * interval * checkSpreadShare);
+}
+
+/** A new connection's first scheduled check: a random moment within its first interval, in seconds. */
+export function firstCheckSeconds(interval: number = checkIntervalSeconds, random: () => number = Math.random): number {
+  return Math.floor(random() * interval);
+}
 /** How many sheets' checks run at once. */
 export const checkConcurrency = 4;
 /** Google allows 300 reads a minute for the project and 60 for one user: this leaves room for connects and Sync now. */
@@ -33,8 +48,8 @@ export const syncCooldownSeconds = 30;
 export const lostAccessAfterFailures = 3;
 /** "A check is saving" for an import's Add: its heartbeat is this recent (S12). */
 export const checkHeartbeatSeconds = 30;
-/** The sheet's page says checks are running late after this many minutes without one. */
-export const lateAfterMinutes = 10;
+/** The sheet's page says checks are running late after this many minutes without one (past 15 plus the spread). */
+export const lateAfterMinutes = 30;
 
 /** Rows saved to a transaction by a check, and ledger rows written to a transaction by the baseline (S25, S14). */
 export const rowsPerTransaction = 50;
