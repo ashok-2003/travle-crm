@@ -6,7 +6,7 @@ import { customerContacts, eraseCustomer, type CustomerSubject } from "../crm/in
 import { deleteRecordFiles } from "../files/index.js";
 import type { Actor } from "../kernel/index.js";
 import { forgetRecordNotifications } from "../notifications/index.js";
-import { type SheetsHashes, withdrawSheetRows } from "../sheets/index.js";
+import { lockSheetConnections, type SheetsHashes, withdrawSheetRows } from "../sheets/index.js";
 import { cancelOpenTasks, redactTaskTitles } from "../tasks/index.js";
 
 /**
@@ -23,6 +23,8 @@ export async function eraseCustomerParts(
   sheetsHashes: SheetsHashes | null = null,
 ) {
   const { organizationId } = subject;
+  // The sheets' connections first, as a check takes them (SD9).
+  await lockSheetConnections(tx, organizationId);
   // Their contacts are read before the erasure empties them, for the sheets' tombstones (S43).
   const contacts = await customerContacts(tx, subject);
   const { leadIds, ...erased } = await eraseCustomer(tx, subject);

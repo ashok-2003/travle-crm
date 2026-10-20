@@ -9,6 +9,7 @@ import { isAnyImportAdding } from "../../imports/index.js";
 import {
   holdSheet,
   isKnown,
+  lockAddAgainstChecks,
   ledgerKey,
   lookUpLedger,
   type ReadRow,
@@ -91,6 +92,9 @@ export async function saveSheetBatch(
   if (sheet === null || sheet.status === "disconnected" || sheet.status === "paused") {
     return { processed: 0, stopped: "gone", madeFor };
   }
+  // Taking turns with an import's Add: whichever starts second sees the first's flag (SD11), so the lock comes before
+  // the heartbeat is written and before the flag is read.
+  await lockAddAgainstChecks(tx, sheet.organizationId);
   await tx.sheetConnection.update({ where: { id: sheet.id }, data: { checkStartedAt: context.now } });
   if (await isAnyImportAdding(tx)) return { processed: 0, stopped: "yielded", madeFor };
 

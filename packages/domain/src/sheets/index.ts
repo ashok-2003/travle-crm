@@ -60,6 +60,6 @@ export {
 } from "./dispatch.js";
 export { finishScheduledCheck } from "./schedule.js";
 export { sweepSheets, type SheetsSwept } from "./sweep.js";
-export { type ErasedContacts, type SheetsWithdrawn, withdrawSheetRows } from "./erasure.js";
-export { assertNoSheetCheckSaving } from "./guards.js";
+export { type ErasedContacts, lockSheetConnections, type SheetsWithdrawn, withdrawSheetRows } from "./erasure.js";
+export { assertNoSheetCheckSaving, lockAddAgainstChecks } from "./guards.js";
 export { listSheets, sheetDetailOf, type SheetDetailFacts } from "./views.js";
