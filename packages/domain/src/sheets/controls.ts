@@ -26,6 +26,18 @@ async function heldAt(tx: OrgTx, sheetId: string, statuses: readonly SheetConnec
   return sheet;
 }
 
+/**
+ * The sheets Check again is for: lost access or a missing tab, and a sheet that is waiting for the baseline of a tab it
+ * was given (connected before, its first full read since not done): asking again is how a stuck one gets it (R1).
+ */
+async function heldForRecheck(tx: OrgTx, sheetId: string) {
+  const sheet = await heldAt(tx, sheetId, ["lost_access", "tab_missing", "connecting"]);
+  if (sheet.status === "connecting" && (sheet.connectedAt === null || sheet.lastFullReadAt !== null)) {
+    throw sheetNotReady();
+  }
+  return sheet;
+}
+
 const connected: readonly SheetConnectionRow["status"][] = [
   "running",
   "paused",
@@ -159,9 +171,7 @@ export async function recheckSheet(
   input: RecheckSheetInput,
   now: Date,
 ): Promise<void> {
-  const sheet = await db.forOrg(access.organizationId, (tx) =>
-    heldAt(tx, input.sheetId, ["lost_access", "tab_missing"]),
-  );
+  const sheet = await db.forOrg(access.organizationId, (tx) => heldForRecheck(tx, input.sheetId));
   let tab: { gid: string; title: string } | null = null;
   if (input.tabGid !== undefined) {
     const { google } = dependencies;
@@ -175,7 +185,7 @@ export async function recheckSheet(
     tab = { gid: description.chosenTab.gid, title: description.chosenTab.title };
   }
   await db.forOrg(access.organizationId, async (tx) => {
-    const held = await heldAt(tx, input.sheetId, ["lost_access", "tab_missing"]);
+    const held = await heldForRecheck(tx, input.sheetId);
     // Check again is no way round Sync now's rule: not while a check runs, nor twice within half a minute.
     if (await checkIsUnderWay(tx, held, now, "recheck")) throw busy();
     if (tab !== null && tab.gid !== held.tabGid) {
@@ -190,8 +200,8 @@ export async function recheckSheet(
       });
       if (taken !== null) throw alreadyConnected();
     }
-    if (held.connectedAt === null) {
-      // The baseline never ran (the share was removed between Confirm and the job): ask for it again.
+    if (held.connectedAt === null || held.lastFullReadAt === null) {
+      // The baseline never ran, or a new tab's did not finish (the share was removed between Confirm and the job): ask for it again.
       await tx.sheetConnection.update({
         where: { id: held.id },
         data: {
@@ -199,6 +209,8 @@ export async function recheckSheet(
           step: "done",
           attentionSince: null,
           touchedAt: now,
+          // A sheet that ran before asks for no import of its rows again.
+          ...(held.connectedAt === null ? {} : { existingRows: "only_new" as const }),
           ...(tab === null ? {} : { tabGid: tab.gid, tabTitle: tab.title.slice(0, 100) }),
         },
       });
@@ -220,6 +232,8 @@ export async function recheckSheet(
           existingRows: "only_new",
           attentionSince: null,
           touchedAt: now,
+          // Its baseline is asked for and not yet done: Check again, from any state, asks for it again until it is.
+          lastFullReadAt: null,
         },
       });
       await publishEvent(tx, { type: "sheet.baseline-requested", payload: { sheetId: held.id } });

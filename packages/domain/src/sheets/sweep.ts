@@ -20,7 +20,12 @@ export interface SheetsSwept {
 export async function sweepSheets(tx: OrgTx, now: Date, limit: number): Promise<SheetsSwept> {
   // A draft is a connection that never started running, untouched for a day (S6); its columns and rows go first.
   const drafts = await tx.sheetConnection.findMany({
-    where: { status: "connecting", touchedAt: { lt: new Date(now.getTime() - draftKeptHours * HOUR_MS) } },
+    // Only a sheet that never ran: one that did and waits for a new tab's baseline is a sheet, not a draft (R1).
+    where: {
+      status: "connecting",
+      connectedAt: null,
+      touchedAt: { lt: new Date(now.getTime() - draftKeptHours * HOUR_MS) },
+    },
     select: { id: true },
     take: limit,
     orderBy: { id: "asc" },
