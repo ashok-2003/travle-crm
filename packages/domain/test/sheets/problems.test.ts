@@ -81,4 +81,27 @@ describe("sheetProblems", () => {
     const entry = (await auditOf(test, hiding.agency, sheetId)).find((e) => e.action === "sheet.problem-hidden");
     expect(entry?.after).toEqual({ rowNumber: 10 });
   });
+
+  it("keeps a hidden problem hidden while the same row stays as it is, through later checks, and shows it again once it is fixed and broken anew", async () => {
+    const running = await setupSheet(test);
+    running.append(["19/10/2026 14:00:00", "No Contact Person", "", ""]);
+    await running.check("sync-now");
+    const [problem] = await running.ledger();
+    expect(problem).toMatchObject({ status: "not_added", resolvedAt: null });
+    await running.inOrg((tx) =>
+      hideProblem(
+        tx,
+        memberOf(running.agency),
+        { sheetId: running.sheet.sheetId, rowId: problem?.id ?? "" },
+        new Date(),
+      ),
+    );
+    // Later checks read the row again, still unfixed: it stays hidden.
+    await running.check("sync-now");
+    await running.check("recheck");
+    const [again] = await running.ledger();
+    expect(again?.resolvedAt).not.toBeNull();
+    const list = await running.inOrg((tx) => sheetProblems(tx, { sheetId: running.sheet.sheetId }));
+    expect((list as { items: unknown[] }).items).toHaveLength(0);
+  });
 });

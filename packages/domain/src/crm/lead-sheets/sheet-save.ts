@@ -145,7 +145,10 @@ export async function saveSheetBatch(
           data: { connectionId: sheet.id, rawHash: row.hash, occurrence: row.occurrence, ...values },
         });
       } else {
-        await tx.sheetRow.update({ where: { id: existing.id }, data: values });
+        // A problem hidden by hand stays hidden while the row is still the same problem; the next outcome shows it.
+        const { resolvedAt, ...rest } = values;
+        const sameProblem = existing.status === "not_added" && data.status === "not_added";
+        await tx.sheetRow.update({ where: { id: existing.id }, data: sameProblem ? rest : { ...rest, resolvedAt } });
       }
     };
     switch (decision.kind) {
