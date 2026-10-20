@@ -31,7 +31,7 @@ export {
   type LedgerEntry,
 } from "./ledger.js";
 export { nameColumns, type HeaderName } from "./header-keys.js";
-export { limitSheetReads, sheetReadsPerMinute } from "./read-limits.js";
+export { limitSheetReads, requestsOf, sheetRequestsPerMinute } from "./read-limits.js";
 export { findTombstones, type ContactToCheck } from "./tombstones.js";
 export { baselineSheetFingerprints, earlierSheetFingerprints } from "./fingerprints.js";
 export { monthFirstLocale, sheetOrigin, sheetOriginOf } from "./origin.js";

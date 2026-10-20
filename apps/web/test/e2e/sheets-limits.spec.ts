@@ -7,7 +7,7 @@ test("the refusals each have their sentence; the sixth sheet is refused; another
   page,
   agency,
 }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(480_000);
   const google = fakeGoogle();
   await signInByEmail(page, agency.owner);
 
@@ -27,8 +27,6 @@ test("the refusals each have their sentence; the sixth sheet is refused; another
   await expect(page.getByText("This sheet is already connected here.")).toBeVisible();
 
   for (let index = 2; index <= 5; index += 1) {
-    // Each connect reads Google a handful of times; the agency may make us read thirty times a minute.
-    await page.waitForTimeout(15_000);
     const form = await aGoogleForm(google, { title: `Sheet ${String(index)}` });
     await connectSheet(page, { link: form.link, existing: "only_new" });
   }

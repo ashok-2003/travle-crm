@@ -339,11 +339,33 @@ describe("the Google Sheets sync over HTTP", () => {
         const refusal = response.ok ? null : await refusalOf(response);
         if (refusal?.reason === "SHEETS_TOO_FAST") refused += 1;
       }
-      // 30 reads a minute are allowed; the rest are told to wait.
-      expect(refused).toBe(10);
+      // Twenty Google requests a minute, two for each begin: ten are allowed, the rest are told to wait.
+      expect(refused).toBe(30);
       // Another agency is not held back by it.
       const fine = await mutate(limited, "leadSheets.begin", { link: linkTo(aSheet()) }, otherJar);
       expect(fine.ok).toBe(true);
+    } finally {
+      await limited.close();
+    }
+  });
+
+  it("spends Sync now from the same budget of Google requests as the connect steps", async () => {
+    const limited = createTestServer(
+      {},
+      { google, sheetsHashes: createSheetsHashes("test-sheets-hash-key-0123456789-abc") },
+    );
+    try {
+      const own = await createTestAgency(limited);
+      const jar = await signedInOwner(limited, own);
+      const sheetId = randomUUID();
+      const reasons: (string | null)[] = [];
+      // Three requests a press: six presses fit in twenty, the seventh is told to wait, whatever the sheet says.
+      for (let press = 0; press < 8; press += 1) {
+        const response = await mutate(limited, "leadSheets.syncNow", { sheetId }, jar);
+        reasons.push(response.ok ? null : (await refusalOf(response)).reason);
+      }
+      expect(reasons.slice(0, 6).every((reason) => reason !== "SHEETS_TOO_FAST")).toBe(true);
+      expect(reasons.slice(6)).toEqual(["SHEETS_TOO_FAST", "SHEETS_TOO_FAST"]);
     } finally {
       await limited.close();
     }
