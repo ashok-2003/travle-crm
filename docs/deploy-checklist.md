@@ -154,7 +154,7 @@ Secrets come from the platform's secret manager as environment variables, never 
   - The worker may sleep (Render's free tier): it wakes when staff use the app and its first tick checks every sheet,
     so a sheet is as fresh as the worker is awake; **Sync now** checks at once. Keeping the worker awake makes it the
     promised fifteen minutes. The console plays no part in checking sheets.
-  - Add a second service account when one has about 400 connected sheets (Google allows 300 reads a minute for the
+  - Add a second service account when one has about 250 connected sheets (Google allows 300 reads a minute for the
     project and 60 a minute per service account): repeat the steps and add its key to the list. Existing sheets stay with
     their first address.
   - Tell agencies in the help text that the address in the connect screen is ours, read only, and that removing it from

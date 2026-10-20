@@ -50,14 +50,19 @@ describe("the dispatcher with a thousand connections", () => {
   it("claims due sheets of 1,000 connections within 100 ms", async () => {
     const fastest = await fastestMs(async () => {
       // Claims lapse at once, so every run finds the same sheets.
-      const claimed = await claimDueSheets(db, { now: start, accountIndex: 0, limit: 50, claimSeconds: 0 });
-      expect(claimed).toHaveLength(50);
+      const claimed = await claimDueSheets(db, {
+        now: start,
+        accountIndex: 0,
+        limit: maxReadsPerMinutePerAccount,
+        claimSeconds: 0,
+      });
+      expect(claimed).toHaveLength(maxReadsPerMinutePerAccount);
     });
     console.info("Sheets dispatch:", JSON.stringify({ claimMs: Math.round(fastest) }));
     expect(fastest).toBeLessThan(100);
   }, 60_000);
 
-  it("queues the checks of 100 agencies within the quota: never more than 50 an account a minute, all within three ticks", async () => {
+  it("queues the checks of 100 agencies within the quota: never more than the budget an account a minute, all within three ticks", async () => {
     await platform.sheetCheckSchedule.updateMany({ data: { claimedUntil: null } });
     const queue = createMemoryJobQueue();
     const holds = createAccountHolds();
@@ -71,7 +76,8 @@ describe("the dispatcher with a thousand connections", () => {
       total += queued;
     }
     expect(queue.sent.filter((job) => job.queue === SHEETS_CHECK_QUEUE)).toHaveLength(total);
-    // 1,000 sheets on two accounts at 50 a minute each is ten minutes: a tick queues the full quota, not more.
-    expect(queuedBy).toEqual([100, 100, 100]);
+    // A tick queues the full quota of both accounts, not more.
+    const quota = 2 * maxReadsPerMinutePerAccount;
+    expect(queuedBy).toEqual([quota, quota, quota]);
   }, 60_000);
 });

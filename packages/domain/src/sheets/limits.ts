@@ -38,8 +38,15 @@ export function firstCheckSeconds(interval: number = checkIntervalSeconds, rando
 }
 /** How many sheets' checks run at once. */
 export const checkConcurrency = 4;
-/** Google allows 300 reads a minute for the project and 60 for one user: this leaves room for connects and Sync now. */
-export const maxReadsPerMinutePerAccount = 50;
+/**
+ * Google allows 300 requests a minute for the project and 60 for one user (the service account). A check makes one
+ * request, or three when it is a full read that also asks for the sheet's title (SD13), so the dispatcher counts three
+ * each: a wake-up burst of due sheets stays at 54 requests a minute, leaving room for connects and Sync now.
+ */
+export const requestsPerCheck = 3;
+export const maxRequestsPerMinutePerAccount = 54;
+/** The checks the dispatcher queues for an account in a minute. */
+export const maxReadsPerMinutePerAccount = maxRequestsPerMinutePerAccount / requestsPerCheck;
 /** A dispatched or running check holds its sheet this long (S36). */
 export const claimSeconds = 300;
 /** Sync now is refused within this many seconds of the last check (S38). */
