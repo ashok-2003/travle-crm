@@ -14,7 +14,7 @@ describe("the bulk routers", () => {
   });
 
   it("serves the staff import's and export's procedures", () => {
-    const procedures = (name: string) => Object.keys((record[name] ?? {})).sort();
+    const procedures = (name: string) => Object.keys(record[name] ?? {}).sort();
     expect(procedures("staffImports")).toEqual(
       ["add", "cancel", "confirmUpload", "get", "match", "recent", "rows", "setPasswords", "start"].sort(),
     );
