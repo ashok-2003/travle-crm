@@ -33,13 +33,15 @@ export function listFiltersOf(search: Pick<URLSearchParams, "get">, scope: "own"
     const parsed = schema.safeParse(search.get(names[name]));
     return parsed.success ? parsed.data : undefined;
   };
-  const everyone = scope === "all" && search.get(names.view) === "everyone";
-  const ownerUserId = everyone ? read(recordId, "ownerUserId") : undefined;
+  const asked = search.get(names.view);
+  // Everyone's and the Unassigned queue are for whoever sees all leads; anyone else sees their own.
+  const view = scope === "all" && (asked === "everyone" || asked === "unassigned") ? asked : "mine";
+  const ownerUserId = view === "everyone" ? read(recordId, "ownerUserId") : undefined;
   const source = read(leadSource, "source");
   const destinationId = read(recordId, "destinationId");
   const kind = read(tripType, "tripType");
   return {
-    view: everyone ? "everyone" : "mine",
+    view,
     stage: search.get(names.stage) === "open" ? "open" : (read(leadStage, "stage") ?? "open"),
     ...(ownerUserId && { ownerUserId }),
     ...(source && { source }),

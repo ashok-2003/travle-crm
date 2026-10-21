@@ -44,7 +44,7 @@ describe("useContinueAfterStep", () => {
   it("goes home when nothing is pending and no ?next= was given", async () => {
     await finishStep("");
     await vi.waitFor(() => {
-      expect(navigation.replace).toHaveBeenCalledWith("/");
+      expect(navigation.replace).toHaveBeenCalledWith("/dashboard");
     });
   });
 
@@ -65,7 +65,7 @@ describe("useContinueAfterStep", () => {
   it("never follows ?next= to another site", async () => {
     await finishStep("next=%2F%2Fevil.example");
     await vi.waitFor(() => {
-      expect(navigation.replace).toHaveBeenCalledWith("/");
+      expect(navigation.replace).toHaveBeenCalledWith("/dashboard");
     });
   });
 });

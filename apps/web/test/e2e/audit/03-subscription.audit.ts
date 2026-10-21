@@ -15,7 +15,7 @@ test("a trial in its last week", async ({ page, agency, database }) => {
     data: { status: "trial", trialEndsOn: new Date(`${lastDay}T00:00:00Z`), paidThrough: null },
   });
   await signInByEmail(page, agency.owner);
-  await page.goto("/");
+  await page.goto("/dashboard");
   await expect(page.getByText(/^Trial ends /)).toBeVisible();
   await shoot(page, "banner-trial-ending");
 });
@@ -23,7 +23,7 @@ test("a trial in its last week", async ({ page, agency, database }) => {
 test("a payment due", async ({ page, agency, database }) => {
   await setSubscriptionState(database.platform, agency.organizationId, "past_due");
   await signInByEmail(page, agency.owner);
-  await page.goto("/");
+  await page.goto("/dashboard");
   await expect(page.getByText(/^Payment due/)).toBeVisible();
   await shoot(page, "banner-payment-due");
 });
@@ -41,13 +41,13 @@ test("suspended, as a member and as the Owner", async ({ page, agency, addStaff,
   const ravi = await addStaff({ name: "Ravi Kumar", username: "ravi", roleKey: "sales" });
   await setSubscriptionState(database.platform, agency.organizationId, "suspended");
   await signInByCode(page, { code: agency.code, staff: ravi });
-  await page.goto("/");
+  await page.goto("/dashboard");
   await expect(page.getByRole("heading", { level: 1, name: "Your organization is suspended" })).toBeVisible();
   await shoot(page, "suspended-member");
 
   await page.context().clearCookies();
   await signInByEmail(page, agency.owner);
-  await page.goto("/");
+  await page.goto("/dashboard");
   await expect(page.getByRole("link", { name: "Go to Staff" })).toBeVisible();
   await shoot(page, "suspended-owner");
 });
@@ -56,7 +56,7 @@ test("cancelled", async ({ page, agency, addStaff, database }) => {
   const kiran = await addStaff({ name: "Kiran Rao", username: "kiran", roleKey: "org-admin" });
   await setSubscriptionState(database.platform, agency.organizationId, "cancelled");
   await signInByCode(page, { code: agency.code, staff: kiran });
-  await page.goto("/");
+  await page.goto("/dashboard");
   await expect(
     page.getByRole("heading", { level: 1, name: "Your organization's subscription has ended" }),
   ).toBeVisible();

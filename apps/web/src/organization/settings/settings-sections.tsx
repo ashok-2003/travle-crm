@@ -15,6 +15,7 @@ import {
   ListChecksIcon,
   MapPinIcon,
   PaletteIcon,
+  ShuffleIcon,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -45,6 +46,7 @@ interface Section {
     | "destinations"
     | "blockedContacts"
     | "leadSources"
+    | "assignment"
     | "audit";
   href: string;
   icon: LucideIcon;
@@ -67,6 +69,13 @@ const sections: readonly Section[] = [
     href: routes.leadSources,
     icon: FileSpreadsheetIcon,
     requires: ["leads:create", "leads:assign"],
+    module: "crm",
+  },
+  {
+    key: "assignment",
+    href: routes.leadAssignment,
+    icon: ShuffleIcon,
+    requires: ["settings:manage", "leads:assign"],
     module: "crm",
   },
   { key: "audit", href: routes.audit, icon: HistoryIcon, requires: "audit:view" },

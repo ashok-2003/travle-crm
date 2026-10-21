@@ -1,9 +1,10 @@
 "use client";
 
 // The desktop navigation (DESIGN.md section 6), the registry's Sidebar: fixed to the window at full height while the
-// page scrolls, on the surface tone, with the organization's name and the bell beside it, the destinations (the
-// current page in the blue tint), and the person's account (a long name wraps) and sign-out at the bottom. Phones have
-// the top bar and the bottom bar instead.
+// page scrolls, on the surface tone, with the agency's logo (or name), the bell and the fold button, the destinations
+// under their headings (the current page in the blue tint), and the person's account (a long name wraps) and sign-out
+// at the bottom. Folded, it keeps the icons, each named in a tooltip, and opens again as it was left. Phones have the
+// top bar and the bottom bar instead.
 import { LogOutIcon, UserIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -13,15 +14,19 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { routes } from "@/lib/routes";
 import { NotificationBell } from "@/notifications/bell/notification-bell";
 import { useMe } from "@/session/me-context";
-import { isAtOrUnder, isCurrent } from "./navigation";
+import { isAtOrUnder, isCurrent, navigationGroups } from "./navigation";
+import { OrgMark } from "./org-mark";
 import { prefetchHandlers, usePrefetchDestination } from "./prefetch";
 import { useSignOut } from "./sign-out";
 import { useNavigationItems } from "./use-navigation-items";
@@ -34,45 +39,54 @@ export function AppSidebar() {
   const items = useNavigationItems();
   const prefetch = usePrefetchDestination();
   const onAccount = isAtOrUnder(pathname, routes.account);
+  const { open } = useSidebar();
   return (
-    <Sidebar>
+    <Sidebar collapsible="icon">
       <SidebarHeader>
-        <div className="flex items-center justify-between gap-2 pl-2">
-          <p className="script-leading min-w-0 text-section font-semibold break-words">{me.organization.name}</p>
+        <div className="flex items-center gap-1 pl-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:pl-0">
+          <OrgMark className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden" />
           <NotificationBell opensAs="popover" />
+          <SidebarTrigger label={open ? t("collapse") : t("expand")} />
         </div>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <nav aria-label={t("label")}>
-            <SidebarMenu>
-              {items.map((item) => {
-                const current = isCurrent(item, pathname);
-                return (
-                  <SidebarMenuItem key={item.key}>
-                    <SidebarMenuButton asChild isActive={current}>
-                      <Link
-                        href={item.href}
-                        aria-current={current ? "page" : undefined}
-                        {...prefetchHandlers(() => {
-                          prefetch(item.key);
-                        })}
-                      >
-                        <item.icon aria-hidden="true" />
-                        {t(item.key)}
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </nav>
-        </SidebarGroup>
+        <nav aria-label={t("label")}>
+          {navigationGroups.map((group) => {
+            const inGroup = items.filter((item) => item.group === group);
+            if (inGroup.length === 0) return null;
+            return (
+              <SidebarGroup key={group}>
+                <SidebarGroupLabel>{t(`groups.${group}`)}</SidebarGroupLabel>
+                <SidebarMenu>
+                  {inGroup.map((item) => {
+                    const current = isCurrent(item, pathname);
+                    return (
+                      <SidebarMenuItem key={item.key}>
+                        <SidebarMenuButton asChild isActive={current} tooltip={t(item.key)}>
+                          <Link
+                            href={item.href}
+                            aria-current={current ? "page" : undefined}
+                            {...prefetchHandlers(() => {
+                              prefetch(item.key);
+                            })}
+                          >
+                            <item.icon aria-hidden="true" />
+                            <span>{t(item.key)}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroup>
+            );
+          })}
+        </nav>
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild size="lg" isActive={onAccount}>
+            <SidebarMenuButton asChild size="lg" isActive={onAccount} tooltip={t("account")}>
               <Link href={routes.account} aria-current={onAccount ? "page" : undefined}>
                 <UserIcon aria-hidden="true" />
                 <span className="flex min-w-0 flex-col">
@@ -83,9 +97,9 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={signOut}>
+            <SidebarMenuButton onClick={signOut} tooltip={t("signOut")}>
               <LogOutIcon aria-hidden="true" />
-              {t("signOut")}
+              <span>{t("signOut")}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

@@ -1,11 +1,13 @@
 // Every tRPC router the api serves at /api/trpc. The web app imports the AppRouter type only, never this code. The
 // platform console's routers are served apart, by the console process (platform/platform-router.ts).
 import { router } from "../trpc.js";
+import { assignmentRouter } from "./assignment.js";
 import { attachmentsRouter } from "./attachments.js";
 import { auditRouter } from "./audit.js";
 import { blockedContactsRouter } from "./blocked-contacts.js";
 import { destinationsRouter } from "./destinations.js";
 import { documentsRouter } from "./documents.js";
+import { insightsRouter } from "./insights.js";
 import { leadExportsRouter } from "./lead-exports.js";
 import { leadImportsRouter } from "./lead-imports.js";
 import { leadSheetsRouter } from "./lead-sheets.js";
@@ -40,6 +42,8 @@ export const appRouter = router({
   destinations: destinationsRouter,
   tasks: tasksRouter,
   today: todayRouter,
+  insights: insightsRouter,
+  assignment: assignmentRouter,
   leadImports: leadImportsRouter,
   leadSheets: leadSheetsRouter,
   leadExports: leadExportsRouter,

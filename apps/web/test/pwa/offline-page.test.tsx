@@ -30,6 +30,6 @@ describe("the offline page", () => {
     render(await OfflinePage());
     const home = screen.getByRole("link", { name: "Go to the home screen" });
     for (const link of [tryAgain(), home]) expect(link).toHaveAttribute("data-size", "default");
-    expect(home).toHaveAttribute("href", "/");
+    expect(home).toHaveAttribute("href", "/dashboard");
   });
 });

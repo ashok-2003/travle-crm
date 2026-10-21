@@ -21,7 +21,7 @@ test("support opens an agency, signs in as its Owner, sees the agency under the 
   await confirm.getByRole("button", { name: `Sign in as ${agency.owner.name}` }).click();
 
   await expect(page.getByRole("heading", { level: 1, name: `Welcome, ${agency.owner.name}` })).toBeVisible();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page.getByText(`You're signed in as ${agency.owner.name} at ${agency.name}.`)).toBeVisible();
   await page.getByRole("button", { name: "Stop" }).click();
 

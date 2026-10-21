@@ -10,7 +10,14 @@
     "audit": "Audit log",
     "more": "More",
     "account": "Your account",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "groups": {
+      "work": "Work",
+      "team": "Team",
+      "manage": "Manage"
+    },
+    "collapse": "Fold the sidebar to its icons",
+    "expand": "Open the sidebar"
   },
   "home": {
     "title": "Welcome, {name}",

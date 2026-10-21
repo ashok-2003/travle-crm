@@ -25,6 +25,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { routes } from "@/lib/routes";
 import { useWideScreen } from "@/lib/use-wide-screen";
 import { useHolds, useMe, viewScope } from "@/session/me-context";
+import { BulkBar } from "./bulk/bulk-bar";
+import { useLeadSelection } from "./bulk/use-lead-selection";
 import { FiltersDialog } from "./filters-dialog";
 import { LeadRows } from "./lead-rows";
 import { LeadsHeaderActions } from "./leads-header-actions";
@@ -46,6 +48,9 @@ export function LeadsScreen() {
   const leads = useLeads(input);
   const counts = useLeadCounts(input);
   const wide = useWideScreen();
+  // On a computer, whoever may change leads chooses some for a bulk change; a new filter or search starts afresh.
+  const bulk = useHolds("leads:edit") && wide;
+  const selection = useLeadSelection(JSON.stringify(input));
   const blockedContacts = useHolds("leads:assign") && (
     <TextLink href={routes.blockedContacts}>{t("blockedContacts")}</TextLink>
   );
@@ -97,12 +102,20 @@ export function LeadsScreen() {
         return <EmptyState icon={SearchXIcon} message={t("emptyFiltered")} action={clearButton} />;
       }
       // The header's New lead sits just above: one primary button per screen (DESIGN.md section 6).
-      return <EmptyState icon={ContactIcon} message={ownOnly ? t("emptyMine") : t("empty")} />;
+      const empty = ownOnly ? t("emptyMine") : filters.view === "unassigned" ? t("emptyUnassigned") : t("empty");
+      return <EmptyState icon={ContactIcon} message={empty} />;
     }
     return (
       <div className="flex flex-col gap-4">
+        {bulk && <BulkBar selection={selection} />}
         {wide ? (
-          <LeadsTable leads={leads.items} people={leads.people} filters={filters} showOwner={!ownOnly} />
+          <LeadsTable
+            leads={leads.items}
+            people={leads.people}
+            filters={filters}
+            showOwner={!ownOnly}
+            {...(bulk && { selection })}
+          />
         ) : (
           <LeadRows leads={leads.items} filters={filters} />
         )}
@@ -118,6 +131,7 @@ export function LeadsScreen() {
         <TabsList className="w-full md:w-fit" aria-label={t("whose")}>
           <TabsTrigger value="mine">{t("mine")}</TabsTrigger>
           <TabsTrigger value="everyone">{t("everyone")}</TabsTrigger>
+          <TabsTrigger value="unassigned">{t("unassigned")}</TabsTrigger>
         </TabsList>
       )}
       <SearchField key={searchBox} initial={search} onSearch={setSearch} />
@@ -157,7 +171,11 @@ export function LeadsScreen() {
         <Tabs
           value={filters.view}
           onValueChange={(view) => {
-            show({ ...filters, view: view === "everyone" ? "everyone" : "mine", ownerUserId: undefined });
+            show({
+              ...filters,
+              view: view === "everyone" || view === "unassigned" ? view : "mine",
+              ownerUserId: undefined,
+            });
           }}
           className="gap-6"
         >

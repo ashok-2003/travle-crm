@@ -38,7 +38,7 @@ test("an Owner's agency, screen by screen, as it is set up", async ({ page, requ
   await addStaff({ name: "Ravi Kumar", username: "ravi", roleKey: "sales" });
   await signInByEmail(page, agency.owner);
   await saveBusinessProfile(page);
-  await page.goto("/");
+  await page.goto("/dashboard");
   const checklist = page.getByRole("region", { name: `Finish setting up ${agency.name}` });
   await expect(checklist.getByText("5 of 7 done")).toBeVisible();
   await shoot(page, "home-checklist");
@@ -120,7 +120,7 @@ test("an Owner's agency, screen by screen, as it is set up", async ({ page, requ
   await handover.getByRole("button", { name: "Done" }).click();
   await expect(handover).toHaveCount(0);
 
-  await page.goto("/");
+  await page.goto("/dashboard");
   await expect(page.getByRole("heading", { level: 1, name: `Welcome, ${agency.owner.name}` })).toBeVisible();
   // The checklist asks again as the screen opens; only its answer says it is gone for good.
   await page.waitForLoadState("networkidle");
@@ -155,7 +155,7 @@ test("an Owner's agency, screen by screen, as it is set up", async ({ page, requ
   await expect(change.getByText("See the audit log", { exact: true })).toBeVisible();
   await shoot(page, "audit-log");
 
-  await page.goto("/");
+  await page.goto("/dashboard");
   await expect(page.getByRole("heading", { level: 1, name: `Welcome, ${agency.owner.name}` })).toBeVisible();
   if (testInfo.project.name === "phone") {
     await shoot(page, "top-bar", { element: page.locator("header").filter({ visible: true }).first() });
@@ -176,7 +176,7 @@ test("a Sales member's home and a screen their role can't open; the console, ope
 }) => {
   const ravi = await addStaff({ name: "Ravi Kumar", username: "ravi", roleKey: "sales" });
   await signInByCode(page, { code: agency.code, staff: ravi });
-  await page.goto("/");
+  await page.goto("/dashboard");
   await expect(page.getByText("Your work will show here.")).toBeVisible();
   await shoot(page, "sales-home");
   await page.goto("/staff");

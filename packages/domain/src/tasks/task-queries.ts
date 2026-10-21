@@ -54,6 +54,19 @@ export function countOpenTasksQuery(filter: Pick<OpenTasksFilter, "assigneeUserI
 }
 
 /** How many open tasks the person has, within the window if one is given. */
+/** Open tasks past their time at `now`: one person's, or everyone's (null), for the dashboard. */
+export async function countOverdueTasks(
+  tx: OrgTx,
+  { assigneeUserId, now }: { assigneeUserId: string | null; now: Date },
+) {
+  const assignee = assigneeUserId === null ? emptySql : sql`AND assignee_user_id = ${assigneeUserId}::uuid`;
+  const [row] = await tx.$queryRaw<{ n: number }[]>(
+    sql`SELECT count(*)::int AS n FROM task
+      WHERE done_at IS NULL AND cancelled_at IS NULL AND due_at < ${now}::timestamptz ${assignee}`,
+  );
+  return row?.n ?? 0;
+}
+
 export async function countOpenTasks(
   tx: OrgTx,
   filter: Pick<OpenTasksFilter, "assigneeUserId" | "dueFrom" | "dueBefore">,

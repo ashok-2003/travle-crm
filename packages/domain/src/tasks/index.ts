@@ -12,6 +12,7 @@ export { addStandaloneTask, completeTask, createTask, dueInstant, snoozeTask } f
 export {
   countOpenTasks,
   countOpenTasksQuery,
+  countOverdueTasks,
   listOpenTasks,
   openTasksQuery,
   type OpenTasksFilter,

@@ -89,10 +89,20 @@ describe("SessionGate", () => {
     expect(screen.queryByText(/Shell for/)).toBeNull();
   });
 
-  it("says when me.get didn't load, with a way to try again", async () => {
-    stubApi({ "me.get": "offline" });
+  it("says the api is starting up while it wakes, then opens the shell", async () => {
+    const api = stubApi({ "me.get": "offline" });
     renderGate();
-    // The app's queries try an unanswered call three times, a second and then two apart.
+    expect(await screen.findByText(messages.common.serverWaking)).toBeVisible();
+    expect(screen.queryByText(session.loadFailed)).toBeNull();
+    api.answer("me.get", { data: member() });
+    // A waking api is asked again every three seconds.
+    expect(await screen.findByText("Shell for Asha", undefined, { timeout: 5_000 })).toBeVisible();
+  });
+
+  it("says when me.get didn't load, with a way to try again", async () => {
+    stubApi({ "me.get": { status: 500 } });
+    renderGate();
+    // A server fault is tried three times, a second and then two apart.
     expect(await screen.findByText(session.loadFailed, undefined, { timeout: 5_000 })).toBeVisible();
     expect(screen.getByRole("button", { name: messages.common.tryAgain })).toBeVisible();
   });

@@ -30,7 +30,9 @@ describe("notificationFor", () => {
       "/\\evil.example",
       "/api/auth/sign-out",
     ]) {
-      expect(notificationFor(JSON.stringify({ ...opened, url })).options.data, String(url)).toEqual({ path: "/" });
+      expect(notificationFor(JSON.stringify({ ...opened, url })).options.data, String(url)).toEqual({
+        path: "/dashboard",
+      });
     }
   });
 
@@ -38,7 +40,7 @@ describe("notificationFor", () => {
     for (const payload of [null, "not json", "42", JSON.stringify({ title: 7, body: ["x"] })]) {
       expect(notificationFor(payload), String(payload)).toEqual({
         title: words.push.fallbackTitle,
-        options: { body: words.push.fallbackBody, icon: "/icons/icon-192.png", data: { path: "/" } },
+        options: { body: words.push.fallbackBody, icon: "/icons/icon-192.png", data: { path: "/dashboard" } },
       });
     }
   });
@@ -48,7 +50,7 @@ describe("tapTarget", () => {
   it("is the notification's path on the app's own address, or home", () => {
     expect(tapTarget({ path: "/staff" }, ORIGIN)).toBe(`${ORIGIN}/staff`);
     for (const data of [undefined, null, {}, { path: "//evil.example" }, { path: 42 }]) {
-      expect(tapTarget(data, ORIGIN), JSON.stringify(data)).toBe(`${ORIGIN}/`);
+      expect(tapTarget(data, ORIGIN), JSON.stringify(data)).toBe(`${ORIGIN}/dashboard`);
     }
   });
 });

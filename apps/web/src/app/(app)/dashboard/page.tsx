@@ -1,10 +1,10 @@
 "use client";
 
-// The home screen. Whoever may change the organization's settings (the Owner, Admins) sees the setup card above
-// everything else until the checklist is done (spec 7.1); right under it, whoever's role sees leads on a plan with them
-// sees the day's nudge (spec 3.1: a count, three things, Open Today), never Today's long list; then the screens their
-// role may use to set the organization up. New lead is the header's action, an outline button, so Open Today stays the
-// main one.
+// The home screen (/dashboard). Whoever may change the organization's settings (the Owner, Admins) sees the setup card
+// above everything else until the checklist is done (spec 7.1); right under it, whoever's role sees leads on a plan
+// with them sees the day's nudge (spec 3.1: a count, three things, Open Today), never Today's long list; then the
+// screens their role may use to set the organization up; between them, for a role that sees leads, the dashboard
+// (release B). New lead is the header's action, an outline button, so Open Today stays the main one.
 import { ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -17,6 +17,7 @@ import { holds, useMe } from "@/session/me-context";
 import type { NavigationItem } from "@/shell/navigation";
 import { useNavigationItems } from "@/shell/use-navigation-items";
 import { TodayNudge } from "@/today/today-nudge";
+import { Dashboard } from "@/dashboard/dashboard";
 
 /** The destinations that set the organization up: not home, Today or Leads (daily work), nor the audit log. */
 type SetUpItem = NavigationItem & { key: Exclude<NavigationItem["key"], "home" | "today" | "leads" | "audit"> };
@@ -60,14 +61,18 @@ export default function HomePage() {
       <p className="text-muted-foreground">{t("nothingToSetUp")}</p>
     );
   return (
-    <div className="flex max-w-[720px] flex-col gap-6">
-      <PageHeader
-        title={t("title", { name: me.user.name })}
-        action={addsLeads && <NewLeadButton variant="outline" />}
-      />
-      {holds(me, "settings:manage") && <SetupCard />}
-      {showsToday && <TodayNudge />}
-      {screens}
+    <div className="flex flex-col gap-8">
+      <div className="flex max-w-[720px] flex-col gap-6">
+        <PageHeader
+          title={t("title", { name: me.user.name })}
+          action={addsLeads && <NewLeadButton variant="outline" />}
+        />
+        {holds(me, "settings:manage") && <SetupCard />}
+        {showsToday && <TodayNudge />}
+      </div>
+      {/* Where the role sees leads on a plan with them, as Today: the period's figures, at the content's full width. */}
+      {showsToday && <Dashboard />}
+      <div className="max-w-[720px]">{screens}</div>
     </div>
   );
 }

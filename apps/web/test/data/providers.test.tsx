@@ -84,7 +84,7 @@ describe("DataProviders", () => {
     expect(await screen.findByText("Asha: Ravi")).toBeVisible();
     onlineManager.setOnline(true);
     await vi.waitFor(() => {
-      expect(loadPage).toHaveBeenCalledWith("/");
+      expect(loadPage).toHaveBeenCalledWith("/dashboard");
     });
     expect(container).toBeEmptyDOMElement();
     expect(await hasPersistedQueries()).toBe(false);

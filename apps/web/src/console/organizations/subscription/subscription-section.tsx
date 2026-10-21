@@ -8,11 +8,10 @@
 import type { OrganizationRecord } from "@travel-crm/contracts/platform";
 import type { SubscriptionWithPayments } from "@travel-crm/contracts/subscriptions";
 import { useTranslations } from "next-intl";
-import { formatDay } from "@/lib/format";
+import { formatCalendarDay, formatDay } from "@/lib/format";
 import { SubscriptionStatusBadge } from "../../subscription-status";
 import { rupees } from "@/components/forms/money-field";
 import { DetailList, DetailSection, type Detail } from "../organization/detail-list";
-import { formatCalendarDay } from "./calendar-day";
 import { PaymentsList } from "./payments-list";
 import { PriceBreakdown } from "./price-breakdown";
 import { RecordPaymentDialog } from "./record-payment-dialog";

@@ -61,6 +61,9 @@ export async function addRow(
     ownerUserId,
     stage: reading.stage,
     createdAt: reading.createdAt,
+    // A row naming no owner, in an import that chose none, goes by the agency's assignment (release C).
+    ...(ownerUserId === decision.defaultOwner &&
+      decision.batch.defaultOwnerUserId === null && { assign: { workers: decision.workers } }),
   });
   return {
     rowNumber,

@@ -15,7 +15,8 @@ export interface NewLeadRecord {
   /** New unless given (the demo's leads are in every stage). */
   stage?: LeadStage;
   returning: boolean;
-  ownerUserId: string;
+  /** Null for the Unassigned queue: nobody could take it (release C). */
+  ownerUserId: string | null;
   source: LeadSource;
   sourceDetail: string | null;
   /** Becomes the lead's first timeline note. */
@@ -65,7 +66,7 @@ export async function addLeadInTransaction(
     const noted = { recordType: "lead_note", recordId: note.id } as const;
     await recordLeadEvent(tx, actor, { leadId, kind: "note", record: noted, occurredAt: recordedAt });
   }
-  if (record.ownerUserId !== actor.userId) {
+  if (record.ownerUserId !== null && record.ownerUserId !== actor.userId) {
     await recordLeadEvent(tx, actor, {
       leadId,
       kind: "reassigned",

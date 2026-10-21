@@ -8,12 +8,14 @@ import common from "./messages/en-IN/common.json";
 import consoleOrganizations from "./messages/en-IN/console-organizations.json";
 import consolePlatform from "./messages/en-IN/console-platform.json";
 import consoleMessages from "./messages/en-IN/console.json";
+import dashboard from "./messages/en-IN/dashboard.json";
 import documents from "./messages/en-IN/documents.json";
 import errors from "./messages/en-IN/errors.json";
 import exportsMessages from "./messages/en-IN/exports.json";
 import forms from "./messages/en-IN/forms.json";
 import imports from "./messages/en-IN/imports.json";
 import leads from "./messages/en-IN/leads.json";
+import marketing from "./messages/en-IN/marketing.json";
 import notifications from "./messages/en-IN/notifications.json";
 import pwa from "./messages/en-IN/pwa.json";
 import roles from "./messages/en-IN/roles.json";
@@ -37,6 +39,7 @@ export const messages = {
   console: consoleMessages,
   consoleOrganizations,
   consolePlatform,
+  dashboard,
   documents,
   errors,
   // "exports" is CommonJS's module object, hence this import's longer name too.
@@ -44,6 +47,7 @@ export const messages = {
   forms,
   imports,
   leads,
+  marketing,
   notifications,
   pwa,
   roles,
@@ -57,3 +61,9 @@ export const messages = {
 };
 
 export type Messages = typeof messages;
+
+/**
+ * What the browser is sent: every message but the public page's, which its server components render there (its
+ * legal pages, its long answers), save the prices' words, which a client component shows.
+ */
+export const clientMessages = { ...messages, marketing: { pricing: messages.marketing.pricing } };

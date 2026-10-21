@@ -3,6 +3,7 @@
 // Only what the screens need is read from each answer: Better Auth's user objects are never kept, because for staff
 // without email they hold the placeholder address, which is never shown (ADR 0006). me.get says who is signed in.
 import { settledBeforeSigningIn } from "./owed-sign-out";
+import { isWakingStatus, WAKE_BUDGET_MS, WAKE_RETRY_DELAY_MS } from "./server-waking";
 
 export type AuthResult<T> =
   | { ok: true; data: T }
@@ -39,6 +40,12 @@ async function bodyOf(response: Response): Promise<Record<string, unknown>> {
     return {};
   }
 }
+
+/** How long a sign-in waits for its answer before treating the api as asleep (then it waits for it and retries). */
+const SIGN_IN_TIMEOUT = 45_000;
+
+/** How long one call to see whether a sleeping api is up waits for its answer. */
+const WAKE_CHECK_TIMEOUT = 20_000;
 
 /** How long signing out waits for the api: the device is already wiped, and a sign-out not heard is owed instead. */
 export const SIGN_OUT_TIMEOUT = 5_000;
@@ -103,6 +110,49 @@ export function createAuthClient(fetchImplementation: Fetch = (...arguments_) =>
     } satisfies AuthResult<T>;
   }
 
+  let waking: Promise<boolean> | null = null;
+
+  /**
+   * Waits until the api answers at all (anything but the proxy's 502, 503 or 504), for at most WAKE_BUDGET_MS: on free
+   * hosting it sleeps after 15 quiet minutes and takes about a minute to wake (docs/serverless.md). Callers at the same
+   * time share one wait. True once it answered.
+   */
+  function wake(): Promise<boolean> {
+    waking ??= (async () => {
+      const deadline = Date.now() + WAKE_BUDGET_MS;
+      while (Date.now() < deadline) {
+        const giveUp = new AbortController();
+        const timer = setTimeout(() => {
+          giveUp.abort();
+        }, WAKE_CHECK_TIMEOUT);
+        try {
+          const response = await fetchImplementation("/api/auth/ok", { cache: "no-store", signal: giveUp.signal });
+          if (!isWakingStatus(response.status)) return true;
+        } catch {
+          // Not answering yet.
+        } finally {
+          clearTimeout(timer);
+        }
+        await new Promise((resolve) => setTimeout(resolve, WAKE_RETRY_DELAY_MS));
+      }
+      return false;
+    })().finally(() => {
+      waking = null;
+    });
+    return waking;
+  }
+
+  /**
+   * A sign-in that met a sleeping api waits for it to wake and is sent once more. A refusal never is: a wrong password
+   * sent twice would count twice against the sign-in limit.
+   */
+  async function signIn<T>(send: () => Promise<AuthResult<T>>): Promise<AuthResult<T>> {
+    await settledBeforeSigningIn();
+    const first = await send();
+    if (first.ok || !isWakingStatus(first.status) || !(await wake())) return first;
+    return send();
+  }
+
   const signInOutcome = (body: Record<string, unknown>): SignInOutcome => ({
     twoFactorRequired: body.twoFactorRedirect === true,
   });
@@ -111,14 +161,13 @@ export function createAuthClient(fetchImplementation: Fetch = (...arguments_) =>
   return {
     // A sign-in first waits for a sign-out still being settled on this page (owed-sign-out.ts): that answer deletes
     // the session cookie, and must not land after the new one.
-    signInWithEmail: async (input: { email: string; password: string }) => {
-      await settledBeforeSigningIn();
-      return post("/sign-in/email", input, signInOutcome);
-    },
-    signInWithCode: async (input: { orgCode: string; username: string; password: string }) => {
-      await settledBeforeSigningIn();
-      return post("/sign-in/org", input, signInOutcome);
-    },
+    // A sleeping api is waited for, and the sign-in sent once more (signIn).
+    signInWithEmail: (input: { email: string; password: string }) =>
+      signIn(() => post("/sign-in/email", input, signInOutcome, { timeout: SIGN_IN_TIMEOUT })),
+    signInWithCode: (input: { orgCode: string; username: string; password: string }) =>
+      signIn(() => post("/sign-in/org", input, signInOutcome, { timeout: SIGN_IN_TIMEOUT })),
+    /** Starts waking a sleeping api while the person types, so the sign-in itself rarely waits. */
+    wake,
     /** The second step of a two-factor sign-in. trustDevice skips it on this device for 30 days. */
     verifyTwoFactorCode: (input: { code: string; trustDevice: boolean }) =>
       post("/two-factor/verify-totp", input, nothing),

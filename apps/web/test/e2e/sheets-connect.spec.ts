@@ -61,7 +61,7 @@ test("an Owner connects a sheet; a new row becomes a lead with its source, owner
   const ravisPhone = await anotherPersonsDevice(browser);
   const ravisPage = await ravisPhone.newPage();
   await signInByCode(ravisPage, { code: agency.code, staff: ravi });
-  await ravisPage.goto("/");
+  await ravisPage.goto("/dashboard");
   await ravisPage
     .getByRole("button", { name: /^Notifications/ })
     .filter({ visible: true })

@@ -8,7 +8,7 @@ import { starterRoles } from "@travel-crm/domain/identity";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import HomePage from "@/app/(app)/page";
+import HomePage from "@/app/(app)/dashboard/page";
 import { SetupScreen } from "@/business/setup/setup-screen";
 import { messages } from "@/i18n/messages";
 import { routes } from "@/lib/routes";

@@ -139,6 +139,9 @@
       "access-restored": "Regained access to a Google Sheet",
       "recovered": "A Google Sheet is working again",
       "problem-hidden": "Hid a row a Google Sheet couldn't add"
+    },
+    "assignment": {
+      "updated": "Changed how new leads are assigned"
     }
   },
   "fields": {
@@ -189,6 +192,7 @@
     "destination": "A destination",
     "import_batch": "An import",
     "data_export": "An export",
-    "sheet_connection": "A Google Sheet"
+    "sheet_connection": "A Google Sheet",
+    "assignment_settings": "Lead assignment"
   }
 }

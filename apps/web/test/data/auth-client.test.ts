@@ -1,6 +1,7 @@
 // The sign-in and account calls: JSON POSTs to /api/auth on the app's own address, reading only what screens need.
 import { describe, expect, it, vi } from "vitest";
 import { createAuthClient } from "@/data/auth-client";
+import { WAKE_BUDGET_MS, WAKE_RETRY_DELAY_MS } from "@/data/server-waking";
 
 function answering(status: number, body: unknown, headers: Record<string, string> = {}) {
   return vi.fn<typeof fetch>(() => Promise.resolve(Response.json(body, { status, headers })));
@@ -110,6 +111,58 @@ describe("authClient", () => {
       status: 0,
       code: "NETWORK",
       retryAfterSeconds: null,
+    });
+  });
+
+  describe("a sleeping api", () => {
+    /** Answers each call with the next status in turn, by the address it was sent to. */
+    function sequence(byPath: Record<string, number[]>) {
+      return vi.fn<typeof fetch>((url) => {
+        const statuses = (typeof url === "string" ? byPath[url] : undefined) ?? [];
+        const status = statuses.shift() ?? 200;
+        return status === 0
+          ? Promise.reject(new TypeError("Failed to fetch"))
+          : Promise.resolve(Response.json({}, { status }));
+      });
+    }
+
+    it("waits for the api to wake, then signs in once more", async () => {
+      vi.useFakeTimers();
+      const fetch = sequence({ "/api/auth/sign-in/email": [504, 200], "/api/auth/ok": [0, 503, 200] });
+      const signingIn = createAuthClient(fetch).signInWithEmail({ email: "a@b.in", password: "p" });
+      await vi.advanceTimersByTimeAsync(WAKE_RETRY_DELAY_MS * 3);
+      expect(await signingIn).toEqual({ ok: true, data: { twoFactorRequired: false } });
+      expect(fetch.mock.calls.map(([url]) => url)).toEqual([
+        "/api/auth/sign-in/email",
+        "/api/auth/ok",
+        "/api/auth/ok",
+        "/api/auth/ok",
+        "/api/auth/sign-in/email",
+      ]);
+      vi.useRealTimers();
+    });
+
+    it("never sends a refused sign-in again", async () => {
+      const fetch = answering(401, { code: "INVALID_EMAIL_OR_PASSWORD" });
+      await createAuthClient(fetch).signInWithCode({ orgCode: "SHARMA", username: "ravi", password: "wrong" });
+      expect(fetch).toHaveBeenCalledOnce();
+    });
+
+    it("gives up after the wake budget, answering with the first failure", async () => {
+      vi.useFakeTimers();
+      const fetch = sequence({ "/api/auth/sign-in/email": [502], "/api/auth/ok": Array<number>(100).fill(503) });
+      const signingIn = createAuthClient(fetch).signInWithEmail({ email: "a@b.in", password: "p" });
+      await vi.advanceTimersByTimeAsync(WAKE_BUDGET_MS + WAKE_RETRY_DELAY_MS);
+      expect(await signingIn).toEqual({ ok: false, status: 502, code: "UNKNOWN", retryAfterSeconds: null });
+      expect(fetch.mock.calls.filter(([url]) => url === "/api/auth/sign-in/email")).toHaveLength(1);
+      vi.useRealTimers();
+    });
+
+    it("wakes the api ahead of a sign-in, sharing one wait among callers", async () => {
+      const fetch = sequence({ "/api/auth/ok": [200] });
+      const auth = createAuthClient(fetch);
+      expect(await Promise.all([auth.wake(), auth.wake()])).toEqual([true, true]);
+      expect(fetch).toHaveBeenCalledOnce();
     });
   });
 });

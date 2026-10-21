@@ -4,6 +4,10 @@
 import {
   addLeadWorkInput,
   addNoteInput,
+  bulkAddWorkInput,
+  bulkMoveStageInput,
+  bulkReassignInput,
+  bulkResult,
   createdLead,
   createLeadInput,
   editPersonInput,
@@ -27,6 +31,7 @@ import {
   addLeadNote,
   addLeadWork,
   blockLeadContact,
+  changeEachLead,
   countLeads,
   createLead,
   editLeadPerson,
@@ -165,6 +170,41 @@ export const leadsRouter = router({
       reassignLead(tx, ctx.member, input, { owners, now: new Date() }),
     );
   }),
+
+  /** Moves the chosen leads to a stage, each as a move of one lead would (release C). */
+  bulkMoveStage: editor
+    .input(bulkMoveStageInput)
+    .output(bulkResult)
+    .mutation(({ ctx, input }) => {
+      const now = new Date();
+      return changeEachLead(ctx.db, ctx.member, input.leadIds, (tx, leadId) =>
+        moveLeadStage(tx, ctx.member, { leadId, stage: input.stage }, now),
+      );
+    }),
+
+  /** Gives the chosen leads, with their open tasks, to someone who can work leads. */
+  bulkReassign: assigner
+    .input(bulkReassignInput)
+    .output(bulkResult)
+    .mutation(async ({ ctx, input }) => {
+      const owners = await leadWorkerIds(ctx.identity, ctx.member.organizationId);
+      const now = new Date();
+      return changeEachLead(ctx.db, ctx.member, input.leadIds, (tx, leadId) =>
+        reassignLead(tx, ctx.member, { leadId, ownerUserId: input.ownerUserId }, { owners, now }),
+      );
+    }),
+
+  /** The same follow-up or task on each chosen lead, for its owner. */
+  bulkAddWork: editor
+    .input(bulkAddWorkInput)
+    .output(bulkResult)
+    .mutation(({ ctx, input }) => {
+      const { leadIds, ...work } = input;
+      const now = new Date();
+      return changeEachLead(ctx.db, ctx.member, leadIds, (tx, leadId) =>
+        addLeadWork(tx, ctx.member, { leadId, ...work }, now),
+      );
+    }),
 
   /** Blocks the lead's phone (else email, else handle) and marks it Not a lead. */
   block: assigner

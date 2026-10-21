@@ -2,7 +2,12 @@
 import type { PendingStep } from "@travel-crm/contracts/identity";
 
 export const routes = {
-  home: "/",
+  /** The product's public page: what it does, its prices, how to reach us. Someone signed in goes on to home. */
+  landing: "/",
+  /** The signed-in person's home: their dashboard. */
+  home: "/dashboard",
+  privacy: "/privacy",
+  terms: "/terms",
   signIn: "/sign-in",
   twoFactorChallenge: "/sign-in/two-factor",
   forgotPassword: "/forgot-password",
@@ -19,6 +24,8 @@ export const routes = {
   /** The lead list (release 1); a lead's own page is leadRoute(leadId). */
   leads: "/leads",
   newLead: "/leads/new",
+  /** The open leads by stage, as a board (release C). */
+  leadsPipeline: "/leads/pipeline",
   /** A lead import's first step; an import's own page is leadImportRoute(importId). */
   leadImport: "/leads/import",
   settings: "/settings",
@@ -34,6 +41,8 @@ export const routes = {
   blockedContacts: "/settings/blocked-contacts",
   /** Google Sheets whose rows become leads; a sheet's own page is sheetRoute(sheetId). */
   leadSources: "/settings/lead-sources",
+  /** Who new leads that arrive by themselves go to (release C). */
+  leadAssignment: "/settings/assignment",
   /** Each person's own choice of what they are told, and how (spec 9.4). */
   notificationPreferences: "/account/notifications",
   /** The platform console's dashboard; its other screens are in src/console/routes.ts, which only it imports. */
@@ -90,6 +99,9 @@ export function staffExportRoute(exportId: string): string {
  * signing out: the person may be typing, or reading "Your password is changed".
  */
 const publicRoutes: readonly string[] = [
+  routes.landing,
+  routes.privacy,
+  routes.terms,
   routes.signIn,
   routes.twoFactorChallenge,
   routes.forgotPassword,

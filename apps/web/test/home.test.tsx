@@ -5,7 +5,7 @@ import type { SetupChecklist } from "@travel-crm/contracts/profile";
 import { starterRoles } from "@travel-crm/domain/identity";
 import { screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import HomePage from "@/app/(app)/page";
+import HomePage from "@/app/(app)/dashboard/page";
 import { messages } from "@/i18n/messages";
 import { routes } from "@/lib/routes";
 import type { SignedInMember } from "@/session/me-context";

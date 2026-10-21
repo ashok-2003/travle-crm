@@ -1,7 +1,8 @@
 "use client";
 
 // /account: who the person is (from me.get, so a placeholder email is never shown), their password and two-factor
-// sign-in (while features.twoFactor is on), and the way to choose what notifications reach them.
+// sign-in (while features.twoFactor is on), the way to choose what notifications reach them, and, for someone who takes
+// new leads in turn, the switch to be away (release C).
 import { features } from "@travel-crm/contracts/features";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
@@ -15,6 +16,7 @@ import { useTRPC } from "@/data/trpc";
 import { routes } from "@/lib/routes";
 import { shownEmail } from "@/lib/shown-email";
 import { useMe } from "@/session/me-context";
+import { AwaySwitch } from "@/leads/away-switch";
 import { TurnOffTwoFactor } from "./turn-off-two-factor";
 
 /** A name as people typed it, in any script: Indian scripts need a taller line, and the name carries no lang. */
@@ -87,6 +89,7 @@ export function AccountScreen() {
           },
         ]}
       />
+      <AwaySwitch />
     </div>
   );
 }

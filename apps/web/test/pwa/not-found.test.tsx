@@ -18,7 +18,7 @@ describe("the 404 page", () => {
     expect(screen.getByRole("heading", { level: 1, name: notFound.title })).toBeVisible();
     expect(screen.getByText(notFound.body)).toBeVisible();
     const home = screen.getByRole("link", { name: notFound.home });
-    expect(home).toHaveAttribute("href", "/");
+    expect(home).toHaveAttribute("href", "/dashboard");
     expect(home).toHaveAttribute("data-size", "default");
     expect(screen.getAllByRole("link")).toHaveLength(1);
   });

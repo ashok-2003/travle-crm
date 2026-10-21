@@ -5,6 +5,7 @@
 // adds it. A FormDialog: held while the request is out; a time the api finds already past is said on the time field,
 // where it is fixed.
 import { addLeadWorkInput, type AddLeadWorkInput } from "@travel-crm/contracts/crm";
+import type { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { checked } from "@/components/forms/checked";
@@ -18,7 +19,7 @@ import { useTRPC } from "@/data/trpc";
 import { useRefreshWork } from "@/data/use-refresh-work";
 import { useMe } from "@/session/me-context";
 
-interface FollowUpValues {
+export interface FollowUpValues {
   title: string;
   day: string;
   time: string;
@@ -26,16 +27,19 @@ interface FollowUpValues {
 
 type Problem = "required" | "title" | "day" | "time";
 
-/** The values as addWork's input, or each field's problem: a title, a day and a time are all needed. */
-function toAddWorkInput(leadId: string, values: FollowUpValues) {
+/**
+ * The values as a follow-up's input for these leads (one lead's addWork, or the bulk change's), checked by the api's
+ * own schema, or each field's problem: a title, a day and a time are all needed.
+ */
+export function followUpInput<Input>(schema: z.ZodType<Input>, leads: Record<string, unknown>, values: FollowUpValues) {
   const blank = {
     ...(values.title.trim() === "" && { title: "required" as const }),
     ...(values.day === "" && { day: "day" as const }),
     ...(values.time === "" && { time: "time" as const }),
   };
   return checked(
-    addLeadWorkInput.safeParse({
-      leadId,
+    schema.safeParse({
+      ...leads,
       kind: "follow-up",
       title: values.title,
       due: { on: values.day, at: values.time },
@@ -47,12 +51,21 @@ function toAddWorkInput(leadId: string, values: FollowUpValues) {
   );
 }
 
-function FollowUpForm({ formId, leadId, add }: { formId: string; leadId: string; add: Sending<AddLeadWorkInput> }) {
+/** The follow-up's words and due time, for one lead or many: toInput makes the call's input from them. */
+export function FollowUpForm<Input>({
+  formId,
+  toInput,
+  add,
+}: {
+  formId: string;
+  toInput: (values: FollowUpValues) => ReturnType<typeof followUpInput<Input>>;
+  add: Sending<Input>;
+}) {
   const t = useTranslations("leads.lead.work.dialog");
   const { timeZone } = useMe().organization;
-  const { form, onSubmit, formProblem } = useCheckedForm<FollowUpValues, AddLeadWorkInput, Problem>(
+  const { form, onSubmit, formProblem } = useCheckedForm<FollowUpValues, Input, Problem>(
     { title: "", ...suggestedDue(timeZone) },
-    (values) => toAddWorkInput(leadId, values),
+    toInput,
     (problem) => t(`problems.${problem}`),
   );
   const refusal = useRefusalOnField(form, add.error, { DUE_IN_THE_PAST: "time" });
@@ -90,7 +103,13 @@ export function AddFollowUpDialog({
       submit={t("dialog.submit")}
       submitting={t("dialog.submitting")}
     >
-      {(formId) => <FollowUpForm formId={formId} leadId={leadId} add={add} />}
+      {(formId) => (
+        <FollowUpForm<AddLeadWorkInput>
+          formId={formId}
+          toInput={(values) => followUpInput(addLeadWorkInput, { leadId }, values)}
+          add={add}
+        />
+      )}
     </FormDialog>
   );
 }

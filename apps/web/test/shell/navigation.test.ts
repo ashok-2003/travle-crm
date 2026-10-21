@@ -72,7 +72,7 @@ describe("isCurrent", () => {
 
   it("marks Home only on the home page, and other items on their pages and below", () => {
     if (!home || !staff) throw new Error("navigation items missing");
-    expect(isCurrent(home, "/")).toBe(true);
+    expect(isCurrent(home, "/dashboard")).toBe(true);
     expect(isCurrent(home, "/staff")).toBe(false);
     expect(isCurrent(staff, "/staff")).toBe(true);
     expect(isCurrent(staff, "/staff/new")).toBe(true);

@@ -1,5 +1,5 @@
-// The desktop sidebar never folds away (nothing in the app offers it), so it takes no keyboard shortcut: Ctrl/Cmd+B
-// stays the browser's (bookmarks, bold), and pressing it leaves the sidebar open.
+// The desktop sidebar folds to its icons only with its button, so it takes no keyboard shortcut: Ctrl/Cmd+B stays the
+// browser's (bookmarks, bold), and pressing it leaves the sidebar open.
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { Sidebar, SidebarProvider } from "@/components/ui/sidebar";

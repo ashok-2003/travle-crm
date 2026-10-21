@@ -12,7 +12,9 @@ import { useEffect, type ReactNode } from "react";
 import { Delayed } from "@/components/delayed";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
+import { ServerWaking } from "@/components/server-waking";
 import { Skeleton } from "@/components/ui/skeleton";
+import { isServerWaking, wakingRetry } from "@/data/server-waking";
 import { useTRPC } from "@/data/trpc";
 import { replacePage } from "@/lib/navigate";
 import { pendingStepRoute, routes } from "@/lib/routes";
@@ -24,7 +26,8 @@ export function SessionGate({ children }: { children: ReactNode }) {
   const t = useTranslations("shell.session");
   const tCommon = useTranslations("common");
   const trpc = useTRPC();
-  const me = useQuery(trpc.me.get.queryOptions());
+  // A sleeping api is waited for, saying so, before the gate says the organization didn't load.
+  const me = useQuery(trpc.me.get.queryOptions(undefined, wakingRetry));
   const pendingStep = me.data?.pendingStep ?? null;
   // Only the member can take their step: support signed in as them is shown it instead.
   const stepToTake = me.data?.impersonatedBy ? null : pendingStep;
@@ -46,6 +49,7 @@ export function SessionGate({ children }: { children: ReactNode }) {
         />
       );
     }
+    if (me.failureCount > 0 && isServerWaking(me.failureReason)) return <ServerWaking standalone />;
     return (
       <Delayed>
         <div role="status" aria-busy="true" aria-label={t("loading")} className="flex min-h-dvh">
