@@ -10,10 +10,9 @@ import { Fragment } from "react";
 import { StatusBadge } from "@/components/status-badge";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemSeparator } from "@/components/ui/item";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatRupees } from "@/lib/format";
+import { formatCalendarDay, formatRupees } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useWideScreen } from "@/lib/use-wide-screen";
-import { formatCalendarDay } from "./calendar-day";
 import { VoidPaymentDialog } from "./reason-dialogs";
 
 export function PaymentsList({

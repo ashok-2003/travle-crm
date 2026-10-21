@@ -4,6 +4,7 @@
 // shows only the fields that differ, given the console's words. Field names are words, and values are read for people:
 // a day as "16 Oct", a moment as the console's clocks show it, paise as rupees with lakh grouping, a size in GB, and a
 // coded value (a state, a level, a billing cycle, a module, a plan) as its words. A record's own id is left out.
+import { formatCalendarDay } from "@/lib/format";
 import type { PlatformLogEntry } from "@travel-crm/contracts/platform";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
@@ -13,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { formatFileSize } from "@/files/file-size";
 import { rupees } from "@/components/forms/money-field";
-import { formatCalendarDay } from "../organizations/subscription/calendar-day";
 import type { LogNames } from "./use-log-names";
 
 /** The stored fields the console names in words (consolePlatform.log.fields); another shows as stored. */

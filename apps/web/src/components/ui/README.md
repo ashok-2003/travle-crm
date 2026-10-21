@@ -62,6 +62,12 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
 - `accordion.tsx` (added for the public page's questions): `cn` from `lib/utils.ts` (the registry's import named a
   package that doesn't exist); each trigger at least 44px, its words centred beside the chevron; the global focus
   outline instead of its own ring and border; opening and closing move only behind `motion-safe:`.
+- `chart.tsx` (Recharts 3.8.0, pinned, for the dashboard): `cn` from `lib/utils.ts`; one light theme, so a series'
+  `color` is a brand token's variable and reaches the chart as a `--color-<key>` style on its container, never through
+  the registry's injected `<style>` (`test/no-inner-html.test.ts`); its grid, cursor and reference lines take the
+  border token by class, without the registry's selectors on Recharts' default colours. Its lint fixes: a series' key
+  read safely from a payload (`keyOf`), a bar's fill read as unknown, and a formatter given the payload list Recharts
+  types it with.
 - `sonner.tsx`: one light theme (no `next-themes`), bottom right, a close button with a 44px hit area. On phones its
   `mobileOffset` is `var(--toast-bottom-gap)`, which `globals.css` sets to 4rem (the 56px bottom bar and 8px more) only
   while the page has the phone navigation, so toasts clear the bar there and sit at the bottom elsewhere.

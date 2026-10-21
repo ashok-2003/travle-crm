@@ -31,6 +31,15 @@ export function formatDay(instant: Date, { timeZone, now = new Date() }: { timeZ
 const weekdayFormatters = new Map<string, Intl.DateTimeFormat>();
 
 /** "Fri", the day of the week as the organization's clocks show it ("Fri 16 Oct" with formatDay). */
+/**
+ * A calendar day (YYYY-MM-DD: a day in the organization's zone, never an instant) as Indian screens write it: "16 Oct"
+ * in the current year, "16 Oct 2027" in another (DESIGN.md section 9).
+ */
+export function formatCalendarDay(date: string, now: Date = new Date()): string {
+  // The day as UTC midnight, shown in UTC, so no zone can move it to the day before or after.
+  return formatDay(new Date(`${date}T00:00:00Z`), { timeZone: "UTC", now });
+}
+
 export function formatWeekday(instant: Date, { timeZone }: { timeZone: string }): string {
   let formatter = weekdayFormatters.get(timeZone);
   if (!formatter) {

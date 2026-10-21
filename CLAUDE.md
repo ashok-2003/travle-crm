@@ -259,7 +259,7 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 3. **Simpler is better:** fewer lines through better arrangement, no needless wrappers, no second copy of a helper.
 4. **DESIGN.md:** 44px touch targets, the brand's tokens, Indian formats: lakh grouping, and a date on screen as
    DESIGN.md section 9's "16 Oct" ("16 Oct 2027" in another year), through `formatDay` (`lib/format.ts`) or, for a
-   stored calendar day, `formatCalendarDay` (`console/organizations/subscription/calendar-day.ts`). dd/mm/yyyy is for
+   stored calendar day, `formatCalendarDay` (`lib/format.ts`). dd/mm/yyyy is for
    date inputs alone (rule 5).
 5. **Dates:** every date input is `DateField` (the registry Calendar in a Popover, shown dd/mm/yyyy, value
    `yyyy-mm-dd`), never `<input type="date">`.
