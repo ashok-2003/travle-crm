@@ -56,6 +56,7 @@ export const leadFileWords: {
     meta_lead_ad: ["Meta lead ad"],
     whatsapp: ["WhatsApp"],
     package_page: ["Package page"],
+    indiamart: ["IndiaMART", "India Mart"],
   },
 };
 

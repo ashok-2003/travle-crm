@@ -4,6 +4,7 @@
 import type { CreatedLead, LeadSource, TripInput } from "@travel-crm/contracts/crm";
 import type { OrgTx } from "@travel-crm/db";
 import type { MemberAccess } from "../identity/index.js";
+import type { Actor } from "../kernel/index.js";
 import { publishEvent } from "../jobs/index.js";
 import { notify } from "../notifications/index.js";
 import { recordCrmAudit } from "./crm-audit.js";
@@ -11,13 +12,16 @@ import { isLeadInScope } from "./lead-detail.js";
 import { recordLeadEvent } from "./lead-events.js";
 import { resolveTrip, tripColumns } from "./trip-columns.js";
 
+/** A member, rather than the system (a form, a webhook) acting alone. */
+const isMember = (actor: Actor): actor is MemberAccess => "permissions" in actor;
+
 /**
  * Adds the trip, source and note to the open lead as a repeat enquiry, and tells the lead's owner unless told not to
  * (an import tells nobody, B18).
  */
 export async function addRepeatEnquiry(
   tx: OrgTx,
-  access: MemberAccess,
+  access: Actor,
   enquiry: {
     lead: { id: string; ownerUserId: string | null; returning: boolean };
     personName: string;
@@ -61,7 +65,8 @@ export async function addRepeatEnquiry(
   }
   return {
     outcome: "added-to-open-lead",
-    leadId: isLeadInScope(access, lead.ownerUserId) ? lead.id : null,
+    // A member sees the lead only in their scope; the system (a form, a webhook) shows nobody anything.
+    leadId: !isMember(access) || isLeadInScope(access, lead.ownerUserId) ? lead.id : null,
     returning: lead.returning,
   };
 }

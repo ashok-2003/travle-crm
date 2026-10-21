@@ -5,7 +5,7 @@
 // has its new lead assigned by the agency's rules and mode instead (release C, assignment/choose-owner.ts).
 import type { LeadSource, LeadStage, NewPerson, TripInput } from "@travel-crm/contracts/crm";
 import type { OrgTx } from "@travel-crm/db";
-import type { MemberAccess } from "../identity/index.js";
+import type { Actor } from "../kernel/index.js";
 import { DomainError } from "../kernel/index.js";
 import { addLeadInTransaction } from "./add-lead.js";
 import { chooseOwner } from "./assignment/index.js";
@@ -51,7 +51,7 @@ export interface SavedEnquiry {
 /** Saves the enquiry in the transaction. Whether the actor may see the lead it lands on is the caller's to decide. */
 export async function saveEnquiry(
   tx: OrgTx,
-  access: MemberAccess,
+  access: Actor,
   enquiry: Enquiry,
   now: Date,
   options: EnquiryOptions,

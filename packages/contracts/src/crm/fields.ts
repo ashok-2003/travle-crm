@@ -63,6 +63,7 @@ export const leadSources = [
   "meta_lead_ad",
   "whatsapp",
   "package_page",
+  "indiamart",
 ] as const;
 export const leadSource = z.enum(leadSources);
 export type LeadSource = z.infer<typeof leadSource>;

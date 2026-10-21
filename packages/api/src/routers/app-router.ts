@@ -3,6 +3,7 @@
 import { router } from "../trpc.js";
 import { assignmentRouter } from "./assignment.js";
 import { attachmentsRouter } from "./attachments.js";
+import { connectorsRouter } from "./connectors.js";
 import { auditRouter } from "./audit.js";
 import { blockedContactsRouter } from "./blocked-contacts.js";
 import { destinationsRouter } from "./destinations.js";
@@ -44,6 +45,7 @@ export const appRouter = router({
   today: todayRouter,
   insights: insightsRouter,
   assignment: assignmentRouter,
+  connectors: connectorsRouter,
   leadImports: leadImportsRouter,
   leadSheets: leadSheetsRouter,
   leadExports: leadExportsRouter,
