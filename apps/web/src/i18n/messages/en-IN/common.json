@@ -19,5 +19,6 @@
     "home": "Go to the home screen"
   },
   "loadingMore": "Loading more",
-  "whatDoesItMean": "What does {term} mean?"
+  "whatDoesItMean": "What does {term} mean?",
+  "serverWaking": "Starting up after a quiet spell. This can take up to a minute."
 }

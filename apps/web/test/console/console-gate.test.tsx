@@ -146,10 +146,20 @@ describe("ConsoleGate", () => {
     });
   });
 
-  it("says when whoAmI didn't load, and asks again on Try again", async () => {
+  it("says the console is starting up while its server wakes, then opens it", async () => {
     const api = stubApi({ "platform.whoAmI": "offline" });
     renderGate();
-    // The app's queries try an unanswered call three times, a second and then two apart.
+    expect(await screen.findByText(messages.common.serverWaking)).toBeVisible();
+    expect(screen.queryByText(gate.loadFailed)).toBeNull();
+    api.answer("platform.whoAmI", { data: platformStaff("super-admin") });
+    // A waking server is asked again every three seconds.
+    expect(await screen.findByText(/Console for Kavita Rao/, undefined, { timeout: 5_000 })).toBeVisible();
+  });
+
+  it("says when whoAmI didn't load, and asks again on Try again", async () => {
+    const api = stubApi({ "platform.whoAmI": { status: 500 } });
+    renderGate();
+    // A server fault is tried three times, a second and then two apart.
     expect(await screen.findByText(gate.loadFailed, undefined, { timeout: 5_000 })).toBeVisible();
     api.answer("platform.whoAmI", { data: platformStaff("super-admin") });
     await userEvent.click(screen.getByRole("button", { name: messages.common.tryAgain }));

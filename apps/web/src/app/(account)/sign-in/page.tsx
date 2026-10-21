@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { AccountSkeleton } from "@/account/account-skeleton";
 import { SignInScreen } from "@/account/sign-in-screen";
+import { WakeOnOpen } from "@/account/wake-on-open";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("account");
@@ -13,8 +14,11 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function SignInPage() {
   // The screen reads ?next=, which is only known in the browser; until then the prerendered page shows a skeleton.
   return (
-    <Suspense fallback={<AccountSkeleton />}>
-      <SignInScreen />
-    </Suspense>
+    <>
+      <WakeOnOpen />
+      <Suspense fallback={<AccountSkeleton />}>
+        <SignInScreen />
+      </Suspense>
+    </>
   );
 }

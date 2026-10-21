@@ -12,10 +12,12 @@ import type { ReactNode } from "react";
 import { Delayed } from "@/components/delayed";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
+import { ServerWaking } from "@/components/server-waking";
 import { Skeleton } from "@/components/ui/skeleton";
 import { refusalOf } from "@/data/api-error";
 import { usePageData } from "@/data/providers";
 import { refusalDestination } from "@/data/query-client";
+import { isServerWaking, wakingRetry } from "@/data/server-waking";
 import { useTRPC } from "@/data/trpc";
 import { StopImpersonatingButton } from "@/shell/stop-impersonating";
 import { useConsoleTRPC } from "../data/console-trpc";
@@ -61,7 +63,8 @@ export function ConsoleGate({ children }: { children: ReactNode }) {
   const t = useTranslations("console.gate");
   const tCommon = useTranslations("common");
   const trpc = useConsoleTRPC();
-  const whoAmI = useQuery(trpc.whoAmI.queryOptions());
+  // The console's server sleeps apart from the api's: it is waited for, saying so, before the gate says it failed.
+  const whoAmI = useQuery(trpc.whoAmI.queryOptions(undefined, wakingRetry));
 
   if (whoAmI.data) return <StaffProvider staff={whoAmI.data}>{children}</StaffProvider>;
   if (whoAmI.isError) {
@@ -76,6 +79,7 @@ export function ConsoleGate({ children }: { children: ReactNode }) {
       />
     );
   }
+  if (whoAmI.failureCount > 0 && isServerWaking(whoAmI.failureReason)) return <ServerWaking standalone />;
   return (
     <Delayed>
       <div role="status" aria-busy="true" aria-label={t("loading")} className="flex min-h-dvh">

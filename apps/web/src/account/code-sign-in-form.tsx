@@ -12,6 +12,7 @@ import { FieldGroup } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { authClient, type AuthClient, type SignInOutcome } from "@/data/auth-client";
 import { AuthFailureAlert, type AuthFailure } from "./form-alert";
+import { WakingHint } from "./waking-hint";
 import { useFormResolver } from "./form-errors";
 import { rememberOrganizationCode } from "./remembered-code";
 import { TextField } from "@/components/forms/text-field";
@@ -79,6 +80,7 @@ export function CodeSignInForm({
         {form.formState.isSubmitting && <Spinner />}
         {form.formState.isSubmitting ? t("signIn.submitting") : t("signIn.submit")}
       </Button>
+      <WakingHint busy={form.formState.isSubmitting} />
     </form>
   );
 }
