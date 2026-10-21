@@ -6,6 +6,7 @@ import { auditRouter } from "./audit.js";
 import { blockedContactsRouter } from "./blocked-contacts.js";
 import { destinationsRouter } from "./destinations.js";
 import { documentsRouter } from "./documents.js";
+import { insightsRouter } from "./insights.js";
 import { leadExportsRouter } from "./lead-exports.js";
 import { leadImportsRouter } from "./lead-imports.js";
 import { leadSheetsRouter } from "./lead-sheets.js";
@@ -40,6 +41,7 @@ export const appRouter = router({
   destinations: destinationsRouter,
   tasks: tasksRouter,
   today: todayRouter,
+  insights: insightsRouter,
   leadImports: leadImportsRouter,
   leadSheets: leadSheetsRouter,
   leadExports: leadExportsRouter,

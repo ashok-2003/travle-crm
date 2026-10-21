@@ -25,10 +25,11 @@ Business rules, one folder per module (spec section 8). A module's public API is
 | `exports`       | an export's file, made by the worker, its download and its 24 hours ([README](src/exports/README.md))                                 |
 | `sheets`        | Google Sheets sync: connecting a sheet, its ledger of rows, the schedule, the controls and erasure ([README](src/sheets/README.md))   |
 | `crm`           | people, leads, the lead timeline and blocked contacts ([README](src/crm/README.md))                                                   |
+| `insights`      | the dashboard's figures over a period, from crm's and tasks' public queries ([README](src/insights/README.md))                        |
 | `today`         | the signed-in person's day, composed from crm's and tasks' public queries ([README](src/today/README.md))                             |
 
 The business modules (release 1 on) are layered, and call only down (dependency-cruiser's `business-modules-call-down`,
-spec 6 and 8): `catalog`, `tasks`, `imports`, `exports` and `sheets` at L0, `crm` at L1, `today` at the top. An action spanning
+spec 6 and 8): `catalog`, `tasks`, `imports`, `exports` and `sheets` at L0, `crm` at L1, `today` and `insights` at the top. An action spanning
 two modules is the higher one's, or its router calls both.
 
 Business rule failures throw `DomainError(code, reason, message)`; the API turns the code into an HTTP status and passes

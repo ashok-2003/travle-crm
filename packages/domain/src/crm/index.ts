@@ -20,6 +20,7 @@ export {
 } from "./lead-sheets/index.js";
 export { editLeadPerson, editLeadTrip } from "./lead-edits.js";
 export { recordLeadEvent, type LeadEventEntry } from "./lead-events.js";
+export { leadInsights, type InsightsPeriod, type LeadInsights } from "./lead-insights.js";
 export { countLeads, listLeads } from "./lead-list.js";
 export { leadCountsQuery, leadListQuery, type LeadCountsFilter, type LeadListFilter } from "./lead-list-query.js";
 export { addLeadWork } from "./lead-work.js";
