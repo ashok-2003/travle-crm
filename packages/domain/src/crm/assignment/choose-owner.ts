@@ -1,7 +1,8 @@
 // Who a lead that arrived by itself goes to (release C, spec 3.2), in order: a returning customer to their previous
 // owner if they still work leads; then the first rule the lead matches whose person still does; then the agency's mode
-// (the pool in turn, or the pool member with the fewest open leads, skipping anyone away); else the fallback, the
-// agency's Owner. The pool's rows are locked while one is chosen, so two leads arriving at once never take one turn.
+// (the pool in turn, or the pool member with the fewest open leads, skipping anyone away). In the Owner mode the lead
+// goes to the fallback, the agency's Owner; when the pool has nobody available, to no one: the Unassigned queue, which
+// managers work (spec 3.2). The pool's rows are locked while one is chosen, so two leads never take one turn.
 import type { LeadSource } from "@travel-crm/contracts/crm";
 import { sql, type OrgTx } from "@travel-crm/db";
 
@@ -27,7 +28,7 @@ interface PoolRow {
   open: number;
 }
 
-export async function chooseOwner(tx: OrgTx, lead: LeadFacts, context: AssignContext): Promise<string> {
+export async function chooseOwner(tx: OrgTx, lead: LeadFacts, context: AssignContext): Promise<string | null> {
   const { workers, fallback, now } = context;
   if (lead.previousOwnerUserId !== null && workers.has(lead.previousOwnerUserId)) return lead.previousOwnerUserId;
 
@@ -58,7 +59,7 @@ export async function chooseOwner(tx: OrgTx, lead: LeadFacts, context: AssignCon
   const [chosen] = pool
     .filter((member) => workers.has(member.userId))
     .sort((first, second) => (mode === "fewest_open" ? first.open - second.open : 0) || waited(first) - waited(second));
-  if (chosen === undefined) return fallback;
+  if (chosen === undefined) return null;
   await tx.assignmentPoolMember.updateMany({ where: { userId: chosen.userId }, data: { lastAssignedAt: now } });
   return chosen.userId;
 }

@@ -54,6 +54,18 @@ export const assignmentSettings = z.object({
 });
 export type AssignmentSettings = z.infer<typeof assignmentSettings>;
 
+/** A new lead's first-reply check, queued for when its wait runs out: ids only (job data is never personal). */
+export const firstReplyCheckJob = z.strictObject({
+  organizationId: recordId,
+  leadId: recordId,
+  sourceEventId: recordId,
+});
+export type FirstReplyCheckJob = z.infer<typeof firstReplyCheckJob>;
+
+/** The signed-in person's place in the pool: whether they take new leads in turn, and until when they are away. */
+export const poolPlace = z.object({ inPool: z.boolean(), awayUntil: z.iso.datetime().nullable() });
+export type PoolPlace = z.infer<typeof poolPlace>;
+
 /** The signed-in person marks themselves away (skipped by the turns) until a time, or back (null). */
 export const setAwayInput = z.strictObject({ awayUntil: z.iso.datetime().nullable() });
 export type SetAwayInput = z.infer<typeof setAwayInput>;

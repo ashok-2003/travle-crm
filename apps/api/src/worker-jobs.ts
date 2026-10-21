@@ -5,7 +5,10 @@
 import type { Database } from "@travel-crm/db";
 import {
   addLeadImportListener,
+  checkFirstReply,
   checkLeadImportListener,
+  FIRST_REPLY_CHECK_QUEUE,
+  scheduleFirstReplyCheckListener,
   checkLeadSheetListener,
   handOverDepartingMemberListener,
   makeLeadExportListener,
@@ -90,6 +93,8 @@ export interface WorkerJobDependencies {
   sheets?: WorkerSheets;
   /** Where problems that need attention go, one line each, ids and codes only: the worker's log. */
   log: (line: string) => void;
+  /** Where listeners queue delayed jobs (a new lead's first-reply check): the same pg-boss. Without it, no checks. */
+  jobs?: JobQueue;
 }
 
 export interface WorkerJobs {
@@ -154,6 +159,8 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       forgetPushSubscriptionsListener,
       identity.inviteListener({ email, appUrl, limiter: rateLimiter }),
       handOverDepartingMemberListener({ firstOwner: (organizationId) => identity.firstOwner(organizationId) }),
+      // The slow-reply alert (release C): each new lead's check, queued for when its wait runs out.
+      ...(dependencies.jobs === undefined ? [] : [scheduleFirstReplyCheckListener({ queue: dependencies.jobs })]),
       readImportFileListener(importJobs),
       checkLeadImportListener(importJobs),
       addLeadImportListener(importJobs),
@@ -179,6 +186,12 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
         queue: WEBHOOK_PROCESS_QUEUE,
         handle: async (data) => {
           await processWebhookJob({ db, providers: webhookProviders }, data);
+        },
+      },
+      {
+        queue: FIRST_REPLY_CHECK_QUEUE,
+        handle: async (data) => {
+          await checkFirstReply({ db, firstOwner: (organizationId) => identity.firstOwner(organizationId) }, data);
         },
       },
       ...(sheetsJobs === null ? [] : [sheetsCheckHandler(sheetsJobs)]),

@@ -113,7 +113,7 @@ export async function saveEnquiry(
     },
     now,
   );
-  if (notifyOwner && ownerUserId !== access.userId) {
+  if (notifyOwner && ownerUserId !== null && ownerUserId !== access.userId) {
     await notifyLeadAssigned(tx, access, { leadId, ownerUserId });
   }
   return { outcome: "created", leadId, personId: person.id, returning, leadOwnerUserId: ownerUserId };

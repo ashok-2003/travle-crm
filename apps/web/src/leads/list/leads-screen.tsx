@@ -102,7 +102,8 @@ export function LeadsScreen() {
         return <EmptyState icon={SearchXIcon} message={t("emptyFiltered")} action={clearButton} />;
       }
       // The header's New lead sits just above: one primary button per screen (DESIGN.md section 6).
-      return <EmptyState icon={ContactIcon} message={ownOnly ? t("emptyMine") : t("empty")} />;
+      const empty = ownOnly ? t("emptyMine") : filters.view === "unassigned" ? t("emptyUnassigned") : t("empty");
+      return <EmptyState icon={ContactIcon} message={empty} />;
     }
     return (
       <div className="flex flex-col gap-4">
@@ -130,6 +131,7 @@ export function LeadsScreen() {
         <TabsList className="w-full md:w-fit" aria-label={t("whose")}>
           <TabsTrigger value="mine">{t("mine")}</TabsTrigger>
           <TabsTrigger value="everyone">{t("everyone")}</TabsTrigger>
+          <TabsTrigger value="unassigned">{t("unassigned")}</TabsTrigger>
         </TabsList>
       )}
       <SearchField key={searchBox} initial={search} onSearch={setSearch} />
@@ -169,7 +171,11 @@ export function LeadsScreen() {
         <Tabs
           value={filters.view}
           onValueChange={(view) => {
-            show({ ...filters, view: view === "everyone" ? "everyone" : "mine", ownerUserId: undefined });
+            show({
+              ...filters,
+              view: view === "everyone" || view === "unassigned" ? view : "mine",
+              ownerUserId: undefined,
+            });
           }}
           className="gap-6"
         >

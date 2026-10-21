@@ -256,7 +256,8 @@
       "clear": "Clear all",
       "apply": "Show leads"
     },
-    "countsFailed": "The counts didn't load."
+    "countsFailed": "The counts didn't load.",
+    "emptyUnassigned": "No lead is waiting for an owner. Leads land here when nobody in the turns is available."
   },
   "form": {
     "title": "New lead",
@@ -593,5 +594,12 @@
     "loadFailed": "This stage's leads didn't load.",
     "showMore": "Show more",
     "dropHere": "Drop here to move to {stage}"
+  },
+  "away": {
+    "title": "New leads in turn",
+    "taking": "You're taking new leads in turn. Away for a while? The turns skip you until you're back.",
+    "awayUntil": "You're away until {when}: the turns skip you.",
+    "for": "{days, plural, one {Away for a day} other {Away for # days}}",
+    "back": "I'm back"
   }
 }

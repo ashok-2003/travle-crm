@@ -67,8 +67,12 @@ function searchFor(text: string | undefined): LeadCountsFilter["search"] {
 
 export function filterFor(access: MemberAccess, input: LeadCountsInput): LeadCountsFilter {
   const search = searchFor(input.search);
+  const ownerUserId = ownerFor(access, input);
+  // The Unassigned queue is everyone's unowned leads; a salesperson, scoped to their own, never sees it.
+  const unassigned = input.view === "unassigned" && ownerUserId === null;
   return {
-    ownerUserId: ownerFor(access, input),
+    ownerUserId,
+    ...(unassigned && { unassignedOnly: true as const }),
     ...(input.source === undefined ? {} : { source: input.source }),
     ...(input.destinationId === undefined ? {} : { destinationId: input.destinationId }),
     ...(input.tripType === undefined ? {} : { tripType: input.tripType }),

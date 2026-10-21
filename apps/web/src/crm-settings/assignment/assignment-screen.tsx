@@ -2,7 +2,8 @@
 
 // Lead assignment (release C, spec 3.2): who the leads that arrive by themselves go to. The rules come first, in order;
 // then the mode (the Owner, turns, or fewest open leads) among the people ticked. Saved whole, for roles that manage
-// settings; a person away shows when they are back.
+// settings; a person away shows when they are back. It also sets how long a new lead may wait for a reply before the
+// Owner is told.
 import type { AssignmentMode, AssignmentSettings, LeadWorker } from "@travel-crm/contracts/crm";
 import { assignmentModes } from "@travel-crm/contracts/crm";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -18,6 +19,8 @@ import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { FormField } from "@/components/form-field";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
@@ -30,12 +33,17 @@ import { useWriteAccess } from "@/subscription/write-access";
 import { useLeadOwners } from "@/leads/use-lead-owners";
 import { RuleRow, type RuleDraft } from "./rule-row";
 
+/** The waits offered, in minutes. */
+const slowReplyChoices = [15, 30, 60, 120, 240] as const;
+const OFF = "off";
+
 let nextKey = 0;
 const newKey = () => `rule-${String((nextKey += 1))}`;
 
 function draftOf(settings: AssignmentSettings) {
   return {
     mode: settings.mode,
+    slowReplyMinutes: settings.slowReplyMinutes,
     pool: new Set(settings.pool.map((member) => member.userId)),
     rules: settings.rules.map((rule): RuleDraft => ({
       key: newKey(),
@@ -182,6 +190,36 @@ function AssignmentForm({ settings, workers }: { settings: AssignmentSettings; w
         </CardContent>
       </Card>
 
+      <Card>
+        <CardContent>
+          <FormField label={t("slowReply.label")} hint={t("slowReply.hint")}>
+            {(links) => (
+              <Select
+                value={draft.slowReplyMinutes === null ? OFF : String(draft.slowReplyMinutes)}
+                onValueChange={(value) => {
+                  setDraft({ ...draft, slowReplyMinutes: value === OFF ? null : Number(value) });
+                }}
+              >
+                <SelectTrigger {...links}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={OFF}>{t("slowReply.off")}</SelectItem>
+                  {/* A wait set elsewhere (the api takes 1 to 1440 minutes) still shows as itself. */}
+                  {[...new Set([...slowReplyChoices, draft.slowReplyMinutes ?? 15])].map((minutes) => (
+                    <SelectItem key={minutes} value={String(minutes)}>
+                      {minutes % 60 === 0
+                        ? t("slowReply.hours", { hours: minutes / 60 })
+                        : t("slowReply.minutes", { minutes })}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </FormField>
+        </CardContent>
+      </Card>
+
       {save.isError && <RefusalAlert error={save.error} />}
       <div className="flex flex-col items-start gap-2">
         <Button
@@ -190,7 +228,7 @@ function AssignmentForm({ settings, workers }: { settings: AssignmentSettings; w
           onClick={() => {
             save.mutate({
               mode: draft.mode,
-              slowReplyMinutes: settings.slowReplyMinutes,
+              slowReplyMinutes: draft.slowReplyMinutes,
               pool: [...draft.pool],
               rules: draft.rules.flatMap((rule) =>
                 rule.assigneeUserId === null

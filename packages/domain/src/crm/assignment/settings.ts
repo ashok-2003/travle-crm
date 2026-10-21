@@ -6,6 +6,7 @@ import {
   leadSource,
   tripType,
   type AssignmentSettings,
+  type PoolPlace,
   type SaveAssignmentInput,
   type SetAwayInput,
 } from "@travel-crm/contracts/crm";
@@ -72,6 +73,15 @@ export async function saveAssignment(
     before: { mode: before.mode, rules: before.rules.length, pool: before.pool.length },
     after: { mode: input.mode, rules: input.rules.length, pool: input.pool.length },
   });
+}
+
+/** Whether the person takes new leads in turn, and until when they are away (null when not). */
+export async function poolPlaceOf(tx: OrgTx, access: MemberAccess): Promise<PoolPlace> {
+  const member = await tx.assignmentPoolMember.findFirst({
+    where: { userId: access.userId },
+    select: { awayUntil: true },
+  });
+  return { inPool: member !== null, awayUntil: member?.awayUntil?.toISOString() ?? null };
 }
 
 /** Marks the person away from the pool until a time, or back; someone not in the pool is told so. */

@@ -70,7 +70,8 @@ export type KnownContactResult = z.infer<typeof knownContactResult>;
 
 export const listLeadsInput = z.strictObject({
   /** A salesperson always sees their own; "everyone" is for managers. */
-  view: z.enum(["mine", "everyone"]).default("mine"),
+  /** "unassigned" is the leads nobody owns (release C), for managers. */
+  view: z.enum(["mine", "everyone", "unassigned"]).default("mine"),
   /** "open" is the four open stages. */
   stage: z.union([z.literal("open"), leadStage]).default("open"),
   ownerUserId: recordId.optional(),

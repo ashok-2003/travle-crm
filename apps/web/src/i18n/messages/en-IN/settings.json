@@ -140,6 +140,13 @@
     },
     "save": "Save",
     "saving": "Saving",
-    "saved": "Lead assignment saved"
+    "saved": "Lead assignment saved",
+    "slowReply": {
+      "label": "When a new lead waits for a reply",
+      "hint": "The Owner is told when a new lead is still New after this long. Nothing is reassigned.",
+      "off": "Don't tell anyone",
+      "minutes": "{minutes, plural, one {After # minute} other {After # minutes}}",
+      "hours": "{hours, plural, one {After # hour} other {After # hours}}"
+    }
   }
 }

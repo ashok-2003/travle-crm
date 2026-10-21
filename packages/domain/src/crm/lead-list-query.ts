@@ -9,6 +9,8 @@ import { emptySql, joinSql, sql, type Sql } from "@travel-crm/db";
 export interface LeadListFilter {
   /** Whose leads: one owner, or null for everyone. */
   ownerUserId: string | null;
+  /** Only the leads nobody owns: the Unassigned queue (release C). */
+  unassignedOnly?: true;
   stages: readonly LeadStage[];
   source?: LeadSource;
   destinationId?: string;
@@ -51,6 +53,7 @@ function searchCondition(search: LeadListFilter["search"]): Sql {
 function filterConditions(filter: LeadCountsFilter): Sql {
   return sql`lead.deleted_at IS NULL
     ${filter.ownerUserId === null ? emptySql : sql`AND lead.owner_user_id = ${filter.ownerUserId}::uuid`}
+    ${filter.unassignedOnly ? sql`AND lead.owner_user_id IS NULL` : emptySql}
     ${filter.source === undefined ? emptySql : sql`AND lead.source = ${filter.source}`}
     ${filter.destinationId === undefined ? emptySql : sql`AND lead.destination_id = ${filter.destinationId}::uuid`}
     ${filter.tripType === undefined ? emptySql : sql`AND lead.trip_type = ${filter.tripType}`}
