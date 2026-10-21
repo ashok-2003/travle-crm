@@ -6,22 +6,23 @@
 /// one merged away and points it at the one kept.
 model Destination {
   /// Filled from db.forOrg()'s organization when omitted.
-  organizationId String        @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
-  id             String        @id @default(uuid(7)) @db.Uuid
+  organizationId  String           @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id              String           @id @default(uuid(7)) @db.Uuid
   /// Trimmed, 1-80 characters (CHECK destination_name_length).
-  name           String
+  name            String
   /// The destination it was merged into: a name typed later resolves there (R34).
-  mergedIntoId   String?       @map("merged_into_id") @db.Uuid
-  createdBy      String?       @map("created_by") @db.Uuid
-  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt      DateTime?     @map("deleted_at") @db.Timestamptz(6)
-  deletedBy      String?       @map("deleted_by") @db.Uuid
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  mergedInto     Destination?  @relation("DestinationMerges", fields: [organizationId, mergedIntoId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
-  mergedFrom     Destination[] @relation("DestinationMerges")
-  leads          Lead[]
-  enquiries      LeadEnquiry[]
+  mergedIntoId    String?          @map("merged_into_id") @db.Uuid
+  createdBy       String?          @map("created_by") @db.Uuid
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime?        @map("deleted_at") @db.Timestamptz(6)
+  deletedBy       String?          @map("deleted_by") @db.Uuid
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  mergedInto      Destination?     @relation("DestinationMerges", fields: [organizationId, mergedIntoId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  mergedFrom      Destination[]    @relation("DestinationMerges")
+  leads           Lead[]
+  enquiries       LeadEnquiry[]
+  assignmentRules AssignmentRule[]
 
   /// Lets leads, enquiries and merged destinations point at (organization_id, id).
   @@unique([organizationId, id])

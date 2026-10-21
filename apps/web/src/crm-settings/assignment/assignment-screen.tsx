@@ -273,7 +273,8 @@ export function AssignmentScreen() {
       );
     }
     if (settings.data === undefined || owners.data === undefined) return <LoadingRows rows={5} shape="twoLines" />;
-    return <AssignmentForm settings={settings.data} workers={owners.data} />;
+    // Keyed by when the settings were read, so a save's stored copy replaces what was typed.
+    return <AssignmentForm key={settings.dataUpdatedAt} settings={settings.data} workers={owners.data} />;
   };
   return (
     <div className="flex flex-col gap-6">

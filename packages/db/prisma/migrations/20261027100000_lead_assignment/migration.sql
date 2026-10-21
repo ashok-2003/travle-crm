@@ -62,6 +62,9 @@ ALTER TABLE "assignment_settings" ADD CONSTRAINT "assignment_settings_organizati
 ALTER TABLE "assignment_rule" ADD CONSTRAINT "assignment_rule_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organization"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 -- AddForeignKey
+ALTER TABLE "assignment_rule" ADD CONSTRAINT "assignment_rule_organization_id_destination_id_fkey" FOREIGN KEY ("organization_id", "destination_id") REFERENCES "destination"("organization_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
 ALTER TABLE "assignment_pool_member" ADD CONSTRAINT "assignment_pool_member_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organization"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 -- Row-level security: each organization sees only its own.

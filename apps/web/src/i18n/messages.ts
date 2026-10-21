@@ -61,3 +61,9 @@ export const messages = {
 };
 
 export type Messages = typeof messages;
+
+/**
+ * What the browser is sent: every message but the public page's, which its server components render there (its
+ * legal pages, its long answers), save the prices' words, which a client component shows.
+ */
+export const clientMessages = { ...messages, marketing: { pricing: messages.marketing.pricing } };

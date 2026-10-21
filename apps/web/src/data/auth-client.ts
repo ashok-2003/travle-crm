@@ -41,6 +41,9 @@ async function bodyOf(response: Response): Promise<Record<string, unknown>> {
   }
 }
 
+/** How long a sign-in waits for its answer before treating the api as asleep (then it waits for it and retries). */
+const SIGN_IN_TIMEOUT = 45_000;
+
 /** How long one call to see whether a sleeping api is up waits for its answer. */
 const WAKE_CHECK_TIMEOUT = 20_000;
 
@@ -160,9 +163,9 @@ export function createAuthClient(fetchImplementation: Fetch = (...arguments_) =>
     // the session cookie, and must not land after the new one.
     // A sleeping api is waited for, and the sign-in sent once more (signIn).
     signInWithEmail: (input: { email: string; password: string }) =>
-      signIn(() => post("/sign-in/email", input, signInOutcome)),
+      signIn(() => post("/sign-in/email", input, signInOutcome, { timeout: SIGN_IN_TIMEOUT })),
     signInWithCode: (input: { orgCode: string; username: string; password: string }) =>
-      signIn(() => post("/sign-in/org", input, signInOutcome)),
+      signIn(() => post("/sign-in/org", input, signInOutcome, { timeout: SIGN_IN_TIMEOUT })),
     /** Starts waking a sleeping api while the person types, so the sign-in itself rarely waits. */
     wake,
     /** The second step of a two-factor sign-in. trustDevice skips it on this device for 30 days. */
