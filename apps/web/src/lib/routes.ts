@@ -24,6 +24,8 @@ export const routes = {
   /** The lead list (release 1); a lead's own page is leadRoute(leadId). */
   leads: "/leads",
   newLead: "/leads/new",
+  /** The open leads by stage, as a board (release C). */
+  leadsPipeline: "/leads/pipeline",
   /** A lead import's first step; an import's own page is leadImportRoute(importId). */
   leadImport: "/leads/import",
   settings: "/settings",

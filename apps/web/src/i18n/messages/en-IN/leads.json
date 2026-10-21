@@ -549,5 +549,49 @@
     "holds": {
       "matching": "matching \"{search}\""
     }
+  },
+  "bulk": {
+    "choose": "Choose {name}",
+    "chooseAll": "Choose every lead shown",
+    "chosen": "{count, plural, one {# lead chosen} other {# leads chosen}}",
+    "label": "Change the chosen leads",
+    "moveTo": "Move to",
+    "assign": "Assign to",
+    "followUp": "Add follow-up",
+    "clear": "Clear the choice",
+    "done": "{changed, plural, one {# lead changed} other {# leads changed}}",
+    "doneSkipped": "{changed, plural, one {# lead changed} other {# leads changed}}; {skipped, plural, one {# was} other {# were}} left as they were.",
+    "tooMany": "Choose at most {max} leads at a time.",
+    "reassign": {
+      "title": "Assign the chosen leads",
+      "description": "{count, plural, one {The lead goes} other {The # leads go}}, with their open follow-ups, to the person you choose.",
+      "owner": "Assign to",
+      "choose": "Choose someone",
+      "submit": "Assign",
+      "submitting": "Assigning",
+      "problems": {
+        "required": "Choose who gets the leads.",
+        "owner": "Choose who gets the leads."
+      }
+    },
+    "work": {
+      "title": "Add a follow-up to the chosen leads",
+      "description": "Each lead's owner gets the same follow-up, due at the same time.",
+      "submit": "Add follow-ups",
+      "submitting": "Adding"
+    }
+  },
+  "pipeline": {
+    "title": "Pipeline",
+    "intro": "Every open lead by its stage. Drag a card to another stage, or use Move to.",
+    "board": "Leads by stage",
+    "toList": "List",
+    "toPipeline": "Pipeline",
+    "moveTo": "Move {name} to",
+    "moved": "{name} moved to {stage}",
+    "empty": "None",
+    "loadFailed": "This stage's leads didn't load.",
+    "showMore": "Show more",
+    "dropHere": "Drop here to move to {stage}"
   }
 }

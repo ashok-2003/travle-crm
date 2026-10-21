@@ -3,11 +3,12 @@
 // The lead list on a computer (R44): the registry Table from 768px, with the mockup's seven columns: the name (a link,
 // ↺ Returning beside it) over the phone; the trip over its source; the stage; what's next; the owner (not for a
 // salesperson, whose every lead is theirs); the budget over its basis; the day it came in. Numbers are mono and
-// right-aligned; names wrap.
+// right-aligned; names wrap. With a selection (release C), a first column of checkboxes chooses leads for a bulk change.
 import type { LeadListItem, PeopleNames } from "@travel-crm/contracts/crm";
 import { useTranslations } from "next-intl";
 import { rupees } from "@/components/forms/money-field";
 import { TextLink } from "@/components/text-link";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDay, formatPhoneNumber } from "@/lib/format";
 import { useMe } from "@/session/me-context";
@@ -15,6 +16,7 @@ import { NextStep } from "../next-step";
 import { OwnerBadge } from "../owner-badge";
 import { StageBadge } from "../stage-badge";
 import { useTripLine } from "../trip-line";
+import type { LeadSelection } from "./bulk/use-lead-selection";
 import { leadHref, type ListFilters } from "./list-filters";
 import { ReturningBadge } from "./returning-badge";
 
@@ -29,12 +31,15 @@ export function LeadsTable({
   people,
   filters,
   showOwner,
+  selection,
 }: {
   leads: LeadListItem[];
   people: PeopleNames;
   filters: ListFilters;
   /** False for a salesperson, who sees only their own leads. */
   showOwner: boolean;
+  /** For whoever may change leads: the leads chosen for a bulk change. */
+  selection?: LeadSelection;
 }) {
   const t = useTranslations("leads");
   const tripLine = useTripLine();
@@ -44,6 +49,17 @@ export function LeadsTable({
     <Table aria-label={t("list.leads")}>
       <TableHeader>
         <TableRow>
+          {selection && (
+            <TableHead scope="col" className="w-11">
+              <Checkbox
+                aria-label={t("bulk.chooseAll")}
+                checked={leads.length > 0 && leads.every((lead) => selection.chosen.has(lead.id))}
+                onCheckedChange={() => {
+                  selection.toggleAll(leads.map((lead) => lead.id));
+                }}
+              />
+            </TableHead>
+          )}
           {tableColumns(showOwner).map((column) => (
             <TableHead key={column} scope="col" className={numeric.has(column) ? "text-right" : undefined}>
               {t(`list.columns.${column}`)}
@@ -53,7 +69,18 @@ export function LeadsTable({
       </TableHeader>
       <TableBody>
         {leads.map((lead) => (
-          <TableRow key={lead.id}>
+          <TableRow key={lead.id} data-state={selection?.chosen.has(lead.id) ? "selected" : undefined}>
+            {selection && (
+              <TableCell>
+                <Checkbox
+                  aria-label={t("bulk.choose", { name: lead.person.name })}
+                  checked={selection.chosen.has(lead.id)}
+                  onCheckedChange={() => {
+                    selection.toggle(lead.id);
+                  }}
+                />
+              </TableCell>
+            )}
             <TableCell className="whitespace-normal">
               <div className="flex flex-col gap-0.5">
                 <div className="flex flex-wrap items-center gap-2">

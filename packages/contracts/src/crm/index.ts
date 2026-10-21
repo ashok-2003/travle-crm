@@ -1,5 +1,6 @@
 // Public API of @travel-crm/contracts/crm: people, leads, their timeline, blocked contacts, and leads in files.
 export * from "./blocked-contacts.js";
+export * from "./bulk.js";
 export * from "./events.js";
 export * from "./fields.js";
 export * from "./file-words.js";
