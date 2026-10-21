@@ -49,3 +49,7 @@ export const organizationLogo = z.object({
   expiresAt: z.iso.datetime(),
 });
 export type OrganizationLogo = z.infer<typeof organizationLogo>;
+
+/** The logo in the app's frame, for every member: only the short-lived link, nothing of the file. */
+export const shellLogo = z.object({ url: z.url(), expiresAt: z.iso.datetime() });
+export type ShellLogo = z.infer<typeof shellLogo>;

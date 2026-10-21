@@ -8,6 +8,7 @@ import {
   logoUpload,
   organizationLogo,
   requestLogoUploadInput,
+  shellLogo,
   type OrganizationLogo,
 } from "@travel-crm/contracts/profile";
 import { assertUsableLogo } from "@travel-crm/domain/documents";
@@ -45,6 +46,20 @@ export const logoRouter = router({
     .query(async ({ ctx }) => {
       const logo = await currentLogo(ctx.files, ctx.member);
       return logo ? shown(ctx.files, ctx.member, logo) : null;
+    }),
+
+  /**
+   * The logo at the top of the app's frame, where every member sees the agency's own mark (its name when there is
+   * none). Every subscription state shows it, as it shows the frame.
+   */
+  forShell: orgProcedure
+    .meta({ planModule: "core", lifecycle: "always" })
+    .output(shellLogo.nullable())
+    .query(async ({ ctx }) => {
+      const logo = await currentLogo(ctx.files, ctx.member);
+      if (!logo) return null;
+      const { url, expiresAt } = await shown(ctx.files, ctx.member, logo);
+      return { url, expiresAt };
     }),
 
   /** Where the browser PUTs the logo; it counts toward the organization's storage like any file. */

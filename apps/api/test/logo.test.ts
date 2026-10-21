@@ -1,6 +1,6 @@
 // The organization's logo over HTTP (spec 9.3): a PNG or JPEG of at most 1 MB, 4096 pixels a side and 16 megapixels,
 // uploaded straight to storage and shown through a short-lived link; the newest is the logo, and removing it takes the
-// ones it replaced with it. Only roles with settings:manage reach it, and a read-only organization's Owner may look
+// ones it replaced with it. Every member sees it in the app's frame; only roles with settings:manage reach the rest, and a read-only organization's Owner may look
 // but not change it.
 import type { LogoUpload, OrganizationLogo } from "@travel-crm/contracts/profile";
 import { systemActor } from "@travel-crm/domain/kernel";
@@ -191,6 +191,21 @@ describe("the organization's logo", () => {
       });
     }
     expect(await dataOf(await query(server, "organization.logo.get", jar))).toBeNull();
+  });
+
+  it("shows every member the logo for the app's frame, without its file name", async () => {
+    const agency = await createTestAgency(server);
+    const owner = await signedInOwner(server, agency);
+    const sales = await signedInStaff(
+      server,
+      agency,
+      await addStaff(server, agency, { username: "meera", roleKey: "sales" }),
+    );
+    expect(await dataOf(await query(server, "organization.logo.forShell", sales))).toBeNull();
+    const logo = await uploadedLogo(owner);
+    const shown = await dataOf<Record<string, unknown>>(await query(server, "organization.logo.forShell", sales));
+    expect(Object.keys(shown).sort()).toEqual(["expiresAt", "url"]);
+    expect(shown.url).toContain(encodeURIComponent(logo.attachmentId));
   });
 
   it("refuses staff without settings:manage", async () => {
