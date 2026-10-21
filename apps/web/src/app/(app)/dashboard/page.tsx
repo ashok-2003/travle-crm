@@ -1,6 +1,6 @@
 "use client";
 
-// The home screen. Whoever may change the organization's settings (the Owner, Admins) sees the setup card above
+// The home screen (/dashboard). Whoever may change the organization's settings (the Owner, Admins) sees the setup card above
 // everything else until the checklist is done (spec 7.1); right under it, whoever's role sees leads on a plan with them
 // sees the day's nudge (spec 3.1: a count, three things, Open Today), never Today's long list; then the screens their
 // role may use to set the organization up. New lead is the header's action, an outline button, so Open Today stays the

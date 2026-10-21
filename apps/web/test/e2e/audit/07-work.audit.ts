@@ -121,7 +121,7 @@ test("an Owner's day, its dialogs and Settings, and a salesperson's empty Today"
   const { ravi } = await leadWorkerAgency(page, { agency, addStaff });
   await theMockupsDay(page);
 
-  await page.goto("/");
+  await page.goto("/dashboard");
   await expect(page.getByRole("region", { name: /things today/ }).getByRole("listitem")).toHaveCount(3);
   await shoot(page, "home-today");
 

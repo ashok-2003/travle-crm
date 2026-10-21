@@ -20,7 +20,7 @@ test("an agency's states: an empty list, an error with Try again, a skeleton", a
   await expect(page.getByText("No files yet.", { exact: false })).toBeVisible();
   await shoot(page, "agency-empty");
 
-  await page.goto("/");
+  await page.goto("/dashboard");
   await expect(page.getByRole("heading", { level: 1, name: `Welcome, ${agency.owner.name}` })).toBeVisible();
   await page.route(callsTo("/api/trpc/", "roles.list"), (route) => route.abort());
   await openFromNavigation(page, "Main", "Roles");

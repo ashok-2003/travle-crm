@@ -6,14 +6,14 @@ import { nextPath } from "@/account/next-path";
 describe("nextPath", () => {
   it("returns an app path from ?next=, and home otherwise", () => {
     expect(nextPath(new URLSearchParams("next=/staff"))).toBe("/staff");
-    expect(nextPath(new URLSearchParams())).toBe("/");
-    expect(nextPath(new URLSearchParams("next=//evil.example"))).toBe("/");
-    expect(nextPath(new URLSearchParams("next=https://evil.example"))).toBe("/");
+    expect(nextPath(new URLSearchParams())).toBe("/dashboard");
+    expect(nextPath(new URLSearchParams("next=//evil.example"))).toBe("/dashboard");
+    expect(nextPath(new URLSearchParams("next=https://evil.example"))).toBe("/dashboard");
   });
 
   it("refuses a signed-out screen, filters and all", () => {
     for (const next of ["/sign-in", "/sign-in?next=/sign-in", "/forgot-password", "/reset-password", "/offline"]) {
-      expect(nextPath(new URLSearchParams({ next })), next).toBe("/");
+      expect(nextPath(new URLSearchParams({ next })), next).toBe("/dashboard");
     }
     expect(nextPath(new URLSearchParams({ next: "/staff?role=sales" }))).toBe("/staff?role=sales");
   });
@@ -27,7 +27,7 @@ describe("nextPath", () => {
       "/\\evil.example",
       "/%5Cevil.example",
     ]) {
-      expect(nextPath(new URLSearchParams({ next }))).toBe("/");
+      expect(nextPath(new URLSearchParams({ next }))).toBe("/dashboard");
     }
   });
 });

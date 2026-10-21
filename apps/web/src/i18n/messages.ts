@@ -14,6 +14,7 @@ import exportsMessages from "./messages/en-IN/exports.json";
 import forms from "./messages/en-IN/forms.json";
 import imports from "./messages/en-IN/imports.json";
 import leads from "./messages/en-IN/leads.json";
+import marketing from "./messages/en-IN/marketing.json";
 import notifications from "./messages/en-IN/notifications.json";
 import pwa from "./messages/en-IN/pwa.json";
 import roles from "./messages/en-IN/roles.json";
@@ -44,6 +45,7 @@ export const messages = {
   forms,
   imports,
   leads,
+  marketing,
   notifications,
   pwa,
   roles,

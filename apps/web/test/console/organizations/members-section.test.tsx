@@ -113,7 +113,7 @@ describe("MembersSection", () => {
     expect(dialog).toHaveTextContent("recorded in the organization's audit log and ends after an hour at most");
     await userEvent.click(within(dialog).getByRole("button", { name: "Sign in as Lakshmi Nair" }));
     await vi.waitFor(() => {
-      expect(navigation.loadPage).toHaveBeenCalledWith("/");
+      expect(navigation.loadPage).toHaveBeenCalledWith("/dashboard");
     });
     // The session is the member's now: the device's other tabs drop what they hold of support's first.
     expect(session.announceSignOut).toHaveBeenCalledOnce();
@@ -142,7 +142,7 @@ describe("MembersSection", () => {
     const dialog = await screen.findByRole("alertdialog");
     await userEvent.click(within(dialog).getByRole("button", { name: "Sign in as Lakshmi Nair" }));
     await vi.waitFor(() => {
-      expect(navigation.loadPage).toHaveBeenCalledWith("/");
+      expect(navigation.loadPage).toHaveBeenCalledWith("/dashboard");
     });
     expect(reportError).toHaveBeenCalledWith(noChannel);
   });

@@ -127,6 +127,6 @@ describe("a tap on the notification", () => {
   it("opens home for anything but a path in the app", async () => {
     const worker = await pushWorker();
     await worker.tap({ path: "https://evil.example/settings" });
-    expect(worker.opened).toEqual([at("/")]);
+    expect(worker.opened).toEqual([at("/dashboard")]);
   });
 });

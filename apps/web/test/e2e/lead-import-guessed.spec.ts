@@ -65,7 +65,7 @@ test("a CSV of 20 leads with guessed columns and an Owner column: added with sou
   const phone = await anotherPersonsDevice(browser);
   const ravisPage = await phone.newPage();
   await signInByCode(ravisPage, { code: agency.code, staff: ravi });
-  await ravisPage.goto("/");
+  await ravisPage.goto("/dashboard");
   await ravisPage
     .getByRole("button", { name: /^Notifications/ })
     .filter({ visible: true })

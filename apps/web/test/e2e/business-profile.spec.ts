@@ -9,7 +9,7 @@ import { expect, signInByEmail, test } from "./support/fixtures";
 test("a newly onboarded Owner fills the profile and watches the checklist tick", async ({ page, agency, database }) => {
   await saveOnboardingProfile(database.platform, agency.organizationId, "Sharma Travels Private Limited");
   await signInByEmail(page, agency.owner);
-  await page.goto("/");
+  await page.goto("/dashboard");
   const checklist = page.getByRole("region", { name: "Finish setting up Sharma Travels" });
   // Onboarding saved the contact phone, but no address.
   await expect(checklist.getByText("1 of 7 done")).toBeVisible();
@@ -72,7 +72,7 @@ test("a newly onboarded Owner fills the profile and watches the checklist tick",
       steps.getByRole("link", { name: new RegExp(`^${step}`) }).getByText(status, { exact: true }),
     ).toBeVisible();
   }
-  await page.goto("/");
+  await page.goto("/dashboard");
   await expect(checklist.getByText("4 of 7 done")).toBeVisible();
   await expect(checklist.getByRole("listitem")).toHaveText([/^Logo/, /^Branding/]);
 });

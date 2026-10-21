@@ -59,6 +59,9 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
   `SidebarGroupAction` (20px, a 36px hit area on phones only), `SidebarRail` (16px wide), and the words of the rail and
   the phone sheet (the sheet's title), which are not messages. Make them 44px and messages before using one.
   `tooltip.tsx` came with it.
+- `accordion.tsx` (added for the public page's questions): `cn` from `lib/utils.ts` (the registry's import named a
+  package that doesn't exist); each trigger at least 44px, its words centred beside the chevron; the global focus
+  outline instead of its own ring and border; opening and closing move only behind `motion-safe:`.
 - `sonner.tsx`: one light theme (no `next-themes`), bottom right, a close button with a 44px hit area. On phones its
   `mobileOffset` is `var(--toast-bottom-gap)`, which `globals.css` sets to 4rem (the 56px bottom bar and 8px more) only
   while the page has the phone navigation, so toasts clear the bar there and sit at the bottom elsewhere.

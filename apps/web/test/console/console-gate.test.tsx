@@ -85,7 +85,7 @@ describe("ConsoleGate", () => {
     stubApi({ "platform.whoAmI": { status: 403, reason: "PLATFORM_ONLY" }, "me.get": { data: member() } });
     renderGate();
     expect(await screen.findByText(gate.notStaff)).toBeVisible();
-    expect(await screen.findByRole("link", { name: gate.toYourApp })).toHaveAttribute("href", "/");
+    expect(await screen.findByRole("link", { name: gate.toYourApp })).toHaveAttribute("href", "/dashboard");
     expect(screen.getByRole("button", { name: messages.console.navigation.signOut })).toBeVisible();
     expect(screen.queryByText(/Console for/)).toBeNull();
   });

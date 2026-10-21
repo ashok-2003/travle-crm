@@ -22,7 +22,7 @@ test("Home shows the count and three things, and Open Today opens Today", async 
   });
   const rahul = await addLeadThroughApi(page, leadInput());
 
-  await page.goto("/");
+  await page.goto("/dashboard");
   const nudge = page.getByRole("region", { name: /things today/ });
   await expect(nudge.getByRole("heading", { level: 2 })).toContainText("4 things today");
   await expect(nudge.getByText("2 overdue", { exact: true })).toBeVisible();
@@ -54,6 +54,6 @@ test("Home shows the count and three things, and Open Today opens Today", async 
       .getByRole("region", { name: "New leads not contacted yet" })
       .getByRole("link", { name: "Rahul Sharma", exact: true }),
   ).toBeVisible();
-  await page.goto("/");
+  await page.goto("/dashboard");
   await expect(nudge).toBeVisible();
 });

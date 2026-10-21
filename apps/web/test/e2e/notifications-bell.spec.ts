@@ -15,7 +15,7 @@ test("a customer opens a shared link, and the sharer's bell says so until it is 
   test.slow();
   const shared = await shareAsOwner();
   await signInByEmail(page, agency.owner);
-  await page.goto("/");
+  await page.goto("/dashboard");
   const bell = page.getByRole("button", { name: /^Notifications/ }).filter({ visible: true });
   await expect(bell).toHaveAccessibleName("Notifications");
 

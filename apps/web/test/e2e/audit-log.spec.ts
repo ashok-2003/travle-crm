@@ -76,7 +76,7 @@ test("a role that may read the audit log, but not change settings, finds it in t
   expect(granted.ok()).toBe(true);
 
   await signInByCode(page, { code: agency.code, staff: ravi });
-  await page.goto("/");
+  await page.goto("/dashboard");
   await expect(navigation(page).getByRole("link", { name: "Settings" })).toHaveCount(0);
   await navigation(page).getByRole("link", { name: "Audit log" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Audit log" })).toBeVisible();

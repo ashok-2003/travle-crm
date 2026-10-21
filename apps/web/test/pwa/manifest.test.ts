@@ -11,7 +11,7 @@ describe("manifest", () => {
       name: brand.productName,
       short_name: brand.shortName,
       description: brand.tagline,
-      start_url: "/",
+      start_url: "/dashboard",
       scope: "/",
       display: "standalone",
       theme_color: brand.colours.canvas,

@@ -71,7 +71,9 @@ test("the service worker registers, controls the app and keeps every screen's sh
   const shells = (await page.evaluate(keptByWorker))
     .filter(({ cache }) => cache.startsWith("pages-"))
     .map(({ url }) => new URL(url).pathname);
-  expect(shells).toEqual(expect.arrayContaining(["/", "/staff", "/roles", "/settings", "/account", "/offline"]));
+  expect(shells).toEqual(
+    expect.arrayContaining(["/", "/dashboard", "/staff", "/roles", "/settings", "/account", "/offline"]),
+  );
   for (const secretPage of ["/reset-password", "/sign-in/two-factor", "/two-factor-setup"]) {
     expect(shells).not.toContain(secretPage);
   }
@@ -85,7 +87,7 @@ test("screens open offline by the app's links, opened before or not, with their 
   // Many page loads, each quick.
   test.slow();
   await signInByEmail(page, agency.owner);
-  await page.goto("/");
+  await page.goto("/dashboard");
   await expect(page.getByRole("heading", { level: 1, name: `Welcome, ${agency.owner.name}` })).toBeVisible();
   await controlledByServiceWorker(page);
   const navigation = page.getByRole("navigation", { name: "Main" }).filter({ visible: true });
@@ -142,7 +144,7 @@ test("screens open offline by the app's links, opened before or not, with their 
 
 test("the worker keeps no api answer and no token, whatever address is opened", async ({ page, agency }) => {
   await signInByEmail(page, agency.owner);
-  await page.goto("/");
+  await page.goto("/dashboard");
   await controlledByServiceWorker(page);
   // An api answer opened as a page, as another site's link could do, in any case: the rewrite reaches the api.
   for (const address of ["/API/trpc/me.get", "/Api/trpc/staff.list", "/api/trpc/me.get"]) {
@@ -151,7 +153,7 @@ test("the worker keeps no api answer and no token, whatever address is opened", 
   }
   await page.goto("/reset-password?token=journey-secret-token");
   // A page load the network answers: the worker checks its shells after it.
-  await page.goto("/");
+  await page.goto("/dashboard");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   const kept = await page.evaluate(keptByWorker);
   expect(kept.length).toBeGreaterThan(0);

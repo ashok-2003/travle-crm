@@ -27,7 +27,7 @@ test("unshare a sheet: Lost access with the address and one notice; share again 
 
   // One notice to the Owner, however often it is looked at.
   await expect(async () => {
-    await page.goto("/");
+    await page.goto("/dashboard");
     await page
       .getByRole("button", { name: /^Notifications/ })
       .filter({ visible: true })
