@@ -6,7 +6,7 @@ import { createPrismaClient } from "../src/client.js";
 import type { IdentityTx } from "../src/for-org.js";
 import type { Prisma } from "../src/generated/prisma/client.js";
 import { createPlatformClient, type PlatformClient } from "../src/platform.js";
-import { signInTables } from "./org-table-fixtures.js";
+import { signInTables, unscopedScheduleTables } from "./org-table-fixtures.js";
 
 type Queryable = Pick<Prisma.TransactionClient, "$queryRaw">;
 
@@ -34,7 +34,7 @@ async function protectionOfOrgTables(client: Queryable): Promise<TableProtection
 
 function unprotected(tables: TableProtection[]): string[] {
   return tables
-    .filter((t) => !signInTables.includes(t.table_name))
+    .filter((t) => !signInTables.includes(t.table_name) && !unscopedScheduleTables.includes(t.table_name))
     .filter((t) => !t.rls || !t.forced || t.policies.join(",") !== "org_isolation,platform_access")
     .map((t) => t.table_name);
 }

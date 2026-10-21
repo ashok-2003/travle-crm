@@ -40,6 +40,7 @@
       "created": "Added a staff member",
       "invited": "Invited a staff member to choose a password",
       "role-changed": "Changed a staff member's role",
+      "phone-changed": "Changed a staff member's phone",
       "password-reset": "Gave a staff member a new temporary password",
       "removed": "Removed a staff member"
     },
@@ -113,6 +114,31 @@
     "blocked-contact": {
       "added": "Blocked a contact",
       "removed": "Unblocked a contact"
+    },
+    "import": {
+      "started": "Started adding the rows of an import",
+      "cancelled": "Cancelled an import",
+      "finished": "Finished adding the rows of an import",
+      "report-downloaded": "Downloaded an import's rows not added"
+    },
+    "export": {
+      "made": "Made an export file",
+      "downloaded": "Downloaded an export file"
+    },
+    "sheet": {
+      "connected": "Connected a Google Sheet",
+      "columns-changed": "Matched a Google Sheet's columns again",
+      "access-lost": "Lost access to a Google Sheet",
+      "tab-missing": "Found a Google Sheet's tab missing",
+      "columns-missing": "Found columns missing from a Google Sheet",
+      "needs-manager": "Found a Google Sheet without a manager",
+      "paused": "Paused a Google Sheet",
+      "resumed": "Resumed a Google Sheet",
+      "taken-over": "Took over a Google Sheet",
+      "disconnected": "Disconnected a Google Sheet",
+      "access-restored": "Regained access to a Google Sheet",
+      "recovered": "A Google Sheet is working again",
+      "problem-hidden": "Hid a row a Google Sheet couldn't add"
     }
   },
   "fields": {
@@ -146,13 +172,23 @@
     "tripType": "Trip type",
     "hotelCategory": "Hotel",
     "food": "Food",
-    "roomType": "Room type"
+    "roomType": "Room type",
+    "existingRows": "Rows already in the sheet",
+    "columnsMatched": "Columns matched",
+    "rowsAdded": "Leads added",
+    "rowsMerged": "Added to an existing lead",
+    "rowsDuplicate": "Left out as duplicates",
+    "rowNumber": "Row",
+    "status": "Status"
   },
   "recordTypes": {
     "issued_document": "A document",
     "lead": "A lead",
     "person": "A customer",
     "task": "A follow-up or task",
-    "destination": "A destination"
+    "destination": "A destination",
+    "import_batch": "An import",
+    "data_export": "An export",
+    "sheet_connection": "A Google Sheet"
   }
 }

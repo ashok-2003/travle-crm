@@ -1,7 +1,7 @@
 // A repeat enquiry (spec 3.2, R8): what a known customer asked this time, kept as asked on their open lead and its
 // timeline, with "Repeat enquiry on your lead" for the lead's owner (R27). Someone who can't see that lead is told it
 // went there, never its id (R24).
-import type { CreatedLead, CreateLeadInput } from "@travel-crm/contracts/crm";
+import type { CreatedLead, LeadSource, TripInput } from "@travel-crm/contracts/crm";
 import type { OrgTx } from "@travel-crm/db";
 import type { MemberAccess } from "../identity/index.js";
 import { publishEvent } from "../jobs/index.js";
@@ -11,16 +11,20 @@ import { isLeadInScope } from "./lead-detail.js";
 import { recordLeadEvent } from "./lead-events.js";
 import { resolveTrip, tripColumns } from "./trip-columns.js";
 
-/** Adds the form's trip, source and note to the open lead as a repeat enquiry. */
+/**
+ * Adds the trip, source and note to the open lead as a repeat enquiry, and tells the lead's owner unless told not to
+ * (an import tells nobody, B18).
+ */
 export async function addRepeatEnquiry(
   tx: OrgTx,
   access: MemberAccess,
   enquiry: {
     lead: { id: string; ownerUserId: string | null; returning: boolean };
     personName: string;
-    input: Pick<CreateLeadInput, "trip" | "source" | "sourceDetail" | "note">;
+    input: { trip: TripInput; source: LeadSource; sourceDetail: string | null; note: string | null };
   },
   now: Date,
+  options: { notifyOwner: boolean } = { notifyOwner: true },
 ): Promise<CreatedLead> {
   const { lead, personName, input } = enquiry;
   const trip = await resolveTrip(tx, access, input.trip);
@@ -45,7 +49,7 @@ export async function addRepeatEnquiry(
     after: { recordId: enquiryId },
   });
   await publishEvent(tx, { type: "lead.repeat-enquiry", payload: { leadId: lead.id, enquiryId } });
-  if (lead.ownerUserId !== null) {
+  if (options.notifyOwner && lead.ownerUserId !== null) {
     await notify(tx, access, {
       recipientUserIds: [lead.ownerUserId],
       kind: "lead.repeat-enquiry",

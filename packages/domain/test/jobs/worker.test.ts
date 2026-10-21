@@ -54,6 +54,28 @@ describe("startWorker", () => {
     expect(listener.handled.map((event) => event.id)).toEqual([eventId]);
   });
 
+  it("works each listener's queue one job at a time, so a worker reads one import's file at a time (X10)", async () => {
+    const queue = createMemoryJobQueue();
+    const memoryRunner = createMemoryJobRunner(queue);
+    const worked: [string, unknown][] = [];
+    const runner = {
+      ...memoryRunner,
+      work: (...args: Parameters<typeof memoryRunner.work>) => {
+        worked.push([args[0], args[2]]);
+        return memoryRunner.work(...args);
+      },
+    };
+    const worker = await startWorker({
+      db,
+      runner,
+      queue,
+      listeners: [recordingListener("imports.read-file", "import.uploaded")],
+      relay: { organizationIds: [] },
+    });
+    await worker.stop();
+    expect(worked).toEqual([["imports.read-file", { concurrency: 1 }]]);
+  });
+
   it("runs plain handlers, and registers schedules in their time zone", async () => {
     const queue = createMemoryJobQueue();
     const runner = createMemoryJobRunner(queue);

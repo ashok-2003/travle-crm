@@ -18,6 +18,7 @@ export interface PersonExport {
   name: string;
   email: string | null;
   username: string | null;
+  phone: string | null;
   role: string;
   joinedAt: string;
   removedAt: string | null;
@@ -41,6 +42,7 @@ export async function personExport(tx: IdentityTx, organizationId: string, membe
     // A removed person's current address is a placeholder; their own one is kept as the former email.
     email: shownEmail(member.user.formerEmail ?? member.user.email),
     username: member.user.displayUsername,
+    phone: member.phoneE164,
     role: member.role,
     joinedAt: member.createdAt.toISOString(),
     removedAt: member.deletedAt?.toISOString() ?? null,
@@ -64,6 +66,7 @@ export async function erasePerson(
     throw new DomainError("CONFLICT", "REMOVE_FIRST", "Remove this person from the organization before erasing them");
   }
   const { userId } = member;
+  await withDeleted(() => tx.member.update({ where: { id: member.id }, data: { phoneE164: null } }));
   await tx.user.update({
     where: { id: userId },
     data: {

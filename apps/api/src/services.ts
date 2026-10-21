@@ -4,17 +4,21 @@
 import { hkdfSync } from "node:crypto";
 import { createDatabase, type Database, type ForOrgOptions } from "@travel-crm/db";
 import { createFiles, type Files } from "@travel-crm/domain/files";
-import { createIdentity, type Identity } from "@travel-crm/domain/identity";
+import { createIdentity, type Identity, type SeatLimit } from "@travel-crm/domain/identity";
 import { createProfiles, type Profiles } from "@travel-crm/domain/profile";
 import { createRateLimiter, type RateLimiter } from "@travel-crm/domain/rate-limits";
-import { createSubscriptionAccess, planLimits } from "@travel-crm/domain/subscriptions";
+import { createSheetsHashes, type SheetsHashes } from "@travel-crm/domain/sheets";
+import { createSubscriptionAccess, planLimits, type SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { createSmtpEmailSender, type EmailSender } from "@travel-crm/integrations/email";
+import { createRealGoogleSheets, type GoogleSheets } from "@travel-crm/integrations/google-sheets";
 import { createPgBossJobs, type PgBossJobs } from "@travel-crm/integrations/jobs";
 import { createWebPushSender, type PushSender } from "@travel-crm/integrations/push";
+import { createSpreadsheets, type Spreadsheets } from "@travel-crm/integrations/spreadsheets";
 import { createS3Storage, type ObjectStorage } from "@travel-crm/integrations/storage";
 import { authSettingsFrom, type Environment } from "./environment.js";
 import { passwordResetEmails, resetPasswordPageOf } from "./password-reset-email.js";
 import type { ProcessLog } from "./process-log.js";
+import { verifySheetsKey } from "./sheets-key-check.js";
 
 export interface Services {
   environment: Environment;
@@ -24,6 +28,16 @@ export interface Services {
   profiles: Profiles;
   storage: ObjectStorage;
   files: Files;
+  /** Reads and writes CSV and .xlsx files: only the worker reads one (ADR 0030). */
+  spreadsheets: Spreadsheets;
+  /** Reads Google Sheets, read only (ADR 0031); null when no service account is set: Google Sheets is off. */
+  google: GoogleSheets | null;
+  /** Keys the spreadsheet claim and the erasure tombstones; null when SHEETS_HASH_KEY is not set (S4, S43). */
+  sheetsHashes: SheetsHashes | null;
+  /** What each organization's plan allows today, for the jobs that act for a person (an import's add). */
+  subscriptions: SubscriptionAccess;
+  /** The seats each organization's plan gives, for the staff import's add. */
+  seatLimit: SeatLimit;
   /** pg-boss: the api sends jobs to it (webhooks), the worker also runs them. */
   jobs: PgBossJobs;
   email: EmailSender;
@@ -52,6 +66,22 @@ export function transactionLimitsOf(environment: Environment): ForOrgOptions {
   };
 }
 
+/** The real Google adapter for the service accounts the environment holds, or none when it holds none. */
+export function googleSheetsOf(environment: Environment, log: ProcessLog): GoogleSheets | null {
+  const accounts = environment.GOOGLE_SHEETS_SERVICE_ACCOUNTS;
+  if (accounts === undefined) return null;
+  const testServer = environment.GOOGLE_SHEETS_TEST_SERVER_URL;
+  // The journeys' fake Google takes any token and any key: a fixed token spares signing one (development and tests only).
+  return testServer === undefined
+    ? createRealGoogleSheets({ accounts, log })
+    : createRealGoogleSheets({
+        accounts,
+        log,
+        apiBaseUrl: testServer,
+        accessToken: () => Promise.resolve("test-token"),
+      });
+}
+
 /** `log` is the process's one log: pg-boss's problems go there, as ids and codes. */
 export function createServices(environment: Environment, log: ProcessLog): Services {
   const db = createDatabase(environment.DATABASE_URL, {
@@ -61,7 +91,8 @@ export function createServices(environment: Environment, log: ProcessLog): Servi
   const rateLimiter = createRateLimiter(db, { keySecret: rateLimitKeySecret(environment.BETTER_AUTH_SECRET) });
   // Seats and storage are the plan's (spec 7.2): identity refuses staff past them, the files module uploads. The api's
   // request checks read the same entitlements through an access of their own (server.ts).
-  const limits = planLimits(createSubscriptionAccess({ db }));
+  const subscriptions = createSubscriptionAccess({ db });
+  const limits = planLimits(subscriptions);
   const email = createSmtpEmailSender({
     host: environment.SMTP_HOST,
     port: environment.SMTP_PORT,
@@ -111,6 +142,11 @@ export function createServices(environment: Environment, log: ProcessLog): Servi
     profiles: createProfiles({ db }),
     storage,
     files: createFiles({ db, storage, storageLimitBytes: limits.storageBytes }),
+    spreadsheets: createSpreadsheets(),
+    google: googleSheetsOf(environment, log),
+    sheetsHashes: environment.SHEETS_HASH_KEY === undefined ? null : createSheetsHashes(environment.SHEETS_HASH_KEY),
+    subscriptions,
+    seatLimit: limits.seats,
     jobs,
     email,
     push,
@@ -119,6 +155,8 @@ export function createServices(environment: Environment, log: ProcessLog): Servi
       // A DATABASE_URL for the wrong role (app_migrator, say) would otherwise fail every request and job while the
       // process looked healthy: the first query checks the role, so make one now.
       await db.withoutOrg(() => Promise.resolve());
+      // Every process that holds the sheets hash key holds the same one (SC8): a different key quietly breaks the claims.
+      if (environment.SHEETS_HASH_KEY !== undefined) await verifySheetsKey(db, environment.SHEETS_HASH_KEY);
       // A wrong bucket name or credentials would otherwise surface only at the first upload: refuse to start.
       await s3.checkBucket();
       await jobs.start();

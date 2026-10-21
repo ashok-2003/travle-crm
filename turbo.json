@@ -35,9 +35,25 @@
     "db:migrate:deploy": { "cache": false, "env": ["DATABASE_MIGRATOR_URL"] },
     // `pnpm dev` runs these three at once, after the generated code exists: Prisma's client, and the web app's files,
     // whose generate builds the brand's icons first (apps/web/turbo.json); the web app's dev script doesn't repeat it.
-    "dev": { "dependsOn": ["generate", "^generate"], "cache": false, "persistent": true },
-    "worker": { "dependsOn": ["^generate"], "cache": false, "persistent": true },
-    "console": { "dependsOn": ["^generate"], "cache": false, "persistent": true },
+    // The Google Sheets settings (ADR 0031) pass through from the shell too, when set; the api reads them from .env as well.
+    "dev": {
+      "dependsOn": ["generate", "^generate"],
+      "cache": false,
+      "persistent": true,
+      "passThroughEnv": ["GOOGLE_SHEETS_SERVICE_ACCOUNTS", "SHEETS_HASH_KEY"]
+    },
+    "worker": {
+      "dependsOn": ["^generate"],
+      "cache": false,
+      "persistent": true,
+      "passThroughEnv": ["GOOGLE_SHEETS_SERVICE_ACCOUNTS", "SHEETS_HASH_KEY"]
+    },
+    "console": {
+      "dependsOn": ["^generate"],
+      "cache": false,
+      "persistent": true,
+      "passThroughEnv": ["SHEETS_HASH_KEY"]
+    },
     "e2e": {
       "dependsOn": ["generate", "^generate", "typecheck", "lint"],
       "cache": false,

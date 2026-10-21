@@ -11,12 +11,16 @@ export const routes = {
   twoFactorSetup: "/two-factor-setup",
   account: "/account",
   staff: "/staff",
+  /** A staff import's first step; an import's own page is staffImportRoute(importId). */
+  staffImport: "/staff/import",
   roles: "/roles",
   /** The signed-in person's day (release 1): overdue, new leads waiting, due today. */
   today: "/today",
   /** The lead list (release 1); a lead's own page is leadRoute(leadId). */
   leads: "/leads",
   newLead: "/leads/new",
+  /** A lead import's first step; an import's own page is leadImportRoute(importId). */
+  leadImport: "/leads/import",
   settings: "/settings",
   /** The setup checklist: what an organization does first (spec 11). */
   setup: "/setup",
@@ -28,6 +32,8 @@ export const routes = {
   audit: "/settings/audit",
   destinations: "/settings/destinations",
   blockedContacts: "/settings/blocked-contacts",
+  /** Google Sheets whose rows become leads; a sheet's own page is sheetRoute(sheetId). */
+  leadSources: "/settings/lead-sources",
   /** Each person's own choice of what they are told, and how (spec 9.4). */
   notificationPreferences: "/account/notifications",
   /** The platform console's dashboard; its other screens are in src/console/routes.ts, which only it imports. */
@@ -39,6 +45,44 @@ export const routes = {
 /** A lead's page. */
 export function leadRoute(leadId: string): string {
   return `${routes.leads}/${encodeURIComponent(leadId)}`;
+}
+
+/** A lead import's page, at whichever step it is. */
+export function leadImportRoute(importId: string): string {
+  return `${routes.leadImport}/${encodeURIComponent(importId)}`;
+}
+
+/** A lead export's page, where the bell's "Your leads export is ready" leads. */
+export function leadExportRoute(exportId: string): string {
+  return `${routes.leads}/exports/${encodeURIComponent(exportId)}`;
+}
+
+/** The first step of connecting a Google Sheet: share it and paste its link. */
+export const sheetConnectRoute = `${routes.leadSources}/sheets/connect`;
+
+/** A connected sheet's page. */
+export function sheetRoute(sheetId: string): string {
+  return `${routes.leadSources}/sheets/${encodeURIComponent(sheetId)}`;
+}
+
+/** A sheet's connect steps, wherever it stopped (match columns, then the rows already there). */
+export function sheetConnectStepRoute(sheetId: string): string {
+  return `${sheetRoute(sheetId)}/connect`;
+}
+
+/** Matching a connected sheet's columns again. */
+export function sheetMatchRoute(sheetId: string): string {
+  return `${sheetRoute(sheetId)}/match`;
+}
+
+/** A staff import's page, at whichever step it is. */
+export function staffImportRoute(importId: string): string {
+  return `${routes.staffImport}/${encodeURIComponent(importId)}`;
+}
+
+/** A staff export's page. */
+export function staffExportRoute(exportId: string): string {
+  return `${routes.staff}/exports/${encodeURIComponent(exportId)}`;
 }
 
 /**

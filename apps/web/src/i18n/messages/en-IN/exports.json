@@ -1,0 +1,43 @@
+{
+  "dialog": {
+    "holds": "What it holds",
+    "format": "Format",
+    "privacy": "The file holds customers' phone numbers and emails. Your export is recorded in the audit log, and the file is deleted after 24 hours.",
+    "prepare": "Prepare the file",
+    "preparingFile": "Preparing the file…",
+    "preparing": {
+      "leads": "Preparing {count, plural, one {# lead} other {# leads}}…",
+      "people": "Preparing {count, plural, one {# person} other {# people}}…"
+    },
+    "closeHint": "You can close this: we'll tell you when it's ready.",
+    "download": "Download"
+  },
+  "formats": {
+    "xlsx": "Excel (.xlsx)",
+    "xlsxHint": "Opens in Excel and Google Sheets",
+    "csv": "CSV",
+    "csvHint": "For other tools"
+  },
+  "statuses": {
+    "making": "Preparing",
+    "ready": "Ready",
+    "failed": "Failed",
+    "expired": "Deleted"
+  },
+  "failures": {
+    "no_longer_a_member": "This export stopped: you are no longer on this organization's staff.",
+    "lost_permission": "This export stopped: you can no longer see what it holds.",
+    "too_many_rows": {
+      "leads": "This export has more than 1,00,000 leads. Narrow it with a filter.",
+      "people": "This export has too many people for one file."
+    },
+    "other": "This export didn't finish. Prepare the file again."
+  },
+  "page": {
+    "state": "State",
+    "file": "File",
+    "size": "Size",
+    "deleted": "This file was deleted after 24 hours.",
+    "loadFailed": "This export didn't load."
+  }
+}

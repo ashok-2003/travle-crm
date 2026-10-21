@@ -44,7 +44,7 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - **Ports and adapters (ADR 0008).** Domain code never imports a vendor SDK. It takes a port from
   `@travel-crm/integrations/<adapter>` (`ObjectStorage`, `JobQueue`, …) as a parameter; the api and worker pass the real
   adapter, tests pass the in-memory one. Only `packages/integrations` imports pg-boss, the AWS SDK, nodemailer,
-  web-push and React-PDF, and it imports nothing of ours but `@travel-crm/brand`.
+  web-push, React-PDF and the spreadsheet libraries, and it imports nothing of ours but `@travel-crm/brand`.
 - **The product's name, colours and contacts** come from `@travel-crm/brand`, never typed elsewhere.
 - **Pinned versions.** Shared tool versions live in the `catalog:` in `pnpm-workspace.yaml`. Prisma is pinned to 7.10.0;
   npm's `latest` for `prisma` is an 8.0 release candidate. Never install "latest" without checking.
@@ -65,7 +65,9 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   their models and every transaction refuses them at run time; only their own modules reach them, inside
   `db.withoutOrg(tx => …)` (where every organization table shows no rows), through `@travel-crm/db/webhooks` and
   `@travel-crm/db/rate-limits`. dependency-cruiser keeps each entry point to its module, and ESLint flags raw SQL naming
-  either table outside it (`rawSqlSelectorsAllowing` in `packages/domain/eslint.config.js`).
+  either table outside it (`rawSqlSelectorsAllowing` in `packages/domain/eslint.config.js`). The Google Sheets key
+  check (`sheets_key_check`, through `@travel-crm/db/sheets-key-check`, read only at start-up) is one more; the
+  Sheets schedule and claim tables are the named exception below (see Google Sheets).
 - A foreign key between two organization tables includes `organization_id`, and so does every unique constraint on an
   organization table (except a primary key on `id`). Every organization table's `organization_id` refers to
   `organization`: plan 3's keys, and every new one, are `ON DELETE RESTRICT ON UPDATE RESTRICT`
@@ -159,6 +161,20 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   `apps/api/src/share-link-resolvers.ts`, a new provider goes in `apps/api/src/webhook-providers.ts`.
 - **Job data and errors** hold ids, never personal data: pg-boss's tables have no row-level security, and a failed
   job's error is shown to platform staff.
+- **Bulk files** (ADR 0030): every CSV and .xlsx goes through the `Spreadsheets` port
+  (`@travel-crm/integrations/spreadsheets`), read only in the worker, never in the browser or the api; a cell is
+  always a value, never a formula. A file the system makes (an import's report, an export) is stored with files'
+  `storeGeneratedFile` under its record type, never uploaded. The console's hourly `platform.sweep-bulk-files` deletes
+  an import's file and report 7 days after it ends and an export's file 24 hours after it is ready; an erasure
+  withdraws them all at once.
+- **Google Sheets** (ADR 0031, `packages/domain/src/sheets` and `crm/lead-sheets`): an agency shares a sheet with our
+  service account (Viewer) and its new rows become leads; one way, we never write to a sheet. Only the
+  `GoogleSheets` port (`@travel-crm/integrations/google-sheets`, read-only: describe and read rows) reaches Google. A
+  sheet's schedule (`sheet_check_schedule`) and the spreadsheet claim (`sheet_spreadsheet_claim`) carry
+  `organization_id` but have no row-level security, by a named, tested exemption (`unscopedScheduleTables`): only `packages/domain/src/sheets/schedule.ts` reaches them, through
+  `@travel-crm/db/sheet-schedule` inside `db.withoutOrg` (dependency-cruiser and ESLint hold the line). A row's
+  identity is a hash of its cells; the claim, the erasure tombstones and re-keyed hashes are HMACs with
+  `SHEETS_HASH_KEY`, which is never rotated. Imports and exports never call `sheets`; crm does.
 
 ## Platform and subscriptions (spec 7; ADRs 0019-0024)
 
@@ -194,12 +210,15 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - `packages/domain`: business rules, one folder per module (`identity`, `kernel`, `jobs`, `files`, `documents`,
   `notifications`, `audit`, `share-links`, `webhooks`, `rate-limits`, `subscriptions`, `profile`, `platform`; listed in
   `packages/domain/README.md`). The business modules are layered and call only down (dependency-cruiser's
-  `business-modules-call-down`): `catalog` (destinations) and `tasks` (follow-ups and tasks) at L0, `crm` (people,
-  leads, their timeline, blocked contacts) at L1, `today` (the signed-in person's day) above them. Search on names
-  and phone digits runs under plain row-level security, so its trigram indexes go unused by design (ADR 0028).
+  `business-modules-call-down`): `catalog` (destinations), `tasks` (follow-ups and tasks), `imports` (an import's
+  steps, for leads and staff alike) and `exports` (an export's file and download) at L0, `crm` (people, leads, their
+  timeline, blocked contacts, and the lead import's and export's rows) at L1, `today` (the signed-in person's day)
+  above them. Search on names and phone digits runs under plain row-level security, so its trigram indexes go unused
+  by design (ADR 0028).
   `@travel-crm/domain/<module>`, `@travel-crm/contracts/<module>` and `@travel-crm/integrations/<adapter>` each resolve
   to `src/<name>/index.ts`, so a new module needs no `package.json` change.
-- `packages/integrations`: adapters to the outside world, each a port plus a real and an in-memory adapter.
+- `packages/integrations`: adapters to the outside world (`storage`, `email`, `push`, `jobs`, `pdf`, `spreadsheets`, `google-sheets`),
+  each a port plus a real and an in-memory adapter.
 - `packages/brand`: the product's name, colours, fonts and contacts (spec 10).
 - `packages/db`: Prisma schema, migrations, RLS, `forOrg`, soft delete, document numbers. The migrations need
   Postgres 17 or 18 (CI runs 18) and its trusted extensions `pg_trgm` and `btree_gist` (`docs/deploy-checklist.md`).

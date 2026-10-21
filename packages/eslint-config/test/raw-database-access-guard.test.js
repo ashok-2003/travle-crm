@@ -33,11 +33,13 @@ const insideWebhooks = "src/webhooks/sample.ts";
 const insideRateLimits = "src/rate-limits/sample.ts";
 
 describe("raw database access guard", () => {
-  it("reads the domain package's three module overrides", () => {
+  it("reads the domain package's four overrides", () => {
     expect(domainOverrides.map((config) => config.files)).toEqual([
       ["src/identity/**", "test/identity/**"],
       ["src/webhooks/**", "test/webhooks/**"],
       ["src/rate-limits/**", "test/rate-limits/**"],
+      // The sheets' schedule is one file, with the tests of the module and of its scale.
+      ["src/sheets/schedule.ts", "test/sheets/**", "test/performance/sheets-*"],
     ]);
   });
 
@@ -160,6 +162,18 @@ describe("raw database access guard", () => {
   it.each(rateLimitCounterQueries)("allows %s inside the rate-limits module", async (sql) => {
     expect(await rulesReportedFor("await tx.$queryRaw`" + sql + "`;", insideRateLimits)).toEqual([]);
     expect(await rulesReportedFor("await tx.$queryRaw`" + sql + "`;", "test/rate-limits/sample.test.ts")).toEqual([]);
+  });
+
+  const sheetsKeyCheckQueries = [
+    "SELECT check_value FROM sheets_key_check",
+    'INSERT INTO "public"."sheets_key_check" (check_value) VALUES (${value})',
+  ];
+
+  it.each(sheetsKeyCheckQueries)("reports %s in every module: only Prisma reaches the table", async (sql) => {
+    const insideSchedule = "src/sheets/schedule.ts";
+    for (const filePath of [undefined, insideIdentity, insideWebhooks, insideRateLimits, insideSchedule]) {
+      expect(await rulesReportedFor("await tx.$queryRaw`" + sql + "`;", filePath)).toEqual(["no-restricted-syntax"]);
+    }
   });
 
   it("keeps the sign-in tables and the organization switch refused inside the webhooks and rate-limits modules", async () => {

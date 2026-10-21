@@ -44,4 +44,21 @@ describe("the crm settings sections", () => {
     expect(linkTo(sections.blockedContacts)).toBeNull();
     expect(linkTo(sections.profile)).toHaveAttribute("href", routes.profile);
   });
+
+  it("shows Lead sources only to holders of both leads:create and leads:assign, on the crm plan", () => {
+    const both = renderSections(member({ permissions: ["leads:create", "leads:assign"] }));
+    expect(linkTo(sections.leadSources)).toHaveAttribute("href", routes.leadSources);
+    both.unmount();
+
+    const creator = renderSections(member({ permissions: ["leads:create"] }));
+    expect(linkTo(sections.leadSources)).toBeNull();
+    creator.unmount();
+
+    const assigner = renderSections(member({ permissions: ["leads:assign"] }));
+    expect(linkTo(sections.leadSources)).toBeNull();
+    assigner.unmount();
+
+    renderSections(member({ isOwner: true }), []);
+    expect(linkTo(sections.leadSources)).toBeNull();
+  });
 });

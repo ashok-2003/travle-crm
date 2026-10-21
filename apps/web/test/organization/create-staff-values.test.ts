@@ -7,6 +7,7 @@ const values: CreateStaffValues = {
   name: "Ravi Kumar",
   email: "",
   username: "ravi",
+  phone: "",
   roleKey: "sales",
   temporaryPassword: "temporary-1",
 };
@@ -32,13 +33,21 @@ describe("toCreateStaffInput", () => {
 
   it("puts each problem on its field", () => {
     expect(
-      toCreateStaffInput({ name: " ", email: "not-an-email", username: "r", roleKey: "", temporaryPassword: "short" }),
+      toCreateStaffInput({
+        name: " ",
+        email: "not-an-email",
+        username: "r",
+        phone: "123",
+        roleKey: "",
+        temporaryPassword: "short",
+      }),
     ).toEqual({
       ok: false,
       problems: {
         name: "nameRequired",
         email: "emailInvalid",
         username: "usernameInvalid",
+        phone: "phoneInvalid",
         roleKey: "roleRequired",
         temporaryPassword: "passwordTooShort",
       },

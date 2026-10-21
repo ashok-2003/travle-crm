@@ -1,0 +1,149 @@
+{
+  "steps": {
+    "caption": "Step {step} of 4 · {name}",
+    "choose": "Choose a file",
+    "match": "Match columns",
+    "check": "Check before adding",
+    "add": "Add"
+  },
+  "statuses": {
+    "uploading": "Uploading",
+    "reading": "Reading",
+    "unreadable": "Can't read",
+    "matching": "Waiting for you",
+    "checking": "Checking",
+    "checked": "Waiting for you",
+    "adding": "Adding",
+    "done": "Done",
+    "stopped": "Stopped",
+    "failed": "Failed",
+    "cancelled": "Cancelled",
+    "expired": "Expired"
+  },
+  "file": {
+    "choose": "Choose a file",
+    "allowed": "Excel (.xlsx) or CSV, up to {rows} rows and 10 MB. We read the first sheet; its first row must name the columns.",
+    "sample": "Download a sample file",
+    "uploading": "Uploading {name}",
+    "progress": "{percent}%",
+    "stop": "Stop",
+    "tryAgainName": "Try uploading {name} again",
+    "reading": "Reading {name}…",
+    "storageUnreachable": "We couldn't reach the file storage. Check your connection and try again.",
+    "storageRefused": "The file storage didn't take the file. Try again."
+  },
+  "problems": {
+    "type": "{name} isn't an Excel or CSV file. Choose an .xlsx or .csv file.",
+    "old": "Save it as an Excel Workbook (.xlsx) or CSV and choose it again.",
+    "size": "{name} is over 10 MB. Split it into smaller files.",
+    "empty": "{name} is empty. Choose another file.",
+    "name": "Rename {name} without folders or special characters, and choose it again."
+  },
+  "unreadable": {
+    "title": "We can't read {name}",
+    "not_a_spreadsheet": "It isn't an Excel or CSV file we can read. Save it as an Excel Workbook (.xlsx) or CSV and choose it again.",
+    "protected": "It's protected with a password. Save a copy without one, and choose it again.",
+    "old_excel": "It's an old Excel file (.xls). Save it as an Excel Workbook (.xlsx) or CSV and choose it again.",
+    "no_column_names": "It has nothing in it to read: its first row must name the columns.",
+    "no_rows": "It has column names but no rows under them.",
+    "too_many_rows": "It has more than {rows} rows. Split it into smaller files and import each.",
+    "too_many_columns": "It has more than 50 columns. Leave out the ones you don't need, and choose it again.",
+    "too_large_unpacked": "It's too large once opened. Save a smaller copy, or save it as CSV.",
+    "chooseAnother": "Choose another file"
+  },
+  "columns": {
+    "title": "Match your columns",
+    "intro": "Tell us what each column holds. We guessed from their names: check them.",
+    "column": "Column in your file",
+    "samples": "Sample values",
+    "importAs": "Import as",
+    "noSamples": "Empty",
+    "dontImport": "Don't import",
+    "asLastTime": "As last time",
+    "guessed": "(guessed)",
+    "matchedTo": "{field} · matched to ''{column}''",
+    "fieldFor": "What {column} holds"
+  },
+  "fields": {
+    "leads": {
+      "name": "Name",
+      "phone": "Phone",
+      "email": "Email",
+      "instagram": "Instagram",
+      "destination": "Destination",
+      "travel_from": "Travel from",
+      "travel_to": "Travel to",
+      "travel_month": "Travel month",
+      "adults": "Adults",
+      "children_ages": "Children's ages",
+      "children_count": "Number of children",
+      "budget": "Budget",
+      "budget_basis": "Budget basis",
+      "departure_city": "Departure city",
+      "trip_type": "Trip type",
+      "hotel_category": "Hotel category",
+      "food": "Food",
+      "room_type": "Room type",
+      "stage": "Stage",
+      "owner": "Owner",
+      "enquiry_date": "Enquiry date",
+      "their_source": "Their source",
+      "note": "Note"
+    },
+    "staff": {
+      "name": "Name",
+      "username": "Username",
+      "email": "Email",
+      "phone": "Phone",
+      "role": "Role"
+    }
+  },
+  "values": {
+    "targetFor": "Where {value} goes"
+  },
+  "progress": {
+    "rows": "<n>{done}</n> of <n>{total}</n> rows",
+    "aboutAMinute": "About a minute left",
+    "aboutMinutes": "About {minutes} minutes left"
+  },
+  "reasons": {
+    "no_name": "No name",
+    "no_contact": "No phone, email or Instagram",
+    "not_a_lead": "Marked Not a lead",
+    "notes_too_long": "Notes over 4,000 characters",
+    "same_as_row": "Same as row {row}",
+    "blocked": "A blocked contact",
+    "erased": "A customer who asked to be erased",
+    "already_imported": "Already imported on {on}",
+    "in_crm_open": "Has an open lead with you",
+    "in_crm_closed": "Has a closed lead with you",
+    "not_reached": "Stopped before this row",
+    "invalid_name": "The name can't be used",
+    "no_sign_in_name": "No username or email",
+    "invalid_username": "The username can't be used",
+    "invalid_email": "The email isn't one",
+    "invalid_phone": "The phone number isn't one",
+    "same_username_as_row": "Same username as row {row}",
+    "same_email_as_row": "Same email as row {row}",
+    "email_elsewhere": "This email is on another organization's account",
+    "role_unmatched": "No role matched",
+    "owner_role": "Add an Owner from Add staff, one at a time",
+    "role_above_yours": "A role above yours",
+    "already_on_staff": "Already on your staff",
+    "taken_meanwhile": "Taken by someone added meanwhile",
+    "could_not_add": "Couldn't be added: try this row in a new import"
+  },
+  "failures": {
+    "stopped": "This import stopped: {reason}. The rows added before it stay.",
+    "no_longer_a_member": "you are no longer on this organization's staff",
+    "lost_permission": "you can no longer import",
+    "organization_cannot_change": "the organization can't make changes now",
+    "file_withdrawn": "its file was deleted",
+    "row_changed": "a row changed since the check",
+    "over_seat_limit": "your plan has too few seats free"
+  },
+  "recent": {
+    "title": "Recent imports",
+    "rows": "{rows, plural, one {<n>{total}</n> row} other {<n>{total}</n> rows}} · <n>{added}</n> added"
+  }
+}

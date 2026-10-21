@@ -7,12 +7,40 @@ import { createMemoryEmailSender, type MemoryEmailSender } from "@travel-crm/int
 import { createPgBossJobs, type PgBossJobs } from "@travel-crm/integrations/jobs";
 import { createMemoryPushSender } from "@travel-crm/integrations/push";
 import { createS3Storage } from "@travel-crm/integrations/storage";
+import { randomBytes } from "node:crypto";
 import { inject } from "vitest";
 import { workerProblemLine } from "../../src/process-log.js";
 import { workerJobs, type WorkerJobs } from "../../src/worker-jobs.js";
 import { startMinio, type TestMinio } from "./minio.js";
 import { createTestAgency, createTestServer, type TestAgency, type TestServer } from "./test-server.js";
 import type { CountingWebhookProvider } from "./webhook-provider.js";
+
+/**
+ * The same pg-boss with every queue name carrying this flow's own prefix. All test files share one database, and a
+ * pg-boss worker takes any job on a queue of that name, so without a prefix one file's worker runs another file's jobs
+ * with the wrong providers. What comes back is without the prefix again.
+ */
+function withOwnQueues(jobs: PgBossJobs): PgBossJobs {
+  const prefix = `t${randomBytes(4).toString("hex")}.`;
+  const own = (queue: string) => `${prefix}${queue}`;
+  const hasPrefix = (queue: string) => queue.startsWith(prefix);
+  const bare = (queue: string) => queue.slice(prefix.length);
+  return {
+    start: () => jobs.start(),
+    stop: () => jobs.stop(),
+    send: (queue, data, options) => jobs.send(own(queue), data, options),
+    work: (queue, handler, options) => jobs.work(own(queue), handler, options),
+    schedule: (queue, cron, options) => jobs.schedule(own(queue), cron, options),
+    unschedule: (queue) => jobs.unschedule(own(queue)),
+    retryFailedJob: (queue, jobId) => jobs.retryFailedJob(own(queue), jobId),
+    schedules: async () =>
+      (await jobs.schedules()).filter((s) => hasPrefix(s.queue)).map((s) => ({ ...s, queue: bare(s.queue) })),
+    failedJobs: async (options) =>
+      (await jobs.failedJobs(options?.queue === undefined ? options : { ...options, queue: own(options.queue) }))
+        .filter((job) => hasPrefix(job.queue))
+        .map((job) => ({ ...job, queue: bare(job.queue) })),
+  };
+}
 
 /** What has started so far. */
 export interface Running {
@@ -40,13 +68,15 @@ export async function startWorkerFlow(
 ): Promise<WorkerFlow> {
   const minio = await startMinio();
   running.minio = minio;
-  const jobs = createPgBossJobs({
-    connectionString: inject("dbUrls").runtime,
-    maxConnections: 3,
-    pollingIntervalSeconds: 0.5,
-    retryPolicy: { retryLimit: 1, retryDelaySeconds: 1, retryDelayMaxSeconds: 1 },
-    log: (line) => reported.push(`pg-boss: ${line}`),
-  });
+  const jobs = withOwnQueues(
+    createPgBossJobs({
+      connectionString: inject("dbUrls").runtime,
+      maxConnections: 3,
+      pollingIntervalSeconds: 0.5,
+      retryPolicy: { retryLimit: 1, retryDelaySeconds: 1, retryDelayMaxSeconds: 1 },
+      log: (line) => reported.push(`pg-boss: ${line}`),
+    }),
+  );
   await jobs.start();
   running.jobs = jobs;
   const server = createTestServer(
@@ -65,6 +95,9 @@ export async function startWorkerFlow(
     db: server.db,
     identity: server.identity,
     files: server.files,
+    spreadsheets: server.spreadsheets,
+    subscriptions: server.subscriptions,
+    seatLimit: server.seatLimit,
     email,
     push: createMemoryPushSender(),
     appUrl: "https://app.example.in",

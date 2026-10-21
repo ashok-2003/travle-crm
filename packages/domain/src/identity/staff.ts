@@ -17,13 +17,13 @@ import { assertMayHandleRole, assertMayManageMember } from "./access-rules.js";
 import type { MemberAccess } from "./member-access.js";
 import { findCurrentRole, findRoleToGive } from "./role-lookup.js";
 import { isPlaceholderEmail, removedPersonEmail, shownEmail } from "./sign-in-names.js";
-import { createStaffAccount, type PasswordHasher } from "./staff-accounts.js";
+import { createStaffAccount, TEMPORARY_PASSWORD_STAMP, type PasswordHasher } from "./staff-accounts.js";
 import { changeMember, lockMember, lockOwners } from "./staff-locks.js";
 
 /** How many seats an organization's plan gives (spec 7.2), or null for no limit. */
 export type SeatLimit = (organizationId: string) => Promise<number | null>;
 
-const noSeatLimit: SeatLimit = () => Promise.resolve(null);
+export const noSeatLimit: SeatLimit = () => Promise.resolve(null);
 
 /** The organization's active staff, oldest first. Placeholder emails are never shown. */
 export async function listStaff(database: IdentityDatabase, actor: MemberAccess): Promise<StaffMember[]> {
@@ -41,6 +41,7 @@ export async function listStaff(database: IdentityDatabase, actor: MemberAccess)
       name: member.user.name,
       email: shownEmail(member.user.email),
       username: member.user.displayUsername,
+      phone: member.phoneE164,
       role: {
         key: member.role,
         name: roles.get(member.role)?.name ?? member.role,
@@ -74,6 +75,7 @@ export async function createStaff(
       email: input.email,
       username: input.username,
       roleKey: input.roleKey,
+      phone: input.phone,
       password: input.temporaryPassword,
       mustChangePassword: true,
       actor,
@@ -120,24 +122,37 @@ export async function resetStaffPassword(
   hashPassword: PasswordHasher,
   actor: MemberAccess,
   input: ResetStaffPasswordInput,
-): Promise<void> {
+  options: { onlyWhileTemporary?: boolean } = {},
+): Promise<{ reset: boolean }> {
   const passwordHash = await hashPassword(input.temporaryPassword);
-  await database.forOrg(actor.organizationId, async (tx) => {
+  return database.forOrg(actor.organizationId, async (tx) => {
     const target = await findMember(tx, actor, input.memberId);
     const targetRole = await findCurrentRole(tx, target.role);
     assertMayManageMember(actor, { userId: target.userId, role: targetRole });
     // Locked in the same order as the other staff changes, so a promotion or removal landing now can't slip past.
     if (targetRole.isOwner) await lockOwners(tx, actor, target.id, targetRole.key);
     await lockMember(tx, target);
+    if (options.onlyWhileTemporary === true) {
+      // The credential account's row is held, so a password the person is choosing now is either written first (and
+      // kept) or after ours (and theirs). Better Auth writes the account before it clears the flag, so the flag alone
+      // can't say: the account's update time can (TEMPORARY_PASSWORD_STAMP).
+      const held = await tx.$queryRaw<{ updated_at: Date }[]>`
+        SELECT updated_at FROM account WHERE user_id = ${target.userId}::uuid AND provider_id = 'credential' FOR UPDATE`;
+      const user = await tx.user.findUniqueOrThrow({ where: { id: target.userId } });
+      if (!user.mustChangePassword || held[0]?.updated_at.getTime() !== TEMPORARY_PASSWORD_STAMP.getTime()) {
+        return { reset: false };
+      }
+    }
     const { count } = await tx.account.updateMany({
       where: { userId: target.userId, providerId: "credential" },
-      data: { password: passwordHash },
+      data: { password: passwordHash, updatedAt: TEMPORARY_PASSWORD_STAMP },
     });
     if (count !== 1)
       throw new Error(`Expected one credential account for user ${target.userId}, found ${String(count)}`);
     await tx.user.update({ where: { id: target.userId }, data: { mustChangePassword: true } });
     await tx.session.deleteMany({ where: { userId: target.userId } });
     await recordAudit(tx, actor, { action: "staff.password-reset", entityType: "member", entityId: target.id });
+    return { reset: true };
   });
 }
 
@@ -187,13 +202,17 @@ export async function removeStaff(
 }
 
 /** An active member of the actor's organization. Members of other organizations are "not found". */
-async function findMember(tx: IdentityTx, actor: MemberAccess, memberId: string) {
+export async function findMember(tx: IdentityTx, actor: MemberAccess, memberId: string) {
   const member = await tx.member.findFirst({ where: { id: memberId, organizationId: actor.organizationId } });
   if (!member) throw new DomainError("NOT_FOUND", "MEMBER_NOT_FOUND", "No such staff member");
   return member;
 }
 
-async function staffMember(database: IdentityDatabase, actor: MemberAccess, memberId: string): Promise<StaffMember> {
+export async function staffMember(
+  database: IdentityDatabase,
+  actor: MemberAccess,
+  memberId: string,
+): Promise<StaffMember> {
   const member = (await listStaff(database, actor)).find((staff) => staff.memberId === memberId);
   if (!member) throw new DomainError("NOT_FOUND", "MEMBER_NOT_FOUND", "No such staff member");
   return member;

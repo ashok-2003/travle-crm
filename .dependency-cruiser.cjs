@@ -5,13 +5,14 @@ module.exports = {
       name: "db-internals-stay-in-db",
       comment:
         "Other packages reach @travel-crm/db only through its entry points (index, identity, platform, webhooks, " +
-        "rate-limits, and the test-only testing files), so the raw Prisma client and the generated code never leak " +
+        "rate-limits, sheet-schedule, sheets-key-check, and the test-only testing files), so the raw Prisma client and the generated code never leak " +
         "out of the package.",
       severity: "error",
       from: { path: "^(apps|packages)/", pathNot: "^packages/db/" },
       to: {
         path: "^packages/db/(src|test)/",
-        pathNot: "^packages/db/(src/(index|identity|platform|webhooks|rate-limits)|test/(testing|global-setup))\\.ts$",
+        pathNot:
+          "^packages/db/(src/(index|identity|platform|webhooks|rate-limits|sheet-schedule|sheets-key-check)|test/(testing|global-setup))\\.ts$",
       },
     },
     {
@@ -40,6 +41,28 @@ module.exports = {
       severity: "error",
       from: { pathNot: ["^packages/db/", "^packages/domain/(src|test)/rate-limits/"] },
       to: { path: "^packages/db/src/rate-limits\\.ts$" },
+    },
+    {
+      name: "sheet-schedule-only-in-sheets",
+      comment:
+        "@travel-crm/db/sheet-schedule reaches sheet_check_schedule and sheet_spreadsheet_claim, which carry " +
+        "organization_id but have no row-level security (ids, times and a keyed hash only; ADR 0031). Only the " +
+        "sheets module's schedule.ts may use it, and the tests that arrange or read those tables.",
+      severity: "error",
+      from: {
+        pathNot: ["^packages/db/", "^packages/domain/(src/sheets/schedule\\.ts|test/(sheets|performance|platform)/)"],
+      },
+      to: { path: "^packages/db/src/sheet-schedule\\.ts$" },
+    },
+    {
+      name: "sheets-key-check-only-in-the-api-start-up",
+      comment:
+        "@travel-crm/db/sheets-key-check reaches sheets_key_check, which has no organization_id and no row-level " +
+        "security (one keyed hash of a constant, SC8). Only the api's sheets-key-check.ts, which every process runs at " +
+        "start-up, and its test may use it.",
+      severity: "error",
+      from: { pathNot: ["^packages/db/", "^apps/api/(src|test)/sheets-key-check(\\.test)?\\.ts$"] },
+      to: { path: "^packages/db/src/sheets-key-check\\.ts$" },
     },
     {
       name: "platform-database-only-in-platform",
@@ -166,12 +189,21 @@ module.exports = {
     {
       name: "business-modules-call-down",
       comment:
-        "The business modules are layered (spec 6, 8): catalog and tasks at L0, crm at L1, today above them. A module " +
-        "calls only down: catalog and tasks never call crm or today, and crm never calls today. An action spanning two " +
-        "modules is the higher one's, or its router calls both (R22).",
+        "The business modules are layered (spec 6, 8): catalog, tasks, imports, exports and sheets at L0, crm at L1, " +
+        "today above them. A module calls only down: the L0 modules never call crm or today, and crm never calls " +
+        "today. An action spanning two modules is the higher one's, or its router calls both (R22).",
       severity: "error",
-      from: { path: "^packages/domain/src/(catalog|tasks|crm)/" },
+      from: { path: "^packages/domain/src/(catalog|tasks|imports|exports|sheets|crm)/" },
       to: { path: "^packages/domain/src/(crm|today)/", pathNot: "^packages/domain/src/$1/" },
+    },
+    {
+      name: "imports-and-exports-never-call-sheets",
+      comment:
+        "The Sheets sync stands on imports (headerKey, guessFields, rowFingerprint), never the other way: crm unions " +
+        "the sheets' fingerprints with imports' own (spec 6.2), so imports and exports never call sheets.",
+      severity: "error",
+      from: { path: "^packages/domain/src/(imports|exports)/" },
+      to: { path: "^packages/domain/src/sheets/" },
     },
     {
       name: "kernel-depends-on-no-module",
@@ -194,10 +226,15 @@ module.exports = {
       name: "vendor-sdks-only-in-integrations",
       comment:
         "Domain code never calls a vendor SDK (spec 3): it calls a port in @travel-crm/integrations, and only that " +
-        "package imports pg-boss, the AWS SDK, nodemailer, web-push or React-PDF.",
+        "package imports pg-boss, the AWS SDK, nodemailer, web-push, React-PDF or the spreadsheet libraries " +
+        "(csv-parse, csv-stringify, read-excel-file, fflate, saxen; ADR 0030) and google-auth-library (ADR 0031).",
       severity: "error",
       from: { pathNot: "^packages/integrations/" },
-      to: { path: "(^|/)node_modules/(pg-boss|@aws-sdk/[^/]+|nodemailer|web-push|@react-pdf/[^/]+)(/|$)" },
+      to: {
+        path:
+          "(^|/)node_modules/(pg-boss|@aws-sdk/[^/]+|nodemailer|web-push|@react-pdf/[^/]+|csv-parse|csv-stringify|" +
+          "read-excel-file|fflate|saxen|google-auth-library)(/|$)",
+      },
     },
     {
       name: "integrations-are-adapters-only",
@@ -279,6 +316,7 @@ module.exports = {
           "(^|/)src/(index|platform)\\.ts$", // a package's public entry point is never imported inside the package
           "^apps/web/turbopack/", // Turbopack loaders, named in next.config.ts
           "^apps/web/src/app/", // Next.js loads the app's routes, layouts and special files by their names
+          "^packages/integrations/test/spreadsheets/threads/", // the .xlsx thread's tests start these by their URL
         ],
       },
       to: {},

@@ -4,6 +4,7 @@ import { brand } from "@travel-crm/brand";
 import type { AuthSettings } from "@travel-crm/domain/identity";
 import { z } from "zod";
 import { serviceVariables } from "./service-variables.js";
+import { sheetsHashKeyIsWeak } from "./sheets-settings.js";
 
 /** The secret in .env.example: fine on a laptop, never in production. */
 const EXAMPLE_SECRET = "dev-only-secret-not-for-any-real-deploy";
@@ -99,7 +100,17 @@ const environmentSchema = z
     if (environment.SMTP_PASSWORD !== undefined && environment.SMTP_USER === undefined) {
       problem("SMTP_USER", "is needed with SMTP_PASSWORD");
     }
+    // Signing the claim and the tombstones needs the key wherever the sheets are read (spec 14).
+    if (environment.GOOGLE_SHEETS_SERVICE_ACCOUNTS !== undefined && environment.SHEETS_HASH_KEY === undefined) {
+      problem("SHEETS_HASH_KEY", "is needed (at least 32 characters) with GOOGLE_SHEETS_SERVICE_ACCOUNTS");
+    }
     if (developmentLike(environment.NODE_ENV)) return;
+    if (environment.GOOGLE_SHEETS_TEST_SERVER_URL !== undefined) {
+      problem("GOOGLE_SHEETS_TEST_SERVER_URL", "is for development and tests only: unset it in production");
+    }
+    if (environment.SHEETS_CHECK_INTERVAL_SECONDS !== undefined) {
+      problem("SHEETS_CHECK_INTERVAL_SECONDS", "is for development and tests only: unset it in production");
+    }
     if (!environment.BETTER_AUTH_URL.startsWith("https://")) problem("BETTER_AUTH_URL", "must be https in production");
     if (!environment.APP_URL.startsWith("https://")) problem("APP_URL", "must be https in production");
     if (!environment.AUTH_RATE_LIMIT) problem("AUTH_RATE_LIMIT", "cannot be off in production");
@@ -109,6 +120,9 @@ const environmentSchema = z
     const secret = environment.BETTER_AUTH_SECRET.trim();
     if (secret === EXAMPLE_SECRET || secret.length < 32 || new Set(secret).size < 10) {
       problem("BETTER_AUTH_SECRET", "is too weak for production: use `openssl rand -base64 32`");
+    }
+    if (environment.SHEETS_HASH_KEY !== undefined && sheetsHashKeyIsWeak(environment.SHEETS_HASH_KEY)) {
+      problem("SHEETS_HASH_KEY", "is too weak for production: use `openssl rand -base64 32`");
     }
     if (environment.VAPID_PUBLIC_KEY.trim() === EXAMPLE_VAPID_PUBLIC_KEY) {
       problem(

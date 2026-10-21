@@ -1,6 +1,17 @@
 // Redirects only ever lead to a page of this app: a ?next= naming another site, or the api, is ignored.
 import { describe, expect, it } from "vitest";
-import { isAppPath, isConsolePath, isPublicRoute, pendingStepRoute, routes, signInRoute } from "@/lib/routes";
+import {
+  isAppPath,
+  isConsolePath,
+  isPublicRoute,
+  leadExportRoute,
+  leadImportRoute,
+  pendingStepRoute,
+  routes,
+  signInRoute,
+  staffExportRoute,
+  staffImportRoute,
+} from "@/lib/routes";
 
 /** Where the browser would land if it followed path from a page of the app, as location.assign does. */
 const landsOn = (path: string) => new URL(path, "https://app.example.in/sign-in").origin;
@@ -78,5 +89,15 @@ describe("routes", () => {
     expect(pendingStepRoute("CHANGE_PASSWORD", "/console/plans")).toBe("/change-password?next=%2Fconsole%2Fplans");
     expect(pendingStepRoute("SET_UP_TWO_FACTOR", routes.console)).toBe("/two-factor-setup?next=%2Fconsole");
     expect(pendingStepRoute("SET_UP_TWO_FACTOR", "//evil.example")).toBe(routes.twoFactorSetup);
+  });
+
+  it("addresses imports and exports by their ids alone (spec 6.6)", () => {
+    const id = "0199e7a0-0000-7000-8000-0000000000e1";
+    expect(routes.leadImport).toBe("/leads/import");
+    expect(leadImportRoute(id)).toBe(`/leads/import/${id}`);
+    expect(leadExportRoute(id)).toBe(`/leads/exports/${id}`);
+    expect(routes.staffImport).toBe("/staff/import");
+    expect(staffImportRoute(id)).toBe(`/staff/import/${id}`);
+    expect(staffExportRoute(id)).toBe(`/staff/exports/${id}`);
   });
 });

@@ -4,10 +4,16 @@ import { createSubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { describeError } from "@travel-crm/integrations/jobs";
 import { createApp } from "./app.js";
 import { clientAddressFrom } from "./rate-limit.js";
+import { sheetsStartUpLine } from "./sheets-settings.js";
+import { assertServiceAccountsInPlace } from "./sheets-settings.js";
 import { startProcess, stopOnUnhandledErrors } from "./start-up.js";
 import { webhookProviders } from "./webhook-providers.js";
 
-const { environment, services, log } = await startProcess("api", () => undefined);
+const { environment, services, log } = await startProcess("api", async ({ services }) => {
+  // The list of service accounts is the worker's to follow, but the api shows the address sheets are shared with: it
+  // refuses a list that no longer holds one (SC9).
+  if (services.google !== null) await assertServiceAccountsInPlace(services.db, services.google.accounts());
+});
 
 const app = createApp({
   identity: services.identity,
@@ -18,6 +24,8 @@ const app = createApp({
   files: services.files,
   // The browser learns it from notifications.push.publicKey, so no build of the web app carries a key.
   pushPublicKey: environment.VAPID_PUBLIC_KEY,
+  google: services.google,
+  sheetsHashes: services.sheetsHashes,
   queue: services.jobs,
   rateLimiter: services.rateLimiter,
   clientAddress: clientAddressFrom({
@@ -30,6 +38,7 @@ const app = createApp({
 
 const server = serve({ fetch: app.fetch, port: environment.PORT }, (address) => {
   console.log(`api listening on port ${String(address.port)}`);
+  console.log(sheetsStartUpLine(environment.GOOGLE_SHEETS_SERVICE_ACCOUNTS?.length ?? 0));
 });
 
 // Container platforms send SIGTERM before stopping an instance: finish open requests, then close the pools.

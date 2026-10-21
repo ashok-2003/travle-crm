@@ -11,6 +11,11 @@ export const notificationKinds = [
   { kind: "share-link.opened", messageKey: "shareLinkOpened" },
   { kind: "lead.assigned", messageKey: "leadAssigned" },
   { kind: "lead.repeat-enquiry", messageKey: "leadRepeatEnquiry" },
+  { kind: "lead.imported", messageKey: "leadImported" },
+  { kind: "lead.sheet-added", messageKey: "leadSheetAdded" },
+  { kind: "sheet.needs-attention", messageKey: "sheetNeedsAttention" },
+  { kind: "import.finished", messageKey: "importFinished" },
+  { kind: "export.ready", messageKey: "exportReady" },
 ] as const;
 
 /** Whether notifications of this kind reach the person on this channel, given their choices. */

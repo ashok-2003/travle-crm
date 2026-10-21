@@ -7,8 +7,10 @@ import type { ErasureSubject, QueuedJob, RequestErasureInput } from "@travel-crm
 import { erasureSubject } from "@travel-crm/contracts/platform";
 import { ownMessage, type JobData } from "@travel-crm/integrations/jobs";
 import { recordAudit, redactAuditEntries } from "../audit/index.js";
+import { withdrawExportFiles } from "../exports/index.js";
 import { deleteRecordFiles } from "../files/index.js";
 import { erasePerson, findOrganizationRecord, personExport } from "../identity/index.js";
+import { withdrawImportFiles } from "../imports/index.js";
 import { DomainError, isUuid, platformActor, systemActor } from "../kernel/index.js";
 import { forgetRecipient, forgetRecordNotifications } from "../notifications/index.js";
 import { forgetRecordShareLinks } from "../share-links/index.js";
@@ -110,8 +112,9 @@ export async function requestErasure(
  * member: identity's sign-in data, their notifications, opt-outs and browsers. For a customer (a "person" record):
  * crm's part, with their leads' tasks, notifications and files (eraseCustomerParts). For any: the record's files, its
  * share links and their opens, the notifications about it, its audit entries' snapshots, and the organization's
- * processed webhook payloads (any may quote the person, and none is needed once processed). Then every stored export
- * of the organization expires, since one may still hold the person. Stored files go after the commit, through the
+ * processed webhook payloads (any may quote the person, and none is needed once processed). Then every import and
+ * export file of the organization goes, and every stored export of the platform expires, since any may still hold the
+ * person; the erased person's import rows lose their ids and fingerprints. Stored files go after the commit, through the
  * deletions' outbox.
  *
  * It checks the request's conditions again first, on the platform transaction before any step: an organization gone
@@ -147,7 +150,13 @@ export async function eraseSubject(services: PlatformServices, job: ErasureJob, 
     }
     const customer =
       record.recordType === "person"
-        ? await eraseCustomerParts(tx, actor, { organizationId, personId: record.recordId }, now)
+        ? await eraseCustomerParts(
+            tx,
+            actor,
+            { organizationId, personId: record.recordId },
+            now,
+            services.sheetsHashes ?? null,
+          )
         : null;
     const files = await deleteRecordFiles(tx, { organizationId, ...record }, now);
     const shareLinks = await forgetRecordShareLinks(tx, { organizationId, ...record });
@@ -162,6 +171,15 @@ export async function eraseSubject(services: PlatformServices, job: ErasureJob, 
       entityId: record.recordId,
     });
     const webhooks = await tombstoneWebhookEvents(tx, organizationId);
+    // A file can't be searched for one person, so every import and export file of the organization goes (B55).
+    const forgotten =
+      subject.kind === "member"
+        ? { memberId: subject.memberId }
+        : record.recordType === "person"
+          ? { personId: record.recordId }
+          : null;
+    const imports = await withdrawImportFiles(tx, organizationId, now, forgotten);
+    const dataExports = await withdrawExportFiles(tx, organizationId, now);
     const exportsExpired = await expireOrganizationExports(services, tx, organizationId, "erasure", now);
     await recordAudit(tx, actor, {
       action: "subject.erased",
@@ -184,6 +202,9 @@ export async function eraseSubject(services: PlatformServices, job: ErasureJob, 
           notifications,
           auditEntriesRedacted: redacted,
           exportsExpired,
+          importsWithdrawn: imports.imports,
+          exportsWithdrawn: dataExports.exports,
+          bulkFiles: imports.files + dataExports.files,
           webhooksTombstoned: webhooks.tombstoned,
           webhooksWaiting: webhooks.waiting,
           ...(customer === null ? {} : { customer }),

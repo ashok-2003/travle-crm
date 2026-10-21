@@ -1,13 +1,16 @@
 // The console process's jobs (ADR 0019): the platform's purge and erasure jobs, the nightly subscription lifecycle at
 // 00:15 India time, as the platform role, the hourly sweep of the stored files still to delete, the daily sweep of
-// exports past their time, and, when a demo is set, the nightly demo reset at 02:00; with the demo switched off, the
-// schedule an earlier start left in pg-boss goes. A super admin can't remove any of these schedules from the console.
+// exports past their time, the hourly sweep of imports' and exports' files past theirs, the hourly sweep of the Sheets sync's leftovers, and, when a demo is set, the
+// nightly demo reset at 02:00; with the demo switched off, the schedule an earlier start left in pg-boss goes. A super
+// admin can't remove any of these schedules from the console.
 import { randomUUID } from "node:crypto";
 import {
   PURGE_ORGANIZATION_QUEUE,
   removeSchedule,
   RESET_DEMO_QUEUE,
+  SWEEP_BULK_FILES_QUEUE,
   SWEEP_EXPIRED_EXPORTS_QUEUE,
+  SWEEP_SHEETS_QUEUE,
   SWEEP_STORED_FILES_QUEUE,
 } from "@travel-crm/domain/platform";
 import { ADVANCE_SUBSCRIPTIONS_QUEUE, LifecycleJobError } from "@travel-crm/domain/subscriptions";
@@ -36,6 +39,14 @@ const expiredExportsSweep = {
   data: {},
 };
 
+// Every hour, at 17 past, the imports a week past their last change and the exports a day past ready lose their
+// files (B53, B54).
+const bulkFilesSweep = { queue: SWEEP_BULK_FILES_QUEUE, cron: "17 * * * *", timeZone: "Asia/Kolkata", data: {} };
+
+// Every hour, at 41 past, the Sheets sync's drafts, resolved problems, schedule rows and claims past their time are dropped
+// (S5, S6, S31).
+const sheetsSweep = { queue: SWEEP_SHEETS_QUEUE, cron: "41 * * * *", timeZone: "Asia/Kolkata", data: {} };
+
 describe("the console's jobs", () => {
   let server: TestServer;
   let testConsole: TestConsole;
@@ -59,6 +70,8 @@ describe("the console's jobs", () => {
       lifecycleSchedule,
       storedFilesSweep,
       expiredExportsSweep,
+      bulkFilesSweep,
+      sheetsSweep,
       { queue: RESET_DEMO_QUEUE, cron: "0 2 * * *", timeZone: "Asia/Kolkata", data: {} },
     ]);
 
@@ -75,7 +88,13 @@ describe("the console's jobs", () => {
     const runner = createMemoryJobRunner(queue);
     await runner.schedule(RESET_DEMO_QUEUE, "0 2 * * *", { timeZone: "Asia/Kolkata" });
     await startConsoleJobs(runner, testConsole.services, null);
-    expect(runner.schedules).toEqual([lifecycleSchedule, storedFilesSweep, expiredExportsSweep]);
+    expect(runner.schedules).toEqual([
+      lifecycleSchedule,
+      storedFilesSweep,
+      expiredExportsSweep,
+      bulkFilesSweep,
+      sheetsSweep,
+    ]);
   });
 
   it("clears every day an export past its time whose own expiry job was lost", async () => {
@@ -108,10 +127,87 @@ describe("the console's jobs", () => {
     ).toMatchObject({ state: "expired", clearedAt: expect.any(Date) as Date });
   });
 
+  it("deletes hourly an import's file a week after its last change, an export's a day after ready (A5)", async () => {
+    const queue = createMemoryJobQueue();
+    const runner = createMemoryJobRunner(queue);
+    const agency = await createTestAgency(server);
+    const { storage } = testConsole.services;
+    const organizationId = agency.organizationId;
+    const batch = await server.platform.importBatch.create({
+      data: {
+        organizationId,
+        kind: "leads",
+        status: "done",
+        fileName: "enquiries.csv",
+        fileKind: "csv",
+        startedBy: randomUUID(),
+        keepUntil: new Date(Date.now() - 1000),
+      },
+    });
+    const file = await server.platform.attachment.create({
+      data: {
+        organizationId,
+        recordType: "import_batch",
+        recordId: batch.id,
+        fileName: "enquiries.csv",
+        contentType: "text/csv",
+        sizeBytes: 1,
+        status: "ready",
+        confirmedAt: new Date(),
+      },
+    });
+    await server.platform.importBatch.update({ where: { id: batch.id }, data: { fileAttachmentId: file.id } });
+    const key = `organizations/${organizationId}/attachments/${file.id}`;
+    await storage.put({ key, contentType: "text/csv", body: new Uint8Array([1]) });
+    const ready = new Date(Date.now() - DAY_MS - 1000);
+    const made = await server.platform.dataExport.create({
+      data: {
+        organizationId,
+        kind: "leads",
+        format: "csv",
+        status: "ready",
+        filter: { search: "Sharma" },
+        requestedBy: randomUUID(),
+        readyAt: ready,
+        expiresAt: new Date(ready.getTime() + DAY_MS),
+      },
+    });
+    const exported = await server.platform.attachment.create({
+      data: {
+        organizationId,
+        recordType: "data_export",
+        recordId: made.id,
+        fileName: "leads.csv",
+        contentType: "text/csv",
+        sizeBytes: 1,
+        status: "ready",
+        confirmedAt: new Date(),
+      },
+    });
+    await server.platform.dataExport.update({ where: { id: made.id }, data: { fileAttachmentId: exported.id } });
+    const exportKey = `organizations/${organizationId}/attachments/${exported.id}`;
+    await storage.put({ key: exportKey, contentType: "text/csv", body: new Uint8Array([1]) });
+    await startConsoleJobs(runner, testConsole.services, null);
+    await runner.fireSchedule(SWEEP_BULK_FILES_QUEUE);
+    expect(await runner.runQueued()).toBeGreaterThanOrEqual(1);
+    expect(runner.failed).toEqual([]);
+    expect(await storage.head(key)).toBeNull();
+    expect(await server.platform.importBatch.findUniqueOrThrow({ where: { id: batch.id } })).toMatchObject({
+      status: "expired",
+      fileAttachmentId: null,
+    });
+    expect(await storage.head(exportKey)).toBeNull();
+    expect(await server.platform.dataExport.findUniqueOrThrow({ where: { id: made.id } })).toMatchObject({
+      status: "expired",
+      fileAttachmentId: null,
+      filter: { search: null },
+    });
+  });
+
   it("refuses to remove a schedule the console registers, which would stop it until the next start", async () => {
     const demo = { code: "DEMOCODE", password: "demo-password-123" };
     const queues = consoleJobs(testConsole.services, demo).schedules.map((schedule) => schedule.queue);
-    expect(queues).toHaveLength(4);
+    expect(queues).toHaveLength(6);
     for (const queue of queues) {
       await expect(removeSchedule(testConsole.services, { userId: randomUUID() }, queue), queue).rejects.toMatchObject({
         code: "CONFLICT",

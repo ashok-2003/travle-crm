@@ -14,6 +14,25 @@ export type AttachmentContentType = (typeof attachmentContentTypes)[number];
 /** The largest file one upload may be: 25 MB. */
 export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 
+/**
+ * An import's file (spec B2): CSV or .xlsx, for the import_batch record alone. The files module refuses them under any
+ * other record (CONTENT_TYPE_NOT_ALLOWED), and the attachment types under an import's.
+ */
+export const spreadsheetContentTypes = [
+  "text/csv",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+] as const;
+export type SpreadsheetContentType = (typeof spreadsheetContentTypes)[number];
+
+/** Each spreadsheet kind's type, by name rather than by its place in the list (W8). */
+export const spreadsheetContentTypeOf = {
+  csv: "text/csv",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+} as const satisfies Record<"csv" | "xlsx", SpreadsheetContentType>;
+
+/** The largest file an import takes: 10 MB. */
+export const MAX_IMPORT_BYTES = 10 * 1024 * 1024;
+
 /** The kind of record a file belongs to, e.g. "issued_document" or "lead". The attachment table checks the same. */
 export const recordType = z.string().regex(/^[a-z][a-z_]{1,39}$/, "Use lower-case letters and underscores");
 
@@ -36,7 +55,8 @@ export const requestUploadInput = z.strictObject({
   recordType,
   recordId: z.uuid(),
   fileName: attachmentFileName,
-  contentType: z.enum(attachmentContentTypes),
+  /** The files module decides which types a record takes (an import's file is a spreadsheet, nothing else is). */
+  contentType: z.enum([...attachmentContentTypes, ...spreadsheetContentTypes]),
   sizeBytes: z.number().int().min(1).max(MAX_ATTACHMENT_BYTES),
   /** Traveller ID documents (passport, Aadhaar): viewing them needs documents:view_sensitive. */
   sensitive: z.boolean().default(false),

@@ -3,7 +3,10 @@
 import type { Database } from "@travel-crm/db";
 import type { Files } from "@travel-crm/domain/files";
 import type { Identity } from "@travel-crm/domain/identity";
+import type { AddGuard } from "@travel-crm/domain/imports";
 import type { Profiles } from "@travel-crm/domain/profile";
+import type { RateLimiter } from "@travel-crm/domain/rate-limits";
+import type { SheetsDependencies } from "@travel-crm/domain/sheets";
 import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 
 export interface ApiDependencies {
@@ -21,6 +24,17 @@ export interface ApiDependencies {
    * (notifications.push.publicKey), so one build serves every environment.
    */
   pushPublicKey: string;
+  /**
+   * Checks the Add of a lead import runs in its own transaction (a Google Sheet's check that is saving refuses it,
+   * S26). None unless the server passes some.
+   */
+  addGuards?: readonly AddGuard[];
+  /** Reads Google Sheets, read only (ADR 0031); null or absent when no service account is set: Google Sheets is off. */
+  google?: SheetsDependencies["google"];
+  /** Counts how often an organization makes us read Google by hand (SD4); none counts nothing. */
+  rateLimiter?: Pick<RateLimiter, "hit">;
+  /** Keys the spreadsheet claim; null or absent when SHEETS_HASH_KEY is not set. */
+  sheetsHashes?: SheetsDependencies["hashes"];
 }
 
 /**
@@ -28,7 +42,18 @@ export interface ApiDependencies {
  * cookie, a longer expiry), and those Set-Cookie headers must reach the browser.
  */
 export async function createContext(
-  { identity, subscriptions, profiles, db, files, pushPublicKey }: ApiDependencies,
+  {
+    identity,
+    subscriptions,
+    profiles,
+    db,
+    files,
+    pushPublicKey,
+    addGuards = [],
+    google = null,
+    sheetsHashes = null,
+    rateLimiter,
+  }: ApiDependencies,
   request: Request,
   resHeaders: Headers,
 ) {
@@ -44,6 +69,10 @@ export async function createContext(
     db,
     files,
     pushPublicKey,
+    addGuards,
+    google,
+    sheetsHashes,
+    rateLimiter,
     headers: request.headers,
     resHeaders,
     session: response?.session ?? null,

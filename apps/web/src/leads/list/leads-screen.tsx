@@ -25,9 +25,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { routes } from "@/lib/routes";
 import { useWideScreen } from "@/lib/use-wide-screen";
 import { useHolds, useMe, viewScope } from "@/session/me-context";
-import { NewLeadButton } from "../new-lead-button";
 import { FiltersDialog } from "./filters-dialog";
 import { LeadRows } from "./lead-rows";
+import { LeadsHeaderActions } from "./leads-header-actions";
 import { LeadsTable, tableColumns } from "./leads-table";
 import { isFiltered, listFiltersHref, listFiltersOf, type FiltersToShow } from "./list-filters";
 import { SearchField } from "./search-field";
@@ -46,7 +46,6 @@ export function LeadsScreen() {
   const leads = useLeads(input);
   const counts = useLeadCounts(input);
   const wide = useWideScreen();
-  const newLead = useHolds("leads:create") && <NewLeadButton />;
   const blockedContacts = useHolds("leads:assign") && (
     <TextLink href={routes.blockedContacts}>{t("blockedContacts")}</TextLink>
   );
@@ -148,7 +147,7 @@ export function LeadsScreen() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title={t("title")} intro={t("intro")} action={newLead} />
+      <PageHeader title={t("title")} intro={t("intro")} action={<LeadsHeaderActions />} />
       {ownOnly ? (
         <div className="flex flex-col gap-6">
           {toolbar}

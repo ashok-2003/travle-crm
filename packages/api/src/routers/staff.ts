@@ -4,6 +4,7 @@
 // read-only, and for the Owner while it is suspended (ADR 0021), and so does the list the Owner chooses them from;
 // every other change waits for it to pay.
 import {
+  changeStaffPhoneInput,
   createStaffInput,
   removeStaffInput,
   resetStaffPasswordInput,
@@ -27,6 +28,12 @@ export const staffRouter = router({
     .output(staffMember)
     .mutation(({ ctx, input }) => ctx.identity.staff.create(ctx.member, input)),
 
+  /** Sets or clears the person's phone (B51). */
+  changePhone: staffManager
+    .input(changeStaffPhoneInput)
+    .output(staffMember)
+    .mutation(({ ctx, input }) => ctx.identity.staff.changePhone(ctx.member, input)),
+
   updateRole: staffManager
     .input(updateStaffRoleInput)
     .output(staffMember)
@@ -39,6 +46,13 @@ export const staffRouter = router({
     .mutation(async ({ ctx, input }) => {
       await ctx.identity.staff.resetPassword(ctx.member, input);
     }),
+
+  /** For a lost sheet (B50): a new temporary password only while the person still has the old one; a changed person is skipped. */
+  resetTemporaryPassword: staffManager
+    .meta({ lifecycle: "revoke" })
+    .input(resetStaffPasswordInput)
+    .output(z.object({ reset: z.boolean() }))
+    .mutation(({ ctx, input }) => ctx.identity.staff.resetTemporaryPassword(ctx.member, input)),
 
   /** Removes the person: their sessions end and their email and username are released (ADR 0007). */
   remove: staffManager

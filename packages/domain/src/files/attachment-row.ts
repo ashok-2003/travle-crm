@@ -54,17 +54,6 @@ export function toSummary(row: AttachmentRow): AttachmentSummary {
   };
 }
 
-/**
- * Record types whose files only the system makes and keeps: an issued document's PDF is part of what was issued (ADR
- * 0012), so no one uploads or removes one through the generic calls, the system included. The system stores it with
- * storeGeneratedFile.
- */
-const SYSTEM_OWNED_RECORD_TYPES: readonly string[] = ["issued_document"];
-
-export function isSystemOwnedRecordType(recordType: string): boolean {
-  return SYSTEM_OWNED_RECORD_TYPES.includes(recordType);
-}
-
 /** What people without documents:view_sensitive see in place of a sensitive file's name. */
 export const SENSITIVE_FILE_NAME = "Sensitive file";
 

@@ -17,6 +17,8 @@ export type { Auth, AuthSettings } from "./auth/create-auth.js";
 export type { PasswordResetEmail, PasswordResetSettings, SendPasswordResetEmail } from "./auth/password-reset.js";
 export { deleteUsers, erasePerson, organizationUserIds, personExport, type PersonExport } from "./erasure.js";
 export { createIdentity, type Identity, type IdentityOptions, type NewOwner } from "./identity.js";
+export type { LeadWorkerMatch, RoleMatch } from "./import-matches.js";
+export { ImportedStaffRowError, type AddedStaff, type ImportedStaffRow } from "./imported-staff.js";
 export { firstOwner, leadWorkers } from "./lead-workers.js";
 export { pendingStep, type MemberAccess } from "./member-access.js";
 export { memberActivity, recordMemberActivity, type MemberActivity } from "./member-activity.js";
@@ -74,5 +76,7 @@ export {
 export { insertStarterRoles } from "./seed-starter-roles.js";
 export type { CreatedStaff } from "./staff-accounts.js";
 export type { SeatLimit } from "./staff.js";
+export type { StaffExportRow } from "./staff-export-rows.js";
+export type { StaffRowFacts } from "./staff-row-facts.js";
 export { INVITE_LINK_HOURS, SEND_INVITE_LISTENER, type InviteDependencies } from "./staff-invites.js";
 export { OWNER_ROLE_KEY, starterRoles, type StarterRole } from "./starter-roles.js";

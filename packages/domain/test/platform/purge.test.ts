@@ -95,6 +95,67 @@ describe("purging an organization", () => {
     expect(keysOf(test, organizationId)).toEqual([]);
   });
 
+  it("purges an organization's import and export tables and files with the rest", async () => {
+    const agency = await deletionAgency(test, plan);
+    const { organizationId } = agency;
+    const kept = await test.services.db.forOrg(organizationId, async (tx) => {
+      const batch = await tx.importBatch.create({
+        data: {
+          kind: "leads",
+          status: "done",
+          fileName: "enquiries.csv",
+          fileKind: "csv",
+          startedBy: agency.owner.userId,
+          keepUntil: new Date(Date.now() + HOUR_MS),
+        },
+      });
+      await tx.importColumn.create({ data: { batchId: batch.id, position: 0, header: "Name", samples: ["Asha"] } });
+      await tx.importValueMatch.create({
+        data: { batchId: batch.id, field: "stage", value: "Booked", matchedBy: "word" },
+      });
+      await tx.importRow.create({ data: { batchId: batch.id, rowNumber: 2, plan: "new" } });
+      await tx.importHeaderMatch.create({ data: { kind: "leads", headerKey: "name", field: "name" } });
+      await tx.dataExport.create({
+        data: { kind: "leads", format: "csv", filter: {}, requestedBy: agency.owner.userId },
+      });
+      return batch.id;
+    });
+    const file = await test.services.db.forOrg(organizationId, (tx) =>
+      tx.attachment.create({
+        data: {
+          recordType: "import_batch",
+          recordId: kept,
+          fileName: "enquiries.csv",
+          contentType: "text/csv",
+          sizeBytes: 1,
+        },
+      }),
+    );
+    await test.storage.put({
+      key: `organizations/${organizationId}/attachments/${file.id}`,
+      contentType: "text/csv",
+      body: new Uint8Array([1]),
+    });
+    await cancel(test.services, support, { organizationId, reason: "Closing down" });
+    await exportOrganizationNow(test.services, organizationId);
+    await requestPurge(test.services, support, { organizationId, confirmation: agency.code });
+
+    expect(await purgeOrganization(test.services, { organizationId, requestedBy: supportUserId })).toMatchObject({
+      files: 1,
+    });
+    for (const count of [
+      platform.importBatch.count({ where: { organizationId } }),
+      platform.importColumn.count({ where: { organizationId } }),
+      platform.importValueMatch.count({ where: { organizationId } }),
+      platform.importRow.count({ where: { organizationId } }),
+      platform.importHeaderMatch.count({ where: { organizationId } }),
+      platform.dataExport.count({ where: { organizationId } }),
+    ]) {
+      expect(await count).toBe(0);
+    }
+    expect(keysOf(test, organizationId)).toEqual([]);
+  });
+
   it("keeps a storage failure's files queued, logs it, and the console's job deletes them without a rerun", async () => {
     const { organizationId, job } = await readyToPurge();
     const { services, failing, logged } = flakyServices(test);

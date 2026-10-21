@@ -1,0 +1,20 @@
+{
+  "status": 403,
+  "body": {
+    "error": {
+      "code": 403,
+      "message": "Method doesn't allow unregistered callers.",
+      "status": "PERMISSION_DENIED",
+      "errors": [
+        { "message": "Method doesn't allow unregistered callers.", "domain": "usageLimits", "reason": "forbidden" }
+      ],
+      "details": [
+        {
+          "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+          "reason": "USER_PROJECT_DENIED",
+          "domain": "googleapis.com"
+        }
+      ]
+    }
+  }
+}

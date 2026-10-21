@@ -6,10 +6,12 @@ import type { Database } from "@travel-crm/db";
 import type { Files } from "@travel-crm/domain/files";
 import type { Identity } from "@travel-crm/domain/identity";
 import type { Profiles } from "@travel-crm/domain/profile";
+import { assertNoSheetCheckSaving, type SheetsHashes } from "@travel-crm/domain/sheets";
 import type { RateLimiter } from "@travel-crm/domain/rate-limits";
 import { findShareLink, recordShareLinkOpen } from "@travel-crm/domain/share-links";
 import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { receiveWebhook, type WebhookProvider } from "@travel-crm/domain/webhooks";
+import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
 import { describeError, type JobQueue } from "@travel-crm/integrations/jobs";
 import { Hono } from "hono";
 import { limitBody } from "./body-limit.js";
@@ -34,6 +36,10 @@ export interface ServerDependencies {
   files: Files;
   /** The VAPID public key the browser subscribes to push with (notifications.push.publicKey). */
   pushPublicKey: string;
+  /** Reads Google Sheets, read only; null or absent when no service account is set (ADR 0031). */
+  google?: GoogleSheets | null;
+  /** Keys the spreadsheet claim; null or absent when SHEETS_HASH_KEY is not set. */
+  sheetsHashes?: SheetsHashes | null;
   /** Where the webhook intake queues work for the worker. */
   queue: JobQueue;
   rateLimiter: RateLimiter;
@@ -67,6 +73,8 @@ export function createApp(dependencies: ServerDependencies): Hono {
     db,
     files,
     pushPublicKey,
+    google = null,
+    sheetsHashes = null,
     queue,
     rateLimiter,
     clientAddress,
@@ -100,7 +108,23 @@ export function createApp(dependencies: ServerDependencies): Hono {
       // queries: what a call does, for the lifecycle, is its procedure's type, not the HTTP method.
       allowMethodOverride: true,
       createContext: ({ resHeaders }, c) =>
-        createContext({ identity, subscriptions, profiles, db, files, pushPublicKey }, c.req.raw, resHeaders),
+        createContext(
+          {
+            identity,
+            subscriptions,
+            profiles,
+            db,
+            files,
+            pushPublicKey,
+            google,
+            sheetsHashes,
+            rateLimiter,
+            // An import's Add waits while a sheet's check is saving rows (S26).
+            addGuards: [assertNoSheetCheckSaving],
+          },
+          c.req.raw,
+          resHeaders,
+        ),
       onError: ({ error, path }) => {
         // Refusals (401, 403, 404...) are answers, not faults. Only unexpected errors are logged, by names and codes:
         // tRPC copies the cause's message into its own, and a Prisma message can quote the query's values.

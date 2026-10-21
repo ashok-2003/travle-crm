@@ -124,6 +124,18 @@ describe("one person's or record's export and erasure", () => {
     ]);
   });
 
+  it("warns that rows naming a customer in an agency's Google Sheet stay in the sheet", async () => {
+    const api = openScreen({});
+    await exportMember(api);
+    await userEvent.click(screen.getByRole("button", { name: words.subject.erase }));
+    const confirm = within(screen.getByRole("alertdialog", { name: words.subject.eraseTitle }));
+    expect(
+      confirm.getByText(
+        /Rows naming a customer in an agency's Google Sheet stay in the sheet: ask the agency to delete them too\. They won't be added again\./,
+      ),
+    ).toBeVisible();
+  });
+
   it("shows the api's sentence when an erasure is refused", async () => {
     const api = openScreen({});
     await exportMember(api);

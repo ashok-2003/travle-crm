@@ -1,8 +1,9 @@
 // The shared confirmation (rule 7): anything more the person must do first sits in its body, and the action waits for
 // it; while the request is out nothing closes the dialog; a refusal shows the api's sentence, or the section's own
-// wording of it; the person's close forgets the refusal; a success is closed by the section's mutation options.
+// wording of it; the person's close forgets the refusal; a success is closed by the section's mutation options. Its
+// action is destructive unless the section says it isn't ("Add 12 people?").
 import { QueryClient, QueryClientProvider, useMutation } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { useRef, useState } from "react";
@@ -16,10 +17,12 @@ function Section({
   answer,
   typedCode,
   refusal,
+  destructive,
 }: {
   answer: () => Promise<void>;
   typedCode?: string;
   refusal?: (error: unknown) => string;
+  destructive?: boolean;
 }) {
   const [open, setOpen] = useState(true);
   const [typed, setTyped] = useState("");
@@ -55,6 +58,7 @@ function Section({
         }}
         confirmDisabled={typedCode !== undefined && typed !== typedCode}
         refusal={refusal}
+        destructive={destructive}
       >
         {typedCode !== undefined && (
           <label>
@@ -86,6 +90,14 @@ function renderSection(props: Parameters<typeof Section>[0]) {
 const action = () => screen.getByRole("button", { name: "Remove the logo" });
 
 describe("ConfirmDialog", () => {
+  it("paints its action destructive, unless the section's action takes nothing away", () => {
+    renderSection({ answer: () => Promise.resolve() });
+    expect(action()).toHaveAttribute("data-variant", "destructive");
+    cleanup();
+    renderSection({ answer: () => Promise.resolve(), destructive: false });
+    expect(action()).toHaveAttribute("data-variant", "default");
+  });
+
   it("waits for what its body asks before the action can be pressed", async () => {
     renderSection({ answer: () => Promise.resolve(), typedCode: "SHARMA" });
     expect(action()).toBeDisabled();

@@ -1,0 +1,226 @@
+// The Google Sheets sync (spec 5, ADR 0031): an agency's connected sheets, their columns and owner-value matches, the
+// ledger of rows read, and the erased customers' keyed hashes. Organization-owned: row-level security applies (the
+// migration calls app_enable_org_rls on each). None is soft-deleted; the runtime role deletes only rows, columns and
+// value matches. Ids of other modules' records (members, users, leads, people) are plain uuids with no key. The last two
+// models, the check schedule and the spreadsheet claim, carry organization_id but sit outside row-level security (ids,
+// times and a keyed hash only): OrgTx leaves them out and only the sheets module reaches them, in db.withoutOrg(),
+// through @travel-crm/db/sheet-schedule. Predicates are written as Postgres prints them, so the drift check reads
+// them as equal.
+
+/// One Google Sheet tab an agency connects (spec 5): from its draft, made at the first good check, to its disconnection.
+/// A disconnected connection stays, with its counters, as the record of what the sheet did (S42).
+model SheetConnection {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId      String            @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id                  String            @id @default(uuid(7)) @db.Uuid
+  /// connecting, running, paused, lost_access, tab_missing, columns_missing, needs_manager or disconnected.
+  status              String            @default("connecting")
+  /// share, tab, columns, existing or done: where the connect screens are.
+  step                String            @default("share")
+  /// only_new or check: what to do with the rows already there; null until chosen.
+  existingRows        String?           @map("existing_rows")
+  spreadsheetId       String            @map("spreadsheet_id")
+  tabGid              String            @map("tab_gid")
+  /// A cache of the tab's title; the gid is what names the tab (S40).
+  tabTitle            String            @map("tab_title")
+  /// A cache of the sheet's title; it may name a customer, so audit entries never hold it.
+  sheetTitle          String            @map("sheet_title")
+  sheetLocale         String            @map("sheet_locale")
+  sheetTimeZone       String            @map("sheet_time_zone")
+  /// Which of the server's service accounts the agency shared the sheet with; kept for life (S35).
+  serviceAccountIndex Int               @map("service_account_index")
+  /// The address of that service account, so a list that was reordered or shortened is met loudly at start-up, not by sheets stranded (SC9).
+  serviceAccountEmail String?           @map("service_account_email")
+  /// The last row number read; a normal check reads from here less the lookback (S18).
+  cursorRow           Int               @default(1) @map("cursor_row")
+  rowsSeen            Int               @default(0) @map("rows_seen")
+  /// SHA-256 of the header as last read, so a change asks for a full read.
+  headerHash          Bytes?            @map("header_hash")
+  /// The member who confirmed it; the checks act as them (S10).
+  connectedBy         String            @map("connected_by") @db.Uuid
+  impersonatedBy      String?           @map("impersonated_by") @db.Uuid
+  /// The spreadsheet claim this connection holds, released with the last connection to the spreadsheet (S4, S5).
+  claimId             String?           @map("claim_id") @db.Uuid
+  rowsAdded           Int               @default(0) @map("rows_added")
+  rowsMerged          Int               @default(0) @map("rows_merged")
+  rowsDuplicate       Int               @default(0) @map("rows_duplicate")
+  consecutiveFailures Int               @default(0) @map("consecutive_failures")
+  attentionSince      DateTime?         @map("attention_since") @db.Timestamptz(6)
+  lastCheckedAt       DateTime?         @map("last_checked_at") @db.Timestamptz(6)
+  lastOkAt            DateTime?         @map("last_ok_at") @db.Timestamptz(6)
+  lastFullReadAt      DateTime?         @map("last_full_read_at") @db.Timestamptz(6)
+  /// Set while a check runs and refreshed in each batch (its heartbeat); a start under five minutes old holds the sheet.
+  checkStartedAt      DateTime?         @map("check_started_at") @db.Timestamptz(6)
+  /// Google said wait (S37): no request before this.
+  holdUntil           DateTime?         @map("hold_until") @db.Timestamptz(6)
+  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// A draft's last step, for "untouched for 24 hours" (S6).
+  touchedAt           DateTime          @default(now()) @map("touched_at") @db.Timestamptz(6)
+  connectedAt         DateTime?         @map("connected_at") @db.Timestamptz(6)
+  disconnectedAt      DateTime?         @map("disconnected_at") @db.Timestamptz(6)
+  organization        Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  columns             SheetColumn[]
+  valueMatches        SheetValueMatch[]
+  rows                SheetRow[]
+
+  /// Lets the columns, value matches and rows point at (organization_id, id).
+  @@unique([organizationId, id])
+  /// A tab is connected once per agency while not disconnected (S7).
+  @@unique([organizationId, spreadsheetId, tabGid], map: "sheet_connection_live", where: raw("(status <> 'disconnected'::text)"))
+  /// The list, newest first.
+  @@index([organizationId, id(sort: Desc)], map: "sheet_connection_recent")
+  @@map("sheet_connection")
+}
+
+/// One header of the connected tab and the field it holds (S11): found by its header key, never its position.
+model SheetColumn {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String          @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String          @id @default(uuid(7)) @db.Uuid
+  connectionId   String          @map("connection_id") @db.Uuid
+  /// The header lower-cased with spaces and punctuation squeezed out (the lead import's headerKey).
+  headerKey      String          @map("header_key")
+  /// As named by the reader: a blank is "Column C", a repeat "(2)".
+  header         String
+  /// A lead import field without stage; null for Don't import.
+  field          String?
+  /// A header the sheet gained that nobody has seen (S15).
+  isNew          Boolean         @default(false) @map("is_new")
+  /// A matched column the sheet no longer has, as the last check found it: the page names it without asking Google.
+  isMissing      Boolean         @default(false) @map("is_missing")
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  connection     SheetConnection @relation(fields: [organizationId, connectionId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, connectionId, headerKey], map: "sheet_column_key")
+  @@map("sheet_column")
+}
+
+/// What one value of the Owner column goes to, matched by hand (S22): a user id, or null for the agency Owner.
+model SheetValueMatch {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String          @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String          @id @default(uuid(7)) @db.Uuid
+  connectionId   String          @map("connection_id") @db.Uuid
+  /// owner.
+  field          String
+  value          String
+  target         String?         @db.Uuid
+  /// chosen.
+  matchedBy      String          @map("matched_by")
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  connection     SheetConnection @relation(fields: [organizationId, connectionId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, connectionId, field, value], map: "sheet_value_match_value")
+  @@map("sheet_value_match")
+}
+
+/// The ledger of a connection's rows (S19): a row is known by the hash of its cells and its occurrence, never its place.
+/// 20,000 small rows for a full sheet.
+model SheetRow {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String          @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String          @id @default(uuid(7)) @db.Uuid
+  connectionId   String          @map("connection_id") @db.Uuid
+  /// SHA-256 of the row's trimmed cells (re-keyed with SHEETS_HASH_KEY once the customer is erased, S43).
+  rawHash        Bytes           @map("raw_hash")
+  /// Counts identical rows, so two exact copies are two rows.
+  occurrence     Int             @default(1) @db.SmallInt
+  /// Where it was last seen, for the problem list only.
+  rowNumber      Int             @map("row_number")
+  /// before_connect, pending, added, merged, duplicate, not_added or erased.
+  status         String
+  /// Problem codes as text: no_name, no_contact, notes_too_long, blocked, erased, could_not_add.
+  reasons        String[]        @default([])
+  /// The row's fingerprint (the lead import's), on an added, merged, duplicate or erased row, and, keyed with SHEETS_HASH_KEY, on one that was there at connect (S23).
+  fingerprint    Bytes?
+  leadId         String?         @map("lead_id") @db.Uuid
+  personId       String?         @map("person_id") @db.Uuid
+  /// A problem's example: a name and a value, at most 120 characters each.
+  exampleName    String?         @map("example_name")
+  exampleValue   String?         @map("example_value")
+  resolvedAt     DateTime?       @map("resolved_at") @db.Timestamptz(6)
+  firstSeenAt    DateTime        @default(now()) @map("first_seen_at") @db.Timestamptz(6)
+  processedAt    DateTime?       @map("processed_at") @db.Timestamptz(6)
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  connection     SheetConnection @relation(fields: [organizationId, connectionId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, connectionId, rawHash, occurrence], map: "sheet_row_hash")
+  /// Rows added anywhere, read with = ANY (S23).
+  @@index([organizationId, fingerprint], map: "sheet_row_fingerprint", where: raw("(fingerprint IS NOT NULL)"))
+  /// The sheet's page: its unresolved problems by row number.
+  @@index([organizationId, connectionId, rowNumber], map: "sheet_row_problems", where: raw("((status = 'not_added'::text) AND (resolved_at IS NULL))"))
+  /// A check's first look: the earliest row still waiting, so a half-typed row is never left behind the window (S11).
+  @@index([organizationId, connectionId, rowNumber], map: "sheet_row_pending", where: raw("(status = 'pending'::text)"))
+  /// Erasure finds a person's rows.
+  @@index([organizationId, personId], map: "sheet_row_person", where: raw("(person_id IS NOT NULL)"))
+  @@map("sheet_row")
+}
+
+/// An erased customer's contact, as an HMAC-SHA256 keyed with SHEETS_HASH_KEY and nothing else (S43), so a row naming
+/// it is never added. No expiry.
+model SheetErasedContact {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  contactHash    Bytes        @map("contact_hash")
+  erasedAt       DateTime     @default(now()) @map("erased_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, contactHash], map: "sheet_erased_contact_hash")
+  @@map("sheet_erased_contact")
+}
+
+/// When each connection is next due (S36): the worker finds due sheets of every organization from here without entering
+/// one. Ids and times only, no personal data. OUTSIDE ROW-LEVEL SECURITY, an explicit and reviewed exemption: OrgTx
+/// leaves the model out and only the sheets module reaches it, in db.withoutOrg(), through @travel-crm/db/sheet-schedule.
+/// A row may be stale (the check re-reads the connection and removes it).
+model SheetCheckSchedule {
+  /// The connection's own id.
+  id                  String       @id @db.Uuid
+  /// Named as every organization table's is, restricting deletion, but written outside an organization: no default.
+  organizationId      String       @map("organization_id") @db.Uuid
+  serviceAccountIndex Int          @map("service_account_index")
+  serviceAccountEmail String?      @map("service_account_email")
+  nextCheckAt         DateTime     @map("next_check_at") @db.Timestamptz(6)
+  /// A dispatched or running check holds the sheet until here (five minutes).
+  claimedUntil        DateTime?    @map("claimed_until") @db.Timestamptz(6)
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  /// The dispatcher's claim.
+  @@index([nextCheckAt], map: "sheet_check_schedule_due")
+  @@map("sheet_check_schedule")
+}
+
+/// Which agency holds a spreadsheet (S4): HMAC-SHA256(SHEETS_HASH_KEY, spreadsheet id), unique across every agency, which
+/// row-level security would hide, so this is the second table outside it. Never the spreadsheet id itself.
+model SheetSpreadsheetClaim {
+  id              String       @id @default(uuid(7)) @db.Uuid
+  organizationId  String       @map("organization_id") @db.Uuid
+  spreadsheetHash Bytes        @map("spreadsheet_hash")
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  /// One agency at a time per spreadsheet, across all agencies.
+  @@unique([spreadsheetHash], map: "sheet_spreadsheet_claim_hash")
+  @@map("sheet_spreadsheet_claim")
+}
+
+/// The one row that proves every process holds the same SHEETS_HASH_KEY (SC8): HMAC-SHA256(SHEETS_HASH_KEY, a fixed
+/// constant), written by the first process that starts with a key and compared by every process after it. No
+/// organization_id, so it has no row-level security: OrgTx leaves the model out and only the api's sheets-key-check.ts
+/// reaches it, in db.withoutOrg(), through @travel-crm/db/sheets-key-check. Holds no personal data and reveals nothing
+/// of the key.
+model SheetsKeyCheck {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  /// Always true (CHECK sheets_key_check_singleton) and unique, so there is one row at most.
+  singleton  Boolean  @default(true)
+  checkValue Bytes    @map("check_value")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([singleton], map: "sheets_key_check_singleton_key")
+  @@map("sheets_key_check")
+}

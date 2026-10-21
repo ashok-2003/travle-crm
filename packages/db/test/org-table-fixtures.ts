@@ -33,3 +33,18 @@ export const orgTableFixtures = await loadFixtures();
  * them. identity-tables.test.ts checks each entry exists and is one of those two, so no other table can be exempted.
  */
 export const signInTables: readonly string[] = ["invitation", "member"];
+
+/**
+ * Tables that carry organization_id but stay outside row-level security, because the Sheets sync's worker must find due
+ * sheets of every organization without entering one, and a spreadsheet's claim must be unique across organizations
+ * (ADR 0031). They hold ids, times and a keyed hash only: no organization data. Reached only through
+ * @travel-crm/db/sheet-schedule inside db.withoutOrg(). schedule-table.test.ts checks each entry exists, has no
+ * row-level security and holds exactly the columns it should, so no other table can be exempted by this list.
+ */
+export const unscopedScheduleTables: readonly string[] = ["sheet_check_schedule", "sheet_spreadsheet_claim"];
+
+/**
+ * Unique indexes that leave out organization_id on purpose, because uniqueness across organizations is their point and
+ * row-level security would hide it: the spreadsheet claim's hash (S4). Only tables of unscopedScheduleTables may have one.
+ */
+export const crossOrganizationUniques: readonly string[] = ["sheet_spreadsheet_claim_hash"];

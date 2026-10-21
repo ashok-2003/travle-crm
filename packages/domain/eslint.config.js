@@ -1,6 +1,7 @@
-// ESLint for @travel-crm/domain: the shared strict config. Three modules may write raw SQL naming a table without
+// ESLint for @travel-crm/domain: the shared strict config. Four places may write raw SQL naming a table without
 // row-level security, each only its own: identity the sign-in tables, webhooks webhook_event, rate-limits
-// rate_limit_counter. Their folders keep the rest of the raw-database guard.
+// rate_limit_counter, and the sheets module's schedule.ts the check schedule and the spreadsheet claim. They keep the
+// rest of the raw-database guard.
 import { base, rawSqlSelectorsAllowing } from "@travel-crm/eslint-config";
 import { defineConfig } from "eslint/config";
 
@@ -11,9 +12,16 @@ const allowingInModule = (module, ...tables) => ({
   rules: { "no-restricted-syntax": ["error", ...rawSqlSelectorsAllowing(...tables)] },
 });
 
+/** The same for single files: the sheets module's schedule (and the tests that arrange or read its two tables). */
+const allowingInFiles = (files, ...tables) => ({
+  files,
+  rules: { "no-restricted-syntax": ["error", ...rawSqlSelectorsAllowing(...tables)] },
+});
+
 export default defineConfig(
   base({ tsconfigRootDir: import.meta.dirname }),
   allowingInModule("identity", "signInTables"),
   allowingInModule("webhooks", "webhookEvents"),
   allowingInModule("rate-limits", "rateLimitCounters"),
+  allowingInFiles(["src/sheets/schedule.ts", "test/sheets/**", "test/performance/sheets-*"], "sheetSchedule"),
 );

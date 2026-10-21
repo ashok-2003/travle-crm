@@ -20,7 +20,9 @@ The api: one Hono app on Node. Settings come from environment variables (`src/en
 ## The worker
 
 `pnpm --filter @travel-crm/api-server worker` starts the worker from the same code and image (spec 9.1). It needs the
-same environment as the api, connects as `app_runtime` too and opens no port. `src/worker-jobs.ts` lists what it runs:
+same environment as the api, connects as `app_runtime` too and opens no port. It first reads a one-cell .xlsx in the
+.xlsx reader's own thread, and refuses to start when it can't (ADR 0030): the bundle's `xlsx-thread.mjs` must sit beside
+the rest. `src/worker-jobs.ts` lists what it runs:
 
 | Queue                                     | What it does                                                              |
 | ----------------------------------------- | ------------------------------------------------------------------------- |
@@ -69,17 +71,18 @@ its message or the error itself, which can quote a person's data (a Prisma valid
 `/api/platform/health`; the console's tRPC at `/api/platform/trpc` on `CONSOLE_PORT`, which the load balancer (and the web app's
 development server) routes there, and the platform's own jobs, from `src/console-jobs.ts`:
 
-| Queue                             | What it does                                                                                 |
-| --------------------------------- | -------------------------------------------------------------------------------------------- |
-| `platform.purge-organization`     | deletes a cancelled, exported organization for good, when a super admin asks (spec 5)        |
-| `platform.erase-subject`          | erases a removed person or one record in every module (spec 5)                               |
-| `platform.export-organization`    | writes an organization's export to the platform's storage, kept 7 days (spec 5)              |
-| `platform.expire-exports`         | deletes the parts and file copies of exports past their 7 days, or withdrawn by an erasure   |
-| `platform.delete-stored-files`    | deletes the stored files a purge or an erasure queued, retrying until done (ADR 0023)        |
-| `platform.sweep-stored-files`     | every hour, deletes what the deletions' outbox holds that no job will reach (ADR 0023)       |
-| `platform.sweep-expired-exports`  | every day at 03:45 India time, clears exports past their 7 days that no job cleared          |
-| `subscriptions.advance-lifecycle` | every day at 00:15 India time, records each subscription's state, as the platform role (7.3) |
-| `platform.reset-demo`             | every night at 02:00 India time, purges and rebuilds the shared demo (spec 7.4)              |
+| Queue                             | What it does                                                                                                                    |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `platform.purge-organization`     | deletes a cancelled, exported organization for good, when a super admin asks (spec 5)                                           |
+| `platform.erase-subject`          | erases a removed person or one record in every module (spec 5)                                                                  |
+| `platform.export-organization`    | writes an organization's export to the platform's storage, kept 7 days (spec 5)                                                 |
+| `platform.expire-exports`         | deletes the parts and file copies of exports past their 7 days, or withdrawn by an erasure                                      |
+| `platform.delete-stored-files`    | deletes the stored files a purge or an erasure queued, retrying until done (ADR 0023)                                           |
+| `platform.sweep-stored-files`     | every hour, deletes what the deletions' outbox holds that no job will reach (ADR 0023)                                          |
+| `platform.sweep-expired-exports`  | every day at 03:45 India time, clears exports past their 7 days that no job cleared                                             |
+| `platform.sweep-bulk-files`       | every hour at 17 past, India time: imports' files 7 days after they end, exports' files 24 hours after they're ready (ADR 0030) |
+| `subscriptions.advance-lifecycle` | every day at 00:15 India time, records each subscription's state, as the platform role (7.3)                                    |
+| `platform.reset-demo`             | every night at 02:00 India time, purges and rebuilds the shared demo (spec 7.4)                                                 |
 
 It is the only process that reads `DATABASE_PLATFORM_URL` (deploys give it to no other), and it needs everything else
 the api does. It refuses to start when that connection isn't the platform role, or when the platform role can't step

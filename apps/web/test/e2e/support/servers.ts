@@ -4,7 +4,7 @@
 // build time and must point at this api and this console. If anything fails on the way, whatever already started is
 // stopped again, so a failed run leaves no process behind.
 import { spawn } from "node:child_process";
-import { generateKeyPairSync } from "node:crypto";
+import { generateKeyPairSync, randomBytes } from "node:crypto";
 import { cp } from "node:fs/promises";
 import { createServer, type Server } from "node:net";
 import path from "node:path";
@@ -48,6 +48,19 @@ function vapidKeys(): { publicKey: string; privateKey: string } {
   const { d = "" } = pair.privateKey.export({ format: "jwk" });
   const publicKey = Buffer.concat([Buffer.from([4]), Buffer.from(x, "base64url"), Buffer.from(y, "base64url")]);
   return { publicKey: publicKey.toString("base64url"), privateKey: d };
+}
+
+/** What the sheets sync reads (spec 14), for this run only: a throwaway account whose key nothing ever signs with. */
+function sheetsVariables(googleUrl: string, accountEmail: string): Record<string, string> {
+  const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const account = { client_email: accountEmail, private_key: privateKey.export({ type: "pkcs8", format: "pem" }) };
+  return {
+    GOOGLE_SHEETS_SERVICE_ACCOUNTS: Buffer.from(JSON.stringify([account])).toString("base64"),
+    SHEETS_HASH_KEY: randomBytes(32).toString("hex"),
+    // The real adapter runs against the journeys' fake Google, with a fixed token (apps/api/src/services.ts).
+    GOOGLE_SHEETS_TEST_SERVER_URL: googleUrl,
+    SHEETS_CHECK_INTERVAL_SECONDS: "1",
+  };
 }
 
 /** Runs a command to the end, failing with its output if it fails. */
@@ -137,6 +150,7 @@ export async function startServers({
   platformDatabaseUrl,
   storage,
   email,
+  google,
 }: {
   databaseUrl: string;
   /** The platform role's connection, which only the console is given (ADR 0019). */
@@ -145,6 +159,8 @@ export async function startServers({
   storage: StorageVariables;
   /** Mailpit's SMTP (support/mailpit.ts), where journeys read the emails the api sends. */
   email: EmailVariables;
+  /** The fake Google (support/fake-google.ts): its address, and the address spreadsheets are shared with. */
+  google: { url: string; accountEmail: string };
 }): Promise<Servers> {
   const reserved = await reservePorts(3);
   const [apiPort = 0, consolePort = 0, webPort = 0] = reserved.ports;
@@ -153,6 +169,8 @@ export async function startServers({
   const webUrl = `http://127.0.0.1:${String(webPort)}`;
   const started: Started[] = [];
   const stop = () => {
+    // E2E_SERVER_LOGS=1 shows what the servers printed, for finding why a journey's worker step did not happen.
+    if (process.env.E2E_SERVER_LOGS) for (const server of started) console.error(server.output());
     for (const server of started) server.stop();
   };
   try {
@@ -173,6 +191,7 @@ export async function startServers({
     await cp(path.join(webDirectory, "public"), path.join(standalone, "public"), { recursive: true });
 
     const vapid = vapidKeys();
+    const sheets = sheetsVariables(google.url, google.accountEmail);
     /** What the api's three commands all read (apps/api/src/environment.ts). */
     const apiEnvironment: NodeJS.ProcessEnv = {
       ...process.env,
@@ -194,6 +213,7 @@ export async function startServers({
       VAPID_PUBLIC_KEY: vapid.publicKey,
       VAPID_PRIVATE_KEY: vapid.privateKey,
       VAPID_SUBJECT: "mailto:dev@travel-crm.localhost",
+      ...sheets,
     };
     const tsx = path.join(apiDirectory, "node_modules/.bin/tsx");
     await reserved.release();
@@ -202,7 +222,15 @@ export async function startServers({
     const platformConsole = start(tsx, ["src/console.ts"], {
       cwd: apiDirectory,
       // As apps/api/src/console-environment.ts reads them.
-      env: { ...apiEnvironment, DATABASE_PLATFORM_URL: platformDatabaseUrl, CONSOLE_PORT: String(consolePort) },
+      env: {
+        ...apiEnvironment,
+        DATABASE_PLATFORM_URL: platformDatabaseUrl,
+        CONSOLE_PORT: String(consolePort),
+        // The console holds the hash key (erasure) and no account: it never reads a sheet.
+        GOOGLE_SHEETS_SERVICE_ACCOUNTS: "",
+        GOOGLE_SHEETS_TEST_SERVER_URL: "",
+        SHEETS_CHECK_INTERVAL_SECONDS: "",
+      },
     });
     const web = start(process.execPath, ["server.js"], {
       cwd: standalone,

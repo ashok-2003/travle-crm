@@ -44,6 +44,20 @@ model Organization {
   leadEnquiries           LeadEnquiry[]
   blockedContacts         BlockedContact[]
   tasks                   Task[]
+  importBatches           ImportBatch[]
+  importColumns           ImportColumn[]
+  importValueMatches      ImportValueMatch[]
+  importRows              ImportRow[]
+  importHeaderMatches     ImportHeaderMatch[]
+  importStopRequests      ImportStopRequest[]
+  dataExports             DataExport[]
+  sheetConnections        SheetConnection[]
+  sheetColumns            SheetColumn[]
+  sheetValueMatches       SheetValueMatch[]
+  sheetRows               SheetRow[]
+  sheetErasedContacts     SheetErasedContact[]
+  sheetCheckSchedules     SheetCheckSchedule[]
+  sheetSpreadsheetClaims  SheetSpreadsheetClaim[]
 
   @@map("organization")
 }

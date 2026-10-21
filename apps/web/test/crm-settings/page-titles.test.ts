@@ -1,4 +1,4 @@
-// Destinations' and Blocked contacts' pages are titled with the messages their headings show, so the tab and the
+// Destinations', Blocked contacts' and Lead sources' pages are titled with the messages their headings show, so the tab and the
 // screen can't drift apart.
 import { createTranslator } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
@@ -10,6 +10,7 @@ vi.mock("next-intl/server", () => ({
 // The titles alone: the screens themselves are tested on their own.
 vi.mock("@/crm-settings/destinations-screen", () => ({ DestinationsScreen: () => null }));
 vi.mock("@/crm-settings/blocked-contacts-screen", () => ({ BlockedContactsScreen: () => null }));
+vi.mock("@/lead-sources/lead-sources-screen", () => ({ LeadSourcesScreen: () => null }));
 
 const { settings } = messages;
 
@@ -20,6 +21,7 @@ const pages: [string, () => Promise<{ generateMetadata: () => Promise<unknown> }
     () => import("@/app/(app)/settings/blocked-contacts/page"),
     settings.blockedContacts.title,
   ],
+  ["/settings/lead-sources", () => import("@/app/(app)/settings/lead-sources/page"), messages.sheets.list.title],
 ];
 
 describe("crm settings page titles", () => {

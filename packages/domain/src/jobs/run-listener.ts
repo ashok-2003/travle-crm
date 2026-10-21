@@ -82,7 +82,7 @@ export async function runListenerJob({
   };
   await listener.handle(event, {
     actor: systemActor(job.organizationId),
-    forOrg: (fn) => db.forOrg(job.organizationId, fn),
+    forOrg: (fn, options) => db.forOrg(job.organizationId, fn, options),
   });
   // skipDuplicates: if two runs raced, the second record is a no-op rather than an error that would retry the job.
   await db.forOrg(job.organizationId, (tx) =>

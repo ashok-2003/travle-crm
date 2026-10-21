@@ -1,0 +1,11 @@
+{
+  "status": 429,
+  "headers": { "retry-after": "120" },
+  "body": {
+    "error": {
+      "code": 429,
+      "message": "Quota exceeded for quota metric Read requests per minute",
+      "status": "RESOURCE_EXHAUSTED"
+    }
+  }
+}

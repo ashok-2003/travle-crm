@@ -13,6 +13,12 @@ import { runListenerJob } from "./run-listener.js";
  */
 export interface JobHandler {
   readonly queue: string;
+  /**
+   * How many of its jobs the worker runs at once; one unless named. A listener's queue always runs one job at a time
+   * (an import's read peaks high in memory, X10), so only a plain handler whose job is light and bounded asks for more
+   * (the Sheets sync's checks, which read Google and write fifty rows at a time).
+   */
+  readonly concurrency?: number;
   handle(data: JobData): Promise<void>;
 }
 
@@ -100,6 +106,14 @@ async function registerSchedules(runner: JobRunner, schedules: readonly Schedule
   }
 }
 
+/** Works a handler's queue, at the concurrency it names (one by default). */
+function workHandler(runner: JobRunner, handler: JobHandler): Promise<void> {
+  const handle = (job: { data: JobData }) => handler.handle(job.data);
+  return handler.concurrency === undefined
+    ? runner.work(handler.queue, handle)
+    : runner.work(handler.queue, handle, { concurrency: handler.concurrency });
+}
+
 /**
  * Starts everything. The runner (pg-boss) keeps its queues and schedules after a restart: a listener or schedule
  * removed from the code leaves its queue, jobs and schedule behind until a super admin removes it in the console.
@@ -117,25 +131,29 @@ export async function startWorker(dependencies: WorkerDependencies): Promise<Wor
   // Schedules first: when the runner refuses one, no listener or relay has started.
   await registerSchedules(runner, schedules);
   for (const listener of listeners) {
-    await runner.work(listener.name, async (job) => {
-      const outcome = await runListenerJob({ db, listener, data: job.data });
-      // Not retried (the event won't appear), but not silent either. Ids only: this may reach logs.
-      if (outcome === "event-not-found") {
-        try {
-          dependencies.onError?.(
-            new Error(
-              `${listener.name}: event ${String(job.data.eventId)} not found in organization ${String(job.data.organizationId)}`,
-            ),
-          );
-        } catch {
-          // A broken logger must not turn "not found, don't retry" into a retry.
+    // One job of a listener at a time in a worker: an import's read peaks at about 344 MB in its process (X10), so
+    // two at once could pass a small host's memory. More workers run more.
+    await runner.work(
+      listener.name,
+      async (job) => {
+        const outcome = await runListenerJob({ db, listener, data: job.data });
+        // Not retried (the event won't appear), but not silent either. Ids only: this may reach logs.
+        if (outcome === "event-not-found") {
+          try {
+            dependencies.onError?.(
+              new Error(
+                `${listener.name}: event ${String(job.data.eventId)} not found in organization ${String(job.data.organizationId)}`,
+              ),
+            );
+          } catch {
+            // A broken logger must not turn "not found, don't retry" into a retry.
+          }
         }
-      }
-    });
+      },
+      { concurrency: 1 },
+    );
   }
-  for (const handler of handlers) {
-    await runner.work(handler.queue, (job) => handler.handle(job.data));
-  }
+  for (const handler of handlers) await workHandler(runner, handler);
 
   const relay = startOutboxRelay({
     db,
@@ -162,7 +180,5 @@ export async function startJobHandlers(dependencies: JobHandlerDependencies): Pr
     schedules,
   );
   await registerSchedules(runner, schedules);
-  for (const handler of handlers) {
-    await runner.work(handler.queue, (job) => handler.handle(job.data));
-  }
+  for (const handler of handlers) await workHandler(runner, handler);
 }

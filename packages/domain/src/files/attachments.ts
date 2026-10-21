@@ -2,14 +2,9 @@
 import type { AttachmentRefInput, AttachmentSummary } from "@travel-crm/contracts/files";
 import { softDeleted } from "@travel-crm/db";
 import { DomainError, type Actor } from "../kernel/index.js";
-import {
-  attachmentFields,
-  canViewSensitive,
-  findAttachment,
-  isSystemOwnedRecordType,
-  summaryFor,
-} from "./attachment-row.js";
+import { attachmentFields, canViewSensitive, findAttachment, summaryFor } from "./attachment-row.js";
 import type { FilesDependencies } from "./dependencies.js";
+import { isSystemOwnedRecordType } from "./record-types.js";
 import { bytesStored } from "./uploads.js";
 
 /**

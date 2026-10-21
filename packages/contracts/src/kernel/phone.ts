@@ -25,3 +25,11 @@ export const phoneNumber = z
     }
     return e164;
   });
+
+/**
+ * A stored number written the international way, as a file shows it (B38): "+91 98765 43210", or a foreign number
+ * with its own country's spacing. One libphonenumber doesn't know is shown as stored.
+ */
+export function internationalPhone(e164: string): string {
+  return parsePhoneNumberFromString(e164)?.formatInternational() ?? e164;
+}

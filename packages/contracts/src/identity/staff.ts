@@ -1,5 +1,6 @@
 // Inputs and outputs of the staff API: creating, changing and removing an organization's staff (spec 6.3).
 import { z } from "zod";
+import { phoneNumber } from "../kernel/phone.js";
 import {
   emailAddress,
   newPassword,
@@ -21,6 +22,8 @@ export const createStaffInput = z
     username: staffUsername.optional(),
     roleKey,
     temporaryPassword: newPassword,
+    /** Optional (B51): not a sign-in name, not unique. */
+    phone: phoneNumber.optional(),
   })
   .refine((input) => input.email !== undefined || input.username !== undefined, {
     message: "Give an email, a username or both",
@@ -33,6 +36,10 @@ export type UpdateStaffRoleInput = z.infer<typeof updateStaffRoleInput>;
 
 export const resetStaffPasswordInput = z.strictObject({ memberId: recordId, temporaryPassword: newPassword });
 export type ResetStaffPasswordInput = z.infer<typeof resetStaffPasswordInput>;
+
+/** A staff member's phone, or null to clear it (B51). */
+export const changeStaffPhoneInput = z.strictObject({ memberId: recordId, phone: phoneNumber.nullable() });
+export type ChangeStaffPhoneInput = z.infer<typeof changeStaffPhoneInput>;
 
 export const removeStaffInput = z.strictObject({ memberId: recordId });
 export type RemoveStaffInput = z.infer<typeof removeStaffInput>;
@@ -53,6 +60,8 @@ export const staffMember = z.object({
   email: shownEmailAddress.nullable(),
   /** As the person typed it, e.g. "Ravi". Null for staff who sign in only by email. */
   username: z.string().nullable(),
+  /** In E.164; null when none was given (B51). */
+  phone: z.string().nullable(),
   /** isOwner: the Owner role, which screens colour as theirs even where the roles list is refused (suspended). */
   role: z.object({ key: z.string(), name: z.string(), isOwner: z.boolean() }),
   twoFactorEnabled: z.boolean(),

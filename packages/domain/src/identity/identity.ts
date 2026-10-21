@@ -1,6 +1,7 @@
 // Builds the identity module: Better Auth plus the operations the API and onboarding call. One per process.
 import type {
   CreateRoleInput,
+  ChangeStaffPhoneInput,
   CreateStaffInput,
   DeleteRoleInput,
   MeOutput,
@@ -13,6 +14,7 @@ import type {
   UpdateRoleInput,
   UpdateStaffRoleInput,
 } from "@travel-crm/contracts/identity";
+import type { OrgTx } from "@travel-crm/db";
 import { createIdentityDatabase, type ForOrgOptions } from "@travel-crm/db/identity";
 import {
   describePlatformStaff,
@@ -26,6 +28,7 @@ import {
 import { createAuth, type Auth, type AuthSettings } from "./auth/create-auth.js";
 import type { LeadWorker } from "@travel-crm/contracts/crm";
 import type { EventListener } from "../jobs/index.js";
+import { matchLeadWorkers, matchRoles, type LeadWorkerMatch, type RoleMatch } from "./import-matches.js";
 import { firstOwner, leadWorkers } from "./lead-workers.js";
 import type { MemberAccess } from "./member-access.js";
 import { recordMemberActivity } from "./member-activity.js";
@@ -39,8 +42,20 @@ import { createRole, deleteRole, listRoles, updateRole } from "./roles.js";
 import { seedStarterRoles } from "./seed-starter-roles.js";
 import { setTwoFactorRequirement } from "./settings.js";
 import { createStaffAccount, type CreatedStaff, type PasswordHasher } from "./staff-accounts.js";
+import { addImportedStaff, hashTemporaryPasswords, type AddedStaff, type ImportedStaffRow } from "./imported-staff.js";
+import { changeStaffPhone } from "./staff-phone.js";
+import { staffExportRows, type StaffExportRow } from "./staff-export-rows.js";
+import { staffRowFacts, staffSeatsFree, type StaffRowFacts } from "./staff-row-facts.js";
 import { staffInviteListener, type InviteDependencies } from "./staff-invites.js";
-import { createStaff, listStaff, removeStaff, resetStaffPassword, updateStaffRole, type SeatLimit } from "./staff.js";
+import {
+  createStaff,
+  listStaff,
+  noSeatLimit,
+  removeStaff,
+  resetStaffPassword,
+  updateStaffRole,
+  type SeatLimit,
+} from "./staff.js";
 import { OWNER_ROLE_KEY } from "./starter-roles.js";
 
 export interface IdentityOptions {
@@ -83,6 +98,13 @@ export interface Identity {
   /** The earliest-joined active Owner's user id, who receives a departing member's work (R15); null if none. */
   firstOwner(organizationId: string): Promise<string | null>;
   /**
+   * A file's Owner values matched to lead workers by full name, username, email or a first name only one has (B11).
+   * A value that names nobody, or more than one person, is absent.
+   */
+  matchLeadWorkers(organizationId: string, values: readonly string[]): Promise<Map<string, LeadWorkerMatch>>;
+  /** A file's Role values matched to the organization's roles by name or key (B11). */
+  matchRoles(organizationId: string, values: readonly string[]): Promise<Map<string, RoleMatch>>;
+  /**
    * Notes that the member is using the app, for the platform dashboard: the api calls it on each request it lets
    * through. It writes at most once a day per member, and never for support's impersonation.
    */
@@ -95,8 +117,33 @@ export interface Identity {
   readonly staff: {
     list(actor: MemberAccess): Promise<StaffMember[]>;
     create(actor: MemberAccess, input: CreateStaffInput): Promise<StaffMember>;
+    /** What the staff import's check needs of the agency for a file's usernames, emails and roles (B44). */
+    rowFacts(
+      actor: MemberAccess,
+      names: { usernames: readonly string[]; emails: readonly string[] },
+    ): Promise<StaffRowFacts>;
+    /** The seats the plan has left, or null for no limit (B45). */
+    seatsFree(organizationId: string): Promise<number | null>;
+    /** The active staff for the staff export, oldest first (B52). */
+    exportRows(actor: MemberAccess): Promise<StaffExportRow[]>;
+    /** Hashes temporary passwords made in the browser, one after another, as Better Auth checks them (B46). */
+    hashTemporaryPasswords(passwords: readonly string[]): Promise<string[]>;
+    /**
+     * Adds an imported team in one transaction, or none (B45, B47); `afterwards` runs in it, to link the import's rows.
+     * Throws IMPORT_OVER_SEAT_LIMIT past the seats, or an ImportedStaffRowError naming a row that can't be added now.
+     */
+    addImported(
+      actor: MemberAccess,
+      rows: readonly ImportedStaffRow[],
+      importId: string,
+      afterwards: (tx: OrgTx, added: readonly AddedStaff[]) => Promise<void>,
+    ): Promise<AddedStaff[]>;
+    /** Sets or clears a person's phone (B51). */
+    changePhone(actor: MemberAccess, input: ChangeStaffPhoneInput): Promise<StaffMember>;
     updateRole(actor: MemberAccess, input: UpdateStaffRoleInput): Promise<StaffMember>;
     resetPassword(actor: MemberAccess, input: ResetStaffPasswordInput): Promise<void>;
+    /** Like resetPassword, but only while the person still has the temporary one (B50): a changed person is skipped. */
+    resetTemporaryPassword(actor: MemberAccess, input: ResetStaffPasswordInput): Promise<{ reset: boolean }>;
     remove(actor: MemberAccess, input: RemoveStaffInput): Promise<void>;
   };
   /** The actor's organization's roles. Changing them needs roles:manage, which the API checks. */
@@ -136,14 +183,27 @@ export function createIdentity(options: IdentityOptions): Identity {
     memberContacts: (organizationId, userIds) => memberContacts(database, organizationId, userIds),
     leadWorkers: (organizationId) => leadWorkers(database, organizationId),
     firstOwner: (organizationId) => firstOwner(database, organizationId),
+    matchLeadWorkers: (organizationId, values) => matchLeadWorkers(database, organizationId, values),
+    matchRoles: (organizationId, values) => matchRoles(database, organizationId, values),
     recordActivity: (access) => recordMemberActivity(database, access),
     isPlatformAdmin: (user) => isPlatformAdmin(database, user),
     describePlatformStaff: (userId) => describePlatformStaff(database.client, userId),
     staff: {
       list: (actor) => listStaff(database, actor),
       create: (actor, input) => createStaff(database, hashPassword, actor, input, options.seatLimit),
+      rowFacts: (actor, names) => staffRowFacts(database, actor, names),
+      seatsFree: (organizationId) => staffSeatsFree(database, options.seatLimit ?? noSeatLimit, organizationId),
+      exportRows: (actor) => staffExportRows(database, actor),
+      hashTemporaryPasswords: (passwords) => hashTemporaryPasswords(hashPassword, passwords),
+      addImported: (actor, rows, importId, afterwards) =>
+        addImportedStaff(database, options.seatLimit ?? noSeatLimit, actor, rows, importId, afterwards),
+      changePhone: (actor, input) => changeStaffPhone(database, actor, input),
       updateRole: (actor, input) => updateStaffRole(database, actor, input),
-      resetPassword: (actor, input) => resetStaffPassword(database, hashPassword, actor, input),
+      resetPassword: async (actor, input) => {
+        await resetStaffPassword(database, hashPassword, actor, input);
+      },
+      resetTemporaryPassword: (actor, input) =>
+        resetStaffPassword(database, hashPassword, actor, input, { onlyWhileTemporary: true }),
       remove: (actor, input) => removeStaff(database, actor, input),
     },
     roles: {

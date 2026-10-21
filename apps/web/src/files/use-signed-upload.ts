@@ -6,7 +6,7 @@
 // than waiting at 0%, and can be stopped. Sending the same request again picks up where it stopped: once storage has
 // the file only the confirmation is sent again (it is harmless to repeat), and before that the same signed upload while
 // it lasts and storage hasn't refused it, so a retry doesn't leave another record behind. A stopped or abandoned upload
-// leaves only a pending record, which nobody sees.
+// leaves only a pending record, which nobody sees; a caller whose own record shows (an import) hears of the stop.
 import type { PresignedUploadOutput } from "@travel-crm/contracts/files";
 import { useMutation } from "@tanstack/react-query";
 import { useRef, useState } from "react";
@@ -35,6 +35,8 @@ export function useSignedUpload<Request extends { file: File }, Confirmed>(calls
   confirmUpload: (attachmentId: string) => Promise<Confirmed>;
   /** In the mutation's own options, so they run however the calling component is by then. */
   onSuccess?: (confirmed: Confirmed, request: Request) => void;
+  /** The person stopped the upload of this signed file: its record is abandoned. */
+  onStopped?: (attachmentId: string) => void;
   onSettled?: () => unknown;
 }) {
   const [progress, setProgress] = useState(0);
@@ -72,6 +74,11 @@ export function useSignedUpload<Request extends { file: File }, Confirmed>(calls
     onSuccess: (confirmed, request) => {
       unfinished.current = null;
       calls.onSuccess?.(confirmed, request);
+    },
+    onError: (error, request) => {
+      // The api signs the upload before storage is sent anything, so a stopped request always has its record.
+      const signed = unfinished.current;
+      if (wasStopped(error) && signed?.request === request) calls.onStopped?.(signed.signed.attachmentId);
     },
     onSettled: () => calls.onSettled?.(),
   });

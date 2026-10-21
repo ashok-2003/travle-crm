@@ -19,7 +19,7 @@ import {
   ItemTitle,
 } from "@/components/ui/item";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatDay } from "@/lib/format";
+import { formatDay, formatPhoneNumber } from "@/lib/format";
 import { useMe } from "@/session/me-context";
 import { useWideScreen } from "@/lib/use-wide-screen";
 import { RoleBadge } from "../roles/role-badge";
@@ -59,6 +59,7 @@ export function StaffList({ staff, roles }: { staff: StaffMember[]; roles: RoleS
                   <span className="wrap-anywhere script-leading">
                     {signInName(member)} · {t("joinedOn", { date: joined(member) })}
                   </span>
+                  {member.phone !== null && <span className="numbers">{formatPhoneNumber(member.phone)}</span>}
                 </ItemDescription>
               </ItemContent>
               <ItemActions>{actions(member)}</ItemActions>
@@ -75,6 +76,7 @@ export function StaffList({ staff, roles }: { staff: StaffMember[]; roles: RoleS
         <TableRow>
           <TableHead scope="col">{t("columns.name")}</TableHead>
           <TableHead scope="col">{t("columns.signIn")}</TableHead>
+          <TableHead scope="col">{t("columns.phone")}</TableHead>
           <TableHead scope="col">{t("columns.role")}</TableHead>
           {features.twoFactor && <TableHead scope="col">{t("columns.twoFactor")}</TableHead>}
           <TableHead scope="col" className="text-right">
@@ -95,6 +97,7 @@ export function StaffList({ staff, roles }: { staff: StaffMember[]; roles: RoleS
               </div>
             </TableCell>
             <TableCell className="whitespace-normal break-all">{signInName(member)}</TableCell>
+            <TableCell className="numbers">{member.phone === null ? "" : formatPhoneNumber(member.phone)}</TableCell>
             <TableCell className="whitespace-normal">{role(member)}</TableCell>
             {features.twoFactor && (
               <TableCell>{member.twoFactorEnabled ? t("twoFactorOn") : t("twoFactorOff")}</TableCell>

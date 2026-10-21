@@ -1,0 +1,211 @@
+// Bulk imports (release 2, spec 5): an uploaded file's batch, its columns, the matches of its Owner, Stage and Role
+// values, every row's plan and outcome, and the agency's remembered header matches. Organization-owned: row-level
+// security applies (the migration calls app_enable_org_rls on each). None is soft-deleted; the runtime role deletes
+// only rows and value matches, when a check runs again. Ids of other modules' records (leads, people, members, users)
+// are plain uuids with no key, as attachment.record_id is. Predicates are written as Postgres prints them, so the drift
+// check reads them as equal.
+
+/// One upload of a CSV or .xlsx file, from its upload to its end (spec 5). Kept 7 days after its last status change
+/// (keep_until, D5), then the console's sweep deletes its files and empties what it keeps of the rows.
+model ImportBatch {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId     String             @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id                 String             @id @default(uuid(7)) @db.Uuid
+  /// leads or staff (CHECK import_batch_kind_value).
+  kind               String
+  /// uploading, reading, unreadable, matching, checking, checked, adding, done, stopped, failed, cancelled or expired.
+  status             String             @default("uploading")
+  /// The uploaded file (record type import_batch); null once the sweep or an erasure deleted it.
+  fileAttachmentId   String?            @map("file_attachment_id") @db.Uuid
+  fileName           String             @map("file_name")
+  /// csv or xlsx: how the file is read, and the report's format.
+  fileKind           String             @map("file_kind")
+  /// The file's SHA-256, kept by the reader, so the same file again is recognised (B6).
+  fileSha256         Bytes?             @map("file_sha256")
+  sheetName          String?            @map("sheet_name")
+  sheetCount         Int?               @map("sheet_count")
+  /// Set exactly when the status is unreadable (CHECK import_batch_unreadable_pair).
+  unreadableReason   String?            @map("unreadable_reason")
+  failureReason      String?            @map("failure_reason")
+  rowsTotal          Int                @default(0) @map("rows_total")
+  rowsToAdd          Int                @default(0) @map("rows_to_add")
+  rowsDone           Int                @default(0) @map("rows_done")
+  rowsAdded          Int                @default(0) @map("rows_added")
+  /// How many leads the check found would be New, for the preview's quiet line (D4).
+  rowsNewStage       Int                @default(0) @map("rows_new_stage")
+  /// The importer's choices for the file (B30): an open stage, won or lost.
+  defaultStage       String             @default("new") @map("default_stage")
+  defaultOwnerUserId String?            @map("default_owner_user_id") @db.Uuid
+  budgetBasis        String?            @map("budget_basis")
+  defaultRoleKey     String?            @map("default_role_key")
+  addBlocked         Boolean            @default(false) @map("add_blocked")
+  addAlreadyImported Boolean            @default(false) @map("add_already_imported")
+  /// Whether the add takes the rows of people who already have a lead (plan in_crm): a sheet's import asks.
+  addInCrm           Boolean            @default(false) @map("add_in_crm")
+  /// The report of rows not added (record type import_report), once the add ends.
+  reportAttachmentId String?            @map("report_attachment_id") @db.Uuid
+  /// The importer's user id: the import is theirs alone (D6), and the job acts as them (B31).
+  startedBy          String             @map("started_by") @db.Uuid
+  /// The platform admin's user id when support started it while impersonating.
+  impersonatedBy     String?            @map("impersonated_by") @db.Uuid
+  /// The Google Sheet connection whose rows this import reads (the Sheets sync's connect-time import); null for a
+  /// file. A plain uuid, as the other modules' ids are.
+  sourceSheetId      String?            @map("source_sheet_id") @db.Uuid
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  checkedAt          DateTime?          @map("checked_at") @db.Timestamptz(6)
+  addRequestedAt     DateTime?          @map("add_requested_at") @db.Timestamptz(6)
+  finishedAt         DateTime?          @map("finished_at") @db.Timestamptz(6)
+  keepUntil          DateTime           @map("keep_until") @db.Timestamptz(6)
+  organization       Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  fileAttachment     Attachment?        @relation("ImportBatchFile", fields: [organizationId, fileAttachmentId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  reportAttachment   Attachment?        @relation("ImportBatchReport", fields: [organizationId, reportAttachmentId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  columns            ImportColumn[]
+  valueMatches       ImportValueMatch[]
+  rows               ImportRow[]
+  stopRequest        ImportStopRequest?
+
+  /// Lets the columns, value matches and rows point at (organization_id, id).
+  @@unique([organizationId, id])
+  /// One import of an agency adds at a time (B29, D35).
+  @@unique([organizationId], map: "import_batch_one_adding", where: raw("(status = 'adding'::text)"))
+  /// Recent imports: the person's last ten of a kind (D6: an import is its starter's).
+  @@index([organizationId, startedBy, kind, id(sort: Desc)], map: "import_batch_recent")
+  /// The same file again (B6).
+  @@index([organizationId, fileSha256], map: "import_batch_file")
+  /// A sheet's imports.
+  @@index([organizationId, sourceSheetId], map: "import_batch_by_sheet", where: raw("(source_sheet_id IS NOT NULL)"))
+  /// The console's sweep, across organizations.
+  @@index([keepUntil], map: "import_batch_due", where: raw("(status <> 'expired'::text)"))
+  @@map("import_batch")
+}
+
+/// One column of the file: its name as read, three samples, and its values with their counts when it has at most 50
+/// different ones (B11). A column with samples but no listed values has more than 50.
+model ImportColumn {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  batchId        String       @map("batch_id") @db.Uuid
+  /// 0-based, in the file's order.
+  position       Int
+  header         String
+  /// The first three non-empty values (CHECK import_column_samples).
+  samples        String[]     @default([])
+  /// Each listed value with its count at the same index (CHECK import_column_values).
+  distinctValues String[]     @default([]) @map("distinct_values")
+  distinctCounts Int[]        @default([]) @map("distinct_counts")
+  /// The field it is matched to, of either kind's list; null for Don't import.
+  field          String?
+  /// Where the reader's guess of the field came from: last-time (the agency's last match of the header) or
+  /// common-name; null once the importer chose otherwise, or for no guess (B9).
+  guessedBy      String?      @map("guessed_by")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  batch          ImportBatch  @relation(fields: [organizationId, batchId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, batchId, position], map: "import_column_position")
+  @@map("import_column")
+}
+
+/// What one Owner, Stage or Role value of the file goes to (B11): a user id, a stage or a role key, or null for the
+/// file's default.
+model ImportValueMatch {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  batchId        String       @map("batch_id") @db.Uuid
+  /// owner, stage or role.
+  field          String
+  /// As read, at most 200 characters (longer values aren't listed).
+  value          String
+  /// How many rows hold it, once a column is matched to the field (D4).
+  rows           Int?
+  target         String?
+  /// name, username, email, first_name, word, chosen or none.
+  matchedBy      String       @map("matched_by")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  batch          ImportBatch  @relation(fields: [organizationId, batchId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, batchId, field, value], map: "import_value_match_value")
+  @@map("import_value_match")
+}
+
+/// One data row of the file: the check's plan for it and, once added, its outcome and what it became.
+model ImportRow {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  batchId        String       @map("batch_id") @db.Uuid
+  /// Its row in the file; the header is row 1.
+  rowNumber      Int          @map("row_number")
+  /// new, returning, enquiry, blocked, already_imported, in_crm (a sheet's row for someone with a lead) or not_added.
+  plan           String
+  /// Reason codes as text: "code", "code:field", "same_as_row:12", "already_imported:2026-10-12" (D8).
+  reasons        String[]     @default([])
+  /// A value went into the note (B21).
+  noted          Boolean      @default(false)
+  /// A destination the row adds to the agency's list.
+  newDestination String?      @map("new_destination")
+  /// Null until the add: added, merged, left_out or not_added.
+  outcome        String?
+  leadId         String?      @map("lead_id") @db.Uuid
+  personId       String?      @map("person_id") @db.Uuid
+  memberId       String?      @map("member_id") @db.Uuid
+  /// SHA-256 of the row's matched values, on an added or merged row only (B33, D9).
+  fingerprint    Bytes?
+  /// A staff row's temporary password's hash, until the add (B46).
+  passwordHash   String?      @map("password_hash")
+  /// The preview's example: a name and a value, at most 120 characters each.
+  exampleName    String?      @map("example_name")
+  exampleValue   String?      @map("example_value")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  batch          ImportBatch  @relation(fields: [organizationId, batchId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, batchId, rowNumber], map: "import_row_number")
+  /// The preview's counts and examples.
+  @@index([organizationId, batchId, plan], map: "import_row_by_plan")
+  /// Rows an earlier import added, read with = ANY (B33).
+  @@index([organizationId, fingerprint], map: "import_row_fingerprint", where: raw("(fingerprint IS NOT NULL)"))
+  /// Erasure finds a person's rows.
+  @@index([organizationId, personId], map: "import_row_person")
+  /// Erasure finds a removed member's rows (M7).
+  @@index([organizationId, memberId], map: "import_row_member", where: raw("(member_id IS NOT NULL)"))
+  @@map("import_row")
+}
+
+/// The agency's last confirmed field for a header (B9, B10), by kind and the header lower-cased with spaces and
+/// punctuation squeezed out. Written by upsert.
+model ImportHeaderMatch {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  kind           String
+  headerKey      String       @map("header_key")
+  /// The field, or null when it was last matched to Don't import.
+  field          String?
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, kind, headerKey], map: "import_header_match_key")
+  @@map("import_header_match")
+}
+
+/// Stop, asked for while the import adds (B28, X7): a row of its own beside the import, so asking never waits behind
+/// the add, which holds the import's row for a whole batch of rows and reads this at its next. Added once, then kept.
+model ImportStopRequest {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  batchId        String       @map("batch_id") @db.Uuid
+  requestedAt    DateTime     @default(now()) @map("requested_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  batch          ImportBatch  @relation(fields: [organizationId, batchId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  /// One stop request an import: a second Stop adds nothing.
+  @@unique([organizationId, batchId], map: "import_stop_request_batch")
+  @@map("import_stop_request")
+}

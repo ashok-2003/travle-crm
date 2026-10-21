@@ -54,6 +54,16 @@ const unscopedTableSelectors = {
     selector: rawSqlNaming(["rate_limit_counter"]),
     message: "Only the rate-limits module queries rate_limit_counter: it has no row-level security.",
   },
+  sheetsKeyCheck: {
+    selector: rawSqlNaming(["sheets_key_check"]),
+    message:
+      "Only the api's sheets-key-check.ts reaches sheets_key_check, and through Prisma: it has no row-level security.",
+  },
+  sheetSchedule: {
+    selector: rawSqlNaming(["sheet_check_schedule", "sheet_spreadsheet_claim"]),
+    message:
+      "Only the sheets module's schedule.ts queries sheet_check_schedule and sheet_spreadsheet_claim: they have no row-level security.",
+  },
 };
 
 /** SQL that switches the organization or the session, in a template or a plain string. Every package but db keeps these. */
@@ -80,7 +90,7 @@ export function rawSqlSelectorsAllowing(...allowed) {
  * inside db.forOrg(), raw SQL naming a table without row-level security outside its own module (the sign-in tables,
  * webhook_event, rate_limit_counter), and Prisma's *Unsafe raw methods, which take SQL as a plain string. It cannot see
  * SQL built at runtime; Postgres row-level security is the real boundary. packages/db implements forOrg() and turns
- * these rules off; the identity, webhooks and rate-limits modules each allow their own tables
+ * these rules off; the identity, webhooks and rate-limits modules and the sheets module's schedule each allow their own tables
  * (rawSqlSelectorsAllowing).
  *
  * A package must not redefine no-restricted-syntax or no-restricted-properties without re-including these entries:

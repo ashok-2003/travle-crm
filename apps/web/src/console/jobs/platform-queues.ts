@@ -13,5 +13,7 @@ export const CONSOLE_SCHEDULES: ReadonlySet<string> = new Set([
   "subscriptions.advance-lifecycle",
   "platform.sweep-stored-files",
   "platform.sweep-expired-exports",
+  "platform.sweep-bulk-files",
+  "platform.sweep-sheets",
   "platform.reset-demo",
 ]);

@@ -110,6 +110,10 @@ settings on GitHub. Keep every value the steps make in your password manager, an
    | `EMAIL_FROM_ADDRESS`                       | the sender Brevo verified                                    |
    | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`    | from setup-values                                            |
    | `VAPID_SUBJECT`                            | `mailto:` and your email                                     |
+   | `SHEETS_HASH_KEY` (with Google Sheets)     | `openssl rand -base64 32`, never changed                     |
+
+   `GOOGLE_SHEETS_SERVICE_ACCOUNTS` is set on `travel-crm-api` alone, never in the group (docs/deploy-checklist.md,
+   "Google Sheets"); the console drops it if it is given one.
 
 2. **New → Web Service**, from the GitHub repository, for the api:
    - name `travel-crm-api`, region **Singapore**, branch `main`, instance type **Free**;

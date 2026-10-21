@@ -109,6 +109,8 @@ model Member {
   /// When the member last made a request, support's impersonation aside: written at most once a day, so accurate to
   /// a day. Kept here, not read from sessions, because signing out deletes the session. Null until their first request.
   lastActiveAt   DateTime?    @map("last_active_at") @db.Timestamptz(6)
+  /// The person's phone in E.164 (B51): optional, not unique, not a sign-in name, and never in the audit log.
+  phoneE164      String?      @map("phone_e164")
 
   @@index([organizationId])
   @@map("member")

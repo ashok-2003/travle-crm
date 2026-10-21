@@ -1,0 +1,206 @@
+{
+  "list": {
+    "title": "Lead sources",
+    "intro": "Enquiries your agency collects elsewhere arrive here by themselves. We only read your sheets: nothing is ever written to them.",
+    "heading": "Google Sheets",
+    "count": "{count} of {limit}",
+    "listLabel": "Connected Google Sheets",
+    "columns": {
+      "sheet": "Sheet",
+      "tab": "Tab",
+      "lastChecked": "Last checked",
+      "state": "State"
+    },
+    "lastChecked": "Last checked {when}",
+    "notChecked": "Not checked yet",
+    "connect": "Connect a sheet",
+    "empty": "No sheet is connected. Connect the Google Sheet your form fills, and its new rows become leads by themselves.",
+    "limitHint": "You can connect up to {limit} sheets. Disconnect one to connect another.",
+    "notSetUp": "Google Sheets isn't set up on this server.",
+    "demo": "Not available in the demo.",
+    "loadFailed": "We couldn't load your sheets."
+  },
+  "statuses": {
+    "running": "Running",
+    "paused": "Paused",
+    "attention": "Needs attention",
+    "lost_access": "Lost access",
+    "connecting": "Setting up"
+  },
+  "connect": {
+    "title": "Connect a sheet",
+    "intro": "New answers in your Google Sheet become leads here by themselves. We only read the sheet and never change it.",
+    "back": "Lead sources",
+    "backToShare": "Share and paste",
+    "loadFailed": "We couldn't load this sheet.",
+    "caption": "Step {step} of 3 · {name}",
+    "steps": {
+      "share": "Share and paste",
+      "columns": "Match columns",
+      "existing": "Existing rows"
+    },
+    "share": {
+      "addressTitle": "{count, plural, one {Share your sheet with this address} other {Share your sheet with any one of these addresses}}",
+      "addressLabel": "Our address",
+      "copyAddress": "Copy {address}",
+      "help": "In your sheet press Share, paste the address and choose Viewer. We can only read, never change.",
+      "linkTitle": "Paste the sheet's link",
+      "linkLabel": "Sheet link",
+      "linkHint": "Copy it from your browser's address bar.",
+      "check": "Check the sheet",
+      "checking": "Checking…"
+    },
+    "columns": {
+      "title": "Match columns",
+      "intro": "Sheet ‘{sheet}’, tab ‘{tab}’. Say what each column holds; we remember it.",
+      "tab": "Tab",
+      "tabHint": "The tab whose rows become leads.",
+      "ready": "Ready to read",
+      "readyBody": "A name and a phone, email or Instagram are matched.",
+      "notReady": "Still needed",
+      "needName": "A name is matched",
+      "needContact": "A phone, email or Instagram is matched",
+      "ownerValues": "Values of ‘{column}’ ({count, plural, one {# different value} other {# different values}})",
+      "ownerDefault": "The agency's Owner",
+      "manyValues": "‘{column}’ has too many different values to match one by one. Every row goes to the agency's Owner.",
+      "next": "Next",
+      "reading": "Reading your sheet…",
+      "loadFailed": "We couldn't read this sheet's columns."
+    },
+    "existing": {
+      "title": "Rows already in the sheet",
+      "question": "{count, plural, one {Your sheet already has # row. What should we do with it?} other {Your sheet already has # rows. What should we do with them?}}",
+      "noRows": "Your sheet has no rows yet. Each new answer becomes a lead.",
+      "capped": "Your sheet has {count} rows; the newest {limit} can be checked.",
+      "onlyNew": "Only new rows from now on",
+      "onlyNewHint": "Nothing already in the sheet is added. New answers become leads.",
+      "check": "Also check the {count} rows already there",
+      "checkHint": "You'll see a preview first. Anyone who already has a lead with you is left out unless you tick them.",
+      "note": "Either way, rows that are in the sheet now are never added by the sync later, even if the sheet is sorted.",
+      "connect": "Connect the sheet",
+      "legend": "What to do with the rows already there",
+      "confirmTitle": "Connect ‘{sheet}’?",
+      "confirmDescription": "New rows will become leads about every 15 minutes. Sync now brings them at once. We never change your sheet.",
+      "confirmAction": "Connect",
+      "reading": "Reading your sheet…",
+      "loadFailed": "We couldn't read this sheet's rows.",
+      "connectFailed": "We couldn't connect this sheet.",
+      "readingWait": "This takes a moment for a long sheet. You can leave this page: it carries on."
+    }
+  },
+  "sheet": {
+    "back": "Lead sources",
+    "loadFailed": "We couldn't load this sheet.",
+    "subtitle": "Tab ‘{tab}’ · connected by {name} on {day}",
+    "subtitleUnknown": "Tab ‘{tab}’ · connected on {day}",
+    "formerMember": "a former member",
+    "lastChecked": "Last checked {when} · checks about every 15 minutes",
+    "notChecked": "Not checked yet · checks about every 15 minutes",
+    "late": "Checks are running late. Sync now checks it at once.",
+    "syncNow": "Sync now",
+    "checking": "Checking…",
+    "checkedAt": "Checked at {when}",
+    "menu": "More actions for this sheet",
+    "matchAgain": "Match columns again",
+    "pause": "Pause",
+    "resume": "Resume",
+    "takeOver": "Take over",
+    "disconnect": "Disconnect",
+    "counts": {
+      "heading": "Since you connected",
+      "added": "Added",
+      "mergedIntoExisting": "Added to an existing lead",
+      "duplicates": "Left out as duplicates",
+      "couldntBeAdded": "Couldn't be added",
+      "notes": "Rows already in the sheet when you connected are not counted, and a row you change after it was added counts as a repeat enquiry.",
+      "truncated": "Only the first 20,000 rows are read. Move older rows to another tab."
+    },
+    "problems": {
+      "heading": "Couldn't be added",
+      "listLabel": "Rows that couldn't be added",
+      "row": "Row {number}",
+      "firstSeen": "first seen {day}",
+      "hide": "Hide",
+      "hideRow": "Hide row {number}",
+      "hidden": "Hidden",
+      "help": "Fix the row in your sheet: the next check adds it and clears this line.",
+      "more": "Show more rows",
+      "loadFailed": "We couldn't load the rows.",
+      "noName": "(no name)",
+      "columns": {
+        "row": "Row",
+        "name": "Name",
+        "why": "Why",
+        "firstSeen": "First seen",
+        "action": "Action"
+      }
+    },
+    "columnsCard": {
+      "heading": "Columns",
+      "summary": "{matched} of {total} columns are matched.",
+      "newColumn": "A new column ‘{name}’ isn't matched.",
+      "newColumns": "{count} new columns aren't matched.",
+      "matchAgain": "Match columns again"
+    },
+    "details": {
+      "heading": "About this sheet",
+      "stage": "New leads arrive as",
+      "stageValue": "New",
+      "owner": "Owner",
+      "ownerValue": "{name} (agency Owner)",
+      "ownerValueUnknown": "The agency's Owner"
+    },
+    "attention": {
+      "since": "Since {when}.",
+      "lost_access": {
+        "title": "We can't open this sheet any more",
+        "body": "It may have been unshared or deleted. Share it again with this address as a Viewer, then check again. Rows that arrive meanwhile wait in the sheet and are added once we can open it.",
+        "action": "Check again"
+      },
+      "tab_missing": {
+        "title": "This sheet's tab is gone",
+        "body": "‘{tab}’ isn't in the sheet any more. Choose the tab that holds your rows now. Rows already added are not added again.",
+        "label": "Tab",
+        "placeholder": "Choose a tab",
+        "action": "Use this tab"
+      },
+      "columns_missing": {
+        "title": "A column we need is gone",
+        "body": "This sheet no longer has {columns}. Match the columns again. Rows that arrive meanwhile wait in the sheet.",
+        "action": "Match columns again"
+      },
+      "needs_manager": {
+        "title": "This sheet needs a manager",
+        "body": "The person who connected it can't add leads any more. Take it over to carry on reading it as yourself.",
+        "action": "Take over"
+      },
+      "readOnly": {
+        "title": "Paused while your subscription is read-only",
+        "body": "Rows wait in the sheet and are added when it's active again."
+      },
+      "paused": {
+        "title": "This sheet is paused",
+        "body": "Rows wait in the sheet and are added when you resume.",
+        "action": "Resume"
+      }
+    },
+    "matchAgainDialog": {
+      "title": "Save the new match?",
+      "description": "Rows already added are not added again.",
+      "action": "Save"
+    },
+    "disconnectDialog": {
+      "title": "Disconnect ‘{sheet}’?",
+      "description": "Leads already added stay. We stop reading the sheet and forget its rows' record, so connecting it again asks about its rows once more. Nothing in your sheet changes; you may also remove <email>{address}</email> from its sharing.",
+      "action": "Disconnect"
+    }
+  },
+  "reasons": {
+    "no_name": "No name",
+    "no_contact": "No phone, email or Instagram we can use",
+    "notes_too_long": "Notes over 4,000 characters",
+    "blocked": "Blocked contact",
+    "erased": "A customer who asked to be erased",
+    "could_not_add": "We couldn't add this row"
+  }
+}

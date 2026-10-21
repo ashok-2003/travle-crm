@@ -4,6 +4,7 @@
 // Playwright doesn't tear down a setup that failed, so a failure here stops the containers itself.
 import type { TestProject } from "vitest/node";
 import { setup as startDatabase, teardown as stopDatabase, type DbUrls } from "@travel-crm/db/testing/global-setup";
+import { startFakeGoogle, type FakeGoogle } from "./support/fake-google";
 import { startMailpit, type Mailpit } from "./support/mailpit";
 import { startMinio, type Minio } from "./support/minio";
 import { startServers } from "./support/servers";
@@ -19,10 +20,11 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   };
   let minio: Minio | undefined;
   let mailpit: Mailpit | undefined;
+  let google: FakeGoogle | undefined;
   /** Stops the containers that started; the database last, whatever stopping the others did. */
   const stopContainers = async () => {
     try {
-      await Promise.allSettled([minio?.stop(), mailpit?.stop()]);
+      await Promise.allSettled([minio?.stop(), mailpit?.stop(), google?.stop()]);
     } finally {
       await stopDatabase();
     }
@@ -32,17 +34,20 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     if (!urls) throw new Error("the database setup gave no URLs");
     minio = await startMinio();
     mailpit = await startMailpit();
+    google = await startFakeGoogle();
     const servers = await startServers({
       databaseUrl: urls.runtime,
       platformDatabaseUrl: urls.platform,
       storage: minio.variables,
       email: mailpit.variables,
+      google: { url: google.url, accountEmail: await google.client.accountEmail() },
     });
     process.env.E2E_BASE_URL = servers.webUrl;
     process.env.E2E_CONSOLE_URL = servers.consoleUrl;
     process.env.E2E_DATABASE_URL = urls.runtime;
     process.env.E2E_PLATFORM_DATABASE_URL = urls.platform;
     process.env.E2E_MAILPIT_URL = mailpit.url;
+    process.env.E2E_GOOGLE_URL = google.url;
     return async () => {
       servers.stop();
       await stopContainers();

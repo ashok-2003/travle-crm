@@ -1,0 +1,24 @@
+{
+  "status": 403,
+  "body": {
+    "error": {
+      "code": 403,
+      "message": "Request had insufficient authentication scopes.",
+      "status": "PERMISSION_DENIED",
+      "errors": [
+        {
+          "message": "Request had insufficient authentication scopes.",
+          "domain": "usageLimits",
+          "reason": "insufficientPermissions"
+        }
+      ],
+      "details": [
+        {
+          "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+          "reason": "ACCESS_TOKEN_SCOPE_INSUFFICIENT",
+          "domain": "googleapis.com"
+        }
+      ]
+    }
+  }
+}

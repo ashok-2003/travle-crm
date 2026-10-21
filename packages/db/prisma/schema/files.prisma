@@ -29,6 +29,11 @@ model Attachment {
   organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   /// Issued documents whose rendered PDF this is.
   issuedDocuments IssuedDocument[]
+  /// Imports whose uploaded file this is, and whose report of rows not added.
+  importFiles     ImportBatch[]    @relation("ImportBatchFile")
+  importReports   ImportBatch[]    @relation("ImportBatchReport")
+  /// Exports whose file this is.
+  dataExports     DataExport[]
 
   /// Lets other organization tables point at (organization_id, id), e.g. an issued document's PDF.
   @@unique([organizationId, id])

@@ -1,0 +1,7 @@
+{
+  "name": "@types/saxen",
+  "version": "11.2.0",
+  "private": true,
+  "description": "Our types for saxen 11.2.0, which ships none",
+  "types": "index.d.ts"
+}

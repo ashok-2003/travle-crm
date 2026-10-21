@@ -75,6 +75,7 @@ describe("erasure and purge, identity's part", () => {
       name: "meera",
       email: person.email,
       username: null,
+      phone: null,
       role: "sales",
       joinedAt: expect.any(String) as string,
       removedAt: expect.any(String) as string,

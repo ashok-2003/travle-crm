@@ -1,0 +1,20 @@
+{
+  "status": 403,
+  "body": {
+    "error": {
+      "code": 403,
+      "message": "Permission denied: Consumer has been suspended.",
+      "status": "PERMISSION_DENIED",
+      "errors": [
+        { "message": "Permission denied: Consumer has been suspended.", "domain": "usageLimits", "reason": "forbidden" }
+      ],
+      "details": [
+        {
+          "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+          "reason": "CONSUMER_SUSPENDED",
+          "domain": "googleapis.com"
+        }
+      ]
+    }
+  }
+}

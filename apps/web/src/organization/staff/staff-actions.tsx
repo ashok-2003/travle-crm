@@ -1,6 +1,6 @@
 "use client";
 
-// The actions on one person: change their role, reset their password, remove them. Nobody acts on themselves here
+// The actions on one person: change their role or phone, reset their password, remove them. Nobody acts on themselves here
 // (the api refuses it), so their own row has none. A new password and removing someone take access away, which the
 // subscription allows where it refuses other changes (ADR 0021); what it refuses is disabled, and the menu says why.
 import type { RoleSummary, StaffMember } from "@travel-crm/contracts/identity";
@@ -17,11 +17,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useWriteAccess } from "@/subscription/write-access";
+import { ChangePhoneDialog } from "./change-phone-dialog";
 import { ChangeRoleDialog } from "./change-role-dialog";
 import { RemoveStaffDialog } from "./remove-staff-dialog";
 import { ResetPasswordDialog } from "./reset-password-dialog";
 
-type OpenDialog = "role" | "password" | "remove" | null;
+type OpenDialog = "role" | "phone" | "password" | "remove" | null;
 
 export function StaffActions({ member, roles }: { member: StaffMember; roles: RoleSummary[] }) {
   const t = useTranslations("staff");
@@ -54,6 +55,14 @@ export function StaffActions({ member, roles }: { member: StaffMember; roles: Ro
             {t("changeRole.action")}
           </DropdownMenuItem>
           <DropdownMenuItem
+            disabled={!change.allowed}
+            onSelect={() => {
+              setOpen("phone");
+            }}
+          >
+            {t("changePhone.action")}
+          </DropdownMenuItem>
+          <DropdownMenuItem
             disabled={!revoke.allowed}
             onSelect={() => {
               setOpen("password");
@@ -75,6 +84,9 @@ export function StaffActions({ member, roles }: { member: StaffMember; roles: Ro
       </DropdownMenu>
       {open === "role" && (
         <ChangeRoleDialog member={member} roles={roles} open onOpenChange={closeWhen("role")} returnFocusTo={menu} />
+      )}
+      {open === "phone" && (
+        <ChangePhoneDialog member={member} open onOpenChange={closeWhen("phone")} returnFocusTo={menu} />
       )}
       {open === "password" && (
         <ResetPasswordDialog member={member} open onOpenChange={closeWhen("password")} returnFocusTo={menu} />

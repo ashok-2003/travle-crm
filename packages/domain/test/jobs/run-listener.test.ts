@@ -74,6 +74,24 @@ describe("runListenerJob", () => {
     expect(seen).toEqual({ actor: systemActor(organizationId), eventVisible: true });
   });
 
+  it("gives a listener's transaction the limits it asks for, a lead add's longer one say (X1)", async () => {
+    const outcomes: string[] = [];
+    const slow = (options?: { timeout: number }) =>
+      recordingListener("documents.render-pdf", "document.issued", async (_event, context) => {
+        const wait = () =>
+          new Promise((resolve) => {
+            setTimeout(resolve, 300);
+          });
+        await context.forOrg(wait, options).then(
+          () => outcomes.push("done"),
+          () => outcomes.push("timed out"),
+        );
+      });
+    await runListenerJob({ db, listener: slow(), data: jobFor(await publishIssued("d6")) });
+    await runListenerJob({ db, listener: slow({ timeout: 50 }), data: jobFor(await publishIssued("d7")) });
+    expect(outcomes).toEqual(["done", "timed out"]);
+  });
+
   it("finds no event when the job names another organization, and doesn't run the listener", async () => {
     const listener = recordingListener("documents.render-pdf", "document.issued");
     const eventId = await publishIssued("d5");

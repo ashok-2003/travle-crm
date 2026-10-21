@@ -33,6 +33,8 @@
     "destinationsHint": "Your agency's destinations: rename one, or merge two into one",
     "blockedContacts": "Blocked contacts",
     "blockedContactsHint": "Phone numbers, emails and Instagram handles blocked from leads",
+    "leadSources": "Lead sources",
+    "leadSourcesHint": "Google Sheets whose new rows become leads by themselves",
     "audit": "Audit log",
     "auditHint": "Who changed what in your organization, and when"
   },

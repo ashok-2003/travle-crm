@@ -10,6 +10,7 @@ import type { IdentityTx, OrgTx } from "../src/for-org.js";
 import { createIdentityDatabase, type IdentityClient, type IdentityDatabase } from "../src/identity.js";
 import { createPlatformClient, type PlatformClient } from "../src/platform.js";
 import { rateLimitCounters } from "../src/rate-limits.js";
+import { sheetsKeyChecks } from "../src/sheets-key-check.js";
 import { webhookEvents } from "../src/webhooks.js";
 import { createTestOrganization } from "./helpers.js";
 
@@ -45,6 +46,8 @@ describe("tables without organization_id", () => {
       tx.rateLimitCounter,
       // @ts-expect-error IdentityTx reaches the sign-in tables, not webhook_event
       identityTx.webhookEvent,
+      // @ts-expect-error nor sheets_key_check
+      tx.sheetsKeyCheck,
       // @ts-expect-error nor rate_limit_counter
       identityTx.rateLimitCounter,
       // @ts-expect-error the client Better Auth uses reaches its own tables, not webhook_event
@@ -67,7 +70,7 @@ describe("tables without organization_id", () => {
   });
 
   it("are refused inside the identity client's own transactions, which can't be extended away", async () => {
-    for (const model of ["webhookEvent", "rateLimitCounter"]) {
+    for (const model of ["webhookEvent", "rateLimitCounter", "sheetsKeyCheck"]) {
       await expect(identity.client.$transaction((tx) => reachFor(tx, model))).rejects.toBeInstanceOf(
         UnscopedModelError,
       );
@@ -78,7 +81,7 @@ describe("tables without organization_id", () => {
   });
 
   it("are refused at run time when a cast reaches past the types", async () => {
-    for (const model of ["webhookEvent", "rateLimitCounter"]) {
+    for (const model of ["webhookEvent", "rateLimitCounter", "sheetsKeyCheck"]) {
       await expect(db.forOrg(organizationId, (tx) => reachFor(tx, model))).rejects.toBeInstanceOf(UnscopedModelError);
       await expect(identity.forOrg(organizationId, (tx) => reachFor(tx, model))).rejects.toBeInstanceOf(
         UnscopedModelError,
@@ -95,6 +98,9 @@ describe("tables without organization_id", () => {
       UnscopedModelError,
     );
     await expect(db.forOrg(organizationId, (tx) => rateLimitCounters(tx).count())).rejects.toBeInstanceOf(
+      UnscopedModelError,
+    );
+    await expect(db.forOrg(organizationId, (tx) => sheetsKeyChecks(tx).count())).rejects.toBeInstanceOf(
       UnscopedModelError,
     );
   });

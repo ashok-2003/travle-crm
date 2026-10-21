@@ -2,12 +2,22 @@
 // catalog and tasks modules below it, never today above it.
 export { addBlockedContact, blockLeadContact, listBlockedContacts, unblockContact } from "./blocking.js";
 export { createLead } from "./create-lead.js";
+export { customerContacts, type CustomerContacts } from "./customer-contacts.js";
 export { eraseCustomer, exportCustomer, type CustomerSubject, type ErasedCustomer } from "./customer-erasure.js";
 export { addDemoLeads } from "./demo-leads.js";
 export { handOverDepartingMemberListener, type DepartingMemberDependencies } from "./departing-member.js";
 export { mergeDestinations } from "./destination-merges.js";
 export { findKnownContact } from "./known-contact.js";
 export { getLead } from "./lead-detail.js";
+export { makeLeadExportListener } from "./lead-export/index.js";
+export { addLeadImportListener, checkLeadImportListener } from "./lead-import/index.js";
+export {
+  checkLeadSheet,
+  checkLeadSheetListener,
+  type CheckLeadSheetDependencies,
+  leadSheetBaselineFingerprints,
+  sheetsCheckHandler,
+} from "./lead-sheets/index.js";
 export { editLeadPerson, editLeadTrip } from "./lead-edits.js";
 export { recordLeadEvent, type LeadEventEntry } from "./lead-events.js";
 export { countLeads, listLeads } from "./lead-list.js";
