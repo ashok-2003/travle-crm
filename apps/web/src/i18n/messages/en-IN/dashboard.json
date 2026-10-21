@@ -46,7 +46,10 @@
     "overdue": {
       "label": "Overdue now",
       "hint": "Follow-ups and tasks past their time today."
-    }
+    },
+    "change": "{percent}% {direction, select, up {up} other {down}}",
+    "noChange": "Nothing to compare yet",
+    "vsBefore": "vs the period before"
   },
   "duration": {
     "minutes": "{minutes} min",

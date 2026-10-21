@@ -5,3 +5,4 @@
 # Playwright's reports and traces.
 /test-results/
 /playwright-report/
+.preview/

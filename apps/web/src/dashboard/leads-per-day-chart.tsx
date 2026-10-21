@@ -1,11 +1,11 @@
 "use client";
 
 // New leads each day of the period: one series, so one colour (the people violet: leads are people) and no legend;
-// thin bars with rounded tops, a recessive grid, a tooltip per bar, and the same numbers in a table for screen
+// a 2px line over a soft fill, a recessive grid, a tooltip per bar, and the same numbers in a table for screen
 // readers (the chart itself is a picture to them).
 import type { Dashboard } from "@travel-crm/contracts/insights";
 import { useTranslations } from "next-intl";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { formatCalendarDay, formatCount } from "@/lib/format";
 
@@ -14,8 +14,8 @@ export function LeadsPerDayChart({ perDay }: { perDay: Dashboard["perDay"] }) {
   const config = { leads: { label: t("series"), color: "var(--color-people)" } } satisfies ChartConfig;
   return (
     <figure className="flex flex-col gap-2">
-      <ChartContainer config={config} className="aspect-auto h-56 w-full" role="img" aria-label={t("label")}>
-        <BarChart data={perDay} margin={{ left: -16, right: 8 }}>
+      <ChartContainer config={config} className="aspect-auto h-64 w-full" role="img" aria-label={t("label")}>
+        <AreaChart data={perDay} margin={{ left: -16, right: 8, top: 8 }}>
           <CartesianGrid vertical={false} />
           <XAxis
             dataKey="day"
@@ -29,8 +29,17 @@ export function LeadsPerDayChart({ perDay }: { perDay: Dashboard["perDay"] }) {
             cursor={false}
             content={<ChartTooltipContent labelFormatter={(day) => formatCalendarDay(String(day))} />}
           />
-          <Bar dataKey="leads" fill="var(--color-leads)" radius={[4, 4, 0, 0]} maxBarSize={24} />
-        </BarChart>
+          <Area
+            dataKey="leads"
+            type="monotone"
+            stroke="var(--color-leads)"
+            strokeWidth={2}
+            fill="var(--color-leads)"
+            fillOpacity={0.12}
+            isAnimationActive={false}
+            activeDot={{ r: 4 }}
+          />
+        </AreaChart>
       </ChartContainer>
       <table className="sr-only">
         <caption>{t("table")}</caption>

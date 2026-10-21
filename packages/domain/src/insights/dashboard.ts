@@ -27,6 +27,13 @@ export async function dashboardFigures(
     to: startOfDayIn(addDays(days.last, 1), timeZone),
     timeZone,
   });
+  // The period just before, as many days long, for each figure's rise or fall.
+  const length = daysOf(days).length;
+  const before = await leadInsights(tx, ownerUserId, {
+    from: startOfDayIn(addDays(days.first, -length), timeZone),
+    to: startOfDayIn(days.first, timeZone),
+    timeZone,
+  });
   const leadsOn = new Map(insights.perDay.map((row) => [row.day, row.leads]));
   return {
     scope,
@@ -41,6 +48,14 @@ export async function dashboardFigures(
       newLeadsWon: insights.newLeadsWon,
       open: insights.open,
       overdue: await countOverdueTasks(tx, { assigneeUserId: ownerUserId, now }),
+    },
+    previous: {
+      newLeads: before.newLeads,
+      contacted: before.contacted,
+      medianFirstReplyMinutes: before.medianFirstReplyMinutes,
+      quotesSent: before.quotesSent,
+      won: before.won,
+      newLeadsWon: before.newLeadsWon,
     },
     perDay: daysOf(days).map((day) => ({ day, leads: leadsOn.get(day) ?? 0 })),
     bySource: insights.bySource,
