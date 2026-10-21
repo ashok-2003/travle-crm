@@ -195,7 +195,7 @@ module.exports = {
         "calls both (R22).",
       severity: "error",
       from: { path: "^packages/domain/src/(catalog|tasks|imports|exports|sheets|crm)/" },
-      to: { path: "^packages/domain/src/(crm|today|insights)/", pathNot: "^packages/domain/src/$1/" },
+      to: { path: "^packages/domain/src/(crm|today|insights|connectors)/", pathNot: "^packages/domain/src/$1/" },
     },
     {
       name: "imports-and-exports-never-call-sheets",

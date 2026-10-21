@@ -56,7 +56,9 @@ export function AppSidebar() {
             if (inGroup.length === 0) return null;
             return (
               <SidebarGroup key={group}>
-                <SidebarGroupLabel>{t(`groups.${group}`)}</SidebarGroupLabel>
+                <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">
+                  {t(`groups.${group}`)}
+                </SidebarGroupLabel>
                 <SidebarMenu>
                   {inGroup.map((item) => {
                     const current = isCurrent(item, pathname);
@@ -71,7 +73,7 @@ export function AppSidebar() {
                             })}
                           >
                             <item.icon aria-hidden="true" />
-                            <span>{t(item.key)}</span>
+                            <span className="group-data-[collapsible=icon]:hidden">{t(item.key)}</span>
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
@@ -89,7 +91,7 @@ export function AppSidebar() {
             <SidebarMenuButton asChild size="lg" isActive={onAccount} tooltip={t("account")}>
               <Link href={routes.account} aria-current={onAccount ? "page" : undefined}>
                 <UserIcon aria-hidden="true" />
-                <span className="flex min-w-0 flex-col">
+                <span className="flex min-w-0 flex-col group-data-[collapsible=icon]:hidden">
                   <span className="font-medium break-words">{me.user.name}</span>
                   <span className="text-caption text-muted-foreground">{t("account")}</span>
                 </span>
@@ -99,7 +101,7 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton onClick={signOut} tooltip={t("signOut")}>
               <LogOutIcon aria-hidden="true" />
-              <span>{t("signOut")}</span>
+              <span className="group-data-[collapsible=icon]:hidden">{t("signOut")}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

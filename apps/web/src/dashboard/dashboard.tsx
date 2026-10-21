@@ -66,7 +66,7 @@ export function Dashboard() {
         )
       ) : (
         <>
-          <KpiStrip totals={data.totals} />
+          <KpiStrip totals={data.totals} previous={data.previous} />
           {data.totals.newLeads === 0 ? (
             <p className="text-muted-foreground">{t("empty")}</p>
           ) : (

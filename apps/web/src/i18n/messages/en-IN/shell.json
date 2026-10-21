@@ -25,7 +25,10 @@
     "staff": "Add your staff and give each a role",
     "roles": "Decide what each role may see and do",
     "settings": "Choose how your staff sign in",
-    "nothingToSetUp": "Your work will show here."
+    "nothingToSetUp": "Your work will show here.",
+    "setUpTitle": "Set up your agency",
+    "intro2": "Here's how your agency is doing, and what needs you today.",
+    "pipeline": "Pipeline"
   },
   "session": {
     "loading": "Opening your organization",

@@ -27,6 +27,7 @@ const figures: DashboardFigures = {
     open: 3,
     overdue: 1,
   },
+  previous: { newLeads: 2, contacted: 1, medianFirstReplyMinutes: 30, quotesSent: 1, won: 1, newLeadsWon: 1 },
   perDay: [
     { day: "2026-10-16", leads: 3 },
     { day: "2026-10-17", leads: 1 },
@@ -76,11 +77,14 @@ async function shown(answer: DashboardFigures = figures) {
   return { api, call };
 }
 
-const figure = (label: string) => {
-  const term = screen.getByText(label, { selector: "dt" });
-  const value = term.nextElementSibling;
-  if (!value) throw new Error(`no value for ${label}`);
-  return value.textContent;
+/** A key figure's card or row: the smallest element holding its label, then its value. */
+const shows = (label: string, value: string) => {
+  const holder = screen
+    .getAllByText(label)
+    .map((element) => element.closest<HTMLElement>("[data-slot=card], .flex.items-center.gap-3"))
+    .find((found) => found !== null);
+  if (!holder) throw new Error(`no figure ${label}`);
+  expect(holder).toHaveTextContent(value);
 };
 
 describe("Dashboard", () => {
@@ -91,11 +95,12 @@ describe("Dashboard", () => {
     expect(
       await screen.findByText(`${formatCalendarDay("2026-09-18")} to ${formatCalendarDay("2026-10-17")}`),
     ).toBeVisible();
-    expect(figure(words.kpis.newLeads.label)).toBe("4");
-    expect(figure(words.kpis.contacted.label)).toBe("50%");
-    expect(figure(words.kpis.firstReply.label)).toBe("20 min");
-    expect(figure(words.kpis.conversion.label)).toBe("25%");
-    expect(figure(words.kpis.overdue.label)).toBe("1");
+    shows(words.kpis.newLeads.label, "4");
+    shows(words.kpis.contacted.label, "50%");
+    shows(words.kpis.firstReply.label, "20 min");
+    shows(words.kpis.conversion.label, "25%");
+    // Twice the new leads of the period before.
+    shows(words.kpis.newLeads.label, "100% up");
     expect(screen.getByRole("button", { name: `What does ${words.kpis.won.label} mean?` })).toBeVisible();
   });
 

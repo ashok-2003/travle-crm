@@ -44,6 +44,15 @@ export const dashboard = z.object({
     /** Follow-ups and tasks past their time now. */
     overdue: count,
   }),
+  /** The same figures for the period just before, as long, to show each one's rise or fall. */
+  previous: z.object({
+    newLeads: count,
+    contacted: count,
+    medianFirstReplyMinutes: z.number().min(0).nullable(),
+    quotesSent: count,
+    won: count,
+    newLeadsWon: count,
+  }),
   /** New leads per day, every day of the period. */
   perDay: z.array(z.object({ day: calendarDate, leads: count })),
   /** New leads by their first source, and how many of them are Won, most leads first. */
