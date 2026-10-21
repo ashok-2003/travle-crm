@@ -15,9 +15,15 @@ import {
 import { holds, type SignedInMember } from "@/session/me-context";
 import { routes } from "@/lib/routes";
 
+/** The sidebar's headings, in order; also message keys in "shell.navigation.groups". */
+export const navigationGroups = ["work", "team", "manage"] as const;
+export type NavigationGroup = (typeof navigationGroups)[number];
+
 export interface NavigationItem {
   /** Also the message key in the "shell.navigation" namespace. */
   key: "home" | "today" | "leads" | "staff" | "roles" | "settings" | "audit";
+  /** The sidebar heading it sits under; phones list the items without headings. */
+  group: NavigationGroup;
   href: string;
   icon: LucideIcon;
   /** The permission the item needs, if any. */
@@ -27,13 +33,20 @@ export interface NavigationItem {
 }
 
 export const navigationItems: readonly NavigationItem[] = [
-  { key: "home", href: routes.home, icon: HouseIcon, requires: null, module: null },
-  { key: "today", href: routes.today, icon: CalendarCheckIcon, requires: "leads:view", module: "crm" },
-  { key: "leads", href: routes.leads, icon: InboxIcon, requires: "leads:view", module: "crm" },
-  { key: "staff", href: routes.staff, icon: UsersIcon, requires: "staff:manage", module: null },
-  { key: "roles", href: routes.roles, icon: ShieldCheckIcon, requires: "roles:manage", module: null },
-  { key: "settings", href: routes.settings, icon: SettingsIcon, requires: "settings:manage", module: null },
-  { key: "audit", href: routes.audit, icon: HistoryIcon, requires: "audit:view", module: null },
+  { key: "home", group: "work", href: routes.home, icon: HouseIcon, requires: null, module: null },
+  { key: "today", group: "work", href: routes.today, icon: CalendarCheckIcon, requires: "leads:view", module: "crm" },
+  { key: "leads", group: "work", href: routes.leads, icon: InboxIcon, requires: "leads:view", module: "crm" },
+  { key: "staff", group: "team", href: routes.staff, icon: UsersIcon, requires: "staff:manage", module: null },
+  { key: "roles", group: "team", href: routes.roles, icon: ShieldCheckIcon, requires: "roles:manage", module: null },
+  {
+    key: "settings",
+    group: "manage",
+    href: routes.settings,
+    icon: SettingsIcon,
+    requires: "settings:manage",
+    module: null,
+  },
+  { key: "audit", group: "manage", href: routes.audit, icon: HistoryIcon, requires: "audit:view", module: null },
 ];
 
 /** Whether the plan's modules (subscription.get's) include the item's; while they are unknown, every item shows. */

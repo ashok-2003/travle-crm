@@ -49,12 +49,16 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
   label says what is happening, and a status inside a button would join its name.
 - `sidebar.tsx`: 232px wide; its `--sidebar-*` colours are the brand's in `globals.css` (surface, the blue tint for the
   current page). It asks `lib/use-wide-screen.ts` whether the screen is a phone instead of shadcn's `use-mobile` hook,
-  and has five small lint fixes. It has no Ctrl/Cmd+B shortcut: the app's sidebar never folds away, so the keys stay
-  the browser's. `SidebarTrigger` is the 44px `icon` button (the registry's `icon-sm` is gone from `button`). Parts the
-  app doesn't render are not yet DESIGN.md's: `SidebarMenuSubButton` (28px high), `SidebarMenuAction` and
-  `SidebarGroupAction` (20px, a 36px hit area on phones only), `SidebarRail` (16px wide), and the words of the trigger,
-  the rail and the phone sheet ("Toggle Sidebar", the sheet's title), which are not messages. Make them 44px and
-  messages before using one. `tooltip.tsx` came with it.
+  and has five small lint fixes. It has no Ctrl/Cmd+B shortcut: the keys stay the browser's (bookmarks, bold), and the
+  agency's sidebar folds to its icons with `SidebarTrigger` alone. Folded, it is 60px wide (`--sidebar-width-icon`)
+  around 44px menu buttons (the registry's are 32px), and the `lg` button keeps its padding. `SidebarProvider`'s
+  `rememberOpen` opens it as the person left it (the registry's cookie), read in the browser, and it holds the
+  `TooltipProvider` its folded icons' names need, as the registry's does. `SidebarTrigger` is the
+  44px `icon` button (the registry's `icon-sm` is gone from `button`), and takes its words as `label`, a message. Parts
+  the app doesn't render are not yet DESIGN.md's: `SidebarMenuSubButton` (28px high), `SidebarMenuAction` and
+  `SidebarGroupAction` (20px, a 36px hit area on phones only), `SidebarRail` (16px wide), and the words of the rail and
+  the phone sheet (the sheet's title), which are not messages. Make them 44px and messages before using one.
+  `tooltip.tsx` came with it.
 - `sonner.tsx`: one light theme (no `next-themes`), bottom right, a close button with a 44px hit area. On phones its
   `mobileOffset` is `var(--toast-bottom-gap)`, which `globals.css` sets to 4rem (the 56px bottom bar and 8px more) only
   while the page has the phone navigation, so toasts clear the bar there and sit at the bottom elsewhere.
