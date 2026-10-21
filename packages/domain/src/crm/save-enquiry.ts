@@ -1,12 +1,14 @@
 // The one save path for an enquiry, the new-lead form's and an import row's (bulk plan, Task 1.1): match the person,
 // fill the contacts they lack, find their open lead, then a repeat enquiry on it or a new lead (returning when the
 // person is known). The form passes its answer about an open lead; an import always adds to it, tells nobody unless
-// asked, and dates and stages the lead it makes.
+// asked, and dates and stages the lead it makes. An import whose owner is only the fallback (a row naming no one)
+// has its new lead assigned by the agency's rules and mode instead (release C, assignment/choose-owner.ts).
 import type { LeadSource, LeadStage, NewPerson, TripInput } from "@travel-crm/contracts/crm";
 import type { OrgTx } from "@travel-crm/db";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
 import { addLeadInTransaction } from "./add-lead.js";
+import { chooseOwner } from "./assignment/index.js";
 import { notifyLeadAssigned } from "./lead-core.js";
 import { addPerson, fillMissingContacts, matchPerson, newestOpenLead } from "./people.js";
 import { addRepeatEnquiry } from "./repeat-enquiry.js";
@@ -30,6 +32,11 @@ export type EnquiryOptions =
       createdAt: Date | null;
       /** Whether each owner is told as the form tells them; an import tells nobody (B18), a sheet's row each. */
       notify?: "each" | "none";
+      /**
+       * Set when ownerUserId is only the fallback (the row named no one): a new lead is then assigned by the agency's
+       * rules and mode, among these lead workers.
+       */
+      assign?: { workers: ReadonlySet<string> };
     };
 
 export interface SavedEnquiry {
@@ -75,6 +82,19 @@ export async function saveEnquiry(
   const trip = await resolveTrip(tx, access, enquiry.trip);
   const returning = found !== null && (await tx.lead.count({ where: { personId: person.id } })) > 0;
   const imported = options.from === "import";
+  const ownerUserId =
+    imported && options.assign
+      ? await chooseOwner(
+          tx,
+          {
+            source: enquiry.source,
+            destinationId: trip.destinationId,
+            tripType: trip.tripType,
+            previousOwnerUserId: returning ? await previousOwnerOf(tx, person.id) : null,
+          },
+          { workers: options.assign.workers, fallback: options.ownerUserId, now },
+        )
+      : options.ownerUserId;
   const { leadId } = await addLeadInTransaction(
     tx,
     access,
@@ -82,7 +102,7 @@ export async function saveEnquiry(
       personId: person.id,
       trip,
       returning,
-      ownerUserId: options.ownerUserId,
+      ownerUserId,
       source: enquiry.source,
       sourceDetail: enquiry.sourceDetail,
       note: enquiry.note,
@@ -93,8 +113,18 @@ export async function saveEnquiry(
     },
     now,
   );
-  if (notifyOwner && options.ownerUserId !== access.userId) {
-    await notifyLeadAssigned(tx, access, { leadId, ownerUserId: options.ownerUserId });
+  if (notifyOwner && ownerUserId !== access.userId) {
+    await notifyLeadAssigned(tx, access, { leadId, ownerUserId });
   }
-  return { outcome: "created", leadId, personId: person.id, returning, leadOwnerUserId: options.ownerUserId };
+  return { outcome: "created", leadId, personId: person.id, returning, leadOwnerUserId: ownerUserId };
+}
+
+/** Who owned the person's latest lead, for a returning customer. */
+async function previousOwnerOf(tx: OrgTx, personId: string): Promise<string | null> {
+  const latest = await tx.lead.findFirst({
+    where: { personId },
+    orderBy: { createdAt: "desc" },
+    select: { ownerUserId: true },
+  });
+  return latest?.ownerUserId ?? null;
 }

@@ -1,0 +1,59 @@
+/// How an agency's new leads find their owner (release C, spec 3.2): the mode, the rules tried first, and the people
+/// who take turns. Leads added by hand keep whoever adds them; leads that arrive by themselves (a sheet, an import with
+/// no Owner column, later forms, Meta and WhatsApp) are assigned by these.
+model AssignmentSettings {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId   String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id               String       @id @default(uuid(7)) @db.Uuid
+  /// owner (everything to the agency's Owner), turns (the pool in turn) or fewest_open (the pool member with the fewest
+  /// open leads) (CHECK assignment_settings_mode_value).
+  mode             String       @default("owner")
+  /// Minutes a new lead may wait for a first reply before the managers are told; null for never (1-1440).
+  slowReplyMinutes Int?         @map("slow_reply_minutes")
+  updatedBy        String?      @map("updated_by") @db.Uuid
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  /// One for each organization.
+  @@unique([organizationId])
+  @@unique([organizationId, id])
+  @@map("assignment_settings")
+}
+
+/// A rule tried before the mode, in order: a lead that matches every set condition goes to its person.
+model AssignmentRule {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  /// Tried from the lowest up.
+  position       Int
+  /// A lead source (leadSources), or null for any.
+  source         String?
+  /// A destination, or null for any.
+  destinationId  String?      @map("destination_id") @db.Uuid
+  /// A trip type, or null for any.
+  tripType       String?      @map("trip_type")
+  /// Who gets a matching lead (a lead worker; a rule for someone who left is passed over).
+  assigneeUserId String       @map("assignee_user_id") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, position], map: "assignment_rule_order")
+  @@map("assignment_rule")
+}
+
+/// Someone in the pool that takes new leads in turn: away until a time, and when they last got one (the turn is the
+/// longest since, so taking turns needs no counter).
+model AssignmentPoolMember {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  /// Skipped until then; null when in.
+  awayUntil      DateTime?    @map("away_until") @db.Timestamptz(6)
+  lastAssignedAt DateTime?    @map("last_assigned_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, userId])
+  @@map("assignment_pool_member")
+}

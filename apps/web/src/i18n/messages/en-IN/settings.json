@@ -35,6 +35,8 @@
     "blockedContactsHint": "Phone numbers, emails and Instagram handles blocked from leads",
     "leadSources": "Lead sources",
     "leadSourcesHint": "Google Sheets whose new rows become leads by themselves",
+    "assignment": "Lead assignment",
+    "assignmentHint": "Who new leads from sheets and imports go to: rules, turns, or the Owner",
     "audit": "Audit log",
     "auditHint": "Who changed what in your organization, and when"
   },
@@ -99,5 +101,45 @@
       "description": "The lead form stops warning about it. You can block it again from a lead.",
       "done": "Unblocked"
     }
+  },
+  "assignment": {
+    "title": "Lead assignment",
+    "intro": "Who gets the leads that arrive by themselves, from a sheet or an import with no owner. Leads added by hand stay with whoever adds them, and a returning customer goes back to their earlier owner.",
+    "loadFailed": "The assignment settings didn't load.",
+    "mode": {
+      "label": "When no rule matches",
+      "owner": "Give them to the Owner",
+      "ownerHint": "Every new lead goes to the agency's Owner, who passes them on.",
+      "turns": "Take turns",
+      "turnsHint": "The people below get new leads one after another, skipping anyone away.",
+      "fewest_open": "Fewest open leads first",
+      "fewest_openHint": "The person below with the fewest open leads gets the next one."
+    },
+    "pool": {
+      "label": "Who takes new leads",
+      "hint": "Used for Take turns and Fewest open leads first.",
+      "away": "Away until {day}",
+      "ownersFailed": "The people who work leads didn't load."
+    },
+    "rules": {
+      "label": "Rules",
+      "hint": "Tried first, from the top. A lead that matches every condition of a rule goes to its person.",
+      "empty": "No rules yet.",
+      "add": "Add a rule",
+      "source": "Source",
+      "destination": "Destination",
+      "tripType": "Trip type",
+      "person": "Goes to",
+      "any": "Any",
+      "choosePerson": "Choose someone",
+      "moveUp": "Move rule {number} up",
+      "moveDown": "Move rule {number} down",
+      "remove": "Remove rule {number}",
+      "rule": "Rule {number}",
+      "needsCondition": "Give each rule a source, destination or trip type, and a person."
+    },
+    "save": "Save",
+    "saving": "Saving",
+    "saved": "Lead assignment saved"
   }
 }

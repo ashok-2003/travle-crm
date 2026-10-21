@@ -2,7 +2,7 @@
 
 // The destination a merge keeps (spec 3.6): a SearchCombobox over the agency's whole list, alphabetically before
 // anything is typed and by part of a name (forgiving of typos) after, so a destination past the first page is found by
-// searching. The one being merged is never offered.
+// searching. The one being merged is never offered. Assignment rules pick a destination with it too.
 import type { Destination } from "@travel-crm/contracts/catalog";
 import { useTranslations } from "next-intl";
 import type { FieldLinks } from "@/components/form-field";
@@ -19,7 +19,7 @@ export function DestinationPicker({
   value: Destination | null;
   onChange: (destination: Destination | null) => void;
   /** The destination never offered: the one being merged. */
-  without: string;
+  without?: string;
 }) {
   const t = useTranslations("settings.destinations.merge");
   // destinations.search lists them all without a query, so every length searches.

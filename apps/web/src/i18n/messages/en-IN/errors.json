@@ -137,7 +137,8 @@
     "SHEET_LINK_INVALID": "That isn't a link to a Google Sheet. Open your sheet and copy the address from the browser.",
     "SHEETS_NOT_IN_DEMO": "Google Sheets isn't available in the demo.",
     "SHEETS_TOO_FAST": "That is a lot of sheet checks in a minute. Wait a little, then try again.",
-    "SHEET_TOO_LARGE": "This sheet is too big for us to read. Move older rows to another tab, or use a smaller sheet."
+    "SHEET_TOO_LARGE": "This sheet is too big for us to read. Move older rows to another tab, or use a smaller sheet.",
+    "NOT_IN_POOL": "You don't take new leads in turn, so there's nothing to be away from. Ask an Owner or Admin to add you."
   },
   "auth": {
     "INVALID_EMAIL_OR_PASSWORD": "That email and password don't match.",

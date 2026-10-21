@@ -41,6 +41,8 @@ export const routes = {
   blockedContacts: "/settings/blocked-contacts",
   /** Google Sheets whose rows become leads; a sheet's own page is sheetRoute(sheetId). */
   leadSources: "/settings/lead-sources",
+  /** Who new leads that arrive by themselves go to (release C). */
+  leadAssignment: "/settings/assignment",
   /** Each person's own choice of what they are told, and how (spec 9.4). */
   notificationPreferences: "/account/notifications",
   /** The platform console's dashboard; its other screens are in src/console/routes.ts, which only it imports. */
