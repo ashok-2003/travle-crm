@@ -9,7 +9,7 @@ import type { Profiles } from "@travel-crm/domain/profile";
 import { assertNoSheetCheckSaving, type SheetsHashes } from "@travel-crm/domain/sheets";
 import type { RateLimiter } from "@travel-crm/domain/rate-limits";
 import { findShareLink, recordShareLinkOpen } from "@travel-crm/domain/share-links";
-import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
+import { plansOnSale, type SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { receiveWebhook, type WebhookProvider } from "@travel-crm/domain/webhooks";
 import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
 import { describeError, type JobQueue } from "@travel-crm/integrations/jobs";
@@ -59,6 +59,8 @@ export interface ServerDependencies {
  */
 const publicLimits = {
   shareLinks: { limit: 30, windowSeconds: 60 },
+  /** The public pricing page asks once per visit at most (the web app keeps the answer for minutes). */
+  plans: { limit: 60, windowSeconds: 60 },
   webhooks: { limit: 600, windowSeconds: 60 },
 };
 
@@ -156,6 +158,15 @@ export function createApp(dependencies: ServerDependencies): Hono {
       clientAddress,
     }),
   );
+  // The public pricing page's plans: the same for every visitor, so caches may keep them for five minutes.
+  app.use(
+    "/api/public/plans",
+    rateLimit({ limiter: rateLimiter, name: "public-plans", ...publicLimits.plans, clientAddress, log }),
+  );
+  app.get("/api/public/plans", async (c) => {
+    c.header("Cache-Control", "public, max-age=300");
+    return c.json(await plansOnSale(db));
+  });
   app.use(
     "/webhooks/*",
     rateLimit({ limiter: rateLimiter, name: "webhooks", ...publicLimits.webhooks, clientAddress, log }),

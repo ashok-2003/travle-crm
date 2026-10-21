@@ -78,3 +78,22 @@ export const planSummary = z.object({
   archived: z.boolean(),
 });
 export type PlanSummary = z.infer<typeof planSummary>;
+
+/**
+ * A plan as the product's public pricing page shows it: what it costs and holds, and nothing a visitor has no need of
+ * (its id, whether it is archived). Only plans on sale are listed.
+ */
+export const publicPlan = planSummary.pick({
+  key: true,
+  name: true,
+  monthlyPricePaise: true,
+  yearlyPricePaise: true,
+  extraSeatMonthlyPricePaise: true,
+  extraSeatYearlyPricePaise: true,
+  seatLimit: true,
+  whatsappNumberLimit: true,
+  storageLimitBytes: true,
+  modules: true,
+});
+export type PublicPlan = z.infer<typeof publicPlan>;
+export const publicPlans = z.array(publicPlan);
