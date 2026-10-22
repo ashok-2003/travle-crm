@@ -14,7 +14,7 @@ import {
 import { Hono } from "hono";
 import { clientAddressReport, formClientAddressFrom } from "./form-client-address.js";
 import { hitFormLimits } from "./form-limits.js";
-import type { RequestLogEnv } from "./request-log.js";
+import { requestOf, type RequestLogEnv } from "./request-log.js";
 import { websiteFormSubmitRoute } from "./website-form-submit.js";
 import {
   formNotFound,
@@ -26,7 +26,7 @@ import {
 
 /** The routes to mount at /api/public. */
 export function websiteFormRoutes(dependencies: WebsiteFormRouteDependencies): Hono<RequestLogEnv> {
-  const { db, identity, profiles, files, limiter, logger, botCheck, turnstileSiteKey, authSecret } = dependencies;
+  const { db, identity, profiles, files, limiter, logger, turnstile, authSecret } = dependencies;
   const now = dependencies.now ?? (() => new Date());
   const addressOf = formClientAddressFrom(dependencies.address);
   const tokenKey = formTokenKey(authSecret);
@@ -50,7 +50,7 @@ export function websiteFormRoutes(dependencies: WebsiteFormRouteDependencies): H
     const { via } = query.data;
     const limited = await hitFormLimits({
       limiter,
-      logger,
+      logger: requestOf(c)?.logger ?? logger,
       key,
       address: addressOf(c.req.raw),
       kind: "view",
@@ -85,7 +85,7 @@ export function websiteFormRoutes(dependencies: WebsiteFormRouteDependencies): H
           organizationId,
           settings: row,
           openedToken: signOpenedToken(tokenKey, row.id, at),
-          turnstileSiteKey: botCheck === null ? null : turnstileSiteKey,
+          turnstileSiteKey: turnstile?.siteKey ?? null,
           now: at,
         },
       );
@@ -98,7 +98,7 @@ export function websiteFormRoutes(dependencies: WebsiteFormRouteDependencies): H
 
   // What the Owner reads to pick PUBLIC_FORM_PROXY_HOPS (W33): the address counted for the caller, never other headers.
   app.get("/client-address", async (c) => {
-    const report = clientAddressReport(c.req.raw, dependencies.address);
+    const report = clientAddressReport(c.req.raw, dependencies.address, addressOf);
     if (report.address !== null) {
       const result = await limiter.hit(`client-address:${report.address}`, formLimits.clientAddress);
       if (!result.allowed) return tooManyTries(c, result.retryAfterSeconds);

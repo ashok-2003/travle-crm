@@ -10,6 +10,8 @@ import {
   setWebsiteFormEnabled,
   signOpenedToken,
 } from "@travel-crm/domain/website-forms";
+import { isUniqueViolation } from "@travel-crm/db";
+import { DEMO_PLAN_KEY } from "@travel-crm/domain/subscriptions";
 import { expect } from "vitest";
 import { ownerAccess } from "./people.js";
 import { createTestAgency, ORIGIN, testAuthSettings, type TestAgency, type TestServer } from "./test-server.js";
@@ -128,4 +130,29 @@ export async function planWithoutCrm(server: TestServer): Promise<PlanSummary["i
     select: { id: true },
   });
   return plan.id;
+}
+
+/** The platform's demo plan, made once: a form on it never takes enquiries (F14). */
+export async function demoPlanId(server: TestServer): Promise<string> {
+  const existing = await server.platform.plan.findUnique({ where: { key: DEMO_PLAN_KEY }, select: { id: true } });
+  if (existing) return existing.id;
+  try {
+    return (
+      await server.platform.plan.create({
+        data: {
+          key: DEMO_PLAN_KEY,
+          name: "Demo (tests)",
+          monthlyPricePaise: 0,
+          seatLimit: 5,
+          whatsappNumberLimit: 1,
+          storageLimitBytes: 1_000_000n,
+          modules: ["crm"],
+        },
+        select: { id: true },
+      })
+    ).id;
+  } catch (error) {
+    if (!isUniqueViolation(error)) throw error;
+    return (await server.platform.plan.findUniqueOrThrow({ where: { key: DEMO_PLAN_KEY }, select: { id: true } })).id;
+  }
 }

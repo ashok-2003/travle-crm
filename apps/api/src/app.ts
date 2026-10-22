@@ -11,7 +11,6 @@ import type { RateLimiter } from "@travel-crm/domain/rate-limits";
 import { findShareLink, recordShareLinkOpen } from "@travel-crm/domain/share-links";
 import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { receiveWebhook, type WebhookProvider } from "@travel-crm/domain/webhooks";
-import type { BotCheck } from "@travel-crm/integrations/bot-check";
 import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
 import type { JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
@@ -26,6 +25,7 @@ import { shareLinkResolvers } from "./share-link-resolvers.js";
 import { shareLinkRoutes, tooManyRequestsPage } from "./share-link-route.js";
 import { requireTrustedJson } from "./trusted-origin.js";
 import { websiteFormRoutes } from "./website-form-routes.js";
+import type { Turnstile } from "./website-form-shared.js";
 import { webhookRoutes } from "./webhook-route.js";
 
 export interface ServerDependencies {
@@ -57,10 +57,8 @@ export interface ServerDependencies {
   authSecret: string;
   /** Where people open the web app (APP_URL): the settings screens' form links are made under it. */
   appUrl: string;
-  /** Asks Turnstile whether a form's visitor is a person; null or absent when the server has no keys (W39). */
-  botCheck?: BotCheck | null;
-  /** Turnstile's public key, handed to the page with the form. */
-  turnstileSiteKey?: string | null;
+  /** Turnstile's check and the widget's public key; null or absent when the server has no keys (W39). */
+  turnstile?: Turnstile | null;
   /** How the website form reads the visitor's address (W32); absent, as sign-in does. */
   formAddress?: FormAddressSettings;
 }
@@ -96,8 +94,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
     logger,
     authSecret,
     appUrl,
-    botCheck = null,
-    turnstileSiteKey = null,
+    turnstile = null,
     formAddress = { headerNames: ["x-forwarded-for"], trustedProxies: [], proxyHops: null },
   } = dependencies;
   const app = new Hono<RequestLogEnv>();
@@ -202,8 +199,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
       profiles,
       files,
       limiter: rateLimiter,
-      botCheck,
-      turnstileSiteKey,
+      turnstile,
       authSecret,
       address: formAddress,
       logger,

@@ -11,6 +11,12 @@ import type { Context } from "hono";
 import type { FormAddressSettings } from "./form-client-address.js";
 import { requestOf, type RequestLogEnv } from "./request-log.js";
 
+/** The bot check and the public key of its widget, together: one without the other cannot be expressed (W39). */
+export interface Turnstile {
+  botCheck: BotCheck;
+  siteKey: string;
+}
+
 export interface WebsiteFormRouteDependencies {
   db: Database;
   identity: Identity;
@@ -18,8 +24,7 @@ export interface WebsiteFormRouteDependencies {
   files: Files;
   limiter: RateLimiter;
   /** Null when the server has no Turnstile keys: nothing is checked and the page shows no widget. */
-  botCheck: BotCheck | null;
-  turnstileSiteKey: string | null;
+  turnstile: Turnstile | null;
   /** The auth secret the opened token's key is derived from (W37); no new secret to set. */
   authSecret: string;
   /** How the visitor's address is read (W32) and reported (W33). */

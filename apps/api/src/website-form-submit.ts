@@ -9,6 +9,7 @@ import {
   assertNoLinks,
   assertNotBot,
   checkOpenedToken,
+  formLimits,
   findSubmission,
   noteFlood,
   parseFormKey,
@@ -29,9 +30,6 @@ import {
   type WebsiteFormRouteDependencies,
 } from "./website-form-shared.js";
 
-/** The enquiry's size cap, in bytes: a message is at most 1,000 characters, so no honest body comes near it. */
-const MAX_BODY_BYTES = 16 * 1024;
-
 const HOUR_MS = 3_600_000;
 
 const badShape = () => new DomainError("VALIDATION", "VALIDATION", "Check your details and try again");
@@ -42,7 +40,7 @@ export function websiteFormSubmitRoute(
   tokenKey: Buffer,
   now: () => Date,
 ): Hono<RequestLogEnv> {
-  const { db, identity, limiter, logger, botCheck } = dependencies;
+  const { db, identity, limiter, logger, turnstile } = dependencies;
   const app = new Hono<RequestLogEnv>();
 
   /** Agencies this process has told of a flood, by the UTC hour: a refusal must stay as cheap as the limiter makes it. */
@@ -124,74 +122,79 @@ export function websiteFormSubmitRoute(
     );
   }
 
-  app.post("/website-forms/:key/enquiries", requireTrustedJson(identity), limitBody(MAX_BODY_BYTES), async (c) => {
-    try {
-      // 1. Size and shape: JSON, a strict object, answers bounded by the contract.
-      const body: unknown = await c.req.json().catch(() => {
-        throw badShape();
-      });
-      const shaped = websiteEnquiryInput.safeParse(body);
-      if (!shaped.success) throw badShape();
-      const input = shaped.data;
-      // 2. The key's shape, without the database.
-      const key = c.req.param("key");
-      const parsed = parseFormKey(key);
-      if (parsed === null) throw formNotFound();
-      const { organizationId } = parsed;
-      noteOrganization(c, organizationId);
-      // 3. Limits: every attempt counts, the refused ones below too.
-      const limited = await hitFormLimits({
-        limiter,
-        logger: requestOf(c)?.logger ?? logger,
-        key,
-        address: addressOf(c.req.raw),
-        kind: "submit",
-      });
-      if (!limited.allowed) {
-        if (limited.agencyRefused)
-          await tellOwnerOfFlood(key, organizationId, input.via, requestOf(c)?.logger ?? logger);
-        return tooManyTries(c, limited.retryAfterSeconds);
-      }
-      // 4. The form and whether it can take enquiries; outside the save's transaction.
-      const at = now();
-      const ownerUserId = await identity.firstOwner(organizationId);
-      const { form, prior } = await db.forOrg(organizationId, async (tx) => ({
-        form: await assertFormOpen(tx, { key, organizationId, ownerUserId, via: input.via, now: at }),
-        prior: await findSubmission(tx, input.submissionId),
-      }));
-      // A submission already in the ledger is answered as it was the first time (W21), before the page's one-use
-      // token, which Cloudflare would now call spent, is checked again.
-      if (prior !== null) {
-        const answer = answerOf(prior.outcome);
-        return c.json(answer.body, answer.status);
-      }
-      // 5. The traps: honeypot, fill time, links.
-      if (input.homepage.trim() !== "") {
-        await dropAsSpam(organizationId, form, input.submissionId, at);
-        const answer = answerOf("spam");
-        return c.json(answer.body, answer.status);
-      }
-      checkOpenedToken(tokenKey, input.openedToken, form.id, at);
-      assertNoLinks(input.answers);
-      // 6. Turnstile, when the server has keys: a network call, made outside any transaction (W39).
-      if (botCheck !== null) {
-        const result =
-          input.turnstileToken === undefined || input.turnstileToken === ""
-            ? "fail"
-            : await botCheck.verify({ token: input.turnstileToken, address: addressOf(c.req.raw) });
-        if (result === "unreachable") {
-          (requestOf(c)?.logger ?? logger).warn({ organizationId }, "bot check unreachable: enquiry accepted");
+  app.post(
+    "/website-forms/:key/enquiries",
+    requireTrustedJson(identity),
+    limitBody(formLimits.maxBodyBytes),
+    async (c) => {
+      try {
+        // 1. Size and shape: JSON, a strict object, answers bounded by the contract.
+        const body: unknown = await c.req.json().catch(() => {
+          throw badShape();
+        });
+        const shaped = websiteEnquiryInput.safeParse(body);
+        if (!shaped.success) throw badShape();
+        const input = shaped.data;
+        // 2. The key's shape, without the database.
+        const key = c.req.param("key");
+        const parsed = parseFormKey(key);
+        if (parsed === null) throw formNotFound();
+        const { organizationId } = parsed;
+        noteOrganization(c, organizationId);
+        // 3. Limits: every attempt counts, the refused ones below too.
+        const limited = await hitFormLimits({
+          limiter,
+          logger: requestOf(c)?.logger ?? logger,
+          key,
+          address: addressOf(c.req.raw),
+          kind: "submit",
+        });
+        if (!limited.allowed) {
+          if (limited.agencyRefused)
+            await tellOwnerOfFlood(key, organizationId, input.via, requestOf(c)?.logger ?? logger);
+          return tooManyTries(c, limited.retryAfterSeconds);
         }
-        assertNotBot(result);
+        // 4. The form and whether it can take enquiries; outside the save's transaction.
+        const at = now();
+        const ownerUserId = await identity.firstOwner(organizationId);
+        const { form, prior } = await db.forOrg(organizationId, async (tx) => ({
+          form: await assertFormOpen(tx, { key, organizationId, ownerUserId, via: input.via, now: at }),
+          prior: await findSubmission(tx, input.submissionId),
+        }));
+        // A submission already in the ledger is answered as it was the first time (W21), before the page's one-use
+        // token, which Cloudflare would now call spent, is checked again.
+        if (prior !== null) {
+          const answer = answerOf(prior.outcome);
+          return c.json(answer.body, answer.status);
+        }
+        // 5. The traps: honeypot, fill time, links.
+        if (input.homepage.trim() !== "") {
+          await dropAsSpam(organizationId, form, input.submissionId, at);
+          const answer = answerOf("spam");
+          return c.json(answer.body, answer.status);
+        }
+        checkOpenedToken(tokenKey, input.openedToken, form.id, at);
+        assertNoLinks(input.answers);
+        // 6. Turnstile, when the server has keys: a network call, made outside any transaction (W39).
+        if (turnstile !== null) {
+          const result =
+            input.turnstileToken === undefined || input.turnstileToken === ""
+              ? "fail"
+              : await turnstile.botCheck.verify({ token: input.turnstileToken, address: addressOf(c.req.raw) });
+          if (result === "unreachable") {
+            (requestOf(c)?.logger ?? logger).warn({ organizationId }, "bot check unreachable: enquiry accepted");
+          }
+          assertNotBot(result);
+        }
+        // 7. The save.
+        const answer = await save(key, organizationId, input, at);
+        return c.json(answer.body, answer.status);
+      } catch (error) {
+        if (error instanceof DomainError) return refusal(c, error);
+        throw error;
       }
-      // 7. The save.
-      const answer = await save(key, organizationId, input, at);
-      return c.json(answer.body, answer.status);
-    } catch (error) {
-      if (error instanceof DomainError) return refusal(c, error);
-      throw error;
-    }
-  });
+    },
+  );
 
   return app;
 }

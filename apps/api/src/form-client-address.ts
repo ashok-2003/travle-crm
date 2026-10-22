@@ -37,9 +37,11 @@ export function formClientAddressFrom(settings: FormAddressSettings): (request: 
 export function clientAddressReport(
   request: Request,
   settings: FormAddressSettings,
+  /** The reader the routes already built; made here when absent. */
+  read: (request: Request) => string | null = formClientAddressFrom(settings),
 ): { address: string | null; entries: number; hops: number | null } {
   return {
-    address: formClientAddressFrom(settings)(request),
+    address: read(request),
     entries: entriesOf(request, settings.headerNames).length,
     hops: settings.proxyHops,
   };

@@ -247,6 +247,17 @@ describe("a website enquiry", () => {
     expect(await leadsOf(open, phone)).toHaveLength(1);
   });
 
+  it("makes one lead when two different submissions of one new phone race to create the person", async () => {
+    const phone = freshPhone();
+    const send = () =>
+      postEnquiry(server, open.key, enquiryFor(open.formId, { answers: { name: "Twin", phone } }), {
+        address: freshAddress(),
+      });
+    const responses = await Promise.all([send(), send(), send()]);
+    expect(responses.map((response) => response.status)).toEqual([201, 201, 201]);
+    expect(await leadsOf(open, phone)).toHaveLength(1);
+  });
+
   it("puts nothing a visitor typed in a log line", async () => {
     const phone = freshPhone();
     server.logger.entries.length = 0;
@@ -279,7 +290,7 @@ describe("a website enquiry", () => {
 describe("the bot check", () => {
   it("refuses a failed check, accepts and logs an unreachable one, and checks nothing without keys", async () => {
     const botCheck = createMemoryBotCheck();
-    const withKeys = createTestServer({}, { botCheck, turnstileSiteKey: "site-key" });
+    const withKeys = createTestServer({}, { turnstile: { botCheck, siteKey: "site-key" } });
     const without = createTestServer();
     try {
       const open = await agencyWithOpenForm(withKeys);
@@ -323,7 +334,7 @@ describe("the bot check", () => {
         return Promise.resolve(duplicate ? ("fail" as const) : ("pass" as const));
       },
     };
-    const guarded = createTestServer({}, { botCheck, turnstileSiteKey: "site-key" });
+    const guarded = createTestServer({}, { turnstile: { botCheck, siteKey: "site-key" } });
     try {
       const open = await agencyWithOpenForm(guarded);
       const phone = freshPhone();

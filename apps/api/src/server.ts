@@ -36,8 +36,11 @@ const app = createApp({
   logger,
   authSecret: environment.BETTER_AUTH_SECRET,
   appUrl: environment.APP_URL,
-  botCheck: services.botCheck,
-  turnstileSiteKey: environment.TURNSTILE_SITE_KEY ?? null,
+  // environment.ts makes the keys a pair, so one is never set without the other.
+  turnstile:
+    services.botCheck !== null && environment.TURNSTILE_SITE_KEY !== undefined
+      ? { botCheck: services.botCheck, siteKey: environment.TURNSTILE_SITE_KEY }
+      : null,
   formAddress: {
     headerNames: environment.AUTH_IP_ADDRESS_HEADERS,
     trustedProxies: environment.AUTH_TRUSTED_PROXIES,

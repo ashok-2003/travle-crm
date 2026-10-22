@@ -15,6 +15,7 @@ import {
   countingLimiter,
   freshAddress,
   getForm,
+  demoPlanId,
   planWithoutCrm,
   type OpenForm,
 } from "./support/website-form.js";
@@ -53,12 +54,12 @@ describe("the public website form page", () => {
     }).not.toThrow();
   });
 
-  it("answers a closed form (off, read-only, suspended, a plan without crm) with available false and one body", async () => {
+  it("answers a closed form (off, embedding off, read-only, suspended, cancelled, no crm, the demo, no Owner) with available false and one body", async () => {
     const closed = await agencyWithOpenForm(server);
     const { organizationId } = closed.agency;
     const bodies: string[] = [];
-    const record = async () => {
-      const response = await getForm(server, closed.key);
+    const record = async (query?: string) => {
+      const response = await getForm(server, closed.key, freshAddress(), query);
       expect(response.status).toBe(200);
       bodies.push(JSON.stringify(await response.json()));
     };
@@ -86,11 +87,24 @@ describe("the public website form page", () => {
     await server.db.forOrg(organizationId, (tx) => setWebsiteFormEnabled(tx, actor, false));
     await record(); // the switch is off
     await server.db.forOrg(organizationId, (tx) => setWebsiteFormEnabled(tx, actor, true));
-    await setSubscription({ status: "read_only", statusChangedAt: new Date() });
-    await record();
-    await setSubscription({ status: "suspended", statusChangedAt: new Date() });
-    await record();
-    await setSubscription({ status: "active", statusChangedAt: new Date(), planId: await planWithoutCrm(server) });
+    const everything = (await server.platform.subscription.findUniqueOrThrow({ where: { organizationId } })).planId;
+    const restore = () => setSubscription({ status: "active", statusChangedAt: new Date(), planId: everything });
+    await server.db.forOrg(organizationId, (tx) => tx.websiteForm.updateMany({ data: { allowEmbed: false } }));
+    await record("?via=embedded"); // embedding is off
+    await server.db.forOrg(organizationId, (tx) => tx.websiteForm.updateMany({ data: { allowEmbed: true } }));
+    for (const state of [
+      { status: "read_only" },
+      { status: "suspended" },
+      { status: "cancelled" },
+      { planId: await planWithoutCrm(server) },
+      { planId: await demoPlanId(server) },
+    ]) {
+      await setSubscription({ statusChangedAt: new Date(), ...state });
+      await record();
+      await restore();
+    }
+    // Nobody to give the leads to: the Owner is banned.
+    await server.platform.user.update({ where: { id: closed.agency.owner.userId }, data: { banned: true } });
     await record();
     expect(new Set(bodies).size).toBe(1);
     expect(JSON.parse(bodies[0] ?? "")).toEqual({
