@@ -150,6 +150,8 @@ Secrets come from the platform's secret manager as environment variables, never 
   (`docs/runbook.md`, "Turn on Axiom"). Each process says its version at start: Render sets `RENDER_GIT_COMMIT` itself;
   elsewhere, build with `GIT_SHA`.
 - **The website form** (ADR 0033, `docs/superpowers/specs/2026-10-22-website-form-design.md`, sections 15 and 16):
+  - **Set `PUBLIC_FORM_PROXY_HOPS` before real traffic on Render and Vercel:** without it no address is readable and the
+    per-address limits don't apply.
   - `PUBLIC_FORM_PROXY_HOPS` is **needed on Render and Vercel** and read by the public forms only (sign-in keeps its own
     rule, so its `AUTH_*` settings are untouched). `apps/api/src/environment.ts` validates it (an integer 1 to 5), and
     `GET /api/public/client-address` is how the number is chosen (`docs/serverless.md`, step 5b). Unset, the forms read the

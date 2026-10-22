@@ -146,7 +146,9 @@ settings on GitHub. Keep every value the steps make in your password manager, an
 
 The form works with nothing set. These three make it safe and fast on the Render and Vercel pilot.
 
-1. **Choose `PUBLIC_FORM_PROXY_HOPS`** (needed here, not on Oracle). After the deploy:
+1. **Choose `PUBLIC_FORM_PROXY_HOPS` before real traffic** (needed here, not on Oracle). Without it no visitor address is
+   readable here, so the per-address limits never apply and only the agency's own hourly limit protects the form. After the
+   deploy:
    1. From a phone on mobile data open `<Vercel address>/api/public/client-address`. It shows `address`, `entries` and
       `hops`. Compare `address` with what a "what is my IP" site shows.
    2. In a terminal run `curl -H 'X-Forwarded-For: 9.9.9.9, 8.8.8.8' <Vercel address>/api/public/client-address`. The
