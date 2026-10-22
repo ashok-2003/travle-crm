@@ -12,12 +12,14 @@ import { createSubscriptionAccess, planLimits, type SubscriptionAccess } from "@
 import { createSmtpEmailSender, type EmailSender } from "@travel-crm/integrations/email";
 import { createRealGoogleSheets, type GoogleSheets } from "@travel-crm/integrations/google-sheets";
 import { createPgBossJobs, type PgBossJobs } from "@travel-crm/integrations/jobs";
+import type { Logger } from "@travel-crm/integrations/logging";
 import { createWebPushSender, type PushSender } from "@travel-crm/integrations/push";
 import { createSpreadsheets, type Spreadsheets } from "@travel-crm/integrations/spreadsheets";
 import { createS3Storage, type ObjectStorage } from "@travel-crm/integrations/storage";
 import { authSettingsFrom, type Environment } from "./environment.js";
 import { passwordResetEmails, resetPasswordPageOf } from "./password-reset-email.js";
 import type { ProcessLog } from "./process-log.js";
+import { loggerOfRequest } from "./request-log.js";
 import { verifySheetsKey } from "./sheets-key-check.js";
 
 export interface Services {
@@ -83,7 +85,7 @@ export function googleSheetsOf(environment: Environment, log: ProcessLog): Googl
 }
 
 /** `log` is the process's one log: pg-boss's problems go there, as ids and codes. */
-export function createServices(environment: Environment, log: ProcessLog): Services {
+export function createServices(environment: Environment, log: ProcessLog, logger: Logger): Services {
   const db = createDatabase(environment.DATABASE_URL, {
     maxConnections: environment.DATABASE_POOL_SIZE,
     transactionLimits: transactionLimitsOf(environment),
@@ -101,15 +103,17 @@ export function createServices(environment: Environment, log: ProcessLog): Servi
     password: environment.SMTP_PASSWORD,
     fromAddress: environment.EMAIL_FROM_ADDRESS,
   });
+  // Better Auth and the reset emails run inside requests: their lines carry the request's id.
+  const requestLogger = loggerOfRequest(logger);
   const identity = createIdentity({
     databaseUrl: environment.DATABASE_URL,
     maxConnections: environment.DATABASE_POOL_SIZE,
     transactionLimits: transactionLimitsOf(environment),
     auth: {
       ...authSettingsFrom(environment),
-      log,
+      log: requestLogger,
       passwordReset: {
-        sendEmail: passwordResetEmails(email, rateLimiter, log),
+        sendEmail: passwordResetEmails(email, rateLimiter, requestLogger),
         pageUrl: resetPasswordPageOf(environment.APP_URL),
       },
     },

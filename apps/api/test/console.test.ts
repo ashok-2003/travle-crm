@@ -101,13 +101,12 @@ describe("the platform console", () => {
   });
 
   it("logs a call that fails unexpectedly by its path and names only, and tells the caller nothing more", async () => {
-    const lines: string[] = [];
+    const logger = createMemoryLogger();
     const leak = new Error("no row for jane.doe@example.com");
     const { platformDb } = testConsole.services;
     const failing = createConsoleApp(
       { ...testConsole.services, platformDb: { ...platformDb, transaction: () => Promise.reject(leak) } },
-      (line) => lines.push(line),
-      createMemoryLogger(),
+      logger,
     );
     const response = await failing.request(
       `/api/platform/trpc/log.list?input=${encodeURIComponent(JSON.stringify({}))}`,
@@ -115,7 +114,10 @@ describe("the platform console", () => {
     );
     expect(response.status).toBe(500);
     expect(JSON.stringify(await response.json())).not.toMatch(/jane/);
-    expect(lines).toEqual(["console tRPC log.list failed: TRPCError INTERNAL_SERVER_ERROR, caused by Error"]);
+    const [fault, request] = logger.entries;
+    expect(fault).toMatchObject({ level: "error", msg: "tRPC call failed", procedure: "log.list", errorName: "Error" });
+    expect(request).toMatchObject({ level: "error", route: "/api/platform/trpc", status: 500, errorName: "Error" });
+    expect(JSON.stringify(logger.entries)).not.toMatch(/jane/);
   });
 
   it("shows platform staff the platform log", async () => {

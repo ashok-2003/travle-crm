@@ -28,7 +28,7 @@ const { services, log, logger, running } = await startProcess("console", async (
 });
 const { settings, platform } = running;
 
-const server = serve({ fetch: createConsoleApp(platform, log, logger).fetch, port: settings.port }, (address) => {
+const server = serve({ fetch: createConsoleApp(platform, logger).fetch, port: settings.port }, (address) => {
   console.log(`console listening on port ${String(address.port)}`);
 });
 

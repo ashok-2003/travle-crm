@@ -25,7 +25,7 @@ export interface StartProcessOptions {
   /** The environment variables; process.env unless a test gives others. */
   variables?: Record<string, string | undefined>;
   /** How the services are built; createServices unless a test gives others. */
-  create?: (environment: Environment, log: ProcessLog) => Services;
+  create?: (environment: Environment, log: ProcessLog, logger: Logger) => Services;
   /** The structured log; a pino logger on standard output unless a test gives another. */
   createLogger?: (processName: ProcessName, environment: Environment) => Logger;
 }
@@ -56,7 +56,7 @@ export async function startProcess<T>(
     const environment = loadEnvironment(variables);
     const log = processLog(processName);
     const logger = createLogger(processName, environment);
-    services = create(environment, log);
+    services = create(environment, log, logger);
     await services.start();
     const running = await start({ environment, services, log, logger });
     return { environment, services, log, logger, running };

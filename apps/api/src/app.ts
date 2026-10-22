@@ -12,13 +12,12 @@ import { findShareLink, recordShareLinkOpen } from "@travel-crm/domain/share-lin
 import { plansOnSale, type SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { receiveWebhook, type WebhookProvider } from "@travel-crm/domain/webhooks";
 import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
-import { describeError, type JobQueue } from "@travel-crm/integrations/jobs";
+import type { JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
 import { Hono, type Context } from "hono";
 import { limitBody } from "./body-limit.js";
 import { apiErrorHandler } from "./error-handler.js";
 import { organizationSignIn } from "./org-sign-in.js";
-import type { ProcessLog } from "./process-log.js";
 import { rateLimit } from "./rate-limit.js";
 import { noteTrpcError, requestLog, type RequestLogEnv } from "./request-log.js";
 import { shareLinkResolvers } from "./share-link-resolvers.js";
@@ -49,9 +48,7 @@ export interface ServerDependencies {
   clientAddress: (request: Request) => string | null;
   /** The webhook providers. The Foundation has none; later steps add theirs (Razorpay, WhatsApp). */
   webhookProviders: readonly WebhookProvider[];
-  /** The process's one log: unexpected errors and warnings, a line each of ids, names and codes. */
-  log: ProcessLog;
-  /** The structured log (ADR 0032): one line per request. */
+  /** The structured log (ADR 0032): a line per request, and every unexpected error. */
   logger: Logger;
 }
 
@@ -85,12 +82,11 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
     rateLimiter,
     clientAddress,
     webhookProviders,
-    log,
     logger,
   } = dependencies;
   const app = new Hono<RequestLogEnv>();
   app.use("*", requestLog(logger));
-  app.onError(apiErrorHandler(log));
+  app.onError(apiErrorHandler(logger));
 
   app.get("/health", (c) => c.json({ status: "ok" }));
 
@@ -139,10 +135,9 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
         return context;
       },
       onError: ({ error, path }) => {
-        noteTrpcError(request, error);
-        // Refusals (401, 403, 404...) are answers, not faults. Only unexpected errors are logged, by names and codes:
-        // tRPC copies the cause's message into its own, and a Prisma message can quote the query's values.
-        if (error.code === "INTERNAL_SERVER_ERROR") log(`tRPC ${path ?? "?"} failed: ${describeError(error)}`);
+        // Refusals (401, 403, 404...) are answers, not faults: the request line carries them. A fault is logged by
+        // names, code and frames: tRPC copies the cause's message into its own, and a Prisma message can quote values.
+        noteTrpcError(request, error, path);
       },
     })(c as Context<RequestLogEnv, string>, next);
   });
@@ -158,7 +153,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
       ...publicLimits.shareLinks,
       clientAddress,
       refusal: tooManyRequestsPage,
-      log,
+      logger,
     }),
   );
   app.route(
@@ -173,7 +168,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
   // The public pricing page's plans: the same for every visitor, so caches may keep them for five minutes.
   app.use(
     "/api/public/plans",
-    rateLimit({ limiter: rateLimiter, name: "public-plans", ...publicLimits.plans, clientAddress, log }),
+    rateLimit({ limiter: rateLimiter, name: "public-plans", ...publicLimits.plans, clientAddress, logger }),
   );
   app.get("/api/public/plans", async (c) => {
     c.header("Cache-Control", "public, max-age=300");
@@ -181,7 +176,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
   });
   app.use(
     "/webhooks/*",
-    rateLimit({ limiter: rateLimiter, name: "webhooks", ...publicLimits.webhooks, clientAddress, log }),
+    rateLimit({ limiter: rateLimiter, name: "webhooks", ...publicLimits.webhooks, clientAddress, logger }),
   );
   app.route(
     "/webhooks",

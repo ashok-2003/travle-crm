@@ -22,7 +22,7 @@ import { createMemoryStorage, type ObjectStorage } from "@travel-crm/integration
 
 import { inject } from "vitest";
 import { createApp } from "../../src/app.js";
-import { processLog, type ProcessLog } from "../../src/process-log.js";
+import { loggerOfRequest } from "../../src/request-log.js";
 import { clientAddressFrom } from "../../src/rate-limit.js";
 import type { CookieJar } from "./cookie-jar.js";
 
@@ -67,8 +67,6 @@ export interface TestServerOptions {
   storage?: ObjectStorage;
   /** Where the app queues jobs (webhooks to process); in memory unless given, e.g. pg-boss. */
   queue?: JobQueue;
-  /** The app's log; the api's own unless given, so an unexpected error shows on stderr as "api: ...". */
-  log?: ProcessLog;
   /** The app's structured log; a fresh in-memory one unless given, kept as `logger` on the server. */
   logger?: MemoryLogger;
   /** Google Sheets for the sheet sync's procedures: off unless given (with the hashes). */
@@ -82,13 +80,14 @@ export interface TestServerOptions {
 
 export function createTestServer(settings: Partial<AuthSettings> = {}, options: TestServerOptions = {}): TestServer {
   const urls = options.dbUrls ?? inject("dbUrls");
+  const logger = options.logger ?? createMemoryLogger();
   const db = createDatabase(urls.runtime, { maxConnections: 3 });
   const subscriptions = createSubscriptionAccess({ db });
   const limits = planLimits(subscriptions);
   const identity = createIdentity({
     databaseUrl: urls.runtime,
     maxConnections: 3,
-    auth: { ...testAuthSettings, ...settings },
+    auth: { ...testAuthSettings, log: loggerOfRequest(logger), ...settings },
     seatLimit: limits.seats,
   });
   const files = createFiles({
@@ -97,7 +96,6 @@ export function createTestServer(settings: Partial<AuthSettings> = {}, options: 
     storageLimitBytes: limits.storageBytes,
   });
   const platform = createPlatformClient(urls.platform);
-  const logger = options.logger ?? createMemoryLogger();
   const app = createApp({
     identity,
     subscriptions,
@@ -112,7 +110,6 @@ export function createTestServer(settings: Partial<AuthSettings> = {}, options: 
       options.rateLimiter ?? createRateLimiter(db, { keySecret: "test-server-rate-limit-secret-of-32-bytes" }),
     clientAddress: clientAddressFrom({ headerNames: ["x-forwarded-for"], trustedProxies: [] }),
     webhookProviders: options.webhookProviders ?? [],
-    log: options.log ?? processLog("api"),
     logger,
   });
   return {
@@ -132,6 +129,13 @@ export function createTestServer(settings: Partial<AuthSettings> = {}, options: 
       await platform.$disconnect();
     },
   };
+}
+
+/** What Better Auth logged at `level` since the server's log was last emptied: its messages, after "auth: ". */
+export function betterAuthLines(server: Pick<TestServer, "logger">, level: "warn" | "error"): string[] {
+  return server.logger.entries
+    .filter((entry) => entry.source === "better-auth" && entry.level === level)
+    .map((entry) => entry.msg.replace(/^auth: /, ""));
 }
 
 export interface TestAgency {

@@ -3,6 +3,7 @@
 // impersonation, which the audit log records. No self sign-up.
 import { features } from "@travel-crm/contracts/features";
 import type { IdentityClient, IdentityDatabase } from "@travel-crm/db/identity";
+import type { Logger } from "@travel-crm/integrations/logging";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { admin } from "better-auth/plugins/admin";
@@ -42,10 +43,10 @@ export interface AuthSettings {
   /** Password reset by email: the sender and the reset page. Without it, Better Auth answers "Reset password isn't enabled". */
   passwordReset?: PasswordResetSettings | undefined;
   /**
-   * The process's one log, for Better Auth's warnings and errors (masked, ids and codes only) and a reset email that
-   * could not be sent. Without it, the console.
+   * The structured log, for Better Auth's warnings and errors (masked, with the error's name, code and frames) and a
+   * reset email that could not be sent. Without it, the console.
    */
-  log?: ((line: string) => void) | undefined;
+  log?: Logger | undefined;
 }
 
 const DAY = 60 * 60 * 24;

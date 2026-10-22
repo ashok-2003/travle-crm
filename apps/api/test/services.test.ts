@@ -6,6 +6,7 @@
 import { WrongDatabaseRoleError } from "@travel-crm/db";
 import { createPlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { describe, expect, inject, it } from "vitest";
 import { processLog } from "../src/process-log.js";
 import { createServices, rateLimitKeySecret } from "../src/services.js";
@@ -16,7 +17,7 @@ import { startMailpit } from "./support/mailpit.js";
 
 describe("services", () => {
   it("refuses to start when the storage bucket can't be reached", async () => {
-    const services = createServices(environment(), processLog("api"));
+    const services = createServices(environment(), processLog("api"), createMemoryLogger());
     try {
       await expect(services.start()).rejects.toThrow(`The storage bucket "travel-crm" can't be used: unreachable`);
     } finally {
@@ -25,7 +26,11 @@ describe("services", () => {
   });
 
   it("refuses to start when DATABASE_URL isn't the app_runtime role, before it tries the bucket or pg-boss", async () => {
-    const services = createServices(environment({ DATABASE_URL: inject("dbUrls").migrator }), processLog("api"));
+    const services = createServices(
+      environment({ DATABASE_URL: inject("dbUrls").migrator }),
+      processLog("api"),
+      createMemoryLogger(),
+    );
     try {
       await expect(services.start()).rejects.toThrow(WrongDatabaseRoleError);
     } finally {
@@ -44,6 +49,7 @@ describe("services", () => {
         AUTH_RATE_LIMIT: "false",
       }),
       processLog("api"),
+      createMemoryLogger(),
     );
     const platform = createPlatformClient(inject("dbUrls").platform);
     try {
@@ -82,7 +88,7 @@ describe("services", () => {
 
   it("logs a failing job by queue, job and names and codes only, and nothing reaches the console but that line", async () => {
     const output = consoleOutput();
-    const services = createServices(environment(), processLog("worker"));
+    const services = createServices(environment(), processLog("worker"), createMemoryLogger());
     try {
       await services.jobs.start();
       const leaky = Object.assign(
@@ -106,7 +112,7 @@ describe("services", () => {
   });
 
   it("holds each organization to its plan's seats and storage", async () => {
-    const services = createServices(environment(), processLog("api"));
+    const services = createServices(environment(), processLog("api"), createMemoryLogger());
     const platform = createPlatformClient(inject("dbUrls").platform);
     try {
       const organizationId = await createTestOrganization(platform, "Small agency");

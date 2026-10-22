@@ -52,7 +52,7 @@ export function createTestConsole(server: TestServer, options: TestConsoleOption
     log: (line) => lines.push(line),
   });
   return {
-    app: createConsoleApp(services, (line) => lines.push(line), logger),
+    app: createConsoleApp(services, logger),
     logger,
     services,
     lines,

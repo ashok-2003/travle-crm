@@ -33,7 +33,6 @@ const app = createApp({
     trustedProxies: environment.AUTH_TRUSTED_PROXIES,
   }),
   webhookProviders,
-  log,
   logger,
 });
 

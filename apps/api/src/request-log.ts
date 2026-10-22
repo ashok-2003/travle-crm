@@ -1,6 +1,7 @@
 // One `info` line per request (ADR 0032), for the api and the console: a request id, the method, the route pattern (or
 // the tRPC procedures), the status, the duration, and the organization and user ids once known. Never the raw path,
 // query, headers or body: a path carries ids and tokens, a query carries what someone searched for.
+import { AsyncLocalStorage } from "node:async_hooks";
 import { DomainError, newUuidV7 } from "@travel-crm/domain/kernel";
 import { errorFields, type Logger } from "@travel-crm/integrations/logging";
 import type { Context, MiddlewareHandler } from "hono";
@@ -21,6 +22,36 @@ export interface RequestLog {
 
 export interface RequestLogEnv {
   Variables: { requestLog: RequestLog };
+}
+
+const requests = new AsyncLocalStorage<RequestLog>();
+
+/**
+ * A logger for code that has no request in hand (Better Auth's, a pg-boss callback): each line goes through the logger
+ * of the request it runs in, so it carries that request's id, and through `fallback` outside any request.
+ */
+export function loggerOfRequest(fallback: Logger): Logger {
+  const current = () => requests.getStore()?.logger ?? fallback;
+  return {
+    child: (bindings) => current().child(bindings),
+    debug: (fields, message) => {
+      current().debug(fields, message);
+    },
+    info: (fields, message) => {
+      current().info(fields, message);
+    },
+    warn: (fields, message) => {
+      current().warn(fields, message);
+    },
+    error: (fields, message) => {
+      current().error(fields, message);
+    },
+  };
+}
+
+/** The request a handler runs in, or undefined in an app that doesn't use the middleware (a test's). */
+export function requestOf(c: Context): RequestLog | undefined {
+  return (c as Context<RequestLogEnv>).get("requestLog");
 }
 
 /** A request id someone else sent is kept only when it is a plain token: anything else could be log injection. */
@@ -79,7 +110,7 @@ export function requestLog(logger: Logger): MiddlewareHandler<RequestLogEnv> {
     const request: RequestLog = { requestId, logger: logger.child({ requestId }) };
     c.set("requestLog", request);
     const started = performance.now();
-    await next();
+    await requests.run(request, next);
     // After the handler: a raw Response a handler returns (tRPC's) replaces the headers set before it.
     c.header("x-request-id", requestId);
     const status = c.res.status;
@@ -103,12 +134,15 @@ export function requestLog(logger: Logger): MiddlewareHandler<RequestLogEnv> {
 }
 
 /**
- * What a failed tRPC call tells the request line: a fault keeps the error that caused it (tRPC wraps it, and the
- * original has the name, code and stack), a refusal keeps its status code and the domain reason, if it has one.
+ * What a failed tRPC call tells the log: a fault is written at once, with the error that caused it (tRPC wraps it, and
+ * the original has the name, code and frames) and kept for the request line; a refusal is kept for the request line
+ * with its status code and the domain reason, if it has one.
  */
-export function noteTrpcError(request: RequestLog, error: { code: string; cause?: unknown }): void {
+export function noteTrpcError(request: RequestLog, error: { code: string; cause?: unknown }, procedure?: string): void {
   if (error.code === "INTERNAL_SERVER_ERROR") {
-    request.error ??= error.cause ?? error;
+    const cause = error.cause ?? error;
+    request.error ??= cause;
+    request.logger.error({ procedure: procedure ?? "?", ...errorFields(cause) }, "tRPC call failed");
   } else {
     request.refusal ??= { code: error.code, reason: error.cause instanceof DomainError ? error.cause.reason : null };
   }

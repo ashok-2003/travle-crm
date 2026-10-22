@@ -1,10 +1,11 @@
 // Signing in through the HTTP app (spec 6.3): by email or by organization code and username, with no self sign-up,
 // session cookies a browser keeps, and Better Auth's organization endpoints closed to clients.
-import { afterAll, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { CookieJar } from "./support/cookie-jar.js";
 import {
   createTestAgency,
   createTestServer,
+  betterAuthLines,
   ORIGIN,
   postJson,
   signInByEmail,
@@ -72,10 +73,7 @@ describe("sign-in", () => {
   });
 
   it("refuses a wrong password, a wrong organization code, or someone else's organization, all the same way", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    onTestFinished(() => {
-      warn.mockRestore();
-    });
+    server.logger.entries.length = 0;
     const other = await createTestAgency(server);
     const attempts = [
       { orgCode: agency.code, username: "ravi", password: "wrong-password-1" },
@@ -91,7 +89,7 @@ describe("sign-in", () => {
     // Nothing tells a wrong password from an unknown organization or someone else's: no enumeration.
     expect(bodies[1]).toEqual(bodies[0]);
     expect(bodies[2]).toEqual(bodies[0]);
-    const lines = warn.mock.calls.map(([line]) => String(line));
+    const lines = betterAuthLines(server, "warn");
     expect(lines).toHaveLength(3);
     expect(lines[0]).toContain("Invalid password");
     expect(lines[1]).toContain("User not found");
@@ -170,10 +168,7 @@ describe("sign-in", () => {
   });
 
   it("refuses a sign-in posted from another website", async () => {
-    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    onTestFinished(() => {
-      error.mockRestore();
-    });
+    server.logger.entries.length = 0;
     const response = await postJson(
       server,
       "/api/auth/sign-in/email",
@@ -182,7 +177,7 @@ describe("sign-in", () => {
       { origin: "https://evil.example" },
     );
     expect(response.status).toBe(403);
-    expect(String(error.mock.calls[0]?.[0])).toContain("Invalid origin: https://evil.example");
+    expect(betterAuthLines(server, "error")).toEqual(["Invalid origin: https://evil.example"]);
   });
 
   it("closes Better Auth's organization endpoints to clients", async () => {

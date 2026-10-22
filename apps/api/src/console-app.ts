@@ -5,22 +5,20 @@
 import { trpcServer } from "@hono/trpc-server";
 import { createPlatformContext, platformRouter } from "@travel-crm/api/platform";
 import type { PlatformServices } from "@travel-crm/domain/platform";
-import { describeError } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
 import { Hono, type Context } from "hono";
 import { limitBody } from "./body-limit.js";
 import { apiErrorHandler } from "./error-handler.js";
-import type { ProcessLog } from "./process-log.js";
 import { noteTrpcError, requestLog, type RequestLogEnv } from "./request-log.js";
 import { requireTrustedJson } from "./trusted-origin.js";
 
 /** No console call needs a bigger body. */
 const BODY_LIMIT = 64 * 1024;
 
-export function createConsoleApp(services: PlatformServices, log: ProcessLog, logger: Logger): Hono<RequestLogEnv> {
+export function createConsoleApp(services: PlatformServices, logger: Logger): Hono<RequestLogEnv> {
   const app = new Hono<RequestLogEnv>();
   app.use("*", requestLog(logger));
-  app.onError(apiErrorHandler(log));
+  app.onError(apiErrorHandler(logger));
 
   app.get("/health", (c) => c.json({ status: "ok" }));
   // The same, through the web app's address, which hands on only /api/platform to the console: on Render's free plan
@@ -45,10 +43,9 @@ export function createConsoleApp(services: PlatformServices, log: ProcessLog, lo
         return context;
       },
       onError: ({ error, path }) => {
-        noteTrpcError(request, error);
-        // Refusals are answers, not faults. Only unexpected errors are logged, by names and codes: tRPC copies the
-        // cause's message into its own, and a database error's message can quote a person's data.
-        if (error.code === "INTERNAL_SERVER_ERROR") log(`console tRPC ${path ?? "?"} failed: ${describeError(error)}`);
+        // Refusals are answers, not faults: the request line carries them. A fault is logged by names, code and frames:
+        // tRPC copies the cause's message into its own, and a database error's message can quote a person's data.
+        noteTrpcError(request, error, path);
       },
     })(c as Context<RequestLogEnv, string>, next);
   });

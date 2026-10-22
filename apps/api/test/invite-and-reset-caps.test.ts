@@ -9,9 +9,9 @@ import { runListenerJob } from "@travel-crm/domain/jobs";
 import { platformActor } from "@travel-crm/domain/kernel";
 import { createRateLimiter, type RateLimiter } from "@travel-crm/domain/rate-limits";
 import { createMemoryEmailSender } from "@travel-crm/integrations/email";
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { passwordResetEmails } from "../src/password-reset-email.js";
-import { processLog } from "../src/process-log.js";
 import { tracked } from "./support/password-reset.js";
 import { createTestServer, ORIGIN, postJson, type TestServer } from "./support/test-server.js";
 
@@ -34,7 +34,7 @@ describe("the invite and reset caps", () => {
     platformDb = createPlatformDatabase(urls.platform, { maxConnections: 2 });
     const shared = createRateLimiter(limiterDb, { keySecret: "invite-and-reset-caps-test-secret-32-bytes" });
     limiter = { hit: (key, rule) => shared.hit(key, rule, at) };
-    resets = tracked(passwordResetEmails(resetEmails, limiter, processLog("api")));
+    resets = tracked(passwordResetEmails(resetEmails, limiter, createMemoryLogger()));
     server = createTestServer({ passwordReset: { sendEmail: resets.send, pageUrl: `${ORIGIN}/reset-password` } });
   });
 

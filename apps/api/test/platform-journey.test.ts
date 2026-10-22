@@ -11,7 +11,7 @@ import { createRateLimiter } from "@travel-crm/domain/rate-limits";
 import { createMemoryEmailSender } from "@travel-crm/integrations/email";
 import { createMemoryJobQueue, createMemoryJobRunner } from "@travel-crm/integrations/jobs";
 import { createMemoryPushSender } from "@travel-crm/integrations/push";
-import { afterAll, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startConsoleJobs } from "../src/console-jobs.js";
 import { workerJobs } from "../src/worker-jobs.js";
 import {
@@ -23,7 +23,7 @@ import {
   type TestPlatformStaff,
 } from "./support/console.js";
 import { CookieJar } from "./support/cookie-jar.js";
-import { createTestServer, postJson, signInByEmail, type TestServer } from "./support/test-server.js";
+import { betterAuthLines, createTestServer, postJson, signInByEmail, type TestServer } from "./support/test-server.js";
 import { dataOf, mutate, query, refusalOf } from "./support/trpc.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -274,12 +274,9 @@ describe("an agency's life on the platform", () => {
       status: 403,
       reason: "NOT_A_MEMBER",
     });
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    onTestFinished(() => {
-      warn.mockRestore();
-    });
+    server.logger.entries.length = 0;
     expect((await signInByEmail(server, new CookieJar(), ownerEmail, "neha-chose-this-1")).status).toBe(401);
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining("User not found"));
+    expect(betterAuthLines(server, "warn")).toEqual(["User not found"]);
     const log = await dataOf<PlatformLogPage>(
       await consoleQuery(testConsole, "log.list", superAdmin.jar, { targetOrganizationId: organizationId }),
     );
