@@ -12,7 +12,7 @@ async function agencyNameOf(key: string): Promise<string | null> {
   const origin = process.env.API_ORIGIN;
   if (!origin) return null;
   try {
-    const response = await fetch(`${origin}${publicFormUrl(key)}`, {
+    const response = await fetch(`${origin}${publicFormUrl(key)}?via=hosted`, {
       cache: "no-store",
       signal: AbortSignal.timeout(TITLE_WAIT_MS),
     });

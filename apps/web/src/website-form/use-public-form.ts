@@ -27,10 +27,14 @@ export function embeddedOnOf(referrer: string): string {
   }
 }
 
-async function loadWithPatience(key: string, signal: AbortSignal): Promise<LoadedForm | null> {
+async function loadWithPatience(
+  key: string,
+  via: "hosted" | "embedded",
+  signal: AbortSignal,
+): Promise<LoadedForm | null> {
   const giveUpAt = Date.now() + WAKE_BUDGET_MS;
   for (;;) {
-    const answer = await fetchPublicForm(key, signal);
+    const answer = await fetchPublicForm(key, via, signal);
     if (signal.aborted) return null;
     if (answer !== "asleep") return answer;
     if (Date.now() + WAKE_RETRY_DELAY_MS > giveUpAt) return { state: "failed" };
@@ -48,14 +52,14 @@ export function usePublicForm(key: string, mode: "hosted" | "embedded") {
     const wakingTimer = setTimeout(() => {
       setLoaded((now) => (now.state === "loading" ? { state: "waking" } : now));
     }, WAKING_AFTER_MS);
-    void loadWithPatience(key, controller.signal).then((answer) => {
+    void loadWithPatience(key, mode, controller.signal).then((answer) => {
       if (answer !== null) setLoaded(answer);
     });
     return () => {
       controller.abort();
       clearTimeout(wakingTimer);
     };
-  }, [key, attempt]);
+  }, [key, mode, attempt]);
 
   const retry = useCallback(() => {
     setLoaded({ state: "loading" });
@@ -73,7 +77,7 @@ export function usePublicForm(key: string, mode: "hosted" | "embedded") {
         await postEnquiry(key, enquiry);
       } catch (error) {
         if (!(error instanceof FormRefusal) || error.reason !== "FORM_EXPIRED") throw error;
-        const fresh = await fetchPublicForm(key);
+        const fresh = await fetchPublicForm(key, mode);
         if (fresh === "asleep" || fresh.state !== "ready") throw error;
         freshToken.current = fresh.form.openedToken;
         await sleep(FRESH_TOKEN_WAIT_MS);

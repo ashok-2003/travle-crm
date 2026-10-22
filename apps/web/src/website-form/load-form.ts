@@ -9,10 +9,14 @@ export type LoadedForm =
   | { state: "not-found" }
   | { state: "failed" };
 
-export async function fetchPublicForm(key: string, signal?: AbortSignal): Promise<LoadedForm | "asleep"> {
+export async function fetchPublicForm(
+  key: string,
+  via: "hosted" | "embedded",
+  signal?: AbortSignal,
+): Promise<LoadedForm | "asleep"> {
   let response: Response;
   try {
-    response = await fetch(publicFormUrl(key), { cache: "no-store", ...(signal && { signal }) });
+    response = await fetch(`${publicFormUrl(key)}?via=${via}`, { cache: "no-store", ...(signal && { signal }) });
   } catch {
     return "asleep";
   }

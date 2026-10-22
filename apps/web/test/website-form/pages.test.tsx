@@ -80,10 +80,17 @@ describe("loading", () => {
     renderForm(<FormPage formKey={key} mode="hosted" />);
     expect(await screen.findByLabelText("Your name")).toBeVisible();
     expect(calls).toHaveBeenCalledWith(
-      `/api/public/website-forms/${key}`,
+      `/api/public/website-forms/${key}?via=hosted`,
       expect.objectContaining({ cache: "no-store" }),
     );
     expect(calls.mock.calls.every(([url]) => url.startsWith("/api/public/website-forms/"))).toBe(true);
+  });
+
+  it("tells the api it is the embed when it is", async () => {
+    const calls = serve({ status: 200, body: open });
+    renderForm(<FormPage formKey={key} mode="embedded" />);
+    await screen.findByLabelText("Your name");
+    expect(calls.mock.calls[0]?.[0]).toBe(`/api/public/website-forms/${key}?via=embedded`);
   });
 
   it("says the form is getting ready after six seconds without an answer", async () => {
