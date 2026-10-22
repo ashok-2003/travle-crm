@@ -165,7 +165,8 @@ export async function receiveWebsiteEnquiry(
     stage: "new",
     createdAt: null,
     notify: "each",
-    assign: { workers: context.workers },
+    // As imports and Sheets do: the agency's rules and mode apply only once automatic assignment is on (W7).
+    ...(features.automaticAssignment ? { assign: { workers: context.workers } } : {}),
     unverified: true,
   });
   const outcome = saved.outcome === "created" ? "new_lead" : "repeat_enquiry";
