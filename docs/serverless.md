@@ -142,6 +142,29 @@ settings on GitHub. Keep every value the steps make in your password manager, an
 4. If the address isn't the one you planned, change `BETTER_AUTH_URL` and `APP_URL` in the Render group and R2's CORS
    rule to it. Changing `API_ORIGIN` or `CONSOLE_ORIGIN` later needs a Vercel redeploy, since the build holds them.
 
+### 5b. The website form: the proxy hops, Turnstile and staying awake
+
+The form works with nothing set. These three make it safe and fast on the Render and Vercel pilot.
+
+1. **Choose `PUBLIC_FORM_PROXY_HOPS`** (needed here, not on Oracle). After the deploy:
+   1. From a phone on mobile data open `<Vercel address>/api/public/client-address`. It shows `address`, `entries` and
+      `hops`. Compare `address` with what a "what is my IP" site shows.
+   2. In a terminal run `curl -H 'X-Forwarded-For: 9.9.9.9, 8.8.8.8' <Vercel address>/api/public/client-address`. The
+      `address` must still be yours, not 9.9.9.9 or 8.8.8.8.
+   3. In Render, on `travel-crm-api` (not the group), set `PUBLIC_FORM_PROXY_HOPS` to `1`, redeploy, and repeat both
+      checks. If the address is Vercel's or a forged one, try `2`. Keep the first value for which both pass. If `entries`
+      is 1 with `hops` unset, Vercel is replacing the header and Render is not adding to it: stop and ask for help.
+      Repeat after any change of host.
+2. **Optional: switch on Turnstile** (free). Sign in at dash.cloudflare.com, open **Turnstile**, **Add widget**; name it
+   "travel-crm forms"; under hostnames add the Vercel address (for example `travel-crm.vercel.app`) and your own domain if
+   you add one; mode **Managed**. Copy the **Site key** and the **Secret key**. In Render, on `travel-crm-api`, add
+   `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` (the secret as a secret) and redeploy. Both or neither: one alone stops
+   the api with a message naming the variable. Agencies' own websites need no entry: the widget runs inside our page.
+3. **Keep the api awake longer** if agencies get enquiries in the evening. The free Render service sleeps after 15 idle
+   minutes, and a visitor whose enquiry wakes it waits up to a minute (the form says so and keeps the enquiry). The
+   cron-job.org ping in step 9 runs in working hours only: widen it in step with your agencies' ad hours, mindful of
+   Neon's free compute hours. The form's own paths (`/api/public/website-forms/...`) can be added to that list.
+
 ### 6. The first super admin
 
 On your Mac (it prints a temporary password, to change at your first sign-in):
@@ -209,6 +232,8 @@ and the database would stop until the next month.
 
 ## Day to day
 
+- **The website form's release brings migration `20261029100000_website_form`: apply it by hand first,** with step 3's
+  `migrate`, before the merge deploys. It only adds, so the old release keeps working while it applies.
 - **Deploy:** when the release brings migrations, apply them first (step 3's `migrate`, from a Mac with the release's
   image). Then push to `main` (merge the release): Render rebuilds the api and the console, and Vercel the web app.
   Migrations must suit the old release too (the checklist's "Migrations"), since it serves while they apply.

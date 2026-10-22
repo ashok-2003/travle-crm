@@ -1,6 +1,7 @@
 # Website enquiry form: a hosted link and a snippet for the agency's own site
 
-- **Status:** approved by the owner, 2026-10-22: section 0's eight, the mockup, the calls in section 17 and the
+- **Status:** built (branch `forms/website`, 2026-10-23; the owner's deploy steps are in section 15 and
+  `docs/serverless.md` step 5b). Approved by the owner, 2026-10-22: section 0's eight, the mockup, the calls in section 17 and the
   three answers in section 0.1.
 - **Date:** 2026-10-22
 - **Scope:** Phase 1, release 3, first half: an enquiry form every agency can share by link and paste into its own
