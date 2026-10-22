@@ -24,7 +24,7 @@ owner agrees.
    the product. Nothing WhatsApp (the inbox, campaigns, the AI's replies) shows as usable before that; their places say
    how to connect.
 3. **The AI answers WhatsApp by itself (full autopilot), on by default** for every conversation once WhatsApp is
-   connected, with a switch for the whole agency and one per conversation (per lead or number). Ruling: supersedes ADR
+   connected, with a switch for the whole agency and one per conversation (per lead or number). Ruling: would replace ADR
    0029's "AI never sends to a customer" for WhatsApp (a new ADR 0032 records it with its guardrails); cost if wrong:
    an AI mistake reaches a customer, limited by the guardrails in section 6.
    **Contradicts an agreed rule:** ADR 0029 says AI never sends anything to a customer; it drafts and a person
@@ -51,17 +51,20 @@ owner agrees.
 
 ## 2. The releases, in order
 
-| Release | What                                                                                                        |
-| ------- | ----------------------------------------------------------------------------------------------------------- |
-| A       | Done: the sign-in and console wake fix, the agency's logo, a foldable sidebar (the landing page: removed)  |
-| B       | The analytics dashboard at `/dashboard`, and an optional won value                                         |
+**Contradicts an agreed rule:** this order is Ayush's. The owner's agreed release order (`docs/adr/`, the Phase 1
+scope) puts the sources that need no approval first, Meta when it is approved, and AI last; it, not this table, stands.
+
+| Release | What                                                                                                      |
+| ------- | --------------------------------------------------------------------------------------------------------- |
+| A       | Done: the sign-in and console wake fix, the agency's logo, a foldable sidebar (the landing page: removed) |
+| B       | The analytics dashboard at `/dashboard`, and an optional won value                                        |
 | C       | Lead management: the pipeline board, bulk changes; automatic assignment and the Unassigned queue are off  |
-| D       | Integrations and Developer panels; the website form, the incoming lead link, Meta lead ads, IndiaMART       |
-| W       | The wallet and credits (before E, which spends them)                                                        |
-| E       | WhatsApp: connect by Embedded Signup, the inbox, the media and knowledge library, message templates         |
-| F       | The AI on WhatsApp (autopilot), the knowledge it is taught                                                  |
-| K       | Campaigns: groups, bulk sending, scheduling, the AI's drafts                                                |
-| G       | Staff performance and ratings                                                                               |
+| D       | Integrations and Developer panels; the website form, the incoming lead link, Meta lead ads, IndiaMART     |
+| W       | The wallet and credits (before E, which spends them)                                                      |
+| E       | WhatsApp: connect by Embedded Signup, the inbox, the media and knowledge library, message templates       |
+| F       | The AI on WhatsApp (autopilot), the knowledge it is taught                                                |
+| K       | Campaigns: groups, bulk sending, scheduling, the AI's drafts                                              |
+| G       | Staff performance and ratings                                                                             |
 
 Quotes, bookings, payments, suppliers, accounts and reports (Phase 1 steps 3-7) follow, as the scope says.
 
