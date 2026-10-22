@@ -33,6 +33,17 @@ describe("environment", () => {
     });
   });
 
+  it("sets the log level from LOG_LEVEL, or by environment: info in production, debug in development and tests", () => {
+    const production = { ...valid, BETTER_AUTH_URL: "https://app.example.in", APP_URL: "https://app.example.in" };
+    expect(loadEnvironment(production).LOG_LEVEL).toBe("info");
+    expect(loadEnvironment({ ...valid, NODE_ENV: "development" }).LOG_LEVEL).toBe("debug");
+    expect(loadEnvironment({ ...valid, NODE_ENV: "test" }).LOG_LEVEL).toBe("debug");
+    expect(loadEnvironment({ ...production, LOG_LEVEL: "warn" }).LOG_LEVEL).toBe("warn");
+    // A compose file's blank is the same as unset.
+    expect(loadEnvironment({ ...production, LOG_LEVEL: "" }).LOG_LEVEL).toBe("info");
+    expect(() => loadEnvironment({ ...production, LOG_LEVEL: "verbose" })).toThrow(/LOG_LEVEL/);
+  });
+
   it("treats an unset NODE_ENV as production, so a deploy that forgets it gets the production guards", () => {
     expect(() => loadEnvironment(valid)).toThrow(/BETTER_AUTH_URL: must be https in production/);
     expect(

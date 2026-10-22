@@ -3,6 +3,7 @@
 // "<process> start-up failed" message, the pools closed, and exit 1. Once started, an error nothing handled is one
 // ids-only line in the process's log, then the process's drain, exiting 1.
 import { EventEmitter } from "node:events";
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import type { Services } from "../src/services.js";
 import { startProcess, stopOnUnhandledErrors } from "../src/start-up.js";
@@ -82,6 +83,22 @@ describe("starting a process", () => {
     const output = consoleOutput();
     started.log("a line");
     expect(output()).toEqual(["api: a line"]);
+  });
+
+  it("makes the process's structured log at the environment's level, headed by the process", async () => {
+    const { services } = fakeServices();
+    const logger = createMemoryLogger();
+    const made: unknown[] = [];
+    const started = await startProcess("worker", () => undefined, {
+      variables: testEnvironmentVariables({ LOG_LEVEL: "warn" }),
+      create: () => services,
+      createLogger: (processName, environment) => {
+        made.push(processName, environment.LOG_LEVEL);
+        return logger;
+      },
+    });
+    expect(made).toEqual(["worker", "warn"]);
+    expect(started.logger).toBe(logger);
   });
 });
 

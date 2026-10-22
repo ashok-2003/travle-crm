@@ -2,6 +2,7 @@
 import { isIP } from "node:net";
 import { brand } from "@travel-crm/brand";
 import type { AuthSettings } from "@travel-crm/domain/identity";
+import { LOG_LEVELS } from "@travel-crm/integrations/logging";
 import { z } from "zod";
 import { serviceVariables } from "./service-variables.js";
 import { sheetsHashKeyIsWeak } from "./sheets-settings.js";
@@ -63,6 +64,8 @@ const environmentSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("production"),
     PORT: z.coerce.number().int().min(1).max(65535).default(3001),
+    /** The least important line a process writes (ADR 0032): `info` in production, `debug` in development and tests. */
+    LOG_LEVEL: z.preprocess((value) => (value === "" ? undefined : value), z.enum(LOG_LEVELS).optional()),
     /** Postgres, connecting as the app_runtime role. */
     DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/, message: "must be a postgresql:// URL" }),
     DATABASE_POOL_SIZE: z.coerce.number().int().min(1).max(100).default(10),
@@ -132,7 +135,7 @@ const environmentSchema = z
     }
   });
 
-export type Environment = z.infer<typeof environmentSchema>;
+export type Environment = z.infer<typeof environmentSchema> & { LOG_LEVEL: (typeof LOG_LEVELS)[number] };
 
 /** Lists every problem by variable name. Values are never included: some are secrets. */
 export class EnvironmentError extends Error {
@@ -147,7 +150,8 @@ export function loadEnvironment(source: Record<string, string | undefined>): Env
   if (!result.success) {
     throw new EnvironmentError(result.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`));
   }
-  return result.data;
+  const { data } = result;
+  return { ...data, LOG_LEVEL: data.LOG_LEVEL ?? (developmentLike(data.NODE_ENV) ? "debug" : "info") };
 }
 
 export function authSettingsFrom(environment: Environment): AuthSettings {

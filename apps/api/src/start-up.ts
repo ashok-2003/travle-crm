@@ -2,6 +2,7 @@
 // services, check the bucket and start pg-boss, then the process's own start, or exit 1 with one message. And its last
 // resort once started: an error nothing handled ends it through its own drain.
 import { describeError } from "@travel-crm/integrations/jobs";
+import { createPinoLogger, type Logger } from "@travel-crm/integrations/logging";
 import { loadEnvironment, type Environment } from "./environment.js";
 import { processLog, type ProcessLog, type ProcessName } from "./process-log.js";
 import { createServices, type Services } from "./services.js";
@@ -11,6 +12,8 @@ export interface ProcessBase {
   environment: Environment;
   services: Services;
   log: ProcessLog;
+  /** The process's structured log (ADR 0032): JSON lines at the environment's LOG_LEVEL. */
+  logger: Logger;
 }
 
 export interface StartedProcess<T> extends ProcessBase {
@@ -23,6 +26,12 @@ export interface StartProcessOptions {
   variables?: Record<string, string | undefined>;
   /** How the services are built; createServices unless a test gives others. */
   create?: (environment: Environment, log: ProcessLog) => Services;
+  /** The structured log; a pino logger on standard output unless a test gives another. */
+  createLogger?: (processName: ProcessName, environment: Environment) => Logger;
+}
+
+function pinoLoggerFor(processName: ProcessName, environment: Environment): Logger {
+  return createPinoLogger({ process: processName, level: environment.LOG_LEVEL });
 }
 
 /**
@@ -40,16 +49,17 @@ export interface StartProcessOptions {
 export async function startProcess<T>(
   processName: ProcessName,
   start: (base: ProcessBase) => Promise<T> | T,
-  { variables = process.env, create = createServices }: StartProcessOptions = {},
+  { variables = process.env, create = createServices, createLogger = pinoLoggerFor }: StartProcessOptions = {},
 ): Promise<StartedProcess<T>> {
   let services: Services | undefined;
   try {
     const environment = loadEnvironment(variables);
     const log = processLog(processName);
+    const logger = createLogger(processName, environment);
     services = create(environment, log);
     await services.start();
-    const running = await start({ environment, services, log });
-    return { environment, services, log, running };
+    const running = await start({ environment, services, log, logger });
+    return { environment, services, log, logger, running };
   } catch (error) {
     console.error(`${processName} start-up failed`, error);
     await services?.close().catch((closeError: unknown) => {

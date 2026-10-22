@@ -126,6 +126,7 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `VAPID_PRIVATE_KEY`: the public key's pair (below)               | ●   | ●      | ●       |         | yes    |
 | `GOOGLE_SHEETS_SERVICE_ACCOUNTS`: the Sheets sync's keys (below) | ●   | ●      |         |         | yes    |
 | `SHEETS_HASH_KEY`: 32+ characters, never changed (below)         | ●   | ●      | ●       |         | yes    |
+| `LOG_LEVEL`: debug, info, warn or error (`info`)                 | ○   | ○      | ○       |         |        |
 | `PORT` (3001)                                                    | ○   |        |         |         |        |
 | `CONSOLE_PORT` (3002)                                            |     |        | ○       |         |        |
 | `DEMO_ORGANIZATION_CODE`, `DEMO_PASSWORD`: both or neither       |     |        | ○       |         | yes    |
