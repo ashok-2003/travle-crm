@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { useEffect } from "react";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
+import { useRefusalOnField } from "@/components/forms/use-refusal-on-field";
 import { FieldsCard } from "./fields-card";
 import { checkValues, valuesOf, type FormProblem, type FormValues } from "./form-values";
 import { LookCard } from "./look-card";
@@ -34,6 +35,8 @@ export function WebsiteFormEditor({
     checkValues,
     (problem) => (problem === "link" ? tErrors("FORM_LINK_INVALID") : t(problem)),
   );
+  // A refusal about the website address is said on its field; others stay in Save's alert.
+  const unplaced = useRefusalOnField(form, save.error, { FORM_LINK_INVALID: "websiteUrl" });
   const dirty = form.formState.isDirty;
 
   // Another save or another admin changed the settings: untouched fields follow them, edits are kept.
@@ -48,7 +51,8 @@ export function WebsiteFormEditor({
       onSubmit={onSubmit((input) => {
         save.mutate(input, {
           onSuccess: (next) => {
-            form.reset(valuesOf(next.settings));
+            // What was typed while the save was out stays, and stays unsaved.
+            form.reset(valuesOf(next.settings), { keepDirtyValues: true });
           },
         });
       })}
@@ -59,7 +63,7 @@ export function WebsiteFormEditor({
       <LookCard />
       <PreviewButton getValues={form.getValues} />
       {children}
-      <SaveBar dirty={dirty} saving={save.isPending} error={save.error} />
+      <SaveBar dirty={dirty} saving={save.isPending} error={unplaced} />
       <LeaveGuard dirty={dirty} />
     </form>
   );

@@ -10,7 +10,7 @@ import { routes } from "@/lib/routes";
 import { lastInputTo, renderScreen } from "../../leads/screen";
 import { routerCalls } from "../../leads/navigation";
 import { paidSubscription } from "../../organization/api";
-import { stubApi } from "../../support/api-stub";
+import { heldAnswer, stubApi } from "../../support/api-stub";
 import { aWebsiteFormView, someSettings } from "./records";
 
 vi.mock("next/navigation", () => import("../../leads/navigation"));
@@ -137,5 +137,37 @@ describe("the form's settings", () => {
     render();
     await screen.findByRole("list", { name: t.fields.heading });
     expect(screen.queryByRole("switch", { name: t.fields.offers })).not.toBeInTheDocument();
+  });
+
+  it("says a refusal about the website address on that field, once", async () => {
+    const api = render();
+    api.answer("websiteForm.save", { status: 400, reason: "FORM_LINK_INVALID" });
+    await userEvent.type(await screen.findByLabelText(t.words.websiteUrl), "https://sharma.example");
+    await userEvent.click(saveButton());
+    const field = screen.getByLabelText(t.words.websiteUrl);
+    await waitFor(() => {
+      expect(field).toHaveAccessibleDescription(new RegExp(messages.errors.reasons.FORM_LINK_INVALID));
+    });
+    expect(screen.getAllByText(messages.errors.reasons.FORM_LINK_INVALID)).toHaveLength(1);
+  });
+
+  it("keeps what was typed while a save was out, and leaves it unsaved", async () => {
+    const held = heldAnswer({ data: aWebsiteFormView({ settings: someSettings({ heading: "A" }) }) });
+    const api = render();
+    api.answer("websiteForm.save", held.answer);
+    const heading = await screen.findByLabelText(t.words.formHeading);
+    await userEvent.type(heading, "A");
+    await userEvent.click(saveButton());
+    await userEvent.type(heading, "B");
+    held.release();
+    await waitFor(() => {
+      expect(api.calls).toContain("websiteForm.save");
+    });
+    await waitFor(() => {
+      expect(heading).toHaveValue("AB");
+    });
+    await waitFor(() => {
+      expect(saveButton()).toBeEnabled();
+    });
   });
 });
