@@ -10,6 +10,7 @@ import { formatPhoneNumber } from "@/lib/format";
 import { useHolds } from "@/session/me-context";
 import { EditPersonDialog } from "./edit-person-dialog";
 import { ChangeButton, LeadCard } from "./lead-card";
+import { PersonConsent } from "./person-consent";
 
 export function PersonCard({ lead }: { lead: LeadDetail }) {
   const t = useTranslations("leads");
@@ -42,6 +43,7 @@ export function PersonCard({ lead }: { lead: LeadDetail }) {
       }
     >
       <Details rows={rows} />
+      <PersonConsent leadId={lead.id} personName={name} />
       {canEdit && (
         <EditPersonDialog lead={lead} dialog={{ open: editing, setOpen: setEditing }} returnFocusTo={opener} />
       )}

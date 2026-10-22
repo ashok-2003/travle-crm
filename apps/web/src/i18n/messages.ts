@@ -25,6 +25,8 @@ import staff from "./messages/en-IN/staff.json";
 import subscription from "./messages/en-IN/subscription.json";
 import tasks from "./messages/en-IN/tasks.json";
 import today from "./messages/en-IN/today.json";
+import websiteForm from "./messages/en-IN/website-form.json";
+import websiteFormSettings from "./messages/en-IN/website-form-settings.json";
 
 export const locale = "en-IN";
 
@@ -56,6 +58,8 @@ export const messages = {
   subscription,
   tasks,
   today,
+  websiteForm,
+  websiteFormSettings,
 };
 
 export type Messages = typeof messages;

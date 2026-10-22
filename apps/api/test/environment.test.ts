@@ -288,4 +288,53 @@ describe("environment", () => {
     );
     expect(() => loadEnvironment({ ...https, AUTH_RATE_LIMIT: "false" })).toThrow(/AUTH_RATE_LIMIT/);
   });
+
+  describe("the website form's settings", () => {
+    const production = { ...valid, BETTER_AUTH_URL: "https://app.example.in", APP_URL: "https://app.example.in" };
+
+    it("reads the proxy hops, and refuses 0 and 6", () => {
+      expect(loadEnvironment(production).PUBLIC_FORM_PROXY_HOPS).toBeUndefined();
+      expect(loadEnvironment({ ...production, PUBLIC_FORM_PROXY_HOPS: "" }).PUBLIC_FORM_PROXY_HOPS).toBeUndefined();
+      expect(loadEnvironment({ ...production, PUBLIC_FORM_PROXY_HOPS: "2" }).PUBLIC_FORM_PROXY_HOPS).toBe(2);
+      expect(() => loadEnvironment({ ...production, PUBLIC_FORM_PROXY_HOPS: "0" })).toThrow(/PUBLIC_FORM_PROXY_HOPS/);
+      expect(() => loadEnvironment({ ...production, PUBLIC_FORM_PROXY_HOPS: "6" })).toThrow(/PUBLIC_FORM_PROXY_HOPS/);
+    });
+
+    it("stops start-up when one Turnstile key is set without the other, naming the missing variable", () => {
+      expect(() => loadEnvironment({ ...production, TURNSTILE_SITE_KEY: "site" })).toThrow(
+        /TURNSTILE_SECRET_KEY: is needed/,
+      );
+      expect(() => loadEnvironment({ ...production, TURNSTILE_SECRET_KEY: "secret" })).toThrow(
+        /TURNSTILE_SITE_KEY: is needed/,
+      );
+      expect(
+        loadEnvironment({ ...production, TURNSTILE_SITE_KEY: "site", TURNSTILE_SECRET_KEY: "secret" }),
+      ).toMatchObject({
+        TURNSTILE_SITE_KEY: "site",
+      });
+    });
+
+    it("never prints the secret key in a problem", () => {
+      const secret = "0x-very-secret-turnstile-value";
+      expect.assertions(2);
+      try {
+        loadEnvironment({ ...production, TURNSTILE_SECRET_KEY: secret });
+      } catch (error) {
+        expect(error).toBeInstanceOf(EnvironmentError);
+        expect((error as Error).message).not.toContain(secret);
+      }
+    });
+
+    it("refuses the verify url in production, and without both keys", () => {
+      const keys = { TURNSTILE_SITE_KEY: "site", TURNSTILE_SECRET_KEY: "secret" };
+      const url = { TURNSTILE_VERIFY_URL: "http://127.0.0.1:9/siteverify" };
+      expect(() => loadEnvironment({ ...production, ...keys, ...url })).toThrow(
+        /TURNSTILE_VERIFY_URL: is for development/,
+      );
+      expect(loadEnvironment({ ...valid, NODE_ENV: "development", ...keys, ...url }).TURNSTILE_VERIFY_URL).toBe(
+        "http://127.0.0.1:9/siteverify",
+      );
+      expect(() => loadEnvironment({ ...valid, NODE_ENV: "development", ...url })).toThrow(/TURNSTILE_VERIFY_URL/);
+    });
+  });
 });

@@ -41,7 +41,7 @@ logs, and what is still open.
 - **Three services from one image:** `api`, `worker` and `console`. One console instance is enough, and it must stay
   up: it runs the nightly lifecycle, the sweeps of stored files and exports (the hourly `platform.sweep-bulk-files`
   among them, which deletes an import's file 7 days after it ends and an export's 24 hours after it is ready), and the
-  demo reset.
+  demo reset. The hourly `platform.sweep-website-forms` deletes the website form's ledger rows after 90 days.
 - **The worker's memory** (ADR 0030). It reads an import's file, at most 10 MB, and holds its parsed rows in its own
   memory (under 20 MB at the limits), and it streams an export in pages of 1,000 rows (under 200 MB resident). The api
   never reads a file. Imports and exports add no environment variable.
@@ -129,6 +129,9 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `LOG_LEVEL`: debug, info, warn or error (`info`)                 | ○   | ○      | ○       |         |        |
 | `AXIOM_TOKEN`, `AXIOM_DATASET`: both or neither (Logs, below)    | ○   | ○      | ○       |         | yes    |
 | `AXIOM_URL`: only for Axiom's EU region                          | ○   | ○      | ○       |         |        |
+| `PUBLIC_FORM_PROXY_HOPS`: 1 to 5; unset behind Caddy (Hosting)   | ○   |        |         |         |        |
+| `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`: both or neither    | ○   |        |         |         | yes    |
+| `TURNSTILE_VERIFY_URL`: tests only, refused in production        | ○   |        |         |         |        |
 | `PORT` (3001)                                                    | ○   |        |         |         |        |
 | `CONSOLE_PORT` (3002)                                            |     |        | ○       |         |        |
 | `DEMO_ORGANIZATION_CODE`, `DEMO_PASSWORD`: both or neither       |     |        | ○       |         | yes    |
@@ -146,6 +149,20 @@ Secrets come from the platform's secret manager as environment variables, never 
   also ship every line to Axiom (30 days, searchable, free); both or neither, secrets, set on all three processes
   (`docs/runbook.md`, "Turn on Axiom"). Each process says its version at start: Render sets `RENDER_GIT_COMMIT` itself;
   elsewhere, build with `GIT_SHA`.
+- **The website form** (ADR 0033, `docs/superpowers/specs/2026-10-22-website-form-design.md`, sections 15 and 16):
+  - **Set `PUBLIC_FORM_PROXY_HOPS` before real traffic on Render and Vercel:** without it no address is readable and the
+    per-address limits don't apply.
+  - `PUBLIC_FORM_PROXY_HOPS` is **needed on Render and Vercel** and read by the public forms only (sign-in keeps its own
+    rule, so its `AUTH_*` settings are untouched). `apps/api/src/environment.ts` validates it (an integer 1 to 5), and
+    `GET /api/public/client-address` is how the number is chosen (`docs/serverless.md`, step 5b). Unset, the forms read the
+    address as sign-in does.
+  - Turnstile's keys reach the api alone (the worker and the console never verify a visitor), validated together at
+    start-up; a bad value names the variable and never prints it. Blank leaves the check off. `TURNSTILE_VERIFY_URL` is
+    for the journeys' fake siteverify and is refused in production.
+  - **`APP_URL` is now required of the api for the form's links** (the settings page's link and snippet are made under
+    it): it is in the table above for every process, and the compose files and `.env.example` set it.
+  - **Migration `20261029100000_website_form` is applied by hand before the release is deployed**, never on deploy. It only
+    adds (three tables, CHECKs, a widened audit source), so the old release keeps working while it applies.
 - **Google Sheets** (the Sheets sync, ADR 0031; the owner's steps are in the spec's section 14):
   - Create a Google Cloud project with a company account, enable the **Google Sheets API** (the Drive API is not
     needed), create a **service account** with no roles (its email is the address agencies share their sheets with, so
@@ -183,17 +200,26 @@ Secrets come from the platform's secret manager as environment variables, never 
 
 ## Routing at the load balancer (ADRs 0018, 0019)
 
-| Path              | Goes to       | Why                                                       |
-| ----------------- | ------------- | --------------------------------------------------------- |
-| `/api/platform/*` | console, 3002 | the console's tRPC; this rule goes before the next one    |
-| `/api/*`          | api, 3001     | Better Auth's sign-in and the organization app's tRPC     |
-| `/p/*`            | api, 3001     | share links                                               |
-| `/webhooks/*`     | api, 3001     | the webhook intake                                        |
-| everything else   | web, 3000     | the app's pages, build files, manifest and service worker |
+| Path                            | Goes to       | Why                                                       |
+| ------------------------------- | ------------- | --------------------------------------------------------- |
+| `/api/platform/*`               | console, 3002 | the console's tRPC; this rule goes before the next one    |
+| `/api/*`                        | api, 3001     | Better Auth's sign-in and the organization app's tRPC     |
+| `/p/*`                          | api, 3001     | share links                                               |
+| `/webhooks/*`                   | api, 3001     | the webhook intake                                        |
+| `/f/*`, `/embed/*`, `/embed.js` | web, 3000     | the website form's pages and script (the default rule)    |
+| everything else                 | web, 3000     | the app's pages, build files, manifest and service worker |
 
 - **One address for everything** (spec 3): the app's https origin is `BETTER_AUTH_URL` and `APP_URL`, so cookies
   stay first-party and the api needs no CORS. Share links (`/p/*`) and the webhook intake (`/webhooks/*`) are the
   api's, not the web app's. `docker/Caddyfile` is this table, and `pnpm product:smoke` proves it path by path.
+- **The website form's paths:** `/f/*`, `/embed/*` and `/embed.js` are the web app's (the last row, so `docker/Caddyfile`
+  needs no new line), and `/api/public/website-forms/*` and `/api/public/client-address` are the api's under the
+  `/api/*` rule. The web image's content security policy gains Turnstile's origins on `/f` and `/embed` only, and `/embed`
+  alone may be framed (by any https site).
+- **Hosting, for the form's address:** on the Oracle pilot Caddy replaces `X-Forwarded-For` with one address, so
+  `PUBLIC_FORM_PROXY_HOPS` stays unset; on Render behind Vercel set it as `docs/serverless.md` step 5b says. A host behind
+  a load balancer that appends (Cloud Run, ECS) can use `AUTH_TRUSTED_PROXIES`, which the forms follow while the hops are
+  unset.
 - **`/health` needs no public route:** the platform's health checks call each service on its own port (below). The
   local proxy sends it to the api, so the smoke run can ask through it.
 

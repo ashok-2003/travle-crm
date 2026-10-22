@@ -61,6 +61,9 @@ model Organization {
   sheetErasedContacts     SheetErasedContact[]
   sheetCheckSchedules     SheetCheckSchedule[]
   sheetSpreadsheetClaims  SheetSpreadsheetClaim[]
+  websiteForms            WebsiteForm[]
+  websiteFormSubmissions  WebsiteFormSubmission[]
+  personConsents          PersonConsent[]
 
   @@map("organization")
 }

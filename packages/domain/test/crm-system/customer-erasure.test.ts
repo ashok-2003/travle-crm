@@ -184,6 +184,8 @@ describe("a customer's erasure and export", () => {
       enquiries: 0,
       timelineEntries: 0,
       blockedContacts: 0,
+      consentRows: 0,
+      ledgerRows: 0,
     });
     await expect(exported(randomUUID())).rejects.toMatchObject({ reason: "NOT_FOUND" });
   });

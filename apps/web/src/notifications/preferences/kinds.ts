@@ -17,6 +17,7 @@ export const notificationKinds = [
   { kind: "sheet.needs-attention", messageKey: "sheetNeedsAttention" },
   { kind: "import.finished", messageKey: "importFinished" },
   { kind: "export.ready", messageKey: "exportReady" },
+  { kind: "form.busy", messageKey: "formBusy" },
 ] as const;
 
 /** Whether notifications of this kind reach the person on this channel, given their choices. */

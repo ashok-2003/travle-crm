@@ -2,6 +2,15 @@
 // can read them.
 import { API_PATHS } from "./src/lib/routes";
 
+/** Turnstile's origin, allowed on /f and /embed only. */
+const TURNSTILE_ORIGIN = "https://challenges.cloudflare.com";
+
+/** What differs between the pages' policies: who may frame the page, and whether Turnstile's widget may run. */
+interface PolicyChoices {
+  frameAncestors?: string;
+  turnstile?: boolean;
+}
+
 /** What the policy depends on: development's needs, and the storage the browser uploads to (spec 9.2), if any. */
 export interface PolicySettings {
   development: boolean;
@@ -16,31 +25,40 @@ export interface PolicySettings {
  * storage: files go straight to it (a PUT to a presigned URL) and images come from it. The accepted risk is recorded
  * in ADR 0018; test/no-inner-html.test.ts keeps its premise, that the app renders no HTML of its own.
  */
-export function contentSecurityPolicy({ development, storageOrigin = null }: PolicySettings): string {
+export function contentSecurityPolicy(
+  { development, storageOrigin = null }: PolicySettings,
+  { frameAncestors = "'none'", turnstile = false }: PolicyChoices = {},
+): string {
   const storage = storageOrigin === null ? "" : ` ${storageOrigin}`;
+  // Cloudflare Turnstile's widget (spec 5.3): its script, its frame and its check, on the visitor's form alone.
+  const widget = turnstile ? ` ${TURNSTILE_ORIGIN}` : "";
   return [
     "default-src 'self'",
     // React's development build evaluates code for its error overlays.
-    `script-src 'self' 'unsafe-inline'${development ? " 'unsafe-eval'" : ""}`,
+    `script-src 'self' 'unsafe-inline'${development ? " 'unsafe-eval'" : ""}${widget}`,
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: blob:${storage}`,
     "font-src 'self'",
-    `connect-src 'self'${storage}`,
+    `connect-src 'self'${storage}${widget}`,
+    ...(turnstile ? [`frame-src ${TURNSTILE_ORIGIN}`] : []),
     "worker-src 'self'",
     "manifest-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
-    "frame-ancestors 'none'",
+    `frame-ancestors ${frameAncestors}`,
     // A deployment is https only. Development may run over plain http on the local network, to try it on a phone;
     // browsers leave localhost and 127.0.0.1 (the journeys) alone.
     ...(development ? [] : ["upgrade-insecure-requests"]),
   ].join("; ");
 }
 
-export function securityHeaders(settings: PolicySettings): { key: string; value: string }[] {
+export function securityHeaders(
+  settings: PolicySettings,
+  choices: PolicyChoices = {},
+): { key: string; value: string }[] {
   return [
-    { key: "Content-Security-Policy", value: contentSecurityPolicy(settings) },
+    { key: "Content-Security-Policy", value: contentSecurityPolicy(settings, choices) },
     { key: "X-Content-Type-Options", value: "nosniff" },
     { key: "X-Frame-Options", value: "DENY" },
     { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
@@ -64,11 +82,13 @@ export function securityHeaders(settings: PolicySettings): { key: string; value:
 export const TOKEN_PAGES = ["/reset-password", "/sign-in/two-factor", "/two-factor-setup", "/offline"] as const;
 
 /**
- * Every path but the ones the app hands on to the api (API_PATHS) and everything under them. Where the app itself
+ * Every path but the ones the app hands on to the api (API_PATHS) and everything under them, and /embed, which frames
+ * differently and so gets its own full set below (Next's header rules can add or replace a header, never remove one, so
+ * X-Frame-Options can only be left out by not matching the catch-all). Where the app itself
  * rewrites those (Vercel, docs/serverless.md), its headers would otherwise replace the api's on the way out: a share
  * link's page would lose its no-referrer and its stricter policy. Behind a load balancer they never reach the app.
  */
-const PAGES = `/:path((?!(?:${API_PATHS.map((prefix) => prefix.slice(1)).join("|")})(?:/|$)).*)`;
+const PAGES = `/:path((?!(?:${[...API_PATHS.map((prefix) => prefix.slice(1)), "embed"].join("|")})(?:/|$)).*)`;
 
 /**
  * The header rules for next.config.ts. Next.js applies every matching rule in order and a later value wins
@@ -78,5 +98,19 @@ export function securityHeaderRules(settings: PolicySettings) {
   return [
     { source: PAGES, headers: securityHeaders(settings) },
     ...TOKEN_PAGES.map((source) => ({ source, headers: [{ key: "Referrer-Policy", value: "strict-origin" }] })),
+    // The visitor's form (spec 5.3): the catch-all's set, with Turnstile's origins in its policy.
+    { source: "/f/:path*", headers: securityHeaders(settings, { turnstile: true }) },
+    // The same form in an iframe on the agency's own site: any https site may frame it (W30), so no X-Frame-Options.
+    {
+      source: "/embed/:path*",
+      headers: [
+        ...securityHeaders(settings, { frameAncestors: "https:", turnstile: true }).filter(
+          ({ key }) => key !== "X-Frame-Options" && key !== "Referrer-Policy",
+        ),
+        { key: "Referrer-Policy", value: "strict-origin" },
+      ],
+    },
+    // The snippet an agency pastes: a script, kept an hour.
+    { source: "/embed.js", headers: [{ key: "Cache-Control", value: "public, max-age=3600" }] },
   ];
 }

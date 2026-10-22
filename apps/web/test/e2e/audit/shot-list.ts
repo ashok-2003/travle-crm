@@ -17,6 +17,7 @@ const owner = "Asha Sharma, Owner";
 const sales = "Ravi Kumar, Sales";
 const superAdmin = "Kavita Rao, super admin";
 const support = "Arjun Nair, support";
+const visitor = "a visitor, signed out";
 
 const TWO_FACTOR_SHOTS = [
   { name: "two-factor-setup", screen: "Two-factor setup, the password step", as: `${sales}, two-factor required` },
@@ -287,6 +288,79 @@ export const SHOTS = [
   { name: "sheet-read-only", screen: "A sheet while the subscription is read-only", as: owner },
   { name: "sheet-paused", screen: "A paused sheet with Resume", as: owner },
   { name: "sheet-disconnect", screen: "A sheet's Disconnect confirmation", as: owner },
+  // Release 3: the website enquiry form (website form plan, Task F5).
+  { name: "website-form-row-off", screen: "Lead sources: the Website form row, off", as: owner },
+  { name: "website-form-row-on", screen: "Lead sources: the Website form row, on", as: owner },
+  { name: "website-form-row-unavailable", screen: "Lead sources: the Website form row, unavailable", as: owner },
+  { name: "website-form-page-loading", screen: "The Website form page loading", as: owner },
+  {
+    name: "website-form-page-load-failed",
+    screen: "The Website form page that did not load, with Try again",
+    as: owner,
+  },
+  { name: "website-form-page-new", screen: "The Website form page before it is ever turned on", as: owner },
+  {
+    name: "website-form-page-on",
+    screen: "The Website form page on: the link, the questions, the words, the counts",
+    as: owner,
+  },
+  {
+    name: "website-form-page-refused",
+    screen: "The Website form page: a link that is not https, its sentence",
+    as: owner,
+  },
+  {
+    name: "website-form-page-read-only",
+    screen: "The Website form page while read-only: Save off, Turn off open",
+    as: owner,
+  },
+  { name: "website-form-page-closed", screen: "The Website form page of an agency on a plan without it", as: owner },
+  { name: "website-form-page-demo", screen: "The Website form page in the demo: Not available", as: owner },
+  { name: "website-form-change-link", screen: "Change the link: the question", as: owner },
+  { name: "website-form-snippet-script", screen: "The snippet dialog, the script tab", as: owner },
+  { name: "website-form-snippet-iframe", screen: "The snippet dialog, the iframe tab", as: owner },
+  { name: "website-form-snippet-off", screen: "The snippet dialog with embedding off", as: owner },
+  { name: "website-form-preview-phone", screen: "Preview at phone width, filled with sample text", as: owner },
+  { name: "website-form-preview-computer", screen: "Preview at computer width, filled with sample text", as: owner },
+  {
+    name: "website-form-hosted-blue",
+    screen: "The hosted form with no colour of the agency's: the standard blue",
+    as: visitor,
+  },
+  { name: "website-form-hosted-dark", screen: "The hosted form with a dark agency colour and a logo", as: visitor },
+  {
+    name: "website-form-hosted-light",
+    screen: "The hosted form with a light colour: dark text on the button, a readable Privacy link",
+    as: visitor,
+  },
+  { name: "website-form-hosted-minimal", screen: "The hosted form asking only a name and a phone", as: visitor },
+  {
+    name: "website-form-hosted-required",
+    screen: "The hosted form with every question required, sent empty",
+    as: visitor,
+  },
+  {
+    name: "website-form-hosted-refusal",
+    screen: "The hosted form: a refusal's alert above Send, the typing kept",
+    as: visitor,
+  },
+  { name: "website-form-thank-you", screen: "The thank-you with the agency's words and website button", as: visitor },
+  {
+    name: "website-form-unavailable",
+    screen: "A form that is closed: one sentence, the name and the website button",
+    as: visitor,
+  },
+  { name: "website-form-not-found", screen: "A link that does not work any more", as: visitor },
+  { name: "website-form-waking", screen: "The form while the api wakes: the waiting words", as: visitor },
+  { name: "website-form-load-failed", screen: "The form that could not be loaded, with Try again", as: visitor },
+  { name: "website-form-embed", screen: "The embed on an agency's own website", as: visitor },
+  { name: "website-form-embed-thank-you", screen: "The embed after sending, on the agency's website", as: visitor },
+  { name: "website-form-embed-closed", screen: "The embed with embedding off, on the agency's website", as: visitor },
+  {
+    name: "website-form-person-consent",
+    screen: "A lead's person card with the offers consent line (switch on)",
+    as: owner,
+  },
 ] as const satisfies readonly Shot[];
 
 export type ShotName = (typeof SHOTS)[number]["name"];

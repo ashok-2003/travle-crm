@@ -72,12 +72,12 @@ export interface ClientAddressSettings {
 }
 
 /** A forwarded hop's address, with IPv4-mapped IPv6 written as the IPv4 address it is. */
-interface Hop {
+export interface Hop {
   address: string;
   family: "ipv4" | "ipv6";
 }
 
-function parseHop(text: string): Hop | null {
+export function parseHop(text: string): Hop | null {
   if (isIP(text) === 4) return { address: text, family: "ipv4" };
   if (isIP(text) !== 6) return null;
   const groups = ipv6Groups(text);
@@ -90,7 +90,7 @@ function parseHop(text: string): Hop | null {
 }
 
 /** What the rate limit counts: an IPv4 address, or an IPv6 address's /64, so one host can't rotate addresses in it. */
-function countedAddress(hop: Hop): string {
+export function countedAddress(hop: Hop): string {
   if (hop.family === "ipv4") return hop.address;
   const network = (ipv6Groups(hop.address) ?? []).slice(0, 4).map((group) => group.toString(16));
   return new URL(`http://[${network.join(":")}::]`).hostname.slice(1, -1);

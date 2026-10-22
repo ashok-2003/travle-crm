@@ -1,0 +1,77 @@
+// The website enquiry form (spec 2026-10-22, ADR 0033): an agency's one form and the ledger of what visitors sent. Both
+// are organization-owned: row-level security applies (the migration calls app_enable_org_rls on each). Neither is
+// soft-deleted: the form turns off with enabled = false, and the ledger holds ids, outcome names and times only, never a
+// name, phone, email, message, address or browser string, and is swept after 90 days by the platform role. The consent
+// ledger is crm's (crm.prisma).
+
+/// An agency's enquiry form (spec 7.1): one per organization today. The brand colour, name and logo are read from the
+/// organization's profile when the form is shown, never copied here.
+model WebsiteForm {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId    String                  @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id                String                  @id @default(uuid(7)) @db.Uuid
+  /// The random 16 characters of the form's key, A-Za-z0-9_- (CHECK website_form_key_secret_shape).
+  keySecret         String                  @map("key_secret")
+  enabled           Boolean                 @default(false)
+  allowEmbed        Boolean                 @default(true) @map("allow_embed")
+  /// off, optional or required (CHECK website_form_modes_value): Name and Phone are always asked.
+  emailMode         String                  @default("optional") @map("email_mode")
+  destinationMode   String                  @default("optional") @map("destination_mode")
+  travelMonthMode   String                  @default("optional") @map("travel_month_mode")
+  travellersMode    String                  @default("optional") @map("travellers_mode")
+  budgetMode        String                  @default("off") @map("budget_mode")
+  messageMode       String                  @default("optional") @map("message_mode")
+  offersTickbox     Boolean                 @default(false) @map("offers_tickbox")
+  heading           String?
+  introduction      String?
+  thankYouMessage   String?                 @map("thank_you_message")
+  /// https only, 300 characters (CHECK website_form_urls_https).
+  websiteUrl        String?                 @map("website_url")
+  websiteButtonText String?                 @map("website_button_text")
+  /// https only, 300 characters.
+  privacyUrl        String?                 @map("privacy_url")
+  keyChangedAt      DateTime?               @map("key_changed_at") @db.Timestamptz(6)
+  createdAt         DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy         String?                 @map("created_by") @db.Uuid
+  updatedBy         String?                 @map("updated_by") @db.Uuid
+  organization      Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  submissions       WebsiteFormSubmission[]
+
+  /// Lets the ledger point at (organization_id, id).
+  @@unique([organizationId, id])
+  /// One form per organization today; the later several-forms release replaces this.
+  @@unique([organizationId], map: "website_form_one_per_organization")
+  @@map("website_form")
+}
+
+/// One submission that got as far as the ledger (spec 7.2, W21, W22): append only. The page's submission id is unique
+/// with the organization, so a double tap or a retry finds its row.
+model WebsiteFormSubmission {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  formId         String       @map("form_id") @db.Uuid
+  submissionId   String       @map("submission_id") @db.Uuid
+  /// new_lead, repeat_enquiry, blocked, duplicate or spam (CHECK website_form_submission_outcome_value).
+  outcome        String
+  /// honeypot, for spam only (CHECK website_form_submission_reason_value).
+  reason         String?
+  leadId         String?      @map("lead_id") @db.Uuid
+  personId       String?      @map("person_id") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  form           WebsiteForm  @relation(fields: [organizationId, formId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  lead           Lead?        @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  person         Person?      @relation(fields: [organizationId, personId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  /// A submission id is used once per organization.
+  @@unique([organizationId, submissionId])
+  /// The last-30-days counts of a form.
+  @@index([organizationId, formId, createdAt], map: "website_form_submission_counts")
+  /// W22: enquiries per person in 24 hours.
+  @@index([organizationId, personId, createdAt], map: "website_form_submission_person", where: raw("(person_id IS NOT NULL)"))
+  /// The console's hourly sweep of rows older than 90 days pages by created_at across every organization (platform role).
+  @@index([createdAt], map: "website_form_submission_sweep")
+  @@map("website_form_submission")
+}

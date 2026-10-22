@@ -116,7 +116,11 @@ services:
     <<: *api-image
     command: ["api"]
     restart: unless-stopped
-    environment: *api-environment
+    environment:
+      <<: *api-environment
+      PUBLIC_FORM_PROXY_HOPS: ${PUBLIC_FORM_PROXY_HOPS:-}
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
     depends_on: *api-depends-on
     healthcheck:
       test:

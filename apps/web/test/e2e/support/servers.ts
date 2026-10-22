@@ -140,6 +140,8 @@ function waitUntilUp(url: string, server: Started): Promise<void> {
 }
 
 export interface Servers {
+  /** The api itself, for the journeys that send it a request straight, with headers a proxy would add. */
+  apiUrl: string;
   webUrl: string;
   consoleUrl: string;
   stop(): void;
@@ -151,6 +153,7 @@ export async function startServers({
   storage,
   email,
   google,
+  turnstile,
 }: {
   databaseUrl: string;
   /** The platform role's connection, which only the console is given (ADR 0019). */
@@ -161,6 +164,8 @@ export async function startServers({
   email: EmailVariables;
   /** The fake Google (support/fake-google.ts): its address, and the address spreadsheets are shared with. */
   google: { url: string; accountEmail: string };
+  /** The fake Turnstile's siteverify address (support/fake-turnstile.ts). */
+  turnstile: { verifyUrl: string };
 }): Promise<Servers> {
   const reserved = await reservePorts(3);
   const [apiPort = 0, consolePort = 0, webPort = 0] = reserved.ports;
@@ -217,7 +222,18 @@ export async function startServers({
     };
     const tsx = path.join(apiDirectory, "node_modules/.bin/tsx");
     await reserved.release();
-    const api = start(tsx, ["src/server.ts"], { cwd: apiDirectory, env: apiEnvironment });
+    // The website form's settings are the api's alone (spec 16). One proxy hop: the journeys that need a visitor's address
+    // send the api a request straight with a crafted X-Forwarded-For, and the web app's rewrite, which adds one entry, gives
+    // a browser "no address" (plan F7). The keys are Cloudflare's published always-passes pair; the real adapter asks the
+    // fake siteverify, which judges a token by its own words.
+    const formEnvironment: NodeJS.ProcessEnv = {
+      ...apiEnvironment,
+      PUBLIC_FORM_PROXY_HOPS: "1",
+      TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
+      TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA",
+      TURNSTILE_VERIFY_URL: turnstile.verifyUrl,
+    };
+    const api = start(tsx, ["src/server.ts"], { cwd: apiDirectory, env: formEnvironment });
     const worker = start(tsx, ["src/worker.ts"], { cwd: apiDirectory, env: apiEnvironment });
     const platformConsole = start(tsx, ["src/console.ts"], {
       cwd: apiDirectory,
@@ -249,5 +265,5 @@ export async function startServers({
   }
   // If the runner itself is stopped, its children go with it.
   process.once("exit", stop);
-  return { webUrl, consoleUrl, stop };
+  return { apiUrl, webUrl, consoleUrl, stop };
 }

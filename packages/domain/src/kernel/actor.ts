@@ -1,10 +1,11 @@
 // Who is doing something in an organization, as every module and the audit log see it (spec 9.5).
 
 /**
- * Where an action came from: the web app, an API client (later), the worker, support impersonating a user, or a
- * platform admin working in the console (onboarding, a subscription change).
+ * Where an action came from: the web app, an API client (later), the worker, support impersonating a user, a
+ * platform admin working in the console (onboarding, a subscription change), or a visitor to an organization's
+ * public form (nobody signed in).
  */
-export type ActorSource = "web" | "api" | "job" | "impersonation" | "platform";
+export type ActorSource = "web" | "api" | "job" | "impersonation" | "platform" | "public";
 
 export interface Actor {
   readonly organizationId: string;
@@ -23,4 +24,9 @@ export function systemActor(organizationId: string): Actor {
 /** A platform admin acting from the console in one organization, in their own name (spec 7.1). */
 export function platformActor(organizationId: string, adminUserId: string): Actor {
   return { organizationId, userId: adminUserId, source: "platform", impersonatedBy: null };
+}
+
+/** A visitor to the organization's public website form: no user, never impersonated. */
+export function publicActor(organizationId: string): Actor {
+  return { organizationId, userId: null, source: "public", impersonatedBy: null };
 }

@@ -61,6 +61,10 @@
       "exportReady": {
         "label": "An export you asked for is ready",
         "hint": "When the file of leads or staff you asked for can be downloaded."
+      },
+      "formBusy": {
+        "label": "Your website form is busy",
+        "hint": "When your website form gets more enquiries than usual and has been slowed. Told once an hour."
       }
     },
     "loading": "Loading your choices",

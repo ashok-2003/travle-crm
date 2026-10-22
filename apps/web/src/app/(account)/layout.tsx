@@ -2,19 +2,22 @@
 // narrow column, centred across on wide screens, from a fixed top, and edge to edge with a 16px gutter on phones.
 import { brand } from "@travel-crm/brand";
 import Image from "next/image";
+import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
 
 export default function AccountLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-dvh flex-col items-center px-4 py-10 sm:pt-20">
-      <main className="flex w-full max-w-sm flex-col gap-8">
-        <p className="flex items-center gap-2 text-section font-semibold">
-          {/* The brand's mark, which the build copies to /icons; the name next to it says what it is. */}
-          <Image src="/icons/favicon.svg" alt="" width={28} height={28} />
-          {brand.productName}
-        </p>
-        {children}
-      </main>
-    </div>
+    <NextIntlClientProvider>
+      <div className="flex min-h-dvh flex-col items-center px-4 py-10 sm:pt-20">
+        <main className="flex w-full max-w-sm flex-col gap-8">
+          <p className="flex items-center gap-2 text-section font-semibold">
+            {/* The brand's mark, which the build copies to /icons; the name next to it says what it is. */}
+            <Image src="/icons/favicon.svg" alt="" width={28} height={28} />
+            {brand.productName}
+          </p>
+          {children}
+        </main>
+      </div>
+    </NextIntlClientProvider>
   );
 }

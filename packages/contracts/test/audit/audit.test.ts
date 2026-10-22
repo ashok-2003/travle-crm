@@ -1,10 +1,14 @@
 // The audit log's contract: list filters come in pairs, pages are bounded, and entries show where a change came from.
 import { describe, expect, it } from "vitest";
-import { auditEntry, listAuditEntriesInput } from "../../src/audit/index.js";
+import { auditEntry, auditSource, listAuditEntriesInput } from "../../src/audit/index.js";
 
 const memberId = "0199e7a0-0000-7000-8000-0000000000b1";
 
 describe("audit contracts", () => {
+  it("accepts public as a source, for a visitor's form", () => {
+    expect(auditSource.safeParse("public").success).toBe(true);
+  });
+
   it("lists 50 entries by default, and 1 to 100 when asked", () => {
     expect(listAuditEntriesInput.parse({})).toEqual({ limit: 50 });
     expect(listAuditEntriesInput.safeParse({ limit: 100 }).success).toBe(true);

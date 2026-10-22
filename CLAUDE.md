@@ -163,6 +163,14 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   the organization's zone (`formatDateTime`), departure dates as `CalendarDate`. Never floats, never local time.
 - **Public routes** (`/p/<token>`, `/webhooks/<provider>`) are rate-limited; a new shared record type adds a resolver in
   `apps/api/src/share-link-resolvers.ts`, a new provider goes in `apps/api/src/webhook-providers.ts`.
+- **Website form** (ADR 0033, `packages/domain/src/website-forms`): the public routes (`/api/public/website-forms/*`,
+  `/api/public/client-address`) are plain Hono, same-origin with no CORS, and run `assertFormOpen` inside the save's
+  transaction, so a form that closed a second ago is never thanked. An enquiry is saved only through crm's
+  `receiveWebsiteEnquiry`, as `unverified` (the visitor changes nobody: a differing email goes in the note), and every
+  outcome that is not a refusal answers the same status and body, so the form can't tell who is a customer. The
+  visitor's address is read by `PUBLIC_FORM_PROXY_HOPS`, never trusted from the left of the header, and no address,
+  phone, email or message is ever logged. Turnstile sits behind the `BotCheck` port and fails open only when Cloudflare
+  can't answer. Offers consent is crm's `person_consent` ledger, behind `features.marketingConsent`.
 - **Job data and errors** hold ids, never personal data: pg-boss's tables have no row-level security, and a failed
   job's error is shown to platform staff.
 - **Bulk files** (ADR 0030): every CSV and .xlsx goes through the `Spreadsheets` port
@@ -212,16 +220,17 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - `packages/api`: tRPC routers and the procedure builders that run the request checks.
 - `packages/contracts`: Zod schemas for every API input and output.
 - `packages/domain`: business rules, one folder per module (`identity`, `kernel`, `jobs`, `files`, `documents`,
-  `notifications`, `audit`, `share-links`, `webhooks`, `rate-limits`, `subscriptions`, `profile`, `platform`; listed in
+  `notifications`, `audit`, `share-links`, `webhooks`, `rate-limits`, `subscriptions`, `profile`, `platform`, `website-forms`; listed in
   `packages/domain/README.md`). The business modules are layered and call only down (dependency-cruiser's
   `business-modules-call-down`): `catalog` (destinations), `tasks` (follow-ups and tasks), `imports` (an import's
-  steps, for leads and staff alike) and `exports` (an export's file and download) at L0, `crm` (people, leads, their
+  steps, for leads and staff alike) and `exports` (an export's file and download) and `website-forms` (the enquiry form's settings, key, ledger and limits; it
+  never calls crm) at L0, `crm` (people, leads, their
   timeline, blocked contacts, and the lead import's and export's rows) at L1, `today` (the signed-in person's day)
   above them. Search on names and phone digits runs under plain row-level security, so its trigram indexes go unused
   by design (ADR 0028).
   `@travel-crm/domain/<module>`, `@travel-crm/contracts/<module>` and `@travel-crm/integrations/<adapter>` each resolve
   to `src/<name>/index.ts`, so a new module needs no `package.json` change.
-- `packages/integrations`: adapters to the outside world (`storage`, `email`, `push`, `jobs`, `pdf`, `spreadsheets`, `google-sheets`),
+- `packages/integrations`: adapters to the outside world (`storage`, `email`, `push`, `jobs`, `pdf`, `spreadsheets`, `google-sheets`, `bot-check`),
   each a port plus a real and an in-memory adapter.
 - `packages/brand`: the product's name, colours, fonts and contacts (spec 10).
 - `packages/db`: Prisma schema, migrations, RLS, `forOrg`, soft delete, document numbers. The migrations need
@@ -306,6 +315,12 @@ A screen builds from the shared pieces in `apps/web/src/` before writing its own
 
 Each component without a path is in `components/`, in the file of its name (`EmptyState` in `empty-state.tsx`).
 
+- **The visitor's form** (`/f/<key>`, `/embed/<key>`, `public/embed.js`) is outside the providers: client-rendered, no
+  IndexedDB, no service worker, no cookie or storage, and only its own words (`website-form.json`; the agency's screens
+  are `website-form-settings.json`), so `/f` and `/embed` stay light and work through the pilot api's cold start. Only
+  `/embed` may be framed (any https site). The agency's colour is data on the form's own parts, never a class, and its
+  links sit outside it. `features.marketingConsent` stays false until the owner says: no tickbox, switch or consent line.
+
 ## The platform console (`/console`, ADR 0025)
 
 - A section of the web app: routes in `src/app/console/**`, code in `src/console/**`, which nothing else imports. It
@@ -333,7 +348,10 @@ Each component without a path is in `components/`, in the file of its name (`Emp
 - Two images, built from the root: `apps/api/Dockerfile` (one image; its commands are `api`, `worker`, `console`,
   `migrate`, `first-super-admin` and `demo`) and `apps/web/Dockerfile`. `docs/deploy-checklist.md` says how a deploy
   runs them: settings per process, routes, health checks, migrations. A new environment variable goes in its table, a
-  new public path in its routing table and in `docker/Caddyfile`.
+  new public path in its routing table and in `docker/Caddyfile`. A migration that only adds is applied by hand before
+  the release deploys (the website form's, `20261029100000_website_form`); the api never migrates on start.
+- The website form's settings are the api's alone: `PUBLIC_FORM_PROXY_HOPS`, `TURNSTILE_SITE_KEY` and
+  `TURNSTILE_SECRET_KEY` (both or neither), and, for tests only, `TURNSTILE_VERIFY_URL`.
 - The api's image runs a bundle (`pnpm --filter @travel-crm/api-server build`): every third-party package is in it
   but the integrations package's own, which the image installs as they are. A package that reads its own files at
   run time (fonts, data) belongs in `packages/integrations`; `apps/api/test/bundle.test.ts` fails when the bundle
