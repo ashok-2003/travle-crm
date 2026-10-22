@@ -115,4 +115,19 @@ describe("release 1's procedures", () => {
       if (call) expect(await outcome(call()), path).toBe("MISSING_PERMISSION");
     }
   });
+
+  it("answers every assignment procedure as not available yet while automatic assignment is off", async () => {
+    const assignment = callerWithout("leads:create").assignment ?? {};
+    const inputs: Record<string, unknown> = {
+      get: undefined,
+      save: { mode: "owner", slowReplyMinutes: null, rules: [], pool: [] },
+      mine: undefined,
+      setAway: { awayUntil: null },
+    };
+    for (const [name, input] of Object.entries(inputs)) {
+      const call = assignment[name];
+      expect(call, name).toBeDefined();
+      if (call) expect(await outcome(call(input)), name).toBe("NOT_AVAILABLE_YET");
+    }
+  });
 });

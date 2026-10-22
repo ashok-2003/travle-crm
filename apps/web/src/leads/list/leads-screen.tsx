@@ -8,6 +8,7 @@
 // again (a refusal its reason), and an empty list says what belongs here or that nothing matches. Whoever may block a
 // contact finds Blocked contacts at the end, whether or not they may open Settings, which also leads there. A polite
 // status says how many leads are shown, or that a search or filter found none, so screen readers hear each answer.
+import { features } from "@travel-crm/contracts/features";
 import { ContactIcon, SearchXIcon } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -131,7 +132,7 @@ export function LeadsScreen() {
         <TabsList className="w-full md:w-fit" aria-label={t("whose")}>
           <TabsTrigger value="mine">{t("mine")}</TabsTrigger>
           <TabsTrigger value="everyone">{t("everyone")}</TabsTrigger>
-          <TabsTrigger value="unassigned">{t("unassigned")}</TabsTrigger>
+          {features.automaticAssignment && <TabsTrigger value="unassigned">{t("unassigned")}</TabsTrigger>}
         </TabsList>
       )}
       <SearchField key={searchBox} initial={search} onSearch={setSearch} />
