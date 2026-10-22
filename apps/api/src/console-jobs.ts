@@ -1,7 +1,7 @@
 // What the console process runs besides its HTTP app (ADR 0019): the platform's own jobs (purging an organization,
 // erasing a person or a record, exporting one, deleting stored files), the nightly subscription lifecycle, the hourly
 // sweep of stored files still to delete, the daily sweep of exports past their time, the hourly sweep of imports' and
-// exports' files past theirs and, when a demo is set, its nightly reset. They need the platform role, which only this
+// exports' files past theirs, the hourly sweep of the website form's ledger and, when a demo is set, its nightly reset. They need the platform role, which only this
 // process holds. No listeners and no outbox relay: those are the worker's.
 import { startJobHandlers, type JobHandler, type ScheduledJob } from "@travel-crm/domain/jobs";
 import {
@@ -11,6 +11,7 @@ import {
   RESET_DEMO_QUEUE,
   resetDemoOrganization,
   sheetsSweepSchedule,
+  websiteFormsSweepSchedule,
   storedFileDeletionsSchedule,
   type DemoSettings,
   type PlatformServices,
@@ -71,9 +72,19 @@ export function consoleJobs(services: PlatformServices, demo: DemoSettings | nul
   const bulkFilesSweep = bulkFilesSweepSchedule(services);
   // The Sheets sync's drafts, resolved problems, schedule rows and claims past their time (S5, S6, S31).
   const sheetsSweep = sheetsSweepSchedule(services);
+  // The website form's ledger rows older than 90 days (spec 7.2).
+  const websiteFormsSweep = websiteFormsSweepSchedule(services);
   return {
     handlers: platformJobHandlers(services),
-    schedules: [lifecycle, storedFilesSweep, expiredExportsSweep, bulkFilesSweep, sheetsSweep, ...demoReset],
+    schedules: [
+      lifecycle,
+      storedFilesSweep,
+      expiredExportsSweep,
+      bulkFilesSweep,
+      sheetsSweep,
+      websiteFormsSweep,
+      ...demoReset,
+    ],
   };
 }
 
