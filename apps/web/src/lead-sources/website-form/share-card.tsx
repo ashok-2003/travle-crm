@@ -90,7 +90,7 @@ export function ShareCard({ view, control }: { view: WebsiteFormView; control: C
                   <Switch id={embedId} checked={field.value} onCheckedChange={field.onChange} />
                 </ItemActions>
               </Item>
-              {view.key !== null && (
+              {view.key !== null && view.embedLink !== null && (
                 <>
                   <div>
                     <Button
@@ -109,6 +109,7 @@ export function ShareCard({ view, control }: { view: WebsiteFormView; control: C
                     onOpenChange={setShowSnippet}
                     returnFocusTo={snippetButton}
                     formKey={view.key}
+                    embedLink={view.embedLink}
                     allowEmbed={field.value}
                     savedAllowEmbed={view.settings.allowEmbed}
                     onAllowEmbed={field.onChange}

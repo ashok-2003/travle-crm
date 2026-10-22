@@ -13,10 +13,11 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-export const scriptSnippet = (origin: string, key: string) =>
-  `<script src="${origin}/embed.js" data-form="${key}" async></script>`;
-export const iframeSnippet = (origin: string, key: string) =>
-  `<iframe src="${origin}/embed/${key}" title="Enquiry form" width="100%" height="760" style="border:0" loading="lazy"></iframe>`;
+/** Both come from the api's own embed address (APP_URL), the one the Link field shows, never the browser's host. */
+export const scriptSnippet = (embedLink: string, key: string) =>
+  `<script src="${new URL(embedLink).origin}/embed.js" data-form="${key}" async></script>`;
+export const iframeSnippet = (embedLink: string) =>
+  `<iframe src="${embedLink}" title="Enquiry form" width="100%" height="760" style="border:0" loading="lazy"></iframe>`;
 
 function Snippet({ text, copyLabel, help }: { text: string; copyLabel: string; help: string }) {
   return (
@@ -35,6 +36,7 @@ export function SnippetDialog({
   onOpenChange,
   returnFocusTo,
   formKey,
+  embedLink,
   allowEmbed,
   savedAllowEmbed,
   onAllowEmbed,
@@ -43,6 +45,7 @@ export function SnippetDialog({
   onOpenChange: (open: boolean) => void;
   returnFocusTo: ReturnFocusTo;
   formKey: string;
+  embedLink: string;
   /** The website switch as the page has it now, saved or not. */
   allowEmbed: boolean;
   savedAllowEmbed: boolean;
@@ -50,7 +53,6 @@ export function SnippetDialog({
 }) {
   const t = useTranslations("websiteFormSettings.snippet");
   const tShare = useTranslations("websiteFormSettings.share");
-  const origin = window.location.origin;
   return (
     <ResponsiveDialog
       open={open}
@@ -79,10 +81,10 @@ export function SnippetDialog({
                 <TabsTrigger value="iframe">{t("iframe")}</TabsTrigger>
               </TabsList>
               <TabsContent value="script">
-                <Snippet text={scriptSnippet(origin, formKey)} copyLabel={t("copyScript")} help={t("scriptHelp")} />
+                <Snippet text={scriptSnippet(embedLink, formKey)} copyLabel={t("copyScript")} help={t("scriptHelp")} />
               </TabsContent>
               <TabsContent value="iframe">
-                <Snippet text={iframeSnippet(origin, formKey)} copyLabel={t("copyIframe")} help={t("iframeHelp")} />
+                <Snippet text={iframeSnippet(embedLink)} copyLabel={t("copyIframe")} help={t("iframeHelp")} />
               </TabsContent>
             </Tabs>
             <FieldDescription>{t("works")}</FieldDescription>

@@ -17,8 +17,8 @@ afterEach(() => {
 });
 
 const t = messages.websiteFormSettings;
-const scriptTag = `<script src="${window.location.origin}/embed.js" data-form="${formKey}" async></script>`;
-const iframeTag = `<iframe src="${window.location.origin}/embed/${formKey}" title="Enquiry form" width="100%" height="760" style="border:0" loading="lazy"></iframe>`;
+const scriptTag = `<script src="https://app.example/embed.js" data-form="${formKey}" async></script>`;
+const iframeTag = `<iframe src="https://app.example/embed/${formKey}" title="Enquiry form" width="100%" height="760" style="border:0" loading="lazy"></iframe>`;
 
 function render(
   view = aWebsiteFormView(),
@@ -102,7 +102,7 @@ describe("the Share card", () => {
 });
 
 describe("the snippet", () => {
-  it("carries the key and the app's address in the script and in the iframe", async () => {
+  it("carries the key and the api's own address (not the browser's) in the script and in the iframe", async () => {
     render();
     await userEvent.click(await screen.findByRole("button", { name: t.share.copySnippet }));
     const dialog = await screen.findByRole("dialog", { name: t.snippet.title });
