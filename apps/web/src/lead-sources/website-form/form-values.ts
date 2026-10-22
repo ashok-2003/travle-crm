@@ -25,7 +25,7 @@ export interface FormValues {
   privacyUrl: string;
 }
 
-export type FormProblem = "link" | "tooLong" | "required";
+export type FormProblem = "link" | "tooLong";
 
 export function valuesOf(settings: WebsiteFormSettings): FormValues {
   return {

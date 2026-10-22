@@ -4,6 +4,7 @@
 // block with its copy button, for the app's own address and the form's key. With the website switch off it says the
 // snippet is off and offers the switch, since a form pasted now would show nothing.
 import { useTranslations } from "next-intl";
+import { useId } from "react";
 import { CopyButton } from "@/components/copy-button";
 import type { ReturnFocusTo } from "@/components/return-focus";
 import { ResponsiveDialog } from "@/components/responsive-dialog";
@@ -53,6 +54,7 @@ export function SnippetDialog({
 }) {
   const t = useTranslations("websiteFormSettings.snippet");
   const tShare = useTranslations("websiteFormSettings.share");
+  const embedId = useId();
   return (
     <ResponsiveDialog
       open={open}
@@ -93,8 +95,8 @@ export function SnippetDialog({
           <FieldDescription>{t("off")}</FieldDescription>
         )}
         <div className="flex items-center justify-between gap-4">
-          <Label htmlFor="snippet-allow-embed">{tShare("embed")}</Label>
-          <Switch id="snippet-allow-embed" checked={allowEmbed} onCheckedChange={onAllowEmbed} />
+          <Label htmlFor={embedId}>{tShare("embed")}</Label>
+          <Switch id={embedId} checked={allowEmbed} onCheckedChange={onAllowEmbed} />
         </div>
         {allowEmbed !== savedAllowEmbed && <FieldDescription>{t("saveToApply")}</FieldDescription>}
       </div>

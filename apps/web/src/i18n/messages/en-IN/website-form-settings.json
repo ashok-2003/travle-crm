@@ -92,8 +92,7 @@
   },
   "problems": {
     "link": "Use an address that starts with https://",
-    "tooLong": "That is too long.",
-    "required": "Fill this in."
+    "tooLong": "That is too long."
   },
   "share": {
     "heading": "Share",

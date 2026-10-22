@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { InfoHint } from "@/components/info-hint";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTRPC } from "@/data/trpc";
 import { formatCount } from "@/lib/format";
@@ -44,7 +44,6 @@ export function CountsCard() {
                 {query.data === undefined ? <Skeleton className="h-8 w-16" /> : formatCount(query.data[name])}
               </CardTitle>
             </CardHeader>
-            <CardContent />
           </Card>
         ))}
       </div>
