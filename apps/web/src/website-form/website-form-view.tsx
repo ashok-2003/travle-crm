@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl";
 import { lazy, Suspense, useEffect, useId, useState } from "react";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { TextLink } from "@/components/text-link";
 import { Button } from "@/components/ui/button";
 import { FieldSet } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
@@ -171,16 +172,12 @@ export function WebsiteFormView({ form, mode, width, send }: WebsiteFormViewProp
                 {t("checking")}
               </p>
             )}
-            <p className="text-caption text-muted-foreground">
-              {t("goesTo", { name: form.organizationName })}
-              {form.privacyUrl !== null && (
-                <Button variant="link" className="h-auto px-1 py-0 text-caption" asChild>
-                  <a href={form.privacyUrl} target="_blank" rel="noopener noreferrer">
-                    {t("privacy")}
-                  </a>
-                </Button>
-              )}
-            </p>
+            <p className="text-caption text-muted-foreground">{t("goesTo", { name: form.organizationName })}</p>
+            {form.privacyUrl !== null && (
+              <TextLink href={form.privacyUrl} newTab>
+                {t("privacy")}
+              </TextLink>
+            )}
             {preview && <p className="text-caption text-muted-foreground">{t("previewNote")}</p>}
           </div>
         </FieldSet>
