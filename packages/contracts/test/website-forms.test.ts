@@ -10,6 +10,7 @@ import {
   formCountsView,
   offersWording,
   publicForm,
+  publicFormQuery,
   saveWebsiteFormInput,
   websiteEnquiryInput,
   websiteFormPublic,
@@ -38,6 +39,15 @@ const settings = {
 };
 
 describe("website form contracts", () => {
+  it("the public GET names which page asks: hosted or embedded, nothing else", () => {
+    expect(publicFormQuery.parse({ via: "embedded" })).toEqual({ via: "embedded" });
+    expect(publicFormQuery.safeParse({ via: "hosted" }).success).toBe(true);
+    for (const bad of [{}, { via: "iframe" }, { via: "hosted", extra: 1 }]) {
+      expect(publicFormQuery.safeParse(bad).success, JSON.stringify(bad)).toBe(false);
+    }
+    expect(websiteEnquiryInput.safeParse({ ...submission, via: undefined }).success).toBe(false);
+  });
+
   it("accepts a plain submission and reads the phone as E.164", () => {
     const parsed = websiteEnquiryInput.parse(submission);
     expect(parsed.answers.phone).toBe("+919876543210");
@@ -100,6 +110,25 @@ describe("website form contracts", () => {
         "https://agency.example/x",
       );
       expect(saveWebsiteFormInput.parse({ ...settings, [key]: "  " })[key]).toBeNull();
+    }
+  });
+
+  it("refuses a link with credentials or an IP address for a host", () => {
+    for (const key of ["websiteUrl", "privacyUrl"] as const) {
+      for (const link of [
+        "https://user:pass@agency.example",
+        "https://user@agency.example",
+        "https://:pass@agency.example",
+        "https://192.168.1.10/form",
+        "https://8.8.8.8",
+        "https://[2001:db8::1]/x",
+        "https://2130706433/x",
+      ]) {
+        expect(saveWebsiteFormInput.safeParse({ ...settings, [key]: link }).success, `${key} ${link}`).toBe(false);
+      }
+      expect(saveWebsiteFormInput.safeParse({ ...settings, [key]: "https://agency.example:8443/a?b=1" }).success).toBe(
+        true,
+      );
     }
   });
 

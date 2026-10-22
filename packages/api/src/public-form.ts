@@ -3,16 +3,25 @@
 // preview is what a visitor gets. It needs no signed-in member: the logo link is the system's.
 import { features } from "@travel-crm/contracts/features";
 import { LOGO_RECORD_TYPE } from "@travel-crm/contracts/profile";
-import { offersWording, type PublicForm, type SaveWebsiteFormInput } from "@travel-crm/contracts/website-forms";
+import {
+  offersWording,
+  type ClosedPublicForm,
+  type FormVia,
+  type PublicForm,
+  type SaveWebsiteFormInput,
+  type WebsiteFormPublic,
+} from "@travel-crm/contracts/website-forms";
 import type { Database } from "@travel-crm/db";
 import { offeredDestinations } from "@travel-crm/domain/crm";
 import type { Files } from "@travel-crm/domain/files";
 import type { Identity } from "@travel-crm/domain/identity";
-import { calendarDateIn, publicActor } from "@travel-crm/domain/kernel";
+import { DomainError, calendarDateIn, publicActor } from "@travel-crm/domain/kernel";
 import type { Profiles } from "@travel-crm/domain/profile";
 
-/** The sentence a visitor reads after sending when the agency wrote none; the form's words are ours, in English (W3). */
-export const DEFAULT_THANK_YOU = "Thank you. We have your details and will be in touch soon.";
+/** What a visitor reads after sending when the agency wrote nothing (spec 3.2); the form's words are ours, in English (W3). */
+export function defaultThankYou(agencyName: string): string {
+  return `Thank you! ${agencyName} will get in touch with you soon.`;
+}
 
 /** The token the settings Preview carries: it opens nothing, and the preview never sends. */
 export const PREVIEW_TOKEN = "preview";
@@ -51,6 +60,28 @@ export function monthsFrom(today: string): string[] {
   });
 }
 
+/**
+ * A short-lived link to the agency's newest logo, or null when there is none to show: a logo that is sensitive or not
+ * ready is "no logo", never a failure of the whole form. Used by the form and by the closed card.
+ */
+export async function logoLinkOf(
+  files: Pick<Files, "list" | "systemDownloadLink">,
+  organizationId: string,
+): Promise<string | null> {
+  const logos = await files.list(publicActor(organizationId), {
+    recordType: LOGO_RECORD_TYPE,
+    recordId: organizationId,
+  });
+  const logo = logos.at(-1);
+  if (logo === undefined) return null;
+  try {
+    return (await files.systemDownloadLink(organizationId, { attachmentId: logo.id })).url;
+  } catch (error) {
+    if (error instanceof DomainError) return null;
+    throw error;
+  }
+}
+
 export interface PublicFormServices {
   db: Pick<Database, "forOrg">;
   identity: Pick<Identity, "organizationProfile">;
@@ -73,15 +104,7 @@ export async function publicFormOf(
   const organization = await services.identity.organizationProfile(organizationId);
   if (organization === null) throw new Error("A form needs its organization");
   const profile = await services.profiles.get(organizationId);
-  const logos = await services.files.list(publicActor(organizationId), {
-    recordType: LOGO_RECORD_TYPE,
-    recordId: organizationId,
-  });
-  const logo = logos.at(-1);
-  const logoUrl =
-    logo === undefined
-      ? null
-      : (await services.files.systemDownloadLink(organizationId, { attachmentId: logo.id })).url;
+  const logoUrl = await logoLinkOf(services.files, organizationId);
   const destinations = await services.db.forOrg(organizationId, (tx) => offeredDestinations(tx));
   const tickbox = settings.offersTickbox && features.marketingConsent;
   return {
@@ -90,7 +113,7 @@ export async function publicFormOf(
     colour: colourWithInk(profile?.brandColour ?? null),
     heading: settings.heading,
     introduction: settings.introduction,
-    thankYouMessage: settings.thankYouMessage ?? DEFAULT_THANK_YOU,
+    thankYouMessage: settings.thankYouMessage ?? defaultThankYou(organization.name),
     websiteUrl: settings.websiteUrl,
     websiteButtonText: settings.websiteButtonText,
     privacyUrl: settings.privacyUrl,
@@ -109,4 +132,36 @@ export async function publicFormOf(
     openedToken: input.openedToken,
     turnstileSiteKey: input.turnstileSiteKey,
   };
+}
+
+/** The card a visitor sees when the form is closed to them: the agency's name, logo and the way back to its website. */
+export async function closedFormOf(
+  services: Pick<PublicFormServices, "identity" | "files">,
+  input: { organizationId: string; websiteUrl: string | null; websiteButtonText: string | null },
+): Promise<ClosedPublicForm> {
+  const organization = await services.identity.organizationProfile(input.organizationId);
+  if (organization === null) throw new Error("A form needs its organization");
+  return {
+    organizationName: organization.name,
+    logoUrl: await logoLinkOf(services.files, input.organizationId),
+    websiteUrl: input.websiteUrl,
+    websiteButtonText: input.websiteButtonText,
+  };
+}
+
+/**
+ * What the public GET answers for a form that is otherwise open: the form, or, for an embed the agency switched off, the
+ * closed card. (Whether the form is open at all is assertFormOpen's, which the route runs first.)
+ */
+export async function websiteFormPublicOf(
+  services: PublicFormServices,
+  input: Parameters<typeof publicFormOf>[1] & { via: FormVia },
+): Promise<WebsiteFormPublic> {
+  if (input.via === "embedded" && !input.settings.allowEmbed) {
+    return {
+      available: false,
+      form: await closedFormOf(services, { organizationId: input.organizationId, ...input.settings }),
+    };
+  }
+  return { available: true, form: await publicFormOf(services, input) };
 }

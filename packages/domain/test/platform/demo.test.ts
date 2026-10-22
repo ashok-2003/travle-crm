@@ -100,8 +100,8 @@ describe("the demo reset", () => {
     const [asha, ravi] = [users.get("asha"), users.get("ravi")];
     const data = await demoData(organizationId);
 
-    expect(data.leads).toHaveLength(17);
-    expect(data.people).toHaveLength(15);
+    expect(data.leads).toHaveLength(19);
+    expect(data.people).toHaveLength(17);
     expect(data.destinations).toBe(6);
     expect(new Set(data.leads.map((lead) => lead.stage))).toEqual(new Set(leadStages));
     expect(new Set(data.leads.map((lead) => lead.ownerUserId))).toEqual(new Set([asha, ravi]));
@@ -264,7 +264,7 @@ describe("the demo reset", () => {
     const tomorrow = new Date(tonight.getTime() + 24 * 60 * 60 * 1000);
     const { organizationId } = await resetDemoOrganization(test.services, demo, tomorrow);
     const data = await demoData(organizationId);
-    expect([data.leads.length, data.people.length, data.destinations, data.blocked.length]).toEqual([17, 15, 6, 1]);
+    expect([data.leads.length, data.people.length, data.destinations, data.blocked.length]).toEqual([19, 17, 6, 1]);
   });
 
   it("purges last night's demo and builds it afresh", async () => {

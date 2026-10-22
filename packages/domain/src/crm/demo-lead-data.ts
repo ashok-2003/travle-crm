@@ -1,6 +1,6 @@
-// The demo agency's sample data (spec 7): its six destinations, fifteen people and seventeen leads, each lead timed from
+// The demo agency's sample data (spec 7): its six destinations, seventeen people and nineteen leads, each lead timed from
 // the reset's `now` on the agency's clock. Every stage is here; Priya Nair returns after a Won trip to Kerala, Arjun
-// Reddy after a Lost one, and the Quick Loans Desk is Not a lead with its email blocked. Two leads came from an import and two from a Google Sheet,
+// Reddy after a Lost one, and the Quick Loans Desk is Not a lead with its email blocked. Two leads came from an import, two from a Google Sheet and two from the website form,
 // so the source shows in the list and on a lead. Notes on four leads;
 // follow-ups two overdue, three due today, two later. demo-leads.ts builds them.
 import type { LeadSource, LeadStage, TripInput } from "@travel-crm/contracts/crm";
@@ -33,6 +33,8 @@ export const PEOPLE = [
   { name: "Karan Malhotra", instagramHandle: "karan.rides" },
   { name: "Nisha Rao", email: "nisha.rao@example.com" },
   { name: "Suresh Pillai", email: "suresh.pillai@example.com" },
+  { name: "Tanvi Bose", email: "tanvi.bose@example.com" },
+  { name: "Imran Sheikh", email: "imran.sheikh@example.com" },
 ] as const;
 type DemoPerson = (typeof PEOPLE)[number]["name"];
 
@@ -55,7 +57,7 @@ const rupees = (amount: number, basis: "per_person" | "for_everyone") => ({
   basis,
 });
 
-/** The seventeen leads, each timed from now on the agency's clock. */
+/** The nineteen leads, each timed from now on the agency's clock. */
 export function demoLeads(now: Date, timeZone: string): DemoLead[] {
   const today = calendarDateIn(now, timeZone);
   const ago = (minutes: number) => new Date(now.getTime() - minutes * 60_000);
@@ -282,6 +284,27 @@ export function demoLeads(now: Date, timeZone: string): DemoLead[] {
       source: "google_sheet",
       sourceDetail: "Goa Diwali campaign · Form responses 1",
       createdAt: daysAgo(2),
+    },
+    // Two from the website form, one by the hosted link and one by a form embedded on the agency's own site.
+    {
+      person: "Tanvi Bose",
+      owner: "owner",
+      stage: "new",
+      destination: "Kerala",
+      trip: { when: month(45), adults: 2, tripType: "family" },
+      source: "web_form",
+      sourceDetail: "Hosted link",
+      createdAt: ago(90),
+    },
+    {
+      person: "Imran Sheikh",
+      owner: "owner",
+      stage: "new",
+      destination: "Rajasthan",
+      trip: { when: month(60), adults: 3, tripType: "friends" },
+      source: "web_form",
+      sourceDetail: "sharmatravels.in",
+      createdAt: ago(35),
     },
   ];
 }

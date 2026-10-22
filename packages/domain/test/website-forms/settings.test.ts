@@ -81,6 +81,11 @@ describe("website form settings", () => {
         saveWebsiteForm(tx, staff(organizationId), { ...defaultSettings, websiteUrl: "http://agency.example" }),
       ),
     ).rejects.toMatchObject({ code: "VALIDATION", reason: "FORM_LINK_INVALID" });
+    await expect(
+      test.db.forOrg(organizationId, (tx) =>
+        saveWebsiteForm(tx, staff(organizationId), { ...defaultSettings, privacyUrl: "https://u:p@agency.example" }),
+      ),
+    ).rejects.toMatchObject({ reason: "FORM_LINK_INVALID" });
   });
 
   it("turn on writes one audit entry, and turning on again writes none", async () => {
@@ -141,7 +146,9 @@ describe("website form settings", () => {
     const oldKey = formKeyOf(organizationId, first.keySecret);
     const ownerUserId = anOwnerId();
     const open = (key: string) =>
-      test.db.forOrg(organizationId, (tx) => assertFormOpen(tx, { key, organizationId, ownerUserId, now: testNow }));
+      test.db.forOrg(organizationId, (tx) =>
+        assertFormOpen(tx, { key, organizationId, ownerUserId, via: "hosted", now: testNow }),
+      );
     await expect(open(oldKey)).resolves.toBeDefined();
     const second = await test.db.forOrg(organizationId, (tx) => changeWebsiteFormLink(tx, actor, testNow));
     await expect(open(oldKey)).rejects.toMatchObject({ code: "NOT_FOUND", reason: "FORM_NOT_FOUND" });
