@@ -67,6 +67,7 @@ const DEMO_FORM = saveWebsiteFormInput.parse({
   allowEmbed: true,
   emailMode: "optional",
   destinationMode: "optional",
+  destinationInput: "list",
   travelMonthMode: "optional",
   travellersMode: "optional",
   budgetMode: "off",

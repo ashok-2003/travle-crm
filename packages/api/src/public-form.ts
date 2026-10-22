@@ -105,7 +105,11 @@ export async function publicFormOf(
   if (organization === null) throw new Error("A form needs its organization");
   const profile = await services.profiles.get(organizationId);
   const logoUrl = await logoLinkOf(services.files, organizationId);
-  const destinations = await services.db.forOrg(organizationId, (tx) => offeredDestinations(tx));
+  // A typed box offers no list, so the destinations are not read at all.
+  const destinations =
+    settings.destinationInput === "typed"
+      ? []
+      : await services.db.forOrg(organizationId, (tx) => offeredDestinations(tx));
   const tickbox = settings.offersTickbox && features.marketingConsent;
   return {
     organizationName: organization.name,
@@ -125,6 +129,7 @@ export async function publicFormOf(
       budget: settings.budgetMode,
       message: settings.messageMode,
     },
+    destinationInput: settings.destinationInput,
     offersTickbox: tickbox,
     offersWording: tickbox ? offersWording(organization.name) : null,
     destinations,

@@ -7,6 +7,7 @@ const settings = {
   allowEmbed: false,
   emailMode: "optional",
   destinationMode: "optional",
+  destinationInput: "list",
   travelMonthMode: "optional",
   travellersMode: "optional",
   budgetMode: "off",
@@ -50,6 +51,39 @@ const ask = (via: "hosted" | "embedded", allowEmbed: boolean) =>
   });
 
 describe("websiteFormPublicOf", () => {
+  it("in typed mode the form has no list and the destinations query does not run", async () => {
+    let queries = 0;
+    const counting = {
+      ...services,
+      db: {
+        forOrg: (_id: string, work: (tx: unknown) => unknown) =>
+          Promise.resolve(
+            work({
+              $queryRaw: () => {
+                queries += 1;
+                return Promise.resolve([{ id: "0199e7a0-0000-7000-8000-0000000000d1", name: "Goa" }]);
+              },
+            }),
+          ),
+      },
+    } as unknown as PublicFormServices;
+    const ask = (destinationInput: "list" | "typed") =>
+      websiteFormPublicOf(counting, {
+        organizationId,
+        settings: { ...settings, allowEmbed: true, destinationInput },
+        openedToken: "t",
+        turnstileSiteKey: null,
+        now: new Date("2026-10-22T06:00:00Z"),
+        via: "hosted",
+      });
+    const typed = await ask("typed");
+    expect(typed.available && typed.form).toMatchObject({ destinationInput: "typed", destinations: [] });
+    expect(queries).toBe(0);
+    const list = await ask("list");
+    expect(list.available && list.form).toMatchObject({ destinationInput: "list" });
+    expect(queries).toBe(1);
+  });
+
   it("an embed with embedding off gets the closed card, with no fields", async () => {
     const answer = await ask("embedded", false);
     expect(answer).toEqual({

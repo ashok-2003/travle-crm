@@ -13,6 +13,7 @@ export const defaultSettings: WebsiteFormSettings = {
   allowEmbed: true,
   emailMode: "optional",
   destinationMode: "optional",
+  destinationInput: "list",
   travelMonthMode: "optional",
   travellersMode: "optional",
   budgetMode: "off",
@@ -33,6 +34,7 @@ export function settingsOf(row: WebsiteFormRow | null): WebsiteFormSettings {
     allowEmbed: row.allowEmbed,
     emailMode: row.emailMode,
     destinationMode: row.destinationMode,
+    destinationInput: row.destinationInput,
     travelMonthMode: row.travelMonthMode,
     travellersMode: row.travellersMode,
     budgetMode: row.budgetMode,
@@ -55,11 +57,12 @@ export async function viewOf(
   const { organizationId } = input;
   const ownerUserId = await services.identity.firstOwner(organizationId);
   const names = await memberNames(services.identity, organizationId, [ownerUserId]);
-  const { row, state } = await services.db.forOrg(organizationId, async (tx) => {
+  const { row, state, hasDestinations } = await services.db.forOrg(organizationId, async (tx) => {
     const found = await readWebsiteForm(tx);
     return {
       row: found,
       state: await formOpenState(tx, { organizationId, form: found, ownerUserId, now: input.now }),
+      hasDestinations: (await tx.destination.findFirst({ select: { id: true } })) !== null,
     };
   });
   const base = input.appUrl.replace(/\/+$/, "");
@@ -71,5 +74,6 @@ export async function viewOf(
     embedLink: key === null ? null : `${base}/embed/${key}`,
     state,
     ownerName: ownerUserId === null ? null : (names[ownerUserId] ?? null),
+    hasDestinations,
   };
 }

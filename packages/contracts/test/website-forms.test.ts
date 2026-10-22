@@ -25,6 +25,7 @@ const settings = {
   allowEmbed: true,
   emailMode: "optional",
   destinationMode: "optional",
+  destinationInput: "list",
   travelMonthMode: "optional",
   travellersMode: "optional",
   budgetMode: "off",
@@ -39,6 +40,15 @@ const settings = {
 };
 
 describe("website form contracts", () => {
+  it("the destination input is list or typed, and Save defaults it to list", () => {
+    const withoutIt: Partial<typeof settings> = { ...settings };
+    delete withoutIt.destinationInput;
+    expect(saveWebsiteFormInput.parse(withoutIt).destinationInput).toBe("list");
+    expect(saveWebsiteFormInput.parse({ ...settings, destinationInput: "typed" }).destinationInput).toBe("typed");
+    expect(saveWebsiteFormInput.safeParse({ ...settings, destinationInput: "map" }).success).toBe(false);
+    expect(websiteFormSettings.safeParse({ ...settings, enabled: true, destinationInput: "map" }).success).toBe(false);
+  });
+
   it("the public GET names which page asks: hosted or embedded, nothing else", () => {
     expect(publicFormQuery.parse({ via: "embedded" })).toEqual({ via: "embedded" });
     expect(publicFormQuery.safeParse({ via: "hosted" }).success).toBe(true);
@@ -160,6 +170,7 @@ describe("website form contracts", () => {
       embedLink: null,
       state,
       ownerName: null,
+      hasDestinations: false,
       extra: 1,
     });
     expect(view).not.toHaveProperty("extra");
