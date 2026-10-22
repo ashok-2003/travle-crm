@@ -3,6 +3,7 @@
 // the api for the checks that are about the wire: an address in X-Forwarded-For, a status, a body.
 import { randomInt, randomUUID } from "node:crypto";
 import { expect, type APIRequestContext, type Browser, type BrowserContext, type Page } from "@playwright/test";
+import type { LeadListItem, LeadListPage, TimelinePage } from "@travel-crm/contracts/crm";
 import type { SaveWebsiteFormInput, WebsiteFormView, WebsiteFormPublic } from "@travel-crm/contracts/website-forms";
 import { turnstileScript, turnstileTokenFor, type TurnstileAnswer } from "./fake-turnstile";
 import { callApi, anotherPersonsDevice } from "./leads";
@@ -187,4 +188,26 @@ export async function postEnquiry(
     data: enquiryBody(enquiry),
     headers: { origin: webUrl(), ...headers },
   });
+}
+
+const leadStages = ["open", "won", "lost", "not_a_lead"] as const;
+
+/** Every lead the signed-in Owner can see, open or closed, newest first within each group. */
+export async function leadsOf(page: Page): Promise<LeadListItem[]> {
+  const items: LeadListItem[] = [];
+  for (const stage of leadStages) {
+    const found = await callApi<LeadListPage>(page, "leads.list", { view: "everyone", stage, limit: 50 });
+    items.push(...found.items);
+  }
+  return items;
+}
+
+/** The leads of one visitor, by the phone they typed. */
+export async function leadsOfPhone(page: Page, phone: string): Promise<LeadListItem[]> {
+  const digits = phone.replaceAll(/\D/g, "").slice(-10);
+  return (await leadsOf(page)).filter((lead) => (lead.person.phone ?? "").endsWith(digits));
+}
+
+export function timelineOf(page: Page, leadId: string): Promise<TimelinePage> {
+  return callApi<TimelinePage>(page, "leads.timeline", { leadId });
 }
