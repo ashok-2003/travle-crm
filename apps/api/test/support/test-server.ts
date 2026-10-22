@@ -79,6 +79,8 @@ export interface TestServerOptions {
   /** The database to run on: the test run's shared one, unless a file needs one of its own (createIsolatedDatabase). */
   dbUrls?: DbUrls;
   /** The website form's bot check and public site key: off unless given (W39). */
+  /** The web app's address (APP_URL), which the settings links are made under. */
+  appUrl?: string;
   botCheck?: BotCheck;
   turnstileSiteKey?: string;
   /** How the website form reads the visitor's address (W32): sign-in's rule unless given. */
@@ -119,7 +121,7 @@ export function createTestServer(settings: Partial<AuthSettings> = {}, options: 
     webhookProviders: options.webhookProviders ?? [],
     logger,
     authSecret: { ...testAuthSettings, ...settings }.secret,
-    appUrl: "http://localhost:3000",
+    appUrl: options.appUrl ?? "http://localhost:3000",
     botCheck: options.botCheck ?? null,
     turnstileSiteKey: options.turnstileSiteKey ?? null,
     ...(options.formAddress === undefined ? {} : { formAddress: options.formAddress }),

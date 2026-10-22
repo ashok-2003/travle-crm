@@ -2,6 +2,8 @@
 // fault generically while the log keeps only its names.
 import { afterAll, describe, expect, it } from "vitest";
 import { createTestServer, type TestServer } from "./support/test-server.js";
+import { signedInOwner } from "./support/people.js";
+import { dataOf, query } from "./support/trpc.js";
 import { agencyWithOpenForm, freshAddress, getForm } from "./support/website-form.js";
 
 describe("the public routes in the app", () => {
@@ -44,5 +46,14 @@ describe("the public routes in the app", () => {
     expect(logs).toContain("/api/public");
     expect(logs).not.toMatch(/Jane Doe|98765/);
     expect(logs).not.toContain(open.key.slice(22));
+  });
+
+  it("makes the settings links under the configured APP_URL", async () => {
+    const server = serverWith({}, { appUrl: "https://app.agency-crm.example" });
+    const open = await agencyWithOpenForm(server);
+    const owner = await signedInOwner(server, open.agency);
+    const view = await dataOf<{ link: string; embedLink: string }>(await query(server, "websiteForm.get", owner));
+    expect(view.link).toBe(`https://app.agency-crm.example/f/${open.key}`);
+    expect(view.embedLink).toBe(`https://app.agency-crm.example/embed/${open.key}`);
   });
 });

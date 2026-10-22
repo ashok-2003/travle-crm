@@ -35,8 +35,8 @@ export interface ApiDependencies {
   rateLimiter?: Pick<RateLimiter, "hit">;
   /** Keys the spreadsheet claim; null or absent when SHEETS_HASH_KEY is not set. */
   sheetsHashes?: SheetsDependencies["hashes"];
-  /** The web app's address, which the form's links are made under (APP_URL). */
-  appUrl?: string;
+  /** The web app's address, which the form's links are made under (APP_URL). Required: no default can be right in production. */
+  appUrl: string;
 }
 
 /**
@@ -55,7 +55,7 @@ export async function createContext(
     google = null,
     sheetsHashes = null,
     rateLimiter,
-    appUrl = "http://localhost:3000",
+    appUrl,
   }: ApiDependencies,
   request: Request,
   resHeaders: Headers,
