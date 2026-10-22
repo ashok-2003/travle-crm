@@ -28,6 +28,18 @@ export interface Features {
    * `vi.mock("@travel-crm/contracts/features", () => ({ features: { automaticAssignment: true } }))`.
    */
   readonly automaticAssignment: boolean;
+  /**
+   * Marketing consent (website form, spec 0.1.2): the form's "send me offers" tickbox, the consent ledger's screens
+   * and the person card's consent line. Off until the legal read of DPDP consent is done (owner's answer,
+   * 2026-10-22): the settings page shows no offers switch, the public form returns `offersTickbox: false` and shows
+   * no tickbox, and a submission that sets `offers` is refused `VALIDATION`. The tables stay. The tests of consent
+   * turn it on with `vi.mock("@travel-crm/contracts/features", () => ({ features: { marketingConsent: true } }))`.
+   */
+  readonly marketingConsent: boolean;
 }
 
-export const features: Features = { twoFactor: false, automaticAssignment: false };
+export const features: Features = {
+  twoFactor: false,
+  automaticAssignment: false,
+  marketingConsent: false,
+};
