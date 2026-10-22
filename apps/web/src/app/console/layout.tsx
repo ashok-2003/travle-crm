@@ -3,6 +3,7 @@
 import { brand } from "@travel-crm/brand";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
+import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
 import { ConsoleProviders } from "@/console/data/console-providers";
 import { ConsoleGate } from "@/console/session/console-gate";
@@ -16,10 +17,12 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function ConsoleLayout({ children }: { children: ReactNode }) {
   return (
-    <ConsoleProviders>
-      <ConsoleGate>
-        <ConsoleShell>{children}</ConsoleShell>
-      </ConsoleGate>
-    </ConsoleProviders>
+    <NextIntlClientProvider>
+      <ConsoleProviders>
+        <ConsoleGate>
+          <ConsoleShell>{children}</ConsoleShell>
+        </ConsoleGate>
+      </ConsoleProviders>
+    </NextIntlClientProvider>
   );
 }

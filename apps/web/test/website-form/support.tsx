@@ -4,7 +4,8 @@ import { render } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
 import { vi } from "vitest";
-import { locale, messages } from "@/i18n/messages";
+import { locale } from "@/i18n/messages";
+import { formMessages } from "@/website-form/form-messages";
 
 export function renderForm(ui: ReactNode) {
   // Radix's Select asks the pointer questions jsdom does not answer.
@@ -19,7 +20,15 @@ export function renderForm(ui: ReactNode) {
     };
   }
   return render(
-    <NextIntlClientProvider locale={locale} messages={messages} timeZone="Asia/Kolkata">
+    <NextIntlClientProvider
+      locale={locale}
+      messages={formMessages}
+      timeZone="Asia/Kolkata"
+      // The pages carry only formMessages: a word outside it must fail here, not on a visitor's screen.
+      onError={(error) => {
+        throw error;
+      }}
+    >
       {ui}
     </NextIntlClientProvider>,
   );
