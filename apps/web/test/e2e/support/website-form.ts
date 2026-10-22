@@ -5,6 +5,11 @@ import { randomInt, randomUUID } from "node:crypto";
 import { expect, type APIRequestContext, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import type { LeadListItem, LeadListPage, TimelinePage } from "@travel-crm/contracts/crm";
 import type { SaveWebsiteFormInput, WebsiteFormView, WebsiteFormPublic } from "@travel-crm/contracts/website-forms";
+import { createTestOrganization } from "@travel-crm/db/testing";
+import type { PlatformClient } from "@travel-crm/db/platform";
+import type { Identity } from "@travel-crm/domain/identity";
+import { signInByEmail } from "./fixtures";
+import { subscribeToEverything } from "./subscriptions";
 import { turnstileScript, turnstileTokenFor, type TurnstileAnswer } from "./fake-turnstile";
 import { callApi, anotherPersonsDevice } from "./leads";
 
@@ -210,4 +215,30 @@ export async function leadsOfPhone(page: Page, phone: string): Promise<LeadListI
 
 export function timelineOf(page: Page, leadId: string): Promise<TimelinePage> {
   return callApi<TimelinePage>(page, "leads.timeline", { leadId });
+}
+
+interface Database {
+  identity: Identity;
+  platform: PlatformClient;
+}
+
+/**
+ * A second agency of the journey's own, on the test plan, with its Owner signed in on a page of a browser context of its
+ * own, for the checks that something one agency does must not touch another.
+ */
+export async function secondAgency(database: Database, browser: Browser): Promise<{ owner: Page; name: string }> {
+  const organizationId = await createTestOrganization(database.platform, "Kapoor Tours");
+  await subscribeToEverything(database.platform, organizationId);
+  const { code } = await database.platform.organization.findUniqueOrThrow({ where: { id: organizationId } });
+  await database.identity.seedStarterRoles(organizationId);
+  const owner = {
+    name: "Dev Kapoor",
+    email: `owner-${code.toLowerCase()}@example.test`,
+    password: "owner-password-2",
+  };
+  await database.identity.createOrganizationOwner(organizationId, { ...owner, mustChangePassword: false });
+  const context = await anotherPersonsDevice(browser);
+  const page = await context.newPage();
+  await signInByEmail(page, owner);
+  return { owner: page, name: "Kapoor Tours" };
 }
