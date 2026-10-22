@@ -137,6 +137,7 @@ describe("websiteForm router", () => {
     expect(preview).toMatchObject({
       organizationName: "Asha Travels",
       heading: "Plan your trip",
+      thankYouMessage: "Thank you! Asha Travels will get in touch with you soon.",
       openedToken: "preview",
       turnstileSiteKey: null,
       logoUrl: null,

@@ -18,8 +18,10 @@ import type { Identity } from "@travel-crm/domain/identity";
 import { DomainError, calendarDateIn, publicActor } from "@travel-crm/domain/kernel";
 import type { Profiles } from "@travel-crm/domain/profile";
 
-/** The sentence a visitor reads after sending when the agency wrote none; the form's words are ours, in English (W3). */
-export const DEFAULT_THANK_YOU = "Thank you. We have your details and will be in touch soon.";
+/** What a visitor reads after sending when the agency wrote nothing (spec 3.2); the form's words are ours, in English (W3). */
+export function defaultThankYou(agencyName: string): string {
+  return `Thank you! ${agencyName} will get in touch with you soon.`;
+}
 
 /** The token the settings Preview carries: it opens nothing, and the preview never sends. */
 export const PREVIEW_TOKEN = "preview";
@@ -111,7 +113,7 @@ export async function publicFormOf(
     colour: colourWithInk(profile?.brandColour ?? null),
     heading: settings.heading,
     introduction: settings.introduction,
-    thankYouMessage: settings.thankYouMessage ?? DEFAULT_THANK_YOU,
+    thankYouMessage: settings.thankYouMessage ?? defaultThankYou(organization.name),
     websiteUrl: settings.websiteUrl,
     websiteButtonText: settings.websiteButtonText,
     privacyUrl: settings.privacyUrl,
