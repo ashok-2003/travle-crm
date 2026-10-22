@@ -67,10 +67,17 @@ function censorValue(value: unknown, depth: number): unknown {
   return censorObject(value as Record<string, unknown>, depth + 1);
 }
 
+/**
+ * A stack's frames are code's own (function names, file paths): masking them would read a package path such as
+ * `pg-boss@12.37.1_pg@8.20.0` as an email address. errorFields cuts the message out of a stack before it gets here.
+ */
+const FRAMES_KEY = "errorStack";
+
 function censorObject(fields: Record<string, unknown>, depth: number): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(fields)) {
-    out[key] = isPersonalKey(key) ? CENSORED : censorValue(value, depth);
+    if (key === FRAMES_KEY && typeof value === "string") out[key] = value.slice(0, MAX_STRING);
+    else out[key] = isPersonalKey(key) ? CENSORED : censorValue(value, depth);
   }
   return out;
 }

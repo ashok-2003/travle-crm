@@ -88,6 +88,15 @@ describe.each([
     expect(JSON.stringify(lines)).not.toContain("jane");
   });
 
+  it("keeps a stack's frames whole, package paths with an @ in them included", () => {
+    const { logger, lines } = make();
+    const error = new Error(`no mailbox for ${email}`);
+    error.stack = `Error: no mailbox for ${email}\n    at run (file:///app/node_modules/.pnpm/pg-boss@12.37.1_pg@8.20.0/node_modules/pg-boss/dist/index.js:655:19)`;
+    logger.error({ ...errorFields(error) }, "job failed");
+    expect(JSON.stringify(lines)).toContain("pg-boss@12.37.1_pg@8.20.0");
+    expect(JSON.stringify(lines)).not.toContain("jane");
+  });
+
   it("carries a child's bindings on every line", () => {
     const { logger, lines } = make();
     logger.child({ requestId: "r1" }).child({ organizationId: "o1" }).info({ status: 200 }, "request");
