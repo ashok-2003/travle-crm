@@ -15,6 +15,7 @@ import { createRateLimiter, type RateLimiter } from "@travel-crm/domain/rate-lim
 import { createSubscriptionAccess, planLimits, type SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import type { WebhookProvider } from "@travel-crm/domain/webhooks";
 import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
+import type { BotCheck } from "@travel-crm/integrations/bot-check";
 import { createMemoryJobQueue, type JobQueue } from "@travel-crm/integrations/jobs";
 import { createMemoryLogger, type MemoryLogger } from "@travel-crm/integrations/logging";
 import { createSpreadsheets, type Spreadsheets } from "@travel-crm/integrations/spreadsheets";
@@ -22,6 +23,7 @@ import { createMemoryStorage, type ObjectStorage } from "@travel-crm/integration
 
 import { inject } from "vitest";
 import { createApp } from "../../src/app.js";
+import type { FormAddressSettings } from "../../src/form-client-address.js";
 import { loggerOfRequest } from "../../src/request-log.js";
 import { clientAddressFrom } from "../../src/rate-limit.js";
 import type { CookieJar } from "./cookie-jar.js";
@@ -76,6 +78,11 @@ export interface TestServerOptions {
   rateLimiter?: RateLimiter;
   /** The database to run on: the test run's shared one, unless a file needs one of its own (createIsolatedDatabase). */
   dbUrls?: DbUrls;
+  /** The website form's bot check and public site key: off unless given (W39). */
+  botCheck?: BotCheck;
+  turnstileSiteKey?: string;
+  /** How the website form reads the visitor's address (W32): sign-in's rule unless given. */
+  formAddress?: FormAddressSettings;
 }
 
 export function createTestServer(settings: Partial<AuthSettings> = {}, options: TestServerOptions = {}): TestServer {
@@ -111,6 +118,11 @@ export function createTestServer(settings: Partial<AuthSettings> = {}, options: 
     clientAddress: clientAddressFrom({ headerNames: ["x-forwarded-for"], trustedProxies: [] }),
     webhookProviders: options.webhookProviders ?? [],
     logger,
+    authSecret: { ...testAuthSettings, ...settings }.secret,
+    appUrl: "http://localhost:3000",
+    botCheck: options.botCheck ?? null,
+    turnstileSiteKey: options.turnstileSiteKey ?? null,
+    ...(options.formAddress === undefined ? {} : { formAddress: options.formAddress }),
   });
   return {
     app,

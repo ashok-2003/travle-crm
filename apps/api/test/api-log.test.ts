@@ -97,6 +97,8 @@ describe.each(["development", "production"])("the api's log under NODE_ENV=%s", 
       clientAddress: clientAddressFrom({ headerNames: ["x-forwarded-for"], trustedProxies: [] }),
       webhookProviders: [],
       logger,
+      authSecret: testAuthSettings.secret,
+      appUrl: "http://localhost:3000",
     });
 
   it("has the error as a person's data in it, to begin with", () => {

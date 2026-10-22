@@ -34,6 +34,15 @@ const app = createApp({
   }),
   webhookProviders,
   logger,
+  authSecret: environment.BETTER_AUTH_SECRET,
+  appUrl: environment.APP_URL,
+  botCheck: services.botCheck,
+  turnstileSiteKey: environment.TURNSTILE_SITE_KEY ?? null,
+  formAddress: {
+    headerNames: environment.AUTH_IP_ADDRESS_HEADERS,
+    trustedProxies: environment.AUTH_TRUSTED_PROXIES,
+    proxyHops: environment.PUBLIC_FORM_PROXY_HOPS ?? null,
+  },
 });
 
 const server = serve({ fetch: app.fetch, port: environment.PORT }, (address) => {

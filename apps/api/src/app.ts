@@ -11,18 +11,21 @@ import type { RateLimiter } from "@travel-crm/domain/rate-limits";
 import { findShareLink, recordShareLinkOpen } from "@travel-crm/domain/share-links";
 import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { receiveWebhook, type WebhookProvider } from "@travel-crm/domain/webhooks";
+import type { BotCheck } from "@travel-crm/integrations/bot-check";
 import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
 import type { JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
 import { Hono, type Context } from "hono";
 import { limitBody } from "./body-limit.js";
 import { apiErrorHandler } from "./error-handler.js";
+import type { FormAddressSettings } from "./form-client-address.js";
 import { organizationSignIn } from "./org-sign-in.js";
 import { rateLimit } from "./rate-limit.js";
 import { noteTrpcError, requestLog, type RequestLogEnv } from "./request-log.js";
 import { shareLinkResolvers } from "./share-link-resolvers.js";
 import { shareLinkRoutes, tooManyRequestsPage } from "./share-link-route.js";
 import { requireTrustedJson } from "./trusted-origin.js";
+import { websiteFormRoutes } from "./website-form-routes.js";
 import { webhookRoutes } from "./webhook-route.js";
 
 export interface ServerDependencies {
@@ -50,6 +53,16 @@ export interface ServerDependencies {
   webhookProviders: readonly WebhookProvider[];
   /** The structured log (ADR 0032): a line per request, and every unexpected error. */
   logger: Logger;
+  /** BETTER_AUTH_SECRET: the website form's opened-token key is derived from it (W37). */
+  authSecret: string;
+  /** Where people open the web app (APP_URL): the settings screens' form links are made under it. */
+  appUrl: string;
+  /** Asks Turnstile whether a form's visitor is a person; null or absent when the server has no keys (W39). */
+  botCheck?: BotCheck | null;
+  /** Turnstile's public key, handed to the page with the form. */
+  turnstileSiteKey?: string | null;
+  /** How the website form reads the visitor's address (W32); absent, as sign-in does. */
+  formAddress?: FormAddressSettings;
 }
 
 /**
@@ -81,6 +94,11 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
     clientAddress,
     webhookProviders,
     logger,
+    authSecret,
+    appUrl,
+    botCheck = null,
+    turnstileSiteKey = null,
+    formAddress = { headerNames: ["x-forwarded-for"], trustedProxies: [], proxyHops: null },
   } = dependencies;
   const app = new Hono<RequestLogEnv>();
   app.use("*", requestLog(logger));
@@ -122,6 +140,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
             google,
             sheetsHashes,
             rateLimiter,
+            appUrl,
             // An import's Add waits while a sheet's check is saving rows (S26).
             addGuards: [assertNoSheetCheckSaving],
           },
@@ -171,6 +190,23 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
     "/webhooks",
     webhookRoutes({
       receive: (provider, request) => receiveWebhook({ db, queue, providers: webhookProviders }, provider, request),
+    }),
+  );
+
+  // The website form's public routes (spec 5): no session, no cookies, no CORS; each does its own limits and checks.
+  app.route(
+    "/api/public",
+    websiteFormRoutes({
+      db,
+      identity,
+      profiles,
+      files,
+      limiter: rateLimiter,
+      botCheck,
+      turnstileSiteKey,
+      authSecret,
+      address: formAddress,
+      logger,
     }),
   );
 
