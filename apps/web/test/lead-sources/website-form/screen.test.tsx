@@ -11,6 +11,7 @@ import { WebsiteFormScreen } from "@/lead-sources/website-form/website-form-scre
 import { routes } from "@/lib/routes";
 import { renderScreen, salesperson } from "../../leads/screen";
 import { paidSubscription } from "../../organization/api";
+import { member } from "../../support/members";
 import { stubApi } from "../../support/api-stub";
 import { aWebsiteFormView, someSettings } from "./records";
 
@@ -69,6 +70,20 @@ describe("the Website form row on Lead sources", () => {
     renderScreen(<LeadSourcesScreen />, { me: salesperson, width: "wide" });
     expect(await screen.findByText(messages.sheets.list.empty)).toBeVisible();
     expect(screen.queryByText(row.title)).not.toBeInTheDocument();
+  });
+
+  it("sends no request for the form to a member without settings:manage or without leads:create", async () => {
+    for (const permissions of [
+      ["leads:create", "leads:assign"],
+      ["settings:manage", "leads:assign"],
+    ]) {
+      const api = stubApi({ "leadSheets.list": noSheets });
+      const { unmount } = renderScreen(<LeadSourcesScreen />, { me: member({ permissions }), width: "wide" });
+      expect(await screen.findByText(messages.sheets.list.empty)).toBeVisible();
+      expect(api.calls).not.toContain("websiteForm.get");
+      expect(screen.queryByText(row.title)).not.toBeInTheDocument();
+      unmount();
+    }
   });
 });
 

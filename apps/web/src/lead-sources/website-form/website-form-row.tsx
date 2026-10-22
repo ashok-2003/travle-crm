@@ -13,11 +13,16 @@ import { routes } from "@/lib/routes";
 import { useHolds } from "@/session/me-context";
 import { useWebsiteFormView } from "./use-website-form";
 
+/** Only for members the api would answer: it needs both permissions, so nobody else sends the request. */
 export function WebsiteFormRow() {
+  const manages = useHolds("settings:manage");
+  const adds = useHolds("leads:create");
+  return manages && adds ? <AllowedRow /> : null;
+}
+
+function AllowedRow() {
   const t = useTranslations("websiteFormSettings.row");
-  const allowed = useHolds("settings:manage");
   const query = useWebsiteFormView();
-  if (!allowed) return null;
 
   const state = query.data?.state;
   const kind = state === undefined ? null : state.open ? "on" : state.reason === "off" ? "off" : "unavailable";
