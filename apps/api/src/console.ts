@@ -3,12 +3,12 @@
 // worker, and the only one given DATABASE_PLATFORM_URL (ADR 0019). One instance is enough; keep it running for the
 // nightly demo reset.
 import { serve } from "@hono/node-server";
-import { describeError } from "@travel-crm/integrations/jobs";
+import { errorFields } from "@travel-crm/integrations/logging";
 import { createConsoleApp } from "./console-app.js";
 import { forgetServiceAccounts } from "./console-environment.js";
 import { startConsoleJobs } from "./console-jobs.js";
 import { startConsolePlatform } from "./console-platform.js";
-import { startProcess, stopOnUnhandledErrors } from "./start-up.js";
+import { exitAfterLogs, startProcess, stopOnUnhandledErrors } from "./start-up.js";
 
 // The console never holds the Google service accounts (SC5): dropped before anything reads the environment.
 forgetServiceAccounts();
@@ -16,7 +16,7 @@ forgetServiceAccounts();
 // The console's own start runs inside the start-up guard: its settings, the platform role's connection and its jobs.
 // A missing DATABASE_PLATFORM_URL, a connection that isn't the platform role, or a schedule pg-boss refuses ends in
 // one "console start-up failed" message, with the pools closed.
-const { services, log, running } = await startProcess("console", async (base) => {
+const { services, logger, running } = await startProcess("console", async (base) => {
   const started = await startConsolePlatform(base);
   try {
     await startConsoleJobs(base.services.jobs, started.platform, started.settings.demo);
@@ -28,8 +28,8 @@ const { services, log, running } = await startProcess("console", async (base) =>
 });
 const { settings, platform } = running;
 
-const server = serve({ fetch: createConsoleApp(platform, log).fetch, port: settings.port }, (address) => {
-  console.log(`console listening on port ${String(address.port)}`);
+const server = serve({ fetch: createConsoleApp(platform, logger).fetch, port: settings.port }, (address) => {
+  logger.info({ port: address.port }, "console listening");
 });
 
 // Container platforms send SIGTERM before stopping an instance: finish open requests, let running jobs finish (pg-boss
@@ -42,11 +42,11 @@ function shutDown(exitCode: 0 | 1): void {
       .then(() => platform.platformDb.disconnect())
       .then(() => {
         if (closeError) throw closeError;
-        process.exit(exitCode);
+        return exitAfterLogs(logger, exitCode);
       })
       .catch((error: unknown) => {
-        log(`shutdown failed: ${describeError(error)}`);
-        process.exit(1);
+        logger.error(errorFields(error), "shutdown failed");
+        return exitAfterLogs(logger, 1);
       });
   });
 }
@@ -56,4 +56,4 @@ process.on("SIGTERM", () => {
 process.on("SIGINT", () => {
   shutDown(0);
 });
-stopOnUnhandledErrors(log, shutDown);
+stopOnUnhandledErrors(logger, shutDown);

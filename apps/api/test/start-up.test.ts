@@ -3,6 +3,7 @@
 // "<process> start-up failed" message, the pools closed, and exit 1. Once started, an error nothing handled is one
 // ids-only line in the process's log, then the process's drain, exiting 1.
 import { EventEmitter } from "node:events";
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import type { Services } from "../src/services.js";
 import { startProcess, stopOnUnhandledErrors } from "../src/start-up.js";
@@ -58,7 +59,7 @@ describe("starting a process", () => {
           () => {
             throw new Error("Queue names must be unique: documents.render-pdf");
           },
-          { variables: testEnvironmentVariables(), create: () => services },
+          { variables: testEnvironmentVariables(), create: () => services, createLogger: () => createMemoryLogger() },
         ),
       ).rejects.toEqual(new Exited(1));
     } finally {
@@ -69,34 +70,84 @@ describe("starting a process", () => {
     expect(output()[0]).toMatch(/^worker start-up failed Error: Queue names must be unique/);
   });
 
-  it("gives back the environment, the services, the log and what the process started", async () => {
+  it("gives back the environment, the services and what the process started", async () => {
     const { services, start } = fakeServices();
     const started = await startProcess("api", ({ environment }) => environment.PORT, {
       variables: testEnvironmentVariables({ PORT: "4321" }),
       create: () => services,
+      createLogger: () => createMemoryLogger(),
     });
     expect(start).toHaveBeenCalledOnce();
     expect(started.services).toBe(services);
     expect(started.running).toBe(4321);
     expect(started.environment.PORT).toBe(4321);
-    const output = consoleOutput();
-    started.log("a line");
-    expect(output()).toEqual(["api: a line"]);
+  });
+
+  it("makes the process's structured log at the environment's level, headed by the process", async () => {
+    const { services } = fakeServices();
+    const logger = createMemoryLogger();
+    const made: unknown[] = [];
+    const started = await startProcess("worker", () => undefined, {
+      variables: testEnvironmentVariables({ LOG_LEVEL: "warn" }),
+      create: () => services,
+      createLogger: (processName, environment) => {
+        made.push(processName, environment.LOG_LEVEL);
+        return logger;
+      },
+    });
+    expect(made).toEqual(["worker", "warn"]);
+    expect(started.logger).toBe(logger);
+  });
+
+  it("logs, as it starts, its process, version, NODE_ENV and log level", async () => {
+    const { services } = fakeServices();
+    const logger = createMemoryLogger();
+    await startProcess("api", () => undefined, {
+      variables: testEnvironmentVariables({ LOG_LEVEL: "info", GIT_SHA: "0123456789abcdef0123" }),
+      create: () => services,
+      createLogger: () => logger,
+    });
+    expect(logger.entries).toMatchObject([
+      { level: "info", msg: "api starting", version: "0123456789ab", nodeEnv: "test", logLevel: "info" },
+    ]);
   });
 });
 
 describe("an error nothing handled", () => {
-  it("is one line by names and codes, then the process's drain, exiting 1, once", () => {
+  it("is one line by name, code and frames, then the process's drain, exiting 1, once", () => {
     const events = new EventEmitter();
-    const lines: string[] = [];
+    const logger = createMemoryLogger();
     const drain = vi.fn();
-    stopOnUnhandledErrors((line) => lines.push(line), drain, { events, exit: vi.fn() });
+    stopOnUnhandledErrors(logger, drain, { events, exit: vi.fn() });
     events.emit("unhandledRejection", new Error("asha@example.test could not be reached"), Promise.resolve());
-    expect(lines).toEqual(["unhandled rejection: Error"]);
+    expect(logger.entries).toMatchObject([{ level: "error", msg: "unhandled rejection", errorName: "Error" }]);
     expect(drain).toHaveBeenCalledExactlyOnceWith(1);
     // Another while draining is logged too, and drains nothing more.
     events.emit("uncaughtException", new TypeError("reset link https://example.test/r/secret"), "uncaughtException");
-    expect(lines).toEqual(["unhandled rejection: Error", "uncaught exception: TypeError"]);
+    expect(logger.entries.map((entry) => [entry.msg, entry.errorName])).toEqual([
+      ["unhandled rejection", "Error"],
+      ["uncaught exception", "TypeError"],
+    ]);
+    expect(JSON.stringify(logger.entries)).not.toMatch(/asha|secret/);
+    expect(drain).toHaveBeenCalledOnce();
+  });
+
+  it("doesn't loop when the logger itself fails: the error raised while logging is not logged again", () => {
+    const events = new EventEmitter();
+    const drain = vi.fn();
+    let calls = 0;
+    const logger = {
+      ...createMemoryLogger(),
+      error: () => {
+        calls += 1;
+        // The failing log call raises an unhandled error of its own, as a dead transport did.
+        events.emit("uncaughtException", new Error("the logger's stream is dead"), "uncaughtException");
+        throw new Error("the logger's stream is dead");
+      },
+    };
+    stopOnUnhandledErrors(logger, drain, { events, exit: vi.fn() });
+    events.emit("unhandledRejection", new Error("first"), Promise.resolve());
+    expect(calls).toBe(1);
     expect(drain).toHaveBeenCalledOnce();
   });
 
@@ -106,11 +157,11 @@ describe("an error nothing handled", () => {
       vi.useRealTimers();
     });
     const events = new EventEmitter();
-    const lines: string[] = [];
+    const logger = createMemoryLogger();
     const exit = vi.fn();
     const timers = vi.spyOn(globalThis, "setTimeout");
     // A drain that never finishes: a stuck pool, a keep-alive the server won't close.
-    stopOnUnhandledErrors((line) => lines.push(line), vi.fn(), { events, exit });
+    stopOnUnhandledErrors(logger, vi.fn(), { events, exit });
     events.emit("uncaughtException", new Error("stuck"), "uncaughtException");
     const deadline = timers.mock.results[0]?.value as NodeJS.Timeout | undefined;
     expect(deadline?.hasRef()).toBe(false);
@@ -118,6 +169,9 @@ describe("an error nothing handled", () => {
     expect(exit).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
     expect(exit).toHaveBeenCalledExactlyOnceWith(1);
-    expect(lines).toEqual(["uncaught exception: Error", "the drain took over 45 seconds: exiting"]);
+    expect(logger.entries.map((entry) => entry.msg)).toEqual([
+      "uncaught exception",
+      "the drain took too long: exiting",
+    ]);
   });
 });

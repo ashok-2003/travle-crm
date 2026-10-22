@@ -6,6 +6,7 @@ import { createDatabase, type Database } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { createIsolatedDatabase, createTestOrganization, type IsolatedDatabase } from "@travel-crm/db/testing";
 import { createMemoryJobAdministration, createMemoryJobQueue } from "@travel-crm/integrations/jobs";
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { createMemoryStorage, type MemoryStorage } from "@travel-crm/integrations/storage";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import {
@@ -42,7 +43,7 @@ describe("the hourly sweep of import and export files", () => {
       storage,
       queue: createMemoryJobQueue(),
       jobs: createMemoryJobAdministration(),
-      log: () => undefined,
+      logger: createMemoryLogger(),
     });
   }, 120_000);
 

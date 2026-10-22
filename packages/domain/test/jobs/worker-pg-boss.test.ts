@@ -3,6 +3,7 @@
 import { createDatabase, type Database } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { createPgBossJobs, type PgBossJobs } from "@travel-crm/integrations/jobs";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { listenerJobId, publishEvent, startWorker, type Worker } from "../../src/jobs/index.js";
@@ -25,7 +26,7 @@ describe("worker on pg-boss", () => {
   let worker: Worker;
   let organizationId: string;
   const errors: unknown[] = [];
-  const logged: string[] = [];
+  const logger = createMemoryLogger();
 
   beforeAll(async () => {
     const urls = inject("dbUrls");
@@ -38,7 +39,7 @@ describe("worker on pg-boss", () => {
       pollingIntervalSeconds: 0.5,
       // One quick retry, so a failing listener reaches the failed list within the test.
       retryPolicy: { retryLimit: 1, retryDelaySeconds: 1, retryDelayMaxSeconds: 1 },
-      log: (line) => logged.push(line),
+      logger,
     });
     await jobs.start();
     broken.failuresLeft = Number.POSITIVE_INFINITY;
@@ -59,7 +60,11 @@ describe("worker on pg-boss", () => {
     await platform.$disconnect();
     // Nothing went wrong but the listener that always fails, and nothing from pg-boss itself.
     expect(errors).toEqual([]);
-    expect(logged.filter((line) => !line.startsWith("queue workerprobe.always-fails, job "))).toEqual([]);
+    expect(
+      logger.entries.filter(
+        (entry) => (entry.level === "warn" || entry.level === "error") && entry.queue !== "workerprobe.always-fails",
+      ),
+    ).toEqual([]);
   });
 
   it("delivers an event published in an organization to its listener", async () => {

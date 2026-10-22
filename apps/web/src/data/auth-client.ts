@@ -15,6 +15,8 @@ export type AuthResult<T> =
       code: string;
       /** From a 429: how long to wait before trying again. */
       retryAfterSeconds: number | null;
+      /** True when the request was sent and its answer never came (it timed out), so the api may have counted it. */
+      mayHaveLanded?: boolean;
     };
 
 export interface SignInOutcome {
@@ -69,7 +71,7 @@ export function createAuthClient(fetchImplementation: Fetch = (...arguments_) =>
     body: unknown,
     read: (body: Record<string, unknown>) => T,
     { timeout, keepalive = false }: { timeout?: number; keepalive?: boolean } = {},
-  ) {
+  ): Promise<AuthResult<T>> {
     // A timer rather than AbortSignal.timeout, so tests can move the clock.
     const giveUp = new AbortController();
     const timer =
@@ -91,7 +93,13 @@ export function createAuthClient(fetchImplementation: Fetch = (...arguments_) =>
       });
       json = await bodyOf(response);
     } catch {
-      return { ok: false, status: 0, code: "NETWORK", retryAfterSeconds: null } satisfies AuthResult<T>;
+      return {
+        ok: false,
+        status: 0,
+        code: "NETWORK",
+        retryAfterSeconds: null,
+        mayHaveLanded: giveUp.signal.aborted,
+      } satisfies AuthResult<T>;
     } finally {
       clearTimeout(timer);
     }
@@ -143,14 +151,15 @@ export function createAuthClient(fetchImplementation: Fetch = (...arguments_) =>
   }
 
   /**
-   * A sign-in that met a sleeping api waits for it to wake and is sent once more. A refusal never is: a wrong password
-   * sent twice would count twice against the sign-in limit.
+   * A sign-in that met a sleeping api waits for it to wake and is sent once more, when it surely never landed (the
+   * proxy's 502, 503 or 504, or no connection). One that timed out may have landed and counted against the sign-in
+   * limit: it waits for the api to wake, so the person's next try is quick, but is not sent again. A refusal never is.
    */
   async function signIn<T>(send: () => Promise<AuthResult<T>>): Promise<AuthResult<T>> {
     await settledBeforeSigningIn();
     const first = await send();
     if (first.ok || !isWakingStatus(first.status) || !(await wake())) return first;
-    return send();
+    return first.mayHaveLanded === true ? first : send();
   }
 
   const signInOutcome = (body: Record<string, unknown>): SignInOutcome => ({

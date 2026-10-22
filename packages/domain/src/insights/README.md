@@ -1,6 +1,6 @@
 # insights
 
-The dashboard's figures (release B, `docs/superpowers/specs/2026-10-21-sales-platform-roadmap.md`): how the leads
+The dashboard's figures (release B, `docs/proposals/2026-10-21-ayush-proposals.md`): how the leads
 did over a period in the agency's time zone, for the person's own leads or, with `leads:view` "all", the agency's.
 
 - It sits above `crm` and `tasks` (dependency-cruiser's `business-modules-call-down`), like `today`, and only reads.

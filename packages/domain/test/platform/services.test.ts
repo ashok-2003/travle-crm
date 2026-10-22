@@ -26,8 +26,8 @@ describe("the platform's services", () => {
   it("hand the test platform's log lines to the test", async () => {
     const test = createTestPlatform();
     try {
-      test.services.log("platform: a line, ids only");
-      expect(test.lines).toEqual(["platform: a line, ids only"]);
+      test.services.logger.warn({ organizationId: "o1" }, "platform: a line, ids only");
+      expect(test.logger.entries).toMatchObject([{ level: "warn", msg: "platform: a line, ids only" }]);
     } finally {
       await test.close();
     }

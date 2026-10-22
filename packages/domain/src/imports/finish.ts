@@ -76,7 +76,7 @@ function noticeOf(end: ImportEnd, counts: Record<RowOutcome, number>): { title: 
 
 export async function finishImport(
   context: ListenerContext,
-  dependencies: Pick<ImportJobDependencies, "files" | "spreadsheets">,
+  dependencies: Pick<ImportJobDependencies, "files" | "spreadsheets" | "logger">,
   importId: string,
   end: ImportEnd,
   alsoInTransaction?: (tx: OrgTx, batch: ImportBatchRow) => Promise<void>,
@@ -89,6 +89,7 @@ export async function finishImport(
   });
   if (batch === null) return;
   const reportAttachmentId = end.report ? await makeImportReport(context, dependencies, batch) : null;
+  const ended: { outcomes: Record<RowOutcome, number> | null } = { outcomes: null };
   await context.forOrg(async (tx) => {
     const now = new Date();
     if ((await holdImport(tx, importId))?.status !== "adding") return;
@@ -98,6 +99,7 @@ export async function finishImport(
       finishedAt: now,
     });
     const outcomes = await outcomeCounts(tx, importId);
+    ended.outcomes = outcomes;
     const actor = systemActor(batch.organizationId);
     await recordAudit(tx, actor, {
       action: "import.finished",
@@ -119,4 +121,22 @@ export async function finishImport(
     }
     await alsoInTransaction?.(tx, batch);
   });
+  // One line per import, once it has ended: ids, status and counts (a repeat of this call ends nothing and says nothing).
+  if (ended.outcomes !== null) {
+    const counts = ended.outcomes;
+    dependencies.logger?.info(
+      {
+        organizationId: batch.organizationId,
+        importId,
+        kind: batch.kind,
+        status: end.status,
+        ...(end.failureReason === undefined ? {} : { failureReason: end.failureReason }),
+        rowsAdded: counts.added,
+        rowsMerged: counts.merged,
+        rowsLeftOut: counts.left_out,
+        rowsNotAdded: counts.not_added,
+      },
+      "import finished",
+    );
+  }
 }

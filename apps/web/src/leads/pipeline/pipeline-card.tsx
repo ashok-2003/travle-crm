@@ -17,11 +17,15 @@ import {
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { leadRoute } from "@/lib/routes";
 import { useHolds, useMe } from "@/session/me-context";
+import { useWriteAccess } from "@/subscription/write-access";
 import { NextStep } from "../next-step";
 import { OwnerBadge } from "../owner-badge";
 import { StageDot } from "../stage-badge";
 import { useTripLine } from "../trip-line";
 import { DRAGGED_LEAD } from "./dragged-lead";
+
+/** The id of the board's hint saying why the subscription refuses moves (pipeline-screen.tsx). */
+export const WRITE_HINT_ID = "pipeline-write-hint";
 
 export function PipelineCard({
   lead,
@@ -36,16 +40,18 @@ export function PipelineCard({
   const tripLine = useTripLine();
   const { timeZone } = useMe().organization;
   const edits = useHolds("leads:edit");
+  const write = useWriteAccess("change");
+  const draggable = edits && write.allowed;
   return (
     <Item
       variant="outline"
       size="sm"
-      draggable={edits}
+      draggable={draggable}
       onDragStart={(event) => {
         event.dataTransfer.setData(DRAGGED_LEAD, JSON.stringify({ id: lead.id, name: lead.person.name }));
         event.dataTransfer.effectAllowed = "move";
       }}
-      className={edits ? "cursor-grab active:cursor-grabbing" : undefined}
+      className={draggable ? "cursor-grab active:cursor-grabbing" : undefined}
     >
       <ItemContent className="gap-1">
         <ItemTitle>
@@ -63,7 +69,13 @@ export function PipelineCard({
         <ItemActions className="self-start">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label={t("pipeline.moveTo", { name: lead.person.name })}>
+              <Button
+                variant="ghost"
+                size="icon"
+                disabled={!write.allowed}
+                aria-describedby={write.allowed ? undefined : WRITE_HINT_ID}
+                aria-label={t("pipeline.moveTo", { name: lead.person.name })}
+              >
                 <ArrowRightLeftIcon aria-hidden="true" />
               </Button>
             </DropdownMenuTrigger>

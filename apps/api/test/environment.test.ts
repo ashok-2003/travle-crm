@@ -33,6 +33,42 @@ describe("environment", () => {
     });
   });
 
+  it("sets the log level from LOG_LEVEL, or by environment: info in production, debug in development and tests", () => {
+    const production = { ...valid, BETTER_AUTH_URL: "https://app.example.in", APP_URL: "https://app.example.in" };
+    expect(loadEnvironment(production).LOG_LEVEL).toBe("info");
+    expect(loadEnvironment({ ...valid, NODE_ENV: "development" }).LOG_LEVEL).toBe("debug");
+    expect(loadEnvironment({ ...valid, NODE_ENV: "test" }).LOG_LEVEL).toBe("debug");
+    expect(loadEnvironment({ ...production, LOG_LEVEL: "warn" }).LOG_LEVEL).toBe("warn");
+    // A compose file's blank is the same as unset.
+    expect(loadEnvironment({ ...production, LOG_LEVEL: "" }).LOG_LEVEL).toBe("info");
+    expect(() => loadEnvironment({ ...production, LOG_LEVEL: "verbose" })).toThrow(/LOG_LEVEL/);
+  });
+
+  it("takes Axiom's token and dataset together or not at all, over https outside development", () => {
+    const production = { ...valid, BETTER_AUTH_URL: "https://app.example.in", APP_URL: "https://app.example.in" };
+    expect(loadEnvironment(production).AXIOM_TOKEN).toBeUndefined();
+    expect(loadEnvironment(production).AXIOM_DATASET).toBeUndefined();
+    // A compose file's blanks are the same as unset.
+    expect(loadEnvironment({ ...production, AXIOM_TOKEN: "", AXIOM_DATASET: "" }).AXIOM_TOKEN).toBeUndefined();
+    const set = { ...production, AXIOM_TOKEN: "xaat-secret", AXIOM_DATASET: "travel-crm" };
+    expect(loadEnvironment(set)).toMatchObject({ AXIOM_TOKEN: "xaat-secret", AXIOM_URL: "https://api.axiom.co" });
+    expect(() => loadEnvironment({ ...production, AXIOM_TOKEN: "xaat-secret" })).toThrow(/AXIOM_DATASET: is needed/);
+    expect(() => loadEnvironment({ ...production, AXIOM_DATASET: "travel-crm" })).toThrow(/AXIOM_TOKEN: is needed/);
+    expect(() => loadEnvironment({ ...set, AXIOM_URL: "http://api.axiom.example" })).toThrow(
+      /AXIOM_URL: must be https in production/,
+    );
+    expect(loadEnvironment({ ...set, NODE_ENV: "development", AXIOM_URL: "http://127.0.0.1:9" }).AXIOM_URL).toBe(
+      "http://127.0.0.1:9",
+    );
+    // The token is never in the message of a refusal.
+    expect(() => loadEnvironment({ ...set, AXIOM_URL: "nonsense" })).toThrow(/AXIOM_URL/);
+    try {
+      loadEnvironment({ ...set, AXIOM_URL: "nonsense" });
+    } catch (error) {
+      expect(String(error)).not.toContain("xaat-secret");
+    }
+  });
+
   it("treats an unset NODE_ENV as production, so a deploy that forgets it gets the production guards", () => {
     expect(() => loadEnvironment(valid)).toThrow(/BETTER_AUTH_URL: must be https in production/);
     expect(

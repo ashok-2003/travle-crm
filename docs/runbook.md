@@ -223,13 +223,53 @@ worker console`.
   - A deploy that warns "Postgres runs without huge pages" needs fixing at once (`setup.sh` reserves them).
 - **Disk:** check `df -h /` and `sudo docker system df`. Deploys keep two releases' images and two weeks of build
   cache.
-- **Logs:** `compose.sh logs`. The processes log ids and codes, never a person's data. Caddy keeps no access log.
+- **Logs:** `compose.sh logs`, or the section below. The processes log ids, codes, counts and timings, never a person's data. Caddy keeps no access log.
 - **Certificates:** Caddy renews them itself, and `ACME_EMAIL` gets warnings.
 - **Quotas:**
   - R2's free 10 GB, in the Cloudflare dashboard;
   - Brevo's 300 emails a day, and its bounces and blocks, in Brevo's dashboard.
 - **Security updates:** they install themselves, and a reboot happens at 03:30 India time when one is needed. Their
   log is `/var/log/unattended-upgrades/`.
+
+## Reading logs
+
+Every process (api, worker, console) writes one JSON object per line to standard output (ADR 0032): `level`, `time`,
+`process`, `msg`, and fields such as `requestId`, `route`, `status`, `durationMs`, `organizationId`, `userId`, `queue`,
+`jobId`, `errorName`, `errorCode` and `errorStack`. Never a name, phone, email, message text, search text, request
+body, query string, cookie or token. `LOG_LEVEL` (`info` unless set) is the least important line written.
+
+- **A request's whole story:** every line of a request carries its `requestId`, which the response also sends in
+  `x-request-id`. Ask for it (a screenshot of the network tab, or the header), then search for it: the request line,
+  the error line with its stack frames, and Better Auth's line share it.
+- **On Render:** open the service, **Logs**. Free (Hobby) keeps 7 days. Search for `"level":"error"` (or `warn`) to
+  see problems only, `"msg":"request"` for requests, `"route":"/api/trpc"` plus a procedure name in `procedures` for
+  one call, `"msg":"job failed"` for the worker, `"msg":"sheet check"` for a Google Sheet's checks, and `"requestId":"…"`
+  for one request. For a quiet service, `LOG_LEVEL=debug` adds health checks and each job's start; set it back after.
+- **In Axiom** (after "Turn on Axiom"): open the `travel-crm` dataset, **Query**, and filter on the same fields, for
+  30 days: `['travel-crm'] | where level == "error" | sort by _time desc`, or `where requestId == "…"`. A **Monitor**
+  on `level == "error"` emails when errors appear.
+- **Errors never show their message** (it can quote an email address): look at `errorName`, `errorCode` (Postgres's,
+  Prisma's, Node's) and `errorStack`.
+- **Vercel's logs** (the web app) are separate: Hobby keeps an hour and has no drains. The web app logs nothing of its
+  own to look at yet.
+
+## Turn on Axiom
+
+Axiom's free Personal plan keeps 30 days of logs and searches them, and Render's free log tab keeps 7. Shipping is
+optional: without the two settings below the lines go to standard output only.
+
+1. In Axiom, create a dataset named `travel-crm`, then an API token that can **only ingest** into it (Settings, API
+   tokens, with the dataset and the ingest permission). A token that can query or delete is more than this needs.
+2. Set `AXIOM_TOKEN` (a secret) and `AXIOM_DATASET` (`travel-crm`) on all three processes:
+   - On Render: the shared environment group the api, worker and console read, or each service's Environment; save
+     and let them redeploy. The EU region also sets `AXIOM_URL=https://api.eu.axiom.co`.
+   - On the server: `sudo scripts/server/secrets.sh set AXIOM_TOKEN` and `set AXIOM_DATASET`, then
+     `scripts/server/release.sh`.
+3. Check: the next start-up writes `api starting` (with the version, `NODE_ENV` and log level) and it appears in the
+   dataset within seconds. Lines are sent from a thread of their own in batches, and a stopping process sends what is
+   queued first, so a redeploy's last lines arrive too. If Axiom can't be reached the process says once, on stderr,
+   how many lines it dropped, and carries on: standard output stays the log of record.
+4. To turn it off, remove the two settings.
 
 ## Turn on Google Sheets
 

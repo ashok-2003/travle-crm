@@ -147,8 +147,14 @@ describe("erasing a record", () => {
     expect(await platform.attachment.count({ where: { organizationId: agency.organizationId } })).toBe(0);
     expect(keysOf(test, agency.organizationId)).toHaveLength(1);
     expect(await platform.storedFileDeletion.count({ where: { targetOrganizationId: agency.organizationId } })).toBe(1);
-    expect(logged).toEqual([
-      `platform.delete-stored-files: organization ${agency.organizationId}'s files are left to the job (FileDeletionsFailedError, caused by Error)`,
+    expect(logged).toMatchObject([
+      {
+        level: "warn",
+        msg: "An organization's files are left to the job",
+        organizationId: agency.organizationId,
+        errorName: "FileDeletionsFailedError",
+        errorCause: "Error",
+      },
     ]);
 
     failing.now = false;

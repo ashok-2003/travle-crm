@@ -14,16 +14,20 @@ import {
 import { createMemoryStorage, type ObjectStorage } from "@travel-crm/integrations/storage";
 import type { AnyTRPCRouter } from "@trpc/server";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
-import type { Hono } from "hono";
+import { problemLogger } from "./problem-logger.js";
+import { createMemoryLogger, type MemoryLogger } from "@travel-crm/integrations/logging";
 import { createConsoleApp } from "../../src/console-app.js";
 import { CookieJar } from "./cookie-jar.js";
 import { ORIGIN, postJson, signInByEmail, type TestServer } from "./test-server.js";
 import { codeFor, enableTwoFactor } from "./two-factor.js";
 
 export interface TestConsole {
-  app: Hono;
+  app: ReturnType<typeof createConsoleApp>;
+  /** What the console wrote to its structured log. */
+  logger: MemoryLogger;
   services: PlatformServices;
   /** What the console logged: nothing, unless a call failed unexpectedly. */
+  /** What went wrong, as text: the console's warnings and errors, none when all went well. */
   lines: string[];
   close(): Promise<void>;
 }
@@ -38,6 +42,8 @@ export function createTestConsole(server: TestServer, options: TestConsoleOption
   const { urls } = server;
   const db = createDatabase(urls.runtime, { maxConnections: 2 });
   const lines: string[] = [];
+  // The console app's own lines (the requests) are kept apart in `logger`; `lines` holds what the services report.
+  const logger = createMemoryLogger();
   const services = createPlatformServices({
     platformDatabaseUrl: urls.platform,
     maxConnections: 2,
@@ -46,10 +52,11 @@ export function createTestConsole(server: TestServer, options: TestConsoleOption
     storage: options.storage ?? createMemoryStorage(),
     queue: options.queue ?? createMemoryJobQueue(),
     jobs: options.jobs ?? createMemoryJobAdministration(),
-    log: (line) => lines.push(line),
+    logger: problemLogger(lines),
   });
   return {
-    app: createConsoleApp(services, (line) => lines.push(line)),
+    app: createConsoleApp(services, logger),
+    logger,
     services,
     lines,
     close: async () => {

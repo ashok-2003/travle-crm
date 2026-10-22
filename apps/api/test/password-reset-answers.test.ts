@@ -13,7 +13,7 @@ describe("who a password reset emails, and the answers", () => {
 
   it("answers a placeholder or unknown address exactly like a real one, and sends them nothing", async () => {
     const { server, agency, emails } = kit;
-    const checkWarnings = expectBetterAuthLogs("warn", "User not found", 1);
+    const checkWarnings = expectBetterAuthLogs(server, "warn", "User not found", 1);
     // Staff without email have a placeholder address, which Better Auth finds like any other.
     await server.identity.staff.create(await ownerAccess(server, agency), {
       name: "Meera",
@@ -67,9 +67,9 @@ describe("who a password reset emails, and the answers", () => {
   });
 
   it("sends people back only to the reset page, refusing anything else alike for every address", async () => {
-    const { agency, emails } = kit;
-    const checkWarnings = expectBetterAuthLogs("warn", "User not found", 0);
-    const checkErrors = expectBetterAuthLogs("error", "Invalid redirectURL", 2);
+    const { server, agency, emails } = kit;
+    const checkWarnings = expectBetterAuthLogs(server, "warn", "User not found", 0);
+    const checkErrors = expectBetterAuthLogs(server, "error", "Invalid redirectURL", 2);
     const askedBefore = emails.asked();
     // An untrusted origin is refused by Better Auth itself, and that refusal is the one every other case matches.
     const untrusted = [];

@@ -1,7 +1,6 @@
 // pg-boss's failed jobs, read from its job table a page at a time, for the platform console's failed-jobs list
 // (spec 9.1). pg-boss has no paged listing of its own.
 import type { PgBoss } from "pg-boss";
-import { describeError } from "./describe-error.js";
 import type { FailedJob, FailedJobsOptions } from "./job-administration.js";
 import { assertJobId, assertQueueName, type JobData } from "./job-queue.js";
 
@@ -59,7 +58,7 @@ export async function failedJobsPage(
   boss: PgBoss,
   schema: string,
   options: FailedJobsOptions,
-  report: (line: string) => void,
+  report: (jobId: string, queue: string, error: unknown) => void,
 ): Promise<FailedJob[]> {
   const { limit = 50, after, queue } = options;
   if (!Number.isInteger(limit) || limit < 1 || limit > MAX_FAILED_JOBS) {
@@ -82,7 +81,7 @@ export async function failedJobsPage(
         error: errorMessageOf(row.output),
       });
     } catch (error) {
-      report(`failed job ${row.id} on queue ${row.name} can't be listed: ${describeError(error)}`);
+      report(row.id, row.name, error);
     }
   }
   return failed;

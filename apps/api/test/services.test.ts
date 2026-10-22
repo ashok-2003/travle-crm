@@ -6,8 +6,8 @@
 import { WrongDatabaseRoleError } from "@travel-crm/db";
 import { createPlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { describe, expect, inject, it } from "vitest";
-import { processLog } from "../src/process-log.js";
 import { createServices, rateLimitKeySecret } from "../src/services.js";
 import { consoleOutput } from "./support/console-output.js";
 import { testEnvironment as environment, testSecret as secret } from "./support/environment.js";
@@ -16,7 +16,7 @@ import { startMailpit } from "./support/mailpit.js";
 
 describe("services", () => {
   it("refuses to start when the storage bucket can't be reached", async () => {
-    const services = createServices(environment(), processLog("api"));
+    const services = createServices(environment(), createMemoryLogger());
     try {
       await expect(services.start()).rejects.toThrow(`The storage bucket "travel-crm" can't be used: unreachable`);
     } finally {
@@ -25,7 +25,7 @@ describe("services", () => {
   });
 
   it("refuses to start when DATABASE_URL isn't the app_runtime role, before it tries the bucket or pg-boss", async () => {
-    const services = createServices(environment({ DATABASE_URL: inject("dbUrls").migrator }), processLog("api"));
+    const services = createServices(environment({ DATABASE_URL: inject("dbUrls").migrator }), createMemoryLogger());
     try {
       await expect(services.start()).rejects.toThrow(WrongDatabaseRoleError);
     } finally {
@@ -43,7 +43,7 @@ describe("services", () => {
         // One request from no forwarded address: Better Auth's own limit isn't what this checks.
         AUTH_RATE_LIMIT: "false",
       }),
-      processLog("api"),
+      createMemoryLogger(),
     );
     const platform = createPlatformClient(inject("dbUrls").platform);
     try {
@@ -80,9 +80,10 @@ describe("services", () => {
     }
   });
 
-  it("logs a failing job by queue, job and names and codes only, and nothing reaches the console but that line", async () => {
+  it("logs a failing job by queue, job, name, code and frames only, and nothing reaches the console", async () => {
     const output = consoleOutput();
-    const services = createServices(environment(), processLog("worker"));
+    const logger = createMemoryLogger();
+    const services = createServices(environment(), logger);
     try {
       await services.jobs.start();
       const leaky = Object.assign(
@@ -96,17 +97,25 @@ describe("services", () => {
         (failed) => failed.some((job) => job.id === id),
         "the job to fail",
       );
-      expect(output()).toEqual([
-        `worker: queue probe.leaky, job ${String(id)} failed: Error EENVELOPE, caused by Error`,
+      expect(logger.entries.filter((entry) => entry.level === "error")).toMatchObject([
+        {
+          msg: "job failed",
+          queue: "probe.leaky",
+          jobId: id,
+          errorName: "Error",
+          errorCode: "EENVELOPE",
+          errorCause: "Error",
+        },
       ]);
-      expect(output().join("\n")).not.toMatch(/jane/);
+      expect(JSON.stringify(logger.entries)).not.toMatch(/jane/);
+      expect(output()).toEqual([]);
     } finally {
       await services.close();
     }
   });
 
   it("holds each organization to its plan's seats and storage", async () => {
-    const services = createServices(environment(), processLog("api"));
+    const services = createServices(environment(), createMemoryLogger());
     const platform = createPlatformClient(inject("dbUrls").platform);
     try {
       const organizationId = await createTestOrganization(platform, "Small agency");

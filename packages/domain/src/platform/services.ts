@@ -9,6 +9,7 @@ import {
   type PlatformDatabase,
 } from "@travel-crm/db/platform";
 import type { JobAdministration, JobQueue } from "@travel-crm/integrations/jobs";
+import type { Logger } from "@travel-crm/integrations/logging";
 import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import type { Identity } from "../identity/index.js";
 
@@ -31,10 +32,10 @@ export interface PlatformServices {
    */
   sheetsHashes?: SheetsHashes | null;
   /**
-   * The console process's log, a line each, ids and codes only (errors as describeError gives them), for what goes
-   * wrong after a commit with no one to tell. Required, so a process can't forget it; tests pass a collector.
+   * The console process's structured log (ADR 0032), for what goes wrong after a commit with no one to tell: ids, codes,
+   * counts and timings only. Required, so a process can't forget it; tests pass a memory logger.
    */
-  log: (line: string) => void;
+  logger: Logger;
 }
 
 export interface PlatformServicesOptions extends Omit<PlatformServices, "platformDb"> {

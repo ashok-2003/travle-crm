@@ -11,6 +11,7 @@ import { createMemoryEmailSender } from "@travel-crm/integrations/email";
 import { createMemoryJobQueue, createMemoryJobRunner } from "@travel-crm/integrations/jobs";
 import { createMemoryPushSender } from "@travel-crm/integrations/push";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { problemLogger } from "./support/problem-logger.js";
 import { workerJobs, type WorkerJobs } from "../src/worker-jobs.js";
 import { createTestConsole, type TestConsole } from "./support/console.js";
 import { CookieJar } from "./support/cookie-jar.js";
@@ -47,7 +48,7 @@ describe("the worker's invite job", () => {
       rateLimiter: createRateLimiter(server.db, {
         keySecret: "worker-platform-jobs-test-rate-limit-secret-of-32-bytes",
       }),
-      log: (line) => reported.push(line),
+      logger: problemLogger(reported),
     });
   });
 

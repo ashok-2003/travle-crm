@@ -100,7 +100,13 @@ describe("authClient", () => {
     await vi.advanceTimersByTimeAsync(4_999);
     expect(stalled.mock.calls[0]?.[1]?.signal?.aborted).toBe(false);
     await vi.advanceTimersByTimeAsync(1);
-    expect(await signingOut).toEqual({ ok: false, status: 0, code: "NETWORK", retryAfterSeconds: null });
+    expect(await signingOut).toEqual({
+      ok: false,
+      status: 0,
+      code: "NETWORK",
+      retryAfterSeconds: null,
+      mayHaveLanded: true,
+    });
     vi.useRealTimers();
   });
 
@@ -111,6 +117,7 @@ describe("authClient", () => {
       status: 0,
       code: "NETWORK",
       retryAfterSeconds: null,
+      mayHaveLanded: false,
     });
   });
 
@@ -139,6 +146,36 @@ describe("authClient", () => {
         "/api/auth/ok",
         "/api/auth/sign-in/email",
       ]);
+      vi.useRealTimers();
+    });
+
+    it("sends a sign-in again after no connection, which never landed", async () => {
+      vi.useFakeTimers();
+      const fetch = sequence({ "/api/auth/sign-in/email": [0, 200], "/api/auth/ok": [200] });
+      const signingIn = createAuthClient(fetch).signInWithEmail({ email: "a@b.in", password: "p" });
+      await vi.advanceTimersByTimeAsync(WAKE_RETRY_DELAY_MS);
+      expect(await signingIn).toEqual({ ok: true, data: { twoFactorRequired: false } });
+      vi.useRealTimers();
+    });
+
+    it("waits for the api after a sign-in timed out, but does not send it again: it may have counted", async () => {
+      vi.useFakeTimers();
+      const signInCalls: string[] = [];
+      const server = vi.fn<typeof fetch>((url, init) => {
+        if (url === "/api/auth/ok") return Promise.resolve(Response.json({}, { status: 200 }));
+        signInCalls.push(typeof url === "string" ? url : "other");
+        // Never answers; the client's own timeout aborts it.
+        return new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            reject(new DOMException("aborted", "AbortError"));
+          });
+        });
+      });
+      const signingIn = createAuthClient(server).signInWithEmail({ email: "a@b.in", password: "p" });
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(await signingIn).toMatchObject({ ok: false, status: 0, code: "NETWORK", mayHaveLanded: true });
+      expect(signInCalls).toEqual(["/api/auth/sign-in/email"]);
+      expect(server.mock.calls.some(([url]) => url === "/api/auth/ok")).toBe(true);
       vi.useRealTimers();
     });
 

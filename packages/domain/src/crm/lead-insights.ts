@@ -35,11 +35,41 @@ export interface LeadInsights {
 
 const TOP = 10;
 
+/**
+ * A lead that has had a reply: it left New for a stage but Not a lead (first_reply_at), or it was imported already past
+ * New, when no first reply was recorded. Not a lead is junk, never contacted.
+ */
+const replied = sql`(lead.first_reply_at IS NOT NULL OR lead.stage NOT IN ('new', 'not_a_lead'))`;
+
 /** The period's new leads: live, come in during it, and the owner's when one is given. */
 function cohort(ownerUserId: string | null, period: InsightsPeriod): Sql {
   const owner = ownerUserId === null ? emptySql : sql`AND lead.owner_user_id = ${ownerUserId}::uuid`;
   return sql`lead.deleted_at IS NULL
     AND lead.created_at >= ${period.from}::timestamptz AND lead.created_at < ${period.to}::timestamptz ${owner}`;
+}
+
+/** The period's new leads counted: replies, wins and the middle wait (reads lead_live_by_created). */
+export function periodTotalsQuery(ownerUserId: string | null, period: InsightsPeriod): Sql {
+  return sql`
+    SELECT count(*)::int AS "newLeads",
+      count(*) FILTER (WHERE ${replied})::int AS contacted,
+      count(*) FILTER (WHERE lead.stage = 'won')::int AS "newLeadsWon",
+      (percentile_cont(0.5) WITHIN GROUP (ORDER BY extract(epoch FROM lead.first_reply_at - lead.created_at) / 60)
+        FILTER (WHERE lead.first_reply_at IS NOT NULL))::float8 AS "medianMinutes"
+    FROM lead WHERE ${cohort(ownerUserId, period)}`;
+}
+
+/** The leads moved to Quote sent and to Won during the period (reads lead_timeline_stage_moves). */
+export function stageMovesQuery(ownerUserId: string | null, period: InsightsPeriod): Sql {
+  const owner = ownerUserId === null ? emptySql : sql`AND lead.owner_user_id = ${ownerUserId}::uuid`;
+  return sql`
+    SELECT count(DISTINCT entry.lead_id) FILTER (WHERE entry.stage = 'quote_sent')::int AS "quotesSent",
+      count(DISTINCT entry.lead_id) FILTER (WHERE entry.stage = 'won')::int AS won
+    FROM lead_timeline_entry entry
+    JOIN lead ON lead.organization_id = entry.organization_id AND lead.id = entry.lead_id
+    WHERE entry.kind = 'stage-changed'
+      AND entry.occurred_at >= ${period.from}::timestamptz AND entry.occurred_at < ${period.to}::timestamptz
+      AND lead.deleted_at IS NULL ${owner}`;
 }
 
 export async function leadInsights(
@@ -52,23 +82,10 @@ export async function leadInsights(
 
   const [totals] = await tx.$queryRaw<
     { newLeads: number; contacted: number; newLeadsWon: number; medianMinutes: number | null }[]
-  >(sql`
-    SELECT count(*)::int AS "newLeads",
-      count(*) FILTER (WHERE lead.first_reply_at IS NOT NULL)::int AS contacted,
-      count(*) FILTER (WHERE lead.stage = 'won')::int AS "newLeadsWon",
-      (percentile_cont(0.5) WITHIN GROUP (ORDER BY extract(epoch FROM lead.first_reply_at - lead.created_at) / 60)
-        FILTER (WHERE lead.first_reply_at IS NOT NULL))::float8 AS "medianMinutes"
-    FROM lead WHERE ${inCohort}`);
+  >(periodTotalsQuery(ownerUserId, period));
 
   // A lead moved there twice in the period (reopened) counts once.
-  const [moves] = await tx.$queryRaw<{ quotesSent: number; won: number }[]>(sql`
-    SELECT count(DISTINCT entry.lead_id) FILTER (WHERE entry.stage = 'quote_sent')::int AS "quotesSent",
-      count(DISTINCT entry.lead_id) FILTER (WHERE entry.stage = 'won')::int AS won
-    FROM lead_timeline_entry entry
-    JOIN lead ON lead.organization_id = entry.organization_id AND lead.id = entry.lead_id
-    WHERE entry.kind = 'stage-changed'
-      AND entry.occurred_at >= ${period.from}::timestamptz AND entry.occurred_at < ${period.to}::timestamptz
-      AND lead.deleted_at IS NULL ${owner}`);
+  const [moves] = await tx.$queryRaw<{ quotesSent: number; won: number }[]>(stageMovesQuery(ownerUserId, period));
 
   const [open] = await tx.$queryRaw<{ n: number }[]>(sql`
     SELECT count(*)::int AS n FROM lead
@@ -99,24 +116,27 @@ export async function leadInsights(
     destinations.map((row) => row.destinationId),
   );
 
+  // Waiting is a lead still New. One past New with no first reply recorded (imported so) waited an unknown time, and
+  // one marked Not a lead waited for nothing: neither is in a bucket.
   const responseTimes = await tx.$queryRaw<{ bucket: ResponseBucket; leads: number }[]>(sql`
-    SELECT CASE
-        WHEN lead.first_reply_at IS NULL THEN 'waiting'
-        WHEN lead.first_reply_at - lead.created_at < interval '15 minutes' THEN 'under15m'
-        WHEN lead.first_reply_at - lead.created_at < interval '1 hour' THEN 'under1h'
-        WHEN lead.first_reply_at - lead.created_at < interval '4 hours' THEN 'under4h'
-        WHEN lead.first_reply_at - lead.created_at < interval '1 day' THEN 'under1d'
-        ELSE 'later'
-      END AS bucket,
-      count(*)::int AS leads
-    FROM lead WHERE ${inCohort} GROUP BY 1`);
+    SELECT bucket, count(*)::int AS leads FROM (
+      SELECT CASE
+          WHEN lead.first_reply_at IS NULL THEN (CASE WHEN lead.stage = 'new' THEN 'waiting' END)
+          WHEN lead.first_reply_at - lead.created_at < interval '15 minutes' THEN 'under15m'
+          WHEN lead.first_reply_at - lead.created_at < interval '1 hour' THEN 'under1h'
+          WHEN lead.first_reply_at - lead.created_at < interval '4 hours' THEN 'under4h'
+          WHEN lead.first_reply_at - lead.created_at < interval '1 day' THEN 'under1d'
+          ELSE 'later'
+        END AS bucket
+      FROM lead WHERE ${inCohort}
+    ) waits WHERE bucket IS NOT NULL GROUP BY bucket`);
 
   const team =
     ownerUserId !== null
       ? []
       : await tx.$queryRaw<{ userId: string; leads: number; contacted: number; won: number }[]>(sql`
           SELECT lead.owner_user_id AS "userId", count(*)::int AS leads,
-            count(*) FILTER (WHERE lead.first_reply_at IS NOT NULL)::int AS contacted,
+            count(*) FILTER (WHERE ${replied})::int AS contacted,
             count(*) FILTER (WHERE lead.stage = 'won')::int AS won
           FROM lead WHERE ${inCohort} AND lead.owner_user_id IS NOT NULL
           GROUP BY lead.owner_user_id ORDER BY leads DESC, lead.owner_user_id LIMIT ${TOP}`);

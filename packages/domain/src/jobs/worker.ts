@@ -3,6 +3,7 @@
 // process, which has no listeners, starts only its handlers and schedules (startJobHandlers).
 import type { Database } from "@travel-crm/db";
 import type { JobData, JobQueue, JobRunner } from "@travel-crm/integrations/jobs";
+import type { Logger } from "@travel-crm/integrations/logging";
 import type { EventListener } from "./events.js";
 import { startOutboxRelay } from "./relay.js";
 import { runListenerJob } from "./run-listener.js";
@@ -52,6 +53,8 @@ export interface WorkerDependencies {
    * failed list instead.
    */
   onError?: (error: unknown) => void;
+  /** The structured log (ADR 0032) for the routine lines: events relayed (debug), a listener skipping a repeat (debug). */
+  logger?: Logger;
 }
 
 /** A process's plain handlers and schedules, without listeners: what the console process runs. */
@@ -137,6 +140,12 @@ export async function startWorker(dependencies: WorkerDependencies): Promise<Wor
       listener.name,
       async (job) => {
         const outcome = await runListenerJob({ db, listener, data: job.data });
+        if (outcome === "already-handled") {
+          dependencies.logger?.debug(
+            { listener: listener.name, organizationId: job.data.organizationId, eventId: job.data.eventId },
+            "listener skipped an event it already handled",
+          );
+        }
         // Not retried (the event won't appear), but not silent either. Ids only: this may reach logs.
         if (outcome === "event-not-found") {
           try {
@@ -164,6 +173,13 @@ export async function startWorker(dependencies: WorkerDependencies): Promise<Wor
       ? {}
       : { organizationIds: dependencies.relay.organizationIds }),
     ...(dependencies.onError === undefined ? {} : { onError: dependencies.onError }),
+    ...(dependencies.logger === undefined
+      ? {}
+      : {
+          onRelayed: (events: number) => {
+            dependencies.logger?.debug({ events }, "outbox relayed");
+          },
+        }),
   });
   return { stop: () => relay.stop() };
 }

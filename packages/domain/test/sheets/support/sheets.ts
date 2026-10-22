@@ -4,6 +4,7 @@
 import { randomUUID } from "node:crypto";
 import type { OrgTx } from "@travel-crm/db";
 import { createMemoryGoogleSheets, type MemoryGoogleSheets } from "@travel-crm/integrations/google-sheets";
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import type { MemberAccess } from "../../../src/identity/index.js";
 import type { ImportIdentity } from "../../../src/imports/index.js";
 import type { DomainEvent, EventListener } from "../../../src/jobs/index.js";
@@ -234,7 +235,7 @@ export function jobDependencies(
     // Nobody has a name unless the identity says so.
     identity: { memberContacts: () => Promise.resolve([]), ...identity },
     subscriptions: { entitlementsOf: () => Promise.resolve(crmEntitlements(access)) },
-    log: () => undefined,
+    logger: createMemoryLogger(),
     // As the worker builds it: the baseline keeps what each old row holds.
     baselineFingerprints: leadSheetBaselineFingerprints(test.db, test.hashes),
   };

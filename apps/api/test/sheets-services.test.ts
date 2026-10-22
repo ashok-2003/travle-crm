@@ -1,10 +1,10 @@
 // The services build the Google adapter from the service accounts, and none without them.
 import { generateKeyPairSync } from "node:crypto";
 import { createIsolatedDatabase } from "@travel-crm/db/testing";
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { describe, expect, inject, it } from "vitest";
 import { forgetServiceAccounts } from "../src/console-environment.js";
 import { loadEnvironment } from "../src/environment.js";
-import { processLog } from "../src/process-log.js";
 import { createServices } from "../src/services.js";
 import { testEnvironment, testEnvironmentVariables } from "./support/environment.js";
 
@@ -15,13 +15,13 @@ const key = (name: string) => ({ client_email: `${name}@project.iam.gserviceacco
 
 describe("the Google Sheets adapter in the services", () => {
   it("builds no Google adapter without accounts, and the real one with them", async () => {
-    const without = createServices(testEnvironment(), processLog("api"));
+    const without = createServices(testEnvironment(), createMemoryLogger());
     const withAccounts = createServices(
       testEnvironment({
         GOOGLE_SHEETS_SERVICE_ACCOUNTS: JSON.stringify([key("one"), key("two")]),
         SHEETS_HASH_KEY: "k".repeat(40),
       }),
-      processLog("api"),
+      createMemoryLogger(),
     );
     try {
       expect(without.google).toBeNull();
@@ -40,7 +40,7 @@ describe("the Google Sheets adapter in the services", () => {
       GOOGLE_SHEETS_SERVICE_ACCOUNTS: JSON.stringify(key("one")),
       SHEETS_HASH_KEY: "k".repeat(40),
     });
-    const services = createServices(loadEnvironment(forgetServiceAccounts(variables)), processLog("console"));
+    const services = createServices(loadEnvironment(forgetServiceAccounts(variables)), createMemoryLogger());
     try {
       expect(services.google).toBeNull();
     } finally {
@@ -52,8 +52,8 @@ describe("the Google Sheets adapter in the services", () => {
     const isolated = await createIsolatedDatabase(inject("dbUrls"));
     const environment = (hashKey: string) =>
       testEnvironment({ DATABASE_URL: isolated.urls.runtime, SHEETS_HASH_KEY: hashKey });
-    const first = createServices(environment("rQ7vK2mXz9LpT4wNb8Ys5HdJ3cFe6UgA"), processLog("api"));
-    const second = createServices(environment("wB7qk2Rz9XvLm4TnY8cPa5HdJ3sFe6Ug"), processLog("worker"));
+    const first = createServices(environment("rQ7vK2mXz9LpT4wNb8Ys5HdJ3cFe6UgA"), createMemoryLogger());
+    const second = createServices(environment("wB7qk2Rz9XvLm4TnY8cPa5HdJ3sFe6Ug"), createMemoryLogger());
     try {
       // The bucket is not reachable in these tests, so the first start fails there, after storing the check value.
       await expect(first.start()).rejects.not.toThrow(/SHEETS_HASH_KEY/);
@@ -74,7 +74,7 @@ describe("the Google Sheets adapter in the services", () => {
         SHEETS_HASH_KEY: "k".repeat(40),
         GOOGLE_SHEETS_TEST_SERVER_URL: (await server).url,
       }),
-      processLog("api"),
+      createMemoryLogger(),
     );
     try {
       await expect(services.google?.describe(0, "1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-aaa")).rejects.toMatchObject({

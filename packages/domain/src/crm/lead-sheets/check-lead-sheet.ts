@@ -36,8 +36,10 @@ import { claimCheck } from "./check-claim.js";
 import { planCheck } from "./check-plan.js";
 import { noticeSheetOwners, ownersToSummarise } from "./sheet-notices.js";
 import {
+  noCounts,
   recordCouldNotAdd,
   saveSheetBatch,
+  type BatchCounts,
   type PlannedRow,
   type SavedBatch,
   type SaveBatchContext,
@@ -82,10 +84,10 @@ async function saveBatch(
     }
   }
   const [poison] = decisions;
-  if (poison === undefined) return { processed: 0, stopped: null, madeFor: new Map() };
+  if (poison === undefined) return { processed: 0, stopped: null, madeFor: new Map(), counts: noCounts() };
   await db.forOrg(organizationId, (tx) => recordCouldNotAdd(tx, context, poison));
-  dependencies.log(`sheets: a row of sheet ${context.sheetId} could not be added`);
-  return { processed: 1, stopped: null, madeFor: new Map() };
+  dependencies.logger.warn({ organizationId, sheetId: context.sheetId }, "A row of a sheet could not be added");
+  return { processed: 1, stopped: null, madeFor: new Map(), counts: { ...noCounts(), problems: 1 } };
 }
 
 /** The read of a check: the window, then a full read when the header changed or rows were deleted (S18). */
@@ -121,12 +123,16 @@ async function readForCheck(dependencies: CheckDependencies, sheet: SheetConnect
   return { read, tabTitle, plan, headerHash: headerHashOf(read.header), sheetTitle };
 }
 
+/** What a check read and did, for the one summary line it writes. */
+type CheckStats = BatchCounts & { rowsRead: number };
+
 async function runCheck(
   dependencies: CheckDependencies,
   input: { organizationId: string; sheetId: string; mode: CheckMode },
   claim: { sheet: SheetConnectionRow; access: MemberAccess },
   startedAt: Date,
   clock: () => Date,
+  stats: CheckStats,
 ): Promise<CheckOutcome> {
   const { db, holds, hashes, checkIntervalSeconds } = dependencies;
   const { sheet, access } = claim;
@@ -143,6 +149,7 @@ async function runCheck(
     input.mode,
     startedAt,
   );
+  stats.rowsRead = read.rows.length;
   holds.recovered(accountIndexOf(dependencies.google, sheet));
 
   // Columns are found by their header (S11); a gap that leaves no name or no contact stops the check, consuming no row.
@@ -184,6 +191,7 @@ async function runCheck(
     );
     next += saved.processed;
     stopped = saved.stopped;
+    for (const key of ["added", "merged", "duplicate", "problems"] as const) stats[key] += saved.counts[key];
     for (const [owner, count] of saved.madeFor) madeFor.set(owner, (madeFor.get(owner) ?? 0) + count);
   }
   if (stopped === "gone") return { result: "skipped", nextCheckInSeconds: checkIntervalSeconds, keepSchedule: false };
@@ -226,13 +234,38 @@ export async function checkLeadSheet(
   clock: () => Date = () => new Date(),
 ): Promise<CheckOutcome> {
   const startedAt = clock();
+  const started = performance.now();
   const claim = await claimCheck(dependencies, input, startedAt);
   if (claim.kind === "skip") return claim.outcome;
+  const stats: CheckStats = { rowsRead: 0, ...noCounts() };
+  // One info line per check: the connection, what it read and did, and how long it took (ids, counts and timings only).
+  const summarise = (result: CheckOutcome["result"], failure?: string) => {
+    dependencies.logger.info(
+      {
+        organizationId: input.organizationId,
+        sheetId: input.sheetId,
+        mode: input.mode,
+        result,
+        ...(failure === undefined ? {} : { failure }),
+        rowsRead: stats.rowsRead,
+        rowsAdded: stats.added,
+        rowsMerged: stats.merged,
+        rowsDuplicate: stats.duplicate,
+        rowsWithProblems: stats.problems,
+        durationMs: Math.round(performance.now() - started),
+      },
+      "sheet check",
+    );
+  };
   try {
-    return await runCheck(dependencies, input, claim, startedAt, clock);
+    const outcome = await runCheck(dependencies, input, claim, startedAt, clock, stats);
+    summarise(outcome.result);
+    return outcome;
   } catch (error) {
     if (error instanceof GoogleSheetsError) {
-      return handleReadFailure(dependencies, claim.sheet, error, input.mode, clock());
+      const outcome = await handleReadFailure(dependencies, claim.sheet, error, input.mode, clock());
+      summarise(outcome.result, error.reason);
+      return outcome;
     }
     // Let go of the claim so the next check isn't held off for five minutes, and tell the job it failed.
     await dependencies.db

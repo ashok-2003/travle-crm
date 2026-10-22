@@ -1,6 +1,6 @@
 // The api, the worker and the console each end on an error nothing handled (an unhandled rejection) as they end on
-// SIGTERM, but exiting 1: one line in the process's log, by names and codes, never the error's message, which Node's
-// default would print in full with its stack; then the process's own drain. Real Postgres (a database of this file's
+// SIGTERM, but exiting 1: one line in the process's log, by name, code and frames, never the error's message, which Node's
+// default would print in full; then the process's own drain. Real Postgres (a database of this file's
 // own, as the worker relays and the console runs jobs) and MinIO; SMTP is never reached.
 import { spawn } from "node:child_process";
 import { once } from "node:events";
@@ -88,12 +88,18 @@ describe("a process's last resort", () => {
     ["worker", "src/worker.ts", "worker running"],
     ["console", "src/console.ts", "console listening"],
   ])(
-    "logs the %s's unhandled rejection by name alone, drains and exits 1",
+    "logs the %s's unhandled rejection by name and frames, not its message, drains and exits 1",
     { timeout: 90_000 },
     async (name, script, ready) => {
       const { code, output } = await rejectedIn(script, ready);
       expect(code).toBe(1);
-      expect(output).toContain(`${name}: unhandled rejection: Error\n`);
+      const line = output.split("\n").find((candidate) => candidate.includes('"msg":"unhandled rejection"'));
+      expect(JSON.parse(line ?? "{}")).toMatchObject({
+        level: "error",
+        process: name,
+        msg: "unhandled rejection",
+        errorName: "Error",
+      });
       expect(output).not.toContain("asha@example.test");
     },
   );

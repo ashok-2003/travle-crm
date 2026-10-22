@@ -14,7 +14,7 @@ describe("password reset by email", () => {
 
   it("emails a link that leads back to the web app, sets the new password and ends every old session", async () => {
     const { server, agency, emails } = kit;
-    const checkWarnings = expectBetterAuthLogs("warn", "Invalid password", 1);
+    const checkWarnings = expectBetterAuthLogs(server, "warn", "Invalid password", 1);
     const devices = [await signedInOwner(server, agency), await signedInOwner(server, agency)];
     expect((await kit.ask(agency.owner.email)).status).toBe(200);
     await emails.settled();

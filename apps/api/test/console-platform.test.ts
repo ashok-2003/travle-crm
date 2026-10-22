@@ -2,6 +2,7 @@
 // be able to step into an organization as app_runtime, which a hosted database allows only once it is granted. Without
 // the grant the console refuses to start, rather than start healthy and fail every step later. A Postgres of its own,
 // as the grant is the cluster's: taking it away from the shared test database would fail every other test file.
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { GenericContainer, Wait, type StartedTestContainer } from "testcontainers";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { startConsolePlatform } from "../src/console-platform.js";
@@ -40,7 +41,11 @@ describe("the console's start-up check", () => {
     vi.stubEnv("DEMO_ORGANIZATION_CODE", undefined);
     vi.stubEnv("DEMO_PASSWORD", undefined);
     const services = { db: {}, identity: {}, storage: {}, jobs: {} } as unknown as Services;
-    return startConsolePlatform({ environment: testEnvironment(), services, log: () => undefined });
+    return startConsolePlatform({
+      environment: testEnvironment(),
+      services,
+      logger: createMemoryLogger(),
+    });
   }
 
   it("refuses to start when the platform role can't step into an organization, and starts once it can", async () => {

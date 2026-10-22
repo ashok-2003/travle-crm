@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createMemoryLogger } from "../../src/logging/index.js";
 import {
   createRealGoogleSheets,
   GOOGLE_SHEETS_SCOPE,
@@ -284,23 +285,23 @@ describe("createRealGoogleSheets", () => {
   });
 
   it("logs a Google failure once per account per streak, as the account and the reason alone (SC4)", async () => {
-    const lines: string[] = [];
+    const logger = createMemoryLogger();
     let answer: () => Response = () => asResponse(recorded("project-service-disabled"));
     const { send } = fakeFetch(() => answer());
-    const google = adapterWith(send, { log: (line: string) => lines.push(line) });
+    const google = adapterWith(send, { logger });
     for (let attempt = 0; attempt < 3; attempt += 1) await google.readRows(0, id, read).catch(() => undefined);
     await google.readRows(1, id, read).catch(() => undefined);
-    expect(lines).toEqual([
-      "sheets: Google account 0 failed: unavailable (SERVICE_DISABLED)",
-      "sheets: Google account 1 failed: unavailable (SERVICE_DISABLED)",
+    expect(logger.entries).toMatchObject([
+      { level: "warn", account: 0, reason: "unavailable", googleReason: "SERVICE_DISABLED" },
+      { level: "warn", account: 1, reason: "unavailable", googleReason: "SERVICE_DISABLED" },
     ]);
     // A sheet-level answer (not shared) is Google answering normally: it ends the streak, and is not logged.
     answer = () => asResponse(recorded("forbidden"));
     await google.readRows(0, id, read).catch(() => undefined);
     answer = () => asResponse(recorded("rate-limited"));
     await google.readRows(0, id, read).catch(() => undefined);
-    expect(lines.slice(2)).toEqual(["sheets: Google account 0 failed: rate_limited"]);
-    expect(lines.join("\n")).not.toMatch(/project|1AbCd|token/);
+    expect(logger.entries.slice(2)).toMatchObject([{ account: 0, reason: "rate_limited" }]);
+    expect(JSON.stringify(logger.entries)).not.toMatch(/project|1AbCd|token/);
   });
 
   it("never puts a sheet's content, a title or a token in an error's message", async () => {

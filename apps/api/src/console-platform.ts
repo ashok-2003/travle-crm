@@ -15,7 +15,7 @@ export interface ConsolePlatform {
  * A missing DATABASE_PLATFORM_URL, a connection that isn't the platform role, or a platform role that can't step into
  * an organization (the grant a hosted database needs) throws, with the platform pool closed.
  */
-export async function startConsolePlatform({ environment, services, log }: ProcessBase): Promise<ConsolePlatform> {
+export async function startConsolePlatform({ environment, services, logger }: ProcessBase): Promise<ConsolePlatform> {
   const settings = loadConsoleSettings(process.env, environment);
   const platform = createPlatformServices({
     platformDatabaseUrl: settings.platformDatabaseUrl,
@@ -27,7 +27,7 @@ export async function startConsolePlatform({ environment, services, log }: Proce
     jobs: services.jobs,
     // The erasure of a customer of an agency with sheets keeps keyed hashes of their rows and contacts (S43, S6).
     sheetsHashes: settings.sheetsHashKey === null ? null : createSheetsHashes(settings.sheetsHashKey),
-    log,
+    logger,
   });
   try {
     // The connection is the platform role, and may switch to the runtime role: refuse to start rather than fail later.

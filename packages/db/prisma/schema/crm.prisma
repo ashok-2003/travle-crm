@@ -103,6 +103,8 @@ model Lead {
   /// Every live lead, for the lists filtered by a closed stage.
   @@index([organizationId, id(sort: Desc)], map: "lead_live", where: { deletedAt: null })
   @@index([organizationId, ownerUserId, id(sort: Desc)], map: "lead_live_by_owner", where: { deletedAt: null })
+  /// The dashboard's period of new leads.
+  @@index([organizationId, createdAt], map: "lead_live_by_created", where: { deletedAt: null })
   @@index([organizationId, personId], map: "lead_person")
   @@index([organizationId, destinationId], map: "lead_destination")
   @@map("lead")
@@ -134,6 +136,8 @@ model LeadTimelineEntry {
   /// Lets a later table point at (organization_id, id).
   @@unique([organizationId, id])
   @@index([organizationId, leadId, id(sort: Desc)], map: "lead_timeline_entry_by_lead")
+  /// The dashboard's moves to Quote sent and Won during a period.
+  @@index([organizationId, occurredAt], map: "lead_timeline_stage_moves", where: raw("(kind = 'stage-changed'::text)"))
   @@map("lead_timeline_entry")
 }
 

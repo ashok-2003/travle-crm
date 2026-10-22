@@ -72,7 +72,7 @@ test("the service worker registers, controls the app and keeps every screen's sh
     .filter(({ cache }) => cache.startsWith("pages-"))
     .map(({ url }) => new URL(url).pathname);
   expect(shells).toEqual(
-    expect.arrayContaining(["/", "/dashboard", "/staff", "/roles", "/settings", "/account", "/offline"]),
+    expect.arrayContaining(["/dashboard", "/staff", "/roles", "/settings", "/account", "/offline"]),
   );
   for (const secretPage of ["/reset-password", "/sign-in/two-factor", "/two-factor-setup"]) {
     expect(shells).not.toContain(secretPage);

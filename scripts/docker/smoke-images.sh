@@ -2,7 +2,9 @@
 # `pnpm images:smoke` (spec 12.1, gate 7): builds the api's and the web app's images, then runs every command of the
 # api's image as a deploy does (production settings, a read-only file system) against a throwaway Postgres, MinIO and
 # Mailpit. Expects the api, the console and api-and-worker (both in one container) to answer /health, the worker to
-# start (which reads an .xlsx in its own thread first, ADR 0030) and render a PDF with the brand's fonts, the web app
+# start (which reads an .xlsx in its own thread first, ADR 0030) and render a PDF with the brand's fonts, a process given
+# an Axiom token to ship its log lines, through the image's axiom-transport.mjs, to a fake Axiom before it stops (ADR
+# 0032), the web app
 # to serve /sign-in with its security headers and rewrite none of the api's paths, each process to stop on SIGTERM by
 # itself, and neither image to hold a .env file. Everything it starts is removed again, however it ends. The images
 # are tagged after this checkout's project (scripts/dev/compose.sh), so a run in another clone never retags this one's.
@@ -128,6 +130,32 @@ api_image --detach --name "$run-both" --env-file "$work/api.env" --publish 127.0
 wait_for_status "http://127.0.0.1:$(port_of both 3001)/health" 200 "$run-both"
 wait_for_log "$run-both" "worker running"
 echo "ok: api-and-worker runs the api, answering /health, and the worker beside it"
+
+echo "A process ships its log to Axiom, and flushes it when it stops"
+# A fake Axiom: the api's image running a few lines of Node, which logs each post it receives as one JSON line.
+api_image --detach --name "$run-axiom" --network-alias axiom --entrypoint node "$api_tag" --eval '
+  require("node:http").createServer((request, response) => {
+    let body = "";
+    request.on("data", (chunk) => (body += chunk));
+    request.on("end", () => {
+      console.log(JSON.stringify({ url: request.url, authorization: request.headers.authorization, body }));
+      response.end("{}");
+    });
+  }).listen(8080);
+' >/dev/null
+wait_until "the fake Axiom starting" docker exec "$run-axiom" node --eval \
+  'fetch("http://127.0.0.1:8080/ping", { method: "POST" }).then(() => process.exit(0), () => process.exit(1))'
+# Development settings for this one container only (production insists on an https AXIOM_URL, and the fake speaks http).
+api_image --detach --name "$run-shipping" --env-file "$work/api.env" --env NODE_ENV=development \
+  --env AXIOM_TOKEN=smoke-token --env AXIOM_DATASET=smoke --env AXIOM_URL=http://axiom:8080 "$api_tag" >/dev/null
+wait_for_log "$run-shipping" "api listening"
+stop_gracefully "$run-shipping"
+wait_for_log "$run-axiom" "Bearer smoke-token"
+axiom_log="$(docker logs "$run-axiom" 2>&1)"
+case "$axiom_log" in *'/v1/datasets/smoke/ingest'*) ;; *) fail "Axiom got no post for the dataset" ;; esac
+case "$axiom_log" in *'api starting'*) ;; *) fail "Axiom never got the api's start-up line" ;; esac
+case "$axiom_log" in *'api listening'*) ;; *) fail "Axiom never got the api's last lines: the flush on SIGTERM failed" ;; esac
+echo "ok: the api shipped its log lines to Axiom, the last ones included, from the image"
 
 echo "The worker renders a PDF with the brand's fonts"
 organization="$(query "SELECT id FROM organization WHERE code = 'DEMO'")"

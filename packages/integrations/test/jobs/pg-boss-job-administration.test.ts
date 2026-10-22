@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import type { DbUrls } from "@travel-crm/db/testing";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import { createMemoryLogger } from "../../src/logging/index.js";
 import { createPgBossJobs, type FailedJob, type PgBossJobs } from "../../src/jobs/index.js";
 
 /** Waits until check passes or the time runs out. */
@@ -16,7 +17,9 @@ async function eventually(check: () => Promise<boolean> | boolean, timeoutMs = 2
 
 describe("pg-boss's job administration", () => {
   const urls: DbUrls = inject("dbUrls");
-  const lines: string[] = [];
+  const logger = createMemoryLogger();
+  /** What went wrong: pg-boss's own warnings and errors, and failing jobs. */
+  const problems = () => logger.entries.filter((entry) => entry.level === "warn" || entry.level === "error");
   let jobs: PgBossJobs;
 
   beforeAll(async () => {
@@ -24,7 +27,7 @@ describe("pg-boss's job administration", () => {
       connectionString: urls.runtime,
       maxConnections: 3,
       pollingIntervalSeconds: 0.5,
-      log: (line) => lines.push(line),
+      logger,
     });
     await jobs.start();
   });
@@ -32,7 +35,7 @@ describe("pg-boss's job administration", () => {
   afterAll(async () => {
     await jobs.stop();
     // Any error pg-boss raised as app_runtime fails the suite.
-    expect(lines).toEqual([]);
+    expect(problems()).toEqual([]);
   });
 
   async function failedJob(queue: string, id: string): Promise<FailedJob | undefined> {
@@ -62,7 +65,10 @@ describe("pg-boss's job administration", () => {
     expect(runs).toEqual([0, 1, 2]);
     await eventually(async () => (await failedJob("probe.retried", id)) === undefined);
     // Each failed attempt was logged by queue, job id and name.
-    expect(lines.splice(0)).toEqual(Array(2).fill(`queue probe.retried, job ${id} failed: Error`));
+    expect(problems().map((entry) => [entry.msg, entry.queue, entry.jobId, entry.errorName])).toEqual(
+      Array(2).fill(["job failed", "probe.retried", id, "Error"]),
+    );
+    logger.entries.length = 0;
   });
 
   it("says when there was nothing to retry: a job that isn't failed, or a queue that doesn't exist", async () => {
@@ -82,7 +88,7 @@ describe("pg-boss's job administration", () => {
       if (id !== null) ids.push(id);
     }
     await eventually(async () => (await jobs.failedJobs({ queue: "probe.paged" })).length === 5);
-    lines.splice(0);
+    logger.entries.length = 0;
 
     const pages: FailedJob[][] = [];
     let after: FailedJob | undefined;

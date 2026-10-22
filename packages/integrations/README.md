@@ -10,9 +10,10 @@ it calls a port defined here, and the api and worker pass in the real adapter. T
 | `@travel-crm/integrations/email`        | EmailSender            | `createSmtpEmailSender` (SMTP or SES's SMTP), `createMemoryEmailSender`; `renderEmail`                                   |
 | `@travel-crm/integrations/push`         | PushSender             | `createWebPushSender`, `createMemoryPushSender`                                                                          |
 | `@travel-crm/integrations/pdf`          | `renderPdf`, `imageOf` | React-PDF with the brand's fonts and the organization's logo; the `sample` template                                      |
+| `@travel-crm/integrations/logging`      | Logger                 | `createPinoLogger` (JSON lines on stdout; censors personal data), `createMemoryLogger`; `errorFields`                    |
 | `@travel-crm/integrations/spreadsheets` | Spreadsheets           | `createSpreadsheets` (csv-parse, read-excel-file; csv-stringify, our .xlsx writer on fflate), `createMemorySpreadsheets` |
 
-- Only this package imports vendor SDKs (pg-boss, AWS SDK, nodemailer, web-push, React-PDF, the spreadsheet libraries). dependency-cruiser
+- Only this package imports vendor SDKs (pg-boss, AWS SDK, nodemailer, web-push, pino, React-PDF, the spreadsheet libraries). dependency-cruiser
   enforces it, and this package imports nothing of ours except `@travel-crm/brand`.
 - Job data holds ids, never personal data: pg-boss's tables have no row-level security.
 - A logo's bytes are read before anything decodes them (`pdf/image-type.ts`, `pdf/png.ts`): `imageOf` gives a PNG's

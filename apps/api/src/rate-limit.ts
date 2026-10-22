@@ -2,6 +2,7 @@
 import { BlockList, isIP } from "node:net";
 import { ipv6Groups } from "@travel-crm/domain/kernel";
 import type { RateLimiter } from "@travel-crm/domain/rate-limits";
+import type { Logger } from "@travel-crm/integrations/logging";
 import type { MiddlewareHandler } from "hono";
 
 export interface RateLimitOptions {
@@ -17,8 +18,8 @@ export interface RateLimitOptions {
    * RateLimit-Remaining are added to it. Without it, JSON with code RATE_LIMITED.
    */
   refusal?: (retryAfterSeconds: number) => Response;
-  /** The process log, for the once-per-process warning about requests with no trusted address. */
-  log: (line: string) => void;
+  /** The log, for the once-per-process warning about requests with no trusted address. */
+  logger: Logger;
 }
 
 let warnedAboutMissingAddress = false;
@@ -36,9 +37,10 @@ export function rateLimit(options: RateLimitOptions): MiddlewareHandler {
     const clientAddress = options.clientAddress(c.req.raw);
     if (clientAddress === null && !warnedAboutMissingAddress) {
       warnedAboutMissingAddress = true;
-      options.log(
-        `Rate limit "${options.name}": a request has no trusted client address (the address header is missing or ` +
-          "untrusted). Check the load balancer: every such request shares one bucket.",
+      options.logger.warn(
+        { limit: options.name },
+        "Rate limit: a request has no trusted client address (the address header is missing or untrusted). Check the " +
+          "load balancer: every such request shares one bucket.",
       );
     }
     const address = clientAddress ?? "no-address";
