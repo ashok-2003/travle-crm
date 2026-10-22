@@ -1,6 +1,6 @@
 // Preview (spec 3.4): the visitors' own form, with the settings on the page whether saved or not, in a phone-wide or
 // computer-wide frame, with Send off and the line that nothing is sent.
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { messages } from "@/i18n/messages";
@@ -18,7 +18,10 @@ afterEach(() => {
 
 const t = messages.websiteFormSettings;
 
-function render(preview: unknown = { data: publicFormOf({ heading: "Come to Goa" }) }) {
+function render(
+  preview: unknown = { data: publicFormOf({ heading: "Come to Goa" }) },
+  width: "phone" | "wide" = "wide",
+) {
   const api = stubApi({
     "websiteForm.get": { data: aWebsiteFormView() },
     "websiteForm.counts": { data: { enquiries: 0, newLeads: 0, repeatEnquiries: 0, stopped: 0 } },
@@ -26,7 +29,7 @@ function render(preview: unknown = { data: publicFormOf({ heading: "Come to Goa"
     "organization.logo.get": { data: null },
     "organization.branding.get": { data: null },
   });
-  renderScreen(<WebsiteFormScreen />, { width: "wide" });
+  renderScreen(<WebsiteFormScreen />, { width });
   return api;
 }
 
@@ -86,5 +89,19 @@ describe("Preview", () => {
     await waitFor(() => {
       expect(button).toHaveFocus();
     });
+  });
+
+  it("opens on the phone-wide frame on a phone", async () => {
+    render(undefined, "phone");
+    const dialog = await openPreview();
+    const form = await within(dialog).findByRole("form");
+    expect(form.closest("[data-slot=website-form]")).toHaveStyle({ width: "390px" });
+  });
+
+  it("never sends the page's Save when the preview's own form is submitted", async () => {
+    const api = render();
+    const dialog = await openPreview();
+    fireEvent.submit(await within(dialog).findByRole("form"));
+    expect(api.calls).not.toContain("websiteForm.save");
   });
 });

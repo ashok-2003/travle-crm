@@ -14,6 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useTRPC } from "@/data/trpc";
+import { useWideScreen } from "@/lib/use-wide-screen";
 import { WebsiteFormView } from "@/website-form/website-form-view";
 import { checkValues, type FormValues } from "./form-values";
 
@@ -60,7 +61,9 @@ function PreviewBody({ input, frame }: { input: SaveWebsiteFormInput | null; fra
 export function PreviewButton({ getValues }: { getValues: () => FormValues }) {
   const t = useTranslations("websiteFormSettings.preview");
   const [shown, setShown] = useState<{ input: SaveWebsiteFormInput | null } | null>(null);
-  const [frame, setFrame] = useState<Frame>("computer");
+  // A phone opens on the phone-wide frame: a computer-wide one would scroll sideways there.
+  const wide = useWideScreen();
+  const [frame, setFrame] = useState<Frame>(wide ? "computer" : "phone");
   const opener = useRef<HTMLButtonElement>(null);
   return (
     <>
