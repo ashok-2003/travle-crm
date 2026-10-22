@@ -152,7 +152,7 @@ export function websiteFormSubmitRoute(
       // 6. Turnstile, when the server has keys: a network call, made outside any transaction (W39).
       if (botCheck !== null) {
         const result =
-          input.turnstileToken === undefined
+          input.turnstileToken === undefined || input.turnstileToken === ""
             ? "fail"
             : await botCheck.verify({ token: input.turnstileToken, address: addressOf(c.req.raw) });
         if (result === "unreachable") {

@@ -264,6 +264,9 @@ describe("the bot check", () => {
       // No token at all with keys set is a failed check, without asking Cloudflare.
       const seenBefore = botCheck.seen().length;
       expect((await send()).status).toBe(400);
+      const emptied = await send("");
+      expect(emptied.status).toBe(400);
+      expect(((await emptied.json()) as { reason: string }).reason).toBe("FORM_BOT_CHECK_FAILED");
       expect(botCheck.seen()).toHaveLength(seenBefore);
       botCheck.willAnswer("unreachable");
       expect((await send("tok-2")).status).toBe(201);
