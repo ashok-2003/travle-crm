@@ -2,12 +2,8 @@
 import type { PendingStep } from "@travel-crm/contracts/identity";
 
 export const routes = {
-  /** The product's public page: what it does, its prices, how to reach us. Someone signed in goes on to home. */
-  landing: "/",
   /** The signed-in person's home: their dashboard. */
   home: "/dashboard",
-  privacy: "/privacy",
-  terms: "/terms",
   signIn: "/sign-in",
   twoFactorChallenge: "/sign-in/two-factor",
   forgotPassword: "/forgot-password",
@@ -99,9 +95,6 @@ export function staffExportRoute(exportId: string): string {
  * signing out: the person may be typing, or reading "Your password is changed".
  */
 const publicRoutes: readonly string[] = [
-  routes.landing,
-  routes.privacy,
-  routes.terms,
   routes.signIn,
   routes.twoFactorChallenge,
   routes.forgotPassword,

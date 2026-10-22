@@ -10,7 +10,7 @@ import { chromium } from "@playwright/test";
 import { CATEGORIES, median, missedBudgets, summarise, type LighthouseRun } from "./lighthouse-budgets.js";
 
 /** The pages anyone can open: the rest need a session, which Lighthouse doesn't have. */
-const PAGES = ["/", "/sign-in", "/offline"] as const;
+const PAGES = ["/sign-in", "/offline"] as const;
 const RUNS = 3;
 
 const appDirectory = path.resolve(import.meta.dirname, "..");

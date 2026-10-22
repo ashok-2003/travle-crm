@@ -31,9 +31,5 @@ describe("brand", () => {
       expect(brand.supportPhone).toMatch(/^\+[1-9][0-9]{7,14}$/);
       expect(brand.supportPhone).not.toMatch(/^\+910+$/);
     }
-    for (const contact of [brand.salesContact, brand.techContact]) {
-      expect(contact.email).toMatch(/^[^@\s]+@[^@\s]+\.[a-z]+$/);
-      expect(contact.phone).toMatch(/^\+91[6-9][0-9]{9}$/);
-    }
   });
 });

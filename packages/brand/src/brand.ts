@@ -36,10 +36,6 @@ export const brand = {
    * tech team's phone (given 2026-10-21), as support is theirs.
    */
   supportPhone: "+918538953742" as string | null,
-  /** Who to ask about plans and prices (given 2026-10-21), on the public page. The phone is E.164. */
-  salesContact: { phone: "+918447085431", email: "aayushh.mishra2003@gmail.com" },
-  /** Who to ask for help with the product (given 2026-10-21), on the public page. The phone is E.164. */
-  techContact: { phone: "+918538953742", email: "workatashok@gmail.com" },
   /** The sender name on email the product sends for an organization: "<organization> via <this>". */
   emailSenderName: "Travel Agency OS",
 
