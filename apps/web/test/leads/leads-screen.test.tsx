@@ -290,7 +290,7 @@ describe("LeadsScreen", () => {
     expect(within(link).getByText("Follow up tomorrow, 11:00 am")).toBeVisible();
   });
 
-  it("shows the Table's seven columns on a computer, each row's link keeping the list's filters", async () => {
+  it("shows the Table's checkbox column and seven columns on a computer, each row's link keeping the list's filters", async () => {
     address.set("/leads?view=everyone");
     renderLeads({}, { width: "wide" });
     const table = await screen.findByRole("table");
@@ -298,7 +298,7 @@ describe("LeadsScreen", () => {
       within(table)
         .getAllByRole("columnheader")
         .map((header) => header.textContent),
-    ).toEqual(Object.values(list.columns));
+    ).toEqual(["", ...Object.values(list.columns)]);
     const [, row] = await within(table).findAllByRole("row");
     if (!row) throw new Error("no row");
     expect(
@@ -306,6 +306,7 @@ describe("LeadsScreen", () => {
         .getAllByRole("cell")
         .map((cell) => cell.textContent),
     ).toEqual([
+      "",
       "Rahul Sharma+91 98765 43210",
       "Kashmir · Dec · 2 adults, 1 childPhone call",
       "New",
@@ -381,7 +382,7 @@ describe("LeadsScreen", () => {
       within(table)
         .getAllByRole("columnheader")
         .map((header) => header.textContent),
-    ).toEqual(Object.values(list.columns).filter((column) => column !== list.columns.owner));
+    ).toEqual(["", ...Object.values(list.columns).filter((column) => column !== list.columns.owner)]);
   });
 
   it("draws the table's skeleton with as many columns as the table will have: six for a salesperson", async () => {
