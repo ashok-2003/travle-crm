@@ -135,90 +135,96 @@ export function WebsiteFormView({ form, mode, width, sample = false, send }: Web
   return (
     <div
       data-slot="website-form"
-      style={{ ...colourStyle(form.colour), ...(width === undefined ? {} : { width }) }}
+      style={width === undefined ? undefined : { width, maxWidth: "100%" }}
       className="@container flex w-full max-w-[560px] flex-col gap-6"
     >
-      <FormHeader
-        form={form}
-        headingId={headingId}
-        heading={form.heading ?? t("defaultHeading", { name: form.organizationName })}
-      />
-      <form
-        noValidate
-        aria-labelledby={headingId}
-        onSubmit={
-          preview
-            ? (event) => {
-                event.preventDefault();
-              }
-            : submit
-        }
-      >
-        <FieldSet disabled={sending} className="gap-6">
-          <FormFields form={form} values={values} disabled={sending} />
-          {/* The honeypot (W36): off screen, not display:none (some bots skip those), out of reach of people. */}
-          <div aria-hidden="true" className="absolute -left-[9999px] size-px overflow-hidden">
-            <input type="text" tabIndex={-1} autoComplete="off" {...values.register("homepage")} />
-          </div>
-          {problem !== null && (
-            <Alert variant="destructive">
-              <CircleAlertIcon aria-hidden="true" />
-              <AlertDescription>{problem}</AlertDescription>
-            </Alert>
-          )}
-          {checking && form.turnstileSiteKey !== null && (
-            <Suspense fallback={null}>
-              <TurnstileWidget
-                key={widgetAttempt}
-                siteKey={form.turnstileSiteKey}
-                resetKey={newCheck}
-                onToken={tokens.arrived}
-                onUnavailable={() => {
-                  setCheckFailed(true);
-                }}
-              />
-            </Suspense>
-          )}
-          <div className="flex flex-col gap-3">
-            <Button
-              type="submit"
-              disabled={sending || preview || waitingForCheck}
-              className="w-full @sm:w-auto @sm:self-start"
-            >
-              {sending && <Spinner />}
-              {sending ? t("sending") : t("send")}
-            </Button>
-            {slow && <p role="status">{t("stillSending")}</p>}
-            {checkFailed && (
-              <div role="alert" className="flex flex-col items-start gap-2">
-                <p>{tErrors("reasons.FORM_BOT_CHECK_FAILED")}</p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setCheckFailed(false);
-                    setWidgetAttempt((count) => count + 1);
+      {/* The agency's colour is set here, on the form's own parts. The links below sit outside it: a pale colour reads on a
+          button with dark ink but not as the colour of text on the page. */}
+      <div data-slot="website-form-colour" style={colourStyle(form.colour)} className="flex flex-col gap-6">
+        <FormHeader
+          form={form}
+          headingId={headingId}
+          heading={form.heading ?? t("defaultHeading", { name: form.organizationName })}
+        />
+        <form
+          noValidate
+          aria-labelledby={headingId}
+          onSubmit={
+            preview
+              ? (event) => {
+                  event.preventDefault();
+                }
+              : submit
+          }
+        >
+          <FieldSet disabled={sending} className="gap-6">
+            <FormFields form={form} values={values} disabled={sending} />
+            {/* The honeypot (W36): off screen, not display:none (some bots skip those), out of reach of people. */}
+            <div aria-hidden="true" className="absolute -left-[9999px] size-px overflow-hidden">
+              <input type="text" tabIndex={-1} autoComplete="off" {...values.register("homepage")} />
+            </div>
+            {problem !== null && (
+              <Alert variant="destructive">
+                <CircleAlertIcon aria-hidden="true" />
+                <AlertDescription>{problem}</AlertDescription>
+              </Alert>
+            )}
+            {checking && form.turnstileSiteKey !== null && (
+              <Suspense fallback={null}>
+                <TurnstileWidget
+                  key={widgetAttempt}
+                  siteKey={form.turnstileSiteKey}
+                  resetKey={newCheck}
+                  onToken={tokens.arrived}
+                  onUnavailable={() => {
+                    setCheckFailed(true);
                   }}
-                >
-                  {t("tryAgain")}
-                </Button>
-              </div>
+                />
+              </Suspense>
             )}
-            {waitingForCheck && !checkFailed && !sending && (
-              <p role="status" className="text-caption text-muted-foreground">
-                {t("checking")}
-              </p>
-            )}
-            <p className="text-caption text-muted-foreground">{t("goesTo", { name: form.organizationName })}</p>
-            {form.privacyUrl !== null && (
-              <TextLink href={form.privacyUrl} newTab>
-                {t("privacy")}
-              </TextLink>
-            )}
-            {preview && <p className="text-caption text-muted-foreground">{t("previewNote")}</p>}
-          </div>
-        </FieldSet>
-      </form>
+            <div className="flex flex-col gap-3">
+              <Button
+                type="submit"
+                disabled={sending || preview || waitingForCheck}
+                className="w-full @sm:w-auto @sm:self-start"
+              >
+                {sending && <Spinner />}
+                {sending ? t("sending") : t("send")}
+              </Button>
+              {slow && <p role="status">{t("stillSending")}</p>}
+              {checkFailed && (
+                <div role="alert" className="flex flex-col items-start gap-2">
+                  <p>{tErrors("reasons.FORM_BOT_CHECK_FAILED")}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setCheckFailed(false);
+                      setWidgetAttempt((count) => count + 1);
+                    }}
+                  >
+                    {t("tryAgain")}
+                  </Button>
+                </div>
+              )}
+              {waitingForCheck && !checkFailed && !sending && (
+                <p role="status" className="text-caption text-muted-foreground">
+                  {t("checking")}
+                </p>
+              )}
+            </div>
+          </FieldSet>
+        </form>
+      </div>
+      <div className="flex flex-col gap-3">
+        <p className="text-caption text-muted-foreground">{t("goesTo", { name: form.organizationName })}</p>
+        {form.privacyUrl !== null && (
+          <TextLink href={form.privacyUrl} newTab>
+            {t("privacy")}
+          </TextLink>
+        )}
+        {preview && <p className="text-caption text-muted-foreground">{t("previewNote")}</p>}
+      </div>
     </div>
   );
 }

@@ -203,7 +203,7 @@ describe("the trap, the colour and the preview", () => {
     show({ colour: { primary: "#7a2e1d", ink: "#ffffff" } });
     const wrapper = screen
       .getByRole("form", { name: "Plan your trip with Sharma Travels" })
-      .closest("[data-slot='website-form']");
+      .closest("[data-slot='website-form-colour']");
     expect((wrapper as HTMLElement).style.getPropertyValue("--primary")).toBe("#7a2e1d");
     expect((wrapper as HTMLElement).style.getPropertyValue("--primary-foreground")).toBe("#ffffff");
     expect((wrapper as HTMLElement).style.getPropertyValue("--ring")).toBe("#7a2e1d");
@@ -235,6 +235,14 @@ describe("the trap, the colour and the preview", () => {
   it("starts a form that is not a sample empty", () => {
     show({}, "preview");
     expect(screen.getByLabelText("Your name")).toHaveValue("");
+  });
+
+  it("keeps the privacy link out of the agency's colour, which a pale one would make unreadable", () => {
+    show({ privacyUrl: "https://sharma.example/privacy", colour: { primary: "#f5e6a8", ink: "#1a1a1a" } });
+    expect(screen.getByRole("link", { name: "Privacy" }).closest("[data-slot='website-form-colour']")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Send enquiry" }).closest("[data-slot='website-form-colour']"),
+    ).not.toBeNull();
   });
 
   it("names the agency and links its privacy page", () => {

@@ -76,7 +76,7 @@
     "name": "Name",
     "colour": "Colour",
     "noColour": "The standard blue",
-    "colourNote": "Your colour is used for the Send button. Colours that are too light for white text fall back to our blue.",
+    "colourNote": "Your colour is used for the Send button, with white or dark text, whichever reads better. If neither reads well on it, the button stays our standard blue.",
     "changeProfile": "Change in Business profile",
     "changeBranding": "Change logo and colour in Branding"
   },
