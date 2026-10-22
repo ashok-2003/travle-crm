@@ -177,6 +177,7 @@ export async function receiveWebsiteEnquiry(
     // As imports and Sheets do: the agency's rules and mode apply only once automatic assignment is on (W7).
     ...(features.automaticAssignment ? { assign: { workers: context.workers } } : {}),
     unverified: true,
+    auditDetail: { formId: form.id },
   });
   const outcome = saved.outcome === "created" ? "new_lead" : "repeat_enquiry";
   await record(outcome, { leadId: saved.leadId, personId: saved.personId });

@@ -223,12 +223,17 @@ describe("receiving a website enquiry", () => {
     expect(details).toEqual(["sharmatravels.in", "Embedded"]);
   });
 
-  it("the audit entries carry source public", async () => {
-    const { send, inOrg } = await setup();
-    await send();
-    const entries = await inOrg((tx) => tx.auditEntry.findMany({ where: { entityType: { in: ["lead", "person"] } } }));
-    expect(entries.length).toBeGreaterThan(0);
+  it("the audit entries carry source public and the form's id as the detail (W24)", async () => {
+    const { send, inOrg, form } = await setup();
+    const phone = freshPhone();
+    await send({ phone });
+    await send({ phone });
+    const entries = await inOrg((tx) =>
+      tx.auditEntry.findMany({ where: { entityType: { in: ["lead", "person"] } }, orderBy: { id: "asc" } }),
+    );
+    expect(entries.map((entry) => entry.action).sort()).toEqual(["lead.added", "lead.repeat-enquiry", "person.added"]);
     expect(entries.every((entry) => entry.source === "public")).toBe(true);
+    for (const entry of entries) expect(entry.after, entry.action).toMatchObject({ formId: form.id });
   });
 
   it("the owner is told once per new lead", async () => {
