@@ -7,7 +7,10 @@ export { formLimits } from "./limits.js";
 export {
   findSubmission,
   formCounts,
+  formCountsQuery,
   recentEnquiryCount,
+  recentEnquiryQuery,
+  submissionQuery,
   recordSubmission,
   type SubmissionOutcome,
   type SubmissionRow,

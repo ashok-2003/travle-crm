@@ -13,8 +13,17 @@ import {
   type IsolatedDatabase,
 } from "@travel-crm/db/testing";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { offeredDestinations, receiveWebsiteEnquiry } from "../../src/crm/index.js";
-import { findSubmission, formCounts, readWebsiteForm, recentEnquiryCount } from "../../src/website-forms/index.js";
+import { offeredDestinations, offeredDestinationsQuery, receiveWebsiteEnquiry } from "../../src/crm/index.js";
+import { dueLedgerRowsQuery } from "../../src/platform/index.js";
+import {
+  findSubmission,
+  formCounts,
+  formCountsQuery,
+  readWebsiteForm,
+  recentEnquiryCount,
+  recentEnquiryQuery,
+  submissionQuery,
+} from "../../src/website-forms/index.js";
 import { seedLargeAgency } from "./large-agency.js";
 import { fastestMs, planOf, type QueryPlan } from "./query-plans.js";
 
@@ -94,7 +103,9 @@ describe("the website form in a large agency", () => {
     const neighbour = await createTestOrganization(platform, "Neighbouring agency");
     await seedLargeAgency(platform, isolated.urls, neighbour, NEIGHBOUR);
     await seedLedger(neighbour, NEIGHBOUR_LEDGER);
-    await analyzeTables(isolated.urls, ["website_form", "website_form_submission", "lead", "person", "destination"]);
+    await analyzeTables(isolated.urls, ["website_form", "website_form_submission", "lead", "person", "destination"], {
+      vacuum: true,
+    });
     const sample = await platform.websiteFormSubmission.findFirstOrThrow({
       where: { organizationId, outcome: "new_lead" },
       select: { personId: true, submissionId: true },
@@ -117,24 +128,10 @@ describe("the website form in a large agency", () => {
     expect(await time("form", (tx) => readWebsiteForm(tx))).toBeLessThan(20);
   });
 
-  it("offers destinations within budget", async () => {
-    await plan(
-      "offered-destinations",
-      sql`
-        SELECT d.id, d.name
-        FROM destination d
-        LEFT JOIN (
-          SELECT destination_id, count(*) AS leads
-          FROM lead
-          WHERE deleted_at IS NULL AND destination_id IS NOT NULL
-          GROUP BY destination_id
-        ) used ON used.destination_id = d.id
-        WHERE d.deleted_at IS NULL
-        ORDER BY coalesce(used.leads, 0) DESC, d.name ASC, d.id ASC
-        LIMIT 100`,
-    );
-    // It counts the agency's leads by destination, so with no covering index it reads them all (a sequential scan of the
-    // shared table; ~30 ms at 70,000 leads, ~6 ms with a partial index on destination): within budget, so only timed.
+  it("offers destinations from the partial index, within budget", async () => {
+    const found = await plan("offered-destinations", offeredDestinationsQuery());
+    expect(found.indexes, found.text).toContain("lead_offered_destinations");
+    noBigScan(found);
     expect(await time("offered-destinations", (tx) => offeredDestinations(tx))).toBeLessThan(50);
   });
 
@@ -149,10 +146,7 @@ describe("the website form in a large agency", () => {
   it("recentEnquiryCount is one index range read", async () => {
     const found = await plan(
       "recent-enquiry-count",
-      sql`
-        SELECT count(*) FROM website_form_submission
-        WHERE person_id = ${personId}::uuid AND outcome IN ('new_lead', 'repeat_enquiry')
-          AND created_at >= ${new Date(NOW.getTime() - 86_400_000)}`,
+      recentEnquiryQuery(personId, new Date(NOW.getTime() - 86_400_000)),
     );
     expect(found.indexes).toEqual(["website_form_submission_person"]);
     noBigScan(found);
@@ -160,26 +154,24 @@ describe("the website form in a large agency", () => {
   });
 
   it("counts the last 30 days from the counts index", async () => {
-    const found = await plan(
-      "form-counts",
-      sql`
-        SELECT outcome, count(*) FROM website_form_submission
-        WHERE form_id = ${formId}::uuid AND created_at >= ${new Date(NOW.getTime() - 30 * 86_400_000)}
-        GROUP BY outcome`,
-    );
+    const found = await plan("form-counts", formCountsQuery(formId, new Date(NOW.getTime() - 30 * 86_400_000)));
     expect(found.indexes).toContain("website_form_submission_counts");
     noBigScan(found);
     expect(await time("form-counts", (tx) => formCounts(tx, formId, NOW))).toBeLessThan(150);
   });
 
   it("finds a submission by its id on the unique index", async () => {
-    const found = await plan(
-      "find-submission",
-      sql`SELECT * FROM website_form_submission WHERE submission_id = ${submissionId}::uuid LIMIT 1`,
-    );
+    const found = await plan("find-submission", submissionQuery(submissionId));
     expect(found.indexes).toEqual(["website_form_submission_organization_id_submission_id_key"]);
     noBigScan(found);
     expect(await time("find-submission", (tx) => findSubmission(tx, submissionId))).toBeLessThan(20);
+  });
+
+  it("the sweep's page read uses the created_at index across every organization", async () => {
+    const found = await planOf(platform, dueLedgerRowsQuery(new Date(NOW.getTime() - 90 * 86_400_000), 200));
+    plans.set("sweep", found);
+    expect(found.indexes, found.text).toEqual(["website_form_submission_sweep"]);
+    expect(found.seqScans).toEqual([]);
   });
 
   it("receiveWebsiteEnquiry completes within 250 ms", async () => {
