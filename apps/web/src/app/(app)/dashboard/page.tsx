@@ -67,8 +67,6 @@ export default function HomePage() {
       </Card>
     ) : null;
   const managesSettings = holds(me, "settings:manage");
-  // Only when the role has nothing else here: no setup card, no nudge, no dashboard, no screens.
-  const nothingHere = !showsToday && !managesSettings && screens === null;
   const actions = addsLeads && (
     <div className="flex flex-wrap gap-2">
       <NewLeadButton variant="outline" />
@@ -90,7 +88,7 @@ export default function HomePage() {
       {/* Where the role sees leads on a plan with them, as Today: the period's figures, at the content's full width. */}
       {showsToday && <Dashboard />}
       {screens}
-      {nothingHere && <p className="text-muted-foreground">{t("nothingToSetUp")}</p>}
+      {screens === null && <p className="text-muted-foreground">{t("nothingToSetUp")}</p>}
     </div>
   );
 }
