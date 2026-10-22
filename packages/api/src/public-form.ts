@@ -8,7 +8,7 @@ import type { Database } from "@travel-crm/db";
 import { offeredDestinations } from "@travel-crm/domain/crm";
 import type { Files } from "@travel-crm/domain/files";
 import type { Identity } from "@travel-crm/domain/identity";
-import { calendarDateIn, publicActor } from "@travel-crm/domain/kernel";
+import { DomainError, calendarDateIn, publicActor } from "@travel-crm/domain/kernel";
 import type { Profiles } from "@travel-crm/domain/profile";
 
 /** The sentence a visitor reads after sending when the agency wrote none; the form's words are ours, in English (W3). */
@@ -51,6 +51,28 @@ export function monthsFrom(today: string): string[] {
   });
 }
 
+/**
+ * A short-lived link to the agency's newest logo, or null when there is none to show: a logo that is sensitive or not
+ * ready is "no logo", never a failure of the whole form. Used by the form and by the closed card.
+ */
+export async function logoLinkOf(
+  files: Pick<Files, "list" | "systemDownloadLink">,
+  organizationId: string,
+): Promise<string | null> {
+  const logos = await files.list(publicActor(organizationId), {
+    recordType: LOGO_RECORD_TYPE,
+    recordId: organizationId,
+  });
+  const logo = logos.at(-1);
+  if (logo === undefined) return null;
+  try {
+    return (await files.systemDownloadLink(organizationId, { attachmentId: logo.id })).url;
+  } catch (error) {
+    if (error instanceof DomainError) return null;
+    throw error;
+  }
+}
+
 export interface PublicFormServices {
   db: Pick<Database, "forOrg">;
   identity: Pick<Identity, "organizationProfile">;
@@ -73,15 +95,7 @@ export async function publicFormOf(
   const organization = await services.identity.organizationProfile(organizationId);
   if (organization === null) throw new Error("A form needs its organization");
   const profile = await services.profiles.get(organizationId);
-  const logos = await services.files.list(publicActor(organizationId), {
-    recordType: LOGO_RECORD_TYPE,
-    recordId: organizationId,
-  });
-  const logo = logos.at(-1);
-  const logoUrl =
-    logo === undefined
-      ? null
-      : (await services.files.systemDownloadLink(organizationId, { attachmentId: logo.id })).url;
+  const logoUrl = await logoLinkOf(services.files, organizationId);
   const destinations = await services.db.forOrg(organizationId, (tx) => offeredDestinations(tx));
   const tickbox = settings.offersTickbox && features.marketingConsent;
   return {
