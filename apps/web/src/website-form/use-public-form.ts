@@ -1,7 +1,7 @@
 "use client";
 
 // The form for a key, and the way to send an enquiry for it. After 6 seconds without an answer the state is "waking"
-// (the api sleeps when quiet); an api that does not answer keeps being asked every 3 seconds for 90 seconds, then "failed".
+// (the api sleeps when quiet); an api that does not answer keeps being asked after 3, then 5, then every 10 seconds, for 90 seconds, then "failed".
 // An expired opened-token is replaced and the enquiry sent again unseen (W37).
 import type { WebsiteEnquiryInput } from "@travel-crm/contracts/website-forms";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -11,7 +11,8 @@ import { postEnquiry, sleep } from "./send-enquiry";
 
 export const WAKING_AFTER_MS = 6_000;
 export const WAKE_BUDGET_MS = 90_000;
-export const WAKE_RETRY_DELAY_MS = 3_000;
+/** The wait before the next ask: 3 seconds, then 5, then 10 from then on, so a down api is not hammered. */
+export const wakeDelay = (asked: number) => [3_000, 5_000][asked - 1] ?? 10_000;
 /** A new token is two seconds old at best, and an enquiry sent sooner is refused as too fast (W37). */
 export const FRESH_TOKEN_WAIT_MS = 2_100;
 
@@ -33,12 +34,13 @@ async function loadWithPatience(
   signal: AbortSignal,
 ): Promise<LoadedForm | null> {
   const giveUpAt = Date.now() + WAKE_BUDGET_MS;
-  for (;;) {
+  for (let asked = 1; ; asked++) {
     const answer = await fetchPublicForm(key, via, signal);
     if (signal.aborted) return null;
     if (answer !== "asleep") return answer;
-    if (Date.now() + WAKE_RETRY_DELAY_MS > giveUpAt) return { state: "failed" };
-    await sleep(WAKE_RETRY_DELAY_MS, signal);
+    const wait = wakeDelay(asked);
+    if (Date.now() + wait > giveUpAt) return { state: "failed" };
+    await sleep(wait, signal);
   }
 }
 

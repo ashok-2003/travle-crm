@@ -110,8 +110,19 @@ describe("loading", () => {
       vi.fn(() => Promise.resolve(json(++asked < 3 ? { status: 503 } : { status: 200, body: open }))),
     );
     renderForm(<FormPage formKey={key} mode="hosted" />);
-    await act(() => vi.advanceTimersByTimeAsync(7_000));
+    await act(() => vi.advanceTimersByTimeAsync(9_000));
     expect(screen.getByLabelText("Your name")).toBeVisible();
+  });
+
+  it("backs off while the api sleeps and gives up after about ninety seconds", async () => {
+    vi.useFakeTimers();
+    const calls = vi.fn(() => Promise.resolve(json({ status: 503 })));
+    vi.stubGlobal("fetch", calls);
+    renderForm(<FormPage formKey={key} mode="hosted" />);
+    await act(() => vi.advanceTimersByTimeAsync(100_000));
+    // At 0, 3, 8, 18, 28 ... 88 seconds.
+    expect(calls).toHaveBeenCalledTimes(11);
+    expect(screen.getByRole("button", { name: "Try again" })).toBeVisible();
   });
 
   it("shows only its sentence, the name and the website button for a closed form", async () => {
