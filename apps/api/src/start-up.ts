@@ -129,8 +129,19 @@ export function stopOnUnhandledErrors(
   }: LastResortOptions = {},
 ): void {
   let draining = false;
+  let logging = false;
   const stop = (what: string) => (error: unknown) => {
-    logger.error(errorFields(error), what);
+    // Logging is what failed, perhaps: an error raised while this one is written is not written again, or the handler
+    // would feed itself.
+    if (logging) return;
+    logging = true;
+    try {
+      logger.error(errorFields(error), what);
+    } catch {
+      // Nothing left to say it with; the drain below still runs.
+    } finally {
+      logging = false;
+    }
     if (draining) return;
     draining = true;
     // Unref'd: a drain that finishes exits at once, never waiting on this.

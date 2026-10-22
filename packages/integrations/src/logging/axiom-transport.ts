@@ -1,8 +1,10 @@
 // A pino transport that ships lines to Axiom (ADR 0032), run by pino in a worker thread of its own, so a request never
-// waits on the network. It batches lines (up to 100, or a second's worth), posts them as newline-delimited JSON to the
-// dataset's ingest endpoint, retries a failed post twice, and drops the batch after that: the lines are also on standard
-// output, which is the log of record. Closing the logger ends the stream, which posts what is queued before the thread
-// stops. The token is only ever in the Authorization header; nothing here prints it.
+// waits on the network. Lines are batched (100, or a second's worth) and posted as newline-delimited JSON to the
+// dataset's ingest endpoint by a sender that runs beside the consumer: the consumer never awaits the network, so a slow
+// Axiom can't fill the ring buffer the main thread writes into (a full buffer blocks that thread). At most MAX_BATCHES
+// wait; past that the oldest are dropped and counted. A failed post is retried twice, then dropped. The lines are also on
+// standard output, which is the log of record. Closing the logger ends the stream: one last post with a short timeout and
+// no retries, then the thread stops. The token is only ever in the Authorization header; nothing here prints it.
 import build from "pino-abstract-transport";
 
 export interface AxiomTransportOptions {
@@ -13,8 +15,10 @@ export interface AxiomTransportOptions {
 }
 
 const BATCH_LINES = 100;
+const MAX_BATCHES = 20;
 const FLUSH_AFTER_MS = 1000;
 const POST_TIMEOUT_MS = 10_000;
+const FINAL_POST_TIMEOUT_MS = 3000;
 const RETRIES = 2;
 const RETRY_WAIT_MS = 500;
 
@@ -24,56 +28,93 @@ function forAxiom(line: Record<string, unknown>): string {
   return JSON.stringify(typeof time === "string" ? { _time: time, ...rest } : rest);
 }
 
-async function post(options: AxiomTransportOptions, body: string): Promise<boolean> {
-  for (let attempt = 0; attempt <= RETRIES; attempt += 1) {
-    try {
-      const response = await fetch(`${options.url}/v1/datasets/${encodeURIComponent(options.dataset)}/ingest`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${options.token}`, "Content-Type": "application/x-ndjson" },
-        body,
-        signal: AbortSignal.timeout(POST_TIMEOUT_MS),
-      });
-      if (response.ok) return true;
-      // A refusal for the token or the dataset won't change on a retry.
-      if (response.status >= 400 && response.status < 500 && response.status !== 429) return false;
-    } catch {
-      // The network: try again.
-    }
-    if (attempt < RETRIES) await new Promise((resolve) => setTimeout(resolve, RETRY_WAIT_MS * (attempt + 1)));
+/** The result of a post: its HTTP status (0 when it never got one). */
+async function post(options: AxiomTransportOptions, body: string, timeoutMs: number): Promise<number> {
+  try {
+    const response = await fetch(`${options.url}/v1/datasets/${encodeURIComponent(options.dataset)}/ingest`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${options.token}`, "Content-Type": "application/x-ndjson" },
+      body,
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    return response.status;
+  } catch {
+    return 0;
   }
-  return false;
 }
 
-export default function axiomTransport(options: AxiomTransportOptions) {
-  let queued: string[] = [];
-  let timer: NodeJS.Timeout | undefined;
-  let sending: Promise<void> = Promise.resolve();
-  let dropped = 0;
+const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-  const flush = (): Promise<void> => {
+export default function axiomTransport(options: AxiomTransportOptions) {
+  let current: string[] = [];
+  const waiting: string[][] = [];
+  let timer: NodeJS.Timeout | undefined;
+  let sender: Promise<void> | undefined;
+  let dropped = 0;
+  let refusal: number | undefined;
+  let closing = false;
+
+  /** Says, once, that Axiom answered with a status: the code alone, never the body. */
+  const noteStatus = (status: number) => {
+    if (status >= 200 && status < 300) return;
+    refusal ??= status;
+    if (refusal === status && status !== 0) process.stderr.write(`axiom: ingest answered ${String(status)}\n`);
+  };
+
+  const seal = () => {
     clearTimeout(timer);
     timer = undefined;
-    if (queued.length === 0) return sending;
-    const batch = queued;
-    queued = [];
-    sending = sending.then(async () => {
-      if (!(await post(options, batch.join("\n")))) dropped += batch.length;
-    });
-    return sending;
+    if (current.length === 0) return;
+    waiting.push(current);
+    current = [];
+    // The oldest go first when Axiom can't keep up.
+    while (waiting.length > MAX_BATCHES) dropped += waiting.shift()?.length ?? 0;
+  };
+
+  const send = async () => {
+    for (let batch = waiting.shift(); batch !== undefined && !closing; batch = waiting.shift()) {
+      let status = 0;
+      for (let attempt = 0; attempt <= RETRIES; attempt += 1) {
+        status = await post(options, batch.join("\n"), POST_TIMEOUT_MS);
+        // Success, or a refusal a retry won't change (the token, the dataset).
+        if (status < 300 || (status >= 400 && status < 500 && status !== 429)) break;
+        if (attempt < RETRIES) await delay(RETRY_WAIT_MS * (attempt + 1));
+      }
+      noteStatus(status);
+      if (status < 200 || status >= 300) dropped += batch.length;
+    }
+    sender = undefined;
+  };
+
+  const kick = () => {
+    seal();
+    sender ??= send();
   };
 
   return build(
     async (source) => {
       for await (const line of source as AsyncIterable<Record<string, unknown>>) {
-        queued.push(forAxiom(line));
-        if (queued.length >= BATCH_LINES) await flush();
-        else timer ??= setTimeout(() => void flush(), FLUSH_AFTER_MS);
+        current.push(forAxiom(line));
+        if (current.length >= BATCH_LINES) kick();
+        else timer ??= setTimeout(kick, FLUSH_AFTER_MS);
       }
     },
     {
       close: async () => {
-        await flush();
-        // Once, at the end: a count, never a line or the reason.
+        closing = true;
+        seal();
+        // A post already under way gets a moment to finish.
+        await Promise.race([sender, delay(FINAL_POST_TIMEOUT_MS)]);
+        // One last try for everything still here, in one post with a short timeout and no retries, however it ends.
+        const rest = waiting.splice(0).flat();
+        if (rest.length > 0) {
+          const status = await Promise.race([
+            post(options, rest.join("\n"), FINAL_POST_TIMEOUT_MS),
+            delay(FINAL_POST_TIMEOUT_MS).then(() => 0),
+          ]);
+          noteStatus(status);
+          if (status < 200 || status >= 300) dropped += rest.length;
+        }
         if (dropped > 0) process.stderr.write(`axiom: ${String(dropped)} log lines could not be shipped\n`);
       },
     },

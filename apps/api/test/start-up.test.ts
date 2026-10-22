@@ -132,6 +132,25 @@ describe("an error nothing handled", () => {
     expect(drain).toHaveBeenCalledOnce();
   });
 
+  it("doesn't loop when the logger itself fails: the error raised while logging is not logged again", () => {
+    const events = new EventEmitter();
+    const drain = vi.fn();
+    let calls = 0;
+    const logger = {
+      ...createMemoryLogger(),
+      error: () => {
+        calls += 1;
+        // The failing log call raises an unhandled error of its own, as a dead transport did.
+        events.emit("uncaughtException", new Error("the logger's stream is dead"), "uncaughtException");
+        throw new Error("the logger's stream is dead");
+      },
+    };
+    stopOnUnhandledErrors(logger, drain, { events, exit: vi.fn() });
+    events.emit("unhandledRejection", new Error("first"), Promise.resolve());
+    expect(calls).toBe(1);
+    expect(drain).toHaveBeenCalledOnce();
+  });
+
   it("exits 1 after 45 seconds if the drain hangs, with a timer that holds nothing open", () => {
     vi.useFakeTimers();
     onTestFinished(() => {

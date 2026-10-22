@@ -2,7 +2,7 @@
 // endpoint, here a fake one; the request never waits on it, closing the logger flushes what is queued, and the token is
 // never in a line. Stdout still gets every line.
 import { Worker } from "node:worker_threads";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createPinoLogger } from "../../src/logging/index.js";
 
 interface Received {
@@ -20,7 +20,8 @@ const fakeAxiom = `
 const { createServer } = require("node:http");
 const { parentPort } = require("node:worker_threads");
 let status = 200;
-parentPort.on("message", (message) => { status = message.status; });
+let delayMs = 0;
+parentPort.on("message", (message) => { if (message.status !== undefined) status = message.status; if (message.delayMs !== undefined) delayMs = message.delayMs; });
 const server = createServer((request, response) => {
   const chunks = [];
   request.on("data", (chunk) => chunks.push(chunk));
@@ -32,8 +33,7 @@ const server = createServer((request, response) => {
       contentType: request.headers["content-type"],
       body: Buffer.concat(chunks).toString(),
     });
-    response.statusCode = status;
-    response.end("{}");
+    setTimeout(() => { response.statusCode = status; response.end("{}"); }, delayMs);
   });
 });
 server.listen(0, "127.0.0.1", () => parentPort.postMessage({ kind: "listening", port: server.address().port }));
@@ -121,4 +121,64 @@ describe("the Axiom transport", () => {
     thread.postMessage({ status: 200 });
     expect(received.length).toBeGreaterThan(before);
   });
+
+  it("a slow Axiom never holds up a log call, and closing ends in a bounded time with the drop count on stderr", async () => {
+    thread.postMessage({ delayMs: 20_000 });
+    const lines: string[] = [];
+    const logger = createPinoLogger({
+      process: "api",
+      level: "debug",
+      destination: { write: (line: string) => lines.push(line) },
+      axiom: { token: "xaat-secret-token", dataset: "travel-crm", url },
+    });
+    const started = performance.now();
+    for (let index = 0; index < 5000; index += 1) logger.info({ index }, "a line while axiom is slow");
+    expect(performance.now() - started).toBeLessThan(2000);
+    expect(lines).toHaveLength(5000);
+    const closing = performance.now();
+    await logger.close();
+    expect(performance.now() - closing).toBeLessThan(12_000);
+    thread.postMessage({ delayMs: 0 });
+  }, 40_000);
+
+  it("a transport that can't load is dropped with one line on stderr: nothing throws, nothing loops, stdout still gets every line", async () => {
+    const written: string[] = [];
+    const stderr = vi.spyOn(process.stderr, "write").mockImplementation((chunk: unknown) => {
+      written.push(String(chunk));
+      return true;
+    });
+    try {
+      const lines: string[] = [];
+      const logger = createPinoLogger({
+        process: "api",
+        level: "debug",
+        destination: { write: (line: string) => lines.push(line) },
+        axiom: { token: "t", dataset: "d", url, transportFile: "/nowhere/axiom-transport.mjs" },
+      });
+      for (let index = 0; index < 50; index += 1) logger.info({ index }, "before the thread fails");
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      for (let index = 0; index < 50; index += 1) logger.info({ index }, "after the thread failed");
+      await logger.close();
+      logger.info({}, "after close");
+      expect(lines).toHaveLength(101);
+      expect(written.filter((line) => line.startsWith("axiom: shipping stopped"))).toHaveLength(1);
+    } finally {
+      stderr.mockRestore();
+    }
+  }, 30_000);
+
+  it("a write after close is dropped from Axiom and kept on stdout, without throwing", async () => {
+    const lines: string[] = [];
+    const logger = createPinoLogger({
+      process: "api",
+      level: "debug",
+      destination: { write: (line: string) => lines.push(line) },
+      axiom: { token: "t", dataset: "d", url },
+    });
+    await logger.close();
+    expect(() => {
+      logger.error({}, "after close");
+    }).not.toThrow();
+    expect(lines).toHaveLength(1);
+  }, 30_000);
 });
