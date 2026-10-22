@@ -21,13 +21,17 @@ export const salesperson = member({
 
 export function renderScreen(
   ui: ReactNode,
-  { me = owner, width = "phone" }: { me?: SignedInMember; width?: "phone" | "wide" } = {},
+  {
+    me = owner,
+    width = "phone",
+    subscription,
+  }: { me?: SignedInMember; width?: "phone" | "wide"; subscription?: Parameters<typeof newQueryClient>[0] } = {},
 ) {
   screenIs(width);
   Element.prototype.hasPointerCapture = () => false;
   Element.prototype.releasePointerCapture = () => undefined;
   Element.prototype.scrollIntoView = () => undefined;
-  const queryClient = newQueryClient();
+  const queryClient = newQueryClient(subscription);
   const rendered = renderWithApi(
     <>
       {ui}

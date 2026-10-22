@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
 import { messages } from "@/i18n/messages";
 import { PipelineScreen } from "@/leads/pipeline/pipeline-screen";
+import { paidSubscription, type newQueryClient } from "../organization/api";
 import { member } from "../support/members";
 import { stubApi } from "../support/api-stub";
 import { address } from "./navigation";
@@ -18,13 +19,13 @@ vi.mock("next/navigation", () => import("./navigation"));
 const { pipeline, stages } = messages.leads;
 const moveTo = pipeline.moveTo.replace("{name}", "Rahul Sharma");
 
-function renderBoard(me = owner) {
+function renderBoard(me = owner, subscription?: Parameters<typeof newQueryClient>[0]) {
   const api = stubApi({
     "leads.list": aPage([aListItem()]),
     "leads.counts": { data: counts },
     "leads.moveStage": { data: null },
   });
-  renderScreen(<PipelineScreen />, { me, width: "wide" });
+  renderScreen(<PipelineScreen />, { me, width: "wide", subscription });
   return api;
 }
 
@@ -111,5 +112,21 @@ describe("the pipeline board", () => {
     );
     expect(card).toHaveAttribute("draggable", "false");
     expect(screen.queryByRole("button", { name: moveTo })).not.toBeInTheDocument();
+  });
+
+  it("turns drag and Move to off in a read-only agency, with the subscription's sentence", async () => {
+    const api = renderBoard(owner, { ...paidSubscription, status: "read_only", access: "read_only" });
+    const source = await column(stages.new);
+    const link = await source.findByRole("link", { name: "Rahul Sharma" });
+    expect(link.closest("[data-slot=item]")).toHaveAttribute("draggable", "false");
+    const move = await source.findByRole("button", { name: moveTo });
+    expect(move).toBeDisabled();
+    expect(move).toHaveAccessibleDescription(messages.errors.reasons.ORGANIZATION_READ_ONLY);
+    // A card dropped on a column moves nothing either.
+    const dataTransfer = aDataTransfer();
+    dataTransfer.setData("application/x-lead", JSON.stringify({ id: ids.rahul, name: "Rahul Sharma" }));
+    fireEvent.drop(await screen.findByRole("group", { name: stages.won }), { dataTransfer });
+    expect(inputsTo("leads.moveStage")).toEqual([]);
+    expect(api.calls).not.toContain("leads.moveStage");
   });
 });
