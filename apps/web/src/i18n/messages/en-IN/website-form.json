@@ -31,6 +31,8 @@
     "offers": "Send me travel offers and updates from {name}.",
     "send": "Send enquiry",
     "sending": "Sending…",
+    "tryAgain": "Try again",
+    "checking": "Checking that you are a person…",
     "stillSending": "Still sending. Please keep this page open.",
     "goesTo": "Your details go to {name}, who will contact you about this enquiry.",
     "privacy": "Privacy",
@@ -48,5 +50,17 @@
       "childAge": "Choose each child's age.",
       "adults": "Choose how many adults."
     }
+  },
+  "page": {
+    "loading": "Loading the form",
+    "waking": "Getting the form ready. This can take a minute.",
+    "thanks": "Thank you",
+    "visitWebsite": "Visit our website",
+    "unavailable": "This form isn't taking enquiries right now.",
+    "notFound": "This form link doesn't work any more.",
+    "failed": "The form couldn't be loaded. Please check your connection and try again.",
+    "tryAgain": "Try again",
+    "title": "Plan your trip with {name}",
+    "genericTitle": "Enquiry form"
   }
 }

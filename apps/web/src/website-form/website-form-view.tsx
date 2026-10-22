@@ -5,9 +5,10 @@
 // alert above the button with what was typed kept (W41). What happens after a good send is the page's (thank-you.tsx).
 import { CircleAlertIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useId, useState } from "react";
+import { lazy, Suspense, useEffect, useId, useState } from "react";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { TextLink } from "@/components/text-link";
 import { Button } from "@/components/ui/button";
 import { FieldSet } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
@@ -16,13 +17,40 @@ import { FormFields } from "./form-fields";
 import { FormHeader } from "./form-header";
 import { emptyFormValues, toEnquiryInput, type FormProblem, type FormValues } from "./form-values";
 import type { WebsiteFormViewProps } from "./form-props";
+import { FormRefusal } from "./refusal";
+import { SEND_RETRY_DELAY_MS, sleep } from "./send-enquiry";
 import { useRefusalSentence } from "./use-refusal-sentence";
+import { useTokenWaiter } from "./use-token-waiter";
+
+// Only a form whose server has Turnstile keys loads the widget, and so its code.
+const TurnstileWidget = lazy(() =>
+  import("./turnstile-widget").then((module) => ({ default: module.TurnstileWidget })),
+);
+
+/**
+ * Whether a refused send used up the Turnstile token: the bot check is step 6 of the api's order (spec 6.1), so a refusal
+ * from an earlier step (too fast, links, a closed form, too many tries) leaves it good. A fault or no answer may have come
+ * after it.
+ */
+function spentTheToken(error: unknown): boolean {
+  if (!(error instanceof FormRefusal)) return true;
+  return error.reason === "FORM_BOT_CHECK_FAILED" || error.status === 0 || error.status >= 500;
+}
+
+/** How long a resend waits for the widget's new token before giving up with the original failure. */
+const NEW_TOKEN_WAIT_MS = 15_000;
+
+/** A send nobody answered, or the api's fault: worth one more try. */
+function isUnanswered(error: unknown): boolean {
+  return error instanceof FormRefusal && (error.status === 0 || error.status >= 500);
+}
 
 /** How long a send may take before the visitor is asked to keep the page open (the pilot's api sleeps, W42). */
 const STILL_SENDING_AFTER_MS = 15_000;
 
 export function WebsiteFormView({ form, mode, width, send }: WebsiteFormViewProps) {
   const t = useTranslations("websiteForm.form");
+  const tErrors = useTranslations("errors");
   const sentence = useRefusalSentence();
   const headingId = useId();
   // Made once per load and sent with every attempt, so a retry or a double tap is one enquiry (W21).
@@ -31,6 +59,13 @@ export function WebsiteFormView({ form, mode, width, send }: WebsiteFormViewProp
   const [slow, setSlow] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
   const preview = mode === "preview";
+  // Turnstile (W39): a token works once, so every refused send asks for a new one.
+  const [token, setToken] = useState<string | null>(null);
+  const [checkFailed, setCheckFailed] = useState(false);
+  const [newCheck, setNewCheck] = useState(0);
+  const [widgetAttempt, setWidgetAttempt] = useState(0);
+  const checking = form.turnstileSiteKey !== null && !preview;
+  const waitingForCheck = checking && token === null;
 
   const {
     form: values,
@@ -53,12 +88,42 @@ export function WebsiteFormView({ form, mode, width, send }: WebsiteFormViewProp
     };
   }, [sending]);
 
+  const tokens = useTokenWaiter(
+    setToken,
+    () => {
+      setNewCheck((count) => count + 1);
+    },
+    NEW_TOKEN_WAIT_MS,
+  );
+
+  /**
+   * Sends once; if nothing answered or the api faulted (it may be waking, W42), once more after a short wait with the same
+   * body and so the same submission id. A token is verified once, so the resend takes a new one first (W39).
+   */
+  async function deliver(body: Parameters<typeof send>[0]): Promise<void> {
+    try {
+      await send(token === null ? body : { ...body, turnstileToken: token });
+    } catch (error) {
+      if (!isUnanswered(error)) throw error;
+      const [fresh] = await Promise.all([
+        checking ? tokens.next().catch(() => null) : null,
+        sleep(SEND_RETRY_DELAY_MS),
+      ]);
+      if (checking && fresh === null) throw error;
+      await send(fresh === null ? body : { ...body, turnstileToken: fresh });
+    }
+  }
+
   const submit = onSubmit((body) => {
     setRefusal(null);
     setSending(true);
-    void send(body)
+    void deliver(body)
       .catch((error: unknown) => {
         setRefusal(sentence(error));
+        if (checking && spentTheToken(error)) {
+          setToken(null);
+          setNewCheck((count) => count + 1);
+        }
       })
       .finally(() => {
         setSending(false);
@@ -100,22 +165,55 @@ export function WebsiteFormView({ form, mode, width, send }: WebsiteFormViewProp
               <AlertDescription>{problem}</AlertDescription>
             </Alert>
           )}
+          {checking && form.turnstileSiteKey !== null && (
+            <Suspense fallback={null}>
+              <TurnstileWidget
+                key={widgetAttempt}
+                siteKey={form.turnstileSiteKey}
+                resetKey={newCheck}
+                onToken={tokens.arrived}
+                onUnavailable={() => {
+                  setCheckFailed(true);
+                }}
+              />
+            </Suspense>
+          )}
           <div className="flex flex-col gap-3">
-            <Button type="submit" disabled={sending || preview} className="w-full @sm:w-auto @sm:self-start">
+            <Button
+              type="submit"
+              disabled={sending || preview || waitingForCheck}
+              className="w-full @sm:w-auto @sm:self-start"
+            >
               {sending && <Spinner />}
               {sending ? t("sending") : t("send")}
             </Button>
             {slow && <p role="status">{t("stillSending")}</p>}
-            <p className="text-caption text-muted-foreground">
-              {t("goesTo", { name: form.organizationName })}
-              {form.privacyUrl !== null && (
-                <Button variant="link" className="h-auto px-1 py-0 text-caption" asChild>
-                  <a href={form.privacyUrl} target="_blank" rel="noopener noreferrer">
-                    {t("privacy")}
-                  </a>
+            {checkFailed && (
+              <div role="alert" className="flex flex-col items-start gap-2">
+                <p>{tErrors("reasons.FORM_BOT_CHECK_FAILED")}</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setCheckFailed(false);
+                    setWidgetAttempt((count) => count + 1);
+                  }}
+                >
+                  {t("tryAgain")}
                 </Button>
-              )}
-            </p>
+              </div>
+            )}
+            {waitingForCheck && !checkFailed && !sending && (
+              <p role="status" className="text-caption text-muted-foreground">
+                {t("checking")}
+              </p>
+            )}
+            <p className="text-caption text-muted-foreground">{t("goesTo", { name: form.organizationName })}</p>
+            {form.privacyUrl !== null && (
+              <TextLink href={form.privacyUrl} newTab>
+                {t("privacy")}
+              </TextLink>
+            )}
             {preview && <p className="text-caption text-muted-foreground">{t("previewNote")}</p>}
           </div>
         </FieldSet>

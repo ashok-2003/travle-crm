@@ -220,6 +220,8 @@ describe("the trap, the colour and the preview", () => {
     show({ privacyUrl: "https://sharma.example/privacy" });
     expect(screen.getByText(/Your details go to Sharma Travels/)).toBeVisible();
     expect(screen.getByRole("link", { name: "Privacy" })).toHaveAttribute("href", "https://sharma.example/privacy");
+    expect(screen.getByRole("link", { name: "Privacy" })).toHaveAttribute("target", "_blank");
+    expect(screen.getByRole("link", { name: "Privacy" })).toHaveAttribute("rel", "noopener noreferrer");
   });
 });
 
@@ -259,7 +261,7 @@ describe("sending", () => {
     show(
       {},
       "hosted",
-      vi.fn(() => Promise.reject(new FormRefusal(null, 503))),
+      vi.fn(() => Promise.reject(new FormRefusal(null, 400))),
     );
     await fillTheBasics();
     await userEvent.click(screen.getByRole("button", { name: "Send enquiry" }));

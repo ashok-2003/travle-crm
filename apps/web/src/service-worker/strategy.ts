@@ -3,7 +3,7 @@
 // as shells.ts sets out. It never answers for the api, nor for the share links and webhooks the api serves on the
 // app's address: the organization's data is kept only by the query cache, which signing out wipes, and a share link
 // redirects to storage.
-import { API_PATHS } from "../lib/routes";
+import { API_PATHS, isPublicFormPath } from "../lib/routes";
 
 /** network-only: the worker stays out of it. cache-first: the build's files, whose names change with their content.
  * network-first: the icons, whose names don't. page: a page load, from the network, else the page's saved shell. */
@@ -35,6 +35,8 @@ export function strategyFor(request: RequestFacts, appOrigin: string): Strategy 
   // Before the page check: a password-reset email opens /api/auth/reset-password/<token> as a page load, and a
   // customer opens a share link (/p/<token>) as one.
   if (isServerPath(url.pathname) || url.pathname === "/sw.js") return "network-only";
+  // The visitor's form and its script keep no page, no cache and no worker (W29); lower-cased as isServerPath is.
+  if (isPublicFormPath(url.pathname.toLowerCase()) || url.pathname.toLowerCase() === "/embed.js") return "network-only";
   if (request.mode === "navigate") return "page";
   if (url.pathname.startsWith("/_next/static/")) return "cache-first";
   if (url.pathname.startsWith("/icons/")) return "network-first";

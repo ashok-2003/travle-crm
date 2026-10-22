@@ -11,7 +11,18 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export function TextLink({ href, inline = false, children }: { href: string; inline?: boolean; children: ReactNode }) {
+export function TextLink({
+  href,
+  inline = false,
+  newTab = false,
+  children,
+}: {
+  href: string;
+  inline?: boolean;
+  /** Opens in a tab of its own: for a link out of a page that must stay put (the enquiry form, which may sit in a frame). */
+  newTab?: boolean;
+  children: ReactNode;
+}) {
   return (
     <Button
       variant="link"
@@ -21,7 +32,9 @@ export function TextLink({ href, inline = false, children }: { href: string; inl
       )}
       asChild
     >
-      <Link href={href}>{children}</Link>
+      <Link href={href} {...(newTab && { target: "_blank", rel: "noopener noreferrer" })}>
+        {children}
+      </Link>
     </Button>
   );
 }
