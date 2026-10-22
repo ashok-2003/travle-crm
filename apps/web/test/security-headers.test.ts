@@ -19,6 +19,23 @@ function headersFor(path: string): Record<string, string> {
   return headers;
 }
 
+/** A header's value, whatever its case; undefined when the response has no such header. */
+function headerOf(headers: Record<string, string>, name: string): string | undefined {
+  return Object.entries(headers).find(([key]) => key.toLowerCase() === name.toLowerCase())?.[1];
+}
+
+/** The policy as directive -> sources. */
+function directives(policy: string | undefined): Record<string, string[]> {
+  return Object.fromEntries(
+    (policy ?? "").split("; ").map((directive) => {
+      const [name = "", ...sources] = directive.split(" ");
+      return [name, sources];
+    }),
+  );
+}
+
+const TURNSTILE = "https://challenges.cloudflare.com";
+
 describe("security headers", () => {
   it("refuse framing, sniffing and other origins", () => {
     const headers = Object.fromEntries(securityHeaders({ development: false }).map(({ key, value }) => [key, value]));
@@ -84,5 +101,67 @@ describe("security headers", () => {
     for (const path of ["/p/a-token", "/p", "/api/trpc/me.get", "/api/platform/trpc/whoAmI", "/webhooks/meta"]) {
       expect(headersFor(path), path).toEqual({});
     }
+  });
+
+  describe("the CSP rules for /f, /embed and /embed.js", () => {
+    it("keep /f/x unframable and add Turnstile only to script, frame and connect", () => {
+      const headers = headersFor("/f/AAAAAAAAAAAAAAAAAAAAAAbbbbbbbbbbbbbbbb");
+      const policy = directives(headers["Content-Security-Policy"]);
+      expect(headers["X-Frame-Options"]).toBe("DENY");
+      expect(policy["frame-ancestors"]).toEqual(["'none'"]);
+      expect(policy["script-src"]).toContain(TURNSTILE);
+      expect(policy["frame-src"]).toEqual([TURNSTILE]);
+      expect(policy["connect-src"]).toContain(TURNSTILE);
+      for (const name of ["default-src", "img-src", "style-src", "font-src", "form-action"]) {
+        expect(policy[name], name).not.toContain(TURNSTILE);
+      }
+    });
+
+    it("let any https site frame /embed/x, with no X-Frame-Options anywhere in the response headers", () => {
+      const headers = headersFor("/embed/AAAAAAAAAAAAAAAAAAAAAAbbbbbbbbbbbbbbbb");
+      const policy = directives(headers["Content-Security-Policy"]);
+      expect(headerOf(headers, "X-Frame-Options")).toBeUndefined();
+      expect(policy["frame-ancestors"]).toEqual(["https:"]);
+      expect(policy["script-src"]).toContain(TURNSTILE);
+      expect(policy["frame-src"]).toEqual([TURNSTILE]);
+      expect(policy["connect-src"]).toContain(TURNSTILE);
+      expect(headers["Referrer-Policy"]).toBe("strict-origin");
+      expect(headers["X-Content-Type-Options"]).toBe("nosniff");
+      expect(headers["Strict-Transport-Security"]).toMatch(/max-age=\d{8}/);
+    });
+
+    it("do not let http: frame the embed", () => {
+      const sources = directives(headersFor("/embed/x")["Content-Security-Policy"])["frame-ancestors"] ?? [];
+      expect(sources).not.toContain("http:");
+      expect(sources.join(" ")).not.toMatch(/\*/);
+    });
+
+    it("stop the catch-all matching /embed, but not a page that merely starts with the same letters", () => {
+      expect(headerOf(headersFor("/embed"), "X-Frame-Options")).toBeUndefined();
+      expect(headersFor("/embedded")["X-Frame-Options"]).toBe("DENY");
+      expect(headersFor("/fx")["X-Frame-Options"]).toBe("DENY");
+    });
+
+    it("mention Turnstile on no other route", () => {
+      for (const path of [
+        "/",
+        "/sign-in",
+        "/leads/x",
+        "/reset-password",
+        "/offline",
+        "/fx",
+        "/embedded",
+        "/sw.js",
+        "/embed.js",
+      ]) {
+        const everything = Object.values(headersFor(path)).join("\n");
+        expect(everything, path).not.toContain("challenges.cloudflare.com");
+      }
+    });
+
+    it("cache /embed.js for an hour", () => {
+      expect(headersFor("/embed.js")["Cache-Control"]).toBe("public, max-age=3600");
+      expect(headersFor("/embed.js")["X-Content-Type-Options"]).toBe("nosniff");
+    });
   });
 });
