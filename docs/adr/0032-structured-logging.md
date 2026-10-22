@@ -49,7 +49,8 @@ CLAUDE.md's rule for logs holds for every line, and the adapters enforce it as a
   refusal's `refusalCode` and `reason`; `error` for a 5xx, with the error's fields; health checks at `debug`.
 - **Unexpected errors:** the api's error handler and a failing tRPC call write an `error` line with the request id and
   the error's fields; Better Auth's own logger writes through the request's logger (an `AsyncLocalStorage`), so its
-  failures carry the request id.
+  failures carry the request id. Its messages are free text, so only plain short sentences and "Invalid <what>:" with a
+  URL cut to its origin are written; any other is "auth message withheld" with the error's fields.
 - **Jobs** (the pg-boss adapter): `job started` (`debug`), `job finished` (`info`, with the outcome and duration),
   `job failed` (`error`, with the error's fields), each with `queue`, `jobId`, `retryCount` and the `organizationId`
   the job's data names. The outbox relay writes `outbox relayed` (`debug`, with the count), a listener skipping an event
@@ -72,8 +73,10 @@ CLAUDE.md's rule for logs holds for every line, and the adapters enforce it as a
   twice, then drops the batch and says once, on stderr at the end, how many lines it dropped. It needs no package
   beyond those pino brings, and the test points it at a fake endpoint.
 - **Flushing:** the Render free instances sleep and redeploy, so every exit path (SIGTERM, SIGINT, an unhandled error's
-  drain) goes through `exitAfterLogs`, which closes the logger first: the transport posts what it holds, bounded at 10
-  seconds. The standard-output copy is synchronous and never waits.
+  drain) goes through `exitAfterLogs`, which closes the logger first: the transport posts what it holds, bounded: the transport makes one last post with a 3-second timeout and no retries, and the logger lets go after 8
+  seconds whatever happens. A transport that dies (it can't load, crashes, or is written to after it ended) is dropped
+  with one line on stderr and never throws; a slow Axiom never holds up a log call, because at most 20 batches wait
+  and the oldest are dropped and counted. The standard-output copy is synchronous and never waits.
 - **The image:** the transport is an entry of its own in the api's bundle (`axiom-transport.mjs`, beside
   `xlsx-thread.mjs`); `pnpm images:smoke` runs a container with a fake Axiom and checks the lines arrive after a
   SIGTERM.
