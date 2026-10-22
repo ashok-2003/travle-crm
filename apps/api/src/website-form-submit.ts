@@ -55,14 +55,15 @@ export function websiteFormSubmitRoute(
     const at = now();
     const hour = Math.floor(at.getTime() / HOUR_MS);
     if (toldOfFlood.get(organizationId) === hour) return;
-    toldOfFlood.delete(organizationId);
-    toldOfFlood.set(organizationId, hour);
-    if (toldOfFlood.size > MAX_TOLD) toldOfFlood.delete(toldOfFlood.keys().next().value ?? organizationId);
     try {
       const ownerUserId = await identity.firstOwner(organizationId);
       if (ownerUserId === null) return;
       await db.forOrg(organizationId, async (tx) => {
         const form = await assertFormOpen(tx, { key, organizationId, ownerUserId, via, now: at });
+        // Marked only for a key that opened a form, so a flood on a wrong or stale key can't hush the real one's notice.
+        toldOfFlood.delete(organizationId);
+        toldOfFlood.set(organizationId, hour);
+        if (toldOfFlood.size > MAX_TOLD) toldOfFlood.delete(toldOfFlood.keys().next().value ?? organizationId);
         await noteFlood(tx, publicActor(organizationId), { formId: form.id, ownerUserId, now: at });
       });
     } catch (error) {
@@ -180,7 +181,7 @@ export function websiteFormSubmitRoute(
           const result =
             input.turnstileToken === undefined || input.turnstileToken === ""
               ? "fail"
-              : await turnstile.botCheck.verify({ token: input.turnstileToken, address: addressOf(c.req.raw) });
+              : await turnstile.botCheck.verify({ token: input.turnstileToken });
           if (result === "unreachable") {
             (requestOf(c)?.logger ?? logger).warn({ organizationId }, "bot check unreachable: enquiry accepted");
           }

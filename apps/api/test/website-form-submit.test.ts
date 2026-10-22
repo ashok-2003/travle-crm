@@ -223,6 +223,21 @@ describe("a website enquiry", () => {
     }
   }, 120_000);
 
+  it("is not hushed for the hour by a flood on a wrong key of the same agency", async () => {
+    const busy = await agencyWithOpenForm(server);
+    const wrongKey = `${busy.key.slice(0, 22)}${"x".repeat(16)}`;
+    for (let attempt = 0; attempt < 21; attempt += 1) {
+      await postEnquiry(server, wrongKey, enquiryFor(busy.formId), { address: null });
+    }
+    for (let attempt = 0; attempt < 21; attempt += 1) {
+      await postEnquiry(server, busy.key, enquiryFor(busy.formId, { homepage: "x" }), { address: null });
+    }
+    const notices = await inAgency(busy, (tx) =>
+      tx.notification.count({ where: { kind: "form.busy", recipientUserId: busy.agency.owner.userId } }),
+    );
+    expect(notices).toBe(1);
+  }, 120_000);
+
   it("answers 429, never 500, when telling the Owner of a flood fails", async () => {
     const busy = await agencyWithOpenForm(server);
     for (let attempt = 0; attempt < 20; attempt += 1) {
