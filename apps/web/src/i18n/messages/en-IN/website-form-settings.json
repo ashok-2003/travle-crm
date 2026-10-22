@@ -49,6 +49,12 @@
       "optional": "Optional",
       "required": "Required"
     },
+    "destinationInput": {
+      "legend": "How visitors give the destination",
+      "list": "Visitors choose from my destinations",
+      "typed": "Visitors type the place",
+      "noDestinations": "Visitors will only see 'Somewhere else'. <link>Add your destinations in Settings → Destinations</link>, or let visitors type the place."
+    },
     "offers": "Ask for permission to send offers",
     "offersHint": "Visitors read: {wording}"
   },

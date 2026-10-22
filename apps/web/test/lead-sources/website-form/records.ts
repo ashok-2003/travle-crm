@@ -9,6 +9,7 @@ export function someSettings(overrides: Partial<WebsiteFormSettings> = {}): Webs
     allowEmbed: true,
     emailMode: "optional",
     destinationMode: "optional",
+    destinationInput: "list",
     travelMonthMode: "optional",
     travellersMode: "optional",
     budgetMode: "off",
@@ -32,6 +33,7 @@ export function aWebsiteFormView(overrides: Partial<WebsiteFormView> = {}): Webs
     embedLink: `https://app.example/embed/${formKey}`,
     state: { open: true, reason: null },
     ownerName: "Asha Sharma",
+    hasDestinations: true,
     ...overrides,
   };
 }

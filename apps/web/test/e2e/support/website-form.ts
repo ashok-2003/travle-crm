@@ -32,6 +32,7 @@ export const defaultSettings: SaveWebsiteFormInput = {
   allowEmbed: true,
   emailMode: "optional",
   destinationMode: "optional",
+  destinationInput: "list",
   travelMonthMode: "optional",
   travellersMode: "optional",
   budgetMode: "optional",

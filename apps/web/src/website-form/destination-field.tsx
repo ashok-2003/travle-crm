@@ -12,12 +12,17 @@ export function DestinationField({
   form,
   destinations,
   disabled,
+  inputKind,
 }: {
   form: UseFormReturn<FormValues>;
   destinations: PublicForm["destinations"];
   disabled: boolean;
+  inputKind: PublicForm["destinationInput"];
 }) {
   const t = useTranslations("websiteForm.form");
+  if (inputKind === "typed") {
+    return <TextField control={form.control} name="typedDestination" label={t("destination")} autoComplete="off" />;
+  }
   return (
     <>
       <SelectField

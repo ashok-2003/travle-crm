@@ -2,6 +2,7 @@
 // contract's own checks (https links, lengths) decide what Save may send.
 import {
   saveWebsiteFormInput,
+  type DestinationInput,
   type FieldMode,
   type SaveWebsiteFormInput,
   type WebsiteFormSettings,
@@ -12,6 +13,7 @@ export interface FormValues {
   allowEmbed: boolean;
   emailMode: FieldMode;
   destinationMode: FieldMode;
+  destinationInput: DestinationInput;
   travelMonthMode: FieldMode;
   travellersMode: FieldMode;
   budgetMode: FieldMode;
@@ -33,6 +35,7 @@ export function valuesOf(settings: WebsiteFormSettings): FormValues {
     allowEmbed: settings.allowEmbed,
     emailMode: settings.emailMode,
     destinationMode: settings.destinationMode,
+    destinationInput: settings.destinationInput,
     travelMonthMode: settings.travelMonthMode,
     travellersMode: settings.travellersMode,
     budgetMode: settings.budgetMode,

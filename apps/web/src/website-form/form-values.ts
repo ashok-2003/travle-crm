@@ -68,11 +68,14 @@ export interface EnquiryContext {
 const blank = (text: string) => text.trim() === "";
 
 /** What the agency made required and the visitor left empty, before the api is asked. */
-function missingAnswers({ fields }: PublicForm, values: FormValues): Problems<FormValues, FormProblem> {
+function missingAnswers(form: PublicForm, values: FormValues): Problems<FormValues, FormProblem> {
+  const { fields } = form;
   const missing: Problems<FormValues, FormProblem> = {};
   if (fields.email === "required" && blank(values.email)) missing.email = "required";
   if (fields.destination === "required") {
-    if (values.destination === "") missing.destination = "required";
+    if (form.destinationInput === "typed") {
+      if (blank(values.typedDestination)) missing.typedDestination = "required";
+    } else if (values.destination === "") missing.destination = "required";
     else if (values.destination === SOMEWHERE_ELSE && blank(values.typedDestination))
       missing.typedDestination = "required";
   }
@@ -92,7 +95,9 @@ function answersOf(form: PublicForm, values: FormValues, found: Problems<FormVal
   const { fields } = form;
   const answers: Record<string, unknown> = { name: values.name, phone: values.phone };
   if (fields.email !== "off" && !blank(values.email)) answers.email = values.email.trim();
-  if (fields.destination !== "off" && values.destination !== "") {
+  if (fields.destination !== "off" && form.destinationInput === "typed") {
+    if (!blank(values.typedDestination)) answers.destination = { kind: "typed", text: values.typedDestination };
+  } else if (fields.destination !== "off" && values.destination !== "") {
     answers.destination =
       values.destination === SOMEWHERE_ELSE
         ? { kind: "typed", text: values.typedDestination }

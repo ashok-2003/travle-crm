@@ -82,6 +82,29 @@ describe("the fields", () => {
     expect(sent(send).answers.destination).toEqual({ kind: "typed", text: "Spiti" });
   });
 
+  it("in typed mode shows a text box and no list, and sends the text as typed", async () => {
+    const send = show({ destinationInput: "typed", destinations: [] });
+    expect(screen.queryByRole("combobox", { name: "Where would you like to go?" })).toBeNull();
+    await fillTheBasics();
+    await fill("Where would you like to go?", "Spiti");
+    await userEvent.click(screen.getByRole("button", { name: "Send enquiry" }));
+    await waitFor(() => {
+      expect(send).toHaveBeenCalled();
+    });
+    expect(sent(send).answers.destination).toEqual({ kind: "typed", text: "Spiti" });
+  });
+
+  it("in typed mode a required destination left empty stops the send", async () => {
+    const send = show({
+      destinationInput: "typed",
+      fields: { ...publicFormOf().fields, destination: "required" },
+    });
+    await fillTheBasics();
+    await userEvent.click(screen.getByRole("button", { name: "Send enquiry" }));
+    expect(await screen.findByText("Please fill this in.")).toBeVisible();
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it("sends a chosen destination, month and the default two adults", async () => {
     const send = show();
     await fillTheBasics();

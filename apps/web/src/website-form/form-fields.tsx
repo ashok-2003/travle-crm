@@ -34,7 +34,12 @@ export function FormFields({
         <TextField control={control} name="email" label={t("email")} type="email" autoComplete="email" />
       )}
       {fields.destination !== "off" && (
-        <DestinationField form={values} destinations={shown.destinations} disabled={disabled} />
+        <DestinationField
+          form={values}
+          destinations={shown.destinations}
+          disabled={disabled}
+          inputKind={shown.destinationInput}
+        />
       )}
       {fields.travelMonth !== "off" && (
         <MonthField control={control} months={shown.months} mode={fields.travelMonth} disabled={disabled} />
