@@ -100,7 +100,8 @@ describe("saveSheetBatch", () => {
     const { agency, identity, sheet } = await running();
     test.google.append(sheet.spreadsheetId, "Form responses 1", row("Summary One", freshPhone()));
     test.google.append(sheet.spreadsheetId, "Form responses 1", row("Summary Two", freshPhone()));
-    const logger = createMemoryLogger();
+    // Uncensored: the line is exactly what the check passed, so this proves the check's keys, not the censor.
+    const logger = createMemoryLogger({ censor: false });
     await checkLeadSheet(
       { ...checkDependencies(test, { identity }), logger },
       { organizationId: agency, sheetId: sheet.sheetId, mode: "scheduled" },
@@ -120,6 +121,21 @@ describe("saveSheetBatch", () => {
       rowsWithProblems: 0,
     });
     expect(typeof summaries[0]?.durationMs).toBe("number");
+    // Proven: the summary has ids, the mode, counts and a time, and no more: no name, phone, sheet title or row text.
+    expect(Object.keys(summaries[0] ?? {}).sort()).toEqual([
+      "durationMs",
+      "level",
+      "mode",
+      "msg",
+      "organizationId",
+      "result",
+      "rowsAdded",
+      "rowsDuplicate",
+      "rowsMerged",
+      "rowsRead",
+      "rowsWithProblems",
+      "sheetId",
+    ]);
     expect(JSON.stringify(logger.entries)).not.toMatch(/Summary|Person/);
   });
 

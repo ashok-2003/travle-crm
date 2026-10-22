@@ -201,7 +201,8 @@ describe("an import's end", () => {
       await aRow(tx, { batchId: id, rowNumber: 3, outcome: "merged" });
       await aRow(tx, { batchId: id, rowNumber: 4, outcome: "not_added" });
     });
-    const logger = createMemoryLogger();
+    // Uncensored: the line is exactly what the import passed, so this proves its keys, not the censor.
+    const logger = createMemoryLogger({ censor: false });
     const end = ended();
     const dependencies = { ...jobDependencies(test), logger };
     await finishImport(listenerContext(test, organizationId), dependencies, id, end);
@@ -219,5 +220,18 @@ describe("an import's end", () => {
       rowsLeftOut: 0,
       rowsNotAdded: 1,
     });
+    // Proven: ids, kind, status and counts only: no file name, row text or importer name.
+    expect(Object.keys(logger.entries[0] ?? {}).sort()).toEqual([
+      "importId",
+      "kind",
+      "level",
+      "msg",
+      "organizationId",
+      "rowsAdded",
+      "rowsLeftOut",
+      "rowsMerged",
+      "rowsNotAdded",
+      "status",
+    ]);
   });
 });

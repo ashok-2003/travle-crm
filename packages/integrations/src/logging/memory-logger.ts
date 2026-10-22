@@ -12,14 +12,26 @@ export interface MemoryLogger extends ClosableLogger {
   entries: LogEntry[];
 }
 
-function memoryLoggerOver(entries: LogEntry[], bindings: LogFields): MemoryLogger {
+export interface MemoryLoggerOptions {
+  /**
+   * Whether the lines are censored as the real adapter censors them (the default). A contract test turns it off, so the
+   * lines are exactly what a call site passed: a call site that passes personal data then fails its test, instead of
+   * being saved by the same censor the test would check.
+   */
+  censor?: boolean;
+}
+
+function memoryLoggerOver(entries: LogEntry[], bindings: LogFields, censor: boolean): MemoryLogger {
   const write = (level: LogLevel) => (fields: LogFields, message: string) => {
-    entries.push({ ...censorFields({ ...bindings, ...fields }), level, msg: censorMessage(message) });
+    const merged = { ...bindings, ...fields };
+    entries.push(
+      censor ? { ...censorFields(merged), level, msg: censorMessage(message) } : { ...merged, level, msg: message },
+    );
   };
   return {
     entries,
     close: () => Promise.resolve(),
-    child: (more) => memoryLoggerOver(entries, { ...bindings, ...more }),
+    child: (more) => memoryLoggerOver(entries, { ...bindings, ...more }, censor),
     debug: write("debug"),
     info: write("info"),
     warn: write("warn"),
@@ -27,6 +39,6 @@ function memoryLoggerOver(entries: LogEntry[], bindings: LogFields): MemoryLogge
   };
 }
 
-export function createMemoryLogger(): MemoryLogger {
-  return memoryLoggerOver([], {});
+export function createMemoryLogger({ censor = true }: MemoryLoggerOptions = {}): MemoryLogger {
+  return memoryLoggerOver([], {}, censor);
 }

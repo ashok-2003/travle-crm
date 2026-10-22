@@ -39,7 +39,8 @@ describe("making an export's file", () => {
 
   it("writes one line when an export ends, with its ids, kind, format, rows and time", async () => {
     const { exportId } = await anExport();
-    const logger = createMemoryLogger();
+    // Uncensored: the line is exactly what the export passed, so this proves its keys, not the censor.
+    const logger = createMemoryLogger({ censor: false });
     await runExport(
       requested(organizationId, exportId),
       listenerContext(test, organizationId),
@@ -58,6 +59,18 @@ describe("making an export's file", () => {
       rows: 3,
     });
     expect(typeof logger.entries[0]?.durationMs).toBe("number");
+    // Proven: ids, kind, format, count and time only: no filter, search text or file name.
+    expect(Object.keys(logger.entries[0] ?? {}).sort()).toEqual([
+      "durationMs",
+      "exportId",
+      "format",
+      "kind",
+      "level",
+      "msg",
+      "organizationId",
+      "outcome",
+      "rows",
+    ]);
     expect(JSON.stringify(logger.entries)).not.toContain("Sharma");
   });
 

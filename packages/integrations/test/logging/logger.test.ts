@@ -104,6 +104,16 @@ describe.each([
   });
 });
 
+describe("the uncensored in-memory adapter", () => {
+  it("keeps exactly what a call site passed, so a contract test can see personal data it should not have passed", () => {
+    const raw = createMemoryLogger({ censor: false });
+    raw.info({ email, requestId: "r1" }, `for ${email}`);
+    expect(raw.entries[0]).toMatchObject({ email, requestId: "r1", msg: `for ${email}` });
+    raw.child({ phone }).info({}, "child");
+    expect(raw.entries[1]).toMatchObject({ phone });
+  });
+});
+
 describe("the real adapter's lines", () => {
   it("are JSON with level, ISO time, process, msg and the fields", () => {
     const { logger, lines } = realLogger();

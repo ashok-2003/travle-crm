@@ -2,5 +2,5 @@
 export { censorFields } from "./censor.js";
 export { errorFields, type ErrorFields } from "./error-fields.js";
 export { LOG_LEVELS, type ClosableLogger, type LogFields, type Logger, type LogLevel } from "./logger.js";
-export { createMemoryLogger, type LogEntry, type MemoryLogger } from "./memory-logger.js";
+export { createMemoryLogger, type LogEntry, type MemoryLogger, type MemoryLoggerOptions } from "./memory-logger.js";
 export { createPinoLogger, type PinoLoggerSettings } from "./pino-logger.js";

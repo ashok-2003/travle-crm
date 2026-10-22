@@ -57,7 +57,8 @@ describe.each(["development", "production"])("the api's log under NODE_ENV=%s", 
   let leak: Error;
   let identity: Identity;
   let db: Database;
-  const logger: MemoryLogger = createMemoryLogger();
+  // Uncensored: each line is exactly what the call site passed, so the leak checks below prove the call sites.
+  const logger: MemoryLogger = createMemoryLogger({ censor: false });
 
   beforeAll(async () => {
     leak = await validationErrorUnder(mode);
@@ -134,6 +135,15 @@ describe.each(["development", "production"])("the api's log under NODE_ENV=%s", 
       errorName: "PrismaClientValidationError",
     });
     expect(fault?.requestId).toBe(request?.requestId);
+    // Proven: a fault's line names the procedure and the error's name, cause and frames: no message, input or path.
+    expect(Object.keys(fault ?? {}).sort()).toEqual([
+      "errorName",
+      "errorStack",
+      "level",
+      "msg",
+      "procedure",
+      "requestId",
+    ]);
   });
 
   it("answers a share link that fails with the link page, kept private, and logs the area, never the token", async () => {
@@ -151,6 +161,16 @@ describe.each(["development", "production"])("the api's log under NODE_ENV=%s", 
     expect(fault).toMatchObject({ level: "error", msg: "unhandled error", method: "GET", area: "/p" });
     expect(fault).toMatchObject({ errorName: "PrismaClientValidationError" });
     expect(request).toMatchObject({ route: "/p/*", status: 500, requestId: fault?.requestId });
+    // Proven: the unhandled-error line has the method, the area (never the token) and the error's fields.
+    expect(Object.keys(fault ?? {}).sort()).toEqual([
+      "area",
+      "errorName",
+      "errorStack",
+      "level",
+      "method",
+      "msg",
+      "requestId",
+    ]);
   });
 
   it("answers any other route that fails with plan 2's internal error JSON", async () => {

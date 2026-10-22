@@ -41,7 +41,9 @@ describeJobAdapter("pg-boss", async () => {
 
 describe("pg-boss jobs", () => {
   const urls: DbUrls = inject("dbUrls");
-  const logger = createMemoryLogger();
+  // Uncensored: the lines are exactly what the adapter passed, so these tests are the adapter's contract with the privacy
+  // rule (ids, codes, counts and timings only), not a check of the censor.
+  const logger = createMemoryLogger({ censor: false });
   /** What went wrong: pg-boss's own warnings and errors, and failing jobs. */
   const problems = () => logger.entries.filter((entry) => entry.level === "warn" || entry.level === "error");
   let jobs: PgBossJobs;
@@ -125,7 +127,54 @@ describe("pg-boss jobs", () => {
     ]);
     expect(lines[1]).toMatchObject({ queue: "probe.lines", organizationId, retryCount: 0, outcome: "done" });
     expect(typeof lines[1]?.durationMs).toBe("number");
+    // Proven: the start line and the end line carry these keys and no others, so nothing of the job's data (its event
+    // id, the email it holds) is in them.
+    expect(Object.keys(lines[0] ?? {}).sort()).toEqual([
+      "jobId",
+      "level",
+      "msg",
+      "organizationId",
+      "queue",
+      "retryCount",
+    ]);
+    expect(Object.keys(lines[1] ?? {}).sort()).toEqual([
+      "durationMs",
+      "jobId",
+      "level",
+      "msg",
+      "organizationId",
+      "outcome",
+      "queue",
+      "retryCount",
+    ]);
     expect(JSON.stringify(lines)).not.toMatch(/jane|e-lines/);
+    logger.entries.length = 0;
+  });
+
+  it("logs a failing job with its name, code, cause and frames, and no message", async () => {
+    let failed = false;
+    await jobs.work("probe.contract-fail", () => {
+      failed = true;
+      return Promise.reject(Object.assign(new Error("no mailbox for jane.doe@example.com"), { code: "EENVELOPE" }));
+    });
+    const id = await jobs.send("probe.contract-fail", { eventId: "e-contract" }, { retryLimit: 0 });
+    await eventually(() => failed);
+    await eventually(() => logger.entries.some((entry) => entry.msg === "job failed" && entry.jobId === id));
+    const line = logger.entries.find((entry) => entry.msg === "job failed" && entry.jobId === id);
+    // Proven: a failed job's line has the job's identity and the error's name, code and frames, and no message.
+    expect(Object.keys(line ?? {}).sort()).toEqual([
+      "durationMs",
+      "errorCode",
+      "errorName",
+      "errorStack",
+      "jobId",
+      "level",
+      "msg",
+      "outcome",
+      "queue",
+      "retryCount",
+    ]);
+    expect(JSON.stringify(line)).not.toMatch(/jane|mailbox/);
     logger.entries.length = 0;
   });
 
