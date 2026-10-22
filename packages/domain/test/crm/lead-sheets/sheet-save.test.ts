@@ -1,5 +1,6 @@
 // The save of a check's rows (S25): fifty to a transaction, the connection held first, each outcome and the counters written
 // in it, the rules applied again, a unique violation settled by a second look, a row with an outcome never saved again.
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { afterAll, describe, expect, it } from "vitest";
 import { checkLeadSheet } from "../../../src/crm/index.js";
 import { planSheetRows, type SheetRowDecision } from "../../../src/crm/lead-sheets/index.js";
@@ -93,6 +94,33 @@ describe("saveSheetBatch", () => {
       stored.rows.every((saved) => saved.leadId !== null && saved.personId !== null && saved.fingerprint !== null),
     ).toBe(true);
     expect(importer.userId).toBeTruthy();
+  });
+
+  it("writes one summary line per check: the connection, the rows read and what became of them, the time", async () => {
+    const { agency, identity, sheet } = await running();
+    test.google.append(sheet.spreadsheetId, "Form responses 1", row("Summary One", freshPhone()));
+    test.google.append(sheet.spreadsheetId, "Form responses 1", row("Summary Two", freshPhone()));
+    const logger = createMemoryLogger();
+    await checkLeadSheet(
+      { ...checkDependencies(test, { identity }), logger },
+      { organizationId: agency, sheetId: sheet.sheetId, mode: "scheduled" },
+    );
+    const summaries = logger.entries.filter((entry) => entry.msg === "sheet check");
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0]).toMatchObject({
+      level: "info",
+      organizationId: agency,
+      sheetId: sheet.sheetId,
+      mode: "scheduled",
+      result: "checked",
+      rowsRead: 2,
+      rowsAdded: 2,
+      rowsMerged: 0,
+      rowsDuplicate: 0,
+      rowsWithProblems: 0,
+    });
+    expect(typeof summaries[0]?.durationMs).toBe("number");
+    expect(JSON.stringify(logger.entries)).not.toMatch(/Summary|Person/);
   });
 
   it("applies the rules again: a contact blocked since the plan is left out", async () => {

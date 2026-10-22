@@ -3,6 +3,7 @@
 import { notificationCreatedEvent } from "@travel-crm/contracts/notifications";
 import { renderEmail, senderNameFor, type EmailSender } from "@travel-crm/integrations/email";
 import { ownMessage } from "@travel-crm/integrations/jobs";
+import type { Logger } from "@travel-crm/integrations/logging";
 import type { PushSender } from "@travel-crm/integrations/push";
 import type { MemberContact, OrganizationProfile } from "../identity/index.js";
 import { defineListener, type EventListener, type ListenerContext } from "../jobs/index.js";
@@ -28,7 +29,7 @@ export interface DeliveryDependencies {
   /** Where people open the web app, e.g. https://app.example.in. Links and the opt-out page are made absolute with it. */
   appUrl: string;
   /** Where failures that need attention are reported, with ids only and never personal data. The worker passes its logger. */
-  log: (message: string) => void;
+  logger: Logger;
 }
 
 /** The web app's origin, checked once when the listener is built rather than on every delivery. */
@@ -61,7 +62,7 @@ async function loadDelivery(context: ListenerContext, notificationId: string) {
 export function deliverNotificationListener(dependencies: DeliveryDependencies): EventListener {
   const appOrigin = webAppOrigin(dependencies.appUrl);
   const preferencesPage = `${appOrigin}/account/notifications`;
-  const { log } = dependencies;
+  const { logger } = dependencies;
 
   return defineListener({
     name: "notifications.deliver",
@@ -110,7 +111,7 @@ export function deliverNotificationListener(dependencies: DeliveryDependencies):
           });
         } catch (error) {
           // A permanent failure is recorded by the caller, which also drops the claim.
-          if (!isPermanent(error)) await release(context, id, emailChannel, claimedAt, log);
+          if (!isPermanent(error)) await release(context, id, emailChannel, claimedAt, logger);
           throw error;
         }
         await markSent(context, id, emailChannel);
@@ -150,7 +151,10 @@ export function deliverNotificationListener(dependencies: DeliveryDependencies):
           await context
             .forOrg((tx) => tx.pushSubscription.deleteMany({ where: { id: { in: ids } } }))
             .catch(() => {
-              log(`Notification ${id}: ${String(ids.length)} forgotten push subscription(s) could not be deleted`);
+              logger.warn(
+                { notificationId: id, subscriptions: ids.length },
+                "Forgotten push subscriptions could not be deleted",
+              );
             });
         }
         if (reached) return;
@@ -158,13 +162,13 @@ export function deliverNotificationListener(dependencies: DeliveryDependencies):
         if (failures.length === 0) throw new NothingToDeliverError();
 
         const retryable = failures.find((failure) => !isPermanent(failure)) ?? failures[0];
-        if (!isPermanent(retryable)) await release(context, id, pushChannel, claimedAt, log);
+        if (!isPermanent(retryable)) await release(context, id, pushChannel, claimedAt, logger);
         throw retryable instanceof Error ? retryable : ownMessage(new Error(`Notification ${id}: the push failed`));
       };
 
       const problems = await Promise.all([
-        attempt(context, emailChannel, id, log, deliverEmail),
-        attempt(context, pushChannel, id, log, deliverPush),
+        attempt(context, emailChannel, id, logger, deliverEmail),
+        attempt(context, pushChannel, id, logger, deliverPush),
       ]);
       const problem = problems.find((candidate) => candidate !== undefined);
       if (problem) throw problem;

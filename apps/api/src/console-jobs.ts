@@ -16,14 +16,15 @@ import {
   type PlatformServices,
 } from "@travel-crm/domain/platform";
 import { ADVANCE_SUBSCRIPTIONS_QUEUE, advanceSubscriptions } from "@travel-crm/domain/subscriptions";
-import { describeError, type JobRunner } from "@travel-crm/integrations/jobs";
+import type { JobRunner } from "@travel-crm/integrations/jobs";
+import { errorFields } from "@travel-crm/integrations/logging";
 
 export interface ConsoleJobs {
   handlers: JobHandler[];
   schedules: ScheduledJob[];
 }
 
-/** The jobs report each organization they couldn't handle to the services' log, the console's own (ids and codes). */
+/** The jobs report each organization they couldn't handle to the services' log, the console's own (ids, codes, frames). */
 export function consoleJobs(services: PlatformServices, demo: DemoSettings | null): ConsoleJobs {
   const lifecycle: ScheduledJob = {
     // Just after midnight in India, where most agencies' day starts: a trial that ended yesterday there is recorded
@@ -38,8 +39,9 @@ export function consoleJobs(services: PlatformServices, demo: DemoSettings | nul
       await advanceSubscriptions({
         db: services.platformDb,
         onError: (error, organizationId) => {
-          services.log(
-            `${ADVANCE_SUBSCRIPTIONS_QUEUE}: organization ${organizationId} failed: ${describeError(error)}`,
+          services.logger.error(
+            { queue: ADVANCE_SUBSCRIPTIONS_QUEUE, organizationId, ...errorFields(error) },
+            "A subscription could not be advanced",
           );
         },
       });

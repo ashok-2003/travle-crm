@@ -1,6 +1,7 @@
 // What a failed delivery means: whether trying again could help, what may be said about it, and recording that a
 // channel is given up on. Messages here carry ids and codes, never addresses or notification text.
-import { describeError, ownMessage, ownMessages } from "@travel-crm/integrations/jobs";
+import { ownMessage, ownMessages } from "@travel-crm/integrations/jobs";
+import { errorFields, type Logger } from "@travel-crm/integrations/logging";
 import { PushPayloadTooLargeError } from "@travel-crm/integrations/push";
 import type { ListenerContext } from "../jobs/index.js";
 import { markFailed, type Channel } from "./delivery-claims.js";
@@ -33,12 +34,6 @@ export function isPermanent(error: unknown): boolean {
   return aboutTheMessage && typeof responseCode === "number" && responseCode >= 500 && responseCode < 600;
 }
 
-/** What to say about an error without personal data: its names and codes, and the mail server's reply code. */
-function describe(error: unknown): string {
-  const { responseCode } = (error ?? {}) as { responseCode?: unknown };
-  return typeof responseCode === "number" ? `${describeError(error)} ${String(responseCode)}` : describeError(error);
-}
-
 /**
  * Runs one channel. A permanent failure is recorded (so it is not tried or reported again) and reported with ids
  * only; any other failure comes back, for the caller to raise once the other channel has had its turn.
@@ -47,7 +42,7 @@ export async function attempt(
   context: ListenerContext,
   channel: Channel,
   id: string,
-  log: (message: string) => void,
+  logger: Logger,
   run: () => Promise<void>,
 ): Promise<Error | undefined> {
   try {
@@ -58,7 +53,16 @@ export async function attempt(
       return error instanceof Error ? error : ownMessage(new Error(`Notification ${id}: ${channel.name} failed`));
     // Having nobody to send to is expected, not worth a log line.
     if (!(error instanceof NothingToDeliverError)) {
-      log(`Notification ${id}: the ${channel.name} can't be delivered and won't be retried (${describe(error)})`);
+      const { responseCode } = (error ?? {}) as { responseCode?: unknown };
+      logger.warn(
+        {
+          notificationId: id,
+          channel: channel.name,
+          ...(typeof responseCode === "number" ? { responseCode } : {}),
+          ...errorFields(error),
+        },
+        "A notification can't be delivered and won't be retried",
+      );
     }
     try {
       await markFailed(context, id, channel);

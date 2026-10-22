@@ -1,17 +1,16 @@
 // Starting a process on the services (the api, the worker and the console alike): read the environment, build the
 // services, check the bucket and start pg-boss, then the process's own start, or exit 1 with one message. And its last
 // resort once started: an error nothing handled ends it through its own drain.
-import { describeError } from "@travel-crm/integrations/jobs";
-import { createPinoLogger, type Logger } from "@travel-crm/integrations/logging";
+import { createPinoLogger, errorFields, type Logger } from "@travel-crm/integrations/logging";
 import { loadEnvironment, type Environment } from "./environment.js";
-import { processLog, type ProcessLog, type ProcessName } from "./process-log.js";
 import { createServices, type Services } from "./services.js";
+
+export type ProcessName = "api" | "worker" | "console";
 
 /** What a process starts on: its environment, its services and its log. */
 export interface ProcessBase {
   environment: Environment;
   services: Services;
-  log: ProcessLog;
   /** The process's structured log (ADR 0032): JSON lines at the environment's LOG_LEVEL. */
   logger: Logger;
 }
@@ -25,9 +24,15 @@ export interface StartProcessOptions {
   /** The environment variables; process.env unless a test gives others. */
   variables?: Record<string, string | undefined>;
   /** How the services are built; createServices unless a test gives others. */
-  create?: (environment: Environment, log: ProcessLog, logger: Logger) => Services;
+  create?: (environment: Environment, logger: Logger) => Services;
   /** The structured log; a pino logger on standard output unless a test gives another. */
   createLogger?: (processName: ProcessName, environment: Environment) => Logger;
+}
+
+/** The commit the process runs: the host's (Render sets RENDER_GIT_COMMIT), or GIT_SHA from the build; else unknown. */
+function versionOf(variables: Record<string, string | undefined>): string {
+  const sha = variables.GIT_SHA ?? variables.RENDER_GIT_COMMIT ?? variables.SOURCE_VERSION;
+  return sha === undefined || sha === "" ? "unknown" : sha.slice(0, 12);
 }
 
 function pinoLoggerFor(processName: ProcessName, environment: Environment): Logger {
@@ -54,12 +59,20 @@ export async function startProcess<T>(
   let services: Services | undefined;
   try {
     const environment = loadEnvironment(variables);
-    const log = processLog(processName);
     const logger = createLogger(processName, environment);
-    services = create(environment, log, logger);
+    logger.info(
+      {
+        version: versionOf(variables),
+        nodeEnv: environment.NODE_ENV,
+        logLevel: environment.LOG_LEVEL,
+        node: process.version,
+      },
+      `${processName} starting`,
+    );
+    services = create(environment, logger);
     await services.start();
-    const running = await start({ environment, services, log, logger });
-    return { environment, services, log, logger, running };
+    const running = await start({ environment, services, logger });
+    return { environment, services, logger, running };
   } catch (error) {
     console.error(`${processName} start-up failed`, error);
     await services?.close().catch((closeError: unknown) => {
@@ -85,24 +98,24 @@ export interface LastResortOptions {
 
 /**
  * A promise rejected with nothing to handle it, or an exception nothing caught, ends the process as SIGTERM does, but
- * exiting 1: one line in the process's log by names and codes (Node's default prints the error in full, with its
+ * exiting 1: one line in the process's log by name, code and frames (Node's default prints the error in full, with its
  * message, which can quote what the code was working on: an email address, a reset link), then `drain`, the process's
  * own shutdown, which has 45 seconds before the process exits anyway. Another one while it drains is logged and
  * drains nothing more.
  */
 export function stopOnUnhandledErrors(
-  log: ProcessLog,
+  logger: Logger,
   drain: (exitCode: 1) => void,
   { events = process, exit = (exitCode) => process.exit(exitCode) }: LastResortOptions = {},
 ): void {
   let draining = false;
   const stop = (what: string) => (error: unknown) => {
-    log(`${what}: ${describeError(error)}`);
+    logger.error(errorFields(error), what);
     if (draining) return;
     draining = true;
     // Unref'd: a drain that finishes exits at once, never waiting on this.
     setTimeout(() => {
-      log("the drain took over 45 seconds: exiting");
+      logger.error({ drainLimitMs: DRAIN_LIMIT_MS }, "the drain took too long: exiting");
       exit(1);
     }, DRAIN_LIMIT_MS).unref();
     drain(1);

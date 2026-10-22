@@ -5,6 +5,7 @@ import { createDatabase, type Database } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { createMemoryJobQueue, createMemoryJobRunner, type JobData } from "@travel-crm/integrations/jobs";
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { publishEvent, startJobHandlers, startWorker } from "../../src/jobs/index.js";
 import { recordingListener } from "./test-listeners.js";
@@ -52,6 +53,43 @@ describe("startWorker", () => {
     await runner.runQueued();
     await worker.stop();
     expect(listener.handled.map((event) => event.id)).toEqual([eventId]);
+  });
+
+  it("logs the events a relay pass queued, and a listener skipping an event it already handled, at debug", async () => {
+    const queue = createMemoryJobQueue();
+    const runner = createMemoryJobRunner(queue);
+    const listener = recordingListener("documents.render-pdf", "document.issued");
+    const logger = createMemoryLogger();
+    const worker = await startWorker({
+      db,
+      runner,
+      queue,
+      listeners: [listener],
+      relay: { intervalMs: 20, organizationIds: [organizationId] },
+      logger,
+    });
+    const eventId = await db.forOrg(organizationId, (tx) =>
+      publishEvent(tx, { type: "document.issued", payload: { documentId: "w2" } }),
+    );
+    await eventually(() => queue.sent.some((job) => job.data.eventId === eventId));
+    await runner.runQueued();
+    // The same job again, as pg-boss does after a crash: the listener has the event on record.
+    await queue.send("documents.render-pdf", { organizationId, eventId, eventType: "document.issued" });
+    await runner.runQueued();
+    await worker.stop();
+    expect(listener.handled.map((event) => event.id)).toEqual([eventId]);
+    expect(logger.entries).toContainEqual(
+      expect.objectContaining({ level: "debug", msg: "outbox relayed", events: 1 }),
+    );
+    expect(logger.entries).toContainEqual(
+      expect.objectContaining({
+        level: "debug",
+        msg: "listener skipped an event it already handled",
+        listener: "documents.render-pdf",
+        organizationId,
+        eventId,
+      }),
+    );
   });
 
   it("works each listener's queue one job at a time, so a worker reads one import's file at a time (X10)", async () => {

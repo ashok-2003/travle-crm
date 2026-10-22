@@ -87,14 +87,32 @@ export async function runExport<Filter>(
   const row = found === null ? null : toExportRow(found);
   if (row?.status !== "making" || row.kind !== source.kind) return;
   const filter = source.filterOf(row.filter);
-  const fail = (failureReason: ExportFailureReason) =>
-    context.forOrg(async (tx) => {
+  const started = performance.now();
+  // One line per export, once it has ended: ids, kind, format, row count and how long it took.
+  const summarise = (outcome: "ready" | "failed", more: Record<string, string | number>) => {
+    dependencies.logger?.info(
+      {
+        organizationId: row.organizationId,
+        exportId,
+        kind: row.kind,
+        format: row.format,
+        outcome,
+        ...more,
+        durationMs: Math.round(performance.now() - started),
+      },
+      "export finished",
+    );
+  };
+  const fail = async (failureReason: ExportFailureReason) => {
+    await context.forOrg(async (tx) => {
       if ((await holdExport(tx, exportId))?.status !== "making") return;
       await tx.dataExport.update({
         where: { id: exportId },
         data: { status: "failed", failureReason, filter: source.keptFilter(filter) },
       });
     });
+    summarise("failed", { failureReason });
+  };
 
   const resolved = await requesterAccess(dependencies, row, source.requires);
   if ("failure" in resolved) return fail(resolved.failure);
@@ -162,4 +180,5 @@ export async function runExport<Filter>(
       channels: ["push"],
     });
   });
+  summarise("ready", { rows: rowsDone });
 }

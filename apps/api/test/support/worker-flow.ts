@@ -9,7 +9,8 @@ import { createMemoryPushSender } from "@travel-crm/integrations/push";
 import { createS3Storage } from "@travel-crm/integrations/storage";
 import { randomBytes } from "node:crypto";
 import { inject } from "vitest";
-import { workerProblemLine } from "../../src/process-log.js";
+import { problemLogger } from "./problem-logger.js";
+import { logWorkerProblem } from "../../src/worker-problem.js";
 import { workerJobs, type WorkerJobs } from "../../src/worker-jobs.js";
 import { startMinio, type TestMinio } from "./minio.js";
 import { createTestAgency, createTestServer, type TestAgency, type TestServer } from "./test-server.js";
@@ -74,7 +75,7 @@ export async function startWorkerFlow(
       maxConnections: 3,
       pollingIntervalSeconds: 0.5,
       retryPolicy: { retryLimit: 1, retryDelaySeconds: 1, retryDelayMaxSeconds: 1 },
-      log: (line) => reported.push(`pg-boss: ${line}`),
+      logger: problemLogger(reported),
     }),
   );
   await jobs.start();
@@ -103,7 +104,7 @@ export async function startWorkerFlow(
     appUrl: "https://app.example.in",
     webhookProviders: [webhooks.provider],
     rateLimiter: createRateLimiter(server.db, { keySecret: "worker-flow-test-rate-limit-secret-of-32-bytes" }),
-    log: (line) => reported.push(line),
+    logger: problemLogger(reported),
   });
   running.worker = await startWorker({
     db: server.db,
@@ -112,7 +113,7 @@ export async function startWorkerFlow(
     ...work,
     // Only this flow's organization: other test files share the database.
     relay: { intervalMs: 100, organizationIds: [agency.organizationId] },
-    onError: (problem) => reported.push(`relay: ${workerProblemLine(problem)}`),
+    onError: logWorkerProblem(problemLogger(reported)),
   });
   const completed = async (jobId: string) => {
     const [job] = await server.db.withoutOrg(

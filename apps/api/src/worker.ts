@@ -2,23 +2,23 @@
 // outbox and runs every listener, job and schedule (spec 9.1), connected as app_runtime like the api. Run more copies
 // to go faster: pg-boss gives each job to one of them.
 import { startWorker } from "@travel-crm/domain/jobs";
-import { describeError } from "@travel-crm/integrations/jobs";
+import { errorFields } from "@travel-crm/integrations/logging";
 import { reconcileScheduleAccounts } from "@travel-crm/domain/sheets";
 import { checkXlsxReading } from "@travel-crm/integrations/spreadsheets";
-import { workerProblemLine } from "./process-log.js";
 import { assertServiceAccountsInPlace, sheetsStartUpLine } from "./sheets-settings.js";
 import { startProcess, stopOnUnhandledErrors } from "./start-up.js";
 import { webhookProviders } from "./webhook-providers.js";
 import { workerJobs } from "./worker-jobs.js";
+import { logWorkerProblem } from "./worker-problem.js";
 
 // The worker's own start runs inside the start-up guard too: an .xlsx thread that can't run (ADR 0030), a repeated
 // queue name or a schedule pg-boss refuses ends in one "worker start-up failed" message, with the pools closed.
 const {
   environment,
   services,
-  log,
+  logger,
   running: worker,
-} = await startProcess("worker", async ({ environment, services, log }) => {
+} = await startProcess("worker", async ({ environment, services, logger }) => {
   await checkXlsxReading(services.spreadsheets);
   if (services.google !== null) {
     // A reordered list is followed by address; an account taken out stops the worker here.
@@ -33,7 +33,7 @@ const {
       ...services,
       appUrl: environment.APP_URL,
       webhookProviders,
-      log,
+      logger,
       ...(services.google === null || services.sheetsHashes === null
         ? {}
         : {
@@ -47,15 +47,15 @@ const {
             },
           }),
     }),
-    // The relay's errors, and jobs whose event wasn't found: the one log, a line each. pg-boss's problems and failing
-    // jobs reach the same log through the services.
-    onError: (problem) => {
-      log(workerProblemLine(problem));
-    },
+    logger,
+    // The relay's errors, and jobs whose event wasn't found: a line each. pg-boss's problems and failing jobs reach the
+    // same log through the services.
+    onError: logWorkerProblem(logger),
   });
 });
-console.log("worker running");
-console.log(sheetsStartUpLine(environment.GOOGLE_SHEETS_SERVICE_ACCOUNTS?.length ?? 0));
+const accounts = environment.GOOGLE_SHEETS_SERVICE_ACCOUNTS?.length ?? 0;
+logger.info({ serviceAccounts: accounts }, "worker running");
+logger.info({ serviceAccounts: accounts }, sheetsStartUpLine(accounts));
 
 // Container platforms send SIGTERM before stopping an instance: stop relaying, let running jobs finish, close the
 // pools. Exit 0 only when that went well, so the platform can tell a clean stop from a failed one; 1 after an error
@@ -66,7 +66,7 @@ function shutDown(exitCode: 0 | 1): void {
     .then(() => services.close())
     .then(() => process.exit(exitCode))
     .catch((error: unknown) => {
-      log(`shutdown failed: ${describeError(error)}`);
+      logger.error(errorFields(error), "shutdown failed");
       process.exit(1);
     });
 }
@@ -76,4 +76,4 @@ process.on("SIGTERM", () => {
 process.on("SIGINT", () => {
   shutDown(0);
 });
-stopOnUnhandledErrors(log, shutDown);
+stopOnUnhandledErrors(logger, shutDown);

@@ -2,7 +2,7 @@
 // `pnpm --filter @travel-crm/api-server run first-super-admin -- --email <address> --name <name>`, or `run demo`. It
 // starts as the console does (the same variables and checks, the same "console start-up failed" message), but serves
 // nothing and runs no jobs. Never over HTTP: only whoever can run the console's image with its environment can run it.
-import { describeError } from "@travel-crm/integrations/jobs";
+import { createPinoLogger, errorFields } from "@travel-crm/integrations/logging";
 import { demoCommand, firstSuperAdminCommand, type CommandOutput } from "./console-commands.js";
 import { forgetServiceAccounts } from "./console-environment.js";
 import { startConsolePlatform, type ConsolePlatform } from "./console-platform.js";
@@ -42,19 +42,22 @@ forgetServiceAccounts();
 const [name = "", ...args] = process.argv.slice(2);
 const command = commands[name] ?? (await usage());
 
-const { services, log, running } = await startProcess("console", startConsolePlatform);
+// A command prints its result on stdout, so its log goes to stderr, and only what needs attention.
+const { services, logger, running } = await startProcess("console", startConsolePlatform, {
+  createLogger: (processName) => createPinoLogger({ process: processName, level: "warn", destination: process.stderr }),
+});
 let code = 1;
 try {
   code = await command(running, args, output);
 } catch (error) {
-  // As the console logs a failure: names and codes, never the message, which can quote someone's data.
-  log(`${name} failed: ${describeError(error)}`);
+  // As the console logs a failure: name, code and frames, never the message, which can quote someone's data.
+  logger.error({ command: name, ...errorFields(error) }, "console command failed");
 }
 try {
   await services.close();
   await running.platform.platformDb.disconnect();
 } catch (error) {
-  log(`shutdown failed: ${describeError(error)}`);
+  logger.error(errorFields(error), "shutdown failed");
   code = 1;
 }
 await exitWhenPrinted(code);

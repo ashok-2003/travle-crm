@@ -1,7 +1,7 @@
 // The jobs port on pg-boss (spec 9.1): queues in Postgres, no extra server. pg-boss runs as app_runtime with
 // migrate: false; its schema comes from our migrations (ADR 0010).
 import { PgBoss } from "pg-boss";
-import { describeError } from "./describe-error.js";
+import { createPinoLogger, errorFields, type LogFields, type Logger, type LogLevel } from "../logging/index.js";
 import type { JobAdministration } from "./job-administration.js";
 import { assertJobId, assertQueueName, type JobData, type JobQueue } from "./job-queue.js";
 import type { JobRunner } from "./job-runner.js";
@@ -19,18 +19,29 @@ export interface PgBossJobsSettings {
   /** How the queues this instance creates retry failed jobs. Tests shorten it; production keeps the default. */
   retryPolicy?: RetryPolicy;
   /**
-   * The process's log, a line each: a failing handler (its queue, job id and error), pg-boss's own errors (a failing
-   * maintenance query, a lost connection; with the queue when pg-boss names one), its warnings in its own words, and
-   * failed-job rows that couldn't be read. Errors appear as their names and codes only (describeError), never their
-   * messages or the objects, which can quote personal data. Without it, the lines go to stderr.
+   * The structured log (ADR 0032). Each job a handler runs gets a `debug` line when it starts and an `info` line when it
+   * ends, with its queue, job id, organization (when its data names one), retry count and duration; a failing handler
+   * gets an `error` line with the error's name, code and frames. pg-boss's own errors (a failing maintenance query, a
+   * lost connection; with the queue when pg-boss names one) are `error` lines, its warnings `warn` lines in its own
+   * words, and failed-job rows that couldn't be read `warn` lines. Errors never show their messages, which can quote
+   * personal data. Without it, warnings and errors go to standard output as JSON.
    */
-  log?: (line: string) => void;
+  logger?: Logger;
 }
 
 export interface PgBossJobs extends JobQueue, JobRunner, JobAdministration {
   start(): Promise<void>;
   /** Stops taking jobs, waits up to 30 seconds for running handlers to finish, and closes the pool. */
   stop(): Promise<void>;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The organization a job's data names, for its log lines (job data holds ids only). */
+function organizationOf(data: unknown): { organizationId?: string } {
+  const organizationId =
+    typeof data === "object" && data !== null ? (data as Record<string, unknown>).organizationId : undefined;
+  return typeof organizationId === "string" && UUID.test(organizationId) ? { organizationId } : {};
 }
 
 /** The schema our migrations create pg-boss in (migration 20261015100000_pgboss). */
@@ -51,10 +62,10 @@ export function createPgBossJobs(settings: PgBossJobsSettings): PgBossJobs {
     migrate: false,
     createSchema: false,
   });
-  function report(line: string): void {
+  const logger = settings.logger ?? createPinoLogger({ process: "jobs", level: "warn" });
+  function report(level: LogLevel, fields: LogFields, message: string): void {
     try {
-      if (settings.log) settings.log(line);
-      else console.error(line);
+      logger[level](fields, message);
     } catch {
       // A broken logger must not break pg-boss's loops, nor replace the sanitised error it stores.
     }
@@ -62,11 +73,15 @@ export function createPgBossJobs(settings: PgBossJobsSettings): PgBossJobs {
   boss.on("error", (error: unknown) => {
     // pg-boss spreads a worker's error into a plain object with the queue it was working.
     const queue = typeof error === "object" && error !== null && "queue" in error ? error.queue : undefined;
-    report(`pg-boss error${typeof queue === "string" ? ` on queue ${queue}` : ""}: ${describeError(error)}`);
+    report(
+      "error",
+      { source: "pg-boss", ...(typeof queue === "string" ? { queue } : {}), ...errorFields(error) },
+      "pg-boss error",
+    );
   });
   boss.on("warning", (warning) => {
     // pg-boss's warnings are its own words about its own state (a slow query, a long queue), not a handler's data.
-    report(`pg-boss warning: ${toError(warning).message}`);
+    report("warn", { source: "pg-boss" }, `pg-boss warning: ${toError(warning).message}`);
   });
 
   // pg-boss 12 needs a queue to exist before jobs are sent to or worked from it. Creating one is idempotent
@@ -129,12 +144,21 @@ export function createPgBossJobs(settings: PgBossJobsSettings): PgBossJobs {
         },
         async ([job]) => {
           if (!job) return;
+          const started = performance.now();
+          const fields: LogFields = { queue, jobId: job.id, retryCount: job.retryCount, ...organizationOf(job.data) };
+          report("debug", fields, "job started");
           try {
             await handler({ id: job.id, data: toJobData(job.data), retryCount: job.retryCount });
+            report(
+              "info",
+              { ...fields, durationMs: Math.round(performance.now() - started), outcome: "done" },
+              "job finished",
+            );
           } catch (error) {
             // pg-boss stores what we throw, in a table without row-level security, so it gets a cut-down copy; the log
-            // gets the queue, the job and the error's names and codes.
-            report(`queue ${queue}, job ${job.id} failed: ${describeError(error)}`);
+            // gets the queue, the job and the error's names, code and frames.
+            const durationMs = Math.round(performance.now() - started);
+            report("error", { ...fields, durationMs, outcome: "failed", ...errorFields(error) }, "job failed");
             throw sanitizeJobError(error);
           }
         },
@@ -176,6 +200,9 @@ export function createPgBossJobs(settings: PgBossJobsSettings): PgBossJobs {
       }));
     },
 
-    failedJobs: (options = {}) => failedJobsPage(boss, SCHEMA, options, report),
+    failedJobs: (options = {}) =>
+      failedJobsPage(boss, SCHEMA, options, (jobId, queue, error) => {
+        report("warn", { source: "pg-boss", jobId, queue, ...errorFields(error) }, "A failed job can't be listed");
+      }),
   };
 }

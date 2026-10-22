@@ -44,7 +44,6 @@ describe("the console's start-up check", () => {
     return startConsolePlatform({
       environment: testEnvironment(),
       services,
-      log: () => undefined,
       logger: createMemoryLogger(),
     });
   }

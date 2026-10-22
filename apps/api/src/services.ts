@@ -18,7 +18,6 @@ import { createSpreadsheets, type Spreadsheets } from "@travel-crm/integrations/
 import { createS3Storage, type ObjectStorage } from "@travel-crm/integrations/storage";
 import { authSettingsFrom, type Environment } from "./environment.js";
 import { passwordResetEmails, resetPasswordPageOf } from "./password-reset-email.js";
-import type { ProcessLog } from "./process-log.js";
 import { loggerOfRequest } from "./request-log.js";
 import { verifySheetsKey } from "./sheets-key-check.js";
 
@@ -69,23 +68,23 @@ export function transactionLimitsOf(environment: Environment): ForOrgOptions {
 }
 
 /** The real Google adapter for the service accounts the environment holds, or none when it holds none. */
-export function googleSheetsOf(environment: Environment, log: ProcessLog): GoogleSheets | null {
+export function googleSheetsOf(environment: Environment, logger: Logger): GoogleSheets | null {
   const accounts = environment.GOOGLE_SHEETS_SERVICE_ACCOUNTS;
   if (accounts === undefined) return null;
   const testServer = environment.GOOGLE_SHEETS_TEST_SERVER_URL;
   // The journeys' fake Google takes any token and any key: a fixed token spares signing one (development and tests only).
   return testServer === undefined
-    ? createRealGoogleSheets({ accounts, log })
+    ? createRealGoogleSheets({ accounts, logger })
     : createRealGoogleSheets({
         accounts,
-        log,
+        logger,
         apiBaseUrl: testServer,
         accessToken: () => Promise.resolve("test-token"),
       });
 }
 
-/** `log` is the process's one log: pg-boss's problems go there, as ids and codes. */
-export function createServices(environment: Environment, log: ProcessLog, logger: Logger): Services {
+/** `logger` is the process's structured log: pg-boss's problems and job lines go there, as ids, codes and timings. */
+export function createServices(environment: Environment, logger: Logger): Services {
   const db = createDatabase(environment.DATABASE_URL, {
     maxConnections: environment.DATABASE_POOL_SIZE,
     transactionLimits: transactionLimitsOf(environment),
@@ -131,7 +130,7 @@ export function createServices(environment: Environment, log: ProcessLog, logger
   const storage: ObjectStorage = s3;
   const jobs = createPgBossJobs({
     connectionString: environment.DATABASE_URL,
-    log,
+    logger,
   });
   const push = createWebPushSender({
     publicKey: environment.VAPID_PUBLIC_KEY,
@@ -147,7 +146,7 @@ export function createServices(environment: Environment, log: ProcessLog, logger
     storage,
     files: createFiles({ db, storage, storageLimitBytes: limits.storageBytes }),
     spreadsheets: createSpreadsheets(),
-    google: googleSheetsOf(environment, log),
+    google: googleSheetsOf(environment, logger),
     sheetsHashes: environment.SHEETS_HASH_KEY === undefined ? null : createSheetsHashes(environment.SHEETS_HASH_KEY),
     subscriptions,
     seatLimit: limits.seats,

@@ -145,7 +145,12 @@ export function relayBackoffMs(consecutiveFailures: number, intervalMs: number):
  * print the message as it is. An onError that throws is ignored.
  */
 export function startOutboxRelay(
-  dependencies: RelayDependencies & { intervalMs?: number; onError?: (error: unknown) => void },
+  dependencies: RelayDependencies & {
+    intervalMs?: number;
+    onError?: (error: unknown) => void;
+    /** Told how many events a pass relayed, when it relayed any. An onRelayed that throws is ignored. */
+    onRelayed?: (events: number) => void;
+  },
 ): OutboxRelay {
   const intervalMs = dependencies.intervalMs ?? 1000;
   assertPositiveInteger("intervalMs", intervalMs);
@@ -181,6 +186,13 @@ export function startOutboxRelay(
         } else {
           failures += 1;
           report(new Error("Relaying the outbox failed", { cause: error }));
+        }
+      }
+      if (relayed > 0) {
+        try {
+          dependencies.onRelayed?.(relayed);
+        } catch {
+          // The relay outlives a broken logger.
         }
       }
       // stop() aborts the wait, so stopping never waits out the interval.

@@ -5,6 +5,7 @@
 import type { AddedPlatformStaff, PlatformStaffEntry, TemporaryPasswordOutput } from "@travel-crm/contracts/platform";
 import { createPgBossJobs, type PgBossJobs } from "@travel-crm/integrations/jobs";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { problemLogger } from "./support/problem-logger.js";
 import {
   consoleMutate,
   consoleQuery,
@@ -43,7 +44,7 @@ describe("managing platform staff", () => {
   beforeAll(async () => {
     server = createTestServer();
     // pg-boss for real, so a job that carried a temporary password would be found in its tables.
-    jobs = createPgBossJobs({ connectionString: server.urls.runtime, log: (line) => pgBossLines.push(line) });
+    jobs = createPgBossJobs({ connectionString: server.urls.runtime, logger: problemLogger(pgBossLines) });
     await jobs.start();
     testConsole = createTestConsole(server, { queue: jobs, jobs });
     agency = await createTestAgency(server);

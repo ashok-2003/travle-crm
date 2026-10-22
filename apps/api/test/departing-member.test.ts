@@ -6,6 +6,7 @@ import { createMemoryEmailSender } from "@travel-crm/integrations/email";
 import { createMemoryPushSender } from "@travel-crm/integrations/push";
 import { createRateLimiter } from "@travel-crm/domain/rate-limits";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { workerJobs } from "../src/worker-jobs.js";
 import { addStaff, ownerAccess } from "./support/people.js";
 import { createTestAgency, createTestServer, type TestAgency, type TestServer } from "./support/test-server.js";
@@ -66,7 +67,7 @@ describe("a departing member's work, through the worker", () => {
       appUrl: "https://app.example.in",
       webhookProviders: [],
       rateLimiter: createRateLimiter(server.db, { keySecret: "departing-member-test-rate-limit-secret-32b" }),
-      log: () => undefined,
+      logger: createMemoryLogger(),
     });
     const handOver = listeners.find((listener) => listener.name === "crm.hand-over-departing-member");
     if (handOver === undefined) throw new Error("The worker has no crm.hand-over-departing-member listener");

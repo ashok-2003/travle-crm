@@ -5,32 +5,10 @@ import { randomUUID } from "node:crypto";
 import { createDatabase, type Database } from "@travel-crm/db";
 import type { DbUrls } from "@travel-crm/db/testing";
 import { PgBoss } from "pg-boss";
-import { afterAll, beforeAll, describe, expect, inject, it, onTestFinished, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, inject, it, vi } from "vitest";
 import { createPgBossJobs, ownMessage, type PgBossJobs } from "../../src/jobs/index.js";
+import { createMemoryLogger } from "../../src/logging/index.js";
 import { describeJobAdapter } from "./job-adapter-contract.js";
-
-/** Everything written to the console or to stdout and stderr during this test, which is kept off the screen. */
-function consoleOutput(): () => string[] {
-  const written: string[] = [];
-  const keep = (...parts: unknown[]) => {
-    written.push(parts.map(String).join(" "));
-  };
-  const spies = [
-    ...(["error", "warn", "log", "info", "debug"] as const).map((level) =>
-      vi.spyOn(console, level).mockImplementation(keep),
-    ),
-    ...[process.stderr, process.stdout].map((stream) =>
-      vi.spyOn(stream, "write").mockImplementation((chunk: unknown) => {
-        keep(chunk);
-        return true;
-      }),
-    ),
-  ];
-  onTestFinished(() => {
-    for (const spy of spies) spy.mockRestore();
-  });
-  return () => written;
-}
 
 /** Waits until check passes or the time runs out. */
 async function eventually(check: () => Promise<boolean> | boolean, timeoutMs = 20_000): Promise<void> {
@@ -47,7 +25,7 @@ describeJobAdapter("pg-boss", async () => {
     maxConnections: 2,
     pollingIntervalSeconds: 0.5,
     // The lines for the contract's failing handler; the stored copies are what it checks.
-    log: () => undefined,
+    logger: createMemoryLogger(),
   });
   await jobs.start();
   return {
@@ -63,7 +41,9 @@ describeJobAdapter("pg-boss", async () => {
 
 describe("pg-boss jobs", () => {
   const urls: DbUrls = inject("dbUrls");
-  const lines: string[] = [];
+  const logger = createMemoryLogger();
+  /** What went wrong: pg-boss's own warnings and errors, and failing jobs. */
+  const problems = () => logger.entries.filter((entry) => entry.level === "warn" || entry.level === "error");
   let jobs: PgBossJobs;
   let db: Database;
 
@@ -72,7 +52,7 @@ describe("pg-boss jobs", () => {
       connectionString: urls.runtime,
       maxConnections: 3,
       pollingIntervalSeconds: 0.5,
-      log: (line) => lines.push(line),
+      logger,
     });
     await jobs.start();
     db = createDatabase(urls.runtime, { maxConnections: 1 });
@@ -82,7 +62,7 @@ describe("pg-boss jobs", () => {
     await jobs.stop();
     await db.disconnect();
     // Any error pg-boss raised as app_runtime (a missing grant, say) fails the suite.
-    expect(lines).toEqual([]);
+    expect(problems()).toEqual([]);
   });
 
   it("delivers a job's data to its queue's handler", async () => {
@@ -120,8 +100,33 @@ describe("pg-boss jobs", () => {
       error: "Error: attempt 3 failed",
     });
     expect(failed?.failedAt).toBeInstanceOf(Date);
-    // Each failed attempt was logged by queue, job id and name; take them out of the suite's check for pg-boss's own.
-    expect(lines.splice(0)).toEqual(Array(3).fill(`queue probe.failing, job ${String(id)} failed: Error`));
+    // Each failed attempt was logged by queue, job id, retry count and the error's name; take them out of the suite's
+    // check for pg-boss's own.
+    expect(problems().map((entry) => [entry.msg, entry.queue, entry.jobId, entry.retryCount, entry.errorName])).toEqual(
+      [0, 1, 2].map((retryCount) => ["job failed", "probe.failing", id, retryCount, "Error"]),
+    );
+    logger.entries.length = 0;
+  });
+
+  it("logs each job's start at debug and its end at info, with its queue, id, organization and duration", async () => {
+    const organizationId = randomUUID();
+    let done = false;
+    await jobs.work("probe.lines", () => {
+      done = true;
+      return Promise.resolve();
+    });
+    const id = await jobs.send("probe.lines", { organizationId, eventId: "e-lines", email: "jane.doe@example.com" });
+    await eventually(() => done);
+    await eventually(() => logger.entries.some((entry) => entry.msg === "job finished" && entry.jobId === id));
+    const lines = logger.entries.filter((entry) => entry.jobId === id);
+    expect(lines.map((entry) => [entry.level, entry.msg])).toEqual([
+      ["debug", "job started"],
+      ["info", "job finished"],
+    ]);
+    expect(lines[1]).toMatchObject({ queue: "probe.lines", organizationId, retryCount: 0, outcome: "done" });
+    expect(typeof lines[1]?.durationMs).toBe("number");
+    expect(JSON.stringify(lines)).not.toMatch(/jane|e-lines/);
+    logger.entries.length = 0;
   });
 
   it("queues a repeated job id once", async () => {
@@ -168,12 +173,12 @@ describe("pg-boss jobs", () => {
   });
 
   it("stores only a sanitised error, and logs only names: no personal data, cause, detail or stack", async () => {
-    const reported: string[] = [];
+    const reported = createMemoryLogger();
     const sanitising = createPgBossJobs({
       connectionString: urls.runtime,
       maxConnections: 2,
       pollingIntervalSeconds: 0.5,
-      log: (line) => reported.push(line),
+      logger: reported,
     });
     await sanitising.start();
     try {
@@ -196,7 +201,16 @@ describe("pg-boss jobs", () => {
       );
       expect(row?.output).not.toMatch(/jane\.doe|secret cause|9876543210|detail/);
       expect(Object.keys(JSON.parse(row?.output ?? "{}") as object).sort()).toEqual(["message", "name", "stack"]);
-      expect(reported).toEqual([`queue probe.sanitised, job ${String(id)} failed: Error, caused by Error`]);
+      const failures = reported.entries.filter((entry) => entry.level === "error");
+      expect(failures).toHaveLength(1);
+      expect(failures[0]).toMatchObject({
+        msg: "job failed",
+        queue: "probe.sanitised",
+        jobId: id,
+        errorName: "Error",
+        errorCause: "Error",
+      });
+      expect(JSON.stringify(reported.entries)).not.toMatch(/jane|secret cause|9876543210|detail/);
     } finally {
       await sanitising.stop();
     }
@@ -207,8 +221,22 @@ describe("pg-boss jobs", () => {
       connectionString: urls.runtime,
       maxConnections: 2,
       pollingIntervalSeconds: 0.5,
-      log: () => {
-        throw new Error("the logger is broken");
+      logger: {
+        child: () => {
+          throw new Error("the logger is broken");
+        },
+        debug: () => {
+          throw new Error("the logger is broken");
+        },
+        info: () => {
+          throw new Error("the logger is broken");
+        },
+        warn: () => {
+          throw new Error("the logger is broken");
+        },
+        error: () => {
+          throw new Error("the logger is broken");
+        },
       },
     });
     await throwing.start();
@@ -227,7 +255,7 @@ describe("pg-boss jobs", () => {
       connectionString: urls.runtime,
       maxConnections: 2,
       pollingIntervalSeconds: 0.5,
-      log: () => undefined,
+      logger: createMemoryLogger(),
     });
     await leaky.start();
     try {
@@ -254,12 +282,12 @@ describe("pg-boss jobs", () => {
   });
 
   it("lists failed jobs without the one whose data is malformed, and reports it", async () => {
-    const reported: string[] = [];
+    const reported = createMemoryLogger();
     const listing = createPgBossJobs({
       connectionString: urls.runtime,
       maxConnections: 2,
       pollingIntervalSeconds: 0.5,
-      log: (line) => reported.push(line),
+      logger: reported,
     });
     await listing.start();
     try {
@@ -281,7 +309,15 @@ describe("pg-boss jobs", () => {
       expect(ids).toContain(other);
       expect(ids).not.toContain(bad);
       expect(ids).not.toContain(good);
-      expect(reported).toContain(`failed job ${String(bad)} on queue probe.malformed can't be listed: TypeError`);
+      expect(reported.entries).toContainEqual(
+        expect.objectContaining({
+          level: "warn",
+          msg: "A failed job can't be listed",
+          jobId: bad,
+          queue: "probe.malformed",
+          errorName: "TypeError",
+        }),
+      );
     } finally {
       await listing.stop();
     }
@@ -297,17 +333,15 @@ describe("pg-boss jobs", () => {
     await expect(jobs.send("RenderPdf", {})).rejects.toThrow(/Queue names/);
   });
 
-  it("logs pg-boss's own errors by name, code and queue, never the message: to the log given, else stderr", () => {
+  it("logs pg-boss's own errors by name, code and queue, never the message", () => {
     const on = vi.spyOn(PgBoss.prototype, "on");
-    const lines: string[] = [];
-    createPgBossJobs({ connectionString: urls.runtime, log: (line) => lines.push(line) });
-    createPgBossJobs({ connectionString: urls.runtime });
+    const logged = createMemoryLogger();
+    createPgBossJobs({ connectionString: urls.runtime, logger: logged });
     const errorListeners = on.mock.calls.flatMap(([event, listener]) =>
       event === "error" ? [listener as (error: unknown) => void] : [],
     );
     on.mockRestore();
-    expect(errorListeners).toHaveLength(2);
-    const output = consoleOutput();
+    expect(errorListeners).toHaveLength(1);
     // What pg-boss emits when a worker's fetch fails: the error spread into a plain object, with the queue.
     errorListeners[0]?.({
       message: "lost the connection while mailing jane.doe@example.com",
@@ -316,19 +350,28 @@ describe("pg-boss jobs", () => {
       queue: "probe.events",
       worker: "w1",
     });
-    errorListeners[1]?.(new Error("maintenance failed for jane.doe@example.com", { cause: new Error("jane.doe") }));
-    expect(lines).toEqual(["pg-boss error on queue probe.events: Error 57P01"]);
-    expect(output()).toEqual(["pg-boss error: Error, caused by Error"]);
-    expect([...lines, ...output()].join("\n")).not.toMatch(/jane/);
+    errorListeners[0]?.(new Error("maintenance failed for jane.doe@example.com", { cause: new Error("jane.doe") }));
+    expect(logged.entries).toMatchObject([
+      {
+        level: "error",
+        msg: "pg-boss error",
+        source: "pg-boss",
+        queue: "probe.events",
+        errorName: "Error",
+        errorCode: "57P01",
+      },
+      { level: "error", msg: "pg-boss error", source: "pg-boss", errorName: "Error", errorCause: "Error" },
+    ]);
+    expect(JSON.stringify(logged.entries)).not.toMatch(/jane/);
   });
 
   it("waits for a running handler when it stops", async () => {
-    const stopErrors: string[] = [];
+    const stopped = createMemoryLogger();
     const stopping = createPgBossJobs({
       connectionString: urls.runtime,
       maxConnections: 2,
       pollingIntervalSeconds: 0.5,
-      log: (line) => stopErrors.push(line),
+      logger: stopped,
     });
     await stopping.start();
     try {
@@ -343,7 +386,7 @@ describe("pg-boss jobs", () => {
       await eventually(() => started);
       await stopping.stop();
       expect(finished).toBe(true);
-      expect(stopErrors).toEqual([]);
+      expect(stopped.entries.filter((entry) => entry.level === "warn" || entry.level === "error")).toEqual([]);
     } finally {
       await stopping.stop().catch(() => undefined);
     }

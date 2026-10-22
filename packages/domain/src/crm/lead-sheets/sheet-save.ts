@@ -44,7 +44,19 @@ export interface SavedBatch {
   stopped: "yielded" | "gone" | null;
   /** The leads and repeat enquiries made for each owner. */
   madeFor: Map<string, number>;
+  /** What the batch did to the rows it dealt with, for the check's summary line. */
+  counts: BatchCounts;
 }
+
+export interface BatchCounts {
+  added: number;
+  merged: number;
+  duplicate: number;
+  /** Rows that could not be added (the sheet's problems). */
+  problems: number;
+}
+
+export const noCounts = (): BatchCounts => ({ added: 0, merged: 0, duplicate: 0, problems: 0 });
 
 const cut = (text: string | null) => (text === null ? null : text.slice(0, 120));
 
@@ -90,13 +102,13 @@ export async function saveSheetBatch(
   const sheet = await holdSheet(tx, context.sheetId);
   const madeFor = new Map<string, number>();
   if (sheet === null || sheet.status === "disconnected" || sheet.status === "paused") {
-    return { processed: 0, stopped: "gone", madeFor };
+    return { processed: 0, stopped: "gone", madeFor, counts: noCounts() };
   }
   // Taking turns with an import's Add: whichever starts second sees the first's flag (SD11), so the lock comes before
   // the heartbeat is written and before the flag is read.
   await lockAddAgainstChecks(tx, sheet.organizationId);
   await tx.sheetConnection.update({ where: { id: sheet.id }, data: { checkStartedAt: context.now } });
-  if (await isAnyImportAdding(tx)) return { processed: 0, stopped: "yielded", madeFor };
+  if (await isAnyImportAdding(tx)) return { processed: 0, stopped: "yielded", madeFor, counts: noCounts() };
 
   const batch = decisions.slice(0, options.limit ?? rowsPerTransaction);
   const ledger = await lookUpLedger(
@@ -111,7 +123,7 @@ export async function saveSheetBatch(
     context,
     batch.filter(({ row }) => !isKnown(entryOf(row))),
   );
-  const counts = { added: 0, merged: 0, duplicate: 0 };
+  const counts = noCounts();
   const timeBox = options.timeBoxMs ?? BATCH_TIME_BOX_MS;
   let processed = 0;
   for (const planned of batch) {
@@ -160,6 +172,7 @@ export async function saveSheetBatch(
         await write({ status: "pending" });
         break;
       case "not_added":
+        counts.problems += 1;
         await write({
           status: "not_added",
           reasons: decision.reasons,
@@ -227,7 +240,7 @@ export async function saveSheetBatch(
       rowsDuplicate: { increment: counts.duplicate },
     },
   });
-  return { processed, stopped: null, madeFor };
+  return { processed, stopped: null, madeFor, counts };
 }
 
 /**

@@ -1,7 +1,7 @@
 // Starts the api on Node (`pnpm --filter @travel-crm/api-server dev`). All settings come from the environment.
 import { serve } from "@hono/node-server";
 import { createSubscriptionAccess } from "@travel-crm/domain/subscriptions";
-import { describeError } from "@travel-crm/integrations/jobs";
+import { errorFields } from "@travel-crm/integrations/logging";
 import { createApp } from "./app.js";
 import { clientAddressFrom } from "./rate-limit.js";
 import { sheetsStartUpLine } from "./sheets-settings.js";
@@ -9,7 +9,7 @@ import { assertServiceAccountsInPlace } from "./sheets-settings.js";
 import { startProcess, stopOnUnhandledErrors } from "./start-up.js";
 import { webhookProviders } from "./webhook-providers.js";
 
-const { environment, services, log, logger } = await startProcess("api", async ({ services }) => {
+const { environment, services, logger } = await startProcess("api", async ({ services }) => {
   // The list of service accounts is the worker's to follow, but the api shows the address sheets are shared with: it
   // refuses a list that no longer holds one (SC9).
   if (services.google !== null) await assertServiceAccountsInPlace(services.db, services.google.accounts());
@@ -37,8 +37,9 @@ const app = createApp({
 });
 
 const server = serve({ fetch: app.fetch, port: environment.PORT }, (address) => {
-  console.log(`api listening on port ${String(address.port)}`);
-  console.log(sheetsStartUpLine(environment.GOOGLE_SHEETS_SERVICE_ACCOUNTS?.length ?? 0));
+  logger.info({ port: address.port }, "api listening");
+  const accounts = environment.GOOGLE_SHEETS_SERVICE_ACCOUNTS?.length ?? 0;
+  logger.info({ serviceAccounts: accounts }, sheetsStartUpLine(accounts));
 });
 
 // Container platforms send SIGTERM before stopping an instance: finish open requests, then close the pools.
@@ -53,7 +54,7 @@ function shutDown(exitCode: 0 | 1): void {
         process.exit(exitCode);
       })
       .catch((error: unknown) => {
-        log(`shutdown failed: ${describeError(error)}`);
+        logger.error(errorFields(error), "shutdown failed");
         process.exit(1);
       });
   });
@@ -64,4 +65,4 @@ process.on("SIGTERM", () => {
 process.on("SIGINT", () => {
   shutDown(0);
 });
-stopOnUnhandledErrors(log, shutDown);
+stopOnUnhandledErrors(logger, shutDown);

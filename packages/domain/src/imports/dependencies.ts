@@ -2,6 +2,7 @@
 // the subscription (may the agency still change things?) and the plan's seats.
 import type { SheetOrigin } from "@travel-crm/contracts/imports";
 import type { OrgTx } from "@travel-crm/db";
+import type { Logger } from "@travel-crm/integrations/logging";
 import type { Spreadsheets } from "@travel-crm/integrations/spreadsheets";
 import type { Files } from "../files/index.js";
 import type { Identity, SeatLimit } from "../identity/index.js";
@@ -22,6 +23,8 @@ export interface ImportJobDependencies {
   identity: ImportIdentity;
   subscriptions: Pick<SubscriptionAccess, "entitlementsOf">;
   seatLimit: SeatLimit;
+  /** Where an import writes its one summary line when it ends (ADR 0032); none writes nothing. */
+  logger?: Logger;
   /**
    * Where a Google Sheet's rows came from, for an import that reads a sheet (the Sheets sync, N6): its source detail,
    * time zone and date locale. Null when the connection is gone. A file import never asks.

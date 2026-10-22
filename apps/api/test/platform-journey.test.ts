@@ -12,6 +12,7 @@ import { createMemoryEmailSender } from "@travel-crm/integrations/email";
 import { createMemoryJobQueue, createMemoryJobRunner } from "@travel-crm/integrations/jobs";
 import { createMemoryPushSender } from "@travel-crm/integrations/push";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { problemLogger } from "./support/problem-logger.js";
 import { startConsoleJobs } from "../src/console-jobs.js";
 import { workerJobs } from "../src/worker-jobs.js";
 import {
@@ -100,7 +101,7 @@ describe("an agency's life on the platform", () => {
         appUrl: "https://app.example.in",
         webhookProviders: [],
         rateLimiter: createRateLimiter(server.db, { keySecret: "platform-journey-test-rate-limit-secret-of-32-bytes" }),
-        log: (line) => reported.push(line),
+        logger: problemLogger(reported),
       }),
       relay: { intervalMs: 20, organizationIds: [organizationId] },
     });

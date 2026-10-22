@@ -1,12 +1,13 @@
 // An error as a log line may show it: names, codes and stack frames, never its message, which can quote what the code
 // was working on (an email address, a reset link). describeError (the jobs module) does the same as one string.
 import { describeError } from "../jobs/describe-error.js";
+import type { LogFields } from "./logger.js";
 
 /** Names and codes come from code, not data; anything that doesn't look like one could hold anything. */
 const IDENTIFIER = /^[\w.:-]{1,64}$/;
 const MAX_FRAMES = 12;
 
-export interface ErrorFields {
+export interface ErrorFields extends LogFields {
   errorName: string;
   /** Node's, Postgres's or Prisma's code (ECONNREFUSED, 57P01, P2002), or a DomainError's reason. */
   errorCode?: string;
