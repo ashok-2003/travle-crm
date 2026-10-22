@@ -110,6 +110,14 @@ EMAIL_FROM_ADDRESS=''
 SHEETS_HASH_KEY=''
 GOOGLE_SHEETS_SERVICE_ACCOUNTS=''
 
+# Logs (docs/runbook.md, "Reading logs" and "Turn on Axiom"). LOG_LEVEL is debug, info, warn or error (blank: info).
+# The token and dataset ship every log line to Axiom too; blank leaves it off, and `check` does not ask for them.
+# AXIOM_URL is only for the EU region: https://api.eu.axiom.co.
+LOG_LEVEL=''
+AXIOM_TOKEN=''
+AXIOM_DATASET=''
+AXIOM_URL=''
+
 # Web push: one pair for good (made by init); a new pair silently drops every browser's subscription.
 VAPID_PUBLIC_KEY=''
 VAPID_PRIVATE_KEY=''
@@ -174,9 +182,10 @@ set_one() {
 }
 
 # The settings still empty, one per line, but the optional ones: the heartbeat, and the admin connection string the
-# server's own Postgres doesn't need, and the Google service accounts, which leave Google Sheets off while blank.
+# server's own Postgres doesn't need, the Google service accounts, which leave Google Sheets off while blank, and the
+# log settings, which leave Axiom off while blank.
 empty_settings() {
-  sed -n -E "s/^([A-Z0-9_]+)=''\$/\1/p" "$settings_file" | grep -v -x -E 'BACKUP_HEARTBEAT_URL|DATABASE_ADMIN_URL|GOOGLE_SHEETS_SERVICE_ACCOUNTS' ||
+  sed -n -E "s/^([A-Z0-9_]+)=''\$/\1/p" "$settings_file" | grep -v -x -E 'BACKUP_HEARTBEAT_URL|DATABASE_ADMIN_URL|GOOGLE_SHEETS_SERVICE_ACCOUNTS|LOG_LEVEL|AXIOM_TOKEN|AXIOM_DATASET|AXIOM_URL' ||
     true
 }
 

@@ -8,7 +8,7 @@ import { createConsoleApp } from "./console-app.js";
 import { forgetServiceAccounts } from "./console-environment.js";
 import { startConsoleJobs } from "./console-jobs.js";
 import { startConsolePlatform } from "./console-platform.js";
-import { startProcess, stopOnUnhandledErrors } from "./start-up.js";
+import { exitAfterLogs, startProcess, stopOnUnhandledErrors } from "./start-up.js";
 
 // The console never holds the Google service accounts (SC5): dropped before anything reads the environment.
 forgetServiceAccounts();
@@ -42,11 +42,11 @@ function shutDown(exitCode: 0 | 1): void {
       .then(() => platform.platformDb.disconnect())
       .then(() => {
         if (closeError) throw closeError;
-        process.exit(exitCode);
+        return exitAfterLogs(logger, exitCode);
       })
       .catch((error: unknown) => {
         logger.error(errorFields(error), "shutdown failed");
-        process.exit(1);
+        return exitAfterLogs(logger, 1);
       });
   });
 }

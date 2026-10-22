@@ -15,6 +15,15 @@ const ENTRY_POINTS = ["server", "worker", "console", "console-command"] as const
 const XLSX_THREAD = { in: "../../packages/integrations/src/spreadsheets/xlsx-thread.ts", out: "xlsx-thread" };
 
 /**
+ * The log shipper's thread (ADR 0032), an entry of its own: pino starts it from axiom-transport.mjs beside the chunk
+ * holding the logger (packages/integrations/src/logging/pino-logger.ts).
+ */
+const AXIOM_TRANSPORT = {
+  in: "../../packages/integrations/src/logging/axiom-transport.ts",
+  out: "axiom-transport",
+};
+
+/**
  * The integrations package's vendor packages, left out of the bundle and installed as they are (`pnpm deploy` of that
  * package, in the Dockerfile). React-PDF and the fonts read files of their own at run time: pdfkit its standard fonts
  * and colour profile, the PDF fonts their woff files (packages/integrations/src/pdf/fonts.ts). React must be the copy
@@ -26,12 +35,12 @@ export async function runtimePackages(apiDirectory: string): Promise<string[]> {
   return Object.keys(dependencies).filter((name) => !name.startsWith("@travel-crm/"));
 }
 
-/** Writes the bundle to outdir: <command>.mjs for each command, xlsx-thread.mjs, and the chunks they share. */
+/** Writes the bundle to outdir: <command>.mjs for each command, xlsx-thread.mjs, axiom-transport.mjs and their chunks. */
 export async function bundleApi({ apiDirectory, outdir }: { apiDirectory: string; outdir: string }): Promise<Metafile> {
   const leftOut = await runtimePackages(apiDirectory);
   const result = await build({
     absWorkingDir: apiDirectory,
-    entryPoints: [...ENTRY_POINTS.map((name) => `src/${name}.ts`), XLSX_THREAD],
+    entryPoints: [...ENTRY_POINTS.map((name) => `src/${name}.ts`), XLSX_THREAD, AXIOM_TRANSPORT],
     outdir,
     outExtension: { ".js": ".mjs" },
     bundle: true,

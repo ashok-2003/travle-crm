@@ -1,7 +1,7 @@
 // Starting a process on the services (the api, the worker and the console alike): read the environment, build the
 // services, check the bucket and start pg-boss, then the process's own start, or exit 1 with one message. And its last
 // resort once started: an error nothing handled ends it through its own drain.
-import { createPinoLogger, errorFields, type Logger } from "@travel-crm/integrations/logging";
+import { createPinoLogger, errorFields, type ClosableLogger } from "@travel-crm/integrations/logging";
 import { loadEnvironment, type Environment } from "./environment.js";
 import { createServices, type Services } from "./services.js";
 
@@ -12,7 +12,7 @@ export interface ProcessBase {
   environment: Environment;
   services: Services;
   /** The process's structured log (ADR 0032): JSON lines at the environment's LOG_LEVEL. */
-  logger: Logger;
+  logger: ClosableLogger;
 }
 
 export interface StartedProcess<T> extends ProcessBase {
@@ -24,9 +24,9 @@ export interface StartProcessOptions {
   /** The environment variables; process.env unless a test gives others. */
   variables?: Record<string, string | undefined>;
   /** How the services are built; createServices unless a test gives others. */
-  create?: (environment: Environment, logger: Logger) => Services;
+  create?: (environment: Environment, logger: ClosableLogger) => Services;
   /** The structured log; a pino logger on standard output unless a test gives another. */
-  createLogger?: (processName: ProcessName, environment: Environment) => Logger;
+  createLogger?: (processName: ProcessName, environment: Environment) => ClosableLogger;
 }
 
 /** The commit the process runs: the host's (Render sets RENDER_GIT_COMMIT), or GIT_SHA from the build; else unknown. */
@@ -35,8 +35,23 @@ function versionOf(variables: Record<string, string | undefined>): string {
   return sha === undefined || sha === "" ? "unknown" : sha.slice(0, 12);
 }
 
-function pinoLoggerFor(processName: ProcessName, environment: Environment): Logger {
-  return createPinoLogger({ process: processName, level: environment.LOG_LEVEL });
+function pinoLoggerFor(processName: ProcessName, environment: Environment): ClosableLogger {
+  const { AXIOM_TOKEN: token, AXIOM_DATASET: dataset, AXIOM_URL: url } = environment;
+  return createPinoLogger({
+    process: processName,
+    level: environment.LOG_LEVEL,
+    ...(token === undefined || dataset === undefined ? {} : { axiom: { token, dataset, url } }),
+  });
+}
+
+/**
+ * Ends the process once the logger has sent what it holds (Axiom's queued batch): Render's free instances sleep and
+ * redeploy, and a line written just before the exit is the one that explains it. The logger's close is bounded, so a
+ * slow Axiom delays the exit by seconds, never for good.
+ */
+export async function exitAfterLogs(logger: ClosableLogger, exitCode: number): Promise<never> {
+  await logger.close().catch(() => undefined);
+  process.exit(exitCode);
 }
 
 /**
@@ -104,9 +119,14 @@ export interface LastResortOptions {
  * drains nothing more.
  */
 export function stopOnUnhandledErrors(
-  logger: Logger,
+  logger: ClosableLogger,
   drain: (exitCode: 1) => void,
-  { events = process, exit = (exitCode) => process.exit(exitCode) }: LastResortOptions = {},
+  {
+    events = process,
+    exit = (exitCode) => {
+      void exitAfterLogs(logger, exitCode);
+    },
+  }: LastResortOptions = {},
 ): void {
   let draining = false;
   const stop = (what: string) => (error: unknown) => {

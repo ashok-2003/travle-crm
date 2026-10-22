@@ -7,6 +7,11 @@ export type LogLevel = (typeof LOG_LEVELS)[number];
 /** The fields of one line: ids, codes, counts, timings. */
 export type LogFields = Record<string, unknown>;
 
+/** A logger that holds something open (a thread shipping lines): `close` writes what is queued and lets it go. */
+export interface ClosableLogger extends Logger {
+  close(): Promise<void>;
+}
+
 export interface Logger {
   /** A logger whose every line carries `bindings` too (a request id, an organization id). */
   child(bindings: LogFields): Logger;

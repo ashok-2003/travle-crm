@@ -6,7 +6,7 @@ import { errorFields } from "@travel-crm/integrations/logging";
 import { reconcileScheduleAccounts } from "@travel-crm/domain/sheets";
 import { checkXlsxReading } from "@travel-crm/integrations/spreadsheets";
 import { assertServiceAccountsInPlace, sheetsStartUpLine } from "./sheets-settings.js";
-import { startProcess, stopOnUnhandledErrors } from "./start-up.js";
+import { exitAfterLogs, startProcess, stopOnUnhandledErrors } from "./start-up.js";
 import { webhookProviders } from "./webhook-providers.js";
 import { workerJobs } from "./worker-jobs.js";
 import { logWorkerProblem } from "./worker-problem.js";
@@ -64,10 +64,10 @@ function shutDown(exitCode: 0 | 1): void {
   worker
     .stop()
     .then(() => services.close())
-    .then(() => process.exit(exitCode))
+    .then(() => exitAfterLogs(logger, exitCode))
     .catch((error: unknown) => {
       logger.error(errorFields(error), "shutdown failed");
-      process.exit(1);
+      return exitAfterLogs(logger, 1);
     });
 }
 process.on("SIGTERM", () => {

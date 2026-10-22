@@ -6,7 +6,7 @@ import { createApp } from "./app.js";
 import { clientAddressFrom } from "./rate-limit.js";
 import { sheetsStartUpLine } from "./sheets-settings.js";
 import { assertServiceAccountsInPlace } from "./sheets-settings.js";
-import { startProcess, stopOnUnhandledErrors } from "./start-up.js";
+import { exitAfterLogs, startProcess, stopOnUnhandledErrors } from "./start-up.js";
 import { webhookProviders } from "./webhook-providers.js";
 
 const { environment, services, logger } = await startProcess("api", async ({ services }) => {
@@ -51,11 +51,11 @@ function shutDown(exitCode: 0 | 1): void {
       .close()
       .then(() => {
         if (closeError) throw closeError;
-        process.exit(exitCode);
+        return exitAfterLogs(logger, exitCode);
       })
       .catch((error: unknown) => {
         logger.error(errorFields(error), "shutdown failed");
-        process.exit(1);
+        return exitAfterLogs(logger, 1);
       });
   });
 }

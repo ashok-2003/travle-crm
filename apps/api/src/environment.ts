@@ -17,6 +17,11 @@ const EXAMPLE_SECRET = "dev-only-secret-not-for-any-real-deploy";
 const EXAMPLE_VAPID_PUBLIC_KEY =
   "BNDwagd-1gwbRjL1o3iP9g4zUvYkczzP1yE9xNbcidEzKkDbvrHaBCyHQi8btoNnI9IMV7CoQun_1oMlSCz5lTY";
 
+/** A setting passed through from a compose file or a .env left blank is the same as unset. */
+function emptyAsUnset<Schema extends z.ZodType>(schema: Schema) {
+  return z.preprocess((value) => (value === "" ? undefined : value), schema);
+}
+
 /** A comma-separated list, e.g. "https://a.example,https://b.example". Empty items are dropped. */
 const commaSeparated = z
   .string()
@@ -65,7 +70,14 @@ const environmentSchema = z
     NODE_ENV: z.enum(["development", "test", "production"]).default("production"),
     PORT: z.coerce.number().int().min(1).max(65535).default(3001),
     /** The least important line a process writes (ADR 0032): `info` in production, `debug` in development and tests. */
-    LOG_LEVEL: z.preprocess((value) => (value === "" ? undefined : value), z.enum(LOG_LEVELS).optional()),
+    LOG_LEVEL: emptyAsUnset(z.enum(LOG_LEVELS).optional()),
+    /** Ships every log line to this Axiom dataset too (ADR 0032), with AXIOM_DATASET; both or neither. A secret. */
+    AXIOM_TOKEN: emptyAsUnset(z.string().min(1).optional()),
+    AXIOM_DATASET: emptyAsUnset(z.string().min(1).optional()),
+    /** Axiom's API address: the EU region's is https://api.eu.axiom.co. */
+    AXIOM_URL: emptyAsUnset(z.url({ protocol: /^https?$/, message: "must be an http(s) URL" }).optional()).transform(
+      (url) => url?.replace(/\/+$/, "") ?? "https://api.axiom.co",
+    ),
     /** Postgres, connecting as the app_runtime role. */
     DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/, message: "must be a postgresql:// URL" }),
     DATABASE_POOL_SIZE: z.coerce.number().int().min(1).max(100).default(10),
@@ -103,6 +115,12 @@ const environmentSchema = z
     if (environment.SMTP_PASSWORD !== undefined && environment.SMTP_USER === undefined) {
       problem("SMTP_USER", "is needed with SMTP_PASSWORD");
     }
+    if (environment.AXIOM_TOKEN !== undefined && environment.AXIOM_DATASET === undefined) {
+      problem("AXIOM_DATASET", "is needed with AXIOM_TOKEN");
+    }
+    if (environment.AXIOM_DATASET !== undefined && environment.AXIOM_TOKEN === undefined) {
+      problem("AXIOM_TOKEN", "is needed with AXIOM_DATASET");
+    }
     // Signing the claim and the tombstones needs the key wherever the sheets are read (spec 14).
     if (environment.GOOGLE_SHEETS_SERVICE_ACCOUNTS !== undefined && environment.SHEETS_HASH_KEY === undefined) {
       problem("SHEETS_HASH_KEY", "is needed (at least 32 characters) with GOOGLE_SHEETS_SERVICE_ACCOUNTS");
@@ -114,6 +132,7 @@ const environmentSchema = z
     if (environment.SHEETS_CHECK_INTERVAL_SECONDS !== undefined) {
       problem("SHEETS_CHECK_INTERVAL_SECONDS", "is for development and tests only: unset it in production");
     }
+    if (!environment.AXIOM_URL.startsWith("https://")) problem("AXIOM_URL", "must be https in production");
     if (!environment.BETTER_AUTH_URL.startsWith("https://")) problem("BETTER_AUTH_URL", "must be https in production");
     if (!environment.APP_URL.startsWith("https://")) problem("APP_URL", "must be https in production");
     if (!environment.AUTH_RATE_LIMIT) problem("AUTH_RATE_LIMIT", "cannot be off in production");
