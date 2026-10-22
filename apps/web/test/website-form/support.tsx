@@ -11,11 +11,13 @@ export function renderForm(ui: ReactNode) {
   Element.prototype.hasPointerCapture = () => false;
   Element.prototype.releasePointerCapture = () => undefined;
   Element.prototype.scrollIntoView = () => undefined;
-  globalThis.ResizeObserver = class {
-    observe = vi.fn();
-    unobserve = vi.fn();
-    disconnect = vi.fn();
-  };
+  if (!("ResizeObserver" in globalThis)) {
+    globalThis.ResizeObserver = class {
+      observe = vi.fn();
+      unobserve = vi.fn();
+      disconnect = vi.fn();
+    };
+  }
   return render(
     <NextIntlClientProvider locale={locale} messages={messages} timeZone="Asia/Kolkata">
       {ui}

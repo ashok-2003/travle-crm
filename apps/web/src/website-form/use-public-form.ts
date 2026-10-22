@@ -1,0 +1,87 @@
+"use client";
+
+// The form for a key, and the way to send an enquiry for it. After 6 seconds without an answer the state is "waking"
+// (the api sleeps when quiet); an api that does not answer keeps being asked every 3 seconds for 90 seconds, then "failed".
+// An expired opened-token is replaced and the enquiry sent again unseen (W37).
+import type { WebsiteEnquiryInput } from "@travel-crm/contracts/website-forms";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { fetchPublicForm, type LoadedForm } from "./load-form";
+import { FormRefusal } from "./refusal";
+import { postEnquiry, sleep } from "./send-enquiry";
+
+export const WAKING_AFTER_MS = 6_000;
+export const WAKE_BUDGET_MS = 90_000;
+export const WAKE_RETRY_DELAY_MS = 3_000;
+/** A new token is two seconds old at best, and an enquiry sent sooner is refused as too fast (W37). */
+export const FRESH_TOKEN_WAIT_MS = 2_100;
+
+export type PublicFormState = LoadedForm | { state: "loading" } | { state: "waking" };
+
+/** The host a page is embedded on, as its referrer names it; "Embedded" when it names none a lead could show. */
+export function embeddedOnOf(referrer: string): string {
+  try {
+    const { host } = new URL(referrer);
+    return /^[a-z0-9.-]+(:\d{1,5})?$/i.test(host) && host.length <= 80 ? host : "Embedded";
+  } catch {
+    return "Embedded";
+  }
+}
+
+async function loadWithPatience(key: string, signal: AbortSignal): Promise<LoadedForm | null> {
+  const giveUpAt = Date.now() + WAKE_BUDGET_MS;
+  for (;;) {
+    const answer = await fetchPublicForm(key, signal);
+    if (signal.aborted) return null;
+    if (answer !== "asleep") return answer;
+    if (Date.now() + WAKE_RETRY_DELAY_MS > giveUpAt) return { state: "failed" };
+    await sleep(WAKE_RETRY_DELAY_MS, signal);
+  }
+}
+
+export function usePublicForm(key: string, mode: "hosted" | "embedded") {
+  const [loaded, setLoaded] = useState<PublicFormState>({ state: "loading" });
+  const [attempt, setAttempt] = useState(0);
+  const freshToken = useRef<string | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const wakingTimer = setTimeout(() => {
+      setLoaded((now) => (now.state === "loading" ? { state: "waking" } : now));
+    }, WAKING_AFTER_MS);
+    void loadWithPatience(key, controller.signal).then((answer) => {
+      if (answer !== null) setLoaded(answer);
+    });
+    return () => {
+      controller.abort();
+      clearTimeout(wakingTimer);
+    };
+  }, [key, attempt]);
+
+  const retry = useCallback(() => {
+    setLoaded({ state: "loading" });
+    setAttempt((count) => count + 1);
+  }, []);
+
+  const send = useCallback(
+    async (body: WebsiteEnquiryInput): Promise<void> => {
+      const enquiry = {
+        ...body,
+        openedToken: freshToken.current ?? body.openedToken,
+        ...(mode === "embedded" && { embeddedOn: embeddedOnOf(document.referrer) }),
+      };
+      try {
+        await postEnquiry(key, enquiry);
+      } catch (error) {
+        if (!(error instanceof FormRefusal) || error.reason !== "FORM_EXPIRED") throw error;
+        const fresh = await fetchPublicForm(key);
+        if (fresh === "asleep" || fresh.state !== "ready") throw error;
+        freshToken.current = fresh.form.openedToken;
+        await sleep(FRESH_TOKEN_WAIT_MS);
+        await postEnquiry(key, { ...enquiry, openedToken: fresh.form.openedToken });
+      }
+    },
+    [key, mode],
+  );
+
+  return { loaded, send, retry };
+}
