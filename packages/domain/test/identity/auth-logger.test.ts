@@ -40,11 +40,39 @@ describe("Better Auth's logger", () => {
     ]);
   });
 
+  it("withholds a sentence that is not Better Auth's, even a harmless-looking one with a bare name in it", () => {
+    const logger = createMemoryLogger();
+    const { log } = authLogger(logger);
+    log("warn", "User not found: Jane Doe");
+    log("warn", "Account exists: janedoe");
+    log("warn", "User janedoe not found");
+    log("warn", "User not found");
+    expect(logger.entries.map((entry) => entry.msg)).toEqual([
+      "auth message withheld",
+      "auth message withheld",
+      "auth message withheld",
+      "auth: User not found",
+    ]);
+    expect(JSON.stringify(logger.entries)).not.toMatch(/jane/i);
+  });
+
+  it("cuts a message Better Auth builds around a value to its fixed start", () => {
+    const logger = createMemoryLogger();
+    const { log } = authLogger(logger);
+    log("error", 'Discovery fetch failed for "jane-provider": Error: no row for Jane Doe');
+    log("error", "OAuth proxy payload expired or invalid (age: 99s, maxAge: 60s)");
+    expect(logger.entries.map((entry) => entry.msg)).toEqual([
+      'auth: Discovery fetch failed for "…',
+      "auth: OAuth proxy payload expired or invalid (age: …",
+    ]);
+    expect(JSON.stringify(logger.entries)).not.toMatch(/jane|Jane|99s/);
+  });
+
   it("withholds any other message, which could quote data, and says only that, with the error's fields", () => {
     const logger = createMemoryLogger();
     const { log } = authLogger(logger);
     log("error", "Failed to create user jane.doe@example.com, call 9876543210", new TypeError("x"));
-    log("warn", `Provider "jane" failed: token abc123`);
+    log("warn", `Sign-in for jane failed: token abc123`);
     log("error", "Discovery fetch failed for x: Error: no row for Jane Doe");
     expect(logger.entries).toHaveLength(3);
     for (const entry of logger.entries) {

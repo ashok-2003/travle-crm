@@ -1,12 +1,16 @@
-// Better Auth's log lines, as the structured log takes them (ADR 0032): the level, the message when it is one of Better
-// Auth's own sentences, and the first Error among its arguments by name, code and stack frames, never its message. Its
-// messages are free text that can quote what it was working on, so a message is written only when it is plain prose
-// (a short sentence of letters, spaces and a little punctuation, with at most one colon: no address, number or quoted
-// value can be in it) or "Invalid <what>:" and a
-// URL cut back to its origin. Anything else is withheld: "auth message withheld", with the error's fields. Its other
-// arguments (rows, requests, the error objects themselves) never go out.
+// Better Auth's log lines, as the structured log takes them (ADR 0032): the level, the message when it is one Better Auth
+// itself can write, and the first Error among its arguments by name, code and stack frames, never its message. Its
+// messages are free text that can quote what it was working on, so a message is written only when it is
+// - one of the sentences in Better Auth's own code (better-auth-messages.ts, checked against the installed package by
+//   a test), whole; or
+// - one of those that goes on with a value, cut back to its fixed start and an ellipsis; or
+// - "Invalid <what>:" and a URL cut back to its origin; or
+// - the name of an error class.
+// Anything else is withheld: "auth message withheld", with the error's fields. Its other arguments (rows, requests, the
+// error objects themselves) never go out.
 import { describeError } from "@travel-crm/integrations/jobs";
 import { errorFields, type Logger } from "@travel-crm/integrations/logging";
+import { MESSAGE_PREFIXES, STATIC_MESSAGES } from "./better-auth-messages.js";
 
 type AuthLogLevel = "debug" | "info" | "warn" | "error";
 
@@ -14,16 +18,18 @@ type AuthLogLevel = "debug" | "info" | "warn" | "error";
 const URL_TAIL = /(https?:\/\/[^\s/?#"'`]+)\S*/g;
 /** "Invalid origin: https://evil.example", "Invalid redirectURL: https://…": the sentence, then an origin. */
 const INVALID_URL = /^Invalid [A-Za-z ]{1,30}: https?:\/\/[^\s/?#]+$/;
-/** Better Auth's own sentences: "Failed to create user", "Reset Password: User not found". */
-const PROSE = /^[A-Za-z][A-Za-z .,'\-!]*(: [A-Za-z][A-Za-z .,'\-!]*)?$/;
-const MAX_WORDS = 10;
+/** Better Auth logs an error's name when it has no sentence: "Error", "PrismaClientKnownRequestError". */
+const ERROR_NAME = /^[A-Z][A-Za-z]{0,60}Error$|^Error$/;
 
+const STATICS = new Set(STATIC_MESSAGES);
 const WITHHELD = "auth message withheld";
 
 function publishable(message: string): string | null {
   const cut = message.replace(URL_TAIL, "$1");
-  const short = cut.split(/\s+/).length <= MAX_WORDS;
-  return INVALID_URL.test(cut) || (short && PROSE.test(cut)) ? cut : null;
+  if (INVALID_URL.test(cut)) return cut;
+  if (STATICS.has(message) || ERROR_NAME.test(message)) return message;
+  const prefix = MESSAGE_PREFIXES.find((candidate) => message.startsWith(candidate));
+  return prefix === undefined ? null : `${prefix}…`;
 }
 
 /**
