@@ -120,17 +120,36 @@ describe("the Turnstile widget", () => {
     expect(screen.getByRole("button", { name: "Send enquiry" })).toBeDisabled();
   });
 
-  it("lets Send go without a token when the script cannot load", async () => {
-    show();
+  it("never sends without a token: a script that cannot load shows the bot-check sentence and Try again", async () => {
+    const { turnstile, install } = stubTurnstile();
+    const send = show();
     await waitFor(() => {
       expect(scripts()).toHaveLength(1);
     });
     act(() => {
       scripts()[0]?.dispatchEvent(new Event("error"));
     });
+    expect(await screen.findByText("We couldn't tell you are a person. Please try again.")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Send enquiry" })).toBeDisabled();
+    expect(scripts()).toHaveLength(0);
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await loadScript(install);
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Send enquiry" })).toBeEnabled();
+      expect(turnstile.render).toHaveBeenCalled();
     });
+    expect(screen.queryByText("We couldn't tell you are a person. Please try again.")).toBeNull();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("gives up on a script that never answers after ten seconds", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    show();
+    await act(() => vi.advanceTimersByTimeAsync(9_000));
+    expect(screen.queryByText("We couldn't tell you are a person. Please try again.")).toBeNull();
+    await act(() => vi.advanceTimersByTimeAsync(1_500));
+    expect(screen.getByText("We couldn't tell you are a person. Please try again.")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Send enquiry" })).toBeDisabled();
+    vi.useRealTimers();
   });
 
   it("shows no widget in the preview", () => {

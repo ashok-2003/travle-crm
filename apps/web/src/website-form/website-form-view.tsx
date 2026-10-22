@@ -28,6 +28,7 @@ const STILL_SENDING_AFTER_MS = 15_000;
 
 export function WebsiteFormView({ form, mode, width, send }: WebsiteFormViewProps) {
   const t = useTranslations("websiteForm.form");
+  const tErrors = useTranslations("errors");
   const sentence = useRefusalSentence();
   const headingId = useId();
   // Made once per load and sent with every attempt, so a retry or a double tap is one enquiry (W21).
@@ -40,8 +41,9 @@ export function WebsiteFormView({ form, mode, width, send }: WebsiteFormViewProp
   const [token, setToken] = useState<string | null>(null);
   const [checkFailed, setCheckFailed] = useState(false);
   const [newCheck, setNewCheck] = useState(0);
+  const [widgetAttempt, setWidgetAttempt] = useState(0);
   const checking = form.turnstileSiteKey !== null && !preview;
-  const waitingForCheck = checking && token === null && !checkFailed;
+  const waitingForCheck = checking && token === null;
 
   const {
     form: values,
@@ -118,6 +120,7 @@ export function WebsiteFormView({ form, mode, width, send }: WebsiteFormViewProp
           {checking && form.turnstileSiteKey !== null && (
             <Suspense fallback={null}>
               <TurnstileWidget
+                key={widgetAttempt}
                 siteKey={form.turnstileSiteKey}
                 resetKey={newCheck}
                 onToken={setToken}
@@ -137,7 +140,22 @@ export function WebsiteFormView({ form, mode, width, send }: WebsiteFormViewProp
               {sending ? t("sending") : t("send")}
             </Button>
             {slow && <p role="status">{t("stillSending")}</p>}
-            {waitingForCheck && !sending && (
+            {checkFailed && (
+              <div role="alert" className="flex flex-col items-start gap-2">
+                <p>{tErrors("reasons.FORM_BOT_CHECK_FAILED")}</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setCheckFailed(false);
+                    setWidgetAttempt((count) => count + 1);
+                  }}
+                >
+                  {t("tryAgain")}
+                </Button>
+              </div>
+            )}
+            {waitingForCheck && !checkFailed && !sending && (
               <p role="status" className="text-caption text-muted-foreground">
                 {t("checking")}
               </p>

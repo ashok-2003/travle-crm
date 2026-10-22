@@ -2,10 +2,12 @@
 
 // Cloudflare Turnstile above the Send button (W39), in managed mode: most people see nothing. The script is loaded once, only
 // for a form whose server has keys, and this file is loaded only then too (the form lazy-imports it). A token works once, so
-// the form changes `resetKey` after every refused send and a new one is asked for. A script that cannot load or a widget that
-// errors says so with onUnavailable, and the form then lets Send go: the server decides (it fails open, W39).
+// the form changes `resetKey` when a send spent it and a new one is asked for. A script that cannot load (or has not in ten
+// seconds) or a widget that errors says so with onUnavailable; the form then offers Try again and never sends without a token.
 import { useEffect, useEffectEvent, useRef } from "react";
 
+/** How long the script may take before the widget is called unavailable. */
+const LOAD_TIMEOUT_MS = 10_000;
 const SCRIPT = "https://challenges.cloudflare.com/turnstile/v0/api.js";
 
 interface TurnstileApi {
@@ -79,8 +81,15 @@ export function TurnstileWidget({
 
   useEffect(() => {
     let cancelled = false;
+    const fail = () => {
+      // A script that never loaded is taken away, so Try again fetches it anew.
+      if (!window.turnstile) document.querySelector(`script[src="${SCRIPT}"]`)?.remove();
+      failed();
+    };
+    const timer = setTimeout(fail, LOAD_TIMEOUT_MS);
     loadTurnstile()
       .then((api) => {
+        clearTimeout(timer);
         if (cancelled || box.current === null) return;
         const id = api.render(box.current, {
           sitekey: siteKey,
@@ -97,10 +106,12 @@ export function TurnstileWidget({
         widget.current = { api, id };
       })
       .catch(() => {
-        failed();
+        clearTimeout(timer);
+        if (!cancelled) fail();
       });
     return () => {
       cancelled = true;
+      clearTimeout(timer);
       if (widget.current) widget.current.api.remove(widget.current.id);
       widget.current = null;
     };
