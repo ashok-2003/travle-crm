@@ -181,4 +181,30 @@ describe("the Axiom transport", () => {
     }).not.toThrow();
     expect(lines).toHaveLength(1);
   }, 30_000);
+
+  it("a transport that throws at once is said once on stderr, and the logger carries on", () => {
+    const written: string[] = [];
+    const stderr = vi.spyOn(process.stderr, "write").mockImplementation((chunk: unknown) => {
+      written.push(String(chunk));
+      return true;
+    });
+    try {
+      const lines: string[] = [];
+      let logger: ReturnType<typeof createPinoLogger> | undefined;
+      expect(() => {
+        // A module name that can't be resolved: pino throws from transport() itself, not from the thread.
+        logger = createPinoLogger({
+          process: "api",
+          level: "debug",
+          destination: { write: (line: string) => lines.push(line) },
+          axiom: { token: "t", dataset: "d", url, transportFile: "no-such-package-for-the-axiom-transport" },
+        });
+      }).not.toThrow();
+      logger?.info({}, "still logged");
+      expect(lines).toHaveLength(1);
+      expect(written.filter((line) => line.startsWith("axiom: shipping stopped"))).toHaveLength(1);
+    } finally {
+      stderr.mockRestore();
+    }
+  });
 });

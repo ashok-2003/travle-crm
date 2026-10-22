@@ -74,9 +74,10 @@ export function createPinoLogger({
   };
   if (axiom !== undefined) {
     const { transportFile = axiomTransportFile, ...options } = axiom;
+    // Open before the call: if transport() throws, the line that says shipping stopped must still be written.
+    shippingOpen = true;
     try {
       shipping = transport({ target: transportFile, options: { url: "https://api.axiom.co", ...options } });
-      shippingOpen = true;
       shipping.on("error", (error: unknown) => {
         stopShipping(error instanceof Error ? error.name : "error");
       });
