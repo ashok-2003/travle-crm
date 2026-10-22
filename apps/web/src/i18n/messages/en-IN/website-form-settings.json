@@ -1,1 +1,181 @@
-{}
+{
+  "row": {
+    "heading": "Website form",
+    "title": "Enquiry form",
+    "on": "Open to anyone with the link",
+    "off": "Off",
+    "unavailable": "Not taking enquiries right now",
+    "loadFailed": "We couldn't load the form's state.",
+    "badges": {
+      "on": "On",
+      "off": "Off",
+      "unavailable": "Unavailable"
+    }
+  },
+  "page": {
+    "title": "Website form",
+    "intro": "A form you can share or put on your website. Every enquiry becomes a lead for {owner}.",
+    "introNoOwner": "A form you can share or put on your website. Every enquiry becomes a lead for your Owner.",
+    "back": "Lead sources",
+    "loadFailed": "We couldn't load the website form."
+  },
+  "status": {
+    "heading": "Status",
+    "switch": "Take enquiries from the form",
+    "on": "On. Anyone with the link can send an enquiry.",
+    "off": "Off. The link shows a short message.",
+    "closed": {
+      "read_only": "Closed. Your subscription is read-only, so the form isn't taking enquiries. They start again when you pay.",
+      "suspended": "Closed. Your organization is suspended, so the form isn't taking enquiries.",
+      "cancelled": "Closed. Your subscription has ended, so the form isn't taking enquiries.",
+      "plan": "Closed. Your plan doesn't include the form. Ask us to add it."
+    },
+    "demo": "Not available in the demo."
+  },
+  "fields": {
+    "heading": "Questions",
+    "intro": "Only a name and a phone number are ever needed. Choose what else to ask.",
+    "name": "Name",
+    "phone": "Phone",
+    "alwaysAsked": "Always asked",
+    "email": "Email",
+    "destination": "Destination",
+    "travelMonth": "Travel month",
+    "travellers": "Travellers",
+    "budget": "Budget",
+    "message": "Message",
+    "modes": {
+      "off": "Off",
+      "optional": "Optional",
+      "required": "Required"
+    },
+    "offers": "Ask for permission to send offers",
+    "offersHint": "Visitors read: {wording}"
+  },
+  "words": {
+    "heading": "Words",
+    "formHeading": "Heading",
+    "formHeadingDefault": "Plan your trip with {name}",
+    "introduction": "Introduction",
+    "thankYou": "Thank-you message",
+    "thankYouDefault": "Thank you! {name} will get in touch with you soon.",
+    "websiteUrl": "Website link",
+    "websiteUrlHint": "Starts with https://. Shown as a button after the thank-you.",
+    "websiteButtonText": "Website button text",
+    "websiteButtonTextHint": "If empty: “Back to our website”.",
+    "privacyUrl": "Privacy policy link",
+    "privacyUrlHint": "Starts with https://. Shown under the Send button.",
+    "count": "{used} of {max}"
+  },
+  "look": {
+    "heading": "Look",
+    "intro": "The form uses your logo, name and colour.",
+    "logo": "Logo",
+    "noLogo": "No logo. The form shows your name instead.",
+    "logoAlt": "Your logo",
+    "name": "Name",
+    "colour": "Colour",
+    "noColour": "The standard blue",
+    "colourNote": "Your colour is used for the Send button. Colours that are too light for white text fall back to our blue.",
+    "changeProfile": "Change in Business profile",
+    "changeBranding": "Change logo and colour in Branding"
+  },
+  "save": {
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved. The form now uses these settings.",
+    "leave": {
+      "title": "Leave without saving?",
+      "description": "You changed the form's settings and haven't saved them. If you leave, they are lost.",
+      "leave": "Leave"
+    }
+  },
+  "problems": {
+    "link": "Use an address that starts with https://",
+    "tooLong": "That is too long.",
+    "required": "Fill this in."
+  },
+  "share": {
+    "heading": "Share",
+    "link": "Link",
+    "linkLabel": "The form's address",
+    "noLink": "Your link appears when you turn the form on.",
+    "copyLink": "Copy the link",
+    "open": "Open",
+    "changeLink": "Change the link",
+    "embed": "Allow my website to show this form",
+    "copySnippet": "Copy the snippet",
+    "tryIt": "Try it yourself: open the link, send an enquiry with your own number, then mark the lead Not a lead.",
+    "changeDialog": {
+      "title": "Change the link?",
+      "description": "The old link and any form already on your website stop working at once. You will have to paste the new snippet.",
+      "action": "Change the link"
+    }
+  },
+  "snippet": {
+    "title": "Put the form on your website",
+    "description": "Paste one of these where the form should appear.",
+    "script": "Script (recommended)",
+    "iframe": "Iframe",
+    "copyScript": "Copy the script",
+    "copyIframe": "Copy the iframe",
+    "scriptHelp": "Paste it where the form should appear. It sizes itself to the form.",
+    "iframeHelp": "Use this if your website builder won't accept scripts. Give it enough height for the form.",
+    "works": "Works in Wix, WordPress, Squarespace, Webflow and plain HTML. Your visitors don't need an account.",
+    "off": "The snippet is off, so a form on your website would not show. Turn on “Allow my website to show this form” to use it.",
+    "saveToApply": "Press Save to apply this.",
+    "done": "Done"
+  },
+  "consent": {
+    "label": "Offers",
+    "granted": "Agreed to offers on {day}",
+    "grantedFromForm": "Agreed to offers on {day}, from the website form",
+    "withdrawn": "Asked to stop offers on {day}",
+    "stopped": "Record that they stopped",
+    "confirm": {
+      "title": "Record that they stopped?",
+      "description": "This records that {name} asked to stop travel offers, for example on WhatsApp. It can't be undone.",
+      "action": "Record that they stopped"
+    }
+  },
+  "counts": {
+    "heading": "Last 30 days",
+    "loadFailed": "We couldn't load the counts.",
+    "enquiries": {
+      "label": "Enquiries",
+      "info": "Everything the form saved: new leads and repeat enquiries together."
+    },
+    "newLeads": {
+      "label": "New leads",
+      "info": "Enquiries from people you didn't have yet. Each one became a lead."
+    },
+    "repeatEnquiries": {
+      "label": "Repeat enquiries",
+      "info": "Enquiries from people you already had. They were added to their existing lead."
+    },
+    "stopped": {
+      "label": "Stopped",
+      "info": "Enquiries the form did not save: spam, blocked contacts and repeats beyond the limit."
+    },
+    "note": "Stopped enquiries are never saved, so we can't show them."
+  },
+  "help": {
+    "heading": "Good to know",
+    "own": "The form is yours. You decide who can see it and what it asks.",
+    "personalData": "Anything a visitor types is personal data you now hold. Look after it as you do the rest of your customers' details.",
+    "tick": "The offers tickbox is a request, not proof. Keep it in mind when you plan offers.",
+    "stopped": "Stopped enquiries are not kept, so there is nothing to look back at.",
+    "link": "Changing the link breaks the old one, and the snippet already on your website."
+  },
+  "preview": {
+    "button": "Preview",
+    "title": "Preview",
+    "description": "How visitors see the form, with the settings on this page, saved or not.",
+    "size": "Frame width",
+    "phone": "Phone",
+    "computer": "Computer",
+    "loadFailed": "We couldn't load the preview.",
+    "fix": "Some answers on this page need fixing before the preview can show them.",
+    "done": "Done"
+  }
+}

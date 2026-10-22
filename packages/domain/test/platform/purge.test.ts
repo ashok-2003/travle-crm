@@ -5,6 +5,7 @@
 import { createHmac, randomUUID } from "node:crypto";
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import { asOrganization, createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
+import { aLead, aPerson } from "../crm/support/records.js";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { recordAudit } from "../../src/audit/index.js";
 import { LATE_WRITES_MS } from "../../src/files/index.js";
@@ -191,6 +192,46 @@ describe("purging an organization", () => {
     // Once late uploads have landed, the folder is swept again and the outbox is empty.
     await deleteDueFiles(services, { now: new Date(now.getTime() + LATE_WRITES_MS), organizationId });
     expect(await queued(organizationId)).toEqual([]);
+  });
+
+  it("purges an organization whose website form holds ledger and consent rows", async () => {
+    const { organizationId, job } = await readyToPurge();
+    await test.services.db.forOrg(organizationId, async (tx) => {
+      const form = await tx.websiteForm.create({ data: { keySecret: "abcdefghijklmnop" }, select: { id: true } });
+      const person = await aPerson(tx);
+      const lead = await aLead(tx, { personId: person.id, source: "web_form" });
+      await tx.personConsent.create({
+        data: {
+          personId: person.id,
+          purpose: "marketing",
+          action: "granted",
+          wording: "Send me offers",
+          wordingVersion: 1,
+          source: "web_form",
+          sourceFormId: form.id,
+        },
+      });
+      await tx.websiteFormSubmission.create({
+        data: {
+          formId: form.id,
+          submissionId: randomUUID(),
+          outcome: "new_lead",
+          leadId: lead.id,
+          personId: person.id,
+        },
+      });
+    });
+
+    expect(await purgeOrganization(test.services, job)).not.toBeNull();
+
+    const where = { organizationId };
+    expect(
+      await Promise.all([
+        platform.websiteFormSubmission.count({ where }),
+        platform.personConsent.count({ where }),
+        platform.websiteForm.count({ where }),
+      ]),
+    ).toEqual([0, 0, 0]);
   });
 
   it("sweeps an organization already purged when its job runs again, and once late uploads land", async () => {

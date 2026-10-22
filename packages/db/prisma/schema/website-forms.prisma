@@ -71,5 +71,7 @@ model WebsiteFormSubmission {
   @@index([organizationId, formId, createdAt], map: "website_form_submission_counts")
   /// W22: enquiries per person in 24 hours.
   @@index([organizationId, personId, createdAt], map: "website_form_submission_person", where: raw("(person_id IS NOT NULL)"))
+  /// The console's hourly sweep of rows older than 90 days pages by created_at across every organization (platform role).
+  @@index([createdAt], map: "website_form_submission_sweep")
   @@map("website_form_submission")
 }

@@ -19,6 +19,7 @@ import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
 import { SheetList } from "./sheet-list";
 import { useLeadSheets } from "./use-lead-sheets";
+import { WebsiteFormRow } from "./website-form/website-form-row";
 
 export function LeadSourcesScreen() {
   const t = useTranslations("sheets.list");
@@ -96,6 +97,7 @@ export function LeadSourcesScreen() {
       <BackToSettings />
       <PageHeader title={t("title")} intro={t("intro")} action={list === undefined ? undefined : connect} />
       {body()}
+      <WebsiteFormRow />
     </div>
   );
 }
