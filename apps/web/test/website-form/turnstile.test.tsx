@@ -120,6 +120,39 @@ describe("the Turnstile widget", () => {
     expect(screen.getByRole("button", { name: "Send enquiry" })).toBeDisabled();
   });
 
+  it("keeps the token after a refusal that came before the bot check", async () => {
+    const { turnstile, solve, install } = stubTurnstile();
+    const send = show(vi.fn(() => Promise.reject(new FormRefusal("FORM_TOO_FAST", 400))));
+    await loadScript(install);
+    await waitFor(() => {
+      expect(turnstile.render).toHaveBeenCalled();
+    });
+    await fillIn();
+    solve("token-1");
+    await userEvent.click(screen.getByRole("button", { name: "Send enquiry" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Please check your details and press Send again.");
+    expect(turnstile.reset).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Send enquiry" }));
+    await waitFor(() => {
+      expect(send).toHaveBeenCalledTimes(2);
+    });
+    expect(send.mock.calls[1]?.[0].turnstileToken).toBe("token-1");
+  });
+
+  it("asks for a new token after a server fault, which may have come after the check", async () => {
+    const { turnstile, solve, install } = stubTurnstile();
+    show(vi.fn(() => Promise.reject(new FormRefusal(null, 503))));
+    await loadScript(install);
+    await waitFor(() => {
+      expect(turnstile.render).toHaveBeenCalled();
+    });
+    await fillIn();
+    solve("token-1");
+    await userEvent.click(screen.getByRole("button", { name: "Send enquiry" }));
+    await screen.findByRole("alert");
+    expect(turnstile.reset).toHaveBeenCalledWith("widget-1");
+  });
+
   it("never sends without a token: a script that cannot load shows the bot-check sentence and Try again", async () => {
     const { turnstile, install } = stubTurnstile();
     const send = show();
