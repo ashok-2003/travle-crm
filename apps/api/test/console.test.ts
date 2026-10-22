@@ -2,6 +2,7 @@
 // database; organization staff, people with a temporary password and other sites don't. A call that fails unexpectedly
 // is logged by names and codes, as the api logs (plan 3).
 import { recordPlatformAudit } from "@travel-crm/domain/platform";
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createConsoleApp } from "../src/console-app.js";
 import {
@@ -39,6 +40,20 @@ describe("the platform console", () => {
       expect(response.status).toBe(200);
       expect(await response.json()).toEqual({ status: "ok" });
     }
+  });
+
+  it("writes a request line for each call, with the staff member's id and the health checks at debug", async () => {
+    await consoleQuery(testConsole, "whoAmI", support.jar);
+    expect(testConsole.logger.entries.at(-1)).toMatchObject({
+      level: "info",
+      msg: "request",
+      route: "/api/platform/trpc",
+      procedures: ["whoAmI"],
+      status: 200,
+      userId: support.userId,
+    });
+    await testConsole.app.request("/api/platform/health");
+    expect(testConsole.logger.entries.at(-1)).toMatchObject({ level: "debug", route: "/api/platform/health" });
   });
 
   it("tells platform staff who they are, at their level", async () => {
@@ -92,6 +107,7 @@ describe("the platform console", () => {
     const failing = createConsoleApp(
       { ...testConsole.services, platformDb: { ...platformDb, transaction: () => Promise.reject(leak) } },
       (line) => lines.push(line),
+      createMemoryLogger(),
     );
     const response = await failing.request(
       `/api/platform/trpc/log.list?input=${encodeURIComponent(JSON.stringify({}))}`,

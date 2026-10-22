@@ -14,14 +14,16 @@ import {
 import { createMemoryStorage, type ObjectStorage } from "@travel-crm/integrations/storage";
 import type { AnyTRPCRouter } from "@trpc/server";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
-import type { Hono } from "hono";
+import { createMemoryLogger, type MemoryLogger } from "@travel-crm/integrations/logging";
 import { createConsoleApp } from "../../src/console-app.js";
 import { CookieJar } from "./cookie-jar.js";
 import { ORIGIN, postJson, signInByEmail, type TestServer } from "./test-server.js";
 import { codeFor, enableTwoFactor } from "./two-factor.js";
 
 export interface TestConsole {
-  app: Hono;
+  app: ReturnType<typeof createConsoleApp>;
+  /** What the console wrote to its structured log. */
+  logger: MemoryLogger;
   services: PlatformServices;
   /** What the console logged: nothing, unless a call failed unexpectedly. */
   lines: string[];
@@ -38,6 +40,7 @@ export function createTestConsole(server: TestServer, options: TestConsoleOption
   const { urls } = server;
   const db = createDatabase(urls.runtime, { maxConnections: 2 });
   const lines: string[] = [];
+  const logger = createMemoryLogger();
   const services = createPlatformServices({
     platformDatabaseUrl: urls.platform,
     maxConnections: 2,
@@ -49,7 +52,8 @@ export function createTestConsole(server: TestServer, options: TestConsoleOption
     log: (line) => lines.push(line),
   });
   return {
-    app: createConsoleApp(services, (line) => lines.push(line)),
+    app: createConsoleApp(services, (line) => lines.push(line), logger),
+    logger,
     services,
     lines,
     close: async () => {

@@ -9,6 +9,7 @@ import { createIdentity, type Identity } from "@travel-crm/domain/identity";
 import { createProfiles } from "@travel-crm/domain/profile";
 import { createSubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { createMemoryJobQueue } from "@travel-crm/integrations/jobs";
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { createMemoryStorage } from "@travel-crm/integrations/storage";
 import { afterAll, beforeAll, describe, expect, inject, it, vi } from "vitest";
 import { createApp } from "../src/app.js";
@@ -95,6 +96,7 @@ describe.each(["development", "production"])("the api's log under NODE_ENV=%s", 
       clientAddress: clientAddressFrom({ headerNames: ["x-forwarded-for"], trustedProxies: [] }),
       webhookProviders: [],
       log: processLog("api"),
+      logger: createMemoryLogger(),
     });
 
   it("has the error as a person's data in it, to begin with", () => {

@@ -16,9 +16,10 @@ import { createSubscriptionAccess, planLimits, type SubscriptionAccess } from "@
 import type { WebhookProvider } from "@travel-crm/domain/webhooks";
 import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
 import { createMemoryJobQueue, type JobQueue } from "@travel-crm/integrations/jobs";
+import { createMemoryLogger, type MemoryLogger } from "@travel-crm/integrations/logging";
 import { createSpreadsheets, type Spreadsheets } from "@travel-crm/integrations/spreadsheets";
 import { createMemoryStorage, type ObjectStorage } from "@travel-crm/integrations/storage";
-import type { Hono } from "hono";
+
 import { inject } from "vitest";
 import { createApp } from "../../src/app.js";
 import { processLog, type ProcessLog } from "../../src/process-log.js";
@@ -44,7 +45,9 @@ export const testAuthSettings: AuthSettings = {
 export const TEST_PUSH_PUBLIC_KEY = "test-vapid-public-key";
 
 export interface TestServer {
-  app: Hono;
+  app: ReturnType<typeof createApp>;
+  /** What the app wrote to its structured log. */
+  logger: MemoryLogger;
   identity: Identity;
   db: Database;
   files: Files;
@@ -66,6 +69,8 @@ export interface TestServerOptions {
   queue?: JobQueue;
   /** The app's log; the api's own unless given, so an unexpected error shows on stderr as "api: ...". */
   log?: ProcessLog;
+  /** The app's structured log; a fresh in-memory one unless given, kept as `logger` on the server. */
+  logger?: MemoryLogger;
   /** Google Sheets for the sheet sync's procedures: off unless given (with the hashes). */
   google?: GoogleSheets;
   sheetsHashes?: SheetsHashes;
@@ -92,6 +97,7 @@ export function createTestServer(settings: Partial<AuthSettings> = {}, options: 
     storageLimitBytes: limits.storageBytes,
   });
   const platform = createPlatformClient(urls.platform);
+  const logger = options.logger ?? createMemoryLogger();
   const app = createApp({
     identity,
     subscriptions,
@@ -107,9 +113,11 @@ export function createTestServer(settings: Partial<AuthSettings> = {}, options: 
     clientAddress: clientAddressFrom({ headerNames: ["x-forwarded-for"], trustedProxies: [] }),
     webhookProviders: options.webhookProviders ?? [],
     log: options.log ?? processLog("api"),
+    logger,
   });
   return {
     app,
+    logger,
     identity,
     db,
     files,

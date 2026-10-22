@@ -63,9 +63,9 @@ export function tracked(send: SendPasswordResetEmail) {
   };
 }
 
-/** What an answer shows a caller: status, headers but the date, and body. */
+/** What an answer shows a caller: status, headers but the date and the request id (new for every request), and body. */
 export async function answerOf(response: Response) {
-  const headers = [...response.headers.entries()].filter(([name]) => name !== "date");
+  const headers = [...response.headers.entries()].filter(([name]) => name !== "date" && name !== "x-request-id");
   return { status: response.status, headers, body: await response.text() };
 }
 
