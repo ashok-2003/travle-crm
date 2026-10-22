@@ -32,8 +32,8 @@ export const brand = {
   /** The product owner's address for now (given 2026-10-16), until the product has a domain of its own. */
   supportEmail: "workatashok@gmail.com",
   /**
-   * E.164, or null until the product owner gives one (an owner item): screens leave out a contact that is null. The
-   * tech team's phone (given 2026-10-21), as support is theirs.
+   * E.164, or null when there is none: screens leave out a contact that is null. The owner's number for agencies'
+   * support, confirmed 2026-10-22.
    */
   supportPhone: "+918538953742" as string | null,
   /** The sender name on email the product sends for an organization: "<organization> via <this>". */

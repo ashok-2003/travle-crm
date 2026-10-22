@@ -23,7 +23,7 @@ describe("brand", () => {
     for (const [path, colour] of colours) expect(colour, path).toMatch(/^#[0-9a-f]{6}$/);
   });
 
-  it("has contacts that parse, with real phones only", () => {
+  it("has contacts that parse, and a real phone", () => {
     expect(new URL(brand.website).protocol).toBe("https:");
     expect(brand.supportEmail).toMatch(/^[^@\s]+@[^@\s]+\.[a-z]+$/);
     // A phone, once there is one, is E.164: never the placeholder zeros the screens showed.
