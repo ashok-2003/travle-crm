@@ -217,6 +217,18 @@ describe("receiving a website enquiry", () => {
     });
   });
 
+  it("refuses a submission from the embed with embedding off, and takes the hosted one", async () => {
+    const { send, inOrg, context } = await setup({ allowEmbed: false });
+    await expect(
+      send({}, { via: "embedded" }, { ...context, via: "embedded", embeddedOn: "asha.example" }),
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      reason: "FORM_UNAVAILABLE",
+    });
+    expect(await inOrg((tx) => tx.lead.count())).toBe(0);
+    expect(await send({}, { via: "hosted" })).toBe("new_lead");
+  });
+
   it("answers every non-refusal outcome with the same status and the same body", () => {
     const answers = (["new_lead", "repeat_enquiry", "blocked", "duplicate", "spam"] as const).map(answerOf);
     for (const answer of answers) expect(answer).toEqual({ status: 201, body: { ok: true } });

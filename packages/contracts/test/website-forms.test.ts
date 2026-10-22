@@ -10,6 +10,7 @@ import {
   formCountsView,
   offersWording,
   publicForm,
+  publicFormQuery,
   saveWebsiteFormInput,
   websiteEnquiryInput,
   websiteFormPublic,
@@ -38,6 +39,15 @@ const settings = {
 };
 
 describe("website form contracts", () => {
+  it("the public GET names which page asks: hosted or embedded, nothing else", () => {
+    expect(publicFormQuery.parse({ via: "embedded" })).toEqual({ via: "embedded" });
+    expect(publicFormQuery.safeParse({ via: "hosted" }).success).toBe(true);
+    for (const bad of [{}, { via: "iframe" }, { via: "hosted", extra: 1 }]) {
+      expect(publicFormQuery.safeParse(bad).success, JSON.stringify(bad)).toBe(false);
+    }
+    expect(websiteEnquiryInput.safeParse({ ...submission, via: undefined }).success).toBe(false);
+  });
+
   it("accepts a plain submission and reads the phone as E.164", () => {
     const parsed = websiteEnquiryInput.parse(submission);
     expect(parsed.answers.phone).toBe("+919876543210");

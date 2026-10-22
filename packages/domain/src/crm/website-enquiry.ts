@@ -131,6 +131,10 @@ export async function receiveWebsiteEnquiry(
     throw new DomainError("VALIDATION", "FORM_OFFERS_NOT_AVAILABLE", "This form does not take offers");
   }
   const { form, now } = context;
+  // The embed can be switched off (W30): a submission from it is then as unavailable as from a closed form.
+  if (input.via === "embedded" && !form.allowEmbed) {
+    throw new DomainError("FORBIDDEN", "FORM_UNAVAILABLE", "This form is not taking enquiries");
+  }
   const prior = await findSubmission(tx, input.submissionId);
   if (prior !== null) return asOutcome(prior.outcome);
   const answers = assertAnswersMatchModes(form, input.answers);

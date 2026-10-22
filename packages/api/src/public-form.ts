@@ -3,7 +3,14 @@
 // preview is what a visitor gets. It needs no signed-in member: the logo link is the system's.
 import { features } from "@travel-crm/contracts/features";
 import { LOGO_RECORD_TYPE } from "@travel-crm/contracts/profile";
-import { offersWording, type PublicForm, type SaveWebsiteFormInput } from "@travel-crm/contracts/website-forms";
+import {
+  offersWording,
+  type ClosedPublicForm,
+  type FormVia,
+  type PublicForm,
+  type SaveWebsiteFormInput,
+  type WebsiteFormPublic,
+} from "@travel-crm/contracts/website-forms";
 import type { Database } from "@travel-crm/db";
 import { offeredDestinations } from "@travel-crm/domain/crm";
 import type { Files } from "@travel-crm/domain/files";
@@ -123,4 +130,36 @@ export async function publicFormOf(
     openedToken: input.openedToken,
     turnstileSiteKey: input.turnstileSiteKey,
   };
+}
+
+/** The card a visitor sees when the form is closed to them: the agency's name, logo and the way back to its website. */
+export async function closedFormOf(
+  services: Pick<PublicFormServices, "identity" | "files">,
+  input: { organizationId: string; websiteUrl: string | null; websiteButtonText: string | null },
+): Promise<ClosedPublicForm> {
+  const organization = await services.identity.organizationProfile(input.organizationId);
+  if (organization === null) throw new Error("A form needs its organization");
+  return {
+    organizationName: organization.name,
+    logoUrl: await logoLinkOf(services.files, input.organizationId),
+    websiteUrl: input.websiteUrl,
+    websiteButtonText: input.websiteButtonText,
+  };
+}
+
+/**
+ * What the public GET answers for a form that is otherwise open: the form, or, for an embed the agency switched off, the
+ * closed card. (Whether the form is open at all is assertFormOpen's, which the route runs first.)
+ */
+export async function websiteFormPublicOf(
+  services: PublicFormServices,
+  input: Parameters<typeof publicFormOf>[1] & { via: FormVia },
+): Promise<WebsiteFormPublic> {
+  if (input.via === "embedded" && !input.settings.allowEmbed) {
+    return {
+      available: false,
+      form: await closedFormOf(services, { organizationId: input.organizationId, ...input.settings }),
+    };
+  }
+  return { available: true, form: await publicFormOf(services, input) };
 }

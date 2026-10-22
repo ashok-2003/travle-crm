@@ -27,7 +27,9 @@ describe("the open check", () => {
   afterAll(() => test.close());
 
   const open = (organizationId: string, key: string, owner: string | null = anOwnerId(), now = testNow) =>
-    test.db.forOrg(organizationId, (tx) => assertFormOpen(tx, { key, organizationId, ownerUserId: owner, now }));
+    test.db.forOrg(organizationId, (tx) =>
+      assertFormOpen(tx, { key, organizationId, ownerUserId: owner, via: "hosted", now }),
+    );
   const stateOf = (
     organizationId: string,
     form: WebsiteFormRow | null,
@@ -93,6 +95,44 @@ describe("the open check", () => {
         reason,
       });
     }
+  });
+
+  it("an embedded view or submission is unavailable with embedding off; the hosted one still works", async () => {
+    const organizationId = await anAgency(test);
+    const { key, form } = await anOpenForm(test, organizationId, { allowEmbed: false });
+    const via = (kind: "hosted" | "embedded") =>
+      test.db.forOrg(organizationId, (tx) =>
+        assertFormOpen(tx, { key, organizationId, ownerUserId: anOwnerId(), via: kind, now: testNow }),
+      );
+    await expect(via("hosted")).resolves.toMatchObject({ id: form.id });
+    await expect(via("embedded")).rejects.toMatchObject({ code: "FORBIDDEN", reason: "FORM_UNAVAILABLE" });
+    const state = (kind?: "hosted" | "embedded") =>
+      test.db.forOrg(organizationId, (tx) =>
+        formOpenState(tx, {
+          organizationId,
+          form,
+          ownerUserId: anOwnerId(),
+          now: testNow,
+          ...(kind ? { via: kind } : {}),
+        }),
+      );
+    expect(await state("embedded")).toEqual({ open: false, reason: "off" });
+    expect(await state("hosted")).toEqual({ open: true, reason: null });
+    // The settings page names no page, so the switch for embedding does not close it there.
+    expect(await state()).toEqual({ open: true, reason: null });
+    const embedOn = await anAgency(test);
+    const on = await anOpenForm(test, embedOn);
+    await expect(
+      test.db.forOrg(embedOn, (tx) =>
+        assertFormOpen(tx, {
+          key: on.key,
+          organizationId: embedOn,
+          ownerUserId: anOwnerId(),
+          via: "embedded",
+          now: testNow,
+        }),
+      ),
+    ).resolves.toBeDefined();
   });
 
   it("a wrong secret is FORM_NOT_FOUND, not UNAVAILABLE, even when the form is closed", async () => {

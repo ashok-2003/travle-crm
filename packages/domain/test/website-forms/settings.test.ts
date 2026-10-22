@@ -146,7 +146,9 @@ describe("website form settings", () => {
     const oldKey = formKeyOf(organizationId, first.keySecret);
     const ownerUserId = anOwnerId();
     const open = (key: string) =>
-      test.db.forOrg(organizationId, (tx) => assertFormOpen(tx, { key, organizationId, ownerUserId, now: testNow }));
+      test.db.forOrg(organizationId, (tx) =>
+        assertFormOpen(tx, { key, organizationId, ownerUserId, via: "hosted", now: testNow }),
+      );
     await expect(open(oldKey)).resolves.toBeDefined();
     const second = await test.db.forOrg(organizationId, (tx) => changeWebsiteFormLink(tx, actor, testNow));
     await expect(open(oldKey)).rejects.toMatchObject({ code: "NOT_FOUND", reason: "FORM_NOT_FOUND" });
