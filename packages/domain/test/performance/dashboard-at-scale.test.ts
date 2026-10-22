@@ -11,11 +11,12 @@ import {
   type IsolatedDatabase,
 } from "@travel-crm/db/testing";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import { periodTotalsQuery, stageMovesQuery } from "../../src/crm/index.js";
 import { dashboardFigures } from "../../src/insights/index.js";
 import type { MemberAccess } from "../../src/identity/index.js";
 import { memberWithStarterRole } from "../identity/rule-helpers.js";
 import { seedLargeAgency } from "./large-agency.js";
-import { fastestMs } from "./query-plans.js";
+import { fastestMs, planOf } from "./query-plans.js";
 
 const SIZE = { leads: 50_000, tasks: 100_000, staff: 500, destinations: 300 };
 const NEIGHBOUR = { leads: 100_000, tasks: 0, staff: 500, destinations: 300 };
@@ -66,6 +67,17 @@ describe("the dashboard in a large agency", () => {
     await db.disconnect();
     await platform.$disconnect();
     await isolated.drop();
+  });
+
+  it("reads the new indexes for a period's new leads and for its stage moves, under row-level security", async () => {
+    const period = { from: new Date(Date.now() - 90 * 86_400_000), to: new Date(), timeZone: "Asia/Kolkata" };
+    // A short period, as the 7-day view asks, so an index is the better road for the planner.
+    const week = { ...period, from: new Date(Date.now() - 7 * 86_400_000) };
+    const leads = await inOrg((tx) => planOf(tx, periodTotalsQuery(null, week)));
+    expect(leads.indexes, leads.text).toContain("lead_live_by_created");
+    const moves = await inOrg((tx) => planOf(tx, stageMovesQuery(null, week)));
+    expect(moves.indexes, moves.text).toContain("lead_timeline_stage_moves");
+    expect(moves.seqScans, moves.text).not.toContain("lead_timeline_entry");
   });
 
   it("computes 90 days for everyone's leads within a second", async () => {

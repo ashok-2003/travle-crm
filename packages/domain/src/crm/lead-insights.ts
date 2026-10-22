@@ -48,6 +48,30 @@ function cohort(ownerUserId: string | null, period: InsightsPeriod): Sql {
     AND lead.created_at >= ${period.from}::timestamptz AND lead.created_at < ${period.to}::timestamptz ${owner}`;
 }
 
+/** The period's new leads counted: replies, wins and the middle wait (reads lead_live_by_created). */
+export function periodTotalsQuery(ownerUserId: string | null, period: InsightsPeriod): Sql {
+  return sql`
+    SELECT count(*)::int AS "newLeads",
+      count(*) FILTER (WHERE ${replied})::int AS contacted,
+      count(*) FILTER (WHERE lead.stage = 'won')::int AS "newLeadsWon",
+      (percentile_cont(0.5) WITHIN GROUP (ORDER BY extract(epoch FROM lead.first_reply_at - lead.created_at) / 60)
+        FILTER (WHERE lead.first_reply_at IS NOT NULL))::float8 AS "medianMinutes"
+    FROM lead WHERE ${cohort(ownerUserId, period)}`;
+}
+
+/** The leads moved to Quote sent and to Won during the period (reads lead_timeline_stage_moves). */
+export function stageMovesQuery(ownerUserId: string | null, period: InsightsPeriod): Sql {
+  const owner = ownerUserId === null ? emptySql : sql`AND lead.owner_user_id = ${ownerUserId}::uuid`;
+  return sql`
+    SELECT count(DISTINCT entry.lead_id) FILTER (WHERE entry.stage = 'quote_sent')::int AS "quotesSent",
+      count(DISTINCT entry.lead_id) FILTER (WHERE entry.stage = 'won')::int AS won
+    FROM lead_timeline_entry entry
+    JOIN lead ON lead.organization_id = entry.organization_id AND lead.id = entry.lead_id
+    WHERE entry.kind = 'stage-changed'
+      AND entry.occurred_at >= ${period.from}::timestamptz AND entry.occurred_at < ${period.to}::timestamptz
+      AND lead.deleted_at IS NULL ${owner}`;
+}
+
 export async function leadInsights(
   tx: OrgTx,
   ownerUserId: string | null,
@@ -58,23 +82,10 @@ export async function leadInsights(
 
   const [totals] = await tx.$queryRaw<
     { newLeads: number; contacted: number; newLeadsWon: number; medianMinutes: number | null }[]
-  >(sql`
-    SELECT count(*)::int AS "newLeads",
-      count(*) FILTER (WHERE ${replied})::int AS contacted,
-      count(*) FILTER (WHERE lead.stage = 'won')::int AS "newLeadsWon",
-      (percentile_cont(0.5) WITHIN GROUP (ORDER BY extract(epoch FROM lead.first_reply_at - lead.created_at) / 60)
-        FILTER (WHERE lead.first_reply_at IS NOT NULL))::float8 AS "medianMinutes"
-    FROM lead WHERE ${inCohort}`);
+  >(periodTotalsQuery(ownerUserId, period));
 
   // A lead moved there twice in the period (reopened) counts once.
-  const [moves] = await tx.$queryRaw<{ quotesSent: number; won: number }[]>(sql`
-    SELECT count(DISTINCT entry.lead_id) FILTER (WHERE entry.stage = 'quote_sent')::int AS "quotesSent",
-      count(DISTINCT entry.lead_id) FILTER (WHERE entry.stage = 'won')::int AS won
-    FROM lead_timeline_entry entry
-    JOIN lead ON lead.organization_id = entry.organization_id AND lead.id = entry.lead_id
-    WHERE entry.kind = 'stage-changed'
-      AND entry.occurred_at >= ${period.from}::timestamptz AND entry.occurred_at < ${period.to}::timestamptz
-      AND lead.deleted_at IS NULL ${owner}`);
+  const [moves] = await tx.$queryRaw<{ quotesSent: number; won: number }[]>(stageMovesQuery(ownerUserId, period));
 
   const [open] = await tx.$queryRaw<{ n: number }[]>(sql`
     SELECT count(*)::int AS n FROM lead
