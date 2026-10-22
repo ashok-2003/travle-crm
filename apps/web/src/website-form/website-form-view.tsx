@@ -5,7 +5,7 @@
 // alert above the button with what was typed kept (W41). What happens after a good send is the page's (thank-you.tsx).
 import { CircleAlertIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useId, useState } from "react";
+import { lazy, Suspense, useEffect, useId, useState } from "react";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,11 @@ import { FormHeader } from "./form-header";
 import { emptyFormValues, toEnquiryInput, type FormProblem, type FormValues } from "./form-values";
 import type { WebsiteFormViewProps } from "./form-props";
 import { useRefusalSentence } from "./use-refusal-sentence";
+
+// Only a form whose server has Turnstile keys loads the widget, and so its code.
+const TurnstileWidget = lazy(() =>
+  import("./turnstile-widget").then((module) => ({ default: module.TurnstileWidget })),
+);
 
 /** How long a send may take before the visitor is asked to keep the page open (the pilot's api sleeps, W42). */
 const STILL_SENDING_AFTER_MS = 15_000;
@@ -31,6 +36,12 @@ export function WebsiteFormView({ form, mode, width, send }: WebsiteFormViewProp
   const [slow, setSlow] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
   const preview = mode === "preview";
+  // Turnstile (W39): a token works once, so every refused send asks for a new one.
+  const [token, setToken] = useState<string | null>(null);
+  const [checkFailed, setCheckFailed] = useState(false);
+  const [newCheck, setNewCheck] = useState(0);
+  const checking = form.turnstileSiteKey !== null && !preview;
+  const waitingForCheck = checking && token === null && !checkFailed;
 
   const {
     form: values,
@@ -56,9 +67,13 @@ export function WebsiteFormView({ form, mode, width, send }: WebsiteFormViewProp
   const submit = onSubmit((body) => {
     setRefusal(null);
     setSending(true);
-    void send(body)
+    void send(token === null ? body : { ...body, turnstileToken: token })
       .catch((error: unknown) => {
         setRefusal(sentence(error));
+        if (checking) {
+          setToken(null);
+          setNewCheck((count) => count + 1);
+        }
       })
       .finally(() => {
         setSending(false);
@@ -100,12 +115,33 @@ export function WebsiteFormView({ form, mode, width, send }: WebsiteFormViewProp
               <AlertDescription>{problem}</AlertDescription>
             </Alert>
           )}
+          {checking && form.turnstileSiteKey !== null && (
+            <Suspense fallback={null}>
+              <TurnstileWidget
+                siteKey={form.turnstileSiteKey}
+                resetKey={newCheck}
+                onToken={setToken}
+                onUnavailable={() => {
+                  setCheckFailed(true);
+                }}
+              />
+            </Suspense>
+          )}
           <div className="flex flex-col gap-3">
-            <Button type="submit" disabled={sending || preview} className="w-full @sm:w-auto @sm:self-start">
+            <Button
+              type="submit"
+              disabled={sending || preview || waitingForCheck}
+              className="w-full @sm:w-auto @sm:self-start"
+            >
               {sending && <Spinner />}
               {sending ? t("sending") : t("send")}
             </Button>
             {slow && <p role="status">{t("stillSending")}</p>}
+            {waitingForCheck && !sending && (
+              <p role="status" className="text-caption text-muted-foreground">
+                {t("checking")}
+              </p>
+            )}
             <p className="text-caption text-muted-foreground">
               {t("goesTo", { name: form.organizationName })}
               {form.privacyUrl !== null && (
