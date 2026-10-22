@@ -8,6 +8,8 @@ export interface WebsiteFormViewProps {
   mode: "hosted" | "embedded" | "preview";
   /** The Preview's frame width in pixels (phone or desktop). */
   width?: number;
+  /** The Preview's form is filled with made-up answers (spec 3.4); a visitor's starts empty. */
+  sample?: boolean;
   /** Sends the enquiry; rejects with the refusal reason the form shows under the button (W41). */
   send: (body: WebsiteEnquiryInput) => Promise<void>;
 }

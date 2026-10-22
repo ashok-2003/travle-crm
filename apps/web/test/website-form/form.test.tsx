@@ -216,6 +216,27 @@ describe("the trap, the colour and the preview", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  it("fills the preview with sample answers, only for the questions that are on", () => {
+    renderForm(
+      <WebsiteFormView
+        form={publicFormOf({ fields: { ...publicFormOf().fields, budget: "off", message: "off" } })}
+        mode="preview"
+        sample
+        send={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText("Your name")).toHaveValue("Asha Rao");
+    expect(screen.getByLabelText("Phone")).toHaveValue("98765 43210");
+    expect(screen.getByLabelText("Email")).toHaveValue("asha@example.com");
+    expect(screen.getByRole("combobox", { name: "Where would you like to go?" })).toHaveTextContent("Kashmir");
+    expect(screen.queryByLabelText("Budget")).not.toBeInTheDocument();
+  });
+
+  it("starts a form that is not a sample empty", () => {
+    show({}, "preview");
+    expect(screen.getByLabelText("Your name")).toHaveValue("");
+  });
+
   it("names the agency and links its privacy page", () => {
     show({ privacyUrl: "https://sharma.example/privacy" });
     expect(screen.getByText(/Your details go to Sharma Travels/)).toBeVisible();

@@ -50,6 +50,7 @@ function PreviewBody({ input, frame }: { input: SaveWebsiteFormInput | null; fra
     <div className="overflow-x-auto">
       <WebsiteFormView
         mode="preview"
+        sample
         form={preview.data}
         width={frameWidths[frame]}
         send={() => Promise.reject(new Error("A preview sends nothing"))}

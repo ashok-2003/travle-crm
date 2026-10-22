@@ -17,6 +17,7 @@ import { FormFields } from "./form-fields";
 import { FormHeader } from "./form-header";
 import { emptyFormValues, toEnquiryInput, type FormProblem, type FormValues } from "./form-values";
 import type { WebsiteFormViewProps } from "./form-props";
+import { sampleFormValues } from "./sample-values";
 import { FormRefusal } from "./refusal";
 import { SEND_RETRY_DELAY_MS, sleep } from "./send-enquiry";
 import { useRefusalSentence } from "./use-refusal-sentence";
@@ -48,7 +49,7 @@ function isUnanswered(error: unknown): boolean {
 /** How long a send may take before the visitor is asked to keep the page open (the pilot's api sleeps, W42). */
 const STILL_SENDING_AFTER_MS = 15_000;
 
-export function WebsiteFormView({ form, mode, width, send }: WebsiteFormViewProps) {
+export function WebsiteFormView({ form, mode, width, sample = false, send }: WebsiteFormViewProps) {
   const t = useTranslations("websiteForm.form");
   const tErrors = useTranslations("errors");
   const sentence = useRefusalSentence();
@@ -72,7 +73,7 @@ export function WebsiteFormView({ form, mode, width, send }: WebsiteFormViewProp
     onSubmit,
     formProblem,
   } = useCheckedForm<FormValues, Parameters<typeof send>[0], FormProblem>(
-    emptyFormValues(),
+    sample ? sampleFormValues(form) : emptyFormValues(),
     (answers) => toEnquiryInput(answers, { form, submissionId, via: mode === "embedded" ? "embedded" : "hosted" }),
     (problem) => t(`problems.${problem}`),
   );

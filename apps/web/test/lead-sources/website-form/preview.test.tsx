@@ -59,9 +59,10 @@ describe("Preview", () => {
     expect(await frame()).toHaveStyle({ width: "960px" });
   });
 
-  it("has Send off and says nothing is sent", async () => {
+  it("fills the form with sample answers, has Send off and says nothing is sent", async () => {
     render();
     const dialog = await openPreview();
+    expect(await within(dialog).findByLabelText(messages.websiteForm.form.name)).toHaveValue("Asha Rao");
     expect(await within(dialog).findByRole("button", { name: messages.websiteForm.form.send })).toBeDisabled();
     expect(within(dialog).getByText(messages.websiteForm.form.previewNote)).toBeVisible();
   });
