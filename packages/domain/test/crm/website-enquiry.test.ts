@@ -164,6 +164,32 @@ describe("receiving a website enquiry", () => {
     expect(await inOrg((tx) => tx.destination.count())).toBe(2);
   });
 
+  it("a typed destination is compared literally: % and _ match no destination and sit in the note", async () => {
+    const { send, inOrg } = await setup();
+    await inOrg((tx) =>
+      tx.destination.createMany({ data: [{ name: "Goa" }, { name: "G_a" }, { name: "100% Kerala" }] }),
+    );
+    const exact = freshPhone();
+    for (const [phone, text] of [
+      [freshPhone(), "%"],
+      [freshPhone(), "G%"],
+      [freshPhone(), "Go_"],
+      [exact, "100% kerala"],
+    ] as const) {
+      await send({ phone, destination: { kind: "typed", text } });
+    }
+    const destinationOf = async (phone: string) =>
+      (
+        await inOrg((tx) =>
+          tx.lead.findFirstOrThrow({ where: { person: { phoneE164: phone } }, include: { destination: true } }),
+        )
+      ).destination?.name ?? null;
+    expect(await destinationOf(exact)).toBe("100% Kerala");
+    const noted = (await inOrg((tx) => tx.leadNote.findMany())).map((note) => note.body).sort();
+    expect(noted).toEqual(["Destination asked for: %", "Destination asked for: G%", "Destination asked for: Go_"]);
+    expect(await inOrg((tx) => tx.destination.count())).toBe(3);
+  });
+
   it("the note holds the message, then the destination and email lines", async () => {
     const { send, inOrg } = await setup();
     const phone = freshPhone();

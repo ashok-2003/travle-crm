@@ -105,7 +105,8 @@ async function destinationOf(
   }
   const text = answer.text.trim();
   const named = await tx.destination.findFirst({
-    where: { name: { equals: text, mode: "insensitive" } },
+    // "insensitive" compiles to ILIKE, so escape its pattern characters to compare the name literally.
+    where: { name: { equals: text.replace(/[\\%_]/g, "\\$&"), mode: "insensitive" } },
     select: { id: true },
   });
   return named === null ? { destinationId: null, askedFor: text } : { destinationId: named.id, askedFor: null };
