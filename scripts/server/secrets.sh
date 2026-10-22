@@ -118,6 +118,13 @@ AXIOM_TOKEN=''
 AXIOM_DATASET=''
 AXIOM_URL=''
 
+# The website form (docs/deploy-checklist.md). Caddy replaces X-Forwarded-For with one address, so the hop count stays blank
+# here. Turnstile's two keys are both or neither (docs/serverless.md has the Cloudflare steps); blank leaves the check off,
+# and `check` does not ask for them.
+PUBLIC_FORM_PROXY_HOPS=''
+TURNSTILE_SITE_KEY=''
+TURNSTILE_SECRET_KEY=''
+
 # Web push: one pair for good (made by init); a new pair silently drops every browser's subscription.
 VAPID_PUBLIC_KEY=''
 VAPID_PRIVATE_KEY=''
@@ -183,9 +190,9 @@ set_one() {
 
 # The settings still empty, one per line, but the optional ones: the heartbeat, and the admin connection string the
 # server's own Postgres doesn't need, the Google service accounts, which leave Google Sheets off while blank, and the
-# log settings, which leave Axiom off while blank.
+# log settings, which leave Axiom off while blank, and the website form's, which are blank unless the owner turns Turnstile on.
 empty_settings() {
-  sed -n -E "s/^([A-Z0-9_]+)=''\$/\1/p" "$settings_file" | grep -v -x -E 'BACKUP_HEARTBEAT_URL|DATABASE_ADMIN_URL|GOOGLE_SHEETS_SERVICE_ACCOUNTS|LOG_LEVEL|AXIOM_TOKEN|AXIOM_DATASET|AXIOM_URL' ||
+  sed -n -E "s/^([A-Z0-9_]+)=''\$/\1/p" "$settings_file" | grep -v -x -E 'BACKUP_HEARTBEAT_URL|DATABASE_ADMIN_URL|GOOGLE_SHEETS_SERVICE_ACCOUNTS|LOG_LEVEL|AXIOM_TOKEN|AXIOM_DATASET|AXIOM_URL|PUBLIC_FORM_PROXY_HOPS|TURNSTILE_SITE_KEY|TURNSTILE_SECRET_KEY' ||
     true
 }
 
