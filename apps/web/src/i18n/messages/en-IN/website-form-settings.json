@@ -94,5 +94,36 @@
     "link": "Use an address that starts with https://",
     "tooLong": "That is too long.",
     "required": "Fill this in."
+  },
+  "share": {
+    "heading": "Share",
+    "link": "Link",
+    "linkLabel": "The form's address",
+    "noLink": "Your link appears when you turn the form on.",
+    "copyLink": "Copy the link",
+    "open": "Open",
+    "changeLink": "Change the link",
+    "embed": "Allow my website to show this form",
+    "copySnippet": "Copy the snippet",
+    "tryIt": "Try it yourself: open the link, send an enquiry with your own number, then mark the lead Not a lead.",
+    "changeDialog": {
+      "title": "Change the link?",
+      "description": "The old link and any form already on your website stop working at once. You will have to paste the new snippet.",
+      "action": "Change the link"
+    }
+  },
+  "snippet": {
+    "title": "Put the form on your website",
+    "description": "Paste one of these where the form should appear.",
+    "script": "Script (recommended)",
+    "iframe": "Iframe",
+    "copyScript": "Copy the script",
+    "copyIframe": "Copy the iframe",
+    "scriptHelp": "Paste it where the form should appear. It sizes itself to the form.",
+    "iframeHelp": "Use this if your website builder won't accept scripts. Give it enough height for the form.",
+    "works": "Works in Wix, WordPress, Squarespace, Webflow and plain HTML. Your visitors don't need an account.",
+    "off": "The snippet is off, so a form on your website would not show. Turn on “Allow my website to show this form” to use it.",
+    "saveToApply": "Press Save to apply this.",
+    "done": "Done"
   }
 }

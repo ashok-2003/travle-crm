@@ -32,6 +32,19 @@ export function useWebsiteForm() {
       },
     }),
   );
-  const changeLink = useMutation(trpc.websiteForm.changeLink.mutationOptions({ onSuccess: keep }));
-  return { view, turnOn, turnOff, save, changeLink };
+  return { view, turnOn, turnOff, save };
+}
+
+/** Change the link: the new view replaces the cached one and `onChanged` closes the question that asked, however it is by then. */
+export function useChangeLink(onChanged: () => void) {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  return useMutation(
+    trpc.websiteForm.changeLink.mutationOptions({
+      onSuccess: (next) => {
+        queryClient.setQueryData(trpc.websiteForm.get.queryKey(), next);
+        onChanged();
+      },
+    }),
+  );
 }

@@ -9,6 +9,7 @@ import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { FieldsCard } from "./fields-card";
 import { checkValues, valuesOf, type FormProblem, type FormValues } from "./form-values";
 import { LookCard } from "./look-card";
+import { ShareCard } from "./share-card";
 import { SaveBar } from "./save-bar";
 import type { useWebsiteForm } from "./use-website-form";
 import { LeaveGuard } from "./use-leave-guard";
@@ -47,6 +48,7 @@ export function WebsiteFormEditor({
         });
       })}
     >
+      <ShareCard view={view} control={form.control} />
       <FieldsCard control={form.control} />
       <WordsCard control={form.control} />
       <LookCard />
