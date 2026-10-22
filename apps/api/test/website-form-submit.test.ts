@@ -3,7 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { addBlockedContact } from "@travel-crm/domain/crm";
 import { createMemoryBotCheck } from "@travel-crm/integrations/bot-check";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { ownerAccess } from "./support/people.js";
 import { createTestServer, type TestServer } from "./support/test-server.js";
 import {
@@ -205,6 +205,35 @@ describe("a website enquiry", () => {
       tx.notification.count({ where: { kind: "form.busy", recipientUserId: busy.agency.owner.userId } }),
     );
     expect(notices).toBe(1);
+  });
+
+  it("keeps a refusal by the agency limit cheap: one owner lookup for fifty refusals", async () => {
+    const busy = await agencyWithOpenForm(server);
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      await postEnquiry(server, busy.key, enquiryFor(busy.formId, { homepage: "x" }), { address: null });
+    }
+    const lookups = vi.spyOn(server.identity, "firstOwner");
+    try {
+      for (let attempt = 0; attempt < 50; attempt += 1) {
+        expect((await postEnquiry(server, busy.key, enquiryFor(busy.formId), { address: null })).status).toBe(429);
+      }
+      expect(lookups.mock.calls.length).toBeLessThanOrEqual(1);
+    } finally {
+      lookups.mockRestore();
+    }
+  }, 120_000);
+
+  it("answers 429, never 500, when telling the Owner of a flood fails", async () => {
+    const busy = await agencyWithOpenForm(server);
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      await postEnquiry(server, busy.key, enquiryFor(busy.formId, { homepage: "x" }), { address: null });
+    }
+    const lookups = vi.spyOn(server.identity, "firstOwner").mockRejectedValue(new Error("pool timeout"));
+    try {
+      expect((await postEnquiry(server, busy.key, enquiryFor(busy.formId), { address: null })).status).toBe(429);
+    } finally {
+      lookups.mockRestore();
+    }
   });
 
   it("two racing submissions with one id make one lead", async () => {

@@ -14,6 +14,7 @@ import {
   recordSubmission,
   type WebsiteFormRow,
 } from "@travel-crm/domain/website-forms";
+import { errorFields, type Logger } from "@travel-crm/integrations/logging";
 import { Hono } from "hono";
 import { limitBody } from "./body-limit.js";
 import { hitFormLimits } from "./form-limits.js";
@@ -30,6 +31,8 @@ import {
 /** The enquiry's size cap, in bytes: a message is at most 1,000 characters, so no honest body comes near it. */
 const MAX_BODY_BYTES = 16 * 1024;
 
+const HOUR_MS = 3_600_000;
+
 const badShape = () => new DomainError("VALIDATION", "VALIDATION", "Check your details and try again");
 
 export function websiteFormSubmitRoute(
@@ -41,18 +44,30 @@ export function websiteFormSubmitRoute(
   const { db, identity, limiter, logger, botCheck } = dependencies;
   const app = new Hono<RequestLogEnv>();
 
-  /** The flood notice goes to the Owner once an hour; a key that is wrong or a form that is closed notifies nobody. */
-  async function tellOwnerOfFlood(key: string, organizationId: string, via: FormVia): Promise<void> {
-    const ownerUserId = await identity.firstOwner(organizationId);
-    if (ownerUserId === null) return;
+  /** Agencies this process has told of a flood, by the UTC hour: a refusal must stay as cheap as the limiter makes it. */
+  const toldOfFlood = new Map<string, number>();
+  const MAX_TOLD = 1000;
+
+  /**
+   * The flood notice goes to the Owner once an hour (and notify keeps it to one across processes); a key that is wrong or
+   * a form that is closed notifies nobody. Nothing here may change the 429 it follows.
+   */
+  async function tellOwnerOfFlood(key: string, organizationId: string, via: FormVia, log: Logger): Promise<void> {
     const at = now();
+    const hour = Math.floor(at.getTime() / HOUR_MS);
+    if (toldOfFlood.get(organizationId) === hour) return;
+    toldOfFlood.delete(organizationId);
+    toldOfFlood.set(organizationId, hour);
+    if (toldOfFlood.size > MAX_TOLD) toldOfFlood.delete(toldOfFlood.keys().next().value ?? organizationId);
     try {
+      const ownerUserId = await identity.firstOwner(organizationId);
+      if (ownerUserId === null) return;
       await db.forOrg(organizationId, async (tx) => {
-        const form = await assertFormOpen(tx, { key, organizationId, ownerUserId, via: via, now: at });
+        const form = await assertFormOpen(tx, { key, organizationId, ownerUserId, via, now: at });
         await noteFlood(tx, publicActor(organizationId), { formId: form.id, ownerUserId, now: at });
       });
     } catch (error) {
-      if (!(error instanceof DomainError)) throw error;
+      if (!(error instanceof DomainError)) log.error(errorFields(error), "flood notice failed");
     }
   }
 
@@ -132,7 +147,8 @@ export function websiteFormSubmitRoute(
         kind: "submit",
       });
       if (!limited.allowed) {
-        if (limited.agencyRefused) await tellOwnerOfFlood(key, organizationId, input.via);
+        if (limited.agencyRefused)
+          await tellOwnerOfFlood(key, organizationId, input.via, requestOf(c)?.logger ?? logger);
         return tooManyTries(c, limited.retryAfterSeconds);
       }
       // 4. The form and whether it can take enquiries; outside the save's transaction.
