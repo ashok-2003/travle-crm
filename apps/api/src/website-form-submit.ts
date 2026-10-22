@@ -43,7 +43,7 @@ export function websiteFormSubmitRoute(
   const { db, identity, limiter, logger, turnstile } = dependencies;
   const app = new Hono<RequestLogEnv>();
 
-  /** Agencies this process has told of a flood, by the UTC hour: a refusal must stay as cheap as the limiter makes it. */
+  /** Form keys this process has told of a flood, by the UTC hour: a refusal must stay as cheap as the limiter makes it. */
   const toldOfFlood = new Map<string, number>();
   const MAX_TOLD = 1000;
 
@@ -54,16 +54,17 @@ export function websiteFormSubmitRoute(
   async function tellOwnerOfFlood(key: string, organizationId: string, via: FormVia, log: Logger): Promise<void> {
     const at = now();
     const hour = Math.floor(at.getTime() / HOUR_MS);
-    if (toldOfFlood.get(organizationId) === hour) return;
+    // Marked before the work, so a flood of refusals stays cheap, and by the whole key, so a wrong or stale key of the
+    // same agency has an entry of its own and can't hush the real key's notice.
+    if (toldOfFlood.get(key) === hour) return;
+    toldOfFlood.delete(key);
+    toldOfFlood.set(key, hour);
+    if (toldOfFlood.size > MAX_TOLD) toldOfFlood.delete(toldOfFlood.keys().next().value ?? key);
     try {
       const ownerUserId = await identity.firstOwner(organizationId);
       if (ownerUserId === null) return;
       await db.forOrg(organizationId, async (tx) => {
         const form = await assertFormOpen(tx, { key, organizationId, ownerUserId, via, now: at });
-        // Marked only for a key that opened a form, so a flood on a wrong or stale key can't hush the real one's notice.
-        toldOfFlood.delete(organizationId);
-        toldOfFlood.set(organizationId, hour);
-        if (toldOfFlood.size > MAX_TOLD) toldOfFlood.delete(toldOfFlood.keys().next().value ?? organizationId);
         await noteFlood(tx, publicActor(organizationId), { formId: form.id, ownerUserId, now: at });
       });
     } catch (error) {

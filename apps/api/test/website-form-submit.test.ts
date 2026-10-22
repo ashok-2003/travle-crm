@@ -225,8 +225,8 @@ describe("a website enquiry", () => {
 
   it("is not hushed for the hour by a flood on a wrong key of the same agency", async () => {
     const busy = await agencyWithOpenForm(server);
-    const wrongKey = `${busy.key.slice(0, 22)}${"x".repeat(16)}`;
-    for (let attempt = 0; attempt < 21; attempt += 1) {
+    const wrongKey = `${busy.key.slice(0, 22)}${"A".repeat(16)}`;
+    for (let attempt = 0; attempt < 23; attempt += 1) {
       await postEnquiry(server, wrongKey, enquiryFor(busy.formId), { address: null });
     }
     for (let attempt = 0; attempt < 21; attempt += 1) {
