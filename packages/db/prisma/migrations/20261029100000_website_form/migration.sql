@@ -77,6 +77,12 @@ CREATE INDEX "website_form_submission_person" ON "website_form_submission"("orga
 -- CreateIndex
 CREATE UNIQUE INDEX "website_form_submission_organization_id_submission_id_key" ON "website_form_submission"("organization_id", "submission_id");
 
+-- CreateIndex
+CREATE INDEX "website_form_submission_sweep" ON "website_form_submission"("created_at");
+
+-- CreateIndex
+CREATE INDEX "lead_offered_destinations" ON "lead"("organization_id", "destination_id") WHERE ((deleted_at IS NULL) AND (destination_id IS NOT NULL));
+
 -- AddForeignKey
 ALTER TABLE "person_consent" ADD CONSTRAINT "person_consent_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organization"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 

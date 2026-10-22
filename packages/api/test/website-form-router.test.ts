@@ -108,7 +108,13 @@ describe("websiteForm router", () => {
     expect(second.link).not.toBe(first.link);
     const open = (key: string) =>
       harness.db.forOrg(organizationId, (tx) =>
-        assertFormOpen(tx, { key, organizationId, ownerUserId: owner, now: new Date("2026-10-22T06:00:00Z") }),
+        assertFormOpen(tx, {
+          key,
+          organizationId,
+          ownerUserId: owner,
+          via: "hosted",
+          now: new Date("2026-10-22T06:00:00Z"),
+        }),
       );
     await expect(open(first.key ?? "")).rejects.toMatchObject({ reason: "FORM_NOT_FOUND" });
     await expect(open(second.key ?? "")).resolves.toBeDefined();
@@ -131,6 +137,7 @@ describe("websiteForm router", () => {
     expect(preview).toMatchObject({
       organizationName: "Asha Travels",
       heading: "Plan your trip",
+      thankYouMessage: "Thank you! Asha Travels will get in touch with you soon.",
       openedToken: "preview",
       turnstileSiteKey: null,
       logoUrl: null,

@@ -3,4 +3,11 @@
 export { createContext, type ApiDependencies, type Context } from "./context.js";
 export type { ErrorDetails } from "./errors.js";
 export { appRouter, type AppRouter } from "./routers/app-router.js";
-export { publicFormOf, PREVIEW_TOKEN, type PublicFormServices } from "./public-form.js";
+export {
+  closedFormOf,
+  logoLinkOf,
+  publicFormOf,
+  websiteFormPublicOf,
+  PREVIEW_TOKEN,
+  type PublicFormServices,
+} from "./public-form.js";

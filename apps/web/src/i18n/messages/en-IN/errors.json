@@ -148,7 +148,7 @@
     "FORM_ANSWER_REQUIRED": "Please answer every question marked required.",
     "FORM_LINKS_NOT_ALLOWED": "Please take the web links out of your message.",
     "FORM_BOT_CHECK_FAILED": "We couldn't tell you are a person. Please try again.",
-    "FORM_LINK_INVALID": "A website or privacy address must start with https://",
+    "FORM_LINK_INVALID": "Use a full https:// web address, with a site name and no login in it.",
     "FORM_OFFERS_NOT_AVAILABLE": "This form doesn't take that choice. Reload the page and try again."
   },
   "auth": {

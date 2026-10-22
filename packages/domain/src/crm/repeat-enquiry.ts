@@ -22,7 +22,7 @@ export async function addRepeatEnquiry(
     input: { trip: TripInput; source: LeadSource; sourceDetail: string | null; note: string | null };
   },
   now: Date,
-  options: { notifyOwner: boolean } = { notifyOwner: true },
+  options: { notifyOwner: boolean; auditDetail?: { formId: string } } = { notifyOwner: true },
 ): Promise<void> {
   const { lead, personName, input } = enquiry;
   const trip = await resolveTrip(tx, actor, input.trip);
@@ -44,7 +44,7 @@ export async function addRepeatEnquiry(
     action: "lead.repeat-enquiry",
     entityType: "lead",
     entityId: lead.id,
-    after: { recordId: enquiryId },
+    after: { recordId: enquiryId, ...options.auditDetail },
   });
   await publishEvent(tx, { type: "lead.repeat-enquiry", payload: { leadId: lead.id, enquiryId } });
   if (options.notifyOwner && lead.ownerUserId !== null) {

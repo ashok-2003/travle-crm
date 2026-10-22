@@ -125,6 +125,19 @@ describe("receiving a website enquiry", () => {
     expect(await inOrg((tx) => tx.websiteFormSubmission.count({ where: { outcome: "duplicate" } }))).toBe(1);
   });
 
+  it("three a day holds under parallel sends with different ids: two at once on a person with two leave one saved", async () => {
+    const { send, inOrg } = await setup();
+    // Racing is by chance, so many rounds, each on its own person.
+    for (let round = 0; round < 12; round += 1) {
+      const phone = freshPhone();
+      expect(await send({ phone })).toBe("new_lead");
+      expect(await send({ phone })).toBe("repeat_enquiry");
+      const outcomes = await Promise.all([send({ phone }), send({ phone })]);
+      expect(outcomes.sort(), `round ${String(round)}`).toEqual(["duplicate", "repeat_enquiry"]);
+    }
+    expect(await inOrg((tx) => tx.leadEnquiry.count())).toBe(24);
+  });
+
   it("a repeated submissionId saves nothing and answers as the first", async () => {
     const { send, inOrg } = await setup();
     const submissionId = randomUUID();
@@ -164,6 +177,32 @@ describe("receiving a website enquiry", () => {
     expect(await inOrg((tx) => tx.destination.count())).toBe(2);
   });
 
+  it("a typed destination is compared literally: % and _ match no destination and sit in the note", async () => {
+    const { send, inOrg } = await setup();
+    await inOrg((tx) =>
+      tx.destination.createMany({ data: [{ name: "Goa" }, { name: "G_a" }, { name: "100% Kerala" }] }),
+    );
+    const exact = freshPhone();
+    for (const [phone, text] of [
+      [freshPhone(), "%"],
+      [freshPhone(), "G%"],
+      [freshPhone(), "Go_"],
+      [exact, "100% kerala"],
+    ] as const) {
+      await send({ phone, destination: { kind: "typed", text } });
+    }
+    const destinationOf = async (phone: string) =>
+      (
+        await inOrg((tx) =>
+          tx.lead.findFirstOrThrow({ where: { person: { phoneE164: phone } }, include: { destination: true } }),
+        )
+      ).destination?.name ?? null;
+    expect(await destinationOf(exact)).toBe("100% Kerala");
+    const noted = (await inOrg((tx) => tx.leadNote.findMany())).map((note) => note.body).sort();
+    expect(noted).toEqual(["Destination asked for: %", "Destination asked for: G%", "Destination asked for: Go_"]);
+    expect(await inOrg((tx) => tx.destination.count())).toBe(3);
+  });
+
   it("the note holds the message, then the destination and email lines", async () => {
     const { send, inOrg } = await setup();
     const phone = freshPhone();
@@ -184,12 +223,17 @@ describe("receiving a website enquiry", () => {
     expect(details).toEqual(["sharmatravels.in", "Embedded"]);
   });
 
-  it("the audit entries carry source public", async () => {
-    const { send, inOrg } = await setup();
-    await send();
-    const entries = await inOrg((tx) => tx.auditEntry.findMany({ where: { entityType: { in: ["lead", "person"] } } }));
-    expect(entries.length).toBeGreaterThan(0);
+  it("the audit entries carry source public and the form's id as the detail (W24)", async () => {
+    const { send, inOrg, form } = await setup();
+    const phone = freshPhone();
+    await send({ phone });
+    await send({ phone });
+    const entries = await inOrg((tx) =>
+      tx.auditEntry.findMany({ where: { entityType: { in: ["lead", "person"] } }, orderBy: { id: "asc" } }),
+    );
+    expect(entries.map((entry) => entry.action).sort()).toEqual(["lead.added", "lead.repeat-enquiry", "person.added"]);
     expect(entries.every((entry) => entry.source === "public")).toBe(true);
+    for (const entry of entries) expect(entry.after, entry.action).toMatchObject({ formId: form.id });
   });
 
   it("the owner is told once per new lead", async () => {
@@ -209,12 +253,27 @@ describe("receiving a website enquiry", () => {
     expect(row.personId).not.toBeNull();
   });
 
-  it("an offers tick with the switch off is VALIDATION", async () => {
+  it("offers in any value, true or false, is VALIDATION with the switch off", async () => {
     const { send } = await setup({ offersTickbox: true });
-    await expect(send({ offers: true })).rejects.toMatchObject({
-      code: "VALIDATION",
-      reason: "FORM_OFFERS_NOT_AVAILABLE",
+    for (const offers of [true, false]) {
+      await expect(send({ offers })).rejects.toMatchObject({
+        code: "VALIDATION",
+        reason: "FORM_OFFERS_NOT_AVAILABLE",
+      });
+    }
+    expect(await send({})).toBe("new_lead");
+  });
+
+  it("refuses a submission from the embed with embedding off, and takes the hosted one", async () => {
+    const { send, inOrg, context } = await setup({ allowEmbed: false });
+    await expect(
+      send({}, { via: "embedded" }, { ...context, via: "embedded", embeddedOn: "asha.example" }),
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      reason: "FORM_UNAVAILABLE",
     });
+    expect(await inOrg((tx) => tx.lead.count())).toBe(0);
+    expect(await send({}, { via: "hosted" })).toBe("new_lead");
   });
 
   it("answers every non-refusal outcome with the same status and the same body", () => {

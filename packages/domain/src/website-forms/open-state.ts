@@ -1,7 +1,7 @@
 // Whether a form can take enquiries right now, and why not (W6, W7, F14): one function serves the visitor's page, the
 // submission and the settings page. A visitor is told nothing but "unavailable"; the Owner is told the reason.
 import { timingSafeEqual } from "node:crypto";
-import type { FormState } from "@travel-crm/contracts/website-forms";
+import type { FormState, FormVia } from "@travel-crm/contracts/website-forms";
 import type { OrgTx } from "@travel-crm/db";
 import { DomainError } from "../kernel/index.js";
 import { entitlementsOf, isOnDemoPlan } from "../subscriptions/index.js";
@@ -17,7 +17,14 @@ export type FormClosedReason = NonNullable<FormState["reason"]>;
  */
 export async function formOpenState(
   tx: OrgTx,
-  input: { organizationId: string; form: WebsiteFormRow | null; ownerUserId: string | null; now: Date },
+  input: {
+    organizationId: string;
+    form: WebsiteFormRow | null;
+    ownerUserId: string | null;
+    now: Date;
+    /** The visitor's page; the settings page names none. An embed with embedding off is closed as the form is off. */
+    via?: FormVia;
+  },
 ): Promise<FormState> {
   const closed = (reason: FormClosedReason): FormState => ({ open: false, reason });
   if (await isOnDemoPlan(tx, input.organizationId)) return closed("demo");
@@ -29,6 +36,7 @@ export async function formOpenState(
   if (!entitlements.modules.has("crm")) return closed("plan");
   if (input.ownerUserId === null) return closed("no_owner");
   if (!input.form?.enabled) return closed("off");
+  if (input.via === "embedded" && !input.form.allowEmbed) return closed("off");
   return { open: true, reason: null };
 }
 
@@ -55,7 +63,7 @@ function sameSecret(given: string, stored: string): boolean {
  */
 export async function assertFormOpen(
   tx: OrgTx,
-  input: { key: string; organizationId: string; ownerUserId: string | null; now: Date },
+  input: { key: string; organizationId: string; ownerUserId: string | null; via: FormVia; now: Date },
 ): Promise<WebsiteFormRow> {
   const parsed = parseFormKey(input.key);
   if (parsed?.organizationId !== input.organizationId) throw notFound();

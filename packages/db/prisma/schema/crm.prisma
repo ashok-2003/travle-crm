@@ -110,6 +110,8 @@ model Lead {
   @@index([organizationId, createdAt], map: "lead_live_by_created", where: { deletedAt: null })
   @@index([organizationId, personId], map: "lead_person")
   @@index([organizationId, destinationId], map: "lead_destination")
+  /// The website form's offered destinations: live leads counted by destination.
+  @@index([organizationId, destinationId], map: "lead_offered_destinations", where: raw("((deleted_at IS NULL) AND (destination_id IS NOT NULL))"))
   @@map("lead")
 }
 

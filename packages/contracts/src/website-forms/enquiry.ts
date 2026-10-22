@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { emailAddress } from "../identity/fields.js";
 import { phoneNumber } from "../kernel/phone.js";
+import { formVia } from "./public-form.js";
 import { calendarMonth } from "../crm/trip.js";
 
 /** A web address in free text: a scheme, "www.", or a bare name ending in a common domain. Spam's mark (W38). */
@@ -59,7 +60,7 @@ export const websiteEnquiryInput = z.strictObject({
   /** Made by the page when it loads, sent with every attempt (W21). */
   submissionId: z.uuid(),
   openedToken: z.string().min(1).max(512),
-  via: z.enum(["hosted", "embedded"]),
+  via: formVia,
   /** The host the embed sits on, for the lead's detail. */
   embeddedOn: z.string().max(80).optional(),
   /** The honeypot: a person leaves it empty (W36). */

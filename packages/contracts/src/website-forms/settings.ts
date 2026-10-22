@@ -42,10 +42,16 @@ const secureLink = z
   .nullable()
   .refine((link) => link === null || isSecureLink(link), { message: "FORM_LINK_INVALID" });
 
-function isSecureLink(link: string): boolean {
+/**
+ * Whether a link may be shown to visitors as the agency's: https, a real host name (never an address), no credentials in it.
+ * The same check serves the contract and the domain.
+ */
+export function isSecureLink(link: string): boolean {
   try {
     const url = new URL(link);
-    return url.protocol === "https:" && url.hostname.includes(".");
+    if (url.protocol !== "https:" || url.username !== "" || url.password !== "") return false;
+    const isAddress = /^\d{1,3}(\.\d{1,3}){3}$/.test(url.hostname) || url.hostname.startsWith("[");
+    return url.hostname.includes(".") && !isAddress;
   } catch {
     return false;
   }
