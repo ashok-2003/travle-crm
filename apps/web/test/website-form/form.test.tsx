@@ -261,7 +261,7 @@ describe("sending", () => {
     show(
       {},
       "hosted",
-      vi.fn(() => Promise.reject(new FormRefusal(null, 503))),
+      vi.fn(() => Promise.reject(new FormRefusal(null, 400))),
     );
     await fillTheBasics();
     await userEvent.click(screen.getByRole("button", { name: "Send enquiry" }));

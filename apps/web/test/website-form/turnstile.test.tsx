@@ -139,9 +139,15 @@ describe("the Turnstile widget", () => {
     expect(send.mock.calls[1]?.[0].turnstileToken).toBe("token-1");
   });
 
-  it("asks for a new token after a server fault, which may have come after the check", async () => {
+  it("gets a new token before an automatic resend and keeps the submission id", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     const { turnstile, solve, install } = stubTurnstile();
-    show(vi.fn(() => Promise.reject(new FormRefusal(null, 503))));
+    const send = show(
+      vi
+        .fn<(body: WebsiteEnquiryInput) => Promise<void>>()
+        .mockRejectedValueOnce(new FormRefusal(null, 503))
+        .mockResolvedValue(undefined),
+    );
     await loadScript(install);
     await waitFor(() => {
       expect(turnstile.render).toHaveBeenCalled();
@@ -149,8 +155,39 @@ describe("the Turnstile widget", () => {
     await fillIn();
     solve("token-1");
     await userEvent.click(screen.getByRole("button", { name: "Send enquiry" }));
-    await screen.findByRole("alert");
-    expect(turnstile.reset).toHaveBeenCalledWith("widget-1");
+    await waitFor(() => {
+      expect(turnstile.reset).toHaveBeenCalledWith("widget-1");
+    });
+    // The old token is not sent again: the resend waits for the widget's next one.
+    await act(() => vi.advanceTimersByTimeAsync(3_100));
+    expect(send).toHaveBeenCalledTimes(1);
+    solve("token-2");
+    await waitFor(() => {
+      expect(send).toHaveBeenCalledTimes(2);
+    });
+    expect(send.mock.calls[1]?.[0].turnstileToken).toBe("token-2");
+    expect(send.mock.calls[1]?.[0].submissionId).toBe(send.mock.calls[0]?.[0].submissionId);
+    vi.useRealTimers();
+  });
+
+  it("shows the sentence if no new token comes for a resend", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { turnstile, solve, install } = stubTurnstile();
+    const send = show(vi.fn(() => Promise.reject(new FormRefusal(null, 503))));
+    await loadScript(install);
+    await waitFor(() => {
+      expect(turnstile.render).toHaveBeenCalled();
+    });
+    await fillIn();
+    solve("token-1");
+    await userEvent.click(screen.getByRole("button", { name: "Send enquiry" }));
+    await waitFor(() => {
+      expect(turnstile.reset).toHaveBeenCalled();
+    });
+    await act(() => vi.advanceTimersByTimeAsync(20_000));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong on our side");
+    expect(send).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
   });
 
   it("never sends without a token: a script that cannot load shows the bot-check sentence and Try again", async () => {

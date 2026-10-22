@@ -1,5 +1,5 @@
 // Sends the visitor's enquiry to the api (W28: same origin, JSON, no cookies) and says why when it was refused. A 5xx or
-// no answer is tried once more with the same body after a short wait, because the pilot's api may be waking (W41, W42).
+// no answer is tried once more by the form (website-form-view.tsx), which first gets a new Turnstile token: one works once.
 import { z } from "zod";
 import { FormRefusal } from "./refusal";
 
@@ -40,11 +40,7 @@ async function post(url: string, body: string): Promise<Response | null> {
 export async function postEnquiry(key: string, enquiry: unknown): Promise<void> {
   const url = `${publicFormUrl(key)}/enquiries`;
   const body = JSON.stringify(enquiry);
-  let response = await post(url, body);
-  if (response === null || response.status >= 500) {
-    await sleep(SEND_RETRY_DELAY_MS);
-    response = await post(url, body);
-  }
+  const response = await post(url, body);
   if (response?.ok) return;
   throw new FormRefusal(response === null ? null : await reasonOf(response), response?.status ?? 0);
 }

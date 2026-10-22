@@ -18,7 +18,9 @@ import { FormHeader } from "./form-header";
 import { emptyFormValues, toEnquiryInput, type FormProblem, type FormValues } from "./form-values";
 import type { WebsiteFormViewProps } from "./form-props";
 import { FormRefusal } from "./refusal";
+import { SEND_RETRY_DELAY_MS, sleep } from "./send-enquiry";
 import { useRefusalSentence } from "./use-refusal-sentence";
+import { useTokenWaiter } from "./use-token-waiter";
 
 // Only a form whose server has Turnstile keys loads the widget, and so its code.
 const TurnstileWidget = lazy(() =>
@@ -33,6 +35,14 @@ const TurnstileWidget = lazy(() =>
 function spentTheToken(error: unknown): boolean {
   if (!(error instanceof FormRefusal)) return true;
   return error.reason === "FORM_BOT_CHECK_FAILED" || error.status === 0 || error.status >= 500;
+}
+
+/** How long a resend waits for the widget's new token before giving up with the original failure. */
+const NEW_TOKEN_WAIT_MS = 15_000;
+
+/** A send nobody answered, or the api's fault: worth one more try. */
+function isUnanswered(error: unknown): boolean {
+  return error instanceof FormRefusal && (error.status === 0 || error.status >= 500);
 }
 
 /** How long a send may take before the visitor is asked to keep the page open (the pilot's api sleeps, W42). */
@@ -78,10 +88,36 @@ export function WebsiteFormView({ form, mode, width, send }: WebsiteFormViewProp
     };
   }, [sending]);
 
+  const tokens = useTokenWaiter(
+    setToken,
+    () => {
+      setNewCheck((count) => count + 1);
+    },
+    NEW_TOKEN_WAIT_MS,
+  );
+
+  /**
+   * Sends once; if nothing answered or the api faulted (it may be waking, W42), once more after a short wait with the same
+   * body and so the same submission id. A token is verified once, so the resend takes a new one first (W39).
+   */
+  async function deliver(body: Parameters<typeof send>[0]): Promise<void> {
+    try {
+      await send(token === null ? body : { ...body, turnstileToken: token });
+    } catch (error) {
+      if (!isUnanswered(error)) throw error;
+      const [fresh] = await Promise.all([
+        checking ? tokens.next().catch(() => null) : null,
+        sleep(SEND_RETRY_DELAY_MS),
+      ]);
+      if (checking && fresh === null) throw error;
+      await send(fresh === null ? body : { ...body, turnstileToken: fresh });
+    }
+  }
+
   const submit = onSubmit((body) => {
     setRefusal(null);
     setSending(true);
-    void send(token === null ? body : { ...body, turnstileToken: token })
+    void deliver(body)
       .catch((error: unknown) => {
         setRefusal(sentence(error));
         if (checking && spentTheToken(error)) {
@@ -135,7 +171,7 @@ export function WebsiteFormView({ form, mode, width, send }: WebsiteFormViewProp
                 key={widgetAttempt}
                 siteKey={form.turnstileSiteKey}
                 resetKey={newCheck}
-                onToken={setToken}
+                onToken={tokens.arrived}
                 onUnavailable={() => {
                   setCheckFailed(true);
                 }}
