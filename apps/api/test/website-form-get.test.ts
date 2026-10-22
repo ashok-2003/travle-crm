@@ -211,7 +211,8 @@ describe("the public page's limits and malformed keys", () => {
     try {
       const open = await agencyWithOpenForm(server);
       expect((await getForm(server, open.key, null)).status).toBe(200);
-      expect(limiter.keys.filter((key) => key.startsWith("form-view"))).toEqual([]);
+      // Only the agency's own views are counted, so views without an address are still bounded.
+      expect(limiter.keys).toEqual([`form-view-agency:${open.key}`]);
     } finally {
       await server.close();
     }

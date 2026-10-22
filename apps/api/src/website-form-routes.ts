@@ -51,7 +51,7 @@ export function websiteFormRoutes(dependencies: WebsiteFormRouteDependencies): H
     const limited = await hitFormLimits({
       limiter,
       logger,
-      organizationId,
+      key,
       address: addressOf(c.req.raw),
       kind: "view",
     });

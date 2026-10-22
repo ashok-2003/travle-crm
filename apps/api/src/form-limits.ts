@@ -1,7 +1,9 @@
-// The website form's rate limits in the order of spec 6.1/6.3, over the Postgres limiter. With no readable address the
-// per-address limits are skipped, never pooled into one shared bucket (W35); the agency's limit then drops to 20 an hour.
+// The website form's rate limits in the order of spec 6.1/6.3, over the Postgres limiter. The cheapest come first: the
+// address's own buckets. The agency's are keyed by the whole form key, not the organization id, so a link the Owner
+// replaced no longer counts against the new one. With no readable address the per-address limits are skipped, never
+// pooled into one shared bucket (W35), and the agency's 60 an hour lowers to 20 for such requests, inside the same 60.
 import { formLimits } from "@travel-crm/domain/website-forms";
-import type { RateLimiter, RateLimitRule } from "@travel-crm/domain/rate-limits";
+import type { RateLimiter } from "@travel-crm/domain/rate-limits";
 import type { Logger } from "@travel-crm/integrations/logging";
 
 export type FormLimitResult = { allowed: true } | { allowed: false; retryAfterSeconds: number; agencyRefused: boolean };
@@ -25,44 +27,45 @@ function warnOnce(logger: Logger): void {
 }
 
 /**
- * Counts one attempt against each limit that applies and stops at the first refusal. A view counts the address alone; a
- * submission counts agency+address, address, then the agency (so one address can't use up an agency's hour for itself
- * alone before its own limits refuse it).
+ * Counts one attempt against each limit that applies and stops at the first refusal. A submission counts the address,
+ * then the agency with that address, then (with no address) the agency's lower share, then the agency's 60 in all: so a
+ * flood without addresses stops at 20 and leaves the other 40 for visitors who have one. A view counts the address, then
+ * the agency's 600.
  */
 export async function hitFormLimits(input: {
   limiter: Pick<RateLimiter, "hit">;
   logger: Logger;
-  organizationId: string;
+  /** The whole form key (as the visitor's page sent it). */
+  key: string;
   address: string | null;
   kind: "view" | "submit";
 }): Promise<FormLimitResult> {
-  const { limiter, organizationId, address } = input;
-  const steps: { name: string; rule: RateLimitRule; agency: boolean }[] = [];
+  const { limiter, key, address } = input;
   if (address === null) warnOnce(input.logger);
-  if (input.kind === "view") {
-    if (address !== null) steps.push({ name: `form-view:${address}`, rule: formLimits.view, agency: false });
-  } else {
-    if (address !== null) {
-      steps.push(
-        {
-          name: `form-submit-agency-visitor:${organizationId}:${address}`,
-          rule: formLimits.submitAgencyVisitor,
-          agency: false,
-        },
-        { name: `form-submit-visitor:${address}`, rule: formLimits.submitVisitor, agency: false },
-      );
-    }
-    steps.push({
-      // The two rules count apart: the same bucket would mix a 60 limit with a 20 one.
-      name: `${address === null ? "form-submit-agency-no-address" : "form-submit-agency"}:${organizationId}`,
-      rule: address === null ? formLimits.submitAgencyNoAddress : formLimits.submitAgency,
-      agency: true,
-    });
-  }
+  const steps =
+    input.kind === "view"
+      ? [
+          ...(address === null ? [] : [{ name: `form-view:${address}`, rule: formLimits.view, agency: false }]),
+          { name: `form-view-agency:${key}`, rule: formLimits.viewAgency, agency: true },
+        ]
+      : [
+          ...(address === null
+            ? [{ name: `form-submit-agency-no-address:${key}`, rule: formLimits.submitAgencyNoAddress, agency: true }]
+            : [
+                { name: `form-submit-visitor:${address}`, rule: formLimits.submitVisitor, agency: false },
+                {
+                  name: `form-submit-agency-visitor:${key}:${address}`,
+                  rule: formLimits.submitAgencyVisitor,
+                  agency: false,
+                },
+              ]),
+          { name: `form-submit-agency:${key}`, rule: formLimits.submitAgency, agency: true },
+        ];
   for (const step of steps) {
     const result = await limiter.hit(step.name, step.rule);
-    if (!result.allowed)
+    if (!result.allowed) {
       return { allowed: false, retryAfterSeconds: result.retryAfterSeconds, agencyRefused: step.agency };
+    }
   }
   return { allowed: true };
 }
