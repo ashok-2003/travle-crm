@@ -12,9 +12,3 @@ export {
   type SharedRecord,
   type ShareLinkVisitor,
 } from "./share-links.js";
-/** Tokens that name their organization in the clear and keep only a secret's hash: share links', and connectors'. */
-export {
-  hashSecret,
-  newShareLinkToken as newOrganizationToken,
-  parseShareLinkToken as parseOrganizationToken,
-} from "./token.js";
