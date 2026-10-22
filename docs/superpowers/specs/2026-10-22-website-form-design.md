@@ -1,8 +1,7 @@
 # Website enquiry form: a hosted link and a snippet for the agency's own site
 
-- **Status:** draft for the owner, 2026-10-22. Section 0 holds the development lead's eight recommendations; each is
-  **pending owner confirmation** (the owner is confirming them with the project manager). The screens, the numbers and
-  the calls in section 17 are for the owner to approve.
+- **Status:** approved by the owner, 2026-10-22: section 0's eight, the mockup, the calls in section 17 and the
+  three answers in section 0.1.
 - **Date:** 2026-10-22
 - **Scope:** Phase 1, release 3, first half: an enquiry form every agency can share by link and paste into its own
   website. Enquiries become leads through the one save path of release 1. The link other tools post to (Zapier, Pabbly,
@@ -14,30 +13,42 @@
   differently and why.
 - **Mockup:** `2026-10-22-website-form-screens.html`, beside this file. Where it and this text differ, this text wins.
 
-## 0. For the owner to confirm (pending owner confirmation)
+## 0. The owner's decisions
 
-Each line is a recommendation, not yet a decision. Say "yes" or change it; the rest of the document follows these.
+The owner approved these on 2026-10-22; the rest of the document follows them.
 
-1. **Two ways in, one form** (pending owner confirmation): a hosted link per agency (for an Instagram bio, a WhatsApp
+1. **Two ways in, one form**: a hosted link per agency (for an Instagram bio, a WhatsApp
    status, a QR) and a small snippet to paste into the agency's own website. Both show the same form from the same
    settings and feed the same lead path.
-2. **A fixed set of fields** (pending owner confirmation): name and phone always; email, destination, travel month,
+2. **A fixed set of fields**: name and phone always; email, destination, travel month,
    travellers, budget and a message can each be switched off, optional or required. No custom questions.
-3. **One form per agency for now** (pending owner confirmation).
-4. **Spam protection** (pending owner confirmation): a hidden trap field, a minimum fill time, limits per visitor
+3. **One form per agency for now**.
+4. **Spam protection**: a hidden trap field, a minimum fill time, limits per visitor
    address and per agency, and optional Cloudflare Turnstile (free) that the owner switches on later by setting two keys.
    It needs the api to know the real visitor address behind Render and Vercel, which section 6.2 settles with a
    configured number of proxy hops, for the forms only.
-5. **An optional "Send me offers" tickbox** (pending owner confirmation), unticked by default, kept per person with the
+5. **An optional "Send me offers" tickbox**, unticked by default, kept per person with the
    words the person saw.
-6. **The agency's look** (pending owner confirmation): its logo, name and brand colour from its Business profile on the
+6. **The agency's look**: its logo, name and brand colour from its Business profile on the
    hosted form; a thank-you message the agency writes; an optional "go to my website" link afterwards.
-7. **The same rules as every lead** (pending owner confirmation): one person per phone, a repeat enquiry lands on the
+7. **The same rules as every lead**: one person per phone, a repeat enquiry lands on the
    open lead, Returning, blocked contacts left out quietly (the visitor still sees "thank you"); source "Website form";
    the agency Owner owns the lead and gets the usual new-lead notice; the subscription's state and the plan's modules
    apply, so a lapsed agency's form says it is unavailable.
-8. **English only** (pending owner confirmation): the form's own words are English; what the agency writes (heading,
+8. **English only**: the form's own words are English; what the agency writes (heading,
    thank-you) and what visitors type may be in any script.
+
+### 0.1 The owner's three answers (2026-10-22)
+
+1. **Any https website may embed the form** (W30, as written).
+2. **"Send me offers" stays off until a legal review.** Build it (W25-W27, 3.9, 7.3), but behind
+   `features.marketingConsent = false` in `packages/contracts/src/features/index.ts`, as `automaticAssignment` is:
+   while it is false the form's page shows no consent switch, the form never shows the tickbox, and the api refuses
+   `consent` in a submission's input. Tests turn it on with `vi.mock("@travel-crm/contracts/features", ...)`; journeys
+   follow the constant. Turning it on is the owner's call once someone who knows India's data protection law has read
+   the wording.
+3. **The stronger address protection (a Vercel function that signs the visitor's address) waits** until real abuse
+   shows (6.2, call 5 in section 17).
 
 ## 1. Why this feature
 
@@ -290,7 +301,7 @@ offers on 3 Nov" and nothing else.
 
 ### 4.3 Consent
 
-- **W25. "Send me offers."** Off by default (the agency switches it on, W2). When on, the form shows an unticked
+- **W25. "Send me offers."** Behind `features.marketingConsent`, false until a legal review (0.1). Off by default (the agency switches it on, W2). When on, the form shows an unticked
   `Checkbox` with the words "Send me travel offers and updates from {agency name}." and, once ticked or not, nothing
   else changes. Ticking records consent in the person's ledger (7.3): the action "granted", the purpose "marketing",
   the **exact words shown**, the source `web_form`, the form's id and the time. An unticked box records nothing and
@@ -689,7 +700,7 @@ Nothing is needed to ship the form: it works with no new setting and no keys. Th
 
 ## 17. Decisions I made
 
-The development lead's eight (section 0) are the owner's to confirm. These calls are mine, each open to change:
+The owner approved these with the rest on 2026-10-22:
 
 1. **The page lives in the web app, rendered in the browser (5.1):** it must work through the api's sleep and keep the service worker out;
    the cost is a generic link preview when the api is asleep.
