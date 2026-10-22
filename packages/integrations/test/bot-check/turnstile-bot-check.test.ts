@@ -44,7 +44,7 @@ describe("createTurnstileBotCheck", () => {
   it("posts the secret and token, never the address, and reads success", async () => {
     respond(200, '{"success":true}');
     const check = createTurnstileBotCheck({ secretKey: SECRET, verifyUrl: url });
-    expect(await check.verify({ token: "tok", address: "203.0.113.9" })).toBe("pass");
+    expect(await check.verify({ token: "tok" })).toBe("pass");
     expect(received?.get("secret")).toBe(SECRET);
     expect(received?.get("response")).toBe("tok");
     // Only a counted network (an IPv6 /64) is known here, and remoteip is optional: Cloudflare gets none.
@@ -56,7 +56,7 @@ describe("createTurnstileBotCheck", () => {
     const check = createTurnstileBotCheck({ secretKey: SECRET, verifyUrl: url, logger });
     const answer = async (status: number, body: string) => {
       respond(status, body);
-      return check.verify({ token: "t", address: null });
+      return check.verify({ token: "t" });
     };
     const refusal = (code: string) => `{"success":false,"error-codes":["${code}"]}`;
     expect(await answer(200, refusal("invalid-input-response"))).toBe("fail");
@@ -77,27 +77,27 @@ describe("createTurnstileBotCheck", () => {
   it("reads a refusal as fail", async () => {
     respond(200, '{"success":false,"error-codes":["invalid-input-response"]}');
     const check = createTurnstileBotCheck({ secretKey: SECRET, verifyUrl: url });
-    expect(await check.verify({ token: "bad", address: null })).toBe("fail");
+    expect(await check.verify({ token: "bad" })).toBe("fail");
   });
 
   it("reads a 500, a timeout and a network error as unreachable", async () => {
     const check = createTurnstileBotCheck({ secretKey: SECRET, verifyUrl: url, timeoutMs: 100 });
     respond(500, "oops");
-    expect(await check.verify({ token: "t", address: null })).toBe("unreachable");
+    expect(await check.verify({ token: "t" })).toBe("unreachable");
     respond(200, '{"success":true}', 500);
-    expect(await check.verify({ token: "t", address: null })).toBe("unreachable");
+    expect(await check.verify({ token: "t" })).toBe("unreachable");
     const refused = createTurnstileBotCheck({ secretKey: SECRET, verifyUrl: "http://127.0.0.1:1/x" });
-    expect(await refused.verify({ token: "t", address: null })).toBe("unreachable");
+    expect(await refused.verify({ token: "t" })).toBe("unreachable");
   });
 
   it("reads a body that is not JSON as unreachable, and never throws a message holding the secret", async () => {
     respond(200, "<html>");
     const check = createTurnstileBotCheck({ secretKey: SECRET, verifyUrl: url });
-    await expect(check.verify({ token: "t", address: null })).resolves.toBe("unreachable");
+    await expect(check.verify({ token: "t" })).resolves.toBe("unreachable");
     const failing = createTurnstileBotCheck({
       secretKey: SECRET,
       fetch: () => Promise.reject(new Error(`could not reach with ${SECRET}`)),
     });
-    await expect(failing.verify({ token: "t", address: null })).resolves.toBe("unreachable");
+    await expect(failing.verify({ token: "t" })).resolves.toBe("unreachable");
   });
 });

@@ -4,19 +4,19 @@ import type { BotCheck, BotCheckResult } from "./bot-check.js";
 export interface MemoryBotCheck extends BotCheck {
   /** The answer for every later check (pass until told otherwise). */
   willAnswer(result: BotCheckResult): void;
-  seen(): { token: string; address: string | null }[];
+  seen(): { token: string }[];
 }
 
 export function createMemoryBotCheck(): MemoryBotCheck {
   let answer: BotCheckResult = "pass";
-  const seen: { token: string; address: string | null }[] = [];
+  const seen: { token: string }[] = [];
   return {
     willAnswer: (result) => {
       answer = result;
     },
     seen: () => [...seen],
     verify: (input) => {
-      seen.push({ token: input.token, address: input.address });
+      seen.push({ token: input.token });
       return Promise.resolve(answer);
     },
   };

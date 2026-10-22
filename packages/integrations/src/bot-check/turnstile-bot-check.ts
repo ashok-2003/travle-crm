@@ -35,7 +35,7 @@ export function createTurnstileBotCheck(options: TurnstileSettings): BotCheck {
     options.logger?.error({ turnstile: what }, "Turnstile refused our request, so enquiries are accepted unchecked");
   };
   return {
-    // The address is not sent: only its rate-limit form is known here, and Cloudflare's remoteip is optional.
+    // No address is sent: Cloudflare's remoteip is optional.
     verify: async ({ token }) => {
       const body = new URLSearchParams({ secret: options.secretKey, response: token });
       try {

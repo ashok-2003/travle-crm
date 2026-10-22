@@ -25,21 +25,21 @@ afterAll(async () => {
 describe("the fake Turnstile", () => {
   it("passes a good token once and refuses it the second time", async () => {
     const token = turnstileTokenFor("pass");
-    expect(await check.verify({ token, address: null })).toBe("pass");
-    expect(await check.verify({ token, address: null })).toBe("fail");
+    expect(await check.verify({ token })).toBe("pass");
+    expect(await check.verify({ token })).toBe("fail");
   });
 
   it("refuses a token made to fail", async () => {
-    expect(await check.verify({ token: turnstileTokenFor("fail"), address: null })).toBe("fail");
+    expect(await check.verify({ token: turnstileTokenFor("fail") })).toBe("fail");
   });
 
   it("is unreachable for a token made to error, so the enquiry is accepted", async () => {
-    expect(await check.verify({ token: turnstileTokenFor("error"), address: null })).toBe("unreachable");
+    expect(await check.verify({ token: turnstileTokenFor("error") })).toBe("unreachable");
   });
 
   it("tells the journeys which tokens the api asked about", async () => {
     const token = turnstileTokenFor("pass");
-    await check.verify({ token, address: null });
+    await check.verify({ token });
     expect(await verifiedTokens(fake.verifyUrl)).toContain(token);
   });
 
