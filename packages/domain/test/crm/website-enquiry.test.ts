@@ -125,6 +125,19 @@ describe("receiving a website enquiry", () => {
     expect(await inOrg((tx) => tx.websiteFormSubmission.count({ where: { outcome: "duplicate" } }))).toBe(1);
   });
 
+  it("three a day holds under parallel sends with different ids: two at once on a person with two leave one saved", async () => {
+    const { send, inOrg } = await setup();
+    // Racing is by chance, so many rounds, each on its own person.
+    for (let round = 0; round < 12; round += 1) {
+      const phone = freshPhone();
+      expect(await send({ phone })).toBe("new_lead");
+      expect(await send({ phone })).toBe("repeat_enquiry");
+      const outcomes = await Promise.all([send({ phone }), send({ phone })]);
+      expect(outcomes.sort(), `round ${String(round)}`).toEqual(["duplicate", "repeat_enquiry"]);
+    }
+    expect(await inOrg((tx) => tx.leadEnquiry.count())).toBe(24);
+  });
+
   it("a repeated submissionId saves nothing and answers as the first", async () => {
     const { send, inOrg } = await setup();
     const submissionId = randomUUID();

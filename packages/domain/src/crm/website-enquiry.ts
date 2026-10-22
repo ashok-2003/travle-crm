@@ -148,6 +148,9 @@ export async function receiveWebsiteEnquiry(
     return "blocked";
   }
   const known = await matchPerson(tx, { phone: answers.phone });
+  // Submissions with different ids for one person take turns here, so W22's count can't be passed by sending at once.
+  // Always taken after the submission id's lock (findSubmission), so the order is fixed.
+  if (known !== null) await tx.$queryRaw`SELECT id FROM person WHERE id = ${known.person.id}::uuid FOR UPDATE`;
   if (known !== null && (await recentEnquiryCount(tx, known.person.id, now)) >= formLimits.perPersonPerDay) {
     await record("duplicate", { personId: known.person.id });
     return "duplicate";
