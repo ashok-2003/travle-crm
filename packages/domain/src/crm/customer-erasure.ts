@@ -24,6 +24,10 @@ export interface ErasedCustomer {
   enquiries: number;
   timelineEntries: number;
   blockedContacts: number;
+  /** The person's consent rows, deleted (the sentence they saw and when). */
+  consentRows: number;
+  /** The website form's ledger rows that named them or their leads, now naming nobody. */
+  ledgerRows: number;
 }
 
 /**
@@ -41,7 +45,16 @@ export async function eraseCustomer(tx: OrgTx, subject: CustomerSubject): Promis
       where: { organizationId, id: personId },
       select: { phoneE164: true, email: true, instagramHandle: true, erasedAt: true },
     });
-    if (person === null) return { leadIds: [], notes: 0, enquiries: 0, timelineEntries: 0, blockedContacts: 0 };
+    if (person === null)
+      return {
+        leadIds: [],
+        notes: 0,
+        enquiries: 0,
+        timelineEntries: 0,
+        blockedContacts: 0,
+        consentRows: 0,
+        ledgerRows: 0,
+      };
     const leads = await tx.lead.findMany({
       where: { organizationId, personId },
       select: { id: true },
@@ -66,6 +79,13 @@ export async function eraseCustomer(tx: OrgTx, subject: CustomerSubject): Promis
         : await tx.$executeRaw(sql`
             DELETE FROM blocked_contact
             WHERE organization_id = ${organizationId}::uuid AND (${joinSql(held, " OR ")})`);
+    // The consent ledger holds a person's agreement; it goes with them. The website form's ledger keeps only the
+    // outcome, so it is emptied of ids instead (only the platform role may update or delete either).
+    const consentRows = await tx.personConsent.deleteMany({ where: { organizationId, personId } });
+    const ledgerRows = await tx.websiteFormSubmission.updateMany({
+      where: { organizationId, OR: [{ personId }, { leadId: { in: leadIds } }] },
+      data: { personId: null, leadId: null },
+    });
     await tx.lead.updateMany({ where: { organizationId, personId }, data: { sourceDetail: null } });
     await tx.lead.updateMany({ where: { organizationId, personId, deletedAt: null }, data: { deletedAt: now } });
     const emptied = { name: "", phoneE164: null, email: null, instagramHandle: null, erasedAt: person.erasedAt ?? now };
@@ -77,6 +97,8 @@ export async function eraseCustomer(tx: OrgTx, subject: CustomerSubject): Promis
       enquiries: enquiries.count,
       timelineEntries: timelineEntries.count,
       blockedContacts,
+      consentRows: consentRows.count,
+      ledgerRows: ledgerRows.count,
     };
   });
 }
