@@ -9,6 +9,8 @@ import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
 import { BackLink } from "@/components/text-link";
 import { routes } from "@/lib/routes";
+import { CountsCard } from "./counts-card";
+import { HelpCard } from "./help-card";
 import { StatusCard } from "./status-card";
 import { useWebsiteForm } from "./use-website-form";
 import { WebsiteFormEditor } from "./website-form-editor";
@@ -41,7 +43,10 @@ export function WebsiteFormScreen() {
         intro={view.ownerName === null ? t("introNoOwner") : t("intro", { owner: view.ownerName })}
       />
       <StatusCard view={view} turnOn={turnOn} turnOff={turnOff} />
-      <WebsiteFormEditor view={view} save={save} />
+      <WebsiteFormEditor view={view} save={save}>
+        <CountsCard />
+        <HelpCard />
+      </WebsiteFormEditor>
     </div>
   );
 }

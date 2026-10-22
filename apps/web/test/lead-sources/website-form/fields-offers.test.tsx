@@ -21,6 +21,7 @@ describe("the offers switch", () => {
     stubApi({
       "websiteForm.get": { data: aWebsiteFormView() },
       "websiteForm.save": { data: aWebsiteFormView() },
+      "websiteForm.counts": { data: { enquiries: 0, newLeads: 0, repeatEnquiries: 0, stopped: 0 } },
       "organization.logo.get": { data: null },
       "organization.branding.get": { data: null },
     });

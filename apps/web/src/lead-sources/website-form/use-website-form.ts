@@ -21,6 +21,8 @@ export function useWebsiteForm() {
   const view = useWebsiteFormView();
   const keep = (next: WebsiteFormView) => {
     queryClient.setQueryData(trpc.websiteForm.get.queryKey(), next);
+    // A form turned on, off or saved changes what the last 30 days will count.
+    void queryClient.invalidateQueries({ queryKey: trpc.websiteForm.counts.queryKey() });
   };
   const turnOn = useMutation(trpc.websiteForm.turnOn.mutationOptions({ onSuccess: keep }));
   const turnOff = useMutation(trpc.websiteForm.turnOff.mutationOptions({ onSuccess: keep }));

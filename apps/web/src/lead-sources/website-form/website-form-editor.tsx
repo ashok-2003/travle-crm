@@ -4,6 +4,7 @@
 // while nothing is edited, and saved together by Save. Leaving with edits asks once.
 import type { SaveWebsiteFormInput, WebsiteFormView } from "@travel-crm/contracts/website-forms";
 import { useTranslations } from "next-intl";
+import type { ReactNode } from "react";
 import { useEffect } from "react";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { FieldsCard } from "./fields-card";
@@ -18,9 +19,12 @@ import { WordsCard } from "./words-card";
 export function WebsiteFormEditor({
   view,
   save,
+  children,
 }: {
   view: WebsiteFormView;
   save: ReturnType<typeof useWebsiteForm>["save"];
+  /** What reads between the cards and Save: the counts and the help. */
+  children?: ReactNode;
 }) {
   const t = useTranslations("websiteFormSettings.problems");
   const tErrors = useTranslations("errors.reasons");
@@ -52,6 +56,7 @@ export function WebsiteFormEditor({
       <FieldsCard control={form.control} />
       <WordsCard control={form.control} />
       <LookCard />
+      {children}
       <SaveBar dirty={dirty} saving={save.isPending} error={save.error} />
       <LeaveGuard dirty={dirty} />
     </form>

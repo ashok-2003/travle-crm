@@ -137,5 +137,34 @@
       "description": "This records that {name} asked to stop travel offers, for example on WhatsApp. It can't be undone.",
       "action": "Record that they stopped"
     }
+  },
+  "counts": {
+    "heading": "Last 30 days",
+    "loadFailed": "We couldn't load the counts.",
+    "enquiries": {
+      "label": "Enquiries",
+      "info": "Everything the form saved: new leads and repeat enquiries together."
+    },
+    "newLeads": {
+      "label": "New leads",
+      "info": "Enquiries from people you didn't have yet. Each one became a lead."
+    },
+    "repeatEnquiries": {
+      "label": "Repeat enquiries",
+      "info": "Enquiries from people you already had. They were added to their existing lead."
+    },
+    "stopped": {
+      "label": "Stopped",
+      "info": "Enquiries the form did not save: spam, blocked contacts and repeats beyond the limit."
+    },
+    "note": "Stopped enquiries are never saved, so we can't show them."
+  },
+  "help": {
+    "heading": "Good to know",
+    "own": "The form is yours. You decide who can see it and what it asks.",
+    "personalData": "Anything a visitor types is personal data you now hold. Look after it as you do the rest of your customers' details.",
+    "tick": "The offers tickbox is a request, not proof. Keep it in mind when you plan offers.",
+    "stopped": "Stopped enquiries are not kept, so there is nothing to look back at.",
+    "link": "Changing the link breaks the old one, and the snippet already on your website."
   }
 }

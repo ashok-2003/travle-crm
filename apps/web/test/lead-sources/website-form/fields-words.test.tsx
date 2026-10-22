@@ -26,6 +26,7 @@ function render(options: Parameters<typeof renderScreen>[1] = {}) {
   const saved = aWebsiteFormView({ settings: someSettings({ heading: "Come to Goa" }) });
   const api = stubApi({
     "websiteForm.get": { data: aWebsiteFormView() },
+    "websiteForm.counts": { data: { enquiries: 0, newLeads: 0, repeatEnquiries: 0, stopped: 0 } },
     "websiteForm.save": { data: saved },
     "organization.logo.get": { data: null },
     "organization.branding.get": { data: { brandColour: "#1f6f5c", documentTerms: null } },

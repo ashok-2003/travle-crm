@@ -37,6 +37,7 @@ function renderPage(view: unknown, options: Parameters<typeof renderScreen>[1] =
         : view === "refused"
           ? { status: 403, reason: "MISSING_PERMISSION" }
           : { data: view },
+    "websiteForm.counts": { data: { enquiries: 0, newLeads: 0, repeatEnquiries: 0, stopped: 0 } },
     "websiteForm.turnOn": { data: aWebsiteFormView() },
     "websiteForm.turnOff": {
       data: aWebsiteFormView({ settings: someSettings({ enabled: false }), state: { open: false, reason: "off" } }),
