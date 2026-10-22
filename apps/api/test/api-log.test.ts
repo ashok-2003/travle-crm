@@ -178,7 +178,7 @@ describe.each(["development", "production"])("the api's log under NODE_ENV=%s", 
     expect(auth).toMatchObject({
       level: "error",
       source: "better-auth",
-      msg: "auth: Invalid redirectURL: https://phishing.example/?to=[email]",
+      msg: "auth: Invalid redirectURL: https://phishing.example",
     });
     expect(request).toMatchObject({
       route: "/api/auth/request-password-reset",
