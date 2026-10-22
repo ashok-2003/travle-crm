@@ -9,6 +9,7 @@ import {
   assertNoLinks,
   assertNotBot,
   checkOpenedToken,
+  findSubmission,
   noteFlood,
   parseFormKey,
   recordSubmission,
@@ -154,9 +155,16 @@ export function websiteFormSubmitRoute(
       // 4. The form and whether it can take enquiries; outside the save's transaction.
       const at = now();
       const ownerUserId = await identity.firstOwner(organizationId);
-      const form = await db.forOrg(organizationId, (tx) =>
-        assertFormOpen(tx, { key, organizationId, ownerUserId, via: input.via, now: at }),
-      );
+      const { form, prior } = await db.forOrg(organizationId, async (tx) => ({
+        form: await assertFormOpen(tx, { key, organizationId, ownerUserId, via: input.via, now: at }),
+        prior: await findSubmission(tx, input.submissionId),
+      }));
+      // A submission already in the ledger is answered as it was the first time (W21), before the page's one-use
+      // token, which Cloudflare would now call spent, is checked again.
+      if (prior !== null) {
+        const answer = answerOf(prior.outcome);
+        return c.json(answer.body, answer.status);
+      }
       // 5. The traps: honeypot, fill time, links.
       if (input.homepage.trim() !== "") {
         await dropAsSpam(organizationId, form, input.submissionId, at);

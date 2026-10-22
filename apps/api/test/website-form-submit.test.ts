@@ -310,4 +310,38 @@ describe("the bot check", () => {
       await without.close();
     }
   });
+
+  it("answers a resend of a saved submission as the first was, without asking Cloudflare for the spent token again", async () => {
+    const spent = new Set<string>();
+    const asked: string[] = [];
+    // Cloudflare checks a token once: the second time it answers that the token is a duplicate.
+    const botCheck = {
+      verify: ({ token }: { token: string }) => {
+        asked.push(token);
+        const duplicate = spent.has(token);
+        spent.add(token);
+        return Promise.resolve(duplicate ? ("fail" as const) : ("pass" as const));
+      },
+    };
+    const guarded = createTestServer({}, { botCheck, turnstileSiteKey: "site-key" });
+    try {
+      const open = await agencyWithOpenForm(guarded);
+      const phone = freshPhone();
+      const body = enquiryFor(open.formId, { turnstileToken: "one-use", answers: { name: "Resender", phone } });
+      expect((await postEnquiry(guarded, open.key, body)).status).toBe(201);
+      const again = await postEnquiry(guarded, open.key, body);
+      expect(again.status).toBe(201);
+      expect(await again.json()).toEqual({ ok: true });
+      expect(asked).toEqual(["one-use"]);
+      const leads = await guarded.db.forOrg(open.agency.organizationId, (tx) =>
+        tx.lead.count({ where: { person: { phoneE164: phone } } }),
+      );
+      expect(leads).toBe(1);
+      // A different submission with the spent token is still a failed check.
+      const other = await postEnquiry(guarded, open.key, { ...body, submissionId: randomUUID() });
+      expect(other.status).toBe(400);
+    } finally {
+      await guarded.close();
+    }
+  });
 });
