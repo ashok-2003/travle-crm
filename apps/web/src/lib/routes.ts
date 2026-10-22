@@ -37,6 +37,8 @@ export const routes = {
   blockedContacts: "/settings/blocked-contacts",
   /** Google Sheets whose rows become leads; a sheet's own page is sheetRoute(sheetId). */
   leadSources: "/settings/lead-sources",
+  /** The agency's website enquiry form: its link, snippet, fields and words (website form spec 3.2). */
+  websiteForm: "/settings/lead-sources/website-form",
   /** Who new leads that arrive by themselves go to (release C). */
   leadAssignment: "/settings/assignment",
   /** Each person's own choice of what they are told, and how (spec 9.4). */
@@ -78,6 +80,21 @@ export function sheetConnectStepRoute(sheetId: string): string {
 /** Matching a connected sheet's columns again. */
 export function sheetMatchRoute(sheetId: string): string {
   return `${sheetRoute(sheetId)}/match`;
+}
+
+/** The visitor's hosted enquiry form, which anyone with the link opens (no sign-in, no storage). */
+export function hostedFormRoute(key: string): string {
+  return `/f/${key}`;
+}
+
+/** The same form for an iframe on the agency's own website. */
+export function embeddedFormRoute(key: string): string {
+  return `/embed/${key}`;
+}
+
+/** Whether a path is the hosted or embedded enquiry form, which must open no cache, worker or cookie (W29, ruling F3). */
+export function isPublicFormPath(pathname: string): boolean {
+  return pathname.startsWith("/f/") || pathname.startsWith("/embed/");
 }
 
 /** A staff import's page, at whichever step it is. */

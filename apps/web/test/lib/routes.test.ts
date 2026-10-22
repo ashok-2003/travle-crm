@@ -1,7 +1,10 @@
 // Redirects only ever lead to a page of this app: a ?next= naming another site, or the api, is ignored.
 import { describe, expect, it } from "vitest";
 import {
+  embeddedFormRoute,
+  hostedFormRoute,
   isAppPath,
+  isPublicFormPath,
   isConsolePath,
   isPublicRoute,
   leadExportRoute,
@@ -99,5 +102,20 @@ describe("routes", () => {
     expect(routes.staffImport).toBe("/staff/import");
     expect(staffImportRoute(id)).toBe(`/staff/import/${id}`);
     expect(staffExportRoute(id)).toBe(`/staff/exports/${id}`);
+  });
+
+  it("addresses the enquiry form's pages, and knows them", () => {
+    expect(routes.websiteForm).toBe("/settings/lead-sources/website-form");
+    expect(hostedFormRoute("abc")).toBe("/f/abc");
+    expect(embeddedFormRoute("abc")).toBe("/embed/abc");
+  });
+
+  it("isPublicFormPath is true for /f/x and /embed/x, false for /fx, /settings and /embedded", () => {
+    for (const path of ["/f/x", "/embed/x", "/f/x/y", "/embed/abc?x=1".split("?")[0] ?? ""]) {
+      expect(isPublicFormPath(path), path).toBe(true);
+    }
+    for (const path of ["/fx", "/f", "/settings", "/embedded", "/embed", "/settings/lead-sources/website-form", "/"]) {
+      expect(isPublicFormPath(path), path).toBe(false);
+    }
   });
 });
