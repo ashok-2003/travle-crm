@@ -1,7 +1,7 @@
 // The agency's sidebar: its logo at the top, or its name while it has none; destinations under their headings; and a
 // button that folds it to its icons, each still named, and opens it again as the person left it.
 import "fake-indexeddb/auto";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -43,19 +43,60 @@ afterEach(() => {
   document.cookie = "sidebar_state=; max-age=0; path=/";
 });
 
+const logoLink = "https://files.example/logo.png?signed";
+
+/** jsdom loads no images; Radix's avatar shows one only once the browser says it is complete. */
+function imagesLoad() {
+  vi.stubGlobal(
+    "Image",
+    class extends EventTarget {
+      complete = true;
+      naturalWidth = 1;
+      crossOrigin: string | null = null;
+      referrerPolicy = "";
+      src = "";
+    },
+  );
+}
+
+const foldedMark = () => {
+  const mark = document.querySelector<HTMLElement>("[data-slot=sidebar] [data-slot=avatar]");
+  if (!mark) throw new Error("the folded mark is missing");
+  return mark;
+};
+
 describe("the agency's sidebar", () => {
   it("shows the agency's logo, named as the agency", async () => {
-    const sidebar = renderSidebar({
-      data: { url: "https://files.example/logo.png?signed", expiresAt: new Date().toISOString() },
+    const sidebar = renderSidebar({ data: { url: logoLink, expiresAt: new Date().toISOString() } });
+    await waitFor(() => {
+      const logos = sidebar.getAllByRole("img", { name: "Sharma Travels" });
+      expect(logos.some((logo) => logo.getAttribute("src") === logoLink)).toBe(true);
     });
-    const logo = await sidebar.findByRole("img", { name: "Sharma Travels" });
-    expect(logo).toHaveAttribute("src", "https://files.example/logo.png?signed");
+  });
+
+  it("keeps the logo, small and square, when folded to its icons", async () => {
+    imagesLoad();
+    const sidebar = renderSidebar({ data: { url: logoLink, expiresAt: new Date().toISOString() } });
+    await userEvent.click(sidebar.getByRole("button", { name: navigation.collapse }));
+    const mark = foldedMark();
+    expect(mark).toHaveAccessibleName("Sharma Travels");
+    expect(mark).toHaveClass("group-data-[collapsible=icon]:flex");
+    await waitFor(() => expect(mark.querySelector("img")).toHaveAttribute("src", logoLink));
+  });
+
+  it("shows the agency's first letter when folded and it has no logo", async () => {
+    const sidebar = renderSidebar({ data: null });
+    await userEvent.click(sidebar.getByRole("button", { name: navigation.collapse }));
+    const mark = foldedMark();
+    expect(mark).toHaveAccessibleName("Sharma Travels");
+    expect(mark).toHaveTextContent("S");
+    expect(mark.querySelector("img")).toBeNull();
   });
 
   it("shows the agency's name while it has no logo", async () => {
     const sidebar = renderSidebar({ data: null });
     expect(await sidebar.findByText("Sharma Travels")).toBeVisible();
-    expect(sidebar.queryByRole("img")).toBeNull();
+    expect(document.querySelector("[data-slot=sidebar] img")).toBeNull();
   });
 
   it("lists the destinations under their headings", () => {

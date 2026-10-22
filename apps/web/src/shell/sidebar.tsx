@@ -1,7 +1,7 @@
 "use client";
 
 // The desktop navigation (DESIGN.md section 6), the registry's Sidebar: fixed to the window at full height while the
-// page scrolls, on the surface tone, with the agency's logo (or name), the bell and the fold button, the destinations
+// page scrolls, on the surface tone, with the agency's logo (or name; folded, the logo small or the name's first letter), the bell and the fold button, the destinations
 // under their headings (the current page in the blue tint), and the person's account (a long name wraps) and sign-out
 // at the bottom. Folded, it keeps the icons, each named in a tooltip, and opens again as it was left. Phones have the
 // top bar and the bottom bar instead.
@@ -26,7 +26,7 @@ import { routes } from "@/lib/routes";
 import { NotificationBell } from "@/notifications/bell/notification-bell";
 import { useMe } from "@/session/me-context";
 import { isAtOrUnder, isCurrent, navigationGroups } from "./navigation";
-import { OrgMark } from "./org-mark";
+import { FoldedOrgMark, OrgMark } from "./org-mark";
 import { prefetchHandlers, usePrefetchDestination } from "./prefetch";
 import { useSignOut } from "./sign-out";
 import { useNavigationItems } from "./use-navigation-items";
@@ -45,6 +45,7 @@ export function AppSidebar() {
       <SidebarHeader>
         <div className="flex items-center gap-1 pl-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:pl-0">
           <OrgMark className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden" />
+          <FoldedOrgMark />
           <NotificationBell opensAs="popover" />
           <SidebarTrigger label={open ? t("collapse") : t("expand")} />
         </div>

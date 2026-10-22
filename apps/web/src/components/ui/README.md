@@ -59,6 +59,8 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
   `SidebarGroupAction` (20px, a 36px hit area on phones only), `SidebarRail` (16px wide), and the words of the rail and
   the phone sheet (the sheet's title), which are not messages. Make them 44px and messages before using one.
   `tooltip.tsx` came with it.
+- `avatar.tsx` (added for the folded sidebar's agency mark): `cn` from `lib/utils.ts` (the registry's import named a
+  package that doesn't exist); no other change. It is not interactive, so it has no touch target.
 - `chart.tsx` (Recharts 3.8.0, pinned, for the dashboard): `cn` from `lib/utils.ts`; one light theme, so a series'
   `color` is a brand token's variable and reaches the chart as a `--color-<key>` style on its container, never through
   the registry's injected `<style>` (`test/no-inner-html.test.ts`); its grid, cursor and reference lines take the
