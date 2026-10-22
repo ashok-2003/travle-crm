@@ -7,6 +7,23 @@ import type { LogFields } from "./logger.js";
 const IDENTIFIER = /^[\w.:-]{1,64}$/;
 const MAX_FRAMES = 12;
 
+/**
+ * A stack's frames, in a type of their own so the censor can tell them from a string a caller wrote: it leaves these
+ * whole (a package path such as `pg-boss@12.37.1_pg@8.20.0` would read as an email address) and masks every other string.
+ * They serialise as the plain text.
+ */
+export class StackFrames {
+  constructor(readonly text: string) {}
+
+  toJSON(): string {
+    return this.text;
+  }
+
+  toString(): string {
+    return this.text;
+  }
+}
+
 export interface ErrorFields extends LogFields {
   errorName: string;
   /** Node's, Postgres's or Prisma's code (ECONNREFUSED, 57P01, P2002), or a DomainError's reason. */
@@ -14,21 +31,27 @@ export interface ErrorFields extends LogFields {
   /** The causes' names and codes, `Name CODE, caused by Name CODE`. */
   errorCause?: string;
   /** Only the `at ...` frames: the stack's first lines repeat the message. */
-  errorStack?: string;
+  errorStack?: StackFrames;
 }
 
 function read(value: object, key: string): unknown {
   return (value as Record<string, unknown>)[key];
 }
 
-/** The frames of an error's stack, after the `Name: message` head (whose message may span lines). */
-function framesOf(error: Error): string | undefined {
+/** A line of a V8 stack: "at", then a call and its place in brackets, or a place alone with its line and column. */
+const FRAME = /^\s+at\s.*(\)|:\d+(:\d+)?)$/;
+
+/**
+ * The frames of an error's stack. The message is cut out of the stack wherever it sits (it heads the stack, and a
+ * message of several lines could hold lines that look like frames, even after the error was renamed), then only lines
+ * of the shape of a frame are kept.
+ */
+function framesOf(error: Error): StackFrames | undefined {
   const { stack } = error;
   if (stack === undefined) return undefined;
-  const head = error.message === "" ? error.name : `${error.name}: ${error.message}`;
-  const frames = stack.startsWith(head) ? stack.slice(head.length) : stack;
-  const lines = frames.split("\n").filter((line) => /^\s+at /.test(line));
-  return lines.length === 0 ? undefined : lines.slice(0, MAX_FRAMES).join("\n");
+  const bare = error.message === "" ? stack : stack.split(error.message).join("");
+  const lines = bare.split("\n").filter((line) => FRAME.test(line));
+  return lines.length === 0 ? undefined : new StackFrames(lines.slice(0, MAX_FRAMES).join("\n"));
 }
 
 export function errorFields(error: unknown): ErrorFields {

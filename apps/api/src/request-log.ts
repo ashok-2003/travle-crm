@@ -54,8 +54,8 @@ export function requestOf(c: Context): RequestLog | undefined {
   return (c as Context<RequestLogEnv>).get("requestLog");
 }
 
-/** A request id someone else sent is kept only when it is a plain token: anything else could be log injection. */
-const SAFE_REQUEST_ID = /^[A-Za-z0-9._-]{1,64}$/;
+/** A request id someone else sent is kept only when it is a UUID or a plain token of 8 to 64 letters, digits and hyphens. */
+const SAFE_REQUEST_ID = /^[A-Za-z0-9-]{8,64}$/;
 /** A procedure name is code: `leads.list`. */
 const PROCEDURE_NAME = /^[A-Za-z][\w.]{0,63}$/;
 const MAX_PROCEDURES = 20;

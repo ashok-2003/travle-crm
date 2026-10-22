@@ -21,7 +21,58 @@ function realLogger(level: "debug" | "info" | "warn" | "error" = "debug") {
   return { logger, lines };
 }
 
+describe("the censor's rules", () => {
+  const censored = (fields: Record<string, unknown>): Record<string, unknown> => {
+    const memory = createMemoryLogger();
+    memory.info(fields, "x");
+    return memory.entries[0] ?? {};
+  };
+
+  it("censors key names, not words that happen to end alike: context and sortKey stay, apiKey and text go", () => {
+    expect(censored({ context: "request", sortKey: "createdAt", statusText: "ok", contentLength: 12 })).toMatchObject({
+      context: "request",
+      sortKey: "createdAt",
+      statusText: "ok",
+      contentLength: 12,
+    });
+    expect(censored({ key: "k", apiKey: "k", text: "t", content: "c", secretKey: "s" })).toMatchObject({
+      key: "[redacted]",
+      apiKey: "[redacted]",
+      text: "[redacted]",
+      content: "[redacted]",
+      secretKey: "[redacted]",
+    });
+  });
+
+  it("masks a phone number held as a number, under any key", () => {
+    expect(censored({ contact: 9876543210, rows: 120, durationMs: 4_500_000 })).toMatchObject({
+      contact: "[number]",
+      rows: 120,
+      durationMs: 4_500_000,
+    });
+  });
+
+  it("keeps only a stack errorFields made: a plain string under that key is masked like any other", () => {
+    const real = errorFields(new Error("x"));
+    expect(String(censored({ ...real }).errorStack)).toBe(String(real.errorStack));
+    expect(censored({ errorStack: `at jane.doe@example.com 9876543210` }).errorStack).toBe("at [email] [number]");
+  });
+});
+
 describe("errorFields", () => {
+  it("takes only real frames, even when the error was renamed after its stack was made", () => {
+    class Renamed extends Error {}
+    const error = new Renamed(`bad ${email}\n    at fake (not-a-frame.js)\n    at injected jane`);
+    error.name = "SomethingElse";
+    const fields = errorFields(error);
+    expect(fields.errorName).toBe("SomethingElse");
+    const frames = String(fields.errorStack);
+    expect(frames).toMatch(/^\s*at /);
+    expect(frames).not.toContain("jane");
+    expect(frames).not.toContain("not-a-frame");
+    expect(frames).not.toContain("injected");
+  });
+
   it("gives the name, code, causes and stack frames, never the message", () => {
     const cause = Object.assign(new Error(`row for ${email}`), { code: "ECONNREFUSED" });
     const error = Object.assign(new TypeError(`bad ${email}\n    at fake (not-a-frame.js:1:1)`, { cause }), {
@@ -29,7 +80,7 @@ describe("errorFields", () => {
     });
     const fields = errorFields(error);
     expect(fields).toMatchObject({ errorName: "TypeError", errorCode: "P2002", errorCause: "Error ECONNREFUSED" });
-    expect(fields.errorStack).toMatch(/^\s*at /);
+    expect(String(fields.errorStack)).toMatch(/^\s*at /);
     expect(JSON.stringify(fields)).not.toContain("jane");
     expect(JSON.stringify(fields)).not.toContain("not-a-frame");
   });

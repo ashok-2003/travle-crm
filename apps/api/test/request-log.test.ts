@@ -39,14 +39,16 @@ describe("the request line", () => {
 
   it("keeps a request id that is a plain token and makes a new UUID v7 for anything else", async () => {
     const { app, entries } = appWithLog();
-    const kept = await app.request("/p/x", { headers: { "x-request-id": "render-abc_123.4" } });
-    expect(kept.headers.get("x-request-id")).toBe("render-abc_123.4");
+    const kept = await app.request("/p/x", { headers: { "x-request-id": "render-abc-1234" } });
+    expect(kept.headers.get("x-request-id")).toBe("render-abc-1234");
+    const uuid = "01a16314-e2ff-7b6f-b25a-9c2c071220fa";
+    expect((await app.request("/p/x", { headers: { "x-request-id": uuid } })).headers.get("x-request-id")).toBe(uuid);
+    // Too short, or with a character a log search would trip on: replaced.
+    expect(requestIdFrom("abc")).not.toBe("abc");
+    expect(requestIdFrom("has_underscore.and.dots")).not.toBe("has_underscore.and.dots");
     const replaced = await app.request("/p/x", { headers: { "x-request-id": `${email} injected "}` } });
     expect(replaced.headers.get("x-request-id")).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-/);
-    expect(entries.map((entry) => entry.requestId)).toEqual([
-      kept.headers.get("x-request-id"),
-      replaced.headers.get("x-request-id"),
-    ]);
+    expect(entries.at(-1)?.requestId).toBe(replaced.headers.get("x-request-id"));
     expect(requestIdFrom("x".repeat(65))).not.toBe("x".repeat(65));
   });
 
@@ -62,7 +64,7 @@ describe("the request line", () => {
       ["error", "/boom", 500],
     ]);
     expect(entries[2]).toMatchObject({ errorName: "Error", errorCode: "ECONNREFUSED" });
-    expect(entries[2]?.errorStack).toMatch(/^\s*at /);
+    expect(String(entries[2]?.errorStack)).toMatch(/^\s*at /);
     expect(JSON.stringify(entries)).not.toMatch(/jane|abc/);
   });
 

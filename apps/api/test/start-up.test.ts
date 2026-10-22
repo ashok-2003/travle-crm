@@ -59,7 +59,7 @@ describe("starting a process", () => {
           () => {
             throw new Error("Queue names must be unique: documents.render-pdf");
           },
-          { variables: testEnvironmentVariables(), create: () => services },
+          { variables: testEnvironmentVariables(), create: () => services, createLogger: () => createMemoryLogger() },
         ),
       ).rejects.toEqual(new Exited(1));
     } finally {

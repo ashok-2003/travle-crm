@@ -27,7 +27,7 @@
     "nodemailer": "10.1.0",
     "pg-boss": "12.37.1",
     "pino": "catalog:",
-    "pino-abstract-transport": "3.0.0",
+    "pino-abstract-transport": "catalog:",
     "react": "catalog:",
     "read-excel-file": "9.3.12",
     "saxen": "11.2.0",

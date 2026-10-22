@@ -24,7 +24,7 @@ describe("Better Auth's logger", () => {
       errorCode: "P2002",
       errorCause: "Error",
     });
-    expect(logger.entries[0]?.errorStack).toMatch(/^\s*at /);
+    expect(String(logger.entries[0]?.errorStack)).toMatch(/^\s*at /);
     expect(logger.entries[1]).toMatchObject({ level: "warn", msg: "auth: Reset Password: User not found" });
     expect(JSON.stringify(logger.entries)).not.toMatch(/jane|duplicate key/);
   });

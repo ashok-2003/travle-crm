@@ -126,7 +126,7 @@ describe.each(["development", "production"])("the api's log under NODE_ENV=%s", 
       procedure: "me.get",
       errorName: "PrismaClientValidationError",
     });
-    expect(fault?.errorStack).toMatch(/^\s*at /);
+    expect(String(fault?.errorStack)).toMatch(/^\s*at /);
     expect(request).toMatchObject({
       level: "error",
       route: "/api/trpc",

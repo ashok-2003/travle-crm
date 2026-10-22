@@ -2,14 +2,14 @@
 // depth, personal data masked in every string, and an Error reduced to its names, codes and frames. pino's `redact`
 // paths can't reach an arbitrary depth, so the walk is ours.
 import { maskPersonalData } from "../jobs/sanitize-job-error.js";
-import { errorFields } from "./error-fields.js";
+import { errorFields, StackFrames } from "./error-fields.js";
 import type { LogFields } from "./logger.js";
 
 const CENSORED = "[redacted]";
 const MAX_DEPTH = 6;
 const MAX_STRING = 4000;
 
-/** Keys that are personal data or secrets whatever their value (compared lower-case, without punctuation). */
+/** Keys that end in one of these are personal data or secrets (compared lower-case, without punctuation). */
 const KEY_ENDINGS = [
   "email",
   "phone",
@@ -20,13 +20,11 @@ const KEY_ENDINGS = [
   "secret",
   "cookie",
   "authorization",
-  "key",
   "search",
   "query",
   "body",
-  "text",
-  "content",
 ];
+/** Keys that are, whole, personal data or secrets. A word that merely ends alike ("context", "sortKey") is not one. */
 const KEYS = new Set([
   "name",
   "fullname",
@@ -49,6 +47,13 @@ const KEYS = new Set([
   "pan",
   "aadhaar",
   "dob",
+  "key",
+  "apikey",
+  "accesskey",
+  "secretkey",
+  "privatekey",
+  "text",
+  "content",
 ]);
 
 function isPersonalKey(key: string): boolean {
@@ -56,9 +61,19 @@ function isPersonalKey(key: string): boolean {
   return KEYS.has(plain) || KEY_ENDINGS.some((ending) => plain.endsWith(ending));
 }
 
+/** A whole number of this many digits is a phone or an Aadhaar number, whatever key holds it. */
+const PHONE_DIGITS = 10;
+
 function censorValue(value: unknown, depth: number): unknown {
+  if (value instanceof StackFrames) return new StackFrames(value.text.slice(0, MAX_STRING));
   if (typeof value === "string") return maskPersonalData(value).slice(0, MAX_STRING);
-  if (typeof value === "bigint") return value.toString();
+  if (typeof value === "number" && Number.isInteger(value) && Math.abs(value) >= 10 ** (PHONE_DIGITS - 1)) {
+    return "[number]";
+  }
+  if (typeof value === "bigint")
+    return value.toString().replace(/\d/g, "").length === 0 && value.toString().length >= PHONE_DIGITS
+      ? "[number]"
+      : value.toString();
   if (typeof value !== "object" || value === null) return typeof value === "function" ? undefined : value;
   if (value instanceof Error) return errorFields(value);
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value.toISOString();
@@ -67,17 +82,10 @@ function censorValue(value: unknown, depth: number): unknown {
   return censorObject(value as Record<string, unknown>, depth + 1);
 }
 
-/**
- * A stack's frames are code's own (function names, file paths): masking them would read a package path such as
- * `pg-boss@12.37.1_pg@8.20.0` as an email address. errorFields cuts the message out of a stack before it gets here.
- */
-const FRAMES_KEY = "errorStack";
-
 function censorObject(fields: Record<string, unknown>, depth: number): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(fields)) {
-    if (key === FRAMES_KEY && typeof value === "string") out[key] = value.slice(0, MAX_STRING);
-    else out[key] = isPersonalKey(key) ? CENSORED : censorValue(value, depth);
+    out[key] = isPersonalKey(key) ? CENSORED : censorValue(value, depth);
   }
   return out;
 }

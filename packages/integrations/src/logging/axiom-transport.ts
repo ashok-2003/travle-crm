@@ -51,14 +51,14 @@ export default function axiomTransport(options: AxiomTransportOptions) {
   let timer: NodeJS.Timeout | undefined;
   let sender: Promise<void> | undefined;
   let dropped = 0;
-  let refusal: number | undefined;
+  let reportedStatus = false;
   let closing = false;
 
-  /** Says, once, that Axiom answered with a status: the code alone, never the body. */
+  /** Says, once, the first status that wasn't a success (Axiom's answer, never its body); 0 is no answer at all. */
   const noteStatus = (status: number) => {
-    if (status >= 200 && status < 300) return;
-    refusal ??= status;
-    if (refusal === status && status !== 0) process.stderr.write(`axiom: ingest answered ${String(status)}\n`);
+    if ((status >= 200 && status < 300) || reportedStatus) return;
+    reportedStatus = true;
+    process.stderr.write(`axiom: ingest ${status === 0 ? "did not answer" : `answered ${String(status)}`}\n`);
   };
 
   const seal = () => {
