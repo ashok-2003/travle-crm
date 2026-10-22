@@ -8,7 +8,7 @@ import type { Actor } from "../kernel/index.js";
 
 interface PersonChange {
   entityType: "person";
-  action: "person.added" | "person.edited";
+  action: "person.added" | "person.edited" | "person.consent-recorded" | "person.consent-withdrawn";
 }
 
 /** A lead added, or something added to it. */

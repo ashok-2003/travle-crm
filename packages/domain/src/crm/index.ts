@@ -4,6 +4,7 @@ export { addBlockedContact, blockLeadContact, listBlockedContacts, unblockContac
 export { poolPlaceOf, readAssignment, saveAssignment, setAway } from "./assignment/index.js";
 export { changeEachLead } from "./bulk-changes.js";
 export { checkFirstReply, FIRST_REPLY_CHECK_QUEUE, scheduleFirstReplyCheckListener } from "./first-reply-alert.js";
+export { consentStateOf, recordConsent, withdrawConsent } from "./consent.js";
 export { createLead } from "./create-lead.js";
 export { customerContacts, type CustomerContacts } from "./customer-contacts.js";
 export { eraseCustomer, exportCustomer, type CustomerSubject, type ErasedCustomer } from "./customer-erasure.js";
@@ -34,6 +35,7 @@ export { countLeads, listLeads } from "./lead-list.js";
 export { leadCountsQuery, leadListQuery, type LeadCountsFilter, type LeadListFilter } from "./lead-list-query.js";
 export { addLeadWork } from "./lead-work.js";
 export { addPerson, type PersonRow } from "./people.js";
+export { offeredDestinations } from "./offered-destinations.js";
 export { moveLeadStage, reassignLead, reopenLead } from "./stage-changes.js";
 export { addLeadNote, listLeadTimeline } from "./timeline.js";
 export {
@@ -45,3 +47,9 @@ export {
   type NewLeadsWaitingFilter,
   type NewLeadWaiting,
 } from "./work-queries.js";
+export {
+  answerOf,
+  receiveWebsiteEnquiry,
+  type WebsiteEnquiryContext,
+  type WebsiteEnquiryOutcome,
+} from "./website-enquiry.js";

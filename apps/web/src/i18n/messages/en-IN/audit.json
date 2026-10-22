@@ -89,7 +89,9 @@
     },
     "person": {
       "added": "Added a customer",
-      "edited": "Changed a customer's name or contacts"
+      "edited": "Changed a customer's name or contacts",
+      "consent-recorded": "Recorded that a customer agreed to travel offers",
+      "consent-withdrawn": "Recorded that a customer stopped travel offers"
     },
     "lead": {
       "added": "Added a lead",
