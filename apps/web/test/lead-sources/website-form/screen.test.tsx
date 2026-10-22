@@ -14,6 +14,8 @@ import { paidSubscription } from "../../organization/api";
 import { stubApi } from "../../support/api-stub";
 import { aWebsiteFormView, someSettings } from "./records";
 
+vi.mock("next/navigation", () => import("../../leads/navigation"));
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -85,7 +87,7 @@ describe("WebsiteFormScreen", () => {
     ).toBeVisible();
     expect(screen.getByText(status.off)).toBeVisible();
     expect(screen.getByRole("switch", { name: status.switch })).not.toBeChecked();
-    expect(api.calls.filter((path) => path !== "websiteForm.get" && path !== "subscription.get")).toEqual([]);
+    expect(api.calls.filter((path) => /turnOn|turnOff|save|changeLink/.test(path))).toEqual([]);
   });
 
   it("names the Owner the leads go to, in the intro", async () => {

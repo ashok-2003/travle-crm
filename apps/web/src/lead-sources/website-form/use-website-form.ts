@@ -5,6 +5,8 @@
 // so the page and the Lead sources row move together.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { WebsiteFormView } from "@travel-crm/contracts/website-forms";
+import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { useTRPC } from "@/data/trpc";
 
 export function useWebsiteFormView() {
@@ -15,13 +17,21 @@ export function useWebsiteFormView() {
 export function useWebsiteForm() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const t = useTranslations("websiteFormSettings.save");
   const view = useWebsiteFormView();
   const keep = (next: WebsiteFormView) => {
     queryClient.setQueryData(trpc.websiteForm.get.queryKey(), next);
   };
   const turnOn = useMutation(trpc.websiteForm.turnOn.mutationOptions({ onSuccess: keep }));
   const turnOff = useMutation(trpc.websiteForm.turnOff.mutationOptions({ onSuccess: keep }));
-  const save = useMutation(trpc.websiteForm.save.mutationOptions({ onSuccess: keep }));
+  const save = useMutation(
+    trpc.websiteForm.save.mutationOptions({
+      onSuccess: (next) => {
+        keep(next);
+        toast.success(t("saved"));
+      },
+    }),
+  );
   const changeLink = useMutation(trpc.websiteForm.changeLink.mutationOptions({ onSuccess: keep }));
   return { view, turnOn, turnOff, save, changeLink };
 }

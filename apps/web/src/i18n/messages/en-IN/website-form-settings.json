@@ -31,5 +31,68 @@
       "plan": "Closed. Your plan doesn't include the form. Ask us to add it."
     },
     "demo": "Not available in the demo."
+  },
+  "fields": {
+    "heading": "Questions",
+    "intro": "Only a name and a phone number are ever needed. Choose what else to ask.",
+    "name": "Name",
+    "phone": "Phone",
+    "alwaysAsked": "Always asked",
+    "email": "Email",
+    "destination": "Destination",
+    "travelMonth": "Travel month",
+    "travellers": "Travellers",
+    "budget": "Budget",
+    "message": "Message",
+    "modes": {
+      "off": "Off",
+      "optional": "Optional",
+      "required": "Required"
+    },
+    "offers": "Ask for permission to send offers",
+    "offersHint": "Visitors read: {wording}"
+  },
+  "words": {
+    "heading": "Words",
+    "formHeading": "Heading",
+    "formHeadingDefault": "Plan your trip with {name}",
+    "introduction": "Introduction",
+    "thankYou": "Thank-you message",
+    "thankYouDefault": "Thank you! {name} will get in touch with you soon.",
+    "websiteUrl": "Website link",
+    "websiteUrlHint": "Starts with https://. Shown as a button after the thank-you.",
+    "websiteButtonText": "Website button text",
+    "websiteButtonTextHint": "If empty: “Back to our website”.",
+    "privacyUrl": "Privacy policy link",
+    "privacyUrlHint": "Starts with https://. Shown under the Send button.",
+    "count": "{used} of {max}"
+  },
+  "look": {
+    "heading": "Look",
+    "intro": "The form uses your logo, name and colour.",
+    "logo": "Logo",
+    "noLogo": "No logo. The form shows your name instead.",
+    "logoAlt": "Your logo",
+    "name": "Name",
+    "colour": "Colour",
+    "noColour": "The standard blue",
+    "colourNote": "Your colour is used for the Send button. Colours that are too light for white text fall back to our blue.",
+    "changeProfile": "Change in Business profile",
+    "changeBranding": "Change logo and colour in Branding"
+  },
+  "save": {
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved. The form now uses these settings.",
+    "leave": {
+      "title": "Leave without saving?",
+      "description": "You changed the form's settings and haven't saved them. If you leave, they are lost.",
+      "leave": "Leave"
+    }
+  },
+  "problems": {
+    "link": "Use an address that starts with https://",
+    "tooLong": "That is too long.",
+    "required": "Fill this in."
   }
 }

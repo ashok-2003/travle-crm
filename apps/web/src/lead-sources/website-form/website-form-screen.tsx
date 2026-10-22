@@ -11,11 +11,12 @@ import { BackLink } from "@/components/text-link";
 import { routes } from "@/lib/routes";
 import { StatusCard } from "./status-card";
 import { useWebsiteForm } from "./use-website-form";
+import { WebsiteFormEditor } from "./website-form-editor";
 
 export function WebsiteFormScreen() {
   const t = useTranslations("websiteFormSettings.page");
   const tCommon = useTranslations("common");
-  const { view: query, turnOn, turnOff } = useWebsiteForm();
+  const { view: query, turnOn, turnOff, save } = useWebsiteForm();
   const view = query.data;
 
   if (view === undefined) {
@@ -40,6 +41,7 @@ export function WebsiteFormScreen() {
         intro={view.ownerName === null ? t("introNoOwner") : t("intro", { owner: view.ownerName })}
       />
       <StatusCard view={view} turnOn={turnOn} turnOff={turnOff} />
+      <WebsiteFormEditor view={view} save={save} />
     </div>
   );
 }
