@@ -1,7 +1,6 @@
 // The tRPC context: who sent the request, read from the session cookie (the 5-minute cache, spec 6.4), and the
 // services the procedures run on.
 import type { Database } from "@travel-crm/db";
-import type { ConnectorServices } from "@travel-crm/domain/connectors";
 import type { Files } from "@travel-crm/domain/files";
 import type { Identity } from "@travel-crm/domain/identity";
 import type { AddGuard } from "@travel-crm/domain/imports";
@@ -36,8 +35,6 @@ export interface ApiDependencies {
   rateLimiter?: Pick<RateLimiter, "hit">;
   /** Keys the spreadsheet claim; null or absent when SHEETS_HASH_KEY is not set. */
   sheetsHashes?: SheetsDependencies["hashes"];
-  /** Forms, keys, webhooks and connections to other services (release D); null or absent: connecting is off. */
-  connectors?: ConnectorServices | null;
 }
 
 /**
@@ -56,7 +53,6 @@ export async function createContext(
     google = null,
     sheetsHashes = null,
     rateLimiter,
-    connectors = null,
   }: ApiDependencies,
   request: Request,
   resHeaders: Headers,
@@ -77,7 +73,6 @@ export async function createContext(
     google,
     sheetsHashes,
     rateLimiter,
-    connectors,
     headers: request.headers,
     resHeaders,
     session: response?.session ?? null,

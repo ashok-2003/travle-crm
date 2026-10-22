@@ -65,21 +65,6 @@ export const serviceVariables = {
    * only, never stored or logged and never changed. Needed whenever the accounts are set (environment.ts checks).
    */
   SHEETS_HASH_KEY: emptyAsUnset(z.string().min(32, "must be at least 32 characters").optional()),
-  /**
-   * Seals the credentials agencies give for other services (Meta pages, IndiaMART, WhatsApp): 32 random bytes in base64
-   * (`openssl rand -base64 32`), never changed (a new key can't open what the old one sealed). Without it, connecting a
-   * service is refused.
-   */
-  INTEGRATION_SECRETS_KEY: emptyAsUnset(
-    z
-      .string()
-      .refine((value) => Buffer.from(value, "base64").length === 32, "must be 32 bytes in base64")
-      .optional(),
-  ),
-  /** The Meta app's secret, which signs its webhooks (lead ads, WhatsApp). Without it, Meta's webhooks are refused. */
-  META_APP_SECRET: emptyAsUnset(z.string().min(16).optional()),
-  /** The word Meta's webhook setup sends back to prove the address is ours. */
-  META_VERIFY_TOKEN: emptyAsUnset(z.string().min(8).optional()),
   /** The journeys' fake Google (development and tests only; refused in production, S17). */
   GOOGLE_SHEETS_TEST_SERVER_URL: emptyAsUnset(httpUrl.optional()),
   /** How often a sheet is checked, in seconds (120 by default); the journeys shorten it (development and tests only). */

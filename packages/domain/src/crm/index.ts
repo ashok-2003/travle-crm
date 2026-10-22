@@ -5,7 +5,6 @@ export { poolPlaceOf, readAssignment, saveAssignment, setAway } from "./assignme
 export { changeEachLead } from "./bulk-changes.js";
 export { checkFirstReply, FIRST_REPLY_CHECK_QUEUE, scheduleFirstReplyCheckListener } from "./first-reply-alert.js";
 export { createLead } from "./create-lead.js";
-export { addIncomingLead, type IncomingOrigin, type IntakeContext, type IntakeOutcome } from "./lead-intake.js";
 export { customerContacts, type CustomerContacts } from "./customer-contacts.js";
 export { eraseCustomer, exportCustomer, type CustomerSubject, type ErasedCustomer } from "./customer-erasure.js";
 export { addDemoLeads } from "./demo-leads.js";

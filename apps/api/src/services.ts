@@ -11,10 +11,6 @@ import { createSheetsHashes, type SheetsHashes } from "@travel-crm/domain/sheets
 import { createSubscriptionAccess, planLimits, type SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { createSmtpEmailSender, type EmailSender } from "@travel-crm/integrations/email";
 import { createRealGoogleSheets, type GoogleSheets } from "@travel-crm/integrations/google-sheets";
-import { createRealHttpOut } from "@travel-crm/integrations/http-out";
-import { createRealIndiaMart } from "@travel-crm/integrations/indiamart";
-import { createRealMetaGraph } from "@travel-crm/integrations/meta";
-import { createSecretBox, type ConnectorServices } from "@travel-crm/domain/connectors";
 import { createPgBossJobs, type PgBossJobs } from "@travel-crm/integrations/jobs";
 import { createWebPushSender, type PushSender } from "@travel-crm/integrations/push";
 import { createSpreadsheets, type Spreadsheets } from "@travel-crm/integrations/spreadsheets";
@@ -47,8 +43,6 @@ export interface Services {
   email: EmailSender;
   push: PushSender;
   rateLimiter: RateLimiter;
-  /** Forms, lead links, API keys, webhooks and connections to other services (release D). */
-  connectors: ConnectorServices;
   /** Checks the database role and the storage bucket, then starts pg-boss. Call before serving requests or working. */
   start(): Promise<void>;
   /** Stops pg-boss (waiting for running jobs) and closes the database pools. */
@@ -157,13 +151,6 @@ export function createServices(environment: Environment, log: ProcessLog): Servi
     email,
     push,
     rateLimiter,
-    connectors: {
-      box:
-        environment.INTEGRATION_SECRETS_KEY === undefined ? null : createSecretBox(environment.INTEGRATION_SECRETS_KEY),
-      meta: createRealMetaGraph(),
-      indiaMart: createRealIndiaMart(),
-      http: createRealHttpOut(),
-    },
     start: async () => {
       // A DATABASE_URL for the wrong role (app_migrator, say) would otherwise fail every request and job while the
       // process looked healthy: the first query checks the role, so make one now.
