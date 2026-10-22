@@ -124,6 +124,15 @@ describe("loading", () => {
     expect(screen.getByRole("button", { name: "Try again" })).toBeVisible();
   });
 
+  it("words the website button as the settings page promises when the agency chose no words", async () => {
+    serve({ status: 200, body: { ...closed, form: { ...closed.form, websiteButtonText: null } } });
+    renderForm(<FormPage formKey={key} mode="hosted" />);
+    expect(await screen.findByRole("link", { name: "Back to our website" })).toHaveAttribute(
+      "href",
+      "https://sharma.example",
+    );
+  });
+
   it("shows only its sentence, the name and the website button for a closed form", async () => {
     serve({ status: 200, body: closed });
     renderForm(<FormPage formKey={key} mode="hosted" />);
