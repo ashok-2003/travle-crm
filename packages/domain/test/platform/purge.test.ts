@@ -166,8 +166,15 @@ describe("purging an organization", () => {
     expect(await platform.organization.count({ where: { id: organizationId } })).toBe(0);
     expect(keysOf(test, organizationId)).toHaveLength(2);
     // One line, ids and codes only.
-    expect(logged).toEqual([
-      `platform.delete-stored-files: organization ${organizationId}'s files are left to the job (FileDeletionsFailedError, caused by Error)`,
+    expect(logged).toMatchObject([
+      {
+        level: "warn",
+        msg: "An organization's files are left to the job",
+        queue: DELETE_STORED_FILES_QUEUE,
+        organizationId,
+        errorName: "FileDeletionsFailedError",
+        errorCause: "Error",
+      },
     ]);
     expect((await queued(organizationId)).map((row) => row.dueAt)).toEqual([
       now,

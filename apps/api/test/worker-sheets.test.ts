@@ -5,6 +5,7 @@ import { createMemoryGoogleSheets } from "@travel-crm/integrations/google-sheets
 import { createMemoryJobQueue, createMemoryJobRunner } from "@travel-crm/integrations/jobs";
 import { createSheetsHashes } from "@travel-crm/domain/sheets";
 import { describe, expect, it } from "vitest";
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { workerJobs, type WorkerJobDependencies } from "../src/worker-jobs.js";
 
 const unused = {} as never;
@@ -24,7 +25,7 @@ const base: WorkerJobDependencies = {
   appUrl: "https://app.example.in",
   webhookProviders: [],
   rateLimiter: unused,
-  log: () => undefined,
+  logger: createMemoryLogger(),
 };
 
 describe("the worker's Google Sheets work", () => {

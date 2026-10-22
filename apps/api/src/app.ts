@@ -9,16 +9,17 @@ import type { Profiles } from "@travel-crm/domain/profile";
 import { assertNoSheetCheckSaving, type SheetsHashes } from "@travel-crm/domain/sheets";
 import type { RateLimiter } from "@travel-crm/domain/rate-limits";
 import { findShareLink, recordShareLinkOpen } from "@travel-crm/domain/share-links";
-import { plansOnSale, type SubscriptionAccess } from "@travel-crm/domain/subscriptions";
+import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { receiveWebhook, type WebhookProvider } from "@travel-crm/domain/webhooks";
 import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
-import { describeError, type JobQueue } from "@travel-crm/integrations/jobs";
-import { Hono } from "hono";
+import type { JobQueue } from "@travel-crm/integrations/jobs";
+import type { Logger } from "@travel-crm/integrations/logging";
+import { Hono, type Context } from "hono";
 import { limitBody } from "./body-limit.js";
 import { apiErrorHandler } from "./error-handler.js";
 import { organizationSignIn } from "./org-sign-in.js";
-import type { ProcessLog } from "./process-log.js";
 import { rateLimit } from "./rate-limit.js";
+import { noteTrpcError, requestLog, type RequestLogEnv } from "./request-log.js";
 import { shareLinkResolvers } from "./share-link-resolvers.js";
 import { shareLinkRoutes, tooManyRequestsPage } from "./share-link-route.js";
 import { requireTrustedJson } from "./trusted-origin.js";
@@ -47,8 +48,8 @@ export interface ServerDependencies {
   clientAddress: (request: Request) => string | null;
   /** The webhook providers. The Foundation has none; later steps add theirs (Razorpay, WhatsApp). */
   webhookProviders: readonly WebhookProvider[];
-  /** The process's one log: unexpected errors and warnings, a line each of ids, names and codes. */
-  log: ProcessLog;
+  /** The structured log (ADR 0032): a line per request, and every unexpected error. */
+  logger: Logger;
 }
 
 /**
@@ -59,15 +60,13 @@ export interface ServerDependencies {
  */
 const publicLimits = {
   shareLinks: { limit: 30, windowSeconds: 60 },
-  /** The public pricing page asks once per visit at most (the web app keeps the answer for minutes). */
-  plans: { limit: 60, windowSeconds: 60 },
   webhooks: { limit: 600, windowSeconds: 60 },
 };
 
 /** No sign-in or tRPC call needs a bigger body; the cap stops a client making the server read a huge one. */
 const BODY_LIMIT = 64 * 1024;
 
-export function createApp(dependencies: ServerDependencies): Hono {
+export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv> {
   const {
     identity,
     subscriptions,
@@ -81,10 +80,11 @@ export function createApp(dependencies: ServerDependencies): Hono {
     rateLimiter,
     clientAddress,
     webhookProviders,
-    log,
+    logger,
   } = dependencies;
-  const app = new Hono();
-  app.onError(apiErrorHandler(log));
+  const app = new Hono<RequestLogEnv>();
+  app.use("*", requestLog(logger));
+  app.onError(apiErrorHandler(logger));
 
   app.get("/health", (c) => c.json({ status: "ok" }));
 
@@ -101,16 +101,17 @@ export function createApp(dependencies: ServerDependencies): Hono {
 
   app.use("/api/trpc/*", requireTrustedJson(identity));
   app.use("/api/trpc/*", limitBody(BODY_LIMIT));
-  app.use(
-    "/api/trpc/*",
-    trpcServer({
+  // Built for each request, so its context and its errors can tell the request's line who called and what failed.
+  app.use("/api/trpc/*", (c, next) => {
+    const request = c.var.requestLog;
+    return trpcServer({
       router: appRouter,
       endpoint: "/api/trpc",
       // The web app sends queries as POSTs too, so their input (a phone, a searched name) is never in a URL. They stay
       // queries: what a call does, for the lifecycle, is its procedure's type, not the HTTP method.
       allowMethodOverride: true,
-      createContext: ({ resHeaders }, c) =>
-        createContext(
+      createContext: async ({ resHeaders }) => {
+        const context = await createContext(
           {
             identity,
             subscriptions,
@@ -126,14 +127,18 @@ export function createApp(dependencies: ServerDependencies): Hono {
           },
           c.req.raw,
           resHeaders,
-        ),
-      onError: ({ error, path }) => {
-        // Refusals (401, 403, 404...) are answers, not faults. Only unexpected errors are logged, by names and codes:
-        // tRPC copies the cause's message into its own, and a Prisma message can quote the query's values.
-        if (error.code === "INTERNAL_SERVER_ERROR") log(`tRPC ${path ?? "?"} failed: ${describeError(error)}`);
+        );
+        if (context.user !== null) request.userId = context.user.id;
+        if (context.session?.activeOrganizationId) request.organizationId = context.session.activeOrganizationId;
+        return context;
       },
-    }),
-  );
+      onError: ({ error, path }) => {
+        // Refusals (401, 403, 404...) are answers, not faults: the request line carries them. A fault is logged by
+        // names, code and frames: tRPC copies the cause's message into its own, and a Prisma message can quote values.
+        noteTrpcError(request, error, path);
+      },
+    })(c as Context<RequestLogEnv, string>, next);
+  });
 
   // No session, no cookies: these answer customers' browsers and providers' servers. The webhook route caps its own
   // body at 1 MB; share links are GETs. Over the limit, /p answers with a page (a customer's browser shows it) and
@@ -146,7 +151,7 @@ export function createApp(dependencies: ServerDependencies): Hono {
       ...publicLimits.shareLinks,
       clientAddress,
       refusal: tooManyRequestsPage,
-      log,
+      logger,
     }),
   );
   app.route(
@@ -158,18 +163,9 @@ export function createApp(dependencies: ServerDependencies): Hono {
       clientAddress,
     }),
   );
-  // The public pricing page's plans: the same for every visitor, so caches may keep them for five minutes.
-  app.use(
-    "/api/public/plans",
-    rateLimit({ limiter: rateLimiter, name: "public-plans", ...publicLimits.plans, clientAddress, log }),
-  );
-  app.get("/api/public/plans", async (c) => {
-    c.header("Cache-Control", "public, max-age=300");
-    return c.json(await plansOnSale(db));
-  });
   app.use(
     "/webhooks/*",
-    rateLimit({ limiter: rateLimiter, name: "webhooks", ...publicLimits.webhooks, clientAddress, log }),
+    rateLimit({ limiter: rateLimiter, name: "webhooks", ...publicLimits.webhooks, clientAddress, logger }),
   );
   app.route(
     "/webhooks",

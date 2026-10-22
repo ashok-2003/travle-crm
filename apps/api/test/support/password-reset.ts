@@ -4,11 +4,12 @@ import { createDatabase, type Database } from "@travel-crm/db";
 import type { SendPasswordResetEmail } from "@travel-crm/domain/identity";
 import { createRateLimiter, type RateLimiter } from "@travel-crm/domain/rate-limits";
 import { createSmtpEmailSender } from "@travel-crm/integrations/email";
-import { afterAll, beforeAll, expect, inject, onTestFinished, vi } from "vitest";
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
+import { afterAll, beforeAll, expect, inject } from "vitest";
 import { passwordResetEmails } from "../../src/password-reset-email.js";
-import { processLog } from "../../src/process-log.js";
 import { startMailpit, type Mailpit, type MailpitMessage } from "./mailpit.js";
 import {
+  betterAuthLines,
   createTestAgency,
   createTestServer,
   ORIGIN,
@@ -31,14 +32,17 @@ export function resetLinkIn(message: MailpitMessage | undefined): { path: string
  * Better Auth logs some refusals: an address nobody has, a wrong password, a redirect to an untrusted origin. Each test
  * expects exactly its own lines, and the check it returns says so.
  */
-export function expectBetterAuthLogs(level: "warn" | "error", text: string, count: number): () => void {
-  const log = vi.spyOn(console, level).mockImplementation(() => undefined);
-  onTestFinished(() => {
-    log.mockRestore();
-  });
+export function expectBetterAuthLogs(
+  server: TestServer,
+  level: "warn" | "error",
+  text: string,
+  count: number,
+): () => void {
+  server.logger.entries.length = 0;
   return () => {
-    expect(log).toHaveBeenCalledTimes(count);
-    for (const [message] of log.mock.calls) expect(String(message)).toContain(text);
+    const lines = betterAuthLines(server, level);
+    expect(lines).toHaveLength(count);
+    for (const line of lines) expect(line).toContain(text);
   };
 }
 
@@ -63,9 +67,9 @@ export function tracked(send: SendPasswordResetEmail) {
   };
 }
 
-/** What an answer shows a caller: status, headers but the date, and body. */
+/** What an answer shows a caller: status, headers but the date and the request id (new for every request), and body. */
 export async function answerOf(response: Response) {
-  const headers = [...response.headers.entries()].filter(([name]) => name !== "date");
+  const headers = [...response.headers.entries()].filter(([name]) => name !== "date" && name !== "x-request-id");
   return { status: response.status, headers, body: await response.text() };
 }
 
@@ -121,8 +125,7 @@ export function useResetKit(): ResetKit {
     limiterDb = createDatabase(inject("dbUrls").runtime, { maxConnections: 2 });
     const smtp = createSmtpEmailSender({ host: mailpit.smtpHost, port: mailpit.smtpPort, secure: false, fromAddress });
     const limiter = createRateLimiter(limiterDb, { keySecret: "password-reset-test-secret-of-32-bytes" });
-    // A failed send would print an "api: ..." line, which the gate's clean stderr would show.
-    emails = tracked(passwordResetEmails(smtp, pinnedLimiter(limiter, new Date(), kit.capHits), processLog("api")));
+    emails = tracked(passwordResetEmails(smtp, pinnedLimiter(limiter, new Date(), kit.capHits), createMemoryLogger()));
     kit.emails = emails;
     server = createTestServer({ passwordReset: { sendEmail: emails.send, pageUrl: resetPage } });
     kit.server = server;

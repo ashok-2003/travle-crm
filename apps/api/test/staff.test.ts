@@ -1,10 +1,11 @@
 // Staff management through the HTTP app (spec 6.3): an owner adds people with and without email, changes their
 // roles, resets passwords and removes them, and nobody reaches above their own access.
 import type { MeOutput, StaffMember } from "@travel-crm/contracts/identity";
-import { afterAll, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { CookieJar } from "./support/cookie-jar.js";
 import { addStaff, signedInOwner, signedInStaff } from "./support/people.js";
 import {
+  betterAuthLines,
   createTestAgency,
   createTestServer,
   signInByEmail,
@@ -223,10 +224,7 @@ describe("staff management", () => {
   });
 
   it("resets a password: the person is signed out everywhere and must choose a new one", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    onTestFinished(() => {
-      warn.mockRestore();
-    });
+    server.logger.entries.length = 0;
     const kiran = await addStaff(server, agency, { username: "kiran", roleKey: "sales" });
     const jar = await signedInStaff(server, agency, kiran);
     await dataOf(
@@ -256,15 +254,11 @@ describe("staff management", () => {
       status: 403,
       reason: "CHANGE_PASSWORD",
     });
-    expect(warn).toHaveBeenCalledTimes(1);
-    expect(warn).toHaveBeenNthCalledWith(1, expect.stringContaining("Invalid password"));
+    expect(betterAuthLines(server, "warn")).toEqual(["Invalid password"]);
   });
 
   it("removes someone at once: no access on the next request, no sign-in, and their email is free again", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    onTestFinished(() => {
-      warn.mockRestore();
-    });
+    server.logger.entries.length = 0;
     const email = `dev-${agency.code.toLowerCase()}@example.test`;
     const dev = await dataOf<StaffMember>(
       await mutate(
@@ -293,9 +287,7 @@ describe("staff management", () => {
         })
       ).status,
     ).toBe(401);
-    expect(warn).toHaveBeenCalledTimes(2);
-    expect(warn).toHaveBeenNthCalledWith(1, expect.stringContaining("User not found"));
-    expect(warn).toHaveBeenNthCalledWith(2, expect.stringContaining("User not found"));
+    expect(betterAuthLines(server, "warn")).toEqual(["User not found", "User not found"]);
 
     const other = await createTestAgency(server);
     const otherOwner = await signedInOwner(server, other);

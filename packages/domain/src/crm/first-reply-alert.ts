@@ -3,6 +3,7 @@
 // is told, in the bell and by push. Nothing is reassigned. The check is a delayed job (job data: ids only); the alert
 // is keyed on the lead's lead.created event, so a check that runs twice tells once.
 import { firstReplyCheckJob, leadCreatedEvent } from "@travel-crm/contracts/crm";
+import { features } from "@travel-crm/contracts/features";
 import type { Database } from "@travel-crm/db";
 import type { JobQueue } from "@travel-crm/integrations/jobs";
 import { defineListener, type EventListener } from "../jobs/index.js";
@@ -20,6 +21,7 @@ export function scheduleFirstReplyCheckListener(dependencies: { queue: JobQueue 
     eventType: "lead.created",
     payload: leadCreatedEvent,
     handle: async (event, context) => {
+      if (!features.automaticAssignment) return;
       const due = await context.forOrg(async (tx) => {
         const settings = await tx.assignmentSettings.findFirst({ select: { slowReplyMinutes: true } });
         if (!settings?.slowReplyMinutes) return null;
@@ -47,6 +49,8 @@ export async function checkFirstReply(
   data: unknown,
 ): Promise<void> {
   const { organizationId, leadId, sourceEventId } = firstReplyCheckJob.parse(data);
+  // A check queued before the switch went off ends here: it tells no one.
+  if (!features.automaticAssignment) return;
   const ownerUserId = await dependencies.firstOwner(organizationId);
   if (ownerUserId === null) return;
   await dependencies.db.forOrg(organizationId, async (tx) => {

@@ -1,6 +1,7 @@
 // What the purge and erasure tests share: an onboarded agency with a traveller's stored files, the subject export an
 // erasure needs first (a purge's is test-exports.ts's), and a storage that fails when told to.
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
+import { createMemoryLogger, type MemoryLogger } from "@travel-crm/integrations/logging";
 import type { MemoryStorage, ObjectStorage } from "@travel-crm/integrations/storage";
 import { memberAccessOf } from "../identity/test-identity.js";
 import type { MemberAccess } from "../../src/identity/index.js";
@@ -86,10 +87,10 @@ export function flakyStorage(storage: MemoryStorage): { storage: ObjectStorage; 
 export function flakyServices(test: TestPlatform): {
   services: PlatformServices;
   failing: { now: boolean };
-  logged: string[];
+  logged: MemoryLogger["entries"];
 } {
   const flaky = flakyStorage(test.storage);
-  const logged: string[] = [];
-  const services = { ...test.services, storage: flaky.storage, log: (line: string) => logged.push(line) };
-  return { services, failing: flaky.failing, logged };
+  const logger = createMemoryLogger();
+  const services = { ...test.services, storage: flaky.storage, logger };
+  return { services, failing: flaky.failing, logged: logger.entries };
 }

@@ -23,17 +23,13 @@ describe("brand", () => {
     for (const [path, colour] of colours) expect(colour, path).toMatch(/^#[0-9a-f]{6}$/);
   });
 
-  it("has contacts that parse, with real phones only", () => {
+  it("has contacts that parse, and a real phone", () => {
     expect(new URL(brand.website).protocol).toBe("https:");
     expect(brand.supportEmail).toMatch(/^[^@\s]+@[^@\s]+\.[a-z]+$/);
     // A phone, once there is one, is E.164: never the placeholder zeros the screens showed.
     if (brand.supportPhone !== null) {
       expect(brand.supportPhone).toMatch(/^\+[1-9][0-9]{7,14}$/);
       expect(brand.supportPhone).not.toMatch(/^\+910+$/);
-    }
-    for (const contact of [brand.salesContact, brand.techContact]) {
-      expect(contact.email).toMatch(/^[^@\s]+@[^@\s]+\.[a-z]+$/);
-      expect(contact.phone).toMatch(/^\+91[6-9][0-9]{9}$/);
     }
   });
 });

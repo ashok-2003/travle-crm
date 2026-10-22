@@ -10,7 +10,8 @@ import { createPgBossJobs, type PgBossJobs } from "@travel-crm/integrations/jobs
 import { createMemoryPushSender } from "@travel-crm/integrations/push";
 import { createS3Storage } from "@travel-crm/integrations/storage";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { workerProblemLine } from "../src/process-log.js";
+import { logWorkerProblem } from "../src/worker-problem.js";
+import { problemLogger } from "./support/problem-logger.js";
 import { workerJobs } from "../src/worker-jobs.js";
 import { eventually } from "./support/eventually.js";
 import { startMinio, type TestMinio } from "./support/minio.js";
@@ -55,7 +56,7 @@ describe("a lead import through the worker", () => {
       maxConnections: 3,
       pollingIntervalSeconds: 0.5,
       retryPolicy: { retryLimit: 1, retryDelaySeconds: 1, retryDelayMaxSeconds: 1 },
-      log: (line) => reported.push(`pg-boss: ${line}`),
+      logger: problemLogger(reported),
     });
     await jobs.start();
     server = createTestServer({}, { storage: createS3Storage(minio.settings), queue: jobs, dbUrls: isolated.urls });
@@ -77,7 +78,7 @@ describe("a lead import through the worker", () => {
       appUrl: "https://app.example.in",
       webhookProviders: [],
       rateLimiter: createRateLimiter(server.db, { keySecret: "lead-import-flow-rate-limit-secret-of-32-bytes" }),
-      log: (line) => reported.push(line),
+      logger: problemLogger(reported),
     });
     worker = await startWorker({
       db: server.db,
@@ -85,7 +86,7 @@ describe("a lead import through the worker", () => {
       queue: jobs,
       ...work,
       relay: { intervalMs: 100, organizationIds: [agency.organizationId] },
-      onError: (problem) => reported.push(`relay: ${workerProblemLine(problem)}`),
+      onError: logWorkerProblem(problemLogger(reported)),
     });
     owner = await signedInOwner(server, agency);
     zara = (await addStaff(server, agency, { username: "zara", roleKey: "sales" })).userId;

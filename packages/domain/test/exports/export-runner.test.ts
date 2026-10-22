@@ -2,6 +2,7 @@
 // first, then page by page into one file stored once under the export's id; export.made with the filter's ids and
 // fixed values, never the search; the search emptied; and the requester told, as the system.
 import type { OrgTx } from "@travel-crm/db";
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { MemberAccess } from "../../src/identity/index.js";
 import { exportDetail, runExport, startExport } from "../../src/exports/index.js";
@@ -34,6 +35,43 @@ describe("making an export's file", () => {
 
   afterAll(async () => {
     await test.close();
+  });
+
+  it("writes one line when an export ends, with its ids, kind, format, rows and time", async () => {
+    const { exportId } = await anExport();
+    // Uncensored: the line is exactly what the export passed, so this proves its keys, not the censor.
+    const logger = createMemoryLogger({ censor: false });
+    await runExport(
+      requested(organizationId, exportId),
+      listenerContext(test, organizationId),
+      { ...exportDependencies(test, requester), logger },
+      testSource(),
+    );
+    expect(logger.entries).toHaveLength(1);
+    expect(logger.entries[0]).toMatchObject({
+      level: "info",
+      msg: "export finished",
+      organizationId,
+      exportId,
+      kind: "leads",
+      format: "xlsx",
+      outcome: "ready",
+      rows: 3,
+    });
+    expect(typeof logger.entries[0]?.durationMs).toBe("number");
+    // Proven: ids, kind, format, count and time only: no filter, search text or file name.
+    expect(Object.keys(logger.entries[0] ?? {}).sort()).toEqual([
+      "durationMs",
+      "exportId",
+      "format",
+      "kind",
+      "level",
+      "msg",
+      "organizationId",
+      "outcome",
+      "rows",
+    ]);
+    expect(JSON.stringify(logger.entries)).not.toContain("Sharma");
   });
 
   it("counts, writes page by page and stores the file once under the export's id, even run twice", async () => {

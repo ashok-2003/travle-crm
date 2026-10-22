@@ -66,9 +66,10 @@ export default function HomePage() {
         </CardContent>
       </Card>
     ) : null;
+  const managesSettings = holds(me, "settings:manage");
   const actions = addsLeads && (
     <div className="flex flex-wrap gap-2">
-      <NewLeadButton />
+      <NewLeadButton variant="outline" />
       <Button asChild variant="outline">
         <Link href={routes.leadsPipeline}>
           <KanbanIcon aria-hidden="true" />
@@ -81,12 +82,13 @@ export default function HomePage() {
     <div className="flex flex-col gap-8">
       <PageHeader title={t("title", { name: me.user.name })} intro={t("intro2")} action={actions} />
       <div className="grid gap-4 lg:grid-cols-2">
+        {managesSettings && <SetupCard />}
         {showsToday && <TodayNudge />}
-        {holds(me, "settings:manage") && <SetupCard />}
       </div>
       {/* Where the role sees leads on a plan with them, as Today: the period's figures, at the content's full width. */}
       {showsToday && <Dashboard />}
       {screens}
+      {screens === null && <p className="text-muted-foreground">{t("nothingToSetUp")}</p>}
     </div>
   );
 }

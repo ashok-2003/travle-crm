@@ -13,6 +13,7 @@ import {
   type ShareLinkVisitor,
 } from "@travel-crm/domain/share-links";
 import { Hono } from "hono";
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { afterAll, beforeAll, describe, expect, inject, it, onTestFinished, vi } from "vitest";
 import { apiErrorHandler } from "../src/error-handler.js";
 import { clientAddressFrom } from "../src/rate-limit.js";
@@ -217,18 +218,15 @@ describe("share-link route", () => {
   });
 
   it("lets other failures through to the api's handler: the link page for the customer, a line of names for the log", async () => {
-    const failures: [Error, string][] = [
-      [new Error("database down for jane.doe@example.com"), "GET /p failed: Error"],
+    const failures: [Error, string, string | undefined][] = [
+      [new Error("database down for jane.doe@example.com"), "Error", undefined],
       // A resolver refusing for a reason of its own, e.g. a sensitive file.
-      [
-        new DomainError("FORBIDDEN", "SENSITIVE_FILE", "This file can't be shared"),
-        "GET /p failed: DomainError FORBIDDEN",
-      ],
+      [new DomainError("FORBIDDEN", "SENSITIVE_FILE", "This file can't be shared"), "DomainError", "FORBIDDEN"],
     ];
-    for (const [failure, line] of failures) {
-      const logged: string[] = [];
+    for (const [failure, name, code] of failures) {
+      const logged = createMemoryLogger();
       const app = new Hono();
-      app.onError(apiErrorHandler((line) => logged.push(line)));
+      app.onError(apiErrorHandler(logged));
       app.route(
         "/p",
         routes(() => Promise.resolve(opened), { issued_document: () => Promise.reject(failure) }),
@@ -239,7 +237,13 @@ describe("share-link route", () => {
       const page = await response.text();
       expect(page).toContain("This link doesn't work");
       expect(page).not.toMatch(/database down|jane|can't be shared/);
-      expect(logged).toEqual([line]);
+      expect(logged.entries).toHaveLength(1);
+      expect(logged.entries[0]).toMatchObject({
+        area: "/p",
+        errorName: name,
+        ...(code === undefined ? {} : { errorCode: code }),
+      });
+      expect(JSON.stringify(logged.entries)).not.toMatch(/database down|jane|can't be shared/);
     }
   });
 });

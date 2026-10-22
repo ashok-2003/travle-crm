@@ -93,7 +93,8 @@ describe("the console process", () => {
         if (running.hasExited()) throw new Error(`the console exited early:\n${running.output()}`);
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
-      expect(running.output()).toContain(`console listening on port ${String(port)}`);
+      expect(running.output()).toContain(`"msg":"console listening"`);
+      expect(running.output()).toContain(`"port":${String(port)}`);
       expect((await fetch(`http://127.0.0.1:${String(port)}/health`)).status).toBe(200);
       // Nobody signed in: the console's own check refuses.
       expect((await fetch(`http://127.0.0.1:${String(port)}/api/platform/trpc/whoAmI`)).status).toBe(401);

@@ -1,5 +1,6 @@
 // The real GoogleSheets: plain fetch to the Sheets v4 API's two read endpoints, with a service account's token from
 // google-auth-library (ADR 0031). Every request is a GET, within a timeout and a size limit; nothing is ever written.
+import type { Logger } from "../logging/index.js";
 import { JWT } from "google-auth-library";
 import { columnLetters } from "../spreadsheets/sheet-shape.js";
 import { mapGoogleError, parseMetadata, parseValueRanges, type SpreadsheetMetadata } from "./google-responses.js";
@@ -29,8 +30,8 @@ export interface RealGoogleSheetsOptions {
     getAccessToken(): Promise<{ token?: string | null }>;
   };
   fetch?: typeof fetch;
-  /** Where an account's failures go, as `sheets: Google account <index> failed: <reason>`, once per streak (SC4). */
-  log?: (line: string) => void;
+  /** Where an account's failures go, as a `warn` line with the account and the reason, once per streak (SC4). */
+  logger?: Logger;
   /** 20 seconds. */
   timeoutMs?: number;
   /** 25 MB. */
@@ -111,8 +112,14 @@ export function createRealGoogleSheets(options: RealGoogleSheetsOptions): Google
         error instanceof GoogleSheetsError && (error.reason === "unavailable" || error.reason === "rate_limited");
       if (down && !failing.has(accountIndex)) {
         failing.add(accountIndex);
-        options.log?.(
-          `sheets: Google account ${String(accountIndex)} failed: ${error.reason}${error.googleReason === null ? "" : ` (${error.googleReason})`}`,
+        options.logger?.warn(
+          {
+            source: "google-sheets",
+            account: accountIndex,
+            reason: error.reason,
+            ...(error.googleReason === null ? {} : { googleReason: error.googleReason }),
+          },
+          "Google failed for a service account",
         );
       } else if (!down) failing.delete(accountIndex);
       throw error;

@@ -2,6 +2,7 @@
 // counts and one notice to the importer; and the report downloaded through a 5-minute link, recorded in the audit log.
 import { randomUUID } from "node:crypto";
 import type { OrgTx } from "@travel-crm/db";
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { MemberAccess } from "../../src/identity/index.js";
 import { findImport, finishImport, importReportLink, type ImportEnd } from "../../src/imports/index.js";
@@ -191,5 +192,46 @@ describe("an import's end", () => {
       code: "CONFLICT",
       reason: "EXPORT_EXPIRED",
     });
+  });
+
+  it("writes one line when an import ends, with its ids, status and counts, and none for a repeat", async () => {
+    const { id } = await inOrg((tx) => aBatch(tx, { startedBy: importer.userId, status: "adding" }));
+    await inOrg(async (tx) => {
+      await aRow(tx, { batchId: id, rowNumber: 2, outcome: "added" });
+      await aRow(tx, { batchId: id, rowNumber: 3, outcome: "merged" });
+      await aRow(tx, { batchId: id, rowNumber: 4, outcome: "not_added" });
+    });
+    // Uncensored: the line is exactly what the import passed, so this proves its keys, not the censor.
+    const logger = createMemoryLogger({ censor: false });
+    const end = ended();
+    const dependencies = { ...jobDependencies(test), logger };
+    await finishImport(listenerContext(test, organizationId), dependencies, id, end);
+    await finishImport(listenerContext(test, organizationId), dependencies, id, end);
+    expect(logger.entries).toHaveLength(1);
+    expect(logger.entries[0]).toMatchObject({
+      level: "info",
+      msg: "import finished",
+      organizationId,
+      importId: id,
+      kind: "leads",
+      status: "done",
+      rowsAdded: 1,
+      rowsMerged: 1,
+      rowsLeftOut: 0,
+      rowsNotAdded: 1,
+    });
+    // Proven: ids, kind, status and counts only: no file name, row text or importer name.
+    expect(Object.keys(logger.entries[0] ?? {}).sort()).toEqual([
+      "importId",
+      "kind",
+      "level",
+      "msg",
+      "organizationId",
+      "rowsAdded",
+      "rowsLeftOut",
+      "rowsMerged",
+      "rowsNotAdded",
+      "status",
+    ]);
   });
 });

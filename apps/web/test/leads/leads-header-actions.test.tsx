@@ -38,7 +38,9 @@ describe("LeadsHeaderActions", () => {
     // Export follows it as an outline pill in the same row.
     const exportButton = within(row).getByRole("button", { name: messages.leads.export.button });
     expect(exportButton.dataset.variant).toBe("outline");
-    expect(row.lastElementChild).toBe(exportButton);
+    // The way to the pipeline board closes the row.
+    expect(exportButton.nextElementSibling).toBe(row.lastElementChild);
+    expect(row.lastElementChild).toHaveAttribute("href", routes.leadsPipeline);
   });
 
   it("puts Import after New lead in the same row, an outline pill, for whoever may import", () => {

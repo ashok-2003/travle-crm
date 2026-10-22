@@ -2,7 +2,8 @@
 // the files in the deletions' outbox; once it commits, this deletes each file, then its row, and the console's job
 // retries until the outbox is empty. Nothing is lost to a storage error or a restart: the rows stay until the bytes go,
 // each run queues the next for its organization's rows left, and the hourly sweep (required) catches what no job will.
-import { describeError, ownMessages, type JobData } from "@travel-crm/integrations/jobs";
+import { ownMessages, type JobData } from "@travel-crm/integrations/jobs";
+import { errorFields } from "@travel-crm/integrations/logging";
 import { deleteQueuedFile, dueFileDeletions, forgetFileDeletion, nextFileDeletionDue } from "../files/index.js";
 import { listenerJobId, type JobHandler, type ScheduledJob } from "../jobs/index.js";
 import { isUuid } from "../kernel/index.js";
@@ -135,8 +136,9 @@ export async function deleteFilesAfterCommit(
   try {
     await deleteDueFiles(services, { now, organizationId });
   } catch (error) {
-    services.log(
-      `${DELETE_STORED_FILES_QUEUE}: organization ${organizationId}'s files are left to the job (${describeError(error)})`,
+    services.logger.warn(
+      { queue: DELETE_STORED_FILES_QUEUE, organizationId, ...errorFields(error) },
+      "An organization's files are left to the job",
     );
   }
   await queueNextRun(services, now, organizationId);

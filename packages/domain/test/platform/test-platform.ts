@@ -10,6 +10,7 @@ import {
   type MemoryJobAdministration,
   type MemoryJobQueue,
 } from "@travel-crm/integrations/jobs";
+import { createMemoryLogger, type MemoryLogger } from "@travel-crm/integrations/logging";
 import { createMemoryStorage, type MemoryStorage } from "@travel-crm/integrations/storage";
 import { inject } from "vitest";
 import { addDays, calendarDateIn } from "../../src/kernel/index.js";
@@ -26,7 +27,7 @@ export interface TestPlatform {
   jobs: MemoryJobAdministration;
   identity: TestIdentity;
   /** What the platform's services logged. */
-  lines: string[];
+  logger: MemoryLogger;
   close(): Promise<void>;
 }
 
@@ -37,7 +38,7 @@ export function createTestPlatform(): TestPlatform {
   const storage = createMemoryStorage();
   const queue = createMemoryJobQueue();
   const jobs = createMemoryJobAdministration();
-  const lines: string[] = [];
+  const logger = createMemoryLogger();
   const services = createPlatformServices({
     platformDatabaseUrl: urls.platform,
     maxConnections: 2,
@@ -46,7 +47,7 @@ export function createTestPlatform(): TestPlatform {
     storage,
     queue,
     jobs,
-    log: (line) => lines.push(line),
+    logger,
   });
   return {
     services,
@@ -54,7 +55,7 @@ export function createTestPlatform(): TestPlatform {
     queue,
     jobs,
     identity,
-    lines,
+    logger,
     close: async () => {
       await services.platformDb.disconnect();
       await db.disconnect();

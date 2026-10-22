@@ -5,6 +5,7 @@ import { createDatabase, type Database, type OrgTx } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { createMemoryEmailSender, type MemoryEmailSender } from "@travel-crm/integrations/email";
+import type { LogFields, Logger } from "@travel-crm/integrations/logging";
 import { createMemoryPushSender, type MemoryPushSender } from "@travel-crm/integrations/push";
 import { afterAll, beforeAll, beforeEach, inject } from "vitest";
 import type { MemberContact, OrganizationProfile } from "../../src/identity/index.js";
@@ -17,6 +18,14 @@ import {
   type DeliveryDependencies,
 } from "../../src/notifications/index.js";
 import { eventsOfType, personIn } from "./test-support.js";
+
+/** A logger that keeps each line as text, `message {fields}`, for the tests to look for ids and codes in. */
+function lineLogger(lines: string[]): Logger {
+  const write = (fields: LogFields, message: string) => {
+    lines.push(`${message} ${JSON.stringify(fields)}`);
+  };
+  return { child: () => lineLogger(lines), debug: write, info: write, warn: write, error: write };
+}
 
 export const keys = { p256dh: "B".repeat(87), auth: "A".repeat(22) };
 
@@ -88,7 +97,7 @@ export function useDeliveryKit(name: string): DeliveryKit {
     memberContacts: (_organizationId, userIds) =>
       Promise.resolve(contacts.filter((contact) => userIds.includes(contact.userId))),
     appUrl: "https://app.example",
-    log: (message) => kit.logs.push(message),
+    logger: lineLogger(kit.logs),
     ...overrides,
   });
   state.context = () => ({

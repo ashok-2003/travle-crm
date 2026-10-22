@@ -23,7 +23,6 @@ export { dueState, nextStep, type LifecycleState, type UnpaidDays } from "./life
 export { setPaidThrough, setTrialEnd } from "./paid-dates.js";
 export { listPayments, recordPayment, voidPayment, type ProviderPayment } from "./payments.js";
 export { placeholderPlans, seedPlaceholderPlans } from "./placeholder-plans.js";
-export { plansOnSale } from "./public-plans.js";
 export { planLimits, type PlanLimits } from "./plan-limits.js";
 export { archivePlan, createPlan, DEMO_PLAN_KEY, findPlan, listPlans, updatePlan } from "./plans.js";
 export { getSubscriptionPolicy, samePolicy, setSubscriptionPolicy } from "./policy.js";

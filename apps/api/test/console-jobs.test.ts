@@ -16,6 +16,7 @@ import {
 import { ADVANCE_SUBSCRIPTIONS_QUEUE, LifecycleJobError } from "@travel-crm/domain/subscriptions";
 import { createMemoryJobQueue, createMemoryJobRunner } from "@travel-crm/integrations/jobs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { consoleJobs, startConsoleJobs } from "../src/console-jobs.js";
 import { createTestConsole, type TestConsole } from "./support/console.js";
 import { createTestAgency, createTestServer, type TestServer } from "./support/test-server.js";
@@ -259,16 +260,20 @@ describe("the console's jobs", () => {
         return transactions === 2 ? Promise.reject(new Error("connection lost")) : platformDb.transaction(fn, options);
       },
     };
-    const lines: string[] = [];
-    const { schedules } = consoleJobs(
-      { ...testConsole.services, platformDb: failingOnce, log: (line) => lines.push(line) },
-      null,
-    );
+    const logger = createMemoryLogger();
+    const { schedules } = consoleJobs({ ...testConsole.services, platformDb: failingOnce, logger }, null);
     const lifecycle = schedules.find((schedule) => schedule.queue === ADVANCE_SUBSCRIPTIONS_QUEUE);
     await expect(lifecycle?.handle({})).rejects.toBeInstanceOf(LifecycleJobError);
     expect(transactions).toBeGreaterThan(2);
-    expect(lines).toEqual([
-      expect.stringMatching(/^subscriptions\.advance-lifecycle: organization [0-9a-f-]{36} failed: Error$/),
+    expect(logger.entries).toMatchObject([
+      {
+        level: "error",
+        msg: "A subscription could not be advanced",
+        queue: ADVANCE_SUBSCRIPTIONS_QUEUE,
+        organizationId: expect.stringMatching(/^[0-9a-f-]{36}$/) as string,
+        errorName: "Error",
+      },
     ]);
+    expect(JSON.stringify(logger.entries)).not.toContain("connection lost");
   });
 });

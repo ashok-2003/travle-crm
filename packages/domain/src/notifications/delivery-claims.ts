@@ -3,6 +3,7 @@
 // when it can never succeed, so repeated and overlapping runs send once and give up once.
 import type { OrgTx } from "@travel-crm/db";
 import { ownMessage } from "@travel-crm/integrations/jobs";
+import type { Logger } from "@travel-crm/integrations/logging";
 import type { ListenerContext } from "../jobs/index.js";
 
 /**
@@ -86,15 +87,16 @@ export async function release(
   id: string,
   channel: Channel,
   claimedAt: Date,
-  log: (message: string) => void,
+  logger: Logger,
 ): Promise<void> {
   try {
     await context.forOrg((tx) =>
       tx.notification.updateMany({ where: { id, ...channel.claimedAt(claimedAt) }, data: channel.unclaim() }),
     );
   } catch {
-    log(
-      `Notification ${id}: the ${channel.name} claim could not be released; it expires in ${String(LEASE_MS / 60_000)} minutes`,
+    logger.warn(
+      { notificationId: id, channel: channel.name, leaseMinutes: LEASE_MS / 60_000 },
+      "A notification's claim could not be released; it expires with its lease",
     );
   }
 }

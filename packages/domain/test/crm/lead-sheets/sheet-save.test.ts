@@ -1,15 +1,21 @@
 // The save of a check's rows (S25): fifty to a transaction, the connection held first, each outcome and the counters written
 // in it, the rules applied again, a unique violation settled by a second look, a row with an outcome never saved again.
-import { afterAll, describe, expect, it } from "vitest";
+import { randomUUID } from "node:crypto";
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import { checkLeadSheet } from "../../../src/crm/index.js";
 import { planSheetRows, type SheetRowDecision } from "../../../src/crm/lead-sheets/index.js";
 import { saveSheetBatch, type SaveBatchContext } from "../../../src/crm/lead-sheets/sheet-save.js";
 import { fakeIdentity } from "../../imports/support/test-imports.js";
 import { aBatch } from "../../imports/support/batches.js";
-import { freshPhone } from "../support/records.js";
+import { aLead, aPerson, freshPhone } from "../support/records.js";
 import { aRunningSheet, anAgency, checkDependencies, createTestSheets, memberOf } from "../../sheets/support/sheets.js";
 import { formHeader, readFormRow } from "./support.js";
 import type { Database } from "@travel-crm/db";
+
+// A spy on the assignment: with automatic assignment off (features.automaticAssignment) it is never asked.
+const chooseOwner = vi.hoisted(() => vi.fn());
+vi.mock("../../../src/crm/assignment/choose-owner.js", () => ({ chooseOwner }));
 
 const test = createTestSheets();
 
@@ -95,6 +101,49 @@ describe("saveSheetBatch", () => {
     expect(importer.userId).toBeTruthy();
   });
 
+  it("writes one summary line per check: the connection, the rows read and what became of them, the time", async () => {
+    const { agency, identity, sheet } = await running();
+    test.google.append(sheet.spreadsheetId, "Form responses 1", row("Summary One", freshPhone()));
+    test.google.append(sheet.spreadsheetId, "Form responses 1", row("Summary Two", freshPhone()));
+    // Uncensored: the line is exactly what the check passed, so this proves the check's keys, not the censor.
+    const logger = createMemoryLogger({ censor: false });
+    await checkLeadSheet(
+      { ...checkDependencies(test, { identity }), logger },
+      { organizationId: agency, sheetId: sheet.sheetId, mode: "scheduled" },
+    );
+    const summaries = logger.entries.filter((entry) => entry.msg === "sheet check");
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0]).toMatchObject({
+      level: "info",
+      organizationId: agency,
+      sheetId: sheet.sheetId,
+      mode: "scheduled",
+      result: "checked",
+      rowsRead: 2,
+      rowsAdded: 2,
+      rowsMerged: 0,
+      rowsDuplicate: 0,
+      rowsWithProblems: 0,
+    });
+    expect(typeof summaries[0]?.durationMs).toBe("number");
+    // Proven: the summary has ids, the mode, counts and a time, and no more: no name, phone, sheet title or row text.
+    expect(Object.keys(summaries[0] ?? {}).sort()).toEqual([
+      "durationMs",
+      "level",
+      "mode",
+      "msg",
+      "organizationId",
+      "result",
+      "rowsAdded",
+      "rowsDuplicate",
+      "rowsMerged",
+      "rowsRead",
+      "rowsWithProblems",
+      "sheetId",
+    ]);
+    expect(JSON.stringify(logger.entries)).not.toMatch(/Summary|Person/);
+  });
+
   it("applies the rules again: a contact blocked since the plan is left out", async () => {
     const { agency, sheet, context, planned } = await running();
     const phone = freshPhone();
@@ -171,5 +220,28 @@ describe("saveSheetBatch", () => {
     );
     expect(counts.reduce((sum, sheet) => sum + sheet.rowsAdded, 0)).toBe(1);
     expect(counts.reduce((sum, sheet) => sum + sheet.rowsMerged, 0)).toBe(1);
+  });
+
+  it("gives a new lead to the default owner, a returning customer's too, without asking the assignment (switched off)", async () => {
+    const { agency, context, planned } = await running();
+    const previousOwner = randomUUID();
+    const phone = freshPhone();
+    const earlier = await test.db.forOrg(agency, async (tx) => {
+      const person = await aPerson(tx, { phoneE164: phone });
+      return aLead(tx, { personId: person.id, stage: "won", ownerUserId: previousOwner });
+    });
+    const [one] = planned([row("Returning Person", phone)]);
+    if (one === undefined) throw new Error("setup");
+    const decision = decide(one.read);
+    await test.db.forOrg(agency, (tx) =>
+      saveSheetBatch(tx, { ...context, workers: new Set([context.defaultOwnerUserId, previousOwner]) }, [
+        { row: one.read.row, decision },
+      ]),
+    );
+    const newest = await test.db.forOrg(agency, (tx) =>
+      tx.lead.findFirstOrThrow({ where: { id: { not: earlier.id } } }),
+    );
+    expect(newest.ownerUserId).toBe(context.defaultOwnerUserId);
+    expect(chooseOwner).not.toHaveBeenCalled();
   });
 });

@@ -4,7 +4,7 @@ import { brand } from "@travel-crm/brand";
 import type { SendPasswordResetEmail } from "@travel-crm/domain/identity";
 import type { RateLimiter } from "@travel-crm/domain/rate-limits";
 import { renderEmail, type EmailSender } from "@travel-crm/integrations/email";
-import { describeError } from "@travel-crm/integrations/jobs";
+import { errorFields, type Logger } from "@travel-crm/integrations/logging";
 
 /**
  * Reset emails one address gets at most: three an hour, counted in Postgres like the public routes' limits, so every
@@ -19,13 +19,13 @@ export function resetPasswordPageOf(appUrl: string): string {
 }
 
 /**
- * Sends the reset email, at most PER_RECIPIENT a recipient. A failure goes to `log` by the error's names and codes:
+ * Sends the reset email, at most PER_RECIPIENT a recipient. A failure goes to `logger` by the error's names, codes and frames:
  * its message can quote the email, and so the reset link's token.
  */
 export function passwordResetEmails(
   email: EmailSender,
   limiter: Pick<RateLimiter, "hit">,
-  log: (line: string) => void,
+  logger: Logger,
 ): SendPasswordResetEmail {
   return async ({ to, url }) => {
     try {
@@ -44,7 +44,7 @@ export function passwordResetEmails(
       await email.send({ to, fromName: brand.emailSenderName, subject: "Reset your password", ...content });
     } catch (error) {
       // Not awaited by the request (the timing would tell whether the address exists), so this is the only report.
-      log(`Could not send a password-reset email: ${describeError(error)}`);
+      logger.error(errorFields(error), "Could not send a password-reset email");
     }
   };
 }

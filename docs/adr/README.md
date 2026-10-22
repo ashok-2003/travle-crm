@@ -36,3 +36,4 @@ The first and largest set of decisions is the Foundation spec: `docs/superpowers
 | [0029](0029-ai-features.md)                  | AI features: language only, people apply, small-model rules, the OpenRouter adapter                          |
 | [0030](0030-imports-and-exports.md)          | Imports and exports: the spreadsheets port, the worker reads, step events, keeping times                     |
 | [0031](0031-google-sheets-sync.md)           | Google Sheets sync: a service account, read only, polling; the schedule and claim outside row-level security |
+| [0032](0032-structured-logging.md)           | Structured logging: the Logger port, JSON lines, ids and codes only, request ids, optional Axiom shipping    |

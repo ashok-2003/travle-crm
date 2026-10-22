@@ -2,6 +2,7 @@
 
 // For someone in the pool that takes new leads in turn (release C, Settings > Lead assignment): mark yourself away for
 // a day, three or a week, so the turns skip you, or come back at once. Shown only to people in the pool.
+import { features } from "@travel-crm/contracts/features";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { RefusalAlert } from "@/components/refusal-alert";
@@ -71,5 +72,6 @@ function AwaySwitchCard() {
 
 /** Only for someone who works leads, who may be in the pool. */
 export function AwaySwitch() {
-  return useHolds("leads:view") ? <AwaySwitchCard /> : null;
+  const holdsView = useHolds("leads:view");
+  return features.automaticAssignment && holdsView ? <AwaySwitchCard /> : null;
 }

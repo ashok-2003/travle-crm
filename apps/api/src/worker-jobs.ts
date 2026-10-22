@@ -2,6 +2,7 @@
 // webhook processing job, and the scheduled jobs, built from the process's services. The api and the worker are one
 // image; `worker.ts` starts this side. The platform's own jobs, which need the platform role (the subscription
 // lifecycle among them), run in the console process instead (console-jobs.ts).
+import { features } from "@travel-crm/contracts/features";
 import type { Database } from "@travel-crm/db";
 import {
   addLeadImportListener,
@@ -48,6 +49,7 @@ import type { EmailSender } from "@travel-crm/integrations/email";
 import { renderPdf } from "@travel-crm/integrations/pdf";
 import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
 import type { JobQueue } from "@travel-crm/integrations/jobs";
+import type { Logger } from "@travel-crm/integrations/logging";
 import type { PushSender } from "@travel-crm/integrations/push";
 import type { Spreadsheets } from "@travel-crm/integrations/spreadsheets";
 
@@ -91,8 +93,8 @@ export interface WorkerJobDependencies {
   rateLimiter: RateLimiter;
   /** The Google Sheets sync (ADR 0031): left out when no service account is set, and then none of its work runs. */
   sheets?: WorkerSheets;
-  /** Where problems that need attention go, one line each, ids and codes only: the worker's log. */
-  log: (line: string) => void;
+  /** The worker's structured log (ADR 0032): ids, codes, counts and timings only. */
+  logger: Logger;
   /** Where listeners queue delayed jobs (a new lead's first-reply check): the same pg-boss. Without it, no checks. */
   jobs?: JobQueue;
 }
@@ -107,7 +109,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
   const { db, identity, files, spreadsheets, subscriptions, seatLimit, email, push, appUrl } = dependencies;
-  const { webhookProviders, rateLimiter, log } = dependencies;
+  const { webhookProviders, rateLimiter, logger } = dependencies;
   // The bulk imports' and exports' listeners (release 2): two of each step share its event, each acting on its kind.
   const importJobs: ImportJobDependencies = {
     files,
@@ -115,6 +117,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
     identity,
     subscriptions,
     seatLimit,
+    logger,
     // A Google Sheet's rows read as a file's do, with the sheet as their origin (the Sheets sync).
     sheetOrigin: sheetOriginOf,
   };
@@ -134,14 +137,14 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
           spreadsheets,
           identity,
           subscriptions,
-          log,
+          logger,
           google: sheets.google,
           hashes: sheets.hashes,
           holds: createAccountHolds(),
           checkIntervalSeconds: sheets.checkIntervalSeconds ?? defaultCheckIntervalSeconds,
           baselineFingerprints: leadSheetBaselineFingerprints(db, sheets.hashes),
         };
-  const exportJobs: ExportJobDependencies = { files, spreadsheets, identity, appUrl };
+  const exportJobs: ExportJobDependencies = { files, spreadsheets, identity, appUrl, logger };
   return {
     listeners: [
       renderIssuedDocumentListener({ files, render: renderPdf }),
@@ -151,7 +154,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
         organizationProfile: (organizationId) => identity.organizationProfile(organizationId),
         memberContacts: (organizationId, userIds) => identity.memberContacts(organizationId, userIds),
         appUrl,
-        log,
+        logger,
       }),
       notifySharerListener({
         memberContacts: (organizationId, userIds) => identity.memberContacts(organizationId, userIds),
@@ -160,7 +163,9 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       identity.inviteListener({ email, appUrl, limiter: rateLimiter }),
       handOverDepartingMemberListener({ firstOwner: (organizationId) => identity.firstOwner(organizationId) }),
       // The slow-reply alert (release C): each new lead's check, queued for when its wait runs out.
-      ...(dependencies.jobs === undefined ? [] : [scheduleFirstReplyCheckListener({ queue: dependencies.jobs })]),
+      ...(dependencies.jobs === undefined || !features.automaticAssignment
+        ? []
+        : [scheduleFirstReplyCheckListener({ queue: dependencies.jobs })]),
       readImportFileListener(importJobs),
       checkLeadImportListener(importJobs),
       addLeadImportListener(importJobs),

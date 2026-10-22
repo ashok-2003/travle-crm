@@ -126,6 +126,9 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `VAPID_PRIVATE_KEY`: the public key's pair (below)               | ●   | ●      | ●       |         | yes    |
 | `GOOGLE_SHEETS_SERVICE_ACCOUNTS`: the Sheets sync's keys (below) | ●   | ●      |         |         | yes    |
 | `SHEETS_HASH_KEY`: 32+ characters, never changed (below)         | ●   | ●      | ●       |         | yes    |
+| `LOG_LEVEL`: debug, info, warn or error (`info`)                 | ○   | ○      | ○       |         |        |
+| `AXIOM_TOKEN`, `AXIOM_DATASET`: both or neither (Logs, below)    | ○   | ○      | ○       |         | yes    |
+| `AXIOM_URL`: only for Axiom's EU region                          | ○   | ○      | ○       |         |        |
 | `PORT` (3001)                                                    | ○   |        |         |         |        |
 | `CONSOLE_PORT` (3002)                                            |     |        | ○       |         |        |
 | `DEMO_ORGANIZATION_CODE`, `DEMO_PASSWORD`: both or neither       |     |        | ○       |         | yes    |
@@ -138,6 +141,11 @@ Secrets come from the platform's secret manager as environment variables, never 
   (`pnpm --filter @travel-crm/integrations exec web-push generate-vapid-keys`) and never replace it. Every browser's
   push subscription is tied to the public key, so a new pair silently drops them all. Production refuses
   `.env.example`'s pair.
+- **Logs** (ADR 0032): every process writes JSON lines to standard output, which Render's Logs tab filters by level
+  (`LOG_LEVEL`, `info` unless set; `debug` adds health checks and each job's start). `AXIOM_TOKEN` and `AXIOM_DATASET`
+  also ship every line to Axiom (30 days, searchable, free); both or neither, secrets, set on all three processes
+  (`docs/runbook.md`, "Turn on Axiom"). Each process says its version at start: Render sets `RENDER_GIT_COMMIT` itself;
+  elsewhere, build with `GIT_SHA`.
 - **Google Sheets** (the Sheets sync, ADR 0031; the owner's steps are in the spec's section 14):
   - Create a Google Cloud project with a company account, enable the **Google Sheets API** (the Drive API is not
     needed), create a **service account** with no roles (its email is the address agencies share their sheets with, so

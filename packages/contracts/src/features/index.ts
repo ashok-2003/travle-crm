@@ -19,6 +19,15 @@ export interface Features {
    * `vi.mock("@travel-crm/contracts/features", () => ({ features: { twoFactor: true } }))`.
    */
   readonly twoFactor: boolean;
+  /**
+   * Automatic lead assignment and its extras (release C): rules, turns or fewest open leads for imports and Sheets, the
+   * slow-reply alert, the assignment settings, the away switch and the Unassigned queue. Off until release 4 (owner,
+   * 2026-10-22): every new lead from an import or a Sheet goes to the default owner, a returning customer's too, as in
+   * release 2, and the alert, the settings screen, the away switch and the queue are hidden and refused. The
+   * lead_assignment tables and models stay. The tests of the assignment turn it on with
+   * `vi.mock("@travel-crm/contracts/features", () => ({ features: { automaticAssignment: true } }))`.
+   */
+  readonly automaticAssignment: boolean;
 }
 
-export const features: Features = { twoFactor: false };
+export const features: Features = { twoFactor: false, automaticAssignment: false };

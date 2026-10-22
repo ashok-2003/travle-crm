@@ -4,6 +4,7 @@
 // failure is logged after it: no retry or removal goes unlogged.
 import type { FailedJobsPage, ListFailedJobsInput, RetryFailedJobInput } from "@travel-crm/contracts/platform";
 import { describeError } from "@travel-crm/integrations/jobs";
+import { errorFields } from "@travel-crm/integrations/logging";
 import { DomainError } from "../kernel/index.js";
 import { ADVANCE_SUBSCRIPTIONS_QUEUE } from "../subscriptions/index.js";
 import { SWEEP_BULK_FILES_QUEUE } from "./bulk-files-sweep.js";
@@ -62,7 +63,10 @@ async function loggedAction(
         recordPlatformAudit(tx, staff, { ...entry, action: failedAction, after: { ...entry.after, failure } }),
       )
       .catch((logError: unknown) => {
-        services.log(`${failedAction} for ${entry.targetId} could not be logged: ${describeError(logError)}`);
+        services.logger.error(
+          { action: failedAction, targetId: entry.targetId, ...errorFields(logError) },
+          "A failed platform action could not be logged",
+        );
       });
     throw error;
   }

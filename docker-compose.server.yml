@@ -34,6 +34,11 @@ x-api-environment: &api-environment
   # (the console's erasure job writes tombstones with it); the accounts are for the api and the worker alone.
   SHEETS_HASH_KEY: ${SHEETS_HASH_KEY:-}
   GOOGLE_SHEETS_SERVICE_ACCOUNTS: ${GOOGLE_SHEETS_SERVICE_ACCOUNTS:-}
+  # Logging (ADR 0032, docs/runbook.md, "Turn on Axiom"): blank leaves LOG_LEVEL at info and Axiom off.
+  LOG_LEVEL: ${LOG_LEVEL:-}
+  AXIOM_TOKEN: ${AXIOM_TOKEN:-}
+  AXIOM_DATASET: ${AXIOM_DATASET:-}
+  AXIOM_URL: ${AXIOM_URL:-}
 
 # One build of the api's image, tagged with the release, for the four services that run it. Old releases' images
 # stay on the server, so a rollback starts them again without a build.

@@ -10,6 +10,7 @@
   "reasons": {
     "MISSING_PERMISSION": "Your role doesn't allow this. Ask an Owner or Admin.",
     "NOT_A_MEMBER": "You're not a member of an organization.",
+    "NOT_AVAILABLE_YET": "This isn't available yet.",
     "OWNER_ONLY": "Only an Owner can do this.",
     "OWNER_ROLE_IS_FIXED": "The Owner role always holds every permission and can't be changed.",
     "CANNOT_CHANGE_YOURSELF": "You can't change your own role or remove yourself.",

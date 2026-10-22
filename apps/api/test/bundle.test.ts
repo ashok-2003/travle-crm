@@ -2,11 +2,15 @@
 // thread (ADR 0030), our code and every third-party package in it but the integrations package's own, which the image
 // installs from the lockfile, and none of the tests' code. It is built as the image lays it out (/app/apps/api: dist/
 // beside the integrations package's node_modules), so the thread runs as it will there.
-import { mkdtemp, rm, symlink } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { createServer } from "node:http";
 import { builtinModules } from "node:module";
+import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 import { createSpreadsheets } from "@travel-crm/integrations/spreadsheets";
 import type { Metafile } from "esbuild";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -55,7 +59,47 @@ describe("the api's bundle", () => {
       "console.mjs": "src/console.ts",
       "console-command.mjs": "src/console-command.ts",
       "xlsx-thread.mjs": "../../packages/integrations/src/spreadsheets/xlsx-thread.ts",
+      "axiom-transport.mjs": "../../packages/integrations/src/logging/axiom-transport.ts",
     });
+  });
+
+  it("ships log lines to Axiom from the bundle's axiom-transport.mjs and the installed pino", async () => {
+    const posts: { authorization: string | undefined; path: string; body: string }[] = [];
+    const server = createServer((request, response) => {
+      const chunks: Buffer[] = [];
+      request.on("data", (chunk: Buffer) => chunks.push(chunk));
+      request.on("end", () => {
+        posts.push({
+          authorization: request.headers.authorization,
+          path: request.url ?? "",
+          body: Buffer.concat(chunks).toString(),
+        });
+        response.end("{}");
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    try {
+      // A process of its own: closing the transport waits for its thread, which posts to the server on this thread.
+      const script = path.join(root, "ship.mjs");
+      await writeFile(
+        script,
+        `import { transport, pino } from "pino";
+const shipping = transport({
+  target: ${JSON.stringify(path.join(outdir, "axiom-transport.mjs"))},
+  options: { token: "bundle-token", dataset: "bundle", url: "http://127.0.0.1:${String((server.address() as AddressInfo).port)}" },
+});
+pino(shipping).info("from the bundle");
+shipping.end();
+shipping.on("close", () => process.exit(0));
+`,
+      );
+      await promisify(execFile)(process.execPath, [script], { cwd: root, timeout: 30_000 });
+    } finally {
+      server.close();
+    }
+    expect(posts).toHaveLength(1);
+    expect(posts[0]).toMatchObject({ authorization: "Bearer bundle-token", path: "/v1/datasets/bundle/ingest" });
+    expect(posts[0]?.body).toContain("from the bundle");
   });
 
   it("reads an .xlsx in its own thread, from the bundle's xlsx-thread.mjs and the installed packages", async () => {

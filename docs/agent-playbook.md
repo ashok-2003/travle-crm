@@ -124,7 +124,7 @@ before a feature, a fix wave or a review, together with `CLAUDE.md`, `DESIGN.md`
     pg_trgm's similarity operators are not, so a trigram index can't serve a search there (ADR 0028). Test such a
     query against a time budget at the seeded size instead of asserting its index.
 - **Product identity:** the name, contacts and colours come from `@travel-crm/brand`. The support email is the
-  owner's for now; the phone is `null` until given, and `null` contacts are hidden.
+  owner's for now, and the support phone is the owner's number (confirmed 2026-10-22); a `null` contact is hidden.
 - **Dates:** a displayed date reads "16 Oct" (`formatDay` / `formatCalendarDay`); dd/mm/yyyy appears only in date
   inputs.
 - **Money:** in paise, shown as ₹ with lakh grouping, with GST shown separately.
