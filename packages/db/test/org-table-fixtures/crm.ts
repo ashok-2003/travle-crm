@@ -26,6 +26,20 @@ export const fixtures: OrgTableFixtures = {
     create: async (tx) => tx.leadEnquiry.create({ data: { leadId: (await aLead(tx)).id, source: "referral" } }),
     undeletable: true,
   },
+  person_consent: {
+    create: async (tx) =>
+      tx.personConsent.create({
+        data: {
+          personId: (await aPerson(tx)).id,
+          purpose: "marketing",
+          action: "granted",
+          wording: "Isolation wording",
+          wordingVersion: 1,
+          source: "staff",
+        },
+      }),
+    appendOnly: true,
+  },
   blocked_contact: {
     create: (tx) =>
       tx.blockedContact.create({ data: { kind: "email", value: `blocked-${randomUUID()}@example.test` } }),
