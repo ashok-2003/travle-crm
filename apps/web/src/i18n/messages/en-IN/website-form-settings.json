@@ -1,1 +1,35 @@
-{}
+{
+  "row": {
+    "heading": "Website form",
+    "title": "Enquiry form",
+    "on": "Open to anyone with the link",
+    "off": "Off",
+    "unavailable": "Not taking enquiries right now",
+    "loadFailed": "We couldn't load the form's state.",
+    "badges": {
+      "on": "On",
+      "off": "Off",
+      "unavailable": "Unavailable"
+    }
+  },
+  "page": {
+    "title": "Website form",
+    "intro": "A form you can share or put on your website. Every enquiry becomes a lead for {owner}.",
+    "introNoOwner": "A form you can share or put on your website. Every enquiry becomes a lead for your Owner.",
+    "back": "Lead sources",
+    "loadFailed": "We couldn't load the website form."
+  },
+  "status": {
+    "heading": "Status",
+    "switch": "Take enquiries from the form",
+    "on": "On. Anyone with the link can send an enquiry.",
+    "off": "Off. The link shows a short message.",
+    "closed": {
+      "read_only": "Closed. Your subscription is read-only, so the form isn't taking enquiries. They start again when you pay.",
+      "suspended": "Closed. Your organization is suspended, so the form isn't taking enquiries.",
+      "cancelled": "Closed. Your subscription has ended, so the form isn't taking enquiries.",
+      "plan": "Closed. Your plan doesn't include the form. Ask us to add it."
+    },
+    "demo": "Not available in the demo."
+  }
+}
