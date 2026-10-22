@@ -141,9 +141,12 @@ ALTER TABLE "person_consent"
 
 -- The public form's visitors are recorded in the organization's log with source "public"; every other rule of the log
 -- stays (as the platform migration did for "platform").
+-- Like the worker's, a visitor's entry names no user: the "actor named" check lets 'public' go without one.
 ALTER TABLE "audit_entry"
   DROP CONSTRAINT audit_entry_source_value,
-  ADD CONSTRAINT audit_entry_source_value CHECK (source IN ('web', 'api', 'job', 'impersonation', 'platform', 'public'));
+  DROP CONSTRAINT audit_entry_actor_named,
+  ADD CONSTRAINT audit_entry_source_value CHECK (source IN ('web', 'api', 'job', 'impersonation', 'platform', 'public')),
+  ADD CONSTRAINT audit_entry_actor_named CHECK (source IN ('job', 'public') OR actor_user_id IS NOT NULL);
 
 -- Both ledgers are append only for the api and the worker. The platform role keeps its default rights: the console's
 -- hourly sweep deletes submissions older than 90 days, and erasing a customer removes their consent rows.

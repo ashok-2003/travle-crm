@@ -172,6 +172,17 @@ describe("the website form's tables", () => {
     await expect(addSubmission({ leadId: randomUUID() })).rejects.toThrow(/foreign key/i);
   });
 
+  it("lets an audit entry come from the public with no user, and still wants one from the web", async () => {
+    const entry = (source: string, actorUserId: string | null) =>
+      inOrg((tx) =>
+        tx.auditEntry.create({
+          data: { actorUserId, source, action: "website-form.turned-on", entityType: "website_form", entityId: formId },
+        }),
+      );
+    await expect(entry("public", null)).resolves.toBeDefined();
+    await expect(entry("web", null)).rejects.toThrow(/\baudit_entry_actor_named\b/);
+  });
+
   it("holds the consent ledger to its lists", async () => {
     const person = await inOrg((tx) =>
       tx.person.create({ data: { name: "Asha", email: `a-${randomUUID()}@example.test` } }),
