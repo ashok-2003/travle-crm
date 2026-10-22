@@ -166,5 +166,16 @@
     "tick": "The offers tickbox is a request, not proof. Keep it in mind when you plan offers.",
     "stopped": "Stopped enquiries are not kept, so there is nothing to look back at.",
     "link": "Changing the link breaks the old one, and the snippet already on your website."
+  },
+  "preview": {
+    "button": "Preview",
+    "title": "Preview",
+    "description": "How visitors see the form, with the settings on this page, saved or not.",
+    "size": "Frame width",
+    "phone": "Phone",
+    "computer": "Computer",
+    "loadFailed": "We couldn't load the preview.",
+    "fix": "Some answers on this page need fixing before the preview can show them.",
+    "done": "Done"
   }
 }

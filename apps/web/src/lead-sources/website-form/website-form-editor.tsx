@@ -10,6 +10,7 @@ import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { FieldsCard } from "./fields-card";
 import { checkValues, valuesOf, type FormProblem, type FormValues } from "./form-values";
 import { LookCard } from "./look-card";
+import { PreviewButton } from "./preview-dialog";
 import { ShareCard } from "./share-card";
 import { SaveBar } from "./save-bar";
 import type { useWebsiteForm } from "./use-website-form";
@@ -56,6 +57,7 @@ export function WebsiteFormEditor({
       <FieldsCard control={form.control} />
       <WordsCard control={form.control} />
       <LookCard />
+      <PreviewButton getValues={form.getValues} />
       {children}
       <SaveBar dirty={dirty} saving={save.isPending} error={save.error} />
       <LeaveGuard dirty={dirty} />
