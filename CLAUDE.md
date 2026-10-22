@@ -44,7 +44,7 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - **Ports and adapters (ADR 0008).** Domain code never imports a vendor SDK. It takes a port from
   `@travel-crm/integrations/<adapter>` (`ObjectStorage`, `JobQueue`, …) as a parameter; the api and worker pass the real
   adapter, tests pass the in-memory one. Only `packages/integrations` imports pg-boss, the AWS SDK, nodemailer,
-  web-push, React-PDF and the spreadsheet libraries, and it imports nothing of ours but `@travel-crm/brand`.
+  web-push, pino, React-PDF and the spreadsheet libraries, and it imports nothing of ours but `@travel-crm/brand`.
 - **The product's name, colours and contacts** come from `@travel-crm/brand`, never typed elsewhere.
 - **Pinned versions.** Shared tool versions live in the `catalog:` in `pnpm-workspace.yaml`. Prisma is pinned to 7.10.0;
   npm's `latest` for `prisma` is an 8.0 release candidate. Never install "latest" without checking.
@@ -155,6 +155,10 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - **Notifications:** `notify(tx, actor, …)` is the one way to tell people something (bell, email, push; opt-outs apply).
   A listener passes `sourceEventId`, so a repeat adds nothing.
 - **Audit:** `recordAudit(tx, actor, …)` in the same transaction as the change, for every change staff make.
+- **Logging:** the `Logger` port (`@travel-crm/integrations/logging`, ADR 0032), never `console.*`: levelled JSON lines
+  with ids, codes, counts and timings only, never personal data (the adapters censor what slips through). An error goes
+  in as `...errorFields(error)` (name, code, frames; never its message). A request has a `requestId`; a job logs its
+  queue and job id. Tests read `createMemoryLogger().entries`.
 - **Money and time:** `Money` in integer paise, `indiaGst` for tax, `formatMoney` (₹12,50,000.00), times in UTC shown in
   the organization's zone (`formatDateTime`), departure dates as `CalendarDate`. Never floats, never local time.
 - **Public routes** (`/p/<token>`, `/webhooks/<provider>`) are rate-limited; a new shared record type adds a resolver in
