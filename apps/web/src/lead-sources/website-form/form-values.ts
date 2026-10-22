@@ -25,7 +25,8 @@ export interface FormValues {
   privacyUrl: string;
 }
 
-export type FormProblem = "link" | "tooLong";
+/** "required" is checked()'s own for a blank field; none of these fields can be blank, but the type carries it. */
+export type FormProblem = "link" | "tooLong" | "required";
 
 export function valuesOf(settings: WebsiteFormSettings): FormValues {
   return {
