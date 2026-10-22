@@ -22,7 +22,7 @@ test("the manifest names the app, opens it standalone, and its icons load", asyn
   expect(manifest).toMatchObject({
     name: brand.productName,
     short_name: brand.shortName,
-    start_url: "/",
+    start_url: "/dashboard",
     display: "standalone",
   });
   expect(manifest.icons.map((icon) => icon.sizes)).toEqual(expect.arrayContaining(["192x192", "512x512"]));

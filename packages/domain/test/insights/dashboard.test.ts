@@ -133,6 +133,23 @@ describe("dashboardFigures", () => {
     ]);
   });
 
+  it("counts a lead imported past New as contacted, and leaves it and a Not a lead out of the waits", async () => {
+    const { inOrg, owner, figures } = await anAgency();
+    await inOrg(async (tx) => {
+      const created = at("2026-10-15T05:00:00Z");
+      // Imported in Contacted: no first reply was ever recorded, so its wait is unknown.
+      await aLead(tx, { ownerUserId: owner.userId, createdAt: created, stage: "contacted" });
+      // Marked Not a lead: never contacted, and not waiting either.
+      await aLead(tx, { ownerUserId: owner.userId, createdAt: created, stage: "not_a_lead" });
+      // Still New with no reply: the one that is waiting.
+      await aLead(tx, { ownerUserId: owner.userId, createdAt: created });
+    });
+    const dashboard = await figures(owner);
+    expect(dashboard.totals).toMatchObject({ newLeads: 3, contacted: 1, medianFirstReplyMinutes: null });
+    expect(dashboard.responseTimes).toEqual([{ bucket: "waiting", leads: 1 }]);
+    expect(dashboard.team).toEqual([{ userId: owner.userId, leads: 3, contacted: 1, won: 0 }]);
+  });
+
   it("shows a salesperson only their own leads and work, without the team", async () => {
     const { inOrg, owner, sales, figures } = await anAgency();
     await inOrg(async (tx) => {

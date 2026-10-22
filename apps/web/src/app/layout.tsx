@@ -5,7 +5,6 @@ import { brand } from "@travel-crm/brand";
 import { NextIntlClientProvider } from "next-intl";
 import { Toaster } from "@/components/ui/sonner";
 import { DataProviders } from "@/data/providers";
-import { clientMessages } from "@/i18n/messages";
 import { ServiceWorkerRegistration } from "@/pwa/service-worker-registration";
 import { fontVariables } from "./fonts";
 // Indian scripts (DESIGN.md section 3). Each file's faces carry a unicode-range, so a browser downloads one only when
@@ -47,7 +46,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en-IN" className={fontVariables}>
       <body>
-        <NextIntlClientProvider messages={clientMessages}>
+        <NextIntlClientProvider>
           <DataProviders>{children}</DataProviders>
           <Toaster />
         </NextIntlClientProvider>

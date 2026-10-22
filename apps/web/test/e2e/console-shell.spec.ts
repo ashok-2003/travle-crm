@@ -101,7 +101,7 @@ test("an agency's Owner opening the console is told it isn't theirs", async ({ p
   await signInByEmail(page, agency.owner);
   await page.goto("/console");
   await expect(page.getByText("This console is for platform staff.")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Go to your organization" })).toHaveAttribute("href", "/");
+  await expect(page.getByRole("link", { name: "Go to your organization" })).toHaveAttribute("href", "/dashboard");
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
   await expect(dashboardHeading(page)).toHaveCount(0);
 });

@@ -19,7 +19,10 @@ import { useTRPC } from "@/data/trpc";
 import { useRefreshWork } from "@/data/use-refresh-work";
 import { routes } from "@/lib/routes";
 import { useMe, viewScope } from "@/session/me-context";
+import { useWriteAccess } from "@/subscription/write-access";
+import { WriteHint } from "@/subscription/write-hint";
 import { useLeadCounts } from "../list/use-leads";
+import { WRITE_HINT_ID } from "./pipeline-card";
 import { StageColumn } from "./stage-column";
 
 const boardStages: readonly LeadStage[] = [...openLeadStages, "won"];
@@ -31,8 +34,11 @@ export function PipelineScreen() {
   const ownOnly = viewScope(useMe(), "leads:view") !== "all";
   const [view, setView] = useState<"mine" | "everyone">("mine");
   const counts = useLeadCounts({ view, stage: "open", limit: 25 });
+  const write = useWriteAccess("change");
   const move = useMutation(trpc.leads.moveStage.mutationOptions());
   const onMove = (lead: Pick<LeadListItem, "id" | "person">, stage: LeadStage) => {
+    // A dropped card is refused here too: the api would refuse the move in a read-only agency.
+    if (!write.allowed) return;
     move.mutate(
       { leadId: lead.id, stage },
       {
@@ -70,6 +76,7 @@ export function PipelineScreen() {
           </TabsList>
         </Tabs>
       )}
+      <WriteHint id={WRITE_HINT_ID} hint={write.hint} />
       {move.isError && <RefusalAlert error={move.error} />}
       <div
         role="region"

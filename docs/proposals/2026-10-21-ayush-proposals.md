@@ -1,14 +1,22 @@
-# From CRM to sales platform: the roadmap after release 2
+# Ayush's proposals (21 October 2026), not decisions
 
-- **Status:** the owner's decisions of 2026-10-21, binding; each release below still gets its own spec and plan
-  before it is built (`docs/agent-playbook.md`).
-- **Date:** 2026-10-21
+- **Status:** proposals written by Ayush on 2026-10-21. They are **not the owner's decisions** and bind nothing. The
+  owner decides which of them to take, and each release that is taken still gets its own spec and plan before it is
+  built (`docs/agent-playbook.md`). The owner's agreed rules (the Phase 1 scope, ADR 0028 and ADR 0029, `CLAUDE.md`,
+  `DESIGN.md`) stand wherever this document differs from them.
+- **Date:** 2026-10-21 (marked up 2026-10-22 after the owner's review)
 - **Input:** the Phase 1 product scope (`2026-10-16-phase-1-product-scope.md`), ADR 0028 and 0029, `CLAUDE.md`,
-  `DESIGN.md`. Where this document and the Phase 1 scope differ, this one is newer (it records the owner's word).
+  `DESIGN.md`.
+- **Marks:** an item tagged **Contradicts an agreed rule** goes against a rule the owner has already agreed; it needs
+  the owner's explicit decision (and a new ADR) before anything is built on it.
+- **Since written:** the landing page (release A) and the public pricing page were taken out of the app, as the landing
+  page is a separate site; automatic assignment (release C) is built but switched off until release 4
+  (`features.automaticAssignment`).
 
-## 1. The owner's decisions (2026-10-21)
+## 1. Ayush's proposals (2026-10-21)
 
-Marked **Ruling: what, why, cost if wrong**, as the playbook asks.
+Each is written as a ruling (**Ruling: what, why, cost if wrong**, as the playbook asks), but is a proposal until the
+owner agrees.
 
 1. **WhatsApp through Meta's Cloud API directly**, with coexistence, so an agency keeps the WhatsApp Business app on its
    phone. Ruling: no BSP in between, no per-agency BSP fee; costs weeks of Meta verification (Tech Provider) up front.
@@ -16,9 +24,11 @@ Marked **Ruling: what, why, cost if wrong**, as the playbook asks.
    the product. Nothing WhatsApp (the inbox, campaigns, the AI's replies) shows as usable before that; their places say
    how to connect.
 3. **The AI answers WhatsApp by itself (full autopilot), on by default** for every conversation once WhatsApp is
-   connected, with a switch for the whole agency and one per conversation (per lead or number). Ruling: supersedes ADR
+   connected, with a switch for the whole agency and one per conversation (per lead or number). Ruling: would replace ADR
    0029's "AI never sends to a customer" for WhatsApp (a new ADR 0032 records it with its guardrails); cost if wrong:
    an AI mistake reaches a customer, limited by the guardrails in section 6.
+   **Contradicts an agreed rule:** ADR 0029 says AI never sends anything to a customer; it drafts and a person
+   applies. Not accepted; ADR 0032 does not exist.
 4. **The agency teaches the AI** in Settings: PDFs, documents and text (packages, itineraries, policies, FAQs, payment
    details), which the AI answers from and sends.
 5. **An Integrations panel** of its own: WhatsApp, Meta (Facebook and Instagram lead ads), Google Sheets, IndiaMART, the
@@ -29,26 +39,32 @@ Marked **Ruling: what, why, cost if wrong**, as the playbook asks.
    documents sent in bulk to groups of numbers, groups made by hand or by rule (lead source, dates, stage, destination),
    scheduled or sent at once, made by hand or drafted by the AI. Ruling: reverses the Phase 1 scope's "campaigns to
    customer groups: ruled out"; marketing goes only to people with marketing consent and never to someone who opted out.
+   **Contradicts an agreed rule:** the Phase 1 scope rules campaigns out. It also leans on the AI sending (item 3).
 8. **A wallet of credits:** the agency pays money in and gets credits, spent on WhatsApp messages, campaign messages
    and the AI's work. Ruling: a closed wallet (credits buy only our own services; not refundable as cash, not
    transferable), so it needs no RBI prepaid-instrument licence; cost if wrong: legal advice before launch confirms it.
 9. **Pricing on the landing page reads the console's plans live** (built in release A).
+   **Withdrawn:** the owner removed the landing page and the public pricing page from the app (2026-10-22); the
+   landing page is a separate site.
 10. **Staff ratings** move from Phase 2 into this roadmap (release G).
 11. **Stages stay one fixed set**; the pipeline is a view of them, not custom stages, so reports compare.
 
 ## 2. The releases, in order
 
-| Release | What                                                                                                        |
-| ------- | ----------------------------------------------------------------------------------------------------------- |
-| A       | Done: the sign-in and console wake fix, the agency's logo, a foldable sidebar, the landing page            |
-| B       | The analytics dashboard at `/dashboard`, and an optional won value                                         |
-| C       | Lead management: the pipeline board, bulk changes, automatic assignment, the Unassigned queue              |
-| D       | Integrations and Developer panels; the website form, the incoming lead link, Meta lead ads, IndiaMART       |
-| W       | The wallet and credits (before E, which spends them)                                                        |
-| E       | WhatsApp: connect by Embedded Signup, the inbox, the media and knowledge library, message templates         |
-| F       | The AI on WhatsApp (autopilot), the knowledge it is taught                                                  |
-| K       | Campaigns: groups, bulk sending, scheduling, the AI's drafts                                                |
-| G       | Staff performance and ratings                                                                               |
+**Contradicts an agreed rule:** this order is Ayush's. The owner's agreed release order (`docs/adr/`, the Phase 1
+scope) puts the sources that need no approval first, Meta when it is approved, and AI last; it, not this table, stands.
+
+| Release | What                                                                                                      |
+| ------- | --------------------------------------------------------------------------------------------------------- |
+| A       | Done: the sign-in and console wake fix, the agency's logo, a foldable sidebar (the landing page: removed) |
+| B       | The analytics dashboard at `/dashboard`, and an optional won value                                        |
+| C       | Lead management: the pipeline board, bulk changes; automatic assignment and the Unassigned queue are off  |
+| D       | Integrations and Developer panels; the website form, the incoming lead link, Meta lead ads, IndiaMART     |
+| W       | The wallet and credits (before E, which spends them)                                                      |
+| E       | WhatsApp: connect by Embedded Signup, the inbox, the media and knowledge library, message templates       |
+| F       | The AI on WhatsApp (autopilot), the knowledge it is taught                                                |
+| K       | Campaigns: groups, bulk sending, scheduling, the AI's drafts                                              |
+| G       | Staff performance and ratings                                                                             |
 
 Quotes, bookings, payments, suppliers, accounts and reports (Phase 1 steps 3-7) follow, as the scope says.
 
@@ -104,6 +120,10 @@ Every source makes leads through one path: match the person (`matchPerson`), the
 
 ## 6. Release F: the AI on WhatsApp
 
+**Contradicts an agreed rule:** this release is the autopilot of item 3, against ADR 0029 (AI never sends to a
+customer). Its other parts (the agency teaching the AI, drafts a person approves) fit the rule; sending by itself does
+not.
+
 - **On by default** for every conversation once WhatsApp is connected; the agency's switch and each conversation's
   switch turn it off. A person's reply in a chat pauses it there (30 minutes by default).
 - **Taught by the agency** (Settings, AI): PDFs, documents and text are read into a knowledge base, searched for each
@@ -116,6 +136,8 @@ Every source makes leads through one path: match the person (`matchPerson`), the
   "AI" and audited; models only after their test set passes (ADR 0029).
 
 ## 7. Release K: campaigns
+
+**Contradicts an agreed rule:** the Phase 1 scope rules out campaigns to customer groups (item 7).
 
 - Usable once WhatsApp is connected (the panel says how to connect until then).
 - **Groups:** made by hand (pick leads or paste numbers, or upload a file) or by rule (source, date range, stage,
@@ -134,5 +156,6 @@ Every source makes leads through one path: match the person (`matchPerson`), the
 - Razorpay: the account, for wallet top-ups.
 - OpenRouter with zero data retention, for the AI.
 - An always-on api (Render Starter or a VM) before WhatsApp: webhooks and the AI can't wait for a sleeping server.
-- Legal advice on the wallet's terms and the privacy policy and terms (drafts at `/privacy` and `/terms`).
+- Legal advice on the wallet's terms and on a privacy policy and terms (the drafts that were at `/privacy` and
+  `/terms` went with the landing page).
 - GitHub: write access to the repository for the branch `ayush`.

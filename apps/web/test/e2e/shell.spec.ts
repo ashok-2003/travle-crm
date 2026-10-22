@@ -103,7 +103,7 @@ test("pages carry the security headers, and the token and offline pages send onl
 
 test("a signed-out visitor is sent to sign in", async ({ page }) => {
   await page.goto("/dashboard");
-  await expect(page).toHaveURL(/\/sign-in\?next=%2F$/);
+  await expect(page).toHaveURL(/\/sign-in\?next=%2Fdashboard$/);
 });
 
 async function signOutFrom(page: Page, testInfo: TestInfo): Promise<void> {
@@ -141,7 +141,7 @@ test("signing out offline wipes at once, and the next page online ends the sessi
   await context.setOffline(false);
   await page.goto("/dashboard");
   // The owed sign-out reached the api before anything asked who is signed in, so the session is gone.
-  await expect(page).toHaveURL(/\/sign-in\?next=%2F$/);
+  await expect(page).toHaveURL(/\/sign-in\?next=%2Fdashboard$/);
   expect(await page.evaluate(savedQueries)).toBe(0);
   expect((await page.request.get("/api/trpc/me.get")).status()).toBe(401);
 });

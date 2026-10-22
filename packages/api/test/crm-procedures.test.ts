@@ -10,6 +10,7 @@ import {
   type Permission,
 } from "@travel-crm/domain/identity";
 import { lifecycleAccessOf } from "@travel-crm/domain/subscriptions";
+import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import type { Context } from "../src/context.js";
 import { appRouter } from "../src/routers/app-router.js";
@@ -113,6 +114,50 @@ describe("release 1's procedures", () => {
       const call = callerWithout(permission)[router]?.[name];
       expect(call, path).toBeDefined();
       if (call) expect(await outcome(call()), path).toBe("MISSING_PERMISSION");
+    }
+  });
+
+  it("answers every assignment procedure as not available yet while automatic assignment is off", async () => {
+    const assignment = callerWithout("leads:create").assignment ?? {};
+    const inputs: Record<string, unknown> = {
+      get: undefined,
+      save: { mode: "owner", slowReplyMinutes: null, rules: [], pool: [] },
+      mine: undefined,
+      setAway: { awayUntil: null },
+    };
+    for (const [name, input] of Object.entries(inputs)) {
+      const call = assignment[name];
+      expect(call, name).toBeDefined();
+      if (call) expect(await outcome(call(input)), name).toBe("NOT_AVAILABLE_YET");
+    }
+  });
+
+  it("asks the bulk changes for the permission of the change, nothing more: reassigning many needs leads:assign", async () => {
+    const leadIds = [randomUUID()];
+    // A reassigner without leads:edit gets as far as the handler; an editor without leads:assign does not.
+    const reassigner = callerWithout("leads:edit").leads?.bulkReassign;
+    const editor = callerWithout("leads:assign").leads;
+    expect(
+      await outcome(reassigner?.({ leadIds, ownerUserId: randomUUID() }) ?? Promise.resolve("no caller")),
+    ).not.toBe("MISSING_PERMISSION");
+    expect(await outcome(editor?.bulkReassign?.({ leadIds, ownerUserId: randomUUID() }) ?? Promise.resolve(""))).toBe(
+      "MISSING_PERMISSION",
+    );
+    expect(await outcome(editor?.bulkMoveStage?.({ leadIds, stage: "contacted" }) ?? Promise.resolve(""))).not.toBe(
+      "MISSING_PERMISSION",
+    );
+  });
+
+  it("refuses more than 200 leads in one bulk call, before the handler runs", async () => {
+    const leadIds = Array.from({ length: 201 }, () => randomUUID());
+    const leads = callerWithout("leads:create").leads ?? {};
+    const inputs: Record<string, unknown> = {
+      bulkMoveStage: { leadIds, stage: "contacted" },
+      bulkReassign: { leadIds, ownerUserId: randomUUID() },
+      bulkAddWork: { leadIds, kind: "task", title: "Call", due: { on: "2026-10-23", at: "10:00" } },
+    };
+    for (const [name, input] of Object.entries(inputs)) {
+      expect(await outcome(leads[name]?.(input) ?? Promise.resolve("no caller")), name).toBe("BAD_REQUEST");
     }
   });
 });
