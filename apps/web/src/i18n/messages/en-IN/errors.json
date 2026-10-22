@@ -139,7 +139,16 @@
     "SHEETS_NOT_IN_DEMO": "Google Sheets isn't available in the demo.",
     "SHEETS_TOO_FAST": "That is a lot of sheet checks in a minute. Wait a little, then try again.",
     "SHEET_TOO_LARGE": "This sheet is too big for us to read. Move older rows to another tab, or use a smaller sheet.",
-    "NOT_IN_POOL": "You don't take new leads in turn, so there's nothing to be away from. Ask an Owner or Admin to add you."
+    "NOT_IN_POOL": "You don't take new leads in turn, so there's nothing to be away from. Ask an Owner or Admin to add you.",
+    "FORM_NOT_FOUND": "This form link doesn't work. Ask the agency for a new one.",
+    "FORM_UNAVAILABLE": "This form isn't taking enquiries right now. Please contact the agency another way.",
+    "FORM_NEEDS_OWNER": "Your organization needs an active Owner before its website form can take enquiries.",
+    "FORM_TOO_FAST": "Please check your details and press Send again.",
+    "FORM_EXPIRED": "This page was open for a long time. Please press Send again.",
+    "FORM_ANSWER_REQUIRED": "Please answer every question marked required.",
+    "FORM_LINKS_NOT_ALLOWED": "Please take the web links out of your message.",
+    "FORM_BOT_CHECK_FAILED": "We couldn't tell you are a person. Please try again.",
+    "FORM_LINK_INVALID": "A website or privacy address must start with https://"
   },
   "auth": {
     "INVALID_EMAIL_OR_PASSWORD": "That email and password don't match.",

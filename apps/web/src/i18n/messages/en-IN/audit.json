@@ -33,7 +33,8 @@
     "api": "API",
     "job": "Scheduled job",
     "impersonation": "Support's impersonation",
-    "platform": "Platform console"
+    "platform": "Platform console",
+    "public": "Website form"
   },
   "actions": {
     "staff": {
@@ -142,6 +143,14 @@
     },
     "assignment": {
       "updated": "Changed how new leads are assigned"
+    },
+    "website-form": {
+      "turned-on": "Turned on the website form",
+      "turned-off": "Turned off the website form",
+      "fields-changed": "Changed the website form's fields",
+      "words-changed": "Changed the website form's words",
+      "embed-changed": "Changed whether the website form can be put on a website",
+      "link-changed": "Changed the website form's link"
     }
   },
   "fields": {
@@ -193,6 +202,7 @@
     "import_batch": "An import",
     "data_export": "An export",
     "sheet_connection": "A Google Sheet",
-    "assignment_settings": "Lead assignment"
+    "assignment_settings": "Lead assignment",
+    "website_form": "The website form"
   }
 }
