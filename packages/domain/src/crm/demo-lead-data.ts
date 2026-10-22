@@ -50,8 +50,6 @@ export interface DemoLead {
   note?: string;
   followUp?: { title: string; dueAt: Date };
   returning?: boolean;
-  /** Ticked "send me travel offers" on the website form, so the person has a consent row. */
-  offersConsent?: boolean;
 }
 
 const rupees = (amount: number, basis: "per_person" | "for_everyone") => ({
@@ -297,7 +295,6 @@ export function demoLeads(now: Date, timeZone: string): DemoLead[] {
       source: "web_form",
       sourceDetail: "Hosted link",
       createdAt: ago(90),
-      offersConsent: true,
     },
     {
       person: "Imran Sheikh",

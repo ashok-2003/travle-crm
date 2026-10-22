@@ -80,8 +80,6 @@ const DEMO_FORM = saveWebsiteFormInput.parse({
   privacyUrl: null,
 });
 
-const DEMO_AGENCY_NAME = "Demo Holidays";
-
 /**
  * Purges the organization last night's reset built, then builds the demo again; the first run only builds it. Both
  * checks come before the purge: an organization with the demo's code that no reset built is never touched (a code set
@@ -106,7 +104,7 @@ export async function resetDemoOrganization(
   return services.platformDb.transaction(
     async (tx) => {
       const organization = await createOrganizationRecord(tx, {
-        name: DEMO_AGENCY_NAME,
+        name: "Demo Holidays",
         code: demo.code,
         timeZone: TIME_ZONE,
         contactEmail: null,
@@ -122,8 +120,8 @@ export async function resetDemoOrganization(
         const [ownerUserId, salesUserId] = [userIds.get("asha"), userIds.get("ravi")];
         if (ownerUserId === undefined || salesUserId === undefined) throw new Error("The demo's staff were not added");
         // The form is off and stays off: the demo is never open to the public (F14), whatever its switch says.
-        const form = await saveWebsiteForm(orgTx, actor, DEMO_FORM);
-        await addDemoLeads(orgTx, actor, { ownerUserId, salesUserId }, form.id, DEMO_AGENCY_NAME, now);
+        await saveWebsiteForm(orgTx, actor, DEMO_FORM);
+        await addDemoLeads(orgTx, actor, { ownerUserId, salesUserId }, now);
       });
       await startSubscription(
         tx,

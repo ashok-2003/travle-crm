@@ -115,6 +115,21 @@ describe("erasing a customer who used the website form", () => {
     expect(entry.after).toMatchObject({ customer: { consentRows: 1, ledgerRows: 1 } });
   });
 
+  it("is safe to repeat: a second erasure of the same person changes and counts nothing more", async () => {
+    const agency = await deletionAgency(test, plan);
+    const { erased, kept } = await twoEnquirers(agency);
+    await erase(agency, erased.person.id);
+
+    await erase(agency, erased.person.id);
+
+    const entries = await platform.platformAuditEntry.findMany({
+      where: { action: "subject.erased", targetOrganizationId: agency.organizationId },
+      orderBy: { id: "desc" },
+    });
+    expect(entries[0]?.after).toMatchObject({ customer: { consentRows: 0, ledgerRows: 0 } });
+    expect(await platform.personConsent.count({ where: { personId: kept.person.id } })).toBe(1);
+  });
+
   it("treats a person who erased themselves and enquires again as a new person", async () => {
     const agency = await deletionAgency(test, plan);
     const { erased } = await twoEnquirers(agency);

@@ -40,24 +40,19 @@ describe("the demo's website form", () => {
     expect(form?.thankYouMessage).toMatch(/thank you/i);
   });
 
-  it("has two web_form leads, one with consent, after a reset", async () => {
+  it("has two web_form leads and no consent row, after a reset", async () => {
     const { organizationId } = await resetDemoOrganization(test.services, demoSettings(), now);
     const { leads, consents } = await test.services.db.forOrg(organizationId, async (tx) => ({
       leads: await tx.lead.findMany({
         where: { source: "web_form" },
-        select: { sourceDetail: true, personId: true },
+        select: { sourceDetail: true },
         orderBy: { sourceDetail: "asc" },
       }),
-      consents: await tx.personConsent.findMany({
-        select: { personId: true, action: true, source: true, sourceFormId: true },
-      }),
+      consents: await tx.personConsent.count(),
     }));
     expect(leads.map((lead) => lead.sourceDetail)).toEqual(["Hosted link", "sharmatravels.in"]);
-    const hosted = leads.find((lead) => lead.sourceDetail === "Hosted link");
-    expect(consents.map((consent) => [consent.personId, consent.action, consent.source])).toEqual([
-      [hosted?.personId, "granted", "web_form"],
-    ]);
-    expect(consents[0]?.sourceFormId).not.toBeNull();
+    // The demo's form has no offers tickbox, so no sample person agreed to offers.
+    expect(consents).toBe(0);
   });
 
   it("is refused by formOpenState even if the form were enabled", async () => {

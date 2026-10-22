@@ -11,9 +11,7 @@ import { addBlockedContact } from "./blocking.js";
 import { addLeadInTransaction } from "./add-lead.js";
 import { BLOCKED_EMAIL, DESTINATIONS, PEOPLE, demoLeads } from "./demo-lead-data.js";
 import { recordLeadEvent } from "./lead-events.js";
-import { recordConsent } from "./consent.js";
 import { addPerson } from "./people.js";
-import { offersWording, OFFERS_WORDING_VERSION } from "@travel-crm/contracts/website-forms";
 
 const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
 
@@ -26,9 +24,6 @@ export async function addDemoLeads(
   tx: OrgTx,
   actor: Actor,
   staff: { ownerUserId: string; salesUserId: string },
-  /** The demo's website form, which the sample consent rows say they came from. */
-  formId: string,
-  agencyName: string,
   now: Date,
 ): Promise<void> {
   const timeZone = await organizationTimeZone(tx, actor.organizationId);
@@ -74,15 +69,6 @@ export async function addDemoLeads(
       },
       now,
     );
-    if (lead.offersConsent === true) {
-      await recordConsent(tx, actor, {
-        personId: people.get(lead.person) ?? "",
-        wording: offersWording(agencyName),
-        wordingVersion: OFFERS_WORDING_VERSION,
-        formId,
-        now: lead.createdAt,
-      });
-    }
     // A lead past New was moved on two days after it came, or sooner for a younger one: its row and its timeline say
     // the same, and its first reply is that moment, as the stage rule keeps it (but for Not a lead).
     const changedAt = movedOnAt(lead.createdAt, now);

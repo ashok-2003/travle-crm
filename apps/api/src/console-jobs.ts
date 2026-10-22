@@ -1,8 +1,9 @@
 // What the console process runs besides its HTTP app (ADR 0019): the platform's own jobs (purging an organization,
 // erasing a person or a record, exporting one, deleting stored files), the nightly subscription lifecycle, the hourly
 // sweep of stored files still to delete, the daily sweep of exports past their time, the hourly sweep of imports' and
-// exports' files past theirs, the hourly sweep of the website form's ledger and, when a demo is set, its nightly reset. They need the platform role, which only this
-// process holds. No listeners and no outbox relay: those are the worker's.
+// exports' files past theirs, the hourly sweep of the website form's ledger and, when a demo is set, its nightly
+// reset. They need the platform role, which only this process holds. No listeners and no outbox relay: those are the
+// worker's.
 import { startJobHandlers, type JobHandler, type ScheduledJob } from "@travel-crm/domain/jobs";
 import {
   bulkFilesSweepSchedule,
@@ -11,8 +12,8 @@ import {
   RESET_DEMO_QUEUE,
   resetDemoOrganization,
   sheetsSweepSchedule,
-  websiteFormsSweepSchedule,
   storedFileDeletionsSchedule,
+  websiteFormsSweepSchedule,
   type DemoSettings,
   type PlatformServices,
 } from "@travel-crm/domain/platform";
