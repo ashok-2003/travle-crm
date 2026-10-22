@@ -147,6 +147,7 @@ export function createServices(environment: Environment, logger: Logger): Servic
       ? null
       : createTurnstileBotCheck({
           secretKey: turnstileSecret,
+          logger,
           ...(turnstileVerifyUrl === undefined ? {} : { verifyUrl: turnstileVerifyUrl }),
         });
 

@@ -2,6 +2,7 @@
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createMemoryLogger } from "../../src/logging/index.js";
 import { createTurnstileBotCheck } from "../../src/bot-check/index.js";
 
 const SECRET = "very-secret-key-value";
@@ -40,20 +41,37 @@ describe("createTurnstileBotCheck", () => {
     });
   });
 
-  it("posts the secret, token and address and reads success", async () => {
+  it("posts the secret and token, never the address, and reads success", async () => {
     respond(200, '{"success":true}');
     const check = createTurnstileBotCheck({ secretKey: SECRET, verifyUrl: url });
     expect(await check.verify({ token: "tok", address: "203.0.113.9" })).toBe("pass");
     expect(received?.get("secret")).toBe(SECRET);
     expect(received?.get("response")).toBe("tok");
-    expect(received?.get("remoteip")).toBe("203.0.113.9");
+    // Only a counted network (an IPv6 /64) is known here, and remoteip is optional: Cloudflare gets none.
+    expect(received?.has("remoteip")).toBe(false);
   });
 
-  it("leaves the address out when there is none", async () => {
-    respond(200, '{"success":true}');
-    const check = createTurnstileBotCheck({ secretKey: SECRET, verifyUrl: url });
-    await check.verify({ token: "tok", address: null });
-    expect(received?.has("remoteip")).toBe(false);
+  it("maps Cloudflare's answers: the visitor's mistakes refuse, our own and Cloudflare's trouble let the enquiry in", async () => {
+    const logger = createMemoryLogger();
+    const check = createTurnstileBotCheck({ secretKey: SECRET, verifyUrl: url, logger });
+    const answer = async (status: number, body: string) => {
+      respond(status, body);
+      return check.verify({ token: "t", address: null });
+    };
+    const refusal = (code: string) => `{"success":false,"error-codes":["${code}"]}`;
+    expect(await answer(200, refusal("invalid-input-response"))).toBe("fail");
+    expect(await answer(200, refusal("timeout-or-duplicate"))).toBe("fail");
+    expect(await answer(200, refusal("missing-input-response"))).toBe("fail");
+    expect(await answer(200, refusal("internal-error"))).toBe("unreachable");
+    expect(await answer(200, refusal("invalid-input-secret"))).toBe("unreachable");
+    expect(await answer(200, refusal("missing-input-secret"))).toBe("unreachable");
+    expect(await answer(400, '{"success":false}')).toBe("unreachable");
+    expect(await answer(500, "oops")).toBe("unreachable");
+    // Our misconfiguration is logged once per process, naming the code and never the secret.
+    const errors = logger.entries.filter((entry) => entry.level === "error");
+    expect(errors).toHaveLength(1);
+    expect(JSON.stringify(errors)).toContain("invalid-input-secret");
+    expect(JSON.stringify(logger.entries)).not.toContain(SECRET);
   });
 
   it("reads a refusal as fail", async () => {
