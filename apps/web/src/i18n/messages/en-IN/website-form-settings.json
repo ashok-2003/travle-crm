@@ -125,5 +125,17 @@
     "off": "The snippet is off, so a form on your website would not show. Turn on “Allow my website to show this form” to use it.",
     "saveToApply": "Press Save to apply this.",
     "done": "Done"
+  },
+  "consent": {
+    "label": "Offers",
+    "granted": "Agreed to offers on {day}",
+    "grantedFromForm": "Agreed to offers on {day}, from the website form",
+    "withdrawn": "Asked to stop offers on {day}",
+    "stopped": "Record that they stopped",
+    "confirm": {
+      "title": "Record that they stopped?",
+      "description": "This records that {name} asked to stop travel offers, for example on WhatsApp. It can't be undone.",
+      "action": "Record that they stopped"
+    }
   }
 }
