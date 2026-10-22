@@ -128,7 +128,8 @@ export async function receiveWebsiteEnquiry(
   context: WebsiteEnquiryContext,
   input: WebsiteEnquiryInput,
 ): Promise<WebsiteEnquiryOutcome> {
-  if (input.answers.offers === true && !features.marketingConsent) {
+  // While the switch is off the form shows no tickbox, so `offers` in any value is not something it sends.
+  if (input.answers.offers !== undefined && !features.marketingConsent) {
     throw new DomainError("VALIDATION", "FORM_OFFERS_NOT_AVAILABLE", "This form does not take offers");
   }
   const { form, now } = context;

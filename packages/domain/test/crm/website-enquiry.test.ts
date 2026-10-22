@@ -248,12 +248,15 @@ describe("receiving a website enquiry", () => {
     expect(row.personId).not.toBeNull();
   });
 
-  it("an offers tick with the switch off is VALIDATION", async () => {
+  it("offers in any value, true or false, is VALIDATION with the switch off", async () => {
     const { send } = await setup({ offersTickbox: true });
-    await expect(send({ offers: true })).rejects.toMatchObject({
-      code: "VALIDATION",
-      reason: "FORM_OFFERS_NOT_AVAILABLE",
-    });
+    for (const offers of [true, false]) {
+      await expect(send({ offers })).rejects.toMatchObject({
+        code: "VALIDATION",
+        reason: "FORM_OFFERS_NOT_AVAILABLE",
+      });
+    }
+    expect(await send({})).toBe("new_lead");
   });
 
   it("refuses a submission from the embed with embedding off, and takes the hosted one", async () => {
