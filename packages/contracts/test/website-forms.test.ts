@@ -103,6 +103,25 @@ describe("website form contracts", () => {
     }
   });
 
+  it("refuses a link with credentials or an IP address for a host", () => {
+    for (const key of ["websiteUrl", "privacyUrl"] as const) {
+      for (const link of [
+        "https://user:pass@agency.example",
+        "https://user@agency.example",
+        "https://:pass@agency.example",
+        "https://192.168.1.10/form",
+        "https://8.8.8.8",
+        "https://[2001:db8::1]/x",
+        "https://2130706433/x",
+      ]) {
+        expect(saveWebsiteFormInput.safeParse({ ...settings, [key]: link }).success, `${key} ${link}`).toBe(false);
+      }
+      expect(saveWebsiteFormInput.safeParse({ ...settings, [key]: "https://agency.example:8443/a?b=1" }).success).toBe(
+        true,
+      );
+    }
+  });
+
   it("cuts nothing silently: the agency's words over their length are refused", () => {
     expect(saveWebsiteFormInput.safeParse({ ...settings, heading: "h".repeat(81) }).success).toBe(false);
     expect(saveWebsiteFormInput.safeParse({ ...settings, thankYouMessage: "t".repeat(501) }).success).toBe(false);

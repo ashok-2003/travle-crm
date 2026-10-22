@@ -81,6 +81,11 @@ describe("website form settings", () => {
         saveWebsiteForm(tx, staff(organizationId), { ...defaultSettings, websiteUrl: "http://agency.example" }),
       ),
     ).rejects.toMatchObject({ code: "VALIDATION", reason: "FORM_LINK_INVALID" });
+    await expect(
+      test.db.forOrg(organizationId, (tx) =>
+        saveWebsiteForm(tx, staff(organizationId), { ...defaultSettings, privacyUrl: "https://u:p@agency.example" }),
+      ),
+    ).rejects.toMatchObject({ reason: "FORM_LINK_INVALID" });
   });
 
   it("turn on writes one audit entry, and turning on again writes none", async () => {
