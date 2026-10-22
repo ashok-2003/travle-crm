@@ -20,7 +20,7 @@ describe("the public routes in the app", () => {
   it("answers /api/public/website-forms/<key> without a session or a cookie", async () => {
     const server = serverWith();
     const open = await agencyWithOpenForm(server);
-    const response = await server.app.request(`/api/public/website-forms/${open.key}`);
+    const response = await server.app.request(`/api/public/website-forms/${open.key}?via=hosted`);
     expect(response.status).toBe(200);
     expect(response.headers.get("set-cookie")).toBeNull();
     expect(await response.json()).toMatchObject({ available: true });

@@ -145,6 +145,17 @@ describe("a website enquiry", () => {
     expect(await leadsOf(late, phone)).toHaveLength(0);
   });
 
+  it("refuses an embedded enquiry once the agency switched embedding off, and still takes a hosted one", async () => {
+    const noEmbed = await agencyWithOpenForm(server);
+    await server.db.forOrg(noEmbed.agency.organizationId, (tx) =>
+      tx.websiteForm.updateMany({ data: { allowEmbed: false } }),
+    );
+    const embedded = await postEnquiry(server, noEmbed.key, enquiryFor(noEmbed.formId, { via: "embedded" }));
+    expect(embedded.status).toBe(403);
+    expect(await reasonOf(embedded)).toBe("FORM_UNAVAILABLE");
+    expect((await postEnquiry(server, noEmbed.key, enquiryFor(noEmbed.formId))).status).toBe(201);
+  });
+
   it("refuses a wrong secret with 404 and a malformed key with 404", async () => {
     const wrong = `${open.key.slice(0, 22)}${"B".repeat(16)}`;
     expect((await postEnquiry(server, wrong, enquiryFor(open.formId))).status).toBe(404);

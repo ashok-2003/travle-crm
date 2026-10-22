@@ -64,8 +64,9 @@ export async function getForm(
   server: TestServer,
   key: string,
   address: string | null = freshAddress(),
+  query = "?via=hosted",
 ): Promise<Response> {
-  const response = await server.app.request(`/api/public/website-forms/${key}`, {
+  const response = await server.app.request(`/api/public/website-forms/${key}${query}`, {
     headers: address === null ? {} : { "x-forwarded-for": address },
   });
   expectNoCors(response);

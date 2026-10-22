@@ -1,6 +1,6 @@
 // POST /api/public/website-forms/:key/enquiries: a visitor's enquiry, checked cheap-first (spec 6.1) and saved as a lead.
 // Every outcome that is not a refusal gets the one answer (W20), so the form can't be used to learn who is a customer.
-import { websiteEnquiryInput } from "@travel-crm/contracts/website-forms";
+import { websiteEnquiryInput, type FormVia } from "@travel-crm/contracts/website-forms";
 import { answerOf, receiveWebsiteEnquiry } from "@travel-crm/domain/crm";
 import { isUniqueViolation } from "@travel-crm/db";
 import { DomainError, publicActor } from "@travel-crm/domain/kernel";
@@ -42,13 +42,13 @@ export function websiteFormSubmitRoute(
   const app = new Hono<RequestLogEnv>();
 
   /** The flood notice goes to the Owner once an hour; a key that is wrong or a form that is closed notifies nobody. */
-  async function tellOwnerOfFlood(key: string, organizationId: string): Promise<void> {
+  async function tellOwnerOfFlood(key: string, organizationId: string, via: FormVia): Promise<void> {
     const ownerUserId = await identity.firstOwner(organizationId);
     if (ownerUserId === null) return;
     const at = now();
     try {
       await db.forOrg(organizationId, async (tx) => {
-        const form = await assertFormOpen(tx, { key, organizationId, ownerUserId, now: at });
+        const form = await assertFormOpen(tx, { key, organizationId, ownerUserId, via: via, now: at });
         await noteFlood(tx, publicActor(organizationId), { formId: form.id, ownerUserId, now: at });
       });
     } catch (error) {
@@ -70,7 +70,7 @@ export function websiteFormSubmitRoute(
     const run = () =>
       db.forOrg(organizationId, async (tx) => {
         // The agency may have gone read-only since the page loaded (W23).
-        const form = await assertFormOpen(tx, { key, organizationId, ownerUserId, now: at });
+        const form = await assertFormOpen(tx, { key, organizationId, ownerUserId, via: input.via, now: at });
         if (ownerUserId === null || organization === null) throw formNotFound();
         const outcome = await receiveWebsiteEnquiry(
           tx,
@@ -132,14 +132,14 @@ export function websiteFormSubmitRoute(
         kind: "submit",
       });
       if (!limited.allowed) {
-        if (limited.agencyRefused) await tellOwnerOfFlood(key, organizationId);
+        if (limited.agencyRefused) await tellOwnerOfFlood(key, organizationId, input.via);
         return tooManyTries(c, limited.retryAfterSeconds);
       }
       // 4. The form and whether it can take enquiries; outside the save's transaction.
       const at = now();
       const ownerUserId = await identity.firstOwner(organizationId);
       const form = await db.forOrg(organizationId, (tx) =>
-        assertFormOpen(tx, { key, organizationId, ownerUserId, now: at }),
+        assertFormOpen(tx, { key, organizationId, ownerUserId, via: input.via, now: at }),
       );
       // 5. The traps: honeypot, fill time, links.
       if (input.homepage.trim() !== "") {

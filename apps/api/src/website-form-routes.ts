@@ -1,7 +1,7 @@
 // The website form's public routes, with no session and no CORS (spec 5): the form for a visitor's page, and the
 // address check the Owner uses to set the proxy hops. The enquiry itself is in website-form-submit.ts.
-import { websiteFormPublic } from "@travel-crm/contracts/website-forms";
-import { logoLinkOf, publicFormOf } from "@travel-crm/api";
+import { publicFormQuery, websiteFormPublic } from "@travel-crm/contracts/website-forms";
+import { closedFormOf, publicFormOf } from "@travel-crm/api";
 import { DomainError } from "@travel-crm/domain/kernel";
 import {
   assertFormOpen,
@@ -44,6 +44,10 @@ export function websiteFormRoutes(dependencies: WebsiteFormRouteDependencies): H
     if (parsed === null) return refusal(c, formNotFound());
     const { organizationId } = parsed;
     noteOrganization(c, organizationId);
+    const query = publicFormQuery.safeParse({ via: c.req.query("via") });
+    if (!query.success)
+      return refusal(c, new DomainError("VALIDATION", "VALIDATION", "Check the address and try again"));
+    const { via } = query.data;
     const limited = await hitFormLimits({
       limiter,
       logger,
@@ -58,7 +62,7 @@ export function websiteFormRoutes(dependencies: WebsiteFormRouteDependencies): H
       // A wrong secret or no form is 404; a form that is closed for any reason is one answer, with its card.
       const opened = await db.forOrg(organizationId, async (tx) => {
         try {
-          return { row: await assertFormOpen(tx, { key, organizationId, ownerUserId, now: at }), open: true };
+          return { row: await assertFormOpen(tx, { key, organizationId, ownerUserId, via, now: at }), open: true };
         } catch (error) {
           if (!(error instanceof DomainError) || error.reason !== "FORM_UNAVAILABLE") throw error;
           const row = await readWebsiteForm(tx);
@@ -68,17 +72,10 @@ export function websiteFormRoutes(dependencies: WebsiteFormRouteDependencies): H
       });
       const { row } = opened;
       if (!opened.open) {
-        const organization = await identity.organizationProfile(organizationId);
-        if (organization === null) throw formNotFound();
         return c.json(
           websiteFormPublic.parse({
             available: false,
-            form: {
-              organizationName: organization.name,
-              logoUrl: await logoLinkOf(files, organizationId),
-              websiteUrl: row.websiteUrl,
-              websiteButtonText: row.websiteButtonText,
-            },
+            form: await closedFormOf({ identity, files }, row),
           }),
         );
       }

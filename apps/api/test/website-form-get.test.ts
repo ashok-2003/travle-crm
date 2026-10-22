@@ -104,6 +104,27 @@ describe("the public website form page", () => {
     });
   });
 
+  it("needs a known via, and closes an embed the agency switched off", async () => {
+    const embed = await agencyWithOpenForm(server);
+    expect((await getForm(server, embed.key, freshAddress(), "")).status).toBe(400);
+    expect((await getForm(server, embed.key, freshAddress(), "?via=frame")).status).toBe(400);
+    const embedded = websiteFormPublic.parse(
+      await (await getForm(server, embed.key, freshAddress(), "?via=embedded")).json(),
+    );
+    expect(embedded.available).toBe(true);
+    await server.db.forOrg(embed.agency.organizationId, (tx) =>
+      tx.websiteForm.updateMany({ data: { allowEmbed: false } }),
+    );
+    const closed = websiteFormPublic.parse(
+      await (await getForm(server, embed.key, freshAddress(), "?via=embedded")).json(),
+    );
+    expect(closed.available).toBe(false);
+    const hosted = websiteFormPublic.parse(
+      await (await getForm(server, embed.key, freshAddress(), "?via=hosted")).json(),
+    );
+    expect(hosted.available).toBe(true);
+  });
+
   it("answers a wrong secret with 404 FORM_NOT_FOUND", async () => {
     const wrong = `${open.key.slice(0, 22)}${"A".repeat(16)}`;
     const response = await getForm(server, wrong);
