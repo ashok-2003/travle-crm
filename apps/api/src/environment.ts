@@ -102,6 +102,16 @@ const environmentSchema = z
      * address, so the load balancer must overwrite it; with them, the client is the first address not in this list.
      */
     AUTH_TRUSTED_PROXIES: commaSeparated.pipe(z.array(addressOrRange)),
+    /**
+     * How many entries our own proxies append to the address header, for the website form's limits only (W32): the
+     * visitor is the entry that many places from the right. Unset, the forms read the address as sign-in does.
+     */
+    PUBLIC_FORM_PROXY_HOPS: emptyAsUnset(z.coerce.number().int().min(1).max(5).optional()),
+    /** Cloudflare Turnstile for the website form (W39): both keys or neither. The secret is never logged or shown. */
+    TURNSTILE_SITE_KEY: emptyAsUnset(z.string().min(1).optional()),
+    TURNSTILE_SECRET_KEY: emptyAsUnset(z.string().min(1).optional()),
+    /** The journeys' fake siteverify (development and tests only; refused in production). */
+    TURNSTILE_VERIFY_URL: emptyAsUnset(z.url({ protocol: /^https?$/, message: "must be an http(s) URL" }).optional()),
     ...serviceVariables,
   })
   .superRefine((environment, context) => {
@@ -121,6 +131,15 @@ const environmentSchema = z
     if (environment.AXIOM_DATASET !== undefined && environment.AXIOM_TOKEN === undefined) {
       problem("AXIOM_TOKEN", "is needed with AXIOM_DATASET");
     }
+    if (environment.TURNSTILE_SITE_KEY !== undefined && environment.TURNSTILE_SECRET_KEY === undefined) {
+      problem("TURNSTILE_SECRET_KEY", "is needed with TURNSTILE_SITE_KEY");
+    }
+    if (environment.TURNSTILE_SECRET_KEY !== undefined && environment.TURNSTILE_SITE_KEY === undefined) {
+      problem("TURNSTILE_SITE_KEY", "is needed with TURNSTILE_SECRET_KEY");
+    }
+    if (environment.TURNSTILE_VERIFY_URL !== undefined && environment.TURNSTILE_SECRET_KEY === undefined) {
+      problem("TURNSTILE_VERIFY_URL", "is only for use with both Turnstile keys");
+    }
     // Signing the claim and the tombstones needs the key wherever the sheets are read (spec 14).
     if (environment.GOOGLE_SHEETS_SERVICE_ACCOUNTS !== undefined && environment.SHEETS_HASH_KEY === undefined) {
       problem("SHEETS_HASH_KEY", "is needed (at least 32 characters) with GOOGLE_SHEETS_SERVICE_ACCOUNTS");
@@ -128,6 +147,9 @@ const environmentSchema = z
     if (developmentLike(environment.NODE_ENV)) return;
     if (environment.GOOGLE_SHEETS_TEST_SERVER_URL !== undefined) {
       problem("GOOGLE_SHEETS_TEST_SERVER_URL", "is for development and tests only: unset it in production");
+    }
+    if (environment.TURNSTILE_VERIFY_URL !== undefined) {
+      problem("TURNSTILE_VERIFY_URL", "is for development and tests only: unset it in production");
     }
     if (environment.SHEETS_CHECK_INTERVAL_SECONDS !== undefined) {
       problem("SHEETS_CHECK_INTERVAL_SECONDS", "is for development and tests only: unset it in production");

@@ -9,6 +9,7 @@ import { createProfiles, type Profiles } from "@travel-crm/domain/profile";
 import { createRateLimiter, type RateLimiter } from "@travel-crm/domain/rate-limits";
 import { createSheetsHashes, type SheetsHashes } from "@travel-crm/domain/sheets";
 import { createSubscriptionAccess, planLimits, type SubscriptionAccess } from "@travel-crm/domain/subscriptions";
+import { createTurnstileBotCheck, type BotCheck } from "@travel-crm/integrations/bot-check";
 import { createSmtpEmailSender, type EmailSender } from "@travel-crm/integrations/email";
 import { createRealGoogleSheets, type GoogleSheets } from "@travel-crm/integrations/google-sheets";
 import { createPgBossJobs, type PgBossJobs } from "@travel-crm/integrations/jobs";
@@ -44,6 +45,8 @@ export interface Services {
   email: EmailSender;
   push: PushSender;
   rateLimiter: RateLimiter;
+  /** Asks Cloudflare Turnstile whether a form's visitor is a person; null when no keys are set (W39). */
+  botCheck: BotCheck | null;
   /** Checks the database role and the storage bucket, then starts pg-boss. Call before serving requests or working. */
   start(): Promise<void>;
   /** Stops pg-boss (waiting for running jobs) and closes the database pools. */
@@ -138,6 +141,16 @@ export function createServices(environment: Environment, logger: Logger): Servic
     subject: environment.VAPID_SUBJECT,
   });
 
+  const { TURNSTILE_SECRET_KEY: turnstileSecret, TURNSTILE_VERIFY_URL: turnstileVerifyUrl } = environment;
+  const botCheck =
+    turnstileSecret === undefined
+      ? null
+      : createTurnstileBotCheck({
+          secretKey: turnstileSecret,
+          logger,
+          ...(turnstileVerifyUrl === undefined ? {} : { verifyUrl: turnstileVerifyUrl }),
+        });
+
   return {
     environment,
     db,
@@ -154,6 +167,7 @@ export function createServices(environment: Environment, logger: Logger): Servic
     email,
     push,
     rateLimiter,
+    botCheck,
     start: async () => {
       // A DATABASE_URL for the wrong role (app_migrator, say) would otherwise fail every request and job while the
       // process looked healthy: the first query checks the role, so make one now.

@@ -7,11 +7,13 @@ export const formLimits = {
   view: { limit: 60, windowSeconds: 60 },
   /** form-submit-agency-visitor: key = agency + address. A family retries; a bot doesn't get more. */
   submitAgencyVisitor: { limit: 3, windowSeconds: 600 },
+  /** form-view-agency: key = the form. Bounds the views that have no address to count (W35). */
+  viewAgency: { limit: 600, windowSeconds: 3600 },
   /** form-submit-visitor: key = address. One address spraying every agency. */
   submitVisitor: { limit: 10, windowSeconds: 3600 },
   /** form-submit-agency: key = agency. A flood can't fill an Owner's day. */
   submitAgency: { limit: 60, windowSeconds: 3600 },
-  /** The agency's limit when no address can be read, so no per-address limit holds (W35). */
+  /** The share of the agency's hour that requests with no readable address may use (W35), inside submitAgency's 60. */
   submitAgencyNoAddress: { limit: 20, windowSeconds: 3600 },
   /** client-address: key = address. A diagnostic page. */
   clientAddress: { limit: 20, windowSeconds: 60 },
