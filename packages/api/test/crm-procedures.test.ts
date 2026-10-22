@@ -140,9 +140,9 @@ describe("release 1's procedures", () => {
     expect(
       await outcome(reassigner?.({ leadIds, ownerUserId: randomUUID() }) ?? Promise.resolve("no caller")),
     ).not.toBe("MISSING_PERMISSION");
-    expect(
-      await outcome(editor?.bulkReassign?.({ leadIds, ownerUserId: randomUUID() }) ?? Promise.resolve("")),
-    ).toBe("MISSING_PERMISSION");
+    expect(await outcome(editor?.bulkReassign?.({ leadIds, ownerUserId: randomUUID() }) ?? Promise.resolve(""))).toBe(
+      "MISSING_PERMISSION",
+    );
     expect(await outcome(editor?.bulkMoveStage?.({ leadIds, stage: "contacted" }) ?? Promise.resolve(""))).not.toBe(
       "MISSING_PERMISSION",
     );
