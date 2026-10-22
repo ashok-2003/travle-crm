@@ -4,6 +4,7 @@
 // is never for sale. The modules that keep leads, quotes and bookings add their sample data here: crm's leads for the
 // Owner (Asha) and the salesperson (Ravi), timed from the reset.
 import { saveOrganizationProfileInput } from "@travel-crm/contracts/profile";
+import { saveWebsiteFormInput } from "@travel-crm/contracts/website-forms";
 import { asOrganization, type PlatformTx } from "@travel-crm/db/platform";
 import { addDemoLeads } from "../crm/index.js";
 import {
@@ -16,6 +17,7 @@ import {
 import { addDays, calendarDateIn, DomainError, systemActor } from "../kernel/index.js";
 import { saveOrganizationProfile } from "../profile/index.js";
 import { demoPlan, startSubscription } from "../subscriptions/index.js";
+import { saveWebsiteForm } from "../website-forms/index.js";
 import { hashPassword } from "./password-hash.js";
 import { recordPlatformAudit } from "./platform-log.js";
 import { purgeOrganization } from "./purge.js";
@@ -60,6 +62,26 @@ const DEMO_PROFILE = saveOrganizationProfileInput.parse({
   documentTerms: "50% advance to confirm, the balance 15 days before travel.",
 });
 
+/** The demo's website form: the defaults, with a sample thank-you. */
+const DEMO_FORM = saveWebsiteFormInput.parse({
+  allowEmbed: true,
+  emailMode: "optional",
+  destinationMode: "optional",
+  travelMonthMode: "optional",
+  travellersMode: "optional",
+  budgetMode: "off",
+  messageMode: "optional",
+  offersTickbox: false,
+  heading: null,
+  introduction: null,
+  thankYouMessage: "Thank you! We will call you within a few hours to plan your trip.",
+  websiteUrl: null,
+  websiteButtonText: null,
+  privacyUrl: null,
+});
+
+const DEMO_AGENCY_NAME = "Demo Holidays";
+
 /**
  * Purges the organization last night's reset built, then builds the demo again; the first run only builds it. Both
  * checks come before the purge: an organization with the demo's code that no reset built is never touched (a code set
@@ -84,7 +106,7 @@ export async function resetDemoOrganization(
   return services.platformDb.transaction(
     async (tx) => {
       const organization = await createOrganizationRecord(tx, {
-        name: "Demo Holidays",
+        name: DEMO_AGENCY_NAME,
         code: demo.code,
         timeZone: TIME_ZONE,
         contactEmail: null,
@@ -99,7 +121,9 @@ export async function resetDemoOrganization(
         }
         const [ownerUserId, salesUserId] = [userIds.get("asha"), userIds.get("ravi")];
         if (ownerUserId === undefined || salesUserId === undefined) throw new Error("The demo's staff were not added");
-        await addDemoLeads(orgTx, actor, { ownerUserId, salesUserId }, now);
+        // The form is off and stays off: the demo is never open to the public (F14), whatever its switch says.
+        const form = await saveWebsiteForm(orgTx, actor, DEMO_FORM);
+        await addDemoLeads(orgTx, actor, { ownerUserId, salesUserId }, form.id, DEMO_AGENCY_NAME, now);
       });
       await startSubscription(
         tx,
