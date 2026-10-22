@@ -1,6 +1,6 @@
 // The agency's one form (W1-W5, spec 7.1): read it, save its fields, words and embedding, turn it on and off, and change its
 // link. Opening the settings page writes nothing; the first save or turn-on makes the row, off.
-import type { FieldMode, SaveWebsiteFormInput } from "@travel-crm/contracts/website-forms";
+import { isSecureLink, type FieldMode, type SaveWebsiteFormInput } from "@travel-crm/contracts/website-forms";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit, type AuditSnapshot } from "../audit/index.js";
 import { DomainError, type Actor } from "../kernel/index.js";
@@ -95,8 +95,12 @@ const same = (a: AuditSnapshot, b: AuditSnapshot) => JSON.stringify(a) === JSON.
 
 function assertSecureLinks(input: SaveWebsiteFormInput): void {
   for (const link of [input.websiteUrl, input.privacyUrl]) {
-    if (link !== null && !link.startsWith("https://")) {
-      throw new DomainError("VALIDATION", "FORM_LINK_INVALID", "A website or privacy address must start with https://");
+    if (link !== null && !isSecureLink(link)) {
+      throw new DomainError(
+        "VALIDATION",
+        "FORM_LINK_INVALID",
+        "A website or privacy address must be an https:// address on a web site name, without a login",
+      );
     }
   }
 }
