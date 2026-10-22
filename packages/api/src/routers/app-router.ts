@@ -14,6 +14,7 @@ import { leadSheetsRouter } from "./lead-sheets.js";
 import { leadsRouter } from "./leads.js";
 import { meRouter } from "./me.js";
 import { notificationsRouter } from "./notifications.js";
+import { peopleRouter } from "./people.js";
 import { organizationRouter } from "./profile.js";
 import { rolesRouter } from "./roles.js";
 import { settingsRouter } from "./settings.js";
@@ -24,6 +25,7 @@ import { staffImportsRouter } from "./staff-imports.js";
 import { subscriptionRouter } from "./subscription.js";
 import { tasksRouter } from "./tasks.js";
 import { todayRouter } from "./today.js";
+import { websiteFormRouter } from "./website-form.js";
 
 export const appRouter = router({
   me: meRouter,
@@ -49,6 +51,8 @@ export const appRouter = router({
   leadExports: leadExportsRouter,
   staffImports: staffImportsRouter,
   staffExports: staffExportsRouter,
+  websiteForm: websiteFormRouter,
+  people: peopleRouter,
 });
 
 export type AppRouter = typeof appRouter;
