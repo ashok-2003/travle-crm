@@ -8,11 +8,10 @@ import { createTranslator } from "next-intl";
 import { z } from "zod";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { locale, messages } from "@/i18n/messages";
-import { hostedFormMetadata } from "@/website-form/form-metadata";
 import { FormPage } from "@/website-form/form-page";
 import { embeddedOnOf } from "@/website-form/use-public-form";
-import { metadata as embeddedMetadata } from "../../src/app/embed/[key]/layout";
-import { metadata as hostedMetadata } from "../../src/app/f/[key]/layout";
+import { generateMetadata as embeddedMetadata } from "../../src/app/embed/[key]/layout";
+import { generateMetadata as hostedMetadata } from "../../src/app/f/[key]/layout";
 import { publicFormOf, renderForm } from "./support";
 
 // The server-side translator, which a Client Component test cannot reach, from the same messages.
@@ -261,25 +260,26 @@ describe("what it never does", () => {
     expect(calls.mock.calls.some(([url]) => url.includes("/trpc"))).toBe(false);
   });
 
-  it("is not indexed", () => {
-    expect(hostedMetadata.robots).toEqual({ index: false, follow: false });
-    expect(embeddedMetadata.robots).toEqual({ index: false, follow: false });
+  it("is not indexed", async () => {
+    expect((await hostedMetadata()).robots).toEqual({ index: false, follow: false });
+    expect((await embeddedMetadata()).robots).toEqual({ index: false, follow: false });
   });
 });
 
 describe("the title", () => {
-  it("names the agency when the api answers in time, and is generic when it does not", async () => {
-    vi.stubEnv("API_ORIGIN", "http://api.test");
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() => Promise.resolve(json({ status: 200, body: open }))),
-    );
-    expect(await hostedFormMetadata(key)).toEqual({ title: { absolute: "Plan your trip with Sharma Travels" } });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() => Promise.reject(new Error("asleep"))),
-    );
-    expect(await hostedFormMetadata(key)).toEqual({ title: { absolute: "Enquiry form" } });
-    vi.unstubAllEnvs();
+  it("is generic from the server, and the agency's own once the form has loaded, with no call but the form's own", async () => {
+    expect((await hostedMetadata()).title).toEqual({ absolute: "Enquiry form" });
+    const calls = serve({ status: 200, body: open });
+    renderForm(<FormPage formKey={key} mode="hosted" />);
+    await screen.findByLabelText("Your name");
+    expect(document.title).toBe("Plan your trip with Sharma Travels");
+    expect(calls).toHaveBeenCalledTimes(1);
+  });
+
+  it("names the agency of a closed form too", async () => {
+    serve({ status: 200, body: closed });
+    renderForm(<FormPage formKey={key} mode="hosted" />);
+    await screen.findByText("This form isn't taking enquiries right now.");
+    expect(document.title).toBe("Plan your trip with Sharma Travels");
   });
 });

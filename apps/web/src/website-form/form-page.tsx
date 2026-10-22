@@ -6,6 +6,7 @@
 import { useRef, useState, type ReactNode } from "react";
 import { FormLoadFailed, FormNotFound, FormUnavailable } from "./unavailable";
 import { ThankYou } from "./thank-you";
+import { useDocumentTitle } from "./use-document-title";
 import { useEmbeddedHeight } from "./use-embedded-height";
 import { usePublicForm } from "./use-public-form";
 import { WaitingNote } from "./waiting-note";
@@ -26,6 +27,7 @@ export function FormPage({ formKey, mode }: { formKey: string; mode: "hosted" | 
   const { loaded, send, retry } = usePublicForm(formKey, mode);
   const [sent, setSent] = useState(false);
   const embedded = mode === "embedded";
+  useDocumentTitle(loaded.state === "ready" || loaded.state === "unavailable" ? loaded.form.organizationName : null);
 
   const content = (() => {
     switch (loaded.state) {
