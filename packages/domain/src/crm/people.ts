@@ -89,6 +89,8 @@ export async function addPerson(
   tx: OrgTx,
   actor: Actor,
   input: PersonContactValues & { name: string },
+  /** Where the person came from, kept in the audit entry (the website form's id). */
+  auditDetail: { formId: string } | null = null,
 ): Promise<PersonRow> {
   const person = await tx.person.create({
     data: {
@@ -104,7 +106,7 @@ export async function addPerson(
     action: "person.added",
     entityType: "person",
     entityId: person.id,
-    after: personSnapshot(person),
+    after: { ...personSnapshot(person), ...auditDetail },
   });
   await publishEvent(tx, { type: "person.added", payload: { personId: person.id } });
   return person;

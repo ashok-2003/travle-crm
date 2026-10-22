@@ -44,6 +44,8 @@ export type EnquiryOptions =
        * person is never changed, and an email that isn't theirs, or that another person holds, goes into the note.
        */
       unverified?: true;
+      /** Where the enquiry came from, kept in the audit entries it makes (the website form's id, W24). */
+      auditDetail?: { formId: string };
     };
 
 export interface SavedEnquiry {
@@ -68,6 +70,7 @@ export async function saveEnquiry(
   const fromForm = options.from === "form";
   const unverified = options.from === "import" && options.unverified === true;
   const notifyOwner = fromForm || options.notify === "each";
+  const auditDetail = options.from === "import" ? options.auditDetail : undefined;
   const found = await matchPerson(tx, unverified ? { phone: enquiry.person.phone } : enquiry.person);
   const leftOut = {
     email: unverified ? await emailKeptOffPerson(tx, found?.person ?? null, enquiry.person.email) : null,
@@ -80,7 +83,10 @@ export async function saveEnquiry(
       throw new DomainError("CONFLICT", "OPEN_LEAD_EXISTS", "This person already has an open lead");
     }
     if (open !== null && (!fromForm || options.whenOpenLead === "add-to-it")) {
-      await addRepeatEnquiry(tx, actor, { lead: open, personName: found.person.name, input }, now, { notifyOwner });
+      await addRepeatEnquiry(tx, actor, { lead: open, personName: found.person.name, input }, now, {
+        notifyOwner,
+        ...(auditDetail ? { auditDetail } : {}),
+      });
       return {
         outcome: "added-to-open-lead",
         leadId: open.id,
@@ -93,7 +99,12 @@ export async function saveEnquiry(
   }
   const person =
     found?.person ??
-    (await addPerson(tx, actor, leftOut.email === null ? enquiry.person : { ...enquiry.person, email: undefined }));
+    (await addPerson(
+      tx,
+      actor,
+      leftOut.email === null ? enquiry.person : { ...enquiry.person, email: undefined },
+      auditDetail ?? null,
+    ));
   const trip = await resolveTrip(tx, actor, input.trip);
   const returning = found !== null && (await tx.lead.count({ where: { personId: person.id } })) > 0;
   const imported = options.from === "import";
@@ -122,6 +133,7 @@ export async function saveEnquiry(
       sourceDetail: input.sourceDetail,
       note: input.note,
       createdBy: actor.userId,
+      ...(auditDetail ? { auditDetail } : {}),
       ...(imported
         ? { stage: options.stage, recordedAt: now, ...(options.createdAt ? { createdAt: options.createdAt } : {}) }
         : {}),

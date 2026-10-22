@@ -24,6 +24,8 @@ export interface NewLeadRecord {
   createdBy: string | null;
   /** Now unless given. */
   createdAt?: Date;
+  /** Where the lead came from, kept in the audit entry (the website form's id). */
+  auditDetail?: { formId: string };
   /** When the timeline says it happened: the lead's created date unless given (an import's rows say the import's). */
   recordedAt?: Date;
 }
@@ -78,7 +80,7 @@ export async function addLeadInTransaction(
     action: "lead.added",
     entityType: "lead",
     entityId: leadId,
-    after: { stage, ownerUserId: record.ownerUserId, source: record.source },
+    after: { stage, ownerUserId: record.ownerUserId, source: record.source, ...record.auditDetail },
   });
   await publishEvent(tx, { type: "lead.created", payload: { leadId, personId: record.personId } });
   return { leadId, personId: record.personId };

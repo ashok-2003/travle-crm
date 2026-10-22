@@ -125,6 +125,19 @@ describe("receiving a website enquiry", () => {
     expect(await inOrg((tx) => tx.websiteFormSubmission.count({ where: { outcome: "duplicate" } }))).toBe(1);
   });
 
+  it("three a day holds under parallel sends with different ids: two at once on a person with two leave one saved", async () => {
+    const { send, inOrg } = await setup();
+    // Racing is by chance, so many rounds, each on its own person.
+    for (let round = 0; round < 12; round += 1) {
+      const phone = freshPhone();
+      expect(await send({ phone })).toBe("new_lead");
+      expect(await send({ phone })).toBe("repeat_enquiry");
+      const outcomes = await Promise.all([send({ phone }), send({ phone })]);
+      expect(outcomes.sort(), `round ${String(round)}`).toEqual(["duplicate", "repeat_enquiry"]);
+    }
+    expect(await inOrg((tx) => tx.leadEnquiry.count())).toBe(24);
+  });
+
   it("a repeated submissionId saves nothing and answers as the first", async () => {
     const { send, inOrg } = await setup();
     const submissionId = randomUUID();
@@ -210,12 +223,17 @@ describe("receiving a website enquiry", () => {
     expect(details).toEqual(["sharmatravels.in", "Embedded"]);
   });
 
-  it("the audit entries carry source public", async () => {
-    const { send, inOrg } = await setup();
-    await send();
-    const entries = await inOrg((tx) => tx.auditEntry.findMany({ where: { entityType: { in: ["lead", "person"] } } }));
-    expect(entries.length).toBeGreaterThan(0);
+  it("the audit entries carry source public and the form's id as the detail (W24)", async () => {
+    const { send, inOrg, form } = await setup();
+    const phone = freshPhone();
+    await send({ phone });
+    await send({ phone });
+    const entries = await inOrg((tx) =>
+      tx.auditEntry.findMany({ where: { entityType: { in: ["lead", "person"] } }, orderBy: { id: "asc" } }),
+    );
+    expect(entries.map((entry) => entry.action).sort()).toEqual(["lead.added", "lead.repeat-enquiry", "person.added"]);
     expect(entries.every((entry) => entry.source === "public")).toBe(true);
+    for (const entry of entries) expect(entry.after, entry.action).toMatchObject({ formId: form.id });
   });
 
   it("the owner is told once per new lead", async () => {
@@ -235,12 +253,15 @@ describe("receiving a website enquiry", () => {
     expect(row.personId).not.toBeNull();
   });
 
-  it("an offers tick with the switch off is VALIDATION", async () => {
+  it("offers in any value, true or false, is VALIDATION with the switch off", async () => {
     const { send } = await setup({ offersTickbox: true });
-    await expect(send({ offers: true })).rejects.toMatchObject({
-      code: "VALIDATION",
-      reason: "FORM_OFFERS_NOT_AVAILABLE",
-    });
+    for (const offers of [true, false]) {
+      await expect(send({ offers })).rejects.toMatchObject({
+        code: "VALIDATION",
+        reason: "FORM_OFFERS_NOT_AVAILABLE",
+      });
+    }
+    expect(await send({})).toBe("new_lead");
   });
 
   it("refuses a submission from the embed with embedding off, and takes the hosted one", async () => {
