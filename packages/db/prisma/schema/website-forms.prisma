@@ -17,6 +17,8 @@ model WebsiteForm {
   /// off, optional or required (CHECK website_form_modes_value): Name and Phone are always asked.
   emailMode         String                  @default("optional") @map("email_mode")
   destinationMode   String                  @default("optional") @map("destination_mode")
+  /// list or typed (CHECK website_form_destination_input_value): how the Destination question appears.
+  destinationInput  String                  @default("list") @map("destination_input")
   travelMonthMode   String                  @default("optional") @map("travel_month_mode")
   travellersMode    String                  @default("optional") @map("travellers_mode")
   budgetMode        String                  @default("off") @map("budget_mode")

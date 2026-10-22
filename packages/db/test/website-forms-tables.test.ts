@@ -91,6 +91,18 @@ describe("the website form's tables", () => {
     await expect(addForm()).rejects.toThrow(/\bwebsite_form_one_per_organization\b/);
   });
 
+  it("refuses a destination input outside list and typed, and starts as list", async () => {
+    expect((await inOrg((tx) => tx.websiteForm.findFirstOrThrow({ where: { id: formId } }))).destinationInput).toBe(
+      "list",
+    );
+    await expect(
+      inOrg((tx) => tx.websiteForm.update({ where: { id: formId }, data: { destinationInput: "map" } })),
+    ).rejects.toThrow(/\bwebsite_form_destination_input_value\b/);
+    await expect(
+      inOrg((tx) => tx.websiteForm.update({ where: { id: formId }, data: { destinationInput: "typed" } })),
+    ).resolves.toBeDefined();
+  });
+
   it("refuses a mode outside off, optional and required", async () => {
     for (const column of [
       "emailMode",
