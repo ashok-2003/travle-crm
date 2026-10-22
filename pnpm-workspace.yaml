@@ -12,6 +12,7 @@ catalog:
   "@prisma/client": 7.10.0
   "@prisma/adapter-pg": 7.10.0
   zod: 4.6.7
+  pino: 10.3.1
   react: 19.3.1
   react-dom: 19.3.1
   "@types/react": 19.3.0

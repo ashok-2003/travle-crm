@@ -26,6 +26,7 @@
     "google-auth-library": "11.3.1",
     "nodemailer": "10.1.0",
     "pg-boss": "12.37.1",
+    "pino": "catalog:",
     "react": "catalog:",
     "read-excel-file": "9.3.12",
     "saxen": "11.2.0",

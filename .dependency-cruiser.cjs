@@ -227,13 +227,13 @@ module.exports = {
       name: "vendor-sdks-only-in-integrations",
       comment:
         "Domain code never calls a vendor SDK (spec 3): it calls a port in @travel-crm/integrations, and only that " +
-        "package imports pg-boss, the AWS SDK, nodemailer, web-push, React-PDF or the spreadsheet libraries " +
+        "package imports pg-boss, the AWS SDK, nodemailer, web-push, pino, React-PDF or the spreadsheet libraries " +
         "(csv-parse, csv-stringify, read-excel-file, fflate, saxen; ADR 0030) and google-auth-library (ADR 0031).",
       severity: "error",
       from: { pathNot: "^packages/integrations/" },
       to: {
         path:
-          "(^|/)node_modules/(pg-boss|@aws-sdk/[^/]+|nodemailer|web-push|@react-pdf/[^/]+|csv-parse|csv-stringify|" +
+          "(^|/)node_modules/(pg-boss|pino|@aws-sdk/[^/]+|nodemailer|web-push|@react-pdf/[^/]+|csv-parse|csv-stringify|" +
           "read-excel-file|fflate|saxen|google-auth-library)(/|$)",
       },
     },
