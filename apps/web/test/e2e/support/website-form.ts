@@ -5,6 +5,8 @@ import { randomInt, randomUUID } from "node:crypto";
 import { expect, type APIRequestContext, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import type { LeadListItem, LeadListPage, TimelinePage } from "@travel-crm/contracts/crm";
 import type { SaveWebsiteFormInput, WebsiteFormView, WebsiteFormPublic } from "@travel-crm/contracts/website-forms";
+import { planModules } from "@travel-crm/contracts/subscriptions";
+import { DEMO_PLAN_KEY } from "@travel-crm/domain/subscriptions";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import type { PlatformClient } from "@travel-crm/db/platform";
 import type { Identity } from "@travel-crm/domain/identity";
@@ -241,4 +243,50 @@ export async function secondAgency(database: Database, browser: Browser): Promis
   const page = await context.newPage();
   await signInByEmail(page, owner);
   return { owner: page, name: "Kapoor Tours" };
+}
+
+const DAY = 24 * 60 * 60 * 1000;
+
+/** Back on an active subscription, paid for a year from today, as the fixture made it. */
+export async function backToActive(platform: PlatformClient, organizationId: string): Promise<void> {
+  await platform.subscription.update({
+    where: { organizationId },
+    data: { status: "active", statusChangedAt: new Date(), paidThrough: new Date(Date.now() + 365 * DAY) },
+  });
+}
+
+/**
+ * Moves the agency onto a plan that takes the form away: the demo's own plan (the key the product looks for), or one
+ * without the crm module. Plans are the whole platform's, so each is made once and found again. Gives back the plan the
+ * agency was on, to move it back.
+ */
+export async function moveToPlan(
+  platform: PlatformClient,
+  organizationId: string,
+  plan: "demo" | "without-crm",
+): Promise<string> {
+  const before = await platform.subscription.findUniqueOrThrow({ where: { organizationId }, select: { planId: true } });
+  const key = plan === "demo" ? DEMO_PLAN_KEY : "journey-without-crm";
+  const found = await platform.plan.upsert({
+    where: { key },
+    update: {},
+    create: {
+      key,
+      name: plan === "demo" ? "Demo" : "Without crm",
+      monthlyPricePaise: 0,
+      seatLimit: 10,
+      whatsappNumberLimit: 1,
+      storageLimitBytes: 5n * 1024n ** 3n,
+      modules: plan === "demo" ? [...planModules] : ["catalog"],
+      forSale: false,
+    },
+    select: { id: true },
+  });
+  await platform.subscription.update({ where: { organizationId }, data: { planId: found.id } });
+  return before.planId;
+}
+
+/** Moves the agency back onto the plan `moveToPlan` gave back. */
+export async function backToPlan(platform: PlatformClient, organizationId: string, planId: string): Promise<void> {
+  await platform.subscription.update({ where: { organizationId }, data: { planId } });
 }
