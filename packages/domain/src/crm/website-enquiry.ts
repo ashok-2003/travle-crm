@@ -105,7 +105,8 @@ async function destinationOf(
   }
   const text = answer.text.trim();
   const named = await tx.destination.findFirst({
-    where: { name: { equals: text, mode: "insensitive" } },
+    // "insensitive" compiles to ILIKE, so escape its pattern characters to compare the name literally.
+    where: { name: { equals: text.replace(/[\\%_]/g, "\\$&"), mode: "insensitive" } },
     select: { id: true },
   });
   return named === null ? { destinationId: null, askedFor: text } : { destinationId: named.id, askedFor: null };
@@ -131,6 +132,10 @@ export async function receiveWebsiteEnquiry(
     throw new DomainError("VALIDATION", "FORM_OFFERS_NOT_AVAILABLE", "This form does not take offers");
   }
   const { form, now } = context;
+  // The embed can be switched off (W30): a submission from it is then as unavailable as from a closed form.
+  if (input.via === "embedded" && !form.allowEmbed) {
+    throw new DomainError("FORBIDDEN", "FORM_UNAVAILABLE", "This form is not taking enquiries");
+  }
   const prior = await findSubmission(tx, input.submissionId);
   if (prior !== null) return asOutcome(prior.outcome);
   const answers = assertAnswersMatchModes(form, input.answers);
@@ -165,7 +170,8 @@ export async function receiveWebsiteEnquiry(
     stage: "new",
     createdAt: null,
     notify: "each",
-    assign: { workers: context.workers },
+    // As imports and Sheets do: the agency's rules and mode apply only once automatic assignment is on (W7).
+    ...(features.automaticAssignment ? { assign: { workers: context.workers } } : {}),
     unverified: true,
   });
   const outcome = saved.outcome === "created" ? "new_lead" : "repeat_enquiry";

@@ -4,6 +4,14 @@ import { z } from "zod";
 import { calendarMonth } from "../crm/trip.js";
 import { fieldMode } from "./settings.js";
 
+/** Which page asks: the hosted link or the embed on an agency's own site. A fixed value, so it may sit in a URL. */
+export const formVia = z.enum(["hosted", "embedded"]);
+export type FormVia = z.infer<typeof formVia>;
+
+/** The public GET's query: the page that asks (an embed with embedding off gets the closed card). */
+export const publicFormQuery = z.strictObject({ via: formVia });
+export type PublicFormQuery = z.infer<typeof publicFormQuery>;
+
 export const publicForm = z.object({
   organizationName: z.string(),
   logoUrl: z.string().nullable(),
