@@ -2,6 +2,7 @@
 // pinned version, and carries its token in an Authorization header, never the URL; the app secret and a login code go in a
 // POST body. A network error is retried once; Meta's errors become our five reasons carrying its codes and nothing else.
 // Nothing here posts, replies or edits: the writes are the Page's webhook subscription and an optional test lead.
+import { createHmac } from "node:crypto";
 import {
   expectSuccess,
   isSubscribed,
@@ -63,12 +64,23 @@ export function createRealMetaGraph(options: RealMetaGraphOptions): MetaGraph {
   const root = `${(options.baseUrl ?? "https://graph.facebook.com").replace(/\/$/, "")}/${META_GRAPH_VERSION}`;
   const send = options.fetch ?? fetch;
   const timeoutMs = options.timeoutMs ?? 10_000;
+  const appToken = `${options.appId}|${options.appSecret}`;
 
   async function attempt(request: Request): Promise<unknown> {
     const url = new URL(`${root}${request.path}`);
     for (const [name, value] of Object.entries(request.query ?? {})) url.searchParams.set(name, value);
     const headers: Record<string, string> = { Accept: "application/json" };
-    if (request.token !== undefined) headers.Authorization = `Bearer ${request.token}`;
+    if (request.token !== undefined) {
+      headers.Authorization = `Bearer ${request.token}`;
+      // Proves the call comes from our app: a leaked token is useless without the secret, and it keeps working if Meta's
+      // "Require App Secret" is switched on (review M9).
+      if (request.token !== appToken) {
+        url.searchParams.set(
+          "appsecret_proof",
+          createHmac("sha256", options.appSecret).update(request.token).digest("hex"),
+        );
+      }
+    }
     let body: string | undefined;
     if (request.form !== undefined) {
       headers["Content-Type"] = "application/x-www-form-urlencoded";
@@ -105,8 +117,6 @@ export function createRealMetaGraph(options: RealMetaGraphOptions): MetaGraph {
       }
     }
   }
-
-  const appToken = `${options.appId}|${options.appSecret}`;
 
   return {
     async exchangeLoginCode(code, redirectUri): Promise<MetaLoginResult> {
@@ -208,9 +218,22 @@ export function createRealMetaGraph(options: RealMetaGraphOptions): MetaGraph {
     },
 
     async getLead(leadId, pageToken): Promise<MetaLead> {
-      return parseLead(
-        await call({ method: "GET", path: `/${pathId(leadId)}`, query: { fields: leadFields }, token: pageToken }),
-      );
+      try {
+        return parseLead(
+          await call({ method: "GET", path: `/${pathId(leadId)}`, query: { fields: leadFields }, token: pageToken }),
+        );
+      } catch (error) {
+        // Code 100 with subcode 33 ("does not exist or missing permissions") also answers a lead fetched moments after its
+        // webhook: it is tried again, and the catch-up's list carries the lead if it is there (review I4).
+        if (error instanceof MetaGraphError && error.reason === "not_found" && error.subcode === 33) {
+          throw new MetaGraphError("unavailable", {
+            code: 100,
+            subcode: 33,
+            ...(error.type === null ? {} : { type: error.type }),
+          });
+        }
+        throw error;
+      }
     },
 
     async listLeads(formId, pageToken, listOptions: ListLeadsOptions = {}): Promise<MetaPage<MetaLead>> {

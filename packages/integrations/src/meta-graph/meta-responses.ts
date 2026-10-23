@@ -34,6 +34,8 @@ export function mapMetaError(status: number, body: unknown): MetaGraphError {
     ...(subcode === undefined ? {} : { subcode }),
     ...(type === undefined ? {} : { type }),
   };
+  // A login code that is bad, used or expired (100 with subcode 36007 or 36009): a login that failed, not a missing object.
+  if (code === 100 && (subcode === 36007 || subcode === 36009)) return new MetaGraphError("token_invalid", details);
   // An expired, revoked or invalidated token: 190 and its subcodes; 102 is a session that ended.
   if (code === 190 || code === 102) return new MetaGraphError("token_invalid", details);
   // The call limits: app (4), user (17, 32), Page (32), generic (613), and the lead gen limit (80005, SPIKE: the family).

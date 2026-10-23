@@ -1,6 +1,7 @@
 // The real MetaGraph against recorded responses (spec 6.1): the shapes it reads, the one pinned version, the token in a
 // header and never in a URL, the secrets in a POST body, Meta's errors mapped to our five reasons carrying codes only, one
 // retry of a network error, and no write but the subscription and a test lead.
+import { createHmac } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -99,9 +100,19 @@ describe("the login", () => {
     expect((await graph.exchangeLoginCode("c", "https://x")).userToken).toBe("EAAB-user-short");
   });
 
-  it("refuses a code Meta does not accept", async () => {
-    const { graph } = graphWith([{ status: 400, body: recorded("error-unknown-object") }]);
-    expect((await failure(graph.exchangeLoginCode("bad", "https://x"))).reason).toBe("not_found");
+  it("signs every call that carries a token with an appsecret_proof, and none with the app token or none", async () => {
+    const { fake, graph } = graphWith([recorded("lead"), recorded("debug-token")]);
+    await graph.getLead("90001", "EAAB-page-1");
+    await graph.inspectToken("EAAB-page-1");
+    const proof = createHmac("sha256", "secret-app-value-0123456789abcdef").update("EAAB-page-1").digest("hex");
+    expect(fake.seen[0]?.url.searchParams.get("appsecret_proof")).toBe(proof);
+    expect(fake.seen[1]?.url.searchParams.has("appsecret_proof")).toBe(false);
+  });
+
+  it("reads a login code Meta does not accept (100, subcode 36009) as a failed login, not a missing object", async () => {
+    const { graph } = graphWith([{ status: 400, body: recorded("error-login-code") }]);
+    const error = await failure(graph.exchangeLoginCode("bad", "https://x"));
+    expect([error.reason, error.code, error.subcode]).toEqual(["token_invalid", 100, 36009]);
   });
 });
 
@@ -260,7 +271,7 @@ describe("Meta's errors", () => {
     ["error-permission", 403, "permission", 200],
     ["error-lead-permission", 403, "permission", 10],
     ["error-rate-limit", 400, "rate_limited", 80005],
-    ["error-unknown-object", 400, "not_found", 100],
+    ["error-unknown-object", 400, "unavailable", 100],
     ["error-unavailable", 500, "unavailable", 2],
   ];
 
