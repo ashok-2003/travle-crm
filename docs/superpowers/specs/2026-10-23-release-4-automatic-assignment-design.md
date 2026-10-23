@@ -11,21 +11,15 @@
   (applied on the pilot), switched off by `features.automaticAssignment = false`.
 - **What is decided:** deep dive #11. This spec adds only what it left open. The deep dive's answers are not re-asked.
 
-## 0. For the owner
+## 0. The owner's answers (2026-10-23)
 
-Three questions the deep dive does not answer. Each changes what gets built. If you agree with all three, say "go".
-
-1. **Does "away" skip people everywhere, or only in the turns?** The deep dive says turns skip anyone away. It does not
-   say whether a returning customer's previous owner, or a rule's person, who is away still gets the lead.
-   **Recommendation: skip away people at every step.** The lead falls to the next check and its timeline says why. A
-   lead sitting with someone on a week's leave is the thing this feature exists to prevent.
-2. **Working hours: one schedule for the agency, or one for each person?** **Recommendation: one for the agency** (days
-   and opening and closing time, in its time zone; the default is Monday to Saturday, 10:00 to 19:00). Each person's
-   own control is the away switch. Per-person hours triple the settings screen and the rules for "who is on now", and
-   no agency has asked for them.
-3. **Who is "the manager" the slow-reply alert goes to?** The first version tells only the first Owner, by push.
-   **Recommendation: everyone whose role holds `leads:assign`** (the Owner always does), in the bell and by push, so
-   the opt-outs and quiet hours apply. A sales manager who reassigns leads is the person who can act on it.
+1. **"Away" skips people only in the turns** (the owner chose this over skipping at every step). A returning
+   customer's previous owner, or a rule's person, still gets the lead while away; the turns skip anyone away. Section
+   4.4 follows this: the lead's timeline says when it went to someone who is away, so a manager can reassign it.
+2. **Working hours: one schedule for the agency** (days and opening and closing time, in its time zone; default Monday
+   to Saturday, 10:00 to 19:00). Assignment happens at once at any hour; the hours only pause the slow-reply clock.
+3. **The slow-reply alert goes to everyone whose role holds `leads:assign`** (the Owner always does), in the bell and
+   by push, with the usual opt-outs and quiet hours.
 
 Everything else below follows the deep dive or is a build detail.
 
@@ -139,6 +133,8 @@ repair. Fewest open: lowest count first, ties by the oldest turn.
 ### 4.4 Away
 
 `away_until` in the future means skipped; null or past means in. Nothing runs when it ends: the check compares to `now`.
+Away is checked **only in the turns** (owner, 0.1): a returning customer's previous owner and a rule's person get the
+lead even while away, and the lead's timeline and the reason say they are away, so a manager can reassign it.
 Away is not working hours: a person can be away for a week; hours say when the agency answers.
 
 ### 4.5 Working hours and the clock
