@@ -1,6 +1,7 @@
 // The environment variables of the services plan 3 added (spec 9): object storage, email, web push, and the web
 // app's address that emails link to. Part of the api's one checked environment (environment.ts).
 import { z } from "zod";
+import { isMetaTokenKey } from "./meta-settings.js";
 import { decodeServiceAccounts } from "./sheets-settings.js";
 
 const httpUrl = z.url({ protocol: /^https?$/, message: "must be an http(s) URL" });
@@ -65,6 +66,52 @@ export const serviceVariables = {
    * only, never stored or logged and never changed. Needed whenever the accounts are set (environment.ts checks).
    */
   SHEETS_HASH_KEY: emptyAsUnset(z.string().min(32, "must be at least 32 characters").optional()),
+  /**
+   * Meta lead ads (ADR 0034, spec 13): all five or none (environment.ts checks the group). The app's id and secret from
+   * its Basic settings; the webhook's verify token (a secret, at least 32 random characters) and the Facebook Login
+   * configuration's id; and the key that seals Page tokens: base64 of 32 random bytes, or a comma-separated list with the
+   * newest first so it can be rotated. The values are never printed or logged.
+   */
+  META_APP_ID: emptyAsUnset(
+    z
+      .string()
+      .regex(/^\d{5,30}$/, "must be the Meta app's numeric id")
+      .optional(),
+  ),
+  META_APP_SECRET: emptyAsUnset(
+    z
+      .string()
+      .regex(/^[A-Za-z0-9]{16,128}$/, "must be the Meta app's secret")
+      .optional(),
+  ),
+  META_WEBHOOK_VERIFY_TOKEN: emptyAsUnset(z.string().min(32, "must be at least 32 characters").optional()),
+  META_LOGIN_CONFIG_ID: emptyAsUnset(
+    z
+      .string()
+      .regex(/^\d{5,30}$/, "must be the Login configuration's numeric id")
+      .optional(),
+  ),
+  META_TOKEN_KEY: emptyAsUnset(
+    z
+      .string()
+      .transform((text, context) => {
+        const keys = text
+          .split(",")
+          .map((key) => key.trim())
+          .filter((key) => key !== "");
+        if (keys.length === 0 || !keys.every(isMetaTokenKey)) {
+          context.addIssue({
+            code: "custom",
+            message: "must be base64 of 32 random bytes (`openssl rand -base64 32`), or a comma-separated list of them",
+          });
+          return z.NEVER;
+        }
+        return keys;
+      })
+      .optional(),
+  ),
+  /** The journeys' fake Graph (development and tests only; refused in production). */
+  META_GRAPH_TEST_SERVER_URL: emptyAsUnset(httpUrl.optional()),
   /** The journeys' fake Google (development and tests only; refused in production, S17). */
   GOOGLE_SHEETS_TEST_SERVER_URL: emptyAsUnset(httpUrl.optional()),
   /** How often a sheet is checked, in seconds (120 by default); the journeys shorten it (development and tests only). */

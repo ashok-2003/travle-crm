@@ -5,6 +5,7 @@ import { startWorker } from "@travel-crm/domain/jobs";
 import { errorFields } from "@travel-crm/integrations/logging";
 import { reconcileScheduleAccounts } from "@travel-crm/domain/sheets";
 import { checkXlsxReading } from "@travel-crm/integrations/spreadsheets";
+import { metaSettingsOf, metaStartUpLine } from "./meta-settings.js";
 import { assertServiceAccountsInPlace, sheetsStartUpLine } from "./sheets-settings.js";
 import { exitAfterLogs, startProcess, stopOnUnhandledErrors } from "./start-up.js";
 import { webhookProviders } from "./webhook-providers.js";
@@ -56,6 +57,7 @@ const {
 const accounts = environment.GOOGLE_SHEETS_SERVICE_ACCOUNTS?.length ?? 0;
 logger.info({ serviceAccounts: accounts }, "worker running");
 logger.info({ serviceAccounts: accounts }, sheetsStartUpLine(accounts));
+logger.info({ meta: metaSettingsOf(environment) !== null }, metaStartUpLine(metaSettingsOf(environment)));
 
 // Container platforms send SIGTERM before stopping an instance: stop relaying, let running jobs finish, close the
 // pools. Exit 0 only when that went well, so the platform can tell a clean stop from a failed one; 1 after an error

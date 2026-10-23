@@ -110,6 +110,15 @@ EMAIL_FROM_ADDRESS=''
 SHEETS_HASH_KEY=''
 GOOGLE_SHEETS_SERVICE_ACCOUNTS=''
 
+# Meta lead ads (docs/deploy-checklist.md, "Meta lead ads"): all five or none, set with `secrets.sh set`; blank leaves it off,
+# and `check` does not ask for them. META_TOKEN_KEY seals the Pages' tokens: `openssl rand -base64 32`, and never changed
+# casually (a list, newest first, when it is). META_WEBHOOK_VERIFY_TOKEN is 32+ random characters.
+META_APP_ID=''
+META_APP_SECRET=''
+META_WEBHOOK_VERIFY_TOKEN=''
+META_LOGIN_CONFIG_ID=''
+META_TOKEN_KEY=''
+
 # Logs (docs/runbook.md, "Reading logs" and "Turn on Axiom"). LOG_LEVEL is debug, info, warn or error (blank: info).
 # The token and dataset ship every log line to Axiom too; blank leaves it off, and `check` does not ask for them.
 # AXIOM_URL is only for the EU region: https://api.eu.axiom.co.

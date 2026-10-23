@@ -40,13 +40,29 @@
       "dependsOn": ["generate", "^generate"],
       "cache": false,
       "persistent": true,
-      "passThroughEnv": ["GOOGLE_SHEETS_SERVICE_ACCOUNTS", "SHEETS_HASH_KEY"]
+      "passThroughEnv": [
+        "GOOGLE_SHEETS_SERVICE_ACCOUNTS",
+        "SHEETS_HASH_KEY",
+        "META_APP_ID",
+        "META_APP_SECRET",
+        "META_WEBHOOK_VERIFY_TOKEN",
+        "META_LOGIN_CONFIG_ID",
+        "META_TOKEN_KEY"
+      ]
     },
     "worker": {
       "dependsOn": ["^generate"],
       "cache": false,
       "persistent": true,
-      "passThroughEnv": ["GOOGLE_SHEETS_SERVICE_ACCOUNTS", "SHEETS_HASH_KEY"]
+      "passThroughEnv": [
+        "GOOGLE_SHEETS_SERVICE_ACCOUNTS",
+        "SHEETS_HASH_KEY",
+        "META_APP_ID",
+        "META_APP_SECRET",
+        "META_WEBHOOK_VERIFY_TOKEN",
+        "META_LOGIN_CONFIG_ID",
+        "META_TOKEN_KEY"
+      ]
     },
     "console": {
       "dependsOn": ["^generate"],

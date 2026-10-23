@@ -31,6 +31,12 @@ x-api-environment: &api-environment
   # Google Sheets (ADR 0031) is off unless these are set in the environment or the checkout's .env (see .env.example):
   # blank here is the same as unset. The console is never given the service accounts, only the hash key.
   GOOGLE_SHEETS_SERVICE_ACCOUNTS: ${GOOGLE_SHEETS_SERVICE_ACCOUNTS:-}
+  # Meta lead ads (ADR 0034): all five or none; blank leaves them off. The console is never given them.
+  META_APP_ID: ${META_APP_ID:-}
+  META_APP_SECRET: ${META_APP_SECRET:-}
+  META_WEBHOOK_VERIFY_TOKEN: ${META_WEBHOOK_VERIFY_TOKEN:-}
+  META_LOGIN_CONFIG_ID: ${META_LOGIN_CONFIG_ID:-}
+  META_TOKEN_KEY: ${META_TOKEN_KEY:-}
   SHEETS_HASH_KEY: ${SHEETS_HASH_KEY:-}
 
 # One build of the api's image for the four services that run it.
@@ -162,6 +168,11 @@ services:
       <<: *api-environment
       DATABASE_PLATFORM_URL: postgresql://app_platform:platform@postgres:5432/travel_crm
       GOOGLE_SHEETS_SERVICE_ACCOUNTS: ""
+      META_APP_ID: ""
+      META_APP_SECRET: ""
+      META_WEBHOOK_VERIFY_TOKEN: ""
+      META_LOGIN_CONFIG_ID: ""
+      META_TOKEN_KEY: ""
       DEMO_ORGANIZATION_CODE: DEMO
       DEMO_PASSWORD: demo-only-password
     depends_on: *api-depends-on
