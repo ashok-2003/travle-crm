@@ -195,6 +195,16 @@ describe("the assignment settings", () => {
       ]);
     });
 
+    it("refuses being away for more than 30 days, and audits nothing", async () => {
+      const self = memberWithStarterRole("sales", { organizationId, userId: priya });
+      const entries = (await auditOf("assignment.away-set")).length;
+      const tooFar = new Date(Date.now() + 31 * 86_400_000).toISOString();
+      await expect(inOrg((tx) => setAway(tx, self, { awayUntil: tooFar }))).rejects.toMatchObject({
+        reason: "AWAY_TOO_FAR",
+      });
+      expect(await auditOf("assignment.away-set")).toHaveLength(entries);
+    });
+
     it("tells someone outside the pool so, and audits nothing", async () => {
       const outsider = memberWithStarterRole("sales", { organizationId, userId: randomUUID() });
       const entries = (await auditOf("assignment.away-set")).length;

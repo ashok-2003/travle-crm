@@ -6,6 +6,7 @@ import {
   DEFAULT_CLOSES_MINUTE,
   DEFAULT_OPENS_MINUTE,
   DEFAULT_SLOW_REPLY_MINUTES,
+  MOST_AWAY_DAYS,
   MONDAY_TO_SATURDAY,
   leadSource,
   tripType,
@@ -105,6 +106,9 @@ export async function poolPlaceOf(tx: OrgTx, access: MemberAccess): Promise<Pool
 
 /** Marks the person away from the pool until a time, or back; someone not in the pool is told so. */
 export async function setAway(tx: OrgTx, access: MemberAccess, input: SetAwayInput): Promise<void> {
+  if (input.awayUntil !== null && Date.parse(input.awayUntil) > Date.now() + MOST_AWAY_DAYS * 86_400_000) {
+    throw new DomainError("VALIDATION", "AWAY_TOO_FAR", "Away for at most 30 days");
+  }
   const { count } = await tx.assignmentPoolMember.updateMany({
     where: { userId: access.userId },
     data: { awayUntil: input.awayUntil === null ? null : new Date(input.awayUntil) },

@@ -107,5 +107,11 @@ export const poolPlace = z.object({ inPool: z.boolean(), awayUntil: z.iso.dateti
 export type PoolPlace = z.infer<typeof poolPlace>;
 
 /** The signed-in person marks themselves away (skipped by the turns) until a time, or back (null). */
-export const setAwayInput = z.strictObject({ awayUntil: z.iso.datetime().nullable() });
+export const MOST_AWAY_DAYS = 30;
+export const setAwayInput = z
+  .strictObject({ awayUntil: z.iso.datetime().nullable() })
+  .refine(
+    (input) => input.awayUntil === null || Date.parse(input.awayUntil) <= Date.now() + MOST_AWAY_DAYS * 86_400_000,
+    { message: "Away for at most 30 days", path: ["awayUntil"] },
+  );
 export type SetAwayInput = z.infer<typeof setAwayInput>;
