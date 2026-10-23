@@ -11,6 +11,7 @@ export const notificationKinds = [
   { kind: "share-link.opened", messageKey: "shareLinkOpened" },
   { kind: "lead.assigned", messageKey: "leadAssigned" },
   { kind: "lead.slow-reply", messageKey: "leadSlowReply" },
+  { kind: "lead.unassigned", messageKey: "leadUnassigned" },
   { kind: "lead.repeat-enquiry", messageKey: "leadRepeatEnquiry" },
   { kind: "lead.imported", messageKey: "leadImported" },
   { kind: "lead.sheet-added", messageKey: "leadSheetAdded" },

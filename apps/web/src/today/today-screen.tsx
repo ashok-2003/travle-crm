@@ -12,6 +12,7 @@ import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
+import { AwaySwitch } from "@/leads/away-switch";
 import { formatDay, formatWeekday } from "@/lib/format";
 import { useMe } from "@/session/me-context";
 import { AddTaskDialog } from "./add-task-dialog";
@@ -90,6 +91,8 @@ export function TodayScreen() {
         intro={summary.data && <DayLine summary={summary.data} />}
         action={<AddTaskDialog />}
       />
+      {/* For someone who takes new leads in turn: away for a while, back at once. Nothing for anyone else. */}
+      <AwaySwitch />
       {body()}
     </div>
   );

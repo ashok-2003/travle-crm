@@ -4,6 +4,7 @@
 import type { LeadWorker } from "@travel-crm/contracts/crm";
 import type { IdentityDatabase, IdentityTx } from "@travel-crm/db/identity";
 import { PermissionSet } from "./permission-set.js";
+import type { Permission } from "./permissions.js";
 
 const byName = new Intl.Collator("en-IN", { sensitivity: "base" });
 
@@ -52,5 +53,25 @@ export async function firstOwner(database: IdentityDatabase, organizationId: str
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     });
     return first?.userId ?? null;
+  });
+}
+
+/** The active members whose role holds the permission (the Owner's always does), as user ids: who a notice goes to. */
+export async function membersHolding(
+  database: IdentityDatabase,
+  organizationId: string,
+  permission: Permission,
+): Promise<string[]> {
+  return database.forOrg(organizationId, async (tx) => {
+    const roles = await tx.role.findMany({ where: { organizationId }, include: { permissions: true } });
+    const keys = roles
+      .filter((role) => role.isOwner || PermissionSet.fromStored(role.permissions).has(permission))
+      .map((role) => role.key);
+    const members = await tx.member.findMany({
+      where: { organizationId, role: { in: keys }, ...notBanned() },
+      select: { userId: true },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    });
+    return members.map((member) => member.userId);
   });
 }

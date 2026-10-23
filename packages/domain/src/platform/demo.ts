@@ -6,7 +6,7 @@
 import { saveOrganizationProfileInput } from "@travel-crm/contracts/profile";
 import { saveWebsiteFormInput } from "@travel-crm/contracts/website-forms";
 import { asOrganization, type PlatformTx } from "@travel-crm/db/platform";
-import { addDemoLeads } from "../crm/index.js";
+import { addDemoAssignment, addDemoLeads } from "../crm/index.js";
 import {
   addStaffWithPassword,
   createOrganizationRecord,
@@ -123,6 +123,7 @@ export async function resetDemoOrganization(
         // The form is off and stays off: the demo is never open to the public (F14), whatever its switch says.
         await saveWebsiteForm(orgTx, actor, DEMO_FORM);
         await addDemoLeads(orgTx, actor, { ownerUserId, salesUserId }, now);
+        await addDemoAssignment(orgTx, actor, { ownerUserId, salesUserId }, now);
       });
       await startSubscription(
         tx,

@@ -117,19 +117,46 @@ describe("release 1's procedures", () => {
     }
   });
 
-  it("answers every assignment procedure as not available yet while automatic assignment is off", async () => {
-    const assignment = callerWithout("leads:create").assignment ?? {};
+  it("refuses each assignment procedure without its permission, and lets one who holds it past the check", async () => {
+    // Reading and saving the settings need settings:manage; anyone who works leads marks themselves away.
+    const assignmentRequired: Record<string, Permission> = {
+      get: "settings:manage",
+      save: "settings:manage",
+      mine: "leads:view",
+      setAway: "leads:view",
+    };
     const inputs: Record<string, unknown> = {
-      get: undefined,
-      save: { mode: "owner", slowReplyMinutes: null, rules: [], pool: [] },
-      mine: undefined,
+      save: {
+        mode: "owner",
+        slowReplyMinutes: null,
+        workdays: 63,
+        opensMinute: 600,
+        closesMinute: 1140,
+        rules: [],
+        pool: [],
+      },
       setAway: { awayUntil: null },
     };
-    for (const [name, input] of Object.entries(inputs)) {
-      const call = assignment[name];
-      expect(call, name).toBeDefined();
-      if (call) expect(await outcome(call(input)), name).toBe("NOT_AVAILABLE_YET");
+    for (const [name, permission] of Object.entries(assignmentRequired)) {
+      const without = callerWithout(permission).assignment?.[name];
+      expect(without, name).toBeDefined();
+      if (without) expect(await outcome(without(inputs[name])), name).toBe("MISSING_PERMISSION");
+      // Holding it (a member missing another permission), the call gets past the check, whatever it does next.
+      const other = permission === "leads:view" ? "settings:manage" : "leads:view";
+      const holding = callerWithout(other).assignment?.[name];
+      if (holding) expect(await outcome(holding(inputs[name])), name).not.toBe("MISSING_PERMISSION");
     }
+  });
+
+  it("puts the assignment procedures on the plan module of their first permission", () => {
+    const assignment = procedures.filter(([path]) => path.startsWith("assignment."));
+    expect(assignment.map(([path]) => path).sort()).toEqual([
+      "assignment.get",
+      "assignment.mine",
+      "assignment.save",
+      "assignment.setAway",
+    ]);
+    expect(assignment.every(([, procedure]) => typeof procedure._def.meta?.planModule === "string")).toBe(true);
   });
 
   it("asks the bulk changes for the permission of the change, nothing more: reassigning many needs leads:assign", async () => {

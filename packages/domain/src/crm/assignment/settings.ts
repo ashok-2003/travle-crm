@@ -3,6 +3,11 @@
 // the pool marks themselves away and back.
 import {
   assignmentMode,
+  DEFAULT_CLOSES_MINUTE,
+  DEFAULT_OPENS_MINUTE,
+  DEFAULT_SLOW_REPLY_MINUTES,
+  MOST_AWAY_DAYS,
+  MONDAY_TO_SATURDAY,
   leadSource,
   tripType,
   type AssignmentSettings,
@@ -10,8 +15,9 @@ import {
   type SaveAssignmentInput,
   type SetAwayInput,
 } from "@travel-crm/contracts/crm";
-import type { OrgTx } from "@travel-crm/db";
+import { sql, type OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../../audit/index.js";
+import { assignmentSnapshot } from "./assignment-audit.js";
 import { destinationNames } from "../../catalog/index.js";
 import type { MemberAccess } from "../../identity/index.js";
 import { DomainError } from "../../kernel/index.js";
@@ -27,7 +33,11 @@ export async function readAssignment(tx: OrgTx): Promise<AssignmentSettings> {
   return {
     // The columns' CHECKs hold these values; parsing names the type without a cast.
     mode: assignmentMode.parse(settings?.mode ?? "owner"),
-    slowReplyMinutes: settings?.slowReplyMinutes ?? null,
+    // No settings yet: the screen proposes 15 minutes, which saving makes real (spec 5).
+    slowReplyMinutes: settings === null ? DEFAULT_SLOW_REPLY_MINUTES : settings.slowReplyMinutes,
+    workdays: settings?.workdays ?? MONDAY_TO_SATURDAY,
+    opensMinute: settings?.dayOpensMinute ?? DEFAULT_OPENS_MINUTE,
+    closesMinute: settings?.dayClosesMinute ?? DEFAULT_CLOSES_MINUTE,
     rules: rules.map((rule) => ({
       id: rule.id,
       source: rule.source === null ? null : leadSource.parse(rule.source),
@@ -50,8 +60,18 @@ export async function saveAssignment(
   if (people.some((userId) => !workers.has(userId))) {
     throw new DomainError("VALIDATION", "NOT_A_LEAD_WORKER", "That person can't work leads");
   }
+  // The pool's rows are locked in id order, as chooseOwner locks them, so saving while a lead is given out waits for
+  // it rather than deadlocking with it.
+  await tx.$queryRaw(sql`SELECT id FROM assignment_pool_member ORDER BY id FOR UPDATE`);
   const before = await readAssignment(tx);
-  const settings = { mode: input.mode, slowReplyMinutes: input.slowReplyMinutes, updatedBy: access.userId };
+  const settings = {
+    mode: input.mode,
+    slowReplyMinutes: input.slowReplyMinutes,
+    workdays: input.workdays,
+    dayOpensMinute: input.opensMinute,
+    dayClosesMinute: input.closesMinute,
+    updatedBy: access.userId,
+  };
   const existing = await tx.assignmentSettings.findFirst({ select: { id: true } });
   if (existing) await tx.assignmentSettings.update({ where: { id: existing.id }, data: settings });
   else await tx.assignmentSettings.create({ data: settings });
@@ -70,8 +90,8 @@ export async function saveAssignment(
     action: "assignment.updated",
     entityType: "assignment_settings",
     entityId: access.organizationId,
-    before: { mode: before.mode, rules: before.rules.length, pool: before.pool.length },
-    after: { mode: input.mode, rules: input.rules.length, pool: input.pool.length },
+    before: assignmentSnapshot({ ...before, pool: before.pool.map((member) => member.userId) }),
+    after: assignmentSnapshot(input),
   });
 }
 
@@ -86,9 +106,18 @@ export async function poolPlaceOf(tx: OrgTx, access: MemberAccess): Promise<Pool
 
 /** Marks the person away from the pool until a time, or back; someone not in the pool is told so. */
 export async function setAway(tx: OrgTx, access: MemberAccess, input: SetAwayInput): Promise<void> {
+  if (input.awayUntil !== null && Date.parse(input.awayUntil) > Date.now() + MOST_AWAY_DAYS * 86_400_000) {
+    throw new DomainError("VALIDATION", "AWAY_TOO_FAR", "Away for at most 30 days");
+  }
   const { count } = await tx.assignmentPoolMember.updateMany({
     where: { userId: access.userId },
     data: { awayUntil: input.awayUntil === null ? null : new Date(input.awayUntil) },
   });
   if (count === 0) throw new DomainError("NOT_FOUND", "NOT_IN_POOL", "You don't take new leads in turn");
+  await recordAudit(tx, access, {
+    action: "assignment.away-set",
+    entityType: "assignment_settings",
+    entityId: access.organizationId,
+    after: { awayUntil: input.awayUntil },
+  });
 }

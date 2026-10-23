@@ -144,7 +144,8 @@
       "problem-hidden": "Hid a row a Google Sheet couldn't add"
     },
     "assignment": {
-      "updated": "Changed how new leads are assigned"
+      "updated": "Changed how new leads are assigned",
+      "away-set": "Marked themselves away from, or back to, taking new leads"
     },
     "website-form": {
       "turned-on": "Turned on the website form",

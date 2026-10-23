@@ -53,6 +53,8 @@ export type LeadRowReading =
       enquiry: Enquiry;
       stage: LeadStage;
       ownerUserId: string;
+      /** Whether the row named its owner and we knew them; if not, ownerUserId is only the default. */
+      ownerNamed: boolean;
       createdAt: Date | null;
       /** Whether a value we couldn't read was kept in the note (B21). */
       noted: boolean;
@@ -176,7 +178,8 @@ export function readLeadRow(row: SheetRow, context: LeadRowContext): LeadRowRead
   }
   const { source, detail } = sourceOf(context, cell("their_source"));
   const ownerText = cell("owner");
-  const ownerUserId = (ownerText === null ? null : context.ownerOf(ownerText)) ?? context.defaults.ownerUserId;
+  const namedOwner = ownerText === null ? null : context.ownerOf(ownerText);
+  const ownerUserId = namedOwner ?? context.defaults.ownerUserId;
   return {
     kind: "enquiry",
     enquiry: {
@@ -193,6 +196,7 @@ export function readLeadRow(row: SheetRow, context: LeadRowContext): LeadRowRead
     },
     stage,
     ownerUserId,
+    ownerNamed: namedOwner !== null,
     createdAt: enquiryDate?.createdAt ?? null,
     noted: kept.length > 0,
     contacts,

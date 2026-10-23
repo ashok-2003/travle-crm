@@ -1,8 +1,8 @@
 "use client";
 
-// For someone in the pool that takes new leads in turn (release C, Settings > Lead assignment): mark yourself away for
-// a day, three or a week, so the turns skip you, or come back at once. Shown only to people in the pool.
-import { features } from "@travel-crm/contracts/features";
+// For someone in the pool that takes new leads in turn (release 4, Settings > Lead assignment): mark yourself away for
+// a day, three or a week, so the turns skip you, or come back at once. Shown only to people in the pool, at the top of
+// Today and on the account page, with when they are back.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { RefusalAlert } from "@/components/refusal-alert";
@@ -11,6 +11,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useTRPC } from "@/data/trpc";
 import { formatDayTime } from "@/lib/format";
 import { useHolds, useMe } from "@/session/me-context";
+import { WriteHint } from "@/subscription/write-hint";
+import { useWriteAccess } from "@/subscription/write-access";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const awayFor = [1, 3, 7] as const;
@@ -20,6 +22,7 @@ function AwaySwitchCard() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const { timeZone } = useMe().organization;
+  const write = useWriteAccess("change");
   const place = useQuery(trpc.assignment.mine.queryOptions());
   const setAway = useMutation(
     trpc.assignment.setAway.mutationOptions({
@@ -42,7 +45,8 @@ function AwaySwitchCard() {
           {away ? (
             <Button
               variant="outline"
-              disabled={setAway.isPending}
+              disabled={setAway.isPending || !write.allowed}
+              aria-describedby={write.hint === null ? undefined : "away-write-hint"}
               onClick={() => {
                 setAway.mutate({ awayUntil: null });
               }}
@@ -54,7 +58,8 @@ function AwaySwitchCard() {
               <Button
                 key={days}
                 variant="outline"
-                disabled={setAway.isPending}
+                disabled={setAway.isPending || !write.allowed}
+                aria-describedby={write.hint === null ? undefined : "away-write-hint"}
                 onClick={() => {
                   setAway.mutate({ awayUntil: new Date(Date.now() + days * DAY_MS).toISOString() });
                 }}
@@ -64,6 +69,7 @@ function AwaySwitchCard() {
             ))
           )}
         </div>
+        <WriteHint id="away-write-hint" hint={write.hint} />
         {setAway.isError && <RefusalAlert error={setAway.error} />}
       </CardContent>
     </Card>
@@ -73,5 +79,5 @@ function AwaySwitchCard() {
 /** Only for someone who works leads, who may be in the pool. */
 export function AwaySwitch() {
   const holdsView = useHolds("leads:view");
-  return features.automaticAssignment && holdsView ? <AwaySwitchCard /> : null;
+  return holdsView ? <AwaySwitchCard /> : null;
 }

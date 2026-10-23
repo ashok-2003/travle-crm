@@ -2,13 +2,13 @@
 // webhook processing job, and the scheduled jobs, built from the process's services. The api and the worker are one
 // image; `worker.ts` starts this side. The platform's own jobs, which need the platform role (the subscription
 // lifecycle among them), run in the console process instead (console-jobs.ts).
-import { features } from "@travel-crm/contracts/features";
 import type { Database } from "@travel-crm/db";
 import {
   addLeadImportListener,
   checkFirstReply,
   checkLeadImportListener,
   FIRST_REPLY_CHECK_QUEUE,
+  notifyUnassignedLeadListener,
   scheduleFirstReplyCheckListener,
   checkLeadSheetListener,
   handOverDepartingMemberListener,
@@ -63,6 +63,9 @@ export interface WorkerSheets {
   checkIntervalSeconds?: number;
 }
 
+/** The time zone an organization without a profile reads its working hours in. */
+const DEFAULT_TIME_ZONE = "Asia/Kolkata";
+
 export interface WorkerJobDependencies {
   db: Database;
   identity: Pick<
@@ -71,6 +74,7 @@ export interface WorkerJobDependencies {
     | "memberContacts"
     | "inviteListener"
     | "firstOwner"
+    | "membersHolding"
     | "resolveAccess"
     | "leadWorkers"
     | "matchLeadWorkers"
@@ -109,6 +113,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
   const { db, identity, files, spreadsheets, subscriptions, seatLimit, email, push, appUrl } = dependencies;
+  // Who the slow-reply alert and the Unassigned notice go to: everyone whose role holds leads:assign (release 4).
+  const leadAssigners = (organizationId: string) => identity.membersHolding(organizationId, "leads:assign");
   const { webhookProviders, rateLimiter, logger } = dependencies;
   // The bulk imports' and exports' listeners (release 2): two of each step share its event, each acting on its kind.
   const importJobs: ImportJobDependencies = {
@@ -163,9 +169,16 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       identity.inviteListener({ email, appUrl, limiter: rateLimiter }),
       handOverDepartingMemberListener({ firstOwner: (organizationId) => identity.firstOwner(organizationId) }),
       // The slow-reply alert (release C): each new lead's check, queued for when its wait runs out.
-      ...(dependencies.jobs === undefined || !features.automaticAssignment
+      ...(dependencies.jobs === undefined
         ? []
-        : [scheduleFirstReplyCheckListener({ queue: dependencies.jobs })]),
+        : [
+            scheduleFirstReplyCheckListener({
+              queue: dependencies.jobs,
+              timeZone: async (organizationId) =>
+                (await identity.organizationProfile(organizationId))?.timeZone ?? DEFAULT_TIME_ZONE,
+            }),
+            notifyUnassignedLeadListener({ managers: leadAssigners }),
+          ]),
       readImportFileListener(importJobs),
       checkLeadImportListener(importJobs),
       addLeadImportListener(importJobs),
@@ -196,7 +209,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       {
         queue: FIRST_REPLY_CHECK_QUEUE,
         handle: async (data) => {
-          await checkFirstReply({ db, firstOwner: (organizationId) => identity.firstOwner(organizationId) }, data);
+          await checkFirstReply({ db, managers: leadAssigners }, data);
         },
       },
       ...(sheetsJobs === null ? [] : [sheetsCheckHandler(sheetsJobs)]),

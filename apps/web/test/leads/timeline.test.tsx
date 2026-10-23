@@ -182,4 +182,46 @@ describe("Timeline", () => {
       expect(box).toHaveFocus();
     });
   });
+
+  describe("why an automatic assignment chose the owner (release 4)", () => {
+    const created = (assignment: object) =>
+      anEntry({
+        kind: "created",
+        source: "web_form",
+        actorUserId: null,
+        assignment: { ownerUserId: owner.user.id, reason: "turns", rulePosition: null, away: false, ...assignment },
+      });
+
+    async function lineFor(assignment: object): Promise<string> {
+      stubApi({ "leads.timeline": aTimeline([created(assignment)]) });
+      renderScreen(<Timeline lead={aLead()} />);
+      const list = await screen.findByRole("list", { name: words.title });
+      return within(within(list).getByRole("listitem")).getByText(/Assigned to|Nobody could/).textContent;
+    }
+
+    it.each([
+      [{ reason: "turns" }, "Assigned to Asha Sharma, whose turn it was."],
+      [{ reason: "returning" }, "Assigned to Asha Sharma, who owned this customer's earlier lead."],
+      [{ reason: "rule", rulePosition: 1 }, "Assigned to Asha Sharma by rule 2."],
+      [{ reason: "fewest_open" }, "Assigned to Asha Sharma, who had the fewest open leads."],
+      [{ reason: "owner" }, "Assigned to Asha Sharma, the Owner."],
+      [{ reason: "none", ownerUserId: null }, "Nobody could take it, so it waits in Unassigned."],
+    ])("says %j as one line", async (assignment, line) => {
+      expect(await lineFor(assignment)).toBe(line);
+    });
+
+    it("says when the person was away, for a manager to reassign", async () => {
+      await lineFor({ reason: "returning", away: true });
+      expect(screen.getByText("Asha Sharma is away. Reassign it if someone else should have it.")).toBeVisible();
+    });
+
+    it("says nothing for a lead added by hand", async () => {
+      stubApi({
+        "leads.timeline": aTimeline([anEntry({ kind: "created", source: "phone_call", assignment: null } as never)]),
+      });
+      renderScreen(<Timeline lead={aLead()} />);
+      await screen.findByRole("list", { name: words.title });
+      expect(screen.queryByText(/Assigned to/)).not.toBeInTheDocument();
+    });
+  });
 });

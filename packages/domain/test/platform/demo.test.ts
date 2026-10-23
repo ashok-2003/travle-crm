@@ -100,11 +100,12 @@ describe("the demo reset", () => {
     const [asha, ravi] = [users.get("asha"), users.get("ravi")];
     const data = await demoData(organizationId);
 
-    expect(data.leads).toHaveLength(19);
-    expect(data.people).toHaveLength(17);
+    // Nineteen leads for Asha and Ravi, and two more that wait in Unassigned (release 4).
+    expect(data.leads).toHaveLength(21);
+    expect(data.people).toHaveLength(19);
     expect(data.destinations).toBe(6);
     expect(new Set(data.leads.map((lead) => lead.stage))).toEqual(new Set(leadStages));
-    expect(new Set(data.leads.map((lead) => lead.ownerUserId))).toEqual(new Set([asha, ravi]));
+    expect(new Set(data.leads.map((lead) => lead.ownerUserId))).toEqual(new Set([asha, ravi, null]));
     const wonBefore = (lead: (typeof data.leads)[number]) =>
       data.leads.some(
         (earlier) =>
@@ -128,6 +129,28 @@ describe("the demo reset", () => {
     expect(data.tasks.filter((task) => task.kind === "follow-up" && task.recordType === "lead")).toHaveLength(7);
     expect(data.tasks.filter((task) => task.recordType === null)).toHaveLength(2);
     expect(data.tasks.every((task) => task.assigneeUserId === asha || task.assigneeUserId === ravi)).toBe(true);
+  });
+
+  it("sets the demo's assignment: turns between Asha and Ravi, a Kashmir rule, the working week, two leads waiting", async () => {
+    const { organizationId } = await resetDemoOrganization(test.services, demoSettings());
+    const users = await demoUsers(organizationId);
+    const [asha, ravi] = [users.get("asha"), users.get("ravi")];
+    const assignment = await test.services.db.forOrg(organizationId, async (tx) => ({
+      settings: await tx.assignmentSettings.findFirstOrThrow(),
+      pool: (await tx.assignmentPoolMember.findMany()).map((member) => member.userId),
+      rules: await tx.assignmentRule.findMany({ include: { destination: true } }),
+      waiting: await tx.lead.findMany({ where: { ownerUserId: null } }),
+    }));
+    expect(assignment.settings).toMatchObject({
+      mode: "turns",
+      slowReplyMinutes: 15,
+      workdays: 63,
+      dayOpensMinute: 600,
+      dayClosesMinute: 1140,
+    });
+    expect(new Set(assignment.pool)).toEqual(new Set([asha, ravi]));
+    expect(assignment.rules.map((rule) => [rule.destination?.name, rule.assigneeUserId])).toEqual([["Kashmir", ravi]]);
+    expect(assignment.waiting).toHaveLength(2);
   });
 
   it("gives the demo two leads from an import, september-enquiries.xlsx, and keeps no import batch", async () => {
@@ -264,7 +287,7 @@ describe("the demo reset", () => {
     const tomorrow = new Date(tonight.getTime() + 24 * 60 * 60 * 1000);
     const { organizationId } = await resetDemoOrganization(test.services, demo, tomorrow);
     const data = await demoData(organizationId);
-    expect([data.leads.length, data.people.length, data.destinations, data.blocked.length]).toEqual([19, 17, 6, 1]);
+    expect([data.leads.length, data.people.length, data.destinations, data.blocked.length]).toEqual([21, 19, 6, 1]);
   });
 
   it("purges last night's demo and builds it afresh", async () => {

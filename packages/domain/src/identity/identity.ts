@@ -29,7 +29,8 @@ import { createAuth, type Auth, type AuthSettings } from "./auth/create-auth.js"
 import type { LeadWorker } from "@travel-crm/contracts/crm";
 import type { EventListener } from "../jobs/index.js";
 import { matchLeadWorkers, matchRoles, type LeadWorkerMatch, type RoleMatch } from "./import-matches.js";
-import { firstOwner, leadWorkers } from "./lead-workers.js";
+import { firstOwner, leadWorkers, membersHolding } from "./lead-workers.js";
+import type { Permission } from "./permissions.js";
 import type { MemberAccess } from "./member-access.js";
 import { recordMemberActivity } from "./member-activity.js";
 import {
@@ -97,6 +98,8 @@ export interface Identity {
   leadWorkers(organizationId: string): Promise<LeadWorker[]>;
   /** The earliest-joined active Owner's user id, who receives a departing member's work (R15); null if none. */
   firstOwner(organizationId: string): Promise<string | null>;
+  /** The active members whose role holds the permission (an Owner always does), as user ids: who a notice goes to. */
+  membersHolding(organizationId: string, permission: Permission): Promise<string[]>;
   /**
    * A file's Owner values matched to lead workers by full name, username, email or a first name only one has (B11).
    * A value that names nobody, or more than one person, is absent.
@@ -183,6 +186,7 @@ export function createIdentity(options: IdentityOptions): Identity {
     memberContacts: (organizationId, userIds) => memberContacts(database, organizationId, userIds),
     leadWorkers: (organizationId) => leadWorkers(database, organizationId),
     firstOwner: (organizationId) => firstOwner(database, organizationId),
+    membersHolding: (organizationId, permission) => membersHolding(database, organizationId, permission),
     matchLeadWorkers: (organizationId, values) => matchLeadWorkers(database, organizationId, values),
     matchRoles: (organizationId, values) => matchRoles(database, organizationId, values),
     recordActivity: (access) => recordMemberActivity(database, access),

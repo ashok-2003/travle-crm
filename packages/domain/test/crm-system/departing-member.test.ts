@@ -79,6 +79,22 @@ describe("a departing member's work", () => {
     expect(listener).toMatchObject({ name: "crm.hand-over-departing-member", eventType: "staff.removed" });
   });
 
+  it("takes the member out of the assignment pool, leaving the others and the rules that name them", async () => {
+    const { leaver, handOver } = departure();
+    const stayer = randomUUID();
+    await inOrg(async (tx) => {
+      await tx.assignmentPoolMember.createMany({ data: [{ userId: leaver }, { userId: stayer }] });
+      await tx.assignmentRule.create({ data: { position: 0, source: "web_form", assigneeUserId: leaver } });
+    });
+
+    await handOver();
+    await handOver();
+
+    const pool = await inOrg((tx) => tx.assignmentPoolMember.findMany({ select: { userId: true } }));
+    expect(pool.map((member) => member.userId)).toEqual([stayer]);
+    expect(await inOrg((tx) => tx.assignmentRule.count({ where: { assigneeUserId: leaver } }))).toBe(1);
+  });
+
   it("moves the member's open leads and their tasks, and their open standalone tasks, to the Owner", async () => {
     const { leaver, owner, asked, handOver } = departure();
     const stayer = randomUUID();
@@ -472,9 +488,9 @@ describe("a departing member's work", () => {
 
     expect(await inOrg((tx) => tx.lead.count({ where: { ownerUserId: owner } }))).toBe(450);
     expect(await inOrg((tx) => tx.lead.count({ where: { ownerUserId: leaver } }))).toBe(0);
-    // Nine batches of 50 open leads and a tenth that finds none left, one page of closed leads' tasks, and one for
-    // the standalone tasks.
-    expect(transactions()).toBe(12);
+    // One for the pool row, nine batches of 50 open leads and a tenth that finds none left, one page of closed leads'
+    // tasks, and one for the standalone tasks.
+    expect(transactions()).toBe(13);
   });
 
   it("moves nothing, and fails for the worker to retry, when the agency has no Owner", async () => {

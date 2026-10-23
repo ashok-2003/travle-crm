@@ -41,10 +41,24 @@ export function TimelineEntryItem({ entry, people }: { entry: TimelineEntry; peo
   // A dot that hangs in the margin before a title's first word, so every title starts at the same place.
   const inline = "-ms-3 me-1.5 inline-block align-middle";
 
+  // Who an automatic assignment chose and why (release 4); a person away is said so, for a manager to reassign.
+  const assignmentLines = (assignment: Extract<TimelineEntry, { kind: "created" }>["assignment"] & object) => {
+    if (assignment.ownerUserId === null) return lines(t("lead.timeline.assigned.none"));
+    const name = nameOf(assignment.ownerUserId);
+    const number = (assignment.rulePosition ?? 0) + 1;
+    return lines(
+      t(`lead.timeline.assigned.${assignment.reason}`, { name, number }),
+      assignment.away ? t("lead.timeline.assigned.away", { name }) : null,
+    );
+  };
+
   const describe = (): { title: string; detail?: ReactNode; mark?: ReactNode } => {
     switch (entry.kind) {
       case "created":
-        return { title: t(`lead.timeline.createdFrom.${entry.source}`) };
+        return {
+          title: t(`lead.timeline.createdFrom.${entry.source}`),
+          ...(entry.assignment && { detail: assignmentLines(entry.assignment) }),
+        };
       case "note":
         return { title: t("lead.timeline.note"), detail: lines(entry.body) };
       case "stage-changed":

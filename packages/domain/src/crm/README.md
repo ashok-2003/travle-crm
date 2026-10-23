@@ -21,6 +21,21 @@ below it, never today above it (`business-modules-call-down`).
 - `destination-merges.ts`: `mergeDestinations(tx, actor, input)`, catalog's merge plus moving the leads and repeat
   enquiries; returns `{ leadsMoved }`.
 
+## Assigning leads that arrive by themselves (release 4)
+
+- `assignment/choose-owner.ts`: `chooseOwner(tx, lead, context)` answers `{ userId, reason, rulePosition, away }`: a
+  returning customer's previous owner, then the first matching rule, then the agency's mode (the Owner, the pool in
+  turn, or the pool member with the fewest open leads), else nobody (Unassigned). Only the turns skip a person who is
+  away; a previous owner or a rule's person gets the lead and the answer says they are away. The pool rows are locked
+  in `id` order and the turn is stamped by the database's clock. `saveEnquiry` passes the reason to `addLeadInTransaction`,
+  which keeps it on the lead's creation audit entry and its "created" timeline entry.
+- `assignment/settings.ts`: the settings read and saved whole (mode, reply time, working hours, rules, pool; audited with
+  the full detail by `assignment-audit.ts`), and the away switch (`assignment.away-set`).
+- `first-reply-alert.ts`: on `lead.created`, a check queued for the reply time counted in working minutes
+  (`addWorkingMinutes`, kernel); at the due instant a lead still New with no reply tells everyone holding `leads:assign`
+  (`identity.membersHolding`) once. `unassigned-notice.ts` tells them of a lead nobody could take (`lead.unassigned`).
+  `departing-member.ts` also takes the leaver out of the pool.
+
 ## People and adding leads
 
 - `people.ts`: a person found again by their phone, else their email, else their Instagram handle (R4), each exactly,

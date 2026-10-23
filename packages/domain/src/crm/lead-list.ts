@@ -11,7 +11,6 @@ import {
   type LeadListPage,
   type ListLeadsInput,
 } from "@travel-crm/contracts/crm";
-import { features } from "@travel-crm/contracts/features";
 import type { Task } from "@travel-crm/contracts/tasks";
 import type { OrgTx } from "@travel-crm/db";
 import { destinationNames } from "../catalog/index.js";
@@ -50,12 +49,7 @@ interface LeadListRow extends Pick<
 function ownerFor(access: MemberAccess, input: LeadCountsInput): string | null {
   const scoped = scopeFilter(access, "leads:view", "ownerUserId").ownerUserId;
   if (scoped !== undefined) return scoped;
-  return viewOf(input) === "mine" ? access.userId : (input.ownerUserId ?? null);
-}
-
-/** The view asked for; with automatic assignment off there is no Unassigned queue, so that view is one's own leads. */
-function viewOf(input: LeadCountsInput): LeadCountsInput["view"] {
-  return input.view === "unassigned" && !features.automaticAssignment ? "mine" : input.view;
+  return input.view === "mine" ? access.userId : (input.ownerUserId ?? null);
 }
 
 /**
@@ -75,7 +69,7 @@ export function filterFor(access: MemberAccess, input: LeadCountsInput): LeadCou
   const search = searchFor(input.search);
   const ownerUserId = ownerFor(access, input);
   // The Unassigned queue is everyone's unowned leads; a salesperson, scoped to their own, never sees it.
-  const unassigned = viewOf(input) === "unassigned" && ownerUserId === null;
+  const unassigned = input.view === "unassigned" && ownerUserId === null;
   return {
     ownerUserId,
     ...(unassigned && { unassignedOnly: true as const }),

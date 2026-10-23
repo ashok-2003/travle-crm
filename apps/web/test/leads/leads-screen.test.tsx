@@ -78,12 +78,12 @@ describe("LeadsScreen", () => {
     renderLeads();
     const whose = await screen.findByRole("tablist", { name: list.whose });
     expect(within(whose).getByRole("tab", { name: list.mine })).toHaveAttribute("aria-selected", "true");
-    // No Unassigned queue until automatic assignment is on (release 4).
+    // The Unassigned queue is there too (its label carries a count once the owner has one waiting).
     expect(
       within(whose)
         .getAllByRole("tab")
         .map((tab) => tab.textContent),
-    ).toEqual([list.mine, list.everyone]);
+    ).toEqual([list.mine, list.everyone, list.unassigned]);
     await userEvent.click(within(whose).getByRole("tab", { name: list.everyone }));
     expect(address.href).toBe("/leads?view=everyone");
     await waitFor(() => {
@@ -154,7 +154,10 @@ describe("LeadsScreen", () => {
     });
     expect(within(chips).getByRole("radio", { name: /^Contacted/ })).toBeChecked();
     // The counts are for the same view and filters, whatever the stage.
-    expect(inputsTo("leads.counts")).toEqual([{ view: "mine" }]);
+    // (The Unassigned tab's own count, for whoever assigns leads, is asked apart.)
+    expect(inputsTo("leads.counts").filter((input) => (input as { view: string }).view !== "unassigned")).toEqual([
+      { view: "mine" },
+    ]);
   });
 
   it("marks each stage chip with its stage's dot, the chosen one with a check instead", async () => {

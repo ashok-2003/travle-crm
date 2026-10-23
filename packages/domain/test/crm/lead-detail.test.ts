@@ -242,6 +242,7 @@ describe("a lead's page", () => {
           id: expect.any(String) as string,
           kind: "created",
           source: "walk_in",
+          assignment: null,
           occurredAt: at(0).toISOString(),
           actorUserId: manager.userId,
         },

@@ -113,6 +113,7 @@ export const leadsRouter = router({
       const mentioned = page.entries.flatMap((entry) => [
         entry.actorUserId,
         entry.kind === "reassigned" ? entry.ownerUserId : null,
+        entry.kind === "created" ? (entry.assignment?.ownerUserId ?? null) : null,
       ]);
       return { ...page, people: await memberNames(ctx.identity, organizationId, mentioned) };
     }),

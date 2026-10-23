@@ -10,7 +10,6 @@
   "reasons": {
     "MISSING_PERMISSION": "Your role doesn't allow this. Ask an Owner or Admin.",
     "NOT_A_MEMBER": "You're not a member of an organization.",
-    "NOT_AVAILABLE_YET": "This isn't available yet.",
     "OWNER_ONLY": "Only an Owner can do this.",
     "OWNER_ROLE_IS_FIXED": "The Owner role always holds every permission and can't be changed.",
     "CANNOT_CHANGE_YOURSELF": "You can't change your own role or remove yourself.",
@@ -139,6 +138,7 @@
     "SHEETS_NOT_IN_DEMO": "Google Sheets isn't available in the demo.",
     "SHEETS_TOO_FAST": "That is a lot of sheet checks in a minute. Wait a little, then try again.",
     "SHEET_TOO_LARGE": "This sheet is too big for us to read. Move older rows to another tab, or use a smaller sheet.",
+    "AWAY_TOO_FAR": "You can be away for 30 days at most.",
     "NOT_IN_POOL": "You don't take new leads in turn, so there's nothing to be away from. Ask an Owner or Admin to add you.",
     "VALIDATION": "Please check your details and try again.",
     "FORM_NOT_FOUND": "This form link doesn't work. Ask the agency for a new one.",

@@ -61,4 +61,22 @@ describe("lead workers", () => {
     await test.identity.staff.remove(secondAccess, { memberId: agency.ownerMemberId });
     expect(await test.identity.firstOwner(agency.organizationId)).toBe(second.userId);
   });
+
+  it("lists the active members whose role holds a permission, the Owner always, ids only", async () => {
+    const agency = await createTestAgency(test.identity, platform);
+    const owner = await memberAccessOf(test.identity, agency.ownerUserId, agency.organizationId);
+    const admin = await addStaffMember(test.identity, owner, "an-admin", "org-admin");
+    await addStaffMember(test.identity, owner, "a-seller", "sales");
+    const gone = await addStaffMember(test.identity, owner, "gone-admin", "org-admin");
+    await test.identity.staff.remove(owner, { memberId: gone.memberId });
+    const banned = await addStaffMember(test.identity, owner, "banned-admin", "org-admin");
+    await test.database.client.user.update({ where: { id: banned.userId }, data: { banned: true } });
+
+    const holders = await test.identity.membersHolding(agency.organizationId, "leads:assign");
+    expect([...holders].sort()).toEqual([agency.ownerUserId, admin.userId].sort());
+    const elsewhere = await createTestAgency(test.identity, platform);
+    expect(await test.identity.membersHolding(elsewhere.organizationId, "leads:assign")).toEqual([
+      elsewhere.ownerUserId,
+    ]);
+  });
 });

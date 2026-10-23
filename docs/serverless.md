@@ -236,6 +236,8 @@ and the database would stop until the next month.
 
 - **The website form's release brings migration `20261029100000_website_form`: apply it by hand first,** with step 3's
   `migrate`, before the merge deploys. It only adds, so the old release keeps working while it applies.
+- **Automatic assignment (release 4) brings migration `20261031100000_assignment_working_hours`: apply it by hand
+  first,** the same way, before the merge deploys. It only adds columns with defaults, so the old release keeps working.
 - **Deploy:** when the release brings migrations, apply them first (step 3's `migrate`, from a Mac with the release's
   image). Then push to `main` (merge the release): Render rebuilds the api and the console, and Vercel the web app.
   Migrations must suit the old release too (the checklist's "Migrations"), since it serves while they apply.

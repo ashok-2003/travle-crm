@@ -36,3 +36,10 @@ export function useLeadCounts(input: ListLeadsInput) {
     }),
   );
 }
+
+/** How many leads wait in the Unassigned queue, for the tab's label; asked only for someone who assigns leads. */
+export function useUnassignedCount(enabled: boolean) {
+  const trpc = useTRPC();
+  const counts = useQuery({ ...trpc.leads.counts.queryOptions({ view: "unassigned" }), enabled });
+  return counts.data?.open ?? null;
+}
