@@ -11,6 +11,25 @@ export const attachmentContentTypes = [
 ] as const;
 export type AttachmentContentType = (typeof attachmentContentTypes)[number];
 
+/** The record type of a WhatsApp message: its files are what customers send and staff reply with (ADR 0035). */
+export const WHATSAPP_RECORD_TYPE = "whatsapp_message";
+
+/** What a WhatsApp message may carry: the attachment types plus the video, voice notes and Office files people send. */
+export const whatsappContentTypes = [
+  ...attachmentContentTypes,
+  "video/mp4",
+  "video/3gpp",
+  "audio/ogg",
+  "audio/mpeg",
+  "audio/aac",
+  "audio/mp4",
+  "audio/amr",
+  "text/plain",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+] as const;
+
 /** The largest file one upload may be: 25 MB. */
 export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 

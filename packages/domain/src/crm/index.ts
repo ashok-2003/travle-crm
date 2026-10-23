@@ -18,6 +18,7 @@ export {
   processLeadgenChange,
   receiveMetaLead,
   retryMetaLead,
+  type AgencyDependencies,
   type AgencyFacts,
   type CatchUpResult,
   type EarlierLeadsDependencies,

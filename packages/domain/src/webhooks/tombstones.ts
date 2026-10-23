@@ -31,3 +31,16 @@ export async function tombstoneWebhookEvents(
   });
   return { tombstoned: count, waiting };
 }
+
+/**
+ * Blanks the payload and headers of one provider's events processed before `olderThan`, whatever their organization (a number
+ * nobody recorded leaves an event with none), keeping the ids so a replay is still ignored. Runs in a platform transaction:
+ * the runtime role may not change a payload. Returns how many were blanked.
+ */
+export async function blankProcessedPayloads(tx: OrgTx, provider: string, olderThan: Date): Promise<number> {
+  const { count } = await webhookEvents(tx).updateMany({
+    where: { provider, tombstonedAt: null, processedAt: { not: null, lt: olderThan } },
+    data: { payload: "", headers: {}, tombstonedAt: new Date() },
+  });
+  return count;
+}

@@ -3,6 +3,8 @@
 // sweep and erasure delete them for good.
 import {
   attachmentContentTypes,
+  WHATSAPP_RECORD_TYPE,
+  whatsappContentTypes,
   MAX_ATTACHMENT_BYTES,
   MAX_IMPORT_BYTES,
   spreadsheetContentTypes,
@@ -48,5 +50,6 @@ export function maxUploadBytes(recordType: string): number {
 
 /** The content types a record's files may have: spreadsheets for the bulk files, documents and photos elsewhere. */
 export function allowedContentTypes(recordType: string): readonly string[] {
+  if (recordType === WHATSAPP_RECORD_TYPE) return whatsappContentTypes;
   return spreadsheetRecordTypes.includes(recordType) ? spreadsheetContentTypes : attachmentContentTypes;
 }
