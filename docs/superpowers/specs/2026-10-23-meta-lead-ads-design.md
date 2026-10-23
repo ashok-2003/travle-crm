@@ -13,6 +13,8 @@
 - **Decided elsewhere, not re-asked:** leads arriving by themselves is the product's USP; Meta comes after Sheets and
   the website form; the pilot can use it as an app tester during App Review (`phase-1-releases`); design for
   always-on hosting (`design-for-paid-hosting`); no duplicates, in the owner's words, everywhere.
+  Also decided (owner, 2026-10-23): a registered business exists and the owner does Business Verification; the Meta app is
+  owned by a new Meta Business portfolio named "agencyOS" and takes its name from the brand (section 13).
 
 ## 0. For the owner
 
@@ -506,40 +508,39 @@ rotated casually: old Pages need the old key in the same variable (a list, newes
 `/webhooks/*` already goes to the api; `POST /api/meta/data-deletion` is under `/api/*`; `/meta/deletion` goes to the web app
 (the default rule).
 
-**The owner's steps, in order** (the early ones take weeks; start them first):
+**The owner's steps, in order** (decided 2026-10-23: a registered business exists and the owner does Business Verification; the app
+belongs to a new Meta Business portfolio named **agencyOS**; the app's name is the brand's `productName`, "Travel Agency OS", with
+`shortName` "Agency OS" where Meta allows a short one, read from `packages/brand/src/brand.ts` and typed nowhere else):
 
-1. **A registered business** (a company, LLP, partnership or proprietorship with documents Meta accepts: registration or GST
-   certificate, utility bill or bank statement showing the legal name and address) and **a website on your own domain with a
-   business email**. Business Verification needs the legal name, address, phone and a domain you can prove. The pilot's
-   `vercel.app` address isn't enough; this is why the domain matters.
-2. **Public pages on that domain:** a **Privacy Policy** (what we collect from Facebook: Page and lead-form answers on the
-   agency's behalf; that the agency owns the leads; how a person asks for deletion; the deletion callback), **Terms of Service**
-   and a **data deletion instructions** page. Ayush's drafts are parked for the landing-page agent; these three must be live URLs
-   before App Review. Have someone who knows India's DPDP Act read them.
-3. **Create a Meta Business portfolio** at business.facebook.com with the company's details; this is also where the agency's
-   Pages are shared with ours for system-user tokens if the spike chooses them.
-4. **Start Business Verification** (Business Settings, Security Center, Start Verification). It decides whether Advanced Access can
-   be granted; it can take days to weeks and is repeated if documents are rejected.
-5. **Create the app** at developers.facebook.com (Create App, use case "Other"/Business type), name "<product>", contact email,
-   the privacy policy and terms URLs, an app icon; add **Facebook Login for Business** and **Webhooks**.
-6. **Set the Webhooks:** product "Page", callback `https://<api>/webhooks/meta-leads`, verify token = `META_WEBHOOK_VERIFY_TOKEN`,
-   subscribe the `leadgen` field; set the **Data Deletion Request URL** to `https://<api>/api/meta/data-deletion`.
-7. **Create the Login configuration** (Facebook Login for Business, Configurations): token type per the spike, assets "Pages",
-   permissions per section 2; copy its id to `META_LOGIN_CONFIG_ID`. Copy the App ID and App Secret (Basic settings) to the
-   settings. Add `https://<web>/settings/lead-sources/meta/callback` as a valid redirect URI.
-8. **Put the five settings in Render** (`travel-crm-api`, secrets as secrets), redeploy; the start-up line says Meta is on.
-9. **Add the pilot as testers:** App roles, Roles, add the agency's Page admins as Testers by their Facebook accounts; each accepts
-   at facebook.com/settings, Business Integrations. They must hold the ADVERTISE task on the Page. They connect from Settings,
-   Lead sources, and you test with section 9.
-10. **App Review** (after verification and a working pilot): request Advanced Access for `leads_retrieval`, `pages_show_list`,
-    `pages_read_engagement`, `pages_manage_metadata`, `pages_manage_ads`, `ads_management` (if the spike keeps it) and
-    `public_profile`. For each: a **screencast** (the whole flow: sign in to the CRM, Connect a Page, Facebook's dialog, choose a
-    form, a lead arriving, the lead in the CRM), a written explanation of why it's needed, step-by-step **test instructions** with a
-    demo login (the demo organization will not have Meta; give Meta a pilot test agency, with its test Page), and the policy URLs.
-    The review team must be able to test; a rejection for "couldn't test" rejects the whole submission. Then switch the app to
-    Live (or, for Business-type apps, the permissions become Advanced) and complete Meta's yearly **Data Use Checkup**.
-11. **Before real agencies:** rerun Business Verification checks if the legal name or domain changes, and tell agencies in the
-    help text what we read, that we never post, and how to remove us (Facebook, Business Integrations).
+1. **Create the agencyOS business portfolio** at business.facebook.com, with the registered business's legal name, address and phone.
+   Have ready a website on the business's own domain and a business email on it (Verification needs a domain you can prove; the
+   pilot's `vercel.app` address isn't enough), and the public pages the app will need: a **Privacy Policy** (what we read from
+   Facebook: Page and lead-form answers on the agency's behalf; that the agency owns the leads; how a person asks for deletion), **Terms of
+   Service** and a **data deletion instructions** page. Ayush's drafts are parked for the landing-page agent; the three must be live
+   URLs before step 5. Have someone who knows India's DPDP Act read them.
+2. **Business Verification** (Business Settings, Security Center, Start Verification), with the registration or GST certificate and a
+   utility bill or bank statement showing the legal name and address. It decides whether Advanced Access can be granted, can take days
+   to weeks and is repeated if documents are rejected, so start it the day the portfolio exists.
+3. **Create the app** in the agencyOS portfolio at developers.facebook.com (Business type), named from the brand, with a contact email, the
+   privacy and terms URLs and an app icon. Then, none of it needing verification:
+   1. add **Facebook Login for Business** and **Webhooks**;
+   2. Webhooks, product "Page": callback `https://<api>/webhooks/meta-leads`, verify token = `META_WEBHOOK_VERIFY_TOKEN`, subscribe the
+      `leadgen` field; set the **Data Deletion Request URL** to `https://<api>/api/meta/data-deletion`;
+   3. create the Login configuration (token type per the spike, assets "Pages", permissions per section 2) and add
+      `https://<web>/settings/lead-sources/meta/callback` as a valid redirect URI;
+   4. put the five settings in Render (`travel-crm-api`, secrets as secrets: App ID and Secret from Basic settings, the configuration
+      id, the verify token, the token key) and redeploy; the start-up line says Meta is on.
+4. **Add the pilot as a tester:** App roles, Roles, add the agency's Page admins as Testers by their Facebook accounts; each accepts at
+   facebook.com/settings, Business Integrations. They must hold the ADVERTISE task on the Page. They connect from Settings, Lead sources,
+   and you test as section 9 says.
+5. **App Review** (after verification and a working pilot): request Advanced Access for `leads_retrieval`, `pages_show_list`,
+   `pages_read_engagement`, `pages_manage_metadata`, `pages_manage_ads`, `ads_management` (if the spike keeps it) and `public_profile`.
+   For each: a **screencast** of the whole flow (sign in to the CRM, Connect a Page, Facebook's dialog, choose a form, a lead arriving,
+   the lead in the CRM), why it's needed, step-by-step **test instructions** with a login to a pilot test agency that has a test Page (the
+   demo organization has no Meta), and the policy URLs. If Meta can't test the app the whole submission is rejected. Then the
+   permissions go live and Meta's yearly **Data Use Checkup** applies.
+6. **Before real agencies:** repeat Verification checks if the legal name or domain changes, and tell agencies in the help text what we
+   read, that we never post, and how to remove us (Facebook, Business Integrations).
 
 ## 14. Build order
 
