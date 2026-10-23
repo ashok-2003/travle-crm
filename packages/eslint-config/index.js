@@ -68,6 +68,11 @@ const unscopedTableSelectors = {
     selector: rawSqlNaming(["meta_page_route"]),
     message: "Only the meta-leads module's routes.ts queries meta_page_route: it has no row-level security.",
   },
+  whatsappRoutes: {
+    selector: rawSqlNaming(["whatsapp_number_route", "whatsapp_unrouted"]),
+    message:
+      "Only the inbox module's routes.ts queries whatsapp_number_route and whatsapp_unrouted: they have no row-level security.",
+  },
 };
 
 /** SQL that switches the organization or the session, in a template or a plain string. Every package but db keeps these. */
