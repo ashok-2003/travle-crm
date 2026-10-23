@@ -71,7 +71,13 @@ export {
   routeOfMetaPage,
   routeRowOf,
   routesOfMetaUser,
+  routesPage,
   upsertRoute,
 } from "./routes.js";
+export { confirmationCodeOf, handleDeletionRequest, wellFormedCode, type DeletionAnswer } from "./deletion.js";
+export { withdrawMetaLeads, type MetaWithdrawn } from "./erasure.js";
+export { checkAllPages, META_HEALTH_QUEUE } from "./health-job.js";
+export { checkPageHealth, type HealthOutcome } from "./health.js";
+export { sweepMeta, type MetaSwept } from "./sweep.js";
 export { clearedToken, openPageToken, sealPageToken, tokenContext } from "./tokens.js";
 export { badgeOf, hideProblem, listPages, metaProblems, pageDetailOf, type MetaPageDetailFacts } from "./views.js";

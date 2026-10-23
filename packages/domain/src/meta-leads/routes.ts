@@ -139,3 +139,19 @@ export async function makeCatchupDue(
     }),
   );
 }
+
+/** One page of every route, by id, for the daily health check to walk. */
+export async function routesPage(
+  db: Database,
+  input: { after?: string | undefined; limit: number },
+): Promise<{ id: string; metaPageId: string; organizationId: string }[]> {
+  const rows = await db.withoutOrg((tx) =>
+    metaRoutes(tx).findMany({
+      where: input.after === undefined ? {} : { id: { gt: input.after } },
+      orderBy: { id: "asc" },
+      take: input.limit,
+      select: { id: true, pageId: true, organizationId: true },
+    }),
+  );
+  return rows.map((row) => ({ id: row.id, metaPageId: row.pageId, organizationId: row.organizationId }));
+}
