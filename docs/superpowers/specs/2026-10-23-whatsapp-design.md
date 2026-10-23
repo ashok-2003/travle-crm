@@ -698,15 +698,20 @@ lost to the CRM unless S9 gives a catch-up, so rotate when quiet and do the catc
 
 ## 14. Build order
 
-One branch, `whatsapp/inbox`, on top of `meta/lead-ads` (unmerged; shared files are the webhook providers list, `kinds.ts`,
-`erasure.ts`, `permissions.ts`, `request-rules.ts`, `demo.ts`, the settings page navigation). Merge after Meta's branch if it
-lands first; expect conflicts in those lists only.
+One branch, `whatsapp/inbox`, which already contains `meta/lead-ads` (merged to main, PR #9). Shared files are the webhook
+providers list, `kinds.ts`, `erasure.ts`, `permissions.ts`, `request-rules.ts`, `demo.ts` and the settings navigation.
 
-0. **The spike and the shared pieces (one builder, a day or two; nothing else starts until it reports):** with the owner's MSG91
-   account and test number (checklist 1-6), settle S1-S9, write the answers into section 2 and fix the fixtures; then: ADR 0035
-   (WhatsApp through MSG91: the port, the one webhook, the exempt route table, what is stored), the `WhatsAppProvider` port with
-   the in-memory adapter and `msg91Signer`, the parser with fixtures, the migration and schema (all tables), the route table with
+**The build does not wait for the spike.** Parts 0-3 are built against the confirmed docs (section 2) and fixtures written from
+them. The spike runs when the owner's MSG91 account and test number exist (checklist 1-6); its fixes stay inside the adapter, the
+parser and the fixtures, which is why those are isolated behind the port. Nothing in the domain, the api or the web depends on
+an unconfirmed field name.
+
+0. **The shared pieces (one builder, a day or two; the tracks start when it merges):** ADR 0035 (WhatsApp through MSG91: the
+   port, the one webhook, the exempt route table, what is stored), the `WhatsAppProvider` port with the in-memory adapter and
+   `msg91Signer`, the parser with fixtures from the confirmed samples, the migration and schema (all tables), the route table with
    its guards and the fixture file, the contracts, `environment.ts`/`.env.example`, the permissions, the plan-module mapping.
+   **The spike** (S-items, section 2) then runs alongside parts 1-3 once the account exists, and its answers are written into
+   section 2 and the fixtures.
 1. **Part 1: inbound and reading** (tracks by file ownership, each merged by the lead):
    - **A, integrations:** the real adapter, `downloadMedia`, `fetchNumber`.
    - **B, domain `inbox`:** connection and routes, the provider's `process`, conversations, I1-I7, media copy, usage, health,
