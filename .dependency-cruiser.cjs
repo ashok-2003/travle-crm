@@ -5,14 +5,14 @@ module.exports = {
       name: "db-internals-stay-in-db",
       comment:
         "Other packages reach @travel-crm/db only through its entry points (index, identity, platform, webhooks, " +
-        "rate-limits, sheet-schedule, sheets-key-check, and the test-only testing files), so the raw Prisma client and the generated code never leak " +
+        "rate-limits, sheet-schedule, sheets-key-check, meta-routes, and the test-only testing files), so the raw Prisma client and the generated code never leak " +
         "out of the package.",
       severity: "error",
       from: { path: "^(apps|packages)/", pathNot: "^packages/db/" },
       to: {
         path: "^packages/db/(src|test)/",
         pathNot:
-          "^packages/db/(src/(index|identity|platform|webhooks|rate-limits|sheet-schedule|sheets-key-check)|test/(testing|global-setup))\\.ts$",
+          "^packages/db/(src/(index|identity|platform|webhooks|rate-limits|sheet-schedule|sheets-key-check|meta-routes)|test/(testing|global-setup))\\.ts$",
       },
     },
     {
@@ -53,6 +53,21 @@ module.exports = {
         pathNot: ["^packages/db/", "^packages/domain/(src/sheets/schedule\\.ts|test/(sheets|performance|platform)/)"],
       },
       to: { path: "^packages/db/src/sheet-schedule\\.ts$" },
+    },
+    {
+      name: "meta-routes-only-in-meta-leads",
+      comment:
+        "@travel-crm/db/meta-routes reaches meta_page_route, which carries organization_id but has no row-level " +
+        "security (ids and times only; ADR 0034). Only the meta-leads module's routes.ts may use it, and the tests " +
+        "that arrange or read that table.",
+      severity: "error",
+      from: {
+        pathNot: [
+          "^packages/db/",
+          "^packages/domain/(src/meta-leads/routes\\.ts|test/(meta-leads|performance|platform)/)",
+        ],
+      },
+      to: { path: "^packages/db/src/meta-routes\\.ts$" },
     },
     {
       name: "sheets-key-check-only-in-the-api-start-up",

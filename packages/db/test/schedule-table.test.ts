@@ -28,6 +28,7 @@ const exactColumns: Record<string, string[]> = {
     "service_account_index",
   ],
   sheet_spreadsheet_claim: ["created_at", "id", "organization_id", "spreadsheet_hash"],
+  meta_page_route: ["claimed_until", "id", "meta_user_id", "next_catchup_at", "organization_id", "page_id"],
 };
 
 const hash = () => new Uint8Array(Buffer.from(randomUUID().replaceAll("-", "").repeat(2), "hex"));
@@ -52,8 +53,12 @@ describe("the tables outside row-level security that carry organization_id", () 
     await platform.$disconnect();
   });
 
-  it("lists exactly the two exempt tables, each existing and carrying organization_id", async () => {
-    expect([...unscopedScheduleTables].sort()).toEqual(["sheet_check_schedule", "sheet_spreadsheet_claim"]);
+  it("lists exactly the three exempt tables, each existing and carrying organization_id", async () => {
+    expect([...unscopedScheduleTables].sort()).toEqual([
+      "meta_page_route",
+      "sheet_check_schedule",
+      "sheet_spreadsheet_claim",
+    ]);
     for (const table of unscopedScheduleTables) {
       const columns = await platform.$queryRaw<{ column_name: string }[]>`
         SELECT column_name FROM information_schema.columns
@@ -61,7 +66,7 @@ describe("the tables outside row-level security that carry organization_id", () 
       expect(columns, table).toHaveLength(1);
     }
     expect(signInTables.filter((table) => unscopedScheduleTables.includes(table))).toEqual([]);
-    expect(crossOrganizationUniques).toEqual(["sheet_spreadsheet_claim_hash"]);
+    expect(crossOrganizationUniques).toEqual(["sheet_spreadsheet_claim_hash", "meta_page_route_page"]);
   });
 
   it("gives them no row-level security, and no other table is exempt", async () => {

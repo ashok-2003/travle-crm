@@ -64,6 +64,11 @@ model Organization {
   websiteForms            WebsiteForm[]
   websiteFormSubmissions  WebsiteFormSubmission[]
   personConsents          PersonConsent[]
+  metaPages               MetaPage[]
+  metaForms               MetaForm[]
+  metaFormQuestions       MetaFormQuestion[]
+  metaLeads               MetaLead[]
+  metaPageRoutes          MetaPageRoute[]
 
   @@map("organization")
 }
