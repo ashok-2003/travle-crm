@@ -9,6 +9,7 @@ import { sheetConnectRoute, sheetConnectStepRoute, sheetRoute } from "@/lib/rout
 import { stubApi } from "../support/api-stub";
 import { renderScreen } from "../leads/screen";
 import { aSheetItem, aSheetList, sheetId } from "./records";
+import { aMetaList } from "./meta/records";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -20,7 +21,10 @@ const words = messages.sheets.list;
 function render(list: unknown, width: "phone" | "wide" = "wide") {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-10-19T08:00:00Z"));
-  stubApi({ "leadSheets.list": list === "error" ? { status: 500 } : { data: list } });
+  stubApi({
+    "leadSheets.list": list === "error" ? { status: 500 } : { data: list },
+    "metaLeads.list": { data: aMetaList() },
+  });
   return renderScreen(<LeadSourcesScreen />, { width });
 }
 
@@ -98,7 +102,7 @@ describe("LeadSourcesScreen", () => {
   });
 
   it("shows the loading rows before the list arrives", () => {
-    stubApi({ "leadSheets.list": "never" });
+    stubApi({ "leadSheets.list": "never", "metaLeads.list": "never" });
     renderScreen(<LeadSourcesScreen />, { width: "wide" });
     expect(screen.getByRole("heading", { level: 1, name: words.title })).toBeVisible();
     expect(screen.queryByRole("table")).toBeNull();

@@ -82,6 +82,22 @@ export function sheetMatchRoute(sheetId: string): string {
   return `${sheetRoute(sheetId)}/match`;
 }
 
+/** The first step of connecting a Facebook Page: Continue with Facebook. */
+export const metaConnectRoute = `${routes.leadSources}/meta/connect`;
+
+/** Where Facebook's dialog sends the browser back (apps/api/src/meta-services.ts holds the same path). */
+export const metaCallbackRoute = `${routes.leadSources}/meta/callback`;
+
+/** A connected Facebook Page's page. */
+export function metaPageRoute(pageId: string): string {
+  return `${routes.leadSources}/meta/pages/${encodeURIComponent(pageId)}`;
+}
+
+/** Matching a Page's form to our fields: the first time (bring in) and again once brought in (questions). */
+export function metaFormRoute(pageId: string, formId: string, step: "bring-in" | "questions"): string {
+  return `${metaPageRoute(pageId)}/forms/${encodeURIComponent(formId)}/${step}`;
+}
+
 /** The visitor's hosted enquiry form, which anyone with the link opens (no sign-in, no storage). */
 export function hostedFormRoute(key: string): string {
   return `/f/${key}`;
