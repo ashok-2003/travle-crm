@@ -147,6 +147,8 @@ export async function demoPlanId(server: TestServer): Promise<string> {
           whatsappNumberLimit: 1,
           storageLimitBytes: 1_000_000n,
           modules: ["crm"],
+          // As the real demo plan is, so the console's demo checks never see a plan for sale holding its key.
+          forSale: false,
         },
         select: { id: true },
       })
