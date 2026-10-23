@@ -88,6 +88,12 @@ Steps 3 and 5 are enforced: the tests fail if either is missing. Keys are checke
   `@relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)`. Postgres runs a
   cascade as the table's owner, past row-level security and past grants such as `audit_entry`'s.
 
+## Columns worth knowing
+
+- `assignment_settings.workdays` is the days the agency answers as bits (1 Monday to 64 Sunday), with
+  `day_opens_minute` and `day_closes_minute` in the organization's time zone: only the slow-reply clock reads them.
+  `lead_timeline_entry.assignment_reason` is on a lead's "created" entry when the agency's assignment chose its owner.
+
 ## Soft delete
 
 Rows of soft-delete models are never removed by the app (ADR 0004). To make a model soft-deletable:

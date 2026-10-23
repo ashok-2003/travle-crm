@@ -171,6 +171,12 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   visitor's address is read by `PUBLIC_FORM_PROXY_HOPS`, never trusted from the left of the header, and no address,
   phone, email or message is ever logged. Turnstile sits behind the `BotCheck` port and fails open only when Cloudflare
   can't answer. Offers consent is crm's `person_consent` ledger, behind `features.marketingConsent`.
+- **Assignment** (release 4): a lead that arrives by itself (an import row or Sheets row naming no owner, the website
+  form) is owned by `chooseOwner` (`packages/domain/src/crm/assignment`): a returning customer's previous owner, the first
+  matching rule, then the agency's mode (the Owner, turns, fewest open leads), else Unassigned. Only the turns skip a
+  person who is away. The reason is kept on the lead's creation audit entry and "created" timeline entry. Working hours
+  time only the slow-reply alert (`addWorkingMinutes`, kernel), which, like the Unassigned notice, goes to
+  `identity.membersHolding(organizationId, "leads:assign")`; turns are stamped by the database's clock.
 - **Job data and errors** hold ids, never personal data: pg-boss's tables have no row-level security, and a failed
   job's error is shown to platform staff.
 - **Bulk files** (ADR 0030): every CSV and .xlsx goes through the `Spreadsheets` port
@@ -300,7 +306,8 @@ A screen builds from the shared pieces in `apps/web/src/` before writing its own
   and Radix returns the focus only to its own (`components/return-focus.ts`). FormDialog's own `trigger` needs none.
 - **Forms:** `FormField`, `DateField`, and `components/forms/`: `useCheckedForm` and `checked` (the contract's checks
   and a refusal's field errors), `TextField`, `MoneyField`, `PhoneField` (with `phoneAsTyped` for a stored number),
-  `SelectField`, `ChoiceField` (a few radios, `inline` side by side), `GstStateField`, `DueField`; and
+  `SelectField`, `ChoiceField` (a few radios, `inline` side by side; `ChoiceGroup` is the same group controlled, for a
+  screen that keeps its own state; an option's `info` adds an `InfoHint`), `TimeField`, `GstStateField`, `DueField`; and
   `useRefusalOnField`, which says a refusal about one field (a time already past) on that field.
 - **Pickers:** `SearchCombobox` with `useComboboxSearch` (`components/search-combobox.tsx`), the registry Command in a
   Popover, for every search-as-you-type picker (a lead, a destination, a destination to keep); `clearLabel` offers

@@ -163,6 +163,13 @@ Secrets come from the platform's secret manager as environment variables, never 
     it): it is in the table above for every process, and the compose files and `.env.example` set it.
   - **Migration `20261029100000_website_form` is applied by hand before the release is deployed**, never on deploy. It only
     adds (three tables, CHECKs, a widened audit source), so the old release keeps working while it applies.
+- **Automatic lead assignment** (release 4, spec `2026-10-23-release-4-automatic-assignment-design.md`):
+  - **Migration `20261031100000_assignment_working_hours` is applied by hand before the release is deployed**, never
+    on deploy. It only adds: three columns with defaults on `assignment_settings` (the working days and hours) and
+    three on `lead_timeline_entry` (why a lead went to its owner), so the old release keeps working while it applies.
+  - No new setting. The worker runs the slow-reply check (a delayed job on `crm.first-reply-check`) and the
+    Unassigned notice, so its failed jobs are worth a look the first day. The default mode is "To the Owner": nothing
+    changes for an agency until its Owner chooses otherwise in Settings > Lead assignment.
 - **Google Sheets** (the Sheets sync, ADR 0031; the owner's steps are in the spec's section 14):
   - Create a Google Cloud project with a company account, enable the **Google Sheets API** (the Drive API is not
     needed), create a **service account** with no roles (its email is the address agencies share their sheets with, so
