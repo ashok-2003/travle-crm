@@ -10,7 +10,8 @@ import { assertNoSheetCheckSaving, type SheetsHashes } from "@travel-crm/domain/
 import type { RateLimiter } from "@travel-crm/domain/rate-limits";
 import { findShareLink, recordShareLinkOpen } from "@travel-crm/domain/share-links";
 import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
-import { receiveWebhook, type WebhookProvider } from "@travel-crm/domain/webhooks";
+import { WHATSAPP_PROVIDER } from "@travel-crm/domain/inbox";
+import { receiveWebhook, type WebhookProvider, type WebhookRequest } from "@travel-crm/domain/webhooks";
 import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
 import type { JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
@@ -29,6 +30,7 @@ import { requireTrustedJson } from "./trusted-origin.js";
 import { websiteFormRoutes } from "./website-form-routes.js";
 import type { Turnstile } from "./website-form-shared.js";
 import { webhookRoutes } from "./webhook-route.js";
+import { whatsappWebhookRoute } from "./whatsapp-routes.js";
 
 export interface ServerDependencies {
   identity: Identity;
@@ -146,6 +148,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
             rateLimiter,
             appUrl,
             meta: meta?.dependencies ?? null,
+            whatsappConfigured: webhookProviders.some((candidate) => candidate.name === WHATSAPP_PROVIDER),
             // An import's Add waits while a sheet's check is saving rows (S26).
             addGuards: [assertNoSheetCheckSaving],
           },
@@ -194,12 +197,13 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
   // Meta's callback verification (GET) answers before the generic intake, which takes POSTs only.
   if (meta !== null)
     app.route("/webhooks/meta-leads", metaVerifyRoute({ verifyToken: meta.settings.webhookVerifyToken }));
-  app.route(
-    "/webhooks",
-    webhookRoutes({
-      receive: (provider, request) => receiveWebhook({ db, queue, providers: webhookProviders }, provider, request),
-    }),
-  );
+  const receive = (provider: string, request: WebhookRequest) =>
+    receiveWebhook({ db, queue, providers: webhookProviders }, provider, request);
+  // MSG91's webhook carries its token in the path, one segment more than the generic intake takes (ADR 0035).
+  if (webhookProviders.some((candidate) => candidate.name === WHATSAPP_PROVIDER)) {
+    app.route("/webhooks/msg91-whatsapp", whatsappWebhookRoute({ receive, logger }));
+  }
+  app.route("/webhooks", webhookRoutes({ receive }));
 
   // Meta's data deletion callback (spec 10): the signed request is its only credential, so it is outside the trusted-origin rule.
   if (meta !== null) {

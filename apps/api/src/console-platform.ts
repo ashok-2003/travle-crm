@@ -2,6 +2,7 @@
 // connection, checked before anything uses it. The console process and its one-off commands start the same way.
 import { checkPlatformConnection, createPlatformServices, type PlatformServices } from "@travel-crm/domain/platform";
 import { createSheetsHashes } from "@travel-crm/domain/sheets";
+import { WHATSAPP_WEBHOOK_HEADER } from "@travel-crm/integrations/whatsapp";
 import { loadConsoleSettings, type ConsoleSettings } from "./console-environment.js";
 import { transactionLimitsOf } from "./services.js";
 import type { ProcessBase } from "./start-up.js";
@@ -28,6 +29,16 @@ export async function startConsolePlatform({ environment, services, logger }: Pr
     // The erasure of a customer of an agency with sheets keeps keyed hashes of their rows and contacts (S43, S6).
     sheetsHashes: settings.sheetsHashKey === null ? null : createSheetsHashes(settings.sheetsHashKey),
     logger,
+    // The webhook block and the provider for "Check with MSG91" (ADR 0035): from the process settings, never the database.
+    whatsapp:
+      services.whatsapp === null
+        ? null
+        : {
+            provider: services.whatsapp.provider,
+            webhookUrl: `${environment.BETTER_AUTH_URL.replace(/\/$/, "")}/webhooks/msg91-whatsapp/${services.whatsapp.settings.webhookToken}`,
+            webhookHeaderName: WHATSAPP_WEBHOOK_HEADER,
+            webhookHeaderValue: services.whatsapp.settings.webhookKey,
+          },
   });
   try {
     // The connection is the platform role, and may switch to the runtime role: refuse to start rather than fail later.

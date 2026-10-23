@@ -13,6 +13,20 @@ export {
   websiteFormsSweepSchedule,
 } from "./website-forms-sweep.js";
 export { SWEEP_SHEETS_QUEUE, sheetsSweepSchedule, sweepSheetsNow } from "./sheets-sweep.js";
+export {
+  checkWhatsAppWithProvider,
+  connectWhatsApp,
+  disconnectWhatsApp,
+  FAIR_USE_OUTBOUND_PER_MONTH,
+  getOrganizationWhatsApp,
+  listWhatsAppConnections,
+  markWhatsAppConnected,
+  pauseWhatsApp,
+  resumeWhatsApp,
+  setWhatsAppCaps,
+  whatsappWebhookSettings,
+  type PlatformWhatsApp,
+} from "./whatsapp.js";
 export { SWEEP_WHATSAPP_QUEUE, sweepWhatsAppNow, whatsappSweepSchedule } from "./whatsapp-sweep.js";
 export { metaSweepSchedule, SWEEP_META_QUEUE, sweepMetaNow } from "./meta-sweep.js";
 export { organizationsOverview } from "./dashboard.js";

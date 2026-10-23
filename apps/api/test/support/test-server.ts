@@ -23,6 +23,7 @@ import { createMemoryStorage, type ObjectStorage } from "@travel-crm/integration
 import { inject } from "vitest";
 import { createApp } from "../../src/app.js";
 import type { TestMeta } from "./meta.js";
+import type { TestWhatsApp } from "./whatsapp.js";
 import type { FormAddressSettings } from "../../src/form-client-address.js";
 import type { Turnstile } from "../../src/website-form-shared.js";
 import { loggerOfRequest } from "../../src/request-log.js";
@@ -61,6 +62,8 @@ export interface TestServer {
   platform: PlatformClient;
   /** The Meta lead ads the server was given, with its fake Graph. */
   meta: TestMeta | null;
+  /** WhatsApp through MSG91, with its in-memory provider; null unless given. */
+  whatsapp: TestWhatsApp | null;
   /** The database it runs on, for a console beside it. */
   urls: DbUrls;
   close(): Promise<void>;
@@ -74,6 +77,8 @@ export interface TestServerOptions {
   queue?: JobQueue;
   /** The Meta lead ads (the fake Graph, a box, the settings), built on the server's own database: off unless given. */
   metaFor?: (parts: Pick<TestServer, "db" | "identity" | "subscriptions" | "logger">) => TestMeta;
+  /** WhatsApp (the in-memory MSG91 and the webhook provider), built on the server's own database: off unless given. */
+  whatsappFor?: (parts: Pick<TestServer, "db" | "files" | "identity" | "subscriptions" | "logger">) => TestWhatsApp;
   /** The app's structured log; a fresh in-memory one unless given, kept as `logger` on the server. */
   logger?: MemoryLogger;
   /** Google Sheets for the sheet sync's procedures: off unless given (with the hashes). */
@@ -110,6 +115,7 @@ export function createTestServer(settings: Partial<AuthSettings> = {}, options: 
   });
   const platform = createPlatformClient(urls.platform);
   const meta = options.metaFor?.({ db, identity, subscriptions, logger }) ?? null;
+  const whatsapp = options.whatsappFor?.({ db, files, identity, subscriptions, logger }) ?? null;
   const app = createApp({
     identity,
     subscriptions,
@@ -123,7 +129,11 @@ export function createTestServer(settings: Partial<AuthSettings> = {}, options: 
     rateLimiter:
       options.rateLimiter ?? createRateLimiter(db, { keySecret: "test-server-rate-limit-secret-of-32-bytes" }),
     clientAddress: clientAddressFrom({ headerNames: ["x-forwarded-for"], trustedProxies: [] }),
-    webhookProviders: [...(options.webhookProviders ?? []), ...(meta === null ? [] : [meta.provider])],
+    webhookProviders: [
+      ...(options.webhookProviders ?? []),
+      ...(meta === null ? [] : [meta.provider]),
+      ...(whatsapp === null ? [] : [whatsapp.provider]),
+    ],
     meta: meta?.services ?? null,
     logger,
     authSecret: { ...testAuthSettings, ...settings }.secret,
@@ -142,6 +152,7 @@ export function createTestServer(settings: Partial<AuthSettings> = {}, options: 
     seatLimit: limits.seats,
     platform,
     meta,
+    whatsapp,
     urls,
     close: async () => {
       await identity.disconnect();

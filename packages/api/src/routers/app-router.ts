@@ -7,6 +7,7 @@ import { auditRouter } from "./audit.js";
 import { blockedContactsRouter } from "./blocked-contacts.js";
 import { destinationsRouter } from "./destinations.js";
 import { documentsRouter } from "./documents.js";
+import { inboxRouter } from "./inbox.js";
 import { insightsRouter } from "./insights.js";
 import { leadExportsRouter } from "./lead-exports.js";
 import { leadImportsRouter } from "./lead-imports.js";
@@ -50,6 +51,7 @@ export const appRouter = router({
   leadImports: leadImportsRouter,
   leadSheets: leadSheetsRouter,
   metaLeads: metaLeadsRouter,
+  inbox: inboxRouter,
   leadExports: leadExportsRouter,
   staffImports: staffImportsRouter,
   staffExports: staffExportsRouter,

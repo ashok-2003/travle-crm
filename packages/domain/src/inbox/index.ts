@@ -13,6 +13,7 @@ export {
 } from "./dependencies.js";
 export { addDemoWhatsApp } from "./demo-seed.js";
 export { withdrawWhatsApp, type WhatsAppWithdrawn } from "./erasure.js";
+export { mediaLinkOf, startLeadFromConversation } from "./chat-actions.js";
 export { checkAllConnections, checkConnection } from "./health.js";
 export { copyMedia, copyMediaJob, MAX_MEDIA_BYTES } from "./media.js";
 export { messageNoticeListener, pastCustomerNoticeListener, type NoticeDependencies } from "./notices.js";
