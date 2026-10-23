@@ -104,26 +104,32 @@
   },
   "assignment": {
     "title": "Lead assignment",
-    "intro": "Who gets the leads that arrive by themselves, from a sheet or an import with no owner. Leads added by hand stay with whoever adds them, and a returning customer goes back to their earlier owner.",
+    "intro": "Who gets the leads that arrive by themselves, from a form, a sheet or an import with no owner. Leads added by hand stay with whoever adds them, and a returning customer goes back to their earlier owner.",
     "loadFailed": "The assignment settings didn't load.",
     "mode": {
-      "label": "When no rule matches",
-      "owner": "Give them to the Owner",
-      "ownerHint": "Every new lead goes to the agency's Owner, who passes them on.",
-      "turns": "Take turns",
-      "turnsHint": "The people below get new leads one after another, skipping anyone away.",
-      "fewest_open": "Fewest open leads first",
-      "fewest_openHint": "The person below with the fewest open leads gets the next one."
+      "label": "How new leads are given out",
+      "hint": "Used when no rule below matches.",
+      "owner": "To the Owner",
+      "ownerHint": "Every new lead goes to the agency's Owner, who passes it on.",
+      "turns": "In turns",
+      "turnsHint": "The people in the pool get new leads one after another.",
+      "turnsMeaning": "The person whose last new lead was longest ago gets the next one. Anyone marked away is skipped.",
+      "fewest_open": "To whoever has the fewest open leads",
+      "fewest_openHint": "The person in the pool with the fewest open leads gets the next one.",
+      "fewest_openTerm": "Fewest open leads",
+      "fewest_openMeaning": "Open means New, Contacted, Quote sent or Booking requested. Ties go to whoever had a lead longest ago. Anyone marked away is skipped."
     },
     "pool": {
       "label": "Who takes new leads",
-      "hint": "Used for Take turns and Fewest open leads first.",
+      "hint": "The people the turns go round.",
+      "empty": "Nobody is in the pool, so new leads will wait in Unassigned until someone assigns them.",
+      "none": "No one who works leads yet.",
       "away": "Away until {day}",
       "ownersFailed": "The people who work leads didn't load."
     },
     "rules": {
       "label": "Rules",
-      "hint": "Tried first, from the top. A lead that matches every condition of a rule goes to its person.",
+      "hint": "Tried first, from the top, in every mode. A lead that matches every condition of a rule goes to its person.",
       "empty": "No rules yet.",
       "add": "Add a rule",
       "source": "Source",
@@ -136,17 +142,51 @@
       "moveDown": "Move rule {number} down",
       "remove": "Remove rule {number}",
       "rule": "Rule {number}",
+      "personLeft": "Person left",
+      "personLeftHint": "This rule's person no longer works leads, so it is passed over. Choose someone else or remove it.",
       "needsCondition": "Give each rule a source, destination or trip type, and a person."
     },
-    "save": "Save",
-    "saving": "Saving",
-    "saved": "Lead assignment saved",
+    "hours": {
+      "label": "Working hours and reply time",
+      "hint": "Leads are given out at any hour. The hours only decide when the reply clock runs.",
+      "days": "Days we answer",
+      "dayNames": {
+        "mon": "Mon",
+        "tue": "Tue",
+        "wed": "Wed",
+        "thu": "Thu",
+        "fri": "Fri",
+        "sat": "Sat",
+        "sun": "Sun"
+      },
+      "dayFull": {
+        "mon": "Monday",
+        "tue": "Tuesday",
+        "wed": "Wednesday",
+        "thu": "Thursday",
+        "fri": "Friday",
+        "sat": "Saturday",
+        "sun": "Sunday"
+      },
+      "opens": "Opens",
+      "closes": "Closes",
+      "zone": "Times are in {zone}, your business profile's time zone.",
+      "zoneLink": "Change it in Business profile",
+      "noDays": "With no days chosen, the reply clock counts every hour."
+    },
     "slowReply": {
-      "label": "When a new lead waits for a reply",
-      "hint": "The Owner is told when a new lead is still New after this long. Nothing is reassigned.",
+      "label": "Tell managers when a new lead has no reply",
+      "hint": "Everyone who can assign leads is told when a new lead is still New after this much working time. Nothing is reassigned.",
       "off": "Don't tell anyone",
       "minutes": "{minutes, plural, one {After # minute} other {After # minutes}}",
       "hours": "{hours, plural, one {After # hour} other {After # hours}}"
-    }
+    },
+    "problems": {
+      "required": "Set a time.",
+      "closing": "Closing time must be after opening time."
+    },
+    "save": "Save",
+    "saving": "Saving",
+    "saved": "Lead assignment saved"
   }
 }

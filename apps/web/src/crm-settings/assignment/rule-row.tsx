@@ -1,12 +1,14 @@
 "use client";
 
 // One assignment rule being edited: its conditions (a source, a destination, a trip type; "Any" for each left open) and
-// the person a matching lead goes to, with buttons to move it up or down the order or remove it.
+// the person a matching lead goes to, with buttons to move it up or down the order or remove it. A rule whose person
+// left is marked and passed over.
 import { leadSources, tripTypes, type LeadSource, type LeadWorker, type TripType } from "@travel-crm/contracts/crm";
 import type { Destination } from "@travel-crm/contracts/catalog";
 import { ArrowDownIcon, ArrowUpIcon, Trash2Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { FormField } from "@/components/form-field";
+import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DestinationPicker } from "../destination-picker";
@@ -27,6 +29,7 @@ export function RuleRow({
   number,
   count,
   workers,
+  personLeft,
   onChange,
   onMove,
   onRemove,
@@ -36,6 +39,8 @@ export function RuleRow({
   number: number;
   count: number;
   workers: readonly LeadWorker[];
+  /** Its person no longer works leads: the rule is passed over. */
+  personLeft: boolean;
   onChange: (rule: RuleDraft) => void;
   onMove: (by: -1 | 1) => void;
   onRemove: () => void;
@@ -44,7 +49,11 @@ export function RuleRow({
   const tLeads = useTranslations("leads");
   return (
     <fieldset className="flex flex-col gap-3">
-      <legend className="mb-2 font-medium">{t("rule", { number })}</legend>
+      <legend className="mb-2 flex items-center gap-2 font-medium">
+        {t("rule", { number })}
+        {personLeft && <StatusBadge tone="attention">{t("personLeft")}</StatusBadge>}
+      </legend>
+      {personLeft && <p className="text-label text-muted-foreground">{t("personLeftHint")}</p>}
       <div className="grid gap-3 md:grid-cols-2">
         <FormField label={t("source")}>
           {(links) => (
@@ -125,6 +134,7 @@ export function RuleRow({
       </div>
       <div className="flex gap-1">
         <Button
+          type="button"
           variant="ghost"
           size="icon"
           aria-label={t("moveUp", { number })}
@@ -136,6 +146,7 @@ export function RuleRow({
           <ArrowUpIcon aria-hidden="true" />
         </Button>
         <Button
+          type="button"
           variant="ghost"
           size="icon"
           aria-label={t("moveDown", { number })}
@@ -146,7 +157,7 @@ export function RuleRow({
         >
           <ArrowDownIcon aria-hidden="true" />
         </Button>
-        <Button variant="ghost" size="icon" aria-label={t("remove", { number })} onClick={onRemove}>
+        <Button type="button" variant="ghost" size="icon" aria-label={t("remove", { number })} onClick={onRemove}>
           <Trash2Icon aria-hidden="true" />
         </Button>
       </div>
