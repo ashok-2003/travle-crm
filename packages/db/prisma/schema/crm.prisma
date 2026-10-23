@@ -119,24 +119,31 @@ model Lead {
 /// keep their text in their own tables, tasks in theirs. Append-only for the runtime role (R7).
 model LeadTimelineEntry {
   /// Filled from db.forOrg()'s organization when omitted.
-  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
-  id             String       @id @default(uuid(7)) @db.Uuid
-  leadId         String       @map("lead_id") @db.Uuid
+  organizationId         String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id                     String       @id @default(uuid(7)) @db.Uuid
+  leadId                 String       @map("lead_id") @db.Uuid
   /// created, note, stage-changed, reassigned, follow-up-added, follow-up-done, follow-up-cancelled, repeat-enquiry or
   /// trip-edited (CHECK lead_timeline_entry_kind_value).
-  kind           String
-  occurredAt     DateTime     @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  kind                   String
+  occurredAt             DateTime     @default(now()) @map("occurred_at") @db.Timestamptz(6)
   /// Who did it; null for the system.
-  actorUserId    String?      @map("actor_user_id") @db.Uuid
+  actorUserId            String?      @map("actor_user_id") @db.Uuid
   /// The row it points to: a lead_note, a lead_enquiry or a task.
-  recordType     String?      @map("record_type")
-  recordId       String?      @map("record_id") @db.Uuid
+  recordType             String?      @map("record_type")
+  recordId               String?      @map("record_id") @db.Uuid
   /// The stage it moved to, for stage-changed.
-  stage          String?
+  stage                  String?
   /// The new owner, for reassigned.
-  ownerUserId    String?      @map("owner_user_id") @db.Uuid
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  lead           Lead         @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  ownerUserId            String?      @map("owner_user_id") @db.Uuid
+  /// Why an automatic assignment chose its owner, on the created entry: returning, rule, turns, fewest_open, owner or
+  /// none (CHECK lead_timeline_entry_assignment_reason_value); null for a lead added by hand.
+  assignmentReason       String?      @map("assignment_reason")
+  /// The place (from 0) of the rule that chose, for reason rule.
+  assignmentRulePosition Int?         @map("assignment_rule_position")
+  /// Whether the chosen person was away when the lead went to them (a previous owner or a rule's person can be).
+  assignmentAway         Boolean      @default(false) @map("assignment_away")
+  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  lead                   Lead         @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
 
   /// Lets a later table point at (organization_id, id).
   @@unique([organizationId, id])

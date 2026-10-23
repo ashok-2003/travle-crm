@@ -10,6 +10,11 @@ model AssignmentSettings {
   mode             String       @default("owner")
   /// Minutes a new lead may wait for a first reply before the managers are told; null for never (1-1440).
   slowReplyMinutes Int?         @map("slow_reply_minutes")
+  /// The days the agency answers, as bits: 1 Monday to 64 Sunday (CHECK 0-127). Only the slow-reply clock uses them.
+  workdays         Int          @default(63)
+  /// Opening and closing time as minutes into the day in the organization's time zone (CHECK opens before closes).
+  dayOpensMinute   Int          @default(600) @map("day_opens_minute")
+  dayClosesMinute  Int          @default(1140) @map("day_closes_minute")
   updatedBy        String?      @map("updated_by") @db.Uuid
   updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
