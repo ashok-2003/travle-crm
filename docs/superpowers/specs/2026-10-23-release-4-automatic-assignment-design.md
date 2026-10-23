@@ -56,7 +56,7 @@ is reassigned automatically; managers reassign by hand, and every change is logg
 | Tests | Through other features only: `lead-add-row-assignment.test.ts`, `website-enquiry-assignment.test.ts`, `sheet-save.test.ts`, one flag test in `crm-procedures.test.ts:120` | None for `chooseOwner` itself, `saveAssignment`, `setAway`, the first-reply job, the screen, or a journey. | Build all (section 13) |
 
 **Headline:** about four fifths is keepable. The decision core, the three tables, the migration, RLS, the contracts,
-the router, the reassign dialogs and the Unassigned view stand. To fix: away everywhere, the clock for turns, the
+the router, the reassign dialogs and the Unassigned view stand. To fix: the clock for turns, the
 audit detail, the alert's recipients and clock. To build: working hours, the Unassigned notice and count, the explanation
 on the timeline, the tests, and removing the flag.
 
@@ -109,16 +109,16 @@ reassigned (release 1).
 ### 4.2 The order of checks
 
 `chooseOwner(tx, lead, context)` returns a user id or null, checking in this order and stopping at the first answer.
-"Available" means a current lead worker, not away at `now`.
+"Current" means still a lead worker on staff; "available" (the turns only) also means not away at `now` (owner, 0.1).
 
-1. **A returning customer** with an earlier lead goes to the owner of their latest earlier lead, if available.
-2. **Rules** in position order: the first rule whose set conditions all match the lead, and whose person is available.
-   A rule whose person is unavailable is skipped, and the next rule is tried.
+1. **A returning customer** with an earlier lead goes to the owner of their latest earlier lead, if current (even if away).
+2. **Rules** in position order: the first rule whose set conditions all match the lead, and whose person is current
+   (even if away). A rule whose person has left the agency is skipped, and the next rule is tried.
 3. **The mode.** To the Owner: the first Owner (the fallback). In turns or Fewest open: the pool, below.
 4. **Otherwise** (the pool has nobody available): `null`, the Unassigned queue.
 
 In To the Owner mode the Owner gets the lead even if away; they are the owner of last resort, and the alert covers the
-rest. (If question 1 is answered no, step 1 and 2 ignore away as the first version does.)
+rest. Steps 1 and 2 ignore away, as the first version does (owner, 0.1); the reason says the person is away.
 
 ### 4.3 Taking turns, race-free
 
@@ -222,7 +222,7 @@ imports at once serialise per lead, not per file. The slow-reply check is one de
 
 Tests first. Domain (real Postgres):
 
-- `chooseOwner`: every step and their order; a rule skipped when its person is away; away at each step; Owner mode;
+- `chooseOwner`: every step and their order; a rule's person and a returning owner chosen even while away (and skipped once they leave); away skipped in the turns; Owner mode;
   empty pool returns null; fewest-open ties.
 - Concurrency: 20 simultaneous arrivals over a pool of 4 split 5 each (turns) and balance the open counts (fewest-open).
 - `saveAssignment`: rejects a non-lead-worker; audit detail; a stale pool row removed.
