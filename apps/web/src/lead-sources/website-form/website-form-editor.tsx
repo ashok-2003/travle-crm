@@ -58,7 +58,7 @@ export function WebsiteFormEditor({
       })}
     >
       <ShareCard view={view} control={form.control} />
-      <FieldsCard control={form.control} />
+      <FieldsCard control={form.control} hasDestinations={view.hasDestinations} />
       <WordsCard control={form.control} />
       <LookCard />
       <PreviewButton getValues={form.getValues} />

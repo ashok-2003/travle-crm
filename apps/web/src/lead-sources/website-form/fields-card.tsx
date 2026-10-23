@@ -6,14 +6,16 @@
 import { features } from "@travel-crm/contracts/features";
 import { offersWording } from "@travel-crm/contracts/website-forms";
 import { useTranslations } from "next-intl";
-import { useId } from "react";
-import { Controller, type Control } from "react-hook-form";
+import { Fragment, useId } from "react";
+import { Controller, useWatch, type Control } from "react-hook-form";
+import { ChoiceField } from "@/components/forms/choice-field";
+import { TextLink } from "@/components/text-link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { fieldModes } from "@travel-crm/contracts/website-forms";
+import { destinationInputs, fieldModes } from "@travel-crm/contracts/website-forms";
 import { useMe } from "@/session/me-context";
 import type { FormValues } from "./form-values";
 
@@ -65,6 +67,35 @@ function ModeRow({ control, name, label }: { control: Control<FormValues>; name:
   );
 }
 
+/** How the Destination question appears: the agency's list or a box to type in, with a hint when the list would be empty. */
+function DestinationInputRow({ control, hasDestinations }: { control: Control<FormValues>; hasDestinations: boolean }) {
+  const t = useTranslations("websiteFormSettings.fields.destinationInput");
+  const mode = useWatch({ control, name: "destinationMode" });
+  const input = useWatch({ control, name: "destinationInput" });
+  if (mode === "off") return null;
+  return (
+    <div role="listitem" className="flex flex-col gap-1 px-4 pb-2">
+      <ChoiceField
+        control={control}
+        name="destinationInput"
+        legend={t("legend")}
+        options={destinationInputs.map((value) => ({ value, label: t(value) }))}
+      />
+      {input === "list" && !hasDestinations && (
+        <p className="text-caption text-muted-foreground">
+          {t.rich("noDestinations", {
+            link: (chunks) => (
+              <TextLink inline href="/settings/destinations">
+                {chunks}
+              </TextLink>
+            ),
+          })}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function OffersRow({ control }: { control: Control<FormValues> }) {
   const t = useTranslations("websiteFormSettings.fields");
   const { name } = useMe().organization;
@@ -90,7 +121,7 @@ function OffersRow({ control }: { control: Control<FormValues> }) {
   );
 }
 
-export function FieldsCard({ control }: { control: Control<FormValues> }) {
+export function FieldsCard({ control, hasDestinations }: { control: Control<FormValues>; hasDestinations: boolean }) {
   const t = useTranslations("websiteFormSettings.fields");
   return (
     <Card>
@@ -110,7 +141,12 @@ export function FieldsCard({ control }: { control: Control<FormValues> }) {
             </Item>
           ))}
           {questions.map((question) => (
-            <ModeRow key={question.name} control={control} name={question.name} label={t(question.label)} />
+            <Fragment key={question.name}>
+              <ModeRow control={control} name={question.name} label={t(question.label)} />
+              {question.name === "destinationMode" && (
+                <DestinationInputRow control={control} hasDestinations={hasDestinations} />
+              )}
+            </Fragment>
           ))}
           {features.marketingConsent && <OffersRow control={control} />}
         </ItemGroup>

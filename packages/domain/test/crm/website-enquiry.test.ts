@@ -203,6 +203,28 @@ describe("receiving a website enquiry", () => {
     expect(await inOrg((tx) => tx.destination.count())).toBe(3);
   });
 
+  it("in typed mode the text goes the same way: a live name is the destination, anything else the note, and none is made", async () => {
+    const { send, inOrg } = await setup({ destinationInput: "typed" });
+    const goa = await inOrg((tx) => tx.destination.create({ data: { name: "Goa" } }));
+    const matched = freshPhone();
+    const unmatched = freshPhone();
+    await send({ phone: matched, destination: { kind: "typed", text: " goa" } });
+    await send({ phone: unmatched, destination: { kind: "typed", text: "Spiti" } });
+    const leadOf = (phone: string) =>
+      inOrg((tx) => tx.lead.findFirstOrThrow({ where: { person: { phoneE164: phone } }, include: { notes: true } }));
+    expect((await leadOf(matched)).destinationId).toBe(goa.id);
+    const other = await leadOf(unmatched);
+    expect(other.destinationId).toBeNull();
+    expect(other.notes.map((note) => note.body)).toEqual(["Destination asked for: Spiti"]);
+    expect(await inOrg((tx) => tx.destination.count())).toBe(1);
+  });
+
+  it("a required typed destination left empty is refused", async () => {
+    const { send, inOrg } = await setup({ destinationInput: "typed", destinationMode: "required" });
+    await expect(send({})).rejects.toMatchObject({ reason: "FORM_ANSWER_REQUIRED" });
+    expect(await inOrg((tx) => tx.lead.count())).toBe(0);
+  });
+
   it("the note holds the message, then the destination and email lines", async () => {
     const { send, inOrg } = await setup();
     const phone = freshPhone();

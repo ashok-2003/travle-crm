@@ -53,6 +53,21 @@ describe("website form settings", () => {
     expect(await test.db.forOrg(organizationId, (tx) => tx.websiteForm.count())).toBe(1);
   });
 
+  it("saves and reads the destination input, list by default, and audits its change with the fields", async () => {
+    const organizationId = await anAgency(test);
+    const actor = staff(organizationId);
+    const first = await test.db.forOrg(organizationId, (tx) => saveWebsiteForm(tx, actor, defaultSettings));
+    expect(first.destinationInput).toBe("list");
+    const typed = await test.db.forOrg(organizationId, (tx) =>
+      saveWebsiteForm(tx, actor, { ...defaultSettings, destinationInput: "typed" }),
+    );
+    expect(typed.destinationInput).toBe("typed");
+    expect((await test.db.forOrg(organizationId, readWebsiteForm))?.destinationInput).toBe("typed");
+    expect(await auditOf(organizationId)).toContainEqual(
+      expect.objectContaining({ action: "website-form.fields-changed" }),
+    );
+  });
+
   it("audits fields, words and embedding apart, by modes, flags and lengths, and nothing when nothing changed", async () => {
     const organizationId = await anAgency(test);
     const actor = staff(organizationId);

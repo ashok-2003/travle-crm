@@ -1,6 +1,11 @@
 // The agency's one form (W1-W5, spec 7.1): read it, save its fields, words and embedding, turn it on and off, and change its
 // link. Opening the settings page writes nothing; the first save or turn-on makes the row, off.
-import { isSecureLink, type FieldMode, type SaveWebsiteFormInput } from "@travel-crm/contracts/website-forms";
+import {
+  isSecureLink,
+  type DestinationInput,
+  type FieldMode,
+  type SaveWebsiteFormInput,
+} from "@travel-crm/contracts/website-forms";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit, type AuditSnapshot } from "../audit/index.js";
 import { DomainError, type Actor } from "../kernel/index.js";
@@ -15,6 +20,7 @@ export interface WebsiteFormRow {
   allowEmbed: boolean;
   emailMode: FieldMode;
   destinationMode: FieldMode;
+  destinationInput: DestinationInput;
   travelMonthMode: FieldMode;
   travellersMode: FieldMode;
   budgetMode: FieldMode;
@@ -36,6 +42,7 @@ function toRow(row: StoredForm): WebsiteFormRow {
     ...row,
     emailMode: row.emailMode as FieldMode,
     destinationMode: row.destinationMode as FieldMode,
+    destinationInput: row.destinationInput as DestinationInput,
     travelMonthMode: row.travelMonthMode as FieldMode,
     travellersMode: row.travellersMode as FieldMode,
     budgetMode: row.budgetMode as FieldMode,
@@ -74,6 +81,7 @@ async function ensureForm(tx: OrgTx, actor: Actor): Promise<WebsiteFormRow> {
 const fieldsOf = (form: WebsiteFormRow | SaveWebsiteFormInput): AuditSnapshot => ({
   emailMode: form.emailMode,
   destinationMode: form.destinationMode,
+  destinationInput: form.destinationInput,
   travelMonthMode: form.travelMonthMode,
   travellersMode: form.travellersMode,
   budgetMode: form.budgetMode,

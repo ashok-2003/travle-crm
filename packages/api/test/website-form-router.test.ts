@@ -13,6 +13,7 @@ const settings = {
   allowEmbed: true,
   emailMode: "optional",
   destinationMode: "optional",
+  destinationInput: "list",
   travelMonthMode: "optional",
   travellersMode: "optional",
   budgetMode: "off",

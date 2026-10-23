@@ -57,10 +57,16 @@ export function isSecureLink(link: string): boolean {
   }
 }
 
+/** How the Destination question appears: the agency's destinations to choose from, or a box the visitor types in. */
+export const destinationInputs = ["list", "typed"] as const;
+export const destinationInput = z.enum(destinationInputs);
+export type DestinationInput = z.infer<typeof destinationInput>;
+
 const settingsFields = {
   allowEmbed: z.boolean(),
   emailMode: fieldMode,
   destinationMode: fieldMode,
+  destinationInput,
   travelMonthMode: fieldMode,
   travellersMode: fieldMode,
   budgetMode: fieldMode,
@@ -84,6 +90,7 @@ export type WebsiteFormSettings = z.infer<typeof websiteFormSettings>;
 /** What Save sends: everything but `enabled`, which Turn on and Turn off own. */
 export const saveWebsiteFormInput = z.strictObject({
   ...settingsFields,
+  destinationInput: destinationInput.default("list"),
   heading: words(formTextLimits.heading),
   introduction: words(formTextLimits.introduction),
   thankYouMessage: words(formTextLimits.thankYouMessage),
@@ -103,6 +110,8 @@ export const websiteFormView = z.object({
   state: formState,
   /** The Owner the leads go to (W7), null when there is none. */
   ownerName: z.string().nullable(),
+  /** Whether the agency has a live destination, for the hint under the list choice. */
+  hasDestinations: z.boolean(),
 });
 export type WebsiteFormView = z.infer<typeof websiteFormView>;
 

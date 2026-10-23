@@ -2,7 +2,7 @@
 // it is closed, only the agency's name, logo and website button.
 import { z } from "zod";
 import { calendarMonth } from "../crm/trip.js";
-import { fieldMode } from "./settings.js";
+import { destinationInput, fieldMode } from "./settings.js";
 
 /** Which page asks: the hosted link or the embed on an agency's own site. A fixed value, so it may sit in a URL. */
 export const formVia = z.enum(["hosted", "embedded"]);
@@ -31,6 +31,8 @@ export const publicForm = z.object({
     budget: fieldMode,
     message: fieldMode,
   }),
+  /** "typed" shows a text box and sends no list. */
+  destinationInput,
   offersTickbox: z.boolean(),
   offersWording: z.string().nullable(),
   destinations: z.array(z.object({ id: z.uuid(), name: z.string() })),

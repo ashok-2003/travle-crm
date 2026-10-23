@@ -56,6 +56,7 @@ export function publicFormOf(changes: Partial<PublicForm> = {}): PublicForm {
       budget: "optional",
       message: "optional",
     },
+    destinationInput: "list",
     offersTickbox: false,
     offersWording: null,
     destinations: [{ id: kashmirId, name: "Kashmir" }],

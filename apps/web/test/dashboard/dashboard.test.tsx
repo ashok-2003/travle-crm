@@ -77,14 +77,10 @@ async function shown(answer: DashboardFigures = figures) {
   return { api, call };
 }
 
-/** A key figure's card or row: the smallest element holding its label, then its value. */
+/** A key figure's group: its label, then its value and how it moved. */
+const figureOf = (label: string) => screen.getByRole("group", { name: label });
 const shows = (label: string, value: string) => {
-  const holder = screen
-    .getAllByText(label)
-    .map((element) => element.closest<HTMLElement>("[data-slot=card], .flex.items-center.gap-3"))
-    .find((found) => found !== null);
-  if (!holder) throw new Error(`no figure ${label}`);
-  expect(holder).toHaveTextContent(value);
+  expect(figureOf(label)).toHaveTextContent(value);
 };
 
 describe("Dashboard", () => {
@@ -102,6 +98,30 @@ describe("Dashboard", () => {
     // Twice the new leads of the period before.
     shows(words.kpis.newLeads.label, "100% up");
     expect(screen.getByRole("button", { name: `What does ${words.kpis.won.label} mean?` })).toBeVisible();
+  });
+
+  it("shows the eight figures in one card with no icon tiles, and a change only where there is a comparison", async () => {
+    await shown({ ...figures, previous: { ...figures.previous, newLeads: 0, won: 0 } });
+    const strip = await screen.findByRole("region", { name: words.kpis.label });
+    for (const key of [
+      "newLeads",
+      "contacted",
+      "firstReply",
+      "quotesSent",
+      "won",
+      "conversion",
+      "open",
+      "overdue",
+    ] as const) {
+      const label = words.kpis[key].label;
+      expect(within(strip).getByRole("group", { name: label })).toBeVisible();
+      expect(within(strip).getByRole("button", { name: `What does ${label} mean?` })).toBeVisible();
+    }
+    expect(strip).toHaveAttribute("data-slot", "card");
+    // The only icons are the info hints' own.
+    expect(strip.querySelectorAll("svg").length).toBe(strip.querySelectorAll("button svg").length);
+    expect(figureOf(words.kpis.newLeads.label)).not.toHaveTextContent(words.kpis.vsBefore);
+    expect(screen.queryByText(/Nothing to compare/)).toBeNull();
   });
 
   it("breaks the period's leads down by source, stage, wait and destination", async () => {
