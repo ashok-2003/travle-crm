@@ -31,6 +31,8 @@ The shared kernel (spec 8, 9.6): building blocks every module uses. It imports n
     `instantAt(day, time, timeZone)`: the instant a clock in the zone shows that day and time ("tomorrow at 09:00" in
     the agency's zone). A time that happens twice is the first; one the clocks jump over is the first instant after
     the jump. The api takes such times as `wallClockTime` (`{ on, at }`, `@travel-crm/contracts/kernel`);
+  - `addWorkingMinutes(start, minutes, hours, timeZone)`: the instant that many working minutes after `start`, for
+    `WorkingHours` (`workdays` bits 1 Monday to 64 Sunday, `opensMinute`, `closesMinute`); no workday counts wall minutes;
   - `isValidTimeZone(name)`, from `@travel-crm/contracts/kernel`.
 - **Phone numbers** are normalised at the API boundary: `phoneNumber` and `toE164(text, defaultCountry?)` in
   `@travel-crm/contracts/kernel`. It checks number ranges with libphonenumber's full metadata but stays lenient about

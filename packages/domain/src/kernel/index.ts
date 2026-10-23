@@ -39,6 +39,7 @@ export {
   type TimeOfDay,
 } from "./time.js";
 export { isUuid, newUuidV7 } from "./uuid.js";
+export { addWorkingMinutes, type WorkingHours } from "./working-hours.js";
 // GST facts and time zone names live with the API's field rules, so forms and the kernel share one copy.
 export {
   gstinCheckCharacter,
