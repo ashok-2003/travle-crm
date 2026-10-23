@@ -105,6 +105,7 @@
     "sheet": "Sheet ''{name}'', the first of {count}",
     "sheetOnly": "Sheet ''{name}''",
     "fromSheet": "From your Google Sheet. New rows added to the sheet meanwhile are being added by the sheet itself.",
+    "fromMetaForm": "From your Facebook or Instagram lead form, the last 30 days. New answers meanwhile are becoming leads by themselves.",
     "loadFailed": "We couldn't load this import.",
     "recentFailed": "We couldn't load your recent imports.",
     "match": {

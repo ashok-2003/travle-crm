@@ -172,6 +172,20 @@ describe("CheckStep", () => {
     });
   });
 
+  it("treats a Facebook form's last 30 days like a sheet: says where they came from and groups the rows already in the CRM", async () => {
+    renderCheck(
+      aCheckedImport({
+        sourceMetaForm: { formId: "0199e7a0-0000-7000-8000-0000000000f2" },
+        counts: { ...counts, byPlan: { ...counts.byPlan, in_crm: 9 }, inCrm: { open: 6, closed: 3 } },
+      }),
+    );
+    expect(screen.getByText(messages.leads.import.fromMetaForm)).toBeVisible();
+    expect(screen.queryByText(messages.leads.import.fromSheet)).toBeNull();
+    expect(screen.getByRole("combobox", { name: messages.leads.import.match.stageQuestion })).toBeVisible();
+    await userEvent.click(screen.getByRole("checkbox", { name: "Add the 9 rows for people already in your CRM" }));
+    expect(lastInputTo("leadImports.decide")).toMatchObject({ addInCrm: true });
+  });
+
   it("says '1 row is' for one row already in the CRM", () => {
     renderCheck(
       aCheckedImport({

@@ -6,7 +6,8 @@ const working = new Set<ImportDetail["status"]>(["reading", "checking", "adding"
 
 export function importRefetchInterval(detail: ImportDetail | undefined): 2000 | false {
   if (detail === undefined) return false;
-  // A Google Sheet's import is matched by the worker itself (from the sheet's columns), a moment after it is read.
-  if (detail.status === "matching" && detail.sourceSheet !== null) return 2000;
+  // A Google Sheet's or a Facebook form's import is matched by the worker itself (from the sheet's columns, the form's
+  // questions), a moment after it is read.
+  if (detail.status === "matching" && (detail.sourceSheet !== null || detail.sourceMetaForm !== null)) return 2000;
   return working.has(detail.status) ? 2000 : false;
 }
