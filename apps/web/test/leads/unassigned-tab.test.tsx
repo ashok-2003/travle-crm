@@ -4,6 +4,8 @@ import { screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LeadsScreen } from "@/leads/list/leads-screen";
 import { forgetTabValues } from "@/lib/tab-storage";
+import { member } from "../support/members";
+import type { SignedInMember } from "@/session/me-context";
 import { stubApi } from "../support/api-stub";
 import { address } from "./navigation";
 import { aListItem, aPage, counts } from "./records";
@@ -20,7 +22,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function renderLeads(me: typeof owner) {
+function renderLeads(me: SignedInMember) {
   stubApi({
     "leads.list": aPage([aListItem()]),
     "leads.counts": { data: { ...counts, open: 3 } },
@@ -39,6 +41,29 @@ describe("the Unassigned tab", () => {
 
   it("is not there for a salesperson, who never asks for the count", async () => {
     renderLeads(salesperson);
+    await screen.findByRole("list");
+    expect(screen.queryByRole("tab", { name: /Unassigned/ })).not.toBeInTheDocument();
+    expect(inputsTo("leads.counts")).not.toContainEqual({ view: "unassigned" });
+  });
+
+  const scoped = (permissions: { permission: string; scope: "all" | "own" | null }[]) => {
+    const base = member({ name: "Meena", userId: "0199a000-0000-7000-8000-0000000000a3" });
+    return { ...base, member: { ...base.member, permissions } };
+  };
+
+  it("is there without a count for someone who sees all leads but can't assign them", async () => {
+    renderLeads(scoped([{ permission: "leads:view", scope: "all" }]));
+    expect(await screen.findByRole("tab", { name: "Unassigned" })).toBeVisible();
+    expect(inputsTo("leads.counts")).not.toContainEqual({ view: "unassigned" });
+  });
+
+  it("is not there for someone scoped to their own leads, even if they can assign", async () => {
+    renderLeads(
+      scoped([
+        { permission: "leads:view", scope: "own" },
+        { permission: "leads:assign", scope: null },
+      ]),
+    );
     await screen.findByRole("list");
     expect(screen.queryByRole("tab", { name: /Unassigned/ })).not.toBeInTheDocument();
     expect(inputsTo("leads.counts")).not.toContainEqual({ view: "unassigned" });
