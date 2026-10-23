@@ -10,6 +10,7 @@ import {
   RESET_DEMO_QUEUE,
   SWEEP_BULK_FILES_QUEUE,
   SWEEP_EXPIRED_EXPORTS_QUEUE,
+  SWEEP_META_QUEUE,
   SWEEP_SHEETS_QUEUE,
   WEBSITE_FORMS_SWEEP_QUEUE,
   SWEEP_STORED_FILES_QUEUE,
@@ -49,6 +50,9 @@ const bulkFilesSweep = { queue: SWEEP_BULK_FILES_QUEUE, cron: "17 * * * *", time
 // (S5, S6, S31).
 const sheetsSweep = { queue: SWEEP_SHEETS_QUEUE, cron: "41 * * * *", timeZone: "Asia/Kolkata", data: {} };
 
+// Every hour, at 53 past, a Meta Page chosen at Facebook and never confirmed, past a day, is let go with its token.
+const metaSweep = { queue: SWEEP_META_QUEUE, cron: "53 * * * *", timeZone: "Asia/Kolkata", data: {} };
+
 // Every hour, at 47 past, the website form's ledger rows older than 90 days are deleted (spec 7.2).
 const websiteFormsSweep = { queue: WEBSITE_FORMS_SWEEP_QUEUE, cron: "47 * * * *", timeZone: "Asia/Kolkata", data: {} };
 
@@ -77,6 +81,7 @@ describe("the console's jobs", () => {
       expiredExportsSweep,
       bulkFilesSweep,
       sheetsSweep,
+      metaSweep,
       websiteFormsSweep,
       { queue: RESET_DEMO_QUEUE, cron: "0 2 * * *", timeZone: "Asia/Kolkata", data: {} },
     ]);
@@ -100,6 +105,7 @@ describe("the console's jobs", () => {
       expiredExportsSweep,
       bulkFilesSweep,
       sheetsSweep,
+      metaSweep,
       websiteFormsSweep,
     ]);
   });
@@ -214,7 +220,7 @@ describe("the console's jobs", () => {
   it("refuses to remove a schedule the console registers, which would stop it until the next start", async () => {
     const demo = { code: "DEMOCODE", password: "demo-password-123" };
     const queues = consoleJobs(testConsole.services, demo).schedules.map((schedule) => schedule.queue);
-    expect(queues).toHaveLength(7);
+    expect(queues).toHaveLength(8);
     for (const queue of queues) {
       await expect(removeSchedule(testConsole.services, { userId: randomUUID() }, queue), queue).rejects.toMatchObject({
         code: "CONFLICT",

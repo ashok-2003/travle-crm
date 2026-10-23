@@ -8,6 +8,7 @@ import { generateKeyPairSync, randomBytes } from "node:crypto";
 import { cp } from "node:fs/promises";
 import { createServer, type Server } from "node:net";
 import path from "node:path";
+import { META_E2E } from "./fake-meta";
 import type { EmailVariables } from "./mailpit";
 import type { StorageVariables } from "./minio";
 
@@ -60,6 +61,18 @@ function sheetsVariables(googleUrl: string, accountEmail: string): Record<string
     // The real adapter runs against the journeys' fake Google, with a fixed token (apps/api/src/services.ts).
     GOOGLE_SHEETS_TEST_SERVER_URL: googleUrl,
     SHEETS_CHECK_INTERVAL_SECONDS: "1",
+  };
+}
+
+/** The Meta lead ads' five settings (ADR 0034) with test values, and the fake Graph the real adapter reads instead of Meta's. */
+function metaVariables(graphUrl: string): Record<string, string> {
+  return {
+    META_APP_ID: META_E2E.appId,
+    META_APP_SECRET: META_E2E.appSecret,
+    META_WEBHOOK_VERIFY_TOKEN: META_E2E.verifyToken,
+    META_LOGIN_CONFIG_ID: META_E2E.loginConfigId,
+    META_TOKEN_KEY: META_E2E.tokenKey,
+    META_GRAPH_TEST_SERVER_URL: graphUrl,
   };
 }
 
@@ -153,6 +166,7 @@ export async function startServers({
   storage,
   email,
   google,
+  meta,
   turnstile,
 }: {
   databaseUrl: string;
@@ -164,6 +178,8 @@ export async function startServers({
   email: EmailVariables;
   /** The fake Google (support/fake-google.ts): its address, and the address spreadsheets are shared with. */
   google: { url: string; accountEmail: string };
+  /** The fake Meta (support/fake-meta.ts): the Graph address the real adapter is given. */
+  meta: { url: string };
   /** The fake Turnstile's siteverify address (support/fake-turnstile.ts). */
   turnstile: { verifyUrl: string };
 }): Promise<Servers> {
@@ -219,6 +235,7 @@ export async function startServers({
       VAPID_PRIVATE_KEY: vapid.privateKey,
       VAPID_SUBJECT: "mailto:dev@travel-crm.localhost",
       ...sheets,
+      ...metaVariables(meta.url),
     };
     const tsx = path.join(apiDirectory, "node_modules/.bin/tsx");
     await reserved.release();
@@ -246,6 +263,8 @@ export async function startServers({
         GOOGLE_SHEETS_SERVICE_ACCOUNTS: "",
         GOOGLE_SHEETS_TEST_SERVER_URL: "",
         SHEETS_CHECK_INTERVAL_SECONDS: "",
+        // Nor does it read Meta: the api and the worker hold the app secret and the token key.
+        ...Object.fromEntries(Object.keys(metaVariables("")).map((name) => [name, ""])),
       },
     });
     const web = start(process.execPath, ["server.js"], {

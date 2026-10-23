@@ -5,14 +5,14 @@ module.exports = {
       name: "db-internals-stay-in-db",
       comment:
         "Other packages reach @travel-crm/db only through its entry points (index, identity, platform, webhooks, " +
-        "rate-limits, sheet-schedule, sheets-key-check, and the test-only testing files), so the raw Prisma client and the generated code never leak " +
+        "rate-limits, sheet-schedule, sheets-key-check, meta-routes, and the test-only testing files), so the raw Prisma client and the generated code never leak " +
         "out of the package.",
       severity: "error",
       from: { path: "^(apps|packages)/", pathNot: "^packages/db/" },
       to: {
         path: "^packages/db/(src|test)/",
         pathNot:
-          "^packages/db/(src/(index|identity|platform|webhooks|rate-limits|sheet-schedule|sheets-key-check)|test/(testing|global-setup))\\.ts$",
+          "^packages/db/(src/(index|identity|platform|webhooks|rate-limits|sheet-schedule|sheets-key-check|meta-routes)|test/(testing|global-setup))\\.ts$",
       },
     },
     {
@@ -53,6 +53,21 @@ module.exports = {
         pathNot: ["^packages/db/", "^packages/domain/(src/sheets/schedule\\.ts|test/(sheets|performance|platform)/)"],
       },
       to: { path: "^packages/db/src/sheet-schedule\\.ts$" },
+    },
+    {
+      name: "meta-routes-only-in-meta-leads",
+      comment:
+        "@travel-crm/db/meta-routes reaches meta_page_route, which carries organization_id but has no row-level " +
+        "security (ids and times only; ADR 0034). Only the meta-leads module's routes.ts may use it, and the tests " +
+        "that arrange or read that table.",
+      severity: "error",
+      from: {
+        pathNot: [
+          "^packages/db/",
+          "^packages/domain/(src/meta-leads/routes\\.ts|test/(meta-leads|performance|platform)/)",
+        ],
+      },
+      to: { path: "^packages/db/src/meta-routes\\.ts$" },
     },
     {
       name: "sheets-key-check-only-in-the-api-start-up",
@@ -189,12 +204,12 @@ module.exports = {
     {
       name: "business-modules-call-down",
       comment:
-        "The business modules are layered (spec 6, 8): catalog, tasks, imports, exports, sheets and website-forms at L0, crm at L1, " +
+        "The business modules are layered (spec 6, 8): catalog, tasks, imports, exports, sheets, meta-leads and website-forms at L0, crm at L1, " +
         "today and insights above them. A module calls only down: the L0 modules never call crm, today or insights, " +
         "and crm never calls today or insights. An action spanning two modules is the higher one's, or its router " +
         "calls both (R22).",
       severity: "error",
-      from: { path: "^packages/domain/src/(catalog|tasks|imports|exports|sheets|website-forms|crm)/" },
+      from: { path: "^packages/domain/src/(catalog|tasks|imports|exports|sheets|meta-leads|website-forms|crm)/" },
       to: { path: "^packages/domain/src/(crm|today|insights)/", pathNot: "^packages/domain/src/$1/" },
     },
     {
@@ -205,6 +220,15 @@ module.exports = {
       severity: "error",
       from: { path: "^packages/domain/src/(imports|exports)/" },
       to: { path: "^packages/domain/src/sheets/" },
+    },
+    {
+      name: "imports-and-exports-never-call-meta-leads",
+      comment:
+        "The Meta lead ads' import of a form's earlier leads stands on imports, never the other way: the worker hands " +
+        "imports a function for the form's source (metaSource), so imports and exports never call meta-leads.",
+      severity: "error",
+      from: { path: "^packages/domain/src/(imports|exports)/" },
+      to: { path: "^packages/domain/src/meta-leads/" },
     },
     {
       name: "kernel-depends-on-no-module",

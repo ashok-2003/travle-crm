@@ -18,8 +18,10 @@ export interface StartImportFromBytesInput {
   fileName: string;
   /** The rows as CSV, the header first. */
   bytes: Uint8Array;
-  /** The Google Sheet connection the rows came from. */
-  sourceSheetId: string;
+  /** The Google Sheet connection the rows came from; give this or sourceMetaFormId. */
+  sourceSheetId?: string;
+  /** The Meta lead form the rows came from (its last 30 days of leads). */
+  sourceMetaFormId?: string;
 }
 
 export async function startImportFromBytes(
@@ -57,7 +59,8 @@ export async function startImportFromBytes(
           fileAttachmentId: file.id,
           startedBy: input.startedBy,
           impersonatedBy: input.impersonatedBy,
-          sourceSheetId: input.sourceSheetId,
+          ...(input.sourceSheetId === undefined ? {} : { sourceSheetId: input.sourceSheetId }),
+          ...(input.sourceMetaFormId === undefined ? {} : { sourceMetaFormId: input.sourceMetaFormId }),
           keepUntil: keepUntilFrom(now),
         },
       });

@@ -19,6 +19,7 @@ export function aPage(overrides: Partial<StaffImportPage> = {}): StaffImportPage
     fileKind: "csv",
     sheet: null,
     sourceSheet: null,
+    sourceMetaForm: null,
     unreadableReason: null,
     failureReason: null,
     sameFile: null,

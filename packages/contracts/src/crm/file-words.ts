@@ -53,7 +53,7 @@ export const leadFileWords: {
     bulk_upload: ["Import"],
     web_form: ["Website form"],
     integration: ["Another tool"],
-    meta_lead_ad: ["Meta lead ad"],
+    meta_lead_ad: ["Facebook or Instagram lead ad", "Meta lead ad"],
     whatsapp: ["WhatsApp"],
     package_page: ["Package page"],
   },

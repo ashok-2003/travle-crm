@@ -3,7 +3,8 @@
 // Step 3 (spec 3.2): the worker checks every row (a dry run, B25) while a bar moves, then the preview says what will
 // happen to each: what will be added, your choice, what won't be, the destinations it adds, and a quiet line when many
 // leads will be New. Add asks once; Change the columns goes back to step 2; Cancel this import ends it. For a Google
-// Sheet's import it says where the rows came from and asks the stage rows with none get (the Sheets sync, N8).
+// Sheet's or a Facebook form's import it says where the rows came from and asks the stage rows with none get (the Sheets
+// sync, N8).
 import { useMutation } from "@tanstack/react-query";
 import type { ImportCounts, ImportDetail } from "@travel-crm/contracts/imports";
 import { useRouter } from "next/navigation";
@@ -89,7 +90,8 @@ export function CheckStep({ detail, onChangeColumns }: { detail: ImportDetail; o
     }),
   );
   const { counts } = detail;
-  const fromSheet = detail.sourceSheet !== null;
+  // A Google Sheet's import and a Facebook form's last 30 days read the CRM too: they ask the stage and offer "Already in your CRM".
+  const fromSource = detail.sourceSheet !== null || detail.sourceMetaForm !== null;
 
   if (detail.status === "checking" || counts === null) {
     return (
@@ -119,9 +121,13 @@ export function CheckStep({ detail, onChangeColumns }: { detail: ImportDetail; o
       <PageHeader title={t("check.title")} intro={t("check.intro", { total: detail.progress.rowsTotal })} />
       <div className="flex flex-col gap-1">
         <ImportStepCaption status={detail.status} />
-        {fromSheet && <p className="text-label text-muted-foreground">{t("fromSheet")}</p>}
+        {fromSource && (
+          <p className="text-label text-muted-foreground">
+            {t(detail.sourceMetaForm === null ? "fromSheet" : "fromMetaForm")}
+          </p>
+        )}
       </div>
-      {fromSheet && (
+      {fromSource && (
         <StageQuestion
           stage={detail.defaults.stage}
           disabled={busy}
@@ -175,7 +181,7 @@ export function CheckStep({ detail, onChangeColumns }: { detail: ImportDetail; o
       <CheckChoices
         counts={counts}
         choices={choices}
-        fromSheet={fromSheet}
+        fromSource={fromSource}
         disabled={decide.isPending || !write.allowed}
         onChoose={(next) => {
           decide.mutate({ importId: detail.id, ...next });

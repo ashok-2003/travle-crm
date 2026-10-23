@@ -7,6 +7,7 @@ import { publishEvent } from "../jobs/index.js";
 import type { Actor } from "../kernel/index.js";
 import { changedFields } from "./changed-fields.js";
 import { recordCrmAudit } from "./crm-audit.js";
+import type { EnquiryAuditDetail } from "./audit-detail.js";
 
 /** Contacts as the contracts hand them over, each as stored: E.164, a lower-case email, a handle without "@". */
 export interface PersonContactValues {
@@ -90,7 +91,7 @@ export async function addPerson(
   actor: Actor,
   input: PersonContactValues & { name: string },
   /** Where the person came from, kept in the audit entry (the website form's id). */
-  auditDetail: { formId: string } | null = null,
+  auditDetail: EnquiryAuditDetail | null = null,
 ): Promise<PersonRow> {
   const person = await tx.person.create({
     data: {

@@ -106,35 +106,41 @@ Checked at start-up by `apps/api/src/environment.ts` (with `service-variables.ts
 process refuses to start on a missing or wrong one, naming it. ● needed, ○ optional, blank: never given to it.
 Secrets come from the platform's secret manager as environment variables, never in an image (spec 12.3).
 
-| Variable                                                         | api | worker | console | migrate | Secret |
-| ---------------------------------------------------------------- | --- | ------ | ------- | ------- | ------ |
-| `DATABASE_URL` (as `app_runtime`)                                | ●   | ●      | ●       |         | yes    |
-| `DATABASE_PLATFORM_URL` (as `app_platform`)                      |     |        | ●       |         | yes    |
-| `DATABASE_MIGRATOR_URL` (as `app_migrator`)                      |     |        |         | ●       | yes    |
-| `DATABASE_POOL_SIZE`                                             | ○   | ○      | ○       |         |        |
-| `DATABASE_TRANSACTION_MAX_WAIT_MS`, `..._TIMEOUT_MS` (slow host) | ○   | ○      | ○       |         |        |
-| `BETTER_AUTH_SECRET`: one value for all three                    | ●   | ●      | ●       |         | yes    |
-| `BETTER_AUTH_URL`, `APP_URL`: both the app's https address       | ●   | ●      | ●       |         |        |
-| `TRUSTED_ORIGINS`                                                | ○   | ○      | ○       |         |        |
-| `AUTH_RATE_LIMIT`, `AUTH_IP_ADDRESS_HEADERS`                     | ○   | ○      | ○       |         |        |
-| `AUTH_TRUSTED_PROXIES`: the load balancer's addresses (Hosting)  | ●   | ●      | ●       |         |        |
-| `S3_BUCKET`, `S3_REGION` (`S3_ENDPOINT`, `S3_FORCE_PATH_STYLE`)  | ●   | ●      | ●       |         |        |
-| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` (the console's own)   | ●   | ●      | ●       |         | yes    |
-| `SMTP_HOST`, `EMAIL_FROM_ADDRESS` (`SMTP_PORT`, `SMTP_SECURE`)   | ●   | ●      | ●       |         |        |
-| `SMTP_USER`, `SMTP_PASSWORD`                                     | ○   | ○      | ○       |         | yes    |
-| `VAPID_PUBLIC_KEY`, `VAPID_SUBJECT`                              | ●   | ●      | ●       |         |        |
-| `VAPID_PRIVATE_KEY`: the public key's pair (below)               | ●   | ●      | ●       |         | yes    |
-| `GOOGLE_SHEETS_SERVICE_ACCOUNTS`: the Sheets sync's keys (below) | ●   | ●      |         |         | yes    |
-| `SHEETS_HASH_KEY`: 32+ characters, never changed (below)         | ●   | ●      | ●       |         | yes    |
-| `LOG_LEVEL`: debug, info, warn or error (`info`)                 | ○   | ○      | ○       |         |        |
-| `AXIOM_TOKEN`, `AXIOM_DATASET`: both or neither (Logs, below)    | ○   | ○      | ○       |         | yes    |
-| `AXIOM_URL`: only for Axiom's EU region                          | ○   | ○      | ○       |         |        |
-| `PUBLIC_FORM_PROXY_HOPS`: 1 to 5; unset behind Caddy (Hosting)   | ○   |        |         |         |        |
-| `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`: both or neither    | ○   |        |         |         | yes    |
-| `TURNSTILE_VERIFY_URL`: tests only, refused in production        | ○   |        |         |         |        |
-| `PORT` (3001)                                                    | ○   |        |         |         |        |
-| `CONSOLE_PORT` (3002)                                            |     |        | ○       |         |        |
-| `DEMO_ORGANIZATION_CODE`, `DEMO_PASSWORD`: both or neither       |     |        | ○       |         | yes    |
+| Variable                                                          | api | worker | console | migrate | Secret |
+| ----------------------------------------------------------------- | --- | ------ | ------- | ------- | ------ |
+| `DATABASE_URL` (as `app_runtime`)                                 | ●   | ●      | ●       |         | yes    |
+| `DATABASE_PLATFORM_URL` (as `app_platform`)                       |     |        | ●       |         | yes    |
+| `DATABASE_MIGRATOR_URL` (as `app_migrator`)                       |     |        |         | ●       | yes    |
+| `DATABASE_POOL_SIZE`                                              | ○   | ○      | ○       |         |        |
+| `DATABASE_TRANSACTION_MAX_WAIT_MS`, `..._TIMEOUT_MS` (slow host)  | ○   | ○      | ○       |         |        |
+| `BETTER_AUTH_SECRET`: one value for all three                     | ●   | ●      | ●       |         | yes    |
+| `BETTER_AUTH_URL`, `APP_URL`: both the app's https address        | ●   | ●      | ●       |         |        |
+| `TRUSTED_ORIGINS`                                                 | ○   | ○      | ○       |         |        |
+| `AUTH_RATE_LIMIT`, `AUTH_IP_ADDRESS_HEADERS`                      | ○   | ○      | ○       |         |        |
+| `AUTH_TRUSTED_PROXIES`: the load balancer's addresses (Hosting)   | ●   | ●      | ●       |         |        |
+| `S3_BUCKET`, `S3_REGION` (`S3_ENDPOINT`, `S3_FORCE_PATH_STYLE`)   | ●   | ●      | ●       |         |        |
+| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` (the console's own)    | ●   | ●      | ●       |         | yes    |
+| `SMTP_HOST`, `EMAIL_FROM_ADDRESS` (`SMTP_PORT`, `SMTP_SECURE`)    | ●   | ●      | ●       |         |        |
+| `SMTP_USER`, `SMTP_PASSWORD`                                      | ○   | ○      | ○       |         | yes    |
+| `VAPID_PUBLIC_KEY`, `VAPID_SUBJECT`                               | ●   | ●      | ●       |         |        |
+| `VAPID_PRIVATE_KEY`: the public key's pair (below)                | ●   | ●      | ●       |         | yes    |
+| `GOOGLE_SHEETS_SERVICE_ACCOUNTS`: the Sheets sync's keys (below)  | ●   | ●      |         |         | yes    |
+| `SHEETS_HASH_KEY`: 32+ characters, never changed (below)          | ●   | ●      | ●       |         | yes    |
+| `META_APP_ID`: the Meta app's id (Meta lead ads, below)           | ○   | ○      |         |         |        |
+| `META_APP_SECRET`: signs webhooks, exchanges logins               | ○   | ○      |         |         | yes    |
+| `META_WEBHOOK_VERIFY_TOKEN`: 32+ random characters                | ○   | ○      |         |         | yes    |
+| `META_LOGIN_CONFIG_ID`: the Facebook Login for Business config    | ○   | ○      |         |         |        |
+| `META_TOKEN_KEY`: seals Pages' tokens; base64 of 32 bytes, a list | ○   | ○      |         |         | yes    |
+| `META_GRAPH_TEST_SERVER_URL`: tests only, refused in production   | ○   | ○      |         |         |        |
+| `LOG_LEVEL`: debug, info, warn or error (`info`)                  | ○   | ○      | ○       |         |        |
+| `AXIOM_TOKEN`, `AXIOM_DATASET`: both or neither (Logs, below)     | ○   | ○      | ○       |         | yes    |
+| `AXIOM_URL`: only for Axiom's EU region                           | ○   | ○      | ○       |         |        |
+| `PUBLIC_FORM_PROXY_HOPS`: 1 to 5; unset behind Caddy (Hosting)    | ○   |        |         |         |        |
+| `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`: both or neither     | ○   |        |         |         | yes    |
+| `TURNSTILE_VERIFY_URL`: tests only, refused in production         | ○   |        |         |         |        |
+| `PORT` (3001)                                                     | ○   |        |         |         |        |
+| `CONSOLE_PORT` (3002)                                             |     |        | ○       |         |        |
+| `DEMO_ORGANIZATION_CODE`, `DEMO_PASSWORD`: both or neither        |     |        | ○       |         | yes    |
 
 - **`NODE_ENV`** is `production` when unset, and production refuses http addresses, an off rate limit and a weak
   secret. Never set it to `development` in a deploy.
@@ -200,6 +206,20 @@ Secrets come from the platform's secret manager as environment variables, never 
   - Tell agencies in the help text that the address in the connect screen is ours, read only, and that removing it from
     the sheet's sharing stops the sync at once.
   - Locally, set both in `.env` (or the shell) to try a real sheet: `pnpm dev` and `pnpm product:up` pass them through.
+- **Meta lead ads** (ADR 0034; the owner's steps are in the spec's section 13):
+  - All five `META_*` settings come together: one alone, or four of five, stops the api and the worker, naming the missing
+    variable and printing no value. None at all turns Meta off, and the Lead sources page says so. The console is never
+    given them. The worker takes all five too (it reads only the app's id and secret and the token key, but the group is
+    one check).
+  - `META_APP_ID` and `META_APP_SECRET` are on the app's Basic settings page. `META_WEBHOOK_VERIFY_TOKEN` is any 32+
+    random characters (`openssl rand -base64 32`), pasted as the verify token when the Webhooks callback is saved.
+    `META_LOGIN_CONFIG_ID` is the Facebook Login for Business configuration's id.
+  - `META_TOKEN_KEY` is `openssl rand -base64 32`. It seals every Page's token; losing it means every Page must be
+    connected again. To rotate it, put the new key first in a comma-separated list and keep the old one until every Page
+    has been saved again.
+  - Routes: `/webhooks/meta-leads` (Meta's callback, GET and POST) and `POST /api/meta/data-deletion` are under paths
+    that already reach the api; `/meta/deletion` goes to the web app. The callback must be HTTPS.
+  - The start-up line says `Meta lead ads: on` or `not set up`.
 - **The web app** needs nothing at run time: its image sets `NODE_ENV=production`, `HOSTNAME=0.0.0.0` and
   `PORT=3000`. Its build takes `CACHE_VERSION` and `STORAGE_ORIGIN` (The images, above).
 - **One secret, three processes:** the console reads the api's session cookies, and the worker counts invite emails
@@ -214,6 +234,7 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `/p/*`                          | api, 3001     | share links                                               |
 | `/webhooks/*`                   | api, 3001     | the webhook intake                                        |
 | `/f/*`, `/embed/*`, `/embed.js` | web, 3000     | the website form's pages and script (the default rule)    |
+| `/meta/deletion`                | web, 3000     | Meta's data-deletion status page (the default rule)       |
 | everything else                 | web, 3000     | the app's pages, build files, manifest and service worker |
 
 - **One address for everything** (spec 3): the app's https origin is `BETTER_AUTH_URL` and `APP_URL`, so cookies

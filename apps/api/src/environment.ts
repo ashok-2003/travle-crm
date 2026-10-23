@@ -4,6 +4,7 @@ import { brand } from "@travel-crm/brand";
 import type { AuthSettings } from "@travel-crm/domain/identity";
 import { LOG_LEVELS } from "@travel-crm/integrations/logging";
 import { z } from "zod";
+import { META_VARIABLES, metaVerifyTokenIsWeak } from "./meta-variables.js";
 import { serviceVariables } from "./service-variables.js";
 import { sheetsHashKeyIsWeak } from "./sheets-settings.js";
 
@@ -144,7 +145,26 @@ const environmentSchema = z
     if (environment.GOOGLE_SHEETS_SERVICE_ACCOUNTS !== undefined && environment.SHEETS_HASH_KEY === undefined) {
       problem("SHEETS_HASH_KEY", "is needed (at least 32 characters) with GOOGLE_SHEETS_SERVICE_ACCOUNTS");
     }
+    // Meta's five settings come together: one alone, or a group missing one, is a half-made setting (spec 13).
+    const metaSet = META_VARIABLES.filter((name) => environment[name] !== undefined);
+    if (metaSet.length > 0 && metaSet.length < META_VARIABLES.length) {
+      for (const name of META_VARIABLES.filter((candidate) => environment[candidate] === undefined)) {
+        problem(name, "is needed with the other Meta settings: all five or none");
+      }
+    }
+    if (environment.META_GRAPH_TEST_SERVER_URL !== undefined && metaSet.length === 0) {
+      problem("META_GRAPH_TEST_SERVER_URL", "is only for use with the Meta settings");
+    }
     if (developmentLike(environment.NODE_ENV)) return;
+    if (environment.META_GRAPH_TEST_SERVER_URL !== undefined) {
+      problem("META_GRAPH_TEST_SERVER_URL", "is for development and tests only: unset it in production");
+    }
+    if (
+      environment.META_WEBHOOK_VERIFY_TOKEN !== undefined &&
+      metaVerifyTokenIsWeak(environment.META_WEBHOOK_VERIFY_TOKEN)
+    ) {
+      problem("META_WEBHOOK_VERIFY_TOKEN", "is too weak for production: use `openssl rand -base64 32`");
+    }
     if (environment.GOOGLE_SHEETS_TEST_SERVER_URL !== undefined) {
       problem("GOOGLE_SHEETS_TEST_SERVER_URL", "is for development and tests only: unset it in production");
     }

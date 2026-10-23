@@ -17,6 +17,7 @@ import { FieldDescription } from "@/components/ui/field";
 import { sheetConnectRoute } from "@/lib/routes";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
+import { MetaPagesGroup } from "./meta/meta-pages-group";
 import { SheetList } from "./sheet-list";
 import { useLeadSheets } from "./use-lead-sheets";
 import { WebsiteFormRow } from "./website-form/website-form-row";
@@ -97,6 +98,7 @@ export function LeadSourcesScreen() {
       <BackToSettings />
       <PageHeader title={t("title")} intro={t("intro")} action={list === undefined ? undefined : connect} />
       {body()}
+      <MetaPagesGroup />
       <WebsiteFormRow />
     </div>
   );

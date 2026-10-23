@@ -34,6 +34,12 @@ x-api-environment: &api-environment
   # (the console's erasure job writes tombstones with it); the accounts are for the api and the worker alone.
   SHEETS_HASH_KEY: ${SHEETS_HASH_KEY:-}
   GOOGLE_SHEETS_SERVICE_ACCOUNTS: ${GOOGLE_SHEETS_SERVICE_ACCOUNTS:-}
+  # Meta lead ads (ADR 0034): all five or none; blank leaves them off. The console is never given them.
+  META_APP_ID: ${META_APP_ID:-}
+  META_APP_SECRET: ${META_APP_SECRET:-}
+  META_WEBHOOK_VERIFY_TOKEN: ${META_WEBHOOK_VERIFY_TOKEN:-}
+  META_LOGIN_CONFIG_ID: ${META_LOGIN_CONFIG_ID:-}
+  META_TOKEN_KEY: ${META_TOKEN_KEY:-}
   # Logging (ADR 0032, docs/runbook.md, "Turn on Axiom"): blank leaves LOG_LEVEL at info and Axiom off.
   LOG_LEVEL: ${LOG_LEVEL:-}
   AXIOM_TOKEN: ${AXIOM_TOKEN:-}
@@ -155,6 +161,11 @@ services:
       DATABASE_PLATFORM_URL: ${DATABASE_PLATFORM_URL:?}
       # The console never holds the service accounts (the image drops them too).
       GOOGLE_SHEETS_SERVICE_ACCOUNTS: ""
+      META_APP_ID: ""
+      META_APP_SECRET: ""
+      META_WEBHOOK_VERIFY_TOKEN: ""
+      META_LOGIN_CONFIG_ID: ""
+      META_TOKEN_KEY: ""
     depends_on: *api-depends-on
     healthcheck:
       test:

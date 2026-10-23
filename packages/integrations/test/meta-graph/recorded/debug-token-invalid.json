@@ -1,0 +1,13 @@
+{
+  "data": {
+    "app_id": "1234567890",
+    "type": "PAGE",
+    "is_valid": false,
+    "error": {
+      "code": 190,
+      "message": "Error validating access token: The user is not a developer of the application.",
+      "subcode": 458
+    },
+    "scopes": []
+  }
+}

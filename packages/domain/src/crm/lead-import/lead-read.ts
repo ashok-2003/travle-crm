@@ -1,7 +1,7 @@
 // A lead import's file read into rows (spec B25, B26): the check and the add read a file the same way, so the preview
 // and the add can't differ. The context is built from the import's matches and the agency as they are now; the rows
 // are held in memory for the job (at most 10,000 of them).
-import { leadStage } from "@travel-crm/contracts/crm";
+import { leadStage, type LeadSource } from "@travel-crm/contracts/crm";
 import type { SheetOrigin } from "@travel-crm/contracts/imports";
 import {
   columnMatchesOf,
@@ -21,6 +21,7 @@ export interface LeadFile {
   /** The rows by their number in the file. */
   byRow: ReadonlyMap<number, PlannableRow>;
   timeZone: string;
+  /** A Google Sheet's or a Meta form's rows: planned against the CRM's people (in_crm), and read for erased customers. */
   fromSheet: boolean;
 }
 
@@ -47,6 +48,19 @@ async function originOf(
   return context.forOrg((tx) => sheetOrigin(tx, sourceSheetId));
 }
 
+/** The source of a Meta form's earlier leads; null for a file or a sheet (or when the form is gone). */
+async function metaSourceOf(
+  context: Pick<ListenerContext, "forOrg">,
+  dependencies: ImportJobDependencies,
+  batch: ImportBatchRow,
+): Promise<{ source: LeadSource; detail: string } | null> {
+  const { sourceMetaFormId } = batch;
+  if (sourceMetaFormId === null) return null;
+  const { metaSource } = dependencies;
+  if (metaSource === undefined) throw new Error("A Meta lead form import needs the Meta source dependency");
+  return context.forOrg((tx) => metaSource(tx, sourceMetaFormId));
+}
+
 /** Reads the import's file with the matches it was given, every row into an enquiry or the reasons it isn't one. */
 export async function readLeadFile(
   context: ListenerContext,
@@ -59,6 +73,7 @@ export async function readLeadFile(
     timeZone: await organizationTimeZone(tx, batch.organizationId),
   }));
   const origin = await originOf(context, dependencies, batch);
+  const source = await metaSourceOf(context, dependencies, batch);
   const workers = new Set(
     (await dependencies.identity.leadWorkers(batch.organizationId)).map((worker) => worker.userId),
   );
@@ -97,12 +112,13 @@ export async function readLeadFile(
     today: calendarDateIn(new Date(), timeZone),
     timeZone,
     ...(origin === null ? {} : { origin }),
+    ...(source === null ? {} : { source }),
   };
   const rows = sheet.rows.map((row) => ({ ...readLeadRow(row, rowContext), rowNumber: row.rowNumber }));
   return {
     rows,
     byRow: new Map(rows.map((row) => [row.rowNumber, row])),
     timeZone,
-    fromSheet: batch.sourceSheetId !== null,
+    fromSheet: batch.sourceSheetId !== null || batch.sourceMetaFormId !== null,
   };
 }

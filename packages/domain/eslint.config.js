@@ -24,4 +24,5 @@ export default defineConfig(
   allowingInModule("webhooks", "webhookEvents"),
   allowingInModule("rate-limits", "rateLimitCounters"),
   allowingInFiles(["src/sheets/schedule.ts", "test/sheets/**", "test/performance/sheets-*"], "sheetSchedule"),
+  allowingInFiles(["src/meta-leads/routes.ts", "test/meta-leads/**", "test/performance/meta-*"], "metaRoutes"),
 );

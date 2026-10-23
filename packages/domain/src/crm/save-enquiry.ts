@@ -13,6 +13,7 @@ import { notifyLeadAssigned } from "./lead-core.js";
 import { addPerson, fillMissingContacts, matchPerson, newestOpenLead, type PersonRow } from "./people.js";
 import { addRepeatEnquiry } from "./repeat-enquiry.js";
 import { resolveTrip } from "./trip-columns.js";
+import type { EnquiryAuditDetail } from "./audit-detail.js";
 
 const MAX_NOTE_LENGTH = 4000;
 
@@ -45,7 +46,7 @@ export type EnquiryOptions =
        */
       unverified?: true;
       /** Where the enquiry came from, kept in the audit entries it makes (the website form's id, W24). */
-      auditDetail?: { formId: string };
+      auditDetail?: EnquiryAuditDetail;
     };
 
 export interface SavedEnquiry {

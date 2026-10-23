@@ -1,0 +1,6 @@
+{
+  "data": [
+    { "name": "Another app", "id": "4242", "subscribed_fields": ["leadgen"] },
+    { "name": "Travel Agency OS", "id": "1234567890", "subscribed_fields": ["feed"] }
+  ]
+}

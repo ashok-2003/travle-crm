@@ -9,6 +9,10 @@ import {
   isPublicRoute,
   leadExportRoute,
   leadImportRoute,
+  metaCallbackRoute,
+  metaConnectRoute,
+  metaFormRoute,
+  metaPageRoute,
   pendingStepRoute,
   routes,
   signInRoute,
@@ -20,6 +24,14 @@ import {
 const landsOn = (path: string) => new URL(path, "https://app.example.in/sign-in").origin;
 
 describe("routes", () => {
+  it("names the Facebook Page screens under Lead sources, and the callback Facebook's dialog returns to", () => {
+    expect(metaConnectRoute).toBe("/settings/lead-sources/meta/connect");
+    expect(metaCallbackRoute).toBe("/settings/lead-sources/meta/callback");
+    expect(metaPageRoute("p 1")).toBe("/settings/lead-sources/meta/pages/p%201");
+    expect(metaFormRoute("p", "f", "bring-in")).toBe("/settings/lead-sources/meta/pages/p/forms/f/bring-in");
+    expect(metaFormRoute("p", "f", "questions")).toBe("/settings/lead-sources/meta/pages/p/forms/f/questions");
+  });
+
   it("brings the person back to an app path after signing in, filters included", () => {
     expect(signInRoute("/staff")).toBe("/sign-in?next=%2Fstaff");
     expect(signInRoute("/staff?role=sales#top")).toBe("/sign-in?next=%2Fstaff%3Frole%3Dsales%23top");
@@ -114,6 +126,8 @@ describe("routes", () => {
     for (const path of ["/f/x", "/embed/x", "/f/x/y", "/embed/abc?x=1".split("?")[0] ?? ""]) {
       expect(isPublicFormPath(path), path).toBe(true);
     }
+    expect(isPublicFormPath("/meta/deletion")).toBe(true);
+    expect(isPublicFormPath("/meta/deletions")).toBe(false);
     for (const path of ["/fx", "/f", "/settings", "/embedded", "/embed", "/settings/lead-sources/website-form", "/"]) {
       expect(isPublicFormPath(path), path).toBe(false);
     }

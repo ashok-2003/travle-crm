@@ -58,6 +58,18 @@
         "label": "A Google Sheet needs attention",
         "hint": "When a connected sheet can't be opened, has lost its tab or its columns, or needs a manager. Told once for each change."
       },
+      "leadMetaAdded": {
+        "label": "Many leads from Facebook or Instagram are given to you",
+        "hint": "When a catch-up brings you more than five lead ad leads at once, in one message. Fewer arrive one by one, as \"A lead is given to you\"."
+      },
+      "metaNeedsAttention": {
+        "label": "A Facebook Page needs attention",
+        "hint": "When we can't read leads from a connected Page any more, its access is about to end, or a lead form gained a question. Told once for each change."
+      },
+      "metaNewForm": {
+        "label": "A lead came from a form you haven't brought in",
+        "hint": "When a lead arrives from a lead form that isn't brought in yet. Told once for each form; the lead is kept for when you bring it in."
+      },
       "importFinished": {
         "label": "An import of yours ends",
         "hint": "When the rows of a file you imported have been added, or the import stopped."

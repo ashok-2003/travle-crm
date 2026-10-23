@@ -7,6 +7,7 @@ import type { Actor } from "../kernel/index.js";
 import { recordCrmAudit } from "./crm-audit.js";
 import { recordLeadEvent } from "./lead-events.js";
 import { tripColumns, type TripRecord } from "./trip-columns.js";
+import type { EnquiryAuditDetail } from "./audit-detail.js";
 
 /** A lead as it is written: the person and the destination already found or added. */
 export interface NewLeadRecord {
@@ -27,7 +28,7 @@ export interface NewLeadRecord {
   /** Now unless given. */
   createdAt?: Date;
   /** Where the lead came from, kept in the audit entry (the website form's id). */
-  auditDetail?: { formId: string };
+  auditDetail?: EnquiryAuditDetail;
   /** When the timeline says it happened: the lead's created date unless given (an import's rows say the import's). */
   recordedAt?: Date;
 }

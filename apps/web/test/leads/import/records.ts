@@ -78,6 +78,7 @@ export function anImport(overrides: Partial<ImportDetail> = {}): ImportDetail {
     defaults: { stage: "new", ownerUserId: null, budgetBasis: null, roleKey: null },
     choices: { addBlocked: false, addAlreadyImported: false, addInCrm: false },
     sourceSheet: null,
+    sourceMetaForm: null,
     counts: null,
     progress: { rowsTotal: 1286, rowsToAdd: 0, rowsDone: 0, rowsAdded: 0, addRequestedAt: null },
     createdAt: "2026-10-19T10:30:00.000Z",

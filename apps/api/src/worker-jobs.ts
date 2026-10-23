@@ -5,7 +5,12 @@
 import type { Database } from "@travel-crm/db";
 import {
   addLeadImportListener,
+  catchUpBroughtInFormListener,
   checkFirstReply,
+  checkMetaPageListener,
+  earlierLeadsListener,
+  matchMetaImportListener,
+  metaCatchupHandler,
   checkLeadImportListener,
   FIRST_REPLY_CHECK_QUEUE,
   notifyUnassignedLeadListener,
@@ -27,6 +32,14 @@ import {
   type ImportJobDependencies,
 } from "@travel-crm/domain/imports";
 import type { EventListener, JobHandler, ScheduledJob } from "@travel-crm/domain/jobs";
+import {
+  attentionListener as metaAttentionListener,
+  checkAllPages,
+  META_HEALTH_QUEUE,
+  metaDispatchSchedule,
+  metaImportSource,
+  routeListener as metaRouteListener,
+} from "@travel-crm/domain/meta-leads";
 import { deliverNotificationListener, forgetPushSubscriptionsListener } from "@travel-crm/domain/notifications";
 import { purgeExpiredRateLimits, RATE_LIMIT_PURGE_QUEUE, type RateLimiter } from "@travel-crm/domain/rate-limits";
 import { notifySharerListener } from "@travel-crm/domain/share-links";
@@ -45,6 +58,7 @@ import {
 } from "@travel-crm/domain/sheets";
 import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { processWebhookJob, WEBHOOK_PROCESS_QUEUE, type WebhookProvider } from "@travel-crm/domain/webhooks";
+import { metaProcessDependencies, type MetaServices } from "./meta-services.js";
 import type { EmailSender } from "@travel-crm/integrations/email";
 import { renderPdf } from "@travel-crm/integrations/pdf";
 import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
@@ -97,6 +111,8 @@ export interface WorkerJobDependencies {
   rateLimiter: RateLimiter;
   /** The Google Sheets sync (ADR 0031): left out when no service account is set, and then none of its work runs. */
   sheets?: WorkerSheets;
+  /** The Meta lead ads (ADR 0034): left out or null when the five Meta settings are not set, and then none of its work runs. */
+  meta?: MetaServices | null;
   /** The worker's structured log (ADR 0032): ids, codes, counts and timings only. */
   logger: Logger;
   /** Where listeners queue delayed jobs (a new lead's first-reply check): the same pg-boss. Without it, no checks. */
@@ -126,6 +142,8 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
     logger,
     // A Google Sheet's rows read as a file's do, with the sheet as their origin (the Sheets sync).
     sheetOrigin: sheetOriginOf,
+    // A Meta lead form's earlier leads carry the form as their source detail (the Meta lead ads).
+    metaSource: metaImportSource,
   };
   const { sheets } = dependencies;
   // A file imported after a sheet meets the rows the sheet added (SD15).
@@ -151,6 +169,20 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
           baselineFingerprints: leadSheetBaselineFingerprints(db, sheets.hashes),
         };
   const exportJobs: ExportJobDependencies = { files, spreadsheets, identity, appUrl, logger };
+  // The Meta lead ads' side: the route, the notices, the checks and the import of a form's earlier leads, only when Meta is set up.
+  const { meta = null } = dependencies;
+  const metaJobs = meta === null ? null : metaProcessDependencies(meta.dependencies, { identity, subscriptions });
+  const metaListeners =
+    meta === null || metaJobs === null
+      ? []
+      : [
+          metaRouteListener(meta.dependencies),
+          metaAttentionListener({ identity }),
+          checkMetaPageListener(metaJobs),
+          catchUpBroughtInFormListener(metaJobs),
+          earlierLeadsListener({ ...metaJobs, files, spreadsheets, identity }),
+          matchMetaImportListener({ ...metaJobs, files, spreadsheets, identity, subscriptions }),
+        ];
   return {
     listeners: [
       renderIssuedDocumentListener({ files, render: renderPdf }),
@@ -198,6 +230,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
             attentionListener(sheetsJobs),
             checkLeadSheetListener(sheetsJobs),
           ]),
+      ...metaListeners,
     ],
     handlers: [
       {
@@ -213,6 +246,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
         },
       },
       ...(sheetsJobs === null ? [] : [sheetsCheckHandler(sheetsJobs)]),
+      ...(metaJobs === null ? [] : [metaCatchupHandler(metaJobs)]),
     ],
     schedules: [
       ...(sheets === undefined || sheetsJobs === null
@@ -224,6 +258,20 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
               accounts: sheets.google.accounts().length,
               holds: sheetsJobs.holds,
             }),
+          ]),
+      ...(meta === null || dependencies.jobs === undefined
+        ? []
+        : [
+            metaDispatchSchedule({ db, queue: dependencies.jobs }),
+            {
+              // Each Page's token, subscription and form questions are looked at once a day, in a quiet hour.
+              queue: META_HEALTH_QUEUE,
+              cron: "10 4 * * *",
+              timeZone: "Asia/Kolkata",
+              handle: async () => {
+                await checkAllPages(meta.dependencies, new Date());
+              },
+            },
           ]),
       {
         // Rate-limit windows last a minute; a day's worth is kept for looking into abuse. The job is the platform's,

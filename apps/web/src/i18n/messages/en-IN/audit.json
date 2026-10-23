@@ -143,6 +143,18 @@
       "recovered": "A Google Sheet is working again",
       "problem-hidden": "Hid a row a Google Sheet couldn't add"
     },
+    "meta": {
+      "page-connected": "Connected a Facebook Page for lead ads",
+      "page-paused": "Paused a Facebook Page's lead ads",
+      "page-resumed": "Resumed a Facebook Page's lead ads",
+      "page-reconnected": "Connected a Facebook Page again",
+      "page-disconnected": "Disconnected a Facebook Page",
+      "access-lost": "Lost access to a Facebook Page",
+      "form-brought-in": "Brought in a lead form",
+      "form-questions-changed": "Changed how a lead form's questions are matched",
+      "deleted-by-user": "A Facebook user asked for their connection data to be deleted",
+      "problem-hidden": "Hid a lead from Facebook that couldn't be added"
+    },
     "assignment": {
       "updated": "Changed how new leads are assigned",
       "away-set": "Marked themselves away from, or back to, taking new leads"

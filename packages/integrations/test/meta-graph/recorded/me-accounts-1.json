@@ -1,0 +1,15 @@
+{
+  "data": [
+    {
+      "id": "112233445566778",
+      "name": "Yatra Hikes",
+      "access_token": "EAAB-page-1",
+      "tasks": ["ADVERTISE", "ANALYZE", "CREATE_CONTENT", "MESSAGING", "MODERATE", "MANAGE"]
+    },
+    { "id": "998877665544332", "name": "Reader Only", "access_token": "EAAB-page-2", "tasks": ["ANALYZE"] }
+  ],
+  "paging": {
+    "cursors": { "before": "QVFI", "after": "QVFJ" },
+    "next": "https://graph.facebook.com/v25.0/me/accounts?limit=2&after=QVFJ&access_token=EAAB-user-long"
+  }
+}

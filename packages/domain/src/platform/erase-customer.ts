@@ -6,6 +6,7 @@ import { customerContacts, eraseCustomer, type CustomerSubject } from "../crm/in
 import { deleteRecordFiles } from "../files/index.js";
 import type { Actor } from "../kernel/index.js";
 import { forgetRecordNotifications } from "../notifications/index.js";
+import { withdrawMetaLeads } from "../meta-leads/index.js";
 import { lockSheetConnections, type SheetsHashes, withdrawSheetRows } from "../sheets/index.js";
 import { cancelOpenTasks, redactTaskTitles } from "../tasks/index.js";
 
@@ -52,6 +53,8 @@ export async function eraseCustomerParts(
     contacts,
     now,
   });
+  // Meta's ledger keeps the Meta lead ids (so the catch-up never brings the lead back) and nothing of the person.
+  const meta = await withdrawMetaLeads(tx, { organizationId, personId: subject.personId });
   return {
     leads: leadIds.length,
     ...erased,
@@ -60,5 +63,6 @@ export async function eraseCustomerParts(
     notifications,
     files,
     sheetRowsWithdrawn: sheets.rowsWithdrawn,
+    metaLeadsWithdrawn: meta.leadsWithdrawn,
   };
 }

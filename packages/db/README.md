@@ -27,8 +27,9 @@ transaction to `orgId`'s rows; outside it, queries see nothing.
   included; it refuses `$extends`) refuse them at run time (`UnscopedModelError`). Their own modules reach them inside
   `db.withoutOrg()`: `webhookEvents(tx)` from `@travel-crm/db/webhooks`, `rateLimitCounters(tx)` from
   `@travel-crm/db/rate-limits`, `sheetSchedule(tx)` and `spreadsheetClaims(tx)` from `@travel-crm/db/sheet-schedule`, and `sheetsKeyChecks(tx)` (the one row proving every process holds the same
-  `SHEETS_HASH_KEY`, no `organization_id`) from `@travel-crm/db/sheets-key-check`.
-  ESLint flags raw SQL naming any of them outside its module. The two sheet tables are listed in
+  `SHEETS_HASH_KEY`, no `organization_id`) from `@travel-crm/db/sheets-key-check`. The Meta lead ads' Page route (an `organization_id`, ids and times only,
+  ADR 0034) is the same: `metaRoutes(tx)` from `@travel-crm/db/meta-routes`.
+  ESLint flags raw SQL naming any of them outside its module. The two sheet tables and the Page route are listed in
   `unscopedScheduleTables` (`test/org-table-fixtures.ts`), which the isolation, schema and key tests filter beside
   `signInTables`; `schedule-table.test.ts` fixes their columns and grants.
 
@@ -43,6 +44,7 @@ transaction to `orgId`'s rows; outside it, queries see nothing.
 | `@travel-crm/db/rate-limits`          | the rate-limits module only | `rateLimitCounters(tx)`: the `rate_limit_counter` table, in `db.withoutOrg()`            |
 | `@travel-crm/db/sheet-schedule`       | the sheets schedule only    | `sheetSchedule(tx)`, `spreadsheetClaims(tx)`: the two sheet tables, in `db.withoutOrg()` |
 | `@travel-crm/db/sheets-key-check`     | the api's start-up check    | `sheetsKeyChecks(tx)`: the `sheets_key_check` table, in `db.withoutOrg()`                |
+| `@travel-crm/db/meta-routes`          | the meta-leads routes only  | `metaRoutes(tx)`: the `meta_page_route` table, in `db.withoutOrg()`                      |
 | `@travel-crm/db/testing`              | tests only                  | `createTestOrganization`, `createIsolatedDatabase`, the `DbUrls` type                    |
 | `@travel-crm/db/testing/global-setup` | other packages' Vitest      | the throwaway Postgres; `inject("dbUrls")` in tests                                      |
 

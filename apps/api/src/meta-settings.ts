@@ -1,0 +1,43 @@
+// The Meta lead ads' settings (ADR 0034, spec 13): the five variables the environment holds, read as one value, or none
+// when Meta is off. Nothing in an error or a log ever holds a part of a value: three of them are secrets.
+import type { Environment } from "./environment.js";
+
+export interface MetaSettings {
+  appId: string;
+  /** Signs webhooks, exchanges logins and verifies the deletion callback. */
+  appSecret: string;
+  webhookVerifyToken: string;
+  loginConfigId: string;
+  /** Newest first: new Page tokens are sealed with the first, any opens (M1). */
+  tokenKeys: readonly string[];
+  /** The journeys' fake Graph (development and tests only; refused in production). */
+  graphTestServerUrl: string | null;
+}
+
+/** The settings, or null when Meta is off (environment.ts has already refused a half-set group). */
+export function metaSettingsOf(environment: Environment): MetaSettings | null {
+  const { META_APP_ID: appId, META_APP_SECRET: appSecret, META_WEBHOOK_VERIFY_TOKEN: verifyToken } = environment;
+  const { META_LOGIN_CONFIG_ID: loginConfigId, META_TOKEN_KEY: tokenKeys } = environment;
+  if (
+    appId === undefined ||
+    appSecret === undefined ||
+    verifyToken === undefined ||
+    loginConfigId === undefined ||
+    tokenKeys === undefined
+  ) {
+    return null;
+  }
+  return {
+    appId,
+    appSecret,
+    webhookVerifyToken: verifyToken,
+    loginConfigId,
+    tokenKeys,
+    graphTestServerUrl: environment.META_GRAPH_TEST_SERVER_URL ?? null,
+  };
+}
+
+/** The start-up line for the api and the worker: on or off, and nothing of the values. */
+export function metaStartUpLine(settings: MetaSettings | null): string {
+  return settings === null ? "Meta lead ads: not set up" : "Meta lead ads: on";
+}

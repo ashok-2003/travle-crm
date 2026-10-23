@@ -33,13 +33,15 @@ const insideWebhooks = "src/webhooks/sample.ts";
 const insideRateLimits = "src/rate-limits/sample.ts";
 
 describe("raw database access guard", () => {
-  it("reads the domain package's four overrides", () => {
+  it("reads the domain package's five overrides", () => {
     expect(domainOverrides.map((config) => config.files)).toEqual([
       ["src/identity/**", "test/identity/**"],
       ["src/webhooks/**", "test/webhooks/**"],
       ["src/rate-limits/**", "test/rate-limits/**"],
       // The sheets' schedule is one file, with the tests of the module and of its scale.
       ["src/sheets/schedule.ts", "test/sheets/**", "test/performance/sheets-*"],
+      // The meta-leads' routes are one file too.
+      ["src/meta-leads/routes.ts", "test/meta-leads/**", "test/performance/meta-*"],
     ]);
   });
 
@@ -174,6 +176,22 @@ describe("raw database access guard", () => {
     for (const filePath of [undefined, insideIdentity, insideWebhooks, insideRateLimits, insideSchedule]) {
       expect(await rulesReportedFor("await tx.$queryRaw`" + sql + "`;", filePath)).toEqual(["no-restricted-syntax"]);
     }
+  });
+
+  const metaRouteQueries = [
+    "SELECT organization_id FROM meta_page_route WHERE page_id = ${pageId}",
+    'UPDATE "public"."meta_page_route" SET claimed_until = now()',
+  ];
+
+  it.each(metaRouteQueries)("reports %s outside the meta-leads module's routes.ts", async (sql) => {
+    for (const filePath of [undefined, insideIdentity, insideWebhooks, insideRateLimits, "src/meta-leads/pages.ts"]) {
+      expect(await rulesReportedFor("await tx.$queryRaw`" + sql + "`;", filePath)).toEqual(["no-restricted-syntax"]);
+    }
+  });
+
+  it.each(metaRouteQueries)("allows %s inside the meta-leads module's routes.ts", async (sql) => {
+    expect(await rulesReportedFor("await tx.$queryRaw`" + sql + "`;", "src/meta-leads/routes.ts")).toEqual([]);
+    expect(await rulesReportedFor("await tx.$queryRaw`" + sql + "`;", "test/meta-leads/sample.test.ts")).toEqual([]);
   });
 
   it("keeps the sign-in tables and the organization switch refused inside the webhooks and rate-limits modules", async () => {

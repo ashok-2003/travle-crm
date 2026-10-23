@@ -37,6 +37,8 @@ export interface ImportBatchRow {
   impersonatedBy: string | null;
   /** The Google Sheet connection the import reads, or null for a file. */
   sourceSheetId: string | null;
+  /** The Meta lead form whose leads the import reads (the form's "also the last 30 days" choice), or null. */
+  sourceMetaFormId: string | null;
   createdAt: Date;
   checkedAt: Date | null;
   addRequestedAt: Date | null;

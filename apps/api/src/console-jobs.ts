@@ -11,6 +11,7 @@ import {
   platformJobHandlers,
   RESET_DEMO_QUEUE,
   resetDemoOrganization,
+  metaSweepSchedule,
   sheetsSweepSchedule,
   storedFileDeletionsSchedule,
   websiteFormsSweepSchedule,
@@ -73,6 +74,8 @@ export function consoleJobs(services: PlatformServices, demo: DemoSettings | nul
   const bulkFilesSweep = bulkFilesSweepSchedule(services);
   // The Sheets sync's drafts, resolved problems, schedule rows and claims past their time (S5, S6, S31).
   const sheetsSweep = sheetsSweepSchedule(services);
+  // The Meta lead ads' Pages chosen at Facebook and never confirmed, past a day (spec 5).
+  const metaSweep = metaSweepSchedule(services);
   // The website form's ledger rows older than 90 days (spec 7.2).
   const websiteFormsSweep = websiteFormsSweepSchedule(services);
   return {
@@ -83,6 +86,7 @@ export function consoleJobs(services: PlatformServices, demo: DemoSettings | nul
       expiredExportsSweep,
       bulkFilesSweep,
       sheetsSweep,
+      metaSweep,
       websiteFormsSweep,
       ...demoReset,
     ],

@@ -8,6 +8,7 @@ import { notify } from "../notifications/index.js";
 import { recordCrmAudit } from "./crm-audit.js";
 import { recordLeadEvent } from "./lead-events.js";
 import { resolveTrip, tripColumns } from "./trip-columns.js";
+import type { EnquiryAuditDetail } from "./audit-detail.js";
 
 /**
  * Adds the trip, source and note to the open lead as a repeat enquiry, and tells the lead's owner unless told not to
@@ -22,7 +23,7 @@ export async function addRepeatEnquiry(
     input: { trip: TripInput; source: LeadSource; sourceDetail: string | null; note: string | null };
   },
   now: Date,
-  options: { notifyOwner: boolean; auditDetail?: { formId: string } } = { notifyOwner: true },
+  options: { notifyOwner: boolean; auditDetail?: EnquiryAuditDetail } = { notifyOwner: true },
 ): Promise<void> {
   const { lead, personName, input } = enquiry;
   const trip = await resolveTrip(tx, actor, input.trip);

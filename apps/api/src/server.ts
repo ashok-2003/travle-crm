@@ -4,10 +4,11 @@ import { createSubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { errorFields } from "@travel-crm/integrations/logging";
 import { createApp } from "./app.js";
 import { clientAddressFrom } from "./rate-limit.js";
+import { metaSettingsOf, metaStartUpLine } from "./meta-settings.js";
 import { sheetsStartUpLine } from "./sheets-settings.js";
 import { assertServiceAccountsInPlace } from "./sheets-settings.js";
 import { exitAfterLogs, startProcess, stopOnUnhandledErrors } from "./start-up.js";
-import { webhookProviders } from "./webhook-providers.js";
+import { webhookProvidersOf } from "./webhook-providers.js";
 
 const { environment, services, logger } = await startProcess("api", async ({ services }) => {
   // The list of service accounts is the worker's to follow, but the api shows the address sheets are shared with: it
@@ -32,7 +33,8 @@ const app = createApp({
     headerNames: environment.AUTH_IP_ADDRESS_HEADERS,
     trustedProxies: environment.AUTH_TRUSTED_PROXIES,
   }),
-  webhookProviders,
+  webhookProviders: webhookProvidersOf(services),
+  meta: services.meta,
   logger,
   authSecret: environment.BETTER_AUTH_SECRET,
   appUrl: environment.APP_URL,
@@ -52,6 +54,7 @@ const server = serve({ fetch: app.fetch, port: environment.PORT }, (address) => 
   logger.info({ port: address.port }, "api listening");
   const accounts = environment.GOOGLE_SHEETS_SERVICE_ACCOUNTS?.length ?? 0;
   logger.info({ serviceAccounts: accounts }, sheetsStartUpLine(accounts));
+  logger.info({ meta: metaSettingsOf(environment) !== null }, metaStartUpLine(metaSettingsOf(environment)));
 });
 
 // Container platforms send SIGTERM before stopping an instance: finish open requests, then close the pools.

@@ -64,6 +64,10 @@ const unscopedTableSelectors = {
     message:
       "Only the sheets module's schedule.ts queries sheet_check_schedule and sheet_spreadsheet_claim: they have no row-level security.",
   },
+  metaRoutes: {
+    selector: rawSqlNaming(["meta_page_route"]),
+    message: "Only the meta-leads module's routes.ts queries meta_page_route: it has no row-level security.",
+  },
 };
 
 /** SQL that switches the organization or the session, in a template or a plain string. Every package but db keeps these. */

@@ -1,5 +1,20 @@
-// The webhook providers the api accepts at /webhooks/<name> and the worker processes. The Foundation ships the
-// generic intake and none; later steps add theirs here (Razorpay in step 6, Meta's WhatsApp in step 2).
+// The webhook providers the api accepts at /webhooks/<name> and the worker processes: Meta's lead ads when its settings
+// are set (Razorpay and WhatsApp add theirs here).
 import type { WebhookProvider } from "@travel-crm/domain/webhooks";
+import { metaLeadsProvider } from "./meta-webhook-provider.js";
+import { metaProcessDependencies } from "./meta-services.js";
+import type { Services } from "./services.js";
 
-export const webhookProviders: readonly WebhookProvider[] = [];
+export function webhookProvidersOf(services: Services): readonly WebhookProvider[] {
+  const { meta } = services;
+  if (meta === null) return [];
+  return [
+    metaLeadsProvider({
+      appSecret: meta.settings.appSecret,
+      dependencies: metaProcessDependencies(meta.dependencies, {
+        identity: services.identity,
+        subscriptions: services.subscriptions,
+      }),
+    }),
+  ];
+}

@@ -82,6 +82,22 @@ export function sheetMatchRoute(sheetId: string): string {
   return `${sheetRoute(sheetId)}/match`;
 }
 
+/** The first step of connecting a Facebook Page: Continue with Facebook. */
+export const metaConnectRoute = `${routes.leadSources}/meta/connect`;
+
+/** Where Facebook's dialog sends the browser back (apps/api/src/meta-services.ts holds the same path). */
+export const metaCallbackRoute = `${routes.leadSources}/meta/callback`;
+
+/** A connected Facebook Page's page. */
+export function metaPageRoute(pageId: string): string {
+  return `${routes.leadSources}/meta/pages/${encodeURIComponent(pageId)}`;
+}
+
+/** Matching a Page's form to our fields: the first time (bring in) and again once brought in (questions). */
+export function metaFormRoute(pageId: string, formId: string, step: "bring-in" | "questions"): string {
+  return `${metaPageRoute(pageId)}/forms/${encodeURIComponent(formId)}/${step}`;
+}
+
 /** The visitor's hosted enquiry form, which anyone with the link opens (no sign-in, no storage). */
 export function hostedFormRoute(key: string): string {
   return `/f/${key}`;
@@ -92,9 +108,15 @@ export function embeddedFormRoute(key: string): string {
   return `/embed/${key}`;
 }
 
-/** Whether a path is the hosted or embedded enquiry form, which must open no cache, worker or cookie (W29, ruling F3). */
+/** Meta's data-deletion status page: the address the deletion callback answers, opened by a Facebook user, no one of ours. */
+export const metaDeletionRoute = "/meta/deletion";
+
+/**
+ * Whether a path is a visitor's page (the hosted or embedded enquiry form, or the data-deletion status), which must open
+ * no cache, worker or cookie (W29, ruling F3).
+ */
 export function isPublicFormPath(pathname: string): boolean {
-  return pathname.startsWith("/f/") || pathname.startsWith("/embed/");
+  return pathname.startsWith("/f/") || pathname.startsWith("/embed/") || pathname === metaDeletionRoute;
 }
 
 /** A staff import's page, at whichever step it is. */

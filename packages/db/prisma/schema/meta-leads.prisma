@@ -1,0 +1,173 @@
+// Meta lead ads (spec 5, ADR 0034): an agency's connected Facebook Pages, their lead forms and the questions' matches,
+// and the ledger of Meta leads seen. Organization-owned: row-level security applies (the migration calls app_enable_org_rls
+// on each). None is soft-deleted; the runtime role deletes only question matches. Ids of other modules' records (members,
+// users, leads, people) are plain uuids with no key, as the Sheets tables have them. The last model, the Page route,
+// carries organization_id but sits outside row-level security (ids and times only): OrgTx leaves it out and only the
+// meta-leads module reaches it, in db.withoutOrg(), through @travel-crm/db/meta-routes. Predicates are written as
+// Postgres prints them, so the drift check reads them as equal.
+
+/// One Facebook Page an agency connected (spec 5). A disconnected Page stays, token fields emptied, with its forms,
+/// matches and ledger, so connecting it again resumes (spec 4.6).
+model MetaPage {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId      String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id                  String       @id @default(uuid(7)) @db.Uuid
+  /// Meta's id for the Page.
+  pageId              String       @map("page_id")
+  /// A cache of the Page's name; it may be a business name, so audit entries never hold it.
+  pageName            String       @map("page_name")
+  /// connecting, running, paused, needs_reconnect or disconnected.
+  status              String       @default("connecting")
+  /// The Page access token, sealed with the SecretBox (M1): ciphertext with its tag, the nonce and the key's digest. All null when no token is kept.
+  tokenCiphertext     Bytes?       @map("token_ciphertext")
+  tokenNonce          Bytes?       @map("token_nonce")
+  tokenKeyVersion     Int?         @map("token_key_version")
+  /// user_long_lived or system_user.
+  tokenKind           String?      @map("token_kind")
+  tokenExpiresAt      DateTime?    @map("token_expires_at") @db.Timestamptz(6)
+  /// The app-scoped id of whoever connected it, for the data deletion callback.
+  metaUserId          String       @map("meta_user_id")
+  connectedBy         String       @map("connected_by") @db.Uuid
+  impersonatedBy      String?      @map("impersonated_by") @db.Uuid
+  subscribedAt        DateTime?    @map("subscribed_at") @db.Timestamptz(6)
+  /// When the Page's forms were last read from Meta: they are cached five minutes (M13).
+  formsReadAt         DateTime?    @map("forms_read_at") @db.Timestamptz(6)
+  lastCheckedAt       DateTime?    @map("last_checked_at") @db.Timestamptz(6)
+  lastOkAt            DateTime?    @map("last_ok_at") @db.Timestamptz(6)
+  consecutiveFailures Int          @default(0) @map("consecutive_failures")
+  attentionSince      DateTime?    @map("attention_since") @db.Timestamptz(6)
+  leadsAdded          Int          @default(0) @map("leads_added")
+  leadsMerged         Int          @default(0) @map("leads_merged")
+  leadsDuplicate      Int          @default(0) @map("leads_duplicate")
+  createdAt           DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  disconnectedAt      DateTime?    @map("disconnected_at") @db.Timestamptz(6)
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  forms               MetaForm[]
+
+  /// Lets the forms point at (organization_id, id).
+  @@unique([organizationId, id])
+  /// A Page is connected once per agency while not disconnected (M4 holds across agencies, in meta_page_route).
+  @@unique([organizationId, pageId], map: "meta_page_live", where: raw("(status <> 'disconnected'::text)"))
+  /// The list, newest first.
+  @@index([organizationId, id(sort: Desc)], map: "meta_page_recent")
+  @@map("meta_page")
+}
+
+/// One lead form of a Page, from first sight (M13): not brought in until the person matches its questions.
+model MetaForm {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String             @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String             @id @default(uuid(7)) @db.Uuid
+  /// The meta_page row.
+  metaPageId     String             @map("meta_page_id") @db.Uuid
+  /// Meta's id for the form.
+  formId         String             @map("form_id")
+  /// A cache of the form's name; it is shown to the agency and put in a lead's detail.
+  formName       String             @map("form_name")
+  /// Meta's own status text (ACTIVE, ARCHIVED, ...), as last read.
+  metaStatus     String             @default("ACTIVE") @map("meta_status")
+  /// not_brought_in, running, paused or needs_attention.
+  state          String             @default("not_brought_in")
+  /// Unix seconds of the newest lead fully handled (M15); null until the form is brought in.
+  catchupCursor  BigInt?            @map("catchup_cursor")
+  /// Leads the webhook met while the form was not brought in, for the one notice (Q4).
+  skippedLeads   Int                @default(0) @map("skipped_leads")
+  /// SHA-256 over the form's question keys and types as last read, so a change raises Needs attention (spec 3.4).
+  questionsHash  Bytes?             @map("questions_hash")
+  broughtInAt    DateTime?          @map("brought_in_at") @db.Timestamptz(6)
+  /// When the Owner was told of this form (Q4): once per form.
+  noticeSentAt   DateTime?          @map("notice_sent_at") @db.Timestamptz(6)
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  page           MetaPage           @relation(fields: [organizationId, metaPageId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  questions      MetaFormQuestion[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, formId], map: "meta_form_key")
+  @@index([organizationId, metaPageId], map: "meta_form_page")
+  @@map("meta_form")
+}
+
+/// One question of a brought-in form and the field it holds (M14): found by Meta's question key, never its wording.
+model MetaFormQuestion {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  /// The meta_form row.
+  formRowId      String       @map("form_row_id") @db.Uuid
+  questionKey    String       @map("question_key")
+  /// full_name, first_name, last_name, email, phone, city, state, zip, custom or other.
+  questionType   String       @map("question_type")
+  /// A cache of the question's wording.
+  label          String
+  /// Null: don't import; note: add to the note; or one of the lead import's fields.
+  field          String?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  form           MetaForm     @relation(fields: [organizationId, formRowId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, formRowId, questionKey], map: "meta_form_question_key")
+  @@map("meta_form_question")
+}
+
+/// The ledger of Meta leads seen (M7): one row per Meta lead id, so a delivery, a retry and the catch-up converge. It
+/// holds no answers and no contact; only a problem row keeps a short example name.
+model MetaLead {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  /// Meta's lead id.
+  metaLeadId     String       @map("meta_lead_id")
+  /// Meta's form id.
+  formId         String       @map("form_id")
+  /// pending, added, merged, duplicate, not_added or erased.
+  status         String
+  /// Problem codes as text.
+  reasons        String[]     @default([])
+  leadId         String?      @map("lead_id") @db.Uuid
+  personId       String?      @map("person_id") @db.Uuid
+  createdAtMeta  DateTime?    @map("created_at_meta") @db.Timestamptz(6)
+  /// facebook, instagram or other.
+  platform       String?
+  /// A problem's example: a name, at most 120 characters, emptied on a fix and on erasure.
+  exampleName    String?      @map("example_name")
+  resolvedAt     DateTime?    @map("resolved_at") @db.Timestamptz(6)
+  firstSeenAt    DateTime     @default(now()) @map("first_seen_at") @db.Timestamptz(6)
+  processedAt    DateTime?    @map("processed_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, metaLeadId], map: "meta_lead_key")
+  /// The Page's problem list.
+  @@index([organizationId, formId, firstSeenAt], map: "meta_lead_problems", where: raw("((status = 'not_added'::text) AND (resolved_at IS NULL))"))
+  /// Erasure finds a person's rows.
+  @@index([organizationId, personId], map: "meta_lead_person", where: raw("(person_id IS NOT NULL)"))
+  /// The retry of rows left pending.
+  @@index([organizationId, firstSeenAt], map: "meta_lead_pending", where: raw("(status = 'pending'::text)"))
+  @@map("meta_lead")
+}
+
+/// Which agency a Page belongs to (M4) and when its catch-up is next due: the webhook and the worker find an
+/// organization from a Page id, and the deletion callback from a Meta user id, without entering one. Ids and times only,
+/// no personal data. OUTSIDE ROW-LEVEL SECURITY, an explicit and reviewed exemption: OrgTx leaves the model out and only
+/// the meta-leads module reaches it, in db.withoutOrg(), through @travel-crm/db/meta-routes. A row may be stale (the
+/// catch-up re-reads the Page and removes it).
+model MetaPageRoute {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  /// Meta's id for the Page: unique across every agency, which row-level security would hide (M4).
+  pageId         String       @map("page_id")
+  /// Named as every organization table's is, restricting deletion, but written outside an organization: no default.
+  organizationId String       @map("organization_id") @db.Uuid
+  metaUserId     String       @map("meta_user_id")
+  nextCatchupAt  DateTime     @map("next_catchup_at") @db.Timestamptz(6)
+  /// A dispatched or running catch-up holds the Page until here.
+  claimedUntil   DateTime?    @map("claimed_until") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  /// One agency at a time per Page, across all agencies.
+  @@unique([pageId], map: "meta_page_route_page")
+  /// The dispatcher's claim.
+  @@index([nextCatchupAt], map: "meta_page_route_due")
+  /// The deletion callback's lookup.
+  @@index([metaUserId], map: "meta_page_route_user")
+  @@map("meta_page_route")
+}

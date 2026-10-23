@@ -51,6 +51,8 @@ model ImportBatch {
   /// The Google Sheet connection whose rows this import reads (the Sheets sync's connect-time import); null for a
   /// file. A plain uuid, as the other modules' ids are.
   sourceSheetId      String?            @map("source_sheet_id") @db.Uuid
+  /// The Meta lead form whose leads this import reads (the form's "also the last 30 days" choice); null otherwise. A plain uuid.
+  sourceMetaFormId   String?            @map("source_meta_form_id") @db.Uuid
   createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   checkedAt          DateTime?          @map("checked_at") @db.Timestamptz(6)
   addRequestedAt     DateTime?          @map("add_requested_at") @db.Timestamptz(6)

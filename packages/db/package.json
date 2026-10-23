@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./identity": "./src/identity.ts",
+    "./meta-routes": "./src/meta-routes.ts",
     "./platform": "./src/platform.ts",
     "./rate-limits": "./src/rate-limits.ts",
     "./sheet-schedule": "./src/sheet-schedule.ts",

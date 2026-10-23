@@ -9,8 +9,11 @@ import { ImportProgress } from "@/imports/import-progress";
 import { importRefetchInterval } from "@/imports/import-refetch";
 import { renderAs } from "../organization/render";
 
-const at = (status: ImportDetail["status"], sourceSheet: ImportDetail["sourceSheet"] = null) =>
-  ({ status, sourceSheet }) as ImportDetail;
+const at = (
+  status: ImportDetail["status"],
+  sourceSheet: ImportDetail["sourceSheet"] = null,
+  sourceMetaForm: ImportDetail["sourceMetaForm"] = null,
+) => ({ status, sourceSheet, sourceMetaForm }) as ImportDetail;
 
 /** The visible count, "642 of 1,157 rows": its words in sans, each number in mono (X5). */
 const countLine = (text: string) =>
@@ -32,6 +35,12 @@ describe("an import's progress", () => {
   it("polls a Google Sheet's import while it waits to be matched, which the worker does itself", () => {
     expect(importRefetchInterval(at("matching", { sheetId: "0199e7a0-0000-7000-8000-0000000000e1" }))).toBe(2000);
     expect(importRefetchInterval(at("checked", { sheetId: "0199e7a0-0000-7000-8000-0000000000e1" }))).toBe(false);
+  });
+
+  it("polls a Facebook form's last-30-days import the same way", () => {
+    const form = { formId: "0199e7a0-0000-7000-8000-0000000000f2" };
+    expect(importRefetchInterval(at("matching", null, form))).toBe(2000);
+    expect(importRefetchInterval(at("checked", null, form))).toBe(false);
   });
 
   it("says 642 of 1,157 rows and About a minute left", () => {

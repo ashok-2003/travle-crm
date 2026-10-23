@@ -1,7 +1,7 @@
 "use client";
 
 // The check's "Your choice" group (spec 3.2 step 3, B16, B33): blocked contacts' rows and rows already imported, each
-// left out unless its Checkbox is ticked, and, for an import that reads a Google Sheet, the rows for people who already
+// left out unless its Checkbox is ticked, and, for an import that reads a Google Sheet or a Facebook form, the rows for people who already
 // have a lead with you (the Sheets sync). Ticking sends decide at once: the check isn't run again (B13).
 import type { ImportCounts, ImportDetail } from "@travel-crm/contracts/imports";
 import { useTranslations } from "next-intl";
@@ -51,13 +51,13 @@ function Choice({
 export function CheckChoices({
   counts,
   choices,
-  fromSheet,
+  fromSource,
   disabled,
   onChoose,
 }: {
   counts: ImportCounts;
   choices: Choices;
-  fromSheet: boolean;
+  fromSource: boolean;
   disabled: boolean;
   onChoose: (choices: Choices) => void;
 }) {
@@ -101,7 +101,7 @@ export function CheckChoices({
           </CardContent>
         </Card>
       )}
-      {fromSheet && inCrm > 0 && (
+      {fromSource && inCrm > 0 && (
         <Card>
           <CardHeader>
             <CardTitle role="heading" aria-level={2}>

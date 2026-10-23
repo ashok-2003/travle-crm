@@ -181,6 +181,24 @@ describe("the demo reset", () => {
     expect(new Set(leads.map((lead) => lead.ownerUserId))).toEqual(new Set([users.get("asha"), users.get("ravi")]));
   });
 
+  it("gives the demo two Facebook or Instagram lead ad leads, and reads no Meta", async () => {
+    const { organizationId } = await resetDemoOrganization(test.services, demoSettings());
+    const leads = await test.services.db.forOrg(organizationId, async (tx) => ({
+      ads: await tx.lead.findMany({
+        where: { source: "meta_lead_ad" },
+        select: { sourceDetail: true },
+        orderBy: { sourceDetail: "asc" },
+      }),
+      pages: await tx.metaPage.count(),
+    }));
+    expect(leads.ads.map((lead) => lead.sourceDetail)).toEqual([
+      "Goa Diwali ad \u00b7 Instagram",
+      "Rajasthan winter ad \u00b7 Facebook",
+    ]);
+    // No Page is seeded: it would read Meta on a timer (spec 10).
+    expect(leads.pages).toBe(0);
+  });
+
   it("gives the owner's own number to one customer with an open lead and follow-ups, and no phone to anyone else", async () => {
     const { organizationId } = await resetDemoOrganization(test.services, demoSettings());
     const data = await demoData(organizationId);

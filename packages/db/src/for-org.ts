@@ -22,16 +22,23 @@ type RawStringMethod = "$executeRawUnsafe" | "$queryRawUnsafe";
  * sync's check schedule and spreadsheet claim (an organization_id, but ids, times and a keyed hash only). Every
  * transaction hides them, and so the sheets hash key's check row (no organization_id); only their own modules reach
  * them, in db.withoutOrg(), through @travel-crm/db/webhooks, @travel-crm/db/rate-limits, @travel-crm/db/sheet-schedule
- * and @travel-crm/db/sheets-key-check.
+ * and @travel-crm/db/sheets-key-check. The same holds for the Meta lead ads' Page route (an organization_id, but ids
+ * and times only), through @travel-crm/db/meta-routes.
  */
 export type UnscopedModel =
-  "webhookEvent" | "rateLimitCounter" | "sheetCheckSchedule" | "sheetSpreadsheetClaim" | "sheetsKeyCheck";
+  | "webhookEvent"
+  | "rateLimitCounter"
+  | "sheetCheckSchedule"
+  | "sheetSpreadsheetClaim"
+  | "sheetsKeyCheck"
+  | "metaPageRoute";
 const unscopedModels: readonly string[] = [
   "webhookEvent",
   "rateLimitCounter",
   "sheetCheckSchedule",
   "sheetSpreadsheetClaim",
   "sheetsKeyCheck",
+  "metaPageRoute",
 ] satisfies UnscopedModel[];
 
 /** A transaction with every model, which this package's entry points unwrap. */

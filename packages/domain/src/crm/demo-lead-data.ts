@@ -1,7 +1,7 @@
 // The demo agency's sample data (spec 7): its six destinations, seventeen people and nineteen leads, each lead timed from
 // the reset's `now` on the agency's clock. Every stage is here; Priya Nair returns after a Won trip to Kerala, Arjun
-// Reddy after a Lost one, and the Quick Loans Desk is Not a lead with its email blocked. Two leads came from an import, two from a Google Sheet and two from the website form,
-// so the source shows in the list and on a lead. Notes on four leads;
+// Reddy after a Lost one, and the Quick Loans Desk is Not a lead with its email blocked. Two leads came from an import, two from a Google Sheet, two from the website form and two from a Facebook or
+// Instagram lead ad, so the source shows in the list and on a lead. Notes on four leads;
 // follow-ups two overdue, three due today, two later. demo-leads.ts builds them.
 import type { LeadSource, LeadStage, TripInput } from "@travel-crm/contracts/crm";
 import { addDays, calendarDateIn, instantAt, parseTimeOfDay, startOfDayIn } from "../kernel/index.js";
@@ -90,7 +90,8 @@ export function demoLeads(now: Date, timeZone: string): DemoLead[] {
       stage: "lost",
       destination: "Goa",
       trip: { when: month(-60), adults: 4, tripType: "friends" },
-      source: "instagram",
+      source: "meta_lead_ad",
+      sourceDetail: "Goa Diwali ad · Instagram",
       createdAt: daysAgo(95),
     },
     {
@@ -160,7 +161,8 @@ export function demoLeads(now: Date, timeZone: string): DemoLead[] {
       stage: "contacted",
       destination: "Rajasthan",
       trip: { when: month(75), adults: 2, childrenAges: [10, 6], tripType: "family", departureCity: "Delhi" },
-      source: "walk_in",
+      source: "meta_lead_ad",
+      sourceDetail: "Rajasthan winter ad · Facebook",
       createdAt: daysAgo(5),
       followUp: { title: "Send the Jaipur and Udaipur plan", dueAt: laterToday(0.7) },
     },

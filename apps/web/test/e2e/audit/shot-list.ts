@@ -361,6 +361,23 @@ export const SHOTS = [
     screen: "A lead's person card with the offers consent line (switch on)",
     as: owner,
   },
+  // Meta lead ads: Facebook and Instagram lead forms become leads by themselves.
+  { name: "meta-lead-sources", screen: "Lead sources with two Pages: Running and Needs reconnecting", as: owner },
+  { name: "meta-connect", screen: "Connect a Page: what we do, and Continue with Facebook", as: owner },
+  { name: "meta-callback-choose", screen: "Choose your Pages: ready, not allowed", as: owner },
+  { name: "meta-callback-cancelled", screen: "Facebook's dialog cancelled: the sentence and Start again", as: owner },
+  { name: "meta-page", screen: "A Page's page: forms (brought in, not brought in), counts", as: owner },
+  { name: "meta-page-problems", screen: "A Page's page with leads that couldn't be added", as: owner },
+  { name: "meta-bring-in", screen: "Bring in a form: its questions matched, the choice of earlier leads", as: owner },
+  { name: "meta-bring-in-confirm", screen: "Bring in a form: the confirmation", as: owner },
+  { name: "meta-questions", screen: "Edit a brought-in form's questions, one new", as: owner },
+  { name: "meta-page-needs-reconnect", screen: "A Page Facebook stopped sharing: Reconnect", as: owner },
+  { name: "meta-page-expiring", screen: "A Page whose access ends in three days", as: owner },
+  { name: "meta-page-paused", screen: "A paused Page: Resume", as: owner },
+  { name: "meta-page-form-changed", screen: "A Page with a form whose questions changed", as: owner },
+  { name: "meta-disconnect", screen: "Disconnect Page: the question", as: owner },
+  { name: "meta-import-check", screen: "The last 30 days of a form at the import's preview", as: owner },
+  { name: "meta-page-read-only", screen: "A Page while the subscription is read-only", as: owner },
 ] as const satisfies readonly Shot[];
 
 export type ShotName = (typeof SHOTS)[number]["name"];

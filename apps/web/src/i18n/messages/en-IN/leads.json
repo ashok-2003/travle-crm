@@ -20,7 +20,7 @@
     "bulk_upload": "Import",
     "web_form": "Website form",
     "integration": "Another tool",
-    "meta_lead_ad": "Meta lead ad",
+    "meta_lead_ad": "Facebook or Instagram lead ad",
     "whatsapp": "WhatsApp",
     "package_page": "Package page"
   },
@@ -105,6 +105,7 @@
     "sheet": "Sheet ''{name}'', the first of {count}",
     "sheetOnly": "Sheet ''{name}''",
     "fromSheet": "From your Google Sheet. New rows added to the sheet meanwhile are being added by the sheet itself.",
+    "fromMetaForm": "From your Facebook or Instagram lead form, the last 30 days. New answers meanwhile are becoming leads by themselves.",
     "loadFailed": "We couldn't load this import.",
     "recentFailed": "We couldn't load your recent imports.",
     "match": {
@@ -530,7 +531,7 @@
         "bulk_upload": "Lead added from an import",
         "web_form": "Lead added from the website form",
         "integration": "Lead added from another tool",
-        "meta_lead_ad": "Lead added from a Meta lead ad",
+        "meta_lead_ad": "Lead added from a Facebook or Instagram lead ad",
         "whatsapp": "Lead added from WhatsApp",
         "package_page": "Lead added from a package page"
       },
