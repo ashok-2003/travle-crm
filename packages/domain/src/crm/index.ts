@@ -6,6 +6,24 @@ export { changeEachLead } from "./bulk-changes.js";
 export { checkFirstReply, FIRST_REPLY_CHECK_QUEUE, scheduleFirstReplyCheckListener } from "./first-reply-alert.js";
 export { notifyUnassignedLeadListener } from "./unassigned-notice.js";
 export { consentStateOf, recordConsent, withdrawConsent } from "./consent.js";
+export {
+  agencyFactsOf,
+  catchUpBroughtInFormListener,
+  earlierLeadsListener,
+  matchMetaImportListener,
+  catchUpPage,
+  checkMetaPageListener,
+  mayBringIn,
+  metaCatchupHandler,
+  processLeadgenChange,
+  receiveMetaLead,
+  retryMetaLead,
+  type AgencyFacts,
+  type CatchUpResult,
+  type EarlierLeadsDependencies,
+  type ChangeResult,
+  type MetaProcessDependencies,
+} from "./lead-meta/index.js";
 export { createLead } from "./create-lead.js";
 export { customerContacts, type CustomerContacts } from "./customer-contacts.js";
 export { eraseCustomer, exportCustomer, type CustomerSubject, type ErasedCustomer } from "./customer-erasure.js";

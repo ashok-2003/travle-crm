@@ -38,6 +38,8 @@ export interface LeadRowContext {
   timeZone: string;
   /** Set when a Google Sheet's rows are being read (the Sheets sync): its source, time zone and date locale. */
   origin?: SheetOrigin;
+  /** Set when a Meta lead ad's answers are being read: the lead's source and detail, whatever the file or sheet says. */
+  source?: { source: LeadSource; detail: string };
 }
 
 /** A row's contacts as stored: E.164, a lower-case email, a handle without "@"; null when it has none we can use. */
@@ -133,6 +135,11 @@ function readEnquiryDate(
 }
 
 function sourceOf(context: LeadRowContext, theirSource: string | null): { source: LeadSource; detail: string } {
+  if (context.source) {
+    // A Meta form's leads: the form's name, then the platform each lead came by, as a live lead's detail reads.
+    const detail = theirSource === null ? context.source.detail : `${context.source.detail} \u00b7 ${theirSource}`;
+    return { source: context.source.source, detail: detail.slice(0, MAX_SOURCE_DETAIL) };
+  }
   const base = context.origin?.detail ?? context.fileName;
   const detail = theirSource === null ? base : `${base} · ${theirSource}`;
   return {

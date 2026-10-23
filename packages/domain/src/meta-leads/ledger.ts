@@ -69,6 +69,21 @@ export async function claimLedger(
   return row;
 }
 
+/**
+ * The lead's row, locked until the transaction ends (made pending when there is none): a delivery and the catch-up that
+ * meet at once take turns here, and the second finds the first's outcome and saves nothing (M7 step 3, 8.2).
+ */
+export async function holdLedger(
+  tx: OrgTx,
+  input: { metaLeadId: string; formId: string; now: Date },
+): Promise<LedgerRow> {
+  const row = await claimLedger(tx, input);
+  await tx.$queryRaw`SELECT id FROM meta_lead WHERE id = ${row.id}::uuid FOR UPDATE`;
+  const held = await ledgerRowOf(tx, input.metaLeadId);
+  if (held === null) throw new Error("The ledger row vanished while it was held");
+  return held;
+}
+
 export type LedgerOutcome =
   | { status: "added" | "merged"; leadId: string; personId: string }
   | { status: "duplicate"; leadId: string | null; personId: string | null }

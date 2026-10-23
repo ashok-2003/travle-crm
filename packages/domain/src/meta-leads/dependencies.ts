@@ -17,6 +17,12 @@ export interface MetaLoginSettings {
   redirectUri: string;
 }
 
+/** The per-organization Graph budget (8.1): the limits' constants unless a test gives smaller ones. */
+export interface GraphBudget {
+  perHour: number;
+  catchupPerHour: number;
+}
+
 export interface MetaDependencies {
   db: Database;
   graph: MetaGraph | null;
@@ -24,6 +30,7 @@ export interface MetaDependencies {
   limiter: RateLimiter;
   login: MetaLoginSettings | null;
   logger: Logger;
+  graphBudget?: GraphBudget;
 }
 
 /** The Graph port and the box, or the refusal that Meta is not set up. */

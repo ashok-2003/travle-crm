@@ -24,15 +24,16 @@ const hour = 3600;
 /** Whether the lane may make a call now; the hit is counted either way. */
 async function withinBudget(dependencies: MetaDependencies, organizationId: string, lane: GraphLane): Promise<boolean> {
   const { limiter } = dependencies;
+  const budget = dependencies.graphBudget ?? { perHour: graphCallsPerHour, catchupPerHour: catchupGraphCallsPerHour };
   if (lane === "interactive") return true;
   if (lane === "catchup") {
     const share = await limiter.hit(`meta-graph:${organizationId}:catchup`, {
-      limit: catchupGraphCallsPerHour,
+      limit: budget.catchupPerHour,
       windowSeconds: hour,
     });
     if (!share.allowed) return false;
   }
-  const whole = await limiter.hit(`meta-graph:${organizationId}`, { limit: graphCallsPerHour, windowSeconds: hour });
+  const whole = await limiter.hit(`meta-graph:${organizationId}`, { limit: budget.perHour, windowSeconds: hour });
   if (!whole.allowed) return false;
   const platform = await limiter.hit("meta-graph:platform", { limit: platformGraphCallsPerHour, windowSeconds: hour });
   if (!platform.allowed) {

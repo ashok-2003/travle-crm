@@ -152,6 +152,7 @@ export async function importDetail(
       addInCrm: batch.addInCrm,
     },
     sourceSheet: batch.sourceSheetId === null ? null : { sheetId: batch.sourceSheetId },
+    sourceMetaForm: batch.sourceMetaFormId === null ? null : { formId: batch.sourceMetaFormId },
     counts: batch.checkedAt === null ? null : await importCounts(tx, batch),
     progress: {
       rowsTotal: batch.rowsTotal,

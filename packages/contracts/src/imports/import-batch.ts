@@ -126,6 +126,11 @@ export const importDetail = z.object({
   choices: z.object({ addBlocked: z.boolean(), addAlreadyImported: z.boolean(), addInCrm: z.boolean() }),
   /** The Google Sheet connection the import reads (the Sheets sync's connect-time import); null for a file. */
   sourceSheet: z.object({ sheetId: recordId }).nullable(),
+  /**
+   * The Meta lead form whose last 30 days of leads the import reads; null otherwise. Like a sheet's import it reads
+   * its rows' contacts against the CRM, so the preview offers the "Already in your CRM" group.
+   */
+  sourceMetaForm: z.object({ formId: recordId }).nullable(),
   /** Null until the check has run. */
   counts: importCounts.nullable(),
   progress: z.object({

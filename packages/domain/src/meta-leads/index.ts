@@ -38,6 +38,7 @@ export {
 export { leadAsRow, withoutPhonePrefix, type LeadAsRow } from "./lead-as-row.js";
 export {
   claimLedger,
+  holdLedger,
   isSettled,
   ledgerRowOf,
   stalePending,
@@ -81,3 +82,11 @@ export { checkPageHealth, type HealthOutcome } from "./health.js";
 export { sweepMeta, type MetaSwept } from "./sweep.js";
 export { clearedToken, openPageToken, sealPageToken, tokenContext } from "./tokens.js";
 export { badgeOf, hideProblem, listPages, metaProblems, pageDetailOf, type MetaPageDetailFacts } from "./views.js";
+export {
+  dispatchDueCatchups,
+  META_CATCHUP_QUEUE,
+  META_DISPATCH_QUEUE,
+  metaDispatchSchedule,
+  type MetaDispatchDependencies,
+} from "./dispatch.js";
+export { metaImportSource } from "./import-source.js";
