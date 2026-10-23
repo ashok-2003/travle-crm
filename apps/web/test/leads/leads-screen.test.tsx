@@ -154,7 +154,10 @@ describe("LeadsScreen", () => {
     });
     expect(within(chips).getByRole("radio", { name: /^Contacted/ })).toBeChecked();
     // The counts are for the same view and filters, whatever the stage.
-    expect(inputsTo("leads.counts")).toEqual([{ view: "mine" }]);
+    // (The Unassigned tab's own count, for whoever assigns leads, is asked apart.)
+    expect(inputsTo("leads.counts").filter((input) => (input as { view: string }).view !== "unassigned")).toEqual([
+      { view: "mine" },
+    ]);
   });
 
   it("marks each stage chip with its stage's dot, the chosen one with a check instead", async () => {

@@ -35,7 +35,7 @@ import { LeadsTable, tableColumns } from "./leads-table";
 import { isFiltered, listFiltersHref, listFiltersOf, type FiltersToShow } from "./list-filters";
 import { SearchField } from "./search-field";
 import { isChipStage, StageChips } from "./stage-chips";
-import { useLeadCounts, useLeads } from "./use-leads";
+import { useLeadCounts, useLeads, useUnassignedCount } from "./use-leads";
 import { useListSearch } from "./use-list-search";
 
 export function LeadsScreen() {
@@ -48,13 +48,14 @@ export function LeadsScreen() {
   const input = { ...filters, ...(search !== "" && { search }) };
   const leads = useLeads(input);
   const counts = useLeadCounts(input);
+  // Only someone who assigns leads works the queue, so only they are told how many wait in it.
+  const assigns = useHolds("leads:assign");
+  const waiting = useUnassignedCount(!ownOnly && assigns);
   const wide = useWideScreen();
   // On a computer, whoever may change leads chooses some for a bulk change; a new filter or search starts afresh.
   const bulk = useHolds("leads:edit") && wide;
   const selection = useLeadSelection(JSON.stringify(input));
-  const blockedContacts = useHolds("leads:assign") && (
-    <TextLink href={routes.blockedContacts}>{t("blockedContacts")}</TextLink>
-  );
+  const blockedContacts = assigns && <TextLink href={routes.blockedContacts}>{t("blockedContacts")}</TextLink>;
   // Clear filters empties the search box too, by giving it a fresh start.
   const [searchBox, setSearchBox] = useState(0);
   // With no leads at all, a chip row of zeros says nothing the empty list doesn't: the chips go without counts.
@@ -132,7 +133,11 @@ export function LeadsScreen() {
         <TabsList className="w-full md:w-fit" aria-label={t("whose")}>
           <TabsTrigger value="mine">{t("mine")}</TabsTrigger>
           <TabsTrigger value="everyone">{t("everyone")}</TabsTrigger>
-          {features.automaticAssignment && <TabsTrigger value="unassigned">{t("unassigned")}</TabsTrigger>}
+          {features.automaticAssignment && (
+            <TabsTrigger value="unassigned">
+              {waiting === null || waiting === 0 ? t("unassigned") : t("unassignedWaiting", { count: waiting })}
+            </TabsTrigger>
+          )}
         </TabsList>
       )}
       <SearchField key={searchBox} initial={search} onSearch={setSearch} />

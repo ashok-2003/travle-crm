@@ -230,6 +230,7 @@
     "clearFilters": "Clear filters",
     "blockedContacts": "Blocked contacts",
     "unassigned": "Unassigned",
+    "unassignedWaiting": "Unassigned ({count})",
     "noBudget": "Not given",
     "columns": {
       "name": "Name",
@@ -257,7 +258,7 @@
       "apply": "Show leads"
     },
     "countsFailed": "The counts didn't load.",
-    "emptyUnassigned": "No lead is waiting for an owner. Leads land here when nobody in the turns is available."
+    "emptyUnassigned": "No lead is waiting for an owner. A lead lands here when the turns have nobody to give it to: the pool is empty, or everyone in it is away."
   },
   "form": {
     "title": "New lead",
@@ -536,6 +537,15 @@
       "problems": {
         "required": "Write the note.",
         "tooLong": "Use at most 4,000 characters."
+      },
+      "assigned": {
+        "returning": "Assigned to {name}, who owned this customer's earlier lead.",
+        "rule": "Assigned to {name} by rule {number}.",
+        "turns": "Assigned to {name}, whose turn it was.",
+        "fewest_open": "Assigned to {name}, who had the fewest open leads.",
+        "owner": "Assigned to {name}, the Owner.",
+        "none": "Nobody could take it, so it waits in Unassigned.",
+        "away": "{name} is away. Reassign it if someone else should have it."
       }
     }
   },
