@@ -23,9 +23,9 @@
   us as an echo; groups never sync; messages sent from the product are charged at Meta's rates, phone-app ones are free;
   a daily template limit and a warning when the number's quality rating drops protect the agency's number.
 
-## 0. Questions for the owner
+## 0. The owner's decisions (2026-10-23)
 
-Six, in plain words. Each has my default; if you say nothing, I build the default.
+The owner chose the default in all six (2026-10-23). They are binding: build exactly these.
 
 1. **Who sees which chats?** Default: **the same people who see the lead.** A salesperson sees chats of their own leads, a
    manager or owner sees all, and anyone who can edit a lead can reply. Why: it is the rule you already set in the scope
