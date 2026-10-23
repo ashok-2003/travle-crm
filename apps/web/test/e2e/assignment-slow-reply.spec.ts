@@ -29,6 +29,8 @@ test("a lead with no reply past the limit alerts the Owner; an answered one does
     ).toBeVisible();
   }).toPass({ timeout: 180_000, intervals: [5_000] });
   const panel = page.getByRole("dialog", { name: "Notifications" });
-  await expect(panel.getByText("Meera Pillai")).toBeVisible();
-  await expect(panel.getByText("Dev Kapoor")).toHaveCount(0);
+  // Only the unanswered lead has the alert; both have their "assigned to you" notice.
+  const alerts = panel.getByRole("link", { name: /A new lead is waiting for a reply/ });
+  await expect(alerts).toHaveCount(1);
+  await expect(alerts.getByText("Meera Pillai")).toBeVisible();
 });

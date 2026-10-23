@@ -22,7 +22,7 @@ test("away skips Priya, then Ravi; the lead waits in Unassigned and the Owner re
   const priyasPage = await priyasPhone.newPage();
   await signInByCode(priyasPage, { code: agency.code, staff: team.priya });
   await priyasPage.goto("/today");
-  await expect(priyasPage.getByText("New leads in turn")).toBeVisible();
+  await expect(priyasPage.getByText("New leads in turn", { exact: true })).toBeVisible();
   await priyasPage.getByRole("button", { name: "Away for 3 days" }).click();
   await expect(priyasPage.getByText(/You're away until/)).toBeVisible();
   const toRavi = await visitors.enquire({ name: "Meera Pillai" });
