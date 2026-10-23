@@ -1,0 +1,13 @@
+{
+  "events": [
+    {
+      "customerNumber": "919876543210",
+      "integratedNumber": "918888800000",
+      "uuid": "wamid.B1",
+      "direction": "0",
+      "contentType": "text",
+      "text": "one"
+    },
+    { "customerNumber": "919876543210", "integratedNumber": "918888800000", "uuid": "wamid.B2", "eventName": "read" }
+  ]
+}
