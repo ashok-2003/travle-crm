@@ -1,6 +1,5 @@
 // One row of the lead import's add (spec B26, B31, D19): decided again against the database as it is now (a contact
 // blocked since the check, a lead added by hand meanwhile, an owner who left), then saved through the one save path.
-import { features } from "@travel-crm/contracts/features";
 import type { RowReason } from "@travel-crm/contracts/imports";
 import type { OrgTx } from "@travel-crm/db";
 import { fingerprintHex, rowFingerprint, type ImportBatchRow, type RowOutcomeRecord } from "../../imports/index.js";
@@ -62,9 +61,8 @@ export async function addRow(
     ownerUserId,
     stage: reading.stage,
     createdAt: reading.createdAt,
-    // A row naming no owner, in an import that chose none, goes by the agency's assignment (release C), once it's on.
-    ...(features.automaticAssignment &&
-      ownerUserId === decision.defaultOwner &&
+    // A row naming no owner, in an import that chose none, goes by the agency's assignment (release 4).
+    ...(ownerUserId === decision.defaultOwner &&
       decision.batch.defaultOwnerUserId === null && { assign: { workers: decision.workers } }),
   });
   return {

@@ -2,7 +2,6 @@
 // webhook processing job, and the scheduled jobs, built from the process's services. The api and the worker are one
 // image; `worker.ts` starts this side. The platform's own jobs, which need the platform role (the subscription
 // lifecycle among them), run in the console process instead (console-jobs.ts).
-import { features } from "@travel-crm/contracts/features";
 import type { Database } from "@travel-crm/db";
 import {
   addLeadImportListener,
@@ -170,7 +169,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       identity.inviteListener({ email, appUrl, limiter: rateLimiter }),
       handOverDepartingMemberListener({ firstOwner: (organizationId) => identity.firstOwner(organizationId) }),
       // The slow-reply alert (release C): each new lead's check, queued for when its wait runs out.
-      ...(dependencies.jobs === undefined || !features.automaticAssignment
+      ...(dependencies.jobs === undefined
         ? []
         : [
             scheduleFirstReplyCheckListener({

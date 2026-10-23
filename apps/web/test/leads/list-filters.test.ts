@@ -43,8 +43,9 @@ describe("listFiltersOf", () => {
     expect(listFiltersOf(address(`owner=${ravi}`), "all")).toEqual({ view: "mine", stage: "open", limit: 25 });
   });
 
-  it("has no Unassigned queue while automatic assignment is off: ?view=unassigned opens Mine", () => {
-    expect(listFiltersOf(address("view=unassigned"), "all")).toEqual({ view: "mine", stage: "open", limit: 25 });
+  it("opens the Unassigned queue for whoever sees all leads, and Mine for anyone else", () => {
+    expect(listFiltersOf(address("view=unassigned"), "all")).toEqual({ view: "unassigned", stage: "open", limit: 25 });
+    expect(listFiltersOf(address("view=unassigned"), "own")).toEqual({ view: "mine", stage: "open", limit: 25 });
   });
 
   it("never reads a search from the address, even an old link's ?q=", () => {

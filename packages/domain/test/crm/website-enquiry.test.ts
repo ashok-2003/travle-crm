@@ -10,7 +10,7 @@ import { anAgency, anOpenForm, createTestForms, testNow, type TestForms } from "
 import { aLead, aPerson, freshPhone } from "./support/records.js";
 
 vi.mock("@travel-crm/contracts/features", () => ({
-  features: { marketingConsent: false, automaticAssignment: false },
+  features: { marketingConsent: false },
 }));
 
 describe("receiving a website enquiry", () => {

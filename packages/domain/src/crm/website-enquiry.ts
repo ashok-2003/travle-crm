@@ -174,8 +174,8 @@ export async function receiveWebsiteEnquiry(
     stage: "new",
     createdAt: null,
     notify: "each",
-    // As imports and Sheets do: the agency's rules and mode apply only once automatic assignment is on (W7).
-    ...(features.automaticAssignment ? { assign: { workers: context.workers } } : {}),
+    // As imports and Sheets do: the agency's rules and mode decide the owner (W7, release 4).
+    assign: { workers: context.workers },
     unverified: true,
     auditDetail: { formId: form.id },
   });

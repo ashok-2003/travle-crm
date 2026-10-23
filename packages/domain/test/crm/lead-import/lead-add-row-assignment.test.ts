@@ -1,6 +1,5 @@
-// Automatic assignment is off until release 4 (features.automaticAssignment): an import row that names no owner goes
-// to the default owner, as in release 2, and the save path is never asked to choose an owner. With the switch on, the
-// row is handed to the agency's assignment. No database: the save path is replaced.
+// An import row that names no owner is handed to the agency's assignment (release 4); one that names an owner, or an
+// import that chose a default owner, is not. No database: the save path is replaced.
 import type { OrgTx } from "@travel-crm/db";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LeadLookups } from "../../../src/crm/lead-import/lead-lookups.js";
@@ -8,8 +7,6 @@ import type { MemberAccess } from "../../../src/identity/index.js";
 import type { ImportBatchRow } from "../../../src/imports/index.js";
 import { parseCalendarDate } from "../../../src/kernel/index.js";
 
-const switches = vi.hoisted(() => ({ automaticAssignment: false }));
-vi.mock("@travel-crm/contracts/features", () => ({ features: switches }));
 const saveEnquiry = vi.hoisted(() => vi.fn());
 vi.mock("../../../src/crm/save-enquiry.js", () => ({ saveEnquiry }));
 
@@ -63,18 +60,24 @@ describe("an import row that names no owner", () => {
     saveEnquiry.mockResolvedValue({ outcome: "created", leadId: "lead", personId: "person" });
   });
 
-  it("goes to the default owner, with no assignment asked for, while automatic assignment is off", async () => {
-    switches.automaticAssignment = false;
+  it("is handed to the agency's assignment, with the lead workers to choose among", async () => {
     await add();
     expect(saveEnquiry).toHaveBeenCalledOnce();
     const options = saveEnquiry.mock.calls[0]?.[4] as Record<string, unknown>;
-    expect(options).toMatchObject({ from: "import", ownerUserId: DEFAULT_OWNER });
-    expect(options).not.toHaveProperty("assign");
+    expect(options).toMatchObject({
+      from: "import",
+      ownerUserId: DEFAULT_OWNER,
+      assign: { workers: decision.workers },
+    });
   });
 
-  it("is handed to the agency's assignment once it is on", async () => {
-    switches.automaticAssignment = true;
-    await add();
-    expect(saveEnquiry.mock.calls[0]?.[4]).toHaveProperty("assign");
+  it("is not, when the import chose a default owner", async () => {
+    await addRow(
+      {} as OrgTx,
+      { ...decision, batch: { ...decision.batch, defaultOwnerUserId: WORKER } },
+      { rowNumber: 2, plan: "new" },
+      reading,
+    );
+    expect(saveEnquiry.mock.calls[0]?.[4]).not.toHaveProperty("assign");
   });
 });

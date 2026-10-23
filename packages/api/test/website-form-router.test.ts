@@ -6,7 +6,7 @@ import { publicFormOf } from "../src/public-form.js";
 import { anAgency, callerOf, createHarness, refusal, type Harness } from "./forms-support.js";
 
 vi.mock("@travel-crm/contracts/features", () => ({
-  features: { marketingConsent: false, automaticAssignment: false },
+  features: { marketingConsent: false },
 }));
 
 const settings = {

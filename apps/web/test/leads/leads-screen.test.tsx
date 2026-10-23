@@ -78,12 +78,12 @@ describe("LeadsScreen", () => {
     renderLeads();
     const whose = await screen.findByRole("tablist", { name: list.whose });
     expect(within(whose).getByRole("tab", { name: list.mine })).toHaveAttribute("aria-selected", "true");
-    // No Unassigned queue until automatic assignment is on (release 4).
+    // The Unassigned queue is there too (its label carries a count once the owner has one waiting).
     expect(
       within(whose)
         .getAllByRole("tab")
         .map((tab) => tab.textContent),
-    ).toEqual([list.mine, list.everyone]);
+    ).toEqual([list.mine, list.everyone, list.unassigned]);
     await userEvent.click(within(whose).getByRole("tab", { name: list.everyone }));
     expect(address.href).toBe("/leads?view=everyone");
     await waitFor(() => {

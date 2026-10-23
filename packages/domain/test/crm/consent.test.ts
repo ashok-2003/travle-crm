@@ -10,7 +10,7 @@ import { memberWithStarterRole } from "../identity/rule-helpers.js";
 import { anAgency, anOpenForm, createTestForms, testNow, type TestForms } from "../website-forms/support.js";
 import { aPerson, freshPhone } from "./support/records.js";
 
-vi.mock("@travel-crm/contracts/features", () => ({ features: { marketingConsent: true, automaticAssignment: false } }));
+vi.mock("@travel-crm/contracts/features", () => ({ features: { marketingConsent: true } }));
 
 describe("consent", () => {
   let test: TestForms;

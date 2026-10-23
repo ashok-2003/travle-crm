@@ -9,7 +9,9 @@ const hours: WorkingHours = { workdays: MONDAY_TO_SATURDAY, opensMinute: 10 * 60
 const india = (local: string) => new Date(`${local}+05:30`);
 const due = (start: string, minutes: number, schedule = hours) =>
   addWorkingMinutes(india(start), minutes, schedule, "Asia/Kolkata").toISOString();
-const expectLocal = (iso: string, local: string) => { expect(iso).toBe(india(local).toISOString()); };
+const expectLocal = (iso: string, local: string) => {
+  expect(iso).toBe(india(local).toISOString());
+};
 
 describe("addWorkingMinutes", () => {
   it("adds straight on inside the hours", () => {

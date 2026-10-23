@@ -3,7 +3,6 @@
 // way to an import that is adding; leaves out a row that already has an outcome; applies the rules again to the database
 // as it is now (a contact blocked since the plan, the same row added meanwhile); saves through the one save path; and writes
 // each outcome and the counters in the same transaction.
-import { features } from "@travel-crm/contracts/features";
 import type { OrgTx } from "@travel-crm/db";
 import type { MemberAccess } from "../../identity/index.js";
 import { isAnyImportAdding } from "../../imports/index.js";
@@ -216,9 +215,8 @@ export async function saveSheetBatch(
           stage: "new",
           createdAt: reading.createdAt,
           notify: context.summarised.has(ownerUserId) ? "none" : "each",
-          // A row naming no owner goes by the agency's assignment (release C), once it's on.
-          ...(features.automaticAssignment &&
-            ownerUserId === context.defaultOwnerUserId && { assign: { workers: context.workers } }),
+          // A row naming no owner goes by the agency's assignment (release 4).
+          ...(ownerUserId === context.defaultOwnerUserId && { assign: { workers: context.workers } }),
         });
         const created = saved.outcome === "created";
         counts[created ? "added" : "merged"] += 1;

@@ -68,6 +68,8 @@ function answer(call: Call): Reply {
     const last = items.at(-1);
     return { data: { items, nextCursor: next && last ? idOf(last) : null } };
   }
+  // Whether the person takes new leads in turn, for the away switch above the day: not in the pool here.
+  if (call.path === "assignment.mine") return { data: { inPool: false, awayUntil: null } };
   if (call.path === "leads.counts") {
     return { data: { open: 3, new: day.summary.counts.newLeads, contacted: 0, quote_sent: 0, booking_requested: 0 } };
   }
@@ -195,7 +197,7 @@ describe("TodayScreen", () => {
     for (const section of Object.values(words.sections)) {
       expect(screen.queryByRole("region", { name: section })).toBeNull();
     }
-    expect(api.calls.map((call) => call.path)).toEqual(["today.summary"]);
+    expect(api.calls.map((call) => call.path)).toEqual(["assignment.mine", "today.summary"]);
   });
 
   it("shows the skeleton, the error with Try again, and a refusal's sentence", async () => {

@@ -9,8 +9,6 @@ import { paidSubscription } from "../organization/api";
 import { stubApi } from "../support/api-stub";
 import { inputsTo, renderScreen, salesperson } from "./screen";
 
-vi.mock("@travel-crm/contracts/features", () => ({ features: { automaticAssignment: true } }));
-
 const words = messages.leads.away;
 const NOW = new Date("2026-10-23T05:30:00Z");
 

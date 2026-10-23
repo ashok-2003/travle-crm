@@ -10,7 +10,6 @@ import { aListItem, aPage, counts } from "./records";
 import { inputsTo, owner, renderScreen, salesperson } from "./screen";
 
 vi.mock("next/navigation", () => import("./navigation"));
-vi.mock("@travel-crm/contracts/features", () => ({ features: { automaticAssignment: true } }));
 
 beforeEach(() => {
   address.set("/leads");

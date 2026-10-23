@@ -2,7 +2,6 @@
 // from a lead and a shared link keep them. They are read with the api's own rules: a value it would refuse is left
 // out, and a salesperson, who only ever sees their own leads, has no view or owner to choose. Only ids and fixed values
 // go there: the search, a name or a phone, never does (use-list-search.ts keeps it in the tab).
-import { features } from "@travel-crm/contracts/features";
 import { leadSource, leadStage, tripType, type ListLeadsInput } from "@travel-crm/contracts/crm";
 import { recordId } from "@travel-crm/contracts/identity";
 import type { z } from "zod";
@@ -36,7 +35,7 @@ export function listFiltersOf(search: Pick<URLSearchParams, "get">, scope: "own"
   };
   const asked = search.get(names.view);
   // Everyone's and the Unassigned queue are for whoever sees all leads; anyone else sees their own.
-  const queue = features.automaticAssignment && asked === "unassigned";
+  const queue = asked === "unassigned";
   const view = scope === "all" && (asked === "everyone" || queue) ? asked : "mine";
   const ownerUserId = view === "everyone" ? read(recordId, "ownerUserId") : undefined;
   const source = read(leadSource, "source");

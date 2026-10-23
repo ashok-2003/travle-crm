@@ -3,7 +3,6 @@
 // The settings screen's way to the organization's other settings: each section shown to the roles that may use it
 // (spec 11: navigation follows the caller's permissions), and a business module's only on a plan with it (R51:
 // Destinations and Blocked contacts are crm's). Hiding is a convenience; the api refuses the rest.
-import { features } from "@travel-crm/contracts/features";
 import type { PlanModule } from "@travel-crm/contracts/subscriptions";
 import {
   BanIcon,
@@ -88,7 +87,6 @@ export function SettingsSections() {
   const modules = useSubscription().data?.modules;
   const shown = sections.filter(
     (section) =>
-      (section.key !== "assignment" || features.automaticAssignment) &&
       [section.requires].flat().every((permission) => holds(me, permission)) &&
       isOnPlan({ module: section.module ?? null }, modules),
   );
