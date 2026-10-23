@@ -3,7 +3,8 @@
 // Today), then their open standalone tasks go to the agency's Owner, as the system's change (audit log and timeline),
 // telling nobody; managers reassign from there. A listener's transaction has 5 seconds, so the work goes 50 at a time,
 // each batch in its own transaction; what a batch moved is no longer the member's, so a repeat or a retry after a crash
-// moves only what is left. Other closed leads stay with the member, as do finished tasks.
+// moves only what is left. Other closed leads stay with the member, as do finished tasks. Their row in the assignment
+// pool goes first, so the turns and the settings screen stop listing them (release 4).
 import { openLeadStages } from "@travel-crm/contracts/crm";
 import { staffRemovedEvent } from "@travel-crm/contracts/identity";
 import { joinSql, sql, type OrgTx, type Sql } from "@travel-crm/db";
@@ -122,6 +123,9 @@ export function handOverDepartingMemberListener(dependencies: DepartingMemberDep
           new Error(`Organization ${event.organizationId} has no Owner to take a departing member's work`),
         );
       }
+      // They no longer take turns, so the pool and the settings screen stop listing them (release 4, spec 8). Rules
+      // naming them stay and show "Person left".
+      await context.forOrg((tx) => tx.assignmentPoolMember.deleteMany({ where: { userId: event.payload.userId } }));
       const handOver = { fromUserId: event.payload.userId, toUserId };
       if (handOver.fromUserId === toUserId) return;
       await handOverOpenLeads(context, handOver);

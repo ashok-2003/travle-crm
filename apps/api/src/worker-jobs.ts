@@ -9,6 +9,7 @@ import {
   checkFirstReply,
   checkLeadImportListener,
   FIRST_REPLY_CHECK_QUEUE,
+  notifyUnassignedLeadListener,
   scheduleFirstReplyCheckListener,
   checkLeadSheetListener,
   handOverDepartingMemberListener,
@@ -63,6 +64,9 @@ export interface WorkerSheets {
   checkIntervalSeconds?: number;
 }
 
+/** The time zone an organization without a profile reads its working hours in. */
+const DEFAULT_TIME_ZONE = "Asia/Kolkata";
+
 export interface WorkerJobDependencies {
   db: Database;
   identity: Pick<
@@ -71,6 +75,7 @@ export interface WorkerJobDependencies {
     | "memberContacts"
     | "inviteListener"
     | "firstOwner"
+    | "membersHolding"
     | "resolveAccess"
     | "leadWorkers"
     | "matchLeadWorkers"
@@ -109,6 +114,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
   const { db, identity, files, spreadsheets, subscriptions, seatLimit, email, push, appUrl } = dependencies;
+  // Who the slow-reply alert and the Unassigned notice go to: everyone whose role holds leads:assign (release 4).
+  const leadAssigners = (organizationId: string) => identity.membersHolding(organizationId, "leads:assign");
   const { webhookProviders, rateLimiter, logger } = dependencies;
   // The bulk imports' and exports' listeners (release 2): two of each step share its event, each acting on its kind.
   const importJobs: ImportJobDependencies = {
@@ -165,7 +172,14 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       // The slow-reply alert (release C): each new lead's check, queued for when its wait runs out.
       ...(dependencies.jobs === undefined || !features.automaticAssignment
         ? []
-        : [scheduleFirstReplyCheckListener({ queue: dependencies.jobs })]),
+        : [
+            scheduleFirstReplyCheckListener({
+              queue: dependencies.jobs,
+              timeZone: async (organizationId) =>
+                (await identity.organizationProfile(organizationId))?.timeZone ?? DEFAULT_TIME_ZONE,
+            }),
+            notifyUnassignedLeadListener({ managers: leadAssigners }),
+          ]),
       readImportFileListener(importJobs),
       checkLeadImportListener(importJobs),
       addLeadImportListener(importJobs),
@@ -196,7 +210,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       {
         queue: FIRST_REPLY_CHECK_QUEUE,
         handle: async (data) => {
-          await checkFirstReply({ db, firstOwner: (organizationId) => identity.firstOwner(organizationId) }, data);
+          await checkFirstReply({ db, managers: leadAssigners }, data);
         },
       },
       ...(sheetsJobs === null ? [] : [sheetsCheckHandler(sheetsJobs)]),

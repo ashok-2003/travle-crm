@@ -4,6 +4,7 @@ export { addBlockedContact, blockLeadContact, listBlockedContacts, unblockContac
 export { poolPlaceOf, readAssignment, saveAssignment, setAway } from "./assignment/index.js";
 export { changeEachLead } from "./bulk-changes.js";
 export { checkFirstReply, FIRST_REPLY_CHECK_QUEUE, scheduleFirstReplyCheckListener } from "./first-reply-alert.js";
+export { notifyUnassignedLeadListener } from "./unassigned-notice.js";
 export { consentStateOf, recordConsent, withdrawConsent } from "./consent.js";
 export { createLead } from "./create-lead.js";
 export { customerContacts, type CustomerContacts } from "./customer-contacts.js";

@@ -5,6 +5,7 @@ import {
   assignmentMode,
   DEFAULT_CLOSES_MINUTE,
   DEFAULT_OPENS_MINUTE,
+  DEFAULT_SLOW_REPLY_MINUTES,
   MONDAY_TO_SATURDAY,
   leadSource,
   tripType,
@@ -31,7 +32,8 @@ export async function readAssignment(tx: OrgTx): Promise<AssignmentSettings> {
   return {
     // The columns' CHECKs hold these values; parsing names the type without a cast.
     mode: assignmentMode.parse(settings?.mode ?? "owner"),
-    slowReplyMinutes: settings?.slowReplyMinutes ?? null,
+    // No settings yet: the screen proposes 15 minutes, which saving makes real (spec 5).
+    slowReplyMinutes: settings === null ? DEFAULT_SLOW_REPLY_MINUTES : settings.slowReplyMinutes,
     workdays: settings?.workdays ?? MONDAY_TO_SATURDAY,
     opensMinute: settings?.dayOpensMinute ?? DEFAULT_OPENS_MINUTE,
     closesMinute: settings?.dayClosesMinute ?? DEFAULT_CLOSES_MINUTE,

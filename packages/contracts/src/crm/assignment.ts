@@ -32,6 +32,8 @@ export type AssignedBy = z.infer<typeof assignedBy>;
 
 /** The days the agency answers as bits, 1 Monday to 64 Sunday; Monday to Saturday unless the Owner changes it. */
 export const MONDAY_TO_SATURDAY = 63;
+/** What the screen proposes for the reply time limit until the agency saves its settings. */
+export const DEFAULT_SLOW_REPLY_MINUTES = 15;
 export const DEFAULT_OPENS_MINUTE = 10 * 60;
 export const DEFAULT_CLOSES_MINUTE = 19 * 60;
 
