@@ -10,6 +10,7 @@ export { createLead } from "./create-lead.js";
 export { customerContacts, type CustomerContacts } from "./customer-contacts.js";
 export { eraseCustomer, exportCustomer, type CustomerSubject, type ErasedCustomer } from "./customer-erasure.js";
 export { addDemoLeads } from "./demo-leads.js";
+export { addDemoAssignment } from "./assignment/demo-assignment.js";
 export { handOverDepartingMemberListener, type DepartingMemberDependencies } from "./departing-member.js";
 export { mergeDestinations } from "./destination-merges.js";
 export { findKnownContact } from "./known-contact.js";
