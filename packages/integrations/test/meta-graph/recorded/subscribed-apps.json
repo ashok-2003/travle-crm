@@ -1,0 +1,12 @@
+{
+  "data": [
+    {
+      "category": "Business",
+      "link": "https://example.test/",
+      "name": "Travel Agency OS",
+      "id": "1234567890",
+      "subscribed_fields": ["leadgen"]
+    },
+    { "name": "Another app", "id": "4242", "subscribed_fields": ["feed"] }
+  ]
+}

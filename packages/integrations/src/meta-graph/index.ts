@@ -30,3 +30,5 @@ export {
   WEBHOOK_SIGNATURE_PREFIX,
   webhookSigner,
 } from "./signing.js";
+export { createRealMetaGraph, type RealMetaGraphOptions } from "./real-meta-graph.js";
+export { mapMetaError } from "./meta-responses.js";

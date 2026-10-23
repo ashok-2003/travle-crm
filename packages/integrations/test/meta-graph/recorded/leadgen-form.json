@@ -1,0 +1,13 @@
+{
+  "id": "7001",
+  "name": "Rajasthan winter ad",
+  "status": "ACTIVE",
+  "questions": [
+    { "key": "full_name", "label": "Full name", "type": "FULL_NAME", "id": "q1" },
+    { "key": "phone_number", "label": "Phone number", "type": "PHONE", "id": "q2" },
+    { "key": "email", "label": "Email", "type": "EMAIL", "id": "q3" },
+    { "key": "city", "label": "City", "type": "CITY", "id": "q4" },
+    { "key": "where_do_you_want_to_go?", "label": "Where do you want to go?", "type": "CUSTOM", "id": "q5" },
+    { "key": "gst_number", "label": "GST", "type": "COMPANY_NAME", "id": "q6" }
+  ]
+}
