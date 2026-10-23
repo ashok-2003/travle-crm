@@ -306,6 +306,13 @@ ALTER TABLE "whatsapp_unrouted"
 REVOKE DELETE ON TABLE "whatsapp_connection", "whatsapp_conversation", "whatsapp_message", "whatsapp_template",
   "whatsapp_usage_month" FROM app_runtime;
 
+-- The timeline gains the entry for a WhatsApp thread restarting after a quiet day (D5).
+ALTER TABLE "lead_timeline_entry"
+  DROP CONSTRAINT lead_timeline_entry_kind_value,
+  ADD CONSTRAINT lead_timeline_entry_kind_value CHECK (kind IN (
+    'created', 'note', 'stage-changed', 'reassigned', 'follow-up-added', 'follow-up-done', 'follow-up-cancelled',
+    'repeat-enquiry', 'trip-edited', 'whatsapp-contact'));
+
 -- WhatsApp consent shares the person_consent ledger (D19): a new purpose, and the customer's own STOP as a source.
 ALTER TABLE "person_consent"
   DROP CONSTRAINT person_consent_purpose_value,

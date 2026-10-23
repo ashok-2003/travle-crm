@@ -24,6 +24,15 @@ export {
   type ChangeResult,
   type MetaProcessDependencies,
 } from "./lead-meta/index.js";
+export {
+  QUIET_HOURS,
+  receiveWhatsAppContact,
+  recordWhatsAppFirstReply,
+  startLeadFromChat,
+  type WhatsAppContact,
+  type WhatsAppContactContext,
+  type WhatsAppContactOutcome,
+} from "./whatsapp-contact.js";
 export { createLead } from "./create-lead.js";
 export { customerContacts, type CustomerContacts } from "./customer-contacts.js";
 export { eraseCustomer, exportCustomer, type CustomerSubject, type ErasedCustomer } from "./customer-erasure.js";
