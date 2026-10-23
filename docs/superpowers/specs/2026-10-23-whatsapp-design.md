@@ -199,7 +199,8 @@ messages may arrive late" when the connection's status is `problem` (8.4).
 **3.3 Send a template (a dialog, part 3).** A `SearchCombobox`-style list of Approved templates (name, a two-line preview);
 choosing one shows a form of its variables prefilled from the CRM where it can (customer name, destination, agent's name,
 travel month) as `TextField`s, and a live preview of the final message. If the person has not agreed to WhatsApp messages (Q6)
-and the chat was started by us, a `ChoiceField` "They agreed to WhatsApp messages" must be ticked. A marketing template shows
+and the chat was started by us, a `ChoiceField` "They agreed to WhatsApp messages" must be ticked (R3 below). A person who
+has opted out (they wrote STOP) shows "Asked to stop WhatsApp messages" instead and no template can be chosen. A marketing template shows
 how many of the month's allowance the agency has left. **Send** (busy while pending).
 
 **3.4 Templates and WhatsApp settings (`/settings/whatsapp`, with `settings:manage` to view the state and `inbox:templates` for
@@ -265,16 +266,21 @@ page says so in the same sentence as 3.1.
   Meta GET route sits). `verify` is true only when the path token **and** the static header (`x-travel-crm-key`, set in
   MSG91's panel) both equal the settings, compared in constant time. Anything else is 401 with nothing stored: only a stranger
   ever sees a 4xx.
-- **W2. `identify` never returns null.** The event id is `<eventName>:<wamid>` when both are readable (MSG91's dedupe rule),
-  otherwise `unread:<sha256 of the body>`; the type is the content or status name, or `unknown`. A body we cannot read is
-  stored and answered 200. Result: a payload surprise cannot make us answer 4xx and pause every agency's inbound.
+- **W2. `identify` never returns null.** The request's event id is the sha256 of the raw body (so an identical re-delivery is
+  not stored twice), the type is the content or status name of the first event, or `unknown`. A request may carry a batch;
+  the body is parsed into events in `process`. Dedupe happens there, per message by its wamid (D4, the unique key) and per
+  status by wamid + status (a status only moves forward, D1 of 4.5), never per request. A body we cannot read is stored and
+  answered 200. Result: a payload surprise cannot make us answer 4xx and pause every agency's inbound.
 - **W3. Body limit and rate.** The route is in the `webhooks` rate class (600 a minute). It also has a body ceiling (64 KB);
   larger is answered 200 and dropped with a log line counting it, because 413 would pause the webhook (no personal data
   is in the line).
 - **W4. `process` (the worker, at least once)** handles each parsed event on its own:
-  1. Look up the connection by `integratedNumber` in `whatsapp_number_route` (inside `db.withoutOrg`). No row: a quiet
-     success and a counter (`events_unrouted`), so a number we never recorded cannot fill anything. Then
-     `processing.isAbout(organizationId)`.
+  1. The intake has already stored the event with no organization (before routing). Look up the connection by
+     `integratedNumber` in `whatsapp_number_route` (inside `db.withoutOrg`). Found: `processing.isAbout(organizationId)` gives the
+     stored event its organization. No row: a quiet success that upserts the number into `whatsapp_unrouted` (a count and
+     first/last seen, ids only) so a number we never recorded cannot fill anything, and the console lists such numbers with
+     their counts (3.5) so our team notices a number added in MSG91 but not recorded here. The event stays with no
+     organization and its payload is blanked after 7 days like the rest.
   2. In `db.forOrg`: a connection in `setup` only stamps `last_event_at` and stops. `disconnected`: stop. `paused`: inbound
      is stored (4), statuses applied, nothing else.
   3. **Inbound:** section 4.3. **Status:** section 4.5. **Echo:** 4.6. **Unknown:** counted on the connection, nothing else.
@@ -283,7 +289,7 @@ page says so in the same sentence as 3.1.
 - **W5. The stored payload holds personal data** (the customer's number, name and words) in `webhook_events`, which is outside
   row-level security. It is the raw event kept as received (ADR 0028), tied to the organization through `isAbout`, so purge and
   erasure blank it (ADR 0023). A sweep (`whatsapp.blank-events`, hourly, in the worker) also blanks the payload of events
-  processed more than 7 days ago, keeping the id, type and times. Nothing else is read from the table.
+  processed more than 7 days ago, **routed or unrouted**, keeping the id, type and times. Nothing else is read from the table.
 
 ### 4.3 An inbound message
 
@@ -293,6 +299,8 @@ page says so in the same sentence as 3.1.
   The message is stored even when the next steps fail, and the conversation lock makes two messages from a new person
   (they often send three in a row) make one lead.
 - **I2. Find the person and lead** (`receiveWhatsAppContact` in crm, section 6.2), inside the same transaction, under the lock:
+  - **Matching (R2):** the number is matched to a person by **any of their stored phones**, with crm's existing one-person-per-phone
+    rule (`matchPerson`); a number that matches nobody is an unknown number.
   - phone matches nobody: `saveEnquiry` creates the person and lead (`from: "import"`, not `unverified`: WhatsApp has verified the
     number), source **`whatsapp`** (already in `leadSources`), detail "WhatsApp chat", name from the customer's WhatsApp
     profile name or, when empty, "WhatsApp +91 98765 43210" for staff to correct; enquiry date the message's time; note the
@@ -300,11 +308,10 @@ page says so in the same sentence as 3.1.
     working hours; the agency Owner is the fallback); actor `systemActor(organizationId)` with source `integration`, the
     connection's id as detail. A lead made this way publishes `lead.created` as always, so the slow-reply alert is armed.
   - phone matches a person with an **open lead**: no new lead and **no repeat-enquiry row** per message (a chat is not an
-    enquiry each line). The conversation points at that lead. The first message after a quiet 24 hours adds one timeline
+    enquiry each line). The chat is the person's, so it already shows on that lead. The first message after a quiet 24 hours adds one timeline
     entry (`whatsapp.contact`, "Wrote on WhatsApp") so the lead's history shows the thread restarted.
   - phone matches a person with **only closed leads**: per Q2, the chat waits in the inbox, flagged "Past customer", with
-    **Start a new lead** (which makes a lead marked **Returning**, source `whatsapp`, through the same path). The owner of the
-    person's newest lead and everyone who can assign are told (4.8).
+    **Start a new lead** (which makes a lead marked **Returning**, source `whatsapp`, through the same path). Who is told is 4.8.
   - the person is a **blocked contact**: the message is stored with the conversation hidden from the inbox, nothing else
     happens (no lead, no notice). Unblocking shows it.
 - **I3. The lead's first reply time.** A staff reply (4.4) or an echo from the phone (4.6) sets `firstReplyAt` through the
@@ -348,6 +355,14 @@ page says so in the same sentence as 3.1.
   The sent file stays attached to the message.
 - **S5. Budgets.** Sends pass the rate-limits module per organization (60 a minute; a constant) and a platform ceiling (a second
   constant, below MSG91's own once S6 tells it). Over budget a message waits `queued` and is retried by the listener.
+- **S7. Consent and opt-out (R3).** Consent is the existing `person_consent` ledger, append-only, latest row decides, with a new
+  purpose **`whatsapp`** and sources **`staff`** (the "they agreed" tick, recorded once with who and when) and **`customer`**
+  (an opt-out). An inbound message whose whole text, trimmed and in any case, is `STOP`, `UNSUBSCRIBE` or `stop messages`
+  records a customer opt-out and the chat shows "Asked to stop". From then on `inbox.sendTemplate` refuses the person
+  (`NO_CONSENT_FOR_TEMPLATE`); replies **inside a window the customer opens again** by writing are still allowed. Staff cannot
+  override an opt-out: it clears only when the customer asks again to hear from us and staff re-tick the box, which is audited
+  (`whatsapp.consent-restored`). The opt-out is also a "stop offers" for the existing marketing consent when the person never
+  granted it.
 - **S6. Status changes of a subscription.** Read-only, suspended or cancelled subscriptions refuse sends (check 2: `inbox.send`
   is a "change"); reading chats stays open for read-only (a view) and for nothing else.
 
@@ -398,11 +413,13 @@ page says so in the same sentence as 3.1.
 email may be read on a lock screen): "Priya wrote on WhatsApp".
 - **`whatsapp.message`** to the lead's owner for a message on an existing lead's chat, once per 10 minutes per conversation
   (a burst is one notice), keyed on the first message's id; not sent while a staff member has the chat open (the page
-  reports presence every 30 seconds through `inbox.seen`, kept in memory in the api, not stored).
+  reports presence every 30 seconds through `inbox.seen`, kept in memory in the api, not stored; best effort, and acceptable
+  while there is one api instance: with two, a notice may be sent to someone who has the chat open).
 - A **new lead from a chat** uses the existing `lead.assigned` (and `lead.unassigned` for the Owner when nobody is on duty).
   No new kind.
-- **`whatsapp.past-customer`** to the owner of the person's newest lead and those who can assign: "A past customer wrote on
-  WhatsApp" (4.3, third case).
+- **Who gets `whatsapp.message` (R1):** the owner of the person's most recently active open lead; if they have no open lead, the
+  owner of their most recent lead; if that member is inactive (removed or away-and-gone), the holders of `leads:assign`.
+- **`whatsapp.past-customer`** (4.3, third case) goes to the same person by the same rule: "A past customer wrote on WhatsApp".
 - **`whatsapp.send-failed`** to the sender when a message ends `failed` after settling ("Your message to Priya wasn't sent").
 - **`whatsapp.needs-attention`** to the Owner once per change into a bad state that the agency can act on: template rejected,
   storage full for media, tier limit reached, quality rating Low. Connection trouble that is ours (MSG91, the webhook) is
@@ -424,13 +441,14 @@ runtime role can update it, never delete it; it holds no soft delete). Migration
   `history_state` (not_applicable, waiting, received, skipped), `created_by`, `impersonated_by`. Unique `(organization_id,
   id)`; partial unique `(organization_id)` where `status <> 'disconnected'` (one number a phase 1); the number-limit check is
   in the connect function (plan limit, section 8.5).
-- **whatsapp_conversation:** `connection_id`, `phone_e164`, `person_id` (composite key, nullable until matched), `lead_id`
-  (the lead the chat is shown on; composite key, nullable), `profile_name` (cache, the WhatsApp name; emptied by erasure),
+- **whatsapp_conversation:** `connection_id`, `phone_e164`, `person_id` (composite key, nullable only for an
+  unknown number's first instant: the lead creation of I2 sets it in the same transaction), `profile_name` (cache, the WhatsApp name; emptied by erasure),
   `last_inbound_at` (the window), `last_message_id`, `last_message_at`, `needs_reply` (boolean: the customer wrote last and no
   staff or phone reply followed; cleared by a reply, an echo, or **Mark as answered**), `hidden` (blocked contact), `state`
   (open, erased). Unique `(organization_id, connection_id, phone_e164)`. Indexes: `(organization_id, last_message_at DESC, id
   DESC)` for the inbox; partial `(organization_id, last_message_at DESC, id DESC)` where `needs_reply AND NOT hidden`;
-  `(organization_id, person_id)` for erasure and the lead page; `(organization_id, lead_id)`.
+  `(organization_id, person_id)` for erasure and every lead page of the person. **The chat belongs to the person and the agency's number, not to a lead:** it
+  shows on each lead page of that person. There is no `lead_id`; whom to notify is recomputed from the person's leads (R1, 4.8).
 - **whatsapp_message:** `conversation_id`, `direction` (in, out), `origin` (customer, staff_crm, staff_phone, history),
   `kind` (text, image, video, audio, document, sticker, location, contacts, reaction, template, unsupported), `body` (text,
   at most 4,096), `caption`, `file_name`, `latitude`/`longitude` (numeric), `wamid` (nullable until sent), `quoted_wamid`,
@@ -446,10 +464,15 @@ runtime role can update it, never delete it; it holds no soft delete). Migration
   `body` (with `{{1}}` markers), `footer`, `variables` (text[]: the CRM field behind each marker, or `custom`), `samples`
   (text[]), `provider_ref`, `status` (draft, pending, approved, rejected, paused, disabled, archived), `reason` (Meta's
   rejection text, shown to staff), `synced_at`, `created_by`, `last_used_at`. Unique `(organization_id, connection_id, name,
-  language)`. Templates our team made in MSG91's panel arrive by sync with `created_by` null.
+  language)`. Templates our team made in MSG91's panel arrive by sync with `created_by` null. **Meta's category wins (R6):** `category` is
+  synced from MSG91 on every refresh (Meta can re-classify a template), and the caps and `whatsapp_usage_month` count by the
+  category Meta charged for the send (taken from the status event if it carries one, S8; otherwise the template's synced
+  category).
 - **whatsapp_usage_month:** `connection_id`, `month` (date, the first, in the organization's zone), `inbound`, `replies`
   (session messages out), `utility`, `marketing`, `failed`, `media_bytes_copied`. Unique `(organization_id, connection_id,
   month)`; incremented in the message transaction (an upsert). The console reads it; the marketing cap reads `marketing`.
+- **whatsapp_unrouted (outside row-level security, same exemption and guards as the route table):** `integrated_number`
+  (primary key), `first_seen_at`, `last_seen_at`, `events` (count). Ids and counts only; the console lists it (R5).
 - **whatsapp_number_route (outside row-level security, an explicit reviewed exemption as `meta_page_route` is, ADR 0034):**
   `integrated_number` (primary key: unique across all agencies, the claim that one number belongs to one agency),
   `organization_id` (restricting deletion), `connection_id`. Ids only. The provider has to find the organization from a
@@ -484,10 +507,13 @@ The slow-reply and `lead.created` behaviour needs no change.
 
 ### 6.3 Permissions, plan module, procedures, routes
 
-- **Permissions** in `permissions.ts`: `inbox:view` (scoped; own = conversations whose lead the member owns; all), `inbox:reply`,
+- **Permissions** in `permissions.ts`: `inbox:view` (scoped; **own = conversations of a person with any lead (open or closed) the member can see under their
+  `leads:view` scope**, so a past customer's chat is covered by their closed lead; all), `inbox:reply`,
   `inbox:templates`. The Owner gets them automatically. `request-rules.ts` maps the permission module `inbox` to the plan
-  module `inbox`, and `request-rules.test.ts` covers it. A conversation with no lead is visible to the `all` scope only.
-  The lead's own page shows the chat to anyone who can see the lead **and** holds `inbox:view`. List queries use
+  module `inbox`, and `request-rules.test.ts` covers it. A conversation whose person has no lead (only possible for an echo or history to a known
+  person with no lead, or an erased one) is visible to the `all` scope only. The chat shows on **every** lead page of the
+  person to anyone who can see that lead **and** holds `inbox:view`, and "Start a new lead" is offered to whoever can see the
+  chat and holds `leads:create`. List queries use
   `scopeFilter()`.
 - **Procedures** (tRPC `inbox.*`, `orgProcedure.requires("inbox:view")` etc.): `status` (connected?, banner state, counts),
   `conversations` (cursor list, filter, search), `conversation` (header), `messages` (cursor page), `leadChat(leadId)`,
@@ -549,8 +575,9 @@ New components wanted from the registry: `avatar`, `textarea`, `scroll-area` if 
   number beyond the plan's WhatsApp-numbers limit (and the limit 0 means none); the connection function checks it under the
   subscription's row lock (plan limits are data). **Inbound while the subscription is not in full access:** messages are
   stored, nothing else is done (no lead, no notice); an hourly job (`whatsapp.adopt`) makes the leads for stored
-  conversations with no lead when access returns (cheap, since chats are few). A cancelled subscription drops inbound with a
-  counter; the checklist includes removing the number then. The demo has no MSG91.
+  conversations with no lead when access returns (cheap, since chats are few). After **cancellation** inbound is still stored while the organization
+  exists (read-only access shows it; purge removes it with the rest), and the console flags the connection "cancelled, number
+  still connected" so our team removes the number in MSG91's panel and disconnects it. The demo has no MSG91.
 - **8.6 Abuse.** The webhook accepts only the secret path and header, 64 KB, rate-limited by address with a generous
   ceiling (MSG91 sends from few addresses). A forged event can only add a message to a chat of a number we route: the cost of
   a leaked secret is spam into inboxes, so the secret rotates (13). Staff cannot send to a number that is not in a
@@ -576,7 +603,7 @@ New components wanted from the registry: `avatar`, `textarea`, `scroll-area` if 
   personId, now)`: every message of the person's conversations has `body`, `caption`, `file_name`, `latitude`, `longitude`,
   `media_url`, `template_params` emptied and `kind` kept, its media files deleted through the files module (`deleteRecordFiles`
   for the record type `whatsapp_message`, after commit as the other steps), `wamid` kept (a wamid is not personal data and keeping
-  it stops a late retry from re-creating the message); the conversation loses `person_id`, `lead_id`, `profile_name`,
+  it stops a late retry from re-creating the message); the conversation loses `person_id`, `profile_name`,
   `phone_e164` is replaced by `erased:<uuid>` and its `state` becomes `erased`, so the same person writing again later is a new
   chat and, per the crm's rule, a new enquiry. The confirmation tells the agency that WhatsApp (Meta), MSG91 and the customer's
   phone still hold their copy. `erasure.ts` and its test gain the step. The webhook event payloads for that organization are
@@ -595,7 +622,7 @@ New components wanted from the registry: `avatar`, `textarea`, `scroll-area` if 
 - **Audit** (`recordAudit`, record type `whatsapp_connection`, `whatsapp_template` and, for chat actions, the lead; sentences in
   `audit.json`): `whatsapp.connected`, `.paused`, `.resumed`, `.disconnected`, `.caps-changed` (old and new values), `.problem`
   and `.recovered` (system), `.template-created`, `.template-archived`, `.chat-started` (a template sent to a person who never
-  wrote: person, template, "agreed" ticked), `.lead-started-from-chat`. The platform log (`recordPlatformAudit`) holds
+  wrote: person, template, "agreed" ticked), `.consent-granted`, `.consent-restored`, `.opted-out` (system), `.lead-started-from-chat`. The platform log (`recordPlatformAudit`) holds
   connect, disconnect and cap changes by admin. **Each ordinary message is not an audit row**: the message table is its own
   append-only record with sender and time (sends are changes with a durable record), and a row per message would only copy
   customers' words into the log. A test asserts that no audit snapshot holds a message body.
@@ -752,7 +779,8 @@ an unconfirmed field name.
 - **D9.** Webhook event payloads are blanked after 7 days; the message is the durable copy.
 - **D10.** Nothing is cached offline and nothing is queued in the browser while offline.
 - **D11.** Inbound while the subscription is not in full access is stored and turned into leads when access returns; after
-  cancellation it is dropped (counted) and the number is removed by hand.
+  cancellation it is still stored while the organization exists (R8), and the console flags the connection so our team removes
+  the number by hand.
 - **D12.** Messages are stored in plain columns in Postgres under row-level security; there is no per-message encryption
   (the database and backups are the agency's trust boundary, like notes and files). Changing this later is a column-level
   sealing with `SecretBox`.
@@ -761,3 +789,16 @@ an unconfirmed field name.
 - **D15.** The 7-day Click-to-WhatsApp free window and Meta's pricing are not modelled; the product counts messages by kind and
   leaves cost to MSG91's and Meta's statements.
 - **D16.** Agencies ask for a connection by contacting us (the brand's support contact); there is no request form or table.
+- **D17 (R1).** A chat belongs to the person and the agency's number, not to a lead. Visibility, replying and notices follow the
+  person's leads (any lead, open or closed, for seeing; the most recently active open lead's owner for notices, else the most
+  recent lead's, else `leads:assign` holders if that member is inactive).
+- **D18 (R2).** A number is matched to a person by any stored phone with crm's one-person-per-phone rule; otherwise it is unknown.
+- **D19 (R3).** WhatsApp consent reuses `person_consent` (purpose `whatsapp`, sources `staff` and `customer`); STOP, UNSUBSCRIBE or
+  "stop messages" records an opt-out; staff cannot override it; a reply inside a window the customer reopens is still allowed.
+- **D20 (R4).** The request's event id is a hash of the raw body; dedupe is per message by wamid and per status by wamid + status;
+  a batch is fine.
+- **D21 (R5).** Events are stored before routing with no organization and get one afterwards; unrouted events are blanked after 7
+  days; the console lists unrouted numbers with counts (`whatsapp_unrouted`).
+- **D22 (R6).** Meta's category wins: the template category is synced from MSG91, and caps and usage count the category Meta charged.
+- **D23 (R7).** The base is main (2f96c8ab and later): Meta lead ads and release 4's automatic assignment are both there.
+- **D24 (R9).** Presence is best effort in api memory, fine for one api instance.
