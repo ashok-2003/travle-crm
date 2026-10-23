@@ -169,7 +169,7 @@ describe("the sheets sweep", () => {
     });
     expect(SWEEP_SHEETS_QUEUE).toBe("platform.sweep-sheets");
     // 230 stale drafts are cleared by more than one page.
-    const stale = new Date(Date.now() - 3 * DAY);
+    const stale = new Date(now.getTime() - 3 * DAY);
     await db.forOrg(organizationId, async (tx) => {
       await tx.sheetConnection.createMany({
         data: Array.from({ length: 230 }, () => ({
@@ -186,11 +186,17 @@ describe("the sheets sweep", () => {
         })),
       });
     });
-    const total = await sweepSheetsNow(services, new Date());
+    const total = await sweepSheetsNow(services, now);
     expect(total.draftsDeleted).toBeGreaterThanOrEqual(230);
     expect(
       await platform.sheetConnection.count({
-        where: { organizationId, status: "connecting", touchedAt: { lt: new Date(Date.now() - DAY) } },
+        where: {
+          organizationId,
+          status: "connecting",
+          // A sheet that ran and waits for a new tab's baseline is kept by design, however old.
+          connectedAt: null,
+          touchedAt: { lt: new Date(now.getTime() - DAY) },
+        },
       }),
     ).toBe(0);
   });
