@@ -2,6 +2,7 @@
 // repeat enquiry or task it points to; and a note added to it. A note's text is never copied into the audit log (R28);
 // nothing listens to notes yet, so adding one publishes no event (P5).
 import {
+  assignmentReason,
   leadEventKind,
   leadSource,
   leadStage,
@@ -28,6 +29,9 @@ interface EntryRow {
   recordId: string | null;
   stage: string | null;
   ownerUserId: string | null;
+  assignmentReason: string | null;
+  assignmentRulePosition: number | null;
+  assignmentAway: boolean;
 }
 
 /** The notes, repeat enquiries and tasks a page of the lead's entries points to, by id. */
@@ -79,7 +83,20 @@ function entryOf(
   const kind = leadEventKind.parse(row.kind);
   switch (kind) {
     case "created":
-      return { ...base, kind, source: leadSource.parse(leadSourceValue) };
+      return {
+        ...base,
+        kind,
+        source: leadSource.parse(leadSourceValue),
+        assignment:
+          row.assignmentReason === null
+            ? null
+            : {
+                ownerUserId: row.ownerUserId,
+                reason: assignmentReason.parse(row.assignmentReason),
+                rulePosition: row.assignmentRulePosition,
+                away: row.assignmentAway,
+              },
+      };
     case "note": {
       const body = pointed.notes.get(target);
       return body === undefined ? null : { ...base, kind, body };
@@ -124,6 +141,9 @@ export async function listLeadTimeline(
       recordId: true,
       stage: true,
       ownerUserId: true,
+      assignmentReason: true,
+      assignmentRulePosition: true,
+      assignmentAway: true,
     },
   });
   const page = rows.slice(0, input.limit);

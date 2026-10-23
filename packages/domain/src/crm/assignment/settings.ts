@@ -3,6 +3,9 @@
 // the pool marks themselves away and back.
 import {
   assignmentMode,
+  DEFAULT_CLOSES_MINUTE,
+  DEFAULT_OPENS_MINUTE,
+  MONDAY_TO_SATURDAY,
   leadSource,
   tripType,
   type AssignmentSettings,
@@ -12,6 +15,7 @@ import {
 } from "@travel-crm/contracts/crm";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../../audit/index.js";
+import { assignmentSnapshot } from "./assignment-audit.js";
 import { destinationNames } from "../../catalog/index.js";
 import type { MemberAccess } from "../../identity/index.js";
 import { DomainError } from "../../kernel/index.js";
@@ -28,6 +32,9 @@ export async function readAssignment(tx: OrgTx): Promise<AssignmentSettings> {
     // The columns' CHECKs hold these values; parsing names the type without a cast.
     mode: assignmentMode.parse(settings?.mode ?? "owner"),
     slowReplyMinutes: settings?.slowReplyMinutes ?? null,
+    workdays: settings?.workdays ?? MONDAY_TO_SATURDAY,
+    opensMinute: settings?.dayOpensMinute ?? DEFAULT_OPENS_MINUTE,
+    closesMinute: settings?.dayClosesMinute ?? DEFAULT_CLOSES_MINUTE,
     rules: rules.map((rule) => ({
       id: rule.id,
       source: rule.source === null ? null : leadSource.parse(rule.source),
@@ -51,7 +58,14 @@ export async function saveAssignment(
     throw new DomainError("VALIDATION", "NOT_A_LEAD_WORKER", "That person can't work leads");
   }
   const before = await readAssignment(tx);
-  const settings = { mode: input.mode, slowReplyMinutes: input.slowReplyMinutes, updatedBy: access.userId };
+  const settings = {
+    mode: input.mode,
+    slowReplyMinutes: input.slowReplyMinutes,
+    workdays: input.workdays,
+    dayOpensMinute: input.opensMinute,
+    dayClosesMinute: input.closesMinute,
+    updatedBy: access.userId,
+  };
   const existing = await tx.assignmentSettings.findFirst({ select: { id: true } });
   if (existing) await tx.assignmentSettings.update({ where: { id: existing.id }, data: settings });
   else await tx.assignmentSettings.create({ data: settings });
@@ -70,8 +84,8 @@ export async function saveAssignment(
     action: "assignment.updated",
     entityType: "assignment_settings",
     entityId: access.organizationId,
-    before: { mode: before.mode, rules: before.rules.length, pool: before.pool.length },
-    after: { mode: input.mode, rules: input.rules.length, pool: input.pool.length },
+    before: assignmentSnapshot({ ...before, pool: before.pool.map((member) => member.userId) }),
+    after: assignmentSnapshot(input),
   });
 }
 
@@ -91,4 +105,10 @@ export async function setAway(tx: OrgTx, access: MemberAccess, input: SetAwayInp
     data: { awayUntil: input.awayUntil === null ? null : new Date(input.awayUntil) },
   });
   if (count === 0) throw new DomainError("NOT_FOUND", "NOT_IN_POOL", "You don't take new leads in turn");
+  await recordAudit(tx, access, {
+    action: "assignment.away-set",
+    entityType: "assignment_settings",
+    entityId: access.organizationId,
+    after: { awayUntil: input.awayUntil },
+  });
 }

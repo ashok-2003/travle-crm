@@ -1,6 +1,6 @@
 // Writing a lead (spec 3.2, 4): the row, its timeline and audit entries and lead.created. The form, an import and the
 // demo all write a lead through this; whom it tells is theirs to decide.
-import type { LeadSource, LeadStage } from "@travel-crm/contracts/crm";
+import type { AssignedBy, LeadSource, LeadStage } from "@travel-crm/contracts/crm";
 import type { OrgTx } from "@travel-crm/db";
 import { publishEvent } from "../jobs/index.js";
 import type { Actor } from "../kernel/index.js";
@@ -19,6 +19,8 @@ export interface NewLeadRecord {
   ownerUserId: string | null;
   source: LeadSource;
   sourceDetail: string | null;
+  /** Why the agency's assignment chose the owner, for a lead that arrived by itself (spec 4.7). */
+  assignedBy?: AssignedBy;
   /** Becomes the lead's first timeline note. */
   note: string | null;
   createdBy: string | null;
@@ -59,7 +61,12 @@ export async function addLeadInTransaction(
     },
     select: { id: true },
   });
-  await recordLeadEvent(tx, actor, { leadId, kind: "created", occurredAt: recordedAt });
+  await recordLeadEvent(tx, actor, {
+    leadId,
+    kind: "created",
+    occurredAt: recordedAt,
+    ...(record.assignedBy ? { assignedBy: record.assignedBy, ownerUserId: record.ownerUserId } : {}),
+  });
   if (record.note !== null) {
     const note = await tx.leadNote.create({
       data: { leadId, body: record.note, createdBy: record.createdBy, createdAt: recordedAt },
@@ -80,7 +87,13 @@ export async function addLeadInTransaction(
     action: "lead.added",
     entityType: "lead",
     entityId: leadId,
-    after: { stage, ownerUserId: record.ownerUserId, source: record.source, ...record.auditDetail },
+    after: {
+      stage,
+      ownerUserId: record.ownerUserId,
+      source: record.source,
+      ...(record.assignedBy ? { assignedBy: record.assignedBy } : {}),
+      ...record.auditDetail,
+    },
   });
   await publishEvent(tx, { type: "lead.created", payload: { leadId, personId: record.personId } });
   return { leadId, personId: record.personId };

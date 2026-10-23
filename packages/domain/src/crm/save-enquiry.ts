@@ -108,7 +108,7 @@ export async function saveEnquiry(
   const trip = await resolveTrip(tx, actor, input.trip);
   const returning = found !== null && (await tx.lead.count({ where: { personId: person.id } })) > 0;
   const imported = options.from === "import";
-  const ownerUserId =
+  const assignment =
     imported && options.assign
       ? await chooseOwner(
           tx,
@@ -120,7 +120,8 @@ export async function saveEnquiry(
           },
           { workers: options.assign.workers, fallback: options.ownerUserId, now },
         )
-      : options.ownerUserId;
+      : null;
+  const ownerUserId = assignment === null ? options.ownerUserId : assignment.userId;
   const { leadId } = await addLeadInTransaction(
     tx,
     actor,
@@ -129,6 +130,9 @@ export async function saveEnquiry(
       trip,
       returning,
       ownerUserId,
+      ...(assignment === null
+        ? {}
+        : { assignedBy: { reason: assignment.reason, rulePosition: assignment.rulePosition, away: assignment.away } }),
       source: input.source,
       sourceDetail: input.sourceDetail,
       note: input.note,

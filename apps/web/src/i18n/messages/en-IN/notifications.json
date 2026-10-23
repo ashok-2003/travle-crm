@@ -36,7 +36,11 @@
       },
       "leadSlowReply": {
         "label": "A new lead waits too long",
-        "hint": "For the Owner: when a new lead has had no reply within the time set in Lead assignment."
+        "hint": "For everyone who can assign leads: when a new lead has had no reply within the time set in Lead assignment."
+      },
+      "leadUnassigned": {
+        "label": "A new lead has no owner",
+        "hint": "For everyone who can assign leads: when a new lead lands in Unassigned because nobody could take it."
       },
       "leadRepeatEnquiry": {
         "label": "A customer asks again",
