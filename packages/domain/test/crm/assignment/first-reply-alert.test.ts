@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { checkFirstReply, FIRST_REPLY_CHECK_QUEUE, scheduleFirstReplyCheckListener } from "../../../src/crm/index.js";
 import type { DomainEvent, ListenerContext } from "../../../src/jobs/index.js";
 import { systemActor } from "../../../src/kernel/index.js";
+import { noticeKey } from "../../../src/crm/notice-key.js";
 import { aLead } from "../support/records.js";
 
 const india = (local: string) => new Date(`${local}+05:30`);
@@ -78,7 +79,7 @@ describe("the slow-reply alert", () => {
       expect(jobs).toHaveLength(1);
       expect(jobs[0]).toMatchObject({
         queue: FIRST_REPLY_CHECK_QUEUE,
-        data: { organizationId, leadId: lead.id, sourceEventId: event.id },
+        data: { organizationId, leadId: lead.id, sourceEventId: noticeKey(event.id, "lead.slow-reply") },
         options: { startAfter: india("2026-10-19T11:15:00") },
       });
     });

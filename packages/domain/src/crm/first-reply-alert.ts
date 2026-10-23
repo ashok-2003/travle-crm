@@ -9,6 +9,7 @@ import type { JobQueue } from "@travel-crm/integrations/jobs";
 import { defineListener, type EventListener } from "../jobs/index.js";
 import { addWorkingMinutes, systemActor } from "../kernel/index.js";
 import { notify } from "../notifications/index.js";
+import { noticeKey } from "./notice-key.js";
 
 export const FIRST_REPLY_CHECK_QUEUE = "crm.first-reply-check";
 
@@ -58,7 +59,11 @@ export function scheduleFirstReplyCheckListener(dependencies: FirstReplySchedule
       if (due.getTime() < now().getTime() - MINUTE_MS) return;
       await dependencies.queue.send(
         FIRST_REPLY_CHECK_QUEUE,
-        { organizationId: event.organizationId, leadId: event.payload.leadId, sourceEventId: event.id },
+        {
+          organizationId: event.organizationId,
+          leadId: event.payload.leadId,
+          sourceEventId: noticeKey(event.id, "lead.slow-reply"),
+        },
         { startAfter: due },
       );
     },

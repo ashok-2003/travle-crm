@@ -4,6 +4,7 @@
 import { leadCreatedEvent } from "@travel-crm/contracts/crm";
 import { defineListener, type EventListener } from "../jobs/index.js";
 import { notify } from "../notifications/index.js";
+import { noticeKey } from "./notice-key.js";
 
 export function notifyUnassignedLeadListener(dependencies: {
   managers: (organizationId: string) => Promise<string[]>;
@@ -23,7 +24,7 @@ export function notifyUnassignedLeadListener(dependencies: {
         if (lead?.ownerUserId !== null || lead.deletedAt !== null) return;
         await notify(tx, context.actor, {
           recipientUserIds: managers,
-          sourceEventId: event.id,
+          sourceEventId: noticeKey(event.id, "lead.unassigned"),
           kind: "lead.unassigned",
           title: "A new lead has no owner",
           body: lead.person.name,
