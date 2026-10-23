@@ -12,3 +12,4 @@ export {
   type Msg91SignerOptions,
   type StatusBodyInput,
 } from "./signer.js";
+export { createRealWhatsAppProvider, type RealWhatsAppProviderOptions } from "./real-whatsapp.js";
