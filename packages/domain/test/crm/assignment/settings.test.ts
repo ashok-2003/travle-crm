@@ -6,9 +6,17 @@ import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platfo
 import { createTestOrganization } from "@travel-crm/db/testing";
 import type { SaveAssignmentInput } from "@travel-crm/contracts/crm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { poolPlaceOf, readAssignment, saveAssignment, setAway } from "../../../src/crm/assignment/index.js";
+import {
+  chooseOwner,
+  poolPlaceOf,
+  readAssignment,
+  saveAssignment,
+  setAway,
+} from "../../../src/crm/assignment/index.js";
 import type { MemberAccess } from "../../../src/identity/index.js";
 import { memberWithStarterRole } from "../../identity/rule-helpers.js";
+
+const NOW = new Date("2026-10-23T05:00:00Z");
 
 describe("the assignment settings", () => {
   let platform: PlatformClient;
@@ -35,7 +43,7 @@ describe("the assignment settings", () => {
   beforeAll(async () => {
     const urls = inject("dbUrls");
     platform = createPlatformClient(urls.platform);
-    db = createDatabase(urls.runtime, { maxConnections: 2 });
+    db = createDatabase(urls.runtime, { maxConnections: 4 });
     organizationId = await createTestOrganization(platform, "Assignment settings");
     manager = memberWithStarterRole("org-admin", { organizationId, userId: randomUUID() });
   });
@@ -133,6 +141,41 @@ describe("the assignment settings", () => {
     await save(input({ rules: [rule] }));
     await save(input({ rules: [rule] }));
     expect((await inOrg((tx) => readAssignment(tx))).rules).toHaveLength(1);
+  });
+
+  it("waits for a lead being given out rather than deadlocking with it", async () => {
+    await save(input({ mode: "turns", pool: [priya, ravi] }));
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let locked: () => void = () => undefined;
+    const isLocked = new Promise<void>((resolve) => {
+      locked = resolve;
+    });
+    const choosing = inOrg(async (tx) => {
+      await chooseOwner(
+        tx,
+        { source: "web_form", destinationId: null, tripType: null, previousOwnerUserId: null },
+        {
+          workers,
+          fallback: meena,
+          now: NOW,
+        },
+      );
+      locked();
+      await held;
+    });
+    await isLocked;
+    let saved = false;
+    const saving = save(input({ mode: "turns", pool: [ravi] })).then(() => {
+      saved = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(saved).toBe(false);
+    release();
+    await Promise.all([choosing, saving]);
+    expect(saved).toBe(true);
   });
 
   describe("the away switch", () => {

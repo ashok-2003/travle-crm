@@ -14,7 +14,7 @@ import {
   type SaveAssignmentInput,
   type SetAwayInput,
 } from "@travel-crm/contracts/crm";
-import type { OrgTx } from "@travel-crm/db";
+import { sql, type OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../../audit/index.js";
 import { assignmentSnapshot } from "./assignment-audit.js";
 import { destinationNames } from "../../catalog/index.js";
@@ -59,6 +59,9 @@ export async function saveAssignment(
   if (people.some((userId) => !workers.has(userId))) {
     throw new DomainError("VALIDATION", "NOT_A_LEAD_WORKER", "That person can't work leads");
   }
+  // The pool's rows are locked in id order, as chooseOwner locks them, so saving while a lead is given out waits for
+  // it rather than deadlocking with it.
+  await tx.$queryRaw(sql`SELECT id FROM assignment_pool_member ORDER BY id FOR UPDATE`);
   const before = await readAssignment(tx);
   const settings = {
     mode: input.mode,
