@@ -216,7 +216,9 @@ export async function saveSheetBatch(
           createdAt: reading.createdAt,
           notify: context.summarised.has(ownerUserId) ? "none" : "each",
           // A row naming no owner goes by the agency's assignment (release 4).
-          ...(ownerUserId === context.defaultOwnerUserId && { assign: { workers: context.workers } }),
+          ...(!(reading.ownerNamed && context.workers.has(reading.ownerUserId)) && {
+            assign: { workers: context.workers },
+          }),
         });
         const created = saved.outcome === "created";
         counts[created ? "added" : "merged"] += 1;

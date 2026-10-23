@@ -71,6 +71,21 @@ describe("an import row that names no owner", () => {
     });
   });
 
+  it("is not, when the row names the agency Owner, who is the default too", async () => {
+    await addRow({} as OrgTx, decision, { rowNumber: 2, plan: "new" }, { ...reading, ownerNamed: true });
+    expect(saveEnquiry.mock.calls[0]?.[4]).not.toHaveProperty("assign");
+  });
+
+  it("is, when the row names someone who no longer works leads", async () => {
+    await addRow(
+      {} as OrgTx,
+      { ...decision, workers: new Set([DEFAULT_OWNER]) },
+      { rowNumber: 2, plan: "new" },
+      { ...reading, ownerNamed: true, ownerUserId: WORKER },
+    );
+    expect(saveEnquiry.mock.calls[0]?.[4]).toHaveProperty("assign");
+  });
+
   it("is not, when the import chose a default owner", async () => {
     await addRow(
       {} as OrgTx,
