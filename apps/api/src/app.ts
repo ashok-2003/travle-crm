@@ -16,6 +16,8 @@ import type { JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
 import { Hono, type Context } from "hono";
 import { limitBody } from "./body-limit.js";
+import { metaDeletionRoute, metaVerifyRoute } from "./meta-routes.js";
+import type { MetaServices } from "./meta-services.js";
 import { apiErrorHandler } from "./error-handler.js";
 import type { FormAddressSettings } from "./form-client-address.js";
 import { organizationSignIn } from "./org-sign-in.js";
@@ -51,6 +53,8 @@ export interface ServerDependencies {
   clientAddress: (request: Request) => string | null;
   /** The webhook providers. The Foundation has none; later steps add theirs (Razorpay, WhatsApp). */
   webhookProviders: readonly WebhookProvider[];
+  /** The Meta lead ads (ADR 0034): the verify and deletion routes and the procedures; null or absent when Meta is off. */
+  meta?: MetaServices | null;
   /** The structured log (ADR 0032): a line per request, and every unexpected error. */
   logger: Logger;
   /** BETTER_AUTH_SECRET: the website form's opened-token key is derived from it (W37). */
@@ -72,6 +76,8 @@ export interface ServerDependencies {
 const publicLimits = {
   shareLinks: { limit: 30, windowSeconds: 60 },
   webhooks: { limit: 600, windowSeconds: 60 },
+  // Meta's data deletion callback comes a few times in a year, from Meta's addresses.
+  metaDeletion: { limit: 60, windowSeconds: 60 },
 };
 
 /** No sign-in or tRPC call needs a bigger body; the cap stops a client making the server read a huge one. */
@@ -91,6 +97,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
     rateLimiter,
     clientAddress,
     webhookProviders,
+    meta = null,
     logger,
     authSecret,
     appUrl,
@@ -138,6 +145,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
             sheetsHashes,
             rateLimiter,
             appUrl,
+            meta: meta?.dependencies ?? null,
             // An import's Add waits while a sheet's check is saving rows (S26).
             addGuards: [assertNoSheetCheckSaving],
           },
@@ -183,12 +191,27 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
     "/webhooks/*",
     rateLimit({ limiter: rateLimiter, name: "webhooks", ...publicLimits.webhooks, clientAddress, logger }),
   );
+  // Meta's callback verification (GET) answers before the generic intake, which takes POSTs only.
+  if (meta !== null)
+    app.route("/webhooks/meta-leads", metaVerifyRoute({ verifyToken: meta.settings.webhookVerifyToken }));
   app.route(
     "/webhooks",
     webhookRoutes({
       receive: (provider, request) => receiveWebhook({ db, queue, providers: webhookProviders }, provider, request),
     }),
   );
+
+  // Meta's data deletion callback (spec 10): the signed request is its only credential, so it is outside the trusted-origin rule.
+  if (meta !== null) {
+    app.use(
+      "/api/meta/*",
+      rateLimit({ limiter: rateLimiter, name: "meta-deletion", ...publicLimits.metaDeletion, clientAddress, logger }),
+    );
+    app.route(
+      "/api/meta",
+      metaDeletionRoute({ dependencies: meta.dependencies, appSecret: meta.settings.appSecret, appUrl }),
+    );
+  }
 
   // The website form's public routes (spec 5): no session, no cookies, no CORS; each does its own limits and checks.
   app.route(

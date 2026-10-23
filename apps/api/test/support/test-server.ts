@@ -22,6 +22,7 @@ import { createMemoryStorage, type ObjectStorage } from "@travel-crm/integration
 
 import { inject } from "vitest";
 import { createApp } from "../../src/app.js";
+import type { TestMeta } from "./meta.js";
 import type { FormAddressSettings } from "../../src/form-client-address.js";
 import type { Turnstile } from "../../src/website-form-shared.js";
 import { loggerOfRequest } from "../../src/request-log.js";
@@ -58,6 +59,8 @@ export interface TestServer {
   subscriptions: SubscriptionAccess;
   seatLimit: SeatLimit;
   platform: PlatformClient;
+  /** The Meta lead ads the server was given, with its fake Graph. */
+  meta: TestMeta | null;
   /** The database it runs on, for a console beside it. */
   urls: DbUrls;
   close(): Promise<void>;
@@ -69,6 +72,8 @@ export interface TestServerOptions {
   storage?: ObjectStorage;
   /** Where the app queues jobs (webhooks to process); in memory unless given, e.g. pg-boss. */
   queue?: JobQueue;
+  /** The Meta lead ads (the fake Graph, a box, the settings), built on the server's own database: off unless given. */
+  metaFor?: (parts: Pick<TestServer, "db" | "identity" | "subscriptions" | "logger">) => TestMeta;
   /** The app's structured log; a fresh in-memory one unless given, kept as `logger` on the server. */
   logger?: MemoryLogger;
   /** Google Sheets for the sheet sync's procedures: off unless given (with the hashes). */
@@ -104,6 +109,7 @@ export function createTestServer(settings: Partial<AuthSettings> = {}, options: 
     storageLimitBytes: limits.storageBytes,
   });
   const platform = createPlatformClient(urls.platform);
+  const meta = options.metaFor?.({ db, identity, subscriptions, logger }) ?? null;
   const app = createApp({
     identity,
     subscriptions,
@@ -117,7 +123,8 @@ export function createTestServer(settings: Partial<AuthSettings> = {}, options: 
     rateLimiter:
       options.rateLimiter ?? createRateLimiter(db, { keySecret: "test-server-rate-limit-secret-of-32-bytes" }),
     clientAddress: clientAddressFrom({ headerNames: ["x-forwarded-for"], trustedProxies: [] }),
-    webhookProviders: options.webhookProviders ?? [],
+    webhookProviders: [...(options.webhookProviders ?? []), ...(meta === null ? [] : [meta.provider])],
+    meta: meta?.services ?? null,
     logger,
     authSecret: { ...testAuthSettings, ...settings }.secret,
     appUrl: options.appUrl ?? "http://localhost:3000",
@@ -134,6 +141,7 @@ export function createTestServer(settings: Partial<AuthSettings> = {}, options: 
     subscriptions,
     seatLimit: limits.seats,
     platform,
+    meta,
     urls,
     close: async () => {
       await identity.disconnect();

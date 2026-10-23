@@ -11,6 +11,7 @@ import { insightsRouter } from "./insights.js";
 import { leadExportsRouter } from "./lead-exports.js";
 import { leadImportsRouter } from "./lead-imports.js";
 import { leadSheetsRouter } from "./lead-sheets.js";
+import { metaLeadsRouter } from "./meta-leads.js";
 import { leadsRouter } from "./leads.js";
 import { meRouter } from "./me.js";
 import { notificationsRouter } from "./notifications.js";
@@ -48,6 +49,7 @@ export const appRouter = router({
   assignment: assignmentRouter,
   leadImports: leadImportsRouter,
   leadSheets: leadSheetsRouter,
+  metaLeads: metaLeadsRouter,
   leadExports: leadExportsRouter,
   staffImports: staffImportsRouter,
   staffExports: staffExportsRouter,

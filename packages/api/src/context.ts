@@ -4,6 +4,7 @@ import type { Database } from "@travel-crm/db";
 import type { Files } from "@travel-crm/domain/files";
 import type { Identity } from "@travel-crm/domain/identity";
 import type { AddGuard } from "@travel-crm/domain/imports";
+import type { MetaDependencies } from "@travel-crm/domain/meta-leads";
 import type { Profiles } from "@travel-crm/domain/profile";
 import type { RateLimiter } from "@travel-crm/domain/rate-limits";
 import type { SheetsDependencies } from "@travel-crm/domain/sheets";
@@ -35,6 +36,8 @@ export interface ApiDependencies {
   rateLimiter?: Pick<RateLimiter, "hit">;
   /** Keys the spreadsheet claim; null or absent when SHEETS_HASH_KEY is not set. */
   sheetsHashes?: SheetsDependencies["hashes"];
+  /** The Meta lead ads (ADR 0034); null or absent when the five Meta settings are not set: Meta is off. */
+  meta?: MetaDependencies | null;
   /** The web app's address, which the form's links are made under (APP_URL). Required: no default can be right in production. */
   appUrl: string;
 }
@@ -55,6 +58,7 @@ export async function createContext(
     google = null,
     sheetsHashes = null,
     rateLimiter,
+    meta = null,
     appUrl,
   }: ApiDependencies,
   request: Request,
@@ -76,6 +80,7 @@ export async function createContext(
     google,
     sheetsHashes,
     rateLimiter,
+    meta,
     appUrl,
     headers: request.headers,
     resHeaders,

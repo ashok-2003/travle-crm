@@ -8,7 +8,7 @@ import { checkXlsxReading } from "@travel-crm/integrations/spreadsheets";
 import { metaSettingsOf, metaStartUpLine } from "./meta-settings.js";
 import { assertServiceAccountsInPlace, sheetsStartUpLine } from "./sheets-settings.js";
 import { exitAfterLogs, startProcess, stopOnUnhandledErrors } from "./start-up.js";
-import { webhookProviders } from "./webhook-providers.js";
+import { webhookProvidersOf } from "./webhook-providers.js";
 import { workerJobs } from "./worker-jobs.js";
 import { logWorkerProblem } from "./worker-problem.js";
 
@@ -33,7 +33,7 @@ const {
     ...workerJobs({
       ...services,
       appUrl: environment.APP_URL,
-      webhookProviders,
+      webhookProviders: webhookProvidersOf(services),
       logger,
       ...(services.google === null || services.sheetsHashes === null
         ? {}
