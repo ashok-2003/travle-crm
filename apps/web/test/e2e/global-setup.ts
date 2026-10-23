@@ -5,6 +5,7 @@
 import type { TestProject } from "vitest/node";
 import { setup as startDatabase, teardown as stopDatabase, type DbUrls } from "@travel-crm/db/testing/global-setup";
 import { startFakeGoogle, type FakeGoogle } from "./support/fake-google";
+import { startFakeMeta, type FakeMeta } from "./support/fake-meta";
 import { startFakeTurnstile, type FakeTurnstile } from "./support/fake-turnstile";
 import { startMailpit, type Mailpit } from "./support/mailpit";
 import { startMinio, type Minio } from "./support/minio";
@@ -22,11 +23,12 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   let minio: Minio | undefined;
   let mailpit: Mailpit | undefined;
   let google: FakeGoogle | undefined;
+  let meta: FakeMeta | undefined;
   let turnstile: FakeTurnstile | undefined;
   /** Stops the containers that started; the database last, whatever stopping the others did. */
   const stopContainers = async () => {
     try {
-      await Promise.allSettled([minio?.stop(), mailpit?.stop(), google?.stop(), turnstile?.stop()]);
+      await Promise.allSettled([minio?.stop(), mailpit?.stop(), google?.stop(), meta?.stop(), turnstile?.stop()]);
     } finally {
       await stopDatabase();
     }
@@ -37,6 +39,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     minio = await startMinio();
     mailpit = await startMailpit();
     google = await startFakeGoogle();
+    meta = await startFakeMeta();
     turnstile = await startFakeTurnstile();
     const servers = await startServers({
       databaseUrl: urls.runtime,
@@ -44,6 +47,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       storage: minio.variables,
       email: mailpit.variables,
       google: { url: google.url, accountEmail: await google.client.accountEmail() },
+      meta: { url: meta.url },
       turnstile: { verifyUrl: turnstile.verifyUrl },
     });
     process.env.E2E_BASE_URL = servers.webUrl;
@@ -53,6 +57,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     process.env.E2E_PLATFORM_DATABASE_URL = urls.platform;
     process.env.E2E_MAILPIT_URL = mailpit.url;
     process.env.E2E_GOOGLE_URL = google.url;
+    process.env.E2E_META_URL = meta.url;
     process.env.E2E_TURNSTILE_URL = turnstile.verifyUrl;
     return async () => {
       servers.stop();
