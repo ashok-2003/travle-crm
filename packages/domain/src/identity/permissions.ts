@@ -2,7 +2,7 @@
 // Add permissions here as modules arrive. The Owner role holds new ones automatically; other roles must be given them.
 
 /** View permissions carry a scope: the member's own records, or all of them (spec 6.5). */
-const scopedPermissions = ["leads:view", "quotes:view", "bookings:view"] as const;
+const scopedPermissions = ["leads:view", "quotes:view", "bookings:view", "inbox:view"] as const;
 
 export const permissions = [
   // Foundation
@@ -19,6 +19,9 @@ export const permissions = [
   "leads:edit",
   // Reassign a lead, choose its owner in the form, give a task to someone else, and block or unblock a contact
   "leads:assign",
+  // WhatsApp chats (own: the chats of people whose leads the member sees), replying, and the message templates
+  "inbox:reply",
+  "inbox:templates",
   "quotes:create",
   "quotes:edit",
   "bookings:create",

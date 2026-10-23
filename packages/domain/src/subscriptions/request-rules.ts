@@ -51,6 +51,7 @@ const planModuleByPermissionModule = new Map<string, PlanModule | null>([
   ["money", null],
   ["documents", null],
   ["leads", "crm"],
+  ["inbox", "inbox"],
   ["quotes", "quotes"],
   ["bookings", "bookings"],
   ["departures", "departures"],
