@@ -4,7 +4,7 @@ import { brand } from "@travel-crm/brand";
 import type { AuthSettings } from "@travel-crm/domain/identity";
 import { LOG_LEVELS } from "@travel-crm/integrations/logging";
 import { z } from "zod";
-import { META_VARIABLES, metaVerifyTokenIsWeak } from "./meta-settings.js";
+import { META_VARIABLES, metaVerifyTokenIsWeak } from "./meta-variables.js";
 import { serviceVariables } from "./service-variables.js";
 import { sheetsHashKeyIsWeak } from "./sheets-settings.js";
 

@@ -1,7 +1,7 @@
 // The environment variables of the services plan 3 added (spec 9): object storage, email, web push, and the web
 // app's address that emails link to. Part of the api's one checked environment (environment.ts).
 import { z } from "zod";
-import { isMetaTokenKey } from "./meta-settings.js";
+import { isMetaTokenKey } from "./meta-variables.js";
 import { decodeServiceAccounts } from "./sheets-settings.js";
 
 const httpUrl = z.url({ protocol: /^https?$/, message: "must be an http(s) URL" });
