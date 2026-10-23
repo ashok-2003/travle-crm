@@ -108,9 +108,15 @@ export function embeddedFormRoute(key: string): string {
   return `/embed/${key}`;
 }
 
-/** Whether a path is the hosted or embedded enquiry form, which must open no cache, worker or cookie (W29, ruling F3). */
+/** Meta's data-deletion status page: the address the deletion callback answers, opened by a Facebook user, no one of ours. */
+export const metaDeletionRoute = "/meta/deletion";
+
+/**
+ * Whether a path is a visitor's page (the hosted or embedded enquiry form, or the data-deletion status), which must open
+ * no cache, worker or cookie (W29, ruling F3).
+ */
 export function isPublicFormPath(pathname: string): boolean {
-  return pathname.startsWith("/f/") || pathname.startsWith("/embed/");
+  return pathname.startsWith("/f/") || pathname.startsWith("/embed/") || pathname === metaDeletionRoute;
 }
 
 /** A staff import's page, at whichever step it is. */

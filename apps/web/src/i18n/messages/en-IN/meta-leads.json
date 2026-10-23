@@ -204,5 +204,13 @@
       "body": "Getting the leads from the last 30 days from Facebook. Your preview opens in a moment.",
       "none": "No leads from the last 30 days were found to check. New answers become leads by themselves."
     }
+  },
+  "deletion": {
+    "title": "Your connection data has been deleted",
+    "body": "The Facebook Pages you connected for lead ads are disconnected, and the access we held for them is deleted. The leads that came in stay with the agency they belong to.",
+    "next": "To stop sharing anything more, you can also remove the app under Business Integrations in your Facebook settings.",
+    "unknownTitle": "We can't find this request",
+    "unknownBody": "This address needs the confirmation code that Facebook was given when you asked for your data to be deleted. Check the address, or ask Facebook for it again.",
+    "home": "Go to the home page"
   }
 }

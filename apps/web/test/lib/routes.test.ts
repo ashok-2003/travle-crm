@@ -126,6 +126,8 @@ describe("routes", () => {
     for (const path of ["/f/x", "/embed/x", "/f/x/y", "/embed/abc?x=1".split("?")[0] ?? ""]) {
       expect(isPublicFormPath(path), path).toBe(true);
     }
+    expect(isPublicFormPath("/meta/deletion")).toBe(true);
+    expect(isPublicFormPath("/meta/deletions")).toBe(false);
     for (const path of ["/fx", "/f", "/settings", "/embedded", "/embed", "/settings/lead-sources/website-form", "/"]) {
       expect(isPublicFormPath(path), path).toBe(false);
     }

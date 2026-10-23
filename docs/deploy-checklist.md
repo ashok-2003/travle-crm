@@ -234,6 +234,7 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `/p/*`                          | api, 3001     | share links                                               |
 | `/webhooks/*`                   | api, 3001     | the webhook intake                                        |
 | `/f/*`, `/embed/*`, `/embed.js` | web, 3000     | the website form's pages and script (the default rule)    |
+| `/meta/deletion`                | web, 3000     | Meta's data-deletion status page (the default rule)       |
 | everything else                 | web, 3000     | the app's pages, build files, manifest and service worker |
 
 - **One address for everything** (spec 3): the app's https origin is `BETTER_AUTH_URL` and `APP_URL`, so cookies
