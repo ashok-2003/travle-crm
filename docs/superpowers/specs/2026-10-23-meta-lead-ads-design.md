@@ -16,9 +16,10 @@
   Also decided (owner, 2026-10-23): a registered business exists and the owner does Business Verification; the Meta app is
   owned by a new Meta Business portfolio named "agencyOS" and takes its name from the brand (section 13).
 
-## 0. For the owner
+## 0. The owner's decisions (2026-10-23)
 
-Five questions that change what is built. Each has my recommendation; if you say nothing I build the recommendation.
+The owner chose the recommendation on questions 1-4; question 5 is the development lead's call, as recommended. A
+registered business exists, and a new Meta Business portfolio named "agencyOS" owns the app (section 13).
 
 1. **How many Facebook Pages per agency?** Recommend **up to 5** (one constant, ready to become a plan limit like the
    Sheets limit). Agencies often keep a brand Page and a few destination Pages. Each Page has its own token and its own
