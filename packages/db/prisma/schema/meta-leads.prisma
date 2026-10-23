@@ -30,6 +30,8 @@ model MetaPage {
   connectedBy         String       @map("connected_by") @db.Uuid
   impersonatedBy      String?      @map("impersonated_by") @db.Uuid
   subscribedAt        DateTime?    @map("subscribed_at") @db.Timestamptz(6)
+  /// When the Page's forms were last read from Meta: they are cached five minutes (M13).
+  formsReadAt         DateTime?    @map("forms_read_at") @db.Timestamptz(6)
   lastCheckedAt       DateTime?    @map("last_checked_at") @db.Timestamptz(6)
   lastOkAt            DateTime?    @map("last_ok_at") @db.Timestamptz(6)
   consecutiveFailures Int          @default(0) @map("consecutive_failures")

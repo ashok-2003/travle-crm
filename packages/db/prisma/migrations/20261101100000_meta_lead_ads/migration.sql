@@ -17,6 +17,7 @@ CREATE TABLE "meta_page" (
     "connected_by" UUID NOT NULL,
     "impersonated_by" UUID,
     "subscribed_at" TIMESTAMPTZ(6),
+    "forms_read_at" TIMESTAMPTZ(6),
     "last_checked_at" TIMESTAMPTZ(6),
     "last_ok_at" TIMESTAMPTZ(6),
     "consecutive_failures" INTEGER NOT NULL DEFAULT 0,

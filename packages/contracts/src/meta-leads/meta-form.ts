@@ -46,6 +46,8 @@ export const metaFormView = z.object({
   lastLeadAt: timestamp.nullable(),
   /** Leads that came while the form was not brought in (spec Q4). */
   skippedLeads: z.int(),
+  /** The import of the form's last 30 days, when that choice was made at bring-in (spec Q3); null otherwise. */
+  earlierImportId: recordId.nullable(),
 });
 export type MetaFormView = z.infer<typeof metaFormView>;
 

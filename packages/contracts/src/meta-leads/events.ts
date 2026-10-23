@@ -24,6 +24,13 @@ export type MetaAttentionEvent = z.infer<typeof metaAttentionEvent>;
 export const metaCheckRequestedEvent = z.strictObject({ pageId: recordId });
 export type MetaCheckRequestedEvent = z.infer<typeof metaCheckRequestedEvent>;
 
-/** meta.form-brought-in: catch up the leads the form skipped while it was not brought in (spec Q4). */
-export const metaFormBroughtInEvent = z.strictObject({ pageId: recordId, formId: recordId });
+/**
+ * meta.form-brought-in: catch up the leads the form skipped while it was not brought in (spec Q4), and, with
+ * `earlierLeads`, make the import of its last 30 days (spec Q3). `formId` is our id for the form.
+ */
+export const metaFormBroughtInEvent = z.strictObject({
+  pageId: recordId,
+  formId: recordId,
+  earlierLeads: z.boolean(),
+});
 export type MetaFormBroughtInEvent = z.infer<typeof metaFormBroughtInEvent>;
