@@ -3,11 +3,16 @@
 // could hold a URL or a token.
 import { MetaGraphError, type MetaGraphErrorReason } from "@travel-crm/integrations/meta-graph";
 import type { MetaDependencies } from "./dependencies.js";
-import { catchupGraphCallsPerHour, graphCallsPerHour, platformGraphCallsPerHour } from "./limits.js";
+import {
+  catchupGraphCallsPerHour,
+  graphCallsPerHour,
+  interactiveGraphCallsPerHour,
+  platformGraphCallsPerHour,
+} from "./limits.js";
 
 /**
  * Which share of the budget a call spends: the webhook path borrows from the whole hour first, the catch-up may use half,
- * and a person's own click (connecting, reading a form) is never refused by a burst of leads.
+ * and a person's own click (connecting, reading a form) has a cap of its own, so a burst of leads never refuses it and a loop of clicks never starves them.
  */
 export type GraphLane = "webhook" | "catchup" | "interactive";
 
@@ -25,7 +30,15 @@ const hour = 3600;
 async function withinBudget(dependencies: MetaDependencies, organizationId: string, lane: GraphLane): Promise<boolean> {
   const { limiter } = dependencies;
   const budget = dependencies.graphBudget ?? { perHour: graphCallsPerHour, catchupPerHour: catchupGraphCallsPerHour };
-  if (lane === "interactive") return true;
+  if (lane === "interactive") {
+    const own = await limiter.hit(`meta-graph:${organizationId}:interactive`, {
+      limit: budget.interactivePerHour ?? interactiveGraphCallsPerHour,
+      windowSeconds: hour,
+    });
+    if (!own.allowed) return false;
+    return (await limiter.hit("meta-graph:platform", { limit: platformGraphCallsPerHour, windowSeconds: hour }))
+      .allowed;
+  }
   if (lane === "catchup") {
     const share = await limiter.hit(`meta-graph:${organizationId}:catchup`, {
       limit: budget.catchupPerHour,

@@ -37,6 +37,8 @@ export async function handleDeletionRequest(
 ): Promise<DeletionAnswer | null> {
   const payload = readSignedRequest(input.signedRequest, input.appSecret, now);
   if (payload === null) return null;
+  // Meta's payload may carry no `expires`: a request issued days ago is a replay, not a user's present wish (review M8).
+  if (payload.issued_at !== undefined && payload.issued_at * 1000 < now.getTime() - 3 * 86_400_000) return null;
   const routes = await routesOfMetaUser(dependencies.db, payload.user_id);
   const counts = { pages: 0 };
   for (const route of routes) {

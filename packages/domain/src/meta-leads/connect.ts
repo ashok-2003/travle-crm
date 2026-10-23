@@ -19,11 +19,14 @@ import { isOnDemoPlan } from "../subscriptions/index.js";
 import { consumeNonce, makeConnectState, readConnectState } from "./connect-state.js";
 import { metaServices, type MetaDependencies } from "./dependencies.js";
 import { callGraph, lacksPermission, needsReconnect } from "./graph-calls.js";
-import { connectStateMinutes, maxMetaPagesPerOrganization } from "./limits.js";
+import { catchupIntervalSeconds, connectStateMinutes, maxMetaPagesPerOrganization } from "./limits.js";
 import { livePageByMetaId, pageNotFound, pageOf } from "./page-row.js";
 import * as refuse from "./refusals.js";
-import { isHeldElsewhere } from "./routes.js";
+import { isHeldElsewhere, removeRoute, upsertRoute } from "./routes.js";
 import { clearedToken, openPageToken, sealPageToken } from "./tokens.js";
+
+/** The most drafts one login makes (the input caps the ticks at 20). */
+const MAX_DRAFTS = 20;
 
 function configured(dependencies: MetaDependencies) {
   const services = metaServices(dependencies);
@@ -137,7 +140,11 @@ export async function finishConnect(
   const exchanged = await callGraph(dependencies, organizationId, "interactive", () =>
     graph.exchangeLoginCode(input.code, login.redirectUri),
   );
-  if (!exchanged.ok) throw exchanged.failure.reason === "token_invalid" ? refuse.loginFailed() : refuse.unavailable();
+  if (!exchanged.ok) {
+    // A code Meta does not accept is a login that failed; only Meta or the network being down is "not answering".
+    const down = ["unavailable", "rate_limited", "budget"].includes(exchanged.failure.reason);
+    throw down ? refuse.unavailable() : refuse.loginFailed();
+  }
   const { userId: metaUserId, userToken } = exchanged.value;
   const listed = await callGraph(dependencies, organizationId, "interactive", () => graph.listPages(userToken));
   if (!listed.ok) {
@@ -160,9 +167,20 @@ export async function finishConnect(
     await reconnectPage(dependencies, access, state.reconnectPageRowId, draftable, metaUserId, now);
     return { pages, reconnectPageRowId: state.reconnectPageRowId };
   }
+  // At most as many drafts as can be ticked at once: a login that shares a thousand Pages seals a thousand tokens for nothing.
+  const kept = draftable.slice(0, MAX_DRAFTS);
   await dependencies.db.forOrg(organizationId, async (tx) => {
-    for (const grant of draftable) await keepDraft(tx, dependencies, { access, grant, metaUserId, now });
+    for (const grant of kept) await keepDraft(tx, dependencies, { access, grant, metaUserId, now });
   });
+  // A draft holds a sealed token and the user's id, so Meta's deletion callback must find it: it has a route like a Page.
+  for (const grant of kept) {
+    await upsertRoute(dependencies.db, {
+      metaPageId: grant.id,
+      organizationId,
+      metaUserId,
+      nextCatchupAt: new Date(now.getTime() + catchupIntervalSeconds * 1000),
+    });
+  }
   return { pages, reconnectPageRowId: null };
 }
 
@@ -235,18 +253,7 @@ export async function connectPages(
     if (!chosen.some((draft) => draft.pageId === asked))
       result.refused.push({ pageId: asked, reason: "META_PAGE_NOT_ALLOWED" });
   }
-  // The agency's count and its inserts take turns: two people connecting at once can't both take the last place.
-  const room = await db.forOrg(organizationId, async (tx) => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`meta-limit:${organizationId}`}, 0))`;
-    const live = await tx.metaPage.count({ where: { status: { in: ["running", "paused", "needs_reconnect"] } } });
-    return Math.max(0, Math.min(maxMetaPagesPerOrganization, MAX_META_PAGES) - live);
-  });
-
-  for (const [index, draft] of chosen.entries()) {
-    if (index >= room) {
-      result.refused.push({ pageId: draft.pageId, reason: "META_PAGE_LIMIT" });
-      continue;
-    }
+  for (const draft of chosen) {
     const token = openPageToken(secretBox, { ...draft, tokenKeyVersion: draft.tokenKeyVersion });
     if (token === null) {
       result.refused.push({ pageId: draft.pageId, reason: "META_LOGIN_FAILED" });
@@ -256,37 +263,37 @@ export async function connectPages(
       result.refused.push({ pageId: draft.pageId, reason: "META_PAGE_TAKEN" });
       continue;
     }
+    // The place is taken in a transaction that counts and flips under the agency's lock, held until the flip commits, so two
+    // people connecting at once cannot both take the last place (review: the cap race).
+    const claimed = await claimPlace(dependencies, draft.id, organizationId, now);
+    if (claimed === "limit") {
+      result.refused.push({ pageId: draft.pageId, reason: "META_PAGE_LIMIT" });
+      continue;
+    }
+    if (claimed === "taken") {
+      result.refused.push({ pageId: draft.pageId, reason: "META_PAGE_TAKEN" });
+      continue;
+    }
     const subscribed = await callGraph(dependencies, organizationId, "interactive", () =>
       graph.subscribePage(draft.pageId, token),
     );
     if (!subscribed.ok) {
+      await giveUpPlace(dependencies, draft.id, organizationId);
       result.refused.push({
         pageId: draft.pageId,
         reason: lacksPermission(subscribed.failure) ? "META_PERMISSION_MISSING" : "META_UNAVAILABLE",
       });
       continue;
     }
-    try {
-      await db.forOrg(organizationId, async (tx) => {
-        await tx.metaPage.update({
-          where: { id: draft.id },
-          data: { status: "running", subscribedAt: now, createdAt: now, lastOkAt: now },
-        });
-        await recordAudit(tx, access, {
-          action: "meta.page-connected",
-          entityType: "meta_page",
-          entityId: draft.id,
-          after: { status: "running" },
-        });
-        await publishEvent(tx, { type: "meta.page-changed", payload: { pageId: draft.id } });
+    await dependencies.db.forOrg(organizationId, async (tx) => {
+      await recordAudit(tx, access, {
+        action: "meta.page-connected",
+        entityType: "meta_page",
+        entityId: draft.id,
+        after: { status: "running" },
       });
-    } catch (error) {
-      if (isUniqueViolation(error)) {
-        result.refused.push({ pageId: draft.pageId, reason: "META_PAGE_TAKEN" });
-        continue;
-      }
-      throw error;
-    }
+      await publishEvent(tx, { type: "meta.page-changed", payload: { pageId: draft.id } });
+    });
     result.connected.push({ id: draft.id, pageId: draft.pageId });
   }
   await letDraftsGo(
@@ -298,17 +305,49 @@ export async function connectPages(
   return result;
 }
 
-/** The person's other drafts (Pages not ticked) go: token deleted, disconnected. */
+/** Counts the live Pages and, if there is room, makes this draft one, in one transaction under the agency's lock. */
+async function claimPlace(
+  dependencies: MetaDependencies,
+  draftId: string,
+  organizationId: string,
+  now: Date,
+): Promise<"claimed" | "limit" | "taken"> {
+  try {
+    return await dependencies.db.forOrg(organizationId, async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`meta-limit:${organizationId}`}, 0))`;
+      const live = await tx.metaPage.count({ where: { status: { in: ["running", "paused", "needs_reconnect"] } } });
+      if (live >= Math.min(maxMetaPagesPerOrganization, MAX_META_PAGES)) return "limit" as const;
+      await tx.metaPage.update({
+        where: { id: draftId },
+        data: { status: "running", subscribedAt: now, createdAt: now, lastOkAt: now },
+      });
+      return "claimed" as const;
+    });
+  } catch (error) {
+    if (isUniqueViolation(error)) return "taken";
+    throw error;
+  }
+}
+
+/** Meta would not subscribe the Page: the place goes back and the draft is a draft again. */
+async function giveUpPlace(dependencies: MetaDependencies, draftId: string, organizationId: string): Promise<void> {
+  await dependencies.db.forOrg(organizationId, (tx) =>
+    tx.metaPage.update({ where: { id: draftId }, data: { status: "connecting", subscribedAt: null, lastOkAt: null } }),
+  );
+}
+
+/** The person's other drafts (Pages not ticked) go: token deleted, disconnected, their routes dropped. */
 async function letDraftsGo(
   dependencies: MetaDependencies,
   access: MemberAccess,
   keepIds: readonly string[],
   now: Date,
 ): Promise<void> {
-  await dependencies.db.forOrg(access.organizationId, (tx) =>
-    tx.metaPage.updateMany({
-      where: { status: "connecting", connectedBy: access.userId, id: { notIn: [...keepIds] } },
-      data: { status: "disconnected", disconnectedAt: now, ...clearedToken },
-    }),
-  );
+  const where = { status: "connecting", connectedBy: access.userId, id: { notIn: [...keepIds] } };
+  const gone = await dependencies.db.forOrg(access.organizationId, async (tx) => {
+    const drafts = await tx.metaPage.findMany({ where, select: { pageId: true } });
+    await tx.metaPage.updateMany({ where, data: { status: "disconnected", disconnectedAt: now, ...clearedToken } });
+    return drafts;
+  });
+  for (const draft of gone) await removeRoute(dependencies.db, access.organizationId, draft.pageId);
 }

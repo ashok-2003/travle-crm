@@ -41,6 +41,8 @@ export function openPageToken(
 
 /** What clears a Page's token on disconnect. */
 export const clearedToken = {
+  // The Facebook user's app-scoped id is a person's identifier: it goes with the token (review I3).
+  metaUserId: "-",
   tokenCiphertext: null,
   tokenNonce: null,
   tokenKeyVersion: null,

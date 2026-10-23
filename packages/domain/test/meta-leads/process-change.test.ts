@@ -368,4 +368,15 @@ describe("Check again on a problem", () => {
     ).resolves.toBeDefined();
     test.graph.deleteLead("OT");
   });
+
+  it("asks for a lead once in half a minute, so a loop of presses cannot burn Meta's limit", async () => {
+    const running = await aRunningPage(test);
+    running.leadAtMeta("CD", { full_name: ["Cool Down"], phone_number: ["nope"] });
+    await running.deliver("CD");
+    const row = await ledgerOf(running, "CD");
+    const press = () =>
+      retryMetaLead(running.dependencies, running.member, { pageId: running.page.id, leadRowId: row?.id ?? "" }, now);
+    await expect(press()).resolves.toBe("not_added");
+    await expect(press()).rejects.toMatchObject({ reason: "META_BUSY" });
+  });
 });

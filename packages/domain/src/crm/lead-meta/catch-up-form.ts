@@ -45,8 +45,20 @@ export async function readFormLeads(
         metaLeadId: { in: leads.map((lead) => lead.id) },
         status: { in: ["added", "merged", "duplicate", "erased", "not_added"] },
       },
-      select: { metaLeadId: true },
+      select: { metaLeadId: true, status: true, reasons: true, firstSeenAt: true },
     }),
   );
-  return { ok: true, leads, settled: new Set(known.map((row) => row.metaLeadId)) };
+  // A lead written down as gone or as unsavable within the day is read again: Meta's list carries its answers, and the first
+  // fetch may have been refused for a moment (review I4). Other problems wait for a person's Check again.
+  const fixable = new Set(["lead_not_found", "lead_not_allowed", "could_not_add"]);
+  const recent = Date.now() - 24 * 3_600_000;
+  const settled = known.filter(
+    (row) =>
+      !(
+        row.status === "not_added" &&
+        row.firstSeenAt.getTime() > recent &&
+        row.reasons.some((reason) => fixable.has(reason))
+      ),
+  );
+  return { ok: true, leads, settled: new Set(settled.map((row) => row.metaLeadId)) };
 }

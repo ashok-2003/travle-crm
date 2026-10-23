@@ -40,6 +40,9 @@ export async function retryMetaLead(
   if (!(await mayBringIn(dependencies, organizationId))) {
     throw new DomainError("FORBIDDEN", "ORGANIZATION_READ_ONLY", "This organization is read-only until it pays");
   }
+  // One press per lead in half a minute: a loop of presses would burn Meta's limit for every agency.
+  const pressed = await dependencies.limiter.hit(`meta-retry:${row.id}`, { limit: 1, windowSeconds: 30 }, now);
+  if (!pressed.allowed) throw metaRefusals.checkedJustNow();
   const token = openPageToken(services.secretBox, page);
   if (token === null) throw metaRefusals.unavailable();
   const fetched = await callGraph(dependencies, organizationId, "interactive", () =>

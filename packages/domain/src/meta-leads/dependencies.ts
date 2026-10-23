@@ -21,6 +21,8 @@ export interface MetaLoginSettings {
 export interface GraphBudget {
   perHour: number;
   catchupPerHour: number;
+  /** A person's own clicks; the limits' constant unless given. */
+  interactivePerHour?: number;
 }
 
 export interface MetaDependencies {

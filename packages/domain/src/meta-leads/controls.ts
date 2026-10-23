@@ -10,6 +10,7 @@ import { callGraph } from "./graph-calls.js";
 import { checkNowCooldownSeconds } from "./limits.js";
 import { findPage, holdPage, pageNotFound, pageNotReady, type MetaPageRow } from "./page-row.js";
 import * as refuse from "./refusals.js";
+import { routeOfMetaPage } from "./routes.js";
 import { clearedToken, openPageToken } from "./tokens.js";
 
 /** The Page, held, at one of these statuses. A draft has no controls: it is not connected yet. */
@@ -85,6 +86,10 @@ export async function unsubscribeBestEffort(dependencies: MetaDependencies, page
   if (services === null) return;
   const token = openPageToken(services.secretBox, page);
   if (token === null) return;
+  // The subscription is the app's for the Page, whoever connected it: only the agency that holds the Page may end it
+  // (a loser of a two-connect race must not stop the winner's webhooks).
+  const held = await routeOfMetaPage(dependencies.db, page.pageId);
+  if (held !== null && held.organizationId !== page.organizationId) return;
   const result = await callGraph(dependencies, page.organizationId, "interactive", () =>
     services.graph.unsubscribePage(page.pageId, token),
   );

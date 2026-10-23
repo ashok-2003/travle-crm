@@ -22,8 +22,8 @@ export const checkNowCooldownSeconds = 30;
 
 /** A ledger row left pending is retried by the catch-up after this long (M7). */
 export const pendingRetryMinutes = 5;
-/** A Page's forms are read again when its page is opened after this long (M13). */
-export const formsCacheSeconds = 300;
+/** A Page's forms are read again when its page is opened after this long: a form just made at Meta shows at once (M13). */
+export const formsCacheSeconds = 20;
 /** A token with a known expiry warns the Owner this many days before (M3). */
 export const tokenWarningDays = 7;
 /** A Page chosen at Facebook and never confirmed is let go after this long. */
@@ -47,3 +47,5 @@ export const graphCallsPerHour = 600;
 export const catchupGraphCallsPerHour = 300;
 /** The app's own ceiling across all agencies (8.1): reaching it logs one line with counts. */
 export const platformGraphCallsPerHour = 20_000;
+/** A person's own clicks (reading a form, Check again) are capped per organization too, so one member in a loop cannot push Meta's app-wide limit. */
+export const interactiveGraphCallsPerHour = 120;

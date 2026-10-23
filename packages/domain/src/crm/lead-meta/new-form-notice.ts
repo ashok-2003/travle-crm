@@ -67,11 +67,12 @@ export async function skipLeadOfUnbroughtForm(
       data: { skippedLeads: { increment: 1 }, catchupCursor: cursor },
     });
     // The notice goes once: whoever flips the flag from empty is the one that sends it.
+    if (owner === null) return;
     const flagged = await tx.metaForm.updateMany({
       where: { id: form.id, noticeSentAt: null },
       data: { noticeSentAt: now },
     });
-    if (flagged.count === 0 || owner === null) return;
+    if (flagged.count === 0) return;
     await notify(tx, systemActor(page.organizationId), {
       recipientUserIds: [owner],
       sourceEventId: noticeIdOf(form.id),

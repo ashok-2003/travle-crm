@@ -3,7 +3,17 @@
 // reconnect on the same row.
 import { afterAll, describe, expect, it } from "vitest";
 import { DomainError } from "../../src/kernel/index.js";
-import { connectPages, finishConnect, openPageToken, startConnect, upsertRoute } from "../../src/meta-leads/index.js";
+import {
+  callGraph,
+  connectPages,
+  finishConnect,
+  openPageToken,
+  removeRoute,
+  routeRowOf,
+  startConnect,
+  upsertRoute,
+} from "../../src/meta-leads/index.js";
+import { MetaGraphError } from "@travel-crm/integrations/meta-graph";
 import { makeConnectState } from "../../src/meta-leads/connect-state.js";
 import {
   anAgency,
@@ -215,6 +225,8 @@ describe("connectPages", () => {
       ],
     });
     await login(agency, member, "c7");
+    // Another agency took the Page after this draft was made (its draft route lapsed).
+    await removeRoute(test.dependencies.db, agency, taken);
     await upsertRoute(test.dependencies.db, {
       metaPageId: taken,
       organizationId: other,
@@ -275,5 +287,94 @@ describe("a reconnect", () => {
     );
     shareWithGraph(test, { code: "c10", pages: [{ id: page.metaPageId, token: "x", canAdvertise: false }] });
     expect(await reasonOf(login(agency, member, "c10", page.id))).toBe("META_PAGE_NOT_ALLOWED");
+  });
+});
+
+describe("review fixes", () => {
+  it("takes the last place for one of two people connecting at once, not both (the cap race)", async () => {
+    const agency = await anAgency(test);
+    const first = memberOf(agency);
+    const second = memberOf(agency);
+    await test.db.forOrg(agency, async (tx) => {
+      for (let n = 0; n < 4; n += 1) await aPage(test, tx, agency, { connectedBy: first.userId });
+    });
+    const pageA = aMetaPageId();
+    const pageB = aMetaPageId();
+    shareWithGraph(test, { code: "race-a", pages: [{ id: pageA, token: "ta" }] });
+    shareWithGraph(test, { code: "race-b", pages: [{ id: pageB, token: "tb" }] });
+    await login(agency, first, "race-a");
+    await login(agency, second, "race-b");
+    const [a, b] = await Promise.all([
+      connectPages(test.dependencies, first, [pageA], now),
+      connectPages(test.dependencies, second, [pageB], now),
+    ]);
+    expect(a.connected.length + b.connected.length).toBe(1);
+    expect([...a.refused, ...b.refused].map((entry) => entry.reason)).toEqual(["META_PAGE_LIMIT"]);
+    const live = await test.db.forOrg(agency, (tx) => tx.metaPage.count({ where: { status: "running" } }));
+    expect(live).toBe(5);
+  });
+
+  it("gives the place back when Meta will not subscribe the Page", async () => {
+    const agency = await anAgency(test);
+    const member = memberOf(agency);
+    const page = aMetaPageId();
+    shareWithGraph(test, { code: "back", pages: [{ id: page, token: "tb" }] });
+    await login(agency, member, "back");
+    test.graph.failNext("unavailable", { pageId: page });
+    const result = await connectPages(test.dependencies, member, [page], now);
+    expect(result.refused).toEqual([{ pageId: page, reason: "META_UNAVAILABLE" }]);
+    expect((await test.db.forOrg(agency, (tx) => tx.metaPage.findFirstOrThrow())).status).toBe("connecting");
+  });
+
+  it("says the login failed for a code Meta refuses, and that Facebook is not answering only when it is not", async () => {
+    const agency = await anAgency(test);
+    const member = memberOf(agency);
+    const started = async () =>
+      new URL((await startConnect(test.dependencies, member, {}, now)).authorizeUrl).searchParams.get("state") ?? "";
+    test.graph.throwNext(new MetaGraphError("token_invalid", { code: 100, subcode: 36009 }));
+    expect(await reasonOf(finishConnect(test.dependencies, member, { code: "x", state: await started() }, now))).toBe(
+      "META_LOGIN_FAILED",
+    );
+    test.graph.throwNext(new MetaGraphError("not_found", { code: 100 }));
+    expect(await reasonOf(finishConnect(test.dependencies, member, { code: "x", state: await started() }, now))).toBe(
+      "META_LOGIN_FAILED",
+    );
+    test.graph.throwNext(new MetaGraphError("unavailable", { code: 2 }));
+    expect(await reasonOf(finishConnect(test.dependencies, member, { code: "x", state: await started() }, now))).toBe(
+      "META_UNAVAILABLE",
+    );
+  });
+
+  it("keeps a draft's route so the deletion callback finds it, and drops it with the draft; and caps drafts at twenty", async () => {
+    const agency = await anAgency(test);
+    const member = memberOf(agency);
+    const ids = Array.from({ length: 22 }, () => aMetaPageId());
+    shareWithGraph(test, { code: "many", userId: "u-many", pages: ids.map((id) => ({ id, token: `t-${id}` })) });
+    const finished = await login(agency, member, "many");
+    expect(finished.pages).toHaveLength(22);
+    expect(await test.db.forOrg(agency, (tx) => tx.metaPage.count({ where: { status: "connecting" } }))).toBe(20);
+    expect(await routeRowOf(test.db, ids[0] ?? "")).toMatchObject({ organizationId: agency, metaUserId: "u-many" });
+    expect(await routeRowOf(test.db, ids[21] ?? "")).toBeNull();
+    await connectPages(test.dependencies, member, [ids[0] ?? ""], now);
+    expect(await routeRowOf(test.db, ids[1] ?? "")).toBeNull();
+    expect(await routeRowOf(test.db, ids[0] ?? "")).not.toBeNull();
+  });
+
+  it("caps a person's own Graph calls per organization, apart from the leads' budget", async () => {
+    const agency = await anAgency(test);
+    const limited = {
+      ...test.dependencies,
+      graphBudget: { perHour: 1000, catchupPerHour: 1000, interactivePerHour: 2 },
+    };
+    const call = () => callGraph(limited, agency, "interactive", () => Promise.resolve(1));
+    expect((await call()).ok).toBe(true);
+    expect((await call()).ok).toBe(true);
+    const third = await call();
+    expect(third.ok).toBe(false);
+    expect(!third.ok && third.failure.reason).toBe("budget");
+    // The webhook lane is a budget of its own.
+    expect((await callGraph(limited, agency, "webhook", () => Promise.resolve(1))).ok).toBe(true);
+    // Another agency is not affected.
+    expect((await callGraph(limited, await anAgency(test), "interactive", () => Promise.resolve(1))).ok).toBe(true);
   });
 });

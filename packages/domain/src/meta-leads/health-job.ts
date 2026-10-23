@@ -3,7 +3,7 @@
 import type { MetaDependencies } from "./dependencies.js";
 import { checkPageHealth, type HealthOutcome } from "./health.js";
 import { livePageByMetaId } from "./page-row.js";
-import { routesPage } from "./routes.js";
+import { removeRoute, routesPage } from "./routes.js";
 
 export const META_HEALTH_QUEUE = "meta.health";
 const PAGE_SIZE = 100;
@@ -20,6 +20,8 @@ export async function checkAllPages(
       try {
         const page = await dependencies.db.forOrg(route.organizationId, (tx) => livePageByMetaId(tx, route.metaPageId));
         if (page === null) {
+          // A route no live Page stands behind (a disconnected draft, a Page released): dropped.
+          await removeRoute(dependencies.db, route.organizationId, route.metaPageId);
           counts.skipped += 1;
           continue;
         }

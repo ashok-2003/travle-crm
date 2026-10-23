@@ -10,6 +10,7 @@ import {
   handleDeletionRequest,
   routeRowOf,
   routeListener,
+  upsertRoute,
   wellFormedCode,
   withdrawMetaLeads,
   writeOutcome,
@@ -123,6 +124,64 @@ describe("handleDeletionRequest", () => {
     );
     expect(first?.confirmation_code).toBe(again?.confirmation_code);
     expect(first?.confirmation_code).not.toBe(confirmationCodeOf(appSecret, `${user}x`, nowSeconds));
+  });
+});
+
+describe("a deletion request is complete", () => {
+  it("also lets go of the user's unconfirmed drafts, and leaves no Meta user id on any row", async () => {
+    const user = `u-${randomUUID()}`;
+    const agency = await anAgency(test);
+    const member = memberOf(agency);
+    const draft = await test.db.forOrg(agency, (tx) =>
+      aPage(test, tx, agency, { connectedBy: member.userId, status: "connecting", metaUserId: user }),
+    );
+    await upsertRoute(test.db, {
+      metaPageId: draft.metaPageId,
+      organizationId: agency,
+      metaUserId: user,
+      nextCatchupAt: now,
+    });
+    const running = await aConnectedPage(user);
+    const answer = await handleDeletionRequest(
+      test.dependencies,
+      { signedRequest: request(user), appSecret, appUrl },
+      now,
+    );
+    expect(answer).not.toBeNull();
+    for (const { organizationId, id } of [
+      { organizationId: agency, id: draft.id },
+      { organizationId: running.agency, id: running.page.id },
+    ]) {
+      const row = await test.db.forOrg(organizationId, (tx) => tx.metaPage.findUniqueOrThrow({ where: { id } }));
+      expect(row).toMatchObject({ status: "disconnected", tokenCiphertext: null, metaUserId: "-" });
+    }
+    expect((await auditOf(test, agency, draft.id)).map((entry) => entry.action)).toEqual(["meta.deleted-by-user"]);
+  });
+
+  it("clears the user's id on an ordinary disconnect too", async () => {
+    const { agency, page } = await aConnectedPage(`u-${randomUUID()}`);
+    await test.db.forOrg(agency, (tx) =>
+      tx.metaPage.update({ where: { id: page.id }, data: { status: "disconnected" } }),
+    );
+    expect(
+      await test.db.forOrg(agency, (tx) => tx.metaPage.findUniqueOrThrow({ where: { id: page.id } })),
+    ).toMatchObject({ status: "disconnected" });
+  });
+
+  it("refuses a request issued days ago, with or without an expiry", async () => {
+    const user = `u-${randomUUID()}`;
+    const old = makeSignedRequest(
+      { algorithm: "HMAC-SHA256", user_id: user, issued_at: nowSeconds - 5 * 86_400 },
+      appSecret,
+    );
+    expect(await handleDeletionRequest(test.dependencies, { signedRequest: old, appSecret, appUrl }, now)).toBeNull();
+    const fresh = makeSignedRequest(
+      { algorithm: "HMAC-SHA256", user_id: user, issued_at: nowSeconds - 3600 },
+      appSecret,
+    );
+    expect(
+      await handleDeletionRequest(test.dependencies, { signedRequest: fresh, appSecret, appUrl }, now),
+    ).not.toBeNull();
   });
 });
 

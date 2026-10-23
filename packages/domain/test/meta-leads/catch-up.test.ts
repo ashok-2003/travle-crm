@@ -226,6 +226,48 @@ describe("catchUpPage", () => {
   });
 });
 
+describe("a lead the first fetch lost", () => {
+  it("is read again from the list within a day, so a lead Meta refused for a moment is not lost", async () => {
+    const running = await aRunningPage(test);
+    // The webhook found nothing (Meta answered 100 before the lead was readable): written down as gone.
+    expect(await running.deliver("LATE")).toBe("lead_gone");
+    expect(await running.leads()).toHaveLength(0);
+    running.leadAtMeta("LATE", answers("Late Lead", freshPhone()), { createdAt: at(1) });
+    const result = await catchUp(running);
+    expect(result.added).toBe(1);
+    expect((await running.inOrg((tx) => tx.metaLead.findFirstOrThrow({ where: { metaLeadId: "LATE" } }))).status).toBe(
+      "added",
+    );
+  });
+
+  it("leaves a lead written down as gone for over a day, and any other problem, to a person's Check again", async () => {
+    const running = await aRunningPage(test);
+    running.leadAtMeta("OLDGONE", answers("Old Gone", freshPhone()), { createdAt: at(1) });
+    running.leadAtMeta("NOCONTACT", { full_name: ["No Contact"] }, { createdAt: at(1) });
+    await running.inOrg(async (tx) => {
+      await tx.metaLead.create({
+        data: {
+          metaLeadId: "OLDGONE",
+          formId: running.form.formId,
+          status: "not_added",
+          reasons: ["lead_not_found"],
+          firstSeenAt: new Date(Date.now() - 2 * 86_400_000),
+        },
+      });
+      await tx.metaLead.create({
+        data: {
+          metaLeadId: "NOCONTACT",
+          formId: running.form.formId,
+          status: "not_added",
+          reasons: ["no_contact"],
+          firstSeenAt: new Date(),
+        },
+      });
+    });
+    expect((await catchUp(running)).added).toBe(0);
+  });
+});
+
 describe("the catch-up job and its dispatcher", () => {
   it("queues the due Pages with ids only, holds them, and the job sets the next time and releases the claim", async () => {
     const running = await aRunningPage(test);

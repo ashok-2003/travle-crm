@@ -53,7 +53,7 @@ async function aSetup() {
 }
 
 describe("refreshForms and listForms", () => {
-  it("keeps a row for each form Meta lists, not brought in, and reads again only after five minutes", async () => {
+  it("keeps a row for each form Meta lists, not brought in, and reads again only after twenty seconds, so a form just made at Meta shows at once", async () => {
     const { agency, page, row } = await aSetup();
     test.graph.addForm(page.metaPageId, { id: "F1", name: "Winter ad", questions: winterQuestions });
     test.graph.addForm(page.metaPageId, {
@@ -68,10 +68,10 @@ describe("refreshForms and listForms", () => {
       ["Winter ad", "ACTIVE", "not_brought_in", 0],
     ]);
     const calls = test.graph.calls.byMethod.listForms ?? 0;
-    await listForms(test.dependencies, await row(), new Date(now.getTime() + 60_000));
+    await listForms(test.dependencies, await row(), new Date(now.getTime() + 10_000));
     expect(test.graph.calls.byMethod.listForms).toBe(calls);
     test.graph.addForm(page.metaPageId, { id: "F3", name: "Goa", questions: winterQuestions });
-    expect(await refreshForms(test.dependencies, await row(), new Date(now.getTime() + 301_000))).toBe(true);
+    expect(await refreshForms(test.dependencies, await row(), new Date(now.getTime() + 21_000))).toBe(true);
     expect(await test.db.forOrg(agency, (tx) => tx.metaForm.count())).toBe(3);
   });
 
