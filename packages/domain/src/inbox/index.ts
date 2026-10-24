@@ -22,7 +22,6 @@ export {
   queueMedia,
   queueText,
   requestMediaUpload,
-  retryMessage,
   type MediaDependencies,
   type ReplyContext,
 } from "./outbox.js";
@@ -61,7 +60,8 @@ export {
   listMessages,
   visibleMessage,
 } from "./views.js";
-export { queueTemplate, renderTemplate, startChatForLead } from "./template-send.js";
+export { retryMessage } from "./retry.js";
+export { assertTemplateAllowed, queueTemplate, renderTemplate, startChatForLead } from "./template-send.js";
 export {
   archiveTemplate,
   createTemplate,

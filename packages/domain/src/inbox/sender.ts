@@ -22,6 +22,7 @@ import { notify } from "../notifications/index.js";
 import type { RateLimiter } from "../rate-limits/index.js";
 import { notifyNeedsAttention } from "./attention.js";
 import { chatNameOf } from "./chat-name.js";
+import { whatsappConsentOf } from "./whatsapp-consent.js";
 import { MESSAGE_QUEUED_EVENT } from "./outbox.js";
 import { settleNeedsReply } from "./needs-reply.js";
 import { bumpUsage, monthStartOf } from "./usage.js";
@@ -54,6 +55,7 @@ export type FailureCode =
   | "unsure"
   | "paused"
   | "not_connected"
+  | "opted_out"
   | "file_missing"
   | "other";
 
@@ -230,7 +232,12 @@ export async function sendQueued(
   const message = await context.forOrg(async (tx) => {
     const queued = await queuedMessage(tx, event.messageId);
     if (queued === null) return null;
-    const refusal = refusalOf(dependencies, queued, now);
+    // A STOP that came while a template waited in the queue stops it too (D19).
+    const stopped =
+      queued.template !== null &&
+      queued.personId !== null &&
+      (await whatsappConsentOf(tx, queued.personId)).state === "withdrawn";
+    const refusal = refusalOf(dependencies, queued, now) ?? (stopped ? "opted_out" : null);
     if (refusal === null) return { queued, refusal };
     await fail(tx, queued, refusal, event.id, context, now);
     return { queued, refusal };
@@ -294,6 +301,14 @@ export async function sendQueued(
       : [];
   await context.forOrg(async (tx) => {
     if (result !== "file_missing" && result.ok) {
+      // MSG91 may report this very message as sent from the phone before our answer was saved (SPIKE(S2)): that echo row
+      // is hidden, so the message id stays unique and the chat shows the message once.
+      if (result.wamid !== null) {
+        await tx.whatsappMessage.updateMany({
+          where: { wamid: result.wamid, id: { not: queued.id } },
+          data: { wamid: null, status: "superseded" },
+        });
+      }
       await tx.whatsappMessage.update({
         where: { id: queued.id },
         data: { status: "sent", wamid: result.wamid, sentAt: now },

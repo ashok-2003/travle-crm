@@ -51,7 +51,8 @@ export function messageColumns(message: ParsedMessage, now: Date) {
     longitude: message.longitude,
     wamid: message.wamid,
     quotedWamid: message.quotedWamid,
-    occurredAt: message.occurredAt ?? now,
+    // The provider's own time, never later than ours: a clock ahead would hold the 24-hour window open too long.
+    occurredAt: message.occurredAt === null || message.occurredAt.getTime() > now.getTime() ? now : message.occurredAt,
     mediaState: media ? "pending" : "none",
     mediaUrl: media ? message.mediaUrl : null,
   } as const;

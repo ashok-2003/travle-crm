@@ -259,6 +259,31 @@ describe("replying on WhatsApp", () => {
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
+  it("fails a reply that waited in the queue over five minutes, so Try again appears and the sender is told", async () => {
+    const { connection, conversation, member, reply } = await chat();
+    const queued = await reply("Hello");
+    const soon = new Date(testNow.getTime() + HOUR + 4 * 60_000);
+    await checkConnection(test.dependencies, connection.organizationId, connection.connectionId, soon);
+    expect(await messageRow(connection, queued.messageId)).toMatchObject({ status: "queued" });
+    const late = new Date(testNow.getTime() + HOUR + 6 * 60_000);
+    await checkConnection(test.dependencies, connection.organizationId, connection.connectionId, late);
+    expect(await messageRow(connection, queued.messageId)).toMatchObject({
+      status: "failed",
+      failureCode: "provider_down",
+    });
+    const state = await test.db.forOrg(connection.organizationId, async (tx) => ({
+      chat: await tx.whatsappConversation.findUniqueOrThrow({ where: { id: conversation.id } }),
+      told: await tx.notification.findMany({ where: { kind: "whatsapp.send-failed" } }),
+    }));
+    expect(state.chat.needsReply).toBe(true);
+    expect(state.told.map((row) => row.recipientUserId)).toEqual([member.userId]);
+    // The worker's own retry finds nothing to send, and a person can try again.
+    expect(await send(connection, queued.messageId, late)).toBe("skipped");
+    await expect(
+      test.db.forOrg(connection.organizationId, (tx) => retryMessage(tx, member, queued.messageId, context, late)),
+    ).resolves.toMatchObject({ status: "queued" });
+  });
+
   it("marks a chat answered without sending anything", async () => {
     const { connection, conversation, member, phone } = await chat();
     await test.db.forOrg(connection.organizationId, (tx) => markAnswered(tx, member, conversation.id));

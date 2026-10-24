@@ -261,44 +261,6 @@ export async function queueMedia(
   });
 }
 
-/**
- * Try again on a message that did not go (S2): the same message goes back in the queue, in the window if it is still open. A
- * message already back in the queue, or on its way, is left alone, so a double tap sends once. The customer may already have the
- * first try (a timeout can hide it): that is why only a person asks for this, never the worker.
- */
-export async function retryMessage(
-  tx: OrgTx,
-  access: MemberAccess,
-  messageId: string,
-  context: ReplyContext,
-  now: Date,
-): Promise<SentMessage> {
-  const message = await tx.whatsappMessage.findUnique({
-    where: { id: messageId },
-    select: { id: true, status: true, conversationId: true, direction: true, origin: true, kind: true },
-  });
-  if (message?.direction !== "out" || message.origin !== "staff_crm") {
-    throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
-  }
-  await visibleConversation(tx, access, message.conversationId);
-  if (message.status === "queued" || message.status === "sending") return sentOf(message);
-  if (message.status !== "failed") {
-    throw new DomainError("CONFLICT", "NOT_FAILED", "Only a message that was not sent can be tried again");
-  }
-  await sendableChat(tx, access, message.conversationId, context, now, { window: message.kind !== "template" });
-  const updated = await tx.whatsappMessage.update({
-    where: { id: message.id },
-    data: { status: "queued", failureCode: null, wamid: null, sentAt: null, occurredAt: now, sentBy: access.userId },
-    select: { id: true, status: true },
-  });
-  await showAsLast(tx, message.conversationId, message.id, now);
-  await publishEvent(tx, {
-    type: MESSAGE_QUEUED_EVENT,
-    payload: { conversationId: message.conversationId, messageId: message.id },
-  });
-  return sentOf(updated);
-}
-
 /** Mark as answered (spec 5): the chat stops waiting for a reply, for an answer given another way (a call). */
 export async function markAnswered(tx: OrgTx, access: MemberAccess, conversationId: string): Promise<void> {
   const chat = await visibleConversation(tx, access, conversationId);

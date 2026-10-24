@@ -103,7 +103,17 @@ export const sendTemplateInput = z.strictObject({
   conversationId: recordId,
   templateId: recordId,
   clientToken,
-  parameters: z.array(z.string().trim().min(1).max(200)).max(10),
+  // One line: Meta refuses a value with a line break, a tab or a run of four spaces.
+  parameters: z
+    .array(
+      z
+        .string()
+        .trim()
+        .min(1)
+        .max(200)
+        .refine((value) => !/[\n\r\t]| {4,}/.test(value)),
+    )
+    .max(10),
   agreed: z.boolean().default(false),
 });
 export type SendTemplateInput = z.infer<typeof sendTemplateInput>;

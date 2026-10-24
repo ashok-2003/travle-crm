@@ -107,6 +107,7 @@
       "unsure": "We couldn't confirm this was sent. Check before sending again.",
       "paused": "Not sent: WhatsApp is paused for your agency.",
       "not_connected": "Not sent: WhatsApp isn't connected.",
+      "opted_out": "Not sent: they asked to stop WhatsApp messages.",
       "file_missing": "Not sent: the file is no longer there. Attach it again.",
       "other": "Not sent."
     },

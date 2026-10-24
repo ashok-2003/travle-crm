@@ -29,7 +29,16 @@ export async function upsertRoute(
         where: { integratedNumber: input.integratedNumber },
         select: { organizationId: true, connectionId: true },
       });
-      if (held !== null) return held.connectionId === input.connectionId ? "ok" : "taken";
+      if (held !== null) {
+        if (held.connectionId === input.connectionId) return "ok";
+        if (held.organizationId !== input.organizationId) return "taken";
+        // The agency's own earlier route (a disconnected number connected again): it now leads to the new connection.
+        await whatsappNumberRoutes(tx).update({
+          where: { integratedNumber: input.integratedNumber },
+          data: { connectionId: input.connectionId },
+        });
+        return "ok";
+      }
       await whatsappNumberRoutes(tx).create({ data: input });
       return "ok";
     });

@@ -13,7 +13,13 @@ const OPT_OUT_WORDING = "Asked to stop WhatsApp messages.";
 /** Whether a customer's whole message is a request to stop (case and spacing ignored). */
 export function isOptOutText(text: string | null): boolean {
   if (text === null) return false;
-  return ["stop", "unsubscribe", "stop messages"].includes(text.trim().replace(/\s+/g, " ").toLowerCase());
+  return ["stop", "unsubscribe", "stop messages"].includes(
+    text
+      .trim()
+      .replace(/[\s.!?,]+$/u, "")
+      .replace(/\s+/g, " ")
+      .toLowerCase(),
+  );
 }
 
 export interface WhatsappConsent {

@@ -11,6 +11,7 @@ import {
   isOptOutText,
   listTemplates,
   queueTemplate,
+  retryMessage,
   sendQueued,
   startChatForLead,
   syncTemplates,
@@ -375,6 +376,76 @@ describe("message templates", () => {
       tx.notification.findMany({ where: { kind: "whatsapp.needs-attention", title: { contains: "daily limit" } } }),
     );
     expect(limit).toHaveLength(1);
+  });
+
+  it("checks a template again on Try again: a STOP since, the month's cap, a template turned down since", async () => {
+    const { connection, member } = await agency();
+    const template = await approved(connection, member, "marketing", "offer_update");
+    const { phone, chat } = await chatOf(connection);
+    const at = new Date(testNow.getTime() + 30 * HOUR);
+    const failed = async () => {
+      const queued = await send(connection, member, { conversationId: chat.id, templateId: template.id }, at);
+      await test.db.forOrg(connection.organizationId, (tx) =>
+        tx.whatsappMessage.update({
+          where: { id: queued.messageId },
+          data: { status: "failed", failureCode: "other" },
+        }),
+      );
+      return queued.messageId;
+    };
+    const retry = (id: string) =>
+      test.db.forOrg(connection.organizationId, (tx) => retryMessage(tx, member, id, context, at));
+    // The cap is used up by another send that went; the failed one cannot slip past it.
+    await test.db.forOrg(connection.organizationId, (tx) =>
+      tx.whatsappConnection.updateMany({ data: { marketingCapMonth: 1 } }),
+    );
+    const first = await failed();
+    await test.db.forOrg(connection.organizationId, (tx) =>
+      tx.whatsappUsageMonth.updateMany({ data: { marketing: 1 } }),
+    );
+    await expect(retry(first)).rejects.toMatchObject({ reason: "MARKETING_CAP_REACHED" });
+    await test.db.forOrg(connection.organizationId, (tx) =>
+      tx.whatsappConnection.updateMany({ data: { marketingCapMonth: 300 } }),
+    );
+    // The template was paused at Meta since.
+    test.provider.setTemplateStatus(connection.integratedNumber, "offer_update", "paused");
+    await syncTemplates(deps(), connection.organizationId, testNow);
+    await expect(retry(first)).rejects.toMatchObject({ reason: "TEMPLATE_NOT_APPROVED" });
+    test.provider.setTemplateStatus(connection.integratedNumber, "offer_update", "approved");
+    await syncTemplates(deps(), connection.organizationId, testNow);
+    // The customer wrote STOP after the failure.
+    await deliver(
+      test,
+      fromCustomer(connection, {
+        customerNumber: phone.replace("+", ""),
+        text: "STOP",
+        ts: Math.floor(testNow.getTime() / 1000) + 60,
+      }),
+      new Date(testNow.getTime() + 60_000),
+    );
+    await expect(retry(first)).rejects.toMatchObject({ reason: "NO_CONSENT_FOR_TEMPLATE" });
+  });
+
+  it("lets two sends at once take only the one place left under the month's cap", async () => {
+    const { connection, member } = await agency();
+    const template = await approved(connection, member, "marketing", "offer_update");
+    const one = await chatOf(connection);
+    const two = await chatOf(connection);
+    await test.db.forOrg(connection.organizationId, (tx) =>
+      tx.whatsappConnection.updateMany({ data: { marketingCapMonth: 1 } }),
+    );
+    const at = new Date(testNow.getTime() + 30 * HOUR);
+    const results = await Promise.allSettled([
+      send(connection, member, { conversationId: one.chat.id, templateId: template.id }, at),
+      send(connection, member, { conversationId: two.chat.id, templateId: template.id }, at),
+    ]);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    const refused = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
+    expect(refused?.reason).toMatchObject({ reason: "MARKETING_CAP_REACHED" });
+    const queued = await test.db.forOrg(connection.organizationId, (tx) =>
+      tx.whatsappMessage.count({ where: { kind: "template" } }),
+    );
+    expect(queued).toBe(1);
   });
 
   it("holds the day's cap, the month's marketing cap and WhatsApp's own limit", async () => {

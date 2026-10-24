@@ -18,10 +18,24 @@ export interface WhatsAppWithdrawn {
 
 export async function withdrawWhatsApp(
   tx: OrgTx,
-  input: { organizationId: string; personId: string; now: Date },
+  input: {
+    organizationId: string;
+    personId: string;
+    /** Their numbers: a chat stored with no person is found by them. */ phones?: readonly string[];
+    now: Date;
+  },
 ): Promise<WhatsAppWithdrawn> {
   const { organizationId, personId, now } = input;
-  const chats = await tx.whatsappConversation.findMany({ where: { organizationId, personId }, select: { id: true } });
+  const chats = await tx.whatsappConversation.findMany({
+    where: {
+      organizationId,
+      OR: [
+        { personId },
+        ...((input.phones?.length ?? 0) > 0 ? [{ phoneE164: { in: [...(input.phones ?? [])] } }] : []),
+      ],
+    },
+    select: { id: true },
+  });
   if (chats.length === 0) return { conversations: 0, messages: 0, files: 0 };
   const conversationIds = chats.map((chat) => chat.id);
   const withFiles = await tx.whatsappMessage.findMany({

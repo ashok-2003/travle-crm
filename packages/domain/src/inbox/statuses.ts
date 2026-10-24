@@ -60,6 +60,8 @@ export async function applyStatus(
     await bumpUsage(tx, scope, monthStartOf(now, timeZone), { failed: 1 });
     return "applied";
   }
+  // A late "sent" does not undo a recorded failure; a delivered or read does (the message did arrive).
+  if (message.status === "failed" && event.status === "sent") return "ignored";
   if ((rank[event.status] ?? 0) <= (rank[message.status] ?? 0)) return "ignored";
   await tx.whatsappMessage.update({
     where: { id: message.id },

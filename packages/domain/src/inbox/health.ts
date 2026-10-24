@@ -6,10 +6,12 @@
 import type { InboxDependencies } from "./dependencies.js";
 import { COPY_MEDIA_QUEUE } from "./dependencies.js";
 import { routesPage } from "./routes.js";
+import { failStuckReplies } from "./stuck.js";
 
 const NO_REPORT_AFTER_MS = 20 * 60_000;
 const SENDING_STUCK_MS = 2 * 60_000;
-const QUEUED_REPORTED_MS = 10 * 60_000;
+/** A reply still waiting in the queue after this long is failed, so Try again appears. */
+const QUEUED_FAILS_MS = 5 * 60_000;
 const PAGE = 100;
 
 /** Checks one connection; returns the status it ends in. */
@@ -25,16 +27,24 @@ export async function checkConnection(
       select: { status: true, lastReportAt: true, problemSince: true, connectedAt: true },
     });
     if (connection?.status !== "connected" && connection?.status !== "problem")
-      return { result: "skipped" as const, waiting: 0, pending: [] };
+      return { result: "skipped" as const, pending: [] };
 
-    await tx.whatsappMessage.updateMany({
-      // `sentAt` holds the sender's claim time while a row is `sending`.
-      where: { status: "sending", sentAt: { lt: new Date(now.getTime() - SENDING_STUCK_MS) } },
-      data: { status: "failed", failureCode: "unsure" },
-    });
-    const waiting = await tx.whatsappMessage.count({
-      where: { status: "queued", occurredAt: { lt: new Date(now.getTime() - QUEUED_REPORTED_MS) } },
-    });
+    const scope = { organizationId, connectionId };
+    // `sentAt` holds the sender's claim time while a row is `sending`.
+    await failStuckReplies(
+      tx,
+      scope,
+      { status: "sending", before: new Date(now.getTime() - SENDING_STUCK_MS) },
+      "unsure",
+      now,
+    );
+    await failStuckReplies(
+      tx,
+      scope,
+      { status: "queued", before: new Date(now.getTime() - QUEUED_FAILS_MS) },
+      "provider_down",
+      now,
+    );
     const cutoff = new Date(now.getTime() - NO_REPORT_AFTER_MS);
     const unreported = await tx.whatsappMessage.count({
       where: { direction: "out", origin: "staff_crm", status: "sent", wamid: { not: null }, sentAt: { lt: cutoff } },
@@ -54,15 +64,11 @@ export async function checkConnection(
     });
     return {
       result: silent ? ("problem" as const) : ("ok" as const),
-      waiting,
       pending: pending.map((row) => row.id),
     };
   });
   if (outcome.result === "problem") {
     dependencies.logger.error({ connectionId }, "No WhatsApp delivery reports from MSG91 for 20 minutes after sending");
-  }
-  if (outcome.waiting > 0) {
-    dependencies.logger.warn({ connectionId, waiting: outcome.waiting }, "WhatsApp replies are waiting in the queue");
   }
   for (const messageId of outcome.pending) {
     await dependencies.queue.send(

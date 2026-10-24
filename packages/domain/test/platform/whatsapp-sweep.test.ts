@@ -49,7 +49,8 @@ describe("the hourly sweep of WhatsApp's stored events", () => {
     await isolated.drop();
   });
 
-  const event = (provider: string, processedDaysAgo: number | null) =>
+  /** `processedDaysAgo` null: never processed, received `receivedDaysAgo` days ago. */
+  const event = (provider: string, processedDaysAgo: number | null, receivedDaysAgo = processedDaysAgo ?? 0) =>
     platform.webhookEvent.create({
       data: {
         provider,
@@ -57,21 +58,25 @@ describe("the hourly sweep of WhatsApp's stored events", () => {
         eventType: "text",
         headers: {},
         payload: '{"text":"private words"}',
+        receivedAt: new Date(now.getTime() - receivedDaysAgo * DAY_MS),
         processedAt: processedDaysAgo === null ? null : new Date(now.getTime() - processedDaysAgo * DAY_MS),
       },
     });
 
   it("blanks events processed over a week ago and keeps their ids, leaving the rest alone", async () => {
-    const [old, recent, open, other] = [
+    const [old, recent, open, other, stuck] = [
       await event("msg91-whatsapp", 8),
       await event("msg91-whatsapp", 2),
-      await event("msg91-whatsapp", null),
+      await event("msg91-whatsapp", null, 1),
       await event("razorpay", 30),
+      // Never processed (a poison body), and a week old: its job is long dead, and the customer's words are not kept for ever.
+      await event("msg91-whatsapp", null, 9),
     ];
-    expect(await sweepWhatsAppNow(services, now)).toEqual({ blanked: 1 });
+    expect(await sweepWhatsAppNow(services, now)).toEqual({ blanked: 2 });
     const read = async (id: string) => platform.webhookEvent.findUniqueOrThrow({ where: { id } });
     expect((await read(old.id)).payload).toBe("");
     expect((await read(old.id)).providerEventId).toBe(old.providerEventId);
+    expect((await read(stuck.id)).payload).toBe("");
     expect((await read(recent.id)).payload).not.toBe("");
     expect((await read(open.id)).payload).not.toBe("");
     expect((await read(other.id)).payload).not.toBe("");

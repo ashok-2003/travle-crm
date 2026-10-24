@@ -35,17 +35,27 @@ function dayStart(now: Date, timeZone: string): Date {
   return new Date(now.getTime() - ((at("hour") * 60 + at("minute")) * 60 + at("second")) * 1000);
 }
 
-export async function queueTemplate(
+/** The chat a template is checked against: what `sendableChat` gives. */
+interface TemplateChat {
+  id: string;
+  personId: string | null;
+  lastInboundAt: Date | null;
+  connectionId: string;
+}
+
+/**
+ * Every check a template send must pass, for a first send and for Try again alike (spec 4.4 S7): the template is approved and
+ * its values fit; the person has not asked to stop (and, for a chat we start, staff ticked that they agreed); the day's and
+ * the month's caps; WhatsApp's own limit. The connection's row is locked first, so two sends at once cannot both take the last
+ * place under a cap.
+ */
+export async function assertTemplateAllowed(
   tx: OrgTx,
   access: MemberAccess,
-  input: SendTemplateInput,
-  context: ReplyContext,
-  now: Date,
-): Promise<SentMessage> {
-  const chat = await sendableChat(tx, access, input.conversationId, context, now, { window: false });
-  const earlier = await earlierSend(tx, chat.id, input.clientToken);
-  if (earlier !== null) return sentOf(earlier);
-
+  input: { chat: TemplateChat; templateId: string; parameters: readonly string[]; agreed: boolean; now: Date },
+) {
+  const { chat, now } = input;
+  await tx.$queryRaw`SELECT id FROM whatsapp_connection WHERE id = ${chat.connectionId}::uuid FOR UPDATE`;
   const template = await tx.whatsappTemplate.findFirst({
     where: { id: input.templateId, connectionId: chat.connectionId },
   });
@@ -113,6 +123,26 @@ export async function queueTemplate(
   if (refused > 0) {
     throw new DomainError("LIMIT_REACHED", "TIER_LIMIT_REACHED", "WhatsApp's daily limit for new chats was reached");
   }
+  return { template, startedByUs, consentRecorded };
+}
+
+export async function queueTemplate(
+  tx: OrgTx,
+  access: MemberAccess,
+  input: SendTemplateInput,
+  context: ReplyContext,
+  now: Date,
+): Promise<SentMessage> {
+  const chat = await sendableChat(tx, access, input.conversationId, context, now, { window: false });
+  const earlier = await earlierSend(tx, chat.id, input.clientToken);
+  if (earlier !== null) return sentOf(earlier);
+  const { template, startedByUs, consentRecorded } = await assertTemplateAllowed(tx, access, {
+    chat,
+    templateId: input.templateId,
+    parameters: input.parameters,
+    agreed: input.agreed,
+    now,
+  });
 
   const [row] = await tx.whatsappMessage.createManyAndReturn({
     data: [

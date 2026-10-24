@@ -4,7 +4,7 @@
 // messages kept until access returns.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { addBlockedContact, QUIET_HOURS } from "../../src/crm/index.js";
-import { adoptChats, noteUnrouted, routeCount, unroutedNumbers } from "../../src/inbox/index.js";
+import { adoptChats, noteUnrouted, routeOfNumber, unroutedNumbers } from "../../src/inbox/index.js";
 import { systemActor } from "../../src/kernel/index.js";
 import { aLead, aPerson } from "../crm/support/records.js";
 import {
@@ -148,7 +148,6 @@ describe("an inbound WhatsApp message", () => {
 
   it("counts a number nobody recorded and does nothing else", async () => {
     const stranger = aBusinessNumberFor();
-    const before = await routeCount(test.dependencies.db);
     const organization = await deliver(test, {
       customerNumber: digits(freshPhone()),
       integratedNumber: stranger,
@@ -161,7 +160,8 @@ describe("an inbound WhatsApp message", () => {
     await noteUnrouted(test.dependencies.db, stranger, testNow);
     const noted = (await unroutedNumbers(test.dependencies.db)).find((row) => row.integratedNumber === stranger);
     expect(noted?.events).toBe(2);
-    expect(await routeCount(test.dependencies.db)).toBe(before);
+    // No route was made for it (other tests make routes of their own, at the same time, so the count is not looked at).
+    expect(await routeOfNumber(test.dependencies.db, stranger)).toBeNull();
   });
 
   it("only stamps a number that is being set up", async () => {

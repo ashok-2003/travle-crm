@@ -14,5 +14,9 @@ export function visibleConversations(access: MemberAccess): ConversationWhere {
   if (scope === "all") return {};
   const leadScope = access.permissions.scopeOf("leads:view");
   if (leadScope === null) return { id: { in: [] } };
-  return { person: { is: { leads: { some: leadScope === "all" ? {} : { ownerUserId: access.userId } } } } };
+  return {
+    person: {
+      is: { leads: { some: { deletedAt: null, ...(leadScope === "all" ? {} : { ownerUserId: access.userId }) } } },
+    },
+  };
 }

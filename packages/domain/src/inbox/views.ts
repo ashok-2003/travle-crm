@@ -38,6 +38,13 @@ export async function inboxStatusOf(tx: OrgTx, configured: boolean): Promise<Inb
   });
 }
 
+/** The leads a member's `leads:view` scope shows: all, their own, or none. */
+function leadScopeWhere(access: MemberAccess): { ownerUserId?: string; id?: { in: string[] } } {
+  const scope = access.permissions.scopeOf("leads:view");
+  if (scope === "all") return {};
+  return scope === "own" ? { ownerUserId: access.userId } : { id: { in: [] } };
+}
+
 const digitsOf = (text: string) => text.replace(/\D/g, "");
 
 function searchWhere(search: string): ConversationWhere {
@@ -75,13 +82,13 @@ export async function listConversations(
     after === null
       ? []
       : after.lastMessageAt === null
-        ? [{ lastMessageAt: null, id: { lt: after.id } }]
+        ? // Chats with no message come first (Postgres puts nulls first when descending); then every chat that has one.
+          [{ OR: [{ lastMessageAt: null, id: { lt: after.id } }, { lastMessageAt: { not: null } }] }]
         : [
             {
               OR: [
                 { lastMessageAt: { lt: after.lastMessageAt } },
                 { lastMessageAt: after.lastMessageAt, id: { lt: after.id } },
-                { lastMessageAt: null },
               ],
             },
           ];
@@ -166,7 +173,9 @@ export async function conversationHeaderOf(
     row.personId === null
       ? []
       : await tx.lead.findMany({
-          where: { personId: row.personId },
+          // Only the leads this member may see: a salesperson who sees the chat through their own lead learns nothing of the
+          // person's leads owned by others.
+          where: { personId: row.personId, ...leadScopeWhere(access) },
           orderBy: { id: "desc" },
           select: {
             id: true,

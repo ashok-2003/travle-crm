@@ -39,7 +39,12 @@ export async function tombstoneWebhookEvents(
  */
 export async function blankProcessedPayloads(tx: OrgTx, provider: string, olderThan: Date): Promise<number> {
   const { count } = await webhookEvents(tx).updateMany({
-    where: { provider, tombstonedAt: null, processedAt: { not: null, lt: olderThan } },
+    // An event that never processed (a poison body, a status whose message never came) is blanked too, once its job is long dead.
+    where: {
+      provider,
+      tombstonedAt: null,
+      OR: [{ processedAt: { not: null, lt: olderThan } }, { processedAt: null, receivedAt: { lt: olderThan } }],
+    },
     data: { payload: "", headers: {}, tombstonedAt: new Date() },
   });
   return count;

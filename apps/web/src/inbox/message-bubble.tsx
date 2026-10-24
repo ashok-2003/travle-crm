@@ -170,6 +170,7 @@ const failureCodes = [
   "unsure",
   "paused",
   "not_connected",
+  "opted_out",
   "file_missing",
 ] as const;
 
