@@ -26,6 +26,7 @@ export {
   type MetaProcessDependencies,
 } from "./lead-meta/index.js";
 export {
+  isWhatsAppPlaceholderName,
   QUIET_HOURS,
   receiveWhatsAppContact,
   recordWhatsAppFirstReply,

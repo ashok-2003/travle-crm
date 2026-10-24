@@ -1,9 +1,11 @@
 "use client";
 
 // The inbox's list of chats (spec 3.1): a dense list, one Item a chat, like the apps staff already use. The avatar holds
-// initials, then the name, the first words of the last message, the time, and a dot when the customer wrote last and nobody
-// has answered. A number we know nothing of says "New number". The chat open on a computer is marked as the current link.
+// initials (a person icon for a number with no name), then the name (the formatted number when there is none), the first
+// words of the last message, the time, and a dot with "Reply due" when the customer wrote last and nobody has answered. A
+// number we know nothing of says "New number". The chat open on a computer is marked as the current link.
 import type { ConversationListItem } from "@travel-crm/contracts/inbox";
+import { UserRoundIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Fragment } from "react";
@@ -22,16 +24,15 @@ import { formatDay, formatPhoneNumber, formatTime } from "@/lib/format";
 import { inboxRoute } from "@/lib/routes";
 import { useMe } from "@/session/me-context";
 
-/** Up to two initials of a name; a number has none, so its last two digits stand for it. */
-function initialsOf(name: string | null, phone: string): string {
-  const letters = (name ?? "")
+/** Up to two initials of a name. */
+const initialsOf = (name: string): string =>
+  name
     .split(/\s+/)
     .filter((word) => word !== "")
     .slice(0, 2)
     .map((word) => Array.from(word)[0] ?? "")
-    .join("");
-  return letters === "" || (name ?? "").startsWith("WhatsApp") ? phone.slice(-2) : letters.toUpperCase();
-}
+    .join("")
+    .toUpperCase();
 
 export function ConversationList({ items, currentId }: { items: ConversationListItem[]; currentId: string | null }) {
   const t = useTranslations("inbox");
@@ -53,7 +54,13 @@ export function ConversationList({ items, currentId }: { items: ConversationList
               <Link href={inboxRoute(chat.id)} aria-current={chat.id === currentId ? "page" : undefined}>
                 <ItemMedia>
                   <Avatar>
-                    <AvatarFallback>{initialsOf(chat.name, chat.phone)}</AvatarFallback>
+                    <AvatarFallback>
+                      {chat.name === null ? (
+                        <UserRoundIcon aria-hidden="true" className="size-5" />
+                      ) : (
+                        initialsOf(chat.name)
+                      )}
+                    </AvatarFallback>
                   </Avatar>
                 </ItemMedia>
                 <ItemContent>
@@ -68,8 +75,9 @@ export function ConversationList({ items, currentId }: { items: ConversationList
                 <div className="flex flex-col items-end gap-1">
                   <span className="text-caption text-muted-foreground">{when(chat.lastMessageAt)}</span>
                   {chat.needsReply && (
-                    <span role="img" aria-label={t("waiting")}>
+                    <span className="flex items-center gap-1.5 text-caption">
                       <StatusDot tone="attention" />
+                      {t("waiting")}
                     </span>
                   )}
                 </div>

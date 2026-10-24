@@ -5,6 +5,7 @@
 // `dir="auto"` so Hindi and other scripts read from the right side. A photo, video or voice note comes from a presigned
 // link; a document is a download; a place is its coordinates and a link to Maps. Nothing is drawn with a border or shadow.
 import type { ChatMessage } from "@travel-crm/contracts/inbox";
+import { FileIcon, ImageIcon, type LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Fragment, type ReactNode } from "react";
 import { formatTime } from "@/lib/format";
@@ -38,20 +39,44 @@ function Linked({ text }: { text: string }) {
   );
 }
 
+/** What stands where a file will be while it is still being copied, or when it could not be: a plain box, never blank. */
+function MediaPlaceholder({ icon: Icon, children }: { icon: LucideIcon; children: ReactNode }) {
+  return (
+    <p className="flex min-h-24 min-w-40 items-center gap-2 rounded-md bg-background/20 p-3 text-label">
+      <Icon aria-hidden="true" className="size-5 shrink-0" />
+      {children}
+    </p>
+  );
+}
+
 function Media({ message }: { message: ChatMessage }) {
   const t = useTranslations("inbox.chat");
   const link = useMediaLink(message.id, message.mediaState === "stored");
-  if (message.mediaState === "pending") return <p>{message.kind === "image" ? t("photoLoading") : t("fileLoading")}</p>;
-  if (message.mediaState === "expired") return <p>{t("photoExpired")}</p>;
-  if (message.mediaState === "failed") return <p>{t("fileFailed")}</p>;
-  if (link.data === undefined) return <p>{link.isError ? t("fileFailed") : t("fileLoading")}</p>;
+  const isPhoto = message.kind === "image" || message.kind === "sticker";
+  const Icon = isPhoto ? ImageIcon : FileIcon;
+  if (message.mediaState === "pending") {
+    return <MediaPlaceholder icon={Icon}>{isPhoto ? t("photoLoading") : t("fileLoading")}</MediaPlaceholder>;
+  }
+  if (message.mediaState === "expired") return <MediaPlaceholder icon={Icon}>{t("photoExpired")}</MediaPlaceholder>;
+  if (message.mediaState === "failed") return <MediaPlaceholder icon={Icon}>{t("fileFailed")}</MediaPlaceholder>;
+  if (link.data === undefined) {
+    return (
+      <MediaPlaceholder icon={Icon}>
+        {link.isError ? t("fileFailed") : isPhoto ? t("photoLoading") : t("fileLoading")}
+      </MediaPlaceholder>
+    );
+  }
   const { url, contentType, fileName } = link.data;
   if (contentType.startsWith("image/")) {
     return (
       <a href={url} target="_blank" rel="noopener noreferrer">
         {/* A customer's photo from storage: its size is unknown, so it is not an optimised Next image. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={url} alt={message.caption ?? t("photo")} className="max-h-72 max-w-full rounded-md" />
+        <img
+          src={url}
+          alt={message.caption ?? t("photo")}
+          className="h-48 w-auto max-w-full min-w-24 rounded-md object-cover"
+        />
       </a>
     );
   }
@@ -60,7 +85,8 @@ function Media({ message }: { message: ChatMessage }) {
   }
   if (contentType.startsWith("audio/")) return <audio src={url} controls aria-label={t("audio")} />;
   return (
-    <a href={url} download={fileName ?? undefined} className="underline">
+    <a href={url} download={fileName ?? undefined} className="flex items-center gap-2 underline">
+      <FileIcon aria-hidden="true" className="size-5 shrink-0" />
       {t("download", { name: fileName ?? t("document") })}
     </a>
   );

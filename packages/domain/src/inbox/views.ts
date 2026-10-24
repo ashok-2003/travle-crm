@@ -19,6 +19,7 @@ import { openLeadStages } from "@travel-crm/contracts/crm";
 import type { OrgTx } from "@travel-crm/db";
 import { assertRecordInScope, type MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
+import { chatNameOf } from "./chat-name.js";
 import { liveConnection } from "./connection-row.js";
 import { previewOf } from "./messages.js";
 import { visibleConversations, type ConversationWhere } from "./scope.js";
@@ -120,7 +121,7 @@ export async function listConversations(
       return {
         id: row.id,
         phone: row.phoneE164,
-        name: row.person?.name ?? row.profileName,
+        name: chatNameOf(row),
         personId: row.personId,
         preview: last === undefined ? "" : previewOf(last),
         lastMessageAt: row.lastMessageAt?.toISOString() ?? null,
@@ -174,7 +175,7 @@ export async function conversationHeaderOf(
   return conversationHeader.parse({
     id: row.id,
     phone: row.phoneE164,
-    name: row.person?.name ?? row.profileName,
+    name: chatNameOf(row),
     personId: row.personId,
     lead:
       shown === null

@@ -65,10 +65,16 @@ function enquiryOf(contact: Pick<WhatsAppContact, "phoneE164" | "profileName" | 
   };
 }
 
+const placeholderNameOf = (phoneE164: string) => `WhatsApp ${internationalPhone(phoneE164)}`;
+
+/** Whether a person's name is the stand-in a nameless number got, so a screen can show the WhatsApp profile name or the number. */
+export const isWhatsAppPlaceholderName = (name: string, phoneE164: string): boolean =>
+  name === placeholderNameOf(phoneE164);
+
 /** The name a new person gets: their WhatsApp profile name, else the number, for staff to correct. */
 const nameOf = (contact: Pick<WhatsAppContact, "phoneE164" | "profileName">): string => {
   const profile = contact.profileName?.trim() ?? "";
-  return profile === "" ? `WhatsApp ${internationalPhone(contact.phoneE164)}` : profile.slice(0, 120);
+  return profile === "" ? placeholderNameOf(contact.phoneE164) : profile.slice(0, 120);
 };
 
 const quietLongEnough = (previous: Date | null, now: Date) =>

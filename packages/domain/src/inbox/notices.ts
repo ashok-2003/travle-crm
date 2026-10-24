@@ -9,6 +9,7 @@ import type { OrgTx } from "@travel-crm/db";
 import { noticeKey } from "../crm/notice-key.js";
 import { defineListener, type EventListener } from "../jobs/index.js";
 import { notify } from "../notifications/index.js";
+import { chatNameOf } from "./chat-name.js";
 
 const QUIET_MS = 10 * 60_000;
 
@@ -45,7 +46,13 @@ export function messageNoticeListener(dependencies: NoticeDependencies): EventLi
       await context.forOrg(async (tx) => {
         const chat = await tx.whatsappConversation.findUnique({
           where: { id: event.payload.conversationId },
-          select: { personId: true, profileName: true, hidden: true, person: { select: { name: true } } },
+          select: {
+            personId: true,
+            phoneE164: true,
+            profileName: true,
+            hidden: true,
+            person: { select: { name: true } },
+          },
         });
         if (chat === null || chat.hidden) return;
         const recipientUserIds = await recipientsOf(tx, dependencies, event.organizationId, chat.personId);
@@ -61,7 +68,7 @@ export function messageNoticeListener(dependencies: NoticeDependencies): EventLi
           recipientUserIds,
           sourceEventId: noticeKey(event.id, "whatsapp.message"),
           kind: "whatsapp.message",
-          title: `${chat.person?.name ?? chat.profileName ?? "A customer"} wrote on WhatsApp`,
+          title: `${chatNameOf(chat) ?? "A customer"} wrote on WhatsApp`,
           body: "Open the chat to reply.",
           link,
           channels: ["push"],
