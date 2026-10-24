@@ -4,3 +4,4 @@ export * from "./chat.js";
 export * from "./console.js";
 export * from "./events.js";
 export * from "./inputs.js";
+export * from "./templates.js";

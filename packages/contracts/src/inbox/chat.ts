@@ -95,6 +95,10 @@ export const conversationHeader = z.object({
   /** The customer's latest message: the window closed 24 hours after it. Null when they never wrote. */
   lastInboundAt: timestamp.nullable(),
   needsReply: z.boolean(),
+  /** The customer wrote STOP: no template may be sent to them. */
+  optedOut: z.boolean(),
+  /** Staff recorded that the person agreed to WhatsApp messages. */
+  agreed: z.boolean(),
   state: z.enum(["open", "erased"]),
 });
 export type ConversationHeader = z.infer<typeof conversationHeader>;

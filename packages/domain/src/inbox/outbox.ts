@@ -40,13 +40,14 @@ interface SendableChat {
 }
 
 /** The checks every reply makes before anything is written. The window is checked last: the others are never a matter of time. */
-async function sendableChat(
+export async function sendableChat(
   tx: OrgTx,
   access: MemberAccess,
   conversationId: string,
   context: ReplyContext,
   now: Date,
-): Promise<SendableChat> {
+  { window = true }: { window?: boolean } = {},
+): Promise<SendableChat & { phoneE164: string; lastInboundAt: Date | null; connectionId: string }> {
   const chat = await visibleConversation(tx, access, conversationId);
   const connection = await liveConnection(tx);
   if (
@@ -62,10 +63,16 @@ async function sendableChat(
   if (connection.status === "paused") {
     throw new DomainError("CONFLICT", "WHATSAPP_PAUSED", "WhatsApp is paused for this agency");
   }
-  if (!windowIsOpen(chat.lastInboundAt, now)) {
+  if (window && !windowIsOpen(chat.lastInboundAt, now)) {
     throw new DomainError("CONFLICT", "WINDOW_CLOSED", "The 24-hour window for free text is closed");
   }
-  return { id: chat.id, personId: chat.personId };
+  return {
+    id: chat.id,
+    personId: chat.personId,
+    phoneE164: chat.phoneE164,
+    lastInboundAt: chat.lastInboundAt,
+    connectionId: connection.id,
+  };
 }
 
 /** Holds the chat's row until the transaction ends, so a reply and an inbound message do not overwrite each other's marks. */
@@ -77,7 +84,7 @@ async function lockChat(tx: OrgTx, conversationId: string): Promise<{ lastMessag
 }
 
 /** The chat shows this message last, unless a later one already does (messages may arrive out of order, I5). */
-async function showAsLast(tx: OrgTx, conversationId: string, messageId: string, at: Date): Promise<void> {
+export async function showAsLast(tx: OrgTx, conversationId: string, messageId: string, at: Date): Promise<void> {
   const chat = await lockChat(tx, conversationId);
   await tx.whatsappConversation.update({
     where: { id: conversationId },
@@ -89,11 +96,11 @@ async function showAsLast(tx: OrgTx, conversationId: string, messageId: string, 
   await settleNeedsReply(tx, conversationId);
 }
 
-const sentOf = (row: { id: string; status: string }): SentMessage =>
+export const sentOf = (row: { id: string; status: string }): SentMessage =>
   sentMessage.parse({ messageId: row.id, status: whatsappMessageStatus.catch("queued").parse(row.status) });
 
 /** The message already made for this token in this chat, if there is one: a double tap or a retried request. */
-async function earlierSend(tx: OrgTx, conversationId: string, clientToken: string) {
+export async function earlierSend(tx: OrgTx, conversationId: string, clientToken: string) {
   const row = await tx.whatsappMessage.findFirst({
     where: { clientToken },
     select: { id: true, status: true, conversationId: true },
@@ -262,7 +269,7 @@ export async function retryMessage(
 ): Promise<SentMessage> {
   const message = await tx.whatsappMessage.findUnique({
     where: { id: messageId },
-    select: { id: true, status: true, conversationId: true, direction: true, origin: true },
+    select: { id: true, status: true, conversationId: true, direction: true, origin: true, kind: true },
   });
   if (message?.direction !== "out" || message.origin !== "staff_crm") {
     throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
@@ -272,7 +279,7 @@ export async function retryMessage(
   if (message.status !== "failed") {
     throw new DomainError("CONFLICT", "NOT_FAILED", "Only a message that was not sent can be tried again");
   }
-  await sendableChat(tx, access, message.conversationId, context, now);
+  await sendableChat(tx, access, message.conversationId, context, now, { window: message.kind !== "template" });
   const updated = await tx.whatsappMessage.update({
     where: { id: message.id },
     data: { status: "queued", failureCode: null, wamid: null, sentAt: null, occurredAt: now, sentBy: access.userId },

@@ -63,6 +63,8 @@ interface Queued {
   body: string | null;
   caption: string | null;
   fileName: string | null;
+  template: { name: string; language: string } | null;
+  templateParams: string[];
   /** When it was queued (or last tried again by a person). */
   queuedAt: Date;
   sentBy: string | null;
@@ -87,6 +89,8 @@ async function queuedMessage(tx: OrgTx, messageId: string): Promise<Queued | nul
       fileName: true,
       occurredAt: true,
       sentBy: true,
+      templateParams: true,
+      template: { select: { name: true, language: true } },
       status: true,
       direction: true,
       origin: true,
@@ -109,6 +113,8 @@ async function queuedMessage(tx: OrgTx, messageId: string): Promise<Queued | nul
     body: message.body,
     caption: message.caption,
     fileName: message.fileName,
+    template: message.template,
+    templateParams: message.templateParams,
     queuedAt: message.occurredAt,
     sentBy: message.sentBy,
     conversationId: conversation.id,
@@ -161,6 +167,13 @@ async function callProvider(
   organizationId: string,
   message: Queued,
 ): Promise<WhatsAppSendResult | "file_missing"> {
+  if (message.template !== null) {
+    return provider.sendTemplate(message.integratedNumber, message.phoneE164, {
+      name: message.template.name,
+      language: message.template.language,
+      parameters: message.templateParams,
+    });
+  }
   if (message.kind === "text")
     return provider.sendText(message.integratedNumber, message.phoneE164, message.body ?? "");
   const [file] = await dependencies.files.list(systemActor(organizationId), {
@@ -183,7 +196,8 @@ function refusalOf(dependencies: SenderDependencies, message: Queued, now: Date)
   if (dependencies.provider === null) return "not_connected";
   if (message.connectionStatus === "paused") return "paused";
   if (message.connectionStatus !== "connected" && message.connectionStatus !== "problem") return "not_connected";
-  return windowIsOpen(message.lastInboundAt, now) ? null : "window_closed";
+  // A template is what is sent when the window is closed: only free text and files need it open.
+  return message.template !== null || windowIsOpen(message.lastInboundAt, now) ? null : "window_closed";
 }
 
 export type SendOutcome = "sent" | "failed" | "skipped" | "waiting";
@@ -265,7 +279,7 @@ export async function sendQueued(
       });
       await tx.whatsappConnection.update({ where: { id: queued.connectionId }, data: { lastSendOkAt: now } });
       await bumpUsage(tx, { organizationId, connectionId: queued.connectionId }, monthStartOf(now, "Asia/Kolkata"), {
-        replies: 1,
+        replies: queued.template === null ? 1 : 0,
       });
       if (queued.personId !== null) await recordWhatsAppFirstReply(tx, queued.personId, now);
       return;

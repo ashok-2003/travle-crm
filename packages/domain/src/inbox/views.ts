@@ -23,6 +23,7 @@ import { chatNameOf } from "./chat-name.js";
 import { liveConnection } from "./connection-row.js";
 import { previewOf } from "./messages.js";
 import { visibleConversations, type ConversationWhere } from "./scope.js";
+import { whatsappConsentOf } from "./whatsapp-consent.js";
 import { windowEndOf } from "./window.js";
 
 /** Whether WhatsApp is on for this server and the agency has a number (3.1's states). */
@@ -172,6 +173,7 @@ export async function conversationHeaderOf(
   const isOpen = (stage: string) => (openLeadStages as readonly string[]).includes(stage);
   const shown = leads.find((lead) => isOpen(lead.stage)) ?? leads[0] ?? null;
   const windowEnd = windowEndOf(row.lastInboundAt);
+  const consent = row.personId === null ? { state: null, source: null } : await whatsappConsentOf(tx, row.personId);
   return conversationHeader.parse({
     id: row.id,
     phone: row.phoneE164,
@@ -185,6 +187,8 @@ export async function conversationHeaderOf(
     windowOpenUntil: windowEnd !== null && windowEnd.getTime() > now.getTime() ? windowEnd.toISOString() : null,
     lastInboundAt: row.lastInboundAt?.toISOString() ?? null,
     needsReply: row.needsReply,
+    optedOut: consent.state === "withdrawn" && consent.source === "customer",
+    agreed: consent.state === "granted",
     state: row.state === "erased" ? "erased" : "open",
   });
 }

@@ -60,3 +60,13 @@ export {
   listMessages,
   visibleMessage,
 } from "./views.js";
+export { queueTemplate, renderTemplate, startChatForLead } from "./template-send.js";
+export {
+  archiveTemplate,
+  createTemplate,
+  editTemplate,
+  listTemplates,
+  syncTemplates,
+  type TemplateDependencies,
+} from "./templates.js";
+export { isOptOutText, whatsappConsentOf, type WhatsappConsent } from "./whatsapp-consent.js";

@@ -11,6 +11,7 @@ import type { ConnectionRow } from "./connection-row.js";
 import { COPY_MEDIA_QUEUE, type InboxDependencies } from "./dependencies.js";
 import { firstTextOf, messageColumns } from "./messages.js";
 import { bumpUsage, monthStartOf } from "./usage.js";
+import { isOptOutText, recordWhatsappOptOut } from "./whatsapp-consent.js";
 
 export interface LockedConversation {
   id: string;
@@ -120,6 +121,9 @@ export async function receiveInbound(
         messageId: row.id,
         wasWaiting: conversation.needsReply,
       });
+    }
+    if (writing && personId !== null && isOptOutText(message.text)) {
+      await recordWhatsappOptOut(tx, systemActor(organizationId), { personId, now: columns.occurredAt });
     }
     await tx.whatsappConversation.update({
       where: { id: conversation.id },
