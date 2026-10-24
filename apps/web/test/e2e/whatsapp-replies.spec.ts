@@ -34,6 +34,11 @@ async function openNewChat(owner: Page, business: string, customer: string, name
   return owner.getByRole("region", { name: `Chat with ${name}` });
 }
 
+test.use({
+  // A fake microphone that needs no permission prompt (a tone, in the voice note test).
+  launchOptions: { args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] },
+});
+
 test("staff reply inside the window: the ticks follow MSG91's reports, a double tap sends once, a refused send can be tried again", async ({
   page,
   browser,
@@ -122,6 +127,19 @@ test("staff reply inside the window: the ticks follow MSG91's reports, a double 
   expect(document?.url).toMatch(/^http/);
   await expect(chat.getByRole("link", { name: "Download itinerary.pdf" })).toBeVisible({ timeout: 60_000 });
 
+  // A voice note: the fake microphone records, and the clip goes up through the file path and to MSG91 as audio.
+  await chat.getByRole("button", { name: "Record a voice note" }).click();
+  await expect(chat.getByRole("timer", { name: "Recording" })).toBeVisible();
+  await owner.waitForTimeout(2_500);
+  await chat.getByRole("button", { name: "Send" }).click();
+  await expect.poll(async () => (await sentTo(customer)).length, { timeout: 60_000 }).toBe(4);
+  const voice = (await sentTo(customer))[3];
+  // Ogg Opus (as a voice note, with the flag) where the browser writes it or WebM that was remuxed; else MP4 audio, which WhatsApp
+  // takes as an audio file. This Chromium writes MP4.
+  expect(voice).toMatchObject({ contentType: "audio", fileName: expect.stringMatching(/^voice-note\.(ogg|m4a)$/) });
+  expect(voice?.voice).toBe(voice?.fileName === "voice-note.ogg");
+  await expect(chat.locator("audio")).toBeVisible({ timeout: 60_000 });
+
   // Once the window has closed (24 hours after the customer's last message), the box is replaced by a note.
   await inAgency(agency.organizationId, (tx) =>
     tx.whatsappConversation.updateMany({ data: { lastInboundAt: new Date(Date.now() - 25 * 3_600_000) } }),
@@ -187,5 +205,59 @@ test("a connection whose delivery reports stopped goes to problem, in the consol
   }).toPass({ timeout: 60_000 });
   await page.reload();
   await expect(page.getByText(/No delivery reports from MSG91 for a connected number/)).toHaveCount(0);
+  await owner.close();
+});
+
+test("the chat scrolls inside its own box: it opens at the newest message, keeps the reader's place, and offers New messages", async ({
+  page,
+  browser,
+  superAdmin,
+  agency,
+}) => {
+  test.setTimeout(360_000);
+  await signInToConsole(page, superAdmin);
+  const business = await connectNumber(page, agency.organizationId);
+  const owner = await browser.newPage();
+  await signInByEmail(owner, agency.owner);
+  const customer = newCustomerNumber();
+  const line = (index: number) =>
+    `Message number ${String(index)} about a long trip plan for the whole family in December.`;
+  expect(
+    await deliverWhatsapp(
+      Array.from({ length: 25 }, (_, index) =>
+        customerMessage({ to: business, customerNumber: customer, name: "Anil Kapoor", text: line(index + 1) }),
+      ),
+    ),
+  ).toBe(200);
+  await expect(async () => {
+    await owner.goto("/inbox");
+    await owner
+      .getByRole("link", { name: /Anil Kapoor/ })
+      .first()
+      .click({ timeout: 4_000 });
+    await expect(owner.getByRole("list", { name: "Messages" }).getByText(line(25))).toBeVisible({ timeout: 6_000 });
+  }).toPass({ timeout: 150_000 });
+  const viewport = owner.locator('[data-slot="scroll-area-viewport"]').first();
+  const fromBottom = () =>
+    viewport.evaluate((element) => element.scrollHeight - element.scrollTop - element.clientHeight);
+  // The newest is in view, and the box is shorter than its messages.
+  expect(await fromBottom()).toBeLessThan(5);
+  expect(await viewport.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
+  // The reply box is still on screen, whatever the scroll.
+  await viewport.evaluate((element) => {
+    element.scrollTop = 0;
+  });
+  await expect(owner.getByRole("textbox", { name: "Message" })).toBeInViewport();
+  // A new message while reading higher up does not move the reader; it offers the way down.
+  expect(await deliverWhatsapp([customerMessage({ to: business, customerNumber: customer, text: line(26) })])).toBe(
+    200,
+  );
+  const more = owner.getByRole("button", { name: "New messages" });
+  await expect(more).toBeVisible({ timeout: 60_000 });
+  expect(await fromBottom()).toBeGreaterThan(200);
+  await more.click();
+  await expect(owner.getByRole("list", { name: "Messages" }).getByText(line(26))).toBeVisible();
+  await expect(more).toHaveCount(0);
+  expect(await fromBottom()).toBeLessThan(5);
   await owner.close();
 });

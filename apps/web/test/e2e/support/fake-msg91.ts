@@ -45,6 +45,7 @@ export interface FakeSent {
   url: string | null;
   caption: string | null;
   fileName: string | null;
+  voice: boolean;
   /** For a template: its name, language and the values of its blanks. */
   template: { name: string; language: string; parameters: string[] } | null;
 }
@@ -123,6 +124,7 @@ export async function startFakeMsg91(): Promise<FakeMsg91> {
         url: null,
         caption: null,
         fileName: null,
+        voice: false,
         template: {
           name: textOf(template.name),
           language: textOf(language.code),
@@ -205,6 +207,7 @@ export async function startFakeMsg91(): Promise<FakeMsg91> {
         url: textOrNull(body.url),
         caption: textOrNull(body.caption),
         fileName: textOrNull(body.filename),
+        voice: body.voice === true,
         template: null,
       });
       response.writeHead(200, { "content-type": "application/json" });

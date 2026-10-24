@@ -100,6 +100,14 @@ const TWO_FACTOR_SHOTS = [
     as: owner,
   },
   { name: "whatsapp-send-template", screen: "Send a template: the choice, the blanks, the preview", as: owner },
+  // WhatsApp (part 3d): the chat in a box of its own, the emoji picker (computers only), and a voice note being recorded.
+  {
+    name: "whatsapp-chat-pinned",
+    screen: "A long chat scrolled inside its box, the reply box pinned below",
+    as: owner,
+  },
+  { name: "whatsapp-emoji-picker", screen: "The emoji picker open beside the clip", as: owner, only: "desktop" },
+  { name: "whatsapp-recording", screen: "A voice note being recorded: the time, Cancel and Send", as: owner },
 ] as const satisfies readonly Shot[];
 
 export const SHOTS = [
@@ -432,6 +440,14 @@ export const SHOTS = [
     as: owner,
   },
   { name: "whatsapp-send-template", screen: "Send a template: the choice, the blanks, the preview", as: owner },
+  // WhatsApp (part 3d): the chat in a box of its own, the emoji picker (computers only), and a voice note being recorded.
+  {
+    name: "whatsapp-chat-pinned",
+    screen: "A long chat scrolled inside its box, the reply box pinned below",
+    as: owner,
+  },
+  { name: "whatsapp-emoji-picker", screen: "The emoji picker open beside the clip", as: owner, only: "desktop" },
+  { name: "whatsapp-recording", screen: "A voice note being recorded: the time, Cancel and Send", as: owner },
 ] as const satisfies readonly Shot[];
 
 export type ShotName = (typeof SHOTS)[number]["name"];
