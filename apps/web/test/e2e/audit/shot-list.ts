@@ -73,6 +73,16 @@ const TWO_FACTOR_SHOTS = [
   { name: "sheet-read-only", screen: "A sheet while the subscription is read-only", as: owner },
   { name: "sheet-paused", screen: "A paused sheet with Resume", as: owner },
   { name: "sheet-disconnect", screen: "A sheet's Disconnect confirmation", as: owner },
+  // WhatsApp (part 2): the inbox's list, a chat with the reply box, the lead's page, and the console's numbers.
+  { name: "whatsapp-inbox-list", screen: "The inbox: a named chat and a number with no name, Reply due", as: owner },
+  {
+    name: "whatsapp-inbox-chat",
+    screen: "A chat: a photo, ticks, a message not sent with Try again, the reply box",
+    as: owner,
+  },
+  { name: "whatsapp-lead-section", screen: "A lead's page: its WhatsApp chat and Open in the inbox", as: owner },
+  { name: "whatsapp-console-list", screen: "The console's WhatsApp numbers", as: superAdmin },
+  { name: "whatsapp-console-organization", screen: "An organization's page with its WhatsApp group", as: superAdmin },
 ] as const satisfies readonly Shot[];
 
 export const SHOTS = [
@@ -378,6 +388,16 @@ export const SHOTS = [
   { name: "meta-disconnect", screen: "Disconnect Page: the question", as: owner },
   { name: "meta-import-check", screen: "The last 30 days of a form at the import's preview", as: owner },
   { name: "meta-page-read-only", screen: "A Page while the subscription is read-only", as: owner },
+  // WhatsApp (part 2): the inbox's list, a chat with the reply box, the lead's page, and the console's numbers.
+  { name: "whatsapp-inbox-list", screen: "The inbox: a named chat and a number with no name, Reply due", as: owner },
+  {
+    name: "whatsapp-inbox-chat",
+    screen: "A chat: a photo, ticks, a message not sent with Try again, the reply box",
+    as: owner,
+  },
+  { name: "whatsapp-lead-section", screen: "A lead's page: its WhatsApp chat and Open in the inbox", as: owner },
+  { name: "whatsapp-console-list", screen: "The console's WhatsApp numbers", as: superAdmin },
+  { name: "whatsapp-console-organization", screen: "An organization's page with its WhatsApp group", as: superAdmin },
 ] as const satisfies readonly Shot[];
 
 export type ShotName = (typeof SHOTS)[number]["name"];
