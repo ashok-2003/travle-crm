@@ -91,9 +91,9 @@ test("a super admin connects the agency's number, then a message becomes a lead 
     ]),
   ).toBe(200);
 
-  await owner.goto("/inbox");
+  // Each try starts from the list: on a phone a chat is a page of its own, whose title is a link to the same name.
   await expect(async () => {
-    await owner.reload();
+    await owner.goto("/inbox");
     await owner
       .getByRole("link", { name: /Priya Sharma/ })
       .first()

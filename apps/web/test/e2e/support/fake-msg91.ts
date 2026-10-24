@@ -1,7 +1,8 @@
-// A fake MSG91 for the journeys (spec 12): the one thing the product fetches from it in part 1, a customer's photo at the link
-// an inbound message carried, over HTTP; every other path answers an empty 200. The api, worker and console are given its
+// A fake MSG91 for the journeys (spec 12): a customer's photo at the link an inbound message carried, and the send call (it
+// records the message and answers with a message id, or refuses once for a customer the journey names); /_sent lists what a
+// journey's customer was sent. Every other path answers an empty 200. The api, worker and console are given its
 // address as MSG91_TEST_SERVER_URL, so the real adapter runs against it; nothing here is ever sent to MSG91.
-import { createServer } from "node:http";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { deflateSync } from "node:zlib";
 import { pngChunk, pngHeader, pngOf } from "@travel-crm/integrations/testing";
 
@@ -32,6 +33,36 @@ function photoPng(): Uint8Array {
   );
 }
 
+/** One message the product asked this fake to send, as the journeys read it back from /_sent. */
+export interface FakeSent {
+  wamid: string;
+  /** The customer's number, digits. */
+  to: string;
+  /** Our number, digits. */
+  from: string;
+  contentType: string;
+  text: string | null;
+  url: string | null;
+  caption: string | null;
+  fileName: string | null;
+}
+
+const OUTBOUND_PATH = "/api/v5/whatsapp/whatsapp-outbound-message/";
+
+async function bodyOf(request: IncomingMessage): Promise<Record<string, unknown>> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) chunks.push(chunk as Buffer);
+  try {
+    const parsed: unknown = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    return typeof parsed === "object" && parsed !== null ? (parsed as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
+const textOrNull = (value: unknown) => (typeof value === "string" && value !== "" ? value : null);
+const textOf = (value: unknown) => textOrNull(value) ?? "";
+
 export interface FakeMsg91 {
   /** The base URL the processes are given as MSG91_TEST_SERVER_URL. */
   url: string;
@@ -42,7 +73,48 @@ export interface FakeMsg91 {
 
 export async function startFakeMsg91(): Promise<FakeMsg91> {
   const photo = Buffer.from(photoPng());
+  const sent: FakeSent[] = [];
+  /** Customers whose next message is refused as "not on WhatsApp" (Meta's 131026), once. */
+  const refuseNext = new Set<string>();
   const server = createServer((request, response) => {
+    void handle(request, response);
+  });
+  const handle = async (request: IncomingMessage, response: ServerResponse) => {
+    const url = new URL(request.url ?? "/", "http://fake");
+    if (request.method === "POST" && url.pathname === OUTBOUND_PATH) {
+      const body = await bodyOf(request);
+      const to = textOf(body.recipient_number);
+      if (refuseNext.delete(to)) {
+        response.writeHead(400, { "content-type": "application/json" });
+        response.end(JSON.stringify({ status: "fail", error: { code: "131026" } }));
+        return;
+      }
+      const wamid = `wamid.fake-${crypto.randomUUID()}`;
+      sent.push({
+        wamid,
+        to,
+        from: textOf(body.integrated_number),
+        contentType: textOf(body.content_type),
+        text: textOrNull(body.text),
+        url: textOrNull(body.url),
+        caption: textOrNull(body.caption),
+        fileName: textOrNull(body.filename),
+      });
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ status: "success", data: { messages: [{ id: wamid }], request_id: wamid } }));
+      return;
+    }
+    if (url.pathname === "/_sent") {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify(sent.filter((message) => message.to === url.searchParams.get("to"))));
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/_refuse-next") {
+      refuseNext.add(url.searchParams.get("to") ?? "");
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end("{}");
+      return;
+    }
     if (request.url === "/media/photo.png") {
       response.writeHead(200, { "content-type": "image/png", "content-length": String(photo.byteLength) });
       response.end(photo);
@@ -50,7 +122,7 @@ export async function startFakeMsg91(): Promise<FakeMsg91> {
     }
     response.writeHead(200, { "content-type": "application/json" });
     response.end("{}");
-  });
+  };
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   if (address === null || typeof address === "string") throw new Error("the fake MSG91 has no port");
