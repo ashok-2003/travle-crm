@@ -88,7 +88,7 @@ test("WhatsApp templates: the table, the form, a closed window and the send dial
   await chat.getByRole("button", { name: "Send a template" }).click();
   const send = owner.getByRole("dialog", { name: "Send a template" });
   await send.getByRole("radio", { name: /booking_update/ }).click();
-  await send.getByLabel("Value for blank 2").fill("Kerala");
+  await send.getByLabel("Destination", { exact: true }).fill("Kerala");
   await shoot(owner, "whatsapp-send-template");
   await owner.close();
 });

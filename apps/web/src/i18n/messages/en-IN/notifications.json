@@ -90,6 +90,10 @@
         "label": "A past customer writes on WhatsApp",
         "hint": "When someone whose leads are all closed writes, so you can answer or start a new lead."
       },
+      "whatsappNeedsAttention": {
+        "label": "WhatsApp needs your attention",
+        "hint": "When a template is rejected, WhatsApp's daily limit for new chats is reached, or storage is too full to keep customers' files."
+      },
       "whatsappSendFailed": {
         "label": "Your WhatsApp message wasn't sent",
         "hint": "When a reply you sent from the inbox could not be delivered, so you can try again."

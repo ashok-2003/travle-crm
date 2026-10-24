@@ -17,7 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatDay } from "@/lib/format";
 import { useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
-import type { TemplateSummary } from "@travel-crm/contracts/inbox";
+import { templateLanguages, type TemplateSummary } from "@travel-crm/contracts/inbox";
 import { TemplateDialog } from "./template-form";
 import { useTemplateActions, useTemplates } from "./use-templates";
 
@@ -32,6 +32,9 @@ const tones: Record<string, StatusTone> = {
 
 function Row({ template }: { template: TemplateSummary }) {
   const t = useTranslations("inbox.templates");
+  const tLanguages = useTranslations("inbox.templates.form.languages");
+  const languageName = (code: string) =>
+    templateLanguages.some((known) => known === code) ? tLanguages(code as never) : code;
   const { timeZone } = useMe().organization;
   const access = useWriteAccess("change");
   const { archive } = useTemplateActions();
@@ -48,7 +51,7 @@ function Row({ template }: { template: TemplateSummary }) {
         </p>
       </TableCell>
       <TableCell>{t(`category.${template.category}`)}</TableCell>
-      <TableCell className="numbers">{template.language}</TableCell>
+      <TableCell>{languageName(template.language)}</TableCell>
       <TableCell>
         <StatusBadge tone={tones[template.status] ?? "neutral"}>{t(`status.${template.status}`)}</StatusBadge>
         {template.status === "rejected" && template.reason !== null && (
@@ -181,7 +184,7 @@ export function TemplatesSection() {
       </div>
       <p className="text-muted-foreground">{t("intro")}</p>
       {list.data !== undefined && (
-        <p className="numbers text-label">
+        <p className="text-label">
           {t("marketingUsed", { used: list.data.marketingUsed, cap: list.data.marketingCap })}
         </p>
       )}

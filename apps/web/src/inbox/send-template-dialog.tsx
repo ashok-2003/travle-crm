@@ -4,7 +4,12 @@
 // are filled in; the rest are typed), see the message as it will read, tick "they agreed to WhatsApp messages" when we start a
 // chat or they had asked to stop and wrote again, and send. A person who asked to stop gets no choice at all. A marketing
 // template shows how much of the month's allowance is left. The dialog holds while the request is out.
-import { markersOf, type ConversationHeader, type TemplateSummary } from "@travel-crm/contracts/inbox";
+import {
+  markersOf,
+  templateVariables,
+  type ConversationHeader,
+  type TemplateSummary,
+} from "@travel-crm/contracts/inbox";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
@@ -24,6 +29,9 @@ import { useMe } from "@/session/me-context";
 import { useConversation } from "./use-inbox";
 import { useSendableTemplates } from "./use-templates";
 
+const knownVariable = (variable: string | undefined) =>
+  templateVariables.find((known) => known === variable) ?? "custom";
+
 const firstWord = (name: string) => name.trim().split(/\s+/)[0] ?? "";
 
 /** The text of a template with the values in its blanks, the blank itself while it is empty. */
@@ -33,15 +41,32 @@ export const preview = (body: string, values: readonly string[]) =>
     return value === undefined || value.trim() === "" ? marker : value;
   });
 
-/** What the CRM can fill in already, by the template's own note of where each blank comes from. */
-function prefilled(template: TemplateSummary, header: ConversationHeader, senderName: string): string[] {
-  return template.variables.map((variable) =>
-    variable === "customer_name"
-      ? firstWord(header.name ?? "")
-      : variable === "agent_name"
-        ? firstWord(senderName)
-        : "",
-  );
+/** The month of a stored calendar day, as a word ("December"). */
+const monthName = (day: string) =>
+  new Intl.DateTimeFormat("en-IN", { month: "long", timeZone: "UTC" }).format(new Date(day));
+
+/** What the CRM knows already, for each blank by the fact the template says fills it. Staff may change every value. */
+function prefilled(
+  template: TemplateSummary,
+  header: ConversationHeader,
+  who: { sender: string; agency: string },
+): string[] {
+  return template.variables.map((variable) => {
+    switch (variable) {
+      case "customer_name":
+        return firstWord(header.name ?? "");
+      case "agent_name":
+        return firstWord(who.sender);
+      case "agency_name":
+        return who.agency;
+      case "destination":
+        return header.trip.destination ?? "";
+      case "travel_month":
+        return header.trip.travelMonth === null ? "" : monthName(header.trip.travelMonth);
+      default:
+        return "";
+    }
+  });
 }
 
 function Body({
@@ -82,7 +107,9 @@ function Body({
           onChange={(id) => {
             setChosenId(id);
             const next = templates.find((candidate) => candidate.id === id);
-            if (next !== undefined) setValues(prefilled(next, header, me.user.name));
+            if (next !== undefined) {
+              setValues(prefilled(next, header, { sender: me.user.name, agency: me.organization.name }));
+            }
           }}
           options={templates.map((candidate) => ({
             value: candidate.id,
@@ -93,7 +120,9 @@ function Body({
         {template !== undefined &&
           markersOf(template.body).map((number, index) => (
             <Field key={number}>
-              <FieldLabel htmlFor={`${tick}-${String(number)}`}>{t("blank", { number })}</FieldLabel>
+              <FieldLabel htmlFor={`${tick}-${String(number)}`}>
+                {t(`blankOf.${knownVariable(template.variables[index])}`, { number })}
+              </FieldLabel>
               <Input
                 id={`${tick}-${String(number)}`}
                 value={values[index] ?? ""}

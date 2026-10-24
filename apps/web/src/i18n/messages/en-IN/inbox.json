@@ -145,12 +145,19 @@
     "choose": "Template",
     "none": "No template is approved yet. Ask the Owner or an Admin to write one under Settings, WhatsApp.",
     "optedOut": "They asked to stop WhatsApp messages, so no template can be sent.",
-    "blank": "Value for blank {number}",
     "previewLabel": "The message as it will read",
     "agreed": "They agreed to WhatsApp messages",
     "send": "Send",
     "sending": "Sending",
-    "done": "The template is on its way."
+    "done": "The template is on its way.",
+    "blankOf": {
+      "customer_name": "Customer's name",
+      "destination": "Destination",
+      "agent_name": "Your name",
+      "agency_name": "Agency's name",
+      "travel_month": "Travel month",
+      "custom": "Blank {number}"
+    }
   },
   "templates": {
     "title": "Templates",
@@ -193,7 +200,8 @@
       "destination": "The destination",
       "agent_name": "The sender's name",
       "travel_month": "The travel month",
-      "custom": "Typed when sent"
+      "custom": "Typed when sent",
+      "agency_name": "The agency's name"
     },
     "form": {
       "new": "New template",

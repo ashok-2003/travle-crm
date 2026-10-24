@@ -75,6 +75,9 @@ test("templates: written, approved, sent after the window closed, tried again, r
   const rejected = owner.getByRole("row", { name: /festive_note/ });
   await expect(rejected.getByText("WhatsApp says: Too promotional for a utility message")).toBeVisible();
 
+  // The language is named, not coded.
+  await expect(owner.getByRole("row", { name: /booking_update/ }).getByText("English")).toBeVisible();
+
   // Edit and send again.
   await rejected.getByRole("button", { name: "Edit and send again" }).click();
   const edit = owner.getByRole("dialog", { name: "Edit the template" });
@@ -119,8 +122,8 @@ test("templates: written, approved, sent after the window closed, tried again, r
   await chat.getByRole("button", { name: "Send a template" }).click();
   const send = owner.getByRole("dialog", { name: "Send a template" });
   await send.getByRole("radio", { name: /booking_update/ }).click();
-  await expect(send.getByLabel("Value for blank 1")).toHaveValue("Rahul");
-  await send.getByLabel("Value for blank 2").fill("Kerala");
+  await expect(send.getByLabel("Customer's name")).toHaveValue("Rahul");
+  await send.getByLabel("Destination", { exact: true }).fill("Kerala");
   await expect(send.getByLabel("The message as it will read")).toHaveText(
     "Hello Rahul, your trip to Kerala is confirmed.",
   );
