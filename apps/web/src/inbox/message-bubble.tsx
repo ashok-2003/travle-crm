@@ -1,16 +1,21 @@
 "use client";
 
-// One message of a chat (spec 3.2): the customer's on one side in the muted token, ours on the other in the primary one,
-// with its time and, for ours, its state in words. Text is shown as text (links made tappable, never HTML) and
+// One message of a chat (spec 3.2): the customer's on one side in the muted token, ours on the other in the brand's tint,
+// with its time and, for ours, who sent it and its state in ticks (a failed one says why and offers Try again). Text is shown as text (links made tappable, never HTML) and
 // `dir="auto"` so Hindi and other scripts read from the right side. A photo, video or voice note comes from a presigned
 // link; a document is a download; a place is its coordinates and a link to Maps. Nothing is drawn with a border or shadow.
 import type { ChatMessage } from "@travel-crm/contracts/inbox";
-import { FileIcon, ImageIcon, type LucideIcon } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { CheckCheckIcon, CheckIcon, ClockIcon, FileIcon, ImageIcon, type LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Fragment, type ReactNode } from "react";
+import { RefusalAlert } from "@/components/refusal-alert";
+import { Button } from "@/components/ui/button";
+import { useTRPC } from "@/data/trpc";
 import { formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { useMe } from "@/session/me-context";
+import { useHolds, useMe } from "@/session/me-context";
+import { useWriteAccess } from "@/subscription/write-access";
 import { useMediaLink } from "./use-inbox";
 
 const LINK = /(https?:\/\/[^\s<>"']+)/g;
@@ -139,20 +144,85 @@ function Body({ message }: { message: ChatMessage }): ReactNode {
   }
 }
 
-export function MessageBubble({ message }: { message: ChatMessage }) {
+/** Our message's state as WhatsApp shows it: a clock waiting, one tick sent, two delivered, two in the brand colour read. */
+function Ticks({ status }: { status: ChatMessage["status"] }) {
+  const t = useTranslations("inbox.chat.status");
+  if (status === "queued" || status === "sending")
+    return <ClockIcon aria-label={t(status)} className="size-3.5" role="img" />;
+  if (status === "sent") return <CheckIcon aria-label={t("sent")} className="size-3.5" role="img" />;
+  const read = status === "read";
+  return (
+    <CheckCheckIcon
+      aria-label={t(read ? "read" : "delivered")}
+      className={cn("size-3.5", read && "text-primary")}
+      role="img"
+    />
+  );
+}
+
+const failureCodes = [
+  "window_closed",
+  "not_on_whatsapp",
+  "bad_number",
+  "rate_limited",
+  "tier_limit",
+  "provider_down",
+  "unsure",
+  "paused",
+  "not_connected",
+  "file_missing",
+] as const;
+
+/** "Not sent", why in a sentence, and Try again, which puts the same message back in the queue. */
+function NotSent({ message }: { message: ChatMessage }) {
+  const t = useTranslations("inbox.chat");
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const access = useWriteAccess("change");
+  const mayReply = useHolds("inbox:reply");
+  const retry = useMutation(
+    trpc.inbox.retry.mutationOptions({
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: trpc.inbox.pathKey() }),
+    }),
+  );
+  const code = failureCodes.find((known) => known === message.failureCode);
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <p className="text-label font-medium text-status-bad-ink">{t(`failure.${code ?? "other"}`)}</p>
+      <RefusalAlert error={retry.error} />
+      {mayReply && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={!access.allowed || retry.isPending}
+          onClick={() => {
+            retry.mutate({ messageId: message.id });
+          }}
+        >
+          {t("retry")}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+export function MessageBubble({ message, senderName }: { message: ChatMessage; senderName: string | null }) {
   const t = useTranslations("inbox.chat");
   const { timeZone } = useMe().organization;
   const ours = message.direction === "out";
+  const failed = ours && message.status === "failed";
+  const firstName = senderName?.split(/\s+/)[0];
   return (
     <li className={cn("flex", ours ? "justify-end" : "justify-start")}>
       <div
         className={cn(
-          "flex max-w-[85%] flex-col gap-1 rounded-lg px-3 py-2",
-          ours ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
+          "flex max-w-[85%] flex-col gap-1 rounded-lg px-3 py-2 text-foreground",
+          ours ? "bg-accent" : "bg-muted",
         )}
       >
         {message.quoted !== null && (
-          <p className="text-caption opacity-80" dir="auto">
+          <p className="text-caption text-muted-foreground" dir="auto">
             {t("quoted")}: {message.quoted.body ?? t(message.quoted.kind === "image" ? "photo" : "document")}
           </p>
         )}
@@ -162,10 +232,15 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
         {message.reaction !== null && message.kind !== "reaction" && (
           <p aria-label={t("reactedWith", { emoji: message.reaction })}>{message.reaction}</p>
         )}
-        <p className="text-caption opacity-80">
-          {message.origin === "staff_phone" && `${t("phoneApp")} · `}
-          {formatTime(new Date(message.occurredAt), { timeZone })}
-          {ours && ` · ${t(`status.${message.status}`)}`}
+        {failed && <NotSent message={message} />}
+        <p className="flex items-center gap-1 text-caption text-muted-foreground">
+          {ours && firstName !== undefined && <span>{firstName} · </span>}
+          {ours && firstName === undefined && message.origin === "staff_crm" && message.sentBy !== null && (
+            <span>{t("formerMember")} · </span>
+          )}
+          {message.origin === "staff_phone" && <span>{t("phoneApp")} · </span>}
+          <span>{formatTime(new Date(message.occurredAt), { timeZone })}</span>
+          {ours && !failed && <Ticks status={message.status} />}
         </p>
       </div>
     </li>

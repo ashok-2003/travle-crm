@@ -10,6 +10,13 @@ import { useTRPC, useTRPCClient } from "@/data/trpc";
 import { useCursorPages } from "@/data/use-cursor-pages";
 
 const POLL_MS = 15_000;
+/** While one of our messages is still on its way (queued, sending or sent, not yet delivered), the chat looks more often. */
+const UNSETTLED_POLL_MS = 5_000;
+/**
+ * A chat is live: what the saved copy of the last visit holds (a tick, a waiting mark) may be seconds old and already wrong, so
+ * opening one always asks again, and the copy only fills the screen until the answer comes.
+ */
+const LIVE = 0;
 
 export function useInboxStatus() {
   const trpc = useTRPC();
@@ -26,6 +33,7 @@ export function useConversations(input: { filter: ConversationFilter; search: st
       client.inbox.conversations.query({ filter: input.filter, ...search, ...(cursor !== null && { before: cursor }) }),
     items: (page) => page.items,
     refetchInterval: POLL_MS,
+    staleTime: LIVE,
   });
 }
 
@@ -35,6 +43,7 @@ export function useConversation(conversationId: string) {
   const query = useQuery({
     ...trpc.inbox.conversation.queryOptions(valid ? { conversationId } : skipToken),
     refetchInterval: POLL_MS,
+    staleTime: LIVE,
   });
   return { ...query, valid };
 }
@@ -47,7 +56,15 @@ export function useMessages(conversationId: string, enabled: boolean) {
     page: (cursor) => client.inbox.messages.query({ conversationId, ...(cursor !== null && { before: cursor }) }),
     items: (page) => page.items,
     enabled,
-    refetchInterval: POLL_MS,
+    staleTime: LIVE,
+    refetchInterval: (query) =>
+      query.state.data?.pages.some((page) =>
+        page.items.some(
+          (message) => message.direction === "out" && ["queued", "sending", "sent"].includes(message.status),
+        ),
+      )
+        ? UNSETTLED_POLL_MS
+        : POLL_MS,
   });
 }
 

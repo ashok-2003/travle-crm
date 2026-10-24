@@ -89,6 +89,10 @@
       "whatsappPastCustomer": {
         "label": "A past customer writes on WhatsApp",
         "hint": "When someone whose leads are all closed writes, so you can answer or start a new lead."
+      },
+      "whatsappSendFailed": {
+        "label": "Your WhatsApp message wasn't sent",
+        "hint": "When a reply you sent from the inbox could not be delivered, so you can try again."
       }
     },
     "loading": "Loading your choices",
