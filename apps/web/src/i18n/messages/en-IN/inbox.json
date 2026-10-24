@@ -82,7 +82,19 @@
       "removeFile": "Remove the file",
       "fileType": "This kind of file can't be sent on WhatsApp from here. Use a photo, a PDF, a Word, Excel or PowerPoint file, a text file or an MP4 video.",
       "fileSize": "This file is over 16 MB, the most WhatsApp takes from here.",
-      "captionHint": "Your words go with the file as its caption."
+      "captionHint": "Your words go with the file as its caption.",
+      "emoji": "Add an emoji",
+      "record": "Record a voice note",
+      "cancelRecording": "Cancel the recording",
+      "recording": "Recording",
+      "limit": "Five minutes is the longest a voice note can be. Send it, or cancel.",
+      "voice": {
+        "denied": "The microphone is blocked. Allow it for this site in your browser's settings (the icon beside the address), then press the microphone again.",
+        "no_microphone": "No microphone was found on this device.",
+        "unsupported": "This browser can't record voice notes.",
+        "too_big": "That recording is over 16 MB. Record a shorter one.",
+        "empty": "Nothing was recorded. Try again."
+      }
     },
     "formerMember": "A former member",
     "failure": {
@@ -100,7 +112,8 @@
     },
     "sendTemplate": "Send a template",
     "optedOut": "Asked to stop WhatsApp messages.",
-    "windowClosedOptedOut": "Free text can be sent only within 24 hours of their last message. It closed on {closed}. They asked to stop WhatsApp messages, so no template can be sent."
+    "windowClosedOptedOut": "Free text can be sent only within 24 hours of their last message. It closed on {closed}. They asked to stop WhatsApp messages, so no template can be sent.",
+    "newMessages": "New messages"
   },
   "leadSection": {
     "title": "WhatsApp",

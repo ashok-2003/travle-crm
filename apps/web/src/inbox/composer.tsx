@@ -14,10 +14,14 @@ import { Item, ItemActions, ItemContent, ItemTitle } from "@/components/ui/item"
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDayTime } from "@/lib/format";
+import { useWideScreen } from "@/lib/use-wide-screen";
 import { useMe } from "@/session/me-context";
 import { WriteHint } from "@/subscription/write-hint";
 import { useWriteAccess } from "@/subscription/write-access";
+import { EmojiButton } from "./emoji-button";
 import { useReply } from "./use-reply";
+import { useVoiceNote } from "./voice/use-voice-note";
+import { MicButton, RecordingRow, VoiceProblemNote } from "./voice/voice-controls";
 
 const MAX_TEXT = 4096;
 const acceptedTypes = whatsappSendContentTypes.join(",");
@@ -31,11 +35,27 @@ export function Composer({ conversationId, windowOpenUntil }: { conversationId: 
   const [file, setFile] = useState<File | null>(null);
   const [fileProblem, setFileProblem] = useState<"fileType" | "fileSize" | null>(null);
   const picker = useRef<HTMLInputElement>(null);
+  const box = useRef<HTMLTextAreaElement>(null);
+  const wide = useWideScreen();
   const reply = useReply(conversationId, () => {
     setText("");
     setFile(null);
   });
+  const voice = useVoiceNote((recorded) => {
+    reply.sendFile(recorded, undefined);
+  });
   const words = text.trim();
+  const recording = voice.phase === "recording" || voice.phase === "limit";
+  const insertEmoji = (emoji: string) => {
+    const field = box.current;
+    const start = field?.selectionStart ?? text.length;
+    const end = field?.selectionEnd ?? start;
+    setText(text.slice(0, start) + emoji + text.slice(end));
+    requestAnimationFrame(() => {
+      field?.focus();
+      field?.setSelectionRange(start + emoji.length, start + emoji.length);
+    });
+  };
   const canSend = access.allowed && !reply.pending && (file !== null || words !== "");
 
   const submit = () => {
@@ -93,49 +113,66 @@ export function Composer({ conversationId, windowOpenUntil }: { conversationId: 
           </ItemActions>
         </Item>
       )}
-      <div className="flex items-end gap-2">
-        <input
-          ref={picker}
-          type="file"
-          accept={acceptedTypes}
-          className="sr-only"
-          tabIndex={-1}
-          aria-hidden="true"
-          onChange={(event) => {
-            choose(event.target.files?.[0]);
-            event.target.value = "";
-          }}
+      <VoiceProblemNote problem={voice.problem} />
+      {recording ? (
+        <RecordingRow
+          phase={voice.phase}
+          elapsedMs={voice.elapsedMs}
+          busy={reply.pending}
+          onCancel={voice.cancel}
+          onSend={() => void voice.finish()}
         />
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label={t("composer.attach")}
-          disabled={reply.pending || !access.allowed}
-          onClick={() => picker.current?.click()}
-        >
-          <PaperclipIcon aria-hidden="true" />
-        </Button>
-        <Textarea
-          dir="auto"
-          rows={1}
-          maxLength={MAX_TEXT}
-          className="max-h-40 min-h-11"
-          aria-label={t("composer.label")}
-          aria-describedby={access.hint === null ? undefined : hintId}
-          placeholder={t("composer.placeholder")}
-          value={text}
-          disabled={!access.allowed}
-          onChange={(event) => {
-            setText(event.target.value);
-          }}
-          onKeyDown={onKey}
-        />
-        <Button type="submit" disabled={!canSend} aria-describedby={access.hint === null ? undefined : hintId}>
-          {reply.pending ? <Spinner aria-hidden="true" /> : <SendIcon aria-hidden="true" />}
-          {reply.pending ? t("composer.sending") : t("composer.send")}
-        </Button>
-      </div>
+      ) : (
+        <div className="flex items-end gap-2">
+          <input
+            ref={picker}
+            type="file"
+            accept={acceptedTypes}
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden="true"
+            onChange={(event) => {
+              choose(event.target.files?.[0]);
+              event.target.value = "";
+            }}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={t("composer.attach")}
+            disabled={reply.pending || !access.allowed}
+            onClick={() => picker.current?.click()}
+          >
+            <PaperclipIcon aria-hidden="true" />
+          </Button>
+          {wide && <EmojiButton onPick={insertEmoji} disabled={reply.pending || !access.allowed} />}
+          <Textarea
+            ref={box}
+            dir="auto"
+            rows={1}
+            maxLength={MAX_TEXT}
+            className="max-h-40 min-h-11"
+            aria-label={t("composer.label")}
+            aria-describedby={access.hint === null ? undefined : hintId}
+            placeholder={t("composer.placeholder")}
+            value={text}
+            disabled={!access.allowed}
+            onChange={(event) => {
+              setText(event.target.value);
+            }}
+            onKeyDown={onKey}
+          />
+          {voice.available && words === "" && file === null && !reply.pending ? (
+            <MicButton disabled={!access.allowed || voice.phase === "starting"} onStart={() => void voice.start()} />
+          ) : (
+            <Button type="submit" disabled={!canSend} aria-describedby={access.hint === null ? undefined : hintId}>
+              {reply.pending ? <Spinner aria-hidden="true" /> : <SendIcon aria-hidden="true" />}
+              {reply.pending ? t("composer.sending") : t("composer.send")}
+            </Button>
+          )}
+        </div>
+      )}
       <WriteHint id={hintId} hint={access.hint} visible />
       <p className="text-label text-muted-foreground">
         {t("windowOpen", { until: formatDayTime(new Date(windowOpenUntil), { timeZone }) })}
