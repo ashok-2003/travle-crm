@@ -20,6 +20,7 @@
 	handle /p/* {
 		reverse_proxy api:3001
 	}
+	# The webhook intake: Meta's lead ads callback and MSG91's WhatsApp webhook (/webhooks/msg91-whatsapp/<token>).
 	handle /webhooks/* {
 		reverse_proxy api:3001
 	}
