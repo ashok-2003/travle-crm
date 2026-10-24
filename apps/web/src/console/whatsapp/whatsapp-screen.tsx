@@ -14,7 +14,7 @@ import { PageHeader } from "@/components/page-header";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatDayTime } from "@/lib/format";
+import { formatDayTime, formatPhoneNumber } from "@/lib/format";
 import { PLATFORM_TIME_ZONE } from "@/lib/platform-time-zone";
 import { useConsoleTRPC } from "../data/console-trpc";
 import { consoleRoutes } from "../routes";
@@ -87,7 +87,7 @@ export function WhatsappScreen() {
                       {item.organizationName}
                     </Link>
                   </TableCell>
-                  <TableCell className="numbers">{item.displayNumber}</TableCell>
+                  <TableCell className="numbers">{formatPhoneNumber(item.displayNumber)}</TableCell>
                   <TableCell>{t(`mode.${item.mode}`)}</TableCell>
                   <TableCell>
                     <StatusBadge tone={connectionTones[item.status] ?? "neutral"}>
@@ -121,7 +121,11 @@ export function WhatsappScreen() {
             <ul className="flex flex-col gap-1">
               {unrouted.map((row) => (
                 <li key={row.integratedNumber} className="numbers">
-                  {t("unrouted.row", { number: row.integratedNumber, events: row.events, last: at(row.lastSeenAt) })}
+                  {t("unrouted.row", {
+                    number: formatPhoneNumber(`+${row.integratedNumber}`),
+                    events: row.events,
+                    last: at(row.lastSeenAt),
+                  })}
                 </li>
               ))}
             </ul>

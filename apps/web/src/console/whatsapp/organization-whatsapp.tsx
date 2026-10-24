@@ -15,10 +15,11 @@ import { RefusalAlert } from "@/components/refusal-alert";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatDayTime } from "@/lib/format";
+import { formatDayTime, formatPhoneNumber } from "@/lib/format";
 import { PLATFORM_TIME_ZONE } from "@/lib/platform-time-zone";
 import { toast } from "sonner";
 import { useConsoleTRPC } from "../data/console-trpc";
+import { DetailSection } from "../organizations/organization/detail-list";
 import { isSuperAdmin, useStaff } from "../session/staff-context";
 import { ConnectDialog } from "./connect-dialog";
 import { connectionTones } from "./whatsapp-screen";
@@ -60,15 +61,9 @@ export function OrganizationWhatsapp({
     }),
   );
 
-  const heading = (
-    <h2 id="whatsapp-heading" className="text-section font-semibold">
-      {t("group.title")}
-    </h2>
-  );
   if (group.data === undefined) {
     return (
-      <section aria-labelledby="whatsapp-heading" className="flex flex-col gap-3">
-        {heading}
+      <DetailSection id="whatsapp-heading" heading={t("group.title")}>
         {group.isError ? (
           <ErrorState
             message={t("group.loadFailed")}
@@ -79,7 +74,7 @@ export function OrganizationWhatsapp({
         ) : (
           <LoadingRows shape="twoLines" label={t("loading")} />
         )}
-      </section>
+      </DetailSection>
     );
   }
   const { connection, usage, cannotConnectReason, configured } = group.data;
@@ -87,8 +82,7 @@ export function OrganizationWhatsapp({
   const at = (instant: string) => formatDayTime(new Date(instant), { timeZone: PLATFORM_TIME_ZONE });
 
   return (
-    <section aria-labelledby="whatsapp-heading" className="flex flex-col gap-4">
-      {heading}
+    <DetailSection id="whatsapp-heading" heading={t("group.title")}>
       {!configured && <p className="text-muted-foreground">{t("group.notConfigured")}</p>}
       {connection === null ? (
         <>
@@ -99,7 +93,10 @@ export function OrganizationWhatsapp({
         <>
           <Details
             rows={[
-              { label: t("columns.number"), value: <span className="numbers">{connection.displayNumber}</span> },
+              {
+                label: t("columns.number"),
+                value: <span className="numbers">{formatPhoneNumber(connection.displayNumber)}</span>,
+              },
               {
                 label: t("columns.status"),
                 value: (
@@ -117,7 +114,7 @@ export function OrganizationWhatsapp({
           {connection.status === "setup" && (
             <p>
               {connection.webhookSeenAt === null
-                ? t("group.waiting", { number: connection.displayNumber })
+                ? t("group.waiting", { number: formatPhoneNumber(connection.displayNumber) })
                 : t("group.received", { when: at(connection.webhookSeenAt) })}
             </p>
           )}
@@ -223,6 +220,6 @@ export function OrganizationWhatsapp({
           )}
         </>
       )}
-    </section>
+    </DetailSection>
   );
 }

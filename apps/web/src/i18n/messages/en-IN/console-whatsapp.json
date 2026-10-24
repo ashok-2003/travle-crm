@@ -36,7 +36,7 @@
   "unrouted": {
     "title": "Numbers nobody recorded",
     "intro": "MSG91 sent events for these numbers, but no agency has recorded them.",
-    "row": "{number}: {events} events, last {last}"
+    "row": "{number}: {events, plural, one {# event} other {# events}}, last {last}"
   },
   "webhook": {
     "title": "Webhook for MSG91's panel",
