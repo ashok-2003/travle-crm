@@ -246,3 +246,56 @@ describe("a WhatsApp message, end to end", () => {
     for (const event of await events()) expect(JSON.stringify(event.headers)).not.toContain(WHATSAPP_KEY);
   });
 });
+
+// Last in the file: its events are never processed, and the tests above read every event of the provider.
+describe("the MSG91 webhook under a burst", () => {
+  let server: TestServer;
+  const business = `9199${String(Math.floor(Math.random() * 1e8)).padStart(8, "0")}`;
+
+  beforeAll(async () => {
+    server = createTestServer({}, { whatsappFor: aWhatsApp });
+    const agency = await createTestAgency(server);
+    const connectionId = await server.db.forOrg(agency.organizationId, async (tx) => {
+      const row = await tx.whatsappConnection.create({
+        data: {
+          integratedNumber: business,
+          displayNumber: `+${business}`,
+          mode: "new_number",
+          status: "connected",
+          connectedAt: new Date(),
+        },
+        select: { id: true },
+      });
+      return row.id;
+    });
+    await upsertRoute(server.db, { integratedNumber: business, organizationId: agency.organizationId, connectionId });
+  });
+  afterAll(() => server.close());
+
+  const post = (body: string, headers: Record<string, string> = signer.headers) =>
+    server.app.request(signer.path, { method: "POST", headers, body });
+  const event = () =>
+    signer.body([
+      signer.status({
+        integratedNumber: business,
+        customerNumber: "919800000000",
+        wamid: `wamid.${randomUUID()}`,
+        eventName: "delivered",
+      }),
+    ]);
+
+  it("answers 200 to every valid event, past 600 a minute", async () => {
+    const statuses = new Set<number>();
+    for (let sent = 0; sent < 700; sent += 1) statuses.add((await post(event())).status);
+    expect([...statuses]).toEqual([200]);
+  }, 120_000);
+
+  it("limits a caller without the secrets, and only that caller, with a 429", async () => {
+    const wrong = { ...signer.headers, "x-travel-crm-key": "wrong".repeat(10) };
+    const statuses = new Set<number>();
+    for (let sent = 0; sent < 130; sent += 1) statuses.add((await post(event(), wrong)).status);
+    expect([...statuses].sort()).toEqual([401, 429]);
+    // MSG91 itself, from the same address, is still answered 200.
+    expect((await post(event())).status).toBe(200);
+  }, 120_000);
+});

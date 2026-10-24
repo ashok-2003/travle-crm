@@ -18,6 +18,7 @@ export interface ConsolePlatform {
  */
 export async function startConsolePlatform({ environment, services, logger }: ProcessBase): Promise<ConsolePlatform> {
   const settings = loadConsoleSettings(process.env, environment);
+  const whatsapp = services.whatsapp ?? null;
   const platform = createPlatformServices({
     platformDatabaseUrl: settings.platformDatabaseUrl,
     transactionLimits: transactionLimitsOf(environment),
@@ -31,13 +32,13 @@ export async function startConsolePlatform({ environment, services, logger }: Pr
     logger,
     // The webhook block and the provider for "Check with MSG91" (ADR 0035): from the process settings, never the database.
     whatsapp:
-      services.whatsapp === null
+      whatsapp === null
         ? null
         : {
-            provider: services.whatsapp.provider,
-            webhookUrl: `${environment.BETTER_AUTH_URL.replace(/\/$/, "")}/webhooks/msg91-whatsapp/${services.whatsapp.settings.webhookToken}`,
+            provider: whatsapp.provider,
+            webhookUrl: `${environment.BETTER_AUTH_URL.replace(/\/$/, "")}/webhooks/msg91-whatsapp/${whatsapp.settings.webhookToken}`,
             webhookHeaderName: WHATSAPP_WEBHOOK_HEADER,
-            webhookHeaderValue: services.whatsapp.settings.webhookKey,
+            webhookHeaderValue: whatsapp.settings.webhookKey,
           },
   });
   try {

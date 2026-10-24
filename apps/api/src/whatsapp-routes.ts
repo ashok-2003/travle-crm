@@ -13,6 +13,8 @@ export const MAX_WHATSAPP_BODY_BYTES = 64 * 1024;
 export function whatsappWebhookRoute(options: {
   receive: (providerName: string, request: WebhookRequest) => Promise<WebhookReceipt>;
   logger: Logger;
+  /** Counts a caller that failed the secrets check, and says whether it is over its limit. */
+  strangerOverLimit: (request: Request) => Promise<boolean>;
 }): Hono {
   const app = new Hono();
   app.post(
@@ -28,6 +30,8 @@ export function whatsappWebhookRoute(options: {
       const headers = new Headers(c.req.raw.headers);
       headers.set(PATH_TOKEN_HEADER, c.req.param("token"));
       const receipt = await options.receive(WHATSAPP_PROVIDER, { headers, rawBody: await c.req.text() });
+      // Only a stranger is ever limited: anything carrying both secrets is stored and answered 200, however many there are.
+      if (receipt.status === 401 && (await options.strangerOverLimit(c.req.raw))) return c.json({}, 429);
       return c.json({}, receipt.status);
     },
   );
