@@ -1,0 +1,113 @@
+{
+  "title": "WhatsApp",
+  "intro": "The WhatsApp numbers agencies use through MSG91, and the webhook MSG91 calls.",
+  "loading": "Loading WhatsApp numbers",
+  "loadFailed": "The WhatsApp numbers didn't load.",
+  "notConfigured": "WhatsApp is not set up on this server. Set the three MSG91 settings and restart.",
+  "empty": "No agency has a WhatsApp number yet. Record one on the agency's page.",
+  "columns": {
+    "agency": "Agency",
+    "number": "Number",
+    "mode": "Mode",
+    "status": "Status",
+    "connected": "Connected",
+    "lastEvent": "Last event",
+    "messages": "This month",
+    "marketing": "Marketing"
+  },
+  "mode": {
+    "new_number": "New number",
+    "coexistence": "With the phone app",
+    "demo": "Demo"
+  },
+  "status": {
+    "setup": "Setting up",
+    "connected": "Connected",
+    "paused": "Paused",
+    "problem": "Problem",
+    "disconnected": "Disconnected"
+  },
+  "messagesIn": "{inbound} in, {outbound} out",
+  "marketingOfCap": "{used} of {cap}",
+  "never": "Never",
+  "overFairUse": "Over the fair-use line",
+  "cancelled": "Subscription cancelled, number still connected: remove it in MSG91's panel and disconnect it here.",
+  "problemBanner": "No delivery reports from MSG91 for a connected number after sending. Check the webhook in MSG91's panel.",
+  "unrouted": {
+    "title": "Numbers nobody recorded",
+    "intro": "MSG91 sent events for these numbers, but no agency has recorded them.",
+    "row": "{number}: {events} events, last {last}"
+  },
+  "webhook": {
+    "title": "Webhook for MSG91's panel",
+    "intro": "Paste the address and the header once in MSG91's WhatsApp panel under Webhook (New). Turn on inbound messages and delivery reports.",
+    "url": "Address",
+    "header": "Header",
+    "show": "Show secret",
+    "hide": "Hide secret",
+    "loadFailed": "The webhook details didn't load.",
+    "copyUrl": "Copy the address",
+    "copyValue": "Copy the header value"
+  },
+  "group": {
+    "title": "WhatsApp",
+    "none": "No WhatsApp number is recorded for this agency.",
+    "connect": "Connect a number",
+    "waiting": "Waiting for the first message: send a WhatsApp to {number} from any phone.",
+    "received": "Webhook received {when}",
+    "markConnected": "Mark connected",
+    "pause": "Pause",
+    "resume": "Resume",
+    "disconnect": "Disconnect",
+    "check": "Check with MSG91",
+    "checkAnswered": "MSG91 answered.",
+    "checkFailed": "MSG91 did not answer.",
+    "caps": "Caps",
+    "marketingCap": "Marketing messages a month",
+    "templateCap": "Template messages a day",
+    "saveCaps": "Save caps",
+    "usage": "Usage by month",
+    "usageMonth": "Month",
+    "usageIn": "In",
+    "usageReplies": "Replies",
+    "usageUtility": "Utility",
+    "usageMarketing": "Marketing",
+    "usageFailed": "Failed",
+    "cannot": {
+      "NO_INBOX_MODULE": "The plan does not include the inbox.",
+      "NO_NUMBER_LIMIT": "The plan has no WhatsApp number.",
+      "NOT_SEEN": "No message from MSG91 has arrived for this number yet."
+    },
+    "quality": "Quality rating: {rating}",
+    "loadFailed": "This agency's WhatsApp details didn't load.",
+    "notConfigured": "WhatsApp is not set up on this server."
+  },
+  "connect": {
+    "title": "Connect a WhatsApp number",
+    "description": "Record the number the agency's customers message, as MSG91 has it. It starts as Setting up and is marked connected after MSG91's first message arrives.",
+    "displayNumber": "The agency's number",
+    "integratedNumber": "The number as MSG91 writes it",
+    "integratedHint": "Digits with the country code, for example 919876543210",
+    "mode": "How it is added in MSG91",
+    "modeNew": "A new number",
+    "modeCoexistence": "With the WhatsApp Business app on the phone",
+    "providerRef": "MSG91's reference (optional)",
+    "wabaId": "WhatsApp Business Account id (optional)",
+    "phoneNumberId": "Phone number id (optional)",
+    "note": "Note (optional)",
+    "submit": "Record the number",
+    "cancel": "Cancel",
+    "done": "The number is recorded. Send a WhatsApp to it to see the webhook arrive.",
+    "submitting": "Recording",
+    "problems": {
+      "required": "Fill this in.",
+      "invalid": "Check this."
+    }
+  },
+  "disconnectConfirm": {
+    "title": "Stop WhatsApp for {agency}?",
+    "description": "Chats stay. Remove the number in MSG91's panel too.",
+    "confirm": "Disconnect"
+  },
+  "retry": "Try again"
+}

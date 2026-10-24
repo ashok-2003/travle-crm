@@ -81,6 +81,14 @@
       "formBusy": {
         "label": "Your website form is busy",
         "hint": "When your website form gets more enquiries than usual and has been slowed. Told once an hour."
+      },
+      "whatsappMessage": {
+        "label": "A customer writes on WhatsApp",
+        "hint": "When a customer with an open lead of yours sends a message. A burst of messages is one notice."
+      },
+      "whatsappPastCustomer": {
+        "label": "A past customer writes on WhatsApp",
+        "hint": "When someone whose leads are all closed writes, so you can answer or start a new lead."
       }
     },
     "loading": "Loading your choices",

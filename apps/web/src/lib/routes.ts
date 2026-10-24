@@ -24,6 +24,8 @@ export const routes = {
   leadsPipeline: "/leads/pipeline",
   /** A lead import's first step; an import's own page is leadImportRoute(importId). */
   leadImport: "/leads/import",
+  /** The WhatsApp inbox (release 5); a chat's own page is inboxRoute(conversationId). */
+  inbox: "/inbox",
   settings: "/settings",
   /** The setup checklist: what an organization does first (spec 11). */
   setup: "/setup",
@@ -39,6 +41,8 @@ export const routes = {
   leadSources: "/settings/lead-sources",
   /** The agency's website enquiry form: its link, snippet, fields and words (website form spec 3.2). */
   websiteForm: "/settings/lead-sources/website-form",
+  /** The agency's WhatsApp number and its state. */
+  whatsapp: "/settings/whatsapp",
   /** Who new leads that arrive by themselves go to (release C). */
   leadAssignment: "/settings/assignment",
   /** Each person's own choice of what they are told, and how (spec 9.4). */
@@ -48,6 +52,11 @@ export const routes = {
   /** The service worker's fallback for a page never opened before (src/service-worker/strategy.ts). */
   offline: "/offline",
 } as const;
+
+/** A WhatsApp chat's page. */
+export function inboxRoute(conversationId: string): string {
+  return `${routes.inbox}/${encodeURIComponent(conversationId)}`;
+}
 
 /** A lead's page. */
 export function leadRoute(leadId: string): string {

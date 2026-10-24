@@ -9,6 +9,7 @@ import { cp } from "node:fs/promises";
 import { createServer, type Server } from "node:net";
 import path from "node:path";
 import { META_E2E } from "./fake-meta";
+import { MSG91_E2E } from "./fake-msg91";
 import type { EmailVariables } from "./mailpit";
 import type { StorageVariables } from "./minio";
 
@@ -73,6 +74,16 @@ function metaVariables(graphUrl: string): Record<string, string> {
     META_LOGIN_CONFIG_ID: META_E2E.loginConfigId,
     META_TOKEN_KEY: META_E2E.tokenKey,
     META_GRAPH_TEST_SERVER_URL: graphUrl,
+  };
+}
+
+/** WhatsApp's three settings (ADR 0035) with test values, and the fake MSG91 the real adapter reads instead of MSG91's. */
+function whatsappVariables(msg91Url: string): Record<string, string> {
+  return {
+    MSG91_AUTHKEY: MSG91_E2E.authKey,
+    MSG91_WEBHOOK_TOKEN: MSG91_E2E.webhookToken,
+    MSG91_WEBHOOK_KEY: MSG91_E2E.webhookKey,
+    MSG91_TEST_SERVER_URL: msg91Url,
   };
 }
 
@@ -167,6 +178,7 @@ export async function startServers({
   email,
   google,
   meta,
+  msg91,
   turnstile,
 }: {
   databaseUrl: string;
@@ -180,6 +192,8 @@ export async function startServers({
   google: { url: string; accountEmail: string };
   /** The fake Meta (support/fake-meta.ts): the Graph address the real adapter is given. */
   meta: { url: string };
+  /** The fake MSG91 (support/fake-msg91.ts): the address the real adapter is given. */
+  msg91: { url: string };
   /** The fake Turnstile's siteverify address (support/fake-turnstile.ts). */
   turnstile: { verifyUrl: string };
 }): Promise<Servers> {
@@ -236,6 +250,7 @@ export async function startServers({
       VAPID_SUBJECT: "mailto:dev@travel-crm.localhost",
       ...sheets,
       ...metaVariables(meta.url),
+      ...whatsappVariables(msg91.url),
     };
     const tsx = path.join(apiDirectory, "node_modules/.bin/tsx");
     await reserved.release();

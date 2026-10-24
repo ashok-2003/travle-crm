@@ -166,6 +166,15 @@
       "words-changed": "Changed the website form's words",
       "embed-changed": "Changed whether the website form can be put on a website",
       "link-changed": "Changed the website form's link"
+    },
+    "whatsapp": {
+      "recorded": "Recorded the agency's WhatsApp number",
+      "connected": "Connected the agency's WhatsApp number",
+      "paused": "Paused WhatsApp",
+      "resumed": "Resumed WhatsApp",
+      "disconnected": "Disconnected WhatsApp",
+      "caps-changed": "Changed the WhatsApp message limits",
+      "lead-started-from-chat": "Started a new lead from a WhatsApp chat"
     }
   },
   "fields": {

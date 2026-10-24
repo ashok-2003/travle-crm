@@ -17,6 +17,7 @@ describe("visibleNavigationItems", () => {
       "home",
       "today",
       "leads",
+      "inbox",
       "staff",
       "roles",
       "settings",

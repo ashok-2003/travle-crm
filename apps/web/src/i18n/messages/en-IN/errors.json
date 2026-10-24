@@ -162,7 +162,15 @@
     "FORM_LINKS_NOT_ALLOWED": "Please take the web links out of your message.",
     "FORM_BOT_CHECK_FAILED": "We couldn't tell you are a person. Please try again.",
     "FORM_LINK_INVALID": "Use a full https:// web address, with a site name and no login in it.",
-    "FORM_OFFERS_NOT_AVAILABLE": "This form doesn't take that choice. Reload the page and try again."
+    "FORM_OFFERS_NOT_AVAILABLE": "This form doesn't take that choice. Reload the page and try again.",
+    "WHATSAPP_NOT_CONNECTED": "WhatsApp is not set up for your agency yet.",
+    "WHATSAPP_PAUSED": "WhatsApp is paused, so this can't be done right now.",
+    "WHATSAPP_NOT_SEEN": "No message from MSG91 has arrived for this number yet. Send a WhatsApp to it first.",
+    "WHATSAPP_NUMBER_TAKEN": "Another agency already uses this WhatsApp number.",
+    "WHATSAPP_NUMBER_LIMIT": "This plan has no room for another WhatsApp number.",
+    "WHATSAPP_UNAVAILABLE": "WhatsApp is not set up on this server.",
+    "NO_PERSON_YET": "This number has no person in your CRM yet.",
+    "NO_OWNER": "This agency has no Owner to give the lead to."
   },
   "auth": {
     "INVALID_EMAIL_OR_PASSWORD": "That email and password don't match.",

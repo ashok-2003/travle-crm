@@ -14,6 +14,8 @@ import errors from "./messages/en-IN/errors.json";
 import exportsMessages from "./messages/en-IN/exports.json";
 import forms from "./messages/en-IN/forms.json";
 import imports from "./messages/en-IN/imports.json";
+import inbox from "./messages/en-IN/inbox.json";
+import consoleWhatsapp from "./messages/en-IN/console-whatsapp.json";
 import leads from "./messages/en-IN/leads.json";
 import metaLeads from "./messages/en-IN/meta-leads.json";
 import notifications from "./messages/en-IN/notifications.json";
@@ -48,6 +50,8 @@ export const messages = {
   exports: exportsMessages,
   forms,
   imports,
+  inbox,
+  consoleWhatsapp,
   leads,
   metaLeads,
   notifications,

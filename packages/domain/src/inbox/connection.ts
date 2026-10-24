@@ -81,7 +81,7 @@ async function moveTo(
   actor: Actor,
   from: readonly ConnectionRow["status"][],
   to: "paused" | "connected",
-  action: string,
+  action: "whatsapp.paused" | "whatsapp.resumed",
   now: Date,
 ): Promise<void> {
   const connection = await liveOrThrow(tx);
