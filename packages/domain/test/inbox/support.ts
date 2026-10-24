@@ -13,6 +13,7 @@ import {
   type InboundBodyInput,
   type MemoryWhatsAppProvider,
 } from "@travel-crm/integrations/whatsapp";
+import { createRateLimiter } from "../../src/rate-limits/index.js";
 import { upsertRoute, type InboxDependencies } from "../../src/inbox/index.js";
 import { processWhatsAppBody } from "../../src/inbox/index.js";
 import { anAgency, createTestImports, type TestImports } from "../imports/support/test-imports.js";
@@ -56,6 +57,7 @@ export function createTestInbox(): TestInbox {
     files: base.files,
     queue,
     logger,
+    limiter: createRateLimiter(base.db, { keySecret: "k".repeat(40) }),
     identity: {
       firstOwner: (organizationId) => {
         const owner = owners.get(organizationId) ?? randomUUID();

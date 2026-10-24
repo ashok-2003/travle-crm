@@ -9,6 +9,7 @@ import { routesPage } from "./routes.js";
 
 const NO_REPORT_AFTER_MS = 20 * 60_000;
 const SENDING_STUCK_MS = 2 * 60_000;
+const QUEUED_REPORTED_MS = 10 * 60_000;
 const PAGE = 100;
 
 /** Checks one connection; returns the status it ends in. */
@@ -24,11 +25,15 @@ export async function checkConnection(
       select: { status: true, lastReportAt: true, problemSince: true, connectedAt: true },
     });
     if (connection?.status !== "connected" && connection?.status !== "problem")
-      return { result: "skipped" as const, pending: [] };
+      return { result: "skipped" as const, waiting: 0, pending: [] };
 
     await tx.whatsappMessage.updateMany({
-      where: { status: "sending", sentAt: null, createdAt: { lt: new Date(now.getTime() - SENDING_STUCK_MS) } },
+      // `sentAt` holds the sender's claim time while a row is `sending`.
+      where: { status: "sending", sentAt: { lt: new Date(now.getTime() - SENDING_STUCK_MS) } },
       data: { status: "failed", failureCode: "unsure" },
+    });
+    const waiting = await tx.whatsappMessage.count({
+      where: { status: "queued", occurredAt: { lt: new Date(now.getTime() - QUEUED_REPORTED_MS) } },
     });
     const cutoff = new Date(now.getTime() - NO_REPORT_AFTER_MS);
     const unreported = await tx.whatsappMessage.count({
@@ -47,10 +52,17 @@ export async function checkConnection(
       select: { id: true },
       take: 50,
     });
-    return { result: silent ? ("problem" as const) : ("ok" as const), pending: pending.map((row) => row.id) };
+    return {
+      result: silent ? ("problem" as const) : ("ok" as const),
+      waiting,
+      pending: pending.map((row) => row.id),
+    };
   });
   if (outcome.result === "problem") {
     dependencies.logger.error({ connectionId }, "No WhatsApp delivery reports from MSG91 for 20 minutes after sending");
+  }
+  if (outcome.waiting > 0) {
+    dependencies.logger.warn({ connectionId, waiting: outcome.waiting }, "WhatsApp replies are waiting in the queue");
   }
   for (const messageId of outcome.pending) {
     await dependencies.queue.send(

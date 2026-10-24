@@ -75,7 +75,7 @@ export const requestUploadInput = z.strictObject({
   recordId: z.uuid(),
   fileName: attachmentFileName,
   /** The files module decides which types a record takes (an import's file is a spreadsheet, nothing else is). */
-  contentType: z.enum([...attachmentContentTypes, ...spreadsheetContentTypes]),
+  contentType: z.enum([...whatsappContentTypes, ...spreadsheetContentTypes]),
   sizeBytes: z.number().int().min(1).max(MAX_ATTACHMENT_BYTES),
   /** Traveller ID documents (passport, Aadhaar): viewing them needs documents:view_sensitive. */
   sensitive: z.boolean().default(false),

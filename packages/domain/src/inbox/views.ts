@@ -23,8 +23,7 @@ import { chatNameOf } from "./chat-name.js";
 import { liveConnection } from "./connection-row.js";
 import { previewOf } from "./messages.js";
 import { visibleConversations, type ConversationWhere } from "./scope.js";
-
-const WINDOW_MS = 24 * 3_600_000;
+import { windowEndOf } from "./window.js";
 
 /** Whether WhatsApp is on for this server and the agency has a number (3.1's states). */
 export async function inboxStatusOf(tx: OrgTx, configured: boolean): Promise<InboxStatus> {
@@ -134,11 +133,12 @@ export async function listConversations(
 }
 
 /** The chat if the member may see it, else "not found". */
-async function visibleConversation(tx: OrgTx, access: MemberAccess, conversationId: string) {
+export async function visibleConversation(tx: OrgTx, access: MemberAccess, conversationId: string) {
   const row = await tx.whatsappConversation.findFirst({
     where: { AND: [{ id: conversationId }, visibleConversations(access)] },
     select: {
       id: true,
+      connectionId: true,
       phoneE164: true,
       profileName: true,
       personId: true,
@@ -171,7 +171,7 @@ export async function conversationHeaderOf(
         });
   const isOpen = (stage: string) => (openLeadStages as readonly string[]).includes(stage);
   const shown = leads.find((lead) => isOpen(lead.stage)) ?? leads[0] ?? null;
-  const windowEnd = row.lastInboundAt === null ? null : new Date(row.lastInboundAt.getTime() + WINDOW_MS);
+  const windowEnd = windowEndOf(row.lastInboundAt);
   return conversationHeader.parse({
     id: row.id,
     phone: row.phoneE164,
@@ -238,11 +238,12 @@ export async function listMessages(
         status: whatsappMessageStatus.catch("received").parse(row.status),
         failureCode: row.failureCode,
         mediaState: row.mediaState,
-        sentByName: null,
+        sentBy: row.sentBy,
         occurredAt: row.occurredAt.toISOString(),
       };
     }),
     nextCursor: rows.length > input.limit ? (page.at(-1)?.id ?? null) : null,
+    people: {},
   });
 }
 

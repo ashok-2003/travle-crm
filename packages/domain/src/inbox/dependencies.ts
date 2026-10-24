@@ -6,6 +6,7 @@ import type { Logger } from "@travel-crm/integrations/logging";
 import type { WhatsAppProvider } from "@travel-crm/integrations/whatsapp";
 import type { AgencyDependencies } from "../crm/index.js";
 import type { Files } from "../files/index.js";
+import type { RateLimiter } from "../rate-limits/index.js";
 
 export interface InboxDependencies extends AgencyDependencies {
   db: Database;
@@ -14,6 +15,8 @@ export interface InboxDependencies extends AgencyDependencies {
   /** Where a stored media message queues its copy job; the health job re-queues what was never queued. */
   queue: JobQueue;
   logger: Logger;
+  /** The per-minute send budget (spec 4.4 S5). */
+  limiter: Pick<RateLimiter, "hit">;
 }
 
 /** The queue that copies one inbound file into our storage. Its data is `{ organizationId, messageId }`. */

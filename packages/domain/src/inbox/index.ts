@@ -14,6 +14,26 @@ export {
 export { addDemoWhatsApp } from "./demo-seed.js";
 export { withdrawWhatsApp, type WhatsAppWithdrawn } from "./erasure.js";
 export { mediaLinkOf, startLeadFromConversation } from "./chat-actions.js";
+export { settleNeedsReply } from "./needs-reply.js";
+export {
+  markAnswered,
+  MESSAGE_QUEUED_EVENT,
+  queueMedia,
+  queueText,
+  requestMediaUpload,
+  retryMessage,
+  type MediaDependencies,
+  type ReplyContext,
+} from "./outbox.js";
+export {
+  AGENCY_SENDS_PER_MINUTE,
+  PLATFORM_SENDS_PER_MINUTE,
+  sendMessageListener,
+  sendQueued,
+  type FailureCode,
+  type SenderDependencies,
+} from "./sender.js";
+export { windowEndOf, windowIsOpen, WINDOW_MS } from "./window.js";
 export { checkAllConnections, checkConnection } from "./health.js";
 export { copyMedia, copyMediaJob, MAX_MEDIA_BYTES } from "./media.js";
 export { messageNoticeListener, pastCustomerNoticeListener, type NoticeDependencies } from "./notices.js";

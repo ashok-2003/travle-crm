@@ -2,6 +2,7 @@
 // strips unknown keys; none holds MSG91's key, a webhook secret or a provider link to a file (the browser gets a presigned
 // link from inbox.mediaUrl).
 import { z } from "zod";
+import { presignedUpload } from "../files/attachments.js";
 import { recordId } from "../identity/fields.js";
 
 export const whatsappConnectionStatuses = ["setup", "connected", "paused", "problem", "disconnected"] as const;
@@ -113,8 +114,8 @@ export const chatMessage = z.object({
   status: whatsappMessageStatus,
   failureCode: z.string().nullable(),
   mediaState: whatsappMediaState,
-  /** The staff member's first name under our messages. */
-  sentByName: z.string().nullable(),
+  /** The staff member who sent it from here, named in the page's `people`; null for the customer's and the phone's. */
+  sentBy: recordId.nullable(),
   occurredAt: timestamp,
 });
 export type ChatMessage = z.infer<typeof chatMessage>;
@@ -123,9 +124,23 @@ export const chatMessagePage = z.object({
   /** Newest first; the screen lays them out oldest at the bottom. */
   items: z.array(chatMessage),
   nextCursor: recordId.nullable(),
+  /** Each sender's name by user id; a former member is left out and the screen says "a former member". */
+  people: z.record(z.string(), z.string()),
 });
 export type ChatMessagePage = z.infer<typeof chatMessagePage>;
 
 /** A presigned link to a message's stored file. */
+/** Step one's answer: the ids the second step names, and where the browser PUTs the file. */
+export const mediaUploadSlot = z.object({
+  messageId: recordId,
+  attachmentId: recordId,
+  upload: presignedUpload,
+});
+export type MediaUploadSlot = z.infer<typeof mediaUploadSlot>;
+
+/** A message just queued or found again: what the screen needs to show it at once. */
+export const sentMessage = z.object({ messageId: recordId, status: whatsappMessageStatus });
+export type SentMessage = z.infer<typeof sentMessage>;
+
 export const mediaLink = z.object({ url: z.string(), fileName: z.string().nullable(), contentType: z.string() });
 export type MediaLink = z.infer<typeof mediaLink>;
