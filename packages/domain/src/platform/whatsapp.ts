@@ -12,7 +12,6 @@ import type {
   WhatsappWebhookSettings,
 } from "@travel-crm/contracts/inbox";
 import { asOrganization, type PlatformTx } from "@travel-crm/db/platform";
-import type { WhatsAppProvider } from "@travel-crm/integrations/whatsapp";
 import {
   connectNumber,
   disconnectNumber,
@@ -31,14 +30,6 @@ import type { PlatformServices } from "./services.js";
 
 /** The soft fair-use line: outbound messages a month over which the console row turns amber (8.2). Nothing is blocked. */
 export const FAIR_USE_OUTBOUND_PER_MONTH = 5000;
-
-/** What the console shows of the MSG91 settings: whether they are set, the webhook block, and the provider for checks. */
-export interface PlatformWhatsApp {
-  provider: WhatsAppProvider;
-  webhookUrl: string;
-  webhookHeaderName: string;
-  webhookHeaderValue: string;
-}
 
 const adminOf = (staff: PlatformActor): string => {
   if (staff.userId === null) throw new DomainError("FORBIDDEN", "MISSING_PERMISSION", "A platform admin is needed");

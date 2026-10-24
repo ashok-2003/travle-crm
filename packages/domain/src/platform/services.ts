@@ -13,7 +13,7 @@ import type { Logger } from "@travel-crm/integrations/logging";
 import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import type { Identity } from "../identity/index.js";
 
-import type { PlatformWhatsApp } from "./whatsapp.js";
+import type { PlatformWhatsApp } from "./whatsapp-settings.js";
 
 export interface PlatformServices {
   /** The platform role: every organization, in transactions that can step into one (asOrganization). */
