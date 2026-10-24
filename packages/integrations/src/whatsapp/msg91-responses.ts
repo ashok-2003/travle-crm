@@ -48,7 +48,8 @@ export function mapSendFailure(status: number, body: unknown): WhatsAppSendResul
   const codes = code === null ? {} : { providerCode: code, ...(byCode === undefined ? {} : { metaCode: code }) };
   if (byCode !== undefined) return failed(byCode, codes);
   if (status === 429) return failed("rate_limited", codes);
-  if (status >= 500) return failed("provider_down", codes);
+  // A 5xx may come after MSG91 took the message (a gateway timeout): "couldn't confirm", never sent again by itself (D7).
+  if (status >= 500) return failed("unsure", codes);
   if (status === 400 || status === 422) return failed("bad_number", codes);
   return failed("other", codes);
 }
@@ -92,6 +93,15 @@ export function parseTemplates(body: unknown): WhatsAppTemplateSummary[] {
     const category = text(item.category)?.toLowerCase();
     if (name === null || language === null) continue;
     const components = Array.isArray(item.components) ? item.components.filter(isRecord) : [];
+    // A header or buttons need values the send does not give (an image, a link's end): such a template cannot be sent from
+    // here, so it is not offered. SPIKE(S5).
+    if (
+      components.some((component) =>
+        ["header", "buttons", "button"].includes(text(component.type)?.toLowerCase() ?? ""),
+      )
+    ) {
+      continue;
+    }
     const bodyComponent = components.find((component) => text(component.type)?.toLowerCase() === "body");
     const footerComponent = components.find((component) => text(component.type)?.toLowerCase() === "footer");
     summaries.push({

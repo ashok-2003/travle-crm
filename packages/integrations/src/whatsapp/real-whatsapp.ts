@@ -36,6 +36,55 @@ export interface RealWhatsAppProviderOptions {
 
 type Outcome = { kind: "answered"; status: number; body: unknown } | { kind: "never_left" } | { kind: "timed_out" };
 
+/** The hosts that may carry the account's key. SPIKE(S7): MSG91's media host is not confirmed. */
+const MSG91_KEY_HOSTS: readonly string[] = ["control.msg91.com", "api.msg91.com"];
+const MAX_REDIRECTS = 3;
+
+/** An address literal or an internal name: never fetched, since the link comes from outside. */
+function isPrivateHost(hostname: string): boolean {
+  const host = hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  return (
+    host.includes(":") ||
+    /^\d+(\.\d+){3}$/.test(host) ||
+    host === "localhost" ||
+    !host.includes(".") ||
+    [".local", ".internal", ".localhost", ".lan", ".home.arpa"].some((suffix) => host.endsWith(suffix))
+  );
+}
+
+/** Whether a link may be fetched at all: https to a public name, or the development server's own origin. */
+const mayFetch = (url: URL, devOrigin: string | null): boolean =>
+  url.origin === devOrigin || (url.protocol === "https:" && url.username === "" && !isPrivateHost(url.hostname));
+
+/** Whether the key may be sent to this URL: an exact MSG91 host over https, or the development server's origin. */
+const mayCarryKey = (url: URL, devOrigin: string | null): boolean =>
+  url.origin === devOrigin || (url.protocol === "https:" && MSG91_KEY_HOSTS.includes(url.hostname));
+
+/** The body, read as it arrives and given up on once it is over `maxBytes`. */
+async function readAtMost(response: Response, maxBytes: number): Promise<Uint8Array | null> {
+  const reader: ReadableStreamDefaultReader<Uint8Array> | undefined = response.body?.getReader();
+  if (reader === undefined) return new Uint8Array(0);
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return out;
+}
+
 const digits = (value: string) => value.replace(/\D/g, "");
 
 function isConnectError(error: unknown): boolean {
@@ -49,6 +98,8 @@ export function createRealWhatsAppProvider(options: RealWhatsAppProviderOptions)
   const fetchImpl = options.fetch ?? fetch;
   const timeoutMs = options.timeoutMs ?? 10_000;
   const mediaTimeoutMs = options.mediaTimeoutMs ?? 30_000;
+  // The development server's own origin (the journeys' fake), the one non-MSG91 origin the key and plain http may go to.
+  const devOrigin = options.baseUrl === undefined ? null : (URL.parse(baseUrl)?.origin ?? null);
 
   async function call(method: "GET" | "POST", path: string, body?: object): Promise<Outcome> {
     for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -160,25 +211,34 @@ export function createRealWhatsAppProvider(options: RealWhatsAppProviderOptions)
         : { ok: true, info };
     },
     downloadMedia: async (url, limits): Promise<WhatsAppMediaResult> => {
-      // SPIKE(S7): the key is sent only to MSG91's own hosts, never to wherever a link in a payload points.
-      const target = URL.parse(url);
-      if (target === null || (target.protocol !== "https:" && !url.startsWith(baseUrl)))
-        return { ok: false, reason: "unavailable" };
-      const ours = target.hostname.endsWith("msg91.com") || url.startsWith(baseUrl);
+      // A customer's media link is a URL from a payload: it is fetched over https only, never from a private address, and the
+      // account's key goes only to MSG91's own hosts (an exact list), at every hop of a redirect, which is followed by hand.
+      // SPIKE(S7): the hosts MSG91's media lives on, and whether it needs the key at all.
+      let target = URL.parse(url);
       try {
-        const response = await fetchImpl(url, {
-          method: "GET",
-          headers: ours ? { authkey: authKey } : {},
-          signal: AbortSignal.timeout(mediaTimeoutMs),
-        });
-        if (response.status === 404 || response.status === 410) return { ok: false, reason: "expired" };
-        if (!response.ok) return { ok: false, reason: "unavailable" };
-        const contentType = (response.headers.get("content-type") ?? "").split(";")[0]?.trim().toLowerCase() ?? "";
-        if (!limits.allowedTypes.includes(contentType)) return { ok: false, reason: "bad_type" };
-        const declared = Number(response.headers.get("content-length"));
-        if (Number.isFinite(declared) && declared > limits.maxBytes) return { ok: false, reason: "too_big" };
-        const bytes = new Uint8Array(await response.arrayBuffer());
-        return bytes.byteLength > limits.maxBytes ? { ok: false, reason: "too_big" } : { ok: true, bytes, contentType };
+        for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
+          if (target === null || !mayFetch(target, devOrigin)) return { ok: false, reason: "unavailable" };
+          const response = await fetchImpl(target.href, {
+            method: "GET",
+            headers: mayCarryKey(target, devOrigin) ? { authkey: authKey } : {},
+            redirect: "manual",
+            signal: AbortSignal.timeout(mediaTimeoutMs),
+          });
+          if (response.status >= 300 && response.status < 400) {
+            const next = response.headers.get("location");
+            target = next === null ? null : URL.parse(next, target.href);
+            continue;
+          }
+          if (response.status === 404 || response.status === 410) return { ok: false, reason: "expired" };
+          if (!response.ok) return { ok: false, reason: "unavailable" };
+          const contentType = (response.headers.get("content-type") ?? "").split(";")[0]?.trim().toLowerCase() ?? "";
+          if (!limits.allowedTypes.includes(contentType)) return { ok: false, reason: "bad_type" };
+          const declared = Number(response.headers.get("content-length"));
+          if (Number.isFinite(declared) && declared > limits.maxBytes) return { ok: false, reason: "too_big" };
+          const bytes = await readAtMost(response, limits.maxBytes);
+          return bytes === null ? { ok: false, reason: "too_big" } : { ok: true, bytes, contentType };
+        }
+        return { ok: false, reason: "unavailable" };
       } catch {
         return { ok: false, reason: "unavailable" };
       }
