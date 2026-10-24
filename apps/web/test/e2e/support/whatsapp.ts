@@ -156,3 +156,14 @@ export async function runHealthCheckNow(): Promise<void> {
     await database.disconnect();
   }
 }
+
+/** What MSG91 decided about a template written in the product: approved, or rejected with its reason. */
+export async function decideTemplate(
+  business: string,
+  name: string,
+  status: "approved" | "rejected",
+  reason?: string,
+): Promise<void> {
+  const query = new URLSearchParams({ number: business, name, status, ...(reason === undefined ? {} : { reason }) });
+  await fetch(`${fakeUrl()}/_template-status?${query.toString()}`, { method: "POST" });
+}

@@ -45,9 +45,27 @@ export interface FakeSent {
   url: string | null;
   caption: string | null;
   fileName: string | null;
+  /** For a template: its name, language and the values of its blanks. */
+  template: { name: string; language: string; parameters: string[] } | null;
+}
+
+/** A template the fake holds for a number, as MSG91's list answers it. */
+interface FakeTemplate {
+  number: string;
+  name: string;
+  language: string;
+  category: string;
+  body: string;
+  footer: string | null;
+  status: string;
+  reason: string | null;
+  id: string;
 }
 
 const OUTBOUND_PATH = "/api/v5/whatsapp/whatsapp-outbound-message/";
+const TEMPLATE_SEND_PATH = "/api/v5/whatsapp/whatsapp-outbound-message/bulk/";
+const TEMPLATE_CREATE_PATH = "/api/v5/whatsapp/client-panel-template/";
+const TEMPLATE_LIST_PREFIX = "/api/v5/whatsapp/get-template-client/";
 
 async function bodyOf(request: IncomingMessage): Promise<Record<string, unknown>> {
   const chunks: Buffer[] = [];
@@ -76,11 +94,99 @@ export async function startFakeMsg91(): Promise<FakeMsg91> {
   const sent: FakeSent[] = [];
   /** Customers whose next message is refused as "not on WhatsApp" (Meta's 131026), once. */
   const refuseNext = new Set<string>();
+  const templates: FakeTemplate[] = [];
   const server = createServer((request, response) => {
     void handle(request, response);
   });
   const handle = async (request: IncomingMessage, response: ServerResponse) => {
     const url = new URL(request.url ?? "/", "http://fake");
+    if (request.method === "POST" && url.pathname === TEMPLATE_SEND_PATH) {
+      const body = await bodyOf(request);
+      const payload = (body.payload ?? {}) as { template?: Record<string, unknown> };
+      const template = payload.template ?? {};
+      const target = ((template.to_and_components as
+        { to?: unknown[]; components?: Record<string, { value?: unknown }> }[] | undefined) ?? [])[0];
+      const to = textOf(target?.to?.[0]);
+      if (refuseNext.delete(to)) {
+        response.writeHead(400, { "content-type": "application/json" });
+        response.end(JSON.stringify({ status: "fail", error: { code: "131026" } }));
+        return;
+      }
+      const wamid = `wamid.fake-${crypto.randomUUID()}`;
+      const language = (template.language ?? {}) as { code?: unknown };
+      sent.push({
+        wamid,
+        to,
+        from: textOf(body.integrated_number),
+        contentType: "template",
+        text: null,
+        url: null,
+        caption: null,
+        fileName: null,
+        template: {
+          name: textOf(template.name),
+          language: textOf(language.code),
+          parameters: Object.values(target?.components ?? {}).map((component) => textOf(component.value)),
+        },
+      });
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ status: "success", data: { messages: [{ id: wamid }], request_id: wamid } }));
+      return;
+    }
+    if (request.method === "POST" && url.pathname === TEMPLATE_CREATE_PATH) {
+      const body = await bodyOf(request);
+      const components = (body.components as { type?: string; text?: string }[] | undefined) ?? [];
+      const id = `tpl-${crypto.randomUUID()}`;
+      templates.push({
+        number: textOf(body.integrated_number),
+        name: textOf(body.template_name),
+        language: textOf(body.language),
+        category: textOf(body.category).toLowerCase(),
+        body: components.find((part) => part.type === "BODY")?.text ?? "",
+        footer: components.find((part) => part.type === "FOOTER")?.text ?? null,
+        status: "pending",
+        reason: null,
+        id,
+      });
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ status: "success", data: { id } }));
+      return;
+    }
+    if (request.method === "GET" && url.pathname.startsWith(TEMPLATE_LIST_PREFIX)) {
+      const number = url.pathname.slice(TEMPLATE_LIST_PREFIX.length);
+      const own = templates.filter((template) => template.number === number);
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({
+          data: own.map((template) => ({
+            id: template.id,
+            name: template.name,
+            language: template.language,
+            category: template.category,
+            status: template.status,
+            rejected_reason: template.reason,
+            components: [
+              { type: "BODY", text: template.body },
+              ...(template.footer === null ? [] : [{ type: "FOOTER", text: template.footer }]),
+            ],
+          })),
+        }),
+      );
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/_template-status") {
+      const found = templates.find(
+        (template) =>
+          template.number === url.searchParams.get("number") && template.name === url.searchParams.get("name"),
+      );
+      if (found) {
+        found.status = url.searchParams.get("status") ?? found.status;
+        found.reason = url.searchParams.get("reason");
+      }
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end("{}");
+      return;
+    }
     if (request.method === "POST" && url.pathname === OUTBOUND_PATH) {
       const body = await bodyOf(request);
       const to = textOf(body.recipient_number);
@@ -99,6 +205,7 @@ export async function startFakeMsg91(): Promise<FakeMsg91> {
         url: textOrNull(body.url),
         caption: textOrNull(body.caption),
         fileName: textOrNull(body.filename),
+        template: null,
       });
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify({ status: "success", data: { messages: [{ id: wamid }], request_id: wamid } }));

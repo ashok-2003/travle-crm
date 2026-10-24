@@ -6,25 +6,51 @@
 import type { ConversationHeader } from "@travel-crm/contracts/inbox";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
+import { useRef, useState, type ReactNode } from "react";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
-import { Item, ItemContent, ItemDescription } from "@/components/ui/item";
+import { Item, ItemActions, ItemContent, ItemDescription } from "@/components/ui/item";
 import { useTRPC } from "@/data/trpc";
 import { formatDayTime } from "@/lib/format";
 import { useHolds, useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { Composer } from "./composer";
+import { SendTemplateDialog } from "./send-template-dialog";
 import { useInboxStatus } from "./use-inbox";
 
 const WINDOW_MS = 24 * 3_600_000;
 
-function Note({ children }: { children: string }) {
+function Note({ children, action }: { children: string; action?: ReactNode }) {
   return (
     <Item variant="muted" size="sm">
       <ItemContent>
         <ItemDescription className="line-clamp-none">{children}</ItemDescription>
       </ItemContent>
+      {action !== undefined && <ItemActions>{action}</ItemActions>}
     </Item>
+  );
+}
+
+/** Send a template: the only way to write when the window is closed, or to a person who never wrote. */
+function TemplateButton({ conversationId }: { conversationId: string }) {
+  const t = useTranslations("inbox.chat");
+  const access = useWriteAccess("change");
+  const [open, setOpen] = useState(false);
+  const button = useRef<HTMLButtonElement>(null);
+  return (
+    <>
+      <Button
+        ref={button}
+        type="button"
+        disabled={!access.allowed}
+        onClick={() => {
+          setOpen(true);
+        }}
+      >
+        {t("sendTemplate")}
+      </Button>
+      <SendTemplateDialog conversationId={conversationId} open={open} onOpenChange={setOpen} returnFocusTo={button} />
+    </>
   );
 }
 
@@ -69,9 +95,16 @@ export function ReplyArea({ header }: { header: ConversationHeader }) {
     if (header.windowOpenUntil !== null) {
       return <Composer conversationId={header.id} windowOpenUntil={header.windowOpenUntil} />;
     }
-    if (header.lastInboundAt === null) return <Note>{t("windowNever")}</Note>;
+    const action =
+      header.optedOut && header.lastInboundAt === null ? undefined : <TemplateButton conversationId={header.id} />;
+    if (header.lastInboundAt === null)
+      return <Note action={action}>{header.optedOut ? t("optedOut") : t("windowNever")}</Note>;
     const closed = new Date(new Date(header.lastInboundAt).getTime() + WINDOW_MS);
-    return <Note>{t("windowClosed", { closed: formatDayTime(closed, { timeZone }) })}</Note>;
+    return (
+      <Note action={header.optedOut ? undefined : action}>
+        {t(header.optedOut ? "windowClosedOptedOut" : "windowClosed", { closed: formatDayTime(closed, { timeZone }) })}
+      </Note>
+    );
   };
   return (
     <div className="flex flex-col gap-3">

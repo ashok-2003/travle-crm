@@ -47,6 +47,7 @@ function Header({ header, asPageTitle }: { header: ConversationHeader; asPageTit
         <p className="text-label">{t("stage", { stage: tStages(header.lead.stage as never) })}</p>
       )}
       {header.pastCustomer && <p className="text-label">{t("pastCustomer")}</p>}
+      {header.optedOut && <p className="text-label text-status-bad-ink">{t("optedOut")}</p>}
     </div>
   );
 }

@@ -174,7 +174,14 @@
       "resumed": "Resumed WhatsApp",
       "disconnected": "Disconnected WhatsApp",
       "caps-changed": "Changed the WhatsApp message limits",
-      "lead-started-from-chat": "Started a new lead from a WhatsApp chat"
+      "lead-started-from-chat": "Started a new lead from a WhatsApp chat",
+      "template-created": "Sent a WhatsApp template for approval",
+      "template-edited": "Edited a rejected WhatsApp template and sent it again",
+      "template-archived": "Archived a WhatsApp template",
+      "chat-started": "Started a WhatsApp chat with a template",
+      "consent-granted": "Recorded that a person agreed to WhatsApp messages",
+      "consent-restored": "Recorded that a person who had asked to stop agreed again to WhatsApp messages",
+      "opted-out": "A person asked to stop WhatsApp messages"
     }
   },
   "fields": {

@@ -1,7 +1,7 @@
 "use client";
 
 // /settings/whatsapp (spec 3.4): the agency's number and how it is doing, in words; never MSG91's name or a secret. Templates
-// and the month's allowances come with later parts. Not connected says so in the same sentence as the inbox.
+// (for whoever may manage them) are the section below. Not connected says so in the same sentence as the inbox.
 import { useTranslations } from "next-intl";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
@@ -11,7 +11,9 @@ import { Button } from "@/components/ui/button";
 import { Details } from "@/components/details";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
+import { useHolds } from "@/session/me-context";
 import { NotSetUp } from "./not-set-up";
+import { TemplatesSection } from "./templates-section";
 import { useInboxStatus } from "./use-inbox";
 
 const tones: Record<string, StatusTone> = {
@@ -25,6 +27,7 @@ const tones: Record<string, StatusTone> = {
 export function WhatsappSettingsScreen() {
   const t = useTranslations("inbox.settings");
   const status = useInboxStatus();
+  const mayManageTemplates = useHolds("inbox:templates");
   const body = () => {
     if (status.data === undefined) {
       return status.isError ? (
@@ -44,16 +47,19 @@ export function WhatsappSettingsScreen() {
     }
     return (
       <div className="flex flex-col gap-4">
-        <Details
-          rows={[
-            {
-              label: t("status"),
-              value: <StatusBadge tone={tones[connectionStatus] ?? "neutral"}>{t(connectionStatus)}</StatusBadge>,
-            },
-            ...(number === null ? [] : [{ label: t("number"), value: <span className="numbers">{number}</span> }]),
-          ]}
-        />
+        <div className="max-w-[720px]">
+          <Details
+            rows={[
+              {
+                label: t("status"),
+                value: <StatusBadge tone={tones[connectionStatus] ?? "neutral"}>{t(connectionStatus)}</StatusBadge>,
+              },
+              ...(number === null ? [] : [{ label: t("number"), value: <span className="numbers">{number}</span> }]),
+            ]}
+          />
+        </div>
         {demo && <p className="text-muted-foreground">{t("demoNote")}</p>}
+        {connected && mayManageTemplates && !demo && <TemplatesSection />}
         {connected && (
           <Button asChild variant="outline" className="self-start">
             <Link href={routes.inbox}>{t("openInbox")}</Link>
@@ -63,7 +69,7 @@ export function WhatsappSettingsScreen() {
     );
   };
   return (
-    <div className="flex max-w-[720px] flex-col gap-6">
+    <div className="flex max-w-[1100px] flex-col gap-6">
       <PageHeader title={t("title")} intro={t("intro")} />
       {body()}
     </div>
