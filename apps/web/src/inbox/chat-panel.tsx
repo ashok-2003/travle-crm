@@ -3,31 +3,23 @@
 // One chat (spec 3.2), on the inbox's right, on a phone's page of its own and in the lead's WhatsApp section: the person
 // (a link to their lead), the messages oldest at the bottom, a page at a time upward, a day line between days, and under
 // them the reply box (or why there is none). The messages refetch while it is open.
-import type { ChatMessage, ConversationHeader } from "@travel-crm/contracts/inbox";
+import type { ConversationHeader } from "@travel-crm/contracts/inbox";
 import { SearchXIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Fragment, type ReactNode } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { PageTitle } from "@/components/page-title";
-import { ShowMoreButton } from "@/components/show-more-button";
 import { TextLink } from "@/components/text-link";
-import { Separator } from "@/components/ui/separator";
 import { refusalOf } from "@/data/api-error";
-import { formatDay, formatPhoneNumber } from "@/lib/format";
+import { formatPhoneNumber } from "@/lib/format";
 import { leadRoute } from "@/lib/routes";
-import { useHolds, useMe } from "@/session/me-context";
-import { MessageBubble } from "./message-bubble";
+import { cn } from "@/lib/utils";
+import { useHolds } from "@/session/me-context";
+import { MessageList } from "./message-list";
 import { ReplyArea } from "./reply-area";
 import { StartLeadButton } from "./start-lead-button";
-import { useConversation, useMessages } from "./use-inbox";
-
-/** The calendar day of an instant in the zone, to tell where a new day starts. */
-const dayKey = (instant: string, timeZone: string) =>
-  new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(
-    new Date(instant),
-  );
+import { useConversation } from "./use-inbox";
 
 function Header({ header, asPageTitle }: { header: ConversationHeader; asPageTitle: boolean }) {
   const t = useTranslations("inbox.chat");
@@ -52,68 +44,18 @@ function Header({ header, asPageTitle }: { header: ConversationHeader; asPageTit
   );
 }
 
-function Messages({ conversationId }: { conversationId: string }) {
-  const t = useTranslations("inbox.chat");
-  const { timeZone } = useMe().organization;
-  const messages = useMessages(conversationId, true);
-  if (messages.items === undefined) {
-    return messages.isError ? (
-      <ErrorState
-        message={t("loadFailed")}
-        error={messages.error}
-        retryLabel={t("retry")}
-        onRetry={() => void messages.refetch()}
-      />
-    ) : (
-      <LoadingRows shape="twoLines" label={t("loading")} />
-    );
-  }
-  if (messages.items.length === 0) return <p className="text-muted-foreground">{t("noMessages")}</p>;
-  // Newest first from the api; the chat reads oldest at the bottom.
-  const oldestFirst: ChatMessage[] = [...messages.items].reverse();
-  const people = Object.fromEntries(messages.data?.pages.flatMap((page) => Object.entries(page.people)) ?? []);
-  const rows: ReactNode[] = [];
-  oldestFirst.forEach((message, index) => {
-    const day = dayKey(message.occurredAt, timeZone);
-    const previous = oldestFirst[index - 1];
-    if (previous === undefined || dayKey(previous.occurredAt, timeZone) !== day) {
-      rows.push(
-        <li
-          key={`day-${day}`}
-          className="flex items-center gap-3 text-caption text-muted-foreground"
-          aria-hidden="true"
-        >
-          <Separator className="flex-1" />
-          {formatDay(new Date(message.occurredAt), { timeZone })}
-          <Separator className="flex-1" />
-        </li>,
-      );
-    }
-    rows.push(
-      <MessageBubble
-        key={message.id}
-        message={message}
-        senderName={message.sentBy === null ? null : (people[message.sentBy] ?? null)}
-      />,
-    );
-  });
-  return (
-    <div className="flex flex-col gap-3">
-      <ShowMoreButton pages={messages} label={t("earlier")} />
-      <ol className="flex flex-col gap-2" aria-label={t("messages")}>
-        {rows.map((row, index) => (
-          <Fragment key={index}>{row}</Fragment>
-        ))}
-      </ol>
-    </div>
-  );
-}
-
 /**
  * `inbox`: beside the list on a computer, with its header; `page`: the phone's page of its own, where the person is the
  * page's title; `lead`: inside the lead's page, which already shows the person, so only the chat.
  */
 export type ChatVariant = "inbox" | "page" | "lead";
+
+/** The chat's height: beside the list on a computer, on a phone's page (under its title and above the bottom bar), on a lead's card. */
+const boxHeight: Record<ChatVariant, string> = {
+  inbox: "h-[max(28rem,calc(100dvh-14rem))]",
+  page: "h-[max(24rem,calc(100dvh-20rem))]",
+  lead: "h-[28rem]",
+};
 
 export function ChatPanel({ conversationId, variant = "inbox" }: { conversationId: string; variant?: ChatVariant }) {
   const t = useTranslations("inbox.chat");
@@ -143,8 +85,15 @@ export function ChatPanel({ conversationId, variant = "inbox" }: { conversationI
     >
       {variant !== "lead" && <Header header={data} asPageTitle={variant === "page"} />}
       {variant !== "lead" && mayStartLead && data.pastCustomer && <StartLeadButton conversationId={data.id} />}
-      <Messages conversationId={data.id} />
-      <ReplyArea header={data} />
+      {/* A chat has a height of its own: the messages scroll inside it and the reply box stays at the bottom. */}
+      <div className={cn("flex flex-col gap-3", boxHeight[variant])}>
+        <div className="relative min-h-0 flex-1">
+          <MessageList conversationId={data.id} />
+        </div>
+        <div className="shrink-0">
+          <ReplyArea header={data} />
+        </div>
+      </div>
     </section>
   );
 }
