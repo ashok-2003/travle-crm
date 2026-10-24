@@ -41,7 +41,7 @@ async function append(
   actor: Actor,
   input: {
     personId: string;
-    action: "granted" | "withdrawn";
+    decision: "granted" | "withdrawn";
     source: "staff" | "customer";
     wording: string;
     now: Date;
@@ -51,7 +51,7 @@ async function append(
     data: {
       personId: input.personId,
       purpose: "whatsapp",
-      action: input.action,
+      action: input.decision,
       wording: input.wording,
       wordingVersion: WORDING_VERSION,
       source: input.source,
@@ -69,17 +69,14 @@ export async function grantWhatsappConsent(
 ): Promise<void> {
   await append(tx, actor, {
     personId: input.personId,
-    action: "granted",
+    decision: "granted",
     source: "staff",
     wording: AGREED_WORDING,
     now: input.now,
   });
-  await recordAudit(tx, actor, {
-    action: input.restored ? "whatsapp.consent-restored" : "whatsapp.consent-granted",
-    entityType: "person",
-    entityId: input.personId,
-    after: { purpose: "whatsapp", source: "staff" },
-  });
+  const about = { entityType: "person", entityId: input.personId, after: { purpose: "whatsapp", source: "staff" } };
+  if (input.restored) await recordAudit(tx, actor, { action: "whatsapp.consent-restored", ...about });
+  else await recordAudit(tx, actor, { action: "whatsapp.consent-granted", ...about });
 }
 
 /** The customer asked to stop. Nothing is recorded twice in a row. */
@@ -91,7 +88,7 @@ export async function recordWhatsappOptOut(
   if ((await whatsappConsentOf(tx, input.personId)).state === "withdrawn") return;
   await append(tx, actor, {
     personId: input.personId,
-    action: "withdrawn",
+    decision: "withdrawn",
     source: "customer",
     wording: OPT_OUT_WORDING,
     now: input.now,
