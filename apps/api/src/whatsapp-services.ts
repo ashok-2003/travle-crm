@@ -4,6 +4,7 @@ import type { Database } from "@travel-crm/db";
 import type { Files } from "@travel-crm/domain/files";
 import type { Identity } from "@travel-crm/domain/identity";
 import type { InboxDependencies } from "@travel-crm/domain/inbox";
+import type { RateLimiter } from "@travel-crm/domain/rate-limits";
 import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import type { JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
@@ -36,6 +37,7 @@ export function inboxDependenciesOf(
     files: Files;
     queue: JobQueue;
     logger: Logger;
+    limiter: Pick<RateLimiter, "hit">;
     identity: Pick<Identity, "firstOwner" | "leadWorkers" | "organizationProfile">;
     subscriptions: Pick<SubscriptionAccess, "entitlementsOf">;
   },

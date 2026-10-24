@@ -20,6 +20,7 @@ export function webhookProvidersOf(services: Services, logger: Logger): readonly
           files: services.files,
           queue: services.jobs,
           logger,
+          limiter: services.rateLimiter,
           identity: services.identity,
           subscriptions: services.subscriptions,
         }),

@@ -49,6 +49,7 @@ export function aWhatsApp(server: {
       files: server.files,
       queue,
       logger: server.logger,
+      limiter: { hit: () => Promise.resolve({ allowed: true, remaining: 100, retryAfterSeconds: 0 }) },
       identity: server.identity,
       subscriptions: server.subscriptions,
     },

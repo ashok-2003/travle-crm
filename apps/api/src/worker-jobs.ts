@@ -49,6 +49,7 @@ import {
   messageNoticeListener,
   pastCustomerNoticeListener,
   routeListener as whatsappRouteListener,
+  sendMessageListener,
   WHATSAPP_HEALTH_QUEUE,
 } from "@travel-crm/domain/inbox";
 import { deliverNotificationListener, forgetPushSubscriptionsListener } from "@travel-crm/domain/notifications";
@@ -207,6 +208,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
           files,
           queue: dependencies.jobs,
           logger,
+          limiter: rateLimiter,
           identity,
           subscriptions,
         });
@@ -215,6 +217,10 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       whatsappRouteListener({ db, logger }),
       messageNoticeListener({ managers: leadAssigners }),
       pastCustomerNoticeListener({ managers: leadAssigners }),
+      // Replies queued from the inbox go out here, one at a time, outside any transaction (spec 4.4).
+      ...(inbox === null
+        ? []
+        : [sendMessageListener({ provider: inbox.provider, files, limiter: rateLimiter, logger })]),
       renderIssuedDocumentListener({ files, render: renderPdf }),
       deliverNotificationListener({
         email,

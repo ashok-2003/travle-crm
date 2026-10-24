@@ -11,7 +11,12 @@ import {
   listConversationsInput,
   listMessagesInput,
   mediaLink,
+  mediaUploadSlot,
   messageIdInput,
+  requestMediaUploadInput,
+  sendMediaInput,
+  sendMessageInput,
+  sentMessage,
 } from "@travel-crm/contracts/inbox";
 import { recordId } from "@travel-crm/contracts/identity";
 import {
@@ -20,16 +25,23 @@ import {
   leadChatOf,
   listConversations,
   listMessages,
+  markAnswered,
   mediaLinkOf,
+  queueMedia,
+  queueText,
+  requestMediaUpload,
+  retryMessage,
   startLeadFromConversation,
 } from "@travel-crm/domain/inbox";
 import { DomainError } from "@travel-crm/domain/kernel";
 import { z } from "zod";
+import { memberNames } from "../member-names.js";
 import { orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
 
 const reader = orgProcedure.requires("inbox:view");
 const starter = orgProcedure.requires("inbox:view", "leads:create");
+const replier = orgProcedure.requires("inbox:view", "inbox:reply");
 
 export const inboxRouter = router({
   /** Whether WhatsApp is on here and the agency has a number: the page's states (3.1). */
@@ -56,7 +68,15 @@ export const inboxRouter = router({
   messages: reader
     .input(listMessagesInput)
     .output(chatMessagePage)
-    .query(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => listMessages(tx, ctx.member, input))),
+    .query(async ({ ctx, input }) => {
+      const page = await ctx.db.forOrg(ctx.member.organizationId, (tx) => listMessages(tx, ctx.member, input));
+      const people = await memberNames(
+        ctx.identity,
+        ctx.member.organizationId,
+        page.items.map((message) => message.sentBy),
+      );
+      return { ...page, people };
+    }),
 
   /** The chat of the person a lead belongs to, for the lead's page; none yet is null. */
   leadChat: reader
@@ -86,4 +106,47 @@ export const inboxRouter = router({
         startLeadFromConversation(tx, ctx.member, input.conversationId, { ownerUserId, workers }, new Date()),
       );
     }),
+
+  /** Queues a text reply inside the 24-hour window; the worker sends it (S1). One token is one message. */
+  send: replier
+    .input(sendMessageInput)
+    .output(sentMessage)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) =>
+        queueText(tx, ctx.member, input, { whatsappConfigured: ctx.whatsappConfigured }, new Date()),
+      ),
+    ),
+
+  /** Step one of sending a file: the chat is checked and the browser told where to put it. */
+  requestMediaUpload: replier
+    .input(requestMediaUploadInput)
+    .output(mediaUploadSlot)
+    .mutation(({ ctx, input }) =>
+      requestMediaUpload(ctx, ctx.member, input, { whatsappConfigured: ctx.whatsappConfigured }, new Date()),
+    ),
+
+  /** Step two: the uploaded file becomes a queued message. */
+  sendMedia: replier
+    .input(sendMediaInput)
+    .output(sentMessage)
+    .mutation(({ ctx, input }) =>
+      queueMedia(ctx, ctx.member, input, { whatsappConfigured: ctx.whatsappConfigured }, new Date()),
+    ),
+
+  /** Try again on a message that was not sent: back in the queue, if the window is still open. */
+  retry: replier
+    .input(messageIdInput)
+    .output(sentMessage)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) =>
+        retryMessage(tx, ctx.member, input.messageId, { whatsappConfigured: ctx.whatsappConfigured }, new Date()),
+      ),
+    ),
+
+  /** Mark as answered: the chat stops waiting for a reply (an answer given by phone, say). */
+  markAnswered: replier
+    .input(conversationIdInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => markAnswered(tx, ctx.member, input.conversationId)),
+    ),
 });
