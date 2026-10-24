@@ -16,7 +16,9 @@ import {
   requestMediaUploadInput,
   sendMediaInput,
   sendMessageInput,
+  sendTemplateInput,
   sentMessage,
+  startChatInput,
 } from "@travel-crm/contracts/inbox";
 import { recordId } from "@travel-crm/contracts/identity";
 import {
@@ -28,9 +30,11 @@ import {
   markAnswered,
   mediaLinkOf,
   queueMedia,
+  queueTemplate,
   queueText,
   requestMediaUpload,
   retryMessage,
+  startChatForLead,
   startLeadFromConversation,
 } from "@travel-crm/domain/inbox";
 import { DomainError } from "@travel-crm/domain/kernel";
@@ -148,5 +152,24 @@ export const inboxRouter = router({
     .input(conversationIdInput)
     .mutation(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, (tx) => markAnswered(tx, ctx.member, input.conversationId)),
+    ),
+
+  /** A template to a chat: outside the window, or the first message to a person who never wrote. */
+  sendTemplate: replier
+    .input(sendTemplateInput)
+    .output(sentMessage)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) =>
+        queueTemplate(tx, ctx.member, input, { whatsappConfigured: ctx.whatsappConfigured }, new Date()),
+      ),
+    ),
+
+  /** The chat of a lead's person who never wrote, made so a template can start it. Needs leads:edit. */
+  startChat: orgProcedure
+    .requires("inbox:view", "inbox:reply", "leads:edit")
+    .input(startChatInput)
+    .output(z.object({ conversationId: recordId }))
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => startChatForLead(tx, ctx.member, input.leadId)),
     ),
 });

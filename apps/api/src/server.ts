@@ -36,6 +36,7 @@ const app = createApp({
   }),
   webhookProviders: webhookProvidersOf(services, logger),
   meta: services.meta,
+  whatsappProvider: services.whatsapp?.provider ?? null,
   logger,
   authSecret: environment.BETTER_AUTH_SECRET,
   appUrl: environment.APP_URL,

@@ -194,6 +194,50 @@ describe("a WhatsApp message, end to end", () => {
     expect(refused.status).toBe(404);
   });
 
+  it("writes a template, picks up its approval, sends it, and keeps template writing from a salesperson", async () => {
+    const whatsapp = server.whatsapp;
+    if (whatsapp === null) throw new Error("no whatsapp");
+    const draft = {
+      name: "trip_update",
+      language: "en",
+      category: "utility",
+      body: "Hello {{1}}, your {{2}} trip is on.",
+      footer: null,
+      variables: ["customer_name", "destination"],
+      samples: ["Priya", "Goa"],
+    };
+    const created = await dataOf<{ templateId: string }>(
+      await mutate(server, "whatsappTemplates.create", draft, owner),
+    );
+    whatsapp.memory.setTemplateStatus(business, "trip_update", "approved");
+    await dataOf(await mutate(server, "whatsappTemplates.refresh", undefined, owner));
+    const sendable = await dataOf<{ items: { id: string; status: string }[] }>(
+      await query(server, "whatsappTemplates.sendable", owner),
+    );
+    expect(sendable.items).toEqual([expect.objectContaining({ id: created.templateId, status: "approved" })]);
+    const list = await dataOf<ConversationPage>(await query(server, "inbox.conversations", owner, { filter: "all" }));
+    const sent = await dataOf<{ status: string }>(
+      await mutate(
+        server,
+        "inbox.sendTemplate",
+        {
+          conversationId: list.items[0]?.id,
+          templateId: created.templateId,
+          clientToken: randomUUID(),
+          parameters: ["Priya", "Goa"],
+          agreed: false,
+        },
+        owner,
+      ),
+    );
+    expect(sent.status).toBe("queued");
+    const sales = await addStaff(server, agency, { username: "kiran", roleKey: "sales" });
+    const jar = await signedInStaff(server, agency, sales);
+    expect(
+      (await refusalOf(await mutate(server, "whatsappTemplates.create", { ...draft, name: "other_one" }, jar))).status,
+    ).toBe(403);
+  });
+
   it("holds no secret in the log or the stored events' headers", async () => {
     const logged = JSON.stringify(server.logger.entries);
     expect(logged).not.toContain(WHATSAPP_TOKEN);

@@ -18,6 +18,7 @@ import type { Logger } from "@travel-crm/integrations/logging";
 import { Hono, type Context } from "hono";
 import { limitBody } from "./body-limit.js";
 import { metaDeletionRoute, metaVerifyRoute } from "./meta-routes.js";
+import type { WhatsAppProvider } from "@travel-crm/integrations/whatsapp";
 import type { MetaServices } from "./meta-services.js";
 import { apiErrorHandler } from "./error-handler.js";
 import type { FormAddressSettings } from "./form-client-address.js";
@@ -57,6 +58,8 @@ export interface ServerDependencies {
   webhookProviders: readonly WebhookProvider[];
   /** The Meta lead ads (ADR 0034): the verify and deletion routes and the procedures; null or absent when Meta is off. */
   meta?: MetaServices | null;
+  /** The MSG91 provider, for the templates screens; null when WhatsApp is off. */
+  whatsappProvider?: WhatsAppProvider | null;
   /** The structured log (ADR 0032): a line per request, and every unexpected error. */
   logger: Logger;
   /** BETTER_AUTH_SECRET: the website form's opened-token key is derived from it (W37). */
@@ -100,6 +103,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
     clientAddress,
     webhookProviders,
     meta = null,
+    whatsappProvider = null,
     logger,
     authSecret,
     appUrl,
@@ -149,6 +153,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
             appUrl,
             meta: meta?.dependencies ?? null,
             whatsappConfigured: webhookProviders.some((candidate) => candidate.name === WHATSAPP_PROVIDER),
+            whatsappProvider,
             // An import's Add waits while a sheet's check is saving rows (S26).
             addGuards: [assertNoSheetCheckSaving],
           },

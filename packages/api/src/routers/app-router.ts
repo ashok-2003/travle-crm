@@ -8,6 +8,7 @@ import { blockedContactsRouter } from "./blocked-contacts.js";
 import { destinationsRouter } from "./destinations.js";
 import { documentsRouter } from "./documents.js";
 import { inboxRouter } from "./inbox.js";
+import { whatsappTemplatesRouter } from "./whatsapp-templates.js";
 import { insightsRouter } from "./insights.js";
 import { leadExportsRouter } from "./lead-exports.js";
 import { leadImportsRouter } from "./lead-imports.js";
@@ -52,6 +53,7 @@ export const appRouter = router({
   leadSheets: leadSheetsRouter,
   metaLeads: metaLeadsRouter,
   inbox: inboxRouter,
+  whatsappTemplates: whatsappTemplatesRouter,
   leadExports: leadExportsRouter,
   staffImports: staffImportsRouter,
   staffExports: staffExportsRouter,

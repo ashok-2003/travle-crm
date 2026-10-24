@@ -126,6 +126,7 @@ export function createTestServer(settings: Partial<AuthSettings> = {}, options: 
     google: options.google ?? null,
     sheetsHashes: options.sheetsHashes ?? null,
     queue: options.queue ?? createMemoryJobQueue(),
+    whatsappProvider: whatsapp?.memory ?? null,
     rateLimiter:
       options.rateLimiter ?? createRateLimiter(db, { keySecret: "test-server-rate-limit-secret-of-32-bytes" }),
     clientAddress: clientAddressFrom({ headerNames: ["x-forwarded-for"], trustedProxies: [] }),
