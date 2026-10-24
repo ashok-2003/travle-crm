@@ -14,7 +14,7 @@ import {
   type WhatsAppSendResult,
 } from "@travel-crm/integrations/whatsapp";
 import { recordWhatsAppFirstReply } from "../crm/index.js";
-import { noticeKey } from "../crm/notice-key.js";
+import { noticeKey } from "../crm/index.js";
 import type { Files } from "../files/index.js";
 import { defineListener, type EventListener, type ListenerContext } from "../jobs/index.js";
 import { systemActor } from "../kernel/index.js";

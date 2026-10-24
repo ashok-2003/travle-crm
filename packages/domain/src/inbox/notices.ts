@@ -6,7 +6,7 @@
 import { whatsappMessageReceivedEvent, whatsappPastCustomerWroteEvent } from "@travel-crm/contracts/inbox";
 import { openLeadStages } from "@travel-crm/contracts/crm";
 import type { OrgTx } from "@travel-crm/db";
-import { noticeKey } from "../crm/notice-key.js";
+import { noticeKey } from "../crm/index.js";
 import { defineListener, type EventListener } from "../jobs/index.js";
 import { notify } from "../notifications/index.js";
 import { chatNameOf } from "./chat-name.js";
