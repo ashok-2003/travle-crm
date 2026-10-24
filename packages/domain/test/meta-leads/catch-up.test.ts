@@ -251,7 +251,7 @@ describe("a lead the first fetch lost", () => {
           formId: running.form.formId,
           status: "not_added",
           reasons: ["lead_not_found"],
-          firstSeenAt: new Date(Date.now() - 2 * 86_400_000),
+          firstSeenAt: new Date(now.getTime() - 2 * 86_400_000),
         },
       });
       await tx.metaLead.create({
