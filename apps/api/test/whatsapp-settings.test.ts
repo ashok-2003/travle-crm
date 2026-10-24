@@ -63,4 +63,15 @@ describe("the WhatsApp settings", () => {
     );
     expect(() => loadEnvironment({ ...base, ...url })).toThrow(/MSG91_TEST_SERVER_URL/);
   });
+
+  it("never let the fake's address, the one non-MSG91 origin that may carry the key, into production", () => {
+    const url = { MSG91_TEST_SERVER_URL: "http://localhost:4010" };
+    for (const NODE_ENV of ["production", undefined]) {
+      const environment = { ...base, ...all, ...url, ...(NODE_ENV === undefined ? {} : { NODE_ENV }) };
+      if (NODE_ENV === undefined) delete (environment as Partial<typeof base>).NODE_ENV;
+      expect(() => loadEnvironment(environment), String(NODE_ENV)).toThrow(
+        /MSG91_TEST_SERVER_URL: is for development and tests only/,
+      );
+    }
+  });
 });
