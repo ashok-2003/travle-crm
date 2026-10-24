@@ -108,6 +108,7 @@ function Form({
 
 export function ConnectDialog({ organizationId }: { organizationId: string }) {
   const t = useTranslations("consoleWhatsapp.connect");
+  const tGroup = useTranslations("consoleWhatsapp.group");
   const trpc = useConsoleTRPC();
   const queryClient = useQueryClient();
   const dialog = useFormDialog(t("done"), () =>
@@ -118,7 +119,7 @@ export function ConnectDialog({ organizationId }: { organizationId: string }) {
     <FormDialog
       dialog={dialog}
       sending={connect}
-      trigger={{ label: t("title"), variant: "default" }}
+      trigger={{ label: tGroup("connect"), variant: "default" }}
       title={t("title")}
       description={t("description")}
       submit={t("submit")}

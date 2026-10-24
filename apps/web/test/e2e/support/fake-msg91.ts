@@ -9,8 +9,6 @@ export const MSG91_E2E = {
   authKey: "e2e-msg91-auth-key-0123456789",
   webhookToken: "e2e0msg91webhooktoken0123456789abcdef0123",
   webhookKey: "e2e-msg91-webhook-key-0123456789-abcdefghij",
-  /** Our number as MSG91 writes it, which the journeys' events name. */
-  integratedNumber: "919000011111",
 } as const;
 
 export interface FakeMsg91 {

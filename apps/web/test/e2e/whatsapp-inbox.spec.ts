@@ -4,8 +4,13 @@
 // customer arrives and shows. A caller without both secrets gets a bare 401 and changes nothing.
 import { expect, signInToConsole, test } from "./support/console";
 import { signInByEmail } from "./support/fixtures";
-import { MSG91_E2E } from "./support/fake-msg91";
-import { customerMessage, deliverWhatsapp, newCustomerNumber, recordNumber } from "./support/whatsapp";
+import {
+  customerMessage,
+  deliverWhatsapp,
+  newBusinessNumber,
+  newCustomerNumber,
+  recordNumber,
+} from "./support/whatsapp";
 
 test("a super admin connects the agency's number, then a message becomes a lead with its chat and photo", async ({
   page,
@@ -13,27 +18,41 @@ test("a super admin connects the agency's number, then a message becomes a lead 
   superAdmin,
   agency,
 }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(360_000);
   const photoUrl = process.env.E2E_MSG91_PHOTO_URL;
   if (!photoUrl) throw new Error("E2E_MSG91_PHOTO_URL is not set");
 
   // Journey 1: record the number, see the webhook arrive, mark it connected.
   await signInToConsole(page, superAdmin);
-  await recordNumber(page, agency.organizationId);
+  const business = newBusinessNumber();
+  await recordNumber(page, agency.organizationId, business);
   const group = page.getByRole("region", { name: "WhatsApp" });
   await expect(group.getByRole("button", { name: "Mark connected" })).toBeDisabled();
 
   const customer = newCustomerNumber();
+  // The operator's own phone for the test message: a message still waiting in the queue when the number is marked connected
+  // would become a lead, and it must not be the customer's.
+  const operator = newCustomerNumber();
   // A stranger without the secrets is refused with nothing stored; the right secrets are answered 200.
   expect(
-    await deliverWhatsapp([customerMessage({ customerNumber: customer, text: "x" })], { key: "wrong".repeat(10) }),
+    await deliverWhatsapp([customerMessage({ to: business, customerNumber: customer, text: "x" })], {
+      key: "wrong".repeat(10),
+    }),
   ).toBe(401);
   expect(
-    await deliverWhatsapp([customerMessage({ customerNumber: customer, text: "x" })], { token: "wrong".repeat(8) }),
+    await deliverWhatsapp([customerMessage({ to: business, customerNumber: customer, text: "x" })], {
+      token: "wrong".repeat(8),
+    }),
   ).toBe(401);
-  expect(await deliverWhatsapp([customerMessage({ customerNumber: customer, text: "test message" })])).toBe(200);
-  // While the number is being set up the message only proves the webhook works: no lead is made.
-  await expect(group.getByText(/Webhook received/)).toBeVisible({ timeout: 60_000 });
+  // The number's route is made by a listener of the worker, a moment after it was recorded: the test message is sent until
+  // the console shows it arrived, as the operator would send it again.
+  await expect(async () => {
+    expect(
+      await deliverWhatsapp([customerMessage({ to: business, customerNumber: operator, text: "test message" })]),
+    ).toBe(200);
+    await page.reload();
+    await expect(group.getByText(/Webhook received/)).toBeVisible({ timeout: 4_000 });
+  }).toPass({ timeout: 150_000 });
   await group.getByRole("button", { name: "Mark connected" }).click();
   await expect(group.getByText("Connected", { exact: true })).toBeVisible({ timeout: 30_000 });
 
@@ -47,34 +66,53 @@ test("a super admin connects the agency's number, then a message becomes a lead 
   // Journey 2: a message from a number nobody knows.
   expect(
     await deliverWhatsapp([
-      customerMessage({ customerNumber: customer, name: "Priya Sharma", text: "Hi, Goa trip for 4 in December?" }),
+      customerMessage({
+        to: business,
+        customerNumber: customer,
+        name: "Priya Sharma",
+        text: "Hi, Goa trip for 4 in December?",
+      }),
     ]),
   ).toBe(200);
   await owner.goto("/leads?view=everyone");
-  await expect(owner.getByRole("main").getByRole("link", { name: /Priya Sharma/ })).toBeVisible({ timeout: 60_000 });
+  await expect(async () => {
+    await owner.reload();
+    await expect(owner.getByRole("link", { name: "Priya Sharma" }).first()).toBeVisible({ timeout: 4_000 });
+  }).toPass({ timeout: 60_000 });
   expect(
     await deliverWhatsapp([
-      customerMessage({ customerNumber: customer, contentType: "image", url: photoUrl, caption: "Our passports" }),
+      customerMessage({
+        to: business,
+        customerNumber: customer,
+        contentType: "image",
+        url: photoUrl,
+        caption: "Our passports",
+      }),
     ]),
   ).toBe(200);
 
   await owner.goto("/inbox");
-  const chat = owner.getByRole("link", { name: /Priya Sharma/ });
-  await expect(chat).toBeVisible({ timeout: 60_000 });
-  await chat.click();
+  await expect(async () => {
+    await owner.reload();
+    await owner
+      .getByRole("link", { name: /Priya Sharma/ })
+      .first()
+      .click({ timeout: 4_000 });
+    await expect(owner.getByRole("region", { name: "Chat with Priya Sharma" }).getByText("Our passports")).toBeVisible({
+      timeout: 6_000,
+    });
+  }).toPass({ timeout: 150_000 });
   const panel = owner.getByRole("region", { name: "Chat with Priya Sharma" });
   await expect(panel.getByText("Hi, Goa trip for 4 in December?")).toBeVisible();
-  await expect(panel.getByText("Our passports")).toBeVisible();
   // The photo is copied into our storage and shown from there, not from MSG91's link.
   const image = panel.getByRole("img", { name: "Our passports" });
   await expect(image).toBeVisible({ timeout: 60_000 });
-  expect(await image.getAttribute("src")).not.toContain(MSG91_E2E.integratedNumber);
   expect(await image.getAttribute("src")).not.toContain("/media/photo.png");
 
   // The lead: source, and the same chat on its page.
   await panel.getByRole("link", { name: "Priya Sharma" }).click();
   const ownerCard = owner.getByRole("region", { name: "Owner and source" });
-  await expect(ownerCard.getByText("WhatsApp")).toBeVisible();
+  await expect(ownerCard.getByText("WhatsApp", { exact: true })).toBeVisible();
   const section = owner.getByRole("region", { name: "Chat with Priya Sharma" });
   await expect(section.getByText("Hi, Goa trip for 4 in December?")).toBeVisible();
   await owner.close();

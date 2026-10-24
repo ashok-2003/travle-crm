@@ -45,17 +45,33 @@ const adminOf = (staff: PlatformActor): string => {
   return staff.userId;
 };
 
-type ConnectionWithOrganization = NonNullable<Awaited<ReturnType<typeof readConnections>>>[number];
-
-function readConnections(tx: PlatformTx, where: { organizationId?: string }) {
-  return tx.whatsappConnection.findMany({
-    where: { ...where, status: { not: "disconnected" } },
-    orderBy: { createdAt: "desc" },
-    include: { organization: { select: { name: true, timeZone: true } } },
-  });
+interface OrganizationFacts {
+  name: string;
+  timeZone: string;
 }
 
-async function connectionView(tx: PlatformTx, row: ConnectionWithOrganization, now: Date): Promise<ConsoleConnection> {
+type ConnectionRow = Awaited<ReturnType<typeof readConnections>>[number];
+
+/** The live connections with their organizations' names and zones, read apart: a query on an organization table may not follow the sign-in relation. */
+async function readConnections(tx: PlatformTx, where: { organizationId?: string }) {
+  const rows = await tx.whatsappConnection.findMany({
+    where: { ...where, status: { not: "disconnected" } },
+    orderBy: { createdAt: "desc" },
+  });
+  const organizations = await tx.organization.findMany({
+    where: { id: { in: rows.map((row) => row.organizationId) } },
+    select: { id: true, name: true, timeZone: true },
+  });
+  const facts = new Map<string, OrganizationFacts>(
+    organizations.map((organization) => [organization.id, organization]),
+  );
+  return rows.map((row) => ({
+    ...row,
+    organization: facts.get(row.organizationId) ?? { name: "", timeZone: "Asia/Kolkata" },
+  }));
+}
+
+async function connectionView(tx: PlatformTx, row: ConnectionRow, now: Date): Promise<ConsoleConnection> {
   const month = monthStartOf(now, row.organization.timeZone);
   const usage = await tx.whatsappUsageMonth.findFirst({
     where: { organizationId: row.organizationId, connectionId: row.id, month },
@@ -204,7 +220,8 @@ export async function markWhatsAppConnected(
     "whatsapp.marked-connected",
     (tx, now) => markConnected(tx, actor, now),
     async (tx, now) => {
-      await asOrganization(tx, organizationId, (orgTx) => lockSubscription(orgTx, organizationId, now));
+      // Held as the platform role, which alone writes subscriptions; the plan is then read under the lock (8.5).
+      await lockSubscription(tx, organizationId, now);
       const entitlements = await asOrganization(tx, organizationId, (orgTx) =>
         entitlementsOf(orgTx, organizationId, now),
       );

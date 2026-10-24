@@ -6,10 +6,17 @@ import { MSG91_E2E } from "./fake-msg91";
 
 const signer = msg91Signer({ token: MSG91_E2E.webhookToken, key: MSG91_E2E.webhookKey });
 
-/** Our number as the agency's customers see it, in E.164. */
-export const BUSINESS_NUMBER = `+${MSG91_E2E.integratedNumber}`;
-
 let counter = 0;
+
+/**
+ * A number of ours as MSG91 writes it (digits with the country code), new for each journey: a number belongs to one agency at
+ * a time across all of them, and the phone and desktop runs go at once.
+ */
+export function newBusinessNumber(): string {
+  counter += 1;
+  return `9190${String(Math.floor(Math.random() * 90_000_000) + counter).padStart(8, "0")}`;
+}
+
 /** A number no other journey uses: ten digits after 91, so the product reads it as an Indian mobile. */
 export function newCustomerNumber(): string {
   counter += 1;
@@ -33,6 +40,8 @@ export async function deliverWhatsapp(
 
 /** A customer's message to our number, as MSG91 sends it. */
 export function customerMessage(input: {
+  /** Our number the customer wrote to. */
+  to: string;
   customerNumber: string;
   text?: string;
   name?: string;
@@ -41,7 +50,7 @@ export function customerMessage(input: {
   caption?: string;
 }) {
   return signer.inbound({
-    integratedNumber: MSG91_E2E.integratedNumber,
+    integratedNumber: input.to,
     wamid: `wamid.e2e-${crypto.randomUUID()}`,
     ts: Math.floor(Date.now() / 1000),
     ...(input.name === undefined ? {} : { customerName: input.name }),
@@ -54,13 +63,13 @@ export function customerMessage(input: {
 }
 
 /** Records the agency's number in the console (Connect a number), as a super admin does. */
-export async function recordNumber(page: Page, organizationId: string): Promise<void> {
+export async function recordNumber(page: Page, organizationId: string, integratedNumber: string): Promise<void> {
   await page.goto(`/console/organizations/${organizationId}`);
   const group = page.getByRole("region", { name: "WhatsApp" });
   await group.getByRole("button", { name: "Connect a number" }).click();
   const dialog = page.getByRole("dialog", { name: "Connect a WhatsApp number" });
-  await dialog.getByLabel("The agency's number").fill(BUSINESS_NUMBER.slice(3));
-  await dialog.getByLabel("The number as MSG91 writes it").fill(MSG91_E2E.integratedNumber);
+  await dialog.getByLabel("The agency's number").fill(integratedNumber.slice(2));
+  await dialog.getByLabel("The number as MSG91 writes it").fill(integratedNumber);
   await dialog.getByRole("button", { name: "Record the number" }).click();
   await expect(dialog).toHaveCount(0);
   await expect(group.getByText("Waiting for the first message", { exact: false })).toBeVisible();
