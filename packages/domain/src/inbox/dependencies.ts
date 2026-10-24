@@ -17,6 +17,8 @@ export interface InboxDependencies extends AgencyDependencies {
   logger: Logger;
   /** The per-minute send budget (spec 4.4 S5). */
   limiter: Pick<RateLimiter, "hit">;
+  /** Everyone who can assign leads: told when WhatsApp needs the agency's attention (spec 4.8). */
+  managers: (organizationId: string) => Promise<string[]>;
 }
 
 /** The queue that copies one inbound file into our storage. Its data is `{ organizationId, messageId }`. */
@@ -27,3 +29,5 @@ export const WHATSAPP_PROVIDER = "msg91-whatsapp";
 export const WHATSAPP_HEALTH_QUEUE = "whatsapp.health";
 /** The hourly job that makes leads for chats stored while the subscription did not allow it. */
 export const ADOPT_QUEUE = "whatsapp.adopt";
+/** The half-hourly read of every agency's templates and their statuses. */
+export const WHATSAPP_TEMPLATES_QUEUE = "whatsapp.sync-templates";

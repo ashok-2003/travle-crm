@@ -50,7 +50,9 @@ import {
   pastCustomerNoticeListener,
   routeListener as whatsappRouteListener,
   sendMessageListener,
+  syncAllTemplates,
   WHATSAPP_HEALTH_QUEUE,
+  WHATSAPP_TEMPLATES_QUEUE,
 } from "@travel-crm/domain/inbox";
 import { deliverNotificationListener, forgetPushSubscriptionsListener } from "@travel-crm/domain/notifications";
 import { purgeExpiredRateLimits, RATE_LIMIT_PURGE_QUEUE, type RateLimiter } from "@travel-crm/domain/rate-limits";
@@ -220,7 +222,15 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       // Replies queued from the inbox go out here, one at a time, outside any transaction (spec 4.4).
       ...(inbox === null
         ? []
-        : [sendMessageListener({ provider: inbox.provider, files, limiter: rateLimiter, logger })]),
+        : [
+            sendMessageListener({
+              provider: inbox.provider,
+              files,
+              limiter: rateLimiter,
+              logger,
+              managers: leadAssigners,
+            }),
+          ]),
       renderIssuedDocumentListener({ files, render: renderPdf }),
       deliverNotificationListener({
         email,
@@ -329,6 +339,15 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
               timeZone: "Asia/Kolkata",
               handle: async () => {
                 await checkAllConnections(inbox, new Date());
+              },
+            },
+            {
+              // The templates' statuses, so a rejection is noticed and the Owner told (spec 4.8).
+              queue: WHATSAPP_TEMPLATES_QUEUE,
+              cron: "*/30 * * * *",
+              timeZone: "Asia/Kolkata",
+              handle: async () => {
+                await syncAllTemplates(inbox, new Date());
               },
             },
             {

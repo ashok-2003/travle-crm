@@ -7,6 +7,8 @@ import { ownMessage, type JobData } from "@travel-crm/integrations/jobs";
 import { systemActor } from "../kernel/index.js";
 import { isUuid } from "../kernel/index.js";
 import type { InboxDependencies } from "./dependencies.js";
+import { noticeKey } from "../crm/index.js";
+import { notifyNeedsAttention } from "./attention.js";
 import { bumpUsage, monthStartOf } from "./usage.js";
 
 export const MAX_MEDIA_BYTES = 64 * 1024 * 1024;
@@ -64,6 +66,19 @@ export async function copyMedia(
         data: { mediaState: state, mediaUrl: null, failureCode: code, mediaAttempts: { increment: 1 } },
       }),
     );
+  /** The agency's storage is full: everyone who can assign leads is told (once an hour, never a word of the file). */
+  const tellStorageFull = async () => {
+    const managers = await dependencies.managers(organizationId);
+    await db.forOrg(organizationId, (tx) =>
+      notifyNeedsAttention(tx, systemActor(organizationId), {
+        recipientUserIds: managers,
+        title: "WhatsApp can't keep customers' files: storage is full",
+        body: "Free some space or ask us to raise the plan's storage.",
+        sourceEventId: noticeKey(messageId, "whatsapp.needs-attention"),
+        now,
+      }),
+    );
+  };
   if (!result.ok) {
     if (result.reason === "expired") {
       await settle("expired", "media_expired");
@@ -104,6 +119,7 @@ export async function copyMedia(
       (error as { reason?: unknown }).reason === "STORAGE_FULL"
     ) {
       await settle("failed", "storage_full");
+      await tellStorageFull();
       return "failed";
     }
     throw error;

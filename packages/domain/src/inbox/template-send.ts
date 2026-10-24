@@ -10,7 +10,7 @@ import { publishEvent } from "../jobs/index.js";
 import { DomainError } from "../kernel/index.js";
 import { liveConnection } from "./connection-row.js";
 import { MESSAGE_QUEUED_EVENT, sendableChat, showAsLast, sentOf, earlierSend, type ReplyContext } from "./outbox.js";
-import { bumpUsage, monthStartOf } from "./usage.js";
+import { monthStartOf } from "./usage.js";
 import { grantWhatsappConsent, whatsappConsentOf } from "./whatsapp-consent.js";
 
 const HOUR = 3_600_000;
@@ -82,7 +82,18 @@ export async function queueTemplate(
   const connection = await liveConnection(tx);
   const month = monthStartOf(now, "Asia/Kolkata");
   const usage = await tx.whatsappUsageMonth.findFirst({ where: { connectionId: chat.connectionId, month } });
-  if (template.category === "marketing" && (usage?.marketing ?? 0) >= (connection?.marketingCapMonth ?? 0)) {
+  // The month's count grows when MSG91 accepts a send (sender.ts), so what is still on its way is added to it here.
+  const onItsWay =
+    template.category === "marketing"
+      ? await tx.whatsappMessage.count({
+          where: {
+            kind: "template",
+            status: { in: ["queued", "sending"] },
+            template: { is: { category: "marketing" } },
+          },
+        })
+      : 0;
+  if (template.category === "marketing" && (usage?.marketing ?? 0) + onItsWay >= (connection?.marketingCapMonth ?? 0)) {
     throw new DomainError("LIMIT_REACHED", "MARKETING_CAP_REACHED", "This month's marketing messages are used up");
   }
   const sentToday = await tx.whatsappMessage.count({
@@ -128,12 +139,6 @@ export async function queueTemplate(
     return sentOf(twin);
   }
   await tx.whatsappTemplate.update({ where: { id: template.id }, data: { lastUsedAt: now } });
-  await bumpUsage(
-    tx,
-    { organizationId: access.organizationId, connectionId: chat.connectionId },
-    month,
-    template.category === "marketing" ? { marketing: 1 } : { utility: 1 },
-  );
   if (startedByUs && consentRecorded && chat.personId !== null) {
     await recordAudit(tx, access, {
       action: "whatsapp.chat-started",

@@ -168,6 +168,7 @@ describe("a WhatsApp message, end to end", () => {
       files: server.files,
       limiter: { hit: () => Promise.resolve({ allowed: true, remaining: 1, retryAfterSeconds: 0 }) },
       logger: server.logger,
+      managers: () => Promise.resolve([]),
     };
     expect(await sendQueued(sender, context, { id: newUuidV7(), messageId: first.messageId }, new Date())).toBe("sent");
     const sentMessage = whatsapp.memory.sent.find((sent) => sent.text === "Hello Priya");

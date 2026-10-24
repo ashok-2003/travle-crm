@@ -30,7 +30,12 @@ export const whatsappTemplatesRouter = router({
     .input(templateDraftInput)
     .output(z.object({ templateId: recordId }))
     .mutation(({ ctx, input }) =>
-      createTemplate({ db: ctx.db, provider: ctx.whatsappProvider ?? null }, ctx.member, input, new Date()),
+      createTemplate(
+        { db: ctx.db, provider: ctx.whatsappProvider ?? null, firstOwner: (id) => ctx.identity.firstOwner(id) },
+        ctx.member,
+        input,
+        new Date(),
+      ),
     ),
 
   /** Edit and send again: a template that Meta rejected. */
@@ -38,7 +43,7 @@ export const whatsappTemplatesRouter = router({
     .input(editTemplateInput)
     .mutation(({ ctx, input }) =>
       editTemplate(
-        { db: ctx.db, provider: ctx.whatsappProvider ?? null },
+        { db: ctx.db, provider: ctx.whatsappProvider ?? null, firstOwner: (id) => ctx.identity.firstOwner(id) },
         ctx.member,
         input.templateId,
         input.draft,
@@ -56,6 +61,10 @@ export const whatsappTemplatesRouter = router({
   refresh: manager
     .output(z.object({ templates: z.number().int() }))
     .mutation(({ ctx }) =>
-      syncTemplates({ db: ctx.db, provider: ctx.whatsappProvider ?? null }, ctx.member.organizationId, new Date()),
+      syncTemplates(
+        { db: ctx.db, provider: ctx.whatsappProvider ?? null, firstOwner: (id) => ctx.identity.firstOwner(id) },
+        ctx.member.organizationId,
+        new Date(),
+      ),
     ),
 });

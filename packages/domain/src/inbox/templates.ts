@@ -13,14 +13,20 @@ import type { Database, OrgTx } from "@travel-crm/db";
 import type { WhatsAppProvider, WhatsAppTemplateSummary } from "@travel-crm/integrations/whatsapp";
 import { recordAudit } from "../audit/index.js";
 import type { MemberAccess } from "../identity/index.js";
-import { DomainError } from "../kernel/index.js";
+import { noticeKey } from "../crm/index.js";
+import { DomainError, systemActor } from "../kernel/index.js";
+import { notifyNeedsAttention } from "./attention.js";
+import type { InboxDependencies } from "./dependencies.js";
 import { liveConnection } from "./connection-row.js";
+import { routesPage } from "./routes.js";
 import { monthStartOf } from "./usage.js";
 
 export interface TemplateDependencies {
   db: Database;
   /** Null when the MSG91 settings are not set. */
   provider: WhatsAppProvider | null;
+  /** The agency's Owner, told with the author when a template is rejected. */
+  firstOwner: (organizationId: string) => Promise<string | null>;
 }
 
 const refusedBy = (reason: string) =>
@@ -80,10 +86,14 @@ export async function syncTemplates(
     (template): template is WhatsAppTemplateSummary & { category: "utility" | "marketing" } =>
       template.category !== "authentication",
   );
+  const owner = await deps.firstOwner(organizationId);
   await deps.db.forOrg(organizationId, async (tx) => {
     for (const template of usable) {
       const key = { connectionId: connection.id, name: template.name, language: template.language };
-      const existing = await tx.whatsappTemplate.findFirst({ where: key, select: { id: true, status: true } });
+      const existing = await tx.whatsappTemplate.findFirst({
+        where: key,
+        select: { id: true, status: true, createdBy: true },
+      });
       const data = {
         category: template.category,
         body: template.body,
@@ -106,6 +116,16 @@ export async function syncTemplates(
           where: { id: existing.id },
           data: { ...data, ...(existing.status === "archived" ? {} : { status: template.status }) },
         });
+        // Meta just turned it down: whoever wrote it, and the Owner, are told once.
+        if (template.status === "rejected" && existing.status !== "rejected" && existing.status !== "archived") {
+          await notifyNeedsAttention(tx, systemActor(organizationId), {
+            recipientUserIds: [existing.createdBy, owner].filter((id): id is string => id !== null),
+            title: `The WhatsApp template ${template.name} was rejected`,
+            body: "Open Settings, WhatsApp to see why, and edit it to send it again.",
+            sourceEventId: noticeKey(existing.id, "whatsapp.needs-attention"),
+            now,
+          });
+        }
       }
     }
   });
@@ -264,4 +284,31 @@ export async function archiveTemplate(tx: OrgTx, access: MemberAccess, templateI
     before: { status: current.status },
     after: { status: "archived", name: current.name },
   });
+}
+
+/** Reads every connected agency's templates (the worker, every half hour), so a rejection is noticed without anyone pressing Refresh. */
+export async function syncAllTemplates(dependencies: InboxDependencies, now: Date): Promise<number> {
+  let done = 0;
+  let after: string | undefined;
+  for (;;) {
+    const page = await routesPage(dependencies.db, { after, limit: 100 });
+    for (const route of page) {
+      try {
+        await syncTemplates(
+          { db: dependencies.db, provider: dependencies.provider, firstOwner: dependencies.identity.firstOwner },
+          route.organizationId,
+          now,
+        );
+        done += 1;
+      } catch (error) {
+        // A number being set up, or MSG91 not answering: the next pass tries again.
+        dependencies.logger.warn(
+          { connectionId: route.connectionId, error: error instanceof Error ? error.name : "unknown" },
+          "WhatsApp templates were not read",
+        );
+      }
+    }
+    if (page.length < 100) return done;
+    after = page.at(-1)?.integratedNumber;
+  }
 }

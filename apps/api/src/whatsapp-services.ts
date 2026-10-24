@@ -38,9 +38,13 @@ export function inboxDependenciesOf(
     queue: JobQueue;
     logger: Logger;
     limiter: Pick<RateLimiter, "hit">;
-    identity: Pick<Identity, "firstOwner" | "leadWorkers" | "organizationProfile">;
+    identity: Pick<Identity, "firstOwner" | "leadWorkers" | "organizationProfile" | "membersHolding">;
     subscriptions: Pick<SubscriptionAccess, "entitlementsOf">;
   },
 ): InboxDependencies {
-  return { ...parts, provider: whatsapp?.provider ?? null };
+  return {
+    ...parts,
+    provider: whatsapp?.provider ?? null,
+    managers: (organizationId) => parts.identity.membersHolding(organizationId, "leads:assign"),
+  };
 }

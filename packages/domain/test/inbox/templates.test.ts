@@ -48,7 +48,11 @@ describe("message templates", () => {
   });
   afterAll(() => test.close());
 
-  const deps = () => ({ db: test.db, provider: test.provider });
+  const deps = () => ({
+    db: test.db,
+    provider: test.provider,
+    firstOwner: test.dependencies.identity.firstOwner,
+  });
 
   async function agency() {
     const connection = await aConnectedAgency(test);
@@ -169,7 +173,13 @@ describe("message templates", () => {
     const queued = await send(connection, member, { conversationId: chat.id, templateId: template.id }, at);
     expect(queued.status).toBe("queued");
     const outcome = await sendQueued(
-      { provider: test.provider, files: test.files, limiter: test.dependencies.limiter, logger: test.logger },
+      {
+        provider: test.provider,
+        files: test.files,
+        limiter: test.dependencies.limiter,
+        logger: test.logger,
+        managers: test.dependencies.managers,
+      },
       listenerContext(test, connection.organizationId),
       { id: newUuidV7(), messageId: queued.messageId },
       at,
@@ -291,6 +301,80 @@ describe("message templates", () => {
       tx.auditEntry.findMany({ where: { action: { in: ["whatsapp.consent-granted", "whatsapp.chat-started"] } } }),
     );
     expect(audit.map((entry) => entry.action).sort()).toEqual(["whatsapp.chat-started", "whatsapp.consent-granted"]);
+  });
+
+  it("counts a template when MSG91 takes it, so a send that fails does not use up the month's marketing cap", async () => {
+    const { connection, member } = await agency();
+    const marketing = await approved(connection, member, "marketing", "offer_update");
+    const { chat } = await chatOf(connection);
+    await test.db.forOrg(connection.organizationId, (tx) =>
+      tx.whatsappConnection.updateMany({ data: { marketingCapMonth: 1 } }),
+    );
+    const at = new Date(testNow.getTime() + 30 * HOUR);
+    const run = (messageId: string) =>
+      sendQueued(
+        {
+          provider: test.provider,
+          files: test.files,
+          limiter: test.dependencies.limiter,
+          logger: test.logger,
+          managers: test.dependencies.managers,
+        },
+        listenerContext(test, connection.organizationId),
+        { id: newUuidV7(), messageId },
+        at,
+      );
+    const first = await send(connection, member, { conversationId: chat.id, templateId: marketing.id }, at);
+    // Still on its way, it holds the one place there is.
+    await expect(
+      send(connection, member, { conversationId: chat.id, templateId: marketing.id }, at),
+    ).rejects.toMatchObject({ reason: "MARKETING_CAP_REACHED" });
+    test.provider.failNext("not_on_whatsapp");
+    expect(await run(first.messageId)).toBe("failed");
+    const usage = () => test.db.forOrg(connection.organizationId, (tx) => tx.whatsappUsageMonth.findFirst());
+    expect((await usage())?.marketing ?? 0).toBe(0);
+    const second = await send(connection, member, { conversationId: chat.id, templateId: marketing.id }, at);
+    expect(await run(second.messageId)).toBe("sent");
+    expect((await usage())?.marketing).toBe(1);
+    await expect(
+      send(connection, member, { conversationId: chat.id, templateId: marketing.id }, at),
+    ).rejects.toMatchObject({ reason: "MARKETING_CAP_REACHED" });
+  });
+
+  it("tells the author and the Owner once when a template is rejected, and the lead assigners when WhatsApp's limit is reached", async () => {
+    const { connection, member } = await agency();
+    await createTemplate(deps(), member, draft, testNow);
+    test.provider.setTemplateStatus(connection.integratedNumber, draft.name, "rejected", "No");
+    await syncTemplates(deps(), connection.organizationId, testNow);
+    await syncTemplates(deps(), connection.organizationId, testNow);
+    const owner = await test.dependencies.identity.firstOwner(connection.organizationId);
+    const told = await test.db.forOrg(connection.organizationId, (tx) =>
+      tx.notification.findMany({ where: { kind: "whatsapp.needs-attention" } }),
+    );
+    expect(told.map((row) => row.recipientUserId).sort()).toEqual([member.userId, owner].sort());
+    expect(told[0]?.title).toBe(`The WhatsApp template ${draft.name} was rejected`);
+
+    const template = await approved(connection, member, "utility", "limit_update");
+    const { chat } = await chatOf(connection);
+    const at = new Date(testNow.getTime() + 30 * HOUR);
+    const queued = await send(connection, member, { conversationId: chat.id, templateId: template.id }, at);
+    test.provider.failNext("tier_limit");
+    await sendQueued(
+      {
+        provider: test.provider,
+        files: test.files,
+        limiter: test.dependencies.limiter,
+        logger: test.logger,
+        managers: test.dependencies.managers,
+      },
+      listenerContext(test, connection.organizationId),
+      { id: newUuidV7(), messageId: queued.messageId },
+      at,
+    );
+    const limit = await test.db.forOrg(connection.organizationId, (tx) =>
+      tx.notification.findMany({ where: { kind: "whatsapp.needs-attention", title: { contains: "daily limit" } } }),
+    );
+    expect(limit).toHaveLength(1);
   });
 
   it("holds the day's cap, the month's marketing cap and WhatsApp's own limit", async () => {

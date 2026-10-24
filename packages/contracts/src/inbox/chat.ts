@@ -95,6 +95,8 @@ export const conversationHeader = z.object({
   /** The customer's latest message: the window closed 24 hours after it. Null when they never wrote. */
   lastInboundAt: timestamp.nullable(),
   needsReply: z.boolean(),
+  /** The destination and travel month of the person's most recently active open lead, for filling a template's blanks. */
+  trip: z.object({ destination: z.string().nullable(), travelMonth: z.iso.date().nullable() }),
   /** The customer wrote STOP: no template may be sent to them. */
   optedOut: z.boolean(),
   /** Staff recorded that the person agreed to WhatsApp messages. */

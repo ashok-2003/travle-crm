@@ -59,7 +59,13 @@ describe("replying on WhatsApp", () => {
   /** The worker's run of the sender on a queued message. */
   const send = (connection: TestConnection, messageId: string, at: Date) =>
     sendQueued(
-      { provider: test.provider, files: test.files, limiter: test.dependencies.limiter, logger: test.logger },
+      {
+        provider: test.provider,
+        files: test.files,
+        limiter: test.dependencies.limiter,
+        logger: test.logger,
+        managers: test.dependencies.managers,
+      },
       listenerContext(test, connection.organizationId),
       { id: newUuidV7(), messageId },
       at,
@@ -185,6 +191,7 @@ describe("replying on WhatsApp", () => {
       files: test.files,
       limiter: { hit: () => Promise.resolve({ allowed: false, remaining: 0, retryAfterSeconds: 30 }) },
       logger: test.logger,
+      managers: test.dependencies.managers,
     };
     await expect(
       sendQueued(

@@ -72,6 +72,7 @@ export function createTestInbox(): TestInbox {
       organizationProfile: () => Promise.resolve(null),
     },
     subscriptions: { entitlementsOf: () => Promise.resolve(entitlements()) },
+    managers: (organizationId) => Promise.resolve([owners.get(organizationId) ?? randomUUID()]),
   };
   return { ...base, provider, queue, logger, dependencies, setAccess: (value) => (access = value) };
 }

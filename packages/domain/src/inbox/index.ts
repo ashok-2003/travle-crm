@@ -8,6 +8,7 @@ export {
   ADOPT_QUEUE,
   COPY_MEDIA_QUEUE,
   WHATSAPP_HEALTH_QUEUE,
+  WHATSAPP_TEMPLATES_QUEUE,
   WHATSAPP_PROVIDER,
   type InboxDependencies,
 } from "./dependencies.js";
@@ -66,7 +67,9 @@ export {
   createTemplate,
   editTemplate,
   listTemplates,
+  syncAllTemplates,
   syncTemplates,
   type TemplateDependencies,
 } from "./templates.js";
 export { isOptOutText, whatsappConsentOf, type WhatsappConsent } from "./whatsapp-consent.js";
+export { NEEDS_ATTENTION_KIND } from "./attention.js";

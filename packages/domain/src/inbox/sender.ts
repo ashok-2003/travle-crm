@@ -20,6 +20,7 @@ import { defineListener, type EventListener, type ListenerContext } from "../job
 import { systemActor } from "../kernel/index.js";
 import { notify } from "../notifications/index.js";
 import type { RateLimiter } from "../rate-limits/index.js";
+import { notifyNeedsAttention } from "./attention.js";
 import { chatNameOf } from "./chat-name.js";
 import { MESSAGE_QUEUED_EVENT } from "./outbox.js";
 import { settleNeedsReply } from "./needs-reply.js";
@@ -38,6 +39,8 @@ export interface SenderDependencies {
   files: Pick<Files, "list" | "systemDownloadLink">;
   limiter: Pick<RateLimiter, "hit">;
   logger: Logger;
+  /** Everyone who can assign leads: told when WhatsApp's own limit on new chats is reached. */
+  managers: (organizationId: string) => Promise<string[]>;
 }
 
 /** Why a reply did not go, as the row stores it and the chat words it. */
@@ -63,7 +66,7 @@ interface Queued {
   body: string | null;
   caption: string | null;
   fileName: string | null;
-  template: { name: string; language: string } | null;
+  template: { name: string; language: string; category: string } | null;
   templateParams: string[];
   /** When it was queued (or last tried again by a person). */
   queuedAt: Date;
@@ -90,7 +93,7 @@ async function queuedMessage(tx: OrgTx, messageId: string): Promise<Queued | nul
       occurredAt: true,
       sentBy: true,
       templateParams: true,
-      template: { select: { name: true, language: true } },
+      template: { select: { name: true, language: true, category: true } },
       status: true,
       direction: true,
       origin: true,
@@ -135,6 +138,8 @@ async function fail(
   eventId: string,
   context: ListenerContext,
   now: Date,
+  /** Who is told when WhatsApp's own limit on new chats was the reason. */
+  managers: string[] = [],
 ): Promise<void> {
   await tx.whatsappMessage.update({ where: { id: message.id }, data: { status: "failed", failureCode: code } });
   await settleNeedsReply(tx, message.conversationId);
@@ -144,6 +149,15 @@ async function fail(
     monthStartOf(now, "Asia/Kolkata"),
     { failed: 1 },
   );
+  if (code === "tier_limit") {
+    await notifyNeedsAttention(tx, context.actor, {
+      recipientUserIds: managers,
+      title: "WhatsApp's daily limit for new chats was reached",
+      body: "Templates to new people wait for an hour. Replies are not affected.",
+      sourceEventId: noticeKey(eventId, "whatsapp.needs-attention"),
+      now,
+    });
+  }
   if (message.sentBy === null) return;
   const chat = await tx.whatsappConversation.findUnique({
     where: { id: message.conversationId },
@@ -274,6 +288,10 @@ export async function sendQueued(
     );
   }
 
+  const attention =
+    result !== "file_missing" && !result.ok && result.reason === "tier_limit"
+      ? await dependencies.managers(organizationId)
+      : [];
   await context.forOrg(async (tx) => {
     if (result !== "file_missing" && result.ok) {
       await tx.whatsappMessage.update({
@@ -282,12 +300,25 @@ export async function sendQueued(
       });
       await tx.whatsappConnection.update({ where: { id: queued.connectionId }, data: { lastSendOkAt: now } });
       await bumpUsage(tx, { organizationId, connectionId: queued.connectionId }, monthStartOf(now, "Asia/Kolkata"), {
-        replies: queued.template === null ? 1 : 0,
+        // A reply is counted by kind; a template by the category it was sent under, once MSG91 has it (the caps read these).
+        ...(queued.template === null
+          ? { replies: 1 }
+          : queued.template.category === "marketing"
+            ? { marketing: 1 }
+            : { utility: 1 }),
       });
       if (queued.personId !== null) await recordWhatsAppFirstReply(tx, queued.personId, now);
       return;
     }
-    await fail(tx, queued, result === "file_missing" ? "file_missing" : storedReason(result), event.id, context, now);
+    await fail(
+      tx,
+      queued,
+      result === "file_missing" ? "file_missing" : storedReason(result),
+      event.id,
+      context,
+      now,
+      attention,
+    );
   });
   return result !== "file_missing" && result.ok ? "sent" : "failed";
 }

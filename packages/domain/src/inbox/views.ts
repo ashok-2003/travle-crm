@@ -168,9 +168,20 @@ export async function conversationHeaderOf(
       : await tx.lead.findMany({
           where: { personId: row.personId },
           orderBy: { id: "desc" },
-          select: { id: true, stage: true, ownerUserId: true },
+          select: {
+            id: true,
+            stage: true,
+            ownerUserId: true,
+            updatedAt: true,
+            travelMonth: true,
+            destination: { select: { name: true } },
+          },
         });
   const isOpen = (stage: string) => (openLeadStages as readonly string[]).includes(stage);
+  // Their most recently active open lead is the one whose trip fills a template.
+  const active = leads
+    .filter((lead) => isOpen(lead.stage))
+    .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())[0];
   const shown = leads.find((lead) => isOpen(lead.stage)) ?? leads[0] ?? null;
   const windowEnd = windowEndOf(row.lastInboundAt);
   const consent = row.personId === null ? { state: null, source: null } : await whatsappConsentOf(tx, row.personId);
@@ -187,6 +198,10 @@ export async function conversationHeaderOf(
     windowOpenUntil: windowEnd !== null && windowEnd.getTime() > now.getTime() ? windowEnd.toISOString() : null,
     lastInboundAt: row.lastInboundAt?.toISOString() ?? null,
     needsReply: row.needsReply,
+    trip: {
+      destination: active?.destination?.name ?? null,
+      travelMonth: active?.travelMonth?.toISOString().slice(0, 10) ?? null,
+    },
     optedOut: consent.state === "withdrawn" && consent.source === "customer",
     agreed: consent.state === "granted",
     state: row.state === "erased" ? "erased" : "open",

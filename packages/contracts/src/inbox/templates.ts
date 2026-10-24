@@ -15,7 +15,14 @@ export const templateCategory = z.enum(templateCategories);
 export const templateLanguages = ["en", "en_US", "hi"] as const;
 
 /** The CRM fact behind a marker, which the send dialog fills in; `custom` is typed by the person sending. */
-export const templateVariables = ["customer_name", "destination", "agent_name", "travel_month", "custom"] as const;
+export const templateVariables = [
+  "customer_name",
+  "destination",
+  "agent_name",
+  "agency_name",
+  "travel_month",
+  "custom",
+] as const;
 export const templateVariable = z.enum(templateVariables);
 export type TemplateVariable = z.infer<typeof templateVariable>;
 
