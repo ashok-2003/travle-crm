@@ -40,6 +40,20 @@ import {
   metaImportSource,
   routeListener as metaRouteListener,
 } from "@travel-crm/domain/meta-leads";
+import {
+  ADOPT_QUEUE,
+  adoptAll,
+  checkAllConnections,
+  COPY_MEDIA_QUEUE,
+  copyMediaJob,
+  messageNoticeListener,
+  pastCustomerNoticeListener,
+  routeListener as whatsappRouteListener,
+  sendMessageListener,
+  syncAllTemplates,
+  WHATSAPP_HEALTH_QUEUE,
+  WHATSAPP_TEMPLATES_QUEUE,
+} from "@travel-crm/domain/inbox";
 import { deliverNotificationListener, forgetPushSubscriptionsListener } from "@travel-crm/domain/notifications";
 import { purgeExpiredRateLimits, RATE_LIMIT_PURGE_QUEUE, type RateLimiter } from "@travel-crm/domain/rate-limits";
 import { notifySharerListener } from "@travel-crm/domain/share-links";
@@ -59,6 +73,7 @@ import {
 import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { processWebhookJob, WEBHOOK_PROCESS_QUEUE, type WebhookProvider } from "@travel-crm/domain/webhooks";
 import { metaProcessDependencies, type MetaServices } from "./meta-services.js";
+import { inboxDependenciesOf, type WhatsAppServices } from "./whatsapp-services.js";
 import type { EmailSender } from "@travel-crm/integrations/email";
 import { renderPdf } from "@travel-crm/integrations/pdf";
 import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
@@ -113,6 +128,8 @@ export interface WorkerJobDependencies {
   sheets?: WorkerSheets;
   /** The Meta lead ads (ADR 0034): left out or null when the five Meta settings are not set, and then none of its work runs. */
   meta?: MetaServices | null;
+  /** WhatsApp through MSG91 (ADR 0035): null or left out when the three settings are not set; the route and notices still run. */
+  whatsapp?: WhatsAppServices | null;
   /** The worker's structured log (ADR 0032): ids, codes, counts and timings only. */
   logger: Logger;
   /** Where listeners queue delayed jobs (a new lead's first-reply check): the same pg-boss. Without it, no checks. */
@@ -183,8 +200,37 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
           earlierLeadsListener({ ...metaJobs, files, spreadsheets, identity }),
           matchMetaImportListener({ ...metaJobs, files, spreadsheets, identity, subscriptions }),
         ];
+  // The inbox: the number's route and the notices always run (a connection can be recorded before the settings are set); the
+  // copier, the health check and the adoption job need the queue.
+  const inbox =
+    dependencies.jobs === undefined
+      ? null
+      : inboxDependenciesOf(dependencies.whatsapp ?? null, {
+          db,
+          files,
+          queue: dependencies.jobs,
+          logger,
+          limiter: rateLimiter,
+          identity,
+          subscriptions,
+        });
   return {
     listeners: [
+      whatsappRouteListener({ db, logger }),
+      messageNoticeListener({ managers: leadAssigners }),
+      pastCustomerNoticeListener({ managers: leadAssigners }),
+      // Replies queued from the inbox go out here, one at a time, outside any transaction (spec 4.4).
+      ...(inbox === null
+        ? []
+        : [
+            sendMessageListener({
+              provider: inbox.provider,
+              files,
+              limiter: rateLimiter,
+              logger,
+              managers: leadAssigners,
+            }),
+          ]),
       renderIssuedDocumentListener({ files, render: renderPdf }),
       deliverNotificationListener({
         email,
@@ -245,6 +291,16 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
           await checkFirstReply({ db, managers: leadAssigners }, data);
         },
       },
+      ...(inbox === null
+        ? []
+        : [
+            {
+              queue: COPY_MEDIA_QUEUE,
+              handle: async (data: Parameters<typeof copyMediaJob>[1]) => {
+                await copyMediaJob(inbox, data);
+              },
+            },
+          ]),
       ...(sheetsJobs === null ? [] : [sheetsCheckHandler(sheetsJobs)]),
       ...(metaJobs === null ? [] : [metaCatchupHandler(metaJobs)]),
     ],
@@ -270,6 +326,37 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
               timeZone: "Asia/Kolkata",
               handle: async () => {
                 await checkAllPages(meta.dependencies, new Date());
+              },
+            },
+          ]),
+      ...(inbox === null
+        ? []
+        : [
+            {
+              // Delivery reports that stopped, rows stuck sending, and media never queued (spec 8.4).
+              queue: WHATSAPP_HEALTH_QUEUE,
+              cron: "*/5 * * * *",
+              timeZone: "Asia/Kolkata",
+              handle: async () => {
+                await checkAllConnections(inbox, new Date());
+              },
+            },
+            {
+              // The templates' statuses, so a rejection is noticed and the Owner told (spec 4.8).
+              queue: WHATSAPP_TEMPLATES_QUEUE,
+              cron: "*/30 * * * *",
+              timeZone: "Asia/Kolkata",
+              handle: async () => {
+                await syncAllTemplates(inbox, new Date());
+              },
+            },
+            {
+              // Chats stored while the subscription did not allow changes get their lead once it does (spec 8.5).
+              queue: ADOPT_QUEUE,
+              cron: "17 * * * *",
+              timeZone: "Asia/Kolkata",
+              handle: async () => {
+                await adoptAll(inbox, new Date());
               },
             },
           ]),

@@ -7,6 +7,7 @@ import { z } from "zod";
 import { META_VARIABLES, metaVerifyTokenIsWeak } from "./meta-variables.js";
 import { serviceVariables } from "./service-variables.js";
 import { sheetsHashKeyIsWeak } from "./sheets-settings.js";
+import { WHATSAPP_VARIABLES, whatsappSecretIsWeak } from "./whatsapp-variables.js";
 
 /** The secret in .env.example: fine on a laptop, never in production. */
 const EXAMPLE_SECRET = "dev-only-secret-not-for-any-real-deploy";
@@ -155,7 +156,26 @@ const environmentSchema = z
     if (environment.META_GRAPH_TEST_SERVER_URL !== undefined && metaSet.length === 0) {
       problem("META_GRAPH_TEST_SERVER_URL", "is only for use with the Meta settings");
     }
+    // WhatsApp's three settings come together too (spec 13).
+    const whatsappSet = WHATSAPP_VARIABLES.filter((name) => environment[name] !== undefined);
+    if (whatsappSet.length > 0 && whatsappSet.length < WHATSAPP_VARIABLES.length) {
+      for (const name of WHATSAPP_VARIABLES.filter((candidate) => environment[candidate] === undefined)) {
+        problem(name, "is needed with the other WhatsApp settings: all three or none");
+      }
+    }
+    if (environment.MSG91_TEST_SERVER_URL !== undefined && whatsappSet.length === 0) {
+      problem("MSG91_TEST_SERVER_URL", "is only for use with the WhatsApp settings");
+    }
     if (developmentLike(environment.NODE_ENV)) return;
+    if (environment.MSG91_TEST_SERVER_URL !== undefined) {
+      problem("MSG91_TEST_SERVER_URL", "is for development and tests only: unset it in production");
+    }
+    for (const name of ["MSG91_WEBHOOK_TOKEN", "MSG91_WEBHOOK_KEY"] as const) {
+      const value = environment[name];
+      if (value !== undefined && whatsappSecretIsWeak(value)) {
+        problem(name, "is too weak for production: use `openssl rand -hex 32`");
+      }
+    }
     if (environment.META_GRAPH_TEST_SERVER_URL !== undefined) {
       problem("META_GRAPH_TEST_SERVER_URL", "is for development and tests only: unset it in production");
     }

@@ -17,7 +17,8 @@
       "manage": "Manage"
     },
     "collapse": "Fold the sidebar to its icons",
-    "expand": "Open the sidebar"
+    "expand": "Open the sidebar",
+    "inbox": "Inbox"
   },
   "home": {
     "title": "Welcome, {name}",

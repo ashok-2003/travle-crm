@@ -5,6 +5,7 @@ import { errorFields } from "@travel-crm/integrations/logging";
 import { createApp } from "./app.js";
 import { clientAddressFrom } from "./rate-limit.js";
 import { metaSettingsOf, metaStartUpLine } from "./meta-settings.js";
+import { whatsappStartUpLine } from "./whatsapp-settings.js";
 import { sheetsStartUpLine } from "./sheets-settings.js";
 import { assertServiceAccountsInPlace } from "./sheets-settings.js";
 import { exitAfterLogs, startProcess, stopOnUnhandledErrors } from "./start-up.js";
@@ -33,8 +34,9 @@ const app = createApp({
     headerNames: environment.AUTH_IP_ADDRESS_HEADERS,
     trustedProxies: environment.AUTH_TRUSTED_PROXIES,
   }),
-  webhookProviders: webhookProvidersOf(services),
+  webhookProviders: webhookProvidersOf(services, logger),
   meta: services.meta,
+  whatsappProvider: services.whatsapp?.provider ?? null,
   logger,
   authSecret: environment.BETTER_AUTH_SECRET,
   appUrl: environment.APP_URL,
@@ -55,6 +57,7 @@ const server = serve({ fetch: app.fetch, port: environment.PORT }, (address) => 
   const accounts = environment.GOOGLE_SHEETS_SERVICE_ACCOUNTS?.length ?? 0;
   logger.info({ serviceAccounts: accounts }, sheetsStartUpLine(accounts));
   logger.info({ meta: metaSettingsOf(environment) !== null }, metaStartUpLine(metaSettingsOf(environment)));
+  logger.info({ whatsapp: services.whatsapp !== null }, whatsappStartUpLine(services.whatsapp?.settings ?? null));
 });
 
 // Container platforms send SIGTERM before stopping an instance: finish open requests, then close the pools.

@@ -100,6 +100,7 @@ describe("request check 3: the module on the plan", () => {
       expect(() => planModuleOf(moduleOf(permission)), permission).not.toThrow();
     }
     expect(planModuleOf(moduleOf("leads:create"))).toBe("crm");
+    expect(planModuleOf(moduleOf("inbox:reply"))).toBe("inbox");
     expect(planModuleOf(moduleOf("staff:manage"))).toBeNull();
     expect(() => planModuleOf("teleport")).toThrow(/No plan module/);
   });

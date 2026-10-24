@@ -20,6 +20,7 @@ import { createS3Storage, type ObjectStorage } from "@travel-crm/integrations/st
 import { authSettingsFrom, type Environment } from "./environment.js";
 import { passwordResetEmails, resetPasswordPageOf } from "./password-reset-email.js";
 import { createMetaServices, type MetaServices } from "./meta-services.js";
+import { createWhatsAppServices, type WhatsAppServices } from "./whatsapp-services.js";
 import { loggerOfRequest } from "./request-log.js";
 import { verifySheetsKey } from "./sheets-key-check.js";
 
@@ -39,6 +40,8 @@ export interface Services {
   sheetsHashes: SheetsHashes | null;
   /** The Meta lead ads (ADR 0034); null when the five Meta settings are not set: Meta is off. */
   meta: MetaServices | null;
+  /** WhatsApp through MSG91 (ADR 0035); null when the three MSG91 settings are not set: WhatsApp is off. */
+  whatsapp: WhatsAppServices | null;
   /** What each organization's plan allows today, for the jobs that act for a person (an import's add). */
   subscriptions: SubscriptionAccess;
   /** The seats each organization's plan gives, for the staff import's add. */
@@ -165,6 +168,7 @@ export function createServices(environment: Environment, logger: Logger): Servic
     google: googleSheetsOf(environment, logger),
     sheetsHashes: environment.SHEETS_HASH_KEY === undefined ? null : createSheetsHashes(environment.SHEETS_HASH_KEY),
     meta: createMetaServices(environment, { db, rateLimiter, logger }),
+    whatsapp: createWhatsAppServices(environment),
     subscriptions,
     seatLimit: limits.seats,
     jobs,

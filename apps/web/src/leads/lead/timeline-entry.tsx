@@ -106,6 +106,8 @@ export function TimelineEntryItem({ entry, people }: { entry: TimelineEntry; peo
       }
       case "trip-edited":
         return { title: t("lead.timeline.tripEdited") };
+      case "whatsapp-contact":
+        return { title: t("lead.timeline.whatsappContact") };
     }
   };
 

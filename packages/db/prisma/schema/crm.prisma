@@ -28,6 +28,7 @@ model Person {
   organization    Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   leads           Lead[]
   consents        PersonConsent[]
+  whatsappConversations WhatsappConversation[]
   formSubmissions WebsiteFormSubmission[]
 
   /// Lets lead point at (organization_id, id).

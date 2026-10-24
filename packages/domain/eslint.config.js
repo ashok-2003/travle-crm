@@ -25,4 +25,5 @@ export default defineConfig(
   allowingInModule("rate-limits", "rateLimitCounters"),
   allowingInFiles(["src/sheets/schedule.ts", "test/sheets/**", "test/performance/sheets-*"], "sheetSchedule"),
   allowingInFiles(["src/meta-leads/routes.ts", "test/meta-leads/**", "test/performance/meta-*"], "metaRoutes"),
+  allowingInFiles(["src/inbox/routes.ts", "test/inbox/**", "test/performance/whatsapp-*"], "whatsappRoutes"),
 );

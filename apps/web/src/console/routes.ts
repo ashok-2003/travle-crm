@@ -11,6 +11,8 @@ export const consoleRoutes = {
   dataProtection: (organizationId: string) => `/console/organizations/${organizationId}/data-protection`,
   plans: "/console/plans",
   jobs: "/console/jobs",
+  /** The WhatsApp numbers agencies use, and the webhook MSG91 calls. */
+  whatsapp: "/console/whatsapp",
   log: "/console/log",
   staff: "/console/staff",
 } as const;

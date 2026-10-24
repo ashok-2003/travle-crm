@@ -63,7 +63,7 @@ export function securityHeaders(
     { key: "X-Frame-Options", value: "DENY" },
     { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
     { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
-    { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()" },
+    { key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=(), payment=(), usb=()" },
     // Browsers ignore it over plain http (local development); deployments are https only.
     { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
   ];

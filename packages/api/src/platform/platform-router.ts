@@ -9,6 +9,7 @@ import { organizationsRouter } from "./routers/organizations.js";
 import { plansRouter } from "./routers/plans.js";
 import { platformStaffRouter } from "./routers/platform-staff.js";
 import { subscriptionsRouter } from "./routers/subscriptions.js";
+import { whatsappRouter } from "./routers/whatsapp.js";
 import { platformT } from "./trpc.js";
 
 export const platformRouter = platformT.router({
@@ -22,6 +23,7 @@ export const platformRouter = platformT.router({
   plans: plansRouter,
   subscriptions: subscriptionsRouter,
   jobs: jobsRouter,
+  whatsapp: whatsappRouter,
   platformStaff: platformStaffRouter,
   log: platformT.router({
     /** What platform staff and the platform's jobs did, newest first. */

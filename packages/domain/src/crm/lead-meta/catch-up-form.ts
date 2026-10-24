@@ -22,6 +22,8 @@ export async function readFormLeads(
   form: Pick<MetaFormRow, "formId">,
   token: string,
   since: number,
+  /** The clock the caller runs on: "within a day" is counted from it, not from the real one. */
+  now: Date,
 ): Promise<FormRead> {
   const leads: MetaLead[] = [];
   let after: string | undefined;
@@ -51,7 +53,7 @@ export async function readFormLeads(
   // A lead written down as gone or as unsavable within the day is read again: Meta's list carries its answers, and the first
   // fetch may have been refused for a moment (review I4). Other problems wait for a person's Check again.
   const fixable = new Set(["lead_not_found", "lead_not_allowed", "could_not_add"]);
-  const recent = Date.now() - 24 * 3_600_000;
+  const recent = now.getTime() - 24 * 3_600_000;
   const settled = known.filter(
     (row) =>
       !(

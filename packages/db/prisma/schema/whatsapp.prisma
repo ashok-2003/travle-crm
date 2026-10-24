@@ -1,0 +1,232 @@
+// WhatsApp through MSG91 (spec 2026-10-23, ADR 0035): an agency's connected number, its chats (one per person and number),
+// their messages, the message templates and the monthly usage. Organization-owned: row-level security applies (the migration
+// calls app_enable_org_rls on each). Nothing is soft-deleted and the runtime role deletes none of them (a chat is erased by
+// emptying it). Ids of other modules' records (members, users) are plain uuids with no key. The last two models sit outside
+// row-level security: the number route (an organization_id, ids only) and the unrouted numbers (no organization at all).
+// OrgTx leaves them out and only the inbox module reaches them, in db.withoutOrg(), through @travel-crm/db/whatsapp-routes.
+// Predicates are written as Postgres prints them, so the drift check reads them as equal.
+
+/// The WhatsApp number an agency uses through MSG91 (one a phase 1).
+model WhatsappConnection {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId    String                @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id                String                @id @default(uuid(7)) @db.Uuid
+  /// The number as MSG91 writes it: digits with the country code.
+  integratedNumber  String                @map("integrated_number")
+  /// The number as the agency knows it, in E.164.
+  displayNumber     String                @map("display_number")
+  /// new_number, coexistence or demo.
+  mode              String
+  /// setup, connected, paused, problem or disconnected.
+  status            String                @default("setup")
+  providerRef       String?               @map("provider_ref")
+  wabaId            String?               @map("waba_id")
+  phoneNumberId     String?               @map("phone_number_id")
+  qualityRating     String?               @map("quality_rating")
+  note              String?
+  connectedAt       DateTime?             @map("connected_at") @db.Timestamptz(6)
+  disconnectedAt    DateTime?             @map("disconnected_at") @db.Timestamptz(6)
+  lastEventAt       DateTime?             @map("last_event_at") @db.Timestamptz(6)
+  lastInboundAt     DateTime?             @map("last_inbound_at") @db.Timestamptz(6)
+  lastSendOkAt      DateTime?             @map("last_send_ok_at") @db.Timestamptz(6)
+  /// The last status event (a delivery report): the health check's proof that reports still arrive.
+  lastReportAt      DateTime?             @map("last_report_at") @db.Timestamptz(6)
+  problemSince      DateTime?             @map("problem_since") @db.Timestamptz(6)
+  marketingCapMonth Int                   @default(300) @map("marketing_cap_month")
+  templateCapDay    Int                   @default(100) @map("template_cap_day")
+  eventsUnknown     Int                   @default(0) @map("events_unknown")
+  /// not_applicable, waiting, received or skipped.
+  historyState      String                @default("not_applicable") @map("history_state")
+  createdBy         String?               @map("created_by") @db.Uuid
+  impersonatedBy    String?               @map("impersonated_by") @db.Uuid
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization      Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  conversations     WhatsappConversation[]
+  templates         WhatsappTemplate[]
+  usage             WhatsappUsageMonth[]
+
+  /// Lets the connection's children point at (organization_id, id).
+  @@unique([organizationId, id])
+  /// One number at a time per agency in phase 1; a disconnected one stays as history.
+  @@unique([organizationId], map: "whatsapp_connection_live", where: raw("(status <> 'disconnected'::text)"))
+  @@map("whatsapp_connection")
+}
+
+/// One chat: a person (or a number we cannot place yet) and the agency's number. It belongs to the person, not to a lead.
+model WhatsappConversation {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String             @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String             @id @default(uuid(7)) @db.Uuid
+  connectionId   String             @map("connection_id") @db.Uuid
+  /// E.164; replaced by erased:<uuid> when the person is erased.
+  phoneE164      String             @map("phone_e164")
+  personId       String?            @map("person_id") @db.Uuid
+  /// A cache of the customer's WhatsApp profile name; emptied by erasure.
+  profileName    String?            @map("profile_name")
+  /// When the customer last wrote: the 24-hour window. Only moves forward.
+  lastInboundAt  DateTime?          @map("last_inbound_at") @db.Timestamptz(6)
+  lastMessageId  String?            @map("last_message_id") @db.Uuid
+  lastMessageAt  DateTime?          @map("last_message_at") @db.Timestamptz(6)
+  /// The customer wrote last and nobody has answered.
+  needsReply     Boolean            @default(false) @map("needs_reply")
+  /// A blocked contact's chat stays out of the inbox.
+  hidden         Boolean            @default(false)
+  /// open or erased.
+  state          String             @default("open")
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  connection     WhatsappConnection @relation(fields: [organizationId, connectionId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  person         Person?            @relation(fields: [organizationId, personId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  messages       WhatsappMessage[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, connectionId, phoneE164], map: "whatsapp_conversation_phone")
+  /// The inbox, newest first.
+  @@index([organizationId, lastMessageAt(sort: Desc), id(sort: Desc)], map: "whatsapp_conversation_recent")
+  /// The inbox's default filter: chats waiting for a reply.
+  @@index([organizationId, lastMessageAt(sort: Desc), id(sort: Desc)], map: "whatsapp_conversation_waiting", where: raw("(needs_reply AND (NOT hidden))"))
+  /// Every lead page of the person, and erasure.
+  @@index([organizationId, personId], map: "whatsapp_conversation_person")
+  @@map("whatsapp_conversation")
+}
+
+/// One message in a chat, in or out. The unique wamid is the dedupe ledger.
+model WhatsappMessage {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String               @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String               @id @default(uuid(7)) @db.Uuid
+  conversationId String               @map("conversation_id") @db.Uuid
+  /// in or out.
+  direction      String
+  /// customer, staff_crm, staff_phone or history.
+  origin         String
+  /// text, image, video, audio, document, sticker, location, contacts, reaction, template or unsupported.
+  kind           String
+  /// At most 4,096 characters.
+  body           String?
+  caption        String?
+  fileName       String?              @map("file_name")
+  latitude       Decimal?             @db.Decimal(9, 6)
+  longitude      Decimal?             @db.Decimal(9, 6)
+  /// WhatsApp's message id; null until a send is answered.
+  wamid          String?
+  quotedWamid    String?              @map("quoted_wamid")
+  /// An emoji set on this message by a reaction.
+  reaction       String?
+  clientToken    String?              @map("client_token")
+  templateId     String?              @map("template_id") @db.Uuid
+  templateParams String[]             @default([]) @map("template_params")
+  sentBy         String?              @map("sent_by") @db.Uuid
+  /// received, queued, sending, sent, delivered, read, failed or superseded.
+  status         String
+  failureCode    String?              @map("failure_code")
+  occurredAt     DateTime             @map("occurred_at") @db.Timestamptz(6)
+  sentAt         DateTime?            @map("sent_at") @db.Timestamptz(6)
+  deliveredAt    DateTime?            @map("delivered_at") @db.Timestamptz(6)
+  readAt         DateTime?            @map("read_at") @db.Timestamptz(6)
+  /// none, pending, stored, expired or failed.
+  mediaState     String               @default("none") @map("media_state")
+  /// MSG91's link to an inbound file, blanked when the file is stored.
+  mediaUrl       String?              @map("media_url")
+  mediaAttempts  Int                  @default(0) @map("media_attempts")
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  conversation   WhatsappConversation @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  template       WhatsappTemplate?    @relation(fields: [organizationId, templateId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, wamid], map: "whatsapp_message_wamid", where: raw("(wamid IS NOT NULL)"))
+  @@unique([organizationId, clientToken], map: "whatsapp_message_client_token", where: raw("(client_token IS NOT NULL)"))
+  /// The chat, newest first.
+  @@index([organizationId, conversationId, occurredAt(sort: Desc), id(sort: Desc)], map: "whatsapp_message_chat")
+  /// The outbox and the stuck-row check.
+  @@index([organizationId, id], map: "whatsapp_message_outbox", where: raw("(status = ANY (ARRAY['queued'::text, 'sending'::text]))"))
+  /// The media copier.
+  @@index([organizationId, id], map: "whatsapp_message_media_pending", where: raw("(media_state = 'pending'::text)"))
+  @@map("whatsapp_message")
+}
+
+/// A message template: written here and approved by Meta, or made in MSG91's panel and picked up by a sync.
+model WhatsappTemplate {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String               @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String               @id @default(uuid(7)) @db.Uuid
+  connectionId   String               @map("connection_id") @db.Uuid
+  /// A lower-case slug.
+  name           String
+  language       String
+  /// utility or marketing: Meta's category wins and is synced on every refresh.
+  category       String
+  /// With {{1}} markers.
+  body           String
+  footer         String?
+  /// The CRM field behind each marker, or custom.
+  variables      String[]             @default([])
+  samples        String[]             @default([])
+  providerRef    String?              @map("provider_ref")
+  /// draft, pending, approved, rejected, paused, disabled or archived.
+  status         String
+  /// Meta's rejection text, shown to staff.
+  reason         String?
+  syncedAt       DateTime?            @map("synced_at") @db.Timestamptz(6)
+  createdBy      String?              @map("created_by") @db.Uuid
+  lastUsedAt     DateTime?            @map("last_used_at") @db.Timestamptz(6)
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  connection     WhatsappConnection   @relation(fields: [organizationId, connectionId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  messages       WhatsappMessage[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, connectionId, name, language], map: "whatsapp_template_key")
+  @@map("whatsapp_template")
+}
+
+/// What a connection sent and received in one month, by kind: the console's fair-use view and the marketing cap's count.
+model WhatsappUsageMonth {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId   String             @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id               String             @id @default(uuid(7)) @db.Uuid
+  connectionId     String             @map("connection_id") @db.Uuid
+  /// The first day of the month in the organization's time zone.
+  month            DateTime           @db.Date
+  inbound          Int                @default(0)
+  /// Session messages out.
+  replies          Int                @default(0)
+  utility          Int                @default(0)
+  marketing        Int                @default(0)
+  failed           Int                @default(0)
+  mediaBytesCopied BigInt             @default(0) @map("media_bytes_copied")
+  organization     Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  connection       WhatsappConnection @relation(fields: [organizationId, connectionId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, connectionId, month], map: "whatsapp_usage_month_key")
+  @@map("whatsapp_usage_month")
+}
+
+/// Which agency a number belongs to: the webhook finds an organization from MSG91's integrated number without entering one.
+/// Ids only, no personal data. OUTSIDE ROW-LEVEL SECURITY, an explicit and reviewed exemption: OrgTx leaves the model out and
+/// only the inbox module reaches it, in db.withoutOrg(), through @travel-crm/db/whatsapp-routes. A row may be stale.
+model WhatsappNumberRoute {
+  /// The number as MSG91 writes it: unique across every agency, which row-level security would hide.
+  integratedNumber String       @id @map("integrated_number")
+  /// Named as every organization table's is, restricting deletion, but written outside an organization: no default.
+  organizationId   String       @map("organization_id") @db.Uuid
+  connectionId     String       @map("connection_id") @db.Uuid
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  /// One route per agency's connection.
+  @@unique([connectionId], map: "whatsapp_number_route_connection")
+  @@map("whatsapp_number_route")
+}
+
+/// A number MSG91 sent events for that no agency has recorded: a count and times, so the console shows it and nothing fills.
+/// No organization_id: it belongs to nobody. OUTSIDE ROW-LEVEL SECURITY; reached like the route.
+model WhatsappUnrouted {
+  integratedNumber String   @id @map("integrated_number")
+  firstSeenAt      DateTime @default(now()) @map("first_seen_at") @db.Timestamptz(6)
+  lastSeenAt       DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+  events           Int      @default(1)
+
+  @@map("whatsapp_unrouted")
+}

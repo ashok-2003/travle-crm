@@ -9,6 +9,7 @@ import type { Profiles } from "@travel-crm/domain/profile";
 import type { RateLimiter } from "@travel-crm/domain/rate-limits";
 import type { SheetsDependencies } from "@travel-crm/domain/sheets";
 import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
+import type { TemplateDependencies } from "@travel-crm/domain/inbox";
 
 export interface ApiDependencies {
   identity: Identity;
@@ -38,6 +39,10 @@ export interface ApiDependencies {
   sheetsHashes?: SheetsDependencies["hashes"];
   /** The Meta lead ads (ADR 0034); null or absent when the five Meta settings are not set: Meta is off. */
   meta?: MetaDependencies | null;
+  /** The three MSG91 settings are set on this server (ADR 0035); absent means off. */
+  whatsappConfigured?: boolean;
+  /** The MSG91 provider the templates are read from and sent for approval through; null or absent when WhatsApp is off. */
+  whatsappProvider?: TemplateDependencies["provider"];
   /** The web app's address, which the form's links are made under (APP_URL). Required: no default can be right in production. */
   appUrl: string;
 }
@@ -59,6 +64,8 @@ export async function createContext(
     sheetsHashes = null,
     rateLimiter,
     meta = null,
+    whatsappConfigured = false,
+    whatsappProvider = null,
     appUrl,
   }: ApiDependencies,
   request: Request,
@@ -81,6 +88,8 @@ export async function createContext(
     sheetsHashes,
     rateLimiter,
     meta,
+    whatsappConfigured,
+    whatsappProvider,
     appUrl,
     headers: request.headers,
     resHeaders,

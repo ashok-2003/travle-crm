@@ -2,6 +2,7 @@
 // app's address that emails link to. Part of the api's one checked environment (environment.ts).
 import { z } from "zod";
 import { isMetaTokenKey } from "./meta-variables.js";
+import { isWebhookToken } from "./whatsapp-variables.js";
 import { decodeServiceAccounts } from "./sheets-settings.js";
 
 const httpUrl = z.url({ protocol: /^https?$/, message: "must be an http(s) URL" });
@@ -110,6 +111,18 @@ export const serviceVariables = {
       })
       .optional(),
   ),
+  /**
+   * WhatsApp through MSG91 (ADR 0035, spec 13): all three or none (environment.ts checks the group). The account's API key,
+   * and two secrets of at least 32 random characters that MSG91's panel is set to send: the webhook path's last segment
+   * (letters, digits, - and _) and the value of the `x-travel-crm-key` header. The values are never printed or logged.
+   */
+  MSG91_AUTHKEY: emptyAsUnset(z.string().min(8, "must be MSG91's API key").optional()),
+  MSG91_WEBHOOK_TOKEN: emptyAsUnset(
+    z.string().refine(isWebhookToken, "must be 32 or more letters, digits, - or _ (`openssl rand -hex 32`)").optional(),
+  ),
+  MSG91_WEBHOOK_KEY: emptyAsUnset(z.string().min(32, "must be at least 32 characters").optional()),
+  /** The journeys' fake MSG91 (development and tests only; refused in production). */
+  MSG91_TEST_SERVER_URL: emptyAsUnset(httpUrl.optional()),
   /** The journeys' fake Graph (development and tests only; refused in production). */
   META_GRAPH_TEST_SERVER_URL: emptyAsUnset(httpUrl.optional()),
   /** The journeys' fake Google (development and tests only; refused in production, S17). */

@@ -76,7 +76,7 @@ export function earlierLeadsListener(dependencies: EarlierLeadsDependencies): Ev
       if (token === null || form.state === "not_brought_in") return;
       const now = new Date();
       const since = Math.floor(now.getTime() / 1000) - earlierLeadDays * DAY_SECONDS;
-      const read = await readFormLeads(dependencies, services.graph, page, form, token, since);
+      const read = await readFormLeads(dependencies, services.graph, page, form, token, since, now);
       if (!read.ok) throw new Error(`Meta earlier leads read failed: ${read.failure.reason}`);
       const zone = (await dependencies.identity.organizationProfile(page.organizationId))?.timeZone ?? "Asia/Kolkata";
       const edge = now.getTime() - catchupOverlapSeconds * 1000;

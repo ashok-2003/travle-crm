@@ -10,6 +10,7 @@ import type { IdentityTx, OrgTx } from "../src/for-org.js";
 import { createIdentityDatabase, type IdentityClient, type IdentityDatabase } from "../src/identity.js";
 import { createPlatformClient, type PlatformClient } from "../src/platform.js";
 import { rateLimitCounters } from "../src/rate-limits.js";
+import { whatsappNumberRoutes, whatsappUnrouted } from "../src/whatsapp-routes.js";
 import { sheetsKeyChecks } from "../src/sheets-key-check.js";
 import { webhookEvents } from "../src/webhooks.js";
 import { createTestOrganization } from "./helpers.js";
@@ -70,7 +71,13 @@ describe("tables without organization_id", () => {
   });
 
   it("are refused inside the identity client's own transactions, which can't be extended away", async () => {
-    for (const model of ["webhookEvent", "rateLimitCounter", "sheetsKeyCheck"]) {
+    for (const model of [
+      "webhookEvent",
+      "rateLimitCounter",
+      "sheetsKeyCheck",
+      "whatsappNumberRoute",
+      "whatsappUnrouted",
+    ]) {
       await expect(identity.client.$transaction((tx) => reachFor(tx, model))).rejects.toBeInstanceOf(
         UnscopedModelError,
       );
@@ -81,7 +88,13 @@ describe("tables without organization_id", () => {
   });
 
   it("are refused at run time when a cast reaches past the types", async () => {
-    for (const model of ["webhookEvent", "rateLimitCounter", "sheetsKeyCheck"]) {
+    for (const model of [
+      "webhookEvent",
+      "rateLimitCounter",
+      "sheetsKeyCheck",
+      "whatsappNumberRoute",
+      "whatsappUnrouted",
+    ]) {
       await expect(db.forOrg(organizationId, (tx) => reachFor(tx, model))).rejects.toBeInstanceOf(UnscopedModelError);
       await expect(identity.forOrg(organizationId, (tx) => reachFor(tx, model))).rejects.toBeInstanceOf(
         UnscopedModelError,
@@ -101,6 +114,12 @@ describe("tables without organization_id", () => {
       UnscopedModelError,
     );
     await expect(db.forOrg(organizationId, (tx) => sheetsKeyChecks(tx).count())).rejects.toBeInstanceOf(
+      UnscopedModelError,
+    );
+    await expect(db.forOrg(organizationId, (tx) => whatsappNumberRoutes(tx).count())).rejects.toBeInstanceOf(
+      UnscopedModelError,
+    );
+    await expect(db.forOrg(organizationId, (tx) => whatsappUnrouted(tx).count())).rejects.toBeInstanceOf(
       UnscopedModelError,
     );
   });

@@ -15,6 +15,7 @@ describe("visibleConsoleItems", () => {
       "home",
       "onboard",
       "plans",
+      "whatsapp",
       "jobs",
       "log",
       "staff",
@@ -22,7 +23,14 @@ describe("visibleConsoleItems", () => {
   });
 
   it("shows support everything but Staff", () => {
-    expect(keys(visibleConsoleItems(platformStaff("support")))).toEqual(["home", "onboard", "plans", "jobs", "log"]);
+    expect(keys(visibleConsoleItems(platformStaff("support")))).toEqual([
+      "home",
+      "onboard",
+      "plans",
+      "whatsapp",
+      "jobs",
+      "log",
+    ]);
   });
 
   it("leads each item to its console route", () => {
@@ -30,6 +38,7 @@ describe("visibleConsoleItems", () => {
       home: consoleRoutes.home,
       onboard: consoleRoutes.onboard,
       plans: consoleRoutes.plans,
+      whatsapp: consoleRoutes.whatsapp,
       jobs: consoleRoutes.jobs,
       log: consoleRoutes.log,
       staff: consoleRoutes.staff,

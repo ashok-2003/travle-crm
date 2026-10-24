@@ -13,6 +13,7 @@ import {
   FolderIcon,
   HistoryIcon,
   ListChecksIcon,
+  MessageCircleIcon,
   MapPinIcon,
   PaletteIcon,
   ShuffleIcon,
@@ -47,6 +48,7 @@ interface Section {
     | "blockedContacts"
     | "leadSources"
     | "assignment"
+    | "whatsapp"
     | "audit";
   href: string;
   icon: LucideIcon;
@@ -78,6 +80,7 @@ const sections: readonly Section[] = [
     requires: ["settings:manage", "leads:assign"],
     module: "crm",
   },
+  { key: "whatsapp", href: routes.whatsapp, icon: MessageCircleIcon, requires: "settings:manage", module: "inbox" },
   { key: "audit", href: routes.audit, icon: HistoryIcon, requires: "audit:view" },
 ];
 

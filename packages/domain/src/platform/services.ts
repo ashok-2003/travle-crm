@@ -13,6 +13,8 @@ import type { Logger } from "@travel-crm/integrations/logging";
 import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import type { Identity } from "../identity/index.js";
 
+import type { PlatformWhatsApp } from "./whatsapp-settings.js";
+
 export interface PlatformServices {
   /** The platform role: every organization, in transactions that can step into one (asOrganization). */
   platformDb: PlatformDatabase;
@@ -31,6 +33,8 @@ export interface PlatformServices {
    * of an organization that has sheets cannot be erased without it.
    */
   sheetsHashes?: SheetsHashes | null;
+  /** WhatsApp through MSG91 (ADR 0035): the webhook block and the provider for checks; null or absent when the settings are not set. */
+  whatsapp?: PlatformWhatsApp | null;
   /**
    * The console process's structured log (ADR 0032), for what goes wrong after a commit with no one to tell: ids, codes,
    * counts and timings only. Required, so a process can't forget it; tests pass a memory logger.

@@ -5,14 +5,14 @@ module.exports = {
       name: "db-internals-stay-in-db",
       comment:
         "Other packages reach @travel-crm/db only through its entry points (index, identity, platform, webhooks, " +
-        "rate-limits, sheet-schedule, sheets-key-check, meta-routes, and the test-only testing files), so the raw Prisma client and the generated code never leak " +
+        "rate-limits, sheet-schedule, sheets-key-check, meta-routes, whatsapp-routes, and the test-only testing files), so the raw Prisma client and the generated code never leak " +
         "out of the package.",
       severity: "error",
       from: { path: "^(apps|packages)/", pathNot: "^packages/db/" },
       to: {
         path: "^packages/db/(src|test)/",
         pathNot:
-          "^packages/db/(src/(index|identity|platform|webhooks|rate-limits|sheet-schedule|sheets-key-check|meta-routes)|test/(testing|global-setup))\\.ts$",
+          "^packages/db/(src/(index|identity|platform|webhooks|rate-limits|sheet-schedule|sheets-key-check|meta-routes|whatsapp-routes)|test/(testing|global-setup))\\.ts$",
       },
     },
     {
@@ -68,6 +68,18 @@ module.exports = {
         ],
       },
       to: { path: "^packages/db/src/meta-routes\\.ts$" },
+    },
+    {
+      name: "whatsapp-routes-only-in-inbox",
+      comment:
+        "@travel-crm/db/whatsapp-routes reaches whatsapp_number_route and whatsapp_unrouted, which have no row-level " +
+        "security (ids, numbers and counts only; ADR 0035). Only the inbox module's routes.ts may use it, and the tests " +
+        "that arrange or read those tables.",
+      severity: "error",
+      from: {
+        pathNot: ["^packages/db/", "^packages/domain/(src/inbox/routes\\.ts|test/(inbox|performance|platform)/)"],
+      },
+      to: { path: "^packages/db/src/whatsapp-routes\\.ts$" },
     },
     {
       name: "sheets-key-check-only-in-the-api-start-up",
@@ -205,12 +217,12 @@ module.exports = {
       name: "business-modules-call-down",
       comment:
         "The business modules are layered (spec 6, 8): catalog, tasks, imports, exports, sheets, meta-leads and website-forms at L0, crm at L1, " +
-        "today and insights above them. A module calls only down: the L0 modules never call crm, today or insights, " +
+        "today, inbox and insights above them. A module calls only down: the L0 modules never call crm, today or insights, " +
         "and crm never calls today or insights. An action spanning two modules is the higher one's, or its router " +
         "calls both (R22).",
       severity: "error",
       from: { path: "^packages/domain/src/(catalog|tasks|imports|exports|sheets|meta-leads|website-forms|crm)/" },
-      to: { path: "^packages/domain/src/(crm|today|insights)/", pathNot: "^packages/domain/src/$1/" },
+      to: { path: "^packages/domain/src/(crm|inbox|today|insights)/", pathNot: "^packages/domain/src/$1/" },
     },
     {
       name: "imports-and-exports-never-call-sheets",

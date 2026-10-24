@@ -16,6 +16,8 @@ export const leadEventKinds = [
   "follow-up-cancelled",
   "repeat-enquiry",
   "trip-edited",
+  /** The thread restarted on WhatsApp after a quiet day (the chat is the person's, so no enquiry per message). */
+  "whatsapp-contact",
 ] as const;
 export const leadEventKind = z.enum(leadEventKinds);
 export type LeadEventKind = z.infer<typeof leadEventKind>;
@@ -56,6 +58,7 @@ export const timelineEntry = z.discriminatedUnion("kind", [
     }),
   }),
   z.object({ ...entry, kind: z.literal("trip-edited") }),
+  z.object({ ...entry, kind: z.literal("whatsapp-contact") }),
 ]);
 export type TimelineEntry = z.infer<typeof timelineEntry>;
 

@@ -116,6 +116,7 @@ function entryOf(
       return enquiry === undefined ? null : { ...base, kind, enquiry };
     }
     case "trip-edited":
+    case "whatsapp-contact":
       return { ...base, kind };
   }
 }

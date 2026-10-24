@@ -25,6 +25,7 @@ describe("permission catalog", () => {
         "money",
         "documents",
         "leads",
+        "inbox",
         "quotes",
         "bookings",
         "departures",
@@ -45,7 +46,7 @@ describe("permission catalog", () => {
 
   it("marks the views of assignable records as scoped", () => {
     const scoped = permissionCatalog.filter((entry) => entry.scoped).map((entry) => entry.permission);
-    expect(scoped).toEqual(["leads:view", "quotes:view", "bookings:view"]);
+    expect(scoped).toEqual(["leads:view", "quotes:view", "bookings:view", "inbox:view"]);
   });
 });
 

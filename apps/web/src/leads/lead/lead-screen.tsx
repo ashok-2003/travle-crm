@@ -21,6 +21,7 @@ import { refusalOf } from "@/data/api-error";
 import { useElementHeight } from "@/lib/use-element-height";
 import { useMe, viewScope } from "@/session/me-context";
 import { listFiltersHref, listFiltersOf } from "../list/list-filters";
+import { LeadChat } from "@/inbox/lead-chat";
 import { LeadHeader } from "./lead-header";
 import { OwnerCard } from "./owner-card";
 import { PersonCard } from "./person-card";
@@ -47,6 +48,7 @@ function LeadColumns({ lead }: { lead: LeadDetail }) {
         <PersonCard lead={lead} />
         <TripCard lead={lead} />
         <OwnerCard lead={lead} />
+        <LeadChat leadId={lead.id} />
       </div>
       <div
         ref={timeline}

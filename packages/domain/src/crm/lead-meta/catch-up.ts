@@ -117,6 +117,7 @@ async function catchUpForm(dependencies: MetaProcessDependencies, run: FormRun):
     form,
     token,
     Math.max(0, Number(form.catchupCursor ?? 0n) - catchupOverlapSeconds),
+    now,
   );
   if (!read.ok) {
     const { failure } = read;
