@@ -83,6 +83,23 @@ const TWO_FACTOR_SHOTS = [
   { name: "whatsapp-lead-section", screen: "A lead's page: its WhatsApp chat and Open in the inbox", as: owner },
   { name: "whatsapp-console-list", screen: "The console's WhatsApp numbers", as: superAdmin },
   { name: "whatsapp-console-organization", screen: "An organization's page with its WhatsApp group", as: superAdmin },
+  // WhatsApp (part 3): the templates.
+  {
+    name: "whatsapp-templates",
+    screen: "Settings, WhatsApp: the templates (approved, waiting, rejected with its reason)",
+    as: owner,
+  },
+  {
+    name: "whatsapp-template-new",
+    screen: "New template: its words, kind and a blank's source and example",
+    as: owner,
+  },
+  {
+    name: "whatsapp-window-closed",
+    screen: "A chat whose 24-hour window closed: the note and Send a template",
+    as: owner,
+  },
+  { name: "whatsapp-send-template", screen: "Send a template: the choice, the blanks, the preview", as: owner },
 ] as const satisfies readonly Shot[];
 
 export const SHOTS = [
@@ -398,6 +415,23 @@ export const SHOTS = [
   { name: "whatsapp-lead-section", screen: "A lead's page: its WhatsApp chat and Open in the inbox", as: owner },
   { name: "whatsapp-console-list", screen: "The console's WhatsApp numbers", as: superAdmin },
   { name: "whatsapp-console-organization", screen: "An organization's page with its WhatsApp group", as: superAdmin },
+  // WhatsApp (part 3): the templates.
+  {
+    name: "whatsapp-templates",
+    screen: "Settings, WhatsApp: the templates (approved, waiting, rejected with its reason)",
+    as: owner,
+  },
+  {
+    name: "whatsapp-template-new",
+    screen: "New template: its words, kind and a blank's source and example",
+    as: owner,
+  },
+  {
+    name: "whatsapp-window-closed",
+    screen: "A chat whose 24-hour window closed: the note and Send a template",
+    as: owner,
+  },
+  { name: "whatsapp-send-template", screen: "Send a template: the choice, the blanks, the preview", as: owner },
 ] as const satisfies readonly Shot[];
 
 export type ShotName = (typeof SHOTS)[number]["name"];

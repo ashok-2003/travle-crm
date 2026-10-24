@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/page-header";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Details } from "@/components/details";
+import { formatPhoneNumber } from "@/lib/format";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
 import { useHolds } from "@/session/me-context";
@@ -54,7 +55,9 @@ export function WhatsappSettingsScreen() {
                 label: t("status"),
                 value: <StatusBadge tone={tones[connectionStatus] ?? "neutral"}>{t(connectionStatus)}</StatusBadge>,
               },
-              ...(number === null ? [] : [{ label: t("number"), value: <span className="numbers">{number}</span> }]),
+              ...(number === null
+                ? []
+                : [{ label: t("number"), value: <span className="numbers">{formatPhoneNumber(number)}</span> }]),
             ]}
           />
         </div>
