@@ -45,6 +45,9 @@ export const whatsappSendContentTypes = [
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   "text/plain",
+  // A voice note: Opus in Ogg, or MP4 audio. WebM is not accepted by WhatsApp.
+  "audio/ogg",
+  "audio/mp4",
 ] as const;
 
 /** The most a sent file may be: 16 MB, WhatsApp's video limit, for all kinds. */

@@ -182,10 +182,13 @@ async function callProvider(
   });
   if (file === undefined) return "file_missing";
   const link = await dependencies.files.systemDownloadLink(organizationId, { attachmentId: file.id });
-  const kind = message.kind === "image" || message.kind === "video" ? message.kind : "document";
+  const kind =
+    message.kind === "image" || message.kind === "video" || message.kind === "audio" ? message.kind : "document";
   return provider.sendMedia(message.integratedNumber, message.phoneE164, {
     kind,
     url: link.url,
+    // A voice note is Ogg Opus sent with Meta's voice flag, so it shows as one. SPIKE(S4): how MSG91 takes the flag.
+    ...(message.kind === "audio" && file.contentType === "audio/ogg" ? { voice: true } : {}),
     ...(message.caption === null ? {} : { caption: message.caption }),
     ...(message.fileName === null ? {} : { fileName: message.fileName }),
   });

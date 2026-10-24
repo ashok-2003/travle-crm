@@ -96,6 +96,8 @@ export function createRealWhatsAppProvider(options: RealWhatsAppProviderOptions)
         url: media.url,
         ...(media.caption === undefined ? {} : { caption: media.caption }),
         ...(media.fileName === undefined ? {} : { filename: media.fileName }),
+        // SPIKE(S4): Meta's `voice` flag for Ogg Opus audio; the name MSG91 gives it is not confirmed.
+        ...(media.voice === true ? { voice: true } : {}),
       }),
     sendTemplate: async (number, to, template: WhatsAppTemplateSend) => {
       const components = Object.fromEntries(

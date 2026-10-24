@@ -54,6 +54,22 @@ The owner chose the default in all six (2026-10-23). They are binding: build exa
    if the person has not asked to stop and staff tick "they agreed to WhatsApp messages" (recorded once, with who and when).
    Why: Meta requires opt-in, and the DPDP burden of proof is on the sender.
 
+**The owner's additions (2026-10-24), built in part 3d:**
+
+7. **A WhatsApp-like chat.** The chat has a height of its own: the messages scroll inside it (the registry `scroll-area`), it
+   opens at the newest message, and the reply box stays pinned at the bottom, on a phone and a computer, in the inbox and on
+   the lead's page (a smaller box there). A new message scrolls into view only when the person is already at the bottom, or
+   sent it; otherwise a "New messages" button jumps there. Earlier messages load at the top as the person scrolls up.
+8. **Emoji on computers.** An emoji button beside the clip inserts at the cursor. The shadcn registry has no emoji picker, so
+   it is Frimousse's registry item (`frimousse` 0.4.0, pinned). Its data is `emojibase-data` (17.0.0, pinned), served from our
+   own origin at `/emojibase`, never a CDN (the content security policy). Phones, whose keyboards have emoji, do not show it.
+9. **Voice notes.** A microphone button records with the browser's MediaRecorder (the microphone is asked for on the first
+   press, and a refusal says how to allow it), with a running time, Cancel and Send, for at most five minutes and 16 MB. It
+   records `audio/ogg;codecs=opus` where the browser can, else `audio/mp4`, else WebM Opus, which a small remuxer of our own
+   turns into Ogg Opus before the upload (WhatsApp refuses WebM). It goes through the file upload and media send, and an Ogg
+   Opus file is sent with Meta's `voice` flag (`SPIKE(S4)`: how MSG91 takes it). The page's Permissions-Policy allows the
+   microphone for our own origin (`microphone=(self)`).
+
 ## 1. Why this feature
 
 Indian travel enquiries mostly happen on WhatsApp. Today they live on one phone: whoever holds it answers, nobody else sees
@@ -351,7 +367,7 @@ page says so in the same sentence as 3.1.
 - **S4. Media out** (an image, a PDF or other document, a video): the browser uploads straight to storage (`uploadFile()`),
   then `inbox.sendMedia` names the confirmed file; the listener gives the port a presigned download link valid for 10 minutes
   (S4 spike: or uploads the bytes). Limits as WhatsApp's: images 5 MB, video 16 MB, documents 100 MB; we cap at 16 MB for all
-  (constant). Allowed types: jpeg, png, mp4, pdf, docx, xlsx, pptx, txt. No audio or voice-note sending, no stickers.
+  (constant). Allowed types: jpeg, png, mp4, pdf, docx, xlsx, pptx, txt. Voice notes (section 0, item 9) are sent as audio; no stickers.
   The sent file stays attached to the message.
 - **S5. Budgets.** Sends pass the rate-limits module per organization (60 a minute; a constant) and a platform ceiling (a second
   constant, below MSG91's own once S6 tells it). Over budget a message waits `queued` and is retried by the listener.
@@ -784,7 +800,7 @@ an unconfirmed field name.
 - **D12.** Messages are stored in plain columns in Postgres under row-level security; there is no per-message encryption
   (the database and backups are the agency's trust boundary, like notes and files). Changing this later is a column-level
   sealing with `SecretBox`.
-- **D13.** Voice-note sending, stickers out and reactions out are not built; a customer's voice note shows as a player.
+- **D13.** Stickers out and reactions out are not built. A customer's voice note shows as a player, and staff may record and send voice notes (the owner's addition of 2026-10-24, section 0, item 9).
 - **D14.** Authentication templates are not offered (no one-time codes in this product).
 - **D15.** The 7-day Click-to-WhatsApp free window and Meta's pricing are not modelled; the product counts messages by kind and
   leaves cost to MSG91's and Meta's statements.

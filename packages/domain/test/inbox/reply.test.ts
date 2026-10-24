@@ -308,6 +308,42 @@ describe("replying on WhatsApp", () => {
     expect(files).toHaveLength(1);
   });
 
+  it("sends an Ogg voice note as audio with the voice flag", async () => {
+    const { connection, conversation, member } = await chat();
+    const deps = { db: test.db, files: test.files };
+    const at = new Date(testNow.getTime() + HOUR);
+    const bytes = new Uint8Array([79, 103, 103, 83, 1, 2, 3]);
+    const slot = await requestMediaUpload(
+      deps,
+      member,
+      {
+        conversationId: conversation.id,
+        fileName: "voice-note.ogg",
+        contentType: "audio/ogg",
+        sizeBytes: bytes.byteLength,
+      },
+      context,
+      at,
+    );
+    await test.storage.upload({ ...slot.upload, expiresAt: new Date(slot.upload.expiresAt) }, bytes, "audio/ogg");
+    const queued = await queueMedia(
+      deps,
+      member,
+      {
+        conversationId: conversation.id,
+        messageId: slot.messageId,
+        attachmentId: slot.attachmentId,
+        clientToken: randomUUID(),
+      },
+      context,
+      at,
+    );
+    expect(await send(connection, queued.messageId, at)).toBe("sent");
+    expect(await messageRow(connection, queued.messageId)).toMatchObject({ kind: "audio", fileName: "voice-note.ogg" });
+    const sentAudio = test.provider.sent.find((sent) => sent.media?.kind === "audio");
+    expect(sentAudio?.media).toMatchObject({ kind: "audio", voice: true });
+  });
+
   it("refuses a file of a kind or size WhatsApp does not take here, and a file that was never uploaded", async () => {
     const { conversation, member } = await chat();
     const deps = { db: test.db, files: test.files };

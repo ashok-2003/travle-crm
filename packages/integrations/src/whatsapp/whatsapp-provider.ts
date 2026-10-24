@@ -33,6 +33,8 @@ export interface WhatsAppMediaToSend {
   url: string;
   caption?: string;
   fileName?: string;
+  /** An Ogg Opus voice note, sent as one. SPIKE(S4). */
+  voice?: boolean;
 }
 
 export interface WhatsAppTemplateSend {

@@ -154,7 +154,13 @@ export async function queueText(
 
 /** The kind of message a file is sent as. */
 const kindOf = (contentType: string) =>
-  contentType.startsWith("image/") ? "image" : contentType.startsWith("video/") ? "video" : "document";
+  contentType.startsWith("image/")
+    ? "image"
+    : contentType.startsWith("video/")
+      ? "video"
+      : contentType.startsWith("audio/")
+        ? "audio"
+        : "document";
 
 /** The kinds and size of file WhatsApp takes from here; the api's schema says the same, the domain does not rely on it. */
 function assertSendable(contentType: string, sizeBytes: number): void {
