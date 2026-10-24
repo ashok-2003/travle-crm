@@ -183,6 +183,7 @@ export async function conversationHeaderOf(
         : { id: shown.id, stage: shown.stage, ownerUserId: shown.ownerUserId, open: isOpen(shown.stage) },
     pastCustomer: leads.length > 0 && !leads.some((lead) => isOpen(lead.stage)),
     windowOpenUntil: windowEnd !== null && windowEnd.getTime() > now.getTime() ? windowEnd.toISOString() : null,
+    lastInboundAt: row.lastInboundAt?.toISOString() ?? null,
     needsReply: row.needsReply,
     state: row.state === "erased" ? "erased" : "open",
   });

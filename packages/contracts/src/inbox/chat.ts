@@ -92,6 +92,8 @@ export const conversationHeader = z.object({
   pastCustomer: z.boolean(),
   /** The 24-hour window: until when free text may be sent, or null when it is closed or the customer never wrote. */
   windowOpenUntil: timestamp.nullable(),
+  /** The customer's latest message: the window closed 24 hours after it. Null when they never wrote. */
+  lastInboundAt: timestamp.nullable(),
   needsReply: z.boolean(),
   state: z.enum(["open", "erased"]),
 });
