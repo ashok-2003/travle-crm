@@ -10,6 +10,7 @@ import { Fragment, type ReactNode } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
+import { PageTitle } from "@/components/page-title";
 import { ShowMoreButton } from "@/components/show-more-button";
 import { TextLink } from "@/components/text-link";
 import { Separator } from "@/components/ui/separator";
@@ -27,16 +28,20 @@ const dayKey = (instant: string, timeZone: string) =>
     new Date(instant),
   );
 
-function Header({ header }: { header: ConversationHeader }) {
+function Header({ header, asPageTitle }: { header: ConversationHeader; asPageTitle: boolean }) {
   const t = useTranslations("inbox.chat");
   const tStages = useTranslations("leads.stages");
-  const name = header.name ?? t("unknownName");
+  // A number nobody has a name for is shown as the number, in the title's place.
+  const name = header.name ?? formatPhoneNumber(header.phone);
+  const title = header.lead === null ? name : <TextLink href={leadRoute(header.lead.id)}>{name}</TextLink>;
   return (
     <div className="flex flex-col gap-1">
-      <h2 className="text-section font-semibold script-leading">
-        {header.lead === null ? name : <TextLink href={leadRoute(header.lead.id)}>{name}</TextLink>}
-      </h2>
-      <p className="numbers text-muted-foreground">{formatPhoneNumber(header.phone)}</p>
+      {asPageTitle ? (
+        <PageTitle className="script-leading">{title}</PageTitle>
+      ) : (
+        <h2 className="text-section font-semibold script-leading">{title}</h2>
+      )}
+      {header.name !== null && <p className="numbers text-muted-foreground">{formatPhoneNumber(header.phone)}</p>}
       {header.lead !== null && (
         <p className="text-label">{t("stage", { stage: tStages(header.lead.stage as never) })}</p>
       )}
@@ -107,7 +112,13 @@ function Messages({ conversationId }: { conversationId: string }) {
   );
 }
 
-export function ChatPanel({ conversationId }: { conversationId: string }) {
+/**
+ * `inbox`: beside the list on a computer, with its header; `page`: the phone's page of its own, where the person is the
+ * page's title; `lead`: inside the lead's page, which already shows the person, so only the chat.
+ */
+export type ChatVariant = "inbox" | "page" | "lead";
+
+export function ChatPanel({ conversationId, variant = "inbox" }: { conversationId: string; variant?: ChatVariant }) {
   const t = useTranslations("inbox.chat");
   const header = useConversation(conversationId);
   const mayStartLead = useHolds("leads:create");
@@ -129,9 +140,12 @@ export function ChatPanel({ conversationId }: { conversationId: string }) {
   }
   const data = header.data;
   return (
-    <section className="flex flex-col gap-4" aria-label={t("region", { name: data.name ?? t("unknownName") })}>
-      <Header header={data} />
-      {mayStartLead && data.pastCustomer && <StartLeadButton conversationId={data.id} />}
+    <section
+      className="flex flex-col gap-4"
+      aria-label={t("region", { name: data.name ?? formatPhoneNumber(data.phone) })}
+    >
+      {variant !== "lead" && <Header header={data} asPageTitle={variant === "page"} />}
+      {variant !== "lead" && mayStartLead && data.pastCustomer && <StartLeadButton conversationId={data.id} />}
       <Messages conversationId={data.id} />
       {data.state === "open" && <WindowLine header={data} />}
     </section>

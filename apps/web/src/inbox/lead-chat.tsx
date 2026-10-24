@@ -34,7 +34,7 @@ export function LeadChat({ leadId }: { leadId: string }) {
           <p className="text-muted-foreground">{t("none")}</p>
         ) : (
           <>
-            <ChatPanel conversationId={conversationId} />
+            <ChatPanel conversationId={conversationId} variant="lead" />
             <TextLink href={inboxRoute(conversationId)}>{t("open")}</TextLink>
           </>
         )}

@@ -126,7 +126,7 @@ export function InboxScreen({ conversationId }: { conversationId: string | null 
       ) : (
         <div className="flex flex-col gap-4">
           <BackLink href={routes.inbox} label={t("back")} />
-          <ChatPanel conversationId={conversationId} />
+          <ChatPanel conversationId={conversationId} variant="page" />
         </div>
       );
     }
@@ -142,9 +142,11 @@ export function InboxScreen({ conversationId }: { conversationId: string | null 
     );
   };
 
+  // On a phone a chat is a page of its own, and the person is its title: the Inbox title above would repeat the list's.
+  const chatPage = !wide && conversationId !== null && configured && connected;
   return (
     <div className="flex max-w-[1200px] flex-col gap-6">
-      <PageHeader title={t("title")} intro={t("intro")} />
+      {!chatPage && <PageHeader title={t("title")} intro={t("intro")} />}
       {notice !== null && (
         <Alert>
           <AlertDescription>{notice}</AlertDescription>
