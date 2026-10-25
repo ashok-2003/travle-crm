@@ -19,6 +19,8 @@ import { keepTabValue, readTabValue } from "@/lib/tab-storage";
 import { ConversationList } from "./conversation-list";
 import { useConversations } from "./use-inbox";
 import { useTags } from "./use-inbox-tools";
+import { PipelineBar } from "./pipeline-bar";
+import { useInboxSummary } from "./use-sales-inbox";
 
 const SEARCH_KEY = "inbox.search";
 const FILTER_KEY = "inbox.filter";
@@ -30,6 +32,7 @@ const filters = [
   "all",
   "mine",
   "unassigned",
+  "snoozed",
   "archived",
 ] as const satisfies readonly ConversationFilter[];
 const isFilter = (value: string | null): value is ConversationFilter =>
@@ -40,6 +43,7 @@ const filterLabel = {
   all: "filterAll",
   mine: "filterMine",
   unassigned: "filterUnassigned",
+  snoozed: "filterSnoozed",
   archived: "filterArchived",
 } as const;
 
@@ -63,6 +67,17 @@ export function InboxList({ currentId }: { currentId: string | null }) {
   // A kept tag that was since deleted counts as none.
   const tagId = tags.data?.some((tag) => tag.id === tagChoice) === true ? tagChoice : null;
   const chats = useConversations({ filter, search: search.length >= 2 ? search : "", tagId });
+  const summary = useInboxSummary();
+  const countOf = (value: ConversationFilter): number | null => {
+    const counts = summary.data;
+    if (counts === undefined) return null;
+    if (value === "waiting") return counts.waiting;
+    if (value === "unread") return counts.unread;
+    if (value === "mine") return counts.mine;
+    if (value === "unassigned") return counts.unassigned;
+    if (value === "snoozed") return counts.snoozed;
+    return null;
+  };
 
   const body = () => {
     if (chats.items === undefined) {
@@ -86,7 +101,9 @@ export function InboxList({ currentId }: { currentId: string | null }) {
             ? "emptyUnread"
             : filter === "archived"
               ? "emptyArchived"
-              : "empty";
+              : filter === "snoozed"
+                ? "emptySnoozed"
+                : "empty";
       return <EmptyState icon={MessageCircleIcon} message={t(empty)} />;
     }
     return (
@@ -102,13 +119,16 @@ export function InboxList({ currentId }: { currentId: string | null }) {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 flex-col gap-3 px-3 pt-3 pb-2">
-        <SearchField
-          initial={search}
-          onSearch={setSearch}
-          label={t("search")}
-          placeholder={t("searchPlaceholder")}
-          className="md:w-full"
-        />
+        {summary.data !== undefined && <PipelineBar summary={summary.data} />}
+        <div data-inbox-search>
+          <SearchField
+            initial={search}
+            onSearch={setSearch}
+            label={t("search")}
+            placeholder={t("searchPlaceholder")}
+            className="md:w-full"
+          />
+        </div>
         <div className="-mx-3 overflow-x-auto px-3">
           <ToggleGroup
             type="single"
@@ -120,11 +140,24 @@ export function InboxList({ currentId }: { currentId: string | null }) {
             }}
             className="w-max pb-1"
           >
-            {filters.map((value) => (
-              <ToggleGroupItem key={value} value={value} className="rounded-full px-3">
-                {t(filterLabel[value])}
-              </ToggleGroupItem>
-            ))}
+            {filters.map((value) => {
+              const count = countOf(value);
+              const late = value === "waiting" ? (summary.data?.late ?? 0) : 0;
+              return (
+                <ToggleGroupItem key={value} value={value} className="gap-1.5 rounded-full px-3">
+                  {t(filterLabel[value])}
+                  {count !== null && count > 0 && <span className="numbers text-caption">{count}</span>}
+                  {late > 0 && (
+                    <span
+                      className="rounded-full bg-status-bad-dot px-1.5 text-caption font-semibold text-primary-foreground"
+                      aria-label={t("lateCount", { count: late })}
+                    >
+                      {late}
+                    </span>
+                  )}
+                </ToggleGroupItem>
+              );
+            })}
           </ToggleGroup>
         </div>
         {tags.data !== undefined && tags.data.length > 0 && (

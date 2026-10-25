@@ -29,6 +29,8 @@ import { useWriteAccess } from "@/subscription/write-access";
 import { EmojiButton } from "./emoji-button";
 import { fillBlanks, matchingReplies, QuickReplyList, typedShortcut } from "./quick-reply-list";
 import { useQuickReplies } from "./use-inbox-tools";
+import { ScheduleButton } from "./schedule-button";
+import { useTypingSignal } from "./use-sales-inbox";
 import { useReply } from "./use-reply";
 import { useVoiceNote } from "./voice/use-voice-note";
 import { MicButton, RecordingRow, VoiceProblemNote } from "./voice/voice-controls";
@@ -53,6 +55,7 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
   const picker = useRef<HTMLInputElement>(null);
   const box = useRef<HTMLTextAreaElement>(null);
   const wide = useWideScreen();
+  const signalTyping = useTypingSignal(conversationId);
   const reply = useReply(conversationId, () => {
     setText("");
     setFile(null);
@@ -222,6 +225,7 @@ ${filled}`;
                 disabled={!access.allowed}
                 onChange={(event) => {
                   setText(event.target.value);
+                  signalTyping();
                   setListShut(false);
                   setActive(0);
                 }}
@@ -258,6 +262,16 @@ ${filled}`;
               </InputGroupAddon>
             </InputGroup>
           </div>
+          {words !== "" && file === null && (
+            <ScheduleButton
+              conversationId={conversationId}
+              text={words}
+              disabled={!access.allowed || reply.pending}
+              onScheduled={() => {
+                setText("");
+              }}
+            />
+          )}
           {voice.available && words === "" && file === null && !reply.pending ? (
             <MicButton disabled={!access.allowed || voice.phase === "starting"} onStart={() => void voice.start()} />
           ) : (

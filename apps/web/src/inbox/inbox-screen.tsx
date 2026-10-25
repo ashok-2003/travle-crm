@@ -20,6 +20,7 @@ import { ChatPanel } from "./chat-panel";
 import { InboxList } from "./inbox-list";
 import { NotSetUp } from "./not-set-up";
 import { useInboxStatus } from "./use-inbox";
+import { useInboxKeys } from "./use-inbox-keys";
 
 /** The page's own padding, for the states that are a page of words rather than the inbox itself. */
 function Padded({ children }: { children: ReactNode }) {
@@ -30,6 +31,7 @@ export function InboxScreen({ conversationId }: { conversationId: string | null 
   const t = useTranslations("inbox");
   const wide = useWideScreen();
   const status = useInboxStatus();
+  useInboxKeys(conversationId);
 
   const fill = useFillScreen<HTMLDivElement>();
   const frame = (children: ReactNode) => (

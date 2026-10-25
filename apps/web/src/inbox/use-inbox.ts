@@ -54,12 +54,27 @@ export function useConversation(conversationId: string) {
   return { ...query, valid };
 }
 
-export function useMessages(conversationId: string, enabled: boolean) {
+/** A search in the chat: words to find, and whether only the starred messages show. */
+export interface MessageFilter {
+  search: string;
+  starredOnly: boolean;
+}
+
+export function useMessages(
+  conversationId: string,
+  enabled: boolean,
+  filter: MessageFilter = { search: "", starredOnly: false },
+) {
   const trpc = useTRPC();
   const client = useTRPCClient();
+  const narrowing = {
+    ...(filter.search.length >= 2 && { search: filter.search }),
+    ...(filter.starredOnly && { starredOnly: true }),
+  };
   return useCursorPages({
-    queryKey: [...trpc.inbox.messages.pathKey(), conversationId],
-    page: (cursor) => client.inbox.messages.query({ conversationId, ...(cursor !== null && { before: cursor }) }),
+    queryKey: [...trpc.inbox.messages.pathKey(), conversationId, narrowing],
+    page: (cursor) =>
+      client.inbox.messages.query({ conversationId, ...narrowing, ...(cursor !== null && { before: cursor }) }),
     items: (page) => page.items,
     enabled,
     staleTime: LIVE,

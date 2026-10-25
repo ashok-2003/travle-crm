@@ -7,7 +7,7 @@
 // agency's tags. The open chat is marked as the current link.
 import type { LeadStage } from "@travel-crm/contracts/crm";
 import type { ConversationListItem } from "@travel-crm/contracts/inbox";
-import { PinIcon } from "lucide-react";
+import { AlarmClockIcon, PinIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Fragment } from "react";
@@ -21,6 +21,7 @@ import { useMe } from "@/session/me-context";
 import { ChatAvatar } from "./chat-avatar";
 import { Ticks } from "./ticks";
 import { useOwners } from "./use-owner-names";
+import { WaitTimer } from "./wait-timer";
 
 export function ConversationList({ items, currentId }: { items: ConversationListItem[]; currentId: string | null }) {
   const t = useTranslations("inbox");
@@ -48,7 +49,12 @@ export function ConversationList({ items, currentId }: { items: ConversationList
                 size="sm"
                 className={cn("rounded-none px-3 py-3 hover:bg-chat-bar", current && "bg-hairline hover:bg-hairline")}
               >
-                <Link href={inboxRoute(chat.id)} aria-current={current ? "page" : undefined}>
+                <Link
+                  href={inboxRoute(chat.id)}
+                  aria-current={current ? "page" : undefined}
+                  data-chat-row="true"
+                  data-chat-id={chat.id}
+                >
                   <ItemMedia>
                     <ChatAvatar name={chat.name} />
                   </ItemMedia>
@@ -104,6 +110,12 @@ export function ConversationList({ items, currentId }: { items: ConversationList
                           {chat.lead.ownerUserId === null && <span>· {t("unassigned")}</span>}
                         </>
                       )}
+                      <span className="ml-auto flex shrink-0 items-center gap-1">
+                        {chat.snoozedUntil !== null && (
+                          <AlarmClockIcon aria-label={t("snoozed")} role="img" className="size-3.5" />
+                        )}
+                        {chat.waitingSince !== null && <WaitTimer since={chat.waitingSince} />}
+                      </span>
                     </div>
                     {chat.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 pt-0.5">

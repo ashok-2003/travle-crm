@@ -6,17 +6,25 @@
 // link; a document is a download; a place is its coordinates and a link to Maps. Nothing is drawn with a border or shadow.
 import type { ChatMessage } from "@travel-crm/contracts/inbox";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { FileIcon, ImageIcon, type LucideIcon } from "lucide-react";
+import { ChevronDownIcon, CopyIcon, FileIcon, ImageIcon, StarIcon, StarOffIcon, type LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Fragment, type ReactNode } from "react";
+import { toast } from "sonner";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useTRPC } from "@/data/trpc";
 import { formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useHolds, useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { Ticks } from "./ticks";
+import { useStar } from "./use-sales-inbox";
 import { useMediaLink } from "./use-inbox";
 
 const LINK = /(https?:\/\/[^\s<>"']+)/g;
@@ -193,6 +201,53 @@ function NotSent({ message }: { message: ChatMessage }) {
   );
 }
 
+/** Beside a bubble on hover (always on a touch screen): star it for the team, or copy its words. */
+function MessageActions({ message }: { message: ChatMessage }) {
+  const t = useTranslations("inbox.chat");
+  const mayReply = useHolds("inbox:reply");
+  const star = useStar();
+  const words = message.body ?? message.caption;
+  if (!mayReply && words === null) return null;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100 pointer-coarse:opacity-60"
+          aria-label={t("messageActions")}
+        >
+          <ChevronDownIcon aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align={message.direction === "out" ? "end" : "start"}>
+        {mayReply && (
+          <DropdownMenuItem
+            disabled={star.isPending}
+            onSelect={() => {
+              star.mutate({ messageId: message.id, on: !message.starred });
+            }}
+          >
+            {message.starred ? <StarOffIcon aria-hidden="true" /> : <StarIcon aria-hidden="true" />}
+            {message.starred ? t("unstar") : t("star")}
+          </DropdownMenuItem>
+        )}
+        {words !== null && (
+          <DropdownMenuItem
+            onSelect={() => {
+              void navigator.clipboard.writeText(words).then(() => toast.success(t("copied")));
+            }}
+          >
+            <CopyIcon aria-hidden="true" />
+            {t("copy")}
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 /**
  * One bubble. `first` is the first of a run from the same side: it gets the tail and the space above it, as in WhatsApp,
  * and later ones in the run sit close under it. The time, the sender's first name and our ticks sit in the bubble's corner.
@@ -213,7 +268,13 @@ export function MessageBubble({
   const firstName = senderName?.split(/\s+/)[0];
   const media = ["image", "video", "sticker"].includes(message.kind);
   return (
-    <li className={cn("flex px-3 md:px-[6%]", ours ? "justify-end" : "justify-start", first ? "mt-2" : "mt-0.5")}>
+    <li
+      className={cn(
+        "group flex items-start gap-1 px-3 md:px-[6%]",
+        ours ? "flex-row-reverse" : "flex-row",
+        first ? "mt-2" : "mt-0.5",
+      )}
+    >
       <div
         className={cn(
           "relative flex max-w-[min(85%,38rem)] flex-col gap-1 rounded-lg text-body",
@@ -267,10 +328,12 @@ export function MessageBubble({
             <span>{t("formerMember")} ·</span>
           )}
           {message.origin === "staff_phone" && <span>{t("phoneApp")} ·</span>}
+          {message.starred && <StarIcon aria-label={t("starred")} role="img" className="size-3 fill-current" />}
           <span>{formatTime(new Date(message.occurredAt), { timeZone })}</span>
           {ours && !failed && <Ticks status={message.status} className="size-3.5" />}
         </p>
       </div>
+      <MessageActions message={message} />
     </li>
   );
 }

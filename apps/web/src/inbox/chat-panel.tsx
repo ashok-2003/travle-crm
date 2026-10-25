@@ -16,11 +16,13 @@ import { refusalOf } from "@/data/api-error";
 import { formatPhoneNumber } from "@/lib/format";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
 import { ChatHeader } from "./chat-header";
+import { ChatSearchBar } from "./chat-search-bar";
 import { ContactPanel } from "./contact-panel";
 import { MessageList } from "./message-list";
 import { ReplyArea } from "./reply-area";
-import { useConversation } from "./use-inbox";
+import { useConversation, type MessageFilter } from "./use-inbox";
 
 /**
  * `inbox`: beside the list on a computer; `page`: a phone's chat, covering the screen; `lead`: inside the lead's page,
@@ -36,6 +38,12 @@ export function ChatPanel({ conversationId, variant = "inbox" }: { conversationI
   const [panelChoice, setPanelChoice] = useState<boolean | null>(null);
   const panelOpen = panelChoice ?? roomy;
   const panelButton = useRef<HTMLButtonElement>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [filter, setFilter] = useState<MessageFilter>({ search: "", starredOnly: false });
+  const settledSearch = useDebouncedValue(filter.search);
+  const shownFilter: MessageFilter = searchOpen
+    ? { search: settledSearch.trim(), starredOnly: filter.starredOnly }
+    : { search: "", starredOnly: false };
 
   if (header.data === undefined) {
     const state = (() => {
@@ -68,11 +76,24 @@ export function ChatPanel({ conversationId, variant = "inbox" }: { conversationI
             setPanelChoice(!panelOpen);
           }}
           panelButton={panelButton}
+          searchOpen={searchOpen}
+          onToggleSearch={() => {
+            setSearchOpen(!searchOpen);
+          }}
+        />
+      )}
+      {searchOpen && (
+        <ChatSearchBar
+          filter={filter}
+          onChange={setFilter}
+          onClose={() => {
+            setSearchOpen(false);
+          }}
         />
       )}
       {/* The wallpaper: messages scroll inside it while the reply bar stays at its foot. */}
       <div className="relative min-h-0 flex-1 bg-chat-wallpaper">
-        <MessageList conversationId={data.id} />
+        <MessageList conversationId={data.id} filter={shownFilter} />
       </div>
       <div className="shrink-0 bg-chat-bar px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:px-4">
         <ReplyArea header={data} />
