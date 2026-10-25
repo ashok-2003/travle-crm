@@ -22,6 +22,10 @@ export const notificationKinds = [
   { kind: "import.finished", messageKey: "importFinished" },
   { kind: "export.ready", messageKey: "exportReady" },
   { kind: "form.busy", messageKey: "formBusy" },
+  { kind: "whatsapp.message", messageKey: "whatsappMessage" },
+  { kind: "whatsapp.past-customer", messageKey: "whatsappPastCustomer" },
+  { kind: "whatsapp.send-failed", messageKey: "whatsappSendFailed" },
+  { kind: "whatsapp.needs-attention", messageKey: "whatsappNeedsAttention" },
 ] as const;
 
 /** Whether notifications of this kind reach the person on this channel, given their choices. */

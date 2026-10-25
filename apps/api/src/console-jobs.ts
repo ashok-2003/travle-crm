@@ -12,6 +12,7 @@ import {
   RESET_DEMO_QUEUE,
   resetDemoOrganization,
   metaSweepSchedule,
+  whatsappSweepSchedule,
   sheetsSweepSchedule,
   storedFileDeletionsSchedule,
   websiteFormsSweepSchedule,
@@ -76,6 +77,8 @@ export function consoleJobs(services: PlatformServices, demo: DemoSettings | nul
   const sheetsSweep = sheetsSweepSchedule(services);
   // The Meta lead ads' Pages chosen at Facebook and never confirmed, past a day (spec 5).
   const metaSweep = metaSweepSchedule(services);
+  // WhatsApp's stored webhook payloads older than 7 days (ADR 0035): only the platform role may blank a payload.
+  const whatsappSweep = whatsappSweepSchedule(services);
   // The website form's ledger rows older than 90 days (spec 7.2).
   const websiteFormsSweep = websiteFormsSweepSchedule(services);
   return {
@@ -87,6 +90,7 @@ export function consoleJobs(services: PlatformServices, demo: DemoSettings | nul
       bulkFilesSweep,
       sheetsSweep,
       metaSweep,
+      whatsappSweep,
       websiteFormsSweep,
       ...demoReset,
     ],

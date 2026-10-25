@@ -13,4 +13,4 @@ export {
   type WebhookDependencies,
   type WebhookReceipt,
 } from "./receive-webhook.js";
-export { tombstoneWebhookEvents } from "./tombstones.js";
+export { blankProcessedPayloads, tombstoneWebhookEvents } from "./tombstones.js";

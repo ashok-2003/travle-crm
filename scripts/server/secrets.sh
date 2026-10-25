@@ -118,6 +118,11 @@ META_APP_SECRET=''
 META_WEBHOOK_VERIFY_TOKEN=''
 META_LOGIN_CONFIG_ID=''
 META_TOKEN_KEY=''
+# WhatsApp through MSG91 (ADR 0035): all three or none. MSG91_AUTHKEY is from MSG91 (Settings, API keys); the other two are
+# random, `openssl rand -hex 32` each.
+MSG91_AUTHKEY=''
+MSG91_WEBHOOK_TOKEN=''
+MSG91_WEBHOOK_KEY=''
 
 # Logs (docs/runbook.md, "Reading logs" and "Turn on Axiom"). LOG_LEVEL is debug, info, warn or error (blank: info).
 # The token and dataset ship every log line to Axiom too; blank leaves it off, and `check` does not ask for them.

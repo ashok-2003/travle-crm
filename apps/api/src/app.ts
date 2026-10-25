@@ -10,13 +10,15 @@ import { assertNoSheetCheckSaving, type SheetsHashes } from "@travel-crm/domain/
 import type { RateLimiter } from "@travel-crm/domain/rate-limits";
 import { findShareLink, recordShareLinkOpen } from "@travel-crm/domain/share-links";
 import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
-import { receiveWebhook, type WebhookProvider } from "@travel-crm/domain/webhooks";
+import { WHATSAPP_PROVIDER } from "@travel-crm/domain/inbox";
+import { receiveWebhook, type WebhookProvider, type WebhookRequest } from "@travel-crm/domain/webhooks";
 import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
 import type { JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
 import { Hono, type Context } from "hono";
 import { limitBody } from "./body-limit.js";
 import { metaDeletionRoute, metaVerifyRoute } from "./meta-routes.js";
+import type { WhatsAppProvider } from "@travel-crm/integrations/whatsapp";
 import type { MetaServices } from "./meta-services.js";
 import { apiErrorHandler } from "./error-handler.js";
 import type { FormAddressSettings } from "./form-client-address.js";
@@ -29,6 +31,7 @@ import { requireTrustedJson } from "./trusted-origin.js";
 import { websiteFormRoutes } from "./website-form-routes.js";
 import type { Turnstile } from "./website-form-shared.js";
 import { webhookRoutes } from "./webhook-route.js";
+import { whatsappWebhookRoute } from "./whatsapp-routes.js";
 
 export interface ServerDependencies {
   identity: Identity;
@@ -55,6 +58,8 @@ export interface ServerDependencies {
   webhookProviders: readonly WebhookProvider[];
   /** The Meta lead ads (ADR 0034): the verify and deletion routes and the procedures; null or absent when Meta is off. */
   meta?: MetaServices | null;
+  /** The MSG91 provider, for the templates screens; null when WhatsApp is off. */
+  whatsappProvider?: WhatsAppProvider | null;
   /** The structured log (ADR 0032): a line per request, and every unexpected error. */
   logger: Logger;
   /** BETTER_AUTH_SECRET: the website form's opened-token key is derived from it (W37). */
@@ -69,13 +74,14 @@ export interface ServerDependencies {
 
 /**
  * Per client address and minute. A customer opens a link a few times; guessing tokens needs millions of tries.
- * Providers send bursts of webhooks from a few addresses, and retry what we refuse. WhatsApp's status callbacks can
- * pass 600 a minute during a broadcast: Meta retries on 429, so they arrive late rather than being lost, and the
- * WhatsApp step should raise this limit or count by provider when broadcasts arrive.
+ * Providers send bursts of webhooks from a few addresses, and retry what we refuse. MSG91's WhatsApp webhook is not counted
+ * by this limit at all (any 4xx pauses it for every agency): its route limits only callers that fail the secrets check.
  */
 const publicLimits = {
   shareLinks: { limit: 30, windowSeconds: 60 },
   webhooks: { limit: 600, windowSeconds: 60 },
+  // Callers without MSG91's secrets (a mistyped paste, a scanner): they are refused 401, and past this, 429.
+  whatsappStrangers: { limit: 60, windowSeconds: 60 },
   // Meta's data deletion callback comes a few times in a year, from Meta's addresses.
   metaDeletion: { limit: 60, windowSeconds: 60 },
 };
@@ -98,6 +104,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
     clientAddress,
     webhookProviders,
     meta = null,
+    whatsappProvider = null,
     logger,
     authSecret,
     appUrl,
@@ -146,6 +153,8 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
             rateLimiter,
             appUrl,
             meta: meta?.dependencies ?? null,
+            whatsappConfigured: webhookProviders.some((candidate) => candidate.name === WHATSAPP_PROVIDER),
+            whatsappProvider,
             // An import's Add waits while a sheet's check is saving rows (S26).
             addGuards: [assertNoSheetCheckSaving],
           },
@@ -187,19 +196,43 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
       clientAddress,
     }),
   );
-  app.use(
-    "/webhooks/*",
-    rateLimit({ limiter: rateLimiter, name: "webhooks", ...publicLimits.webhooks, clientAddress, logger }),
+  const webhookLimit = rateLimit({
+    limiter: rateLimiter,
+    name: "webhooks",
+    ...publicLimits.webhooks,
+    clientAddress,
+    logger,
+  });
+  // MSG91's webhook is not counted here: one answer of 4xx (a 429 as much as any) pauses it for every agency. Its route checks
+  // the secrets first and limits only the callers that fail the check.
+  const whatsappOn = webhookProviders.some((candidate) => candidate.name === WHATSAPP_PROVIDER);
+  app.use("/webhooks/*", (c, next) =>
+    whatsappOn && c.req.path.startsWith(`/webhooks/${WHATSAPP_PROVIDER}/`) ? next() : webhookLimit(c as never, next),
   );
   // Meta's callback verification (GET) answers before the generic intake, which takes POSTs only.
   if (meta !== null)
     app.route("/webhooks/meta-leads", metaVerifyRoute({ verifyToken: meta.settings.webhookVerifyToken }));
-  app.route(
-    "/webhooks",
-    webhookRoutes({
-      receive: (provider, request) => receiveWebhook({ db, queue, providers: webhookProviders }, provider, request),
-    }),
-  );
+  const receive = (provider: string, request: WebhookRequest) =>
+    receiveWebhook({ db, queue, providers: webhookProviders }, provider, request);
+  // MSG91's webhook carries its token in the path, one segment more than the generic intake takes (ADR 0035).
+  if (whatsappOn) {
+    app.route(
+      "/webhooks/msg91-whatsapp",
+      whatsappWebhookRoute({
+        receive,
+        logger,
+        // A caller without the secrets: counted per address, and past the limit refused with 429 (only a stranger sees one).
+        strangerOverLimit: async (request) =>
+          !(
+            await rateLimiter.hit(
+              `webhooks-whatsapp-strangers:${clientAddress(request) ?? "unknown"}`,
+              publicLimits.whatsappStrangers,
+            )
+          ).allowed,
+      }),
+    );
+  }
+  app.route("/webhooks", webhookRoutes({ receive }));
 
   // Meta's data deletion callback (spec 10): the signed request is its only credential, so it is outside the trusted-origin rule.
   if (meta !== null) {

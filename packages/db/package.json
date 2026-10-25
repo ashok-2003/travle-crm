@@ -11,6 +11,7 @@
     "./rate-limits": "./src/rate-limits.ts",
     "./sheet-schedule": "./src/sheet-schedule.ts",
     "./sheets-key-check": "./src/sheets-key-check.ts",
+    "./whatsapp-routes": "./src/whatsapp-routes.ts",
     "./webhooks": "./src/webhooks.ts",
     "./testing": "./test/testing.ts",
     "./testing/global-setup": "./test/global-setup.ts"

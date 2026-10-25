@@ -16,6 +16,7 @@ import { recordPlatformAudit, type PlatformChange } from "./platform-log.js";
 import { PURGE_ORGANIZATION_QUEUE } from "./purge.js";
 import { SWEEP_META_QUEUE } from "./meta-sweep.js";
 import { SWEEP_SHEETS_QUEUE } from "./sheets-sweep.js";
+import { SWEEP_WHATSAPP_QUEUE } from "./whatsapp-sweep.js";
 import { WEBSITE_FORMS_SWEEP_QUEUE } from "./website-forms-sweep.js";
 import type { PlatformServices } from "./services.js";
 
@@ -41,6 +42,7 @@ const CONSOLE_SCHEDULES: ReadonlySet<string> = new Set([
   SWEEP_BULK_FILES_QUEUE,
   SWEEP_SHEETS_QUEUE,
   SWEEP_META_QUEUE,
+  SWEEP_WHATSAPP_QUEUE,
   WEBSITE_FORMS_SWEEP_QUEUE,
   RESET_DEMO_QUEUE,
 ]);

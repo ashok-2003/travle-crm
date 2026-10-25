@@ -37,6 +37,11 @@ x-api-environment: &api-environment
   META_WEBHOOK_VERIFY_TOKEN: ${META_WEBHOOK_VERIFY_TOKEN:-}
   META_LOGIN_CONFIG_ID: ${META_LOGIN_CONFIG_ID:-}
   META_TOKEN_KEY: ${META_TOKEN_KEY:-}
+  # WhatsApp through MSG91 (ADR 0035): all three or none; blank leaves them off. The console reads them too, to show the
+  # webhook block and check a number.
+  MSG91_AUTHKEY: ${MSG91_AUTHKEY:-}
+  MSG91_WEBHOOK_TOKEN: ${MSG91_WEBHOOK_TOKEN:-}
+  MSG91_WEBHOOK_KEY: ${MSG91_WEBHOOK_KEY:-}
   SHEETS_HASH_KEY: ${SHEETS_HASH_KEY:-}
 
 # One build of the api's image for the four services that run it.

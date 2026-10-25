@@ -132,6 +132,10 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `META_LOGIN_CONFIG_ID`: the Facebook Login for Business config    | ○   | ○      |         |         |        |
 | `META_TOKEN_KEY`: seals Pages' tokens; base64 of 32 bytes, a list | ○   | ○      |         |         | yes    |
 | `META_GRAPH_TEST_SERVER_URL`: tests only, refused in production   | ○   | ○      |         |         |        |
+| `MSG91_AUTHKEY`: the MSG91 account's API key (WhatsApp, below)    | ○   | ○      | ○       |         | yes    |
+| `MSG91_WEBHOOK_TOKEN`: 32+ random characters; the webhook's path  | ○   | ○      | ○       |         | yes    |
+| `MSG91_WEBHOOK_KEY`: 32+ random characters; the header's value    | ○   | ○      | ○       |         | yes    |
+| `MSG91_TEST_SERVER_URL`: tests only, refused in production        | ○   | ○      | ○       |         |        |
 | `LOG_LEVEL`: debug, info, warn or error (`info`)                  | ○   | ○      | ○       |         |        |
 | `AXIOM_TOKEN`, `AXIOM_DATASET`: both or neither (Logs, below)     | ○   | ○      | ○       |         | yes    |
 | `AXIOM_URL`: only for Axiom's EU region                           | ○   | ○      | ○       |         |        |
@@ -220,6 +224,21 @@ Secrets come from the platform's secret manager as environment variables, never 
   - Routes: `/webhooks/meta-leads` (Meta's callback, GET and POST) and `POST /api/meta/data-deletion` are under paths
     that already reach the api; `/meta/deletion` goes to the web app. The callback must be HTTPS.
   - The start-up line says `Meta lead ads: on` or `not set up`.
+- **WhatsApp through MSG91** (ADR 0035; the owner's steps are in `docs/whatsapp-owner-steps.md`):
+  - The three `MSG91_*` settings come together: one or two of the three stops the process, naming the missing variable and
+    printing no value. None turns WhatsApp off: the inbox says "not set up" and the console says so. Give the same three to
+    the api, the worker and the console: the console shows the webhook block from them and runs Check with MSG91; the worker
+    sends replies and templates and copies customers' files.
+  - `MSG91_AUTHKEY` is in MSG91's panel (Settings, API keys). `MSG91_WEBHOOK_TOKEN` and `MSG91_WEBHOOK_KEY` are
+    `openssl rand -base64 32` each. To rotate them, change them here and in MSG91's panel within minutes of each other:
+    events in between are answered 401 and are lost to the CRM, so do it when quiet.
+  - The webhook is `POST /webhooks/msg91-whatsapp/<token>` with the header `x-travel-crm-key: <key>`, set once in MSG91's
+    panel (Webhook (New)) for the whole account. It is under `/webhooks/*`, which already reaches the api. One answer other
+    than 200 for a request carrying both secrets would pause MSG91's webhook for every agency, so the api never sends one.
+  - Routes: `/inbox`, `/inbox/<id>` and `/settings/whatsapp` are web pages (the default rule); `/console/whatsapp` is the
+    console's page in the web app.
+  - The start-up line says `WhatsApp: on` or `WhatsApp: not set up`. The first check after deploying: the console's
+    WhatsApp page shows the webhook block and no "not set up" line.
 - **The web app** needs nothing at run time: its image sets `NODE_ENV=production`, `HOSTNAME=0.0.0.0` and
   `PORT=3000`. Its build takes `CACHE_VERSION` and `STORAGE_ORIGIN` (The images, above).
 - **One secret, three processes:** the console reads the api's session cookies, and the worker counts invite emails
@@ -232,7 +251,7 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `/api/platform/*`               | console, 3002 | the console's tRPC; this rule goes before the next one    |
 | `/api/*`                        | api, 3001     | Better Auth's sign-in and the organization app's tRPC     |
 | `/p/*`                          | api, 3001     | share links                                               |
-| `/webhooks/*`                   | api, 3001     | the webhook intake                                        |
+| `/webhooks/*`                   | api, 3001     | the webhook intake (Meta's and MSG91's callbacks)         |
 | `/f/*`, `/embed/*`, `/embed.js` | web, 3000     | the website form's pages and script (the default rule)    |
 | `/meta/deletion`                | web, 3000     | Meta's data-deletion status page (the default rule)       |
 | everything else                 | web, 3000     | the app's pages, build files, manifest and service worker |

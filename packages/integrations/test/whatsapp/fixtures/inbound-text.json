@@ -1,0 +1,12 @@
+{
+  "companyId": "c1",
+  "requestedAt": "2026-10-23T10:00:00Z",
+  "customerNumber": "919876543210",
+  "customerName": "Priya Sharma",
+  "integratedNumber": "918888800000",
+  "uuid": "wamid.IN1",
+  "direction": "0",
+  "contentType": "text",
+  "text": "  Hi, Goa trip for 4 in December?  ",
+  "ts": "1792749600"
+}

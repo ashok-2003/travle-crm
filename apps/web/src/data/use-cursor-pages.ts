@@ -14,7 +14,7 @@ import {
 type Options<TPage> = Partial<
   Pick<
     UseInfiniteQueryOptions<TPage, Error, InfiniteData<TPage>, QueryKey, string | null>,
-    "enabled" | "refetchInterval"
+    "enabled" | "refetchInterval" | "staleTime"
   >
 >;
 

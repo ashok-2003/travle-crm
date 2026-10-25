@@ -18,6 +18,8 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
   44px high; its `icon-sm` button is 36px with a 44px hit area (`after:-inset-1`), and its `xs` and `icon-xs` buttons
   are gone. `sidebar` menu buttons are at least 44px (`lg` 48), growing when a name wraps; their `sm` size is gone. An
   `item` is at least 44px, for one that is a link; its `xs` size is gone.
+- `scroll-area.tsx` (added for the WhatsApp chat): `cn` from `@/lib/utils` (the registry's `cn` package import reads our type sizes as colours); its viewport takes the one global focus outline, not the registry's ring; otherwise as the registry has it.
+- `emoji-picker.tsx` (Frimousse's shadcn registry item, `frimousse` pinned at 0.4.0; the shadcn registry has none of its own): used on desktop in the WhatsApp reply box. Its emoji data is never fetched from a CDN: `public/emojibase/` holds `emojibase-data` (pinned, copied by `pnpm --filter @travel-crm/web emojibase`), and the picker is given `emojibaseUrl="/emojibase"` where it is used.
 - Shapes: cards 10px (`rounded-lg`) with a hairline border instead of a ring; dialogs 14px; inputs, input groups,
   textareas, selects and OTP slots 6px; checkboxes 4px; titles (card, dialog, sheet, alert dialog) Figtree 600 at the
   section size. Dialogs and alert dialogs carry the overlay shadow. Table headers are shadcn's own, with no fill.

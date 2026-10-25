@@ -38,6 +38,8 @@ export const starterRoles: readonly StarterRole[] = [
       ownRecords("leads:view"),
       allow("leads:create"),
       allow("leads:edit"),
+      ownRecords("inbox:view"),
+      allow("inbox:reply"),
       ownRecords("quotes:view"),
       allow("quotes:create"),
       allow("quotes:edit"),

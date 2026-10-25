@@ -12,6 +12,7 @@ import {
   SWEEP_EXPIRED_EXPORTS_QUEUE,
   SWEEP_META_QUEUE,
   SWEEP_SHEETS_QUEUE,
+  SWEEP_WHATSAPP_QUEUE,
   WEBSITE_FORMS_SWEEP_QUEUE,
   SWEEP_STORED_FILES_QUEUE,
 } from "@travel-crm/domain/platform";
@@ -53,6 +54,9 @@ const sheetsSweep = { queue: SWEEP_SHEETS_QUEUE, cron: "41 * * * *", timeZone: "
 // Every hour, at 53 past, a Meta Page chosen at Facebook and never confirmed, past a day, is let go with its token.
 const metaSweep = { queue: SWEEP_META_QUEUE, cron: "53 * * * *", timeZone: "Asia/Kolkata", data: {} };
 
+// Every hour, at 41 past, the payloads of MSG91's WhatsApp webhook events older than 7 days are blanked (ADR 0035).
+const whatsappSweep = { queue: SWEEP_WHATSAPP_QUEUE, cron: "41 * * * *", timeZone: "Asia/Kolkata", data: {} };
+
 // Every hour, at 47 past, the website form's ledger rows older than 90 days are deleted (spec 7.2).
 const websiteFormsSweep = { queue: WEBSITE_FORMS_SWEEP_QUEUE, cron: "47 * * * *", timeZone: "Asia/Kolkata", data: {} };
 
@@ -82,6 +86,7 @@ describe("the console's jobs", () => {
       bulkFilesSweep,
       sheetsSweep,
       metaSweep,
+      whatsappSweep,
       websiteFormsSweep,
       { queue: RESET_DEMO_QUEUE, cron: "0 2 * * *", timeZone: "Asia/Kolkata", data: {} },
     ]);
@@ -106,6 +111,7 @@ describe("the console's jobs", () => {
       bulkFilesSweep,
       sheetsSweep,
       metaSweep,
+      whatsappSweep,
       websiteFormsSweep,
     ]);
   });
@@ -220,7 +226,7 @@ describe("the console's jobs", () => {
   it("refuses to remove a schedule the console registers, which would stop it until the next start", async () => {
     const demo = { code: "DEMOCODE", password: "demo-password-123" };
     const queues = consoleJobs(testConsole.services, demo).schedules.map((schedule) => schedule.queue);
-    expect(queues).toHaveLength(8);
+    expect(queues).toHaveLength(9);
     for (const queue of queues) {
       await expect(removeSchedule(testConsole.services, { userId: randomUUID() }, queue), queue).rejects.toMatchObject({
         code: "CONFLICT",

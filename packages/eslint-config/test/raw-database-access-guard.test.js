@@ -33,7 +33,7 @@ const insideWebhooks = "src/webhooks/sample.ts";
 const insideRateLimits = "src/rate-limits/sample.ts";
 
 describe("raw database access guard", () => {
-  it("reads the domain package's five overrides", () => {
+  it("reads the domain package's six overrides", () => {
     expect(domainOverrides.map((config) => config.files)).toEqual([
       ["src/identity/**", "test/identity/**"],
       ["src/webhooks/**", "test/webhooks/**"],
@@ -42,6 +42,8 @@ describe("raw database access guard", () => {
       ["src/sheets/schedule.ts", "test/sheets/**", "test/performance/sheets-*"],
       // The meta-leads' routes are one file too.
       ["src/meta-leads/routes.ts", "test/meta-leads/**", "test/performance/meta-*"],
+      // And the inbox's.
+      ["src/inbox/routes.ts", "test/inbox/**", "test/performance/whatsapp-*"],
     ]);
   });
 
@@ -192,6 +194,28 @@ describe("raw database access guard", () => {
   it.each(metaRouteQueries)("allows %s inside the meta-leads module's routes.ts", async (sql) => {
     expect(await rulesReportedFor("await tx.$queryRaw`" + sql + "`;", "src/meta-leads/routes.ts")).toEqual([]);
     expect(await rulesReportedFor("await tx.$queryRaw`" + sql + "`;", "test/meta-leads/sample.test.ts")).toEqual([]);
+  });
+
+  const whatsappRouteQueries = [
+    "SELECT organization_id FROM whatsapp_number_route WHERE integrated_number = ${number}",
+    'UPDATE "public"."whatsapp_unrouted" SET events = events + 1',
+  ];
+
+  it.each(whatsappRouteQueries)("reports %s outside the inbox module's routes.ts", async (sql) => {
+    for (const filePath of [
+      undefined,
+      insideIdentity,
+      insideWebhooks,
+      "src/inbox/messages.ts",
+      "src/meta-leads/routes.ts",
+    ]) {
+      expect(await rulesReportedFor("await tx.$queryRaw`" + sql + "`;", filePath)).toEqual(["no-restricted-syntax"]);
+    }
+  });
+
+  it.each(whatsappRouteQueries)("allows %s inside the inbox module's routes.ts", async (sql) => {
+    expect(await rulesReportedFor("await tx.$queryRaw`" + sql + "`;", "src/inbox/routes.ts")).toEqual([]);
+    expect(await rulesReportedFor("await tx.$queryRaw`" + sql + "`;", "test/inbox/sample.test.ts")).toEqual([]);
   });
 
   it("keeps the sign-in tables and the organization switch refused inside the webhooks and rate-limits modules", async () => {

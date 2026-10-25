@@ -69,6 +69,12 @@ model Organization {
   metaFormQuestions       MetaFormQuestion[]
   metaLeads               MetaLead[]
   metaPageRoutes          MetaPageRoute[]
+  whatsappConnections     WhatsappConnection[]
+  whatsappConversations   WhatsappConversation[]
+  whatsappMessages        WhatsappMessage[]
+  whatsappTemplates       WhatsappTemplate[]
+  whatsappUsageMonths     WhatsappUsageMonth[]
+  whatsappNumberRoutes    WhatsappNumberRoute[]
 
   @@map("organization")
 }

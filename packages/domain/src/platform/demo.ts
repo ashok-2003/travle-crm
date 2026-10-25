@@ -7,6 +7,7 @@ import { saveOrganizationProfileInput } from "@travel-crm/contracts/profile";
 import { saveWebsiteFormInput } from "@travel-crm/contracts/website-forms";
 import { asOrganization, type PlatformTx } from "@travel-crm/db/platform";
 import { addDemoAssignment, addDemoLeads } from "../crm/index.js";
+import { addDemoWhatsApp } from "../inbox/index.js";
 import {
   addStaffWithPassword,
   createOrganizationRecord,
@@ -124,6 +125,7 @@ export async function resetDemoOrganization(
         await saveWebsiteForm(orgTx, actor, DEMO_FORM);
         await addDemoLeads(orgTx, actor, { ownerUserId, salesUserId }, now);
         await addDemoAssignment(orgTx, actor, { ownerUserId, salesUserId }, now);
+        await addDemoWhatsApp(orgTx, actor, now);
       });
       await startSubscription(
         tx,

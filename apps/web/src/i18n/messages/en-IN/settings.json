@@ -38,7 +38,9 @@
     "assignment": "Lead assignment",
     "assignmentHint": "Who new leads from sheets and imports go to: rules, turns, or the Owner",
     "audit": "Audit log",
-    "auditHint": "Who changed what in your organization, and when"
+    "auditHint": "Who changed what in your organization, and when",
+    "whatsapp": "WhatsApp",
+    "whatsappHint": "Your WhatsApp number and its state"
   },
   "destinations": {
     "title": "Destinations",

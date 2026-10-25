@@ -13,7 +13,8 @@
     "test": "vitest run",
     "e2e": "playwright test",
     "e2e:audit": "playwright test --config playwright.audit.config.ts",
-    "lighthouse": "tsx scripts/lighthouse.ts"
+    "lighthouse": "tsx scripts/lighthouse.ts",
+    "emojibase": "mkdir -p public/emojibase/en && cp node_modules/emojibase-data/en/data.json node_modules/emojibase-data/en/compact.json node_modules/emojibase-data/en/messages.json public/emojibase/en/"
   },
   "dependencies": {
     "@fontsource-variable/eb-garamond": "5.3.0",
@@ -41,6 +42,7 @@
     "class-variance-authority": "0.7.1",
     "cmdk": "1.1.1",
     "cn": "0.4.0",
+    "frimousse": "0.4.0",
     "idb-keyval": "6.3.0",
     "input-otp": "1.5.0",
     "lucide-react": "1.56.0",
@@ -73,6 +75,7 @@
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "emojibase-data": "17.0.0",
     "esbuild": "0.28.2",
     "eslint": "catalog:",
     "eslint-plugin-react-hooks": "7.1.1",

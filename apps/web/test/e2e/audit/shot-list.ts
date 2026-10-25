@@ -73,6 +73,41 @@ const TWO_FACTOR_SHOTS = [
   { name: "sheet-read-only", screen: "A sheet while the subscription is read-only", as: owner },
   { name: "sheet-paused", screen: "A paused sheet with Resume", as: owner },
   { name: "sheet-disconnect", screen: "A sheet's Disconnect confirmation", as: owner },
+  // WhatsApp (part 2): the inbox's list, a chat with the reply box, the lead's page, and the console's numbers.
+  { name: "whatsapp-inbox-list", screen: "The inbox: a named chat and a number with no name, Reply due", as: owner },
+  {
+    name: "whatsapp-inbox-chat",
+    screen: "A chat: a photo, ticks, a message not sent with Try again, the reply box",
+    as: owner,
+  },
+  { name: "whatsapp-lead-section", screen: "A lead's page: its WhatsApp chat and Open in the inbox", as: owner },
+  { name: "whatsapp-console-list", screen: "The console's WhatsApp numbers", as: superAdmin },
+  { name: "whatsapp-console-organization", screen: "An organization's page with its WhatsApp group", as: superAdmin },
+  // WhatsApp (part 3): the templates.
+  {
+    name: "whatsapp-templates",
+    screen: "Settings, WhatsApp: the templates (approved, waiting, rejected with its reason)",
+    as: owner,
+  },
+  {
+    name: "whatsapp-template-new",
+    screen: "New template: its words, kind and a blank's source and example",
+    as: owner,
+  },
+  {
+    name: "whatsapp-window-closed",
+    screen: "A chat whose 24-hour window closed: the note and Send a template",
+    as: owner,
+  },
+  { name: "whatsapp-send-template", screen: "Send a template: the choice, the blanks, the preview", as: owner },
+  // WhatsApp (part 3d): the chat in a box of its own, the emoji picker (computers only), and a voice note being recorded.
+  {
+    name: "whatsapp-chat-pinned",
+    screen: "A long chat scrolled inside its box, the reply box pinned below",
+    as: owner,
+  },
+  { name: "whatsapp-emoji-picker", screen: "The emoji picker open beside the clip", as: owner, only: "desktop" },
+  { name: "whatsapp-recording", screen: "A voice note being recorded: the time, Cancel and Send", as: owner },
 ] as const satisfies readonly Shot[];
 
 export const SHOTS = [
@@ -378,6 +413,41 @@ export const SHOTS = [
   { name: "meta-disconnect", screen: "Disconnect Page: the question", as: owner },
   { name: "meta-import-check", screen: "The last 30 days of a form at the import's preview", as: owner },
   { name: "meta-page-read-only", screen: "A Page while the subscription is read-only", as: owner },
+  // WhatsApp (part 2): the inbox's list, a chat with the reply box, the lead's page, and the console's numbers.
+  { name: "whatsapp-inbox-list", screen: "The inbox: a named chat and a number with no name, Reply due", as: owner },
+  {
+    name: "whatsapp-inbox-chat",
+    screen: "A chat: a photo, ticks, a message not sent with Try again, the reply box",
+    as: owner,
+  },
+  { name: "whatsapp-lead-section", screen: "A lead's page: its WhatsApp chat and Open in the inbox", as: owner },
+  { name: "whatsapp-console-list", screen: "The console's WhatsApp numbers", as: superAdmin },
+  { name: "whatsapp-console-organization", screen: "An organization's page with its WhatsApp group", as: superAdmin },
+  // WhatsApp (part 3): the templates.
+  {
+    name: "whatsapp-templates",
+    screen: "Settings, WhatsApp: the templates (approved, waiting, rejected with its reason)",
+    as: owner,
+  },
+  {
+    name: "whatsapp-template-new",
+    screen: "New template: its words, kind and a blank's source and example",
+    as: owner,
+  },
+  {
+    name: "whatsapp-window-closed",
+    screen: "A chat whose 24-hour window closed: the note and Send a template",
+    as: owner,
+  },
+  { name: "whatsapp-send-template", screen: "Send a template: the choice, the blanks, the preview", as: owner },
+  // WhatsApp (part 3d): the chat in a box of its own, the emoji picker (computers only), and a voice note being recorded.
+  {
+    name: "whatsapp-chat-pinned",
+    screen: "A long chat scrolled inside its box, the reply box pinned below",
+    as: owner,
+  },
+  { name: "whatsapp-emoji-picker", screen: "The emoji picker open beside the clip", as: owner, only: "desktop" },
+  { name: "whatsapp-recording", screen: "A voice note being recorded: the time, Cancel and Send", as: owner },
 ] as const satisfies readonly Shot[];
 
 export type ShotName = (typeof SHOTS)[number]["name"];
