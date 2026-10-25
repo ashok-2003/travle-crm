@@ -193,7 +193,15 @@
       "chat-pinned": "Pinned a chat",
       "chat-unpinned": "Unpinned a chat",
       "chat-archived": "Archived a chat",
-      "chat-unarchived": "Brought back an archived chat"
+      "chat-unarchived": "Brought back an archived chat",
+      "chat-snoozed": "Snoozed a chat",
+      "chat-woken": "Brought back a snoozed chat",
+      "message-scheduled": "Scheduled a WhatsApp message",
+      "scheduled-cancelled": "Cancelled a scheduled WhatsApp message",
+      "automation-changed": "Changed the automatic WhatsApp answers",
+      "keyword-reply-created": "Added a keyword answer",
+      "keyword-reply-deleted": "Deleted a keyword answer",
+      "broadcast-sent": "Sent a WhatsApp broadcast"
     }
   },
   "fields": {
@@ -237,7 +245,13 @@
     "status": "Status",
     "tags": "Tags",
     "shortcut": "Shortcut",
-    "title": "Title"
+    "title": "Title",
+    "until": "Until",
+    "away": "Away message",
+    "welcome": "Welcome message",
+    "keyword": "Keyword",
+    "template": "Template",
+    "total": "Chats"
   },
   "recordTypes": {
     "issued_document": "A document",
@@ -252,6 +266,9 @@
     "website_form": "The website form",
     "inbox_tag": "A chat tag",
     "inbox_quick_reply": "A quick reply",
-    "whatsapp_conversation": "A WhatsApp chat"
+    "whatsapp_conversation": "A WhatsApp chat",
+    "inbox_automation": "The automatic answers",
+    "inbox_keyword_reply": "A keyword answer",
+    "whatsapp_broadcast": "A WhatsApp broadcast"
   }
 }

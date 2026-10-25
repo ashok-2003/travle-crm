@@ -100,3 +100,50 @@ export async function unreadCounts(
   });
   return new Map(counts.map((row) => [row.conversationId, Math.min(row._count._all, 99)]));
 }
+
+/** Star a message for the team, or take the star off (sales inbox spec 6). Not audited: it is a bookmark. */
+export async function starMessage(
+  tx: OrgTx,
+  access: MemberAccess,
+  messageId: string,
+  on: boolean,
+  now: Date,
+): Promise<void> {
+  const message = await tx.whatsappMessage.findUnique({
+    where: { id: messageId },
+    select: { id: true, conversationId: true },
+  });
+  if (message === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
+  await openChat(tx, access, message.conversationId);
+  await tx.whatsappMessage.update({
+    where: { id: message.id },
+    data: on ? { starredAt: now, starredBy: access.userId } : { starredAt: null, starredBy: null },
+  });
+}
+
+/**
+ * Snooze a chat until a moment: it leaves the lists until then, when whoever snoozed it is reminded (the worker's due
+ * work). Null wakes it now. A moment already past is refused.
+ */
+export async function snoozeConversation(
+  tx: OrgTx,
+  access: MemberAccess,
+  conversationId: string,
+  until: Date | null,
+  now: Date,
+): Promise<void> {
+  const chat = await openChat(tx, access, conversationId);
+  if (until !== null && until.getTime() <= now.getTime()) {
+    throw new DomainError("VALIDATION", "DUE_IN_THE_PAST", "Choose a time after now");
+  }
+  await tx.whatsappConversation.update({
+    where: { id: chat.id },
+    data: until === null ? { snoozedUntil: null, snoozedBy: null } : { snoozedUntil: until, snoozedBy: access.userId },
+  });
+  await recordAudit(tx, access, {
+    action: until === null ? "inbox.chat-woken" : "inbox.chat-snoozed",
+    entityType: "whatsapp_conversation",
+    entityId: chat.id,
+    ...(until === null ? {} : { after: { until: until.toISOString() } }),
+  });
+}

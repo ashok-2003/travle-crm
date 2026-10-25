@@ -15,7 +15,36 @@ export {
 export { addDemoWhatsApp } from "./demo-seed.js";
 export { withdrawWhatsApp, type WhatsAppWithdrawn } from "./erasure.js";
 export { mediaLinkOf, startLeadFromConversation } from "./chat-actions.js";
-export { archiveConversation, markConversationRead, pinConversation, unreadCounts } from "./chat-flags.js";
+export {
+  archiveConversation,
+  markConversationRead,
+  pinConversation,
+  snoozeConversation,
+  starMessage,
+  unreadCounts,
+} from "./chat-flags.js";
+export {
+  automationListener,
+  automationOf,
+  createKeywordReply,
+  CUSTOMER_WROTE_EVENT,
+  deleteKeywordReply,
+  isOpenAt,
+  keywordAnswerFor,
+  listKeywordReplies,
+  saveAutomation,
+} from "./automation.js";
+export { broadcastReachOf, listBroadcasts, MAX_BROADCAST_CHATS, sendBroadcast } from "./broadcast.js";
+export { addNote, listNotes, MENTION_KIND } from "./notes.js";
+export {
+  cancelScheduled,
+  INBOX_DUE_WORK_QUEUE,
+  listScheduled,
+  runDueWork,
+  scheduleMessage,
+  SNOOZE_KIND,
+} from "./scheduled.js";
+export { summaryOf } from "./summary.js";
 export { createQuickReply, deleteQuickReply, listQuickReplies, updateQuickReply } from "./quick-replies.js";
 export { createTag, deleteTag, listTags, setConversationTags } from "./tags.js";
 export { settleNeedsReply } from "./needs-reply.js";

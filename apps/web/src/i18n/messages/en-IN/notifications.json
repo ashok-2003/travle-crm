@@ -97,6 +97,14 @@
       "whatsappSendFailed": {
         "label": "Your WhatsApp message wasn't sent",
         "hint": "When a reply you sent from the inbox could not be delivered, so you can try again."
+      },
+      "inboxMentioned": {
+        "label": "A teammate mentions you in a chat",
+        "hint": "When someone writes @ and your name in a team note."
+      },
+      "inboxSnoozeEnded": {
+        "label": "A chat you snoozed comes back",
+        "hint": "At the time you chose when you snoozed it."
       }
     },
     "loading": "Loading your choices",

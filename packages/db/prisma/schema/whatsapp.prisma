@@ -77,6 +77,9 @@ model WhatsappConversation {
   pinnedAt       DateTime?          @map("pinned_at") @db.Timestamptz(6)
   /// Out of the main list until the customer writes again (sales inbox spec 5).
   archivedAt     DateTime?          @map("archived_at") @db.Timestamptz(6)
+  /// Out of the lists until then, when whoever snoozed it is reminded (sales inbox spec 6).
+  snoozedUntil   DateTime?          @map("snoozed_until") @db.Timestamptz(6)
+  snoozedBy      String?            @map("snoozed_by") @db.Uuid
   createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   connection     WhatsappConnection @relation(fields: [organizationId, connectionId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
@@ -84,6 +87,8 @@ model WhatsappConversation {
   messages       WhatsappMessage[]
   tags           ConversationTag[]
   reads          ConversationRead[]
+  notes          ConversationNote[]
+  scheduled      ScheduledMessage[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, connectionId, phoneE164], map: "whatsapp_conversation_phone")
@@ -135,6 +140,11 @@ model WhatsappMessage {
   /// MSG91's link to an inbound file, blanked when the file is stored.
   mediaUrl       String?              @map("media_url")
   mediaAttempts  Int                  @default(0) @map("media_attempts")
+  /// Starred for the team (sales inbox spec 6).
+  starredAt      DateTime?            @map("starred_at") @db.Timestamptz(6)
+  starredBy      String?              @map("starred_by") @db.Uuid
+  /// The broadcast that sent it, if one did.
+  broadcastId    String?              @map("broadcast_id") @db.Uuid
   createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
   organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   conversation   WhatsappConversation @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)

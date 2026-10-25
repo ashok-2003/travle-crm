@@ -1,5 +1,6 @@
 // Isolation fixtures for the inbox module (WhatsApp): a connection, a chat, a message, a template, a month's usage, and the
-// sales inbox's tags, tags on chats, quick replies and read marks (tags and quick replies are soft-deleted). The
+// sales inbox's tags, tags on chats, quick replies, read marks, team notes (append-only), scheduled sends, automatic
+// answers, keyword replies and broadcasts (tags, quick replies and keyword replies are soft-deleted). The
 // runtime role changes but never deletes any of them (a chat is erased by emptying it). The number route and the unrouted
 // numbers are not here: they have no row-level security (unscopedScheduleTables in org-table-fixtures.ts, and
 // unscoped-tables.test.ts).
@@ -85,5 +86,37 @@ export const fixtures: OrgTableFixtures = {
       tx.conversationRead.create({
         data: { conversationId: (await aConversation(tx)).id, userId: randomUUID(), readAt: new Date() },
       }),
+  },
+  conversation_note: {
+    create: async (tx) =>
+      tx.conversationNote.create({ data: { conversationId: (await aConversation(tx)).id, body: "Isolation" } }),
+    appendOnly: true,
+  },
+  scheduled_message: {
+    create: async (tx) =>
+      tx.scheduledMessage.create({
+        data: {
+          conversationId: (await aConversation(tx)).id,
+          body: "Isolation",
+          sendAt: new Date(Date.now() + 3_600_000),
+          createdBy: randomUUID(),
+        },
+      }),
+    undeletable: true,
+  },
+  inbox_automation: {
+    // One for each organization, which its row-level default fills in.
+    create: (tx) => tx.inboxAutomation.create({ data: {} }),
+    undeletable: true,
+  },
+  inbox_keyword_reply: {
+    create: (tx) =>
+      tx.inboxKeywordReply.create({ data: { keyword: `iso${randomUUID().slice(0, 8)}`, reply: "Hello" } }),
+    undeletable: true,
+  },
+  whatsapp_broadcast: {
+    create: (tx) =>
+      tx.whatsappBroadcast.create({ data: { templateId: randomUUID(), tagId: randomUUID(), createdBy: randomUUID() } }),
+    undeletable: true,
   },
 };

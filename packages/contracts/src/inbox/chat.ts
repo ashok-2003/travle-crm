@@ -82,6 +82,9 @@ export const conversationListItem = z.object({
   archived: z.boolean(),
   /** The customer's messages since this member last had the chat open, at most 99. */
   unread: z.int().min(0),
+  /** When the customer started waiting for a reply (their oldest unanswered message's chat moment), or null. */
+  waitingSince: timestamp.nullable(),
+  snoozedUntil: timestamp.nullable(),
 });
 export type ConversationListItem = z.infer<typeof conversationListItem>;
 
@@ -116,6 +119,9 @@ export const conversationHeader = z.object({
   tags: z.array(z.object({ id: recordId, name: z.string() })),
   pinned: z.boolean(),
   archived: z.boolean(),
+  snoozedUntil: timestamp.nullable(),
+  /** Teammates typing a reply in this chat right now (first names), so two don't answer at once. */
+  replying: z.array(z.string()),
 });
 export type ConversationHeader = z.infer<typeof conversationHeader>;
 
@@ -139,6 +145,7 @@ export const chatMessage = z.object({
   /** The staff member who sent it from here, named in the page's `people`; null for the customer's and the phone's. */
   sentBy: recordId.nullable(),
   occurredAt: timestamp,
+  starred: z.boolean(),
 });
 export type ChatMessage = z.infer<typeof chatMessage>;
 

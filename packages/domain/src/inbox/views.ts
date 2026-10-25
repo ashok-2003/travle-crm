@@ -61,7 +61,7 @@ function searchWhere(search: string): ConversationWhere {
 }
 
 /** The chats with something from the customer this member has not seen (the Unread filter), at most 1,000. */
-async function unreadIdsOf(tx: OrgTx, access: MemberAccess): Promise<string[]> {
+export async function unreadIdsOf(tx: OrgTx, access: MemberAccess): Promise<string[]> {
   const rows = await tx.$queryRaw<{ id: string }[]>`
     SELECT c.id FROM whatsapp_conversation c
     LEFT JOIN conversation_read r
@@ -71,19 +71,25 @@ async function unreadIdsOf(tx: OrgTx, access: MemberAccess): Promise<string[]> {
   return rows.map((row) => row.id);
 }
 
+/** Chats neither archived nor snoozed past now: what every list but Archived and Snoozed shows. */
+export const awakeWhere = (now: Date): ConversationWhere => ({
+  archivedAt: null,
+  OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: now } }],
+});
+
 async function filterWhere(
   tx: OrgTx,
   access: MemberAccess,
   filter: ListConversationsInput["filter"],
+  now: Date,
 ): Promise<ConversationWhere> {
   if (filter === "archived") return { archivedAt: { not: null } };
-  // Every other list leaves the archived chats out.
-  const live: ConversationWhere = { archivedAt: null };
-  if (filter === "unread") return { ...live, id: { in: await unreadIdsOf(tx, access) } };
-  return { AND: [live, presetWhere(access, filter)] };
+  if (filter === "snoozed") return { archivedAt: null, snoozedUntil: { gt: now } };
+  if (filter === "unread") return { AND: [awakeWhere(now), { id: { in: await unreadIdsOf(tx, access) } }] };
+  return { AND: [awakeWhere(now), presetWhere(access, filter)] };
 }
 
-function presetWhere(access: MemberAccess, filter: ListConversationsInput["filter"]): ConversationWhere {
+export function presetWhere(access: MemberAccess, filter: ListConversationsInput["filter"]): ConversationWhere {
   if (filter === "waiting") return { needsReply: true };
   if (filter === "mine") return { person: { is: { leads: { some: { ownerUserId: access.userId } } } } };
   if (filter === "unassigned") {
@@ -123,6 +129,7 @@ export async function listConversations(
   tx: OrgTx,
   access: MemberAccess,
   input: ListConversationsInput,
+  now: Date = new Date(),
 ): Promise<ConversationPage> {
   const after =
     input.before === undefined
@@ -148,7 +155,7 @@ export async function listConversations(
   const base: ConversationWhere[] = [
     { hidden: false, state: "open" },
     visibleConversations(access),
-    await filterWhere(tx, access, input.filter),
+    await filterWhere(tx, access, input.filter, now),
     ...(input.search === undefined ? [] : [searchWhere(input.search)]),
     ...(input.tagId === undefined ? [] : [{ tags: { some: { tagId: input.tagId } } }]),
   ];
@@ -162,6 +169,8 @@ export async function listConversations(
     needsReply: true,
     pinnedAt: true,
     archivedAt: true,
+    lastInboundAt: true,
+    snoozedUntil: true,
     person: { select: { name: true } },
     tags: { select: { tag: { select: { id: true, name: true } } } },
   } as const;
@@ -210,6 +219,11 @@ export async function listConversations(
         pinned: row.pinnedAt !== null,
         archived: row.archivedAt !== null,
         unread: unread.get(row.id) ?? 0,
+        waitingSince: row.needsReply && row.lastInboundAt !== null ? row.lastInboundAt.toISOString() : null,
+        snoozedUntil:
+          row.snoozedUntil !== null && row.snoozedUntil.getTime() > now.getTime()
+            ? row.snoozedUntil.toISOString()
+            : null,
         id: row.id,
         phone: row.phoneE164,
         name: chatNameOf(row),
@@ -240,6 +254,7 @@ export async function visibleConversation(tx: OrgTx, access: MemberAccess, conve
       hidden: true,
       pinnedAt: true,
       archivedAt: true,
+      snoozedUntil: true,
       person: { select: { name: true } },
       tags: { select: { tag: { select: { id: true, name: true } } } },
     },
@@ -304,6 +319,10 @@ export async function conversationHeaderOf(
     tags: row.tags.map((link) => link.tag).sort((a, b) => a.name.localeCompare(b.name)),
     pinned: row.pinnedAt !== null,
     archived: row.archivedAt !== null,
+    snoozedUntil:
+      row.snoozedUntil !== null && row.snoozedUntil.getTime() > now.getTime() ? row.snoozedUntil.toISOString() : null,
+    // The api adds who is typing: it alone knows (kept in its memory, never stored).
+    replying: [],
   });
 }
 
@@ -325,6 +344,19 @@ export async function listMessages(
     where: {
       conversationId: input.conversationId,
       status: { not: "superseded" },
+      ...(input.starredOnly === true ? { starredAt: { not: null } } : {}),
+      ...(input.search === undefined
+        ? {}
+        : {
+            AND: [
+              {
+                OR: [
+                  { body: { contains: input.search, mode: "insensitive" as const } },
+                  { caption: { contains: input.search, mode: "insensitive" as const } },
+                ],
+              },
+            ],
+          }),
       ...(after === null
         ? {}
         : { OR: [{ occurredAt: { lt: after.occurredAt } }, { occurredAt: after.occurredAt, id: { lt: after.id } }] }),
@@ -359,6 +391,7 @@ export async function listMessages(
         mediaState: row.mediaState,
         sentBy: row.sentBy,
         occurredAt: row.occurredAt.toISOString(),
+        starred: row.starredAt !== null,
       };
     }),
     nextCursor: rows.length > input.limit ? (page.at(-1)?.id ?? null) : null,

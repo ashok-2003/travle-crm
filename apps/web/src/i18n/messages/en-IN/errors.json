@@ -169,6 +169,7 @@
     "WHATSAPP_NUMBER_TAKEN": "Another agency already uses this WhatsApp number.",
     "TAG_NAME_TAKEN": "Another tag already has this name.",
     "QUICK_REPLY_SHORTCUT_TAKEN": "Another quick reply already uses this shortcut.",
+    "KEYWORD_TAKEN": "Another automatic answer already uses this word.",
     "WHATSAPP_NUMBER_LIMIT": "This plan has no room for another WhatsApp number.",
     "WHATSAPP_UNAVAILABLE": "WhatsApp is not set up on this server.",
     "WINDOW_CLOSED": "WhatsApp allows free text only within 24 hours of the customer's last message, and that time has passed.",

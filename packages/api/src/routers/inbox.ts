@@ -61,6 +61,7 @@ import {
 } from "@travel-crm/domain/inbox";
 import { DomainError } from "@travel-crm/domain/kernel";
 import { z } from "zod";
+import { typingIn } from "../inbox-presence.js";
 import { memberNames } from "../member-names.js";
 import { orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
@@ -87,11 +88,15 @@ export const inboxRouter = router({
   conversation: reader
     .input(conversationIdInput)
     .output(conversationHeader)
-    .query(({ ctx, input }) =>
-      ctx.db.forOrg(ctx.member.organizationId, (tx) =>
+    .query(async ({ ctx, input }) => {
+      const header = await ctx.db.forOrg(ctx.member.organizationId, (tx) =>
         conversationHeaderOf(tx, ctx.member, input.conversationId, new Date()),
-      ),
-    ),
+      );
+      // Who else is typing here now, by first name (kept in this process's memory, never stored).
+      const others = typingIn(header.id, ctx.member.userId);
+      const names = await memberNames(ctx.identity, ctx.member.organizationId, others);
+      return { ...header, replying: others.map((userId) => names[userId]?.split(/\s+/)[0] ?? "").filter(Boolean) };
+    }),
 
   messages: reader
     .input(listMessagesInput)

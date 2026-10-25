@@ -21,3 +21,12 @@ export type WhatsappCopyMediaJob = z.infer<typeof whatsappCopyMediaJob>;
 /** whatsapp.message-queued: a staff reply is waiting in the outbox for the worker to send. */
 export const whatsappMessageQueuedEvent = z.strictObject({ conversationId: recordId, messageId: recordId });
 export type WhatsappMessageQueuedEvent = z.infer<typeof whatsappMessageQueuedEvent>;
+
+/** whatsapp.customer-wrote: every new message a customer writes (not a reaction, not a blocked contact's), for the automatic answers. */
+export const whatsappCustomerWroteEvent = z.strictObject({
+  conversationId: recordId,
+  messageId: recordId,
+  /** The number had never written before. */
+  firstEver: z.boolean(),
+});
+export type WhatsappCustomerWroteEvent = z.infer<typeof whatsappCustomerWroteEvent>;
