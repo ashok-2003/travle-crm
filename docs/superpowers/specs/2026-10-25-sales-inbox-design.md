@@ -19,9 +19,13 @@ hand it on, tag it, set a reminder, send the payment details, write a note only 
 - Ruling: "converted" is the lead's existing `won` stage, and every sales action in the chat calls the crm's existing
   procedures (`leads.moveStage`, `leads.reassign`, `leads.addNote`, `leads.editTrip`, `tasks.add`) — one rule for a lead,
   wherever it is changed — cost if wrong: none, it is the same data.
-- Ruling: payment details are the agency's own UPI and bank details (and an optional QR picture), kept in settings and
-  sent as a message; payment links (Razorpay) wait for the owner's gateway account (phase 4) — cost if wrong: phase 4
-  adds a second button beside the first.
+- Ruling: payment details are the agency's own UPI and bank details, kept as the quick reply with the shortcut
+  `payment` (no table of their own) and put in the box by the reply bar's ₹ button; a QR picture is attached by hand for
+  now; payment links (Razorpay) wait for the owner's gateway account (phase 4) — cost if wrong: phase 4 adds a second
+  button beside the first.
+- Ruling: tags and quick replies are written with `inbox:templates` (the Owner and Admins), tagging, pinning and
+  archiving a chat with `inbox:reply`; a tag on a chat and a read mark are links the runtime role may delete — cost if
+  wrong: a permission of their own later.
 - Ruling: tags are the agency's own list (name only), shown as neutral badges; colour stays for stages and status
   (DESIGN.md: colour carries meaning) — cost if wrong: a colour column added later.
 - Ruling: unread is per member (each person's last read message per chat), beside the shared "Waiting for reply" —
@@ -67,9 +71,9 @@ photos and a list of files). A chat with no lead shows **Start a lead** instead 
 - **Quick replies.** `inbox_quick_reply` (organization, shortcut, title, body with `{name}`, `{destination}`,
   `{agent}`, `{month}`; soft delete). Typing `/` in the composer opens them (search as you type, arrows, Enter fills the
   box with the blanks filled from the chat). Managed in Settings, WhatsApp (`inbox:templates`).
-- **Payment details.** On the organization's WhatsApp settings: payee name, UPI id, bank name, account number, IFSC,
-  and an optional QR picture (a stored file). A composer button "Payment details" fills the box with them (and attaches
-  the QR when set); staff can edit before sending. Inside the 24-hour window only, like any reply.
+- **Payment details.** The quick reply with the shortcut `payment` (UPI id, payee, bank, account, IFSC in the agency's
+  own words). The reply bar's ₹ button puts it in the box with its blanks filled; staff can edit before sending. Inside
+  the 24-hour window only, like any reply.
 - **Unread.** `conversation_read` (organization, conversation, member, last read message id and time), updated when a
   member has the chat open. The list shows each member's unread count; the filter "Unread".
 - **Pin and archive.** Columns on the conversation: `pinned_at`, `archived_at`. Pinned chats stay on top; archived ones
