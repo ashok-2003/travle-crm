@@ -3,7 +3,7 @@ import { z } from "zod";
 import { attachmentFileName } from "../files/attachments.js";
 import { recordId } from "../identity/fields.js";
 
-export const conversationFilters = ["waiting", "all", "mine", "unassigned"] as const;
+export const conversationFilters = ["waiting", "unread", "all", "mine", "unassigned", "archived"] as const;
 export const conversationFilter = z.enum(conversationFilters);
 export type ConversationFilter = z.infer<typeof conversationFilter>;
 
@@ -11,6 +11,8 @@ export const listConversationsInput = z.strictObject({
   filter: conversationFilter.default("waiting"),
   /** A name, forgiving of typos, or four or more digits of a phone. */
   search: z.string().trim().min(2).max(80).optional(),
+  /** Only the chats carrying this tag. */
+  tagId: recordId.optional(),
   /** The last conversation id of the previous page. */
   before: recordId.optional(),
   limit: z.int().min(1).max(50).default(25),

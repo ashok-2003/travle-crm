@@ -93,7 +93,7 @@ export function ReplyArea({ header }: { header: ConversationHeader }) {
     if (status.data?.demo === true) return <Note>{t("replyDemo")}</Note>;
     if (status.data?.connectionStatus === "paused") return <Note>{t("replyPaused")}</Note>;
     if (header.windowOpenUntil !== null) {
-      return <Composer conversationId={header.id} windowOpenUntil={header.windowOpenUntil} />;
+      return <Composer header={header} windowOpenUntil={header.windowOpenUntil} />;
     }
     const action =
       header.optedOut && header.lastInboundAt === null ? undefined : <TemplateButton conversationId={header.id} />;

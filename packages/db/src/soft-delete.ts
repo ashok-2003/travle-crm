@@ -11,6 +11,8 @@ export const softDeleteModels: readonly string[] = [
   Prisma.ModelName.Lead,
   Prisma.ModelName.Destination,
   Prisma.ModelName.BlockedContact,
+  Prisma.ModelName.InboxTag,
+  Prisma.ModelName.InboxQuickReply,
 ];
 
 /** Operations that must neither see nor change deleted rows. Creates are unaffected; deletes and upserts are refused. */

@@ -1,7 +1,7 @@
 "use client";
 
 // The contact panel beside a chat (sales inbox spec, section 4): where the sale is worked without leaving the chat.
-// The person at the top (picture, name, phone to copy, a link to the lead); then the lead itself, through the lead page's
+// The person at the top (picture, name, phone to copy, a link to the lead), the chat's tags; then the lead itself, through the lead page's
 // own parts so a lead changes the same way wherever it is changed: the stage (Won is "converted"), the follow-ups, the
 // owner, the trip, and the timeline with its notes. A chat whose person has no lead offers Start a new lead instead.
 import type { ConversationHeader } from "@travel-crm/contracts/inbox";
@@ -23,6 +23,7 @@ import { formatPhoneNumber } from "@/lib/format";
 import { leadRoute } from "@/lib/routes";
 import { useHolds } from "@/session/me-context";
 import { ChatAvatar } from "./chat-avatar";
+import { ChatTags } from "./chat-tags";
 import { StartLeadButton } from "./start-lead-button";
 
 function LeadParts({ leadId }: { leadId: string }) {
@@ -78,6 +79,10 @@ export function ContactPanel({ header, onClose }: { header: ConversationHeader; 
           </p>
           {header.lead !== null && <TextLink href={leadRoute(header.lead.id)}>{t("openLead")}</TextLink>}
         </div>
+        <section className="flex flex-col gap-2">
+          <h3 className="text-label font-medium text-muted-foreground">{t("tags")}</h3>
+          <ChatTags header={header} />
+        </section>
         {header.lead?.open === true ? (
           <LeadParts leadId={header.lead.id} />
         ) : (

@@ -1,4 +1,5 @@
-// Isolation fixtures for the inbox module (WhatsApp): a connection, a chat, a message, a template and a month's usage. The
+// Isolation fixtures for the inbox module (WhatsApp): a connection, a chat, a message, a template, a month's usage, and the
+// sales inbox's tags, tags on chats, quick replies and read marks (tags and quick replies are soft-deleted). The
 // runtime role changes but never deletes any of them (a chat is erased by emptying it). The number route and the unrouted
 // numbers are not here: they have no row-level security (unscopedScheduleTables in org-table-fixtures.ts, and
 // unscoped-tables.test.ts).
@@ -58,5 +59,31 @@ export const fixtures: OrgTableFixtures = {
         data: { connectionId: (await aConnection(tx)).id, month: new Date("2026-10-01T00:00:00Z") },
       }),
     undeletable: true,
+  },
+  inbox_tag: {
+    create: (tx) => tx.inboxTag.create({ data: { name: `Isolation ${randomUUID().slice(0, 8)}` } }),
+    undeletable: true,
+  },
+  conversation_tag: {
+    create: async (tx) =>
+      tx.conversationTag.create({
+        data: {
+          conversationId: (await aConversation(tx)).id,
+          tagId: (await tx.inboxTag.create({ data: { name: `Isolation ${randomUUID().slice(0, 8)}` } })).id,
+        },
+      }),
+  },
+  inbox_quick_reply: {
+    create: (tx) =>
+      tx.inboxQuickReply.create({
+        data: { shortcut: `iso-${randomUUID().slice(0, 8)}`, title: "Isolation", body: "Hello" },
+      }),
+    undeletable: true,
+  },
+  conversation_read: {
+    create: async (tx) =>
+      tx.conversationRead.create({
+        data: { conversationId: (await aConversation(tx)).id, userId: randomUUID(), readAt: new Date() },
+      }),
   },
 };

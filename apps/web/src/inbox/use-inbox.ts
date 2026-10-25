@@ -23,14 +23,20 @@ export function useInboxStatus() {
   return useQuery(trpc.inbox.status.queryOptions());
 }
 
-export function useConversations(input: { filter: ConversationFilter; search: string }) {
+export function useConversations(input: { filter: ConversationFilter; search: string; tagId: string | null }) {
   const trpc = useTRPC();
   const client = useTRPCClient();
   const search = input.search === "" ? {} : { search: input.search };
+  const tag = input.tagId === null ? {} : { tagId: input.tagId };
   return useCursorPages({
     queryKey: [...trpc.inbox.conversations.pathKey(), input],
     page: (cursor) =>
-      client.inbox.conversations.query({ filter: input.filter, ...search, ...(cursor !== null && { before: cursor }) }),
+      client.inbox.conversations.query({
+        filter: input.filter,
+        ...search,
+        ...tag,
+        ...(cursor !== null && { before: cursor }),
+      }),
     items: (page) => page.items,
     refetchInterval: POLL_MS,
     staleTime: LIVE,

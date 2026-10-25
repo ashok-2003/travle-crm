@@ -1,0 +1,102 @@
+// A chat's place in the inbox (sales inbox spec, section 5): pinned to the top for everyone, archived out of the main list
+// until the customer writes again, and each member's read mark, from which their unread counts come.
+import type { OrgTx } from "@travel-crm/db";
+import { recordAudit } from "../audit/index.js";
+import type { MemberAccess } from "../identity/index.js";
+import { DomainError } from "../kernel/index.js";
+import { visibleConversations } from "./scope.js";
+
+async function openChat(tx: OrgTx, access: MemberAccess, conversationId: string) {
+  const chat = await tx.whatsappConversation.findFirst({
+    where: { AND: [{ id: conversationId, state: "open" }, visibleConversations(access)] },
+    select: { id: true, pinnedAt: true, archivedAt: true },
+  });
+  if (chat === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
+  return chat;
+}
+
+export async function pinConversation(
+  tx: OrgTx,
+  access: MemberAccess,
+  conversationId: string,
+  on: boolean,
+  now: Date,
+): Promise<void> {
+  const chat = await openChat(tx, access, conversationId);
+  if ((chat.pinnedAt !== null) === on) return;
+  await tx.whatsappConversation.update({ where: { id: chat.id }, data: { pinnedAt: on ? now : null } });
+  await recordAudit(tx, access, {
+    action: on ? "inbox.chat-pinned" : "inbox.chat-unpinned",
+    entityType: "whatsapp_conversation",
+    entityId: chat.id,
+  });
+}
+
+export async function archiveConversation(
+  tx: OrgTx,
+  access: MemberAccess,
+  conversationId: string,
+  on: boolean,
+  now: Date,
+): Promise<void> {
+  const chat = await openChat(tx, access, conversationId);
+  if ((chat.archivedAt !== null) === on) return;
+  // An archived chat is no longer pinned: it has left the list.
+  await tx.whatsappConversation.update({
+    where: { id: chat.id },
+    data: on ? { archivedAt: now, pinnedAt: null } : { archivedAt: null },
+  });
+  await recordAudit(tx, access, {
+    action: on ? "inbox.chat-archived" : "inbox.chat-unarchived",
+    entityType: "whatsapp_conversation",
+    entityId: chat.id,
+  });
+}
+
+/** The member has the chat open now: everything the customer wrote so far is read for them. Not audited (it is reading). */
+export async function markConversationRead(
+  tx: OrgTx,
+  access: MemberAccess,
+  conversationId: string,
+  now: Date,
+): Promise<void> {
+  const chat = await openChat(tx, access, conversationId);
+  await tx.conversationRead.upsert({
+    where: {
+      organizationId_conversationId_userId: {
+        organizationId: access.organizationId,
+        conversationId: chat.id,
+        userId: access.userId,
+      },
+    },
+    create: { conversationId: chat.id, userId: access.userId, readAt: now },
+    update: { readAt: now },
+  });
+}
+
+/** For a page of chats, the customer's messages each member has not seen yet, at most 99 a chat. */
+export async function unreadCounts(
+  tx: OrgTx,
+  access: MemberAccess,
+  conversationIds: string[],
+): Promise<Map<string, number>> {
+  if (conversationIds.length === 0) return new Map();
+  const reads = await tx.conversationRead.findMany({
+    where: { userId: access.userId, conversationId: { in: conversationIds } },
+    select: { conversationId: true, readAt: true },
+  });
+  const readAt = new Map(reads.map((read) => [read.conversationId, read.readAt]));
+  const counts = await tx.whatsappMessage.groupBy({
+    by: ["conversationId"],
+    where: {
+      direction: "in",
+      kind: { not: "reaction" },
+      OR: conversationIds.map((conversationId) => {
+        const since = readAt.get(conversationId);
+        return since === undefined ? { conversationId } : { conversationId, occurredAt: { gt: since } };
+      }),
+    },
+    _count: { _all: true },
+  });
+  return new Map(counts.map((row) => [row.conversationId, Math.min(row._count._all, 99)]));
+}

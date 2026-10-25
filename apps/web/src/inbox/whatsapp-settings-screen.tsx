@@ -1,7 +1,7 @@
 "use client";
 
-// /settings/whatsapp (spec 3.4): the agency's number and how it is doing, in words; never MSG91's name or a secret. Templates
-// (for whoever may manage them) are the section below. Not connected says so in the same sentence as the inbox.
+// /settings/whatsapp (spec 3.4): the agency's number and how it is doing, in words; never MSG91's name or a secret. Templates,
+// quick replies and the chats' tags (for whoever may manage them) are the sections below (sales inbox spec 5). Not connected says so in the same sentence as the inbox.
 import { useTranslations } from "next-intl";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
@@ -14,6 +14,7 @@ import { routes } from "@/lib/routes";
 import Link from "next/link";
 import { useHolds } from "@/session/me-context";
 import { NotSetUp } from "./not-set-up";
+import { QuickRepliesSection, TagsSection } from "./quick-replies-section";
 import { TemplatesSection } from "./templates-section";
 import { useInboxStatus } from "./use-inbox";
 
@@ -63,6 +64,12 @@ export function WhatsappSettingsScreen() {
         </div>
         {demo && <p className="text-muted-foreground">{t("demoNote")}</p>}
         {connected && mayManageTemplates && !demo && <TemplatesSection />}
+        {connected && mayManageTemplates && (
+          <>
+            <QuickRepliesSection />
+            <TagsSection />
+          </>
+        )}
         {connected && (
           <Button asChild variant="outline" className="self-start">
             <Link href={routes.inbox}>{t("openInbox")}</Link>

@@ -1,0 +1,79 @@
+// The sales inbox's own data (spec 2026-10-25-sales-inbox-design.md, section 5): the agency's tags for chats, the tags on
+// each chat, quick replies typed with "/", and each member's last read moment per chat (unread counts).
+
+/// One of the agency's own labels for chats ("Hot", "Honeymoon", "Payment pending"). Soft-deleted (ADR 0004).
+model InboxTag {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String            @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String            @id @default(uuid(7)) @db.Uuid
+  name           String
+  createdBy      String?           @map("created_by") @db.Uuid
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt      DateTime?         @map("deleted_at") @db.Timestamptz(6)
+  deletedBy      String?           @map("deleted_by") @db.Uuid
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  conversations  ConversationTag[]
+
+  @@unique([organizationId, id])
+  /// One live tag of a name; a deleted one's name is free again.
+  @@unique([organizationId, name], map: "inbox_tag_live_name", where: { deletedAt: null })
+  @@map("inbox_tag")
+}
+
+/// A tag on a chat. Taking a tag off deletes the row: it is a link, not a record (the audit log keeps who did it).
+model ConversationTag {
+  organizationId String               @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String               @id @default(uuid(7)) @db.Uuid
+  conversationId String               @map("conversation_id") @db.Uuid
+  tagId          String               @map("tag_id") @db.Uuid
+  createdBy      String?              @map("created_by") @db.Uuid
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  conversation   WhatsappConversation @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  tag            InboxTag             @relation(fields: [organizationId, tagId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, conversationId, tagId], map: "conversation_tag_once")
+  /// The inbox filtered by a tag.
+  @@index([organizationId, tagId], map: "conversation_tag_by_tag")
+  @@map("conversation_tag")
+}
+
+/// A saved answer staff insert by typing "/" and its shortcut. `{name}`, `{destination}`, `{month}` and `{agent}` are
+/// filled from the chat. The one with the shortcut "payment" is also the reply bar's Payment details. Soft-deleted.
+model InboxQuickReply {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  /// Lower-case letters, digits and dashes (CHECK inbox_quick_reply_shortcut_format).
+  shortcut       String
+  title          String
+  body           String
+  createdBy      String?      @map("created_by") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
+  deletedBy      String?      @map("deleted_by") @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, shortcut], map: "inbox_quick_reply_live_shortcut", where: { deletedAt: null })
+  @@map("inbox_quick_reply")
+}
+
+/// When a member last had a chat open: the customer's messages after it are their unread ones.
+model ConversationRead {
+  organizationId String               @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String               @id @default(uuid(7)) @db.Uuid
+  conversationId String               @map("conversation_id") @db.Uuid
+  /// The member's user id (a sign-in table, so no key to it).
+  userId         String               @map("user_id") @db.Uuid
+  readAt         DateTime             @map("read_at") @db.Timestamptz(6)
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  conversation   WhatsappConversation @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, conversationId, userId], map: "conversation_read_once")
+  /// A member's reads, for the Unread filter.
+  @@index([organizationId, userId], map: "conversation_read_by_user")
+  @@map("conversation_read")
+}

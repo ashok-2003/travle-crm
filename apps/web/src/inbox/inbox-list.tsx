@@ -1,10 +1,10 @@
 "use client";
 
-// The inbox's left side (spec 3.1; sales inbox spec, section 3): the search, the filter chips (Waiting for reply, the
-// default; All; Mine; Unassigned) and the chats, scrolling on their own under them. The search takes a name or digits of
-// a phone and is kept in the tab, never the address.
+// The inbox's left side (spec 3.1; sales inbox spec, sections 3 and 5): the search, the filter chips (Waiting for reply,
+// the default; Unread; All; Mine; Unassigned; Archived), a tag to narrow by, and the chats, scrolling on their own under
+// them. The search takes a name or digits of a phone and is kept in the tab, never the address; so are the chip and tag.
 import type { ConversationFilter } from "@travel-crm/contracts/inbox";
-import { MessageCircleIcon, SearchXIcon } from "lucide-react";
+import { MessageCircleIcon, SearchXIcon, TagIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useState } from "react";
 import { EmptyState } from "@/components/empty-state";
@@ -12,22 +12,35 @@ import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { ShowMoreButton } from "@/components/show-more-button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { SearchField } from "@/leads/list/search-field";
 import { keepTabValue, readTabValue } from "@/lib/tab-storage";
 import { ConversationList } from "./conversation-list";
 import { useConversations } from "./use-inbox";
+import { useTags } from "./use-inbox-tools";
 
 const SEARCH_KEY = "inbox.search";
 const FILTER_KEY = "inbox.filter";
-const filters = ["waiting", "all", "mine", "unassigned"] as const satisfies readonly ConversationFilter[];
+const TAG_KEY = "inbox.tag";
+const ANY_TAG = "any";
+const filters = [
+  "waiting",
+  "unread",
+  "all",
+  "mine",
+  "unassigned",
+  "archived",
+] as const satisfies readonly ConversationFilter[];
 const isFilter = (value: string | null): value is ConversationFilter =>
   value !== null && (filters as readonly string[]).includes(value);
 const filterLabel = {
   waiting: "filterWaiting",
+  unread: "filterUnread",
   all: "filterAll",
   mine: "filterMine",
   unassigned: "filterUnassigned",
+  archived: "filterArchived",
 } as const;
 
 export function InboxList({ currentId }: { currentId: string | null }) {
@@ -45,7 +58,11 @@ export function InboxList({ currentId }: { currentId: string | null }) {
     setFilterValue(chosen);
     keepTabValue(FILTER_KEY, chosen);
   };
-  const chats = useConversations({ filter, search: search.length >= 2 ? search : "" });
+  const tags = useTags();
+  const [tagChoice, setTagChoice] = useState(() => readTabValue(TAG_KEY) ?? ANY_TAG);
+  // A kept tag that was since deleted counts as none.
+  const tagId = tags.data?.some((tag) => tag.id === tagChoice) === true ? tagChoice : null;
+  const chats = useConversations({ filter, search: search.length >= 2 ? search : "", tagId });
 
   const body = () => {
     if (chats.items === undefined) {
@@ -62,7 +79,15 @@ export function InboxList({ currentId }: { currentId: string | null }) {
     }
     if (chats.items.length === 0) {
       if (search.length >= 2) return <EmptyState icon={SearchXIcon} message={t("emptySearch")} />;
-      return <EmptyState icon={MessageCircleIcon} message={filter === "waiting" ? t("emptyWaiting") : t("empty")} />;
+      const empty =
+        filter === "waiting"
+          ? "emptyWaiting"
+          : filter === "unread"
+            ? "emptyUnread"
+            : filter === "archived"
+              ? "emptyArchived"
+              : "empty";
+      return <EmptyState icon={MessageCircleIcon} message={t(empty)} />;
     }
     return (
       <div className="flex flex-col gap-3 pb-4">
@@ -102,6 +127,28 @@ export function InboxList({ currentId }: { currentId: string | null }) {
             ))}
           </ToggleGroup>
         </div>
+        {tags.data !== undefined && tags.data.length > 0 && (
+          <Select
+            value={tagId ?? ANY_TAG}
+            onValueChange={(chosen) => {
+              setTagChoice(chosen);
+              keepTabValue(TAG_KEY, chosen);
+            }}
+          >
+            <SelectTrigger aria-label={t("tagFilter")} className="w-full">
+              <TagIcon aria-hidden="true" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ANY_TAG}>{t("anyTag")}</SelectItem>
+              {tags.data.map((tag) => (
+                <SelectItem key={tag.id} value={tag.id}>
+                  {tag.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
       <ScrollArea className="min-h-0 flex-1">{body()}</ScrollArea>
     </div>

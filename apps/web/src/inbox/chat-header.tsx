@@ -5,17 +5,36 @@
 // panel, where the sale is worked. On a phone the name is the page's title.
 import type { LeadStage } from "@travel-crm/contracts/crm";
 import type { ConversationHeader } from "@travel-crm/contracts/inbox";
-import { ArrowLeftIcon, PanelRightIcon } from "lucide-react";
+import {
+  ArchiveIcon,
+  ArchiveRestoreIcon,
+  ArrowLeftIcon,
+  EllipsisVerticalIcon,
+  PanelRightIcon,
+  PinIcon,
+  PinOffIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type { Ref } from "react";
+import { toast } from "sonner";
 import { PageTitle } from "@/components/page-title";
 import { TextLink } from "@/components/text-link";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useErrorMessage } from "@/lib/error-message";
 import { StageBadge } from "@/leads/stage-badge";
 import { formatPhoneNumber } from "@/lib/format";
 import { leadRoute, routes } from "@/lib/routes";
+import { useHolds } from "@/session/me-context";
+import { useWriteAccess } from "@/subscription/write-access";
 import { ChatAvatar } from "./chat-avatar";
+import { useArchive, usePin } from "./use-inbox-tools";
 
 export function ChatHeader({
   header,
@@ -86,6 +105,48 @@ export function ChatHeader({
       >
         <PanelRightIcon aria-hidden="true" />
       </Button>
+      <ChatMenu header={header} />
     </header>
+  );
+}
+
+/** Pin and archive (sales inbox spec 5), for whoever may reply; a refusal says why in a toast. */
+function ChatMenu({ header }: { header: ConversationHeader }) {
+  const t = useTranslations("inbox.chat");
+  const { apiError } = useErrorMessage();
+  const mayReply = useHolds("inbox:reply");
+  const access = useWriteAccess("change");
+  const pin = usePin();
+  const archive = useArchive();
+  if (!mayReply || header.state !== "open") return null;
+  const failed = { onError: (error: unknown) => toast.error(apiError(error)) };
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="ghost" size="icon" aria-label={t("menu")}>
+          <EllipsisVerticalIcon aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem
+          disabled={!access.allowed || pin.isPending}
+          onSelect={() => {
+            pin.mutate({ conversationId: header.id, on: !header.pinned }, failed);
+          }}
+        >
+          {header.pinned ? <PinOffIcon aria-hidden="true" /> : <PinIcon aria-hidden="true" />}
+          {header.pinned ? t("unpin") : t("pin")}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={!access.allowed || archive.isPending}
+          onSelect={() => {
+            archive.mutate({ conversationId: header.id, on: !header.archived }, failed);
+          }}
+        >
+          {header.archived ? <ArchiveRestoreIcon aria-hidden="true" /> : <ArchiveIcon aria-hidden="true" />}
+          {header.archived ? t("unarchive") : t("archive")}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

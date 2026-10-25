@@ -75,6 +75,10 @@ model Organization {
   whatsappTemplates       WhatsappTemplate[]
   whatsappUsageMonths     WhatsappUsageMonth[]
   whatsappNumberRoutes    WhatsappNumberRoute[]
+  inboxTags               InboxTag[]
+  conversationTags        ConversationTag[]
+  inboxQuickReplies       InboxQuickReply[]
+  conversationReads       ConversationRead[]
 
   @@map("organization")
 }

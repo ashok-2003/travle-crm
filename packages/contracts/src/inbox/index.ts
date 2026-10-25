@@ -4,4 +4,5 @@ export * from "./chat.js";
 export * from "./console.js";
 export * from "./events.js";
 export * from "./inputs.js";
+export * from "./sales.js";
 export * from "./templates.js";

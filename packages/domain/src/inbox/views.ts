@@ -19,6 +19,7 @@ import { openLeadStages } from "@travel-crm/contracts/crm";
 import type { OrgTx } from "@travel-crm/db";
 import { assertRecordInScope, type MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
+import { unreadCounts } from "./chat-flags.js";
 import { chatNameOf } from "./chat-name.js";
 import { liveConnection } from "./connection-row.js";
 import { previewOf } from "./messages.js";
@@ -59,7 +60,30 @@ function searchWhere(search: string): ConversationWhere {
   };
 }
 
-function filterWhere(access: MemberAccess, filter: ListConversationsInput["filter"]): ConversationWhere {
+/** The chats with something from the customer this member has not seen (the Unread filter), at most 1,000. */
+async function unreadIdsOf(tx: OrgTx, access: MemberAccess): Promise<string[]> {
+  const rows = await tx.$queryRaw<{ id: string }[]>`
+    SELECT c.id FROM whatsapp_conversation c
+    LEFT JOIN conversation_read r
+      ON r.organization_id = c.organization_id AND r.conversation_id = c.id AND r.user_id = ${access.userId}::uuid
+    WHERE c.last_inbound_at IS NOT NULL AND (r.read_at IS NULL OR c.last_inbound_at > r.read_at)
+    LIMIT 1000`;
+  return rows.map((row) => row.id);
+}
+
+async function filterWhere(
+  tx: OrgTx,
+  access: MemberAccess,
+  filter: ListConversationsInput["filter"],
+): Promise<ConversationWhere> {
+  if (filter === "archived") return { archivedAt: { not: null } };
+  // Every other list leaves the archived chats out.
+  const live: ConversationWhere = { archivedAt: null };
+  if (filter === "unread") return { ...live, id: { in: await unreadIdsOf(tx, access) } };
+  return { AND: [live, presetWhere(access, filter)] };
+}
+
+function presetWhere(access: MemberAccess, filter: ListConversationsInput["filter"]): ConversationWhere {
   if (filter === "waiting") return { needsReply: true };
   if (filter === "mine") return { person: { is: { leads: { some: { ownerUserId: access.userId } } } } };
   if (filter === "unassigned") {
@@ -121,30 +145,43 @@ export async function listConversations(
               ],
             },
           ];
+  const base: ConversationWhere[] = [
+    { hidden: false, state: "open" },
+    visibleConversations(access),
+    await filterWhere(tx, access, input.filter),
+    ...(input.search === undefined ? [] : [searchWhere(input.search)]),
+    ...(input.tagId === undefined ? [] : [{ tags: { some: { tagId: input.tagId } } }]),
+  ];
+  const select = {
+    id: true,
+    phoneE164: true,
+    profileName: true,
+    personId: true,
+    lastMessageAt: true,
+    lastMessageId: true,
+    needsReply: true,
+    pinnedAt: true,
+    archivedAt: true,
+    person: { select: { name: true } },
+    tags: { select: { tag: { select: { id: true, name: true } } } },
+  } as const;
+  // Pinned chats head the first page (sales inbox spec 5); the pages after it are the rest, newest first.
+  const pinned =
+    input.before === undefined && input.filter !== "archived"
+      ? await tx.whatsappConversation.findMany({
+          where: { AND: [...base, { pinnedAt: { not: null } }] },
+          orderBy: [{ pinnedAt: "desc" }, { id: "desc" }],
+          take: 20,
+          select,
+        })
+      : [];
   const rows = await tx.whatsappConversation.findMany({
-    where: {
-      AND: [
-        { hidden: false, state: "open" },
-        visibleConversations(access),
-        filterWhere(access, input.filter),
-        ...(input.search === undefined ? [] : [searchWhere(input.search)]),
-        ...keyset,
-      ],
-    },
+    where: { AND: [...base, ...(input.filter === "archived" ? [] : [{ pinnedAt: null }]), ...keyset] },
     orderBy: [{ lastMessageAt: "desc" }, { id: "desc" }],
     take: input.limit + 1,
-    select: {
-      id: true,
-      phoneE164: true,
-      profileName: true,
-      personId: true,
-      lastMessageAt: true,
-      lastMessageId: true,
-      needsReply: true,
-      person: { select: { name: true } },
-    },
+    select,
   });
-  const page = rows.slice(0, input.limit);
+  const page = [...pinned, ...rows.slice(0, input.limit)];
   const lastIds = page.map((row) => row.lastMessageId).filter((id): id is string => id !== null);
   const lasts = await tx.whatsappMessage.findMany({
     where: { id: { in: lastIds } },
@@ -156,6 +193,11 @@ export async function listConversations(
     access,
     page.map((row) => row.personId).filter((id): id is string => id !== null),
   );
+  const unread = await unreadCounts(
+    tx,
+    access,
+    page.map((row) => row.id),
+  );
   return conversationPage.parse({
     items: page.map((row) => {
       const last = row.lastMessageId === null ? undefined : lastById.get(row.lastMessageId);
@@ -164,6 +206,10 @@ export async function listConversations(
         lastDirection: last?.direction === "in" || last?.direction === "out" ? last.direction : null,
         lastStatus: last === undefined ? null : whatsappMessageStatus.catch("received").parse(last.status),
         lead: lead === undefined ? null : { id: lead.id, stage: lead.stage, ownerUserId: lead.ownerUserId },
+        tags: row.tags.map((link) => link.tag).sort((a, b) => a.name.localeCompare(b.name)),
+        pinned: row.pinnedAt !== null,
+        archived: row.archivedAt !== null,
+        unread: unread.get(row.id) ?? 0,
         id: row.id,
         phone: row.phoneE164,
         name: chatNameOf(row),
@@ -174,7 +220,7 @@ export async function listConversations(
         isNewNumber: row.personId === null,
       };
     }),
-    nextCursor: rows.length > input.limit ? (page.at(-1)?.id ?? null) : null,
+    nextCursor: rows.length > input.limit ? (rows[input.limit - 1]?.id ?? null) : null,
   });
 }
 
@@ -192,7 +238,10 @@ export async function visibleConversation(tx: OrgTx, access: MemberAccess, conve
       needsReply: true,
       state: true,
       hidden: true,
+      pinnedAt: true,
+      archivedAt: true,
       person: { select: { name: true } },
+      tags: { select: { tag: { select: { id: true, name: true } } } },
     },
   });
   if (row === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
@@ -252,6 +301,9 @@ export async function conversationHeaderOf(
     optedOut: consent.state === "withdrawn" && consent.source === "customer",
     agreed: consent.state === "granted",
     state: row.state === "erased" ? "erased" : "open",
+    tags: row.tags.map((link) => link.tag).sort((a, b) => a.name.localeCompare(b.name)),
+    pinned: row.pinnedAt !== null,
+    archived: row.archivedAt !== null,
   });
 }
 

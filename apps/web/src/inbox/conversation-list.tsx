@@ -2,13 +2,16 @@
 
 // The inbox's list of chats (spec 3.1; sales inbox spec, section 3), dense like WhatsApp's: the round picture, the name
 // and the time; under them our ticks and the last message's first words, and on the right a violet dot when the customer
-// waits for a reply. A third line carries the sale: the lead's stage and its owner's name ("New number" when nobody
-// knows the person yet). The open chat is marked as the current link.
+// waits for a reply (the member's unread count once they have opened it before), and a pin on a pinned chat. A third
+// line carries the sale: the lead's stage and its owner's name ("New number" when nobody knows the person yet), then the
+// agency's tags. The open chat is marked as the current link.
 import type { LeadStage } from "@travel-crm/contracts/crm";
 import type { ConversationListItem } from "@travel-crm/contracts/inbox";
+import { PinIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Fragment } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Item, ItemContent, ItemGroup, ItemMedia, ItemSeparator } from "@/components/ui/item";
 import { StageDot } from "@/leads/stage-badge";
 import { formatDay, formatPhoneNumber, formatTime } from "@/lib/format";
@@ -66,13 +69,23 @@ export function ConversationList({ items, currentId }: { items: ConversationList
                           {chat.preview}
                         </span>
                       </span>
-                      {chat.needsReply && (
-                        <span
-                          className="size-2.5 shrink-0 rounded-full bg-people"
-                          role="img"
-                          aria-label={t("waiting")}
-                        />
-                      )}
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        {chat.pinned && (
+                          <PinIcon aria-label={t("pinned")} role="img" className="size-3.5 text-muted-foreground" />
+                        )}
+                        {chat.unread > 0 ? (
+                          <span
+                            className="flex h-5 min-w-5 items-center justify-center rounded-full bg-people px-1.5 text-caption font-semibold text-primary-foreground"
+                            aria-label={t("unreadCount", { count: chat.unread })}
+                          >
+                            {chat.unread}
+                          </span>
+                        ) : (
+                          chat.needsReply && (
+                            <span className="size-2.5 rounded-full bg-people" role="img" aria-label={t("waiting")} />
+                          )
+                        )}
+                      </span>
                     </div>
                     <div className="flex min-w-0 items-center gap-2 text-caption text-muted-foreground">
                       {chat.lead === null ? (
@@ -88,6 +101,15 @@ export function ConversationList({ items, currentId }: { items: ConversationList
                         </>
                       )}
                     </div>
+                    {chat.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 pt-0.5">
+                        {chat.tags.map((tag) => (
+                          <Badge key={tag.id} variant="secondary" className="h-5 px-1.5 text-caption font-normal">
+                            {tag.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                   </ItemContent>
                 </Link>
               </Item>

@@ -131,7 +131,10 @@ export async function receiveInbound(
         personId,
         hidden,
         profileName: (message.customerName?.trim().slice(0, 200) ?? "") || conversation.profileName,
-        ...(writing ? { lastInboundAt: later(conversation.lastInboundAt, columns.occurredAt), needsReply: true } : {}),
+        // The customer writing brings an archived chat back into the list (sales inbox spec 5).
+        ...(writing
+          ? { lastInboundAt: later(conversation.lastInboundAt, columns.occurredAt), needsReply: true, archivedAt: null }
+          : {}),
         ...(conversation.lastMessageAt === null || columns.occurredAt.getTime() >= conversation.lastMessageAt.getTime()
           ? { lastMessageAt: columns.occurredAt, lastMessageId: row.id }
           : {}),

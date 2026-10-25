@@ -76,6 +76,12 @@ export const conversationListItem = z.object({
   lastStatus: whatsappMessageStatus.nullable(),
   /** The lead the chat is about (the person's most recently active open lead, else their latest), as the member may see it. */
   lead: z.object({ id: recordId, stage: z.string(), ownerUserId: recordId.nullable() }).nullable(),
+  /** The agency's tags on the chat (sales inbox spec 5). */
+  tags: z.array(z.object({ id: recordId, name: z.string() })),
+  pinned: z.boolean(),
+  archived: z.boolean(),
+  /** The customer's messages since this member last had the chat open, at most 99. */
+  unread: z.int().min(0),
 });
 export type ConversationListItem = z.infer<typeof conversationListItem>;
 
@@ -107,6 +113,9 @@ export const conversationHeader = z.object({
   /** Staff recorded that the person agreed to WhatsApp messages. */
   agreed: z.boolean(),
   state: z.enum(["open", "erased"]),
+  tags: z.array(z.object({ id: recordId, name: z.string() })),
+  pinned: z.boolean(),
+  archived: z.boolean(),
 });
 export type ConversationHeader = z.infer<typeof conversationHeader>;
 
