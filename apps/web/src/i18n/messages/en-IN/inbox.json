@@ -15,11 +15,13 @@
   "filterWaiting": "Waiting for reply",
   "filterAll": "All",
   "filterMine": "Mine",
+  "filterUnassigned": "Unassigned",
   "search": "Search chats",
   "searchPlaceholder": "Name or phone number",
   "list": "Chats",
   "newNumber": "New number",
   "waiting": "Reply due",
+  "unassigned": "Unassigned",
   "showMore": "Show more chats",
   "pickChat": "Choose a chat to read it.",
   "back": "Back to the inbox",
@@ -114,7 +116,11 @@
     "sendTemplate": "Send a template",
     "optedOut": "Asked to stop WhatsApp messages.",
     "windowClosedOptedOut": "Free text can be sent only within 24 hours of their last message. It closed on {closed}. They asked to stop WhatsApp messages, so no template can be sent.",
-    "newMessages": "New messages"
+    "newMessages": "New messages",
+    "yesterday": "Yesterday",
+    "back": "Back to the chats",
+    "showContact": "Show {name}'s details",
+    "contactPanel": "Contact and lead details"
   },
   "leadSection": {
     "title": "WhatsApp",
@@ -244,5 +250,18 @@
         "name": "Use lower case letters, digits and underscores, starting with a letter."
       }
     }
+  },
+  "panel": {
+    "title": "Contact",
+    "close": "Close the contact details",
+    "copyPhone": "Copy the phone number",
+    "openLead": "Open the lead",
+    "stage": "Stage",
+    "leadFailed": "The lead didn't load.",
+    "retry": "Try again",
+    "loadingLead": "Loading the lead",
+    "pastCustomer": "A past customer: their earlier leads are closed. Start a new lead to work this enquiry.",
+    "noLead": "No lead yet for this chat.",
+    "closedLead": "This lead is closed."
   }
 }

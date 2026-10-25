@@ -12,7 +12,7 @@ import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
 import { Item, ItemActions, ItemContent, ItemTitle } from "@/components/ui/item";
 import { Spinner } from "@/components/ui/spinner";
-import { Textarea } from "@/components/ui/textarea";
+import { InputGroup, InputGroupAddon, InputGroupTextarea } from "@/components/ui/input-group";
 import { formatDayTime } from "@/lib/format";
 import { useWideScreen } from "@/lib/use-wide-screen";
 import { useMe } from "@/session/me-context";
@@ -136,45 +136,56 @@ export function Composer({ conversationId, windowOpenUntil }: { conversationId: 
               event.target.value = "";
             }}
           />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={t("composer.attach")}
-            disabled={reply.pending || !access.allowed}
-            onClick={() => picker.current?.click()}
-          >
-            <PaperclipIcon aria-hidden="true" />
-          </Button>
-          {wide && <EmojiButton onPick={insertEmoji} disabled={reply.pending || !access.allowed} />}
-          <Textarea
-            ref={box}
-            dir="auto"
-            rows={1}
-            maxLength={MAX_TEXT}
-            className="max-h-40 min-h-11"
-            aria-label={t("composer.label")}
-            aria-describedby={access.hint === null ? undefined : hintId}
-            placeholder={t("composer.placeholder")}
-            value={text}
-            disabled={!access.allowed}
-            onChange={(event) => {
-              setText(event.target.value);
-            }}
-            onKeyDown={onKey}
-          />
+          {/* One rounded bar, as WhatsApp's: emoji and attach, then the words, which grow to six lines. */}
+          <InputGroup className="min-h-11 rounded-3xl bg-background">
+            <InputGroupTextarea
+              ref={box}
+              dir="auto"
+              rows={1}
+              maxLength={MAX_TEXT}
+              className="max-h-40 min-h-11 py-3"
+              aria-label={t("composer.label")}
+              aria-describedby={access.hint === null ? undefined : hintId}
+              placeholder={t("composer.placeholder")}
+              value={text}
+              disabled={!access.allowed}
+              onChange={(event) => {
+                setText(event.target.value);
+              }}
+              onKeyDown={onKey}
+            />
+            <InputGroupAddon className="self-end pb-0.5">
+              {wide && <EmojiButton onPick={insertEmoji} disabled={reply.pending || !access.allowed} />}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={t("composer.attach")}
+                disabled={reply.pending || !access.allowed}
+                onClick={() => picker.current?.click()}
+              >
+                <PaperclipIcon aria-hidden="true" />
+              </Button>
+            </InputGroupAddon>
+          </InputGroup>
           {voice.available && words === "" && file === null && !reply.pending ? (
             <MicButton disabled={!access.allowed || voice.phase === "starting"} onStart={() => void voice.start()} />
           ) : (
-            <Button type="submit" disabled={!canSend} aria-describedby={access.hint === null ? undefined : hintId}>
+            <Button
+              type="submit"
+              size="icon"
+              className="shrink-0 rounded-full"
+              disabled={!canSend}
+              aria-label={reply.pending ? t("composer.sending") : t("composer.send")}
+              aria-describedby={access.hint === null ? undefined : hintId}
+            >
               {reply.pending ? <Spinner aria-hidden="true" /> : <SendIcon aria-hidden="true" />}
-              {reply.pending ? t("composer.sending") : t("composer.send")}
             </Button>
           )}
         </div>
       )}
       <WriteHint id={hintId} hint={access.hint} visible />
-      <p className="text-label text-muted-foreground">
+      <p className="px-2 text-caption text-muted-foreground">
         {t("windowOpen", { until: formatDayTime(new Date(windowOpenUntil), { timeZone }) })}
       </p>
     </form>

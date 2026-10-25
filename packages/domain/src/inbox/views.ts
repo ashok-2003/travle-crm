@@ -62,7 +62,36 @@ function searchWhere(search: string): ConversationWhere {
 function filterWhere(access: MemberAccess, filter: ListConversationsInput["filter"]): ConversationWhere {
   if (filter === "waiting") return { needsReply: true };
   if (filter === "mine") return { person: { is: { leads: { some: { ownerUserId: access.userId } } } } };
+  if (filter === "unassigned") {
+    return { person: { is: { leads: { some: { ownerUserId: null, stage: { in: [...openLeadStages] } } } } } };
+  }
   return {};
+}
+
+const isOpenStage = (stage: string) => (openLeadStages as readonly string[]).includes(stage);
+
+/** For each person, the lead their chat is about: the most recently active open lead, else the latest, in the member's scope. */
+async function chatLeadsOf(tx: OrgTx, access: MemberAccess, personIds: string[]) {
+  const leads =
+    personIds.length === 0
+      ? []
+      : await tx.lead.findMany({
+          where: { personId: { in: personIds }, ...leadScopeWhere(access) },
+          orderBy: { id: "desc" },
+          select: { id: true, personId: true, stage: true, ownerUserId: true, updatedAt: true },
+        });
+  const chosen = new Map<string, (typeof leads)[number]>();
+  for (const lead of leads) {
+    const held = chosen.get(lead.personId);
+    const better =
+      held === undefined ||
+      (isOpenStage(lead.stage) && !isOpenStage(held.stage)) ||
+      (isOpenStage(lead.stage) === isOpenStage(held.stage) &&
+        isOpenStage(lead.stage) &&
+        lead.updatedAt.getTime() > held.updatedAt.getTime());
+    if (better) chosen.set(lead.personId, lead);
+  }
+  return chosen;
 }
 
 /** A page of chats, the newest message first, with the chats waiting for a reply as the default filter. */
@@ -119,13 +148,22 @@ export async function listConversations(
   const lastIds = page.map((row) => row.lastMessageId).filter((id): id is string => id !== null);
   const lasts = await tx.whatsappMessage.findMany({
     where: { id: { in: lastIds } },
-    select: { id: true, kind: true, body: true, caption: true },
+    select: { id: true, kind: true, body: true, caption: true, direction: true, status: true },
   });
   const lastById = new Map(lasts.map((message) => [message.id, message]));
+  const leadByPerson = await chatLeadsOf(
+    tx,
+    access,
+    page.map((row) => row.personId).filter((id): id is string => id !== null),
+  );
   return conversationPage.parse({
     items: page.map((row) => {
       const last = row.lastMessageId === null ? undefined : lastById.get(row.lastMessageId);
+      const lead = row.personId === null ? undefined : leadByPerson.get(row.personId);
       return {
+        lastDirection: last?.direction === "in" || last?.direction === "out" ? last.direction : null,
+        lastStatus: last === undefined ? null : whatsappMessageStatus.catch("received").parse(last.status),
+        lead: lead === undefined ? null : { id: lead.id, stage: lead.stage, ownerUserId: lead.ownerUserId },
         id: row.id,
         phone: row.phoneE164,
         name: chatNameOf(row),

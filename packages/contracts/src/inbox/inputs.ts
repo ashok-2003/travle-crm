@@ -3,7 +3,7 @@ import { z } from "zod";
 import { attachmentFileName } from "../files/attachments.js";
 import { recordId } from "../identity/fields.js";
 
-export const conversationFilters = ["waiting", "all", "mine"] as const;
+export const conversationFilters = ["waiting", "all", "mine", "unassigned"] as const;
 export const conversationFilter = z.enum(conversationFilters);
 export type ConversationFilter = z.infer<typeof conversationFilter>;
 

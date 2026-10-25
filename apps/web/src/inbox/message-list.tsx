@@ -12,7 +12,6 @@ import { LoadingRows } from "@/components/loading-rows";
 import { ShowMoreButton } from "@/components/show-more-button";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { formatDay } from "@/lib/format";
 import { useMe } from "@/session/me-context";
 import { useChatScroll } from "./chat-scroll";
@@ -41,21 +40,28 @@ function Loaded({ messages, items }: { messages: Pages; items: ChatMessage[] }) 
     loadingEarlier: messages.isFetchingNextPage,
     loadEarlier: () => void messages.fetchNextPage(),
   });
+  const now = new Date();
+  const today = dayKey(now.toISOString(), timeZone);
+  const yesterday = dayKey(new Date(now.getTime() - 86_400_000).toISOString(), timeZone);
+  const dayLabel = (instant: string) => {
+    const day = dayKey(instant, timeZone);
+    if (day === today) return t("today");
+    if (day === yesterday) return t("yesterday");
+    return formatDay(new Date(instant), { timeZone });
+  };
   const people = Object.fromEntries(messages.data?.pages.flatMap((page) => Object.entries(page.people)) ?? []);
   const rows: ReactNode[] = [];
   oldestFirst.forEach((message, index) => {
     const day = dayKey(message.occurredAt, timeZone);
     const previous = oldestFirst[index - 1];
-    if (previous === undefined || dayKey(previous.occurredAt, timeZone) !== day) {
+    const newDay = previous === undefined || dayKey(previous.occurredAt, timeZone) !== day;
+    if (newDay) {
+      // A day's chip, centred over the wallpaper as WhatsApp's.
       rows.push(
-        <li
-          key={`day-${day}`}
-          className="flex items-center gap-3 text-caption text-muted-foreground"
-          aria-hidden="true"
-        >
-          <Separator className="flex-1" />
-          {formatDay(new Date(message.occurredAt), { timeZone })}
-          <Separator className="flex-1" />
+        <li key={`day-${day}`} className="sticky top-1 z-(--z-sticky) my-3 flex justify-center" aria-hidden="true">
+          <span className="rounded-lg bg-background px-3 py-1 text-caption font-medium text-muted-foreground">
+            {dayLabel(message.occurredAt)}
+          </span>
         </li>,
       );
     }
@@ -64,15 +70,18 @@ function Loaded({ messages, items }: { messages: Pages; items: ChatMessage[] }) 
         key={message.id}
         message={message}
         senderName={message.sentBy === null ? null : (people[message.sentBy] ?? null)}
+        first={newDay || previous.direction !== message.direction}
       />,
     );
   });
   return (
     <div className="absolute inset-0">
       <ScrollArea ref={root} className="h-full" aria-label={t("messages")}>
-        <div className="flex flex-col gap-3 pr-3">
-          <ShowMoreButton pages={messages} label={t("earlier")} />
-          <ol className="flex flex-col gap-2" aria-label={t("messages")}>
+        <div className="flex flex-col gap-3 pt-2 pb-4">
+          <div className="flex justify-center">
+            <ShowMoreButton pages={messages} label={t("earlier")} />
+          </div>
+          <ol className="flex flex-col" aria-label={t("messages")}>
             {rows.map((row, index) => (
               <Fragment key={index}>{row}</Fragment>
             ))}
@@ -80,7 +89,12 @@ function Loaded({ messages, items }: { messages: Pages; items: ChatMessage[] }) 
         </div>
       </ScrollArea>
       {unseen && (
-        <Button size="sm" className="absolute bottom-2 left-1/2 -translate-x-1/2" onClick={toBottom}>
+        <Button
+          variant="secondary"
+          className="absolute right-4 bottom-3 rounded-full"
+          onClick={toBottom}
+          aria-label={t("newMessages")}
+        >
           <ArrowDownIcon aria-hidden="true" />
           {t("newMessages")}
         </Button>
@@ -104,6 +118,6 @@ export function MessageList({ conversationId }: { conversationId: string }) {
       <LoadingRows shape="twoLines" label={t("loading")} />
     );
   }
-  if (messages.items.length === 0) return <p className="text-muted-foreground">{t("noMessages")}</p>;
+  if (messages.items.length === 0) return <p className="p-4 text-center text-muted-foreground">{t("noMessages")}</p>;
   return <Loaded messages={messages} items={messages.items} />;
 }

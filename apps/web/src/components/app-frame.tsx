@@ -34,11 +34,12 @@ export function AppFrame({
       {sidebar}
       <SidebarInset className="min-w-0">
         {above}
-        {/* The skip link lands here, past the phone's top bar and the banners, on the page itself. */}
+        {/* The skip link lands here, past the phone's top bar and the banners, on the page itself. A screen that marks
+            itself `data-bleed` (the inbox) fills the frame edge to edge, like the chat apps it stands in for. */}
         <div
           id={MAIN_CONTENT_ID}
           tabIndex={-1}
-          className="mx-auto w-full max-w-[1200px] px-4 pt-6 pb-24 sm:px-6 md:pb-8 lg:px-8"
+          className="mx-auto w-full max-w-[1200px] px-4 pt-6 pb-24 sm:px-6 md:pb-8 lg:px-8 has-data-[bleed]:max-w-none has-data-[bleed]:p-0"
         >
           {children}
         </div>

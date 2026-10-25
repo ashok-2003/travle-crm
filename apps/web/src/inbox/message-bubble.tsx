@@ -6,7 +6,7 @@
 // link; a document is a download; a place is its coordinates and a link to Maps. Nothing is drawn with a border or shadow.
 import type { ChatMessage } from "@travel-crm/contracts/inbox";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { CheckCheckIcon, CheckIcon, ClockIcon, FileIcon, ImageIcon, type LucideIcon } from "lucide-react";
+import { FileIcon, ImageIcon, type LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Fragment, type ReactNode } from "react";
 import { RefusalAlert } from "@/components/refusal-alert";
@@ -16,6 +16,7 @@ import { formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useHolds, useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
+import { Ticks } from "./ticks";
 import { useMediaLink } from "./use-inbox";
 
 const LINK = /(https?:\/\/[^\s<>"']+)/g;
@@ -144,22 +145,6 @@ function Body({ message }: { message: ChatMessage }): ReactNode {
   }
 }
 
-/** Our message's state as WhatsApp shows it: a clock waiting, one tick sent, two delivered, two in the brand colour read. */
-function Ticks({ status }: { status: ChatMessage["status"] }) {
-  const t = useTranslations("inbox.chat.status");
-  if (status === "queued" || status === "sending")
-    return <ClockIcon aria-label={t(status)} className="size-3.5" role="img" />;
-  if (status === "sent") return <CheckIcon aria-label={t("sent")} className="size-3.5" role="img" />;
-  const read = status === "read";
-  return (
-    <CheckCheckIcon
-      aria-label={t(read ? "read" : "delivered")}
-      className={cn("size-3.5", read && "text-primary")}
-      role="img"
-    />
-  );
-}
-
 const failureCodes = [
   "window_closed",
   "not_on_whatsapp",
@@ -208,40 +193,88 @@ function NotSent({ message }: { message: ChatMessage }) {
   );
 }
 
-export function MessageBubble({ message, senderName }: { message: ChatMessage; senderName: string | null }) {
+/**
+ * One bubble. `first` is the first of a run from the same side: it gets the tail and the space above it, as in WhatsApp,
+ * and later ones in the run sit close under it. The time, the sender's first name and our ticks sit in the bubble's corner.
+ */
+export function MessageBubble({
+  message,
+  senderName,
+  first,
+}: {
+  message: ChatMessage;
+  senderName: string | null;
+  first: boolean;
+}) {
   const t = useTranslations("inbox.chat");
   const { timeZone } = useMe().organization;
   const ours = message.direction === "out";
   const failed = ours && message.status === "failed";
   const firstName = senderName?.split(/\s+/)[0];
+  const media = ["image", "video", "sticker"].includes(message.kind);
   return (
-    <li className={cn("flex", ours ? "justify-end" : "justify-start")}>
+    <li className={cn("flex px-3 md:px-[6%]", ours ? "justify-end" : "justify-start", first ? "mt-2" : "mt-0.5")}>
       <div
         className={cn(
-          "flex max-w-[85%] flex-col gap-1 rounded-lg px-3 py-2 text-foreground",
-          ours ? "bg-accent" : "bg-muted",
+          "relative flex max-w-[min(85%,38rem)] flex-col gap-1 rounded-lg text-body",
+          media ? "p-1" : "px-2.5 pt-1.5 pb-1",
+          ours ? "bg-people-tint text-people-tint-ink" : "bg-background text-foreground",
+          first && (ours ? "rounded-tr-none" : "rounded-tl-none"),
+          // The tail: a small triangle at the top corner, cut with a clip path (no border is drawn).
+          first &&
+            (ours
+              ? "before:absolute before:top-0 before:-right-2 before:size-2 before:bg-people-tint before:[clip-path:polygon(0_0,100%_0,0_100%)]"
+              : "before:absolute before:top-0 before:-left-2 before:size-2 before:bg-background before:[clip-path:polygon(0_0,100%_0,100%_100%)]"),
         )}
       >
         {message.quoted !== null && (
-          <p className="text-caption text-muted-foreground" dir="auto">
-            {t("quoted")}: {message.quoted.body ?? t(message.quoted.kind === "image" ? "photo" : "document")}
+          <p
+            className={cn(
+              "rounded-md px-2 py-1 text-caption",
+              ours ? "bg-background/60 text-people-tint-ink" : "bg-muted text-muted-foreground",
+            )}
+            dir="auto"
+          >
+            <span className="block font-medium">{t("quoted")}</span>
+            <span className="line-clamp-2">
+              {message.quoted.body ?? t(message.quoted.kind === "image" ? "photo" : "document")}
+            </span>
           </p>
         )}
-        <div dir="auto" className="break-words whitespace-pre-wrap script-leading">
+        <div dir="auto" className={cn("break-words whitespace-pre-wrap script-leading", media && "px-1.5")}>
           <Body message={message} />
+          {/* Room for the corner's time, so the last line never runs under it. */}
+          {!media && (
+            <span
+              aria-hidden="true"
+              className={cn("inline-block", ours ? (firstName === undefined ? "w-20" : "w-32") : "w-12")}
+            />
+          )}
         </div>
         {message.reaction !== null && message.kind !== "reaction" && (
-          <p aria-label={t("reactedWith", { emoji: message.reaction })}>{message.reaction}</p>
+          <span
+            className="absolute -bottom-3 left-2 rounded-full bg-background px-1.5 text-caption"
+            aria-label={t("reactedWith", { emoji: message.reaction })}
+          >
+            {message.reaction}
+          </span>
         )}
         {failed && <NotSent message={message} />}
-        <p className="flex items-center gap-1 text-caption text-muted-foreground">
-          {ours && firstName !== undefined && <span>{firstName} · </span>}
-          {ours && firstName === undefined && message.origin === "staff_crm" && message.sentBy !== null && (
-            <span>{t("formerMember")} · </span>
+        <p
+          className={cn(
+            "flex items-center justify-end gap-1 self-end text-caption",
+            !media && "-mt-5",
+            ours ? "text-people-tint-ink/70" : "text-muted-foreground",
+            media && "px-1.5 pb-0.5",
           )}
-          {message.origin === "staff_phone" && <span>{t("phoneApp")} · </span>}
+        >
+          {ours && firstName !== undefined && <span>{firstName} ·</span>}
+          {ours && firstName === undefined && message.origin === "staff_crm" && message.sentBy !== null && (
+            <span>{t("formerMember")} ·</span>
+          )}
+          {message.origin === "staff_phone" && <span>{t("phoneApp")} ·</span>}
           <span>{formatTime(new Date(message.occurredAt), { timeZone })}</span>
-          {ours && !failed && <Ticks status={message.status} />}
+          {ours && !failed && <Ticks status={message.status} className="size-3.5" />}
         </p>
       </div>
     </li>

@@ -71,6 +71,11 @@ export const conversationListItem = z.object({
   needsReply: z.boolean(),
   /** A number with no person and no lead: the row says "New number". */
   isNewNumber: z.boolean(),
+  /** Who wrote the last message, and for ours how far it got: the row's ticks. */
+  lastDirection: z.enum(["in", "out"]).nullable(),
+  lastStatus: whatsappMessageStatus.nullable(),
+  /** The lead the chat is about (the person's most recently active open lead, else their latest), as the member may see it. */
+  lead: z.object({ id: recordId, stage: z.string(), ownerUserId: recordId.nullable() }).nullable(),
 });
 export type ConversationListItem = z.infer<typeof conversationListItem>;
 
