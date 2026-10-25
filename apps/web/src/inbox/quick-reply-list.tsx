@@ -74,7 +74,7 @@ export function QuickReplyList({
               >
                 <ItemContent className="min-w-0 text-left">
                   <ItemTitle>
-                    <span className="numbers text-people-tint-ink">/{reply.shortcut}</span>
+                    <span className="numbers text-primary">/{reply.shortcut}</span>
                     <span className="truncate">{reply.title}</span>
                   </ItemTitle>
                   <ItemDescription className="line-clamp-1">{reply.body}</ItemDescription>

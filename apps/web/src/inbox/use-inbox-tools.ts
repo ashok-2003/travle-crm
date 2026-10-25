@@ -36,6 +36,13 @@ export function usePin() {
   return useMutation(trpc.inbox.pin.mutationOptions({ onSuccess: refresh }));
 }
 
+/** The chat stops waiting for a reply (an answer given by phone, say). */
+export function useMarkAnswered() {
+  const trpc = useTRPC();
+  const refresh = useRefreshInbox();
+  return useMutation(trpc.inbox.markAnswered.mutationOptions({ onSuccess: refresh }));
+}
+
 export function useArchive() {
   const trpc = useTRPC();
   const refresh = useRefreshInbox();

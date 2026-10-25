@@ -1,16 +1,13 @@
 "use client";
 
 // What sits under the messages for someone who may reply (spec 3.2): the reply box while the 24-hour window is open; a plain
-// note instead when it has closed, the customer never wrote, the number is paused or this is the demo; and, while the chat
-// waits for an answer, Mark as answered for one given another way. Someone who may only read sees nothing here.
+// note instead when it has closed, the customer never wrote, the number is paused or this is the demo (Mark as answered is
+// in the chat's menu). Someone who may only read sees nothing here.
 import type { ConversationHeader } from "@travel-crm/contracts/inbox";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useRef, useState, type ReactNode } from "react";
-import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription } from "@/components/ui/item";
-import { useTRPC } from "@/data/trpc";
 import { formatDayTime } from "@/lib/format";
 import { useHolds, useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
@@ -54,34 +51,6 @@ function TemplateButton({ conversationId }: { conversationId: string }) {
   );
 }
 
-function MarkAnswered({ conversationId }: { conversationId: string }) {
-  const t = useTranslations("inbox.chat");
-  const trpc = useTRPC();
-  const queryClient = useQueryClient();
-  const access = useWriteAccess("change");
-  const mark = useMutation(
-    trpc.inbox.markAnswered.mutationOptions({
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: trpc.inbox.pathKey() }),
-    }),
-  );
-  return (
-    <div className="flex flex-col items-start gap-2">
-      <RefusalAlert error={mark.error} />
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        disabled={!access.allowed || mark.isPending}
-        onClick={() => {
-          mark.mutate({ conversationId });
-        }}
-      >
-        {t("markAnswered")}
-      </Button>
-    </div>
-  );
-}
-
 export function ReplyArea({ header }: { header: ConversationHeader }) {
   const t = useTranslations("inbox.chat");
   const { timeZone } = useMe().organization;
@@ -106,10 +75,5 @@ export function ReplyArea({ header }: { header: ConversationHeader }) {
       </Note>
     );
   };
-  return (
-    <div className="flex flex-col gap-3">
-      {box()}
-      {header.needsReply && <MarkAnswered conversationId={header.id} />}
-    </div>
-  );
+  return box();
 }

@@ -74,7 +74,7 @@ function Loaded({
       // A day's chip, centred over the wallpaper as WhatsApp's.
       rows.push(
         <li key={`day-${day}`} className="sticky top-1 z-(--z-sticky) my-3 flex justify-center" aria-hidden="true">
-          <span className="rounded-lg bg-background px-3 py-1 text-caption font-medium text-muted-foreground">
+          <span className="rounded-lg bg-chat-bubble-in px-3 py-1 text-caption font-medium text-muted-foreground uppercase">
             {dayLabel(message.occurredAt)}
           </span>
         </li>,

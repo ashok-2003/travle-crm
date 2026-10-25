@@ -44,34 +44,47 @@ export const brand = {
    * ones in DESIGN.md's front matter; a web app test fails when the two disagree.
    */
   colours: {
-    /** Text and the darkest surfaces. */
-    ink: "#1a1a1a",
-    /** Secondary text, captions and placeholders: 5.25:1 on canvas. */
-    muted: "#6b6b6b",
-    /** Page background: warm white. */
-    canvas: "#fffdf9",
-    /** Panels, table headers and the sidebar. */
-    surface: "#f5f4f0",
+    /** Text and the darkest surfaces (WhatsApp's ink, the owner's chosen theme of 2026-10-25). */
+    ink: "#111b21",
+    /** Secondary text, captions and placeholders: 6.1:1 on canvas. */
+    muted: "#54656f",
+    /** Cards, panels and dialogs: white. */
+    canvas: "#ffffff",
+    /** The page behind the cards, table headers and wells: WhatsApp's light grey. */
+    surface: "#f0f2f5",
     /** Thin lines between flat surfaces. Decorative only: never the one sign of a control or a selection. */
-    hairline: "#e6e3dc",
-    /** The edge of inputs and secondary buttons: 3.42:1 on canvas, enough for a control's boundary. */
-    inputBorder: "#8a8a82",
-    /** The one interactive colour: buttons, links, focus rings, the active item. */
-    action: "#2563eb",
-    actionPressed: "#1d4ed8",
-    /** Selected chips and the active navigation item, with actionPressed as their text. */
-    actionTint: "#eef2ff",
-    /** Text on an action fill: 5.17:1 on action. */
+    hairline: "#e9edef",
+    /** The edge of inputs and secondary buttons: 3.5:1 on canvas, enough for a control's boundary. */
+    inputBorder: "#7c8b95",
+    /** The one interactive colour: buttons, links, focus rings, the active item. WhatsApp's teal green. */
+    action: "#008069",
+    actionPressed: "#006b58",
+    /** Selected chips and hover, with actionPressed as their text. */
+    actionTint: "#e7f6f1",
+    /** Text on an action fill: 4.96:1 on action. */
     onAction: "#ffffff",
-    /** People and conversations: the inbox, follow-ups, assignees. Information, never a button. */
-    people: "#6a4bbd",
-    peoplePressed: "#5b3fa6",
-    peopleTint: "#efe7fd",
-    peopleTintInk: "#4c2f97",
+    /** People and conversations: unread counts, read ticks, assignees. Information, never a button. */
+    people: "#3b5bdb",
+    peoplePressed: "#2f4bc0",
+    peopleTint: "#e8edfd",
+    peopleTintInk: "#2f45a8",
     /** Money: amounts received, margins, invoices and the Accounts area. Never a status. */
     money: "#034f46",
     moneyPressed: "#07352f",
     moneyTint: "#e3f1ee",
+    /** The desktop sidebar: WhatsApp's dark teal, white words, the current page a lighter teal. */
+    sidebar: {
+      fill: "#075e54",
+      ink: "#ffffff",
+      active: "#128c7e",
+    },
+    /** The WhatsApp inbox (sales inbox spec): the chat's wallpaper, our bubbles and theirs, the bars above and below. */
+    chat: {
+      wallpaper: "#efeae2",
+      bubbleOut: "#d9fdd3",
+      bubbleIn: "#ffffff",
+      bar: "#f0f2f5",
+    },
     status: {
       good: { dot: "#168f43", fill: "#e3f4e7", ink: "#14532d" },
       attention: { dot: "#c2680a", fill: "#fff3d6", ink: "#7a4100" },

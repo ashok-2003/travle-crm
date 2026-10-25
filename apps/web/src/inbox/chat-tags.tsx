@@ -101,7 +101,7 @@ export function ChatTags({ header }: { header: ConversationHeader }) {
                 variant="ghost"
                 size="icon"
                 aria-label={t("addTag")}
-                disabled={!access.allowed || busy || name.trim() === ""}
+                disabled={!access.allowed || busy}
               >
                 <PlusIcon aria-hidden="true" />
               </Button>

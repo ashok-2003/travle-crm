@@ -237,6 +237,7 @@ ${filled}`;
                   type="button"
                   variant="ghost"
                   size="icon"
+                  className="text-muted-foreground"
                   aria-label={t("composer.attach")}
                   disabled={reply.pending || !access.allowed}
                   onClick={() => picker.current?.click()}
@@ -247,6 +248,7 @@ ${filled}`;
                   type="button"
                   variant="ghost"
                   size="icon"
+                  className="text-muted-foreground"
                   aria-label={t("composer.paymentDetails")}
                   disabled={reply.pending || !access.allowed}
                   onClick={payment}

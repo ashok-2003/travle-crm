@@ -2,22 +2,24 @@
 name: travel-crm
 status: first-draft
 colors:
-  canvas: "#fffdf9"
-  surface: "#f5f4f0"
-  hairline: "#e6e3dc"
-  input-border: "#8a8a82"
-  ink: "#1a1a1a"
-  ink-muted: "#6b6b6b"
-  action: "#2563eb"
-  action-hover: "#1d4ed8"
-  action-tint: "#eef2ff"
-  people: "#6a4bbd"
-  people-pressed: "#5b3fa6"
-  people-tint: "#efe7fd"
-  people-tint-ink: "#4c2f97"
+  canvas: "#ffffff"
+  surface: "#f0f2f5"
+  hairline: "#e9edef"
+  input-border: "#7c8b95"
+  ink: "#111b21"
+  ink-muted: "#54656f"
+  action: "#008069"
+  action-hover: "#006b58"
+  action-tint: "#e7f6f1"
+  people: "#3b5bdb"
+  people-pressed: "#2f4bc0"
+  people-tint: "#e8edfd"
+  people-tint-ink: "#2f45a8"
   money: "#034f46"
   money-pressed: "#07352f"
   money-tint: "#e3f1ee"
+  sidebar: { fill: "#075e54", ink: "#ffffff", active: "#128c7e" }
+  chat: { wallpaper: "#efeae2", out: "#d9fdd3", in: "#ffffff", bar: "#f0f2f5" }
   status-red: { dot: "#d92d20", bg: "#fdecea", ink: "#9b1c1c" }
   status-amber: { dot: "#c2680a", bg: "#fff3d6", ink: "#7a4100" }
   status-green: { dot: "#168f43", bg: "#e3f4e7", ink: "#14532d" }
@@ -56,6 +58,11 @@ shadows:
 ---
 
 # Design System: travel-crm (first draft)
+
+> **Theme, 2026-10-25 (the owner's choice): WhatsApp green.** The action colour is WhatsApp's teal green, the sidebar and
+> the phone's top bar its dark teal with white words, the page its light grey with white cards, and the inbox a WhatsApp
+> chat (beige wallpaper, green bubbles for ours). People and conversations moved from violet to a blue (read ticks,
+> unread counts). Where the prose below names the old warm white, blue or violet, read these.
 
 > First draft, to be improved. Tokens above are the source of truth; map them to Tailwind theme variables and shadcn/ui CSS variables. The product name is a working name and lives only in the brand package. Never hard-code it in components, titles or copy.
 

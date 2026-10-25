@@ -11,8 +11,10 @@ import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
+import { PageTitle } from "@/components/page-title";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+import { useFillScreen } from "@/lib/use-fill-screen";
 import { useWideScreen } from "@/lib/use-wide-screen";
 import { ChatPanel } from "./chat-panel";
 import { InboxList } from "./inbox-list";
@@ -29,9 +31,15 @@ export function InboxScreen({ conversationId }: { conversationId: string | null 
   const wide = useWideScreen();
   const status = useInboxStatus();
 
+  const fill = useFillScreen<HTMLDivElement>();
   const frame = (children: ReactNode) => (
-    // Under the phone's top bar and above its bottom bar; the whole height beside the sidebar on a computer.
-    <div data-bleed className="flex h-[calc(100dvh-3.5rem-var(--phone-navigation-height))] flex-col md:h-dvh">
+    // Exactly the height left on screen, so the reply bar is always in view and only the lists inside scroll.
+    <div
+      ref={fill.ref}
+      style={fill.style}
+      data-bleed
+      className="flex h-[calc(100dvh-3.5rem-var(--phone-navigation-height))] flex-col overflow-hidden md:h-dvh"
+    >
       {children}
     </div>
   );
@@ -76,9 +84,10 @@ export function InboxScreen({ conversationId }: { conversationId: string | null 
     </Alert>
   );
   const listPane = (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="shrink-0 px-3 pt-4">
-        <PageHeader title={t("title")} />
+    <div className="flex h-full min-h-0 flex-col bg-background">
+      {/* WhatsApp's bar atop the chats. */}
+      <div className="flex min-h-16 shrink-0 items-center bg-chat-bar px-4">
+        <PageTitle className="font-sans text-title-mobile font-semibold md:text-title-mobile">{t("title")}</PageTitle>
       </div>
       <div className="min-h-0 flex-1">
         <InboxList currentId={conversationId} />
@@ -103,11 +112,11 @@ export function InboxScreen({ conversationId }: { conversationId: string | null 
   return frame(
     <>
       {banner}
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(18rem,24rem)_auto_minmax(0,1fr)]">
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(18rem,24rem)_auto_minmax(0,1fr)] grid-rows-[minmax(0,1fr)]">
         {listPane}
         <Separator orientation="vertical" />
         {conversationId === null ? (
-          <div className="flex items-center justify-center bg-surface">
+          <div className="flex items-center justify-center bg-chat-bar">
             <EmptyState icon={MessageCircleIcon} message={t("pickChat")} />
           </div>
         ) : (

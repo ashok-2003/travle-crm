@@ -9,6 +9,7 @@ import {
   ArchiveIcon,
   ArchiveRestoreIcon,
   ArrowLeftIcon,
+  CheckCheckIcon,
   EllipsisVerticalIcon,
   PanelRightIcon,
   PinIcon,
@@ -34,7 +35,7 @@ import { leadRoute, routes } from "@/lib/routes";
 import { useHolds } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { ChatAvatar } from "./chat-avatar";
-import { useArchive, usePin } from "./use-inbox-tools";
+import { useArchive, useMarkAnswered, usePin } from "./use-inbox-tools";
 
 export function ChatHeader({
   header,
@@ -60,7 +61,7 @@ export function ChatHeader({
       </TextLink>
     );
   return (
-    <header className="flex shrink-0 items-center gap-3 bg-background px-2 py-2 md:px-4">
+    <header className="flex min-h-16 shrink-0 items-center gap-3 bg-chat-bar px-2 py-2 md:px-4">
       {asPage && (
         <Button asChild variant="ghost" size="icon" aria-label={t("back")}>
           <Link href={routes.inbox}>
@@ -110,7 +111,7 @@ export function ChatHeader({
   );
 }
 
-/** Pin and archive (sales inbox spec 5), for whoever may reply; a refusal says why in a toast. */
+/** Mark as answered, pin and archive (sales inbox spec 5), for whoever may reply; a refusal says why in a toast. */
 function ChatMenu({ header }: { header: ConversationHeader }) {
   const t = useTranslations("inbox.chat");
   const { apiError } = useErrorMessage();
@@ -118,6 +119,7 @@ function ChatMenu({ header }: { header: ConversationHeader }) {
   const access = useWriteAccess("change");
   const pin = usePin();
   const archive = useArchive();
+  const answered = useMarkAnswered();
   if (!mayReply || header.state !== "open") return null;
   const failed = { onError: (error: unknown) => toast.error(apiError(error)) };
   return (
@@ -128,6 +130,17 @@ function ChatMenu({ header }: { header: ConversationHeader }) {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        {header.needsReply && (
+          <DropdownMenuItem
+            disabled={!access.allowed || answered.isPending}
+            onSelect={() => {
+              answered.mutate({ conversationId: header.id }, failed);
+            }}
+          >
+            <CheckCheckIcon aria-hidden="true" />
+            {t("markAnswered")}
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem
           disabled={!access.allowed || pin.isPending}
           onSelect={() => {

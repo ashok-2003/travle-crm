@@ -1,7 +1,6 @@
 "use client";
 
-// A chat's round picture (sales inbox spec, section 3): the person's initials on the People tint (DESIGN.md: the inbox is
-// violet information), a person icon for a number nobody has named. One size for the list, a larger one for the
+// A chat's round picture (sales inbox spec, section 3): the person's initials on WhatsApp's grey, a person icon for a number nobody has named. One size for the list, a larger one for the
 // contact panel.
 import { UserRoundIcon } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -21,7 +20,7 @@ export function ChatAvatar({ name, size = "default" }: { name: string | null; si
   return (
     <Avatar className={cn(size === "large" ? "size-20" : "size-11")}>
       <AvatarFallback
-        className={cn("bg-people-tint font-semibold text-people-tint-ink", size === "large" && "text-section")}
+        className={cn("bg-hairline font-semibold text-muted-foreground", size === "large" && "text-section")}
       >
         {name === null ? (
           <UserRoundIcon aria-hidden="true" className={size === "large" ? "size-9" : "size-5"} />

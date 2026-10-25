@@ -41,9 +41,13 @@ export function ConversationList({ items, currentId }: { items: ConversationList
         const current = chat.id === currentId;
         return (
           <Fragment key={chat.id}>
-            {index > 0 && <ItemSeparator className="ml-[4.5rem]" />}
+            {index > 0 && <ItemSeparator className="my-0 ml-[4.5rem]" />}
             <div role="listitem">
-              <Item asChild size="sm" className={cn("rounded-none px-3 py-2.5 hover:bg-muted", current && "bg-muted")}>
+              <Item
+                asChild
+                size="sm"
+                className={cn("rounded-none px-3 py-3 hover:bg-chat-bar", current && "bg-hairline hover:bg-hairline")}
+              >
                 <Link href={inboxRoute(chat.id)} aria-current={current ? "page" : undefined}>
                   <ItemMedia>
                     <ChatAvatar name={chat.name} />
@@ -56,7 +60,7 @@ export function ConversationList({ items, currentId }: { items: ConversationList
                       <span
                         className={cn(
                           "shrink-0 text-caption",
-                          chat.needsReply ? "font-semibold text-people" : "text-muted-foreground",
+                          chat.needsReply || chat.unread > 0 ? "font-semibold text-primary" : "text-muted-foreground",
                         )}
                       >
                         {when(chat.lastMessageAt)}
@@ -75,14 +79,14 @@ export function ConversationList({ items, currentId }: { items: ConversationList
                         )}
                         {chat.unread > 0 ? (
                           <span
-                            className="flex h-5 min-w-5 items-center justify-center rounded-full bg-people px-1.5 text-caption font-semibold text-primary-foreground"
+                            className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-caption font-semibold text-primary-foreground"
                             aria-label={t("unreadCount", { count: chat.unread })}
                           >
                             {chat.unread}
                           </span>
                         ) : (
                           chat.needsReply && (
-                            <span className="size-2.5 rounded-full bg-people" role="img" aria-label={t("waiting")} />
+                            <span className="size-2.5 rounded-full bg-primary" role="img" aria-label={t("waiting")} />
                           )
                         )}
                       </span>

@@ -1,6 +1,6 @@
 "use client";
 
-// One message of a chat (spec 3.2): the customer's on one side in the muted token, ours on the other in the brand's tint,
+// One message of a chat (spec 3.2): the customer's on one side in white, ours on the other in WhatsApp's green,
 // with its time and, for ours, who sent it and its state in ticks (a failed one says why and offers Try again). Text is shown as text (links made tappable, never HTML) and
 // `dir="auto"` so Hindi and other scripts read from the right side. A photo, video or voice note comes from a presigned
 // link; a document is a download; a place is its coordinates and a link to Maps. Nothing is drawn with a border or shadow.
@@ -218,23 +218,17 @@ export function MessageBubble({
         className={cn(
           "relative flex max-w-[min(85%,38rem)] flex-col gap-1 rounded-lg text-body",
           media ? "p-1" : "px-2.5 pt-1.5 pb-1",
-          ours ? "bg-people-tint text-people-tint-ink" : "bg-background text-foreground",
+          ours ? "bg-chat-bubble-out text-foreground" : "bg-chat-bubble-in text-foreground",
           first && (ours ? "rounded-tr-none" : "rounded-tl-none"),
           // The tail: a small triangle at the top corner, cut with a clip path (no border is drawn).
           first &&
             (ours
-              ? "before:absolute before:top-0 before:-right-2 before:size-2 before:bg-people-tint before:[clip-path:polygon(0_0,100%_0,0_100%)]"
-              : "before:absolute before:top-0 before:-left-2 before:size-2 before:bg-background before:[clip-path:polygon(0_0,100%_0,100%_100%)]"),
+              ? "before:absolute before:top-0 before:-right-2 before:size-2 before:bg-chat-bubble-out before:[clip-path:polygon(0_0,100%_0,0_100%)]"
+              : "before:absolute before:top-0 before:-left-2 before:size-2 before:bg-chat-bubble-in before:[clip-path:polygon(0_0,100%_0,100%_100%)]"),
         )}
       >
         {message.quoted !== null && (
-          <p
-            className={cn(
-              "rounded-md px-2 py-1 text-caption",
-              ours ? "bg-background/60 text-people-tint-ink" : "bg-muted text-muted-foreground",
-            )}
-            dir="auto"
-          >
+          <p className={cn("rounded-md px-2 py-1 text-caption", "bg-ink/5 text-muted-foreground")} dir="auto">
             <span className="block font-medium">{t("quoted")}</span>
             <span className="line-clamp-2">
               {message.quoted.body ?? t(message.quoted.kind === "image" ? "photo" : "document")}
@@ -253,7 +247,7 @@ export function MessageBubble({
         </div>
         {message.reaction !== null && message.kind !== "reaction" && (
           <span
-            className="absolute -bottom-3 left-2 rounded-full bg-background px-1.5 text-caption"
+            className="absolute -bottom-3 left-2 rounded-full bg-chat-bubble-in px-1.5 text-caption"
             aria-label={t("reactedWith", { emoji: message.reaction })}
           >
             {message.reaction}
@@ -264,7 +258,7 @@ export function MessageBubble({
           className={cn(
             "flex items-center justify-end gap-1 self-end text-caption",
             !media && "-mt-5",
-            ours ? "text-people-tint-ink/70" : "text-muted-foreground",
+            "text-muted-foreground",
             media && "px-1.5 pb-0.5",
           )}
         >

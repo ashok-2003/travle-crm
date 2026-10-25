@@ -71,10 +71,10 @@ export function ChatPanel({ conversationId, variant = "inbox" }: { conversationI
         />
       )}
       {/* The wallpaper: messages scroll inside it while the reply bar stays at its foot. */}
-      <div className="relative min-h-0 flex-1 bg-surface">
+      <div className="relative min-h-0 flex-1 bg-chat-wallpaper">
         <MessageList conversationId={data.id} />
       </div>
-      <div className="shrink-0 bg-surface px-2 pt-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:px-4">
+      <div className="shrink-0 bg-chat-bar px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:px-4">
         <ReplyArea header={data} />
       </div>
     </div>
@@ -89,7 +89,7 @@ export function ChatPanel({ conversationId, variant = "inbox" }: { conversationI
       {variant !== "lead" && roomy && panelOpen && (
         <>
           <Separator orientation="vertical" />
-          <aside className="w-[22rem] shrink-0 bg-background">
+          <aside className="w-[24rem] shrink-0 bg-background">
             <ContactPanel
               header={data}
               onClose={() => {
