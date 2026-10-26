@@ -94,3 +94,24 @@ auto-replies, the AI helper (roadmap release F), response-time reports per agent
 Everything in the WhatsApp spec's sections 4, 6 and 8 (window, consent, caps, scope, no personal data in logs); the
 owner's UI rules (registry components, no hand-drawn borders or shadows, tokens only, 44px targets); words in the
 feature's message files; every refusal has its sentence.
+
+## Owner decisions 2026-10-26
+
+These replace what they overrule above, and the 2026-10-23 WhatsApp spec where it differs.
+
+- **Green everywhere.** The whole product keeps the WhatsApp-green theme (`packages/brand`, `DESIGN.md`); no WhatsApp logo or trademark appears anywhere. The sidebar's active teal is `#0f8073` (white words at 4.8:1).
+- **Team notes are the lead's notes.** A note written in a chat is a note on the chat's lead (crm's `lead_note`, with its audit and its erasure), shown in the chat at its time. A chat with no lead cannot hold one. `@mentions` notify only members who can see that lead. There is no `conversation_note` table.
+- **Automatic answers** (away, welcome, keyword) are written with the origin `automation` and shown as "Automatic reply". They never answer STOP or another opt-out message, never go to a person whose WhatsApp consent is withdrawn, are sent at most once per chat per kind within 12 hours (`AUTOMATION_COOLDOWN_MS`; the welcome once per chat), and pause in a chat for the same 12 hours once a person replies there. Changes to the settings are audited. A message that could not fire any answer publishes no event.
+- **Scheduled messages** must fall inside the chat's 24-hour window; a later time is refused (`SCHEDULE_OUTSIDE_WINDOW`). One that fails at its time is audited and told to its writer. A scheduled message to a person with withdrawn consent is not sent.
+- **Snooze:** a new message from the customer wakes the chat at once.
+- **Presence** ("X is replying"): per organization and chat, only for a chat the caller can see, swept, bounded, and its lifetime outlasts the 15-second poll. One api instance is assumed.
+- **Stars** are audited.
+- **Broadcasts** are rebuilt. The platform pays Meta and agencies get WhatsApp as fair use, so the agency sees counts and its monthly allowance, never rupees. For the Owner and Admins through fresh sessions:
+  - Create takes a client `requestId`; a retried create is the same broadcast.
+  - The preview says how many get it, how many are left out (opted out, no consent recorded, outside the sender's visibility, over the month's allowance) and what is left of the allowance. Only people with recorded, not withdrawn, WhatsApp consent are sent anything.
+  - Confirming snapshots recipient rows in one transaction and publishes `whatsapp.broadcast-ready`; the worker sends in batches of 20, each recipient through the one-person template path under the connection lock, with the token `broadcast:<broadcast>:<chat>`. Recipient states: waiting, sent, skipped (reason), failed.
+  - Over the day's template cap, recipients wait and go on the next day at 10:00 in the organization's zone; over the month's cap they are skipped (`monthly_cap`).
+  - The creator, or anyone who writes templates, can cancel. It pauses itself (`BROADCAST_PAUSE_FAILURE_RATE`, 20% of at least 10 settled messages WhatsApp refused for a reason that is ours: `other`, `tier_limit`), says why, and can be resumed or cancelled. Created, cancelled, paused and resumed are audited.
+  - Its screens are Inbox, Broadcasts (`/inbox/broadcasts`, `/inbox/broadcasts/<id>`).
+- **Erasure** also takes the customer's scheduled messages, tags on their chat, read marks, place in broadcasts, and the notices that name the chat.
+- **Migrations:** the two migrations of the first version were folded into `20261105100000_sales_inbox`.

@@ -12,7 +12,7 @@ import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
 import { BackLink } from "@/components/text-link";
 import { Button } from "@/components/ui/button";
-import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { formatDay } from "@/lib/format";
 import { broadcastRoute, routes } from "@/lib/routes";
 import { useMe } from "@/session/me-context";
@@ -46,36 +46,38 @@ export function BroadcastsScreen() {
     }
     if (list.data.items.length === 0) return <EmptyState icon={MegaphoneIcon} message={t("empty")} />;
     return (
-      <ItemGroup aria-label={t("list")} role="list">
+      <ul aria-label={t("list")} className="flex flex-col gap-2">
         {list.data.items.map((item) => (
-          <Item key={item.id} asChild variant="muted" role="listitem">
-            <Link href={broadcastRoute(item.id)}>
-              <ItemContent className="min-w-0">
-                <ItemTitle className="wrap-anywhere">
-                  {item.templateName} · {item.tagNames.join(", ")}
-                </ItemTitle>
-                <ItemDescription className="line-clamp-none">
-                  {t("sentOf", { sent: item.counts.sent, total: item.counts.total })} ·{" "}
-                  {t("counts", {
-                    waiting: item.counts.waiting,
-                    skipped: item.counts.skipped,
-                    failed: item.counts.failed,
-                  })}
-                </ItemDescription>
-                <ItemDescription className="line-clamp-none">
-                  {t("startedBy", {
-                    name: list.data.people[item.createdBy] ?? "",
-                    when: formatDay(new Date(item.createdAt), { timeZone }),
-                  })}
-                </ItemDescription>
-              </ItemContent>
-              <ItemActions>
-                <BroadcastStatus status={item.status} />
-              </ItemActions>
-            </Link>
-          </Item>
+          <li key={item.id}>
+            <Item asChild variant="muted">
+              <Link href={broadcastRoute(item.id)}>
+                <ItemContent className="min-w-0">
+                  <ItemTitle className="wrap-anywhere">
+                    {item.templateName} · {item.tagNames.join(", ")}
+                  </ItemTitle>
+                  <ItemDescription className="line-clamp-none">
+                    {t("sentOf", { sent: item.counts.sent, total: item.counts.total })} ·{" "}
+                    {t("counts", {
+                      waiting: item.counts.waiting,
+                      skipped: item.counts.skipped,
+                      failed: item.counts.failed,
+                    })}
+                  </ItemDescription>
+                  <ItemDescription className="line-clamp-none">
+                    {t("startedBy", {
+                      name: list.data.people[item.createdBy] ?? "",
+                      when: formatDay(new Date(item.createdAt), { timeZone }),
+                    })}
+                  </ItemDescription>
+                </ItemContent>
+                <ItemActions>
+                  <BroadcastStatus status={item.status} />
+                </ItemActions>
+              </Link>
+            </Item>
+          </li>
         ))}
-      </ItemGroup>
+      </ul>
     );
   };
   return (

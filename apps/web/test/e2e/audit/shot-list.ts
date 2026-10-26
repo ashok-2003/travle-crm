@@ -130,6 +130,17 @@ const TWO_FACTOR_SHOTS = [
     screen: "Settings, WhatsApp: quick replies, tags and the automatic answers",
     as: owner,
   },
+  // Broadcasts (PR 11, part 2).
+  { name: "broadcasts-empty", screen: "Inbox, Broadcasts: none yet", as: owner },
+  { name: "broadcast-new", screen: "New broadcast: the template, its blank and the tags", as: owner },
+  {
+    name: "broadcast-preview",
+    screen: "New broadcast: who it reaches, who is left out and why, the month's allowance",
+    as: owner,
+  },
+  { name: "broadcast-page", screen: "A broadcast sent: its counts and every chat's state", as: owner },
+  { name: "broadcast-paused", screen: "A broadcast that paused itself: why, Resume and Cancel", as: owner },
+  { name: "broadcasts-list", screen: "Inbox, Broadcasts: a finished and a paused broadcast", as: owner },
 ] as const satisfies readonly Shot[];
 
 export const SHOTS = [
@@ -492,6 +503,17 @@ export const SHOTS = [
     screen: "Settings, WhatsApp: quick replies, tags and the automatic answers",
     as: owner,
   },
+  // Broadcasts (PR 11, part 2).
+  { name: "broadcasts-empty", screen: "Inbox, Broadcasts: none yet", as: owner },
+  { name: "broadcast-new", screen: "New broadcast: the template, its blank and the tags", as: owner },
+  {
+    name: "broadcast-preview",
+    screen: "New broadcast: who it reaches, who is left out and why, the month's allowance",
+    as: owner,
+  },
+  { name: "broadcast-page", screen: "A broadcast sent: its counts and every chat's state", as: owner },
+  { name: "broadcast-paused", screen: "A broadcast that paused itself: why, Resume and Cancel", as: owner },
+  { name: "broadcasts-list", screen: "Inbox, Broadcasts: a finished and a paused broadcast", as: owner },
 ] as const satisfies readonly Shot[];
 
 export type ShotName = (typeof SHOTS)[number]["name"];
