@@ -75,8 +75,8 @@ export function ChatHeader({
         </p>
       </div>
       {waitingSince !== null && <WaitTimer since={waitingSince} className="hidden sm:inline-flex" />}
-      {/* The sale in place where there is room; the contact panel holds the same on a narrow screen. */}
-      <div className="hidden items-center gap-2 lg:flex">
+      {/* The sale in place where there is room (more of it with the panel shut); the contact panel holds the same. */}
+      <div className={cn("hidden items-center gap-2", panelOpen ? "2xl:flex" : "lg:flex")}>
         <OwnerMenu header={header} />
         <StageMenu header={header} />
       </div>

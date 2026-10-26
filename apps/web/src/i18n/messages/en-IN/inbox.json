@@ -572,7 +572,7 @@
   "emptyChoices": "No chat matches these choices.",
   "stageFilter": "Show chats at a stage",
   "anyStage": "Status",
-  "periodFilter": "Show chats by their last message",
+  "periodFilter": "Show chats from a period",
   "anyTime": "Any time",
   "periods": {
     "today": "Today",

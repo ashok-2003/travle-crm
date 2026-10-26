@@ -63,7 +63,10 @@ test("a super admin connects the agency's number, then a message becomes a lead 
   await expect(owner.getByRole("heading", { level: 1, name: "Inbox" })).toBeVisible();
   // The list has loaded (the operator's test message may still wait in it, if one was delivered after Mark connected).
   await expect(
-    owner.getByRole("list", { name: "Chats" }).or(owner.getByText("Every chat has been answered.")),
+    owner
+      .getByRole("list", { name: "Chats" })
+      .or(owner.getByText("Every chat has been answered."))
+      .or(owner.getByText(/^No chats yet\./)),
   ).toBeVisible();
 
   // Journey 2: a message from a number nobody knows.

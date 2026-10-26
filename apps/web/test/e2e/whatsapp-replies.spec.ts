@@ -54,6 +54,8 @@ test("staff reply inside the window: the ticks follow MSG91's reports, a double 
   await expect(
     owner.getByRole("list", { name: "Chats" }).or(owner.getByText("Every chat has been answered.")),
   ).toBeVisible({ timeout: 30_000 });
+  // The list opens on All now, so ask for the chats waiting for an answer.
+  await owner.getByRole("radio", { name: "Waiting for reply" }).click();
   await expect(owner.getByRole("link", { name: /Rahul Mehta/ })).toHaveCount(0);
   const firstReply = await inAgency(
     agency.organizationId,

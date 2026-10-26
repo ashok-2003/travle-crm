@@ -182,7 +182,7 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
               />
             </InputGroup>
           </div>
-          <div className="flex items-center gap-0.5" role="toolbar" aria-label={t("composer.tools")}>
+          <div className="flex flex-wrap items-center gap-0.5" role="toolbar" aria-label={t("composer.tools")}>
             <TemplateTool conversationId={conversationId} disabled={reply.pending || !access.allowed} />
             <SendDetailsTool conversationId={conversationId} disabled={reply.pending || !access.allowed} />
             {wide && <EmojiButton onPick={insertEmoji} disabled={reply.pending || !access.allowed} />}
