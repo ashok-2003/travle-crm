@@ -173,6 +173,7 @@
     "WHATSAPP_NUMBER_LIMIT": "This plan has no room for another WhatsApp number.",
     "WHATSAPP_UNAVAILABLE": "WhatsApp is not set up on this server.",
     "WINDOW_CLOSED": "WhatsApp allows free text only within 24 hours of the customer's last message, and that time has passed.",
+    "SCHEDULE_OUTSIDE_WINDOW": "WhatsApp allows free text only within 24 hours of the customer's last message, and that window will be closed at the time you chose. Choose an earlier time, or send a template.",
     "ATTACHMENT_TOO_BIG": "This file is over 16 MB, the most WhatsApp takes from here.",
     "ATTACHMENT_TYPE": "WhatsApp doesn't take this kind of file from here.",
     "TEMPLATE_NOT_APPROVED": "WhatsApp hasn't approved this template yet.",

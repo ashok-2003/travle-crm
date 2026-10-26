@@ -44,9 +44,11 @@ export { broadcastReachOf, listBroadcasts, MAX_BROADCAST_CHATS, sendBroadcast } 
 export { addNote, listNotes, MENTION_KIND } from "./notes.js";
 export {
   cancelScheduled,
+  dueWorkOf,
   INBOX_DUE_WORK_QUEUE,
   listScheduled,
   runDueWork,
+  runDueWorkFor,
   scheduleMessage,
   SNOOZE_KIND,
 } from "./scheduled.js";

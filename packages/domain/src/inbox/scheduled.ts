@@ -1,10 +1,13 @@
-// Messages written now and sent later, and snoozed chats waking (sales inbox spec 6). A member schedules a reply for a
-// moment within the chat's 24-hour window, or later (it then fails if the window has closed by then); the worker's due
-// work, every minute, sends what is due through the ordinary outbox and reminds whoever snoozed a chat that wakes.
+// Messages written now and sent later, and snoozed chats waking (sales inbox spec 6). A member schedules a reply for a moment
+// inside the chat's 24-hour window (a later one is refused: free text can't go then, and a template is a different send); the
+// worker's due work, every minute, sends what is due through the ordinary outbox, tells the writer of one that can't go, and
+// reminds whoever snoozed a chat that wakes. Overlapping runs never double a send: rows are claimed with SKIP LOCKED and a
+// send's token is the scheduled row's.
 import { scheduledMessageList, type ScheduledMessage, type ScheduleMessageInput } from "@travel-crm/contracts/inbox";
 import type { Database, OrgTx } from "@travel-crm/db";
 import type { Logger } from "@travel-crm/integrations/logging";
 import { recordAudit } from "../audit/index.js";
+import { noticeKey } from "../crm/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError, systemActor } from "../kernel/index.js";
 import { notify } from "../notifications/index.js";
@@ -12,12 +15,19 @@ import { chatNameOf } from "./chat-name.js";
 import { routesPage } from "./routes.js";
 import { queueSystemText } from "./system-send.js";
 import { visibleConversation } from "./views.js";
+import { windowEndOf } from "./window.js";
 
 /** The worker's queue for the due work, each minute. */
 export const INBOX_DUE_WORK_QUEUE = "inbox.due-work";
 
 /** The kind of notice a waking chat sends its snoozer. */
 export const SNOOZE_KIND = "inbox.snooze-ended";
+
+/** The kind of notice a scheduled message that could not be sent sends its writer (the same as any reply that failed). */
+const SEND_FAILED_KIND = "whatsapp.send-failed";
+
+/** At most this many scheduled messages, and as many waking chats, are handled in one agency's run. */
+const BATCH = 50;
 
 const fields = { id: true, body: true, sendAt: true, status: true, failureCode: true } as const;
 const shown = (row: { id: string; body: string; sendAt: Date; status: string; failureCode: string | null }) => ({
@@ -52,6 +62,15 @@ export async function scheduleMessage(
   if (sendAt.getTime() <= now.getTime() + 30_000) {
     throw new DomainError("VALIDATION", "DUE_IN_THE_PAST", "Choose a time after now");
   }
+  // Free text goes only inside the window the customer opened; a later time would fail when it came.
+  const windowEnd = windowEndOf(chat.lastInboundAt);
+  if (windowEnd === null || sendAt.getTime() >= windowEnd.getTime() || windowEnd.getTime() <= now.getTime()) {
+    throw new DomainError(
+      "CONFLICT",
+      "SCHEDULE_OUTSIDE_WINDOW",
+      "The 24-hour window will be closed at that time; choose an earlier time or send a template",
+    );
+  }
   const row = await tx.scheduledMessage.create({
     data: { conversationId: chat.id, body: input.body, sendAt, createdBy: access.userId },
     select: fields,
@@ -81,55 +100,110 @@ export async function cancelScheduled(tx: OrgTx, access: MemberAccess, scheduled
   });
 }
 
-/** One organization's due work: its scheduled messages whose time has come, and its snoozed chats that wake now. */
-async function dueWorkOf(tx: OrgTx, organizationId: string, now: Date): Promise<number> {
-  let done = 0;
-  const due = await tx.scheduledMessage.findMany({
-    where: { status: "pending", sendAt: { lte: now } },
-    orderBy: { sendAt: "asc" },
-    take: 50,
-    select: { id: true, conversationId: true, body: true, createdBy: true },
-  });
-  for (const item of due) {
-    const sent = await queueSystemText(
-      tx,
-      {
-        conversationId: item.conversationId,
-        body: item.body,
-        sentBy: item.createdBy,
-        origin: "staff_crm",
-        clientToken: `scheduled:${item.id}`,
-        answers: true,
-      },
-      now,
-    );
-    await tx.scheduledMessage.update({
-      where: { id: item.id },
-      data: sent.ok ? { status: "sent", messageId: sent.messageId } : { status: "failed", failureCode: sent.code },
-    });
-    done += 1;
-  }
-  const waking = await tx.whatsappConversation.findMany({
-    where: { snoozedUntil: { lte: now } },
-    take: 50,
-    select: { id: true, snoozedBy: true, phoneE164: true, profileName: true, person: { select: { name: true } } },
-  });
-  for (const chat of waking) {
-    await tx.whatsappConversation.update({ where: { id: chat.id }, data: { snoozedUntil: null, snoozedBy: null } });
-    if (chat.snoozedBy !== null) {
-      await notify(tx, systemActor(organizationId), {
-        recipientUserIds: [chat.snoozedBy],
-        kind: SNOOZE_KIND,
-        title: `Time to get back to ${chatNameOf(chat) ?? "a customer"}`,
-        body: "The chat you snoozed is back in your inbox.",
-        link: `/inbox/${chat.id}`,
-        channels: ["push"],
-      });
-    }
-    done += 1;
-  }
-  return done;
+interface DueMessage {
+  id: string;
+  conversationId: string;
+  body: string;
+  createdBy: string;
 }
+interface WakingChat {
+  id: string;
+  snoozedBy: string | null;
+  snoozedUntil: Date;
+}
+
+/** Sends one due message, or fails it and tells its writer; either way the row leaves "pending". */
+async function sendDue(tx: OrgTx, organizationId: string, item: DueMessage, now: Date): Promise<void> {
+  const sent = await queueSystemText(
+    tx,
+    {
+      conversationId: item.conversationId,
+      body: item.body,
+      sentBy: item.createdBy,
+      origin: "staff_crm",
+      clientToken: `scheduled:${item.id}`,
+      answers: true,
+    },
+    now,
+  );
+  if (sent.ok) {
+    await tx.scheduledMessage.update({ where: { id: item.id }, data: { status: "sent", messageId: sent.messageId } });
+    return;
+  }
+  await tx.scheduledMessage.update({ where: { id: item.id }, data: { status: "failed", failureCode: sent.code } });
+  const actor = systemActor(organizationId);
+  const chat = await tx.whatsappConversation.findUnique({
+    where: { id: item.conversationId },
+    select: { phoneE164: true, profileName: true, person: { select: { name: true } } },
+  });
+  await recordAudit(tx, actor, {
+    action: "inbox.scheduled-failed",
+    entityType: "whatsapp_conversation",
+    entityId: item.conversationId,
+    after: { code: sent.code },
+  });
+  await notify(tx, actor, {
+    recipientUserIds: [item.createdBy],
+    sourceEventId: noticeKey(item.id, SEND_FAILED_KIND),
+    kind: SEND_FAILED_KIND,
+    title: `Your scheduled message to ${chat === null ? "a customer" : (chatNameOf(chat) ?? chat.phoneE164)} wasn't sent`,
+    body: "Open the chat to write it again.",
+    link: `/inbox/${item.conversationId}`,
+    channels: ["push"],
+  });
+}
+
+/** Wakes the chat and reminds whoever snoozed it. The notice's key is the snooze's own, so a repeat adds nothing. */
+async function wake(tx: OrgTx, organizationId: string, chat: WakingChat): Promise<void> {
+  await tx.whatsappConversation.update({ where: { id: chat.id }, data: { snoozedUntil: null, snoozedBy: null } });
+  if (chat.snoozedBy === null) return;
+  const named = await tx.whatsappConversation.findUnique({
+    where: { id: chat.id },
+    select: { phoneE164: true, profileName: true, person: { select: { name: true } } },
+  });
+  await notify(tx, systemActor(organizationId), {
+    recipientUserIds: [chat.snoozedBy],
+    sourceEventId: noticeKey(`${chat.id}:${String(chat.snoozedUntil.getTime())}`, SNOOZE_KIND),
+    kind: SNOOZE_KIND,
+    title: `Time to get back to ${(named === null ? null : chatNameOf(named)) ?? "a customer"}`,
+    body: "The chat you snoozed is back in your inbox.",
+    link: `/inbox/${chat.id}`,
+    channels: ["push"],
+  });
+}
+
+/**
+ * One organization's due work: its scheduled messages whose time has come, and its snoozed chats that wake now. A read of the
+ * two partial indexes first, so an agency with nothing due costs one light transaction. Returns how many it handled.
+ */
+export async function dueWorkOf(tx: OrgTx, organizationId: string, now: Date): Promise<number> {
+  const [dueSend, dueWake] = [
+    await tx.scheduledMessage.findFirst({ where: { status: "pending", sendAt: { lte: now } }, select: { id: true } }),
+    await tx.whatsappConversation.findFirst({ where: { snoozedUntil: { lte: now } }, select: { id: true } }),
+  ];
+  if (dueSend === null && dueWake === null) return 0;
+  const due = await tx.$queryRaw<DueMessage[]>`
+    SELECT id, conversation_id AS "conversationId", body, created_by AS "createdBy"
+    FROM scheduled_message
+    WHERE status = 'pending' AND send_at <= ${now}
+    ORDER BY send_at, id
+    LIMIT ${BATCH}
+    FOR UPDATE SKIP LOCKED`;
+  for (const item of due) await sendDue(tx, organizationId, item, now);
+  const waking = await tx.$queryRaw<WakingChat[]>`
+    SELECT id, snoozed_by AS "snoozedBy", snoozed_until AS "snoozedUntil"
+    FROM whatsapp_conversation
+    WHERE snoozed_until <= ${now}
+    ORDER BY snoozed_until, id
+    LIMIT ${BATCH}
+    FOR UPDATE SKIP LOCKED`;
+  for (const chat of waking) await wake(tx, organizationId, chat);
+  return due.length + waking.length;
+}
+
+/** One agency's due work in a transaction of its own (the minute job's step, and what the tests run). */
+export const runDueWorkFor = (dependencies: { db: Database }, organizationId: string, now: Date): Promise<number> =>
+  dependencies.db.forOrg(organizationId, (tx) => dueWorkOf(tx, organizationId, now));
 
 /** Every connected agency's due work (the worker's `inbox.due-work`, each minute). One agency failing never stops the rest. */
 export async function runDueWork(dependencies: { db: Database; logger: Logger }, now: Date): Promise<number> {
@@ -139,7 +213,7 @@ export async function runDueWork(dependencies: { db: Database; logger: Logger },
     const page = await routesPage(dependencies.db, { after, limit: 100 });
     for (const route of page) {
       try {
-        done += await dependencies.db.forOrg(route.organizationId, (tx) => dueWorkOf(tx, route.organizationId, now));
+        done += await runDueWorkFor(dependencies, route.organizationId, now);
       } catch (error) {
         dependencies.logger.error(
           { connectionId: route.connectionId, error: error instanceof Error ? error.name : "unknown" },

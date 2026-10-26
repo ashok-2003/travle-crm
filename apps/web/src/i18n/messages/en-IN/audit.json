@@ -198,6 +198,7 @@
       "chat-woken": "Brought back a snoozed chat",
       "message-scheduled": "Scheduled a WhatsApp message",
       "scheduled-cancelled": "Cancelled a scheduled WhatsApp message",
+      "scheduled-failed": "A scheduled WhatsApp message could not be sent",
       "automation-changed": "Changed the automatic WhatsApp answers",
       "keyword-reply-created": "Added a keyword answer",
       "keyword-reply-deleted": "Deleted a keyword answer",
