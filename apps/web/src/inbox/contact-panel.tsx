@@ -23,8 +23,10 @@ import { formatPhoneNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { leadRoute } from "@/lib/routes";
 import { useHolds } from "@/session/me-context";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChatAvatar } from "./chat-avatar";
 import { ChatTags } from "./chat-tags";
+import { MediaGallery } from "./media/media-gallery";
 import { StartLeadButton } from "./start-lead-button";
 
 function LeadParts({ leadId }: { leadId: string }) {
@@ -80,21 +82,32 @@ export function ContactPanel({ header, onClose }: { header: ConversationHeader; 
           </p>
           {header.lead !== null && <TextLink href={leadRoute(header.lead.id)}>{t("openLead")}</TextLink>}
         </div>
-        <section className="flex flex-col gap-2">
-          <h3 className="text-label font-medium text-muted-foreground">{t("tags")}</h3>
-          <ChatTags header={header} />
-        </section>
-        {header.lead?.open === true ? (
-          <LeadParts leadId={header.lead.id} />
-        ) : (
-          <div className="flex flex-col gap-3">
-            <p className="text-muted-foreground">
-              {header.pastCustomer ? t("pastCustomer") : header.lead === null ? t("noLead") : t("closedLead")}
-            </p>
-            {mayStartLead && header.pastCustomer && <StartLeadButton conversationId={header.id} />}
-            {header.lead !== null && <LeadParts leadId={header.lead.id} />}
-          </div>
-        )}
+        <Tabs defaultValue="details" className="gap-4">
+          <TabsList className="w-full">
+            <TabsTrigger value="details">{t("tabDetails")}</TabsTrigger>
+            <TabsTrigger value="media">{t("tabMedia")}</TabsTrigger>
+          </TabsList>
+          <TabsContent value="details" className="flex flex-col gap-6">
+            <section className="flex flex-col gap-2">
+              <h3 className="text-label font-medium text-muted-foreground">{t("tags")}</h3>
+              <ChatTags header={header} />
+            </section>
+            {header.lead?.open === true ? (
+              <LeadParts leadId={header.lead.id} />
+            ) : (
+              <div className="flex flex-col gap-3">
+                <p className="text-muted-foreground">
+                  {header.pastCustomer ? t("pastCustomer") : header.lead === null ? t("noLead") : t("closedLead")}
+                </p>
+                {mayStartLead && header.pastCustomer && <StartLeadButton conversationId={header.id} />}
+                {header.lead !== null && <LeadParts leadId={header.lead.id} />}
+              </div>
+            )}
+          </TabsContent>
+          <TabsContent value="media">
+            <MediaGallery conversationId={header.id} customerName={name} />
+          </TabsContent>
+        </Tabs>
       </div>
     </ScrollArea>
   );

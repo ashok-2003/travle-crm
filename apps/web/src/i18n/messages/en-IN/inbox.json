@@ -475,7 +475,19 @@
     "firstTag": "No tags yet. Add your first one below, like \"Hot\" or \"Honeymoon\".",
     "newTag": "New tag",
     "newTagPlaceholder": "Add a tag",
-    "addTag": "Add the tag"
+    "addTag": "Add the tag",
+    "tabDetails": "Details",
+    "tabMedia": "Media",
+    "media": {
+      "title": "Photos and videos",
+      "openPhoto": "Open the photo",
+      "openVideo": "Play the video",
+      "empty": "No photos or videos in this chat yet.",
+      "loading": "Loading the photos",
+      "loadFailed": "The photos didn't load.",
+      "retry": "Try again",
+      "more": "Show more"
+    }
   },
   "quickReplies": {
     "title": "Quick replies",

@@ -113,3 +113,15 @@ export function useMediaLink(messageId: string, enabled: boolean) {
   const trpc = useTRPC();
   return useQuery({ ...trpc.inbox.mediaUrl.queryOptions(enabled ? { messageId } : skipToken), staleTime: 4 * 60_000 });
 }
+
+/** A chat's photos and videos, newest first, a page at a time: the contact panel's gallery. */
+export function useChatMedia(conversationId: string) {
+  const trpc = useTRPC();
+  const client = useTRPCClient();
+  return useCursorPages({
+    queryKey: [...trpc.inbox.media.pathKey(), conversationId],
+    page: (cursor) => client.inbox.media.query({ conversationId, ...(cursor !== null && { before: cursor }) }),
+    items: (page) => page.items,
+    staleTime: LIVE,
+  });
+}
