@@ -20,7 +20,7 @@ export function ChatSearchBar({
 }) {
   const t = useTranslations("inbox.chat");
   return (
-    <div className="flex shrink-0 items-center gap-2 bg-chat-bar px-2 pb-2 md:px-4">
+    <div className="flex shrink-0 items-center gap-2 bg-surface px-2 pb-2 md:px-4">
       <InputGroup className="bg-background">
         <InputGroupInput
           type="search"

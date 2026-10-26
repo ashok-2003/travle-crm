@@ -48,7 +48,7 @@ export function ConversationList({ items, currentId }: { items: ConversationList
                 asChild
                 size="sm"
                 className={cn(
-                  "min-w-0 rounded-none px-3 py-3 hover:bg-chat-bar",
+                  "min-w-0 rounded-none px-3 py-3 hover:bg-surface",
                   current && "bg-hairline hover:bg-hairline",
                 )}
               >
