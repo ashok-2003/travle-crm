@@ -44,46 +44,44 @@ export const brand = {
    * ones in DESIGN.md's front matter; a web app test fails when the two disagree.
    */
   colours: {
-    /** Text and the darkest surfaces (WhatsApp's ink). The whole product wears WhatsApp's green: the owner's decision of 2026-10-26. */
-    ink: "#111b21",
-    /** Secondary text, captions and placeholders: 6.1:1 on canvas. */
-    muted: "#54656f",
-    /** Cards, panels and dialogs: white. */
-    canvas: "#ffffff",
-    /** The page behind the cards, table headers and wells: WhatsApp's light grey. */
-    surface: "#f0f2f5",
+    /** Text and the darkest surfaces. */
+    ink: "#1a1a1a",
+    /** Secondary text, captions and placeholders: 5.25:1 on canvas. */
+    muted: "#6b6b6b",
+    /** Page background: warm white. */
+    canvas: "#fffdf9",
+    /** Panels, table headers and the sidebar. */
+    surface: "#f5f4f0",
     /** Thin lines between flat surfaces. Decorative only: never the one sign of a control or a selection. */
-    hairline: "#e9edef",
-    /** The edge of inputs and secondary buttons: 3.5:1 on canvas, enough for a control's boundary. */
-    inputBorder: "#7c8b95",
-    /** The one interactive colour: buttons, links, focus rings, the active item. WhatsApp's teal green. */
-    action: "#00785f",
-    actionPressed: "#005f4d",
-    /** Selected chips and hover, with actionPressed as their text. */
-    actionTint: "#e7f6f1",
-    /** Text on an action fill: 4.96:1 on action. */
+    hairline: "#e6e3dc",
+    /** The edge of inputs and secondary buttons: 3.42:1 on canvas, enough for a control's boundary. */
+    inputBorder: "#8a8a82",
+    /** The one interactive colour: buttons, links, focus rings, the active item. */
+    action: "#2563eb",
+    actionPressed: "#1d4ed8",
+    /** Selected chips and the active navigation item, with actionPressed as their text. */
+    actionTint: "#eef2ff",
+    /** Text on an action fill: 5.17:1 on action. */
     onAction: "#ffffff",
-    /** People and conversations: unread counts, read ticks, assignees. Information, never a button. */
-    people: "#3b5bdb",
-    peoplePressed: "#2f4bc0",
-    peopleTint: "#e8edfd",
-    peopleTintInk: "#2f45a8",
+    /** People and conversations: the inbox, follow-ups, assignees. Information, never a button. */
+    people: "#6a4bbd",
+    peoplePressed: "#5b3fa6",
+    peopleTint: "#efe7fd",
+    peopleTintInk: "#4c2f97",
     /** Money: amounts received, margins, invoices and the Accounts area. Never a status. */
     money: "#034f46",
     moneyPressed: "#07352f",
     moneyTint: "#e3f1ee",
-    /** The desktop sidebar: WhatsApp's dark teal, white words, the current page a lighter teal. */
-    sidebar: {
-      fill: "#075e54",
-      ink: "#ffffff",
-      active: "#0f8073",
-    },
-    /** The WhatsApp inbox (sales inbox spec): the chat's wallpaper, our bubbles and theirs, the bars above and below. */
+    /**
+     * The inbox's chat pane, and nowhere else (the owner's decision of 2026-10-26, later): WhatsApp's beige wallpaper, its green
+     * and white bubbles, the date chip and the read ticks. The rest of the product wears the Agency OS palette above.
+     */
     chat: {
-      wallpaper: "#efeae2",
+      wallpaper: "#f2eee8",
       bubbleOut: "#d9fdd3",
       bubbleIn: "#ffffff",
-      bar: "#f0f2f5",
+      dateChip: "#fdf5e6",
+      tickRead: "#0369a1",
     },
     status: {
       good: { dot: "#168f43", fill: "#e3f4e7", ink: "#14532d" },
@@ -98,7 +96,7 @@ export const brand = {
      * the action, people, money and status colours and from the other stages (test/brand.test.ts).
      */
     stage: {
-      new: { dot: "#0c8bbb", fill: "#cbe9fb", ink: "#04516f" },
+      new: { dot: "#0c8bbb", fill: "#d3eefd", ink: "#04516f" },
       contacted: { dot: "#0b959b", fill: "#d5fcfe", ink: "#045b5f" },
       bookingRequested: { dot: "#719427", fill: "#edf9dc", ink: "#415a03" },
     } satisfies Record<string, StatusColour>,
@@ -114,7 +112,7 @@ export const brand = {
       peach: { fill: "#fee3d4", ink: "#6f3f20" },
       gold: { fill: "#f7f7cc", ink: "#595501" },
       fern: { fill: "#d6f8d8", ink: "#36563a" },
-      mint: { fill: "#d3fff2", ink: "#2e5b40" },
+      mint: { fill: "#d3fff2", ink: "#035e4d" },
     } satisfies Record<string, RoleColour>,
   },
 
