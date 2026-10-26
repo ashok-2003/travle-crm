@@ -14,9 +14,7 @@ const POLL_MS = INBOX_POLL_MS;
 export function useInvalidate() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  return (
-    which: "chats" | "chat" | "messages" | "summary" | "notes" | "scheduled" | "automation" | "keywords" | "broadcasts",
-  ) => {
+  return (which: "chats" | "chat" | "messages" | "summary" | "notes" | "scheduled" | "automation" | "keywords") => {
     const keys = {
       chats: trpc.inbox.conversations.pathKey(),
       chat: trpc.inbox.conversation.pathKey(),
@@ -26,7 +24,6 @@ export function useInvalidate() {
       scheduled: trpc.salesInbox.scheduled.pathKey(),
       automation: trpc.salesInbox.automation.pathKey(),
       keywords: trpc.salesInbox.keywordReplies.pathKey(),
-      broadcasts: trpc.salesInbox.broadcasts.pathKey(),
     } as const;
     return queryClient.invalidateQueries({ queryKey: keys[which] });
   };
@@ -109,20 +106,4 @@ export function useAutomationChanges() {
     addKeyword: useMutation(trpc.salesInbox.createKeywordReply.mutationOptions({ onSuccess: refreshKeywords })),
     removeKeyword: useMutation(trpc.salesInbox.deleteKeywordReply.mutationOptions({ onSuccess: refreshKeywords })),
   };
-}
-
-export function useBroadcasts(enabled: boolean) {
-  const trpc = useTRPC();
-  return useQuery(trpc.salesInbox.broadcasts.queryOptions(enabled ? undefined : skipToken));
-}
-
-export function useBroadcastReach(tagId: string | null) {
-  const trpc = useTRPC();
-  return useQuery(trpc.salesInbox.broadcastReach.queryOptions(tagId === null ? skipToken : { tagId }));
-}
-
-export function useSendBroadcast() {
-  const trpc = useTRPC();
-  const invalidate = useInvalidate();
-  return useMutation(trpc.salesInbox.sendBroadcast.mutationOptions({ onSuccess: () => invalidate("broadcasts") }));
 }

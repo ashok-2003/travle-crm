@@ -26,6 +26,8 @@ export const routes = {
   leadImport: "/leads/import",
   /** The WhatsApp inbox (release 5); a chat's own page is inboxRoute(conversationId). */
   inbox: "/inbox",
+  /** Broadcasts to tagged chats (the Owner and Admins); one broadcast's page is broadcastRoute(id). */
+  broadcasts: "/inbox/broadcasts",
   settings: "/settings",
   /** The setup checklist: what an organization does first (spec 11). */
   setup: "/setup",
@@ -54,6 +56,10 @@ export const routes = {
 } as const;
 
 /** A WhatsApp chat's page. */
+export function broadcastRoute(broadcastId: string): string {
+  return `${routes.broadcasts}/${encodeURIComponent(broadcastId)}`;
+}
+
 export function inboxRoute(conversationId: string): string {
   return `${routes.inbox}/${encodeURIComponent(conversationId)}`;
 }

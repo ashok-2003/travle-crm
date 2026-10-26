@@ -15,7 +15,6 @@ import Link from "next/link";
 import { useHolds } from "@/session/me-context";
 import { NotSetUp } from "./not-set-up";
 import { AutomationSection } from "./automation-section";
-import { BroadcastSection } from "./broadcast-section";
 import { QuickRepliesSection, TagsSection } from "./quick-replies-section";
 import { TemplatesSection } from "./templates-section";
 import { useInboxStatus } from "./use-inbox";
@@ -71,7 +70,6 @@ export function WhatsappSettingsScreen() {
             <QuickRepliesSection />
             <TagsSection />
             <AutomationSection />
-            {!demo && <BroadcastSection />}
           </>
         )}
         {connected && (

@@ -4,7 +4,8 @@
 // Web. On a computer the chats on the left and the open chat beside them (with its contact panel); on a phone the chats,
 // and a chat covers the whole screen with its own top bar and a way back. The states: WhatsApp not set up for the agency
 // (never naming MSG91), the connection in trouble or paused, the demo (read only), a load that failed with Try again.
-import { MessageCircleIcon } from "lucide-react";
+import { MegaphoneIcon, MessageCircleIcon } from "lucide-react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { EmptyState } from "@/components/empty-state";
@@ -13,9 +14,12 @@ import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
 import { PageTitle } from "@/components/page-title";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { routes } from "@/lib/routes";
 import { useFillScreen } from "@/lib/use-fill-screen";
 import { useWideScreen } from "@/lib/use-wide-screen";
+import { useHolds } from "@/session/me-context";
 import { ChatPanel } from "./chat-panel";
 import { InboxList } from "./inbox-list";
 import { NotSetUp } from "./not-set-up";
@@ -32,6 +36,7 @@ export function InboxScreen({ conversationId }: { conversationId: string | null 
   const wide = useWideScreen();
   const status = useInboxStatus();
   useInboxKeys(conversationId);
+  const mayBroadcast = useHolds("inbox:templates");
 
   const fill = useFillScreen<HTMLDivElement>();
   const frame = (children: ReactNode) => (
@@ -88,8 +93,16 @@ export function InboxScreen({ conversationId }: { conversationId: string | null 
   const listPane = (
     <div className="flex h-full min-h-0 flex-col bg-background">
       {/* WhatsApp's bar atop the chats. */}
-      <div className="flex min-h-16 shrink-0 items-center bg-chat-bar px-4">
-        <PageTitle className="font-sans text-title-mobile font-semibold md:text-title-mobile">{t("title")}</PageTitle>
+      <div className="flex min-h-16 shrink-0 items-center justify-between gap-2 bg-chat-bar px-4">
+        <PageTitle>{t("title")}</PageTitle>
+        {mayBroadcast && (
+          <Button asChild variant="ghost">
+            <Link href={routes.broadcasts}>
+              <MegaphoneIcon aria-hidden="true" />
+              {t("broadcasts.open")}
+            </Link>
+          </Button>
+        )}
       </div>
       <div className="min-h-0 flex-1">
         <InboxList currentId={conversationId} />
