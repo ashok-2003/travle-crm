@@ -43,7 +43,7 @@ export { addDemoAssignment } from "./assignment/demo-assignment.js";
 export { handOverDepartingMemberListener, type DepartingMemberDependencies } from "./departing-member.js";
 export { mergeDestinations } from "./destination-merges.js";
 export { findKnownContact } from "./known-contact.js";
-export { getLead } from "./lead-detail.js";
+export { getLead, isLeadInScope } from "./lead-detail.js";
 export { makeLeadExportListener } from "./lead-export/index.js";
 export { addLeadImportListener, checkLeadImportListener } from "./lead-import/index.js";
 export {
@@ -68,7 +68,7 @@ export { addLeadWork } from "./lead-work.js";
 export { addPerson, type PersonRow } from "./people.js";
 export { offeredDestinations, offeredDestinationsQuery } from "./offered-destinations.js";
 export { moveLeadStage, reassignLead, reopenLead } from "./stage-changes.js";
-export { addLeadNote, listLeadTimeline } from "./timeline.js";
+export { addLeadNote, listLeadNotes, listLeadTimeline, type LeadNoteRow } from "./timeline.js";
 export {
   countNewLeadsWaiting,
   countNewLeadsWaitingQuery,

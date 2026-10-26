@@ -124,6 +124,12 @@ async function chatLeadsOf(tx: OrgTx, access: MemberAccess, personIds: string[])
   return chosen;
 }
 
+/** The lead a chat is about for this member (what the chat's header and notes use), or null when there is none in their scope. */
+export async function leadOfChat(tx: OrgTx, access: MemberAccess, personId: string | null) {
+  if (personId === null) return null;
+  return (await chatLeadsOf(tx, access, [personId])).get(personId) ?? null;
+}
+
 /** A page of chats, the newest message first, with the chats waiting for a reply as the default filter. */
 export async function listConversations(
   tx: OrgTx,

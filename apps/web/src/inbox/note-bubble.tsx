@@ -1,7 +1,7 @@
 "use client";
 
-// A team note among the messages (sales inbox spec 6): set apart in the attention tint, across the middle, with "Note ·
-// Priya" and its time, and the teammates it mentions in bold. It was never sent: the customer does not see it.
+// A team note among the messages (sales inbox spec 6): a note on the chat's lead, set apart in the attention tint, across the
+// middle, with "Note · Priya" and its time. It was never sent: the customer does not see it.
 import type { ConversationNote } from "@travel-crm/contracts/inbox";
 import { StickyNoteIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -12,7 +12,6 @@ export function NoteBubble({ note, people }: { note: ConversationNote; people: R
   const t = useTranslations("inbox.chat");
   const { timeZone } = useMe().organization;
   const writer = note.createdBy === null ? null : (people[note.createdBy] ?? null);
-  const mentioned = note.mentions.map((userId) => people[userId]).filter((name): name is string => name !== undefined);
   return (
     <li className="my-2 flex justify-center px-3 md:px-[10%]">
       <div className="flex w-full max-w-[38rem] flex-col gap-1 rounded-lg bg-status-attention-fill px-3 py-2 text-status-attention-ink">
@@ -24,7 +23,6 @@ export function NoteBubble({ note, people }: { note: ConversationNote; people: R
         <p className="break-words whitespace-pre-wrap script-leading" dir="auto">
           {note.body}
         </p>
-        {mentioned.length > 0 && <p className="text-caption">{t("noteMentions", { names: mentioned.join(", ") })}</p>}
       </div>
     </li>
   );

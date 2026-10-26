@@ -8,6 +8,7 @@ import {
   broadcastReach,
   broadcastReachInput,
   conversationIdInput,
+  conversationNote,
   conversationNoteList,
   createBroadcastInput,
   createKeywordReplyInput,
@@ -51,6 +52,8 @@ import { router } from "../trpc.js";
 const reader = orgProcedure.requires("inbox:view");
 const replier = orgProcedure.requires("inbox:view", "inbox:reply");
 const curator = orgProcedure.requires("inbox:view", "inbox:templates");
+/** A note is a note on the chat's lead, so it takes the permission a lead's own notes take. */
+const noter = orgProcedure.requires("inbox:view", "leads:edit");
 
 export const salesInboxRouter = router({
   /** The chips' counts and the chats by their lead's stage. */
@@ -80,36 +83,41 @@ export const salesInboxRouter = router({
       ),
     ),
 
-  /** The chat's team notes, with the names of their writers and of whoever they mention. */
+  /** The chat's team notes (notes on its lead), with the names of their writers. */
   notes: reader
     .input(conversationIdInput)
     .output(conversationNoteList)
     .query(async ({ ctx, input }) => {
-      const items = await ctx.db.forOrg(ctx.member.organizationId, (tx) =>
+      const { items, leadId } = await ctx.db.forOrg(ctx.member.organizationId, (tx) =>
         listNotes(tx, ctx.member, input.conversationId),
       );
       const people = await memberNames(
         ctx.identity,
         ctx.member.organizationId,
-        items.flatMap((note) => [note.createdBy, ...note.mentions]),
+        items.map((note) => note.createdBy),
       );
-      return { items, people };
+      return { items, leadId, people };
     }),
 
-  /** A note for the team; whoever it mentions (among those who can work leads) is told. */
-  addNote: replier.input(addConversationNoteInput).mutation(async ({ ctx, input }) => {
-    const workers = await ctx.identity.leadWorkers(ctx.member.organizationId);
-    const names = await memberNames(ctx.identity, ctx.member.organizationId, [ctx.member.userId]);
-    await ctx.db.forOrg(ctx.member.organizationId, (tx) =>
-      addNote(
-        tx,
-        ctx.member,
-        input,
-        new Set(workers.map((worker) => worker.userId)),
-        names[ctx.member.userId] ?? "A teammate",
-      ),
-    );
-  }),
+  /** A note on the chat's lead; whoever it mentions (among those who may see that lead) is told. */
+  addNote: noter
+    .input(addConversationNoteInput)
+    .output(conversationNote)
+    .mutation(async ({ ctx, input }) => {
+      const { organizationId } = ctx.member;
+      const mentioned = await Promise.all(
+        [...new Set(input.mentions)].map(
+          async (userId) => [userId, await ctx.identity.resolveAccess(userId, organizationId)] as const,
+        ),
+      );
+      const members = new Map(
+        mentioned.flatMap(([userId, access]) => (access === null ? [] : [[userId, access] as const])),
+      );
+      const names = await memberNames(ctx.identity, organizationId, [ctx.member.userId]);
+      return ctx.db.forOrg(organizationId, (tx) =>
+        addNote(tx, ctx.member, input, members, names[ctx.member.userId] ?? "A teammate"),
+      );
+    }),
 
   scheduled: reader
     .input(conversationIdInput)

@@ -155,12 +155,33 @@ export async function listLeadTimeline(
   };
 }
 
+/** A lead's note as the WhatsApp chat shows it among the messages. */
+export interface LeadNoteRow {
+  id: string;
+  body: string;
+  createdBy: string | null;
+  createdAt: Date;
+}
+
+/**
+ * The notes a person wrote on the lead, newest first, at most `take`; the one the system makes from a customer's first words
+ * (no writer) is left out, since the chat shows those words itself. The caller has checked that the member may see the lead.
+ */
+export async function listLeadNotes(tx: OrgTx, leadId: string, take: number): Promise<LeadNoteRow[]> {
+  return tx.leadNote.findMany({
+    where: { leadId, createdBy: { not: null } },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take,
+    select: { id: true, body: true, createdBy: true, createdAt: true },
+  });
+}
+
 /** Adds a note to the lead's timeline, audited without its text. */
-export async function addLeadNote(tx: OrgTx, access: MemberAccess, input: AddNoteInput): Promise<void> {
+export async function addLeadNote(tx: OrgTx, access: MemberAccess, input: AddNoteInput): Promise<LeadNoteRow> {
   const lead = await findLeadInScope(tx, access, input.leadId);
   const note = await tx.leadNote.create({
     data: { leadId: lead.id, body: input.body, createdBy: access.userId },
-    select: { id: true },
+    select: { id: true, body: true, createdBy: true, createdAt: true },
   });
   await recordLeadEvent(tx, access, {
     leadId: lead.id,
@@ -173,4 +194,5 @@ export async function addLeadNote(tx: OrgTx, access: MemberAccess, input: AddNot
     entityId: lead.id,
     after: { recordId: note.id },
   });
+  return note;
 }

@@ -81,23 +81,26 @@ export const snoozeInput = z.strictObject({ conversationId: recordId, until: tim
 export type SnoozeInput = z.infer<typeof snoozeInput>;
 
 export const MAX_NOTE_LENGTH = 2000;
+/** A team note in a chat is a note on the chat's lead (crm's lead notes), shown among the messages at its time. */
 export const conversationNote = z.object({
   id: recordId,
   body: z.string(),
-  mentions: z.array(recordId),
   createdBy: recordId.nullable(),
   createdAt: timestamp,
 });
 export type ConversationNote = z.infer<typeof conversationNote>;
 export const conversationNoteList = z.object({
   items: z.array(conversationNote),
-  /** Each writer's and mentioned member's name by user id. */
+  /** The lead the notes belong to; null when the chat has none yet, so no note can be written. */
+  leadId: recordId.nullable(),
+  /** Each writer's name by user id. */
   people: z.record(z.string(), z.string()),
 });
 export type ConversationNoteList = z.infer<typeof conversationNoteList>;
 export const addConversationNoteInput = z.strictObject({
   conversationId: recordId,
   body: z.string().trim().min(1).max(MAX_NOTE_LENGTH),
+  /** Teammates named with "@": told, if they may see the chat's lead. Nothing about them is stored. */
   mentions: z.array(recordId).max(20).default([]),
 });
 export type AddConversationNoteInput = z.infer<typeof addConversationNoteInput>;
