@@ -53,6 +53,7 @@ import {
   syncAllTemplates,
   WHATSAPP_HEALTH_QUEUE,
   automationListener,
+  broadcastListener,
   INBOX_DUE_WORK_QUEUE,
   runDueWork,
   WHATSAPP_TEMPLATES_QUEUE,
@@ -224,6 +225,11 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       pastCustomerNoticeListener({ managers: leadAssigners }),
       // The automatic answers (away, welcome, keyword) to a customer who just wrote (sales inbox spec 6).
       automationListener({
+        timeZone: async (organizationId) =>
+          (await identity.organizationProfile(organizationId))?.timeZone ?? DEFAULT_TIME_ZONE,
+      }),
+      // A broadcast's waiting recipients go out here, a batch at a time (sales inbox spec 6).
+      broadcastListener({
         timeZone: async (organizationId) =>
           (await identity.organizationProfile(organizationId))?.timeZone ?? DEFAULT_TIME_ZONE,
       }),

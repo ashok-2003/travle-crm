@@ -97,6 +97,24 @@ describe("erasing a customer who is in the sales inbox", () => {
         });
       }
     });
+    await inOrg(async (tx) => {
+      const template = await tx.whatsappTemplate.create({
+        data: {
+          connectionId: connection.connectionId,
+          name: "offer",
+          language: "en",
+          category: "marketing",
+          body: "Hi",
+          status: "approved",
+        },
+      });
+      const broadcast = await tx.whatsappBroadcast.create({
+        data: { requestId: randomUUID(), templateId: template.id, createdBy: member.userId },
+      });
+      await tx.whatsappBroadcastRecipient.createMany({
+        data: [mine, other].map((chat) => ({ broadcastId: broadcast.id, conversationId: chat.id })),
+      });
+    });
     const message = await inOrg((tx) =>
       tx.whatsappMessage.findFirstOrThrow({ where: { conversationId: mine.id, direction: "in" } }),
     );
@@ -121,13 +139,14 @@ describe("erasing a customer who is in the sales inbox", () => {
     const kept = (chatId: string) =>
       inOrg(async (tx) => ({
         scheduled: await tx.scheduledMessage.count({ where: { conversationId: chatId } }),
+        broadcasts: await tx.whatsappBroadcastRecipient.count({ where: { conversationId: chatId } }),
         tags: await tx.conversationTag.count({ where: { conversationId: chatId } }),
         reads: await tx.conversationRead.count({ where: { conversationId: chatId } }),
         notices: await tx.notification.count({ where: { link: { contains: chatId } } }),
         words: await tx.whatsappMessage.count({ where: { conversationId: chatId, body: { not: null } } }),
       }));
-    expect(await kept(mine.id)).toEqual({ scheduled: 0, tags: 0, reads: 0, notices: 0, words: 0 });
-    expect(await kept(other.id)).toMatchObject({ scheduled: 1, tags: 1, reads: 1, notices: 1 });
+    expect(await kept(mine.id)).toEqual({ scheduled: 0, broadcasts: 0, tags: 0, reads: 0, notices: 0, words: 0 });
+    expect(await kept(other.id)).toMatchObject({ scheduled: 1, broadcasts: 1, tags: 1, reads: 1, notices: 1 });
     const notes = (await inOrg((tx) => tx.leadNote.findMany())).map((note) => note.body);
     expect(notes).not.toContain(`Neha wants a Spiti trip (${mine.id})`);
     expect(notes).toContain(`Neha wants a Spiti trip (${other.id})`);

@@ -30,3 +30,7 @@ export const whatsappCustomerWroteEvent = z.strictObject({
   firstEver: z.boolean(),
 });
 export type WhatsappCustomerWroteEvent = z.infer<typeof whatsappCustomerWroteEvent>;
+
+/** whatsapp.broadcast-ready: a broadcast has recipients waiting (it was created, resumed, or has more after a batch or a day). */
+export const whatsappBroadcastReadyEvent = z.strictObject({ broadcastId: recordId });
+export type WhatsappBroadcastReadyEvent = z.infer<typeof whatsappBroadcastReadyEvent>;

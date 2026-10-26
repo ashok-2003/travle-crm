@@ -21,6 +21,26 @@ const aConversation = async (tx: OrgTx) =>
     data: { connectionId: (await aConnection(tx)).id, phoneE164: `+91${digits().slice(2)}` },
   });
 
+const aBroadcast = async (tx: OrgTx) =>
+  tx.whatsappBroadcast.create({
+    data: {
+      requestId: randomUUID(),
+      templateId: (
+        await tx.whatsappTemplate.create({
+          data: {
+            connectionId: (await aConnection(tx)).id,
+            name: "broadcast_isolation",
+            language: "en",
+            category: "marketing",
+            body: "Hello",
+            status: "approved",
+          },
+        })
+      ).id,
+      createdBy: randomUUID(),
+    },
+  });
+
 export const fixtures: OrgTableFixtures = {
   whatsapp_connection: { create: aConnection, undeletable: true },
   whatsapp_conversation: { create: aConversation, undeletable: true },
@@ -109,25 +129,21 @@ export const fixtures: OrgTableFixtures = {
       tx.inboxKeywordReply.create({ data: { keyword: `iso${randomUUID().slice(0, 8)}`, reply: "Hello" } }),
     undeletable: true,
   },
-  whatsapp_broadcast: {
+  whatsapp_broadcast: { create: aBroadcast, undeletable: true },
+  whatsapp_broadcast_tag: {
     create: async (tx) =>
-      tx.whatsappBroadcast.create({
+      tx.whatsappBroadcastTag.create({
         data: {
-          templateId: (
-            await tx.whatsappTemplate.create({
-              data: {
-                connectionId: (await aConnection(tx)).id,
-                name: "broadcast_isolation",
-                language: "en",
-                category: "marketing",
-                body: "Hello",
-                status: "approved",
-              },
-            })
-          ).id,
+          broadcastId: (await aBroadcast(tx)).id,
           tagId: (await tx.inboxTag.create({ data: { name: `Isolation ${randomUUID().slice(0, 8)}` } })).id,
-          createdBy: randomUUID(),
         },
+      }),
+    undeletable: true,
+  },
+  whatsapp_broadcast_recipient: {
+    create: async (tx) =>
+      tx.whatsappBroadcastRecipient.create({
+        data: { broadcastId: (await aBroadcast(tx)).id, conversationId: (await aConversation(tx)).id },
       }),
     undeletable: true,
   },

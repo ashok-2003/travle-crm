@@ -88,6 +88,7 @@ model WhatsappConversation {
   tags           ConversationTag[]
   reads          ConversationRead[]
   scheduled      ScheduledMessage[]
+  broadcasts     WhatsappBroadcastRecipient[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, connectionId, phoneE164], map: "whatsapp_conversation_phone")
@@ -152,6 +153,7 @@ model WhatsappMessage {
   template       WhatsappTemplate?    @relation(fields: [organizationId, templateId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
   broadcast      WhatsappBroadcast?   @relation(fields: [organizationId, broadcastId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
   scheduledFrom  ScheduledMessage[]
+  broadcastRows  WhatsappBroadcastRecipient[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, wamid], map: "whatsapp_message_wamid", where: raw("(wamid IS NOT NULL)"))

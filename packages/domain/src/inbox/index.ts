@@ -40,7 +40,16 @@ export {
   keywordAnswerFor,
   type AutomaticAnswer,
 } from "./automation-answer.js";
-export { broadcastReachOf, listBroadcasts, MAX_BROADCAST_CHATS, sendBroadcast } from "./broadcast.js";
+export {
+  BROADCAST_READY_EVENT,
+  broadcastDetailOf,
+  cancelBroadcast,
+  createBroadcast,
+  listBroadcasts,
+  previewBroadcast,
+  resumeBroadcast,
+} from "./broadcast.js";
+export { broadcastListener, nextMorning, sendBroadcastBatch } from "./broadcast-send.js";
 export { addNote, listNotes, MENTION_KIND } from "./notes.js";
 export {
   cancelScheduled,

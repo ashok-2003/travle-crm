@@ -3,6 +3,7 @@
 // ticked "they agreed" for a person we start a chat with, the day's template cap and the month's marketing cap, and that
 // WhatsApp's own daily limit did not just refuse. The message is queued like any reply; the sender sends it.
 import { assertRecordInScope, type MemberAccess } from "../identity/index.js";
+import type { Actor } from "../kernel/index.js";
 import { markersOf, type SendTemplateInput, type SentMessage } from "@travel-crm/contracts/inbox";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
@@ -51,8 +52,16 @@ interface TemplateChat {
  */
 export async function assertTemplateAllowed(
   tx: OrgTx,
-  access: MemberAccess,
-  input: { chat: TemplateChat; templateId: string; parameters: readonly string[]; agreed: boolean; now: Date },
+  access: MemberAccess | Actor,
+  input: {
+    chat: TemplateChat;
+    templateId: string;
+    parameters: readonly string[];
+    agreed: boolean;
+    now: Date;
+    /** For the worker's broadcast: whoever made it was allowed to, so no member's permission is looked for. */
+    mayStartChat?: boolean;
+  },
 ) {
   const { chat, now } = input;
   await tx.$queryRaw`SELECT id FROM whatsapp_connection WHERE id = ${chat.connectionId}::uuid FOR UPDATE`;
@@ -68,7 +77,8 @@ export async function assertTemplateAllowed(
   const startedByUs = chat.lastInboundAt === null;
   if (startedByUs) {
     // Starting a chat is changing the lead (3.3): the member must be allowed to edit leads, and see this person's.
-    if (!access.permissions.has("leads:edit")) {
+    const may = input.mayStartChat ?? ("permissions" in access && access.permissions.has("leads:edit"));
+    if (!may) {
       throw new DomainError("FORBIDDEN", "MISSING_PERMISSION", "Requires leads:edit");
     }
   }
@@ -134,14 +144,50 @@ export async function queueTemplate(
   now: Date,
 ): Promise<SentMessage> {
   const chat = await sendableChat(tx, access, input.conversationId, context, now, { window: false });
+  return queueCheckedTemplate(
+    tx,
+    access,
+    chat,
+    {
+      templateId: input.templateId,
+      parameters: input.parameters,
+      agreed: input.agreed,
+      clientToken: input.clientToken,
+      sentBy: access.userId,
+    },
+    now,
+  );
+}
+
+/**
+ * Everything of a template send after the chat is known to be sendable: the one token makes a repeat the same message, the
+ * checks of assertTemplateAllowed all apply, and the message is queued. A broadcast's recipient comes here too, for the
+ * worker (an actor with no member's permissions, `mayStartChat` as the creator's), with `broadcastId` on the message.
+ */
+export async function queueCheckedTemplate(
+  tx: OrgTx,
+  who: MemberAccess | Actor,
+  chat: Awaited<ReturnType<typeof sendableChat>>,
+  input: {
+    templateId: string;
+    parameters: readonly string[];
+    agreed: boolean;
+    clientToken: string;
+    sentBy: string | null;
+    broadcastId?: string;
+    mayStartChat?: boolean;
+  },
+  now: Date,
+): Promise<SentMessage> {
   const earlier = await earlierSend(tx, chat.id, input.clientToken);
   if (earlier !== null) return sentOf(earlier);
-  const { template, startedByUs, consentRecorded } = await assertTemplateAllowed(tx, access, {
+  const { template, startedByUs, consentRecorded } = await assertTemplateAllowed(tx, who, {
     chat,
     templateId: input.templateId,
     parameters: input.parameters,
     agreed: input.agreed,
     now,
+    ...(input.mayStartChat === undefined ? {} : { mayStartChat: input.mayStartChat }),
   });
 
   const [row] = await tx.whatsappMessage.createManyAndReturn({
@@ -155,8 +201,9 @@ export async function queueTemplate(
         templateId: template.id,
         templateParams: [...input.parameters],
         status: "queued",
-        sentBy: access.userId,
+        sentBy: input.sentBy,
         clientToken: input.clientToken,
+        broadcastId: input.broadcastId ?? null,
         occurredAt: now,
       },
     ],
@@ -170,7 +217,7 @@ export async function queueTemplate(
   }
   await tx.whatsappTemplate.update({ where: { id: template.id }, data: { lastUsedAt: now } });
   if (startedByUs && consentRecorded && chat.personId !== null) {
-    await recordAudit(tx, access, {
+    await recordAudit(tx, who, {
       action: "whatsapp.chat-started",
       entityType: "person",
       entityId: chat.personId,

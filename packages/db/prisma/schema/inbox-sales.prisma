@@ -5,16 +5,16 @@
 /// One of the agency's own labels for chats ("Hot", "Honeymoon", "Payment pending"). Soft-deleted (ADR 0004).
 model InboxTag {
   /// Filled from db.forOrg()'s organization when omitted.
-  organizationId String              @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
-  id             String              @id @default(uuid(7)) @db.Uuid
+  organizationId String                 @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String                 @id @default(uuid(7)) @db.Uuid
   name           String
-  createdBy      String?             @map("created_by") @db.Uuid
-  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  deletedAt      DateTime?           @map("deleted_at") @db.Timestamptz(6)
-  deletedBy      String?             @map("deleted_by") @db.Uuid
-  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdBy      String?                @map("created_by") @db.Uuid
+  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt      DateTime?              @map("deleted_at") @db.Timestamptz(6)
+  deletedBy      String?                @map("deleted_by") @db.Uuid
+  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   conversations  ConversationTag[]
-  broadcasts     WhatsappBroadcast[]
+  broadcasts     WhatsappBroadcastTag[]
 
   @@unique([organizationId, id])
   /// One live tag of a name; a deleted one's name is free again.
@@ -148,28 +148,78 @@ model InboxKeywordReply {
   @@map("inbox_keyword_reply")
 }
 
-/// One approved template sent to every chat with a tag (sales inbox spec 6), each through the ordinary template send
-/// (consent and caps apply). The counts grow as the worker sends.
+/// One approved template sent to the chats carrying any of some tags (sales inbox spec 6, rebuilt 2026-10-26). Confirming
+/// snapshots the audience into recipient rows in one transaction; the worker then sends in batches, each recipient through
+/// the ordinary template send. The counts are those of the recipients: nothing here holds a rupee (the platform pays Meta).
 model WhatsappBroadcast {
-  organizationId String            @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
-  id             String            @id @default(uuid(7)) @db.Uuid
-  templateId     String            @map("template_id") @db.Uuid
-  tagId          String            @map("tag_id") @db.Uuid
+  organizationId String                       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String                       @id @default(uuid(7)) @db.Uuid
+  /// The browser's id for this create: a retried create finds the broadcast it made already.
+  requestId      String                       @map("request_id") @db.Uuid
+  templateId     String                       @map("template_id") @db.Uuid
   /// The template's blanks, the same for everyone.
-  params         String[]          @default([])
-  /// queued, sending or done (CHECK whatsapp_broadcast_status_value).
-  status         String            @default("queued")
-  total          Int               @default(0)
-  sent           Int               @default(0)
-  skipped        Int               @default(0)
-  createdBy      String            @map("created_by") @db.Uuid
-  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  template       WhatsappTemplate  @relation(fields: [organizationId, templateId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
-  tag            InboxTag          @relation(fields: [organizationId, tagId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  params         String[]                     @default([])
+  /// sending, paused, cancelled or done (CHECK whatsapp_broadcast_status_value).
+  status         String                       @default("sending")
+  /// Why it paused: failure_rate or template_unavailable (CHECK whatsapp_broadcast_paused_reason_value).
+  pausedReason   String?                      @map("paused_reason")
+  pausedAt       DateTime?                    @map("paused_at") @db.Timestamptz(6)
+  cancelledBy    String?                      @map("cancelled_by") @db.Uuid
+  cancelledAt    DateTime?                    @map("cancelled_at") @db.Timestamptz(6)
+  createdBy      String                       @map("created_by") @db.Uuid
+  createdAt      DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  template       WhatsappTemplate             @relation(fields: [organizationId, templateId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  tags           WhatsappBroadcastTag[]
+  recipients     WhatsappBroadcastRecipient[]
   messages       WhatsappMessage[]
 
   @@unique([organizationId, id])
+  @@unique([organizationId, requestId], map: "whatsapp_broadcast_request")
   @@index([organizationId, createdAt(sort: Desc)], map: "whatsapp_broadcast_recent")
   @@map("whatsapp_broadcast")
+}
+
+/// A tag a broadcast was aimed at.
+model WhatsappBroadcastTag {
+  organizationId String            @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String            @id @default(uuid(7)) @db.Uuid
+  broadcastId    String            @map("broadcast_id") @db.Uuid
+  tagId          String            @map("tag_id") @db.Uuid
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  broadcast      WhatsappBroadcast @relation(fields: [organizationId, broadcastId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  tag            InboxTag          @relation(fields: [organizationId, tagId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, broadcastId, tagId], map: "whatsapp_broadcast_tag_once")
+  @@index([organizationId, tagId], map: "whatsapp_broadcast_tag_by_tag")
+  @@map("whatsapp_broadcast_tag")
+}
+
+/// One chat a broadcast was snapshotted to, and where it stands: waiting (maybe until a later day), sent (handed to the
+/// outbox; its message tells if WhatsApp then refused it), skipped with a reason, or failed. Erased with the customer.
+model WhatsappBroadcastRecipient {
+  organizationId String               @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String               @id @default(uuid(7)) @db.Uuid
+  broadcastId    String               @map("broadcast_id") @db.Uuid
+  conversationId String               @map("conversation_id") @db.Uuid
+  /// waiting, sent, skipped or failed (CHECK whatsapp_broadcast_recipient_state_value).
+  state          String               @default("waiting")
+  /// Why it was skipped or failed: a code (monthly_cap, opted_out, no_consent, cancelled, not_connected, other...).
+  reason         String?
+  /// A waiting recipient is not tried before this moment (the next day's 10:00 after the day's template cap).
+  notBefore      DateTime             @default(now()) @map("not_before") @db.Timestamptz(6)
+  messageId      String?              @map("message_id") @db.Uuid
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  broadcast      WhatsappBroadcast    @relation(fields: [organizationId, broadcastId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  conversation   WhatsappConversation @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  message        WhatsappMessage?     @relation(fields: [organizationId, messageId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, broadcastId, conversationId], map: "whatsapp_broadcast_recipient_once")
+  @@index([organizationId, broadcastId, state], map: "whatsapp_broadcast_recipient_state")
+  /// The worker's next recipients: only those still waiting are in it.
+  @@index([organizationId, notBefore], map: "whatsapp_broadcast_recipient_due", where: raw("(state = 'waiting'::text)"))
+  @@map("whatsapp_broadcast_recipient")
 }

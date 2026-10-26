@@ -188,6 +188,8 @@
     "TEMPLATE_NOT_EDITABLE": "Only a rejected template written here can be edited.",
     "NOT_FAILED": "Only a message that was not sent can be tried again.",
     "NO_PERSON_YET": "This number has no person in your CRM yet.",
+    "BROADCAST_NO_RECIPIENTS": "No chat would receive this broadcast. Check the tags, and who has agreed to WhatsApp messages.",
+    "BROADCAST_NOT_PAUSED": "Only a paused broadcast can be resumed.",
     "CHAT_HAS_NO_LEAD": "This chat has no lead yet, so there is nothing to attach a note to.",
     "NO_OWNER": "This agency has no Owner to give the lead to."
   },

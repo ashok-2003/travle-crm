@@ -4,13 +4,9 @@
 // Admins), as its templates do.
 import {
   addConversationNoteInput,
-  broadcastList,
-  broadcastReach,
-  broadcastReachInput,
   conversationIdInput,
   conversationNote,
   conversationNoteList,
-  createBroadcastInput,
   createKeywordReplyInput,
   inboxAutomation,
   inboxSummary,
@@ -28,23 +24,19 @@ import {
 import {
   addNote,
   automationOf,
-  broadcastReachOf,
   cancelScheduled,
   createKeywordReply,
   deleteKeywordReply,
-  listBroadcasts,
   listKeywordReplies,
   listNotes,
   listScheduled,
   saveAutomation,
   scheduleMessage,
-  sendBroadcast,
   snoozeConversation,
   starMessage,
   summaryOf,
   visibleConversation,
 } from "@travel-crm/domain/inbox";
-import { z } from "zod";
 import { markTyping } from "../inbox-presence.js";
 import { memberNames } from "../member-names.js";
 import { orgProcedure } from "../procedures.js";
@@ -178,25 +170,5 @@ export const salesInboxRouter = router({
     .input(keywordReplyIdInput)
     .mutation(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, (tx) => deleteKeywordReply(tx, ctx.member, input.keywordReplyId)),
-    ),
-
-  broadcasts: curator
-    .output(broadcastList)
-    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => listBroadcasts(tx))),
-
-  broadcastReach: curator
-    .input(broadcastReachInput)
-    .output(broadcastReach)
-    .query(({ ctx, input }) =>
-      ctx.db.forOrg(ctx.member.organizationId, (tx) => broadcastReachOf(tx, ctx.member, input.tagId)),
-    ),
-
-  /** Sends the template to every chat with the tag now; refused chats (no consent, a cap) are skipped and counted. */
-  sendBroadcast: orgProcedure
-    .requires("inbox:view", "inbox:templates", "inbox:reply")
-    .input(createBroadcastInput)
-    .output(z.object({ id: z.string(), sent: z.int(), skipped: z.int() }))
-    .mutation(({ ctx, input }) =>
-      sendBroadcast(ctx.db, ctx.member, input, { whatsappConfigured: ctx.whatsappConfigured }, new Date()),
     ),
 });

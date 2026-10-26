@@ -166,25 +166,3 @@ export const createKeywordReplyInput = z.strictObject({
 export type CreateKeywordReplyInput = z.infer<typeof createKeywordReplyInput>;
 export const keywordReplyIdInput = z.strictObject({ keywordReplyId: recordId });
 export type KeywordReplyIdInput = z.infer<typeof keywordReplyIdInput>;
-
-export const broadcastSummary = z.object({
-  id: recordId,
-  templateName: z.string(),
-  tagName: z.string(),
-  status: z.enum(["queued", "sending", "done"]),
-  total: z.int(),
-  sent: z.int(),
-  skipped: z.int(),
-  createdAt: timestamp,
-});
-export type BroadcastSummary = z.infer<typeof broadcastSummary>;
-export const broadcastList = z.array(broadcastSummary);
-export const createBroadcastInput = z.strictObject({
-  templateId: recordId,
-  tagId: recordId,
-  params: z.array(z.string().trim().min(1).max(200)).max(10),
-});
-export type CreateBroadcastInput = z.infer<typeof createBroadcastInput>;
-/** How many chats a broadcast to a tag would reach, and how many of those may be sent a template. */
-export const broadcastReach = z.object({ chats: z.int(), allowed: z.int() });
-export const broadcastReachInput = z.strictObject({ tagId: recordId });

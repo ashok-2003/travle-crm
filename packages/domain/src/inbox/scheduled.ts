@@ -7,10 +7,12 @@ import { scheduledMessageList, type ScheduledMessage, type ScheduleMessageInput 
 import type { Database, OrgTx } from "@travel-crm/db";
 import type { Logger } from "@travel-crm/integrations/logging";
 import { recordAudit } from "../audit/index.js";
+import { publishEvent } from "../jobs/index.js";
 import { noticeKey } from "../crm/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError, systemActor } from "../kernel/index.js";
 import { notify } from "../notifications/index.js";
+import { BROADCAST_READY_EVENT } from "./broadcast.js";
 import { chatNameOf } from "./chat-name.js";
 import { routesPage } from "./routes.js";
 import { queueSystemText } from "./system-send.js";
@@ -177,11 +179,21 @@ async function wake(tx: OrgTx, organizationId: string, chat: WakingChat): Promis
  * two partial indexes first, so an agency with nothing due costs one light transaction. Returns how many it handled.
  */
 export async function dueWorkOf(tx: OrgTx, organizationId: string, now: Date): Promise<number> {
-  const [dueSend, dueWake] = [
+  const [dueSend, dueWake, dueBroadcasts] = [
     await tx.scheduledMessage.findFirst({ where: { status: "pending", sendAt: { lte: now } }, select: { id: true } }),
     await tx.whatsappConversation.findFirst({ where: { snoozedUntil: { lte: now } }, select: { id: true } }),
+    // Recipients that waited for a morning or an hour, and are due now: their broadcast is asked to go on.
+    await tx.whatsappBroadcastRecipient.findMany({
+      where: { state: "waiting", notBefore: { lte: now }, broadcast: { is: { status: "sending" } } },
+      distinct: ["broadcastId"],
+      take: 20,
+      select: { broadcastId: true },
+    }),
   ];
-  if (dueSend === null && dueWake === null) return 0;
+  for (const { broadcastId } of dueBroadcasts) {
+    await publishEvent(tx, { type: BROADCAST_READY_EVENT, payload: { broadcastId } });
+  }
+  if (dueSend === null && dueWake === null) return dueBroadcasts.length;
   const due = await tx.$queryRaw<DueMessage[]>`
     SELECT id, conversation_id AS "conversationId", body, created_by AS "createdBy"
     FROM scheduled_message
@@ -198,7 +210,7 @@ export async function dueWorkOf(tx: OrgTx, organizationId: string, now: Date): P
     LIMIT ${BATCH}
     FOR UPDATE SKIP LOCKED`;
   for (const chat of waking) await wake(tx, organizationId, chat);
-  return due.length + waking.length;
+  return due.length + waking.length + dueBroadcasts.length;
 }
 
 /** One agency's due work in a transaction of its own (the minute job's step, and what the tests run). */

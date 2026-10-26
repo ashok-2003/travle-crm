@@ -204,7 +204,10 @@
       "automation-changed": "Changed the automatic WhatsApp answers",
       "keyword-reply-created": "Added a keyword answer",
       "keyword-reply-deleted": "Deleted a keyword answer",
-      "broadcast-sent": "Sent a WhatsApp broadcast"
+      "broadcast-created": "Started a WhatsApp broadcast",
+      "broadcast-cancelled": "Cancelled a WhatsApp broadcast",
+      "broadcast-paused": "A WhatsApp broadcast paused itself",
+      "broadcast-resumed": "Resumed a WhatsApp broadcast"
     }
   },
   "fields": {
@@ -257,7 +260,8 @@
     "welcomeText": "Welcome message text",
     "keyword": "Keyword",
     "template": "Template",
-    "total": "Chats"
+    "total": "Chats",
+    "reason": "Why"
   },
   "recordTypes": {
     "issued_document": "A document",

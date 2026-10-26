@@ -113,17 +113,43 @@ CREATE TABLE "inbox_keyword_reply" (
 CREATE TABLE "whatsapp_broadcast" (
     "organization_id" UUID NOT NULL DEFAULT (NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid,
     "id" UUID NOT NULL,
+    "request_id" UUID NOT NULL,
     "template_id" UUID NOT NULL,
-    "tag_id" UUID NOT NULL,
     "params" TEXT[] DEFAULT ARRAY[]::TEXT[],
-    "status" TEXT NOT NULL DEFAULT 'queued',
-    "total" INTEGER NOT NULL DEFAULT 0,
-    "sent" INTEGER NOT NULL DEFAULT 0,
-    "skipped" INTEGER NOT NULL DEFAULT 0,
+    "status" TEXT NOT NULL DEFAULT 'sending',
+    "paused_reason" TEXT,
+    "paused_at" TIMESTAMPTZ(6),
+    "cancelled_by" UUID,
+    "cancelled_at" TIMESTAMPTZ(6),
     "created_by" UUID NOT NULL,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "whatsapp_broadcast_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "whatsapp_broadcast_tag" (
+    "organization_id" UUID NOT NULL DEFAULT (NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid,
+    "id" UUID NOT NULL,
+    "broadcast_id" UUID NOT NULL,
+    "tag_id" UUID NOT NULL,
+
+    CONSTRAINT "whatsapp_broadcast_tag_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "whatsapp_broadcast_recipient" (
+    "organization_id" UUID NOT NULL DEFAULT (NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid,
+    "id" UUID NOT NULL,
+    "broadcast_id" UUID NOT NULL,
+    "conversation_id" UUID NOT NULL,
+    "state" TEXT NOT NULL DEFAULT 'waiting',
+    "reason" TEXT,
+    "not_before" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "message_id" UUID,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "whatsapp_broadcast_recipient_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -184,6 +210,30 @@ CREATE INDEX "whatsapp_broadcast_recent" ON "whatsapp_broadcast"("organization_i
 CREATE UNIQUE INDEX "whatsapp_broadcast_organization_id_id_key" ON "whatsapp_broadcast"("organization_id", "id");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "whatsapp_broadcast_request" ON "whatsapp_broadcast"("organization_id", "request_id");
+
+-- CreateIndex
+CREATE INDEX "whatsapp_broadcast_tag_by_tag" ON "whatsapp_broadcast_tag"("organization_id", "tag_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "whatsapp_broadcast_tag_organization_id_id_key" ON "whatsapp_broadcast_tag"("organization_id", "id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "whatsapp_broadcast_tag_once" ON "whatsapp_broadcast_tag"("organization_id", "broadcast_id", "tag_id");
+
+-- CreateIndex
+CREATE INDEX "whatsapp_broadcast_recipient_state" ON "whatsapp_broadcast_recipient"("organization_id", "broadcast_id", "state");
+
+-- CreateIndex
+CREATE INDEX "whatsapp_broadcast_recipient_due" ON "whatsapp_broadcast_recipient"("organization_id", "not_before") WHERE (state = 'waiting'::text);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "whatsapp_broadcast_recipient_organization_id_id_key" ON "whatsapp_broadcast_recipient"("organization_id", "id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "whatsapp_broadcast_recipient_once" ON "whatsapp_broadcast_recipient"("organization_id", "broadcast_id", "conversation_id");
+
+-- CreateIndex
 CREATE INDEX "whatsapp_conversation_snoozed" ON "whatsapp_conversation"("organization_id", "snoozed_until") WHERE (snoozed_until IS NOT NULL);
 
 -- AddForeignKey
@@ -229,7 +279,25 @@ ALTER TABLE "whatsapp_broadcast" ADD CONSTRAINT "whatsapp_broadcast_organization
 ALTER TABLE "whatsapp_broadcast" ADD CONSTRAINT "whatsapp_broadcast_organization_id_template_id_fkey" FOREIGN KEY ("organization_id", "template_id") REFERENCES "whatsapp_template"("organization_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 -- AddForeignKey
-ALTER TABLE "whatsapp_broadcast" ADD CONSTRAINT "whatsapp_broadcast_organization_id_tag_id_fkey" FOREIGN KEY ("organization_id", "tag_id") REFERENCES "inbox_tag"("organization_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE "whatsapp_broadcast_tag" ADD CONSTRAINT "whatsapp_broadcast_tag_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organization"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "whatsapp_broadcast_tag" ADD CONSTRAINT "whatsapp_broadcast_tag_organization_id_broadcast_id_fkey" FOREIGN KEY ("organization_id", "broadcast_id") REFERENCES "whatsapp_broadcast"("organization_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "whatsapp_broadcast_tag" ADD CONSTRAINT "whatsapp_broadcast_tag_organization_id_tag_id_fkey" FOREIGN KEY ("organization_id", "tag_id") REFERENCES "inbox_tag"("organization_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "whatsapp_broadcast_recipient" ADD CONSTRAINT "whatsapp_broadcast_recipient_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organization"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "whatsapp_broadcast_recipient" ADD CONSTRAINT "whatsapp_broadcast_recipient_organization_id_broadcast_id_fkey" FOREIGN KEY ("organization_id", "broadcast_id") REFERENCES "whatsapp_broadcast"("organization_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "whatsapp_broadcast_recipient" ADD CONSTRAINT "whatsapp_broadcast_recipient_organization_id_conversation__fkey" FOREIGN KEY ("organization_id", "conversation_id") REFERENCES "whatsapp_conversation"("organization_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "whatsapp_broadcast_recipient" ADD CONSTRAINT "whatsapp_broadcast_recipient_organization_id_message_id_fkey" FOREIGN KEY ("organization_id", "message_id") REFERENCES "whatsapp_message"("organization_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 -- AddForeignKey
 ALTER TABLE "whatsapp_message" ADD CONSTRAINT "whatsapp_message_organization_id_broadcast_id_fkey" FOREIGN KEY ("organization_id", "broadcast_id") REFERENCES "whatsapp_broadcast"("organization_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
@@ -260,15 +328,20 @@ ALTER TABLE "inbox_keyword_reply"
   ADD CONSTRAINT inbox_keyword_reply_keyword_format CHECK (keyword = lower(keyword) AND char_length(keyword) BETWEEN 2 AND 40),
   ADD CONSTRAINT inbox_keyword_reply_length CHECK (char_length(reply) BETWEEN 1 AND 1000);
 ALTER TABLE "whatsapp_broadcast"
-  ADD CONSTRAINT whatsapp_broadcast_status_value CHECK (status IN ('queued', 'sending', 'done')),
-  ADD CONSTRAINT whatsapp_broadcast_counts CHECK (total >= 0 AND sent >= 0 AND skipped >= 0),
+  ADD CONSTRAINT whatsapp_broadcast_status_value CHECK (status IN ('sending', 'paused', 'cancelled', 'done')),
+  ADD CONSTRAINT whatsapp_broadcast_paused_reason_value CHECK (
+    paused_reason IS NULL OR paused_reason IN ('failure_rate', 'template_unavailable')),
   ADD CONSTRAINT whatsapp_broadcast_params CHECK (cardinality(params) <= 10);
+ALTER TABLE "whatsapp_broadcast_recipient"
+  ADD CONSTRAINT whatsapp_broadcast_recipient_state_value CHECK (state IN ('waiting', 'sent', 'skipped', 'failed')),
+  ADD CONSTRAINT whatsapp_broadcast_recipient_reason_length CHECK (char_length(coalesce(reason, '')) <= 100);
 
 -- Tags, quick replies and keyword replies are soft-deleted (ADR 0004): the runtime role never deletes them. A tag on a
 -- chat and a member's read mark are links, which it may remove. Scheduled sends and broadcasts end in a status, never a
 -- delete (an erasure, which runs as the platform, removes a customer's).
 REVOKE DELETE ON TABLE "inbox_tag", "inbox_quick_reply", "inbox_keyword_reply" FROM app_runtime;
-REVOKE DELETE ON TABLE "scheduled_message", "inbox_automation", "whatsapp_broadcast" FROM app_runtime;
+REVOKE DELETE ON TABLE "scheduled_message", "inbox_automation", "whatsapp_broadcast", "whatsapp_broadcast_tag",
+  "whatsapp_broadcast_recipient" FROM app_runtime;
 
 -- Organization isolation (see app_enable_org_rls in the init migration).
 SELECT app_enable_org_rls('inbox_tag');
@@ -279,3 +352,5 @@ SELECT app_enable_org_rls('scheduled_message');
 SELECT app_enable_org_rls('inbox_automation');
 SELECT app_enable_org_rls('inbox_keyword_reply');
 SELECT app_enable_org_rls('whatsapp_broadcast');
+SELECT app_enable_org_rls('whatsapp_broadcast_tag');
+SELECT app_enable_org_rls('whatsapp_broadcast_recipient');

@@ -3,7 +3,7 @@
 // for deletion in the same transaction); its wamid stays (a wamid is not personal data, and keeping it stops a late retry from
 // making the message again). The chat loses its person, its profile name and its number (replaced by erased:<uuid>) and
 // becomes erased, so the same person writing again is a new chat and, per crm's rule, a new enquiry. What the sales inbox
-// keeps about the chat goes too: the scheduled messages (their words), the tags on it, every member's read mark, and the
+// keeps about the chat goes too: the scheduled messages (their words), the tags on it, its place in any broadcast, every member's read mark, and the
 // notices that name it. The automatic answers written to the person are messages, so they are emptied with the rest; the notes
 // on their lead are crm's, erased with the lead. Runs in the erasure's platform transaction, naming the organization.
 import { WHATSAPP_RECORD_TYPE } from "@travel-crm/contracts/files";
@@ -70,7 +70,8 @@ export async function withdrawWhatsApp(
     },
   });
   const inChats = { organizationId, conversationId: { in: conversationIds } };
-  let inboxRows = (await tx.scheduledMessage.deleteMany({ where: inChats })).count;
+  let inboxRows = (await tx.whatsappBroadcastRecipient.deleteMany({ where: inChats })).count;
+  inboxRows += (await tx.scheduledMessage.deleteMany({ where: inChats })).count;
   inboxRows += (await tx.conversationTag.deleteMany({ where: inChats })).count;
   inboxRows += (await tx.conversationRead.deleteMany({ where: inChats })).count;
   // A notice about a chat (a mention, a failed send, a waking snooze) carries the customer's name and links to the chat.

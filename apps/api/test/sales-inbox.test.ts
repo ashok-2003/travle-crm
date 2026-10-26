@@ -111,8 +111,8 @@ describe("the sales inbox, through the api", () => {
     ).toBe(403);
   });
 
-  it("keeps the agency's automatic answers and broadcasts from anyone who does not write templates", async () => {
-    for (const path of ["salesInbox.automation", "salesInbox.keywordReplies", "salesInbox.broadcasts"]) {
+  it("keeps the agency's automatic answers from anyone who does not write templates", async () => {
+    for (const path of ["salesInbox.automation", "salesInbox.keywordReplies"]) {
       expect((await refusalOf(await query(server, path, seller.jar))).status).toBe(403);
       expect((await refusalOf(await query(server, path, operations.jar))).status).toBe(403);
     }
