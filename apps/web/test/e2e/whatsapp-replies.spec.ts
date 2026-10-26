@@ -110,7 +110,7 @@ test("staff reply inside the window: the ticks follow MSG91's reports, a double 
     caption: "The itinerary, as a PDF.",
   });
   expect(document?.url).toMatch(/^http/);
-  await expect(chat.getByRole("link", { name: "Download itinerary.pdf" })).toBeVisible({ timeout: 60_000 });
+  await expect(chat.getByRole("button", { name: "Download itinerary.pdf" })).toBeVisible({ timeout: 60_000 });
 
   // A voice note: the fake microphone records, and the clip goes up through the file path and to MSG91 as audio.
   await chat.getByRole("button", { name: "Record a voice note" }).click();
@@ -123,7 +123,7 @@ test("staff reply inside the window: the ticks follow MSG91's reports, a double 
   // takes as an audio file. This Chromium writes MP4.
   expect(voice).toMatchObject({ contentType: "audio", fileName: expect.stringMatching(/^voice-note\.(ogg|m4a)$/) });
   expect(voice?.voice).toBe(voice?.fileName === "voice-note.ogg");
-  await expect(chat.locator("audio")).toBeVisible({ timeout: 60_000 });
+  await expect(chat.getByRole("button", { name: "Play the voice message" })).toBeVisible({ timeout: 60_000 });
 
   // Once the window has closed (24 hours after the customer's last message), the box is replaced by a note.
   await inAgency(agency.organizationId, (tx) =>
