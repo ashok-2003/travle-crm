@@ -153,7 +153,7 @@ export async function queueText(
 }
 
 /** The kind of message a file is sent as. */
-const kindOf = (contentType: string) =>
+export const kindOf = (contentType: string) =>
   contentType.startsWith("image/")
     ? "image"
     : contentType.startsWith("video/")

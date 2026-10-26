@@ -3,6 +3,7 @@
 // sweep and erasure delete them for good.
 import {
   attachmentContentTypes,
+  TRIP_KIT_RECORD_TYPE,
   WHATSAPP_RECORD_TYPE,
   whatsappContentTypes,
   MAX_ATTACHMENT_BYTES,
@@ -50,6 +51,7 @@ export function maxUploadBytes(recordType: string): number {
 
 /** The content types a record's files may have: spreadsheets for the bulk files, documents and photos elsewhere. */
 export function allowedContentTypes(recordType: string): readonly string[] {
-  if (recordType === WHATSAPP_RECORD_TYPE) return whatsappContentTypes;
+  // A trip's details are sent on WhatsApp, so they take what a WhatsApp message does (videos and voice notes too).
+  if (recordType === WHATSAPP_RECORD_TYPE || recordType === TRIP_KIT_RECORD_TYPE) return whatsappContentTypes;
   return spreadsheetRecordTypes.includes(recordType) ? spreadsheetContentTypes : attachmentContentTypes;
 }

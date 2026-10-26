@@ -7,3 +7,4 @@ export * from "./events.js";
 export * from "./inputs.js";
 export * from "./sales.js";
 export * from "./templates.js";
+export * from "./trip-kits.js";

@@ -578,5 +578,63 @@
     "today": "Today",
     "week": "Last 7 days",
     "month": "Last 30 days"
+  },
+  "tripKits": {
+    "title": "Trip details",
+    "intro": "Set up each trip once: its itinerary, price and payment details, with its photos, videos and PDFs. When a customer's message has one of its keywords, the trip goes to them by itself, once a chat. Anyone in the inbox can send it from a chat's Send details.",
+    "add": "Add trip",
+    "addTitle": "Add a trip",
+    "editTitle": "Change the trip",
+    "dialogDescription": "The words go first, then each file as a message of its own. Add the files on the trip's card after saving.",
+    "save": "Save trip",
+    "saving": "Saving…",
+    "added": "Trip added",
+    "saved": "Trip saved",
+    "edit": "Edit",
+    "editNamed": "Edit {name}",
+    "delete": "Delete",
+    "deleteNamed": "Delete {name}",
+    "deleteTitle": "Delete {name}?",
+    "deleteDescription": "It can no longer be sent from a chat or by its keywords. What was sent already stays in the chats.",
+    "loadFailed": "Trips didn't load.",
+    "retry": "Try again",
+    "loading": "Loading trips",
+    "empty": "No trips yet. Add one with its details and files, and your team sends it in one tap.",
+    "sendsItself": "Sends on keywords",
+    "sentByHand": "Sent from chats only",
+    "keywordsLabel": "Keywords:",
+    "addFiles": "Add files",
+    "uploading": "Uploading…",
+    "removeFile": "Remove {name}",
+    "filesHint": "Photos, MP4 videos, PDFs, Office files and voice notes, up to 16 MB each; {count} files at most.",
+    "filesRefused": "{count, plural, one {# file was} other {# files were}} not added: WhatsApp takes photos, MP4 videos, PDFs, Office files and voice notes up to 16 MB.",
+    "form": {
+      "name": "Trip name",
+      "nameHint": "What your team sees, like \"Manali 5 days\".",
+      "message": "Message",
+      "messageHint": "The itinerary, inclusions, price and payment details: sent first, as one message.",
+      "keywords": "Keywords",
+      "keywordsHint": "Words or phrases a customer may write, with commas between: manali, kullu manali.",
+      "autoSend": "Send it by itself when a customer's message has a keyword",
+      "problems": {
+        "required": "Enter the trip's name.",
+        "tooLong": "This is too long.",
+        "keywords": "Each keyword is 2 to 40 letters, 20 at most."
+      }
+    },
+    "send": {
+      "button": "Send details",
+      "title": "Send trip details",
+      "description": "The trip's words and every file go to this chat now.",
+      "loadFailed": "Trips didn't load.",
+      "loading": "Loading trips",
+      "empty": "No trips are set up yet.",
+      "setUp": "Set up trips",
+      "holds": "{files, plural, =0 {No files} one {# file} other {# files}}",
+      "send": "Send",
+      "sendNamed": "Send {name}",
+      "sent": "{count, plural, one {# message} other {# messages}} on the way",
+      "holdsWithDetails": "Details and {files, plural, =0 {no files} one {# file} other {# files}}"
+    }
   }
 }

@@ -28,6 +28,7 @@ import { EmojiButton } from "./emoji-button";
 import { QuickReplyList } from "./quick-reply-list";
 import { ScheduleButton } from "./schedule-button";
 import { TemplateTool } from "./template-tool";
+import { SendDetailsTool } from "./trip-kits/send-details-tool";
 import { useQuickReplyPicker } from "./use-quick-reply-picker";
 import { useTypingSignal } from "./use-sales-inbox";
 import { useReply } from "./use-reply";
@@ -183,6 +184,7 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
           </div>
           <div className="flex items-center gap-0.5" role="toolbar" aria-label={t("composer.tools")}>
             <TemplateTool conversationId={conversationId} disabled={reply.pending || !access.allowed} />
+            <SendDetailsTool conversationId={conversationId} disabled={reply.pending || !access.allowed} />
             {wide && <EmojiButton onPick={insertEmoji} disabled={reply.pending || !access.allowed} />}
             <Button
               type="button"

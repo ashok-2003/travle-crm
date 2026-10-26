@@ -53,6 +53,7 @@ import {
   syncAllTemplates,
   WHATSAPP_HEALTH_QUEUE,
   automationListener,
+  tripKitKeywordListener,
   broadcastListener,
   INBOX_DUE_WORK_QUEUE,
   runDueWork,
@@ -228,6 +229,8 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
         timeZone: async (organizationId) =>
           (await identity.organizationProfile(organizationId))?.timeZone ?? DEFAULT_TIME_ZONE,
       }),
+      // A trip's details, sent by themselves when a customer's message holds one of its keywords (once a chat).
+      tripKitKeywordListener({ db, files }),
       // A broadcast's waiting recipients go out here, a batch at a time (sales inbox spec 6).
       broadcastListener({
         timeZone: async (organizationId) =>
