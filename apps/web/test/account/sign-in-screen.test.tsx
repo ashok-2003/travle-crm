@@ -12,7 +12,9 @@ import { answers, ok, renderScreen } from "./render";
 const push = vi.fn();
 const finishSignIn = vi.fn();
 /** The address the person opened, as the browser has it: the screen reads ?next= from it when they sign in. */
-const openedAs = (search: string) => { window.history.replaceState({}, "", `/sign-in${search}`); };
+const openedAs = (search: string) => {
+  window.history.replaceState({}, "", `/sign-in${search}`);
+};
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 vi.mock("@/account/finish-sign-in", () => ({ useFinishSignIn: () => finishSignIn }));
 
