@@ -4,7 +4,6 @@
 // the month's allowance, and how many go today and how many wait for the next morning. Counts only: no rupee.
 import type { BroadcastPreview } from "@travel-crm/contracts/inbox";
 import { useTranslations } from "next-intl";
-import { Details } from "@/components/details";
 
 export function BroadcastPreviewCard({ preview }: { preview: BroadcastPreview }) {
   const t = useTranslations("inbox.broadcasts.dialog");
@@ -17,7 +16,9 @@ export function BroadcastPreviewCard({ preview }: { preview: BroadcastPreview })
         {t("reaches", { count: preview.willSend })}
       </p>
       {left.length > 0 && (
-        <Details rows={left.map((reason) => ({ label: t(reason, { count: preview.leftOut[reason] }) }))} />
+        <p>
+          {t("leftOut", { reasons: left.map((reason) => t(reason, { count: preview.leftOut[reason] })).join(" · ") })}
+        </p>
       )}
       <p className="text-muted-foreground">
         {preview.allowance === null ? t("noAllowance") : t("allowance", preview.allowance)}

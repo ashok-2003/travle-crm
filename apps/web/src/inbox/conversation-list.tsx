@@ -47,7 +47,10 @@ export function ConversationList({ items, currentId }: { items: ConversationList
               <Item
                 asChild
                 size="sm"
-                className={cn("rounded-none px-3 py-3 hover:bg-chat-bar", current && "bg-hairline hover:bg-hairline")}
+                className={cn(
+                  "min-w-0 rounded-none px-3 py-3 hover:bg-chat-bar",
+                  current && "bg-hairline hover:bg-hairline",
+                )}
               >
                 <Link
                   href={inboxRoute(chat.id)}
@@ -58,9 +61,9 @@ export function ConversationList({ items, currentId }: { items: ConversationList
                   <ItemMedia>
                     <ChatAvatar name={chat.name} />
                   </ItemMedia>
-                  <ItemContent className="min-w-0 gap-0.5">
+                  <ItemContent className="min-w-0 flex-1 gap-0.5">
                     <div className="flex items-baseline justify-between gap-2">
-                      <span className="truncate font-medium script-leading">
+                      <span className={cn("truncate font-medium script-leading", chat.name === null && "numbers")}>
                         {chat.name ?? formatPhoneNumber(chat.phone)}
                       </span>
                       <span

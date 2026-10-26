@@ -14,6 +14,7 @@ import { PageTitle } from "@/components/page-title";
 import { Button } from "@/components/ui/button";
 import { StageBadge } from "@/leads/stage-badge";
 import { formatPhoneNumber } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { routes } from "@/lib/routes";
 import { ChatAvatar } from "./chat-avatar";
 import { ChatMenu } from "./chat-menu";
@@ -54,9 +55,23 @@ export function ChatHeader({
       </Button>
       <div className="flex min-h-11 min-w-0 flex-1 flex-col justify-center text-left">
         {asPage ? (
-          <PageTitle className="w-full truncate text-section script-leading md:text-section">{name}</PageTitle>
+          <PageTitle
+            className={cn(
+              "w-full truncate text-section script-leading md:text-section",
+              header.name === null && "numbers",
+            )}
+          >
+            {name}
+          </PageTitle>
         ) : (
-          <h2 className="w-full truncate text-section font-semibold script-leading">{name}</h2>
+          <h2
+            className={cn(
+              "w-full truncate text-section font-semibold script-leading",
+              header.name === null && "numbers",
+            )}
+          >
+            {name}
+          </h2>
         )}
         <p className="flex min-w-0 items-center gap-2 text-caption text-muted-foreground" aria-live="polite">
           {header.replying.length > 0 ? (

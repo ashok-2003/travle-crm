@@ -20,6 +20,7 @@ import { TripCard } from "@/leads/lead/trip-card";
 import { useLead } from "@/leads/lead/use-lead";
 import { WorkCard } from "@/leads/lead/work-card";
 import { formatPhoneNumber } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { leadRoute } from "@/lib/routes";
 import { useHolds } from "@/session/me-context";
 import { ChatAvatar } from "./chat-avatar";
@@ -72,7 +73,7 @@ export function ContactPanel({ header, onClose }: { header: ConversationHeader; 
         </div>
         <div className="flex flex-col items-center gap-2 text-center">
           <ChatAvatar name={header.name} size="large" />
-          <p className="text-section font-semibold script-leading">{name}</p>
+          <p className={cn("text-section font-semibold script-leading", header.name === null && "numbers")}>{name}</p>
           <p className="flex items-center gap-1 numbers text-muted-foreground">
             {formatPhoneNumber(header.phone)}
             <CopyButton value={header.phone} label={t("copyPhone")} iconOnly />

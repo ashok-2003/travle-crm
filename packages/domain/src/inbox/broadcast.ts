@@ -19,6 +19,7 @@ import { DomainError } from "../kernel/index.js";
 import { broadcastAudience } from "./broadcast-audience.js";
 import { chatNameOf } from "./chat-name.js";
 import { liveConnection } from "./connection-row.js";
+import { renderTemplate } from "./template-send.js";
 
 /** The event that wakes the worker to send a broadcast's waiting recipients. */
 export const BROADCAST_READY_EVENT = "whatsapp.broadcast-ready";
@@ -115,7 +116,8 @@ async function summaries(tx: OrgTx, ids: string[]): Promise<BroadcastSummary[]> 
       pausedReason: true,
       createdBy: true,
       createdAt: true,
-      template: { select: { name: true } },
+      params: true,
+      template: { select: { name: true, body: true } },
       tags: { select: { tag: { select: { name: true } } } },
     },
   });
@@ -124,6 +126,7 @@ async function summaries(tx: OrgTx, ids: string[]): Promise<BroadcastSummary[]> 
   return rows.map((row) => ({
     id: row.id,
     templateName: row.template.name,
+    message: renderTemplate(row.template.body, row.params),
     tagNames: row.tags.map((link) => link.tag.name).sort(),
     status: row.status as BroadcastSummary["status"],
     pausedReason: row.pausedReason as BroadcastSummary["pausedReason"],

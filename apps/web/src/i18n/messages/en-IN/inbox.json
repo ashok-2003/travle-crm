@@ -460,7 +460,7 @@
       "done": "Done"
     },
     "pausedReason": {
-      "failure_rate": "It paused itself: WhatsApp refused too many of the messages. Check the template, then resume or cancel.",
+      "failure_rate": "It paused itself: WhatsApp refused too many of the messages (numbers that are not on WhatsApp don't count). Check the template, then resume or cancel.",
       "template_unavailable": "It paused itself: its template can't be sent right now. Check the template, then resume or cancel."
     },
     "cancel": "Cancel the broadcast",
@@ -485,7 +485,8 @@
         "why": "Why"
       },
       "waitsUntil": "Waits until {when}",
-      "startedBy": "Started by"
+      "startedBy": "Started by",
+      "message": "Message"
     },
     "state": {
       "waiting": "Waiting",
@@ -514,11 +515,11 @@
       "checking": "Checking",
       "back": "Back",
       "reaches": "{count, plural, =0 {It reaches no chat.} one {It reaches # chat.} other {It reaches # chats.}}",
-      "leftOut": "Left out",
-      "optedOut": "{count} asked to stop WhatsApp messages",
-      "noConsent": "{count} have no consent to WhatsApp messages recorded",
-      "outsideVisibility": "{count} are chats you can't see",
-      "overAllowance": "{count} are over this month's allowance",
+      "leftOut": "Left out: {reasons}.",
+      "optedOut": "{count} asked to stop",
+      "noConsent": "{count, plural, one {# has} other {# have}} no WhatsApp consent recorded",
+      "outsideVisibility": "{count, plural, one {# is a chat} other {# are chats}} you can't see",
+      "overAllowance": "{count, plural, one {# is} other {# are}} over this month's allowance",
       "allowance": "This month's allowance: {used} of {limit} used, {remaining} left.",
       "noAllowance": "This template is not a marketing one, so it has no monthly allowance.",
       "today": "{sendToday} go today. {waitForTomorrow, plural, =0 {} other {# wait and go tomorrow at 10 am.}}",

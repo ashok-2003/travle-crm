@@ -2,7 +2,7 @@
 
 // Inbox, Broadcasts (sales inbox spec 6; the Owner and Admins): every broadcast with its live counts, newest first, and the
 // button that starts one. Counts and the month's allowance only: the agency never sees what Meta charges.
-import { MegaphoneIcon } from "lucide-react";
+import { ChevronRightIcon, MegaphoneIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useId, useRef, useState } from "react";
@@ -72,6 +72,7 @@ export function BroadcastsScreen() {
                 </ItemContent>
                 <ItemActions>
                   <BroadcastStatus status={item.status} />
+                  <ChevronRightIcon aria-hidden="true" className="text-muted-foreground" />
                 </ItemActions>
               </Link>
             </Item>

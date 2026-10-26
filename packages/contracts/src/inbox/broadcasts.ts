@@ -56,6 +56,8 @@ export type BroadcastCounts = z.infer<typeof broadcastCounts>;
 export const broadcastSummary = z.object({
   id: recordId,
   templateName: z.string(),
+  /** What each chat was sent: the template's words with the blanks filled in. */
+  message: z.string(),
   tagNames: z.array(z.string()),
   status: z.enum(broadcastStatuses),
   pausedReason: z.enum(broadcastPausedReasons).nullable(),

@@ -93,6 +93,7 @@ export function BroadcastDetailScreen({ broadcastId }: { broadcastId: string }) 
       <RefusalAlert error={controls.resume.error} />
       <Details
         rows={[
+          { label: t("detail.message"), value: broadcast.message },
           { label: t("detail.tags"), value: broadcast.tagNames.join(", ") },
           {
             label: t("detail.startedBy"),

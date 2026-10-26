@@ -78,11 +78,13 @@ test("Broadcasts: the list, a new broadcast with its preview, a broadcast's page
   }).toPass({ timeout: 120_000 });
   await shoot(owner, "broadcast-page");
 
-  // A second broadcast that paused itself because WhatsApp refused too many.
+  // A second broadcast that paused itself because WhatsApp refused ten of the ten it had sent (the rule: at least a fifth of at
+  // least ten): their messages failed, so the page counts them under Not delivered, and two chats still wait.
   const pausedId = await inAgency(agency.organizationId, async (tx) => {
     const template = await tx.whatsappTemplate.findFirstOrThrow();
     const tag = await tx.inboxTag.findFirstOrThrow();
-    const chats = await tx.whatsappConversation.findMany({ take: 2 });
+    const connection = await tx.whatsappConnection.findFirstOrThrow({ where: { status: { not: "disconnected" } } });
+    const waiting = await tx.whatsappConversation.findMany({ take: 2 });
     const broadcast = await tx.whatsappBroadcast.create({
       data: {
         requestId: crypto.randomUUID(),
@@ -95,8 +97,31 @@ test("Broadcasts: the list, a new broadcast with its preview, a broadcast's page
       },
     });
     await tx.whatsappBroadcastTag.create({ data: { broadcastId: broadcast.id, tagId: tag.id } });
+    for (let index = 0; index < 10; index += 1) {
+      const digits = newCustomerNumber();
+      const chat = await tx.whatsappConversation.create({
+        data: { connectionId: connection.id, phoneE164: `+${digits}`, profileName: `Traveller ${String(index + 1)}` },
+      });
+      const message = await tx.whatsappMessage.create({
+        data: {
+          conversationId: chat.id,
+          direction: "out",
+          origin: "staff_crm",
+          kind: "template",
+          templateId: template.id,
+          body: "Hi there, our Goa packages are on offer.",
+          status: "failed",
+          failureCode: "other",
+          broadcastId: broadcast.id,
+          occurredAt: new Date(),
+        },
+      });
+      await tx.whatsappBroadcastRecipient.create({
+        data: { broadcastId: broadcast.id, conversationId: chat.id, state: "sent", messageId: message.id },
+      });
+    }
     await tx.whatsappBroadcastRecipient.createMany({
-      data: chats.map((chat) => ({ broadcastId: broadcast.id, conversationId: chat.id })),
+      data: waiting.map((chat) => ({ broadcastId: broadcast.id, conversationId: chat.id })),
     });
     return broadcast.id;
   });
