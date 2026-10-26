@@ -17,7 +17,14 @@ const clock = (ms: number) => {
 export function MicButton({ disabled, onStart }: { disabled: boolean; onStart: () => void }) {
   const t = useTranslations("inbox.chat.composer");
   return (
-    <Button type="button" size="icon" aria-label={t("record")} disabled={disabled} onClick={onStart}>
+    <Button
+      type="button"
+      size="icon"
+      className="shrink-0 rounded-full"
+      aria-label={t("record")}
+      disabled={disabled}
+      onClick={onStart}
+    >
       <MicIcon aria-hidden="true" />
     </Button>
   );

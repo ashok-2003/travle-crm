@@ -19,7 +19,8 @@ export async function failStuckReplies(
   const rows = await tx.whatsappMessage.findMany({
     where: {
       direction: "out",
-      origin: "staff_crm",
+      // What the system wrote (an automatic answer) is stuck like a reply is.
+      origin: { in: ["staff_crm", "automation"] },
       status: which.status,
       ...(which.status === "sending" ? { sentAt: { lt: which.before } } : { occurredAt: { lt: which.before } }),
     },

@@ -8,8 +8,22 @@ import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
+import { cn } from "@/lib/utils";
 
-export function SearchField({ initial, onSearch }: { initial: string; onSearch: (text: string) => void }) {
+export function SearchField({
+  initial,
+  onSearch,
+  label,
+  placeholder,
+  className,
+}: {
+  initial: string;
+  onSearch: (text: string) => void;
+  /** Another list's words (the inbox's); the lead list's by default. */
+  label?: string;
+  placeholder?: string;
+  className?: string;
+}) {
   const t = useTranslations("leads.list");
   const [text, setText] = useState(initial);
   const settled = useDebouncedValue(text);
@@ -20,14 +34,14 @@ export function SearchField({ initial, onSearch }: { initial: string; onSearch: 
     onSearch(settled.trim());
   }, [settled, onSearch]);
   return (
-    <InputGroup className="md:w-80">
+    <InputGroup className={cn("md:w-80", className)}>
       <InputGroupAddon>
         <SearchIcon aria-hidden="true" />
       </InputGroupAddon>
       <InputGroupInput
         type="search"
-        aria-label={t("search")}
-        placeholder={t("searchPlaceholder")}
+        aria-label={label ?? t("search")}
+        placeholder={placeholder ?? t("searchPlaceholder")}
         autoComplete="off"
         value={text}
         onChange={(event) => {

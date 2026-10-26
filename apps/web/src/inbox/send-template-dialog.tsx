@@ -24,7 +24,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { useTRPC } from "@/data/trpc";
-import { formatPhoneNumber } from "@/lib/format";
+import { formatMonthName, formatPhoneNumber } from "@/lib/format";
 import { useMe } from "@/session/me-context";
 import { useConversation } from "./use-inbox";
 import { useSendableTemplates } from "./use-templates";
@@ -40,10 +40,6 @@ export const preview = (body: string, values: readonly string[]) =>
     const value = values[Number(index) - 1];
     return value === undefined || value.trim() === "" ? marker : value;
   });
-
-/** The month of a stored calendar day, as a word ("December"). */
-const monthName = (day: string) =>
-  new Intl.DateTimeFormat("en-IN", { month: "long", timeZone: "UTC" }).format(new Date(day));
 
 /** What the CRM knows already, for each blank by the fact the template says fills it. Staff may change every value. */
 function prefilled(
@@ -62,7 +58,7 @@ function prefilled(
       case "destination":
         return header.trip.destination ?? "";
       case "travel_month":
-        return header.trip.travelMonth === null ? "" : monthName(header.trip.travelMonth);
+        return header.trip.travelMonth === null ? "" : formatMonthName(header.trip.travelMonth);
       default:
         return "";
     }

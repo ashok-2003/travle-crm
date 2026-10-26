@@ -15,6 +15,56 @@ export {
 export { addDemoWhatsApp } from "./demo-seed.js";
 export { withdrawWhatsApp, type WhatsAppWithdrawn } from "./erasure.js";
 export { mediaLinkOf, startLeadFromConversation } from "./chat-actions.js";
+export {
+  archiveConversation,
+  markConversationRead,
+  MAX_SNOOZE_MS,
+  pinConversation,
+  snoozeConversation,
+  starMessage,
+} from "./chat-flags.js";
+export { unreadCounts, unreadIdsOf, UNREAD_FILTER_LIMIT } from "./unread.js";
+export {
+  automationCouldAct,
+  automationOf,
+  createKeywordReply,
+  CUSTOMER_WROTE_EVENT,
+  deleteKeywordReply,
+  listKeywordReplies,
+  saveAutomation,
+} from "./automation.js";
+export {
+  answerAutomatically,
+  AUTOMATION_COOLDOWN_MS,
+  automationListener,
+  isOpenAt,
+  keywordAnswerFor,
+  type AutomaticAnswer,
+} from "./automation-answer.js";
+export {
+  askForBatch,
+  BROADCAST_READY_EVENT,
+  broadcastDetailOf,
+  cancelBroadcast,
+  createBroadcast,
+  listBroadcasts,
+  previewBroadcast,
+  resumeBroadcast,
+} from "./broadcast.js";
+export { broadcastListener, nextMorning, sendBroadcastBatch } from "./broadcast-send.js";
+export { addNote, listNotes, MENTION_KIND } from "./notes.js";
+export {
+  cancelScheduled,
+  INBOX_DUE_WORK_QUEUE,
+  listScheduled,
+  runDueWork,
+  runDueWorkFor,
+  scheduleMessage,
+  SNOOZE_KIND,
+} from "./scheduled.js";
+export { summaryOf } from "./summary.js";
+export { createQuickReply, deleteQuickReply, listQuickReplies, updateQuickReply } from "./quick-replies.js";
+export { createTag, deleteTag, listTags, setConversationTags } from "./tags.js";
 export { settleNeedsReply } from "./needs-reply.js";
 export {
   markAnswered,
@@ -58,6 +108,7 @@ export {
   leadChatOf,
   listConversations,
   listMessages,
+  visibleConversation,
   visibleMessage,
 } from "./views.js";
 export { retryMessage } from "./retry.js";
@@ -71,5 +122,5 @@ export {
   syncTemplates,
   type TemplateDependencies,
 } from "./templates.js";
-export { isOptOutText, whatsappConsentOf, type WhatsappConsent } from "./whatsapp-consent.js";
+export { isOptOutText, recordWhatsappOptOut, whatsappConsentOf, type WhatsappConsent } from "./whatsapp-consent.js";
 export { NEEDS_ATTENTION_KIND } from "./attention.js";

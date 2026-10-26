@@ -41,6 +41,13 @@ const brandValueOf: Record<string, string> = {
   money: colours.money,
   "money-pressed": colours.moneyPressed,
   "money-tint": colours.moneyTint,
+  "sidebar.fill": colours.sidebar.fill,
+  "sidebar.ink": colours.sidebar.ink,
+  "sidebar.active": colours.sidebar.active,
+  "chat.wallpaper": colours.chat.wallpaper,
+  "chat.out": colours.chat.bubbleOut,
+  "chat.in": colours.chat.bubbleIn,
+  "chat.bar": colours.chat.bar,
   ...Object.fromEntries(
     (
       [

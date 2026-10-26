@@ -3,22 +3,31 @@
 // The reply box (spec 3.2): a growing text box, Attach (a file or photo, sent straight to storage), and Send, which is off while
 // the box is empty or the subscription refuses a change (with the reason under it). Enter sends on a computer and starts a new
 // line on a touch screen; Shift+Enter always does. A file waits in the box with a name and a way to take it off, and the words
-// become its caption. Under the box, how long free text may still be sent.
-import { MAX_WHATSAPP_SEND_BYTES, whatsappSendContentTypes } from "@travel-crm/contracts/inbox";
-import { PaperclipIcon, SendIcon, XIcon } from "lucide-react";
+// become its caption. Under the box, how long free text may still be sent. Typing "/" opens the agency's quick replies, and
+// Payment details (₹) puts the agency's payment words in the box (the quick reply with the shortcut "payment").
+import {
+  MAX_WHATSAPP_SEND_BYTES,
+  whatsappSendContentTypes,
+  type ConversationHeader,
+} from "@travel-crm/contracts/inbox";
+import { IndianRupeeIcon, PaperclipIcon, SendIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useRef, useState, type KeyboardEvent } from "react";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
-import { Item, ItemActions, ItemContent, ItemTitle } from "@/components/ui/item";
 import { Spinner } from "@/components/ui/spinner";
-import { Textarea } from "@/components/ui/textarea";
+import { InputGroup, InputGroupAddon, InputGroupTextarea } from "@/components/ui/input-group";
 import { formatDayTime } from "@/lib/format";
 import { useWideScreen } from "@/lib/use-wide-screen";
 import { useMe } from "@/session/me-context";
 import { WriteHint } from "@/subscription/write-hint";
 import { useWriteAccess } from "@/subscription/write-access";
+import { AttachedFile } from "./attached-file";
 import { EmojiButton } from "./emoji-button";
+import { QuickReplyList } from "./quick-reply-list";
+import { ScheduleButton } from "./schedule-button";
+import { useQuickReplyPicker } from "./use-quick-reply-picker";
+import { useTypingSignal } from "./use-sales-inbox";
 import { useReply } from "./use-reply";
 import { useVoiceNote } from "./voice/use-voice-note";
 import { MicButton, RecordingRow, VoiceProblemNote } from "./voice/voice-controls";
@@ -26,9 +35,11 @@ import { MicButton, RecordingRow, VoiceProblemNote } from "./voice/voice-control
 const MAX_TEXT = 4096;
 const acceptedTypes = whatsappSendContentTypes.join(",");
 
-export function Composer({ conversationId, windowOpenUntil }: { conversationId: string; windowOpenUntil: string }) {
+export function Composer({ header, windowOpenUntil }: { header: ConversationHeader; windowOpenUntil: string }) {
   const t = useTranslations("inbox.chat");
   const { timeZone } = useMe().organization;
+  const conversationId = header.id;
+  const listId = useId();
   const access = useWriteAccess("change");
   const hintId = useId();
   const [text, setText] = useState("");
@@ -37,6 +48,7 @@ export function Composer({ conversationId, windowOpenUntil }: { conversationId: 
   const picker = useRef<HTMLInputElement>(null);
   const box = useRef<HTMLTextAreaElement>(null);
   const wide = useWideScreen();
+  const signalTyping = useTypingSignal(conversationId);
   const reply = useReply(conversationId, () => {
     setText("");
     setFile(null);
@@ -44,6 +56,7 @@ export function Composer({ conversationId, windowOpenUntil }: { conversationId: 
   const voice = useVoiceNote((recorded) => {
     reply.sendFile(recorded, undefined);
   });
+  const quick = useQuickReplyPicker(header, text, setText, box);
   const words = text.trim();
   const recording = voice.phase === "recording" || voice.phase === "limit";
   const insertEmoji = (emoji: string) => {
@@ -74,6 +87,7 @@ export function Composer({ conversationId, windowOpenUntil }: { conversationId: 
     setFile(problem === null ? chosen : null);
   };
   const onKey = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (quick.onKey(event)) return;
     // A touch screen's Enter is a new line: its keyboard has a Send button.
     const touch = window.matchMedia("(pointer: coarse)").matches;
     if (event.key === "Enter" && !event.shiftKey && !touch && !event.nativeEvent.isComposing) {
@@ -93,25 +107,13 @@ export function Composer({ conversationId, windowOpenUntil }: { conversationId: 
       <RefusalAlert error={reply.error} />
       {fileProblem !== null && <p className="text-label text-destructive">{t(`composer.${fileProblem}`)}</p>}
       {file !== null && (
-        <Item variant="muted" size="sm">
-          <ItemContent>
-            <ItemTitle className="wrap-anywhere">{file.name}</ItemTitle>
-          </ItemContent>
-          <ItemActions>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label={t("composer.removeFile")}
-              disabled={reply.pending}
-              onClick={() => {
-                setFile(null);
-              }}
-            >
-              <XIcon aria-hidden="true" />
-            </Button>
-          </ItemActions>
-        </Item>
+        <AttachedFile
+          file={file}
+          busy={reply.pending}
+          onRemove={() => {
+            setFile(null);
+          }}
+        />
       )}
       <VoiceProblemNote problem={voice.problem} />
       {recording ? (
@@ -136,45 +138,97 @@ export function Composer({ conversationId, windowOpenUntil }: { conversationId: 
               event.target.value = "";
             }}
           />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={t("composer.attach")}
-            disabled={reply.pending || !access.allowed}
-            onClick={() => picker.current?.click()}
-          >
-            <PaperclipIcon aria-hidden="true" />
-          </Button>
-          {wide && <EmojiButton onPick={insertEmoji} disabled={reply.pending || !access.allowed} />}
-          <Textarea
-            ref={box}
-            dir="auto"
-            rows={1}
-            maxLength={MAX_TEXT}
-            className="max-h-40 min-h-11"
-            aria-label={t("composer.label")}
-            aria-describedby={access.hint === null ? undefined : hintId}
-            placeholder={t("composer.placeholder")}
-            value={text}
-            disabled={!access.allowed}
-            onChange={(event) => {
-              setText(event.target.value);
-            }}
-            onKeyDown={onKey}
-          />
+          {/* One rounded bar, as WhatsApp's: emoji and attach, then the words, which grow to six lines. */}
+          <div className="relative min-w-0 flex-1">
+            {quick.shown !== null && (
+              <QuickReplyList
+                replies={quick.shown}
+                active={Math.min(quick.active, Math.max(quick.shown.length - 1, 0))}
+                listId={listId}
+                onPick={(chosen) => {
+                  quick.place(chosen, true);
+                }}
+              />
+            )}
+            <InputGroup>
+              <InputGroupTextarea
+                ref={box}
+                dir="auto"
+                rows={1}
+                maxLength={MAX_TEXT}
+                className="max-h-40 min-h-11 py-3"
+                aria-label={t("composer.label")}
+                aria-describedby={access.hint === null ? undefined : hintId}
+                placeholder={t("composer.placeholder")}
+                value={text}
+                disabled={!access.allowed}
+                onChange={(event) => {
+                  setText(event.target.value);
+                  signalTyping();
+                  quick.typedSomething();
+                }}
+                onKeyDown={onKey}
+                role="combobox"
+                aria-expanded={quick.shown !== null}
+                aria-controls={quick.shown === null ? undefined : listId}
+                aria-autocomplete="list"
+              />
+              <InputGroupAddon className="self-end pb-0.5">
+                {wide && <EmojiButton onPick={insertEmoji} disabled={reply.pending || !access.allowed} />}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="text-muted-foreground"
+                  aria-label={t("composer.attach")}
+                  disabled={reply.pending || !access.allowed}
+                  onClick={() => picker.current?.click()}
+                >
+                  <PaperclipIcon aria-hidden="true" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="text-muted-foreground"
+                  aria-label={t("composer.paymentDetails")}
+                  disabled={reply.pending || !access.allowed}
+                  onClick={quick.payment}
+                >
+                  <IndianRupeeIcon aria-hidden="true" />
+                </Button>
+              </InputGroupAddon>
+            </InputGroup>
+          </div>
+          {words !== "" && file === null && (
+            <ScheduleButton
+              conversationId={conversationId}
+              windowOpenUntil={windowOpenUntil}
+              text={words}
+              disabled={!access.allowed || reply.pending}
+              onScheduled={() => {
+                setText("");
+              }}
+            />
+          )}
           {voice.available && words === "" && file === null && !reply.pending ? (
             <MicButton disabled={!access.allowed || voice.phase === "starting"} onStart={() => void voice.start()} />
           ) : (
-            <Button type="submit" disabled={!canSend} aria-describedby={access.hint === null ? undefined : hintId}>
+            <Button
+              type="submit"
+              size="icon"
+              className="shrink-0 rounded-full"
+              disabled={!canSend}
+              aria-label={reply.pending ? t("composer.sending") : t("composer.send")}
+              aria-describedby={access.hint === null ? undefined : hintId}
+            >
               {reply.pending ? <Spinner aria-hidden="true" /> : <SendIcon aria-hidden="true" />}
-              {reply.pending ? t("composer.sending") : t("composer.send")}
             </Button>
           )}
         </div>
       )}
       <WriteHint id={hintId} hint={access.hint} visible />
-      <p className="text-label text-muted-foreground">
+      <p className="px-2 text-caption text-muted-foreground">
         {t("windowOpen", { until: formatDayTime(new Date(windowOpenUntil), { timeZone }) })}
       </p>
     </form>

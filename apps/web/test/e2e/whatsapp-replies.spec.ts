@@ -2,7 +2,6 @@
 // lead's first reply time is set, a double tap sends once, a refused send says "Not sent" and Try again sends it; and a
 // connection whose delivery reports stopped goes to "problem" (the console's banner, the inbox's sentence) and comes back by
 // itself when a report arrives. MSG91 is the fake of support/fake-msg91.ts: nothing here reaches MSG91.
-import type { Page } from "@playwright/test";
 import { expect, signInToConsole, test } from "./support/console";
 import { signInByEmail } from "./support/fixtures";
 import {
@@ -11,28 +10,12 @@ import {
   deliverWhatsapp,
   inAgency,
   newCustomerNumber,
+  openNewChat,
   refuseNextSendTo,
   reportStatus,
   runHealthCheckNow,
   sentTo,
 } from "./support/whatsapp";
-
-/** A customer writes from a number nobody knows; the owner opens the chat once the lead and the chat exist. */
-async function openNewChat(owner: Page, business: string, customer: string, name: string, text: string) {
-  expect(await deliverWhatsapp([customerMessage({ to: business, customerNumber: customer, name, text })])).toBe(200);
-  // Each try starts from the list: on a phone a chat is a page of its own, whose title is a link to the same name.
-  await expect(async () => {
-    await owner.goto("/inbox");
-    await owner
-      .getByRole("link", { name: new RegExp(name) })
-      .first()
-      .click({ timeout: 4_000 });
-    await expect(owner.getByRole("region", { name: `Chat with ${name}` }).getByText(text)).toBeVisible({
-      timeout: 6_000,
-    });
-  }).toPass({ timeout: 150_000 });
-  return owner.getByRole("region", { name: `Chat with ${name}` });
-}
 
 test.use({
   // A fake microphone that needs no permission prompt (a tone, in the voice note test).
@@ -54,9 +37,9 @@ test("staff reply inside the window: the ticks follow MSG91's reports, a double 
   const panel = await openNewChat(owner, business, customer, "Rahul Mehta", "Do you have a Kerala package?");
 
   // A double tap on Send is one message; the words are cleared once it is queued.
-  const box = panel.getByRole("textbox", { name: "Message" });
+  const box = panel.getByRole("combobox", { name: "Message" });
   await box.fill("Yes, we have two. Sending details now.");
-  await panel.getByRole("button", { name: "Send" }).dblclick();
+  await panel.getByRole("button", { name: "Send", exact: true }).dblclick();
   await expect(panel.getByText("Yes, we have two. Sending details now.")).toBeVisible();
   await expect(box).toHaveValue("");
   await expect(panel.getByRole("img", { name: "Sent" })).toBeVisible({ timeout: 60_000 });
@@ -101,8 +84,8 @@ test("staff reply inside the window: the ticks follow MSG91's reports, a double 
 
   // A send WhatsApp refuses says why and offers Try again, which sends it.
   await refuseNextSendTo(customer);
-  await chat.getByRole("textbox", { name: "Message" }).fill("Here is the itinerary.");
-  await chat.getByRole("button", { name: "Send" }).click();
+  await chat.getByRole("combobox", { name: "Message" }).fill("Here is the itinerary.");
+  await chat.getByRole("button", { name: "Send", exact: true }).click();
   await expect(chat.getByText("Not sent: this number isn't on WhatsApp.")).toBeVisible({ timeout: 60_000 });
   await chat.getByRole("button", { name: "Try again" }).click();
   await expect(chat.getByText("Not sent: this number isn't on WhatsApp.")).toHaveCount(0, { timeout: 60_000 });
@@ -115,8 +98,8 @@ test("staff reply inside the window: the ticks follow MSG91's reports, a double 
     mimeType: "application/pdf",
     buffer: Buffer.from("%PDF-1.4\n% a test itinerary\n%%EOF\n"),
   });
-  await chat.getByRole("textbox", { name: "Message" }).fill("The itinerary, as a PDF.");
-  await chat.getByRole("button", { name: "Send" }).click();
+  await chat.getByRole("combobox", { name: "Message" }).fill("The itinerary, as a PDF.");
+  await chat.getByRole("button", { name: "Send", exact: true }).click();
   await expect.poll(async () => (await sentTo(customer)).length, { timeout: 60_000 }).toBe(3);
   const document = (await sentTo(customer))[2];
   expect(document).toMatchObject({
@@ -131,7 +114,7 @@ test("staff reply inside the window: the ticks follow MSG91's reports, a double 
   await chat.getByRole("button", { name: "Record a voice note" }).click();
   await expect(chat.getByRole("timer", { name: "Recording" })).toBeVisible();
   await owner.waitForTimeout(2_500);
-  await chat.getByRole("button", { name: "Send" }).click();
+  await chat.getByRole("button", { name: "Send", exact: true }).click();
   await expect.poll(async () => (await sentTo(customer)).length, { timeout: 60_000 }).toBe(4);
   const voice = (await sentTo(customer))[3];
   // Ogg Opus (as a voice note, with the flag) where the browser writes it or WebM that was remuxed; else MP4 audio, which WhatsApp
@@ -150,7 +133,7 @@ test("staff reply inside the window: the ticks follow MSG91's reports, a double 
       .getByRole("region", { name: "Chat with Rahul Mehta" })
       .getByText(/You can reply with free text only within 24 hours/),
   ).toBeVisible({ timeout: 30_000 });
-  await expect(owner.getByRole("textbox", { name: "Message" })).toHaveCount(0);
+  await expect(owner.getByRole("combobox", { name: "Message" })).toHaveCount(0);
   await owner.close();
 });
 
@@ -167,8 +150,8 @@ test("a connection whose delivery reports stopped goes to problem, in the consol
   await signInByEmail(owner, agency.owner);
   const customer = newCustomerNumber();
   const panel = await openNewChat(owner, business, customer, "Meera Iyer", "Can you quote Coorg for 3 nights?");
-  await panel.getByRole("textbox", { name: "Message" }).fill("Sure, one moment.");
-  await panel.getByRole("button", { name: "Send" }).click();
+  await panel.getByRole("combobox", { name: "Message" }).fill("Sure, one moment.");
+  await panel.getByRole("button", { name: "Send", exact: true }).click();
   await expect(panel.getByRole("img", { name: "Sent" })).toBeVisible({ timeout: 60_000 });
   const wamid = (await sentTo(customer))[0]?.wamid ?? "";
 
@@ -237,7 +220,11 @@ test("the chat scrolls inside its own box: it opens at the newest message, keeps
       .click({ timeout: 4_000 });
     await expect(owner.getByRole("list", { name: "Messages" }).getByText(line(25))).toBeVisible({ timeout: 6_000 });
   }).toPass({ timeout: 150_000 });
-  const viewport = owner.locator('[data-slot="scroll-area-viewport"]').first();
+  // The messages' own scroll box: the first in the chat's region, before the contact panel's, and not the chat list's.
+  const viewport = owner
+    .getByRole("region", { name: "Chat with Anil Kapoor" })
+    .locator('[data-slot="scroll-area-viewport"]')
+    .first();
   const fromBottom = () =>
     viewport.evaluate((element) => element.scrollHeight - element.scrollTop - element.clientHeight);
   // The newest is in view, and the box is shorter than its messages.
@@ -247,7 +234,7 @@ test("the chat scrolls inside its own box: it opens at the newest message, keeps
   await viewport.evaluate((element) => {
     element.scrollTop = 0;
   });
-  await expect(owner.getByRole("textbox", { name: "Message" })).toBeInViewport();
+  await expect(owner.getByRole("combobox", { name: "Message" })).toBeInViewport();
   // A new message while reading higher up does not move the reader; it offers the way down.
   expect(await deliverWhatsapp([customerMessage({ to: business, customerNumber: customer, text: line(26) })])).toBe(
     200,

@@ -83,7 +83,15 @@ test("support sees every destination but Staff, a super admin sees Staff too", a
   await signInToConsole(page, superAdmin);
   await page.goto("/console");
   await expect(dashboardHeading(page)).toBeVisible();
-  expect(await destinations(page, testInfo)).toEqual([home(testInfo), "Onboard", "Plans", "Jobs", "Log", "Staff"]);
+  expect(await destinations(page, testInfo)).toEqual([
+    home(testInfo),
+    "Onboard",
+    "Plans",
+    "WhatsApp",
+    "Jobs",
+    "Log",
+    "Staff",
+  ]);
 
   await page.context().clearCookies();
   await page.goto("/console");
@@ -91,7 +99,7 @@ test("support sees every destination but Staff, a super admin sees Staff too", a
   await signInToConsole(page, support);
   await page.goto("/console");
   await expect(dashboardHeading(page)).toBeVisible();
-  expect(await destinations(page, testInfo)).toEqual([home(testInfo), "Onboard", "Plans", "Jobs", "Log"]);
+  expect(await destinations(page, testInfo)).toEqual([home(testInfo), "Onboard", "Plans", "WhatsApp", "Jobs", "Log"]);
   // At the foot of the sidebar, or atop the phone's More sheet, which destinations() left open.
   await expect(page.getByText("Arjun Nair").filter({ visible: true })).toBeVisible();
   await expect(page.getByText("Support", { exact: true }).filter({ visible: true })).toBeVisible();

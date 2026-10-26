@@ -58,8 +58,8 @@ test("WhatsApp: the console's numbers, the inbox, a chat with its reply box, and
   // Rahul's chat: a first answer that was read, a photo from him, an answer that WhatsApp refused, and a new question.
   await owner.getByRole("link", { name: /Rahul Mehta/ }).click();
   const chat = owner.getByRole("region", { name: "Chat with Rahul Mehta" });
-  await chat.getByRole("textbox", { name: "Message" }).fill("Yes, we have two Kerala packages. Sending details now.");
-  await chat.getByRole("button", { name: "Send" }).click();
+  await chat.getByRole("combobox", { name: "Message" }).fill("Yes, we have two Kerala packages. Sending details now.");
+  await chat.getByRole("button", { name: "Send", exact: true }).click();
   await expect(chat.getByRole("img", { name: "Sent" })).toBeVisible({ timeout: 60_000 });
   const wamid = (await sentTo(customer))[0]?.wamid ?? "";
   await reportStatus({ business, customerNumber: customer, wamid }, "delivered");
@@ -75,15 +75,15 @@ test("WhatsApp: the console's numbers, the inbox, a chat with its reply box, and
   ]);
   await expect(chat.getByRole("img", { name: "Our passports" })).toBeVisible({ timeout: 90_000 });
   await refuseNextSendTo(customer);
-  await chat.getByRole("textbox", { name: "Message" }).fill("Thank you. I will send the quote this evening.");
-  await chat.getByRole("button", { name: "Send" }).click();
+  await chat.getByRole("combobox", { name: "Message" }).fill("Thank you. I will send the quote this evening.");
+  await chat.getByRole("button", { name: "Send", exact: true }).click();
   await expect(chat.getByRole("button", { name: "Try again" })).toBeVisible({ timeout: 60_000 });
   await deliverWhatsapp([
     customerMessage({ to: business, customerNumber: customer, text: "Also, is a houseboat night included?" }),
   ]);
   await expect(chat.getByText("Also, is a houseboat night included?")).toBeVisible({ timeout: 60_000 });
   await expect(chat.getByRole("img", { name: "Read" })).toBeVisible({ timeout: 60_000 });
-  await chat.getByRole("textbox", { name: "Message" }).fill("Yes, one night on a houseboat is included.");
+  await chat.getByRole("combobox", { name: "Message" }).fill("Yes, one night on a houseboat is included.");
   await shoot(owner, "whatsapp-inbox-chat");
 
   // The lead's page, with the same chat.

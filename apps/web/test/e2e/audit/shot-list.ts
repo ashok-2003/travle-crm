@@ -108,6 +108,39 @@ const TWO_FACTOR_SHOTS = [
   },
   { name: "whatsapp-emoji-picker", screen: "The emoji picker open beside the clip", as: owner, only: "desktop" },
   { name: "whatsapp-recording", screen: "A voice note being recorded: the time, Cancel and Send", as: owner },
+  // The sales inbox's tools (PR 11, part 1): tags, quick replies, automatic answers, notes, send later and snooze.
+  {
+    name: "inbox-tools-chat",
+    screen: "A chat: the automatic welcome marked Automatic reply, a quick reply sent, the tag in the details",
+    as: owner,
+  },
+  { name: "inbox-tools-quick-replies", screen: "Typing / opens the quick replies above the reply box", as: owner },
+  { name: "inbox-tools-note-mention", screen: "A team note: @ opens the teammates to mention", as: owner },
+  { name: "inbox-tools-note-saved", screen: "A team note saved on the lead, among the messages", as: owner },
+  { name: "inbox-tools-send-later", screen: "Send later: the choices inside the 24-hour window", as: owner },
+  { name: "inbox-tools-scheduled", screen: "A message scheduled for later, above the reply box", as: owner },
+  { name: "inbox-tools-chat-menu", screen: "A chat's menu with Snooze open", as: owner },
+  {
+    name: "inbox-tools-snoozed-list",
+    screen: "The inbox under Snoozed: the chat, its count and the pipeline",
+    as: owner,
+  },
+  {
+    name: "settings-whatsapp-inbox",
+    screen: "Settings, WhatsApp: quick replies, tags and the automatic answers",
+    as: owner,
+  },
+  // Broadcasts (PR 11, part 2).
+  { name: "broadcasts-empty", screen: "Inbox, Broadcasts: none yet", as: owner },
+  { name: "broadcast-new", screen: "New broadcast: the template, its blank and the tags", as: owner },
+  {
+    name: "broadcast-preview",
+    screen: "New broadcast: who it reaches, who is left out and why, the month's allowance",
+    as: owner,
+  },
+  { name: "broadcast-page", screen: "A broadcast sent: its counts and every chat's state", as: owner },
+  { name: "broadcast-paused", screen: "A broadcast that paused itself: why, Resume and Cancel", as: owner },
+  { name: "broadcasts-list", screen: "Inbox, Broadcasts: a finished and a paused broadcast", as: owner },
 ] as const satisfies readonly Shot[];
 
 export const SHOTS = [
@@ -448,6 +481,39 @@ export const SHOTS = [
   },
   { name: "whatsapp-emoji-picker", screen: "The emoji picker open beside the clip", as: owner, only: "desktop" },
   { name: "whatsapp-recording", screen: "A voice note being recorded: the time, Cancel and Send", as: owner },
+  // The sales inbox's tools (PR 11, part 1): tags, quick replies, automatic answers, notes, send later and snooze.
+  {
+    name: "inbox-tools-chat",
+    screen: "A chat: the automatic welcome marked Automatic reply, a quick reply sent, the tag in the details",
+    as: owner,
+  },
+  { name: "inbox-tools-quick-replies", screen: "Typing / opens the quick replies above the reply box", as: owner },
+  { name: "inbox-tools-note-mention", screen: "A team note: @ opens the teammates to mention", as: owner },
+  { name: "inbox-tools-note-saved", screen: "A team note saved on the lead, among the messages", as: owner },
+  { name: "inbox-tools-send-later", screen: "Send later: the choices inside the 24-hour window", as: owner },
+  { name: "inbox-tools-scheduled", screen: "A message scheduled for later, above the reply box", as: owner },
+  { name: "inbox-tools-chat-menu", screen: "A chat's menu with Snooze open", as: owner },
+  {
+    name: "inbox-tools-snoozed-list",
+    screen: "The inbox under Snoozed: the chat, its count and the pipeline",
+    as: owner,
+  },
+  {
+    name: "settings-whatsapp-inbox",
+    screen: "Settings, WhatsApp: quick replies, tags and the automatic answers",
+    as: owner,
+  },
+  // Broadcasts (PR 11, part 2).
+  { name: "broadcasts-empty", screen: "Inbox, Broadcasts: none yet", as: owner },
+  { name: "broadcast-new", screen: "New broadcast: the template, its blank and the tags", as: owner },
+  {
+    name: "broadcast-preview",
+    screen: "New broadcast: who it reaches, who is left out and why, the month's allowance",
+    as: owner,
+  },
+  { name: "broadcast-page", screen: "A broadcast sent: its counts and every chat's state", as: owner },
+  { name: "broadcast-paused", screen: "A broadcast that paused itself: why, Resume and Cancel", as: owner },
+  { name: "broadcasts-list", screen: "Inbox, Broadcasts: a finished and a paused broadcast", as: owner },
 ] as const satisfies readonly Shot[];
 
 export type ShotName = (typeof SHOTS)[number]["name"];

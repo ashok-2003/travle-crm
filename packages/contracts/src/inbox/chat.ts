@@ -71,6 +71,20 @@ export const conversationListItem = z.object({
   needsReply: z.boolean(),
   /** A number with no person and no lead: the row says "New number". */
   isNewNumber: z.boolean(),
+  /** Who wrote the last message, and for ours how far it got: the row's ticks. */
+  lastDirection: z.enum(["in", "out"]).nullable(),
+  lastStatus: whatsappMessageStatus.nullable(),
+  /** The lead the chat is about (the person's most recently active open lead, else their latest), as the member may see it. */
+  lead: z.object({ id: recordId, stage: z.string(), ownerUserId: recordId.nullable() }).nullable(),
+  /** The agency's tags on the chat (sales inbox spec 5). */
+  tags: z.array(z.object({ id: recordId, name: z.string() })),
+  pinned: z.boolean(),
+  archived: z.boolean(),
+  /** The customer's messages since this member last had the chat open, at most 99. */
+  unread: z.int().min(0),
+  /** When the customer started waiting for a reply (their oldest unanswered message's chat moment), or null. */
+  waitingSince: timestamp.nullable(),
+  snoozedUntil: timestamp.nullable(),
 });
 export type ConversationListItem = z.infer<typeof conversationListItem>;
 
@@ -102,13 +116,19 @@ export const conversationHeader = z.object({
   /** Staff recorded that the person agreed to WhatsApp messages. */
   agreed: z.boolean(),
   state: z.enum(["open", "erased"]),
+  tags: z.array(z.object({ id: recordId, name: z.string() })),
+  pinned: z.boolean(),
+  archived: z.boolean(),
+  snoozedUntil: timestamp.nullable(),
+  /** Teammates typing a reply in this chat right now (first names), so two don't answer at once. */
+  replying: z.array(z.string()),
 });
 export type ConversationHeader = z.infer<typeof conversationHeader>;
 
 export const chatMessage = z.object({
   id: recordId,
   direction: z.enum(["in", "out"]),
-  origin: z.enum(["customer", "staff_crm", "staff_phone", "history"]),
+  origin: z.enum(["customer", "staff_crm", "staff_phone", "history", "automation"]),
   kind: whatsappMessageKind,
   body: z.string().nullable(),
   caption: z.string().nullable(),
@@ -125,6 +145,7 @@ export const chatMessage = z.object({
   /** The staff member who sent it from here, named in the page's `people`; null for the customer's and the phone's. */
   sentBy: recordId.nullable(),
   occurredAt: timestamp,
+  starred: z.boolean(),
 });
 export type ChatMessage = z.infer<typeof chatMessage>;
 

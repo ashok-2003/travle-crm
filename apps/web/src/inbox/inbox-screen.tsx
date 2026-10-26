@@ -1,99 +1,59 @@
 "use client";
 
-// /inbox and /inbox/<id> (spec 3.1): the shared WhatsApp inbox. On a computer the list is on the left and the chat on the
-// right; on a phone the list, and a tap opens the chat on a page of its own with a way back. The chips choose Waiting for
-// reply (the default), All or Mine; the search takes a name or digits of a phone and is kept in the tab, never the address.
-// The states: WhatsApp not set up for the agency (never naming MSG91), no chats yet, the connection in trouble or paused,
-// the demo (read only), a load that failed with Try again.
-import { MessageCircleIcon, SearchXIcon } from "lucide-react";
+// /inbox and /inbox/<id> (spec 3.1; sales inbox spec, section 3): the shared WhatsApp inbox, edge to edge like WhatsApp
+// Web. On a computer the chats on the left and the open chat beside them (with its contact panel); on a phone the chats,
+// and a chat covers the whole screen with its own top bar and a way back. The states: WhatsApp not set up for the agency
+// (never naming MSG91), the connection in trouble or paused, the demo (read only), a load that failed with Try again.
+import { MegaphoneIcon, MessageCircleIcon } from "lucide-react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useCallback, useState } from "react";
+import type { ReactNode } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
-import { ShowMoreButton } from "@/components/show-more-button";
-import { BackLink } from "@/components/text-link";
+import { PageTitle } from "@/components/page-title";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { SearchField } from "@/leads/list/search-field";
-import { keepTabValue, readTabValue } from "@/lib/tab-storage";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { routes } from "@/lib/routes";
+import { useFillScreen } from "@/lib/use-fill-screen";
 import { useWideScreen } from "@/lib/use-wide-screen";
+import { useHolds } from "@/session/me-context";
 import { ChatPanel } from "./chat-panel";
-import { ConversationList } from "./conversation-list";
+import { InboxList } from "./inbox-list";
 import { NotSetUp } from "./not-set-up";
-import { useConversations, useInboxStatus } from "./use-inbox";
+import { useInboxStatus } from "./use-inbox";
+import { useInboxKeys } from "./use-inbox-keys";
 
-const SEARCH_KEY = "inbox.search";
-const filters = ["waiting", "all", "mine"] as const;
-type Filter = (typeof filters)[number];
-const isFilter = (value: string): value is Filter => (filters as readonly string[]).includes(value);
-
-function List({ currentId }: { currentId: string | null }) {
-  const t = useTranslations("inbox");
-  const [filter, setFilter] = useState<Filter>("waiting");
-  const [search, setSearchText] = useState(() => readTabValue(SEARCH_KEY) ?? "");
-  const setSearch = useCallback((text: string) => {
-    setSearchText(text);
-    keepTabValue(SEARCH_KEY, text);
-  }, []);
-  const chats = useConversations({ filter, search: search.length >= 2 ? search : "" });
-
-  const body = () => {
-    if (chats.items === undefined) {
-      return chats.isError ? (
-        <ErrorState
-          message={t("loadFailed")}
-          error={chats.error}
-          retryLabel={t("chat.retry")}
-          onRetry={() => void chats.refetch()}
-        />
-      ) : (
-        <LoadingRows shape="twoLines" label={t("loading")} />
-      );
-    }
-    if (chats.items.length === 0) {
-      if (search.length >= 2) return <EmptyState icon={SearchXIcon} message={t("emptySearch")} />;
-      return <EmptyState icon={MessageCircleIcon} message={filter === "waiting" ? t("emptyWaiting") : t("empty")} />;
-    }
-    return (
-      <div className="flex flex-col gap-4">
-        <ConversationList items={chats.items} currentId={currentId} />
-        <ShowMoreButton pages={chats} label={t("showMore")} />
-      </div>
-    );
-  };
-
-  return (
-    <div className="flex flex-col gap-4">
-      <SearchField initial={search} onSearch={setSearch} />
-      <ToggleGroup
-        type="single"
-        variant="outline"
-        aria-label={t("filters")}
-        value={filter}
-        onValueChange={(chosen) => {
-          if (isFilter(chosen)) setFilter(chosen);
-        }}
-      >
-        <ToggleGroupItem value="waiting">{t("filterWaiting")}</ToggleGroupItem>
-        <ToggleGroupItem value="all">{t("filterAll")}</ToggleGroupItem>
-        <ToggleGroupItem value="mine">{t("filterMine")}</ToggleGroupItem>
-      </ToggleGroup>
-      {body()}
-    </div>
-  );
+/** The page's own padding, for the states that are a page of words rather than the inbox itself. */
+function Padded({ children }: { children: ReactNode }) {
+  return <div className="flex flex-col gap-6 px-4 pt-6 sm:px-6 lg:px-8">{children}</div>;
 }
 
 export function InboxScreen({ conversationId }: { conversationId: string | null }) {
   const t = useTranslations("inbox");
   const wide = useWideScreen();
   const status = useInboxStatus();
+  useInboxKeys(conversationId);
+  const mayBroadcast = useHolds("inbox:templates");
+
+  const fill = useFillScreen<HTMLDivElement>();
+  const frame = (children: ReactNode) => (
+    // Exactly the height left on screen, so the reply bar is always in view and only the lists inside scroll.
+    <div
+      ref={fill.ref}
+      style={fill.style}
+      data-bleed
+      className="flex h-[calc(100dvh-3.5rem-var(--phone-navigation-height))] flex-col overflow-hidden md:h-dvh"
+    >
+      {children}
+    </div>
+  );
 
   if (status.data === undefined) {
-    return (
-      <div className="flex flex-col gap-6">
+    return frame(
+      <Padded>
         <PageHeader title={t("title")} intro={t("intro")} />
         {status.isError ? (
           <ErrorState
@@ -105,10 +65,18 @@ export function InboxScreen({ conversationId }: { conversationId: string | null 
         ) : (
           <LoadingRows shape="twoLines" label={t("loading")} />
         )}
-      </div>
+      </Padded>,
     );
   }
   const { configured, connected, connectionStatus, demo } = status.data;
+  if (!configured || !connected) {
+    return frame(
+      <Padded>
+        <PageHeader title={t("title")} intro={t("intro")} />
+        <NotSetUp />
+      </Padded>,
+    );
+  }
   const notice =
     connectionStatus === "problem"
       ? t("problem")
@@ -117,42 +85,59 @@ export function InboxScreen({ conversationId }: { conversationId: string | null 
         : demo
           ? t("demo")
           : null;
-
-  const content = () => {
-    if (!configured || !connected) return <NotSetUp />;
-    if (!wide) {
-      return conversationId === null ? (
-        <List currentId={null} />
-      ) : (
-        <div className="flex flex-col gap-4">
-          <BackLink href={routes.inbox} label={t("back")} />
-          <ChatPanel conversationId={conversationId} variant="page" />
-        </div>
-      );
-    }
-    return (
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-start">
-        <List currentId={conversationId} />
-        {conversationId === null ? (
-          <EmptyState icon={MessageCircleIcon} message={t("pickChat")} />
-        ) : (
-          <ChatPanel conversationId={conversationId} />
+  const banner = notice !== null && (
+    <Alert className="shrink-0 rounded-none">
+      <AlertDescription>{notice}</AlertDescription>
+    </Alert>
+  );
+  const listPane = (
+    <div className="flex h-full min-h-0 flex-col bg-background">
+      {/* WhatsApp's bar atop the chats. */}
+      <div className="flex min-h-16 shrink-0 items-center justify-between gap-2 bg-chat-bar px-4">
+        <PageTitle>{t("title")}</PageTitle>
+        {mayBroadcast && (
+          <Button asChild variant="ghost">
+            <Link href={routes.broadcasts}>
+              <MegaphoneIcon aria-hidden="true" />
+              {t("broadcasts.open")}
+            </Link>
+          </Button>
         )}
       </div>
-    );
-  };
-
-  // On a phone a chat is a page of its own, and the person is its title: the Inbox title above would repeat the list's.
-  const chatPage = !wide && conversationId !== null && configured && connected;
-  return (
-    <div className="flex max-w-[1200px] flex-col gap-6">
-      {!chatPage && <PageHeader title={t("title")} intro={t("intro")} />}
-      {notice !== null && (
-        <Alert>
-          <AlertDescription>{notice}</AlertDescription>
-        </Alert>
-      )}
-      {content()}
+      <div className="min-h-0 flex-1">
+        <InboxList currentId={conversationId} />
+      </div>
     </div>
+  );
+
+  if (!wide) {
+    return frame(
+      <>
+        {banner}
+        {listPane}
+        {/* On a phone a chat covers the screen, its top bar and bottom bar included, as WhatsApp's does. */}
+        {conversationId !== null && (
+          <div className="fixed inset-0 z-(--z-overlay) flex flex-col bg-background">
+            <ChatPanel conversationId={conversationId} variant="page" />
+          </div>
+        )}
+      </>,
+    );
+  }
+  return frame(
+    <>
+      {banner}
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(18rem,24rem)_auto_minmax(0,1fr)] grid-rows-[minmax(0,1fr)]">
+        {listPane}
+        <Separator orientation="vertical" />
+        {conversationId === null ? (
+          <div className="flex items-center justify-center bg-chat-bar">
+            <EmptyState icon={MessageCircleIcon} message={t("pickChat")} />
+          </div>
+        ) : (
+          <ChatPanel key={conversationId} conversationId={conversationId} />
+        )}
+      </div>
+    </>,
   );
 }

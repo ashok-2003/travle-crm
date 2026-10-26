@@ -16,7 +16,14 @@ export function EmojiButton({ onPick, disabled }: { onPick: (emoji: string) => v
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button type="button" variant="ghost" size="icon" aria-label={t("emoji")} disabled={disabled}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground"
+          aria-label={t("emoji")}
+          disabled={disabled}
+        >
           <SmileIcon aria-hidden="true" />
         </Button>
       </PopoverTrigger>

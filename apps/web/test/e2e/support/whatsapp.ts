@@ -167,3 +167,20 @@ export async function decideTemplate(
   const query = new URLSearchParams({ number: business, name, status, ...(reason === undefined ? {} : { reason }) });
   await fetch(`${fakeUrl()}/_template-status?${query.toString()}`, { method: "POST" });
 }
+
+/** A customer writes from a number nobody knows; the owner opens the chat once the lead and the chat exist. */
+export async function openNewChat(owner: Page, business: string, customer: string, name: string, text: string) {
+  expect(await deliverWhatsapp([customerMessage({ to: business, customerNumber: customer, name, text })])).toBe(200);
+  // Each try starts from the list: on a phone a chat is a page of its own, whose title is a link to the same name.
+  await expect(async () => {
+    await owner.goto("/inbox");
+    await owner
+      .getByRole("link", { name: new RegExp(name) })
+      .first()
+      .click({ timeout: 4_000 });
+    await expect(owner.getByRole("region", { name: `Chat with ${name}` }).getByText(text)).toBeVisible({
+      timeout: 6_000,
+    });
+  }).toPass({ timeout: 150_000 });
+  return owner.getByRole("region", { name: `Chat with ${name}` });
+}

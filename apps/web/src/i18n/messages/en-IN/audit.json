@@ -182,6 +182,32 @@
       "consent-granted": "Recorded that a person agreed to WhatsApp messages",
       "consent-restored": "Recorded that a person who had asked to stop agreed again to WhatsApp messages",
       "opted-out": "A person asked to stop WhatsApp messages"
+    },
+    "inbox": {
+      "tag-created": "Added a chat tag",
+      "tag-deleted": "Deleted a chat tag",
+      "chat-tagged": "Changed a chat's tags",
+      "quick-reply-created": "Added a quick reply",
+      "quick-reply-changed": "Changed a quick reply",
+      "quick-reply-deleted": "Deleted a quick reply",
+      "chat-pinned": "Pinned a chat",
+      "chat-unpinned": "Unpinned a chat",
+      "chat-archived": "Archived a chat",
+      "chat-unarchived": "Brought back an archived chat",
+      "chat-snoozed": "Snoozed a chat",
+      "chat-woken": "Brought back a snoozed chat",
+      "message-starred": "Starred a WhatsApp message",
+      "message-unstarred": "Took the star off a WhatsApp message",
+      "message-scheduled": "Scheduled a WhatsApp message",
+      "scheduled-cancelled": "Cancelled a scheduled WhatsApp message",
+      "scheduled-failed": "A scheduled WhatsApp message could not be sent",
+      "automation-changed": "Changed the automatic WhatsApp answers",
+      "keyword-reply-created": "Added a keyword answer",
+      "keyword-reply-deleted": "Deleted a keyword answer",
+      "broadcast-created": "Started a WhatsApp broadcast",
+      "broadcast-cancelled": "Cancelled a WhatsApp broadcast",
+      "broadcast-paused": "A WhatsApp broadcast paused itself",
+      "broadcast-resumed": "Resumed a WhatsApp broadcast"
     }
   },
   "fields": {
@@ -222,7 +248,20 @@
     "rowsMerged": "Added to an existing lead",
     "rowsDuplicate": "Left out as duplicates",
     "rowNumber": "Row",
-    "status": "Status"
+    "status": "Status",
+    "tags": "Tags",
+    "shortcut": "Shortcut",
+    "title": "Title",
+    "until": "Until",
+    "away": "Away message",
+    "welcome": "Welcome message",
+    "hours": "Opening hours",
+    "awayText": "Away message text",
+    "welcomeText": "Welcome message text",
+    "keyword": "Keyword",
+    "template": "Template",
+    "total": "Chats",
+    "reason": "Why"
   },
   "recordTypes": {
     "issued_document": "A document",
@@ -234,6 +273,12 @@
     "data_export": "An export",
     "sheet_connection": "A Google Sheet",
     "assignment_settings": "Lead assignment",
-    "website_form": "The website form"
+    "website_form": "The website form",
+    "inbox_tag": "A chat tag",
+    "inbox_quick_reply": "A quick reply",
+    "whatsapp_conversation": "A WhatsApp chat",
+    "inbox_automation": "The automatic answers",
+    "inbox_keyword_reply": "A keyword answer",
+    "whatsapp_broadcast": "A WhatsApp broadcast"
   }
 }

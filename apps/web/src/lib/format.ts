@@ -63,3 +63,8 @@ export function formatDayTime(instant: Date, options: { timeZone: string; now?: 
 export function formatPhoneNumber(e164: string): string {
   return e164.replace(/^\+91(\d{5})(\d{5})$/, "+91 $1 $2");
 }
+
+/** The month of a stored calendar day, as a word ("December"): a trip's travel month in a message. */
+export function formatMonthName(day: string): string {
+  return new Intl.DateTimeFormat("en-IN", { month: "long", timeZone: "UTC" }).format(new Date(day));
+}

@@ -19,6 +19,17 @@ import {
   sendTemplateInput,
   sentMessage,
   startChatInput,
+  conversationFlagInput,
+  createInboxTagInput,
+  createQuickReplyInput,
+  inboxTag,
+  inboxTagIdInput,
+  inboxTagList,
+  quickReply,
+  quickReplyIdInput,
+  quickReplyList,
+  setConversationTagsInput,
+  updateQuickReplyInput,
 } from "@travel-crm/contracts/inbox";
 import { recordId } from "@travel-crm/contracts/identity";
 import {
@@ -36,9 +47,21 @@ import {
   retryMessage,
   startChatForLead,
   startLeadFromConversation,
+  archiveConversation,
+  createQuickReply,
+  createTag,
+  deleteQuickReply,
+  deleteTag,
+  listQuickReplies,
+  listTags,
+  markConversationRead,
+  pinConversation,
+  setConversationTags,
+  updateQuickReply,
 } from "@travel-crm/domain/inbox";
 import { DomainError } from "@travel-crm/domain/kernel";
 import { z } from "zod";
+import { clearTyping, typingIn } from "../inbox-presence.js";
 import { memberNames } from "../member-names.js";
 import { orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
@@ -46,6 +69,8 @@ import { router } from "../trpc.js";
 const reader = orgProcedure.requires("inbox:view");
 const starter = orgProcedure.requires("inbox:view", "leads:create");
 const replier = orgProcedure.requires("inbox:view", "inbox:reply");
+/** The agency's tags and quick replies are written by whoever writes its templates (the Owner and Admins). */
+const curator = orgProcedure.requires("inbox:view", "inbox:templates");
 
 export const inboxRouter = router({
   /** Whether WhatsApp is on here and the agency has a number: the page's states (3.1). */
@@ -63,11 +88,15 @@ export const inboxRouter = router({
   conversation: reader
     .input(conversationIdInput)
     .output(conversationHeader)
-    .query(({ ctx, input }) =>
-      ctx.db.forOrg(ctx.member.organizationId, (tx) =>
+    .query(async ({ ctx, input }) => {
+      const header = await ctx.db.forOrg(ctx.member.organizationId, (tx) =>
         conversationHeaderOf(tx, ctx.member, input.conversationId, new Date()),
-      ),
-    ),
+      );
+      // Who else is typing here now, by first name (kept in this process's memory, never stored).
+      const others = typingIn(ctx.member.organizationId, header.id, ctx.member.userId);
+      const names = await memberNames(ctx.identity, ctx.member.organizationId, others);
+      return { ...header, replying: others.map((userId) => names[userId]?.split(/\s+/)[0] ?? "").filter(Boolean) };
+    }),
 
   messages: reader
     .input(listMessagesInput)
@@ -115,11 +144,14 @@ export const inboxRouter = router({
   send: replier
     .input(sendMessageInput)
     .output(sentMessage)
-    .mutation(({ ctx, input }) =>
-      ctx.db.forOrg(ctx.member.organizationId, (tx) =>
+    .mutation(async ({ ctx, input }) => {
+      const sent = await ctx.db.forOrg(ctx.member.organizationId, (tx) =>
         queueText(tx, ctx.member, input, { whatsappConfigured: ctx.whatsappConfigured }, new Date()),
-      ),
-    ),
+      );
+      // They sent it: the others need not be told they are still typing.
+      clearTyping(ctx.member.organizationId, input.conversationId, ctx.member.userId);
+      return sent;
+    }),
 
   /** Step one of sending a file: the chat is checked and the browser told where to put it. */
   requestMediaUpload: replier
@@ -171,5 +203,82 @@ export const inboxRouter = router({
     .output(z.object({ conversationId: recordId }))
     .mutation(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, (tx) => startChatForLead(tx, ctx.member, input.leadId)),
+    ),
+
+  /** The agency's tags for chats (sales inbox spec 5). */
+  tags: reader.output(inboxTagList).query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => listTags(tx))),
+
+  createTag: curator
+    .input(createInboxTagInput)
+    .output(inboxTag)
+    .mutation(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => createTag(tx, ctx.member, input))),
+
+  deleteTag: curator
+    .input(inboxTagIdInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => deleteTag(tx, ctx.member, input.tagId)),
+    ),
+
+  /** The chat's tags become exactly these. */
+  setTags: replier
+    .input(setConversationTagsInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => setConversationTags(tx, ctx.member, input)),
+    ),
+
+  /** Saved answers typed with "/" (sales inbox spec 5). */
+  quickReplies: reader
+    .output(quickReplyList)
+    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => listQuickReplies(tx))),
+
+  createQuickReply: curator
+    .input(createQuickReplyInput)
+    .output(quickReply)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => createQuickReply(tx, ctx.member, input)),
+    ),
+
+  updateQuickReply: curator
+    .input(updateQuickReplyInput)
+    .output(quickReply)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => updateQuickReply(tx, ctx.member, input)),
+    ),
+
+  deleteQuickReply: curator
+    .input(quickReplyIdInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => deleteQuickReply(tx, ctx.member, input.quickReplyId)),
+    ),
+
+  /** Pin a chat to the top of everyone's inbox, or unpin it. */
+  pin: replier
+    .input(conversationFlagInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) =>
+        pinConversation(tx, ctx.member, input.conversationId, input.on, new Date()),
+      ),
+    ),
+
+  /** Archive a chat (until the customer writes again), or bring it back. */
+  archive: replier
+    .input(conversationFlagInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) =>
+        archiveConversation(tx, ctx.member, input.conversationId, input.on, new Date()),
+      ),
+    ),
+
+  /**
+   * The member has the chat open: their unread count for it goes to nothing. Reading, yet it writes a row, so it is a
+   * mutation that every subscription state may make (a read-only agency still reads its chats).
+   */
+  markRead: reader
+    .meta({ lifecycle: "always" })
+    .input(conversationIdInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) =>
+        markConversationRead(tx, ctx.member, input.conversationId, new Date()),
+      ),
     ),
 });

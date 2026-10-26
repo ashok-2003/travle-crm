@@ -1,0 +1,225 @@
+// The sales inbox's own data (spec 2026-10-25-sales-inbox-design.md): the agency's tags for chats, the tags on each chat,
+// quick replies typed with "/", each member's last read moment per chat (unread counts), messages written now and sent
+// later, the automatic answers, and broadcasts. A team note in a chat is a note on the chat's lead (crm's lead_note).
+
+/// One of the agency's own labels for chats ("Hot", "Honeymoon", "Payment pending"). Soft-deleted (ADR 0004).
+model InboxTag {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String                 @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String                 @id @default(uuid(7)) @db.Uuid
+  name           String
+  createdBy      String?                @map("created_by") @db.Uuid
+  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt      DateTime?              @map("deleted_at") @db.Timestamptz(6)
+  deletedBy      String?                @map("deleted_by") @db.Uuid
+  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  conversations  ConversationTag[]
+  broadcasts     WhatsappBroadcastTag[]
+
+  @@unique([organizationId, id])
+  /// One live tag of a name; a deleted one's name is free again.
+  @@unique([organizationId, name], map: "inbox_tag_live_name", where: { deletedAt: null })
+  @@map("inbox_tag")
+}
+
+/// A tag on a chat. Taking a tag off deletes the row: it is a link, not a record (the audit log keeps who did it).
+model ConversationTag {
+  organizationId String               @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String               @id @default(uuid(7)) @db.Uuid
+  conversationId String               @map("conversation_id") @db.Uuid
+  tagId          String               @map("tag_id") @db.Uuid
+  createdBy      String?              @map("created_by") @db.Uuid
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  conversation   WhatsappConversation @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  tag            InboxTag             @relation(fields: [organizationId, tagId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, conversationId, tagId], map: "conversation_tag_once")
+  /// The inbox filtered by a tag.
+  @@index([organizationId, tagId], map: "conversation_tag_by_tag")
+  @@map("conversation_tag")
+}
+
+/// A saved answer staff insert by typing "/" and its shortcut. `{name}`, `{destination}`, `{month}` and `{agent}` are
+/// filled from the chat. The one with the shortcut "payment" is also the reply bar's Payment details. Soft-deleted.
+model InboxQuickReply {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  /// Lower-case letters, digits and dashes (CHECK inbox_quick_reply_shortcut_format).
+  shortcut       String
+  title          String
+  body           String
+  createdBy      String?      @map("created_by") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
+  deletedBy      String?      @map("deleted_by") @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, shortcut], map: "inbox_quick_reply_live_shortcut", where: { deletedAt: null })
+  @@map("inbox_quick_reply")
+}
+
+/// When a member last had a chat open: the customer's messages after it are their unread ones.
+model ConversationRead {
+  organizationId String               @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String               @id @default(uuid(7)) @db.Uuid
+  conversationId String               @map("conversation_id") @db.Uuid
+  /// The member's user id (a sign-in table, so no key to it).
+  userId         String               @map("user_id") @db.Uuid
+  readAt         DateTime             @map("read_at") @db.Timestamptz(6)
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  conversation   WhatsappConversation @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, conversationId, userId], map: "conversation_read_once")
+  /// A member's reads, for the Unread filter.
+  @@index([organizationId, userId], map: "conversation_read_by_user")
+  @@map("conversation_read")
+}
+
+/// A reply written now and sent later (sales inbox spec 6): pending until `sendAt`, when the worker queues it as an
+/// ordinary reply (the 24-hour window is checked then); then sent, cancelled or failed.
+model ScheduledMessage {
+  organizationId String               @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String               @id @default(uuid(7)) @db.Uuid
+  conversationId String               @map("conversation_id") @db.Uuid
+  body           String
+  sendAt         DateTime             @map("send_at") @db.Timestamptz(6)
+  /// pending, sent, cancelled or failed (CHECK scheduled_message_status_value).
+  status         String               @default("pending")
+  /// The reason code when it failed (the window closed, the number paused).
+  failureCode    String?              @map("failure_code")
+  /// The message it became.
+  messageId      String?              @map("message_id") @db.Uuid
+  createdBy      String               @map("created_by") @db.Uuid
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  conversation   WhatsappConversation @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  message        WhatsappMessage?     @relation(fields: [organizationId, messageId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, conversationId], map: "scheduled_message_chat")
+  /// The worker's due sends.
+  @@index([organizationId, sendAt], map: "scheduled_message_due", where: raw("(status = 'pending'::text)"))
+  @@map("scheduled_message")
+}
+
+/// The agency's automatic answers (sales inbox spec 6), one row: an away message outside working hours, a welcome for a
+/// number writing for the first time. Keyword answers are rows of their own.
+model InboxAutomation {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  awayEnabled    Boolean      @default(false) @map("away_enabled")
+  awayMessage    String       @default("") @map("away_message")
+  /// Minutes after midnight in the agency's time zone, and the weekdays (0 Sunday) the office is open.
+  openFrom       Int          @default(600) @map("open_from")
+  openUntil      Int          @default(1140) @map("open_until")
+  openDays       Int[]        @default([1, 2, 3, 4, 5, 6]) @map("open_days")
+  welcomeEnabled Boolean      @default(false) @map("welcome_enabled")
+  welcomeMessage String       @default("") @map("welcome_message")
+  updatedBy      String?      @map("updated_by") @db.Uuid
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId], map: "inbox_automation_one")
+  @@map("inbox_automation")
+}
+
+/// An automatic answer to a customer's message that holds a word ("price", "itinerary"). Soft-deleted.
+model InboxKeywordReply {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  /// Lower case; matched as a whole word, in any case.
+  keyword        String
+  reply          String
+  enabled        Boolean      @default(true)
+  createdBy      String?      @map("created_by") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
+  deletedBy      String?      @map("deleted_by") @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, keyword], map: "inbox_keyword_reply_live", where: { deletedAt: null })
+  @@map("inbox_keyword_reply")
+}
+
+/// One approved template sent to the chats carrying any of some tags (sales inbox spec 6, rebuilt 2026-10-26). Confirming
+/// snapshots the audience into recipient rows in one transaction; the worker then sends in batches, each recipient through
+/// the ordinary template send. The counts are those of the recipients: nothing here holds a rupee (the platform pays Meta).
+model WhatsappBroadcast {
+  organizationId String                       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String                       @id @default(uuid(7)) @db.Uuid
+  /// The browser's id for this create: a retried create finds the broadcast it made already.
+  requestId      String                       @map("request_id") @db.Uuid
+  templateId     String                       @map("template_id") @db.Uuid
+  /// The template's blanks, the same for everyone.
+  params         String[]                     @default([])
+  /// sending, paused, cancelled or done (CHECK whatsapp_broadcast_status_value).
+  status         String                       @default("sending")
+  /// Why it paused: failure_rate or template_unavailable (CHECK whatsapp_broadcast_paused_reason_value).
+  pausedReason   String?                      @map("paused_reason")
+  pausedAt       DateTime?                    @map("paused_at") @db.Timestamptz(6)
+  cancelledBy    String?                      @map("cancelled_by") @db.Uuid
+  cancelledAt    DateTime?                    @map("cancelled_at") @db.Timestamptz(6)
+  createdBy      String                       @map("created_by") @db.Uuid
+  createdAt      DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  template       WhatsappTemplate             @relation(fields: [organizationId, templateId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  tags           WhatsappBroadcastTag[]
+  recipients     WhatsappBroadcastRecipient[]
+  messages       WhatsappMessage[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, requestId], map: "whatsapp_broadcast_request")
+  @@index([organizationId, createdAt(sort: Desc)], map: "whatsapp_broadcast_recent")
+  @@map("whatsapp_broadcast")
+}
+
+/// A tag a broadcast was aimed at.
+model WhatsappBroadcastTag {
+  organizationId String            @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String            @id @default(uuid(7)) @db.Uuid
+  broadcastId    String            @map("broadcast_id") @db.Uuid
+  tagId          String            @map("tag_id") @db.Uuid
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  broadcast      WhatsappBroadcast @relation(fields: [organizationId, broadcastId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  tag            InboxTag          @relation(fields: [organizationId, tagId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, broadcastId, tagId], map: "whatsapp_broadcast_tag_once")
+  @@index([organizationId, tagId], map: "whatsapp_broadcast_tag_by_tag")
+  @@map("whatsapp_broadcast_tag")
+}
+
+/// One chat a broadcast was snapshotted to, and where it stands: waiting (maybe until a later day), sent (handed to the
+/// outbox; its message tells if WhatsApp then refused it), skipped with a reason, or failed. Erased with the customer.
+model WhatsappBroadcastRecipient {
+  organizationId String               @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String               @id @default(uuid(7)) @db.Uuid
+  broadcastId    String               @map("broadcast_id") @db.Uuid
+  conversationId String               @map("conversation_id") @db.Uuid
+  /// waiting, sent, skipped or failed (CHECK whatsapp_broadcast_recipient_state_value).
+  state          String               @default("waiting")
+  /// Why it was skipped or failed: a code (monthly_cap, opted_out, no_consent, cancelled, not_connected, other...).
+  reason         String?
+  /// A waiting recipient is not tried before this moment (the next day's 10:00 after the day's template cap).
+  notBefore      DateTime             @default(now()) @map("not_before") @db.Timestamptz(6)
+  messageId      String?              @map("message_id") @db.Uuid
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  broadcast      WhatsappBroadcast    @relation(fields: [organizationId, broadcastId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  conversation   WhatsappConversation @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  message        WhatsappMessage?     @relation(fields: [organizationId, messageId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, broadcastId, conversationId], map: "whatsapp_broadcast_recipient_once")
+  @@index([organizationId, broadcastId, state], map: "whatsapp_broadcast_recipient_state")
+  /// The worker's next recipients: only those still waiting are in it.
+  @@index([organizationId, notBefore], map: "whatsapp_broadcast_recipient_due", where: raw("(state = 'waiting'::text)"))
+  @@map("whatsapp_broadcast_recipient")
+}

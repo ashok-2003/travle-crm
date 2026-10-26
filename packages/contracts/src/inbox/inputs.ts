@@ -3,7 +3,7 @@ import { z } from "zod";
 import { attachmentFileName } from "../files/attachments.js";
 import { recordId } from "../identity/fields.js";
 
-export const conversationFilters = ["waiting", "all", "mine"] as const;
+export const conversationFilters = ["waiting", "unread", "all", "mine", "unassigned", "snoozed", "archived"] as const;
 export const conversationFilter = z.enum(conversationFilters);
 export type ConversationFilter = z.infer<typeof conversationFilter>;
 
@@ -11,6 +11,8 @@ export const listConversationsInput = z.strictObject({
   filter: conversationFilter.default("waiting"),
   /** A name, forgiving of typos, or four or more digits of a phone. */
   search: z.string().trim().min(2).max(80).optional(),
+  /** Only the chats carrying this tag. */
+  tagId: recordId.optional(),
   /** The last conversation id of the previous page. */
   before: recordId.optional(),
   limit: z.int().min(1).max(50).default(25),
@@ -25,6 +27,10 @@ export const listMessagesInput = z.strictObject({
   /** The oldest message id of the page already shown. */
   before: recordId.optional(),
   limit: z.int().min(1).max(50).default(30),
+  /** Only messages whose words hold this (search in the chat). */
+  search: z.string().trim().min(2).max(80).optional(),
+  /** Only the starred messages. */
+  starredOnly: z.boolean().optional(),
 });
 export type ListMessagesInput = z.infer<typeof listMessagesInput>;
 

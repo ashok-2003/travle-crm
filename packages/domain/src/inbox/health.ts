@@ -47,7 +47,13 @@ export async function checkConnection(
     );
     const cutoff = new Date(now.getTime() - NO_REPORT_AFTER_MS);
     const unreported = await tx.whatsappMessage.count({
-      where: { direction: "out", origin: "staff_crm", status: "sent", wamid: { not: null }, sentAt: { lt: cutoff } },
+      where: {
+        direction: "out",
+        origin: { in: ["staff_crm", "automation"] },
+        status: "sent",
+        wamid: { not: null },
+        sentAt: { lt: cutoff },
+      },
     });
     const reportSeen = connection.lastReportAt !== null && connection.lastReportAt.getTime() >= cutoff.getTime();
     const silent = unreported > 0 && !reportSeen;

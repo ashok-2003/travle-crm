@@ -23,7 +23,7 @@ const pngIcons: readonly PngIcon[] = [
   { fileName: "icon-192.png", size: 192, background: null, markScale: 1 },
   { fileName: "icon-512.png", size: 512, background: null, markScale: 1 },
   // Devices crop maskable icons to their own shape, keeping only the central 80 % (the safe zone) for sure.
-  { fileName: "icon-maskable-512.png", size: 512, background: brand.colours.ink, markScale: 0.8 },
+  { fileName: "icon-maskable-512.png", size: 512, background: brand.colours.sidebar.fill, markScale: 0.8 },
 ];
 
 const FAVICON_SIZE = 32;

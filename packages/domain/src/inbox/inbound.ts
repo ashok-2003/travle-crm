@@ -6,6 +6,7 @@ import type { OrgTx } from "@travel-crm/db";
 import type { ParsedMessage } from "@travel-crm/integrations/whatsapp";
 import { agencyFactsOf, mayBringIn, receiveWhatsAppContact, type WhatsAppContactOutcome } from "../crm/index.js";
 import { publishEvent } from "../jobs/index.js";
+import { automationCouldAct, CUSTOMER_WROTE_EVENT } from "./automation.js";
 import { systemActor } from "../kernel/index.js";
 import type { ConnectionRow } from "./connection-row.js";
 import { COPY_MEDIA_QUEUE, type InboxDependencies } from "./dependencies.js";
@@ -122,6 +123,18 @@ export async function receiveInbound(
         wasWaiting: conversation.needsReply,
       });
     }
+    // A message wakes the automatic answers (sales inbox spec 6, which decide in the worker) only when one could act: not
+    // for STOP, and not for an agency with none set up.
+    if (facts !== null && writing && !hidden && !isOptOutText(message.text) && (await automationCouldAct(tx))) {
+      await publishEvent(tx, {
+        type: CUSTOMER_WROTE_EVENT,
+        payload: {
+          conversationId: conversation.id,
+          messageId: row.id,
+          firstEver: conversation.lastInboundAt === null && conversation.lastMessageAt === null,
+        },
+      });
+    }
     if (writing && personId !== null && isOptOutText(message.text)) {
       await recordWhatsappOptOut(tx, systemActor(organizationId), { personId, now: columns.occurredAt });
     }
@@ -131,7 +144,17 @@ export async function receiveInbound(
         personId,
         hidden,
         profileName: (message.customerName?.trim().slice(0, 200) ?? "") || conversation.profileName,
-        ...(writing ? { lastInboundAt: later(conversation.lastInboundAt, columns.occurredAt), needsReply: true } : {}),
+        // The customer writing brings an archived chat back into the list (sales inbox spec 5) and wakes a snoozed one, so a
+        // new message is never hidden behind a snooze (the snoozer is not reminded: they see the message itself).
+        ...(writing
+          ? {
+              lastInboundAt: later(conversation.lastInboundAt, columns.occurredAt),
+              needsReply: true,
+              archivedAt: null,
+              snoozedUntil: null,
+              snoozedBy: null,
+            }
+          : {}),
         ...(conversation.lastMessageAt === null || columns.occurredAt.getTime() >= conversation.lastMessageAt.getTime()
           ? { lastMessageAt: columns.occurredAt, lastMessageId: row.id }
           : {}),

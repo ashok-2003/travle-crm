@@ -3,21 +3,23 @@
 // Sending from the composer (spec 4.4): a text reply is one call; a file is three steps (ask where to put it, put it straight
 // into storage, name it), then the worker sends. The browser's token for a send is kept until it succeeds, so a double tap or a
 // retried request is one message; both flows load the inbox again when done, so the message shows at once as queued.
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { uploadFile } from "@/files/upload";
 import { useTRPC, useTRPCClient } from "@/data/trpc";
+import { useInvalidate } from "./use-sales-inbox";
 
 /** `onSent` runs once a message is queued: the composer empties then, never before, so a failed try keeps the words. */
 export function useReply(conversationId: string, onSent: () => void) {
   const trpc = useTRPC();
   const client = useTRPCClient();
-  const queryClient = useQueryClient();
+  const invalidate = useInvalidate();
   const [token, setToken] = useState(() => crypto.randomUUID());
   const settled = async () => {
     setToken(crypto.randomUUID());
     onSent();
-    await queryClient.invalidateQueries({ queryKey: trpc.inbox.pathKey() });
+    // The message shows at once as queued, and the chat moves to the top of the list.
+    await Promise.all([invalidate("messages"), invalidate("chats"), invalidate("chat")]);
   };
   const sendText = useMutation(trpc.inbox.send.mutationOptions({ onSuccess: settled }));
   const sendFile = useMutation({

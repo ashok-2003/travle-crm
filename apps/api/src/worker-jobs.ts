@@ -52,6 +52,10 @@ import {
   sendMessageListener,
   syncAllTemplates,
   WHATSAPP_HEALTH_QUEUE,
+  automationListener,
+  broadcastListener,
+  INBOX_DUE_WORK_QUEUE,
+  runDueWork,
   WHATSAPP_TEMPLATES_QUEUE,
 } from "@travel-crm/domain/inbox";
 import { deliverNotificationListener, forgetPushSubscriptionsListener } from "@travel-crm/domain/notifications";
@@ -219,6 +223,16 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       whatsappRouteListener({ db, logger }),
       messageNoticeListener({ managers: leadAssigners }),
       pastCustomerNoticeListener({ managers: leadAssigners }),
+      // The automatic answers (away, welcome, keyword) to a customer who just wrote (sales inbox spec 6).
+      automationListener({
+        timeZone: async (organizationId) =>
+          (await identity.organizationProfile(organizationId))?.timeZone ?? DEFAULT_TIME_ZONE,
+      }),
+      // A broadcast's waiting recipients go out here, a batch at a time (sales inbox spec 6).
+      broadcastListener({
+        timeZone: async (organizationId) =>
+          (await identity.organizationProfile(organizationId))?.timeZone ?? DEFAULT_TIME_ZONE,
+      }),
       // Replies queued from the inbox go out here, one at a time, outside any transaction (spec 4.4).
       ...(inbox === null
         ? []
@@ -332,6 +346,15 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       ...(inbox === null
         ? []
         : [
+            {
+              // Messages sent later whose time has come, and snoozed chats waking (sales inbox spec 6).
+              queue: INBOX_DUE_WORK_QUEUE,
+              cron: "* * * * *",
+              timeZone: "Asia/Kolkata",
+              handle: async () => {
+                await runDueWork({ db, logger }, new Date());
+              },
+            },
             {
               // Delivery reports that stopped, rows stuck sending, and media never queued (spec 8.4).
               queue: WHATSAPP_HEALTH_QUEUE,

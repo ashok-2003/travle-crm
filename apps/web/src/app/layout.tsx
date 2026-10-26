@@ -35,7 +35,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: brand.colours.canvas,
+  themeColor: brand.colours.sidebar.fill,
   width: "device-width",
   initialScale: 1,
   // Content may sit under the notch and home bar; the shell pads by env(safe-area-inset-*).
