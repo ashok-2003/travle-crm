@@ -1,18 +1,20 @@
-// The sales inbox's own data (spec 2026-10-25-sales-inbox-design.md, section 5): the agency's tags for chats, the tags on
-// each chat, quick replies typed with "/", and each member's last read moment per chat (unread counts).
+// The sales inbox's own data (spec 2026-10-25-sales-inbox-design.md): the agency's tags for chats, the tags on each chat,
+// quick replies typed with "/", each member's last read moment per chat (unread counts), messages written now and sent
+// later, the automatic answers, and broadcasts. A team note in a chat is a note on the chat's lead (crm's lead_note).
 
 /// One of the agency's own labels for chats ("Hot", "Honeymoon", "Payment pending"). Soft-deleted (ADR 0004).
 model InboxTag {
   /// Filled from db.forOrg()'s organization when omitted.
-  organizationId String            @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
-  id             String            @id @default(uuid(7)) @db.Uuid
+  organizationId String              @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String              @id @default(uuid(7)) @db.Uuid
   name           String
-  createdBy      String?           @map("created_by") @db.Uuid
-  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  deletedAt      DateTime?         @map("deleted_at") @db.Timestamptz(6)
-  deletedBy      String?           @map("deleted_by") @db.Uuid
-  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdBy      String?             @map("created_by") @db.Uuid
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt      DateTime?           @map("deleted_at") @db.Timestamptz(6)
+  deletedBy      String?             @map("deleted_by") @db.Uuid
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   conversations  ConversationTag[]
+  broadcasts     WhatsappBroadcast[]
 
   @@unique([organizationId, id])
   /// One live tag of a name; a deleted one's name is free again.
@@ -78,25 +80,6 @@ model ConversationRead {
   @@map("conversation_read")
 }
 
-/// A note the team writes in a chat (sales inbox spec 6): shown among the messages, never sent. `mentions` are the members
-/// it names with "@", who are told. Append-only for the runtime role.
-model ConversationNote {
-  organizationId String               @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
-  id             String               @id @default(uuid(7)) @db.Uuid
-  conversationId String               @map("conversation_id") @db.Uuid
-  body           String
-  /// User ids of the members named with "@".
-  mentions       String[]             @default([]) @db.Uuid
-  createdBy      String?              @map("created_by") @db.Uuid
-  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
-  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  conversation   WhatsappConversation @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
-
-  @@unique([organizationId, id])
-  @@index([organizationId, conversationId, createdAt(sort: Desc)], map: "conversation_note_chat")
-  @@map("conversation_note")
-}
-
 /// A reply written now and sent later (sales inbox spec 6): pending until `sendAt`, when the worker queues it as an
 /// ordinary reply (the 24-hour window is checked then); then sent, cancelled or failed.
 model ScheduledMessage {
@@ -115,6 +98,7 @@ model ScheduledMessage {
   createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
   organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   conversation   WhatsappConversation @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  message        WhatsappMessage?     @relation(fields: [organizationId, messageId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
 
   @@unique([organizationId, id])
   @@index([organizationId, conversationId], map: "scheduled_message_chat")
@@ -167,20 +151,23 @@ model InboxKeywordReply {
 /// One approved template sent to every chat with a tag (sales inbox spec 6), each through the ordinary template send
 /// (consent and caps apply). The counts grow as the worker sends.
 model WhatsappBroadcast {
-  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
-  id             String       @id @default(uuid(7)) @db.Uuid
-  templateId     String       @map("template_id") @db.Uuid
-  tagId          String       @map("tag_id") @db.Uuid
+  organizationId String            @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String            @id @default(uuid(7)) @db.Uuid
+  templateId     String            @map("template_id") @db.Uuid
+  tagId          String            @map("tag_id") @db.Uuid
   /// The template's blanks, the same for everyone.
-  params         String[]     @default([])
+  params         String[]          @default([])
   /// queued, sending or done (CHECK whatsapp_broadcast_status_value).
-  status         String       @default("queued")
-  total          Int          @default(0)
-  sent           Int          @default(0)
-  skipped        Int          @default(0)
-  createdBy      String       @map("created_by") @db.Uuid
-  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  status         String            @default("queued")
+  total          Int               @default(0)
+  sent           Int               @default(0)
+  skipped        Int               @default(0)
+  createdBy      String            @map("created_by") @db.Uuid
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  template       WhatsappTemplate  @relation(fields: [organizationId, templateId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  tag            InboxTag          @relation(fields: [organizationId, tagId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  messages       WhatsappMessage[]
 
   @@unique([organizationId, id])
   @@index([organizationId, createdAt(sort: Desc)], map: "whatsapp_broadcast_recent")

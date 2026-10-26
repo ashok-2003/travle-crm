@@ -1,6 +1,6 @@
 // Isolation fixtures for the inbox module (WhatsApp): a connection, a chat, a message, a template, a month's usage, and the
-// sales inbox's tags, tags on chats, quick replies, read marks, team notes (append-only), scheduled sends, automatic
-// answers, keyword replies and broadcasts (tags, quick replies and keyword replies are soft-deleted). The
+// sales inbox's tags, tags on chats, quick replies, read marks, scheduled sends, automatic answers, keyword replies and
+// broadcasts (tags, quick replies and keyword replies are soft-deleted). The
 // runtime role changes but never deletes any of them (a chat is erased by emptying it). The number route and the unrouted
 // numbers are not here: they have no row-level security (unscopedScheduleTables in org-table-fixtures.ts, and
 // unscoped-tables.test.ts).
@@ -87,11 +87,6 @@ export const fixtures: OrgTableFixtures = {
         data: { conversationId: (await aConversation(tx)).id, userId: randomUUID(), readAt: new Date() },
       }),
   },
-  conversation_note: {
-    create: async (tx) =>
-      tx.conversationNote.create({ data: { conversationId: (await aConversation(tx)).id, body: "Isolation" } }),
-    appendOnly: true,
-  },
   scheduled_message: {
     create: async (tx) =>
       tx.scheduledMessage.create({
@@ -115,8 +110,25 @@ export const fixtures: OrgTableFixtures = {
     undeletable: true,
   },
   whatsapp_broadcast: {
-    create: (tx) =>
-      tx.whatsappBroadcast.create({ data: { templateId: randomUUID(), tagId: randomUUID(), createdBy: randomUUID() } }),
+    create: async (tx) =>
+      tx.whatsappBroadcast.create({
+        data: {
+          templateId: (
+            await tx.whatsappTemplate.create({
+              data: {
+                connectionId: (await aConnection(tx)).id,
+                name: "broadcast_isolation",
+                language: "en",
+                category: "marketing",
+                body: "Hello",
+                status: "approved",
+              },
+            })
+          ).id,
+          tagId: (await tx.inboxTag.create({ data: { name: `Isolation ${randomUUID().slice(0, 8)}` } })).id,
+          createdBy: randomUUID(),
+        },
+      }),
     undeletable: true,
   },
 };
