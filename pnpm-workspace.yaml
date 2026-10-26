@@ -59,6 +59,9 @@ overrides:
   "prisma>mysql2": 3.24.5
   # GHSA-ggr8-5vv4-36mx: Prisma's config loader holds deepmerge-ts 7.1.5; it merges only our own prisma.config.ts.
   "@prisma/config>deepmerge-ts": 8.0.2
+  # GHSA-xjj6-f33q-929c: undici 8.0 to 8.12.1 (a dependency of jsdom, testcontainers and others) dies on a response with too many
+  # content-encodings. Only our tests and tools reach it, but the fix is a patch release.
+  "undici@>=8.0.0 <8.12.2": 8.12.2
 auditConfig:
   ignoreGhsas:
     # braces has no fixed version. Only ESLint's Next.js plugin reaches it, globbing patterns from our own config.
