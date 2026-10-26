@@ -1,7 +1,7 @@
 "use client";
 
 // The chat's messages waiting to be sent later (sales inbox spec 6), above the reply box: when each goes and its first
-// words, with Cancel; one that could not go (the 24-hour window had closed) says so.
+// words, with Cancel; one that could not go says why in the sentence a failed reply uses.
 import { ClockIcon, XIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -11,8 +11,12 @@ import { useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { useSchedule, useScheduled } from "./use-sales-inbox";
 
+const failureCodes = ["window_closed", "paused", "not_connected", "opted_out"] as const;
+const failureOf = (code: string | null) => failureCodes.find((known) => known === code) ?? "other";
+
 export function ScheduledList({ conversationId }: { conversationId: string }) {
   const t = useTranslations("inbox.chat.scheduled");
+  const failures = useTranslations("inbox.chat.failure");
   const { timeZone } = useMe().organization;
   const access = useWriteAccess("change");
   const scheduled = useScheduled(conversationId);
@@ -30,7 +34,7 @@ export function ScheduledList({ conversationId }: { conversationId: string }) {
             <ItemContent className="min-w-0">
               <ItemTitle className="text-caption">
                 {item.status === "failed"
-                  ? t("failed")
+                  ? failures(failureOf(item.failureCode))
                   : t("goesAt", { when: formatDayTime(new Date(item.sendAt), { timeZone }) })}
               </ItemTitle>
               <ItemDescription className="line-clamp-1" dir="auto">

@@ -2,21 +2,33 @@
 
 // The sales inbox's reads and changes beyond WhatsApp (salesInbox.*; sales inbox spec 6): the counts above the chats,
 // stars, snooze, team notes, messages sent later, "someone is replying", the automatic answers and broadcasts. A change
-// loads the inbox's lists and the chat again, so every place shows it.
+// loads again only what it changed (the polls are every 15 seconds already, so a change must not set off all of them).
+import { INBOX_POLL_MS } from "@travel-crm/contracts/inbox";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef } from "react";
 import { useTRPC } from "@/data/trpc";
 
-const POLL_MS = 15_000;
+const POLL_MS = INBOX_POLL_MS;
 
-function useRefreshAll() {
+/** Loads these queries again, by the keys the router gives (a procedure's path covers every input it was asked with). */
+export function useInvalidate() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  return async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: trpc.inbox.pathKey() }),
-      queryClient.invalidateQueries({ queryKey: trpc.salesInbox.pathKey() }),
-    ]);
+  return (
+    which: "chats" | "chat" | "messages" | "summary" | "notes" | "scheduled" | "automation" | "keywords" | "broadcasts",
+  ) => {
+    const keys = {
+      chats: trpc.inbox.conversations.pathKey(),
+      chat: trpc.inbox.conversation.pathKey(),
+      messages: trpc.inbox.messages.pathKey(),
+      summary: trpc.salesInbox.summary.pathKey(),
+      notes: trpc.salesInbox.notes.pathKey(),
+      scheduled: trpc.salesInbox.scheduled.pathKey(),
+      automation: trpc.salesInbox.automation.pathKey(),
+      keywords: trpc.salesInbox.keywordReplies.pathKey(),
+      broadcasts: trpc.salesInbox.broadcasts.pathKey(),
+    } as const;
+    return queryClient.invalidateQueries({ queryKey: keys[which] });
   };
 }
 
@@ -27,14 +39,18 @@ export function useInboxSummary() {
 
 export function useStar() {
   const trpc = useTRPC();
-  const refresh = useRefreshAll();
-  return useMutation(trpc.salesInbox.star.mutationOptions({ onSuccess: refresh }));
+  const invalidate = useInvalidate();
+  return useMutation(trpc.salesInbox.star.mutationOptions({ onSuccess: () => invalidate("messages") }));
 }
 
 export function useSnooze() {
   const trpc = useTRPC();
-  const refresh = useRefreshAll();
-  return useMutation(trpc.salesInbox.snooze.mutationOptions({ onSuccess: refresh }));
+  const invalidate = useInvalidate();
+  return useMutation(
+    trpc.salesInbox.snooze.mutationOptions({
+      onSuccess: () => Promise.all([invalidate("chats"), invalidate("chat"), invalidate("summary")]),
+    }),
+  );
 }
 
 export function useNotes(conversationId: string) {
@@ -44,8 +60,8 @@ export function useNotes(conversationId: string) {
 
 export function useAddNote() {
   const trpc = useTRPC();
-  const refresh = useRefreshAll();
-  return useMutation(trpc.salesInbox.addNote.mutationOptions({ onSuccess: refresh }));
+  const invalidate = useInvalidate();
+  return useMutation(trpc.salesInbox.addNote.mutationOptions({ onSuccess: () => invalidate("notes") }));
 }
 
 export function useScheduled(conversationId: string) {
@@ -55,7 +71,8 @@ export function useScheduled(conversationId: string) {
 
 export function useSchedule() {
   const trpc = useTRPC();
-  const refresh = useRefreshAll();
+  const invalidate = useInvalidate();
+  const refresh = () => invalidate("scheduled");
   return {
     schedule: useMutation(trpc.salesInbox.schedule.mutationOptions({ onSuccess: refresh })),
     cancel: useMutation(trpc.salesInbox.cancelScheduled.mutationOptions({ onSuccess: refresh })),
@@ -85,11 +102,12 @@ export function useAutomation(enabled: boolean) {
 
 export function useAutomationChanges() {
   const trpc = useTRPC();
-  const refresh = useRefreshAll();
+  const invalidate = useInvalidate();
+  const refreshKeywords = () => invalidate("keywords");
   return {
-    save: useMutation(trpc.salesInbox.saveAutomation.mutationOptions({ onSuccess: refresh })),
-    addKeyword: useMutation(trpc.salesInbox.createKeywordReply.mutationOptions({ onSuccess: refresh })),
-    removeKeyword: useMutation(trpc.salesInbox.deleteKeywordReply.mutationOptions({ onSuccess: refresh })),
+    save: useMutation(trpc.salesInbox.saveAutomation.mutationOptions({ onSuccess: () => invalidate("automation") })),
+    addKeyword: useMutation(trpc.salesInbox.createKeywordReply.mutationOptions({ onSuccess: refreshKeywords })),
+    removeKeyword: useMutation(trpc.salesInbox.deleteKeywordReply.mutationOptions({ onSuccess: refreshKeywords })),
   };
 }
 
@@ -105,6 +123,6 @@ export function useBroadcastReach(tagId: string | null) {
 
 export function useSendBroadcast() {
   const trpc = useTRPC();
-  const refresh = useRefreshAll();
-  return useMutation(trpc.salesInbox.sendBroadcast.mutationOptions({ onSuccess: refresh }));
+  const invalidate = useInvalidate();
+  return useMutation(trpc.salesInbox.sendBroadcast.mutationOptions({ onSuccess: () => invalidate("broadcasts") }));
 }

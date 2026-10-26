@@ -5,9 +5,7 @@
 // blanks filled from the chat ({name}, {destination}, {month}, {agent}), and Esc closes it. The box keeps the focus.
 import type { ConversationHeader, QuickReply } from "@travel-crm/contracts/inbox";
 import { useTranslations } from "next-intl";
-import { Card } from "@/components/ui/card";
-import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
-import { cn } from "@/lib/utils";
+import { ComposerPicker } from "./composer-picker";
 
 /** The shortcut being typed: the box's words when they are "/" and letters only, else null (the list stays shut). */
 export const typedShortcut = (text: string): string | null => {
@@ -52,38 +50,22 @@ export function QuickReplyList({
 }) {
   const t = useTranslations("inbox.chat.composer");
   return (
-    <Card size="sm" className="absolute inset-x-0 bottom-full mb-2 py-1">
-      {replies.length === 0 ? (
-        <p className="px-3 py-2 text-muted-foreground">{t("noQuickReplies")}</p>
-      ) : (
-        <ItemGroup id={listId} role="listbox" aria-label={t("quickReplies")} className="gap-0">
-          {replies.map((reply, index) => (
-            <Item key={reply.id} asChild size="sm" className={cn("rounded-none px-3", index === active && "bg-muted")}>
-              <button
-                type="button"
-                role="option"
-                aria-selected={index === active}
-                id={`${listId}-${reply.id}`}
-                // Keep the focus in the box: the tap still picks.
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                }}
-                onClick={() => {
-                  onPick(reply);
-                }}
-              >
-                <ItemContent className="min-w-0 text-left">
-                  <ItemTitle>
-                    <span className="numbers text-primary">/{reply.shortcut}</span>
-                    <span className="truncate">{reply.title}</span>
-                  </ItemTitle>
-                  <ItemDescription className="line-clamp-1">{reply.body}</ItemDescription>
-                </ItemContent>
-              </button>
-            </Item>
-          ))}
-        </ItemGroup>
+    <ComposerPicker
+      choices={replies}
+      active={active}
+      listId={listId}
+      label={t("quickReplies")}
+      empty={t("noQuickReplies")}
+      onPick={onPick}
+      row={(reply) => (
+        <div className="min-w-0 text-left">
+          <p className="flex gap-2 font-medium">
+            <span className="numbers text-primary">/{reply.shortcut}</span>
+            <span className="truncate">{reply.title}</span>
+          </p>
+          <p className="line-clamp-1 text-muted-foreground">{reply.body}</p>
+        </div>
       )}
-    </Card>
+    />
   );
 }

@@ -7,29 +7,26 @@
 // Payment details (₹) puts the agency's payment words in the box (the quick reply with the shortcut "payment").
 import {
   MAX_WHATSAPP_SEND_BYTES,
-  PAYMENT_DETAILS_SHORTCUT,
   whatsappSendContentTypes,
   type ConversationHeader,
-  type QuickReply,
 } from "@travel-crm/contracts/inbox";
-import { IndianRupeeIcon, PaperclipIcon, SendIcon, XIcon } from "lucide-react";
+import { IndianRupeeIcon, PaperclipIcon, SendIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useRef, useState, type KeyboardEvent } from "react";
-import { toast } from "sonner";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
-import { Item, ItemActions, ItemContent, ItemTitle } from "@/components/ui/item";
 import { Spinner } from "@/components/ui/spinner";
 import { InputGroup, InputGroupAddon, InputGroupTextarea } from "@/components/ui/input-group";
-import { formatDayTime, formatMonthName } from "@/lib/format";
+import { formatDayTime } from "@/lib/format";
 import { useWideScreen } from "@/lib/use-wide-screen";
 import { useMe } from "@/session/me-context";
 import { WriteHint } from "@/subscription/write-hint";
 import { useWriteAccess } from "@/subscription/write-access";
+import { AttachedFile } from "./attached-file";
 import { EmojiButton } from "./emoji-button";
-import { fillBlanks, matchingReplies, QuickReplyList, typedShortcut } from "./quick-reply-list";
-import { useQuickReplies } from "./use-inbox-tools";
+import { QuickReplyList } from "./quick-reply-list";
 import { ScheduleButton } from "./schedule-button";
+import { useQuickReplyPicker } from "./use-quick-reply-picker";
 import { useTypingSignal } from "./use-sales-inbox";
 import { useReply } from "./use-reply";
 import { useVoiceNote } from "./voice/use-voice-note";
@@ -40,13 +37,9 @@ const acceptedTypes = whatsappSendContentTypes.join(",");
 
 export function Composer({ header, windowOpenUntil }: { header: ConversationHeader; windowOpenUntil: string }) {
   const t = useTranslations("inbox.chat");
-  const me = useMe();
-  const { timeZone } = me.organization;
+  const { timeZone } = useMe().organization;
   const conversationId = header.id;
   const listId = useId();
-  const quickReplies = useQuickReplies();
-  const [active, setActive] = useState(0);
-  const [listShut, setListShut] = useState(false);
   const access = useWriteAccess("change");
   const hintId = useId();
   const [text, setText] = useState("");
@@ -63,6 +56,7 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
   const voice = useVoiceNote((recorded) => {
     reply.sendFile(recorded, undefined);
   });
+  const quick = useQuickReplyPicker(header, text, setText, box);
   const words = text.trim();
   const recording = voice.phase === "recording" || voice.phase === "limit";
   const insertEmoji = (emoji: string) => {
@@ -76,32 +70,6 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
     });
   };
   const canSend = access.allowed && !reply.pending && (file !== null || words !== "");
-  const typed = typedShortcut(text);
-  const shown = typed === null || listShut ? null : matchingReplies(quickReplies.data ?? [], typed);
-  const place = (chosen: QuickReply, replaceAll: boolean) => {
-    const filled = fillBlanks(chosen.body, {
-      header,
-      agent: me.user.name,
-      monthOf: formatMonthName,
-    });
-    const next =
-      replaceAll || words === ""
-        ? filled
-        : `${text.trimEnd()}
-
-${filled}`;
-    setText(next);
-    setActive(0);
-    requestAnimationFrame(() => {
-      box.current?.focus();
-      box.current?.setSelectionRange(next.length, next.length);
-    });
-  };
-  const payment = () => {
-    const details = quickReplies.data?.find((candidate) => candidate.shortcut === PAYMENT_DETAILS_SHORTCUT);
-    if (details === undefined) toast.info(t("composer.noPaymentDetails"));
-    else place(details, false);
-  };
 
   const submit = () => {
     if (!canSend) return;
@@ -119,24 +87,7 @@ ${filled}`;
     setFile(problem === null ? chosen : null);
   };
   const onKey = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (shown !== null && shown.length > 0) {
-      const pick = shown[Math.min(active, shown.length - 1)];
-      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-        event.preventDefault();
-        setActive((index) => (index + (event.key === "ArrowDown" ? 1 : shown.length - 1)) % shown.length);
-        return;
-      }
-      if ((event.key === "Enter" || event.key === "Tab") && pick !== undefined && !event.nativeEvent.isComposing) {
-        event.preventDefault();
-        place(pick, true);
-        return;
-      }
-    }
-    if (shown !== null && event.key === "Escape") {
-      event.preventDefault();
-      setListShut(true);
-      return;
-    }
+    if (quick.onKey(event)) return;
     // A touch screen's Enter is a new line: its keyboard has a Send button.
     const touch = window.matchMedia("(pointer: coarse)").matches;
     if (event.key === "Enter" && !event.shiftKey && !touch && !event.nativeEvent.isComposing) {
@@ -156,25 +107,13 @@ ${filled}`;
       <RefusalAlert error={reply.error} />
       {fileProblem !== null && <p className="text-label text-destructive">{t(`composer.${fileProblem}`)}</p>}
       {file !== null && (
-        <Item variant="muted" size="sm">
-          <ItemContent>
-            <ItemTitle className="wrap-anywhere">{file.name}</ItemTitle>
-          </ItemContent>
-          <ItemActions>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label={t("composer.removeFile")}
-              disabled={reply.pending}
-              onClick={() => {
-                setFile(null);
-              }}
-            >
-              <XIcon aria-hidden="true" />
-            </Button>
-          </ItemActions>
-        </Item>
+        <AttachedFile
+          file={file}
+          busy={reply.pending}
+          onRemove={() => {
+            setFile(null);
+          }}
+        />
       )}
       <VoiceProblemNote problem={voice.problem} />
       {recording ? (
@@ -201,17 +140,17 @@ ${filled}`;
           />
           {/* One rounded bar, as WhatsApp's: emoji and attach, then the words, which grow to six lines. */}
           <div className="relative min-w-0 flex-1">
-            {shown !== null && (
+            {quick.shown !== null && (
               <QuickReplyList
-                replies={shown}
-                active={Math.min(active, Math.max(shown.length - 1, 0))}
+                replies={quick.shown}
+                active={Math.min(quick.active, Math.max(quick.shown.length - 1, 0))}
                 listId={listId}
                 onPick={(chosen) => {
-                  place(chosen, true);
+                  quick.place(chosen, true);
                 }}
               />
             )}
-            <InputGroup className="min-h-11 rounded-3xl bg-background">
+            <InputGroup>
               <InputGroupTextarea
                 ref={box}
                 dir="auto"
@@ -226,13 +165,12 @@ ${filled}`;
                 onChange={(event) => {
                   setText(event.target.value);
                   signalTyping();
-                  setListShut(false);
-                  setActive(0);
+                  quick.typedSomething();
                 }}
                 onKeyDown={onKey}
                 role="combobox"
-                aria-expanded={shown !== null}
-                aria-controls={shown === null ? undefined : listId}
+                aria-expanded={quick.shown !== null}
+                aria-controls={quick.shown === null ? undefined : listId}
                 aria-autocomplete="list"
               />
               <InputGroupAddon className="self-end pb-0.5">
@@ -255,7 +193,7 @@ ${filled}`;
                   className="text-muted-foreground"
                   aria-label={t("composer.paymentDetails")}
                   disabled={reply.pending || !access.allowed}
-                  onClick={payment}
+                  onClick={quick.payment}
                 >
                   <IndianRupeeIcon aria-hidden="true" />
                 </Button>
@@ -265,6 +203,7 @@ ${filled}`;
           {words !== "" && file === null && (
             <ScheduleButton
               conversationId={conversationId}
+              windowOpenUntil={windowOpenUntil}
               text={words}
               disabled={!access.allowed || reply.pending}
               onScheduled={() => {

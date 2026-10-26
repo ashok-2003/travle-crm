@@ -1,21 +1,19 @@
 "use client";
 
-// Writing a team note in a chat (sales inbox spec 6): the box in the attention tint so nobody mistakes it for a reply,
-// and "@" opens the teammates who can work leads; choosing one writes "@Name" and that person is told once the note is
-// saved. Enter saves on a computer, Shift+Enter is a new line. The note is never sent to the customer.
+// Writing a team note in a chat (sales inbox spec 6): a note on the chat's lead, which the customer never sees. "@" opens the
+// teammates who can work leads; choosing one writes "@Name", and that person is told once the note is saved, if they may see
+// the lead. Enter saves on a computer, Shift+Enter is a new line.
 import { MAX_NOTE_LENGTH } from "@travel-crm/contracts/inbox";
 import { SendIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useRef, useState, type KeyboardEvent } from "react";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { InputGroup, InputGroupTextarea } from "@/components/ui/input-group";
-import { Item, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Spinner } from "@/components/ui/spinner";
-import { cn } from "@/lib/utils";
 import { useWriteAccess } from "@/subscription/write-access";
 import { ChatAvatar } from "./chat-avatar";
+import { ComposerPicker } from "./composer-picker";
 import { useOwners } from "./use-owner-names";
 import { useAddNote } from "./use-sales-inbox";
 
@@ -93,37 +91,21 @@ export function TeamNoteComposer({ conversationId }: { conversationId: string })
       <div className="flex items-end gap-2">
         <div className="relative min-w-0 flex-1">
           {choices.length > 0 && (
-            <Card size="sm" className="absolute inset-x-0 bottom-full mb-2 py-1">
-              <ItemGroup id={listId} role="listbox" aria-label={t("mentionPeople")} className="gap-0">
-                {choices.map((owner, index) => (
-                  <Item
-                    key={owner.userId}
-                    asChild
-                    size="sm"
-                    className={cn("rounded-none px-3", index === Math.min(active, choices.length - 1) && "bg-muted")}
-                  >
-                    <button
-                      type="button"
-                      role="option"
-                      aria-selected={index === active}
-                      onMouseDown={(event) => {
-                        event.preventDefault();
-                      }}
-                      onClick={() => {
-                        pick(owner);
-                      }}
-                    >
-                      <ChatAvatar name={owner.name} />
-                      <ItemContent>
-                        <ItemTitle>{owner.name}</ItemTitle>
-                      </ItemContent>
-                    </button>
-                  </Item>
-                ))}
-              </ItemGroup>
-            </Card>
+            <ComposerPicker
+              choices={choices.map((owner) => ({ ...owner, id: owner.userId }))}
+              active={Math.min(active, choices.length - 1)}
+              listId={listId}
+              label={t("mentionPeople")}
+              onPick={pick}
+              row={(owner) => (
+                <>
+                  <ChatAvatar name={owner.name} />
+                  <span>{owner.name}</span>
+                </>
+              )}
+            />
           )}
-          <InputGroup className="min-h-11 rounded-3xl bg-status-attention-fill">
+          <InputGroup>
             <InputGroupTextarea
               ref={box}
               dir="auto"

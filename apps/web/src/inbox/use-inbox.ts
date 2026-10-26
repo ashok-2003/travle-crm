@@ -3,13 +3,13 @@
 // The inbox's reads (inbox.*): the status, the list of chats and a chat's header and messages. The lists are keyed under
 // their procedure's path, so one refresh reaches them all; a chat refetches every 15 seconds while it is open, since new
 // messages arrive without the person doing anything (no websocket, spec 4.4 S1).
-import type { ConversationFilter } from "@travel-crm/contracts/inbox";
+import { INBOX_POLL_MS, type ConversationFilter } from "@travel-crm/contracts/inbox";
 import { recordId } from "@travel-crm/contracts/identity";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { useTRPC, useTRPCClient } from "@/data/trpc";
 import { useCursorPages } from "@/data/use-cursor-pages";
 
-const POLL_MS = 15_000;
+const POLL_MS = INBOX_POLL_MS;
 /** While one of our messages is still on its way (queued, sending or sent, not yet delivered), the chat looks more often. */
 const UNSETTLED_POLL_MS = 5_000;
 /**

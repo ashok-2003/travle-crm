@@ -1,8 +1,9 @@
 "use client";
 
 // Send later (sales inbox spec 6): the clock beside Send opens the choices for the words in the box: in an hour, this
-// evening at 6, tomorrow at 10, or a day and a time of the member's choosing on the agency's clock (DueField); the words
-// then wait in the chat's scheduled list. Off while the box is empty.
+// evening at 6, tomorrow at 10 (those inside the 24-hour window only), or a day and a time of the member's choosing on the
+// agency's clock (DueField; one past the window is refused with the reason); the words then wait in the chat's scheduled
+// list. Off while the box is empty.
 import { addDays, calendarDateIn, instantAt, type CalendarDate, type TimeOfDay } from "@travel-crm/domain/kernel";
 import { CalendarClockIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -22,11 +23,14 @@ const at = (day: string, time: string, timeZone: string) => instantAt(day as Cal
 
 export function ScheduleButton({
   conversationId,
+  windowOpenUntil,
   text,
   disabled,
   onScheduled,
 }: {
   conversationId: string;
+  /** When the 24-hour window closes: free text can't be scheduled for that moment or later. */
+  windowOpenUntil: string;
   text: string;
   disabled: boolean;
   onScheduled: () => void;
@@ -43,7 +47,10 @@ export function ScheduleButton({
     { key: "evening", at: at(today, "18:00", timeZone) },
     { key: "tomorrow", at: at(addDays(today, 1), "10:00", timeZone) },
   ] as const;
-  const shown = choices.filter((choice) => choice.at.getTime() > now.getTime() + 60_000);
+  const windowEnd = new Date(windowOpenUntil).getTime();
+  const shown = choices.filter(
+    (choice) => choice.at.getTime() > now.getTime() + 60_000 && choice.at.getTime() < windowEnd,
+  );
   const send = (when: Date) => {
     schedule.mutate(
       { conversationId, body: text, sendAt: when.toISOString() },

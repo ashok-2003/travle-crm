@@ -103,14 +103,14 @@ export function ChatPanel({ conversationId, variant = "inbox" }: { conversationI
   const name = data.name ?? formatPhoneNumber(data.phone);
   return (
     <section
-      className={cn("flex min-h-0 min-w-0", variant === "lead" ? "h-[32rem] overflow-hidden rounded-lg" : "h-full")}
+      className={cn("flex min-h-0 min-w-0", variant === "lead" ? "h-128 overflow-hidden rounded-lg" : "h-full")}
       aria-label={t("region", { name })}
     >
       {chat}
       {variant !== "lead" && roomy && panelOpen && (
         <>
           <Separator orientation="vertical" />
-          <aside className="w-[24rem] shrink-0 bg-background">
+          <aside className="w-96 shrink-0 bg-background">
             <ContactPanel
               header={data}
               onClose={() => {

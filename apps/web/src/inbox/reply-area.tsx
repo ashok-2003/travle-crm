@@ -1,7 +1,7 @@
 "use client";
 
 // What sits under the messages for someone who may reply (spec 3.2; sales inbox spec 6): a choice of Reply or Note (a note
-// for the team, never sent, which works whatever the window), the messages scheduled for later, then the reply box while
+// on the chat's lead, for the team, never sent, which works whatever the window), the messages scheduled for later, then the reply box while
 // the 24-hour window is open, or a plain line instead when it has closed, the customer never wrote, the number is paused
 // or this is the demo (Mark as answered is in the chat's menu). Someone who may only read sees nothing here.
 import type { ConversationHeader } from "@travel-crm/contracts/inbox";
@@ -96,13 +96,14 @@ export function ReplyArea({ header }: { header: ConversationHeader }) {
             <MessageSquareIcon aria-hidden="true" />
             {t("modeReply")}
           </ToggleGroupItem>
-          <ToggleGroupItem value="note" className="rounded-full px-3">
+          <ToggleGroupItem value="note" className="rounded-full px-3" disabled={header.lead === null}>
             <StickyNoteIcon aria-hidden="true" />
             {t("modeNote")}
           </ToggleGroupItem>
         </ToggleGroup>
       </div>
-      {mode === "note" ? (
+      {header.lead === null && <p className="text-caption text-muted-foreground">{t("noteNeedsLead")}</p>}
+      {mode === "note" && header.lead !== null ? (
         <TeamNoteComposer conversationId={header.id} />
       ) : (
         <>

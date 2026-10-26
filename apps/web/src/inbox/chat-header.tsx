@@ -48,21 +48,11 @@ export function ChatHeader({
           </Link>
         </Button>
       )}
-      <button
-        type="button"
-        className="flex size-11 shrink-0 items-center justify-center rounded-full"
-        onClick={onTogglePanel}
-        aria-label={t("showContact", { name })}
-      >
+      {/* As WhatsApp's: the picture opens the contact panel (the lead is a link in there). */}
+      <Button type="button" variant="ghost" size="icon" onClick={onTogglePanel} aria-label={t("showContact", { name })}>
         <ChatAvatar name={header.name} />
-      </button>
-      {/* As WhatsApp's: the name opens the contact panel (the lead is a link in there). */}
-      <button
-        type="button"
-        className="flex min-h-11 min-w-0 flex-1 flex-col justify-center text-left"
-        onClick={onTogglePanel}
-        aria-expanded={panelOpen}
-      >
+      </Button>
+      <div className="flex min-h-11 min-w-0 flex-1 flex-col justify-center text-left">
         {asPage ? (
           <PageTitle className="w-full truncate font-sans text-section font-semibold script-leading md:text-section">
             {name}
@@ -82,7 +72,7 @@ export function ChatHeader({
             </>
           )}
         </p>
-      </button>
+      </div>
       {waitingSince !== null && <WaitTimer since={waitingSince} className="hidden sm:inline-flex" />}
       {header.lead !== null && (
         <div className="hidden shrink-0 2xl:block">
