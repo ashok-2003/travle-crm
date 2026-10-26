@@ -196,6 +196,8 @@
       "chat-unarchived": "Brought back an archived chat",
       "chat-snoozed": "Snoozed a chat",
       "chat-woken": "Brought back a snoozed chat",
+      "message-starred": "Starred a WhatsApp message",
+      "message-unstarred": "Took the star off a WhatsApp message",
       "message-scheduled": "Scheduled a WhatsApp message",
       "scheduled-cancelled": "Cancelled a scheduled WhatsApp message",
       "scheduled-failed": "A scheduled WhatsApp message could not be sent",

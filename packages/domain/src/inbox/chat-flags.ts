@@ -70,34 +70,7 @@ export async function markConversationRead(
   });
 }
 
-/** For a page of chats, the customer's messages each member has not seen yet, at most 99 a chat. */
-export async function unreadCounts(
-  tx: OrgTx,
-  access: MemberAccess,
-  conversationIds: string[],
-): Promise<Map<string, number>> {
-  if (conversationIds.length === 0) return new Map();
-  const reads = await tx.conversationRead.findMany({
-    where: { userId: access.userId, conversationId: { in: conversationIds } },
-    select: { conversationId: true, readAt: true },
-  });
-  const readAt = new Map(reads.map((read) => [read.conversationId, read.readAt]));
-  const counts = await tx.whatsappMessage.groupBy({
-    by: ["conversationId"],
-    where: {
-      direction: "in",
-      kind: { not: "reaction" },
-      OR: conversationIds.map((conversationId) => {
-        const since = readAt.get(conversationId);
-        return since === undefined ? { conversationId } : { conversationId, occurredAt: { gt: since } };
-      }),
-    },
-    _count: { _all: true },
-  });
-  return new Map(counts.map((row) => [row.conversationId, Math.min(row._count._all, 99)]));
-}
-
-/** Star a message for the team, or take the star off (sales inbox spec 6). Not audited: it is a bookmark. */
+/** Star a message for the team, or take the star off (sales inbox spec 6). Audited: the log says who starred what chat. */
 export async function starMessage(
   tx: OrgTx,
   access: MemberAccess,
@@ -107,14 +80,18 @@ export async function starMessage(
 ): Promise<void> {
   const message = await tx.whatsappMessage.findUnique({
     where: { id: messageId },
-    select: { id: true, conversationId: true },
+    select: { id: true, conversationId: true, starredAt: true },
   });
   if (message === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
   await openChat(tx, access, message.conversationId);
+  if ((message.starredAt !== null) === on) return;
   await tx.whatsappMessage.update({
     where: { id: message.id },
     data: on ? { starredAt: now, starredBy: access.userId } : { starredAt: null, starredBy: null },
   });
+  const about = { entityType: "whatsapp_conversation", entityId: message.conversationId };
+  if (on) await recordAudit(tx, access, { action: "inbox.message-starred", ...about });
+  else await recordAudit(tx, access, { action: "inbox.message-unstarred", ...about });
 }
 
 /**

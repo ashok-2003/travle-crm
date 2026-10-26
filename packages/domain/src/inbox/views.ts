@@ -19,10 +19,10 @@ import { openLeadStages } from "@travel-crm/contracts/crm";
 import type { OrgTx } from "@travel-crm/db";
 import { assertRecordInScope, type MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
-import { unreadCounts } from "./chat-flags.js";
 import { chatNameOf } from "./chat-name.js";
 import { liveConnection } from "./connection-row.js";
 import { previewOf } from "./messages.js";
+import { unreadCounts, unreadIdsOf } from "./unread.js";
 import { visibleConversations, type ConversationWhere } from "./scope.js";
 import { whatsappConsentOf } from "./whatsapp-consent.js";
 import { windowEndOf } from "./window.js";
@@ -58,17 +58,6 @@ function searchWhere(search: string): ConversationWhere {
       ...byPhone,
     ],
   };
-}
-
-/** The chats with something from the customer this member has not seen (the Unread filter), at most 1,000. */
-export async function unreadIdsOf(tx: OrgTx, access: MemberAccess): Promise<string[]> {
-  const rows = await tx.$queryRaw<{ id: string }[]>`
-    SELECT c.id FROM whatsapp_conversation c
-    LEFT JOIN conversation_read r
-      ON r.organization_id = c.organization_id AND r.conversation_id = c.id AND r.user_id = ${access.userId}::uuid
-    WHERE c.last_inbound_at IS NOT NULL AND (r.read_at IS NULL OR c.last_inbound_at > r.read_at)
-    LIMIT 1000`;
-  return rows.map((row) => row.id);
 }
 
 /** Chats neither archived nor snoozed past now: what every list but Archived and Snoozed shows. */

@@ -21,8 +21,8 @@ export {
   pinConversation,
   snoozeConversation,
   starMessage,
-  unreadCounts,
 } from "./chat-flags.js";
+export { unreadCounts, unreadIdsOf, UNREAD_FILTER_LIMIT } from "./unread.js";
 export {
   automationCouldAct,
   automationOf,
