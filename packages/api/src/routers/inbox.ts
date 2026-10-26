@@ -61,7 +61,7 @@ import {
 } from "@travel-crm/domain/inbox";
 import { DomainError } from "@travel-crm/domain/kernel";
 import { z } from "zod";
-import { typingIn } from "../inbox-presence.js";
+import { clearTyping, typingIn } from "../inbox-presence.js";
 import { memberNames } from "../member-names.js";
 import { orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
@@ -93,7 +93,7 @@ export const inboxRouter = router({
         conversationHeaderOf(tx, ctx.member, input.conversationId, new Date()),
       );
       // Who else is typing here now, by first name (kept in this process's memory, never stored).
-      const others = typingIn(header.id, ctx.member.userId);
+      const others = typingIn(ctx.member.organizationId, header.id, ctx.member.userId);
       const names = await memberNames(ctx.identity, ctx.member.organizationId, others);
       return { ...header, replying: others.map((userId) => names[userId]?.split(/\s+/)[0] ?? "").filter(Boolean) };
     }),
@@ -144,11 +144,14 @@ export const inboxRouter = router({
   send: replier
     .input(sendMessageInput)
     .output(sentMessage)
-    .mutation(({ ctx, input }) =>
-      ctx.db.forOrg(ctx.member.organizationId, (tx) =>
+    .mutation(async ({ ctx, input }) => {
+      const sent = await ctx.db.forOrg(ctx.member.organizationId, (tx) =>
         queueText(tx, ctx.member, input, { whatsappConfigured: ctx.whatsappConfigured }, new Date()),
-      ),
-    ),
+      );
+      // They sent it: the others need not be told they are still typing.
+      clearTyping(ctx.member.organizationId, input.conversationId, ctx.member.userId);
+      return sent;
+    }),
 
   /** Step one of sending a file: the chat is checked and the browser told where to put it. */
   requestMediaUpload: replier

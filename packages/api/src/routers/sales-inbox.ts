@@ -42,6 +42,7 @@ import {
   snoozeConversation,
   starMessage,
   summaryOf,
+  visibleConversation,
 } from "@travel-crm/domain/inbox";
 import { z } from "zod";
 import { markTyping } from "../inbox-presence.js";
@@ -139,12 +140,16 @@ export const salesInboxRouter = router({
       ctx.db.forOrg(ctx.member.organizationId, (tx) => cancelScheduled(tx, ctx.member, input.scheduledId)),
     ),
 
-  /** The member is typing in the chat (shown to the others for a few seconds). Kept in memory, never stored. */
+  /**
+   * The member is typing in the chat (shown to the others for a few seconds). Kept in memory, never stored, and only for a
+   * chat the member may see: a chat out of their scope is "not found", as everywhere.
+   */
   typing: reader
     .meta({ lifecycle: "always" })
     .input(conversationIdInput)
-    .mutation(({ ctx, input }) => {
-      markTyping(input.conversationId, ctx.member.userId);
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db.forOrg(ctx.member.organizationId, (tx) => visibleConversation(tx, ctx.member, input.conversationId));
+      markTyping(ctx.member.organizationId, input.conversationId, ctx.member.userId);
     }),
 
   automation: curator

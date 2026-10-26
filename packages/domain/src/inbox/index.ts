@@ -98,6 +98,7 @@ export {
   leadChatOf,
   listConversations,
   listMessages,
+  visibleConversation,
   visibleMessage,
 } from "./views.js";
 export { retryMessage } from "./retry.js";
