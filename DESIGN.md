@@ -18,7 +18,7 @@ colors:
   money: "#034f46"
   money-pressed: "#07352f"
   money-tint: "#e3f1ee"
-  sidebar: { fill: "#075e54", ink: "#ffffff", active: "#128c7e" }
+  sidebar: { fill: "#075e54", ink: "#ffffff", active: "#0f8073" }
   chat: { wallpaper: "#efeae2", out: "#d9fdd3", in: "#ffffff", bar: "#f0f2f5" }
   status-red: { dot: "#d92d20", bg: "#fdecea", ink: "#9b1c1c" }
   status-amber: { dot: "#c2680a", bg: "#fff3d6", ink: "#7a4100" }

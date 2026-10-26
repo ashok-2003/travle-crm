@@ -76,7 +76,7 @@ export const brand = {
     sidebar: {
       fill: "#075e54",
       ink: "#ffffff",
-      active: "#128c7e",
+      active: "#0f8073",
     },
     /** The WhatsApp inbox (sales inbox spec): the chat's wallpaper, our bubbles and theirs, the bars above and below. */
     chat: {
