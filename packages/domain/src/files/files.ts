@@ -4,7 +4,7 @@ import type { AttachmentRefInput, AttachmentSummary, RequestUploadInput } from "
 import type { PresignedUpload } from "@travel-crm/integrations/storage";
 import type { MemberAccess } from "../identity/index.js";
 import type { Actor } from "../kernel/index.js";
-import { listAttachments, removeAttachment, storageUsedBytes } from "./attachments.js";
+import { listAttachments, listAttachmentsOfRecords, removeAttachment, storageUsedBytes } from "./attachments.js";
 import type { DownloadLink, FilesDependencies, GeneratedFile, StoredFile } from "./dependencies.js";
 import { downloadLink, systemDownloadLink, systemFile } from "./downloads.js";
 import { copyFile } from "./copies.js";
@@ -29,6 +29,12 @@ export interface Files {
   downloadLink(actor: MemberAccess, input: AttachmentRefInput): Promise<DownloadLink>;
   /** The record's ready files, sensitive ones marked; their names only for members with documents:view_sensitive. */
   list(actor: Actor, record: { recordType: string; recordId: string }): Promise<AttachmentSummary[]>;
+  /** `list` for many records of one type in one query, by record id. */
+  listForRecords(
+    actor: Actor,
+    recordType: string,
+    recordIds: readonly string[],
+  ): Promise<Map<string, AttachmentSummary[]>>;
   /** Soft-deletes the file. Only members with documents:view_sensitive may remove a sensitive file. */
   remove(actor: Actor, input: AttachmentRefInput): Promise<void>;
   /** Stores a file the server made and returns it ready; with a chosen attachmentId, a retry stores it once. */
@@ -53,6 +59,8 @@ export function createFiles(dependencies: FilesDependencies): Files {
     confirmUpload: (actor, input, check) => confirmUpload(dependencies, actor, input, check),
     downloadLink: (actor, input) => downloadLink(dependencies, actor, input),
     list: (actor, record) => listAttachments(dependencies, actor, record),
+    listForRecords: (actor, recordType, recordIds) =>
+      listAttachmentsOfRecords(dependencies, actor, recordType, recordIds),
     remove: (actor, input) => removeAttachment(dependencies, actor, input),
     storeGeneratedFile: (actor, file) => storeGeneratedFile(dependencies, actor, file),
     copyFile: (actor, from, to) => copyFile(dependencies, actor, from, to),

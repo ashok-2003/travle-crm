@@ -40,22 +40,24 @@ export async function listTripKits({ db, files }: TripKitDependencies, access: M
       select: { id: true, name: true, message: true, keywords: true, autoSend: true },
     }),
   );
-  const withFiles = await Promise.all(
-    kits.map(async (kit) => {
-      const attached = await files.list(access, { recordType: TRIP_KIT_RECORD_TYPE, recordId: kit.id });
-      return {
-        ...kit,
-        files: attached.map((file) => ({
-          id: file.id,
-          fileName: file.fileName,
-          contentType: file.contentType,
-          sizeBytes: file.sizeBytes,
-          ready: file.status === "ready",
-        })),
-      };
-    }),
+  // One query for every trip's files, not one per trip.
+  const attached = await files.listForRecords(
+    access,
+    TRIP_KIT_RECORD_TYPE,
+    kits.map((kit) => kit.id),
   );
-  return tripKitList.parse(withFiles);
+  return tripKitList.parse(
+    kits.map((kit) => ({
+      ...kit,
+      files: (attached.get(kit.id) ?? []).map((file) => ({
+        id: file.id,
+        fileName: file.fileName,
+        contentType: file.contentType,
+        sizeBytes: file.sizeBytes,
+        ready: file.status === "ready",
+      })),
+    })),
+  );
 }
 
 export async function createTripKit(
