@@ -48,12 +48,7 @@
     "windowClosed": "You can reply with free text only within 24 hours of their last message. It closed on {closed}. A template can still be sent.",
     "today": "Today",
     "you": "You",
-    "photoLoading": "Photo, not loaded yet",
-    "fileLoading": "File, not loaded yet",
-    "photoExpired": "This photo expired before we could save it.",
-    "fileFailed": "This file could not be saved.",
     "open": "Open",
-    "download": "Download {name}",
     "location": "Location: {latitude}, {longitude}",
     "openInMaps": "Open in Maps",
     "unsupported": "This message type can't be shown here. Open it on the phone.",
@@ -224,6 +219,59 @@
       "pick": "Or choose a day and time",
       "choose": "Set the follow-up",
       "inNote": "Follow-up: {when}"
+    },
+    "viewer": {
+      "title": "Photos and videos",
+      "description": "Swipe or use the arrow keys for the chat's other photos and videos. Escape closes.",
+      "from": "From {name}",
+      "you": "You",
+      "position": "{index} of {count}",
+      "download": "Download",
+      "close": "Close",
+      "previous": "Previous",
+      "next": "Next",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "loading": "Loading the file",
+      "loadFailed": "This file could not be loaded.",
+      "photo": "Photo",
+      "video": "Video"
+    },
+    "mediaPending": {
+      "image": "Photo, not loaded yet",
+      "video": "Video, not loaded yet",
+      "audio": "Voice message, not loaded yet",
+      "document": "Document, not loaded yet",
+      "sticker": "Sticker, not loaded yet"
+    },
+    "mediaExpired": {
+      "image": "This photo expired before we could save it.",
+      "video": "This video expired before we could save it.",
+      "audio": "This voice message expired before we could save it.",
+      "document": "This document expired before we could save it.",
+      "sticker": "This sticker expired before we could save it."
+    },
+    "mediaFailed": {
+      "image": "This photo could not be saved.",
+      "video": "This video could not be saved.",
+      "audio": "This voice message could not be saved.",
+      "document": "This document could not be saved.",
+      "sticker": "This sticker could not be saved."
+    },
+    "playVideo": "Play the video",
+    "openPhoto": "Open the photo",
+    "documentCard": {
+      "unnamed": "Document",
+      "open": "Open {name}",
+      "download": "Download {name}",
+      "kinds": {
+        "pdf": "PDF",
+        "word": "Word document",
+        "sheet": "Spreadsheet",
+        "slides": "Presentation",
+        "text": "Text file",
+        "file": "File"
+      }
     }
   },
   "leadSection": {

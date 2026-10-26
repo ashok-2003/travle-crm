@@ -13,12 +13,13 @@ import { LoadingRows } from "@/components/loading-rows";
 import { ShowMoreButton } from "@/components/show-more-button";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { formatDay } from "@/lib/format";
+import { formatDay, formatPhoneNumber } from "@/lib/format";
 import { useMe } from "@/session/me-context";
 import { useChatScroll } from "./chat-scroll";
+import { MediaViewerProvider } from "./media/media-viewer";
 import { MessageBubble } from "./message-bubble";
 import { NoteBubble } from "./note-bubble";
-import { useMessages, type MessageFilter } from "./use-inbox";
+import { useConversation, useMessages, type MessageFilter } from "./use-inbox";
 import { useMarkRead } from "./use-inbox-tools";
 import { useNotes } from "./use-sales-inbox";
 
@@ -36,12 +37,14 @@ type Entry =
 
 function Loaded({
   conversationId,
+  customerName,
   messages,
   items,
   notes,
   notePeople,
 }: {
   conversationId: string;
+  customerName: string;
   messages: Pages;
   items: ChatMessage[];
   notes: ConversationNote[];
@@ -115,31 +118,33 @@ function Loaded({
     );
   });
   return (
-    <div className="absolute inset-0">
-      <ScrollArea ref={root} className="h-full" aria-label={t("messages")}>
-        <div className="flex flex-col gap-3 pt-2 pb-4">
-          <div className="flex justify-center">
-            <ShowMoreButton pages={messages} label={t("earlier")} />
+    <MediaViewerProvider messages={oldestFirst} customerName={customerName} people={people}>
+      <div className="absolute inset-0">
+        <ScrollArea ref={root} className="h-full" aria-label={t("messages")}>
+          <div className="flex flex-col gap-3 pt-2 pb-4">
+            <div className="flex justify-center">
+              <ShowMoreButton pages={messages} label={t("earlier")} />
+            </div>
+            <ol className="flex flex-col" aria-label={t("messages")}>
+              {rows.map((row, index) => (
+                <Fragment key={index}>{row}</Fragment>
+              ))}
+            </ol>
           </div>
-          <ol className="flex flex-col" aria-label={t("messages")}>
-            {rows.map((row, index) => (
-              <Fragment key={index}>{row}</Fragment>
-            ))}
-          </ol>
-        </div>
-      </ScrollArea>
-      {unseen && (
-        <Button
-          variant="secondary"
-          className="absolute right-4 bottom-3 rounded-full"
-          onClick={toBottom}
-          aria-label={t("newMessages")}
-        >
-          <ArrowDownIcon aria-hidden="true" />
-          {t("newMessages")}
-        </Button>
-      )}
-    </div>
+        </ScrollArea>
+        {unseen && (
+          <Button
+            variant="secondary"
+            className="absolute right-4 bottom-3 rounded-full"
+            onClick={toBottom}
+            aria-label={t("newMessages")}
+          >
+            <ArrowDownIcon aria-hidden="true" />
+            {t("newMessages")}
+          </Button>
+        )}
+      </div>
+    </MediaViewerProvider>
   );
 }
 
@@ -147,6 +152,8 @@ export function MessageList({ conversationId, filter }: { conversationId: string
   const t = useTranslations("inbox.chat");
   const messages = useMessages(conversationId, true, filter);
   const notes = useNotes(conversationId);
+  const header = useConversation(conversationId).data;
+  const customerName = header === undefined ? "" : (header.name ?? formatPhoneNumber(header.phone));
   const searching = filter !== undefined && (filter.search.length >= 2 || filter.starredOnly);
   if (messages.items === undefined) {
     return messages.isError ? (
@@ -166,6 +173,7 @@ export function MessageList({ conversationId, filter }: { conversationId: string
   return (
     <Loaded
       conversationId={conversationId}
+      customerName={customerName}
       messages={messages}
       items={messages.items}
       notes={searching ? [] : (notes.data?.items ?? [])}
