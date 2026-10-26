@@ -31,7 +31,7 @@ colors:
   role-gold: { bg: "#f7f7cc", ink: "#595501" }
   role-fern: { bg: "#d6f8d8", ink: "#36563a" }
   role-mint: { bg: "#d3fff2", ink: "#035e4d" }
-  chat: { wallpaper: "#f2eee8", out: "#d9fdd3", in: "#ffffff", date: "#fdf5e6", tick: "#0369a1" }
+  chat: { wallpaper: "#efeae2", out: "#d9fdd3", in: "#ffffff", date: "#fdf5e6", tick: "#0369a1" }
 typography:
   page-title: { family: "EB Garamond", size: 30px, weight: 500, lineHeight: 36px, tracking: "-0.01em" }
   section-title: { family: "Figtree", size: 16px, weight: 600, lineHeight: 24px, tracking: "0" }
@@ -104,7 +104,7 @@ Named rules:
 
 ### Inbox chat
 
-The owner's decision of 2026-10-26 (the later one): **the WhatsApp look is only inside the inbox's chat pane.** Everything else, the inbox's chat list and contact panel, its buttons and the broadcasts screens included, wears the palette above (blue action, violet people). The chat pane, the messages and the strip behind them, has its own few tokens, used nowhere else: the wallpaper (`#f2eee8`), our bubbles (`#d9fdd3`) and theirs (`#ffffff`), the date chip (`#fdf5e6`) and the read ticks (`#0369a1`). Ink on our bubble is 15.7:1, the muted time on it 4.8:1, and the read ticks on it 5.35:1; muted words on the wallpaper are 4.6:1. The chat's header and reply bar are the page's surface tone, like any panel. No WhatsApp logo or trademark appears anywhere.
+The owner's decision of 2026-10-26 (the later one): **the WhatsApp look is only inside the inbox's chat pane.** Everything else, the inbox's chat list and contact panel, its buttons and the broadcasts screens included, wears the palette above (blue action, violet people). The chat pane, the messages and the strip behind them, has its own few tokens, used nowhere else: the wallpaper (`#efeae2`), our bubbles (`#d9fdd3`) and theirs (`#ffffff`), the date chip (`#fdf5e6`) and the read ticks (`#0369a1`). Ink on our bubble is 15.7:1, the muted time on it 4.8:1, and the read ticks on it 5.35:1; muted words straight on the wallpaper are 4.45:1 and so are kept off it (a bubble, the date chip or a button carries them). The chat's header and reply bar are the page's surface tone, like any panel. No WhatsApp logo or trademark appears anywhere.
 
 Status vocabulary (extend, do not reinvent):
 

@@ -141,6 +141,14 @@ const TWO_FACTOR_SHOTS = [
   { name: "broadcast-page", screen: "A broadcast sent: its counts and every chat's state", as: owner },
   { name: "broadcast-paused", screen: "A broadcast that paused itself: why, Resume and Cancel", as: owner },
   { name: "broadcasts-list", screen: "Inbox, Broadcasts: a finished and a paused broadcast", as: owner },
+  // The theme (2026-10-26, later): the product's own look everywhere, WhatsApp's only in the chat pane.
+  { name: "theme-home", screen: "Home in the product's own look", as: owner },
+  { name: "theme-leads", screen: "The Leads list", as: owner },
+  { name: "theme-lead", screen: "A lead's page", as: owner },
+  { name: "theme-inbox-chat", screen: "The inbox with a chat open: only the chat pane is WhatsApp's", as: owner },
+  { name: "theme-broadcasts", screen: "Inbox, Broadcasts", as: owner },
+  { name: "theme-settings-whatsapp", screen: "Settings, WhatsApp", as: owner },
+  { name: "theme-console", screen: "A console page", as: superAdmin },
 ] as const satisfies readonly Shot[];
 
 export const SHOTS = [
@@ -514,6 +522,14 @@ export const SHOTS = [
   { name: "broadcast-page", screen: "A broadcast sent: its counts and every chat's state", as: owner },
   { name: "broadcast-paused", screen: "A broadcast that paused itself: why, Resume and Cancel", as: owner },
   { name: "broadcasts-list", screen: "Inbox, Broadcasts: a finished and a paused broadcast", as: owner },
+  // The theme (2026-10-26, later): the product's own look everywhere, WhatsApp's only in the chat pane.
+  { name: "theme-home", screen: "Home in the product's own look", as: owner },
+  { name: "theme-leads", screen: "The Leads list", as: owner },
+  { name: "theme-lead", screen: "A lead's page", as: owner },
+  { name: "theme-inbox-chat", screen: "The inbox with a chat open: only the chat pane is WhatsApp's", as: owner },
+  { name: "theme-broadcasts", screen: "Inbox, Broadcasts", as: owner },
+  { name: "theme-settings-whatsapp", screen: "Settings, WhatsApp", as: owner },
+  { name: "theme-console", screen: "A console page", as: superAdmin },
 ] as const satisfies readonly Shot[];
 
 export type ShotName = (typeof SHOTS)[number]["name"];

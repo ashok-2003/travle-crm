@@ -77,7 +77,7 @@ export const brand = {
      * and white bubbles, the date chip and the read ticks. The rest of the product wears the Agency OS palette above.
      */
     chat: {
-      wallpaper: "#f2eee8",
+      wallpaper: "#efeae2",
       bubbleOut: "#d9fdd3",
       bubbleIn: "#ffffff",
       dateChip: "#fdf5e6",
