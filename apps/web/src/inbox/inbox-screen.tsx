@@ -93,7 +93,7 @@ export function InboxScreen({ conversationId }: { conversationId: string | null 
   const listPane = (
     <div className="flex h-full min-h-0 flex-col bg-background">
       {/* WhatsApp's bar atop the chats. */}
-      <div className="flex min-h-16 shrink-0 items-center justify-between gap-2 bg-chat-bar px-4">
+      <div className="flex min-h-16 shrink-0 items-center justify-between gap-2 bg-surface px-4">
         <PageTitle>{t("title")}</PageTitle>
         {mayBroadcast && (
           <Button asChild variant="ghost">
@@ -131,7 +131,7 @@ export function InboxScreen({ conversationId }: { conversationId: string | null 
         {listPane}
         <Separator orientation="vertical" />
         {conversationId === null ? (
-          <div className="flex items-center justify-center bg-chat-bar">
+          <div className="flex items-center justify-center bg-surface">
             <EmptyState icon={MessageCircleIcon} message={t("pickChat")} />
           </div>
         ) : (

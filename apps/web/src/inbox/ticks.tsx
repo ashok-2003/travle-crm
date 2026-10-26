@@ -1,7 +1,7 @@
 "use client";
 
 // Our message's state as WhatsApp shows it, in the bubble and on the list's row: a clock while waiting, one tick sent,
-// two delivered, two in the People violet read (DESIGN.md: violet is the inbox's information colour).
+// two delivered, and the two in the chat's read blue once read.
 import type { WhatsappMessageStatus } from "@travel-crm/contracts/inbox";
 import { CheckCheckIcon, CheckIcon, ClockIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -18,7 +18,7 @@ export function Ticks({ status, className }: { status: WhatsappMessageStatus; cl
   return (
     <CheckCheckIcon
       aria-label={t(read ? "read" : "delivered")}
-      className={cn(size, read && "text-people")}
+      className={cn(size, read && "text-chat-tick-read")}
       role="img"
     />
   );

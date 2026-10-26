@@ -95,7 +95,7 @@ export function ChatPanel({ conversationId, variant = "inbox" }: { conversationI
       <div className="relative min-h-0 flex-1 bg-chat-wallpaper">
         <MessageList conversationId={data.id} filter={shownFilter} />
       </div>
-      <div className="shrink-0 bg-chat-bar px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:px-4">
+      <div className="shrink-0 bg-surface px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:px-4">
         <ReplyArea header={data} />
       </div>
     </div>
