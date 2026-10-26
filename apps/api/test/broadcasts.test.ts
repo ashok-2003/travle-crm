@@ -108,4 +108,12 @@ describe("broadcasts, through the api", () => {
       "BROADCAST_NOT_PAUSED",
     );
   });
+
+  it("reads the session from the database: a session that is gone is refused, though its cookie is still fresh", async () => {
+    const stale = await signedInOwner(server, agency);
+    expect((await refusalOf(await query(server, "broadcasts.list", stale))).status).not.toBe(401);
+    await server.platform.session.deleteMany({ where: { userId: agency.owner.userId } });
+    expect((await refusalOf(await query(server, "broadcasts.list", stale))).status).toBe(401);
+    expect((await refusalOf(await mutate(server, "broadcasts.preview", input, stale))).status).toBe(401);
+  });
 });
