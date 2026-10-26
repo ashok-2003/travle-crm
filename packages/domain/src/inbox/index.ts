@@ -17,6 +17,7 @@ export { withdrawWhatsApp, type WhatsAppWithdrawn } from "./erasure.js";
 export { mediaLinkOf, startLeadFromConversation } from "./chat-actions.js";
 export {
   archiveConversation,
+  forwardMessage,
   markConversationRead,
   MAX_SNOOZE_MS,
   pinConversation,

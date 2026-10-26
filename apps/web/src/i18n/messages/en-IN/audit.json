@@ -196,6 +196,7 @@
       "chat-unarchived": "Brought back an archived chat",
       "chat-snoozed": "Snoozed a chat",
       "chat-woken": "Brought back a snoozed chat",
+      "message-forwarded": "Forwarded a WhatsApp message to another chat",
       "message-starred": "Starred a WhatsApp message",
       "message-unstarred": "Took the star off a WhatsApp message",
       "message-scheduled": "Scheduled a WhatsApp message",

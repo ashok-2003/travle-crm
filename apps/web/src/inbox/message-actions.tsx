@@ -130,7 +130,13 @@ export function MessageActions({ message, className }: { message: ChatMessage; c
         </DropdownMenuContent>
       </DropdownMenu>
       {words !== null && forwarding && (
-        <ForwardDialog words={words} open={forwarding} onOpenChange={setForwarding} returnFocusTo={trigger} />
+        <ForwardDialog
+          messageId={message.id}
+          words={words}
+          open={forwarding}
+          onOpenChange={setForwarding}
+          returnFocusTo={trigger}
+        />
       )}
     </>
   );
