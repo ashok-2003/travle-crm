@@ -107,7 +107,8 @@ export const inboxRouter = router({
       const people = await memberNames(
         ctx.identity,
         ctx.member.organizationId,
-        page.items.map((message) => message.sentBy),
+        // The senders of the messages, and of the ones they quote.
+        page.items.flatMap((message) => [message.sentBy, message.quoted?.sentBy ?? null]),
       );
       return { ...page, people };
     }),

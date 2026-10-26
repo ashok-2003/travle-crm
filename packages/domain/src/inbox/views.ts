@@ -371,15 +371,56 @@ export async function listMessages(
     take: input.limit + 1,
   });
   const page = rows.slice(0, input.limit);
-  const quotedWamids = page.map((row) => row.quotedWamid).filter((wamid): wamid is string => wamid !== null);
+  // What each message quotes: a customer's reply names the original by WhatsApp's id, ours by our own.
+  const quotedWamids = page
+    .filter((row) => row.kind !== "reaction")
+    .map((row) => row.quotedWamid)
+    .filter((wamid): wamid is string => wamid !== null);
+  const quotedIds = page.map((row) => row.quotedMessageId).filter((id): id is string => id !== null);
   const quoted = await tx.whatsappMessage.findMany({
-    where: { conversationId: input.conversationId, wamid: { in: quotedWamids } },
-    select: { wamid: true, kind: true, body: true, caption: true },
+    where: { conversationId: input.conversationId, OR: [{ wamid: { in: quotedWamids } }, { id: { in: quotedIds } }] },
+    select: {
+      id: true,
+      wamid: true,
+      direction: true,
+      sentBy: true,
+      kind: true,
+      body: true,
+      caption: true,
+      fileName: true,
+      mediaState: true,
+    },
   });
   const quotedByWamid = new Map(quoted.map((message) => [message.wamid, message]));
+  const quotedById = new Map(quoted.map((message) => [message.id, message]));
+  const quoteOf = (row: (typeof page)[number]) => {
+    if (row.kind === "reaction") return null;
+    if (row.quotedMessageId === null && row.quotedWamid === null) return null;
+    const target =
+      row.quotedMessageId === null ? quotedByWamid.get(row.quotedWamid ?? "") : quotedById.get(row.quotedMessageId);
+    if (target === undefined) {
+      return {
+        messageId: null,
+        direction: null,
+        sentBy: null,
+        kind: null,
+        body: null,
+        fileName: null,
+        mediaState: null,
+      };
+    }
+    return {
+      messageId: target.id,
+      direction: target.direction,
+      sentBy: target.sentBy,
+      kind: whatsappMessageKind.catch("unsupported").parse(target.kind),
+      body: target.body ?? target.caption,
+      fileName: target.fileName,
+      mediaState: target.mediaState,
+    };
+  };
   return chatMessagePage.parse({
     items: page.map((row) => {
-      const target = row.quotedWamid === null ? undefined : quotedByWamid.get(row.quotedWamid);
       return {
         id: row.id,
         direction: row.direction,
@@ -390,7 +431,11 @@ export async function listMessages(
         fileName: row.fileName,
         latitude: row.latitude === null ? null : Number(row.latitude),
         longitude: row.longitude === null ? null : Number(row.longitude),
-        quoted: target === undefined ? null : { kind: target.kind, body: target.body ?? target.caption },
+        quoted: quoteOf(row),
+        quoteDropped: row.quoteDropped,
+        sentAt: row.sentAt?.toISOString() ?? null,
+        deliveredAt: row.deliveredAt?.toISOString() ?? null,
+        readAt: row.readAt?.toISOString() ?? null,
         reaction: row.reaction,
         status: whatsappMessageStatus.catch("received").parse(row.status),
         failureCode: row.failureCode,

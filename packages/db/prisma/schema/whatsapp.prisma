@@ -125,6 +125,10 @@ model WhatsappMessage {
   /// WhatsApp's message id; null until a send is answered.
   wamid          String?
   quotedWamid    String?              @map("quoted_wamid")
+  /// Our reply's quote: the message it answers, in the same chat (a member chose it). An inbound quote is `quotedWamid` alone.
+  quotedMessageId String?             @map("quoted_message_id") @db.Uuid
+  /// MSG91 would not take the quote, so the message went without it.
+  quoteDropped   Boolean              @default(false) @map("quote_dropped")
   /// An emoji set on this message by a reaction.
   reaction       String?
   clientToken    String?              @map("client_token")
@@ -153,6 +157,9 @@ model WhatsappMessage {
   conversation   WhatsappConversation @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
   template       WhatsappTemplate?    @relation(fields: [organizationId, templateId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
   broadcast      WhatsappBroadcast?   @relation(fields: [organizationId, broadcastId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  /// Not RESTRICT: the purge deletes a table's rows in one statement, and a restricting key to a row of the same table would stop it.
+  quotedMessage  WhatsappMessage?     @relation("MessageQuote", fields: [organizationId, quotedMessageId], references: [organizationId, id], onDelete: NoAction, onUpdate: Restrict)
+  quotedBy       WhatsappMessage[]    @relation("MessageQuote")
   scheduledFrom  ScheduledMessage[]
   broadcastRows  WhatsappBroadcastRecipient[]
 

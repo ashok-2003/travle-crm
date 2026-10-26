@@ -135,8 +135,25 @@ export const chatMessage = z.object({
   fileName: z.string().nullable(),
   latitude: z.number().nullable(),
   longitude: z.number().nullable(),
-  /** The message this one replies to, as far as we have it. */
-  quoted: z.object({ kind: whatsappMessageKind, body: z.string().nullable() }).nullable(),
+  /**
+   * The message this one replies to. `messageId` is null when we never had the original (a quote of a message from before we
+   * were connected): the bubble then says it is not available.
+   */
+  quoted: z
+    .object({
+      messageId: recordId.nullable(),
+      direction: z.enum(["in", "out"]).nullable(),
+      /** The staff member who wrote it, for one of ours. */
+      sentBy: recordId.nullable(),
+      kind: whatsappMessageKind.nullable(),
+      /** Its words, or its caption. */
+      body: z.string().nullable(),
+      fileName: z.string().nullable(),
+      mediaState: whatsappMediaState.nullable(),
+    })
+    .nullable(),
+  /** MSG91 would not take our quote, so the message went without it. */
+  quoteDropped: z.boolean(),
   /** An emoji a reaction set on this message. */
   reaction: z.string().nullable(),
   status: whatsappMessageStatus,
@@ -145,6 +162,10 @@ export const chatMessage = z.object({
   /** The staff member who sent it from here, named in the page's `people`; null for the customer's and the phone's. */
   sentBy: recordId.nullable(),
   occurredAt: timestamp,
+  /** When it was sent, delivered and read (message info); each null until it happens. */
+  sentAt: timestamp.nullable(),
+  deliveredAt: timestamp.nullable(),
+  readAt: timestamp.nullable(),
   starred: z.boolean(),
 });
 export type ChatMessage = z.infer<typeof chatMessage>;

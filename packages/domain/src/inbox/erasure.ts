@@ -66,6 +66,7 @@ export async function withdrawWhatsApp(
       mediaUrl: null,
       reaction: null,
       quotedWamid: null,
+      quotedMessageId: null,
       templateParams: [],
     },
   });

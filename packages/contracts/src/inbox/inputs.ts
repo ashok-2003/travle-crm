@@ -81,6 +81,8 @@ export const sendMessageInput = z.strictObject({
   conversationId: recordId,
   clientToken,
   text: z.string().trim().min(1).max(4096),
+  /** One of this chat's messages, which the reply quotes. */
+  replyToMessageId: recordId.optional(),
 });
 export type SendMessageInput = z.infer<typeof sendMessageInput>;
 
@@ -100,5 +102,7 @@ export const sendMediaInput = z.strictObject({
   attachmentId: recordId,
   clientToken,
   caption: z.string().trim().min(1).max(1024).optional(),
+  /** One of this chat's messages, which the file quotes. */
+  replyToMessageId: recordId.optional(),
 });
 export type SendMediaInput = z.infer<typeof sendMediaInput>;

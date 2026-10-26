@@ -70,6 +70,10 @@ interface Queued {
   fileName: string | null;
   template: { name: string; language: string; category: string } | null;
   templateParams: string[];
+  /** The WhatsApp id of the message our reply quotes; null with no quote, or when that message has none yet. */
+  replyTo: string | null;
+  /** The reply quotes a message (so a send refused for the quote may go again without it). */
+  quotes: boolean;
   /** When it was queued (or last tried again by a person). */
   queuedAt: Date;
   sentBy: string | null;
@@ -97,6 +101,8 @@ async function queuedMessage(tx: OrgTx, messageId: string): Promise<Queued | nul
       occurredAt: true,
       sentBy: true,
       templateParams: true,
+      quotedMessageId: true,
+      quotedMessage: { select: { wamid: true } },
       template: { select: { name: true, language: true, category: true } },
       status: true,
       direction: true,
@@ -123,6 +129,8 @@ async function queuedMessage(tx: OrgTx, messageId: string): Promise<Queued | nul
     fileName: message.fileName,
     template: message.template,
     templateParams: message.templateParams,
+    replyTo: message.quotedMessage?.wamid ?? null,
+    quotes: message.quotedMessageId !== null,
     queuedAt: message.occurredAt,
     sentBy: message.sentBy,
     origin: message.origin,
@@ -186,7 +194,9 @@ async function callProvider(
   provider: WhatsAppProvider,
   organizationId: string,
   message: Queued,
+  withQuote: boolean,
 ): Promise<WhatsAppSendResult | "file_missing"> {
+  const replyTo = withQuote && message.replyTo !== null ? { replyTo: message.replyTo } : {};
   if (message.template !== null) {
     return provider.sendTemplate(message.integratedNumber, message.phoneE164, {
       name: message.template.name,
@@ -195,7 +205,7 @@ async function callProvider(
     });
   }
   if (message.kind === "text")
-    return provider.sendText(message.integratedNumber, message.phoneE164, message.body ?? "");
+    return provider.sendText(message.integratedNumber, message.phoneE164, message.body ?? "", replyTo);
   const [file] = await dependencies.files.list(systemActor(organizationId), {
     recordType: WHATSAPP_RECORD_TYPE,
     recordId: message.id,
@@ -211,6 +221,7 @@ async function callProvider(
     ...(message.kind === "audio" && file.contentType === "audio/ogg" ? { voice: true } : {}),
     ...(message.caption === null ? {} : { caption: message.caption }),
     ...(message.fileName === null ? {} : { fileName: message.fileName }),
+    ...replyTo,
   });
 }
 
@@ -277,13 +288,23 @@ export async function sendQueued(
   if (claimed.count !== 1) return "skipped";
 
   let result: WhatsAppSendResult | "file_missing";
+  let quoteDropped = queued.quotes && queued.replyTo === null;
   try {
-    result = await callProvider(dependencies, provider, organizationId, queued);
+    result = await callProvider(dependencies, provider, organizationId, queued, true);
+    // MSG91 refused something about the message while it carries a quote: the quote may be the reason (SPIKE(reply-context)),
+    // so it goes once more without it. Only a plain refusal is tried again; "unsure" and "down" never are (at most once).
+    if (result !== "file_missing" && !result.ok && result.reason === "other" && queued.replyTo !== null) {
+      dependencies.logger.info(
+        { connectionId: queued.connectionId, providerCode: result.providerCode ?? null },
+        "MSG91 refused a WhatsApp reply with its quote: sending it without",
+      );
+      quoteDropped = true;
+      result = await callProvider(dependencies, provider, organizationId, queued, false);
+    }
   } catch {
     // The call left and we do not know what came of it.
     result = { ok: false, reason: "unsure" };
   }
-
   if (result !== "file_missing" && !result.ok && retryableFailureReasons.includes(result.reason)) {
     if (now.getTime() - queued.queuedAt.getTime() < RETRY_FOR_MS) {
       await context.forOrg((tx) =>
@@ -315,7 +336,7 @@ export async function sendQueued(
       }
       await tx.whatsappMessage.update({
         where: { id: queued.id },
-        data: { status: "sent", wamid: result.wamid, sentAt: now },
+        data: { status: "sent", wamid: result.wamid, sentAt: now, ...(quoteDropped ? { quoteDropped: true } : {}) },
       });
       await tx.whatsappConnection.update({ where: { id: queued.connectionId }, data: { lastSendOkAt: now } });
       await bumpUsage(tx, { organizationId, connectionId: queued.connectionId }, monthStartOf(now, "Asia/Kolkata"), {
