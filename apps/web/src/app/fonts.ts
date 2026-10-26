@@ -56,6 +56,7 @@ export const numbers = localFont({
     { path: "../../node_modules/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-500-normal.woff2", weight: "500" },
   ],
   variable: "--font-numbers",
+  // Only the pages that show a number need it: sign-in and offline do not, and their first paint is budgeted.
   preload: false,
   adjustFontFallback: "Arial",
 });
@@ -72,8 +73,8 @@ export const numbersExtended = localFont({
     },
   ],
   variable: "--font-numbers-extended",
-  // Preloaded, unlike the other extended files: it holds the rupee sign, so without this every money amount would
-  // paint in a fallback face and then swap.
+  // Not preloaded, like the others: a page that shows a rupee or a number fetches the file it needs (the sign-in page shows
+  // neither, and its first paint is budgeted).
   preload: false,
   adjustFontFallback: false,
   declarations: [
