@@ -67,7 +67,10 @@ export function MessageBubble({
           {!media && (
             <span
               aria-hidden="true"
-              className={cn("inline-block", ours ? (firstName === undefined ? "w-20" : "w-32") : "w-12")}
+              className={cn(
+                "inline-block",
+                ours ? (message.origin === "automation" ? "w-44" : firstName === undefined ? "w-20" : "w-32") : "w-12",
+              )}
             />
           )}
         </div>
