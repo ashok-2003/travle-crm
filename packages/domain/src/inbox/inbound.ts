@@ -139,9 +139,16 @@ export async function receiveInbound(
         personId,
         hidden,
         profileName: (message.customerName?.trim().slice(0, 200) ?? "") || conversation.profileName,
-        // The customer writing brings an archived chat back into the list (sales inbox spec 5).
+        // The customer writing brings an archived chat back into the list (sales inbox spec 5) and wakes a snoozed one, so a
+        // new message is never hidden behind a snooze (the snoozer is not reminded: they see the message itself).
         ...(writing
-          ? { lastInboundAt: later(conversation.lastInboundAt, columns.occurredAt), needsReply: true, archivedAt: null }
+          ? {
+              lastInboundAt: later(conversation.lastInboundAt, columns.occurredAt),
+              needsReply: true,
+              archivedAt: null,
+              snoozedUntil: null,
+              snoozedBy: null,
+            }
           : {}),
         ...(conversation.lastMessageAt === null || columns.occurredAt.getTime() >= conversation.lastMessageAt.getTime()
           ? { lastMessageAt: columns.occurredAt, lastMessageId: row.id }
