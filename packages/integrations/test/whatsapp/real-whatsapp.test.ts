@@ -39,6 +39,27 @@ describe("the real WhatsApp provider", () => {
     });
   });
 
+  it("sends a file as MSG91's attachment_url, with its caption and, for a document, its name", async () => {
+    const { adapter, requests } = provider(() =>
+      json(200, { status: "success", data: { messages: [{ id: "wamid.M1" }] } }),
+    );
+    const sent = await adapter.sendMedia("+918888800000", "+919876543210", {
+      kind: "document",
+      url: "https://files.example/itinerary.pdf?signed=1",
+      caption: "Your Manali itinerary",
+      fileName: "itinerary.pdf",
+    });
+    expect(sent).toMatchObject({ ok: true, wamid: "wamid.M1" });
+    const body = JSON.parse(requests[0]?.init.body as string) as Record<string, unknown>;
+    expect(body).toMatchObject({
+      content_type: "document",
+      attachment_url: "https://files.example/itinerary.pdf?signed=1",
+      caption: "Your Manali itinerary",
+      filename: "itinerary.pdf",
+    });
+    expect(body).not.toHaveProperty("url");
+  });
+
   it("maps Meta's codes and statuses to reasons, keeping codes only", async () => {
     const window = provider(() => json(400, { error: { code: 131047, message: "secret words" } }));
     expect(await window.adapter.sendText("918888800000", "919876543210", "x")).toEqual({
