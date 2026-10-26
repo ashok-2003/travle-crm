@@ -7,8 +7,10 @@ import { expectAccessible } from "./support/accessibility";
 import { expect, test } from "./support/fixtures";
 
 test("an Owner signs in by email, back to the page they were sent from", async ({ page, agency }) => {
-  // Before its script runs, the prerendered page shows a skeleton, not an empty column.
-  expect(await (await page.request.get("/sign-in")).text()).toContain('aria-busy="true"');
+  // Before its script runs, the prerendered page already holds the form: no skeleton, and nothing waits for the address.
+  const prerendered = await (await page.request.get("/sign-in")).text();
+  expect(prerendered).toContain("Forgot your password?");
+  expect(prerendered).not.toContain('aria-busy="true"');
   await page.goto("/sign-in?next=%2Fstaff");
   await expect(page.getByRole("heading", { level: 1, name: "Sign in" })).toBeVisible();
   await expect(page).toHaveTitle(/^Sign in · /);
