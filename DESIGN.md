@@ -20,6 +20,12 @@ colors:
   money-tint: "#e3f1ee"
   sidebar: { fill: "#075e54", ink: "#ffffff", active: "#0f8073" }
   chat: { wallpaper: "#efeae2", out: "#d9fdd3", in: "#ffffff", bar: "#f0f2f5" }
+  avatar-sky: { bg: "#d6ecfb", ink: "#0b4f75" }
+  avatar-rose: { bg: "#fde2e7", ink: "#8a2742" }
+  avatar-amber: { bg: "#fdecc8", ink: "#7a4a00" }
+  avatar-mint: { bg: "#d7f5e6", ink: "#1d6142" }
+  avatar-violet: { bg: "#e9e1fb", ink: "#4c2f97" }
+  avatar-teal: { bg: "#d5f1ef", ink: "#0f5c56" }
   status-red: { dot: "#d92d20", bg: "#fdecea", ink: "#9b1c1c" }
   status-amber: { dot: "#c2680a", bg: "#fff3d6", ink: "#7a4100" }
   status-green: { dot: "#168f43", bg: "#e3f4e7", ink: "#14532d" }

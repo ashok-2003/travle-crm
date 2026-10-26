@@ -49,6 +49,12 @@ const brandValueOf: Record<string, string> = {
   "chat.in": colours.chat.bubbleIn,
   "chat.bar": colours.chat.bar,
   ...Object.fromEntries(
+    Object.entries(colours.avatar).flatMap(([name, avatar]) => [
+      [`avatar-${name}.bg`, avatar.fill],
+      [`avatar-${name}.ink`, avatar.ink],
+    ]),
+  ),
+  ...Object.fromEntries(
     (
       [
         ["status-red", colours.status.bad],

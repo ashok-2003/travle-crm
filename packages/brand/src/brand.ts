@@ -78,6 +78,18 @@ export const brand = {
       ink: "#ffffff",
       active: "#0f8073",
     },
+    /**
+     * A chat's round picture in the inbox (sales inbox spec, design v2): a soft tint and its dark ink, one per person, picked
+     * by a hash of the chat, so the same customer always wears the same colour and a list is easy to scan. Decoration only.
+     */
+    avatar: {
+      sky: { fill: "#d6ecfb", ink: "#0b4f75" },
+      rose: { fill: "#fde2e7", ink: "#8a2742" },
+      amber: { fill: "#fdecc8", ink: "#7a4a00" },
+      mint: { fill: "#d7f5e6", ink: "#1d6142" },
+      violet: { fill: "#e9e1fb", ink: "#4c2f97" },
+      teal: { fill: "#d5f1ef", ink: "#0f5c56" },
+    } satisfies Record<string, RoleColour>,
     /** The WhatsApp inbox (sales inbox spec): the chat's wallpaper, our bubbles and theirs, the bars above and below. */
     chat: {
       wallpaper: "#efeae2",

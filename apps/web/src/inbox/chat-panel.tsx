@@ -33,10 +33,10 @@ export type ChatVariant = "inbox" | "page" | "lead";
 export function ChatPanel({ conversationId, variant = "inbox" }: { conversationId: string; variant?: ChatVariant }) {
   const t = useTranslations("inbox.chat");
   const header = useConversation(conversationId);
-  // The panel sits beside the chat where there is room for both (1280px), and opens over it elsewhere.
+  // The panel sits beside the chat where there is room for both (1280px), and opens over it elsewhere. It starts closed,
+  // so the chat has the room (the sale's owner and stage are in the chat's bar); the person opens it when they need it.
   const roomy = useMediaQuery("(min-width: 1280px)");
-  const [panelChoice, setPanelChoice] = useState<boolean | null>(null);
-  const panelOpen = panelChoice ?? roomy;
+  const [panelOpen, setPanelOpen] = useState(false);
   const panelButton = useRef<HTMLButtonElement>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [filter, setFilter] = useState<MessageFilter>({ search: "", starredOnly: false });
@@ -73,7 +73,7 @@ export function ChatPanel({ conversationId, variant = "inbox" }: { conversationI
           asPage={variant === "page"}
           panelOpen={panelOpen}
           onTogglePanel={() => {
-            setPanelChoice(!panelOpen);
+            setPanelOpen(!panelOpen);
           }}
           panelButton={panelButton}
           searchOpen={searchOpen}
@@ -114,7 +114,7 @@ export function ChatPanel({ conversationId, variant = "inbox" }: { conversationI
             <ContactPanel
               header={data}
               onClose={() => {
-                setPanelChoice(false);
+                setPanelOpen(false);
                 panelButton.current?.focus();
               }}
             />
@@ -125,7 +125,7 @@ export function ChatPanel({ conversationId, variant = "inbox" }: { conversationI
         <Sheet
           open={panelOpen}
           onOpenChange={(open) => {
-            setPanelChoice(open);
+            setPanelOpen(open);
           }}
         >
           <SheetContent side="right" className="p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-md">
