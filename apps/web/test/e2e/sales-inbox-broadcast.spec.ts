@@ -75,8 +75,7 @@ test("a broadcast from preview to sent leaves out who asked to stop and who neve
   await dialog.getByRole("button", { name: "Goa interested" }).click();
   await dialog.getByRole("button", { name: "Check who it reaches" }).click();
   await expect(dialog.getByText("It reaches 2 chats.")).toBeVisible();
-  await expect(dialog.getByText("1 asked to stop WhatsApp messages")).toBeVisible();
-  await expect(dialog.getByText("1 have no consent to WhatsApp messages recorded")).toBeVisible();
+  await expect(dialog.getByText("Left out: 1 asked to stop · 1 has no WhatsApp consent recorded.")).toBeVisible();
   await expect(dialog.getByText(/This month's allowance: 0 of 300 used, 300 left/)).toBeVisible();
   await dialog.getByRole("button", { name: "Send to 2 chats" }).click();
 

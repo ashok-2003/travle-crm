@@ -14,7 +14,7 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: routes.home,
     scope: "/",
     display: "standalone",
-    theme_color: brand.colours.canvas,
+    theme_color: brand.colours.sidebar.fill,
     background_color: brand.colours.canvas,
     icons: pwaIcons.map((icon) => ({ ...icon })),
   };

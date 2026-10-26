@@ -94,9 +94,9 @@ test("screens open offline by the app's links, opened before or not, with their 
   const main = page.getByRole("main");
   const heading = (name: string) => page.getByRole("heading", { level: 1, name });
   const banner = page.getByText("You're offline. You see what was last loaded");
-  /** A destination's link: in the sidebar, or the phone's bar, whose first four are Home, Today, Leads and Staff. */
+  /** A destination's link: in the sidebar, or the phone's bar, whose four are Home, Today, Leads and Inbox: Staff and the rest are in More. */
   const open = async (name: string) => {
-    if (testInfo.project.name === "phone" && name !== "Staff") {
+    if (testInfo.project.name === "phone") {
       await navigation.getByRole("button", { name: "More" }).click();
       await page.getByRole("dialog", { name: agency.name }).getByRole("link", { name }).click();
     } else {

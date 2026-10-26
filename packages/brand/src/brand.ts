@@ -44,7 +44,7 @@ export const brand = {
    * ones in DESIGN.md's front matter; a web app test fails when the two disagree.
    */
   colours: {
-    /** Text and the darkest surfaces (WhatsApp's ink, the owner's chosen theme of 2026-10-25). */
+    /** Text and the darkest surfaces (WhatsApp's ink). The whole product wears WhatsApp's green: the owner's decision of 2026-10-26. */
     ink: "#111b21",
     /** Secondary text, captions and placeholders: 6.1:1 on canvas. */
     muted: "#54656f",
@@ -57,8 +57,8 @@ export const brand = {
     /** The edge of inputs and secondary buttons: 3.5:1 on canvas, enough for a control's boundary. */
     inputBorder: "#7c8b95",
     /** The one interactive colour: buttons, links, focus rings, the active item. WhatsApp's teal green. */
-    action: "#008069",
-    actionPressed: "#006b58",
+    action: "#00785f",
+    actionPressed: "#005f4d",
     /** Selected chips and hover, with actionPressed as their text. */
     actionTint: "#e7f6f1",
     /** Text on an action fill: 4.96:1 on action. */
@@ -98,7 +98,7 @@ export const brand = {
      * the action, people, money and status colours and from the other stages (test/brand.test.ts).
      */
     stage: {
-      new: { dot: "#0c8bbb", fill: "#d3eefd", ink: "#04516f" },
+      new: { dot: "#0c8bbb", fill: "#cbe9fb", ink: "#04516f" },
       contacted: { dot: "#0b959b", fill: "#d5fcfe", ink: "#045b5f" },
       bookingRequested: { dot: "#719427", fill: "#edf9dc", ink: "#415a03" },
     } satisfies Record<string, StatusColour>,
@@ -114,7 +114,7 @@ export const brand = {
       peach: { fill: "#fee3d4", ink: "#6f3f20" },
       gold: { fill: "#f7f7cc", ink: "#595501" },
       fern: { fill: "#d6f8d8", ink: "#36563a" },
-      mint: { fill: "#d3fff2", ink: "#035e4d" },
+      mint: { fill: "#d3fff2", ink: "#2e5b40" },
     } satisfies Record<string, RoleColour>,
   },
 

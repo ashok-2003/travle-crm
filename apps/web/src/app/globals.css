@@ -208,6 +208,11 @@
 [data-slot="sidebar"] .text-muted-foreground {
   color: color-mix(in srgb, var(--sidebar-foreground) 78%, transparent);
 }
+/* On the lighter teal of the current page, even softened words fall under 4.5:1: they take the full white there. */
+[data-slot="sidebar"] [data-active="true"] .text-muted-foreground,
+[data-slot="sidebar"] [aria-current="page"] .text-muted-foreground {
+  color: var(--sidebar-foreground);
+}
 
 /* On a phone, toasts sit above the bottom bar (56px, and 8px more) on the pages that have one
    (shell/phone-navigation.tsx), and at the bottom of the screen on the others (components/ui/sonner.tsx). */

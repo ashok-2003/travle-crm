@@ -14,7 +14,7 @@ describe("manifest", () => {
       start_url: "/dashboard",
       scope: "/",
       display: "standalone",
-      theme_color: brand.colours.canvas,
+      theme_color: brand.colours.sidebar.fill,
       background_color: brand.colours.canvas,
     });
   });

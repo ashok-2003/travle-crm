@@ -68,7 +68,7 @@ function decodePng(png: Buffer): { width: number; height: number; pixel: (x: num
   return { width, height, pixel: (x, y) => [...out.subarray(y * stride + x * 4, y * stride + x * 4 + 4)] };
 }
 
-/** "#1a1a1a" as an opaque RGBA pixel. */
+/** A "#rrggbb" colour as an opaque RGBA pixel. */
 const opaque = (hex: string) => [1, 3, 5].map((start) => parseInt(hex.slice(start, start + 2), 16)).concat(255);
 
 describe("generated icons", () => {
@@ -113,8 +113,8 @@ describe("generated icons", () => {
     }
   });
 
-  it("fills the maskable icon to its edges with ink, and the Apple icon with warm white", async () => {
-    expect(readPng(await read("icon-maskable-512.png")).topLeft).toEqual(opaque(brand.colours.ink));
+  it("fills the maskable icon to its edges with the dark teal, and the Apple icon with white", async () => {
+    expect(readPng(await read("icon-maskable-512.png")).topLeft).toEqual(opaque(brand.colours.sidebar.fill));
     expect(readPng(await read("apple-touch-icon.png")).topLeft).toEqual(opaque(brand.colours.canvas));
     // The plain icons keep the mark's rounded corners on a transparent background.
     expect(readPng(await read("icon-512.png")).topLeft[3]).toBe(0);
@@ -153,9 +153,9 @@ describe("generated icons", () => {
     }
   });
 
-  it("keeps the maskable icon's edges all ink, so the mark sits inside the safe zone", async () => {
+  it("keeps the maskable icon's edges all dark teal, so the mark sits inside the safe zone", async () => {
     const { width, height, pixel } = decodePng(await read("icon-maskable-512.png"));
-    const ink = opaque(brand.colours.ink);
+    const ink = opaque(brand.colours.sidebar.fill);
     for (let i = 0; i < width; i++) {
       expect(pixel(i, 0)).toEqual(ink);
       expect(pixel(i, height - 1)).toEqual(ink);
