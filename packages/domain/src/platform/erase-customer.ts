@@ -74,5 +74,6 @@ export async function eraseCustomerParts(
     metaLeadsWithdrawn: meta.leadsWithdrawn,
     whatsappMessagesWithdrawn: whatsapp.messages,
     whatsappFiles: whatsapp.files,
+    whatsappInboxRows: whatsapp.inboxRows,
   };
 }

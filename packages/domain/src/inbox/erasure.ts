@@ -2,18 +2,23 @@
 // template values emptied and its kind kept; its media files go through the files module's own deletion (the bytes are queued
 // for deletion in the same transaction); its wamid stays (a wamid is not personal data, and keeping it stops a late retry from
 // making the message again). The chat loses its person, its profile name and its number (replaced by erased:<uuid>) and
-// becomes erased, so the same person writing again is a new chat and, per crm's rule, a new enquiry. Runs in the erasure's
-// platform transaction, naming the organization.
+// becomes erased, so the same person writing again is a new chat and, per crm's rule, a new enquiry. What the sales inbox
+// keeps about the chat goes too: the scheduled messages (their words), the tags on it, every member's read mark, and the
+// notices that name it. The automatic answers written to the person are messages, so they are emptied with the rest; the notes
+// on their lead are crm's, erased with the lead. Runs in the erasure's platform transaction, naming the organization.
 import { WHATSAPP_RECORD_TYPE } from "@travel-crm/contracts/files";
 import type { OrgTx } from "@travel-crm/db";
 import { randomUUID } from "node:crypto";
 import { deleteRecordFiles } from "../files/index.js";
+import { forgetRecordNotifications } from "../notifications/index.js";
 import { mediaKinds } from "./messages.js";
 
 export interface WhatsAppWithdrawn {
   conversations: number;
   messages: number;
   files: number;
+  /** Scheduled messages, tags on the chats and read marks removed, and notices forgotten: counts for the platform log. */
+  inboxRows: number;
 }
 
 export async function withdrawWhatsApp(
@@ -36,7 +41,7 @@ export async function withdrawWhatsApp(
     },
     select: { id: true },
   });
-  if (chats.length === 0) return { conversations: 0, messages: 0, files: 0 };
+  if (chats.length === 0) return { conversations: 0, messages: 0, files: 0, inboxRows: 0 };
   const conversationIds = chats.map((chat) => chat.id);
   const withFiles = await tx.whatsappMessage.findMany({
     where: { organizationId, conversationId: { in: conversationIds }, kind: { in: [...mediaKinds] } },
@@ -64,6 +69,14 @@ export async function withdrawWhatsApp(
       templateParams: [],
     },
   });
+  const inChats = { organizationId, conversationId: { in: conversationIds } };
+  let inboxRows = (await tx.scheduledMessage.deleteMany({ where: inChats })).count;
+  inboxRows += (await tx.conversationTag.deleteMany({ where: inChats })).count;
+  inboxRows += (await tx.conversationRead.deleteMany({ where: inChats })).count;
+  // A notice about a chat (a mention, a failed send, a waking snooze) carries the customer's name and links to the chat.
+  for (const id of conversationIds) {
+    inboxRows += await forgetRecordNotifications(tx, { organizationId, recordId: id, sourceEventIds: [] });
+  }
   for (const id of conversationIds) {
     await tx.whatsappConversation.update({
       where: { id },
@@ -76,5 +89,5 @@ export async function withdrawWhatsApp(
       },
     });
   }
-  return { conversations: chats.length, messages: emptied.count, files };
+  return { conversations: chats.length, messages: emptied.count, files, inboxRows };
 }
