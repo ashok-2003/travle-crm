@@ -170,7 +170,14 @@ export const chatMessage = z.object({
 });
 export type ChatMessage = z.infer<typeof chatMessage>;
 
+/**
+ * What the member had not read when the chat was opened: how many of the customer's messages (at most 99) and which was the
+ * first, so the chat can draw "N unread messages" above it. Only on the chat's first page, and not while searching.
+ */
+export const chatUnread = z.object({ count: z.int().min(0), firstMessageId: recordId.nullable() });
+
 export const chatMessagePage = z.object({
+  unread: chatUnread.nullable(),
   /** Newest first; the screen lays them out oldest at the bottom. */
   items: z.array(chatMessage),
   nextCursor: recordId.nullable(),

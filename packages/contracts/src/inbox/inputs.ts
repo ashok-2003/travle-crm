@@ -44,6 +44,14 @@ export const listMessagesInput = z.strictObject({
 });
 export type ListMessagesInput = z.infer<typeof listMessagesInput>;
 
+/** A chat's photos and videos, newest first, a page at a time (the contact panel's gallery). */
+export const listChatMediaInput = z.strictObject({
+  conversationId: recordId,
+  before: recordId.optional(),
+  limit: z.int().min(1).max(60).default(30),
+});
+export type ListChatMediaInput = z.infer<typeof listChatMediaInput>;
+
 /** The chat of the person a lead belongs to. */
 export const leadChatInput = z.strictObject({ leadId: recordId });
 export type LeadChatInput = z.infer<typeof leadChatInput>;

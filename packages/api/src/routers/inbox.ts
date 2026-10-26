@@ -12,6 +12,7 @@ import {
   listMessagesInput,
   mediaLink,
   mediaUrlInput,
+  listChatMediaInput,
   mediaUploadSlot,
   messageIdInput,
   requestMediaUploadInput,
@@ -41,6 +42,8 @@ import {
   listMessages,
   markAnswered,
   mediaLinkOf,
+  listChatMedia,
+  discardFailedMessage,
   queueMedia,
   queueTemplate,
   queueText,
@@ -113,6 +116,20 @@ export const inboxRouter = router({
       return { ...page, people };
     }),
 
+  /** A chat's photos and videos, newest first, for the contact panel's gallery. */
+  media: reader
+    .input(listChatMediaInput)
+    .output(chatMessagePage)
+    .query(async ({ ctx, input }) => {
+      const page = await ctx.db.forOrg(ctx.member.organizationId, (tx) => listChatMedia(tx, ctx.member, input));
+      const people = await memberNames(
+        ctx.identity,
+        ctx.member.organizationId,
+        page.items.flatMap((message) => [message.sentBy, message.quoted?.sentBy ?? null]),
+      );
+      return { ...page, people };
+    }),
+
   /** The chat of the person a lead belongs to, for the lead's page; none yet is null. */
   leadChat: reader
     .input(leadChatInput)
@@ -169,6 +186,13 @@ export const inboxRouter = router({
     .output(sentMessage)
     .mutation(({ ctx, input }) =>
       queueMedia(ctx, ctx.member, input, { whatsappConfigured: ctx.whatsappConfigured }, new Date()),
+    ),
+
+  /** Take a message that was not sent out of the chat, for good (instead of trying again). */
+  discard: replier
+    .input(messageIdInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => discardFailedMessage(tx, ctx.member, input.messageId)),
     ),
 
   /** Try again on a message that was not sent: back in the queue, if the window is still open. */
