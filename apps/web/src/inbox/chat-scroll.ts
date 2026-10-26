@@ -23,6 +23,16 @@ export interface ChatScrollInput {
   loadEarlier: () => void;
 }
 
+/**
+ * Scrolls to the very end and says where that left the view. The scroll event this causes arrives a frame later, when a picture
+ * may already have grown the content: read then, the view would look "away from the bottom" though nobody moved it, so the
+ * event for this very position is not taken as the person's own scroll.
+ */
+function pinToEnd(viewport: HTMLElement): number {
+  viewport.scrollTop = viewport.scrollHeight;
+  return viewport.scrollTop;
+}
+
 const viewportOf = (root: HTMLElement | null) =>
   root?.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]') ?? null;
 
@@ -35,6 +45,8 @@ export function useChatScroll(input: ChatScrollInput) {
   const [unseenCount, setUnseenCount] = useState(0);
   const [away, setAway] = useState(false);
   const atBottom = useRef(true);
+  /** The position this hook last scrolled to itself, whose scroll event is not the person's. */
+  const ownTop = useRef<number | null>(null);
   const seen = useRef<{ oldest: string | null; newest: string | null; height: number; total: number }>({
     oldest: null,
     newest: null,
@@ -49,7 +61,7 @@ export function useChatScroll(input: ChatScrollInput) {
   const toBottom = useCallback(() => {
     const viewport = viewportOf(root.current);
     if (viewport === null) return;
-    viewport.scrollTop = viewport.scrollHeight;
+    ownTop.current = pinToEnd(viewport);
     atBottom.current = true;
     setUnseen(false);
     setUnseenCount(0);
@@ -62,11 +74,11 @@ export function useChatScroll(input: ChatScrollInput) {
     if (viewport === null || newestId === null) return;
     const before = seen.current;
     if (before.newest === null) {
-      viewport.scrollTop = viewport.scrollHeight;
+      ownTop.current = pinToEnd(viewport);
       atBottom.current = true;
     } else if (before.newest !== newestId) {
       if (atBottom.current || newestIsOurs) {
-        viewport.scrollTop = viewport.scrollHeight;
+        ownTop.current = pinToEnd(viewport);
         atBottom.current = true;
         setUnseen(false);
         setUnseenCount(0);
@@ -86,6 +98,12 @@ export function useChatScroll(input: ChatScrollInput) {
     const viewport = viewportOf(root.current);
     if (viewport === null) return;
     const onScroll = () => {
+      // Our own scroll to the end, seen a frame late: not the person moving, so nothing about "away" changes.
+      if (ownTop.current !== null && Math.abs(viewport.scrollTop - ownTop.current) <= 1) {
+        ownTop.current = null;
+        return;
+      }
+      ownTop.current = null;
       atBottom.current = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < NEAR_BOTTOM_PX;
       setAway(!atBottom.current);
       if (atBottom.current) {
@@ -99,7 +117,7 @@ export function useChatScroll(input: ChatScrollInput) {
     viewport.addEventListener("scroll", onScroll, { passive: true });
     const content = viewport.firstElementChild;
     const observer = new ResizeObserver(() => {
-      if (atBottom.current) viewport.scrollTop = viewport.scrollHeight;
+      if (atBottom.current) ownTop.current = pinToEnd(viewport);
       seen.current.height = viewport.scrollHeight;
     });
     if (content !== null) observer.observe(content);

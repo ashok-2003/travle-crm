@@ -53,11 +53,18 @@ export function customerMessage(input: {
   wamid?: string;
   /** The id of the message this one answers, as MSG91 names it. */
   replyMsgId?: string;
+  /** A file's name, for a document. */
+  fileName?: string;
+  latitude?: number;
+  longitude?: number;
 }) {
   return signer.inbound({
     integratedNumber: input.to,
     wamid: input.wamid ?? `wamid.e2e-${crypto.randomUUID()}`,
     ...(input.replyMsgId === undefined ? {} : { replyMsgId: input.replyMsgId }),
+    ...(input.fileName === undefined ? {} : { filename: input.fileName }),
+    ...(input.latitude === undefined ? {} : { latitude: input.latitude }),
+    ...(input.longitude === undefined ? {} : { longitude: input.longitude }),
     ts: Math.floor(Date.now() / 1000),
     ...(input.name === undefined ? {} : { customerName: input.name }),
     ...(input.text === undefined ? {} : { text: input.text }),

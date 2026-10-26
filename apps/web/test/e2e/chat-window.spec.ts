@@ -36,6 +36,9 @@ test("a customer's photos open in a viewer: zoom, next, close", async ({ page, b
   }
   // The worker copies each photo into storage; each then shows as a picture that can be opened.
   await expect(chat.getByRole("button", { name: "Open the photo" })).toHaveCount(2, { timeout: 90_000 });
+  // The chat stayed at its end while the pictures loaded: the newest is in view and nothing says there are new messages.
+  await expect(chat.getByRole("button", { name: "Open the photo" }).last()).toBeInViewport();
+  await expect(chat.getByRole("button", { name: "New messages" })).toHaveCount(0);
 
   await chat.getByRole("button", { name: "Open the photo" }).first().click();
   const viewer = owner.getByRole("dialog");

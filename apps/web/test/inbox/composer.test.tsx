@@ -5,6 +5,7 @@ import type { ConversationHeader } from "@travel-crm/contracts/inbox";
 import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ChatDropZone } from "@/inbox/chat-drop";
 import { Composer } from "@/inbox/composer";
 import { draftKey } from "@/inbox/forward-dialog";
 import { PendingBubble } from "@/inbox/pending-bubble";
@@ -97,6 +98,32 @@ describe("the reply box", () => {
     await waitFor(() => {
       expect(document.querySelector("img[src^='data:image/png']")).not.toBeNull();
     });
+  });
+
+  it("takes a file dropped on the chat into the box", async () => {
+    renderWithApi(
+      <ChatDropZone>
+        <Composer header={header(chatA)} windowOpenUntil="2099-01-01T00:00:00.000Z" />
+      </ChatDropZone>,
+      newQueryClient(),
+    );
+    const dropped = new File([new Uint8Array(10)], "itinerary.pdf", { type: "application/pdf" });
+    const zone = box().closest("form")?.parentElement;
+    if (!zone) throw new Error("no drop zone");
+    const dragging = { types: ["Files"], files: [dropped] };
+    act(() => {
+      zone.dispatchEvent(
+        Object.assign(new Event("dragover", { bubbles: true, cancelable: true }), { dataTransfer: dragging }),
+      );
+    });
+    expect(await screen.findByText("Drop the file to attach it")).toBeInTheDocument();
+    act(() => {
+      zone.dispatchEvent(
+        Object.assign(new Event("drop", { bubbles: true, cancelable: true }), { dataTransfer: dragging }),
+      );
+    });
+    expect(await screen.findByText("itinerary.pdf")).toBeInTheDocument();
+    expect(screen.queryByText("Drop the file to attach it")).toBeNull();
   });
 
   it("shows how far a file has gone, as a bubble in the chat too, and stops when cancelled", async () => {

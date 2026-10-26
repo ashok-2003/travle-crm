@@ -100,7 +100,7 @@ export function ToolsSheet(props: ToolsProps) {
           <SheetTitle>{t("tools")}</SheetTitle>
           <SheetDescription className="sr-only">{t("toolsDescription")}</SheetDescription>
         </SheetHeader>
-        <div className="flex flex-col gap-0.5 p-2" role="toolbar" aria-label={t("tools")}>
+        <div className="flex flex-col gap-0.5 p-2 [&>button]:justify-start" role="toolbar" aria-label={t("tools")}>
           <Tools
             layout="list"
             {...props}

@@ -161,7 +161,7 @@ export function MediaViewerProvider({
       >
         <DialogContent
           showCloseButton={false}
-          className="top-0 left-0 h-dvh max-w-none translate-x-0 translate-y-0 grid-rows-[auto_1fr_auto] gap-0 rounded-none bg-scrim p-0 text-foreground sm:max-w-none"
+          className="top-0 left-0 h-dvh max-w-none translate-x-0 translate-y-0 grid-rows-[auto_1fr_auto] gap-0 rounded-none bg-foreground p-0 text-background sm:max-w-none"
           onKeyDown={(event) => {
             if (event.key === "ArrowRight") go(1);
             if (event.key === "ArrowLeft") go(-1);
@@ -171,7 +171,7 @@ export function MediaViewerProvider({
           <DialogDescription className="sr-only">{t("description")}</DialogDescription>
           {message !== undefined && (
             <>
-              <div className="flex items-center gap-2 bg-background/90 p-2 pl-4">
+              <div className="flex items-center gap-2 bg-background/90 p-2 pl-4 text-foreground">
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{t("from", { name: from })}</p>
                   <p className="text-caption text-muted-foreground">
@@ -229,7 +229,7 @@ export function MediaViewerProvider({
                   </Button>
                 )}
               </div>
-              <p dir="auto" className="min-h-14 bg-background/90 p-3 text-center whitespace-pre-wrap">
+              <p dir="auto" className="min-h-14 bg-background/90 p-3 text-center whitespace-pre-wrap text-foreground">
                 {message.caption}
               </p>
             </>
