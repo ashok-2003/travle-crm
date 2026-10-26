@@ -7,7 +7,7 @@
 import { MegaphoneIcon, MessageCircleIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
@@ -16,6 +16,7 @@ import { PageTitle } from "@/components/page-title";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { useSidebar } from "@/components/ui/sidebar";
 import { routes } from "@/lib/routes";
 import { useFillScreen } from "@/lib/use-fill-screen";
 import { useWideScreen } from "@/lib/use-wide-screen";
@@ -31,11 +32,28 @@ function Padded({ children }: { children: ReactNode }) {
   return <div className="flex flex-col gap-6 px-4 pt-6 sm:px-6 lg:px-8">{children}</div>;
 }
 
+/**
+ * The inbox wants the width (sales inbox spec, design v2): on a computer the app's sidebar folds to its icons while the
+ * inbox is open, as the chat apps' rails are, and opens again as it was when the person leaves.
+ */
+function useFoldedSidebar() {
+  const { open, setOpen, isMobile } = useSidebar();
+  const wasOpen = useRef(open);
+  useEffect(() => {
+    if (isMobile || !wasOpen.current) return;
+    setOpen(false);
+    return () => {
+      setOpen(true);
+    };
+  }, [isMobile, setOpen]);
+}
+
 export function InboxScreen({ conversationId }: { conversationId: string | null }) {
   const t = useTranslations("inbox");
   const wide = useWideScreen();
   const status = useInboxStatus();
   useInboxKeys(conversationId);
+  useFoldedSidebar();
   const mayBroadcast = useHolds("inbox:templates");
 
   const fill = useFillScreen<HTMLDivElement>();

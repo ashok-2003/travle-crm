@@ -109,7 +109,9 @@
       "quickReplies": "Quick replies",
       "noQuickReplies": "No quick reply has that shortcut. Add quick replies in Settings, WhatsApp.",
       "paymentDetails": "Put the payment details in the message",
-      "noPaymentDetails": "No payment details yet. In Settings, WhatsApp, add a quick reply with the shortcut \"payment\" holding your UPI id and bank details."
+      "noPaymentDetails": "No payment details yet. In Settings, WhatsApp, add a quick reply with the shortcut \"payment\" holding your UPI id and bank details.",
+      "tools": "Message tools",
+      "templates": "Templates"
     },
     "formerMember": "A former member",
     "failure": {
@@ -185,7 +187,20 @@
       },
       "pick": "Or choose a time",
       "schedule": "Schedule"
-    }
+    },
+    "stageMoved": "Moved to {stage}",
+    "stageMenu": "Stage: {stage}. Change it",
+    "moveTo": "Move the lead to",
+    "wonConverted": "Won (converted)",
+    "ownerChanged": "Given to {name}",
+    "noOwner": "Unassigned",
+    "ownerMenu": "Owner: {name}. Give the lead to someone",
+    "giveTo": "Give the lead to",
+    "windowChipClosed": "Window closed",
+    "windowChipMinutes": "{minutes}m left",
+    "windowChipHours": "{hours}h left",
+    "windowChipHint": "How long you can still reply with free text: 24 hours from the customer's last message",
+    "call": "Call {name}"
   },
   "leadSection": {
     "title": "WhatsApp",
@@ -529,5 +544,15 @@
       "sending": "Starting",
       "started": "The broadcast is on its way."
     }
+  },
+  "emptyChoices": "No chat matches these choices.",
+  "stageFilter": "Show chats at a stage",
+  "anyStage": "Status",
+  "periodFilter": "Show chats by their last message",
+  "anyTime": "Any time",
+  "periods": {
+    "today": "Today",
+    "week": "Last 7 days",
+    "month": "Last 30 days"
   }
 }

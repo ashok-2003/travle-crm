@@ -76,6 +76,18 @@ export const brand = {
      * The inbox's chat pane, and nowhere else (the owner's decision of 2026-10-26, later): WhatsApp's beige wallpaper, its green
      * and white bubbles, the date chip and the read ticks. The rest of the product wears the Agency OS palette above.
      */
+    /**
+     * A chat's round picture in the inbox (sales inbox spec, design v2): a soft tint and its dark ink, one per person, picked
+     * by a hash of the chat, so the same customer always wears the same colour and a list is easy to scan. Decoration only; they sit on the Agency OS palette (blue, rose, amber, sage, violet, sand), not WhatsApp's green.
+     */
+    avatar: {
+      sky: { fill: "#dbe7fb", ink: "#1e3a8a" },
+      rose: { fill: "#fde2e7", ink: "#8a2742" },
+      amber: { fill: "#fdecc8", ink: "#7a4a00" },
+      sage: { fill: "#e1efd9", ink: "#2f5a1f" },
+      violet: { fill: "#e9e1fb", ink: "#4c2f97" },
+      sand: { fill: "#efe6d2", ink: "#5b4521" },
+    } satisfies Record<string, RoleColour>,
     chat: {
       wallpaper: "#efeae2",
       bubbleOut: "#d9fdd3",

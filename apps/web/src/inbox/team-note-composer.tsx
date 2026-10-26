@@ -99,7 +99,7 @@ export function TeamNoteComposer({ conversationId }: { conversationId: string })
               onPick={pick}
               row={(owner) => (
                 <>
-                  <ChatAvatar name={owner.name} />
+                  <ChatAvatar name={owner.name} seed={owner.userId} />
                   <span>{owner.name}</span>
                 </>
               )}

@@ -46,6 +46,11 @@ function leadScopeWhere(access: MemberAccess): { ownerUserId?: string; id?: { in
   return scope === "own" ? { ownerUserId: access.userId } : { id: { in: [] } };
 }
 
+const DAY_MS = 86_400_000;
+/** Where the "Any time" filter's period starts: a day, 7 days or 30 days before now. */
+const periodStart = (period: NonNullable<ListConversationsInput["period"]>, now: Date) =>
+  new Date(now.getTime() - (period === "today" ? 1 : period === "week" ? 7 : 30) * DAY_MS);
+
 const digitsOf = (text: string) => text.replace(/\D/g, "");
 
 function searchWhere(search: string): ConversationWhere {
@@ -153,6 +158,10 @@ export async function listConversations(
     await filterWhere(tx, access, input.filter, now),
     ...(input.search === undefined ? [] : [searchWhere(input.search)]),
     ...(input.tagId === undefined ? [] : [{ tags: { some: { tagId: input.tagId } } }]),
+    ...(input.stage === undefined
+      ? []
+      : [{ person: { is: { leads: { some: { deletedAt: null, stage: input.stage, ...leadScopeWhere(access) } } } } }]),
+    ...(input.period === undefined ? [] : [{ lastMessageAt: { gte: periodStart(input.period, now) } }]),
   ];
   const select = {
     id: true,

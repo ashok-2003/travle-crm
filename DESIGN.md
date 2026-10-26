@@ -18,6 +18,12 @@ colors:
   money: "#034f46"
   money-pressed: "#07352f"
   money-tint: "#e3f1ee"
+  avatar-sky: { bg: "#dbe7fb", ink: "#1e3a8a" }
+  avatar-rose: { bg: "#fde2e7", ink: "#8a2742" }
+  avatar-amber: { bg: "#fdecc8", ink: "#7a4a00" }
+  avatar-sage: { bg: "#e1efd9", ink: "#2f5a1f" }
+  avatar-violet: { bg: "#e9e1fb", ink: "#4c2f97" }
+  avatar-sand: { bg: "#efe6d2", ink: "#5b4521" }
   status-red: { dot: "#d92d20", bg: "#fdecea", ink: "#9b1c1c" }
   status-amber: { dot: "#c2680a", bg: "#fff3d6", ink: "#7a4100" }
   status-green: { dot: "#168f43", bg: "#e3f4e7", ink: "#14532d" }

@@ -47,6 +47,12 @@ const brandValueOf: Record<string, string> = {
   "chat.date": colours.chat.dateChip,
   "chat.tick": colours.chat.tickRead,
   ...Object.fromEntries(
+    Object.entries(colours.avatar).flatMap(([name, avatar]) => [
+      [`avatar-${name}.bg`, avatar.fill],
+      [`avatar-${name}.ink`, avatar.ink],
+    ]),
+  ),
+  ...Object.fromEntries(
     (
       [
         ["status-red", colours.status.bad],

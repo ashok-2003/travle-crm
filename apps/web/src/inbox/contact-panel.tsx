@@ -72,7 +72,7 @@ export function ContactPanel({ header, onClose }: { header: ConversationHeader; 
           )}
         </div>
         <div className="flex flex-col items-center gap-2 text-center">
-          <ChatAvatar name={header.name} size="large" />
+          <ChatAvatar name={header.name} seed={header.id} size="large" />
           <p className={cn("text-section font-semibold script-leading", header.name === null && "numbers")}>{name}</p>
           <p className="flex items-center gap-1 numbers text-muted-foreground">
             {formatPhoneNumber(header.phone)}

@@ -1,31 +1,31 @@
 "use client";
 
-// The reply box (spec 3.2): a growing text box, Attach (a file or photo, sent straight to storage), and Send, which is off while
-// the box is empty or the subscription refuses a change (with the reason under it). Enter sends on a computer and starts a new
+// The reply box (spec 3.2; sales inbox spec, design v2): a text box of a few lines, and under it the tools (a template,
+// emoji, Attach a file or photo sent straight to storage, quick replies, Payment details, Send later, a voice note) and
+// Send, which is off while the box is empty or the subscription refuses a change (with the reason under it). Enter sends on a computer and starts a new
 // line on a touch screen; Shift+Enter always does. A file waits in the box with a name and a way to take it off, and the words
-// become its caption. Under the box, how long free text may still be sent. Typing "/" opens the agency's quick replies, and
+// become its caption (the chat's bar says how long free text may still be sent). Typing "/" opens the agency's quick replies, and
 // Payment details (₹) puts the agency's payment words in the box (the quick reply with the shortcut "payment").
 import {
   MAX_WHATSAPP_SEND_BYTES,
   whatsappSendContentTypes,
   type ConversationHeader,
 } from "@travel-crm/contracts/inbox";
-import { IndianRupeeIcon, PaperclipIcon, SendIcon } from "lucide-react";
+import { IndianRupeeIcon, PaperclipIcon, SendIcon, ZapIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useRef, useState, type KeyboardEvent } from "react";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { InputGroup, InputGroupAddon, InputGroupTextarea } from "@/components/ui/input-group";
-import { formatDayTime } from "@/lib/format";
+import { InputGroup, InputGroupTextarea } from "@/components/ui/input-group";
 import { useWideScreen } from "@/lib/use-wide-screen";
-import { useMe } from "@/session/me-context";
 import { WriteHint } from "@/subscription/write-hint";
 import { useWriteAccess } from "@/subscription/write-access";
 import { AttachedFile } from "./attached-file";
 import { EmojiButton } from "./emoji-button";
 import { QuickReplyList } from "./quick-reply-list";
 import { ScheduleButton } from "./schedule-button";
+import { TemplateTool } from "./template-tool";
 import { useQuickReplyPicker } from "./use-quick-reply-picker";
 import { useTypingSignal } from "./use-sales-inbox";
 import { useReply } from "./use-reply";
@@ -37,7 +37,6 @@ const acceptedTypes = whatsappSendContentTypes.join(",");
 
 export function Composer({ header, windowOpenUntil }: { header: ConversationHeader; windowOpenUntil: string }) {
   const t = useTranslations("inbox.chat");
-  const { timeZone } = useMe().organization;
   const conversationId = header.id;
   const listId = useId();
   const access = useWriteAccess("change");
@@ -125,7 +124,7 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
           onSend={() => void voice.finish()}
         />
       ) : (
-        <div className="flex items-end gap-2">
+        <div className="flex flex-col gap-1.5">
           <input
             ref={picker}
             type="file"
@@ -138,8 +137,8 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
               event.target.value = "";
             }}
           />
-          {/* One rounded bar, as WhatsApp's: emoji and attach, then the words, which grow to six lines. */}
-          <div className="relative min-w-0 flex-1">
+          {/* The words on top, room for several lines, as the sales inboxes have it; the tools and Send under them. */}
+          <div className="relative min-w-0">
             {quick.shown !== null && (
               <QuickReplyList
                 replies={quick.shown}
@@ -150,13 +149,13 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
                 }}
               />
             )}
-            <InputGroup>
+            <InputGroup className="rounded-xl bg-background">
               <InputGroupTextarea
                 ref={box}
                 dir="auto"
-                rows={1}
+                rows={2}
                 maxLength={MAX_TEXT}
-                className="max-h-40 min-h-11 py-3"
+                className="max-h-48 min-h-16 py-3"
                 aria-label={t("composer.label")}
                 aria-describedby={access.hint === null ? undefined : hintId}
                 placeholder={t("composer.placeholder")}
@@ -173,64 +172,75 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
                 aria-controls={quick.shown === null ? undefined : listId}
                 aria-autocomplete="list"
               />
-              <InputGroupAddon className="self-end pb-0.5">
-                {wide && <EmojiButton onPick={insertEmoji} disabled={reply.pending || !access.allowed} />}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="text-muted-foreground"
-                  aria-label={t("composer.attach")}
-                  disabled={reply.pending || !access.allowed}
-                  onClick={() => picker.current?.click()}
-                >
-                  <PaperclipIcon aria-hidden="true" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="text-muted-foreground"
-                  aria-label={t("composer.paymentDetails")}
-                  disabled={reply.pending || !access.allowed}
-                  onClick={quick.payment}
-                >
-                  <IndianRupeeIcon aria-hidden="true" />
-                </Button>
-              </InputGroupAddon>
             </InputGroup>
           </div>
-          {words !== "" && file === null && (
-            <ScheduleButton
-              conversationId={conversationId}
-              windowOpenUntil={windowOpenUntil}
-              text={words}
-              disabled={!access.allowed || reply.pending}
-              onScheduled={() => {
-                setText("");
+          <div className="flex items-center gap-0.5" role="toolbar" aria-label={t("composer.tools")}>
+            <TemplateTool conversationId={conversationId} disabled={reply.pending || !access.allowed} />
+            {wide && <EmojiButton onPick={insertEmoji} disabled={reply.pending || !access.allowed} />}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground"
+              aria-label={t("composer.attach")}
+              disabled={reply.pending || !access.allowed}
+              onClick={() => picker.current?.click()}
+            >
+              <PaperclipIcon aria-hidden="true" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground"
+              aria-label={t("composer.quickReplies")}
+              disabled={reply.pending || !access.allowed}
+              onClick={() => {
+                setText("/");
+                quick.typedSomething();
+                requestAnimationFrame(() => box.current?.focus());
               }}
-            />
-          )}
-          {voice.available && words === "" && file === null && !reply.pending ? (
-            <MicButton disabled={!access.allowed || voice.phase === "starting"} onStart={() => void voice.start()} />
-          ) : (
+            >
+              <ZapIcon aria-hidden="true" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground"
+              aria-label={t("composer.paymentDetails")}
+              disabled={reply.pending || !access.allowed}
+              onClick={quick.payment}
+            >
+              <IndianRupeeIcon aria-hidden="true" />
+            </Button>
+            {words !== "" && file === null && (
+              <ScheduleButton
+                conversationId={conversationId}
+                windowOpenUntil={windowOpenUntil}
+                text={words}
+                disabled={!access.allowed || reply.pending}
+                onScheduled={() => {
+                  setText("");
+                }}
+              />
+            )}
+            {voice.available && words === "" && file === null && !reply.pending && (
+              <MicButton disabled={!access.allowed || voice.phase === "starting"} onStart={() => void voice.start()} />
+            )}
             <Button
               type="submit"
-              size="icon"
-              className="shrink-0 rounded-full"
+              className="ml-auto shrink-0 rounded-full px-5"
               disabled={!canSend}
-              aria-label={reply.pending ? t("composer.sending") : t("composer.send")}
               aria-describedby={access.hint === null ? undefined : hintId}
             >
               {reply.pending ? <Spinner aria-hidden="true" /> : <SendIcon aria-hidden="true" />}
+              {reply.pending ? t("composer.sending") : t("composer.send")}
             </Button>
-          )}
+          </div>
         </div>
       )}
       <WriteHint id={hintId} hint={access.hint} visible />
-      <p className="px-2 text-caption text-muted-foreground">
-        {t("windowOpen", { until: formatDayTime(new Date(windowOpenUntil), { timeZone }) })}
-      </p>
     </form>
   );
 }

@@ -1,11 +1,17 @@
 // What the inbox screens send (spec 6.3). Inputs are z.strictObject: unknown keys get a 400.
 import { z } from "zod";
 import { attachmentFileName } from "../files/attachments.js";
+import { leadStage } from "../crm/fields.js";
 import { recordId } from "../identity/fields.js";
 
 export const conversationFilters = ["waiting", "unread", "all", "mine", "unassigned", "snoozed", "archived"] as const;
 export const conversationFilter = z.enum(conversationFilters);
 export type ConversationFilter = z.infer<typeof conversationFilter>;
+
+/** How recent the chat's last message is: the inbox's "Any time" filter. */
+export const conversationPeriods = ["today", "week", "month"] as const;
+export const conversationPeriod = z.enum(conversationPeriods);
+export type ConversationPeriod = z.infer<typeof conversationPeriod>;
 
 export const listConversationsInput = z.strictObject({
   filter: conversationFilter.default("waiting"),
@@ -13,6 +19,10 @@ export const listConversationsInput = z.strictObject({
   search: z.string().trim().min(2).max(80).optional(),
   /** Only the chats carrying this tag. */
   tagId: recordId.optional(),
+  /** Only the chats whose lead (the person's lead the member may see) stands at this stage. */
+  stage: leadStage.optional(),
+  /** Only the chats with a message in the last day, 7 days or 30 days. */
+  period: conversationPeriod.optional(),
   /** The last conversation id of the previous page. */
   before: recordId.optional(),
   limit: z.int().min(1).max(50).default(25),
