@@ -46,6 +46,8 @@ export interface FakeSent {
   caption: string | null;
   fileName: string | null;
   voice: boolean;
+  /** The message this one answered (SPIKE(reply-context): the `context` field of the outbound call), or null. */
+  replyTo: string | null;
   /** For a template: its name, language and the values of its blanks. */
   template: { name: string; language: string; parameters: string[] } | null;
 }
@@ -125,6 +127,7 @@ export async function startFakeMsg91(): Promise<FakeMsg91> {
         caption: null,
         fileName: null,
         voice: false,
+        replyTo: null,
         template: {
           name: textOf(template.name),
           language: textOf(language.code),
@@ -208,6 +211,7 @@ export async function startFakeMsg91(): Promise<FakeMsg91> {
         caption: textOrNull(body.caption),
         fileName: textOrNull(body.filename),
         voice: body.voice === true,
+        replyTo: textOrNull((body.context as { message_id?: unknown } | undefined)?.message_id),
         template: null,
       });
       response.writeHead(200, { "content-type": "application/json" });

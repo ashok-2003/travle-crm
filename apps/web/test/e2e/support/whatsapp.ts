@@ -1,6 +1,6 @@
 // WhatsApp's steps for its journeys: MSG91's own calls to the webhook (the path with its token and the static header), as
 // the journeys' stand-in for MSG91's panel, and the console steps that record a number and mark it connected.
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { createDatabase, type OrgTx } from "@travel-crm/db";
 import { msg91Signer } from "@travel-crm/integrations/whatsapp";
 import { MSG91_E2E, type FakeSent } from "./fake-msg91";
@@ -49,10 +49,15 @@ export function customerMessage(input: {
   contentType?: string;
   url?: string;
   caption?: string;
+  /** The id this message is known by, when the journey needs it later (to be quoted). */
+  wamid?: string;
+  /** The id of the message this one answers, as MSG91 names it. */
+  replyMsgId?: string;
 }) {
   return signer.inbound({
     integratedNumber: input.to,
-    wamid: `wamid.e2e-${crypto.randomUUID()}`,
+    wamid: input.wamid ?? `wamid.e2e-${crypto.randomUUID()}`,
+    ...(input.replyMsgId === undefined ? {} : { replyMsgId: input.replyMsgId }),
     ts: Math.floor(Date.now() / 1000),
     ...(input.name === undefined ? {} : { customerName: input.name }),
     ...(input.text === undefined ? {} : { text: input.text }),
@@ -183,4 +188,18 @@ export async function openNewChat(owner: Page, business: string, customer: strin
     });
   }).toPass({ timeout: 150_000 });
   return owner.getByRole("region", { name: `Chat with ${name}` });
+}
+
+/**
+ * Opens a chat's contact details: the bar's own button where there is room, the chat's menu on a phone (where the bar keeps
+ * the name and moves search, call and the details into it).
+ */
+export async function openContactDetails(owner: Page, chat: Locator): Promise<void> {
+  const button = chat.getByRole("button", { name: "Contact and lead details" });
+  if (await button.isVisible()) {
+    await button.click();
+    return;
+  }
+  await chat.getByRole("button", { name: "More for this chat" }).click();
+  await owner.getByRole("menuitem", { name: "Contact and lead details" }).click();
 }

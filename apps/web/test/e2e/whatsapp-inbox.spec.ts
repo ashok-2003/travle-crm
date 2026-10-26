@@ -9,6 +9,7 @@ import {
   deliverWhatsapp,
   newBusinessNumber,
   newCustomerNumber,
+  openContactDetails,
   recordNumber,
 } from "./support/whatsapp";
 
@@ -121,7 +122,7 @@ test("a super admin connects the agency's number, then a message becomes a lead 
   // The lead: source, and the same chat on its page.
   // The lead is a link in the contact details: beside the chat on a wide screen, a sheet from the header on a phone.
   const openLead = owner.getByRole("link", { name: "Open the lead" }).first();
-  if (!(await openLead.isVisible())) await panel.getByRole("button", { name: "Contact and lead details" }).click();
+  if (!(await openLead.isVisible())) await openContactDetails(owner, panel);
   await openLead.click();
   const ownerCard = owner.getByRole("region", { name: "Owner and source" });
   await expect(ownerCard.getByText("WhatsApp", { exact: true })).toBeVisible();
