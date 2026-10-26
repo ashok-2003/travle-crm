@@ -16,6 +16,8 @@ export interface ChatScrollInput {
   oldestId: string | null;
   newestId: string | null;
   newestIsOurs: boolean;
+  /** How many messages are shown: how many came in while the person was reading higher up. */
+  total: number;
   hasEarlier: boolean;
   loadingEarlier: boolean;
   loadEarlier: () => void;
@@ -25,15 +27,19 @@ const viewportOf = (root: HTMLElement | null) =>
   root?.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]') ?? null;
 
 export function useChatScroll(input: ChatScrollInput) {
-  const { oldestId, newestId, newestIsOurs, hasEarlier, loadingEarlier, loadEarlier } = input;
+  const { oldestId, newestId, newestIsOurs, total, hasEarlier, loadingEarlier, loadEarlier } = input;
   /** Put on the scroll area's root: its viewport is found inside. */
   const root = useRef<HTMLDivElement>(null);
   const [unseen, setUnseen] = useState(false);
+  /** How many arrived below while the person was higher up, and whether they are higher up at all. */
+  const [unseenCount, setUnseenCount] = useState(0);
+  const [away, setAway] = useState(false);
   const atBottom = useRef(true);
-  const seen = useRef<{ oldest: string | null; newest: string | null; height: number }>({
+  const seen = useRef<{ oldest: string | null; newest: string | null; height: number; total: number }>({
     oldest: null,
     newest: null,
     height: 0,
+    total: 0,
   });
   const latest = useRef({ hasEarlier, loadingEarlier, loadEarlier });
   useEffect(() => {
@@ -46,6 +52,8 @@ export function useChatScroll(input: ChatScrollInput) {
     viewport.scrollTop = viewport.scrollHeight;
     atBottom.current = true;
     setUnseen(false);
+    setUnseenCount(0);
+    setAway(false);
   }, []);
 
   // What changed in the list decides where the view goes.
@@ -61,15 +69,17 @@ export function useChatScroll(input: ChatScrollInput) {
         viewport.scrollTop = viewport.scrollHeight;
         atBottom.current = true;
         setUnseen(false);
+        setUnseenCount(0);
       } else {
         setUnseen(true);
+        setUnseenCount((count) => count + Math.max(1, total - before.total));
       }
     } else if (before.oldest !== oldestId) {
       // Earlier messages were added above: keep what the person was reading where it was.
       viewport.scrollTop += viewport.scrollHeight - before.height;
     }
-    seen.current = { oldest: oldestId, newest: newestId, height: viewport.scrollHeight };
-  }, [oldestId, newestId, newestIsOurs]);
+    seen.current = { oldest: oldestId, newest: newestId, height: viewport.scrollHeight, total };
+  }, [oldestId, newestId, newestIsOurs, total]);
 
   // Scrolling, and the content growing (a picture arriving).
   useEffect(() => {
@@ -77,7 +87,11 @@ export function useChatScroll(input: ChatScrollInput) {
     if (viewport === null) return;
     const onScroll = () => {
       atBottom.current = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < NEAR_BOTTOM_PX;
-      if (atBottom.current) setUnseen(false);
+      setAway(!atBottom.current);
+      if (atBottom.current) {
+        setUnseen(false);
+        setUnseenCount(0);
+      }
       seen.current.height = viewport.scrollHeight;
       const { hasEarlier: more, loadingEarlier: busy, loadEarlier: load } = latest.current;
       if (viewport.scrollTop < NEAR_TOP_PX && more && !busy) load();
@@ -95,5 +109,5 @@ export function useChatScroll(input: ChatScrollInput) {
     };
   }, []);
 
-  return { root, unseen, toBottom };
+  return { root, unseen, unseenCount, away, toBottom };
 }

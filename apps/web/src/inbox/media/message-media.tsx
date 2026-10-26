@@ -10,6 +10,7 @@ import type { ReactNode } from "react";
 import { useMediaLink } from "../use-inbox";
 import { DocumentCard } from "./document-card";
 import { useOpenMedia } from "./media-viewer";
+import { VoiceNotePlayer } from "./voice-note-player";
 
 type MediaKind = "image" | "video" | "audio" | "document" | "sticker";
 const iconOfKind: Record<MediaKind, LucideIcon> = {
@@ -52,7 +53,7 @@ export function MessageMedia({ message }: { message: ChatMessage }) {
   const { url, contentType } = link.data;
   if (kind === "document") return <DocumentCard messageId={message.id} link={link.data} />;
   if (kind === "audio" || contentType.startsWith("audio/")) {
-    return <audio src={url} controls className="max-w-full" aria-label={t("audio")} />;
+    return <VoiceNotePlayer url={url} />;
   }
   if (kind === "sticker") {
     // eslint-disable-next-line @next/next/no-img-element

@@ -23,6 +23,7 @@ import { ChatSearchBar } from "./chat-search-bar";
 import { ContactPanel } from "./contact-panel";
 import { MessageList } from "./message-list";
 import { ReplyArea } from "./reply-area";
+import { ReplyingProvider } from "./use-replying";
 import { useConversation, type MessageFilter } from "./use-inbox";
 
 /**
@@ -67,39 +68,41 @@ export function ChatPanel({ conversationId, variant = "inbox" }: { conversationI
   }
   const data = header.data;
   const chat = (
-    <ChatDropZone className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-      {variant !== "lead" && (
-        <ChatHeader
-          header={data}
-          asPage={variant === "page"}
-          panelOpen={panelOpen}
-          onTogglePanel={() => {
-            setPanelOpen(!panelOpen);
-          }}
-          panelButton={panelButton}
-          searchOpen={searchOpen}
-          onToggleSearch={() => {
-            setSearchOpen(!searchOpen);
-          }}
-        />
-      )}
-      {searchOpen && (
-        <ChatSearchBar
-          filter={filter}
-          onChange={setFilter}
-          onClose={() => {
-            setSearchOpen(false);
-          }}
-        />
-      )}
-      {/* The wallpaper: messages scroll inside it while the reply bar stays at its foot. */}
-      <div className="relative min-h-0 flex-1 bg-chat-wallpaper">
-        <MessageList conversationId={data.id} filter={shownFilter} />
-      </div>
-      <div className="shrink-0 bg-surface px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:px-4">
-        <ReplyArea header={data} />
-      </div>
-    </ChatDropZone>
+    <ReplyingProvider conversationId={data.id}>
+      <ChatDropZone className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+        {variant !== "lead" && (
+          <ChatHeader
+            header={data}
+            asPage={variant === "page"}
+            panelOpen={panelOpen}
+            onTogglePanel={() => {
+              setPanelOpen(!panelOpen);
+            }}
+            panelButton={panelButton}
+            searchOpen={searchOpen}
+            onToggleSearch={() => {
+              setSearchOpen(!searchOpen);
+            }}
+          />
+        )}
+        {searchOpen && (
+          <ChatSearchBar
+            filter={filter}
+            onChange={setFilter}
+            onClose={() => {
+              setSearchOpen(false);
+            }}
+          />
+        )}
+        {/* The wallpaper: messages scroll inside it while the reply bar stays at its foot. */}
+        <div className="relative min-h-0 flex-1 bg-chat-wallpaper">
+          <MessageList key={data.id} conversationId={data.id} filter={shownFilter} />
+        </div>
+        <div className="shrink-0 bg-surface px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:px-4">
+          <ReplyArea header={data} />
+        </div>
+      </ChatDropZone>
+    </ReplyingProvider>
   );
   const name = data.name ?? formatPhoneNumber(data.phone);
   return (

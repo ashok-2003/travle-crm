@@ -7,7 +7,7 @@
 import type { ChatMessage, ConversationNote } from "@travel-crm/contracts/inbox";
 import { ArrowDownIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Fragment, useEffect, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { ShowMoreButton } from "@/components/show-more-button";
@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDay, formatPhoneNumber } from "@/lib/format";
 import { useMe } from "@/session/me-context";
+import { ChatJumpContext } from "./chat-jump";
 import { useChatScroll } from "./chat-scroll";
 import { MediaViewerProvider } from "./media/media-viewer";
 import { MessageBubble } from "./message-bubble";
@@ -56,14 +57,44 @@ function Loaded({
   // Newest first from the api; the chat reads oldest at the top.
   const oldestFirst: ChatMessage[] = [...items].reverse();
   const newest = oldestFirst.at(-1);
-  const { root, unseen, toBottom } = useChatScroll({
+  const { root, unseen, unseenCount, away, toBottom } = useChatScroll({
     oldestId: oldestFirst[0]?.id ?? null,
     newestId: newest?.id ?? null,
     newestIsOurs: newest?.origin === "staff_crm" && newest.status === "queued",
+    total: oldestFirst.length,
     hasEarlier: messages.hasNextPage,
     loadingEarlier: messages.isFetchingNextPage,
     loadEarlier: () => void messages.fetchNextPage(),
   });
+  // Going to a quoted message: earlier pages are loaded until it is among them, then it scrolls into view and flashes.
+  const shown = useRef(oldestFirst);
+  useEffect(() => {
+    shown.current = oldestFirst;
+  });
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const { fetchNextPage } = messages;
+  const jumpTo = useCallback(
+    async (messageId: string) => {
+      let more = true;
+      while (more && !shown.current.some((message) => message.id === messageId)) {
+        more = (await fetchNextPage()).hasNextPage;
+        await new Promise<void>((resolve) =>
+          requestAnimationFrame(() => {
+            resolve();
+          }),
+        );
+      }
+      const target = root.current?.querySelector(`[data-message-id="${messageId}"]`);
+      if (!target) return;
+      target.scrollIntoView({ block: "center", behavior: "smooth" });
+      setHighlightId(messageId);
+      window.setTimeout(() => {
+        setHighlightId(null);
+      }, 1600);
+    },
+    [fetchNextPage, root],
+  );
+  const jump = { jumpTo: (messageId: string) => void jumpTo(messageId), highlightId };
   const now = new Date();
   const today = dayKey(now.toISOString(), timeZone);
   const yesterday = dayKey(new Date(now.getTime() - 86_400_000).toISOString(), timeZone);
@@ -76,9 +107,16 @@ function Loaded({
   // Open with new messages in it: the member has read them (their unread count goes; sales inbox spec 5).
   const { mutate: mark } = useMarkRead();
   const newestId = newest?.id;
+  // Not before the list has been asked for afresh: the read mark is what says what was unread, and a saved copy of the last
+  // visit must not clear it first.
+  const fresh = messages.isFetchedAfterMount;
   useEffect(() => {
-    if (newestId !== undefined) mark({ conversationId });
-  }, [newestId, conversationId, mark]);
+    if (newestId !== undefined && fresh) mark({ conversationId });
+  }, [newestId, fresh, conversationId, mark]);
+  // What was unread as the chat opened stays on screen as a divider while the chat is open, though the read mark moves.
+  const [opened, setOpened] = useState<{ count: number; firstMessageId: string | null } | null | undefined>(undefined);
+  const unreadNow = messages.data?.pages[0]?.unread;
+  if (opened === undefined && fresh && unreadNow !== undefined) setOpened(unreadNow);
   const people = Object.fromEntries(messages.data?.pages.flatMap((page) => Object.entries(page.people)) ?? []);
   // Notes older than the oldest message shown wait until the earlier messages are loaded, so they land in place.
   const oldestShown = oldestFirst[0]?.occurredAt;
@@ -109,44 +147,75 @@ function Loaded({
       return;
     }
     const { message } = entry;
+    if (opened !== null && opened !== undefined && opened.count > 0 && opened.firstMessageId === message.id) {
+      rows.push(
+        <li key="unread-divider" className="my-3 flex justify-center">
+          <span className="rounded-lg bg-chat-date-chip px-3 py-1 text-caption font-medium text-muted-foreground">
+            {t("unreadDivider", { count: opened.count })}
+          </span>
+        </li>,
+      );
+    }
     rows.push(
       <MessageBubble
         key={message.id}
         message={message}
         senderName={message.sentBy === null ? null : (people[message.sentBy] ?? null)}
+        quotedSender={
+          message.quoted?.direction === "out"
+            ? message.quoted.sentBy === null
+              ? t("reply.teammate")
+              : (people[message.quoted.sentBy] ?? t("reply.teammate"))
+            : customerName
+        }
         first={newDay || previous.kind !== "message" || previous.message.direction !== message.direction}
       />,
     );
   });
   return (
-    <MediaViewerProvider messages={oldestFirst} customerName={customerName} people={people}>
-      <div className="absolute inset-0">
-        <ScrollArea ref={root} className="h-full" aria-label={t("messages")}>
-          <div className="flex flex-col gap-3 pt-2 pb-4">
-            <div className="flex justify-center">
-              <ShowMoreButton pages={messages} label={t("earlier")} />
+    <ChatJumpContext.Provider value={jump}>
+      <MediaViewerProvider messages={oldestFirst} customerName={customerName} people={people}>
+        <div className="absolute inset-0">
+          <ScrollArea ref={root} className="h-full" aria-label={t("messages")}>
+            <div className="flex flex-col gap-3 pt-2 pb-4">
+              <div className="flex justify-center">
+                <ShowMoreButton pages={messages} label={t("earlier")} />
+              </div>
+              <ol className="flex flex-col" aria-label={t("messages")}>
+                {rows.map((row, index) => (
+                  <Fragment key={index}>{row}</Fragment>
+                ))}
+                <PendingBubble conversationId={conversationId} />
+              </ol>
             </div>
-            <ol className="flex flex-col" aria-label={t("messages")}>
-              {rows.map((row, index) => (
-                <Fragment key={index}>{row}</Fragment>
-              ))}
-              <PendingBubble conversationId={conversationId} />
-            </ol>
-          </div>
-        </ScrollArea>
-        {unseen && (
-          <Button
-            variant="secondary"
-            className="absolute right-4 bottom-3 rounded-full"
-            onClick={toBottom}
-            aria-label={t("newMessages")}
-          >
-            <ArrowDownIcon aria-hidden="true" />
-            {t("newMessages")}
-          </Button>
-        )}
-      </div>
-    </MediaViewerProvider>
+          </ScrollArea>
+          {unseen ? (
+            <Button
+              variant="secondary"
+              className="absolute right-4 bottom-3 rounded-full"
+              onClick={toBottom}
+              aria-label={t("newMessages")}
+            >
+              <ArrowDownIcon aria-hidden="true" />
+              {t("newMessages")}
+              {unseenCount > 0 && <span className="numbers">{unseenCount > 99 ? "99+" : unseenCount}</span>}
+            </Button>
+          ) : (
+            away && (
+              <Button
+                variant="secondary"
+                size="icon"
+                className="absolute right-4 bottom-3 rounded-full"
+                onClick={toBottom}
+                aria-label={t("toBottom")}
+              >
+                <ArrowDownIcon aria-hidden="true" />
+              </Button>
+            )
+          )}
+        </div>
+      </MediaViewerProvider>
+    </ChatJumpContext.Provider>
   );
 }
 

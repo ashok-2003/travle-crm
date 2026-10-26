@@ -6,6 +6,7 @@
 import type { ChatMessage } from "@travel-crm/contracts/inbox";
 import { useTranslations } from "next-intl";
 import { Fragment, type ReactNode } from "react";
+import { LocationCard } from "./media/location-card";
 import { MessageMedia } from "./media/message-media";
 
 const LINK = /(https?:\/\/[^\s<>"']+)/g;
@@ -55,23 +56,9 @@ export function MessageBody({ message }: { message: ChatMessage }): ReactNode {
           )}
         </div>
       );
-    case "location": {
+    case "location":
       if (message.latitude === null || message.longitude === null) return t("unsupported");
-      const point = `${String(message.latitude)}, ${String(message.longitude)}`;
-      return (
-        <div className="flex flex-col gap-1">
-          <p>{t("location", { latitude: String(message.latitude), longitude: String(message.longitude) })}</p>
-          <a
-            className="underline"
-            target="_blank"
-            rel="noopener noreferrer"
-            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(point)}`}
-          >
-            {t("openInMaps")}
-          </a>
-        </div>
-      );
-    }
+      return <LocationCard latitude={message.latitude} longitude={message.longitude} />;
     case "contacts":
       return t("contacts");
     case "reaction":

@@ -75,7 +75,7 @@ describe("the reply box", () => {
     const api = fakeApi();
     render(chatA);
     await userEvent.type(box(), "Hello");
-    await userEvent.click(screen.getByRole("button", { name: "Send", exact: true }));
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
     api.calls.find((call) => call.path === "inbox.send")?.answer({ messageId: "m1", status: "queued" });
     await waitFor(() => {
       expect(box()).toHaveValue("");
@@ -122,7 +122,7 @@ describe("the reply box", () => {
     const input = document.querySelector<HTMLInputElement>("input[type=file]");
     if (input === null) throw new Error("the box has no file picker");
     await userEvent.upload(input, new File([new Uint8Array(10)], "plan.png", { type: "image/png" }));
-    await userEvent.click(screen.getByRole("button", { name: "Send", exact: true }));
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
     api.calls
       .find((call) => call.path === "inbox.requestMediaUpload")
       ?.answer({

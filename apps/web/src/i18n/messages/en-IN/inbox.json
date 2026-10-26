@@ -276,7 +276,57 @@
         "file": "File"
       }
     },
-    "sendingFile": "Sending"
+    "sendingFile": "Sending",
+    "voice": {
+      "play": "Play the voice message",
+      "pause": "Pause",
+      "seek": "Move to a place in the voice message",
+      "progress": "How much has played",
+      "speed": "Speed {speed}x. Change it"
+    },
+    "place": {
+      "title": "Location",
+      "open": "Open in Maps"
+    },
+    "quote": {
+      "unavailable": "Original message not available",
+      "goTo": "Go to the message from {name}",
+      "kinds": {
+        "text": "Message",
+        "template": "Template message",
+        "image": "Photo",
+        "sticker": "Sticker",
+        "video": "Video",
+        "audio": "Voice message",
+        "document": "Document",
+        "location": "Location",
+        "contacts": "Contact",
+        "unsupported": "Message"
+      }
+    },
+    "info": {
+      "title": "Message info",
+      "description": "When this message was sent, delivered and read.",
+      "received": "Received",
+      "queued": "Written",
+      "sent": "Sent",
+      "delivered": "Delivered",
+      "read": "Read",
+      "notYet": "Not yet"
+    },
+    "reply": {
+      "action": "Reply",
+      "replyingTo": "Replying to {name}",
+      "cancel": "Stop replying to this message",
+      "youName": "You",
+      "sentWithoutQuote": "Sent without the quote",
+      "teammate": "A teammate"
+    },
+    "infoAction": "Message info",
+    "discard": "Discard",
+    "unreadDivider": "{count, plural, one {# unread message} other {# unread messages}}",
+    "toBottom": "Go to the newest message",
+    "toBottomCount": "{count, plural, one {# new message} other {# new messages}} below. Go to the newest"
   },
   "leadSection": {
     "title": "WhatsApp",

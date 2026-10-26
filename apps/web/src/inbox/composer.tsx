@@ -18,6 +18,7 @@ import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { InputGroup, InputGroupTextarea } from "@/components/ui/input-group";
+import { formatPhoneNumber } from "@/lib/format";
 import { useWideScreen } from "@/lib/use-wide-screen";
 import { WriteHint } from "@/subscription/write-hint";
 import { useWriteAccess } from "@/subscription/write-access";
@@ -28,10 +29,12 @@ import { usePendingSend } from "./pending-sends";
 import { draftKey } from "./forward-dialog";
 import { EmojiButton } from "./emoji-button";
 import { QuickReplyList } from "./quick-reply-list";
+import { ReplyingBar } from "./replying-bar";
 import { ScheduleButton } from "./schedule-button";
 import { TemplateTool } from "./template-tool";
 import { SendDetailsTool } from "./trip-kits/send-details-tool";
 import { useQuickReplyPicker } from "./use-quick-reply-picker";
+import { useReplying } from "./use-replying";
 import { useTypingSignal } from "./use-sales-inbox";
 import { useReply } from "./use-reply";
 import { useVoiceNote } from "./voice/use-voice-note";
@@ -59,9 +62,11 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
   const box = useRef<HTMLTextAreaElement>(null);
   const wide = useWideScreen();
   const signalTyping = useTypingSignal(conversationId);
+  const replying = useReplying();
   const reply = useReply(conversationId, () => {
     setText("");
     setFile(null);
+    replying.clear();
   });
   const voice = useVoiceNote((recorded) => {
     reply.sendFile(recorded, undefined);
@@ -84,8 +89,9 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
 
   const submit = () => {
     if (!canSend) return;
-    if (file === null) reply.sendText(words);
-    else reply.sendFile(file, words === "" ? undefined : words);
+    const quoted = replying.message?.id;
+    if (file === null) reply.sendText(words, quoted);
+    else reply.sendFile(file, words === "" ? undefined : words, quoted);
   };
   const choose = (chosen: File | undefined) => {
     if (chosen === undefined) return;
@@ -124,6 +130,13 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
       }}
     >
       <RefusalAlert error={reply.error} />
+      {replying.message !== null && (
+        <ReplyingBar
+          message={replying.message}
+          customerName={header.name ?? formatPhoneNumber(header.phone)}
+          onCancel={replying.clear}
+        />
+      )}
       {fileProblem !== null && <p className="text-label text-destructive">{t(`composer.${fileProblem}`)}</p>}
       {file !== null && (
         <AttachedFile

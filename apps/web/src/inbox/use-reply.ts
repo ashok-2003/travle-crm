@@ -28,7 +28,15 @@ export function useReply(conversationId: string, onSent: () => void) {
   };
   const sendText = useMutation(trpc.inbox.send.mutationOptions({ onSuccess: settled }));
   const sendFile = useMutation({
-    mutationFn: async ({ file, caption }: { file: File; caption: string | undefined }) => {
+    mutationFn: async ({
+      file,
+      caption,
+      replyToMessageId,
+    }: {
+      file: File;
+      caption: string | undefined;
+      replyToMessageId: string | undefined;
+    }) => {
       const abort = new AbortController();
       stop.current = abort;
       startPendingSend(conversationId, file, caption);
@@ -48,6 +56,7 @@ export function useReply(conversationId: string, onSent: () => void) {
         attachmentId: slot.attachmentId,
         clientToken: token,
         ...(caption === undefined ? {} : { caption }),
+        ...(replyToMessageId === undefined ? {} : { replyToMessageId }),
       });
     },
     onSuccess: settled,
@@ -58,11 +67,16 @@ export function useReply(conversationId: string, onSent: () => void) {
   });
   const error = sendText.error ?? sendFile.error;
   return {
-    sendText: (text: string) => {
-      sendText.mutate({ conversationId, clientToken: token, text });
+    sendText: (text: string, replyToMessageId?: string) => {
+      sendText.mutate({
+        conversationId,
+        clientToken: token,
+        text,
+        ...(replyToMessageId === undefined ? {} : { replyToMessageId }),
+      });
     },
-    sendFile: (file: File, caption: string | undefined) => {
-      sendFile.mutate({ file, caption });
+    sendFile: (file: File, caption: string | undefined, replyToMessageId?: string) => {
+      sendFile.mutate({ file, caption, replyToMessageId });
     },
     /** Stops a file on its way up; the file stays in the box to try again or take off. */
     cancel: () => {
