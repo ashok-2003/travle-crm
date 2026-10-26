@@ -116,7 +116,7 @@ test("templates: written, approved, sent after the window closed, tried again, r
   await owner.reload();
   const chat = owner.getByRole("region", { name: "Chat with Rahul Mehta" });
   await expect(chat.getByText(/You can reply with free text only within 24 hours/)).toBeVisible({ timeout: 30_000 });
-  await expect(chat.getByRole("textbox", { name: "Message" })).toHaveCount(0);
+  await expect(chat.getByRole("combobox", { name: "Message" })).toHaveCount(0);
 
   await refuseNextSendTo(customer);
   await chat.getByRole("button", { name: "Send a template" }).click();

@@ -106,17 +106,25 @@ test("a super admin connects the agency's number, then a message becomes a lead 
     });
   }).toPass({ timeout: 150_000 });
   const panel = owner.getByRole("region", { name: "Chat with Priya Sharma" });
-  await expect(panel.getByText("Hi, Goa trip for 4 in December?")).toBeVisible();
+  // The messages list only: the contact panel beside it shows the lead's timeline, which holds the same first words.
+  await expect(
+    panel.getByRole("list", { name: "Messages" }).getByText("Hi, Goa trip for 4 in December?"),
+  ).toBeVisible();
   // The photo is copied into our storage and shown from there, not from MSG91's link.
   const image = panel.getByRole("img", { name: "Our passports" });
   await expect(image).toBeVisible({ timeout: 60_000 });
   expect(await image.getAttribute("src")).not.toContain("/media/photo.png");
 
   // The lead: source, and the same chat on its page.
-  await panel.getByRole("link", { name: "Priya Sharma" }).click();
+  // The lead is a link in the contact details: beside the chat on a wide screen, a sheet from the header on a phone.
+  const openLead = owner.getByRole("link", { name: "Open the lead" }).first();
+  if (!(await openLead.isVisible())) await panel.getByRole("button", { name: "Contact and lead details" }).click();
+  await openLead.click();
   const ownerCard = owner.getByRole("region", { name: "Owner and source" });
   await expect(ownerCard.getByText("WhatsApp", { exact: true })).toBeVisible();
   const section = owner.getByRole("region", { name: "Chat with Priya Sharma" });
-  await expect(section.getByText("Hi, Goa trip for 4 in December?")).toBeVisible();
+  await expect(
+    section.getByRole("list", { name: "Messages" }).getByText("Hi, Goa trip for 4 in December?"),
+  ).toBeVisible();
   await owner.close();
 });
