@@ -486,7 +486,9 @@
       },
       "waitsUntil": "Waits until {when}",
       "startedBy": "Started by",
-      "message": "Message"
+      "message": "Message",
+      "refused": "Refused by WhatsApp",
+      "refusedInfo": "Of the messages not delivered, those WhatsApp refused for a reason on our side. When too many are refused, the broadcast pauses itself. A number that is not on WhatsApp is not counted."
     },
     "state": {
       "waiting": "Waiting",

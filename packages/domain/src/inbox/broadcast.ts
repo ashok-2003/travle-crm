@@ -21,8 +21,23 @@ import { chatNameOf } from "./chat-name.js";
 import { liveConnection } from "./connection-row.js";
 import { renderTemplate } from "./template-send.js";
 
+/** WhatsApp's refusals that say something is wrong with the sending (a customer's number not being on WhatsApp is not one). */
+export const REFUSALS_OF_OURS = ["other", "tier_limit"];
+
 /** The event that wakes the worker to send a broadcast's waiting recipients. */
 export const BROADCAST_READY_EVENT = "whatsapp.broadcast-ready";
+
+/**
+ * Asks the worker for a batch of the broadcast. One ask waiting to be relayed is enough: the create, a resume, a batch's
+ * own continuation and the minute job all ask, and the asks must not stack into parallel chains.
+ */
+export async function askForBatch(tx: OrgTx, broadcastId: string): Promise<void> {
+  const waiting = await tx.outboxEvent.findFirst({
+    where: { type: BROADCAST_READY_EVENT, relayedAt: null, payload: { path: ["broadcastId"], equals: broadcastId } },
+    select: { id: true },
+  });
+  if (waiting === null) await publishEvent(tx, { type: BROADCAST_READY_EVENT, payload: { broadcastId } });
+}
 
 export async function previewBroadcast(
   tx: OrgTx,
@@ -69,7 +84,7 @@ export async function createBroadcast(
   await tx.whatsappBroadcastRecipient.createMany({
     data: audience.chatIds.map((conversationId) => ({ broadcastId: row.id, conversationId, notBefore: now })),
   });
-  await publishEvent(tx, { type: BROADCAST_READY_EVENT, payload: { broadcastId: row.id } });
+  await askForBatch(tx, row.id);
   await recordAudit(tx, access, {
     action: "inbox.broadcast-created",
     entityType: "whatsapp_broadcast",
@@ -86,21 +101,23 @@ export async function createBroadcast(
 /** Each broadcast's recipients by where they stand. A "sent" one whose message WhatsApp then refused counts as failed. */
 async function countsOf(tx: OrgTx, broadcastIds: string[]): Promise<Map<string, BroadcastCounts>> {
   const counts = new Map<string, BroadcastCounts>(
-    broadcastIds.map((id) => [id, { total: 0, waiting: 0, sent: 0, skipped: 0, failed: 0 }]),
+    broadcastIds.map((id) => [id, { total: 0, waiting: 0, sent: 0, skipped: 0, failed: 0, refused: 0 }]),
   );
   if (broadcastIds.length === 0) return counts;
-  const rows = await tx.$queryRaw<{ id: string; state: string; n: number }[]>(sql`
+  const rows = await tx.$queryRaw<{ id: string; state: string; n: number; refused: number }[]>(sql`
     SELECT r.broadcast_id AS id,
       CASE WHEN r.state = 'sent' AND m.status = 'failed' THEN 'failed' ELSE r.state END AS state,
-      count(*)::int AS n
+      count(*)::int AS n,
+      count(*) FILTER (WHERE m.status = 'failed' AND m.failure_code IN (${joinSql(REFUSALS_OF_OURS.map((code) => sql`${code}`))}))::int AS refused
     FROM whatsapp_broadcast_recipient r
     LEFT JOIN whatsapp_message m ON m.organization_id = r.organization_id AND m.id = r.message_id
     WHERE r.broadcast_id IN (${joinSql(broadcastIds.map((id) => sql`${id}::uuid`))})
     GROUP BY 1, 2`);
-  for (const { id, state, n } of rows) {
+  for (const { id, state, n, refused } of rows) {
     const held = counts.get(id);
     if (held === undefined) continue;
     held.total += n;
+    held.refused += refused;
     if (state === "waiting" || state === "sent" || state === "skipped" || state === "failed") held[state] += n;
   }
   return counts;
@@ -122,7 +139,7 @@ async function summaries(tx: OrgTx, ids: string[]): Promise<BroadcastSummary[]> 
     },
   });
   const counts = await countsOf(tx, ids);
-  const none: BroadcastCounts = { total: 0, waiting: 0, sent: 0, skipped: 0, failed: 0 };
+  const none: BroadcastCounts = { total: 0, waiting: 0, sent: 0, skipped: 0, failed: 0, refused: 0 };
   return rows.map((row) => ({
     id: row.id,
     templateName: row.template.name,
@@ -197,11 +214,11 @@ export async function broadcastDetailOf(
 async function ownBroadcast(tx: OrgTx, access: MemberAccess, id: string) {
   const row = await tx.whatsappBroadcast.findUnique({
     where: { id },
-    select: { id: true, status: true, createdBy: true },
+    select: { id: true, status: true },
   });
   if (row === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
-  // The creator, or whoever writes the agency's templates (the Owner and Admins).
-  if (row.createdBy !== access.userId && !access.permissions.has("inbox:templates")) {
+  // Whoever writes the agency's templates (the Owner and Admins): the router asks for it too.
+  if (!access.permissions.has("inbox:templates")) {
     throw new DomainError("FORBIDDEN", "MISSING_PERMISSION", "Requires inbox:templates");
   }
   return row;
@@ -215,8 +232,16 @@ export async function cancelBroadcast(tx: OrgTx, access: MemberAccess, input: Br
     where: { id: row.id },
     data: { status: "cancelled", cancelledBy: access.userId, cancelledAt: now, pausedReason: null },
   });
+  // What is queued and not yet with WhatsApp is called back too: the sender sends only what is still queued.
+  const recalled = await tx.whatsappMessage.updateMany({
+    where: { broadcastId: row.id, status: "queued" },
+    data: { status: "superseded" },
+  });
   await tx.whatsappBroadcastRecipient.updateMany({
-    where: { broadcastId: row.id, state: "waiting" },
+    where: {
+      broadcastId: row.id,
+      OR: [{ state: "waiting" }, ...(recalled.count > 0 ? [{ message: { is: { status: "superseded" } } }] : [])],
+    },
     data: { state: "skipped", reason: "cancelled" },
   });
   await recordAudit(tx, access, {
@@ -234,7 +259,7 @@ export async function resumeBroadcast(tx: OrgTx, access: MemberAccess, input: Br
     throw new DomainError("CONFLICT", "BROADCAST_NOT_PAUSED", "Only a paused broadcast can be resumed");
   }
   await tx.whatsappBroadcast.update({ where: { id: row.id }, data: { status: "sending", pausedReason: null } });
-  await publishEvent(tx, { type: BROADCAST_READY_EVENT, payload: { broadcastId: row.id } });
+  await askForBatch(tx, row.id);
   await recordAudit(tx, access, {
     action: "inbox.broadcast-resumed",
     entityType: "whatsapp_broadcast",

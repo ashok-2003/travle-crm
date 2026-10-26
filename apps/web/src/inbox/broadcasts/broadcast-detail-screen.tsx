@@ -103,6 +103,7 @@ export function BroadcastDetailScreen({ broadcastId }: { broadcastId: string }) 
           { label: t("detail.waiting"), value: String(broadcast.counts.waiting) },
           { label: t("detail.skipped"), value: String(broadcast.counts.skipped) },
           { label: t("detail.failed"), value: String(broadcast.counts.failed) },
+          { label: t("detail.refused"), value: String(broadcast.counts.refused), info: t("detail.refusedInfo") },
         ]}
       />
       <section aria-labelledby="recipients-heading" className="flex flex-col gap-3">

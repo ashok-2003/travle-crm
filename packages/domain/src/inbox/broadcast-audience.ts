@@ -2,7 +2,7 @@
 // sender may not see, those whose person asked to stop, and those with no WhatsApp consent recorded (a customer who wrote
 // first has not agreed to marketing: Meta asks for the opt-in), then as many as the month's marketing allowance has room for.
 // The preview and the confirm both read it, so what is shown is what is sent.
-import type { BroadcastPreview, BroadcastPreviewInput } from "@travel-crm/contracts/inbox";
+import { markersOf, type BroadcastPreview, type BroadcastPreviewInput } from "@travel-crm/contracts/inbox";
 import { joinSql, sql, type OrgTx } from "@travel-crm/db";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
@@ -33,6 +33,9 @@ export async function broadcastAudience(
   });
   if (template?.status !== "approved") {
     throw new DomainError("CONFLICT", "TEMPLATE_NOT_APPROVED", "Only an approved template can be sent");
+  }
+  if (input.params.length !== markersOf(template.body).length) {
+    throw new DomainError("VALIDATION", "TEMPLATE_VALUES", "Give a value for each blank in the template");
   }
   const tagIds = [...new Set(input.tagIds)];
   const tags = await tx.inboxTag.findMany({ where: { id: { in: tagIds } }, select: { id: true, name: true } });

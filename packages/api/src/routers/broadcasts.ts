@@ -63,7 +63,9 @@ export const broadcastsRouter = router({
       ctx.db.forOrg(ctx.member.organizationId, (tx) => createBroadcast(tx, ctx.member, input, new Date())),
     ),
 
+  /** Stops it. Every subscription state may: a read-only agency can still stop what is running. */
   cancel: writer
+    .meta({ lifecycle: "always" })
     .input(broadcastIdInput)
     .mutation(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, (tx) => cancelBroadcast(tx, ctx.member, input, new Date())),

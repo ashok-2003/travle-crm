@@ -18,6 +18,7 @@ export { mediaLinkOf, startLeadFromConversation } from "./chat-actions.js";
 export {
   archiveConversation,
   markConversationRead,
+  MAX_SNOOZE_MS,
   pinConversation,
   snoozeConversation,
   starMessage,
@@ -41,6 +42,7 @@ export {
   type AutomaticAnswer,
 } from "./automation-answer.js";
 export {
+  askForBatch,
   BROADCAST_READY_EVENT,
   broadcastDetailOf,
   cancelBroadcast,
@@ -53,7 +55,6 @@ export { broadcastListener, nextMorning, sendBroadcastBatch } from "./broadcast-
 export { addNote, listNotes, MENTION_KIND } from "./notes.js";
 export {
   cancelScheduled,
-  dueWorkOf,
   INBOX_DUE_WORK_QUEUE,
   listScheduled,
   runDueWork,

@@ -12,10 +12,10 @@ import {
 import { sql, type OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import { noticeKey } from "../crm/index.js";
-import { defineListener, publishEvent, type EventListener } from "../jobs/index.js";
+import { defineListener, type EventListener } from "../jobs/index.js";
 import { addDays, calendarDateIn, DomainError, instantAt, parseTimeOfDay, systemActor } from "../kernel/index.js";
 import { notify } from "../notifications/index.js";
-import { BROADCAST_READY_EVENT } from "./broadcast.js";
+import { askForBatch, BROADCAST_READY_EVENT, REFUSALS_OF_OURS } from "./broadcast.js";
 import { liveConnection } from "./connection-row.js";
 import { queueCheckedTemplate } from "./template-send.js";
 import { whatsappConsentOf } from "./whatsapp-consent.js";
@@ -23,7 +23,6 @@ import { whatsappConsentOf } from "./whatsapp-consent.js";
 /** Recipients one run handles, each in a transaction of its own, before it asks for another run. */
 const BATCH = 20;
 /** WhatsApp's refusals that say something is wrong with the sending (a customer's number not being on WhatsApp is not one). */
-const QUALITY_REFUSALS = ["other", "tier_limit"];
 /** How long a recipient waits after WhatsApp's own limit on new chats was reached. */
 const TIER_WAIT_MS = 3_600_000;
 /** How long the recipients wait when the number is paused or not connected. */
@@ -73,7 +72,7 @@ async function pause(
 async function tooManyRefused(tx: OrgTx, broadcastId: string, since: Date | null): Promise<boolean> {
   const where = { broadcastId, ...(since === null ? {} : { occurredAt: { gt: since } }) };
   const refused = await tx.whatsappMessage.count({
-    where: { ...where, status: "failed", failureCode: { in: QUALITY_REFUSALS } },
+    where: { ...where, status: "failed", failureCode: { in: REFUSALS_OF_OURS } },
   });
   if (refused === 0) return false;
   const settled = await tx.whatsappMessage.count({
@@ -90,6 +89,8 @@ async function sendNext(
   timeZone: string,
   now: Date,
 ): Promise<Step> {
+  // Held until the end, so a cancel that comes now waits, and then recalls what this send queued.
+  await tx.$queryRaw`SELECT id FROM whatsapp_broadcast WHERE id = ${broadcastId}::uuid FOR UPDATE`;
   const broadcast = await tx.whatsappBroadcast.findUnique({
     where: { id: broadcastId },
     select: { id: true, status: true, templateId: true, params: true, createdBy: true, pausedAt: true },
@@ -203,7 +204,7 @@ async function afterBatch(tx: OrgTx, broadcastId: string, now: Date): Promise<vo
   const due = await tx.whatsappBroadcastRecipient.count({
     where: { broadcastId, state: "waiting", notBefore: { lte: now } },
   });
-  if (due > 0) await publishEvent(tx, { type: BROADCAST_READY_EVENT, payload: { broadcastId } });
+  if (due > 0) await askForBatch(tx, broadcastId);
 }
 
 /** Runs one batch of a broadcast: what the listener does, and what the tests call. Returns how many it handled. */

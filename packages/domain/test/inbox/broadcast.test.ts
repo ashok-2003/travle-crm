@@ -14,6 +14,7 @@ import {
   nextMorning,
   previewBroadcast,
   resumeBroadcast,
+  runDueWorkFor,
   sendBroadcastBatch,
   setConversationTags,
   createTag,
@@ -116,6 +117,19 @@ describe("broadcasts", () => {
     expect(seen.willSend).toBe(0);
     expect(seen.leftOut.outsideVisibility).toBe(6);
     expect(owner).toBeTruthy();
+  });
+
+  it("refuses a wrong number of blanks at the preview and at the create, with the template's own sentence", async () => {
+    const { inOrg, admin, input, template } = await agency();
+    expect(template.body).toContain("{{1}}");
+    for (const params of [[], ["there", "extra"]]) {
+      await expect(inOrg((tx) => previewBroadcast(tx, admin, { ...input, params }, testNow))).rejects.toMatchObject({
+        reason: "TEMPLATE_VALUES",
+      });
+      await expect(
+        inOrg((tx) => createBroadcast(tx, admin, { requestId: randomUUID(), ...input, params }, testNow)),
+      ).rejects.toMatchObject({ reason: "TEMPLATE_VALUES" });
+    }
   });
 
   it("makes the broadcast once however often the same request arrives, with a row for each recipient and one event", async () => {
@@ -243,13 +257,67 @@ describe("broadcasts", () => {
     await other.run(again.id);
     await other.inOrg((tx) => cancelBroadcast(tx, other.admin, { broadcastId: again.id }, testNow));
     const cancelled = await other.detail(again.id);
-    expect(cancelled.broadcast).toMatchObject({ status: "cancelled", counts: { sent: 1, skipped: 3, waiting: 0 } });
+    expect(cancelled.broadcast).toMatchObject({ status: "cancelled", counts: { sent: 0, skipped: 4, waiting: 0 } });
     expect(new Set(cancelled.recipients.filter((r) => r.state === "skipped").map((r) => r.reason))).toEqual(
       new Set(["cancelled"]),
     );
   });
 
-  it("lets only its creator or someone who writes templates stop it", async () => {
+  it("stops what is queued when it is cancelled: nothing already queued goes out", async () => {
+    const { create, run, inOrg, admin, detail, messages } = await agency({ granted: 3, dayCap: 1 });
+    const { id } = await create();
+    await run(id);
+    await inOrg((tx) => cancelBroadcast(tx, admin, { broadcastId: id }, testNow));
+    const queued = await messages();
+    expect(queued).toHaveLength(1);
+    expect(queued.every((message) => message.status === "superseded")).toBe(true);
+    expect((await detail(id)).broadcast.counts).toMatchObject({ sent: 0, skipped: 3, waiting: 0 });
+  });
+
+  it("shows how many of the undelivered WhatsApp refused, the ones that count toward pausing", async () => {
+    const { create, run, inOrg, detail } = await agency({ granted: 3 });
+    const { id } = await create();
+    await run(id);
+    const [first, second] = await inOrg((tx) => tx.whatsappMessage.findMany({ where: { broadcastId: id } }));
+    await inOrg(async (tx) => {
+      await tx.whatsappMessage.update({
+        where: { id: first?.id ?? "" },
+        data: { status: "failed", failureCode: "other" },
+      });
+      await tx.whatsappMessage.update({
+        where: { id: second?.id ?? "" },
+        data: { status: "failed", failureCode: "not_on_whatsapp" },
+      });
+    });
+    expect((await detail(id)).broadcast.counts).toMatchObject({ failed: 2, refused: 1 });
+  });
+
+  it("asks for another batch for a due waiting recipient, once, and not for a paused or cancelled broadcast", async () => {
+    const { create, run, inOrg, admin, organizationId } = await agency({ dayCap: 1, granted: 2 });
+    const { id } = await create();
+    await run(id);
+    const morning = new Date(nextMorning(testNow, ZONE).getTime() + 1_000);
+    // The ask the create made has gone to the worker.
+    await inOrg((tx) => tx.outboxEvent.updateMany({ data: { relayedAt: new Date() } }));
+    const asked = async () => (await eventsOf(test, organizationId, [BROADCAST_READY_EVENT])).length;
+    const before = await asked();
+    await runDueWorkFor(test.dependencies, organizationId, morning);
+    expect(await asked()).toBe(before + 1);
+    // The ask is still waiting to be relayed: the next minute does not stack another.
+    await runDueWorkFor(test.dependencies, organizationId, new Date(morning.getTime() + 60_000));
+    expect(await asked()).toBe(before + 1);
+    await inOrg((tx) => tx.outboxEvent.updateMany({ data: { relayedAt: new Date() } }));
+    await inOrg((tx) =>
+      tx.whatsappBroadcast.update({ where: { id }, data: { status: "paused", pausedReason: "failure_rate" } }),
+    );
+    await runDueWorkFor(test.dependencies, organizationId, new Date(morning.getTime() + 120_000));
+    expect(await asked()).toBe(before + 1);
+    await inOrg((tx) => cancelBroadcast(tx, admin, { broadcastId: id }, morning));
+    await runDueWorkFor(test.dependencies, organizationId, new Date(morning.getTime() + 180_000));
+    expect(await asked()).toBe(before + 1);
+  });
+
+  it("lets only someone who writes templates stop it", async () => {
     const { create, inOrg, organizationId } = await agency();
     const { id } = await create();
     const stranger = memberOf(organizationId, "sales");

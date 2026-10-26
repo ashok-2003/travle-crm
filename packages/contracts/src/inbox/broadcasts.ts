@@ -50,6 +50,8 @@ export const broadcastCounts = z.object({
   sent: z.int(),
   skipped: z.int(),
   failed: z.int(),
+  /** Of the failed, those WhatsApp refused for a reason that is ours: what counts toward a broadcast pausing itself. */
+  refused: z.int(),
 });
 export type BroadcastCounts = z.infer<typeof broadcastCounts>;
 
