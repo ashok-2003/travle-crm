@@ -117,6 +117,7 @@
     "NOT_RETRYABLE": "A deletion, erasure or export isn't run again: ask for it again, so every check is made again.",
     "SCHEDULE_IS_THE_CONSOLES": "The console schedules this job every time it starts, so it can't be removed.",
     "NOT_A_LEAD_WORKER": "That person can't work leads. Choose someone whose role sees leads.",
+    "SNOOZE_TOO_LONG": "A chat can be snoozed for a year at most. Choose an earlier time.",
     "DUE_IN_THE_PAST": "That time has already passed. Choose a later time.",
     "TASK_CLOSED": "This is already done or cancelled.",
     "DESTINATION_NAME_TAKEN": "Another destination already has that name.",

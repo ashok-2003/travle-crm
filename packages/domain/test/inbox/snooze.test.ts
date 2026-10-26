@@ -1,7 +1,7 @@
 // Snoozing a chat (sales inbox spec 6): it leaves the lists until its time, wakes when the time comes, and wakes at once when
 // the customer writes again, so a new message is never hidden behind a snooze.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { listConversations, snoozeConversation } from "../../src/inbox/index.js";
+import { listConversations, MAX_SNOOZE_MS, snoozeConversation } from "../../src/inbox/index.js";
 import { memberOf } from "../imports/support/test-imports.js";
 import {
   aConnectedAgency,
@@ -62,6 +62,15 @@ describe("snoozing a chat", () => {
       listConversations(tx, member, { filter: "all", limit: 20 }, new Date(testNow.getTime() + HOUR)),
     );
     expect(shown.items.map((item) => item.id)).toEqual([woken.id]);
+  });
+
+  it("refuses a snooze longer than the longest allowed", async () => {
+    const { connection, conversation, member } = await snoozedChat();
+    await expect(
+      test.db.forOrg(connection.organizationId, (tx) =>
+        snoozeConversation(tx, member, conversation.id, new Date(testNow.getTime() + MAX_SNOOZE_MS + HOUR), testNow),
+      ),
+    ).rejects.toMatchObject({ reason: "SNOOZE_TOO_LONG" });
   });
 
   it("keeps the snooze when the customer only reacts to a message", async () => {

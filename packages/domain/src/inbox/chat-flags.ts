@@ -94,6 +94,9 @@ export async function starMessage(
   else await recordAudit(tx, access, { action: "inbox.message-unstarred", ...about });
 }
 
+/** The furthest ahead a chat may be snoozed: a year. */
+export const MAX_SNOOZE_MS = 365 * 24 * 3_600_000;
+
 /**
  * Snooze a chat until a moment: it leaves the lists until then, when whoever snoozed it is reminded (the worker's due
  * work). Null wakes it now. A moment already past is refused.
@@ -108,6 +111,9 @@ export async function snoozeConversation(
   const chat = await openChat(tx, access, conversationId);
   if (until !== null && until.getTime() <= now.getTime()) {
     throw new DomainError("VALIDATION", "DUE_IN_THE_PAST", "Choose a time after now");
+  }
+  if (until !== null && until.getTime() > now.getTime() + MAX_SNOOZE_MS) {
+    throw new DomainError("VALIDATION", "SNOOZE_TOO_LONG", "A chat can be snoozed for a year at most");
   }
   await tx.whatsappConversation.update({
     where: { id: chat.id },

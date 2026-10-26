@@ -7,12 +7,11 @@ import { scheduledMessageList, type ScheduledMessage, type ScheduleMessageInput 
 import type { Database, OrgTx } from "@travel-crm/db";
 import type { Logger } from "@travel-crm/integrations/logging";
 import { recordAudit } from "../audit/index.js";
-import { publishEvent } from "../jobs/index.js";
 import { noticeKey } from "../crm/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError, systemActor } from "../kernel/index.js";
 import { notify } from "../notifications/index.js";
-import { BROADCAST_READY_EVENT } from "./broadcast.js";
+import { askForBatch } from "./broadcast.js";
 import { chatNameOf } from "./chat-name.js";
 import { routesPage } from "./routes.js";
 import { queueSystemText } from "./system-send.js";
@@ -114,8 +113,15 @@ interface WakingChat {
   snoozedUntil: Date;
 }
 
-/** Sends one due message, or fails it and tells its writer; either way the row leaves "pending". */
-async function sendDue(tx: OrgTx, organizationId: string, item: DueMessage, now: Date): Promise<void> {
+/** Why a send failed that a later minute may mend: the number is paused, or not connected for now. */
+const TRANSIENT = ["paused", "not_connected"];
+
+/**
+ * Sends one due message, or fails it and tells its writer; either way the row leaves "pending", except when the number is
+ * only paused or off for the moment: it stays scheduled and is tried again, until the 24-hour window closes (that fails it).
+ * Returns whether the row was settled.
+ */
+async function sendDue(tx: OrgTx, organizationId: string, item: DueMessage, now: Date): Promise<boolean> {
   const sent = await queueSystemText(
     tx,
     {
@@ -130,8 +136,9 @@ async function sendDue(tx: OrgTx, organizationId: string, item: DueMessage, now:
   );
   if (sent.ok) {
     await tx.scheduledMessage.update({ where: { id: item.id }, data: { status: "sent", messageId: sent.messageId } });
-    return;
+    return true;
   }
+  if (TRANSIENT.includes(sent.code)) return false;
   await tx.scheduledMessage.update({ where: { id: item.id }, data: { status: "failed", failureCode: sent.code } });
   const actor = systemActor(organizationId);
   const chat = await tx.whatsappConversation.findUnique({
@@ -153,6 +160,7 @@ async function sendDue(tx: OrgTx, organizationId: string, item: DueMessage, now:
     link: `/inbox/${item.conversationId}`,
     channels: ["push"],
   });
+  return true;
 }
 
 /** Wakes the chat and reminds whoever snoozed it. The notice's key is the snooze's own, so a repeat adds nothing. */
@@ -174,48 +182,90 @@ async function wake(tx: OrgTx, organizationId: string, chat: WakingChat): Promis
   });
 }
 
+/** The next due scheduled message other than those that already failed this run, or null. */
+const nextDueMessage = (tx: OrgTx, now: Date, skipping: string[]) =>
+  tx.scheduledMessage.findFirst({
+    where: { status: "pending", sendAt: { lte: now }, id: { notIn: skipping } },
+    orderBy: [{ sendAt: "asc" }, { id: "asc" }],
+    select: { id: true },
+  });
+
 /**
- * One organization's due work: its scheduled messages whose time has come, and its snoozed chats that wake now. A read of the
- * two partial indexes first, so an agency with nothing due costs one light transaction. Returns how many it handled.
+ * One organization's due work: its scheduled messages whose time has come, its snoozed chats that wake now, and the
+ * broadcasts with recipients that waited for this moment. A light read of the partial indexes first, so an agency with
+ * nothing due costs one small transaction; then each message and each chat in a transaction of its own (claimed with SKIP
+ * LOCKED, so overlapping runs never double), so one that throws is left for the next minute and never stops the rest.
+ * Returns how many it handled.
  */
-export async function dueWorkOf(tx: OrgTx, organizationId: string, now: Date): Promise<number> {
-  const [dueSend, dueWake, dueBroadcasts] = [
-    await tx.scheduledMessage.findFirst({ where: { status: "pending", sendAt: { lte: now } }, select: { id: true } }),
-    await tx.whatsappConversation.findFirst({ where: { snoozedUntil: { lte: now } }, select: { id: true } }),
-    // Recipients that waited for a morning or an hour, and are due now: their broadcast is asked to go on.
-    await tx.whatsappBroadcastRecipient.findMany({
+export async function runDueWorkFor(
+  dependencies: { db: Database; logger?: Logger },
+  organizationId: string,
+  now: Date,
+): Promise<number> {
+  const { db } = dependencies;
+  const probe = await db.forOrg(organizationId, async (tx) => {
+    const broadcasts = await tx.whatsappBroadcastRecipient.findMany({
+      // Recipients that waited for a morning or an hour, and are due now: their broadcast is asked to go on.
       where: { state: "waiting", notBefore: { lte: now }, broadcast: { is: { status: "sending" } } },
       distinct: ["broadcastId"],
       take: 20,
       select: { broadcastId: true },
-    }),
-  ];
-  for (const { broadcastId } of dueBroadcasts) {
-    await publishEvent(tx, { type: BROADCAST_READY_EVENT, payload: { broadcastId } });
+    });
+    for (const { broadcastId } of broadcasts) await askForBatch(tx, broadcastId);
+    return {
+      asked: broadcasts.length,
+      sends: (await nextDueMessage(tx, now, [])) !== null,
+      wakes:
+        (await tx.whatsappConversation.findFirst({ where: { snoozedUntil: { lte: now } }, select: { id: true } })) !==
+        null,
+    };
+  });
+  let done = probe.asked;
+  const failed: string[] = [];
+  const guarded = async (id: string, work: () => Promise<boolean>) => {
+    try {
+      return await work();
+    } catch (error) {
+      failed.push(id);
+      dependencies.logger?.error(
+        { error: error instanceof Error ? error.name : "unknown" },
+        "One of the inbox's due items failed and is left for the next minute",
+      );
+      return false;
+    }
+  };
+  for (let index = 0; probe.sends && index < BATCH; index += 1) {
+    const next = await db.forOrg(organizationId, (tx) => nextDueMessage(tx, now, failed));
+    if (next === null) break;
+    const settled = await guarded(next.id, () =>
+      db.forOrg(organizationId, async (tx) => {
+        const [item] = await tx.$queryRaw<DueMessage[]>`
+          SELECT id, conversation_id AS "conversationId", body, created_by AS "createdBy"
+          FROM scheduled_message WHERE id = ${next.id}::uuid AND status = 'pending' FOR UPDATE SKIP LOCKED`;
+        return item === undefined ? false : sendDue(tx, organizationId, item, now);
+      }),
+    );
+    if (settled) done += 1;
+    else if (!failed.includes(next.id)) failed.push(next.id);
   }
-  if (dueSend === null && dueWake === null) return dueBroadcasts.length;
-  const due = await tx.$queryRaw<DueMessage[]>`
-    SELECT id, conversation_id AS "conversationId", body, created_by AS "createdBy"
-    FROM scheduled_message
-    WHERE status = 'pending' AND send_at <= ${now}
-    ORDER BY send_at, id
-    LIMIT ${BATCH}
-    FOR UPDATE SKIP LOCKED`;
-  for (const item of due) await sendDue(tx, organizationId, item, now);
-  const waking = await tx.$queryRaw<WakingChat[]>`
-    SELECT id, snoozed_by AS "snoozedBy", snoozed_until AS "snoozedUntil"
-    FROM whatsapp_conversation
-    WHERE snoozed_until <= ${now}
-    ORDER BY snoozed_until, id
-    LIMIT ${BATCH}
-    FOR UPDATE SKIP LOCKED`;
-  for (const chat of waking) await wake(tx, organizationId, chat);
-  return due.length + waking.length + dueBroadcasts.length;
+  for (let index = 0; probe.wakes && index < BATCH; index += 1) {
+    const woke = await db.forOrg(organizationId, async (tx) => {
+      const [chat] = await tx.$queryRaw<WakingChat[]>`
+        SELECT id, snoozed_by AS "snoozedBy", snoozed_until AS "snoozedUntil"
+        FROM whatsapp_conversation
+        WHERE snoozed_until <= ${now}
+        ORDER BY snoozed_until, id
+        LIMIT 1
+        FOR UPDATE SKIP LOCKED`;
+      if (chat === undefined) return false;
+      await wake(tx, organizationId, chat);
+      return true;
+    });
+    if (!woke) break;
+    done += 1;
+  }
+  return done;
 }
-
-/** One agency's due work in a transaction of its own (the minute job's step, and what the tests run). */
-export const runDueWorkFor = (dependencies: { db: Database }, organizationId: string, now: Date): Promise<number> =>
-  dependencies.db.forOrg(organizationId, (tx) => dueWorkOf(tx, organizationId, now));
 
 /** Every connected agency's due work (the worker's `inbox.due-work`, each minute). One agency failing never stops the rest. */
 export async function runDueWork(dependencies: { db: Database; logger: Logger }, now: Date): Promise<number> {

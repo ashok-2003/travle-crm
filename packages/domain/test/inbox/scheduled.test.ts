@@ -6,6 +6,7 @@ import {
   cancelScheduled,
   listScheduled,
   pauseNumber,
+  resumeNumber,
   runDueWorkFor,
   scheduleMessage,
   snoozeConversation,
@@ -85,16 +86,32 @@ describe("messages sent later", () => {
     expect(await outgoing()).toHaveLength(0);
   });
 
-  it("tells its writer and audits when it cannot be sent at its time", async () => {
+  it("keeps a message scheduled, to try again, while the number is only paused", async () => {
     const { schedule, run, outgoing, connection, member, conversation } = await chat();
-    const scheduled = await schedule("Your quote is ready", at(2));
+    await schedule("Your quote is ready", at(2));
     await test.db.forOrg(connection.organizationId, (tx) =>
       pauseNumber(tx, systemActor(connection.organizationId), at(1)),
     );
-    expect(await run(at(3))).toBe(1);
+    await run(at(3));
+    const [waiting] = await test.db.forOrg(connection.organizationId, (tx) =>
+      listScheduled(tx, member, conversation.id),
+    );
+    expect(waiting).toMatchObject({ status: "pending", failureCode: null });
+    await test.db.forOrg(connection.organizationId, (tx) =>
+      resumeNumber(tx, systemActor(connection.organizationId), at(3)),
+    );
+    await run(at(4));
+    expect(await outgoing()).toHaveLength(1);
+  });
+
+  it("tells its writer and audits when it cannot be sent at its time", async () => {
+    const { schedule, run, outgoing, connection, member, conversation } = await chat();
+    const scheduled = await schedule("Your quote is ready", at(2));
+    // The customer wrote at testNow: by hour 26 the 24-hour window has closed, which no later try can mend.
+    expect(await run(at(26))).toBe(1);
     expect(await outgoing()).toHaveLength(0);
     const [row] = await test.db.forOrg(connection.organizationId, (tx) => listScheduled(tx, member, conversation.id));
-    expect(row).toMatchObject({ id: scheduled.id, status: "failed", failureCode: "paused" });
+    expect(row).toMatchObject({ id: scheduled.id, status: "failed", failureCode: "window_closed" });
     const notices = await test.db.forOrg(connection.organizationId, (tx) =>
       tx.notification.findMany({ where: { recipientUserId: member.userId } }),
     );
@@ -103,7 +120,7 @@ describe("messages sent later", () => {
     const entries = await auditOf(test, connection.organizationId, conversation.id);
     expect(entries.map((entry) => entry.action)).toContain("inbox.scheduled-failed");
     // A later run does not tell them again.
-    await run(at(4));
+    await run(at(27));
     expect(
       await test.db.forOrg(connection.organizationId, (tx) =>
         tx.notification.count({ where: { recipientUserId: member.userId } }),
