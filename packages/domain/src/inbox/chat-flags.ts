@@ -25,11 +25,9 @@ export async function pinConversation(
   const chat = await openChat(tx, access, conversationId);
   if ((chat.pinnedAt !== null) === on) return;
   await tx.whatsappConversation.update({ where: { id: chat.id }, data: { pinnedAt: on ? now : null } });
-  await recordAudit(tx, access, {
-    action: on ? "inbox.chat-pinned" : "inbox.chat-unpinned",
-    entityType: "whatsapp_conversation",
-    entityId: chat.id,
-  });
+  const about = { entityType: "whatsapp_conversation", entityId: chat.id };
+  if (on) await recordAudit(tx, access, { action: "inbox.chat-pinned", ...about });
+  else await recordAudit(tx, access, { action: "inbox.chat-unpinned", ...about });
 }
 
 export async function archiveConversation(
@@ -46,11 +44,9 @@ export async function archiveConversation(
     where: { id: chat.id },
     data: on ? { archivedAt: now, pinnedAt: null } : { archivedAt: null },
   });
-  await recordAudit(tx, access, {
-    action: on ? "inbox.chat-archived" : "inbox.chat-unarchived",
-    entityType: "whatsapp_conversation",
-    entityId: chat.id,
-  });
+  const about = { entityType: "whatsapp_conversation", entityId: chat.id };
+  if (on) await recordAudit(tx, access, { action: "inbox.chat-archived", ...about });
+  else await recordAudit(tx, access, { action: "inbox.chat-unarchived", ...about });
 }
 
 /** The member has the chat open now: everything the customer wrote so far is read for them. Not audited (it is reading). */
@@ -140,10 +136,7 @@ export async function snoozeConversation(
     where: { id: chat.id },
     data: until === null ? { snoozedUntil: null, snoozedBy: null } : { snoozedUntil: until, snoozedBy: access.userId },
   });
-  await recordAudit(tx, access, {
-    action: until === null ? "inbox.chat-woken" : "inbox.chat-snoozed",
-    entityType: "whatsapp_conversation",
-    entityId: chat.id,
-    ...(until === null ? {} : { after: { until: until.toISOString() } }),
-  });
+  const about = { entityType: "whatsapp_conversation", entityId: chat.id };
+  if (until === null) await recordAudit(tx, access, { action: "inbox.chat-woken", ...about });
+  else await recordAudit(tx, access, { action: "inbox.chat-snoozed", ...about, after: { until: until.toISOString() } });
 }

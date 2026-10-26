@@ -13,7 +13,11 @@ import type { ReturnFocusTo } from "@/components/return-focus";
 import { NoteField } from "@/leads/form/note-field";
 import { useSaveQuickReply } from "./use-inbox-tools";
 
-interface Values { shortcut: string; title: string; body: string }
+interface Values {
+  shortcut: string;
+  title: string;
+  body: string;
+}
 type Problem = "required" | "shortcut" | "tooLong";
 
 function QuickReplyForm({
