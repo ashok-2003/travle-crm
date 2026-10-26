@@ -164,6 +164,8 @@ model WhatsappMessage {
   @@index([organizationId, id], map: "whatsapp_message_outbox", where: raw("(status = ANY (ARRAY['queued'::text, 'sending'::text]))"))
   /// The media copier.
   @@index([organizationId, id], map: "whatsapp_message_media_pending", where: raw("(media_state = 'pending'::text)"))
+  /// A broadcast's messages, for its failure rate.
+  @@index([organizationId, broadcastId], map: "whatsapp_message_broadcast", where: raw("(broadcast_id IS NOT NULL)"))
   @@map("whatsapp_message")
 }
 

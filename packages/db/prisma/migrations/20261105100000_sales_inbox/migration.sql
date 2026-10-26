@@ -236,6 +236,9 @@ CREATE UNIQUE INDEX "whatsapp_broadcast_recipient_once" ON "whatsapp_broadcast_r
 -- CreateIndex
 CREATE INDEX "whatsapp_conversation_snoozed" ON "whatsapp_conversation"("organization_id", "snoozed_until") WHERE (snoozed_until IS NOT NULL);
 
+-- CreateIndex
+CREATE INDEX "whatsapp_message_broadcast" ON "whatsapp_message"("organization_id", "broadcast_id") WHERE (broadcast_id IS NOT NULL);
+
 -- AddForeignKey
 ALTER TABLE "inbox_tag" ADD CONSTRAINT "inbox_tag_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organization"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
