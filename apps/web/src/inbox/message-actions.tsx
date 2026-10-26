@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useTRPC } from "@/data/trpc";
+import { cn } from "@/lib/utils";
 import { useHolds } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { useInvalidate, useStar } from "./use-sales-inbox";
@@ -69,7 +70,7 @@ export function NotSent({ message }: { message: ChatMessage }) {
 }
 
 /** Beside a bubble on hover (always on a touch screen): star it for the team, or copy its words. */
-export function MessageActions({ message }: { message: ChatMessage }) {
+export function MessageActions({ message, className }: { message: ChatMessage; className?: string }) {
   const t = useTranslations("inbox.chat");
   const mayReply = useHolds("inbox:reply");
   const star = useStar();
@@ -82,7 +83,7 @@ export function MessageActions({ message }: { message: ChatMessage }) {
           type="button"
           variant="ghost"
           size="icon"
-          className="shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100 pointer-coarse:opacity-60"
+          className={cn("size-6 text-muted-foreground after:absolute after:-inset-2.5", className)}
           aria-label={t("messageActions")}
         >
           <ChevronDownIcon aria-hidden="true" />

@@ -148,9 +148,12 @@ export function AutomationForm({ saved }: { saved: InboxAutomation }) {
         </CardContent>
       </Card>
       <RefusalAlert error={save.error} />
-      <Button type="submit" className="self-start" disabled={!access.allowed || save.isPending}>
-        {t("save")}
-      </Button>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="submit" disabled={!access.allowed || save.isPending}>
+          {t("save")}
+        </Button>
+        <p className="text-caption text-muted-foreground">{t("saveCovers")}</p>
+      </div>
     </form>
   );
 }

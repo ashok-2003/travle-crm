@@ -129,7 +129,8 @@ export function InboxList({ currentId }: { currentId: string | null }) {
             className="md:w-full"
           />
         </div>
-        <div className="-mx-3 overflow-x-auto px-3">
+        {/* A phone scrolls the chips sideways and fades the right edge as the cue; wider, they wrap. */}
+        <div className="-mx-3 overflow-x-auto px-3 mask-[linear-gradient(to_right,black_calc(100%-2rem),transparent)] md:mask-none">
           <ToggleGroup
             type="single"
             variant="outline"
@@ -138,7 +139,7 @@ export function InboxList({ currentId }: { currentId: string | null }) {
             onValueChange={(chosen) => {
               if (isFilter(chosen)) setFilter(chosen);
             }}
-            className="w-max pb-1"
+            className="w-max pb-1 md:w-full md:flex-wrap"
           >
             {filters.map((value) => {
               const count = countOf(value);
@@ -169,8 +170,10 @@ export function InboxList({ currentId }: { currentId: string | null }) {
             }}
           >
             <SelectTrigger aria-label={t("tagFilter")} className="w-full">
-              <TagIcon aria-hidden="true" />
-              <SelectValue />
+              <span className="flex min-w-0 flex-1 items-center gap-2">
+                <TagIcon aria-hidden="true" />
+                <SelectValue />
+              </span>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ANY_TAG}>{t("anyTag")}</SelectItem>

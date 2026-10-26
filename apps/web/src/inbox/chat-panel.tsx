@@ -128,7 +128,7 @@ export function ChatPanel({ conversationId, variant = "inbox" }: { conversationI
             setPanelChoice(open);
           }}
         >
-          <SheetContent side="right" className="w-full p-0 sm:max-w-md">
+          <SheetContent side="right" className="p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-md">
             <SheetTitle className="sr-only">{name}</SheetTitle>
             <ContactPanel header={data} />
           </SheetContent>

@@ -54,9 +54,7 @@ export function ChatHeader({
       </Button>
       <div className="flex min-h-11 min-w-0 flex-1 flex-col justify-center text-left">
         {asPage ? (
-          <PageTitle className="w-full truncate font-sans text-section font-semibold script-leading md:text-section">
-            {name}
-          </PageTitle>
+          <PageTitle className="w-full truncate text-section script-leading md:text-section">{name}</PageTitle>
         ) : (
           <h2 className="w-full truncate text-section font-semibold script-leading">{name}</h2>
         )}

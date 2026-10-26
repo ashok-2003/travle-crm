@@ -83,6 +83,11 @@ export function MessageBubble({
           </span>
         )}
         {failed && <NotSent message={message} />}
+        {/* Where a mouse hovers: the chevron in the bubble's corner. A touch screen has it in the time's line instead. */}
+        <MessageActions
+          message={message}
+          className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100 pointer-coarse:hidden"
+        />
         <p
           className={cn(
             "flex items-center justify-end gap-1 self-end text-caption",
@@ -97,12 +102,12 @@ export function MessageBubble({
           )}
           {message.origin === "staff_phone" && <span>{t("phoneApp")} ·</span>}
           {message.origin === "automation" && <span>{t("automatic")} ·</span>}
+          <MessageActions message={message} className="relative hidden pointer-coarse:inline-flex" />
           {message.starred && <StarIcon aria-label={t("starred")} role="img" className="size-3 fill-current" />}
           <span>{formatTime(new Date(message.occurredAt), { timeZone })}</span>
           {ours && !failed && <Ticks status={message.status} className="size-3.5" />}
         </p>
       </div>
-      <MessageActions message={message} />
     </li>
   );
 }

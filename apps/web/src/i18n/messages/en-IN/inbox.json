@@ -135,8 +135,8 @@
     "showContact": "Show {name}'s details",
     "contactPanel": "Contact and lead details",
     "menu": "More for this chat",
-    "pin": "Pin to the top",
-    "unpin": "Unpin",
+    "pin": "Pin chat",
+    "unpin": "Unpin chat",
     "archive": "Archive",
     "unarchive": "Bring back from the archive",
     "search": "Search in this chat",
@@ -393,6 +393,13 @@
   "waitingFor": "Waiting {time} for a reply",
   "lateCount": "{count, plural, one {# chat waiting too long} other {# chats waiting too long}}",
   "pipeline": "Chats by stage",
+  "pipelineStages": {
+    "new": "New",
+    "contacted": "Contacted",
+    "quote_sent": "Quoted",
+    "booking_requested": "Booking",
+    "won": "Won"
+  },
   "automation": {
     "title": "Automatic answers",
     "intro": "Answers sent for your team when a customer writes, marked in the chat as automatic. They go inside the 24 hours the customer just opened, never to someone who asked to stop, and the chat still waits for a person to reply. Once a person replies in a chat, the answers pause there for 12 hours.",
@@ -400,6 +407,7 @@
     "retry": "Try again",
     "loading": "Loading the automatic answers",
     "saved": "Automatic answers saved",
+    "saveCovers": "Saves the away message with its hours, and the welcome message.",
     "awayTitle": "Away message",
     "awayIntro": "Sent when someone writes outside your office hours, at most once in 12 hours a chat.",
     "awayOn": "Send the away message",
@@ -431,27 +439,92 @@
     "keywordReply": "Answer",
     "addKeyword": "Add the keyword answer"
   },
-  "broadcast": {
-    "title": "Broadcast",
-    "intro": "Send one approved template to every chat with a tag, like everyone tagged Goa interested. Each person's consent and your marketing limit are respected; the others are skipped. Meta charges for each template.",
-    "newTitle": "New broadcast",
-    "newIntro": "Choose the template and who gets it.",
-    "template": "Template",
-    "chooseTemplate": "Choose an approved template",
-    "tag": "Chats with the tag",
-    "chooseTag": "Choose a tag",
-    "blank": "Blank {number}",
-    "reach": "{count, plural, =0 {No chat has this tag.} one {# chat has this tag.} other {# chats have this tag.}}",
-    "send": "Send the broadcast",
-    "confirmTitle": "{count, plural, one {Send to # chat?} other {Send to # chats?}}",
-    "confirmDescription": "Each person gets the template now. People who never agreed or asked to stop are skipped.",
-    "sent": "Sent to {sent}, skipped {skipped}",
-    "columns": {
-      "when": "When",
+  "broadcasts": {
+    "title": "Broadcasts",
+    "intro": "Send one approved template to the chats you have tagged. Only people who agreed to WhatsApp messages get it, and you see how many it reaches and what is left of this month's allowance.",
+    "back": "Back to the broadcasts",
+    "new": "New broadcast",
+    "open": "Broadcasts",
+    "loadFailed": "The broadcasts didn't load.",
+    "retry": "Try again",
+    "loading": "Loading the broadcasts",
+    "empty": "No broadcast yet. Tag some chats, then send them an approved template here.",
+    "list": "Broadcasts",
+    "sentOf": "Sent {sent} of {total}",
+    "counts": "{waiting} waiting · {skipped} left out · {failed} not delivered",
+    "startedBy": "Started by {name} on {when}",
+    "status": {
+      "sending": "Sending",
+      "paused": "Paused",
+      "cancelled": "Cancelled",
+      "done": "Done"
+    },
+    "pausedReason": {
+      "failure_rate": "It paused itself: WhatsApp refused too many of the messages. Check the template, then resume or cancel.",
+      "template_unavailable": "It paused itself: its template can't be sent right now. Check the template, then resume or cancel."
+    },
+    "cancel": "Cancel the broadcast",
+    "cancelTitle": "Cancel this broadcast?",
+    "cancelDescription": "Nothing more is sent. What has gone stays sent, and the chats still waiting are left out.",
+    "cancelConfirm": "Cancel the broadcast",
+    "resume": "Resume",
+    "detail": {
       "template": "Template",
-      "tag": "Tag",
+      "tags": "Tags",
       "sent": "Sent",
-      "skipped": "Skipped"
+      "waiting": "Waiting",
+      "skipped": "Left out",
+      "failed": "Not delivered",
+      "recipients": "Chats",
+      "none": "No chats.",
+      "showMore": "Show more chats",
+      "unnamed": "A number with no name",
+      "column": {
+        "chat": "Chat",
+        "state": "State",
+        "why": "Why"
+      },
+      "waitsUntil": "Waits until {when}",
+      "startedBy": "Started by"
+    },
+    "state": {
+      "waiting": "Waiting",
+      "sent": "Sent",
+      "skipped": "Left out",
+      "failed": "Not delivered"
+    },
+    "reason": {
+      "monthly_cap": "This month's allowance was used up",
+      "opted_out": "Asked to stop WhatsApp messages",
+      "no_consent": "No consent to WhatsApp messages recorded",
+      "cancelled": "The broadcast was cancelled",
+      "unavailable": "The chat is no longer available",
+      "other": "Could not be sent"
+    },
+    "dialog": {
+      "title": "New broadcast",
+      "description": "Choose the template and the tags, then check who it reaches before it goes.",
+      "template": "Template",
+      "chooseTemplate": "Choose an approved template",
+      "noTemplates": "No template is approved yet. Write one under Settings, WhatsApp.",
+      "tags": "Chats with any of these tags",
+      "noTags": "You have no tags yet. Add one from a chat's details.",
+      "blank": "Blank {number}",
+      "check": "Check who it reaches",
+      "checking": "Checking",
+      "back": "Back",
+      "reaches": "{count, plural, =0 {It reaches no chat.} one {It reaches # chat.} other {It reaches # chats.}}",
+      "leftOut": "Left out",
+      "optedOut": "{count} asked to stop WhatsApp messages",
+      "noConsent": "{count} have no consent to WhatsApp messages recorded",
+      "outsideVisibility": "{count} are chats you can't see",
+      "overAllowance": "{count} are over this month's allowance",
+      "allowance": "This month's allowance: {used} of {limit} used, {remaining} left.",
+      "noAllowance": "This template is not a marketing one, so it has no monthly allowance.",
+      "today": "{sendToday} go today. {waitForTomorrow, plural, =0 {} other {# wait and go tomorrow at 10 am.}}",
+      "send": "{count, plural, one {Send to # chat} other {Send to # chats}}",
+      "sending": "Starting",
+      "started": "The broadcast is on its way."
     }
   }
 }
