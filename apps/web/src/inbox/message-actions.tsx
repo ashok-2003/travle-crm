@@ -4,8 +4,9 @@
 // star it for the team or copy its words.
 import type { ChatMessage } from "@travel-crm/contracts/inbox";
 import { useMutation } from "@tanstack/react-query";
-import { ChevronDownIcon, CopyIcon, StarIcon, StarOffIcon } from "lucide-react";
+import { ChevronDownIcon, CopyIcon, ForwardIcon, StarIcon, StarOffIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ import { useTRPC } from "@/data/trpc";
 import { cn } from "@/lib/utils";
 import { useHolds } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
+import { ForwardDialog } from "./forward-dialog";
 import { useInvalidate, useStar } from "./use-sales-inbox";
 
 const failureCodes = [
@@ -69,49 +71,67 @@ export function NotSent({ message }: { message: ChatMessage }) {
   );
 }
 
-/** Beside a bubble on hover (always on a touch screen): star it for the team, or copy its words. */
+/** Beside a bubble on hover (always on a touch screen): star it for the team, forward its words, or copy them. */
 export function MessageActions({ message, className }: { message: ChatMessage; className?: string }) {
   const t = useTranslations("inbox.chat");
   const mayReply = useHolds("inbox:reply");
   const star = useStar();
+  const [forwarding, setForwarding] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
   const words = message.body ?? message.caption;
   if (!mayReply && words === null) return null;
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className={cn("size-6 text-muted-foreground after:absolute after:-inset-2.5", className)}
-          aria-label={t("messageActions")}
-        >
-          <ChevronDownIcon aria-hidden="true" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align={message.direction === "out" ? "end" : "start"}>
-        {mayReply && (
-          <DropdownMenuItem
-            disabled={star.isPending}
-            onSelect={() => {
-              star.mutate({ messageId: message.id, on: !message.starred });
-            }}
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            ref={trigger}
+            type="button"
+            variant="ghost"
+            size="icon"
+            className={cn("size-6 text-muted-foreground after:absolute after:-inset-2.5", className)}
+            aria-label={t("messageActions")}
           >
-            {message.starred ? <StarOffIcon aria-hidden="true" /> : <StarIcon aria-hidden="true" />}
-            {message.starred ? t("unstar") : t("star")}
-          </DropdownMenuItem>
-        )}
-        {words !== null && (
-          <DropdownMenuItem
-            onSelect={() => {
-              void navigator.clipboard.writeText(words).then(() => toast.success(t("copied")));
-            }}
-          >
-            <CopyIcon aria-hidden="true" />
-            {t("copy")}
-          </DropdownMenuItem>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+            <ChevronDownIcon aria-hidden="true" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align={message.direction === "out" ? "end" : "start"}>
+          {mayReply && (
+            <DropdownMenuItem
+              disabled={star.isPending}
+              onSelect={() => {
+                star.mutate({ messageId: message.id, on: !message.starred });
+              }}
+            >
+              {message.starred ? <StarOffIcon aria-hidden="true" /> : <StarIcon aria-hidden="true" />}
+              {message.starred ? t("unstar") : t("star")}
+            </DropdownMenuItem>
+          )}
+          {mayReply && words !== null && (
+            <DropdownMenuItem
+              onSelect={() => {
+                setForwarding(true);
+              }}
+            >
+              <ForwardIcon aria-hidden="true" />
+              {t("forward.action")}
+            </DropdownMenuItem>
+          )}
+          {words !== null && (
+            <DropdownMenuItem
+              onSelect={() => {
+                void navigator.clipboard.writeText(words).then(() => toast.success(t("copied")));
+              }}
+            >
+              <CopyIcon aria-hidden="true" />
+              {t("copy")}
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {words !== null && forwarding && (
+        <ForwardDialog words={words} open={forwarding} onOpenChange={setForwarding} returnFocusTo={trigger} />
+      )}
+    </>
   );
 }

@@ -200,7 +200,31 @@
     "windowChipMinutes": "{minutes}m left",
     "windowChipHours": "{hours}h left",
     "windowChipHint": "How long you can still reply with free text: 24 hours from the customer's last message",
-    "call": "Call {name}"
+    "call": "Call {name}",
+    "forward": {
+      "action": "Forward",
+      "title": "Forward to a chat",
+      "description": "Choose the chat. The words wait in its reply box for you to read over and send.",
+      "search": "Find a chat",
+      "searchPlaceholder": "Name or phone number",
+      "loading": "Loading the chats",
+      "none": "No chat matches.",
+      "chats": "Chats to forward to"
+    },
+    "followUp": {
+      "add": "Follow-up",
+      "set": "Follow up {when}",
+      "remove": "Remove the follow-up",
+      "title": "Follow up",
+      "presets": {
+        "evening": "This evening",
+        "tomorrow": "Tomorrow morning",
+        "inTwoDays": "In two days"
+      },
+      "pick": "Or choose a day and time",
+      "choose": "Set the follow-up",
+      "inNote": "Follow-up: {when}"
+    }
   },
   "leadSection": {
     "title": "WhatsApp",

@@ -104,7 +104,7 @@ export function ReplyArea({ header }: { header: ConversationHeader }) {
       </div>
       {header.lead === null && <p className="text-caption text-muted-foreground">{t("noteNeedsLead")}</p>}
       {mode === "note" && header.lead !== null ? (
-        <TeamNoteComposer conversationId={header.id} />
+        <TeamNoteComposer conversationId={header.id} leadId={header.lead.id} />
       ) : (
         <>
           <ScheduledList conversationId={header.id} />
