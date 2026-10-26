@@ -3,7 +3,7 @@
     {
       "category": "Business",
       "link": "https://example.test/",
-      "name": "Travel Agency OS",
+      "name": "Sample Lead App",
       "id": "1234567890",
       "subscribed_fields": ["leadgen"]
     },

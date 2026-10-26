@@ -2,7 +2,7 @@
   "data": {
     "app_id": "1234567890",
     "type": "PAGE",
-    "application": "Travel Agency OS",
+    "application": "Sample Lead App",
     "data_access_expires_at": 1769000000,
     "expires_at": 1763000000,
     "is_valid": true,
