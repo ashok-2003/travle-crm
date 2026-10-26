@@ -47,10 +47,17 @@ describe("forOrg options and nesting", () => {
   // database takes its own defaults; a call that names a limit still wins.
   describe("a database's own default limits", () => {
     let limited: Database;
+    // The same run limit with a wait long enough that a slow host always starts the transaction: the timeout under test is
+    // then the one that fires, never the wait for a connection (Prisma's P2028 "Unable to start a transaction in the given time").
+    let timeoutOnly: Database;
     let limitedIdentity: IdentityDatabase;
 
     beforeAll(() => {
       limited = createDatabase(urls.runtime, { maxConnections: 1, transactionLimits: { maxWait: 50, timeout: 100 } });
+      timeoutOnly = createDatabase(urls.runtime, {
+        maxConnections: 1,
+        transactionLimits: { maxWait: 10_000, timeout: 100 },
+      });
       limitedIdentity = createIdentityDatabase(urls.runtime, {
         maxConnections: 1,
         transactionLimits: { timeout: 100 },
@@ -60,15 +67,19 @@ describe("forOrg options and nesting", () => {
     afterAll(async () => {
       await limitedIdentity.disconnect();
       await limited.disconnect();
+      await timeoutOnly.disconnect();
     });
 
     it("rolls back a transaction past the database's timeout when the call names none", async () => {
-      await expect(limited.forOrg(organizationId, () => pause(400))).rejects.toThrow(/timeout|expired|closed/i);
+      await expect(timeoutOnly.forOrg(organizationId, () => pause(400))).rejects.toThrow(/timeout|expired|closed/i);
       await expect(limitedIdentity.forOrg(organizationId, () => pause(400))).rejects.toThrow(/timeout|expired|closed/i);
     });
 
     it("gives up waiting for a connection after the database's wait", async () => {
-      const holding = limited.forOrg(organizationId, () => pause(90), { timeout: 1000 });
+      // The holder may wait as long as it needs to start and holds the one connection well past the database's 50 ms wait, so the
+      // second call's wait is the limit that fires, on a slow host too.
+      const holding = limited.forOrg(organizationId, () => pause(600), { maxWait: 10_000, timeout: 5000 });
+      await pause(150);
       await expect(limited.forOrg(organizationId, (tx) => tx.role.count())).rejects.toThrow(/in the given time/i);
       await holding;
     });
