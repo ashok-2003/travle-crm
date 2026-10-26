@@ -21,7 +21,9 @@ import { InputGroup, InputGroupTextarea } from "@/components/ui/input-group";
 import { useWideScreen } from "@/lib/use-wide-screen";
 import { WriteHint } from "@/subscription/write-hint";
 import { useWriteAccess } from "@/subscription/write-access";
+import { keepTabValue, readTabValue } from "@/lib/tab-storage";
 import { AttachedFile } from "./attached-file";
+import { draftKey } from "./forward-dialog";
 import { EmojiButton } from "./emoji-button";
 import { QuickReplyList } from "./quick-reply-list";
 import { ScheduleButton } from "./schedule-button";
@@ -41,7 +43,12 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
   const listId = useId();
   const access = useWriteAccess("change");
   const hintId = useId();
-  const [text, setText] = useState("");
+  // Words forwarded from another chat wait in the tab for this box; it takes them once.
+  const [text, setText] = useState(() => {
+    const forwarded = readTabValue(draftKey(header.id)) ?? "";
+    if (forwarded !== "") keepTabValue(draftKey(header.id), "");
+    return forwarded;
+  });
   const [file, setFile] = useState<File | null>(null);
   const [fileProblem, setFileProblem] = useState<"fileType" | "fileSize" | null>(null);
   const picker = useRef<HTMLInputElement>(null);
