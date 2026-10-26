@@ -288,7 +288,9 @@ export async function conversationHeaderOf(
   const active = leads
     .filter((lead) => isOpen(lead.stage))
     .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())[0];
-  const shown = leads.find((lead) => isOpen(lead.stage)) ?? leads[0] ?? null;
+  // The lead the chat is about is the list's and the notes' own choice (see chatLeadsOf), so all three name one lead.
+  const chosen = await leadOfChat(tx, access, row.personId);
+  const shown = leads.find((lead) => lead.id === chosen?.id) ?? null;
   const windowEnd = windowEndOf(row.lastInboundAt);
   const consent = row.personId === null ? { state: null, source: null } : await whatsappConsentOf(tx, row.personId);
   return conversationHeader.parse({
