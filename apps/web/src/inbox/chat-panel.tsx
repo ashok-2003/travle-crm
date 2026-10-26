@@ -17,6 +17,7 @@ import { formatPhoneNumber } from "@/lib/format";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
+import { ChatDropZone } from "./chat-drop";
 import { ChatHeader } from "./chat-header";
 import { ChatSearchBar } from "./chat-search-bar";
 import { ContactPanel } from "./contact-panel";
@@ -66,7 +67,7 @@ export function ChatPanel({ conversationId, variant = "inbox" }: { conversationI
   }
   const data = header.data;
   const chat = (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+    <ChatDropZone className="relative flex min-h-0 min-w-0 flex-1 flex-col">
       {variant !== "lead" && (
         <ChatHeader
           header={data}
@@ -98,7 +99,7 @@ export function ChatPanel({ conversationId, variant = "inbox" }: { conversationI
       <div className="shrink-0 bg-surface px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:px-4">
         <ReplyArea header={data} />
       </div>
-    </div>
+    </ChatDropZone>
   );
   const name = data.name ?? formatPhoneNumber(data.phone);
   return (

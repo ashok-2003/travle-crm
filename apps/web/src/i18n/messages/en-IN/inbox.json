@@ -106,7 +106,10 @@
       "paymentDetails": "Put the payment details in the message",
       "noPaymentDetails": "No payment details yet. In Settings, WhatsApp, add a quick reply with the shortcut \"payment\" holding your UPI id and bank details.",
       "tools": "Message tools",
-      "templates": "Templates"
+      "templates": "Templates",
+      "uploading": "Sending {percent}%",
+      "cancelUpload": "Cancel",
+      "dropHere": "Drop the file to attach it"
     },
     "formerMember": "A former member",
     "failure": {
@@ -272,7 +275,8 @@
         "text": "Text file",
         "file": "File"
       }
-    }
+    },
+    "sendingFile": "Sending"
   },
   "leadSection": {
     "title": "WhatsApp",

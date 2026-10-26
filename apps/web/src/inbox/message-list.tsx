@@ -19,6 +19,7 @@ import { useChatScroll } from "./chat-scroll";
 import { MediaViewerProvider } from "./media/media-viewer";
 import { MessageBubble } from "./message-bubble";
 import { NoteBubble } from "./note-bubble";
+import { PendingBubble } from "./pending-bubble";
 import { useConversation, useMessages, type MessageFilter } from "./use-inbox";
 import { useMarkRead } from "./use-inbox-tools";
 import { useNotes } from "./use-sales-inbox";
@@ -129,6 +130,7 @@ function Loaded({
               {rows.map((row, index) => (
                 <Fragment key={index}>{row}</Fragment>
               ))}
+              <PendingBubble conversationId={conversationId} />
             </ol>
           </div>
         </ScrollArea>
