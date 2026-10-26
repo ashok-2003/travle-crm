@@ -24,6 +24,11 @@ export async function queueSystemText(
     clientToken: string;
     /** True for a person's reply sent later: the chat stops waiting. False for an automatic answer. */
     answers: boolean;
+    /**
+     * A file already stored on the message to be (a trip's photo copied to it): the message is that file, with `body` as
+     * its caption. Its id is the message's, which the file was stored under.
+     */
+    media?: { messageId: string; kind: "image" | "video" | "audio" | "document"; fileName: string };
   },
   now: Date,
 ): Promise<SystemSendResult> {
@@ -46,8 +51,15 @@ export async function queueSystemText(
         conversationId: chat.id,
         direction: "out",
         origin: input.origin,
-        kind: "text",
-        body: input.body,
+        ...(input.media === undefined
+          ? { kind: "text", body: input.body }
+          : {
+              id: input.media.messageId,
+              kind: input.media.kind,
+              caption: input.body === "" ? null : input.body,
+              fileName: input.media.fileName,
+              mediaState: "stored",
+            }),
         status: "queued",
         sentBy: input.sentBy,
         clientToken: input.clientToken,

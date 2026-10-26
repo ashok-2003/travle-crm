@@ -7,6 +7,7 @@ import type { Actor } from "../kernel/index.js";
 import { listAttachments, removeAttachment, storageUsedBytes } from "./attachments.js";
 import type { DownloadLink, FilesDependencies, GeneratedFile, StoredFile } from "./dependencies.js";
 import { downloadLink, systemDownloadLink, systemFile } from "./downloads.js";
+import { copyFile } from "./copies.js";
 import { confirmUpload, requestUpload, storeGeneratedFile, type StoredBytesCheck } from "./uploads.js";
 
 export interface Files {
@@ -32,6 +33,12 @@ export interface Files {
   remove(actor: Actor, input: AttachmentRefInput): Promise<void>;
   /** Stores a file the server made and returns it ready; with a chosen attachmentId, a retry stores it once. */
   storeGeneratedFile(actor: Actor, file: GeneratedFile): Promise<AttachmentSummary>;
+  /** A ready file copied onto another record inside storage (a trip's file sent as a WhatsApp message's). */
+  copyFile(
+    actor: Actor,
+    from: AttachmentRefInput,
+    to: { recordType: string; recordId: string },
+  ): Promise<AttachmentSummary>;
   /** A link for trusted server code (share links) to an ordinary file; sensitive files are refused. */
   systemDownloadLink(organizationId: string, input: { attachmentId: string }): Promise<DownloadLink>;
   /** An ordinary file's bytes, named by its record, for server code that draws it (a logo on a PDF). */
@@ -48,6 +55,7 @@ export function createFiles(dependencies: FilesDependencies): Files {
     list: (actor, record) => listAttachments(dependencies, actor, record),
     remove: (actor, input) => removeAttachment(dependencies, actor, input),
     storeGeneratedFile: (actor, file) => storeGeneratedFile(dependencies, actor, file),
+    copyFile: (actor, from, to) => copyFile(dependencies, actor, from, to),
     systemDownloadLink: (organizationId, input) => systemDownloadLink(dependencies, organizationId, input),
     systemFile: (organizationId, input) => systemFile(dependencies, organizationId, input),
     storageUsedBytes: (organizationId) => storageUsedBytes(dependencies, organizationId),

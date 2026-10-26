@@ -147,4 +147,20 @@ export const fixtures: OrgTableFixtures = {
       }),
     undeletable: true,
   },
+  trip_kit: {
+    create: (tx) =>
+      tx.tripKit.create({ data: { name: `Isolation ${randomUUID().slice(0, 8)}`, message: "Manali, 5 days" } }),
+    undeletable: true,
+  },
+  trip_kit_send: {
+    create: async (tx) =>
+      tx.tripKitSend.create({
+        data: {
+          tripKitId: (await tx.tripKit.create({ data: { name: `Isolation ${randomUUID().slice(0, 8)}` } })).id,
+          conversationId: (await aConversation(tx)).id,
+          source: "manual",
+        },
+      }),
+    undeletable: true,
+  },
 };

@@ -10,6 +10,7 @@ import { documentsRouter } from "./documents.js";
 import { broadcastsRouter } from "./broadcasts.js";
 import { inboxRouter } from "./inbox.js";
 import { salesInboxRouter } from "./sales-inbox.js";
+import { tripKitsRouter } from "./trip-kits.js";
 import { whatsappTemplatesRouter } from "./whatsapp-templates.js";
 import { insightsRouter } from "./insights.js";
 import { leadExportsRouter } from "./lead-exports.js";
@@ -57,6 +58,7 @@ export const appRouter = router({
   broadcasts: broadcastsRouter,
   inbox: inboxRouter,
   salesInbox: salesInboxRouter,
+  tripKits: tripKitsRouter,
   whatsappTemplates: whatsappTemplatesRouter,
   leadExports: leadExportsRouter,
   staffImports: staffImportsRouter,

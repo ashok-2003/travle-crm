@@ -79,7 +79,7 @@ const auditView = (settings: InboxAutomation) => ({
 const minuteText = (minutes: number) =>
   `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 
-/** Whether an answer could fit any message at all: the welcome or away message is on, or a keyword answer is. */
+/** Whether an answer could fit any message at all: the welcome or away message is on, a keyword answer is, or a trip's keywords. */
 export async function automationCouldAct(tx: OrgTx): Promise<boolean> {
   const settings = await automationOf(tx);
   if (
@@ -88,7 +88,8 @@ export async function automationCouldAct(tx: OrgTx): Promise<boolean> {
   ) {
     return true;
   }
-  return (await tx.inboxKeywordReply.count({ where: { enabled: true } })) > 0;
+  if ((await tx.inboxKeywordReply.count({ where: { enabled: true } })) > 0) return true;
+  return (await tx.tripKit.count({ where: { autoSend: true, keywords: { isEmpty: false } } })) > 0;
 }
 
 const keywordFields = { id: true, keyword: true, reply: true, enabled: true } as const;

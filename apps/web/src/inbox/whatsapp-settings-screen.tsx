@@ -1,7 +1,7 @@
 "use client";
 
 // /settings/whatsapp (spec 3.4): the agency's number and how it is doing, in words; never MSG91's name or a secret. Templates,
-// quick replies and the chats' tags (for whoever may manage them) are the sections below (sales inbox spec 5). Not connected says so in the same sentence as the inbox.
+// quick replies, the chats' tags, trip details (for whoever may manage them) are the sections below (sales inbox spec 5). Not connected says so in the same sentence as the inbox.
 import { useTranslations } from "next-intl";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
@@ -17,6 +17,7 @@ import { NotSetUp } from "./not-set-up";
 import { AutomationSection } from "./automation-section";
 import { QuickRepliesSection, TagsSection } from "./quick-replies-section";
 import { TemplatesSection } from "./templates-section";
+import { TripKitsSection } from "./trip-kits/trip-kits-section";
 import { useInboxStatus } from "./use-inbox";
 
 const tones: Record<string, StatusTone> = {
@@ -69,6 +70,7 @@ export function WhatsappSettingsScreen() {
           <>
             <QuickRepliesSection />
             <TagsSection />
+            <TripKitsSection />
             <AutomationSection />
           </>
         )}

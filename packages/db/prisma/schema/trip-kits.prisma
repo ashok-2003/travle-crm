@@ -1,0 +1,52 @@
+// Trip details (sales inbox): what a sales team sends every enquirer about a trip, set up once. A trip's words (the
+// itinerary, inclusions, price and payment details), its files (photos, videos, PDFs: attachments of record type
+// "trip_kit"), and the words in a customer's message that send it by itself. Each send is recorded, so the automatic one
+// goes to a chat once.
+
+/// One trip's details. Soft-deleted (ADR 0004).
+model TripKit {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String         @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String         @id @default(uuid(7)) @db.Uuid
+  name           String
+  /// The words sent first: the itinerary, inclusions, price and payment details. May be empty when the files say it all.
+  message        String         @default("")
+  /// Lower case; a customer's message holding one (as a whole word or phrase) sends the trip by itself.
+  keywords       String[]       @default([])
+  /// Whether a keyword sends it by itself; off, it is sent only from a chat's Send details.
+  autoSend       Boolean        @default(true) @map("auto_send")
+  createdBy      String?        @map("created_by") @db.Uuid
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?      @map("deleted_at") @db.Timestamptz(6)
+  deletedBy      String?        @map("deleted_by") @db.Uuid
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  sends          TripKitSend[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, name], map: "trip_kit_live_name", where: { deletedAt: null })
+  @@map("trip_kit")
+}
+
+/// A trip's details sent to a chat: by a member from Send details, or by itself on a keyword (sentBy null), once a chat.
+model TripKitSend {
+  organizationId String               @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String               @id @default(uuid(7)) @db.Uuid
+  tripKitId      String               @map("trip_kit_id") @db.Uuid
+  conversationId String               @map("conversation_id") @db.Uuid
+  /// manual or keyword (CHECK trip_kit_send_source_value).
+  source         String
+  sentBy         String?              @map("sent_by") @db.Uuid
+  /// How many messages it made (the words and each file).
+  messages       Int                  @default(0)
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  tripKit        TripKit              @relation(fields: [organizationId, tripKitId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  conversation   WhatsappConversation @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  /// The automatic send goes to a chat once.
+  @@unique([organizationId, tripKitId, conversationId], map: "trip_kit_send_keyword_once", where: raw("(source = 'keyword'::text)"))
+  @@index([organizationId, conversationId], map: "trip_kit_send_chat")
+  @@map("trip_kit_send")
+}

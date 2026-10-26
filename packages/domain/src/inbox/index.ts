@@ -64,6 +64,17 @@ export {
 } from "./scheduled.js";
 export { summaryOf } from "./summary.js";
 export { createQuickReply, deleteQuickReply, listQuickReplies, updateQuickReply } from "./quick-replies.js";
+export {
+  confirmTripKitUpload,
+  createTripKit,
+  deleteTripKit,
+  listTripKits,
+  removeTripKitFile,
+  requestTripKitUpload,
+  updateTripKit,
+  type TripKitDependencies,
+} from "./trip-kits.js";
+export { sendTripKit, sendTripKitOnKeyword, tripKitFor, tripKitKeywordListener } from "./trip-kit-send.js";
 export { createTag, deleteTag, listTags, setConversationTags } from "./tags.js";
 export { settleNeedsReply } from "./needs-reply.js";
 export {

@@ -13,6 +13,8 @@ export type AttachmentContentType = (typeof attachmentContentTypes)[number];
 
 /** The record type of a WhatsApp message: its files are what customers send and staff reply with (ADR 0035). */
 export const WHATSAPP_RECORD_TYPE = "whatsapp_message";
+/** The record type of a trip's details (sales inbox, trip details): the photos, videos and PDFs sent with them on WhatsApp. */
+export const TRIP_KIT_RECORD_TYPE = "trip_kit";
 
 /** What a WhatsApp message may carry: the attachment types plus the video, voice notes and Office files people send. */
 export const whatsappContentTypes = [

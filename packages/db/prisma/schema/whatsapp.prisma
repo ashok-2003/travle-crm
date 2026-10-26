@@ -88,6 +88,7 @@ model WhatsappConversation {
   tags           ConversationTag[]
   reads          ConversationRead[]
   scheduled      ScheduledMessage[]
+  tripKitSends   TripKitSend[]
   broadcasts     WhatsappBroadcastRecipient[]
 
   @@unique([organizationId, id])
