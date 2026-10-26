@@ -31,4 +31,10 @@ describe("memory storage", () => {
       "name=Quote%20QT-1.pdf",
     );
   });
+
+  it("makes a download link that opens in place only when asked", async () => {
+    const storage = createMemoryStorage();
+    expect(await storage.presignDownload({ key: "doc", fileName: "a.pdf" }, 60)).not.toContain("inline=1");
+    expect(await storage.presignDownload({ key: "doc", fileName: "a.pdf", inline: true }, 60)).toContain("inline=1");
+  });
 });

@@ -171,5 +171,10 @@ export type MediaUploadSlot = z.infer<typeof mediaUploadSlot>;
 export const sentMessage = z.object({ messageId: recordId, status: whatsappMessageStatus });
 export type SentMessage = z.infer<typeof sentMessage>;
 
-export const mediaLink = z.object({ url: z.string(), fileName: z.string().nullable(), contentType: z.string() });
+export const mediaLink = z.object({
+  url: z.string(),
+  fileName: z.string().nullable(),
+  contentType: z.string(),
+  sizeBytes: z.int().nonnegative(),
+});
 export type MediaLink = z.infer<typeof mediaLink>;

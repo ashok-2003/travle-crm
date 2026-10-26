@@ -11,6 +11,7 @@ import {
   listConversationsInput,
   listMessagesInput,
   mediaLink,
+  mediaUrlInput,
   mediaUploadSlot,
   messageIdInput,
   requestMediaUploadInput,
@@ -122,9 +123,9 @@ export const inboxRouter = router({
 
   /** A presigned link to a message's stored file (5 minutes). */
   mediaUrl: reader
-    .input(messageIdInput)
+    .input(mediaUrlInput)
     .output(mediaLink)
-    .query(({ ctx, input }) => mediaLinkOf(ctx, ctx.member, input.messageId)),
+    .query(({ ctx, input }) => mediaLinkOf(ctx, ctx.member, input.messageId, { download: input.download })),
 
   /** Start a new lead for a past customer's chat (Q2). */
   startLead: starter

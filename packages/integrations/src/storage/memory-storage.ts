@@ -40,12 +40,12 @@ export function createMemoryStorage(now: () => Date = () => new Date()): MemoryS
           expiresAt,
         };
       }),
-    presignDownload: ({ key, fileName }, expiresInSeconds) =>
+    presignDownload: ({ key, fileName, inline = false }, expiresInSeconds) =>
       promised(() => {
         assertSafeKey(key);
         assertExpiry(expiresInSeconds);
         const expires = String(now().getTime() + expiresInSeconds * 1000);
-        return `memory://download/${encodeURIComponent(key)}?name=${encodeURIComponent(fileName)}&expires=${expires}`;
+        return `memory://download/${encodeURIComponent(key)}?name=${encodeURIComponent(fileName)}${inline ? "&inline=1" : ""}&expires=${expires}`;
       }),
     put: ({ key, contentType, body }) =>
       promised(() => {

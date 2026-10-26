@@ -25,8 +25,8 @@ export interface Files {
    * "not found".
    */
   confirmUpload(actor: Actor, input: AttachmentRefInput, check?: StoredBytesCheck): Promise<AttachmentSummary>;
-  /** A 5-minute link to a ready file. Sensitive files need documents:view_sensitive. */
-  downloadLink(actor: MemberAccess, input: AttachmentRefInput): Promise<DownloadLink>;
+  /** A 5-minute link to a ready file. Sensitive files need documents:view_sensitive. With `inline`, the browser may open it in place. */
+  downloadLink(actor: MemberAccess, input: AttachmentRefInput, options?: { inline?: boolean }): Promise<DownloadLink>;
   /** The record's ready files, sensitive ones marked; their names only for members with documents:view_sensitive. */
   list(actor: Actor, record: { recordType: string; recordId: string }): Promise<AttachmentSummary[]>;
   /** `list` for many records of one type in one query, by record id. */
@@ -57,7 +57,7 @@ export function createFiles(dependencies: FilesDependencies): Files {
   return {
     requestUpload: (actor, input) => requestUpload(dependencies, actor, input),
     confirmUpload: (actor, input, check) => confirmUpload(dependencies, actor, input, check),
-    downloadLink: (actor, input) => downloadLink(dependencies, actor, input),
+    downloadLink: (actor, input, options) => downloadLink(dependencies, actor, input, options),
     list: (actor, record) => listAttachments(dependencies, actor, record),
     listForRecords: (actor, recordType, recordIds) =>
       listAttachmentsOfRecords(dependencies, actor, recordType, recordIds),

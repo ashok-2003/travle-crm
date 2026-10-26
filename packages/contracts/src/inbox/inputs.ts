@@ -51,6 +51,10 @@ export type LeadChatInput = z.infer<typeof leadChatInput>;
 export const messageIdInput = z.strictObject({ messageId: recordId });
 export type MessageIdInput = z.infer<typeof messageIdInput>;
 
+/** A message's file: opened in place where the browser can show it, or, with `download`, saved. */
+export const mediaUrlInput = z.strictObject({ messageId: recordId, download: z.boolean().default(false) });
+export type MediaUrlInput = z.input<typeof mediaUrlInput>;
+
 /** What staff may send as a file (spec 4.4 S4): pictures, a short video, and the documents customers ask for. */
 export const whatsappSendContentTypes = [
   "image/jpeg",

@@ -102,13 +102,13 @@ export function createS3Storage(settings: S3StorageSettings): S3Storage {
       };
     },
 
-    async presignDownload({ key, fileName }, expiresInSeconds) {
+    async presignDownload({ key, fileName, inline = false }, expiresInSeconds) {
       assertSafeKey(key);
       assertExpiry(expiresInSeconds);
       const command = new GetObjectCommand({
         Bucket: bucket,
         Key: key,
-        ResponseContentDisposition: attachmentDisposition(fileName),
+        ResponseContentDisposition: attachmentDisposition(fileName, inline ? "inline" : "attachment"),
       });
       return getSignedUrl(client, command, { expiresIn: expiresInSeconds });
     },

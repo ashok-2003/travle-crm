@@ -34,17 +34,31 @@ export async function startLeadFromConversation(
   return { leadId };
 }
 
-/** A short-lived link to a message's stored file, with the name and type to show it by. Sensitive files obey their rule. */
+/** What a browser may open in place: it shows these and runs nothing from them. Every other file is saved. */
+const opensInPlace = (contentType: string) =>
+  /^(image\/(jpeg|png|webp|gif)|video\/|audio\/)/.test(contentType) || contentType === "application/pdf";
+
+/**
+ * A short-lived link to a message's stored file, with the name, type and size to show it by. It opens in place for a
+ * photo, video, voice note or PDF, unless the person asked to download. Sensitive files obey their rule.
+ */
 export async function mediaLinkOf(
   dependencies: { db: Database; files: Files },
   access: MemberAccess,
   messageId: string,
+  options: { download?: boolean } = {},
 ): Promise<MediaLink> {
   const message = await dependencies.db.forOrg(access.organizationId, (tx) => visibleMessage(tx, access, messageId));
   if (message.mediaState !== "stored") throw new DomainError("NOT_FOUND", "NOT_FOUND", "The file is not stored");
   const record = { recordType: WHATSAPP_RECORD_TYPE, recordId: messageId };
   const [file] = await dependencies.files.list(access, record);
   if (file === undefined) throw new DomainError("NOT_FOUND", "NOT_FOUND", "The file is not stored");
-  const link = await dependencies.files.downloadLink(access, { ...record, attachmentId: file.id });
-  return mediaLink.parse({ url: link.url, fileName: file.fileName, contentType: file.contentType });
+  const inline = options.download !== true && opensInPlace(file.contentType);
+  const link = await dependencies.files.downloadLink(access, { ...record, attachmentId: file.id }, { inline });
+  return mediaLink.parse({
+    url: link.url,
+    fileName: file.fileName,
+    contentType: file.contentType,
+    sizeBytes: file.sizeBytes,
+  });
 }

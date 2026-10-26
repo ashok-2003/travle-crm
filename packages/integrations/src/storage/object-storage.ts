@@ -27,8 +27,14 @@ export interface ObjectStorage {
     object: { key: string; contentType: string; sizeBytes: number },
     expiresInSeconds: number,
   ): Promise<PresignedUpload>;
-  /** A URL that downloads the file and saves it under fileName. */
-  presignDownload(object: { key: string; fileName: string }, expiresInSeconds: number): Promise<string>;
+  /**
+   * A URL that downloads the file and saves it under fileName; with `inline`, one the browser may open in place (only for
+   * a file that is safe to show: a photo, a video, a voice note, a PDF).
+   */
+  presignDownload(
+    object: { key: string; fileName: string; inline?: boolean },
+    expiresInSeconds: number,
+  ): Promise<string>;
   /** Stores a file the server made itself, such as a rendered PDF. */
   put(object: { key: string; contentType: string; body: Uint8Array }): Promise<void>;
   /**

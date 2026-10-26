@@ -56,6 +56,17 @@ describe("S3 storage downloads", () => {
     expect(decodeURIComponent(encoded)).toBe(fileName);
   });
 
+  it("opens a file in place when the link is inline, and saves it otherwise", async () => {
+    const key = "organizations/o1/attachments/a3";
+    await storage.put({ key, contentType: "image/png", body: new TextEncoder().encode("png") });
+    const inline = await fetch(await storage.presignDownload({ key, fileName: "Photo.png", inline: true }, 60));
+    expect(inline.headers.get("content-disposition")).toMatch(
+      /^inline; filename="Photo.png"; filename\*=UTF-8''Photo\.png$/,
+    );
+    const saved = await fetch(await storage.presignDownload({ key, fileName: "Photo.png" }, 60));
+    expect(saved.headers.get("content-disposition")).toMatch(/^attachment; /);
+  });
+
   it("refuses a download URL once it has expired", async () => {
     const key = "organizations/o1/attachments/a2";
     await storage.put({ key, contentType: "application/pdf", body: new TextEncoder().encode("%PDF") });
