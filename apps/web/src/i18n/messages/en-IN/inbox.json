@@ -109,7 +109,8 @@
       "templates": "Templates",
       "uploading": "Sending {percent}%",
       "cancelUpload": "Cancel",
-      "dropHere": "Drop the file to attach it"
+      "dropHere": "Drop the file to attach it",
+      "toolsDescription": "Templates, trip details, quick replies and payment details for this chat."
     },
     "formerMember": "A former member",
     "failure": {

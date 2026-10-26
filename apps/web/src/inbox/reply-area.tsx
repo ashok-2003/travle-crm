@@ -92,11 +92,11 @@ export function ReplyArea({ header }: { header: ConversationHeader }) {
             if (chosen === "reply" || chosen === "note") setMode(chosen);
           }}
         >
-          <ToggleGroupItem value="reply" className="rounded-full px-3">
+          <ToggleGroupItem value="reply" className="h-8 rounded-full px-3">
             <MessageSquareIcon aria-hidden="true" />
             {t("modeReply")}
           </ToggleGroupItem>
-          <ToggleGroupItem value="note" className="rounded-full px-3" disabled={header.lead === null}>
+          <ToggleGroupItem value="note" className="h-8 rounded-full px-3" disabled={header.lead === null}>
             <StickyNoteIcon aria-hidden="true" />
             {t("modeNote")}
           </ToggleGroupItem>

@@ -84,13 +84,14 @@ export function ChatHeader({
         type="button"
         variant={searchOpen ? "secondary" : "ghost"}
         size="icon"
+        className="hidden md:inline-flex"
         aria-label={t("search")}
         aria-pressed={searchOpen}
         onClick={onToggleSearch}
       >
         <SearchIcon aria-hidden="true" />
       </Button>
-      <Button asChild variant="ghost" size="icon" aria-label={t("call", { name })}>
+      <Button asChild variant="ghost" size="icon" className="hidden md:inline-flex" aria-label={t("call", { name })}>
         <a href={`tel:${header.phone}`}>
           <PhoneIcon aria-hidden="true" />
         </a>
@@ -100,13 +101,14 @@ export function ChatHeader({
         type="button"
         variant={panelOpen ? "secondary" : "ghost"}
         size="icon"
+        className="hidden md:inline-flex"
         aria-label={t("contactPanel")}
         aria-pressed={panelOpen}
         onClick={onTogglePanel}
       >
         <PanelRightIcon aria-hidden="true" />
       </Button>
-      <ChatMenu header={header} />
+      <ChatMenu header={header} onToggleSearch={onToggleSearch} onTogglePanel={onTogglePanel} />
     </header>
   );
 }
