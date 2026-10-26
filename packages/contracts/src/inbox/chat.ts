@@ -128,7 +128,7 @@ export type ConversationHeader = z.infer<typeof conversationHeader>;
 export const chatMessage = z.object({
   id: recordId,
   direction: z.enum(["in", "out"]),
-  origin: z.enum(["customer", "staff_crm", "staff_phone", "history"]),
+  origin: z.enum(["customer", "staff_crm", "staff_phone", "history", "automation"]),
   kind: whatsappMessageKind,
   body: z.string().nullable(),
   caption: z.string().nullable(),

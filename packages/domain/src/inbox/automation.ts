@@ -1,7 +1,6 @@
-// The agency's automatic answers (sales inbox spec 6): a welcome to a number writing for the first time, a keyword's
-// answer ("price" → the price list), and an away message outside working hours (once in 12 hours per chat). They are
-// written by the Owner and Admins (inbox:templates) and sent by the worker when a customer writes, inside the 24-hour
-// window the customer just opened, through the ordinary outbox; the chat keeps waiting for a person's reply.
+// The agency's settings for automatic answers (sales inbox spec 6): a welcome to a number writing for the first time, a
+// keyword's answer ("price" → the price list), and an away message outside working hours. They are written by the Owner
+// and Admins (inbox:templates); every change is audited. The worker answers with them in automation-answer.ts.
 import {
   inboxAutomation,
   keywordReplyList,
@@ -10,19 +9,15 @@ import {
   type InboxAutomation,
   type KeywordReply,
   type SaveInboxAutomationInput,
-  whatsappCustomerWroteEvent,
 } from "@travel-crm/contracts/inbox";
 import { isUniqueViolation, softDeleted, type OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import type { MemberAccess } from "../identity/index.js";
-import { defineListener, type EventListener } from "../jobs/index.js";
 import { DomainError } from "../kernel/index.js";
-import { queueSystemText } from "./system-send.js";
 
-/** Published for every new message a customer writes (not a reaction, not a blocked contact's). */
+/** Published when a customer writes and the agency has an automatic answer that could fit (never a reaction, a blocked contact, or STOP). */
 export const CUSTOMER_WROTE_EVENT = "whatsapp.customer-wrote";
 
-const AWAY_GAP_MS = 12 * 3_600_000;
 const defaults: InboxAutomation = {
   awayEnabled: false,
   awayMessage: "",
@@ -57,16 +52,43 @@ export async function saveAutomation(
   const existing = await tx.inboxAutomation.findFirst({ select: { id: true } });
   const row =
     existing === null
-      ? await tx.inboxAutomation.create({ data, select: automationFields })
-      : await tx.inboxAutomation.update({ where: { id: existing.id }, data, select: automationFields });
+      ? await tx.inboxAutomation.create({ data, select: { ...automationFields, id: true } })
+      : await tx.inboxAutomation.update({
+          where: { id: existing.id },
+          data,
+          select: { ...automationFields, id: true },
+        });
   await recordAudit(tx, access, {
     action: "inbox.automation-changed",
     entityType: "inbox_automation",
-    entityId: existing?.id ?? access.organizationId,
-    before: { away: before.awayEnabled, welcome: before.welcomeEnabled },
-    after: { away: row.awayEnabled, welcome: row.welcomeEnabled },
+    entityId: row.id,
+    before: auditView(before),
+    after: auditView(row),
   });
   return inboxAutomation.parse(row);
+}
+
+/** What an audit entry shows of the settings: the switches, the hours and the two messages (the agency's own words). */
+const auditView = (settings: InboxAutomation) => ({
+  away: settings.awayEnabled,
+  welcome: settings.welcomeEnabled,
+  hours: `${minuteText(settings.openFrom)}-${minuteText(settings.openUntil)}, days ${[...settings.openDays].sort().join(" ") || "none"}`,
+  awayText: settings.awayMessage,
+  welcomeText: settings.welcomeMessage,
+});
+const minuteText = (minutes: number) =>
+  `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+
+/** Whether an answer could fit any message at all: the welcome or away message is on, or a keyword answer is. */
+export async function automationCouldAct(tx: OrgTx): Promise<boolean> {
+  const settings = await automationOf(tx);
+  if (
+    (settings.welcomeEnabled && settings.welcomeMessage !== "") ||
+    (settings.awayEnabled && settings.awayMessage !== "")
+  ) {
+    return true;
+  }
+  return (await tx.inboxKeywordReply.count({ where: { enabled: true } })) > 0;
 }
 
 const keywordFields = { id: true, keyword: true, reply: true, enabled: true } as const;
@@ -113,87 +135,5 @@ export async function deleteKeywordReply(tx: OrgTx, access: MemberAccess, keywor
     entityType: "inbox_keyword_reply",
     entityId: row.id,
     before: { keyword: row.keyword },
-  });
-}
-
-/** Whether the office is open at a moment, by the agency's hours in its own time zone. */
-export function isOpenAt(settings: InboxAutomation, at: Date, timeZone: string): boolean {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone,
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(at);
-  const value = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
-  const day = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(value("weekday"));
-  const minute = Number(value("hour")) * 60 + Number(value("minute"));
-  return settings.openDays.includes(day) && minute >= settings.openFrom && minute < settings.openUntil;
-}
-
-/** The first keyword answer whose word stands as a whole word in the text, in any case. */
-export function keywordAnswerFor(text: string, replies: KeywordReply[]): KeywordReply | undefined {
-  const words = new Set(
-    text
-      .toLowerCase()
-      .split(/[^\p{L}\p{N}]+/u)
-      .filter((word) => word !== ""),
-  );
-  return replies.find((reply) => reply.enabled && words.has(reply.keyword));
-}
-
-/** The worker's listener: when a customer writes, the one automatic answer that fits, if any. Safe to run twice. */
-export function automationListener(dependencies: {
-  timeZone: (organizationId: string) => Promise<string>;
-}): EventListener {
-  return defineListener({
-    name: "inbox.automatic-answers",
-    eventType: CUSTOMER_WROTE_EVENT,
-    payload: whatsappCustomerWroteEvent,
-    handle: async (event, context) => {
-      const timeZone = await dependencies.timeZone(event.organizationId);
-      await context.forOrg(async (tx) => {
-        const settings = await automationOf(tx);
-        const message = await tx.whatsappMessage.findUnique({
-          where: { id: event.payload.messageId },
-          select: { body: true, caption: true, occurredAt: true },
-        });
-        if (message === null) return;
-        const send = (body: string, kind: string) =>
-          queueSystemText(
-            tx,
-            {
-              conversationId: event.payload.conversationId,
-              body,
-              sentBy: null,
-              clientToken: `auto:${kind}:${event.id}`,
-              answers: false,
-            },
-            new Date(),
-          );
-        if (event.payload.firstEver && settings.welcomeEnabled && settings.welcomeMessage !== "") {
-          await send(settings.welcomeMessage, "welcome");
-          return;
-        }
-        const keyword = keywordAnswerFor(message.body ?? message.caption ?? "", await listKeywordReplies(tx));
-        if (keyword !== undefined) {
-          await send(keyword.reply, "keyword");
-          return;
-        }
-        if (!settings.awayEnabled || settings.awayMessage === "" || isOpenAt(settings, message.occurredAt, timeZone)) {
-          return;
-        }
-        // Once in 12 hours a chat: a customer writing five lines at night gets one away message.
-        const recent = await tx.whatsappMessage.findFirst({
-          where: {
-            conversationId: event.payload.conversationId,
-            clientToken: { startsWith: "auto:away:" },
-            occurredAt: { gt: new Date(Date.now() - AWAY_GAP_MS) },
-          },
-          select: { id: true },
-        });
-        if (recent === null) await send(settings.awayMessage, "away");
-      });
-    },
   });
 }

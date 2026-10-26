@@ -1,11 +1,13 @@
 // A reply the system writes on the team's behalf (sales inbox spec 6): a scheduled message when its time comes, and the
 // automatic answers (away, welcome, keyword). It passes the same checks as a reply typed now (the number connected and
-// not paused, the 24-hour window open) and goes through the same outbox; an automatic answer leaves the chat waiting
-// for a person's reply. The client token makes a repeat (a job run twice) one message.
+// not paused, the 24-hour window open) and one more: nobody who withdrew their WhatsApp consent is written to. It goes
+// through the same outbox; an automatic answer is written as "automation" and leaves the chat waiting for a person's
+// reply. The client token makes a repeat (a job run twice) one message.
 import type { OrgTx } from "@travel-crm/db";
 import { publishEvent } from "../jobs/index.js";
 import { liveConnection } from "./connection-row.js";
 import { MESSAGE_QUEUED_EVENT, showAsLast } from "./outbox.js";
+import { whatsappConsentOf } from "./whatsapp-consent.js";
 import { windowIsOpen } from "./window.js";
 
 export type SystemSendResult = { ok: true; messageId: string } | { ok: false; code: string };
@@ -17,6 +19,8 @@ export async function queueSystemText(
     body: string;
     /** The member it is sent for (a scheduled message's writer), or null for an automatic answer. */
     sentBy: string | null;
+    /** "staff_crm" for a person's message sent later, "automation" for an answer the system wrote. */
+    origin: "staff_crm" | "automation";
     clientToken: string;
     /** True for a person's reply sent later: the chat stops waiting. False for an automatic answer. */
     answers: boolean;
@@ -25,7 +29,7 @@ export async function queueSystemText(
 ): Promise<SystemSendResult> {
   const chat = await tx.whatsappConversation.findUnique({
     where: { id: input.conversationId },
-    select: { id: true, connectionId: true, state: true, hidden: true, lastInboundAt: true },
+    select: { id: true, connectionId: true, personId: true, state: true, hidden: true, lastInboundAt: true },
   });
   if (chat?.state !== "open" || chat.hidden) return { ok: false, code: "not_connected" };
   const connection = await liveConnection(tx);
@@ -33,12 +37,15 @@ export async function queueSystemText(
   if (connection.status === "paused") return { ok: false, code: "paused" };
   if (connection.status === "setup") return { ok: false, code: "not_connected" };
   if (!windowIsOpen(chat.lastInboundAt, now)) return { ok: false, code: "window_closed" };
+  if (chat.personId !== null && (await whatsappConsentOf(tx, chat.personId)).state === "withdrawn") {
+    return { ok: false, code: "opted_out" };
+  }
   const [row] = await tx.whatsappMessage.createManyAndReturn({
     data: [
       {
         conversationId: chat.id,
         direction: "out",
-        origin: "staff_crm",
+        origin: input.origin,
         kind: "text",
         body: input.body,
         status: "queued",

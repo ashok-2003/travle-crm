@@ -97,6 +97,7 @@ async function dueWorkOf(tx: OrgTx, organizationId: string, now: Date): Promise<
         conversationId: item.conversationId,
         body: item.body,
         sentBy: item.createdBy,
+        origin: "staff_crm",
         clientToken: `scheduled:${item.id}`,
         answers: true,
       },

@@ -24,16 +24,22 @@ export {
   unreadCounts,
 } from "./chat-flags.js";
 export {
-  automationListener,
+  automationCouldAct,
   automationOf,
   createKeywordReply,
   CUSTOMER_WROTE_EVENT,
   deleteKeywordReply,
-  isOpenAt,
-  keywordAnswerFor,
   listKeywordReplies,
   saveAutomation,
 } from "./automation.js";
+export {
+  answerAutomatically,
+  AUTOMATION_COOLDOWN_MS,
+  automationListener,
+  isOpenAt,
+  keywordAnswerFor,
+  type AutomaticAnswer,
+} from "./automation-answer.js";
 export { broadcastReachOf, listBroadcasts, MAX_BROADCAST_CHATS, sendBroadcast } from "./broadcast.js";
 export { addNote, listNotes, MENTION_KIND } from "./notes.js";
 export {
@@ -103,5 +109,5 @@ export {
   syncTemplates,
   type TemplateDependencies,
 } from "./templates.js";
-export { isOptOutText, whatsappConsentOf, type WhatsappConsent } from "./whatsapp-consent.js";
+export { isOptOutText, recordWhatsappOptOut, whatsappConsentOf, type WhatsappConsent } from "./whatsapp-consent.js";
 export { NEEDS_ATTENTION_KIND } from "./attention.js";

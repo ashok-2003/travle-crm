@@ -249,6 +249,9 @@
     "until": "Until",
     "away": "Away message",
     "welcome": "Welcome message",
+    "hours": "Opening hours",
+    "awayText": "Away message text",
+    "welcomeText": "Welcome message text",
     "keyword": "Keyword",
     "template": "Template",
     "total": "Chats"

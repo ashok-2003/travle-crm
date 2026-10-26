@@ -73,6 +73,8 @@ interface Queued {
   /** When it was queued (or last tried again by a person). */
   queuedAt: Date;
   sentBy: string | null;
+  /** "automation" for an answer the system wrote. */
+  origin: string;
   conversationId: string;
   phoneE164: string;
   personId: string | null;
@@ -110,7 +112,8 @@ async function queuedMessage(tx: OrgTx, messageId: string): Promise<Queued | nul
       },
     },
   });
-  if (message?.status !== "queued" || message.direction !== "out" || message.origin !== "staff_crm") return null;
+  if (message?.status !== "queued" || message.direction !== "out") return null;
+  if (message.origin !== "staff_crm" && message.origin !== "automation") return null;
   const { conversation } = message;
   return {
     id: message.id,
@@ -122,6 +125,7 @@ async function queuedMessage(tx: OrgTx, messageId: string): Promise<Queued | nul
     templateParams: message.templateParams,
     queuedAt: message.occurredAt,
     sentBy: message.sentBy,
+    origin: message.origin,
     conversationId: conversation.id,
     phoneE164: conversation.phoneE164,
     personId: conversation.personId,
@@ -232,9 +236,9 @@ export async function sendQueued(
   const message = await context.forOrg(async (tx) => {
     const queued = await queuedMessage(tx, event.messageId);
     if (queued === null) return null;
-    // A STOP that came while a template waited in the queue stops it too (D19).
+    // A STOP that came while a template or an automatic answer waited in the queue stops it too (D19).
     const stopped =
-      queued.template !== null &&
+      (queued.template !== null || queued.origin === "automation") &&
       queued.personId !== null &&
       (await whatsappConsentOf(tx, queued.personId)).state === "withdrawn";
     const refusal = refusalOf(dependencies, queued, now) ?? (stopped ? "opted_out" : null);
