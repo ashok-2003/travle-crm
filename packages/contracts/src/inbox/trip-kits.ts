@@ -8,7 +8,8 @@ import { clientToken, MAX_WHATSAPP_SEND_BYTES, whatsappSendContentTypes } from "
 /** The most files a trip may carry: each is a message of its own, so a few. */
 export const MAX_TRIP_KIT_FILES = 10;
 
-const keyword = z.string().trim().toLowerCase().min(2).max(40);
+// Three letters at least: "hi" or "ok" would set a trip off in every chat.
+const keyword = z.string().trim().toLowerCase().min(3).max(40);
 
 export const tripKitFields = {
   name: z.string().trim().min(1).max(80),

@@ -619,7 +619,7 @@
       "problems": {
         "required": "Enter the trip's name.",
         "tooLong": "This is too long.",
-        "keywords": "Each keyword is 2 to 40 letters, 20 at most."
+        "keywords": "Each keyword is 3 to 40 letters, 20 at most."
       }
     },
     "send": {
