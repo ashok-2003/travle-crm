@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   AUTOMATION_COOLDOWN_MS,
+  CUSTOMER_WROTE_EVENT,
   answerAutomatically,
   createKeywordReply,
   queueText,
@@ -13,7 +14,7 @@ import {
   recordWhatsappOptOut,
 } from "../../src/inbox/index.js";
 import { newUuidV7, systemActor } from "../../src/kernel/index.js";
-import { listenerContext, memberOf } from "../imports/support/test-imports.js";
+import { eventsOf, listenerContext, memberOf } from "../imports/support/test-imports.js";
 import {
   aConnectedAgency,
   createTestInbox,
@@ -94,6 +95,66 @@ describe("automatic answers", () => {
     const { writes, automaticMessages } = await agency({ welcomeEnabled: true, welcomeMessage: "Welcome!" });
     await writes("Hi");
     await writes("Hello again", new Date(testNow.getTime() + 30 * HOUR));
+    expect(await automaticMessages()).toHaveLength(1);
+  });
+
+  it("does not welcome a customer whose first words answer a message we sent first", async () => {
+    const { connection, customerNumber, automaticMessages } = await agency({
+      welcomeEnabled: true,
+      welcomeMessage: "Welcome!",
+    });
+    const chat = await test.db.forOrg(connection.organizationId, (tx) =>
+      tx.whatsappConversation.create({
+        data: { connectionId: connection.connectionId, phoneE164: `+${customerNumber}`, lastMessageAt: testNow },
+      }),
+    );
+    await test.db.forOrg(connection.organizationId, (tx) =>
+      tx.whatsappMessage.create({
+        data: {
+          conversationId: chat.id,
+          direction: "out",
+          origin: "staff_crm",
+          kind: "template",
+          body: "Hello from us",
+          status: "sent",
+          occurredAt: testNow,
+        },
+      }),
+    );
+    await deliver(
+      test,
+      fromCustomer(connection, { customerNumber, text: "Yes please", ts: Math.floor(testNow.getTime() / 1000) + 60 }),
+      new Date(testNow.getTime() + 60_000),
+    );
+    const events = await eventsOf(test, connection.organizationId, [CUSTOMER_WROTE_EVENT]);
+    expect(events).toHaveLength(1);
+    expect(events[0]?.[1]).toMatchObject({ firstEver: false });
+    expect(await automaticMessages()).toHaveLength(1);
+  });
+
+  it("sends one answer of a kind when two messages in one chat are decided at the same time", async () => {
+    const { connection, customerNumber, automaticMessages } = await agency({}, { price: "Packages start at 30,000" });
+    for (const text of ["price?", "the price please"]) {
+      await deliver(
+        test,
+        fromCustomer(connection, { customerNumber, text, ts: Math.floor(testNow.getTime() / 1000) }),
+        testNow,
+      );
+    }
+    const { chat, incoming } = await test.db.forOrg(connection.organizationId, async (tx) => ({
+      chat: await tx.whatsappConversation.findFirstOrThrow(),
+      incoming: await tx.whatsappMessage.findMany({ where: { direction: "in" } }),
+    }));
+    expect(incoming).toHaveLength(2);
+    const decide = (messageId: string, firstEver: boolean) =>
+      test.db.forOrg(connection.organizationId, (tx) =>
+        answerAutomatically(
+          tx,
+          { conversationId: chat.id, messageId, eventId: randomUUID(), firstEver, timeZone: "Asia/Kolkata" },
+          testNow,
+        ),
+      );
+    await Promise.all(incoming.map((message) => decide(message.id, false)));
     expect(await automaticMessages()).toHaveLength(1);
   });
 

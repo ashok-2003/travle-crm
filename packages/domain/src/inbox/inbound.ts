@@ -128,7 +128,11 @@ export async function receiveInbound(
     if (facts !== null && writing && !hidden && !isOptOutText(message.text) && (await automationCouldAct(tx))) {
       await publishEvent(tx, {
         type: CUSTOMER_WROTE_EVENT,
-        payload: { conversationId: conversation.id, messageId: row.id, firstEver: conversation.lastInboundAt === null },
+        payload: {
+          conversationId: conversation.id,
+          messageId: row.id,
+          firstEver: conversation.lastInboundAt === null && conversation.lastMessageAt === null,
+        },
       });
     }
     if (writing && personId !== null && isOptOutText(message.text)) {

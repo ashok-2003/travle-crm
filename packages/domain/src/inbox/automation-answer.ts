@@ -62,6 +62,8 @@ export async function answerAutomatically(
   if (chat === null) return "none";
   if (chat.personId !== null && (await whatsappConsentOf(tx, chat.personId)).state === "withdrawn") return "none";
   const since = new Date(now.getTime() - AUTOMATION_COOLDOWN_MS);
+  // Two messages decided at once share a token, so only one answer of a kind is made; the check below covers a bucket's edge.
+  const bucket = Math.floor(now.getTime() / AUTOMATION_COOLDOWN_MS);
   // A person answered in this chat lately: the machine keeps quiet while they are at it.
   const person = await tx.whatsappMessage.findFirst({
     where: {
@@ -108,12 +110,16 @@ export async function answerAutomatically(
   }
   const keyword = keywordAnswerFor(text ?? "", await listKeywordReplies(tx));
   if (keyword !== undefined) {
-    return (await recent("keyword")) ? "none" : send("keyword", keyword.reply, `auto:keyword:${input.eventId}`);
+    return (await recent("keyword"))
+      ? "none"
+      : send("keyword", keyword.reply, `auto:keyword:${input.conversationId}:${String(bucket)}`);
   }
   if (!settings.awayEnabled || settings.awayMessage === "" || isOpenAt(settings, message.occurredAt, input.timeZone)) {
     return "none";
   }
-  return (await recent("away")) ? "none" : send("away", settings.awayMessage, `auto:away:${input.eventId}`);
+  return (await recent("away"))
+    ? "none"
+    : send("away", settings.awayMessage, `auto:away:${input.conversationId}:${String(bucket)}`);
 }
 
 /** The worker's listener: when a customer writes, the one automatic answer that fits, if any. Safe to run twice. */
