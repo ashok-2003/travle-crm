@@ -17,6 +17,9 @@ export interface AiAssistDependencies {
   agencyName: (organizationId: string) => Promise<string>;
 }
 
+/** After this long a turn still marked is one the worker never finished (it stopped): the inbox stops showing it. */
+const TURN_STALE_MS = 3 * 60_000;
+
 const notFound = () => new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
 const notConfigured = () =>
   new DomainError("FEATURE_LOCKED", "AI_NOT_CONFIGURED", "The AI assistant is not set up on this platform");
@@ -80,13 +83,19 @@ export async function chatAiOf(tx: OrgTx, conversationId: string, configured: bo
           select: { id: true },
         });
   const mode = state?.mode === "on" || state?.mode === "off" ? state.mode : "default";
+  const answering = configured && agentAnswers(mode, settings.autopilot) && state?.handedOffAt == null;
+  // A turn the worker left behind (it stopped mid-way) is no turn after a few minutes.
+  const turnFresh = state?.turnAt != null && Date.now() - state.turnAt.getTime() < TURN_STALE_MS;
+  const turnState = state?.turnState === "queued" || state?.turnState === "thinking" ? state.turnState : null;
   return {
     mode,
-    answering: configured && agentAnswers(mode, settings.autopilot) && state?.handedOffAt == null,
+    answering,
     handedOff: state?.handedOffAt != null,
     handoffReason: state?.handoffReason ?? null,
     memory: state?.memory ?? "",
     lastReplyAt: state?.lastReplyAt?.toISOString() ?? null,
+    turn: answering && turnFresh ? turnState : null,
+    agentName: settings.agentName,
     configured,
     insight: lead === null ? null : await leadInsightOf(tx, lead.id),
   };

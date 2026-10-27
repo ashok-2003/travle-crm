@@ -184,6 +184,8 @@ export function createServices(environment: Environment, logger: Logger): Servic
       apiKey: environment.AI_API_KEY ?? "",
       models: { chat: environment.AI_CHAT_MODELS, fast: environment.AI_FAST_MODELS },
       zeroRetention: environment.AI_ZERO_RETENTION,
+      // A customer is waiting: a model slower than this is left for the next one in the list.
+      timeoutMs: 20_000,
     }),
     start: async () => {
       // A DATABASE_URL for the wrong role (app_migrator, say) would otherwise fail every request and job while the

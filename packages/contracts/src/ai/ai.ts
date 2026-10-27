@@ -99,6 +99,10 @@ export const chatAi = z.object({
   handoffReason: z.string().nullable(),
   memory: z.string(),
   lastReplyAt: z.iso.datetime().nullable(),
+  /** What the agent is doing now: waiting a moment for the customer's next line, or writing its answer. */
+  turn: z.enum(["queued", "thinking"]).nullable(),
+  /** The name it writes as ("Riya"), else empty. */
+  agentName: z.string(),
   configured: z.boolean(),
   insight: leadInsight.nullable(),
 });

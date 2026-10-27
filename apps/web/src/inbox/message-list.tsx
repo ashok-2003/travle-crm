@@ -3,11 +3,13 @@
 // The messages of a chat, in a scroll area of their own (spec 3.2): oldest at the top, the newest at the bottom, a line between
 // days, earlier messages loaded as the top is reached (and a button for whoever cannot scroll), and "New messages" when some
 // arrived below while the person was reading higher up. The team's notes sit among the messages at their time (sales inbox
-// spec 6); a search in the chat shows only what matches. The reply box is not in here: it stays where it is.
+// spec 6); a search in the chat shows only what matches. At the foot, the AI agent's "typing" while it answers. The reply
+// box is not in here: it stays where it is.
 import type { ChatMessage, ConversationNote } from "@travel-crm/contracts/inbox";
 import { ArrowDownIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Fragment, useEffect, type ReactNode } from "react";
+import { AiTyping } from "@/ai/ai-turn";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { ShowMoreButton } from "@/components/show-more-button";
@@ -125,6 +127,7 @@ function Loaded({
             {rows.map((row, index) => (
               <Fragment key={index}>{row}</Fragment>
             ))}
+            <AiTyping conversationId={conversationId} />
           </ol>
         </div>
       </ScrollArea>

@@ -129,6 +129,8 @@ export const chatMessage = z.object({
   id: recordId,
   direction: z.enum(["in", "out"]),
   origin: z.enum(["customer", "staff_crm", "staff_phone", "history", "automation"]),
+  /** Written by the AI agent (an automatic message of its own). */
+  byAi: z.boolean(),
   kind: whatsappMessageKind,
   body: z.string().nullable(),
   caption: z.string().nullable(),

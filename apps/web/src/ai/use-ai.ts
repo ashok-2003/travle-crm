@@ -5,7 +5,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/data/trpc";
 
-/** How often a chat's insight is read again while it is open: the agent rescores after each message. */
+/**
+ * How often an open chat's AI state is read again: every few seconds where the agent answers, so its "typing" shows as it
+ * starts and its answer as it ends; slower elsewhere, for the insight it rescores after each message.
+ */
+const CHAT_ANSWERING_MS = 2_500;
 const CHAT_REFRESH_MS = 20_000;
 
 function useAiChange() {
@@ -70,7 +74,10 @@ export function useTestAi() {
 
 export function useChatAi(conversationId: string) {
   const trpc = useTRPC();
-  return useQuery({ ...trpc.ai.forChat.queryOptions({ conversationId }), refetchInterval: CHAT_REFRESH_MS });
+  return useQuery({
+    ...trpc.ai.forChat.queryOptions({ conversationId }),
+    refetchInterval: (query) => (query.state.data?.answering === true ? CHAT_ANSWERING_MS : CHAT_REFRESH_MS),
+  });
 }
 
 export function useSetChatAi() {

@@ -90,7 +90,18 @@
     "modes": { "default": "As the agency", "on": "On", "off": "Off" },
     "memory": "What the AI remembers",
     "answeringShort": "AI on",
-    "handedOffShort": "Needs you"
+    "handedOffShort": "Needs you",
+    "theAi": "The AI",
+    "reading": "{name} (AI) is reading…",
+    "readingUnnamed": "The AI is reading…",
+    "typing": "{name} (AI) is typing…",
+    "typingUnnamed": "The AI is typing…",
+    "barAnswering": "{name} is answering this chat. If you write, it steps back for 30 minutes.",
+    "barWorking": "{name} is replying now…",
+    "barOff": "You are answering this chat. The AI is off here.",
+    "barHandedOff": "Over to you: {reason}",
+    "takeOver": "Take over",
+    "letAnswer": "Let AI answer"
   },
   "insight": {
     "title": "AI insight",

@@ -10,14 +10,14 @@ import { AI_KNOWLEDGE_RECORD_TYPE } from "@travel-crm/contracts/files";
 import type { Files } from "../files/index.js";
 import { CUSTOMER_WROTE_EVENT, routesPage, WINDOW_MS } from "../inbox/index.js";
 import { defineListener, type EventListener, type JobHandler } from "../jobs/index.js";
-import { runAgentTurn, type AgentDependencies } from "./agent.js";
+import { agentAnswers, runAgentTurn, type AgentDependencies } from "./agent.js";
 import { AI_DOCUMENT_ADDED_EVENT } from "./knowledge.js";
 import { aiSettingsOf } from "./settings.js";
 
 export const AI_REPLY_QUEUE = "ai.reply";
 export const AI_NUDGES_QUEUE = "ai.nudges";
 /** How long the agent waits after a message for the next one: people send three short lines, not one. */
-const SETTLE_MS = 12_000;
+const SETTLE_MS = 6_000;
 /** Chats the agent works on at once. */
 const AT_ONCE = 10;
 /** A nudge goes no later than this before the window closes, so it can still be answered for free. */
@@ -31,10 +31,23 @@ export function aiCustomerWroteListener(dependencies: { queue: JobQueue }): Even
     eventType: CUSTOMER_WROTE_EVENT,
     payload: whatsappCustomerWroteEvent,
     handle: async (event, context) => {
+      const { conversationId } = event.payload;
       const wanted = await context.forOrg(async (tx) => {
         const settings = await aiSettingsOf(tx);
-        if (settings.autopilot || settings.scoring) return true;
-        return (await tx.aiChat.count({ where: { conversationId: event.payload.conversationId, mode: "on" } })) > 0;
+        const state = await tx.aiChat.findFirst({
+          where: { conversationId },
+          select: { mode: true, handedOffAt: true },
+        });
+        const answers = agentAnswers(state?.mode, settings.autopilot) && state?.handedOffAt == null;
+        // The inbox says at once that the agent has the message, before it waits for the customer's next line.
+        if (answers) {
+          await tx.aiChat.upsert({
+            where: { organizationId_conversationId: { organizationId: event.organizationId, conversationId } },
+            create: { conversationId, turnState: "queued", turnAt: new Date() },
+            update: { turnState: "queued", turnAt: new Date() },
+          });
+        }
+        return answers || settings.scoring;
       });
       if (!wanted) return;
       await dependencies.queue.send(
@@ -65,12 +78,30 @@ export function aiReplyHandler(dependencies: AgentDependencies & { logger: Logge
         }),
       );
       if (newest?.id !== job.messageId) return;
-      const outcome = await runAgentTurn(
-        dependencies,
-        { organizationId: job.organizationId, conversationId: job.conversationId, kind: "reply", token: job.messageId },
-        new Date(),
-      );
-      dependencies.logger.info({ queue: AI_REPLY_QUEUE, outcome }, "The AI agent's turn");
+      const turn = (turnState: "thinking" | null, only?: "thinking") =>
+        dependencies.db.forOrg(job.organizationId, (tx) =>
+          tx.aiChat.updateMany({
+            where: { conversationId: job.conversationId, ...(only === undefined ? {} : { turnState: only }) },
+            data: { turnState, turnAt: new Date() },
+          }),
+        );
+      await turn("thinking");
+      try {
+        const outcome = await runAgentTurn(
+          dependencies,
+          {
+            organizationId: job.organizationId,
+            conversationId: job.conversationId,
+            kind: "reply",
+            token: job.messageId,
+          },
+          new Date(),
+        );
+        dependencies.logger.info({ queue: AI_REPLY_QUEUE, outcome }, "The AI agent's turn");
+      } finally {
+        // Done; a newer message queued meanwhile keeps its mark.
+        await turn(null, "thinking");
+      }
     },
   };
 }

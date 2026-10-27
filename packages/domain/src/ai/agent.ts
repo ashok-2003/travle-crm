@@ -101,10 +101,16 @@ async function mayWrite(
 ): Promise<string | null> {
   if (chat.state !== "open" || chat.hidden) return "closed";
   if (!windowIsOpen(chat.lastInboundAt, now)) return "window_closed";
-  // A reply answers the customer's last message once: anything we wrote after it (a person, an automatic answer) did.
+  // A reply answers the customer's last message once: a person or the agent itself did if either wrote after it. Other
+  // automation (a trip kit for a keyword, a greeting) is no answer, so the agent still replies after it.
   if (kind === "reply" && chat.lastInboundAt !== null) {
     const answered = await tx.whatsappMessage.findFirst({
-      where: { conversationId: chat.id, direction: "out", occurredAt: { gt: chat.lastInboundAt } },
+      where: {
+        conversationId: chat.id,
+        direction: "out",
+        occurredAt: { gt: chat.lastInboundAt },
+        OR: [{ origin: { in: ["staff_crm", "staff_phone"] } }, { clientToken: { startsWith: "ai:" } }],
+      },
       select: { id: true },
     });
     if (answered !== null) return "answered";

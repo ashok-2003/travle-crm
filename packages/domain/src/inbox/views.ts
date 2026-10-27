@@ -384,6 +384,7 @@ export async function listMessages(
         id: row.id,
         direction: row.direction,
         origin: row.origin,
+        byAi: row.clientToken?.startsWith("ai:") === true,
         kind: whatsappMessageKind.catch("unsupported").parse(row.kind),
         body: row.body,
         caption: row.caption,

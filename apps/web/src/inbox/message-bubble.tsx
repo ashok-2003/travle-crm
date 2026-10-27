@@ -1,10 +1,10 @@
 "use client";
 
 // One message of a chat (spec 3.2): the customer's on one side in white, ours on the other in WhatsApp's green, with its time
-// and, for ours, who sent it (or that it was an automatic reply) and its state in ticks; a failed one says why and offers Try
+// and, for ours, who sent it (the AI agent, or that it was an automatic reply) and its state in ticks; a failed one says why and offers Try
 // again. Nothing is drawn with a border or shadow.
 import type { ChatMessage } from "@travel-crm/contracts/inbox";
-import { StarIcon } from "lucide-react";
+import { BotIcon, StarIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -69,7 +69,15 @@ export function MessageBubble({
               aria-hidden="true"
               className={cn(
                 "inline-block",
-                ours ? (message.origin === "automation" ? "w-52" : firstName === undefined ? "w-28" : "w-40") : "w-20",
+                ours
+                  ? message.byAi
+                    ? "w-36"
+                    : message.origin === "automation"
+                      ? "w-52"
+                      : firstName === undefined
+                        ? "w-28"
+                        : "w-40"
+                  : "w-20",
               )}
             />
           )}
@@ -96,7 +104,14 @@ export function MessageBubble({
             <span>{t("formerMember")} ·</span>
           )}
           {message.origin === "staff_phone" && <span>{t("phoneApp")} ·</span>}
-          {message.origin === "automation" && <span>{t("automatic")} ·</span>}
+          {message.byAi ? (
+            <span className="inline-flex items-center gap-0.5 font-medium text-primary">
+              <BotIcon aria-hidden="true" className="size-3.5" />
+              {t("byAi")} ·
+            </span>
+          ) : (
+            message.origin === "automation" && <span>{t("automatic")} ·</span>
+          )}
           {message.starred && <StarIcon aria-label={t("starred")} role="img" className="size-3 fill-current" />}
           <span>{formatTime(new Date(message.occurredAt), { timeZone })}</span>
           {ours && !failed && <Ticks status={message.status} className="size-3.5" />}
