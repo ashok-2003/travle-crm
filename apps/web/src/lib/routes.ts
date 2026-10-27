@@ -30,6 +30,8 @@ export const routes = {
   broadcasts: "/inbox/broadcasts",
   /** A lead's quotations and the money on them (step 3, P0); one quote's page is quoteRoute(quoteId). */
   quotes: "/quotes",
+  /** Reports and analytics; one staff member's is staffReportRoute(userId). */
+  reports: "/reports",
   /** The agency's money: profit, bookings and running costs (step 6, P0). */
   finance: "/finance",
   settings: "/settings",
@@ -62,6 +64,11 @@ export const routes = {
   /** The service worker's fallback for a page never opened before (src/service-worker/strategy.ts). */
   offline: "/offline",
 } as const;
+
+/** One staff member's performance and activity. */
+export function staffReportRoute(userId: string): string {
+  return `${routes.reports}/staff/${encodeURIComponent(userId)}`;
+}
 
 /** One quote's page. */
 export function quoteRoute(quoteId: string): string {

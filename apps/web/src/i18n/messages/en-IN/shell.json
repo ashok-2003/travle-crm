@@ -20,7 +20,8 @@
     "expand": "Open the sidebar",
     "inbox": "Inbox",
     "quotes": "Quotes",
-    "finance": "Finance"
+    "finance": "Finance",
+    "reports": "Reports"
   },
   "home": {
     "title": "Welcome, {name}",

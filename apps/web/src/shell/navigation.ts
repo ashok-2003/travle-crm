@@ -4,6 +4,7 @@
 import type { PlanModule } from "@travel-crm/contracts/subscriptions";
 import {
   CalendarCheckIcon,
+  ChartColumnIcon,
   FileTextIcon,
   HistoryIcon,
   HouseIcon,
@@ -24,7 +25,8 @@ export type NavigationGroup = (typeof navigationGroups)[number];
 
 export interface NavigationItem {
   /** Also the message key in the "shell.navigation" namespace. */
-  key: "home" | "today" | "leads" | "inbox" | "quotes" | "finance" | "staff" | "roles" | "settings" | "audit";
+  key:
+    "home" | "today" | "leads" | "inbox" | "quotes" | "reports" | "finance" | "staff" | "roles" | "settings" | "audit";
   /** The sidebar heading it sits under; phones list the items without headings. */
   group: NavigationGroup;
   href: string;
@@ -41,6 +43,7 @@ export const navigationItems: readonly NavigationItem[] = [
   { key: "leads", group: "work", href: routes.leads, icon: InboxIcon, requires: "leads:view", module: "crm" },
   { key: "inbox", group: "work", href: routes.inbox, icon: MessageCircleIcon, requires: "inbox:view", module: "inbox" },
   { key: "quotes", group: "work", href: routes.quotes, icon: FileTextIcon, requires: "quotes:view", module: "quotes" },
+  { key: "reports", group: "work", href: routes.reports, icon: ChartColumnIcon, requires: "leads:view", module: "crm" },
   {
     key: "finance",
     group: "manage",
