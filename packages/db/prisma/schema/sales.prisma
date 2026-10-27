@@ -1,0 +1,125 @@
+// Sales execution (the owner's focus of 2026-10-27): what turns more leads into bookings without anyone remembering to.
+// The agency's automation settings (the first WhatsApp to a new lead, the follow-ups when they go quiet, the payment
+// reminders, what makes a lead hot), each lead's follow-up run, every automatic touch (its key makes a repeat nothing),
+// the signals that make a lead hot, and the agency's ready packages a quote starts from. Organization-owned, under RLS.
+
+/// How the agency's sales run by themselves. One row each.
+model SalesAutomation {
+  /// Filled from db.forOrg()'s organization when omitted. Also the key: one row per organization.
+  organizationId     String       @id @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  /// The first WhatsApp to a lead that arrived by itself (an ad, the website, a sheet), within a minute.
+  speedEnabled       Boolean      @default(false) @map("speed_enabled")
+  speedTemplateId    String?      @map("speed_template_id") @db.Uuid
+  /// What fills each blank of the template: a field key (name, destination...) or "text:<words>".
+  speedParams        String[]     @default([]) @map("speed_params")
+  /// The agency's word that someone who enquires with their number agreed to hear back on WhatsApp.
+  contactEnquirers   Boolean      @default(false) @map("contact_enquirers")
+  /// The nudges to a lead who has not written back: [{ days, templateId, params }], in order.
+  followEnabled      Boolean      @default(false) @map("follow_enabled")
+  followSteps        Json         @default("[]") @map("follow_steps")
+  /// A payment due on an accepted quote: a reminder some days before, and once the day after it is missed.
+  reminderEnabled    Boolean      @default(false) @map("reminder_enabled")
+  reminderTemplateId String?      @map("reminder_template_id") @db.Uuid
+  reminderParams     String[]     @default([]) @map("reminder_params")
+  reminderDaysBefore Int          @default(1) @map("reminder_days_before")
+  /// Words in a customer's message that make the lead hot ("price", "book"), lower case.
+  hotKeywords        String[]     @default(["price", "rate", "book", "booking", "confirm", "advance", "payment", "kitna"]) @map("hot_keywords")
+  /// A budget for everyone at or over this is hot; null for none.
+  hotBudgetPaise     BigInt?      @map("hot_budget_paise")
+  /// A trip starting within this many days is hot.
+  hotTravelDays      Int          @default(30) @map("hot_travel_days")
+  updatedBy          String?      @map("updated_by") @db.Uuid
+  updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@map("sales_automation")
+}
+
+/// A lead's run of follow-ups: the next nudge and when, until the customer writes, the lead closes or someone stops it.
+model LeadCadence {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  leadId         String       @map("lead_id") @db.Uuid
+  enrolledAt     DateTime     @map("enrolled_at") @db.Timestamptz(6)
+  /// The index of the next step in the settings' follow-ups.
+  step           Int          @default(0)
+  nextAt         DateTime     @map("next_at") @db.Timestamptz(6)
+  /// active, done or stopped (CHECK lead_cadence_state_value).
+  state          String       @default("active")
+  /// replied, closed, by_hand, no_phone, opted_out, template (why it stopped).
+  stopReason     String?      @map("stop_reason")
+  stoppedBy      String?      @map("stopped_by") @db.Uuid
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  lead           Lead         @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, leadId], map: "lead_cadence_one_per_lead")
+  @@index([organizationId, state, nextAt], map: "lead_cadence_due")
+  @@map("lead_cadence")
+}
+
+/// Every automatic touch: the first message, a follow-up, a payment reminder. Its key makes a repeat nothing.
+model SalesTouch {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  /// speed, follow or reminder (CHECK sales_touch_kind_value).
+  kind           String
+  /// "speed:<lead>", "follow:<lead>:<step>", "reminder:<instalment>:before" ...
+  key            String
+  leadId         String?      @map("lead_id") @db.Uuid
+  /// sent or skipped, with why when skipped.
+  outcome        String
+  reason         String?
+  messageId      String?      @map("message_id") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, key], map: "sales_touch_once")
+  @@index([organizationId, leadId], map: "sales_touch_lead")
+  @@map("sales_touch")
+}
+
+/// Something a customer did that says they are ready to buy: opened the quote, asked the price.
+model LeadSignal {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  leadId         String       @map("lead_id") @db.Uuid
+  /// quote_opened or asked_price (CHECK lead_signal_kind_value).
+  kind           String
+  /// The event it came from, so a repeat adds nothing.
+  sourceKey      String       @map("source_key")
+  at             DateTime     @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  lead           Lead         @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, sourceKey], map: "lead_signal_once")
+  @@index([organizationId, leadId, at], map: "lead_signal_lead")
+  @@map("lead_signal")
+}
+
+/// A ready package ("Manali 5 days") a quote starts from in one tap. Soft-deleted (ADR 0004).
+model QuoteTemplate {
+  organizationId     String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id                 String       @id @default(uuid(7)) @db.Uuid
+  name               String
+  title              String
+  days               Json         @default("[]")
+  items              Json         @default("[]")
+  inclusions         String       @default("")
+  exclusions         String       @default("")
+  notes              String       @default("")
+  taxRateBasisPoints Int          @default(500) @map("tax_rate_basis_points")
+  createdBy          String?      @map("created_by") @db.Uuid
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime?    @map("deleted_at") @db.Timestamptz(6)
+  deletedBy          String?      @map("deleted_by") @db.Uuid
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, name], map: "quote_template_live_name", where: { deletedAt: null })
+  @@map("quote_template")
+}

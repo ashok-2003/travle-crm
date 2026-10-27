@@ -67,6 +67,21 @@ export async function countOverdueTasks(
   return row?.n ?? 0;
 }
 
+/** Each of these people's follow-ups and tasks past their time now: the team's missed follow-ups. */
+export async function overdueByAssignee(
+  tx: OrgTx,
+  userIds: readonly string[],
+  now: Date,
+): Promise<Map<string, number>> {
+  if (userIds.length === 0) return new Map();
+  const rows = await tx.task.groupBy({
+    by: ["assigneeUserId"],
+    where: { doneAt: null, cancelledAt: null, dueAt: { lt: now }, assigneeUserId: { in: [...userIds] } },
+    _count: { _all: true },
+  });
+  return new Map(rows.flatMap((row) => (row.assigneeUserId === null ? [] : [[row.assigneeUserId, row._count._all]])));
+}
+
 export async function countOpenTasks(
   tx: OrgTx,
   filter: Pick<OpenTasksFilter, "assigneeUserId" | "dueFrom" | "dueBefore">,

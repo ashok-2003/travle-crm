@@ -53,6 +53,8 @@ model Lead {
   stage           String                  @default("new")
   /// The last open stage it left, where reopening returns it (R30; CHECK lead_reopen_stage_open).
   reopenStage     String?                 @map("reopen_stage")
+  /// Why it was lost: price, dates, competitor, no_reply, changed_plans or other (CHECK lead_lost_reason_value); null otherwise.
+  lostReason      String?                 @map("lost_reason")
   stageChangedAt  DateTime                @default(now()) @map("stage_changed_at") @db.Timestamptz(6)
   /// The first time it left New for any stage but Not a lead (spec 4), for later releases' alerts and reports.
   firstReplyAt    DateTime?               @map("first_reply_at") @db.Timestamptz(6)
@@ -95,6 +97,8 @@ model Lead {
   timeline        LeadTimelineEntry[]
   notes           LeadNote[]
   quotes          Quote[]
+  cadence         LeadCadence[]
+  signals         LeadSignal[]
   enquiries       LeadEnquiry[]
   formSubmissions WebsiteFormSubmission[]
 

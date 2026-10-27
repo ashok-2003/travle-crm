@@ -6,7 +6,7 @@ import type { Files } from "@travel-crm/domain/files";
 import type { Identity } from "@travel-crm/domain/identity";
 import { acceptQuoteFromLink, publicQuoteOf, QUOTE_RECORD_TYPE } from "@travel-crm/domain/quotes";
 import { quotePage } from "./quote-page.js";
-import { DomainError } from "@travel-crm/domain/kernel";
+import { DomainError, isUuid } from "@travel-crm/domain/kernel";
 import type { ShareLinkAction, ShareLinkResolver } from "./share-link-route.js";
 
 export interface ShareLinkResolverDependencies {
@@ -52,7 +52,13 @@ export function shareLinkActions({ db }: Pick<ShareLinkResolverDependencies, "db
       await db.forOrg(opened.organizationId, (tx) =>
         acceptQuoteFromLink(
           tx,
-          { organizationId: opened.organizationId, quoteId: opened.recordId, name: form.name ?? "" },
+          {
+            organizationId: opened.organizationId,
+            quoteId: opened.recordId,
+            name: form.name ?? "",
+            // Only an id is looked up: anything else the form sends means the opened quote.
+            optionId: form.option !== undefined && isUuid(form.option) ? form.option : undefined,
+          },
           new Date(),
         ),
       );

@@ -62,3 +62,17 @@ export async function moneySummaryOf(
     overdueCount,
   };
 }
+
+/** Each lead owner's sales in the period: the quotes accepted in it, before GST, for the team's leaderboard. */
+export async function salesByOwner(tx: OrgTx, period: { from: Date; to: Date }): Promise<Map<string, number>> {
+  const rows = await tx.quote.findMany({
+    where: { status: "accepted", acceptedAt: { gte: period.from, lt: period.to } },
+    select: { subtotalPaise: true, lead: { select: { ownerUserId: true } } },
+  });
+  const sales = new Map<string, number>();
+  for (const row of rows) {
+    const owner = row.lead.ownerUserId;
+    if (owner !== null) sales.set(owner, (sales.get(owner) ?? 0) + Number(row.subtotalPaise));
+  }
+  return sales;
+}

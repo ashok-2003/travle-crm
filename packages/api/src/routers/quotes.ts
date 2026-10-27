@@ -10,6 +10,10 @@ import {
   listQuotesInput,
   moneySummary,
   moneySummaryInput,
+  packageIdInput,
+  quoteFromPackageInput,
+  quotePackageList,
+  savePackageInput,
   paymentIdInput,
   quoteDetail,
   quoteDocument,
@@ -30,7 +34,12 @@ import {
   addInstallment,
   assertQuoteDocument,
   createQuote,
+  deletePackage,
   deleteQuote,
+  duplicateQuote,
+  listPackages,
+  quoteFromPackage,
+  savePackage,
   getQuote,
   issuePaymentReceipt,
   issueQuoteInvoice,
@@ -235,6 +244,39 @@ export const quotesRouter = router({
         attachmentId: document.pdfAttachmentId,
       });
       return { url: link.url, expiresAt: link.expiresAt.toISOString() };
+    }),
+
+  /** The agency's ready packages, a quote starts from in a tap. */
+  packages: viewer
+    .output(quotePackageList)
+    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => listPackages(tx))),
+
+  savePackage: editor
+    .input(savePackageInput)
+    .output(z.object({ id: z.uuid() }))
+    .mutation(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => savePackage(tx, ctx.member, input))),
+
+  deletePackage: editor
+    .input(packageIdInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => deletePackage(tx, ctx.member, input.packageId)),
+    ),
+
+  fromPackage: maker
+    .input(quoteFromPackageInput)
+    .output(quoteDetail)
+    .mutation(async ({ ctx, input }) => {
+      const context = await quoteContext(ctx);
+      return ctx.db.forOrg(ctx.member.organizationId, (tx) => quoteFromPackage(tx, ctx.member, input, context));
+    }),
+
+  /** Another option of the quote, which the customer's link shows beside it. */
+  duplicate: maker
+    .input(quoteIdInput)
+    .output(quoteDetail)
+    .mutation(async ({ ctx, input }) => {
+      const context = await quoteContext(ctx);
+      return ctx.db.forOrg(ctx.member.organizationId, (tx) => duplicateQuote(tx, ctx.member, input.quoteId, context));
     }),
 
   settings: viewer

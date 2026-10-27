@@ -16,6 +16,7 @@ export interface Audience {
   preview: BroadcastPreview;
   template: { id: string; name: string; category: string; body: string };
   tags: { id: string; name: string }[];
+  segments: string[];
 }
 
 /** The start of the calendar day of `now` in the zone, as an instant (the day's template cap counts from it). */
@@ -40,9 +41,18 @@ export async function broadcastAudience(
   const tagIds = [...new Set(input.tagIds)];
   const tags = await tx.inboxTag.findMany({ where: { id: { in: tagIds } }, select: { id: true, name: true } });
   if (tags.length !== tagIds.length) throw new DomainError("NOT_FOUND", "NOT_FOUND", "A tag no longer exists");
+  const segments = [...new Set(input.segments ?? [])];
 
+  // The chats carrying a tag, and those whose person has a lead in a chosen segment (lost, or won: past customers).
   const tagged = await tx.whatsappConversation.findMany({
-    where: { hidden: false, state: "open", tags: { some: { tagId: { in: tagIds } } } },
+    where: {
+      hidden: false,
+      state: "open",
+      OR: [
+        ...(tagIds.length > 0 ? [{ tags: { some: { tagId: { in: tagIds } } } }] : []),
+        ...(segments.length > 0 ? [{ person: { is: { leads: { some: { stage: { in: segments } } } } } }] : []),
+      ],
+    },
     orderBy: { id: "asc" },
     select: { id: true, personId: true },
   });
@@ -99,6 +109,7 @@ export async function broadcastAudience(
     chatIds,
     template: { id: template.id, name: template.name, category: template.category, body: template.body },
     tags,
+    segments,
     preview: {
       willSend: chatIds.length,
       leftOut: {

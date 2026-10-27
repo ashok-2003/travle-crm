@@ -34,6 +34,11 @@ export interface PublicQuote {
   /** Opens the customer's UPI app for what is due next (or the balance); null without a UPI id. */
   payLink: string | null;
   payPaise: number;
+  /**
+   * The other options the agency sent this customer for the same enquiry (a 3-star and a 4-star), this one among them:
+   * the customer accepts the one they choose. One option alone is just this quote.
+   */
+  options: { quoteId: string; title: string; totalPaise: number; status: string; current: boolean }[];
 }
 
 export async function publicQuoteOf(tx: OrgTx, quoteId: string): Promise<PublicQuote> {
@@ -61,7 +66,20 @@ export async function publicQuoteOf(tx: OrgTx, quoteId: string): Promise<PublicQ
     payPaise = Math.min(balancePaise, due.amountPaise - left);
     break;
   }
+  const siblings = await tx.quote.findMany({
+    where: { leadId: quote.leadId, status: { in: ["sent", "accepted"] } },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, title: true, totalPaise: true, status: true },
+  });
+  const options = (siblings.some((row) => row.id === quote.id) ? siblings : [...siblings, quote]).map((row) => ({
+    quoteId: row.id,
+    title: row.title,
+    totalPaise: Number(row.totalPaise),
+    status: row.status,
+    current: row.id === quote.id,
+  }));
   return {
+    options,
     title: quote.title,
     customerName: quote.lead.person.name,
     startDate: quote.startDate === null ? null : dayOf(quote.startDate),
@@ -93,19 +111,35 @@ export async function publicQuoteOf(tx: OrgTx, quoteId: string): Promise<PublicQ
   };
 }
 
-/** The customer accepts on the link, naming themselves. Accepted already: nothing changes. */
+/**
+ * The customer accepts on the link, naming themselves, and choosing among the options they were sent (the opened quote
+ * when they don't). The other options sent for the same enquiry are declined. Accepted already: nothing changes.
+ */
 export async function acceptQuoteFromLink(
   tx: OrgTx,
-  input: { organizationId: string; quoteId: string; name: string },
+  input: { organizationId: string; quoteId: string; name: string; optionId?: string | undefined },
   now: Date,
 ): Promise<void> {
-  const quote = await findQuoteForSystem(tx, input.quoteId);
+  const opened = await findQuoteForSystem(tx, input.quoteId);
+  // An option must be one sent to the same customer for the same enquiry; anything else is the opened quote.
+  const chosen =
+    input.optionId === undefined || input.optionId === opened.id
+      ? opened
+      : await tx.quote.findFirst({
+          where: { id: input.optionId, leadId: opened.leadId, status: { in: ["sent", "accepted"] } },
+          select: { id: true, status: true, leadId: true },
+        });
+  const quote = chosen ?? opened;
   if (quote.status === "accepted") return;
   if (quote.status === "declined") throw new DomainError("CONFLICT", "QUOTE_DECLINED", "This quote was declined");
   const name = input.name.trim().slice(0, 120);
   if (name === "") throw new DomainError("VALIDATION", "NAME_REQUIRED", "Type your name to accept");
   const actor = publicActor(input.organizationId);
   await tx.quote.update({ where: { id: quote.id }, data: { status: "accepted", acceptedAt: now, acceptedName: name } });
+  await tx.quote.updateMany({
+    where: { leadId: quote.leadId, status: "sent", id: { not: quote.id } },
+    data: { status: "declined" },
+  });
   await recordAudit(tx, actor, {
     action: "quote.accepted-by-customer",
     entityType: "quote",

@@ -12,16 +12,29 @@ export const BROADCAST_PAUSE_MIN_SETTLED = 10;
 /** The day's template cap leaves the rest waiting until this hour (the organization's time zone) of the next day. */
 export const BROADCAST_NEXT_DAY_HOUR = 10;
 
+/** Who a broadcast reaches besides the tags (sales execution): the chats of lost leads, or of past customers (won). */
+export const broadcastSegments = ["lost", "won"] as const;
+export const broadcastSegment = z.enum(broadcastSegments);
+export type BroadcastSegment = z.infer<typeof broadcastSegment>;
+
 const audience = {
   templateId: recordId,
-  tagIds: z.array(recordId).min(1).max(MAX_BROADCAST_TAGS),
+  tagIds: z.array(recordId).max(MAX_BROADCAST_TAGS),
+  segments: z.array(broadcastSegment).max(broadcastSegments.length).default([]),
   /** The template's blanks, the same for everyone. */
   params: z.array(z.string().trim().min(1).max(200)).max(MAX_BROADCAST_PARAMS),
 };
-export const broadcastPreviewInput = z.strictObject(audience);
-export type BroadcastPreviewInput = z.infer<typeof broadcastPreviewInput>;
-export const createBroadcastInput = z.strictObject({ requestId: z.uuid(), ...audience });
-export type CreateBroadcastInput = z.infer<typeof createBroadcastInput>;
+/** A broadcast goes to some tags' chats, some segments' or both: never to nobody chosen. */
+const someone = {
+  check: (input: { tagIds: string[]; segments: string[] }) => input.tagIds.length + input.segments.length > 0,
+  params: { message: "Choose who it goes to", path: ["tagIds"] },
+};
+export const broadcastPreviewInput = z.strictObject(audience).refine(someone.check, someone.params);
+export type BroadcastPreviewInput = z.input<typeof broadcastPreviewInput>;
+export const createBroadcastInput = z
+  .strictObject({ requestId: z.uuid(), ...audience })
+  .refine(someone.check, someone.params);
+export type CreateBroadcastInput = z.input<typeof createBroadcastInput>;
 
 /** Who a broadcast would reach, who is left out and why, and what is left of the month's allowance. */
 export const broadcastPreview = z.object({
@@ -61,6 +74,7 @@ export const broadcastSummary = z.object({
   /** What each chat was sent: the template's words with the blanks filled in. */
   message: z.string(),
   tagNames: z.array(z.string()),
+  segments: z.array(broadcastSegment),
   status: z.enum(broadcastStatuses),
   pausedReason: z.enum(broadcastPausedReasons).nullable(),
   counts: broadcastCounts,

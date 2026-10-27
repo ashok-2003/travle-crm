@@ -1,7 +1,7 @@
 // A lead's page (spec 3.4): its person, trip, owner, source and open work. A lead missing, deleted or out of the
 // member's leads:view scope is "not found" alike (R26), so nobody learns that another's lead exists: every crm door
 // into a lead goes through findLeadInScope.
-import { leadSource, leadStage, openLeadStage, type LeadDetail } from "@travel-crm/contracts/crm";
+import { leadSource, leadStage, lostReason, openLeadStage, type LeadDetail } from "@travel-crm/contracts/crm";
 import type { OrgTx } from "@travel-crm/db";
 import { destinationNames } from "../catalog/index.js";
 import { assertRecordInScope, type MemberAccess } from "../identity/index.js";
@@ -15,6 +15,7 @@ const leadColumns = {
   personId: true,
   stage: true,
   reopenStage: true,
+  lostReason: true,
   stageChangedAt: true,
   firstReplyAt: true,
   returning: true,
@@ -32,6 +33,7 @@ export interface LeadRow extends TripColumns {
   personId: string;
   stage: string;
   reopenStage: string | null;
+  lostReason: string | null;
   stageChangedAt: Date;
   firstReplyAt: Date | null;
   returning: boolean;
@@ -71,6 +73,7 @@ export async function getLead(tx: OrgTx, access: MemberAccess, leadId: string): 
     id: lead.id,
     stage: leadStage.parse(lead.stage),
     reopenStage: lead.reopenStage === null ? null : openLeadStage.parse(lead.reopenStage),
+    lostReason: lead.lostReason === null ? null : lostReason.parse(lead.lostReason),
     stageChangedAt: lead.stageChangedAt.toISOString(),
     firstReplyAt: lead.firstReplyAt?.toISOString() ?? null,
     returning: lead.returning,
