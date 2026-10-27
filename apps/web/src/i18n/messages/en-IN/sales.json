@@ -1,7 +1,7 @@
 {
   "blanks": {
     "choose": "Choose a template",
-    "noTemplates": "No approved template yet. Make one in Settings, WhatsApp, and wait for WhatsApp to approve it.",
+    "noTemplates": "No approved WhatsApp template yet, so there is nothing to choose. Make one under Settings, WhatsApp, Templates; WhatsApp approves most within minutes, some take up to a day. It shows here once approved.",
     "blank": "Blank {number}",
     "words": "Words",
     "preview": "How it reads",
@@ -25,7 +25,8 @@
       "amount": "₹8,000.00",
       "due": "5 Nov",
       "link": "https://…/p/…"
-    }
+    },
+    "makeTemplate": "Make a template"
   },
   "settings": {
     "title": "Sales automation",
@@ -56,7 +57,8 @@
       "dayHint": "Each comes after the one before.",
       "template": "Template",
       "add": "Add a follow-up",
-      "remove": "Remove follow-up {number}"
+      "remove": "Remove follow-up {number}",
+      "needTemplate": "Follow-ups need an approved WhatsApp template. Make one under Settings, WhatsApp, Templates, then add Day 1, Day 3 and Day 7 here."
     },
     "reminder": {
       "title": "Remind customers to pay",

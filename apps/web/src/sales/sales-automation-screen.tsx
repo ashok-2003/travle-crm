@@ -164,7 +164,9 @@ function AutomationForm({ saved }: { saved: SalesAutomation }) {
         disabled={busy}
       >
         {steps.length === 0 ? (
-          <p className="text-muted-foreground">{t("follow.none")}</p>
+          <p className="text-muted-foreground">
+            {templates.length === 0 ? t("follow.needTemplate") : t("follow.none")}
+          </p>
         ) : (
           <ItemGroup className="gap-3">
             {steps.map((step, index) => (
