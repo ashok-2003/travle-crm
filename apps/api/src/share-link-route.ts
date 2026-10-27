@@ -6,8 +6,17 @@ import { DomainError } from "@travel-crm/domain/kernel";
 import type { OpenedShareLink, ShareLinkVisitor } from "@travel-crm/domain/share-links";
 import { Hono } from "hono";
 
-/** Shows a shared record of one type, e.g. redirects to an issued document's PDF. */
-export type ShareLinkResolver = (opened: OpenedShareLink) => Promise<Response>;
+/**
+ * Shows a shared record of one type, e.g. redirects to an issued document's PDF. `notice` says what the customer just
+ * did on the page (an action's answer), for it to say so.
+ */
+export type ShareLinkResolver = (opened: OpenedShareLink, notice: "accepted" | null) => Promise<Response>;
+
+/** What a customer does on a shared record's page (a POST of its form): what to tell them, or nothing. */
+export type ShareLinkAction = (
+  opened: OpenedShareLink,
+  form: Readonly<Record<string, string | undefined>>,
+) => Promise<"accepted" | undefined>;
 
 export interface ShareLinkRouteOptions {
   /** findShareLink from @travel-crm/domain/share-links, bound to the database: checks the link, records nothing. */
@@ -16,6 +25,8 @@ export interface ShareLinkRouteOptions {
   recordOpen: (opened: OpenedShareLink, visitor: ShareLinkVisitor) => Promise<void>;
   /** One resolver per record type that can be shared. */
   resolvers: Readonly<Record<string, ShareLinkResolver>>;
+  /** What a page's form may do, per record type: a quote's Accept. */
+  actions?: Readonly<Record<string, ShareLinkAction>>;
   clientAddress: (request: Request) => string | null;
 }
 
@@ -165,7 +176,7 @@ export function shareLinkRoutes(options: ShareLinkRouteOptions): Hono {
     if (!resolve) return errorPage("LINK_NOT_FOUND");
     let response: Response;
     try {
-      response = await resolve(opened);
+      response = await resolve(opened, c.req.query("done") === "accepted" ? "accepted" : null);
     } catch (error) {
       // A resolver says "not found" (or "not ready yet") the same way the link itself does.
       if (error instanceof DomainError && error.code === "NOT_FOUND") {
@@ -176,6 +187,37 @@ export function shareLinkRoutes(options: ShareLinkRouteOptions): Hono {
     // Counted and announced only when the customer got the record: not for a 404, a 503 "being prepared" or a failure.
     if (response.status < 400) await options.recordOpen(opened, visitor);
     return keptPrivate(response);
+  });
+
+  // A page's form, posted back to its own link: the action runs, then the page shows again (POST, redirect, GET).
+  app.post("/:token", async (c) => {
+    const token = c.req.param("token");
+    let opened: OpenedShareLink;
+    try {
+      opened = await options.find(token);
+    } catch (error) {
+      if (error instanceof DomainError && error.code === "NOT_FOUND") {
+        return errorPage(isPageReason(error.reason) ? error.reason : "LINK_NOT_FOUND");
+      }
+      throw error;
+    }
+    const act =
+      options.actions !== undefined && Object.hasOwn(options.actions, opened.recordType)
+        ? options.actions[opened.recordType]
+        : undefined;
+    if (!act) return errorPage("LINK_NOT_FOUND");
+    const body = await c.req.parseBody();
+    const form: Record<string, string | undefined> = {};
+    for (const [key, value] of Object.entries(body)) if (typeof value === "string") form[key] = value.slice(0, 500);
+    let done: string | undefined;
+    try {
+      done = await act(opened, form);
+    } catch (error) {
+      if (error instanceof DomainError) return c.redirect(`/p/${encodeURIComponent(token)}`, 303);
+      throw error;
+    }
+    const target = `/p/${encodeURIComponent(token)}${done === undefined ? "" : `?done=${done}`}`;
+    return keptPrivate(new Response(null, { status: 303, headers: { Location: target } }));
   });
 
   return app;
