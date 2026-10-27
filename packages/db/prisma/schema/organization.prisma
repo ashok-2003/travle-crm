@@ -89,6 +89,8 @@ model Organization {
   quoteInstallments           QuoteInstallment[]
   quotePayments               QuotePayment[]
   quoteSettings               QuoteSettings?
+  tripCosts                   TripCost[]
+  agencyExpenses              AgencyExpense[]
   whatsappBroadcastTags       WhatsappBroadcastTag[]
   whatsappBroadcastRecipients WhatsappBroadcastRecipient[]
 

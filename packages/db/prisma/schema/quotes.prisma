@@ -48,6 +48,7 @@ model Quote {
   invoiceDocument    IssuedDocument?    @relation("QuoteInvoice", fields: [organizationId, invoiceDocumentId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
   installments       QuoteInstallment[]
   payments           QuotePayment[]
+  costs              TripCost[]
 
   @@unique([organizationId, id])
   @@index([organizationId, leadId], map: "quote_lead")

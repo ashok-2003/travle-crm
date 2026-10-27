@@ -12,6 +12,7 @@ import { inboxRouter } from "./inbox.js";
 import { salesInboxRouter } from "./sales-inbox.js";
 import { tripKitsRouter } from "./trip-kits.js";
 import { quotesRouter } from "./quotes.js";
+import { financeRouter } from "./finance.js";
 import { whatsappTemplatesRouter } from "./whatsapp-templates.js";
 import { insightsRouter } from "./insights.js";
 import { leadExportsRouter } from "./lead-exports.js";
@@ -61,6 +62,7 @@ export const appRouter = router({
   salesInbox: salesInboxRouter,
   tripKits: tripKitsRouter,
   quotes: quotesRouter,
+  finance: financeRouter,
   whatsappTemplates: whatsappTemplatesRouter,
   leadExports: leadExportsRouter,
   staffImports: staffImportsRouter,

@@ -1,0 +1,50 @@
+// Finance (step 6, P0): what a booking (an accepted quote) costs the agency, paid to its suppliers or still owed, and the
+// agency's own running costs. With the quotes' prices and payments they make its profit. Amounts are integer paise.
+// Neither is deleted: a mistake is voided, with who and when. Organization-owned, under row-level security.
+
+/// A supplier's cost on a booking: a hotel, a cab, a flight.
+model TripCost {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  quoteId        String       @map("quote_id") @db.Uuid
+  /// hotel, transport, flight, train, activity, visa, guide or other (CHECK trip_cost_category_value).
+  category       String
+  supplier       String
+  amountPaise    BigInt       @map("amount_paise")
+  dueOn          DateTime?    @map("due_on") @db.Date
+  /// Null while the agency still owes it.
+  paidOn         DateTime?    @map("paid_on") @db.Date
+  note           String       @default("")
+  createdBy      String?      @map("created_by") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  voidedAt       DateTime?    @map("voided_at") @db.Timestamptz(6)
+  voidedBy       String?      @map("voided_by") @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  quote          Quote        @relation(fields: [organizationId, quoteId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, quoteId], map: "trip_cost_quote")
+  @@map("trip_cost")
+}
+
+/// The agency's own running cost: salaries, rent, ads, software.
+model AgencyExpense {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  /// salary, rent, marketing, software, utilities, commission, travel or other (CHECK agency_expense_category_value).
+  category       String
+  description    String
+  amountPaise    BigInt       @map("amount_paise")
+  spentOn        DateTime     @map("spent_on") @db.Date
+  note           String       @default("")
+  createdBy      String?      @map("created_by") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  voidedAt       DateTime?    @map("voided_at") @db.Timestamptz(6)
+  voidedBy       String?      @map("voided_by") @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, spentOn], map: "agency_expense_spent_on")
+  @@map("agency_expense")
+}
