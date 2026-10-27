@@ -1,8 +1,8 @@
 "use client";
 
 // "Talk like a real person" (the owner, 2026-10-28): a WhatsApp chat export (.txt) is read here in the browser, the
-// person to copy is chosen from those who wrote in it, and only their own messages go to the AI, which writes down how
-// they talk. For the agency (every chat) or one chat, where it wins over the agency's. Shows whose way of talking is
+// person to copy is chosen from those who wrote in it, and the chat's latest lines go to the AI, which writes down how
+// they talk and, for one chat, what the two talked about. For the agency (every chat) or one chat, where it wins over the agency's. Shows whose way of talking is
 // in use, how they talk as the AI read it, and removes it.
 import type { AiVoice } from "@travel-crm/contracts/ai";
 import { MessageCircleHeartIcon, UploadIcon } from "lucide-react";
@@ -18,7 +18,7 @@ import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle }
 import { Spinner } from "@/components/ui/spinner";
 import { useWriteAccess } from "@/subscription/write-access";
 import { useClearVoice, useLearnVoice } from "./use-ai";
-import { readWhatsAppExport, samplesOf, sendersOf, type ExportedMessage } from "./whatsapp-export";
+import { conversationOf, readWhatsAppExport, sendersOf, type ExportedMessage } from "./whatsapp-export";
 
 /** Fewer of someone's messages than this show too little of how they talk. */
 const FEWEST = 5;
@@ -28,12 +28,15 @@ export function VoicePanel({
   voice,
   inherited = false,
   disabled = false,
+  context = null,
 }: {
   /** The chat it is for; null for the agency's. */
   conversationId: string | null;
   voice: AiVoice | null;
   /** The voice shown is the agency's, used in this chat. */
   inherited?: boolean;
+  /** What this chat's export says the two talked about before. */
+  context?: string | null;
   disabled?: boolean;
 }) {
   const t = useTranslations("ai.voice");
@@ -83,6 +86,18 @@ export function VoicePanel({
                 <p className="pt-2 text-caption whitespace-pre-line text-muted-foreground">{voice.profile}</p>
               </CollapsibleContent>
             </Collapsible>
+            {context !== null && context !== "" && (
+              <Collapsible>
+                <CollapsibleTrigger asChild>
+                  <Button variant="link" className="h-auto p-0">
+                    {t("context")}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <p className="pt-2 text-caption whitespace-pre-line text-muted-foreground">{context}</p>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
           </ItemContent>
           {!inherited && (
             <ItemActions>
@@ -133,7 +148,7 @@ export function VoicePanel({
             disabled={learn.isPending || (senders.find((one) => one.name === chosen)?.count ?? 0) < FEWEST}
             onClick={() => {
               if (messages === null) return;
-              learn.learn({ personName: chosen, messages: samplesOf(messages, chosen) }, () => {
+              learn.learn({ personName: chosen, messages: conversationOf(messages, chosen) }, () => {
                 toast.success(t("learned", { name: chosen }));
                 close();
               });

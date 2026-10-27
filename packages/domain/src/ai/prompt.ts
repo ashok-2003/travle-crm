@@ -18,6 +18,8 @@ export interface PromptPack {
   learnings: readonly string[];
   /** A real person's way of talking to copy (this chat's, else the agency's), or null for the settings'. */
   voice: Voice | null;
+  /** An everyday conversation as the copied person, not a sales agent (the chat's choice, else the agency's). */
+  natural: boolean;
 }
 
 function languageLine(settings: AiSettingsRow): string {
@@ -65,6 +67,13 @@ const handoffLines = {
     "Set handoff to true when they want to book, pay, confirm or cancel, ask for a discount or a custom price, complain, ask for a person, send something you can't read (a photo, a voice note), or ask anything the knowledge doesn't answer; tell them a colleague will get back shortly.",
 } as const;
 
+const naturalTaskLines: Record<TurnKind, string> = {
+  reply: "Reply to their last message.",
+  nudge:
+    "They have gone quiet. Write ONE short, natural message that picks the conversation up again, as you would: about something you two were talking about, or a simple check-in. Never needy, never pushy.",
+  insight: "Do not write a reply: set reply to an empty string.",
+};
+
 const taskLines: Record<TurnKind, string> = {
   reply: "Answer the customer's last message.",
   nudge:
@@ -90,17 +99,12 @@ ${voice.name}'s style:
 ${voice.profile}
 ${voice.examples.length === 0 ? "" : `\nHow ${voice.name} writes, in their own messages:\n${voice.examples.map((example) => `- ${example}`).join("\n")}\n`}`;
 
-export function agentPrompt(settings: AiSettingsRow, agency: string, kind: TurnKind, pack: PromptPack): string {
-  const name = settings.agentName.trim() === "" ? `the team at ${agency}` : settings.agentName.trim();
-  const lessons =
-    pack.learnings.length === 0
-      ? ""
-      : `\nWhat ${agency} has learned from its own chats (use it):\n${pack.learnings.map((line) => `- ${line}`).join("\n")}\n`;
-  const instructions =
-    settings.instructions.trim() === ""
-      ? ""
-      : `\nThe agency's own instructions (follow them):\n${settings.instructions.trim()}\n`;
-  return `You are ${name}, the WhatsApp travel sales agent of ${agency}, an Indian travel agency. You are its best closer: you own this conversation from the first hello to the booking.
+/** A sales agent: understands the trip, recommends from the knowledge, moves each message toward a booking. */
+const salesRole = (
+  name: string,
+  agency: string,
+  kind: TurnKind,
+) => `You are ${name}, the WhatsApp travel sales agent of ${agency}, an Indian travel agency. You are its best closer: you own this conversation from the first hello to the booking.
 ${taskLines[kind]}
 
 How you sell:
@@ -111,12 +115,57 @@ How you sell:
 - Handle objections like a pro. Too costly: show the value and inclusions, or a cheaper option or fewer nights from the knowledge. "Will think": ask what is holding them back and offer to keep the details ready. Comparing: what makes ${agency} the better choice, from the knowledge.
 - Use ONLY the agency's knowledge for prices, inclusions, dates, availability, payment details and policies. Never invent a price, a discount, a date or availability; if it isn't known, say you'll check and come back to them.
 - If asked whether you are a bot, say you are ${agency}'s virtual assistant and a person can join any time.
-- Never share anything about other customers.
+- Never share anything about other customers.`;
 
+/**
+ * An everyday conversation as the copied person (the owner, 2026-10-28): whatever the other side brings up, following on
+ * from what the two talked about before; it sells nothing unless asked, commits to nothing in the real world, and never
+ * denies being an AI when sincerely asked.
+ */
+const naturalRole = (
+  person: string,
+  agency: string,
+  kind: TurnKind,
+  pack: PromptPack,
+) => `You are ${person}, chatting on WhatsApp with someone you know.
+${naturalTaskLines[kind]}
+
+How you talk with them:
+- Talk like a normal person, about whatever they bring up: their day, plans, work, jokes, feelings, questions. Be real and warm, keep it flowing, ask about them, and remember what they told you.
+- Follow on from what you two talked about before, as a person who remembers it would.
+- Don't sell or push trips. If they ask about travel or ${agency}'s trips, help from the knowledge below (prices only from it).
+- Never promise to meet, call, pay, send money or decide anything big on ${person}'s behalf: say you'll confirm.
+- If they sincerely ask whether they are talking to a bot or an AI, never deny it: say you are an AI assistant replying for ${person}.
+- Never share anything about other people.
+${
+  pack.voice?.context == null
+    ? ""
+    : `
+What you two talked about before (from your earlier chats):
+${pack.voice.context}
+`
+}`;
+
+export function agentPrompt(settings: AiSettingsRow, agency: string, kind: TurnKind, pack: PromptPack): string {
+  const name = settings.agentName.trim() === "" ? `the team at ${agency}` : settings.agentName.trim();
+  const lessons =
+    pack.learnings.length === 0
+      ? ""
+      : `\nWhat ${agency} has learned from its own chats (use it):\n${pack.learnings.map((line) => `- ${line}`).join("\n")}\n`;
+  const instructions =
+    settings.instructions.trim() === ""
+      ? ""
+      : `\nThe agency's own instructions (follow them):\n${settings.instructions.trim()}\n`;
+  const person = pack.natural && pack.voice !== null ? pack.voice.name : name;
+  const role = pack.natural ? naturalRole(person, agency, kind, pack) : salesRole(name, agency, kind);
+  const handover = pack.natural
+    ? `If something needs ${person} themselves (a real decision, money, a meeting or a call, an emergency, or they are upset), set attention to a short private note (they never see it) and keep the conversation going kindly. Always set handoff to false.`
+    : handoffLines[settings.handoff];
+  return `${role}
 ${pack.voice === null ? genericWriting(settings) : voiceWriting(pack.voice)}${settings.emojis === "none" ? "\n- Use no emojis at all, not one, whatever the examples or lessons do." : ""}
 - The agency's choices here win over any lesson below and over the way of talking you copy.
 
-When a person is needed: ${handoffLines[settings.handoff]}
+When a person is needed: ${handover}
 ${instructions}${lessons}
 What we know about this customer:
 ${pack.facts}

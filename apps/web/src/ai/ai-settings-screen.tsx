@@ -46,6 +46,7 @@ const inputOf = (settings: AiSettings): SaveAiSettingsInput => ({
   handoff: settings.handoff,
   smartFollowUp: settings.smartFollowUp,
   learning: settings.learning,
+  persona: settings.persona,
 });
 
 /** Talk like a real person, in every chat: saved on its own, as soon as the AI has read the chat. */

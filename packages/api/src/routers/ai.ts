@@ -25,6 +25,7 @@ import {
   saveAiSettingsInput,
   setAiLearningInput,
   setChatAiInput,
+  setChatPersonaInput,
   suggestedReply,
   testAiAnswer,
   testAiInput,
@@ -48,6 +49,7 @@ import {
   resumeChat,
   saveAiSettings,
   setChatMode,
+  setChatPersona,
   setLearning,
   suggestReply,
   testAnswer,
@@ -191,6 +193,13 @@ export const aiRouter = router({
   setChatMode: chatSteerer
     .input(setChatAiInput)
     .mutation(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => setChatMode(tx, ctx.member, input))),
+
+  /** In one chat, the AI is a sales agent, an everyday conversation, or as the agency says. */
+  setChatPersona: chatSteerer
+    .input(setChatPersonaInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => setChatPersona(tx, ctx.member, input)),
+    ),
 
   /** A chat the agent handed to a person goes back to it. */
   resume: chatSteerer

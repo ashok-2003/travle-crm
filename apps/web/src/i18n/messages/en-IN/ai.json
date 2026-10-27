@@ -102,7 +102,15 @@
     "followUpPlanned": "Next follow-up {when}",
     "followUpWhy": "Next follow-up {when}: {why}",
     "flaggedShort": "AI flagged",
-    "voiceLabel": "Talk like a person in this chat"
+    "voiceLabel": "Talk like a person in this chat",
+    "personaLabel": "What the AI is for in this chat",
+    "personas": {
+      "default": "As the agency",
+      "sales": "Sales agent",
+      "natural": "Natural"
+    },
+    "salesHint": "It sells here: trips, prices and bookings.",
+    "naturalHint": "It chats here like a normal person, as the voice below, and remembers what you two talked about."
   },
   "insight": {
     "title": "AI insight",
@@ -223,6 +231,17 @@
       "noDiscount": "Never promise a discount; say the team will check.",
       "budget": "If the budget is low, suggest fewer nights rather than a cheaper hotel.",
       "itinerary": "Share the full itinerary once they give their dates."
+    },
+    "persona": "What is the AI for?",
+    "personas": {
+      "sales": {
+        "label": "Sales agent",
+        "description": "It sells: understands the trip, recommends your packages, handles objections and takes the booking's details."
+      },
+      "natural": {
+        "label": "Natural conversation",
+        "description": "It chats like a normal person about whatever the other side brings up, as the person whose chat you uploaded below, and helps with trips only when asked."
+      }
     }
   },
   "selling": {
@@ -280,10 +299,10 @@
   },
   "voice": {
     "title": "Talk like a real person",
-    "description": "Give the AI a WhatsApp chat of someone, your best salesperson or yourself, and it writes exactly as they do: their words, Hinglish, emojis, warmth and feelings. Here it is for every chat; a chat of its own can have its own in the chat's AI panel.",
+    "description": "Give the AI a WhatsApp chat and choose whose way of talking to copy: it reads the whole chat, both sides, and writes exactly as that person does: their words, Hinglish, emojis, warmth and feelings. Here it is for every chat; in one chat's AI panel it also remembers what the two talked about. Asked sincerely whether it is an AI, it never denies it.",
     "upload": "Upload a WhatsApp chat (.txt)",
     "replace": "Upload another chat",
-    "how": "In WhatsApp, open the chat, tap ⋮ → More → Export chat → Without media, and upload the .txt here. Only the chosen person's messages are sent to the AI, numbers and emails taken out; the chat itself isn't kept.",
+    "how": "In WhatsApp, open the chat, tap ⋮ → More → Export chat → Without media, and upload the .txt here. The chat's latest messages go to the AI with numbers and emails taken out; the chat itself isn't kept, only how the person talks and, in a chat, what the two talked about.",
     "notAnExport": "This file doesn't look like a WhatsApp chat export. Export it from WhatsApp, without media.",
     "dialogTitle": "Whose way of talking?",
     "dialogDescription": "{count, plural, one {# message read.} other {# messages read.}} Choose the person the AI should talk like.",
@@ -297,6 +316,7 @@
     "inherited": "Talking like {name}, as in every chat",
     "examples": "{count, plural, one {Learned from their messages; keeps # of them as examples.} other {Learned from their messages; keeps # of them as examples.}}",
     "howTheyTalk": "How {name} talks",
-    "remove": "Remove"
+    "remove": "Remove",
+    "context": "What they talked about"
   }
 }

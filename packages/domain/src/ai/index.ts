@@ -27,7 +27,7 @@ export {
 export { learnFromChats, learnNow, type LearnDependencies } from "./learning.js";
 export { listLearnings, setLearning } from "./learning-store.js";
 export { aiOverviewOf } from "./overview.js";
-export { agencyVoiceOf, clearVoice, learnVoice } from "./voice.js";
+export { agencyVoiceOf, clearVoice, learnVoice, setChatPersona } from "./voice.js";
 export { aiSettingsOf, defaultAiSettings, saveAiSettings } from "./settings.js";
 export {
   AI_LEARN_QUEUE,

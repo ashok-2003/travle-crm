@@ -252,7 +252,8 @@
       "learning-changed": "Turned a lesson the AI learned on or off",
       "learned": "Had the AI learn from the chats",
       "voice-learned": "Taught the AI to talk like a person",
-      "voice-removed": "Removed the way of talking the AI copied"
+      "voice-removed": "Removed the way of talking the AI copied",
+      "chat-persona-changed": "Chose what the AI is for in a chat"
     }
   },
   "fields": {
@@ -330,7 +331,8 @@
     "handoff": "When the AI steps back",
     "state": "State",
     "added": "Lessons added",
-    "updated": "Lessons sharpened"
+    "updated": "Lessons sharpened",
+    "persona": "What the AI is for"
   },
   "recordTypes": {
     "issued_document": "A document",

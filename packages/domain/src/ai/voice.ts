@@ -1,7 +1,8 @@
-// The AI writes as a real person writes (the owner, 2026-10-28): from one person's own WhatsApp messages (an export the
-// browser read; only that person's lines are sent, with numbers, emails and links taken out), the model writes a style
-// guide of how they talk and picks a few of their messages that show it. Kept for the whole agency or for one chat,
-// where it wins over the agency's; never the export itself. The agent then writes as them, its sales rules unchanged.
+// The AI writes as a real person writes (the owner, 2026-10-28): from a WhatsApp chat export the browser read (both
+// sides, in order, with numbers, emails and links taken out), the model writes a style guide of how the chosen person
+// talks, picks a few of their own messages that show it, and, for one chat, writes down what the two talked about
+// before (topics, plans, likes, how they are with each other). Kept for the whole agency or for one chat, where it wins
+// over the agency's; never the export itself. The agent then writes as them; it never denies being an AI when asked.
 import { voiceAnswer, type AiVoice, type LearnVoiceInput } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
@@ -9,12 +10,15 @@ import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
 import type { LearnDependencies } from "./learning.js";
 import { scrubbed } from "./scrub.js";
+import type { AiSettingsRow } from "./settings.js";
 
 /** A way of talking as the prompt takes it. */
 export interface Voice {
   name: string;
   profile: string;
   examples: string[];
+  /** What the two talked about before, from this chat's imported export; null for the agency's voice. */
+  context: string | null;
 }
 
 const notFound = () => new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
@@ -33,7 +37,7 @@ function readJson(text: string) {
 }
 
 function voicePrompt(name: string) {
-  return `You study how one person writes on WhatsApp, so that an assistant can write exactly like them. The user message holds ${name}'s own messages from a chat, oldest first.
+  return `You study how one person writes on WhatsApp, so that an assistant can write exactly like them and carry the conversation on. The user message is a chat, oldest first: lines from ${name} start "${name}:", the other side's start "Them:".
 
 Write a style guide of ${name} (under 2500 characters), concrete and with short quoted phrases:
 - languages and script (Hinglish in Latin letters, Hindi in Devanagari, English...), and how they mix them
@@ -43,9 +47,10 @@ Write a style guide of ${name} (under 2500 characters), concrete and with short 
 - emojis: which ones, how often, where in the message
 - greetings, sign-offs, fillers, favourite words and how they address people (ji, bhai, sir, dear)
 - tone and humour, and how they show feelings: excitement, care, apology, impatience
-Then pick the 25 messages that show their style best, exactly as written. Leave out any with a name, a number, an email or an address.
+Then pick the 25 of ${name}'s messages that show their style best, exactly as written. Leave out any with a name, a number, an email or an address.
+Then write the context (under 2000 characters): what the two talk about, plans and promises still open, what the other side likes or dislikes, shared jokes and references, and how they are with each other, so the next reply follows on naturally.
 
-Answer with ONE JSON object and nothing else: {"profile": string, "examples": [string]}`;
+Answer with ONE JSON object and nothing else: {"profile": string, "examples": [string], "context": string}`;
 }
 
 /** Reads one person's way of talking and keeps it, for the agency or one chat. */
@@ -64,7 +69,8 @@ export async function learnVoice(
     );
     if (chat === null) throw notFound();
   }
-  const lines = input.messages.map((message) => scrubbed(message));
+  const chat = input.messages.map((message) => ({ own: message.own, text: scrubbed(message.text) }));
+  const theirs = chat.filter((message) => message.own).map((message) => message.text);
   const result = await ai.complete({
     tier: "chat",
     json: true,
@@ -72,7 +78,10 @@ export async function learnVoice(
     user: access.organizationId,
     messages: [
       { role: "system", content: voicePrompt(input.personName) },
-      { role: "user", content: lines.join("\n") },
+      {
+        role: "user",
+        content: chat.map((message) => `${message.own ? input.personName : "Them"}: ${message.text}`).join("\n"),
+      },
     ],
   });
   if (!result.ok) throw new DomainError("CONFLICT", "AI_UNAVAILABLE", "The AI did not answer; try again");
@@ -86,10 +95,12 @@ export async function learnVoice(
       ...new Set(
         parsed.examples
           .map((example) => scrubbed(example).trim())
-          .filter((one) => one !== "" && lines.some((line) => line.includes(one))),
+          .filter((one) => one !== "" && theirs.some((line) => line.includes(one))),
       ),
     ],
   };
+  // What the two talked about belongs to one chat; the agency's voice is a way of talking alone.
+  const context = scrubbed(parsed.context).trim().slice(0, 4000);
   return db.forOrg(access.organizationId, async (tx) => {
     await tx.aiUsage.create({
       data: { kind: "learn", model: result.model, inputTokens: result.inputTokens, outputTokens: result.outputTokens },
@@ -106,8 +117,8 @@ export async function learnVoice(
             conversationId: input.conversationId,
           },
         },
-        create: { conversationId: input.conversationId, ...voice },
-        update: voice,
+        create: { conversationId: input.conversationId, ...voice, voiceContext: context || null },
+        update: { ...voice, voiceContext: context || null },
       });
     }
     await recordAudit(tx, access, {
@@ -123,7 +134,7 @@ export async function learnVoice(
 export async function clearVoice(tx: OrgTx, access: MemberAccess, conversationId: string | undefined): Promise<void> {
   const none = { voiceName: null, voiceProfile: null, voiceExamples: [] };
   if (conversationId === undefined) await tx.aiSettings.updateMany({ data: none });
-  else await tx.aiChat.updateMany({ where: { conversationId }, data: none });
+  else await tx.aiChat.updateMany({ where: { conversationId }, data: { ...none, voiceContext: null } });
   await recordAudit(tx, access, {
     action: "ai.voice-removed",
     entityType: conversationId === undefined ? "ai_settings" : "whatsapp_conversation",
@@ -131,10 +142,22 @@ export async function clearVoice(tx: OrgTx, access: MemberAccess, conversationId
   });
 }
 
-const voiceOf = (row: { voiceName: string | null; voiceProfile: string | null; voiceExamples: string[] } | null) =>
+interface VoiceRow {
+  voiceName: string | null;
+  voiceProfile: string | null;
+  voiceExamples: string[];
+  voiceContext?: string | null;
+}
+
+const voiceOf = (row: VoiceRow | null): Voice | null =>
   row?.voiceName == null || row.voiceProfile == null
     ? null
-    : { name: row.voiceName, profile: row.voiceProfile, examples: row.voiceExamples };
+    : {
+        name: row.voiceName,
+        profile: row.voiceProfile,
+        examples: row.voiceExamples,
+        context: row.voiceContext ?? null,
+      };
 
 const voiceColumns = { voiceName: true, voiceProfile: true, voiceExamples: true } as const;
 
@@ -145,8 +168,42 @@ export async function agencyVoiceOf(tx: OrgTx): Promise<Voice | null> {
 
 /** The way of talking in one chat: its own, else the agency's; and whether it is the chat's own. */
 export async function chatVoiceOf(tx: OrgTx, conversationId: string): Promise<(Voice & { own: boolean }) | null> {
-  const own = voiceOf(await tx.aiChat.findFirst({ where: { conversationId }, select: voiceColumns }));
+  const own = voiceOf(
+    await tx.aiChat.findFirst({ where: { conversationId }, select: { ...voiceColumns, voiceContext: true } }),
+  );
   if (own !== null) return { ...own, own: true };
   const agency = await agencyVoiceOf(tx);
   return agency === null ? null : { ...agency, own: false };
+}
+
+/** Whether a chat is an everyday conversation, not a sale: the chat's own choice, else the agency's. */
+export async function naturalIn(tx: OrgTx, conversationId: string, settings: AiSettingsRow): Promise<boolean> {
+  const chat = await tx.aiChat.findFirst({ where: { conversationId }, select: { persona: true } });
+  return chat?.persona === "natural" || (chat?.persona !== "sales" && settings.persona === "natural");
+}
+
+/** One chat's AI is a sales agent, an everyday conversation, or as the agency says; audited. */
+export async function setChatPersona(
+  tx: OrgTx,
+  access: MemberAccess,
+  input: { conversationId: string; persona: "default" | "sales" | "natural" },
+): Promise<void> {
+  const chat = await tx.whatsappConversation.findUnique({ where: { id: input.conversationId }, select: { id: true } });
+  if (chat === null) throw notFound();
+  const before = await tx.aiChat.upsert({
+    where: {
+      organizationId_conversationId: { organizationId: access.organizationId, conversationId: input.conversationId },
+    },
+    create: { conversationId: input.conversationId },
+    update: {},
+    select: { id: true, persona: true },
+  });
+  await tx.aiChat.update({ where: { id: before.id }, data: { persona: input.persona } });
+  await recordAudit(tx, access, {
+    action: "ai.chat-persona-changed",
+    entityType: "whatsapp_conversation",
+    entityId: input.conversationId,
+    before: { persona: before.persona },
+    after: { persona: input.persona },
+  });
 }

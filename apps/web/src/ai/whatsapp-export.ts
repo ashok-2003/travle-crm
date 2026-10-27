@@ -1,7 +1,8 @@
 // Reads a WhatsApp chat export (.txt, "Export chat" without media) in the browser, for the AI to learn one person's way of
 // talking: each message with its sender, from Android's "28/10/26, 9:41 pm - Name: text" and the iPhone's
 // "[28/10/26, 9:41:03 PM] Name: text"; a message's later lines join it, and what WhatsApp writes itself (media left
-// out, deleted messages, missed calls, the encryption notice) is dropped. Only the chosen person's lines leave the page.
+// out, deleted messages, missed calls, the encryption notice) is dropped. The chat's latest lines go to the AI, the
+// chosen person's marked as theirs.
 import { MAX_VOICE_SAMPLE_CHARACTERS } from "@travel-crm/contracts/ai";
 
 export interface ExportedMessage {
@@ -48,14 +49,17 @@ export function sendersOf(messages: ExportedMessage[]): { name: string; count: n
   return [...counts.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
 }
 
-/** One person's latest messages, within what one request may carry. */
-export function samplesOf(messages: ExportedMessage[], sender: string): string[] {
-  const theirs = messages.filter((message) => message.sender === sender).map((message) => message.text.slice(0, 1000));
-  const chosen: string[] = [];
+/**
+ * The chat's latest messages, both sides in order, within what one request may carry: `own` marks the chosen person's,
+ * so the AI learns how they talk and what the two talked about.
+ */
+export function conversationOf(messages: ExportedMessage[], sender: string): { own: boolean; text: string }[] {
+  const chosen: { own: boolean; text: string }[] = [];
   let left = MAX_VOICE_SAMPLE_CHARACTERS;
-  for (const text of [...theirs].reverse()) {
-    if (text.length > left || chosen.length >= 800) break;
-    chosen.unshift(text);
+  for (const message of [...messages].reverse()) {
+    const text = message.text.slice(0, 1000);
+    if (text.length > left || chosen.length >= 1500) break;
+    chosen.unshift({ own: message.sender === sender, text });
     left -= text.length;
   }
   return chosen;

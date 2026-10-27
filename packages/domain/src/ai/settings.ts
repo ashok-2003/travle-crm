@@ -1,11 +1,12 @@
 // The agency's AI settings (the AI sales agent): whether the agent answers customers by itself, whether leads are scored,
-// the name it signs as, how it speaks (language, style, emojis, tone) and the agency's own instructions, when it steps
+// the name it signs as, what it is for (a sales agent or a natural conversation), how it speaks (language, style, emojis, tone) and the agency's own instructions, when it steps
 // back for a person, how it follows up a silent customer, how many messages it may write in one chat a day, and whether
 // it learns from the chats. Saved by whoever manages settings; audited.
 import {
   aiEmojiLevels,
   aiHandoffPolicies,
   aiLanguages,
+  aiPersonas,
   aiStyles,
   aiTones,
   type SaveAiSettingsInput,
@@ -30,6 +31,7 @@ const columns = {
   smartFollowUp: true,
   learning: true,
   learnedAt: true,
+  persona: true,
 } as const;
 
 export type AiSettingsRow = SaveAiSettingsInput & { learnedAt: Date | null };
@@ -50,13 +52,15 @@ export const defaultAiSettings: AiSettingsRow = {
   smartFollowUp: true,
   learning: true,
   learnedAt: null,
+  persona: "sales",
 };
 
 /** A stored word read back as one of its values; the check constraint keeps others out, this keeps the type honest. */
 const oneOf = <T extends string>(values: readonly T[], value: string, fallback: T): T =>
   values.find((one) => one === value) ?? fallback;
 
-type StoredRow = Omit<AiSettingsRow, "language" | "style" | "emojis" | "tone" | "handoff"> & {
+type StoredRow = Omit<AiSettingsRow, "language" | "style" | "emojis" | "tone" | "handoff" | "persona"> & {
+  persona: string;
   language: string;
   style: string;
   emojis: string;
@@ -72,6 +76,7 @@ function read(row: StoredRow): AiSettingsRow {
     emojis: oneOf(aiEmojiLevels, row.emojis, "few"),
     tone: oneOf(aiTones, row.tone, "friendly"),
     handoff: oneOf(aiHandoffPolicies, row.handoff, "alert"),
+    persona: oneOf(aiPersonas, row.persona, "sales"),
   };
 }
 
@@ -97,8 +102,8 @@ export async function saveAiSettings(
     action: "ai.settings-changed",
     entityType: "ai_settings",
     entityId: access.organizationId,
-    before: { autopilot: before.autopilot, scoring: before.scoring, handoff: before.handoff },
-    after: { autopilot: row.autopilot, scoring: row.scoring, handoff: row.handoff },
+    before: { autopilot: before.autopilot, scoring: before.scoring, handoff: before.handoff, persona: before.persona },
+    after: { autopilot: row.autopilot, scoring: row.scoring, handoff: row.handoff, persona: row.persona },
   });
   return row;
 }

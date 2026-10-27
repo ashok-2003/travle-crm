@@ -129,16 +129,22 @@ export function useLearnVoice(conversationId: string | null) {
   return conversationId === null
     ? {
         ...agency,
-        learn: (input: { personName: string; messages: string[] }, onSuccess: () => void) => {
+        learn: (input: { personName: string; messages: { own: boolean; text: string }[] }, onSuccess: () => void) => {
           agency.mutate(input, { onSuccess });
         },
       }
     : {
         ...chat,
-        learn: (input: { personName: string; messages: string[] }, onSuccess: () => void) => {
+        learn: (input: { personName: string; messages: { own: boolean; text: string }[] }, onSuccess: () => void) => {
           chat.mutate({ ...input, conversationId }, { onSuccess });
         },
       };
+}
+
+export function useSetChatPersona() {
+  const trpc = useTRPC();
+  const changed = useAiChange();
+  return useMutation(trpc.ai.setChatPersona.mutationOptions({ onSuccess: changed }));
 }
 
 export function useClearVoice(conversationId: string | null) {

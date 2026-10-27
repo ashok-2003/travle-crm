@@ -1,7 +1,7 @@
 "use client";
 
 // A chat's AI agent, in the contact panel (the AI sales agent): whether it answers here (as the agency's default, on
-// or off), whether it handed the chat to a person and why (with a way to give it back), whose way of talking it copies
+// or off), what it is for here (a sales agent or an everyday conversation), whether it handed the chat to a person and why (with a way to give it back), whose way of talking it copies
 // here (a chat export of this chat's own, else the agency's), what it remembers of the chat,
 // and the lead's insight. Also the header's chip: the agent's state and the lead's score at a glance.
 import { BotIcon, BotOffIcon, HandIcon } from "lucide-react";
@@ -21,10 +21,11 @@ import { routes } from "@/lib/routes";
 import { useHolds } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { InsightCard, ScoreBadge } from "./insight-card";
-import { useChatAi, useResumeChatAi, useSetChatAi } from "./use-ai";
+import { useChatAi, useResumeChatAi, useSetChatAi, useSetChatPersona } from "./use-ai";
 import { VoicePanel } from "./voice-panel";
 
 const modes = ["default", "on", "off"] as const;
+const personas = ["default", "sales", "natural"] as const;
 
 /** The header's chip: the lead's score, and whether the AI is answering or handed the chat over. */
 export function ChatAiChip({ conversationId }: { conversationId: string }) {
@@ -52,6 +53,7 @@ export function ChatAiCard({ conversationId }: { conversationId: string }) {
   const ai = useChatAi(conversationId);
   const setMode = useSetChatAi();
   const resume = useResumeChatAi();
+  const setPersona = useSetChatPersona();
   const access = useWriteAccess("change");
   const mayReply = useHolds("inbox:reply");
   const mayManage = useHolds("settings:manage");
@@ -132,13 +134,39 @@ export function ChatAiCard({ conversationId }: { conversationId: string }) {
                   ))}
                 </ToggleGroup>
               </div>
-              <RefusalAlert error={setMode.error ?? resume.error} />
+              <div className="flex flex-col gap-1.5">
+                <span className="text-label text-muted-foreground">{t("personaLabel")}</span>
+                <ToggleGroup
+                  type="single"
+                  variant="outline"
+                  aria-label={t("personaLabel")}
+                  value={state.persona}
+                  disabled={busy || setPersona.isPending}
+                  className="flex-wrap"
+                  onValueChange={(chosen) => {
+                    const persona = personas.find((one) => one === chosen);
+                    if (persona !== undefined && persona !== state.persona)
+                      setPersona.mutate({ conversationId, persona });
+                  }}
+                >
+                  {personas.map((persona) => (
+                    <ToggleGroupItem key={persona} value={persona}>
+                      {t(`personas.${persona}`)}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+                <span className="text-caption text-muted-foreground">
+                  {state.natural ? t("naturalHint") : t("salesHint")}
+                </span>
+              </div>
+              <RefusalAlert error={setMode.error ?? resume.error ?? setPersona.error} />
               <div className="flex flex-col gap-1.5">
                 <span className="text-label text-muted-foreground">{t("voiceLabel")}</span>
                 <VoicePanel
                   conversationId={conversationId}
                   voice={state.voice}
                   inherited={state.voice !== null && !state.voice.own}
+                  context={state.voice?.own === true ? state.voice.context : null}
                   disabled={!mayReply}
                 />
               </div>

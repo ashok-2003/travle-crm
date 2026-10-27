@@ -1,11 +1,13 @@
 "use client";
 
-// How the AI sales agent speaks (the owner, 2026-10-28): the name it signs as, the language (the customer's own, or
+// How the AI sales agent speaks (the owner, 2026-10-28): what it is for (selling, or an everyday conversation as the
+// person whose way of talking it copies), the name it signs as, the language (the customer's own, or
 // one the agency picks), how it lays a message out, how many emojis, its tone, and the agency's own instructions, with
 // ready lines a click adds to them.
 import {
   aiEmojiLevels,
   aiLanguages,
+  aiPersonas,
   aiStyles,
   aiTones,
   type AiSettings,
@@ -14,6 +16,7 @@ import {
 import { PlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId } from "react";
+import { ChoiceGroup } from "@/components/forms/choice-field";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
@@ -102,6 +105,19 @@ export function PersonalityCard({
         <CardDescription>{t("description")}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
+        <ChoiceGroup
+          legend={t("persona")}
+          value={settings.persona}
+          options={aiPersonas.map((persona) => ({
+            value: persona,
+            label: t(`personas.${persona}.label`),
+            description: t(`personas.${persona}.description`),
+          }))}
+          onChange={(chosen) => {
+            const persona = aiPersonas.find((one) => one === chosen);
+            if (persona !== undefined) change({ persona });
+          }}
+        />
         <Field>
           <FieldLabel htmlFor={ids.name}>{t("name")}</FieldLabel>
           <Input

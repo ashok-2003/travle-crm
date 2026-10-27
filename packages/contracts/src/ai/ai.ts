@@ -18,6 +18,8 @@ export const aiTones = ["friendly", "professional", "enthusiastic"] as const;
  * when the customer asks for a person or is upset, `careful` also for bookings, payments and discounts.
  */
 export const aiHandoffPolicies = ["alert", "asked", "careful"] as const;
+/** What the AI is for: a sales agent, or an everyday conversation as the person whose way of talking it copies. */
+export const aiPersonas = ["sales", "natural"] as const;
 
 export const aiSettingsFields = {
   autopilot: z.boolean(),
@@ -34,6 +36,7 @@ export const aiSettingsFields = {
   handoff: z.enum(aiHandoffPolicies),
   smartFollowUp: z.boolean(),
   learning: z.boolean(),
+  persona: z.enum(aiPersonas),
 };
 export const saveAiSettingsInput = z.strictObject(aiSettingsFields);
 export type SaveAiSettingsInput = z.infer<typeof saveAiSettingsInput>;
@@ -96,6 +99,10 @@ export const aiChatMode = z.enum(aiChatModes);
 export const conversationAiInput = z.strictObject({ conversationId: recordId });
 export const setChatAiInput = z.strictObject({ conversationId: recordId, mode: aiChatMode });
 export const resumeChatAiInput = z.strictObject({ conversationId: recordId });
+export const setChatPersonaInput = z.strictObject({
+  conversationId: recordId,
+  persona: z.enum(["default", "sales", "natural"]),
+});
 
 export const insightLabel = z.enum(["hot", "warm", "cold"]);
 export const leadInsight = z.object({
@@ -132,7 +139,19 @@ export const chatAi = z.object({
   /** What it flagged for the team while it kept answering ("wants to book"), recently. */
   attention: z.string().nullable(),
   /** The way of talking it copies in this chat: this chat's own, else the agency's. */
-  voice: z.object({ name: z.string(), profile: z.string(), examples: z.int(), own: z.boolean() }).nullable(),
+  voice: z
+    .object({
+      name: z.string(),
+      profile: z.string(),
+      examples: z.int(),
+      own: z.boolean(),
+      /** What this chat's imported export says the two talked about before. */
+      context: z.string().nullable(),
+    })
+    .nullable(),
+  /** What the AI is for in this chat (default: the agency's), and what that comes to. */
+  persona: z.enum(["default", ...aiPersonas]),
+  natural: z.boolean(),
   /** The name it writes as ("Riya"), else empty. */
   agentName: z.string(),
   configured: z.boolean(),
@@ -228,11 +247,12 @@ export const MAX_VOICE_SAMPLE_CHARACTERS = 40_000;
 export const learnVoiceInput = z.strictObject({
   conversationId: recordId.optional(),
   personName: text(80).min(1),
+  /** The chat in order, both sides: `own` marks the chosen person's messages. */
   messages: z
-    .array(z.string().trim().min(1).max(1000))
-    .min(5)
-    .max(800)
-    .refine((all) => all.reduce((sum, one) => sum + one.length, 0) <= MAX_VOICE_SAMPLE_CHARACTERS),
+    .array(z.strictObject({ own: z.boolean(), text: z.string().trim().min(1).max(1000) }))
+    .max(1500)
+    .refine((all) => all.filter((one) => one.own).length >= 5, { message: "At least 5 of their messages" })
+    .refine((all) => all.reduce((sum, one) => sum + one.text.length, 0) <= MAX_VOICE_SAMPLE_CHARACTERS),
 });
 export type LearnVoiceInput = z.infer<typeof learnVoiceInput>;
 export const clearVoiceInput = z.strictObject({ conversationId: recordId.optional() });
@@ -243,6 +263,8 @@ export type AiVoice = z.infer<typeof aiVoice>;
 export const voiceAnswer = z.object({
   profile: z.string().min(1).max(4000),
   examples: z.array(z.string().max(500)).max(40).catch([]),
+  /** What the two talked about: topics, plans, likes, how they are with each other. */
+  context: z.string().max(4000).catch(""),
 });
 
 /** The AI's last day at a glance, for the AI screen's head. */

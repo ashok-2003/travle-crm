@@ -13,7 +13,7 @@ import { chatHistory, knowledgePack, leadFactsFor } from "./context.js";
 import { activeLessons } from "./learning-store.js";
 import { agentPrompt, type TurnKind } from "./prompt.js";
 import { aiSettingsOf, type AiSettingsRow } from "./settings.js";
-import { chatVoiceOf } from "./voice.js";
+import { chatVoiceOf, naturalIn } from "./voice.js";
 
 export { AI_HANDOFF_KIND } from "./answer-effects.js";
 export { agentPrompt, type TurnKind } from "./prompt.js";
@@ -56,9 +56,10 @@ export function cleanReply(text: string, settings: AiSettingsRow): string {
  * The model's answer held to what the agency chose, in code: with "never by itself" it never steps back (a hand-over it
  * asked for becomes a flag for the team), and with no emojis none are sent.
  */
-function withSettings(answer: AgentAnswer, settings: AiSettingsRow): AgentAnswer {
+function withSettings(answer: AgentAnswer, settings: AiSettingsRow, natural: boolean): AgentAnswer {
   const reply = cleanReply(answer.reply, settings);
-  if (settings.handoff !== "alert" || !answer.handoff) return { ...answer, reply };
+  // An everyday conversation never steps back either: there is no team to hand it to.
+  if ((settings.handoff !== "alert" && !natural) || !answer.handoff) return { ...answer, reply };
   return {
     ...answer,
     reply,
@@ -148,9 +149,10 @@ export async function runAgentTurn(
     );
     const learnings = settings.learning ? await activeLessons(tx) : [];
     const voice = await chatVoiceOf(tx, chat.id);
+    const natural = await naturalIn(tx, chat.id, settings);
     // Writing only when nothing stops it; else the same call judges the lead and writes nothing.
     const kind: TurnKind = blocked === null ? input.kind : "insight";
-    return { settings, chat, history, memory, facts, knowledge, learnings, voice, kind, blocked };
+    return { settings, chat, history, memory, facts, knowledge, learnings, voice, natural, kind, blocked };
   });
   if (prepared === null || prepared.history.messages.length === 0) return "nothing";
   const messages: AiMessage[] = [
@@ -162,6 +164,7 @@ export async function runAgentTurn(
         memory: prepared.memory,
         learnings: prepared.learnings,
         voice: prepared.voice,
+        natural: prepared.natural,
       }),
     },
     ...prepared.history.messages,
@@ -194,7 +197,7 @@ export async function runAgentTurn(
   const { result } = asked;
   if (!result.ok) return result.reason;
   if (asked.answer === null) return "unreadable";
-  const answer = withSettings(asked.answer, prepared.settings);
+  const answer = withSettings(asked.answer, prepared.settings, prepared.natural);
 
   return db.forOrg(input.organizationId, async (tx) => {
     const sendReply = async () => {

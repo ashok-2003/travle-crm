@@ -43,6 +43,8 @@ model AiSettings {
   voiceName        String?      @map("voice_name")
   voiceProfile     String?      @map("voice_profile")
   voiceExamples    String[]     @default([]) @map("voice_examples")
+  /// sales (a sales agent) or natural (an everyday conversation as the copied person) (CHECK ai_settings_persona_value).
+  persona          String       @default("sales")
   updatedBy        String?      @map("updated_by") @db.Uuid
   updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
@@ -106,6 +108,10 @@ model AiChat {
   voiceName      String?              @map("voice_name")
   voiceProfile   String?              @map("voice_profile")
   voiceExamples  String[]             @default([]) @map("voice_examples")
+  /// What an imported chat export says the two talked about before: topics, plans, likes, how they are with each other.
+  voiceContext   String?              @map("voice_context")
+  /// default (the agency's), sales or natural (CHECK ai_chat_persona_value).
+  persona        String               @default("default")
   updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   conversation   WhatsappConversation @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)

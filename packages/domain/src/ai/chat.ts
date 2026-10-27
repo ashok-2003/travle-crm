@@ -10,7 +10,7 @@ import { DomainError } from "../kernel/index.js";
 import { agentAnswers, agentPrompt, cleanReply, parseAnswer } from "./agent.js";
 import { chatHistory, knowledgePack, leadFactsFor } from "./context.js";
 import { activeLessons } from "./learning-store.js";
-import { agencyVoiceOf, chatVoiceOf } from "./voice.js";
+import { agencyVoiceOf, chatVoiceOf, naturalIn } from "./voice.js";
 import { aiSettingsOf } from "./settings.js";
 
 export interface AiAssistDependencies {
@@ -110,7 +110,15 @@ export async function chatAiOf(tx: OrgTx, conversationId: string, configured: bo
     voice:
       voice === null
         ? null
-        : { name: voice.name, profile: voice.profile, examples: voice.examples.length, own: voice.own },
+        : {
+            name: voice.name,
+            profile: voice.profile,
+            examples: voice.examples.length,
+            own: voice.own,
+            context: voice.context,
+          },
+    persona: state?.persona === "sales" || state?.persona === "natural" ? state.persona : "default",
+    natural: state?.persona === "natural" || (state?.persona !== "sales" && settings.persona === "natural"),
     configured,
     insight: lead === null ? null : await leadInsightOf(tx, lead.id),
   };
@@ -187,6 +195,7 @@ export async function suggestReply(
       memory,
       learnings: settings.learning ? await activeLessons(tx) : [],
       voice: await chatVoiceOf(tx, conversationId),
+      natural: await naturalIn(tx, conversationId, settings),
       facts: await leadFactsFor(tx, chat.personId),
       knowledge: await knowledgePack(
         tx,
@@ -212,6 +221,7 @@ export async function suggestReply(
           memory: prepared.memory,
           learnings: prepared.learnings,
           voice: prepared.voice,
+          natural: prepared.natural,
         }),
       },
       ...prepared.history.messages,
@@ -260,6 +270,7 @@ export async function testAnswer(
           memory: "",
           learnings: settings.learning ? learnings : [],
           voice,
+          natural: settings.persona === "natural",
         }),
       },
       { role: "user", content: question },
@@ -275,7 +286,7 @@ export async function testAnswer(
   return {
     answer: cleanReply(answer?.reply ?? "", settings),
     // "Never by itself" never hands over, whatever the model said.
-    handoff: settings.handoff !== "alert" && (answer?.handoff ?? false),
+    handoff: settings.handoff !== "alert" && settings.persona !== "natural" && (answer?.handoff ?? false),
     reason: answer?.handoffReason ?? "",
   };
 }
