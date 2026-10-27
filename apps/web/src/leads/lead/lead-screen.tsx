@@ -19,7 +19,10 @@ import { LoadingRows } from "@/components/loading-rows";
 import { BackLink } from "@/components/text-link";
 import { refusalOf } from "@/data/api-error";
 import { useElementHeight } from "@/lib/use-element-height";
-import { useMe, viewScope } from "@/session/me-context";
+import { useHolds, useMe, viewScope } from "@/session/me-context";
+import { LeadQuotesCard } from "@/quotes/lead-quotes-card";
+import { isOnPlan } from "@/shell/navigation";
+import { useSubscription } from "@/subscription/use-subscription";
 import { listFiltersHref, listFiltersOf } from "../list/list-filters";
 import { LeadChat } from "@/inbox/lead-chat";
 import { LeadHeader } from "./lead-header";
@@ -39,6 +42,9 @@ const stickyTop = (height: number | null) =>
   height === null ? "1.5rem" : `min(1.5rem, calc(100svh - ${String(height)}px - 1.5rem))`;
 
 function LeadColumns({ lead }: { lead: LeadDetail }) {
+  // On a plan without quotes the card would only say it can't load: it isn't shown.
+  const modules = useSubscription().data?.modules;
+  const canSeeQuotes = useHolds("quotes:view") && isOnPlan({ module: "quotes" }, modules);
   const timeline = useRef<HTMLDivElement>(null);
   const height = useElementHeight(timeline);
   return (
@@ -47,6 +53,7 @@ function LeadColumns({ lead }: { lead: LeadDetail }) {
         <WorkCard lead={lead} />
         <PersonCard lead={lead} />
         <TripCard lead={lead} />
+        {canSeeQuotes && <LeadQuotesCard lead={lead} />}
         <OwnerCard lead={lead} />
         <LeadChat leadId={lead.id} />
       </div>

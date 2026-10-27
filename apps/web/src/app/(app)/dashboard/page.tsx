@@ -22,12 +22,12 @@ import { useNavigationItems } from "@/shell/use-navigation-items";
 import { TodayNudge } from "@/today/today-nudge";
 import { Dashboard } from "@/dashboard/dashboard";
 
-/** The destinations that set the organization up: not home, Today, Leads or the Inbox (daily work), nor the audit log. */
+/** The destinations that set the organization up: not home, Today, Leads, the Inbox or Quotes (daily work), nor the audit log. */
 type SetUpItem = NavigationItem & {
-  key: Exclude<NavigationItem["key"], "home" | "today" | "leads" | "inbox" | "audit">;
+  key: Exclude<NavigationItem["key"], "home" | "today" | "leads" | "inbox" | "quotes" | "audit">;
 };
 
-const notSetUp: readonly NavigationItem["key"][] = ["home", "today", "leads", "inbox", "audit"];
+const notSetUp: readonly NavigationItem["key"][] = ["home", "today", "leads", "inbox", "quotes", "audit"];
 
 export default function HomePage() {
   const t = useTranslations("shell.home");

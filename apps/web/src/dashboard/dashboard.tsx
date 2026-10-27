@@ -17,6 +17,7 @@ import { formatCalendarDay } from "@/lib/format";
 import { DestinationsCard, ResponseTimesCard, SourcesCard, StagesCard } from "./breakdowns";
 import { KpiStrip } from "./kpi-strip";
 import { LeadsPerDayChart } from "./leads-per-day-chart";
+import { MoneyCard } from "@/quotes/money-card";
 import { TeamTable } from "./team-table";
 
 const isRange = (value: string): value is DashboardRange => dashboardRanges.some((range) => range === value);
@@ -67,6 +68,7 @@ export function Dashboard() {
       ) : (
         <>
           <KpiStrip totals={data.totals} previous={data.previous} />
+          <MoneyCard from={data.from} to={data.to} />
           {data.totals.newLeads === 0 ? (
             <p className="text-muted-foreground">{t("empty")}</p>
           ) : (

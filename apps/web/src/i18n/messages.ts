@@ -20,6 +20,7 @@ import leads from "./messages/en-IN/leads.json";
 import metaLeads from "./messages/en-IN/meta-leads.json";
 import notifications from "./messages/en-IN/notifications.json";
 import pwa from "./messages/en-IN/pwa.json";
+import quotes from "./messages/en-IN/quotes.json";
 import roles from "./messages/en-IN/roles.json";
 import settings from "./messages/en-IN/settings.json";
 import sheets from "./messages/en-IN/sheets.json";
@@ -56,6 +57,7 @@ export const messages = {
   metaLeads,
   notifications,
   pwa,
+  quotes,
   roles,
   settings,
   sheets,
