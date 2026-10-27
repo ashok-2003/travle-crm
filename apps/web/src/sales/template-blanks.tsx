@@ -7,9 +7,12 @@ import { markersOf, type TemplateSummary } from "@travel-crm/contracts/inbox";
 import type { TemplateField } from "@travel-crm/contracts/sales";
 import { useTranslations } from "next-intl";
 import { useId } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { routes } from "@/lib/routes";
 
 const CUSTOM = "custom";
 
@@ -58,7 +61,7 @@ export function TemplateBlanks({
     <div className="flex flex-col gap-3">
       <Field>
         <FieldLabel htmlFor={`${id}-template`}>{label}</FieldLabel>
-        <Select value={templateId ?? ""} onValueChange={choose} disabled={disabled}>
+        <Select value={templateId ?? ""} onValueChange={choose} disabled={disabled || templates.length === 0}>
           <SelectTrigger id={`${id}-template`} className="w-full">
             <SelectValue placeholder={t("choose")} />
           </SelectTrigger>
@@ -71,7 +74,14 @@ export function TemplateBlanks({
           </SelectContent>
         </Select>
       </Field>
-      {templates.length === 0 && <p className="text-caption text-muted-foreground">{t("noTemplates")}</p>}
+      {templates.length === 0 && (
+        <div className="flex flex-col items-start gap-2">
+          <p className="text-caption text-muted-foreground">{t("noTemplates")}</p>
+          <Button asChild variant="outline">
+            <Link href={routes.whatsapp}>{t("makeTemplate")}</Link>
+          </Button>
+        </div>
+      )}
       {markers.map((number, index) => {
         const param = params[index] ?? "name";
         const custom = param.startsWith("text:");
