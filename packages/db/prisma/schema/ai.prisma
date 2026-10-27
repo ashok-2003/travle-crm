@@ -1,0 +1,122 @@
+// The AI sales agent (sales execution, ADR 0029 as the owner widened it on 2026-10-27): the agency's settings (the agent
+// answering on its own or not, how it speaks, when it follows up), what it knows (the agency's packages, prices and
+// policies, typed or from a document), each chat's AI state (on, off or the default; handed to a person; what it
+// remembers), each lead's insight (how likely it books, why, whether it looks fake, the next step) and every call's
+// usage. Organization-owned, under row-level security.
+
+/// How the agency's AI works. One row each.
+model AiSettings {
+  /// Filled from db.forOrg()'s organization when omitted. Also the key: one row per organization.
+  organizationId   String       @id @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  /// The agent answers customers by itself in every chat that doesn't say otherwise.
+  autopilot        Boolean      @default(false)
+  /// Each lead gets a likelihood to book, the reasons and a fake check.
+  scoring          Boolean      @default(true)
+  /// The name it signs as, e.g. "Riya from Sharma Holidays"; empty for the agency's name.
+  agentName        String       @default("") @map("agent_name")
+  /// The agency's own instructions: tone, what to ask, what never to say.
+  instructions     String       @default("")
+  /// Hours of a customer's silence, inside the 24-hour window, before the agent nudges once; 0 for never.
+  followUpHours    Int          @default(4) @map("follow_up_hours")
+  /// The most the agent writes in one chat in a day, so a loop can't run away.
+  maxRepliesPerDay Int          @default(25) @map("max_replies_per_day")
+  updatedBy        String?      @map("updated_by") @db.Uuid
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@map("ai_settings")
+}
+
+/// Something the agent knows: a package, a price list, a policy. Typed, or read from a document. Soft-deleted.
+model AiKnowledge {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  title          String
+  body           String       @default("")
+  /// text or file (CHECK ai_knowledge_kind_value).
+  kind           String       @default("text")
+  /// A file's attachment (record type ai_knowledge) and name, whose words become the body.
+  attachmentId   String?      @map("attachment_id") @db.Uuid
+  fileName       String?      @map("file_name")
+  /// ready, reading (a file's words are being read) or failed (CHECK ai_knowledge_status_value).
+  status         String       @default("ready")
+  enabled        Boolean      @default(true)
+  createdBy      String?      @map("created_by") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
+  deletedBy      String?      @map("deleted_by") @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@map("ai_knowledge")
+}
+
+/// A chat's AI state: whether the agent answers here, whether it handed the chat to a person and why, and what it
+/// remembers of the conversation.
+model AiChat {
+  organizationId String               @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String               @id @default(uuid(7)) @db.Uuid
+  conversationId String               @map("conversation_id") @db.Uuid
+  /// default (the agency's), on or off (CHECK ai_chat_mode_value).
+  mode           String               @default("default")
+  handedOffAt    DateTime?            @map("handed_off_at") @db.Timestamptz(6)
+  handoffReason  String?              @map("handoff_reason")
+  /// The conversation so far, as the agent keeps it: facts, wishes, what was promised.
+  memory         String               @default("")
+  lastReplyAt    DateTime?            @map("last_reply_at") @db.Timestamptz(6)
+  /// The day (in UTC) the reply count is for, and the count.
+  repliesOn      DateTime?            @map("replies_on") @db.Date
+  repliesCount   Int                  @default(0) @map("replies_count")
+  /// The last nudge, so a silent customer gets one per silence.
+  lastNudgeAt    DateTime?            @map("last_nudge_at") @db.Timestamptz(6)
+  updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  conversation   WhatsappConversation @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, conversationId], map: "ai_chat_one_per_chat")
+  @@map("ai_chat")
+}
+
+/// What the AI makes of a lead: how likely it books (0-100) and why, whether it looks fake, its summary and next step.
+model LeadAiInsight {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  leadId         String       @map("lead_id") @db.Uuid
+  score          Int
+  /// hot, warm or cold (CHECK lead_ai_insight_label_value).
+  label          String
+  reasons        String[]     @default([])
+  fake           Boolean      @default(false)
+  fakeReason     String?      @map("fake_reason")
+  summary        String       @default("")
+  nextStep       String       @default("") @map("next_step")
+  /// What the customer said they want: { destination, when, travellers, budget }, as words.
+  facts          Json         @default("{}")
+  model          String       @default("")
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  lead           Lead         @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, leadId], map: "lead_ai_insight_one_per_lead")
+  @@map("lead_ai_insight")
+}
+
+/// Every AI call: what for, which model answered, and its tokens. Append-only.
+model AiUsage {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  /// reply, nudge, insight, suggest or test (CHECK ai_usage_kind_value).
+  kind           String
+  model          String
+  inputTokens    Int          @default(0) @map("input_tokens")
+  outputTokens   Int          @default(0) @map("output_tokens")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, createdAt], map: "ai_usage_created")
+  @@map("ai_usage")
+}

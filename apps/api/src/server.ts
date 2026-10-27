@@ -40,6 +40,7 @@ const app = createApp({
   logger,
   authSecret: environment.BETTER_AUTH_SECRET,
   appUrl: environment.APP_URL,
+  ai: services.ai,
   // environment.ts makes the keys a pair, so one is never set without the other.
   turnstile:
     services.botCheck !== null && environment.TURNSTILE_SITE_KEY !== undefined

@@ -1,12 +1,14 @@
 "use client";
 
 // The contact panel beside a chat (sales inbox spec, section 4): where the sale is worked without leaving the chat.
-// The person at the top (picture, name, phone to copy, a link to the lead), the chat's tags; then the lead itself, through the lead page's
+// The person at the top (picture, name, phone to copy, a link to the lead), the chat's tags, the AI agent here and the
+// lead's AI insight; then the lead itself, through the lead page's
 // own parts so a lead changes the same way wherever it is changed: the stage (Won is "converted"), the follow-ups, the
 // owner, the trip, and the timeline with its notes. A chat whose person has no lead offers Start a new lead instead.
 import type { ConversationHeader } from "@travel-crm/contracts/inbox";
 import { XIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { ChatAiCard } from "@/ai/chat-ai-card";
 import { CopyButton } from "@/components/copy-button";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
@@ -84,6 +86,7 @@ export function ContactPanel({ header, onClose }: { header: ConversationHeader; 
           <h3 className="text-label font-medium text-muted-foreground">{t("tags")}</h3>
           <ChatTags header={header} />
         </section>
+        <ChatAiCard conversationId={header.id} />
         {header.lead?.open === true ? (
           <LeadParts leadId={header.lead.id} />
         ) : (

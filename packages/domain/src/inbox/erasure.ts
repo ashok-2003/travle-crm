@@ -76,6 +76,16 @@ export async function withdrawWhatsApp(
   inboxRows += (await tx.conversationRead.deleteMany({ where: inChats })).count;
   // Which trips went to the person's chats: their sends go with them.
   inboxRows += (await tx.tripKitSend.deleteMany({ where: inChats })).count;
+  // What the AI agent remembers of the chats, and the insight on the person's leads (their wishes, in words).
+  inboxRows += (await tx.aiChat.deleteMany({ where: inChats })).count;
+  const personIds = (
+    await tx.whatsappConversation.findMany({
+      where: { organizationId, id: { in: conversationIds }, personId: { not: null } },
+      select: { personId: true },
+    })
+  ).flatMap((chat) => (chat.personId === null ? [] : [chat.personId]));
+  inboxRows += (await tx.leadAiInsight.deleteMany({ where: { organizationId, lead: { personId: { in: personIds } } } }))
+    .count;
   // A notice about a chat (a mention, a failed send, a waking snooze) carries the customer's name and links to the chat.
   for (const id of conversationIds) {
     inboxRows += await forgetRecordNotifications(tx, { organizationId, recordId: id, sourceEventIds: [] });

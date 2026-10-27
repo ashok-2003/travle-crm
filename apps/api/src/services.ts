@@ -9,6 +9,7 @@ import { createProfiles, type Profiles } from "@travel-crm/domain/profile";
 import { createRateLimiter, type RateLimiter } from "@travel-crm/domain/rate-limits";
 import { createSheetsHashes, type SheetsHashes } from "@travel-crm/domain/sheets";
 import { createSubscriptionAccess, planLimits, type SubscriptionAccess } from "@travel-crm/domain/subscriptions";
+import { createOpenAiCompatibleModel, type AiModel } from "@travel-crm/integrations/ai";
 import { createTurnstileBotCheck, type BotCheck } from "@travel-crm/integrations/bot-check";
 import { createSmtpEmailSender, type EmailSender } from "@travel-crm/integrations/email";
 import { createRealGoogleSheets, type GoogleSheets } from "@travel-crm/integrations/google-sheets";
@@ -53,6 +54,8 @@ export interface Services {
   rateLimiter: RateLimiter;
   /** Asks Cloudflare Turnstile whether a form's visitor is a person; null when no keys are set (W39). */
   botCheck: BotCheck | null;
+  /** The AI sales agent's model (ADR 0029); not `configured` when AI_API_KEY is unset, and then the agent is off. */
+  ai: AiModel;
   /** Checks the database role and the storage bucket, then starts pg-boss. Call before serving requests or working. */
   start(): Promise<void>;
   /** Stops pg-boss (waiting for running jobs) and closes the database pools. */
@@ -176,6 +179,12 @@ export function createServices(environment: Environment, logger: Logger): Servic
     push,
     rateLimiter,
     botCheck,
+    ai: createOpenAiCompatibleModel({
+      baseUrl: environment.AI_BASE_URL,
+      apiKey: environment.AI_API_KEY ?? "",
+      models: { chat: environment.AI_CHAT_MODELS, fast: environment.AI_FAST_MODELS },
+      zeroRetention: environment.AI_ZERO_RETENTION,
+    }),
     start: async () => {
       // A DATABASE_URL for the wrong role (app_migrator, say) would otherwise fail every request and job while the
       // process looked healthy: the first query checks the role, so make one now.

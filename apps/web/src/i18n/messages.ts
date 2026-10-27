@@ -1,6 +1,7 @@
 // Every message the app shows, by namespace (spec 9.6: next-intl from day one, English only in Phase 1). Each feature
 // owns one namespace file, so features can be written side by side without touching each other's words.
 import account from "./messages/en-IN/account.json";
+import ai from "./messages/en-IN/ai.json";
 import audit from "./messages/en-IN/audit.json";
 import business from "./messages/en-IN/business.json";
 import calendar from "./messages/en-IN/calendar.json";
@@ -40,6 +41,7 @@ export const locale = "en-IN";
 
 export const messages = {
   account,
+  ai,
   audit,
   business,
   calendar,

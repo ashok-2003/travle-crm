@@ -12,6 +12,7 @@ import { findShareLink, recordShareLinkOpen } from "@travel-crm/domain/share-lin
 import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { WHATSAPP_PROVIDER } from "@travel-crm/domain/inbox";
 import { receiveWebhook, type WebhookProvider, type WebhookRequest } from "@travel-crm/domain/webhooks";
+import type { AiModel } from "@travel-crm/integrations/ai";
 import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
 import type { JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
@@ -70,6 +71,8 @@ export interface ServerDependencies {
   turnstile?: Turnstile | null;
   /** How the website form reads the visitor's address (W32); absent, as sign-in does. */
   formAddress?: FormAddressSettings;
+  /** The AI sales agent's model (ADR 0029); absent, the agent is off. */
+  ai?: AiModel;
 }
 
 /**
@@ -110,6 +113,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
     appUrl,
     turnstile = null,
     formAddress = { headerNames: ["x-forwarded-for"], trustedProxies: [], proxyHops: null },
+    ai,
   } = dependencies;
   const app = new Hono<RequestLogEnv>();
   app.use("*", requestLog(logger));
@@ -155,6 +159,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
             meta: meta?.dependencies ?? null,
             whatsappConfigured: webhookProviders.some((candidate) => candidate.name === WHATSAPP_PROVIDER),
             whatsappProvider,
+            ...(ai === undefined ? {} : { ai }),
             // An import's Add waits while a sheet's check is saving rows (S26).
             addGuards: [assertNoSheetCheckSaving],
           },

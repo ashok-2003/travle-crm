@@ -10,6 +10,7 @@ import type { RateLimiter } from "@travel-crm/domain/rate-limits";
 import type { SheetsDependencies } from "@travel-crm/domain/sheets";
 import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import type { TemplateDependencies } from "@travel-crm/domain/inbox";
+import type { AiModel } from "@travel-crm/domain/ai";
 
 export interface ApiDependencies {
   identity: Identity;
@@ -45,7 +46,16 @@ export interface ApiDependencies {
   whatsappProvider?: TemplateDependencies["provider"];
   /** The web app's address, which the form's links are made under (APP_URL). Required: no default can be right in production. */
   appUrl: string;
+  /** The AI sales agent's model (ADR 0029); absent or not configured means the agent is off. */
+  ai?: AiModel;
 }
+
+/** No AI: every call says not configured. */
+const noAi: AiModel = {
+  configured: false,
+  models: { chat: [], fast: [] },
+  complete: () => Promise.resolve({ ok: false, reason: "not_configured" }),
+};
 
 /**
  * `resHeaders` are the response's headers: Better Auth re-issues its cookies while reading the session (a fresh cache
@@ -67,6 +77,7 @@ export async function createContext(
     whatsappConfigured = false,
     whatsappProvider = null,
     appUrl,
+    ai = noAi,
   }: ApiDependencies,
   request: Request,
   resHeaders: Headers,
@@ -91,6 +102,7 @@ export async function createContext(
     whatsappConfigured,
     whatsappProvider,
     appUrl,
+    ai,
     headers: request.headers,
     resHeaders,
     session: response?.session ?? null,

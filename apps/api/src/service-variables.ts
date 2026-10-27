@@ -129,4 +129,35 @@ export const serviceVariables = {
   GOOGLE_SHEETS_TEST_SERVER_URL: emptyAsUnset(httpUrl.optional()),
   /** How often a sheet is checked, in seconds (120 by default); the journeys shorten it (development and tests only). */
   SHEETS_CHECK_INTERVAL_SECONDS: emptyAsUnset(z.coerce.number().int().min(1).max(3600).optional()),
+  /**
+   * The AI sales agent (ADR 0029): any OpenAI-compatible chat API. OpenRouter by default; Google's Gemini is
+   * https://generativelanguage.googleapis.com/v1beta/openai, Groq's https://api.groq.com/openai/v1. Without
+   * AI_API_KEY the agent is off and its screens say so. The key is never printed or logged.
+   */
+  AI_BASE_URL: emptyAsUnset(httpUrl.optional()).transform((url) => url ?? "https://openrouter.ai/api/v1"),
+  AI_API_KEY: emptyAsUnset(z.string().min(8, "must be the AI provider's API key").optional()),
+  /**
+   * The models, comma-separated, tried in order when one is busy or down: the chat tier writes to customers, the fast
+   * tier only scores leads. Change them here and restart; nothing else changes.
+   */
+  AI_CHAT_MODELS: z
+    .string()
+    .default("google/gemini-2.5-flash")
+    .transform((value) =>
+      value
+        .split(",")
+        .map((model) => model.trim())
+        .filter((model) => model !== ""),
+    ),
+  AI_FAST_MODELS: z
+    .string()
+    .default("")
+    .transform((value) =>
+      value
+        .split(",")
+        .map((model) => model.trim())
+        .filter((model) => model !== ""),
+    ),
+  /** OpenRouter only: route to providers that keep no data (true by default). Its free models need false. */
+  AI_ZERO_RETENTION: z.stringbool().default(true),
 };

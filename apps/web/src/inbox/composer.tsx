@@ -5,7 +5,8 @@
 // Send, which is off while the box is empty or the subscription refuses a change (with the reason under it). Enter sends on a computer and starts a new
 // line on a touch screen; Shift+Enter always does. A file waits in the box with a name and a way to take it off, and the words
 // become its caption (the chat's bar says how long free text may still be sent). Typing "/" opens the agency's quick replies, and
-// Payment details (₹) puts the agency's payment words in the box (the quick reply with the shortcut "payment").
+// Payment details (₹) puts the agency's payment words in the box (the quick reply with the shortcut "payment"). ✨ puts
+// the AI agent's suggested reply there, to edit before sending.
 import {
   MAX_WHATSAPP_SEND_BYTES,
   whatsappSendContentTypes,
@@ -14,6 +15,7 @@ import {
 import { IndianRupeeIcon, PaperclipIcon, SendIcon, ZapIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useRef, useState, type KeyboardEvent } from "react";
+import { SuggestButton } from "@/ai/suggest-button";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -183,6 +185,14 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
             </InputGroup>
           </div>
           <div className="flex items-center gap-0.5" role="toolbar" aria-label={t("composer.tools")}>
+            <SuggestButton
+              conversationId={conversationId}
+              disabled={reply.pending || !access.allowed}
+              onSuggest={(suggested) => {
+                setText(suggested);
+                requestAnimationFrame(() => box.current?.focus());
+              }}
+            />
             <TemplateTool conversationId={conversationId} disabled={reply.pending || !access.allowed} />
             <SendDetailsTool conversationId={conversationId} disabled={reply.pending || !access.allowed} />
             {wide && <EmojiButton onPick={insertEmoji} disabled={reply.pending || !access.allowed} />}

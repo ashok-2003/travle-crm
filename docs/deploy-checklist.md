@@ -136,6 +136,10 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `MSG91_WEBHOOK_TOKEN`: 32+ random characters; the webhook's path  | ○   | ○      | ○       |         | yes    |
 | `MSG91_WEBHOOK_KEY`: 32+ random characters; the header's value    | ○   | ○      | ○       |         | yes    |
 | `MSG91_TEST_SERVER_URL`: tests only, refused in production        | ○   | ○      | ○       |         |        |
+| `AI_API_KEY`: the AI provider's key; unset, the AI agent is off   | ○   | ○      |         |         | yes    |
+| `AI_BASE_URL`: an OpenAI-compatible API (OpenRouter's by default) | ○   | ○      |         |         |        |
+| `AI_CHAT_MODELS`, `AI_FAST_MODELS`: comma-separated, in order     | ○   | ○      |         |         |        |
+| `AI_ZERO_RETENTION`: OpenRouter's no-data routing (`true`)        | ○   | ○      |         |         |        |
 | `LOG_LEVEL`: debug, info, warn or error (`info`)                  | ○   | ○      | ○       |         |        |
 | `AXIOM_TOKEN`, `AXIOM_DATASET`: both or neither (Logs, below)     | ○   | ○      | ○       |         | yes    |
 | `AXIOM_URL`: only for Axiom's EU region                           | ○   | ○      | ○       |         |        |

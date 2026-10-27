@@ -99,6 +99,7 @@ model Lead {
   quotes          Quote[]
   cadence         LeadCadence[]
   signals         LeadSignal[]
+  aiInsight       LeadAiInsight[]
   enquiries       LeadEnquiry[]
   formSubmissions WebsiteFormSubmission[]
 

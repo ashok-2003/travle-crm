@@ -89,6 +89,7 @@ model WhatsappConversation {
   reads          ConversationRead[]
   scheduled      ScheduledMessage[]
   tripKitSends   TripKitSend[]
+  aiChat         AiChat[]
   broadcasts     WhatsappBroadcastRecipient[]
 
   @@unique([organizationId, id])

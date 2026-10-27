@@ -96,6 +96,11 @@ model Organization {
   salesTouches                SalesTouch[]
   leadSignals                 LeadSignal[]
   quoteTemplates              QuoteTemplate[]
+  aiSettings                  AiSettings?
+  aiKnowledge                 AiKnowledge[]
+  aiChats                     AiChat[]
+  leadAiInsights              LeadAiInsight[]
+  aiUsage                     AiUsage[]
   whatsappBroadcastTags       WhatsappBroadcastTag[]
   whatsappBroadcastRecipients WhatsappBroadcastRecipient[]
 

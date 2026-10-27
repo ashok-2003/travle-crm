@@ -45,6 +45,11 @@ x-api-environment: &api-environment
   MSG91_AUTHKEY: ${MSG91_AUTHKEY:-}
   MSG91_WEBHOOK_TOKEN: ${MSG91_WEBHOOK_TOKEN:-}
   MSG91_WEBHOOK_KEY: ${MSG91_WEBHOOK_KEY:-}
+  AI_BASE_URL: ${AI_BASE_URL:-}
+  AI_API_KEY: ${AI_API_KEY:-}
+  AI_CHAT_MODELS: ${AI_CHAT_MODELS:-google/gemini-2.5-flash}
+  AI_FAST_MODELS: ${AI_FAST_MODELS:-}
+  AI_ZERO_RETENTION: ${AI_ZERO_RETENTION:-true}
   # Logging (ADR 0032, docs/runbook.md, "Turn on Axiom"): blank leaves LOG_LEVEL at info and Axiom off.
   LOG_LEVEL: ${LOG_LEVEL:-}
   AXIOM_TOKEN: ${AXIOM_TOKEN:-}

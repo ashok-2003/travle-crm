@@ -18,6 +18,7 @@ import {
   MapPinIcon,
   PaletteIcon,
   ShuffleIcon,
+  SparklesIcon,
   ZapIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -53,6 +54,7 @@ interface Section {
     | "whatsapp"
     | "quotes"
     | "salesAutomation"
+    | "ai"
     | "audit";
   href: string;
   icon: LucideIcon;
@@ -92,6 +94,7 @@ const sections: readonly Section[] = [
     requires: "settings:manage",
     module: "inbox",
   },
+  { key: "ai", href: routes.aiSettings, icon: SparklesIcon, requires: "settings:manage", module: "inbox" },
   { key: "quotes", href: routes.quoteSettings, icon: IndianRupeeIcon, requires: "settings:manage", module: "quotes" },
   { key: "audit", href: routes.audit, icon: HistoryIcon, requires: "audit:view" },
 ];

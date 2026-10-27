@@ -1,7 +1,7 @@
 "use client";
 
 // /leads/<id> (spec 3.4): one lead. The way back to Leads keeps the list's filters, which the list's links carry. The
-// person and the main buttons, the stage, then the lead's cards: its open follow-ups, the person, the trip, the owner
+// person and the main buttons, the stage, then the lead's cards: its open follow-ups, the AI's insight, the person, the trip, the owner
 // and source, and the timeline. Below 1280px it is one reading panel 720px wide; from 1280px, where a computer has room
 // beside it, the timeline moves into a column of its own beside the cards, so the lead's history shows next to its
 // details, and always sticks: 24px from the top while it fits the screen, and when it is taller, as far up as brings
@@ -13,6 +13,7 @@ import { SearchXIcon } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useRef, type CSSProperties, type ReactNode } from "react";
+import { LeadInsight } from "@/ai/lead-insight";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
@@ -52,6 +53,7 @@ function LeadColumns({ lead }: { lead: LeadDetail }) {
     <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:items-start">
       <div className="flex flex-col gap-6">
         <LeadSalesCard leadId={lead.id} open={isOpenStage(lead.stage)} />
+        <LeadInsight leadId={lead.id} />
         <WorkCard lead={lead} />
         <PersonCard lead={lead} />
         <TripCard lead={lead} />

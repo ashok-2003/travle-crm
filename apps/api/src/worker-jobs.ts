@@ -4,6 +4,13 @@
 // lifecycle among them), run in the console process instead (console-jobs.ts).
 import type { Database } from "@travel-crm/db";
 import {
+  AI_NUDGES_QUEUE,
+  aiCustomerWroteListener,
+  aiDocumentListener,
+  aiReplyHandler,
+  runAiNudges,
+} from "@travel-crm/domain/ai";
+import {
   addLeadImportListener,
   catchUpBroughtInFormListener,
   checkFirstReply,
@@ -86,6 +93,7 @@ import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { processWebhookJob, WEBHOOK_PROCESS_QUEUE, type WebhookProvider } from "@travel-crm/domain/webhooks";
 import { metaProcessDependencies, type MetaServices } from "./meta-services.js";
 import { inboxDependenciesOf, type WhatsAppServices } from "./whatsapp-services.js";
+import { documentText, type AiModel } from "@travel-crm/integrations/ai";
 import type { EmailSender } from "@travel-crm/integrations/email";
 import { renderPdf } from "@travel-crm/integrations/pdf";
 import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
@@ -146,6 +154,8 @@ export interface WorkerJobDependencies {
   logger: Logger;
   /** Where listeners queue delayed jobs (a new lead's first-reply check): the same pg-boss. Without it, no checks. */
   jobs?: JobQueue;
+  /** The AI sales agent's model (ADR 0029); left out or not configured, the agent does nothing. */
+  ai?: AiModel;
 }
 
 export interface WorkerJobs {
@@ -213,6 +223,19 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       return { agencyName: organization?.name ?? "our team", agentName: owners[0]?.name ?? null };
     },
   };
+  // The AI sales agent: it speaks for the agency by its name; its turns need the queue and a configured model.
+  const { ai } = dependencies;
+  const aiJobs =
+    ai?.configured === true && dependencies.jobs !== undefined
+      ? {
+          db,
+          ai,
+          logger,
+          queue: dependencies.jobs,
+          agencyName: async (organizationId: string) =>
+            (await identity.organizationProfile(organizationId))?.name ?? "our team",
+        }
+      : null;
   // The Meta lead ads' side: the route, the notices, the checks and the import of a form's earlier leads, only when Meta is set up.
   const { meta = null } = dependencies;
   const metaJobs = meta === null ? null : metaProcessDependencies(meta.dependencies, { identity, subscriptions });
@@ -258,6 +281,10 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       customerWroteListener(),
       // A trip's details, sent by themselves when a customer's message holds one of its keywords (once a chat).
       tripKitKeywordListener({ db, files }),
+      // The AI agent's knowledge: an uploaded document's words are read whether or not a model is set.
+      aiDocumentListener({ db, files, readText: (bytes, contentType) => documentText(bytes, contentType) }),
+      // The AI agent's turn after a customer writes, queued a few seconds on.
+      ...(aiJobs === null ? [] : [aiCustomerWroteListener(aiJobs)]),
       // A broadcast's waiting recipients go out here, a batch at a time (sales inbox spec 6).
       broadcastListener({
         timeZone: async (organizationId) =>
@@ -345,6 +372,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
               },
             },
           ]),
+      ...(aiJobs === null ? [] : [aiReplyHandler(aiJobs)]),
       ...(sheetsJobs === null ? [] : [sheetsCheckHandler(sheetsJobs)]),
       ...(metaJobs === null ? [] : [metaCatchupHandler(metaJobs)]),
     ],
@@ -394,6 +422,19 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
                 await runSalesDueWork(salesJobs, new Date());
               },
             },
+            ...(aiJobs === null
+              ? []
+              : [
+                  {
+                    // The AI agent's one nudge to a quiet customer, while the 24-hour window is still open.
+                    queue: AI_NUDGES_QUEUE,
+                    cron: "* * * * *",
+                    timeZone: "Asia/Kolkata",
+                    handle: async () => {
+                      await runAiNudges(aiJobs, new Date());
+                    },
+                  },
+                ]),
             {
               // Delivery reports that stopped, rows stuck sending, and media never queued (spec 8.4).
               queue: WHATSAPP_HEALTH_QUEUE,

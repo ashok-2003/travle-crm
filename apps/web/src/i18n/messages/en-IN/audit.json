@@ -241,6 +241,14 @@
     "quote-package": {
       "saved": "Saved a quote package",
       "deleted": "Deleted a quote package"
+    },
+    "ai": {
+      "settings-changed": "Changed the AI assistant's settings",
+      "knowledge-added": "Taught the AI assistant something",
+      "knowledge-changed": "Changed what the AI assistant knows",
+      "knowledge-deleted": "Removed something the AI assistant knew",
+      "chat-mode-changed": "Turned the AI assistant on or off in a chat",
+      "chat-resumed": "Let the AI assistant answer a chat again"
     }
   },
   "fields": {
@@ -311,7 +319,10 @@
     "speed": "Reply to new leads",
     "followUps": "Follow-ups",
     "reminders": "Payment reminders",
-    "lostReason": "Why it was lost"
+    "lostReason": "Why it was lost",
+    "autopilot": "Answers by itself",
+    "scoring": "Scores leads",
+    "mode": "AI in this chat"
   },
   "recordTypes": {
     "issued_document": "A document",
@@ -335,6 +346,8 @@
     "trip_kit": "A trip's details",
     "agency_expense": "A running cost",
     "sales_automation": "Sales automation",
-    "quote_template": "A quote package"
+    "quote_template": "A quote package",
+    "ai_settings": "The AI assistant",
+    "ai_knowledge": "Something the AI assistant knows"
   }
 }
