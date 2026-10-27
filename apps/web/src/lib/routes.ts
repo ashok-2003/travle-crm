@@ -30,6 +30,8 @@ export const routes = {
   broadcasts: "/inbox/broadcasts",
   /** A lead's quotations and the money on them (step 3, P0); one quote's page is quoteRoute(quoteId). */
   quotes: "/quotes",
+  /** The agency's money: profit, bookings and running costs (step 6, P0). */
+  finance: "/finance",
   settings: "/settings",
   /** The setup checklist: what an organization does first (spec 11). */
   setup: "/setup",

@@ -12,6 +12,7 @@ import dashboard from "./messages/en-IN/dashboard.json";
 import documents from "./messages/en-IN/documents.json";
 import errors from "./messages/en-IN/errors.json";
 import exportsMessages from "./messages/en-IN/exports.json";
+import finance from "./messages/en-IN/finance.json";
 import forms from "./messages/en-IN/forms.json";
 import imports from "./messages/en-IN/imports.json";
 import inbox from "./messages/en-IN/inbox.json";
@@ -49,6 +50,7 @@ export const messages = {
   errors,
   // "exports" is CommonJS's module object, hence this import's longer name too.
   exports: exportsMessages,
+  finance,
   forms,
   imports,
   inbox,
