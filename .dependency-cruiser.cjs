@@ -217,12 +217,15 @@ module.exports = {
       name: "business-modules-call-down",
       comment:
         "The business modules are layered (spec 6, 8): catalog, tasks, imports, exports, sheets, meta-leads and website-forms at L0, crm at L1, " +
-        "today, inbox, insights and quotes above them. A module calls only down: the L0 modules never call crm, today or insights, " +
+        "today, inbox, insights, quotes and finance above them. A module calls only down: the L0 modules never call crm, today or insights, " +
         "and crm never calls today or insights. An action spanning two modules is the higher one's, or its router " +
         "calls both (R22).",
       severity: "error",
       from: { path: "^packages/domain/src/(catalog|tasks|imports|exports|sheets|meta-leads|website-forms|crm)/" },
-      to: { path: "^packages/domain/src/(crm|inbox|today|insights|quotes)/", pathNot: "^packages/domain/src/$1/" },
+      to: {
+        path: "^packages/domain/src/(crm|inbox|today|insights|quotes|finance)/",
+        pathNot: "^packages/domain/src/$1/",
+      },
     },
     {
       name: "imports-and-exports-never-call-sheets",
