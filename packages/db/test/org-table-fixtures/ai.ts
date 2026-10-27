@@ -1,5 +1,5 @@
-// Isolation fixtures for the AI sales agent: its settings, a piece of knowledge, a chat's AI state, a lead's insight and
-// a usage row. The runtime role deletes none of them, and never changes a usage row.
+// Isolation fixtures for the AI sales agent: its settings, a piece of knowledge, a chat's AI state, a lead's insight, a
+// usage row and a learning. The runtime role deletes none of them, and never changes a usage row.
 import { randomUUID } from "node:crypto";
 import type { OrgTx } from "../../src/for-org.js";
 import type { OrgTableFixtures } from "../org-table-fixture.js";
@@ -48,4 +48,8 @@ export const fixtures: OrgTableFixtures = {
     undeletable: true,
   },
   ai_usage: { create: (tx) => tx.aiUsage.create({ data: { kind: "test", model: "isolation" } }), appendOnly: true },
+  ai_learning: {
+    create: (tx) => tx.aiLearning.create({ data: { kind: "need", text: "Families ask about Kerala in October" } }),
+    undeletable: true,
+  },
 };

@@ -248,7 +248,9 @@
       "knowledge-changed": "Changed what the AI assistant knows",
       "knowledge-deleted": "Removed something the AI assistant knew",
       "chat-mode-changed": "Turned the AI assistant on or off in a chat",
-      "chat-resumed": "Let the AI assistant answer a chat again"
+      "chat-resumed": "Let the AI assistant answer a chat again",
+      "learning-changed": "Turned a lesson the AI learned on or off",
+      "learned": "Had the AI learn from the chats"
     }
   },
   "fields": {
@@ -322,7 +324,11 @@
     "lostReason": "Why it was lost",
     "autopilot": "Answers by itself",
     "scoring": "Scores leads",
-    "mode": "AI in this chat"
+    "mode": "AI in this chat",
+    "handoff": "When the AI steps back",
+    "state": "State",
+    "added": "Lessons added",
+    "updated": "Lessons sharpened"
   },
   "recordTypes": {
     "issued_document": "A document",
@@ -348,6 +354,7 @@
     "sales_automation": "Sales automation",
     "quote_template": "A quote package",
     "ai_settings": "The AI assistant",
-    "ai_knowledge": "Something the AI assistant knows"
+    "ai_knowledge": "Something the AI assistant knows",
+    "ai_learning": "A lesson the AI learned"
   }
 }

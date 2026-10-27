@@ -101,6 +101,7 @@ model Organization {
   aiChats                     AiChat[]
   leadAiInsights              LeadAiInsight[]
   aiUsage                     AiUsage[]
+  aiLearnings                 AiLearning[]
   whatsappBroadcastTags       WhatsappBroadcastTag[]
   whatsappBroadcastRecipients WhatsappBroadcastRecipient[]
 

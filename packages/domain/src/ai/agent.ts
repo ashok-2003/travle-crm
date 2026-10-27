@@ -1,20 +1,21 @@
-// The AI sales agent's turn (the AI sales agent, ADR 0029 as the owner widened it on 2026-10-27): for one chat, one call
-// to the model gives the reply to send (or none), whether to hand the chat to a person and why, what to remember, and the
-// lead's insight (how likely it books, why, fake or not, the next step, what the customer wants). Code decides the rest:
-// the reply goes only inside the 24-hour window, to someone who hasn't asked to stop, while the agent is on in the chat,
-// no person is answering it and the day's count has room; it never sets a price that isn't in the knowledge, never
-// confirms a booking or takes money: those are a person's, so the agent hands over. Every call's usage is kept.
+// The AI sales agent's turn (the AI sales agent, ADR 0029 as the owner widened it on 2026-10-27 and 2026-10-28): for one
+// chat, one call to the model gives the reply to send (or none), whether a person must take the chat or only look at
+// it, what to remember, whether and when to follow up, and the lead's insight. Code decides the rest: the reply goes only
+// inside the 24-hour window, to someone who hasn't asked to stop, while the agent is on in the chat, no person is
+// answering it and the day's count has room; prices and payment details come only from the knowledge, and a booking or a
+// payment is confirmed only by a person. Every call's usage is kept.
 import { agentAnswer, type AgentAnswer } from "@travel-crm/contracts/ai";
 import type { AiMessage, AiModel } from "@travel-crm/integrations/ai";
 import type { Database, OrgTx } from "@travel-crm/db";
-import { noticeKey } from "../crm/index.js";
 import { queueSystemText, whatsappConsentOf, windowIsOpen } from "../inbox/index.js";
-import { systemActor } from "../kernel/index.js";
-import { notify } from "../notifications/index.js";
+import { applyAnswer, type ChatFacts } from "./answer-effects.js";
 import { chatHistory, knowledgePack, leadFactsFor } from "./context.js";
+import { activeLessons } from "./learning-store.js";
+import { agentPrompt, type TurnKind } from "./prompt.js";
 import { aiSettingsOf, type AiSettingsRow } from "./settings.js";
 
-export const AI_HANDOFF_KIND = "ai.handoff";
+export { AI_HANDOFF_KIND } from "./answer-effects.js";
+export { agentPrompt, type TurnKind } from "./prompt.js";
 /** A person who wrote in the chat this recently is answering it: the agent keeps quiet. */
 const PERSON_ANSWERING_MS = 30 * 60_000;
 
@@ -23,48 +24,6 @@ export interface AgentDependencies {
   ai: AiModel;
   /** The agency's name, for the agent to speak for. */
   agencyName: (organizationId: string) => Promise<string>;
-}
-
-export type TurnKind = "reply" | "nudge" | "insight";
-
-export function agentPrompt(
-  settings: AiSettingsRow,
-  agency: string,
-  kind: TurnKind,
-  knowledge: string,
-  facts: string,
-  memory: string,
-): string {
-  const name = settings.agentName.trim() === "" ? `the team at ${agency}` : settings.agentName.trim();
-  const task =
-    kind === "nudge"
-      ? "The customer has gone quiet. Write ONE short, warm follow-up that moves them a step forward (a question, or the next detail they need). Never pushy."
-      : kind === "insight"
-        ? "Do not write a reply: set reply to an empty string. Only judge the lead."
-        : "Answer the customer's last message.";
-  return `You are ${name}, the WhatsApp travel sales assistant of ${agency}, an Indian travel agency.
-${task}
-
-Rules you always follow:
-- Use ONLY the agency's knowledge below for prices, inclusions, dates, availability and policies. Never invent or guess a price, a discount, a date or availability. If it isn't in the knowledge, say you will check with the team, and hand off.
-- Hand off (handoff: true, with the reason) when the customer wants to book, pay, confirm or cancel, asks for a discount or a custom price, complains, asks for a person, sends something you can't read (a photo, a voice note), or asks anything the knowledge doesn't answer. When you hand off, your reply tells them a colleague will get back to them shortly.
-- Never confirm a booking, never take or ask for payment details, never promise what the knowledge doesn't say.
-- Write like a friendly Indian travel agent on WhatsApp: short (1 to 4 short lines), warm, no long lists, at most one emoji. Reply in the customer's own language and script (English, Hindi or Hinglish).
-- Learn what they need, one question at a time: destination, dates, how many travellers (and children's ages), budget, leaving from. Never ask again what is already known.
-- If asked whether you are a bot, say you are ${agency}'s virtual assistant and a person can join any time.
-- Never share anything about other customers.
-${settings.instructions.trim() === "" ? "" : `\nThe agency's own instructions:\n${settings.instructions.trim()}\n`}
-What we know about this customer:
-${facts}
-
-What you remember of this chat:
-${memory.trim() === "" ? "(nothing yet)" : memory.trim()}
-
-The agency's knowledge:
-${knowledge}
-
-Answer with ONE JSON object and nothing else:
-{"reply": string, "handoff": boolean, "handoffReason": string, "memory": string (the facts, wishes and promises of this chat so far, under 800 characters, replacing what you remembered), "score": integer 0-100 (how likely this lead books with us in the next 2 weeks), "label": "hot"|"warm"|"cold", "reasons": [short strings], "fake": boolean (spam, test, gibberish, wrong number, abuse, a competitor probing), "fakeReason": string, "nextStep": string (what our salesperson should do next), "facts": {"destination": string|null, "when": string|null, "travellers": string|null, "budget": string|null}}`;
 }
 
 /** The model's answer as JSON, read leniently: a code fence or words around the object are dropped. */
@@ -77,14 +36,6 @@ export function parseAnswer(text: string): AgentAnswer | null {
   } catch {
     return null;
   }
-}
-
-interface ChatFacts {
-  id: string;
-  personId: string | null;
-  lastInboundAt: Date | null;
-  state: string;
-  hidden: boolean;
 }
 
 /** Whether the agent answers in a chat: its own mode, else the agency's autopilot. */
@@ -166,22 +117,21 @@ export async function runAgentTurn(
         .map((message) => message.content)
         .join(" "),
     );
+    const learnings = settings.learning ? await activeLessons(tx) : [];
     // Writing only when nothing stops it; else the same call judges the lead and writes nothing.
     const kind: TurnKind = blocked === null ? input.kind : "insight";
-    return { settings, chat, history, memory, facts, knowledge, kind, blocked };
+    return { settings, chat, history, memory, facts, knowledge, learnings, kind, blocked };
   });
   if (prepared === null || prepared.history.messages.length === 0) return "nothing";
   const messages: AiMessage[] = [
     {
       role: "system",
-      content: agentPrompt(
-        prepared.settings,
-        agency,
-        prepared.kind,
-        prepared.knowledge,
-        prepared.facts.words,
-        prepared.memory,
-      ),
+      content: agentPrompt(prepared.settings, agency, prepared.kind, {
+        knowledge: prepared.knowledge,
+        facts: prepared.facts.words,
+        memory: prepared.memory,
+        learnings: prepared.learnings,
+      }),
     },
     ...prepared.history.messages,
   ];
@@ -189,7 +139,7 @@ export async function runAgentTurn(
     tier: prepared.kind === "insight" ? "fast" : "chat",
     messages,
     json: true,
-    maxTokens: 900,
+    maxTokens: 1000,
     user: input.organizationId,
   });
   if (!result.ok) return result.reason;
@@ -207,36 +157,9 @@ export async function runAgentTurn(
   if (answer === null) return "unreadable";
 
   return db.forOrg(input.organizationId, async (tx) => {
-    const today = new Date(`${now.toISOString().slice(0, 10)}T00:00:00Z`);
-    const state = await tx.aiChat.upsert({
-      where: {
-        organizationId_conversationId: { organizationId: input.organizationId, conversationId: prepared.chat.id },
-      },
-      create: { conversationId: prepared.chat.id, memory: answer.memory },
-      update: answer.memory === "" ? {} : { memory: answer.memory },
-      select: { id: true, repliesOn: true, repliesCount: true },
-    });
-    if (prepared.facts.leadId !== null && prepared.settings.scoring) {
-      const insight = {
-        score: answer.score,
-        label: answer.label,
-        reasons: answer.reasons,
-        fake: answer.fake,
-        fakeReason: answer.fake && answer.fakeReason !== "" ? answer.fakeReason : null,
-        summary: answer.memory.slice(0, 800),
-        nextStep: answer.nextStep,
-        facts: answer.facts,
-        model: result.model,
-      };
-      await tx.leadAiInsight.upsert({
-        where: { organizationId_leadId: { organizationId: input.organizationId, leadId: prepared.facts.leadId } },
-        create: { leadId: prepared.facts.leadId, ...insight },
-        update: insight,
-      });
-    }
-    if (prepared.kind === "insight") return prepared.blocked ?? "insight";
-    const reply = answer.reply.trim();
-    if (reply !== "") {
+    const sendReply = async () => {
+      const reply = answer.reply.trim();
+      if (prepared.kind === "insight" || reply === "") return null;
       const sent = await queueSystemText(
         tx,
         {
@@ -250,44 +173,20 @@ export async function runAgentTurn(
         },
         now,
       );
-      if (!sent.ok) return sent.code;
-      const sameDay = state.repliesOn?.getTime() === today.getTime();
-      await tx.aiChat.update({
-        where: { id: state.id },
-        data: {
-          lastReplyAt: now,
-          repliesOn: today,
-          repliesCount: sameDay ? state.repliesCount + 1 : 1,
-          ...(prepared.kind === "nudge" ? { lastNudgeAt: now } : {}),
-        },
-      });
-    }
-    if (answer.handoff) {
-      await tx.aiChat.update({
-        where: { id: state.id },
-        data: { handedOffAt: now, handoffReason: answer.handoffReason.slice(0, 300) || null },
-      });
-      await tellOwner(tx, input.organizationId, prepared.chat, answer, input.token);
-    }
-    return answer.handoff ? "handed_off" : "replied";
-  });
-}
-
-async function tellOwner(tx: OrgTx, organizationId: string, chat: ChatFacts, answer: AgentAnswer, token: string) {
-  if (chat.personId === null) return;
-  const lead = await tx.lead.findFirst({
-    where: { personId: chat.personId },
-    orderBy: { createdAt: "desc" },
-    select: { ownerUserId: true, person: { select: { name: true } } },
-  });
-  if (lead?.ownerUserId == null) return;
-  await notify(tx, systemActor(organizationId), {
-    recipientUserIds: [lead.ownerUserId],
-    sourceEventId: noticeKey(`ai-handoff:${token}`, AI_HANDOFF_KIND),
-    kind: AI_HANDOFF_KIND,
-    title: `${lead.person.name} needs you: the AI handed the chat over`,
-    body: answer.handoffReason === "" ? "Open the chat to take it from here." : answer.handoffReason.slice(0, 160),
-    link: `/inbox/${chat.id}`,
-    channels: ["push"],
+      return sent.ok ? "sent" : sent.code;
+    };
+    return applyAnswer(tx, {
+      organizationId: input.organizationId,
+      chat: prepared.chat,
+      settings: prepared.settings,
+      kind: prepared.kind,
+      blocked: prepared.blocked,
+      leadId: prepared.facts.leadId,
+      answer,
+      model: result.model,
+      token: input.token,
+      sendReply,
+      now,
+    });
   });
 }

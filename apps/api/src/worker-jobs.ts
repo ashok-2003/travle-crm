@@ -4,10 +4,12 @@
 // lifecycle among them), run in the console process instead (console-jobs.ts).
 import type { Database } from "@travel-crm/db";
 import {
+  AI_LEARN_QUEUE,
   AI_NUDGES_QUEUE,
   aiCustomerWroteListener,
   aiDocumentListener,
   aiReplyHandler,
+  runAiLearning,
   runAiNudges,
 } from "@travel-crm/domain/ai";
 import {
@@ -426,12 +428,21 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
               ? []
               : [
                   {
-                    // The AI agent's one nudge to a quiet customer, while the 24-hour window is still open.
+                    // The follow-ups the AI agent planned, due now, while the 24-hour window is still open.
                     queue: AI_NUDGES_QUEUE,
                     cron: "* * * * *",
                     timeZone: "Asia/Kolkata",
                     handle: async () => {
                       await runAiNudges(aiJobs, new Date());
+                    },
+                  },
+                  {
+                    // Each night the AI learns from every agency's chats, while chats are quiet.
+                    queue: AI_LEARN_QUEUE,
+                    cron: "30 2 * * *",
+                    timeZone: "Asia/Kolkata",
+                    handle: async () => {
+                      await runAiLearning(aiJobs, new Date());
                     },
                   },
                 ]),

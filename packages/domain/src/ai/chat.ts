@@ -9,6 +9,7 @@ import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
 import { agentAnswers, agentPrompt, parseAnswer } from "./agent.js";
 import { chatHistory, knowledgePack, leadFactsFor } from "./context.js";
+import { activeLessons } from "./learning-store.js";
 import { aiSettingsOf } from "./settings.js";
 
 export interface AiAssistDependencies {
@@ -19,6 +20,8 @@ export interface AiAssistDependencies {
 
 /** After this long a turn still marked is one the worker never finished (it stopped): the inbox stops showing it. */
 const TURN_STALE_MS = 3 * 60_000;
+/** What the agent flagged shows in the chat this long. */
+const ATTENTION_SHOWN_MS = 24 * 3_600_000;
 
 const notFound = () => new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
 const notConfigured = () =>
@@ -95,6 +98,12 @@ export async function chatAiOf(tx: OrgTx, conversationId: string, configured: bo
     memory: state?.memory ?? "",
     lastReplyAt: state?.lastReplyAt?.toISOString() ?? null,
     turn: answering && turnFresh ? turnState : null,
+    followUpAt: answering && state?.followUpAt != null ? state.followUpAt.toISOString() : null,
+    followUpReason: answering ? (state?.followUpReason ?? null) : null,
+    attention:
+      state?.attentionAt != null && Date.now() - state.attentionAt.getTime() < ATTENTION_SHOWN_MS
+        ? (state.attentionReason ?? null)
+        : null,
     agentName: settings.agentName,
     configured,
     insight: lead === null ? null : await leadInsightOf(tx, lead.id),
@@ -121,7 +130,12 @@ export async function setChatMode(
   const state = await chatState(tx, access.organizationId, input.conversationId);
   await tx.aiChat.update({
     where: { id: state.id },
-    data: { mode: input.mode, ...(input.mode === "on" ? { handedOffAt: null, handoffReason: null } : {}) },
+    data: {
+      mode: input.mode,
+      ...(input.mode === "on" ? { handedOffAt: null, handoffReason: null } : {}),
+      // Taken over: the flag is answered, and the agent's planned follow-up is the person's to make.
+      ...(input.mode === "off" ? { attentionAt: null, attentionReason: null, followUpAt: null } : {}),
+    },
   });
   await recordAudit(tx, access, {
     action: "ai.chat-mode-changed",
@@ -160,10 +174,12 @@ export async function suggestReply(
     if (chat === null) throw notFound();
     const history = await chatHistory(tx, conversationId);
     const memory = (await tx.aiChat.findFirst({ where: { conversationId }, select: { memory: true } }))?.memory ?? "";
+    const settings = await aiSettingsOf(tx);
     return {
-      settings: await aiSettingsOf(tx),
+      settings,
       history,
       memory,
+      learnings: settings.learning ? await activeLessons(tx) : [],
       facts: await leadFactsFor(tx, chat.personId),
       knowledge: await knowledgePack(
         tx,
@@ -183,14 +199,12 @@ export async function suggestReply(
     messages: [
       {
         role: "system",
-        content: agentPrompt(
-          prepared.settings,
-          agency,
-          "reply",
-          prepared.knowledge,
-          prepared.facts.words,
-          prepared.memory,
-        ),
+        content: agentPrompt(prepared.settings, agency, "reply", {
+          knowledge: prepared.knowledge,
+          facts: prepared.facts.words,
+          memory: prepared.memory,
+          learnings: prepared.learnings,
+        }),
       },
       ...prepared.history.messages,
     ],
@@ -218,9 +232,10 @@ export async function testAnswer(
   const { db, ai } = dependencies;
   if (!ai.configured) throw notConfigured();
   const agency = await dependencies.agencyName(access.organizationId);
-  const { settings, knowledge } = await db.forOrg(access.organizationId, async (tx) => ({
+  const { settings, knowledge, learnings } = await db.forOrg(access.organizationId, async (tx) => ({
     settings: await aiSettingsOf(tx),
     knowledge: await knowledgePack(tx, question),
+    learnings: await activeLessons(tx),
   }));
   const result = await ai.complete({
     tier: "chat",
@@ -230,7 +245,12 @@ export async function testAnswer(
     messages: [
       {
         role: "system",
-        content: agentPrompt(settings, agency, "reply", knowledge, "Nothing is known about this customer yet.", ""),
+        content: agentPrompt(settings, agency, "reply", {
+          knowledge,
+          facts: "Nothing is known about this customer yet.",
+          memory: "",
+          learnings: settings.learning ? learnings : [],
+        }),
       },
       { role: "user", content: question },
     ],

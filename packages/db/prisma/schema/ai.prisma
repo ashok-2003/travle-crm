@@ -20,6 +20,24 @@ model AiSettings {
   followUpHours    Int          @default(4) @map("follow_up_hours")
   /// The most the agent writes in one chat in a day, so a loop can't run away.
   maxRepliesPerDay Int          @default(25) @map("max_replies_per_day")
+  /// customer (whatever the customer writes in), english, hindi, hinglish or other (CHECK ai_settings_language_value).
+  language         String       @default("customer")
+  /// The language when it is other: "Marathi", "Tamil".
+  languageOther    String       @default("") @map("language_other")
+  /// human (natural lines), short (one or two lines) or points (bullets) (CHECK ai_settings_style_value).
+  style            String       @default("human")
+  /// none, few or many (CHECK ai_settings_emojis_value).
+  emojis           String       @default("few")
+  /// friendly, professional or enthusiastic (CHECK ai_settings_tone_value).
+  tone             String       @default("friendly")
+  /// When the agent steps back: alert (never by itself; it flags the team and keeps selling), asked (when the customer
+  /// asks for a person or is upset) or careful (bookings, payments, discounts too) (CHECK ai_settings_handoff_value).
+  handoff          String       @default("alert")
+  /// The agent chooses whether and when to follow up each quiet customer, inside the window.
+  smartFollowUp    Boolean      @default(true) @map("smart_follow_up")
+  /// The agent learns from the agency's chats each night.
+  learning         Boolean      @default(true)
+  learnedAt        DateTime?    @map("learned_at") @db.Timestamptz(6)
   updatedBy        String?      @map("updated_by") @db.Uuid
   updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
@@ -73,6 +91,12 @@ model AiChat {
   /// What the agent is doing now, for the inbox: queued or thinking, else null (CHECK ai_chat_turn_state_value).
   turnState      String?              @map("turn_state")
   turnAt         DateTime?            @map("turn_at") @db.Timestamptz(6)
+  /// The next follow-up the agent planned for this quiet customer, and why; null for none.
+  followUpAt     DateTime?            @map("follow_up_at") @db.Timestamptz(6)
+  followUpReason String?              @map("follow_up_reason")
+  /// What the agent flagged for the team while it kept answering ("wants to book"), and when.
+  attentionReason String?             @map("attention_reason")
+  attentionAt    DateTime?            @map("attention_at") @db.Timestamptz(6)
   updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   conversation   WhatsappConversation @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
@@ -105,6 +129,27 @@ model LeadAiInsight {
   @@unique([organizationId, id])
   @@unique([organizationId, leadId], map: "lead_ai_insight_one_per_lead")
   @@map("lead_ai_insight")
+}
+
+/// A lesson the agent learned from the agency's chats: what customers want, what wins a booking, an objection and its
+/// answer, how to speak, a question asked often. General, never about one person. The owner turns each off or dismisses it.
+model AiLearning {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  /// need, winning, objection, style or faq (CHECK ai_learning_kind_value).
+  kind           String
+  text           String
+  /// How many chats showed it, as the agent counted.
+  evidence       Int          @default(1)
+  /// active, off (the owner turned it off) or dismissed (CHECK ai_learning_state_value).
+  state          String       @default("active")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, state], map: "ai_learning_state")
+  @@map("ai_learning")
 }
 
 /// Every AI call: what for, which model answered, and its tokens. Append-only.

@@ -1,11 +1,15 @@
 // ai.*: the AI sales agent (the owner's widening of ADR 0029, 2026-10-27). Its settings and knowledge, written by
 // whoever manages settings; a chat's AI state, its switch and giving a handed-over chat back, for whoever answers chats;
-// a suggested reply for them; a lead's insight for anyone who sees the lead; and a test question for settings.
+// a suggested reply for them; a lead's insight for anyone who sees the lead; a test question, the AI's day at a glance
+// and what it learned (and learning now), for settings.
 import { z } from "zod";
 import {
   aiDocumentSlot,
   aiKnowledgeIdInput,
   aiKnowledgeList,
+  aiLearnResult,
+  aiLearningList,
+  aiOverview,
   aiSettings,
   chatAi,
   confirmAiDocumentInput,
@@ -16,6 +20,7 @@ import {
   requestAiDocumentInput,
   resumeChatAiInput,
   saveAiSettingsInput,
+  setAiLearningInput,
   setChatAiInput,
   suggestedReply,
   testAiAnswer,
@@ -24,16 +29,20 @@ import {
 } from "@travel-crm/contracts/ai";
 import {
   addKnowledge,
+  aiOverviewOf,
   aiSettingsOf,
   chatAiOf,
   confirmDocument,
   deleteKnowledge,
+  learnNow,
   leadInsightOf,
   listKnowledge,
+  listLearnings,
   requestDocument,
   resumeChat,
   saveAiSettings,
   setChatMode,
+  setLearning,
   suggestReply,
   testAnswer,
   updateKnowledge,
@@ -56,21 +65,47 @@ const assistOf = (ctx: { db: Parameters<typeof suggestReply>[0]["db"]; ai: AiMod
     (await ctx.identity.organizationProfile(organizationId))?.name ?? "our team",
 });
 
+/** The settings as the screen reads them, with the platform's model and when the AI last learned. */
+const settingsView = (row: Awaited<ReturnType<typeof aiSettingsOf>>, ai: AiModel) => ({
+  ...row,
+  learnedAt: row.learnedAt?.toISOString() ?? null,
+  configured: ai.configured,
+  models: { chat: [...ai.models.chat], fast: [...ai.models.fast] },
+});
+
 export const aiRouter = router({
-  settings: settingsReader.output(aiSettings).query(async ({ ctx }) => ({
-    ...(await ctx.db.forOrg(ctx.member.organizationId, (tx) => aiSettingsOf(tx))),
-    configured: ctx.ai.configured,
-    models: { chat: [...ctx.ai.models.chat], fast: [...ctx.ai.models.fast] },
-  })),
+  settings: settingsReader
+    .output(aiSettings)
+    .query(async ({ ctx }) =>
+      settingsView(await ctx.db.forOrg(ctx.member.organizationId, (tx) => aiSettingsOf(tx)), ctx.ai),
+    ),
 
   saveSettings: settingsWriter
     .input(saveAiSettingsInput)
     .output(aiSettings)
-    .mutation(async ({ ctx, input }) => ({
-      ...(await ctx.db.forOrg(ctx.member.organizationId, (tx) => saveAiSettings(tx, ctx.member, input))),
-      configured: ctx.ai.configured,
-      models: { chat: [...ctx.ai.models.chat], fast: [...ctx.ai.models.fast] },
-    })),
+    .mutation(async ({ ctx, input }) =>
+      settingsView(
+        await ctx.db.forOrg(ctx.member.organizationId, (tx) => saveAiSettings(tx, ctx.member, input)),
+        ctx.ai,
+      ),
+    ),
+
+  /** The AI's last day at a glance. */
+  overview: settingsReader
+    .output(aiOverview)
+    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => aiOverviewOf(tx, new Date()))),
+
+  /** What the AI learned from the agency's chats. */
+  learnings: settingsReader
+    .output(aiLearningList)
+    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => listLearnings(tx))),
+
+  setLearning: settingsWriter
+    .input(setAiLearningInput)
+    .mutation(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => setLearning(tx, ctx.member, input))),
+
+  /** Learn from the chats now, not waiting for the night. */
+  learnNow: settingsWriter.output(aiLearnResult).mutation(({ ctx }) => learnNow(assistOf(ctx), ctx.member, new Date())),
 
   knowledge: settingsReader
     .output(aiKnowledgeList)

@@ -2,17 +2,19 @@
 
 // Who writes next in a chat, said plainly (the AI sales agent): at the foot of the messages, the agent's "typing" bubble
 // while it reads the customer's message and writes its answer; over the reply box, a line that says whether the AI or
-// a person has this chat, with the one button that changes it (Take over, Let the AI answer). When the agent's turn
-// ends, the chat loads again at once, so its answer shows without waiting for the next refresh.
-import { BotIcon, HandIcon } from "lucide-react";
+// a person has this chat (and what the AI flagged for the team, and its next planned follow-up), with the one button
+// that changes it (Take over, Let the AI answer). When the agent's turn ends, the chat loads again at once, so its
+// answer shows without waiting for the next refresh.
+import { BotIcon, CalendarClockIcon, HandIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia } from "@/components/ui/item";
 import { Spinner } from "@/components/ui/spinner";
 import { useRefreshInbox } from "@/inbox/use-inbox";
+import { formatDayTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { useHolds } from "@/session/me-context";
+import { useHolds, useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { useChatAi, useResumeChatAi, useSetChatAi } from "./use-ai";
 
@@ -74,6 +76,7 @@ export function AiReplyBar({ conversationId }: { conversationId: string }) {
   const resume = useResumeChatAi();
   const access = useWriteAccess("change");
   const mayReply = useHolds("inbox:reply");
+  const { timeZone } = useMe().organization;
   if (ai?.configured !== true) return null;
   const name = aiFirstName(ai.agentName) ?? t("theAi");
   const busy = setMode.isPending || resume.isPending || !access.allowed || !mayReply;
@@ -112,9 +115,26 @@ export function AiReplyBar({ conversationId }: { conversationId: string }) {
         )}
       </ItemMedia>
       <ItemContent>
-        <ItemDescription className="line-clamp-2">
-          {!ai.answering ? t("barOff") : ai.turn === null ? t("barAnswering", { name }) : t("barWorking", { name })}
+        <ItemDescription className={cn("line-clamp-2", ai.attention !== null && ai.answering && "text-foreground")}>
+          {!ai.answering
+            ? t("barOff")
+            : ai.turn !== null
+              ? t("barWorking", { name })
+              : ai.attention !== null
+                ? t("barFlagged", { name, reason: ai.attention })
+                : t("barAnswering", { name })}
         </ItemDescription>
+        {ai.answering && ai.turn === null && ai.followUpAt !== null && (
+          <ItemDescription className="flex items-center gap-1 text-caption">
+            <CalendarClockIcon aria-hidden="true" className="size-3.5 shrink-0" />
+            {ai.followUpReason === null
+              ? t("followUpPlanned", { when: formatDayTime(new Date(ai.followUpAt), { timeZone }) })
+              : t("followUpWhy", {
+                  when: formatDayTime(new Date(ai.followUpAt), { timeZone }),
+                  why: ai.followUpReason,
+                })}
+          </ItemDescription>
+        )}
       </ItemContent>
       <ItemActions>
         {ai.answering

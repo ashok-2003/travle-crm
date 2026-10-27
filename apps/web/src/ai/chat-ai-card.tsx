@@ -34,7 +34,11 @@ export function ChatAiChip({ conversationId }: { conversationId: string }) {
       {ai.handedOff ? (
         <StatusBadge tone="attention">{t("handedOffShort")}</StatusBadge>
       ) : (
-        ai.answering && <StatusBadge tone="good">{t("answeringShort")}</StatusBadge>
+        ai.answering && (
+          <StatusBadge tone={ai.attention === null ? "good" : "attention"}>
+            {ai.attention === null ? t("answeringShort") : t("flaggedShort")}
+          </StatusBadge>
+        )
       )}
       {ai.insight !== null && <ScoreBadge insight={ai.insight} />}
     </span>

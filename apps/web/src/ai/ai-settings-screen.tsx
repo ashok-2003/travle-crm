@@ -1,13 +1,13 @@
 "use client";
 
-// /settings/ai (the AI sales agent): whether the agent answers customers on WhatsApp by itself (each chat can still be
-// turned on or off), whether leads are scored, the name it signs as, the agency's own instructions, when it follows up
-// a quiet customer, and a day's limit per chat; then what it knows, and a question to try it on. Which model answers is
-// the platform's setting, shown here; with none set, the screen says so and nothing runs.
-import { saveAiSettingsInput, type AiSettings } from "@travel-crm/contracts/ai";
-import { SparklesIcon } from "lucide-react";
+// /settings/ai (the AI sales agent): the agent at a glance (its name, live or not, its last day in figures), then four
+// tabs: the agent itself (how it speaks and how it sells, saved together from a bar that stays in reach), what it
+// knows, what it learned from the chats, and a question to try it on. Which model answers is the platform's setting;
+// with none set, the screen says so and nothing runs.
+import { saveAiSettingsInput, type AiSettings, type SaveAiSettingsInput } from "@travel-crm/contracts/ai";
+import { BookOpenIcon, BotIcon, BrainIcon, SparklesIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState, type ReactNode } from "react";
+import { useId, useState } from "react";
 import { toast } from "sonner";
 import { BackToSettings } from "@/components/back-to-settings";
 import { ErrorState } from "@/components/error-state";
@@ -16,158 +16,70 @@ import { PageHeader } from "@/components/page-header";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWriteAccess } from "@/subscription/write-access";
+import { AiHero } from "./ai-hero";
 import { KnowledgeSection } from "./knowledge-section";
+import { LearningsSection } from "./learnings-section";
+import { PersonalityCard } from "./personality-card";
+import { SellingCard } from "./selling-card";
 import { useAiSettings, useSaveAiSettings, useTestAi } from "./use-ai";
 
-function SwitchRow({
-  label,
-  hint,
-  checked,
-  disabled,
-  onChange,
-}: {
-  label: string;
-  hint: ReactNode;
-  checked: boolean;
-  disabled: boolean;
-  onChange: (on: boolean) => void;
-}) {
-  const id = useId();
-  return (
-    <div className="flex items-start gap-3">
-      <Switch id={id} checked={checked} disabled={disabled} onCheckedChange={onChange} />
-      <div className="flex flex-col gap-1">
-        <Label htmlFor={id}>{label}</Label>
-        <p className="text-caption text-muted-foreground">{hint}</p>
-      </div>
-    </div>
-  );
-}
+const inputOf = (settings: AiSettings): SaveAiSettingsInput => ({
+  autopilot: settings.autopilot,
+  scoring: settings.scoring,
+  agentName: settings.agentName,
+  instructions: settings.instructions,
+  followUpHours: settings.followUpHours,
+  maxRepliesPerDay: Math.max(1, settings.maxRepliesPerDay),
+  language: settings.language,
+  languageOther: settings.languageOther,
+  style: settings.style,
+  emojis: settings.emojis,
+  tone: settings.tone,
+  handoff: settings.handoff,
+  smartFollowUp: settings.smartFollowUp,
+  learning: settings.learning,
+});
 
-const numberOf = (text: string, max: number) => Math.min(max, Number(text.replace(/\D/g, "")) || 0);
-
-function BehaviourForm({ saved }: { saved: AiSettings }) {
+/** The agent's two cards, and the bar that saves them both. */
+function AgentForm({ saved }: { saved: AiSettings }) {
   const t = useTranslations("ai.settings");
   const access = useWriteAccess("change");
   const save = useSaveAiSettings();
   const [settings, setSettings] = useState(saved);
   const [problem, setProblem] = useState(false);
-  const ids = { name: useId(), instructions: useId(), hours: useId(), limit: useId() };
   const busy = save.isPending || !access.allowed;
-  const change = (patch: Partial<AiSettings>) => {
+  const dirty = JSON.stringify(inputOf(settings)) !== JSON.stringify(inputOf(saved));
+  const change = (patch: Partial<SaveAiSettingsInput>) => {
     setSettings((current) => ({ ...current, ...patch }));
   };
   const submit = () => {
-    const parsed = saveAiSettingsInput.safeParse({
-      autopilot: settings.autopilot,
-      scoring: settings.scoring,
-      agentName: settings.agentName,
-      instructions: settings.instructions,
-      followUpHours: settings.followUpHours,
-      maxRepliesPerDay: Math.max(1, settings.maxRepliesPerDay),
-    });
+    const parsed = saveAiSettingsInput.safeParse(inputOf(settings));
     setProblem(!parsed.success);
     if (parsed.success) save.mutate(parsed.data, { onSuccess: () => toast.success(t("saved")) });
   };
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          <h2>{t("behaviour.title")}</h2>
-        </CardTitle>
-        <CardDescription>{t("behaviour.description")}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-5">
-        <SwitchRow
-          label={t("behaviour.autopilot")}
-          hint={t("behaviour.autopilotHint")}
-          checked={settings.autopilot}
-          disabled={busy}
-          onChange={(autopilot) => {
-            change({ autopilot });
-          }}
-        />
-        <SwitchRow
-          label={t("behaviour.scoring")}
-          hint={t("behaviour.scoringHint")}
-          checked={settings.scoring}
-          disabled={busy}
-          onChange={(scoring) => {
-            change({ scoring });
-          }}
-        />
-        <Field>
-          <FieldLabel htmlFor={ids.name}>{t("behaviour.name")}</FieldLabel>
-          <Input
-            id={ids.name}
-            value={settings.agentName}
-            maxLength={80}
-            placeholder={t("behaviour.namePlaceholder")}
-            disabled={busy}
-            onChange={(event) => {
-              change({ agentName: event.target.value });
-            }}
-          />
-        </Field>
-        <Field>
-          <FieldLabel htmlFor={ids.instructions}>{t("behaviour.instructions")}</FieldLabel>
-          <Textarea
-            id={ids.instructions}
-            rows={5}
-            maxLength={4000}
-            value={settings.instructions}
-            placeholder={t("behaviour.instructionsPlaceholder")}
-            disabled={busy}
-            onChange={(event) => {
-              change({ instructions: event.target.value });
-            }}
-          />
-          <FieldDescription>{t("behaviour.instructionsHint")}</FieldDescription>
-        </Field>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field>
-            <FieldLabel htmlFor={ids.hours}>{t("behaviour.followUpHours")}</FieldLabel>
-            <Input
-              id={ids.hours}
-              inputMode="numeric"
-              value={String(settings.followUpHours)}
-              disabled={busy}
-              onChange={(event) => {
-                change({ followUpHours: numberOf(event.target.value, 23) });
-              }}
-            />
-            <FieldDescription>{t("behaviour.followUpHoursHint")}</FieldDescription>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor={ids.limit}>{t("behaviour.maxReplies")}</FieldLabel>
-            <Input
-              id={ids.limit}
-              inputMode="numeric"
-              value={String(settings.maxRepliesPerDay)}
-              disabled={busy}
-              onChange={(event) => {
-                change({ maxRepliesPerDay: numberOf(event.target.value, 200) });
-              }}
-            />
-            <FieldDescription>{t("behaviour.maxRepliesHint")}</FieldDescription>
-          </Field>
-        </div>
-        {problem && <p className="text-status-bad-ink">{t("problem")}</p>}
-        <RefusalAlert error={save.error} />
-        <Button className="self-start" size="lg" disabled={busy} onClick={submit}>
+    <div className="flex flex-col gap-6">
+      <PersonalityCard settings={settings} change={change} disabled={busy} />
+      <SellingCard settings={settings} change={change} disabled={busy} />
+      {/* Above the phone's bottom bar (56px and the safe area); at the screen's foot from a tablet up. */}
+      <div className="sticky bottom-[calc(3.5rem+1px+env(safe-area-inset-bottom))] z-(--z-sticky) -mx-1 flex flex-wrap items-center gap-3 bg-background/95 px-1 py-3 backdrop-blur md:bottom-0">
+        <Button size="lg" disabled={busy || !dirty} onClick={submit}>
           {save.isPending && <Spinner aria-hidden="true" />}
           {save.isPending ? t("saving") : t("save")}
         </Button>
-      </CardContent>
-    </Card>
+        <span className="text-caption text-muted-foreground" aria-live="polite">
+          {dirty ? t("unsaved") : t("allSaved")}
+        </span>
+        {problem && <p className="text-status-bad-ink">{t("problem")}</p>}
+        <RefusalAlert error={save.error} />
+      </div>
+    </div>
   );
 }
 
@@ -184,7 +96,7 @@ function TryIt() {
         </CardTitle>
         <CardDescription>{t("description")}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+      <CardContent className="flex flex-col gap-4">
         <form
           className="flex flex-col gap-3 sm:flex-row sm:items-end"
           onSubmit={(event) => {
@@ -211,47 +123,21 @@ function TryIt() {
         </form>
         <RefusalAlert error={test.error} />
         {test.data !== undefined && (
-          <Alert>
-            <SparklesIcon aria-hidden="true" />
-            <AlertTitle>{t("answer")}</AlertTitle>
-            <AlertDescription className="flex flex-col gap-2">
-              <span className="whitespace-pre-line">{test.data.answer === "" ? t("noAnswer") : test.data.answer}</span>
-              {test.data.handoff && (
-                <span className="text-status-attention-ink">
-                  {t("handoff", { reason: test.data.reason === "" ? t("noReason") : test.data.reason })}
-                </span>
-              )}
-            </AlertDescription>
-          </Alert>
+          // The answer as the customer would see it: in our green bubble on the chat's wallpaper.
+          <div className="flex flex-col gap-2 rounded-lg bg-chat-wallpaper p-4">
+            <p className="self-start rounded-lg rounded-tl-none bg-chat-bubble-in px-3 py-2">{question}</p>
+            <p className="max-w-[85%] self-end rounded-lg rounded-tr-none bg-chat-bubble-out px-3 py-2 whitespace-pre-line">
+              {test.data.answer === "" ? t("noAnswer") : test.data.answer}
+            </p>
+            {test.data.handoff && (
+              <p className="self-end text-caption text-status-attention-ink">
+                {t("handoff", { reason: test.data.reason === "" ? t("noReason") : test.data.reason })}
+              </p>
+            )}
+          </div>
         )}
       </CardContent>
     </Card>
-  );
-}
-
-function ModelStatus({ settings }: { settings: AiSettings }) {
-  const t = useTranslations("ai.settings.model");
-  return settings.configured ? (
-    <Card size="sm">
-      <CardHeader>
-        <CardTitle>
-          <h2>{t("title")}</h2>
-        </CardTitle>
-        <CardDescription>{t("description")}</CardDescription>
-        <CardAction>
-          <span className="numbers text-caption text-muted-foreground">{settings.models.chat[0]}</span>
-        </CardAction>
-      </CardHeader>
-      <CardContent className="text-caption text-muted-foreground">
-        {t("models", { chat: settings.models.chat.join(", "), fast: settings.models.fast.join(", ") })}
-      </CardContent>
-    </Card>
-  ) : (
-    <Alert>
-      <SparklesIcon aria-hidden="true" />
-      <AlertTitle>{t("offTitle")}</AlertTitle>
-      <AlertDescription>{t("offDescription")}</AlertDescription>
-    </Alert>
   );
 }
 
@@ -259,15 +145,55 @@ export function AiSettingsScreen() {
   const t = useTranslations("ai.settings");
   const settings = useAiSettings();
   return (
-    <div className="flex max-w-[860px] flex-col gap-6">
+    <div className="flex max-w-[920px] flex-col gap-6">
       <BackToSettings />
       <PageHeader title={t("title")} intro={t("intro")} />
       {settings.data ? (
         <>
-          <ModelStatus settings={settings.data} />
-          <BehaviourForm saved={settings.data} />
-          <KnowledgeSection />
-          {settings.data.configured && <TryIt />}
+          {!settings.data.configured && (
+            <Alert>
+              <SparklesIcon aria-hidden="true" />
+              <AlertTitle>{t("model.offTitle")}</AlertTitle>
+              <AlertDescription>{t("model.offDescription")}</AlertDescription>
+            </Alert>
+          )}
+          <AiHero settings={settings.data} />
+          <Tabs defaultValue="agent">
+            <TabsList className="w-full overflow-x-auto sm:w-fit">
+              <TabsTrigger value="agent">
+                <BotIcon aria-hidden="true" />
+                {t("tabs.agent")}
+              </TabsTrigger>
+              <TabsTrigger value="knowledge">
+                <BookOpenIcon aria-hidden="true" />
+                {t("tabs.knowledge")}
+              </TabsTrigger>
+              <TabsTrigger value="learnings">
+                <BrainIcon aria-hidden="true" />
+                {t("tabs.learnings")}
+              </TabsTrigger>
+              {settings.data.configured && (
+                <TabsTrigger value="try">
+                  <SparklesIcon aria-hidden="true" />
+                  {t("tabs.try")}
+                </TabsTrigger>
+              )}
+            </TabsList>
+            <TabsContent value="agent" className="pt-4">
+              <AgentForm saved={settings.data} />
+            </TabsContent>
+            <TabsContent value="knowledge" className="pt-4">
+              <KnowledgeSection />
+            </TabsContent>
+            <TabsContent value="learnings" className="pt-4">
+              <LearningsSection settings={settings.data} />
+            </TabsContent>
+            {settings.data.configured && (
+              <TabsContent value="try" className="pt-4">
+                <TryIt />
+              </TabsContent>
+            )}
+          </Tabs>
         </>
       ) : settings.isError ? (
         <ErrorState

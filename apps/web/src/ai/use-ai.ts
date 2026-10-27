@@ -1,7 +1,7 @@
 "use client";
 
-// The AI sales agent's reads and changes: its settings and knowledge, a chat's AI state and insight, a lead's insight,
-// a suggested reply and a test question. A change loads again what shows it.
+// The AI sales agent's reads and changes: its settings and knowledge, its day at a glance and what it learned, a chat's
+// AI state and insight, a lead's insight, a suggested reply and a test question. A change loads again what shows it.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/data/trpc";
 
@@ -95,6 +95,29 @@ export function useResumeChatAi() {
 export function useSuggestReply() {
   const trpc = useTRPC();
   return useMutation(trpc.ai.suggest.mutationOptions());
+}
+
+/** The AI's last day at a glance; read again each minute while the screen is open. */
+export function useAiOverview() {
+  const trpc = useTRPC();
+  return useQuery({ ...trpc.ai.overview.queryOptions(), refetchInterval: 60_000 });
+}
+
+export function useAiLearnings() {
+  const trpc = useTRPC();
+  return useQuery(trpc.ai.learnings.queryOptions());
+}
+
+export function useSetLearning() {
+  const trpc = useTRPC();
+  const changed = useAiChange();
+  return useMutation(trpc.ai.setLearning.mutationOptions({ onSuccess: changed }));
+}
+
+export function useLearnNow() {
+  const trpc = useTRPC();
+  const changed = useAiChange();
+  return useMutation(trpc.ai.learnNow.mutationOptions({ onSuccess: changed }));
 }
 
 export function useLeadInsight(leadId: string) {

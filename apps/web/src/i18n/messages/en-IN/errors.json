@@ -200,6 +200,7 @@
     "QUOTE_NOT_ACCEPTED": "Mark the quote accepted before you issue its invoice.",
     "AI_NOT_CONFIGURED": "The AI assistant is not set up on this server yet.",
     "AI_UNAVAILABLE": "The AI didn't answer just now. Try again in a minute.",
+    "AI_LEARNED_RECENTLY": "The AI learned from the chats a few minutes ago. Try again in a little while.",
     "TOO_MANY_INSTALLMENTS": "A quote has 12 payments due at most.",
     "NAME_REQUIRED": "Type your name to accept.",
     "TEMPLATE_REQUIRED": "Choose the template to send.",

@@ -45,8 +45,8 @@
     "quotesHint": "Your UPI id, the usual GST rate and the terms under every quote",
     "salesAutomation": "Sales automation",
     "salesAutomationHint": "Reply to new leads in a minute, follow-ups, payment reminders, hot leads",
-    "ai": "AI assistant",
-    "aiHint": "An AI agent that answers WhatsApp chats, follows up and scores each lead"
+    "ai": "AI sales agent",
+    "aiHint": "Sells on WhatsApp by itself: answers, follows up, scores leads and learns from your chats"
   },
   "destinations": {
     "title": "Destinations",

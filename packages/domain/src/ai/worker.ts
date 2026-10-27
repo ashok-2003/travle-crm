@@ -1,6 +1,7 @@
 // The worker's side of the AI agent: a customer's message queues the agent's turn a few seconds later (so a burst of
-// messages reads as one, and only the newest is answered), ten chats at a time; each minute, quiet customers whose
-// window is still open get one nudge; and an uploaded document's words are read into what the agent knows.
+// messages reads as one, and only the newest is answered), ten chats at a time; each minute, the follow-ups the agent
+// planned that are due go out while the window is open; each night, every agency's AI learns from its chats; and an
+// uploaded document's words are read into what the agent knows.
 import { aiDocumentAddedEvent, aiReplyJob } from "@travel-crm/contracts/ai";
 import { whatsappCustomerWroteEvent } from "@travel-crm/contracts/inbox";
 import type { Database } from "@travel-crm/db";
@@ -12,10 +13,12 @@ import { CUSTOMER_WROTE_EVENT, routesPage, WINDOW_MS } from "../inbox/index.js";
 import { defineListener, type EventListener, type JobHandler } from "../jobs/index.js";
 import { agentAnswers, runAgentTurn, type AgentDependencies } from "./agent.js";
 import { AI_DOCUMENT_ADDED_EVENT } from "./knowledge.js";
+import { learnFromChats, type LearnDependencies } from "./learning.js";
 import { aiSettingsOf } from "./settings.js";
 
 export const AI_REPLY_QUEUE = "ai.reply";
 export const AI_NUDGES_QUEUE = "ai.nudges";
+export const AI_LEARN_QUEUE = "ai.learn";
 /** How long the agent waits after a message for the next one: people send three short lines, not one. */
 const SETTLE_MS = 6_000;
 /** Chats the agent works on at once. */
@@ -106,32 +109,36 @@ export function aiReplyHandler(dependencies: AgentDependencies & { logger: Logge
   };
 }
 
-/** One agency's quiet chats: the agent on, the customer silent the agency's hours, the window open, no nudge yet. */
+/**
+ * One agency's follow-ups now due: the time the agent planned has come, the customer is still quiet, the window is
+ * open. Each is claimed (its time cleared) before its turn, so a turn that writes nothing never comes round again, and
+ * one whose window has nearly closed is let go.
+ */
 async function nudgeAgency(dependencies: AgentDependencies, organizationId: string, now: Date): Promise<number> {
   const due = await dependencies.db.forOrg(organizationId, async (tx) => {
     const settings = await aiSettingsOf(tx);
     if (settings.followUpHours === 0) return [];
-    const quietSince = new Date(now.getTime() - settings.followUpHours * 3_600_000);
     const windowFloor = new Date(now.getTime() - WINDOW_MS + WINDOW_MARGIN_MS);
-    const chats = await tx.whatsappConversation.findMany({
+    await tx.aiChat.updateMany({
+      where: { followUpAt: { lte: now }, conversation: { lastInboundAt: { lte: windowFloor } } },
+      data: { followUpAt: null },
+    });
+    const rows = await tx.aiChat.findMany({
       where: {
-        state: "open",
-        hidden: false,
-        needsReply: false,
-        lastInboundAt: { gt: windowFloor, lte: quietSince },
-        // The agent on here: its own switch, or the agency's autopilot where the chat doesn't say off.
-        ...(settings.autopilot
-          ? { aiChat: { none: { OR: [{ mode: "off" }, { handedOffAt: { not: null } }] } } }
-          : { aiChat: { some: { mode: "on", handedOffAt: null } } }),
+        followUpAt: { lte: now },
+        handedOffAt: null,
+        mode: settings.autopilot ? { not: "off" } : "on",
+        conversation: { state: "open", hidden: false, needsReply: false, lastInboundAt: { gt: windowFloor } },
       },
-      orderBy: { lastInboundAt: "asc" },
+      orderBy: { followUpAt: "asc" },
       take: NUDGES_PER_AGENCY,
-      select: { id: true, lastInboundAt: true, aiChat: { select: { lastNudgeAt: true } } },
+      select: { id: true, lastNudgeAt: true, conversation: { select: { id: true, lastInboundAt: true } } },
     });
-    return chats.filter((chat) => {
-      const nudged = chat.aiChat[0]?.lastNudgeAt;
-      return chat.lastInboundAt !== null && (nudged == null || nudged < chat.lastInboundAt);
-    });
+    if (rows.length > 0)
+      await tx.aiChat.updateMany({ where: { id: { in: rows.map((row) => row.id) } }, data: { followUpAt: null } });
+    return rows
+      .filter((row) => row.lastNudgeAt === null || (row.conversation.lastInboundAt ?? now) > row.lastNudgeAt)
+      .map((row) => row.conversation);
   });
   for (const chat of due) {
     await runAgentTurn(
@@ -162,6 +169,31 @@ export async function runAiNudges(dependencies: AgentDependencies & { logger: Lo
         dependencies.logger.error(
           { queue: AI_NUDGES_QUEUE, error: error instanceof Error ? error.name : "unknown" },
           "The AI nudges failed for an agency",
+        );
+      }
+    }
+    if (page.length < 100) return done;
+    after = page.at(-1)?.integratedNumber;
+  }
+}
+
+/** Each night, every agency with a WhatsApp number that lets its AI learn: a lesson run. One failing never stops the rest. */
+export async function runAiLearning(dependencies: LearnDependencies & { logger: Logger }, now: Date): Promise<number> {
+  if (!dependencies.ai.configured) return 0;
+  let done = 0;
+  let after: string | undefined;
+  for (;;) {
+    const page = await routesPage(dependencies.db, { after, limit: 100 });
+    for (const organizationId of new Set(page.map((route) => route.organizationId))) {
+      try {
+        const learning = await dependencies.db.forOrg(organizationId, async (tx) => (await aiSettingsOf(tx)).learning);
+        if (!learning) continue;
+        await learnFromChats(dependencies, organizationId, now);
+        done += 1;
+      } catch (error) {
+        dependencies.logger.error(
+          { queue: AI_LEARN_QUEUE, error: error instanceof Error ? error.name : "unknown" },
+          "The AI's learning failed for an agency",
         );
       }
     }
