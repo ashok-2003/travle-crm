@@ -42,7 +42,9 @@
     "whatsapp": "WhatsApp",
     "whatsappHint": "Your WhatsApp number and its state",
     "quotes": "Quotes and payments",
-    "quotesHint": "Your UPI id, the usual GST rate and the terms under every quote"
+    "quotesHint": "Your UPI id, the usual GST rate and the terms under every quote",
+    "salesAutomation": "Sales automation",
+    "salesAutomationHint": "Reply to new leads in a minute, follow-ups, payment reminders, hot leads"
   },
   "destinations": {
     "title": "Destinations",

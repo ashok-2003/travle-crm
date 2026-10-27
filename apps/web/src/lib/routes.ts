@@ -47,6 +47,8 @@ export const routes = {
   leadSources: "/settings/lead-sources",
   /** The agency's website enquiry form: its link, snippet, fields and words (website form spec 3.2). */
   websiteForm: "/settings/lead-sources/website-form",
+  /** What the agency's sales do by themselves: the first WhatsApp, follow-ups, reminders, hot leads. */
+  salesAutomation: "/settings/sales-automation",
   /** How quotes are paid (the agency's UPI id) and taxed. */
   quoteSettings: "/settings/quotes",
   /** The agency's WhatsApp number and its state. */

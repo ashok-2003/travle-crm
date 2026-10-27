@@ -21,6 +21,7 @@ import type { NavigationItem } from "@/shell/navigation";
 import { useNavigationItems } from "@/shell/use-navigation-items";
 import { TodayNudge } from "@/today/today-nudge";
 import { Dashboard } from "@/dashboard/dashboard";
+import { HotLeadsCard } from "@/sales/hot-leads-card";
 
 /** The destinations that set the organization up: not home, Today, Leads, the Inbox, Quotes or Finance (daily work), nor the audit log. */
 type SetUpItem = NavigationItem & {
@@ -87,6 +88,7 @@ export default function HomePage() {
         {managesSettings && <SetupCard />}
         {showsToday && <TodayNudge />}
       </div>
+      {showsToday && <HotLeadsCard />}
       {/* Where the role sees leads on a plan with them, as Today: the period's figures, at the content's full width. */}
       {showsToday && <Dashboard />}
       {screens}

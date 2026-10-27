@@ -1,7 +1,8 @@
 "use client";
 
 // A lead's quotes on its page (step 3, P0): each with its status, total and what is left to pay, opening its own page;
-// New quote starts one from what the lead already says (where, when, who) and opens it to write the plan and price.
+// New quote starts one blank from what the lead already says (where, when, who), or from one of the agency's ready
+// packages in a tap (sales execution, fast quoting), and opens it.
 import type { LeadDetail } from "@travel-crm/contracts/crm";
 import { PlusIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -12,6 +13,14 @@ import { RefusalAlert } from "@/components/refusal-alert";
 import { TextLink } from "@/components/text-link";
 import { rupees } from "@/components/forms/money-field";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Spinner } from "@/components/ui/spinner";
 import { LeadCard } from "@/leads/lead/lead-card";
@@ -19,7 +28,7 @@ import { quoteRoute } from "@/lib/routes";
 import { useHolds } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { QuoteStatusBadge } from "./quote-status";
-import { useLeadQuotes, useQuoteChanges, useQuoteSettings } from "./use-quotes";
+import { useLeadQuotes, useQuoteChanges, useQuotePackages, useQuoteSettings } from "./use-quotes";
 
 export function LeadQuotesCard({ lead }: { lead: LeadDetail }) {
   const t = useTranslations("quotes.lead");
@@ -28,7 +37,9 @@ export function LeadQuotesCard({ lead }: { lead: LeadDetail }) {
   const access = useWriteAccess("change");
   const quotes = useLeadQuotes(lead.id);
   const settings = useQuoteSettings();
-  const { create } = useQuoteChanges();
+  const { create, fromPackage } = useQuoteChanges();
+  const packages = useQuotePackages();
+  const busy = create.isPending || fromPackage.isPending;
   const { trip } = lead;
   const start = () => {
     create.mutate(
@@ -89,14 +100,40 @@ export function LeadQuotesCard({ lead }: { lead: LeadDetail }) {
       title={t("title")}
       action={
         mayCreate && (
-          <Button variant="outline" disabled={create.isPending || !access.allowed} onClick={start}>
-            {create.isPending ? <Spinner aria-hidden="true" /> : <PlusIcon aria-hidden="true" />}
-            {t("new")}
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" disabled={busy || !access.allowed}>
+                {busy ? <Spinner aria-hidden="true" /> : <PlusIcon aria-hidden="true" />}
+                {t("new")}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-60">
+              <DropdownMenuItem onSelect={start}>{t("blank")}</DropdownMenuItem>
+              {(packages.data ?? []).length > 0 && <DropdownMenuSeparator />}
+              {(packages.data ?? []).length > 0 && <DropdownMenuLabel>{t("fromPackage")}</DropdownMenuLabel>}
+              {(packages.data ?? []).map((one) => (
+                <DropdownMenuItem
+                  key={one.id}
+                  onSelect={() => {
+                    fromPackage.mutate(
+                      { leadId: lead.id, packageId: one.id },
+                      {
+                        onSuccess: (quote) => {
+                          router.push(quoteRoute(quote.id));
+                        },
+                      },
+                    );
+                  }}
+                >
+                  {one.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         )
       }
     >
-      <RefusalAlert error={create.error} />
+      <RefusalAlert error={create.error ?? fromPackage.error} />
       {body()}
     </LeadCard>
   );

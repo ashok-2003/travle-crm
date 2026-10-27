@@ -199,7 +199,13 @@
     "QUOTE_DECLINED": "This quote was declined. Make a new one for the customer.",
     "QUOTE_NOT_ACCEPTED": "Mark the quote accepted before you issue its invoice.",
     "TOO_MANY_INSTALLMENTS": "A quote has 12 payments due at most.",
-    "NAME_REQUIRED": "Type your name to accept."
+    "NAME_REQUIRED": "Type your name to accept.",
+    "TEMPLATE_REQUIRED": "Choose the template to send.",
+    "FOLLOW_STEPS_REQUIRED": "Add at least one follow-up, or turn follow-ups off.",
+    "FOLLOW_DAYS_ORDER": "Each follow-up has to come some days after the one before.",
+    "FOLLOW_UPS_OFF": "Turn on follow-ups in Settings, Sales automation first.",
+    "FOLLOW_UPS_FINISHED": "Every follow-up was sent to this lead already.",
+    "PACKAGE_NAME_TAKEN": "Another package already has this name."
   },
   "auth": {
     "INVALID_EMAIL_OR_PASSWORD": "That email and password don't match.",

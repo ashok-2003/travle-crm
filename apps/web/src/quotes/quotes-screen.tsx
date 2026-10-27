@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { formatCalendarDay } from "@/lib/format";
 import { quoteRoute } from "@/lib/routes";
+import { PackagesSection } from "./packages-section";
 import { QuoteStatusBadge } from "./quote-status";
 import { useQuotes } from "./use-quotes";
 
@@ -103,6 +104,7 @@ export function QuotesScreen() {
         ))}
       </ToggleGroup>
       {body()}
+      <PackagesSection />
     </div>
   );
 }

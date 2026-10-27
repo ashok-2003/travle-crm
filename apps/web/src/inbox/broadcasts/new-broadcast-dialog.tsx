@@ -4,7 +4,7 @@
 // (who is left out, and why, and what is left of the month's allowance), then confirm. The browser's request id is made once
 // per opening, so a confirm sent twice is one broadcast. Nothing is sent before the confirm.
 import type { BroadcastPreview, TemplateSummary } from "@travel-crm/contracts/inbox";
-import { MAX_BROADCAST_TAGS } from "@travel-crm/contracts/inbox";
+import { broadcastSegments, MAX_BROADCAST_TAGS, type BroadcastSegment } from "@travel-crm/contracts/inbox";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
@@ -43,6 +43,7 @@ export function NewBroadcastDialog({
   const tags = useTags();
   const [templateId, setTemplateId] = useState("");
   const [tagIds, setTagIds] = useState<string[]>([]);
+  const [segments, setSegments] = useState<BroadcastSegment[]>([]);
   const [params, setParams] = useState<string[]>([]);
   const [preview, setPreview] = useState<BroadcastPreview | null>(null);
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
@@ -56,8 +57,8 @@ export function NewBroadcastDialog({
   const approved = (templates.data?.items ?? []).filter((template) => template.status === "approved");
   const blanks = blanksOf(approved.find((template) => template.id === templateId));
   const values = Array.from({ length: blanks }, (_, index) => params[index]?.trim() ?? "");
-  const ready = templateId !== "" && tagIds.length > 0 && values.every((value) => value !== "");
-  const input = { templateId, tagIds, params: values };
+  const ready = templateId !== "" && tagIds.length + segments.length > 0 && values.every((value) => value !== "");
+  const input = { templateId, tagIds, segments, params: values };
   const change = (work: () => void) => {
     work();
     setPreview(null);
@@ -184,6 +185,29 @@ export function NewBroadcastDialog({
               ))}
             </ToggleGroup>
           )}
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label id={`${formId}-segments`}>{t("segments")}</Label>
+          <ToggleGroup
+            type="multiple"
+            variant="outline"
+            spacing={2}
+            className="flex-wrap"
+            aria-labelledby={`${formId}-segments`}
+            value={segments}
+            onValueChange={(chosen) => {
+              change(() => {
+                setSegments(broadcastSegments.filter((segment) => chosen.includes(segment)));
+              });
+            }}
+          >
+            {broadcastSegments.map((segment) => (
+              <ToggleGroupItem key={segment} value={segment} className="rounded-full px-3">
+                {t(`segmentNames.${segment}`)}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+          <p className="text-caption text-muted-foreground">{t("segmentsHint")}</p>
         </div>
       </form>
       {preview !== null && <BroadcastPreviewCard preview={preview} />}

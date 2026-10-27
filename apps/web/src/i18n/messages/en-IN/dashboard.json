@@ -84,13 +84,18 @@
     }
   },
   "team": {
-    "title": "Your team",
-    "intro": "The ten people with the most new leads in the period.",
+    "title": "Team leaderboard",
+    "intro": "The ten people with the most new leads in the period, best sales first.",
     "person": "Person",
     "leads": "New leads",
     "contacted": "Contacted",
     "won": "Won",
-    "formerStaff": "No longer on staff"
+    "formerStaff": "No longer on staff",
+    "conversion": "Conversion",
+    "firstReply": "First reply",
+    "overdue": "Missed follow-ups",
+    "sales": "Sales",
+    "top": "Top seller"
   },
   "empty": "No new leads in this period yet. They show here as they come in."
 }
