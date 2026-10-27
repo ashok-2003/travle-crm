@@ -18,7 +18,8 @@
     },
     "collapse": "Fold the sidebar to its icons",
     "expand": "Open the sidebar",
-    "inbox": "Inbox"
+    "inbox": "Inbox",
+    "quotes": "Quotes"
   },
   "home": {
     "title": "Welcome, {name}",

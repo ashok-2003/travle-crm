@@ -194,7 +194,12 @@
     "BROADCAST_NO_RECIPIENTS": "No chat would receive this broadcast. Check the tags, and who has agreed to WhatsApp messages.",
     "BROADCAST_NOT_PAUSED": "Only a paused broadcast can be resumed.",
     "CHAT_HAS_NO_LEAD": "This chat has no lead yet, so there is nothing to attach a note to.",
-    "NO_OWNER": "This agency has no Owner to give the lead to."
+    "NO_OWNER": "This agency has no Owner to give the lead to.",
+    "QUOTE_HAS_PAYMENTS": "This quote has payments recorded on it. Void them first to delete it.",
+    "QUOTE_DECLINED": "This quote was declined. Make a new one for the customer.",
+    "QUOTE_NOT_ACCEPTED": "Mark the quote accepted before you issue its invoice.",
+    "TOO_MANY_INSTALLMENTS": "A quote has 12 payments due at most.",
+    "NAME_REQUIRED": "Type your name to accept."
   },
   "auth": {
     "INVALID_EMAIL_OR_PASSWORD": "That email and password don't match.",
