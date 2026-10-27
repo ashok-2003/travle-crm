@@ -58,7 +58,7 @@ const toneLines = {
 
 const handoffLines = {
   alert:
-    "You never leave the chat by yourself: you are in charge until the team takes over. When something needs the team (they want to book or pay, a discount or a custom price, a complaint, something the knowledge doesn't answer, a photo or voice note you can't read), set attention to a short note for them and keep helping the customer yourself. Set handoff to true only if the customer clearly insists on talking to a person; then tell them a colleague will call shortly.",
+    "You never hand the chat over, and never tell the customer you are passing them to a team, a colleague or anyone else: you are the one helping them, from start to finish. When something needs the team's eyes (they want to book or pay, a discount or a custom price, a complaint, something the knowledge doesn't answer, a photo or voice note you can't read), set attention to a short private note for the team (the customer never sees it) and keep helping in your reply. Always set handoff to false.",
   asked:
     "Set handoff to true only when the customer asks for a person or is upset or complaining; tell them a colleague will get back shortly. For everything else (bookings, payments, discounts, questions the knowledge doesn't answer) set attention to a short note for the team and keep helping.",
   careful:
@@ -78,7 +78,10 @@ const genericWriting = (settings: AiSettingsRow) => `How you write:
 - ${emojiLines[settings.emojis]}
 - ${toneLines[settings.tone]}`;
 
-/** A real person's way of talking, from their own chat: it wins over the settings' language, style, emojis and tone. */
+/**
+ * A real person's way of talking, from their own chat: it wins over the settings' language, style and tone; "no emojis"
+ * still holds (code removes any).
+ */
 const voiceWriting = (
   voice: Voice,
 ) => `How you write: exactly as ${voice.name} writes on WhatsApp. Be ${voice.name}: their languages and script, spelling and short forms, message length, capitals and punctuation, emojis (which ones and how often), greetings, fillers, warmth and the way they show feelings. A customer should not be able to tell your messages from theirs. Copy only how they talk, never facts from their messages.
@@ -104,13 +107,14 @@ How you sell:
 - Understand the trip first: destination, dates or month, travellers (and children's ages), budget, leaving from, hotel level. Ask at most one question per message, and never ask again what is already known.
 - Then recommend: the package from the knowledge that fits best, its price and why it suits them. Offer two options when it helps them choose.
 - Move every message one step toward a booking: a clear recommendation, a choice between two, or the one detail you still need.
-- When they want to book: explain how booking works from the knowledge (advance, how to pay: the UPI ID or bank details it gives, documents), collect the travellers' names, the dates and the pickup city, and say the team will confirm. Never say a booking is confirmed or a payment received: only the team confirms.
+- When they want to book: explain how booking works from the knowledge (advance, how to pay: the UPI ID or bank details it gives, documents), collect the travellers' names, the dates and the pickup city, and say the booking is confirmed once the advance is in. Never say a booking is confirmed or a payment received yourself.
 - Handle objections like a pro. Too costly: show the value and inclusions, or a cheaper option or fewer nights from the knowledge. "Will think": ask what is holding them back and offer to keep the details ready. Comparing: what makes ${agency} the better choice, from the knowledge.
-- Use ONLY the agency's knowledge for prices, inclusions, dates, availability, payment details and policies. Never invent a price, a discount, a date or availability; if it isn't known, say you'll check with the team.
+- Use ONLY the agency's knowledge for prices, inclusions, dates, availability, payment details and policies. Never invent a price, a discount, a date or availability; if it isn't known, say you'll check and come back to them.
 - If asked whether you are a bot, say you are ${agency}'s virtual assistant and a person can join any time.
 - Never share anything about other customers.
 
-${pack.voice === null ? genericWriting(settings) : voiceWriting(pack.voice)}
+${pack.voice === null ? genericWriting(settings) : voiceWriting(pack.voice)}${settings.emojis === "none" ? "\n- Use no emojis at all, not one, whatever the examples or lessons do." : ""}
+- The agency's choices here win over any lesson below and over the way of talking you copy.
 
 When a person is needed: ${handoffLines[settings.handoff]}
 ${instructions}${lessons}

@@ -1,19 +1,22 @@
 "use client";
 
 // The inbox's reads (inbox.*): the status, the list of chats and a chat's header and messages. The lists are keyed under
-// their procedure's path, so one refresh reaches them all; a chat refetches every 15 seconds while it is open, since new
-// messages arrive without the person doing anything (no websocket, spec 4.4 S1).
+// their procedure's path, so one refresh reaches them all; a chat refetches every few seconds while it is open (the list
+// a little less often), since new messages arrive without the person doing anything (no websocket, spec 4.4 S1).
 import type { LeadStage } from "@travel-crm/contracts/crm";
-import { INBOX_POLL_MS, type ConversationFilter, type ConversationPeriod } from "@travel-crm/contracts/inbox";
+import type { ConversationFilter, ConversationPeriod } from "@travel-crm/contracts/inbox";
 import { recordId } from "@travel-crm/contracts/identity";
 import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { useTRPC, useTRPCClient } from "@/data/trpc";
 import { useCursorPages } from "@/data/use-cursor-pages";
 
-const POLL_MS = INBOX_POLL_MS;
+/** An open chat looks this often, so a customer's message shows within seconds of arriving. */
+const OPEN_CHAT_POLL_MS = 4_000;
 /** While one of our messages is still on its way (queued, sending or sent, not yet delivered), the chat looks more often. */
-const UNSETTLED_POLL_MS = 5_000;
+const UNSETTLED_POLL_MS = 2_500;
+/** The list of chats looks a little less often than an open chat. */
+const LIST_POLL_MS = 8_000;
 /**
  * A chat is live: what the saved copy of the last visit holds (a tick, a waiting mark) may be seconds old and already wrong, so
  * opening one always asks again, and the copy only fills the screen until the answer comes.
@@ -59,7 +62,7 @@ export function useConversations(input: ConversationQuery) {
         ...(cursor !== null && { before: cursor }),
       }),
     items: (page) => page.items,
-    refetchInterval: POLL_MS,
+    refetchInterval: LIST_POLL_MS,
     staleTime: LIVE,
   });
 }
@@ -69,7 +72,7 @@ export function useConversation(conversationId: string) {
   const valid = recordId.safeParse(conversationId).success;
   const query = useQuery({
     ...trpc.inbox.conversation.queryOptions(valid ? { conversationId } : skipToken),
-    refetchInterval: POLL_MS,
+    refetchInterval: OPEN_CHAT_POLL_MS,
     staleTime: LIVE,
   });
   return { ...query, valid };
@@ -106,7 +109,7 @@ export function useMessages(
         ),
       )
         ? UNSETTLED_POLL_MS
-        : POLL_MS,
+        : OPEN_CHAT_POLL_MS,
   });
 }
 

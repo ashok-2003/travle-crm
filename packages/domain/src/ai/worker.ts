@@ -20,7 +20,7 @@ export const AI_REPLY_QUEUE = "ai.reply";
 export const AI_NUDGES_QUEUE = "ai.nudges";
 export const AI_LEARN_QUEUE = "ai.learn";
 /** How long the agent waits after a message for the next one: people send three short lines, not one. */
-const SETTLE_MS = 6_000;
+const SETTLE_MS = 3_000;
 /** Chats the agent works on at once. */
 const AT_ONCE = 10;
 /** A nudge goes no later than this before the window closes, so it can still be answered for free. */

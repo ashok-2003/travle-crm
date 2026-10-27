@@ -7,7 +7,7 @@ import type { Database, OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
-import { agentAnswers, agentPrompt, parseAnswer } from "./agent.js";
+import { agentAnswers, agentPrompt, cleanReply, parseAnswer } from "./agent.js";
 import { chatHistory, knowledgePack, leadFactsFor } from "./context.js";
 import { activeLessons } from "./learning-store.js";
 import { agencyVoiceOf, chatVoiceOf } from "./voice.js";
@@ -201,7 +201,7 @@ export async function suggestReply(
   const result = await ai.complete({
     tier: "chat",
     json: true,
-    maxTokens: 700,
+    maxTokens: 2500,
     user: access.organizationId,
     messages: [
       {
@@ -228,7 +228,7 @@ export async function suggestReply(
       },
     }),
   );
-  return { text: parseAnswer(result.text)?.reply.trim() ?? "" };
+  return { text: cleanReply(parseAnswer(result.text)?.reply ?? "", prepared.settings) };
 }
 
 /** What the agent would answer a customer's question, from the agency's knowledge alone: to check it before turning it on. */
@@ -249,7 +249,7 @@ export async function testAnswer(
   const result = await ai.complete({
     tier: "chat",
     json: true,
-    maxTokens: 700,
+    maxTokens: 2500,
     user: access.organizationId,
     messages: [
       {
@@ -272,5 +272,10 @@ export async function testAnswer(
     }),
   );
   const answer = parseAnswer(result.text);
-  return { answer: answer?.reply.trim() ?? "", handoff: answer?.handoff ?? false, reason: answer?.handoffReason ?? "" };
+  return {
+    answer: cleanReply(answer?.reply ?? "", settings),
+    // "Never by itself" never hands over, whatever the model said.
+    handoff: settings.handoff !== "alert" && (answer?.handoff ?? false),
+    reason: answer?.handoffReason ?? "",
+  };
 }

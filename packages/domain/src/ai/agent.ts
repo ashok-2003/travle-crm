@@ -39,6 +39,34 @@ export function parseAnswer(text: string): AgentAnswer | null {
   }
 }
 
+/** Emojis and their parts: pictographs, flags' letters, skin tones, the variation selector, joiners and keycaps. */
+const EMOJI = /\p{Extended_Pictographic}|[\u{1F1E6}-\u{1F1FF}]|[\u{1F3FB}-\u{1F3FF}]|️|‍|⃣/gu;
+
+/** A reply as the agency's settings allow: no emoji at all when it chose none, whatever the model or the voice did. */
+export function cleanReply(text: string, settings: AiSettingsRow): string {
+  if (settings.emojis !== "none") return text.trim();
+  return text
+    .replace(EMOJI, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/ +\n/g, "\n")
+    .trim();
+}
+
+/**
+ * The model's answer held to what the agency chose, in code: with "never by itself" it never steps back (a hand-over it
+ * asked for becomes a flag for the team), and with no emojis none are sent.
+ */
+function withSettings(answer: AgentAnswer, settings: AiSettingsRow): AgentAnswer {
+  const reply = cleanReply(answer.reply, settings);
+  if (settings.handoff !== "alert" || !answer.handoff) return { ...answer, reply };
+  return {
+    ...answer,
+    reply,
+    handoff: false,
+    attention: answer.attention.trim() === "" ? answer.handoffReason : answer.attention,
+  };
+}
+
 /** Whether the agent answers in a chat: its own mode, else the agency's autopilot. */
 export const agentAnswers = (mode: string | undefined, autopilot: boolean) =>
   mode === "on" || (mode !== "off" && autopilot);
@@ -138,26 +166,35 @@ export async function runAgentTurn(
     },
     ...prepared.history.messages,
   ];
-  const result = await ai.complete({
-    tier: prepared.kind === "insight" ? "fast" : "chat",
-    messages,
-    json: true,
-    maxTokens: 1000,
-    user: input.organizationId,
-  });
+  const ask = async () => {
+    const result = await ai.complete({
+      tier: prepared.kind === "insight" ? "fast" : "chat",
+      messages,
+      json: true,
+      // Room for a thinking model's own tokens too: a cut-off answer is no JSON.
+      maxTokens: 2500,
+      user: input.organizationId,
+    });
+    if (!result.ok) return { result, answer: null };
+    await db.forOrg(input.organizationId, (tx) =>
+      tx.aiUsage.create({
+        data: {
+          kind: prepared.kind,
+          model: result.model,
+          inputTokens: result.inputTokens,
+          outputTokens: result.outputTokens,
+        },
+      }),
+    );
+    return { result, answer: parseAnswer(result.text) };
+  };
+  // An answer that isn't readable JSON is asked for once more before the customer goes unanswered.
+  let asked = await ask();
+  if (asked.result.ok && asked.answer === null) asked = await ask();
+  const { result } = asked;
   if (!result.ok) return result.reason;
-  const answer = parseAnswer(result.text);
-  await db.forOrg(input.organizationId, (tx) =>
-    tx.aiUsage.create({
-      data: {
-        kind: prepared.kind,
-        model: result.model,
-        inputTokens: result.inputTokens,
-        outputTokens: result.outputTokens,
-      },
-    }),
-  );
-  if (answer === null) return "unreadable";
+  if (asked.answer === null) return "unreadable";
+  const answer = withSettings(asked.answer, prepared.settings);
 
   return db.forOrg(input.organizationId, async (tx) => {
     const sendReply = async () => {
