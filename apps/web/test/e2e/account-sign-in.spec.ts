@@ -4,7 +4,7 @@
 // person lands on the page they were sent from (?next=).
 import { features } from "@travel-crm/contracts/features";
 import { expectAccessible } from "./support/accessibility";
-import { expect, test } from "./support/fixtures";
+import { expect, homeGreeting, signOutOf, test } from "./support/fixtures";
 
 test("an Owner signs in by email, back to the page they were sent from", async ({ page, agency }) => {
   // Before its script runs, the prerendered page shows a skeleton, not an empty column.
@@ -39,10 +39,9 @@ test("staff sign in with the organization code, which the device then remembers"
   await page.getByLabel("Password", { exact: true }).fill(ravi.password);
   await expectAccessible(page);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "Welcome, Ravi Kumar" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: homeGreeting("Ravi Kumar") })).toBeVisible();
 
-  if (testInfo.project.name === "phone") await page.getByRole("button", { name: "More" }).click();
-  await page.getByRole("button", { name: "Sign out" }).filter({ visible: true }).click();
+  await signOutOf(page, { phone: testInfo.project.name === "phone" });
   await expect(page).toHaveURL(/\/sign-in$/);
   await expect(page.getByRole("tab", { name: "Organization code" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("textbox", { name: "Organization code" })).toHaveValue(agency.code);

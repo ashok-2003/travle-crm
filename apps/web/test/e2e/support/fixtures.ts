@@ -111,6 +111,12 @@ export const test = base.extend<Fixtures, { database: Database }>({
 
 export { expect };
 
+/** The Home heading of a signed-in person: a greeting for the time of day and their first name (Home's greeting). */
+export function homeGreeting(fullName: string): RegExp {
+  const first = fullName.split(/\s+/)[0] ?? fullName;
+  return new RegExp(`^Good (morning|afternoon|evening), ${first.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
+}
+
 /** Signs in through the api, as the sign-in screen does, so a journey can start inside the app. */
 export async function signInByEmail(page: Page, { email, password }: { email: string; password: string }) {
   const response = await page.request.post("/api/auth/sign-in/email", {
@@ -128,4 +134,15 @@ export async function signInByCode(page: Page, { code, staff }: { code: string; 
     headers: { origin: environment("E2E_BASE_URL") },
   });
   expect(response.ok()).toBe(true);
+}
+
+/** Signs out as a person does: from the phone's More sheet, or from the person's menu at the foot of the desktop's sidebar. */
+export async function signOutOf(page: Page, { phone }: { phone: boolean }) {
+  if (phone) {
+    await page.getByRole("button", { name: "More" }).click();
+    await page.getByRole("button", { name: "Sign out" }).filter({ visible: true }).click();
+    return;
+  }
+  await page.getByRole("button", { name: /: account and sign out$/ }).click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
 }

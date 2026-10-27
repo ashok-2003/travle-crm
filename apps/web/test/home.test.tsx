@@ -1,6 +1,6 @@
-// Home (spec 3.1, the mockup): the owner's setup card stays first; right under it, for whoever's role sees leads on a
-// plan with the crm module, the day's nudge ("8 things today · 2 overdue", three things, Open Today); New lead as the
-// header's outline action for whoever may add leads, so Open Today stays the main button. Never Today's long list.
+// Home (spec 3.1, the clearer Home): for whoever's role sees leads on a plan with the crm module, the day's nudge ("8 things
+// today · 2 overdue", three things, Open Today) comes first, and the owner's setup card under it; New lead is the header's
+// main action for whoever may add leads. Never Today's long list.
 import type { SetupChecklist } from "@travel-crm/contracts/profile";
 import { starterRoles } from "@travel-crm/domain/identity";
 import { screen, waitFor, within } from "@testing-library/react";
@@ -60,26 +60,23 @@ afterEach(() => {
 });
 
 describe("Home", () => {
-  it("keeps the setup card first, then '8 things today · 2 overdue', three items and Open Today", async () => {
+  it("puts '8 things today · 2 overdue', three items and Open Today first, then the setup card", async () => {
     renderHome(member({ isOwner: true }));
     const setupCard = await screen.findByRole("region", { name: setupCardName });
     const card = await nudge();
     expect(within(card).getByRole("heading", { level: 2 })).toHaveTextContent("8 things today2 overdue");
     expect(within(within(card).getByRole("list")).getAllByRole("listitem")).toHaveLength(3);
     expect(within(card).getByRole("link", { name: words.open })).toHaveAttribute("href", routes.today);
-    // The setup card, then the nudge, then the usual Home.
-    const usualHome = screen.getByText(messages.shell.home.intro);
-    expect(setupCard.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(card.compareDocumentPosition(usualHome) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    // Open Today is the main button; nothing else on Home is.
+    // The nudge, then the setup card.
+    expect(card.compareDocumentPosition(setupCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(within(card).getByRole("link", { name: words.open }).dataset.variant).toBe("default");
   });
 
-  it("gives New lead as the header's outline action to leads:create", async () => {
+  it("gives New lead as the header's main action to leads:create", async () => {
     renderHome(ofStarterRole("sales"));
     const newLead = screen.getByRole("link", { name: messages.leads.newLead });
     expect(newLead).toHaveAttribute("href", routes.newLead);
-    expect(newLead.dataset.variant).toBe("outline");
+    expect(newLead.dataset.variant).toBe("default");
     expect(await nudge()).toBeVisible();
   });
 

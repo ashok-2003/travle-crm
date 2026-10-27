@@ -21,7 +21,11 @@
     "inbox": "Inbox",
     "quotes": "Quotes",
     "finance": "Finance",
-    "reports": "Reports"
+    "reports": "Reports",
+    "notifications": "Notifications",
+    "personMenu": "{name}: account and sign out",
+    "unread": "{count, plural, one {# unread chat} other {# unread chats}}",
+    "toDo": "{count, plural, one {# thing to do today} other {# things to do today}}"
   },
   "home": {
     "title": "Welcome, {name}",
@@ -32,7 +36,9 @@
     "nothingToSetUp": "Your work will show here.",
     "setUpTitle": "Set up your agency",
     "intro2": "Here's how your agency is doing, and what needs you today.",
-    "pipeline": "Pipeline"
+    "pipeline": "Pipeline",
+    "greeting": "{part, select, morning {Good morning} afternoon {Good afternoon} other {Good evening}}, {name}",
+    "todayIs": "{day}. Here's what needs you today."
   },
   "session": {
     "loading": "Opening your organization",

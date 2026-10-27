@@ -1,0 +1,32 @@
+{
+  "glance": {
+    "title": "Today at a glance",
+    "newLeads": "New leads",
+    "newLeadsNote": "Waiting for a first reply",
+    "waiting": "Chats waiting",
+    "waitingNote": "Customers waiting for your reply",
+    "late": "{count, plural, one {# waiting too long} other {# waiting too long}}",
+    "dueToday": "Follow-ups today",
+    "dueTodayNote": "Calls and tasks due today",
+    "overdue": "Overdue",
+    "overdueNote": "Past their time: do these first",
+    "nothingLate": "Nothing late",
+    "hot": "Hot leads",
+    "hotNote": "Ready to book: call now",
+    "money": "Money to come",
+    "moneyNote": "On accepted quotes",
+    "moneyLate": "{count, plural, one {# payment late} other {# payments late}}: {amount}"
+  },
+  "month": {
+    "title": "This month so far",
+    "intro": "Your agency against last month's same days.",
+    "introOwn": "Your leads against last month's same days.",
+    "reports": "Open reports",
+    "loading": "Loading",
+    "sales": "Sales",
+    "won": "Bookings won",
+    "conversion": "Conversion",
+    "ofLeads": "{count, plural, one {of # new lead} other {of # new leads}}",
+    "collected": "Money received"
+  }
+}
