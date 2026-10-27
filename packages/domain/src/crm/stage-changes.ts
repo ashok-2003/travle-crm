@@ -17,7 +17,7 @@ import { findLeadInScope } from "./lead-detail.js";
 /** Moves the lead to a stage, forwards or back; the stage it is in already changes nothing (R31). */
 export async function moveLeadStage(tx: OrgTx, access: MemberAccess, input: MoveStageInput, now: Date): Promise<void> {
   const lead = await findLeadInScope(tx, access, input.leadId);
-  await changeLeadStage(tx, access, { leadId: lead.id, stage: input.stage }, now);
+  await changeLeadStage(tx, access, { leadId: lead.id, stage: input.stage, lostReason: input.lostReason }, now);
 }
 
 /**

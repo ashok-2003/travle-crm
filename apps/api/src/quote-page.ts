@@ -43,6 +43,13 @@ export function quotePage(quote: PublicQuote, agencyName: string, notice: "accep
         `<tr><td>${escapeHtml(due.label)}<small>By ${dayOf(due.dueOn)}</small></td><td class="n">${rupees(due.amountPaise)}${due.paid ? "<small>Paid</small>" : ""}</td></tr>`,
     )
     .join("");
+  // The options sent for the same enquiry, when there is more than one to choose from.
+  const open = quote.options.filter((option) => option.status === "sent" || option.current);
+  const choices = !accepted && open.length > 1;
+  const optionList =
+    quote.options.length > 1
+      ? `<section><h2>Your options</h2><table><tbody>${quote.options.map((option) => `<tr><td>${escapeHtml(option.title)}${option.current ? "<small>Shown below</small>" : ""}${option.status === "accepted" ? "<small>Accepted</small>" : ""}</td><td class="n">${rupees(option.totalPaise)}</td></tr>`).join("")}</tbody></table></section>`
+      : "";
   const section = (heading: string, body: string) =>
     body === "" ? "" : `<section><h2>${heading}</h2>${body}</section>`;
   const pay =
@@ -53,7 +60,7 @@ export function quotePage(quote: PublicQuote, agencyName: string, notice: "accep
     ? `<section class="done"><h2>Accepted${quote.acceptedName === null ? "" : ` by ${escapeHtml(quote.acceptedName)}`}</h2><p>Thank you. ${escapeHtml(agencyName)} will be in touch about your booking.</p></section>`
     : quote.status === "declined"
       ? ""
-      : `<section><h2>Accept this quote</h2><form method="post"><label for="name">Your name</label><input id="name" name="name" required maxlength="120" autocomplete="name"><label class="tick"><input type="checkbox" name="agree" value="yes" required> I agree to the terms and cancellation policy</label><button type="submit" class="button">Accept quote</button></form></section>`;
+      : `<section><h2>${choices ? "Choose and accept" : "Accept this quote"}</h2><form method="post">${choices ? `<fieldset class="options"><legend>Which option?</legend>${open.map((option) => `<label class="tick"><input type="radio" name="option" value="${escapeHtml(option.quoteId)}"${option.current ? " checked" : ""} required> ${escapeHtml(option.title)} · ${rupees(option.totalPaise)}</label>`).join("")}</fieldset>` : ""}<label for="name">Your name</label><input id="name" name="name" required maxlength="120" autocomplete="name"><label class="tick"><input type="checkbox" name="agree" value="yes" required> I agree to the terms and cancellation policy</label><button type="submit" class="button">Accept quote</button></form></section>`;
   const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -75,6 +82,7 @@ tfoot td{font-weight:600}
 .button{display:inline-block;background:${colours.action};color:${colours.onAction};border:0;border-radius:999px;padding:.8rem 1.4rem;font-size:1rem;font-weight:600;text-decoration:none;min-height:44px;cursor:pointer}
 label{display:block;margin:.5rem 0 .25rem}input[type=text],input:not([type]){width:100%;box-sizing:border-box;padding:.7rem;font-size:1rem;border-radius:8px;border:1px solid ${colours.inputBorder}}
 .tick{display:flex;gap:.5rem;align-items:flex-start;margin:1rem 0}
+fieldset{border:0;padding:0;margin:0}legend{font-weight:600;margin-bottom:.25rem}
 .notice{background:${colours.action};color:${colours.onAction}}
 </style>
 </head>
@@ -82,6 +90,7 @@ label{display:block;margin:.5rem 0 .25rem}input[type=text],input:not([type]){wid
 <header><p>${escapeHtml(agencyName)} · Quote for ${escapeHtml(quote.customerName)}</p><h1>${escapeHtml(quote.title)}</h1>
 <p>${[quote.startDate === null ? "" : `From ${dayOf(quote.startDate)}`, escapeHtml(travellers)].filter(Boolean).join(" · ")}</p></header>
 ${notice === "accepted" ? `<section class="notice"><h2>Thank you, your acceptance is recorded</h2></section>` : ""}
+${optionList}
 ${section("Your trip, day by day", days === "" ? "" : `<ol>${days}</ol>`)}
 ${section("Price", `<table><tbody>${items}<tr><td>Subtotal</td><td class="n">${rupees(quote.subtotalPaise)}</td></tr>${quote.taxPaise > 0 ? `<tr><td>GST ${String(quote.taxRateBasisPoints / 100)}%</td><td class="n">${rupees(quote.taxPaise)}</td></tr>` : ""}</tbody><tfoot><tr><td>Total</td><td class="n">${rupees(quote.totalPaise)}</td></tr>${quote.paidPaise > 0 ? `<tr><td>Paid</td><td class="n">${rupees(quote.paidPaise)}</td></tr><tr><td>Balance</td><td class="n">${rupees(quote.balancePaise)}</td></tr>` : ""}</tfoot></table>`)}
 ${section("Payments due", dues === "" ? "" : `<table><tbody>${dues}</tbody></table>`)}

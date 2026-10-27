@@ -63,10 +63,22 @@ export const dashboard = z.object({
   topDestinations: z.array(z.object({ name: z.string(), leads: count })),
   /** The period's new leads by how long they waited for a first reply. */
   responseTimes: z.array(z.object({ bucket: responseBucket, leads: count })),
-  /** Everyone's share, for a role that sees all leads (empty otherwise): the ten with the most new leads. */
+  /** Everyone's share, for a role that sees all leads (empty otherwise): the ten with the most new leads, the leaderboard. */
   team: z.array(
     // The name is null for someone no longer on the staff.
-    z.object({ userId: recordId, name: z.string().nullable(), leads: count, contacted: count, won: count }),
+    z.object({
+      userId: recordId,
+      name: z.string().nullable(),
+      leads: count,
+      contacted: count,
+      won: count,
+      /** Their middle wait for a first reply, in minutes; null when none had one. */
+      medianFirstReplyMinutes: z.number().min(0).nullable(),
+      /** Their follow-ups and tasks past their time, now. */
+      overdue: count,
+      /** Quotes of their leads accepted in the period, before GST, in paise. */
+      salesPaise: z.int().min(0),
+    }),
   ),
 });
 export type Dashboard = z.infer<typeof dashboard>;

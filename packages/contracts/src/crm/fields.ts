@@ -9,6 +9,11 @@ export { emailAddress };
 /** Every stage, in the order a lead moves through them. Won, Lost and Not a lead are closed. */
 export const leadStages = ["new", "contacted", "quote_sent", "booking_requested", "won", "lost", "not_a_lead"] as const;
 export const leadStage = z.enum(leadStages);
+
+/** Why a lead was lost, asked when it is moved to Lost (sales execution): what to fix, and whom to win back. */
+export const lostReasons = ["price", "dates", "competitor", "no_reply", "changed_plans", "other"] as const;
+export const lostReason = z.enum(lostReasons);
+export type LostReason = z.infer<typeof lostReason>;
 export type LeadStage = z.infer<typeof leadStage>;
 
 export const openLeadStages = ["new", "contacted", "quote_sent", "booking_requested"] as const;

@@ -69,7 +69,13 @@ export async function createBroadcast(
   }
   const [row] = await tx.whatsappBroadcast.createManyAndReturn({
     data: [
-      { requestId: input.requestId, templateId: audience.template.id, params: input.params, createdBy: access.userId },
+      {
+        requestId: input.requestId,
+        templateId: audience.template.id,
+        params: input.params,
+        segments: audience.segments,
+        createdBy: access.userId,
+      },
     ],
     skipDuplicates: true,
     select: { id: true },
@@ -92,6 +98,7 @@ export async function createBroadcast(
     after: {
       template: audience.template.name,
       tags: audience.tags.map((tag) => tag.name).join(", "),
+      segments: audience.segments.join(", "),
       total: audience.chatIds.length,
     },
   });
@@ -134,6 +141,7 @@ async function summaries(tx: OrgTx, ids: string[]): Promise<BroadcastSummary[]> 
       createdBy: true,
       createdAt: true,
       params: true,
+      segments: true,
       template: { select: { name: true, body: true } },
       tags: { select: { tag: { select: { name: true } } } },
     },
@@ -145,6 +153,7 @@ async function summaries(tx: OrgTx, ids: string[]): Promise<BroadcastSummary[]> 
     templateName: row.template.name,
     message: renderTemplate(row.template.body, row.params),
     tagNames: row.tags.map((link) => link.tag.name).sort(),
+    segments: row.segments.filter((segment): segment is "lost" | "won" => segment === "lost" || segment === "won"),
     status: row.status as BroadcastSummary["status"],
     pausedReason: row.pausedReason as BroadcastSummary["pausedReason"],
     counts: counts.get(row.id) ?? none,

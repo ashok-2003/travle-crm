@@ -91,6 +91,11 @@ model Organization {
   quoteSettings               QuoteSettings?
   tripCosts                   TripCost[]
   agencyExpenses              AgencyExpense[]
+  salesAutomation             SalesAutomation?
+  leadCadences                LeadCadence[]
+  salesTouches                SalesTouch[]
+  leadSignals                 LeadSignal[]
+  quoteTemplates              QuoteTemplate[]
   whatsappBroadcastTags       WhatsappBroadcastTag[]
   whatsappBroadcastRecipients WhatsappBroadcastRecipient[]
 
