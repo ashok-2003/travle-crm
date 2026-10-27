@@ -4,7 +4,7 @@
 // which makes a draft sent), the quotation's PDF, the tax invoice once accepted, Accepted or Declined by hand, Delete;
 // then its money beside the form that writes it. A quote out of the member's scope is "not found", as a lead is.
 import type { QuoteDetail } from "@travel-crm/contracts/quotes";
-import { FileDownIcon, LinkIcon, MessageCircleIcon, SearchXIcon } from "lucide-react";
+import { CopyPlusIcon, FileDownIcon, LinkIcon, MessageCircleIcon, SearchXIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
@@ -20,12 +20,13 @@ import { BackLink } from "@/components/text-link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { refusalOf } from "@/data/api-error";
-import { leadRoute, routes } from "@/lib/routes";
+import { leadRoute, quoteRoute, routes } from "@/lib/routes";
 import { useHolds } from "@/session/me-context";
 import { BookingCostsCard } from "@/finance/booking-costs-card";
 import { QuoteForm } from "./quote-form";
 import { QuoteMoney } from "./quote-money";
 import { QuoteStatusBadge } from "./quote-status";
+import { SavePackageDialog } from "./save-package-dialog";
 import { useOpenDocument, useQuote, useQuoteChanges } from "./use-quotes";
 
 /** The customer's link as WhatsApp shows it, with the words before it. */
@@ -36,6 +37,7 @@ function QuoteActions({ quote }: { quote: QuoteDetail }) {
   const t = useTranslations("quotes.quote");
   const router = useRouter();
   const mayEdit = useHolds("quotes:edit");
+  const mayCreate = useHolds("quotes:create");
   const changes = useQuoteChanges();
   const open = useOpenDocument(quote.id);
   const [link, setLink] = useState<string | null>(null);
@@ -112,6 +114,27 @@ function QuoteActions({ quote }: { quote: QuoteDetail }) {
             {quote.invoiceDocumentId === null ? t("issueInvoice") : t("invoice")}
           </Button>
         )}
+        {mayCreate && quote.status !== "accepted" && (
+          <Button
+            variant="outline"
+            disabled={changes.duplicate.isPending}
+            onClick={() => {
+              changes.duplicate.mutate(
+                { quoteId: quote.id },
+                {
+                  onSuccess: (copy) => {
+                    toast.success(t("optionMade"));
+                    router.push(quoteRoute(copy.id));
+                  },
+                },
+              );
+            }}
+          >
+            <CopyPlusIcon aria-hidden="true" />
+            {t("addOption")}
+          </Button>
+        )}
+        {mayEdit && <SavePackageDialog quoteId={quote.id} title={quote.title} />}
         {mayEdit && quote.status !== "accepted" && (
           <Button
             variant="outline"
@@ -154,7 +177,7 @@ function QuoteActions({ quote }: { quote: QuoteDetail }) {
       {quote.acceptedName !== null && (
         <p className="text-muted-foreground">{t("acceptedBy", { name: quote.acceptedName })}</p>
       )}
-      <RefusalAlert error={changes.share.error ?? changes.setStatus.error ?? open.error} />
+      <RefusalAlert error={changes.share.error ?? changes.setStatus.error ?? changes.duplicate.error ?? open.error} />
       <ConfirmDialog
         open={deleting}
         onOpenChange={setDeleting}

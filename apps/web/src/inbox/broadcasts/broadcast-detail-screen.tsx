@@ -94,7 +94,13 @@ export function BroadcastDetailScreen({ broadcastId }: { broadcastId: string }) 
       <Details
         rows={[
           { label: t("detail.message"), value: broadcast.message },
-          { label: t("detail.tags"), value: broadcast.tagNames.join(", ") },
+          {
+            label: t("detail.tags"),
+            value: [
+              ...broadcast.tagNames,
+              ...broadcast.segments.map((segment) => t(`dialog.segmentNames.${segment}`)),
+            ].join(", "),
+          },
           {
             label: t("detail.startedBy"),
             value: `${detail.people[broadcast.createdBy] ?? ""} · ${formatDay(new Date(broadcast.createdAt), { timeZone })}`,

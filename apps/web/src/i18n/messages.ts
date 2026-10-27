@@ -23,6 +23,7 @@ import notifications from "./messages/en-IN/notifications.json";
 import pwa from "./messages/en-IN/pwa.json";
 import quotes from "./messages/en-IN/quotes.json";
 import roles from "./messages/en-IN/roles.json";
+import sales from "./messages/en-IN/sales.json";
 import settings from "./messages/en-IN/settings.json";
 import sheets from "./messages/en-IN/sheets.json";
 import shell from "./messages/en-IN/shell.json";
@@ -61,6 +62,7 @@ export const messages = {
   pwa,
   quotes,
   roles,
+  sales,
   settings,
   sheets,
   shell,

@@ -18,6 +18,7 @@ import { useMe } from "@/session/me-context";
 import { AddTaskDialog } from "./add-task-dialog";
 import { TodaySection } from "./today-section";
 import { useTodaySummary } from "./use-today";
+import { HotLeadsCard } from "@/sales/hot-leads-card";
 
 const sections: readonly { name: TodaySectionName; count: keyof TodaySummary["counts"] }[] = [
   { name: "overdue", count: "overdue" },
@@ -60,6 +61,7 @@ export function TodayScreen() {
       // Sections stand further apart than the things inside them, so a section's title never reads as one more row.
       return (
         <div className="flex flex-col gap-10">
+          <HotLeadsCard />
           {shown.length === 0 ? (
             <EmptyState icon={CalendarCheckIcon} message={t("nothing")} />
           ) : (

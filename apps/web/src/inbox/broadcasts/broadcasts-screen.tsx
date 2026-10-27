@@ -53,7 +53,10 @@ export function BroadcastsScreen() {
               <Link href={broadcastRoute(item.id)}>
                 <ItemContent className="min-w-0">
                   <ItemTitle className="wrap-anywhere">
-                    {item.templateName} · {item.tagNames.join(", ")}
+                    {item.templateName} ·{" "}
+                    {[...item.tagNames, ...item.segments.map((segment) => t(`dialog.segmentNames.${segment}`))].join(
+                      ", ",
+                    )}
                   </ItemTitle>
                   <ItemDescription className="line-clamp-none">
                     {t("sentOf", { sent: item.counts.sent, total: item.counts.total })} ·{" "}

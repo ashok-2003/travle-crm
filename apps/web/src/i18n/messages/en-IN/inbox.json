@@ -680,7 +680,13 @@
       "today": "{sendToday} go today. {waitForTomorrow, plural, =0 {} other {# wait and go tomorrow at 10 am.}}",
       "send": "{count, plural, one {Send to # chat} other {Send to # chats}}",
       "sending": "Starting",
-      "started": "The broadcast is on its way."
+      "started": "The broadcast is on its way.",
+      "segments": "Or send to",
+      "segmentsHint": "Chats of leads you lost, or of past customers: win them back with a seasonal offer. Only people who agreed to WhatsApp get it.",
+      "segmentNames": {
+        "lost": "Lost leads",
+        "won": "Past customers"
+      }
     }
   },
   "emptyChoices": "No chat matches these choices.",

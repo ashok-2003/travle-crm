@@ -23,6 +23,11 @@ export function useQuote(quoteId: string) {
   return useQuery(trpc.quotes.get.queryOptions({ quoteId }));
 }
 
+export function useQuotePackages() {
+  const trpc = useTRPC();
+  return useQuery({ ...trpc.quotes.packages.queryOptions(), staleTime: 60_000 });
+}
+
 export function useQuoteSettings() {
   const trpc = useTRPC();
   return useQuery({ ...trpc.quotes.settings.queryOptions(), staleTime: 60_000 });
@@ -53,6 +58,10 @@ export function useQuoteChanges() {
     removeInstallment: useMutation(trpc.quotes.removeInstallment.mutationOptions(options)),
     recordPayment: useMutation(trpc.quotes.recordPayment.mutationOptions(options)),
     voidPayment: useMutation(trpc.quotes.voidPayment.mutationOptions(options)),
+    fromPackage: useMutation(trpc.quotes.fromPackage.mutationOptions(options)),
+    duplicate: useMutation(trpc.quotes.duplicate.mutationOptions(options)),
+    savePackage: useMutation(trpc.quotes.savePackage.mutationOptions(options)),
+    deletePackage: useMutation(trpc.quotes.deletePackage.mutationOptions(options)),
   };
 }
 

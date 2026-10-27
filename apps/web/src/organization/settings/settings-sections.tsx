@@ -18,6 +18,7 @@ import {
   MapPinIcon,
   PaletteIcon,
   ShuffleIcon,
+  ZapIcon,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -51,6 +52,7 @@ interface Section {
     | "assignment"
     | "whatsapp"
     | "quotes"
+    | "salesAutomation"
     | "audit";
   href: string;
   icon: LucideIcon;
@@ -83,6 +85,13 @@ const sections: readonly Section[] = [
     module: "crm",
   },
   { key: "whatsapp", href: routes.whatsapp, icon: MessageCircleIcon, requires: "settings:manage", module: "inbox" },
+  {
+    key: "salesAutomation",
+    href: routes.salesAutomation,
+    icon: ZapIcon,
+    requires: "settings:manage",
+    module: "inbox",
+  },
   { key: "quotes", href: routes.quoteSettings, icon: IndianRupeeIcon, requires: "settings:manage", module: "quotes" },
   { key: "audit", href: routes.audit, icon: HistoryIcon, requires: "audit:view" },
 ];

@@ -4,12 +4,14 @@
 // to give it to someone (for whoever may assign), the lead's stage as its coloured pill and a menu to move it (Won is
 // "converted"; for whoever may edit leads), and how long the 24-hour window stays open ("23h left", red in its last two
 // hours). Each change goes through the lead's own procedures, so it is audited and every list shows it.
-import { leadStages, type LeadStage } from "@travel-crm/contracts/crm";
+import { leadStages, type LeadStage, type LostReason } from "@travel-crm/contracts/crm";
 import type { ConversationHeader } from "@travel-crm/contracts/inbox";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronDownIcon, ClockIcon, UserRoundIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { statusToneClasses } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +30,7 @@ import { useNow } from "@/lib/use-now";
 import { cn } from "@/lib/utils";
 import { useHolds } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
+import { LostReasonChoice } from "@/sales/lost-reason";
 import { useOwners } from "./use-owner-names";
 
 /** After a change to the lead: the lead's own screens, and the inbox's list and this chat's bar. */
@@ -43,14 +46,19 @@ function useAfterLeadChange() {
 export function StageMenu({ header }: { header: ConversationHeader }) {
   const t = useTranslations("inbox.chat");
   const tStages = useTranslations("leads.stages");
+  const tLost = useTranslations("sales.lost");
   const trpc = useTRPC();
   const { apiError } = useErrorMessage();
   const access = useWriteAccess("change");
   const mayEdit = useHolds("leads:edit");
   const after = useAfterLeadChange();
+  const [askingLost, setAskingLost] = useState(false);
+  const [lostReason, setLostReason] = useState<LostReason | null>(null);
+  const opener = useRef<HTMLButtonElement>(null);
   const move = useMutation(
     trpc.leads.moveStage.mutationOptions({
       onSuccess: async (_, { stage }) => {
+        setAskingLost(false);
         await after();
         toast.success(t("stageMoved", { stage: tStages(stage) }));
       },
@@ -70,38 +78,58 @@ export function StageMenu({ header }: { header: ConversationHeader }) {
   }
   const leadId = header.lead.id;
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          className={pill}
-          disabled={!access.allowed || move.isPending}
-          aria-label={t("stageMenu", { stage: tStages(stage) })}
-        >
-          <StageDot stage={stage} />
-          {tStages(stage)}
-          <ChevronDownIcon aria-hidden="true" className="size-3.5" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuLabel>{t("moveTo")}</DropdownMenuLabel>
-        <DropdownMenuRadioGroup
-          value={stage}
-          onValueChange={(chosen) => {
-            const next = leadStages.find((candidate) => candidate === chosen);
-            if (next !== undefined && next !== stage) move.mutate({ leadId, stage: next });
-          }}
-        >
-          {leadStages.map((value) => (
-            <DropdownMenuRadioItem key={value} value={value}>
-              <StageDot stage={value} />
-              {value === "won" ? t("wonConverted") : tStages(value)}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            ref={opener}
+            type="button"
+            variant="ghost"
+            className={pill}
+            disabled={!access.allowed || move.isPending}
+            aria-label={t("stageMenu", { stage: tStages(stage) })}
+          >
+            <StageDot stage={stage} />
+            {tStages(stage)}
+            <ChevronDownIcon aria-hidden="true" className="size-3.5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuLabel>{t("moveTo")}</DropdownMenuLabel>
+          <DropdownMenuRadioGroup
+            value={stage}
+            onValueChange={(chosen) => {
+              const next = leadStages.find((candidate) => candidate === chosen);
+              // Lost asks why first (sales execution).
+              if (next === "lost" && next !== stage) setAskingLost(true);
+              else if (next !== undefined && next !== stage) move.mutate({ leadId, stage: next });
+            }}
+          >
+            {leadStages.map((value) => (
+              <DropdownMenuRadioItem key={value} value={value}>
+                <StageDot stage={value} />
+                {value === "won" ? t("wonConverted") : tStages(value)}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <ConfirmDialog
+        open={askingLost}
+        onOpenChange={setAskingLost}
+        returnFocusTo={opener}
+        title={tLost("title")}
+        description={tLost("description")}
+        action={tLost("confirm")}
+        request={move}
+        confirmDisabled={lostReason === null}
+        onConfirm={() => {
+          if (lostReason !== null) move.mutate({ leadId, stage: "lost", lostReason });
+        }}
+      >
+        <LostReasonChoice value={lostReason} onChange={setLostReason} />
+      </ConfirmDialog>
+    </>
   );
 }
 

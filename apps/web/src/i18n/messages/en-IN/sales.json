@@ -1,0 +1,128 @@
+{
+  "blanks": {
+    "choose": "Choose a template",
+    "noTemplates": "No approved template yet. Make one in Settings, WhatsApp, and wait for WhatsApp to approve it.",
+    "blank": "Blank {number}",
+    "words": "Words",
+    "preview": "How it reads",
+    "fields": {
+      "name": "Customer's first name",
+      "destination": "Where they want to go",
+      "when": "When they travel",
+      "agent": "Their salesperson's name",
+      "agency": "Your agency's name",
+      "amount": "Amount due",
+      "due": "Due date",
+      "link": "Quote link (to pay)",
+      "custom": "My own words"
+    },
+    "samples": {
+      "name": "Priya",
+      "destination": "Manali",
+      "when": "16 Nov",
+      "agent": "Rahul",
+      "agency": "Sharma Holidays",
+      "amount": "₹8,000.00",
+      "due": "5 Nov",
+      "link": "https://…/p/…"
+    }
+  },
+  "settings": {
+    "title": "Sales automation",
+    "intro": "What your sales do by themselves, so no lead waits and none is forgotten. Each WhatsApp is one of your approved templates.",
+    "on": "On",
+    "loadFailed": "The settings didn't load.",
+    "retry": "Try again",
+    "loading": "Loading",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Sales automation saved",
+    "problems": {
+      "budget": "Use an amount like 1,00,000.",
+      "check": "Check the settings: every template needs a value for each blank, and each follow-up some days after the one before."
+    },
+    "speed": {
+      "title": "Reply to new leads in a minute",
+      "description": "A lead from your ads, website or a sheet gets this WhatsApp within a minute, day or night. Leads who answer first convert the most.",
+      "template": "Greeting template",
+      "consent": "People who enquire with their number agree to hear back on WhatsApp",
+      "consentHint": "WhatsApp needs their agreement before you message first. Turn this on if your forms and ads say you will contact them on WhatsApp. Anyone who writes STOP is never messaged."
+    },
+    "follow": {
+      "title": "Follow up when they go quiet",
+      "description": "If the customer doesn't write back, they get a nudge on each of these days, between 10 am and 8 pm. The moment they write, the lead closes or reaches Booking requested, it stops.",
+      "none": "No follow-ups yet. Add Day 1, Day 3 and Day 7.",
+      "day": "Follow-up {number}: days after the lead came",
+      "dayHint": "Each comes after the one before.",
+      "template": "Template",
+      "add": "Add a follow-up",
+      "remove": "Remove follow-up {number}"
+    },
+    "reminder": {
+      "title": "Remind customers to pay",
+      "description": "For a payment due on an accepted quote: a WhatsApp with the amount, the day and the link to pay by UPI, some days before, and once the day after if it's missed. You are told too.",
+      "daysBefore": "Days before the due date",
+      "template": "Reminder template (when they haven't written in 24 hours)",
+      "windowHint": "Inside WhatsApp's 24-hour window we send a plain message with the link; outside it, this template."
+    },
+    "hot": {
+      "title": "What makes a lead hot",
+      "description": "Hot leads come first on Home and Today, with Call now. Opening a quote twice or asking to book also tells the salesperson at once.",
+      "keywords": "Buying words",
+      "keywordsHint": "Words in a customer's message, with commas between: price, book, advance.",
+      "travelDays": "Travels within (days)",
+      "travelDaysHint": "A trip that starts this soon is hot. 0 for never.",
+      "budget": "Budget for everyone at least (₹)",
+      "budgetHint": "Empty for no budget rule."
+    }
+  },
+  "hot": {
+    "title": "{count, plural, one {# hot lead: call now} other {# hot leads: call now}}",
+    "description": "They are deciding. A call in the next hour wins most of them.",
+    "loadFailed": "Hot leads didn't load.",
+    "call": "Call",
+    "callNamed": "Call {name}",
+    "reasons": {
+      "quote_opened": "Opened the quote",
+      "asked_price": "Asked to book",
+      "travel_soon": "Travels soon",
+      "big_budget": "Big budget"
+    }
+  },
+  "lead": {
+    "title": "Sales",
+    "hot": "Hot lead",
+    "follow": {
+      "none": "No automatic follow-ups for this lead.",
+      "active": "Automatic follow-ups: {sent} of {steps} sent. The next goes {next}.",
+      "done": "Automatic follow-ups finished: {sent} sent.",
+      "stopped": "Automatic follow-ups stopped ({reason}) after {sent}.",
+      "stop": "Stop follow-ups",
+      "start": "Start follow-ups"
+    },
+    "stopReasons": {
+      "replied": "the customer wrote",
+      "closed": "the lead moved on",
+      "by_hand": "stopped by hand",
+      "opted_out": "they asked to stop",
+      "cant_send": "WhatsApp couldn't send",
+      "finished": "all sent",
+      "turned_off": "turned off in settings"
+    }
+  },
+  "lost": {
+    "why": "Why was it lost?",
+    "title": "Mark this lead lost?",
+    "description": "Its open follow-ups are cancelled. Why it was lost helps you win back such leads later.",
+    "confirm": "Mark lost",
+    "because": "Lost: {reason}",
+    "reasons": {
+      "price": "Price too high",
+      "dates": "Dates didn't work",
+      "competitor": "Went with another agency",
+      "no_reply": "Stopped replying",
+      "changed_plans": "Changed or dropped plans",
+      "other": "Something else"
+    }
+  }
+}

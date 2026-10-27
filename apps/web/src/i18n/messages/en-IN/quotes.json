@@ -36,7 +36,9 @@
     "loading": "Loading quotes",
     "defaultTitle": "Trip quote",
     "titleFor": "{place} trip",
-    "money": "{total} · {balance} to pay"
+    "money": "{total} · {balance} to pay",
+    "blank": "Blank quote",
+    "fromPackage": "From a package"
   },
   "quote": {
     "title": "Quote",
@@ -61,7 +63,9 @@
     "acceptedBy": "Accepted by {name} on the link.",
     "delete": "Delete",
     "deleteTitle": "Delete this quote?",
-    "deleteDescription": "It goes from the lead and from Quotes. Its link stops working."
+    "deleteDescription": "It goes from the lead and from Quotes. Its link stops working.",
+    "addOption": "Add another option",
+    "optionMade": "Another option made. Change its hotel or price; the customer's link shows both."
   },
   "form": {
     "trip": "Trip",
@@ -210,5 +214,26 @@
     "overdueCount": "{count, plural, =0 {Nothing late} one {# quote late} other {# quotes late}}",
     "openQuotes": "Open quotes",
     "loadFailed": "The money didn't load."
+  },
+  "package": {
+    "save": "Save as package",
+    "saving": "Saving…",
+    "saved": "Package saved. Use it from any lead's New quote.",
+    "title": "Save as package",
+    "description": "Keep this plan and price under a name, to make the next lead's quote in one tap.",
+    "name": "Package name",
+    "nameHint": "Like Manali 5 days or Goa honeymoon.",
+    "problems": {
+      "required": "Give it a name.",
+      "tooLong": "Use 80 letters at most."
+    },
+    "listTitle": "Packages",
+    "listIntro": "Your ready packages. A lead's New quote starts from any of them in one tap.",
+    "none": "No packages yet. Open a quote and choose Save as package.",
+    "summary": "{days, plural, =0 {No days} one {# day} other {# days}} · {price} before GST",
+    "delete": "Delete",
+    "deleteNamed": "Delete {name}",
+    "deleteTitle": "Delete {name}?",
+    "deleteDescription": "Quotes made from it stay as they are."
   }
 }
