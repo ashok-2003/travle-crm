@@ -17,7 +17,7 @@ import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
 import type { JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
 import { Hono, type Context } from "hono";
-import { limitBody } from "./body-limit.js";
+import { limitBody, limitTrpcBody } from "./body-limit.js";
 import { metaDeletionRoute, metaVerifyRoute } from "./meta-routes.js";
 import type { WhatsAppProvider } from "@travel-crm/integrations/whatsapp";
 import type { MetaServices } from "./meta-services.js";
@@ -133,7 +133,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
   app.on(["GET", "POST"], "/api/auth/*", (c) => identity.auth.handler(c.req.raw));
 
   app.use("/api/trpc/*", requireTrustedJson(identity));
-  app.use("/api/trpc/*", limitBody(BODY_LIMIT));
+  app.use("/api/trpc/*", limitTrpcBody(BODY_LIMIT));
   // Built for each request, so its context and its errors can tell the request's line who called and what failed.
   app.use("/api/trpc/*", (c, next) => {
     const request = c.var.requestLog;

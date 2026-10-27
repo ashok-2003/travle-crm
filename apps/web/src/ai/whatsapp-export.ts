@@ -28,7 +28,8 @@ export function readWhatsAppExport(text: string): ExportedMessage[] {
     const line = raw.replace(/[‎‏‪-‮]/g, "");
     const match = android.exec(line) ?? iphone.exec(line);
     if (match?.[2] !== undefined && match[3] !== undefined) {
-      messages.push({ sender: match[2].trim(), text: match[3] });
+      // An unsaved contact is "~ Name".
+      messages.push({ sender: match[2].replace(/^~\s*/, "").trim(), text: match[3] });
       open = true;
     } else if (startsEntry.test(line)) {
       open = false;
