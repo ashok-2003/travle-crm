@@ -227,6 +227,15 @@
     },
     "quote-settings": {
       "changed": "Changed how quotes are paid and taxed"
+    },
+    "trip-cost": {
+      "added": "Added a supplier cost to a booking",
+      "paid": "Marked a supplier cost paid",
+      "voided": "Voided a supplier cost"
+    },
+    "agency-expense": {
+      "added": "Added a running cost",
+      "voided": "Voided a running cost"
     }
   },
   "fields": {
@@ -289,7 +298,11 @@
     "installmentId": "Payment due",
     "paymentId": "Payment",
     "upiId": "UPI id",
-    "defaultTaxRateBasisPoints": "Usual GST rate"
+    "defaultTaxRateBasisPoints": "Usual GST rate",
+    "tripCostId": "Supplier cost",
+    "category": "Category",
+    "paidOn": "Paid on",
+    "spentOn": "Spent on"
   },
   "recordTypes": {
     "issued_document": "A document",
@@ -310,6 +323,7 @@
     "whatsapp_broadcast": "A WhatsApp broadcast",
     "quote": "A quote",
     "quote_settings": "Quote settings",
-    "trip_kit": "A trip's details"
+    "trip_kit": "A trip's details",
+    "agency_expense": "A running cost"
   }
 }

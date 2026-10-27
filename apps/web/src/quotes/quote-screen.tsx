@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { refusalOf } from "@/data/api-error";
 import { leadRoute, routes } from "@/lib/routes";
 import { useHolds } from "@/session/me-context";
+import { BookingCostsCard } from "@/finance/booking-costs-card";
 import { QuoteForm } from "./quote-form";
 import { QuoteMoney } from "./quote-money";
 import { QuoteStatusBadge } from "./quote-status";
@@ -199,8 +200,9 @@ export function QuoteScreen({ quoteId }: { quoteId: string }) {
                 update.mutate(input, { onSuccess: () => toast.success(t("saved")) });
               }}
             />
-            <div className="xl:sticky xl:top-6">
+            <div className="flex flex-col gap-6 xl:sticky xl:top-6">
               <QuoteMoney quote={data} />
+              <BookingCostsCard quoteId={data.id} />
             </div>
           </div>
         </>
