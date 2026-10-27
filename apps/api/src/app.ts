@@ -25,7 +25,7 @@ import type { FormAddressSettings } from "./form-client-address.js";
 import { organizationSignIn } from "./org-sign-in.js";
 import { rateLimit } from "./rate-limit.js";
 import { noteTrpcError, requestLog, type RequestLogEnv } from "./request-log.js";
-import { shareLinkResolvers } from "./share-link-resolvers.js";
+import { shareLinkActions, shareLinkResolvers } from "./share-link-resolvers.js";
 import { shareLinkRoutes, tooManyRequestsPage } from "./share-link-route.js";
 import { requireTrustedJson } from "./trusted-origin.js";
 import { websiteFormRoutes } from "./website-form-routes.js";
@@ -192,7 +192,8 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
     shareLinkRoutes({
       find: (token) => findShareLink(db, token),
       recordOpen: (opened, visitor) => recordShareLinkOpen(db, opened, visitor),
-      resolvers: shareLinkResolvers({ db, files }),
+      resolvers: shareLinkResolvers({ db, files, identity }),
+      actions: shareLinkActions({ db }),
       clientAddress,
     }),
   );

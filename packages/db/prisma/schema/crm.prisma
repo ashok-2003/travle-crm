@@ -6,30 +6,30 @@
 /// Someone who enquired, found again by their phone, email or Instagram handle (spec 3.2). Soft-deleted.
 model Person {
   /// Filled from db.forOrg()'s organization when omitted.
-  organizationId  String                  @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
-  id              String                  @id @default(uuid(7)) @db.Uuid
+  organizationId        String                  @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id                    String                  @id @default(uuid(7)) @db.Uuid
   /// As the person gave it, 1-120 characters; empty only once erased (CHECK person_name_length).
-  name            String
+  name                  String
   /// E.164, e.g. "+919876543210" (CHECK person_phone_format). Unique among live people, like the email and handle.
-  phoneE164       String?                 @map("phone_e164")
+  phoneE164             String?                 @map("phone_e164")
   /// In lower case (CHECK person_email_lower).
-  email           String?
+  email                 String?
   /// Without the "@", in lower case (CHECK person_instagram_format).
-  instagramHandle String?                 @map("instagram_handle")
+  instagramHandle       String?                 @map("instagram_handle")
   /// The member who added them; null when the system did.
-  createdBy       String?                 @map("created_by") @db.Uuid
-  createdAt       DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy             String?                 @map("created_by") @db.Uuid
+  createdAt             DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
   /// When their personal data was erased (ADR 0023): name and contacts emptied, the row soft-deleted. Until then at
   /// least one contact is set (CHECK person_has_contact).
-  erasedAt        DateTime?               @map("erased_at") @db.Timestamptz(6)
-  deletedAt       DateTime?               @map("deleted_at") @db.Timestamptz(6)
-  deletedBy       String?                 @map("deleted_by") @db.Uuid
-  organization    Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  leads           Lead[]
-  consents        PersonConsent[]
+  erasedAt              DateTime?               @map("erased_at") @db.Timestamptz(6)
+  deletedAt             DateTime?               @map("deleted_at") @db.Timestamptz(6)
+  deletedBy             String?                 @map("deleted_by") @db.Uuid
+  organization          Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  leads                 Lead[]
+  consents              PersonConsent[]
   whatsappConversations WhatsappConversation[]
-  formSubmissions WebsiteFormSubmission[]
+  formSubmissions       WebsiteFormSubmission[]
 
   /// Lets lead point at (organization_id, id).
   @@unique([organizationId, id])
@@ -94,6 +94,7 @@ model Lead {
   destination     Destination?            @relation(fields: [organizationId, destinationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
   timeline        LeadTimelineEntry[]
   notes           LeadNote[]
+  quotes          Quote[]
   enquiries       LeadEnquiry[]
   formSubmissions WebsiteFormSubmission[]
 

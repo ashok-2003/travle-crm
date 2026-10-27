@@ -6,21 +6,21 @@
 /// One trip's details. Soft-deleted (ADR 0004).
 model TripKit {
   /// Filled from db.forOrg()'s organization when omitted.
-  organizationId String         @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
-  id             String         @id @default(uuid(7)) @db.Uuid
+  organizationId String        @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String        @id @default(uuid(7)) @db.Uuid
   name           String
   /// The words sent first: the itinerary, inclusions, price and payment details. May be empty when the files say it all.
-  message        String         @default("")
+  message        String        @default("")
   /// Lower case; a customer's message holding one (as a whole word or phrase) sends the trip by itself.
-  keywords       String[]       @default([])
+  keywords       String[]      @default([])
   /// Whether a keyword sends it by itself; off, it is sent only from a chat's Send details.
-  autoSend       Boolean        @default(true) @map("auto_send")
-  createdBy      String?        @map("created_by") @db.Uuid
-  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt      DateTime?      @map("deleted_at") @db.Timestamptz(6)
-  deletedBy      String?        @map("deleted_by") @db.Uuid
-  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  autoSend       Boolean       @default(true) @map("auto_send")
+  createdBy      String?       @map("created_by") @db.Uuid
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?     @map("deleted_at") @db.Timestamptz(6)
+  deletedBy      String?       @map("deleted_by") @db.Uuid
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   sends          TripKitSend[]
 
   @@unique([organizationId, id])
