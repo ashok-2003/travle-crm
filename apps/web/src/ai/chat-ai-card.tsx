@@ -1,7 +1,8 @@
 "use client";
 
 // A chat's AI agent, in the contact panel (the AI sales agent): whether it answers here (as the agency's default, on
-// or off), whether it handed the chat to a person and why (with a way to give it back), what it remembers of the chat,
+// or off), whether it handed the chat to a person and why (with a way to give it back), whose way of talking it copies
+// here (a chat export of this chat's own, else the agency's), what it remembers of the chat,
 // and the lead's insight. Also the header's chip: the agent's state and the lead's score at a glance.
 import { BotIcon, BotOffIcon, HandIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -21,6 +22,7 @@ import { useHolds } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { InsightCard, ScoreBadge } from "./insight-card";
 import { useChatAi, useResumeChatAi, useSetChatAi } from "./use-ai";
+import { VoicePanel } from "./voice-panel";
 
 const modes = ["default", "on", "off"] as const;
 
@@ -131,6 +133,15 @@ export function ChatAiCard({ conversationId }: { conversationId: string }) {
                 </ToggleGroup>
               </div>
               <RefusalAlert error={setMode.error ?? resume.error} />
+              <div className="flex flex-col gap-1.5">
+                <span className="text-label text-muted-foreground">{t("voiceLabel")}</span>
+                <VoicePanel
+                  conversationId={conversationId}
+                  voice={state.voice}
+                  inherited={state.voice !== null && !state.voice.own}
+                  disabled={!mayReply}
+                />
+              </div>
               {state.memory !== "" && (
                 <Collapsible>
                   <CollapsibleTrigger asChild>

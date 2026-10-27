@@ -120,6 +120,47 @@ export function useLearnNow() {
   return useMutation(trpc.ai.learnNow.mutationOptions({ onSuccess: changed }));
 }
 
+/** A real person's way of talking: for the agency (no chat), or for one chat. */
+export function useLearnVoice(conversationId: string | null) {
+  const trpc = useTRPC();
+  const changed = useAiChange();
+  const agency = useMutation(trpc.ai.learnVoice.mutationOptions({ onSuccess: changed }));
+  const chat = useMutation(trpc.ai.learnChatVoice.mutationOptions({ onSuccess: changed }));
+  return conversationId === null
+    ? {
+        ...agency,
+        learn: (input: { personName: string; messages: string[] }, onSuccess: () => void) => {
+          agency.mutate(input, { onSuccess });
+        },
+      }
+    : {
+        ...chat,
+        learn: (input: { personName: string; messages: string[] }, onSuccess: () => void) => {
+          chat.mutate({ ...input, conversationId }, { onSuccess });
+        },
+      };
+}
+
+export function useClearVoice(conversationId: string | null) {
+  const trpc = useTRPC();
+  const changed = useAiChange();
+  const agency = useMutation(trpc.ai.clearVoice.mutationOptions({ onSuccess: changed }));
+  const chat = useMutation(trpc.ai.clearChatVoice.mutationOptions({ onSuccess: changed }));
+  return conversationId === null
+    ? {
+        ...agency,
+        clear: () => {
+          agency.mutate();
+        },
+      }
+    : {
+        ...chat,
+        clear: () => {
+          chat.mutate({ conversationId });
+        },
+      };
+}
+
 export function useLeadInsight(leadId: string) {
   const trpc = useTRPC();
   return useQuery(trpc.ai.forLead.queryOptions({ leadId }));

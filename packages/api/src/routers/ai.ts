@@ -11,12 +11,15 @@ import {
   aiLearningList,
   aiOverview,
   aiSettings,
+  aiVoice,
   chatAi,
+  clearVoiceInput,
   confirmAiDocumentInput,
   conversationAiInput,
   createAiKnowledgeInput,
   leadInsight,
   leadInsightInput,
+  learnVoiceInput,
   requestAiDocumentInput,
   resumeChatAiInput,
   saveAiSettingsInput,
@@ -29,12 +32,15 @@ import {
 } from "@travel-crm/contracts/ai";
 import {
   addKnowledge,
+  agencyVoiceOf,
   aiOverviewOf,
   aiSettingsOf,
   chatAiOf,
+  clearVoice,
   confirmDocument,
   deleteKnowledge,
   learnNow,
+  learnVoice,
   leadInsightOf,
   listKnowledge,
   listLearnings,
@@ -66,8 +72,13 @@ const assistOf = (ctx: { db: Parameters<typeof suggestReply>[0]["db"]; ai: AiMod
 });
 
 /** The settings as the screen reads them, with the platform's model and when the AI last learned. */
-const settingsView = (row: Awaited<ReturnType<typeof aiSettingsOf>>, ai: AiModel) => ({
+const settingsView = (
+  row: Awaited<ReturnType<typeof aiSettingsOf>>,
+  voice: Awaited<ReturnType<typeof agencyVoiceOf>>,
+  ai: AiModel,
+) => ({
   ...row,
+  voice: voice === null ? null : { name: voice.name, profile: voice.profile, examples: voice.examples.length },
   learnedAt: row.learnedAt?.toISOString() ?? null,
   configured: ai.configured,
   models: { chat: [...ai.models.chat], fast: [...ai.models.fast] },
@@ -76,17 +87,18 @@ const settingsView = (row: Awaited<ReturnType<typeof aiSettingsOf>>, ai: AiModel
 export const aiRouter = router({
   settings: settingsReader
     .output(aiSettings)
-    .query(async ({ ctx }) =>
-      settingsView(await ctx.db.forOrg(ctx.member.organizationId, (tx) => aiSettingsOf(tx)), ctx.ai),
+    .query(({ ctx }) =>
+      ctx.db.forOrg(ctx.member.organizationId, async (tx) =>
+        settingsView(await aiSettingsOf(tx), await agencyVoiceOf(tx), ctx.ai),
+      ),
     ),
 
   saveSettings: settingsWriter
     .input(saveAiSettingsInput)
     .output(aiSettings)
-    .mutation(async ({ ctx, input }) =>
-      settingsView(
-        await ctx.db.forOrg(ctx.member.organizationId, (tx) => saveAiSettings(tx, ctx.member, input)),
-        ctx.ai,
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, async (tx) =>
+        settingsView(await saveAiSettings(tx, ctx.member, input), await agencyVoiceOf(tx), ctx.ai),
       ),
     ),
 
@@ -103,6 +115,28 @@ export const aiRouter = router({
   setLearning: settingsWriter
     .input(setAiLearningInput)
     .mutation(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => setLearning(tx, ctx.member, input))),
+
+  /** The agency's AI talks like one real person, from their own messages in a chat export. */
+  learnVoice: settingsWriter
+    .input(learnVoiceInput.omit({ conversationId: true }))
+    .output(aiVoice)
+    .mutation(({ ctx, input }) => learnVoice(assistOf(ctx), ctx.member, input)),
+
+  clearVoice: settingsWriter.mutation(({ ctx }) =>
+    ctx.db.forOrg(ctx.member.organizationId, (tx) => clearVoice(tx, ctx.member, undefined)),
+  ),
+
+  /** In one chat only, the AI talks like one real person. */
+  learnChatVoice: chatSteerer
+    .input(learnVoiceInput.required({ conversationId: true }))
+    .output(aiVoice)
+    .mutation(({ ctx, input }) => learnVoice(assistOf(ctx), ctx.member, input)),
+
+  clearChatVoice: chatSteerer
+    .input(clearVoiceInput.required({ conversationId: true }))
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => clearVoice(tx, ctx.member, input.conversationId)),
+    ),
 
   /** Learn from the chats now, not waiting for the night. */
   learnNow: settingsWriter.output(aiLearnResult).mutation(({ ctx }) => learnNow(assistOf(ctx), ctx.member, new Date())),

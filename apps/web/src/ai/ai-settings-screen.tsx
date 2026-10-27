@@ -1,7 +1,8 @@
 "use client";
 
 // /settings/ai (the AI sales agent): the agent at a glance (its name, live or not, its last day in figures), then four
-// tabs: the agent itself (how it speaks and how it sells, saved together from a bar that stays in reach), what it
+// tabs: the agent itself (how it speaks, whose way of talking it copies, and how it sells: the settings saved together
+// from a bar that stays in reach), what it
 // knows, what it learned from the chats, and a question to try it on. Which model answers is the platform's setting;
 // with none set, the screen says so and nothing runs.
 import { saveAiSettingsInput, type AiSettings, type SaveAiSettingsInput } from "@travel-crm/contracts/ai";
@@ -28,6 +29,7 @@ import { LearningsSection } from "./learnings-section";
 import { PersonalityCard } from "./personality-card";
 import { SellingCard } from "./selling-card";
 import { useAiSettings, useSaveAiSettings, useTestAi } from "./use-ai";
+import { VoicePanel } from "./voice-panel";
 
 const inputOf = (settings: AiSettings): SaveAiSettingsInput => ({
   autopilot: settings.autopilot,
@@ -45,6 +47,24 @@ const inputOf = (settings: AiSettings): SaveAiSettingsInput => ({
   smartFollowUp: settings.smartFollowUp,
   learning: settings.learning,
 });
+
+/** Talk like a real person, in every chat: saved on its own, as soon as the AI has read the chat. */
+function VoiceCard({ voice }: { voice: AiSettings["voice"] }) {
+  const t = useTranslations("ai.voice");
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          <h2>{t("title")}</h2>
+        </CardTitle>
+        <CardDescription>{t("description")}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <VoicePanel conversationId={null} voice={voice} />
+      </CardContent>
+    </Card>
+  );
+}
 
 /** The agent's two cards, and the bar that saves them both. */
 function AgentForm({ saved }: { saved: AiSettings }) {
@@ -66,6 +86,7 @@ function AgentForm({ saved }: { saved: AiSettings }) {
   return (
     <div className="flex flex-col gap-6">
       <PersonalityCard settings={settings} change={change} disabled={busy} />
+      <VoiceCard voice={saved.voice} />
       <SellingCard settings={settings} change={change} disabled={busy} />
       {/* Above the phone's bottom bar (56px and the safe area); at the screen's foot from a tablet up. */}
       <div className="sticky bottom-[calc(3.5rem+1px+env(safe-area-inset-bottom))] z-(--z-sticky) -mx-1 flex flex-wrap items-center gap-3 bg-background/95 px-1 py-3 backdrop-blur md:bottom-0">

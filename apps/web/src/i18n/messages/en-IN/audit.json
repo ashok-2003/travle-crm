@@ -250,7 +250,9 @@
       "chat-mode-changed": "Turned the AI assistant on or off in a chat",
       "chat-resumed": "Let the AI assistant answer a chat again",
       "learning-changed": "Turned a lesson the AI learned on or off",
-      "learned": "Had the AI learn from the chats"
+      "learned": "Had the AI learn from the chats",
+      "voice-learned": "Taught the AI to talk like a person",
+      "voice-removed": "Removed the way of talking the AI copied"
     }
   },
   "fields": {

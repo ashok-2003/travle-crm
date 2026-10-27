@@ -38,6 +38,11 @@ model AiSettings {
   /// The agent learns from the agency's chats each night.
   learning         Boolean      @default(true)
   learnedAt        DateTime?    @map("learned_at") @db.Timestamptz(6)
+  /// The person whose way of talking the agent copies everywhere (from a WhatsApp export): their name, the style
+  /// guide the model wrote of them, and a few of their own messages. Null for the settings above.
+  voiceName        String?      @map("voice_name")
+  voiceProfile     String?      @map("voice_profile")
+  voiceExamples    String[]     @default([]) @map("voice_examples")
   updatedBy        String?      @map("updated_by") @db.Uuid
   updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
@@ -97,6 +102,10 @@ model AiChat {
   /// What the agent flagged for the team while it kept answering ("wants to book"), and when.
   attentionReason String?             @map("attention_reason")
   attentionAt    DateTime?            @map("attention_at") @db.Timestamptz(6)
+  /// The way of talking the agent copies in this chat alone, over the agency's.
+  voiceName      String?              @map("voice_name")
+  voiceProfile   String?              @map("voice_profile")
+  voiceExamples  String[]             @default([]) @map("voice_examples")
   updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   conversation   WhatsappConversation @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)

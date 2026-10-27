@@ -10,6 +10,7 @@ import { DomainError } from "../kernel/index.js";
 import { agentAnswers, agentPrompt, parseAnswer } from "./agent.js";
 import { chatHistory, knowledgePack, leadFactsFor } from "./context.js";
 import { activeLessons } from "./learning-store.js";
+import { agencyVoiceOf, chatVoiceOf } from "./voice.js";
 import { aiSettingsOf } from "./settings.js";
 
 export interface AiAssistDependencies {
@@ -77,6 +78,7 @@ export async function chatAiOf(tx: OrgTx, conversationId: string, configured: bo
   if (chat === null) throw notFound();
   const settings = await aiSettingsOf(tx);
   const state = await tx.aiChat.findFirst({ where: { conversationId } });
+  const voice = await chatVoiceOf(tx, conversationId);
   const lead =
     chat.personId === null
       ? null
@@ -105,6 +107,10 @@ export async function chatAiOf(tx: OrgTx, conversationId: string, configured: bo
         ? (state.attentionReason ?? null)
         : null,
     agentName: settings.agentName,
+    voice:
+      voice === null
+        ? null
+        : { name: voice.name, profile: voice.profile, examples: voice.examples.length, own: voice.own },
     configured,
     insight: lead === null ? null : await leadInsightOf(tx, lead.id),
   };
@@ -180,6 +186,7 @@ export async function suggestReply(
       history,
       memory,
       learnings: settings.learning ? await activeLessons(tx) : [],
+      voice: await chatVoiceOf(tx, conversationId),
       facts: await leadFactsFor(tx, chat.personId),
       knowledge: await knowledgePack(
         tx,
@@ -204,6 +211,7 @@ export async function suggestReply(
           facts: prepared.facts.words,
           memory: prepared.memory,
           learnings: prepared.learnings,
+          voice: prepared.voice,
         }),
       },
       ...prepared.history.messages,
@@ -232,10 +240,11 @@ export async function testAnswer(
   const { db, ai } = dependencies;
   if (!ai.configured) throw notConfigured();
   const agency = await dependencies.agencyName(access.organizationId);
-  const { settings, knowledge, learnings } = await db.forOrg(access.organizationId, async (tx) => ({
+  const { settings, knowledge, learnings, voice } = await db.forOrg(access.organizationId, async (tx) => ({
     settings: await aiSettingsOf(tx),
     knowledge: await knowledgePack(tx, question),
     learnings: await activeLessons(tx),
+    voice: await agencyVoiceOf(tx),
   }));
   const result = await ai.complete({
     tier: "chat",
@@ -250,6 +259,7 @@ export async function testAnswer(
           facts: "Nothing is known about this customer yet.",
           memory: "",
           learnings: settings.learning ? learnings : [],
+          voice,
         }),
       },
       { role: "user", content: question },

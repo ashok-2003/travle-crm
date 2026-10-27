@@ -4,6 +4,7 @@
 // tone), when it steps back for a person, what the agency learned from its own chats, what it knows of this customer,
 // and the JSON it must answer with. Prices, payment details and policies come from the knowledge alone.
 import type { AiSettingsRow } from "./settings.js";
+import type { Voice } from "./voice.js";
 
 export type TurnKind = "reply" | "nudge" | "insight";
 
@@ -15,6 +16,8 @@ export interface PromptPack {
   memory: string;
   /** The agency's active lessons, best first. */
   learnings: readonly string[];
+  /** A real person's way of talking to copy (this chat's, else the agency's), or null for the settings'. */
+  voice: Voice | null;
 }
 
 function languageLine(settings: AiSettingsRow): string {
@@ -69,6 +72,21 @@ const taskLines: Record<TurnKind, string> = {
   insight: "Do not write a reply: set reply to an empty string. Only judge the lead.",
 };
 
+const genericWriting = (settings: AiSettingsRow) => `How you write:
+- ${languageLine(settings)}
+- ${styleLines[settings.style]}
+- ${emojiLines[settings.emojis]}
+- ${toneLines[settings.tone]}`;
+
+/** A real person's way of talking, from their own chat: it wins over the settings' language, style, emojis and tone. */
+const voiceWriting = (
+  voice: Voice,
+) => `How you write: exactly as ${voice.name} writes on WhatsApp. Be ${voice.name}: their languages and script, spelling and short forms, message length, capitals and punctuation, emojis (which ones and how often), greetings, fillers, warmth and the way they show feelings. A customer should not be able to tell your messages from theirs. Copy only how they talk, never facts from their messages.
+
+${voice.name}'s style:
+${voice.profile}
+${voice.examples.length === 0 ? "" : `\nHow ${voice.name} writes, in their own messages:\n${voice.examples.map((example) => `- ${example}`).join("\n")}\n`}`;
+
 export function agentPrompt(settings: AiSettingsRow, agency: string, kind: TurnKind, pack: PromptPack): string {
   const name = settings.agentName.trim() === "" ? `the team at ${agency}` : settings.agentName.trim();
   const lessons =
@@ -92,11 +110,7 @@ How you sell:
 - If asked whether you are a bot, say you are ${agency}'s virtual assistant and a person can join any time.
 - Never share anything about other customers.
 
-How you write:
-- ${languageLine(settings)}
-- ${styleLines[settings.style]}
-- ${emojiLines[settings.emojis]}
-- ${toneLines[settings.tone]}
+${pack.voice === null ? genericWriting(settings) : voiceWriting(pack.voice)}
 
 When a person is needed: ${handoffLines[settings.handoff]}
 ${instructions}${lessons}

@@ -13,6 +13,7 @@ import { chatHistory, knowledgePack, leadFactsFor } from "./context.js";
 import { activeLessons } from "./learning-store.js";
 import { agentPrompt, type TurnKind } from "./prompt.js";
 import { aiSettingsOf, type AiSettingsRow } from "./settings.js";
+import { chatVoiceOf } from "./voice.js";
 
 export { AI_HANDOFF_KIND } from "./answer-effects.js";
 export { agentPrompt, type TurnKind } from "./prompt.js";
@@ -118,9 +119,10 @@ export async function runAgentTurn(
         .join(" "),
     );
     const learnings = settings.learning ? await activeLessons(tx) : [];
+    const voice = await chatVoiceOf(tx, chat.id);
     // Writing only when nothing stops it; else the same call judges the lead and writes nothing.
     const kind: TurnKind = blocked === null ? input.kind : "insight";
-    return { settings, chat, history, memory, facts, knowledge, learnings, kind, blocked };
+    return { settings, chat, history, memory, facts, knowledge, learnings, voice, kind, blocked };
   });
   if (prepared === null || prepared.history.messages.length === 0) return "nothing";
   const messages: AiMessage[] = [
@@ -131,6 +133,7 @@ export async function runAgentTurn(
         facts: prepared.facts.words,
         memory: prepared.memory,
         learnings: prepared.learnings,
+        voice: prepared.voice,
       }),
     },
     ...prepared.history.messages,

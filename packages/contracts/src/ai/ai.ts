@@ -44,6 +44,8 @@ export const aiSettings = z.object({
   languageOther: z.string(),
   /** When it last learned from the chats. */
   learnedAt: z.iso.datetime().nullable(),
+  /** The person whose way of talking it copies in every chat, if one was given. */
+  voice: z.object({ name: z.string(), profile: z.string(), examples: z.int() }).nullable(),
   /** Whether the platform set an AI key and models: off, nothing here runs. */
   configured: z.boolean(),
   models: z.object({ chat: z.array(z.string()), fast: z.array(z.string()) }),
@@ -129,6 +131,8 @@ export const chatAi = z.object({
   followUpReason: z.string().nullable(),
   /** What it flagged for the team while it kept answering ("wants to book"), recently. */
   attention: z.string().nullable(),
+  /** The way of talking it copies in this chat: this chat's own, else the agency's. */
+  voice: z.object({ name: z.string(), profile: z.string(), examples: z.int(), own: z.boolean() }).nullable(),
   /** The name it writes as ("Riya"), else empty. */
   agentName: z.string(),
   configured: z.boolean(),
@@ -213,6 +217,32 @@ export const learnAnswer = z.object({
     )
     .max(25)
     .catch([]),
+});
+
+/** Characters of one person's messages sent to learn their way of talking, at most. */
+export const MAX_VOICE_SAMPLE_CHARACTERS = 40_000;
+/**
+ * Learn one person's way of talking from their own WhatsApp messages (read from a chat export in the browser): for the
+ * whole agency, or for one chat when it names one.
+ */
+export const learnVoiceInput = z.strictObject({
+  conversationId: recordId.optional(),
+  personName: text(80).min(1),
+  messages: z
+    .array(z.string().trim().min(1).max(1000))
+    .min(5)
+    .max(800)
+    .refine((all) => all.reduce((sum, one) => sum + one.length, 0) <= MAX_VOICE_SAMPLE_CHARACTERS),
+});
+export type LearnVoiceInput = z.infer<typeof learnVoiceInput>;
+export const clearVoiceInput = z.strictObject({ conversationId: recordId.optional() });
+/** A way of talking the agent copies: whose, the style guide written of it, and how many of their messages it keeps. */
+export const aiVoice = z.object({ name: z.string(), profile: z.string(), examples: z.int() });
+export type AiVoice = z.infer<typeof aiVoice>;
+/** What the style-reader must answer (JSON). */
+export const voiceAnswer = z.object({
+  profile: z.string().min(1).max(4000),
+  examples: z.array(z.string().max(500)).max(40).catch([]),
 });
 
 /** The AI's last day at a glance, for the AI screen's head. */

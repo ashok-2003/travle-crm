@@ -10,6 +10,7 @@ import type { Database, OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
+import { scrubbed } from "./scrub.js";
 import { aiSettingsOf } from "./settings.js";
 
 const LOOK_BACK_MS = 21 * 86_400_000;
@@ -28,13 +29,6 @@ export interface LearnDependencies {
   ai: AiModel;
   agencyName: (organizationId: string) => Promise<string>;
 }
-
-/** A chat's words without what names one person: long numbers, emails, links. */
-const scrubbed = (text: string) =>
-  text
-    .replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, "[email]")
-    .replace(/https?:\/\/\S+/g, "[link]")
-    .replace(/\+?\d[\d\s-]{6,}\d/g, "[number]");
 
 async function transcripts(tx: OrgTx, now: Date): Promise<string[]> {
   const chats = await tx.whatsappConversation.findMany({
