@@ -33,10 +33,7 @@ function HotRow({ lead }: { lead: HotLead }) {
         </ItemDescription>
         <div className="flex flex-wrap gap-1.5 pt-1">
           {lead.reasons.map((reason) => (
-            <StatusBadge
-              key={reason}
-              tone={reason === "quote_opened" || reason === "asked_price" ? "bad" : "attention"}
-            >
+            <StatusBadge key={reason} tone="bad">
               {t(`reasons.${reason}`)}
             </StatusBadge>
           ))}
