@@ -36,7 +36,7 @@ describe("hot leads", () => {
     const chat = await inOrg((tx) => tx.whatsappConversation.findFirstOrThrow());
     const message = await inOrg((tx) => tx.whatsappMessage.findFirstOrThrow({ where: { direction: "in" } }));
     const lead = await inOrg((tx) =>
-      aLead(tx, { personId: chat.personId ?? undefined, ownerUserId, stage: "contacted" }),
+      aLead(tx, { ...(chat.personId === null ? {} : { personId: chat.personId }), ownerUserId, stage: "contacted" }),
     );
     const event: DomainEvent = {
       id: randomUUID(),
@@ -72,7 +72,9 @@ describe("hot leads", () => {
     await deliver(test, fromCustomer(connection, { customerNumber, text: "Hello, is anyone there?" }));
     const chat = await inOrg((tx) => tx.whatsappConversation.findFirstOrThrow());
     const message = await inOrg((tx) => tx.whatsappMessage.findFirstOrThrow({ where: { direction: "in" } }));
-    const lead = await inOrg((tx) => aLead(tx, { personId: chat.personId ?? undefined, ownerUserId: randomUUID() }));
+    const lead = await inOrg((tx) =>
+      aLead(tx, { ...(chat.personId === null ? {} : { personId: chat.personId }), ownerUserId: randomUUID() }),
+    );
     await customerWroteListener().handle(
       {
         id: randomUUID(),
