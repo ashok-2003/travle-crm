@@ -478,20 +478,17 @@ features.
    (say "any update?"), the next payment reminder silently marks them as agreed again, and automatic messages resume.
    - **Risk:** writing again is not the same as opting back in to reminders and marketing.
    - The owner's view: this is right; a customer who writes again is open to contact.
-3. **AI lead scoring on by default** (Ayush's setting) for every agency once the key is set. Every agency's customer
-   chats go to Google Gemini. Gemini is called directly (not OpenRouter), so there is no zero-retention routing, and on
-   the free tier Google may use prompts. Keep billing on for the Google project.
-4. **Autopilot writes as a named staff member** ("a customer should not be able to tell"). It still says it is an AI
-   assistant when sincerely asked.
-5. **Writing-style learning.** A chat export sends both sides of a real chat (the customer's messages too) to the AI
-   provider. Any inbox replier can upload one.
-6. **Erasure gaps.** The agency voice (verbatim messages) and the nightly lessons are not erased when a customer asks
-   to be deleted.
-7. **AI cost.** There is no monthly cap per agency, only Ayush's per-chat daily cap and his per-minute nudge rate.
-   Suspended or cancelled agencies still get AI.
-8. **Prices from the AI.** "Quote prices only from the knowledge" is a prompt instruction. Nothing checks the reply's
+3. **Gemini called directly.** With `AI_API_KEY` set to a Google key, customers' chat words go to Google Gemini, called
+   directly (not OpenRouter), so there is no zero-retention routing, and on the free tier Google may use prompts. Keep
+   billing on for the Google project. The AI is still off for an agency until its Owner or Admin turns it on.
+4. **A chat's own voice sends both sides.** Importing a chat's WhatsApp export for that chat's own voice and history sends
+   the customer's messages too, to the AI provider (numbers, emails and links taken out). The agency-wide style takes the
+   staff member's own messages only.
+5. **Erasure gaps.** The agency voice (verbatim messages of a staff member) and the nightly lessons are not erased when a
+   customer asks to be deleted; the AI's state and memory of that customer's chats, with a chat's own voice, are.
+6. **Prices from the AI.** "Quote prices only from the knowledge" is a prompt instruction. Nothing checks the reply's
    numbers before the autopilot sends it.
-9. **The invite link** (recorded 2026-10-28). Anyone holding an invite link can get into that agency until the owner
+7. **The invite link** (recorded 2026-10-28). Anyone holding an invite link can get into that agency until the owner
    sets a password. The link doesn't expire. Two-factor is off.
 
 **Background list** (fixed after the push, without changing what users see unless the owner agrees): erasure of voice,
