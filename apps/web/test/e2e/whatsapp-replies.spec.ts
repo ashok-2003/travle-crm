@@ -192,8 +192,14 @@ test("a connection whose delivery reports stopped goes to problem, in the consol
   await expect(owner.getByRole("heading", { level: 1, name: "Inbox" })).toBeVisible();
   await expect(owner.getByText("WhatsApp is having trouble: new messages may arrive late.")).toHaveCount(0);
   await page.reload();
-  await expect(page.getByRole("region", { name: "WhatsApp" })).toBeVisible();
-  await expect(page.getByText(/No delivery reports from MSG91 for a connected number/)).toHaveCount(0);
+  // The console's banner speaks for every agency's number, and the other viewport's copy of this journey has its own
+  // number in trouble at the same time: read this agency's row instead. Its status cell says Connected, not Problem.
+  const ours = page
+    .getByRole("row")
+    .filter({ has: page.locator(`a[href="/console/organizations/${agency.organizationId}"]`) });
+  await expect(ours.first()).toBeVisible();
+  await expect(ours.getByRole("cell", { name: "Connected", exact: true })).toBeVisible();
+  await expect(ours.getByRole("cell", { name: "Problem", exact: true })).toHaveCount(0);
   await owner.close();
 });
 
