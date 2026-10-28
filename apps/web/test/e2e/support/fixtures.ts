@@ -2,7 +2,7 @@
 // subscription, with an Owner who signs in by email, made directly in the database the way onboarding (plan 4) does.
 // Staff are added the same way. Every journey also ends with an accessibility check of its last screen
 // (accessible-after-each.ts).
-import { expect, type Page } from "@playwright/test";
+import { expect, type APIRequestContext, type Page } from "@playwright/test";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { createIdentity, type Identity, type MemberAccess } from "@travel-crm/domain/identity";
@@ -118,6 +118,14 @@ export function homeGreeting(fullName: string): RegExp {
 }
 
 /** Signs in through the api, as the sign-in screen does, so a journey can start inside the app. */
+/**
+ * A new organization's members meet the welcome over the app once. The journeys test the screens under it, so a
+ * sign-in marks it seen, as closing it would (a person who must first change a password has no welcome yet: ignored).
+ */
+export async function skipWelcome(request: APIRequestContext): Promise<void> {
+  await request.post("/api/trpc/usage.welcomeSeen", { data: {}, headers: { origin: environment("E2E_BASE_URL") } });
+}
+
 export async function signInByEmail(page: Page, { email, password }: { email: string; password: string }) {
   const response = await page.request.post("/api/auth/sign-in/email", {
     data: { email, password },
@@ -125,6 +133,7 @@ export async function signInByEmail(page: Page, { email, password }: { email: st
     headers: { origin: environment("E2E_BASE_URL") },
   });
   expect(response.ok()).toBe(true);
+  await skipWelcome(page.request);
 }
 
 /** Signs staff in with the organization code through the api, as the sign-in screen does. */
@@ -134,6 +143,7 @@ export async function signInByCode(page: Page, { code, staff }: { code: string; 
     headers: { origin: environment("E2E_BASE_URL") },
   });
   expect(response.ok()).toBe(true);
+  await skipWelcome(page.request);
 }
 
 /** Signs out as a person does: from the phone's More sheet, or the button at the foot of the desktop's sidebar. */

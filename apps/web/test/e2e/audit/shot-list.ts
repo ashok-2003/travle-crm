@@ -149,6 +149,10 @@ const TWO_FACTOR_SHOTS = [
   { name: "theme-broadcasts", screen: "Inbox, Broadcasts", as: owner },
   { name: "theme-settings-whatsapp", screen: "Settings, WhatsApp", as: owner },
   { name: "theme-console", screen: "A console page", as: superAdmin },
+  // The theme with Ayush's green sidebar and the green send buttons (2026-10-28).
+  { name: "theme-signin", screen: "Sign-in with the brand panel", as: visitor },
+  { name: "theme-quote-send", screen: "A sent quote: blue Save, green Send on WhatsApp", as: owner },
+  { name: "theme-invites", screen: "The console's invites screen", as: superAdmin },
 ] as const satisfies readonly Shot[];
 
 export const SHOTS = [

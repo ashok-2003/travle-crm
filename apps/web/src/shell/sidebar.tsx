@@ -79,7 +79,7 @@ function PersonFooter() {
             <UserIcon aria-hidden="true" />
             <span className="flex min-w-0 flex-col group-data-[collapsible=icon]:hidden">
               <span className="font-medium break-words">{me.user.name}</span>
-              <span className="text-caption text-muted-foreground">{t("account")}</span>
+              <span className="text-caption text-sidebar-foreground">{t("account")}</span>
             </span>
           </Link>
         </SidebarMenuButton>
