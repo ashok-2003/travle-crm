@@ -16,6 +16,8 @@ export interface PgBossJobsSettings {
   maxConnections?: number;
   /** Seconds between a worker's checks for new jobs (pg-boss's default is 2). */
   pollingIntervalSeconds?: number;
+  /** Seconds between pg-boss's checks for scheduled jobs due to be sent: 1 to 45 (pg-boss's default is 5). */
+  cronWorkerIntervalSeconds?: number;
   /** How the queues this instance creates retry failed jobs. Tests shorten it; production keeps the default. */
   retryPolicy?: RetryPolicy;
   /**
@@ -61,6 +63,9 @@ export function createPgBossJobs(settings: PgBossJobsSettings): PgBossJobs {
     // Our migrations own pg-boss's schema; the runtime role may not change it.
     migrate: false,
     createSchema: false,
+    ...(settings.cronWorkerIntervalSeconds === undefined
+      ? {}
+      : { cronWorkerIntervalSeconds: settings.cronWorkerIntervalSeconds }),
   });
   const logger = settings.logger ?? createPinoLogger({ process: "jobs", level: "warn" });
   function report(level: LogLevel, fields: LogFields, message: string): void {
