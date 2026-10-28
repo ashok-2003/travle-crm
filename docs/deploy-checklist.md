@@ -267,7 +267,8 @@ Secrets come from the platform's secret manager as environment variables, never 
 - **Two small servers** (`docs/runbook.md`): Vercel's rewrites are this table, sending the first row to the console's
   server and the next three to the api's. Each server's Caddy (`docker/server/Caddyfile`, by `SERVER_ROLE`) routes only
   its own rows and `/health`, answering 404 to the rest, and every other path is Vercel's. `BETTER_AUTH_URL` and
-  `APP_URL` are the Vercel address there (the settings' `APP_URL`), not the servers'.
+  `APP_URL` are the Vercel address there (the settings' `APP_URL`), not the servers'. GitHub Actions releases to them
+  (`.github/workflows/deploy.yml`): it applies the migrations with the image's `migrate`, then deploys each server.
 - **Hosting, for the form's address:** on the Oracle pilot Caddy replaces `X-Forwarded-For` with one address, so
   `PUBLIC_FORM_PROXY_HOPS` stays unset; on Render behind Vercel set it as `docs/serverless.md` step 5b says. On the two
   small servers behind Vercel, Caddy's one address is Vercel's, so the per-address limits don't apply there. A host

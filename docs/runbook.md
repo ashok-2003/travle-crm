@@ -213,10 +213,10 @@ in GitHub Actions and the web app on Vercel.
   some tenths of a second slower than next to it.
 - **Memory:** idle, the api and the worker take about 400 MB between them and the console about 200 MB (measured
   2026-10-28). `setup.sh` adds 4 GB of swap for heavier moments.
-- **Builds:** neither server builds. `release.sh --build-here` builds the api's image on the Mac for linux/amd64 and
-  loads it onto the server.
-- **Migrations:** neither server holds `DATABASE_MIGRATOR_URL`, so deploys run none. Apply a release's migrations from
-  the Mac first, as on Render (`docs/serverless.md`).
+- **Builds:** neither server builds. The api's image is built for linux/amd64 elsewhere and loaded onto each server:
+  by GitHub Actions on every merge ("Releases from GitHub Actions" below), or by `release.sh --build-here` on the Mac.
+- **Migrations:** neither server holds `DATABASE_MIGRATOR_URL`, so deploys run none. GitHub Actions applies a
+  release's migrations before releasing it; from the Mac, apply them first, as on Render (`docs/serverless.md`).
 
 **Working hours.** The api runs all day. The worker and the console run only inside the working hours, India time
 (`scripts/server/work-hours.sh`; 09:00 to 19:00 in the commands below), so Neon's free 100 compute-hours last the month:
@@ -275,11 +275,52 @@ about 78 of them for ten hours a day, the rest for requests at night, which wake
    - Redeploy, and run `docs/serverless.md` step 7's checks.
    - Then suspend the two Render services and the cron-job.org wake-ups (step 9), which nothing needs any more.
 
+### Releases from GitHub Actions
+
+Once it's turned on, every merge to main is released by `.github/workflows/deploy.yml`, on GitHub's runners (free for
+a public repository). It runs `scripts/server/release-servers.sh`: it builds the api's image once, applies the
+commit's migrations to Neon with that image's `migrate` (when the `DATABASE_MIGRATOR_URL` secret is set), then
+releases to the api's server and then the console's, and stops at the first failure. Releases never overlap, and none
+is cut short.
+
+**Turning it on, once:**
+
+1. **A deploy key of its own**, never the owner's personal one. On the Mac:
+   `ssh-keygen -t ed25519 -N '' -C travel-crm-github-deploy -f ~/.ssh/travel-crm-github-deploy`. Then add its public
+   half to both servers:
+
+       for ip in <api ip> <console ip>; do
+         ssh -i ~/.ssh/travel-crm-oracle ubuntu@$ip 'cat >> ~/.ssh/authorized_keys' < ~/.ssh/travel-crm-github-deploy.pub
+       done
+
+   The key reaches `ubuntu`, which can `sudo`, so whoever holds it holds the servers; that's why it lives only in the
+   `production` environment, and why that environment can ask for an approval.
+
+2. **The servers' host keys**, so the runner trusts only them: `ssh-keyscan -t ed25519 <api ip> <console ip>`, and
+   check each line's key against the Mac's (`ssh-keygen -F <ip>`).
+3. **In GitHub** (Settings → Environments → New environment, named `production`; optionally a required reviewer, the
+   owner), as the environment's secrets:
+   - `ORACLE_DEPLOY_SSH_KEY`: the private half, `~/.ssh/travel-crm-github-deploy`, whole;
+   - `DATABASE_MIGRATOR_URL`: Neon's `app_migrator` connection string, the direct one (not `-pooler`), the same the Mac
+     migrates with. Without it the run applies no migrations, and they must be applied first from the Mac.
+4. **Repository variables** (Settings → Secrets and variables → Actions → Variables):
+   - `ORACLE_API_SERVER` = `ubuntu@<api ip>` and `ORACLE_CONSOLE_SERVER` = `ubuntu@<console ip>`;
+   - `ORACLE_KNOWN_HOSTS`: step 2's two lines;
+   - `ORACLE_DEPLOY_ENABLED` = `true`, last. Without it the workflow does nothing, so a fork or a fresh clone releases
+     nothing.
+5. **Render:** once the servers serve the pilot, turn off the two Render services' auto-deploy (or suspend them), or
+   every merge also deploys there.
+
+**By hand:** Actions → "Deploy to Oracle" → Run workflow, with a commit, branch or tag; a rollback is the commit
+before, whose image the servers keep. A run in progress shows the build, the migrations and each server's
+`deploy.sh` and smoke check; the database's host is masked in the log, which is public.
+
 ### Day to day
 
 - **Release:**
-  - Migrations first, from the Mac, if the release has any.
-  - Then `release.sh --build-here` to the api's server, then the console's.
+  - With GitHub Actions on: merge. Without it: migrations first, from the Mac, if the release has any, then
+    `release.sh --build-here` to the api's server, then the console's (or `release-servers.sh`, which does all three,
+    with `API_SERVER`, `CONSOLE_SERVER` and, to migrate, `DATABASE_MIGRATOR_URL` set).
   - A rollback is a release of the commit before. The servers keep its image.
 - **The hours:** change them with `work-hours.sh set <start> <end>`, or `work-hours.sh off` to run all day.
   - `systemctl list-timers 'travel-crm-work-*'` shows the next start and stop.
